@@ -29,7 +29,7 @@ reviews:
 
   # 리뷰 대상 파일 범위( glob + '!패턴' 방식 )
   path_filters:
-    - "src/**"
+    - "**"
     - "build.gradle"
     - "build.gradle.kts"
     - "settings.gradle"
