@@ -1,29 +1,21 @@
 package com.loopers.domain.example
 
+import com.loopers.IntegrationTestBase
 import com.loopers.infrastructure.example.ExampleJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
 
-@SpringBootTest
 class ExampleServiceIntegrationTest @Autowired constructor(
     private val exampleService: ExampleService,
     private val exampleJpaRepository: ExampleJpaRepository,
-    private val databaseCleanUp: DatabaseCleanUp,
-) {
-    @AfterEach
-    fun tearDown() {
-        databaseCleanUp.truncateAllTables()
-    }
+) : IntegrationTestBase() {
 
     @DisplayName("예시를 조회할 때,")
     @Nested
