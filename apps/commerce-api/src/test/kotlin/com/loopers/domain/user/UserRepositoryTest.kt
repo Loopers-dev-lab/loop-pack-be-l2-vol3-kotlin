@@ -27,7 +27,7 @@ class UserRepositoryTest @Autowired constructor(
         // Arrange
         val user = UserModel(
             userId = "testId",
-            password = "testPassword",
+            encryptedPassword = "testPassword",
             name = "testName",
             birthDate = LocalDate.now(),
             email = "test@email.com"
@@ -60,7 +60,7 @@ class UserRepositoryTest @Autowired constructor(
         userRepository.save(
             UserModel(
                 userId = "testId",
-                password = "testPassword",
+                encryptedPassword = "testPassword",
                 name = "testName",
                 birthDate = LocalDate.now(),
                 email = "test@email.com"

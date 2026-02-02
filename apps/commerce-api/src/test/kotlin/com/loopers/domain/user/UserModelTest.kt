@@ -29,7 +29,7 @@ class UserModelTest {
             // Act
             val userModel: UserModel = UserModel(
                 userId = userId,
-                password = password,
+                encryptedPassword = password,
                 name = name,
                 birthDate = birthDate,
                 email = email
@@ -54,7 +54,7 @@ class UserModelTest {
             val noId = assertThrows<CoreException> {
                 UserModel(
                     userId = userId,
-                    password = password,
+                    encryptedPassword = password,
                     name = name,
                     birthDate = birthDate,
                     email = email
