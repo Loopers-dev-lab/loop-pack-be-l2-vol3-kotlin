@@ -104,15 +104,41 @@ support/       - Application-specific utilities (error handling, etc.)
 
 ## Technology Stack
 
+### Core
 - **Language**: Kotlin 2.0.20, Java 21
 - **Framework**: Spring Boot 3.4.4, Spring Cloud 2024.0.1
-- **Database**: MySQL (with Testcontainers for tests), JPA/Hibernate, QueryDSL
-- **Cache**: Redis
-- **Messaging**: Kafka
-- **Testing**: JUnit 5, SpringMockK, Mockito-Kotlin, Instancio
-- **Linting**: ktlint 1.0.1
-- **Monitoring**: Prometheus, Grafana (http://localhost:3000, admin/admin)
-- **API Docs**: SpringDoc OpenAPI
+- **Dependency Management**: Gradle with Kotlin DSL, Spring Dependency Management Plugin 1.1.7
+
+### Data & Persistence
+- **Database**: MySQL 8.0 (with Testcontainers for tests)
+- **ORM**: JPA/Hibernate with Kotlin JPA Plugin
+- **Query DSL**: QueryDSL with Kapt annotation processing
+- **Cache**: Redis 7.0 (master + readonly replica)
+
+### Messaging & Streaming
+- **Message Broker**: Kafka 3.5.1 (Bitnami Legacy)
+- **Kafka UI**: Provectus Kafka UI (localhost:9099)
+
+### Testing
+- **Framework**: JUnit 5 Platform
+- **Mocking**: SpringMockK 4.0.2, Mockito 5.14.0, Mockito-Kotlin 5.4.0
+- **Test Data**: Instancio JUnit 5.0.2
+- **Containers**: Testcontainers (MySQL, Redis, Kafka)
+
+### Code Quality & Linting
+- **Linter**: ktlint 1.0.1 (Gradle Plugin 12.1.2)
+- **Coverage**: JaCoCo (XML reports enabled)
+- **Pre-commit**: Git hooks with ktlint check
+
+### Monitoring & Observability
+- **Metrics**: Micrometer with Prometheus Registry
+- **Dashboard**: Grafana (localhost:3000, admin/admin)
+- **Actuator**: Spring Boot Actuator
+- **API Docs**: SpringDoc OpenAPI 2.7.0
+
+### Libraries
+- **JSON**: Jackson Module Kotlin, Jackson Datatype JSR310
+- **Logging**: Slack Appender 1.6.1
 
 ## Development Workflow
 
@@ -139,6 +165,51 @@ support/       - Application-specific utilities (error handling, etc.)
 - Max parallel forks: 1
 - Testcontainers used for MySQL in integration tests
 
+## Development Rules
+
+### Augmented Coding Workflow
+**Core Principle**: Direction and major decisions are proposed to developers only, and work is performed based on final approved decisions.
+
+- **Intermediate Results Reporting**: Developers intervene when AI performs repetitive actions, implements unrequested features, or arbitrarily deletes tests
+- **Design Authority Maintenance**: AI does not make arbitrary judgments but can propose directions, performing only after developer approval
+
+### TDD Workflow (Red → Green → Refactor)
+All tests must follow the 3A principle: **Arrange - Act - Assert**
+
+#### 1. Red Phase: Write Failing Tests First
+- Write test cases that satisfy requirements
+- Tests should fail initially
+
+#### 2. Green Phase: Write Code to Pass Tests
+- Write code that passes all Red Phase tests
+- **NO over-engineering** - implement only what's needed to pass tests
+
+#### 3. Refactor Phase: Remove Unnecessary Code & Improve Quality
+- Avoid unnecessary private functions, write object-oriented code
+- Remove unused imports
+- Optimize performance
+- **All test cases must pass**
+
+## Guidelines & Best Practices
+
+### Never Do
+- ❌ Write non-functional code or implementations using unnecessary mock data
+- ❌ Write code that is not null-safe (use Kotlin's null safety features)
+- ❌ Leave `println` statements in code
+- ❌ Delete or modify tests without explicit approval
+
+### Recommendations
+- ✅ Write E2E test code that calls actual APIs for verification
+- ✅ Design reusable objects
+- ✅ Provide alternatives and suggestions for performance optimization
+- ✅ For completed APIs, create and organize `.http` files in `.http/**/*.http`
+
+### Priority Order
+1. **Functional Solutions Only**: Consider only solutions that actually work
+2. **Safety First**: Ensure null-safety and thread-safety
+3. **Testable Design**: Design structures that can be tested
+4. **Consistency**: Analyze existing code patterns and maintain consistency
+
 ## Infrastructure Services
 
 ### Local Development Stack
@@ -157,10 +228,15 @@ support/       - Application-specific utilities (error handling, etc.)
 - Automatically runs `ktlintCheck` before every commit
 - Set up via `make init`
 - Located in `.githooks/pre-commit`
+- **If commit fails due to ktlint**: Run `./gradlew ktlintFormat` to auto-fix
 
 ### Version Management
 - Project version defaults to git commit hash (short SHA)
 - Controlled in `build.gradle.kts` via `getGitHash()`
+
+### API Documentation
+- Completed APIs should be documented in `.http/**/*.http` files
+- Use IntelliJ HTTP Client format for API testing
 
 ## Important Notes
 
