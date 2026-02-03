@@ -47,14 +47,21 @@ class User(
     }
 
     fun getMaskedName(): String {
-        return ""
+        if (name.isEmpty()) return ""
+        if (name.length == 1) return "*"
+        return name.dropLast(1) + "*"
     }
 
     fun changePassword(newPassword: String) {
+        if (verifyPassword(newPassword)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.")
+        }
+        validatePassword(newPassword, birthDate)
+        this.password = encodePassword(newPassword)
     }
 
     fun verifyPassword(rawPassword: String): Boolean {
-        return true
+        return this.password == encodePassword(rawPassword)
     }
 
     private fun encodePassword(rawPassword: String): String {
