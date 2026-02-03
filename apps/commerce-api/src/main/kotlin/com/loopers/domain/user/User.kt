@@ -40,6 +40,8 @@ class User(
         protected set
 
     init {
+        validateEmail(email)
+        validateLoginId(loginId)
         validatePassword(password, birthDate)
         this.password = encodePassword(password)
     }
@@ -60,6 +62,18 @@ class User(
         val birthDateStr = birthDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
         if (password.contains(birthDateStr)) {
             throw CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.")
+        }
+    }
+
+    private fun validateLoginId(loginId: String) {
+        if (!Regex("^[a-zA-Z0-9]+$").matches(loginId)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문 및 숫자만 허용됩니다.")
+        }
+    }
+
+    private fun validateEmail(email: String) {
+        if (!Regex("^[^@]+@[^@]+\\.[^@]+$").matches(email)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이메일 형식이 올바르지 않습니다.")
         }
     }
 }
