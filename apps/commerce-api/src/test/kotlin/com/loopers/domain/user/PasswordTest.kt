@@ -1,5 +1,6 @@
 package com.loopers.domain.user
 
+import com.loopers.domain.user.fixture.TestPasswordEncoder
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -55,11 +56,5 @@ class PasswordTest {
     fun `toString 호출시 비밀번호가 마스킹되어야 한다`() {
         val password = Password.create("Password1!", birthDate, encoder)
         assertThat(password.toString()).isEqualTo("Password(****)")
-    }
-
-    class TestPasswordEncoder : PasswordEncoder {
-        override fun encode(rawPassword: String): String = "encoded_$rawPassword"
-        override fun matches(rawPassword: String, encodedPassword: String): Boolean =
-            encodedPassword == "encoded_$rawPassword"
     }
 }
