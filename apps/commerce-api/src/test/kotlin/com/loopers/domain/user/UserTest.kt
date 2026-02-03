@@ -74,5 +74,25 @@ class UserTest {
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
+
+        @Test
+        @DisplayName("로그인 ID가 영문/숫자가 아니면 실패한다")
+        fun createUser_invalidLoginId_throwsException() {
+            val exception = assertThrows<CoreException> {
+                User("invalid_id!", "Password1!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("이메일 형식이 올바르지 않으면 실패한다")
+        fun createUser_invalidEmail_throwsException() {
+            val exception = assertThrows<CoreException> {
+                User("testuser1", "Password1!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "invalid-email")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 }
