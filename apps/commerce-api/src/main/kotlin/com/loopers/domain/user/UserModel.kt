@@ -33,11 +33,12 @@ class UserModel(
     }
 
     fun updatePassword(newPassword: String) {
-        if (password == newPassword) {
-            throw CoreException(ErrorType.BAD_REQUEST, "비밀번호는 이전과 동일할 수 없습니다.")
-        }
         validatePassword(newPassword)
         this.password = newPassword
+    }
+
+    fun applyEncodedPassword(encodedPassword: String) {
+        this.password = encodedPassword
     }
 
     private fun validateCreationInvariants() {
