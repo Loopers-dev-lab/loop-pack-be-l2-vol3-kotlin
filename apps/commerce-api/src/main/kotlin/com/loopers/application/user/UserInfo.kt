@@ -18,5 +18,14 @@ data class UserInfo(
                 email = user.email,
             )
         }
+
+        fun fromWithMaskedName(user: User): UserInfo {
+            return UserInfo(
+                loginId = user.loginId,
+                name = user.getMaskedName(),
+                birthDate = user.birthDate,
+                email = user.email,
+            )
+        }
     }
 }
