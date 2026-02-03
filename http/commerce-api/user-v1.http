@@ -1,0 +1,12 @@
+### 회원가입
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "hyungki",
+  "password": "Password1!",
+  "name": "신형기",
+  "birthDate": "1993-04-01",
+  "email": "hyungki@loopers.com",
+  "gender": "MALE"
+}

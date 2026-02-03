@@ -12,6 +12,7 @@ dependencies {
 
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${project.properties["springDocOpenApiVersion"]}")
 
@@ -24,4 +25,8 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // rest-assured
+    testImplementation("io.rest-assured:rest-assured:${project.properties["restAssuredVersion"]}")
+    testImplementation("io.rest-assured:kotlin-extensions:${project.properties["restAssuredVersion"]}")
 }
