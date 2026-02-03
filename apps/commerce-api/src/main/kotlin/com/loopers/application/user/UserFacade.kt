@@ -20,4 +20,8 @@ class UserFacade(
             ?.let { UserInfo.fromWithMaskedName(it) }
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
     }
+
+    fun changePassword(loginId: String, command: UserCommand.ChangePassword) {
+        userService.changePassword(loginId, command)
+    }
 }
