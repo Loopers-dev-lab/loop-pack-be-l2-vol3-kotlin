@@ -46,6 +46,17 @@ class User(
         this.password = encodePassword(password)
     }
 
+    fun getMaskedName(): String {
+        return ""
+    }
+
+    fun changePassword(newPassword: String) {
+    }
+
+    fun verifyPassword(rawPassword: String): Boolean {
+        return true
+    }
+
     private fun encodePassword(rawPassword: String): String {
         val bytes = rawPassword.toByteArray()
         val md = java.security.MessageDigest.getInstance("SHA-256")

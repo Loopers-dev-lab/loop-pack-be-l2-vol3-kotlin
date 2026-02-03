@@ -95,4 +95,44 @@ class UserTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @Nested
+    @DisplayName("이름 마스킹 시")
+    inner class MaskName {
+        @Test
+        @DisplayName("마지막 글자가 *로 마스킹된다")
+        fun getMaskedName_masksLastChar() {
+            val user = User("testuser1", "Password1!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com")
+
+            assertThat(user.getMaskedName()).isEqualTo("홍길*")
+        }
+    }
+
+    @Nested
+    @DisplayName("비밀번호 변경 시")
+    inner class ChangePassword {
+        @Test
+        @DisplayName("현재 비밀번호와 같으면 실패한다")
+        fun changePassword_sameAsCurrent_throwsException() {
+            val user = User("testuser1", "Password1!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com")
+
+            val exception = assertThrows<CoreException> {
+                user.changePassword("Password1!")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("유효한 새 비밀번호로 변경하면 성공한다")
+        fun changePassword_withValidPassword_success() {
+            val user = User("testuser1", "Password1!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com")
+
+            user.changePassword("NewPass12!")
+
+            assertThat(user.verifyPassword("NewPass12!")).isTrue()
+        }
+    }
 }
