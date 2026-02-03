@@ -21,4 +21,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // security
+    implementation("org.springframework.security:spring-security-crypto")
 }
