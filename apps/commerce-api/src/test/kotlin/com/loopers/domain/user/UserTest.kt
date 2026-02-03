@@ -1,9 +1,12 @@
 package com.loopers.domain.user
 
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 
 class UserTest {
@@ -40,6 +43,36 @@ class UserTest {
 
             // assert
             assertThat(user.password).isNotEqualTo("Password1!")
+        }
+
+        @Test
+        @DisplayName("비밀번호가 8자 미만이면 실패한다")
+        fun createUser_shortPassword_throwsException() {
+            val exception = assertThrows<CoreException> {
+                User("testuser1", "Pass1!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("비밀번호가 16자 초과하면 실패한다")
+        fun createUser_longPassword_throwsException() {
+            val exception = assertThrows<CoreException> {
+                User("testuser1", "Password12345678!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("비밀번호에 생년월일이 포함되면 실패한다")
+        fun createUser_passwordContainsBirthDate_throwsException() {
+            val birthDate = LocalDate.of(1990, 1, 15)
+            val exception = assertThrows<CoreException> {
+                User("testuser1", "Pass19900115!", "홍길동", birthDate, "test@example.com")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }
