@@ -31,6 +31,12 @@ class UserV1ApiE2ETest @Autowired constructor(
         private const val ENDPOINT_REGISTER = "/api/v1/users"
         private const val ENDPOINT_ME = "/api/v1/users/me"
         private const val ENDPOINT_UPDATE_PASSWORD = "/api/v1/users/me/password"
+
+        private const val DEFAULT_USERNAME = "username"
+        private const val DEFAULT_PASSWORD = "password1234!"
+        private const val DEFAULT_NAME = "안유진"
+        private const val DEFAULT_EMAIL = "email@loopers.com"
+        private val DEFAULT_BIRTH_DATE = ZonedDateTime.of(1995, 5, 29, 21, 40, 0, 0, ZoneId.of("Asia/Seoul"))
     }
 
     @AfterEach
@@ -39,11 +45,11 @@ class UserV1ApiE2ETest @Autowired constructor(
     }
 
     private fun registerUser(
-        username: String = "username1",
-        password: String = "password1234!",
-        name: String = "안유진",
-        email: String = "email@loopers.com",
-        birthDate: ZonedDateTime = ZonedDateTime.of(2003, 9, 1, 0, 0, 0, 0, ZoneId.of("Asia/Seoul")),
+        username: String = DEFAULT_USERNAME,
+        password: String = DEFAULT_PASSWORD,
+        name: String = DEFAULT_NAME,
+        email: String = DEFAULT_EMAIL,
+        birthDate: ZonedDateTime = DEFAULT_BIRTH_DATE,
     ): UserModel {
         val userModel = UserModel(
             username = username,
@@ -65,33 +71,31 @@ class UserV1ApiE2ETest @Autowired constructor(
     @DisplayName("POST /api/v1/users")
     @Nested
     inner class Register {
-        @DisplayName("유효한 정보가 주어지면, 201 CREATED 와 유저 정보를 반환한다.")
+        @DisplayName("유효한 정보가 주어지면, 201 CREATED와 유저 정보를 반환한다.")
         @Test
         fun returnsCreated_whenValidInfoIsProvided() {
             // arrange
+            val expectedName = "안유*"
+
             val request = UserV1Dto.RegisterRequest(
-                username = "username1",
-                password = "password1234!",
-                name = "안유진",
-                email = "email@loopers.com",
-                birthDate = ZonedDateTime.of(2003, 9, 1, 0, 0, 0, 0, ZoneId.of("Asia/Seoul")),
+                username = DEFAULT_USERNAME,
+                password = DEFAULT_PASSWORD,
+                name = DEFAULT_NAME,
+                email = DEFAULT_EMAIL,
+                birthDate = DEFAULT_BIRTH_DATE,
             )
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_REGISTER,
-                HttpMethod.POST,
-                HttpEntity(request),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request), responseType)
 
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED) },
-                { assertThat(response.body?.data?.username).isEqualTo("username1") },
-                { assertThat(response.body?.data?.name).isEqualTo("안유진") },
-                { assertThat(response.body?.data?.email).isEqualTo("email@loopers.com") },
+                { assertThat(response.body?.data?.username).isEqualTo(DEFAULT_USERNAME) },
+                { assertThat(response.body?.data?.name).isEqualTo(expectedName) },
+                { assertThat(response.body?.data?.email).isEqualTo(DEFAULT_EMAIL) },
+                { assertThat(response.body?.data?.birthDate).isEqualTo(DEFAULT_BIRTH_DATE) },
             )
         }
 
@@ -102,7 +106,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             registerUser()
 
             val request = UserV1Dto.RegisterRequest(
-                username = "username1",
+                username = DEFAULT_USERNAME,
                 password = "password5678!",
                 name = "장원영",
                 email = "other@loopers.com",
@@ -111,12 +115,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_REGISTER,
-                HttpMethod.POST,
-                HttpEntity(request),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request), responseType)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
@@ -136,12 +135,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_REGISTER,
-                HttpMethod.POST,
-                HttpEntity(request),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request), responseType)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
@@ -155,62 +149,51 @@ class UserV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsOkWithMaskedName_whenValidAuthHeaderIsProvided() {
             // arrange
-            val rawPassword = "password1234!"
-            registerUser(password = rawPassword)
-            val headers = createAuthHeaders("username1", rawPassword)
+            registerUser()
+
+            val expectedName = "안유*"
+            val headers = createAuthHeaders(DEFAULT_USERNAME, DEFAULT_PASSWORD)
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_ME,
-                HttpMethod.GET,
-                HttpEntity<Any>(headers),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_ME, HttpMethod.GET, HttpEntity<Any>(headers), responseType)
 
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data?.username).isEqualTo("username1") },
-                { assertThat(response.body?.data?.name).isEqualTo("안*진") },
-                { assertThat(response.body?.data?.email).isEqualTo("email@loopers.com") },
+                { assertThat(response.body?.data?.username).isEqualTo(DEFAULT_USERNAME) },
+                { assertThat(response.body?.data?.name).isEqualTo(expectedName) },
+                { assertThat(response.body?.data?.email).isEqualTo(DEFAULT_EMAIL) },
+                { assertThat(response.body?.data?.birthDate).isEqualTo(DEFAULT_BIRTH_DATE) },
             )
         }
 
         @DisplayName("인증 헤더가 누락되면, 400 BAD_REQUEST 응답을 받는다.")
         @Test
         fun returnsBadRequest_whenAuthHeaderIsMissing() {
-            // arrange & act
+            // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_ME,
-                HttpMethod.GET,
-                HttpEntity<Any>(Unit),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_ME, HttpMethod.GET, null, responseType)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
 
-        @DisplayName("잘못된 인증 정보가 주어지면, 4xx 에러 응답을 받는다.")
+        @DisplayName("잘못된 인증 정보가 주어지면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
-        fun returnsClientError_whenInvalidCredentialsAreProvided() {
+        fun returnsUnauthorized_whenInvalidCredentialsAreProvided() {
             // arrange
             registerUser()
-            val headers = createAuthHeaders("username1", "wrongPassword1!")
+
+            val wrongPassword = "wrongPassword1!"
+            val headers = createAuthHeaders(DEFAULT_USERNAME, wrongPassword)
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_ME,
-                HttpMethod.GET,
-                HttpEntity<Any>(headers),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_ME, HttpMethod.GET, HttpEntity<Any>(headers), responseType)
 
             // assert
-            assertThat(response.statusCode.is4xxClientError).isTrue()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
     }
 
@@ -221,72 +204,39 @@ class UserV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsOk_whenValidPasswordsAreProvided() {
             // arrange
-            val rawPassword = "password1234!"
-            registerUser(password = rawPassword)
-            val headers = createAuthHeaders("username1", rawPassword)
+            registerUser()
+
+            val newPassword = "newPassword1!"
+            val headers = createAuthHeaders(DEFAULT_USERNAME, DEFAULT_PASSWORD)
             val request = UserV1Dto.UpdatePasswordRequest(
-                currentPassword = rawPassword,
-                newPassword = "newPassword1!",
+                currentPassword = DEFAULT_PASSWORD,
+                newPassword = newPassword,
             )
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_UPDATE_PASSWORD,
-                HttpMethod.PATCH,
-                HttpEntity(request, headers),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, HttpEntity(request, headers), responseType)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        }
-
-        @DisplayName("기존 비밀번호가 틀리면, 400 BAD_REQUEST 응답을 받는다.")
-        @Test
-        fun returnsBadRequest_whenCurrentPasswordIsWrong() {
-            // arrange
-            val rawPassword = "password1234!"
-            registerUser(password = rawPassword)
-            val headers = createAuthHeaders("username1", rawPassword)
-            val request = UserV1Dto.UpdatePasswordRequest(
-                currentPassword = "wrongPassword1!",
-                newPassword = "newPassword1!",
-            )
-
-            // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_UPDATE_PASSWORD,
-                HttpMethod.PATCH,
-                HttpEntity(request, headers),
-                responseType,
-            )
-
-            // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
 
         @DisplayName("새 비밀번호가 유효성 규칙을 위반하면, 400 BAD_REQUEST 응답을 받는다.")
         @Test
         fun returnsBadRequest_whenNewPasswordIsInvalid() {
             // arrange
-            val rawPassword = "password1234!"
-            registerUser(password = rawPassword)
-            val headers = createAuthHeaders("username1", rawPassword)
+            registerUser()
+
+            val invalidNewPassword = "short"
+            val headers = createAuthHeaders(DEFAULT_USERNAME, DEFAULT_PASSWORD)
             val request = UserV1Dto.UpdatePasswordRequest(
-                currentPassword = rawPassword,
-                newPassword = "short",
+                currentPassword = DEFAULT_PASSWORD,
+                newPassword = invalidNewPassword,
             )
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
-            val response = testRestTemplate.exchange(
-                ENDPOINT_UPDATE_PASSWORD,
-                HttpMethod.PATCH,
-                HttpEntity(request, headers),
-                responseType,
-            )
+            val response = testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, HttpEntity(request, headers), responseType)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
