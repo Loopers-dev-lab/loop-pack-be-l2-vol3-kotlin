@@ -21,7 +21,7 @@ class UserTest {
         val user = User.reconstitute(
             id = 1L,
             loginId = LoginId(LOGIN_ID),
-            password = Password.create(RAW_PASSWORD, birthDate, encoder),
+            password = Password.create(RAW_PASSWORD, encoder),
             name = Name(NAME),
             birthDate = birthDate,
             email = Email(EMAIL),
@@ -65,13 +65,38 @@ class UserTest {
         assertThat(newUser.authenticate(NEW_PASSWORD, encoder)).isTrue()
     }
 
+    @Test
+    fun `비밀번호에 생년월일이 포함된 경우 register가 실패해야 한다`() {
+        assertThatThrownBy {
+            User.register(
+                loginId = LoginId(LOGIN_ID),
+                rawPassword = "Pass19930401!",
+                name = Name(NAME),
+                birthDate = birthDate,
+                email = Email(EMAIL),
+                gender = GenderType.MALE,
+                encoder = encoder,
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("생년월일")
+    }
+
+    @Test
+    fun `changePassword에서 새 비밀번호에 생년월일이 포함된 경우 실패해야 한다`() {
+        val user = createUser()
+        assertThatThrownBy { user.changePassword(RAW_PASSWORD, "New19930401!", encoder) }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("생년월일")
+    }
+
     private fun createUser(): User = User.register(
         loginId = LoginId(LOGIN_ID),
-        password = Password.create(RAW_PASSWORD, birthDate, encoder),
+        rawPassword = RAW_PASSWORD,
         name = Name(NAME),
         birthDate = birthDate,
         email = Email(EMAIL),
         gender = GenderType.MALE,
+        encoder = encoder,
     )
 
     companion object {

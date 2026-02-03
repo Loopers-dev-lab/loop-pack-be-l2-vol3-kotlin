@@ -19,8 +19,8 @@ class Password private constructor(private val value: String) {
         private const val MAX_LENGTH = 16
         private val ALLOWED_CHARS_REGEX = Regex("^[a-zA-Z0-9!@#\$%^&*()_+\\-=]+$")
 
-        fun create(rawPassword: String, birthDate: BirthDate, encoder: PasswordEncoder): Password {
-            validate(rawPassword, birthDate)
+        fun create(rawPassword: String, encoder: PasswordEncoder): Password {
+            validate(rawPassword)
             return Password(encoder.encode(rawPassword))
         }
 
@@ -32,7 +32,7 @@ class Password private constructor(private val value: String) {
             return Password(encoded)
         }
 
-        private fun validate(rawPassword: String, birthDate: BirthDate) {
+        private fun validate(rawPassword: String) {
             require(rawPassword.length >= MIN_LENGTH) {
                 "비밀번호는 ${MIN_LENGTH}자 이상이어야 합니다."
             }
@@ -41,9 +41,6 @@ class Password private constructor(private val value: String) {
             }
             require(ALLOWED_CHARS_REGEX.matches(rawPassword)) {
                 "비밀번호는 영문 대소문자, 숫자, 특수문자(!@#\$%^&*()_+-=)만 허용됩니다."
-            }
-            require(!rawPassword.contains(birthDate.toCompactString())) {
-                "비밀번호에 생년월일을 포함할 수 없습니다."
             }
         }
     }

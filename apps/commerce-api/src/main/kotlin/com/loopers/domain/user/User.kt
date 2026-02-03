@@ -24,12 +24,14 @@ class User private constructor(
         require(!password.matches(newPassword, encoder)) {
             "새 비밀번호는 기존과 달라야 합니다."
         }
+        require(!newPassword.contains(birthDate.toCompactString())) {
+            "비밀번호에 생년월일을 포함할 수 없습니다."
+        }
 
-        val newPasswordVo = Password.create(newPassword, birthDate, encoder)
         return User(
             id = id,
             loginId = loginId,
-            password = newPasswordVo,
+            password = Password.create(newPassword, encoder),
             name = name,
             birthDate = birthDate,
             email = email,
@@ -44,16 +46,20 @@ class User private constructor(
          */
         fun register(
             loginId: LoginId,
-            password: Password,
+            rawPassword: String,
             name: Name,
             birthDate: BirthDate,
             email: Email,
             gender: GenderType,
+            encoder: PasswordEncoder,
         ): User {
+            require(!rawPassword.contains(birthDate.toCompactString())) {
+                "비밀번호에 생년월일을 포함할 수 없습니다."
+            }
             return User(
                 id = null,
                 loginId = loginId,
-                password = password,
+                password = Password.create(rawPassword, encoder),
                 name = name,
                 birthDate = birthDate,
                 email = email,
