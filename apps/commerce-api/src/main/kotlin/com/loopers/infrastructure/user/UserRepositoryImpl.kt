@@ -12,8 +12,11 @@ class UserRepositoryImpl(
 
     override fun save(user: User): Long {
         val entity = UserMapper.toEntity(user)
-        val saved = jpaRepository.save(entity)
-        return saved.id
+        return jpaRepository.save(entity).id
+    }
+
+    override fun findByLoginId(loginId: LoginId): User? {
+        return jpaRepository.findByLoginId(loginId.value)?.let { UserMapper.toDomain(it) }
     }
 
     override fun existsByLoginId(loginId: LoginId): Boolean {
