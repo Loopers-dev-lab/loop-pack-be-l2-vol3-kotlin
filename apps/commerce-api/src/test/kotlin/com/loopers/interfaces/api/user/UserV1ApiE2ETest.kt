@@ -268,4 +268,168 @@ class UserV1ApiE2ETest @Autowired constructor(
             )
         }
     }
+
+    @Nested
+    @DisplayName("PATCH /api/v1/users/user/password")
+    inner class ChangePassword {
+
+        private val ENDPOINT_PASSWORD = "/api/v1/users/user/password"
+
+        @Test
+        @DisplayName("비밀번호 변경에 성공하면, 200 OK 응답을 반환한다.")
+        fun returnsOk_whenChangePasswordIsSuccessful() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "Password1!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "Password1!",
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            Assertions.assertThat(response.statusCode.is2xxSuccessful).isTrue()
+        }
+
+        @Test
+        @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경 시도하면, 400 Bad Request 응답을 반환한다.")
+        fun returnsBadRequest_whenNewPasswordIsSameAsCurrent() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "Password1!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "Password1!",
+                newPassword = "Password1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+
+        @Test
+        @DisplayName("현재 비밀번호가 틀리면, 400 Bad Request 응답을 반환한다.")
+        fun returnsBadRequest_whenCurrentPasswordIsWrong() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "Password1!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "WrongPassword!",
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+
+        @Test
+        @DisplayName("인증 헤더의 비밀번호가 틀리면, 401 Unauthorized 응답을 반환한다.")
+        fun returnsUnauthorized_whenAuthPasswordIsWrong() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "WrongPassword!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "Password1!",
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+            )
+        }
+    }
 }

@@ -40,4 +40,16 @@ class UserV1Dto {
             }
         }
     }
+
+    data class ChangePasswordRequest(
+        val currentPassword: String,
+        val newPassword: String,
+    ) {
+        fun toCommand(): UserCommand.ChangePassword {
+            return UserCommand.ChangePassword(
+                currentPassword = currentPassword,
+                newPassword = newPassword,
+            )
+        }
+    }
 }
