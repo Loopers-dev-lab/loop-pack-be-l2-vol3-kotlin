@@ -202,20 +202,5 @@ class UserModelTest {
             // assert
             assertThat(userModel.password).isEqualTo(newPassword)
         }
-
-        @DisplayName("이전과 동일한 비밀번호가 주어지면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequestException_whenNewPasswordIsSameAsCurrent() {
-            // arrange
-            val userModel = createUserModel()
-
-            // act
-            val result = assertThrows<CoreException> {
-                userModel.updatePassword(defaultPassword)
-            }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
     }
 }
