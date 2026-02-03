@@ -1,5 +1,6 @@
 package com.loopers.domain.user
 
+import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -18,6 +19,7 @@ import java.time.LocalDate
 class UserServiceIntegrationTest @Autowired constructor(
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val userJpaRepository: UserJpaRepository,
 ) {
     @AfterEach
     fun tearDown() = databaseCleanUp.truncateAllTables()
@@ -100,6 +102,82 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(result).isNull()
+        }
+    }
+
+    @Nested
+    @DisplayName("비밀번호 변경 시,")
+    inner class ChangePassword {
+
+        @Test
+        @DisplayName("비밀번호 변경이 성공하면, 새 비밀번호로 인증할 수 있다.")
+        fun changesPassword_whenRequestIsValid() {
+            // arrange
+            val user = UserCommand.SignUp(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userService.signUp(user)
+
+            val command = UserCommand.ChangePassword(
+                currentPassword = "Password1!",
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            userService.changePassword("testuser1", command)
+
+            // assert
+            val updatedUser = userJpaRepository.findByLoginId("testuser1")
+            assertThat(updatedUser?.verifyPassword("NewPassword1!")).isTrue()
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 사용자의 비밀번호를 변경하려 하면, 예외가 발생한다.")
+        fun throwsException_whenUserDoesNotExist() {
+            // arrange
+            val command = UserCommand.ChangePassword(
+                currentPassword = "Password1!",
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.changePassword("nonexistent", command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 예외가 발생한다.")
+        fun throwsException_whenCurrentPasswordIsWrong() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val command = UserCommand.ChangePassword(
+                currentPassword = "WrongPassword!",
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.changePassword("testuser1", command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

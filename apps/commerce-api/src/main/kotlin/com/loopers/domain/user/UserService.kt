@@ -21,4 +21,16 @@ class UserService(
     fun getUserInfo(loginId: String): User? {
         return userRepository.findByLoginId(loginId)
     }
+
+    @Transactional
+    fun changePassword(loginId: String, command: UserCommand.ChangePassword) {
+        val user = userRepository.findByLoginId(loginId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+
+        if (!user.verifyPassword(command.currentPassword)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.")
+        }
+
+        user.changePassword(command.newPassword)
+    }
 }
