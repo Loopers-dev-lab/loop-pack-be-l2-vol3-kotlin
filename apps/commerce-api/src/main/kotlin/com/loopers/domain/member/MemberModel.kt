@@ -90,11 +90,8 @@ class MemberModel(
     }
 
     fun getMaskedName(): String {
-        return when (name.length) {
-            2 -> "${name[0]}*"
-            3 -> "${name[0]}*${name[2]}"
-            else -> "${name[0]}${"*".repeat(name.length - 2)}${name[name.length - 1]}"
-        }
+        if (name.isEmpty()) return name
+        return name.dropLast(1) + "*"
     }
 
     fun changePassword(newPassword: String) {
