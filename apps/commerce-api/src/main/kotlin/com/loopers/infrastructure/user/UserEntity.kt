@@ -31,5 +31,4 @@ class UserEntity(
     @Enumerated(EnumType.STRING)
     @Column(name = "gender", nullable = false)
     val gender: GenderType,
-    
 ) : BaseEntity()

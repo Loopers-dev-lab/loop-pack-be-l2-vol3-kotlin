@@ -73,12 +73,7 @@ Content-Type: application/json
     "message": null
   },
   "data": {
-    "id": 1,
-    "loginId": "hyungki",
-    "name": "신형기",
-    "birthDate": "1993-04-01",
-    "email": "hyungki@loopers.com",
-    "gender": "MALE"
+    "id": 1
   }
 }
 ```
