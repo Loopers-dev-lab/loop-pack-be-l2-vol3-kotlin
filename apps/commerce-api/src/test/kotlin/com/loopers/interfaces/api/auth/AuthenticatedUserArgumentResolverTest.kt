@@ -37,9 +37,12 @@ class AuthenticatedUserArgumentResolverTest {
     }
 
     @Test
-    fun `AuthUser가 없으면 UNAUTHORIZED 예외가 발생한다`() {
+    fun `AuthUser가 없고 인증 시도도 없으면 인증 정보가 필요합니다 예외가 발생한다`() {
         every {
             webRequest.getAttribute(AuthenticationFilter.AUTH_USER_ATTRIBUTE, NativeWebRequest.SCOPE_REQUEST)
+        } returns null
+        every {
+            webRequest.getAttribute(AuthenticationFilter.AUTH_FAILED_ATTRIBUTE, NativeWebRequest.SCOPE_REQUEST)
         } returns null
 
         val exception = assertThrows<CoreException> {
@@ -47,6 +50,24 @@ class AuthenticatedUserArgumentResolverTest {
         }
 
         assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        assertThat(exception.message).isEqualTo("인증 정보가 필요합니다.")
+    }
+
+    @Test
+    fun `인증 시도했으나 실패하면 인증에 실패했습니다 예외가 발생한다`() {
+        every {
+            webRequest.getAttribute(AuthenticationFilter.AUTH_USER_ATTRIBUTE, NativeWebRequest.SCOPE_REQUEST)
+        } returns null
+        every {
+            webRequest.getAttribute(AuthenticationFilter.AUTH_FAILED_ATTRIBUTE, NativeWebRequest.SCOPE_REQUEST)
+        } returns true
+
+        val exception = assertThrows<CoreException> {
+            resolver.resolveArgument(mockk(), null, webRequest, null)
+        }
+
+        assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        assertThat(exception.message).isEqualTo("인증에 실패했습니다.")
     }
 
     @Test

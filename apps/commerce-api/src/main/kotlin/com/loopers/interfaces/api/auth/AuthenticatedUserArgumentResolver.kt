@@ -28,6 +28,19 @@ class AuthenticatedUserArgumentResolver : HandlerMethodArgumentResolver {
             NativeWebRequest.SCOPE_REQUEST,
         ) as? AuthUser
 
-        return authUser ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 필요합니다.")
+        if (authUser != null) {
+            return authUser
+        }
+
+        val authFailed = webRequest.getAttribute(
+            AuthenticationFilter.AUTH_FAILED_ATTRIBUTE,
+            NativeWebRequest.SCOPE_REQUEST,
+        ) as? Boolean ?: false
+
+        if (authFailed) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
+        }
+
+        throw CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 필요합니다.")
     }
 }

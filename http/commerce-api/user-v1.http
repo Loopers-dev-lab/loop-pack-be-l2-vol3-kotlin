@@ -10,3 +10,43 @@ Content-Type: application/json
   "email": "hyungki@loopers.com",
   "gender": "MALE"
 }
+
+### 내 정보 조회 - 정상
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: hyungki
+X-Loopers-LoginPw: Password1!
+
+### 내 정보 조회 - 인증 헤더 없음 (401 - 인증 정보가 필요합니다)
+GET {{commerce-api}}/api/v1/users/me
+
+### 내 정보 조회 - 비밀번호 틀림 (401 - 인증에 실패했습니다)
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: hyungki
+X-Loopers-LoginPw: WrongPass1!
+
+### 비밀번호 변경 - 기존 비밀번호 틀림 (400)
+PUT {{commerce-api}}/api/v1/users/password
+Content-Type: application/json
+X-Loopers-LoginId: hyungki
+X-Loopers-LoginPw: Password1!
+
+{
+  "oldPassword": "WrongPass1!",
+  "newPassword": "NewPass2@"
+}
+
+### 비밀번호 변경 - 정상 (이후 비밀번호: NewPass2@)
+PUT {{commerce-api}}/api/v1/users/password
+Content-Type: application/json
+X-Loopers-LoginId: hyungki
+X-Loopers-LoginPw: Password1!
+
+{
+  "oldPassword": "Password1!",
+  "newPassword": "NewPass2@"
+}
+
+### 비밀번호 변경 후 - 새 비밀번호로 내 정보 조회
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: hyungki
+X-Loopers-LoginPw: NewPass2@

@@ -24,8 +24,11 @@ class AuthenticationFilter(
         val loginPw = request.getHeader(HEADER_LOGIN_PW)
 
         if (loginId != null && loginPw != null) {
-            authenticate(loginId, loginPw)?.let { authUser ->
+            val authUser = authenticate(loginId, loginPw)
+            if (authUser != null) {
                 request.setAttribute(AUTH_USER_ATTRIBUTE, authUser)
+            } else {
+                request.setAttribute(AUTH_FAILED_ATTRIBUTE, true)
             }
         }
 
@@ -52,5 +55,6 @@ class AuthenticationFilter(
         const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
         const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
         const val AUTH_USER_ATTRIBUTE = "authUser"
+        const val AUTH_FAILED_ATTRIBUTE = "authFailed"
     }
 }
