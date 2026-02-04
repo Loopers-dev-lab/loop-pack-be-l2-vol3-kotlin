@@ -59,4 +59,9 @@ class MemberV1Dto {
             }
         }
     }
+
+    data class ChangePasswordRequest(
+        val currentPassword: String,
+        val newPassword: String,
+    )
 }

@@ -39,6 +39,22 @@ class MemberService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다.")
     }
 
+    @Transactional
+    fun changePassword(memberId: Long, currentPassword: String, newPassword: String) {
+        val member = memberRepository.findById(memberId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다.")
+
+        if (!passwordEncoder.matches(currentPassword, member.password)) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.")
+        }
+
+        validatePassword(newPassword, member.birthDate.format(BIRTH_DATE_FORMAT))
+
+        val encodedNewPassword = passwordEncoder.encode(newPassword)
+        member.changePassword(encodedNewPassword)
+        memberRepository.save(member)
+    }
+
     private fun validateLoginIdNotDuplicated(loginId: String) {
         if (memberRepository.existsByLoginId(loginId)) {
             throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
