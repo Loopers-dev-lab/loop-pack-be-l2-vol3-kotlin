@@ -6,29 +6,83 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.server.ServerWebInputException
 import org.springframework.web.servlet.resource.NoResourceFoundException
-import kotlin.collections.joinToString
-import kotlin.jvm.java
-import kotlin.text.isNotEmpty
-import kotlin.text.toRegex
 
 @RestControllerAdvice
 class ApiControllerAdvice {
     private val log = LoggerFactory.getLogger(ApiControllerAdvice::class.java)
 
+    /**
+     * Produces a standardized error response for a CoreException.
+     *
+     * Uses the exception's `errorType` to determine the HTTP status and the exception's `customMessage`
+     * (if present) as the response message; also logs a warning with the exception.
+     *
+     * @param e the CoreException containing an `errorType` and an optional `customMessage`
+     * @return a `ResponseEntity` containing an `ApiResponse` with the error code from `errorType`
+     *         and the derived error message
+     */
     @ExceptionHandler
     fun handle(e: CoreException): ResponseEntity<ApiResponse<*>> {
         log.warn("CoreException : {}", e.customMessage ?: e.message, e)
         return failureResponse(errorType = e.errorType, errorMessage = e.customMessage)
     }
 
+    /**
+     * Handles validation failures by extracting the first field error message and returning a BAD_REQUEST response.
+     *
+     * @param e The MethodArgumentNotValidException whose first field error message will be used; if no field message is present, the message "잘못된 요청입니다." is used.
+     * @return A ResponseEntity containing an ApiResponse representing a BAD_REQUEST with the derived error message.
+     */
+    @ExceptionHandler
+    fun handleValidation(e: MethodArgumentNotValidException): ResponseEntity<ApiResponse<*>> {
+        val message = e.bindingResult.fieldErrors
+            .firstOrNull()
+            ?.defaultMessage
+            ?: "잘못된 요청입니다."
+        log.warn("MethodArgumentNotValidException : {}", message)
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    /**
+     * Handles IllegalArgumentException by producing a standardized BAD_REQUEST failure response.
+     *
+     * @return A ResponseEntity whose body is an ApiResponse failure using the `BAD_REQUEST` error code and the exception's message (if present).
+     */
+    @ExceptionHandler
+    fun handleIllegalArgument(e: IllegalArgumentException): ResponseEntity<ApiResponse<*>> {
+        log.warn("IllegalArgumentException : {}", e.message, e)
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = e.message)
+    }
+
+    /**
+     * Handles DataIntegrityViolationException thrown by persistence operations.
+     *
+     * @param e The exception indicating a data integrity violation (for example, a unique constraint violation).
+     * @return A 409 CONFLICT ResponseEntity containing an ApiResponse failure with the conflict error code and the message "중복된 데이터가 존재합니다."
+     */
+    @ExceptionHandler
+    fun handleDataIntegrityViolation(e: DataIntegrityViolationException): ResponseEntity<ApiResponse<*>> {
+        log.warn("DataIntegrityViolationException : {}", e.message, e)
+        return failureResponse(errorType = ErrorType.CONFLICT, errorMessage = "중복된 데이터가 존재합니다.")
+    }
+
+    /**
+     * Builds a BAD_REQUEST response describing a request parameter with a type or value mismatch.
+     *
+     * Extracts the parameter name, expected type, and provided value to include in the error message.
+     *
+     * @return `ResponseEntity` containing an `ApiResponse` with the `BAD_REQUEST` error code and a message that identifies the invalid parameter, its expected type, and the provided value.
+     */
     @ExceptionHandler
     fun handleBadRequest(e: MethodArgumentTypeMismatchException): ResponseEntity<ApiResponse<*>> {
         val name = e.name

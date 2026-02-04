@@ -14,6 +14,15 @@ class StepMonitorListener : StepExecutionListener {
         log.info("Step '${stepExecution.stepName}' 시작")
     }
 
+    /**
+     * Determines the step's final ExitStatus based on recorded failures.
+     *
+     * If the provided StepExecution contains failure exceptions, logs the job name and failure messages and returns ExitStatus.FAILED.
+     * Otherwise returns ExitStatus.COMPLETED.
+     *
+     * @param stepExecution The StepExecution to evaluate.
+     * @return `ExitStatus.FAILED` if the step recorded any failure exceptions, `ExitStatus.COMPLETED` otherwise.
+     */
     override fun afterStep(stepExecution: StepExecution): ExitStatus {
         if (stepExecution.failureExceptions.isNotEmpty()) {
             log.info(
@@ -22,7 +31,7 @@ class StepMonitorListener : StepExecutionListener {
                     jobName: ${stepExecution.jobExecution.jobInstance.jobName}
                     exceptions: 
                     ${stepExecution.failureExceptions.mapNotNull { it.message }.joinToString("\n")}
-                """.trimIndent()
+                """.trimIndent(),
             )
             // error 발생 시 slack 등 다른 채널로 모니터 전송
             return ExitStatus.FAILED
