@@ -15,11 +15,11 @@ class UserTest {
     @DisplayName("회원 생성할 때, 정상적으로 생성된다.")
     @Nested
     inner class Create {
-        var loginId = "abcde12345"
-        var password = "Abcd1234abcd!@#$"
-        var name = "홍길동"
-        var email = "abcde@gmail.com"
-        var birthday = LocalDate.of(1980, 1, 1)
+        private val loginId = "abcde12345"
+        private val password = "Abcd1234abcd!@#$"
+        private val name = "홍길동"
+        private val email = "abcde@gmail.com"
+        private val birthday = LocalDate.of(1980, 1, 1)
 
         @DisplayName("회원 데이터가 모두 주어지면, 정상적으로 생성된다.")
         @Test
