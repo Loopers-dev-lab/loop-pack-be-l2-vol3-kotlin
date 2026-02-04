@@ -92,6 +92,116 @@ class UserApiE2ETest {
         }
     }
 
+    @Nested
+    inner class ChangePassword {
+        @Test
+        fun `정상적인 경우 비밀번호가 변경되어야 한다`() {
+            registerUser()
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .body(mapOf("oldPassword" to PASSWORD, "newPassword" to NEW_PASSWORD))
+            .`when`()
+                .put("/api/v1/users/password")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("meta.result", equalTo("SUCCESS"))
+                .body("data", equalTo(null))
+
+            // 새 비밀번호로 인증 확인
+            RestAssured.given()
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, NEW_PASSWORD)
+            .`when`()
+                .get("/api/v1/users/me")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+        }
+
+        @Test
+        fun `인증 헤더가 없으면 401 에러가 발생한다`() {
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .body(mapOf("oldPassword" to PASSWORD, "newPassword" to NEW_PASSWORD))
+            .`when`()
+                .put("/api/v1/users/password")
+            .then()
+                .statusCode(HttpStatus.UNAUTHORIZED.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("UNAUTHORIZED"))
+        }
+
+        @Test
+        fun `기존 비밀번호가 틀리면 400 에러가 발생한다`() {
+            registerUser()
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .body(mapOf("oldPassword" to "WrongPass1!", "newPassword" to NEW_PASSWORD))
+            .`when`()
+                .put("/api/v1/users/password")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("BAD_REQUEST"))
+        }
+
+        @Test
+        fun `새 비밀번호가 기존과 동일하면 400 에러가 발생한다`() {
+            registerUser()
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .body(mapOf("oldPassword" to PASSWORD, "newPassword" to PASSWORD))
+            .`when`()
+                .put("/api/v1/users/password")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("BAD_REQUEST"))
+        }
+
+        @Test
+        fun `새 비밀번호에 생년월일이 포함되면 400 에러가 발생한다`() {
+            registerUser()
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .body(mapOf("oldPassword" to PASSWORD, "newPassword" to "New19930401!"))
+            .`when`()
+                .put("/api/v1/users/password")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("BAD_REQUEST"))
+        }
+
+        @Test
+        fun `새 비밀번호가 8자 미만이면 400 에러가 발생한다`() {
+            registerUser()
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .body(mapOf("oldPassword" to PASSWORD, "newPassword" to "Short1!"))
+            .`when`()
+                .put("/api/v1/users/password")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("BAD_REQUEST"))
+        }
+    }
+
     private fun registerUser() {
         RestAssured.given()
             .contentType(ContentType.JSON)
@@ -114,6 +224,7 @@ class UserApiE2ETest {
     companion object {
         private const val LOGIN_ID = "tkaqkeldk"
         private const val PASSWORD = "Password1!"
+        private const val NEW_PASSWORD = "NewPass2@"
         private const val NAME = "신형기"
         private const val BIRTH_DATE = "1993-04-01"
         private const val EMAIL = "tkaqkeldk99@gmail.com"
