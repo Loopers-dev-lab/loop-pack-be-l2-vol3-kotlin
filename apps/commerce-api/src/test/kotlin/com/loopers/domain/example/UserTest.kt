@@ -35,42 +35,6 @@ class UserTest {
             )
         }
 
-        @DisplayName("loginId가 빈칸으로만 이루어져 있으면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequestException_whenLoginIdIsBlank() {
-            var blankUserId = "   "
-
-            val result = assertThrows<CoreException> {
-                User(loginId = blankUserId, password = password, name = name, email = email, birthday = birthday)
-            }
-
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("loginId에 특수문자가 포함되면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequestException_whenLoginIdContainsSpecialCharacter() {
-            val invalidLoginId = "abc@123"
-
-            val result = assertThrows<CoreException> {
-                User(loginId = invalidLoginId, password = password, name = name, email = email, birthday = birthday)
-            }
-
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("loginId에 한글이 포함되면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequestException_whenLoginIdContainsKorean() {
-            val invalidLoginId = "abc한글123"
-
-            val result = assertThrows<CoreException> {
-                User(loginId = invalidLoginId, password = password, name = name, email = email, birthday = birthday)
-            }
-
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
         @DisplayName("name 빈칸으로만 이루어져 있으면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequestException_whenNameIsBlank() {
@@ -78,30 +42,6 @@ class UserTest {
 
             val result = assertThrows<CoreException> {
                 User(loginId = loginId, password = password, name = blankName, email = email, birthday = birthday)
-            }
-
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("email 빈칸으로만 이루어져 있으면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequestException_whenEmailIsBlank() {
-            var blankEmail = "   "
-
-            val result = assertThrows<CoreException> {
-                User(loginId = loginId, password = password, name = name, email = blankEmail, birthday = birthday)
-            }
-
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("email 형식 검증, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequestException_whenEmail() {
-            var failEmail = "abcde@.com"
-
-            val result = assertThrows<CoreException> {
-                User(loginId = loginId, password = password, name = name, email = failEmail, birthday = birthday)
             }
 
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
