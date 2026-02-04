@@ -187,4 +187,54 @@ class UserServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
     }
+
+    @DisplayName("비밀번호 변경할 때,")
+    @Nested
+    inner class ChangePassword {
+        private val loginId = "testuser"
+        private val encodedCurrentPassword = "encoded_current_password"
+        private val user = User(
+            loginId = loginId,
+            password = encodedCurrentPassword,
+            name = "홍길동",
+            email = "test@example.com",
+            birthday = LocalDate.of(1990, 5, 15),
+        )
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        fun throwsUnauthorized_whenCurrentPasswordNotMatches() {
+            // arrange
+            val wrongCurrentPassword = "WrongPassword1!"
+            val newPassword = "NewPassword1!"
+
+            whenever(passwordEncoder.matches(wrongCurrentPassword, encodedCurrentPassword)).thenReturn(false)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.changePassword(user, wrongCurrentPassword, newPassword)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+
+        @DisplayName("유효한 현재 비밀번호와 새 비밀번호를 전달하면, 비밀번호가 변경된다.")
+        @Test
+        fun changesPassword_whenValidPasswordsProvided() {
+            // arrange
+            val currentPassword = "CurrentPassword1!"
+            val newPassword = "NewPassword1!"
+            val encodedNewPassword = "encoded_new_password"
+
+            whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
+            whenever(passwordEncoder.encode(newPassword)).thenReturn(encodedNewPassword)
+
+            // act
+            userService.changePassword(user, currentPassword, newPassword)
+
+            // assert
+            assertThat(user.password).isEqualTo(encodedNewPassword)
+        }
+    }
 }

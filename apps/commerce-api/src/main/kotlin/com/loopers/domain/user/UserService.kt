@@ -39,4 +39,13 @@ class UserService(
 
         return user
     }
+
+    fun changePassword(user: User, currentPassword: String, newPassword: String) {
+        if (!passwordEncoder.matches(currentPassword, user.password)) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.")
+        }
+
+        val encodedNewPassword = passwordEncoder.encode(newPassword)
+        user.changePassword(encodedNewPassword)
+    }
 }
