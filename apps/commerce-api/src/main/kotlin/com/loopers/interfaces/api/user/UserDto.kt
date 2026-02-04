@@ -38,4 +38,22 @@ class UserDto {
             }
         }
     }
+
+    data class MeResponse(
+        val loginId: String,
+        val name: String,
+        val email: String,
+        val birthday: LocalDate?,
+    ) {
+        companion object {
+            fun from(info: UserInfo): MeResponse {
+                return MeResponse(
+                    loginId = info.loginId,
+                    name = info.maskedName ?: info.name,
+                    email = info.email,
+                    birthday = info.birthday,
+                )
+            }
+        }
+    }
 }

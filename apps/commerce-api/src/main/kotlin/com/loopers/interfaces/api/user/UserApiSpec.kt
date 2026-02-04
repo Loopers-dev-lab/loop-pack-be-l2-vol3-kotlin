@@ -11,4 +11,10 @@ interface UserApiSpec {
         description = "새로운 회원을 등록합니다.",
     )
     fun signUp(request: UserDto.SignUpRequest): ApiResponse<UserDto.SignUpResponse>
+
+    @Operation(
+        summary = "내 정보 조회",
+        description = "인증된 사용자의 정보를 조회합니다.",
+    )
+    fun getMe(loginId: String?, password: String?): ApiResponse<UserDto.MeResponse>
 }
