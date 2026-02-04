@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.member
 
 import com.loopers.domain.member.MemberService
 import com.loopers.interfaces.api.ApiResponse
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -19,6 +21,15 @@ class MemberV1Controller(
     ): ApiResponse<MemberV1Dto.SignUpResponse> {
         return memberService.signUp(request.toCommand())
             .let { MemberV1Dto.SignUpResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/{memberId}")
+    fun getMyInfo(
+        @PathVariable memberId: Long,
+    ): ApiResponse<MemberV1Dto.MemberInfoResponse> {
+        return memberService.getMyInfo(memberId)
+            .let { MemberV1Dto.MemberInfoResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 }

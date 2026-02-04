@@ -9,6 +9,8 @@ interface MemberRepository {
 
     fun save(member: Member): Member
 
+    fun findById(id: Long): Member?
+
     fun findByLoginId(loginId: String): Member?
 
     fun existsByLoginId(loginId: String): Boolean

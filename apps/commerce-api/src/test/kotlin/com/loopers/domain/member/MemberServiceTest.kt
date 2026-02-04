@@ -186,4 +186,50 @@ class MemberServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @DisplayName("내 정보를 조회할 때,")
+    @Nested
+    inner class GetMyInfo {
+
+        @DisplayName("존재하는 회원 ID로 조회하면, 회원 정보가 반환된다.")
+        @Test
+        fun returnsMemberInfo_whenMemberExists() {
+            // arrange
+            val memberId = 1L
+            val member = Member(
+                loginId = "testuser1",
+                password = "encodedPassword",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+
+            whenever(memberRepository.findById(memberId)).thenReturn(member)
+
+            // act
+            val result = memberService.getMyInfo(memberId)
+
+            // assert
+            assertThat(result.loginId).isEqualTo("testuser1")
+            assertThat(result.name).isEqualTo("홍길동")
+            assertThat(result.email).isEqualTo("test@example.com")
+        }
+
+        @DisplayName("존재하지 않는 회원 ID로 조회하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsException_whenMemberNotFound() {
+            // arrange
+            val memberId = 999L
+
+            whenever(memberRepository.findById(memberId)).thenReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                memberService.getMyInfo(memberId)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
 }

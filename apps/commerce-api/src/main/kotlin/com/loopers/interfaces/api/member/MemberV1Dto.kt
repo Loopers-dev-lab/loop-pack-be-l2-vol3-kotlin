@@ -37,4 +37,26 @@ class MemberV1Dto {
             }
         }
     }
+
+    data class MemberInfoResponse(
+        val id: Long,
+        val loginId: String,
+        val name: String,
+        val maskedName: String,
+        val email: String,
+        val birthDate: LocalDate,
+    ) {
+        companion object {
+            fun from(member: Member): MemberInfoResponse {
+                return MemberInfoResponse(
+                    id = member.id,
+                    loginId = member.loginId,
+                    name = member.name,
+                    maskedName = member.getMaskedName(),
+                    email = member.email,
+                    birthDate = member.birthDate,
+                )
+            }
+        }
+    }
 }

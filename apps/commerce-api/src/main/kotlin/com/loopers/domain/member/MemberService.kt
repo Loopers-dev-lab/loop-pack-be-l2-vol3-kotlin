@@ -33,6 +33,12 @@ class MemberService(
         )
     }
 
+    @Transactional(readOnly = true)
+    fun getMyInfo(memberId: Long): Member {
+        return memberRepository.findById(memberId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다.")
+    }
+
     private fun validateLoginIdNotDuplicated(loginId: String) {
         if (memberRepository.existsByLoginId(loginId)) {
             throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
