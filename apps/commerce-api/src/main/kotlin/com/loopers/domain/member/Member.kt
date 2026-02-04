@@ -60,6 +60,9 @@ class Member(
         if (!loginId.matches(LOGIN_ID_PATTERN)) {
             throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문과 숫자만 허용됩니다.")
         }
+        if (loginId.length > MAX_LOGIN_ID_LENGTH) {
+            throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 ${MAX_LOGIN_ID_LENGTH}자 이하여야 합니다.")
+        }
     }
 
     private fun validateName(name: String) {
@@ -99,6 +102,7 @@ class Member(
     companion object {
         private val LOGIN_ID_PATTERN = Regex("^[a-zA-Z0-9]+$")
         private val EMAIL_PATTERN = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+        private const val MAX_LOGIN_ID_LENGTH = 10
         private const val MASK_CHAR = "*"
     }
 }

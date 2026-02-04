@@ -92,6 +92,27 @@ class MemberTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
+        @DisplayName("로그인 ID가 10자를 초과하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsException_whenLoginIdExceeds10Characters() {
+            // arrange
+            val longLoginId = "abcdefghijk" // 11자
+
+            // act
+            val exception = assertThrows<CoreException> {
+                Member(
+                    loginId = longLoginId,
+                    password = "encodedPassword123",
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 15),
+                    email = "test@example.com",
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
         @DisplayName("이메일 형식이 올바르지 않으면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsException_whenEmailFormatInvalid() {
