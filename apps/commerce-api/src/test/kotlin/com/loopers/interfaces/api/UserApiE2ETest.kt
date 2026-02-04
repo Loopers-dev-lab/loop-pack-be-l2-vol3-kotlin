@@ -25,6 +25,9 @@ class UserApiE2ETest @Autowired constructor(
 ) {
     companion object {
         private const val SIGNUP_ENDPOINT = "/api/v1/users/signup"
+        private const val ME_ENDPOINT = "/api/v1/users/me"
+        private const val LOGIN_ID_HEADER = "X-Loopers-LoginId"
+        private const val LOGIN_PW_HEADER = "X-Loopers-LoginPw"
     }
 
     @AfterEach
@@ -206,6 +209,111 @@ class UserApiE2ETest @Autowired constructor(
 
         private fun jsonHeaders(): HttpHeaders = HttpHeaders().apply {
             contentType = MediaType.APPLICATION_JSON
+        }
+    }
+
+    @DisplayName("GET /api/v1/users/me")
+    @Nested
+    inner class GetMe {
+        @DisplayName("유효한 인증 헤더로 요청하면, 200 OK와 마스킹된 이름을 반환한다.")
+        @Test
+        fun returnsOkWithMaskedName_whenValidCredentialsProvided() {
+            // arrange - 먼저 회원가입
+            val loginId = "testuser123"
+            val password = "Test1234!@"
+            val name = "홍길동"
+            signUp(loginId, password, name, "test@example.com", LocalDate.of(1990, 1, 15))
+
+            val headers = HttpHeaders().apply {
+                set(LOGIN_ID_HEADER, loginId)
+                set(LOGIN_PW_HEADER, password)
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<UserDto.MeResponse>>() {}
+            val response = testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, httpEntity, responseType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.data?.loginId).isEqualTo(loginId) },
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
+                { assertThat(response.body?.data?.email).isEqualTo("test@example.com") },
+                { assertThat(response.body?.data?.birthday).isEqualTo(LocalDate.of(1990, 1, 15)) },
+            )
+        }
+
+        @DisplayName("인증 헤더가 누락되면, 401 Unauthorized 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenHeadersMissing() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(HttpHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, httpEntity, responseType)
+
+            // assert
+            assertThat(response.statusCode.value()).isEqualTo(401)
+        }
+
+        @DisplayName("존재하지 않는 로그인 ID로 요청하면, 401 Unauthorized 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLoginIdNotFound() {
+            // arrange
+            val headers = HttpHeaders().apply {
+                set(LOGIN_ID_HEADER, "nonexistent")
+                set(LOGIN_PW_HEADER, "Test1234!@")
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, httpEntity, responseType)
+
+            // assert
+            assertThat(response.statusCode.value()).isEqualTo(401)
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, 401 Unauthorized 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenPasswordNotMatches() {
+            // arrange - 먼저 회원가입
+            val loginId = "testuser123"
+            signUp(loginId, "Test1234!@", "홍길동", "test@example.com", LocalDate.of(1990, 1, 15))
+
+            val headers = HttpHeaders().apply {
+                set(LOGIN_ID_HEADER, loginId)
+                set(LOGIN_PW_HEADER, "WrongPassword1!")
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(ME_ENDPOINT, HttpMethod.GET, httpEntity, responseType)
+
+            // assert
+            assertThat(response.statusCode.value()).isEqualTo(401)
+        }
+
+        private fun signUp(loginId: String, password: String, name: String, email: String, birthday: LocalDate) {
+            val request = UserDto.SignUpRequest(
+                loginId = loginId,
+                password = password,
+                name = name,
+                email = email,
+                birthday = birthday,
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+            }
+            testRestTemplate.exchange(
+                SIGNUP_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity(request, headers),
+                object : ParameterizedTypeReference<ApiResponse<UserDto.SignUpResponse>>() {},
+            )
         }
     }
 }
