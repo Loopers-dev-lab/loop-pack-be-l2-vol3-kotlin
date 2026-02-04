@@ -1,7 +1,7 @@
 package com.loopers.domain.user
 
 class User private constructor(
-    val id: Long?,
+    val persistenceId: Long?,
     val loginId: LoginId,
     val password: Password,
     val name: Name,
@@ -29,7 +29,7 @@ class User private constructor(
         }
 
         return User(
-            id = id,
+            persistenceId = persistenceId,
             loginId = loginId,
             password = Password.create(newPassword, encoder),
             name = name,
@@ -57,7 +57,7 @@ class User private constructor(
                 "비밀번호에 생년월일을 포함할 수 없습니다."
             }
             return User(
-                id = null,
+                persistenceId = null,
                 loginId = loginId,
                 password = Password.create(rawPassword, encoder),
                 name = name,
@@ -72,7 +72,7 @@ class User private constructor(
          * Infrastructure layer의 Mapper에서만 호출할 것.
          */
         fun reconstitute(
-            id: Long,
+            persistenceId: Long,
             loginId: LoginId,
             password: Password,
             name: Name,
@@ -81,7 +81,7 @@ class User private constructor(
             gender: GenderType,
         ): User {
             return User(
-                id = id,
+                persistenceId = persistenceId,
                 loginId = loginId,
                 password = password,
                 name = name,

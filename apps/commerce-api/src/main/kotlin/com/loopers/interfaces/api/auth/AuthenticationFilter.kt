@@ -43,7 +43,7 @@ class AuthenticationFilter(
         }
 
         return AuthUser(
-            id = user.id!!,
+            id = user.persistenceId!!,
             loginId = user.loginId.value,
         )
     }

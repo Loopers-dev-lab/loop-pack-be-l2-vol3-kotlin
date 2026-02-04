@@ -25,7 +25,7 @@ class ExampleModelTest {
 
             // assert
             assertAll(
-                { assertThat(exampleModel.id).isNotNull() },
+                { assertThat(exampleModel.id).isNull() },
                 { assertThat(exampleModel.name).isEqualTo(name) },
                 { assertThat(exampleModel.description).isEqualTo(description) },
             )

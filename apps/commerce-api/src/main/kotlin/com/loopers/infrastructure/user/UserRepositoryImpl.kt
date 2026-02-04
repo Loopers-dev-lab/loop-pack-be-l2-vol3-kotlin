@@ -12,7 +12,7 @@ class UserRepositoryImpl(
 
     override fun save(user: User): Long {
         val entity = UserMapper.toEntity(user)
-        return jpaRepository.save(entity).id
+        return jpaRepository.save(entity).id!!
     }
 
     override fun findById(id: Long): User? {

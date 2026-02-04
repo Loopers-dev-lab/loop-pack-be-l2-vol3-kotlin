@@ -13,13 +13,13 @@ class UserTest {
     @Test
     fun `register로 생성한 User의 id는 null이어야 한다`() {
         val user = createUser()
-        assertThat(user.id).isNull()
+        assertThat(user.persistenceId).isNull()
     }
 
     @Test
     fun `reconstitute로 생성한 User는 id를 가져야 한다`() {
         val user = User.reconstitute(
-            id = 1L,
+            persistenceId = 1L,
             loginId = LoginId(LOGIN_ID),
             password = Password.create(RAW_PASSWORD, encoder),
             name = Name(NAME),
@@ -27,7 +27,7 @@ class UserTest {
             email = Email(EMAIL),
             gender = GenderType.MALE,
         )
-        assertThat(user.id).isEqualTo(1L)
+        assertThat(user.persistenceId).isEqualTo(1L)
     }
 
     @Test

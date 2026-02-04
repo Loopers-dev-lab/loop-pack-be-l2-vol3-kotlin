@@ -95,7 +95,7 @@ class AuthenticationFilterTest {
 
     private fun createUser(): User {
         return User.reconstitute(
-            id = USER_ID,
+            persistenceId = USER_ID,
             loginId = LoginId(LOGIN_ID),
             password = Password.fromEncoded("encoded"),
             name = Name(NAME),

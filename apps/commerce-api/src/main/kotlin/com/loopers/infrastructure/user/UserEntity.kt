@@ -12,6 +12,7 @@ import java.time.LocalDate
 @Entity
 @Table(name = "users")
 class UserEntity(
+    id: Long?,
 
     @Column(name = "login_id", nullable = false, unique = true, length = 10)
     val loginId: String,
@@ -31,4 +32,8 @@ class UserEntity(
     @Enumerated(EnumType.STRING)
     @Column(name = "gender", nullable = false)
     val gender: GenderType,
-) : BaseEntity()
+) : BaseEntity() {
+    init {
+        this.id = id
+    }
+}

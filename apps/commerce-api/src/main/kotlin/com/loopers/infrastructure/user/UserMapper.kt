@@ -11,7 +11,7 @@ object UserMapper {
 
     fun toDomain(entity: UserEntity): User {
         return User.reconstitute(
-            id = entity.id,
+            persistenceId = entity.id!!,
             loginId = LoginId(entity.loginId),
             password = Password.fromEncoded(entity.password),
             name = Name(entity.name),
@@ -23,6 +23,7 @@ object UserMapper {
 
     fun toEntity(domain: User): UserEntity {
         return UserEntity(
+            id = domain.persistenceId,
             loginId = domain.loginId.value,
             password = domain.password.toEncodedString(),
             name = domain.name.value,
