@@ -28,4 +28,15 @@ class UserService(
         )
         return userRepository.save(user)
     }
+
+    fun authenticate(loginId: String, password: String): User {
+        val user = userRepository.findByLoginId(loginId)
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, "존재하지 않는 사용자입니다.")
+
+        if (!passwordEncoder.matches(password, user.password)) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.")
+        }
+
+        return user
+    }
 }
