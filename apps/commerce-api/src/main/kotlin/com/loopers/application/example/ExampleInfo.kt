@@ -10,7 +10,7 @@ data class ExampleInfo(
     companion object {
         fun from(model: ExampleModel): ExampleInfo {
             return ExampleInfo(
-                id = model.id,
+                id = model.id!!,
                 name = model.name,
                 description = model.description,
             )
