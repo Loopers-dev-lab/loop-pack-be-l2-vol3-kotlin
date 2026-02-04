@@ -336,5 +336,32 @@ class MemberServiceTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsException_whenNewPasswordSameAsCurrent() {
+            // arrange
+            val memberId = 1L
+            val currentPassword = "SamePassword1!"
+            val newPassword = "SamePassword1!"
+            val member = Member(
+                loginId = "testuser1",
+                password = "encodedPassword",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+
+            whenever(memberRepository.findById(memberId)).thenReturn(member)
+            whenever(passwordEncoder.matches(currentPassword, member.password)).thenReturn(true)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                memberService.changePassword(memberId, currentPassword, newPassword)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 }
