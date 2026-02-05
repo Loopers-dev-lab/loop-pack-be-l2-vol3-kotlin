@@ -3,6 +3,7 @@ package com.loopers.domain.member
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -10,6 +11,7 @@ import java.time.LocalDate
 @Component
 class MemberService(
     private val memberRepository: MemberRepository,
+    private val passwordEncoder: PasswordEncoder,
 ) {
     @Transactional
     fun register(
@@ -23,9 +25,11 @@ class MemberService(
             throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
         }
 
+        MemberModel.validatePassword(password, birthday)
+
         val member = MemberModel(
             loginId = loginId,
-            password = password,
+            encodedPassword = passwordEncoder.encode(password),
             name = name,
             birthday = birthday,
             email = email,
@@ -48,7 +52,7 @@ class MemberService(
         val member = memberRepository.findByLoginId(loginId)
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
 
-        if (!member.matchesPassword(password)) {
+        if (!passwordEncoder.matches(password, member.password)) {
             throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
         }
 
@@ -60,6 +64,11 @@ class MemberService(
         val member = memberRepository.findByLoginId(loginId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다.")
 
-        member.changePassword(newPassword, member.birthday)
+        if (passwordEncoder.matches(newPassword, member.password)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.")
+        }
+
+        MemberModel.validatePassword(newPassword, member.birthday)
+        member.changePassword(passwordEncoder.encode(newPassword))
     }
 }

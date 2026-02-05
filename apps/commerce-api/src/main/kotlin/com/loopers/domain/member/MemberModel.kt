@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter
 @Table(name = "member")
 class MemberModel(
     loginId: String,
-    password: String,
+    encodedPassword: String,
     name: String,
     birthday: LocalDate,
     email: String,
@@ -23,7 +23,7 @@ class MemberModel(
         protected set
 
     @Column(name = "password", nullable = false)
-    var password: String = password
+    var password: String = encodedPassword
         protected set
 
     @Column(name = "name", nullable = false)
@@ -42,16 +42,10 @@ class MemberModel(
         validateLoginId(this.loginId)
         validateName(this.name)
         validateEmail(this.email)
-        validatePassword(password, this.birthday)
-        this.password = PASSWORD_ENCODER.encode(password)
     }
 
-    fun changePassword(newPassword: String, birthday: LocalDate) {
-        if (PASSWORD_ENCODER.matches(newPassword, this.password)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.")
-        }
-        validatePassword(newPassword, birthday)
-        this.password = PASSWORD_ENCODER.encode(newPassword)
+    fun changePassword(encodedPassword: String) {
+        this.password = encodedPassword
     }
 
     fun getMaskedName(): String {
@@ -59,13 +53,7 @@ class MemberModel(
         return name.substring(0, name.length - 1) + "*"
     }
 
-    fun matchesPassword(rawPassword: String): Boolean {
-        return PASSWORD_ENCODER.matches(rawPassword, this.password)
-    }
-
     companion object {
-        private val PASSWORD_ENCODER = BCryptPasswordEncoder()
-
         private val LOGIN_ID_REGEX = "^[a-zA-Z0-9]+$".toRegex()
         private val EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$".toRegex()
         private val PASSWORD_CHAR_REGEX = "^[a-zA-Z0-9!@#\$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]+$".toRegex()
@@ -88,7 +76,7 @@ class MemberModel(
             }
         }
 
-        private fun validatePassword(password: String, birthday: LocalDate) {
+        fun validatePassword(password: String, birthday: LocalDate) {
             if (password.length < 8 || password.length > 16) {
                 throw CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자여야 합니다.")
             }
