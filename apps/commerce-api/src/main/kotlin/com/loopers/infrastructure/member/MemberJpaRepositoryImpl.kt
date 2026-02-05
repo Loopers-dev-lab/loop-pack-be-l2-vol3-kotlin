@@ -6,7 +6,7 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 
 @Component
-class MemberRepositoryAdapter(
+class MemberJpaRepositoryImpl(
     private val memberJpaRepository: MemberJpaRepository,
 ) : MemberRepository {
     override fun find(id: Long): MemberModel? {
