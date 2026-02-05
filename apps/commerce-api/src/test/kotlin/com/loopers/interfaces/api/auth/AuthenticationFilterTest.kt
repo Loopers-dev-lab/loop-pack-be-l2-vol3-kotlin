@@ -78,9 +78,8 @@ class AuthenticationFilterTest {
     }
 
     @Test
-    fun `비밀번호가 틀리면 AuthUser를 설정하지 않는다`() {
+    fun `비밀번호가 틀리면 AuthUser를 설정하지 않는다1`() {
         val user = createUser()
-
         request.addHeader(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
         request.addHeader(AuthenticationFilter.HEADER_LOGIN_PW, WRONG_PASSWORD)
 
@@ -90,6 +89,8 @@ class AuthenticationFilterTest {
         filter.doFilter(request, response, filterChain)
 
         assertThat(request.getAttribute(AuthenticationFilter.AUTH_USER_ATTRIBUTE)).isNull()
+        assertThat(request.getAttribute(AuthenticationFilter.AUTH_FAILED_ATTRIBUTE)).isEqualTo(true)
+
         verify { filterChain.doFilter(request, response) }
     }
 
