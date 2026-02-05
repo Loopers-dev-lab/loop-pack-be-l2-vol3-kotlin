@@ -212,6 +212,52 @@ class UserV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
             )
         }
+
+        @DisplayName("유효하지 않은 생년월일 형식으로 회원가입하면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun throwsBadRequest_whenBirthDateFormatIsInvalid() {
+            // arrange
+            val body = mapOf(
+                "userId" to "newUser",
+                "password" to "password123!",
+                "name" to "testName",
+                "birthDate" to "not-a-date", // invalid format
+                "email" to "test@email.com",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any?>>() {}
+            val response = testRestTemplate.exchange(ENDPOINT_SIGNUP, HttpMethod.POST, HttpEntity(body), responseType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("필수 값이 없을 경우, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun throwsBadRequest_whenRequiredFieldIsMissing() {
+            // arrange
+            val body = mapOf(
+                "userId" to "newUser",
+                "password" to "password123!",
+                // "name" 누락
+                "birthDate" to "1990-01-01",
+                "email" to "test@email.com",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any?>>() {}
+            val response = testRestTemplate.exchange(ENDPOINT_SIGNUP, HttpMethod.POST, HttpEntity(body), responseType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
     }
 
     // ─── GET /api/v1/users/me ───
