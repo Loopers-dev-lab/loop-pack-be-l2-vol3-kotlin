@@ -1,0 +1,24 @@
+package com.loopers.domain.user
+
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import jakarta.transaction.Transactional
+import org.springframework.stereotype.Component
+
+@Component
+class UserService(
+    private val userRepository: UserRepository,
+) {
+    @Transactional
+    fun registerUser(
+        loginId: String,
+        password: String,
+        name: String,
+        birth: String,
+        email: String,
+    ): User {
+        if (userRepository.existsByLoginId(loginId)) throw CoreException(ErrorType.CONFLICT, "User already exists")
+
+        return userRepository.save(User(loginId, password, name, birth, email))
+    }
+}
