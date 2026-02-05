@@ -115,6 +115,9 @@ class XxxService(private val xxxRepository: XxxRepository)
 - Kotlin 코드 작성 시 Java와 다른 핵심 기능이 있으면 상세히 설명할 것
 - Kotlin 고유 기능을 사용할 경우, 왜 사용하는지 설명할 것
 
+### 5. git
+- commit, push 등 git에 관련된 명령어는 개발자의 확인을 받을 것
+
 ## 빌드 및 실행 명령어
 
 ```bash
