@@ -179,4 +179,29 @@ class UserTest {
             assertThat(exception.errorCode).isEqualTo(UserErrorCode.INVALID_BIRTH_DATE)
         }
     }
+
+    @DisplayName("비밀번호 변경")
+    @Nested
+    inner class ChangePassword {
+
+        @DisplayName("새 비밀번호가 주어지면 비밀번호가 변경된다.")
+        @Test
+        fun success() {
+            // arrange
+            val user = User.create(
+                loginId = "testuser",
+                encodedPassword = "OldEncodedPassword",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 1),
+                email = "test@example.com",
+            )
+            val newEncodedPassword = "NewEncodedPassword"
+
+            // act
+            user.changePassword(newEncodedPassword)
+
+            // assert
+            assertThat(user.password.value).isEqualTo(newEncodedPassword)
+        }
+    }
 }

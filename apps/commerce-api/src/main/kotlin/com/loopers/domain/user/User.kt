@@ -40,6 +40,10 @@ class User private constructor(
     var email: String = email
         protected set
 
+    fun changePassword(newEncodedPassword: String) {
+        this.password = Password.fromEncoded(newEncodedPassword)
+    }
+
     companion object {
         private val LOGIN_ID_PATTERN = Regex("^[a-zA-Z0-9]+$")
         private val EMAIL_PATTERN = Regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")

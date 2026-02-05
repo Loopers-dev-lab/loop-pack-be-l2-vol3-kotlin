@@ -17,4 +17,6 @@ enum class UserErrorCode(
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "USER_008", "이미 사용 중인 로그인 ID입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_009", "사용자를 찾을 수 없습니다."),
     AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "USER_010", "아이디 또는 비밀번호가 올바르지 않습니다."),
+    INVALID_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "USER_011", "현재 비밀번호가 올바르지 않습니다."),
+    SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER_012", "새 비밀번호는 현재 비밀번호와 달라야 합니다."),
 }

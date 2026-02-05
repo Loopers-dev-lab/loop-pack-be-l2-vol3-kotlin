@@ -27,5 +27,9 @@ class UserException private constructor(
             UserErrorCode.DUPLICATE_LOGIN_ID,
             "이미 사용 중인 로그인 ID입니다: $loginId",
         )
+
+        fun invalidCurrentPassword() = UserException(UserErrorCode.INVALID_CURRENT_PASSWORD)
+
+        fun samePassword() = UserException(UserErrorCode.SAME_PASSWORD)
     }
 }
