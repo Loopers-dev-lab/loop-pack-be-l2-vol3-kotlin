@@ -20,7 +20,7 @@ class UserService(
         email: String,
     ): User {
         if (userRepository.existsByLoginId(loginId)) {
-            throw UserException.duplicateLoginId(loginId)
+            throw UserException.duplicateLoginId()
         }
 
         Password.validate(rawPassword, birthDate)

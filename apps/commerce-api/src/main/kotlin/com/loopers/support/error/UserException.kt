@@ -25,10 +25,7 @@ class UserException private constructor(
 
         fun passwordContainsBirthDate() = UserException(UserErrorCode.PASSWORD_CONTAINS_BIRTH_DATE)
 
-        fun duplicateLoginId(loginId: String) = UserException(
-            UserErrorCode.DUPLICATE_LOGIN_ID,
-            "이미 사용 중인 로그인 ID입니다: $loginId",
-        )
+        fun duplicateLoginId() = UserException(UserErrorCode.DUPLICATE_LOGIN_ID)
 
         fun invalidCurrentPassword() = UserException(UserErrorCode.INVALID_CURRENT_PASSWORD)
 
