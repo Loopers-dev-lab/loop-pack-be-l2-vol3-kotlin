@@ -15,7 +15,7 @@ class MemberCommand {
     )
 
     data class ChangePassword(
-        val loginId: String,
+        val memberId: Long,
         val currentPassword: String,
         val newPassword: String,
     )

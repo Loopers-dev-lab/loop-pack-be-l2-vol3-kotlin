@@ -230,6 +230,7 @@ class MemberServiceTest {
         @Test
         fun encryptsNewPassword_whenValidInfoIsProvided() {
             // arrange
+            val memberId = 1L
             val oldPassword = "OldPass123!"
             val newPassword = "NewPass456!"
             val encodedOldPassword = passwordEncoder.encode(oldPassword)
@@ -242,12 +243,12 @@ class MemberServiceTest {
             )
 
             val command = MemberCommand.ChangePassword(
-                loginId = member.loginId,
+                memberId = memberId,
                 currentPassword = oldPassword,
                 newPassword = newPassword,
             )
 
-            whenever(memberRepository.findByLoginId(command.loginId)).thenReturn(member)
+            whenever(memberRepository.findById(command.memberId)).thenReturn(member)
 
             // act
             memberService.changePassword(command)
@@ -257,17 +258,17 @@ class MemberServiceTest {
             assertThat(passwordEncoder.matches(newPassword, member.password)).isTrue()
         }
 
-        @DisplayName("존재하지 않는 회원이면, UNAUTHORIZED 예외가 발생한다.")
+        @DisplayName("존재하지 않는 회원이면, NOT_FOUND 예외가 발생한다.")
         @Test
-        fun throwsUnauthorized_whenMemberDoesNotExist() {
+        fun throwsNotFound_whenMemberDoesNotExist() {
             // arrange
             val command = MemberCommand.ChangePassword(
-                loginId = "nonexistent",
+                memberId = 999L,
                 currentPassword = "OldPass123!",
                 newPassword = "NewPass456!",
             )
 
-            whenever(memberRepository.findByLoginId(command.loginId)).thenReturn(null)
+            whenever(memberRepository.findById(command.memberId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -275,13 +276,14 @@ class MemberServiceTest {
             }
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
         @DisplayName("기존 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
         @Test
         fun throwsUnauthorized_whenCurrentPasswordDoesNotMatch() {
             // arrange
+            val memberId = 1L
             val encodedPassword = passwordEncoder.encode("CorrectPass1!")
             val member = MemberModel(
                 loginId = "testuser",
@@ -292,12 +294,12 @@ class MemberServiceTest {
             )
 
             val command = MemberCommand.ChangePassword(
-                loginId = "testuser",
+                memberId = memberId,
                 currentPassword = "WrongPass123!",
                 newPassword = "NewPass456!",
             )
 
-            whenever(memberRepository.findByLoginId(command.loginId)).thenReturn(member)
+            whenever(memberRepository.findById(command.memberId)).thenReturn(member)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -312,6 +314,7 @@ class MemberServiceTest {
         @Test
         fun throwsBadRequest_whenNewPasswordIsSameAsCurrent() {
             // arrange
+            val memberId = 1L
             val currentPassword = "Test1234!"
             val encodedPassword = passwordEncoder.encode(currentPassword)
             val member = MemberModel(
@@ -323,12 +326,12 @@ class MemberServiceTest {
             )
 
             val command = MemberCommand.ChangePassword(
-                loginId = "testuser",
+                memberId = memberId,
                 currentPassword = currentPassword,
                 newPassword = currentPassword,
             )
 
-            whenever(memberRepository.findByLoginId(command.loginId)).thenReturn(member)
+            whenever(memberRepository.findById(command.memberId)).thenReturn(member)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -343,6 +346,7 @@ class MemberServiceTest {
         @Test
         fun throwsBadRequest_whenNewPasswordContainsBirthDate() {
             // arrange
+            val memberId = 1L
             val oldPassword = "OldPass123!"
             val birthDate = "19900101"
             val encodedPassword = passwordEncoder.encode(oldPassword)
@@ -355,12 +359,12 @@ class MemberServiceTest {
             )
 
             val command = MemberCommand.ChangePassword(
-                loginId = "testuser",
+                memberId = memberId,
                 currentPassword = oldPassword,
                 newPassword = "Test$birthDate!",
             )
 
-            whenever(memberRepository.findByLoginId(command.loginId)).thenReturn(member)
+            whenever(memberRepository.findById(command.memberId)).thenReturn(member)
 
             // act
             val exception = assertThrows<CoreException> {

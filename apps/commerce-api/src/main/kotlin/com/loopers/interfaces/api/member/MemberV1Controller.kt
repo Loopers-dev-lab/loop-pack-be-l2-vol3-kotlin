@@ -42,7 +42,7 @@ class MemberV1Controller(
         @AuthenticatedMember memberInfo: MemberInfo,
         @RequestBody request: MemberV1Dto.ChangePasswordRequest,
     ): ApiResponse<Unit> {
-        memberFacade.changePassword(request.toCommand(memberInfo.loginId))
+        memberFacade.changePassword(request.toCommand(memberInfo.id))
         return ApiResponse.success(Unit)
     }
 }

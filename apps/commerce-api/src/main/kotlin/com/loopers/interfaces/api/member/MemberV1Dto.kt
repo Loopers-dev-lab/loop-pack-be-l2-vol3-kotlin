@@ -64,9 +64,9 @@ class MemberV1Dto {
         val currentPassword: String,
         val newPassword: String,
     ) {
-        fun toCommand(loginId: String): MemberCommand.ChangePassword {
+        fun toCommand(memberId: Long): MemberCommand.ChangePassword {
             return MemberCommand.ChangePassword(
-                loginId = loginId,
+                memberId = memberId,
                 currentPassword = currentPassword,
                 newPassword = newPassword,
             )
