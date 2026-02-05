@@ -1,6 +1,6 @@
 package com.loopers.domain.user
 
-data class Password (val value: String) {
+data class Password(val value: String) {
 
     init {
         require(value.matches(Regex("^[a-zA-Z0-9!@#\$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]{8,16}\$"))) {
