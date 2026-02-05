@@ -1,0 +1,281 @@
+package com.loopers.domain.user
+
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.spyk
+import io.mockk.verify
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.springframework.security.crypto.password.PasswordEncoder
+import java.time.LocalDate
+
+class UserServiceUnitTest {
+
+    // Setup
+    private val mockRepository = mockk<UserRepository>()
+    private val mockPasswordEncoder = mockk<PasswordEncoder>()
+    private val spyPasswordEncoder = spyk<PasswordEncoder>()
+
+    private val userService = UserService(mockRepository, mockPasswordEncoder)
+    private val userServiceWithSpy = UserService(mockRepository, spyPasswordEncoder)
+
+    @Test
+    fun `createUser() throws CoreException(CONFLICT) when userId already exists`() {
+        // Arrange
+        val userId = "duplicateUser"
+        every { mockRepository.existsByUserId(userId) } returns true
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser(userId, "password123!", "User2", LocalDate.now(),
+                "duplicateUser@example.com")
+        }
+
+        // Assert
+        verify(exactly = 0) { mockRepository.save(any()) }
+        assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+    }
+
+    @Test
+    fun `createUser() throws CoreException(BAD_REQUEST) when password is too short`() {
+        // Arrange
+        val shortPassword = "pass123" // 7 chars (< 8)
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("testUser", shortPassword, "홍길동", LocalDate.now(),
+                "test@example.com")
+        }
+
+        // Assert
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("8~16자")
+    }
+
+    @Test
+    fun `createUser() throws CoreException when password is too long`() {
+        // Arrange
+        val shortPassword = "password123456789!" // 18 chars (> 16)
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("testUser", shortPassword, "홍길동", LocalDate.now(),
+                "test@example.com")
+        }
+
+        // Assert
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("8~16자")
+    }
+
+    @Test
+    fun `createUser() accept with exact 8 characters`() {
+        // Arrange
+        val shortPassword = "pass1234" // 8 chars
+        every { mockRepository.existsByUserId(any()) } returns false
+        every { mockPasswordEncoder.encode(any()) } returns "hashedPassword"
+        every { mockRepository.save(any()) } returns createMockUser(userId = "testId", encryptedPassword = "hashedPassword")
+
+        // Act
+        val user = userService.createUser(
+            "testUser", shortPassword, "홍길동", LocalDate.now(),
+            "test@example.com"
+        )
+
+        // Assert
+        assertThat(user).isNotNull
+    }
+
+    @Test
+    fun `createUser() accept with exact 16 characters`() {
+        // Arrange
+        val password = "password12345678" // 16 chars
+        every { mockRepository.existsByUserId(any()) } returns false
+        every { mockPasswordEncoder.encode(any()) } returns "hashedPassword"
+        every { mockRepository.save(any()) } returns createMockUser(userId = "testId", encryptedPassword = "hashedPassword")
+
+        // Act
+        val user = userService.createUser(
+            "testUser", password, "testName", LocalDate.now(),
+            "test@example.com"
+        )
+
+        // Assert
+        assertThat(user).isNotNull
+    }
+
+    @Test
+    fun `createUser() throws CoreException when password contains birthDate in yyyyMMdd format`() {
+        // Arrange
+        val birthDate = LocalDate.of(1990, 1, 1)
+        val password = "pass19900101" // contains 19900101
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("testUser", password, "testName", birthDate,
+                "test@example.com")
+        }
+
+        // Assert
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("생년월일")
+    }
+
+    @Test
+    fun `createUser() throws CoreException when password contains birthDate in yyMMdd format`() {
+        // Arrange
+        val birthDate = LocalDate.of(1990, 1, 1)
+        val password = "pass900101abc" // contains 900101
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("testUser", password, "testName", birthDate,
+                "test@example.com")
+        }
+
+        // Assert
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("생년월일")
+    }
+
+    @Test
+    fun `createUser() throws CoreException when password contains birthDate in MMdd format`() {
+        // Arrange
+        val birthDate = LocalDate.of(1990, 1, 1)
+        val password = "password0101" // contains 0101
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("testUser", password, "testName", birthDate,
+                "test@example.com")
+        }
+
+        // Assert
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("생년월일")
+    }
+
+    @Test
+    fun `createUser() should accept password that does not contain birthDate`() {
+        // Arrange
+        val birthDate = LocalDate.of(1990, 1, 1)
+        val password = "safePassword!" // does not contain any birthDate format
+        every { mockRepository.existsByUserId(any()) } returns false
+        every { mockPasswordEncoder.encode(any()) } returns "hashedPassword"
+        every { mockRepository.save(any()) } returns createMockUser(userId = "testId", encryptedPassword = "hashedPassword")
+
+        // Act
+        val user = userService.createUser("testUser", password, "testName", birthDate,
+            "test@example.com")
+
+        // Assert
+        assertThat(user).isNotNull
+    }
+
+    @Test
+    fun `createUser() throws CoreException when email format is invalid`() {
+        // Arrange
+        val invalidEmail = "invalid-email-format" // no @
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("testUser", "password123!", "testName", LocalDate.now(),
+                invalidEmail)
+        }
+
+        // Assert
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("이메일")
+    }
+
+    @Test
+    fun `createUser() should accept valid email format`() {
+        // Arrange
+        val validEmail = "test@email.com"
+        every { mockRepository.existsByUserId(any()) } returns false
+        every { mockPasswordEncoder.encode(any()) } returns "hashedPassword"
+        every { mockRepository.save(any()) } returns createMockUser(userId = "testId", encryptedPassword = "hashedPassword")
+
+        // Act
+        val user = userService.createUser("testUser", "password123!", "testName",
+            LocalDate.now(), validEmail)
+
+        // Assert
+        assertThat(user.email).isEqualTo(validEmail)
+    }
+
+    @Test
+    fun `getUserByUserId() throws CoreException when User is not found`() {
+        // Arrange
+        every { mockRepository.findByUserId("nonExistentUser") } returns null
+
+        // Act
+
+        // Assert
+        assertThrows<CoreException> {
+            userService.getUserByUserId("nonExistentUser")
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @Test
+    fun `authenticate() throws exception with wrong password`() {
+        // Arrange
+        val userId = "testId"
+        val existingUser = createMockUser(userId = userId, encryptedPassword = "hashedPassword")
+        every { mockRepository.findByUserId(userId) } returns existingUser
+        every { spyPasswordEncoder.matches("wrongPassword", "hashedPassword") } returns false
+
+        // Act
+
+        // Assert
+        assertThrows<CoreException> {
+            userServiceWithSpy.authenticate(userId, "wrongPassword")
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+        verify { spyPasswordEncoder.matches("wrongPassword", "hashedPassword") }
+    }
+
+    @Test
+    fun `authenticate() throws exception with non-existing User`() {
+        // Arrange
+        every { mockRepository.findByUserId("nonExistUser") } returns null
+
+        // Act
+
+        // Assert
+        assertThrows<CoreException> {
+            userService.authenticate("nonExistUser", "wrongPassword")
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+        verify(exactly = 0) { mockPasswordEncoder.matches(any(), any()) }
+    }
+
+    private fun createMockUser(
+        userId: String = "testUser",
+        encryptedPassword: String = "hashedPassword",
+        name: String = "testName",
+        birthDate: LocalDate = LocalDate.of(2026, 1, 1),
+        email: String = "test@email.com"
+    ): UserModel {
+        return UserModel(
+            userId = userId,
+            encryptedPassword = encryptedPassword,
+            name = name,
+            birthDate = birthDate,
+            email = email
+        )
+    }
+}

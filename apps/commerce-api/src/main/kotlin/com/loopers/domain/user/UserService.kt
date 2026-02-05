@@ -39,7 +39,7 @@ class UserService(
         validateEmail(email)
         validatePassword(password, birthDate)
 
-        // 비밀번호화 적용
+        // 비밀번호 암호화 적용
         val encryptedPassword = passwordEncoder.encode(password)
 
         // 사용자 생성
