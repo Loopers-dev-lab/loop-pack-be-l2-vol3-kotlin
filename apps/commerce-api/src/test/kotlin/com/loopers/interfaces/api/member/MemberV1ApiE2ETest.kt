@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.time.LocalDate
@@ -23,9 +24,46 @@ class MemberV1ApiE2ETest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
+    // java의 static => 클래스와 동행하는 유일한 오브젝트(런타임시 변수가 할당된다)
+    companion object {
+        private const val TEST_LOGIN_ID = "testuser1"
+        private const val TEST_PASSWORD = "Password1!"
+        private const val TEST_NAME = "홍길동"
+        private const val TEST_EMAIL = "test@example.com"
+        private val TEST_BIRTH_DATE: LocalDate = LocalDate.of(1990, 1, 15)
+    }
+
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+    }
+
+    private fun createTestMember(
+        loginId: String = TEST_LOGIN_ID,
+        password: String = TEST_PASSWORD,
+    ): MemberV1Dto.SignUpResponse {
+        val request = MemberV1Dto.SignUpRequest(
+            loginId = loginId,
+            password = password,
+            name = TEST_NAME,
+            birthDate = TEST_BIRTH_DATE,
+            email = TEST_EMAIL,
+        )
+        val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.SignUpResponse>>() {}
+        val response = testRestTemplate.exchange(
+            "/api/v1/members/signup",
+            HttpMethod.POST,
+            HttpEntity(request),
+            responseType,
+        )
+        return response.body!!.data!!
+    }
+
+    private fun createAuthHeaders(loginId: String, password: String): HttpHeaders {
+        return HttpHeaders().apply {
+            set("X-Loopers-LoginId", loginId)
+            set("X-Loopers-LoginPw", password)
+        }
     }
 
     @DisplayName("POST /api/v1/members/signup")
@@ -174,6 +212,80 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+    }
+
+    @DisplayName("GET /api/v1/members/me")
+    @Nested
+    inner class GetMyInfo {
+
+        @DisplayName("인증 헤더가 유효한 경우, 내 정보를 반환한다.")
+        @Test
+        fun returnsMyInfo_whenAuthHeadersAreValid() {
+            // arrange
+            createTestMember()
+            val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberInfoResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me",
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.loginId).isEqualTo(TEST_LOGIN_ID) },
+                { assertThat(response.body?.data?.name).isEqualTo(TEST_NAME) },
+                { assertThat(response.body?.data?.email).isEqualTo(TEST_EMAIL) },
+                { assertThat(response.body?.data?.birthDate).isEqualTo(TEST_BIRTH_DATE) },
+            )
+        }
+
+        @DisplayName("로그인 ID가 존재하지 않는 경우, 401 UNAUTHORIZED 응답을 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenLoginIdNotFound() {
+            // arrange
+            val headers = createAuthHeaders("nonexistent", TEST_PASSWORD)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberInfoResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me",
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+            )
+        }
+
+        @DisplayName("비밀번호가 일치하지 않는 경우, 401 UNAUTHORIZED 응답을 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenPasswordNotMatch() {
+            // arrange
+            createTestMember()
+            val headers = createAuthHeaders(TEST_LOGIN_ID, "WrongPassword1!")
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberInfoResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me",
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
             )
         }
     }
