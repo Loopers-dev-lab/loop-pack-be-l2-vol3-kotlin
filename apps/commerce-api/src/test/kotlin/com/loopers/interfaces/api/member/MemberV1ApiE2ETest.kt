@@ -236,11 +236,11 @@ class MemberV1ApiE2ETest @Autowired constructor(
                 responseType,
             )
 
-            // assert
+            // assert (이름은 마지막 글자 마스킹된 값만 반환)
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.loginId).isEqualTo(TEST_LOGIN_ID) },
-                { assertThat(response.body?.data?.name).isEqualTo(TEST_NAME) },
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
                 { assertThat(response.body?.data?.email).isEqualTo(TEST_EMAIL) },
                 { assertThat(response.body?.data?.birthDate).isEqualTo(TEST_BIRTH_DATE) },
             )
