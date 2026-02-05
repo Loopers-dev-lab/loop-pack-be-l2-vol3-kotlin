@@ -1,11 +1,7 @@
 package com.loopers.interfaces.api
 
-import com.loopers.domain.member.MemberModel
-import com.loopers.domain.member.vo.BirthDate
-import com.loopers.domain.member.vo.Email
-import com.loopers.domain.member.vo.LoginId
-import com.loopers.domain.member.vo.Name
 import com.loopers.domain.member.vo.Password
+import com.loopers.infrastructure.member.MemberEntity
 import com.loopers.infrastructure.member.MemberJpaRepository
 import com.loopers.interfaces.api.member.MemberV1Dto
 import com.loopers.utils.DatabaseCleanUp
@@ -42,7 +38,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun `내_정보_조회에_성공한다`() {
             // arrange
-            createAndSaveMember(loginId = "myuser", rawPassword = "Password1!", name = "홍길동")
+            createAndSaveMemberEntity(loginId = "myuser", rawPassword = "Password1!", name = "홍길동")
             val headers = HttpHeaders().apply {
                 set("X-Loopers-LoginId", "myuser")
                 set("X-Loopers-LoginPw", "Password1!")
@@ -87,7 +83,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun `이름의_마지막_글자가_마스킹되어_반환된다`() {
             // arrange
-            createAndSaveMember(loginId = "maskuser", rawPassword = "Password1!", name = "김철수")
+            createAndSaveMemberEntity(loginId = "maskuser", rawPassword = "Password1!", name = "김철수")
             val headers = HttpHeaders().apply {
                 set("X-Loopers-LoginId", "maskuser")
                 set("X-Loopers-LoginPw", "Password1!")
@@ -113,7 +109,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun `비밀번호_변경에_성공한다`() {
             // arrange
-            createAndSaveMember(loginId = "pwuser", rawPassword = "OldPassword1!")
+            createAndSaveMemberEntity(loginId = "pwuser", rawPassword = "OldPassword1!")
             val request = MemberV1Dto.ChangePasswordRequest(
                 currentPassword = "OldPassword1!",
                 newPassword = "NewPassword1!",
@@ -138,15 +134,16 @@ class MemberV1ApiE2ETest @Autowired constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 
             // 새 비밀번호로 인증 가능한지 확인
-            val updatedMember = memberJpaRepository.findByLoginId(LoginId("pwuser"))
-            assertThat(updatedMember?.password?.matches("NewPassword1!")).isTrue()
+            val updatedEntity = memberJpaRepository.findByLoginId("pwuser")
+            val updatedPassword = Password.fromEncoded(updatedEntity!!.password)
+            assertThat(updatedPassword.matches("NewPassword1!")).isTrue()
         }
 
         @Test
         fun `현재_비밀번호와_동일하면_400을_반환한다`() {
             // arrange
             val samePassword = "SamePassword1!"
-            createAndSaveMember(loginId = "pwuser2", rawPassword = samePassword)
+            createAndSaveMemberEntity(loginId = "pwuser2", rawPassword = samePassword)
             val request = MemberV1Dto.ChangePasswordRequest(
                 currentPassword = samePassword,
                 newPassword = samePassword,
@@ -174,7 +171,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun `인증_실패하면_401을_반환한다`() {
             // arrange
-            createAndSaveMember(loginId = "pwuser3", rawPassword = "Password1!")
+            createAndSaveMemberEntity(loginId = "pwuser3", rawPassword = "Password1!")
             val request = MemberV1Dto.ChangePasswordRequest(
                 currentPassword = "WrongPassword1!",
                 newPassword = "NewPassword1!",
@@ -200,19 +197,20 @@ class MemberV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    private fun createAndSaveMember(
+    private fun createAndSaveMemberEntity(
         loginId: String = "testuser123",
         rawPassword: String = "Password1!",
         name: String = "홍길동",
         birthDate: LocalDate = LocalDate.of(1990, 1, 15),
-    ): MemberModel {
+        email: String = "test@example.com",
+    ): MemberEntity {
         return memberJpaRepository.save(
-            MemberModel(
-                loginId = LoginId(loginId),
-                password = Password.of(rawPassword, birthDate),
-                name = Name(name),
-                birthDate = BirthDate(birthDate),
-                email = Email("test@example.com"),
+            MemberEntity(
+                loginId = loginId,
+                password = Password.of(rawPassword, birthDate).value,
+                name = name,
+                birthDate = birthDate,
+                email = email,
             ),
         )
     }
