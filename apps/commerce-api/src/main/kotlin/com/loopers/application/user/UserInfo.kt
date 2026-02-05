@@ -14,7 +14,7 @@ data class UserInfo(
             return UserInfo(
                 id = model.id,
                 loginId = model.loginId.value,
-                name = model.name.value,
+                name = model.name.masked(),
                 birthDate = model.birthDate.value,
                 email = model.email.value,
             )
