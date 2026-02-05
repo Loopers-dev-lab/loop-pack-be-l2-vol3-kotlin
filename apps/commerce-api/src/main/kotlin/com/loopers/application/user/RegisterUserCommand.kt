@@ -7,4 +7,7 @@ data class RegisterUserCommand(
     val birthDate: String,
     val email: String,
     val gender: String,
-)
+) {
+    override fun toString(): String =
+        "RegisterUserCommand(loginId=$loginId, password=****, name=$name, birthDate=$birthDate, email=$email, gender=$gender)"
+}

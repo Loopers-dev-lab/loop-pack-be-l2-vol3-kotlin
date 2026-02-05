@@ -57,7 +57,10 @@ class ChangePasswordUseCaseIntegrationTest {
 
         changePasswordUseCase.execute(userId, command)
 
-        val user = userRepository.findByLoginId(LoginId(LOGIN_ID))!!
+        val user = requireNotNull(userRepository.findByLoginId(LoginId(LOGIN_ID))) {
+            "사용자 조회 실패"
+        }
+
         assertThat(user.password.matches(NEW_PASSWORD, passwordEncoder)).isTrue()
     }
 

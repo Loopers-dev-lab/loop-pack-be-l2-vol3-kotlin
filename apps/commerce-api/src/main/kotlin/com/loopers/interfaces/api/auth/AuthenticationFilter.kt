@@ -45,8 +45,12 @@ class AuthenticationFilter(
             return null
         }
 
+        val id = requireNotNull(user.persistenceId) {
+            "DB에서 조회한 User의 persistenceId가 null입니다. loginId=${user.loginId.value}"
+        }
+
         return AuthUser(
-            id = user.persistenceId!!,
+            id = id,
             loginId = user.loginId.value,
         )
     }
