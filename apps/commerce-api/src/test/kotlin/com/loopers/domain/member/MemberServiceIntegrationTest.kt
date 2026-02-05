@@ -203,7 +203,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
             val newPassword = "NewPass1!"
 
             // act
-            memberService.changePassword(validLoginId, newPassword)
+            memberService.changePassword(validLoginId, validPassword, newPassword)
 
             // assert
             val member = memberJpaRepository.findByLoginId(validLoginId)!!
@@ -224,23 +224,23 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
             // act
             val result = assertThrows<CoreException> {
-                memberService.changePassword(validLoginId, validPassword)
+                memberService.changePassword(validLoginId, validPassword, validPassword)
             }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
-        @DisplayName("존재하지 않는 회원의 비밀번호를 변경하면, NOT_FOUND 예외가 발생한다.")
+        @DisplayName("존재하지 않는 회원의 비밀번호를 변경하면, UNAUTHORIZED 예외가 발생한다.")
         @Test
-        fun throwsNotFound_whenMemberDoesNotExist() {
+        fun throwsUnauthorized_whenMemberDoesNotExist() {
             // act
             val result = assertThrows<CoreException> {
-                memberService.changePassword("nonexistent", "NewPass1!")
+                memberService.changePassword("nonexistent", "anything", "NewPass1!")
             }
 
             // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(result.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
     }
 }

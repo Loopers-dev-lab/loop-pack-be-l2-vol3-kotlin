@@ -30,7 +30,6 @@ class MemberFacade(
     }
 
     fun changePassword(loginId: String, password: String, newPassword: String) {
-        memberService.authenticate(loginId, password)
-        memberService.changePassword(loginId, newPassword)
+        memberService.changePassword(loginId, password, newPassword)
     }
 }
