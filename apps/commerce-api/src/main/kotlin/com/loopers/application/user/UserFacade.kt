@@ -26,6 +26,10 @@ class UserFacade(
         return toUserInfo(user)
     }
 
+    fun getMyInfo(user: User): UserInfo {
+        return toUserInfo(user)
+    }
+
     private fun toUserInfo(user: User): UserInfo {
         return UserInfo(
             loginId = user.loginId,

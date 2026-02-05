@@ -1,9 +1,12 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.application.user.UserFacade
+import com.loopers.domain.user.User
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.auth.CurrentUser
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -28,6 +31,12 @@ class UserV1Controller(
             birthDate = request.toBirthDate(),
             email = request.email,
         )
+        return ApiResponse.success(UserV1Dto.UserResponse.from(userInfo))
+    }
+
+    @GetMapping("/me")
+    override fun getMe(@CurrentUser user: User): ApiResponse<UserV1Dto.UserResponse> {
+        val userInfo = userFacade.getMyInfo(user)
         return ApiResponse.success(UserV1Dto.UserResponse.from(userInfo))
     }
 }

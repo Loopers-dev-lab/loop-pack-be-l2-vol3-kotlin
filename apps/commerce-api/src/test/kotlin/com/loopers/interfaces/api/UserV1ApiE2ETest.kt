@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 
@@ -25,6 +26,9 @@ class UserV1ApiE2ETest @Autowired constructor(
 ) {
     companion object {
         private const val REGISTER_ENDPOINT = "/api/v1/users"
+        private const val ME_ENDPOINT = "/api/v1/users/me"
+        private const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
+        private const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
     }
 
     @AfterEach
@@ -61,7 +65,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED) },
                 { assertThat(response.body?.data?.loginId).isEqualTo("testuser") },
-                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },  // 마스킹 확인
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") }, // 마스킹 확인
                 { assertThat(response.body?.data?.email).isEqualTo("test@example.com") },
             )
 
@@ -172,6 +176,109 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+    }
+
+    @DisplayName("GET /api/v1/users/me - 내 정보 조회")
+    @Nested
+    inner class GetMe {
+
+        @DisplayName("정상 인증 시 200 OK와 마스킹된 사용자 정보를 반환한다.")
+        @Test
+        fun success() {
+            // arrange - 회원가입
+            val loginId = "testuser"
+            val password = "Test123!"
+            val registerRequest = UserV1Dto.RegisterRequest(
+                loginId = loginId,
+                password = password,
+                name = "홍길동",
+                birthDate = "1990-01-01",
+                email = "test@example.com",
+            )
+            testRestTemplate.postForEntity(REGISTER_ENDPOINT, registerRequest, Any::class.java)
+
+            // act - 내 정보 조회
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, loginId)
+                set(HEADER_LOGIN_PW, password)
+            }
+            val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
+            val response = testRestTemplate.exchange(
+                ME_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.loginId).isEqualTo("testuser") },
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
+                { assertThat(response.body?.data?.birthDate).isEqualTo("1990-01-01") },
+                { assertThat(response.body?.data?.email).isEqualTo("test@example.com") },
+            )
+        }
+
+        @DisplayName("인증 헤더 누락 시 401 UNAUTHORIZED를 반환한다.")
+        @Test
+        fun failWhenHeaderMissing() {
+            // act - 헤더 없이 요청
+            val response = testRestTemplate.getForEntity(ME_ENDPOINT, ApiResponse::class.java)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+
+        @DisplayName("잘못된 비밀번호 시 401 UNAUTHORIZED를 반환한다.")
+        @Test
+        fun failWhenPasswordNotMatched() {
+            // arrange - 회원가입
+            val loginId = "testuser"
+            val password = "Test123!"
+            val registerRequest = UserV1Dto.RegisterRequest(
+                loginId = loginId,
+                password = password,
+                name = "홍길동",
+                birthDate = "1990-01-01",
+                email = "test@example.com",
+            )
+            testRestTemplate.postForEntity(REGISTER_ENDPOINT, registerRequest, Any::class.java)
+
+            // act - 잘못된 비밀번호로 조회
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, loginId)
+                set(HEADER_LOGIN_PW, "WrongPassword!")
+            }
+            val response = testRestTemplate.exchange(
+                ME_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                ApiResponse::class.java,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+
+        @DisplayName("존재하지 않는 사용자 시 401 UNAUTHORIZED를 반환한다.")
+        @Test
+        fun failWhenUserNotFound() {
+            // act - 존재하지 않는 사용자로 조회
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "nonexistent")
+                set(HEADER_LOGIN_PW, "Test123!")
+            }
+            val response = testRestTemplate.exchange(
+                ME_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                ApiResponse::class.java,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
     }
 }

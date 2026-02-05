@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.domain.user.User
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -9,4 +10,7 @@ interface UserV1ApiSpec {
 
     @Operation(summary = "회원가입", description = "새로운 회원을 등록합니다.")
     fun register(request: UserV1Dto.RegisterRequest): ApiResponse<UserV1Dto.UserResponse>
+
+    @Operation(summary = "내 정보 조회", description = "현재 로그인한 사용자의 정보를 조회합니다.")
+    fun getMe(user: User): ApiResponse<UserV1Dto.UserResponse>
 }
