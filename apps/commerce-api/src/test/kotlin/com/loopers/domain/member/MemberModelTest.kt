@@ -321,6 +321,25 @@ class MemberModelTest {
     @DisplayName("이름 마스킹 기능을 사용할 때, ")
     @Nested
     inner class GetMaskedName {
+        @DisplayName("1글자 이름은 '김' → '*' 형식으로 마스킹된다.")
+        @Test
+        fun masksNameWithOneCharacter() {
+            // arrange
+            val member = MemberModel(
+                loginId = "testuser123",
+                password = "Test1234!@#",
+                name = "김",
+                email = "test@example.com",
+                birthDate = LocalDate.of(1990, 1, 1),
+            )
+
+            // act
+            val maskedName = member.getMaskedName()
+
+            // assert
+            assertThat(maskedName).isEqualTo("*")
+        }
+
         @DisplayName("2글자 이름은 '홍길' → '홍*' 형식으로 마스킹된다.")
         @Test
         fun masksNameWithTwoCharacters() {
