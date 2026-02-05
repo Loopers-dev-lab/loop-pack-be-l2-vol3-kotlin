@@ -41,7 +41,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
     private fun createTestMember(
         loginId: String = TEST_LOGIN_ID,
         password: String = TEST_PASSWORD,
-    ): MemberV1Dto.SignUpResponse {
+    ) {
         val request = MemberV1Dto.SignUpRequest(
             loginId = loginId,
             password = password,
@@ -49,14 +49,13 @@ class MemberV1ApiE2ETest @Autowired constructor(
             birthDate = TEST_BIRTH_DATE,
             email = TEST_EMAIL,
         )
-        val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.SignUpResponse>>() {}
-        val response = testRestTemplate.exchange(
+        val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+        testRestTemplate.exchange(
             "/api/v1/members/signup",
             HttpMethod.POST,
             HttpEntity(request),
             responseType,
         )
-        return response.body!!.data!!
     }
 
     private fun createAuthHeaders(loginId: String, password: String): HttpHeaders {
@@ -70,9 +69,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
     @Nested
     inner class SignUp {
 
-        @DisplayName("회원 가입이 성공할 경우, 생성된 유저 정보를 응답으로 반환한다.")
+        @DisplayName("회원 가입이 성공할 경우, 200 OK 응답을 반환한다.")
         @Test
-        fun returnsCreatedUserInfo_whenSignUpSucceeds() {
+        fun returnsOk_whenSignUpSucceeds() {
             // arrange
             val request = MemberV1Dto.SignUpRequest(
                 loginId = "testuser1",
@@ -83,7 +82,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.SignUpResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "/api/v1/members/signup",
                 HttpMethod.POST,
@@ -94,8 +93,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data?.loginId).isEqualTo(request.loginId) },
-                { assertThat(response.body?.data?.id).isNotNull() },
+                { assertThat(response.body?.data).isNull() },
             )
         }
 
@@ -112,7 +110,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
 
             // 먼저 한 번 가입
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.SignUpResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             testRestTemplate.exchange(
                 "/api/v1/members/signup",
                 HttpMethod.POST,
@@ -147,7 +145,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.SignUpResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "/api/v1/members/signup",
                 HttpMethod.POST,
@@ -174,7 +172,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.SignUpResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "/api/v1/members/signup",
                 HttpMethod.POST,
@@ -201,7 +199,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.SignUpResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "/api/v1/members/signup",
                 HttpMethod.POST,

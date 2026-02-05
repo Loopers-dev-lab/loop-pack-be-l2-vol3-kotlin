@@ -35,10 +35,9 @@ class MemberV1Controller(
     @PostMapping("/signup")
     fun signUp(
         @RequestBody request: MemberV1Dto.SignUpRequest,
-    ): ApiResponse<MemberV1Dto.SignUpResponse> {
-        return memberService.signUp(request.toCommand())
-            .let { MemberV1Dto.SignUpResponse.from(it) }
-            .let { ApiResponse.success(it) }
+    ): ApiResponse<Any> {
+        memberService.signUp(request.toCommand())
+        return ApiResponse.success()
     }
 
     @Operation(summary = "내 정보 조회", description = "인증된 사용자의 정보를 조회합니다.")

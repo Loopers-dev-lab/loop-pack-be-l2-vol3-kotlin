@@ -31,23 +31,6 @@ class MemberV1Dto {
         }
     }
 
-    @Schema(description = "회원가입 응답")
-    data class SignUpResponse(
-        @Schema(description = "회원 ID", example = "1")
-        val id: Long,
-        @Schema(description = "로그인 ID", example = "testuser1")
-        val loginId: String,
-    ) {
-        companion object {
-            fun from(member: Member): SignUpResponse {
-                return SignUpResponse(
-                    id = member.id,
-                    loginId = member.loginId,
-                )
-            }
-        }
-    }
-
     @Schema(description = "회원 정보 응답")
     data class MemberInfoResponse(
         @Schema(description = "로그인 ID", example = "testuser1")
