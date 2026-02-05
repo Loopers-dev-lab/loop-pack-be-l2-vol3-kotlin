@@ -103,4 +103,23 @@ class UserTest {
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @DisplayName("유저 비밀번호를 검증할 때, ")
+    @Nested
+    inner class MatchPassword {
+        @DisplayName("비밀번호가 다르면, false를 리턴한다.")
+        @Test
+        fun returnFalse_whenPasswordNotMatched() {
+            // arrange
+            val password = "abcd1234"
+            val wrongPassword = "abcd1235"
+            val user = User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com")
+
+            // act
+            val result = user.matchPassword(wrongPassword)
+
+            // assert
+            assertThat(result).isEqualTo(false)
+        }
+    }
 }

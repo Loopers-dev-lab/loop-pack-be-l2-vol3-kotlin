@@ -15,4 +15,8 @@ class UserRepositoryImpl(
     override fun existsByLoginId(loginId: String): Boolean {
         return userJpaRepository.existsByLoginId(loginId)
     }
+
+    override fun findByLoginId(loginId: String): User? {
+        return userJpaRepository.findByLoginId(loginId)
+    }
 }

@@ -11,15 +11,15 @@ class UserV1Dto {
         val email: String,
     )
 
-    data class RegisterUserResponse(
+    data class UserResponse(
         val loginId: String,
         val name: String,
         val birth: String,
         val email: String,
     ) {
         companion object {
-            fun from(user: UserInfo): RegisterUserResponse {
-                return RegisterUserResponse(
+            fun from(user: UserInfo): UserResponse {
+                return UserResponse(
                     loginId = user.loginId,
                     name = user.name,
                     birth = user.birth,

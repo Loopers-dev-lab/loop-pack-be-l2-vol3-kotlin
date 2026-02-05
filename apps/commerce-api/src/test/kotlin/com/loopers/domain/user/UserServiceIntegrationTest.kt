@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -53,6 +54,59 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.CONFLICT)
+        }
+    }
+
+    @DisplayName("회원 정보 조회시, ")
+    @Nested
+    inner class GetUser {
+        @DisplayName("해당 로그인 ID의 회원이 존재할 경우, 회원 정보가 반환된다.")
+        @Test
+        fun getUser_whenLoginIdExists() {
+            // arrange
+            val password = "abcd1234"
+            val user  = userJpaRepository.save(User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com"))
+
+            // act
+            val result = userService.getUserByLoginIdAndPassword(user.loginId, password)
+
+            // assert
+            assertAll(
+                { assertThat(result).isNotNull() },
+                { assertThat(result?.loginId).isEqualTo(user.loginId) },
+                { assertThat(result?.name).isEqualTo(user.name) },
+                { assertThat(result?.birth).isEqualTo(user.birth) },
+                { assertThat(result?.email).isEqualTo(user.email) },
+            )
+        }
+
+        @DisplayName("해당 로그인 ID의 회원이 존재하지 않을 경우, Null이 반환된다.")
+        @Test
+        fun returnNull_whenLoginIdNotExists() {
+            // arrange
+            val loginId = "testId"
+            val password = "abcd1234"
+
+            // act
+            val result = userService.getUserByLoginIdAndPassword(loginId, password)
+
+            // assert
+            assertThat(result).isNull()
+        }
+
+        @DisplayName("해당 로그인 ID의 회원 비밀번호가 틀릴 경우, Null이 반환된다.")
+        @Test
+        fun returnNull_whenPasswordNotMatched() {
+            // arrange
+            val password = "abcd1234"
+            val wrongPassword = "abcd1235"
+            val user = userJpaRepository.save(User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com"))
+
+            // act
+            val result = userService.getUserByLoginIdAndPassword(user.loginId, wrongPassword)
+
+            // assert
+            assertThat(result).isNull()
         }
     }
 }

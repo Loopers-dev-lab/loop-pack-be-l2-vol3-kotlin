@@ -43,6 +43,10 @@ class User(
         if (!validateEmail(email)) throw CoreException(ErrorType.BAD_REQUEST, "invalid email")
     }
 
+    fun matchPassword(password: String): Boolean {
+        return encryptPassword(password).contentEquals(this.password)
+    }
+
     companion object {
         private fun encryptPassword(password: String): String {
             return MessageDigest.getInstance("SHA-256")

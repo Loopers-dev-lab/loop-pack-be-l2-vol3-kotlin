@@ -21,4 +21,12 @@ class UserService(
 
         return userRepository.save(User(loginId, password, name, birth, email))
     }
+
+    fun getUserByLoginIdAndPassword(loginId: String, password: String): User? {
+        val user = userRepository.findByLoginId(loginId)
+
+        if (user == null || !user.matchPassword(password)) return null
+
+        return user
+    }
 }
