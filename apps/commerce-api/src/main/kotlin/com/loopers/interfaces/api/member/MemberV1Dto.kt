@@ -59,4 +59,17 @@ class MemberV1Dto {
             }
         }
     }
+
+    data class ChangePasswordRequest(
+        val currentPassword: String,
+        val newPassword: String,
+    ) {
+        fun toCommand(loginId: String): MemberCommand.ChangePassword {
+            return MemberCommand.ChangePassword(
+                loginId = loginId,
+                currentPassword = currentPassword,
+                newPassword = newPassword,
+            )
+        }
+    }
 }

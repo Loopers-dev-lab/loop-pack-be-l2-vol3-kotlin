@@ -47,6 +47,13 @@ class MemberModel(
         validateBirthDate(birthDate)
     }
 
+    fun changePassword(newEncodedPassword: String) {
+        if (this.password == newEncodedPassword) {
+            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.")
+        }
+        this.password = newEncodedPassword
+    }
+
     companion object {
         private val EMAIL_REGEX = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
         private val PASSWORD_REGEX = Regex("^[A-Za-z0-9!@#\$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]+$")

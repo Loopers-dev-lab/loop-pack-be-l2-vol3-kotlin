@@ -16,4 +16,10 @@ interface MemberV1ApiSpec {
     fun getMyInfo(
         @AuthenticatedMember memberInfo: MemberInfo,
     ): ApiResponse<MemberV1Dto.MyInfoResponse>
+
+    @Operation(summary = "비밀번호 수정", description = "로그인한 회원의 비밀번호를 수정합니다.")
+    fun changePassword(
+        @AuthenticatedMember memberInfo: MemberInfo,
+        request: MemberV1Dto.ChangePasswordRequest,
+    ): ApiResponse<Unit>
 }

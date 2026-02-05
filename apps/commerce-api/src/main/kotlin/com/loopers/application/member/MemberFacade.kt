@@ -12,4 +12,8 @@ class MemberFacade(
         return memberService.register(command)
             .let { MemberInfo.from(it) }
     }
+
+    fun changePassword(command: MemberCommand.ChangePassword) {
+        memberService.changePassword(command)
+    }
 }

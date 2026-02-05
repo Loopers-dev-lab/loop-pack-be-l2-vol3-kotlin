@@ -7,6 +7,7 @@ import com.loopers.interfaces.api.auth.AuthenticatedMember
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -34,5 +35,14 @@ class MemberV1Controller(
     ): ApiResponse<MemberV1Dto.MyInfoResponse> {
         return MemberV1Dto.MyInfoResponse.from(memberInfo)
             .let { ApiResponse.success(it) }
+    }
+
+    @PutMapping("/password")
+    override fun changePassword(
+        @AuthenticatedMember memberInfo: MemberInfo,
+        @RequestBody request: MemberV1Dto.ChangePasswordRequest,
+    ): ApiResponse<Unit> {
+        memberFacade.changePassword(request.toCommand(memberInfo.loginId))
+        return ApiResponse.success(Unit)
     }
 }
