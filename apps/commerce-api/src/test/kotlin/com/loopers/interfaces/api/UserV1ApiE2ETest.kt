@@ -190,6 +190,21 @@ class UserV1ApiE2ETest @Autowired constructor(
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
+
+        @DisplayName("존재하지 않는 사용자의 인증 정보가 주어지면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenUserDoesNotExist() {
+            // arrange
+            val nonExistentUsername = "nonExistentUser"
+            val headers = createAuthHeaders(nonExistentUsername, DEFAULT_PASSWORD)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
+            val response = testRestTemplate.exchange(ENDPOINT_ME, HttpMethod.GET, HttpEntity<Any>(headers), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
     }
 
     @DisplayName("PATCH /api/v1/users/me/password")
@@ -237,6 +252,63 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @DisplayName("인증 헤더가 누락되면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenAuthHeaderIsMissing() {
+            // arrange
+            val request = UserV1Dto.UpdatePasswordRequest(
+                currentPassword = DEFAULT_PASSWORD,
+                newPassword = "newPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
+            val response = testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, HttpEntity(request), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+
+        @DisplayName("잘못된 인증 정보가 주어지면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenInvalidCredentialsAreProvided() {
+            // arrange
+            registerUser()
+
+            val wrongPassword = "wrongPassword1!"
+            val headers = createAuthHeaders(DEFAULT_USERNAME, wrongPassword)
+            val request = UserV1Dto.UpdatePasswordRequest(
+                currentPassword = DEFAULT_PASSWORD,
+                newPassword = "newPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
+            val response = testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, HttpEntity(request, headers), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+
+        @DisplayName("존재하지 않는 사용자의 인증 정보가 주어지면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenUserDoesNotExist() {
+            // arrange
+            val nonExistentUsername = "nonExistentUser"
+            val headers = createAuthHeaders(nonExistentUsername, DEFAULT_PASSWORD)
+            val request = UserV1Dto.UpdatePasswordRequest(
+                currentPassword = DEFAULT_PASSWORD,
+                newPassword = "newPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
+            val response = testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, HttpEntity(request, headers), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         }
     }
 }
