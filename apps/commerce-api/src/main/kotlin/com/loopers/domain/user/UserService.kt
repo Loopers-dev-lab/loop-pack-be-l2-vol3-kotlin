@@ -69,6 +69,40 @@ class UserService(
     }
 
     /**
+     * 사용자 비밀번호 수정
+     * 유효성 검증 -> 기존 비밀번호 비교로 진행
+     * @param userId: ID
+     * @param oldPassword: 기존 비밀번호
+     * @param newPassword: 신규 비밀번호
+     * @throws CoreException: 기존 비밀번호 불일치 / 현재와 동일한 비밀번호 / 유효하지 않은 비밀번호
+     */
+    @Transactional
+    fun changePassword(useId: String, oldPassword: String, newPassword: String) {
+        // 사용자 정보 조회
+        val user = getUserByUserId(userId = useId)
+
+        // 기존 비밀번호 확인
+        if (!passwordEncoder.matches(oldPassword, user.encryptedPassword))
+            throw CoreException(
+                errorType = ErrorType.UNAUTHORIZED,
+                customMessage = "기존 비밀번호가 일치하지 않습니다.")
+
+        // 신규 비밀번호 유효성 검증
+        validatePassword(newPassword, user.birthDate)
+
+        // 현재 비밀번호와 신규 비밀번호 동일 여부 확인
+        if (passwordEncoder.matches(newPassword, user.encryptedPassword))
+            throw CoreException(
+                errorType = ErrorType.
+                BAD_REQUEST,
+                customMessage = "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.")
+
+        // 신규 비밀번호 암호화 및 저장
+        user.updatePassword(passwordEncoder.encode(newPassword))
+        userRepository.save(user)
+    }
+
+    /**
      * 사용자 인증
      * @param userId: ID
      * @param password: 비밀번호

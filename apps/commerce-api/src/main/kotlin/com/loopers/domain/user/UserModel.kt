@@ -46,4 +46,8 @@ class UserModel(
         if (birthDate.isAfter(LocalDate.now())) throw CoreException(ErrorType.BAD_REQUEST, "생년월일은 현재보다 미래일 수 없습니다.")
         if (email.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "이메일은 비어있을 수 없습니다.")
     }
+
+    fun updatePassword(newEncryptedPassword: String) {
+        this.encryptedPassword = newEncryptedPassword
+    }
 }
