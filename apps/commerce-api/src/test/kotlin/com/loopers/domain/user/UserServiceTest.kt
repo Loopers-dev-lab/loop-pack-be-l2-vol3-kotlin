@@ -94,4 +94,20 @@ class UserServiceTest @Autowired constructor(
         assertThat(authenticatedUser).isNotNull
         assertThat(authenticatedUser.userId).isEqualTo(userId)
     }
+
+    @Test
+    fun `changePassword() should change password and authenticate with new password`() {
+        // Arrange
+        val userId = "testId"
+        val oldPassword = "testPassword"
+        val newPassword = "newPassword123!"
+        userService.createUser(userId, oldPassword, "testName", LocalDate.now(), "test@email.com")
+
+        // Act
+        userService.changePassword(userId, oldPassword, newPassword)
+
+        // Assert - 새 비밀번호로 인증 가능한지 확인
+        val authenticatedUser = userService.authenticate(userId, newPassword)
+        assertThat(authenticatedUser.userId).isEqualTo(userId)
+    }
 }

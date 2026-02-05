@@ -263,6 +263,97 @@ class UserServiceUnitTest {
         verify(exactly = 0) { mockPasswordEncoder.matches(any(), any()) }
     }
 
+    // ─── changePassword ───
+
+    @Test
+    fun `changePassword() should update password successfully`() {
+        // Arrange
+        val userId = "testUser"
+        val existingUser = createMockUser(userId = userId, encryptedPassword = "hashedOldPassword")
+        every { mockRepository.findByUserId(userId) } returns existingUser
+        every { mockPasswordEncoder.matches("oldPassword", "hashedOldPassword") } returns true   // 기존 비밀번호 확인
+        every { mockPasswordEncoder.matches("newPassword123!", "hashedOldPassword") } returns false // 현재와 다름
+        every { mockPasswordEncoder.encode("newPassword123!") } returns "hashedNewPassword"
+        every { mockRepository.save(any()) } returns existingUser
+
+        // Act
+        userService.changePassword(userId, "oldPassword", "newPassword123!")
+
+        // Assert
+        verify { mockPasswordEncoder.encode("newPassword123!") }
+        verify { mockRepository.save(any()) }
+    }
+
+    @Test
+    fun `changePassword() throws CoreException when old password is wrong`() {
+        // Arrange
+        val userId = "testUser"
+        val existingUser = createMockUser(userId = userId, encryptedPassword = "hashedPassword")
+        every { mockRepository.findByUserId(userId) } returns existingUser
+        every { mockPasswordEncoder.matches("wrongOldPassword", "hashedPassword") } returns false
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            userService.changePassword(userId, "wrongOldPassword", "newPassword123!")
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+            assertThat(it.message).contains("기존 비밀번호")
+        }
+        verify(exactly = 0) { mockPasswordEncoder.encode(any()) }
+    }
+
+    @Test
+    fun `changePassword() throws CoreException when new password is too short`() {
+        // Arrange
+        val userId = "testUser"
+        val existingUser = createMockUser(userId = userId, encryptedPassword = "hashedPassword")
+        every { mockRepository.findByUserId(userId) } returns existingUser
+        every { mockPasswordEncoder.matches("testPassword", "hashedPassword") } returns true
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            userService.changePassword(userId, "testPassword", "pass123") // 7 chars
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(it.message).contains("8~16자")
+        }
+    }
+
+    @Test
+    fun `changePassword() throws CoreException when new password contains birthDate`() {
+        // Arrange
+        val userId = "testUser"
+        val birthDate = LocalDate.of(1990, 1, 1)
+        val existingUser = createMockUser(userId = userId, encryptedPassword = "hashedPassword", birthDate = birthDate)
+        every { mockRepository.findByUserId(userId) } returns existingUser
+        every { mockPasswordEncoder.matches("testPassword", "hashedPassword") } returns true
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            userService.changePassword(userId, "testPassword", "pass19900101")
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(it.message).contains("생년월일")
+        }
+    }
+
+    @Test
+    fun `changePassword() throws CoreException when new password is same as current`() {
+        // Arrange
+        val userId = "testUser"
+        val existingUser = createMockUser(userId = userId, encryptedPassword = "hashedPassword")
+        every { mockRepository.findByUserId(userId) } returns existingUser
+        every { mockPasswordEncoder.matches("testPassword", "hashedPassword") } returns true // 기존 확인 + 동일 확인 모두 true
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            userService.changePassword(userId, "testPassword", "testPassword")
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(it.message).contains("현재 비밀번호와 동일")
+        }
+    }
+
     private fun createMockUser(
         userId: String = "testUser",
         encryptedPassword: String = "hashedPassword",
