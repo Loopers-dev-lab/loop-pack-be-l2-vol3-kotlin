@@ -8,6 +8,7 @@ import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -22,6 +23,10 @@ import kotlin.text.toRegex
 @RestControllerAdvice
 class ApiControllerAdvice {
     private val log = LoggerFactory.getLogger(ApiControllerAdvice::class.java)
+
+    companion object {
+        private val AUTH_HEADERS = setOf("X-Loopers-LoginId", "X-Loopers-LoginPw")
+    }
 
     @ExceptionHandler
     fun handle(e: CoreException): ResponseEntity<ApiResponse<*>> {
@@ -44,6 +49,20 @@ class ApiControllerAdvice {
         val type = e.parameterType
         val message = "필수 요청 파라미터 '$name' (타입: $type)가 누락되었습니다."
         return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    @ExceptionHandler
+    fun handleMissingRequestHeader(e: MissingRequestHeaderException): ResponseEntity<ApiResponse<*>> {
+        if (e.headerName in AUTH_HEADERS) {
+            return failureResponse(
+                errorType = ErrorType.UNAUTHORIZED,
+                errorMessage = "인증 헤더 '${e.headerName}'이(가) 누락되었습니다.",
+            )
+        }
+        return failureResponse(
+            errorType = ErrorType.BAD_REQUEST,
+            errorMessage = "필수 요청 헤더 '${e.headerName}'이(가) 누락되었습니다.",
+        )
     }
 
     @ExceptionHandler
