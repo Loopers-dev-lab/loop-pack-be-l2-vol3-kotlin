@@ -1,8 +1,7 @@
 package com.loopers.domain.user
 
 import com.loopers.domain.BaseEntity
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.UserErrorCode
+import com.loopers.support.error.UserException
 import jakarta.persistence.AttributeOverride
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
@@ -73,25 +72,25 @@ class User private constructor(
 
         private fun validateLoginId(loginId: String) {
             if (!loginId.matches(LOGIN_ID_PATTERN)) {
-                throw CoreException(UserErrorCode.INVALID_LOGIN_ID_FORMAT)
+                throw UserException.invalidLoginIdFormat()
             }
         }
 
         private fun validateEmail(email: String) {
             if (!email.matches(EMAIL_PATTERN)) {
-                throw CoreException(UserErrorCode.INVALID_EMAIL_FORMAT)
+                throw UserException.invalidEmailFormat()
             }
         }
 
         private fun validateName(name: String) {
             if (name.length < NAME_MIN_LENGTH || name.length > NAME_MAX_LENGTH) {
-                throw CoreException(UserErrorCode.INVALID_NAME_FORMAT)
+                throw UserException.invalidNameFormat()
             }
         }
 
         private fun validateBirthDate(birthDate: LocalDate) {
             if (birthDate.isAfter(LocalDate.now())) {
-                throw CoreException(UserErrorCode.INVALID_BIRTH_DATE)
+                throw UserException.invalidBirthDate()
             }
         }
     }

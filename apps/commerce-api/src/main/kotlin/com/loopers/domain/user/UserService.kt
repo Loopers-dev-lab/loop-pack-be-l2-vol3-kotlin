@@ -1,7 +1,6 @@
 package com.loopers.domain.user
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.UserErrorCode
+import com.loopers.support.error.UserException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -21,7 +20,7 @@ class UserService(
         email: String,
     ): User {
         if (userRepository.existsByLoginId(loginId)) {
-            throw CoreException(UserErrorCode.DUPLICATE_LOGIN_ID)
+            throw UserException.duplicateLoginId(loginId)
         }
 
         Password.validate(rawPassword, birthDate)
