@@ -2,6 +2,7 @@ package com.loopers.interfaces.api
 
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.user.UserV1Dto
+import com.loopers.support.constant.ApiPaths
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -25,9 +26,6 @@ class UserV1ApiE2ETest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
-        private const val REGISTER_ENDPOINT = "/api/v1/users"
-        private const val ME_ENDPOINT = "/api/v1/users/me"
-        private const val CHANGE_PASSWORD_ENDPOINT = "/api/v1/users/me/password"
         private const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
         private const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
     }
@@ -56,7 +54,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
             val response = testRestTemplate.exchange(
-                REGISTER_ENDPOINT,
+                ApiPaths.Users.REGISTER,
                 HttpMethod.POST,
                 HttpEntity(request),
                 responseType,
@@ -86,7 +84,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 birthDate = "1990-01-01",
                 email = "existing@example.com",
             )
-            testRestTemplate.postForEntity(REGISTER_ENDPOINT, firstRequest, Any::class.java)
+            testRestTemplate.postForEntity(ApiPaths.Users.REGISTER, firstRequest, Any::class.java)
 
             // 같은 로그인 ID로 다시 가입 시도
             val duplicateRequest = UserV1Dto.RegisterRequest(
@@ -100,7 +98,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
             val response = testRestTemplate.exchange(
-                REGISTER_ENDPOINT,
+                ApiPaths.Users.REGISTER,
                 HttpMethod.POST,
                 HttpEntity(duplicateRequest),
                 responseType,
@@ -124,7 +122,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act
             val response = testRestTemplate.postForEntity(
-                REGISTER_ENDPOINT,
+                ApiPaths.Users.REGISTER,
                 request,
                 ApiResponse::class.java,
             )
@@ -147,7 +145,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act
             val response = testRestTemplate.postForEntity(
-                REGISTER_ENDPOINT,
+                ApiPaths.Users.REGISTER,
                 request,
                 ApiResponse::class.java,
             )
@@ -170,7 +168,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act
             val response = testRestTemplate.postForEntity(
-                REGISTER_ENDPOINT,
+                ApiPaths.Users.REGISTER,
                 request,
                 ApiResponse::class.java,
             )
@@ -197,7 +195,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 birthDate = "1990-01-01",
                 email = "test@example.com",
             )
-            testRestTemplate.postForEntity(REGISTER_ENDPOINT, registerRequest, Any::class.java)
+            testRestTemplate.postForEntity(ApiPaths.Users.REGISTER, registerRequest, Any::class.java)
 
             // act - 내 정보 조회
             val headers = HttpHeaders().apply {
@@ -206,7 +204,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             }
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
             val response = testRestTemplate.exchange(
-                ME_ENDPOINT,
+                ApiPaths.Users.ME,
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 responseType,
@@ -226,7 +224,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @Test
         fun failWhenHeaderMissing() {
             // act - 헤더 없이 요청
-            val response = testRestTemplate.getForEntity(ME_ENDPOINT, ApiResponse::class.java)
+            val response = testRestTemplate.getForEntity(ApiPaths.Users.ME, ApiResponse::class.java)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
@@ -245,7 +243,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 birthDate = "1990-01-01",
                 email = "test@example.com",
             )
-            testRestTemplate.postForEntity(REGISTER_ENDPOINT, registerRequest, Any::class.java)
+            testRestTemplate.postForEntity(ApiPaths.Users.REGISTER, registerRequest, Any::class.java)
 
             // act - 잘못된 비밀번호로 조회
             val headers = HttpHeaders().apply {
@@ -253,7 +251,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 set(HEADER_LOGIN_PW, "WrongPassword!")
             }
             val response = testRestTemplate.exchange(
-                ME_ENDPOINT,
+                ApiPaths.Users.ME,
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 ApiResponse::class.java,
@@ -272,7 +270,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 set(HEADER_LOGIN_PW, "Test123!")
             }
             val response = testRestTemplate.exchange(
-                ME_ENDPOINT,
+                ApiPaths.Users.ME,
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 ApiResponse::class.java,
@@ -306,7 +304,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 newPassword = newPassword,
             )
             val response = testRestTemplate.exchange(
-                CHANGE_PASSWORD_ENDPOINT,
+                ApiPaths.Users.ME_PASSWORD,
                 HttpMethod.PATCH,
                 HttpEntity(request, headers),
                 ApiResponse::class.java,
@@ -321,7 +319,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 set(HEADER_LOGIN_PW, newPassword)
             }
             val meResponse = testRestTemplate.exchange(
-                ME_ENDPOINT,
+                ApiPaths.Users.ME,
                 HttpMethod.GET,
                 HttpEntity<Void>(newHeaders),
                 ApiResponse::class.java,
@@ -338,7 +336,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 newPassword = "NewPass456!",
             )
             val response = testRestTemplate.exchange(
-                CHANGE_PASSWORD_ENDPOINT,
+                ApiPaths.Users.ME_PASSWORD,
                 HttpMethod.PATCH,
                 HttpEntity(request),
                 ApiResponse::class.java,
@@ -366,7 +364,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 newPassword = "NewPass456!",
             )
             val response = testRestTemplate.exchange(
-                CHANGE_PASSWORD_ENDPOINT,
+                ApiPaths.Users.ME_PASSWORD,
                 HttpMethod.PATCH,
                 HttpEntity(request, headers),
                 ApiResponse::class.java,
@@ -394,7 +392,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 newPassword = currentPassword,
             )
             val response = testRestTemplate.exchange(
-                CHANGE_PASSWORD_ENDPOINT,
+                ApiPaths.Users.ME_PASSWORD,
                 HttpMethod.PATCH,
                 HttpEntity(request, headers),
                 ApiResponse::class.java,
@@ -412,7 +410,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 birthDate = "1990-01-01",
                 email = "test@example.com",
             )
-            testRestTemplate.postForEntity(REGISTER_ENDPOINT, registerRequest, Any::class.java)
+            testRestTemplate.postForEntity(ApiPaths.Users.REGISTER, registerRequest, Any::class.java)
         }
     }
 }

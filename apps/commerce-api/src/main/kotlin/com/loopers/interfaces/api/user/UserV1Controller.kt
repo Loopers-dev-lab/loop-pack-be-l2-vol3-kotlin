@@ -4,6 +4,7 @@ import com.loopers.application.user.UserFacade
 import com.loopers.domain.user.User
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.auth.CurrentUser
+import com.loopers.support.constant.ApiPaths
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/v1/users")
+@RequestMapping(ApiPaths.Users.BASE)
 class UserV1Controller(
     private val userFacade: UserFacade,
 ) : UserV1ApiSpec {
