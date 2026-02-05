@@ -268,7 +268,6 @@ class MemberV1ApiE2ETest @Autowired constructor(
                 set("X-Loopers-LoginPw", rawPassword)
             }
             val request = MemberV1Dto.ChangePasswordRequest(
-                currentPassword = rawPassword,
                 newPassword = "NewPass456!",
             )
 
@@ -291,7 +290,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("잘못된 현재 비밀번호로 변경하면, 401 UNAUTHORIZED 응답을 받는다.")
+        @DisplayName("잘못된 현재 비밀번호(헤더)로 변경하면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
         fun returnsUnauthorized_whenIncorrectCurrentPasswordIsProvided() {
             // arrange
@@ -301,10 +300,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
 
             val headers = HttpHeaders().apply {
                 set("X-Loopers-LoginId", member.loginId)
-                set("X-Loopers-LoginPw", rawPassword)
+                set("X-Loopers-LoginPw", "WrongPass456!")
             }
             val request = MemberV1Dto.ChangePasswordRequest(
-                currentPassword = "WrongPass456!",
                 newPassword = "NewPass789!",
             )
 
@@ -321,6 +319,35 @@ class MemberV1ApiE2ETest @Autowired constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
 
+        @DisplayName("현재 비밀번호와 동일한 새 비밀번호로 변경하면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returnsBadRequest_whenNewPasswordIsSameAsCurrentPassword() {
+            // arrange
+            val rawPassword = "TestPass123!"
+            val member = createMember("testuser01", rawPassword)
+            memberJpaRepository.save(member)
+
+            val headers = HttpHeaders().apply {
+                set("X-Loopers-LoginId", member.loginId)
+                set("X-Loopers-LoginPw", rawPassword)
+            }
+            val request = MemberV1Dto.ChangePasswordRequest(
+                newPassword = rawPassword,
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_CHANGE_PASSWORD,
+                HttpMethod.PUT,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
         @DisplayName("유효하지 않은 새 비밀번호로 변경하면, 400 BAD_REQUEST 응답을 받는다.")
         @Test
         fun returnsBadRequest_whenInvalidNewPasswordIsProvided() {
@@ -334,7 +361,6 @@ class MemberV1ApiE2ETest @Autowired constructor(
                 set("X-Loopers-LoginPw", rawPassword)
             }
             val request = MemberV1Dto.ChangePasswordRequest(
-                currentPassword = rawPassword,
                 newPassword = "short",
             )
 
@@ -356,7 +382,6 @@ class MemberV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenHeadersAreMissing() {
             // arrange
             val request = MemberV1Dto.ChangePasswordRequest(
-                currentPassword = "TestPass123!",
                 newPassword = "NewPass456!",
             )
 

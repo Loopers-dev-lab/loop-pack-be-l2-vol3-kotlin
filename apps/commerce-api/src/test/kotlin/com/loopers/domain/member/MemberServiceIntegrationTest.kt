@@ -261,5 +261,29 @@ class MemberServiceIntegrationTest @Autowired constructor(
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
+
+        @DisplayName("현재 비밀번호와 동일한 새 비밀번호로 변경하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestException_whenNewPasswordIsSameAsCurrentPassword() {
+            // arrange
+            val currentPassword = "TestPass123!"
+            val member = MemberModel(
+                loginId = "testuser01",
+                password = currentPassword,
+                name = "홍길동",
+                email = "test@example.com",
+                birthDate = LocalDate.of(1990, 1, 1),
+            )
+            member.encryptPassword(passwordEncoder.encode(currentPassword))
+            val savedMember = memberJpaRepository.save(member)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                memberService.changePassword(savedMember.loginId, currentPassword, currentPassword)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 }

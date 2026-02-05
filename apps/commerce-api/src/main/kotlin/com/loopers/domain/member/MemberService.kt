@@ -52,6 +52,9 @@ class MemberService(
     fun changePassword(loginId: String, currentPassword: String, newPassword: String) {
         val member = authenticate(loginId, currentPassword)
 
+        if (passwordEncoder.matches(newPassword, member.password)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호는 사용할 수 없습니다.")
+        }
         member.changePassword(newPassword)
         member.encryptPassword(passwordEncoder.encode(newPassword))
 
