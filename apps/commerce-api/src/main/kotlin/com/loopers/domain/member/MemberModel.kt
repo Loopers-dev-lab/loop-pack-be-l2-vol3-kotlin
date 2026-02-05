@@ -48,9 +48,6 @@ class MemberModel(
     }
 
     fun changePassword(newEncodedPassword: String) {
-        if (this.password == newEncodedPassword) {
-            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.")
-        }
         this.password = newEncodedPassword
     }
 
