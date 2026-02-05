@@ -289,4 +289,139 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
         }
     }
+
+    @DisplayName("PATCH /api/v1/members/me/password")
+    @Nested
+    inner class ChangePassword {
+
+        @DisplayName("비밀번호 변경이 성공하면, 200 OK 응답을 반환한다.")
+        @Test
+        fun returnsOk_whenPasswordChangeSucceeds() {
+            // arrange
+            createTestMember()
+            val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
+            val request = MemberV1Dto.ChangePasswordRequest(
+                currentPassword = TEST_PASSWORD,
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me/password",
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+            )
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 401 UNAUTHORIZED 응답을 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenCurrentPasswordNotMatch() {
+            // arrange
+            createTestMember()
+            val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
+            val request = MemberV1Dto.ChangePasswordRequest(
+                currentPassword = "WrongPassword1!",
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me/password",
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+            )
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면, 400 BAD_REQUEST 응답을 반환한다.")
+        @Test
+        fun returnsBadRequest_whenNewPasswordSameAsCurrent() {
+            // arrange
+            createTestMember()
+            val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
+            val request = MemberV1Dto.ChangePasswordRequest(
+                currentPassword = TEST_PASSWORD,
+                newPassword = TEST_PASSWORD,
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me/password",
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+
+        @DisplayName("새 비밀번호가 8자 미만이면, 400 BAD_REQUEST 응답을 반환한다.")
+        @Test
+        fun returnsBadRequest_whenNewPasswordTooShort() {
+            // arrange
+            createTestMember()
+            val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
+            val request = MemberV1Dto.ChangePasswordRequest(
+                currentPassword = TEST_PASSWORD,
+                newPassword = "Short1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me/password",
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+
+        @DisplayName("인증 헤더가 유효하지 않으면, 401 UNAUTHORIZED 응답을 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenAuthHeadersInvalid() {
+            // arrange
+            createTestMember()
+            val headers = createAuthHeaders(TEST_LOGIN_ID, "WrongPassword1!")
+            val request = MemberV1Dto.ChangePasswordRequest(
+                currentPassword = TEST_PASSWORD,
+                newPassword = "NewPassword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/members/me/password",
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+            )
+        }
+    }
 }
