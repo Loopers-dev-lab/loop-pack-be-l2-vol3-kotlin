@@ -6,18 +6,18 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 
 @Component
-class MemberJpaRepositoryImpl(
+class MemberRepositoryAdapter(
     private val memberJpaRepository: MemberJpaRepository,
 ) : MemberRepository {
     override fun find(id: Long): MemberModel? {
-        TODO("Not yet implemented")
+        return memberJpaRepository.findByIdOrNull(id)
     }
 
     override fun findByLoginId(loginId: String): MemberModel? {
-        TODO("Not yet implemented")
+        return memberJpaRepository.findByLoginId(loginId)
     }
 
     override fun save(member: MemberModel): MemberModel {
-        TODO("Not yet implemented")
+        return memberJpaRepository.save(member)
     }
 }
