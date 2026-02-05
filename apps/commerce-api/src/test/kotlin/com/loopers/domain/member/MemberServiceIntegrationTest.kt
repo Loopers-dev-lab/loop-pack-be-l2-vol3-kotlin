@@ -103,6 +103,28 @@ class MemberServiceIntegrationTest @Autowired constructor(
             assertThat(savedMember.password).isNotEqualTo(rawPassword)
             assertThat(savedMember.password).isNotBlank()
         }
+
+        @Test
+        @DisplayName("회원가입 후 findByLoginId로 조회할 수 있다")
+        fun findByLoginIdAfterRegister() {
+            // Arrange
+            val command = RegisterCommand(
+                loginId = "testuser",
+                password = "password123",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 1),
+                email = "test@example.com",
+            )
+            memberService.register(command)
+
+            // Act
+            val result = memberService.getMyInfo("testuser", "password123")
+
+            // Assert
+            assertThat(result).isNotNull
+            assertThat(result.loginId).isEqualTo("testuser")
+            assertThat(result.name).isEqualTo("홍길동")
+        }
     }
 
     @Nested
@@ -226,6 +248,26 @@ class MemberServiceIntegrationTest @Autowired constructor(
             // Act & Assert
             val exception = assertThrows<CoreException> {
                 memberService.changePassword("testuser", "samepassword", "samepassword")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 정책을 위반하면 BAD_REQUEST 예외가 발생한다")
+        fun changePasswordPolicyViolation() {
+            // Arrange
+            val command = RegisterCommand(
+                loginId = "testuser",
+                password = "oldpassword",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 1),
+                email = "test@example.com",
+            )
+            memberService.register(command)
+
+            // Act & Assert
+            val exception = assertThrows<CoreException> {
+                memberService.changePassword("testuser", "oldpassword", "short")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }

@@ -19,8 +19,7 @@ class MemberService(
             throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "이미 존재하는 로그인ID입니다.")
         }
 
-        // Validate raw password before encoding
-        val tempMember = MemberModel(
+        val member = MemberModel(
             loginId = command.loginId,
             password = command.password,
             name = command.name,
@@ -29,14 +28,7 @@ class MemberService(
         )
 
         val encodedPassword = passwordEncoder.encode(command.password)
-        val member = MemberModel(
-            loginId = command.loginId,
-            password = encodedPassword,
-            name = command.name,
-            birthDate = command.birthDate,
-            email = command.email,
-            skipPasswordValidation = true,
-        )
+        member.updateEncodedPassword(encodedPassword)
 
         return memberRepository.save(member)
     }
@@ -65,6 +57,8 @@ class MemberService(
         if (currentPassword == newPassword) {
             throw CoreException(errorType = ErrorType.BAD_REQUEST, customMessage = "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
         }
+
+        MemberModel.validatePassword(newPassword, member.birthDate)
 
         val encodedNewPassword = passwordEncoder.encode(newPassword)
         member.updateEncodedPassword(encodedNewPassword)

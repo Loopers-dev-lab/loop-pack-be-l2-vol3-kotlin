@@ -359,5 +359,40 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // Assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
+
+        @Test
+        @DisplayName("새 비밀번호가 정책을 위반할 때 400 Bad Request")
+        fun `should return 400 when new password violates policy`() {
+            // Arrange
+            memberService.register(
+                RegisterCommand(
+                    loginId = "testuser123",
+                    password = "OldPass@123",
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 1),
+                    email = "test@example.com",
+                ),
+            )
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser123")
+                set(HEADER_LOGIN_PW, "OldPass@123")
+            }
+
+            val request = MemberV1Dto.ChangePasswordRequest(
+                newPassword = "short",
+            )
+
+            // Act
+            val response = testRestTemplate.exchange(
+                ENDPOINT_CHANGE_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            )
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
     }
 }

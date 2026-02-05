@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.member
 
 import com.loopers.application.member.MemberFacade
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -21,7 +22,7 @@ class MemberV1Controller(
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     override fun register(
-        @RequestBody request: MemberV1Dto.RegisterRequest,
+        @Valid @RequestBody request: MemberV1Dto.RegisterRequest,
     ): ApiResponse<*> {
         memberFacade.register(request)
         return ApiResponse.success()
@@ -41,7 +42,7 @@ class MemberV1Controller(
     override fun changePassword(
         @RequestHeader(value = "X-Loopers-LoginId", required = true) loginId: String,
         @RequestHeader(value = "X-Loopers-LoginPw", required = true) currentPassword: String,
-        @RequestBody request: MemberV1Dto.ChangePasswordRequest,
+        @Valid @RequestBody request: MemberV1Dto.ChangePasswordRequest,
     ): ApiResponse<*> {
         memberFacade.changePassword(loginId, currentPassword, request.newPassword)
         return ApiResponse.success()
