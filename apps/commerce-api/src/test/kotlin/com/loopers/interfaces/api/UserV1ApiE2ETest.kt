@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api
 
+import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserModel
 import com.loopers.domain.user.UserService
 import com.loopers.interfaces.api.user.UserV1Dto
@@ -51,14 +52,14 @@ class UserV1ApiE2ETest @Autowired constructor(
         email: String = DEFAULT_EMAIL,
         birthDate: ZonedDateTime = DEFAULT_BIRTH_DATE,
     ): UserModel {
-        val userModel = UserModel(
+        val command = RegisterCommand(
             username = username,
             password = password,
             name = name,
             email = email,
             birthDate = birthDate,
         )
-        return userService.register(userModel)
+        return userService.register(command)
     }
 
     private fun createAuthHeaders(loginId: String, loginPw: String): HttpHeaders {
@@ -71,12 +72,10 @@ class UserV1ApiE2ETest @Autowired constructor(
     @DisplayName("POST /api/v1/users")
     @Nested
     inner class Register {
-        @DisplayName("유효한 정보가 주어지면, 201 CREATED와 유저 정보를 반환한다.")
+        @DisplayName("유효한 정보가 주어지면, 201 CREATED를 반환한다.")
         @Test
         fun returnsCreated_whenValidInfoIsProvided() {
             // arrange
-            val expectedName = "안유*"
-
             val request = UserV1Dto.RegisterRequest(
                 username = DEFAULT_USERNAME,
                 password = DEFAULT_PASSWORD,
@@ -86,16 +85,12 @@ class UserV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
-            val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request), responseType)
+            val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request), Void::class.java)
 
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED) },
-                { assertThat(response.body?.data?.username).isEqualTo(DEFAULT_USERNAME) },
-                { assertThat(response.body?.data?.name).isEqualTo(expectedName) },
-                { assertThat(response.body?.data?.email).isEqualTo(DEFAULT_EMAIL) },
-                { assertThat(response.body?.data?.birthDate).isEqualTo(DEFAULT_BIRTH_DATE) },
+                { assertThat(response.body).isNull() },
             )
         }
 
@@ -168,7 +163,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("인증 헤더가 누락되면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("인증 헤더가 누락되면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
         fun returnsBadRequest_whenAuthHeaderIsMissing() {
             // act
@@ -176,7 +171,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(ENDPOINT_ME, HttpMethod.GET, null, responseType)
 
             // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
 
         @DisplayName("잘못된 인증 정보가 주어지면, 401 UNAUTHORIZED 응답을 받는다.")
@@ -200,9 +195,9 @@ class UserV1ApiE2ETest @Autowired constructor(
     @DisplayName("PATCH /api/v1/users/me/password")
     @Nested
     inner class UpdatePassword {
-        @DisplayName("유효한 기존 비밀번호와 새 비밀번호가 주어지면, 200 OK 응답을 받는다.")
+        @DisplayName("유효한 기존 비밀번호와 새 비밀번호가 주어지면, 204 NO CONTENT 응답을 받는다.")
         @Test
-        fun returnsOk_whenValidPasswordsAreProvided() {
+        fun returnsNoContent_whenValidPasswordsAreProvided() {
             // arrange
             registerUser()
 
@@ -214,11 +209,13 @@ class UserV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
-            val response = testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, HttpEntity(request, headers), responseType)
+            val response = testRestTemplate.exchange(ENDPOINT_UPDATE_PASSWORD, HttpMethod.PATCH, HttpEntity(request, headers), Void::class.java)
 
             // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT) },
+                { assertThat(response.body).isNull() },
+            )
         }
 
         @DisplayName("새 비밀번호가 유효성 규칙을 위반하면, 400 BAD_REQUEST 응답을 받는다.")

@@ -13,7 +13,7 @@ interface UserV1ApiSpec {
     )
     fun register(
         request: UserV1Dto.RegisterRequest,
-    ): ApiResponse<UserV1Dto.UserResponse>
+    )
 
     @Operation(
         summary = "내 정보 조회",
@@ -36,5 +36,5 @@ interface UserV1ApiSpec {
         @Parameter(description = "비밀번호", required = true)
         loginPw: String,
         request: UserV1Dto.UpdatePasswordRequest,
-    ): ApiResponse<Unit>
+    )
 }

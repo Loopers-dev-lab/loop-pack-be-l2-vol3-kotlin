@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.application.user.UserInfo
+import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UpdatePasswordCommand
-import com.loopers.domain.user.UserModel
 import com.loopers.domain.user.UserService
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.http.HttpStatus
@@ -25,18 +25,16 @@ class UserV1Controller(
     @ResponseStatus(HttpStatus.CREATED)
     override fun register(
         @RequestBody request: UserV1Dto.RegisterRequest,
-    ): ApiResponse<UserV1Dto.UserResponse> {
-        val userModel = UserModel(
-            username = request.username,
-            password = request.password,
-            name = request.name,
-            email = request.email,
-            birthDate = request.birthDate,
+    ) {
+        userService.register(
+            RegisterCommand(
+                username = request.username,
+                password = request.password,
+                name = request.name,
+                email = request.email,
+                birthDate = request.birthDate,
+            )
         )
-        return userService.register(userModel)
-            .let { UserInfo.from(it) }
-            .let { UserV1Dto.UserResponse.from(it) }
-            .let { ApiResponse.success(it) }
     }
 
     @GetMapping("/me")
@@ -52,11 +50,12 @@ class UserV1Controller(
     }
 
     @PatchMapping("/me/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     override fun updatePassword(
         @RequestHeader(value = "X-Loopers-LoginId") loginId: String,
         @RequestHeader(value = "X-Loopers-LoginPw") loginPw: String,
         @RequestBody request: UserV1Dto.UpdatePasswordRequest,
-    ): ApiResponse<Unit> {
+    ) {
         userService.authenticate(loginId, loginPw)
         userService.updatePassword(
             UpdatePasswordCommand(
@@ -65,6 +64,5 @@ class UserV1Controller(
                 newPassword = request.newPassword,
             )
         )
-        return ApiResponse.success(Unit)
     }
 }
