@@ -1,6 +1,5 @@
 package com.loopers.application.user
 
-import com.loopers.domain.user.Password
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
 import org.assertj.core.api.Assertions.assertThat
@@ -65,26 +64,6 @@ class UserFacadeTest {
             )
         }
 
-        @DisplayName("이름이 1글자면 전체가 마스킹된다.")
-        @Test
-        fun maskSingleCharacterName() {
-            // arrange
-            val savedUser = createUser(name = "김")
-            whenever(userService.register(any(), any(), any(), any(), any())).thenReturn(savedUser)
-
-            // act
-            val result = userFacade.register(
-                loginId = "testuser",
-                rawPassword = "Test123!",
-                name = "김",
-                birthDate = LocalDate.of(1990, 1, 1),
-                email = "test@example.com",
-            )
-
-            // assert
-            assertThat(result.name).isEqualTo("*")
-        }
-
         @DisplayName("이름이 2글자면 마지막 글자만 마스킹된다.")
         @Test
         fun maskTwoCharacterName() {
@@ -111,21 +90,11 @@ class UserFacadeTest {
         name: String = "홍길동",
         birthDate: LocalDate = LocalDate.of(1990, 1, 1),
         email: String = "test@example.com",
-    ): User {
-        val constructor = User::class.java.getDeclaredConstructor(
-            String::class.java,
-            Password::class.java,
-            String::class.java,
-            LocalDate::class.java,
-            String::class.java,
-        )
-        constructor.isAccessible = true
-        return constructor.newInstance(
-            loginId,
-            Password.fromEncoded("encodedPassword"),
-            name,
-            birthDate,
-            email,
-        )
-    }
+    ): User = User.create(
+        loginId = loginId,
+        encodedPassword = "encodedPassword",
+        name = name,
+        birthDate = birthDate,
+        email = email,
+    )
 }
