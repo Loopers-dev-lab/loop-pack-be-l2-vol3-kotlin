@@ -13,12 +13,14 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
 
 @SpringBootTest
 class MemberServiceIntegrationTest @Autowired constructor(
     private val memberService: MemberService,
     private val memberJpaRepository: MemberJpaRepository,
+    private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     private val validLoginId = "user01"
@@ -205,7 +207,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
             // assert
             val member = memberJpaRepository.findByLoginId(validLoginId)!!
-            assertThat(member.matchesPassword(newPassword)).isTrue()
+            assertThat(passwordEncoder.matches(newPassword, member.password)).isTrue()
         }
 
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면, BAD_REQUEST 예외가 발생한다.")
