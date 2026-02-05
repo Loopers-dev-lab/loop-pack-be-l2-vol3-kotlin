@@ -19,6 +19,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.security.crypto.password.PasswordEncoder
+import java.time.LocalDate
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MemberV1ApiE2ETest @Autowired constructor(
@@ -113,7 +114,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = existingLoginId,
                     password = passwordEncoder.encode("Test1234!"),
                     name = "기존회원",
-                    birthDate = "19850101",
+                    birthDate = LocalDate.of(1985, 1, 1),
                     email = "existing@example.com",
                 ),
             )
@@ -230,7 +231,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode(rawPassword),
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -254,7 +255,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.loginId).isEqualTo(member.loginId) },
                 { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
-                { assertThat(response.body?.data?.birthDate).isEqualTo(member.birthDate) },
+                { assertThat(response.body?.data?.birthDate).isEqualTo("19900101") },
                 { assertThat(response.body?.data?.email).isEqualTo(member.email) },
             )
         }
@@ -290,7 +291,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode("CorrectPass1!"),
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -323,7 +324,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode(rawPassword),
                     name = "김",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -362,7 +363,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode(oldPassword),
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -401,7 +402,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode(oldPassword),
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -452,7 +453,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode(correctPassword),
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -490,7 +491,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode(currentPassword),
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -523,13 +524,13 @@ class MemberV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenNewPasswordContainsBirthDate() {
             // arrange
             val currentPassword = "Test1234!"
-            val birthDate = "19900101"
+            val birthDateString = "19900101"
             memberJpaRepository.save(
                 MemberModel(
                     loginId = "testuser",
                     password = passwordEncoder.encode(currentPassword),
                     name = "홍길동",
-                    birthDate = birthDate,
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )
@@ -541,7 +542,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
 
             val request = MemberV1Dto.ChangePasswordRequest(
                 currentPassword = currentPassword,
-                newPassword = "New$birthDate!",
+                newPassword = "New$birthDateString!",
             )
 
             // act
@@ -567,7 +568,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
                     loginId = "testuser",
                     password = passwordEncoder.encode(currentPassword),
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 ),
             )

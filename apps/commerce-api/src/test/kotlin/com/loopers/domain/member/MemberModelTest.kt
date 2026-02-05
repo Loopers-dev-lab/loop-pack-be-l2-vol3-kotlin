@@ -10,6 +10,7 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.time.LocalDate
 
 class MemberModelTest {
 
@@ -24,7 +25,7 @@ class MemberModelTest {
             val loginId = "testuser"
             val password = "Test1234!"
             val name = "홍길동"
-            val birthDate = "19900101"
+            val birthDate = LocalDate.of(1990, 1, 1)
             val email = "test@example.com"
 
             // act
@@ -61,7 +62,7 @@ class MemberModelTest {
                     loginId = loginId,
                     password = "Test1234!",
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 )
             }
@@ -80,7 +81,7 @@ class MemberModelTest {
                     loginId = loginId,
                     password = "Test1234!",
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 )
             }
@@ -98,7 +99,7 @@ class MemberModelTest {
                 loginId = loginId,
                 password = "Test1234!",
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -121,7 +122,7 @@ class MemberModelTest {
                     loginId = "testuser",
                     password = "Test1234!",
                     name = name,
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
                 )
             }
@@ -145,7 +146,7 @@ class MemberModelTest {
                     loginId = "testuser",
                     password = "Test1234!",
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = email,
                 )
             }
@@ -164,7 +165,7 @@ class MemberModelTest {
                     loginId = "testuser",
                     password = "Test1234!",
                     name = "홍길동",
-                    birthDate = "19900101",
+                    birthDate = LocalDate.of(1990, 1, 1),
                     email = email,
                 )
             }
@@ -174,9 +175,9 @@ class MemberModelTest {
         }
     }
 
-    @DisplayName("생년월일 검증 시,")
+    @DisplayName("생년월일 파싱 시,")
     @Nested
-    inner class BirthDateValidation {
+    inner class BirthDateParsing {
 
         @DisplayName("빈 값이면, BAD_REQUEST 예외가 발생한다.")
         @ParameterizedTest
@@ -184,13 +185,7 @@ class MemberModelTest {
         fun throwsBadRequest_whenBirthDateIsBlank(birthDate: String) {
             // arrange & act
             val exception = assertThrows<CoreException> {
-                MemberModel(
-                    loginId = "testuser",
-                    password = "Test1234!",
-                    name = "홍길동",
-                    birthDate = birthDate,
-                    email = "test@example.com",
-                )
+                MemberModel.parseBirthDate(birthDate)
             }
 
             // assert
@@ -203,13 +198,7 @@ class MemberModelTest {
         fun throwsBadRequest_whenBirthDateFormatIsInvalid(birthDate: String) {
             // arrange & act
             val exception = assertThrows<CoreException> {
-                MemberModel(
-                    loginId = "testuser",
-                    password = "Test1234!",
-                    name = "홍길동",
-                    birthDate = birthDate,
-                    email = "test@example.com",
-                )
+                MemberModel.parseBirthDate(birthDate)
             }
 
             // assert
@@ -224,17 +213,42 @@ class MemberModelTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                MemberModel(
-                    loginId = "testuser",
-                    password = "Test1234!",
-                    name = "홍길동",
-                    birthDate = futureBirthDate,
-                    email = "test@example.com",
-                )
+                MemberModel.parseBirthDate(futureBirthDate)
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("유효한 형식이면, LocalDate로 파싱된다.")
+        @Test
+        fun parsesToLocalDate_whenFormatIsValid() {
+            // arrange
+            val birthDateString = "19900101"
+
+            // act
+            val result = MemberModel.parseBirthDate(birthDateString)
+
+            // assert
+            assertThat(result).isEqualTo(LocalDate.of(1990, 1, 1))
+        }
+    }
+
+    @DisplayName("생년월일 포맷 시,")
+    @Nested
+    inner class BirthDateFormat {
+
+        @DisplayName("LocalDate를 yyyyMMdd 형식 문자열로 변환한다.")
+        @Test
+        fun formatsToString_whenLocalDateIsGiven() {
+            // arrange
+            val birthDate = LocalDate.of(1990, 1, 1)
+
+            // act
+            val result = MemberModel.formatBirthDate(birthDate)
+
+            // assert
+            assertThat(result).isEqualTo("19900101")
         }
     }
 
@@ -247,7 +261,7 @@ class MemberModelTest {
         fun doesNotThrow_whenPasswordIsValid() {
             // arrange
             val password = "Test1234!"
-            val birthDate = "19900101"
+            val birthDate = LocalDate.of(1990, 1, 1)
 
             // act & assert
             MemberModel.validateRawPassword(password, birthDate)
@@ -259,7 +273,7 @@ class MemberModelTest {
         fun throwsBadRequest_whenPasswordIsTooShort(password: String) {
             // arrange & act
             val exception = assertThrows<CoreException> {
-                MemberModel.validateRawPassword(password, "19900101")
+                MemberModel.validateRawPassword(password, LocalDate.of(1990, 1, 1))
             }
 
             // assert
@@ -274,7 +288,7 @@ class MemberModelTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                MemberModel.validateRawPassword(password, "19900101")
+                MemberModel.validateRawPassword(password, LocalDate.of(1990, 1, 1))
             }
 
             // assert
@@ -287,7 +301,7 @@ class MemberModelTest {
         fun throwsBadRequest_whenPasswordContainsInvalidCharacters(password: String) {
             // arrange & act
             val exception = assertThrows<CoreException> {
-                MemberModel.validateRawPassword(password, "19900101")
+                MemberModel.validateRawPassword(password, LocalDate.of(1990, 1, 1))
             }
 
             // assert
@@ -299,7 +313,7 @@ class MemberModelTest {
         @ValueSource(strings = ["19900101!", "Test19900101", "a19900101b"])
         fun throwsBadRequest_whenPasswordContainsBirthDate(password: String) {
             // arrange
-            val birthDate = "19900101"
+            val birthDate = LocalDate.of(1990, 1, 1)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -323,7 +337,7 @@ class MemberModelTest {
                 loginId = "testuser",
                 password = "OldPass123!",
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
             val newPassword = "NewPass456!"

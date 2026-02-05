@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.member
 
 import com.loopers.application.member.MemberInfo
 import com.loopers.domain.member.MemberCommand
+import com.loopers.domain.member.MemberModel
 
 class MemberV1Dto {
     data class RegisterRequest(
@@ -16,7 +17,7 @@ class MemberV1Dto {
                 loginId = loginId,
                 password = password,
                 name = name,
-                birthDate = birthDate,
+                birthDate = MemberModel.parseBirthDate(birthDate),
                 email = email,
             )
         }
@@ -35,7 +36,7 @@ class MemberV1Dto {
                     id = info.id,
                     loginId = info.loginId,
                     name = info.name,
-                    birthDate = info.birthDate,
+                    birthDate = MemberModel.formatBirthDate(info.birthDate),
                     email = info.email,
                 )
             }
@@ -53,7 +54,7 @@ class MemberV1Dto {
                 return MyInfoResponse(
                     loginId = info.loginId,
                     name = info.getMaskedName(),
-                    birthDate = info.birthDate,
+                    birthDate = MemberModel.formatBirthDate(info.birthDate),
                     email = info.email,
                 )
             }

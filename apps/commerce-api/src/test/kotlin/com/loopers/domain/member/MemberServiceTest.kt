@@ -18,6 +18,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
+import java.time.LocalDate
 
 @ExtendWith(MockitoExtension::class)
 class MemberServiceTest {
@@ -43,7 +44,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = "Test1234!",
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -69,7 +70,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = "Test1234!",
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -93,7 +94,7 @@ class MemberServiceTest {
                 loginId = "existinguser",
                 password = "Test1234!",
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -117,7 +118,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = rawPassword,
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -153,7 +154,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = encodedPassword,
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -201,7 +202,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = encodedPassword,
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -238,7 +239,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = encodedOldPassword,
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -289,7 +290,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = encodedPassword,
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -321,7 +322,7 @@ class MemberServiceTest {
                 loginId = "testuser",
                 password = encodedPassword,
                 name = "홍길동",
-                birthDate = "19900101",
+                birthDate = LocalDate.of(1990, 1, 1),
                 email = "test@example.com",
             )
 
@@ -348,7 +349,8 @@ class MemberServiceTest {
             // arrange
             val memberId = 1L
             val oldPassword = "OldPass123!"
-            val birthDate = "19900101"
+            val birthDate = LocalDate.of(1990, 1, 1)
+            val birthDateString = "19900101"
             val encodedPassword = passwordEncoder.encode(oldPassword)
             val member = MemberModel(
                 loginId = "testuser",
@@ -361,7 +363,7 @@ class MemberServiceTest {
             val command = MemberCommand.ChangePassword(
                 memberId = memberId,
                 currentPassword = oldPassword,
-                newPassword = "Test$birthDate!",
+                newPassword = "Test$birthDateString!",
             )
 
             whenever(memberRepository.findById(command.memberId)).thenReturn(member)

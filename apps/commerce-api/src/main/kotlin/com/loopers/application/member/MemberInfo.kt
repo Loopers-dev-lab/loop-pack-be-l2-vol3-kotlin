@@ -1,12 +1,13 @@
 package com.loopers.application.member
 
 import com.loopers.domain.member.MemberModel
+import java.time.LocalDate
 
 data class MemberInfo(
     val id: Long,
     val loginId: String,
     val name: String,
-    val birthDate: String,
+    val birthDate: LocalDate,
     val email: String,
 ) {
     fun getMaskedName(): String {
