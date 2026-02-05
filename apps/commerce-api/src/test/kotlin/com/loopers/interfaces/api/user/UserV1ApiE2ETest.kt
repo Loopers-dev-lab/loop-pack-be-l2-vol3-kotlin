@@ -121,6 +121,29 @@ class UserV1ApiE2ETest @Autowired constructor(
             )
         }
 
+        @DisplayName("특수문자를 포함한 userId 로 회원가입하면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun throwsBadRequest_whenUserIdContainsSpecialCharacters() {
+            // arrange
+            val body = mapOf(
+                "userId" to "user!@#",
+                "password" to "password123!",
+                "name" to "testName",
+                "birthDate" to "1990-01-01",
+                "email" to "test@email.com",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any?>>() {}
+            val response = testRestTemplate.exchange(ENDPOINT_SIGNUP, HttpMethod.POST, HttpEntity(body), responseType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
         @DisplayName("유효하지 않은 이메일 형식으로 회원가입하면, 400 BAD_REQUEST 응답을 받는다.")
         @Test
         fun throwsBadRequest_whenEmailFormatIsInvalid() {

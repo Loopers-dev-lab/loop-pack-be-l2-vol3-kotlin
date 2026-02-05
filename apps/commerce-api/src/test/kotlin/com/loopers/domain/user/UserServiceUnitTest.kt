@@ -39,6 +39,61 @@ class UserServiceUnitTest {
         assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
     }
 
+    // ─── createUser — userId 유효성 ───
+
+    @Test
+    fun `createUser() throws CoreException(BAD_REQUEST) when userId contains special characters`() {
+        // Arrange
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("user!@#", "password123!", "testName", LocalDate.of(1990, 1, 1),
+                "test@example.com")
+        }
+
+        // Assert
+        verify(exactly = 0) { mockRepository.save(any()) }
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("영문")
+    }
+
+    @Test
+    fun `createUser() throws CoreException(BAD_REQUEST) when userId contains Korean characters`() {
+        // Arrange
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("테스트유저", "password123!", "testName", LocalDate.of(1990, 1, 1),
+                "test@example.com")
+        }
+
+        // Assert
+        verify(exactly = 0) { mockRepository.save(any()) }
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("영문")
+    }
+
+    @Test
+    fun `createUser() should accept userId with only alphanumeric characters`() {
+        // Arrange
+        every { mockRepository.existsByUserId(any()) } returns false
+        every { mockPasswordEncoder.encode(any()) } returns "hashedPassword"
+        every { mockRepository.save(any()) } returns createMockUser(userId = "testUser123")
+
+        // Act
+        val user = userService.createUser(
+            "testUser123", "password123!", "testName", LocalDate.of(1990, 1, 1),
+            "test@example.com"
+        )
+
+        // Assert
+        assertThat(user.userId).isEqualTo("testUser123")
+    }
+
+    // ─── createUser — password 유효성 ───
+
     @Test
     fun `createUser() throws CoreException(BAD_REQUEST) when password is too short`() {
         // Arrange
