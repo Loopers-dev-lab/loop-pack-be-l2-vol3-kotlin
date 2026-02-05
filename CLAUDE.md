@@ -45,11 +45,12 @@ This is a E-Commerce platform backend (multi-module Gradle project).
 
  - Domain (Service + Entity) layer
    - Encapsulates domain-level operations
-   - Coordinates domain entities and repositories
    - Must not depend on other services
    - Models business concepts and rules
    - Avoid anemic domain models
    - Must be independent of infrastructure concerns
+   - Domain Service: coordinates entities/repositories, handles operations requiring collaborators
+   - Domain Entity: owns validation (init block), state changes, business rules
 
  - Infrastructure layer
    - Handles persistence only (Repository implementations)
@@ -84,13 +85,16 @@ This is a E-Commerce platform backend (multi-module Gradle project).
  - Command objects (`{Action}Command`) live in `domain/` layer
  - Controller converts Model → Info → API DTO using `from()` factory, then wraps in `ApiResponse`
  - **Request/Response DTOs must NOT leak beyond Controller**
- - Services accept: primitive values (id), Domain Entities, or Command objects
+ - Services accept: identifiers (id) for simple lookups, Command objects for all other operations (no domain entities)
  - Controllers act as Anti-Corruption Layer between HTTP and Domain
 
 ### Bad Example (DO NOT DO THIS)
 ```kotlin
 // Service accepting Request DTO - architectural violation
 fun createOrder(dto: OrderV1Dto.CreateRequest): OrderInfo
+
+// Service accepting Domain Entity - use Command instead
+fun register(user: UserModel): UserModel
 
 // All logic in service, anemic domain model
 class OrderService {
