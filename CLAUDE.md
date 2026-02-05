@@ -501,6 +501,7 @@ graph TB
 - 성능을 고려하지 않은 N+1 쿼리 금지
 - 트랜잭션 범위 내 외부 API 호출 금지
 - 민감 정보 평문 로그 출력 금지
+- 비밀번호 에러 시 유추 가능한 메시지 금지 (예: "비밀번호가 틀렸습니다" → 아이디가 맞았음을 유추 가능)
 
 ### 2. Recommendation
 - 실제 API를 호출해 확인하는 E2E 테스트 코드 작성
@@ -524,6 +525,8 @@ graph TB
 - 변수명: 영어, 주석/에러메시지: 한국어 가능
 - Entity: `var + protected set`으로 캡슐화, `init` 블록 및 메서드에서 유효성 검증
 - DTO/Command/Info: `data class` 사용, Entity에는 일반 `class` 사용
+- 인증/인가 로직은 공통화 (Controller마다 중복 금지)
+- Response DTO에 필드 직접 나열보다 객체로 감싸기 권장
 
 ### 모듈 규칙
 - 공통 도메인/설정은 modules에 작성
@@ -536,6 +539,9 @@ graph TB
 - Testcontainers로 통합 테스트
 - 배치 테스트: spring-batch-test 사용
 - 테스트 프레임워크: JUnit 5 + Mockito-Kotlin 기반
+- 테스트 메서드명에 **예외 타입까지 명시** (예: `BAD_REQUEST 예외가 발생한다`, `CoreException을 던진다`)
+- 테스트코드의 모든 input/output은 **명확**해야 함
+- 단위 테스트를 꼼꼼하게 짜는 것이 우선, 통합 테스트는 필요 시 추가
 
 ### PR 규칙
 - 브랜치: main 기준으로 feature 브랜치 생성 (예: `feat/volume-1-user-tests`)
