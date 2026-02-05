@@ -14,6 +14,8 @@ class UserService(
     private val passwordEncoder: PasswordEncoder
 ) {
 
+    // ID Regex : 영문과 숫자만 허용
+    private val userIdRegex = "^[A-Za-z0-9]+\$".toRegex()
     // 비밀번호 Regex : 영문 대소문자, 숫자, 특수문자
     private val passwordRegex = "^[A-Za-z0-9!@#\$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]+$".toRegex()
     // 이메일 Regex : `{}@{}`
@@ -36,6 +38,7 @@ class UserService(
             throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "[$userId] 해당 ID에 해당하는 계정이 존재합니다.")
 
         // 입력값 유효성 검증
+        validateUserId(userId)
         validateEmail(email)
         validatePassword(password, birthDate)
 
@@ -128,6 +131,7 @@ class UserService(
 
     /**
      * 이메일 유효성 검증
+     * 1. `{}@{}` 포맷 확인
      * @param email: 이메일
      * @return 이메일 유효여부
      */
@@ -136,6 +140,21 @@ class UserService(
             throw CoreException(
                 errorType = ErrorType.BAD_REQUEST,
                 customMessage = "유효하지 않은 이메일 포맷입니다.")
+        }
+        return true
+    }
+
+    /**
+     * 사용자 ID 유효성 검증
+     * 1. 영문과 숫자만 허용
+     * @param userId: ID
+     * @return ID 유효여부
+     */
+    private fun validateUserId(userId: String): Boolean {
+        if (!userId.matches(userIdRegex)) {
+            throw CoreException(
+                errorType = ErrorType.BAD_REQUEST,
+                customMessage = "유효하지 않은 ID 포맷입니다. 영문과 숫자만 허용됩니다.")
         }
         return true
     }
