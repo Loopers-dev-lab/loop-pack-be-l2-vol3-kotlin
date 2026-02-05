@@ -11,6 +11,11 @@ class UserV1Controller(
     private val userService: UserService,
 ) : UserV1ApiSpec {
 
+    /**
+     * 사용자 회원가입
+     * @param request [UserV1Dto.SignupRequest] 회원가입 양식 DTO
+     * @return ApiResponse<UserV1Dto.UserResponse>
+     */
     @PostMapping("/signup")
     override fun signup(@RequestBody request: UserV1Dto.SignupRequest): ApiResponse<UserV1Dto.UserResponse> {
         return userService.createUser(
@@ -24,26 +29,37 @@ class UserV1Controller(
             .let { ApiResponse.success(it) }
     }
 
+    /**
+     * 나의 정보 조회
+     * @param loginId [AuthHeader.HEADER_LOGIN_ID]
+     * @param loginPw [AuthHeader.HEADER_LOGIN_PW]
+     * @return ApiResponse<UserV1Dto.UserResponse>
+     */
     @GetMapping("/me")
     override fun getMyInfo(
-        @RequestHeader("X-Loopers-LoginId") loginId: String,
-        @RequestHeader("X-Loopers-LoginPw") loginPw: String,
+        @RequestHeader(AuthHeader.HEADER_LOGIN_ID) loginId: String,
+        @RequestHeader(AuthHeader.HEADER_LOGIN_PW) loginPw: String,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        val authHeader = AuthHeader(loginId, loginPw)
-        return userService.authenticate(authHeader.loginId, authHeader.password)
+        return userService.authenticate(loginId, loginPw)
             .let { UserV1Dto.UserResponse.fromMasked(it) }
             .let { ApiResponse.success(it) }
     }
 
+    /**
+     * 사용자 패스워드 변경
+     * @param loginId [AuthHeader.HEADER_LOGIN_ID]
+     * @param loginPw [AuthHeader.HEADER_LOGIN_PW]
+     * @param request [UserV1Dto.UserChangePasswordRequest] 비밀번호 변경 양식 DTO
+     * @return ApiResponse<Any> 사용자 패스워드 변경 성공여부
+     */
     @PutMapping("/password")
     override fun changePassword(
-        @RequestHeader("X-Loopers-LoginId") loginId: String,
-        @RequestHeader("X-Loopers-LoginPw") loginPw: String,
+        @RequestHeader(AuthHeader.HEADER_LOGIN_ID) loginId: String,
+        @RequestHeader(AuthHeader.HEADER_LOGIN_PW) loginPw: String,
         @RequestBody request: UserV1Dto.UserChangePasswordRequest,
     ): ApiResponse<Any> {
-        val authHeader = AuthHeader(loginId, loginPw)
-        userService.authenticate(authHeader.loginId, authHeader.password)
-        userService.changePassword(authHeader.loginId, request.oldPassword, request.newPassword)
+        userService.authenticate(loginId, loginPw)
+        userService.changePassword(loginId, request.oldPassword, request.newPassword)
         return ApiResponse.success()
     }
 }
