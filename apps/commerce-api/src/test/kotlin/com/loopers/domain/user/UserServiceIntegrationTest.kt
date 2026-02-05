@@ -37,13 +37,13 @@ class UserServiceIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun createValidUserModel(
+    private fun createRegisterCommand(
         username: String = DEFAULT_USERNAME,
         password: String = DEFAULT_PASSWORD,
         name: String = DEFAULT_NAME,
         email: String = DEFAULT_EMAIL,
         birthDate: ZonedDateTime = DEFAULT_BIRTH_DATE,
-    ): UserModel = UserModel(
+    ): RegisterCommand = RegisterCommand(
         username = username,
         password = password,
         name = name,
@@ -58,7 +58,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @Test
         fun registersUser_whenValidInfoIsProvided() {
             // arrange
-            val userModel = createValidUserModel()
+            val userModel = createRegisterCommand()
 
             // act
             val result = userService.register(userModel)
@@ -77,8 +77,8 @@ class UserServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsConflictException_whenDuplicateUsernameIsProvided() {
             // arrange
-            userService.register(createValidUserModel())
-            val duplicatedUser = createValidUserModel()
+            userService.register(createRegisterCommand())
+            val duplicatedUser = createRegisterCommand()
 
             // act
             val result = assertThrows<CoreException> {
@@ -97,7 +97,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @Test
         fun returnsUserModel_whenValidUsernameIsProvided() {
             // arrange
-            val registered = userService.register(createValidUserModel())
+            val registered = userService.register(createRegisterCommand())
 
             // act
             val result = userService.getUser(registered.username)
@@ -134,7 +134,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @Test
         fun updatesPassword_whenValidPasswordsAreProvided() {
             // arrange
-            val registered = userService.register(createValidUserModel())
+            val registered = userService.register(createRegisterCommand())
             val newPassword = "newPassword1!"
             val command = UpdatePasswordCommand(registered.username, DEFAULT_PASSWORD, newPassword)
 
@@ -153,7 +153,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsBadRequestException_whenNewPasswordIsSameAsCurrent() {
             // arrange
-            val registered = userService.register(createValidUserModel())
+            val registered = userService.register(createRegisterCommand())
             val command = UpdatePasswordCommand(registered.username, DEFAULT_PASSWORD, DEFAULT_PASSWORD)
 
             // act

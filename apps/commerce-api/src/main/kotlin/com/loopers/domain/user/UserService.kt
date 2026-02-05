@@ -2,6 +2,7 @@ package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import java.time.ZonedDateTime
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,10 +13,17 @@ class UserService(
     private val passwordEncoder: PasswordEncoder,
 ) {
     @Transactional
-    fun register(user: UserModel): UserModel {
-        userRepository.findByUsername(user.username)?.let {
+    fun register(command: RegisterCommand): UserModel {
+        userRepository.findByUsername(command.username)?.let {
             throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "이미 존재하는 아이디입니다.")
         }
+        val user = UserModel(
+            username = command.username,
+            password = command.password,
+            name = command.name,
+            email = command.email,
+            birthDate = command.birthDate,
+        )
         user.applyEncodedPassword(passwordEncoder.encode(user.password))
         return userRepository.save(user)
     }
@@ -45,6 +53,14 @@ class UserService(
         return userRepository.save(user)
     }
 }
+
+data class RegisterCommand(
+    val username: String,
+    val password: String,
+    val name: String,
+    val email: String,
+    val birthDate: ZonedDateTime,
+)
 
 data class UpdatePasswordCommand(
     val username: String,
