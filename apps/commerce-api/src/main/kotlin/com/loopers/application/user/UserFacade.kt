@@ -19,6 +19,6 @@ class UserFacade(
     }
 
     fun changePassword(user: User, currentPassword: String, newPassword: String) {
-        userService.changePassword(user, currentPassword, newPassword)
+        userService.changePassword(user.id, currentPassword, newPassword)
     }
 }

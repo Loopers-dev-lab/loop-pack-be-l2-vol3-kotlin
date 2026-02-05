@@ -3,6 +3,7 @@ package com.loopers.domain.user
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @Component
@@ -40,12 +41,10 @@ class UserService(
         return user
     }
 
-    fun changePassword(user: User, currentPassword: String, newPassword: String) {
-        if (!passwordEncoder.matches(currentPassword, user.password)) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.")
-        }
-
-        val encodedNewPassword = passwordEncoder.encode(newPassword)
-        user.changePassword(encodedNewPassword)
+    @Transactional
+    fun changePassword(userId: Long, currentPassword: String, newPassword: String) {
+        val user = userRepository.find(userId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+        user.changePassword(currentPassword, newPassword, passwordEncoder)
     }
 }

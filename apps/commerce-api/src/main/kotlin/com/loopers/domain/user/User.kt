@@ -44,10 +44,14 @@ class User(
         }
     }
 
-    fun changePassword(newPassword: String) {
-        if (this.password == newPassword) {
+    fun changePassword(currentPassword: String, newPassword: String, passwordEncoder: PasswordEncoder) {
+        if (!passwordEncoder.matches(currentPassword, this.password)) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.")
+        }
+        if (currentPassword == newPassword) {
             throw CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
         }
-        this.password = newPassword
+        val validatedPassword = Password.of(newPassword, this.birthday)
+        this.password = passwordEncoder.encode(validatedPassword.value)
     }
 }

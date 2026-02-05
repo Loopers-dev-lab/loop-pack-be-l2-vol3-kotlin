@@ -76,7 +76,7 @@ class UserFacadeTest {
             userFacade.changePassword(user, currentPassword, newPassword)
 
             // assert
-            verify(userService).changePassword(user, currentPassword, newPassword)
+            verify(userService).changePassword(user.id, currentPassword, newPassword)
         }
     }
 }

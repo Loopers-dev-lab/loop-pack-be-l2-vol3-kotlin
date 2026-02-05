@@ -201,6 +201,25 @@ class UserServiceTest {
             birthday = LocalDate.of(1990, 5, 15),
         )
 
+        @DisplayName("사용자가 존재하지 않으면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenUserNotExists() {
+            // arrange
+            val userId = 1L
+            val currentPassword = "CurrentPassword1!"
+            val newPassword = "NewPassword1!"
+
+            whenever(userRepository.find(userId)).thenReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.changePassword(userId, currentPassword, newPassword)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
         @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
         @Test
         fun throwsUnauthorized_whenCurrentPasswordNotMatches() {
@@ -208,11 +227,12 @@ class UserServiceTest {
             val wrongCurrentPassword = "WrongPassword1!"
             val newPassword = "NewPassword1!"
 
+            whenever(userRepository.find(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(wrongCurrentPassword, encodedCurrentPassword)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword(user, wrongCurrentPassword, newPassword)
+                userService.changePassword(user.id, wrongCurrentPassword, newPassword)
             }
 
             // assert
@@ -227,11 +247,12 @@ class UserServiceTest {
             val newPassword = "NewPassword1!"
             val encodedNewPassword = "encoded_new_password"
 
+            whenever(userRepository.find(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
             whenever(passwordEncoder.encode(newPassword)).thenReturn(encodedNewPassword)
 
             // act
-            userService.changePassword(user, currentPassword, newPassword)
+            userService.changePassword(user.id, currentPassword, newPassword)
 
             // assert
             assertThat(user.password).isEqualTo(encodedNewPassword)
