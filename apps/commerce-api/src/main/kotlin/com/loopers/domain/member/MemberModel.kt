@@ -82,16 +82,16 @@ class MemberModel internal constructor(
 
         fun parseBirthDate(birthDateString: String): LocalDate {
             if (birthDateString.isBlank()) {
-                throw CoreException(ErrorType.BAD_REQUEST, "생년월일은 비어있을 수 없습니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.BIRTH_DATE_EMPTY.message)
             }
             try {
                 val date = LocalDate.parse(birthDateString, BIRTH_DATE_FORMATTER)
                 if (date.isAfter(LocalDate.now())) {
-                    throw CoreException(ErrorType.BAD_REQUEST, "생년월일은 미래일 수 없습니다.")
+                    throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.BIRTH_DATE_FUTURE.message)
                 }
                 return date
             } catch (e: DateTimeParseException) {
-                throw CoreException(ErrorType.BAD_REQUEST, "생년월일 형식이 올바르지 않습니다. (YYYYMMDD)")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.BIRTH_DATE_INVALID_FORMAT.message)
             }
         }
 
@@ -101,47 +101,47 @@ class MemberModel internal constructor(
 
         private fun validateRawPassword(password: String, birthDate: LocalDate) {
             if (password.length < 8) {
-                throw CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8자 이상이어야 합니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.PASSWORD_TOO_SHORT.message)
             }
             if (password.length > 16) {
-                throw CoreException(ErrorType.BAD_REQUEST, "비밀번호는 16자 이하여야 합니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.PASSWORD_TOO_LONG.message)
             }
             if (!PASSWORD_REGEX.matches(password)) {
-                throw CoreException(ErrorType.BAD_REQUEST, "비밀번호는 영문 대소문자, 숫자, 특수문자만 가능합니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.PASSWORD_INVALID_FORMAT.message)
             }
             val birthDateString = formatBirthDate(birthDate)
             if (password.contains(birthDateString)) {
-                throw CoreException(ErrorType.BAD_REQUEST, "비밀번호에 생년월일을 포함할 수 없습니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.PASSWORD_CONTAINS_BIRTH_DATE.message)
             }
         }
 
         private fun validateLoginId(loginId: String) {
             if (loginId.isBlank()) {
-                throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 비어있을 수 없습니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.LOGIN_ID_EMPTY.message)
             }
             if (!LOGIN_ID_REGEX.matches(loginId)) {
-                throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문과 숫자만 허용됩니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.LOGIN_ID_INVALID_FORMAT.message)
             }
         }
 
         private fun validateName(name: String) {
             if (name.isBlank()) {
-                throw CoreException(ErrorType.BAD_REQUEST, "이름은 비어있을 수 없습니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.NAME_EMPTY.message)
             }
         }
 
         private fun validateEmail(email: String) {
             if (email.isBlank()) {
-                throw CoreException(ErrorType.BAD_REQUEST, "이메일은 비어있을 수 없습니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.EMAIL_EMPTY.message)
             }
             if (!EMAIL_REGEX.matches(email)) {
-                throw CoreException(ErrorType.BAD_REQUEST, "이메일 형식이 올바르지 않습니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.EMAIL_INVALID_FORMAT.message)
             }
         }
 
         private fun validateBirthDate(birthDate: LocalDate) {
             if (birthDate.isAfter(LocalDate.now())) {
-                throw CoreException(ErrorType.BAD_REQUEST, "생년월일은 미래일 수 없습니다.")
+                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.BIRTH_DATE_FUTURE.message)
             }
         }
     }

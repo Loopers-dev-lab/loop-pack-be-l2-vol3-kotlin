@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.auth
 import com.loopers.application.member.MemberFacade
 import com.loopers.application.member.MemberInfo
 import com.loopers.domain.member.MemberCommand
+import com.loopers.domain.member.MemberErrorCode
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.core.MethodParameter
@@ -29,9 +30,9 @@ class AuthenticatedMemberArgumentResolver(
         binderFactory: WebDataBinderFactory?,
     ): MemberInfo {
         val loginId = webRequest.getHeader(HEADER_LOGIN_ID)
-            ?: throw CoreException(ErrorType.UNAUTHORIZED, "로그인 ID 헤더가 필요합니다.")
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, MemberErrorCode.AUTH_HEADER_LOGIN_ID_MISSING.message)
         val password = webRequest.getHeader(HEADER_LOGIN_PW)
-            ?: throw CoreException(ErrorType.UNAUTHORIZED, "비밀번호 헤더가 필요합니다.")
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, MemberErrorCode.AUTH_HEADER_PASSWORD_MISSING.message)
 
         val command = MemberCommand.Authenticate(loginId = loginId, password = password)
         return memberFacade.authenticate(command)

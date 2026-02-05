@@ -12,7 +12,7 @@ class MemberService(
 ) {
     fun register(command: MemberCommand.Register): MemberModel {
         if (memberRepository.existsByLoginId(command.loginId)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "이미 존재하는 로그인 ID입니다.")
+            throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.LOGIN_ID_DUPLICATE.message)
         }
 
         val member = MemberModel.create(
@@ -29,10 +29,10 @@ class MemberService(
 
     fun authenticate(command: MemberCommand.Authenticate): MemberModel {
         val member = memberRepository.findByLoginId(command.loginId)
-            ?: throw CoreException(ErrorType.UNAUTHORIZED, "존재하지 않는 회원입니다.")
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, MemberErrorCode.MEMBER_NOT_FOUND.message)
 
         if (!passwordEncoder.matches(command.password, member.password)) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.")
+            throw CoreException(ErrorType.UNAUTHORIZED, MemberErrorCode.PASSWORD_MISMATCH.message)
         }
 
         return member
@@ -40,14 +40,14 @@ class MemberService(
 
     fun changePassword(command: MemberCommand.ChangePassword) {
         val member = memberRepository.findById(command.memberId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다.")
+            ?: throw CoreException(ErrorType.NOT_FOUND, MemberErrorCode.MEMBER_NOT_FOUND.message)
 
         if (!passwordEncoder.matches(command.currentPassword, member.password)) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "비밀번호가 일치하지 않습니다.")
+            throw CoreException(ErrorType.UNAUTHORIZED, MemberErrorCode.PASSWORD_MISMATCH.message)
         }
 
         if (command.currentPassword == command.newPassword) {
-            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.")
+            throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.PASSWORD_SAME_AS_CURRENT.message)
         }
 
         member.changePassword(command.newPassword, passwordEncoder)
