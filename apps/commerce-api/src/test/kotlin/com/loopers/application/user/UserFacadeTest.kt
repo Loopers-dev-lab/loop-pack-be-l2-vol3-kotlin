@@ -32,7 +32,7 @@ class UserFacadeTest {
     @Nested
     inner class Register {
 
-        @DisplayName("회원가입 성공 시, 이름이 마스킹된 UserInfo를 반환한다.")
+        @DisplayName("회원가입 성공 시, UserInfo를 반환한다.")
         @Test
         fun success() {
             // arrange
@@ -66,26 +66,6 @@ class UserFacadeTest {
                 { assertThat(result.birthDate).isEqualTo(birthDate) },
                 { assertThat(result.email).isEqualTo(email) },
             )
-        }
-
-        @DisplayName("이름이 2글자면 마지막 글자만 마스킹된다.")
-        @Test
-        fun maskTwoCharacterName() {
-            // arrange
-            val savedUser = createUser(name = "이름")
-            whenever(userService.register(any(), any(), any(), any(), any())).thenReturn(savedUser)
-
-            // act
-            val result = userFacade.register(
-                loginId = "testuser",
-                rawPassword = "Test123!",
-                name = "이름",
-                birthDate = LocalDate.of(1990, 1, 1),
-                email = "test@example.com",
-            )
-
-            // assert
-            assertThat(result.name).isEqualTo("이*")
         }
     }
 

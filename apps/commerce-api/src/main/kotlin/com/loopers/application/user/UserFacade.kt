@@ -4,6 +4,7 @@ import com.loopers.domain.user.User
 import com.loopers.domain.user.UserRepository
 import com.loopers.domain.user.UserService
 import com.loopers.support.error.UserException
+import com.loopers.support.utils.MaskingUtils
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -44,14 +45,9 @@ class UserFacade(
     private fun toUserInfo(user: User): UserInfo {
         return UserInfo(
             loginId = user.loginId,
-            name = maskLastCharacter(user.name),
+            name = MaskingUtils.maskLastCharacter(user.name),
             birthDate = user.birthDate,
             email = user.email,
         )
-    }
-
-    private fun maskLastCharacter(name: String): String {
-        if (name.length <= 1) return "*"
-        return name.dropLast(1) + "*"
     }
 }
