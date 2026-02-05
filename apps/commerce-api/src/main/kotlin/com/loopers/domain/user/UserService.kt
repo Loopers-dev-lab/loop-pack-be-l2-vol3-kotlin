@@ -29,4 +29,15 @@ class UserService(
 
         return user
     }
+
+    @Transactional
+    fun chagePassword(loginId: String, oldPassword: String, newPassword: String): User? {
+        val user = userRepository.findByLoginId(loginId)
+
+        if (user == null || !user.matchPassword(oldPassword)) return null
+
+        user.changePassword(newPassword)
+
+        return user
+    }
 }

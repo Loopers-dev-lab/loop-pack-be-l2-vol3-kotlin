@@ -122,4 +122,58 @@ class UserTest {
             assertThat(result).isEqualTo(false)
         }
     }
+
+    @DisplayName("유저 비밀번호를 수정할 때, ")
+    @Nested
+    inner class ChangePassword {
+        @DisplayName("새 비밀번호가 8~16자의 영문,숫자,특수문자 형식에 맞지 않으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestException_whenNewPasswordIsInvalid() {
+            // arrange
+            val newPassword = "abcd"
+            val user = User(loginId = "testId", password = "abcd1234", name = "testName", birth = "2026-01-31", email = "test@test.com")
+
+            // act
+            val result = assertThrows<CoreException> {
+                user.changePassword(newPassword)
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("비밀번호가 생년월일을 포함하고 있으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestException_whenNewPasswordContainsBirth() {
+            // arrange
+            val newPassword = "abcd20260131"
+            val birth = "2026-01-31"
+            val user = User(loginId = "testId", password = "abcd1234", name = "testName", birth = birth, email = "test@test.com")
+
+            // act
+            val result = assertThrows<CoreException> {
+                user.changePassword(newPassword)
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+
+        @DisplayName("비밀번호가 이전 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestException_whenNewPasswordEqualToOldPassword() {
+            // arrange
+            val password = "abcd1234"
+            val user = User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com")
+
+            // act
+            val result = assertThrows<CoreException> {
+                user.changePassword(password)
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
 }

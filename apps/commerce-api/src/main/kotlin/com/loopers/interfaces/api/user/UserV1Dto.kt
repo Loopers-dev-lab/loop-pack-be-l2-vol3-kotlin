@@ -28,4 +28,6 @@ class UserV1Dto {
             }
         }
     }
+
+    data class ChangePasswordRequest(val newPassword: String)
 }

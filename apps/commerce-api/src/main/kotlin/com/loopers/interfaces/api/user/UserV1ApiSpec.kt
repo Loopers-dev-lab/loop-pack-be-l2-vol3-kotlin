@@ -2,7 +2,6 @@ package com.loopers.interfaces.api.user
 
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
 
 @Tag(name = "User V1 API", description = "회원 API")
@@ -18,4 +17,10 @@ interface UserV1ApiSpec {
         description = "내 정보를 조회합니다.",
     )
     fun getUserInfo(loginId: String, password: String): ApiResponse<UserV1Dto.UserResponse>
+
+    @Operation(
+        summary = "비밀번호 수정",
+        description = "내 비밀번호를 수정합니다.",
+    )
+    fun changePassword(loginId: String, oldPassword: String, req: UserV1Dto.ChangePasswordRequest): ApiResponse<UserV1Dto.UserResponse>
 }

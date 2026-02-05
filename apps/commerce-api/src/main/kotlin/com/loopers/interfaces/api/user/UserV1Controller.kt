@@ -30,4 +30,15 @@ class UserV1Controller(
             .let { UserV1Dto.UserResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
+
+    @PostMapping("/changePassword")
+    override fun changePassword(
+        @RequestHeader("X-Loopers-LoginId", required = true) loginId: String,
+        @RequestHeader("X-Loopers-LoginPw", required = true) oldPassword: String,
+        @RequestBody req: UserV1Dto.ChangePasswordRequest,
+    ): ApiResponse<UserV1Dto.UserResponse> {
+        return userFacade.changePassword(loginId, oldPassword, req.newPassword)
+            .let { UserV1Dto.UserResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 }

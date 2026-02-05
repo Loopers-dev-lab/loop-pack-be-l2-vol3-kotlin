@@ -28,6 +28,7 @@ class UserV1ApiE2ETest @Autowired constructor(
     companion object {
         private const val ENDPOINT_REGISTER = "/api/v1/users/register"
         private const val ENDPOINT_GET_USER_INFO = "/api/v1/users/info"
+        private const val ENDPOINT_CHANGE_PASSWORD = "/api/v1/users/changePassword"
     }
 
     @AfterEach
@@ -133,6 +134,41 @@ class UserV1ApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(res.statusCode.is4xxClientError).isTrue() },
                 { assertThat(res.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+            )
+        }
+    }
+
+    @DisplayName("POST /api/v1/users/changePassword")
+    @Nested
+    inner class ChangePassword {
+        @DisplayName("존재하는 회원의 로그인 ID, 비밀번호와 새 비밀번호를 주면, 비밀번호를 수정한다.")
+        @Test
+        fun changePassword_whenLoginIdExistsAndPasswordMatchedAndNewPasswordIsValid() {
+            // arrange
+            val oldPassword = "abcd1234"
+            val req = UserV1Dto.ChangePasswordRequest(
+                newPassword = "abcd1235",
+            )
+            val user = userJpaRepository.save(User(loginId = "testId", password = oldPassword, name = "testName", birth = "2026-01-31", email = "test@test.com"))
+            val headers = HttpHeaders()
+            headers.set("X-Loopers-LoginId", user.loginId)
+            headers.set("X-Loopers-LoginPw", oldPassword)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
+            val res = testRestTemplate.exchange(ENDPOINT_CHANGE_PASSWORD, HttpMethod.POST, HttpEntity<Any>(req, headers), responseType)
+
+            // assert
+            val resultUser = userJpaRepository.findByLoginId(user.loginId)
+            assertAll(
+                { assertThat(res.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(res.body?.data).isNotNull() },
+                { assertThat(res.body?.data?.loginId).isEqualTo(user.loginId) },
+                { assertThat(res.body?.data?.name).isEqualTo(user.name.substring(0, user.name.length - 1) + "*") },
+                { assertThat(res.body?.data?.birth).isEqualTo(user.birth) },
+                { assertThat(res.body?.data?.email).isEqualTo(user.email) },
+                { assertThat(resultUser).isNotNull() },
+                { assertThat(resultUser?.matchPassword(req.newPassword)).isTrue() },
             )
         }
     }

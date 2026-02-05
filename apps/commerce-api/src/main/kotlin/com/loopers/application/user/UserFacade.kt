@@ -19,4 +19,10 @@ class UserFacade(
             ?.let { UserInfo.from(it) }
             ?: throw CoreException(ErrorType.NOT_FOUND, "User not found")
     }
+
+    fun changePassword(loginId: String, oldPassword: String, newPassword: String): UserInfo {
+        return userService.chagePassword(loginId, oldPassword, newPassword)
+            ?.let { UserInfo.from(it) }
+            ?: throw CoreException(ErrorType.NOT_FOUND, "User not found")
+    }
 }

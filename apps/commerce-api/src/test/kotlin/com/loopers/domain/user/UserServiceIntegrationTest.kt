@@ -48,7 +48,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             val user = userService.registerUser(loginId = "testId", password = "testPassword", name = "testName", birth = "2026-01-31", email = "test@test.com")
 
             // act
-            val result = assertThrows<CoreException>  {
+            val result = assertThrows<CoreException> {
                 userService.registerUser(loginId = user.loginId, password = "testPassword", name = "testName", birth = "2026-01-31", email = "test@test.com")
             }
 
@@ -65,7 +65,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         fun getUser_whenLoginIdExists() {
             // arrange
             val password = "abcd1234"
-            val user  = userJpaRepository.save(User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com"))
+            val user = userJpaRepository.save(User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com"))
 
             // act
             val result = userService.getUserByLoginIdAndPassword(user.loginId, password)
@@ -107,6 +107,52 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(result).isNull()
+        }
+    }
+
+    @DisplayName("비밀번호 수정시, ")
+    @Nested
+    inner class ChangePassword {
+        @DisplayName("해당 로그인 ID의 회원이 존재하고 기존 비밀번호와 새 비밀번호가 유효한 경우, 비밀번호가 변경된다.")
+        @Test
+        fun changePassword_whenLoginIdExistsAndPasswordsAreValid() {
+            // arrange
+            val password = "abcd1234"
+            val newPassword = "abcd1235"
+            val user = userJpaRepository.save(User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com"))
+
+            // act
+            userService.chagePassword(user.loginId, password, newPassword)
+
+            // assert
+            val result = userJpaRepository.findByLoginId(user.loginId)
+            assertAll(
+                { assertThat(result).isNotNull() },
+                { assertThat(result?.matchPassword(newPassword)).isTrue() },
+            )
+        }
+
+        @DisplayName("해당 로그인 ID의 회원이 존재하고 기존 비밀번호가 일치하지만 새 비밀번호가 유효하지 않은 경우, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestException_whenNewPasswordIsInvalid() {
+            // arrange
+            val password = "abcd1234"
+            val newPassword = "abcd"
+            val user = userJpaRepository.save(User(loginId = "testId", password = password, name = "testName", birth = "2026-01-31", email = "test@test.com"))
+
+            // act
+            val result = assertThrows<CoreException> {
+                userService.chagePassword(user.loginId, password, newPassword)
+            }
+
+            // assert
+            val resultUser = userJpaRepository.findByLoginId(user.loginId)
+            assertAll(
+                { assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
+                { assertThat(resultUser).isNotNull() },
+                { assertThat(resultUser?.matchPassword(password)).isTrue() },
+                { assertThat(resultUser?.matchPassword(newPassword)).isFalse() },
+            )
         }
     }
 }

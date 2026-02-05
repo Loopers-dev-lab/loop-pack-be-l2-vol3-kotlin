@@ -47,6 +47,16 @@ class User(
         return encryptPassword(password).contentEquals(this.password)
     }
 
+    fun changePassword(newPassword: String) {
+        if (!validatePassword(newPassword, this.birth)) throw CoreException(ErrorType.BAD_REQUEST, "invalid password")
+
+        val encryptedNewPassword = encryptPassword(newPassword)
+
+        if (this.password == encryptedNewPassword) throw CoreException(ErrorType.BAD_REQUEST, "invalid password")
+
+        this.password = encryptedNewPassword
+    }
+
     companion object {
         private fun encryptPassword(password: String): String {
             return MessageDigest.getInstance("SHA-256")
