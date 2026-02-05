@@ -9,6 +9,7 @@ import com.loopers.support.error.ErrorCode
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -27,6 +28,18 @@ class ApiControllerAdvice {
     fun handle(e: CoreException): ResponseEntity<ApiResponse<*>> {
         log.warn("CoreException: [{}] {}", e.errorCode.code, e.message, e)
         return failureResponse(errorCode = e.errorCode, errorMessage = e.message)
+    }
+
+    @ExceptionHandler
+    fun handleBadRequest(e: MethodArgumentNotValidException): ResponseEntity<ApiResponse<*>> {
+        val fieldErrors = e.bindingResult.fieldErrors.associate { fieldError ->
+            fieldError.field to (fieldError.defaultMessage ?: "유효하지 않은 값입니다.")
+        }
+        log.warn("Validation failed: {}", fieldErrors)
+        return failureResponseWithFieldErrors(
+            errorCode = CommonErrorCode.INVALID_INPUT_VALUE,
+            fieldErrors = fieldErrors,
+        )
     }
 
     /**
@@ -134,6 +147,12 @@ class ApiControllerAdvice {
     private fun failureResponse(errorCode: ErrorCode, errorMessage: String? = null): ResponseEntity<ApiResponse<*>> =
         ResponseEntity(
             ApiResponse.fail(errorCode = errorCode.code, errorMessage = errorMessage ?: errorCode.message),
+            errorCode.status,
+        )
+
+    private fun failureResponseWithFieldErrors(errorCode: ErrorCode, fieldErrors: Map<String, String>): ResponseEntity<ApiResponse<*>> =
+        ResponseEntity(
+            ApiResponse.failWithFieldErrors(errorCode = errorCode.code, errorMessage = errorCode.message, fieldErrors = fieldErrors),
             errorCode.status,
         )
 }

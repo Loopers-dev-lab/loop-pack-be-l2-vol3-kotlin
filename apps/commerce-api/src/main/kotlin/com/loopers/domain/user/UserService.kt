@@ -20,18 +20,13 @@ class UserService(
         birthDate: LocalDate,
         email: String,
     ): User {
-        // 1. 로그인 ID 중복 체크
         if (userRepository.existsByLoginId(loginId)) {
             throw CoreException(UserErrorCode.DUPLICATE_LOGIN_ID)
         }
 
-        // 2. 비밀번호 검증 (규칙 체크)
         Password.validate(rawPassword, birthDate)
 
-        // 3. 비밀번호 암호화
         val encodedPassword = passwordEncoder.encode(rawPassword)
-
-        // 4. User 생성 및 저장
         val user = User.create(
             loginId = loginId,
             encodedPassword = encodedPassword,
@@ -41,4 +36,5 @@ class UserService(
         )
         return userRepository.save(user)
     }
+
 }
