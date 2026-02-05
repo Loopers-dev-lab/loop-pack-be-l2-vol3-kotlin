@@ -16,123 +16,29 @@ class UserTest {
     @Nested
     inner class ChangePassword {
         private val loginId = "testuser1"
-        private val encodedPassword = "encoded_password"
+        private val currentEncodedPassword = "encoded_current_password"
         private val name = "홍길동"
         private val email = "test@example.com"
         private val birthday = LocalDate.of(1990, 5, 15)
 
-        private val passwordEncoder = object : PasswordEncoder {
-            override fun encode(rawPassword: String): String = "encoded_$rawPassword"
-            override fun matches(rawPassword: String, encodedPassword: String): Boolean =
-                "encoded_$rawPassword" == encodedPassword
-        }
-
-        @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @DisplayName("새 비밀번호로 변경하면, 비밀번호가 변경된다.")
         @Test
-        fun throwsUnauthorized_whenCurrentPasswordNotMatches() {
+        fun changesPassword_whenNewPasswordProvided() {
             // arrange
+            val newEncodedPassword = "encoded_new_password"
             val user = User(
                 loginId = loginId,
-                password = encodedPassword,
+                password = currentEncodedPassword,
                 name = name,
                 email = email,
                 birthday = birthday,
             )
 
             // act
-            val exception = assertThrows<CoreException> {
-                user.changePassword("wrongPassword", "NewPass1234!@", passwordEncoder)
-            }
+            user.changePassword(newEncodedPassword)
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
-        }
-
-        @DisplayName("현재 비밀번호와 새 비밀번호가 동일하면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenNewPasswordSameAsCurrent() {
-            // arrange
-            val currentPassword = "password"
-            val user = User(
-                loginId = loginId,
-                password = "encoded_$currentPassword",
-                name = name,
-                email = email,
-                birthday = birthday,
-            )
-
-            // act
-            val exception = assertThrows<CoreException> {
-                user.changePassword(currentPassword, currentPassword, passwordEncoder)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("새 비밀번호 형식이 올바르지 않으면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenNewPasswordFormatInvalid() {
-            // arrange
-            val currentPassword = "password"
-            val user = User(
-                loginId = loginId,
-                password = "encoded_$currentPassword",
-                name = name,
-                email = email,
-                birthday = birthday,
-            )
-
-            // act
-            val exception = assertThrows<CoreException> {
-                user.changePassword(currentPassword, "weak", passwordEncoder)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("새 비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenNewPasswordContainsBirthday() {
-            // arrange
-            val currentPassword = "password"
-            val user = User(
-                loginId = loginId,
-                password = "encoded_$currentPassword",
-                name = name,
-                email = email,
-                birthday = birthday,
-            )
-
-            // act
-            val exception = assertThrows<CoreException> {
-                user.changePassword(currentPassword, "Pass19900515!@", passwordEncoder)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("유효한 비밀번호로 변경하면, 비밀번호가 변경된다.")
-        @Test
-        fun changesPassword_whenValidPasswordsProvided() {
-            // arrange
-            val currentPassword = "password"
-            val newPassword = "NewPass1234!@"
-            val user = User(
-                loginId = loginId,
-                password = "encoded_$currentPassword",
-                name = name,
-                email = email,
-                birthday = birthday,
-            )
-
-            // act
-            user.changePassword(currentPassword, newPassword, passwordEncoder)
-
-            // assert
-            assertThat(user.password).isEqualTo("encoded_$newPassword")
+            assertThat(user.password).isEqualTo(newEncodedPassword)
         }
     }
 

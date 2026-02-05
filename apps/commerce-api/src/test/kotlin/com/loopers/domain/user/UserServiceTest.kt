@@ -239,6 +239,62 @@ class UserServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
 
+        @DisplayName("현재 비밀번호와 새 비밀번호가 동일하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenNewPasswordSameAsCurrent() {
+            // arrange
+            val currentPassword = "CurrentPassword1!"
+
+            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.changePassword(user.id, currentPassword, currentPassword)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("새 비밀번호 형식이 올바르지 않으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenNewPasswordFormatInvalid() {
+            // arrange
+            val currentPassword = "CurrentPassword1!"
+            val invalidNewPassword = "weak"
+
+            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.changePassword(user.id, currentPassword, invalidNewPassword)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenNewPasswordContainsBirthday() {
+            // arrange
+            val currentPassword = "CurrentPassword1!"
+            val newPasswordWithBirthday = "Pass19900515!@"
+
+            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.changePassword(user.id, currentPassword, newPasswordWithBirthday)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
         @DisplayName("유효한 현재 비밀번호와 새 비밀번호를 전달하면, 비밀번호가 변경된다.")
         @Test
         fun changesPassword_whenValidPasswordsProvided() {
