@@ -47,6 +47,10 @@ class UserModel(
         if (email.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "이메일은 비어있을 수 없습니다.")
     }
 
+    /**
+     * 사용자 암호 변경
+     * @param newEncryptedPassword[String] 암호화된 신규 패스워드
+     */
     fun updatePassword(newEncryptedPassword: String) {
         this.encryptedPassword = newEncryptedPassword
     }
