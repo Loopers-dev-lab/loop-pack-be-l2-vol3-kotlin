@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.member
 
-import com.loopers.domain.member.MemberModel
+import com.loopers.domain.member.Member
 import com.loopers.domain.member.MemberRepository
 import com.loopers.domain.member.vo.LoginId
 import org.springframework.stereotype.Component
@@ -8,17 +8,20 @@ import org.springframework.stereotype.Component
 @Component
 class MemberRepositoryImpl(
     private val memberJpaRepository: MemberJpaRepository,
+    private val memberMapper: MemberMapper,
 ) : MemberRepository {
 
-    override fun save(member: MemberModel): MemberModel {
-        return memberJpaRepository.save(member)
+    override fun save(member: Member): Member {
+        val entity = memberMapper.toEntity(member)
+        val savedEntity = memberJpaRepository.save(entity)
+        return memberMapper.toDomain(savedEntity)
     }
 
-    override fun findByLoginId(loginId: LoginId): MemberModel? {
-        return memberJpaRepository.findByLoginId(loginId)
+    override fun findByLoginId(loginId: LoginId): Member? {
+        return memberJpaRepository.findByLoginId(loginId.value)?.let { memberMapper.toDomain(it) }
     }
 
     override fun existsByLoginId(loginId: LoginId): Boolean {
-        return memberJpaRepository.existsByLoginId(loginId)
+        return memberJpaRepository.existsByLoginId(loginId.value)
     }
 }
