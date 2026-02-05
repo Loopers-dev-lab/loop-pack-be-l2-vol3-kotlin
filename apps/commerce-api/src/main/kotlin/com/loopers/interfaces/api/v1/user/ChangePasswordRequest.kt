@@ -18,4 +18,6 @@ data class ChangePasswordRequest(
         oldPassword = oldPassword,
         newPassword = newPassword,
     )
+
+    override fun toString(): String = "ChangePasswordRequest(oldPassword=****, newPassword=****)"
 }

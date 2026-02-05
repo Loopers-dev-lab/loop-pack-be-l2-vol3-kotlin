@@ -12,7 +12,10 @@ class UserRepositoryImpl(
 
     override fun save(user: User): Long {
         val entity = UserMapper.toEntity(user)
-        return jpaRepository.save(entity).id!!
+        val saved = jpaRepository.save(entity)
+        return requireNotNull(saved.id) {
+            "User 저장 실패: id가 생성되지 않았습니다."
+        }
     }
 
     override fun findById(id: Long): User? {

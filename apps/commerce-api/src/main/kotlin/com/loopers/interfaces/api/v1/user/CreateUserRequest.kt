@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.v1.user
 import com.loopers.application.user.RegisterUserCommand
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 
 data class CreateUserRequest(
@@ -26,6 +27,7 @@ data class CreateUserRequest(
     val email: String,
 
     @field:NotBlank(message = "성별은 필수입니다.")
+    @field:Pattern(regexp = "MALE|FEMALE", message = "성별은 MALE 또는 FEMALE이어야 합니다.")
     val gender: String,
 ) {
     fun toCommand() = RegisterUserCommand(
@@ -36,4 +38,7 @@ data class CreateUserRequest(
         email = email,
         gender = gender,
     )
+
+    override fun toString(): String =
+        "CreateUserRequest(loginId=$loginId, password=****, name=$name, birthDate=$birthDate, email=$email, gender=$gender)"
 }

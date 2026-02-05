@@ -4,6 +4,7 @@ import com.loopers.interfaces.api.auth.AuthenticationFilter
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import io.restassured.RestAssured
 import io.restassured.http.ContentType
+import org.hamcrest.Matchers.containsInAnyOrder
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.notNullValue
 import org.junit.jupiter.api.BeforeEach
@@ -42,6 +43,72 @@ class UserApiE2ETest {
                 .body("meta.result", equalTo("SUCCESS"))
                 .body("data.id", notNullValue())
         }
+
+        @Test
+        fun `허용되지 않는 특수문자가 포함된 비밀번호는 400 에러가 발생한다`() {
+            val invalidPasswords = listOf("Password1~", "Password1|", "Password1\\")
+
+            invalidPasswords.forEach { invalidPassword ->
+                RestAssured.given()
+                    .contentType(ContentType.JSON)
+                    .body(createUserRequest(password = invalidPassword))
+                .`when`()
+                    .post("/api/v1/users")
+                .then()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .body("meta.result", equalTo("FAIL"))
+                    .body("meta.errorCode", equalTo("BAD_REQUEST"))
+            }
+        }
+
+        @Test
+        fun `성별이 없으면 400 에러가 발생한다`() {
+            val requestWithoutGender = mapOf(
+                "loginId" to LOGIN_ID,
+                "password" to PASSWORD,
+                "name" to NAME,
+                "birthDate" to BIRTH_DATE,
+                "email" to EMAIL,
+            )
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .body(requestWithoutGender)
+            .`when`()
+                .post("/api/v1/users")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("BAD_REQUEST"))
+        }
+
+        @Test
+        fun `이미 존재하는 loginId로 가입하면 409 에러가 발생한다`() {
+            registerUser()
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .body(createUserRequest())
+            .`when`()
+                .post("/api/v1/users")
+            .then()
+                .statusCode(HttpStatus.CONFLICT.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("CONFLICT"))
+        }
+
+        @Test
+        fun `유효하지 않은 성별 값이면 400 에러가 발생한다`() {
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .body(createUserRequest(gender = "INVALID"))
+            .`when`()
+                .post("/api/v1/users")
+            .then()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("BAD_REQUEST"))
+        }
     }
 
     @Nested
@@ -63,6 +130,20 @@ class UserApiE2ETest {
                 .body("data.birthDate", equalTo(BIRTH_DATE))
                 .body("data.email", equalTo(EMAIL))
                 .body("data.gender", equalTo(GENDER))
+        }
+
+        @Test
+        fun `내 정보 조회 응답은 요구사항에 명시된 필드만 포함한다`() {
+            registerUser()
+
+            RestAssured.given()
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+            .`when`()
+                .get("/api/v1/users/me")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.keySet()", containsInAnyOrder("loginId", "name", "birthDate", "email", "gender"))
         }
 
         @Test
@@ -212,13 +293,13 @@ class UserApiE2ETest {
             .statusCode(HttpStatus.CREATED.value())
     }
 
-    private fun createUserRequest() = mapOf(
+    private fun createUserRequest(password: String = PASSWORD, gender: String = GENDER) = mapOf(
         "loginId" to LOGIN_ID,
-        "password" to PASSWORD,
+        "password" to password,
         "name" to NAME,
         "birthDate" to BIRTH_DATE,
         "email" to EMAIL,
-        "gender" to GENDER,
+        "gender" to gender,
     )
 
     companion object {

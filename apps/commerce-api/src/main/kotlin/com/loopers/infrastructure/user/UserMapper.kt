@@ -10,8 +10,11 @@ import com.loopers.domain.user.User
 object UserMapper {
 
     fun toDomain(entity: UserEntity): User {
+        val id = requireNotNull(entity.id) {
+            "UserEntity.id가 null입니다. 저장된 Entity만 Domain으로 변환 가능합니다."
+        }
         return User.reconstitute(
-            persistenceId = entity.id!!,
+            persistenceId = id,
             loginId = LoginId(entity.loginId),
             password = Password.fromEncoded(entity.password),
             name = Name(entity.name),
