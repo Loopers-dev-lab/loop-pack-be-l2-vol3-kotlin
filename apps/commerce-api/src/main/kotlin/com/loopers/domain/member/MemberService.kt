@@ -2,6 +2,7 @@ package com.loopers.domain.member
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -29,7 +30,11 @@ class MemberService(
             birthday = birthday,
             email = email,
         )
-        memberRepository.save(member)
+        try {
+            memberRepository.save(member)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
+        }
     }
 
     @Transactional(readOnly = true)
