@@ -48,7 +48,7 @@ class MemberV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestBody request: MemberV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
-        memberService.changePassword(loginId, request.currentPassword, request.newPassword)
+        memberService.changePassword(loginId, password, request.newPassword)
         return ApiResponse.success()
     }
 }
