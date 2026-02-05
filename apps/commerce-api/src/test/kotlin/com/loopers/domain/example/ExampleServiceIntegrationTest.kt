@@ -35,7 +35,7 @@ class ExampleServiceIntegrationTest @Autowired constructor(
             val exampleModel = exampleJpaRepository.save(ExampleModel(name = "예시 제목", description = "예시 설명"))
 
             // act
-            val result = exampleService.getExample(exampleModel.id)
+            val result = exampleService.getExample(exampleModel.id!!)
 
             // assert
             assertAll(
