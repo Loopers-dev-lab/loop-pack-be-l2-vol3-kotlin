@@ -161,6 +161,71 @@ classDiagram
     UserJpaRepository ..> UserModel : manages
 ```
 
+### 요청 플로우
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant Ctrl as Controller
+    participant Svc as UserService
+    participant Enc as PasswordEncoder
+    participant Repo as Repository
+
+    rect rgb(220, 235, 255)
+    Note over C,Repo: POST /api/v1/users/signup
+        C->>Ctrl: SignupRequest
+        Ctrl->>Svc: createUser()
+        Svc->>Repo: existsByUserId()
+        Repo-->>Svc: false
+        Svc->>Svc: validateUserId / validateEmail / validatePassword
+        Svc->>Enc: encode(password)
+        Enc-->>Svc: encryptedPassword
+        Svc->>Repo: save(UserModel)
+        Repo-->>Svc: saved
+        Svc-->>Ctrl: UserModel
+        Ctrl-->>C: 200 UserResponse
+    end
+
+    rect rgb(220, 255, 220)
+    Note over C,Repo: GET /api/v1/users/me
+        C->>Ctrl: Headers (LoginId, LoginPw)
+        Ctrl->>Svc: authenticate()
+        Svc->>Repo: findByUserId()
+        Repo-->>Svc: UserModel
+        Svc->>Enc: matches(password, encrypted)
+        Enc-->>Svc: true
+        Svc-->>Ctrl: UserModel
+        Ctrl-->>C: 200 UserResponse (name masked)
+    end
+
+    rect rgb(255, 235, 220)
+    Note over C,Repo: PUT /api/v1/users/password
+        C->>Ctrl: Headers + UserChangePasswordRequest
+        Note right of Ctrl: 1. 요청자 인증
+        Ctrl->>Svc: authenticate()
+        Svc->>Repo: findByUserId()
+        Repo-->>Svc: UserModel
+        Svc->>Enc: matches(loginPw, encrypted)
+        Enc-->>Svc: true
+        Svc-->>Ctrl: UserModel
+        Note right of Ctrl: 2. 비밀번호 변경
+        Ctrl->>Svc: changePassword()
+        Svc->>Repo: findByUserId()
+        Repo-->>Svc: UserModel
+        Svc->>Enc: matches(oldPassword, encrypted)
+        Enc-->>Svc: true
+        Svc->>Svc: validatePassword(newPassword)
+        Svc->>Enc: matches(newPassword, encrypted)
+        Enc-->>Svc: false (현재와 다름)
+        Svc->>Enc: encode(newPassword)
+        Enc-->>Svc: newEncryptedPassword
+        Svc->>Repo: save(updated UserModel)
+        Repo-->>Svc: saved
+        Svc-->>Ctrl: void
+        Ctrl-->>C: 200 success
+    end
+```
+
 ### 핵심 설계 결정
 
 - **Facade 없음** : Week 1은 단일 Service 호출이므로 Controller → Service 직접 연결
