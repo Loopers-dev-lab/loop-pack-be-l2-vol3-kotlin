@@ -128,7 +128,7 @@ class RegisterRequestValidationTest {
         @Test
         fun failWhenPasswordTooLong() {
             // arrange
-            val request = createValidRequest(password = "VeryLongPass123!!")  // 17자
+            val request = createValidRequest(password = "VeryLongPass123!!") // 17자
 
             // act
             val violations = validator.validate(request)
