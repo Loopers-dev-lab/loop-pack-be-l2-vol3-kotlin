@@ -14,7 +14,7 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 
-class MemberModelTest {
+class MemberTest {
 
     @Nested
     inner class Create {
@@ -28,7 +28,7 @@ class MemberModelTest {
             val email = Email("test@example.com")
 
             // act
-            val member = MemberModel(
+            val member = Member(
                 loginId = loginId,
                 password = password,
                 name = name,
@@ -154,8 +154,8 @@ class MemberModelTest {
         name: String = "홍길동",
         birthDate: LocalDate = LocalDate.of(1990, 1, 15),
         email: String = "test@example.com",
-    ): MemberModel {
-        return MemberModel(
+    ): Member {
+        return Member(
             loginId = LoginId(loginId),
             password = Password.of(rawPassword, birthDate),
             name = Name(name),
