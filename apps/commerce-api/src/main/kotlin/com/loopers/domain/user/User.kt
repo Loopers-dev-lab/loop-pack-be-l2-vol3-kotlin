@@ -26,7 +26,7 @@ class User(
         private const val NAME_MAX_LENGTH = 10
     }
 
-    @Column(name = "login_id", nullable = false, unique = true, length = 10)
+    @Column(name = "login_id", nullable = false, unique = true, length = LOGIN_ID_MAX_LENGTH)
     var loginId: String = loginId
         protected set
 
