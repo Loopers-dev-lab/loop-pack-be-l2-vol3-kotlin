@@ -14,7 +14,7 @@ interface UserV1ApiSpec {
 
     @SecurityRequirements
     @Operation(summary = "회원가입", description = "새로운 회원을 등록합니다.")
-    fun signUp(request: UserV1Dto.SignUpRequest): ApiResponse<UserV1Dto.UserResponse>
+    fun signUp(@RequestBody request: UserV1Dto.SignUpRequest): ApiResponse<UserV1Dto.UserResponse>
 
     @Operation(summary = "내 정보 조회", description = "현재 로그인한 회원의 정보를 조회합니다.")
     fun getUserInfo(
