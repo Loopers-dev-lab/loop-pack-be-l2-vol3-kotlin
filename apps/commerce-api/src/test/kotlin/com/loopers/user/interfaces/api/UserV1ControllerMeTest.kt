@@ -19,7 +19,7 @@ import java.time.LocalDate
 
 @DisplayName("GET /api/v1/users/me - 내 정보 조회")
 @WebMvcTest(UserV1Controller::class)
-class UserV1ControllerMeE2ETest
+class UserV1ControllerMeTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,

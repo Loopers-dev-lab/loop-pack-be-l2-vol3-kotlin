@@ -19,7 +19,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @DisplayName("POST /api/v1/users - 회원가입")
 @WebMvcTest(UserV1Controller::class)
-class UserV1ControllerSignUpE2ETest
+class UserV1ControllerSignUpTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,

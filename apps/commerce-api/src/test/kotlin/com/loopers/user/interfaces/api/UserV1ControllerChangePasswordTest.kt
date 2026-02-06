@@ -22,7 +22,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @DisplayName("PATCH /api/v1/users/me/password - 비밀번호 수정")
 @WebMvcTest(UserV1Controller::class)
-class UserV1ControllerChangePasswordE2ETest
+class UserV1ControllerChangePasswordTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
