@@ -1,8 +1,8 @@
 package com.loopers.domain.example
 
 import com.loopers.infrastructure.example.ExampleJpaRepository
+import com.loopers.support.error.CommonErrorCode
 import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -46,7 +46,7 @@ class ExampleServiceIntegrationTest @Autowired constructor(
             )
         }
 
-        @DisplayName("존재하지 않는 예시 ID를 주면, NOT_FOUND 예외가 발생한다.")
+        @DisplayName("존재하지 않는 예시 ID를 주면, RESOURCE_NOT_FOUND 예외가 발생한다.")
         @Test
         fun throwsException_whenInvalidIdIsProvided() {
             // arrange
@@ -58,7 +58,7 @@ class ExampleServiceIntegrationTest @Autowired constructor(
             }
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(exception.errorCode).isEqualTo(CommonErrorCode.RESOURCE_NOT_FOUND)
         }
     }
 }
