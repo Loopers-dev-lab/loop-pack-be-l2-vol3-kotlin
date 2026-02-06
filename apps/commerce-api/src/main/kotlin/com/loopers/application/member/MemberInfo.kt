@@ -11,7 +11,7 @@ data class MemberInfo(
     val email: String,
 ) {
     fun getMaskedName(): String {
-        if (name.isEmpty()) return name
+        if (name.isBlank()) return name
         if (name.length == 1) return "*"
         return name.dropLast(1) + "*"
     }
