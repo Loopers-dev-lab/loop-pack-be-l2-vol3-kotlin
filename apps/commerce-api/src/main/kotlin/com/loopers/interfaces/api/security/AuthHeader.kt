@@ -8,4 +8,13 @@ class AuthHeader(
         const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
         const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
     }
+
+    /**
+     * 보안처리를 위한 toString() override
+     * @return [String] `AuthHeader(loginId='${loginId}', password='********')`
+     */
+    @Override
+    override fun toString(): String {
+        return "AuthHeader(loginId='$loginId', password='********')"
+    }
 }
