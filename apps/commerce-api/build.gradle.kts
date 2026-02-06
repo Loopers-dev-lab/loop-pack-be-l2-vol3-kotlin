@@ -18,6 +18,9 @@ dependencies {
     // querydsl
     kapt("com.querydsl:querydsl-apt::jakarta")
 
+    // security
+    implementation("org.mindrot:jbcrypt:0.4")
+
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
