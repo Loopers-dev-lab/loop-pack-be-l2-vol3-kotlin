@@ -1,0 +1,13 @@
+### 내 정보 조회 - 정상 조회
+GET http://localhost:8080/api/v1/members/me
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+### 내 정보 조회 - 토큰 없음 (401 UNAUTHORIZED)
+GET http://localhost:8080/api/v1/members/me
+Content-Type: application/json
+
+### 내 정보 조회 - 잘못된 토큰 (401 INVALID_TOKEN)
+GET http://localhost:8080/api/v1/members/me
+Authorization: Bearer invalid.token.here
+Content-Type: application/json

@@ -1,0 +1,59 @@
+### 회원가입 - 정상 요청
+POST http://localhost:8080/api/v1/members/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "test_user1",
+  "password": "Password1!",
+  "name": "홍길동",
+  "birthDate": "1990-05-15",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 영문 이름
+POST http://localhost:8080/api/v1/members/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "john_doe",
+  "password": "Password1!",
+  "name": "John Doe",
+  "birthDate": "1990-05-15",
+  "email": "john@example.com"
+}
+
+### 회원가입 - 비밀번호에 생년월일 포함 (실패 케이스)
+POST http://localhost:8080/api/v1/members/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "test_user2",
+  "password": "19900515A!",
+  "name": "홍길동",
+  "birthDate": "1990-05-15",
+  "email": "test2@example.com"
+}
+
+### 회원가입 - 잘못된 이메일 형식 (실패 케이스)
+POST http://localhost:8080/api/v1/members/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "test_user3",
+  "password": "Password1!",
+  "name": "홍길동",
+  "birthDate": "1990-05-15",
+  "email": "invalid-email"
+}
+
+### 회원가입 - 로그인 ID에 대문자 포함 (실패 케이스)
+POST http://localhost:8080/api/v1/members/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "Test_User",
+  "password": "Password1!",
+  "name": "홍길동",
+  "birthDate": "1990-05-15",
+  "email": "test@example.com"
+}
