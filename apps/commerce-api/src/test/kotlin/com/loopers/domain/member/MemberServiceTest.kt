@@ -119,4 +119,47 @@ class MemberServiceTest {
             verify(exactly = 0) { memberRepository.save(any()) }
         }
     }
+
+    @DisplayName("changePassword")
+    @Nested
+    inner class ChangePassword {
+        @DisplayName("존재하는 회원의 비밀번호를 변경한다")
+        @Test
+        fun changesPassword_whenMemberExists() {
+            // arrange
+            val member = MemberModel(
+                loginId = VALID_LOGIN_ID,
+                password = VALID_ENCODED_PASSWORD,
+                name = VALID_NAME,
+                birthDate = VALID_BIRTH_DATE,
+                email = VALID_EMAIL,
+            )
+            val newEncodedPassword = "\$2a\$10\$newEncodedPasswordHash"
+            every { memberRepository.findById(1L) } returns member
+            every { memberRepository.save(any()) } answers { firstArg() }
+
+            // act
+            val result = memberService.changePassword(1L, newEncodedPassword)
+
+            // assert
+            assertThat(result.password).isEqualTo(newEncodedPassword)
+            verify(exactly = 1) { memberRepository.findById(1L) }
+            verify(exactly = 1) { memberRepository.save(any()) }
+        }
+
+        @DisplayName("존재하지 않는 회원이면 NOT_FOUND 예외가 발생한다")
+        @Test
+        fun throwsNotFoundException_whenMemberDoesNotExist() {
+            // arrange
+            every { memberRepository.findById(999L) } returns null
+
+            // act & assert
+            assertThatThrownBy { memberService.changePassword(999L, "newPassword") }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND)
+
+            verify(exactly = 1) { memberRepository.findById(999L) }
+            verify(exactly = 0) { memberRepository.save(any()) }
+        }
+    }
 }

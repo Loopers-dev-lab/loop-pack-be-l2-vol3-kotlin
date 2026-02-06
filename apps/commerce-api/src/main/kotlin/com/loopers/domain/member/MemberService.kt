@@ -38,4 +38,11 @@ class MemberService(
 
         return memberRepository.save(member)
     }
+
+    @Transactional
+    fun changePassword(id: Long, newEncodedPassword: String): MemberModel {
+        val member = findById(id)
+        member.changePassword(newEncodedPassword)
+        return memberRepository.save(member)
+    }
 }

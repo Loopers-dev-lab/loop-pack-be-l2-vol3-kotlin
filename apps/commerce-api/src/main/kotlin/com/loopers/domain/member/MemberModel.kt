@@ -79,6 +79,10 @@ class MemberModel(
         }
     }
 
+    fun changePassword(newEncodedPassword: String) {
+        this.password = newEncodedPassword
+    }
+
     private fun validateBirthDate(birthDate: LocalDate) {
         if (birthDate.isAfter(LocalDate.now())) {
             throw CoreException(ErrorType.BAD_REQUEST, "생년월일은 미래 날짜일 수 없습니다.")

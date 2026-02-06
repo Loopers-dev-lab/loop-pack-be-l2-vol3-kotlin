@@ -329,4 +329,28 @@ class MemberModelTest {
             assertThat(member.birthDate).isEqualTo(LocalDate.now())
         }
     }
+
+    @DisplayName("changePassword")
+    @Nested
+    inner class ChangePassword {
+        @DisplayName("새 인코딩된 비밀번호로 변경된다")
+        @Test
+        fun changesPassword_whenNewEncodedPasswordProvided() {
+            // arrange
+            val member = MemberModel(
+                loginId = VALID_LOGIN_ID,
+                password = VALID_ENCODED_PASSWORD,
+                name = VALID_NAME,
+                birthDate = VALID_BIRTH_DATE,
+                email = VALID_EMAIL,
+            )
+            val newEncodedPassword = "\$2a\$10\$newEncodedPasswordHash"
+
+            // act
+            member.changePassword(newEncodedPassword)
+
+            // assert
+            assertThat(member.password).isEqualTo(newEncodedPassword)
+        }
+    }
 }
