@@ -1,0 +1,118 @@
+### ==========================================
+### User V1 API
+### ==========================================
+
+### 1. 회원가입
+POST {{commerce-api}}/api/v1/user/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthDate": "19900101",
+  "email": "test@example.com"
+}
+
+### 2. 회원가입 - 특수문자 포함 비밀번호
+POST {{commerce-api}}/api/v1/user/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "testuser2",
+  "password": "Pass@123#",
+  "name": "김철수",
+  "birthDate": "19850515",
+  "email": "test2@example.com"
+}
+
+### 3. 내 정보 조회
+GET {{commerce-api}}/api/v1/user
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+
+### 4. 비밀번호 변경
+PUT {{commerce-api}}/api/v1/user/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "NewPass123!"
+}
+
+### 5. 변경된 비밀번호로 내 정보 조회
+GET {{commerce-api}}/api/v1/user
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: NewPass123!
+
+### ==========================================
+### 실패 케이스 테스트
+### ==========================================
+
+### 6. 회원가입 실패 - 중복 로그인 ID
+POST {{commerce-api}}/api/v1/user/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Test1234!",
+  "name": "박영희",
+  "birthDate": "19950101",
+  "email": "duplicate@example.com"
+}
+
+### 7. 회원가입 실패 - 비밀번호에 한글 포함
+POST {{commerce-api}}/api/v1/user/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "testuser3",
+  "password": "test한글1234",
+  "name": "이영희",
+  "birthDate": "19900101",
+  "email": "test3@example.com"
+}
+
+### 8. 회원가입 실패 - 비밀번호에 생년월일 포함
+POST {{commerce-api}}/api/v1/user/sign-up
+Content-Type: application/json
+
+{
+  "loginId": "testuser4",
+  "password": "pass19900101",
+  "name": "최민수",
+  "birthDate": "19900101",
+  "email": "test4@example.com"
+}
+
+### 9. 내 정보 조회 실패 - 인증 헤더 없음
+GET {{commerce-api}}/api/v1/user
+
+### 10. 내 정보 조회 실패 - 잘못된 비밀번호
+GET {{commerce-api}}/api/v1/user
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: WrongPassword
+
+### 11. 비밀번호 변경 실패 - 기존 비밀번호 불일치
+PUT {{commerce-api}}/api/v1/user/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+
+{
+  "currentPassword": "WrongCurrent",
+  "newPassword": "NewPass123!"
+}
+
+### 12. 비밀번호 변경 실패 - 동일한 비밀번호
+PUT {{commerce-api}}/api/v1/user/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Test1234!
+
+{
+  "currentPassword": "Test1234!",
+  "newPassword": "Test1234!"
+}
