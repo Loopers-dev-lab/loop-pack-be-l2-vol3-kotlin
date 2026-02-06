@@ -1,0 +1,91 @@
+## 1. 회원가입 (POST /api/v1/users)
+
+### 회원가입 - 성공 케이스
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser123",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test@example.com"
+}
+
+### 회원가입 - 중복 loginId (CONFLICT 예상)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser123",
+  "password": "Test1234!",
+  "name": "김철수",
+  "birthday": "1995-05-20",
+  "email": "kim@example.com"
+}
+
+### 회원가입 - 잘못된 이메일 형식 (BAD_REQUEST 예상)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser456",
+  "password": "Test1234!",
+  "name": "박영희",
+  "birthday": "1992-03-10",
+  "email": "invalid-email"
+}
+
+### 회원가입 - 비밀번호 너무 짧음 (BAD_REQUEST 예상)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser789",
+  "password": "short",
+  "name": "이민수",
+  "birthday": "1988-07-25",
+  "email": "lee@example.com"
+}
+
+### 회원가입 - 비밀번호에 생년월일 포함 (BAD_REQUEST 예상)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser111",
+  "password": "pass19900115!",
+  "name": "최지우",
+  "birthday": "1990-01-15",
+  "email": "choi@example.com"
+}
+
+### 회원가입 - loginId에 한글 포함 (BAD_REQUEST 예상)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "테스트유저",
+  "password": "Test1234!",
+  "name": "정다은",
+  "birthday": "1993-11-08",
+  "email": "jung@example.com"
+}
+
+## 2. 내 정보 조회 (GET /api/v1/users/me) - TODO
+
+### 내 정보 조회 - TODO: 구현 후 테스트
+#GET {{commerce-api}}/api/v1/users/me
+#X-Loopers-User-Id: 1
+
+## 3. 비밀번호 변경 (PATCH /api/v1/users/me/password) - TODO
+
+### 비밀번호 변경 - TODO: 구현 후 테스트
+#PATCH {{commerce-api}}/api/v1/users/me/password
+#Content-Type: application/json
+#X-Loopers-User-Id: 1
+#
+#{
+#  "currentPassword": "Test1234!",
+#  "newPassword": "NewPass5678!"
+#}
