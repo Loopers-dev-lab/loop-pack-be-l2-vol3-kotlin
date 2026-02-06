@@ -11,4 +11,9 @@ class UserFacade(
         return userService.signUp(command)
             .let { UserInfo.from(it) }
     }
+
+    fun getMe(userId: Long): UserInfo {
+        return userService.getMe(userId)
+            .let { UserInfo.from(it) }
+    }
 }

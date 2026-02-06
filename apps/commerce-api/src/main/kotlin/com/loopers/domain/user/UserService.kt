@@ -13,6 +13,12 @@ class UserService(
     private val passwordEncoder: PasswordEncoder,
 ) {
 
+    @Transactional(readOnly = true)
+    fun getMe(userId: Long): User {
+        return userRepository.findById(userId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 유저입니다.")
+    }
+
     @Transactional
     fun signUp(command: SignUpCommand): User {
         // 1. loginId 중복 체크
