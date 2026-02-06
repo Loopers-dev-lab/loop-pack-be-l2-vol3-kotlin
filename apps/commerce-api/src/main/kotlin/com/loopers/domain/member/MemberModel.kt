@@ -5,6 +5,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
@@ -12,7 +13,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
 @Entity
-@Table(name = "member")
+@Table(
+    name = "member",
+    indexes = [Index(name = "idx_member_login_id", columnList = "login_id")],
+)
 class MemberModel internal constructor(
     loginId: String,
     password: String,
