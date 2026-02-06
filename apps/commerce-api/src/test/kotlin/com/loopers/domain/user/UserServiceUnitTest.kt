@@ -2,10 +2,7 @@ package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.spyk
-import io.mockk.verify
+import io.mockk.*
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -90,6 +87,61 @@ class UserServiceUnitTest {
 
         // Assert
         assertThat(user.userId).isEqualTo("testUser123")
+    }
+
+    // ─── createUser — birthDate 유효성 ───
+
+    @Test
+    fun `createUser() throws CoreException(BAD_REQUEST) when birthDate is in the future`() {
+        // Arrange
+        val futureBirthDate = LocalDate.now().plusDays(1)
+        every { mockRepository.existsByUserId(any()) } returns false
+
+        // Act
+        val exception = assertThrows<CoreException> {
+            userService.createUser("testUser", "password123!", "홍길동", futureBirthDate,
+                "test@example.com")
+        }
+
+        // Assert
+        assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        assertThat(exception.message).contains("생년월일")
+        assertThat(exception.message).contains("미래")
+        verify { mockRepository.save(any()) wasNot Called }
+    }
+
+    @Test
+    fun `createUser() should accept birthDate as today`() {
+        // Arrange
+        val today = LocalDate.now()
+        every { mockRepository.existsByUserId(any()) } returns false
+        every { mockPasswordEncoder.encode(any()) } returns "hashedPassword"
+        every { mockRepository.save(any()) } returns createMockUser(userId = "testId", encryptedPassword = "hashedPassword", birthDate = today)
+
+        // Act
+        val user = userService.createUser("testUser", "password123!", "홍길동", today,
+            "test@example.com")
+
+        // Assert
+        assertThat(user).isNotNull
+        assertThat(user.birthDate).isEqualTo(today)
+    }
+
+    @Test
+    fun `createUser() should accept birthDate in the past`() {
+        // Arrange
+        val birthDate = LocalDate.of(2026, 1, 1)
+        every { mockRepository.existsByUserId(any()) } returns false
+        every { mockPasswordEncoder.encode(any()) } returns "hashedPassword"
+        every { mockRepository.save(any()) } returns createMockUser(userId = "testId", encryptedPassword = "hashedPassword", birthDate = birthDate)
+
+        // Act
+        val user = userService.createUser("testUser", "password123!", "홍길동", birthDate,
+            "test@example.com")
+
+        // Assert
+        assertThat(user).isNotNull
+        assertThat(user.birthDate).isEqualTo(birthDate)
     }
 
     // ─── createUser — password 유효성 ───

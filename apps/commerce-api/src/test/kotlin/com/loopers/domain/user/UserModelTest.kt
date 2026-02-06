@@ -65,4 +65,56 @@ class UserModelTest {
             assertThat(noId.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @Nested
+    @DisplayName("updatePassword() 메서드 실행 시")
+    inner class UpdatePassword {
+
+        @Test
+        @DisplayName("빈 문자열을 전달하면 CoreException(BAD_REQUEST)을 발생시킨다")
+        fun throwsBadRequestException_whenNewPasswordIsBlank() {
+            // Arrange
+            val userModel = UserModel(
+                userId = "testId",
+                encryptedPassword = "oldEncryptedPassword",
+                name = "testName",
+                birthDate = LocalDate.now(),
+                email = "test@example.com"
+            )
+
+            // Act & Assert - blank string
+            val blankException = assertThrows<CoreException> {
+                userModel.updatePassword("")
+            }
+            assertThat(blankException.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(blankException.message).contains("암호")
+
+            // Act & Assert - whitespace string
+            val whitespaceException = assertThrows<CoreException> {
+                userModel.updatePassword("   ")
+            }
+            assertThat(whitespaceException.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(whitespaceException.message).contains("암호")
+        }
+
+        @Test
+        @DisplayName("유효한 암호화된 비밀번호를 전달하면 정상적으로 업데이트한다")
+        fun updatesPassword_whenNewPasswordIsValid() {
+            // Arrange
+            val userModel = UserModel(
+                userId = "testId",
+                encryptedPassword = "oldEncryptedPassword",
+                name = "testName",
+                birthDate = LocalDate.now(),
+                email = "test@example.com"
+            )
+            val newEncryptedPassword = "newEncryptedPassword"
+
+            // Act
+            userModel.updatePassword(newEncryptedPassword)
+
+            // Assert
+            assertThat(userModel.encryptedPassword).isEqualTo(newEncryptedPassword)
+        }
+    }
 }
