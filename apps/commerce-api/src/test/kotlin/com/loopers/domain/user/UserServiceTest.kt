@@ -1,147 +1,165 @@
 package com.loopers.domain.user
 
-import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import com.loopers.utils.DatabaseCleanUp
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDate
 
-@SpringBootTest
-class UserServiceIntegrationTest @Autowired constructor(
-    private val userService: UserService,
-    private val databaseCleanUp: DatabaseCleanUp,
-    private val userJpaRepository: UserJpaRepository,
-) {
-    @AfterEach
-    fun tearDown() = databaseCleanUp.truncateAllTables()
+class UserServiceTest {
+
+    private lateinit var userRepository: UserRepository
+    private lateinit var userService: UserService
+
+    @BeforeEach
+    fun setUp() {
+        userRepository = mockk()
+        userService = UserService(userRepository)
+    }
 
     @Nested
     @DisplayName("회원가입 시")
     inner class SignUp {
+
         @Test
-        @DisplayName("중복 ID면 실패한다")
-        fun signUp_duplicateId_throwsException() {
+        @DisplayName("유효한 정보로 가입하면 User가 저장되고 반환된다")
+        fun signUp_withValidData_savesAndReturnsUser() {
+            // arrange
             val command = UserCommand.SignUp(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
-                email = "existing@example.com",
+                email = "test@example.com",
             )
+            val userSlot = slot<User>()
+            every { userRepository.existsByLoginId(command.loginId) } returns false
+            every { userRepository.save(capture(userSlot)) } answers { userSlot.captured }
 
-            userService.signUp(command)
+            // act
+            val result = userService.signUp(command)
 
-            // 같은 ID로 다시 가입 시도
-            val exception = assertThrows<CoreException> {
-                userService.signUp(command)
-            }
-            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+            // assert
+            assertThat(result.loginId).isEqualTo("testuser1")
+            assertThat(result.name).isEqualTo("홍길동")
+            assertThat(result.email).isEqualTo("test@example.com")
+            verify(exactly = 1) { userRepository.existsByLoginId(command.loginId) }
+            verify(exactly = 1) { userRepository.save(any()) }
         }
 
         @Test
-        @DisplayName("성공하면 User가 저장된다")
-        fun signUp_success() {
+        @DisplayName("이미 존재하는 로그인 ID로 가입하면 CONFLICT 예외가 발생한다")
+        fun signUp_duplicateLoginId_throwsConflict() {
+            // arrange
             val command = UserCommand.SignUp(
-                loginId = "testuser1", password = "Password1!",
-                name = "홍길동", birthDate = LocalDate.of(1990, 1, 15),
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
+            every { userRepository.existsByLoginId(command.loginId) } returns true
 
-            val user = userService.signUp(command)
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.signUp(command)
+            }
 
-            assertThat(user.loginId).isEqualTo("testuser1")
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+            assertThat(exception.message).isEqualTo("이미 존재하는 로그인 ID입니다.")
+            verify(exactly = 1) { userRepository.existsByLoginId(command.loginId) }
+            verify(exactly = 0) { userRepository.save(any()) }
         }
     }
 
     @Nested
-    @DisplayName("내 정보 조회 시,")
+    @DisplayName("내 정보 조회 시")
     inner class GetUserInfo {
 
         @Test
-        @DisplayName("해당 ID의 회원이 존재할 경우, 회원 정보가 반환된다.")
-        fun returnsUserInfo_whenUserExists() {
+        @DisplayName("존재하는 사용자를 조회하면 User를 반환한다")
+        fun getUserInfo_userExists_returnsUser() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             // act
             val result = userService.getUserInfo("testuser1")
 
             // assert
-            assertAll(
-                { assertThat(result).isNotNull() },
-                { assertThat(result?.loginId).isEqualTo("testuser1") },
-                { assertThat(result?.name).isEqualTo("홍길동") },
-            )
+            assertThat(result).isNotNull()
+            assertThat(result?.loginId).isEqualTo("testuser1")
+            verify(exactly = 1) { userRepository.findByLoginId("testuser1") }
         }
 
         @Test
-        @DisplayName("해당 ID의 회원이 존재하지 않을 경우, null이 반환된다.")
-        fun returnsNull_whenUserDoesNotExist() {
+        @DisplayName("존재하지 않는 사용자를 조회하면 null을 반환한다")
+        fun getUserInfo_userNotExists_returnsNull() {
             // arrange
-            val nonExistentLoginId = "nonexistent"
+            every { userRepository.findByLoginId("nonexistent") } returns null
 
             // act
-            val result = userService.getUserInfo(nonExistentLoginId)
+            val result = userService.getUserInfo("nonexistent")
 
             // assert
             assertThat(result).isNull()
+            verify(exactly = 1) { userRepository.findByLoginId("nonexistent") }
         }
     }
 
     @Nested
-    @DisplayName("비밀번호 변경 시,")
+    @DisplayName("비밀번호 변경 시")
     inner class ChangePassword {
 
         @Test
-        @DisplayName("비밀번호 변경이 성공하면, 새 비밀번호로 인증할 수 있다.")
-        fun changesPassword_whenRequestIsValid() {
+        @DisplayName("유효한 요청이면 비밀번호가 변경된다")
+        fun changePassword_withValidRequest_success() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
-                newPassword = "NewPassword1!",
+                newPassword = "NewPass12!",
             )
 
             // act
             userService.changePassword("testuser1", command)
 
             // assert
-            val updatedUser = userJpaRepository.findByLoginId("testuser1")
-            assertThat(updatedUser?.verifyPassword("NewPassword1!")).isTrue()
+            assertThat(user.verifyPassword("NewPass12!")).isTrue()
         }
 
         @Test
-        @DisplayName("존재하지 않는 사용자의 비밀번호를 변경하려 하면, 예외가 발생한다.")
-        fun throwsException_whenUserDoesNotExist() {
+        @DisplayName("존재하지 않는 사용자이면 NOT_FOUND 예외가 발생한다")
+        fun changePassword_userNotFound_throwsNotFound() {
             // arrange
+            every { userRepository.findByLoginId("nonexistent") } returns null
+
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
-                newPassword = "NewPassword1!",
+                newPassword = "NewPass12!",
             )
 
             // act
@@ -151,24 +169,25 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(exception.message).isEqualTo("사용자를 찾을 수 없습니다.")
         }
 
         @Test
-        @DisplayName("현재 비밀번호가 일치하지 않으면, 예외가 발생한다.")
-        fun throwsException_whenCurrentPasswordIsWrong() {
+        @DisplayName("현재 비밀번호가 일치하지 않으면 BAD_REQUEST 예외가 발생한다")
+        fun changePassword_wrongCurrentPassword_throwsBadRequest() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "WrongPassword!",
-                newPassword = "NewPassword1!",
+                currentPassword = "WrongPass1!",
+                newPassword = "NewPass12!",
             )
 
             // act
@@ -178,20 +197,21 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("현재 비밀번호가 일치하지 않습니다.")
         }
 
         @Test
-        @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면, 예외가 발생한다.")
-        fun throwsException_whenNewPasswordIsSameAsCurrent() {
+        @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면 BAD_REQUEST 예외가 발생한다")
+        fun changePassword_sameAsCurrent_throwsBadRequest() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
@@ -209,17 +229,17 @@ class UserServiceIntegrationTest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("새 비밀번호가 8자 미만이면, 예외가 발생한다.")
-        fun throwsException_whenNewPasswordIsTooShort() {
+        @DisplayName("새 비밀번호가 8자 미만이면 BAD_REQUEST 예외가 발생한다")
+        fun changePassword_tooShort_throwsBadRequest() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
@@ -236,17 +256,17 @@ class UserServiceIntegrationTest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("새 비밀번호가 16자 초과하면, 예외가 발생한다.")
-        fun throwsException_whenNewPasswordIsTooLong() {
+        @DisplayName("새 비밀번호가 16자 초과하면 BAD_REQUEST 예외가 발생한다")
+        fun changePassword_tooLong_throwsBadRequest() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
@@ -263,17 +283,17 @@ class UserServiceIntegrationTest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("새 비밀번호에 생년월일이 포함되면, 예외가 발생한다.")
-        fun throwsException_whenNewPasswordContainsBirthDate() {
+        @DisplayName("새 비밀번호에 생년월일이 포함되면 BAD_REQUEST 예외가 발생한다")
+        fun changePassword_containsBirthDate_throwsBadRequest() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
@@ -291,17 +311,17 @@ class UserServiceIntegrationTest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면, 예외가 발생한다.")
-        fun throwsException_whenNewPasswordHasConsecutiveChars() {
+        @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면 BAD_REQUEST 예외가 발생한다")
+        fun changePassword_consecutiveChars_throwsBadRequest() {
             // arrange
-            val user = UserCommand.SignUp(
+            val user = User(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            every { userRepository.findByLoginId("testuser1") } returns user
 
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",

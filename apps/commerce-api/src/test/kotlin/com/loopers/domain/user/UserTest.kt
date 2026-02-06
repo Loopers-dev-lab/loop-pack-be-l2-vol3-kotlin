@@ -206,5 +206,71 @@ class UserTest {
 
             assertThat(user.verifyPassword("NewPass12!")).isTrue()
         }
+
+        @Test
+        @DisplayName("새 비밀번호가 8자 미만이면 실패한다")
+        fun changePassword_shortPassword_throwsException() {
+            // arrange
+            val user = User("testuser1", "Password1!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com")
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("Short1!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 16자 초과하면 실패한다")
+        fun changePassword_longPassword_throwsException() {
+            // arrange
+            val user = User("testuser1", "Password1!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com")
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("Password12345678!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 생년월일이 포함되면 실패한다")
+        fun changePassword_containsBirthDate_throwsException() {
+            // arrange
+            val user = User("testuser1", "Password1!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com")
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("Pass19900115!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("비밀번호에 생년월일을 포함할 수 없습니다.")
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면 실패한다")
+        fun changePassword_consecutiveChars_throwsException() {
+            // arrange
+            val user = User("testuser1", "Password1!", "홍길동",
+                LocalDate.of(1990, 1, 15), "test@example.com")
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("Passsword1!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("동일 문자가 3회 이상 연속될 수 없습니다.")
+        }
     }
 }

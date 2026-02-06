@@ -3,6 +3,8 @@ package com.loopers.interfaces.api.user
 import com.loopers.domain.user.User
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.HEADER_LOGIN_ID
+import com.loopers.interfaces.api.HEADER_LOGIN_PW
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.AfterEach
@@ -29,9 +31,7 @@ class UserV1ApiE2ETest @Autowired constructor(
     companion object {
         private const val ENDPOINT_SIGN_UP = "/api/v1/users/sign-up"
         private const val ENDPOINT_USER = "/api/v1/users/user"
-
-        private const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
-        private const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
+        private const val ENDPOINT_PASSWORD = "/api/v1/users/user/password"
     }
 
     @AfterEach
@@ -273,7 +273,6 @@ class UserV1ApiE2ETest @Autowired constructor(
     @DisplayName("PATCH /api/v1/users/user/password")
     inner class ChangePassword {
 
-        private val ENDPOINT_PASSWORD = "/api/v1/users/user/password"
 
         @Test
         @DisplayName("비밀번호 변경에 성공하면, 200 OK 응답을 반환한다.")
@@ -429,6 +428,166 @@ class UserV1ApiE2ETest @Autowired constructor(
             assertAll(
                 { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
                 { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+            )
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 8자 미만이면, 400 Bad Request 응답을 반환한다.")
+        fun returnsBadRequest_whenNewPasswordIsTooShort() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "Password1!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "Password1!",
+                newPassword = "Short1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 16자 초과하면, 400 Bad Request 응답을 반환한다.")
+        fun returnsBadRequest_whenNewPasswordIsTooLong() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "Password1!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "Password1!",
+                newPassword = "Password12345678!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 생년월일이 포함되면, 400 Bad Request 응답을 반환한다.")
+        fun returnsBadRequest_whenNewPasswordContainsBirthDate() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "Password1!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "Password1!",
+                newPassword = "Pass19900115!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면, 400 Bad Request 응답을 반환한다.")
+        fun returnsBadRequest_whenNewPasswordHasConsecutiveChars() {
+            // arrange
+            val user = User(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+            userJpaRepository.save(user)
+
+            val headers = HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, "testuser1")
+                set(HEADER_LOGIN_PW, "Password1!")
+                set("Content-Type", "application/json")
+            }
+
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "Password1!",
+                newPassword = "Passsword1!",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
             )
         }
     }

@@ -94,7 +94,7 @@ class AuthServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
-            assertThat(exception.message).isEqualTo("비밀번호가 일치하지 않습니다.")
+            assertThat(exception.message).isEqualTo("로그인 정보가 일치하지 않습니다.")
         }
     }
 }
