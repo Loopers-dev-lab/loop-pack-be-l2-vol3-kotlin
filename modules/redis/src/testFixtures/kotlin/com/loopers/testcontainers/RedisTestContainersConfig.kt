@@ -1,9 +1,11 @@
 package com.loopers.testcontainers
 
 import com.redis.testcontainers.RedisContainer
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Configuration
 
 @Configuration
+@ConditionalOnProperty(name = ["test.redis.testcontainers.enabled"], havingValue = "true", matchIfMissing = false)
 class RedisTestContainersConfig {
     companion object {
         private val redisContainer = RedisContainer("redis:latest")
