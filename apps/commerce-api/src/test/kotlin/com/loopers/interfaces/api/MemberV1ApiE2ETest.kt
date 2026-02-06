@@ -110,9 +110,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // arrange
             val existingLoginId = "existinguser"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = existingLoginId,
-                    password = passwordEncoder.encode("Test1234!"),
+                    rawPassword = "Test1234!",
+                    passwordEncoder = passwordEncoder,
                     name = "기존회원",
                     birthDate = LocalDate.of(1985, 1, 1),
                     email = "existing@example.com",
@@ -227,9 +228,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // arrange
             val rawPassword = "Test1234!"
             val member = memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(rawPassword),
+                    rawPassword = rawPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -287,9 +289,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
         fun returnsUnauthorized_whenPasswordDoesNotMatch() {
             // arrange
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode("CorrectPass1!"),
+                    rawPassword = "CorrectPass1!",
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -320,9 +323,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // arrange
             val rawPassword = "Test1234!"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(rawPassword),
+                    rawPassword = rawPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "김",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -359,9 +363,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             val oldPassword = "OldPass123!"
             val newPassword = "NewPass456!"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(oldPassword),
+                    rawPassword = oldPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -398,9 +403,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             val oldPassword = "OldPass123!"
             val newPassword = "NewPass456!"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(oldPassword),
+                    rawPassword = oldPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -449,9 +455,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // arrange
             val correctPassword = "CorrectPass1!"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(correctPassword),
+                    rawPassword = correctPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -487,9 +494,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // arrange
             val currentPassword = "Test1234!"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(currentPassword),
+                    rawPassword = currentPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -526,9 +534,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             val currentPassword = "Test1234!"
             val birthDateString = "19900101"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(currentPassword),
+                    rawPassword = currentPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",
@@ -564,9 +573,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // arrange
             val currentPassword = "Test1234!"
             memberJpaRepository.save(
-                MemberModel(
+                MemberModel.create(
                     loginId = "testuser",
-                    password = passwordEncoder.encode(currentPassword),
+                    rawPassword = currentPassword,
+                    passwordEncoder = passwordEncoder,
                     name = "홍길동",
                     birthDate = LocalDate.of(1990, 1, 1),
                     email = "test@example.com",

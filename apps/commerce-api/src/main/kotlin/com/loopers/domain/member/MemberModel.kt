@@ -49,7 +49,6 @@ class MemberModel internal constructor(
         validateLoginId(loginId)
         validateName(name)
         validateEmail(email)
-        validateBirthDate(birthDate)
     }
 
     fun changePassword(
@@ -143,10 +142,5 @@ class MemberModel internal constructor(
             }
         }
 
-        private fun validateBirthDate(birthDate: LocalDate) {
-            if (birthDate.isAfter(LocalDate.now())) {
-                throw CoreException(ErrorType.BAD_REQUEST, MemberErrorCode.BIRTH_DATE_FUTURE.message)
-            }
-        }
     }
 }
