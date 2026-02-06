@@ -158,4 +158,79 @@ class MemberServiceIntegrationTest @Autowired constructor(
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
+
+    @DisplayName("비밀번호 변경할 때,")
+    @Nested
+    inner class ChangePassword {
+
+        @DisplayName("정상적인 요청이면, 비밀번호가 변경되어 DB에 저장된다.")
+        @Test
+        fun changesPasswordInDatabase_whenValidRequest() {
+            // given
+            val currentPassword = "OldPassword1!"
+            val newPassword = "NewPassword1!"
+            val savedMember = memberJpaRepository.save(
+                Member(
+                    loginId = "testuser1",
+                    password = passwordEncoder.encode(currentPassword),
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 15),
+                    email = "test@example.com",
+                ),
+            )
+
+            // when
+            memberService.changePassword(savedMember.id, currentPassword, newPassword)
+
+            // then
+            val updatedMember = memberJpaRepository.findById(savedMember.id).get()
+            assertAll(
+                { assertThat(passwordEncoder.matches(newPassword, updatedMember.password)).isTrue() },
+                { assertThat(passwordEncoder.matches(currentPassword, updatedMember.password)).isFalse() },
+            )
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        fun throwsUnauthorized_whenCurrentPasswordMismatch() {
+            // given
+            val savedMember = memberJpaRepository.save(
+                Member(
+                    loginId = "testuser1",
+                    password = passwordEncoder.encode("CorrectPassword1!"),
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 15),
+                    email = "test@example.com",
+                ),
+            )
+
+            // when & then
+            val exception = assertThrows<CoreException> {
+                memberService.changePassword(savedMember.id, "WrongPassword1!", "NewPassword1!")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+
+        @DisplayName("새 비밀번호가 현재 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenNewPasswordSameAsCurrent() {
+            // given
+            val currentPassword = "SamePassword1!"
+            val savedMember = memberJpaRepository.save(
+                Member(
+                    loginId = "testuser1",
+                    password = passwordEncoder.encode(currentPassword),
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 15),
+                    email = "test@example.com",
+                ),
+            )
+
+            // when & then
+            val exception = assertThrows<CoreException> {
+                memberService.changePassword(savedMember.id, currentPassword, currentPassword)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
 }
