@@ -207,6 +207,7 @@ classDiagram
         <<enum>>
         INTERNAL_ERROR (500)
         BAD_REQUEST (400)
+        UNAUTHORIZED (401)
         NOT_FOUND (404)
         CONFLICT (409)
     }
@@ -407,7 +408,17 @@ docker compose -f docker/monitoring-compose.yml up -d
 
 ### 테스트
 ```bash
+# 전체 테스트
 ./gradlew test
+
+# 특정 모듈 테스트
+./gradlew :apps:commerce-api:test
+
+# 특정 테스트 클래스 실행
+./gradlew :apps:commerce-api:test --tests "com.loopers.domain.user.UserServiceTest"
+
+# 특정 테스트 메서드 실행 (백틱 메서드명은 와일드카드 사용)
+./gradlew :apps:commerce-api:test --tests "*UserServiceTest.유효한*"
 ```
 - Testcontainers 사용 (MySQL, Redis, Kafka)
 - 병렬 실행 비활성화 (maxParallelForks = 1)
