@@ -14,9 +14,15 @@ class UserService(
 ) {
 
     @Transactional(readOnly = true)
-    fun getMe(userId: Long): User {
-        return userRepository.findById(userId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 유저입니다.")
+    fun authenticate(loginId: String, loginPw: String): User {
+        val user = userRepository.findByLoginId(loginId)
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
+
+        if (!passwordEncoder.matches(loginPw, user.password)) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
+        }
+
+        return user
     }
 
     @Transactional
@@ -43,11 +49,25 @@ class UserService(
         return userRepository.save(user)
     }
 
+    @Transactional
+    fun changePassword(user: User, command: ChangePasswordCommand) {
+        // 1. 새 비밀번호 규칙 검증
+        PasswordValidator.validate(command.newPassword, user.birthday)
+
+        // 2. 비밀번호 변경
+        val encodedPassword = passwordEncoder.encode(command.newPassword)
+        user.changePassword(encodedPassword)
+    }
+
     data class SignUpCommand(
         val loginId: String,
         val password: String,
         val name: String,
         val birthday: LocalDate,
         val email: String,
+    )
+
+    data class ChangePasswordCommand(
+        val newPassword: String,
     )
 }

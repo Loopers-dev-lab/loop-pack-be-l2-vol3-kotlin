@@ -12,8 +12,13 @@ class UserFacade(
             .let { UserInfo.from(it) }
     }
 
-    fun getMe(userId: Long): UserInfo {
-        return userService.getMe(userId)
+    fun getMe(loginId: String, loginPw: String): UserInfo {
+        return userService.authenticate(loginId, loginPw)
             .let { UserInfo.from(it) }
+    }
+
+    fun changePassword(loginId: String, loginPw: String, command: UserService.ChangePasswordCommand) {
+        val user = userService.authenticate(loginId, loginPw)
+        userService.changePassword(user, command)
     }
 }

@@ -108,22 +108,24 @@ class UserServiceTest {
     }
 
     @Nested
-    inner class `내 정보 조회 시` {
+    inner class `인증 시` {
 
         @Test
-        fun `존재하는 유저 ID로 조회하면 유저 정보를 반환한다`() {
+        fun `올바른 loginId와 password로 인증하면 유저 정보를 반환한다`() {
             // arrange
-            val command = UserService.SignUpCommand(
-                loginId = "testuser1",
-                password = "Abcd1234!",
+            val loginId = "testuser1"
+            val password = "Abcd1234!"
+            val signUpCommand = UserService.SignUpCommand(
+                loginId = loginId,
+                password = password,
                 name = "홍길동",
                 birthday = LocalDate.of(1999, 1, 1),
                 email = "test@email.com",
             )
-            val savedUser = userService.signUp(command)
+            userService.signUp(signUpCommand)
 
             // act
-            val user = userService.getMe(savedUser.id)
+            val user = userService.authenticate(loginId, password)
 
             // assert
             assertThat(user.loginId).isEqualTo("testuser1")
@@ -131,17 +133,99 @@ class UserServiceTest {
         }
 
         @Test
-        fun `존재하지 않는 유저 ID로 조회하면 NOT_FOUND 예외가 발생한다`() {
+        fun `존재하지 않는 loginId로 인증하면 UNAUTHORIZED 예외가 발생한다`() {
             // arrange
-            val nonExistentUserId = 999L
+            val nonExistentLoginId = "nonexistent"
 
             // act
             val result = assertThrows<CoreException> {
-                userService.getMe(nonExistentUserId)
+                userService.authenticate(nonExistentLoginId, "anyPassword")
             }
 
             // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(result.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+
+        @Test
+        fun `잘못된 password로 인증하면 UNAUTHORIZED 예외가 발생한다`() {
+            // arrange
+            val loginId = "testuser1"
+            val signUpCommand = UserService.SignUpCommand(
+                loginId = loginId,
+                password = "Abcd1234!",
+                name = "홍길동",
+                birthday = LocalDate.of(1999, 1, 1),
+                email = "test@email.com",
+            )
+            userService.signUp(signUpCommand)
+
+            // act
+            val result = assertThrows<CoreException> {
+                userService.authenticate(loginId, "WrongPassword!")
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+    }
+
+    @Nested
+    inner class `비밀번호 변경 시` {
+
+        @Test
+        fun `인증된 유저가 새 비밀번호로 변경하면 성공한다`() {
+            // arrange
+            val loginId = "testuser1"
+            val originalPassword = "Abcd1234!"
+            val newPassword = "Newpass1!"
+            val signUpCommand = UserService.SignUpCommand(
+                loginId = loginId,
+                password = originalPassword,
+                name = "홍길동",
+                birthday = LocalDate.of(1999, 1, 1),
+                email = "test@email.com",
+            )
+            userService.signUp(signUpCommand)
+            val user = userService.authenticate(loginId, originalPassword)
+
+            val changePasswordCommand = UserService.ChangePasswordCommand(
+                newPassword = newPassword,
+            )
+
+            // act
+            userService.changePassword(user, changePasswordCommand)
+
+            // assert
+            val updatedUser = userService.authenticate(loginId, newPassword)
+            assertThat(passwordEncoder.matches(newPassword, updatedUser.password)).isTrue()
+        }
+
+        @Test
+        fun `새 비밀번호가 규칙에 맞지 않으면 BAD_REQUEST 예외가 발생한다`() {
+            // arrange
+            val loginId = "testuser1"
+            val originalPassword = "Abcd1234!"
+            val signUpCommand = UserService.SignUpCommand(
+                loginId = loginId,
+                password = originalPassword,
+                name = "홍길동",
+                birthday = LocalDate.of(1999, 1, 1),
+                email = "test@email.com",
+            )
+            userService.signUp(signUpCommand)
+            val user = userService.authenticate(loginId, originalPassword)
+
+            val changePasswordCommand = UserService.ChangePasswordCommand(
+                newPassword = "short",  // 규칙 위반
+            )
+
+            // act
+            val result = assertThrows<CoreException> {
+                userService.changePassword(user, changePasswordCommand)
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

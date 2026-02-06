@@ -74,22 +74,49 @@ Content-Type: application/json
 
 ## 2. 내 정보 조회 (GET /api/v1/users/me)
 
-### 내 정보 조회 - 성공 케이스 (회원가입 후 반환된 id 사용)
+### 내 정보 조회 - 성공 케이스
 GET {{commerce-api}}/api/v1/users/me
-X-Loopers-User-Id: 1
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
 
-### 내 정보 조회 - 존재하지 않는 유저 (NOT_FOUND 예상)
+### 내 정보 조회 - 존재하지 않는 loginId (UNAUTHORIZED 예상)
 GET {{commerce-api}}/api/v1/users/me
-X-Loopers-User-Id: 99999
+X-Loopers-LoginId: nonexistent
+X-Loopers-LoginPw: Test1234!
 
-## 3. 비밀번호 변경 (PATCH /api/v1/users/me/password) - TODO
+### 내 정보 조회 - 잘못된 password (UNAUTHORIZED 예상)
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: WrongPassword!
 
-### 비밀번호 변경 - TODO: 구현 후 테스트
-#PATCH {{commerce-api}}/api/v1/users/me/password
-#Content-Type: application/json
-#X-Loopers-User-Id: 1
-#
-#{
-#  "currentPassword": "Test1234!",
-#  "newPassword": "NewPass5678!"
-#}
+## 3. 비밀번호 변경 (PATCH /api/v1/users/me/password)
+
+### 비밀번호 변경 - 성공 케이스
+PATCH {{commerce-api}}/api/v1/users/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+
+{
+  "newPassword": "NewPass5678!"
+}
+
+### 비밀번호 변경 - 잘못된 password로 인증 실패 (UNAUTHORIZED 예상)
+PATCH {{commerce-api}}/api/v1/users/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: WrongPassword!
+
+{
+  "newPassword": "NewPass5678!"
+}
+
+### 비밀번호 변경 - 새 비밀번호 규칙 위반 (BAD_REQUEST 예상)
+PATCH {{commerce-api}}/api/v1/users/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+
+{
+  "newPassword": "short"
+}

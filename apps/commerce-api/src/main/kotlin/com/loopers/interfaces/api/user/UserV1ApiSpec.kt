@@ -31,10 +31,28 @@ interface UserV1ApiSpec {
     @ApiResponses(
         value = [
             SwaggerResponse(responseCode = "200", description = "조회 성공"),
-            SwaggerResponse(responseCode = "404", description = "존재하지 않는 유저"),
+            SwaggerResponse(responseCode = "401", description = "인증 실패 (로그인 ID 없음 또는 비밀번호 불일치)"),
         ],
     )
     fun getMe(
-        userId: Long,
+        loginId: String,
+        loginPw: String,
     ): ApiResponse<UserV1Dto.UserResponse>
+
+    @Operation(
+        summary = "비밀번호 변경",
+        description = "현재 비밀번호를 확인 후 새 비밀번호로 변경합니다.",
+    )
+    @ApiResponses(
+        value = [
+            SwaggerResponse(responseCode = "200", description = "비밀번호 변경 성공"),
+            SwaggerResponse(responseCode = "400", description = "새 비밀번호 규칙 위반"),
+            SwaggerResponse(responseCode = "401", description = "인증 실패 (로그인 ID 없음 또는 비밀번호 불일치)"),
+        ],
+    )
+    fun changePassword(
+        loginId: String,
+        loginPw: String,
+        request: UserV1Dto.ChangePasswordRequest,
+    ): ApiResponse<Unit>
 }
