@@ -542,6 +542,8 @@ graph TB
 - 테스트 메서드명에 **예외 타입까지 명시** (예: `BAD_REQUEST 예외가 발생한다`, `CoreException을 던진다`)
 - 테스트코드의 모든 input/output은 **명확**해야 함
 - 단위 테스트를 꼼꼼하게 짜는 것이 우선, 통합 테스트는 필요 시 추가
+- **테스트 메서드명**: `@DisplayName` 대신 **Kotlin 백틱(`)** 사용 (예: `` `유효하지 않은 이메일이면 BAD_REQUEST 예외가 발생한다`() ``)
+- **기존 템플릿 코드(Example 등)는 수정하지 않음** - 새로 작성하는 코드만 백틱 스타일 적용
 
 ### PR 규칙
 - 브랜치: main 기준으로 feature 브랜치 생성 (예: `feat/volume-1-user-tests`)
