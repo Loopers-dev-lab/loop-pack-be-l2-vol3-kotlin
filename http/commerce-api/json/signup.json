@@ -1,0 +1,7 @@
+{
+  "loginId": "testuser1",
+  "password": "Password1!",
+  "name": "홍길동",
+  "birthDate": "1990-01-01",
+  "email": "test@example.com"
+}
