@@ -65,7 +65,6 @@ subprojects {
         implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
         // Spring
         implementation("org.springframework.boot:spring-boot-starter")
-        implementation("org.springframework.boot:spring-boot-starter-security")
         // Serialize
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
         implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
