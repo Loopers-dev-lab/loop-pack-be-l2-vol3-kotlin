@@ -34,10 +34,10 @@ class ExampleServiceIntegrationTest @Autowired constructor(
         @Test
         fun returnsExampleInfo_whenValidIdIsProvided() {
             // arrange
-            val exampleEntity = exampleJpaRepository.save(ExampleEntity(id = 1L, name = "예시 제목", description = "예시 설명"))
+            val exampleEntity = exampleJpaRepository.save(ExampleEntity(id = null, name = "예시 제목", description = "예시 설명"))
 
             // act
-            val result = exampleService.getExample(exampleEntity.id)
+            val result = exampleService.getExample(exampleEntity.id!!)
 
             // assert
             assertAll(

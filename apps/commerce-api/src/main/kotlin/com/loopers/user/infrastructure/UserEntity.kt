@@ -10,6 +10,7 @@ import java.time.LocalDate
 @Table(name = "users")
 @Entity
 class UserEntity(
+    id: Long?,
     @Column(nullable = false, unique = true)
     val loginId: String,
     @Column(nullable = false)
@@ -21,8 +22,13 @@ class UserEntity(
     @Column(nullable = false)
     val email: String,
 ) : BaseEntity() {
+    init {
+        this.id = id
+    }
+
     fun toDomain(): User {
         return User.retrieve(
+            id = id!!,
             loginId = loginId,
             password = password,
             name = name,
@@ -34,6 +40,7 @@ class UserEntity(
     companion object {
         fun from(user: User): UserEntity {
             return UserEntity(
+                id = user.id,
                 loginId = user.loginId,
                 password = user.password,
                 name = user.name,

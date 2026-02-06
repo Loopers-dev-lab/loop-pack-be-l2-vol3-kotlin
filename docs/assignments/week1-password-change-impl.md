@@ -28,6 +28,19 @@
 - 인증은 `@RequestHeader`로 직접 추출한다 (Spring Security 필터 미사용)
 - TLS 등 기본 보안은 인프라 가정, 이번 범위 밖
 
+### 전제조건 (id 기반 UPDATE 동작을 위한 변경)
+
+비밀번호 변경은 기존 User를 조회한 뒤 새 비밀번호로 **UPDATE**하는 흐름이다. `save()` 호출 시 id가 있으면 UPDATE, null이면 INSERT로 동작하려면 다음 전제조건이 충족되어야 한다:
+
+| 대상 | 변경 내용 | 이유 |
+|------|---------|------|
+| `BaseEntity.id` | `var id: Long? = null` (protected set) | 하위 Entity에서 id를 할당할 수 있도록 |
+| `UserEntity` | `init { this.id = id }` 블록 추가 | 생성자 파라미터 id를 BaseEntity.id에 명시적 할당 |
+| `User` 도메인 | `val id: Long?` 필드 포함 | Entity ↔ Domain 변환 시 id를 보존하기 위함 |
+| `User.retrieve()` | `id: Long` 파라미터 추가 | DB에서 조회한 User는 반드시 id가 존재 |
+
+> **왜 init 블록이 필요한가?** `id: Long?`는 생성자 파라미터일 뿐 `val`/`var` 키워드가 없으므로 BaseEntity.id에 자동 할당되지 않는다. init 블록 없이는 `UserEntity.from(user)` → `save()` 시 항상 INSERT가 발생하여 UPDATE가 불가능하다.
+
 ### 기술 스택
 
 | 항목    | 기술                                         |
@@ -220,7 +233,12 @@ data class UserChangePasswordCommand(
 
 ### E2E Test (`UserV1ControllerChangePasswordE2ETest`)
 
+> **테스트 패턴**: `@WebMvcTest(UserV1Controller::class)` + `MockMvc` + `@MockitoBean`을 사용한다. 기존 회원가입/내 정보 조회 E2E 테스트와 동일한 패턴이다.
+>
+> **부수효과(AC-8, AC-9) 검증 위치**: E2E 레벨에서는 HTTP 요청/응답만 검증한다. "변경 후 새 비밀번호로 인증 성공/기존 비밀번호로 인증 실패"는 Service Unit Test에서 `verify(userRepository).save(check { ... })` 패턴으로 검증한다.
+
 ```kotlin
+@WebMvcTest(UserV1Controller::class)
 @DisplayName("PATCH /api/v1/users/me/password - 비밀번호 수정")
 class UserV1ControllerChangePasswordE2ETest {
 
@@ -247,18 +265,14 @@ class UserV1ControllerChangePasswordE2ETest {
     @Test
     @DisplayName("인증 실패(잘못된 헤더 비밀번호) 시 401 Unauthorized를 반환한다")
     fun changePassword_invalidAuth_returns401()
-
-    @Test
-    @DisplayName("비밀번호 변경 후 새 비밀번호로 인증이 성공한다")
-    fun changePassword_thenAuthWithNewPassword_returns200()
-
-    @Test
-    @DisplayName("비밀번호 변경 후 기존 비밀번호로 인증이 실패한다")
-    fun changePassword_thenAuthWithOldPassword_returns401()
 }
 ```
 
 ### Unit Test (`UserServiceTest` - changePassword 추가)
+
+> **PasswordEncoder 패턴**: `BCryptPasswordEncoder()` 실제 인스턴스를 사용한다 (mock 아님). 기존 회원가입 테스트와 동일한 패턴이다.
+>
+> **부수효과 검증(AC-8, AC-9)**: Service 레벨에서 `verify(userRepository).save(check { ... })` 패턴으로 저장되는 User의 비밀번호가 새 비밀번호로 암호화되었는지 검증한다.
 
 ```kotlin
 @Nested
@@ -272,6 +286,14 @@ inner class ChangePassword {
         @Test
         @DisplayName("새 비밀번호가 BCrypt로 암호화되어 저장된다")
         fun changePassword_success_savesEncryptedPassword()
+
+        @Test
+        @DisplayName("저장된 User의 비밀번호가 새 비밀번호와 BCrypt 매칭된다 (AC-8)")
+        fun changePassword_success_savedPasswordMatchesNewPassword()
+
+        @Test
+        @DisplayName("저장된 User의 비밀번호가 기존 비밀번호와 BCrypt 매칭되지 않는다 (AC-9)")
+        fun changePassword_success_savedPasswordDoesNotMatchOldPassword()
     }
 
     @Nested
@@ -343,20 +365,19 @@ inner class ChangePassword {
 
 | 순서 | 레이어       | 테스트 유형    | Mock 대상                     |
 |----|-----------|-----------|----------------------------|
-| 1  | Controller | E2E Test  | Service (stub)             |
-| 2  | Service   | Unit Test | Repository, PasswordEncoder |
+| 1  | Controller | E2E Test  | Service (`@MockitoBean`)    |
+| 2  | Service   | Unit Test | Repository (`mock()`), PasswordEncoder는 `BCryptPasswordEncoder()` 실제 인스턴스 |
 | 3  | Domain    | Unit Test | 없음 (순수 로직)                 |
 
 > 기존 Repository(findByLoginId, save)와 Infrastructure(Entity, JpaRepository, RepositoryImpl)는 이전 기능에서 구현 완료. **Repository Step 없음.**
 
 ### Step 1: Controller Layer (E2E Test)
 
-**테스트 유형**: E2E (`@SpringBootTest` + `TestRestTemplate`)
-**Mock 대상**: Service — changePassword 메서드가 아직 없으므로 stub 구현 필요
+**테스트 유형**: E2E (`@WebMvcTest(UserV1Controller::class)` + `MockMvc` + `@MockitoBean`)
+**Mock 대상**: Service (`@MockitoBean`) — changePassword 메서드가 아직 없으므로 stub 구현 필요
 
 - **Red**: E2E 테스트 작성 → 엔드포인트가 없으므로 실패
 - **Green**: Controller에 PATCH 엔드포인트 추가. ApiSpec에 changePassword 시그니처 추가. Dto에 ChangePasswordRequest, ChangePasswordResponse 추가. Service에 changePassword **stub 메서드** 추가 (아무 동작 없이 반환)
-  - 사전 데이터: 회원가입 API 호출로 테스트 사용자 생성 (E2E는 전체 스택 통과)
 - **Refactor**
 
 **이 시점의 구현 상태**:
@@ -373,7 +394,7 @@ inner class ChangePassword {
 ### Step 2: Service Layer (Unit Test)
 
 **테스트 유형**: Unit (Spring Context 없이, `@SpringBootTest` 사용 금지)
-**Mock 대상**: UserRepository (`mock()`), PasswordEncoder (`mock()`)
+**Mock 대상**: UserRepository (`mock()`). PasswordEncoder는 `BCryptPasswordEncoder()` 실제 인스턴스를 사용한다 (기존 회원가입 테스트 패턴과 동일).
 
 - **Red**: Service 테스트 작성 → stub 구현이 실제 로직이 아니므로 테스트 실패
 - **Green**: Service의 changePassword를 **실제 로직으로 구현**
@@ -402,7 +423,9 @@ inner class ChangePassword {
 - **Green**: User에 `changePassword(newPassword, birthDate)` 메서드 추가
   - 비밀번호 검증 로직을 `validatePassword()`로 공통화 (register에서 호출하던 것과 동일)
   - 변경된 password를 가진 새 User 인스턴스 반환 (불변 객체 패턴)
-- **Refactor**: Service의 비밀번호 검증 로직을 Domain의 changePassword()로 위임하도록 리팩토링
+- **Refactor**:
+  - Service의 비밀번호 검증 로직을 Domain의 changePassword()로 위임하도록 리팩토링
+  - **(선택) signUp validate 순서 수정**: 현재 signUp은 `encode(rawPassword)` → `User.register(encodedPassword)` → `validatePassword(encodedPassword)` 순서로, BCrypt 해시에 대해 비밀번호 검증이 실행되어 사실상 무의미하다. `validatePassword(rawPassword)` → `encode` → `User.register(encodedPassword)` 순서로 수정하거나, `User.register(plainPassword)`에서 validate 후 Service에서 encode하는 방식으로 개선을 검토한다.
 
 **이 시점의 구현 상태**: 모든 레이어 완성
 
@@ -421,13 +444,21 @@ Step 3 완료 후 **모든 테스트를 재실행**하여 전체 스택이 정�
 ./gradlew :apps:commerce-api:test
 ```
 
-특히 **AC-8, AC-9 (부수효과)** 검증: E2E 테스트에서 비밀번호 변경 후 getMe 호출로 새 비밀번호 인증 성공 / 기존 비밀번호 인증 실패를 확인한다.
+특히 **AC-8, AC-9 (부수효과)** 검증: Service Unit Test에서 `verify(userRepository).save(check { ... })` 패턴으로 저장되는 User의 비밀번호가 새 비밀번호와 BCrypt 매칭되는지, 기존 비밀번호와는 매칭되지 않는지 확인한다.
 
 ---
 
 ## 6. 수정할 파일 목록
 
 ### Main (src/main/kotlin/com/loopers/)
+
+**전제조건 변경 (비밀번호 변경 구현 전 완료)**
+
+| 레이어             | 파일 경로                                             | 수정 내용                                           |
+|-----------------|---------------------------------------------------|-------------------------------------------------|
+| Base            | `modules/jpa/.../BaseEntity.kt`                   | `var id: Long? = null` (protected set)로 변경      |
+| Infrastructure  | `user/infrastructure/UserEntity.kt`               | `init { this.id = id }` 블록 추가                   |
+| Domain          | `user/domain/User.kt`                             | `val id: Long?` 필드 추가, `retrieve()`에 `id: Long` 파라미터 추가 |
 
 **수정하는 파일**
 
@@ -464,12 +495,20 @@ Step 3 완료 후 **모든 테스트를 재실행**하여 전체 스택이 정�
 
 ## 7. 검증 체크리스트
 
+### 전제조건 확인
+
+- [ ] `BaseEntity.id`가 `var id: Long? = null` (protected set)로 되어 있는가
+- [ ] `UserEntity`에 `init { this.id = id }` 블록이 존재하는가
+- [ ] `User` 도메인에 `val id: Long?` 필드가 포함되어 있는가
+- [ ] `User.retrieve()`에 `id: Long` 파라미터가 존재하는가
+- [ ] `UserEntity.toDomain()`에서 `id!!` (non-null assertion)로 호출하는가
+
 ### 구현 완료 후 확인
 
 - [ ] 모든 테스트 통과: `./gradlew :apps:commerce-api:test`
 - [ ] 린트 통과: `./gradlew ktlintCheck`
 - [ ] E2E: 핵심 시나리오(성공 200/currentPassword 불일치 400/인증 실패 401/헤더 누락 400) 검증
-- [ ] E2E: 부수효과(AC-8 새 비밀번호 인증 성공, AC-9 기존 비밀번호 인증 실패) 검증
+- [ ] Unit(Service): 부수효과(AC-8 새 비밀번호 매칭, AC-9 기존 비밀번호 비매칭) save 검증
 - [ ] Unit: Service 비밀번호 검증 로직(currentPassword 불일치, 동일 비밀번호, 규칙 위반) 검증
 - [ ] Unit: Domain changePassword 로직(패턴 검증, 생년월일 포함 검증) 검증
 - [ ] BCrypt.matches 파라미터 순서: (rawPassword, encodedPassword)

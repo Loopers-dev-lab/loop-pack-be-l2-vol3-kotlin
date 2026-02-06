@@ -6,6 +6,7 @@ import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -25,6 +26,18 @@ class UserV1Controller(
             .let { UserV1Dto.SignUpResponse.from(it) }
             .let { ApiResponse.success(it) }
             .let { ResponseEntity.status(HttpStatus.CREATED).body(it) }
+    }
+
+    @PatchMapping("/me/password")
+    override fun changePassword(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") password: String,
+        @Valid @RequestBody request: UserV1Dto.ChangePasswordRequest,
+    ): ResponseEntity<ApiResponse<UserV1Dto.ChangePasswordResponse>> {
+        userService.changePassword(loginId, password, request.toCommand())
+        return UserV1Dto.ChangePasswordResponse.success()
+            .let { ApiResponse.success(it) }
+            .let { ResponseEntity.ok(it) }
     }
 
     @GetMapping("/me")

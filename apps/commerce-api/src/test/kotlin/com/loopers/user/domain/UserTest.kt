@@ -146,6 +146,7 @@ class UserTest {
         fun maskedName_twoChars() {
             // arrange
             val user = User.retrieve(
+                id = 1L,
                 loginId = "testuser1",
                 password = "encodedPassword",
                 name = "이순",
@@ -162,6 +163,7 @@ class UserTest {
         fun maskedName_threeChars() {
             // arrange
             val user = User.retrieve(
+                id = 1L,
                 loginId = "testuser1",
                 password = "encodedPassword",
                 name = "홍길동",
@@ -179,6 +181,7 @@ class UserTest {
             // arrange
             val name = "가나다라마바사아자차카타파하갸"
             val user = User.retrieve(
+                id = 1L,
                 loginId = "testuser1",
                 password = "encodedPassword",
                 name = name,
@@ -189,6 +192,101 @@ class UserTest {
             // act & assert
             assertThat(user.maskedName).isEqualTo("가나다라마바사아자차카타파하*")
             assertThat(user.maskedName).hasSize(15)
+        }
+    }
+
+    @Nested
+    @DisplayName("비밀번호 변경")
+    inner class ChangePassword {
+        @Test
+        @DisplayName("새 비밀번호로 변경하면 변경된 User를 반환한다")
+        fun changePassword_success_returnsUpdatedUser() {
+            // arrange
+            val user = User.retrieve(
+                id = 1L,
+                loginId = "testuser1",
+                password = "encodedOldPassword",
+                name = "홍길동",
+                birthDate = defaultBirthDate,
+                email = "test@example.com",
+            )
+
+            // act
+            val updatedUser = user.changePassword("NewPassword1!")
+
+            // assert
+            assertAll(
+                { assertThat(updatedUser.password).isEqualTo("NewPassword1!") },
+                { assertThat(updatedUser.id).isEqualTo(1L) },
+                { assertThat(updatedUser.loginId).isEqualTo("testuser1") },
+                { assertThat(updatedUser.name).isEqualTo("홍길동") },
+            )
+        }
+
+        @Test
+        @DisplayName("새 비밀번호 패턴이 유효하지 않으면 실패한다")
+        fun changePassword_invalidPattern_throwsException() {
+            // arrange
+            val user = User.retrieve(
+                id = 1L,
+                loginId = "testuser1",
+                password = "encodedOldPassword",
+                name = "홍길동",
+                birthDate = defaultBirthDate,
+                email = "test@example.com",
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("Pass word1!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 생년월일(yyyyMMdd) 포함 시 실패한다")
+        fun changePassword_containsBirthDateCompact_throwsException() {
+            // arrange
+            val user = User.retrieve(
+                id = 1L,
+                loginId = "testuser1",
+                password = "encodedOldPassword",
+                name = "홍길동",
+                birthDate = defaultBirthDate,
+                email = "test@example.com",
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("Pass19900101!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
+        }
+
+        @Test
+        @DisplayName("새 비밀번호에 생년월일(yyyy-MM-dd) 포함 시 실패한다")
+        fun changePassword_containsBirthDateWithDash_throwsException() {
+            // arrange
+            val user = User.retrieve(
+                id = 1L,
+                loginId = "testuser1",
+                password = "encodedOldPassword",
+                name = "홍길동",
+                birthDate = defaultBirthDate,
+                email = "test@example.com",
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("P1990-01-01!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
         }
     }
 

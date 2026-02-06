@@ -32,7 +32,7 @@ constructor(
         name: String = "홍길동",
         birthDate: LocalDate = LocalDate.of(1990, 1, 1),
         email: String = "test@example.com",
-    ): User = User.retrieve(loginId, password, name, birthDate, email)
+    ): User = User.register(loginId = loginId, password = password, name = name, birthDate = birthDate, email = email)
 
     @Nested
     @DisplayName("회원 저장 및 조회")

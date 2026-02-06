@@ -18,4 +18,14 @@ interface UserV1ApiSpec {
         description = "인증 헤더를 이용하여 내 정보를 조회합니다.",
     )
     fun getMe(loginId: String, password: String): ResponseEntity<ApiResponse<UserV1Dto.MeResponse>>
+
+    @Operation(
+        summary = "비밀번호 수정",
+        description = "인증 헤더를 이용하여 비밀번호를 수정합니다.",
+    )
+    fun changePassword(
+        loginId: String,
+        password: String,
+        request: UserV1Dto.ChangePasswordRequest,
+    ): ResponseEntity<ApiResponse<UserV1Dto.ChangePasswordResponse>>
 }

@@ -16,12 +16,13 @@ class ExampleEntity(
 ) : BaseEntity() {
 
     init {
+        this.id = id
         if (name.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "이름은 필수값입니다.")
         if (description.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "설명은 필수값입니다.")
     }
 
     fun toDomain(): Example {
-        return Example.retrieve(id, name, description)
+        return Example.retrieve(id!!, name, description)
     }
 
     fun toEntity(domain: Example): ExampleEntity {

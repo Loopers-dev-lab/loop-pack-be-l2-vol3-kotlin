@@ -1,6 +1,7 @@
 package com.loopers.user.interfaces.api
 
 import com.loopers.user.application.UserInfo
+import com.loopers.user.application.model.UserChangePasswordCommand
 import com.loopers.user.application.model.UserSignUpCommand
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
@@ -43,6 +44,29 @@ class UserV1Dto {
                 SignUpResponse(
                     loginId = info.loginId,
                 )
+        }
+    }
+
+    data class ChangePasswordRequest(
+        @field:NotBlank
+        val currentPassword: String,
+        @field:NotBlank
+        @field:Size(min = 8, max = 16)
+        val newPassword: String,
+    ) {
+        fun toCommand(): UserChangePasswordCommand =
+            UserChangePasswordCommand(
+                currentPassword = currentPassword,
+                newPassword = newPassword,
+            )
+    }
+
+    data class ChangePasswordResponse(
+        val message: String,
+    ) {
+        companion object {
+            fun success(): ChangePasswordResponse =
+                ChangePasswordResponse(message = "비밀번호가 변경되었습니다.")
         }
     }
 

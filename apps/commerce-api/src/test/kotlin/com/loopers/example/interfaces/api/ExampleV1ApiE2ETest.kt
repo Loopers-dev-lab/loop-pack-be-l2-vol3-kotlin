@@ -39,8 +39,8 @@ class ExampleV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsExampleInfo_whenValidIdIsProvided() {
             // arrange
-            val exampleEntity = exampleJpaRepository.save(ExampleEntity(id = 1L, name = "예시 제목", description = "예시 설명"))
-            val requestUrl = ENDPOINT_GET(exampleEntity.id)
+            val exampleEntity = exampleJpaRepository.save(ExampleEntity(id = null, name = "예시 제목", description = "예시 설명"))
+            val requestUrl = ENDPOINT_GET(exampleEntity.id!!)
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<ExampleV1Dto.ExampleResponse>>() {}
