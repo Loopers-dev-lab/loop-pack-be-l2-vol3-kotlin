@@ -4,18 +4,35 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
-data class Password private constructor(val value: String) {
+class Password private constructor(val value: String) {
 
     fun matches(rawPassword: String): Boolean {
         return ENCODER.matches(rawPassword, value)
     }
+
+    override fun toString(): String = "Password(****)"
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Password) return false
+        return value == other.value
+    }
+
+    override fun hashCode(): Int = value.hashCode()
 
     companion object {
         private val ENCODER = BCryptPasswordEncoder()
         private val ALLOWED_CHARS_PATTERN = Regex("^[a-zA-Z0-9!@#\$%^&*()_+\\-=\\[\\]{}|;':\",./<>?`~]+$")
         private const val MIN_LENGTH = 8
         private const val MAX_LENGTH = 16
+
+        private val BIRTH_DATE_FORMATS = listOf(
+            DateTimeFormatter.ofPattern("yyyyMMdd"),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("yyyy/MM/dd"),
+        )
 
         fun of(rawPassword: String, birthDate: LocalDate): Password {
             validateFormat(rawPassword)
@@ -37,8 +54,8 @@ data class Password private constructor(val value: String) {
         }
 
         private fun validateNotContainsBirthDate(rawPassword: String, birthDate: LocalDate) {
-            val yyyymmdd = birthDate.toString().replace("-", "")
-            if (rawPassword.contains(yyyymmdd)) {
+            val birthDateStrings = BIRTH_DATE_FORMATS.map { birthDate.format(it) }
+            if (birthDateStrings.any { rawPassword.contains(it) }) {
                 throw CoreException(ErrorType.PASSWORD_CONTAINS_BIRTHDATE)
             }
         }

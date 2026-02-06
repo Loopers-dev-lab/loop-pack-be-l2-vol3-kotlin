@@ -77,6 +77,19 @@ class PasswordTest {
         }
 
         @Test
+        fun `구분자_포함_생년월일이_포함되면_예외가_발생한다`() {
+            // arrange
+            val birthDate = LocalDate.of(1990, 1, 15)
+            val invalidPasswords = listOf("1990-01-15Ab", "Ab1990/01/15")
+
+            // act & assert
+            invalidPasswords.forEach { value ->
+                val result = assertThrows<CoreException> { Password.of(value, birthDate) }
+                assertThat(result.errorType).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDATE)
+            }
+        }
+
+        @Test
         fun `비밀번호는_암호화되어_저장된다`() {
             // arrange
             val value = "Password1!"
