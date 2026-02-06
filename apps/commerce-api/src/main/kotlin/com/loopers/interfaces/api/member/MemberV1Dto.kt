@@ -31,5 +31,7 @@ class MemberV1Dto {
             currentPassword = currentPassword,
             newPassword = newPassword,
         )
+
+        override fun toString(): String = "ChangePasswordRequest(currentPassword=****, newPassword=****)"
     }
 }

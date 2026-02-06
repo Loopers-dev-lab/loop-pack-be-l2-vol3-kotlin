@@ -20,6 +20,9 @@ class AuthV1Dto {
             birthDate = birthDate,
             email = email,
         )
+
+        override fun toString(): String =
+            "SignupRequest(loginId=$loginId, password=****, name=$name, birthDate=$birthDate, email=$email)"
     }
 
     data class SignupResponse(
