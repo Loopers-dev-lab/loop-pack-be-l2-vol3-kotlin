@@ -358,6 +358,7 @@ class UserServiceUnitTest {
     fun `authenticate() throws exception with non-existing User`() {
         // Arrange
         every { mockRepository.findByUserId("nonExistUser") } returns null
+        every { mockPasswordEncoder.matches("wrongPassword", "\\\$2a\\\$10\\\$dummyHashForTimingAttackPrevention") } returns false
 
         // Act
 
@@ -367,7 +368,6 @@ class UserServiceUnitTest {
         }.also {
             assertThat(it.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
-        verify(exactly = 0) { mockPasswordEncoder.matches(any(), any()) }
     }
 
     // ─── changePassword ───

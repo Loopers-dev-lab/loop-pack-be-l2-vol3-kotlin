@@ -73,4 +73,16 @@ class UserRepositoryTest @Autowired constructor(
         // Assert
         assertThat(existsByUserId).isTrue()
     }
+
+    @Test
+    fun existsByUserId_returnsFalseIfUserIdDoesNotExist() {
+        // Arrange
+        // No user saved - database is clean
+
+        // Act
+        val existsByUserId = userRepository.existsByUserId(userId = "nonExistentUser")
+
+        // Assert
+        assertThat(existsByUserId).isFalse()
+    }
 }
