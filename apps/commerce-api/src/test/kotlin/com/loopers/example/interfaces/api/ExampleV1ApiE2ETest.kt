@@ -1,10 +1,9 @@
-package com.loopers.interfaces.api
+package com.loopers.example.interfaces.api
 
-import com.loopers.domain.example.ExampleModel
-import com.loopers.infrastructure.example.ExampleJpaRepository
-import com.loopers.interfaces.api.example.ExampleV1Dto
+import com.loopers.example.infrastructure.ExampleEntity
+import com.loopers.example.infrastructure.ExampleJpaRepository
 import com.loopers.utils.DatabaseCleanUp
-import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -40,8 +39,8 @@ class ExampleV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsExampleInfo_whenValidIdIsProvided() {
             // arrange
-            val exampleModel = exampleJpaRepository.save(ExampleModel(name = "예시 제목", description = "예시 설명"))
-            val requestUrl = ENDPOINT_GET(exampleModel.id)
+            val exampleEntity = exampleJpaRepository.save(ExampleEntity(id = 1L, name = "예시 제목", description = "예시 설명"))
+            val requestUrl = ENDPOINT_GET(exampleEntity.id)
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<ExampleV1Dto.ExampleResponse>>() {}
@@ -49,10 +48,10 @@ class ExampleV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertAll(
-                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
-                { assertThat(response.body?.data?.id).isEqualTo(exampleModel.id) },
-                { assertThat(response.body?.data?.name).isEqualTo(exampleModel.name) },
-                { assertThat(response.body?.data?.description).isEqualTo(exampleModel.description) },
+                { Assertions.assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { Assertions.assertThat(response.body?.data?.id).isEqualTo(exampleEntity.id) },
+                { Assertions.assertThat(response.body?.data?.name).isEqualTo(exampleEntity.name) },
+                { Assertions.assertThat(response.body?.data?.description).isEqualTo(exampleEntity.description) },
             )
         }
 
@@ -68,8 +67,8 @@ class ExampleV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertAll(
-                { assertThat(response.statusCode.is4xxClientError).isTrue },
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
             )
         }
 
@@ -87,7 +86,7 @@ class ExampleV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { assert(response.statusCode.is4xxClientError) },
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
             )
         }
     }

@@ -1,6 +1,6 @@
-package com.loopers.interfaces.api.example
+package com.loopers.example.interfaces.api
 
-import com.loopers.application.example.ExampleInfo
+import com.loopers.example.application.ExampleInfo
 
 class ExampleV1Dto {
     data class ExampleResponse(

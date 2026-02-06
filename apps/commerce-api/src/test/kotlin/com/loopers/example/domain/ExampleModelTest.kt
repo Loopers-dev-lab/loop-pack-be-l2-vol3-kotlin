@@ -1,5 +1,6 @@
-package com.loopers.domain.example
+package com.loopers.example.domain
 
+import com.loopers.example.infrastructure.ExampleEntity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -21,13 +22,13 @@ class ExampleModelTest {
             val description = "설명"
 
             // act
-            val exampleModel = ExampleModel(name = name, description = description)
+            val exampleEntity = ExampleEntity(id = 1L, name = name, description = description)
 
             // assert
             assertAll(
-                { assertThat(exampleModel.id).isNotNull() },
-                { assertThat(exampleModel.name).isEqualTo(name) },
-                { assertThat(exampleModel.description).isEqualTo(description) },
+                { assertThat(exampleEntity.id).isNotNull() },
+                { assertThat(exampleEntity.name).isEqualTo(name) },
+                { assertThat(exampleEntity.description).isEqualTo(description) },
             )
         }
 
@@ -39,7 +40,7 @@ class ExampleModelTest {
 
             // act
             val result = assertThrows<CoreException> {
-                ExampleModel(name = name, description = "설명")
+                ExampleEntity(id = 1L, name = name, description = "설명")
             }
 
             // assert
@@ -54,7 +55,7 @@ class ExampleModelTest {
 
             // act
             val result = assertThrows<CoreException> {
-                ExampleModel(name = "제목", description = description)
+                ExampleEntity(id = 1L, name = "제목", description = description)
             }
 
             // assert

@@ -1,6 +1,5 @@
-package com.loopers.interfaces.api.example
+package com.loopers.example.interfaces.api
 
-import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag

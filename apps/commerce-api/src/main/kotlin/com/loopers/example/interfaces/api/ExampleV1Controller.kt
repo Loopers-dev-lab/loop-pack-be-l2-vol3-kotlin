@@ -1,7 +1,6 @@
-package com.loopers.interfaces.api.example
+package com.loopers.example.interfaces.api
 
-import com.loopers.application.example.ExampleFacade
-import com.loopers.interfaces.api.ApiResponse
+import com.loopers.example.application.ExampleFacade
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping

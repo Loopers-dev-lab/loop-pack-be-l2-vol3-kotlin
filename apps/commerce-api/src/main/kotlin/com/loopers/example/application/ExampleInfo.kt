@@ -1,6 +1,6 @@
-package com.loopers.application.example
+package com.loopers.example.application
 
-import com.loopers.domain.example.ExampleModel
+import com.loopers.example.domain.Example
 
 data class ExampleInfo(
     val id: Long,
@@ -8,7 +8,7 @@ data class ExampleInfo(
     val description: String,
 ) {
     companion object {
-        fun from(model: ExampleModel): ExampleInfo {
+        fun from(model: Example): ExampleInfo {
             return ExampleInfo(
                 id = model.id,
                 name = model.name,

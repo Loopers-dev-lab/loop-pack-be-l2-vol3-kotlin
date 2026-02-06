@@ -1,6 +1,8 @@
-package com.loopers.domain.example
+package com.loopers.example.domain
 
-import com.loopers.infrastructure.example.ExampleJpaRepository
+import com.loopers.example.application.ExampleService
+import com.loopers.example.infrastructure.ExampleJpaRepository
+import com.loopers.example.infrastructure.ExampleEntity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -32,17 +34,17 @@ class ExampleServiceIntegrationTest @Autowired constructor(
         @Test
         fun returnsExampleInfo_whenValidIdIsProvided() {
             // arrange
-            val exampleModel = exampleJpaRepository.save(ExampleModel(name = "예시 제목", description = "예시 설명"))
+            val exampleEntity = exampleJpaRepository.save(ExampleEntity(id = 1L, name = "예시 제목", description = "예시 설명"))
 
             // act
-            val result = exampleService.getExample(exampleModel.id)
+            val result = exampleService.getExample(exampleEntity.id)
 
             // assert
             assertAll(
                 { assertThat(result).isNotNull() },
-                { assertThat(result.id).isEqualTo(exampleModel.id) },
-                { assertThat(result.name).isEqualTo(exampleModel.name) },
-                { assertThat(result.description).isEqualTo(exampleModel.description) },
+                { assertThat(result.id).isEqualTo(exampleEntity.id) },
+                { assertThat(result.name).isEqualTo(exampleEntity.name) },
+                { assertThat(result.description).isEqualTo(exampleEntity.description) },
             )
         }
 
