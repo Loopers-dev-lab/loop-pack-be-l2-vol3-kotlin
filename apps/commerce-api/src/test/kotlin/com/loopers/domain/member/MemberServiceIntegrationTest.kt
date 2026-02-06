@@ -114,4 +114,48 @@ class MemberServiceIntegrationTest @Autowired constructor(
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
     }
+
+    @DisplayName("내 정보 조회할 때,")
+    @Nested
+    inner class GetMyInfo {
+
+        @DisplayName("존재하는 회원 ID가 주어지면, 회원 정보를 반환한다.")
+        @Test
+        fun returnsMemberInfo_whenValidMemberId() {
+            // given
+            val savedMember = memberJpaRepository.save(
+                Member(
+                    loginId = "testuser1",
+                    password = "encoded",
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 15),
+                    email = "test@example.com",
+                ),
+            )
+
+            // when
+            val result = memberService.getMyInfo(savedMember.id)
+
+            // then
+            assertAll(
+                { assertThat(result.id).isEqualTo(savedMember.id) },
+                { assertThat(result.loginId).isEqualTo("testuser1") },
+                { assertThat(result.name).isEqualTo("홍길동") },
+                { assertThat(result.email).isEqualTo("test@example.com") },
+            )
+        }
+
+        @DisplayName("존재하지 않는 회원 ID가 주어지면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenMemberNotExists() {
+            // given
+            val nonExistentId = 9999L
+
+            // when & then
+            val exception = assertThrows<CoreException> {
+                memberService.getMyInfo(nonExistentId)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
 }
