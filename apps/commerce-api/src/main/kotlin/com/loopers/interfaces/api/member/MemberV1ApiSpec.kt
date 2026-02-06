@@ -18,4 +18,13 @@ interface MemberV1ApiSpec {
         description = "새로운 회원을 등록합니다.",
     )
     fun signUp(request: MemberV1Dto.SignUpRequest): ApiResponse<MemberV1Dto.SignUpResponse>
+
+    @Operation(
+        summary = "비밀번호 변경",
+        description = "인증된 사용자의 비밀번호를 변경합니다.",
+    )
+    fun changePassword(
+        request: HttpServletRequest,
+        body: MemberV1Dto.ChangePasswordRequest,
+    ): ApiResponse<Any>
 }

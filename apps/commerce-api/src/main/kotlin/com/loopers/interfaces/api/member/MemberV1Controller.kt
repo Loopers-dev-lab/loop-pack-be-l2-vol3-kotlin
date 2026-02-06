@@ -6,6 +6,7 @@ import com.loopers.infrastructure.auth.JwtAuthenticationFilter
 import com.loopers.interfaces.api.ApiResponse
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -37,5 +38,23 @@ class MemberV1Controller(
         return memberFacade.signUp(request)
             .let { MemberV1Dto.SignUpResponse.from(it) }
             .let { ApiResponse.success(it) }
+    }
+
+    @PatchMapping("/me/password")
+    override fun changePassword(
+        request: HttpServletRequest,
+        @RequestBody body: MemberV1Dto.ChangePasswordRequest,
+    ): ApiResponse<Any> {
+        val authenticatedMember = request.getAttribute(
+            JwtAuthenticationFilter.AUTHENTICATED_MEMBER_ATTRIBUTE,
+        ) as AuthenticatedMember
+
+        memberFacade.changePassword(
+            memberId = authenticatedMember.memberId,
+            currentPassword = body.currentPassword,
+            newPassword = body.newPassword,
+        )
+
+        return ApiResponse.success()
     }
 }

@@ -34,6 +34,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
     companion object {
         private const val ENDPOINT_SIGN_UP = "/api/v1/members/sign-up"
         private const val ENDPOINT_ME = "/api/v1/members/me"
+        private const val ENDPOINT_CHANGE_PASSWORD = "/api/v1/members/me/password"
     }
 
     @AfterEach
@@ -292,6 +293,182 @@ class MemberV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 ENDPOINT_SIGN_UP,
                 HttpMethod.POST,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
+    @DisplayName("PATCH /api/v1/members/me/password")
+    @Nested
+    inner class ChangePassword {
+
+        private fun createMemberAndGetToken(
+            rawPassword: String = "Password1!",
+        ): Pair<MemberModel, String> {
+            val member = memberJpaRepository.save(
+                MemberModel(
+                    loginId = "test_user1",
+                    password = passwordEncoder.encode(rawPassword),
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 15),
+                    email = "hong@example.com",
+                ),
+            )
+            val token = jwtTokenProvider.generateToken(member.id, member.loginId)
+            return member to token
+        }
+
+        @DisplayName("유효한 토큰과 올바른 요청이면, 200 OK 응답을 받는다")
+        @Test
+        fun returnsSuccess_whenValidRequest() {
+            // arrange
+            val (_, token) = createMemberAndGetToken()
+            val request = mapOf(
+                "currentPassword" to "Password1!",
+                "newPassword" to "NewPass1!x",
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set("Authorization", "Bearer $token")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_CHANGE_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(response.body?.data).isNull() },
+            )
+
+            // verify password changed
+            val updatedMember = memberJpaRepository.findByLoginId("test_user1")
+            assertThat(passwordEncoder.matches("NewPass1!x", updatedMember!!.password)).isTrue()
+        }
+
+        @DisplayName("Authorization 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다")
+        @Test
+        fun returnsUnauthorized_whenNoAuthorizationHeader() {
+            // arrange
+            val request = mapOf(
+                "currentPassword" to "Password1!",
+                "newPassword" to "NewPass1!x",
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_CHANGE_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo("UNAUTHORIZED") },
+            )
+        }
+
+        @DisplayName("현재 비밀번호가 일치하지 않으면, 401 UNAUTHORIZED 응답을 받는다")
+        @Test
+        fun returnsUnauthorized_whenCurrentPasswordDoesNotMatch() {
+            // arrange
+            val (_, token) = createMemberAndGetToken()
+            val request = mapOf(
+                "currentPassword" to "WrongPass1!",
+                "newPassword" to "NewPass1!x",
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set("Authorization", "Bearer $token")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_CHANGE_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo("UNAUTHORIZED") },
+            )
+        }
+
+        @DisplayName("현재 비밀번호와 새 비밀번호가 동일하면, 400 BAD_REQUEST 응답을 받는다")
+        @Test
+        fun returnsBadRequest_whenNewPasswordIsSameAsCurrent() {
+            // arrange
+            val (_, token) = createMemberAndGetToken()
+            val request = mapOf(
+                "currentPassword" to "Password1!",
+                "newPassword" to "Password1!",
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set("Authorization", "Bearer $token")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_CHANGE_PASSWORD,
+                HttpMethod.PATCH,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("비밀번호 규칙에 위반되면, 400 BAD_REQUEST 응답을 받는다")
+        @Test
+        fun returnsBadRequest_whenNewPasswordViolatesRules() {
+            // arrange
+            val (_, token) = createMemberAndGetToken()
+            val request = mapOf(
+                "currentPassword" to "Password1!",
+                "newPassword" to "short",
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set("Authorization", "Bearer $token")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_CHANGE_PASSWORD,
+                HttpMethod.PATCH,
                 HttpEntity(request, headers),
                 responseType,
             )
