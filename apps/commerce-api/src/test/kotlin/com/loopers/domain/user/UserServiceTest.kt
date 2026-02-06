@@ -186,14 +186,13 @@ class UserServiceTest {
                 email = "test@email.com",
             )
             userService.signUp(signUpCommand)
-            val user = userService.authenticate(loginId, originalPassword)
 
             val changePasswordCommand = UserService.ChangePasswordCommand(
                 newPassword = newPassword,
             )
 
             // act
-            userService.changePassword(user, changePasswordCommand)
+            userService.changePassword(loginId, originalPassword, changePasswordCommand)
 
             // assert
             val updatedUser = userService.authenticate(loginId, newPassword)
@@ -213,7 +212,6 @@ class UserServiceTest {
                 email = "test@email.com",
             )
             userService.signUp(signUpCommand)
-            val user = userService.authenticate(loginId, originalPassword)
 
             val changePasswordCommand = UserService.ChangePasswordCommand(
                 newPassword = "short",  // 규칙 위반
@@ -221,7 +219,7 @@ class UserServiceTest {
 
             // act
             val result = assertThrows<CoreException> {
-                userService.changePassword(user, changePasswordCommand)
+                userService.changePassword(loginId, originalPassword, changePasswordCommand)
             }
 
             // assert

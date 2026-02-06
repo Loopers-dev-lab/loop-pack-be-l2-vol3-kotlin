@@ -15,14 +15,7 @@ class UserService(
 
     @Transactional(readOnly = true)
     fun authenticate(loginId: String, loginPw: String): User {
-        val user = userRepository.findByLoginId(loginId)
-            ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
-
-        if (!passwordEncoder.matches(loginPw, user.password)) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
-        }
-
-        return user
+        return findAndValidate(loginId, loginPw)
     }
 
     @Transactional
@@ -50,13 +43,26 @@ class UserService(
     }
 
     @Transactional
-    fun changePassword(user: User, command: ChangePasswordCommand) {
+    fun changePassword(loginId: String, loginPw: String, command: ChangePasswordCommand) {
+        val user = findAndValidate(loginId, loginPw)
+
         // 1. 새 비밀번호 규칙 검증
         PasswordValidator.validate(command.newPassword, user.birthday)
 
         // 2. 비밀번호 변경
         val encodedPassword = passwordEncoder.encode(command.newPassword)
         user.changePassword(encodedPassword)
+    }
+
+    private fun findAndValidate(loginId: String, loginPw: String): User {
+        val user = userRepository.findByLoginId(loginId)
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
+
+        if (!passwordEncoder.matches(loginPw, user.password)) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
+        }
+
+        return user
     }
 
     data class SignUpCommand(

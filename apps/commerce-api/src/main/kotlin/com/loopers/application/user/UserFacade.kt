@@ -18,7 +18,6 @@ class UserFacade(
     }
 
     fun changePassword(loginId: String, loginPw: String, command: UserService.ChangePasswordCommand) {
-        val user = userService.authenticate(loginId, loginPw)
-        userService.changePassword(user, command)
+        userService.changePassword(loginId, loginPw, command)
     }
 }
