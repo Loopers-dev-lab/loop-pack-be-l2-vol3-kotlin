@@ -19,6 +19,13 @@ class User(
     email: String,
 ) : BaseEntity() {
 
+    companion object {
+        private const val PASSWORD_MIN_LENGTH = 8
+        private const val PASSWORD_MAX_LENGTH = 16
+        private const val LOGIN_ID_MAX_LENGTH = 16
+        private const val NAME_MAX_LENGTH = 10
+    }
+
     @Column(name = "login_id", nullable = false, unique = true, length = 10)
     var loginId: String = loginId
         protected set
@@ -40,6 +47,7 @@ class User(
         protected set
 
     init {
+        validateName(name)
         validateEmail(email)
         validateLoginId(loginId)
         validatePassword(password, birthDate)
@@ -64,6 +72,7 @@ class User(
         return this.password == encodePassword(rawPassword)
     }
 
+    //TODO: 추후 security 추가 시 변경
     private fun encodePassword(rawPassword: String): String {
         val bytes = rawPassword.toByteArray()
         val md = java.security.MessageDigest.getInstance("SHA-256")
@@ -71,10 +80,26 @@ class User(
         return digest.fold("") { str, it -> str + "%02x".format(it) }
     }
 
+    private fun validateName(name: String) {
+        if (name.isBlank()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이름은 필수입니다.")
+        }
+        if (name.length !in 1..NAME_MAX_LENGTH) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이름은 ${NAME_MAX_LENGTH}자 이내여야 합니다.")
+        }
+        if (!Regex("^[가-힣a-zA-Z]+$").matches(name)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이름은 한글 또는 영문만 허용됩니다.")
+        }
+    }
+
     private fun validatePassword(password: String, birthDate: LocalDate) {
-        val passwordRegex = Regex("^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]{8,16}$")
+        val passwordRegex = Regex("^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]{$PASSWORD_MIN_LENGTH,$PASSWORD_MAX_LENGTH}$")
         if (!passwordRegex.matches(password)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8~16자의 영문 대소문자, 숫자, 특수문자만 가능합니다.")
+            throw CoreException(ErrorType.BAD_REQUEST, "비밀번호는 $PASSWORD_MIN_LENGTH ~ $PASSWORD_MAX_LENGTH 자의 영문 대소문자, 숫자, 특수문자만 가능합니다.")
+        }
+
+        if (Regex("(.)\\1{2,}").containsMatchIn(password)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "동일 문자가 3회 이상 연속될 수 없습니다.")
         }
 
         val birthDateStr = birthDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
@@ -86,6 +111,9 @@ class User(
     private fun validateLoginId(loginId: String) {
         if (!Regex("^[a-zA-Z0-9]+$").matches(loginId)) {
             throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 영문 및 숫자만 허용됩니다.")
+        }
+        if (loginId.length !in 1..LOGIN_ID_MAX_LENGTH) {
+            throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID는 ${LOGIN_ID_MAX_LENGTH}자를 초과할 수 없습니다.")
         }
     }
 
