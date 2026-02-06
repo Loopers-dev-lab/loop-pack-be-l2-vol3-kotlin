@@ -106,4 +106,42 @@ class UserServiceTest {
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @Nested
+    inner class `내 정보 조회 시` {
+
+        @Test
+        fun `존재하는 유저 ID로 조회하면 유저 정보를 반환한다`() {
+            // arrange
+            val command = UserService.SignUpCommand(
+                loginId = "testuser1",
+                password = "Abcd1234!",
+                name = "홍길동",
+                birthday = LocalDate.of(1999, 1, 1),
+                email = "test@email.com",
+            )
+            val savedUser = userService.signUp(command)
+
+            // act
+            val user = userService.getMe(savedUser.id)
+
+            // assert
+            assertThat(user.loginId).isEqualTo("testuser1")
+            assertThat(user.name).isEqualTo("홍길동")
+        }
+
+        @Test
+        fun `존재하지 않는 유저 ID로 조회하면 NOT_FOUND 예외가 발생한다`() {
+            // arrange
+            val nonExistentUserId = 999L
+
+            // act
+            val result = assertThrows<CoreException> {
+                userService.getMe(nonExistentUserId)
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
 }

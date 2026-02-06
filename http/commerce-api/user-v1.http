@@ -72,11 +72,15 @@ Content-Type: application/json
   "email": "jung@example.com"
 }
 
-## 2. 내 정보 조회 (GET /api/v1/users/me) - TODO
+## 2. 내 정보 조회 (GET /api/v1/users/me)
 
-### 내 정보 조회 - TODO: 구현 후 테스트
-#GET {{commerce-api}}/api/v1/users/me
-#X-Loopers-User-Id: 1
+### 내 정보 조회 - 성공 케이스 (회원가입 후 반환된 id 사용)
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-User-Id: 1
+
+### 내 정보 조회 - 존재하지 않는 유저 (NOT_FOUND 예상)
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-User-Id: 99999
 
 ## 3. 비밀번호 변경 (PATCH /api/v1/users/me/password) - TODO
 
