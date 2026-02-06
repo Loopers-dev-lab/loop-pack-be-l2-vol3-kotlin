@@ -10,6 +10,12 @@ import java.time.LocalDate
 class MemberService(
     private val memberRepository: MemberRepository,
 ) {
+    @Transactional(readOnly = true)
+    fun findById(id: Long): MemberModel {
+        return memberRepository.findById(id)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다: $id")
+    }
+
     @Transactional
     fun signUp(
         loginId: String,

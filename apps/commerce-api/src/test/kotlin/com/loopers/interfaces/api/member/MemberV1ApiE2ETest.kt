@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.member
 
+import com.loopers.domain.auth.JwtTokenProvider
 import com.loopers.domain.member.MemberModel
+import com.loopers.infrastructure.member.BCryptPasswordEncoder
 import com.loopers.infrastructure.member.MemberJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
@@ -26,14 +28,135 @@ class MemberV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val memberJpaRepository: MemberJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val jwtTokenProvider: JwtTokenProvider,
+    private val passwordEncoder: BCryptPasswordEncoder,
 ) {
     companion object {
         private const val ENDPOINT_SIGN_UP = "/api/v1/members/sign-up"
+        private const val ENDPOINT_ME = "/api/v1/members/me"
     }
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+    }
+
+    @DisplayName("GET /api/v1/members/me")
+    @Nested
+    inner class GetMyInfo {
+
+        private fun createMemberAndGetToken(): Pair<MemberModel, String> {
+            val member = memberJpaRepository.save(
+                MemberModel(
+                    loginId = "test_user1",
+                    password = passwordEncoder.encode("Password1!"),
+                    name = "홍길동",
+                    birthDate = LocalDate.of(1990, 1, 15),
+                    email = "hong@example.com",
+                ),
+            )
+            val token = jwtTokenProvider.generateToken(member.id, member.loginId)
+            return member to token
+        }
+
+        @DisplayName("유효한 토큰이면, 마스킹된 내 정보가 조회된다")
+        @Test
+        fun returnsMyInfo_whenValidTokenIsProvided() {
+            // arrange
+            val (_, token) = createMemberAndGetToken()
+            val headers = HttpHeaders().apply {
+                set("Authorization", "Bearer $token")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MyInfoResponse>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_ME,
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(response.body?.data?.loginId).isEqualTo("test_user1") },
+                { assertThat(response.body?.data?.name).isEqualTo("홍*동") },
+                { assertThat(response.body?.data?.birthDate).isEqualTo(LocalDate.of(1990, 1, 15)) },
+                { assertThat(response.body?.data?.email).isEqualTo("ho***@example.com") },
+            )
+        }
+
+        @DisplayName("Authorization 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다")
+        @Test
+        fun returnsUnauthorized_whenNoAuthorizationHeader() {
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_ME,
+                HttpMethod.GET,
+                HttpEntity<Any>(HttpHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo("UNAUTHORIZED") },
+            )
+        }
+
+        @DisplayName("유효하지 않은 토큰이면, 401 INVALID_TOKEN 응답을 받는다")
+        @Test
+        fun returnsInvalidToken_whenTokenIsInvalid() {
+            // arrange
+            val headers = HttpHeaders().apply {
+                set("Authorization", "Bearer invalid.token.here")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_ME,
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo("INVALID_TOKEN") },
+            )
+        }
+
+        @DisplayName("삭제된 회원의 토큰이면, 404 NOT_FOUND 응답을 받는다")
+        @Test
+        fun returnsNotFound_whenMemberDoesNotExist() {
+            // arrange
+            val token = jwtTokenProvider.generateToken(999L, "deleted_user")
+            val headers = HttpHeaders().apply {
+                set("Authorization", "Bearer $token")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_ME,
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
     }
 
     @DisplayName("POST /api/v1/members/sign-up")

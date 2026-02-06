@@ -26,6 +26,46 @@ class MemberServiceTest {
         private val VALID_BIRTH_DATE = LocalDate.of(1990, 5, 15)
     }
 
+    @DisplayName("findById")
+    @Nested
+    inner class FindById {
+        @DisplayName("존재하는 회원 ID면 회원이 반환된다")
+        @Test
+        fun returnsMember_whenMemberExists() {
+            // arrange
+            val member = MemberModel(
+                loginId = VALID_LOGIN_ID,
+                password = VALID_ENCODED_PASSWORD,
+                name = VALID_NAME,
+                birthDate = VALID_BIRTH_DATE,
+                email = VALID_EMAIL,
+            )
+            every { memberRepository.findById(1L) } returns member
+
+            // act
+            val result = memberService.findById(1L)
+
+            // assert
+            assertThat(result.loginId).isEqualTo(VALID_LOGIN_ID)
+            assertThat(result.name).isEqualTo(VALID_NAME)
+            verify(exactly = 1) { memberRepository.findById(1L) }
+        }
+
+        @DisplayName("존재하지 않는 회원 ID면 NOT_FOUND 예외가 발생한다")
+        @Test
+        fun throwsNotFoundException_whenMemberDoesNotExist() {
+            // arrange
+            every { memberRepository.findById(999L) } returns null
+
+            // act & assert
+            assertThatThrownBy { memberService.findById(999L) }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND)
+
+            verify(exactly = 1) { memberRepository.findById(999L) }
+        }
+    }
+
     @DisplayName("signUp")
     @Nested
     inner class SignUp {

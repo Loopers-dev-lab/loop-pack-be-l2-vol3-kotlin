@@ -20,4 +20,8 @@ class MemberRepositoryImpl(
     override fun findByLoginId(loginId: String): MemberModel? {
         return memberJpaRepository.findByLoginId(loginId)
     }
+
+    override fun findById(id: Long): MemberModel? {
+        return memberJpaRepository.findById(id).orElse(null)
+    }
 }

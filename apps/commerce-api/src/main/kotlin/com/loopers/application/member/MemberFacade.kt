@@ -10,6 +10,11 @@ class MemberFacade(
     private val memberService: MemberService,
     private val passwordEncoder: BCryptPasswordEncoder,
 ) {
+    fun getMyInfo(memberId: Long): MemberInfo {
+        val member = memberService.findById(memberId)
+        return MemberInfo.from(member)
+    }
+
     fun signUp(request: MemberV1Dto.SignUpRequest): MemberInfo {
         val encodedPassword = passwordEncoder.encode(request.password)
 

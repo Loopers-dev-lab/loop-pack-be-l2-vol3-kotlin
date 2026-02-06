@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.member
 import com.loopers.application.member.MemberInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import com.loopers.support.util.MaskingUtils
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -54,6 +55,24 @@ class MemberV1Dto {
                     loginId = info.loginId,
                     name = info.name,
                     email = info.email,
+                )
+            }
+        }
+    }
+
+    data class MyInfoResponse(
+        val loginId: String,
+        val name: String,
+        val birthDate: LocalDate,
+        val email: String,
+    ) {
+        companion object {
+            fun from(info: MemberInfo): MyInfoResponse {
+                return MyInfoResponse(
+                    loginId = info.loginId,
+                    name = MaskingUtils.maskName(info.name),
+                    birthDate = info.birthDate,
+                    email = MaskingUtils.maskEmail(info.email),
                 )
             }
         }
