@@ -86,6 +86,37 @@ class UserTest {
         }
 
         @Test
+        @DisplayName("로그인 ID가 16자를 초과하면 실패한다")
+        fun createUser_tooLongLoginId_throwsException() {
+            // arrange
+            val longLoginId = "a".repeat(17)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                User(longLoginId, "Password1!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("로그인 ID는 16자를 초과할 수 없습니다.")
+        }
+
+        @Test
+        @DisplayName("비밀번호에 동일 문자가 3회 이상 연속되면 실패한다")
+        fun createUser_passwordWithConsecutiveChars_throwsException() {
+            // arrange & act
+            val exception = assertThrows<CoreException> {
+                User("testuser1", "Passsword1!", "홍길동",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("동일 문자가 3회 이상 연속될 수 없습니다.")
+        }
+
+        @Test
         @DisplayName("이메일 형식이 올바르지 않으면 실패한다")
         fun createUser_invalidEmail_throwsException() {
             val exception = assertThrows<CoreException> {
@@ -93,6 +124,47 @@ class UserTest {
                     LocalDate.of(1990, 1, 15), "invalid-email")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("이름이 비어있거나 공백이면 실패한다")
+        fun createUser_blankName_throwsException() {
+            val exception = assertThrows<CoreException> {
+                User("testuser1", "Password1!", " ",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("이름은 필수입니다.")
+        }
+
+        @Test
+        @DisplayName("이름이 10자를 초과하면 실패한다")
+        fun createUser_tooLongName_throwsException() {
+            val longName = "가".repeat(20)
+            val exception = assertThrows<CoreException> {
+                User("testuser1", "Password1!", longName,
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("이름은 10자 이내여야 합니다.")
+        }
+
+        @Test
+        @DisplayName("이름에 숫자나 특수문자가 포함되면 실패한다")
+        fun createUser_invalidNameCharacters_throwsException() {
+            // 숫자가 포함된 경우
+            val exceptionWithNumber = assertThrows<CoreException> {
+                User("testuser1", "Password1!", "홍길동1",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+            assertThat(exceptionWithNumber.message).isEqualTo("이름은 한글 또는 영문만 허용됩니다.")
+
+            // 특수문자가 포함된 경우
+            val exceptionWithSpecialChar = assertThrows<CoreException> {
+                User("testuser1", "Password1!", "John!",
+                    LocalDate.of(1990, 1, 15), "test@example.com")
+            }
+            assertThat(exceptionWithSpecialChar.message).isEqualTo("이름은 한글 또는 영문만 허용됩니다.")
         }
     }
 

@@ -15,6 +15,7 @@ class AuthInterceptor(
     private val authService: AuthService
 ) : HandlerInterceptor {
 
+    //TODO: 추후 security 추가 시 변경
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
         val loginId = request.getHeader(HEADER_LOGIN_ID)
             ?: throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID 헤더가 필요합니다.")
