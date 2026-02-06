@@ -10,7 +10,7 @@ import java.time.LocalDate
 
 
 @Entity
-@Table(name = "user")
+@Table(name = "users")
 class UserModel(
     userId: String,
     encryptedPassword: String,
@@ -43,7 +43,6 @@ class UserModel(
         if (userId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "아이디는 비어있을 수 없습니다.")
         if (encryptedPassword.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "암호는 비어있을 수 없습니다.")
         if (name.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "이름는 비어있을 수 없습니다.")
-        if (birthDate.isAfter(LocalDate.now())) throw CoreException(ErrorType.BAD_REQUEST, "생년월일은 현재보다 미래일 수 없습니다.")
         if (email.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "이메일은 비어있을 수 없습니다.")
     }
 
@@ -52,6 +51,7 @@ class UserModel(
      * @param newEncryptedPassword[String] 암호화된 신규 패스워드
      */
     fun updatePassword(newEncryptedPassword: String) {
+        if (newEncryptedPassword.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "암호는 비어있을 수 없습니다.")
         this.encryptedPassword = newEncryptedPassword
     }
 }

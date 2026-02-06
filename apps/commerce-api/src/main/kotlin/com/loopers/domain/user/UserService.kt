@@ -40,6 +40,7 @@ class UserService(
         // 입력값 유효성 검증
         validateUserId(userId)
         validateEmail(email)
+        validateBirthDate(birthDate)
         validatePassword(password, birthDate)
 
         // 비밀번호 암호화 적용
@@ -80,9 +81,9 @@ class UserService(
      * @throws CoreException: 기존 비밀번호 불일치 / 현재와 동일한 비밀번호 / 유효하지 않은 비밀번호
      */
     @Transactional
-    fun changePassword(useId: String, oldPassword: String, newPassword: String) {
+    fun changePassword(userId: String, oldPassword: String, newPassword: String) {
         // 사용자 정보 조회
-        val user = getUserByUserId(userId = useId)
+        val user = getUserByUserId(userId = userId)
 
         // 기존 비밀번호 확인
         if (!passwordEncoder.matches(oldPassword, user.encryptedPassword))
@@ -96,8 +97,7 @@ class UserService(
         // 현재 비밀번호와 신규 비밀번호 동일 여부 확인
         if (passwordEncoder.matches(newPassword, user.encryptedPassword))
             throw CoreException(
-                errorType = ErrorType.
-                BAD_REQUEST,
+                errorType = ErrorType.BAD_REQUEST,
                 customMessage = "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.")
 
         // 신규 비밀번호 암호화 및 저장
@@ -116,17 +116,23 @@ class UserService(
     fun authenticate(userId: String, password: String): UserModel {
         // 사용자 정보 조회
         val user = userRepository.findByUserId(userId)
-            ?: throw CoreException(
-                errorType = ErrorType.UNAUTHORIZED,
-                customMessage = "유효하지 않은 인증정보입니다.")
+
+        val userValid = if (user != null) {
+            passwordEncoder.matches(password, user.encryptedPassword)
+        } else {
+            // timing attack 방지를 위한 fault matches
+            // 사용자 존재 여부를 알지 못하게 동일한 response time 보장
+            passwordEncoder.matches(password, "\\\$2a\\\$10\\\$dummyHashForTimingAttackPrevention")
+            false
+        }
 
         // 사용자 비밀번호 확인
-        if (!passwordEncoder.matches(password, user.encryptedPassword))
+        if (!userValid)
             throw CoreException(
                 errorType = ErrorType.UNAUTHORIZED,
                 customMessage = "유효하지 않은 인증정보입니다.")
 
-        return user
+        return user!!
     }
 
     /**
@@ -156,6 +162,18 @@ class UserService(
                 errorType = ErrorType.BAD_REQUEST,
                 customMessage = "유효하지 않은 ID 포맷입니다. 영문과 숫자만 허용됩니다.")
         }
+        return true
+    }
+
+    /**
+     * 생년월일 유효성 검증
+     * 1. 생년월일은 현재시점을 넘어갈 수 없다.
+     * @param birthDate: 생년월일
+     * @return 생년월일 유효여부
+     */
+    private fun validateBirthDate(birthDate: LocalDate): Boolean {
+        if (birthDate.isAfter(LocalDate.now()))
+            throw CoreException(ErrorType.BAD_REQUEST, "생년월일은 현재보다 미래일 수 없습니다.")
         return true
     }
 
