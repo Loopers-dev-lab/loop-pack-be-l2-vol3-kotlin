@@ -1,6 +1,5 @@
 package com.loopers.domain.member
 
-import com.loopers.domain.member.vo.Password
 import com.loopers.infrastructure.member.MemberEntity
 import com.loopers.infrastructure.member.MemberJpaRepository
 import com.loopers.support.error.CoreException
@@ -19,7 +18,7 @@ import java.time.LocalDate
 class MemberAuthenticatorIntegrationTest @Autowired constructor(
     private val memberAuthenticator: MemberAuthenticator,
     private val memberJpaRepository: MemberJpaRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordPolicy: PasswordPolicy,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -88,7 +87,7 @@ class MemberAuthenticatorIntegrationTest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
+                password = passwordPolicy.createPassword(rawPassword, birthDate).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,

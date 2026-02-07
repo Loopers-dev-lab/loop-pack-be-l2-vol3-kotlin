@@ -16,7 +16,7 @@ import java.time.LocalDate
 class MemberPasswordChangerIntegrationTest @Autowired constructor(
     private val memberPasswordChanger: MemberPasswordChanger,
     private val memberJpaRepository: MemberJpaRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordPolicy: PasswordPolicy,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -44,7 +44,7 @@ class MemberPasswordChangerIntegrationTest @Autowired constructor(
             // assert
             val updatedEntity = memberJpaRepository.findByLoginId("pwchangeuser")
             val updatedPassword = Password.fromEncoded(updatedEntity!!.password)
-            assertThat(updatedPassword.matches(newPassword, passwordEncoder)).isTrue()
+            assertThat(passwordPolicy.matches(newPassword, updatedPassword)).isTrue()
         }
     }
 
@@ -58,7 +58,7 @@ class MemberPasswordChangerIntegrationTest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
+                password = passwordPolicy.createPassword(rawPassword, birthDate).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,

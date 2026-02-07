@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api
 
-import com.loopers.domain.member.PasswordEncoder
+import com.loopers.domain.member.PasswordPolicy
 import com.loopers.domain.member.vo.Password
 import com.loopers.infrastructure.member.MemberEntity
 import com.loopers.infrastructure.member.MemberJpaRepository
@@ -26,7 +26,7 @@ import java.time.LocalDate
 class MemberV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val memberJpaRepository: MemberJpaRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordPolicy: PasswordPolicy,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -138,7 +138,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // 새 비밀번호로 인증 가능한지 확인
             val updatedEntity = memberJpaRepository.findByLoginId("pwuser")
             val updatedPassword = Password.fromEncoded(updatedEntity!!.password)
-            assertThat(updatedPassword.matches("NewPassword1!", passwordEncoder)).isTrue()
+            assertThat(passwordPolicy.matches("NewPassword1!", updatedPassword)).isTrue()
         }
 
         @Test
@@ -209,7 +209,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
+                password = passwordPolicy.createPassword(rawPassword, birthDate).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,

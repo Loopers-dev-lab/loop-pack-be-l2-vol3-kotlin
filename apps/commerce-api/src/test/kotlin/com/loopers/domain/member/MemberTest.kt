@@ -4,7 +4,6 @@ import com.loopers.domain.member.vo.BirthDate
 import com.loopers.domain.member.vo.Email
 import com.loopers.domain.member.vo.LoginId
 import com.loopers.domain.member.vo.Name
-import com.loopers.domain.member.vo.Password
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -16,7 +15,7 @@ import java.time.LocalDate
 
 class MemberTest {
 
-    private val encoder: PasswordEncoder = NoOpPasswordEncoder()
+    private val passwordPolicy = PasswordPolicy(NoOpPasswordEncoder())
 
     @Nested
     inner class Create {
@@ -24,7 +23,7 @@ class MemberTest {
         fun `유효한_정보로_회원을_생성할_수_있다`() {
             // arrange
             val loginId = LoginId("testuser123")
-            val password = Password.of("Password1!", LocalDate.of(1990, 1, 15), encoder)
+            val password = passwordPolicy.createPassword("Password1!", LocalDate.of(1990, 1, 15))
             val name = Name("홍길동")
             val birthDate = BirthDate(LocalDate.of(1990, 1, 15))
             val email = Email("test@example.com")
@@ -62,11 +61,11 @@ class MemberTest {
             member.changePassword(
                 currentRawPassword = "Password1!",
                 newRawPassword = newRawPassword,
-                encoder = encoder,
+                passwordPolicy = passwordPolicy,
             )
 
             // assert
-            assertThat(member.password.matches(newRawPassword, encoder)).isTrue()
+            assertThat(passwordPolicy.matches(newRawPassword, member.password)).isTrue()
         }
 
         @Test
@@ -79,7 +78,7 @@ class MemberTest {
                 member.changePassword(
                     currentRawPassword = "WrongPassword1!",
                     newRawPassword = "NewPassword1!",
-                    encoder = encoder,
+                    passwordPolicy = passwordPolicy,
                 )
             }
 
@@ -98,7 +97,7 @@ class MemberTest {
                 member.changePassword(
                     currentRawPassword = samePassword,
                     newRawPassword = samePassword,
-                    encoder = encoder,
+                    passwordPolicy = passwordPolicy,
                 )
             }
 
@@ -118,7 +117,7 @@ class MemberTest {
                 member.changePassword(
                     currentRawPassword = "Password1!",
                     newRawPassword = newPassword,
-                    encoder = encoder,
+                    passwordPolicy = passwordPolicy,
                 )
             }
 
@@ -135,7 +134,7 @@ class MemberTest {
             val member = createMember()
 
             // act
-            val result = member.authenticate("Password1!", encoder)
+            val result = member.authenticate("Password1!", passwordPolicy)
 
             // assert
             assertThat(result).isTrue()
@@ -147,7 +146,7 @@ class MemberTest {
             val member = createMember()
 
             // act
-            val result = member.authenticate("WrongPassword1!", encoder)
+            val result = member.authenticate("WrongPassword1!", passwordPolicy)
 
             // assert
             assertThat(result).isFalse()
@@ -163,7 +162,7 @@ class MemberTest {
     ): Member {
         return Member(
             loginId = LoginId(loginId),
-            password = Password.of(rawPassword, birthDate, encoder),
+            password = passwordPolicy.createPassword(rawPassword, birthDate),
             name = Name(name),
             birthDate = BirthDate(birthDate),
             email = Email(email),

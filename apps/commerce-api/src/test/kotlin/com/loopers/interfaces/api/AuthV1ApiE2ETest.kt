@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api
 
-import com.loopers.domain.member.PasswordEncoder
-import com.loopers.domain.member.vo.Password
+import com.loopers.domain.member.PasswordPolicy
 import com.loopers.infrastructure.member.MemberEntity
 import com.loopers.infrastructure.member.MemberJpaRepository
 import com.loopers.interfaces.api.auth.AuthV1Dto
@@ -26,7 +25,7 @@ import java.time.LocalDate
 class AuthV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val memberJpaRepository: MemberJpaRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordPolicy: PasswordPolicy,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -133,7 +132,7 @@ class AuthV1ApiE2ETest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
+                password = passwordPolicy.createPassword(rawPassword, birthDate).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,
