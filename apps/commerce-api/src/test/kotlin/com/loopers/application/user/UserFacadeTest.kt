@@ -1,8 +1,8 @@
 package com.loopers.application.user
 
-import com.loopers.domain.user.User
 import com.loopers.domain.user.UserCommand
 import com.loopers.domain.user.UserService
+import com.loopers.domain.user.UserTestFixture
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -14,7 +14,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.time.LocalDate
 
 class UserFacadeTest {
 
@@ -36,28 +35,22 @@ class UserFacadeTest {
         fun signUp_success_returnsUserInfo() {
             // arrange
             val command = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com"
+                loginId = UserTestFixture.DEFAULT_LOGIN_ID,
+                password = UserTestFixture.DEFAULT_PASSWORD,
+                name = UserTestFixture.DEFAULT_NAME,
+                birthDate = UserTestFixture.DEFAULT_BIRTH_DATE,
+                email = UserTestFixture.DEFAULT_EMAIL,
             )
-            val user = User(
-                loginId = command.loginId,
-                password = command.password,
-                name = command.name,
-                birthDate = command.birthDate,
-                email = command.email
-            )
+            val user = UserTestFixture.createUser()
             every { userService.signUp(command) } returns user
 
             // act
             val result = userFacade.signUp(command)
 
             // assert
-            assertThat(result.loginId).isEqualTo(command.loginId)
-            assertThat(result.name).isEqualTo(command.name)
-            assertThat(result.email).isEqualTo(command.email)
+            assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
+            assertThat(result.name).isEqualTo(UserTestFixture.DEFAULT_NAME)
+            assertThat(result.email).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
             verify(exactly = 1) { userService.signUp(command) }
         }
 
@@ -66,11 +59,11 @@ class UserFacadeTest {
         fun signUp_duplicateLoginId_propagatesConflict() {
             // arrange
             val command = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com"
+                loginId = UserTestFixture.DEFAULT_LOGIN_ID,
+                password = UserTestFixture.DEFAULT_PASSWORD,
+                name = UserTestFixture.DEFAULT_NAME,
+                birthDate = UserTestFixture.DEFAULT_BIRTH_DATE,
+                email = UserTestFixture.DEFAULT_EMAIL,
             )
             every { userService.signUp(command) } throws CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
 
@@ -93,23 +86,16 @@ class UserFacadeTest {
         @DisplayName("사용자가 존재하면 마스킹된 이름으로 UserInfo를 반환한다")
         fun getUserInfo_userExists_returnsUserInfoWithMaskedName() {
             // arrange
-            val loginId = "testuser1"
-            val user = User(
-                loginId = loginId,
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com"
-            )
-            every { userService.getUserInfo(loginId) } returns user
+            val user = UserTestFixture.createUser()
+            every { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) } returns user
 
             // act
-            val result = userFacade.getUserInfo(loginId)
+            val result = userFacade.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID)
 
             // assert
-            assertThat(result.loginId).isEqualTo(loginId)
+            assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
             assertThat(result.name).isEqualTo("홍길*")
-            verify(exactly = 1) { userService.getUserInfo(loginId) }
+            verify(exactly = 1) { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) }
         }
 
         @Test
@@ -138,18 +124,17 @@ class UserFacadeTest {
         @DisplayName("UserService의 changePassword를 호출한다")
         fun changePassword_callsUserService() {
             // arrange
-            val loginId = "testuser1"
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
-                newPassword = "NewPass12!"
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
+                newPassword = "NewPass12!",
             )
-            every { userService.changePassword(loginId, command) } returns Unit
+            every { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) } returns Unit
 
             // act
-            userFacade.changePassword(loginId, command)
+            userFacade.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command)
 
             // assert
-            verify(exactly = 1) { userService.changePassword(loginId, command) }
+            verify(exactly = 1) { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) }
         }
 
         @Test
@@ -158,8 +143,8 @@ class UserFacadeTest {
             // arrange
             val loginId = "nonexistent"
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
-                newPassword = "NewPass12!"
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
+                newPassword = "NewPass12!",
             )
             every { userService.changePassword(loginId, command) } throws CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
 
@@ -177,16 +162,15 @@ class UserFacadeTest {
         @DisplayName("현재 비밀번호가 일치하지 않으면 BAD_REQUEST 예외가 전파된다")
         fun changePassword_wrongCurrentPassword_propagatesBadRequest() {
             // arrange
-            val loginId = "testuser1"
             val command = UserCommand.ChangePassword(
                 currentPassword = "WrongPass1!",
-                newPassword = "NewPass12!"
+                newPassword = "NewPass12!",
             )
-            every { userService.changePassword(loginId, command) } throws CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.")
+            every { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) } throws CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.")
 
             // act
             val exception = assertThrows<CoreException> {
-                userFacade.changePassword(loginId, command)
+                userFacade.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command)
             }
 
             // assert
@@ -198,16 +182,15 @@ class UserFacadeTest {
         @DisplayName("새 비밀번호가 규칙을 위반하면 BAD_REQUEST 예외가 전파된다")
         fun changePassword_invalidNewPassword_propagatesBadRequest() {
             // arrange
-            val loginId = "testuser1"
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
-                newPassword = "short"
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
+                newPassword = "short",
             )
-            every { userService.changePassword(loginId, command) } throws CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8 ~ 16 자의 영문 대소문자, 숫자, 특수문자만 가능합니다.")
+            every { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) } throws CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8 ~ 16 자의 영문 대소문자, 숫자, 특수문자만 가능합니다.")
 
             // act
             val exception = assertThrows<CoreException> {
-                userFacade.changePassword(loginId, command)
+                userFacade.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command)
             }
 
             // assert

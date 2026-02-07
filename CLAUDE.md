@@ -117,6 +117,12 @@ com.loopers
 - 성능 최적화
 - 모든 테스트 케이스가 통과해야 함
 
+## 작업 환경
+- **OS**: Windows (절대 Linux/Unix 전용 명령어 사용 금지)
+- `chmod`, `ln -s`, `grep`(Bash), `sed`, `awk`, `cat`, `head`, `tail` 등 Unix 명령어 사용하지 말 것
+- Windows 호환 명령어 또는 Claude Code 전용 도구(Read, Edit, Write, Grep, Glob 등)를 사용할 것
+- 경로 구분자는 `\` 또는 `/` 모두 가능하나, Windows 경로 형식 우선
+
 ## 주의사항
 ### 1. Never Do
 - 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이요한 구현을 하지 말 것

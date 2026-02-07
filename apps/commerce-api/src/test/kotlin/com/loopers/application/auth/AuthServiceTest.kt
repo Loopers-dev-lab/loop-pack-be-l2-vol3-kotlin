@@ -1,7 +1,7 @@
 package com.loopers.application.auth
 
-import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
+import com.loopers.domain.user.UserTestFixture
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
-import java.time.LocalDate
 
 class AuthServiceTest {
 
@@ -35,22 +34,14 @@ class AuthServiceTest {
         @DisplayName("올바른 로그인 정보로 인증하면 성공한다")
         fun authenticate_withValidCredentials_success() {
             // arrange
-            val loginId = "testuser1"
-            val password = "Password1!"
-            val user = User(
-                loginId = loginId,
-                password = password,
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com"
-            )
-            every { userService.getUserInfo(loginId) } returns user
+            val user = UserTestFixture.createUser()
+            every { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) } returns user
 
             // act & assert
             assertDoesNotThrow {
-                authService.authenticate(loginId, password)
+                authService.authenticate(UserTestFixture.DEFAULT_LOGIN_ID, UserTestFixture.DEFAULT_PASSWORD)
             }
-            verify(exactly = 1) { userService.getUserInfo(loginId) }
+            verify(exactly = 1) { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) }
         }
 
         @Test
@@ -58,12 +49,11 @@ class AuthServiceTest {
         fun authenticate_userNotFound_throwsException() {
             // arrange
             val loginId = "nonexistent"
-            val password = "Password1!"
             every { userService.getUserInfo(loginId) } returns null
 
             // act
             val exception = assertThrows<CoreException> {
-                authService.authenticate(loginId, password)
+                authService.authenticate(loginId, UserTestFixture.DEFAULT_PASSWORD)
             }
 
             // assert
@@ -75,21 +65,12 @@ class AuthServiceTest {
         @DisplayName("잘못된 비밀번호로 인증하면 UNAUTHORIZED 예외가 발생한다")
         fun authenticate_wrongPassword_throwsException() {
             // arrange
-            val loginId = "testuser1"
-            val correctPassword = "Password1!"
-            val wrongPassword = "WrongPass1!"
-            val user = User(
-                loginId = loginId,
-                password = correctPassword,
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com"
-            )
-            every { userService.getUserInfo(loginId) } returns user
+            val user = UserTestFixture.createUser()
+            every { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) } returns user
 
             // act
             val exception = assertThrows<CoreException> {
-                authService.authenticate(loginId, wrongPassword)
+                authService.authenticate(UserTestFixture.DEFAULT_LOGIN_ID, "WrongPass1!")
             }
 
             // assert
