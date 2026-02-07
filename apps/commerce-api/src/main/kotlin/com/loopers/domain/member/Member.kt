@@ -26,10 +26,10 @@ class Member(
      * 비밀번호를 변경합니다.
      * @param currentRawPassword 현재 평문 비밀번호 (검증용)
      * @param newRawPassword 새 평문 비밀번호
-     * @param encoder 비밀번호 인코더
+     * @param passwordPolicy 비밀번호 정책
      */
-    fun changePassword(currentRawPassword: String, newRawPassword: String, encoder: PasswordEncoder) {
-        if (!authenticate(currentRawPassword, encoder)) {
+    fun changePassword(currentRawPassword: String, newRawPassword: String, passwordPolicy: PasswordPolicy) {
+        if (!authenticate(currentRawPassword, passwordPolicy)) {
             throw CoreException(ErrorType.AUTHENTICATION_FAILED, "현재 비밀번호가 일치하지 않습니다.")
         }
 
@@ -37,16 +37,16 @@ class Member(
             throw CoreException(ErrorType.SAME_PASSWORD_NOT_ALLOWED)
         }
 
-        this.password = Password.of(newRawPassword, birthDate.value, encoder)
+        this.password = passwordPolicy.createPassword(newRawPassword, birthDate.value)
     }
 
     /**
      * 비밀번호로 인증합니다.
      * @param rawPassword 평문 비밀번호
-     * @param encoder 비밀번호 인코더
+     * @param passwordPolicy 비밀번호 정책
      * @return 인증 성공 여부
      */
-    fun authenticate(rawPassword: String, encoder: PasswordEncoder): Boolean {
-        return password.matches(rawPassword, encoder)
+    fun authenticate(rawPassword: String, passwordPolicy: PasswordPolicy): Boolean {
+        return passwordPolicy.matches(rawPassword, password)
     }
 }
