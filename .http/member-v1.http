@@ -1,0 +1,56 @@
+### 내 정보 조회 - 성공
+GET http://localhost:8080/api/v1/members/me
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Password1!
+
+### 내 정보 조회 - 인증 실패 (잘못된 비밀번호)
+GET http://localhost:8080/api/v1/members/me
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: WrongPassword!
+
+### 내 정보 조회 - 인증 헤더 누락
+GET http://localhost:8080/api/v1/members/me
+
+### 비밀번호 변경 - 성공
+PATCH http://localhost:8080/api/v1/members/me/password
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Password1!
+Content-Type: application/json
+
+{
+  "currentPassword": "Password1!",
+  "newPassword": "NewPassword1!"
+}
+
+### 비밀번호 변경 - 현재 비밀번호와 동일
+PATCH http://localhost:8080/api/v1/members/me/password
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Password1!
+Content-Type: application/json
+
+{
+  "currentPassword": "Password1!",
+  "newPassword": "Password1!"
+}
+
+### 비밀번호 변경 - 현재 비밀번호 불일치
+PATCH http://localhost:8080/api/v1/members/me/password
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Password1!
+Content-Type: application/json
+
+{
+  "currentPassword": "WrongPassword1!",
+  "newPassword": "NewPassword2!"
+}
+
+### 비밀번호 변경 - 생년월일 포함된 새 비밀번호
+PATCH http://localhost:8080/api/v1/members/me/password
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Password1!
+Content-Type: application/json
+
+{
+  "currentPassword": "Password1!",
+  "newPassword": "Pass19900115!"
+}

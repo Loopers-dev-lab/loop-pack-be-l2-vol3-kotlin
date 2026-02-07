@@ -1,0 +1,16 @@
+package com.loopers.domain.member.vo
+
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+
+data class LoginId(val value: String) {
+    init {
+        if (value.isBlank() || !value.matches(PATTERN)) {
+            throw CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT)
+        }
+    }
+
+    companion object {
+        private val PATTERN = Regex("^[a-zA-Z0-9]+$")
+    }
+}
