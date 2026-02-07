@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 @Component
 class MemberAuthenticator(
     private val memberRepository: MemberRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordPolicy: PasswordPolicy,
 ) {
 
     /**
@@ -23,7 +23,7 @@ class MemberAuthenticator(
         val member = memberRepository.findByLoginId(LoginId(loginId))
             ?: throw CoreException(ErrorType.MEMBER_NOT_FOUND)
 
-        if (!member.authenticate(rawPassword, passwordEncoder)) {
+        if (!member.authenticate(rawPassword, passwordPolicy)) {
             throw CoreException(ErrorType.AUTHENTICATION_FAILED)
         }
 

@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 @Component
 class MemberPasswordChanger(
     private val memberRepository: MemberRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordPolicy: PasswordPolicy,
 ) {
 
     /**
@@ -29,7 +29,7 @@ class MemberPasswordChanger(
         val member = memberRepository.findByLoginId(LoginId(loginId))
             ?: throw CoreException(ErrorType.MEMBER_NOT_FOUND)
 
-        member.changePassword(currentRawPassword, newRawPassword, passwordEncoder)
+        member.changePassword(currentRawPassword, newRawPassword, passwordPolicy)
         memberRepository.save(member)
     }
 }

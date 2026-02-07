@@ -4,7 +4,6 @@ import com.loopers.domain.member.vo.BirthDate
 import com.loopers.domain.member.vo.Email
 import com.loopers.domain.member.vo.LoginId
 import com.loopers.domain.member.vo.Name
-import com.loopers.domain.member.vo.Password
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -16,7 +15,7 @@ import java.time.LocalDate
 @Component
 class MemberRegister(
     private val memberRepository: MemberRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordPolicy: PasswordPolicy,
 ) {
 
     /**
@@ -37,7 +36,7 @@ class MemberRegister(
         }
 
         val birthDateVo = BirthDate(birthDate)
-        val password = Password.of(rawPassword, birthDateVo.value, passwordEncoder)
+        val password = passwordPolicy.createPassword(rawPassword, birthDateVo.value)
 
         val member = Member(
             loginId = loginIdVo,
