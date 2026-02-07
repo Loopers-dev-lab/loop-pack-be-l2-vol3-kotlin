@@ -1,5 +1,6 @@
 package com.loopers.application.auth
 
+import com.loopers.domain.member.PasswordEncoder
 import com.loopers.domain.member.vo.Password
 import com.loopers.infrastructure.member.MemberEntity
 import com.loopers.infrastructure.member.MemberJpaRepository
@@ -20,6 +21,7 @@ import java.time.LocalDate
 class AuthFacadeTest @Autowired constructor(
     private val authFacade: AuthFacade,
     private val memberJpaRepository: MemberJpaRepository,
+    private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -118,7 +120,7 @@ class AuthFacadeTest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate).value,
+                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,

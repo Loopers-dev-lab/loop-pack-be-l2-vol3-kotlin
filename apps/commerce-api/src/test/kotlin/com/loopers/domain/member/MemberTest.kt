@@ -16,13 +16,15 @@ import java.time.LocalDate
 
 class MemberTest {
 
+    private val encoder: PasswordEncoder = NoOpPasswordEncoder()
+
     @Nested
     inner class Create {
         @Test
         fun `유효한_정보로_회원을_생성할_수_있다`() {
             // arrange
             val loginId = LoginId("testuser123")
-            val password = Password.of("Password1!", LocalDate.of(1990, 1, 15))
+            val password = Password.of("Password1!", LocalDate.of(1990, 1, 15), encoder)
             val name = Name("홍길동")
             val birthDate = BirthDate(LocalDate.of(1990, 1, 15))
             val email = Email("test@example.com")
@@ -60,10 +62,11 @@ class MemberTest {
             member.changePassword(
                 currentRawPassword = "Password1!",
                 newRawPassword = newRawPassword,
+                encoder = encoder,
             )
 
             // assert
-            assertThat(member.password.matches(newRawPassword)).isTrue()
+            assertThat(member.password.matches(newRawPassword, encoder)).isTrue()
         }
 
         @Test
@@ -76,6 +79,7 @@ class MemberTest {
                 member.changePassword(
                     currentRawPassword = "WrongPassword1!",
                     newRawPassword = "NewPassword1!",
+                    encoder = encoder,
                 )
             }
 
@@ -94,6 +98,7 @@ class MemberTest {
                 member.changePassword(
                     currentRawPassword = samePassword,
                     newRawPassword = samePassword,
+                    encoder = encoder,
                 )
             }
 
@@ -113,6 +118,7 @@ class MemberTest {
                 member.changePassword(
                     currentRawPassword = "Password1!",
                     newRawPassword = newPassword,
+                    encoder = encoder,
                 )
             }
 
@@ -129,7 +135,7 @@ class MemberTest {
             val member = createMember()
 
             // act
-            val result = member.authenticate("Password1!")
+            val result = member.authenticate("Password1!", encoder)
 
             // assert
             assertThat(result).isTrue()
@@ -141,7 +147,7 @@ class MemberTest {
             val member = createMember()
 
             // act
-            val result = member.authenticate("WrongPassword1!")
+            val result = member.authenticate("WrongPassword1!", encoder)
 
             // assert
             assertThat(result).isFalse()
@@ -157,7 +163,7 @@ class MemberTest {
     ): Member {
         return Member(
             loginId = LoginId(loginId),
-            password = Password.of(rawPassword, birthDate),
+            password = Password.of(rawPassword, birthDate, encoder),
             name = Name(name),
             birthDate = BirthDate(birthDate),
             email = Email(email),

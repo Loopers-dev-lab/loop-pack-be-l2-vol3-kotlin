@@ -17,6 +17,7 @@ import java.time.LocalDate
 @Component
 class MemberRegister(
     private val memberRepository: MemberRepository,
+    private val passwordEncoder: PasswordEncoder,
 ) {
 
     /**
@@ -38,7 +39,7 @@ class MemberRegister(
         }
 
         val birthDateVo = BirthDate(birthDate)
-        val password = Password.of(rawPassword, birthDateVo.value)
+        val password = Password.of(rawPassword, birthDateVo.value, passwordEncoder)
 
         val member = Member(
             loginId = loginIdVo,

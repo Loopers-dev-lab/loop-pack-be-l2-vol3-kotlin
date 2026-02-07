@@ -1,5 +1,6 @@
 package com.loopers.application.member
 
+import com.loopers.domain.member.PasswordEncoder
 import com.loopers.domain.member.vo.Password
 import com.loopers.infrastructure.member.MemberEntity
 import com.loopers.infrastructure.member.MemberJpaRepository
@@ -20,6 +21,7 @@ import java.time.LocalDate
 class MemberFacadeTest @Autowired constructor(
     private val memberFacade: MemberFacade,
     private val memberJpaRepository: MemberJpaRepository,
+    private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -78,7 +80,7 @@ class MemberFacadeTest @Autowired constructor(
             // assert
             val updatedEntity = memberJpaRepository.findByLoginId("pwuser")
             val updatedPassword = Password.fromEncoded(updatedEntity!!.password)
-            assertThat(updatedPassword.matches("NewPassword1!")).isTrue()
+            assertThat(updatedPassword.matches("NewPassword1!", passwordEncoder)).isTrue()
         }
 
         @Test
@@ -127,7 +129,7 @@ class MemberFacadeTest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate).value,
+                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,

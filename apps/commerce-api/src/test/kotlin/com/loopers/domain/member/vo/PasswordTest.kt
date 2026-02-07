@@ -1,5 +1,7 @@
 package com.loopers.domain.member.vo
 
+import com.loopers.domain.member.NoOpPasswordEncoder
+import com.loopers.domain.member.PasswordEncoder
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -9,6 +11,9 @@ import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 
 class PasswordTest {
+
+    private val encoder: PasswordEncoder = NoOpPasswordEncoder()
+
     @Nested
     inner class Create {
         @Test
@@ -18,10 +23,10 @@ class PasswordTest {
             val birthDate = LocalDate.of(1990, 1, 15)
 
             // act
-            val password = Password.of(value, birthDate)
+            val password = Password.of(value, birthDate, encoder)
 
             // assert
-            assertThat(password.value).isNotEqualTo(value) // 암호화되어야 함
+            assertThat(password.value).isEqualTo(value)
         }
 
         @Test
@@ -31,7 +36,7 @@ class PasswordTest {
             val birthDate = LocalDate.of(1990, 1, 15)
 
             // act
-            val result = assertThrows<CoreException> { Password.of(value, birthDate) }
+            val result = assertThrows<CoreException> { Password.of(value, birthDate, encoder) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT)
@@ -44,7 +49,7 @@ class PasswordTest {
             val birthDate = LocalDate.of(1990, 1, 15)
 
             // act
-            val result = assertThrows<CoreException> { Password.of(value, birthDate) }
+            val result = assertThrows<CoreException> { Password.of(value, birthDate, encoder) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT)
@@ -57,7 +62,7 @@ class PasswordTest {
             val birthDate = LocalDate.of(1990, 1, 15)
 
             // act
-            val result = assertThrows<CoreException> { Password.of(value, birthDate) }
+            val result = assertThrows<CoreException> { Password.of(value, birthDate, encoder) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT)
@@ -71,7 +76,7 @@ class PasswordTest {
 
             // act & assert
             invalidPasswords.forEach { value ->
-                val result = assertThrows<CoreException> { Password.of(value, birthDate) }
+                val result = assertThrows<CoreException> { Password.of(value, birthDate, encoder) }
                 assertThat(result.errorType).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDATE)
             }
         }
@@ -84,23 +89,9 @@ class PasswordTest {
 
             // act & assert
             invalidPasswords.forEach { value ->
-                val result = assertThrows<CoreException> { Password.of(value, birthDate) }
+                val result = assertThrows<CoreException> { Password.of(value, birthDate, encoder) }
                 assertThat(result.errorType).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDATE)
             }
-        }
-
-        @Test
-        fun `비밀번호는_암호화되어_저장된다`() {
-            // arrange
-            val value = "Password1!"
-            val birthDate = LocalDate.of(1990, 1, 15)
-
-            // act
-            val password = Password.of(value, birthDate)
-
-            // assert
-            assertThat(password.value).isNotEqualTo(value)
-            assertThat(password.value).startsWith("$2") // BCrypt prefix
         }
 
         @Test
@@ -108,11 +99,11 @@ class PasswordTest {
             // arrange
             val value = "Password1!"
             val birthDate = LocalDate.of(1990, 1, 15)
-            val password = Password.of(value, birthDate)
+            val password = Password.of(value, birthDate, encoder)
 
             // act & assert
-            assertThat(password.matches(value)).isTrue()
-            assertThat(password.matches("WrongPassword1!")).isFalse()
+            assertThat(password.matches(value, encoder)).isTrue()
+            assertThat(password.matches("WrongPassword1!", encoder)).isFalse()
         }
     }
 }

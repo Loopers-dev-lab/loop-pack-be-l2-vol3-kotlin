@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class MemberAuthenticator(
     private val memberRepository: MemberRepository,
+    private val passwordEncoder: PasswordEncoder,
 ) {
 
     /**
@@ -24,7 +25,7 @@ class MemberAuthenticator(
         val member = memberRepository.findByLoginId(LoginId(loginId))
             ?: throw CoreException(ErrorType.MEMBER_NOT_FOUND)
 
-        if (!member.authenticate(rawPassword)) {
+        if (!member.authenticate(rawPassword, passwordEncoder)) {
             throw CoreException(ErrorType.AUTHENTICATION_FAILED)
         }
 

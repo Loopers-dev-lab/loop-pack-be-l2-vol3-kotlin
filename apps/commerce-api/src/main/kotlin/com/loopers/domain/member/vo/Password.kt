@@ -1,21 +1,20 @@
 package com.loopers.domain.member.vo
 
+import com.loopers.domain.member.PasswordEncoder
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 data class Password private constructor(val value: String) {
 
-    fun matches(rawPassword: String): Boolean {
-        return ENCODER.matches(rawPassword, value)
+    fun matches(rawPassword: String, encoder: PasswordEncoder): Boolean {
+        return encoder.matches(rawPassword, value)
     }
 
     override fun toString(): String = "Password(****)"
 
     companion object {
-        private val ENCODER = BCryptPasswordEncoder()
         private val ALLOWED_CHARS_PATTERN = Regex("^[a-zA-Z0-9!@#\$%^&*()_+\\-=\\[\\]{}|;':\",./<>?`~]+$")
         private const val MIN_LENGTH = 8
         private const val MAX_LENGTH = 16
@@ -26,10 +25,10 @@ data class Password private constructor(val value: String) {
             DateTimeFormatter.ofPattern("yyyy/MM/dd"),
         )
 
-        fun of(rawPassword: String, birthDate: LocalDate): Password {
+        fun of(rawPassword: String, birthDate: LocalDate, encoder: PasswordEncoder): Password {
             validateFormat(rawPassword)
             validateNotContainsBirthDate(rawPassword, birthDate)
-            return Password(ENCODER.encode(rawPassword))
+            return Password(encoder.encode(rawPassword))
         }
 
         fun fromEncoded(encodedPassword: String): Password {

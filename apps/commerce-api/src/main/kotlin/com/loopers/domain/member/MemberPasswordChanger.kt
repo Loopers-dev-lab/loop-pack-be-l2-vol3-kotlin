@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class MemberPasswordChanger(
     private val memberRepository: MemberRepository,
+    private val passwordEncoder: PasswordEncoder,
 ) {
 
     /**
@@ -30,7 +31,7 @@ class MemberPasswordChanger(
         val member = memberRepository.findByLoginId(LoginId(loginId))
             ?: throw CoreException(ErrorType.MEMBER_NOT_FOUND)
 
-        member.changePassword(currentRawPassword, newRawPassword)
+        member.changePassword(currentRawPassword, newRawPassword, passwordEncoder)
         memberRepository.save(member)
     }
 }

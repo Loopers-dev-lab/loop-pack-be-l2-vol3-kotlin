@@ -19,6 +19,7 @@ import java.time.LocalDate
 class MemberReaderIntegrationTest @Autowired constructor(
     private val memberReader: MemberReader,
     private val memberJpaRepository: MemberJpaRepository,
+    private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -64,7 +65,7 @@ class MemberReaderIntegrationTest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate).value,
+                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,

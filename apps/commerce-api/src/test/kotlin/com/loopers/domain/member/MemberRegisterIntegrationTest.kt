@@ -20,6 +20,7 @@ import java.time.LocalDate
 class MemberRegisterIntegrationTest @Autowired constructor(
     private val memberRegister: MemberRegister,
     private val memberJpaRepository: MemberJpaRepository,
+    private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -85,7 +86,7 @@ class MemberRegisterIntegrationTest @Autowired constructor(
         return memberJpaRepository.save(
             MemberEntity(
                 loginId = loginId,
-                password = Password.of(rawPassword, birthDate).value,
+                password = Password.of(rawPassword, birthDate, passwordEncoder).value,
                 name = name,
                 birthDate = birthDate,
                 email = email,
