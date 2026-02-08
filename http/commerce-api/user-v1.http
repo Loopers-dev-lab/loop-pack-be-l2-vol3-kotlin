@@ -1,0 +1,40 @@
+### 1. 회원가입
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Password1!",
+  "name": "홍길동",
+  "birthDate": "1990-01-01",
+  "email": "test@example.com"
+}
+
+### 2. 내 정보 조회 (가입한 계정으로)
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+
+### 3. 중복 loginId로 가입 (409 Conflict 기대)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "Password1!",
+  "name": "김철수",
+  "birthDate": "1995-05-15",
+  "email": "kim@example.com"
+}
+
+### 4. 유효하지 않은 요청 - 빈 loginId (400 Bad Request 기대)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "",
+  "password": "Password1!",
+  "name": "테스트",
+  "birthDate": "2000-01-01",
+  "email": "invalid@example.com"
+}
