@@ -14,7 +14,7 @@ class UserServiceUnitTest {
     // Setup
     private val mockRepository = mockk<UserRepository>()
     private val mockPasswordEncoder = mockk<PasswordEncoder>()
-    private val spyPasswordEncoder = spyk<PasswordEncoder>()
+    private val spyPasswordEncoder = spyk(UserPasswordEncoder()) // Use real instance for spy
 
     private val userService = UserService(mockRepository, mockPasswordEncoder)
     private val userServiceWithSpy = UserService(mockRepository, spyPasswordEncoder)
@@ -368,6 +368,20 @@ class UserServiceUnitTest {
         }.also {
             assertThat(it.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
+    }
+
+    @Test
+    fun `authenticate() should call matches() even when user does not exist to prevent timing attack`() {
+        // Arrange
+        every { mockRepository.findByUserId("nonExistUser") } returns null
+
+        // Act
+        assertThrows<CoreException> {
+            userServiceWithSpy.authenticate("nonExistUser", "anyPassword")
+        }
+
+        // Assert - verify matches() was called even though user doesn't exist
+        verify(exactly = 1) { spyPasswordEncoder.matches("anyPassword", any()) }
     }
 
     // ─── changePassword ───

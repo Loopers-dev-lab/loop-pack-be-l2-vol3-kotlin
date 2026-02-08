@@ -269,7 +269,7 @@ class UserServiceTest @Autowired constructor(
             userService.changePassword(userId, wrongOldPassword, newPassword)
         }
         assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
-        assertThat(exception.message).contains("인증정보")
+        assertThat(exception.message).contains("일치하지 않습니다")
     }
 
     @Test
@@ -284,7 +284,7 @@ class UserServiceTest @Autowired constructor(
             userService.changePassword(userId, currentPassword, currentPassword)
         }
         assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        assertThat(exception.message).contains("기존 비밀번호")
+        assertThat(exception.message).contains("현재 비밀번호와")
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.user
 import com.loopers.domain.user.UserService
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.security.AuthHeader
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -56,7 +57,7 @@ class UserV1Controller(
     override fun changePassword(
         @RequestHeader(AuthHeader.HEADER_LOGIN_ID) loginId: String,
         @RequestHeader(AuthHeader.HEADER_LOGIN_PW) loginPw: String,
-        @RequestBody request: UserV1Dto.UserChangePasswordRequest,
+        @RequestBody @Valid request: UserV1Dto.UserChangePasswordRequest,
     ): ApiResponse<Any> {
         // TODO: 인증 로직을 별도 Interceptor 혹은 Filter 로 분리
         //   인증 및 비밀번호 변경 과정에서 중복 인증 및 비밀번호 잠재적 불일치가 발생할 수 있음

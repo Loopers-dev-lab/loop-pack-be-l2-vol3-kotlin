@@ -33,15 +33,15 @@ class UserService(
      */
     @Transactional
     fun createUser(userId: String, password: String, name: String, birthDate: LocalDate, email: String): UserModel {
-        // 사용자 중복 체크
-        if (userRepository.existsByUserId(userId))
-            throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "[$userId] 해당 ID에 해당하는 계정이 존재합니다.")
-
         // 입력값 유효성 검증
         validateUserId(userId)
         validateEmail(email)
         validateBirthDate(birthDate)
         validatePassword(password, birthDate)
+
+        // 사용자 중복 체크
+        if (userRepository.existsByUserId(userId))
+            throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "[$userId] 해당 ID에 해당하는 계정이 존재합니다.")
 
         // 비밀번호 암호화 적용
         val encryptedPassword = passwordEncoder.encode(password)
