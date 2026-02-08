@@ -40,3 +40,4 @@ out/
 .kotlin
 /.omc
 nul
+/.claude/settings.local.json

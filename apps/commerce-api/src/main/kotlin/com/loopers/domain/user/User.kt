@@ -60,7 +60,7 @@ class User(
         return this.password == encodePassword(rawPassword)
     }
 
-    //TODO: 추후 security 추가 시 변경
+    // TODO: 추후 security 추가 시 변경
     private fun encodePassword(rawPassword: String): String {
         val bytes = rawPassword.toByteArray()
         val md = java.security.MessageDigest.getInstance("SHA-256")

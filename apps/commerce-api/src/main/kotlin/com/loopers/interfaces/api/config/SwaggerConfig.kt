@@ -23,7 +23,7 @@ class SwaggerConfig {
                             .type(SecurityScheme.Type.APIKEY)
                             .`in`(SecurityScheme.In.HEADER)
                             .name(HEADER_LOGIN_ID)
-                            .description("로그인 ID")
+                            .description("로그인 ID"),
                     )
                     .addSecuritySchemes(
                         HEADER_LOGIN_PW,
@@ -31,15 +31,15 @@ class SwaggerConfig {
                             .type(SecurityScheme.Type.APIKEY)
                             .`in`(SecurityScheme.In.HEADER)
                             .name(HEADER_LOGIN_PW)
-                            .description("비밀번호")
-                    )
+                            .description("비밀번호"),
+                    ),
             )
             .security(
                 listOf(
                     SecurityRequirement()
                         .addList(HEADER_LOGIN_ID)
-                        .addList(HEADER_LOGIN_PW)
-                )
+                        .addList(HEADER_LOGIN_PW),
+                ),
             )
     }
 }

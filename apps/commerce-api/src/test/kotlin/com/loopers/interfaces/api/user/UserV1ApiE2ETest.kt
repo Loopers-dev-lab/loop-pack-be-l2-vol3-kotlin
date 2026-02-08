@@ -199,7 +199,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             assertAll(
                 { Assertions.assertThat(response.statusCode.is2xxSuccessful).isTrue() },
                 { Assertions.assertThat(response.body?.data?.loginId).isEqualTo("testuser1") },
-                { Assertions.assertThat(response.body?.data?.name).isEqualTo("홍길*") },  // 마스킹된 이름
+                { Assertions.assertThat(response.body?.data?.name).isEqualTo("홍길*") },
             )
         }
 
@@ -260,7 +260,6 @@ class UserV1ApiE2ETest @Autowired constructor(
     @Nested
     @DisplayName("PATCH /api/v1/users/user/password")
     inner class ChangePassword {
-
 
         @Test
         @DisplayName("비밀번호 변경에 성공하면, 200 OK 응답을 반환한다.")

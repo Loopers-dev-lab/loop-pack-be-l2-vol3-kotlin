@@ -51,8 +51,10 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("성공하면 User가 저장된다")
         fun signUp_success() {
             val command = UserCommand.SignUp(
-                loginId = "testuser1", password = "Password1!",
-                name = "홍길동", birthDate = LocalDate.of(1990, 1, 15),
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
 

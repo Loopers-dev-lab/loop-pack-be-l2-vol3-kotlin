@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class AuthService(
-    private val userService: UserService
+    private val userService: UserService,
 ) {
     fun authenticate(loginId: String, loginPw: String) {
         val user = userService.getUserInfo(loginId)
