@@ -9,42 +9,20 @@
 
 ## Commands
 
-### 빌드 및 실행
-
 ```bash
 ./gradlew build                        # 전체 빌드
 ./gradlew :apps:commerce-api:build     # 특정 모듈 빌드
 ./gradlew :apps:commerce-api:bootRun   # 애플리케이션 실행
+./gradlew test                         # 전체 테스트
+./gradlew ktlintCheck                  # 린트 체크
+./gradlew ktlintFormat                 # 린트 자동 수정
+./gradlew ktlintCheck test             # 커밋 전 최종 검증
 ```
 
-### Red Phase — 테스트 작성 후 실패 확인
-
+단일 테스트 실행:
 ```bash
-# 단일 테스트 클래스 실행
-./gradlew :apps:commerce-api:test --tests "com.loopers.domain.user.UserTest"
-
-# 단일 테스트 메서드 실행
-./gradlew :apps:commerce-api:test --tests "com.loopers.domain.user.UserTest.특정메서드명"
-```
-
-### Green Phase — 구현 후 전체 테스트 통과 확인
-
-```bash
-./gradlew test
-```
-
-### Refactor Phase — 리팩토링 후 린트 + 전체 테스트
-
-```bash
-./gradlew ktlintFormat   # 린트 자동 수정
-./gradlew ktlintCheck    # 린트 체크
-./gradlew test           # 전체 테스트 재확인
-```
-
-### 커밋 전 최종 검증
-
-```bash
-./gradlew ktlintCheck test   # 린트 + 테스트 한 번에 실행
+./gradlew :apps:commerce-api:test --tests "패키지.클래스명"
+./gradlew :apps:commerce-api:test --tests "패키지.클래스명.메서드명"
 ```
 
 ## 아키텍처
@@ -88,12 +66,11 @@ support/error/     → CoreException, ErrorType
 
 ## 테스트 패턴
 
-- **단위 테스트**: `@Nested` + `@DisplayName`(한국어) 조합으로 BDD 스타일 구성
-- **통합 테스트**: `@SpringBootTest`, `@AfterEach`에서 `databaseCleanUp.truncateAllTables()` 호출
+- `@Nested` + `@DisplayName`(한국어) BDD 스타일, **3A 원칙** (Arrange → Act → Assert)
+- **통합 테스트**: `@SpringBootTest`, `@AfterEach`에서 `databaseCleanUp.truncateAllTables()`
 - **E2E 테스트**: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `TestRestTemplate`
-- 테스트 시 MySQL/Redis는 TestContainers로 자동 구동 (프로파일: `test`)
-- 테스트 타임존: `Asia/Seoul`
-- 모든 테스트는 **3A 원칙**: Arrange(준비) → Act(실행) → Assert(검증)
+- MySQL/Redis는 TestContainers 자동 구동 (프로파일: `test`), 타임존: `Asia/Seoul`
+- 상세 테스트 작성 절차는 `/red`, `/e2e` 스킬 참고
 
 ## 개발 방법론: TDD (Kent Beck) + Tidy First
 
@@ -105,26 +82,10 @@ support/error/     → CoreException, ErrorType
 
 ### TDD 사이클: Red → Green → Refactor
 
-1. **Red**: 요구사항을 만족하는 실패 테스트를 먼저 작성한다 (한 번에 하나씩)
-2. **Green**: 테스트를 통과시키기 위한 최소한의 코드를 구현한다. 오버엔지니어링 금지
-3. **Refactor**: 테스트가 통과한 후에만 리팩토링한다
-    - 불필요한 private 함수 지양, 객체지향적 코드 작성
-    - unused import 제거, 성능 최적화
-    - 모든 테스트 케이스가 통과해야 함
-
-### 변경 유형 분리 (Tidy First)
-
-- **구조적 변경**: 동작을 바꾸지 않는 코드 재배치 (이름 변경, 메서드 추출, 코드 이동)
-- **행위적 변경**: 실제 기능 추가/수정
-- 구조적 변경과 행위적 변경을 절대 같은 커밋에 섞지 않는다
+- **Red** → **Green** → **Refactor** 순서를 반드시 따른다
+- 구조적 변경과 행위적 변경을 절대 같은 커밋에 섞지 않는다 (Tidy First)
 - 둘 다 필요하면 구조적 변경을 먼저 수행한다
-
-### 커밋 규칙
-
-- 모든 테스트가 통과하고, 린터 경고가 없을 때만 커밋
-- 하나의 논리적 작업 단위로 커밋
-- 커밋 메시지에 구조적/행위적 변경 여부를 명시
-- 크고 드문 커밋보다 작고 빈번한 커밋을 지향
+- 각 단계의 상세 절차는 `/red`, `/green`, `/refactor`, `/tidy` 스킬 참고
 
 ### 코드 품질 기준
 
@@ -164,26 +125,7 @@ support/error/     → CoreException, ErrorType
 
 ## 브랜치 및 PR 규칙
 
-### 브랜치 생성
-
-```bash
-git checkout main && git pull origin main
-git checkout -b feature/round2-design
-```
-
-### 커밋 메시지
-
-| 접두사         | 용도              |
-|-------------|-----------------|
-| `feat:`     | 새 기능 추가         |
-| `refactor:` | 동작 변경 없는 구조적 변경 |
-| `fix:`      | 버그 수정           |
-| `test:`     | 테스트 추가/수정       |
-| `docs:`     | 문서 변경           |
-| `chore:`    | 설정, 빌드 스크립트 변경  |
-
-### PR 규칙
-
-- PR 제목: `[2주차] 설계 문서 제출`
-- 리뷰 포인트 필수 작성
-- 불필요한 코드/디버깅 로그 제거
+- 브랜치: `main`에서 분기 (예: `feature/round2-design`)
+- 커밋 접두사: `feat:` | `refactor:` | `fix:` | `test:` | `docs:` | `chore:`
+- 커밋 상세 절차는 `/commit`, `/verify` 스킬 참고
+- PR 제목: `[N주차] 제출 내용`, 리뷰 포인트 필수 작성
