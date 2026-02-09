@@ -2,3 +2,7 @@
 	path = docs/loopers
 	url = https://github.com/riveroverflows/loopers-docs.git
 	branch = main
+[submodule "docs/claude"]
+	path = docs/claude
+	url = https://github.com/riveroverflows/claude-docs.git
+	branch = loopers
