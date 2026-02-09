@@ -1,8 +1,13 @@
-설계 문서 전체를 리뷰하고 체크리스트를 검증한다.
+---
+name: design-review
+description:
+  docs/design/ 디렉토리의 설계 문서 4개(요구사항, 시퀀스, 클래스, ERD)를 리뷰하고 체크리스트를 검증한다.
+  PR 제출 전 설계 품질을 확인하는 데 사용한다.
+---
 
 ## 절차
 
-1. `docs/week2/` 디렉토리의 모든 문서를 읽는다:
+1. `docs/design/` 디렉토리의 모든 문서를 읽는다:
     - `01-requirements.md` — 요구사항 명세
     - `02-sequence-diagrams.md` — 시퀀스 다이어그램
     - `03-class-diagram.md` — 클래스 다이어그램

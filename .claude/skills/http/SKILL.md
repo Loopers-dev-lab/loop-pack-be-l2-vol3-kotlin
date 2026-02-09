@@ -1,4 +1,9 @@
-개발 완료된 API에 대한 HTTP 요청 파일을 작성한다.
+---
+name: http
+description:
+  개발 완료된 API에 대한 IntelliJ HTTP Client 형식(.http) 파일을 작성한다.
+  도메인별 파일 분류, 정상+에러 케이스 포함, 실제로 동작하는 값을 사용한다.
+---
 
 대상 API: $ARGUMENTS
 

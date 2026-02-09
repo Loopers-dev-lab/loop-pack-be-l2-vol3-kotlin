@@ -1,4 +1,9 @@
-Tidy First: 동작 변경 없이 구조적 변경만 수행한다.
+---
+name: tidy
+description:
+  Tidy First 원칙에 따라 동작 변경 없이 구조적 변경만 수행한다.
+  이름 변경, 메서드 추출, 코드 이동 등. 테스트 실패 시 되돌린다.
+---
 
 대상/방향: $ARGUMENTS
 

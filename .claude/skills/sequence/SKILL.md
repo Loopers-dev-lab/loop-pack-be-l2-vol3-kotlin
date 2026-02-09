@@ -1,11 +1,16 @@
-시퀀스 다이어그램을 Mermaid 문법으로 작성한다.
+---
+name: sequence
+description:
+  기능의 호출 흐름을 Mermaid 시퀀스 다이어그램으로 작성한다.
+  레이어드 아키텍처 참여자, 조건 분기, 트랜잭션 경계를 포함하며 docs/design/에 저장한다.
+---
 
 대상 기능: $ARGUMENTS
 
 ## 절차
 
 1. 대상 기능의 요구사항을 확인한다
-    - `docs/week2/01-requirements.md`가 있으면 참고
+    - `docs/design/01-requirements.md`가 있으면 참고
     - `$ARGUMENTS`가 없으면 작성이 필요한 기능을 제안
 2. 다이어그램을 그리기 전에 설명한다:
     - **왜** 이 다이어그램이 필요한지
@@ -18,30 +23,29 @@
 4. 다이어그램 해석을 2~3줄로 제공한다:
     - 특히 봐야 할 포인트
     - 설계 의도
-5. `docs/week2/02-sequence-diagrams.md`에 추가한다
+5. `docs/design/02-sequence-diagrams.md`에 추가한다
 6. 개발자에게 리뷰 요청
 
 ## Mermaid 형식 예시
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant Client
-    participant Controller
-    participant Facade
-    participant Service
-    participant Repository
-    participant DB
+    participant User
+    participant LikeController
+    participant LikeService
+    participant ProductReader
+    participant LikeRepository
+    User ->> LikeController: POST /products/{id}/like
+    LikeController ->> LikeService: toggleLike(userId, productId)
+    LikeService ->> ProductReader: get(productId)
+    LikeService ->> LikeRepository: exists(userId, productId)
 
-    Client->>Controller: POST /api/v1/orders
-    Controller->>Facade: createOrder(command)
-    Facade->>Service: createOrder(command)
+    alt 좋아요가 존재하지 않을 경우
+        LikeService ->> LikeRepository: save()
 
-    alt 재고 부족
-        Service-->>Facade: CoreException(BAD_REQUEST)
-    else 재고 충분
-        Service->>Repository: save(order)
-        Repository->>DB: INSERT
+    else 이미 좋아요한 경우
+        LikeService ->> LikeRepository: delete()
+
     end
 ```
 

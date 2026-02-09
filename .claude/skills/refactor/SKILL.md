@@ -1,4 +1,9 @@
-TDD Refactor Phase: 모든 테스트가 통과하는 상태에서 코드 품질을 개선한다.
+---
+name: refactor
+description:
+  TDD Refactor Phase. 모든 테스트가 통과하는 상태에서 구조적 변경만 수행하여 코드 품질을 개선한다.
+  중복 제거, 네이밍 개선, 메서드 추출 등. 테스트 실패 시 변경을 되돌린다.
+---
 
 리팩토링 대상/방향: $ARGUMENTS
 

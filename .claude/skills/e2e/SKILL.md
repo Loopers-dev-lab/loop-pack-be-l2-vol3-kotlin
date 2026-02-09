@@ -1,4 +1,9 @@
-E2E 테스트를 작성한다: 실제 API를 호출해 전체 흐름을 검증한다.
+---
+name: e2e
+description:
+  E2E 테스트를 작성한다. 실제 API를 호출해 Controller부터 Repository까지 전체 흐름을 검증한다.
+  Mock 사용 금지. TestContainers 기반 실제 DB 사용. 정상+실패 케이스 모두 포함.
+---
 
 대상 API: $ARGUMENTS
 

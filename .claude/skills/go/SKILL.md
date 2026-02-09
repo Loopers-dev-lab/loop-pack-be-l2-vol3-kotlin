@@ -1,4 +1,9 @@
-plan.md를 읽고 다음 미완료(체크되지 않은) 테스트를 찾아 TDD 사이클을 수행한다.
+---
+name: go
+description:
+  plan.md를 읽고 다음 미완료 항목을 찾아 Red → Green TDD 사이클을 자동 수행한다.
+  반복적으로 /go를 호출하여 plan.md 항목을 하나씩 소화한다.
+---
 
 ## 절차
 

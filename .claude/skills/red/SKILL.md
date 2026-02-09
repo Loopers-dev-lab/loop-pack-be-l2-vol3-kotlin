@@ -1,4 +1,9 @@
-TDD Red Phase: 요구사항에 대한 실패하는 테스트를 작성한다.
+---
+name: red
+description:
+  TDD Red Phase. 요구사항에 대한 실패하는 테스트를 하나 작성한다.
+  단위/통합/E2E 중 적절한 테스트 종류를 자동 선택하며, 3A 원칙과 BDD 스타일을 따른다.
+---
 
 요구사항: $ARGUMENTS
 

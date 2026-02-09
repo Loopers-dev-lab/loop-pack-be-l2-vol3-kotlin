@@ -1,10 +1,15 @@
-ERD를 Mermaid 문법으로 작성한다.
+---
+name: erd
+description:
+  영속성 구조를 Mermaid ERD로 작성한다.
+  테이블명, 컬럼, FK, soft delete를 포함하며 docs/design/에 저장한다.
+---
 
 대상 도메인: $ARGUMENTS
 
 ## 절차
 
-1. 클래스 다이어그램이 있으면 참고 (`docs/week2/03-class-diagram.md`)
+1. 클래스 다이어그램이 있으면 참고 (`docs/design/03-class-diagram.md`)
 2. 다이어그램을 그리기 전에 설명한다:
     - 영속성 구조에서 **무엇을 확인**하려는지
     - 클래스 다이어그램과의 차이점 (VO → 컬럼, 관계 → FK)
@@ -16,7 +21,7 @@ ERD를 Mermaid 문법으로 작성한다.
     - 관계의 주인은 누구인가
     - 인덱스가 필요한 컬럼
     - 정규화 vs 비정규화 판단 근거
-5. `docs/week2/04-erd.md`에 추가한다
+5. `docs/design/04-erd.md`에 추가한다
 6. 잠재 리스크 언급
 
 ## Mermaid 형식 예시
@@ -26,24 +31,26 @@ erDiagram
     products {
         bigint id PK
         varchar name
-        decimal price
-        int stock_quantity
         bigint brand_id FK
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
     }
-
     brands {
         bigint id PK
         varchar name
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
+    }
+    likes {
+        bigint member_id PK, FK
+        bigint product_id PK, FK
+        timestamp created_at
+    }
+    members {
+        bigint id PK
+        varchar name
     }
 
-    brands ||--o{ products : ""
-```
+    products ||--o{ likes: ""
+    members ||--o{ likes: ""
+    brands ||--o{ products: ""
+  ```
 
 ## 규칙
 
