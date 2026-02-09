@@ -1,0 +1,4 @@
+[submodule "docs/loopers"]
+	path = docs/loopers
+	url = https://github.com/riveroverflows/loopers-docs.git
+	branch = main
