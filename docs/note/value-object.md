@@ -123,7 +123,9 @@ register(email, password, loginId, name)  // 컴파일 에러 발생!
 ```kotlin
 class Name(val value: String) {
     // 검증 로직 (init 블록)
-    init { ... }
+    init {
+        ...
+    }
 
     // 이름과 관련된 비즈니스 로직이 여기에 있는 게 자연스럽다
     fun masked(): String {
