@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.domain.user.UserService
+import com.loopers.application.auth.AuthFacade
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.security.AuthHeader
 import jakarta.validation.Valid
@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
-    private val userService: UserService,
+    private val authFacade: AuthFacade,
 ) : UserV1ApiSpec {
 
     /**
@@ -19,9 +19,9 @@ class UserV1Controller(
      */
     @PostMapping("/signup")
     override fun signup(@RequestBody request: UserV1Dto.SignupRequest): ApiResponse<UserV1Dto.UserResponse> {
-        return userService.createUser(
+        return authFacade.signup(
             userId = request.userId,
-            password = request.password,
+            rawPassword = request.password,
             name = request.name,
             birthDate = request.birthDate,
             email = request.email,
@@ -41,7 +41,7 @@ class UserV1Controller(
         @RequestHeader(AuthHeader.HEADER_LOGIN_ID) loginId: String,
         @RequestHeader(AuthHeader.HEADER_LOGIN_PW) loginPw: String,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        return userService.authenticate(loginId, loginPw)
+        return authFacade.authenticate(loginId, loginPw)
             .let { UserV1Dto.UserResponse.fromMasked(it) }
             .let { ApiResponse.success(it) }
     }
@@ -59,10 +59,8 @@ class UserV1Controller(
         @RequestHeader(AuthHeader.HEADER_LOGIN_PW) loginPw: String,
         @RequestBody @Valid request: UserV1Dto.UserChangePasswordRequest,
     ): ApiResponse<Any> {
-        // TODO: 인증 로직을 별도 Interceptor 혹은 Filter 로 분리
-        //   인증 및 비밀번호 변경 과정에서 중복 인증 및 비밀번호 잠재적 불일치가 발생할 수 있음
-        userService.authenticate(loginId, loginPw)
-        userService.changePassword(loginId, request.oldPassword, request.newPassword)
+        authFacade.authenticate(loginId, loginPw)
+        authFacade.changePassword(loginId, request.oldPassword, request.newPassword)
         return ApiResponse.success()
     }
 }
