@@ -167,10 +167,11 @@
 
 | 조건                           | 응답  | 설명                |
 |------------------------------|-----|-------------------|
-| 인증 헤더 누락                     | 401 |                   |
+| 인증 헤더 누락                     | 400 |                   |
 | 인증 실패 (유저 없음 / 비밀번호 불일치)     | 401 | 메시지 통일            |
 | 존재하지 않는 상품에 좋아요              | 404 |                   |
-| soft deleted 상품에 좋아요         | 404 | 삭제된 상품에 좋아요 등록 불가 |
+| soft deleted 상품에 좋아요 등록       | 404 | 삭제된 상품에 좋아요 등록 불가 |
+| soft deleted 상품의 좋아요 취소       | 200 | Like 삭제 + likeCount 미갱신 |
 | 타인의 좋아요 목록 조회 (userId != 본인) | 403 | 본인 것만 조회 가능       |
 
 ### 4.5 주문 (사용자)
@@ -186,7 +187,8 @@
 4. 시스템이 주문 시점의 상품 정보(이름, 가격)를 스냅샷으로 저장한다
 5. 주문이 생성되고 (status: CREATED) 사용자에게 응답한다
 6. 사용자가 기간별 주문 목록을 조회한다
-    - startAt/endAt: 선택 파라미터, 미입력 시 최근 1달
+    - startedAt/endedAt: 선택 파라미터 (LocalDateTime), 미입력 시 최근 1달
+    - startedAt: 해당 일시 이상 (>=), endedAt: 해당 일시 미만 (<)
     - 기준: 주문 생성일 (createdAt)
     - 본인의 주문만 조회 가능
 7. 사용자가 특정 주문의 상세 정보(주문 항목, 당시 상품 정보)를 조회한다
@@ -196,7 +198,7 @@
 
 | 조건                           | 응답  | 설명                        |
 |------------------------------|-----|---------------------------|
-| 인증 헤더 누락                     | 401 |                           |
+| 인증 헤더 누락                     | 400 |                           |
 | 인증 실패                        | 401 | 메시지 통일                    |
 | 주문 항목이 비어있음                  | 400 | items가 null 또는 빈 배열       |
 | 주문 항목에 존재하지 않는 상품 포함         | 400 | productId에 해당하는 상품 없음     |
@@ -280,7 +282,7 @@
 | METHOD | URI                                    | 인증 | 설명                 |
 |--------|----------------------------------------|----|--------------------|
 | POST   | `/api/v1/orders`                       | O  | 주문 요청              |
-| GET    | `/api/v1/orders?startAt=...&endAt=...` | O  | 주문 목록 조회 (기간, 본인만) |
+| GET    | `/api/v1/orders?startedAt=...&endedAt=...` | O  | 주문 목록 조회 (기간, 본인만) |
 | GET    | `/api/v1/orders/{orderId}`             | O  | 주문 상세 조회 (본인만)     |
 
 **주문 요청 본문:**
@@ -304,8 +306,8 @@
 
 | 파라미터      | 타입        | 필수 | 기본값  | 설명        |
 |-----------|-----------|----|------|-----------|
-| `startAt` | LocalDate | X  | 1달 전 | 조회 시작일    |
-| `endAt`   | LocalDate | X  | 오늘   | 조회 종료일    |
+| `startedAt` | LocalDateTime | X  | 1달 전 | 조회 시작일시 (>=, inclusive). CommerceApiApplication의 DefaultTimeZone으로 ZonedDateTime 변환 |
+| `endedAt`   | LocalDateTime | X  | 오늘   | 조회 종료일시 (<, exclusive). 명시적 TimeZone 전달 시 해당 TimeZone 사용 |
 | `page`    | Int       | X  | 0    | 페이지 번호    |
 | `size`    | Int       | X  | 20   | 페이지당 항목 수 |
 
@@ -343,22 +345,28 @@
 
 ### 좋아요 (Like)
 
+- BaseEntity를 상속하지 않는다 (id, userId, productId만 보유)
+- 취소 시 하드 딜리트(물리 삭제)로 관리한다 (soft delete 미적용)
 - 사용자-상품 쌍은 유일하다 (unique constraint: userId + productId)
 - 등록/취소 모두 멱등하게 동작한다
 - 삭제된 상품에 대한 좋아요는 등록할 수 없다
 - 좋아요 등록 시 Product.likeCount 증가, 취소 시 감소
 - 좋아요 목록 조회 시 삭제된 상품은 미노출
+- 삭제된 상품에 대한 좋아요 취소 시 200 응답 (Like 레코드가 있으면 삭제, 없으면 무시). 상품이 삭제 상태이므로 likeCount는 갱신하지 않는다
+- 삭제된 상품의 잔존 Like 레코드는 배치로 정리한다
 
 ### 주문 (Order)
 
 - 주문은 최소 1개 이상의 주문 항목(OrderItem)을 가져야 한다
 - 주문 항목의 수량(quantity)은 1 이상이어야 한다
-- 주문 항목에 같은 상품이 중복으로 포함될 수 있다
+- 주문 항목에 같은 상품이 중복으로 포함될 경우, 수량을 합산하여 하나의 항목으로 병합한다 (OrderService.createOrder 내부에서 도메인 로직으로 처리)
 - 주문 시 각 상품의 재고를 확인하고 차감한다 (트랜잭션 내)
 - 재고가 부족하면 주문 전체가 실패한다 (all-or-nothing, 부분 주문 없음)
 - 주문 항목에는 주문 시점의 상품 스냅샷(이름, 가격)이 저장된다
 - 주문 상태: CREATED / PAID / CANCELLED / FAILED (현재는 CREATED만 사용)
-- 주문 목록 조회는 기간 기반 (startAt ~ endAt, 기준: createdAt)
+- 주문의 totalPrice는 주문 생성 시 계산하여 저장한다 (반정규화)
+- 주문 목록 조회는 기간 기반 (startedAt ~ endedAt, 기준: createdAt)
+    - startedAt: 해당 일시 이상 (>=), endedAt: 해당 일시 미만 (<)
     - 미입력 시 최근 1달
 - 사용자는 본인의 주문만 조회 가능
 
@@ -372,6 +380,7 @@
 - 인증이 필요한 API: 좋아요, 주문, 내 정보 조회
 - 인증이 불필요한 API: 상품/브랜드 조회 (비로그인 허용)
 - 인증 실패 시: 401 응답, "인증에 실패했습니다" (유저 미존재/비밀번호 불일치 구분 안 함)
+- 인증 성공 시: AuthInterceptor가 request에 userId를 설정 → `AuthUserArgumentResolver`가 `@AuthUser userId: Long` 파라미터에 주입
 
 ### 어드민 인증 (신규)
 
@@ -433,4 +442,49 @@
 | **likeCount 정합성**  | 좋아요 등록/취소 시 Product.likeCount 동기 증감 → 동시 요청 시 정합성 깨질 수 있음 | 단일 트랜잭션 내 처리             | Redis 캐시 또는 비동기 집계      |
 | **브랜드 삭제 연쇄 영향**   | 브랜드 삭제 시 대량 상품 soft delete → 트랜잭션 부하                      | 동기 처리 (상품 수가 적은 초기 단계)   | 배치/비동기 처리               |
 | **주문 목록 기간 조회 성능** | 날짜 범위 검색은 인덱스 전략에 따라 성능 차이 큼                              | createdAt 인덱스 + 기본 1달 제한 | 복합 인덱스 최적화              |
-| **재고 동시 차감**       | 동시 주문 시 재고가 음수로 떨어질 수 있음                                  | 향후 과제로 명시 (현재는 단일 요청 기준) | Redis Lua / 비관적 락       |
+| **재고 동시 차감**       | 동시 주문 시 재고가 음수로 떨어질 수 있음                                  | 향후 과제로 명시 (현재는 단일 요청 기준) | Atomic SQL UPDATE (`stock = stock - :qty WHERE stock >= :qty`), @Version, 또는 Redis Lua |
+
+---
+
+## 10. 설계 결정 사항
+
+### soft delete 조회 전략
+
+- Entity에 `@Where(clause = "deleted_at IS NULL")` 어노테이션을 사용하지 않는다
+- 대신 Repository 메서드마다 `deletedAt IS NULL` 조건을 명시적으로 추가한다
+- 이유: 어드민 API에서 삭제된 데이터도 조회해야 하므로, `@Where`는 유연성을 제한한다
+
+### 트랜잭션 전략
+
+- **Service**: 변경 작업에 `@Transactional` 필수 적용
+- **Facade**: 선택적 적용. 여러 Service를 조합하여 원자성이 필요한 경우에만 사용
+- 이유: Facade에 무조건 `@Transactional`을 걸면, 외부 API 호출이나 비동기 통신이 트랜잭션에 묶여 DB 커넥션을 오래 점유할 수 있다
+- 단일 Service 호출만 하는 Facade 메서드는 Service의 `@Transactional`에 위임한다
+
+### 인증된 사용자 식별
+
+- AuthInterceptor에서 인증 성공 시 `request.setAttribute("userId", user.id)` 설정
+- `AuthUserArgumentResolver` (`HandlerMethodArgumentResolver` 구현체)가 `@AuthUser userId: Long` 파라미터에 주입
+- 좋아요, 주문 등 인증이 필요한 API에서 활용
+
+### enum 배치 전략
+
+- `ProductStatus`, `OrderStatus`는 각각 `Product`, `Order` 클래스의 inner enum으로 구현한다
+- 각 도메인 내부에서만 사용되므로 별도 파일로 분리할 필요가 없다
+
+### 주문 목록 조회 시간대 처리
+
+- 클라이언트가 전달하는 `startedAt`/`endedAt`은 `LocalDateTime`이다
+- `CommerceApiApplication`의 `DefaultTimeZone`으로 `ZonedDateTime`으로 변환한다
+- 명시적으로 TimeZone이 전달된 경우 해당 TimeZone을 사용한다
+
+### 좋아요 취소 시 삭제된 상품 처리
+
+- 삭제된 상품에 대한 좋아요 취소: 200 응답. Like 레코드가 있으면 삭제, 없으면 무시 (멱등)
+- 삭제된 상품이므로 likeCount는 갱신하지 않는다
+- 삭제된 상품의 잔존 Like 레코드는 배치로 정리한다
+
+### 주문 중복 상품 병합
+
+- 같은 productId가 여러 항목에 포함되면 수량을 합산하여 하나의 OrderItem으로 병합한다
+- OrderService.createOrder 내부에서 도메인 로직으로 처리한다

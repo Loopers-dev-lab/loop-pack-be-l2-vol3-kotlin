@@ -1,198 +1,127 @@
-# Round 2 설계 의사결정 기록
+# Round 2 설계 결정 기록
 
-2주차 이커머스 도메인(Brand, Product, Like, Order) 설계 시 논의한 트레이드오프와 최종 결정을 정리한다.
-
----
-
-## 1. 상품 가격 타입
-
-### 선택지
-
-| 선택지             | 장점              | 단점                         |
-|-----------------|-----------------|----------------------------|
-| **Long (원 단위)** | 단순, 부동소수점 오차 없음 | 외화/할인율 계산 시 유연성 부족         |
-| **BigDecimal**  | 정밀 계산 가능, 확장 유연 | 약간의 성능 오버헤드, 비교 시 scale 주의 |
-
-### 최종 결정: BigDecimal, 0 이상
-
-- 원화 커머스라 소수점은 불필요하지만, BigDecimal이 금액 표현의 표준
-- 0원 허용 (무료 샘플 등 가능성), 음수 불가
+이커머스 도메인(브랜드, 상품, 좋아요, 주문) 설계 과정에서 논의하고 결정한 사항들을 정리한다.
 
 ---
 
-## 2. 상품 상태(Status) 관리
+## 1. 엔티티 설계
 
-### 선택지
+### 1.1 Like 엔티티 — BaseEntity 미상속
+- **결정:** Like는 BaseEntity를 상속하지 않는다. id, userId, productId만 보유
+- **이유:** 이력 관리가 불필요하고, 취소 시 하드 딜리트(물리 삭제)로 관리
+- **id 생성:** `@GeneratedValue(strategy = GenerationType.IDENTITY)` 직접 선언
+- **likes 테이블에 created_at 없음:** 최신순 정렬이 필요하면 id 역순으로 대체 (YAGNI)
 
-| 선택지                            | 장점             | 단점                           |
-|--------------------------------|----------------|------------------------------|
-| **A: status 없이 stock==0으로 판단** | 단순, 상태 불일치 불가  | 조회 시마다 재고 조건 필요, "미노출" 표현 불가 |
-| **B: status 필드 + 재고 연동**       | 명시적, 미노출 기능 지원 | 재고와 상태 간 동기화 필요              |
+### 1.2 OrderItem — Aggregate 내부 Entity (종속 엔티티)
+- **결정:** OrderItem은 독립 Entity가 아닌 Order Aggregate의 내부 Entity
+- **특성:** id를 가지지만 독립 생명주기와 독립 Repository가 없다. 항상 Order를 통해서만 접근
+- **OrderItem에서 orderId 제거:** 단방향 `@OneToMany(cascade = ALL, orphanRemoval = true)` + `@JoinColumn(name = "order_id", nullable = false)`로 구현. OrderItem에서 Order로의 역참조(`@ManyToOne`) 없음
+- **nullable = false 의미:** Hibernate의 extra UPDATE 문제를 방지. INSERT 시 order_id를 함께 설정
 
-### 최종 결정: status enum (ON_SALE / SOLD_OUT / HIDDEN) + 재고 연동
-
-- stock 차감 → 0이 되면 → `SOLD_OUT` 자동 전환
-- stock 추가 → 0에서 양수가 되면 → `ON_SALE` 자동 복원
-- `HIDDEN`은 어드민이 수동으로 설정 (미노출 처리)
-- 자동 전환은 동기적으로 처리 (현재 스코프에서 이벤트/비동기 불필요)
-
----
-
-## 3. 재고 관리 구조 — Product 필드 vs Stock 별도 테이블
-
-### 선택지
-
-| 선택지                       | 장점                       | 단점                      |
-|---------------------------|--------------------------|-------------------------|
-| **A: Product.stock (VO)** | 단순, join 없음, 검증 캡슐화      | 나중에 분리 시 마이그레이션 필요      |
-| **B: Stock 별도 테이블**       | 락 범위 축소, 독립 확장, 캐싱 전략 분리 | 보일러플레이트 증가, 매 조회마다 join |
-| **C: Redis 기반 재고**        | 최고 성능, 싱글 스레드 보장         | 인프라 복잡도, 데이터 정합성 관리     |
-
-### Stock 별도 테이블의 구체적 장점
-
-1. **쓰기-쓰기 경합 분리**: 상품 정보 수정(어드민)과 재고 차감(주문)이 서로 다른 행을 락 → 동시 처리 가능. 단, 현실적으로 두 작업이 동시에 일어날 확률은 낮음
-2. **독립적 확장**: 창고별 재고 등 다중 재고 모델로 확장 시 Product 테이블 변경 불필요
-3. **캐싱 전략 분리**: 상품 정보(거의 불변, 장기 캐싱)와 재고(빈번 변경, 단기 TTL)를 독립적으로 캐싱 가능
-4. **이력 관리**: stock_history 같은 변경 추적 테이블 연결이 자연스러움
-
-### VO → 별도 테이블 마이그레이션 비용
-
-크지 않다. 도메인 검증 로직(0 이상, 부족 확인)은 VO든 Entity든 동일하므로, 주요 변경은:
-
-- Stock 엔티티/테이블 생성 + 데이터 이관
-- Product에서 stock 필드 제거
-- 조회 쿼리에 join 추가
-- Service 레이어 분리
-
-### 최종 결정: Product에 stock 필드 + VO로 검증
-
-- 현재 요구사항에 동시성 해결은 포함되지 않음 (향후 과제)
-- Redis 기반으로 갈 계획이면 DB 락 범위는 무관
-- 테이블 분리의 장점이 현재 규모에서는 실익 없음
-- 마이그레이션 비용도 낮으므로 필요 시 분리하면 됨
+### 1.3 enum inner class 배치
+- **결정:** ProductStatus는 Product의 inner enum, OrderStatus는 Order의 inner enum
+- **이유:** 각 도메인 내부에서만 사용되므로 별도 파일 분리 불필요
 
 ---
 
-## 4. 좋아요 수 관리 — 실시간 카운트 vs 비정규화
+## 2. 주문 도메인
 
-### 선택지
+### 2.1 Order.totalPrice 반정규화
+- **결정:** 주문 생성 시 totalPrice를 계산하여 Order 엔티티에 저장
+- **이유:** 주문 목록 조회 시 OrderItem을 로딩하지 않고도 총액 제공
+- **계산 시점:** `Order.create()` 정적 팩토리 메서드에서 items의 `productPrice * quantity` 합산
 
-| 선택지                            | 장점           | 단점                    |
-|--------------------------------|--------------|-----------------------|
-| **A: 매번 COUNT 쿼리**             | 항상 정확, 구현 단순 | likes_desc 정렬 시 성능 저하 |
-| **B: Product에 likeCount 비정규화** | 정렬/조회 빠름     | 정합성 관리 필요 (증감 동기화)    |
-| **C: Redis 캐시**                | 최고 성능        | 인프라 의존, 캐시-DB 정합성     |
+### 2.2 Order.create() 정적 팩토리
+- **결정:** `Order.create(userId, items)` 정적 팩토리에서 Order + OrderItem을 한 번에 생성
+- **책임:** OrderItem 생성 + totalPrice 계산 + 중복 상품 병합
 
-### 최종 결정: Product에 likeCount 비정규화 (향후 Redis 캐시 고려)
+### 2.3 중복 상품 병합
+- **결정:** 같은 productId가 여러 항목에 포함되면 수량을 합산하여 하나의 OrderItem으로 병합
+- **위치:** OrderService.createOrder 내부에서 도메인 로직으로 처리
 
-- 목록/상세 조회 모두에서 좋아요 수 노출 필요
-- likes_desc 정렬이 있으므로 비정규화가 사실상 필수
-- 좋아요 등록/취소 시 likeCount 증감 동기 처리
-- 대규모 트래픽 시 Redis 전환 검토
+### 2.4 주문 목록 조회 기간 필터
+- **파라미터:** startedAt/endedAt (LocalDateTime)
+- **범위:** startedAt >= (inclusive), endedAt < (exclusive) — half-open 범위
+- **기준:** createdAt
+- **Repository 메서드:** `findOrdersByUserIdInPeriod` (Between은 양쪽 inclusive를 암시하므로 커스텀 네이밍)
+- **TimeZone:** CommerceApiApplication의 DefaultTimeZone으로 ZonedDateTime 변환. 명시적 TimeZone 전달 시 해당 것 사용
 
----
-
-## 5. 주문 스냅샷 범위
-
-### 선택지
-
-| 선택지                    | 장점           | 단점                      |
-|------------------------|--------------|-------------------------|
-| **A: 상품명 + 가격만**       | 저장 공간 최소, 단순 | 브랜드 정보 필요 시 join 필요     |
-| **B: 상품명 + 가격 + 브랜드명** | 완전한 스냅샷      | 저장 공간 증가, 브랜드명 필요 없을 수도 |
-
-### 최종 결정: 상품명 + 가격만 스냅샷
-
-- 주문 조회 시 브랜드 정보는 불필요
-- OrderItem에 productName, productPrice 필드로 저장
+### 2.5 OrderService 메서드 정리
+- **getOrder(orderId):** 범용 — 고객(Facade에서 userId 확인) + 어드민(확인 없음) 모두 사용
+- **getOrdersByUserId(...):** 고객 주문 목록 (SQL WHERE userId 필요)
+- **getAllOrders(pageable):** 어드민 주문 목록
+- **getOrderByUserIdAndId 제거:** getOrder + Facade userId 확인으로 대체
 
 ---
 
-## 6. 재고 부족 시 주문 정책
+## 3. 좋아요 도메인
 
-### 선택지
-
-| 선택지                           | 장점                | 단점               |
-|-------------------------------|-------------------|------------------|
-| **A: 전체 실패 (all-or-nothing)** | 단순 명확, 트랜잭션 관리 용이 | UX 불편 (전부 다시 주문) |
-| **B: 부분 주문**                  | UX 유리             | 구현 복잡, 사용자 혼란 가능 |
-
-### 최종 결정: 전체 실패
-
-- 재고 부족 상품을 명시하여 에러 응답
-- 향후 Redis 재고 선점 구조로 전환 시, 주문 시점에 재고 부족이 발생하는 상황 자체를 최소화
+### 3.1 삭제된 상품에 대한 좋아요 처리
+- **등록:** 404 (삭제된 상품에 좋아요 등록 불가)
+- **취소:** 200 (Like 레코드 있으면 삭제, 없으면 무시. 멱등). likeCount는 갱신하지 않음 (상품이 삭제 상태)
+- **목록 조회:** 삭제된 상품은 미노출
+- **잔존 데이터:** 삭제된 상품의 Like 레코드는 배치로 정리
 
 ---
 
-## 7. 주문 상태
+## 4. 인증/인가
 
-### 선택지
-
-| 선택지                           | 장점           | 단점             |
-|-------------------------------|--------------|----------------|
-| **A: 상태 없음 (생성 = 완료)**        | 최소 구현        | 결제 연동 시 대규모 변경 |
-| **B: enum 정의만 (CREATED만 사용)** | 확장 대비, 변경 최소 | 약간의 오버헤드       |
-
-### 최종 결정: OrderStatus enum (CREATED, PAID, CANCELLED, FAILED) 정의, 현재는 CREATED만 사용
+### 4.1 @AuthUser + AuthUserArgumentResolver
+- **결정:** `@AuthUser` 커스텀 어노테이션 + `AuthUserArgumentResolver` (HandlerMethodArgumentResolver 구현체)
+- **흐름:** AuthInterceptor가 request.setAttribute("userId", user.id) → AuthUserArgumentResolver가 `@AuthUser userId: Long` 파라미터에 주입
+- **용도:** 좋아요, 주문 등 인증이 필요한 API에서 Controller 메서드 파라미터로 userId 주입
 
 ---
 
-## 8. 브랜드 삭제 전파
+## 5. 아키텍처 결정
 
-### 최종 결정: Cascade Soft Delete
+### 5.1 Facade 유지 (1:1 passthrough 포함)
+- **결정:** 단일 도메인 1:1 매핑인 경우에도 Facade를 유지
+- **이유:**
+  - Controller는 항상 Facade만 의존 → 의존성이 단순하고 일관
+  - cross-domain 로직 추가 시 Controller 변경 없이 Facade만 확장
+  - Info/Dto 변환이 항상 application 레이어에서 일어남
+- **단, 1:1 Facade 메서드에 @Transactional은 붙이지 않음** — Service에 위임
 
-- 브랜드 삭제 시 소속 상품도 soft delete
-- 기존 주문의 스냅샷은 유지 (상품명, 가격은 OrderItem에 보존)
-- 대고객 조회에서는 삭제된 상품/브랜드 미노출
+### 5.2 @Transactional 전략
+- **Service:** 변경 작업에 `@Transactional` 필수 적용
+- **Facade:** 선택적 적용 — 여러 Service를 조합하여 원자성이 필요한 경우에만
+  - 정당한 케이스: 좋아요 등록/취소 (LikeService + ProductService), 브랜드 삭제 cascade (BrandService + ProductService), 상품 등록 (BrandService + ProductService), 주문 생성 (ProductService + OrderService)
+- **단일 Service 호출 Facade:** Service의 @Transactional에 위임 (Facade에 @Transactional 안 붙임)
 
----
-
-## 9. 좋아요 멱등성
-
-### 멱등성이란?
-
-같은 요청을 여러 번 보내도 결과(서버 상태)가 동일하다는 것.
-
-- `POST /likes` 2번 호출 → 좋아요 1개만 존재, 둘 다 200
-- `DELETE /likes` 2번 호출 → 좋아요 삭제 상태 유지, 둘 다 200
-
-### 구현 방식
-
-- DB에 unique constraint (userId + productId)
-- 이미 존재하면 early return (200), 중복 생성하지 않음
-- 토글 방식은 사용하지 않음 (POST = 등록, DELETE = 취소 명확 분리)
+### 5.3 soft delete 조회 전략
+- **결정:** `@Where(clause = "deleted_at IS NULL")` 미사용
+- **대신:** Repository 메서드마다 `deletedAt IS NULL` 조건을 명시적으로 추가
+- **이유:** 어드민 API에서 삭제된 데이터도 조회해야 하므로 @Where는 유연성을 제한
 
 ---
 
-## 10. 인증 처리
+## 6. 인덱스 전략
 
-### 대고객 인증
+### 6.1 products 복합 인덱스
+- **결정:** `(deleted_at, status, like_count DESC)` 복합 인덱스 사용
+- **이유:** 대고객 상품 목록 쿼리(`WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY like_count DESC`)에서 MySQL은 하나의 인덱스만 사용하므로, WHERE + ORDER BY를 함께 커버하는 복합 인덱스가 효율적
+- **기존 `(status, deleted_at)` + `(like_count)` 별도 인덱스를 통합**
 
-- `X-Loopers-LoginId` + `X-Loopers-LoginPw` 헤더 기반 식별
-- 인증 실패 시 401 응답 (메시지 통일: "인증에 실패했습니다")
-- 존재하지 않는 유저 / 비밀번호 불일치를 구분하지 않음 (정보 노출 방지)
-
-### 어드민 인증 (LDAP)
-
-- 실제 LDAP 프로토콜 구현이 아님
-- `X-Loopers-Ldap: loopers.admin` 헤더 값 단순 비교
-- 인터셉터에서 `/api-admin/**` 경로에 대해 헤더 확인 → 불일치 시 401
-- Spring Security 불필요
+### 6.2 likes UNIQUE 인덱스
+- `(user_id, product_id)` UNIQUE — 중복 좋아요 방지 + user_id 단독 조회도 커버
 
 ---
 
-## 11. 기타 결정 사항
+## 7. 향후 검토 사항
 
-| 항목                    | 결정                             |
-|-----------------------|--------------------------------|
-| 브랜드명 유니크 제약           | 불필요                            |
-| 브랜드 parent_id (트리 구조) | 현재 스코프 제외, 필요 시 추가             |
-| 브랜드 필드                | name만                          |
-| 페이징 응답                | Spring Page 객체 그대로 사용          |
-| 주문 날짜 필터              | 선택 파라미터, 기본값 최근 1달, 기준은 주문 생성일 |
-| 대고객 vs 어드민 응답 차이      | 어드민은 삭제된 상품/브랜드 조회 가능, 나머지는 동일 |
-| 좋아요 목록 응답             | 상품 이름, 가격 포함 (브랜드 제외)          |
-| 타인 좋아요 조회             | 불가 (본인 것만)                     |
-| 삭제된 상품 좋아요            | 목록에서 미노출, 데이터는 유지              |
-| 주문 항목 중복 상품           | 허용 (같은 productId 여러 번 가능)      |
-| 주문 항목 수량 제한           | 현재 재고 이하, 향후 1인당 제한 확장 고려      |
+### 7.1 재고 동시성
+- **현재:** 단일 요청 기준으로 처리 (향후 과제)
+- **후보 방안:**
+  - Atomic SQL UPDATE: `UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty` (가장 단순)
+  - @Version (optimistic lock): 충돌 시 재시도 로직 필요
+  - SELECT FOR UPDATE: 비관적 락, 대기 시간 발생
+  - Redis Lua: 최고 성능, Redis 도입 필요
+
+### 7.2 JPA 단방향 @OneToMany 주의점
+- `@JoinColumn(nullable = false)` 명시로 extra UPDATE 방지
+- Hibernate 6.x (Spring Boot 3.4)에서 INSERT 시 order_id를 함께 설정
+
+### 7.3 Like 멱등 처리 동시성
+- check-then-act 패턴에서 동시 요청 시 UNIQUE 제약 위반 가능
+- DataIntegrityViolationException catch + 멱등 처리, 또는 INSERT IGNORE 패턴 검토
