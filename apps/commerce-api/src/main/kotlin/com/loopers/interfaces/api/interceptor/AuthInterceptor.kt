@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.interceptor
 
 import com.loopers.application.auth.AuthService
+import com.loopers.interfaces.api.ATTRIBUTE_USER_ID
 import com.loopers.interfaces.api.HEADER_LOGIN_ID
 import com.loopers.interfaces.api.HEADER_LOGIN_PW
 import com.loopers.support.error.CoreException
@@ -23,7 +24,8 @@ class AuthInterceptor(
         val loginPw = request.getHeader(HEADER_LOGIN_PW)
             ?: throw CoreException(ErrorType.BAD_REQUEST, "비밀번호 헤더가 필요합니다.")
 
-        authService.authenticate(loginId, loginPw)
+        val user = authService.authenticate(loginId, loginPw)
+        request.setAttribute(ATTRIBUTE_USER_ID, user.id)
 
         return true
     }
