@@ -9,8 +9,6 @@
 - **인증된 사용자 식별**: AuthInterceptor가 request에 userId 설정 → `AuthUserArgumentResolver`가 `@AuthUser userId: Long` 파라미터에 주입.
 - **어드민 인증**: AdminInterceptor가 `X-Loopers-Ldap` 헤더를 검증한다. `/api-admin/**` 경로에 적용.
 - **soft delete 조회**: `@Where` 미사용. Repository 메서드마다 `deletedAt IS NULL` 조건을 명시적으로 추가.
-- **같은 상품 중복 주문**: 같은 productId가 여러 항목에 포함되면 수량을 합산하여 하나의 항목으로 병합.
-
 ---
 
 ## 1. 브랜드 & 상품 — 대고객 API
@@ -28,7 +26,7 @@ sequenceDiagram
     participant BS as BrandService
     participant BR as BrandRepository
     User ->> C: GET /api/v1/brands/{brandId}
-    C ->> F: getBrand(brandId)
+    C ->> F: getActiveBrand(brandId)
     F ->> BS: getActiveBrand(brandId)
     BS ->> BR: findById(brandId)
 
@@ -47,9 +45,9 @@ sequenceDiagram
     end
 
     BR -->> BS: Brand
-    BS -->> F: BrandInfo
+    BS -->> F: Brand
     F -->> C: BrandInfo
-    C -->> User: 200 {id, name, createdAt, ...}
+    C -->> User: 200 BrandDto
 ```
 
 ### 1.2 상품 목록 조회
@@ -65,11 +63,11 @@ sequenceDiagram
     participant PS as ProductService
     participant PR as ProductRepository
     User ->> C: GET /api/v1/products<br/>?brandId=1&sort=likes_desc&page=0&size=20
-    C ->> F: getProducts(brandId, sort, pageable)
+    C ->> F: getActiveProducts(brandId, sort, pageable)
     F ->> PS: getActiveProducts(brandId, sort, pageable)
     PS ->> PR: findActiveProducts(brandId, sort, pageable)
     PR -->> PS: Page<Product>
-    PS -->> F: Page<ProductInfo>
+    PS -->> F: Page<Product>
     F -->> C: Page<ProductInfo>
     C -->> User: 200 Page<ProductDto>
 ```
@@ -94,7 +92,7 @@ sequenceDiagram
     participant BS as BrandService
     participant BR as BrandRepository
     User ->> C: GET /api/v1/products/{productId}
-    C ->> F: getProduct(productId)
+    C ->> F: getActiveProduct(productId)
     F ->> PS: getActiveProduct(productId)
     PS ->> PR: findById(productId)
 
@@ -112,9 +110,9 @@ sequenceDiagram
     F ->> BS: getBrand(brandId)
     BS ->> BR: findById(brandId)
     BR -->> BS: Brand
-    BS -->> F: BrandInfo
+    BS -->> F: Brand
     F -->> C: ProductDetailInfo
-    C -->> User: 200 {id, name, price, stock,<br/>status, likeCount, brand: {id, name}}
+    C -->> User: 200 ProductDetailDto
 ```
 
 ---
@@ -138,7 +136,7 @@ sequenceDiagram
     F ->> BS: getAllBrands(pageable)
     BS ->> BR: findAll(pageable)
     BR -->> BS: Page<Brand>
-    BS -->> F: Page<BrandInfo>
+    BS -->> F: Page<Brand>
     F -->> C: Page<BrandInfo>
     C -->> Admin: 200 Page<BrandDto>
 ```
@@ -171,9 +169,9 @@ sequenceDiagram
     end
 
     BR -->> BS: Brand
-    BS -->> F: BrandInfo
+    BS -->> F: Brand
     F -->> C: BrandInfo
-    C -->> Admin: 200 {id, name, deletedAt, ...}
+    C -->> Admin: 200 BrandDto
 ```
 
 ### 참고
@@ -207,9 +205,9 @@ sequenceDiagram
     BS ->> BR: save(brand)
     BR -->> BS: Brand (id 채번)
 
-    BS -->> F: BrandInfo
-    F -->> C: BrandInfo
-    C -->> Admin: 200 {id, name, ...}
+    BS -->> F: brandId
+    F -->> C: brandId
+    C -->> Admin: 200 {id}
 ```
 
 ### 2.4 브랜드 수정
@@ -244,9 +242,9 @@ sequenceDiagram
     BS ->> BS: brand.update(name)
     BS ->> BR: save(brand)
 
-    BS -->> F: BrandInfo
-    F -->> C: BrandInfo
-    C -->> Admin: 200 {id, name, ...}
+    BS -->> F: brandId
+    F -->> C: brandId
+    C -->> Admin: 200 {id}
 ```
 
 ### 2.5 브랜드 삭제 (cascade soft delete)
@@ -277,7 +275,6 @@ sequenceDiagram
         end
 
         BS ->> BS: brand.delete()
-        Note over BS: BaseEntity.delete()<br/>이미 삭제됐으면 무시 (멱등)
         BS ->> BR: save(brand)
         F ->> PS: deleteProductsByBrandId(brandId)
         PS ->> PR: findAllByBrandId(brandId)
@@ -294,6 +291,7 @@ sequenceDiagram
 ### 참고
 
 - 브랜드 삭제 시 해당 브랜드의 모든 상품도 cascade로 soft delete
+- BaseEntity.delete()는 이미 삭제됐으면 무시 (멱등)
 - 기존 주문의 OrderItem 스냅샷은 Product와 무관하게 보존됨
 
 ### 2.6 상품 목록 조회
@@ -309,11 +307,11 @@ sequenceDiagram
     participant PS as ProductService
     participant PR as ProductRepository
     Admin ->> C: GET /api-admin/v1/products?page=0&size=20&brandId=1
-    C ->> F: getProductsForAdmin(brandId, pageable)
+    C ->> F: getAllProducts(brandId, pageable)
     F ->> PS: getAllProducts(brandId, pageable)
-    PS ->> PR: findAll(brandId, pageable)
+    PS ->> PR: findAllProducts(brandId, pageable)
     PR -->> PS: Page<Product>
-    PS -->> F: Page<ProductInfo>
+    PS -->> F: Page<Product>
     F -->> C: Page<ProductInfo>
     C -->> Admin: 200 Page<ProductDto>
 ```
@@ -335,7 +333,7 @@ sequenceDiagram
     participant PS as ProductService
     participant PR as ProductRepository
     Admin ->> C: GET /api-admin/v1/products/{productId}
-    C ->> F: getProductForAdmin(productId)
+    C ->> F: getProduct(productId)
     F ->> PS: getProduct(productId)
     PS ->> PR: findById(productId)
 
@@ -345,9 +343,9 @@ sequenceDiagram
     end
 
     PR -->> PS: Product
-    PS -->> F: ProductInfo
+    PS -->> F: Product
     F -->> C: ProductInfo
-    C -->> Admin: 200 {id, name, price, stock,<br/>status, likeCount, brandId, deletedAt, ...}
+    C -->> Admin: 200 ProductDto
 ```
 
 ### 참고
@@ -398,9 +396,9 @@ sequenceDiagram
         PR -->> PS: Product (id 채번)
     end
 
-    PS -->> F: ProductInfo
-    F -->> C: ProductInfo
-    C -->> Admin: 200 {id, name, price, stock, status, ...}
+    PS -->> F: productId
+    F -->> C: productId
+    C -->> Admin: 200 {id}
 ```
 
 ### 2.9 상품 수정
@@ -440,9 +438,9 @@ sequenceDiagram
     PS ->> PS: product.update(name, price, stock, status)
     PS ->> PR: save(product)
 
-    PS -->> F: ProductInfo
-    F -->> C: ProductInfo
-    C -->> Admin: 200 {id, name, price, stock, status, ...}
+    PS -->> F: productId
+    F -->> C: productId
+    C -->> Admin: 200 {id}
 ```
 
 ### 2.10 상품 삭제
@@ -470,12 +468,15 @@ sequenceDiagram
     end
 
     PS ->> PS: product.delete()
-    Note over PS: BaseEntity.delete()<br/>이미 삭제됐으면 무시 (멱등)
     PS ->> PR: save(product)
 
     F -->> C: 성공
     C -->> Admin: 200 OK
 ```
+
+### 참고
+
+- BaseEntity.delete()는 이미 삭제됐으면 무시 (멱등)
 
 ---
 
@@ -500,7 +501,6 @@ sequenceDiagram
 
     rect rgb(245, 245, 245)
         Note over F, LR: @Transactional (Facade: cross-domain)
-        Note right of F: LikeService + ProductService 조합이므로<br/>Facade @Transactional 정당
         F ->> PS: getActiveProduct(productId)
         PS ->> PR: findById(productId)
 
@@ -509,6 +509,7 @@ sequenceDiagram
             C -->> User: 404 "상품을 찾을 수 없습니다"
         end
 
+        PS -->> F: Product
         F ->> LS: addLike(userId, productId)
         LS ->> LR: findByUserIdAndProductId(userId, productId)
 
@@ -548,7 +549,6 @@ sequenceDiagram
 
     rect rgb(245, 245, 245)
         Note over F, LR: @Transactional (Facade: cross-domain)
-        Note right of F: LikeService + ProductService 조합이므로<br/>Facade @Transactional 정당
         F ->> PS: getProduct(productId)
         PS ->> PR: findById(productId)
 
@@ -557,6 +557,7 @@ sequenceDiagram
             C -->> User: 404 "상품을 찾을 수 없습니다"
         end
 
+        PS -->> F: Product
         F ->> LS: removeLike(userId, productId)
         LS ->> LR: findByUserIdAndProductId(userId, productId)
 
@@ -568,7 +569,7 @@ sequenceDiagram
 
         LS ->> LR: delete(like)
 
-        alt 상품이 삭제 상태 (deletedAt != null)
+        alt product.isDeleted() — 상품이 삭제 상태
         else 상품이 활성 상태
             F ->> PS: decreaseLikeCount(productId)
             PS ->> PS: product.decreaseLikeCount()
@@ -596,6 +597,8 @@ sequenceDiagram
     participant F as LikeFacade
     participant LS as LikeService
     participant LR as LikeRepository
+    participant PS as ProductService
+    participant PR as ProductRepository
     User ->> C: GET /api/v1/users/{userId}/likes
 
     alt userId != 인증된 사용자 ID
@@ -604,17 +607,22 @@ sequenceDiagram
 
     C ->> F: getLikes(userId)
     F ->> LS: getLikesByUserId(userId)
-    LS ->> LR: findByUserIdWithProduct(userId)
-    Note over LR: Like JOIN Product<br/>WHERE product.deletedAt IS NULL<br/>(삭제된 상품 제외)
-    LR -->> LS: List<Like + Product>
-    LS -->> F: List<LikeInfo>
+    LS ->> LR: findAllByUserId(userId)
+    LR -->> LS: List<Like>
+    LS -->> F: List<Like>
+    F ->> PS: getActiveProductsByIds(productIds)
+    PS ->> PR: findAllByIdInAndDeletedAtIsNull(productIds)
+    PR -->> PS: List<Product>
+    PS -->> F: List<Product>
     F -->> C: List<LikeInfo>
-    C -->> User: 200 [{productId, productName,<br/>productPrice}, ...]
+    C -->> User: 200 List~LikeDto~
 ```
 
 ### 참고
 
-- Repository 쿼리: `Like JOIN Product WHERE product.deletedAt IS NULL` (삭제된 상품 제외)
+- 쿼리 총 2회: Like 조회 1회 + Product IN 조회 1회 (N+1 방지)
+- Like 도메인이 Product의 deletedAt을 알 필요 없음 — Product 필터링은 ProductService가 담당
+- Facade에서 Like + Product를 조합하여 LikeInfo 생성
 
 ---
 
@@ -654,18 +662,17 @@ sequenceDiagram
             C -->> User: 400 "주문할 수 없는 상품이 포함되어 있습니다"
         end
 
-    %% 2단계: 재고 확인 + 차감
+    %% 2단계: 재고 확인 + 차감 (1단계에서 조회한 Product는 JPA 1차 캐시에 존재)
+        F ->> PS: decreaseStocks(items)
         loop 각 주문 항목
-            F ->> PS: decreaseStock(productId, quantity)
+            PS ->> PS: product.decreaseStock(quantity)
 
             alt 재고 부족
                 PS -->> F: CoreException(BAD_REQUEST)
                 C -->> User: 400 "상품 '{name}'의 재고가 부족합니다"
             end
-
-            PS ->> PS: product.decreaseStock(quantity)
-            PS ->> PR: save(product)
         end
+        PS ->> PR: saveAll(products)
 
     %% 3단계: 주문 생성 + 스냅샷
         F ->> OS: createOrder(userId, products, command)
@@ -673,9 +680,9 @@ sequenceDiagram
         OR -->> OS: Order (id 채번)
     end
 
-    OS -->> F: OrderInfo
-    F -->> C: OrderInfo
-    C -->> User: 200 {orderId, items, totalPrice, status, ...}
+    OS -->> F: orderId
+    F -->> C: orderId
+    C -->> User: 200 {orderId}
 ```
 
 ### 참고
@@ -699,7 +706,7 @@ sequenceDiagram
     F ->> OS: getOrdersByUserId(userId, startedAt, endedAt, pageable)
     OS ->> OR: findOrdersByUserIdInPeriod(userId, startedAt, endedAt, pageable)
     OR -->> OS: Page<Order>
-    OS -->> F: Page<OrderInfo>
+    OS -->> F: Page<Order>
     F -->> C: Page<OrderInfo>
     C -->> User: 200 Page<OrderDto>
 ```
@@ -733,15 +740,15 @@ sequenceDiagram
     end
 
     OR -->> OS: Order (with OrderItems)
+    OS -->> F: Order
 
-    alt 주문의 userId != 인증된 사용자
-        OS -->> F: CoreException(NOT_FOUND)
+    alt order.userId != userId (인증된 사용자)
+        F -->> C: CoreException(NOT_FOUND)
         C -->> User: 404 "주문을 찾을 수 없습니다"
     end
 
-    OS -->> F: OrderDetailInfo
     F -->> C: OrderDetailInfo
-    C -->> User: 200 {orderId, status, items: [{<br/>productName, productPrice, quantity}], ...}
+    C -->> User: 200 OrderDetailDto
 ```
 
 ### 참고
@@ -765,11 +772,11 @@ sequenceDiagram
     participant OS as OrderService
     participant OR as OrderRepository
     Admin ->> C: GET /api-admin/v1/orders?page=0&size=20
-    C ->> F: getOrdersForAdmin(pageable)
+    C ->> F: getAllOrders(pageable)
     F ->> OS: getAllOrders(pageable)
     OS ->> OR: findAll(pageable)
     OR -->> OS: Page<Order>
-    OS -->> F: Page<OrderInfo>
+    OS -->> F: Page<Order>
     F -->> C: Page<OrderInfo>
     C -->> Admin: 200 Page<OrderDto>
 ```
@@ -801,9 +808,9 @@ sequenceDiagram
     end
 
     OR -->> OS: Order (with OrderItems)
-    OS -->> F: OrderDetailInfo
+    OS -->> F: Order
     F -->> C: OrderDetailInfo
-    C -->> Admin: 200 {orderId, userId, status,<br/>items, createdAt, ...}
+    C -->> Admin: 200 OrderDetailDto
 ```
 
 ### 참고

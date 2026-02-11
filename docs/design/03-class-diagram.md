@@ -44,6 +44,7 @@ classDiagram
         +increaseStock(quantity)
         +increaseLikeCount()
         +decreaseLikeCount()
+        +isDeleted() Boolean
     }
 
     class ProductStatus {
@@ -83,7 +84,7 @@ classDiagram
     }
 
     class User {
-        <<기존 1주차>>
+        <<기존1주차>>
         -String loginId
         -String password
         -String name
@@ -135,8 +136,8 @@ classDiagram
         class BrandAdminController {
             +getBrands(pageable) ApiResponse~Page~
             +getBrand(brandId) ApiResponse~BrandDto~
-            +createBrand(request) ApiResponse~BrandDto~
-            +updateBrand(brandId, request) ApiResponse~BrandDto~
+            +createBrand(request) ApiResponse~Long~
+            +updateBrand(brandId, request) ApiResponse~Long~
             +deleteBrand(brandId) ApiResponse~Void~
         }
         class BrandDto {
@@ -153,8 +154,8 @@ classDiagram
             +getBrand(brandId) BrandInfo
             +getActiveBrand(brandId) BrandInfo
             +getBrands(pageable) Page~BrandInfo~
-            +createBrand(command) BrandInfo
-            +updateBrand(brandId, command) BrandInfo
+            +createBrand(command) Long
+            +updateBrand(brandId, command) Long
             +deleteBrand(brandId)
         }
         class BrandInfo {
@@ -172,15 +173,15 @@ classDiagram
             +update(name)
         }
         class BrandName {
-            <<Value Object>>
+            <<ValueObject>>
             +String value
         }
         class BrandService {
             +getBrand(brandId) Brand
             +getActiveBrand(brandId) Brand
             +getAllBrands(pageable) Page~Brand~
-            +createBrand(command) Brand
-            +updateBrand(brandId, command) Brand
+            +createBrand(command) Long
+            +updateBrand(brandId, command) Long
             +deleteBrand(brandId)
         }
         class BrandRepository {
@@ -230,9 +231,26 @@ classDiagram
         class ProductAdminController {
             +getProducts(brandId, pageable) ApiResponse~Page~
             +getProduct(productId) ApiResponse~ProductDto~
-            +createProduct(request) ApiResponse~ProductDto~
-            +updateProduct(productId, request) ApiResponse~ProductDto~
+            +createProduct(request) ApiResponse~Long~
+            +updateProduct(productId, request) ApiResponse~Long~
             +deleteProduct(productId) ApiResponse~Void~
+        }
+        class ProductDto {
+            +Long id
+            +Long brandId
+            +String name
+            +BigDecimal price
+            +Int stock
+            +ProductStatus status
+            +Int likeCount
+            +ZonedDateTime createdAt
+            +ZonedDateTime deletedAt
+            +from(ProductInfo)$ ProductDto
+        }
+        class ProductDetailDto {
+            +ProductDto product
+            +BrandDto brand
+            +from(ProductDetailInfo)$ ProductDetailDto
         }
     }
 
@@ -242,10 +260,9 @@ classDiagram
             +getActiveProduct(productId) ProductDetailInfo
             +getAllProducts(brandId, pageable) Page~ProductInfo~
             +getProduct(productId) ProductInfo
-            +createProduct(command) ProductInfo
-            +updateProduct(productId, command) ProductInfo
+            +createProduct(command) Long
+            +updateProduct(productId, command) Long
             +deleteProduct(productId)
-            +deleteProductsByBrandId(brandId)
         }
         class ProductInfo {
             +Long id
@@ -276,6 +293,7 @@ classDiagram
             +increaseStock(quantity)
             +increaseLikeCount()
             +decreaseLikeCount()
+            +isDeleted() Boolean
             -adjustStatusByStock()
         }
         class ProductStatus {
@@ -285,13 +303,13 @@ classDiagram
             HIDDEN
         }
         class Stock {
-            <<Value Object>>
+            <<ValueObject>>
             +Int value
             +decrease(quantity) Int
             +increase(quantity) Int
         }
         class Price {
-            <<Value Object>>
+            <<ValueObject>>
             +BigDecimal value
         }
         class ProductService {
@@ -300,11 +318,13 @@ classDiagram
             +getProduct(productId) Product
             +getAllProducts(brandId, pageable) Page~Product~
             +getProductsForOrder(productIds) List~Product~
-            +createProduct(brandId, command) Product
-            +updateProduct(productId, command) Product
+            +getActiveProductsByIds(productIds) List~Product~
+            +createProduct(brandId, command) Long
+            +updateProduct(productId, command) Long
             +deleteProduct(productId)
             +deleteProductsByBrandId(brandId)
             +decreaseStock(productId, quantity)
+            +decreaseStocks(items: List~StockDecreaseItem~)
             +increaseStock(productId, quantity)
             +increaseLikeCount(productId)
             +decreaseLikeCount(productId)
@@ -313,9 +333,11 @@ classDiagram
             <<interface>>
             +findById(id) Product?
             +findAll(pageable) Page~Product~
+            +findAllProducts(brandId, pageable) Page~Product~
             +findActiveProducts(brandId, sort, pageable) Page~Product~
             +findAllByBrandId(brandId) List~Product~
             +findAllByIdIn(ids) List~Product~
+            +findAllByIdInAndDeletedAtIsNull(ids) List~Product~
             +save(product) Product
             +saveAll(products) List~Product~
         }
@@ -328,6 +350,10 @@ classDiagram
             LATEST
             PRICE_ASC
             LIKES_DESC
+        }
+        class StockDecreaseItem {
+            +Long productId
+            +Int quantity
         }
     }
 
@@ -345,7 +371,9 @@ classDiagram
 - **adjustStatusByStock()**: private 메서드. `decreaseStock`/`increaseStock`/`update` 내부에서 호출되어 stock 값에 따라 status를 자동 전환한다. stock이 0이 되면 `SOLD_OUT`, 0에서 양수가 되면 `ON_SALE`. 단, 현재 status가 `HIDDEN`이면 전환하지 않는다.
 - **Stock VO**: `decrease(quantity)` 시 결과가 음수면 `CoreException(BAD_REQUEST)` throw. `increase(quantity)` 시 결과를 반환.
 - **Price VO**: 0 미만이면 `CoreException(BAD_REQUEST)` throw.
-- **ProductSort enum**: 대고객 상품 목록 조회의 정렬 기준. Repository에서 동적 쿼리로 변환된다.
+- **ProductSort enum**: 대고객 상품 목록 조회의 정렬 기준. Querydsl 커스텀 구현체에서 동적 쿼리로 변환된다.
+- **Product.isDeleted()**: `deletedAt != null` 여부를 캡슐화한 메서드. 좋아요 취소 시 Facade에서 상품의 삭제 상태를 판단할 때 사용한다. BaseEntity가 아닌 Product에 정의하여 BaseEntity의 최소 책임 원칙을 유지한다.
+- **StockDecreaseItem**: 재고 차감 시 ProductService에 전달하는 도메인 내부 커맨드. Order 도메인의 OrderItemCommand에 의존하지 않기 위해 Product 도메인 내부에 정의한다.
 - **ProductDetailInfo**: 대고객 상품 상세 조회 시 Product + Brand 정보를 조합한 응답 객체. Facade에서 조립한다.
 
 ---
@@ -403,7 +431,7 @@ classDiagram
         class LikeRepository {
             <<interface>>
             +findByUserIdAndProductId(userId, productId) Like?
-            +findByUserIdWithActiveProduct(userId) List~Like~
+            +findAllByUserId(userId) List~Like~
             +save(like) Like
             +delete(like)
         }
@@ -418,9 +446,9 @@ classDiagram
 ### 읽는 법
 
 - **LikeService.addLike() 반환값 Boolean**: 실제로 새 좋아요가 생성되었으면 `true`, 이미 존재하여 early return이면 `false`. Facade는 이 반환값에 따라 `Product.likeCount` 증감 여부를 결정한다.
-- **LikeFacade가 ProductService에 의존**: Like 등록/취소 시 Product의 `likeCount`를 증감해야 하므로 cross-domain 오케스트레이션이 Facade 레벨에서 일어난다.
+- **LikeFacade가 ProductService에 의존**: Like 등록/취소 시 Product의 `likeCount`를 증감하고, 좋아요 목록 조회 시 Product 정보를 조합해야 하므로 cross-domain 오케스트레이션이 Facade 레벨에서 일어난다.
 - **Like 엔티티는 BaseEntity를 상속하지 않는다**: id, userId, productId만 보유하는 단순 관계 엔티티다. 이력 관리가 불필요하며, 취소 시 하드 딜리트(물리 삭제)로 관리한다. id는 `@GeneratedValue(strategy = GenerationType.IDENTITY)`로 자동 채번한다.
-- **findByUserIdWithActiveProduct**: 좋아요 목록 조회 시 Product JOIN + `deletedAt IS NULL` 필터가 필요하므로, Repository에서 조인 쿼리를 제공한다.
+- **좋아요 목록 조회 전략**: LikeRepository.findAllByUserId로 Like 목록을 조회한 후, Facade에서 ProductService.getActiveProductsByIds로 활성 상품을 별도 조회하여 조합한다. Like 도메인이 Product의 deletedAt을 알 필요 없이, Product 필터링은 ProductService가 담당한다. 쿼리 총 2회로 N+1 방지.
 
 ---
 
@@ -437,7 +465,7 @@ classDiagram
 
     namespace interfaces {
         class OrderController {
-            +createOrder(userId, request) ApiResponse~OrderDto~
+            +createOrder(userId, request) ApiResponse~Long~
             +getOrders(userId, startedAt, endedAt, pageable) ApiResponse~Page~
             +getOrder(userId, orderId) ApiResponse~OrderDetailDto~
         }
@@ -445,11 +473,35 @@ classDiagram
             +getOrders(pageable) ApiResponse~Page~
             +getOrder(orderId) ApiResponse~OrderDetailDto~
         }
+        class OrderDto {
+            +Long orderId
+            +OrderStatus status
+            +Int itemCount
+            +BigDecimal totalPrice
+            +ZonedDateTime createdAt
+            +from(OrderInfo)$ OrderDto
+        }
+        class OrderDetailDto {
+            +Long orderId
+            +Long userId
+            +OrderStatus status
+            +List~OrderItemDto~ items
+            +BigDecimal totalPrice
+            +ZonedDateTime createdAt
+            +from(OrderDetailInfo)$ OrderDetailDto
+        }
+        class OrderItemDto {
+            +Long productId
+            +String productName
+            +BigDecimal productPrice
+            +Int quantity
+            +from(OrderItemInfo)$ OrderItemDto
+        }
     }
 
     namespace application {
         class OrderFacade {
-            +createOrder(userId, command) OrderInfo
+            +createOrder(userId, command) Long
             +getOrders(userId, startedAt, endedAt, pageable) Page~OrderInfo~
             +getOrder(userId, orderId) OrderDetailInfo
             +getAllOrders(pageable) Page~OrderInfo~
@@ -504,7 +556,7 @@ classDiagram
             FAILED
         }
         class OrderService {
-            +createOrder(userId, products, command) Order
+            +createOrder(userId, products, command) Long
             +getOrder(orderId) Order
             +getOrdersByUserId(userId, startedAt, endedAt, pageable) Page~Order~
             +getAllOrders(pageable) Page~Order~
@@ -537,7 +589,7 @@ classDiagram
 ### 읽는 법
 
 - **Order *-- OrderItem (합성)**: OrderItem은 Order Aggregate의 내부 Entity(종속 엔티티)다. 독립 생명주기와 독립 Repository가 없으며, 항상 Order를 통해서만 접근한다. JPA에서 단방향 `@OneToMany(cascade = ALL, orphanRemoval = true)` + `@JoinColumn(name = "order_id", nullable = false)`로 구현하며, OrderItem에서 Order로의 역참조(`@ManyToOne`)는 두지 않는다.
-- **Order.create() 정적 팩토리**: `Order.create(userId, items)`로 Order + OrderItem을 한 번에 생성한다. 같은 productId의 항목은 수량을 합산하여 병합한다 (도메인 로직). totalPrice도 이 시점에 계산한다.
+- **Order.create() 정적 팩토리**: `Order.create(userId, items)`로 Order + OrderItem을 한 번에 생성한다. totalPrice는 이 시점에 items의 `productPrice * quantity` 합산으로 계산한다.
 - **OrderFacade가 ProductService에 의존**: 주문 생성 시 상품 존재/판매 가능 확인 + 재고 차감을 ProductService에 위임한다.
 - **OrderItem의 스냅샷 필드**: `productName`, `productPrice`는 주문 시점의 Product 정보를 복사한 값이다. Product가 나중에 수정/삭제되어도 주문 내역에는 영향 없다.
 - **totalPrice**: `Order.create()` 정적 팩토리에서 items의 `productPrice * quantity`를 합산하여 계산하고 저장한다 (반정규화). 주문 목록 조회 시 OrderItem을 로딩하지 않고도 총액을 제공할 수 있다.
@@ -579,9 +631,9 @@ classDiagram
     BrandFacade --> BrandService
     BrandFacade --> ProductService : 브랜드 삭제 시\ncascade soft delete
     ProductFacade --> ProductService
-    ProductFacade --> BrandService : 상품 등록 시\n브랜드 존재 확인
+    ProductFacade --> BrandService : 상품 등록 시 브랜드 존재 확인\n상품 상세 조회 시 브랜드 정보 조합
     LikeFacade --> LikeService
-    LikeFacade --> ProductService : 좋아요 등록/취소 시\nlikeCount 증감
+    LikeFacade --> ProductService : 좋아요 등록/취소 시 likeCount 증감\n좋아요 목록 조회 시 활성 상품 조합
     OrderFacade --> OrderService
     OrderFacade --> ProductService : 주문 생성 시\n상품 확인 + 재고 차감
 ```
@@ -605,13 +657,13 @@ classDiagram
     direction LR
 
     class AuthInterceptor {
-        <<기존 확장>>
+        <<기존확장>>
         -AuthService authService
         +preHandle(request, response, handler) Boolean
     }
 
     class AdminInterceptor {
-        <<신규: X-Loopers-Ldap 헤더 값 비교>>
+        <<신규>>
         +preHandle(request, response, handler) Boolean
     }
 
