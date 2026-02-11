@@ -85,7 +85,7 @@ support/error/     → CoreException, ErrorType
 - **Red** → **Green** → **Refactor** 순서를 반드시 따른다
 - 구조적 변경과 행위적 변경을 절대 같은 커밋에 섞지 않는다 (Tidy First)
 - 둘 다 필요하면 구조적 변경을 먼저 수행한다
-- 각 단계의 상세 절차는 `/red`, `/green`, `/refactor`, `/tidy` 스킬 참고
+- 각 단계의 상세 절차는 `/red`, `/green`, `/refactor` 스킬 참고
 
 ### 코드 품질 기준
 
@@ -127,5 +127,5 @@ support/error/     → CoreException, ErrorType
 
 - 브랜치: `main`에서 분기 (예: `feature/round2-design`)
 - 커밋 접두사: `feat:` | `refactor:` | `fix:` | `test:` | `docs:` | `chore:`
-- 커밋 상세 절차는 `/commit`, `/verify` 스킬 참고
+- 커밋 상세 절차는 `/commit` 스킬 참고
 - PR 제목: `[N주차] 제출 내용`, 리뷰 포인트 필수 작성
