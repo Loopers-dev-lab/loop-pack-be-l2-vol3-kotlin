@@ -2,6 +2,155 @@
 
 ---
 
+## 0. 도메인 모델 설계
+
+### 0.1 Aggregate 경계
+
+```mermaid
+graph TB
+    subgraph "User Aggregate"
+        direction TB
+        UserRoot["🔷 User<br/>(Aggregate Root)"]
+        Email["Email<br/>(Value Object)"]
+        Password["Password<br/>(Value Object)"]
+        UserRoot --> Email
+        UserRoot --> Password
+    end
+
+    subgraph "Brand Aggregate"
+        direction TB
+        BrandRoot["🔷 Brand<br/>(Aggregate Root)"]
+    end
+
+    subgraph "Product Aggregate"
+        direction TB
+        ProductRoot["🔷 Product<br/>(Aggregate Root)"]
+        ProductRoot -.->|"brandId 참조"| BrandRoot
+    end
+
+    subgraph "Like Aggregate"
+        direction TB
+        LikeRoot["🔷 Like<br/>(Aggregate Root)"]
+        LikeRoot -.->|"userId 참조"| UserRoot
+        LikeRoot -.->|"productId 참조"| ProductRoot
+    end
+
+    subgraph "Order Aggregate"
+        direction TB
+        OrderRoot["🔷 Order<br/>(Aggregate Root)"]
+        OrderItemEntity["OrderItem<br/>(Entity)"]
+        OrderRoot --> OrderItemEntity
+        OrderRoot -.->|"userId 참조"| UserRoot
+        OrderItemEntity -.->|"productId 스냅샷"| ProductRoot
+    end
+```
+
+**Aggregate 설계 원칙:**
+
+| Aggregate | Root | 경계 내 Entity/VO | Invariant (불변식) |
+|-----------|------|-------------------|-------------------|
+| User | User | Email, Password | userId 유일, 비밀번호 정책 준수, name 비어있지 않음 |
+| Brand | Brand | - | name 필수 |
+| Product | Product | - | brandId 필수, price >= 0, stock >= 0 |
+| Like | Like | - | (userId, productId) 유일 |
+| Order | Order | OrderItem[] | 최소 1개 주문상품, totalAmount = Σ(item.amount) |
+
+---
+
+### 0.2 Value Object 설계
+
+Value Object는 **불변(Immutable)**이며 **자가 검증(Self-Validating)**합니다.
+
+```mermaid
+classDiagram
+    class Email {
+        <<Value Object>>
+        +value: String
+        -FORMAT_REGEX$: Regex
+        +Email(value: String)
+        -validateFormat()
+    }
+
+    class Password {
+        <<Value Object>>
+        +value: String
+        -MIN_LENGTH$: Int = 8
+        -MAX_LENGTH$: Int = 16
+        -FORMAT_REGEX$: Regex
+        +create(raw, birthDate)$: Password
+        -validateLength()$
+        -validateFormat()$
+        -validateNoBirthDatePattern()$
+    }
+
+    note for Email "생성 시 포맷 검증\n유효하지 않으면 예외 발생"
+    note for Password "팩토리 메서드로만 생성\n3단계 검증 수행"
+```
+
+**Value Object 검증 규칙:**
+
+| VO | 검증 | 규칙 |
+|----|------|------|
+| Email | 포맷 | `^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$` |
+| Password | 길이 | 8~16자 |
+| Password | 포맷 | 영문 대소문자 + 숫자 + 특수문자 |
+| Password | 생년월일 | yyyyMMdd, yyMMdd, MMdd 패턴 불포함 |
+
+---
+
+### 0.3 Domain Entity vs JPA Entity 분리
+
+```mermaid
+graph TB
+    subgraph "Infrastructure Layer"
+        UserEntity["UserEntity<br/>(@Entity)"]
+        note2["- JPA 어노테이션<br/>- toDomain() / from()<br/>- DB 매핑"]
+    end
+    
+    subgraph "Domain Layer"
+        User["User<br/>(Domain Entity)"]
+        note1["- JPA 비의존<br/>- 순수 도메인 로직<br/>- 불변식 보장"]
+    end
+
+    User -->|"from()"| UserEntity
+    UserEntity -->|"toDomain()"| User
+```
+
+**분리 이유:**
+- Domain Entity는 프레임워크 독립적
+- JPA 변경이 도메인에 영향을 주지 않음
+- 테스트 용이성 (JPA 없이 도메인 테스트 가능)
+
+---
+
+### 0.4 Domain Events (향후 확장)
+
+```mermaid
+flowchart LR
+    subgraph "발행 이벤트"
+        UE1[UserSignedUp]
+        UE2[PasswordChanged]
+        LE1[LikeAdded]
+        LE2[LikeRemoved]
+        OE1[OrderCreated]
+    end
+
+    subgraph "구독 핸들러"
+        H1[LikeCountUpdater]
+        H2[StockDeducter]
+        H3[NotificationSender]
+    end
+
+    LE1 -->|"좋아요 +1"| H1
+    LE2 -->|"좋아요 -1"| H1
+    OE1 -->|"재고 차감"| H2
+    UE1 -->|"환영 알림"| H3
+```
+
+> **Note:** MVP에서는 동기식 처리. 트래픽 증가 시 이벤트 기반 비동기로 전환 예정.
+
+---
+
 ## 1. 전체 아키텍처 구조
 
 ### 목적
@@ -16,44 +165,57 @@ classDiagram
 
     namespace Interfaces {
         class UserV1Controller {
-            -userService: UserService
+            -authFacade: AuthFacade
+            -likeService: LikeService
             +signup(request): ApiResponse
             +getMyInfo(loginId, loginPw): ApiResponse
             +changePassword(loginId, loginPw, request): ApiResponse
+            +getMyLikes(loginId, loginPw, userId): ApiResponse
         }
         class ProductV1Controller {
+            -authFacade: AuthFacade
             -productService: ProductService
+            -likeService: LikeService
             +getProducts(brandId, sort, pageable): ApiResponse
             +getProduct(productId): ApiResponse
+            +addLike(loginId, loginPw, productId): ApiResponse
+            +removeLike(loginId, loginPw, productId): ApiResponse
         }
         class OrderV1Controller {
+            -authFacade: AuthFacade
             -orderService: OrderService
             +createOrder(loginId, loginPw, request): ApiResponse
             +getOrders(loginId, loginPw, startAt, endAt): ApiResponse
             +getOrder(loginId, loginPw, orderId): ApiResponse
         }
-        class LikeV1Controller {
-            -likeService: LikeService
-            +addLike(loginId, loginPw, productId): ApiResponse
-            +removeLike(loginId, loginPw, productId): ApiResponse
-            +getMyLikes(loginId, loginPw, userId): ApiResponse
+    }
+
+    namespace Application {
+        class AuthFacade {
+            -userService: UserService
+            -passwordEncoder: PasswordEncoder
+            +signup(userId, rawPw, name, birthDate, email): User
+            +authenticate(loginId, loginPw): User
+            +changePassword(userId, oldPw, newPw): void
         }
     }
 
     namespace Domain {
         class UserService {
             -userRepository: UserRepository
-            -passwordEncoder: PasswordEncoder
-            +createUser(): UserModel
-            +getUserByUserId(): UserModel
-            +authenticate(): UserModel
-            +changePassword(): void
+            +createUser(userId, encryptedPw, name, birthDate, email): User
+            +findByUserId(userId): User?
+            +getUserByUserId(userId): User
+            +save(user): User
         }
         class ProductService {
             -productRepository: ProductRepository
             -brandRepository: BrandRepository
             +getProducts(): Page~ProductModel~
             +getProduct(): ProductModel
+            +createProduct(): ProductModel
+            +updateProduct(): ProductModel
+            +deleteProduct(): void
             +decreaseStock(): void
         }
         class OrderService {
@@ -74,14 +236,16 @@ classDiagram
         class BrandService {
             -brandRepository: BrandRepository
             -productService: ProductService
+            +getBrands(): Page~BrandModel~
             +getBrand(): BrandModel
             +createBrand(): BrandModel
+            +updateBrand(): BrandModel
             +deleteBrand(): void
         }
     }
 
     namespace Domain_Model {
-        class UserModel {
+        class User {
             -id: Long
             -userId: String
             -encryptedPassword: String
@@ -137,8 +301,8 @@ classDiagram
     namespace Domain_Repository {
         class UserRepository {
             <<interface>>
-            +save(user): UserModel
-            +findByUserId(userId): UserModel?
+            +save(user): User
+            +findByUserId(userId): User?
             +existsByUserId(userId): Boolean
         }
         class BrandRepository {
@@ -146,6 +310,7 @@ classDiagram
             +save(brand): BrandModel
             +findById(id): BrandModel?
             +findAll(pageable): Page~BrandModel~
+            +existsByName(name): Boolean
         }
         class ProductRepository {
             <<interface>>
@@ -153,6 +318,8 @@ classDiagram
             +findById(id): ProductModel?
             +findAllByCondition(brandId, sort, pageable): Page~ProductModel~
             +decreaseStock(productId, quantity): Int
+            +increaseLikeCount(productId): void
+            +decreaseLikeCount(productId): void
         }
         class OrderRepository {
             <<interface>>
@@ -171,14 +338,27 @@ classDiagram
 
     namespace Infrastructure {
         class JpaUserRepository {
-            +save(user): UserModel
-            +findByUserId(userId): UserModel?
+            +save(user): User
+            +findByUserId(userId): User?
             +existsByUserId(userId): Boolean
+        }
+        class JpaBrandRepository {
+            +save(brand): BrandModel
+            +findById(id): BrandModel?
+            +findAll(pageable): Page~BrandModel~
         }
         class JpaProductRepository {
             +save(product): ProductModel
             +findById(id): ProductModel?
             +findAllByCondition(): Page~ProductModel~
+            +increaseLikeCount(productId): void
+            +decreaseLikeCount(productId): void
+        }
+        class JpaLikeRepository {
+            +save(like): Like
+            +delete(like): void
+            +findByUserIdAndProductId(userId, productId): Like?
+            +findAllByUserId(userId): List~Like~
         }
         class JpaOrderRepository {
             +save(order): Order
@@ -187,10 +367,15 @@ classDiagram
     }
 
     %% Layer Dependencies
-    UserV1Controller --> UserService
+    UserV1Controller --> AuthFacade
+    UserV1Controller --> LikeService
+    ProductV1Controller --> AuthFacade
     ProductV1Controller --> ProductService
+    ProductV1Controller --> LikeService
+    OrderV1Controller --> AuthFacade
     OrderV1Controller --> OrderService
-    LikeV1Controller --> LikeService
+
+    AuthFacade --> UserService
 
     UserService --> UserRepository
     ProductService --> ProductRepository
@@ -204,7 +389,9 @@ classDiagram
     BrandService --> ProductService
 
     JpaUserRepository ..|> UserRepository
+    JpaBrandRepository ..|> BrandRepository
     JpaProductRepository ..|> ProductRepository
+    JpaLikeRepository ..|> LikeRepository
     JpaOrderRepository ..|> OrderRepository
 
     Order "1" *-- "N" OrderItem : contains
@@ -212,10 +399,11 @@ classDiagram
 
 ### 📌 주요 확인 포인트
 
-1. **의존 방향**: Controller → Service → Repository (단방향)
-2. **Repository 인터페이스**: Domain에 정의, Infrastructure에서 구현
-3. **도메인 모델 독립성**: Model 클래스는 외부 의존 없음
-4. **서비스 간 의존**: OrderService → ProductService (재고 차감)
+1. **의존 방향**: Controller → AuthFacade → Service → Repository (단방향)
+2. **Application 계층**: AuthFacade가 인증/회원가입 유스케이스를 조율
+3. **Repository 인터페이스**: Domain에 정의, Infrastructure에서 구현
+4. **도메인 모델 독립성**: Domain Entity는 프레임워크 독립적 (JPA Entity와 분리)
+5. **서비스 간 의존**: OrderService → ProductService (재고 차감)
 
 ### 설계 의도
 - 레이어드 아키텍처로 관심사 분리
@@ -289,7 +477,35 @@ classDiagram
 
 ---
 
-### 2.2 Domain 계층
+### 2.2 Application 계층
+
+```mermaid
+classDiagram
+    direction TB
+
+    class AuthFacade {
+        -userService: UserService
+        -passwordEncoder: PasswordEncoder
+        +signup(userId, rawPw, name, birthDate, email): User
+        +authenticate(loginId, loginPw): User
+        +changePassword(userId, oldPw, newPw): void
+    }
+
+    AuthFacade --> UserService
+    AuthFacade ..> Email : creates
+    AuthFacade ..> Password : creates
+```
+
+**책임:**
+- 유스케이스 조율 (Controller와 Domain 사이)
+- Value Object(Email, Password) 생성 및 검증
+- 비밀번호 암호화/검증 (BCrypt)
+- 타이밍 공격 방지 로직
+- 인증 흐름을 캡슐화하여 여러 Controller에서 재사용
+
+---
+
+### 2.3 Domain 계층
 
 ```mermaid
 classDiagram
@@ -297,14 +513,11 @@ classDiagram
 
     class UserService {
         -userRepository: UserRepository
-        -passwordEncoder: PasswordEncoder
-        +createUser(userId, password, name, birthDate, email): UserModel
-        +getUserByUserId(userId): UserModel
-        +authenticate(userId, password): UserModel
-        +changePassword(userId, oldPassword, newPassword): void
+        +createUser(userId, encryptedPw, name, birthDate, email): User
+        +findByUserId(userId): User?
+        +getUserByUserId(userId): User
+        +save(user): User
         -validateUserId(userId): void
-        -validatePassword(password, birthDate): void
-        -validateEmail(email): void
         -validateBirthDate(birthDate): void
     }
 
@@ -322,10 +535,32 @@ classDiagram
 
     class ProductService {
         -productRepository: ProductRepository
+        -brandRepository: BrandRepository
         +getProducts(brandId, sort, pageable): Page~ProductModel~
         +getProduct(productId): ProductModel
+        +createProduct(): ProductModel
+        +updateProduct(): ProductModel
+        +deleteProduct(): void
         +decreaseStock(productId, quantity): void
         +existsById(productId): Boolean
+    }
+
+    class BrandService {
+        -brandRepository: BrandRepository
+        -productService: ProductService
+        +getBrands(pageable): Page~BrandModel~
+        +getBrand(brandId): BrandModel
+        +createBrand(): BrandModel
+        +updateBrand(): BrandModel
+        +deleteBrand(): void
+    }
+
+    class LikeService {
+        -likeRepository: LikeRepository
+        -productRepository: ProductRepository
+        +addLike(userId, productId): Like
+        +removeLike(userId, productId): void
+        +getLikesByUserId(userId): List~Like~
     }
 
     UserService --> UserRepository
@@ -333,6 +568,11 @@ classDiagram
     OrderService --> ProductService
     OrderService --> UserService
     ProductService --> ProductRepository
+    ProductService --> BrandRepository
+    BrandService --> BrandRepository
+    BrandService --> ProductService
+    LikeService --> LikeRepository
+    LikeService --> ProductRepository
 ```
 
 **책임:**
@@ -343,11 +583,11 @@ classDiagram
 
 ---
 
-### 2.3 Domain Model
+### 2.4 Domain Model
 
 ```mermaid
 classDiagram
-    class UserModel {
+    class User {
         -id: Long
         -userId: String
         -encryptedPassword: String
@@ -416,7 +656,7 @@ classDiagram
 
 ---
 
-### 2.4 Infrastructure 계층
+### 2.5 Infrastructure 계층
 
 ```mermaid
 classDiagram
@@ -425,9 +665,15 @@ classDiagram
     namespace JPA_Repository {
         class JpaUserRepository {
             <<@Repository>>
-            +save(user): UserModel
-            +findByUserId(userId): UserModel?
+            +save(user): User
+            +findByUserId(userId): User?
             +existsByUserId(userId): Boolean
+        }
+        class JpaBrandRepository {
+            <<@Repository>>
+            +save(brand): BrandModel
+            +findById(id): BrandModel?
+            +findAll(pageable): Page~BrandModel~
         }
         class JpaProductRepository {
             <<@Repository>>
@@ -435,6 +681,15 @@ classDiagram
             +findById(id): ProductModel?
             +findAllByBrandIdAndDeletedAtIsNull(): Page~ProductModel~
             +decreaseStock(productId, quantity): Int
+            +increaseLikeCount(productId): void
+            +decreaseLikeCount(productId): void
+        }
+        class JpaLikeRepository {
+            <<@Repository>>
+            +save(like): Like
+            +delete(like): void
+            +findByUserIdAndProductId(userId, productId): Like?
+            +findAllByUserId(userId): List~Like~
         }
         class JpaOrderRepository {
             <<@Repository>>
@@ -448,7 +703,13 @@ classDiagram
         class UserRepository {
             <<interface>>
         }
+        class BrandRepository {
+            <<interface>>
+        }
         class ProductRepository {
+            <<interface>>
+        }
+        class LikeRepository {
             <<interface>>
         }
         class OrderRepository {
@@ -457,7 +718,9 @@ classDiagram
     }
 
     JpaUserRepository ..|> UserRepository
+    JpaBrandRepository ..|> BrandRepository
     JpaProductRepository ..|> ProductRepository
+    JpaLikeRepository ..|> LikeRepository
     JpaOrderRepository ..|> OrderRepository
 ```
 
@@ -475,11 +738,14 @@ classDiagram
 ```mermaid
 graph LR
     subgraph Controllers
-        UC[UserController]
-        PC[ProductController]
-        OC[OrderController]
-        LC[LikeController]
-        BC[BrandController]
+        UC[UserV1Controller]
+        PC[ProductV1Controller]
+        OC[OrderV1Controller]
+        BC[BrandAdminV1Controller]
+    end
+
+    subgraph Application
+        AF[AuthFacade]
     end
 
     subgraph Services
@@ -490,30 +756,41 @@ graph LR
         BS[BrandService]
     end
 
-    UC --> US
+    UC --> AF
+    UC --> LS
+    PC --> AF
     PC --> PS
+    PC --> LS
+    OC --> AF
     OC --> OS
-    LC --> LS
     BC --> BS
+
+    AF --> US
 
     OS --> US
     OS --> PS
     LS --> PS
     BS --> PS
 
+    style AF fill:#ffffcc
     style OS fill:#ffcccc
     style PS fill:#ccffcc
 ```
 
 **의존 방향 원칙:**
+- Controller → AuthFacade: 인증이 필요한 요청의 사용자 인증/식별
+- AuthFacade → UserService: 회원가입, 인증, 비밀번호 변경 유스케이스 조율
+- ProductV1Controller → LikeService: `/api/v1/products/{id}/likes` 엔드포인트 처리
+- UserV1Controller → LikeService: `/api/v1/users/{id}/likes` 엔드포인트 처리
 - OrderService → ProductService: 주문 시 상품 조회/재고 차감
-- OrderService → UserService: 주문자 인증 확인
+- OrderService → UserService: 주문자 확인
 - LikeService → ProductService: 좋아요 대상 상품 존재 확인
 - BrandService → ProductService: 브랜드 삭제 시 상품 연쇄 처리
 
 **순환 의존 방지:**
 - ProductService는 다른 서비스에 의존하지 않음 (하위 레벨)
 - UserService는 다른 서비스에 의존하지 않음 (하위 레벨)
+- AuthFacade는 Application 계층에서 UserService만 의존 (단방향)
 
 ---
 
@@ -621,4 +898,4 @@ classDiagram
 ---
 
 **문서 작성일**: 2026-02-11
-**버전**: 1.0
+**버전**: 1.2 (Application 계층 AuthFacade 반영, Domain Entity 네이밍 코드 동기화)

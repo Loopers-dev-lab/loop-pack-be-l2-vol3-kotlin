@@ -14,60 +14,85 @@
 sequenceDiagram
     autonumber
     participant C as Client
-    participant Ctrl as UserController
+    participant Ctrl as UserV1Controller
+    participant Facade as AuthFacade
+    participant Email as Email VO
+    participant Pw as Password VO
     participant Svc as UserService
     participant Repo as UserRepository
     participant DB as Database
 
     C->>Ctrl: POST /api/v1/users (SignupRequest)
-    Ctrl->>Svc: createUser(userId, password, name, birthDate, email)
+    Ctrl->>Facade: signup(userId, rawPassword, name, birthDate, email)
 
-    Note over Svc: 유효성 검증 시작
+    rect rgb(255, 245, 230)
+        Note over Facade,Pw: Value Object 검증 (Application Layer)
+        Facade->>Email: Email(email)
+        alt 이메일 형식 오류
+            Email-->>Facade: throw CoreException(BAD_REQUEST)
+            Facade-->>Ctrl: 에러 전파
+            Ctrl-->>C: 400 Bad Request
+        end
 
-    alt userId 형식 오류 (특수문자 포함)
-        Svc-->>Ctrl: throw CoreException(BAD_REQUEST)
-        Ctrl-->>C: 400 Bad Request
-    else 이메일 형식 오류
-        Svc-->>Ctrl: throw CoreException(BAD_REQUEST)
-        Ctrl-->>C: 400 Bad Request
-    else 비밀번호 정책 위반
-        Svc-->>Ctrl: throw CoreException(BAD_REQUEST)
-        Ctrl-->>C: 400 Bad Request
-    else 생년월일 미래
-        Svc-->>Ctrl: throw CoreException(BAD_REQUEST)
-        Ctrl-->>C: 400 Bad Request
+        Facade->>Pw: Password.create(rawPassword, birthDate)
+        Note over Pw: 길이/포맷/생년월일 패턴 검증
+        alt 비밀번호 정책 위반
+            Pw-->>Facade: throw CoreException(BAD_REQUEST)
+            Facade-->>Ctrl: 에러 전파
+            Ctrl-->>C: 400 Bad Request
+        end
     end
 
-    Svc->>Repo: existsByUserId(userId)
-    Repo->>DB: SELECT EXISTS
-    DB-->>Repo: true/false
-    Repo-->>Svc: Boolean
+    Facade->>Facade: passwordEncoder.encode(password)
 
-    alt userId 중복
-        Svc-->>Ctrl: throw CoreException(CONFLICT)
-        Ctrl-->>C: 409 Conflict
+    Facade->>Svc: createUser(userId, encryptedPw, name, birthDate, email)
+
+    rect rgb(230, 245, 255)
+        Note over Svc,Repo: Domain Service 검증 + CRUD
+        Svc->>Svc: validateUserId(userId)
+        alt userId 형식 오류
+            Svc-->>Facade: throw CoreException(BAD_REQUEST)
+            Facade-->>Ctrl: 에러 전파
+            Ctrl-->>C: 400 Bad Request
+        end
+
+        Svc->>Svc: validateBirthDate(birthDate)
+        alt 생년월일 미래
+            Svc-->>Facade: throw CoreException(BAD_REQUEST)
+            Facade-->>Ctrl: 에러 전파
+            Ctrl-->>C: 400 Bad Request
+        end
+
+        Svc->>Repo: existsByUserId(userId)
+        Repo->>DB: SELECT EXISTS
+        DB-->>Repo: true/false
+        Repo-->>Svc: Boolean
+        alt userId 중복
+            Svc-->>Facade: throw CoreException(CONFLICT)
+            Facade-->>Ctrl: 에러 전파
+            Ctrl-->>C: 409 Conflict
+        end
     end
 
-    Note over Svc: 비밀번호 암호화 (BCrypt)
-    Svc->>Svc: passwordEncoder.encode(password)
-
-    Svc->>Repo: save(UserModel)
+    Svc->>Repo: save(User)
     Repo->>DB: INSERT
     DB-->>Repo: saved entity
-    Repo-->>Svc: UserModel
-    Svc-->>Ctrl: UserModel
+    Repo-->>Svc: User
+    Svc-->>Facade: User
+    Facade-->>Ctrl: User
     Ctrl-->>C: 200 OK (UserResponse)
 ```
 
 ### 📌 주요 확인 포인트
 
-1. **유효성 검증 위치**: Service 레이어에서 모든 비즈니스 규칙 검증
-2. **검증 순서**: 형식 검증 → 중복 확인 → 저장 (DB 호출 최소화)
-3. **비밀번호 암호화**: 저장 직전에 BCrypt 적용
+1. **검증 책임 분리**: AuthFacade에서 VO 검증/암호화, UserService에서 도메인 검증/CRUD
+2. **검증 순서**: VO 검증 → 암호화 → 도메인 검증 → 중복 확인 → 저장
+3. **비밀번호 암호화**: AuthFacade에서 BCrypt 적용 후 UserService에 암호화된 값 전달
 
 ### 설계 의도
-- Controller는 DTO 변환만, 비즈니스 로직은 Service에 집중
-- 유효성 검증 실패 시 조기 반환으로 불필요한 DB 호출 방지
+- Controller는 DTO 변환만, AuthFacade가 유스케이스 조율
+- Value Object가 자가 검증하여 유효하지 않은 상태의 객체 생성 방지
+- UserService는 순수 도메인 검증과 CRUD에 집중
 
 ---
 
@@ -83,33 +108,42 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant C as Client
-    participant Ctrl as Controller
+    participant Ctrl as UserV1Controller
+    participant Facade as AuthFacade
     participant Svc as UserService
     participant Repo as UserRepository
     participant PE as PasswordEncoder
 
     C->>Ctrl: GET /api/v1/users/me<br/>Headers: X-Loopers-LoginId, X-Loopers-LoginPw
-    Ctrl->>Svc: authenticate(loginId, loginPw)
+    Ctrl->>Facade: authenticate(loginId, loginPw)
 
+    Facade->>Svc: findByUserId(loginId)
     Svc->>Repo: findByUserId(loginId)
 
     alt 사용자 없음
         Repo-->>Svc: null
-        Note over Svc: 타이밍 공격 방지를 위해<br/>dummy bcrypt 연산 수행
-        Svc->>PE: matches(password, dummyHash)
-        PE-->>Svc: false
-        Svc-->>Ctrl: throw CoreException(UNAUTHORIZED)
-        Ctrl-->>C: 401 Unauthorized<br/>"인증정보가 올바르지 않습니다"
+        Svc-->>Facade: null
+
+        rect rgb(255, 230, 230)
+            Note over Facade,PE: 타이밍 공격 방지
+            Facade->>PE: matches(rawPw, dummyHash)
+            Note over PE: BCrypt 연산 수행 (응답 시간 균일화)
+            PE-->>Facade: false
+        end
+
+        Facade-->>Ctrl: throw CoreException(UNAUTHORIZED)<br/>"인증정보가 올바르지 않습니다"
+        Ctrl-->>C: 401 Unauthorized
     else 사용자 존재
-        Repo-->>Svc: UserModel
-        Svc->>PE: matches(loginPw, user.encryptedPassword)
+        Repo-->>Svc: User
+        Svc-->>Facade: User
+        Facade->>PE: matches(loginPw, user.encryptedPassword)
         alt 비밀번호 불일치
-            PE-->>Svc: false
-            Svc-->>Ctrl: throw CoreException(UNAUTHORIZED)
-            Ctrl-->>C: 401 Unauthorized<br/>"인증정보가 올바르지 않습니다"
+            PE-->>Facade: false
+            Facade-->>Ctrl: throw CoreException(UNAUTHORIZED)<br/>"인증정보가 올바르지 않습니다"
+            Ctrl-->>C: 401 Unauthorized
         else 비밀번호 일치
-            PE-->>Svc: true
-            Svc-->>Ctrl: UserModel
+            PE-->>Facade: true
+            Facade-->>Ctrl: User
             Ctrl-->>C: 200 OK (UserResponse)
         end
     end
@@ -117,13 +151,15 @@ sequenceDiagram
 
 ### 📌 주요 확인 포인트
 
-1. **타이밍 공격 방지**: 사용자 미존재 시에도 bcrypt 연산 수행하여 응답 시간 균일화
+1. **타이밍 공격 방지**: AuthFacade에서 사용자 미존재 시에도 bcrypt 연산 수행하여 응답 시간 균일화
 2. **에러 메시지 통일**: "인증정보가 올바르지 않습니다" (사용자 존재 여부 노출 방지)
 3. **헤더 기반 인증**: 매 요청마다 인증 수행 (세션리스)
+4. **책임 분리**: AuthFacade가 인증 로직 조율, UserService는 조회만 담당
 
 ### 설계 의도
 - 보안 강화를 위해 실패 원인을 구분하지 않음
 - bcrypt의 constant-time comparison 활용
+- 인증 로직이 AuthFacade에 집중되어 다른 Controller에서도 재사용 가능
 
 ---
 
@@ -226,7 +262,7 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant C as Client
-    participant Ctrl as LikeController
+    participant Ctrl as ProductV1Controller
     participant Svc as LikeService
     participant LRepo as LikeRepository
     participant PRepo as ProductRepository
@@ -265,6 +301,10 @@ sequenceDiagram
             LRepo->>DB: INSERT
             DB-->>LRepo: saved
             LRepo-->>Svc: LikeModel
+
+            Svc->>PRepo: increaseLikeCount(productId)
+            PRepo->>DB: UPDATE products SET like_count = like_count + 1
+
             Svc-->>Ctrl: LikeModel
             Ctrl-->>C: 200 OK
         end
@@ -289,6 +329,10 @@ sequenceDiagram
             Svc->>LRepo: delete(LikeModel)
             LRepo->>DB: DELETE
             DB-->>LRepo: done
+
+            Svc->>PRepo: decreaseLikeCount(productId)
+            PRepo->>DB: UPDATE products SET like_count = like_count - 1<br/>WHERE like_count > 0
+
             LRepo-->>Svc: void
             Svc-->>Ctrl: void
             Ctrl-->>C: 200 OK

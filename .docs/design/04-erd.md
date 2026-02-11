@@ -32,11 +32,12 @@ erDiagram
         varchar(255) email "이메일"
         timestamp created_at "생성일시"
         timestamp updated_at "수정일시"
+        timestamp deleted_at "삭제일시 (Soft Delete)"
     }
 
     BRAND {
         bigint id PK "AUTO_INCREMENT"
-        varchar(100) name "브랜드명"
+        varchar(100) name UK "브랜드명 (UNIQUE)"
         text description "브랜드 설명"
         timestamp deleted_at "삭제일시 (Soft Delete)"
         timestamp created_at "생성일시"
@@ -85,7 +86,7 @@ erDiagram
 
 ### 📌 주요 확인 포인트
 
-1. **Soft Delete**: BRAND, PRODUCT에 `deleted_at` 컬럼 (NULL이면 활성)
+1. **Soft Delete**: 모든 엔티티에 `deleted_at` 컬럼 (NULL이면 활성)
 2. **스냅샷**: ORDER_ITEM에 주문 시점 상품 정보 저장 (product_name, product_price)
 3. **비정규화**: PRODUCT.like_count (실시간 COUNT 쿼리 회피)
 4. **논리적 FK**: ERD에는 표시하지만 실제 DB에는 FK 제약 없음
@@ -97,29 +98,119 @@ erDiagram
 
 ---
 
-## 2. 테이블 명세
+## 2. Week 1 구현 현황
 
-### 2.1 USER
+### 2.1 USER 테이블 (✅ 구현 완료)
 
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-|--------|------|----------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 고유 식별자 |
-| user_id | VARCHAR(50) | UNIQUE, NOT NULL | 로그인 ID |
-| encrypted_password | VARCHAR(255) | NOT NULL | BCrypt 해시된 비밀번호 |
-| name | VARCHAR(100) | NOT NULL | 사용자 이름 |
-| birth_date | DATE | NOT NULL | 생년월일 |
-| email | VARCHAR(255) | NOT NULL | 이메일 |
-| created_at | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 생성일시 |
-| updated_at | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | 수정일시 |
+#### JPA Entity 구조
+
+```kotlin
+// UserEntity.kt (Infrastructure Layer)
+@Entity
+@Table(name = "users")
+class UserEntity(
+    userId: String,
+    encryptedPassword: String,
+    name: String,
+    birthDate: LocalDate,
+    email: String,
+) : BaseEntity() {
+
+    @Column(unique = true, nullable = false)
+    var userId: String = userId
+
+    @Column(nullable = false, name = "encrypted_password")
+    var encryptedPassword: String = encryptedPassword
+
+    @Column(nullable = false)
+    var name: String = name
+
+    @Column(nullable = false, name = "birth_date")
+    var birthDate: LocalDate = birthDate
+
+    @Column(nullable = false)
+    var email: String = email
+
+    fun updatePassword(newEncryptedPassword: String) { ... }
+    fun toDomain(): User = ...
+    companion object { fun from(user: User): UserEntity = ... }
+}
+```
+
+#### BaseEntity 구조
+
+```kotlin
+// BaseEntity.kt (modules/jpa)
+@MappedSuperclass
+abstract class BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long = 0
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    lateinit var createdAt: ZonedDateTime
+
+    @Column(name = "updated_at", nullable = false)
+    lateinit var updatedAt: ZonedDateTime
+
+    @Column(name = "deleted_at")
+    var deletedAt: ZonedDateTime? = null
+
+    open fun guard() = Unit  // 엔티티 유효성 검증 훅
+
+    @PrePersist
+    private fun prePersist() {
+        guard()
+        val now = ZonedDateTime.now()
+        createdAt = now
+        updatedAt = now
+    }
+
+    @PreUpdate
+    private fun preUpdate() {
+        guard()
+        updatedAt = ZonedDateTime.now()
+    }
+
+    fun delete() { deletedAt ?: run { deletedAt = ZonedDateTime.now() } }
+    fun restore() { deletedAt?.let { deletedAt = null } }
+}
+```
+
+#### 테이블 명세
+
+| 컬럼명 | 타입 | 제약조건 | 설명 | 구현 상태 |
+|--------|------|----------|------|----------|
+| id | BIGINT | PK, AUTO_INCREMENT | 고유 식별자 | ✅ |
+| user_id | VARCHAR(50) | UNIQUE, NOT NULL | 로그인 ID | ✅ |
+| encrypted_password | VARCHAR(255) | NOT NULL | BCrypt 해시된 비밀번호 | ✅ |
+| name | VARCHAR(100) | NOT NULL | 사용자 이름 | ✅ |
+| birth_date | DATE | NOT NULL | 생년월일 | ✅ |
+| email | VARCHAR(255) | NOT NULL | 이메일 | ✅ |
+| created_at | TIMESTAMP | NOT NULL | 생성일시 | ✅ |
+| updated_at | TIMESTAMP | NOT NULL | 수정일시 | ✅ |
+| deleted_at | TIMESTAMP | NULL | 삭제일시 (Soft Delete) | ✅ (미사용) |
+
+#### 검증 규칙 (애플리케이션 레벨)
+
+| 필드 | 규칙 | 검증 위치 |
+|------|------|----------|
+| user_id | 영문+숫자만 (`^[A-Za-z0-9]+$`) | `UserService.validateUserId()` |
+| email | `{local}@{domain}` 포맷 | `Email` Value Object |
+| password | 8~16자, 영문대소문자/숫자/특수문자, 생년월일 불포함 | `Password` Value Object |
+| birth_date | 미래일 불가 | `UserService.validateBirthDate()` |
+| name | blank 불가 | `User` init 블록 |
 
 ---
 
-### 2.2 BRAND
+## 3. 테이블 명세
+
+### 3.1 BRAND
 
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 고유 식별자 |
-| name | VARCHAR(100) | NOT NULL | 브랜드명 |
+| name | VARCHAR(100) | UNIQUE, NOT NULL | 브랜드명 |
 | description | TEXT | NULL | 브랜드 설명 |
 | deleted_at | TIMESTAMP | NULL | Soft Delete 표시 |
 | created_at | TIMESTAMP | NOT NULL | 생성일시 |
@@ -127,7 +218,7 @@ erDiagram
 
 ---
 
-### 2.3 PRODUCT
+### 3.2 PRODUCT
 
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
@@ -144,7 +235,7 @@ erDiagram
 
 ---
 
-### 2.4 LIKE (product_likes)
+### 3.3 LIKE / product_likes
 
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
@@ -154,10 +245,11 @@ erDiagram
 | created_at | TIMESTAMP | NOT NULL | 생성일시 |
 
 > 테이블명: `product_likes` (LIKE는 SQL 예약어)
+> UNIQUE 제약: (user_id, product_id) — 중복 좋아요 방지
 
 ---
 
-### 2.5 ORDER (orders)
+### 3.4 ORDER / orders
 
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
@@ -179,7 +271,7 @@ erDiagram
 
 ---
 
-### 2.6 ORDER_ITEM
+### 3.5 ORDER_ITEM
 
 | 컬럼명 | 타입 | 제약조건 | 설명 |
 |--------|------|----------|------|
@@ -193,26 +285,27 @@ erDiagram
 
 ---
 
-## 3. 인덱스
+## 4. 인덱스
 
-### 3.1 USER
+### 4.1 USER (✅ 구현 완료)
 
-| 인덱스명 | 컬럼 | 타입 | 용도 |
-|----------|------|------|------|
-| uk_user_user_id | user_id | UNIQUE | 로그인 ID 중복 방지, 조회 |
-| idx_user_email | email | INDEX | 이메일 조회 (추후 중복 검사용) |
+| 인덱스명 | 컬럼 | 타입 | 용도 | 상태 |
+|----------|------|------|------|------|
+| uk_user_user_id | user_id | UNIQUE | 로그인 ID 중복 방지, 조회 | ✅ |
+| idx_user_email | email | INDEX | 이메일 조회 (추후 중복 검사용) | 📋 |
 
 ---
 
-### 3.2 BRAND
+### 4.2 BRAND
 
 | 인덱스명 | 컬럼 | 타입 | 용도 |
 |----------|------|------|------|
+| uk_brand_name | name | UNIQUE | 브랜드명 중복 방지 |
 | idx_brand_deleted_at | deleted_at | INDEX | Soft Delete 필터링 |
 
 ---
 
-### 3.3 PRODUCT
+### 4.3 PRODUCT
 
 | 인덱스명 | 컬럼 | 타입 | 용도 |
 |----------|------|------|------|
@@ -223,7 +316,7 @@ erDiagram
 
 ---
 
-### 3.4 LIKE (product_likes)
+### 4.4 LIKE / product_likes
 
 | 인덱스명 | 컬럼 | 타입 | 용도 |
 |----------|------|------|------|
@@ -232,7 +325,7 @@ erDiagram
 
 ---
 
-### 3.5 ORDER (orders)
+### 4.5 ORDER / orders
 
 | 인덱스명 | 컬럼 | 타입 | 용도 |
 |----------|------|------|------|
@@ -241,7 +334,7 @@ erDiagram
 
 ---
 
-### 3.6 ORDER_ITEM
+### 4.6 ORDER_ITEM
 
 | 인덱스명 | 컬럼 | 타입 | 용도 |
 |----------|------|------|------|
@@ -249,7 +342,7 @@ erDiagram
 
 ---
 
-## 4. 관계 정의
+## 5. 관계 정의
 
 | 관계 | 설명 | 카디널리티 | 비고 |
 |------|------|------------|------|
@@ -262,21 +355,28 @@ erDiagram
 
 ---
 
-## 5. 마이그레이션 고려사항
+## 6. ERD 설계 vs 구현
 
-### 5.1 초기 스키마 생성
+### 6.1 논리적 FK vs 물리적 FK
 
-```sql
--- 테이블 생성 순서 (의존성 고려)
-1. users
-2. brands
-3. products (brands 참조)
-4. product_likes (users, products 참조)
-5. orders (users 참조)
-6. order_items (orders, products 참조)
-```
+| 구분 | ERD (논리적) | DB (물리적) |
+|------|-------------|-------------|
+| FK 관계 | 표시함 | FK 제약 없음 |
+| 참조 무결성 | 애플리케이션에서 보장 | DB에서 강제하지 않음 |
+| 장점 | 관계 명확화 | 유연한 삭제/수정, 마이그레이션 용이 |
 
-### 5.2 Soft Delete 쿼리 패턴
+### 6.2 Loose Coupling 이유
+
+1. **마이크로서비스 전환 대비**: 서비스 분리 시 FK 제약이 장애물
+2. **성능**: FK 검증 오버헤드 제거
+3. **유연한 삭제**: Soft Delete 시 FK 제약 충돌 방지
+4. **데이터 마이그레이션**: 스키마 변경 용이
+
+---
+
+## 7. 마이그레이션 고려사항
+
+### 7.1 Soft Delete 쿼리 패턴
 
 ```sql
 -- 활성 데이터만 조회
@@ -290,7 +390,7 @@ UPDATE products SET deleted_at = NOW() WHERE brand_id = ?;
 UPDATE brands SET deleted_at = NOW() WHERE id = ?;
 ```
 
-### 5.3 재고 차감 (동시성 고려)
+### 7.2 재고 차감 (동시성 고려)
 
 ```sql
 -- 비관적 업데이트 (stock >= quantity 조건)
@@ -301,7 +401,7 @@ WHERE id = ? AND stock >= ? AND deleted_at IS NULL;
 -- 영향받은 row가 0이면 재고 부족
 ```
 
-### 5.4 좋아요 카운트 동기화
+### 7.3 좋아요 카운트 동기화
 
 ```sql
 -- 좋아요 등록 시
@@ -313,7 +413,7 @@ DELETE FROM product_likes WHERE user_id = ? AND product_id = ?;
 UPDATE products SET like_count = like_count - 1 WHERE id = ? AND like_count > 0;
 ```
 
-### 5.5 향후 마이그레이션 포인트
+### 7.4 향후 마이그레이션 포인트
 
 | 시점 | 변경 내용 | 고려사항 |
 |------|----------|----------|
@@ -324,67 +424,42 @@ UPDATE products SET like_count = like_count - 1 WHERE id = ? AND like_count > 0;
 
 ---
 
-## 6. 실제 DDL 예시
+## 8. 미결정 사항 (ERD 관련)
 
-### 6.1 users 테이블
+### Q1. email UNIQUE 제약 추가 여부
 
-```sql
-CREATE TABLE users (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id VARCHAR(50) NOT NULL,
-    encrypted_password VARCHAR(255) NOT NULL,
-    name VARCHAR(100) NOT NULL,
-    birth_date DATE NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+**현재**: email에 UNIQUE 제약 없음
+**옵션**:
+- A: 중복 허용 유지 (소셜 로그인 확장 용이)
+- B: UNIQUE 추가 (비밀번호 찾기 기능 연계)
 
-    UNIQUE KEY uk_user_user_id (user_id),
-    INDEX idx_user_email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
+**권장**: 비밀번호 찾기 기능 구현 시 재검토
 
-### 6.2 products 테이블
+---
 
-```sql
-CREATE TABLE products (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    brand_id BIGINT NOT NULL,
-    name VARCHAR(200) NOT NULL,
-    description TEXT,
-    price DECIMAL(15,2) NOT NULL,
-    stock INT NOT NULL DEFAULT 0,
-    like_count INT NOT NULL DEFAULT 0,
-    deleted_at TIMESTAMP NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+### Q2. like_count 동기화 방식
 
-    INDEX idx_product_brand_deleted (brand_id, deleted_at),
-    INDEX idx_product_created_at (deleted_at, created_at DESC),
-    INDEX idx_product_price (deleted_at, price ASC),
-    INDEX idx_product_like_count (deleted_at, like_count DESC)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+**현재**: 설계만 완료
+**옵션**:
+- A: 동기식 +1/-1 업데이트
+- B: 비동기 배치 집계
+- C: 이벤트 기반 + 캐시
 
--- FK 제약 없음 (애플리케이션 레벨에서 관리)
-```
+**권장**: 옵션 A (MVP) → 트래픽 증가 시 옵션 C
 
-### 6.3 orders 테이블
+---
 
-```sql
-CREATE TABLE orders (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    total_amount DECIMAL(15,2) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+### Q3. 주문 상태 관리
 
-    INDEX idx_order_user_created (user_id, created_at DESC),
-    INDEX idx_order_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
+**현재**: status VARCHAR(20) — 문자열 저장
+**옵션**:
+- A: VARCHAR + 애플리케이션 Enum (현재)
+- B: DB Enum 타입
+- C: 별도 상태 테이블
+
+**권장**: 옵션 A 유지 — 상태 추가/변경 용이
 
 ---
 
 **문서 작성일**: 2026-02-11
-**버전**: 1.0
+**버전**: 1.1 (Week 1 구현 반영, 미결정 사항 추가)
