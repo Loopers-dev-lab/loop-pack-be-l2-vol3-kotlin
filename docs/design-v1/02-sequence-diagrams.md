@@ -278,9 +278,9 @@ sequenceDiagram
         BS ->> BR: save(brand)
         F ->> PS: deleteProductsByBrandId(brandId)
         PS ->> PR: findAllByBrandId(brandId)
-        loop 각 상품
-            PS ->> PS: product.delete()
-        end
+        PR -->> PS: List~Product~
+        PS ->> PS: products.forEach(Product::delete)
+        Note over PS: 벌크 soft delete (개별 API 호출 아님)
         PS ->> PR: saveAll(products)
     end
 
@@ -570,6 +570,7 @@ sequenceDiagram
         LS ->> LR: delete(like)
 
         alt product.isDeleted() — 상품이 삭제 상태
+            Note over F: 삭제된 상품이므로<br/>likeCount 갱신하지 않음
         else 상품이 활성 상태
             F ->> PS: decreaseLikeCount(productId)
             PS ->> PS: product.decreaseLikeCount()
@@ -587,7 +588,7 @@ sequenceDiagram
 
 ### 3.3 좋아요 목록 조회
 
-`GET /api/v1/users/{userId}/likes` — 인증 필요
+`GET /api/v1/users/likes` — 인증 필요 (`@AuthUser`로 userId 주입)
 
 ```mermaid
 sequenceDiagram
@@ -599,11 +600,7 @@ sequenceDiagram
     participant LR as LikeRepository
     participant PS as ProductService
     participant PR as ProductRepository
-    User ->> C: GET /api/v1/users/{userId}/likes
-
-    alt userId != 인증된 사용자 ID
-        C -->> User: 403 "본인의 좋아요 목록만 조회할 수 있습니다"
-    end
+    User ->> C: GET /api/v1/users/likes
 
     C ->> F: getLikes(userId)
     F ->> LS: getLikesByUserId(userId)
@@ -620,6 +617,7 @@ sequenceDiagram
 
 ### 참고
 
+- URL에 userId가 없으므로 타인 좋아요 조회가 불가능하다. `@AuthUser`로 본인 userId만 주입받는다.
 - 쿼리 총 2회: Like 조회 1회 + Product IN 조회 1회 (N+1 방지)
 - Like 도메인이 Product의 deletedAt을 알 필요 없음 — Product 필터링은 ProductService가 담당
 - Facade에서 Like + Product를 조합하여 LikeInfo 생성
@@ -674,8 +672,9 @@ sequenceDiagram
         end
         PS ->> PR: saveAll(products)
 
-    %% 3단계: 주문 생성 + 스냅샷
+    %% 3단계: 주문 생성 + 스냅샷 (1단계에서 조회한 Product 리스트를 전달)
         F ->> OS: createOrder(userId, products, command)
+        Note over OS: Order.create(userId, products, command)<br/>각 Product에서 name, price를<br/>OrderItem 스냅샷으로 복사
         OS ->> OR: save(order)
         OR -->> OS: Order (id 채번)
     end

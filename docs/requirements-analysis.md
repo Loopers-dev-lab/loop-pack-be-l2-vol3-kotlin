@@ -44,11 +44,11 @@
 
 ### 1. 유저 (Users) — 1주차 완성 (제외 도메인)
 
-| METHOD | URI                      | 인증 | 설명      |
-|--------|--------------------------|----|---------|
-| POST   | `/api/v1/users`          | X  | 회원가입    |
-| GET    | `/api/v1/users/me`       | O  | 내 정보 조회 |
-| PUT    | `/api/v1/users/password` | O  | 비밀번호 변경 |
+| METHOD | URI                       | 인증 | 설명      |
+|--------|---------------------------|----|---------|
+| POST   | `/api/v1/users/sign-up`   | X  | 회원가입    |
+| GET    | `/api/v1/users/me`        | O  | 내 정보 조회 |
+| PUT    | `/api/v1/users/me/password` | O  | 비밀번호 변경 |
 
 ---
 
@@ -96,7 +96,7 @@
 |--------|--------------------------------------|----|-------------------|
 | POST   | `/api/v1/products/{productId}/likes` | O  | 상품 좋아요 등록         |
 | DELETE | `/api/v1/products/{productId}/likes` | O  | 상품 좋아요 취소         |
-| GET    | `/api/v1/users/{userId}/likes`       | O  | 내가 좋아요 한 상품 목록 조회 |
+| GET    | `/api/v1/users/likes`                | O  | 내가 좋아요 한 상품 목록 조회 |
 
 ---
 
@@ -107,7 +107,7 @@
 | METHOD | URI                                                  | 인증 | 설명           |
 |--------|------------------------------------------------------|----|--------------|
 | POST   | `/api/v1/orders`                                     | O  | 주문 요청        |
-| GET    | `/api/v1/orders?startAt=2026-01-31&endAt=2026-02-10` | O  | 유저의 주문 목록 조회 |
+| GET    | `/api/v1/orders?startedAt=2026-01-31&endedAt=2026-02-10` | O  | 유저의 주문 목록 조회 |
 | GET    | `/api/v1/orders/{orderId}`                           | O  | 단일 주문 상세 조회  |
 
 **주문 요청 예시:**

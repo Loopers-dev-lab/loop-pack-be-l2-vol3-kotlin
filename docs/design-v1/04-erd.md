@@ -2,7 +2,7 @@
 
 영속성 구조를 Mermaid ERD로 정리한다.
 클래스 다이어그램(03-class-diagram.md)의 도메인 객체가 DB 테이블로 어떻게 매핑되는지,
-VO는 컬럼으로, 관계는 FK로 풀어서 표현한다.
+VO는 컬럼으로, 관계는 논리적 FK(물리 FK 미사용)로 표현한다.
 
 ---
 
@@ -14,8 +14,8 @@ VO는 컬럼으로, 관계는 FK로 풀어서 표현한다.
 특히 다음을 검증한다:
 
 - VO(Stock, Price, BrandName)가 별도 테이블 없이 컬럼으로 표현되는가
-- 도메인 간 ID 참조가 FK로 올바르게 매핑되는가
-- Order-OrderItem 합성 관계가 FK + CASCADE로 표현되는가
+- 도메인 간 ID 참조가 논리적 FK로 올바르게 매핑되는가 (물리 FK 미사용)
+- Order-OrderItem 합성 관계가 JPA cascade로 표현되는가 (DB FK 없음)
 - 스냅샷 필드(productName, productPrice)가 OrderItem의 독립 컬럼으로 존재하는가
 
 ```mermaid
@@ -42,7 +42,7 @@ erDiagram
 
     products {
         bigint id PK "AUTO_INCREMENT"
-        bigint brand_id FK "NOT NULL"
+        bigint brand_id "NOT NULL, 논리FK → brands.id"
         varchar name "NOT NULL"
         decimal price "NOT NULL, >= 0"
         int stock "NOT NULL, >= 0"
@@ -55,13 +55,13 @@ erDiagram
 
     likes {
         bigint id PK "AUTO_INCREMENT"
-        bigint user_id FK "NOT NULL"
-        bigint product_id FK "NOT NULL"
+        bigint user_id "NOT NULL, 논리FK → users.id"
+        bigint product_id "NOT NULL, 논리FK → products.id"
     }
 
     orders {
         bigint id PK "AUTO_INCREMENT"
-        bigint user_id FK "NOT NULL"
+        bigint user_id "NOT NULL, 논리FK → users.id"
         varchar status "NOT NULL, CREATED/PAID/CANCELLED/FAILED"
         decimal total_price "NOT NULL, >= 0, 반정규화"
         datetime created_at "NOT NULL"
@@ -71,8 +71,8 @@ erDiagram
 
     order_items {
         bigint id PK "AUTO_INCREMENT"
-        bigint order_id FK "NOT NULL"
-        bigint product_id "NOT NULL"
+        bigint order_id "NOT NULL, 논리FK → orders.id"
+        bigint product_id "NOT NULL, 참조 추적용"
         varchar product_name "NOT NULL, 스냅샷"
         decimal product_price "NOT NULL, 스냅샷"
         int quantity "NOT NULL, >= 1"
@@ -90,11 +90,12 @@ erDiagram
 
 ### 읽는 법
 
+- **물리적 FK를 사용하지 않는다**: 모든 테이블 간 참조는 논리적 FK(컬럼만 존재, DB FK 제약 없음)로 관리한다. 이유: (1) FK 데드락 방지, FK 체크 오버헤드 제거 (2) 서비스 확장 시 테이블 분리/마이크로서비스 전환이 용이, (3) 참조 무결성은 애플리케이션 레벨에서 보장.
 - **users 테이블은 1주차 기존 테이블**이다. 이번 설계에서 변경하지 않으며, likes/orders에서 user_id로 참조한다.
-- **brands → products**: 1:N 관계. products.brand_id가 FK 주인. 브랜드 삭제 시 cascade는 DB 레벨이 아닌 **애플리케이션 레벨** soft delete로 처리한다.
+- **brands → products**: 1:N 관계. products.brand_id로 논리 참조. 브랜드 삭제 시 cascade는 **애플리케이션 레벨** soft delete로 처리한다.
 - **products → likes**: 1:N 관계. likes 테이블에 `user_id + product_id` UNIQUE 제약으로 중복 좋아요를 방지한다.
-- **orders → order_items**: 1:N 합성 관계. `||--|{` (필수)로 표현 — 주문에는 최소 1개 이상의 항목이 있어야 한다.
-- **order_items.product_id**: FK 제약을 걸지 **않는다**. 스냅샷 필드(product_name, product_price)로 독립적이며, 상품 삭제와 무관하게 주문 이력을 보존하기 위해 product_id는 참조 추적용으로만 보관한다.
+- **orders → order_items**: 1:N 합성 관계. `||--|{` (필수)로 표현 — 주문에는 최소 1개 이상의 항목이 있어야 한다. JPA `cascade = ALL, orphanRemoval = true`로 관리하되 DB FK 제약은 걸지 않는다.
+- **order_items.product_id**: 스냅샷 필드(product_name, product_price)로 독립적이며, 상품 삭제와 무관하게 주문 이력을 보존하기 위해 참조 추적용으로만 보관한다.
 
 ---
 
@@ -115,7 +116,7 @@ erDiagram
 | 컬럼         | 타입            | 제약조건                | 비고                          |
 |------------|---------------|---------------------|-----------------------------|
 | id         | BIGINT        | PK, AUTO_INCREMENT  |                             |
-| brand_id   | BIGINT        | FK, NOT NULL        | brands.id 참조                |
+| brand_id   | BIGINT        | NOT NULL            | 논리FK → brands.id            |
 | name       | VARCHAR(255)  | NOT NULL            |                             |
 | price      | DECIMAL(19,2) | NOT NULL            | VO(Price) 검증: >= 0          |
 | stock      | INT           | NOT NULL, DEFAULT 0 | VO(Stock) 검증: >= 0          |
@@ -127,11 +128,11 @@ erDiagram
 
 ### 2.3 likes
 
-| 컬럼         | 타입     | 제약조건               | 비고             |
-|------------|--------|--------------------|----------------|
-| id         | BIGINT | PK, AUTO_INCREMENT |                |
-| user_id    | BIGINT | FK, NOT NULL       | users.id 참조    |
-| product_id | BIGINT | FK, NOT NULL       | products.id 참조 |
+| 컬럼         | 타입     | 제약조건               | 비고                 |
+|------------|--------|--------------------|--------------------|
+| id         | BIGINT | PK, AUTO_INCREMENT |                    |
+| user_id    | BIGINT | NOT NULL           | 논리FK → users.id    |
+| product_id | BIGINT | NOT NULL           | 논리FK → products.id |
 
 > BaseEntity를 상속하지 않는다. 이력 관리 불필요, 취소 시 하드 딜리트(물리 삭제).
 
@@ -142,7 +143,7 @@ erDiagram
 | 컬럼          | 타입            | 제약조건               | 비고                                  |
 |-------------|---------------|--------------------|-------------------------------------|
 | id          | BIGINT        | PK, AUTO_INCREMENT |                                     |
-| user_id     | BIGINT        | FK, NOT NULL       | users.id 참조                         |
+| user_id     | BIGINT        | NOT NULL           | 논리FK → users.id                     |
 | status      | VARCHAR(20)   | NOT NULL           | CREATED / PAID / CANCELLED / FAILED |
 | total_price | DECIMAL(19,2) | NOT NULL           | 반정규화, 주문 생성 시 계산하여 저장               |
 | created_at  | DATETIME      | NOT NULL           | BaseEntity, 주문 생성일 (기간 조회 기준)       |
@@ -151,35 +152,37 @@ erDiagram
 
 ### 2.5 order_items
 
-| 컬럼            | 타입            | 제약조건               | 비고                                                |
-|---------------|---------------|--------------------|---------------------------------------------------|
-| id            | BIGINT        | PK, AUTO_INCREMENT |                                                   |
-| order_id      | BIGINT        | FK, NOT NULL       | orders.id 참조 (JPA cascade + DB ON DELETE CASCADE) |
-| product_id    | BIGINT        | NOT NULL           | FK 아님, 참조 추적용                                     |
-| product_name  | VARCHAR(255)  | NOT NULL           | 주문 시점 스냅샷                                         |
-| product_price | DECIMAL(19,2) | NOT NULL           | 주문 시점 스냅샷                                         |
-| quantity      | INT           | NOT NULL           | >= 1                                              |
-| created_at    | DATETIME      | NOT NULL           | BaseEntity                                        |
-| updated_at    | DATETIME      | NOT NULL           | BaseEntity                                        |
-| deleted_at    | DATETIME      | NULL               | soft delete                                       |
+| 컬럼            | 타입            | 제약조건               | 비고                                           |
+|---------------|---------------|--------------------|----------------------------------------------|
+| id            | BIGINT        | PK, AUTO_INCREMENT |                                              |
+| order_id      | BIGINT        | NOT NULL           | 논리FK → orders.id (JPA cascade로 관리, DB FK 없음) |
+| product_id    | BIGINT        | NOT NULL           | 참조 추적용 (FK 없음)                               |
+| product_name  | VARCHAR(255)  | NOT NULL           | 주문 시점 스냅샷                                    |
+| product_price | DECIMAL(19,2) | NOT NULL           | 주문 시점 스냅샷                                    |
+| quantity      | INT           | NOT NULL           | >= 1                                         |
+| created_at    | DATETIME      | NOT NULL           | BaseEntity                                   |
+| updated_at    | DATETIME      | NOT NULL           | BaseEntity                                   |
+| deleted_at    | DATETIME      | NULL               | soft delete                                  |
 
 ---
 
 ## 3. 인덱스 전략
 
-| 테이블         | 인덱스                                     | 타입     | 용도                                 |
-|-------------|-----------------------------------------|--------|------------------------------------|
-| products    | `(brand_id)`                            | 일반     | 브랜드별 상품 필터 조회                      |
-| products    | `(deleted_at, status, like_count DESC)` | 복합     | 대고객 활성 상품 조회 필터 + likes_desc 정렬 커버 |
-| products    | `(created_at)`                          | 일반     | latest 정렬                          |
-| products    | `(price)`                               | 일반     | price_asc 정렬                       |
-| likes       | `(user_id, product_id)`                 | UNIQUE | 중복 좋아요 방지 + 조회                     |
-| likes       | `(user_id)`                             | 일반     | 유저별 좋아요 목록 조회 (UNIQUE에 포함)         |
-| orders      | `(user_id, created_at)`                 | 복합     | 유저별 기간 주문 조회                       |
-| order_items | `(order_id)`                            | 일반     | 주문 상세의 항목 조회 (FK에 포함)              |
+| 테이블         | 인덱스                                     | 타입     | 용도                                                 |
+|-------------|-----------------------------------------|--------|----------------------------------------------------|
+| products    | `(brand_id)`                            | 일반     | 브랜드별 상품 필터 조회                                      |
+| products    | `(deleted_at, status, like_count DESC)` | 복합     | 대고객 활성 상품 조회 필터 + likes_desc 정렬 커버                 |
+| products    | `(deleted_at, status, created_at DESC)` | 복합     | 대고객 활성 상품 조회 필터 + latest 정렬 커버                     |
+| products    | `(deleted_at, status, price ASC)`       | 복합     | 대고객 활성 상품 조회 필터 + price_asc 정렬 커버                  |
+| likes       | `(user_id, product_id)`                 | UNIQUE | 중복 좋아요 방지 + 조회                                     |
+| likes       | `(user_id)`                             | 일반     | 유저별 좋아요 목록 조회 (UNIQUE에 포함)                         |
+| orders      | `(user_id, created_at)`                 | 복합     | 유저별 기간 주문 조회                                       |
+| order_items | `(order_id, product_id)`                | UNIQUE | 주문 내 상품 중복 방지 + 주문 상세 항목 조회 커버                     |
+| order_items | `(product_id)`                          | 일반     | 상품별 주문 이력 추적 (논리FK이므로 DB 인덱스 자동 생성 안 됨, 명시적 추가 필요) |
 
 > `likes(user_id, product_id)` UNIQUE 인덱스가 `user_id` 단독 조회도 커버하므로, 별도 user_id 인덱스는 불필요하다.
 > likes 테이블에 created_at은 두지 않는다. 최신순 정렬이 필요하면 id 역순으로 대체한다.
+> 어드민 조회는 현재 필터 없이 `findAll(pageable)`을 사용한다. 운영 데이터 증가 시 `products(brand_id, created_at)` 등 어드민 전용 복합 인덱스를 추가로 검토한다.
 
 ---
 
@@ -198,8 +201,8 @@ erDiagram
 | OrderItem entity             | order_items 테이블                | 1:1                                    |
 | OrderStatus enum             | orders.status VARCHAR          | enum → VARCHAR                         |
 | BrandName VO                 | brands.name VARCHAR            | VO → 컬럼                                |
-| Order *-- OrderItem (합성)     | order_items.order_id FK        | JPA cascade + DB ON DELETE CASCADE     |
-| Brand -- Product (ID 참조)     | products.brand_id FK           | 일반 FK                                  |
+| Order *-- OrderItem (합성)     | order_items.order_id           | JPA cascade (DB FK 없음)                 |
+| Brand -- Product (ID 참조)     | products.brand_id              | 논리FK (DB FK 없음)                        |
 | Product .. OrderItem (스냅샷)   | product_name, product_price 컬럼 | FK 없음, 값 복사                            |
 
 ---
@@ -231,3 +234,5 @@ erDiagram
 | **orders 기간 조회 성능**     | user_id + created_at 범위 검색, 데이터 증가 시 느려짐         | 복합 인덱스 + 기본 1달 제한                     | 파티셔닝 또는 아카이빙                                 |
 | **order_items 스냅샷 불변성** | 애플리케이션에서만 불변 보장, DB 레벨 제약 없음                     | 코드 리뷰로 관리                             | 필요 시 DB 트리거 또는 불변 테이블 전략                     |
 | **soft delete 쿼리 복잡도**  | 모든 조회에 `deleted_at IS NULL` 조건 필요                | Repository 메서드마다 조건 명시 (`@Where` 미사용) | 필요 시 Hibernate `@Filter` 또는 `@SoftDelete` 검토 |
+| **상품 복구 시 likeCount 불일치** | 삭제된 상품의 좋아요 취소 시 likeCount 미갱신 → 복구 시 실제 likes 수와 likeCount 불일치 | 현재 상품 복구 시나리오 없음 (scope 외) | 복구 로직에 likeCount 재집계 추가, 또는 likes COUNT 쿼리로 보정 |
+| **논리FK 참조 무결성**         | 물리 FK 미사용으로 고아 데이터 발생 가능 (삭제된 brand의 product 등) | 애플리케이션 레벨에서 참조 검증        | 정기 배치로 고아 데이터 탐지/정리                          |

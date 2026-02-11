@@ -10,7 +10,8 @@
 
 ### 1.1 Service 리턴 타입: Info or Entity
 
-**문제:** 초기 시퀀스 다이어그램에서 Service가 `ProductInfo`, `BrandInfo` 같은 application 레이어 객체를 리턴하도록 작성했다. 그런데 클래스 다이어그램에서는 Service가 domain 레이어에 속하고, Info는 application 레이어에 속한다.
+**문제:** 초기 시퀀스 다이어그램에서 Service가 `ProductInfo`, `BrandInfo` 같은 application 레이어 객체를 리턴하도록 작성했다. 그런데 클래스 다이어그램에서는 Service가
+domain 레이어에 속하고, Info는 application 레이어에 속한다.
 
 **고민:**
 
@@ -191,26 +192,17 @@ order_id를 NULL로 넣고 이후 별도 UPDATE로 FK를 설정하는 비효율�
 - 주문 목록 조회 시 OrderItem을 로딩하지 않고도 총액 제공 (N+1 방지)
 - totalPrice는 주문 생성 이후 변경되지 않으므로 정합성 문제 없음
 
-### 3.2 Order.create() 정적 팩토리
+### 3.2 할루시네이션 — 중복 상품 병합
 
-**결정:** `Order.create(userId, items)` 정적 팩토리에서 Order + OrderItem을 한 번에 생성.
+**문제:** 초기 설계 문서에 "같은 productId가 여러 주문 항목에 포함될 수 있다"는 전제가 있었다. 이를 해결하기 위해 중복 상품 병합(Order.create에서 수량 합산), 재고 차감 순서(
+productId 오름차순 정렬로 데드락 방지) 등을 설계했다.
 
-**책임:**
+**발견:** 요구사항을 다시 확인한 결과, 실제 규칙은 "주문 항목의 상품은 고유해야 한다 (같은 productId 중복 불가)"였다. 중복 상품이 들어오는 시나리오 자체가 존재하지 않는 가상의 요구사항이었고,
+초기 문서 작성 시 AI가 만들어낸 것이었다.
 
-- OrderItem 생성
-- totalPrice 계산 (items의 `productPrice * quantity` 합산)
-- 중복 상품 병합 (3.3 참조)
+**결정:** 중복 병합, 재고 차감 정렬 관련 설계는 무효 처리한다. 주문 항목에 같은 productId가 포함되면 400 응답으로 거부한다.
 
-### 3.3 중복 상품 병합 + 재고 차감 순서
-
-**문제:** 같은 productId가 여러 항목에 포함될 수 있다. 재고 차감 시 데드락을 어떻게 방지하는가?
-
-**결정:**
-
-1. **중복 병합:** 같은 productId가 여러 항목에 포함되면 수량을 합산하여 하나의 OrderItem으로 병합. OrderService.createOrder 내부에서 도메인 로직으로 처리.
-2. **재고 차감 순서:** 병합 후 productId 오름차순으로 정렬하여 재고를 차감. 모든 트랜잭션이 동일한 순서로 락을 획득하므로 데드락을 방지.
-
-### 3.4 주문 목록 조회 기간 필터
+### 3.3 주문 목록 조회 기간 필터
 
 **파라미터:** `startedAt` / `endedAt` (LocalDateTime)
 
@@ -225,7 +217,7 @@ order_id를 NULL로 넣고 이후 별도 UPDATE로 FK를 설정하는 비효율�
 
 **TimeZone:** CommerceApiApplication의 `DefaultTimeZone`으로 ZonedDateTime 변환.
 
-### 3.5 OrderService 메서드 정리
+### 3.4 OrderService 메서드 정리
 
 | 메서드                                                       | 용도        | 비고                                 |
 |-----------------------------------------------------------|-----------|------------------------------------|
@@ -292,6 +284,26 @@ order_id를 NULL로 넣고 이후 별도 UPDATE로 FK를 설정하는 비효율�
 - JPA 표준 방식으로 처리 가능 (DB 벤더 종속 SQL 없이)
 - 동시 요청은 예외적 상황이므로 낙관적 접근이 적절
 - UPSERT는 JPA 영속성 컨텍스트와 동기화가 까다로움
+
+### 4.4 좋아요 목록 조회 URL: B안 선택
+
+**문제:** `GET /api/v1/users/{userId}/likes`에서 인증 필수인데 `{userId}` path variable이 필요한가? 어차피 본인만 조회 가능한데 타인 ID를 URL에 넣을 수 있는
+구조가 맞는가?
+
+**선택지:**
+
+| 선택지 | URL                            | 타인 조회 방지                                   | 비고                      |
+|-----|--------------------------------|--------------------------------------------|-------------------------|
+| A   | `/api/v1/users/{userId}/likes` | Controller에서 `userId != authUser` 체크 (403) | RESTful하지만 중복 정보        |
+| B   | `/api/v1/users/likes`          | 구조적으로 불가능 (URL에 타인 ID 넣을 곳 없음)             | 기존 `/users/user` 패턴과 일관 |
+
+**결정:** 선택지 B. `GET /api/v1/users/likes` + `@AuthUser userId: Long`
+
+**근거:**
+
+- 기존 프로젝트 패턴 (`/users/user`, `/users/user/password`)과 일관
+- 권한 체크를 코드가 아닌 URL 구조로 해결 — 실수로 뚫릴 가능성 제거
+- 어드민이 타인 조회 필요하면 `/api-admin/v1/users/{userId}/likes`로 분리 가능 (기존 어드민 경로 분리 패턴)
 
 ---
 
@@ -410,7 +422,7 @@ BrandFacade.deleteBrand()
 
 ### 9.1 재고 동시성
 
-**현재:** 단일 요청 기준으로 처리 (향후 과제). productId 오름차순 정렬로 데드락은 방지.
+**현재:** 단일 요청 기준으로 처리 (향후 과제).
 
 **후보 방안:**
 
@@ -429,7 +441,65 @@ user_id + created_at 범위 검색, 데이터 증가 시 느려짐. 복합 인�
 
 ---
 
-## 10. 리뷰 수렴 과정
+## 10. v2 리팩토링 (Gemini 리뷰 기반)
+
+### 10.1 리팩토링 배경
+
+v1 설계 문서를 Gemini에게 리팩토링 의뢰하여 v2를 생성했다. 핵심 리팩토링 원칙:
+
+1. **메서드 시그니처 제거** → 의도 기반 언어 (예: `getBrand(brandId)` → `브랜드 조회`)
+2. **예외 분기(alt) 제거** → Happy Path만 표현
+3. **참여자 레벨 통일** → User → Controller → Facade/Service → Repository
+4. **복잡도 격리** → Cascade/복잡 로직은 Note로 분리
+
+### 10.2 v1 대비 v2에서 살린 항목
+
+v2 리팩토링 과정에서 v1의 중요 내용이 일부 누락되었다. v1과 비교하여 복원한 항목:
+
+**시퀀스 다이어그램:**
+
+- 공통 규칙 섹션 (트랜잭션, 인증, soft delete 컨벤션)
+- 각 시퀀스 하단 "참고" 섹션 (N+1 방지, OrderItem 스냅샷 등 비즈니스 규칙)
+- 4.1 주문 생성의 3단계 프로세스 (상품 검증 → 재고 차감 → 주문 생성)
+
+**클래스 다이어그램:**
+
+- ProductStatus / OrderStatus enum 다이어그램
+- Product의 update(), increaseStock(), decreaseLikeCount() 메서드
+- Like 도메인의 removeLike() (Facade + Service 양쪽)
+- Order.totalPrice 필드
+- ProductDetailDto / ProductDetailInfo (cross-domain 조합 응답)
+- BrandFacade의 getActiveBrand / getBrand 구분
+- Facade 의존 관계 라벨 완전화
+- VO 정리 테이블 (Section 8)
+- 시퀀스 교차 참조 테이블 (Section 10)
+
+### 10.3 Gemini 피드백 5건 반영
+
+v2 문서 4개를 Gemini에게 분석시켜 받은 피드백과 반영 결과:
+
+| # | 피드백                                                     | 반영 파일               | 처리                                                                       |
+|---|---------------------------------------------------------|---------------------|--------------------------------------------------------------------------|
+| 1 | API 파라미터 네이밍: `startAt`/`endAt` → `startedAt`/`endedAt` | 01-requirements-v2  | 이미 올바르게 사용 중. 원본 `requirements-analysis.md`를 수정하여 통일                     |
+| 2 | Enum 타입 매핑: `VARCHAR(20)` + `@Enumerated(STRING)` 명시    | 04-erd-v2           | products.status, orders.status 설명에 `@Enumerated(STRING) → VARCHAR 매핑` 추가 |
+| 3 | 인덱스 컬럼 순서: Cardinality 기반 재조정 가능성                       | 04-erd-v2           | 인덱스 전략 하단에 분포도 기반 컬럼 순서 재조정 노트 추가                                        |
+| 4 | User 도메인 API: 고객용 API 테이블에 User API 누락                  | 01-requirements-v2  | 회원가입, 내 정보 조회, 비밀번호 변경 3개 API 추가                                         |
+| 5 | 삭제된 상품 좋아요 취소 시 likeCount 미갱신 강조                        | 03-class-diagram-v2 | Like 핵심 포인트에 삭제 상품 조건 상세 설명 추가                                           |
+
+### 10.4 requirements-analysis.md 동기화
+
+원본 요구사항 문서(`docs/requirements-analysis.md`)와 design-v2 간 괴리 4건을 수정:
+
+| 항목          | 수정 전                           | 수정 후                        |
+|-------------|--------------------------------|-----------------------------|
+| 회원가입 URI    | `/api/v1/users`                | `/api/v1/users/sign-up`     |
+| 비밀번호 변경 URI | `/api/v1/users/password`       | `/api/v1/users/me/password` |
+| 좋아요 목록 URI  | `/api/v1/users/{userId}/likes` | `/api/v1/users/likes`       |
+| 주문 조회 파라미터  | `startAt` / `endAt`            | `startedAt` / `endedAt`     |
+
+---
+
+## 11. 리뷰 수렴 과정 (v1)
 
 | 차수   | 발견 이슈 | 주요 내용                                                |
 |------|-------|------------------------------------------------------|
@@ -443,7 +513,7 @@ user_id + created_at 범위 검색, 데이터 증가 시 느려짐. 복합 인�
 
 ---
 
-## 11. 배운 점
+## 12. 배운 점
 
 ### 설계 문서는 "코드의 선행 지표"다
 

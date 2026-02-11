@@ -65,7 +65,7 @@ classDiagram
         -OrderStatus status
         -BigDecimal totalPrice
         -List~OrderItem~ items
-        +create(userId, items)$ Order
+        +create(userId, products, command)$ Order
     }
 
     class OrderItem {
@@ -73,6 +73,7 @@ classDiagram
         -String productName
         -BigDecimal productPrice
         -Int quantity
+        +create(product, quantity)$ OrderItem
     }
 
     class OrderStatus {
@@ -230,12 +231,22 @@ classDiagram
         }
         class ProductAdminController {
             +getProducts(brandId, pageable) ApiResponse~Page~
-            +getProduct(productId) ApiResponse~ProductDto~
+            +getProduct(productId) ApiResponse~AdminProductDto~
             +createProduct(request) ApiResponse~Long~
             +updateProduct(productId, request) ApiResponse~Long~
             +deleteProduct(productId) ApiResponse~Void~
         }
-        class ProductDto {
+        class CustomerProductDto {
+            +Long id
+            +Long brandId
+            +String name
+            +BigDecimal price
+            +ProductStatus status
+            +Int likeCount
+            +ZonedDateTime createdAt
+            +from(ProductInfo)$ CustomerProductDto
+        }
+        class AdminProductDto {
             +Long id
             +Long brandId
             +String name
@@ -245,10 +256,10 @@ classDiagram
             +Int likeCount
             +ZonedDateTime createdAt
             +ZonedDateTime deletedAt
-            +from(ProductInfo)$ ProductDto
+            +from(ProductInfo)$ AdminProductDto
         }
         class ProductDetailDto {
-            +ProductDto product
+            +CustomerProductDto product
             +BrandDto brand
             +from(ProductDetailInfo)$ ProductDetailDto
         }
@@ -539,7 +550,7 @@ classDiagram
             -OrderStatus status
             -BigDecimal totalPrice
             -List~OrderItem~ items
-            +create(userId, items)$ Order
+            +create(userId, products, command)$ Order
             +getItemCount() Int
         }
         class OrderItem {
@@ -547,6 +558,7 @@ classDiagram
             -String productName
             -BigDecimal productPrice
             -Int quantity
+            +create(product, quantity)$ OrderItem
         }
         class OrderStatus {
             <<enumeration>>
@@ -589,7 +601,7 @@ classDiagram
 ### 읽는 법
 
 - **Order *-- OrderItem (합성)**: OrderItem은 Order Aggregate의 내부 Entity(종속 엔티티)다. 독립 생명주기와 독립 Repository가 없으며, 항상 Order를 통해서만 접근한다. JPA에서 단방향 `@OneToMany(cascade = ALL, orphanRemoval = true)` + `@JoinColumn(name = "order_id", nullable = false)`로 구현하며, OrderItem에서 Order로의 역참조(`@ManyToOne`)는 두지 않는다.
-- **Order.create() 정적 팩토리**: `Order.create(userId, items)`로 Order + OrderItem을 한 번에 생성한다. totalPrice는 이 시점에 items의 `productPrice * quantity` 합산으로 계산한다.
+- **Order.create() 정적 팩토리**: `Order.create(userId, products, command)`로 Order + OrderItem을 한 번에 생성한다. 내부에서 command의 각 항목에 대해 `OrderItem.create(product, quantity)`를 호출하여 Product의 name, price를 스냅샷으로 복사한다. totalPrice는 이 시점에 items의 `productPrice * quantity` 합산으로 계산한다.
 - **OrderFacade가 ProductService에 의존**: 주문 생성 시 상품 존재/판매 가능 확인 + 재고 차감을 ProductService에 위임한다.
 - **OrderItem의 스냅샷 필드**: `productName`, `productPrice`는 주문 시점의 Product 정보를 복사한 값이다. Product가 나중에 수정/삭제되어도 주문 내역에는 영향 없다.
 - **totalPrice**: `Order.create()` 정적 팩토리에서 items의 `productPrice * quantity`를 합산하여 계산하고 저장한다 (반정규화). 주문 목록 조회 시 OrderItem을 로딩하지 않고도 총액을 제공할 수 있다.
@@ -695,7 +707,7 @@ classDiagram
 
 ### 읽는 법
 
-- **AuthInterceptor**: 기존 User 인증. 적용 경로 확장: `/api/v1/users/**`, `/api/v1/products/*/likes`, `/api/v1/users/*/likes`, `/api/v1/orders/**`. 인증 성공 시 `request.setAttribute("userId", user.id)` 설정.
+- **AuthInterceptor**: 기존 User 인증. 적용 경로 확장: `/api/v1/users/**`, `/api/v1/products/*/likes`, `/api/v1/orders/**`. 인증 성공 시 `request.setAttribute("userId", user.id)` 설정.
 - **@AuthUser + AuthUserArgumentResolver**: `HandlerMethodArgumentResolver` 구현체. Controller 메서드에서 `@AuthUser userId: Long` 파라미터로 인증된 사용자 ID를 주입받는다. AuthInterceptor가 request에 설정한 userId를 꺼내어 반환한다.
 - **AdminInterceptor**: 신규. `X-Loopers-Ldap: loopers.admin` 헤더 값을 단순 비교. 불일치 시 401.
 - **AdminInterceptor는 AuthService에 의존하지 않는다**: LDAP 인증은 헤더 값 비교만으로 충분하다.
@@ -745,3 +757,5 @@ classDiagram
 5. **트랜잭션 전략**: Service는 변경 작업에 `@Transactional` 필수 적용. Facade는 여러 Service를 조합하여 원자성이 필요한 경우에만 선택적 적용. 단일 Service 호출만 하는 Facade 메서드는 Service의 트랜잭션에 위임한다.
 
 6. **soft delete 조회 전략**: `@Where(clause = "deleted_at IS NULL")` 미사용. Repository 메서드마다 조건을 명시적으로 추가한다. 어드민 API의 삭제 데이터 조회 유연성을 확보하기 위함이다.
+
+7. **대고객/어드민 DTO 분리**: Product의 응답 DTO를 `CustomerProductDto`(대고객)와 `AdminProductDto`(어드민)로 분리한다. 대고객은 stock, deletedAt을 노출하지 않고, 어드민은 전체 정보를 포함한다. Info 객체(application 레이어)는 공유하되, interfaces 레이어에서 액터별로 필요한 필드만 노출한다.
