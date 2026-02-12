@@ -9,8 +9,11 @@ data class ExampleInfo(
 ) {
     companion object {
         fun from(model: ExampleModel): ExampleInfo {
+            val id = requireNotNull(model.id) {
+                "ExampleModel.id가 null입니다. 저장 후 매핑해야 합니다."
+            }
             return ExampleInfo(
-                id = model.id,
+                id = id,
                 name = model.name,
                 description = model.description,
             )
