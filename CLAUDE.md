@@ -20,6 +20,7 @@
 ```
 
 단일 테스트 실행:
+
 ```bash
 ./gradlew :apps:commerce-api:test --tests "패키지.클래스명"
 ./gradlew :apps:commerce-api:test --tests "패키지.클래스명.메서드명"
@@ -45,7 +46,7 @@ infrastructure/    → RepositoryImpl(구현체), JpaRepository
 support/error/     → CoreException, ErrorType
 ```
 
-요청 흐름: `Controller → Facade → Service → Repository(interface) → RepositoryImpl → JpaRepository`
+요청 흐름: `Controller → Facade(Service) → Repository(interface) → RepositoryImpl → JpaRepository`
 
 ### 핵심 패턴
 
