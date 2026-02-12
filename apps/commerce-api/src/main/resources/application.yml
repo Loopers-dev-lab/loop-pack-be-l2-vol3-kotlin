@@ -24,6 +24,11 @@ spring:
       - logging.yml
       - monitoring.yml
 
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-for-hs256-algorithm}
+  expiration: 3600
+  issuer: commerce-api
+
 springdoc:
   use-fqn: true
   swagger-ui:
