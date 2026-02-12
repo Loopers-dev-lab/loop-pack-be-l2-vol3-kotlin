@@ -35,14 +35,15 @@ sequenceDiagram
     PS-->>F: 상품 목록 반환
 
     F->>PS: deductStock(products, quantities)
+    Note over PS: product.deductStock(quantity) — 엔티티가 재고 검증 및 차감
     alt 재고 부족
         PS-->>F: CoreException (BAD_REQUEST, "상품 '{상품명}'의 재고가 부족합니다")
         Note over F,DB: 트랜잭션 롤백
     end
 
     F->>OS: createOrder(user, products, quantities)
-    Note over OS: Order 생성 (ORDERED)
-    Note over OS: OrderItem 생성 (스냅샷 포함)
+    Note over OS: Order.create(ORDERED) — 엔티티 생성
+    Note over OS: OrderItem.create(product 스냅샷) — 엔티티 생성
     OS->>ORepo: save(order)
     ORepo->>DB: INSERT
 
@@ -57,7 +58,7 @@ sequenceDiagram
 - **입력값 검증은 Controller에서 선행한다.** items 비어있음, quantity ≤ 0, productId 중복은 트랜잭션 진입 전에 차단된다.
 - **Facade가 오케스트레이션을 담당한다.** ProductService와 OrderService를 조합하는 책임이 Facade에 있다.
 - **존재 확인은 ProductService의 책임이다.** 상품이 없거나 삭제된 경우 ProductService가 CoreException(NOT_FOUND)을 throw한다.
-- **재고 차감은 ProductService의 책임이다.** OrderService는 주문 생성만 담당한다. 재고 부족 시에도 ProductService가 CoreException을 throw한다.
+- **재고 차감은 ProductService → Product 엔티티의 책임이다.** `product.deductStock(quantity)`로 엔티티가 재고 검증과 차감을 수행한다. OrderService는 주문 생성만 담당한다.
 - **트랜잭션 경계는 Facade 레벨이다.** 재고 차감과 주문 생성이 하나의 트랜잭션으로 묶인다.
 
 ---
@@ -187,10 +188,10 @@ sequenceDiagram
     Note over F,DB: 트랜잭션 시작
 
     F->>BS: delete(brand)
-    Note over BS: Brand soft delete (deletedAt 설정)
+    Note over BS: brand.delete() — deletedAt 설정
 
     F->>PS: deleteAllByBrandId(brandId)
-    Note over PS: 해당 브랜드의 모든 상품 soft delete
+    Note over PS: products.forEach { it.delete() } — 각 상품 soft delete
 
     Note over F,DB: 트랜잭션 커밋
 
@@ -281,14 +282,13 @@ sequenceDiagram
     end
     PS-->>F: Product
 
-    Note over F: product.validateBrandChange(command.brandId)
-    alt brandId 변경 시도
-        Note over F: Product 엔티티가 CoreException throw
-    end
-
     F->>PS: updateProduct(product, command)
     Note over PS,DB: @Transactional (Service 레벨)
-    Note over PS: 상품 정보 수정 (이름, 가격, 설명, 재고)
+    Note over PS: product.validateBrandChange(command.brandId)
+    alt brandId 변경 시도
+        PS-->>F: CoreException (BAD_REQUEST, "브랜드는 변경할 수 없습니다")
+    end
+    Note over PS: product.update(name, price, description, stock)
     PS->>DB: UPDATE
 
     PS-->>F: Product
@@ -297,9 +297,10 @@ sequenceDiagram
 ```
 
 **봐야 할 포인트:**
-- **트랜잭션 경계는 Service 레벨이다.** 쓰기는 ProductService에서만 발생하므로, Facade까지 트랜잭션을 확장할 필요가 없다. brandId 검증은 트랜잭션 진입 전에 완료된다.
+- **트랜잭션 경계는 Service 레벨이다.** 쓰기는 ProductService에서만 발생하므로, Facade까지 트랜잭션을 확장할 필요가 없다.
 - **존재 확인은 ProductService의 책임이다.** 상품이 없거나 삭제된 경우 ProductService가 CoreException(NOT_FOUND)을 throw한다.
-- **brandId 변경 불가 제약은 Product 엔티티의 도메인 메서드 책임이다.** `product.validateBrandChange(brandId)`로 엔티티가 자신의 불변 규칙을 검증한다.
+- **brandId 변경 불가 제약은 Product 엔티티의 도메인 메서드 책임이다.** `product.validateBrandChange(brandId)`로 엔티티가 자신의 불변 규칙을 검증하며, 이 검증은 ProductService.updateProduct() 내부에서 수행된다.
+- **상품 수정도 엔티티의 도메인 메서드 책임이다.** `product.update(name, price, description, stock)`로 엔티티가 자신의 상태를 변경한다.
 - **입력값 검증(가격, 재고)은 Controller에서 선행한다.** 형식 검증과 비즈니스 규칙 검증이 레이어별로 분리되어 있다.
 
 ---
@@ -327,7 +328,7 @@ sequenceDiagram
 
     F->>PS: delete(product)
     Note over PS,DB: @Transactional (Service 레벨)
-    Note over PS: Product soft delete (deletedAt 설정)
+    Note over PS: product.delete() — deletedAt 설정
     PS->>DB: UPDATE (deletedAt)
 
     Note over F: 좋아요 데이터는 보존 (조회 시 삭제된 상품 필터링)
