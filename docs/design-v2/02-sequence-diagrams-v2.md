@@ -7,7 +7,7 @@
 
 - **참여자(Participant) 레벨 통일**:
     - **Controller**: 요청 수신, 파라미터 매핑, 응답 변환
-    - **Facade**: 트랜잭션 단위 설정 및 도메인 간 조율 (단순 조회 시에도 구조 일관성을 위해 표기)
+    - **Facade**: 트랜잭션 단위 설정 및 도메인 간 조율
     - **Service**: 핵심 비즈니스 로직 및 도메인 규칙 수행
     - **Repository**: DB 접근 (JPA)
 - **트랜잭션 경계**: Service는 변경 작업에 `@Transactional` 필수 적용. Facade는 여러 Service를 조합하여 원자성이 필요한 경우에만 선택적 적용.
@@ -31,16 +31,13 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as BrandController
-    participant F as BrandFacade
     participant S as BrandService
     participant R as BrandRepository
     User ->> C: 브랜드 상세 정보 요청
-    C ->> F: 조회 위임
-    F ->> S: 유효한 브랜드 조회 요청
+    C ->> S: 유효한 브랜드 조회 요청
     S ->> R: DB 조회 (삭제되지 않은 브랜드)
     R -->> S: 브랜드 엔티티
-    S -->> F: 결과 반환
-    F -->> C: BrandInfo 반환
+    S -->> C: Brand 엔티티
     C -->> User: 200 OK
 ```
 
@@ -53,16 +50,13 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as ProductController
-    participant F as ProductFacade
     participant S as ProductService
     participant R as ProductRepository
     User ->> C: 상품 목록 조회 요청 (brandId, 정렬, 페이징)
-    C ->> F: 조회 위임
-    F ->> S: 조건에 맞는 판매중인 상품 검색
+    C ->> S: 조건에 맞는 판매중인 상품 검색
     S ->> R: DB 조회 (삭제/HIDDEN 제외, 정렬 적용)
     R -->> S: 상품 목록 (Page)
-    S -->> F: 결과 반환
-    F -->> C: Page<ProductInfo> 반환
+    S -->> C: Page<Product> 반환
     C -->> User: 200 OK
 ```
 
@@ -112,16 +106,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminController
-    participant F as BrandFacade
     participant S as BrandService
     participant R as BrandRepository
     Admin ->> C: 브랜드 목록 조회 요청 (페이징)
-    C ->> F: 조회 위임
-    F ->> S: 전체 브랜드 조회 요청
+    C ->> S: 전체 브랜드 조회 요청
     S ->> R: DB 조회 (삭제된 브랜드 포함)
     R -->> S: 브랜드 목록 (Page)
-    S -->> F: 결과 반환
-    F -->> C: Page<BrandInfo> 반환
+    S -->> C: Page<Brand> 반환
     C -->> Admin: 200 OK
 ```
 
@@ -138,16 +129,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminController
-    participant F as BrandFacade
     participant S as BrandService
     participant R as BrandRepository
     Admin ->> C: 브랜드 상세 조회 요청
-    C ->> F: 조회 위임
-    F ->> S: ID로 브랜드 검색
+    C ->> S: ID로 브랜드 검색
     S ->> R: DB 조회
     R -->> S: 브랜드 엔티티
-    S -->> F: 결과 반환
-    F -->> C: BrandInfo 반환
+    S -->> C: Brand 엔티티
     C -->> Admin: 200 OK
 ```
 
@@ -164,18 +152,15 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminController
-    participant F as BrandFacade
     participant S as BrandService
     participant R as BrandRepository
     Admin ->> C: 브랜드 등록 요청
-    C ->> F: 생성 위임
-    F ->> S: 브랜드 생성 요청
+    C ->> S: 브랜드 생성 요청
     Note over S, R: @Transactional
     S ->> S: Brand 엔티티 생성 (이름 검증 포함)
     S ->> R: 저장
     R -->> S: 생성된 브랜드 (ID 채번)
-    S -->> F: brandId 반환
-    F -->> C: brandId 반환
+    S -->> C: brandId 반환
     C -->> Admin: 200 OK
 ```
 
@@ -188,17 +173,14 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminController
-    participant F as BrandFacade
     participant S as BrandService
     participant R as BrandRepository
     Admin ->> C: 브랜드 수정 요청
-    C ->> F: 수정 위임
-    F ->> S: 브랜드 정보 수정 요청
+    C ->> S: 브랜드 정보 수정 요청
     Note over S, R: @Transactional
     S ->> R: ID로 브랜드 조회
     S ->> S: 정보 업데이트 (Dirty Checking)
-    S -->> F: brandId 반환
-    F -->> C: brandId 반환
+    S -->> C: brandId 반환
     C -->> Admin: 200 OK
 ```
 
@@ -250,16 +232,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminController
-    participant F as ProductFacade
     participant S as ProductService
     participant R as ProductRepository
     Admin ->> C: 상품 목록 조회 요청 (brandId 필터, 페이징)
-    C ->> F: 조회 위임
-    F ->> S: 조건별 상품 목록 검색
+    C ->> S: 조건별 상품 목록 검색
     S ->> R: DB 조회 (삭제된 상품 포함)
     R -->> S: 상품 목록 (Page)
-    S -->> F: 결과 반환
-    F -->> C: Page<ProductInfo> 반환
+    S -->> C: Page<Product> 반환
     C -->> Admin: 200 OK
 ```
 
@@ -276,16 +255,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminController
-    participant F as ProductFacade
     participant S as ProductService
     participant R as ProductRepository
     Admin ->> C: 상품 상세 조회 요청
-    C ->> F: 조회 위임
-    F ->> S: ID로 상품 검색
+    C ->> S: ID로 상품 검색
     S ->> R: DB 조회
     R -->> S: 상품 엔티티
-    S -->> F: 결과 반환
-    F -->> C: ProductInfo 반환
+    S -->> C: Product 엔티티
     C -->> Admin: 200 OK
 ```
 
@@ -334,18 +310,15 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminController
-    participant F as ProductFacade
     participant S as ProductService
     participant R as ProductRepository
     Admin ->> C: 상품 수정 요청
-    C ->> F: 수정 위임
-    F ->> S: 상품 정보 수정 요청
+    C ->> S: 상품 정보 수정 요청
     Note over S, R: @Transactional
     S ->> R: ID로 상품 조회
     S ->> S: 정보 업데이트 (가격/재고/상태)
-    Note right of S: 브랜드 변경 불가 규칙 검증
-    S -->> F: productId 반환
-    F -->> C: productId 반환
+    Note right of S: 브랜드 변경 불가 규칙 검증<br/>HIDDEN 명시 시 자동 전이 미적용
+    S -->> C: productId 반환
     C -->> Admin: 200 OK
 ```
 
@@ -358,22 +331,21 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminController
-    participant F as ProductFacade
     participant S as ProductService
     participant R as ProductRepository
     Admin ->> C: 상품 삭제 요청
-    C ->> F: 삭제 위임
-    F ->> S: 상품 삭제 요청
+    C ->> S: 상품 삭제 요청
     Note over S, R: @Transactional
     S ->> R: ID로 상품 조회
     S ->> S: Soft Delete 처리
-    F -->> C: 처리 완료
+    S -->> C: 처리 완료
     C -->> Admin: 200 OK
 ```
 
 #### 참고
 
 - BaseEntity.delete()는 이미 삭제 상태면 무시 (멱등)
+- 삭제된 상품의 like 는 추후 배치에서 제거
 
 ---
 
@@ -446,7 +418,7 @@ sequenceDiagram
 
         LS ->> R: 좋아요 엔티티 물리 삭제
 
-        alt 상품이 활성 상태인 경우
+        alt 상품이 판매중인 경우
             F ->> PS: 상품의 likeCount 감소 요청
             PS ->> R: 상품 업데이트
         end
@@ -552,16 +524,13 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as OrderController
-    participant F as OrderFacade
     participant OS as OrderService
     participant R as OrderRepository
     User ->> C: 주문 목록 조회 요청 (기간, 페이징)
-    C ->> F: 조회 위임
-    F ->> OS: 내 주문 내역 검색 요청
+    C ->> OS: 내 주문 내역 검색 요청
     OS ->> R: DB 조회 (userId + 기간 조건)
     R -->> OS: 주문 목록 (Page)
-    OS -->> F: 결과 반환
-    F -->> C: Page<OrderInfo> 반환
+    OS -->> C: Page<Order> 반환
     C -->> User: 200 OK
 ```
 
@@ -578,17 +547,14 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as OrderController
-    participant F as OrderFacade
     participant OS as OrderService
     participant R as OrderRepository
     User ->> C: 주문 상세 정보 요청
-    C ->> F: 조회 위임
-    F ->> OS: 주문 상세 조회 요청
+    C ->> OS: 주문 상세 조회 요청
     OS ->> R: DB 조회 (OrderItem 포함)
     R -->> OS: 주문 엔티티
-    OS -->> F: 결과 반환
-    Note right of F: 본인 주문인지 소유권 검증
-    F -->> C: OrderDetailInfo 반환
+    Note right of OS: 본인 주문인지 소유권 검증
+    OS -->> C: Order 엔티티
     C -->> User: 200 OK
 ```
 
@@ -609,16 +575,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as OrderAdminController
-    participant F as OrderFacade
     participant OS as OrderService
     participant R as OrderRepository
     Admin ->> C: 전체 주문 목록 조회 요청
-    C ->> F: 조회 위임
-    F ->> OS: 전체 주문 검색 요청
+    C ->> OS: 전체 주문 검색 요청
     OS ->> R: DB 조회 (userId 필터 없음)
     R -->> OS: 주문 목록 (Page)
-    OS -->> F: 결과 반환
-    F -->> C: Page<OrderInfo> 반환
+    OS -->> C: Page<Order> 반환
     C -->> Admin: 200 OK
 ```
 
@@ -631,16 +594,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as OrderAdminController
-    participant F as OrderFacade
     participant OS as OrderService
     participant R as OrderRepository
     Admin ->> C: 주문 상세 조회 요청
-    C ->> F: 조회 위임
-    F ->> OS: 주문 ID로 검색 요청
+    C ->> OS: 주문 ID로 검색 요청
     OS ->> R: DB 조회
     R -->> OS: 주문 엔티티 (OrderItem 포함)
-    OS -->> F: 결과 반환
-    F -->> C: OrderDetailInfo 반환
+    OS -->> C: Order 엔티티 (OrderItem 포함)
     C -->> Admin: 200 OK
 ```
 

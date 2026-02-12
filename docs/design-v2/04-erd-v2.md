@@ -96,32 +96,32 @@ erDiagram
 
 ### 2.1 Core Domain (Products & Brands)
 
-| 테이블          | 컬럼         | 타입            | 제약조건         | 설명                          |
-|--------------|------------|---------------|--------------|-----------------------------|
-| **brands**   | id         | BIGINT        | PK, Auto Inc |                             |
-|              | name       | VARCHAR(255)  | NOT NULL     | 브랜드명 (VO: BrandName 빈 값 검증) |
-| **products** | id         | BIGINT        | PK, Auto Inc |                             |
-|              | brand_id   | BIGINT        | NOT NULL     | [논리FK] Brand 참조             |
-|              | name       | VARCHAR(255)  | NOT NULL     | 상품명                         |
-|              | price      | DECIMAL(19,2) | NOT NULL     | 상품 가격 (VO: Price >= 0)      |
-|              | stock      | INT           | NOT NULL     | 재고 수량 (VO: Stock >= 0)      |
+| 테이블          | 컬럼         | 타입            | 제약조건         | 설명                                         |
+|--------------|------------|---------------|--------------|--------------------------------------------|
+| **brands**   | id         | BIGINT        | PK, Auto Inc |                                            |
+|              | name       | VARCHAR(255)  | NOT NULL     | 브랜드명 (VO: BrandName 빈 값 검증)                |
+| **products** | id         | BIGINT        | PK, Auto Inc |                                            |
+|              | brand_id   | BIGINT        | NOT NULL     | [논리FK] Brand 참조                            |
+|              | name       | VARCHAR(255)  | NOT NULL     | 상품명                                        |
+|              | price      | DECIMAL(19,2) | NOT NULL     | 상품 가격 (VO: Price >= 0)                     |
+|              | stock      | INT           | NOT NULL     | 재고 수량 (VO: Stock >= 0)                     |
 |              | status     | VARCHAR(20)   | NOT NULL     | 상품 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
-|              | like_count | INT           | NOT NULL     | [반정규화] 좋아요 수 캐싱             |
+|              | like_count | INT           | NOT NULL     | [반정규화] 좋아요 수 캐싱                            |
 
 ### 2.2 Order Domain
 
-| 테이블             | 컬럼            | 타입            | 제약조건         | 설명                               |
-|-----------------|---------------|---------------|--------------|----------------------------------|
-| **orders**      | id            | BIGINT        | PK, Auto Inc |                                  |
-|                 | user_id       | BIGINT        | NOT NULL     | [논리FK] User 참조                   |
+| 테이블             | 컬럼            | 타입            | 제약조건         | 설명                                         |
+|-----------------|---------------|---------------|--------------|--------------------------------------------|
+| **orders**      | id            | BIGINT        | PK, Auto Inc |                                            |
+|                 | user_id       | BIGINT        | NOT NULL     | [논리FK] User 참조                             |
 |                 | status        | VARCHAR(20)   | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
-|                 | total_price   | DECIMAL(19,2) | NOT NULL     | [반정규화] 주문 총액                     |
-| **order_items** | id            | BIGINT        | PK, Auto Inc |                                  |
-|                 | order_id      | BIGINT        | NOT NULL     | [논리FK] Order 참조 (Aggregate Root) |
-|                 | product_id    | BIGINT        | NOT NULL     | 단순 참조용 (데이터 추적)                  |
-|                 | product_name  | VARCHAR(255)  | NOT NULL     | [Snapshot] 주문 시점 상품명             |
-|                 | product_price | DECIMAL(19,2) | NOT NULL     | [Snapshot] 주문 시점 가격              |
-|                 | quantity      | INT           | NOT NULL     | 주문 수량 (>= 1)                     |
+|                 | total_price   | DECIMAL(19,2) | NOT NULL     | [반정규화] 주문 총액                               |
+| **order_items** | id            | BIGINT        | PK, Auto Inc |                                            |
+|                 | order_id      | BIGINT        | NOT NULL     | [논리FK] Order 참조 (Aggregate Root)           |
+|                 | product_id    | BIGINT        | NOT NULL     | 단순 참조용 (데이터 추적)                            |
+|                 | product_name  | VARCHAR(255)  | NOT NULL     | [Snapshot] 주문 시점 상품명                       |
+|                 | product_price | DECIMAL(19,2) | NOT NULL     | [Snapshot] 주문 시점 가격                        |
+|                 | quantity      | INT           | NOT NULL     | 주문 수량 (>= 1)                               |
 
 ### 2.3 User Interaction
 
@@ -180,14 +180,15 @@ erDiagram
 
 물리적 제약조건을 완화(No FK, 반정규화)함에 따라 발생하는 리스크와 대응 방안이다.
 
-| 구분         | 잠재 리스크                                              | 대응 전략 (Architecture & Implementation)                                                       |
-|------------|-----------------------------------------------------|---------------------------------------------------------------------------------------------|
-| **동시성**    | `like_count` 손실 갱신 (Lost Update)                    | 좋아요 등록/취소 트랜잭션 내에서 **Atomic Update** 또는 락 처리                                                |
-| **정합성**    | 상품 정보 변경 시 주문 이력 왜곡                                 | `order_items`에 **Snapshot 컬럼**(name, price)을 두어 불변성 보장                                      |
-| **참조 무결성** | 삭제된 Brand의 Product 잔존 (Orphan)                      | 애플리케이션 레벨의 **Cascade Soft Delete** 로직 구현                                                    |
-| **성능**     | `orders` 기간 조회 성능 저하                                | 복합 인덱스 활용 및 어플리케이션 단에서 **조회 기간 제한** (Pagination)                                            |
-| **비대화**    | products에 stock, like_count, status 집중 → 빈번한 UPDATE | 현재 규모 무시 가능. 향후 stock 분리, like_count Redis 이관 검토                                            |
-| **불변성**    | order_items 스냅샷이 애플리케이션에서만 불변 보장 (DB 제약 없음)         | 코드 리뷰로 관리. 필요 시 DB 트리거 또는 불변 테이블 전략 검토                                                      |
-| **쿼리 복잡도** | 모든 조회에 `deleted_at IS NULL` 조건 필요                   | Repository 메서드마다 조건 명시. 필요 시 Hibernate `@Filter` 또는 `@SoftDelete` 검토                        |
-| **복구 정합성** | 상품 복구 시 likeCount와 실제 likes 수 불일치 가능                | 현재 복구 시나리오 없음 (scope 외). 복구 로직에 likeCount 재집계 추가 검토                                         |
-| **UK 충돌**  | Soft Delete 된 login_id, brand name 재사용 시 UK 중복 에러   | 탈퇴/삭제 시 식별자 변조 (예: `name_deleted_{timestamp}`) 또는 정책 결정 필요. MySQL은 Partial Unique Index 미지원 |
+| 구분           | 잠재 리스크                                                                                                        | 대응 전략 (Architecture & Implementation)                                                          |
+|--------------|---------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
+| **동시성**      | `like_count` 손실 갱신 (Lost Update)                                                                              | 좋아요 등록/취소 트랜잭션 내에서 **Atomic Update** 또는 락 처리                                                   |
+| **정합성**      | 상품 정보 변경 시 주문 이력 왜곡                                                                                           | `order_items`에 **Snapshot 컬럼**(name, price)을 두어 불변성 보장                                         |
+| **참조 무결성**   | 삭제된 Brand의 Product 잔존 (Orphan)                                                                                | 애플리케이션 레벨의 **Cascade Soft Delete** 로직 구현                                                       |
+| **성능**       | `orders` 기간 조회 성능 저하                                                                                          | 복합 인덱스 활용 및 어플리케이션 단에서 **조회 기간 제한** (Pagination)                                               |
+| **비대화**      | products에 stock, like_count, status 집중 → 빈번한 UPDATE                                                           | 현재 규모 무시 가능. 향후 stock 분리, like_count Redis 이관 검토                                               |
+| **불변성**      | order_items 스냅샷이 애플리케이션에서만 불변 보장 (DB 제약 없음)                                                                   | 코드 리뷰로 관리. 필요 시 DB 트리거 또는 불변 테이블 전략 검토                                                         |
+| **쿼리 복잡도**   | 모든 조회에 `deleted_at IS NULL` 조건 필요                                                                             | Repository 메서드마다 조건 명시. 필요 시 Hibernate `@Filter` 또는 `@SoftDelete` 검토                           |
+| **복구 정합성**   | 상품 복구 시 likeCount와 실제 likes 수 불일치 가능                                                                          | 현재 복구 시나리오 없음 (scope 외). 복구 로직에 likeCount 재집계 추가 검토                                            |
+| **인덱스 커버리지** | `brandId` 필터 + 정렬 조합 시 기존 복합 인덱스 미활용 (`(brand_id)` 단독 → filesort, `(deleted_at, status, ...)` → brand_id 후필터) | 현재 데이터 규모에서 무시 가능. 데이터 증가 시 `(brand_id, deleted_at, status, created_at)` 등 브랜드 기반 복합 인덱스 추가 검토 |
+| **UK 충돌**    | Soft Delete 된 login_id, brand name 재사용 시 UK 중복 에러                                                             | 탈퇴/삭제 시 식별자 변조 (예: `name_deleted_{timestamp}`) 또는 정책 결정 필요. MySQL은 Partial Unique Index 미지원    |

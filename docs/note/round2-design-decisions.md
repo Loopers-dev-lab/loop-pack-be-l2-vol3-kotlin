@@ -63,7 +63,7 @@ Controller → Dto    (interfaces 레이어에서 변환)
 
 **영향:** 시퀀스 다이어그램 6곳 수정, 클래스 다이어그램과 100% 일치시킴.
 
-### 1.3 Facade 유지 (1:1 passthrough 포함)
+### 1.3 Facade 선택적 사용 (1:1은 직접 호출)
 
 **문제:** 단일 도메인만 다루는 API(예: 브랜드 CRUD)에서도 Facade를 거쳐야 하는가? 1:1 passthrough는 불필요한 레이어 아닌가?
 
@@ -72,14 +72,19 @@ Controller → Dto    (interfaces 레이어에서 변환)
 - A: 1:1인 경우 Controller → Service 직접 호출
 - B: 모든 경우 Facade 유지
 
-**결정:** 모든 경우 Facade를 유지한다 (선택지 B).
+**결정:** 1:1인 경우 Controller가 Service를 직접 호출한다 (선택지 A).
 
 **근거:**
 
-- Controller는 항상 Facade만 의존 → 의존성이 단순하고 일관
-- cross-domain 로직 추가 시 Controller 변경 없이 Facade만 확장
-- Info/Dto 변환이 항상 application 레이어에서 일어남
-- **단, 1:1 Facade 메서드에 @Transactional은 붙이지 않음** — Service에 위임
+- 1:1 passthrough Facade는 위임만 할 뿐 가치를 더하지 않는다
+- 불필요한 레이어는 코드량과 변경 비용만 증가시킨다
+- cross-domain 로직이 필요해지는 시점에 Facade를 도입하면 된다 (YAGNI)
+- Controller가 Service를 직접 호출해도 레이어 간 역참조가 발생하지 않는다 (interfaces → domain 방향)
+
+**Facade가 필요한 경우:**
+
+- 2개 이상의 서비스를 조율할 때 (cross-domain orchestration)
+- 예: 좋아요 등록(LikeService + ProductService), 브랜드 삭제(BrandService + ProductService), 주문 생성(ProductService + OrderService)
 
 ### 1.4 @Transactional 전략
 
@@ -154,7 +159,7 @@ findAllProducts(brandId, pageable)           → 어드민 (필터 없음)
 
 ### 2.2 OrderItem — Aggregate 내부 Entity (종속 엔티티)
 
-**결정:** OrderItem은 독립 Entity가 아닌 Order Aggregate의 내부 Entity.
+**결정:** OrderItem은 독립 Entity가 아닌 Order Aggregate의 내부 Entity. BaseEntity를 상속한다.
 
 **특성:**
 
@@ -162,6 +167,8 @@ findAllProducts(brandId, pageable)           → 어드민 (필터 없음)
 - 단방향 `@OneToMany(cascade = ALL, orphanRemoval = true)` + `@JoinColumn(name = "order_id", nullable = false)`로 구현
 - OrderItem에서 Order로의 역참조(`@ManyToOne`) 없음
 - `nullable = false`는 Hibernate의 extra UPDATE 문제를 방지 — INSERT 시 order_id를 함께 설정
+
+**BaseEntity 상속 유지 결정:** 리뷰에서 "OrderItem이 Composition인데 BaseEntity(deletedAt) 상속이 필요한가?"라는 의문이 제기됐다. 추후 주문 일부 취소(OrderItem 개별 soft delete) 시나리오를 대비하여 유지하기로 결정. `orphanRemoval=true`와 soft delete가 공존할 때 의도치 않은 물리 삭제가 발생하지 않도록 구현 시 주의 필요.
 
 **JPA 주의점:** Hibernate 6.x (Spring Boot 3.4)에서 `@JoinColumn(nullable = false)` 없이 단방향 `@OneToMany`를 사용하면, INSERT 시
 order_id를 NULL로 넣고 이후 별도 UPDATE로 FK를 설정하는 비효율이 발생한다.
@@ -321,7 +328,8 @@ productId 오름차순 정렬로 데드락 방지) 등을 설계했다.
 
 **에러 처리:**
 
-- 인증 헤더 누락: 기존 1주차 구현에서 400 (BAD_REQUEST)으로 응답. 설계 문서의 401과 차이가 있으나, 기존 동작을 변경하지 않기로 함.
+- 인증 헤더 누락/인증 실패: 401 (UNAUTHORIZED)로 통일. 좋아요, 주문 예외 흐름 테이블에서도 동일하게 반영.
+- 이유: 헤더 누락도 "인증되지 않은 요청"이므로 400보다 401이 의미적으로 정확. 섹션 7(인증/인가)의 "인증 실패 시 401 응답" 원칙과 통일.
 
 ---
 
@@ -348,7 +356,38 @@ ProductDetailInfo {
 
 **영향:** ProductFacade → BrandService 의존이 "상품 등록 시 브랜드 존재 확인"뿐 아니라 "대고객 상품 상세 조회 시 브랜드 정보 조합"도 포함.
 
-### 6.2 ProductFacade 메서드 수 검증
+### 6.2 HIDDEN status 우선순위 (수정 시 자동 전이 규칙)
+
+**문제:** 어드민이 상품 수정 시 `status=HIDDEN, stock=123`을 보내면, `adjustStatusByStock()`이 stock > 0이므로 `ON_SALE`로 덮어쓰는가?
+
+**선택지:**
+
+- A: 명시된 status가 무조건 우선 (모순 상태 허용, 어드민 책임)
+- B: HIDDEN만 우선, 나머지는 자동 전이 규칙 적용
+- C: 모순 상태(stock=0 + ON_SALE) 시 400 에러
+
+**결정:** 선택지 B. HIDDEN만 우선, 나머지는 자동 전이.
+
+**예시:**
+
+| 요청 | 결과 status | 이유 |
+|------|-----------|------|
+| stock=123, status=HIDDEN | HIDDEN | 어드민 의도 우선 |
+| stock=0, status=ON_SALE | SOLD_OUT | 자동 전이 규칙 적용 |
+| stock=123, status=SOLD_OUT | ON_SALE | 자동 전이 규칙 적용 |
+
+**근거:**
+
+- HIDDEN은 "어드민이 의도적으로 노출을 차단한 상태"이므로 자동 전이로 풀리면 안 됨
+- ON_SALE/SOLD_OUT은 재고 기반 자동 전이가 정확한 상태를 보장
+- 선택지 A는 stock=0인데 ON_SALE인 모순 상태를 허용하여 사용자 혼란 유발
+- 선택지 C는 어드민 UX가 나빠짐 (stock과 status를 항상 맞춰서 보내야 함)
+
+**구현 힌트:** `update()` 메서드에서 status가 HIDDEN이면 `adjustStatusByStock()`을 건너뛰고, 그 외에는 stock 기반으로 status를 재설정.
+
+**영향:** 요구사항(섹션 4.1), 시퀀스(2.9 Note), 클래스 다이어그램(adjustStatusByStock 설명) 3곳 동시 반영.
+
+### 6.3 ProductFacade 메서드 수 검증
 
 **문제:** 클래스 다이어그램의 ProductFacade에 8개 메서드가 있었는데, API 엔드포인트는 7개뿐이었다. `deleteProductsByBrandId`가 불필요한 메서드였다.
 
@@ -379,7 +418,18 @@ BrandFacade.deleteBrand()
 **근거:** 대고객 상품 목록 쿼리(`WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY like_count DESC`)에서 MySQL은 하나의 인덱스만
 사용하므로, WHERE + ORDER BY를 함께 커버하는 복합 인덱스가 효율적. 기존 `(status, deleted_at)` + `(like_count)` 별도 인덱스를 통합했다.
 
-### 7.2 likes UNIQUE 인덱스
+### 7.2 brandId 복합 인덱스 리스크
+
+**문제:** 대고객 상품 목록 조회에서 `brandId=5 AND deletedAt IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC` 쿼리를 실행하면, 기존 인덱스로는 최적의 실행 계획을 만들 수 없다.
+
+- `(brand_id)` 단독 인덱스 → brand_id 필터는 되지만 정렬에 filesort 필요
+- `(deleted_at, status, created_at)` 복합 인덱스 → 정렬은 되지만 brand_id는 후필터
+
+**결정:** 현재 데이터 규모에서는 추가 인덱스 불필요. ERD 리스크 테이블에 "인덱스 커버리지" 항목으로 기록하고, 데이터 증가 시 `(brand_id, deleted_at, status, created_at)` 복합 인덱스 추가를 검토한다.
+
+**근거:** 초기 데이터량에서 불필요한 인덱스는 쓰기 성능만 떨어뜨린다. 실제 느려지는 시점에 EXPLAIN으로 확인하고 추가하는 게 적절.
+
+### 7.3 likes UNIQUE 인덱스
 
 **결정:** `(user_id, product_id)` UNIQUE — 중복 좋아요 방지 + user_id 단독 조회도 커버.
 
@@ -486,20 +536,47 @@ v2 문서 4개를 Gemini에게 분석시켜 받은 피드백과 반영 결과:
 | 4 | User 도메인 API: 고객용 API 테이블에 User API 누락                  | 01-requirements-v2  | 회원가입, 내 정보 조회, 비밀번호 변경 3개 API 추가                                         |
 | 5 | 삭제된 상품 좋아요 취소 시 likeCount 미갱신 강조                        | 03-class-diagram-v2 | Like 핵심 포인트에 삭제 상품 조건 상세 설명 추가                                           |
 
-### 10.4 requirements-analysis.md 동기화
+### 10.4 v2 2차 리뷰 — Facade 제거 및 문서 확장
+
+v2 문서에 대해 2차 설계 리뷰를 수행하여 추가 개선한 사항:
+
+**Facade 1:1 pass-through 제거 (시퀀스 14개 + 클래스 4개 섹션):**
+
+1.3 Facade 선택적 사용 결정을 실제 v2 문서에 적용. 단일 서비스만 호출하는 시퀀스 14개에서 Facade 참여자를 제거하고, Controller → Service 직접 호출로 변경.
+
+- 시퀀스: 1.1, 1.2, 2.1~2.4, 2.6, 2.7, 2.9, 2.10, 4.2, 4.3, 5.1, 5.2
+- 클래스: Brand(섹션2), Product(섹션3), Order(섹션5), Facade Architecture View(섹션6)
+- 4.3 주문 상세 조회: 소유권 검증 책임을 Facade에서 Service로 이관 (단일 도메인 관심사)
+
+**플로우차트 문서 신설 (05-flowcharts-v2.md):**
+
+시퀀스 다이어그램과 역할 분리 — "누가 호출하는가" vs "어떤 조건에서 분기하는가".
+단순 CRUD는 제외하고 **분기가 복잡한 흐름만** 선정:
+
+| 플로우차트 | 선정 이유 | 시퀀스 대응 |
+|-----------|---------|----------|
+| 서비스 전체 흐름 | 시스템 조감도 | - |
+| 주문 생성 프로세스 | 검증 5단계 분기 + cross-domain | 4.1 |
+| 좋아요 토글 (등록/취소) | 멱등성 + 삭제 상품 분기 | 3.1, 3.2 |
+
+**API 엔드포인트 마인드맵 (01-requirements-v2.md에 추가):**
+
+요구사항 섹션 6 API 명세에 마인드맵 추가. 도메인별/액터별 엔드포인트를 계층적으로 시각화하여, 상세 테이블 이전에 전체 구조를 한눈에 파악할 수 있게 함.
+
+### 10.5 requirements-analysis.md 동기화
 
 원본 요구사항 문서(`docs/requirements-analysis.md`)와 design-v2 간 괴리 4건을 수정:
 
 | 항목          | 수정 전                           | 수정 후                        |
 |-------------|--------------------------------|-----------------------------|
-| 회원가입 URI    | `/api/v1/users`                | `/api/v1/users/sign-up`     |
-| 비밀번호 변경 URI | `/api/v1/users/password`       | `/api/v1/users/me/password` |
 | 좋아요 목록 URI  | `/api/v1/users/{userId}/likes` | `/api/v1/users/likes`       |
 | 주문 조회 파라미터  | `startAt` / `endAt`            | `startedAt` / `endedAt`     |
 
 ---
 
-## 11. 리뷰 수렴 과정 (v1)
+## 11. 리뷰 수렴 과정
+
+### v1 (초기 설계)
 
 | 차수   | 발견 이슈 | 주요 내용                                                |
 |------|-------|------------------------------------------------------|
@@ -510,6 +587,15 @@ v2 문서 4개를 Gemini에게 분석시켜 받은 피드백과 반영 결과:
 | 8차   | 0건    | 전수 검사 통과 — PR 제출 가능                                  |
 
 후반 4번의 반복으로 이슈가 4 → 3 → 2 → 0으로 수렴했다.
+
+### v2 (2차 리뷰)
+
+| 차수  | 발견 이슈 | 주요 내용                                                                         |
+|-----|-------|-------------------------------------------------------------------------------|
+| 1차  | 6건    | status 우선순위 경계 미정의, 시퀀스 2.9 규칙 미반영, adjustStatusByStock 갭, isDeleted 불일치, OrderItem BaseEntity, brandId 인덱스 |
+| 2차  | 0건    | 6건 모두 반영 확인. 잔여 2건은 구현 단계 테스트로 커버                                             |
+
+1차 6건 → 2차 0건으로 수렴. 설계 문서 5종(요구사항, 시퀀스, 클래스, ERD, 플로우차트) 간 정합성 확보.
 
 ---
 

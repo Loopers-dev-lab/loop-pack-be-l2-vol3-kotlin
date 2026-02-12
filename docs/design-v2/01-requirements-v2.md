@@ -89,15 +89,17 @@
 - **상태 제어:** 어드민은 상품을 강제로 `HIDDEN` 처리할 수 있으며, 이 경우 재고가 있어도 사용자에게 노출되지 않는다.
 - 등록 시 기본 status는 `ON_SALE` (stock > 0), `SOLD_OUT` (stock == 0)
 - stock 변경 시: 0이 되면 status → `SOLD_OUT`, 0에서 양수가 되면 status → `ON_SALE`
+- **수정 시 status 우선순위:** 어드민이 수정 요청에 `HIDDEN`을 명시하면 자동 전이 규칙보다 우선한다. 그 외 status는 stock 변경에 따른 자동 전이 규칙을 따른다. (예:
+  stock=123, status=HIDDEN → HIDDEN 유지 / stock=0, status=ON_SALE → SOLD_OUT으로 자동 전환)
 
 **예외 흐름 (브랜드):**
 
-| 조건                  | 응답  | 설명                          |
-|---------------------|-----|-----------------------------|
-| LDAP 헤더 누락 또는 값 불일치 | 401 | 어드민 인증 실패                   |
-| 브랜드명이 빈 값           | 400 | 필수 필드 누락                    |
-| 존재하지 않는 브랜드 수정/삭제   | 404 | soft deleted 포함             |
-| 이미 삭제된 브랜드 재삭제      | 200 | 멱등 처리 (이미 삭제 상태면 무시)     |
+| 조건                  | 응답  | 설명                   |
+|---------------------|-----|----------------------|
+| LDAP 헤더 누락 또는 값 불일치 | 401 | 어드민 인증 실패            |
+| 브랜드명이 빈 값           | 400 | 필수 필드 누락             |
+| 존재하지 않는 브랜드 수정/삭제   | 404 | soft deleted 포함      |
+| 이미 삭제된 브랜드 재삭제      | 200 | 멱등 처리 (이미 삭제 상태면 무시) |
 
 **예외 흐름 (상품):**
 
@@ -161,12 +163,12 @@
 
 | 조건                       | 응답  | 설명                      |
 |--------------------------|-----|-------------------------|
-| 인증 헤더 누락                 | 400 |                         |
+| 인증 헤더 누락                 | 401 | 메시지 통일                  |
 | 인증 실패 (유저 없음 / 비밀번호 불일치) | 401 | 메시지 통일                  |
 | 존재하지 않는 상품에 좋아요          | 404 |                         |
 | soft deleted 상품에 좋아요 등록  | 404 | 삭제된 상품에 좋아요 등록 불가       |
 | soft deleted 상품의 좋아요 취소  | 200 | Like 삭제 + likeCount 미갱신 |
-| 타인 좋아요 조회                | 400 | 인증된 사용자 본인만 조회 가능     |
+| 타인 좋아요 조회                | 400 | 인증된 사용자 본인만 조회 가능       |
 
 ### 4.4 주문 (사용자)
 
@@ -200,7 +202,7 @@
 
 | 조건                           | 응답  | 설명                        |
 |------------------------------|-----|---------------------------|
-| 인증 헤더 누락                     | 400 |                           |
+| 인증 헤더 누락                     | 401 | 메시지 통일                    |
 | 인증 실패                        | 401 | 메시지 통일                    |
 | 주문 항목이 비어있음                  | 400 | items가 null 또는 빈 배열       |
 | 주문 항목에 존재하지 않는 상품 포함         | 400 | productId에 해당하는 상품 없음     |
@@ -232,6 +234,34 @@
 ### 5.1 상품 상태 전이 (State Transition)
 
 상품의 상태(status)는 재고(stock)의 변경에 따라 자동으로 전이된다. 단, `HIDDEN`은 예외다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> ON_SALE: 상품 등록 (재고 > 0)
+    [*] --> SOLD_OUT: 상품 등록 (재고 == 0)
+    ON_SALE --> SOLD_OUT: 재고 차감으로 0 도달
+    ON_SALE --> HIDDEN: 어드민이 수동 변경
+    SOLD_OUT --> ON_SALE: 재고 증가 (> 0)
+    SOLD_OUT --> HIDDEN: 어드민이 수동 변경
+    HIDDEN --> HIDDEN: 재고 변동 시 상태 유지
+    HIDDEN --> ON_SALE: 어드민이 수동 변경
+    HIDDEN --> SOLD_OUT: 어드민이 수동 변경
+    ON_SALE --> [*]: Soft Delete
+    SOLD_OUT --> [*]: Soft Delete
+    HIDDEN --> [*]: Soft Delete
+    note right of ON_SALE
+        대고객 조회 가능
+        주문 가능
+    end note
+    note right of HIDDEN
+        대고객에게 노출되지 않음
+        재고 변동에도 상태 불변
+    end note
+    note right of SOLD_OUT
+        대고객 조회 가능
+        주문 불가
+    end note
+```
 
 **자동 전이 (Auto Transition):**
 
@@ -270,8 +300,34 @@
 - 좋아요 등록 시 Product.likeCount 증가, 취소 시 감소
 - 좋아요 목록 조회 시 삭제된 상품은 미노출
 - 삭제된 상품에 대한 좋아요 취소 시 200 응답 (Like 레코드가 있으면 삭제, 없으면 무시). 상품이 삭제 상태이므로 likeCount는 갱신하지 않는다
+- 삭제된 상품에 남아있는 좋아요 레코드는 배치(commerce-batch)에서 정리한다
 
-### 5.5 주문 규칙
+### 5.5 주문 상태 전이
+
+주문(Order)의 라이프사이클과 향후 확장 시 예상되는 상태 전이이다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> CREATED: 주문 생성
+    CREATED --> PAID: 결제 완료 (추후 구현)
+    CREATED --> CANCELLED: 사용자 취소 (추후 구현)
+    CREATED --> FAILED: 결제 실패 (추후 구현)
+    PAID --> CANCELLED: 환불 처리 (추후 구현)
+    CANCELLED --> [*]
+    FAILED --> [*]
+    PAID --> [*]
+    note right of CREATED
+        현재 시스템에서 유일하게
+        사용되는 상태
+        (결제 모듈 미구현)
+    end note
+    note left of PAID
+        스냅샷 데이터는
+        상태와 무관하게 불변
+    end note
+```
+
+### 5.6 주문 규칙
 
 - 주문은 최소 1개 이상의 주문 항목(OrderItem)을 가져야 한다
 - 주문 항목의 수량(quantity)은 1 이상이어야 한다
@@ -286,7 +342,7 @@
     - 미입력 시 최근 1달
 - 사용자는 본인의 주문만 조회 가능
 
-### 5.6 데이터 삭제 (Soft Delete)
+### 5.7 데이터 삭제 (Soft Delete)
 
 - **기본 정책:** 모든 데이터(User, Brand, Product, Order)는 물리적으로 삭제하지 않고 `deletedAt` 타임스탬프를 찍는 Soft Delete 방식을 따른다.
 - **예외:** Like(좋아요)는 이력이 불필요하므로 취소 시 물리 삭제(Hard Delete)한다.
@@ -303,8 +359,8 @@
 | METHOD | URI                                        | 인증 | 설명                   |
 |--------|--------------------------------------------|----|----------------------|
 | POST   | `/api/v1/users/sign-up`                    | X  | 회원가입                 |
-| GET    | `/api/v1/users/me`                         | O  | 내 정보 조회              |
-| PUT    | `/api/v1/users/me/password`                | O  | 비밀번호 변경              |
+| GET    | `/api/v1/users/user`                       | O  | 내 정보 조회              |
+| PUT    | `/api/v1/users/user/password`              | O  | 비밀번호 변경              |
 | GET    | `/api/v1/brands/{brandId}`                 | X  | 브랜드 정보 조회            |
 | GET    | `/api/v1/products`                         | X  | 상품 목록 조회 (페이징/정렬/필터) |
 | GET    | `/api/v1/products/{productId}`             | X  | 상품 상세 조회             |
@@ -334,20 +390,26 @@
 ```json
 {
   "items": [
-    { "productId": 1, "quantity": 2 },
-    { "productId": 3, "quantity": 1 }
+    {
+      "productId": 1,
+      "quantity": 2
+    },
+    {
+      "productId": 3,
+      "quantity": 1
+    }
   ]
 }
 ```
 
 **주문 목록 조회 파라미터:**
 
-| 파라미터        | 타입            | 필수 | 기본값  | 설명                                                          |
-|-------------|---------------|----|------|-------------------------------------------------------------|
+| 파라미터        | 타입       | 필수 | 기본값  | 설명                                         |
+|-------------|----------|----|------|--------------------------------------------|
 | `startedAt` | datetime | X  | 1달 전 | 조회 시작일시 (>=, inclusive). 애플리케이션 기본 시간대로 변환 |
 | `endedAt`   | datetime | X  | 오늘   | 조회 종료일시 (<, exclusive). 애플리케이션 기본 시간대로 변환  |
-| `page`      | Int           | X  | 0    | 페이지 번호                                                      |
-| `size`      | Int           | X  | 20   | 페이지당 항목 수                                                   |
+| `page`      | Int      | X  | 0    | 페이지 번호                                     |
+| `size`      | Int      | X  | 20   | 페이지당 항목 수                                  |
 
 ### 6.2 어드민용 API (`/api-admin/v1`)
 
@@ -456,7 +518,6 @@
 
 ### DTO 변환 위치
 
-- Service는 항상 도메인 엔티티(Entity)를 반환한다.
 - API 응답을 위한 DTO 변환은 Controller 또는 Facade 계층에서 수행한다.
 
 ### soft delete 조회 전략

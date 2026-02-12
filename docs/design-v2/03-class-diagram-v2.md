@@ -114,10 +114,11 @@ classDiagram
             +getBrand()
         }
         class BrandAdminController {
+            +getBrands()
+            +getBrand()
             +createBrand()
             +updateBrand()
             +deleteBrand()
-            +getBrands()
         }
         class BrandDto {
             +Long id
@@ -127,10 +128,6 @@ classDiagram
 
     namespace application {
         class BrandFacade {
-            +getActiveBrand(brandId)
-            +getBrand(brandId)
-            +createBrand(command)
-            +updateBrand(brandId, command)
             +deleteBrand(brandId)
         }
         class BrandInfo {
@@ -160,8 +157,9 @@ classDiagram
         }
     }
 
-    BrandController --> BrandFacade
-    BrandAdminController --> BrandFacade
+    BrandController --> BrandService: 조회
+    BrandAdminController --> BrandService: 등록/수정/조회
+    BrandAdminController --> BrandFacade: 삭제 (cross-domain)
     BrandFacade --> BrandService
     BrandFacade --> ProductService: 상품 일괄 삭제
     BrandService --> BrandRepository
@@ -170,7 +168,7 @@ classDiagram
 
 ### 핵심 포인트
 
-- **Facade의 역할:** `deleteBrand()` 호출 시 `BrandService`뿐만 아니라 `ProductService`를 함께 호출하여 상품 일괄 삭제를 조율한다.
+- **Facade의 역할:** `deleteBrand()`은 `BrandService`와 `ProductService`를 조율하는 cross-domain 작업이므로 Facade를 사용한다. 나머지 CRUD는 Controller가 Service를 직접 호출한다.
 - **VO 사용:** `BrandName` VO를 통해 이름 생성 규칙(빈 값 불가 등)을 캡슐화한다.
 - **getActiveBrand vs getBrand:** 대고객 API는 `getActiveBrand`(삭제 상태 체크), 어드민은 `getBrand`(삭제 포함)을 사용한다.
 
@@ -191,6 +189,8 @@ classDiagram
             +getProduct()
         }
         class ProductAdminController {
+            +getProducts()
+            +getProduct()
             +createProduct()
             +updateProduct()
             +deleteProduct()
@@ -212,10 +212,7 @@ classDiagram
     namespace application {
         class ProductFacade {
             +createProduct(command)
-            +updateProduct(productId, command)
-            +deleteProduct(productId)
-            +getActiveProduct(productId)
-            +getActiveProducts()
+            +getProductDetail(productId)
         }
         class ProductInfo {
             +ProductStatus status
@@ -237,6 +234,7 @@ classDiagram
             +increaseStock(quantity)
             +increaseLikeCount()
             +decreaseLikeCount()
+            +isDeleted() Boolean
             -adjustStatusByStock()
         }
         class Stock {
@@ -260,9 +258,12 @@ classDiagram
         }
     }
 
-    ProductController --> ProductFacade
-    ProductAdminController --> ProductFacade
+    ProductController --> ProductService: 목록 조회
+    ProductController --> ProductFacade: 상세 조회 (브랜드 정보 조합)
+    ProductAdminController --> ProductFacade: 등록 (브랜드 검증)
+    ProductAdminController --> ProductService: 수정/삭제/조회
     ProductFacade --> ProductService
+    ProductFacade --> BrandService: 브랜드 검증 / 정보 조합
     ProductService --> ProductRepository
     Product ..> Stock: 재고 변경 로직 위임
     Product ..> Price: 가격 검증
@@ -271,7 +272,8 @@ classDiagram
 ### 핵심 포인트
 
 - **adjustStatusByStock():** `decreaseStock()`/`increaseStock()`/`update()` 내부에서 호출. 재고가 0이 되면 `SOLD_OUT`, 0에서 양수가 되면
-  `ON_SALE`로 자동 전환. 단, `HIDDEN`이면 전환하지 않는다.
+  `ON_SALE`로 자동 전환. 단, `HIDDEN`이 명시된 경우 자동 전이를 적용하지 않는다 (어드민의 HIDDEN 설정이 우선).
+- **Facade 사용 기준:** `createProduct()`은 브랜드 유효성 검증(BrandService), `getProductDetail()`은 브랜드 정보 조합(BrandService)이 필요하므로 Facade를 사용한다. 나머지 CRUD와 어드민 조회는 Controller가 Service를 직접 호출한다.
 - **DTO 분리:** 대고객용 `CustomerProductDto`는 재고 수량(stock)과 삭제일(deletedAt)을 노출하지 않는다. `ProductDetailDto`는 대고객 상품 상세 조회 시
   Product + Brand 정보를 조합한 응답이다.
 
@@ -365,10 +367,6 @@ classDiagram
     namespace application {
         class OrderFacade {
             +createOrder(userId, command)
-            +getOrders(userId, startedAt, endedAt, pageable)
-            +getOrder(userId, orderId)
-            +getAllOrders(pageable)
-            +getOrderForAdmin(orderId)
         }
         class OrderDetailInfo {
             +List~OrderItemInfo~ items
@@ -392,7 +390,8 @@ classDiagram
         }
         class OrderService {
             +createOrder()
-            +getOrder(orderId)
+            +getOrder(userId, orderId)
+            +getOrderForAdmin(orderId)
             +getOrdersByUserId()
             +getAllOrders(pageable)
         }
@@ -401,8 +400,9 @@ classDiagram
         }
     }
 
-    OrderController --> OrderFacade
-    OrderAdminController --> OrderFacade
+    OrderController --> OrderFacade: 주문 생성 (cross-domain)
+    OrderController --> OrderService: 목록/상세 조회
+    OrderAdminController --> OrderService: 전체 조회
     OrderFacade --> OrderService
     OrderFacade --> ProductService: 재고 차감 / 상품 검증
     OrderService --> OrderRepository
@@ -416,36 +416,48 @@ classDiagram
 - **정적 팩토리 메서드:** `Order.create()` 내에서 `OrderItem`들을 생성하고, 이 시점에 Product의 가격과 이름을 스냅샷으로 복사한다.
 - **totalPrice (반정규화):** `Order.create()` 시 items의 `productPrice * quantity`를 합산하여 저장. 목록 조회 시 OrderItem을 로딩하지 않고도 총액을
   제공한다.
-- **대고객 vs 어드민:** 대고객 `getOrder(userId, orderId)`는 Facade에서 소유권 검증, 어드민 `getOrderForAdmin(orderId)`는 검증 없이 조회.
+- **Facade 사용 기준:** `createOrder()`만 ProductService(상품 검증 + 재고 차감)와 OrderService를 조율하므로 Facade를 사용한다. 조회 API는 Controller가 OrderService를 직접 호출한다.
+- **소유권 검증:** 대고객 `getOrder(userId, orderId)`는 Service에서 소유권 검증. 어드민 `getOrderForAdmin(orderId)`는 검증 없이 조회.
 
 ---
 
 ## 6. Facade 레이어의 의존 관계 (Architecture View)
 
-Service 간의 직접 참조를 막고, Facade가 컨트롤 타워 역할을 수행함을 보여준다.
+Facade는 2개 이상의 Service를 조율하는 cross-domain 작업에서만 사용한다. 1:1 단일 서비스 호출 시 Controller가 Service를 직접 호출한다.
 
 ```mermaid
 classDiagram
     direction TB
 
-    class BrandFacade
-    class ProductFacade
-    class LikeFacade
-    class OrderFacade
+    class BrandFacade {
+        +deleteBrand()
+    }
+    class ProductFacade {
+        +createProduct()
+        +getProductDetail()
+    }
+    class LikeFacade {
+        +addLike()
+        +removeLike()
+        +getLikes()
+    }
+    class OrderFacade {
+        +createOrder()
+    }
 
     class BrandService
     class ProductService
     class LikeService
     class OrderService
 
-    BrandFacade ..> BrandService
-    BrandFacade ..> ProductService: 브랜드 삭제 시\n상품 일괄 삭제
-    ProductFacade ..> ProductService
-    ProductFacade ..> BrandService: 상품 등록 시 브랜드 검증\n상품 상세 조회 시 브랜드 정보 조합
-    LikeFacade ..> LikeService
-    LikeFacade ..> ProductService: 좋아요 등록/취소 시 likeCount 증감\n좋아요 목록 조회 시 활성 상품 조합
-    OrderFacade ..> OrderService
-    OrderFacade ..> ProductService: 주문 생성 시\n상품 검증 + 재고 차감
+    BrandFacade ..> BrandService: 브랜드 삭제
+    BrandFacade ..> ProductService: 소속 상품 일괄 삭제
+    ProductFacade ..> ProductService: 상품 생성/조회
+    ProductFacade ..> BrandService: 브랜드 검증/정보 조합
+    LikeFacade ..> LikeService: 좋아요 등록/취소/조회
+    LikeFacade ..> ProductService: likeCount 증감\n활성 상품 조합
+    OrderFacade ..> OrderService: 주문 저장
+    OrderFacade ..> ProductService: 상품 검증\n재고 차감
 ```
 
 ---
@@ -496,9 +508,9 @@ classDiagram
     - **결정**: 객체 간 연관 관계(`@ManyToOne`)를 맺지 않고, **ID(Long) 값만 참조**한다.
     - **이유**: 도메인 간의 강한 결합을 끊어 추후 MSA 분리를 용이하게 하고, 트랜잭션 범위를 명확히 제어하기 위함이다.
 
-2. **Facade 패턴의 역할 (Orchestration)**
-    - **결정**: Controller는 Service를 직접 호출하지 않고, 반드시 **Facade**를 거친다.
-    - **이유**: Service는 자기 도메인의 비즈니스 로직에만 집중. 도메인 간의 흐름 제어는 Facade의 책임으로 격리한다.
+2. **Facade 패턴의 역할 (Cross-Domain Orchestration)**
+    - **결정**: 단일 서비스 호출(1:1)인 경우 Controller가 Service를 직접 호출한다. 2개 이상의 서비스를 조율하는 경우에만 Facade를 사용한다.
+    - **이유**: 1:1 pass-through Facade는 불필요한 레이어를 추가할 뿐이다. Facade는 도메인 간 흐름 제어가 실제로 필요한 경우에만 그 가치를 발휘한다.
 
 3. **Product 엔티티의 책임 범위 (Rich Domain Model)**
     - **결정**: `stock`, `status`, `likeCount` 등 변경 성격이 다른 필드들을 `Product` 하나의 엔티티에 둔다.
