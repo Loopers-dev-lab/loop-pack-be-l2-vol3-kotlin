@@ -92,6 +92,9 @@
 | 스냅샷 범위 | 핵심 정보 (상품명, 가격, 브랜드명) | 주문 조회 시 필요한 최소 정보 |
 | 삭제 방식 | Soft delete | BaseEntity 패턴과 일관, 데이터 보존 |
 | 노출 정보 차이 | 어드민만 관리 정보 추가 | 고객에겐 필요한 정보만, 어드민은 재고/생성일/수정일 등 포함 |
+| 주문 항목 중복 | 동일 productId 중복 시 거부 | 클라이언트 책임으로 명확한 요청 강제, 서버 로직 단순화 |
+| 어드민 삭제 데이터 | 삭제된 데이터 제외 | 고객과 동일하게 삭제된 데이터는 조회 불가, deletedAt 필드로 구분 |
+| 상품 삭제 시 좋아요 | 좋아요는 유지, 조회 시 제외 | 브랜드 삭제 시와 동일 정책, 데이터 보존 |
 
 ---
 
@@ -131,6 +134,50 @@
 - 필수 정보 누락 → 400 BAD_REQUEST
 ```
 
+#### 유스케이스: 브랜드 목록 조회 (어드민)
+
+```
+[Main Flow]
+1. 어드민이 GET /api-admin/v1/brands?page=0&size=20 요청
+2. 시스템이 브랜드 목록을 페이징하여 반환
+3. 삭제된 브랜드는 제외
+
+[기본값]
+- page: 0
+- size: 20
+
+[Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+```
+
+#### 유스케이스: 브랜드 상세 조회 (어드민)
+
+```
+[Main Flow]
+1. 어드민이 GET /api-admin/v1/brands/{brandId} 요청
+2. 시스템이 브랜드 상세 정보 반환 (생성일, 수정일 등 관리 정보 포함)
+
+[Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+- brandId에 해당하는 브랜드가 없음 → 404 NOT_FOUND
+- 삭제된 브랜드 → 404 NOT_FOUND
+```
+
+#### 유스케이스: 브랜드 수정 (어드민)
+
+```
+[Main Flow]
+1. 어드민이 PUT /api-admin/v1/brands/{brandId} 요청 (이름, 설명 등)
+2. 시스템이 브랜드 정보를 검증 후 수정
+3. 수정된 브랜드 정보를 반환
+
+[Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+- brandId에 해당하는 브랜드가 없음 → 404 NOT_FOUND
+- 삭제된 브랜드 → 404 NOT_FOUND
+- 필수 정보 누락 → 400 BAD_REQUEST
+```
+
 #### 유스케이스: 브랜드 삭제 (어드민)
 
 ```
@@ -141,12 +188,13 @@
 4. 삭제 완료 응답
 
 [Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
 - brandId에 해당하는 브랜드가 없음 → 404 NOT_FOUND
 - 이미 삭제된 브랜드 → 404 NOT_FOUND
 
 [주의]
 - 이미 주문된 상품의 스냅샷에는 영향 없음 (스냅샷은 독립적)
-- 삭제된 브랜드의 상품에 대한 좋아요 처리 정책 필요 (조회 시 제외)
+- 삭제된 브랜드의 상품에 대한 좋아요는 유지, 조회 시 제외
 ```
 
 ---
@@ -182,6 +230,52 @@
 - sort 미지정 → latest 적용
 ```
 
+#### 유스케이스: 상품 상세 조회 (고객)
+
+```
+[Main Flow]
+1. 고객이 GET /api/v1/products/{productId} 요청
+2. 시스템이 상품 상세 정보를 반환 (브랜드명 포함)
+3. 고객용 노출 정보만 반환 (재고, 생성일 등 제외)
+
+[Exception Flow]
+- productId에 해당하는 상품이 없음 → 404 NOT_FOUND
+- 삭제된 상품 → 404 NOT_FOUND
+```
+
+#### 유스케이스: 상품 목록 조회 (어드민)
+
+```
+[Main Flow]
+1. 어드민이 GET /api-admin/v1/products?page=0&size=20&brandId={brandId} 요청
+2. 시스템이 조건에 맞는 상품 목록을 페이징하여 반환
+3. 어드민용 정보 포함 (재고, 생성일, 수정일 등)
+4. 삭제된 상품은 제외
+
+[기본값]
+- page: 0
+- size: 20
+
+[Alternate Flow]
+- brandId 미지정 → 전체 브랜드의 상품 조회
+
+[Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+```
+
+#### 유스케이스: 상품 상세 조회 (어드민)
+
+```
+[Main Flow]
+1. 어드민이 GET /api-admin/v1/products/{productId} 요청
+2. 시스템이 상품 상세 정보를 반환 (재고, 생성일, 수정일 등 관리 정보 포함)
+
+[Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+- productId에 해당하는 상품이 없음 → 404 NOT_FOUND
+- 삭제된 상품 → 404 NOT_FOUND
+```
+
 #### 유스케이스: 상품 등록 (어드민)
 
 ```
@@ -212,6 +306,24 @@
 [Exception Flow]
 - brandId 변경 시도 → 400 BAD_REQUEST ("상품의 브랜드는 수정할 수 없습니다")
 - productId에 해당하는 상품이 없음 → 404 NOT_FOUND
+```
+
+#### 유스케이스: 상품 삭제 (어드민)
+
+```
+[Main Flow]
+1. 어드민이 DELETE /api-admin/v1/products/{productId} 요청
+2. 시스템이 해당 상품을 soft delete
+3. 삭제 완료 응답
+
+[Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+- productId에 해당하는 상품이 없음 → 404 NOT_FOUND
+- 이미 삭제된 상품 → 404 NOT_FOUND
+
+[주의]
+- 이미 주문된 상품의 스냅샷에는 영향 없음 (스냅샷은 독립적)
+- 삭제된 상품에 대한 좋아요는 유지, 조회 시 제외
 ```
 
 #### 고객 vs 어드민 노출 정보
@@ -273,6 +385,7 @@
 [Exception Flow]
 - 미로그인 → 401 UNAUTHORIZED
 - productId에 해당하는 상품이 없음 → 404 NOT_FOUND
+- 삭제된 상품 → 404 NOT_FOUND
 ```
 
 #### 유스케이스: 좋아요 목록 조회
@@ -319,6 +432,7 @@
 - 미로그인 → 401 UNAUTHORIZED
 - items가 비어있음 → 400 BAD_REQUEST
 - quantity가 0 이하 → 400 BAD_REQUEST
+- 동일 productId가 items에 중복으로 포함 → 400 BAD_REQUEST ("중복된 상품이 포함되어 있습니다")
 - productId에 해당하는 상품이 없음 → 404 NOT_FOUND
 - 삭제된 상품 포함 → 404 NOT_FOUND
 - 하나라도 재고 부족 → 400 BAD_REQUEST ("상품 '{상품명}'의 재고가 부족합니다"), 전체 주문 실패 (롤백)
@@ -357,16 +471,32 @@
 - 타 유저의 주문 → 403 FORBIDDEN
 ```
 
-#### 유스케이스: 주문 목록/상세 조회 (어드민)
+#### 유스케이스: 주문 목록 조회 (어드민)
 
 ```
 [Main Flow]
-1. 어드민이 GET /api-admin/v1/orders?page=0&size=20 또는 /orders/{orderId} 요청
-2. 모든 유저의 주문 조회 가능
-3. 페이징 처리하여 반환
+1. 어드민이 GET /api-admin/v1/orders?page=0&size=20 요청
+2. 모든 유저의 주문 목록을 페이징하여 반환
+
+[기본값]
+- page: 0
+- size: 20
 
 [Exception Flow]
 - LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+```
+
+#### 유스케이스: 주문 상세 조회 (어드민)
+
+```
+[Main Flow]
+1. 어드민이 GET /api-admin/v1/orders/{orderId} 요청
+2. 시스템이 주문 정보 + 주문 항목(스냅샷 포함) 반환
+3. 모든 유저의 주문 조회 가능
+
+[Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+- orderId에 해당하는 주문이 없음 → 404 NOT_FOUND
 ```
 
 ## 5. 잠재 리스크
@@ -415,6 +545,17 @@ Product의 `likeCount`와 `stock`은 비정규화된 필드다. 동시 요청 �
 | 좋아요는 유지, 조회 시 삭제된 상품 필터링 | 데이터 보존, 조회 로직에서 처리 |
 
 > 좋아요 목록 조회 시 삭제된 상품은 제외하는 방식이 데이터 보존 관점에서 적절하다.
+
+### 5.5 상품 삭제 시 연쇄 영향
+
+브랜드 삭제와 유사하게, 상품이 개별 삭제될 때도 해당 상품에 대한 좋아요가 존재할 수 있다.
+
+| 선택지 | 설명 |
+|--------|------|
+| 좋아요도 함께 삭제 | 깔끔하지만 유저의 좋아요 이력 손실 |
+| 좋아요는 유지, 조회 시 삭제된 상품 필터링 | 데이터 보존, 브랜드 삭제와 동일 정책 |
+
+> 브랜드 삭제와 동일하게, 좋아요는 유지하고 조회 시 삭제된 상품을 제외하는 방식으로 처리한다.
 
 ---
 
