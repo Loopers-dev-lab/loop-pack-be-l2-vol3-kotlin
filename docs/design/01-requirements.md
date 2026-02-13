@@ -286,6 +286,8 @@
 4. 생성된 상품 정보 반환
 
 [Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
+- 필수 정보 누락 (상품명 등) → 400 BAD_REQUEST
 - 브랜드ID에 해당하는 브랜드가 없음 → 404 NOT_FOUND ("등록되지 않은 브랜드입니다")
 - 삭제된 브랜드에 상품 등록 시도 → 404 NOT_FOUND
 - 가격이 0 이하 → 400 BAD_REQUEST
@@ -304,8 +306,13 @@
 - 상품의 브랜드(brandId)는 수정할 수 없음
 
 [Exception Flow]
+- LDAP 헤더 누락/불일치 → 401 UNAUTHORIZED
 - brandId 변경 시도 → 400 BAD_REQUEST ("상품의 브랜드는 수정할 수 없습니다")
 - productId에 해당하는 상품이 없음 → 404 NOT_FOUND
+- 삭제된 상품 수정 시도 → 404 NOT_FOUND
+- 필수 정보 누락 → 400 BAD_REQUEST
+- 가격이 0 이하 → 400 BAD_REQUEST
+- 재고가 0 미만 → 400 BAD_REQUEST
 ```
 
 #### 유스케이스: 상품 삭제 (어드민)
