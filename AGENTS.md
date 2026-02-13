@@ -59,6 +59,8 @@ com.loopers.
 ### Key Patterns
 
 - **Hexagonal Architecture**: Domain defines Repository interfaces, Infrastructure provides JPA implementations
+- **DDD 우선 설계**: Domain 계층의 순수성(Persistence Ignorance)을 유지하고, 애그리거트/VO/도메인 서비스로 비즈니스 규칙을 모델링한다
+- **CQRS 도입 기준**: 읽기/쓰기 모델의 관심사가 명확히 분리되고 성능/정합성 요구가 있을 때 Command/Query 모델 분리를 도입한다
 - **Service per Use Case**: `application/` layer implements use cases via Service classes. Facade is introduced only when multiple services need orchestration. 단일 Service만 필요한 경우 Controller → Service
   직접 호출
 - **Domain Model**: private constructor + companion object factory method (`register()`, `retrieve()`)
@@ -203,6 +205,8 @@ docker compose -f docker/monitoring-compose.yml up -d
 - AI는 **설계 주도권을 유지**하되, 사용자에게 중간 결과를 투명하게 보고한다
 - 구현 전 설계 방향을 먼저 제시하고, 승인 후 코드를 작성한다
 - 반복적인 동작(동일 패턴 3회 이상 반복)은 자동화 스크립트 또는 공통 유틸로 추출한다
+- DDD 완전 분리 구조를 기본 방향으로 삼고, 필요한 전술 패턴을 근거와 함께 선택한다
+- CQRS/Event Sourcing 도입 여부는 요구사항, 복잡도, 운영 비용의 트레이드오프를 명시해 결정한다
 
 #### 사전 보고 기준
 
