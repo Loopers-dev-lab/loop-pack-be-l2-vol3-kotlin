@@ -110,7 +110,7 @@ support/       - Application-specific utilities (error handling, etc.)
 
 **Key Principles**:
 - **Controller → Facade → Service → Repository**: Standard flow
-- **Domain models** contain business logic and validation (see ExampleModel.kt)
+- **Domain models** contain business logic and validation
 - **Repository interfaces** in domain/, implementations in infrastructure/
 - **Facades** orchestrate multiple services and handle DTO conversions
 - **Controllers** implement API specs and return standardized ApiResponse
@@ -307,24 +307,24 @@ All tests must follow the 3A principle: **Arrange - Act - Assert**
 - 다음 단계 안내
 
 #### 중요 규칙
-- ❌ 사용자 승인 없이 다음 Phase 진행 금지
-- ❌ 요구사항 문서에 없는 기능 임의 추가 금지
-- ✅ 각 단계에서 발견한 문제나 제안사항은 보고
-- ✅ 불명확한 요구사항은 구현 전 질문
+- 사용자 승인 없이 다음 Phase 진행 금지
+- 요구사항 문서에 없는 기능 임의 추가 금지
+- 각 단계에서 발견한 문제나 제안사항은 보고
+- 불명확한 요구사항은 구현 전 질문
 
 ## Guidelines & Best Practices
 
 ### Never Do
-- ❌ Write non-functional code or implementations using unnecessary mock data
-- ❌ Write code that is not null-safe (use Kotlin's null safety features)
-- ❌ Leave `println` statements in code
-- ❌ Delete or modify tests without explicit approval
+- Write non-functional code or implementations using unnecessary mock data
+- Write code that is not null-safe (use Kotlin's null safety features)
+- Leave `println` statements in code
+- Delete or modify tests without explicit approval
 
 ### Recommendations
-- ✅ Write E2E test code that calls actual APIs for verification
-- ✅ Design reusable objects
-- ✅ Provide alternatives and suggestions for performance optimization
-- ✅ For completed APIs, create and organize `.http` files in `.http/**/*.http`
+- Write E2E test code that calls actual APIs for verification
+- Design reusable objects
+- Provide alternatives and suggestions for performance optimization
+- For completed APIs, create and organize `.http` files in `.http/<도메인명>/<API명>.http` (예: `.http/member/sign-up.http`)
 
 ### Priority Order
 1. **Functional Solutions Only**: Consider only solutions that actually work
@@ -353,7 +353,6 @@ All tests must follow the 3A principle: **Arrange - Act - Assert**
 
 ### Local Development Stack
 - **MySQL**: localhost:3306
-- **PostgreSQL**: localhost:5432 (commerce-main)
 - **Redis (master)**: localhost:6379
 - **Redis (readonly)**: localhost:6380
 - **Kafka**: localhost:9092, localhost:19092
@@ -374,7 +373,7 @@ All tests must follow the 3A principle: **Arrange - Act - Assert**
 - Controlled in `build.gradle.kts` via `getGitHash()`
 
 ### API Documentation
-- Completed APIs should be documented in `.http/**/*.http` files
+- Completed APIs should be documented in `.http/<도메인명>/<API명>.http` files (예: `.http/member/sign-up.http`)
 - Use IntelliJ HTTP Client format for API testing
 
 ## Important Notes
