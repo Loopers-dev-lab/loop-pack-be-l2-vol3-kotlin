@@ -36,14 +36,11 @@ erDiagram
         bigint product_id "UK(user_id, product_id)"
         bigint user_id "UK(user_id, product_id)"
         datetime created_at
-        datetime updated_at
     }
     orders {
         bigint id PK
         bigint user_id
-        bigDecimal total_price
         datetime created_at
-        datetime updated_at
         datetime deleted_at
     }
     order_items {
@@ -54,7 +51,6 @@ erDiagram
         int quantity
         bigDecimal price
         datetime created_at
-        datetime updated_at
         datetime deleted_at
     }
     brands ||--o{ products : "belongs to"

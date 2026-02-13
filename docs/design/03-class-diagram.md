@@ -88,13 +88,9 @@ classDiagram
     }
 
     %% ── Inheritance ──
-    %% Soft Delete 대상만 BaseEntity 상속
-
     BaseEntity <|-- UserModel
     BaseEntity <|-- BrandModel
     BaseEntity <|-- ProductModel
-    BaseEntity <|-- OrderModel
-    BaseEntity <|-- OrderItemModel
 
     %% ── Relationships ──
     %% 점선 = ID 참조 (FK 미사용, 앱 레벨 정합성)
