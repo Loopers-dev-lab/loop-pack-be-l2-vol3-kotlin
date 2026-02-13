@@ -85,6 +85,7 @@ classDiagram
         +String productName
         +Int price
         +Int quantity
+        +getSubtotal() BigDecimal
     }
 
     %% ── Inheritance ──
