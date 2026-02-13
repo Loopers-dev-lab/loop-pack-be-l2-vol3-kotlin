@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.domain.user.User
+import com.loopers.domain.user.UserTestFixture
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.HEADER_LOGIN_ID
@@ -178,13 +178,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("내 정보 조회에 성공할 경우, 해당하는 유저 정보를 응답으로 반환한다.")
         fun returnsUserInfo_whenGetMeIsSuccessful() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -205,7 +199,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             assertAll(
                 { Assertions.assertThat(response.statusCode.is2xxSuccessful).isTrue() },
                 { Assertions.assertThat(response.body?.data?.loginId).isEqualTo("testuser1") },
-                { Assertions.assertThat(response.body?.data?.name).isEqualTo("홍길*") },  // 마스킹된 이름
+                { Assertions.assertThat(response.body?.data?.name).isEqualTo("홍길*") },
             )
         }
 
@@ -213,13 +207,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("비밀번호가 일치하지 않으면, 401 Unauthorized 응답을 반환한다.")
         fun returnsUnauthorized_whenPasswordIsWrong() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -273,18 +261,11 @@ class UserV1ApiE2ETest @Autowired constructor(
     @DisplayName("PATCH /api/v1/users/user/password")
     inner class ChangePassword {
 
-
         @Test
         @DisplayName("비밀번호 변경에 성공하면, 200 OK 응답을 반환한다.")
         fun returnsOk_whenChangePasswordIsSuccessful() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -315,13 +296,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경 시도하면, 400 Bad Request 응답을 반환한다.")
         fun returnsBadRequest_whenNewPasswordIsSameAsCurrent() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -355,13 +330,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("현재 비밀번호가 틀리면, 400 Bad Request 응답을 반환한다.")
         fun returnsBadRequest_whenCurrentPasswordIsWrong() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -395,13 +364,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("인증 헤더의 비밀번호가 틀리면, 401 Unauthorized 응답을 반환한다.")
         fun returnsUnauthorized_whenAuthPasswordIsWrong() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -435,13 +398,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("새 비밀번호가 8자 미만이면, 400 Bad Request 응답을 반환한다.")
         fun returnsBadRequest_whenNewPasswordIsTooShort() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -475,13 +432,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("새 비밀번호가 16자 초과하면, 400 Bad Request 응답을 반환한다.")
         fun returnsBadRequest_whenNewPasswordIsTooLong() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -515,13 +466,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("새 비밀번호에 생년월일이 포함되면, 400 Bad Request 응답을 반환한다.")
         fun returnsBadRequest_whenNewPasswordContainsBirthDate() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {
@@ -555,13 +500,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면, 400 Bad Request 응답을 반환한다.")
         fun returnsBadRequest_whenNewPasswordHasConsecutiveChars() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
+            val user = UserTestFixture.createUser()
             userJpaRepository.save(user)
 
             val headers = HttpHeaders().apply {

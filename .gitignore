@@ -38,3 +38,6 @@ out/
 
 ### Kotlin ###
 .kotlin
+/.omc
+nul
+/.claude/settings.local.json

@@ -7,7 +7,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.time.LocalDate
 
 class UserTest {
 
@@ -18,39 +17,30 @@ class UserTest {
         @Test
         @DisplayName("유효한 정보로 생성하면 성공한다")
         fun createUser_withValidData_success() {
-            // arrange
-            val loginId = "testuser1"
-            val password = "Password1!"
-            val name = "홍길동"
-            val birthDate = LocalDate.of(1990, 1, 15)
-            val email = "test@example.com"
-
-            // act
-            val user = User(loginId, password, name, birthDate, email)
+            // arrange & act
+            val user = UserTestFixture.createUser()
 
             // assert
-            assertThat(user.loginId).isEqualTo(loginId)
-            assertThat(user.name).isEqualTo(name)
-            assertThat(user.email).isEqualTo(email)
+            assertThat(user.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
+            assertThat(user.name).isEqualTo(UserTestFixture.DEFAULT_NAME)
+            assertThat(user.email).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
         }
 
         @Test
         @DisplayName("비밀번호는 암호화되어 저장된다")
         fun createUser_passwordIsEncoded() {
             // arrange & act
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             // assert
-            assertThat(user.password).isNotEqualTo("Password1!")
+            assertThat(user.password).isNotEqualTo(UserTestFixture.DEFAULT_PASSWORD)
         }
 
         @Test
         @DisplayName("비밀번호가 8자 미만이면 실패한다")
         fun createUser_shortPassword_throwsException() {
             val exception = assertThrows<CoreException> {
-                User("testuser1", "Pass1!", "홍길동",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(password = "Pass1!")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -59,8 +49,7 @@ class UserTest {
         @DisplayName("비밀번호가 16자 초과하면 실패한다")
         fun createUser_longPassword_throwsException() {
             val exception = assertThrows<CoreException> {
-                User("testuser1", "Password12345678!", "홍길동",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(password = "Password12345678!")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -68,9 +57,8 @@ class UserTest {
         @Test
         @DisplayName("비밀번호에 생년월일이 포함되면 실패한다")
         fun createUser_passwordContainsBirthDate_throwsException() {
-            val birthDate = LocalDate.of(1990, 1, 15)
             val exception = assertThrows<CoreException> {
-                User("testuser1", "Pass19900115!", "홍길동", birthDate, "test@example.com")
+                UserTestFixture.createUser(password = "Pass19900115!")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -79,8 +67,7 @@ class UserTest {
         @DisplayName("로그인 ID가 영문/숫자가 아니면 실패한다")
         fun createUser_invalidLoginId_throwsException() {
             val exception = assertThrows<CoreException> {
-                User("invalid_id!", "Password1!", "홍길동",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(loginId = "invalid_id!")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -93,8 +80,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                User(longLoginId, "Password1!", "홍길동",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(loginId = longLoginId)
             }
 
             // assert
@@ -103,12 +89,27 @@ class UserTest {
         }
 
         @Test
+        @DisplayName("로그인 ID가 4자 미만이면 실패한다")
+        fun createUser_tooShortLoginId_throwsException() {
+            // arrange
+            val shortLoginId = "abc"
+
+            // act
+            val exception = assertThrows<CoreException> {
+                UserTestFixture.createUser(loginId = shortLoginId)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("로그인 ID는 4~16자여야 합니다.")
+        }
+
+        @Test
         @DisplayName("비밀번호에 동일 문자가 3회 이상 연속되면 실패한다")
         fun createUser_passwordWithConsecutiveChars_throwsException() {
             // arrange & act
             val exception = assertThrows<CoreException> {
-                User("testuser1", "Passsword1!", "홍길동",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(password = "Passsword1!")
             }
 
             // assert
@@ -120,8 +121,7 @@ class UserTest {
         @DisplayName("이메일 형식이 올바르지 않으면 실패한다")
         fun createUser_invalidEmail_throwsException() {
             val exception = assertThrows<CoreException> {
-                User("testuser1", "Password1!", "홍길동",
-                    LocalDate.of(1990, 1, 15), "invalid-email")
+                UserTestFixture.createUser(email = "invalid-email")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -130,8 +130,7 @@ class UserTest {
         @DisplayName("이름이 비어있거나 공백이면 실패한다")
         fun createUser_blankName_throwsException() {
             val exception = assertThrows<CoreException> {
-                User("testuser1", "Password1!", " ",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(name = " ")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).isEqualTo("이름은 필수입니다.")
@@ -140,10 +139,8 @@ class UserTest {
         @Test
         @DisplayName("이름이 10자를 초과하면 실패한다")
         fun createUser_tooLongName_throwsException() {
-            val longName = "가".repeat(20)
             val exception = assertThrows<CoreException> {
-                User("testuser1", "Password1!", longName,
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(name = "가".repeat(20))
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).isEqualTo("이름은 10자 이내여야 합니다.")
@@ -154,15 +151,13 @@ class UserTest {
         fun createUser_invalidNameCharacters_throwsException() {
             // 숫자가 포함된 경우
             val exceptionWithNumber = assertThrows<CoreException> {
-                User("testuser1", "Password1!", "홍길동1",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(name = "홍길동1")
             }
             assertThat(exceptionWithNumber.message).isEqualTo("이름은 한글 또는 영문만 허용됩니다.")
 
             // 특수문자가 포함된 경우
             val exceptionWithSpecialChar = assertThrows<CoreException> {
-                User("testuser1", "Password1!", "John!",
-                    LocalDate.of(1990, 1, 15), "test@example.com")
+                UserTestFixture.createUser(name = "John!")
             }
             assertThat(exceptionWithSpecialChar.message).isEqualTo("이름은 한글 또는 영문만 허용됩니다.")
         }
@@ -174,8 +169,7 @@ class UserTest {
         @Test
         @DisplayName("마지막 글자가 *로 마스킹된다")
         fun getMaskedName_masksLastChar() {
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             assertThat(user.getMaskedName()).isEqualTo("홍길*")
         }
@@ -187,11 +181,10 @@ class UserTest {
         @Test
         @DisplayName("현재 비밀번호와 같으면 실패한다")
         fun changePassword_sameAsCurrent_throwsException() {
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             val exception = assertThrows<CoreException> {
-                user.changePassword("Password1!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -199,8 +192,7 @@ class UserTest {
         @Test
         @DisplayName("유효한 새 비밀번호로 변경하면 성공한다")
         fun changePassword_withValidPassword_success() {
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             user.changePassword("NewPass12!")
 
@@ -211,8 +203,7 @@ class UserTest {
         @DisplayName("새 비밀번호가 8자 미만이면 실패한다")
         fun changePassword_shortPassword_throwsException() {
             // arrange
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             // act
             val exception = assertThrows<CoreException> {
@@ -227,8 +218,7 @@ class UserTest {
         @DisplayName("새 비밀번호가 16자 초과하면 실패한다")
         fun changePassword_longPassword_throwsException() {
             // arrange
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             // act
             val exception = assertThrows<CoreException> {
@@ -243,8 +233,7 @@ class UserTest {
         @DisplayName("새 비밀번호에 생년월일이 포함되면 실패한다")
         fun changePassword_containsBirthDate_throwsException() {
             // arrange
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             // act
             val exception = assertThrows<CoreException> {
@@ -260,8 +249,7 @@ class UserTest {
         @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면 실패한다")
         fun changePassword_consecutiveChars_throwsException() {
             // arrange
-            val user = User("testuser1", "Password1!", "홍길동",
-                LocalDate.of(1990, 1, 15), "test@example.com")
+            val user = UserTestFixture.createUser()
 
             // act
             val exception = assertThrows<CoreException> {

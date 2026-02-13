@@ -51,8 +51,10 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("성공하면 User가 저장된다")
         fun signUp_success() {
             val command = UserCommand.SignUp(
-                loginId = "testuser1", password = "Password1!",
-                name = "홍길동", birthDate = LocalDate.of(1990, 1, 15),
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
 
@@ -109,26 +111,29 @@ class UserServiceIntegrationTest @Autowired constructor(
     @DisplayName("비밀번호 변경 시,")
     inner class ChangePassword {
 
-        @Test
-        @DisplayName("비밀번호 변경이 성공하면, 새 비밀번호로 인증할 수 있다.")
-        fun changesPassword_whenRequestIsValid() {
-            // arrange
-            val user = UserCommand.SignUp(
+        private fun signUpAndGetId(): Long {
+            val command = UserCommand.SignUp(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
                 birthDate = LocalDate.of(1990, 1, 15),
                 email = "test@example.com",
             )
-            userService.signUp(user)
+            return userService.signUp(command).id
+        }
 
+        @Test
+        @DisplayName("비밀번호 변경이 성공하면, 새 비밀번호로 인증할 수 있다.")
+        fun changesPassword_whenRequestIsValid() {
+            // arrange
+            val userId = signUpAndGetId()
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
                 newPassword = "NewPassword1!",
             )
 
             // act
-            userService.changePassword("testuser1", command)
+            userService.changePassword(userId, command)
 
             // assert
             val updatedUser = userJpaRepository.findByLoginId("testuser1")
@@ -146,7 +151,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("nonexistent", command)
+                userService.changePassword(999L, command)
             }
 
             // assert
@@ -157,15 +162,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("현재 비밀번호가 일치하지 않으면, 예외가 발생한다.")
         fun throwsException_whenCurrentPasswordIsWrong() {
             // arrange
-            val user = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            userService.signUp(user)
-
+            val userId = signUpAndGetId()
             val command = UserCommand.ChangePassword(
                 currentPassword = "WrongPassword!",
                 newPassword = "NewPassword1!",
@@ -173,7 +170,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(userId, command)
             }
 
             // assert
@@ -184,15 +181,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면, 예외가 발생한다.")
         fun throwsException_whenNewPasswordIsSameAsCurrent() {
             // arrange
-            val user = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            userService.signUp(user)
-
+            val userId = signUpAndGetId()
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
                 newPassword = "Password1!",
@@ -200,7 +189,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(userId, command)
             }
 
             // assert
@@ -212,15 +201,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("새 비밀번호가 8자 미만이면, 예외가 발생한다.")
         fun throwsException_whenNewPasswordIsTooShort() {
             // arrange
-            val user = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            userService.signUp(user)
-
+            val userId = signUpAndGetId()
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
                 newPassword = "Short1!",
@@ -228,7 +209,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(userId, command)
             }
 
             // assert
@@ -239,15 +220,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("새 비밀번호가 16자 초과하면, 예외가 발생한다.")
         fun throwsException_whenNewPasswordIsTooLong() {
             // arrange
-            val user = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            userService.signUp(user)
-
+            val userId = signUpAndGetId()
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
                 newPassword = "Password12345678!",
@@ -255,7 +228,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(userId, command)
             }
 
             // assert
@@ -266,15 +239,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("새 비밀번호에 생년월일이 포함되면, 예외가 발생한다.")
         fun throwsException_whenNewPasswordContainsBirthDate() {
             // arrange
-            val user = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            userService.signUp(user)
-
+            val userId = signUpAndGetId()
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
                 newPassword = "Pass19900115!",
@@ -282,7 +247,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(userId, command)
             }
 
             // assert
@@ -294,15 +259,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면, 예외가 발생한다.")
         fun throwsException_whenNewPasswordHasConsecutiveChars() {
             // arrange
-            val user = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            userService.signUp(user)
-
+            val userId = signUpAndGetId()
             val command = UserCommand.ChangePassword(
                 currentPassword = "Password1!",
                 newPassword = "Passsword1!",
@@ -310,7 +267,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(userId, command)
             }
 
             // assert

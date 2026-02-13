@@ -123,6 +123,42 @@ class UserServiceTest {
     }
 
     @Nested
+    @DisplayName("getUser 호출 시")
+    inner class GetUser {
+
+        @Test
+        @DisplayName("존재하는 사용자를 조회하면 User를 반환한다")
+        fun getUser_userExists_returnsUser() {
+            // arrange
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
+
+            // act
+            val result = userService.getUser(1L)
+
+            // assert
+            assertThat(result).isSameAs(user)
+            verify(exactly = 1) { userRepository.findById(1L) }
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 사용자이면 NOT_FOUND 예외가 발생한다")
+        fun getUser_userNotFound_throwsNotFound() {
+            // arrange
+            every { userRepository.findById(999L) } returns null
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.getUser(999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(exception.message).isEqualTo("사용자를 찾을 수 없습니다.")
+        }
+    }
+
+    @Nested
     @DisplayName("비밀번호 변경 시")
     inner class ChangePassword {
 
@@ -130,22 +166,16 @@ class UserServiceTest {
         @DisplayName("유효한 요청이면 비밀번호가 변경된다")
         fun changePassword_withValidRequest_success() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            every { userRepository.findByLoginId("testuser1") } returns user
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "NewPass12!",
             )
 
             // act
-            userService.changePassword("testuser1", command)
+            userService.changePassword(1L, command)
 
             // assert
             assertThat(user.verifyPassword("NewPass12!")).isTrue()
@@ -155,16 +185,16 @@ class UserServiceTest {
         @DisplayName("존재하지 않는 사용자이면 NOT_FOUND 예외가 발생한다")
         fun changePassword_userNotFound_throwsNotFound() {
             // arrange
-            every { userRepository.findByLoginId("nonexistent") } returns null
+            every { userRepository.findById(999L) } returns null
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "NewPass12!",
             )
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("nonexistent", command)
+                userService.changePassword(999L, command)
             }
 
             // assert
@@ -176,14 +206,8 @@ class UserServiceTest {
         @DisplayName("현재 비밀번호가 일치하지 않으면 BAD_REQUEST 예외가 발생한다")
         fun changePassword_wrongCurrentPassword_throwsBadRequest() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            every { userRepository.findByLoginId("testuser1") } returns user
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
 
             val command = UserCommand.ChangePassword(
                 currentPassword = "WrongPass1!",
@@ -192,7 +216,7 @@ class UserServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(1L, command)
             }
 
             // assert
@@ -204,23 +228,17 @@ class UserServiceTest {
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면 BAD_REQUEST 예외가 발생한다")
         fun changePassword_sameAsCurrent_throwsBadRequest() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            every { userRepository.findByLoginId("testuser1") } returns user
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
-                newPassword = "Password1!",
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
+                newPassword = UserTestFixture.DEFAULT_PASSWORD,
             )
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(1L, command)
             }
 
             // assert
@@ -232,23 +250,17 @@ class UserServiceTest {
         @DisplayName("새 비밀번호가 8자 미만이면 BAD_REQUEST 예외가 발생한다")
         fun changePassword_tooShort_throwsBadRequest() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            every { userRepository.findByLoginId("testuser1") } returns user
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "Short1!",
             )
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(1L, command)
             }
 
             // assert
@@ -259,23 +271,17 @@ class UserServiceTest {
         @DisplayName("새 비밀번호가 16자 초과하면 BAD_REQUEST 예외가 발생한다")
         fun changePassword_tooLong_throwsBadRequest() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            every { userRepository.findByLoginId("testuser1") } returns user
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "Password12345678!",
             )
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(1L, command)
             }
 
             // assert
@@ -286,23 +292,17 @@ class UserServiceTest {
         @DisplayName("새 비밀번호에 생년월일이 포함되면 BAD_REQUEST 예외가 발생한다")
         fun changePassword_containsBirthDate_throwsBadRequest() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            every { userRepository.findByLoginId("testuser1") } returns user
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "Pass19900115!",
             )
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(1L, command)
             }
 
             // assert
@@ -314,23 +314,17 @@ class UserServiceTest {
         @DisplayName("새 비밀번호에 동일 문자가 3회 이상 연속되면 BAD_REQUEST 예외가 발생한다")
         fun changePassword_consecutiveChars_throwsBadRequest() {
             // arrange
-            val user = User(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-            every { userRepository.findByLoginId("testuser1") } returns user
+            val user = UserTestFixture.createUser()
+            every { userRepository.findById(1L) } returns user
 
             val command = UserCommand.ChangePassword(
-                currentPassword = "Password1!",
+                currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "Passsword1!",
             )
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", command)
+                userService.changePassword(1L, command)
             }
 
             // assert
