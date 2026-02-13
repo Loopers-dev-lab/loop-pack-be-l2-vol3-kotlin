@@ -1,6 +1,7 @@
 package com.loopers.support.error
 
-class CoreException(
-    val errorType: ErrorType,
-    val customMessage: String? = null,
-) : RuntimeException(customMessage ?: errorType.message)
+open class CoreException(
+    val errorCode: ErrorCode,
+    override val message: String = errorCode.message,
+    cause: Throwable? = null,
+) : RuntimeException(message, cause)
