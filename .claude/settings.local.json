@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)",
+      "Bash(/Users/gimhyeon-u/loop-pack-be-l2-vol3-kotlin/docs/design/all-requirements.md << 'HEADER_EOF'\n# Round2 전체 요구사항 통합 문서\n\n> 이 문서는 Round2에서 구현할 6개 도메인\\(브랜드-상품, 브랜드-상품-Admin, 유저, 좋아요, 주문, 주문-Admin\\)의 요구사항을 하나로 통합한 문서입니다.\n\n## 목차\n1. [브랜드 & 상품]\\(#브랜드--상품-요구사항\\)\n2. [브랜드 & 상품 Admin]\\(#브랜드--상품-admin-요구사항\\)\n3. [유저]\\(#유저-요구사항\\)\n4. [좋아요]\\(#좋아요-요구사항\\)\n5. [주문]\\(#주문-요구사항\\)\n6. [주문 Admin]\\(#주문-admin-요구사항\\)\n\n---\n\n<!-- ========== 다음 도메인 ========== -->\n\nHEADER_EOF)",
+      "Bash(printf:*)"
+    ]
+  }
+}
