@@ -1,3 +1,6 @@
+# ERD
+
+```mermaid
 %% FK 미사용: 데드락, 마이그레이션, 성능 이유로 DB FK 제약조건을 걸지 않는다.
 %% 정합성은 어플리케이션 레벨에서 관리한다.
 %% 아래 관계선(||--o{)은 논리적 참조 관계를 나타내며, DB 레벨 FK가 아니다.
@@ -59,3 +62,4 @@ erDiagram
     products ||--o{ likes : "on"
     orders ||--o{ order_items : "part of"
     products ||--o{ order_items : "for"
+```
