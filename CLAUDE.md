@@ -168,6 +168,16 @@ class XxxService(private val xxxRepository: XxxRepository)
 
 ### 5. git
 - commit, push 등 git에 관련된 명령어는 개발자의 확인을 받을 것
+- 커밋 메시지 형식:
+  ```
+  <type>: <subject>
+
+  - <변경 내용 1>
+  - <변경 내용 2>
+  ```
+  - `type`: `feat`, `fix`, `docs`, `refactor`, `test`, `chore` 등
+  - `subject`: 변경 대상 요약
+  - 본문: 빈 줄 후 구체적인 변경 내용을 `-`로 나열
 
 
 ## Swagger (API 문서화) 규칙
