@@ -6,6 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Loopers Kotlin Spring Template - Multi-module Spring Boot application written in Kotlin with JPA, Redis, and Kafka support.
 
+## 커뮤니케이션 원칙
+
+이 프로젝트의 모든 산출물(코드, 문서, 커밋 메시지, PR 설명, 요구사항 문서)은 **저맥락 커뮤니케이션** 원칙을 따릅니다.
+축약어와 키워드 나열을 지양하고, 동일 레벨의 동료 개발자가 추가 설명 없이 이해할 수 있도록 의도를 명확히 서술합니다.
+
+**좋은 예:**
+- 커밋 메시지: `feat: 비밀번호 변경 시 기존 비밀번호 일치 여부를 검증하는 로직 추가`
+- 변수명: `isCurrentPasswordMatched`, `passwordChangeRequest`
+
+**나쁜 예:**
+- 커밋 메시지: `feat: pw chg validation`
+- 변수명: `flag`, `dto`, `tmp`
+
 ## Essential Commands
 
 ### Initial Setup
@@ -97,10 +110,16 @@ support/       - Application-specific utilities (error handling, etc.)
 
 **Key Principles**:
 - **Controller → Facade → Service → Repository**: Standard flow
-- **Domain models** contain business logic and validation (see ExampleModel.kt)
+- **Domain models** contain business logic and validation
 - **Repository interfaces** in domain/, implementations in infrastructure/
 - **Facades** orchestrate multiple services and handle DTO conversions
 - **Controllers** implement API specs and return standardized ApiResponse
+
+**실제 구현 참고 파일** (commerce-api 기준):
+- Domain Model: `domain/member/MemberModel.kt`
+- Domain Service: `domain/member/MemberService.kt`
+- Facade: `application/member/MemberFacade.kt`
+- Controller: `interfaces/api/member/MemberV1Controller.kt`
 
 ## Technology Stack
 
@@ -139,6 +158,81 @@ support/       - Application-specific utilities (error handling, etc.)
 ### Libraries
 - **JSON**: Jackson Module Kotlin, Jackson Datatype JSR310
 - **Logging**: Slack Appender 1.6.1
+
+### Security & Authentication
+- **Password Hashing**: BCrypt (`org.mindrot:jbcrypt:0.4`)
+- **JWT Token**: jjwt 0.12.5 (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`)
+- **JWT Algorithm**: HS256, 만료 시간 1시간 (3600초)
+
+## 구현 완료된 기능
+
+### API 엔드포인트
+| 메서드 | 경로 | 설명 | 인증 |
+|--------|------|------|------|
+| POST | `/api/v1/members/sign-up` | 회원가입 | 불필요 |
+| POST | `/api/v1/auth/login` | 로그인 (JWT 토큰 발급) | 불필요 |
+| GET | `/api/v1/members/me` | 내정보 조회 (이름/이메일 마스킹 적용) | JWT 필요 |
+| PATCH | `/api/v1/members/me/password` | 비밀번호 변경 | JWT 필요 |
+
+### JWT 인증 필터
+- 보호 대상 경로: `/api/v1/members/me` 로 시작하는 모든 요청
+- `Authorization: Bearer <token>` 헤더에서 토큰을 추출하여 검증
+- 검증 성공 시 `AuthenticatedMember` 객체를 요청 속성에 설정
+
+### 유틸리티 클래스
+
+**PasswordValidator** (`support/util/PasswordValidator.kt`):
+1. 길이 제한: 8자 이상 16자 이하
+2. 허용 문자: 영문 대소문자, 숫자, 특수문자만 허용
+3. 문자 종류 조합: 영문, 숫자, 특수문자 중 2종류 이상 조합 필수
+4. 연속 동일 문자 제한: 동일 문자 3개 이상 연속 사용 불가 (예: "aaa")
+5. 연속 순서 문자 제한: 순차적 문자 3개 이상 연속 사용 불가 (예: "abc", "321")
+6. 생년월일 포함 금지: YYYYMMDD, YYMMDD, MMDD 형식 모두 검사
+7. 로그인 ID 포함 금지: 비밀번호에 로그인 ID 문자열이 포함되면 거부
+
+**MaskingUtils** (`support/util/MaskingUtils.kt`):
+- 이름 마스킹: 첫 글자와 마지막 글자만 표시하고 나머지는 `*`로 대체 (예: "홍길동" → "홍*동")
+- 이메일 마스킹: 로컬 파트의 처음 2글자만 표시하고 나머지를 `***`로 대체 (예: "test@example.com" → "te***@example.com")
+
+### 에러 타입
+
+| 타입 | HTTP 상태 | 코드 | 설명 |
+|------|-----------|------|------|
+| `INTERNAL_ERROR` | 500 | Internal Server Error | 일시적인 오류가 발생했습니다. |
+| `BAD_REQUEST` | 400 | Bad Request | 잘못된 요청입니다. |
+| `NOT_FOUND` | 404 | Not Found | 존재하지 않는 요청입니다. |
+| `CONFLICT` | 409 | Conflict | 이미 존재하는 리소스입니다. |
+| `UNAUTHORIZED` | 401 | UNAUTHORIZED | 인증이 필요합니다. |
+| `TOKEN_EXPIRED` | 401 | TOKEN_EXPIRED | 토큰이 만료되었습니다. |
+| `INVALID_TOKEN` | 401 | INVALID_TOKEN | 유효하지 않은 토큰입니다. |
+
+## API 응답 형식
+
+모든 API는 `ApiResponse<T>` 형식으로 응답합니다.
+
+**성공 응답 예시:**
+```json
+{
+  "meta": {
+    "result": "SUCCESS",
+    "errorCode": null,
+    "message": null
+  },
+  "data": { ... }
+}
+```
+
+**실패 응답 예시:**
+```json
+{
+  "meta": {
+    "result": "FAIL",
+    "errorCode": "Bad Request",
+    "message": "잘못된 요청입니다."
+  },
+  "data": null
+}
+```
 
 ## Development Workflow
 
@@ -213,24 +307,24 @@ All tests must follow the 3A principle: **Arrange - Act - Assert**
 - 다음 단계 안내
 
 #### 중요 규칙
-- ❌ 사용자 승인 없이 다음 Phase 진행 금지
-- ❌ 요구사항 문서에 없는 기능 임의 추가 금지
-- ✅ 각 단계에서 발견한 문제나 제안사항은 보고
-- ✅ 불명확한 요구사항은 구현 전 질문
+- 사용자 승인 없이 다음 Phase 진행 금지
+- 요구사항 문서에 없는 기능 임의 추가 금지
+- 각 단계에서 발견한 문제나 제안사항은 보고
+- 불명확한 요구사항은 구현 전 질문
 
 ## Guidelines & Best Practices
 
 ### Never Do
-- ❌ Write non-functional code or implementations using unnecessary mock data
-- ❌ Write code that is not null-safe (use Kotlin's null safety features)
-- ❌ Leave `println` statements in code
-- ❌ Delete or modify tests without explicit approval
+- Write non-functional code or implementations using unnecessary mock data
+- Write code that is not null-safe (use Kotlin's null safety features)
+- Leave `println` statements in code
+- Delete or modify tests without explicit approval
 
 ### Recommendations
-- ✅ Write E2E test code that calls actual APIs for verification
-- ✅ Design reusable objects
-- ✅ Provide alternatives and suggestions for performance optimization
-- ✅ For completed APIs, create and organize `.http` files in `.http/**/*.http`
+- Write E2E test code that calls actual APIs for verification
+- Design reusable objects
+- Provide alternatives and suggestions for performance optimization
+- For completed APIs, create and organize `.http` files in `.http/<도메인명>/<API명>.http` (예: `.http/member/sign-up.http`)
 
 ### Priority Order
 1. **Functional Solutions Only**: Consider only solutions that actually work
@@ -238,11 +332,27 @@ All tests must follow the 3A principle: **Arrange - Act - Assert**
 3. **Testable Design**: Design structures that can be tested
 4. **Consistency**: Analyze existing code patterns and maintain consistency
 
+## 프로젝트 문서
+
+### 요구사항 문서 (`docs/`)
+- `내정보조회-요구사항.md`: 내정보 조회 API의 기능 요구사항 및 마스킹 규칙 정의
+- `비밀번호-수정-요구사항.md`: 비밀번호 변경 API의 기능 요구사항 및 검증 규칙 정의
+- `PROJECT_COMPREHENSIVE_GUIDE.md`: 프로젝트 전체 구조 및 기술 스택 종합 가이드
+- `프로젝트_완전_이해_가이드.md`: 프로젝트 이해를 위한 한국어 종합 가이드
+
+### API 테스트 파일 (`.http/`)
+- `.http/member/sign-up.http`: 회원가입 API 테스트
+- `.http/member/me.http`: 내정보 조회 API 테스트
+- `.http/member/change-password.http`: 비밀번호 변경 API 테스트
+
+### GitHub 설정 (`.github/`)
+- `pull_request_template.md`: PR 생성 시 사용되는 템플릿
+- `auto_assign.yml`: PR 생성 시 리뷰어 자동 할당 설정
+
 ## Infrastructure Services
 
 ### Local Development Stack
 - **MySQL**: localhost:3306
-- **PostgreSQL**: localhost:5432 (commerce-main)
 - **Redis (master)**: localhost:6379
 - **Redis (readonly)**: localhost:6380
 - **Kafka**: localhost:9092, localhost:19092
@@ -263,7 +373,7 @@ All tests must follow the 3A principle: **Arrange - Act - Assert**
 - Controlled in `build.gradle.kts` via `getGitHash()`
 
 ### API Documentation
-- Completed APIs should be documented in `.http/**/*.http` files
+- Completed APIs should be documented in `.http/<도메인명>/<API명>.http` files (예: `.http/member/sign-up.http`)
 - Use IntelliJ HTTP Client format for API testing
 
 ## Important Notes
