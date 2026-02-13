@@ -1,7 +1,7 @@
 package com.loopers.domain.example
 
+import com.loopers.support.error.CommonErrorCode
 import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -31,9 +31,9 @@ class ExampleModelTest {
             )
         }
 
-        @DisplayName("제목이 빈칸으로만 이루어져 있으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("제목이 빈칸으로만 이루어져 있으면, INVALID_INPUT_VALUE 예외가 발생한다.")
         @Test
-        fun throwsBadRequestException_whenTitleIsBlank() {
+        fun throwsInvalidInputValueException_whenTitleIsBlank() {
             // arrange
             val name = "   "
 
@@ -43,12 +43,12 @@ class ExampleModelTest {
             }
 
             // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(result.errorCode).isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE)
         }
 
-        @DisplayName("설명이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("설명이 비어있으면, INVALID_INPUT_VALUE 예외가 발생한다.")
         @Test
-        fun throwsBadRequestException_whenDescriptionIsEmpty() {
+        fun throwsInvalidInputValueException_whenDescriptionIsEmpty() {
             // arrange
             val description = ""
 
@@ -58,7 +58,7 @@ class ExampleModelTest {
             }
 
             // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(result.errorCode).isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE)
         }
     }
 }
