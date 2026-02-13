@@ -1,10 +1,12 @@
 package com.loopers.testcontainers
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Configuration
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.utility.DockerImageName
 
 @Configuration
+@ConditionalOnProperty(name = ["test.mysql.testcontainers.enabled"], havingValue = "true", matchIfMissing = false)
 class MySqlTestContainersConfig {
     companion object {
         private val mySqlContainer: MySQLContainer<*> = MySQLContainer(DockerImageName.parse("mysql:8.0"))
