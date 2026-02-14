@@ -41,3 +41,6 @@ out/
 
 .taskmaster
 .claude
+
+.DS_Store
+**/.DS_Store
