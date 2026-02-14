@@ -22,9 +22,15 @@ class UserService(
         return userRepository.findByLoginId(loginId)
     }
 
+    @Transactional(readOnly = true)
+    fun getUser(userId: Long): User {
+        return userRepository.findById(userId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+    }
+
     @Transactional
-    fun changePassword(loginId: String, command: UserCommand.ChangePassword) {
-        val user = userRepository.findByLoginId(loginId)
+    fun changePassword(userId: Long, command: UserCommand.ChangePassword) {
+        val user = userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
 
         if (!user.verifyPassword(command.currentPassword)) {

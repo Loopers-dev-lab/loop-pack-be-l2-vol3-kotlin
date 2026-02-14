@@ -87,27 +87,26 @@ class UserFacadeTest {
         fun getUserInfo_userExists_returnsUserInfoWithMaskedName() {
             // arrange
             val user = UserTestFixture.createUser()
-            every { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) } returns user
+            every { userService.getUser(1L) } returns user
 
             // act
-            val result = userFacade.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID)
+            val result = userFacade.getUserInfo(1L)
 
             // assert
             assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
             assertThat(result.name).isEqualTo("홍길*")
-            verify(exactly = 1) { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) }
+            verify(exactly = 1) { userService.getUser(1L) }
         }
 
         @Test
-        @DisplayName("사용자가 존재하지 않으면 NOT_FOUND 예외가 발생한다")
-        fun getUserInfo_userNotFound_throwsException() {
+        @DisplayName("사용자가 존재하지 않으면 NOT_FOUND 예외가 전파된다")
+        fun getUserInfo_userNotFound_propagatesNotFound() {
             // arrange
-            val loginId = "nonexistent"
-            every { userService.getUserInfo(loginId) } returns null
+            every { userService.getUser(999L) } throws CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
 
             // act
             val exception = assertThrows<CoreException> {
-                userFacade.getUserInfo(loginId)
+                userFacade.getUserInfo(999L)
             }
 
             // assert
@@ -128,29 +127,28 @@ class UserFacadeTest {
                 currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "NewPass12!",
             )
-            every { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) } returns Unit
+            every { userService.changePassword(1L, command) } returns Unit
 
             // act
-            userFacade.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command)
+            userFacade.changePassword(1L, command)
 
             // assert
-            verify(exactly = 1) { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) }
+            verify(exactly = 1) { userService.changePassword(1L, command) }
         }
 
         @Test
         @DisplayName("존재하지 않는 사용자이면 NOT_FOUND 예외가 전파된다")
         fun changePassword_userNotFound_propagatesNotFound() {
             // arrange
-            val loginId = "nonexistent"
             val command = UserCommand.ChangePassword(
                 currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "NewPass12!",
             )
-            every { userService.changePassword(loginId, command) } throws CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+            every { userService.changePassword(999L, command) } throws CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
 
             // act
             val exception = assertThrows<CoreException> {
-                userFacade.changePassword(loginId, command)
+                userFacade.changePassword(999L, command)
             }
 
             // assert
@@ -166,11 +164,11 @@ class UserFacadeTest {
                 currentPassword = "WrongPass1!",
                 newPassword = "NewPass12!",
             )
-            every { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) } throws CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.")
+            every { userService.changePassword(1L, command) } throws CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.")
 
             // act
             val exception = assertThrows<CoreException> {
-                userFacade.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command)
+                userFacade.changePassword(1L, command)
             }
 
             // assert
@@ -186,11 +184,11 @@ class UserFacadeTest {
                 currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "short",
             )
-            every { userService.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command) } throws CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8 ~ 16 자의 영문 대소문자, 숫자, 특수문자만 가능합니다.")
+            every { userService.changePassword(1L, command) } throws CoreException(ErrorType.BAD_REQUEST, "비밀번호는 8 ~ 16 자의 영문 대소문자, 숫자, 특수문자만 가능합니다.")
 
             // act
             val exception = assertThrows<CoreException> {
-                userFacade.changePassword(UserTestFixture.DEFAULT_LOGIN_ID, command)
+                userFacade.changePassword(1L, command)
             }
 
             // assert

@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.interceptor
 
 import com.loopers.application.auth.AuthService
+import com.loopers.interfaces.api.ATTRIBUTE_USER_ID
 import com.loopers.interfaces.api.HEADER_LOGIN_ID
 import com.loopers.interfaces.api.HEADER_LOGIN_PW
 import com.loopers.support.error.CoreException
@@ -12,10 +13,10 @@ import org.springframework.web.servlet.HandlerInterceptor
 
 @Component
 class AuthInterceptor(
-    private val authService: AuthService
+    private val authService: AuthService,
 ) : HandlerInterceptor {
 
-    //TODO: 추후 security 추가 시 변경
+    // TODO: 추후 security 추가 시 변경
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
         val loginId = request.getHeader(HEADER_LOGIN_ID)
             ?: throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID 헤더가 필요합니다.")
@@ -23,7 +24,8 @@ class AuthInterceptor(
         val loginPw = request.getHeader(HEADER_LOGIN_PW)
             ?: throw CoreException(ErrorType.BAD_REQUEST, "비밀번호 헤더가 필요합니다.")
 
-        authService.authenticate(loginId, loginPw)
+        val user = authService.authenticate(loginId, loginPw)
+        request.setAttribute(ATTRIBUTE_USER_ID, user.id)
 
         return true
     }

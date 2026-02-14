@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 
 class AuthServiceTest {
@@ -31,21 +30,22 @@ class AuthServiceTest {
     inner class Authenticate {
 
         @Test
-        @DisplayName("올바른 로그인 정보로 인증하면 성공한다")
-        fun authenticate_withValidCredentials_success() {
+        @DisplayName("올바른 로그인 정보로 인증하면 User를 반환한다")
+        fun authenticate_withValidCredentials_returnsUser() {
             // arrange
             val user = UserTestFixture.createUser()
             every { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) } returns user
 
-            // act & assert
-            assertDoesNotThrow {
-                authService.authenticate(UserTestFixture.DEFAULT_LOGIN_ID, UserTestFixture.DEFAULT_PASSWORD)
-            }
+            // act
+            val result = authService.authenticate(UserTestFixture.DEFAULT_LOGIN_ID, UserTestFixture.DEFAULT_PASSWORD)
+
+            // assert
+            assertThat(result).isSameAs(user)
             verify(exactly = 1) { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) }
         }
 
         @Test
-        @DisplayName("존재하지 않는 사용자로 인증하면 NOT_FOUND 예외가 발생한다")
+        @DisplayName("존재하지 않는 사용자로 인증하면 UNAUTHORIZED 예외가 발생한다")
         fun authenticate_userNotFound_throwsException() {
             // arrange
             val loginId = "nonexistent"
@@ -57,7 +57,7 @@ class AuthServiceTest {
             }
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
             assertThat(exception.message).isEqualTo("사용자를 찾을 수 없습니다.")
         }
 

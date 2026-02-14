@@ -2,8 +2,6 @@ package com.loopers.application.user
 
 import com.loopers.domain.user.UserCommand
 import com.loopers.domain.user.UserService
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 
 @Component
@@ -15,13 +13,11 @@ class UserFacade(
             .let { UserInfo.from(it) }
     }
 
-    fun getUserInfo(loginId: String): UserInfo {
-        return userService.getUserInfo(loginId)
-            ?.let { UserInfo.fromWithMaskedName(it) }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+    fun getUserInfo(userId: Long): UserInfo {
+        return UserInfo.fromWithMaskedName(userService.getUser(userId))
     }
 
-    fun changePassword(loginId: String, command: UserCommand.ChangePassword) {
-        userService.changePassword(loginId, command)
+    fun changePassword(userId: Long, command: UserCommand.ChangePassword) {
+        userService.changePassword(userId, command)
     }
 }
