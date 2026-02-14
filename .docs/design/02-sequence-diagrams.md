@@ -363,7 +363,7 @@ sequenceDiagram
     Controller-->>Client: ApiResponse<LikeListResponse>
 ```
 
-**설계 포인트 (DDR: 크로스 도메인 데이터 조합):**
+**설계 포인트 (ADR: 크로스 도메인 데이터 조합):**
 
 | 대안 | 핵심 | 얻는 것 | 잃는 것 |
 |------|------|---------|---------|
@@ -429,7 +429,7 @@ sequenceDiagram
     Controller-->>Client: ApiResponse<Void>
 ```
 
-**설계 포인트 (DDR: 크로스 도메인 의존):**
+**설계 포인트 (ADR: 크로스 도메인 의존):**
 
 > **위화감**: BrandRemover가 다른 도메인의 데이터를 참조해야 한다.
 > 어떻게 도메인 경계를 존중하면서 검증할 것인가?

@@ -454,7 +454,7 @@ classDiagram
 | 불변 필드 | `memberId: Long` | 회원 ID |
 | 불변 필드 | `productId: Long` | 상품 ID |
 
-> **DDR: Like 모델에 VO가 없는 이유**
+> **ADR: Like 모델에 VO가 없는 이유**
 >
 > **위화감**: Like 모델에 VO가 없고, 행위 메서드도 없다. 너무 빈약한 도메인 아닌가?
 >
@@ -577,7 +577,7 @@ classDiagram
 **불변식:**
 - `quantity`는 1 이상 (`init` 블록에서 검증)
 
-> **DDR: OrderItem 스냅샷의 VO 미적용**
+> **ADR: OrderItem 스냅샷의 VO 미적용**
 >
 > | 관점 | 설명 |
 > |------|------|
@@ -587,7 +587,7 @@ classDiagram
 > | 근거 | 이미 Product VO에서 검증된 과거 시점의 값을 다시 검증할 필요 없음 |
 > | 리스크 | 스냅샷 데이터에 VO를 적용하면 과거 규칙 변경 시 기존 주문 데이터를 로딩할 수 없게 되는 위험 |
 
-> **DDR: totalPrice 저장 vs 계산**
+> **ADR: totalPrice 저장 vs 계산**
 >
 > | 대안 | 장점 | 단점 |
 > |------|------|------|
@@ -614,7 +614,7 @@ classDiagram
 
 ---
 
-## 크로스 도메인 의존 (DDR)
+## 크로스 도메인 의존 (ADR)
 
 ### BrandRemover → ProductReader
 
