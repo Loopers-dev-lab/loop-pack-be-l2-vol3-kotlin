@@ -15,17 +15,17 @@ sequenceDiagram
     participant BrandService
     participant BrandRepository
 
-    Client ->> BrandController: GET /api/v1/brands/{brandId}
-    BrandController ->> BrandService: getBrandInfo(brandId)
-    BrandService ->> BrandRepository: findByBrandId(brandId)
-    BrandRepository -->> BrandService: BrandModel
+    Client ->>+ BrandController: GET /api/v1/brands/{brandId}
+    BrandController ->>+ BrandService: getBrandInfo(brandId)
+    BrandService ->>+ BrandRepository: findByBrandId(brandId)
+    BrandRepository -->>- BrandService: BrandModel
 
     alt 브랜드 정보가 없는 경우
         BrandService -->> BrandController: 예외 발생
         BrandController -->> Client: 에러 응답 (404 Not Found)
     else 브랜드 정보가 있는 경우
-        BrandService -->> BrandController: 브랜드 상세 정보
-        BrandController -->> Client: 브랜드 정보 응답 (200 OK)
+        BrandService -->>- BrandController: 브랜드 상세 정보
+        BrandController -->>- Client: 브랜드 정보 응답 (200 OK)
     end
 ```
 
@@ -44,18 +44,18 @@ sequenceDiagram
     participant ProductService
     participant ProductRepository
 
-    Client ->> ProductController: GET /api/v1/products
+    Client ->>+ ProductController: GET /api/v1/products
     Note left of ProductController: 쿼리 파라미터<br/> brandId, sort, page=0, size=20
-    ProductController ->> ProductService: getProducts(brandId, pageable)
+    ProductController ->>+ ProductService: getProducts(brandId, pageable)
     alt brandId 있을 경우
-        ProductService ->> ProductRepository: findAllByBrandId(brandId, pageable)
+        ProductService ->>+ ProductRepository: findAllByBrandId(brandId, pageable)
     else 전체 조회
         ProductService ->> ProductRepository: findAll(pageable)
     end
 
-    ProductRepository -->> ProductService: Page<ProductModel>
-    ProductService -->> ProductController: 상품 목록
-    ProductController -->> Client: 상품 목록 응답 (200 OK)
+    ProductRepository -->>- ProductService: Page<ProductModel>
+    ProductService -->>- ProductController: 상품 목록
+    ProductController -->>- Client: 상품 목록 응답 (200 OK)
 
 ```
 
@@ -74,17 +74,17 @@ sequenceDiagram
     participant ProductService
     participant ProductRepository
 
-    Client ->> ProductController: GET /api/v1/products/{productId}
-    ProductController ->> ProductService: getProductInfo(productId)
-    ProductService ->> ProductRepository: findByProductId(productId)
-    ProductRepository -->> ProductService: ProductModel
+    Client ->>+ ProductController: GET /api/v1/products/{productId}
+    ProductController ->>+ ProductService: getProductInfo(productId)
+    ProductService ->>+ ProductRepository: findByProductId(productId)
+    ProductRepository -->>- ProductService: ProductModel
 
     alt 상품 정보가 없는 경우
         ProductService -->> ProductController: 예외 발생
         ProductController -->> Client: 에러 응답 (404 Not Found)
     else 상품 정보가 있는 경우
-        ProductService -->> ProductController: 상품 상세 정보
-        ProductController -->> Client: 상품 정보 응답 (200 OK)
+        ProductService -->>- ProductController: 상품 상세 정보
+        ProductController -->>- Client: 상품 정보 응답 (200 OK)
     end
 ```
 
@@ -106,13 +106,13 @@ sequenceDiagram
     participant BrandAdminService
     participant BrandRepository
 
-    Admin ->> BrandAdminController: GET /api-admin/v1/brands
+    Admin ->>+ BrandAdminController: GET /api-admin/v1/brands
     Note right of Admin: sort, page=0, size=20
-    BrandAdminController ->> BrandAdminService: getBrands(pageable)
-    BrandAdminService ->> BrandRepository: findAll(pageable)
-    BrandRepository -->> BrandAdminService: Page<BrandModel>
-    BrandAdminService -->> BrandAdminController: 브랜드 목록
-    BrandAdminController -->> Admin: 브랜드 목록 응답 (200 OK)
+    BrandAdminController ->>+ BrandAdminService: getBrands(pageable)
+    BrandAdminService ->>+ BrandRepository: findAll(pageable)
+    BrandRepository -->>- BrandAdminService: Page<BrandModel>
+    BrandAdminService -->>- BrandAdminController: 브랜드 목록
+    BrandAdminController -->>- Admin: 브랜드 목록 응답 (200 OK)
 ```
 
 **2. 브랜드 상세 조회**
@@ -129,18 +129,18 @@ sequenceDiagram
     participant BrandAdminService
     participant BrandRepository
 
-    Admin ->> BrandAdminController: GET /api-admin/v1/brands/{brandId}
-    BrandAdminController ->> BrandAdminService: getBrand(brandId)
-    BrandAdminService ->> BrandRepository: findById(brandId)
-    
+    Admin ->>+ BrandAdminController: GET /api-admin/v1/brands/{brandId}
+    BrandAdminController ->>+ BrandAdminService: getBrand(brandId)
+    BrandAdminService ->>+ BrandRepository: findById(brandId)
+
     alt 브랜드 존재함
         BrandRepository -->> BrandAdminService: BrandModel
         BrandAdminService -->> BrandAdminController: 브랜드 상세 정보
         BrandAdminController -->> Admin: 브랜드 상세 정보 응답 (200 OK)
     else 브랜드 없음
-        BrandRepository -->> BrandAdminService: null
-        BrandAdminService -->> BrandAdminController: 예외 발생
-        BrandAdminController -->> Admin: 404 Not Found
+        BrandRepository -->>- BrandAdminService: null
+        BrandAdminService -->>- BrandAdminController: 예외 발생
+        BrandAdminController -->>- Admin: 404 Not Found
     end
 ```
 
@@ -158,12 +158,12 @@ sequenceDiagram
     participant BrandAdminService
     participant BrandRepository
 
-    Admin ->> BrandAdminController: POST /api-admin/v1/brands
-    BrandAdminController ->> BrandAdminService: createBrand()
-    BrandAdminService ->> BrandRepository: save()
-    BrandRepository -->> BrandAdminService: Saved BrandModel
-    BrandAdminService -->> BrandAdminController: 등록된 브랜드 정보
-    BrandAdminController -->> Admin: 브랜드 등록 응답 (201 Created)
+    Admin ->>+ BrandAdminController: POST /api-admin/v1/brands
+    BrandAdminController ->>+ BrandAdminService: createBrand()
+    BrandAdminService ->>+ BrandRepository: save()
+    BrandRepository -->>- BrandAdminService: Saved BrandModel
+    BrandAdminService -->>- BrandAdminController: 등록된 브랜드 정보
+    BrandAdminController -->>- Admin: 브랜드 등록 응답 (201 Created)
 ```
 
 **4. 브랜드 수정**
@@ -181,19 +181,19 @@ sequenceDiagram
     participant BrandAdminService
     participant BrandRepository
 
-    Admin ->> BrandAdminController: PUT /api-admin/v1/brands/{brandId}
-    BrandAdminController ->> BrandAdminService: updateBrand(brandId)
-    BrandAdminService ->> BrandRepository: findById(brandId)
-    
+    Admin ->>+ BrandAdminController: PUT /api-admin/v1/brands/{brandId}
+    BrandAdminController ->>+ BrandAdminService: updateBrand(brandId)
+    BrandAdminService ->>+ BrandRepository: findById(brandId)
+
     alt 브랜드 존재함
-        BrandRepository -->> BrandAdminService: BrandModel
+        BrandRepository -->>- BrandAdminService: BrandModel
         BrandAdminService ->> BrandAdminService: update properties
         BrandAdminService ->> BrandRepository: save(BrandModel)
         BrandAdminService -->> BrandAdminController: 수정된 브랜드 정보
         BrandAdminController -->> Admin: 브랜드 수정 응답 (200 OK)
     else 브랜드 없음
-        BrandAdminService -->> BrandAdminController: 예외 발생
-        BrandAdminController -->> Admin: 404 Not Found
+        BrandAdminService -->>- BrandAdminController: 예외 발생
+        BrandAdminController -->>- Admin: 404 Not Found
     end
 ```
 
@@ -213,23 +213,23 @@ sequenceDiagram
     participant BrandRepository
     participant ProductRepository
 
-    Admin ->> BrandAdminController: DELETE /api-admin/v1/brands/{brandId}
-    BrandAdminController ->> BrandAdminService: deleteBrand(brandId)
-    BrandAdminService ->> BrandRepository: findById(brandId)
-    BrandRepository -->> BrandAdminService: BrandModel
+    Admin ->>+ BrandAdminController: DELETE /api-admin/v1/brands/{brandId}
+    BrandAdminController ->>+ BrandAdminService: deleteBrand(brandId)
+    BrandAdminService ->>+ BrandRepository: findById(brandId)
+    BrandRepository -->>- BrandAdminService: BrandModel
     alt 브랜드 존재함
         BrandAdminService ->> BrandAdminService: isDeleted = true
         Note right of BrandAdminService: Soft Delete (상태 변경)
         BrandAdminService ->> BrandRepository: save()
-        
+
         Note right of BrandAdminService: 해당 브랜드의 상품들도 일괄 상태 변경
         BrandAdminService ->> ProductRepository: updateIsDeletedByBrandId(brandId, true)
-        
+
         BrandAdminService -->> BrandAdminController: 삭제 완료
         BrandAdminController -->> Admin: 브랜드 삭제 응답 (200 OK)
     else 브랜드 없음
-        BrandAdminService -->> BrandAdminController: 예외 발생
-        BrandAdminController -->> Admin: 404 Not Found
+        BrandAdminService -->>- BrandAdminController: 예외 발생
+        BrandAdminController -->>- Admin: 404 Not Found
     end
 ```
 
@@ -252,28 +252,28 @@ sequenceDiagram
     participant BrandRepository
     participant ProductRepository
 
-    Admin ->> ProductAdminController: GET /api-admin/v1/products
+    Admin ->>+ ProductAdminController: GET /api-admin/v1/products
     Note right of Admin: brandId, sort, page=0, size=20
-    ProductAdminController ->> ProductAdminService: getProducts(brandId, pageable)
-    
+    ProductAdminController ->>+ ProductAdminService: getProducts(brandId, pageable)
+
     alt brandId 제공됨
-        ProductAdminService ->> BrandRepository: existsByBrandId(brandId)
+        ProductAdminService ->>+ BrandRepository: existsByBrandId(brandId)
         alt 브랜드 존재함
             BrandRepository -->> ProductAdminService: true
-            ProductAdminService ->> ProductRepository: findAllByBrandId(brandId, pageable)
-            ProductRepository -->> ProductAdminService: Page<ProductModel>
+            ProductAdminService ->>+ ProductRepository: findAllByBrandId(brandId, pageable)
+            ProductRepository -->>- ProductAdminService: Page<ProductModel>
             ProductAdminService -->> ProductAdminController: 상품 목록
             ProductAdminController -->> Admin: 상품 목록 응답 (200 OK)
         else 브랜드 없음
-            BrandRepository -->> ProductAdminService: false
+            BrandRepository -->>- ProductAdminService: false
             ProductAdminService -->> ProductAdminController: 예외 발생
             ProductAdminController -->> Admin: 404 Not Found
         end
     else 전체 조회
-        ProductAdminService ->> ProductRepository: findAll(pageable)
-        ProductRepository -->> ProductAdminService: Page<ProductModel>
-        ProductAdminService -->> ProductAdminController: 상품 목록
-        ProductAdminController -->> Admin: 상품 목록 응답 (200 OK)
+        ProductAdminService ->>+ ProductRepository: findAll(pageable)
+        ProductRepository -->>- ProductAdminService: Page<ProductModel>
+        ProductAdminService -->>- ProductAdminController: 상품 목록
+        ProductAdminController -->>- Admin: 상품 목록 응답 (200 OK)
     end
 ```
 
@@ -291,18 +291,18 @@ sequenceDiagram
     participant ProductAdminService
     participant ProductRepository
 
-    Admin ->> ProductAdminController: GET /api-admin/v1/products/{productId}
-    ProductAdminController ->> ProductAdminService: getProduct(productId)
-    ProductAdminService ->> ProductRepository: findById(productId)
-     
+    Admin ->>+ ProductAdminController: GET /api-admin/v1/products/{productId}
+    ProductAdminController ->>+ ProductAdminService: getProduct(productId)
+    ProductAdminService ->>+ ProductRepository: findById(productId)
+
     alt 상품 존재함
         ProductRepository -->> ProductAdminService: ProductModel
         ProductAdminService -->> ProductAdminController: 상품 상세 정보
         ProductAdminController -->> Admin: 상품 상세 정보 응답 (200 OK)
     else 상품 없음
-        ProductRepository -->> ProductAdminService: null
-        ProductAdminService -->> ProductAdminController: 예외 발생
-        ProductAdminController -->> Admin: 404 Not Found
+        ProductRepository -->>- ProductAdminService: null
+        ProductAdminService -->>- ProductAdminController: 예외 발생
+        ProductAdminController -->>- Admin: 404 Not Found
     end
 ```
 
@@ -322,20 +322,20 @@ sequenceDiagram
     participant BrandRepository
     participant ProductRepository
 
-    Admin ->> ProductAdminController: POST /api-admin/v1/products
-    ProductAdminController ->> ProductAdminService: createProduct()
-    ProductAdminService ->> BrandRepository: existsByBrandId(brandId)
-    
+    Admin ->>+ ProductAdminController: POST /api-admin/v1/products
+    ProductAdminController ->>+ ProductAdminService: createProduct()
+    ProductAdminService ->>+ BrandRepository: existsByBrandId(brandId)
+
     alt 브랜드 존재함
         BrandRepository -->> ProductAdminService: true
-        ProductAdminService ->> ProductRepository: save()
-        ProductRepository -->> ProductAdminService: 저장 완료
+        ProductAdminService ->>+ ProductRepository: save()
+        ProductRepository -->>- ProductAdminService: 저장 완료
         ProductAdminService -->> ProductAdminController: 등록된 상품 정보
         ProductAdminController -->> Admin: 상품 등록 응답 (200 OK)
     else 브랜드 없음
-        BrandRepository -->> ProductAdminService: false
-        ProductAdminService -->> ProductAdminController: 예외 발생
-        ProductAdminController -->> Admin: 400 Bad Request / 404 Not Found
+        BrandRepository -->>- ProductAdminService: false
+        ProductAdminService -->>- ProductAdminController: 예외 발생
+        ProductAdminController -->>- Admin: 400 Bad Request / 404 Not Found
     end
 ```
 
@@ -354,20 +354,20 @@ sequenceDiagram
     participant ProductAdminService
     participant ProductRepository
 
-    Admin ->> ProductAdminController: PUT /api-admin/v1/products/{productId}
-    ProductAdminController ->> ProductAdminService: updateProduct(productId)
-    ProductAdminService ->> ProductRepository: findById(productId)
-    
+    Admin ->>+ ProductAdminController: PUT /api-admin/v1/products/{productId}
+    ProductAdminController ->>+ ProductAdminService: updateProduct(productId)
+    ProductAdminService ->>+ ProductRepository: findById(productId)
+
     alt 상품 존재함
-        ProductRepository -->> ProductAdminService: ProductModel
+        ProductRepository -->>- ProductAdminService: ProductModel
         ProductAdminService ->> ProductAdminService: update properties (except brand)
         Note right of ProductAdminService: 브랜드는 수정 불가 (기존 값 유지)
         ProductAdminService ->> ProductRepository: save()
         ProductAdminService -->> ProductAdminController: 수정된 상품 정보
         ProductAdminController -->> Admin: 상품 수정 응답 (200 OK)
     else 상품 없음
-        ProductAdminService -->> ProductAdminController: 예외 발생
-        ProductAdminController -->> Admin: 404 Not Found
+        ProductAdminService -->>- ProductAdminController: 예외 발생
+        ProductAdminController -->>- Admin: 404 Not Found
     end
 ```
 
@@ -385,10 +385,10 @@ sequenceDiagram
     participant ProductAdminService
     participant ProductRepository
 
-    Admin ->> ProductAdminController: DELETE /api-admin/v1/products/{productId}
-    ProductAdminController ->> ProductAdminService: deleteProduct(productId)
-    ProductAdminService ->> ProductRepository: findByProductId(productId)
-    ProductRepository -->> ProductAdminService: ProductModel
+    Admin ->>+ ProductAdminController: DELETE /api-admin/v1/products/{productId}
+    ProductAdminController ->>+ ProductAdminService: deleteProduct(productId)
+    ProductAdminService ->>+ ProductRepository: findByProductId(productId)
+    ProductRepository -->>- ProductAdminService: ProductModel
     alt 상품 존재함
         ProductAdminService ->> ProductAdminService: isDeleted = true
         Note right of ProductAdminService: Soft Delete (상태 변경)
@@ -396,8 +396,8 @@ sequenceDiagram
         ProductAdminService -->> ProductAdminController: 삭제 완료
         ProductAdminController -->> Admin: 상품 삭제 응답 (200 OK)
     else 상품 없음
-        ProductAdminService -->> ProductAdminController: 예외 발생
-        ProductAdminController -->> Admin: 404 Not Found
+        ProductAdminService -->>- ProductAdminController: 예외 발생
+        ProductAdminController -->>- Admin: 404 Not Found
     end
 ```
 
@@ -415,32 +415,33 @@ sequenceDiagram
 sequenceDiagram
     participant User
     participant LikeController
-    participant LikeService
     participant ProductService
+    participant LikeService
     participant LikeRepository
     participant ProductRepository
 
-    User ->> LikeController: POST /api/v1/products/{productId}/likes
-    LikeController ->> LikeService: addLike(userId, productId)
-    LikeService ->> ProductService: getProduct(productId)
-    
+    User ->>+ LikeController: POST /api/v1/products/{productId}/likes
+    LikeController ->>+ ProductService: getProduct(productId)
+    ProductService -->>- LikeController: ProductModel
+
     alt 상품 존재함
-        ProductService -->> LikeService: ProductModel
-        LikeService ->> LikeRepository: existsByUserIdAndProductId(userId, productId)
+        LikeController ->>+ LikeService: addLike(userId, productId)
+        LikeService ->>+ LikeRepository: existsByUserIdAndProductId(userId, productId)
         alt 이미 좋아요 함
             LikeRepository -->> LikeService: true
             LikeService -->> LikeController: 성공 (추가 작업 없음)
             LikeController -->> User: 좋아요 등록 성공 (201 Created)
         else 좋아요 안 함
-            LikeRepository -->> LikeService: false
+            LikeRepository -->>- LikeService: false
+            Note over LikeService, ProductRepository: 트랜잭션 시작
             LikeService ->> LikeRepository: save()
             LikeService ->> ProductRepository: incrementLikeCount(productId)
-            LikeService -->> LikeController: 성공
+            Note over LikeService, ProductRepository: 트랜잭션 커밋
+            LikeService -->>- LikeController: 성공
             LikeController -->> User: 좋아요 등록 성공 (201 Created)
         end
     else 상품 없음
-        ProductService -->> LikeController: 예외 발생
-        LikeController -->> User: 404 Not Found
+        LikeController -->>- User: 404 Not Found
     end
 ```
 
@@ -456,24 +457,30 @@ sequenceDiagram
 sequenceDiagram
     participant User
     participant LikeController
+    participant ProductService
     participant LikeService
     participant LikeRepository
     participant ProductRepository
 
-    User ->> LikeController: DELETE /api/v1/products/{productId}/likes
-    LikeController ->> LikeService: removeLike(userId, productId)
-    LikeService ->> LikeRepository: findByUserIdAndProductId(userId, productId)
+    User ->>+ LikeController: DELETE /api/v1/products/{productId}/likes
+    LikeController ->>+ ProductService: getProduct(productId)
+    ProductService -->>- LikeController: ProductModel
+    LikeController ->>+ LikeService: removeLike(userId, productId)
+    LikeService ->>+ LikeRepository: findByUserIdAndProductId(userId, productId)
 
     alt 좋아요 존재함
         LikeRepository -->> LikeService: LikeModel
+        Note over LikeService, ProductRepository: 트랜잭션 시작
         LikeService ->> LikeRepository: delete()
         LikeService ->> ProductRepository: decrementLikeCount(productId)
+        Note over LikeService, ProductRepository: 트랜잭션 커밋
         LikeService -->> LikeController: 성공
         LikeController -->> User: 좋아요 취소 성공 (200 OK)
     else 좋아요 없음
-        LikeRepository -->> LikeService: null
-        LikeService -->> LikeController: 예외 발생 (Not Found)
-        LikeController -->> User: 404 Not Found
+        LikeRepository -->>- LikeService: null
+        Note over LikeService, ProductRepository: 트랜잭션 롤백
+        LikeService -->>- LikeController: 예외 발생 (Not Found)
+        LikeController -->>- User: 404 Not Found
     end
 ```
 
@@ -493,14 +500,14 @@ sequenceDiagram
     participant LikeRepository
     participant ProductRepository
 
-    User ->> LikeController: GET /api/v1/users/{userId}/likes
-    LikeController ->> LikeService: getLikedProducts(userId, pageable)
-    LikeService ->> LikeRepository: findAllByUserId(userId, pageable)
-    LikeRepository -->> LikeService: Page<LikeModel>
-    LikeService ->> ProductRepository: findAllByProductIds(productIds)
-    ProductRepository -->> LikeService: List<ProductModel>
-    LikeService -->> LikeController: 좋아요 한 상품 목록
-    LikeController -->> User: 상품 목록 응답 (200 OK)
+    User ->>+ LikeController: GET /api/v1/users/{userId}/likes
+    LikeController ->>+ LikeService: getLikedProducts(userId, pageable)
+    LikeService ->>+ LikeRepository: findAllByUserId(userId, pageable)
+    LikeRepository -->>- LikeService: Page<LikeModel>
+    LikeService ->>+ ProductRepository: findAllByProductIds(productIds)
+    ProductRepository -->>- LikeService: List<ProductModel>
+    LikeService -->>- LikeController: 좋아요 한 상품 목록
+    LikeController -->>- User: 상품 목록 응답 (200 OK)
 ```
 
 ## 주문 (Orders)
@@ -525,41 +532,47 @@ sequenceDiagram
     participant PIR as ProductInventoryRepository
     participant OR as OrderRepository
 
-    User ->> OC: POST /api/v1/orders
-    OC ->> OS: createOrder(userId, items)
-    
+    User ->>+ OC: POST /api/v1/orders
+    OC ->>+ OS: createOrder(userId, items)
+
     loop 상품별 재고 확인 및 스냅샷 생성
-        OS ->> PS: getProduct(productId)
-        PS ->> PR: findById(productId)
+        Note over OS, OR: 트랜잭션 시작
+        OS ->>+ PS: getProduct(productId)
+        PS ->>+ PR: findById(productId)
 
         alt 상품 있음
-            PR -->> OS: ProductModel
-            OS ->> PIS: getProductStock(productId)
-            PIS ->> PIR: findByProductId(productId)
-            PIR -->> OS: ProductInventoryModel
+            PR -->>- PS: ProductModel
+            PS -->>- OS: ProductModel
+            OS ->>+ PIS: getProductStock(productId)
+            PIS ->>+ PIR: findByProductId(productId)
+            PIR -->>- PIS: ProductInventoryModel
+            PIS -->>- OS: ProductInventoryModel
 
         alt 재고 충분
-            OS ->> PIS: decreaseStock(productId, quantity)
-            PIS ->> PIR: decreaseStockByProductId(productId, quantity)
-            PIR -->> OS: 재고 차감 (stock - quantity)
+            OS ->>+ PIS: decreaseStock(productId, quantity)
+            PIS ->>+ PIR: decreaseStockByProductId(productId, quantity)
+            PIR -->>- PIS: 재고 차감 (stock - quantity)
+            PIS -->>- OS: 재고 차감 (stock - quantity)
             OS ->> OS: 주문 상세(Snapshot) 생성
         else 재고 부족
+            Note over OS, OR: 트랜잭션 롤백
             OS -->> OC: 예외 발생 (Out of Stock)
             OC -->> User: 400 Bad Request
         end
 
         else 상품 없음
             PR -->> PS: null
+            Note over OS, OR: 트랜잭션 롤백
             PS -->> OS: 예외 발생 (Not Found)
             OS -->> OC: 예외 발생 (Not Found)
             OC -->> User: 404 Not Found
         end
     end
-
-    OS ->> OR: save(OrderModel)
-    OR -->> OS: Saved OrderModel
-    OS -->> OC: 생성된 주문 정보
-    OC -->> User: 주문 생성 성공 (201 Created)
+    Note over OS, OR: 트랜잭션 커밋
+    OS ->>+ OR: save(OrderModel)
+    OR -->>- OS: Saved OrderModel
+    OS -->>- OC: 생성된 주문 정보
+    OC -->>- User: 주문 생성 성공 (201 Created)
 ```
 
 **2. 유저의 주문 목록 조회**
@@ -577,13 +590,13 @@ sequenceDiagram
     participant OrderService
     participant OrderRepository
 
-    User ->> OrderController: GET /api/v1/orders
+    User ->>+ OrderController: GET /api/v1/orders
     Note right of User: startAt, endAt
-    OrderController ->> OrderService: getOrders(userId, startAt, endAt, pageable)
-    OrderService ->> OrderRepository: findAllByUserIdAndPeriod(userId, startAt, endAt, pageable)
-    OrderRepository -->> OrderService: Page<OrderModel>
-    OrderService -->> OrderController: 주문 목록
-    OrderController -->> User: 주문 목록 응답 (200 OK)
+    OrderController ->>+ OrderService: getOrders(userId, startAt, endAt, pageable)
+    OrderService ->>+ OrderRepository: findAllByUserIdAndPeriod(userId, startAt, endAt, pageable)
+    OrderRepository -->>- OrderService: Page<OrderModel>
+    OrderService -->>- OrderController: 주문 목록
+    OrderController -->>- User: 주문 목록 응답 (200 OK)
 ```
 
 **3. 단일 주문 상세 조회**
@@ -600,16 +613,18 @@ sequenceDiagram
     participant OrderService
     participant OrderRepository
 
-    User ->> OrderController: GET /api/v1/orders/{orderId}
-    OrderController ->> OrderService: getOrder(orderId)
-    OrderService ->> OrderRepository: findByOrderId(orderId)
-    
+    User ->>+ OrderController: GET /api/v1/orders/{orderId}
+    OrderController ->>+ OrderService: getOrder(orderId)
+    OrderService ->>+ OrderRepository: findByOrderId(orderId)
+
     alt 주문 존재함
         OrderRepository -->> OrderService: OrderModel
+        OrderService -->> OrderController: 주문 상세 정보
+        OrderController -->> User: 주문 상세 정보 응답 (200 OK)
     else 주문 없음
-        OrderRepository -->> OrderService: null
-        OrderService -->> OrderController: 예외 발생
-        OrderController -->> User: 404 Not Found
+        OrderRepository -->>- OrderService: null
+        OrderService -->>- OrderController: 예외 발생
+        OrderController -->>- User: 404 Not Found
     end
 ```
 
@@ -630,13 +645,13 @@ sequenceDiagram
     participant OrderAdminService
     participant OrderRepository
 
-    Admin ->> OrderAdminController: GET /api-admin/v1/orders
+    Admin ->>+ OrderAdminController: GET /api-admin/v1/orders
     Note right of Admin: page=0, size=20
-    OrderAdminController ->> OrderAdminService: getOrders(pageable)
-    OrderAdminService ->> OrderRepository: findAll(pageable)
-    OrderRepository -->> OrderAdminService: Page<OrderModel>
-    OrderAdminService -->> OrderAdminController: 주문 목록
-    OrderAdminController -->> Admin: 주문 목록 응답 (200 OK)
+    OrderAdminController ->>+ OrderAdminService: getOrders(pageable)
+    OrderAdminService ->>+ OrderRepository: findAll(pageable)
+    OrderRepository -->>- OrderAdminService: Page<OrderModel>
+    OrderAdminService -->>- OrderAdminController: 주문 목록
+    OrderAdminController -->>- Admin: 주문 목록 응답 (200 OK)
 ```
 
 **2. 단일 주문 상세 조회**
@@ -653,17 +668,17 @@ sequenceDiagram
     participant OrderAdminService
     participant OrderRepository
 
-    Admin ->> OrderAdminController: GET /api-admin/v1/orders/{orderId}
-    OrderAdminController ->> OrderAdminService: getOrder(orderId)
-    OrderAdminService ->> OrderRepository: findByOrderId(orderId)
+    Admin ->>+ OrderAdminController: GET /api-admin/v1/orders/{orderId}
+    OrderAdminController ->>+ OrderAdminService: getOrder(orderId)
+    OrderAdminService ->>+ OrderRepository: findByOrderId(orderId)
 
     alt 주문 존재함
         OrderRepository -->> OrderAdminService: OrderModel
         OrderAdminService -->> OrderAdminController: 주문 상세 정보
         OrderAdminController -->> Admin: 주문 상세 정보 응답 (200 OK)
     else 주문 없음
-        OrderRepository -->> OrderAdminService: null
-        OrderAdminService -->> OrderAdminController: 예외 발생
-        OrderAdminController -->> Admin: 404 Not Found
+        OrderRepository -->>- OrderAdminService: null
+        OrderAdminService -->>- OrderAdminController: 예외 발생
+        OrderAdminController -->>- Admin: 404 Not Found
     end
 ```
