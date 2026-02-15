@@ -77,7 +77,7 @@ sequenceDiagram
     Register->>Repository: existsByName(brandName)
     Repository-->>Register: false
 
-    alt 이미 존재하는 브랜드명
+    opt 이미 존재하는 브랜드명
         Register-->>Register: throw CoreException(DUPLICATE_BRAND_NAME)
     end
 
@@ -298,7 +298,7 @@ sequenceDiagram
     Register->>Repository: existsByMemberIdAndProductId(memberId, productId)
     Repository-->>Register: false
 
-    alt 이미 좋아요한 상품
+    opt 이미 좋아요한 상품
         Register-->>Register: throw CoreException(ALREADY_LIKED)
     end
 
@@ -406,14 +406,14 @@ sequenceDiagram
     Remover->>BrandReader: getById(brandId)
     BrandReader-->>Remover: Brand
 
-    alt 이미 INACTIVE
+    opt 이미 INACTIVE
         Remover-->>Remover: throw CoreException(BRAND_ALREADY_INACTIVE)
     end
 
     Remover->>ProductReader: existsSellingByBrandId(brandId)
     ProductReader-->>Remover: true/false
 
-    alt 판매 중인 상품 존재
+    opt 판매 중인 상품 존재
         Remover-->>Remover: throw CoreException(BRAND_HAS_ACTIVE_PRODUCTS)
     end
 
@@ -472,17 +472,17 @@ sequenceDiagram
     Canceller->>Repository: findById(orderId)
     Repository-->>Canceller: Order
 
-    alt 주문이 존재하지 않음
+    opt 주문이 존재하지 않음
         Canceller-->>Canceller: throw CoreException(ORDER_NOT_FOUND)
     end
 
-    alt 본인의 주문이 아님
+    opt 본인의 주문이 아님
         Canceller-->>Canceller: throw CoreException(ORDER_NOT_OWNER)
     end
 
     Note over Canceller: order.cancel()
 
-    alt 이미 CANCELLED 상태
+    opt 이미 CANCELLED 상태
         Canceller-->>Canceller: throw CoreException(ORDER_ALREADY_CANCELLED)
     end
 

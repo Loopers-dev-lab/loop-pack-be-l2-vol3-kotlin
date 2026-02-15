@@ -33,8 +33,8 @@ classDiagram
         INACTIVE
     }
 
-    Brand --> BrandName : has
-    Brand --> BrandStatus : has
+    Brand *-- BrandName
+    Brand *-- BrandStatus
 
     %% === Product Aggregate ===
     class Product {
@@ -69,10 +69,10 @@ classDiagram
         STOP_SELLING
     }
 
-    Product --> ProductName : has
-    Product --> ProductPrice : has
-    Product --> ProductDescription : has
-    Product --> ProductStatus : has
+    Product *-- ProductName
+    Product *-- ProductPrice
+    Product *-- ProductDescription
+    Product *-- ProductStatus
     Product ..> Brand : brandId 참조
 
     %% === Like Aggregate ===
@@ -113,7 +113,7 @@ classDiagram
         CANCELLED
     }
 
-    Order --> OrderStatus : has
+    Order *-- OrderStatus
     Order *-- OrderItem : contains 1..*
     Order ..> Member : memberId 참조
     OrderItem ..> Product : productId 참조 (스냅샷)
@@ -233,14 +233,14 @@ classDiagram
         +existsByName(name) Boolean
     }
 
-    Brand --> BrandName
-    Brand --> BrandStatus
-    BrandRegister --> BrandRepository
-    BrandReader --> BrandRepository
-    BrandChanger --> BrandRepository
-    BrandChanger --> BrandReader
-    BrandRemover --> BrandRepository
-    BrandRemover --> BrandReader
+    Brand *-- BrandName
+    Brand *-- BrandStatus
+    BrandRegister ..> BrandRepository
+    BrandReader ..> BrandRepository
+    BrandChanger ..> BrandRepository
+    BrandChanger ..> BrandReader
+    BrandRemover ..> BrandRepository
+    BrandRemover ..> BrandReader
     BrandRemover ..> ProductReader : 크로스 도메인
 ```
 
@@ -344,18 +344,18 @@ classDiagram
         +findAll() List~Product~
     }
 
-    Product --> ProductName
-    Product --> ProductPrice
-    Product --> ProductDescription
-    Product --> ProductStatus
+    Product *-- ProductName
+    Product *-- ProductPrice
+    Product *-- ProductDescription
+    Product *-- ProductStatus
     Product ..> Brand : brandId 참조
-    ProductRegister --> ProductRepository
+    ProductRegister ..> ProductRepository
     ProductRegister ..> BrandReader : 크로스 도메인
-    ProductReader --> ProductRepository
-    ProductChanger --> ProductRepository
-    ProductChanger --> ProductReader
-    ProductRemover --> ProductRepository
-    ProductRemover --> ProductReader
+    ProductReader ..> ProductRepository
+    ProductChanger ..> ProductRepository
+    ProductChanger ..> ProductReader
+    ProductRemover ..> ProductRepository
+    ProductRemover ..> ProductReader
 ```
 
 #### Value Objects
@@ -439,11 +439,11 @@ classDiagram
 
     Like ..> Member : memberId 참조
     Like ..> Product : productId 참조
-    LikeRegister --> LikeRepository
+    LikeRegister ..> LikeRepository
     LikeRegister ..> ProductReader : 크로스 도메인
-    LikeRemover --> LikeRepository
-    LikeRemover --> LikeReader
-    LikeReader --> LikeRepository
+    LikeRemover ..> LikeRepository
+    LikeRemover ..> LikeReader
+    LikeReader ..> LikeRepository
 ```
 
 #### Domain Model: Like
@@ -530,15 +530,15 @@ classDiagram
         +findById(id) Order
     }
 
-    Order --> OrderStatus
+    Order *-- OrderStatus
     Order *-- OrderItem : contains 1..*
     Order ..> Member : memberId 참조
     OrderItem ..> Product : productId 참조 (스냅샷)
-    OrderRegister --> OrderRepository
+    OrderRegister ..> OrderRepository
     OrderRegister ..> ProductReader : 크로스 도메인
-    OrderReader --> OrderRepository
-    OrderCanceller --> OrderRepository
-    OrderCanceller --> OrderReader
+    OrderReader ..> OrderRepository
+    OrderCanceller ..> OrderRepository
+    OrderCanceller ..> OrderReader
 ```
 
 #### Value Objects / Enums
