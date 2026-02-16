@@ -38,6 +38,18 @@ classDiagram
         +restore()
     }
 
+    %% ── User 도메인 ──
+
+    class UserModel {
+        +String name
+        +String username
+        #String password
+        +String email
+        +ZonedDateTime birthDate
+        +updatePassword(newPassword: String)
+        +applyEncodedPassword(encodedPassword: String)
+    }
+
     %% ── Brand 도메인 ──
 
     class BrandModel {
