@@ -36,7 +36,7 @@ sequenceDiagram
         BrandService-->>BrandController: 미존재 에러
         BrandController-->>Client: 404 Not Found
     else 브랜드 존재
-        Note right of BrandService: 사후조건:\n- 브랜드 정보(id, name) 반환
+        Note right of BrandService: 사후조건: 브랜드 정보 반환
         BrandService-->>BrandController: 브랜드 정보 반환
         BrandController-->>Client: 200 OK + 브랜드 정보
     end
@@ -57,16 +57,16 @@ sequenceDiagram
     Note right of Client: LDAP 인증
     BrandController->>+BrandService: 브랜드 목록 조회 요청
 
-    Note right of BrandService: 사전조건:\n- Admin LDAP 인증 완료
+    Note right of BrandService: 사전조건: Admin LDAP 인증 완료
 
     BrandService->>BrandRepository: 브랜드 목록 페이징 조회
     BrandRepository->>DB: 브랜드 목록 조회
     DB-->>BrandRepository: 조회 결과
     BrandRepository-->>BrandService: 브랜드 목록
 
-    Note right of BrandService: 사후조건:\n- 페이징된 브랜드 목록 반환
+    Note right of BrandService: 사후조건: 브랜드 목록 반환
 
-    BrandService-->>BrandController: 브랜드 목록 반환
+    BrandService-->>BrandController: 페이징된 브랜드 목록 반환
     BrandController-->>Client: 200 OK + 브랜드 목록
     deactivate BrandService
 ```
@@ -85,7 +85,7 @@ sequenceDiagram
     Note right of Client: LDAP 인증
     BrandController->>+BrandService: 브랜드 상세 조회 요청
 
-    Note right of BrandService: 사전조건:\n- Admin LDAP 인증 완료
+    Note right of BrandService: 사전조건: Admin LDAP 인증 완료
 
     BrandService->>BrandRepository: 브랜드 조회
     BrandRepository->>DB: 브랜드 조회
@@ -96,7 +96,7 @@ sequenceDiagram
         BrandService-->>BrandController: 미존재 에러
         BrandController-->>Client: 404 Not Found
     else 브랜드 존재
-        Note right of BrandService: 사후조건:\n- 브랜드 상세 정보 반환
+        Note right of BrandService: 사후조건: 브랜드 상세 정보 반환
         BrandService-->>BrandController: 브랜드 상세 반환
         BrandController-->>Client: 200 OK + 브랜드 상세 정보
     end
@@ -118,12 +118,12 @@ sequenceDiagram
     Note right of Client: LDAP 인증
     BrandController->>+BrandService: 브랜드 등록 요청
 
-    Note right of BrandService: 사전조건:\n- Admin LDAP 인증 완료
+    Note right of BrandService: 사전조건: Admin LDAP 인증 완료
     Note right of BrandService: 트랜잭션 경계 시작
 
     BrandService->>BrandModel: 생성
     BrandModel->>BrandModel: 유효성 검증
-    Note right of BrandModel: 불변식:\n- 브랜드 이름 필수
+    Note right of BrandModel: 불변식: 브랜드 이름 필수
 
     alt 유효성 실패
         BrandModel-->>BrandService: 유효성 에러
@@ -136,7 +136,7 @@ sequenceDiagram
         DB-->>BrandRepository: 저장 완료
         BrandRepository-->>BrandService: 저장 완료
 
-        Note right of BrandService: 사후조건:\n- 브랜드 저장 완료
+        Note right of BrandService: 사후조건: 브랜드 저장 완료
     end
 
     BrandService-->>BrandController: 생성된 브랜드 정보 반환
@@ -161,7 +161,7 @@ sequenceDiagram
     Note right of Client: LDAP 인증
     BrandController->>+BrandService: 브랜드 수정 요청
 
-    Note right of BrandService: 사전조건:\n- Admin LDAP 인증 완료\n- 대상 브랜드 존재
+    Note right of BrandService: 사전조건: Admin LDAP 인증 완료, 대상 브랜드 존재
     Note right of BrandService: 트랜잭션 경계 시작
 
     BrandService->>BrandRepository: 브랜드 조회
@@ -175,7 +175,7 @@ sequenceDiagram
     else 브랜드 존재
         BrandService->>BrandModel: 브랜드 정보 수정
         BrandModel->>BrandModel: 유효성 검증
-        Note right of BrandModel: 불변식:\n- 브랜드 이름 필수
+        Note right of BrandModel: 불변식: 브랜드 이름 필수
 
         alt 유효성 실패
             BrandModel-->>BrandService: 유효성 에러
@@ -188,12 +188,12 @@ sequenceDiagram
             DB-->>BrandRepository: 수정 완료
             BrandRepository-->>BrandService: 저장 완료
 
-            Note right of BrandService: 사후조건:\n- 브랜드 정보 수정 완료
+            Note right of BrandService: 사후조건: 브랜드 정보 수정 완료
         end
     end
 
     BrandService-->>BrandController: 수정된 브랜드 정보 반환
-    BrandController-->>Client: 200 OK + 브랜드 정보
+    BrandController-->>Client: 200 OK
 
     Note right of BrandService: 트랜잭션 종료
     deactivate BrandService
@@ -215,7 +215,7 @@ sequenceDiagram
     Note right of Client: LDAP 인증
     BrandController->>+BrandService: 브랜드 삭제 요청
 
-    Note right of BrandService: 사전조건:\n- Admin LDAP 인증 완료\n- 대상 브랜드 존재
+    Note right of BrandService: 사전조건: Admin LDAP 인증 완료, 대상 브랜드 존재
     Note right of BrandService: 트랜잭션 경계 시작
 
     BrandService->>BrandRepository: 브랜드 조회
@@ -227,7 +227,7 @@ sequenceDiagram
         BrandService-->>BrandController: 미존재 에러
         BrandController-->>Client: 404 Not Found
     else 브랜드 존재
-        Note right of BrandService: 불변식:\n- 브랜드 삭제 시 연관 상품 연쇄 Soft Delete
+        Note right of BrandService: 불변식: 브랜드 삭제 시 연관 상품 연쇄 Soft Delete
 
         BrandService->>ProductRepository: 연관 상품 일괄 Soft Delete
         ProductRepository->>DB: 상품 일괄 Soft Delete
