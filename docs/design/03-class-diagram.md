@@ -61,7 +61,7 @@ classDiagram
     %% brandId로 Brand를 ID 참조 (FK 미사용)
 
     class ProductModel {
-        +Long brandId
+        +Long repBrandId
         +String name
         #Int quantity
         #Int price
@@ -75,8 +75,8 @@ classDiagram
     class LikeModel {
         <<Hard Delete>>
         +Long id
-        +Long userId
-        +Long productId
+        +Long repUserId
+        +Long repProductId
         +ZonedDateTime createdAt
     }
 
@@ -84,7 +84,7 @@ classDiagram
     %% 주문의 본질: 계약서 작성 (스냅샷 보존)
 
     class OrderModel {
-        +Long userId
+        +Long repUserId
         +List~OrderItemModel~ orderItems
         #BigDecimal totalPrice
         +calculateTotalPrice()
@@ -93,8 +93,7 @@ classDiagram
     %% OrderItem: 주문 시점의 상품 정보를 스냅샷으로 보존
     class OrderItemModel {
         <<snapshot>>
-        +Long productId
-        +String productName
+        +Long repProductId
         +Int price
         +Int quantity
         +getSubtotal() BigDecimal
