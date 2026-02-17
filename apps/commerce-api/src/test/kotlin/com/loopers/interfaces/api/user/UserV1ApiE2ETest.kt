@@ -1,6 +1,11 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.domain.user.User
+import com.loopers.domain.user.vo.BirthDate
+import com.loopers.domain.user.vo.Email
+import com.loopers.domain.user.vo.LoginId
+import com.loopers.domain.user.vo.Name
+import com.loopers.domain.user.vo.Password
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
@@ -27,9 +32,9 @@ class UserV1ApiE2ETest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
-        private const val ENDPOINT_SIGN_UP = "/api/v1/user/sign-up"
-        private const val ENDPOINT_RETREIVE_USERINFO = "/api/v1/user"
-        private const val ENDPOINT_CHANGE_PASSWORD = "/api/v1/user/password"
+        private const val ENDPOINT_SIGN_UP = "/api/v1/users"
+        private const val ENDPOINT_RETREIVE_USERINFO = "/api/v1/users"
+        private const val ENDPOINT_CHANGE_PASSWORD = "/api/v1/users/password"
     }
 
     @AfterEach
@@ -68,9 +73,9 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             val savedUser = userJpaRepository.findAll().first()
             assertAll(
-                { assertThat(savedUser.loginId).isEqualTo(request.loginId) },
-                { assertThat(savedUser.name).isEqualTo(request.name) },
-                { assertThat(savedUser.email).isEqualTo(request.email) },
+                { assertThat(savedUser.loginId.value).isEqualTo(request.loginId) },
+                { assertThat(savedUser.name.value).isEqualTo(request.name) },
+                { assertThat(savedUser.email.value).isEqualTo(request.email) },
             )
         }
 
@@ -78,20 +83,176 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun `이미 존재하는 로그인ID로 가입을 시도하면 400 BAD_REQUEST 응답을 받는다`() {
             // given
             val existingUser = User.create(
-                loginId = "test123",
+                loginId = LoginId.of("test123"),
+                password = Password.ofEncrypted("encryptedPassword123"),
+                name = Name.of("test"),
+                birthDate = BirthDate.of("20260101"),
+                email = Email.of("test@test.com"),
+            )
+            userJpaRepository.save(existingUser)
+
+            val request = UserV1Dto.SignUpRequest(
+                loginId = existingUser.loginId.value,
+                password = "test12345",
+                name = "test1",
+                birthDate = "20260102",
+                email = "test1@test.com",
+            )
+
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // then
+            assertAll(
+                { assertEquals(HttpStatus.BAD_REQUEST, response.statusCode) },
+            )
+        }
+
+        @Test
+        fun `loginId가 빈 문자열이면 400 BAD_REQUEST 응답을 받는다`() {
+            // given
+            val request = UserV1Dto.SignUpRequest(
+                loginId = "",
                 password = "test1234",
                 name = "test",
                 birthDate = "20260101",
                 email = "test@test.com",
             )
-            userJpaRepository.save(existingUser)
 
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // then
+            assertAll(
+                { assertEquals(HttpStatus.BAD_REQUEST, response.statusCode) },
+            )
+        }
+
+        @Test
+        fun `loginId가 3자 미만이면 400 BAD_REQUEST 응답을 받는다`() {
+            // given
             val request = UserV1Dto.SignUpRequest(
-                loginId = existingUser.loginId,
-                password = "test12345",
-                name = "test1",
-                birthDate = "20260102",
-                email = "test1@test.com",
+                loginId = "ab",
+                password = "test1234",
+                name = "test",
+                birthDate = "20260101",
+                email = "test@test.com",
+            )
+
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // then
+            assertAll(
+                { assertEquals(HttpStatus.BAD_REQUEST, response.statusCode) },
+            )
+        }
+
+        @Test
+        fun `loginId에 특수문자가 포함되면 400 BAD_REQUEST 응답을 받는다`() {
+            // given
+            val request = UserV1Dto.SignUpRequest(
+                loginId = "test@123",
+                password = "test1234",
+                name = "test",
+                birthDate = "20260101",
+                email = "test@test.com",
+            )
+
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // then
+            assertAll(
+                { assertEquals(HttpStatus.BAD_REQUEST, response.statusCode) },
+            )
+        }
+
+        @Test
+        fun `name이 1글자이면 400 BAD_REQUEST 응답을 받는다`() {
+            // given
+            val request = UserV1Dto.SignUpRequest(
+                loginId = "test123",
+                password = "test1234",
+                name = "a",
+                birthDate = "20260101",
+                email = "test@test.com",
+            )
+
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // then
+            assertAll(
+                { assertEquals(HttpStatus.BAD_REQUEST, response.statusCode) },
+            )
+        }
+
+        @Test
+        fun `birthDate가 유효한 날짜 형식이 아니면 400 BAD_REQUEST 응답을 받는다`() {
+            // given
+            val request = UserV1Dto.SignUpRequest(
+                loginId = "test123",
+                password = "test1234",
+                name = "test",
+                birthDate = "2026-01-01",
+                email = "test@test.com",
+            )
+
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // then
+            assertAll(
+                { assertEquals(HttpStatus.BAD_REQUEST, response.statusCode) },
+            )
+        }
+
+        @Test
+        fun `email이 이메일 형식이 아니면 400 BAD_REQUEST 응답을 받는다`() {
+            // given
+            val request = UserV1Dto.SignUpRequest(
+                loginId = "test123",
+                password = "test1234",
+                name = "test",
+                birthDate = "20260101",
+                email = "invalid-email",
             )
 
             // when

@@ -4,6 +4,7 @@ import com.loopers.infrastructure.filter.AuthenticationFilter
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.web.AuthenticationEntryPoint
@@ -17,7 +18,7 @@ class SecurityConfig(
 ) {
 
     object ApiPaths {
-        const val SIGN_UP = "/api/*/user/sign-up"
+        const val SIGN_UP = "/api/*/users"
         const val EXAMPLES = "/api/*/examples/**"
     }
 
@@ -27,7 +28,7 @@ class SecurityConfig(
             .csrf { it.disable() }
             .authorizeHttpRequests {
                 it
-                    .requestMatchers(ApiPaths.SIGN_UP).permitAll()
+                    .requestMatchers(HttpMethod.POST, ApiPaths.SIGN_UP).permitAll()
                     .requestMatchers(ApiPaths.EXAMPLES).permitAll()
                     .anyRequest().authenticated()
             }

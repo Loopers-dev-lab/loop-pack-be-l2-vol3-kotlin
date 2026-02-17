@@ -30,7 +30,7 @@ class AuthenticationFilter(
         }
 
         val user = userRepository.findByLoginId(loginId)
-        if (user == null || !passwordEncoder.matches(loginPw, user.password)) {
+        if (user == null || !passwordEncoder.matches(loginPw, user.password.value)) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "로그인 아이디 또는 패스워드가 잘못되었습니다.")
             return
         }
