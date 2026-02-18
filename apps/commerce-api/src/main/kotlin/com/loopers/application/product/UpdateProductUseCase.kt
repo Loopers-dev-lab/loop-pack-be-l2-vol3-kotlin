@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductImage
 import com.loopers.domain.product.ProductName
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class UpdateProductUseCase(
     private val productRepository: ProductRepository,
+    private val brandRepository: BrandRepository,
 ) {
     @Transactional
     fun update(id: Long, command: UpdateProductCommand): ProductInfo {
@@ -33,6 +35,8 @@ class UpdateProductUseCase(
         )
 
         productRepository.save(updatedProduct)
-        return ProductInfo.from(updatedProduct)
+        val brand = brandRepository.findById(updatedProduct.brandId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${updatedProduct.brandId}")
+        return ProductInfo.from(updatedProduct, brand)
     }
 }

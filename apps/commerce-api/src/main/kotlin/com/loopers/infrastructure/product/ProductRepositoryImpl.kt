@@ -50,10 +50,14 @@ class ProductRepositoryImpl(
         val entities = when {
             brandId != null && sortType == ProductSortType.LIKE_COUNT ->
                 jpaRepository.findAllActiveByBrandPopular(brandId)
+            brandId != null && sortType == ProductSortType.PRICE_ASC ->
+                jpaRepository.findAllActiveByBrandPriceAsc(brandId)
             brandId != null ->
                 jpaRepository.findAllActiveByBrandLatest(brandId)
             sortType == ProductSortType.LIKE_COUNT ->
                 jpaRepository.findAllActivePopular()
+            sortType == ProductSortType.PRICE_ASC ->
+                jpaRepository.findAllActivePriceAsc()
             else ->
                 jpaRepository.findAllActiveLatest()
         }

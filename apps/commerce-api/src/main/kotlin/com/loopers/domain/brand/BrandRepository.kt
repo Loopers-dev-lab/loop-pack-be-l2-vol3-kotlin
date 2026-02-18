@@ -6,4 +6,5 @@ interface BrandRepository {
     fun existsByName(name: BrandName): Boolean
     fun findAll(): List<Brand>
     fun findAllActive(): List<Brand>
+    fun findAllByIds(ids: Set<Long>): List<Brand>
 }

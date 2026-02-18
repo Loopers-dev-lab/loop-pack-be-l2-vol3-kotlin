@@ -6,6 +6,8 @@ import com.loopers.application.product.ProductInfo
 data class GetProductDetailResponse(
     val id: Long,
     val brandId: Long,
+    val brandName: String,
+    val brandLogoUrl: String?,
     val name: String,
     val description: String?,
     val price: Long,
@@ -19,6 +21,8 @@ data class GetProductDetailResponse(
         fun from(productInfo: ProductInfo) = GetProductDetailResponse(
             id = productInfo.id,
             brandId = productInfo.brandId,
+            brandName = productInfo.brandName,
+            brandLogoUrl = productInfo.brandLogoUrl,
             name = productInfo.name,
             description = productInfo.description,
             price = productInfo.price,

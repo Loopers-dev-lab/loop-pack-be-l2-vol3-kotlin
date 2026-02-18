@@ -27,7 +27,13 @@ class CancelOrderUseCase(
         orderRepository.save(cancelledOrder)
 
         cancelledOrder.items.forEach { item ->
-            productRepository.increaseStock(item.productId, item.quantity)
+            val affected = productRepository.increaseStock(item.productId, item.quantity)
+            if (affected == 0) {
+                throw CoreException(
+                    ErrorType.NOT_FOUND,
+                    "재고 복구에 실패했습니다. 상품 ID: ${item.productId}",
+                )
+            }
         }
     }
 }

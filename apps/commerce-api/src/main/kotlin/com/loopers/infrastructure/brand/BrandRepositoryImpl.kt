@@ -33,4 +33,8 @@ class BrandRepositoryImpl(
     override fun findAllActive(): List<Brand> {
         return jpaRepository.findAllActive().map { BrandMapper.toDomain(it) }
     }
+
+    override fun findAllByIds(ids: Set<Long>): List<Brand> {
+        return jpaRepository.findAllById(ids).map { BrandMapper.toDomain(it) }
+    }
 }

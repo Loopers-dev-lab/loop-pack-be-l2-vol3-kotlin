@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductImage
 import java.time.ZonedDateTime
@@ -7,6 +8,8 @@ import java.time.ZonedDateTime
 data class ProductInfo(
     val id: Long,
     val brandId: Long,
+    val brandName: String,
+    val brandLogoUrl: String?,
     val name: String,
     val description: String?,
     val price: Long,
@@ -18,13 +21,15 @@ data class ProductInfo(
     val images: List<ProductImageInfo>,
 ) {
     companion object {
-        fun from(product: Product): ProductInfo {
+        fun from(product: Product, brand: Brand): ProductInfo {
             val id = requireNotNull(product.persistenceId) {
                 "Product.persistenceId가 null입니다. 저장된 Product만 매핑 가능합니다."
             }
             return ProductInfo(
                 id = id,
                 brandId = product.brandId,
+                brandName = brand.name.value,
+                brandLogoUrl = brand.logoUrl,
                 name = product.name.value,
                 description = product.description,
                 price = product.price.amount,

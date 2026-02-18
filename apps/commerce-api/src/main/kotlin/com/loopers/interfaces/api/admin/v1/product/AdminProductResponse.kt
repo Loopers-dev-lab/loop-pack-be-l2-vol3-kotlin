@@ -7,6 +7,8 @@ import java.time.ZonedDateTime
 data class AdminProductResponse(
     val id: Long,
     val brandId: Long,
+    val brandName: String,
+    val brandLogoUrl: String?,
     val name: String,
     val description: String?,
     val price: Long,
@@ -21,6 +23,8 @@ data class AdminProductResponse(
         fun from(productInfo: ProductInfo) = AdminProductResponse(
             id = productInfo.id,
             brandId = productInfo.brandId,
+            brandName = productInfo.brandName,
+            brandLogoUrl = productInfo.brandLogoUrl,
             name = productInfo.name,
             description = productInfo.description,
             price = productInfo.price,

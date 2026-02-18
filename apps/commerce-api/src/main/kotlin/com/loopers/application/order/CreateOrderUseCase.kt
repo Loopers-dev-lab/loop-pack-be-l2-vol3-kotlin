@@ -2,7 +2,7 @@ package com.loopers.application.order
 
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.order.Order
-import com.loopers.domain.order.OrderItem
+import com.loopers.domain.order.OrderItemFactory
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -20,6 +20,8 @@ class CreateOrderUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
 ) {
+    private val orderItemFactory = OrderItemFactory()
+
     @Transactional
     fun create(userId: Long, command: CreateOrderCommand): Long {
         require(command.items.isNotEmpty()) { "주문 항목은 최소 1개 이상이어야 합니다." }
@@ -30,7 +32,14 @@ class CreateOrderUseCase(
             val product = productRepository.findByIdForUpdate(item.productId)
                 ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: ${item.productId}")
 
-            product.assertOrderable(item.quantity)
+            val brand = brandRepository.findById(product.brandId)
+                ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.brandId}")
+
+            val orderItem = orderItemFactory.create(
+                product = product,
+                brand = brand,
+                quantity = item.quantity,
+            )
 
             val affected = productRepository.decreaseStock(item.productId, item.quantity)
             if (affected == 0) {
@@ -40,18 +49,10 @@ class CreateOrderUseCase(
                 )
             }
 
-            val brand = brandRepository.findById(product.brandId)
-                ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.brandId}")
-
-            OrderItem.create(
-                product = product,
-                brand = brand,
-                quantity = item.quantity,
-            )
+            orderItem
         }
 
         val order = Order.create(userId = userId, items = orderItems)
-        val completedOrder = order.complete()
-        return orderRepository.save(completedOrder)
+        return orderRepository.save(order)
     }
 }

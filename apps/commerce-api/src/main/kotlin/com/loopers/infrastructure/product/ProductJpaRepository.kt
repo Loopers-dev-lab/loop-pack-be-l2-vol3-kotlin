@@ -35,21 +35,39 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     @Query("UPDATE ProductEntity p SET p.deletedAt = CURRENT_TIMESTAMP WHERE p.brandId = :brandId AND p.deletedAt IS NULL")
     fun softDeleteByBrandId(brandId: Long): Int
 
-    @Query("SELECT p FROM ProductEntity p WHERE p.deletedAt IS NULL ORDER BY p.createdAt DESC")
+    @Query("SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images WHERE p.deletedAt IS NULL ORDER BY p.createdAt DESC")
     fun findAllActiveLatest(): List<ProductEntity>
 
-    @Query("SELECT p FROM ProductEntity p WHERE p.deletedAt IS NULL ORDER BY p.likeCount DESC")
+    @Query("SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images WHERE p.deletedAt IS NULL ORDER BY p.likeCount DESC")
     fun findAllActivePopular(): List<ProductEntity>
 
-    @Query("SELECT p FROM ProductEntity p WHERE p.brandId = :brandId AND p.deletedAt IS NULL ORDER BY p.createdAt DESC")
+    @Query(
+        "SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images" +
+            " WHERE p.brandId = :brandId AND p.deletedAt IS NULL ORDER BY p.createdAt DESC",
+    )
     fun findAllActiveByBrandLatest(brandId: Long): List<ProductEntity>
 
-    @Query("SELECT p FROM ProductEntity p WHERE p.brandId = :brandId AND p.deletedAt IS NULL ORDER BY p.likeCount DESC")
+    @Query(
+        "SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images" +
+            " WHERE p.brandId = :brandId AND p.deletedAt IS NULL ORDER BY p.likeCount DESC",
+    )
     fun findAllActiveByBrandPopular(brandId: Long): List<ProductEntity>
 
-    @Query("SELECT p FROM ProductEntity p WHERE p.brandId = :brandId ORDER BY p.createdAt DESC")
+    @Query(
+        "SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images" +
+            " WHERE p.deletedAt IS NULL ORDER BY p.price ASC",
+    )
+    fun findAllActivePriceAsc(): List<ProductEntity>
+
+    @Query(
+        "SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images" +
+            " WHERE p.brandId = :brandId AND p.deletedAt IS NULL ORDER BY p.price ASC",
+    )
+    fun findAllActiveByBrandPriceAsc(brandId: Long): List<ProductEntity>
+
+    @Query("SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images WHERE p.brandId = :brandId ORDER BY p.createdAt DESC")
     fun findAllByBrand(brandId: Long): List<ProductEntity>
 
-    @Query("SELECT p FROM ProductEntity p ORDER BY p.createdAt DESC")
+    @Query("SELECT DISTINCT p FROM ProductEntity p LEFT JOIN FETCH p.images ORDER BY p.createdAt DESC")
     fun findAllLatest(): List<ProductEntity>
 }
