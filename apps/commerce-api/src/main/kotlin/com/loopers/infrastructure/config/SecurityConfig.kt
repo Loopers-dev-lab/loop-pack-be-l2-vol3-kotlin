@@ -20,6 +20,8 @@ class SecurityConfig(
     object ApiPaths {
         const val SIGN_UP = "/api/*/users"
         const val EXAMPLES = "/api/*/examples/**"
+        const val BRANDS = "/api/*/brands/**"
+        const val ADMIN_BRANDS = "/api-admin/*/brands/**"
     }
 
     @Bean
@@ -30,6 +32,8 @@ class SecurityConfig(
                 it
                     .requestMatchers(HttpMethod.POST, ApiPaths.SIGN_UP).permitAll()
                     .requestMatchers(ApiPaths.EXAMPLES).permitAll()
+                    .requestMatchers(ApiPaths.BRANDS).permitAll()
+                    .requestMatchers(ApiPaths.ADMIN_BRANDS).permitAll()
                     .anyRequest().authenticated()
             }
             .exceptionHandling {
