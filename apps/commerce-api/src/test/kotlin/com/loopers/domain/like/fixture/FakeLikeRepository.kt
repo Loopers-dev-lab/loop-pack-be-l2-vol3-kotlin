@@ -1,0 +1,30 @@
+package com.loopers.domain.like.fixture
+
+import com.loopers.domain.like.Like
+import com.loopers.domain.like.LikeRepository
+import java.time.ZonedDateTime
+
+class FakeLikeRepository : LikeRepository {
+
+    private val store = mutableSetOf<Pair<Long, Long>>()
+    private var sequence = 1L
+
+    override fun addLike(userId: Long, productId: Long): Boolean {
+        return store.add(Pair(userId, productId))
+    }
+
+    override fun removeLike(userId: Long, productId: Long): Int {
+        return if (store.remove(Pair(userId, productId))) 1 else 0
+    }
+
+    override fun findAllByUserId(userId: Long): List<Like> {
+        return store.filter { it.first == userId }.map { (uid, pid) ->
+            Like.reconstitute(
+                persistenceId = sequence++,
+                userId = uid,
+                productId = pid,
+                createdAt = ZonedDateTime.now(),
+            )
+        }
+    }
+}
