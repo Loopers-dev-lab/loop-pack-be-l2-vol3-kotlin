@@ -17,14 +17,17 @@ class UserService(
         userRepository.findByUsername(command.username)?.let {
             throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "이미 존재하는 아이디입니다.")
         }
+        val username = Username.of(command.username)
+        val email = Email.of(command.email)
+        val password = Password.of(command.password, command.birthDate)
         val user = UserModel(
-            username = command.username,
-            password = command.password,
+            username = username,
+            password = password,
             name = command.name,
-            email = command.email,
+            email = email,
             birthDate = command.birthDate,
         )
-        user.applyEncodedPassword(passwordEncoder.encode(user.password))
+        user.applyEncodedPassword(passwordEncoder.encode(password.value))
         return userRepository.save(user)
     }
 
@@ -48,8 +51,8 @@ class UserService(
         if (passwordEncoder.matches(command.newPassword, user.password)) {
             throw CoreException(errorType = ErrorType.BAD_REQUEST, customMessage = "비밀번호는 이전과 동일할 수 없습니다.")
         }
-        user.updatePassword(command.newPassword)
-        user.applyEncodedPassword(passwordEncoder.encode(command.newPassword))
+        val newPassword = Password.of(command.newPassword, user.birthDate)
+        user.applyEncodedPassword(passwordEncoder.encode(newPassword.value))
         return userRepository.save(user)
     }
 }

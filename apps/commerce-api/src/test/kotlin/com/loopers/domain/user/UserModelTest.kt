@@ -13,18 +13,21 @@ import java.time.ZonedDateTime
 
 class UserModelTest {
 
-    private val defaultUsername = "username"
-    private val defaultPassword = "password1234!"
+    private val defaultUsername = Username.of("username")
+    private val defaultPassword = Password.of("password1234!", DEFAULT_BIRTH_DATE)
     private val defaultName = "안유진"
-    private val defaultEmail = "email@loopers.com"
-    private val defaultBirthDate = ZonedDateTime.of(1995, 5, 29, 21, 40, 0, 0, ZoneId.of("Asia/Seoul"))
+    private val defaultEmail = Email.of("email@loopers.com")
+
+    companion object {
+        private val DEFAULT_BIRTH_DATE = ZonedDateTime.of(1995, 5, 29, 21, 40, 0, 0, ZoneId.of("Asia/Seoul"))
+    }
 
     private fun createUserModel(
-        username: String = defaultUsername,
-        password: String = defaultPassword,
+        username: Username = defaultUsername,
+        password: Password = defaultPassword,
         name: String = defaultName,
-        email: String = defaultEmail,
-        birthDate: ZonedDateTime = defaultBirthDate,
+        email: Email = defaultEmail,
+        birthDate: ZonedDateTime = DEFAULT_BIRTH_DATE,
     ) = UserModel(
         username = username,
         password = password,
@@ -46,94 +49,17 @@ class UserModelTest {
             // assert
             assertAll(
                 { assertThat(userModel.id).isNotNull() },
-                { assertThat(userModel.username).isEqualTo(defaultUsername) },
-                { assertThat(userModel.password).isEqualTo(defaultPassword) },
+                { assertThat(userModel.username).isEqualTo("username") },
+                { assertThat(userModel.password).isEqualTo("password1234!") },
                 { assertThat(userModel.name).isEqualTo(defaultName) },
-                { assertThat(userModel.email).isEqualTo(defaultEmail) },
-                { assertThat(userModel.birthDate).isEqualTo(defaultBirthDate) },
+                { assertThat(userModel.email).isEqualTo("email@loopers.com") },
+                { assertThat(userModel.birthDate).isEqualTo(DEFAULT_BIRTH_DATE) },
             )
         }
 
-        @DisplayName("비밀번호 검증 - ")
-        @Nested
-        inner class PasswordValidation {
-
-            @DisplayName("비어있을 때, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenPasswordIsBlank() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(password = "   ")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
-
-            @DisplayName("8자 미만 또는 16자 초과일 때, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenPasswordLengthIsInvalid() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(password = "pass1!")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
-
-            @DisplayName("영문자 또는 숫자 또는 특수문자로 이루어져있지 않으면, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenPasswordContainsInvalidCharacters() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(password = "패스워드12345678")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
-
-            @DisplayName("생년월일이 포함되어 있으면, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenPasswordContainsBirthDate() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(password = "pass19950529!")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
-        }
-
-        @DisplayName("비밀번호 이외 파라미터 검증 - ")
+        @DisplayName("파라미터 검증")
         @Nested
         inner class ParameterValidation {
-
-            @DisplayName("아이디가 비어있으면, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenUsernameIsBlank() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(username = "   ")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
-
-            @DisplayName("아이디가 영문과 숫자로 구성되지 않으면, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenUsernameContainsInvalidCharacters() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(username = "유저이름!@#")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
 
             @DisplayName("이름이 비어있으면, BAD_REQUEST 예외가 발생한다.")
             @Test
@@ -141,30 +67,6 @@ class UserModelTest {
                 // act
                 val result = assertThrows<CoreException> {
                     createUserModel(name = "   ")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
-
-            @DisplayName("이메일이 비어있으면, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenEmailIsBlank() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(email = "   ")
-                }
-
-                // assert
-                assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            }
-
-            @DisplayName("이메일 형식이 올바르지 않으면, BAD_REQUEST 예외가 발생한다.")
-            @Test
-            fun throwsBadRequestException_whenEmailFormatIsInvalid() {
-                // act
-                val result = assertThrows<CoreException> {
-                    createUserModel(email = "invalid-email")
                 }
 
                 // assert
@@ -182,25 +84,6 @@ class UserModelTest {
                 // assert
                 assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             }
-        }
-    }
-
-    @DisplayName("비밀번호 수정")
-    @Nested
-    inner class UpdatePassword {
-
-        @DisplayName("유효한 새 비밀번호가 주어지면, 정상적으로 갱신된다.")
-        @Test
-        fun updatesPassword_whenNewPasswordIsValid() {
-            // arrange
-            val userModel = createUserModel()
-            val newPassword = "newPassword1!"
-
-            // act
-            userModel.updatePassword(newPassword)
-
-            // assert
-            assertThat(userModel.password).isEqualTo(newPassword)
         }
     }
 }

@@ -33,7 +33,7 @@ class UserV1Controller(
                 name = request.name,
                 email = request.email,
                 birthDate = request.birthDate,
-            )
+            ),
         )
     }
 
@@ -62,7 +62,7 @@ class UserV1Controller(
                 username = loginId,
                 currentPassword = request.currentPassword,
                 newPassword = request.newPassword,
-            )
+            ),
         )
     }
 }
