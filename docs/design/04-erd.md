@@ -172,7 +172,8 @@ erDiagram
 >
 > **FK 정책:** `user_id`, `product_id` 모두 FK를 건다.   
 > product는 Soft Delete(물리 행 유지)이므로 FK 무결성이 깨지지 않는다.   
-> 좋아요 취소 시 likes 행을 물리 삭제하므로, product Soft Delete와 충돌하지 않는다.   
+> 좋아요 취소 시 likes 행을 물리 삭제하므로, product Soft Delete와 충돌하지 않는다. 
+> 
 > **삭제된 상품의 좋아요 정책:**
 > 삭제된 상품의 좋아요 레코드는 유지된다 (BR-C05). 삭제된 상품은 고객 조회에서 제외되므로 (BR-C02),   
 > 잔존 좋아요와 like_count는 더 이상 노출/집계 대상이 아니다.   
@@ -219,8 +220,8 @@ erDiagram
 
 > `product_id`는 FK가 아니다. 상품이 삭제되어도 주문 이력은 보존되어야 한다 (BR-O03, BR-C04).
 >
-> **스냅샷과 환불:** 환불 금액은 `order_item.price`(주문 시점 단가) 기준이다.
-> 현재 `product.price`가 변경/삭제되어도 주문 이력의 금액은 영향받지 않는다.
+> **스냅샷과 환불:** 환불 금액은 `order_item.price`(주문 시점 단가) 기준이다.  
+> 현재 `product.price`가 변경/삭제되어도 주문 이력의 금액은 영향받지 않는다.  
 > 주문은 과거의 사실이며, 스냅샷은 자기 완결적이다.
 
 ---
@@ -230,11 +231,11 @@ erDiagram
 | 테이블 | 인덱스명 | 타입 | 컬럼 | 용도 |
 |--------|---------|------|------|------|
 | brand | `uk_brand_name` | UNIQUE | name | 브랜드명 중복 방지 (BR-B01) |
-| product | `idx_product_brand_id` | INDEX | brand_id | 브랜드별 상품 조회 |
-| product | `idx_product_like_count` | INDEX | like_count | 좋아요순 정렬 (BR-P05) |
-| product | `idx_product_created_at` | INDEX | created_at | 최신순 정렬 |
+| product | `idx_product_brand_created` | INDEX | (brand_id, created_at DESC) | 브랜드별 최신순 조회 |
+| product | `idx_product_brand_like` | INDEX | (brand_id, like_count DESC) | 브랜드별 인기순 조회 (BR-P05) |
 | likes | `uk_likes_user_product` | UNIQUE | (user_id, product_id) | 중복 좋아요 방지 + INSERT ON CONFLICT 핵심 |
 | likes | `idx_likes_user_id` | INDEX | user_id | 내 좋아요 목록 조회 |
+| likes | `idx_likes_product_id` | INDEX | product_id | 상품별 좋아요 조회, 배치 재계산 |
 | orders | `idx_orders_user_id` | INDEX | user_id | 내 주문 목록 조회 |
 | order_item | `idx_order_item_order_id` | INDEX | order_id | 주문별 항목 조회 (FK 자동 생성 가능) |
 

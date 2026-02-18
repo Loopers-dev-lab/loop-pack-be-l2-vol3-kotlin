@@ -420,7 +420,7 @@ classDiagram
 ```
          ┌──────────────┐
          │   PENDING    │
-         │  (결제 대기)  │
+         │  (결제 대기)   │
          └──────┬───────┘
                 │
     ┌───────────┴───────────┐
@@ -453,7 +453,7 @@ classDiagram
 
 ### OrderItem (Entity)
 
-> Order 내부 Entity. Order를 통해서만 접근.
+> Order 내부 Entity. Order를 통해서만 접근.  
 > 주문 시점의 상품/브랜드 정보를 스냅샷으로 보존한다 (BR-O03).
 
 #### 속성
@@ -543,12 +543,12 @@ interface OrderRepository {
 > 트랜잭션 경계를 소유하고, 도메인 객체를 조합하여 유스케이스를 수행한다.
 > 상태 전이 시점을 결정하되, 전이 규칙 자체는 도메인에 위임한다.
 
-| AppService | 주요 책임 |
-|------------|----------|
-| BrandAppService | 브랜드 CRUD. 삭제 시 연쇄 Soft Delete 조율 (BR-B02) |
-| ProductAppService | 상품 CRUD. 브랜드 존재 확인 (BR-P01) |
-| LikeAppService | 좋아요 등록/취소. 상품 존재 확인 (BR-L04), 카운트 증감 조율 |
-| OrderAppService | 주문 생성 (재고 차감→스냅샷→저장→complete), 주문 취소 (권한/상태 검증→cancel→재고 복구) |
+| AppService | 주요 책임                                                                    |
+|------------|--------------------------------------------------------------------------|
+| BrandAppService | 브랜드 CRUD. 삭제 시 연쇄 Soft Delete 조율 (BR-B02)                                |
+| ProductAppService | 상품 CRUD. 브랜드 존재 확인 (BR-P01)                                              |
+| LikeAppService | 좋아요 등록/취소. 상품 존재 확인 (BR-L04), 카운트 증감 조율                                  |
+| OrderAppService | 주문 생성 ( 재고 차감 → 스냅샷 → 저장 → complete ), 주문 취소 ( 권한 / 상태 검증→cancel→재고 복구 ) |
 
 ---
 
