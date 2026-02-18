@@ -13,8 +13,11 @@ class Order private constructor(
 ) {
 
     fun cancel(): Order {
-        require(status == OrderStatus.PENDING) {
-            "PENDING 상태에서만 취소할 수 있습니다. 현재 상태: $status"
+        if (status != OrderStatus.PENDING) {
+            throw OrderException(
+                OrderError.NOT_CANCELLABLE,
+                "PENDING 상태에서만 취소할 수 있습니다. 현재 상태: $status",
+            )
         }
         return Order(
             persistenceId = persistenceId,
@@ -27,8 +30,11 @@ class Order private constructor(
     }
 
     fun complete(): Order {
-        require(status == OrderStatus.PENDING) {
-            "PENDING 상태에서만 완료할 수 있습니다. 현재 상태: $status"
+        if (status != OrderStatus.PENDING) {
+            throw OrderException(
+                OrderError.NOT_COMPLETABLE,
+                "PENDING 상태에서만 완료할 수 있습니다. 현재 상태: $status",
+            )
         }
         return Order(
             persistenceId = persistenceId,
@@ -38,6 +44,12 @@ class Order private constructor(
             orderedAt = orderedAt,
             items = items,
         )
+    }
+
+    fun assertOwnedBy(userId: Long) {
+        if (this.userId != userId) {
+            throw OrderException(OrderError.NOT_OWNED, "타인의 주문입니다.")
+        }
     }
 
     fun isOwnedBy(userId: Long): Boolean {
