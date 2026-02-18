@@ -101,7 +101,7 @@ classDiagram
     class Product {
         <<Aggregate Root>>
         -Long? persistenceId
-        -Long brandId
+        -Long refBrandId
         -ProductName name
         -String? description
         -Money price
@@ -154,6 +154,8 @@ classDiagram
         -Long? persistenceId
         -String imageUrl
         -int displayOrder
+        +create(imageUrl, displayOrder)$ ProductImage
+        +reconstitute(...)$ ProductImage
     }
 
     class ProductSortType {
@@ -173,17 +175,18 @@ classDiagram
     class Like {
         <<Entity>>
         -Long? persistenceId
-        -Long userId
-        -Long productId
+        -Long refUserId
+        -Long refProductId
         -ZonedDateTime createdAt
         +create(userId, productId)$ Like
+        +reconstitute(...)$ Like
     }
 
     %% Order Aggregate
     class Order {
         <<Aggregate Root>>
         -Long? persistenceId
-        -Long userId
+        -Long refUserId
         -OrderStatus status
         -Money totalAmount
         -ZonedDateTime orderedAt
@@ -207,12 +210,13 @@ classDiagram
     class OrderItem {
         <<Entity>>
         -Long? persistenceId
-        -Long productId
+        -Long refProductId
         -String productName
         -String brandName
         -Money price
         -int quantity
         +create(product, brand, quantity)$ OrderItem
+        +reconstitute(...)$ OrderItem
         +getSubtotal() Money
     }
 
@@ -287,7 +291,7 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| brandId | Long | 브랜드 ID (ID 참조, 생성 시 설정, 변경 불가) |
+| refBrandId | Long | 브랜드 ID (ID 참조, 생성 시 설정, 변경 불가) |
 | name | ProductName | 상품명 |
 | description | String? | 상품 설명 |
 | price | Money | 가격 |
@@ -329,7 +333,7 @@ classDiagram
 
 #### 불변식
 
-- brandId는 생성 시 설정, 변경 불가 (BR-P02)
+- refBrandId는 생성 시 설정, 변경 불가 (BR-P02)
 - 재고가 0이어도 삭제되지 않으면 조회 가능 (BR-P04)
 - likeCount는 0 미만 불가
 
@@ -371,6 +375,13 @@ classDiagram
 | imageUrl | String | 이미지 URL |
 | displayOrder | Int | 표시 순서 |
 
+#### 생성 메서드
+
+| 메서드 | 설명 |
+|--------|------|
+| `create(imageUrl, displayOrder)` | 이미지 생성 (persistenceId=null) |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
+
 ---
 
 ## 3. Like (좋아요)
@@ -387,8 +398,8 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| userId | Long | 회원 ID |
-| productId | Long | 상품 ID |
+| refUserId | Long | 회원 ID |
+| refProductId | Long | 상품 ID |
 | createdAt | ZonedDateTime | 생성 시점 |
 
 #### 생성 메서드
@@ -396,6 +407,7 @@ classDiagram
 | 메서드 | 설명 |
 |--------|------|
 | `create(userId, productId)` | 좋아요 생성 |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
 
 #### 불변식
 
@@ -413,7 +425,7 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| userId | Long | 회원 ID |
+| refUserId | Long | 회원 ID |
 | status | OrderStatus | 주문 상태 |
 | totalAmount | Money | 총 주문 금액 |
 | orderedAt | ZonedDateTime | 주문 시점 |
@@ -482,7 +494,7 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| productId | Long | 상품 ID (참조용, 스냅샷) |
+| refProductId | Long | 상품 ID (참조용, 스냅샷) |
 | productName | String | 주문 시점 상품명 (스냅샷) |
 | brandName | String | 주문 시점 브랜드명 (스냅샷) |
 | price | Money | 주문 시점 단가 (스냅샷) |
@@ -493,6 +505,7 @@ classDiagram
 | 메서드 | 설명 |
 |--------|------|
 | `create(product, brand, quantity)` | 스냅샷 생성 (상품/브랜드에서 이름, 가격 복사) |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
 
 #### 행위
 
