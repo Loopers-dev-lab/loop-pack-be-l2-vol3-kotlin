@@ -11,8 +11,14 @@ class Brand private constructor(
     val deletedAt: ZonedDateTime?,
 ) {
 
+    fun assertNotDeleted() {
+        if (isDeleted()) {
+            throw BrandException(BrandError.DELETED, "삭제된 브랜드입니다.")
+        }
+    }
+
     fun update(name: BrandName, description: String?, logoUrl: String?): Brand {
-        require(!isDeleted()) { "삭제된 브랜드는 수정할 수 없습니다." }
+        assertNotDeleted()
         return Brand(
             persistenceId = persistenceId,
             name = name,
