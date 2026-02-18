@@ -235,7 +235,7 @@ sequenceDiagram
     end
 
     App->>ProdRepo: decrementLikeCount(productId)
-    ProdRepo->>DB: UPDATE product SET like_count = GREATEST(like_count - 1, 0)
+    ProdRepo->>DB: UPDATE product SET like_count = like_count - 1 WHERE like_count > 0
     Note right of DB: GREATEST로 음수 방지
 
     Note over App: ═══ 커밋 ═══
