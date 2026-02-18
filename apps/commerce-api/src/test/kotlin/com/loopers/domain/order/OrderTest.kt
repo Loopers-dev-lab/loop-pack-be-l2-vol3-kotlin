@@ -4,6 +4,7 @@ import com.loopers.domain.product.Money
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 
 class OrderTest {
 
@@ -79,7 +80,7 @@ class OrderTest {
         val order = createOrder().complete()
 
         assertThatThrownBy { order.cancel() }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(OrderException::class.java)
     }
 
     @Test
@@ -87,7 +88,7 @@ class OrderTest {
         val order = createOrder().cancel()
 
         assertThatThrownBy { order.cancel() }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(OrderException::class.java)
     }
 
     @Test
@@ -113,7 +114,7 @@ class OrderTest {
         val order = createOrder().complete()
 
         assertThatThrownBy { order.complete() }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(OrderException::class.java)
     }
 
     @Test
@@ -121,7 +122,7 @@ class OrderTest {
         val order = createOrder().cancel()
 
         assertThatThrownBy { order.complete() }
-            .isInstanceOf(IllegalArgumentException::class.java)
+            .isInstanceOf(OrderException::class.java)
     }
 
     @Test
@@ -136,6 +137,21 @@ class OrderTest {
         val order = createOrder()
 
         assertThat(order.isOwnedBy(OTHER_USER_ID)).isFalse()
+    }
+
+    @Test
+    fun `본인 userId의 경우 assertOwnedBy가 성공해야 한다`() {
+        val order = createOrder()
+
+        assertDoesNotThrow { order.assertOwnedBy(USER_ID) }
+    }
+
+    @Test
+    fun `타인 userId의 경우 assertOwnedBy가 OrderException을 던져야 한다`() {
+        val order = createOrder()
+
+        assertThatThrownBy { order.assertOwnedBy(OTHER_USER_ID) }
+            .isInstanceOf(OrderException::class.java)
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.loopers.domain.brand
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 
 class BrandTest {
 
@@ -67,7 +68,22 @@ class BrandTest {
                 description = UPDATED_DESCRIPTION,
                 logoUrl = UPDATED_LOGO_URL,
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
+        }.isInstanceOf(BrandException::class.java)
+    }
+
+    @Test
+    fun `삭제된 브랜드의 경우 assertNotDeleted가 BrandException을 던져야 한다`() {
+        val brand = createBrand().delete()
+
+        assertThatThrownBy { brand.assertNotDeleted() }
+            .isInstanceOf(BrandException::class.java)
+    }
+
+    @Test
+    fun `삭제되지 않은 브랜드의 경우 assertNotDeleted가 성공해야 한다`() {
+        val brand = createBrand()
+
+        assertDoesNotThrow { brand.assertNotDeleted() }
     }
 
     @Test

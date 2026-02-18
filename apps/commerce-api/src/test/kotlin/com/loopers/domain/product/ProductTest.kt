@@ -3,6 +3,7 @@ package com.loopers.domain.product
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 
 class ProductTest {
 
@@ -123,7 +124,30 @@ class ProductTest {
                 status = ProductStatus.ACTIVE,
                 images = emptyList(),
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
+        }.isInstanceOf(ProductException::class.java)
+    }
+
+    @Test
+    fun `삭제된 상품의 경우 assertOrderable이 ProductException(DELETED)을 던져야 한다`() {
+        val product = createProduct().delete()
+
+        assertThatThrownBy { product.assertOrderable(1) }
+            .isInstanceOf(ProductException::class.java)
+    }
+
+    @Test
+    fun `재고 부족의 경우 assertOrderable이 ProductException(INSUFFICIENT_STOCK)을 던져야 한다`() {
+        val product = createProduct()
+
+        assertThatThrownBy { product.assertOrderable(STOCK_QUANTITY + 1) }
+            .isInstanceOf(ProductException::class.java)
+    }
+
+    @Test
+    fun `정상적인 경우 assertOrderable이 성공해야 한다`() {
+        val product = createProduct()
+
+        assertDoesNotThrow { product.assertOrderable(10) }
     }
 
     @Test
