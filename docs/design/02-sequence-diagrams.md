@@ -12,7 +12,201 @@
 | **Model 포함 기준** | 쓰기 작업(생성/수정/삭제)에 포함. 읽기 전용 조회에는 생략 |
 
 ---
-## 1. 브랜드 (Brands)
+
+## 1. 유저 (Users)
+
+### UC-U01: 회원가입
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant UserController
+    participant UserService
+    participant Username
+    participant Email
+    participant Password
+    participant UserModel
+    participant UserRepository
+    participant DB
+
+    Client->>UserController: 회원가입 요청
+    UserController->>+UserService: 회원가입 요청
+
+    Note right of UserService: 트랜잭션 경계 시작
+
+    UserService->>UserRepository: username 중복 확인
+    UserRepository->>DB: 사용자 조회
+    DB-->>UserRepository: 조회 결과
+    UserRepository-->>UserService: 조회 결과
+
+    alt username 이미 존재
+        UserService-->>UserController: 중복 에러
+        UserController-->>Client: 409 Conflict
+    else username 미존재
+        UserService->>Username: 생성
+        Username->>Username: 유효성 검증
+        Note right of Username: 불변식: 영문/숫자만 허용, 비어있지 않을 것
+        UserService->>Email: 생성
+        Email->>Email: 유효성 검증
+        Note right of Email: 불변식: 이메일 형식 일치
+        UserService->>Password: 생성
+        Password->>Password: 유효성 검증
+        Note right of Password: 불변식: 8~16자, 영문/숫자/특수문자, 생년월일 미포함
+
+        alt VO 유효성 실패
+            UserService-->>UserController: 유효성 에러
+            UserController-->>Client: 400 Bad Request
+        else VO 유효성 통과
+            UserService->>UserModel: 생성
+            UserModel->>UserModel: 유효성 검증
+            Note right of UserModel: 불변식: 이름 필수, 생년월일 미래 불가
+
+            alt 엔티티 유효성 실패
+                UserModel-->>UserService: 유효성 에러
+                UserService-->>UserController: 유효성 에러
+                UserController-->>Client: 400 Bad Request
+            else 유효성 통과
+                UserModel-->>UserService: UserModel 반환
+                Note right of UserService: 어플리케이션 비즈니스: BCrypt 암호화
+                UserService->>UserModel: 암호화된 비밀번호 적용
+                UserService->>UserRepository: 사용자 저장
+                UserRepository->>DB: 사용자 저장
+                DB-->>UserRepository: 저장 완료
+                UserRepository-->>UserService: 저장 완료
+
+                Note right of UserService: 사후조건: 사용자 저장 완료, 비밀번호 암호화 저장
+            end
+        end
+    end
+
+    UserService-->>UserController: 등록 완료
+    UserController-->>Client: 201 Created
+
+    Note right of UserService: 트랜잭션 종료
+    deactivate UserService
+```
+
+### UC-U02: 내 정보 조회
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant UserController
+    participant UserService
+    participant UserRepository
+    participant DB
+
+    Client->>UserController: 내 정보 조회 요청
+    Note right of Client: X-Loopers-LoginId, X-Loopers-LoginPw 헤더
+
+    alt 인증 헤더 누락
+        UserController-->>Client: 401 Unauthorized
+    else 인증 헤더 존재
+        UserController->>+UserService: 사용자 인증 요청
+
+        UserService->>UserRepository: 사용자 조회
+        UserRepository->>DB: 사용자 조회
+        DB-->>UserRepository: 조회 결과
+        UserRepository-->>UserService: 조회 결과
+
+        alt 사용자 미존재
+            UserService-->>UserController: 미존재 에러
+            UserController-->>Client: 404 Not Found
+        else 사용자 존재
+            Note right of UserService: 어플리케이션 비즈니스: BCrypt 비밀번호 매칭
+            UserService->>UserService: 비밀번호 검증
+
+            alt 비밀번호 불일치
+                UserService-->>UserController: 인증 실패
+                UserController-->>Client: 401 Unauthorized
+            else 비밀번호 일치
+                UserService-->>UserController: 인증 성공
+
+                UserController->>UserService: 사용자 정보 조회
+                UserService->>UserRepository: 사용자 조회
+                UserRepository->>DB: 사용자 조회
+                DB-->>UserRepository: 조회 결과
+                UserRepository-->>UserService: 조회 결과
+
+                Note right of UserService: 사후조건: 사용자 정보 반환 (비밀번호 제외)
+                UserService-->>-UserController: 사용자 정보 반환
+                UserController-->>Client: 200 OK + 사용자 정보
+            end
+        end
+    end
+```
+
+> 이후 인증이 필요한 API에서는 **UC-U02** 인증 흐름을 Note로 참조한다.
+
+### UC-U03: 비밀번호 변경
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant UserController
+    participant UserService
+    participant Password
+    participant UserModel
+    participant UserRepository
+    participant DB
+
+    Client->>UserController: 비밀번호 변경 요청
+    Note right of Client: 인증 헤더 포함 (UC-U02 참조)
+
+    UserController->>+UserService: 인증 요청
+    Note right of UserService: UC-U02 인증 흐름 수행
+
+    alt 인증 실패
+        UserService-->>UserController: 인증 에러
+        UserController-->>Client: 401 Unauthorized / 404 Not Found
+    else 인증 성공
+        UserService-->>UserController: 인증 성공
+        UserController->>UserService: 비밀번호 변경 요청
+
+        Note right of UserService: 트랜잭션 경계 시작
+
+        UserService->>UserRepository: 사용자 조회
+        UserRepository->>DB: 사용자 조회
+        DB-->>UserRepository: 조회 결과
+        UserRepository-->>UserService: 사용자
+
+        Note right of UserService: 어플리케이션 비즈니스: 이전 비밀번호와 동일 여부 확인
+        UserService->>UserService: 새 비밀번호 ≠ 현재 비밀번호 검증
+
+        alt 이전과 동일한 비밀번호
+            UserService-->>UserController: 동일 비밀번호 에러
+            UserController-->>Client: 400 Bad Request
+        else 새 비밀번호
+            UserService->>Password: 생성 (유효성 검증)
+            Password->>Password: 유효성 검증
+            Note right of Password: 불변식: 8~16자, 영문/숫자/특수문자, 생년월일 미포함
+
+            alt 유효성 실패
+                Password-->>UserService: 유효성 에러
+                UserService-->>UserController: 유효성 에러
+                UserController-->>Client: 400 Bad Request
+            else 유효성 통과
+                Password-->>UserService: Password 반환
+                Note right of UserService: 어플리케이션 비즈니스: BCrypt 암호화
+                UserService->>UserModel: 암호화된 비밀번호 적용
+                UserService->>UserRepository: 사용자 저장
+                UserRepository->>DB: 사용자 저장
+                DB-->>UserRepository: 저장 완료
+                UserRepository-->>UserService: 저장 완료
+
+                Note right of UserService: 사후조건: 비밀번호 변경 완료, 암호화 저장
+            end
+        end
+
+        Note right of UserService: 트랜잭션 종료
+        UserService-->>-UserController: 변경 완료
+        UserController-->>Client: 204 No Content
+    end
+```
+
+---
+
+## 2. 브랜드 (Brands)
 
 ### UC-B01: 브랜드 정보 조회 (Customer)
 
@@ -256,7 +450,7 @@ sequenceDiagram
 
 ---
 
-## 2. 상품 (Products)
+## 3. 상품 (Products)
 
 ### UC-P01: 상품 목록 조회 (Customer)
 
@@ -533,7 +727,7 @@ sequenceDiagram
 
 ---
 
-## 3. 좋아요 (Likes)
+## 4. 좋아요 (Likes)
 
 ### UC-L01: 좋아요 등록
 
@@ -660,7 +854,7 @@ sequenceDiagram
 
 ---
 
-## 4. 주문 (Orders)
+## 5. 주문 (Orders)
 
 ### UC-O01: 주문 요청
 

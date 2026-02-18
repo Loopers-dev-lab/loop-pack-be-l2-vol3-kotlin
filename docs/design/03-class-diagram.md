@@ -15,9 +15,9 @@
 
 | 도메인 | 도메인 비즈니스 (엔티티 메서드) | 어플리케이션 비즈니스 (서비스 오케스트레이션) |
 |--------|------------------------------|---------------------------------------------|
-| **User** | 비밀번호 유효성, 비밀번호 변경 | username 중복 확인, BCrypt 암호화 |
+| **User** | VO 자기 검증(Username, Email, Password), 인코딩된 비밀번호 적용 | username 중복 확인, BCrypt 암호화 |
 | **Brand** | 브랜드 정보 수정 | — |
-| **Product** | 재고 차감/증가, 상품 정보 수정 | 브랜드 존재 확인, 브랜드 변경 불가 검증 |
+| **Product** | 재고 차감/증가, 상품 정보 수정, 가격 유효성(Money VO) | 브랜드 존재 확인, 브랜드 변경 불가 검증 |
 | **Like** | — | 상품 존재 확인, 중복 좋아요 확인 |
 | **Order** | 총액 계산, 스냅샷 구성 | 재고 확인/차감, 상품 존재 확인 |
 
@@ -39,6 +39,26 @@ classDiagram
     }
 
     %% ── User 도메인 ──
+    %% Username, Email, Password는 VO (자기 검증 책임)
+    %% Password는 raw 전용, @Embeddable 아님 → 엔티티는 인코딩된 String 저장
+
+    class Username {
+        <<Value Object>>
+        +String value
+        +of(value: String)$ Username
+    }
+
+    class Email {
+        <<Value Object>>
+        +String value
+        +of(value: String)$ Email
+    }
+
+    class Password {
+        <<Value Object>>
+        +String value
+        +of(rawPassword: String, birthDate: ZonedDateTime)$ Password
+    }
 
     class UserModel {
         +String name
@@ -46,8 +66,16 @@ classDiagram
         #String password
         +String email
         +ZonedDateTime birthDate
-        +updatePassword(newPassword: String)
         +applyEncodedPassword(encodedPassword: String)
+    }
+
+    %% ── 공통 VO ──
+    %% Money: 금액 유효성 검증. Product, OrderItem에서 사용
+
+    class Money {
+        <<Value Object>>
+        +BigDecimal value
+        +of(value: BigDecimal)$ Money
     }
 
     %% ── Brand 도메인 ──
@@ -64,9 +92,9 @@ classDiagram
         +Long repBrandId
         +String name
         #Int quantity
-        #Int price
+        #BigDecimal price
         +decreaseStock(amount: Int)
-        +update(name: String, quantity: Int, price: Int)
+        +update(name: String, quantity: Int, price: Money)
     }
 
     %% ── Like 도메인 ──
@@ -94,7 +122,7 @@ classDiagram
     class OrderItemModel {
         <<snapshot>>
         +Long repProductId
-        +Int price
+        +BigDecimal price
         +Int quantity
         +getSubtotal() BigDecimal
     }
@@ -103,6 +131,15 @@ classDiagram
     BaseEntity <|-- UserModel
     BaseEntity <|-- BrandModel
     BaseEntity <|-- ProductModel
+
+    %% ── Value Object 의존 ──
+    %% 실선 = 생성 시 VO를 통해 검증, 저장은 String
+
+    UserModel ..> Username : 생성 시 검증
+    UserModel ..> Email : 생성 시 검증
+    UserModel ..> Password : 생성 시 검증
+    ProductModel ..> Money : 생성 시 검증
+    OrderItemModel ..> Money : 생성 시 검증
 
     %% ── Relationships ──
     %% 점선 = ID 참조 (FK 미사용, 앱 레벨 정합성)
