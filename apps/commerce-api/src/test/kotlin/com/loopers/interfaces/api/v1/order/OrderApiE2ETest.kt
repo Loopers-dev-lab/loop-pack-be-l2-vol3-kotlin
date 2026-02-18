@@ -94,7 +94,7 @@ class OrderApiE2ETest {
             .then()
                 .statusCode(HttpStatus.CONFLICT.value())
                 .body("meta.result", equalTo("FAIL"))
-                .body("meta.errorCode", equalTo("CONFLICT"))
+                .body("meta.errorCode", equalTo("INSUFFICIENT_STOCK"))
         }
 
         @Test
@@ -193,7 +193,7 @@ class OrderApiE2ETest {
     @Nested
     inner class CancelOrder {
         @Test
-        fun `COMPLETED 상태의 주문을 취소하면 400 에러가 발생한다`() {
+        fun `PENDING 상태의 주문을 정상적으로 취소할 수 있다`() {
             registerUser()
             val brandId = createBrand()
             val productId = createProduct(brandId)
@@ -205,9 +205,27 @@ class OrderApiE2ETest {
             .`when`()
                 .delete("/api/v1/orders/$orderId")
             .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("meta.result", equalTo("SUCCESS"))
+        }
+
+        @Test
+        fun `이미 취소된 주문을 다시 취소하면 400 에러가 발생한다`() {
+            registerUser()
+            val brandId = createBrand()
+            val productId = createProduct(brandId)
+            val orderId = createOrder(productId)
+            cancelOrder(orderId)
+
+            RestAssured.given()
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+            .`when`()
+                .delete("/api/v1/orders/$orderId")
+            .then()
                 .statusCode(HttpStatus.BAD_REQUEST.value())
                 .body("meta.result", equalTo("FAIL"))
-                .body("meta.errorCode", equalTo("BAD_REQUEST"))
+                .body("meta.errorCode", equalTo("NOT_CANCELLABLE"))
         }
 
         @Test
@@ -305,6 +323,16 @@ class OrderApiE2ETest {
             .extract()
             .jsonPath()
             .getLong("data.id")
+    }
+
+    private fun cancelOrder(orderId: Long) {
+        RestAssured.given()
+            .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+            .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+        .`when`()
+            .delete("/api/v1/orders/$orderId")
+        .then()
+            .statusCode(HttpStatus.OK.value())
     }
 
     private fun createOrderRequest(productId: Long, quantity: Int = 2) = mapOf(

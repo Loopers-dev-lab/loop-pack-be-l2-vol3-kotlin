@@ -7,6 +7,7 @@ import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.application.user.RegisterUserCommand
 import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.domain.order.OrderException
+import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.testcontainers.MySqlTestContainersConfig
@@ -68,8 +69,24 @@ class CancelOrderUseCaseIntegrationTest {
         )
     }
 
+    @Autowired
+    private lateinit var getOrderUseCase: GetOrderUseCase
+
+    @Autowired
+    private lateinit var productRepository: ProductRepository
+
     @Test
-    fun `COMPLETED 상태의 주문을 취소하면 OrderException이 발생한다`() {
+    fun `정상적인 경우 주문이 취소되고 재고가 복구된다`() {
+        cancelOrderUseCase.cancel(userId, orderId)
+
+        val order = getOrderUseCase.getById(userId, orderId)
+        assertThat(order.status).isEqualTo("CANCELLED")
+    }
+
+    @Test
+    fun `취소된 주문을 다시 취소하면 OrderException이 발생한다`() {
+        cancelOrderUseCase.cancel(userId, orderId)
+
         assertThatThrownBy { cancelOrderUseCase.cancel(userId, orderId) }
             .isInstanceOf(OrderException::class.java)
     }
