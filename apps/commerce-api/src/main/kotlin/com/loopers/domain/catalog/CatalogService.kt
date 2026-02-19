@@ -78,7 +78,10 @@ class CatalogService(
 
     @Transactional
     fun updateProduct(productId: Long, command: CatalogCommand.UpdateProduct): Product {
-        val product = getActiveProduct(productId)
+        val product = getProduct(productId)
+        if (product.deletedAt != null) {
+            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        }
         product.update(command.name, command.price, command.stock, command.status)
         return product
     }
