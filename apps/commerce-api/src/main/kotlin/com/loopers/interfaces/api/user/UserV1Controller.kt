@@ -1,8 +1,9 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.application.user.UserFacade
-import com.loopers.interfaces.api.ApiResponse
-import com.loopers.interfaces.api.auth.AuthUser
+import com.loopers.domain.user.UserService
+import com.loopers.interfaces.support.ApiResponse
+import com.loopers.interfaces.support.auth.AuthUser
 import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
     private val userFacade: UserFacade,
+    private val userService: UserService,
 ) : UserV1ApiSpec {
 
     @PostMapping("/sign-up")
@@ -30,8 +32,8 @@ class UserV1Controller(
     override fun getUserInfo(
         @AuthUser userId: Long,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        return userFacade.getUserInfo(userId)
-            .let { UserV1Dto.UserResponse.from(it) }
+        return userService.getUser(userId)
+            .let { UserV1Dto.UserResponse.fromWithMaskedName(it) }
             .let { ApiResponse.success(it) }
     }
 
@@ -40,7 +42,7 @@ class UserV1Controller(
         @AuthUser userId: Long,
         @RequestBody @Valid request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
-        userFacade.changePassword(userId, request.toCommand())
+        userService.changePassword(userId, request.toCommand())
         return ApiResponse.success()
     }
 }

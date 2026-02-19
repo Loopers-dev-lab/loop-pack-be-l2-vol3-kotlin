@@ -1,0 +1,39 @@
+### === Point API ===
+
+### 포인트 충전
+POST {{commerce-api}}/api/v1/users/points/charge
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+Content-Type: application/json
+
+{
+  "amount": 50000
+}
+
+### 포인트 잔액 조회
+GET {{commerce-api}}/api/v1/users/points
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+
+### 포인트 충전 - 0원 (400)
+POST {{commerce-api}}/api/v1/users/points/charge
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+Content-Type: application/json
+
+{
+  "amount": 0
+}
+
+### 포인트 충전 - 음수 (400)
+POST {{commerce-api}}/api/v1/users/points/charge
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+Content-Type: application/json
+
+{
+  "amount": -1000
+}
+
+### 포인트 잔액 조회 - 인증 없이 (400)
+GET {{commerce-api}}/api/v1/users/points

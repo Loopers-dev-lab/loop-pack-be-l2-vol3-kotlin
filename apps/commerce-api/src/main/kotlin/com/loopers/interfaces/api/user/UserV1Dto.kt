@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserInfo
+import com.loopers.domain.user.User
 import com.loopers.domain.user.UserCommand
 import java.time.LocalDate
 
@@ -30,12 +30,21 @@ class UserV1Dto {
         val email: String,
     ) {
         companion object {
-            fun from(info: UserInfo): UserResponse {
+            fun from(user: User): UserResponse {
                 return UserResponse(
-                    loginId = info.loginId,
-                    name = info.name,
-                    birthDate = info.birthDate,
-                    email = info.email,
+                    loginId = user.loginId,
+                    name = user.name,
+                    birthDate = user.birthDate,
+                    email = user.email,
+                )
+            }
+
+            fun fromWithMaskedName(user: User): UserResponse {
+                return UserResponse(
+                    loginId = user.loginId,
+                    name = user.getMaskedName(),
+                    birthDate = user.birthDate,
+                    email = user.email,
                 )
             }
         }
