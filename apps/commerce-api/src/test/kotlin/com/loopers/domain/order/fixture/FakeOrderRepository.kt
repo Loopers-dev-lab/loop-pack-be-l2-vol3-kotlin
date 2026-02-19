@@ -2,6 +2,8 @@ package com.loopers.domain.order.fixture
 
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
+import java.time.LocalDate
+import java.time.ZoneId
 
 class FakeOrderRepository : OrderRepository {
 
@@ -44,8 +46,30 @@ class FakeOrderRepository : OrderRepository {
         return store[id]
     }
 
-    override fun findAllByUserId(userId: Long): List<Order> {
-        return store.values.filter { it.userId == userId }
+    override fun findAllByUserIdAndOrderedDate(
+        userId: Long,
+        startAt: LocalDate,
+        endAt: LocalDate,
+        page: Int,
+        size: Int,
+    ): List<Order> {
+        val zone = ZoneId.systemDefault()
+        val startDateTime = startAt.atStartOfDay(zone)
+        val endDateTime = endAt.plusDays(1).atStartOfDay(zone)
+        return store.values
+            .filter { it.userId == userId && it.orderedAt >= startDateTime && it.orderedAt < endDateTime }
+            .sortedByDescending { it.orderedAt }
+            .drop(page * size)
+            .take(size)
+    }
+
+    override fun countByUserIdAndOrderedDate(userId: Long, startAt: LocalDate, endAt: LocalDate): Long {
+        val zone = ZoneId.systemDefault()
+        val startDateTime = startAt.atStartOfDay(zone)
+        val endDateTime = endAt.plusDays(1).atStartOfDay(zone)
+        return store.values
+            .count { it.userId == userId && it.orderedAt >= startDateTime && it.orderedAt < endDateTime }
+            .toLong()
     }
 
     override fun findAll(): List<Order> {

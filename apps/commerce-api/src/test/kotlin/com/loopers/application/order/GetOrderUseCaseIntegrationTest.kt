@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.jdbc.Sql
+import java.time.LocalDate
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig::class)
@@ -92,10 +93,11 @@ class GetOrderUseCaseIntegrationTest {
 
     @Test
     fun `getAllByUserId는 본인 주문만 반환한다`() {
-        val result = getOrderUseCase.getAllByUserId(userId)
+        val result = getOrderUseCase.getAllByUserId(userId, START_AT, END_AT, DEFAULT_PAGE, DEFAULT_SIZE)
 
-        assertThat(result).hasSize(1)
-        assertThat(result[0].userId).isEqualTo(userId)
+        assertThat(result.content).hasSize(1)
+        assertThat(result.content[0].userId).isEqualTo(userId)
+        assertThat(result.totalElements).isEqualTo(1)
     }
 
     @Test
@@ -140,4 +142,11 @@ class GetOrderUseCaseIntegrationTest {
         thumbnailUrl = null,
         images = emptyList(),
     )
+
+    companion object {
+        private val START_AT = LocalDate.now().minusDays(1)
+        private val END_AT = LocalDate.now().plusDays(1)
+        private const val DEFAULT_PAGE = 0
+        private const val DEFAULT_SIZE = 20
+    }
 }

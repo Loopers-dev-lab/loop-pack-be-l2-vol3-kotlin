@@ -5,7 +5,7 @@ import com.loopers.testcontainers.MySqlTestContainersConfig
 import io.restassured.RestAssured
 import io.restassured.http.ContentType
 import org.hamcrest.Matchers.equalTo
-import org.hamcrest.Matchers.greaterThanOrEqualTo
+import org.hamcrest.Matchers.hasSize
 import org.hamcrest.Matchers.notNullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -15,6 +15,7 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.context.annotation.Import
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.jdbc.Sql
+import java.time.LocalDate
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig::class)
@@ -114,26 +115,57 @@ class OrderApiE2ETest {
     @Nested
     inner class GetOrders {
         @Test
-        fun `주문 목록을 조회할 수 있다`() {
+        fun `주문 목록을 날짜 범위와 페이징으로 조회할 수 있다`() {
             registerUser()
             val brandId = createBrand()
             val productId = createProduct(brandId)
             createOrder(productId)
 
+            val today = LocalDate.now()
+
             RestAssured.given()
                 .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
                 .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .queryParam("startAt", today.minusDays(1).toString())
+                .queryParam("endAt", today.plusDays(1).toString())
+                .queryParam("page", 0)
+                .queryParam("size", 20)
             .`when`()
                 .get("/api/v1/orders")
             .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("meta.result", equalTo("SUCCESS"))
-                .body("data.size()", greaterThanOrEqualTo(1))
+                .body("data.content", hasSize<Any>(1))
+                .body("data.totalElements", equalTo(1))
+        }
+
+        @Test
+        fun `날짜 범위 밖의 주문은 조회되지 않는다`() {
+            registerUser()
+            val brandId = createBrand()
+            val productId = createProduct(brandId)
+            createOrder(productId)
+
+            val pastDate = LocalDate.of(2020, 1, 1)
+
+            RestAssured.given()
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .queryParam("startAt", pastDate.toString())
+                .queryParam("endAt", pastDate.plusDays(1).toString())
+            .`when`()
+                .get("/api/v1/orders")
+            .then()
+                .statusCode(HttpStatus.OK.value())
+                .body("data.content", hasSize<Any>(0))
+                .body("data.totalElements", equalTo(0))
         }
 
         @Test
         fun `인증 없이 조회하면 401 에러가 발생한다`() {
             RestAssured.given()
+                .queryParam("startAt", "2026-01-01")
+                .queryParam("endAt", "2026-12-31")
             .`when`()
                 .get("/api/v1/orders")
             .then()
