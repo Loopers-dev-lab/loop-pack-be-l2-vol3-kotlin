@@ -2,9 +2,9 @@ package com.loopers.interfaces.api.user
 
 import com.loopers.domain.user.UserTestFixture
 import com.loopers.infrastructure.user.UserJpaRepository
-import com.loopers.interfaces.api.ApiResponse
-import com.loopers.interfaces.api.HEADER_LOGIN_ID
-import com.loopers.interfaces.api.HEADER_LOGIN_PW
+import com.loopers.interfaces.support.ApiResponse
+import com.loopers.interfaces.support.HEADER_LOGIN_ID
+import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.AfterEach
@@ -232,8 +232,8 @@ class UserV1ApiE2ETest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("존재하지 않는 ID로 조회할 경우, 404 Not Found 응답을 반환한다.")
-        fun returnsNotFound_whenUserDoesNotExist() {
+        @DisplayName("존재하지 않는 ID로 조회할 경우, 401 Unauthorized 응답을 반환한다.")
+        fun returnsUnauthorized_whenUserDoesNotExist() {
             // arrange
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "nonexistent")
@@ -252,7 +252,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
-                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
             )
         }
     }
