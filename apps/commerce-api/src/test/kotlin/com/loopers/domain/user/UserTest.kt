@@ -179,6 +179,22 @@ class UserTest {
     @DisplayName("비밀번호 변경 시")
     inner class ChangePassword {
         @Test
+        @DisplayName("현재 비밀번호가 일치하지 않으면 실패한다")
+        fun changePassword_wrongCurrentPassword_throwsException() {
+            // arrange
+            val user = UserTestFixture.createUser()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("WrongPass1!", "NewPass12!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("현재 비밀번호가 일치하지 않습니다.")
+        }
+
+        @Test
         @DisplayName("현재 비밀번호와 같으면 실패한다")
         fun changePassword_sameAsCurrent_throwsException() {
             val user = UserTestFixture.createUser()

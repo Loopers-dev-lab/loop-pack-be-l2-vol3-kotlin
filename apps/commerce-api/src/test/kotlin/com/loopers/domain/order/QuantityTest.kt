@@ -60,4 +60,35 @@ class QuantityTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @Nested
+    @DisplayName("Quantity 동등성 비교 시")
+    inner class Equality {
+
+        @Test
+        @DisplayName("같은 값이면 동등하다")
+        fun equality_sameValue_areEqual() {
+            // arrange
+            val quantity1 = Quantity(5)
+            val quantity2 = Quantity(5)
+
+            // assert
+            assertThat(quantity1).isEqualTo(quantity2)
+            assertThat(quantity1.hashCode()).isEqualTo(quantity2.hashCode())
+        }
+
+        @Test
+        @DisplayName("Set에서 동일 값은 중복 제거된다")
+        fun equality_inSet_deduplicates() {
+            // arrange
+            val quantity1 = Quantity(5)
+            val quantity2 = Quantity(5)
+
+            // act
+            val set = setOf(quantity1, quantity2)
+
+            // assert
+            assertThat(set).hasSize(1)
+        }
+    }
 }

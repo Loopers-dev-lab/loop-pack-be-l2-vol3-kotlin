@@ -48,4 +48,35 @@ class PriceTest {
             assertThat(exception.message).isEqualTo("가격은 0 이상이어야 합니다.")
         }
     }
+
+    @Nested
+    @DisplayName("Price 동등성 비교 시")
+    inner class Equality {
+
+        @Test
+        @DisplayName("같은 값이면 동등하다")
+        fun equality_sameValue_areEqual() {
+            // arrange
+            val price1 = Price(BigDecimal("10000"))
+            val price2 = Price(BigDecimal("10000"))
+
+            // assert
+            assertThat(price1).isEqualTo(price2)
+            assertThat(price1.hashCode()).isEqualTo(price2.hashCode())
+        }
+
+        @Test
+        @DisplayName("Set에서 동일 값은 중복 제거된다")
+        fun equality_inSet_deduplicates() {
+            // arrange
+            val price1 = Price(BigDecimal("10000"))
+            val price2 = Price(BigDecimal("10000"))
+
+            // act
+            val set = setOf(price1, price2)
+
+            // assert
+            assertThat(set).hasSize(1)
+        }
+    }
 }

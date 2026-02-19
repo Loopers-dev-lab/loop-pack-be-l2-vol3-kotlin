@@ -102,4 +102,35 @@ class PointTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @Nested
+    @DisplayName("Point 동등성 비교 시")
+    inner class Equality {
+
+        @Test
+        @DisplayName("같은 값이면 동등하다")
+        fun equality_sameValue_areEqual() {
+            // arrange
+            val point1 = Point(1000)
+            val point2 = Point(1000)
+
+            // assert
+            assertThat(point1).isEqualTo(point2)
+            assertThat(point1.hashCode()).isEqualTo(point2.hashCode())
+        }
+
+        @Test
+        @DisplayName("Set에서 동일 값은 중복 제거된다")
+        fun equality_inSet_deduplicates() {
+            // arrange
+            val point1 = Point(1000)
+            val point2 = Point(1000)
+
+            // act
+            val set = setOf(point1, point2)
+
+            // assert
+            assertThat(set).hasSize(1)
+        }
+    }
 }

@@ -48,4 +48,35 @@ class BrandNameTest {
             assertThat(exception.message).isEqualTo("브랜드명은 필수입니다.")
         }
     }
+
+    @Nested
+    @DisplayName("BrandName 동등성 비교 시")
+    inner class Equality {
+
+        @Test
+        @DisplayName("같은 값이면 동등하다")
+        fun equality_sameValue_areEqual() {
+            // arrange
+            val name1 = BrandName("나이키")
+            val name2 = BrandName("나이키")
+
+            // assert
+            assertThat(name1).isEqualTo(name2)
+            assertThat(name1.hashCode()).isEqualTo(name2.hashCode())
+        }
+
+        @Test
+        @DisplayName("Set에서 동일 값은 중복 제거된다")
+        fun equality_inSet_deduplicates() {
+            // arrange
+            val name1 = BrandName("나이키")
+            val name2 = BrandName("나이키")
+
+            // act
+            val set = setOf(name1, name2)
+
+            // assert
+            assertThat(set).hasSize(1)
+        }
+    }
 }
