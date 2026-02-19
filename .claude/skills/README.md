@@ -36,9 +36,10 @@ TDD (Red → Green → Refactor) + Tidy First + 설계 워크플로우에 맞춘
 
 ### 요구사항 분석
 
-| 스킬                       | 설명           | 인자      |
-|--------------------------|--------------|---------|
-| `/requirements-analysis` | 요구사항 → 설계 전환 | 요구사항 설명 |
+| 스킬                       | 설명               | 인자      |
+|--------------------------|------------------|---------|
+| `/requirements-analysis` | 요구사항 → 설계 전환 (백지) | 요구사항 설명 |
+| `/requirements-update`   | 기존 요구사항 델타 분석/업데이트 | 새 요구사항  |
 
 ### 설계 비교
 
@@ -63,10 +64,10 @@ TDD (Red → Green → Refactor) + Tidy First + 설계 워크플로우에 맞춘
 
 ## 워크플로우 예시
 
-### A. 설계 (요구사항 → 문서)
+### A. 설계 — 처음부터 (요구사항 → 문서)
 
 ```
-/requirements-analysis          → 요구사항 분석 + Q&A
+/requirements-analysis          → 요구사항 분석 + Q&A (백지 상태)
 /sequence 주문 생성 흐름         → 시퀀스 다이어그램
 /class-diagram 주문 도메인       → 클래스 다이어그램
 /erd 주문 도메인                 → ERD
@@ -74,11 +75,22 @@ TDD (Red → Green → Refactor) + Tidy First + 설계 워크플로우에 맞춘
 /commit                         → 커밋
 ```
 
-### B. 새 기능 개발 (plan.md 기반 자동)
+### A-2. 설계 — 다음 라운드 (기존 요구사항 + 새 제약)
 
 ```
-/plan 요구사항 설명              → plan.md 작성
-/go → /go → /go → ...          → 항목 하나씩 TDD 소화
+/requirements-update 새 요구사항  → 델타 분석 + Q&A → 별도 문서 생성
+/sequence 새 기능 흐름            → 시퀀스 다이어그램 업데이트
+/class-diagram 새 도메인          → 클래스 다이어그램 업데이트
+/erd 새 도메인                    → ERD 업데이트
+/design-review                   → 전체 설계 리뷰
+/commit                          → 커밋
+```
+
+### B. 새 기능 개발 (plan.md 기반)
+
+```
+/plan 요구사항 설명              → plan.md 작성 (병렬 그룹 + checkpoint 포함)
+/go → checkpoint 보고 → /go → ... → 항목 소화
 /refactor                       → 코드 정리
 /commit                         → 커밋
 /http                           → HTTP 파일 작성
@@ -105,6 +117,6 @@ TDD (Red → Green → Refactor) + Tidy First + 설계 워크플로우에 맞춘
 
 ## 관련 문서
 
-- 요구사항: `docs/requirements-analysis.md`
+- 요구사항: `docs/requirements/` (라운드별 분리)
 - 설계 산출물: `docs/design/`
 - (참고) VO 패턴: `docs/value-object.md`
