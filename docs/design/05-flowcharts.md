@@ -15,6 +15,8 @@
 flowchart TB
     A([사용자 진입]) --> B[회원가입 / 로그인]
     B --> C[브랜드 & 상품 탐색]
+    B --> PC[포인트 충전]:::charge
+    PC --> C
 
     C --> D{마음에 드는 상품?}
     D -->|예| E[좋아요 등록]
@@ -31,19 +33,23 @@ flowchart TB
     H -->|통과| J{재고 충분?}
     J -->|부족| I
     J -->|충분| K[재고 차감 + 스냅샷 저장]
-    K --> L[주문 완료]:::success
+    K --> K2{포인트 충분?}
+    K2 -->|부족| I
+    K2 -->|충분| K3[포인트 차감]
+    K3 --> L[주문 완료]:::success
 
     L --> M[주문 내역 조회]
     M --> C
 
     classDef success fill:#c8e6c9,stroke:#2e7d32
     classDef error fill:#ffcdd2,stroke:#c62828
+    classDef charge fill:#bbdefb,stroke:#1565c0
 ```
 
 ### 참고
 
 - 쿠폰 발급/적용 단계는 추후 개발 시 F→G 사이에 삽입 예정
-- 결제 단계는 K→L 사이에 삽입 예정
+- 포인트 충전은 로그인 후 탐색 전에 수행하는 선택적 단계이며, 상세 흐름은 아래 Section 4를 참고
 - 어드민 흐름(브랜드/상품 관리)은 별도 경로이므로 이 조감도에서 생략
 
 ---
@@ -75,7 +81,10 @@ flowchart TB
     StatusChange --> Snapshot[상품 이름/가격 스냅샷 복사]
     Snapshot --> CreateOrder[Order + OrderItem 생성]
     CreateOrder --> CalcTotal[totalPrice 계산]
-    CalcTotal --> Save[DB 저장]
+    CalcTotal --> CheckPoint{포인트 잔액 충분?}
+    CheckPoint -->|부족| Err400_5[400 포인트 부족]:::error
+    CheckPoint -->|충분| DeductPoint[포인트 차감 + PointHistory 기록]
+    DeductPoint --> Save[DB 저장]
     Save --> Response([200 OK + orderId]):::success
 
     classDef error fill:#ffcdd2,stroke:#c62828
@@ -85,7 +94,8 @@ flowchart TB
 ### 참고
 
 - 전체 과정이 **하나의 트랜잭션** 내에서 원자적으로 실행 (all-or-nothing)
-- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감도 원복
+- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감 + 포인트 차감 모두 원복
+- **Round 3 추가**: 포인트 잔액 확인 및 차감 단계가 주문 생성 후 수행된다
 - 인증 인터셉터 검증은 전제 조건으로 생략 (시퀀스 다이어그램 공통 규칙 참고)
 
 ---
@@ -140,3 +150,30 @@ flowchart TB
 - 등록: 삭제된 상품에는 좋아요 등록 불가 (404)
 - 취소: 삭제된 상품이라도 Like 레코드가 있으면 물리 삭제 수행, 단 likeCount는 갱신하지 않음
 - 노란색 경로는 멱등성에 의한 무변경 응답
+
+---
+
+## 4. 포인트 충전 (Domain Service)
+
+포인트 충전 시 PointChargingService(Domain Service)가 잔액 변경과 내역 생성을 조율하는 흐름이다.
+
+```mermaid
+flowchart TB
+    Start([포인트 충전 요청]) --> CheckAmount{충전 금액 >= 1?}
+    CheckAmount -->|아니오| Err400[400 Bad Request]:::error
+
+    CheckAmount -->|유효| FindUP[UserPoint 조회]
+    FindUP --> Charge[UserPoint.charge — 잔액 증가]
+    Charge --> History[PointHistory 생성 — type: CHARGE]
+    History --> Save[DB 저장]
+    Save --> Success([200 OK]):::success
+
+    classDef error fill:#ffcdd2,stroke:#c62828
+    classDef success fill:#c8e6c9,stroke:#2e7d32
+```
+
+### 참고
+
+- PointChargingService는 도메인 레이어의 Domain Service이다
+- 잔액 변경(UserPoint.charge)과 내역 생성(PointHistory)이 하나의 트랜잭션에서 원자적으로 처리된다
+- Controller가 PointChargingService를 직접 호출한다 (Facade 없음)

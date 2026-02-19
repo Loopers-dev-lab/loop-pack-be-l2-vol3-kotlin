@@ -168,7 +168,9 @@ findAllProducts(brandId, pageable)           → 어드민 (필터 없음)
 - OrderItem에서 Order로의 역참조(`@ManyToOne`) 없음
 - `nullable = false`는 Hibernate의 extra UPDATE 문제를 방지 — INSERT 시 order_id를 함께 설정
 
-**BaseEntity 상속 유지 결정:** 리뷰에서 "OrderItem이 Composition인데 BaseEntity(deletedAt) 상속이 필요한가?"라는 의문이 제기됐다. 추후 주문 일부 취소(OrderItem 개별 soft delete) 시나리오를 대비하여 유지하기로 결정. `orphanRemoval=true`와 soft delete가 공존할 때 의도치 않은 물리 삭제가 발생하지 않도록 구현 시 주의 필요.
+**BaseEntity 상속 유지 결정:** 리뷰에서 "OrderItem이 Composition인데 BaseEntity(deletedAt) 상속이 필요한가?"라는 의문이 제기됐다. 추후 주문 일부 취소(
+OrderItem 개별 soft delete) 시나리오를 대비하여 유지하기로 결정. `orphanRemoval=true`와 soft delete가 공존할 때 의도치 않은 물리 삭제가 발생하지 않도록 구현 시 주의
+필요.
 
 **JPA 주의점:** Hibernate 6.x (Spring Boot 3.4)에서 `@JoinColumn(nullable = false)` 없이 단방향 `@OneToMany`를 사용하면, INSERT 시
 order_id를 NULL로 넣고 이후 별도 UPDATE로 FK를 설정하는 비효율이 발생한다.
@@ -370,11 +372,11 @@ ProductDetailInfo {
 
 **예시:**
 
-| 요청 | 결과 status | 이유 |
-|------|-----------|------|
-| stock=123, status=HIDDEN | HIDDEN | 어드민 의도 우선 |
-| stock=0, status=ON_SALE | SOLD_OUT | 자동 전이 규칙 적용 |
-| stock=123, status=SOLD_OUT | ON_SALE | 자동 전이 규칙 적용 |
+| 요청                         | 결과 status | 이유          |
+|----------------------------|-----------|-------------|
+| stock=123, status=HIDDEN   | HIDDEN    | 어드민 의도 우선   |
+| stock=0, status=ON_SALE    | SOLD_OUT  | 자동 전이 규칙 적용 |
+| stock=123, status=SOLD_OUT | ON_SALE   | 자동 전이 규칙 적용 |
 
 **근거:**
 
@@ -420,12 +422,14 @@ BrandFacade.deleteBrand()
 
 ### 7.2 brandId 복합 인덱스 리스크
 
-**문제:** 대고객 상품 목록 조회에서 `brandId=5 AND deletedAt IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC` 쿼리를 실행하면, 기존 인덱스로는 최적의 실행 계획을 만들 수 없다.
+**문제:** 대고객 상품 목록 조회에서 `brandId=5 AND deletedAt IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC` 쿼리를 실행하면, 기존
+인덱스로는 최적의 실행 계획을 만들 수 없다.
 
 - `(brand_id)` 단독 인덱스 → brand_id 필터는 되지만 정렬에 filesort 필요
 - `(deleted_at, status, created_at)` 복합 인덱스 → 정렬은 되지만 brand_id는 후필터
 
-**결정:** 현재 데이터 규모에서는 추가 인덱스 불필요. ERD 리스크 테이블에 "인덱스 커버리지" 항목으로 기록하고, 데이터 증가 시 `(brand_id, deleted_at, status, created_at)` 복합 인덱스 추가를 검토한다.
+**결정:** 현재 데이터 규모에서는 추가 인덱스 불필요. ERD 리스크 테이블에 "인덱스 커버리지" 항목으로 기록하고, 데이터 증가 시
+`(brand_id, deleted_at, status, created_at)` 복합 인덱스 추가를 검토한다.
 
 **근거:** 초기 데이터량에서 불필요한 인덱스는 쓰기 성능만 떨어뜨린다. 실제 느려지는 시점에 EXPLAIN으로 확인하고 추가하는 게 적절.
 
@@ -553,11 +557,11 @@ v2 문서에 대해 2차 설계 리뷰를 수행하여 추가 개선한 사항:
 시퀀스 다이어그램과 역할 분리 — "누가 호출하는가" vs "어떤 조건에서 분기하는가".
 단순 CRUD는 제외하고 **분기가 복잡한 흐름만** 선정:
 
-| 플로우차트 | 선정 이유 | 시퀀스 대응 |
-|-----------|---------|----------|
-| 서비스 전체 흐름 | 시스템 조감도 | - |
-| 주문 생성 프로세스 | 검증 5단계 분기 + cross-domain | 4.1 |
-| 좋아요 토글 (등록/취소) | 멱등성 + 삭제 상품 분기 | 3.1, 3.2 |
+| 플로우차트          | 선정 이유                    | 시퀀스 대응   |
+|----------------|--------------------------|----------|
+| 서비스 전체 흐름      | 시스템 조감도                  | -        |
+| 주문 생성 프로세스     | 검증 5단계 분기 + cross-domain | 4.1      |
+| 좋아요 토글 (등록/취소) | 멱등성 + 삭제 상품 분기           | 3.1, 3.2 |
 
 **API 엔드포인트 마인드맵 (01-requirements-v2.md에 추가):**
 
@@ -567,10 +571,10 @@ v2 문서에 대해 2차 설계 리뷰를 수행하여 추가 개선한 사항:
 
 원본 요구사항 문서(`docs/requirements-analysis.md`)와 design-v2 간 괴리 4건을 수정:
 
-| 항목          | 수정 전                           | 수정 후                        |
-|-------------|--------------------------------|-----------------------------|
-| 좋아요 목록 URI  | `/api/v1/users/{userId}/likes` | `/api/v1/users/likes`       |
-| 주문 조회 파라미터  | `startAt` / `endAt`            | `startedAt` / `endedAt`     |
+| 항목         | 수정 전                           | 수정 후                    |
+|------------|--------------------------------|-------------------------|
+| 좋아요 목록 URI | `/api/v1/users/{userId}/likes` | `/api/v1/users/likes`   |
+| 주문 조회 파라미터 | `startAt` / `endAt`            | `startedAt` / `endedAt` |
 
 ---
 
@@ -590,10 +594,10 @@ v2 문서에 대해 2차 설계 리뷰를 수행하여 추가 개선한 사항:
 
 ### v2 (2차 리뷰)
 
-| 차수  | 발견 이슈 | 주요 내용                                                                         |
-|-----|-------|-------------------------------------------------------------------------------|
-| 1차  | 6건    | status 우선순위 경계 미정의, 시퀀스 2.9 규칙 미반영, adjustStatusByStock 갭, isDeleted 불일치, OrderItem BaseEntity, brandId 인덱스 |
-| 2차  | 0건    | 6건 모두 반영 확인. 잔여 2건은 구현 단계 테스트로 커버                                             |
+| 차수 | 발견 이슈 | 주요 내용                                                                                                       |
+|----|-------|-------------------------------------------------------------------------------------------------------------|
+| 1차 | 6건    | status 우선순위 경계 미정의, 시퀀스 2.9 규칙 미반영, adjustStatusByStock 갭, isDeleted 불일치, OrderItem BaseEntity, brandId 인덱스 |
+| 2차 | 0건    | 6건 모두 반영 확인. 잔여 2건은 구현 단계 테스트로 커버                                                                           |
 
 1차 6건 → 2차 0건으로 수렴. 설계 문서 5종(요구사항, 시퀀스, 클래스, ERD, 플로우차트) 간 정합성 확보.
 
