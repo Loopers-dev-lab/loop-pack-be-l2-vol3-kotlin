@@ -154,8 +154,9 @@ class CatalogService(
     @Transactional
     fun decreaseStocks(items: Map<Long, Int>) {
         val products = productRepository.findAllByIds(items.keys.toList())
+        val productMap = products.associateBy { it.id }
         items.forEach { (productId, quantity) ->
-            val product = products.find { it.id == productId }
+            val product = productMap[productId]
                 ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
             product.decreaseStock(quantity)
         }
