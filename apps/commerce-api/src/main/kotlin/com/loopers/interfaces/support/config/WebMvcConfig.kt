@@ -18,7 +18,7 @@ class WebMvcConfig(
         registry.addInterceptor(authInterceptor)
             .addPathPatterns(
                 "/api/v1/users/**",
-                "/api/v1/likes/**",
+                "/api/v1/products/*/likes",
                 "/api/v1/orders/**",
             )
             .excludePathPatterns("/api/v1/users/sign-up")

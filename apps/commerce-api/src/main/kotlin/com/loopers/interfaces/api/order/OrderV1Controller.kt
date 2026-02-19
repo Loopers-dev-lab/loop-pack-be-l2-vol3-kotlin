@@ -48,12 +48,12 @@ class OrderV1Controller(
     @GetMapping
     override fun getOrders(
         @AuthUser userId: Long,
-        @RequestParam from: String,
-        @RequestParam to: String,
+        @RequestParam(required = false) from: String?,
+        @RequestParam(required = false) to: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<OrderV1Dto.OrderResponse>> {
-        val range = DateTimeRange(from, to)
+        val range = DateTimeRange.of(from, to)
         return orderService.getOrdersByUserId(userId, range.from, range.to, page, size)
             .map { OrderV1Dto.OrderResponse.from(it) }
             .toSpringPage()

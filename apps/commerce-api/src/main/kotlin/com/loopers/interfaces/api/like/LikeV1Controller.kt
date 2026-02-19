@@ -9,16 +9,14 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/v1/likes")
 class LikeV1Controller(
     private val likeFacade: LikeFacade,
 ) : LikeV1ApiSpec {
 
-    @PostMapping("/{productId}")
+    @PostMapping("/api/v1/products/{productId}/likes")
     override fun addLike(
         @AuthUser userId: Long,
         @PathVariable productId: Long,
@@ -27,7 +25,7 @@ class LikeV1Controller(
         return ApiResponse.success()
     }
 
-    @DeleteMapping("/{productId}")
+    @DeleteMapping("/api/v1/products/{productId}/likes")
     override fun removeLike(
         @AuthUser userId: Long,
         @PathVariable productId: Long,
@@ -36,7 +34,7 @@ class LikeV1Controller(
         return ApiResponse.success()
     }
 
-    @GetMapping
+    @GetMapping("/api/v1/users/likes")
     override fun getLikes(
         @AuthUser userId: Long,
     ): ApiResponse<List<LikeV1Dto.LikeResponse>> {

@@ -23,4 +23,15 @@ class DateTimeRange(from: String, to: String) {
             throw CoreException(ErrorType.BAD_REQUEST, "조회 시작일(from)은 종료일(to)보다 이후일 수 없습니다.")
         }
     }
+
+    companion object {
+        fun of(from: String?, to: String?): DateTimeRange {
+            val now = ZonedDateTime.now()
+            val defaultFrom = now.minusMonths(1)
+            return DateTimeRange(
+                from ?: defaultFrom.toString(),
+                to ?: now.toString(),
+            )
+        }
+    }
 }

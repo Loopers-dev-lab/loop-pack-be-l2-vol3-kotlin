@@ -106,13 +106,13 @@ class LikeV1ApiE2ETest @Autowired constructor(
             // act - 좋아요 2회
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response1 = testRestTemplate.exchange(
-                "/api/v1/likes/$productId",
+                "/api/v1/products/$productId/likes",
                 HttpMethod.POST,
                 HttpEntity<Any>(authHeaders()),
                 responseType,
             )
             val response2 = testRestTemplate.exchange(
-                "/api/v1/likes/$productId",
+                "/api/v1/products/$productId/likes",
                 HttpMethod.POST,
                 HttpEntity<Any>(authHeaders()),
                 responseType,
@@ -124,7 +124,7 @@ class LikeV1ApiE2ETest @Autowired constructor(
 
             // likeCount 확인 (상품 상세 조회)
             val productType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
-            val productResponse = testRestTemplate.exchange(
+            testRestTemplate.exchange(
                 "/api/admin/v1/products/$productId",
                 HttpMethod.GET,
                 HttpEntity<Any>(adminHeaders()),
@@ -151,7 +151,7 @@ class LikeV1ApiE2ETest @Autowired constructor(
             // 좋아요 등록
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             testRestTemplate.exchange(
-                "/api/v1/likes/$productId",
+                "/api/v1/products/$productId/likes",
                 HttpMethod.POST,
                 HttpEntity<Any>(authHeaders()),
                 responseType,
@@ -159,13 +159,13 @@ class LikeV1ApiE2ETest @Autowired constructor(
 
             // act - 좋아요 취소 2회
             val delete1 = testRestTemplate.exchange(
-                "/api/v1/likes/$productId",
+                "/api/v1/products/$productId/likes",
                 HttpMethod.DELETE,
                 HttpEntity<Any>(authHeaders()),
                 responseType,
             )
             val delete2 = testRestTemplate.exchange(
-                "/api/v1/likes/$productId",
+                "/api/v1/products/$productId/likes",
                 HttpMethod.DELETE,
                 HttpEntity<Any>(authHeaders()),
                 responseType,
