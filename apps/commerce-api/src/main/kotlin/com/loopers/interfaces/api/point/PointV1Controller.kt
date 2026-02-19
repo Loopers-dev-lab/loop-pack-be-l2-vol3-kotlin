@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.point
 
 import com.loopers.domain.point.PointChargingService
 import com.loopers.domain.point.UserPointService
+import com.loopers.interfaces.api.point.dto.PointV1Dto
+import com.loopers.interfaces.api.point.spec.PointV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
 import jakarta.validation.Valid

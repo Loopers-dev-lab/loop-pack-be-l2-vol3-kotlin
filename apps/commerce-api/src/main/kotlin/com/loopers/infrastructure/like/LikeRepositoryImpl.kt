@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.like
 
-import com.loopers.domain.like.Like
-import com.loopers.domain.like.LikeRepository
+import com.loopers.domain.like.entity.Like
+import com.loopers.domain.like.repository.LikeRepository
 import org.springframework.stereotype.Component
 
 @Component

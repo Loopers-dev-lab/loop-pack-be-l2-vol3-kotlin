@@ -1,6 +1,6 @@
 package com.loopers.domain.catalog
 
-import com.loopers.domain.catalog.product.Product
+import com.loopers.domain.catalog.product.entity.Product
 import java.math.BigDecimal
 
 sealed interface CatalogCommand {

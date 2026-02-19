@@ -1,5 +1,7 @@
 package com.loopers.domain.like
 
+import com.loopers.domain.like.entity.Like
+
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

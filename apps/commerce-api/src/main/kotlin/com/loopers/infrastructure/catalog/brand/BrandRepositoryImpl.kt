@@ -1,8 +1,8 @@
 package com.loopers.infrastructure.catalog.brand
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.catalog.brand.Brand
-import com.loopers.domain.catalog.brand.BrandRepository
+import com.loopers.domain.catalog.brand.entity.Brand
+import com.loopers.domain.catalog.brand.repository.BrandRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 

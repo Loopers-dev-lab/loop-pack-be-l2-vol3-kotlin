@@ -1,9 +1,10 @@
 package com.loopers.interfaces.api.point
 
+import com.loopers.interfaces.api.point.dto.PointV1Dto
+import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
-import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach

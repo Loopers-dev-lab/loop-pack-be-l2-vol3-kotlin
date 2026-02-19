@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.order.entity.Order
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

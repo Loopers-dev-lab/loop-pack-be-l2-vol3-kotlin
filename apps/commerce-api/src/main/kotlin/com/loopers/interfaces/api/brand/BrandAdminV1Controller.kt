@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.brand
 
 import com.loopers.domain.catalog.CatalogService
+import com.loopers.interfaces.api.brand.dto.BrandAdminV1Dto
+import com.loopers.interfaces.api.brand.spec.BrandAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
 import jakarta.validation.Valid

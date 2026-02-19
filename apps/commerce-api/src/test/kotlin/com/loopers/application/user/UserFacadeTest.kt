@@ -1,10 +1,12 @@
 package com.loopers.application.user
 
+import com.loopers.domain.BaseEntity
 import com.loopers.domain.point.FakePointHistoryRepository
 import com.loopers.domain.point.FakeUserPointRepository
 import com.loopers.domain.point.UserPointService
 import com.loopers.domain.user.UserCommand
 import com.loopers.domain.user.UserService
+import com.loopers.domain.user.entity.User
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -48,9 +50,9 @@ class UserFacadeTest {
                 email = "test@example.com",
             )
 
-            val userSlot = slot<com.loopers.domain.user.User>()
+            slot<User>()
             every { userService.signUp(command) } answers {
-                val user = com.loopers.domain.user.User(
+                val user = User(
                     loginId = command.loginId,
                     password = command.password,
                     name = command.name,
@@ -58,7 +60,7 @@ class UserFacadeTest {
                     email = command.email,
                 )
                 // Fake ID 설정
-                com.loopers.domain.BaseEntity::class.java.getDeclaredField("id").apply {
+                BaseEntity::class.java.getDeclaredField("id").apply {
                     isAccessible = true
                     set(user, 1L)
                 }

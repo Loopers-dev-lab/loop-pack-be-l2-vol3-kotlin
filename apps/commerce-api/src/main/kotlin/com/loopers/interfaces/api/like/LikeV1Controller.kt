@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.like
 
 import com.loopers.application.like.LikeFacade
+import com.loopers.interfaces.api.like.dto.LikeV1Dto
+import com.loopers.interfaces.api.like.spec.LikeV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
 import org.springframework.web.bind.annotation.DeleteMapping

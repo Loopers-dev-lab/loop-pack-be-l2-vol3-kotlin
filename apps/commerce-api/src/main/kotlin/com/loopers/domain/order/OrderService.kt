@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.PageResult
+import com.loopers.domain.order.entity.Order
+import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component

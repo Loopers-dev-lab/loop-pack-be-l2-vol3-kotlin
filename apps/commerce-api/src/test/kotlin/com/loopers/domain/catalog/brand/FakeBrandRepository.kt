@@ -2,6 +2,8 @@ package com.loopers.domain.catalog.brand
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.PageResult
+import com.loopers.domain.catalog.brand.entity.Brand
+import com.loopers.domain.catalog.brand.repository.BrandRepository
 
 class FakeBrandRepository : BrandRepository {
 

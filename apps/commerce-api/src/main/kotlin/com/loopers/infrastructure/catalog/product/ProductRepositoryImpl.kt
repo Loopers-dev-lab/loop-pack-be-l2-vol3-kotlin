@@ -1,10 +1,10 @@
 package com.loopers.infrastructure.catalog.product
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.catalog.product.Product
-import com.loopers.domain.catalog.product.ProductRepository
+import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.catalog.product.ProductSort
-import com.loopers.domain.catalog.product.QProduct
+import com.loopers.domain.catalog.product.entity.QProduct
+import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
 import org.springframework.data.domain.PageRequest

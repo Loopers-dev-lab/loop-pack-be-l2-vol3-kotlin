@@ -1,10 +1,10 @@
 package com.loopers.application.order
 
 import com.loopers.domain.catalog.CatalogService
-import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderCommand
 import com.loopers.domain.order.OrderProductInfo
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.entity.Order
 import com.loopers.domain.point.UserPointService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional

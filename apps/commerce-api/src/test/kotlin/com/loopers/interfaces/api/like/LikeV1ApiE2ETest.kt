@@ -1,12 +1,12 @@
 package com.loopers.interfaces.api.like
 
+import com.loopers.interfaces.api.product.dto.ProductAdminV1Dto
+import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.HEADER_LDAP
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.interfaces.support.LDAP_ADMIN_VALUE
-import com.loopers.interfaces.api.product.ProductAdminV1Dto
-import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach

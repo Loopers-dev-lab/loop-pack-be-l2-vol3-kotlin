@@ -1,9 +1,9 @@
 package com.loopers.application.user
 
 import com.loopers.domain.point.UserPointService
-import com.loopers.domain.user.User
 import com.loopers.domain.user.UserCommand
 import com.loopers.domain.user.UserService
+import com.loopers.domain.user.entity.User
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 

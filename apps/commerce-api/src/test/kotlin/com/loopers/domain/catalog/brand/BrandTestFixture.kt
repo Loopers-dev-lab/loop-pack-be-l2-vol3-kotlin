@@ -1,5 +1,7 @@
 package com.loopers.domain.catalog.brand
 
+import com.loopers.domain.catalog.brand.entity.Brand
+
 object BrandTestFixture {
 
     const val DEFAULT_NAME = "나이키"

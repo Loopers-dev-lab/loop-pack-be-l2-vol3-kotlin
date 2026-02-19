@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.domain.catalog.CatalogService
 import com.loopers.domain.catalog.product.ProductSort
+import com.loopers.interfaces.api.product.dto.ProductV1Dto
+import com.loopers.interfaces.api.product.spec.ProductV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
 import org.springframework.data.domain.Page

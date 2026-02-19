@@ -1,7 +1,7 @@
 package com.loopers.application.auth
 
-import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
+import com.loopers.domain.user.entity.User
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component

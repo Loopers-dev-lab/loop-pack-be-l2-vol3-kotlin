@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.user
 
 import com.loopers.application.user.UserFacade
 import com.loopers.domain.user.UserService
+import com.loopers.interfaces.api.user.dto.UserV1Dto
+import com.loopers.interfaces.api.user.spec.UserV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
 import jakarta.validation.Valid

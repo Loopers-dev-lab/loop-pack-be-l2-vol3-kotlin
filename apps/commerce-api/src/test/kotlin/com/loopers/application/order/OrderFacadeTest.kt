@@ -5,9 +5,9 @@ import com.loopers.domain.catalog.CatalogService
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.order.FakeOrderRepository
-import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.entity.Order
 import com.loopers.domain.point.FakePointHistoryRepository
 import com.loopers.domain.point.FakeUserPointRepository
 import com.loopers.domain.point.PointChargingService

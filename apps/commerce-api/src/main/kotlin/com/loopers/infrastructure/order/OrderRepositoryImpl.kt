@@ -1,8 +1,8 @@
 package com.loopers.infrastructure.order
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.order.Order
-import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.order.entity.Order
+import com.loopers.domain.order.repository.OrderRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 import java.time.ZonedDateTime

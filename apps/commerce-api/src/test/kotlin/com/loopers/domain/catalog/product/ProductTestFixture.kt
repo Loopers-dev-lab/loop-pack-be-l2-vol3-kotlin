@@ -1,5 +1,6 @@
 package com.loopers.domain.catalog.product
 
+import com.loopers.domain.catalog.product.entity.Product
 import java.math.BigDecimal
 
 object ProductTestFixture {

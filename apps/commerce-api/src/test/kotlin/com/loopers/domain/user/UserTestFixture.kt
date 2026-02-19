@@ -1,5 +1,7 @@
 package com.loopers.domain.user
 
+import com.loopers.domain.user.entity.User
+
 import java.time.LocalDate
 
 object UserTestFixture {

@@ -1,5 +1,7 @@
 package com.loopers.domain.like
 
+import com.loopers.domain.like.entity.Like
+import com.loopers.domain.like.repository.LikeRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 

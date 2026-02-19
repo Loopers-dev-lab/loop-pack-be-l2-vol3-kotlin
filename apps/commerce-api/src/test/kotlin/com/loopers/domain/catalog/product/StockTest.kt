@@ -1,5 +1,7 @@
 package com.loopers.domain.catalog.product
 
+import com.loopers.domain.catalog.product.vo.Stock
+
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

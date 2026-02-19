@@ -2,6 +2,8 @@ package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.PageResult
+import com.loopers.domain.order.entity.Order
+import com.loopers.domain.order.repository.OrderRepository
 import java.time.ZonedDateTime
 
 class FakeOrderRepository : OrderRepository {
@@ -33,8 +35,8 @@ class FakeOrderRepository : OrderRepository {
     ): PageResult<Order> {
         val filtered = orders.filter {
             it.refUserId == userId &&
-                !it.createdAt.isBefore(from) &&
-                !it.createdAt.isAfter(to)
+                    !it.createdAt.isBefore(from) &&
+                    !it.createdAt.isAfter(to)
         }.sortedByDescending { it.createdAt }
         val offset = page * size
         val content = filtered.drop(offset).take(size)

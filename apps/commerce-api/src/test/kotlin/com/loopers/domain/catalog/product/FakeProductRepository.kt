@@ -2,6 +2,8 @@ package com.loopers.domain.catalog.product
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.PageResult
+import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.catalog.product.repository.ProductRepository
 
 class FakeProductRepository : ProductRepository {
 

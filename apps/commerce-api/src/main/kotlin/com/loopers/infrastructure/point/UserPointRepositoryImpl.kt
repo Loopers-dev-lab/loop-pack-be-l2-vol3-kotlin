@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.point
 
-import com.loopers.domain.point.UserPoint
-import com.loopers.domain.point.UserPointRepository
+import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.repository.UserPointRepository
 import org.springframework.stereotype.Component
 
 @Component

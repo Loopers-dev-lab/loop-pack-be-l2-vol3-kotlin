@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.user
 
 import com.loopers.domain.user.UserTestFixture
 import com.loopers.infrastructure.user.UserJpaRepository
+import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW

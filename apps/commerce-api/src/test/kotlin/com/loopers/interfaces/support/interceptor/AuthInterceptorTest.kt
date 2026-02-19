@@ -1,7 +1,7 @@
 package com.loopers.interfaces.support.interceptor
 
 import com.loopers.application.auth.AuthService
-import com.loopers.domain.user.User
+import com.loopers.domain.user.entity.User
 import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW

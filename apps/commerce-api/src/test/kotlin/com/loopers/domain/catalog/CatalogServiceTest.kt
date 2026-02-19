@@ -2,7 +2,7 @@ package com.loopers.domain.catalog
 
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
-import com.loopers.domain.catalog.product.Product
+import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.catalog.product.ProductSort
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

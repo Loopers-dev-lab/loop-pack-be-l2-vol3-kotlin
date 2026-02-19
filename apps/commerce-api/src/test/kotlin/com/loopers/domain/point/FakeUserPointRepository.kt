@@ -1,6 +1,8 @@
 package com.loopers.domain.point
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.repository.UserPointRepository
 
 class FakeUserPointRepository : UserPointRepository {
 
