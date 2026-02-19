@@ -128,5 +128,46 @@ class PointV1ApiE2ETest @Autowired constructor(
             )
             assertThat(balanceResponse.body?.data?.balance).isEqualTo(30000)
         }
+
+        @Test
+        @DisplayName("1회 충전 한도(10,000,000)와 동일한 금액이면 충전에 성공한다")
+        fun charge_exactMaxAmount_success() {
+            // arrange
+            signUp()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PointV1Dto.BalanceResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/users/points/charge",
+                HttpMethod.POST,
+                HttpEntity(PointV1Dto.ChargeRequest(amount = 10_000_000), authHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.balance).isEqualTo(10_000_000) },
+            )
+        }
+
+        @Test
+        @DisplayName("1회 충전 한도(10,000,000)를 초과하면 400 Bad Request 응답을 반환한다")
+        fun charge_exceedMaxAmount_returnsBadRequest() {
+            // arrange
+            signUp()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/users/points/charge",
+                HttpMethod.POST,
+                HttpEntity(PointV1Dto.ChargeRequest(amount = 10_000_001), authHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
     }
 }

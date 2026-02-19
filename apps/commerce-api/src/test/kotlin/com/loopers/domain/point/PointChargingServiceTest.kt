@@ -112,5 +112,34 @@ class PointChargingServiceTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
+
+        @Test
+        @DisplayName("1회 충전 한도(10,000,000)와 동일한 금액이면 충전에 성공한다")
+        fun charge_exactMaxAmount_success() {
+            // arrange
+            createUserPoint(1L)
+
+            // act
+            val result = pointChargingService.charge(1L, 10_000_000)
+
+            // assert
+            assertThat(result.balance).isEqualTo(10_000_000)
+        }
+
+        @Test
+        @DisplayName("1회 충전 한도(10,000,000)를 초과하면 BAD_REQUEST 예외가 발생한다")
+        fun charge_exceedMaxAmount_throwsBadRequest() {
+            // arrange
+            createUserPoint(1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                pointChargingService.charge(1L, 10_000_001)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).contains("1회 충전 한도")
+        }
     }
 }

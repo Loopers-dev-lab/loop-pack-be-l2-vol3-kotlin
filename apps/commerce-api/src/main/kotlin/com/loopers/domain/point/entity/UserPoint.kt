@@ -32,7 +32,15 @@ class UserPoint(
     }
 
     fun charge(amount: Long) {
-        this.balance = Point(balance).plus(Point(amount)).value
+        val newBalance = Point(balance).plus(Point(amount)).value
+        if (newBalance > MAX_BALANCE) {
+            throw CoreException(ErrorType.BAD_REQUEST, "충전 후 잔액이 최대 한도(${MAX_BALANCE}포인트)를 초과합니다.")
+        }
+        this.balance = newBalance
+    }
+
+    companion object {
+        const val MAX_BALANCE = 10_000_000L
     }
 
     fun use(amount: Long) {

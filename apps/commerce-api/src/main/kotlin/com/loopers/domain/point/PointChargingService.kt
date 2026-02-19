@@ -21,6 +21,9 @@ class PointChargingService(
         if (amount <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "충전 금액은 1 이상이어야 합니다.")
         }
+        if (amount > MAX_CHARGE_AMOUNT) {
+            throw CoreException(ErrorType.BAD_REQUEST, "1회 충전 한도는 ${MAX_CHARGE_AMOUNT}포인트입니다.")
+        }
         val userPoint = userPointRepository.findByUserId(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "포인트 정보를 찾을 수 없습니다.")
         userPoint.charge(amount)
@@ -32,5 +35,9 @@ class PointChargingService(
             ),
         )
         return userPoint
+    }
+
+    companion object {
+        const val MAX_CHARGE_AMOUNT = 10_000_000L
     }
 }
