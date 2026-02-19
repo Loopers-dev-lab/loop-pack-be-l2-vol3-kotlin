@@ -367,6 +367,19 @@ class CatalogServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
+
+        @Test
+        @DisplayName("모든 필드가 null이면 BAD_REQUEST 예외가 발생한다")
+        fun updateProduct_allFieldsNull_throwsBadRequest() {
+            // arrange & act
+            val exception = assertThrows<CoreException> {
+                CatalogCommand.UpdateProduct(name = null, price = null, stock = null, status = null)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("수정할 항목이 최소 1개 이상 필요합니다.")
+        }
         @Test
         @DisplayName("HIDDEN 상품을 수정하면 NOT_FOUND 예외가 발생한다")
         fun updateProduct_hiddenProduct_throwsNotFound() {
