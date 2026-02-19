@@ -342,12 +342,7 @@ classDiagram
         class LikeFacade {
             +addLike(userId, productId)
             +removeLike(userId, productId)
-            +getLikes(userId)
-        }
-        class LikeInfo {
-            +Long productId
-            +String productName
-            +BigDecimal productPrice
+            +getLikes(userId) List~Pair~Like, Product~~
         }
     }
 
@@ -491,6 +486,7 @@ classDiagram
         class UserPoint {
             -Long refUserId
             -Long balance
+            +MAX_BALANCE$ Long
             +charge(amount: Point)
             +use(amount: Point)
             +canAfford(amount: Point) Boolean
@@ -510,6 +506,7 @@ classDiagram
             +minus(other)
         }
         class PointChargingService {
+            +MAX_CHARGE_AMOUNT$ Long
             +charge(userId, amount)
         }
         class UserPointService {
@@ -646,7 +643,7 @@ classDiagram
 > **DTO 변환 흐름:**
 > - **단일 Entity 반환** (Facade 없음): Domain Service → Entity 반환 → Controller에서 Dto 변환
 > - **같은 BC 내 조합** (Facade 없음): CatalogService → `ProductDetail`(domain 데이터 클래스) 반환 → Controller에서 Dto 변환
-> - **다른 BC 간 조합** (Facade 경유): Facade → `LikeInfo`(application Info 객체) 반환 → Controller에서 Dto 변환
+> - **다른 BC 간 조합** (Facade 경유): Facade → `List<Pair<Like, Product>>` 반환 → Controller에서 Dto 변환
 
 ---
 
@@ -679,4 +676,4 @@ classDiagram
 7. **DTO 분리 (Security)**
     - **결정**: 동일한 Product라도 `CustomerProductDto`와 `AdminProductDto`로 분리한다.
     - **이유**: 대고객 API에서는 재고 수량이나 내부 관리 필드(deletedAt)를 노출하지 않아야 한다. 같은 BC 내 조합 결과(예: `ProductDetail`)는 domain 레이어 데이터 클래스로,
-      BC 간 조합 결과(예: `LikeInfo`)는 application 레이어 Info 객체로 두되, interfaces 레이어에서 액터별로 필요한 필드만 Dto로 노출한다.
+      BC 간 조합 결과(예: `LikeFacade`의 `List<Pair<Like, Product>>`)는 Facade에서 직접 반환하되, interfaces 레이어에서 액터별로 필요한 필드만 Dto로 노출한다.

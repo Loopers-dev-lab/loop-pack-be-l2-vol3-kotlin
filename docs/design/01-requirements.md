@@ -125,7 +125,7 @@
 | 존재하지 않는 브랜드에 상품 등록          | 404 | 삭제된 브랜드 포함       |
 | 가격이 음수                      | 400 | price >= 0 제약 위반 |
 | 재고가 음수                      | 400 | stock >= 0 제약 위반 |
-| 브랜드 변경 시도 (수정 시 brandId 포함) | 400 | 브랜드 변경 불가 정책     |
+| 브랜드 변경 시도                      | -   | 상품의 브랜드ID는 수정할 수 없다. 수정 요청에 brandId 필드를 포함하지 않는다 |
 | 존재하지 않는 상품 수정/삭제            | 404 | soft deleted 포함  |
 
 ### 4.2 상품 탐색 (사용자/비로그인)
@@ -400,6 +400,8 @@ stateDiagram-v2
 - PointHistory는 추적용 필드 `refOrderId`(nullable)를 가진다. 주문으로 인한 포인트 사용(USE) 시 해당 주문 ID를 기록하며, 충전(CHARGE) 시에는 null이다
 - PointHistoryType: `CHARGE`(충전), `USE`(사용)
 - UserPoint는 User와 생명주기를 같이한다. User 탈퇴(soft delete) 시 UserPoint도 함께 soft delete 처리한다
+- 1회 충전 한도는 10,000,000 포인트이다
+- 포인트 잔액 최대 한도는 10,000,000 포인트이다. 충전 후 잔액이 한도를 초과하면 `CoreException(BAD_REQUEST)` 발생
 
 ### 5.8 데이터 삭제 (Soft Delete)
 
@@ -419,7 +421,7 @@ stateDiagram-v2
 |--------|--------------------------------------------|----|----------------------|
 | POST   | `/api/v1/users/sign-up`                    | X  | 회원가입                 |
 | GET    | `/api/v1/users/user`                       | O  | 내 정보 조회              |
-| PUT    | `/api/v1/users/user/password`              | O  | 비밀번호 변경              |
+| PATCH  | `/api/v1/users/user/password`              | O  | 비밀번호 변경              |
 | GET    | `/api/v1/brands/{brandId}`                 | X  | 브랜드 정보 조회            |
 | GET    | `/api/v1/products`                         | X  | 상품 목록 조회 (페이징/정렬/필터) |
 | GET    | `/api/v1/products/{productId}`             | X  | 상품 상세 조회             |
@@ -489,7 +491,7 @@ stateDiagram-v2
 | POST   | `/api-admin/v1/brands`                                    | 브랜드 등록               |
 | PUT    | `/api-admin/v1/brands/{brandId}`                          | 브랜드 수정               |
 | DELETE | `/api-admin/v1/brands/{brandId}`                          | 브랜드 삭제 (소속 상품 연쇄 삭제) |
-| GET    | `/api-admin/v1/products?page=0&size=20&brandId={brandId}` | 상품 목록 조회 (삭제 포함)     |
+| GET    | `/api-admin/v1/products?page=0&size=20`                   | 상품 목록 조회 (삭제 포함)     |
 | GET    | `/api-admin/v1/products/{productId}`                      | 상품 상세 조회             |
 | POST   | `/api-admin/v1/products`                                  | 상품 등록 (브랜드 존재 필수)    |
 | PUT    | `/api-admin/v1/products/{productId}`                      | 상품 수정 (브랜드 변경 불가)    |

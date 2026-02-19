@@ -80,7 +80,7 @@
 | POST   | `/api-admin/v1/brands`                                    | O    | 브랜드 등록                     |
 | PUT    | `/api-admin/v1/brands/{brandId}`                          | O    | 브랜드 정보 수정                  |
 | DELETE | `/api-admin/v1/brands/{brandId}`                          | O    | 브랜드 삭제 (해당 브랜드 상품도 삭제)     |
-| GET    | `/api-admin/v1/products?page=0&size=20&brandId={brandId}` | O    | 상품 목록 조회                   |
+| GET    | `/api-admin/v1/products?page=0&size=20`                   | O    | 상품 목록 조회                   |
 | GET    | `/api-admin/v1/products/{productId}`                      | O    | 상품 상세 조회                   |
 | POST   | `/api-admin/v1/products`                                  | O    | 상품 등록 (브랜드는 이미 등록된 것이어야 함) |
 | PUT    | `/api-admin/v1/products/{productId}`                      | O    | 상품 정보 수정 (브랜드 변경 불가)       |
