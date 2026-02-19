@@ -119,7 +119,7 @@ class BrandTest {
             val pageable = PageRequest.of(0, 20)
             val page = PageImpl(listOf(brand1, brand2), pageable, 2)
 
-            every { brandRepository.findAllActiveWithPage(any()) } returns page
+            every { brandRepository.findAll(any()) } returns page
 
             // act
             val result = brandService.getAllBrands(pageable)
@@ -141,7 +141,7 @@ class BrandTest {
             val pageable = PageRequest.of(0, 20)
             val page = PageImpl<Brand>(emptyList(), pageable, 0)
 
-            every { brandRepository.findAllActiveWithPage(any()) } returns page
+            every { brandRepository.findAll(any()) } returns page
 
             // act
             val result = brandService.getAllBrands(pageable)
