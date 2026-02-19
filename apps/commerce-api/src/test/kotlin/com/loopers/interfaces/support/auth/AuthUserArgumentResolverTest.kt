@@ -1,6 +1,6 @@
-package com.loopers.interfaces.api.auth
+package com.loopers.interfaces.support.auth
 
-import com.loopers.interfaces.api.ATTRIBUTE_USER_ID
+import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -87,10 +87,12 @@ class AuthUserArgumentResolverTest {
     }
 
     @Suppress("unused", "UNUSED_PARAMETER")
-    private fun withAuthUser(@AuthUser userId: Long) {}
+    private fun withAuthUser(@AuthUser userId: Long) {
+    }
 
     @Suppress("unused", "UNUSED_PARAMETER")
-    private fun withoutAuthUser(userId: Long) {}
+    private fun withoutAuthUser(userId: Long) {
+    }
 
     private fun getMethodParameter(methodName: String): MethodParameter {
         val method = this::class.java.getDeclaredMethod(methodName, Long::class.java)

@@ -184,7 +184,7 @@ class UserTest {
             val user = UserTestFixture.createUser()
 
             val exception = assertThrows<CoreException> {
-                user.changePassword(UserTestFixture.DEFAULT_PASSWORD)
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, UserTestFixture.DEFAULT_PASSWORD)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -194,7 +194,7 @@ class UserTest {
         fun changePassword_withValidPassword_success() {
             val user = UserTestFixture.createUser()
 
-            user.changePassword("NewPass12!")
+            user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "NewPass12!")
 
             assertThat(user.verifyPassword("NewPass12!")).isTrue()
         }
@@ -207,7 +207,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Short1!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Short1!")
             }
 
             // assert
@@ -222,7 +222,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Password12345678!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Password12345678!")
             }
 
             // assert
@@ -237,7 +237,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Pass19900115!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Pass19900115!")
             }
 
             // assert
@@ -253,7 +253,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Passsword1!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Passsword1!")
             }
 
             // assert

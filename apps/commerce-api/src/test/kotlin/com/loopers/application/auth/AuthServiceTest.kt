@@ -58,7 +58,7 @@ class AuthServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
-            assertThat(exception.message).isEqualTo("사용자를 찾을 수 없습니다.")
+            assertThat(exception.message).isEqualTo("인증에 실패했습니다.")
         }
 
         @Test
@@ -75,7 +75,7 @@ class AuthServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
-            assertThat(exception.message).isEqualTo("로그인 정보가 일치하지 않습니다.")
+            assertThat(exception.message).isEqualTo("인증에 실패했습니다.")
         }
     }
 }

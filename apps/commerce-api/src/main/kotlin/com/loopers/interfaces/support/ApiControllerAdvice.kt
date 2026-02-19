@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api
+package com.loopers.interfaces.support
 
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
+import java.time.format.DateTimeParseException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MissingServletRequestParameterException
@@ -93,6 +94,12 @@ class ApiControllerAdvice {
         } else {
             failureResponse(errorType = ErrorType.BAD_REQUEST)
         }
+    }
+
+    @ExceptionHandler
+    fun handleBadRequest(e: DateTimeParseException): ResponseEntity<ApiResponse<*>> {
+        val message = "날짜/시간 형식이 올바르지 않습니다: '${e.parsedString}'"
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
     }
 
     @ExceptionHandler

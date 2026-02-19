@@ -1,6 +1,6 @@
-package com.loopers.interfaces.api.auth
+package com.loopers.interfaces.support.auth
 
-import com.loopers.interfaces.api.ATTRIBUTE_USER_ID
+import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.http.HttpServletRequest

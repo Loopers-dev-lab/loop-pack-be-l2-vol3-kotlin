@@ -39,16 +39,23 @@ class User(
         protected set
 
     init {
+        Password(password, birthDate)
+        this.password = encodePassword(password)
+        guard()
+    }
+
+    override fun guard() {
         LoginId(loginId)
         Name(name)
         Email(email)
-        Password(password, birthDate)
-        this.password = encodePassword(password)
     }
 
     fun getMaskedName(): String = Name(name).masked()
 
-    fun changePassword(newPassword: String) {
+    fun changePassword(currentPassword: String, newPassword: String) {
+        if (!verifyPassword(currentPassword)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.")
+        }
         if (verifyPassword(newPassword)) {
             throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.")
         }

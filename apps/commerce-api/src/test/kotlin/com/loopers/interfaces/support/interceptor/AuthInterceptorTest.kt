@@ -1,10 +1,10 @@
-package com.loopers.interfaces.api.interceptor
+package com.loopers.interfaces.support.interceptor
 
 import com.loopers.application.auth.AuthService
 import com.loopers.domain.user.User
-import com.loopers.interfaces.api.ATTRIBUTE_USER_ID
-import com.loopers.interfaces.api.HEADER_LOGIN_ID
-import com.loopers.interfaces.api.HEADER_LOGIN_PW
+import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
+import com.loopers.interfaces.support.HEADER_LOGIN_ID
+import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every

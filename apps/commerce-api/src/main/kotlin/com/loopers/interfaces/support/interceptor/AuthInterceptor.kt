@@ -1,9 +1,9 @@
-package com.loopers.interfaces.api.interceptor
+package com.loopers.interfaces.support.interceptor
 
 import com.loopers.application.auth.AuthService
-import com.loopers.interfaces.api.ATTRIBUTE_USER_ID
-import com.loopers.interfaces.api.HEADER_LOGIN_ID
-import com.loopers.interfaces.api.HEADER_LOGIN_PW
+import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
+import com.loopers.interfaces.support.HEADER_LOGIN_ID
+import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.http.HttpServletRequest
@@ -19,10 +19,10 @@ class AuthInterceptor(
     // TODO: 추후 security 추가 시 변경
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
         val loginId = request.getHeader(HEADER_LOGIN_ID)
-            ?: throw CoreException(ErrorType.BAD_REQUEST, "로그인 ID 헤더가 필요합니다.")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "인증 헤더가 누락되었습니다.")
 
         val loginPw = request.getHeader(HEADER_LOGIN_PW)
-            ?: throw CoreException(ErrorType.BAD_REQUEST, "비밀번호 헤더가 필요합니다.")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "인증 헤더가 누락되었습니다.")
 
         val user = authService.authenticate(loginId, loginPw)
         request.setAttribute(ATTRIBUTE_USER_ID, user.id)

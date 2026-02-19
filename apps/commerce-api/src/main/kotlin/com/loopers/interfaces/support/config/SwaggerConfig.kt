@@ -1,7 +1,7 @@
-package com.loopers.interfaces.api.config
+package com.loopers.interfaces.support.config
 
-import com.loopers.interfaces.api.HEADER_LOGIN_ID
-import com.loopers.interfaces.api.HEADER_LOGIN_PW
+import com.loopers.interfaces.support.HEADER_LOGIN_ID
+import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.security.SecurityRequirement

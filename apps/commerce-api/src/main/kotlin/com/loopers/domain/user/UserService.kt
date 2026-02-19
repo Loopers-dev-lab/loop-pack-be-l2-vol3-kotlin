@@ -33,10 +33,6 @@ class UserService(
         val user = userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
 
-        if (!user.verifyPassword(command.currentPassword)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.")
-        }
-
-        user.changePassword(command.newPassword)
+        user.changePassword(command.currentPassword, command.newPassword)
     }
 }
