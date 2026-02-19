@@ -4,7 +4,7 @@ import java.time.ZonedDateTime
 
 class Product private constructor(
     val persistenceId: Long?,
-    val brandId: Long,
+    val refBrandId: Long,
     val name: ProductName,
     val description: String?,
     val price: Money,
@@ -46,7 +46,7 @@ class Product private constructor(
         }
         return Product(
             persistenceId = persistenceId,
-            brandId = brandId,
+            refBrandId = refBrandId,
             name = name,
             description = description,
             price = price,
@@ -62,7 +62,7 @@ class Product private constructor(
     fun delete(): Product {
         return Product(
             persistenceId = persistenceId,
-            brandId = brandId,
+            refBrandId = refBrandId,
             name = name,
             description = description,
             price = price,
@@ -93,7 +93,7 @@ class Product private constructor(
         ): Product {
             return Product(
                 persistenceId = null,
-                brandId = brandId,
+                refBrandId = brandId,
                 name = name,
                 description = description,
                 price = price,
@@ -108,7 +108,7 @@ class Product private constructor(
 
         fun reconstitute(
             persistenceId: Long,
-            brandId: Long,
+            refBrandId: Long,
             name: ProductName,
             description: String?,
             price: Money,
@@ -121,7 +121,7 @@ class Product private constructor(
         ): Product {
             return Product(
                 persistenceId = persistenceId,
-                brandId = brandId,
+                refBrandId = refBrandId,
                 name = name,
                 description = description,
                 price = price,

@@ -16,8 +16,8 @@ data class LikeInfo(
             }
             return LikeInfo(
                 id = id,
-                userId = like.userId,
-                productId = like.productId,
+                userId = like.refUserId,
+                productId = like.refProductId,
                 createdAt = like.createdAt,
             )
         }

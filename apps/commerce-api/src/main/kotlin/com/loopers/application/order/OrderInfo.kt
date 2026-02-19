@@ -19,7 +19,7 @@ data class OrderInfo(
             }
             return OrderInfo(
                 id = id,
-                userId = order.userId,
+                userId = order.refUserId,
                 status = order.status.name,
                 totalAmount = order.totalAmount.amount,
                 orderedAt = order.orderedAt,
@@ -44,7 +44,7 @@ data class OrderItemInfo(
             }
             return OrderItemInfo(
                 id = id,
-                productId = item.productId,
+                productId = item.refProductId,
                 productName = item.productName,
                 brandName = item.brandName,
                 price = item.price.amount,

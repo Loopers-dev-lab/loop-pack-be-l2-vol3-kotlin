@@ -32,7 +32,7 @@ class OrderItemTest {
             quantity = QUANTITY,
         )
 
-        assertThat(orderItem.productId).isEqualTo(PRODUCT_ID)
+        assertThat(orderItem.refProductId).isEqualTo(PRODUCT_ID)
         assertThat(orderItem.productName).isEqualTo(PRODUCT_NAME)
         assertThat(orderItem.brandName).isEqualTo(BRAND_NAME)
         assertThat(orderItem.price.amount).isEqualTo(PRICE)
@@ -78,7 +78,7 @@ class OrderItemTest {
     fun `reconstitute로 생성한 OrderItem은 persistenceId를 가져야 한다`() {
         val orderItem = OrderItem.reconstitute(
             persistenceId = 1L,
-            productId = PRODUCT_ID,
+            refProductId = PRODUCT_ID,
             productName = PRODUCT_NAME,
             brandName = BRAND_NAME,
             price = Money(PRICE),
@@ -111,7 +111,7 @@ class OrderItemTest {
 
     private fun createProduct(): Product = Product.reconstitute(
         persistenceId = PRODUCT_ID,
-        brandId = 1L,
+        refBrandId = 1L,
         name = ProductName(PRODUCT_NAME),
         description = null,
         price = Money(PRICE),

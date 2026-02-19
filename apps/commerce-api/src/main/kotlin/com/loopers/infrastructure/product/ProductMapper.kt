@@ -14,7 +14,7 @@ object ProductMapper {
         }
         return Product.reconstitute(
             persistenceId = id,
-            brandId = entity.brandId,
+            refBrandId = entity.brandId,
             name = ProductName(entity.name),
             description = entity.description,
             price = Money(entity.price),
@@ -30,7 +30,7 @@ object ProductMapper {
     fun toEntity(domain: Product): ProductEntity {
         val entity = ProductEntity(
             id = domain.persistenceId,
-            brandId = domain.brandId,
+            brandId = domain.refBrandId,
             name = domain.name.value,
             description = domain.description,
             price = domain.price.amount,

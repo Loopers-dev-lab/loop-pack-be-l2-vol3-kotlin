@@ -25,12 +25,12 @@ class GetProductListUseCase(
     }
 
     private fun toProductInfos(products: List<Product>): List<ProductInfo> {
-        val brandIds = products.map { it.brandId }.toSet()
+        val brandIds = products.map { it.refBrandId }.toSet()
         val brandMap: Map<Long, Brand> = brandRepository.findAllByIds(brandIds)
             .associateBy { requireNotNull(it.persistenceId) }
         return products.map { product ->
-            val brand = requireNotNull(brandMap[product.brandId]) {
-                "브랜드를 찾을 수 없습니다: ${product.brandId}"
+            val brand = requireNotNull(brandMap[product.refBrandId]) {
+                "브랜드를 찾을 수 없습니다: ${product.refBrandId}"
             }
             ProductInfo.from(product, brand)
         }

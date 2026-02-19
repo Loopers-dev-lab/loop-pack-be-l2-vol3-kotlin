@@ -32,8 +32,8 @@ class CreateOrderUseCase(
             val product = productRepository.findByIdForUpdate(item.productId)
                 ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: ${item.productId}")
 
-            val brand = brandRepository.findById(product.brandId)
-                ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.brandId}")
+            val brand = brandRepository.findById(product.refBrandId)
+                ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.refBrandId}")
 
             val orderItem = orderItemFactory.create(
                 product = product,

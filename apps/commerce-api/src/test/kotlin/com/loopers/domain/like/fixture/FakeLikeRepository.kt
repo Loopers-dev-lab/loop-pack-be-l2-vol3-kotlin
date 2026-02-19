@@ -24,8 +24,8 @@ class FakeLikeRepository : LikeRepository {
             .map { (uid, pid) ->
                 Like.reconstitute(
                     persistenceId = sequence++,
-                    userId = uid,
-                    productId = pid,
+                    refUserId = uid,
+                    refProductId = pid,
                     createdAt = ZonedDateTime.now(),
                 )
             }

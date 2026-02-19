@@ -39,7 +39,7 @@ class ProductTest {
     fun `reconstitute로 생성한 Product는 persistenceId를 가져야 한다`() {
         val product = Product.reconstitute(
             persistenceId = 1L,
-            brandId = BRAND_ID,
+            refBrandId = BRAND_ID,
             name = ProductName(PRODUCT_NAME),
             description = DESCRIPTION,
             price = Money(PRICE),
@@ -60,7 +60,7 @@ class ProductTest {
         assertThatThrownBy {
             Product.reconstitute(
                 persistenceId = 1L,
-                brandId = BRAND_ID,
+                refBrandId = BRAND_ID,
                 name = ProductName(PRODUCT_NAME),
                 description = DESCRIPTION,
                 price = Money(PRICE),
@@ -107,7 +107,7 @@ class ProductTest {
             images = emptyList(),
         )
 
-        assertThat(updated.brandId).isEqualTo(BRAND_ID)
+        assertThat(updated.refBrandId).isEqualTo(BRAND_ID)
     }
 
     @Test

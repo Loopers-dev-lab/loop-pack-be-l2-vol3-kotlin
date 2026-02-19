@@ -6,7 +6,7 @@ import com.loopers.domain.product.Product
 
 class OrderItem private constructor(
     val persistenceId: Long?,
-    val productId: Long,
+    val refProductId: Long,
     val productName: String,
     val brandName: String,
     val price: Money,
@@ -22,7 +22,7 @@ class OrderItem private constructor(
             require(quantity > 0) { "주문 수량은 0보다 커야 합니다." }
             return OrderItem(
                 persistenceId = null,
-                productId = requireNotNull(product.persistenceId) {
+                refProductId = requireNotNull(product.persistenceId) {
                     "저장되지 않은 상품으로는 주문 항목을 생성할 수 없습니다."
                 },
                 productName = product.name.value,
@@ -34,7 +34,7 @@ class OrderItem private constructor(
 
         fun reconstitute(
             persistenceId: Long,
-            productId: Long,
+            refProductId: Long,
             productName: String,
             brandName: String,
             price: Money,
@@ -42,7 +42,7 @@ class OrderItem private constructor(
         ): OrderItem {
             return OrderItem(
                 persistenceId = persistenceId,
-                productId = productId,
+                refProductId = refProductId,
                 productName = productName,
                 brandName = brandName,
                 price = price,

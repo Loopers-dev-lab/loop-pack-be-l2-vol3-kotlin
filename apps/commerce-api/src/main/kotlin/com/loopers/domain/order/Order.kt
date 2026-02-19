@@ -5,7 +5,7 @@ import java.time.ZonedDateTime
 
 class Order private constructor(
     val persistenceId: Long?,
-    val userId: Long,
+    val refUserId: Long,
     val status: OrderStatus,
     val totalAmount: Money,
     val orderedAt: ZonedDateTime,
@@ -21,7 +21,7 @@ class Order private constructor(
         }
         return Order(
             persistenceId = persistenceId,
-            userId = userId,
+            refUserId = refUserId,
             status = OrderStatus.CANCELLED,
             totalAmount = totalAmount,
             orderedAt = orderedAt,
@@ -38,7 +38,7 @@ class Order private constructor(
         }
         return Order(
             persistenceId = persistenceId,
-            userId = userId,
+            refUserId = refUserId,
             status = OrderStatus.COMPLETED,
             totalAmount = totalAmount,
             orderedAt = orderedAt,
@@ -47,13 +47,13 @@ class Order private constructor(
     }
 
     fun assertOwnedBy(userId: Long) {
-        if (this.userId != userId) {
+        if (this.refUserId != userId) {
             throw OrderException(OrderError.NOT_OWNED, "타인의 주문입니다.")
         }
     }
 
     fun isOwnedBy(userId: Long): Boolean {
-        return this.userId == userId
+        return this.refUserId == userId
     }
 
     fun canCancel(): Boolean {
@@ -68,7 +68,7 @@ class Order private constructor(
             }
             return Order(
                 persistenceId = null,
-                userId = userId,
+                refUserId = userId,
                 status = OrderStatus.PENDING,
                 totalAmount = totalAmount,
                 orderedAt = ZonedDateTime.now(),
@@ -78,7 +78,7 @@ class Order private constructor(
 
         fun reconstitute(
             persistenceId: Long,
-            userId: Long,
+            refUserId: Long,
             status: OrderStatus,
             totalAmount: Money,
             orderedAt: ZonedDateTime,
@@ -86,7 +86,7 @@ class Order private constructor(
         ): Order {
             return Order(
                 persistenceId = persistenceId,
-                userId = userId,
+                refUserId = refUserId,
                 status = status,
                 totalAmount = totalAmount,
                 orderedAt = orderedAt,

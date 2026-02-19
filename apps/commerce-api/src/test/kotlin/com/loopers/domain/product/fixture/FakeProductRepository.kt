@@ -25,7 +25,7 @@ class FakeProductRepository : ProductRepository {
         }
         val persisted = Product.reconstitute(
             persistenceId = id,
-            brandId = product.brandId,
+            refBrandId = product.refBrandId,
             name = product.name,
             description = product.description,
             price = product.price,
@@ -53,7 +53,7 @@ class FakeProductRepository : ProductRepository {
         if (product.stock.quantity < quantity) return 0
         val updated = Product.reconstitute(
             persistenceId = product.persistenceId!!,
-            brandId = product.brandId,
+            refBrandId = product.refBrandId,
             name = product.name,
             description = product.description,
             price = product.price,
@@ -72,7 +72,7 @@ class FakeProductRepository : ProductRepository {
         val product = store[id] ?: return 0
         val updated = Product.reconstitute(
             persistenceId = product.persistenceId!!,
-            brandId = product.brandId,
+            refBrandId = product.refBrandId,
             name = product.name,
             description = product.description,
             price = product.price,
@@ -91,7 +91,7 @@ class FakeProductRepository : ProductRepository {
         val product = store[id] ?: return 0
         val updated = Product.reconstitute(
             persistenceId = product.persistenceId!!,
-            brandId = product.brandId,
+            refBrandId = product.refBrandId,
             name = product.name,
             description = product.description,
             price = product.price,
@@ -111,7 +111,7 @@ class FakeProductRepository : ProductRepository {
         if (product.likeCount <= 0) return 0
         val updated = Product.reconstitute(
             persistenceId = product.persistenceId!!,
-            brandId = product.brandId,
+            refBrandId = product.refBrandId,
             name = product.name,
             description = product.description,
             price = product.price,
@@ -128,7 +128,7 @@ class FakeProductRepository : ProductRepository {
 
     override fun softDeleteByBrandId(brandId: Long): Int {
         var count = 0
-        store.values.filter { it.brandId == brandId && !it.isDeleted() }.forEach { product ->
+        store.values.filter { it.refBrandId == brandId && !it.isDeleted() }.forEach { product ->
             val deleted = product.delete()
             store[product.persistenceId!!] = deleted
             count++
@@ -139,7 +139,7 @@ class FakeProductRepository : ProductRepository {
     override fun findAllActive(brandId: Long?, sortType: ProductSortType): List<Product> {
         var result = store.values.filter { !it.isDeleted() }
         if (brandId != null) {
-            result = result.filter { it.brandId == brandId }
+            result = result.filter { it.refBrandId == brandId }
         }
         return when (sortType) {
             ProductSortType.LIKE_COUNT -> result.sortedByDescending { it.likeCount }
@@ -151,7 +151,7 @@ class FakeProductRepository : ProductRepository {
     override fun findAll(brandId: Long?): List<Product> {
         var result = store.values.toList()
         if (brandId != null) {
-            result = result.filter { it.brandId == brandId }
+            result = result.filter { it.refBrandId == brandId }
         }
         return result.sortedByDescending { it.persistenceId }
     }

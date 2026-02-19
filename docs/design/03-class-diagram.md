@@ -547,14 +547,16 @@ interface ProductRepository {
 interface LikeRepository {
     fun addLike(userId: Long, productId: Long): Boolean    // INSERT IGNORE (멱등)
     fun removeLike(userId: Long, productId: Long): Int     // affected rows
-    fun findAllByUserId(userId: Long): List<Like>
+    fun findAllByUserId(userId: Long, page: Int, size: Int): List<Like>  // 페이징
+    fun countByUserId(userId: Long): Long                  // 페이징 total count
 }
 
 interface OrderRepository {
     fun save(order: Order): Long
     fun findById(id: Long): Order?
     fun findByIdForUpdate(id: Long): Order?                // SELECT ... FOR UPDATE
-    fun findAllByUserId(userId: Long): List<Order>
+    fun findAllByUserIdAndOrderedDate(userId: Long, startAt: LocalDate, endAt: LocalDate, page: Int, size: Int): List<Order>  // 날짜 필터 + 페이징
+    fun countByUserIdAndOrderedDate(userId: Long, startAt: LocalDate, endAt: LocalDate): Long  // 페이징 total count
     fun findAll(): List<Order>                             // 어드민용
 }
 ```

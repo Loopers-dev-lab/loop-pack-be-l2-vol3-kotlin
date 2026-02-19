@@ -47,7 +47,7 @@ class OrderTest {
     fun `reconstitute로 생성한 Order는 persistenceId를 가져야 한다`() {
         val order = Order.reconstitute(
             persistenceId = 1L,
-            userId = USER_ID,
+            refUserId = USER_ID,
             status = OrderStatus.PENDING,
             totalAmount = Money(PRICE * QUANTITY),
             orderedAt = java.time.ZonedDateTime.now(),
@@ -179,7 +179,7 @@ class OrderTest {
     fun `여러 주문 항목의 경우 totalAmount가 모든 항목의 소계 합이어야 한다`() {
         val item1 = OrderItem.reconstitute(
             persistenceId = 1L,
-            productId = PRODUCT_ID,
+            refProductId = PRODUCT_ID,
             productName = PRODUCT_NAME,
             brandName = BRAND_NAME,
             price = Money(10000),
@@ -187,7 +187,7 @@ class OrderTest {
         )
         val item2 = OrderItem.reconstitute(
             persistenceId = 2L,
-            productId = 20L,
+            refProductId = 20L,
             productName = "에어포스 1",
             brandName = BRAND_NAME,
             price = Money(15000),
@@ -201,7 +201,7 @@ class OrderTest {
 
     private fun createOrderItem(): OrderItem = OrderItem.reconstitute(
         persistenceId = 1L,
-        productId = PRODUCT_ID,
+        refProductId = PRODUCT_ID,
         productName = PRODUCT_NAME,
         brandName = BRAND_NAME,
         price = Money(PRICE),

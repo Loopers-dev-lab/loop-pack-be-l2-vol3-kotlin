@@ -16,8 +16,8 @@ class LikeTest {
     fun `create로 생성한 Like의 userId와 productId가 설정되어야 한다`() {
         val like = Like.create(userId = USER_ID, productId = PRODUCT_ID)
 
-        assertThat(like.userId).isEqualTo(USER_ID)
-        assertThat(like.productId).isEqualTo(PRODUCT_ID)
+        assertThat(like.refUserId).isEqualTo(USER_ID)
+        assertThat(like.refProductId).isEqualTo(PRODUCT_ID)
     }
 
     @Test

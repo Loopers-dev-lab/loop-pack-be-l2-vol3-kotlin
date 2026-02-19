@@ -27,7 +27,7 @@ data class ProductInfo(
             }
             return ProductInfo(
                 id = id,
-                brandId = product.brandId,
+                brandId = product.refBrandId,
                 brandName = brand.name.value,
                 brandLogoUrl = brand.logoUrl,
                 name = product.name.value,

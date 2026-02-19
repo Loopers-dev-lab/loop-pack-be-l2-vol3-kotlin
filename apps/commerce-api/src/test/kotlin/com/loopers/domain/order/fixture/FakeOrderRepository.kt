@@ -18,7 +18,7 @@ class FakeOrderRepository : OrderRepository {
             } else {
                 com.loopers.domain.order.OrderItem.reconstitute(
                     persistenceId = (id * 1000) + order.items.indexOf(item),
-                    productId = item.productId,
+                    refProductId = item.refProductId,
                     productName = item.productName,
                     brandName = item.brandName,
                     price = item.price,
@@ -28,7 +28,7 @@ class FakeOrderRepository : OrderRepository {
         }
         val persisted = Order.reconstitute(
             persistenceId = id,
-            userId = order.userId,
+            refUserId = order.refUserId,
             status = order.status,
             totalAmount = order.totalAmount,
             orderedAt = order.orderedAt,
@@ -57,7 +57,7 @@ class FakeOrderRepository : OrderRepository {
         val startDateTime = startAt.atStartOfDay(zone)
         val endDateTime = endAt.plusDays(1).atStartOfDay(zone)
         return store.values
-            .filter { it.userId == userId && it.orderedAt >= startDateTime && it.orderedAt < endDateTime }
+            .filter { it.refUserId == userId && it.orderedAt >= startDateTime && it.orderedAt < endDateTime }
             .sortedByDescending { it.orderedAt }
             .drop(page * size)
             .take(size)
@@ -68,7 +68,7 @@ class FakeOrderRepository : OrderRepository {
         val startDateTime = startAt.atStartOfDay(zone)
         val endDateTime = endAt.plusDays(1).atStartOfDay(zone)
         return store.values
-            .count { it.userId == userId && it.orderedAt >= startDateTime && it.orderedAt < endDateTime }
+            .count { it.refUserId == userId && it.orderedAt >= startDateTime && it.orderedAt < endDateTime }
             .toLong()
     }
 

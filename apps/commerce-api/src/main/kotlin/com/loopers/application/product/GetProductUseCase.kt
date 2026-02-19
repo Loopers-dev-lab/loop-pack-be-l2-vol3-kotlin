@@ -16,8 +16,8 @@ class GetProductUseCase(
     fun getById(id: Long): ProductInfo {
         val product = productRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: $id")
-        val brand = brandRepository.findById(product.brandId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.brandId}")
+        val brand = brandRepository.findById(product.refBrandId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.refBrandId}")
         return ProductInfo.from(product, brand)
     }
 
@@ -27,8 +27,8 @@ class GetProductUseCase(
         if (product.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: $id")
         }
-        val brand = brandRepository.findById(product.brandId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.brandId}")
+        val brand = brandRepository.findById(product.refBrandId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.refBrandId}")
         return ProductInfo.from(product, brand)
     }
 }

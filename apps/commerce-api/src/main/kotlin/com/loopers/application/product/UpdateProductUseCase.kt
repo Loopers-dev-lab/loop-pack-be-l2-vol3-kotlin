@@ -35,8 +35,8 @@ class UpdateProductUseCase(
         )
 
         productRepository.save(updatedProduct)
-        val brand = brandRepository.findById(updatedProduct.brandId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${updatedProduct.brandId}")
+        val brand = brandRepository.findById(updatedProduct.refBrandId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${updatedProduct.refBrandId}")
         return ProductInfo.from(updatedProduct, brand)
     }
 }

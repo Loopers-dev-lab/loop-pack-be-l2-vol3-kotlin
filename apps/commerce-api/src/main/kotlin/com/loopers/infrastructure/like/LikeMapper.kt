@@ -10,8 +10,8 @@ object LikeMapper {
         }
         return Like.reconstitute(
             persistenceId = id,
-            userId = entity.userId,
-            productId = entity.productId,
+            refUserId = entity.userId,
+            refProductId = entity.productId,
             createdAt = entity.createdAt,
         )
     }

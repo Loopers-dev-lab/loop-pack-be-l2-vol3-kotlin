@@ -4,8 +4,8 @@ import java.time.ZonedDateTime
 
 class Like private constructor(
     val persistenceId: Long?,
-    val userId: Long,
-    val productId: Long,
+    val refUserId: Long,
+    val refProductId: Long,
     val createdAt: ZonedDateTime,
 ) {
 
@@ -13,22 +13,22 @@ class Like private constructor(
         fun create(userId: Long, productId: Long): Like {
             return Like(
                 persistenceId = null,
-                userId = userId,
-                productId = productId,
+                refUserId = userId,
+                refProductId = productId,
                 createdAt = ZonedDateTime.now(),
             )
         }
 
         fun reconstitute(
             persistenceId: Long,
-            userId: Long,
-            productId: Long,
+            refUserId: Long,
+            refProductId: Long,
             createdAt: ZonedDateTime,
         ): Like {
             return Like(
                 persistenceId = persistenceId,
-                userId = userId,
-                productId = productId,
+                refUserId = refUserId,
+                refProductId = refProductId,
                 createdAt = createdAt,
             )
         }

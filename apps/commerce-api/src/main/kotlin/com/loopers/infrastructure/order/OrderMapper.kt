@@ -12,7 +12,7 @@ object OrderMapper {
         }
         return Order.reconstitute(
             persistenceId = id,
-            userId = entity.userId,
+            refUserId = entity.userId,
             status = entity.status,
             totalAmount = Money(entity.totalAmount),
             orderedAt = entity.orderedAt,
@@ -23,7 +23,7 @@ object OrderMapper {
     fun toEntity(domain: Order): OrderEntity {
         val entity = OrderEntity(
             id = domain.persistenceId,
-            userId = domain.userId,
+            userId = domain.refUserId,
             status = domain.status,
             totalAmount = domain.totalAmount.amount,
             orderedAt = domain.orderedAt,
@@ -40,7 +40,7 @@ object OrderMapper {
         }
         return OrderItem.reconstitute(
             persistenceId = id,
-            productId = entity.productId,
+            refProductId = entity.productId,
             productName = entity.productName,
             brandName = entity.brandName,
             price = Money(entity.price),
@@ -52,7 +52,7 @@ object OrderMapper {
         return OrderItemEntity(
             id = domain.persistenceId,
             order = orderEntity,
-            productId = domain.productId,
+            productId = domain.refProductId,
             productName = domain.productName,
             brandName = domain.brandName,
             price = domain.price.amount,
