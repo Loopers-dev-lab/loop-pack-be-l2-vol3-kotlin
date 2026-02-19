@@ -1,7 +1,8 @@
 ### 주문 생성 (단일 상품)
 POST http://localhost:8080/api/v1/orders
 Content-Type: application/json
-X-Loopers-Id: 1
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password1!
 
 {
   "items": [
@@ -15,7 +16,8 @@ X-Loopers-Id: 1
 ### 주문 생성 (여러 상품)
 POST http://localhost:8080/api/v1/orders
 Content-Type: application/json
-X-Loopers-Id: 1
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password1!
 
 {
   "items": [
@@ -33,7 +35,8 @@ X-Loopers-Id: 1
 ### 주문 생성 - 빈 항목 (에러)
 POST http://localhost:8080/api/v1/orders
 Content-Type: application/json
-X-Loopers-Id: 1
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password1!
 
 {
   "items": []
@@ -41,11 +44,13 @@ X-Loopers-Id: 1
 
 ### 주문 상세 조회
 GET http://localhost:8080/api/v1/orders/1
-X-Loopers-Id: 1
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password1!
 
 ### 주문 목록 조회
 GET http://localhost:8080/api/v1/orders?from=2025-01-01T00:00:00+09:00&to=2026-12-31T23:59:59+09:00&page=0&size=20
-X-Loopers-Id: 1
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password1!
 
 ### [Admin] 주문 상세 조회
 GET http://localhost:8080/api-admin/v1/orders/1
