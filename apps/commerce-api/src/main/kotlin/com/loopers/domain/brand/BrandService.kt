@@ -14,11 +14,10 @@ class BrandService(
     private val brandRepository: BrandRepository,
 ) {
 
-    fun getBrandInfo(id: Long): BrandInfo =
-        brandRepository.findById(id)
-            .takeIf { !it.isDeleted() }
-            ?.let { BrandInfo.from(it) }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드가 존재하지 않습니다.")
+    fun getBrandInfo(id: Long): BrandInfo {
+        val brand = findBrand(id)
+        return BrandInfo.from(brand)
+    }
 
     fun getAllBrands(pageable: Pageable): Page<BrandInfo> {
         val brandPage = brandRepository.findAll(pageable)
@@ -37,17 +36,23 @@ class BrandService(
 
     @Transactional
     fun updateBrand(id: Long, name: String, description: String) {
-        val brand = brandRepository.findById(id)
-            .takeIf { !it.isDeleted() }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드가 존재하지 않습니다.")
+        val brand = findBrand(id)
         brand.updateInfo(name, description)
     }
 
     @Transactional
     fun deleteBrand(id: Long) {
-        val brand = brandRepository.findById(id)
-            .takeIf { !it.isDeleted() }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드가 존재하지 않습니다.")
+        val brand = findBrand(id)
         brand.delete()
     }
+
+    fun getBrand(brandId: Long): Brand {
+        return brandRepository.findById(brandId)
+    }
+
+    private fun findBrand(id: Long) = (
+        brandRepository.findById(id)
+            .takeIf { !it.isDeleted() }
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드가 존재하지 않습니다.")
+    )
 }
