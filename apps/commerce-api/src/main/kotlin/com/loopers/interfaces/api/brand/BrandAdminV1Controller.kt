@@ -6,6 +6,9 @@ import com.loopers.interfaces.api.brand.spec.BrandAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,8 +28,8 @@ class BrandAdminV1Controller(
 
     @GetMapping
     override fun getBrands(
-        @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(defaultValue = "0") @PositiveOrZero page: Int,
+        @RequestParam(defaultValue = "20") @Positive @Max(100) size: Int,
     ): ApiResponse<Page<BrandAdminV1Dto.BrandAdminResponse>> {
         return catalogService.getBrands(page, size)
             .map { BrandAdminV1Dto.BrandAdminResponse.from(it) }

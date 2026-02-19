@@ -5,16 +5,19 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
-import java.time.format.DateTimeParseException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.server.ServerWebInputException
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import java.time.format.DateTimeParseException
 
 @RestControllerAdvice
 class ApiControllerAdvice {
@@ -99,6 +102,33 @@ class ApiControllerAdvice {
     @ExceptionHandler
     fun handleBadRequest(e: DateTimeParseException): ResponseEntity<ApiResponse<*>> {
         val message = "날짜/시간 형식이 올바르지 않습니다: '${e.parsedString}'"
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    @ExceptionHandler
+    fun handleMethodArgumentNotValid(e: MethodArgumentNotValidException): ResponseEntity<ApiResponse<*>> {
+        val message = e.bindingResult.fieldErrors.joinToString(", ") { error ->
+            "'${error.field}': ${error.defaultMessage}"
+        }
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    @ExceptionHandler
+    fun handleConstraintViolation(e: ConstraintViolationException): ResponseEntity<ApiResponse<*>> {
+        val message = e.constraintViolations.joinToString(", ") { violation ->
+            val paramName = violation.propertyPath.toString().substringAfterLast(".")
+            "'$paramName': ${violation.message}"
+        }
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    @ExceptionHandler
+    fun handleMethodValidation(e: HandlerMethodValidationException): ResponseEntity<ApiResponse<*>> {
+        val message = (e.valueResults + e.beanResults).flatMap { result ->
+            result.resolvableErrors.map { error ->
+                error.defaultMessage ?: "유효하지 않은 요청입니다."
+            }
+        }.joinToString(", ")
         return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
     }
 

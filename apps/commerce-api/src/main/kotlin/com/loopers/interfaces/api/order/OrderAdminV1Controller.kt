@@ -5,6 +5,9 @@ import com.loopers.interfaces.api.order.dto.OrderAdminV1Dto
 import com.loopers.interfaces.api.order.spec.OrderAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -29,8 +32,8 @@ class OrderAdminV1Controller(
 
     @GetMapping
     override fun getOrders(
-        @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(defaultValue = "0") @PositiveOrZero page: Int,
+        @RequestParam(defaultValue = "20") @Positive @Max(100) size: Int,
     ): ApiResponse<Page<OrderAdminV1Dto.OrderAdminResponse>> {
         return orderService.getAllOrders(page, size)
             .map { OrderAdminV1Dto.OrderAdminResponse.from(it) }

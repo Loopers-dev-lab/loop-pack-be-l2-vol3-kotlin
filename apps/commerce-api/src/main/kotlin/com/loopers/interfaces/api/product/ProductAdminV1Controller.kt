@@ -6,6 +6,9 @@ import com.loopers.interfaces.api.product.spec.ProductAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
 import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,8 +28,8 @@ class ProductAdminV1Controller(
 
     @GetMapping
     override fun getProducts(
-        @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(defaultValue = "0") @PositiveOrZero page: Int,
+        @RequestParam(defaultValue = "20") @Positive @Max(100) size: Int,
     ): ApiResponse<Page<ProductAdminV1Dto.AdminProductResponse>> {
         return catalogService.getAdminProducts(page, size)
             .map { ProductAdminV1Dto.AdminProductResponse.from(it) }
