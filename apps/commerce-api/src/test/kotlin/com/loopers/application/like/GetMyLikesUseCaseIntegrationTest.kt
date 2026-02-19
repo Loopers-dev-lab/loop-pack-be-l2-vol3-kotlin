@@ -62,16 +62,18 @@ class GetMyLikesUseCaseIntegrationTest {
         addLikeUseCase.add(userId, productId1)
         addLikeUseCase.add(userId, productId2)
 
-        val result = getMyLikesUseCase.getMyLikes(userId)
+        val result = getMyLikesUseCase.getMyLikes(userId, DEFAULT_PAGE, DEFAULT_SIZE)
 
-        assertThat(result).hasSize(2)
+        assertThat(result.content).hasSize(2)
+        assertThat(result.totalElements).isEqualTo(2)
     }
 
     @Test
     fun `좋아요가 없으면 빈 목록을 반환한다`() {
-        val result = getMyLikesUseCase.getMyLikes(userId)
+        val result = getMyLikesUseCase.getMyLikes(userId, DEFAULT_PAGE, DEFAULT_SIZE)
 
-        assertThat(result).isEmpty()
+        assertThat(result.content).isEmpty()
+        assertThat(result.totalElements).isEqualTo(0)
     }
 
     private fun createUserCommand() = RegisterUserCommand(
@@ -92,4 +94,9 @@ class GetMyLikesUseCaseIntegrationTest {
         thumbnailUrl = null,
         images = emptyList(),
     )
+
+    companion object {
+        private const val DEFAULT_PAGE = 0
+        private const val DEFAULT_SIZE = 20
+    }
 }

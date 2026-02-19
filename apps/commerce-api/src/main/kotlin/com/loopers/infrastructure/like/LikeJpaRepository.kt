@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.like
 
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -18,5 +20,7 @@ interface LikeJpaRepository : JpaRepository<LikeEntity, Long> {
     fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int
 
     @Query("SELECT l FROM LikeEntity l WHERE l.userId = :userId ORDER BY l.createdAt DESC")
-    fun findAllByUserId(userId: Long): List<LikeEntity>
+    fun findAllByUserId(userId: Long, pageable: Pageable): Page<LikeEntity>
+
+    fun countByUserId(userId: Long): Long
 }

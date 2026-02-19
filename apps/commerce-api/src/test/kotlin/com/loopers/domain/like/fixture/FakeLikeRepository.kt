@@ -17,14 +17,21 @@ class FakeLikeRepository : LikeRepository {
         return if (store.remove(Pair(userId, productId))) 1 else 0
     }
 
-    override fun findAllByUserId(userId: Long): List<Like> {
-        return store.filter { it.first == userId }.map { (uid, pid) ->
-            Like.reconstitute(
-                persistenceId = sequence++,
-                userId = uid,
-                productId = pid,
-                createdAt = ZonedDateTime.now(),
-            )
-        }
+    override fun findAllByUserId(userId: Long, page: Int, size: Int): List<Like> {
+        return store.filter { it.first == userId }
+            .drop(page * size)
+            .take(size)
+            .map { (uid, pid) ->
+                Like.reconstitute(
+                    persistenceId = sequence++,
+                    userId = uid,
+                    productId = pid,
+                    createdAt = ZonedDateTime.now(),
+                )
+            }
+    }
+
+    override fun countByUserId(userId: Long): Long {
+        return store.count { it.first == userId }.toLong()
     }
 }

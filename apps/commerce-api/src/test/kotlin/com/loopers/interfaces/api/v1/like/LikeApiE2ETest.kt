@@ -157,8 +157,8 @@ class LikeApiE2ETest {
     @Nested
     inner class GetMyLikes {
         @Test
-        fun `좋아요한 목록을 조회할 수 있다`() {
-            registerUser()
+        fun `좋아요한 목록을 페이징으로 조회할 수 있다`() {
+            val userId = registerUser()
             val brandId = createBrand()
             val productId = createProduct(brandId)
             addLike(productId)
@@ -166,42 +166,61 @@ class LikeApiE2ETest {
             RestAssured.given()
                 .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
                 .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .queryParam("page", 0)
+                .queryParam("size", 20)
             .`when`()
-                .get("/api/v1/me/likes")
+                .get("/api/v1/users/$userId/likes")
             .then()
                 .statusCode(HttpStatus.OK.value())
                 .body("meta.result", equalTo("SUCCESS"))
-                .body("data", hasSize<Any>(1))
+                .body("data.content", hasSize<Any>(1))
+                .body("data.totalElements", equalTo(1))
         }
 
         @Test
         fun `좋아요가 없으면 빈 목록을 반환한다`() {
-            registerUser()
+            val userId = registerUser()
 
             RestAssured.given()
                 .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
                 .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
             .`when`()
-                .get("/api/v1/me/likes")
+                .get("/api/v1/users/$userId/likes")
             .then()
                 .statusCode(HttpStatus.OK.value())
-                .body("data", hasSize<Any>(0))
+                .body("data.content", hasSize<Any>(0))
+                .body("data.totalElements", equalTo(0))
         }
 
         @Test
         fun `인증 없이 조회하면 401 에러가 발생한다`() {
             RestAssured.given()
             .`when`()
-                .get("/api/v1/me/likes")
+                .get("/api/v1/users/1/likes")
             .then()
                 .statusCode(HttpStatus.UNAUTHORIZED.value())
                 .body("meta.result", equalTo("FAIL"))
                 .body("meta.errorCode", equalTo("UNAUTHORIZED"))
         }
+
+        @Test
+        fun `타인의 좋아요 목록을 조회하면 403 에러가 발생한다`() {
+            val userId = registerUser()
+
+            RestAssured.given()
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+            .`when`()
+                .get("/api/v1/users/${userId + 999}/likes")
+            .then()
+                .statusCode(HttpStatus.FORBIDDEN.value())
+                .body("meta.result", equalTo("FAIL"))
+                .body("meta.errorCode", equalTo("FORBIDDEN"))
+        }
     }
 
-    private fun registerUser() {
-        RestAssured.given()
+    private fun registerUser(): Long {
+        return RestAssured.given()
             .contentType(ContentType.JSON)
             .body(
                 mapOf(
@@ -217,6 +236,9 @@ class LikeApiE2ETest {
             .post("/api/v1/users")
         .then()
             .statusCode(HttpStatus.CREATED.value())
+            .extract()
+            .jsonPath()
+            .getLong("data.id")
     }
 
     private fun createBrand(): Long {
