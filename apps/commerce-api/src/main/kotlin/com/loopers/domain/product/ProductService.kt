@@ -17,10 +17,7 @@ class ProductService(
 ) {
 
     fun getProductInfo(id: Long): ProductInfo {
-        val findProduct = productRepository.findById(id)
-            .takeIf { !it.isDeleted() }
-            ?.takeIf { it.status != ProductStatus.INACTIVE }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
+        val findProduct = findProduct(id)
         return ProductInfo.from(findProduct)
     }
 
@@ -55,7 +52,7 @@ class ProductService(
         status: ProductStatus,
     ) {
         val findProduct = productRepository.findById(id)
-            .takeIf { !it.isDeleted() }
+            ?.takeIf { !it.isDeleted() }
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
 
         findProduct.updateInfo(name, price)
@@ -66,7 +63,7 @@ class ProductService(
     @Transactional
     fun deleteProduct(id: Long) {
         val findProduct = productRepository.findById(id)
-            .takeIf { !it.isDeleted() }
+            ?.takeIf { !it.isDeleted() }
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
         findProduct.delete()
     }
@@ -75,4 +72,12 @@ class ProductService(
     fun deleteProductsByBrand(brandId: Long) {
         productRepository.findByBrandId(brandId).forEach(Product::delete)
     }
+
+    fun getProduct(productId: Long): Product = findProduct(productId)
+
+    private fun findProduct(id: Long) =
+        productRepository.findById(id)
+        ?.takeIf { !it.isDeleted() }
+        ?.takeIf { it.status != ProductStatus.INACTIVE }
+        ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
 }
