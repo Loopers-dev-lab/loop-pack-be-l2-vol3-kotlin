@@ -1,7 +1,9 @@
 package com.loopers.application.like
 
 import com.loopers.domain.catalog.CatalogService
+import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.like.LikeService
+import com.loopers.domain.like.entity.Like
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -30,7 +32,7 @@ class LikeFacade(
     }
 
     @Transactional(readOnly = true)
-    fun getLikes(userId: Long): List<LikeInfo> {
+    fun getLikes(userId: Long): List<Pair<Like, Product>> {
         val likes = likeService.getLikesByUserId(userId)
         if (likes.isEmpty()) return emptyList()
 
@@ -40,7 +42,7 @@ class LikeFacade(
 
         return likes.mapNotNull { like ->
             productMap[like.refProductId]?.let { product ->
-                LikeInfo.from(like, product)
+                like to product
             }
         }
     }

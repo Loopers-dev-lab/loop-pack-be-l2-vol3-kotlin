@@ -41,7 +41,7 @@ class LikeV1Controller(
         @AuthUser userId: Long,
     ): ApiResponse<List<LikeV1Dto.LikeResponse>> {
         return likeFacade.getLikes(userId)
-            .map { LikeV1Dto.LikeResponse.from(it) }
+            .map { (like, product) -> LikeV1Dto.LikeResponse.from(like, product) }
             .let { ApiResponse.success(it) }
     }
 }

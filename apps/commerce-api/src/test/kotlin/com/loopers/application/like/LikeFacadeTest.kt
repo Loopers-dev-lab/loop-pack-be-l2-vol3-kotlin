@@ -178,7 +178,7 @@ class LikeFacadeTest {
 
             // assert
             assertThat(result).hasSize(1)
-            assertThat(result[0].productName).isEqualTo("상품1")
+            assertThat(result[0].second.name).isEqualTo("상품1")
         }
 
         @Test

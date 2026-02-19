@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.like.dto
 
-import com.loopers.application.like.LikeInfo
 import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.like.entity.Like
 import java.math.BigDecimal
 
 class LikeV1Dto {
@@ -13,13 +13,13 @@ class LikeV1Dto {
         val productStatus: Product.ProductStatus,
     ) {
         companion object {
-            fun from(info: LikeInfo): LikeResponse {
+            fun from(like: Like, product: Product): LikeResponse {
                 return LikeResponse(
-                    likeId = info.likeId,
-                    productId = info.productId,
-                    productName = info.productName,
-                    productPrice = info.productPrice,
-                    productStatus = info.productStatus,
+                    likeId = like.id,
+                    productId = product.id,
+                    productName = product.name,
+                    productPrice = product.price,
+                    productStatus = product.status,
                 )
             }
         }
