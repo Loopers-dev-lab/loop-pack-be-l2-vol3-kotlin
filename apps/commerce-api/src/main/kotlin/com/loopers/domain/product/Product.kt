@@ -46,6 +46,10 @@ class Product private constructor(
     var status: ProductStatus = status
         protected set
 
+    @Column(nullable = false)
+    var likeCount: Int = 0
+        protected set
+
     fun isDeleted(): Boolean = deletedAt != null
 
     fun isAvailable(): Boolean = !isDeleted() && status != ProductStatus.INACTIVE
@@ -81,6 +85,18 @@ class Product private constructor(
     fun changeStatus(newStatus: ProductStatus) {
         this.status = newStatus
         guard()
+    }
+
+    fun incrementLikeCount() {
+        this.likeCount++
+    }
+
+    fun decrementLikeCount() {
+        if (likeCount <= 0) {
+            this.likeCount = 0
+            return
+        }
+        this.likeCount--
     }
 
     companion object {

@@ -3,8 +3,6 @@ package com.loopers.infrastructure.product
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.QProduct
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.core.types.Order
 import com.querydsl.core.types.OrderSpecifier
@@ -12,6 +10,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 
 @Component
@@ -20,10 +19,9 @@ class ProductRepositoryImpl(
     private val queryFactory: JPAQueryFactory,
 ) : ProductRepository {
 
-    override fun findById(id: Long): Product =
+    override fun findById(id: Long): Product? =
         productJpaRepository
-            .findById(id)
-            .orElseThrow { CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.") }
+            .findByIdOrNull(id)
 
     override fun findByBrandId(brandId: Long): List<Product> =
         productJpaRepository.findByBrandId(brandId)

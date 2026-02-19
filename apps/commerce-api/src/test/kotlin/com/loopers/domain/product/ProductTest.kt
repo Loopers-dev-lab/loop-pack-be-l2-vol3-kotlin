@@ -242,4 +242,86 @@ class ProductTest {
             assertThat(product.isDeleted()).isFalse()
         }
     }
+
+    @DisplayName("상품 좋아요 수를 관리할 때, ")
+    @Nested
+    inner class ManageLikeCount {
+        @DisplayName("상품 생성 시 좋아요 수는 0으로 초기화된다")
+        @Test
+        fun initializeLikeCount_whenProductIsCreated() {
+            // arrange
+            val brand = createBrand()
+
+            // act
+            val product = Product.create(
+                brand = brand,
+                name = "상품",
+                price = BigDecimal("10000.00"),
+                stock = 100,
+            )
+
+            // assert
+            assertThat(product.likeCount).isZero()
+        }
+
+        @DisplayName("좋아요 수를 증가시킬 수 있다")
+        @Test
+        fun incrementLikeCount() {
+            // arrange
+            val brand = createBrand()
+            val product = Product.create(
+                brand = brand,
+                name = "상품",
+                price = BigDecimal("10000.00"),
+                stock = 100,
+            )
+
+            // act
+            product.incrementLikeCount()
+
+            // assert
+            assertThat(product.likeCount).isEqualTo(1)
+        }
+
+        @DisplayName("좋아요 수를 감소시킬 수 있다")
+        @Test
+        fun decrementLikeCount() {
+            // arrange
+            val brand = createBrand()
+            val product = Product.create(
+                brand = brand,
+                name = "상품",
+                price = BigDecimal("10000.00"),
+                stock = 100,
+            )
+            product.incrementLikeCount()
+            product.incrementLikeCount()
+
+            // act
+            product.decrementLikeCount()
+
+            // assert
+            assertThat(product.likeCount).isEqualTo(1)
+        }
+
+        @DisplayName("좋아요 수가 음수가 되지 않도록 한다")
+        @Test
+        fun preventNegativeLikeCount() {
+            // arrange
+            val brand = createBrand()
+            val product = Product.create(
+                brand = brand,
+                name = "상품",
+                price = BigDecimal("10000.00"),
+                stock = 100,
+            )
+
+            // act & assert
+            assertThatThrownBy {
+                product.decrementLikeCount()
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+        }
+    }
 }

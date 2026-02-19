@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.domain.product.ProductService
+import com.loopers.application.api.product.ProductFacade
 import com.loopers.domain.product.dto.ProductInfo
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
@@ -17,13 +17,13 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/products")
 class ProductV1Controller(
-    private val productService: ProductService,
+    private val productFacade: ProductFacade,
 ) : ProductV1ApiSpec {
 
     @GetMapping("/{productId}")
     override fun getProductInfo(
         @PathVariable productId: Long,
-    ): ApiResponse<ProductInfo> = ApiResponse.success(data = productService.getProductInfo(productId))
+    ): ApiResponse<ProductInfo> = ApiResponse.success(data = productFacade.getProductInfo(productId))
 
     @GetMapping
     override fun getProducts(
@@ -42,6 +42,6 @@ class ProductV1Controller(
 
         val sortOperation = ProductSortOption.fromValue(sort)
         val pageable = PageRequest.of(page, size, Sort.by(sortOperation.sortOrder))
-        return ApiResponse.success(data = productService.getProducts(brandId, pageable))
+        return ApiResponse.success(data = productFacade.getProducts(brandId, pageable))
     }
 }
