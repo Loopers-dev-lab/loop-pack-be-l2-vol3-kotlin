@@ -92,6 +92,39 @@ class StockTest {
     }
 
     @Nested
+    @DisplayName("decrease 시 음수 수량")
+    inner class DecreaseNegative {
+
+        @Test
+        @DisplayName("음수 수량이면 BAD_REQUEST 예외가 발생한다")
+        fun decrease_withNegativeQuantity_throwsException() {
+            // arrange
+            val stock = Stock(10)
+
+            // act
+            val exception = assertThrows<CoreException> { stock.decrease(-1) }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("수량은 1 이상이어야 합니다.")
+        }
+
+        @Test
+        @DisplayName("0 수량이면 BAD_REQUEST 예외가 발생한다")
+        fun decrease_withZeroQuantity_throwsException() {
+            // arrange
+            val stock = Stock(10)
+
+            // act
+            val exception = assertThrows<CoreException> { stock.decrease(0) }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("수량은 1 이상이어야 합니다.")
+        }
+    }
+
+    @Nested
     @DisplayName("increase 시")
     inner class Increase {
 
@@ -106,6 +139,34 @@ class StockTest {
 
             // assert
             assertThat(increased.value).isEqualTo(15)
+        }
+
+        @Test
+        @DisplayName("음수 수량이면 BAD_REQUEST 예외가 발생한다")
+        fun increase_withNegativeQuantity_throwsException() {
+            // arrange
+            val stock = Stock(10)
+
+            // act
+            val exception = assertThrows<CoreException> { stock.increase(-1) }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("수량은 1 이상이어야 합니다.")
+        }
+
+        @Test
+        @DisplayName("0 수량이면 BAD_REQUEST 예외가 발생한다")
+        fun increase_withZeroQuantity_throwsException() {
+            // arrange
+            val stock = Stock(10)
+
+            // act
+            val exception = assertThrows<CoreException> { stock.increase(0) }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("수량은 1 이상이어야 합니다.")
         }
     }
 }
