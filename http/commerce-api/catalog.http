@@ -17,34 +17,19 @@ GET {{commerce-api}}/api-admin/v1/brands/1
 X-Loopers-Ldap: loopers.admin
 
 ### 브랜드 생성
-POST {{commerce-api}}/api-admin/v1/brands
+POST {{commerce-api}}/api-admin/v1/brands?name=나이키
 X-Loopers-Ldap: loopers.admin
-Content-Type: application/json
-
-{
-  "name": "나이키"
-}
 
 ### 브랜드 수정
-PUT {{commerce-api}}/api-admin/v1/brands/1
+PUT {{commerce-api}}/api-admin/v1/brands/1?name=아디다스
 X-Loopers-Ldap: loopers.admin
-Content-Type: application/json
-
-{
-  "name": "아디다스"
-}
 
 ### 브랜드 삭제
 DELETE {{commerce-api}}/api-admin/v1/brands/1
 X-Loopers-Ldap: loopers.admin
 
 ### 브랜드 생성 - 어드민 인증 없이 (401)
-POST {{commerce-api}}/api-admin/v1/brands
-Content-Type: application/json
-
-{
-  "name": "나이키"
-}
+POST {{commerce-api}}/api-admin/v1/brands?name=나이키
 
 ### === Product 대고객 API ===
 

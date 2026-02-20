@@ -40,7 +40,7 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 
 ```
 interfaces/api/    → Controller, ApiSpec(OpenAPI 인터페이스), Dto
-application/       → Facade(여러 Domain Service를 조합하는 유스케이스 오케스트레이션), Application Service(단일 도메인 유스케이스, 예: AuthService)
+application/       → Facade(여러 Domain Service를 조합하는 유스케이스 오케스트레이션)
 domain/            → Entity, Domain Service(@Component), Repository(인터페이스), Value Object
 infrastructure/    → RepositoryImpl(구현체), JpaRepository
 support/error/     → CoreException, ErrorType
@@ -53,7 +53,7 @@ support/error/     → CoreException, ErrorType
 **요청 흐름:** `Controller → Facade 또는 Domain Service → Repository(interface) → RepositoryImpl → JpaRepository`
 - 여러 Domain Service를 조합해야 하는 경우: Controller → **Facade** → Domain Services
 - 단일 Domain Service로 충분한 경우: Controller → **Domain Service** 직접 호출 (Facade 생략)
-- 애플리케이션 관심사(인증 등): Controller → **Application Service** → Domain Service
+- 인증: **AuthInterceptor** → Domain Service (UserService) 직접 호출
 
 ### 핵심 패턴
 
@@ -66,7 +66,7 @@ support/error/     → CoreException, ErrorType
 
 **Value Object**: 생성 시점에 자가 검증. `init` 블록에서 규칙 위반 시 `CoreException` throw. Entity 필드는 기본 타입(String, Int, Long, BigDecimal)으로 유지하되, 생성/변경 시 VO를 통해 검증한다.
 
-**Command**: 서비스 호출 시 요청 파라미터를 `XxxCommand` sealed interface로 묶는다 (예: `UserCommand.SignUp`). Controller에서 Dto → Command 변환 후 서비스에 전달.
+**Command**: 서비스 호출 시 요청 파라미터를 `XxxCommand` class 내부에 data class로 묶는다 (예: `UserCommand.SignUp`). Controller에서 Dto → Command 변환 후 서비스에 전달.
 
 **에러 처리**: `CoreException(errorType: ErrorType, customMessage: String?)`. ErrorType enum: `INTERNAL_ERROR(500)`,
 `BAD_REQUEST(400)`, `NOT_FOUND(404)`, `CONFLICT(409)`, `UNAUTHORIZED(401)`.
@@ -79,7 +79,7 @@ support/error/     → CoreException, ErrorType
 페이지네이션은 `page: Int, size: Int` 파라미터와 `PageResult<T>`(도메인 고유 타입)로 표현하고, Spring `Page<T>` 변환은 Controller에서 `toSpringPage()` 확장함수로 수행한다.
 
 **Domain Service**: 도메인 레이어의 서비스. `@Component`로 등록하며, Repository를 통해 도메인 객체를 조회/저장하고 비즈니스 로직을 수행한다.
-단일 도메인 CRUD(예: ProductService)부터 복수 도메인 객체 협력(예: PointChargingService)까지 도메인 레이어에서 처리한다.
+단일 도메인 CRUD(예: CatalogService)부터 복수 도메인 객체 협력(예: PointChargingService)까지 도메인 레이어에서 처리한다.
 
 **DTO 변환 규칙**:
 
@@ -90,7 +90,7 @@ support/error/     → CoreException, ErrorType
 
 ## 도메인 & 객체 설계 전략
 
-- 도메인 객체(Entity)는 비즈니스 규칙을 캡슐화한다. 검증과 상태 변경은 Entity 내부에서 수행한다
+- 도메인 객체(Entity)는 비즈니스 규칙을 캡슐화한다. 검증, 상태 변경, 상태 판단은 Entity 내부에서 수행한다 (예: `Product.isActive()`, `UserPoint.canAfford()`)
 - Value Object는 자가 검증하며 불변이다. 도메인 규칙이 있는 값(금액, 수량, 재고 등)은 VO로 표현한다
 - 규칙이 여러 Service에 나타나면 도메인 객체(Entity 또는 Domain Service)에 속할 가능성이 높다
 - Domain Service는 상태 없이, 도메인 객체의 협력을 중심으로 설계한다
