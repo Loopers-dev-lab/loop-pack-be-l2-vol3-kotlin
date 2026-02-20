@@ -70,23 +70,22 @@ class OrderV1ApiE2ETest @Autowired constructor(
     }
 
     private fun chargePoints(amount: Long) {
-        val request = PointV1Dto.ChargeRequest(amount = amount)
         testRestTemplate.exchange(
-            "/api/v1/users/points/charge",
+            "/api/v1/users/points/charge?amount=$amount",
             HttpMethod.POST,
-            HttpEntity(request, authHeaders()),
+            HttpEntity<Any>(authHeaders()),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
     }
 
     private fun createBrand(): Long {
-        val request = mapOf("name" to "나이키")
         val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
         val response = testRestTemplate.exchange(
-            "/api-admin/v1/brands",
+            "/api-admin/v1/brands?name={name}",
             HttpMethod.POST,
-            HttpEntity(request, adminHeaders()),
+            HttpEntity<Void>(adminHeaders()),
             responseType,
+            "나이키",
         )
         return (response.body!!.data!!["id"] as Number).toLong()
     }

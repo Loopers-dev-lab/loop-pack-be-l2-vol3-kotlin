@@ -82,7 +82,7 @@ class PointChargingServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).contains("충전 금액은 1 이상")
+            assertThat(exception.message).contains("충전 금액은 0보다 커야")
         }
 
         @Test
@@ -98,7 +98,7 @@ class PointChargingServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).contains("충전 금액은 1 이상")
+            assertThat(exception.message).contains("충전 금액은 0보다 커야")
         }
 
         @Test
@@ -140,6 +140,22 @@ class PointChargingServiceTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).contains("1회 충전 한도")
+        }
+
+        @Test
+        @DisplayName("기존 잔액과 충전 금액의 합이 MAX_BALANCE를 초과하면 BAD_REQUEST 예외가 발생한다")
+        fun charge_exceedMaxBalance_throwsBadRequest() {
+            // arrange
+            createUserPoint(1L)
+            pointChargingService.charge(1L, 5_000_000)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                pointChargingService.charge(1L, 6_000_000)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

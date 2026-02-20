@@ -54,5 +54,18 @@ class FakeOrderRepository : OrderRepository {
             isAccessible = true
             set(entity, id)
         }
+        initTimestamps(entity)
+    }
+
+    private fun initTimestamps(entity: BaseEntity) {
+        val field = BaseEntity::class.java.getDeclaredField("createdAt").apply { isAccessible = true }
+        if (field.get(entity) == null) {
+            val now = ZonedDateTime.now()
+            field.set(entity, now)
+            BaseEntity::class.java.getDeclaredField("updatedAt").apply {
+                isAccessible = true
+                set(entity, now)
+            }
+        }
     }
 }

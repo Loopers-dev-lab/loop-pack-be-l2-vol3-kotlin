@@ -797,7 +797,7 @@ class CatalogServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).contains("삭제된 상품")
+            assertThat(exception.message).contains("주문 가능한 상태가 아닌 상품")
         }
 
         @Test
@@ -820,7 +820,7 @@ class CatalogServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).contains("판매 중이 아닌 상품")
+            assertThat(exception.message).contains("주문 가능한 상태가 아닌 상품")
         }
     }
 
@@ -875,6 +875,22 @@ class CatalogServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("재고를 전부 차감하면 상품 상태가 SOLD_OUT으로 전환된다")
+        fun decreaseStocks_toZero_changesStatusToSoldOut() {
+            // arrange
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+            val product = catalogService.createProduct(
+                CatalogCommand.CreateProduct(brandId = brand.id, name = "에어맥스 90", price = BigDecimal("129000"), stock = 5),
+            )
+
+            // act
+            catalogService.decreaseStocks(mapOf(product.id to 5))
+
+            // assert
+            assertThat(productRepository.findById(product.id)?.status).isEqualTo(Product.ProductStatus.SOLD_OUT)
         }
     }
 

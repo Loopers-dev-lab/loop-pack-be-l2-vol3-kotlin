@@ -66,13 +66,13 @@ class LikeV1ApiE2ETest @Autowired constructor(
     }
 
     private fun createBrandAndProduct(): Long {
-        val brandRequest = mapOf("name" to "나이키")
         val brandResponseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
         val brandResponse = testRestTemplate.exchange(
-            "/api-admin/v1/brands",
+            "/api-admin/v1/brands?name={name}",
             HttpMethod.POST,
-            HttpEntity(brandRequest, adminHeaders()),
+            HttpEntity<Void>(adminHeaders()),
             brandResponseType,
+            "나이키",
         )
         val brandId = (brandResponse.body!!.data!!["id"] as Number).toLong()
 

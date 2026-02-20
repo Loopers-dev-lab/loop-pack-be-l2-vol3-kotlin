@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 class OrderServiceTest {
 
@@ -131,6 +132,81 @@ class OrderServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @Nested
+    @DisplayName("getOrdersByUserId 시")
+    inner class GetOrdersByUserId {
+
+        @Test
+        @DisplayName("해당 사용자의 주문만 반환된다")
+        fun getOrdersByUserId_returnsOnlyUserOrders() {
+            // arrange
+            createAndSaveOrder(1L)
+            createAndSaveOrder(1L)
+            createAndSaveOrder(2L)
+
+            val from = ZonedDateTime.now().minusDays(1)
+            val to = ZonedDateTime.now().plusDays(1)
+
+            // act
+            val result = orderService.getOrdersByUserId(1L, from, to, 0, 10)
+
+            // assert
+            assertThat(result.totalElements).isEqualTo(2)
+            assertThat(result.content).allMatch { it.refUserId == 1L }
+        }
+
+        @Test
+        @DisplayName("기간 범위 밖의 주문은 제외된다")
+        fun getOrdersByUserId_excludesOutOfRange() {
+            // arrange
+            createAndSaveOrder(1L)
+
+            val from = ZonedDateTime.now().plusDays(1)
+            val to = ZonedDateTime.now().plusDays(2)
+
+            // act
+            val result = orderService.getOrdersByUserId(1L, from, to, 0, 10)
+
+            // assert
+            assertThat(result.totalElements).isEqualTo(0)
+            assertThat(result.content).isEmpty()
+        }
+
+        @Test
+        @DisplayName("주문이 없으면 빈 페이지가 반환된다")
+        fun getOrdersByUserId_noOrders_returnsEmpty() {
+            // arrange
+            val from = ZonedDateTime.now().minusDays(1)
+            val to = ZonedDateTime.now().plusDays(1)
+
+            // act
+            val result = orderService.getOrdersByUserId(1L, from, to, 0, 10)
+
+            // assert
+            assertThat(result.totalElements).isEqualTo(0)
+            assertThat(result.content).isEmpty()
+        }
+
+        @Test
+        @DisplayName("페이지네이션이 올바르게 동작한다")
+        fun getOrdersByUserId_pagination_works() {
+            // arrange
+            repeat(5) { createAndSaveOrder(1L) }
+
+            val from = ZonedDateTime.now().minusDays(1)
+            val to = ZonedDateTime.now().plusDays(1)
+
+            // act
+            val page0 = orderService.getOrdersByUserId(1L, from, to, 0, 2)
+            val page1 = orderService.getOrdersByUserId(1L, from, to, 1, 2)
+
+            // assert
+            assertThat(page0.totalElements).isEqualTo(5)
+            assertThat(page0.content).hasSize(2)
+            assertThat(page1.content).hasSize(2)
         }
     }
 

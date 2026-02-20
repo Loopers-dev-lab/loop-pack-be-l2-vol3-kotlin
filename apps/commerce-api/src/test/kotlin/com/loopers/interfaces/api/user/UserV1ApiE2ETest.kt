@@ -104,7 +104,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("X-Loopers-LoginId 헤더가 없으면, 400 Bad Request 응답을 반환한다.")
+        @DisplayName("X-Loopers-LoginId 헤더가 없으면, 401 Unauthorized 응답을 반환한다.")
         fun returnsBadRequest_whenLoginIdHeaderIsMissing() {
             // arrange
             val headers = HttpHeaders().apply {
@@ -123,12 +123,12 @@ class UserV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
-                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
             )
         }
 
         @Test
-        @DisplayName("X-Loopers-LoginPw 헤더가 없으면, 400 Bad Request 응답을 반환한다.")
+        @DisplayName("X-Loopers-LoginPw 헤더가 없으면, 401 Unauthorized 응답을 반환한다.")
         fun returnsBadRequest_whenLoginPwHeaderIsMissing() {
             // arrange
             val headers = HttpHeaders().apply {
@@ -147,12 +147,12 @@ class UserV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
-                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
             )
         }
 
         @Test
-        @DisplayName("두 헤더 모두 없으면, 400 Bad Request 응답을 반환한다.")
+        @DisplayName("두 헤더 모두 없으면, 401 Unauthorized 응답을 반환한다.")
         fun returnsBadRequest_whenBothHeadersAreMissing() {
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
@@ -166,7 +166,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
-                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
             )
         }
     }

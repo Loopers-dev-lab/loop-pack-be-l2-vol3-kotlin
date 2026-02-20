@@ -57,6 +57,37 @@ class UserPointTest {
         }
 
         @Test
+        @DisplayName("충전 금액이 0이면 BAD_REQUEST 예외가 발생한다")
+        fun charge_zeroAmount_throwsException() {
+            // arrange
+            val userPoint = UserPoint(refUserId = 1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userPoint.charge(0)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("충전 금액은 0보다 커야 합니다.")
+        }
+
+        @Test
+        @DisplayName("충전 금액이 음수이면 BAD_REQUEST 예외가 발생한다")
+        fun charge_negativeAmount_throwsException() {
+            // arrange
+            val userPoint = UserPoint(refUserId = 1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userPoint.charge(-1000)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
         @DisplayName("여러 번 충전하면 잔액이 누적된다")
         fun charge_multiple_accumulatesBalance() {
             // arrange
@@ -68,6 +99,23 @@ class UserPointTest {
 
             // assert
             assertThat(userPoint.balance).isEqualTo(5000)
+        }
+
+        @Test
+        @DisplayName("충전 후 잔액이 MAX_BALANCE를 초과하면 BAD_REQUEST 예외가 발생한다")
+        fun charge_exceedMaxBalance_throwsBadRequest() {
+            // arrange
+            val userPoint = UserPoint(refUserId = 1L)
+            userPoint.charge(5_000_000)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userPoint.charge(6_000_000)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).contains("최대 한도")
         }
     }
 
@@ -105,6 +153,39 @@ class UserPointTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).contains("필요: 5000")
             assertThat(exception.message).contains("현재: 1000")
+        }
+
+        @Test
+        @DisplayName("사용 금액이 0이면 BAD_REQUEST 예외가 발생한다")
+        fun use_zeroAmount_throwsBadRequest() {
+            // arrange
+            val userPoint = UserPoint(refUserId = 1L)
+            userPoint.charge(5000)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userPoint.use(0)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("사용 포인트는 0보다 커야 합니다.")
+        }
+
+        @Test
+        @DisplayName("사용 금액이 음수이면 BAD_REQUEST 예외가 발생한다")
+        fun use_negativeAmount_throwsBadRequest() {
+            // arrange
+            val userPoint = UserPoint(refUserId = 1L)
+            userPoint.charge(5000)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userPoint.use(-1000)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 

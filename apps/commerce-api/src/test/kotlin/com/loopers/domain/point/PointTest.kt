@@ -104,6 +104,44 @@ class PointTest {
     }
 
     @Nested
+    @DisplayName("isGreaterThanOrEqual 연산 시")
+    inner class IsGreaterThanOrEqual {
+
+        @Test
+        @DisplayName("큰 값이면 true를 반환한다")
+        fun isGreaterThanOrEqual_greaterValue_returnsTrue() {
+            // arrange
+            val point1 = Point(1000)
+            val point2 = Point(500)
+
+            // act & assert
+            assertThat(point1.isGreaterThanOrEqual(point2)).isTrue()
+        }
+
+        @Test
+        @DisplayName("같은 값이면 true를 반환한다")
+        fun isGreaterThanOrEqual_equalValue_returnsTrue() {
+            // arrange
+            val point1 = Point(1000)
+            val point2 = Point(1000)
+
+            // act & assert
+            assertThat(point1.isGreaterThanOrEqual(point2)).isTrue()
+        }
+
+        @Test
+        @DisplayName("작은 값이면 false를 반환한다")
+        fun isGreaterThanOrEqual_lesserValue_returnsFalse() {
+            // arrange
+            val point1 = Point(500)
+            val point2 = Point(1000)
+
+            // act & assert
+            assertThat(point1.isGreaterThanOrEqual(point2)).isFalse()
+        }
+    }
+
+    @Nested
     @DisplayName("Point 동등성 비교 시")
     inner class Equality {
 

@@ -67,14 +67,12 @@ class PointV1ApiE2ETest @Autowired constructor(
             // arrange
             signUp()
 
-            val chargeRequest = PointV1Dto.ChargeRequest(amount = 50000)
-
             // act - 충전
             val chargeResponseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val chargeResponse = testRestTemplate.exchange(
-                "/api/v1/users/points/charge",
+                "/api/v1/users/points/charge?amount=50000",
                 HttpMethod.POST,
-                HttpEntity(chargeRequest, authHeaders()),
+                HttpEntity<Any>(authHeaders()),
                 chargeResponseType,
             )
 
@@ -106,15 +104,15 @@ class PointV1ApiE2ETest @Autowired constructor(
             // act
             val chargeResponseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             testRestTemplate.exchange(
-                "/api/v1/users/points/charge",
+                "/api/v1/users/points/charge?amount=10000",
                 HttpMethod.POST,
-                HttpEntity(PointV1Dto.ChargeRequest(amount = 10000), authHeaders()),
+                HttpEntity<Any>(authHeaders()),
                 chargeResponseType,
             )
             testRestTemplate.exchange(
-                "/api/v1/users/points/charge",
+                "/api/v1/users/points/charge?amount=20000",
                 HttpMethod.POST,
-                HttpEntity(PointV1Dto.ChargeRequest(amount = 20000), authHeaders()),
+                HttpEntity<Any>(authHeaders()),
                 chargeResponseType,
             )
 
@@ -138,9 +136,9 @@ class PointV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<PointV1Dto.BalanceResponse>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/users/points/charge",
+                "/api/v1/users/points/charge?amount=10000000",
                 HttpMethod.POST,
-                HttpEntity(PointV1Dto.ChargeRequest(amount = 10_000_000), authHeaders()),
+                HttpEntity<Any>(authHeaders()),
                 responseType,
             )
 
@@ -160,9 +158,47 @@ class PointV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/users/points/charge",
+                "/api/v1/users/points/charge?amount=10000001",
                 HttpMethod.POST,
-                HttpEntity(PointV1Dto.ChargeRequest(amount = 10_000_001), authHeaders()),
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("충전 금액이 0이면 400을 반환한다")
+        fun charge_zeroAmount_returnsBadRequest() {
+            // arrange
+            signUp()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/users/points/charge?amount=0",
+                HttpMethod.POST,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("충전 금액이 음수이면 400을 반환한다")
+        fun charge_negativeAmount_returnsBadRequest() {
+            // arrange
+            signUp()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/users/points/charge?amount=-1000",
+                HttpMethod.POST,
+                HttpEntity<Any>(authHeaders()),
                 responseType,
             )
 

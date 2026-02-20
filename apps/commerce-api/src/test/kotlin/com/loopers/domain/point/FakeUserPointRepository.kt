@@ -28,6 +28,10 @@ class FakeUserPointRepository : UserPointRepository {
         return userPoints.find { it.refUserId == userId }
     }
 
+    override fun findByUserIdForUpdate(userId: Long): UserPoint? {
+        return findByUserId(userId)
+    }
+
     private fun setEntityId(entity: BaseEntity, id: Long) {
         BaseEntity::class.java.getDeclaredField("id").apply {
             isAccessible = true

@@ -342,6 +342,112 @@ class ProductTest {
     }
 
     @Nested
+    @DisplayName("isActive 확인 시")
+    inner class IsActiveTest {
+
+        @Test
+        @DisplayName("ON_SALE 상태이고 삭제되지 않은 상품은 true를 반환한다")
+        fun isActive_onSale_returnsTrue() {
+            // arrange
+            val product = ProductTestFixture.createProduct()
+
+            // assert
+            assertThat(product.isActive()).isTrue()
+        }
+
+        @Test
+        @DisplayName("SOLD_OUT 상태이고 삭제되지 않은 상품은 true를 반환한다")
+        fun isActive_soldOut_returnsTrue() {
+            // arrange
+            val product = ProductTestFixture.createProduct(stock = 0)
+
+            // assert
+            assertThat(product.isActive()).isTrue()
+        }
+
+        @Test
+        @DisplayName("HIDDEN 상태 상품은 false를 반환한다")
+        fun isActive_hidden_returnsFalse() {
+            // arrange
+            val product = ProductTestFixture.createProduct()
+            product.update(null, null, null, Product.ProductStatus.HIDDEN)
+
+            // assert
+            assertThat(product.isActive()).isFalse()
+        }
+
+        @Test
+        @DisplayName("삭제된 상품은 false를 반환한다")
+        fun isActive_deleted_returnsFalse() {
+            // arrange
+            val product = ProductTestFixture.createProduct()
+            product.delete()
+
+            // assert
+            assertThat(product.isActive()).isFalse()
+        }
+
+        @Test
+        @DisplayName("삭제되고 HIDDEN인 상품은 false를 반환한다")
+        fun isActive_deletedAndHidden_returnsFalse() {
+            // arrange
+            val product = ProductTestFixture.createProduct()
+            product.update(null, null, null, Product.ProductStatus.HIDDEN)
+            product.delete()
+
+            // assert
+            assertThat(product.isActive()).isFalse()
+        }
+    }
+
+    @Nested
+    @DisplayName("isAvailableForOrder 확인 시")
+    inner class IsAvailableForOrderTest {
+
+        @Test
+        @DisplayName("ON_SALE 상태이고 삭제되지 않은 상품은 true를 반환한다")
+        fun isAvailableForOrder_onSale_returnsTrue() {
+            // arrange
+            val product = ProductTestFixture.createProduct()
+
+            // assert
+            assertThat(product.isAvailableForOrder()).isTrue()
+        }
+
+        @Test
+        @DisplayName("SOLD_OUT 상태 상품은 false를 반환한다")
+        fun isAvailableForOrder_soldOut_returnsFalse() {
+            // arrange
+            val product = ProductTestFixture.createProduct(stock = 0)
+
+            // assert
+            assertThat(product.isAvailableForOrder()).isFalse()
+        }
+
+        @Test
+        @DisplayName("HIDDEN 상태 상품은 false를 반환한다")
+        fun isAvailableForOrder_hidden_returnsFalse() {
+            // arrange
+            val product = ProductTestFixture.createProduct()
+            product.update(null, null, null, Product.ProductStatus.HIDDEN)
+
+            // assert
+            assertThat(product.isAvailableForOrder()).isFalse()
+        }
+
+        @Test
+        @DisplayName("삭제된 상품은 false를 반환한다")
+        fun isAvailableForOrder_deleted_returnsFalse() {
+            // arrange
+            val product = ProductTestFixture.createProduct()
+            product.delete()
+
+            // assert
+            assertThat(product.isAvailableForOrder()).isFalse()
+        }
+    }
+
+    @Nested
     @DisplayName("isDeleted 확인 시")
     inner class IsDeletedTest {
 
