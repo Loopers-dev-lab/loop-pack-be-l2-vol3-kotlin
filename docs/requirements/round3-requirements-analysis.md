@@ -88,9 +88,9 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 
 | 메서드                                 | 설명                      |
 |-------------------------------------|-------------------------|
-| `charge(amount: Point)`             | 포인트 충전 (잔액 증가)          |
-| `use(amount: Point)`                | 포인트 사용 (잔액 차감, 부족 시 예외) |
-| `canAfford(amount: Point): Boolean` | 잔액 충분 여부 확인             |
+| `charge(amount: Long)`              | 포인트 충전 (잔액 증가). 내부에서 Point VO를 통해 검증 |
+| `use(amount: Long)`                 | 포인트 사용 (잔액 차감, 부족 시 예외). 내부에서 Point VO를 통해 검증 |
+| `canAfford(amount: Long): Boolean`  | 잔액 충분 여부 확인             |
 
 **생성 시점:** 회원가입 시 UserPoint를 함께 생성한다 (초기 잔액 0).
 
@@ -315,13 +315,15 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 | POST   | `/api/v1/users/points/charge` | O  | 포인트 충전      |
 | GET    | `/api/v1/users/points`        | O  | 내 포인트 잔액 조회 |
 
-**포인트 충전 요청 본문:**
+**포인트 충전 요청 파라미터:**
 
-```json
-{
-  "amount": 50000
-}
+`@RequestParam amount: Long` — 쿼리 파라미터 방식
+
 ```
+POST /api/v1/users/points/charge?amount=50000
+```
+
+> **향후 전환 노트:** idempotencyKey 등 필드가 추가되면 `@RequestBody` JSON 방식으로 전환해야 한다.
 
 **포인트 충전 예외 흐름:**
 
@@ -348,7 +350,7 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 | 경로 패턴                     | 인터셉터            | 비고 |
 |---------------------------|-----------------|----|
-| `/api/v1/users/points/**` | AuthInterceptor | 신규 |
+| `/api/v1/users/points/**` | AuthInterceptor | 기존 `/api/v1/users/**` 패턴에 의해 자동 포함됨 |
 
 ---
 
