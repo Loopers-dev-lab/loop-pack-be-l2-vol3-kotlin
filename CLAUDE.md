@@ -112,6 +112,12 @@ support/error/     → CoreException, ErrorType
 - 4개 레이어 패키지를 두고, 하위에 **도메인 별로 패키징**한다
 - API request/response DTO와 응용 레이어의 DTO는 **분리하여 작성**한다
 
+DIP 강제: ArchUnit 아키텍처 테스트로 레이어 간 의존성 방향을 검증한다.
+- `domain`은 `infrastructure`, `interfaces`에 의존하지 않는다
+- `application`은 `infrastructure`에 의존하지 않는다
+- 패키지 간 순환 의존이 없어야 한다
+- 위반 시 `./gradlew test`에서 실패한다
+
 ## 테스트 패턴
 
 - **단위 테스트**: `@Nested` + `@DisplayName`(한국어) 조합으로 BDD 스타일 구성
