@@ -44,7 +44,7 @@ class CatalogService(
     fun getActiveBrand(brandId: Long): Brand {
         val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        if (brand.deletedAt != null) {
+        if (brand.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         }
         return brand
@@ -79,7 +79,7 @@ class CatalogService(
     @Transactional
     fun updateProduct(productId: Long, command: CatalogCommand.UpdateProduct): Product {
         val product = getProduct(productId)
-        if (product.deletedAt != null) {
+        if (product.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
         product.update(command.name, command.price, command.stock, command.status)
@@ -117,7 +117,7 @@ class CatalogService(
     @Transactional(readOnly = true)
     fun getActiveProduct(productId: Long): Product {
         val product = getProduct(productId)
-        if (product.deletedAt != null || product.status == Product.ProductStatus.HIDDEN) {
+        if (!product.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
         return product
@@ -125,9 +125,7 @@ class CatalogService(
 
     @Transactional(readOnly = true)
     fun getActiveProductsByIds(productIds: List<Long>): List<Product> {
-        return productRepository.findAllByIds(productIds).filter {
-            it.deletedAt == null && it.status != Product.ProductStatus.HIDDEN
-        }
+        return productRepository.findAllByIds(productIds).filter { it.isActive() }
     }
 
     @Transactional(readOnly = true)
@@ -141,11 +139,8 @@ class CatalogService(
         }
 
         products.forEach { product ->
-            if (product.deletedAt != null) {
-                throw CoreException(ErrorType.BAD_REQUEST, "삭제된 상품이 포함되어 있습니다.")
-            }
-            if (product.status != Product.ProductStatus.ON_SALE) {
-                throw CoreException(ErrorType.BAD_REQUEST, "판매 중이 아닌 상품이 포함되어 있습니다.")
+            if (!product.isAvailableForOrder()) {
+                throw CoreException(ErrorType.BAD_REQUEST, "주문 가능한 상태가 아닌 상품이 포함되어 있습니다.")
             }
         }
 
@@ -176,6 +171,7 @@ class CatalogService(
     @Transactional
     fun decreaseLikeCount(productId: Long) {
         val product = getProduct(productId)
+        if (product.isDeleted()) return
         product.decreaseLikeCount()
     }
 

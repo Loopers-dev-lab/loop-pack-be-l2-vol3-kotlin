@@ -98,6 +98,10 @@ class Product(
 
     fun isDeleted(): Boolean = deletedAt != null
 
+    fun isActive(): Boolean = !isDeleted() && status != ProductStatus.HIDDEN
+
+    fun isAvailableForOrder(): Boolean = !isDeleted() && status == ProductStatus.ON_SALE
+
     private fun adjustStatusByStock() {
         if (status == ProductStatus.HIDDEN) return
         status = if (stock == 0) ProductStatus.SOLD_OUT else ProductStatus.ON_SALE

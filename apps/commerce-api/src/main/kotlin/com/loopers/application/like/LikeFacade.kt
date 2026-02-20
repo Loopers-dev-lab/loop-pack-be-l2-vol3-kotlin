@@ -1,9 +1,7 @@
 package com.loopers.application.like
 
 import com.loopers.domain.catalog.CatalogService
-import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.like.LikeService
-import com.loopers.domain.like.entity.Like
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -24,15 +22,15 @@ class LikeFacade(
 
     @Transactional
     fun removeLike(userId: Long, productId: Long) {
-        val product = catalogService.getProduct(productId)
+        catalogService.getProduct(productId)
         val removed = likeService.removeLike(userId, productId)
-        if (removed && product.deletedAt == null) {
+        if (removed) {
             catalogService.decreaseLikeCount(productId)
         }
     }
 
     @Transactional(readOnly = true)
-    fun getLikes(userId: Long): List<Pair<Like, Product>> {
+    fun getLikes(userId: Long): List<LikeProductInfo> {
         val likes = likeService.getLikesByUserId(userId)
         if (likes.isEmpty()) return emptyList()
 
@@ -42,7 +40,7 @@ class LikeFacade(
 
         return likes.mapNotNull { like ->
             productMap[like.refProductId]?.let { product ->
-                like to product
+                LikeProductInfo.from(like, product)
             }
         }
     }

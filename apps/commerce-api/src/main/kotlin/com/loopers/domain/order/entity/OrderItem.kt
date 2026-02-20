@@ -34,10 +34,6 @@ class OrderItem private constructor(
         protected set
 
     init {
-        guard()
-    }
-
-    override fun guard() {
         Quantity(quantity)
     }
 

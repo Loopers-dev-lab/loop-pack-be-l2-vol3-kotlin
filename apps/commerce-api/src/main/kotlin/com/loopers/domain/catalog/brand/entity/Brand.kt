@@ -28,4 +28,6 @@ class Brand(
         this.name = name
         guard()
     }
+
+    fun isDeleted(): Boolean = deletedAt != null
 }
