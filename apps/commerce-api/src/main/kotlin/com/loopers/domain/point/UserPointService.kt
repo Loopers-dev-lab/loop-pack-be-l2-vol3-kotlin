@@ -29,7 +29,7 @@ class UserPointService(
 
     @Transactional
     fun usePoints(userId: Long, amount: Long, refOrderId: Long) {
-        val userPoint = userPointRepository.findByUserId(userId)
+        val userPoint = userPointRepository.findByUserIdForUpdate(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "포인트 정보를 찾을 수 없습니다.")
         userPoint.use(amount)
         pointHistoryRepository.save(

@@ -13,10 +13,7 @@ data class Point(val value: Long) {
 
     fun plus(other: Point): Point = Point(value + other.value)
 
-    fun minus(other: Point): Point {
-        if (value < other.value) {
-            throw CoreException(ErrorType.BAD_REQUEST, "포인트가 부족합니다.")
-        }
-        return Point(value - other.value)
-    }
+    fun minus(other: Point): Point = Point(value - other.value)
+
+    fun isGreaterThanOrEqual(other: Point): Boolean = value >= other.value
 }

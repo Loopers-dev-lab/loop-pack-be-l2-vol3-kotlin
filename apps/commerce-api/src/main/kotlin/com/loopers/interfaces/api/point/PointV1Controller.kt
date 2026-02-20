@@ -6,13 +6,14 @@ import com.loopers.interfaces.api.point.dto.PointV1Dto
 import com.loopers.interfaces.api.point.spec.PointV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
-import jakarta.validation.Valid
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/users/points")
 class PointV1Controller(
@@ -23,9 +24,9 @@ class PointV1Controller(
     @PostMapping("/charge")
     override fun chargePoints(
         @AuthUser userId: Long,
-        @RequestBody @Valid request: PointV1Dto.ChargeRequest,
+        @RequestParam amount: Long,
     ): ApiResponse<PointV1Dto.BalanceResponse> {
-        return pointChargingService.charge(userId, request.amount)
+        return pointChargingService.charge(userId, amount)
             .let { PointV1Dto.BalanceResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

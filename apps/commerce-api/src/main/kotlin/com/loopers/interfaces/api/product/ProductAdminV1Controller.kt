@@ -5,10 +5,6 @@ import com.loopers.interfaces.api.product.dto.ProductAdminV1Dto
 import com.loopers.interfaces.api.product.spec.ProductAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
-import jakarta.validation.Valid
-import jakarta.validation.constraints.Max
-import jakarta.validation.constraints.Positive
-import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -16,10 +12,12 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 @RequestMapping("/api-admin/v1/products")
 class ProductAdminV1Controller(
@@ -28,8 +26,8 @@ class ProductAdminV1Controller(
 
     @GetMapping
     override fun getProducts(
-        @RequestParam(defaultValue = "0") @PositiveOrZero page: Int,
-        @RequestParam(defaultValue = "20") @Positive @Max(100) size: Int,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<ProductAdminV1Dto.AdminProductResponse>> {
         return catalogService.getAdminProducts(page, size)
             .map { ProductAdminV1Dto.AdminProductResponse.from(it) }
@@ -48,7 +46,7 @@ class ProductAdminV1Controller(
 
     @PostMapping
     override fun createProduct(
-        @RequestBody @Valid request: ProductAdminV1Dto.CreateProductRequest,
+        @RequestBody request: ProductAdminV1Dto.CreateProductRequest,
     ): ApiResponse<ProductAdminV1Dto.AdminProductResponse> {
         return catalogService.createProduct(request.toCommand())
             .let { ProductAdminV1Dto.AdminProductResponse.from(it) }
@@ -58,7 +56,7 @@ class ProductAdminV1Controller(
     @PutMapping("/{productId}")
     override fun updateProduct(
         @PathVariable productId: Long,
-        @RequestBody @Valid request: ProductAdminV1Dto.UpdateProductRequest,
+        @RequestBody request: ProductAdminV1Dto.UpdateProductRequest,
     ): ApiResponse<ProductAdminV1Dto.AdminProductResponse> {
         return catalogService.updateProduct(productId, request.toCommand())
             .let { ProductAdminV1Dto.AdminProductResponse.from(it) }

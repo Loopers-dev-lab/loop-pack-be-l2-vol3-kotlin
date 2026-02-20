@@ -3,9 +3,10 @@ package com.loopers.interfaces.api.brand.spec
 import com.loopers.interfaces.api.brand.dto.BrandAdminV1Dto
 import com.loopers.interfaces.support.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
-import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.data.domain.Page
@@ -20,12 +21,14 @@ interface BrandAdminV1ApiSpec {
     fun getBrand(brandId: Long): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 생성", description = "브랜드를 생성합니다.")
-    fun createBrand(@Valid request: BrandAdminV1Dto.CreateBrandRequest): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
+    fun createBrand(
+        @Parameter(description = "브랜드명") @NotBlank(message = "브랜드명은 필수입니다.") name: String,
+    ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 수정", description = "브랜드를 수정합니다.")
     fun updateBrand(
         brandId: Long,
-        @Valid request: BrandAdminV1Dto.UpdateBrandRequest,
+        @Parameter(description = "브랜드명") @NotBlank(message = "브랜드명은 필수입니다.") name: String,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 삭제", description = "브랜드를 삭제합니다.")

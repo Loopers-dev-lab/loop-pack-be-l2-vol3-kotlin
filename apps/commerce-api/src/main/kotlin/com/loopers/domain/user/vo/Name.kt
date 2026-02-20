@@ -21,7 +21,6 @@ class Name(val value: String) {
     }
 
     fun masked(): String {
-        if (value.isEmpty()) return ""
         if (value.length == 1) return "*"
         return value.dropLast(1) + "*"
     }

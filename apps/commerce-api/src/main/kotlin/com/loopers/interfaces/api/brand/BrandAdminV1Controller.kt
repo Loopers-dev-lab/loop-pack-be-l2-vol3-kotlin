@@ -1,25 +1,23 @@
 package com.loopers.interfaces.api.brand
 
+import com.loopers.domain.catalog.CatalogCommand
 import com.loopers.domain.catalog.CatalogService
 import com.loopers.interfaces.api.brand.dto.BrandAdminV1Dto
 import com.loopers.interfaces.api.brand.spec.BrandAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
-import jakarta.validation.Valid
-import jakarta.validation.constraints.Max
-import jakarta.validation.constraints.Positive
-import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.data.domain.Page
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 @RequestMapping("/api-admin/v1/brands")
 class BrandAdminV1Controller(
@@ -28,8 +26,8 @@ class BrandAdminV1Controller(
 
     @GetMapping
     override fun getBrands(
-        @RequestParam(defaultValue = "0") @PositiveOrZero page: Int,
-        @RequestParam(defaultValue = "20") @Positive @Max(100) size: Int,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<BrandAdminV1Dto.BrandAdminResponse>> {
         return catalogService.getBrands(page, size)
             .map { BrandAdminV1Dto.BrandAdminResponse.from(it) }
@@ -48,9 +46,9 @@ class BrandAdminV1Controller(
 
     @PostMapping
     override fun createBrand(
-        @RequestBody @Valid request: BrandAdminV1Dto.CreateBrandRequest,
+        @RequestParam name: String,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
-        return catalogService.createBrand(request.toCommand())
+        return catalogService.createBrand(CatalogCommand.CreateBrand(name = name))
             .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -58,9 +56,9 @@ class BrandAdminV1Controller(
     @PutMapping("/{brandId}")
     override fun updateBrand(
         @PathVariable brandId: Long,
-        @RequestBody @Valid request: BrandAdminV1Dto.UpdateBrandRequest,
+        @RequestParam name: String,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
-        return catalogService.updateBrand(brandId, request.toCommand())
+        return catalogService.updateBrand(brandId, CatalogCommand.UpdateBrand(name = name))
             .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

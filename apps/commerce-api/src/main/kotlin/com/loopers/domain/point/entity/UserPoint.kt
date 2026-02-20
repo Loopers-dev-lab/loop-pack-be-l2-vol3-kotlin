@@ -32,6 +32,9 @@ class UserPoint(
     }
 
     fun charge(amount: Long) {
+        if (amount <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "충전 금액은 0보다 커야 합니다.")
+        }
         val newBalance = Point(balance).plus(Point(amount)).value
         if (newBalance > MAX_BALANCE) {
             throw CoreException(ErrorType.BAD_REQUEST, "충전 후 잔액이 최대 한도(${MAX_BALANCE}포인트)를 초과합니다.")
@@ -57,6 +60,6 @@ class UserPoint(
     }
 
     fun canAfford(amount: Long): Boolean {
-        return balance >= amount
+        return Point(balance).isGreaterThanOrEqual(Point(amount))
     }
 }

@@ -4,14 +4,14 @@ import com.loopers.domain.user.entity.User
 
 import java.time.LocalDate
 
-sealed interface UserCommand {
+class UserCommand {
     data class SignUp(
         val loginId: String,
         val password: String,
         val name: String,
         val birthDate: LocalDate,
         val email: String,
-    ) : UserCommand {
+    ) {
         fun toEntity(): User {
             return User(
                 loginId = loginId,
@@ -26,5 +26,5 @@ sealed interface UserCommand {
     data class ChangePassword(
         val currentPassword: String,
         val newPassword: String,
-    ) : UserCommand
+    )
 }

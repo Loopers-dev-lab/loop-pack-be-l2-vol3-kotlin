@@ -1,5 +1,7 @@
 package com.loopers.domain.point.entity
 
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -18,6 +20,15 @@ class PointHistory(
     amount: Long,
     refOrderId: Long? = null,
 ) {
+
+    init {
+        if (amount <= 0) {
+            throw CoreException(
+                ErrorType.BAD_REQUEST,
+                "포인트 이력 금액은 0보다 커야 합니다.",
+            )
+        }
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

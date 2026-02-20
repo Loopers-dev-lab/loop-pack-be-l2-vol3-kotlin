@@ -20,4 +20,8 @@ class UserPointRepositoryImpl(
     override fun findByUserId(userId: Long): UserPoint? {
         return userPointJpaRepository.findByRefUserId(userId)
     }
+
+    override fun findByUserIdForUpdate(userId: Long): UserPoint? {
+        return userPointJpaRepository.findFirstByRefUserId(userId)
+    }
 }

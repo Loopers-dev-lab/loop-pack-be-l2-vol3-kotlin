@@ -8,19 +8,17 @@ import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.DateTimeRange
 import com.loopers.interfaces.support.auth.AuthUser
 import com.loopers.interfaces.support.toSpringPage
-import jakarta.validation.Valid
-import jakarta.validation.constraints.Max
-import jakarta.validation.constraints.Positive
-import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/orders")
 class OrderV1Controller(
@@ -31,7 +29,7 @@ class OrderV1Controller(
     @PostMapping
     override fun createOrder(
         @AuthUser userId: Long,
-        @RequestBody @Valid request: OrderV1Dto.CreateOrderRequest,
+        @RequestBody request: OrderV1Dto.CreateOrderRequest,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
         return orderFacade.createOrder(userId, request.toCommand())
             .let { OrderV1Dto.OrderResponse.from(it) }
@@ -53,8 +51,8 @@ class OrderV1Controller(
         @AuthUser userId: Long,
         @RequestParam(required = false) from: String?,
         @RequestParam(required = false) to: String?,
-        @RequestParam(defaultValue = "0") @PositiveOrZero page: Int,
-        @RequestParam(defaultValue = "20") @Positive @Max(100) size: Int,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<OrderV1Dto.OrderResponse>> {
         val range = DateTimeRange.of(from, to)
         return orderService.getOrdersByUserId(userId, range.from, range.to, page, size)
