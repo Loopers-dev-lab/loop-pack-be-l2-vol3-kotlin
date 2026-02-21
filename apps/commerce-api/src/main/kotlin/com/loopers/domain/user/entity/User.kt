@@ -1,7 +1,6 @@
 package com.loopers.domain.user.entity
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
@@ -51,7 +50,9 @@ class User(
     override fun guard() {
         LoginId(loginId)
         Name(name)
-        Email(email)
+        if (!Regex("^[^@]+@[^@]+\\.[^@]+$").matches(email)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이메일 형식이 올바르지 않습니다.")
+        }
     }
 
     fun getMaskedName(): String = Name(name).masked()

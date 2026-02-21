@@ -105,7 +105,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
         @Test
         @DisplayName("X-Loopers-LoginId 헤더가 없으면, 401 Unauthorized 응답을 반환한다.")
-        fun returnsBadRequest_whenLoginIdHeaderIsMissing() {
+        fun returnsUnauthorized_whenLoginIdHeaderIsMissing() {
             // arrange
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_PW, "Password1!")
@@ -129,7 +129,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
         @Test
         @DisplayName("X-Loopers-LoginPw 헤더가 없으면, 401 Unauthorized 응답을 반환한다.")
-        fun returnsBadRequest_whenLoginPwHeaderIsMissing() {
+        fun returnsUnauthorized_whenLoginPwHeaderIsMissing() {
             // arrange
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -153,7 +153,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
         @Test
         @DisplayName("두 헤더 모두 없으면, 401 Unauthorized 응답을 반환한다.")
-        fun returnsBadRequest_whenBothHeadersAreMissing() {
+        fun returnsUnauthorized_whenBothHeadersAreMissing() {
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
