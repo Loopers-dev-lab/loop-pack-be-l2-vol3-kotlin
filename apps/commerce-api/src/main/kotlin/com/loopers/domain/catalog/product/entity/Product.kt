@@ -1,8 +1,9 @@
 package com.loopers.domain.catalog.product.entity
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.catalog.product.vo.Price
 import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -55,7 +56,9 @@ class Product(
     }
 
     override fun guard() {
-        Price(price)
+        if (price < BigDecimal.ZERO) {
+            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0 이상이어야 합니다.")
+        }
         Stock(stock)
     }
 

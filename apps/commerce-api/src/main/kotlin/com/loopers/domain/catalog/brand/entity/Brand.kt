@@ -1,7 +1,8 @@
 package com.loopers.domain.catalog.brand.entity
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.catalog.brand.vo.BrandName
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -21,7 +22,9 @@ class Brand(
     }
 
     override fun guard() {
-        BrandName(name)
+        if (name.isBlank()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "브랜드명은 필수입니다.")
+        }
     }
 
     fun update(name: String) {

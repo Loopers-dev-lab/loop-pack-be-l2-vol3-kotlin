@@ -67,22 +67,6 @@ class CatalogServiceTest {
         }
 
         @Test
-        @DisplayName("삭제된 브랜드를 수정하면 NOT_FOUND 예외가 발생한다")
-        fun updateBrand_deletedBrand_throwsNotFound() {
-            // arrange
-            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
-            catalogService.deleteBrand(brand.id)
-
-            // act
-            val exception = assertThrows<CoreException> {
-                catalogService.updateBrand(brand.id, CatalogCommand.UpdateBrand(name = "아디다스"))
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
-        }
-
-        @Test
         @DisplayName("존재하지 않는 브랜드를 수정하면 NOT_FOUND 예외가 발생한다")
         fun updateBrand_nonExistent_throwsNotFound() {
             // act
@@ -92,6 +76,21 @@ class CatalogServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("삭제된 브랜드를 수정하면 브랜드명이 변경된다")
+        fun updateBrand_deletedBrand_updatesName() {
+            // arrange
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+            catalogService.deleteBrand(brand.id)
+
+            // act
+            val result = catalogService.updateBrand(brand.id, CatalogCommand.UpdateBrand(name = "아디다스"))
+
+            // assert
+            assertThat(result.name).isEqualTo("아디다스")
+            assertThat(result.deletedAt).isNotNull()
         }
     }
 
@@ -140,6 +139,50 @@ class CatalogServiceTest {
 
             // act & assert
             catalogService.deleteBrand(brand.id)
+        }
+    }
+
+    @Nested
+    @DisplayName("브랜드 복구 시")
+    inner class RestoreBrand {
+
+        @Test
+        @DisplayName("삭제된 브랜드를 복구하면 deletedAt이 null이 된다")
+        fun restoreBrand_deletedBrand_restoresSuccessfully() {
+            // arrange
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+            catalogService.deleteBrand(brand.id)
+
+            // act
+            catalogService.restoreBrand(brand.id)
+
+            // assert
+            val restored = catalogService.getBrand(brand.id)
+            assertThat(restored.deletedAt).isNull()
+            assertThat(restored.name).isEqualTo("나이키")
+        }
+
+        @Test
+        @DisplayName("삭제되지 않은 브랜드를 복구해도 정상 동작한다 (멱등)")
+        fun restoreBrand_activeBrand_isIdempotent() {
+            // arrange
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+
+            // act & assert
+            catalogService.restoreBrand(brand.id)
+            assertThat(brand.deletedAt).isNull()
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 브랜드를 복구하면 NOT_FOUND 예외가 발생한다")
+        fun restoreBrand_nonExistent_throwsNotFound() {
+            // act
+            val exception = assertThrows<CoreException> {
+                catalogService.restoreBrand(999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 
@@ -341,8 +384,8 @@ class CatalogServiceTest {
         }
 
         @Test
-        @DisplayName("삭제된 상품을 수정하면 NOT_FOUND 예외가 발생한다")
-        fun updateProduct_deletedProduct_throwsNotFound() {
+        @DisplayName("삭제된 상품도 수정할 수 있다")
+        fun updateProduct_deletedProduct_succeeds() {
             // arrange
             val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
             val product = catalogService.createProduct(
@@ -356,15 +399,13 @@ class CatalogServiceTest {
             catalogService.deleteProduct(product.id)
 
             // act
-            val exception = assertThrows<CoreException> {
-                catalogService.updateProduct(
-                    product.id,
-                    CatalogCommand.UpdateProduct(name = "변경", price = null, stock = null, status = null),
-                )
-            }
+            val result = catalogService.updateProduct(
+                product.id,
+                CatalogCommand.UpdateProduct(name = "변경", price = null, stock = null, status = null),
+            )
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(result.name).isEqualTo("변경")
         }
 
         @Test
@@ -441,6 +482,66 @@ class CatalogServiceTest {
         fun deleteProduct_nonExistent_isIdempotent() {
             // act & assert
             catalogService.deleteProduct(999L)
+        }
+    }
+
+    @Nested
+    @DisplayName("상품 복구 시")
+    inner class RestoreProduct {
+
+        @Test
+        @DisplayName("삭제된 상품을 복구하면 deletedAt이 null이 된다")
+        fun restoreProduct_deletedProduct_restoresSuccessfully() {
+            // arrange
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+            val product = catalogService.createProduct(
+                CatalogCommand.CreateProduct(
+                    brandId = brand.id,
+                    name = "에어맥스 90",
+                    price = BigDecimal("129000"),
+                    stock = 100,
+                ),
+            )
+            catalogService.deleteProduct(product.id)
+
+            // act
+            catalogService.restoreProduct(product.id)
+
+            // assert
+            val restored = catalogService.getProduct(product.id)
+            assertThat(restored.deletedAt).isNull()
+            assertThat(restored.name).isEqualTo("에어맥스 90")
+        }
+
+        @Test
+        @DisplayName("삭제되지 않은 상품을 복구해도 정상 동작한다 (멱등)")
+        fun restoreProduct_activeProduct_isIdempotent() {
+            // arrange
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+            val product = catalogService.createProduct(
+                CatalogCommand.CreateProduct(
+                    brandId = brand.id,
+                    name = "에어맥스 90",
+                    price = BigDecimal("129000"),
+                    stock = 100,
+                ),
+            )
+
+            // act & assert
+            catalogService.restoreProduct(product.id)
+            assertThat(product.deletedAt).isNull()
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품을 복구하면 NOT_FOUND 예외가 발생한다")
+        fun restoreProduct_nonExistent_throwsNotFound() {
+            // act
+            val exception = assertThrows<CoreException> {
+                catalogService.restoreProduct(999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 
