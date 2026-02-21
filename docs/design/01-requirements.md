@@ -51,26 +51,27 @@
 
 도메인 용어를 코드, 문서, API 명세에서 동일하게 사용한다.
 
-| 한글       | 영문              | 정의                                                                                |
-|----------|-----------------|-----------------------------------------------------------------------------------|
-| 브랜드      | Brand           | 상품을 판매하는 주체. 삭제 시 소속된 상품들의 판매도 중단된다.                                              |
-| 상품       | Product         | 판매의 기본 단위. 재고(Stock)와 상태(Status)를 가지며, 가격(Price)은 0원 이상이어야 한다.                    |
-| 상품 상태    | ProductStatus   | ON_SALE(판매중), SOLD_OUT(품절), HIDDEN(숨김)의 3가지 상태를 가진다.                              |
-| 재고       | Stock           | 판매 가능한 수량. 주문 발생 시 차감되며, 0이 되면 자동으로 SOLD_OUT 상태로 전이된다.                            |
-| 좋아요      | Like            | 사용자의 관심 표현. 사용자-상품 쌍으로 유일(Unique)해야 한다.                                           |
-| 좋아요 수    | LikeCount       | 상품의 인기 척도. 성능을 위해 상품 도메인에 비정규화하여 관리한다.                                            |
-| 주문       | Order           | 사용자의 구매 행위. 주문 생성 시점의 상품 정보를 보존해야 한다.                                             |
-| 주문 항목    | OrderItem       | 주문에 포함된 개별 상품. 주문 당시의 상품명과 가격을 스냅샷으로 저장한다.                                        |
-| 주문 상태    | OrderStatus     | 주문의 진행 상태. CREATED / PAID / CANCELLED / FAILED.                                   |
-| 상품 스냅샷   | ProductSnapshot | 주문 시점의 상품 정보(이름, 가격) 사본. OrderItem에 저장.                                           |
-| 유저 포인트   | UserPoint       | 사용자의 포인트 잔액을 관리하는 엔티티. User와 1:1 관계.                                              |
-| 포인트      | Point           | 포인트 금액을 나타내는 Value Object. 0 이상이어야 하며, 연산 시 음수 방지를 보장한다.                          |
-| 포인트 내역   | PointHistory    | 포인트 충전/차감 이력. CHARGE(충전)와 USE(사용) 유형을 가진다.                                        |
-| 수량       | Quantity        | 주문 항목의 수량을 나타내는 Value Object. 1 이상이어야 한다.                                         |
-| 카탈로그     | Catalog         | Product와 Brand를 포함하는 바운디드 컨텍스트. 상품 탐색에 필요한 정보를 하나의 경계로 관리한다.                      |
-| 카탈로그 서비스 | CatalogService  | Catalog 바운디드 컨텍스트의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합, 재고 관리 등을 담당한다.       |
-| 도메인 서비스  | Domain Service  | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Entity가 수행하기 어려운 로직을 담당한다. |
-| 어드민      | Admin           | 브랜드/상품/주문을 관리하는 내부 운영자. LDAP 헤더로 식별한다.                                            |
+| 한글       | 영문              | 정의                                                                                          |
+|----------|-----------------|---------------------------------------------------------------------------------------------|
+| 브랜드      | Brand           | 상품을 판매하는 주체. 삭제 시 소속된 상품들의 판매도 중단된다.                                                        |
+| 상품       | Product         | 판매의 기본 단위. 재고(Stock)와 상태(Status)를 가지며, 가격(Price)은 0원 이상이어야 한다.                              |
+| 상품 상태    | ProductStatus   | ON_SALE(판매중), SOLD_OUT(품절), HIDDEN(숨김)의 3가지 상태를 가진다.                                        |
+| 재고       | Stock           | 판매 가능한 수량. 주문 발생 시 차감되며, 0이 되면 자동으로 SOLD_OUT 상태로 전이된다.                                      |
+| 좋아요      | Like            | 사용자의 관심 표현. 사용자-상품 쌍으로 유일(Unique)해야 한다.                                                     |
+| 좋아요 수    | LikeCount       | 상품의 인기 척도. 성능을 위해 상품 도메인에 비정규화하여 관리한다.                                                      |
+| 주문       | Order           | 사용자의 구매 행위. 주문 생성 시점의 상품 정보를 보존해야 한다.                                                       |
+| 주문 항목    | OrderItem       | 주문에 포함된 개별 상품. 주문 당시의 상품명과 가격을 스냅샷으로 저장한다.                                                  |
+| 주문 상태    | OrderStatus     | 주문의 진행 상태. CREATED / PAID / CANCELLED / FAILED.                                             |
+| 상품 스냅샷   | ProductSnapshot | 주문 시점의 상품 정보(이름, 가격) 사본. OrderItem에 저장.                                                     |
+| 유저 포인트   | UserPoint       | 사용자의 포인트 잔액을 관리하는 엔티티. User와 1:1 관계.                                                        |
+| 포인트      | Point           | 포인트 금액을 나타내는 Value Object. 0 이상이어야 하며, 연산 시 음수 방지를 보장한다.                                    |
+| 포인트 내역   | PointHistory    | 포인트 충전/차감 이력. CHARGE(충전)와 USE(사용) 유형을 가진다.                                                  |
+| 수량       | quantity        | 주문 항목의 수량. OrderItem.init 블록에서 직접 검증 (quantity >= 1).                                       |
+| 카탈로그     | Catalog         | Product와 Brand를 포함하는 바운디드 컨텍스트. 상품 탐색에 필요한 정보를 하나의 경계로 관리한다.                                |
+| 카탈로그 서비스 | CatalogService  | Catalog 바운디드 컨텍스트의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합, 재고 관리 등을 담당한다.                 |
+| 도메인 서비스  | Domain Service  | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Entity가 수행하기 어려운 로직을 담당한다.           |
+| 어드민      | Admin           | 브랜드/상품/주문을 관리하는 내부 운영자. LDAP 헤더로 식별한다.                                                      |
+| 복구       | Restore         | soft delete된 엔티티를 다시 활성 상태로 되돌리는 어드민 작업. deletedAt을 null로 설정하며, 이미 활성인 엔티티에 대해서는 멱등하게 동작한다. |
 
 ---
 
@@ -84,6 +85,27 @@
 
 > 인증/인가 자체는 구현 범위가 아니며, 헤더 기반 식별만 수행한다.
 > 인증 실패 시 401 응답, 메시지는 "인증에 실패했습니다"로 통일한다 (정보 노출 방지).
+
+---
+
+## 3-1. 어드민/대고객 권한 경계
+
+각 엔티티의 상태별로 대고객과 어드민이 수행 가능한 작업을 정의한다.
+
+| 엔티티     | 상태       | 대고객 조회 | 어드민 조회 | 어드민 수정 | 어드민 복구 |
+|---------|----------|--------|--------|--------|--------|
+| Brand   | 정상       | O      | O      | O      | -      |
+| Brand   | 삭제       | X      | O      | O      | O      |
+| Product | ON_SALE  | O      | O      | O      | -      |
+| Product | SOLD_OUT | O      | O      | O      | -      |
+| Product | HIDDEN   | X      | O      | O      | -      |
+| Product | 삭제       | X      | O      | O      | O      |
+
+**원칙**: 대고객용 조회 메서드(`getActive*`)는 어드민 CUD 경로에서 재사용하지 않는다.
+
+- 대고객 조회: 활성 엔티티만 반환 (삭제/HIDDEN 필터링)
+- 어드민 조회: 모든 상태 반환
+- 어드민 CUD: 작업 목적에 맞는 조회 메서드 사용 (`getBrand`, `getProduct` 등)
 
 ---
 
@@ -108,25 +130,40 @@
 - **수정 시 status 우선순위:** 어드민이 수정 요청에 `HIDDEN`을 명시하면 자동 전이 규칙보다 우선한다. 그 외 status는 stock 변경에 따른 자동 전이 규칙을 따른다. (예:
   stock=123, status=HIDDEN → HIDDEN 유지 / stock=0, status=ON_SALE → SOLD_OUT으로 자동 전환)
 
+**브랜드 복구:** 어드민은 soft delete된 브랜드를 복구할 수 있다.
+
+- **성공 흐름:** 삭제된 브랜드의 deletedAt을 null로 설정하여 활성 상태로 전환한다.
+- **멱등성:** 이미 활성인 브랜드 복구 시 200 OK (변경 없음).
+- **미존재 시:** 404 Not Found.
+- **주의:** 브랜드 복구가 소속 상품을 연쇄 복구하지는 않는다 (상품은 개별 복구 필요).
+
 **예외 흐름 (브랜드):**
 
 | 조건                  | 응답  | 설명                   |
 |---------------------|-----|----------------------|
 | LDAP 헤더 누락 또는 값 불일치 | 401 | 어드민 인증 실패            |
 | 브랜드명이 빈 값           | 400 | 필수 필드 누락             |
-| 존재하지 않는 브랜드 수정/삭제   | 404 | soft deleted 포함      |
+| 존재하지 않는 브랜드 수정/삭제   | 404 | 완전히 존재하지 않는 경우       |
 | 이미 삭제된 브랜드 재삭제      | 200 | 멱등 처리 (이미 삭제 상태면 무시) |
+| 존재하지 않는 브랜드 복구      | 404 |                      |
+
+**상품 복구:** 어드민은 soft delete된 상품을 복구할 수 있다.
+
+- **성공 흐름:** 삭제된 상품의 deletedAt을 null로 설정하여 활성 상태로 전환한다.
+- **멱등성:** 이미 활성인 상품 복구 시 200 OK (변경 없음).
+- **미존재 시:** 404 Not Found.
 
 **예외 흐름 (상품):**
 
-| 조건                          | 응답  | 설명               |
-|-----------------------------|-----|------------------|
-| LDAP 헤더 누락 또는 값 불일치         | 401 | 어드민 인증 실패        |
-| 존재하지 않는 브랜드에 상품 등록          | 404 | 삭제된 브랜드 포함       |
-| 가격이 음수                      | 400 | price >= 0 제약 위반 |
-| 재고가 음수                      | 400 | stock >= 0 제약 위반 |
-| 브랜드 변경 시도                      | -   | 상품의 브랜드ID는 수정할 수 없다. 수정 요청에 brandId 필드를 포함하지 않는다 |
-| 존재하지 않는 상품 수정/삭제            | 404 | soft deleted 포함  |
+| 조건                  | 응답  | 설명                                               |
+|---------------------|-----|--------------------------------------------------|
+| LDAP 헤더 누락 또는 값 불일치 | 401 | 어드민 인증 실패                                        |
+| 존재하지 않는 브랜드에 상품 등록  | 404 | 삭제된 브랜드 포함                                       |
+| 가격이 음수              | 400 | price >= 0 제약 위반                                 |
+| 재고가 음수              | 400 | stock >= 0 제약 위반                                 |
+| 브랜드 변경 시도           | -   | 상품의 브랜드ID는 수정할 수 없다. 수정 요청에 brandId 필드를 포함하지 않는다 |
+| 존재하지 않는 상품 수정/삭제    | 404 | 완전히 존재하지 않는 경우                                   |
+| 존재하지 않는 상품 복구       | 404 |                                                  |
 
 ### 4.2 상품 탐색 (사용자/비로그인)
 
@@ -210,8 +247,8 @@
 
 **내역 조회:** 사용자는 본인의 과거 주문 내역을 기간별로 조회할 수 있다.
 
-- startedAt/endedAt: 선택 파라미터 (일시), 미입력 시 최근 1달
-- startedAt: 해당 일시 이상 (>=), endedAt: 해당 일시 미만 (<)
+- from/to: 선택 파라미터 (일시), 미입력 시 최근 1달
+- from: 해당 일시 이상 (>=), to: 해당 일시 미만 (<)
 - 기준: 주문 생성일 (createdAt)
 - 본인의 주문만 조회 가능
 
@@ -383,8 +420,8 @@ stateDiagram-v2
 - 포인트 사용 내역(PointHistory, type=USE)을 기록한다
 - 주문 상태: CREATED / PAID / CANCELLED / FAILED (현재는 CREATED만 사용)
 - 주문의 totalPrice는 주문 생성 시 계산하여 저장한다 (반정규화)
-- 주문 목록 조회는 기간 기반 (startedAt ~ endedAt, 기준: createdAt)
-    - startedAt: 해당 일시 이상 (>=), endedAt: 해당 일시 미만 (<)
+- 주문 목록 조회는 기간 기반 (from ~ to, 기준: createdAt)
+    - from: 해당 일시 이상 (>=), to: 해당 일시 미만 (<)
     - 미입력 시 최근 1달
 - 사용자는 본인의 주문만 조회 가능
 
@@ -407,6 +444,8 @@ stateDiagram-v2
 
 - **기본 정책:** 모든 데이터(User, Brand, Product, Order)는 물리적으로 삭제하지 않고 `deletedAt` 타임스탬프를 찍는 Soft Delete 방식을 따른다.
 - **예외:** Like(좋아요)는 이력이 불필요하므로 취소 시 물리 삭제(Hard Delete)한다. PointHistory는 불변 이력 데이터이므로 soft delete를 적용하지 않는다.
+- **복구 정책:** 어드민은 soft delete된 Brand와 Product를 복구할 수 있다. 복구는 `deletedAt = null`로 설정하며, 이미 활성 상태인 엔티티에 대해서는 멱등하게 동작한다 (
+  200 OK, 변경 없음). 브랜드 복구 시 소속 상품은 연쇄 복구되지 않으며, 상품은 개별적으로 복구해야 한다.
 - **조회 정책:**
     - 대고객 API: `deletedAt IS NULL`인 데이터만 조회한다.
     - 어드민 API: `deletedAt` 여부와 관계없이 모든 데이터를 조회할 수 있다.
@@ -465,39 +504,37 @@ stateDiagram-v2
 }
 ```
 
-**포인트 충전 요청 본문:**
+**포인트 충전 요청 파라미터:**
 
-```json
-{
-  "amount": 50000
-}
-```
+- `amount` (Long, 필수): 충전할 포인트 금액. 쿼리 파라미터(`@RequestParam`)로 전달.
 
 **주문 목록 조회 파라미터:**
 
-| 파라미터        | 타입       | 필수 | 기본값  | 설명                                         |
-|-------------|----------|----|------|--------------------------------------------|
-| `startedAt` | datetime | X  | 1달 전 | 조회 시작일시 (>=, inclusive). 애플리케이션 기본 시간대로 변환 |
-| `endedAt`   | datetime | X  | 오늘   | 조회 종료일시 (<, exclusive). 애플리케이션 기본 시간대로 변환  |
-| `page`      | Int      | X  | 0    | 페이지 번호                                     |
-| `size`      | Int      | X  | 20   | 페이지당 항목 수                                  |
+| 파라미터   | 타입       | 필수 | 기본값  | 설명                                         |
+|--------|----------|----|------|--------------------------------------------|
+| `from` | datetime | X  | 1달 전 | 조회 시작일시 (>=, inclusive). 애플리케이션 기본 시간대로 변환 |
+| `to`   | datetime | X  | 오늘   | 조회 종료일시 (<, exclusive). 애플리케이션 기본 시간대로 변환  |
+| `page` | Int      | X  | 0    | 페이지 번호                                     |
+| `size` | Int      | X  | 20   | 페이지당 항목 수                                  |
 
 ### 6.2 어드민용 API (`/api-admin/v1`)
 
-| METHOD | URI                                                       | 설명                   |
-|--------|-----------------------------------------------------------|----------------------|
-| GET    | `/api-admin/v1/brands?page=0&size=20`                     | 브랜드 목록 조회 (삭제 포함)    |
-| GET    | `/api-admin/v1/brands/{brandId}`                          | 브랜드 상세 조회            |
-| POST   | `/api-admin/v1/brands`                                    | 브랜드 등록               |
-| PUT    | `/api-admin/v1/brands/{brandId}`                          | 브랜드 수정               |
-| DELETE | `/api-admin/v1/brands/{brandId}`                          | 브랜드 삭제 (소속 상품 연쇄 삭제) |
-| GET    | `/api-admin/v1/products?page=0&size=20`                   | 상품 목록 조회 (삭제 포함)     |
-| GET    | `/api-admin/v1/products/{productId}`                      | 상품 상세 조회             |
-| POST   | `/api-admin/v1/products`                                  | 상품 등록 (브랜드 존재 필수)    |
-| PUT    | `/api-admin/v1/products/{productId}`                      | 상품 수정 (브랜드 변경 불가)    |
-| DELETE | `/api-admin/v1/products/{productId}`                      | 상품 삭제                |
-| GET    | `/api-admin/v1/orders?page=0&size=20`                     | 주문 목록 조회             |
-| GET    | `/api-admin/v1/orders/{orderId}`                          | 주문 상세 조회             |
+| METHOD | URI                                          | 설명                   |
+|--------|----------------------------------------------|----------------------|
+| GET    | `/api-admin/v1/brands?page=0&size=20`        | 브랜드 목록 조회 (삭제 포함)    |
+| GET    | `/api-admin/v1/brands/{brandId}`             | 브랜드 상세 조회            |
+| POST   | `/api-admin/v1/brands`                       | 브랜드 등록               |
+| PUT    | `/api-admin/v1/brands/{brandId}`             | 브랜드 수정               |
+| DELETE | `/api-admin/v1/brands/{brandId}`             | 브랜드 삭제 (소속 상품 연쇄 삭제) |
+| POST   | `/api-admin/v1/brands/{brandId}/restore`     | 브랜드 복구 (멱등)          |
+| GET    | `/api-admin/v1/products?page=0&size=20`      | 상품 목록 조회 (삭제 포함)     |
+| GET    | `/api-admin/v1/products/{productId}`         | 상품 상세 조회             |
+| POST   | `/api-admin/v1/products`                     | 상품 등록 (브랜드 존재 필수)    |
+| PUT    | `/api-admin/v1/products/{productId}`         | 상품 수정 (브랜드 변경 불가)    |
+| DELETE | `/api-admin/v1/products/{productId}`         | 상품 삭제                |
+| POST   | `/api-admin/v1/products/{productId}/restore` | 상품 복구 (멱등)           |
+| GET    | `/api-admin/v1/orders?page=0&size=20`        | 주문 목록 조회             |
+| GET    | `/api-admin/v1/orders/{orderId}`             | 주문 상세 조회             |
 
 **어드민 조회 필터 조건:**
 
@@ -543,7 +580,6 @@ stateDiagram-v2
 
 - **User 도메인**: 회원가입, 내 정보 조회, 비밀번호 변경
 - **AuthInterceptor**: `X-Loopers-LoginId/LoginPw` 헤더 기반 식별
-- **AuthService**: 로그인 ID로 사용자 조회 + 비밀번호 검증
 - **BaseEntity**: id, createdAt, updatedAt, deletedAt 자동관리, soft delete(delete()/restore())
 - **에러 처리**: CoreException, ErrorType(BAD_REQUEST/NOT_FOUND/UNAUTHORIZED/CONFLICT/INTERNAL_ERROR)
 - **API 응답**: ApiResponse 래퍼, ApiControllerAdvice 전역 예외 처리
@@ -566,7 +602,6 @@ stateDiagram-v2
 - **PointChargingService**: 포인트 충전 Domain Service (잔액 변경 + 내역 생성 조율)
 - **UserPointService**: 포인트 잔액 조회, 포인트 사용
 - **UserFacade**: 회원가입 시 UserService + UserPointService 조합 (신규)
-- **Quantity VO**: 주문 항목 수량 검증 (>= 1)
 - **주문 흐름 변경**: 재고 차감 + 포인트 차감 (all-or-nothing)
 - **Domain Service 도입**: 동일 도메인 경계 내 협력 로직을 Domain Service로 분리
 - **단위 테스트 강화**: Fake/Stub Repository 기반 도메인 로직 검증
@@ -583,15 +618,16 @@ stateDiagram-v2
 
 ## 9. 잠재 리스크
 
-| 리스크                       | 영향                                                        | 현재 대응                      | 향후 대응                                                                                  |
-|---------------------------|-----------------------------------------------------------|----------------------------|----------------------------------------------------------------------------------------|
-| **주문 트랜잭션 비대화**           | 재고 차감 + 포인트 차감 + 주문 생성 + 스냅샷 + 내역 기록이 하나의 트랜잭션 → 락 경합 증가  | 현재 스코프에서는 단일 트랜잭션으로 처리     | 이벤트 기반 분리 (재고 선점 → 포인트 차감 → 주문 확정)                                                     |
-| **포인트 정합성**               | 동시 주문/충전 시 잔액 불일치 가능                                      | 단일 트랜잭션 내 처리               | Optimistic Lock (@Version) 또는 Atomic UPDATE                                            |
-| **likeCount 정합성**         | 좋아요 등록/취소 시 Product.likeCount 동기 증감 → 동시 요청 시 정합성 깨질 수 있음 | 단일 트랜잭션 내 처리               | Redis 캐시 또는 비동기 집계                                                                     |
-| **브랜드 삭제 연쇄 영향**          | 브랜드 삭제 시 대량 상품 soft delete → 트랜잭션 부하                      | 동기 처리 (상품 수가 적은 초기 단계)     | 배치/비동기 처리                                                                              |
-| **주문 목록 기간 조회 성능**        | 날짜 범위 검색은 인덱스 전략에 따라 성능 차이 큼                              | createdAt 인덱스 + 기본 1달 제한   | 복합 인덱스 최적화                                                                             |
-| **재고 동시 차감**              | 동시 주문 시 재고가 음수로 떨어질 수 있음                                  | 향후 과제로 명시 (현재는 단일 요청 기준)   | Atomic SQL UPDATE (`stock = stock - :qty WHERE stock >= :qty`), @Version, 또는 Redis Lua |
-| **상품 복구 시 likeCount 불일치** | 삭제된 상품의 좋아요 취소 시 likeCount 미갱신 → 복구 시 실제 likes 수와 불일치     | 현재 상품 복구 시나리오 없음 (scope 외) | 복구 로직에 likeCount 재집계 추가                                                                |
+| 리스크                       | 영향                                                        | 현재 대응                         | 향후 대응                                                                                  |
+|---------------------------|-----------------------------------------------------------|-------------------------------|----------------------------------------------------------------------------------------|
+| **주문 트랜잭션 비대화**           | 재고 차감 + 포인트 차감 + 주문 생성 + 스냅샷 + 내역 기록이 하나의 트랜잭션 → 락 경합 증가  | 현재 스코프에서는 단일 트랜잭션으로 처리        | 이벤트 기반 분리 (재고 선점 → 포인트 차감 → 주문 확정)                                                     |
+| **포인트 정합성**               | 동시 주문/충전 시 잔액 불일치 가능                                      | 단일 트랜잭션 내 처리                  | Optimistic Lock (@Version) 또는 Atomic UPDATE                                            |
+| **likeCount 정합성**         | 좋아요 등록/취소 시 Product.likeCount 동기 증감 → 동시 요청 시 정합성 깨질 수 있음 | 단일 트랜잭션 내 처리                  | Redis 캐시 또는 비동기 집계                                                                     |
+| **브랜드 삭제 연쇄 영향**          | 브랜드 삭제 시 대량 상품 soft delete → 트랜잭션 부하                      | 동기 처리 (상품 수가 적은 초기 단계)        | 배치/비동기 처리                                                                              |
+| **주문 목록 기간 조회 성능**        | 날짜 범위 검색은 인덱스 전략에 따라 성능 차이 큼                              | createdAt 인덱스 + 기본 1달 제한      | 복합 인덱스 최적화                                                                             |
+| **재고 동시 차감**              | 동시 주문 시 재고가 음수로 떨어질 수 있음                                  | 향후 과제로 명시 (현재는 단일 요청 기준)      | Atomic SQL UPDATE (`stock = stock - :qty WHERE stock >= :qty`), @Version, 또는 Redis Lua |
+| **상품 복구 시 likeCount 불일치** | 삭제된 상품의 좋아요 취소 시 likeCount 미갱신 → 복구 시 실제 likes 수와 불일치     | 복구 API 존재하나 likeCount 재집계 미구현 | 복구 로직에 likeCount 재집계 추가                                                                |
+| **브랜드 복구 시 소속 상품 미복구**    | 브랜드를 복구해도 소속 상품은 삭제 상태 유지 → 어드민이 상품을 개별 복구해야 함            | 현재 연쇄 복구 미구현 (개별 복구만 가능)      | 브랜드 복구 시 소속 상품 연쇄 복구 옵션 검토                                                             |
 
 ---
 
@@ -611,21 +647,23 @@ stateDiagram-v2
 
 Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 제거된다.
 
-| 기존 (Round 2)                       | 변경 (Round 3)                                         | 이유                                       |
-|------------------------------------|------------------------------------------------------|------------------------------------------|
+| 기존 (Round 2)                       | 변경 (Round 3)                                         | 이유                                                                  |
+|------------------------------------|------------------------------------------------------|---------------------------------------------------------------------|
 | `ProductFacade.getProductDetail()` | `CatalogService.getProductDetail()` (Domain Service) | Catalog 경계 내 조합. Facade 불필요. 조합 결과(`ProductDetail`)는 domain 레이어에 위치 |
-| `ProductFacade.createProduct()`    | `CatalogService.createProduct()` (Domain Service)    | Catalog 경계 내 브랜드 검증. Facade 불필요          |
-| `BrandFacade.deleteBrand()`        | `CatalogService.deleteBrand()` (Domain Service)      | Catalog 경계 내 cascade. Facade 불필요         |
-| `OrderFacade.createOrder()`        | 유지 + 포인트 차감 추가                                       | cross-boundary (Catalog + Point + Order) |
-| `LikeFacade`                       | 유지                                                   | cross-boundary (Like + Catalog)          |
-| —                                  | `UserFacade.signUp()` (신규)                           | cross-boundary (User + Point)            |
+| `ProductFacade.createProduct()`    | `CatalogService.createProduct()` (Domain Service)    | Catalog 경계 내 브랜드 검증. Facade 불필요                                     |
+| `BrandFacade.deleteBrand()`        | `CatalogService.deleteBrand()` (Domain Service)      | Catalog 경계 내 cascade. Facade 불필요                                    |
+| `OrderFacade.createOrder()`        | 유지 + 포인트 차감 추가                                       | cross-boundary (Catalog + Point + Order)                            |
+| `LikeFacade`                       | 유지                                                   | cross-boundary (Like + Catalog)                                     |
+| —                                  | `UserFacade.signUp()` (신규)                           | cross-boundary (User + Point)                                       |
 
 **제거:** `ProductFacade`, `BrandFacade` / **유지/신규:** `OrderFacade`, `LikeFacade`, `UserFacade`
 
 ### DTO 변환 규칙
 
-- **Facade 없이 Controller → Domain Service 직접 호출**: Domain Service가 Entity 또는 domain 레이어 데이터 클래스를 반환 → Controller에서 Dto로 변환
-- **같은 바운디드 컨텍스트 내 조합** (예: Product + Brand): 조합 결과물은 **domain 레이어**에 데이터 클래스로 둔다 (예: `domain/catalog/ProductDetail`). Application 레이어에 두면 Domain → Application 의존이 생겨 DIP 위반
+- **Facade 없이 Controller → Domain Service 직접 호출**: Domain Service가 Entity 또는 domain 레이어 데이터 클래스를 반환 → Controller에서 Dto로
+  변환
+- **같은 바운디드 컨텍스트 내 조합** (예: Product + Brand): 조합 결과물은 **domain 레이어**에 데이터 클래스로 둔다 (예: `domain/catalog/ProductDetail`).
+  Application 레이어에 두면 Domain → Application 의존이 생겨 DIP 위반
 - **다른 바운디드 컨텍스트 간 조합** (Facade 경유): Facade가 **application 레이어**의 Info 객체를 반환 → Controller에서 Dto로 변환
 - Dto/Info에 `companion object { fun from(...) }` 팩토리 메서드 사용
 
@@ -709,8 +747,12 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 ### 주문 생성 시 처리 순서
 
 - **결정**: 상품 검증 → 재고 차감 → 주문 생성(스냅샷) → 포인트 차감 순서로 처리한다
-- **근거**: 향후 재고 선점(Stock Reservation) 도입을 고려한 배치이다. 사용자가 포인트 부족으로 주문에 실패했을 때, 충전 후 재주문하는 사이 재고가 소진되는 경험을 방지하기 위해 재고 차감을 포인트 차감보다 선행한다. 현재는 단일 트랜잭션(all-or-nothing)으로 포인트 부족 시 재고도 롤백되지만, 향후 재고 선점(5분 TTL) 메커니즘을 도입하면 재고 차감과 포인트 차감을 별도 단계로 분리할 수 있다
-- **totalPrice 계산**: Order.create() 내부에서 OrderItem의 가격 × 수량을 합산하여 totalPrice를 계산한다. OrderFacade는 Product → OrderProductInfo 변환(cross-domain 매핑) 후 OrderService에 주문 생성을 위임하며, 생성된 Order에서 totalPrice를 추출하여 UserPointService(포인트 차감)에 전달한다
+- **근거**: 향후 재고 선점(Stock Reservation) 도입을 고려한 배치이다. 사용자가 포인트 부족으로 주문에 실패했을 때, 충전 후 재주문하는 사이 재고가 소진되는 경험을 방지하기 위해 재고 차감을
+  포인트 차감보다 선행한다. 현재는 단일 트랜잭션(all-or-nothing)으로 포인트 부족 시 재고도 롤백되지만, 향후 재고 선점(5분 TTL) 메커니즘을 도입하면 재고 차감과 포인트 차감을 별도 단계로 분리할
+  수 있다
+- **totalPrice 계산**: OrderService.createOrder()에서 상품의 가격 × 수량을 합산하여 totalPrice를 계산하고, Order.create(userId, totalPrice)에
+  전달한다. OrderFacade는 Product → OrderProductInfo 변환(cross-domain 매핑) 후 OrderService에 주문 생성을 위임하며, 생성된 Order에서 totalPrice를
+  추출하여 UserPointService(포인트 차감)에 전달한다
 - **현재 동작**: 포인트 부족 시 트랜잭션 전체 롤백 (재고 차감 포함)
 - **향후 확장**: 재고 선점 TTL 도입 시, 재고 차감 커밋 → 포인트 차감 시도 → 실패 시 5분간 재고 유지 → 타임아웃 시 재고 원복
 

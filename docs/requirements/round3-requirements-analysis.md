@@ -21,7 +21,7 @@ Round 2에서 설계한 기능 요구사항(Product, Brand, Like, Order)을 **DD
 | 상품 상세 조합          | ProductFacade.getProductDetail() | CatalogService (Domain Service) — Catalog 경계 내 단일 서비스로 통합                  |
 | 바운디드 컨텍스트         | Product, Brand 별도 도메인            | Catalog 컨텍스트로 통합 (Product + Brand)                                         |
 | 테스트 전략            | E2E 위주                           | 단위 테스트 중심 (Fake/Stub 기반 도메인 로직 검증)                                         |
-| VO 범위             | Stock, Price, BrandName          | + Point, Quantity 추가                                                       |
+| VO 범위             | Stock, Price, BrandName          | Stock, Point 유지. Price, BrandName, Quantity는 guard()/init 인라인 검증으로 대체      |
 | 주문 흐름             | 재고 차감만                           | 재고 차감 + 포인트 차감                                                             |
 
 ---
@@ -56,7 +56,7 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 | 포인트        | Point                | 포인트 금액을 나타내는 Value Object. 0 이상이어야 하며, 연산 시 음수 방지를 보장                          |
 | 포인트 내역     | PointHistory         | 포인트 충전/차감 이력. 충전(CHARGE)과 사용(USE) 유형을 가진다                                      |
 | 포인트 충전 서비스 | PointChargingService | 포인트 충전을 처리하는 Domain Service. 잔액 변경 + 내역 생성을 조율                                 |
-| 수량         | Quantity             | 주문 항목의 수량을 나타내는 Value Object. 1 이상이어야 한다                                       |
+| 수량         | quantity             | 주문 항목의 수량 (Int). OrderItem.init에서 >= 1 직접 검증                                   |
 | 카탈로그       | Catalog              | Product와 Brand를 포함하는 바운디드 컨텍스트. 상품 탐색/조회에 필요한 정보를 하나의 경계로 관리                   |
 | 카탈로그 서비스   | CatalogService       | Catalog 바운디드 컨텍스트의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합, 재고 관리 등을 담당       |
 | 도메인 서비스    | Domain Service       | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Entity가 수행하기 어려운 로직을 담당 |
@@ -78,19 +78,19 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 
 **엔티티 구조:**
 
-| 필드      | 타입         | 설명                  |
-|---------|------------|---------------------|
-| id      | Long       | PK                  |
-| refUserId | Long     | User 참조 (1:1, 논리FK) |
-| balance | Point (VO) | 현재 포인트 잔액           |
+| 필드        | 타입   | 설명                                 |
+|-----------|------|------------------------------------|
+| id        | Long | PK                                 |
+| refUserId | Long | User 참조 (1:1, 논리FK)                |
+| balance   | Long | 현재 포인트 잔액 (guard()에서 Point VO로 검증) |
 
 **행위:**
 
-| 메서드                                 | 설명                      |
-|-------------------------------------|-------------------------|
-| `charge(amount: Long)`              | 포인트 충전 (잔액 증가). 내부에서 Point VO를 통해 검증 |
-| `use(amount: Long)`                 | 포인트 사용 (잔액 차감, 부족 시 예외). 내부에서 Point VO를 통해 검증 |
-| `canAfford(amount: Long): Boolean`  | 잔액 충분 여부 확인             |
+| 메서드                                | 설명                                            |
+|------------------------------------|-----------------------------------------------|
+| `charge(amount: Long)`             | 포인트 충전 (잔액 증가). 내부에서 Point VO를 통해 검증          |
+| `use(amount: Long)`                | 포인트 사용 (잔액 차감, 부족 시 예외). 내부에서 Point VO를 통해 검증 |
+| `canAfford(amount: Long): Boolean` | 잔액 충분 여부 확인                                   |
 
 **생성 시점:** 회원가입 시 UserPoint를 함께 생성한다 (초기 잔액 0).
 
@@ -100,16 +100,16 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 
 **엔티티 구조:**
 
-| 필드          | 타입               | 설명                              |
-|-------------|------------------|---------------------------------|
-| id          | Long             | PK                              |
-| refUserPointId | Long          | UserPoint 참조 (논리FK)             |
-| type        | PointHistoryType | CHARGE / USE                    |
-| amount      | Point (VO)       | 변동 금액                           |
-| refOrderId  | Long?            | 추적용. USE 시 주문 ID, CHARGE 시 null |
-| createdAt   | ZonedDateTime    | 발생 시각                           |
+| 필드             | 타입               | 설명                              |
+|----------------|------------------|---------------------------------|
+| id             | Long             | PK                              |
+| refUserPointId | Long             | UserPoint 참조 (논리FK)             |
+| type           | PointHistoryType | CHARGE / USE                    |
+| amount         | Long             | 변동 금액 (init에서 amount > 0 직접 검증) |
+| refOrderId     | Long?            | 추적용. USE 시 주문 ID, CHARGE 시 null |
+| createdAt      | ZonedDateTime    | 발생 시각                           |
 
-**PointHistoryType (enum):**
+**PointHistoryType (PointHistory 내부 enum class):**
 
 | 값      | 설명             |
 |--------|----------------|
@@ -158,13 +158,13 @@ Round 2의 주문 흐름에 포인트 차감이 추가된다.
 각 도메인의 경계(Bounded Context)를 명시한다. Domain Service는 **동일한 도메인 경계 내**에서만 도메인 객체를 조율하며, 경계를 넘는 조합은 Application Layer(Facade)
 가 담당한다.
 
-| 도메인 경계      | 포함 객체                                                              | 근거                                                      |
-|-------------|--------------------------------------------------------------------|---------------------------------------------------------|
-| **User**    | User                                                               | 인증/프로필 책임                                               |
-| **Catalog** | Product, Brand, BrandName(VO), Stock(VO), Price(VO), ProductStatus | 상품 탐색에 필요한 정보를 하나의 경계로 관리. 브랜드와 상품은 함께 조회/관리되므로 동일 컨텍스트 |
-| **Like**    | Like                                                               | 사용자-상품 관심 표현                                            |
-| **Order**   | Order, OrderItem, Quantity(VO), OrderStatus                        | 주문 생명주기                                                 |
-| **Point**   | UserPoint, PointHistory, Point(VO), PointHistoryType               | 포인트 잔액/이력 관리                                            |
+| 도메인 경계      | 포함 객체                                                                       | 근거                                                      |
+|-------------|-----------------------------------------------------------------------------|---------------------------------------------------------|
+| **User**    | User                                                                        | 인증/프로필 책임                                               |
+| **Catalog** | Product, Brand, Stock(VO), ProductStatus                                    | 상품 탐색에 필요한 정보를 하나의 경계로 관리. 브랜드와 상품은 함께 조회/관리되므로 동일 컨텍스트 |
+| **Like**    | Like                                                                        | 사용자-상품 관심 표현                                            |
+| **Order**   | Order, OrderItem, OrderProductInfo, OrderStatus                             | 주문 생명주기                                                 |
+| **Point**   | UserPoint, PointHistory, Point(VO), PointHistoryType (PointHistory 내부 enum) | 포인트 잔액/이력 관리                                            |
 
 **도메인 경계에 따른 서비스 배치:**
 
@@ -187,7 +187,7 @@ Round 2의 주문 흐름에 포인트 차감이 추가된다.
 |------------------------|---------|--------------------------------------------------------------------------------------------------------------------|---------------------------------------------|
 | `CatalogService`       | Catalog | 상품/브랜드 CRUD, 상품 상세 조합 (Product + Brand + likeCount), 재고 차감/증가, likeCount 증감, 등록 시 브랜드 검증, 삭제 시 cascade soft delete | ProductRepository, BrandRepository          |
 | `LikeService`          | Like    | 좋아요 등록/취소/조회                                                                                                       | LikeRepository                              |
-| `OrderService`         | Order   | 주문 저장/조회                                                                                                           | OrderRepository                             |
+| `OrderService`         | Order   | 주문 생성(총액 계산 + OrderItem 조립 + 저장)/조회                                                                                | OrderRepository, OrderItemRepository        |
 | `UserPointService`     | Point   | 포인트 잔액 조회, 포인트 사용                                                                                                  | UserPointRepository, PointHistoryRepository |
 | `PointChargingService` | Point   | 포인트 충전 (잔액 변경 + 내역 생성)                                                                                             | UserPointRepository, PointHistoryRepository |
 
@@ -288,18 +288,19 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 
 ### 기존 유지
 
-| VO        | 소속 도메인            | 검증 규칙                      |
-|-----------|-------------------|----------------------------|
-| BrandName | Catalog (Brand)   | 빈 값 불가                     |
-| Price     | Catalog (Product) | BigDecimal >= 0            |
-| Stock     | Catalog (Product) | Int >= 0, decrease 시 부족 확인 |
+| VO    | 소속 도메인            | 검증 규칙                      |
+|-------|-------------------|----------------------------|
+| Stock | Catalog (Product) | Int >= 0, decrease 시 부족 확인 |
+
+> BrandName, Price VO는 삭제됨 -- 각각 `Brand.guard()`, `Product.guard()`에서 인라인 검증으로 대체.
 
 ### 신규 추가
 
-| VO       | 소속 도메인            | 검증 규칙     | 행위                                   |
-|----------|-------------------|-----------|--------------------------------------|
-| Point    | point (UserPoint) | Long >= 0 | plus, minus, isGreaterThanOrEqual 연산 |
-| Quantity | order (OrderItem) | Int >= 1  | 생성 시 최소 수량 검증                        |
+| VO    | 소속 도메인            | 검증 규칙     | 행위                                   |
+|-------|-------------------|-----------|--------------------------------------|
+| Point | point (UserPoint) | Long >= 0 | plus, minus, isGreaterThanOrEqual 연산 |
+
+> Quantity VO는 삭제됨 -- `OrderItem.init` 블록에서 `quantity >= 1` 직접 검증으로 대체.
 
 > VO는 Entity 필드로 직접 저장되지 않는다. Entity 필드는 기본 타입을 유지하되, 생성/변경 시점에 VO를 통해 검증한다.
 > (기존 프로젝트 패턴 유지)
@@ -346,10 +347,25 @@ POST /api/v1/users/points/charge?amount=50000
 Round 2의 모든 API 명세는 그대로 유지한다.
 주문 생성 API의 요청/응답 형태는 동일하되, 내부 처리 흐름에 포인트 차감이 추가된다.
 
-### 7.3 인증 경로 추가
+### 7.3 어드민 Restore API (신규)
 
-| 경로 패턴                     | 인터셉터            | 비고 |
-|---------------------------|-----------------|----|
+| METHOD | URI                                          | 인증   | 설명     |
+|--------|----------------------------------------------|------|--------|
+| POST   | `/api-admin/v1/brands/{brandId}/restore`     | LDAP | 브랜드 복구 |
+| POST   | `/api-admin/v1/products/{productId}/restore` | LDAP | 상품 복구  |
+
+**예외 흐름:**
+
+| 조건          | 응답  | 설명        |
+|-------------|-----|-----------|
+| 존재하지 않는 엔티티 | 404 | NOT_FOUND |
+
+**멱등성:** 이미 활성(미삭제) 상태인 엔티티를 복구해도 200 OK를 반환한다.
+
+### 7.4 인증 경로 추가
+
+| 경로 패턴                     | 인터셉터            | 비고                                  |
+|---------------------------|-----------------|-------------------------------------|
 | `/api/v1/users/points/**` | AuthInterceptor | 기존 `/api/v1/users/**` 패턴에 의해 자동 포함됨 |
 
 ---
@@ -365,7 +381,7 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 | 대상                                   | 검증 내용                    | 테스트 방식             |
 |--------------------------------------|--------------------------|--------------------|
 | Entity (Product, Order, UserPoint 등) | 비즈니스 메서드, init 검증, 상태 전이 | 순수 단위 테스트 (의존성 없음) |
-| VO (Point, Quantity, Stock 등)        | 자가 검증, 연산 규칙             | 순수 단위 테스트          |
+| VO (Point, Stock 등)                  | 자가 검증, 연산 규칙             | 순수 단위 테스트          |
 | Domain Service                       | 비즈니스 로직, 도메인 객체 간 협력     | Fake Repository 주입 |
 
 **Fake/Stub 전략:**
@@ -517,5 +533,35 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 - [ ] Repository Interface는 Domain Layer에 정의되고, 구현체는 Infra에 위치한다
 - [ ] 패키지는 계층 + 도메인 기준으로 구성되었다
 - [ ] 테스트는 외부 의존성을 분리하고, Fake/Stub 등을 사용해 단위 테스트가 가능하게 구성되었다
+
+---
+
+## 11. 어드민/대고객 권한 경계 (추가 정의)
+
+코드 리뷰에서 권한 경계 미정의로 인한 버그가 발견되어, 각 엔티티의 상태별 접근 권한을 명시한다.
+
+### 11.1 원칙
+
+- 대고객 API: 활성(정상) 엔티티만 접근 가능. 삭제/HIDDEN 엔티티는 404 반환
+- 어드민 API: 모든 상태의 엔티티에 접근 가능. 조회/수정/복구 모두 허용
+- 타인 리소스 접근: 404 반환 (리소스 존재 여부를 노출하지 않음)
+
+### 11.2 Soft Delete 정책
+
+- soft delete된 엔티티는 어드민이 복구할 수 있다
+- 복구 API: `POST /api-admin/v1/{entity}/{id}/restore`
+- 브랜드 삭제 시 소속 상품은 cascade soft delete되지만, 복구는 개별 수행
+- soft delete 목적: 감사 로그, 참조 무결성 보호, 어드민 복구
+
+**Cascade 복구 정책:**
+
+- 브랜드 복구 시 해당 브랜드에 소속된 상품은 자동 복구되지 않는다
+- 어드민이 각 상품을 개별적으로 복구해야 한다
+- 이유: 브랜드 삭제로 인한 상품 cascade 삭제가 의도적이었는지를 어드민이 판단할 수 있도록 함
+
+### 11.3 대고객 좋아요 목록
+
+- 좋아요한 상품이 삭제/HIDDEN 되면 목록에서 자동 필터링 (사용자 알림 없음)
+- 이는 의도된 동작: 비활성 상품 정보를 대고객에게 노출하지 않는 정책과 일관
 
 

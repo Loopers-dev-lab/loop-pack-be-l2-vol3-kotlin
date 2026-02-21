@@ -20,6 +20,7 @@ classDiagram
         #ZonedDateTime updatedAt
         #ZonedDateTime deletedAt
         +delete()
+        +restore()
     }
 
     class Brand {
@@ -59,8 +60,7 @@ classDiagram
         -Long refUserId
         -OrderStatus status
         -BigDecimal totalPrice
-        -List~OrderItem~ items
-        +create(userId, List~OrderProductInfo~, command)$ Order
+        +create(userId, totalPrice)$ Order
     }
 
     class OrderProductInfo {
@@ -71,11 +71,12 @@ classDiagram
     }
 
     class OrderItem {
+        -Long refOrderId
         -Long refProductId
         -String productName
         -BigDecimal productPrice
         -Int quantity
-        +create(OrderProductInfo, quantity)$ OrderItem
+        +create(OrderProductInfo, quantity, orderId)$ OrderItem
     }
 
     class OrderStatus {
@@ -101,12 +102,8 @@ classDiagram
         -Long amount
         -Long refOrderId
         -ZonedDateTime createdAt
-    }
-
-    class PointHistoryType {
-        <<enumeration>>
-        CHARGE
-        USE
+        <<inner>>
+        enum PointHistoryType
     }
 
     class User {
@@ -125,12 +122,11 @@ classDiagram
     User "1" -- "*" Order: refUserId 참조
     User "1" -- "1" UserPoint: refUserId 참조
     UserPoint "1" -- "*" PointHistory: refUserPointId 참조
-    Order "1" *-- "*" OrderItem: Composition
+    OrderItem --> Order: refOrderId 참조
     Order ..> OrderProductInfo: create() 입력
     Product .. OrderItem: 스냅샷 (productName, productPrice)
     Product --> ProductStatus
     Order --> OrderStatus
-    PointHistory --> PointHistoryType
 ```
 
 ---
@@ -145,15 +141,16 @@ classDiagram
     direction LR
 
     namespace interfaces {
-        class BrandController {
+        class BrandV1Controller {
             +getBrand()
         }
-        class BrandAdminController {
+        class BrandAdminV1Controller {
             +getBrands()
             +getBrand()
             +createBrand()
             +updateBrand()
             +deleteBrand()
+            +restoreBrand(brandId: Long)
         }
         class BrandDto {
             +Long id
@@ -166,34 +163,31 @@ classDiagram
             -String name
             +update(name)
         }
-        class BrandName {
-            <<ValueObject>>
-            +init(name)
-        }
+    %% BrandName VO 삭제 — Brand.guard()에서 인라인 검증
         class CatalogService {
             +getActiveBrand(brandId)
             +getBrand(brandId)
             +createBrand(command)
             +updateBrand(brandId, command)
             +deleteBrand(brandId)
+            +restoreBrand(brandId: Long)
         }
         class BrandRepository {
             <<interface>>
         }
     }
 
-    BrandController --> CatalogService: 조회
-    BrandAdminController --> CatalogService: CRUD + cascade 삭제
+    BrandV1Controller --> CatalogService: 조회
+    BrandAdminV1Controller --> CatalogService: CRUD + cascade 삭제
     CatalogService --> BrandRepository
     CatalogService --> ProductRepository: cascade 삭제 시
-    Brand ..> BrandName: 검증
 ```
 
 ### 핵심 포인트
 
 - **CatalogService 단일 서비스:** Brand와 Product가 같은 Catalog 바운디드 컨텍스트에 속하므로, CatalogService가 브랜드 CRUD와 cascade 삭제를 모두 담당한다.
   Facade 없이 Controller가 직접 호출한다.
-- **VO 사용:** `BrandName` VO를 통해 이름 생성 규칙(빈 값 불가 등)을 캡슐화한다.
+- **인라인 검증:** `BrandName` VO를 제거하고, `Brand.guard()`에서 이름 생성 규칙(빈 값 불가 등)을 인라인 검증한다.
 - **getActiveBrand vs getBrand:** 대고객 API는 `getActiveBrand`(삭제 상태 체크), 어드민은 `getBrand`(삭제 포함)을 사용한다.
 
 ---
@@ -208,16 +202,17 @@ classDiagram
     direction LR
 
     namespace interfaces {
-        class ProductController {
+        class ProductV1Controller {
             +getProducts()
             +getProduct()
         }
-        class ProductAdminController {
+        class ProductAdminV1Controller {
             +getProducts()
             +getProduct()
             +createProduct()
             +updateProduct()
             +deleteProduct()
+            +restoreProduct(productId: Long)
         }
         class CustomerProductDto {
             +ProductStatus status
@@ -255,13 +250,10 @@ classDiagram
             +decrease(quantity)
             +increase(quantity)
         }
-        class Price {
-            <<ValueObject>>
-            +validate()
-        }
+    %% Price VO 삭제 — Product.guard()에서 인라인 검증
         class CatalogService {
             +getProductDetail(productId) ProductDetail
-            +getProducts(filter) Page~Product~
+            +getProducts(filter) PageResult~Product~
             +getActiveProduct(productId) Product
             +getActiveProductsByIds(productIds) List~Product~
             +createProduct(command)
@@ -269,6 +261,7 @@ classDiagram
             +increaseLikeCount(productId)
             +decreaseLikeCount(productId)
             +getProductsForOrder(ids)
+            +restoreProduct(productId: Long)
         }
         class ProductRepository {
             <<interface>>
@@ -276,12 +269,11 @@ classDiagram
         }
     }
 
-    ProductController --> CatalogService: 목록/상세 조회
-    ProductAdminController --> CatalogService: CRUD (브랜드 검증 포함)
+    ProductV1Controller --> CatalogService: 목록/상세 조회
+    ProductAdminV1Controller --> CatalogService: CRUD (브랜드 검증 포함)
     CatalogService --> ProductRepository
     CatalogService --> BrandRepository: 상세 조합 / 등록 시 검증
     Product ..> Stock: 재고 변경 로직 위임
-    Product ..> Price: 가격 검증
 ```
 
 ### 핵심 포인트
@@ -295,26 +287,30 @@ classDiagram
 
 Brand(Section 2)와 Product(Section 3) 다이어그램에 분산된 CatalogService의 전체 책임을 한눈에 정리한다.
 
-| 구분 | 메서드 | 설명 | 호출 주체 |
-|------|------|------|---------|
-| Brand 조회 | `getActiveBrand(brandId)` | 대고객 브랜드 조회 (삭제 제외) | BrandController |
-| Brand 조회 | `getBrand(brandId)` | 어드민 브랜드 조회 (삭제 포함) | BrandAdminController |
-| Brand 조회 | `getBrands(pageable)` | 어드민 브랜드 목록 | BrandAdminController |
-| Brand CUD | `createBrand(command)` | 브랜드 등록 | BrandAdminController |
-| Brand CUD | `updateBrand(brandId, command)` | 브랜드 수정 | BrandAdminController |
-| Brand CUD | `deleteBrand(brandId)` | 브랜드 삭제 + 소속 상품 cascade | BrandAdminController |
-| Product 조회 | `getProductDetail(productId)` | 대고객 상품 상세 (Product + Brand 조합) | ProductController |
-| Product 조회 | `getProducts(filter)` | 대고객 상품 목록 (정렬/필터/페이징) | ProductController |
-| Product 조회 | `getActiveProduct(productId)` | 활성 상품 단건 조회 (삭제/HIDDEN 제외) | LikeFacade |
-| Product 조회 | `getActiveProductsByIds(productIds)` | 활성 상품 일괄 조회 (삭제/HIDDEN 제외) | LikeFacade |
-| Product 조회 | `getProduct(productId)` | 삭제 포함 상품 조회 (좋아요 취소 등) | LikeFacade |
-| Product 조회 | `getProductsForOrder(ids)` | 주문용 상품 일괄 조회 | OrderFacade |
-| Product CUD | `createProduct(command)` | 상품 등록 (브랜드 검증 포함) | ProductAdminController |
-| Product CUD | `updateProduct(productId, command)` | 상품 수정 | ProductAdminController |
-| Product CUD | `deleteProduct(productId)` | 상품 삭제 | ProductAdminController |
-| 재고 | `decreaseStocks(items)` | 주문 시 재고 일괄 차감 | OrderFacade |
-| likeCount | `increaseLikeCount(productId)` | 좋아요 등록 시 카운트 증가 | LikeFacade |
-| likeCount | `decreaseLikeCount(productId)` | 좋아요 취소 시 카운트 감소 | LikeFacade |
+| 구분          | 메서드                                  | 설명                             | 호출 주체                    |
+|-------------|--------------------------------------|--------------------------------|--------------------------|
+| Brand 조회    | `getActiveBrand(brandId)`            | 대고객 브랜드 조회 (삭제 제외)             | BrandV1Controller        |
+| Brand 조회    | `getBrand(brandId)`                  | 어드민 브랜드 조회 (삭제 포함)             | BrandAdminV1Controller   |
+| Brand 조회    | `getBrands(pageable)`                | 어드민 브랜드 목록                     | BrandAdminV1Controller   |
+| Brand CUD   | `createBrand(command)`               | 브랜드 등록                         | BrandAdminV1Controller   |
+| Brand CUD   | `updateBrand(brandId, command)`      | 브랜드 수정                         | BrandAdminV1Controller   |
+| Brand CUD   | `deleteBrand(brandId)`               | 브랜드 삭제 + 소속 상품 cascade         | BrandAdminV1Controller   |
+| Product 조회  | `getProductDetail(productId)`        | 대고객 상품 상세 (Product + Brand 조합) | ProductV1Controller      |
+| Product 조회  | `getProducts(filter)`                | 대고객 상품 목록 (정렬/필터/페이징)          | ProductV1Controller      |
+| Product 조회  | `getActiveProduct(productId)`        | 활성 상품 단건 조회 (삭제/HIDDEN 제외)     | LikeFacade               |
+| Product 조회  | `getActiveProductsByIds(productIds)` | 활성 상품 일괄 조회 (삭제/HIDDEN 제외)     | LikeFacade               |
+| Product 조회  | `getProduct(productId)`              | 삭제 포함 상품 조회 (좋아요 취소 등)         | LikeFacade               |
+| Product 조회  | `getProductsForOrder(ids)`           | 주문용 상품 일괄 조회                   | OrderFacade              |
+| Product CUD | `createProduct(command)`             | 상품 등록 (브랜드 검증 포함)              | ProductAdminV1Controller |
+| Product CUD | `updateProduct(productId, command)`  | 상품 수정                          | ProductAdminV1Controller |
+| Product CUD | `deleteProduct(productId)`           | 상품 삭제                          | ProductAdminV1Controller |
+| 재고          | `decreaseStocks(items)`              | 주문 시 재고 일괄 차감                  | OrderFacade              |
+| likeCount   | `increaseLikeCount(productId)`       | 좋아요 등록 시 카운트 증가                | LikeFacade               |
+| likeCount   | `decreaseLikeCount(productId)`       | 좋아요 취소 시 카운트 감소                | LikeFacade               |
+| Brand CUD   | `restoreBrand(brandId)`              | soft delete된 브랜드 복구 (어드민 전용)   | BrandAdminV1Controller   |
+| Product 조회  | `getAdminProducts(page, size)`       | 어드민 상품 목록 (삭제 포함, 페이징)         | ProductAdminV1Controller |
+| Product 조회  | `getAdminProduct(productId)`         | 어드민 상품 단건 조회 (삭제 포함)           | ProductAdminV1Controller |
+| Product CUD | `restoreProduct(productId)`          | soft delete된 상품 복구 (어드민 전용)    | ProductAdminV1Controller |
 
 - **DTO 분리:** 대고객용 `CustomerProductDto`는 재고 수량(stock)과 삭제일(deletedAt)을 노출하지 않는다. `ProductDetailDto`는 대고객 상품 상세 조회 시
   Product + Brand 정보를 조합한 응답이다.
@@ -331,7 +327,7 @@ classDiagram
     direction LR
 
     namespace interfaces {
-        class LikeController {
+        class LikeV1Controller {
             +addLike()
             +removeLike()
             +getLikes()
@@ -342,7 +338,7 @@ classDiagram
         class LikeFacade {
             +addLike(userId, productId)
             +removeLike(userId, productId)
-            +getLikes(userId) List~Pair~Like, Product~~
+            +getLikes(userId) List~Pair~ Like, Product~~
         }
     }
 
@@ -361,7 +357,7 @@ classDiagram
         }
     }
 
-    LikeController --> LikeFacade
+    LikeV1Controller --> LikeFacade
     LikeFacade --> LikeService
     LikeFacade --> CatalogService: 등록→getActiveProduct\n취소→getProduct\nlikeCount 증감
     LikeService --> LikeRepository
@@ -389,12 +385,12 @@ classDiagram
     direction LR
 
     namespace interfaces {
-        class OrderController {
+        class OrderV1Controller {
             +createOrder()
             +getOrders()
             +getOrder()
         }
-        class OrderAdminController {
+        class OrderAdminV1Controller {
             +getAllOrders()
             +getOrder()
         }
@@ -415,8 +411,7 @@ classDiagram
             -Long refUserId
             -OrderStatus status
             -BigDecimal totalPrice
-            -List~OrderItem~ items
-            +create(userId, List~OrderProductInfo~, command)$
+            +create(userId, totalPrice)$ Order
         }
         class OrderProductInfo {
             <<DataClass>>
@@ -425,44 +420,62 @@ classDiagram
             +BigDecimal price
         }
         class OrderItem {
+            -Long refOrderId
+            -Long refProductId
             -String productName
             -BigDecimal productPrice
             -Int quantity
-            +create(OrderProductInfo, quantity)$
+            +create(OrderProductInfo, quantity, orderId)$ OrderItem
+        }
+        class OrderDetail {
+            <<DataClass>>
+            +Order order
+            +List~OrderItem~ items
         }
         class OrderService {
-            +createOrder(userId, List~OrderProductInfo~, command)
-            +getOrder(userId, orderId)
-            +getOrderForAdmin(orderId)
-            +getOrdersByUserId()
-            +getAllOrders(pageable)
+            +createOrder(userId, List~OrderProductInfo~, command) OrderDetail
+            +getOrder(userId, orderId) OrderDetail
+            +getOrderForAdmin(orderId) OrderDetail
+            +getOrdersByUserId(userId, from, to, page, size) PageResult~OrderDetail~
+            +getAllOrders(page, size) PageResult~OrderDetail~
         }
         class OrderRepository {
             <<interface>>
         }
+        class OrderItemRepository {
+            <<interface>>
+            +saveAll(List~OrderItem~) List~OrderItem~
+            +findAllByOrderId(orderId) List~OrderItem~
+            +findAllByOrderIds(orderIds) List~OrderItem~
+        }
     }
 
-    OrderController --> OrderFacade: 주문 생성 (cross-domain)
-    OrderController --> OrderService: 목록/상세 조회
-    OrderAdminController --> OrderService: 전체 조회
+    OrderV1Controller --> OrderFacade: 주문 생성 (cross-domain)
+    OrderV1Controller --> OrderService: 목록/상세 조회
+    OrderAdminV1Controller --> OrderService: 전체 조회
     OrderFacade --> OrderService
     OrderFacade --> CatalogService: 재고 차감 / 상품 검증
     OrderFacade --> UserPointService: 포인트 차감
     OrderService --> OrderRepository
-    Order "1" *-- "*" OrderItem: Composition
+    OrderService --> OrderItemRepository
+    OrderItem --> Order: refOrderId 참조
 ```
 
 ### 핵심 포인트
 
-- **Composition (*--):** `OrderItem`은 `Order` 없이는 존재할 수 없으며, 생명주기를 같이한다. JPA
-  `@OneToMany(cascade = ALL, orphanRemoval = true)` + `@JoinColumn`으로 구현.
-- **정적 팩토리 메서드:** `Order.create()` 내에서 `OrderItem`들을 생성하고, 이 시점에 `OrderProductInfo`의 가격과 이름을 스냅샷으로 복사한다. Order 도메인은 Catalog 도메인 타입(`Product`)에 의존하지 않으며, Facade에서 `Product` → `OrderProductInfo` 변환(cross-domain 매핑)을 수행한다.
-- **totalPrice (반정규화):** `Order.create()` 시 items의 `productPrice * quantity`를 합산하여 저장. 목록 조회 시 OrderItem을 로딩하지 않고도 총액을
+- **OrderItem 관리:** `OrderItem`은 `refOrderId` FK로 `Order`를 참조하며, 별도 `OrderItemRepository`를 통해 저장/조회한다. `@OneToMany` 없이
+  독립적으로 관리된다.
+- **정적 팩토리 메서드:** `Order.create(userId, totalPrice)`로 주문을 생성하고, `OrderItem.create(product, quantity, orderId)`로 각 항목을 별도
+  생성한다. `OrderProductInfo`의 가격과 이름을 스냅샷으로 복사한다. Order 도메인은 Catalog 도메인 타입(`Product`)에 의존하지 않으며, Facade에서 `Product` →
+  `OrderProductInfo` 변환(cross-domain 매핑)을 수행한다.
+- **OrderDetail:** `OrderDetail(order, items)` 데이터 클래스로 Order와 OrderItem 목록을 조합하여 반환한다.
+- **totalPrice (반정규화):** `OrderService.createOrder()`에서 `productPrice × quantity`를 합산하여 계산하고,
+  `Order.create(userId, totalPrice)`로 전달하여 저장. 목록 조회 시 OrderItem을 로딩하지 않고도 총액을
   제공한다.
 - **Facade 사용 기준 (Round 3 변경):** `createOrder()`는 CatalogService(상품 검증 + 재고 차감) + UserPointService(포인트 차감) +
   OrderService를 조율하므로 Facade를 사용한다. 조회 API는 Controller가 OrderService를 직접 호출한다.
 - **소유권 검증:** 대고객 `getOrder(userId, orderId)`는 Service에서 소유권 검증. 어드민 `getOrderForAdmin(orderId)`는 검증 없이 조회.
-- **Quantity VO:** OrderItem 생성 시 수량을 Quantity VO로 검증한다 (>= 1).
+- **수량 검증:** OrderItem 생성 시 `init` 블록에서 수량을 인라인 검증한다 (>= 1). 별도 Quantity VO 없이 처리.
 
 ---
 
@@ -476,7 +489,7 @@ classDiagram
     direction LR
 
     namespace interfaces {
-        class PointController {
+        class PointV1Controller {
             +chargePoints()
             +getBalance()
         }
@@ -487,9 +500,9 @@ classDiagram
             -Long refUserId
             -Long balance
             +MAX_BALANCE$ Long
-            +charge(amount: Point)
-            +use(amount: Point)
-            +canAfford(amount: Point) Boolean
+            +charge(amount: Long)
+            +use(amount: Long)
+            +canAfford(amount: Long) Boolean
         }
         class PointHistory {
             +Long id
@@ -522,8 +535,8 @@ classDiagram
         }
     }
 
-    PointController --> PointChargingService: 충전
-    PointController --> UserPointService: 잔액 조회
+    PointV1Controller --> PointChargingService: 충전
+    PointV1Controller --> UserPointService: 잔액 조회
     PointChargingService --> UserPointRepository
     PointChargingService --> PointHistoryRepository
     UserPointService --> UserPointRepository
@@ -537,7 +550,9 @@ classDiagram
 - **PointChargingService**: 포인트 충전의 복합 로직(잔액 변경 + 내역 생성)을 조율하는 Domain Service. UserPoint.charge()와 PointHistory 생성이 반드시
   함께 수행되어야 하므로 Domain Service가 이 협력을 보장한다.
 - **UserPointService**: 잔액 조회, 포인트 사용(주문 시 차감) 등을 담당한다.
-- **서비스 분리 근거 (PointChargingService vs UserPointService):** PointChargingService는 독립적인 진입점(Controller 직접 호출)이며, 추후 결제 시스템(PG사 연동) 연결 시 충전 로직이 확장될 가능성이 있어 별도 Domain Service로 분리했다. UserPointService.usePoints()는 OrderFacade에서 호출되는 빌딩 블록으로, 단순 차감 + 내역 기록을 수행한다.
+- **서비스 분리 근거 (PointChargingService vs UserPointService):** PointChargingService는 독립적인 진입점(Controller 직접 호출)이며, 추후 결제
+  시스템(PG사 연동) 연결 시 충전 로직이 확장될 가능성이 있어 별도 Domain Service로 분리했다. UserPointService.usePoints()는 OrderFacade에서 호출되는 빌딩 블록으로,
+  단순 차감 + 내역 기록을 수행한다.
 - **BaseEntity 상속**: UserPoint는 BaseEntity를 상속(soft delete 지원). PointHistory는 BaseEntity를 상속하지 않는다(불변 이력 데이터).
 - **Point VO**: 금액의 음수 방지, 연산(plus/minus/isGreaterThanOrEqual)을 캡슐화한다.
 
@@ -586,15 +601,15 @@ classDiagram
 > Facade를 거치지 않는 경로에서는 application 레이어의 Info 객체를 사용하지 않는다.
 > Domain Service가 Entity 또는 domain 레이어 데이터 클래스(예: `ProductDetail`)를 반환하고, Controller에서 Dto로 변환한다.
 
-| Controller               | Domain Service         | 반환 타입                     | 용도                                  |
-|--------------------------|------------------------|---------------------------|-------------------------------------|
-| `ProductController`      | `CatalogService`       | `ProductDetail`, `Product` | 상품 목록/상세 조회 (Product + Brand 조합 포함) |
-| `ProductAdminController` | `CatalogService`       | `Product`, `Brand`         | 상품 CRUD (등록 시 브랜드 검증 포함)            |
-| `BrandController`        | `CatalogService`       | `Brand`                    | 브랜드 조회                              |
-| `BrandAdminController`   | `CatalogService`       | `Brand`                    | 브랜드 CRUD + cascade 삭제               |
-| `PointController`        | `PointChargingService` | `UserPoint`                | 포인트 충전                              |
-| `PointController`        | `UserPointService`     | `UserPoint`                | 포인트 잔액 조회                           |
-| `OrderController`        | `OrderService`         | `Order`                    | 주문 목록/상세 조회                         |
+| Controller                 | Domain Service         | 반환 타입                                    | 용도                                  |
+|----------------------------|------------------------|------------------------------------------|-------------------------------------|
+| `ProductV1Controller`      | `CatalogService`       | `ProductDetail`, `PageResult<Product>`   | 상품 목록/상세 조회 (Product + Brand 조합 포함) |
+| `ProductAdminV1Controller` | `CatalogService`       | `Product`, `Brand`                       | 상품 CRUD (등록 시 브랜드 검증 포함)            |
+| `BrandV1Controller`        | `CatalogService`       | `Brand`                                  | 브랜드 조회                              |
+| `BrandAdminV1Controller`   | `CatalogService`       | `Brand`                                  | 브랜드 CRUD + cascade 삭제               |
+| `PointV1Controller`        | `PointChargingService` | `UserPoint`                              | 포인트 충전                              |
+| `PointV1Controller`        | `UserPointService`     | `UserPoint`                              | 포인트 잔액 조회                           |
+| `OrderV1Controller`        | `OrderService`         | `OrderDetail`, `PageResult<OrderDetail>` | 주문 목록/상세 조회                         |
 
 ---
 
@@ -628,17 +643,18 @@ classDiagram
 
 ## 9. Value Object 정리
 
-| VO        | 소속 도메인  | 검증 규칙                             | 사용 시점                     |
-|-----------|---------|-----------------------------------|---------------------------|
-| BrandName | Brand   | 빈 값 불가                            | Brand guard()에서 VO 생성 시 검증 |
-| Price     | Product | BigDecimal >= 0                   | Product guard()에서 VO 생성 시 검증 |
-| Stock     | Product | Int >= 0, decrease 시 부족 확인        | Product 생성/수정/재고차감 시 검증   |
-| Point     | point   | Long >= 0, 연산(plus/minus) 시 음수 방지 | UserPoint 충전/사용 시 검증      |
-| Quantity  | order   | Int >= 1                          | OrderItem 생성 시 최소 수량 검증   |
+| VO            | 소속 도메인  | 검증 규칙                             | 사용 시점                      | 상태                        |
+|---------------|---------|-----------------------------------|----------------------------|---------------------------|
+| ~~BrandName~~ | Brand   | 빈 값 불가                            | Brand guard()에서 인라인 검증     | 삭제됨 — guard() 인라인 검증으로 대체 |
+| ~~Price~~     | Product | BigDecimal >= 0                   | Product guard()에서 인라인 검증   | 삭제됨 — guard() 인라인 검증으로 대체 |
+| Stock         | Product | Int >= 0, decrease 시 부족 확인        | Product 생성/수정/재고차감 시 검증    | 유지                        |
+| Point         | point   | Long >= 0, 연산(plus/minus) 시 음수 방지 | UserPoint 충전/사용 시 검증       | 유지                        |
+| ~~Quantity~~  | order   | Int >= 1                          | OrderItem init 블록에서 인라인 검증 | 삭제됨 — init 블록 인라인 검증으로 대체 |
 
 > VO는 Entity 필드로 저장되지 않는다. Entity 필드는 기본 타입(String, BigDecimal, Int, Long)을 유지하되, 생성/변경 시점에 VO를 통해 검증한다.
 >
-> **Point VO와 충전 금액의 검증 차이:** Point VO는 `>= 0`을 검증하지만, 포인트 충전 금액은 `>= 1`이어야 한다. Point VO만으로는 0원 충전이 통과하므로, PointChargingService에서 충전 금액에 대한 별도 검증(`>= 1`)을 수행한다.
+> **Point VO와 충전 금액의 검증 차이:** Point VO는 `>= 0`을 검증하지만, 포인트 충전 금액은 `>= 1`이어야 한다. Point VO만으로는 0원 충전이 통과하므로,
+> PointChargingService에서 충전 금액에 대한 별도 검증(`>= 1`)을 수행한다.
 
 > **DTO 변환 흐름:**
 > - **단일 Entity 반환** (Facade 없음): Domain Service → Entity 반환 → Controller에서 Dto 변환
@@ -661,9 +677,10 @@ classDiagram
     - **결정**: `stock`, `status`, `likeCount` 등 변경 성격이 다른 필드들을 `Product` 하나의 엔티티에 둔다.
     - **이유 (Trade-off)**: 현재 단계에서는 엔티티 분리보다 복잡도가 더 크다. 추후 트래픽 증가 시 Stock 분리나 Redis 캐싱을 고려한다.
 
-4. **VO (Value Object) 적극 도입**
-    - **결정**: `Stock`, `Price`, `BrandName` 등을 원시 타입 대신 객체로 포장한다.
-    - **이유**: 검증 로직을 도메인 객체 내부에 캡슐화하여 안전성을 보장하고 코드 중복을 방지한다.
+4. **VO (Value Object) 선별적 도입**
+    - **결정**: `Stock`, `Point` 등 연산이 필요한 값은 VO로, 단순 검증만 필요한 값(`BrandName`, `Price`, `Quantity`)은 `guard()`/`init` 블록에서
+      인라인 검증한다.
+    - **이유**: 검증 로직을 도메인 객체 내부에 캡슐화하되, 단순 범위 검증만 필요한 경우 별도 VO 클래스를 만들지 않아 복잡도를 줄인다.
 
 5. **주문 스냅샷 (Snapshot)**
     - **결정**: `OrderItem`은 Product를 참조하는 대신 `productName`, `productPrice` 값을 별도 컬럼으로 저장한다.
@@ -675,5 +692,7 @@ classDiagram
 
 7. **DTO 분리 (Security)**
     - **결정**: 동일한 Product라도 `CustomerProductDto`와 `AdminProductDto`로 분리한다.
-    - **이유**: 대고객 API에서는 재고 수량이나 내부 관리 필드(deletedAt)를 노출하지 않아야 한다. 같은 BC 내 조합 결과(예: `ProductDetail`)는 domain 레이어 데이터 클래스로,
-      BC 간 조합 결과(예: `LikeFacade`의 `List<Pair<Like, Product>>`)는 Facade에서 직접 반환하되, interfaces 레이어에서 액터별로 필요한 필드만 Dto로 노출한다.
+    - **이유**: 대고객 API에서는 재고 수량이나 내부 관리 필드(deletedAt)를 노출하지 않아야 한다. 같은 BC 내 조합 결과(예: `ProductDetail`)는 domain 레이어 데이터
+      클래스로,
+      BC 간 조합 결과(예: `LikeFacade`의 `List<Pair<Like, Product>>`)는 Facade에서 직접 반환하되, interfaces 레이어에서 액터별로 필요한 필드만 Dto로
+      노출한다.

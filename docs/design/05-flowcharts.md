@@ -62,7 +62,7 @@ flowchart TB
 ```mermaid
 flowchart TB
     Start([주문 요청 수신]) --> Validate{요청 데이터 검증}
-    Validate -->|items 비어있음 / 중복 productId / quantity ≤ 0| Err400[400 Bad Request]:::error
+    Validate -->|items 비어있음 / quantity ≤ 0| Err400[400 Bad Request]:::error
 
     Validate -->|유효| FetchProducts[주문 대상 상품 일괄 조회]
     FetchProducts --> CheckExist{모든 상품 존재?}
@@ -77,11 +77,11 @@ flowchart TB
     CheckStock -->|충분| Deduct[상품별 재고 차감]
     Deduct --> AutoStatus{차감 후 재고 == 0?}
     AutoStatus -->|예| StatusChange[status → SOLD_OUT 자동 전환]
-    AutoStatus -->|아니오| Snapshot
-    StatusChange --> Snapshot[상품 이름/가격 스냅샷 복사]
-    Snapshot --> CreateOrder[Order + OrderItem 생성]
-    CreateOrder --> CalcTotal[totalPrice 계산]
-    CalcTotal --> CheckPoint{포인트 잔액 충분?}
+    AutoStatus -->|아니오| CalcTotal
+    StatusChange --> CalcTotal[totalPrice 계산]
+    CalcTotal --> CreateOrder[Order.create(userId, totalPrice)]
+    CreateOrder --> CreateItems[OrderItem.create() 각각 생성 (스냅샷 포함)]
+    CreateItems --> CheckPoint{포인트 잔액 충분?}
     CheckPoint -->|부족| Err400_5[400 포인트 부족]:::error
     CheckPoint -->|충분| DeductPoint[포인트 차감 + PointHistory 기록]
     DeductPoint --> Save[DB 저장]
@@ -109,8 +109,8 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    Start([좋아요 등록 요청]) --> CheckProduct{상품 존재 & 미삭제?}
-    CheckProduct -->|없음 / 삭제됨| Err404[404 Not Found]:::error
+    Start([좋아요 등록 요청]) --> CheckProduct{상품 활성 상태(미삭제 & 미숨김)?}
+    CheckProduct -->|없음 / 삭제됨 / HIDDEN| Err404[404 Not Found]:::error
 
     CheckProduct -->|유효| CheckLike{이미 좋아요 존재?}
     CheckLike -->|존재| Idempotent([200 OK — 변경 없음]):::idempotent
@@ -162,8 +162,14 @@ flowchart TB
     Start([포인트 충전 요청]) --> CheckAmount{충전 금액 >= 1?}
     CheckAmount -->|아니오| Err400[400 Bad Request]:::error
 
-    CheckAmount -->|유효| FindUP[UserPoint 조회]
-    FindUP --> Charge[UserPoint.charge — 잔액 증가]
+    CheckAmount -->|유효| CheckLimit{1회 충전 한도(1000만) 초과?}
+    CheckLimit -->|초과| Err400_2[400 Bad Request]:::error
+
+    CheckLimit -->|이내| FindUP[UserPoint 조회]
+    FindUP --> CheckBalance{충전 후 잔액이 최대 한도(1000만) 초과?}
+    CheckBalance -->|초과| Err400_3[400 Bad Request]:::error
+
+    CheckBalance -->|이내| Charge[UserPoint.charge — 잔액 증가]
     Charge --> History[PointHistory 생성 — type: CHARGE]
     History --> Save[DB 저장]
     Save --> Success([200 OK]):::success
@@ -177,3 +183,51 @@ flowchart TB
 - PointChargingService는 도메인 레이어의 Domain Service이다
 - 잔액 변경(UserPoint.charge)과 내역 생성(PointHistory)이 하나의 트랜잭션에서 원자적으로 처리된다
 - Controller가 PointChargingService를 직접 호출한다 (Facade 없음)
+
+---
+
+## 5. 어드민 카탈로그 관리 프로세스
+
+어드민이 브랜드/상품을 생성, 수정, 삭제, 복구하는 전체 의사결정 흐름이다.
+대고객 API와의 핵심 차이는 수정 시 삭제 상태 여부를 구분하지 않고 허용한다는 점이다.
+
+```mermaid
+flowchart TB
+    Start([어드민 카탈로그 관리]) --> Select{작업 선택}
+
+    Select -->|생성| Create[브랜드/상품 생성]
+    Create --> ValidCreate{입력값 검증}
+    ValidCreate -->|실패| Err400_1[400 Bad Request]:::error
+    ValidCreate -->|통과| SaveNew[DB 저장]
+    SaveNew --> Success201[201 Created]:::success
+
+    Select -->|수정| Update[브랜드/상품 수정]
+    Update --> FindForUpdate{엔티티 조회}
+    FindForUpdate -->|미존재| Err404_1[404 Not Found]:::error
+    FindForUpdate -->|존재 - 정상 또는 삭제| ValidUpdate{입력값 검증}
+    ValidUpdate -->|실패| Err400_2[400 Bad Request]:::error
+    ValidUpdate -->|통과| SaveUpdate[변경 저장]
+    SaveUpdate --> Success200_1[200 OK]:::success
+
+    Select -->|삭제| Delete[브랜드/상품 삭제]
+    Delete --> FindForDelete{엔티티 조회}
+    FindForDelete -->|미존재 또는 이미 삭제| Success200_2[200 OK - 멱등]:::success
+    FindForDelete -->|존재| SoftDel[deletedAt 설정]
+    SoftDel --> Success200_3[200 OK]:::success
+
+    Select -->|복구| Restore[브랜드/상품 복구]
+    Restore --> FindForRestore{엔티티 조회}
+    FindForRestore -->|미존재| Err404_2[404 Not Found]:::error
+    FindForRestore -->|이미 활성| Success200_4[200 OK - 멱등]:::success
+    FindForRestore -->|삭제 상태| RestoreEntity[deletedAt = null]
+    RestoreEntity --> Success200_5[200 OK]:::success
+
+    classDef success fill:#c8e6c9,stroke:#2e7d32
+    classDef error fill:#ffcdd2,stroke:#c62828
+```
+
+### 참고
+
+- 수정(Update)은 삭제 상태와 무관하게 어드민이 수행 가능 — 대고객 API와의 핵심 차이점
+- 삭제와 복구는 멱등하게 동작
+- 브랜드 삭제 시 소속 상품도 연쇄 soft delete 처리
