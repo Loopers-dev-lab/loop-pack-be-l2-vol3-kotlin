@@ -26,7 +26,7 @@ class CatalogService(
 
     @Transactional
     fun updateBrand(brandId: Long, command: CatalogCommand.UpdateBrand): Brand {
-        val brand = getActiveBrand(brandId)
+        val brand = getBrand(brandId)
         brand.update(command.name)
         return brand
     }
@@ -36,6 +36,12 @@ class CatalogService(
         val brand = brandRepository.findById(brandId) ?: return
         brand.delete()
         productRepository.findAllByBrandId(brandId).forEach { it.delete() }
+    }
+
+    @Transactional
+    fun restoreBrand(brandId: Long) {
+        val brand = getBrand(brandId)
+        brand.restore()
     }
 
     // === Brand 조회 ===
@@ -79,9 +85,6 @@ class CatalogService(
     @Transactional
     fun updateProduct(productId: Long, command: CatalogCommand.UpdateProduct): Product {
         val product = getProduct(productId)
-        if (product.isDeleted()) {
-            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        }
         product.update(command.name, command.price, command.stock, command.status)
         return product
     }
@@ -90,6 +93,12 @@ class CatalogService(
     fun deleteProduct(productId: Long) {
         val product = productRepository.findById(productId) ?: return
         product.delete()
+    }
+
+    @Transactional
+    fun restoreProduct(productId: Long) {
+        val product = getProduct(productId)
+        product.restore()
     }
 
     // === 대고객 조회 ===

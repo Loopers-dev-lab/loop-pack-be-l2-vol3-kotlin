@@ -70,4 +70,14 @@ class ProductAdminV1Controller(
         catalogService.deleteProduct(productId)
         return ApiResponse.success()
     }
+
+    @PostMapping("/{productId}/restore")
+    override fun restoreProduct(
+        @PathVariable productId: Long,
+    ): ApiResponse<ProductAdminV1Dto.AdminProductResponse> {
+        catalogService.restoreProduct(productId)
+        return catalogService.getAdminProduct(productId)
+            .let { ProductAdminV1Dto.AdminProductResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 }

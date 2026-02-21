@@ -33,4 +33,7 @@ interface BrandAdminV1ApiSpec {
 
     @Operation(summary = "브랜드 삭제", description = "브랜드를 삭제합니다.")
     fun deleteBrand(brandId: Long): ApiResponse<Any>
+
+    @Operation(summary = "브랜드 복구", description = "삭제된 브랜드를 복구합니다.")
+    fun restoreBrand(brandId: Long): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 }

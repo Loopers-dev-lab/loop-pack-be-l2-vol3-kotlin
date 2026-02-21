@@ -33,4 +33,7 @@ interface ProductAdminV1ApiSpec {
 
     @Operation(summary = "상품 삭제", description = "상품을 삭제합니다.")
     fun deleteProduct(productId: Long): ApiResponse<Any>
+
+    @Operation(summary = "상품 복구", description = "삭제된 상품을 복구합니다.")
+    fun restoreProduct(productId: Long): ApiResponse<ProductAdminV1Dto.AdminProductResponse>
 }

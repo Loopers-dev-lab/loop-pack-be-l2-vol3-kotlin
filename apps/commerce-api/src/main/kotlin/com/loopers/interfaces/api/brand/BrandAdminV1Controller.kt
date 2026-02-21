@@ -70,4 +70,14 @@ class BrandAdminV1Controller(
         catalogService.deleteBrand(brandId)
         return ApiResponse.success()
     }
+
+    @PostMapping("/{brandId}/restore")
+    override fun restoreBrand(
+        @PathVariable brandId: Long,
+    ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
+        catalogService.restoreBrand(brandId)
+        return catalogService.getBrand(brandId)
+            .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 }
