@@ -1,7 +1,7 @@
 package com.loopers.domain.point
 
 import com.loopers.domain.point.entity.PointHistory
-import com.loopers.domain.point.entity.PointHistoryType
+import com.loopers.domain.point.entity.PointHistory.PointHistoryType
 import com.loopers.domain.point.entity.UserPoint
 import com.loopers.domain.point.repository.PointHistoryRepository
 import com.loopers.domain.point.repository.UserPointRepository

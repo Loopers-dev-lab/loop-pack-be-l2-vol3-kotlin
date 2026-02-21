@@ -30,6 +30,11 @@ class PointHistory(
         }
     }
 
+    enum class PointHistoryType {
+        CHARGE,
+        USE,
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0

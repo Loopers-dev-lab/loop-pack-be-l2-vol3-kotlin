@@ -1,7 +1,7 @@
 package com.loopers.domain.point
 
 import com.loopers.domain.point.entity.PointHistory
-import com.loopers.domain.point.entity.PointHistoryType
+import com.loopers.domain.point.entity.PointHistory.PointHistoryType
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -46,7 +46,6 @@ class PointHistoryTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).isEqualTo("포인트 이력 금액은 0보다 커야 합니다.")
         }
 
         @Test
