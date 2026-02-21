@@ -4,6 +4,7 @@ import com.loopers.domain.catalog.CatalogCommand
 import com.loopers.domain.catalog.CatalogService
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
+import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderCommand
 import com.loopers.domain.order.OrderService
@@ -27,6 +28,7 @@ class OrderFacadeTest {
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var productRepository: FakeProductRepository
     private lateinit var orderRepository: FakeOrderRepository
+    private lateinit var orderItemRepository: FakeOrderItemRepository
     private lateinit var userPointRepository: FakeUserPointRepository
     private lateinit var pointHistoryRepository: FakePointHistoryRepository
     private lateinit var catalogService: CatalogService
@@ -40,10 +42,11 @@ class OrderFacadeTest {
         brandRepository = FakeBrandRepository()
         productRepository = FakeProductRepository()
         orderRepository = FakeOrderRepository()
+        orderItemRepository = FakeOrderItemRepository()
         userPointRepository = FakeUserPointRepository()
         pointHistoryRepository = FakePointHistoryRepository()
         catalogService = CatalogService(brandRepository, productRepository)
-        orderService = OrderService(orderRepository)
+        orderService = OrderService(orderRepository, orderItemRepository)
         userPointService = UserPointService(userPointRepository, pointHistoryRepository)
         pointChargingService = PointChargingService(userPointRepository, pointHistoryRepository)
         orderFacade = OrderFacade(orderService, catalogService, userPointService)
@@ -87,12 +90,13 @@ class OrderFacadeTest {
             )
 
             // act
-            val order = orderFacade.createOrder(1L, command)
+            val orderDetail = orderFacade.createOrder(1L, command)
 
             // assert
-            assertThat(order.id).isNotEqualTo(0L)
-            assertThat(order.status).isEqualTo(Order.OrderStatus.CREATED)
-            assertThat(order.totalPrice).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(orderDetail.order.id).isNotEqualTo(0L)
+            assertThat(orderDetail.order.status).isEqualTo(Order.OrderStatus.CREATED)
+            assertThat(orderDetail.order.totalPrice).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(orderDetail.items).hasSize(1)
 
             // 재고 차감 확인
             val product = catalogService.getProduct(productId)
@@ -191,11 +195,11 @@ class OrderFacadeTest {
             )
 
             // act
-            val order = orderFacade.createOrder(1L, command)
+            val orderDetail = orderFacade.createOrder(1L, command)
 
             // assert
-            assertThat(order.items).hasSize(2)
-            assertThat(order.totalPrice).isEqualByComparingTo(BigDecimal("80000"))
+            assertThat(orderDetail.items).hasSize(2)
+            assertThat(orderDetail.order.totalPrice).isEqualByComparingTo(BigDecimal("80000"))
 
             val p1 = catalogService.getProduct(product1.id)
             val p2 = catalogService.getProduct(product2.id)

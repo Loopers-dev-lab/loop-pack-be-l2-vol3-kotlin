@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order.dto
 
 import com.loopers.domain.order.OrderCommand
+import com.loopers.domain.order.OrderDetail
 import com.loopers.domain.order.entity.Order
 import com.loopers.domain.order.entity.OrderItem
 import jakarta.validation.Valid
@@ -38,13 +39,13 @@ class OrderV1Dto {
         val createdAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(order: Order): OrderResponse {
+            fun from(orderDetail: OrderDetail): OrderResponse {
                 return OrderResponse(
-                    id = order.id,
-                    status = order.status,
-                    totalPrice = order.totalPrice,
-                    items = order.items.map { OrderItemResponse.from(it) },
-                    createdAt = order.createdAt,
+                    id = orderDetail.order.id,
+                    status = orderDetail.order.status,
+                    totalPrice = orderDetail.order.totalPrice,
+                    items = orderDetail.items.map { OrderItemResponse.from(it) },
+                    createdAt = orderDetail.order.createdAt,
                 )
             }
         }

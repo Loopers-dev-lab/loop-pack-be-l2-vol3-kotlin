@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.order.dto
 
+import com.loopers.domain.order.OrderDetail
 import com.loopers.domain.order.entity.Order
 import com.loopers.domain.order.entity.OrderItem
 import java.math.BigDecimal
@@ -16,15 +17,15 @@ class OrderAdminV1Dto {
         val updatedAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(order: Order): OrderAdminResponse {
+            fun from(orderDetail: OrderDetail): OrderAdminResponse {
                 return OrderAdminResponse(
-                    id = order.id,
-                    userId = order.refUserId,
-                    status = order.status,
-                    totalPrice = order.totalPrice,
-                    items = order.items.map { OrderItemAdminResponse.from(it) },
-                    createdAt = order.createdAt,
-                    updatedAt = order.updatedAt,
+                    id = orderDetail.order.id,
+                    userId = orderDetail.order.refUserId,
+                    status = orderDetail.order.status,
+                    totalPrice = orderDetail.order.totalPrice,
+                    items = orderDetail.items.map { OrderItemAdminResponse.from(it) },
+                    createdAt = orderDetail.order.createdAt,
+                    updatedAt = orderDetail.order.updatedAt,
                 )
             }
         }

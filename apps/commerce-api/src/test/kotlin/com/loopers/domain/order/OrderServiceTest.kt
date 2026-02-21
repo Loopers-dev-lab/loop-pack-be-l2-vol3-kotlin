@@ -1,6 +1,5 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.order.entity.Order
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -9,26 +8,27 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class OrderServiceTest {
 
     private lateinit var orderRepository: FakeOrderRepository
+    private lateinit var orderItemRepository: FakeOrderItemRepository
     private lateinit var orderService: OrderService
 
     @BeforeEach
     fun setUp() {
         orderRepository = FakeOrderRepository()
-        orderService = OrderService(orderRepository)
+        orderItemRepository = FakeOrderItemRepository()
+        orderService = OrderService(orderRepository, orderItemRepository)
     }
 
     private fun createProductInfo(id: Long, name: String, price: BigDecimal): OrderProductInfo {
         return OrderProductInfo(id = id, name = name, price = price)
     }
 
-    private fun createAndSaveOrder(userId: Long): Order {
+    private fun createAndSaveOrder(userId: Long): OrderDetail {
         val productInfo = createProductInfo(1L, "테스트 상품", BigDecimal("10000"))
         val command = OrderCommand.CreateOrder(
             items = listOf(OrderCommand.CreateOrderItem(productId = 1L, quantity = 1)),
@@ -50,12 +50,56 @@ class OrderServiceTest {
             )
 
             // act
-            val saved = orderService.createOrder(1L, listOf(productInfo), command)
+            val detail = orderService.createOrder(1L, listOf(productInfo), command)
 
             // assert
-            assertThat(saved.id).isNotEqualTo(0L)
-            assertThat(saved.refUserId).isEqualTo(1L)
-            assertThat(saved.totalPrice).isEqualByComparingTo(BigDecimal("258000"))
+            assertThat(detail.order.id).isNotEqualTo(0L)
+            assertThat(detail.order.refUserId).isEqualTo(1L)
+            assertThat(detail.order.totalPrice).isEqualByComparingTo(BigDecimal("258000"))
+            assertThat(detail.items).hasSize(1)
+            assertThat(detail.items[0].refProductId).isEqualTo(1L)
+            assertThat(detail.items[0].productName).isEqualTo("에어맥스 90")
+            assertThat(detail.items[0].productPrice).isEqualByComparingTo(BigDecimal("129000"))
+            assertThat(detail.items[0].quantity).isEqualTo(2)
+        }
+
+        @Test
+        @DisplayName("여러 상품이 포함된 주문의 총액이 올바르게 계산된다")
+        fun createOrder_multipleItems_calculatesTotalPrice() {
+            // arrange
+            val product1 = createProductInfo(1L, "상품1", BigDecimal("10000"))
+            val product2 = createProductInfo(2L, "상품2", BigDecimal("20000"))
+            val command = OrderCommand.CreateOrder(
+                items = listOf(
+                    OrderCommand.CreateOrderItem(productId = 1L, quantity = 3),
+                    OrderCommand.CreateOrderItem(productId = 2L, quantity = 2),
+                ),
+            )
+
+            // act
+            val detail = orderService.createOrder(1L, listOf(product1, product2), command)
+
+            // assert
+            assertThat(detail.items).hasSize(2)
+            assertThat(detail.order.totalPrice).isEqualByComparingTo(BigDecimal("70000"))
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품이 포함되면 BAD_REQUEST 예외가 발생한다")
+        fun createOrder_missingProduct_throwsException() {
+            // arrange
+            val command = OrderCommand.CreateOrder(
+                items = listOf(OrderCommand.CreateOrderItem(productId = 999L, quantity = 1)),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.createOrder(1L, emptyList(), command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).contains("상품을 찾을 수 없습니다")
         }
     }
 
@@ -64,17 +108,18 @@ class OrderServiceTest {
     inner class GetOrder {
 
         @Test
-        @DisplayName("주문 소유자가 조회하면 주문이 반환된다")
-        fun getOrder_owner_returnsOrder() {
+        @DisplayName("주문 소유자가 조회하면 OrderDetail이 반환된다")
+        fun getOrder_owner_returnsOrderDetail() {
             // arrange
             val saved = createAndSaveOrder(1L)
 
             // act
-            val result = orderService.getOrder(1L, saved.id)
+            val result = orderService.getOrder(1L, saved.order.id)
 
             // assert
-            assertThat(result.id).isEqualTo(saved.id)
-            assertThat(result.refUserId).isEqualTo(1L)
+            assertThat(result.order.id).isEqualTo(saved.order.id)
+            assertThat(result.order.refUserId).isEqualTo(1L)
+            assertThat(result.items).hasSize(1)
         }
 
         @Test
@@ -85,7 +130,7 @@ class OrderServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                orderService.getOrder(2L, saved.id)
+                orderService.getOrder(2L, saved.order.id)
             }
 
             // assert
@@ -110,16 +155,17 @@ class OrderServiceTest {
     inner class GetOrderForAdmin {
 
         @Test
-        @DisplayName("주문이 존재하면 소유자와 관계없이 반환된다")
-        fun getOrderForAdmin_existingOrder_returnsOrder() {
+        @DisplayName("주문이 존재하면 소유자와 관계없이 OrderDetail이 반환된다")
+        fun getOrderForAdmin_existingOrder_returnsOrderDetail() {
             // arrange
             val saved = createAndSaveOrder(1L)
 
             // act
-            val result = orderService.getOrderForAdmin(saved.id)
+            val result = orderService.getOrderForAdmin(saved.order.id)
 
             // assert
-            assertThat(result.id).isEqualTo(saved.id)
+            assertThat(result.order.id).isEqualTo(saved.order.id)
+            assertThat(result.items).hasSize(1)
         }
 
         @Test
@@ -155,7 +201,7 @@ class OrderServiceTest {
 
             // assert
             assertThat(result.totalElements).isEqualTo(2)
-            assertThat(result.content).allMatch { it.refUserId == 1L }
+            assertThat(result.content).allMatch { it.order.refUserId == 1L }
         }
 
         @Test
