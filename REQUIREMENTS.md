@@ -50,7 +50,7 @@
 | 상태 | DONE |
 | 인증 | `@MemberAuthenticated` + `AuthenticatedMember` (Interceptor가 `X-Loopers-LoginId`/`X-Loopers-LoginPw` 헤더 검증) |
 | 반환 정보 | 로그인 ID, 이름(마스킹), 생년월일, 이메일 |
-| 이름 마스킹 규칙 | 마스킹 문자 `*` 통일 (예: 홍길동 → 홍*동, 홍길 → 홍*) |
+| 이름 마스킹 규칙 | 마지막 글자를 `*`로 마스킹 (예: 홍길동 → 홍길*, 홍길 → 홍*, 김 → *) |
 | 응답 | 200 OK + 회원 정보 |
 | 인증 실패 시 | 401 UNAUTHORIZED |
 
@@ -67,13 +67,13 @@
 | 응답 | 200 OK + 회원 정보 |
 | 인증 실패 시 | 401 UNAUTHORIZED (Interceptor에서 차단) |
 
-### 브랜드 — 설계 완료
+### 브랜드 — DONE
 
 #### FEAT-4: 브랜드 관리
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | 설계 완료 (구현 대기) |
+| 상태 | DONE |
 | 대고객 API | `GET /api/v1/brands/{brandId}` (비인증) |
 | 어드민 API | CRUD: `GET/POST/PUT/DELETE /api-admin/v1/brands` (LDAP 인증) |
 | 비즈니스 규칙 | BR-B1: 브랜드 삭제 시 하위 상품 소프트 삭제 캐스케이드 |
@@ -82,13 +82,13 @@
 | | 어드민: + status, createdAt, updatedAt |
 | Soft Delete | status=DELETED + deleted_at 병행 |
 
-### 상품 — 설계 완료
+### 상품 — DONE
 
 #### FEAT-5: 상품 관리
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | 설계 완료 (구현 대기) |
+| 상태 | DONE |
 | 대고객 API | `GET /api/v1/products` (브랜드 필터, 정렬, 페이징), `GET /api/v1/products/{productId}` |
 | 어드민 API | CRUD: `GET/POST/PUT/DELETE /api-admin/v1/products` (LDAP 인증) |
 | 정렬 옵션 | latest (기본), price_asc, likes_desc |
@@ -98,30 +98,31 @@
 | 고객/어드민 정보 분리 | 고객: id, brandId/brandName, name, description, price, imageUrl, likeCount, soldOut |
 | | 어드민: + stockQuantity, status, createdAt, updatedAt |
 | 재고 검증 | ProductModel.deductStock()이 불변식 보호 (도메인 모델 내부) |
+| 대고객 페이징 | 커서 기반 페이징 (Base64 인코딩). 어드민은 offset 페이징 |
 | 좋아요 수 조회 | product.like_count 컬럼 직접 반환 (배치 갱신) |
 
-### 좋아요 — 설계 완료
+### 좋아요 — DONE
 
 #### FEAT-6: 상품 좋아요
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | 설계 완료 (구현 대기) |
-| 대고객 API | `POST/DELETE /api/v1/products/{productId}/likes` (인증), `GET /api/v1/users/{userId}/likes` (인증) |
+| 상태 | DONE |
+| 대고객 API | `POST/DELETE /api/v1/products/{productId}/likes` (인증), `GET /api/v1/likes` (인증) |
 | 비즈니스 규칙 | BR-L1: 중복 좋아요 불가 (UNIQUE Constraint) |
 | | BR-L2: 좋아요 등록/취소 양방향 멱등 (이미 좋아요→성공, 좋아요 없이 취소→성공) |
-| | BR-L3: 본인 좋아요 목록만 조회 가능 |
+| | BR-L3: 본인 좋아요 목록만 조회 가능 (인증된 사용자 기준, URL에 userId 미포함) |
 | | BR-L4: 존재하지 않는 상품에 좋아요 불가 (Facade에서 ProductService로 검증) |
 | 집계 전략 | product.like_count 컬럼 (DEFAULT 0) + commerce-batch 배치 갱신 (5분 주기, 10K TPS 대응) |
 | 페이징 | 좋아요 목록 조회에 페이징 없음 (API 명세대로) |
 
-### 주문 — 설계 완료
+### 주문 — DONE
 
 #### FEAT-7: 주문
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | 설계 완료 (구현 대기) |
+| 상태 | DONE |
 | 대고객 API | `POST /api/v1/orders` (인증), `GET /api/v1/orders?startAt&endAt` (인증), `GET /api/v1/orders/{orderId}` (인증) |
 | 어드민 API | `GET /api-admin/v1/orders` (페이징, LDAP), `GET /api-admin/v1/orders/{orderId}` (LDAP) |
 | 비즈니스 규칙 | BR-O1: 재고 확인 후 차감 (ProductModel.deductStock 불변식 보호) |
@@ -357,6 +358,48 @@
 
 ---
 
+## 2주차 구현 체크리스트
+
+> 구현 과제의 달성 여부를 추적한다. 모든 항목은 구현 완료 및 테스트 통과 후 체크한다.
+
+### Product / Brand 도메인
+
+- [x] 상품 정보 객체는 브랜드 정보(brandName), 좋아요 수(likeCount)를 포함한다
+- [x] 상품의 정렬 조건(`latest`, `price_asc`, `likes_desc`)을 고려한 조회 기능을 설계했다
+- [x] 상품은 재고를 가지고 있고, 주문 시 차감할 수 있어야 한다
+- [x] 재고의 음수 방지 처리는 도메인 레벨에서 처리된다 (`ProductModel.deductStock()`)
+
+### Like 도메인
+
+- [x] 좋아요는 유저와 상품 간의 관계로 별도 도메인으로 분리했다 (`domain/like/`)
+- [x] 상품의 좋아요 수는 상품 상세/목록 조회에서 함께 제공된다 (`product.like_count`)
+- [x] 단위 테스트에서 좋아요 등록/취소 흐름을 검증했다 (`LikeServiceIntegrationTest`, `LikeV1ApiE2ETest`)
+
+### Order 도메인
+
+- [x] 주문은 여러 상품을 포함할 수 있으며, 각 상품의 수량을 명시한다 (`OrderItem.quantity`)
+- [x] 주문 시 상품의 재고 차감을 수행한다 (`OrderFacade → ProductService.deductStock`)
+- [x] 재고 부족 예외 흐름을 고려해 설계되었다 (`ProductModel.deductStock` → `CoreException(BAD_REQUEST)`)
+- [x] 단위 테스트에서 정상 주문 / 예외 주문 흐름을 모두 검증했다 (`OrderModelTest`, `OrderServiceIntegrationTest`, `OrderV1ApiE2ETest`)
+
+### 도메인 서비스
+
+- [x] 도메인 내부 규칙은 Domain Service / Domain Model에 위치시켰다 (`deductStock`, `validateOwner`, `delete`)
+- [x] 상품 상세 조회 시 Product + Brand 정보 조합은 Application Layer에서 처리했다 (`ProductFacade → ProductService + BrandService`)
+- [x] 복합 유스케이스는 Application Layer에 존재하고, 도메인 로직은 위임되었다 (`OrderFacade`의 재고 차감 + 주문 생성 조합)
+- [x] 도메인 서비스는 상태 없이(`@Component` stateless), 동일한 도메인 경계 내의 도메인 객체의 협력 중심으로 설계되었다
+
+### 소프트웨어 아키텍처 & 설계
+
+- [x] 전체 프로젝트의 구성은 DIP 기반이다: `Application → Domain ← Infrastructure`
+- [x] Application Layer(Facade)는 도메인 객체를 조합해 흐름을 orchestration 했다
+- [x] 핵심 비즈니스 로직은 Entity(`deductStock`, `validateOwner`), VO(`LoginId.of`, `BrandName.of`), Domain Service에 위치한다
+- [x] Repository Interface는 Domain Layer에 정의되고(`domain/{domain}/`), 구현체는 Infrastructure에 위치한다(`infrastructure/{domain}/`)
+- [x] 패키지는 계층 + 도메인 기준으로 구성되었다 (`/domain/order`, `/application/like`, `/interfaces/api/brand` 등)
+- [x] 테스트는 외부 의존성을 분리하고, TestContainers(MySQL)를 사용해 통합 테스트가 가능하게 구성되었다. E2E 테스트에서 실제 API 호출을 검증한다
+
+---
+
 ## 공통 제약사항
 
 | 제약 | 설명 |
@@ -379,14 +422,14 @@
 | 도메인 | 전체 | 완료 | 설계완료 | 미착수 |
 |--------|------|------|----------|--------|
 | 회원 관리 | 3 | 3 | 0 | 0 |
-| 브랜드 | 1 | 0 | 1 | 0 |
-| 상품 | 1 | 0 | 1 | 0 |
-| 좋아요 | 1 | 0 | 1 | 0 |
-| 주문 | 1 | 0 | 1 | 0 |
+| 브랜드 | 1 | 1 | 0 | 0 |
+| 상품 | 1 | 1 | 0 | 0 |
+| 좋아요 | 1 | 1 | 0 | 0 |
+| 주문 | 1 | 1 | 0 | 0 |
 | 쿠폰 | 1 | 0 | 0 | 1 |
 | 결제 | 1 | 0 | 0 | 1 |
 | 랭킹/추천 | 1 | 0 | 0 | 1 |
-| **합계** | **10** | **3** | **4** | **3** |
+| **합계** | **10** | **7** | **0** | **3** |
 
 ### 성능 요구사항 (10K TPS)
 

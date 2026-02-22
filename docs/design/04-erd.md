@@ -25,7 +25,7 @@ erDiagram
     brand {
         bigint id PK "AUTO_INCREMENT"
         varchar name "NOT NULL"
-        varchar description "NOT NULL"
+        text description "NOT NULL"
         varchar image_url "NOT NULL"
         varchar status "NOT NULL, DEFAULT 'ACTIVE'"
         datetime created_at "NOT NULL"
@@ -144,7 +144,7 @@ erDiagram
 |------|------|------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 브랜드 고유 ID |
 | name | VARCHAR(255) | NOT NULL | 브랜드명 (중복 허용, BR-B2 수정) |
-| description | VARCHAR(255) | NOT NULL | 브랜드 설명 |
+| description | TEXT | NOT NULL | 브랜드 설명 (최대 1000자) |
 | image_url | VARCHAR(512) | NOT NULL | 브랜드 이미지 URL |
 | status | VARCHAR(20) | NOT NULL, DEFAULT 'ACTIVE' | ACTIVE / DELETED |
 | created_at | DATETIME | NOT NULL | 생성 일시 |
@@ -270,7 +270,7 @@ erDiagram
 | member | `uk_member_email` | UNIQUE | 이메일 중복 방지 |
 | brand | `idx_brand_name` | INDEX | 브랜드명 검색 (BR-B2 수정: 중복 허용) |
 | product | `idx_product_brand_id` | INDEX | 브랜드별 상품 필터링 |
-| product | `idx_product_status_created_at` | INDEX | 활성 상품 최신순 정렬 |
+| product | _(PK 활용)_ | - | 활성 상품 최신순: `id DESC` (PK 사용, 별도 인덱스 불필요) |
 | product | `idx_product_status_price` | INDEX | 활성 상품 가격순 정렬 |
 | product | `idx_product_status_like_count` | INDEX | 활성 상품 좋아요순 정렬 |
 | product_like | `uk_product_like_member_product` | UNIQUE | 중복 좋아요 방지 (BR-L1) |
@@ -282,9 +282,9 @@ erDiagram
 
 ### 3.2 인덱스 설계 근거
 
-**복합 인덱스 `idx_product_status_created_at`**:
-- 대고객 상품 목록은 ACTIVE 상태만 필터링 + 최신순 정렬. `WHERE status = 'ACTIVE' ORDER BY created_at DESC`에 최적.
-- `status`가 선행 컬럼인 이유: 카디널리티는 낮지만 필수 필터 조건이므로 range scan 범위를 줄여줌.
+**최신순 정렬 (PK 활용)**:
+- 커서 기반 페이징에서 `latest` 정렬은 `id DESC`를 사용한다. auto-increment PK이므로 생성 순서와 동일하며, 별도 인덱스 없이 PK를 활용한다.
+- `WHERE status = 'ACTIVE' AND id < :cursorId ORDER BY id DESC LIMIT :size` 쿼리에서 PK 인덱스로 충분한 성능을 제공한다.
 
 **복합 인덱스 `idx_orders_member_ordered_at`**:
 - 주문 목록 조회 쿼리: `WHERE member_id = ? AND ordered_at BETWEEN ? AND ?`

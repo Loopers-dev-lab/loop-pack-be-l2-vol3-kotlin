@@ -168,13 +168,13 @@ classDiagram
             +getBrand(brandId) ApiResponse
         }
         class ProductV1Controller {
-            +getProducts(brandId, sort, page, size) ApiResponse
+            +getProducts(brandId, sort, size, cursor) ApiResponse
             +getProduct(productId) ApiResponse
         }
         class LikeV1Controller {
             +like(member, productId) ApiResponse
             +unlike(member, productId) ApiResponse
-            +getMyLikes(member, userId) ApiResponse
+            +getMyLikes(member) ApiResponse
         }
         class OrderV1Controller {
             +createOrder(member, request) ApiResponse
@@ -218,7 +218,7 @@ classDiagram
             +deleteBrand(brandId)
         }
         class ProductFacade {
-            +getProducts(condition) Page~ProductInfo~
+            +getProducts(condition) CursorResult~ProductInfo~
             +getProduct(productId) ProductInfo
         }
         class AdminProductFacade {
@@ -231,7 +231,7 @@ classDiagram
         class LikeFacade {
             +like(memberId, productId)
             +unlike(memberId, productId)
-            +getMyLikes(memberId) List~ProductInfo~
+            +getMyLikes(memberId) List~LikedProductInfo~
         }
         class OrderFacade {
             +createOrder(memberId, items) OrderInfo
@@ -350,6 +350,8 @@ classDiagram
     LikeFacade --> ProductService
     OrderFacade --> OrderService
     OrderFacade --> ProductService
+    LikeFacade --> BrandService
+    ProductFacade --> BrandService
     AdminOrderFacade --> OrderService
 
     MemberService --> MemberRepository
@@ -374,7 +376,7 @@ classDiagram
 - **고객/어드민 Facade 분리**: 고객용 Facade(`BrandFacade`, `ProductFacade`, `OrderFacade`)와 어드민용 Facade(`AdminBrandFacade`, `AdminProductFacade`, `AdminOrderFacade`)가 분리된다. Service는 공유하여 비즈니스 로직 중복을 방지한다.
 - **분리의 이유**: 어드민에 통계 조회, 참조 테이블 조인 등 고객과 다른 유스케이스가 추가될 때 독립적으로 진화 가능하다. 현재 로직이 유사하더라도 확장성을 위해 일관되게 분리한다.
 - **Facade의 역할**: 여러 Service를 조합하는 유스케이스 계층이다. `OrderFacade`는 `ProductService`(재고 차감)와 `OrderService`(주문 생성)를 조합한다. `AdminBrandFacade`는 브랜드 삭제 시 `ProductService`를 호출하여 하위 상품을 함께 삭제한다.
-- **Cross-domain 접근**: `LikeFacade`가 `ProductService`를 사용하여 상품 존재 확인 및 좋아요한 상품 정보를 조회한다. 도메인 간 직접 참조가 아닌 Facade 레벨에서 조합한다.
+- **Cross-domain 접근**: `LikeFacade`가 `ProductService`(상품 존재 확인, 좋아요 상품 정보)와 `BrandService`(브랜드명 조회)를 사용한다. `ProductFacade`도 `BrandService`를 사용하여 고객 응답에 brandName을 포함한다. 도메인 간 직접 참조가 아닌 Facade 레벨에서 조합한다.
 - **Service 메서드 분리**: `OrderService`에 고객용 `getOrder(orderId, memberId)` (validateOwner 수행)과 어드민용 `getOrderById(orderId)` (검증 없음)이 분리되어 있다. 동일 패턴으로 `BrandService`, `ProductService`도 고객/어드민 조회 메서드를 분리한다 (고객: ACTIVE만, 어드민: 상태 무관).
 
 ---

@@ -98,8 +98,8 @@
 | 필드 | 제약 | 필수 |
 |------|------|------|
 | name | 1~255자 | O |
-| description | 최대 1000자 | X |
-| imageUrl | 유효한 URL 형식, 최대 512자 | X |
+| description | 최대 1000자 | O |
+| imageUrl | 유효한 URL 형식, 최대 512자 | O |
 
 #### 고객/어드민 정보 분리
 
@@ -183,7 +183,7 @@ E1. 존재하지 않는 브랜드인 경우 → 404 Not Found
 
 | METHOD | URI | 인증 | 설명 |
 |--------|-----|------|------|
-| GET | `/api/v1/products?brandId=1&sort=latest&page=0&size=20` | X | 상품 목록 조회 |
+| GET | `/api/v1/products?brandId=1&sort=latest&size=20&cursor={cursor}` | X | 상품 목록 조회 (커서 페이징) |
 | GET | `/api/v1/products/{productId}` | X | 상품 정보 조회 |
 
 #### 상품 목록 조회 쿼리 파라미터
@@ -192,8 +192,8 @@ E1. 존재하지 않는 브랜드인 경우 → 404 Not Found
 |----------|------|------|------|
 | brandId | 1 | 특정 브랜드의 상품만 필터링 | X |
 | sort | `latest` / `price_asc` / `likes_desc` | 정렬 기준 (기본값: `latest`). 2차 정렬: `id DESC` | X |
-| page | 0 | 페이지 번호 (기본값: 0) | X |
 | size | 20 | 페이지당 상품 수 (기본값: 20) | X |
+| cursor | Base64 인코딩 문자열 | 다음 페이지 커서 (첫 페이지는 미전송) | X |
 
 #### 어드민 API
 
@@ -321,15 +321,13 @@ E3. 재고가 0 미만인 경우 → 400 Bad Request (BR-P4)
 |--------|-----|------|------|
 | POST | `/api/v1/products/{productId}/likes` | O | 상품 좋아요 등록 |
 | DELETE | `/api/v1/products/{productId}/likes` | O | 상품 좋아요 취소 |
-| GET | `/api/v1/users/{userId}/likes` | O | 내가 좋아요한 상품 목록 조회 (페이징 없음) |
-
-> URI의 `users`는 API 경로 규칙이며, 도메인 용어 "회원(Member)"과 동일한 대상을 지칭한다.
+| GET | `/api/v1/likes` | O | 내가 좋아요한 상품 목록 조회 (페이징 없음) |
 
 #### 비즈니스 규칙
 
 - **BR-L1**: 동일 상품에 중복 좋아요 불가. (memberId + productId 유니크)
 - **BR-L2**: 좋아요 등록/취소는 멱등하게 동작한다. (이미 좋아요 → 성공, 좋아요 없이 취소 → 성공)
-- **BR-L3**: 좋아요한 상품 목록은 본인의 것만 조회 가능하다. (userId = 인증된 사용자)
+- **BR-L3**: 좋아요한 상품 목록은 인증된 본인의 것만 조회된다. (인증 토큰 기반, userId 경로 변수 불필요)
 - **BR-L4**: 존재하지 않는 상품에 좋아요할 수 없다.
 
 #### 유스케이스 흐름
@@ -379,7 +377,6 @@ A1. 삭제된 상품의 좋아요는 목록에서 자동 제외된다.
 
 [Exception Flow]
 E1. 로그인하지 않은 경우 → 401 Unauthorized
-E2. 본인의 목록이 아닌 경우 → 403 Forbidden (BR-L3)
 ```
 
 #### 응답 형식

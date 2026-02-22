@@ -198,7 +198,27 @@ com.loopers
 - cross-domain 접근은 Facade 레벨에서만 조합 → Service 간 직접 참조 금지
 - Soft Delete: `status=DELETED` + `deleted_at` 병행 → `delete()` 메서드에서 동시 설정
 - 재고 동시성 제어: `SELECT FOR UPDATE` 비관적 락 → Phase 1 기능 구현 시 포함 (정합성 핵심)
+- 좋아요 멱등: 존재 확인 후 INSERT (`findByMemberIdAndProductId` → null이면 save). DuplicateKeyException catch 대신 사전 조회 방식 (Decision 26)
+- 대고객 상품 목록: 커서 기반 페이징 (Base64 인코딩). 어드민/주문은 offset 유지 (Decision 28)
 - 개발 순서: Phase 1 기능 정합성 → Phase 2 동시성/멱등성/일관성
+
+### 도메인 & 객체 설계 전략
+
+- 도메인 객체는 비즈니스 규칙을 캡슐화해야 합니다.
+- 애플리케이션 서비스는 서로 다른 도메인을 조립해, 도메인 로직을 조정하여 기능을 제공해야 합니다.
+- 규칙이 여러 서비스에 나타나면 도메인 객체에 속할 가능성이 높습니다.
+- 각 기능에 대한 책임과 결합도에 대해 개발자의 의도를 확인하고 개발을 진행합니다.
+
+### 아키텍처, 패키지 구성 전략
+
+- 본 프로젝트는 레이어드 아키텍처를 따르며, DIP (의존성 역전 원칙) 을 준수합니다.
+- API request, response DTO와 응용 레이어의 DTO는 분리해 작성하도록 합니다.
+- 패키징 전략은 4개 레이어 패키지를 두고, 하위에 도메인 별로 패키징하는 형태로 작성합니다.
+  - 예시
+    > /interfaces/api (presentation 레이어 - API)
+      /application/.. (application 레이어 - 도메인 레이어를 조합해 사용 가능한 기능을 제공)
+      /domain/.. (domain 레이어 - 도메인 객체 및 엔티티, Repository 인터페이스가 위치)
+      /infrastructure/.. (infrastructure 레이어 - JPA, Redis 등을 활용해 Repository 구현체를 제공)
 
 ### Value Object (VO) 컨벤션
 

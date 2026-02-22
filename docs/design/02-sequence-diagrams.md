@@ -25,8 +25,8 @@ sequenceDiagram
     participant DB as Database
 
     Note over User, DB: 1. 상품 목록 조회 (비인증)
-    User->>Controller: GET /api/v1/products?brandId=1&sort=latest
-    Controller->>Facade: getProducts(brandId, sort, page, size)
+    User->>Controller: GET /api/v1/products?brandId=1&sort=latest&size=20
+    Controller->>Facade: getProducts(brandId, sort, size, cursor)
     Facade->>ProductSvc: getProducts(condition)
     ProductSvc->>DB: SELECT products (+ brand join)
     DB-->>ProductSvc: Product list
@@ -62,13 +62,14 @@ sequenceDiagram
     DB-->>ProductSvc: Product
     ProductSvc-->>Facade: Product
     Facade->>LikeSvc: like(memberId, productId)
-    LikeSvc->>DB: INSERT product_like (Unique Constraint)
+    LikeSvc->>LikeSvc: findByMemberIdAndProductId 존재 확인
     break 이미 좋아요 존재
-        Note right of LikeSvc: DuplicateKeyException catch → 200 OK
+        Note right of LikeSvc: 이미 존재 → return (멱등, 200 OK)
         LikeSvc-->>Facade: OK
         Facade-->>Controller: OK
         Controller-->>User: 200 OK
     end
+    LikeSvc->>DB: INSERT product_like (Unique Constraint 최종 방어)
     DB-->>LikeSvc: OK
     LikeSvc-->>Facade: OK
     Facade-->>Controller: OK
@@ -87,18 +88,19 @@ sequenceDiagram
     Controller-->>User: 200 OK
 
     Note over User, DB: 5. 내 좋아요 목록 조회 (인증 필요)
-    User->>Interceptor: GET /api/v1/users/{userId}/likes
+    User->>Interceptor: GET /api/v1/likes
     Interceptor->>Controller: AuthenticatedMember 주입
-    Controller->>Facade: getMyLikes(memberId, userId)
-    break userId ≠ 인증된 memberId
-        Facade-->>Controller: CoreException(FORBIDDEN)
-        Controller-->>User: 403 Forbidden
-    end
-    Facade->>LikeSvc: getLikesByMember(memberId)
-    LikeSvc->>DB: SELECT product_like JOIN product WHERE member_id = ? AND product.status = 'ACTIVE'
-    DB-->>LikeSvc: Like list (with product info)
-    LikeSvc-->>Facade: Like list
-    Facade-->>Controller: LikeProductInfo list
+    Controller->>Facade: getMyLikes(memberId)
+    Facade->>LikeSvc: getLikedProductIds(memberId)
+    LikeSvc->>DB: SELECT product_id FROM product_like WHERE member_id = ?
+    DB-->>LikeSvc: productId list
+    LikeSvc-->>Facade: productId list
+    Facade->>ProductSvc: getProductsByIds(productIds)
+    ProductSvc->>DB: SELECT products WHERE id IN (...) AND status = 'ACTIVE'
+    DB-->>ProductSvc: Product list
+    ProductSvc-->>Facade: Product list
+    Note right of Facade: BrandService로 brandName 배치 조회
+    Facade-->>Controller: LikedProductInfo list
     Controller-->>User: 200 OK (좋아요 상품 목록)
 ```
 
@@ -106,8 +108,8 @@ sequenceDiagram
 
 - **비인증/인증 경로 분리**: 대고객 API는 `@MemberAuthenticated` 어노테이션으로 선택적 인증을 적용한다. 상품 조회는 어노테이션 없이 Controller로 직행하고, 좋아요는 어노테이션이 있어 Interceptor에서 인증 후 `AuthenticatedMember`가 주입된다.
 - **상품 존재 확인은 Facade에서**: `LikeFacade`가 `ProductService.getProduct()`를 호출하여 상품 존재를 확인한다 (BR-L4). cross-domain 접근은 Facade 레벨에서 조합하는 원칙을 따른다.
-- **좋아요/취소 멱등 처리**: 좋아요 등록 시 DB Unique Constraint로 중복을 방지하되, `DuplicateKeyException` 발생 시 catch하여 200 OK를 반환한다. 좋아요 취소 시 대상이 없어도(affected rows = 0) 200 OK를 반환한다. 결과 상태("좋아요 있음/없음")가 요청 의도와 일치하면 성공이다.
-- **내 좋아요 목록 조회**: `LikeFacade`가 본인 여부를 검증한 후(BR-L3: `userId = 인증된 사용자`), `LikeService`에서 `product_like` JOIN `product WHERE status = 'ACTIVE'`로 실시간 조회한다. 좋아요/취소는 즉시 반영되며, 삭제된 상품은 자동 필터링된다.
+- **좋아요/취소 멱등 처리**: 좋아요 등록 시 존재 여부를 먼저 확인하고, 이미 존재하면 즉시 반환(멱등). UNIQUE Constraint는 최종 방어선으로 유지한다. 좋아요 취소 시 대상이 없어도(affected rows = 0) 200 OK를 반환한다. 결과 상태("좋아요 있음/없음")가 요청 의도와 일치하면 성공이다.
+- **내 좋아요 목록 조회**: `GET /api/v1/likes`로 인증된 본인의 좋아요만 조회한다. `LikeFacade`가 `LikeService`에서 productId 목록을 조회한 뒤, `ProductService`로 ACTIVE 상품 정보를, `BrandService`로 브랜드명을 배치 조회하여 조합한다. userId 경로 변수와 FORBIDDEN 검증은 제거되었다 (Decision 27).
 - **좋아요 수 조회**: 상품 조회 시 `product` 테이블의 `like_count` 컬럼을 직접 반환한다. 배치가 주기적으로 갱신하므로 런타임 COUNT 부하가 없다.
 
 ---
