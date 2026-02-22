@@ -1,0 +1,8 @@
+[submodule "docs/loopers"]
+	path = docs/loopers
+	url = https://github.com/riveroverflows/loopers-docs.git
+	branch = main
+[submodule ".claude"]
+	path = .claude
+	url = https://github.com/riveroverflows/claude-docs.git
+	branch = loopers

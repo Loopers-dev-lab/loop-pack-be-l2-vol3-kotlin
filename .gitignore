@@ -40,4 +40,6 @@ out/
 .kotlin
 
 .taskmaster
-.claude
+
+.DS_Store
+**/.DS_Store
