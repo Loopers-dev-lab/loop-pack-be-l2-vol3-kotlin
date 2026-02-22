@@ -12,6 +12,10 @@ PR 템플릿 기반으로 Pull Request 본문을 작성한다.
 
 ## 작성 규칙
 
+### JIRA 티켓
+- 브랜치명에서 JIRA 티켓 번호를 추출한다 (예: `feat/SCRUM-10-...` → `SCRUM-10`)
+- JIRA 티켓 링크를 포함한다: `[SCRUM-XX](https://looper-l2.atlassian.net/browse/SCRUM-XX)`
+
 ### Summary
 - 첫 문단에 전체 작업을 1~2문장으로 요약한다
 - **주요 구현 내용:** 불릿 리스트로 핵심 구현 사항을 나열한다 (각 항목은 **굵은 키워드**: 설명 형식)
