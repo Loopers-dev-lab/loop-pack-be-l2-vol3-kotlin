@@ -19,6 +19,7 @@ import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProductApiE2ETest @Autowired constructor(
@@ -29,9 +30,12 @@ class ProductApiE2ETest @Autowired constructor(
 ) {
     companion object {
         private const val PRODUCT_LIST_ENDPOINT = "/api/v1/products"
+        private const val PRODUCT_DETAIL_ENDPOINT = "/api/v1/products/{productId}"
         private val HTTP_ENTITY = HttpEntity<Void>(HttpHeaders())
         private val PAGE_RESPONSE_TYPE =
             object : ParameterizedTypeReference<ApiResponse<ProductDto.PageResponse>>() {}
+        private val DETAIL_RESPONSE_TYPE =
+            object : ParameterizedTypeReference<ApiResponse<ProductDto.DetailResponse>>() {}
     }
 
     @AfterEach
@@ -318,6 +322,123 @@ class ProductApiE2ETest @Autowired constructor(
                 { assertThat(item?.likes).isEqualTo(10) },
                 { assertThat(item?.stockQuantity).isEqualTo(100) },
                 { assertThat(item?.brandId).isEqualTo(brand.id) },
+            )
+        }
+    }
+
+    @DisplayName("GET /api/v1/products/{productId}")
+    @Nested
+    inner class GetProduct {
+
+        @DisplayName("상품이 존재하면, 200 OK와 상품 상세 정보를 반환한다.")
+        @Test
+        fun returnsOkWithProductDetail_whenProductExists() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = productRepository.save(
+                Product(
+                    name = "에어맥스",
+                    description = "러닝화",
+                    price = 159000,
+                    likes = 10,
+                    stockQuantity = 100,
+                    brandId = brand.id,
+                ),
+            )
+
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                DETAIL_RESPONSE_TYPE,
+                product.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(data?.id).isEqualTo(product.id) },
+                { assertThat(data?.name).isEqualTo("에어맥스") },
+                { assertThat(data?.price).isEqualTo(159000) },
+                { assertThat(data?.description).isEqualTo("러닝화") },
+                { assertThat(data?.brandId).isEqualTo(brand.id) },
+                { assertThat(data?.brandName).isEqualTo("나이키") },
+                { assertThat(data?.likeCount).isEqualTo(10) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 상품을 조회하면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFound_whenProductDoesNotExist() {
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                DETAIL_RESPONSE_TYPE,
+                999999L,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("삭제된 상품을 조회하면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFound_whenProductIsDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = productRepository.save(
+                Product(name = "단종상품", description = "단종", price = 99000, likes = 5, stockQuantity = 0, brandId = brand.id),
+            )
+            product.delete()
+            productRepository.save(product)
+
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                DETAIL_RESPONSE_TYPE,
+                product.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("description이 null인 상품도 정상 조회된다.")
+        @Test
+        fun returnsOk_whenDescriptionIsNull() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = productRepository.save(
+                Product(name = "에어맥스", description = null, price = 159000, likes = 0, stockQuantity = 50, brandId = brand.id),
+            )
+
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                DETAIL_RESPONSE_TYPE,
+                product.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(data?.id).isEqualTo(product.id) },
+                { assertThat(data?.description).isNull() },
             )
         }
     }
