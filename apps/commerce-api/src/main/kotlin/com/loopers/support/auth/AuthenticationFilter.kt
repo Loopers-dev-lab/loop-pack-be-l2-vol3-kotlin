@@ -29,6 +29,7 @@ class AuthenticationFilter(
 
         private val AUTH_EXCLUDE_PATHS = listOf(
             "/api/v1/users/signup",
+                "/api/v1/brands",
             "/api/v1/examples",
             "/actuator",
             "/swagger",
