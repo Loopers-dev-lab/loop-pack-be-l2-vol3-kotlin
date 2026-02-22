@@ -240,5 +240,85 @@ class ProductApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.totalPages).isEqualTo(3) },
             )
         }
+
+        @DisplayName("상품이 없으면, 200 OK와 빈 목록을 반환한다.")
+        @Test
+        fun returnsEmptyList_whenNoProductsExist() {
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_LIST_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                PAGE_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.data?.content).isEmpty() },
+                { assertThat(response.body?.data?.totalElements).isEqualTo(0) },
+                { assertThat(response.body?.data?.totalPages).isEqualTo(0) },
+            )
+        }
+
+        @DisplayName("삭제된 상품은 목록에서 제외된다.")
+        @Test
+        fun excludesDeletedProducts() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            productRepository.save(
+                Product(name = "에어맥스", description = "러닝화", price = 159000, likes = 10, stockQuantity = 100, brandId = brand.id),
+            )
+            val deletedProduct = productRepository.save(
+                Product(name = "단종상품", description = "단종", price = 99000, likes = 5, stockQuantity = 0, brandId = brand.id),
+            )
+            deletedProduct.delete()
+            productRepository.save(deletedProduct)
+
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_LIST_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                PAGE_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.data?.content).hasSize(1) },
+                { assertThat(response.body?.data?.content?.first()?.name).isEqualTo("에어맥스") },
+            )
+        }
+
+        @DisplayName("응답에 상품의 모든 필드가 포함된다.")
+        @Test
+        fun returnsAllProductFields() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = productRepository.save(
+                Product(name = "에어맥스", description = "러닝화", price = 159000, likes = 10, stockQuantity = 100, brandId = brand.id),
+            )
+
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_LIST_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                PAGE_RESPONSE_TYPE,
+            )
+
+            // assert
+            val item = response.body?.data?.content?.first()
+            assertAll(
+                { assertThat(item?.id).isEqualTo(product.id) },
+                { assertThat(item?.name).isEqualTo("에어맥스") },
+                { assertThat(item?.description).isEqualTo("러닝화") },
+                { assertThat(item?.price).isEqualTo(159000) },
+                { assertThat(item?.likes).isEqualTo(10) },
+                { assertThat(item?.stockQuantity).isEqualTo(100) },
+                { assertThat(item?.brandId).isEqualTo(brand.id) },
+            )
+        }
     }
 }
