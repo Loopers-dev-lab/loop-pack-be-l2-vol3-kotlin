@@ -66,14 +66,14 @@ class MemberV1ApiE2ETest @Autowired constructor(
     @DisplayName("POST /api/v1/members (회원가입)")
     @Nested
     inner class Register {
-        @DisplayName("유효한 정보로 가입하면, 200 OK 응답을 받는다.")
+        @DisplayName("유효한 정보로 가입하면, 201 CREATED 응답과 마스킹된 회원 정보를 받는다.")
         @Test
-        fun returns200_whenValidInfoIsProvided() {
+        fun returns201WithMemberInfo_whenValidInfoIsProvided() {
             // arrange
             val request = registerRequest()
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Void>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>>() {}
             val response = testRestTemplate.exchange(
                 ENDPOINT_REGISTER,
                 HttpMethod.POST,
@@ -83,8 +83,10 @@ class MemberV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED) },
+                { assertThat(response.body?.data?.loginId).isEqualTo("user01") },
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
+                { assertThat(response.body?.data?.email).isEqualTo("user@example.com") },
             )
         }
 
@@ -136,6 +138,44 @@ class MemberV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
             )
+        }
+
+        @DisplayName("로그인 ID가 빈 값이면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returns400_whenLoginIdIsBlank() {
+            // arrange
+            val request = registerRequest(loginId = "")
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Void>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_REGISTER,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @DisplayName("이메일 형식이 올바르지 않으면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returns400_whenEmailIsInvalid() {
+            // arrange
+            val request = registerRequest(email = "invalid-email")
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Void>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_REGISTER,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
     }
 
@@ -215,20 +255,20 @@ class MemberV1ApiE2ETest @Autowired constructor(
     @DisplayName("PATCH /api/v1/members/me/password (비밀번호 변경)")
     @Nested
     inner class ChangePassword {
-        @DisplayName("유효한 새 비밀번호로 변경하면, 200 OK 응답을 받는다.")
+        @DisplayName("유효한 새 비밀번호로 변경하면, 200 OK 응답과 회원 정보를 받는다.")
         @Test
-        fun returns200_whenNewPasswordIsValid() {
+        fun returns200WithMemberInfo_whenNewPasswordIsValid() {
             // arrange
             testRestTemplate.exchange(
                 ENDPOINT_REGISTER,
                 HttpMethod.POST,
                 HttpEntity(registerRequest()),
-                object : ParameterizedTypeReference<ApiResponse<Void>>() {},
+                object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>>() {},
             )
             val changeRequest = MemberV1Dto.ChangePasswordRequest(newPassword = "NewPass1!")
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Void>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberResponse>>() {}
             val response = testRestTemplate.exchange(
                 ENDPOINT_CHANGE_PASSWORD,
                 HttpMethod.PATCH,
@@ -237,7 +277,11 @@ class MemberV1ApiE2ETest @Autowired constructor(
             )
 
             // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.loginId).isEqualTo("user01") },
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
+            )
         }
 
         @DisplayName("비밀번호 규칙에 맞지 않으면, 400 BAD_REQUEST 응답을 받는다.")

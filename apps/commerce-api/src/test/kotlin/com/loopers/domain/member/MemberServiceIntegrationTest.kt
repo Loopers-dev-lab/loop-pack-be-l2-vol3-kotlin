@@ -4,6 +4,7 @@ import com.loopers.infrastructure.member.MemberJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
+
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
 
@@ -60,9 +62,9 @@ class MemberServiceIntegrationTest @Autowired constructor(
             )
         }
 
-        @DisplayName("이미 존재하는 loginId로 가입하면, CONFLICT 예외가 발생한다.")
+        @DisplayName("이미 존재하는 loginId로 가입하면, DataIntegrityViolationException이 발생한다.")
         @Test
-        fun throwsConflict_whenLoginIdAlreadyExists() {
+        fun throwsDataIntegrityViolation_whenLoginIdAlreadyExists() {
             // arrange
             memberService.register(
                 loginId = validLoginId,
@@ -72,8 +74,8 @@ class MemberServiceIntegrationTest @Autowired constructor(
                 email = validEmail,
             )
 
-            // act
-            val result = assertThrows<CoreException> {
+            // act & assert
+            assertThrows<DataIntegrityViolationException> {
                 memberService.register(
                     loginId = validLoginId,
                     password = validPassword,
@@ -82,9 +84,6 @@ class MemberServiceIntegrationTest @Autowired constructor(
                     email = "other@example.com",
                 )
             }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.CONFLICT)
         }
     }
 

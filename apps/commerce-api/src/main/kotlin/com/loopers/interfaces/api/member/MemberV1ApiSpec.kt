@@ -13,7 +13,7 @@ interface MemberV1ApiSpec {
     )
     fun register(
         request: MemberV1Dto.RegisterRequest,
-    ): ApiResponse<Any>
+    ): ApiResponse<MemberV1Dto.MemberResponse>
 
     @Operation(
         summary = "내 정보 조회",
@@ -30,5 +30,5 @@ interface MemberV1ApiSpec {
     fun changePassword(
         authenticatedMember: AuthenticatedMember,
         request: MemberV1Dto.ChangePasswordRequest,
-    ): ApiResponse<Any>
+    ): ApiResponse<MemberV1Dto.MemberResponse>
 }

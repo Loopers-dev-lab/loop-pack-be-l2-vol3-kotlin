@@ -5,7 +5,6 @@ import com.loopers.domain.member.vo.LoginId
 import com.loopers.domain.member.vo.MemberName
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -23,7 +22,7 @@ class MemberService(
         name: String,
         birthday: LocalDate,
         email: String,
-    ) {
+    ): MemberModel {
         RawPassword.validate(password, birthday)
 
         val member = MemberModel(
@@ -33,11 +32,7 @@ class MemberService(
             birthday = birthday,
             email = Email.of(email),
         )
-        try {
-            memberRepository.save(member)
-        } catch (e: DataIntegrityViolationException) {
-            throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
-        }
+        return memberRepository.save(member)
     }
 
     @Transactional(readOnly = true)
