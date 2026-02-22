@@ -71,7 +71,7 @@ erDiagram
         bigint id PK "AUTO_INCREMENT"
         bigint user_id "주문한 사용자 (→ users.id)"
         bigint total_amount "총 주문 금액"
-        varchar status "주문 상태 (COMPLETED)"
+        varchar status "주문 상태 (ORDERED)"
         datetime ordered_at "주문 일시"
         datetime created_at "생성일시"
         datetime updated_at "수정일시"
@@ -96,6 +96,19 @@ erDiagram
     products ||--o{ order_items : "참조 (스냅샷)"
 ```
 
+### 공통 필드 (BaseEntity)
+
+BaseEntity는 `id`(PK), `created_at`, `updated_at`만 공통으로 제공합니다. `deleted_at`은 BaseEntity에 포함하지 않고, soft delete가 필요한 엔티티가 **직접 선언**합니다. 삭제의 맥락은 도메인마다 다르기 때문입니다(상품 판매 중지 vs 회원 탈퇴 vs 주문 취소). ERD에는 각 테이블에서 **비즈니스 의미가 있는 필드만** 표기합니다.
+
+| 테이블 | BaseEntity 상속 | deleted_at | 비고 |
+|--------|:---:|:---:|------|
+| users | ✅ | ❌ | 회원 탈퇴 미구현 (→ 정책 16) |
+| brands | ✅ | ✅ 직접 선언 | soft delete — 비즈니스 로직에 영향 |
+| products | ✅ | ✅ 직접 선언 | soft delete — 비즈니스 로직에 영향 |
+| orders | ✅ | ❌ | 주문은 삭제하지 않고 상태(status)로 관리 |
+| likes | ❌ | ❌ | 물리 삭제(hard delete) 대상. `updated_at`도 불필요. `id`와 `created_at`만 직접 정의. (→ 정책 12) |
+| order_items | ❌ | ❌ | 불변 스냅샷 — 독자적인 시점 관리 불필요 |
+
 ### 핵심 포인트
 
 **영속성 구조:**
@@ -103,6 +116,7 @@ erDiagram
 - **price가 bigint인 이유**: 원 단위 정수로 저장하여 부동소수점 연산 오류를 방지합니다. 소수점 금액이 필요 없는 한국 원화 기반 서비스에 적합합니다. (→ 정책 29)
 - **likes 테이블에 deleted_at이 없는 이유**: 좋아요 취소 시 물리적으로 삭제(hard delete)합니다. 등록/취소가 빈번하여 soft delete를 적용하면 데이터가 빠르게 누적됩니다. (→ 정책 12)
 - **orders 테이블에 deleted_at이 없는 이유**: 주문은 거래 기록이므로 삭제하지 않습니다. 추후 취소 기능이 추가되어도 status를 CANCELLED로 변경하는 방식으로 처리합니다.
+- **orders.status가 varchar인 이유**: `OrderStatus` enum을 JPA `@Enumerated(STRING)`으로 저장합니다. DB에는 `"ORDERED"` 같은 문자열로 기록되어 가독성이 높고, 새 상태 추가 시 기존 데이터 마이그레이션이 불필요합니다.
 - **order_items 테이블에 created_at/updated_at이 없는 이유**: 주문 항목은 주문 확정 시 생성되고 이후 변경되지 않는 불변 스냅샷입니다. 생성 시점은 소속 주문의 `ordered_at`으로 충분히 추적 가능하며, 수정 자체가 발생하지 않으므로 `updated_at`도 불필요합니다.
 
 **참조 관계 (DB FK 제약 없음):**
@@ -140,10 +154,12 @@ DB FK 제약을 사용하지 않는 이유:
 | 테이블 | 인덱스/제약 | 이유 |
 |--------|-----------|------|
 | `brands` | 활성 브랜드 기준 name 유니크 | MySQL 8.0은 partial unique index를 지원하지 않으므로, 애플리케이션 레벨에서 "deleted_at IS NULL인 브랜드 중 동일 name" 여부를 검증합니다. (→ 정책 23) |
-| `products` | INDEX(brand_id) | 브랜드별 상품 조회 |
-| `products` | INDEX(deleted_at, created_at) | 삭제되지 않은 상품 최신순 조회 (→ 정책 26) |
-| `products` | INDEX(deleted_at, price) | 삭제되지 않은 상품 가격순 조회 |
-| `products` | INDEX(deleted_at, like_count) | 삭제되지 않은 상품 인기순 조회 |
+| `products` | INDEX(deleted_at, created_at) | 전체 상품 최신순 조회 (→ 정책 26) |
+| `products` | INDEX(deleted_at, price) | 전체 상품 가격순 조회 |
+| `products` | INDEX(deleted_at, like_count) | 전체 상품 인기순 조회 |
+| `products` | INDEX(brand_id, deleted_at, created_at) | 브랜드 필터 + 최신순 (단독 brand_id 조회도 커버) |
+| `products` | INDEX(brand_id, deleted_at, price) | 브랜드 필터 + 가격순 |
+| `products` | INDEX(brand_id, deleted_at, like_count) | 브랜드 필터 + 인기순 |
 | `likes` | UNIQUE(user_id, product_id) | 중복 좋아요 DB 레벨 방지 (→ 정책 13) |
 | `likes` | INDEX(user_id) | 사용자별 좋아요 목록 조회 |
 | `orders` | INDEX(user_id, ordered_at) | 사용자별 기간 주문 조회 (→ 정책 6) |
@@ -172,6 +188,6 @@ DB FK 제약을 사용하지 않는 이유:
 | 좋아요 중복 불가 | DB UNIQUE 제약 + 애플리케이션 검증 이중 방어 | (→ 정책 13) |
 | likeCount = 실제 좋아요 수 | 좋아요 등록/취소 시 동기적 +1/-1 | 트랜잭션 내 처리 (→ 정책 15) |
 | 재고 음수 방지 | 도메인 엔티티에서 검증 (Product.decreaseStock) | (→ 정책 1, 2) |
-| 주문 금액 = 서버 계산 | Order.calculateTotalAmount()에서 계산 | 클라이언트 금액 무시 (→ 정책 28) |
+| 주문 금액 = 서버 계산 | Facade에서 상품 가격 × 수량으로 계산 후 Order에 전달 | 클라이언트 금액 무시 (→ 정책 28) |
 | 스냅샷 불변성 | order_items 수정 불가 (created_at/updated_at 없음) | (→ 정책 3) |
 | 참조 무결성 | 애플리케이션 레벨 검증 (DB FK 제약 없음) | Service/ArgumentResolver에서 보장 |

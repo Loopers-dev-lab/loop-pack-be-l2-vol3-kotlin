@@ -32,8 +32,9 @@ Client → Controller → [ArgumentResolver] → Facade → Service → Domain �
 - **어드민 API**: LDAP 헤더 기반 (고객 인증과 완전 분리)
 
 **트랜잭션 소유 원칙**:
-- **단일 도메인 흐름**: Service가 `@Transactional`을 소유합니다 (원칙).
-- **다중 도메인 흐름** (좋아요 등록/취소, 브랜드 삭제 등): Facade가 여러 Service를 하나의 흐름으로 조합해야 합니다. 이 경우 Facade에 `@Transactional`을 적용하여 여러 Service 호출을 하나의 트랜잭션으로 묶습니다. Service 메서드는 기본적으로 `@Transactional(propagation = REQUIRED)`이므로 Facade의 트랜잭션에 참여합니다.
+- **Facade가 여러 Service를 호출하는 경우**: Facade가 `@Transactional`을 소유합니다. 좋아요 등록/취소(LikeService + ProductService), 브랜드 삭제(BrandService + ProductService)가 해당됩니다. Service 메서드는 `@Transactional(propagation = REQUIRED)`이므로 Facade의 트랜잭션에 참여합니다.
+- **Facade가 단일 Service에 쓰기를 위임하는 경우**: Service가 `@Transactional`을 소유합니다. 주문 생성의 확정 단계가 해당됩니다 — Facade는 읽기(전수 조사)만 수행하고, 모든 쓰기 작업을 `OrderService.placeOrder()` 단일 호출에 위임합니다. Service 내부에서 Product 재고 차감과 Order 생성을 원자적으로 처리합니다.
+- **단일 도메인 조회 / 단순 CRUD**: Service가 `@Transactional`을 소유합니다 (기본 원칙).
 
 ---
 
@@ -395,7 +396,7 @@ sequenceDiagram
         %% Step 3: 인기도 동기화
         Facade->>ProductSvc: decreaseLikeCount(productId)
         ProductSvc->>Repo: UPDATE products<br/>SET like_count = GREATEST(like_count - 1, 0)<br/>WHERE id = ?
-        Note right of Repo: GREATEST로 음수 방어
+        Note right of Repo: GREATEST로 음수 방어 (2차 안전장치)<br/>deleted_at 무관하게 id로 직접 UPDATE<br/>(soft-deleted 상품도 감소 가능)
     end
 
     Facade-->>Controller: void
@@ -419,4 +420,5 @@ sequenceDiagram
 
 **구현 시 참고:**
 - **Hard Delete**: `LikeRepository.delete()` — soft delete가 아닌 물리 삭제입니다. 법적 보존 의무가 없고, 등록/취소가 빈번하여 레코드 누적을 방지합니다.
-- **likeCount 음수 방어**: `GREATEST(like_count - 1, 0)`으로 DB 레벨에서 최소값 0을 보장합니다. 동시성 버그로 인한 음수를 방지합니다.
+- **likeCount 이중 방어**: 도메인 모델(`Product.decreaseLikeCount()`)에서 음수 검증을 1차 수행하고, DB 레벨(`GREATEST(like_count - 1, 0)`)에서 2차 안전장치를 둡니다. 좋아요 취소처럼 Product 엔티티를 메모리에 로드하지 않고 직접 SQL UPDATE를 사용하는 경로에서는 DB 안전장치가 실질적 방어선이 됩니다.
+- **soft-deleted 상품 인기도 감소**: 좋아요 취소 시 상품 존재 여부를 확인하지 않으므로, `UPDATE ... WHERE id = ?`는 `deleted_at` 필터 없이 실행됩니다. soft-deleted 상품의 인기도도 정상적으로 감소합니다.
