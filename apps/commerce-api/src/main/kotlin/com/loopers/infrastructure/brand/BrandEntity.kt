@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.brand
 
-import com.loopers.domain.BaseEntity
+import com.loopers.support.jpa.BaseEntity
 import com.loopers.domain.brand.BrandStatus
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

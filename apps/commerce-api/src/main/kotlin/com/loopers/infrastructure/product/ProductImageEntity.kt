@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.product
 
-import com.loopers.domain.BaseEntity
+import com.loopers.support.jpa.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType

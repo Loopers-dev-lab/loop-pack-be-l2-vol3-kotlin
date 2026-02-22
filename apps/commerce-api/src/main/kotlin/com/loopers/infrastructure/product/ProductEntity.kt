@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.product
 
-import com.loopers.domain.BaseEntity
+import com.loopers.support.jpa.BaseEntity
 import com.loopers.domain.product.ProductStatus
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column

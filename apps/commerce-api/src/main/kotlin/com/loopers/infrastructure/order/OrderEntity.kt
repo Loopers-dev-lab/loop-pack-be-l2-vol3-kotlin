@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.order
 
-import com.loopers.domain.BaseEntity
+import com.loopers.support.jpa.BaseEntity
 import com.loopers.domain.order.OrderStatus
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column

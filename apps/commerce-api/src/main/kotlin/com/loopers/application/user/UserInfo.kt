@@ -18,7 +18,7 @@ data class UserInfo(
             return UserInfo(
                 id = id,
                 loginId = user.loginId.value,
-                name = user.name.value,
+                name = user.name.masked(),
                 birthDate = user.birthDate.value.toString(),
                 email = user.email.value,
                 gender = user.gender.name,

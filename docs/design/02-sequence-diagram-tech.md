@@ -31,8 +31,9 @@
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as OrderAppService
+    participant App as CreateOrderUseCase
     participant ProdRepo as ProductRepository
+    participant BrandRepo as BrandRepository
     participant OrdRepo as OrderRepository
     participant DB as Database
 
@@ -44,14 +45,16 @@ sequenceDiagram
         App->>ProdRepo: findByIdForUpdate(productId)
         ProdRepo->>DB: SELECT * FROM product WHERE id=? FOR UPDATE
         DB-->>ProdRepo: Product (row locked)
-    end
 
-    alt 상품 없음
-        Note over App: ═══ 롤백 (락 해제) ═══
-        App-->>App: ProductNotFoundException
-    end
+        alt 상품 없음 or 삭제됨
+            Note over App: ═══ 롤백 (락 해제) ═══
+            App-->>App: ProductNotFoundException
+        end
 
-    loop 각 상품
+        App->>BrandRepo: findById(brandId)
+
+        App->>App: product.assertOrderable(qty) + OrderItem 스냅샷 생성
+
         App->>ProdRepo: decreaseStock(id, qty)
         ProdRepo->>DB: UPDATE product SET stock = stock - ? WHERE id = ? AND stock >= ?
         DB-->>ProdRepo: affectedRows
@@ -140,15 +143,15 @@ FOR UPDATE 없이 조건부 UPDATE만 사용한 경우:
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as LikeAppService
+    participant App as AddLikeUseCase
     participant LikeRepo as LikeRepository
     participant ProdRepo as ProductRepository
     participant DB as Database
 
     Note over App: ═══ @Transactional 시작 ═══
 
-    App->>LikeRepo: insertIgnore(userId, productId)
-    LikeRepo->>DB: INSERT INTO likes VALUES (?, ?) ON CONFLICT DO NOTHING
+    App->>LikeRepo: addLike(userId, productId)
+    LikeRepo->>DB: INSERT IGNORE INTO likes (user_id, product_id, created_at) VALUES (?, ?, NOW())
     DB-->>LikeRepo: inserted (boolean)
 
     alt inserted = false (이미 존재)
@@ -177,7 +180,7 @@ sequenceDiagram
 → 문제: 1과 2 사이에 동시 INSERT 가능
 
 ✅ 개선 (DB 레벨)
-1. INSERT ON CONFLICT DO NOTHING
+1. INSERT IGNORE
 2. inserted 결과로 분기
 → 원자적 처리
 ```
@@ -185,8 +188,8 @@ sequenceDiagram
 ### 동시 요청 시나리오
 
 ```
-[요청A] INSERT ON CONFLICT → inserted=true → likeCount+1
-[요청B] INSERT ON CONFLICT → inserted=false → 아무것도 안 함
+[요청A] INSERT IGNORE → inserted=true → likeCount+1
+[요청B] INSERT IGNORE → inserted=false → 아무것도 안 함
 → 최종: 좋아요 1개, likeCount +1 (정확)
 ```
 
@@ -218,14 +221,14 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as LikeAppService
+    participant App as RemoveLikeUseCase
     participant LikeRepo as LikeRepository
     participant ProdRepo as ProductRepository
     participant DB as Database
 
     Note over App: ═══ @Transactional 시작 ═══
 
-    App->>LikeRepo: deleteByUserIdAndProductId(userId, productId)
+    App->>LikeRepo: removeLike(userId, productId)
     LikeRepo->>DB: DELETE FROM likes WHERE user_id = ? AND product_id = ?
     DB-->>LikeRepo: deletedCount
 
@@ -236,7 +239,7 @@ sequenceDiagram
 
     App->>ProdRepo: decrementLikeCount(productId)
     ProdRepo->>DB: UPDATE product SET like_count = like_count - 1 WHERE like_count > 0
-    Note right of DB: GREATEST로 음수 방지
+    Note right of DB: WHERE 조건으로 음수 방지
 
     Note over App: ═══ 커밋 ═══
 ```
@@ -255,7 +258,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as OrderAppService
+    participant App as CancelOrderUseCase
     participant Domain as Order
     participant OrdRepo as OrderRepository
     participant ProdRepo as ProductRepository
@@ -327,8 +330,8 @@ Q: 왜 상태 변경이 재고 복구보다 먼저인가?
 | ProductRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `ProductNotFoundException` |
 | ProductRepository | `decreaseStock(id, qty)` | `UPDATE ... SET stock = stock - ? WHERE stock >= ?` | `InsufficientStockException` |
 | ProductRepository | `incrementLikeCount(id)` | `UPDATE ... SET like_count = like_count + 1` | - |
-| ProductRepository | `decrementLikeCount(id)` | `UPDATE ... SET like_count = GREATEST(like_count - 1, 0)` | - |
-| LikeRepository | `insertIgnore(...)` | `INSERT ... ON CONFLICT DO NOTHING` | - |
+| ProductRepository | `decrementLikeCount(id)` | `UPDATE ... SET like_count = like_count - 1 WHERE like_count > 0` | - |
+| LikeRepository | `addLike(userId, productId)` | `INSERT IGNORE INTO likes ...` | - |
 | OrderRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `OrderNotFoundException` |
 
 ---
@@ -349,6 +352,6 @@ Q: 왜 상태 변경이 재고 복구보다 먼저인가?
 | 흐름 | 전략 | 구현 | 트레이드오프 |
 |------|------|------|------------|
 | 주문 생성 | 비관적 락 + 조건부 UPDATE | `FOR UPDATE` + `WHERE stock >= ?` | 안전하지만 락 경합 가능. 조건부 UPDATE만으로 전환 가능 |
-| 좋아요 등록 | DB 레벨 멱등성 | `INSERT ON CONFLICT DO NOTHING` | 락 없이 원자적 처리. Soft Delete 레이스는 허용 |
+| 좋아요 등록 | DB 레벨 멱등성 | `INSERT IGNORE DO NOTHING` | 락 없이 원자적 처리. Soft Delete 레이스는 허용 |
 | 좋아요 취소 | affected count | `DELETE` 후 count 확인 | 락 없이 멱등 보장 |
 | 주문 취소 | 비관적 락 | `FOR UPDATE` (Order만) | Product 락 불필요 (증가 연산) |

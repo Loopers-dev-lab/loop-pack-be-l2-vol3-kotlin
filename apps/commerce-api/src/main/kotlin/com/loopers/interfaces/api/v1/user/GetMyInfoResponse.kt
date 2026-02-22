@@ -12,14 +12,10 @@ data class GetMyInfoResponse(
     companion object {
         fun from(userInfo: UserInfo) = GetMyInfoResponse(
             loginId = userInfo.loginId,
-            name = maskName(userInfo.name),
+            name = userInfo.name,
             birthDate = userInfo.birthDate,
             email = userInfo.email,
             gender = userInfo.gender,
         )
-
-        private fun maskName(name: String): String {
-            return if (name.length <= 1) "*" else name.dropLast(1) + "*"
-        }
     }
 }

@@ -384,7 +384,7 @@
 | DELETE | `/products/{id}/likes` | O |
 | GET | `/users/{userId}/likes?page=0&size=20` | O |
 | POST | `/orders` | O |
-| GET | `/orders?startAt={date}&endAt={date}&page=0&size=20` | O |
+| GET | `/orders?startAt={yyyy-MM-dd}&endAt={yyyy-MM-dd}&page=0&size=20` | O |
 | GET | `/orders/{id}` | O |
 | DELETE | `/orders/{id}` | O |
 

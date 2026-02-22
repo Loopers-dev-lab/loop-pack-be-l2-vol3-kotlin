@@ -601,12 +601,22 @@ class OrderItemFactory {
 > 트랜잭션 경계를 소유하고, 도메인 객체를 조합하여 유스케이스를 수행한다.
 > 상태 전이 시점을 결정하되, 전이 규칙 자체는 도메인에 위임한다.
 
-| AppService | 주요 책임                                                                    |
-|------------|--------------------------------------------------------------------------|
-| BrandAppService | 브랜드 CRUD. 삭제 시 연쇄 Soft Delete 조율 (BR-B02)                                |
-| ProductAppService | 상품 CRUD. 브랜드 존재 확인 (BR-P01). 상품 조회 시 Brand 정보 합성                        |
-| LikeAppService | 좋아요 등록/취소. 상품 존재 확인 (BR-L04), 카운트 증감 조율                                  |
-| OrderAppService | 주문 생성 ( 재고 차감 → 스냅샷 → PENDING 저장 ), 주문 취소 ( 권한/상태 검증→cancel→재고 복구 ) |
+| UseCase | 주요 책임 |
+|---------|----------|
+| RegisterBrandUseCase | 브랜드 등록. 브랜드명 중복 검사 (BR-B01) |
+| GetBrandUseCase / GetBrandListUseCase | 브랜드 조회 (단건/목록) |
+| UpdateBrandUseCase | 브랜드 수정 |
+| DeleteBrandUseCase | 브랜드 삭제. 연쇄 Soft Delete 조율 (BR-B02) |
+| RegisterProductUseCase | 상품 등록. 브랜드 존재 확인 (BR-P01) |
+| GetProductUseCase / GetProductListUseCase | 상품 조회. Brand 정보 합성 |
+| UpdateProductUseCase | 상품 수정 |
+| DeleteProductUseCase | 상품 삭제 |
+| AddLikeUseCase | 좋아요 등록. 상품 존재 확인 (BR-L04), 카운트 증가 |
+| RemoveLikeUseCase | 좋아요 취소. 카운트 감소 |
+| GetMyLikesUseCase | 내 좋아요 목록 조회 (페이징) |
+| CreateOrderUseCase | 주문 생성. 재고 차감 → 스냅샷 → PENDING 저장 |
+| GetOrderUseCase | 주문 조회 (단건/목록/어드민). 권한 검증 (BR-O07), 날짜 필터 + 페이징 |
+| CancelOrderUseCase | 주문 취소. 권한/상태 검증 → cancel → 재고 복구 |
 
 ---
 

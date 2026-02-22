@@ -62,7 +62,7 @@ class GetMyLikesUseCaseIntegrationTest {
         addLikeUseCase.add(userId, productId1)
         addLikeUseCase.add(userId, productId2)
 
-        val result = getMyLikesUseCase.getMyLikes(userId, DEFAULT_PAGE, DEFAULT_SIZE)
+        val result = getMyLikesUseCase.getMyLikes(userId, userId, DEFAULT_PAGE, DEFAULT_SIZE)
 
         assertThat(result.content).hasSize(2)
         assertThat(result.totalElements).isEqualTo(2)
@@ -70,7 +70,7 @@ class GetMyLikesUseCaseIntegrationTest {
 
     @Test
     fun `좋아요가 없으면 빈 목록을 반환한다`() {
-        val result = getMyLikesUseCase.getMyLikes(userId, DEFAULT_PAGE, DEFAULT_SIZE)
+        val result = getMyLikesUseCase.getMyLikes(userId, userId, DEFAULT_PAGE, DEFAULT_SIZE)
 
         assertThat(result.content).isEmpty()
         assertThat(result.totalElements).isEqualTo(0)
