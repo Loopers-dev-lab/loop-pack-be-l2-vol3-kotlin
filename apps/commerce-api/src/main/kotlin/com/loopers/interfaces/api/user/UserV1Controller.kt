@@ -42,7 +42,6 @@ class UserV1Controller(
         @RequestHeader(value = "X-Loopers-LoginId") loginId: String,
         @RequestHeader(value = "X-Loopers-LoginPw") loginPw: String,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        userService.authenticate(loginId, loginPw)
         return userService.getUser(loginId)
             .let { UserInfo.from(it) }
             .let { UserV1Dto.UserResponse.from(it) }
@@ -56,7 +55,6 @@ class UserV1Controller(
         @RequestHeader(value = "X-Loopers-LoginPw") loginPw: String,
         @RequestBody request: UserV1Dto.UpdatePasswordRequest,
     ) {
-        userService.authenticate(loginId, loginPw)
         userService.updatePassword(
             UpdatePasswordCommand(
                 username = loginId,

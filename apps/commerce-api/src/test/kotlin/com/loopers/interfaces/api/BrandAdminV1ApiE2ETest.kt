@@ -181,4 +181,25 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
         // assert
         assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
     }
+
+    @DisplayName("잘못된 LDAP 값이면, 401 UNAUTHORIZED 응답을 받는다.")
+    @Test
+    fun returnsUnauthorizedWhenInvalidLdapValueIsProvided() {
+        // arrange
+        val request = BrandV1AdminDto.RegisterRequest(
+            name = DEFAULT_BRAND_NAME,
+            description = DEFAULT_BRAND_DESCRIPTION,
+            logoUrl = DEFAULT_BRAND_LOGO_URL,
+        )
+        val headers = HttpHeaders().apply {
+            set("X-Loopers-Ldap", "invalid.value")
+        }
+
+        // act
+        val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+        val response = testRestTemplate.exchange(ENDPOINT_BASE, HttpMethod.POST, HttpEntity(request, headers), responseType)
+
+        // assert
+        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+    }
 }
