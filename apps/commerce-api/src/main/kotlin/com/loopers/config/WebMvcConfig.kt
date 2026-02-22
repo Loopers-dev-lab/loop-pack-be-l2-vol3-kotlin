@@ -19,7 +19,7 @@ class WebMvcConfig(
         registry.addInterceptor(memberAuthenticationInterceptor)
             .addPathPatterns("/api/**")
         registry.addInterceptor(adminAuthenticationInterceptor)
-            .addPathPatterns("/api/**")
+            .addPathPatterns("/api-admin/**")
     }
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {

@@ -44,6 +44,13 @@ spring:
     activate:
       on-profile: dev
 
+server:
+  tomcat:
+    threads:
+      max: 50 # Virtual Threads 환경에서 carrier thread 적정화
+    max-connections: 10000
+    accept-count: 200
+
 ---
 spring:
   config:
