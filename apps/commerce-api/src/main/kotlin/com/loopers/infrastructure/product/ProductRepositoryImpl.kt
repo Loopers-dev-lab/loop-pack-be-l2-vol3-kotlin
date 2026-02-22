@@ -22,4 +22,8 @@ class ProductRepositoryImpl(
             productJpaRepository.findAllByDeletedAtIsNull(pageable)
         }
     }
+
+    override fun findById(id: Long): Product? {
+        return productJpaRepository.findByIdAndDeletedAtIsNull(id)
+    }
 }

@@ -5,6 +5,7 @@ import com.loopers.interfaces.api.ApiResponse
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -25,6 +26,13 @@ class ProductController(
         val pageable = PageRequest.of(page, size, toSort(sort))
         return productFacade.getProducts(brandId, pageable)
             .let { ProductDto.PageResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/{productId}")
+    override fun getProduct(@PathVariable productId: Long): ApiResponse<ProductDto.DetailResponse> {
+        return productFacade.getProduct(productId)
+            .let { ProductDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 

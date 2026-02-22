@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface ProductJpaRepository : JpaRepository<Product, Long> {
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<Product>
     fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long, pageable: Pageable): Page<Product>
+    fun findByIdAndDeletedAtIsNull(id: Long): Product?
 }

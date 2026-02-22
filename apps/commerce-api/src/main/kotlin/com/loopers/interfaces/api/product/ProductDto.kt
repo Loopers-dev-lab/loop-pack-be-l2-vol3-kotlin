@@ -1,9 +1,34 @@
 package com.loopers.interfaces.api.product
 
+import com.loopers.application.product.ProductDetailInfo
 import com.loopers.application.product.ProductInfo
 import org.springframework.data.domain.Page
 
 class ProductDto {
+    data class DetailResponse(
+        val id: Long,
+        val name: String,
+        val price: Long,
+        val description: String?,
+        val brandId: Long,
+        val brandName: String,
+        val likeCount: Int,
+    ) {
+        companion object {
+            fun from(info: ProductDetailInfo): DetailResponse {
+                return DetailResponse(
+                    id = info.id,
+                    name = info.name,
+                    price = info.price,
+                    description = info.description,
+                    brandId = info.brandId,
+                    brandName = info.brandName,
+                    likeCount = info.likeCount,
+                )
+            }
+        }
+    }
+
     data class PageResponse(
         val content: List<ListItem>,
         val page: Int,
