@@ -57,4 +57,66 @@ class BrandModelTest {
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @DisplayName("수정")
+    @Nested
+    inner class Update {
+
+        @DisplayName("유효한 정보가 주어지면, 정상적으로 수정된다.")
+        @Test
+        fun updatesBrandModelWhenValidParametersAreProvided() {
+            // arrange
+            val brandModel = createBrandModel()
+            val expectedName = "아디다스"
+            val expectedDescription = "스포츠 브랜드"
+            val expectedLogoUrl = "https://example.com/adidas-logo.png"
+
+            // act
+            brandModel.update(
+                newName = expectedName,
+                newDescription = expectedDescription,
+                newLogoUrl = expectedLogoUrl,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(brandModel.name).isEqualTo(expectedName) },
+                { assertThat(brandModel.description).isEqualTo(expectedDescription) },
+                { assertThat(brandModel.logoUrl).isEqualTo(expectedLogoUrl) },
+            )
+        }
+
+        @DisplayName("이름 없이 호출하면, 이름은 기존 값을 유지한다.")
+        @Test
+        fun keepsExistingNameWhenNewNameIsNotProvided() {
+            // arrange
+            val brandModel = createBrandModel()
+            val expectedDescription = "독일 스포츠 브랜드"
+
+            // act
+            brandModel.update(newDescription = expectedDescription)
+
+            // assert
+            assertAll(
+                { assertThat(brandModel.name).isEqualTo(DEFAULT_NAME) },
+                { assertThat(brandModel.description).isEqualTo(expectedDescription) },
+                { assertThat(brandModel.logoUrl).isEqualTo(DEFAULT_LOGO_URL) },
+            )
+        }
+
+        @DisplayName("이름이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenNameIsBlank() {
+            // arrange
+            val brandModel = createBrandModel()
+
+            // act
+            val result = assertThrows<CoreException> {
+                brandModel.update(newName = "   ")
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
 }

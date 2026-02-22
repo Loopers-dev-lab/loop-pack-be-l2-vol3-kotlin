@@ -40,4 +40,10 @@ class BrandV1AdminDto {
             }
         }
     }
+
+    data class UpdateRequest(
+        val newName: String? = null,
+        val newDescription: String? = null,
+        val newLogoUrl: String? = null,
+    )
 }

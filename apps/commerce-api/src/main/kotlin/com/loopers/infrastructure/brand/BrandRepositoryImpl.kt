@@ -8,6 +8,10 @@ import org.springframework.stereotype.Component
 class BrandRepositoryImpl(
     private val brandJpaRepository: BrandJpaRepository,
 ): BrandRepository {
+    override fun findById(id: Long): BrandModel? {
+        return brandJpaRepository.findById(id).orElse(null)
+    }
+
     override fun findByName(name: String): BrandModel? {
         return brandJpaRepository.findByName(name)
     }

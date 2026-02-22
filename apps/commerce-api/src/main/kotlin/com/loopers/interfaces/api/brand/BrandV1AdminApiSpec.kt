@@ -36,7 +36,7 @@ interface BrandV1AdminApiSpec {
     fun getBrand(
         ldap: String,
         brandId: Long,
-    ): ApiResponse<BrandV1AdminDto.BrandResponse>
+    ): ApiResponse<BrandV1AdminDto.BrandDetailResponse>
 
     @Operation(
         summary = "브랜드 수정",
@@ -46,7 +46,7 @@ interface BrandV1AdminApiSpec {
     fun modifyBrand(
         ldap: String,
         brandId: Long,
-        request: BrandV1AdminDto.RegisterRequest,
+        request: BrandV1AdminDto.UpdateRequest,
     )
 
     @Operation(

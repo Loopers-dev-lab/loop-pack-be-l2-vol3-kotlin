@@ -26,6 +26,19 @@ class BrandModel(
         validateName(name)
     }
 
+    fun update(
+        newName: String? = this.name,
+        newDescription: String? = this.description,
+        newLogoUrl: String? = this.logoUrl,
+    ) {
+        newName?.let {
+            validateName(it)
+            this.name = it
+        }
+        this.description = newDescription
+        this.logoUrl = newLogoUrl
+    }
+
     private fun validateName(name: String) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "이름은 비어있을 수 없습니다.")

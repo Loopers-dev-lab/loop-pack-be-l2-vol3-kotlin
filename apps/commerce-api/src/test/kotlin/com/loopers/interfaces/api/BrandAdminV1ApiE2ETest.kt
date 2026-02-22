@@ -28,7 +28,7 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
 ){
     companion object {
         private const val LDAP_HEADER = "loopers.admin"
-        private const val ENDPOINT_REGISTER = "/api-admin/v1/brands"
+        private const val ENDPOINT_BASE = "/api-admin/v1/brands"
 
         private const val DEFAULT_BRAND_NAME = "brand"
         private const val DEFAULT_BRAND_DESCRIPTION = "description"
@@ -74,7 +74,7 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
             val headers = createAuthAdminHeader()
 
             // act
-            val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request, headers), Void::class.java)
+            val response = testRestTemplate.exchange(ENDPOINT_BASE, HttpMethod.POST, HttpEntity(request, headers), Void::class.java)
 
             // assert
             assertAll(
@@ -98,7 +98,66 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
             // act
             val headers = createAuthAdminHeader()
             val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1AdminDto.BrandResponse>>() {}
-            val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request, headers), responseType)
+            val response = testRestTemplate.exchange(ENDPOINT_BASE, HttpMethod.POST, HttpEntity(request, headers), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        }
+    }
+
+    @DisplayName("PUT /api-admin/v1/brands/{brandId}")
+    @Nested
+    inner class ModifyBrand {
+
+        @DisplayName("유효한 정보가 주어지면, 204 NO_CONTENT를 반환한다.")
+        @Test
+        fun returnsNoContentWhenValidInfoIsProvided() {
+            // arrange
+            val brand = registerBrand()
+            val request = BrandV1AdminDto.UpdateRequest(
+                newName = "updated-brand",
+                newDescription = "updated-description",
+                newLogoUrl = "https://logo.example/updated",
+            )
+            val headers = createAuthAdminHeader()
+            val url = "$ENDPOINT_BASE/${brand.id}"
+
+            // act
+            val response = testRestTemplate.exchange(url, HttpMethod.PUT, HttpEntity(request, headers), Void::class.java)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+        }
+
+        @DisplayName("존재하지 않는 브랜드이면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFoundWhenBrandDoesNotExist() {
+            // arrange
+            val request = BrandV1AdminDto.UpdateRequest(newName = "updated-brand")
+            val headers = createAuthAdminHeader()
+            val url = "$ENDPOINT_BASE/999"
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(url, HttpMethod.PUT, HttpEntity(request, headers), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
+
+        @DisplayName("이미 존재하는 이름으로 수정하면, 409 CONFLICT 응답을 받는다.")
+        @Test
+        fun returnsConflictWhenDuplicateNameIsProvided() {
+            // arrange
+            registerBrand()
+            val anotherBrand = registerBrand(name = "another-brand")
+            val request = BrandV1AdminDto.UpdateRequest(newName = DEFAULT_BRAND_NAME)
+            val headers = createAuthAdminHeader()
+            val url = "$ENDPOINT_BASE/${anotherBrand.id}"
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(url, HttpMethod.PUT, HttpEntity(request, headers), responseType)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
@@ -117,7 +176,7 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
 
         // act
         val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-        val response = testRestTemplate.exchange(ENDPOINT_REGISTER, HttpMethod.POST, HttpEntity(request), responseType)
+        val response = testRestTemplate.exchange(ENDPOINT_BASE, HttpMethod.POST, HttpEntity(request), responseType)
 
         // assert
         assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
