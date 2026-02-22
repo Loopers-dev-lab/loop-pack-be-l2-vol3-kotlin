@@ -40,6 +40,38 @@ Controller → Facade → Service → Domain ← Repository
 - 도메인/서비스는 구현 세부사항 모름
 - `@Repository` 어노테이션 사용
 
+## 패키지 구성 (계층 + 도메인)
+
+```
+/interfaces/api/{domain}/     ← Controller, DTO, ApiSpec
+/application/{domain}/         ← Facade, Info(응답 DTO)
+/domain/{domain}/              ← Entity, VO, Domain Service, Repository(interface)
+/infrastructure/{domain}/      ← RepositoryImpl, JpaRepository
+/support/error/                ← Exception, ErrorCode
+```
+
+예시 (Product 도메인):
+```
+domain/product/Product.kt              ← Entity
+domain/product/Money.kt                ← Value Object
+domain/product/Stock.kt                ← Value Object
+domain/product/ProductRepository.kt    ← Repository interface
+domain/product/ProductService.kt       ← Service
+infrastructure/product/ProductRepositoryImpl.kt
+infrastructure/product/ProductJpaRepository.kt
+application/product/ProductFacade.kt
+application/product/ProductInfo.kt
+interfaces/api/product/ProductV1Controller.kt
+interfaces/api/product/ProductV1Dto.kt
+```
+
+## ID 참조 원칙
+
+- 모든 엔티티는 다른 엔티티를 직접 참조하지 않고 **ID(Long)만 보유**
+- `@OneToMany`, `@ManyToOne`, `@ManyToMany` 사용하지 않음
+- 연관 데이터가 필요하면 Facade에서 각 Service를 호출하여 조합
+- 인프라 레이어에서 JOIN이 필요하면 별도 쿼리로 해결
+
 ## DTO / Command / Response
 
 - Controller에서 Request DTO를 받아 Facade에 전달
