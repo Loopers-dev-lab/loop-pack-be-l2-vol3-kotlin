@@ -25,7 +25,7 @@ class ApiControllerAdvice {
     private val log = LoggerFactory.getLogger(ApiControllerAdvice::class.java)
 
     companion object {
-        private val AUTH_HEADERS = setOf("X-Loopers-LoginId", "X-Loopers-LoginPw")
+        private val AUTH_HEADERS = setOf("X-Loopers-LoginId", "X-Loopers-LoginPw", "X-Loopers-Ldap")
     }
 
     @ExceptionHandler
