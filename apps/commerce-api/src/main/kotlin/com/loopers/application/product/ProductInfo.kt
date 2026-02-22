@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
 
 data class ProductInfo(
@@ -21,6 +22,30 @@ data class ProductInfo(
                 likes = product.likes,
                 stockQuantity = product.stockQuantity,
                 brandId = product.brandId,
+            )
+        }
+    }
+}
+
+data class ProductDetailInfo(
+    val id: Long,
+    val name: String,
+    val price: Long,
+    val description: String?,
+    val brandId: Long,
+    val brandName: String,
+    val likeCount: Int,
+) {
+    companion object {
+        fun from(product: Product, brand: Brand): ProductDetailInfo {
+            return ProductDetailInfo(
+                id = product.id,
+                name = product.name,
+                price = product.price,
+                description = product.description,
+                brandId = brand.id,
+                brandName = brand.name,
+                likeCount = product.likes,
             )
         }
     }
