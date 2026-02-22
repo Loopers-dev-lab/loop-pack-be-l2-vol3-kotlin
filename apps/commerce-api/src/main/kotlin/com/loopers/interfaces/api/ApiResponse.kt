@@ -8,6 +8,7 @@ data class ApiResponse<T>(
         val result: Result,
         val errorCode: String?,
         val message: String?,
+        val fieldErrors: Map<String, String>? = null,
     ) {
         enum class Result { SUCCESS, FAIL }
 
@@ -15,6 +16,9 @@ data class ApiResponse<T>(
             fun success() = Metadata(Result.SUCCESS, null, null)
 
             fun fail(errorCode: String, errorMessage: String) = Metadata(Result.FAIL, errorCode, errorMessage)
+
+            fun failWithFieldErrors(errorCode: String, errorMessage: String, fieldErrors: Map<String, String>) =
+                Metadata(Result.FAIL, errorCode, errorMessage, fieldErrors)
         }
     }
 
@@ -26,6 +30,12 @@ data class ApiResponse<T>(
         fun fail(errorCode: String, errorMessage: String): ApiResponse<Any?> =
             ApiResponse(
                 meta = Metadata.fail(errorCode = errorCode, errorMessage = errorMessage),
+                data = null,
+            )
+
+        fun failWithFieldErrors(errorCode: String, errorMessage: String, fieldErrors: Map<String, String>): ApiResponse<Any?> =
+            ApiResponse(
+                meta = Metadata.failWithFieldErrors(errorCode, errorMessage, fieldErrors),
                 data = null,
             )
     }
