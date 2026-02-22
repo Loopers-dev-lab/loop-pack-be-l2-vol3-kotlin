@@ -1,5 +1,6 @@
-package com.loopers.domain.user
+package com.loopers.application.user
 
+import com.loopers.domain.user.PasswordEncryptor
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

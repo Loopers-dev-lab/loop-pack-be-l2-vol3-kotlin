@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.auth
 
 import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.PasswordEncryptor
-import com.loopers.domain.user.UserService
+import com.loopers.application.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.core.MethodParameter

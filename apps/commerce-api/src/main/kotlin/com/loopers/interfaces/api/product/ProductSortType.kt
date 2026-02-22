@@ -1,4 +1,4 @@
-package com.loopers.domain.product
+package com.loopers.interfaces.api.product
 
 import org.springframework.data.domain.Sort
 

@@ -39,6 +39,13 @@ class ProductModel(
     var likeCount: LikeCount = LikeCount(0L)
         protected set
 
+    fun update(name: Name, imageUrl: ImageUrl, description: Description, price: Price) {
+        this.name = name
+        this.imageUrl = imageUrl
+        this.description = description
+        this.price = price
+    }
+
     fun increaseLikeCount() {
         likeCount = LikeCount(likeCount.value + 1)
     }

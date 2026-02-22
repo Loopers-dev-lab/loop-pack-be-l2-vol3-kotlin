@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product
 
+import com.loopers.domain.product.Name
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductRepository
 import org.springframework.data.domain.Page
@@ -23,8 +24,12 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAll(pageable)
     }
 
-    override fun findAllByBrandId(brandId: Long): List<ProductModel> {
-        return productJpaRepository.findByBrandId(brandId)
+    override fun findAllByBrandId(brandId: Long, pageable: Pageable): Page<ProductModel> {
+        return productJpaRepository.findAllByBrandId(brandId, pageable)
+    }
+
+    override fun existsBy(brandId: Long, name: Name): Boolean {
+        return productJpaRepository.existsByBrandIdAndName(brandId, name)
     }
 
 }
