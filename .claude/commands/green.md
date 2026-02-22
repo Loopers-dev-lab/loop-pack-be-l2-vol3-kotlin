@@ -35,3 +35,7 @@ TDD Green Phase: 현재 실패 중인 테스트를 통과시키는 최소한의 
 - 기존 코드 패턴과 일관성 유지
 - DTO 변환은 `companion object { fun from(...) }` 팩토리 메서드 사용
 - 에러 처리는 `CoreException(errorType, customMessage)` 사용
+- ArchUnit 아키텍처 테스트가 레이어 의존성을 검증하므로, 새 코드 작성 시 의존 방향을 위반하지 않도록 주의한다
+  - `domain`은 `infrastructure`, `interfaces`에 의존하지 않는다
+  - `application`은 `infrastructure`에 의존하지 않는다
+  - 패키지 간 순환 의존이 없어야 한다
