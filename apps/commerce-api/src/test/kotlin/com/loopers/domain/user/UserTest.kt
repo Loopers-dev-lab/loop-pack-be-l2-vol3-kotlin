@@ -8,31 +8,46 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.given
+import org.mockito.kotlin.mock
 import java.time.LocalDate
 
 @DisplayName("User 도메인")
 class UserTest {
     private val defaultBirthDate = LocalDate.of(1990, 1, 1)
+    private val passwordHasher: UserPasswordHasher = mock()
+
+    private fun registerUser(
+        loginId: String = "testuser1",
+        rawPassword: String = "Password1!",
+        name: String = "홍길동",
+        birthDate: LocalDate = defaultBirthDate,
+        email: String = "test@example.com",
+    ): User {
+        given(passwordHasher.encode(rawPassword)).willReturn("encoded_$rawPassword")
+        return User.register(
+            loginId = loginId,
+            rawPassword = rawPassword,
+            name = name,
+            birthDate = birthDate,
+            email = email,
+            passwordHasher = passwordHasher,
+        )
+    }
 
     @Nested
     @DisplayName("생성")
     inner class Create {
         @Test
-        @DisplayName("User 생성 성공")
+        @DisplayName("User 생성 성공 - 비밀번호는 인코딩된 값으로 저장된다")
         fun create_success() {
             // act
-            val user = User.register(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = defaultBirthDate,
-                email = "test@example.com",
-            )
+            val user = registerUser()
 
             // assert
             assertAll(
                 { assertThat(user.loginId).isEqualTo("testuser1") },
-                { assertThat(user.password).isEqualTo("Password1!") },
+                { assertThat(user.password).isEqualTo("encoded_Password1!") },
                 { assertThat(user.name).isEqualTo("홍길동") },
                 { assertThat(user.birthDate).isEqualTo(defaultBirthDate) },
                 { assertThat(user.email).isEqualTo("test@example.com") },
@@ -46,10 +61,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "testuser1",
-                    password = "Pass19900101!",
+                    rawPassword = "Pass19900101!",
                     name = "홍길동",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 
@@ -64,10 +80,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "testuser1",
-                    password = "P1990-01-01!",
+                    rawPassword = "P1990-01-01!",
                     name = "홍길동",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 
@@ -86,10 +103,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "test@user",
-                    password = "Password1!",
+                    rawPassword = "Password1!",
                     name = "홍길동",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 
@@ -104,10 +122,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "테스트user",
-                    password = "Password1!",
+                    rawPassword = "Password1!",
                     name = "홍길동",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 
@@ -126,10 +145,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "testuser1",
-                    password = "Pass word1!",
+                    rawPassword = "Pass word1!",
                     name = "홍길동",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 
@@ -199,7 +219,7 @@ class UserTest {
     @DisplayName("비밀번호 변경")
     inner class ChangePassword {
         @Test
-        @DisplayName("새 비밀번호로 변경하면 변경된 User를 반환한다")
+        @DisplayName("새 비밀번호로 변경하면 인코딩된 비밀번호를 가진 User를 반환한다")
         fun changePassword_success_returnsUpdatedUser() {
             // arrange
             val user = User.retrieve(
@@ -210,13 +230,14 @@ class UserTest {
                 birthDate = defaultBirthDate,
                 email = "test@example.com",
             )
+            given(passwordHasher.encode("NewPassword1!")).willReturn("encoded_NewPassword1!")
 
             // act
-            val updatedUser = user.changePassword("NewPassword1!")
+            val updatedUser = user.changePassword("NewPassword1!", passwordHasher)
 
             // assert
             assertAll(
-                { assertThat(updatedUser.password).isEqualTo("NewPassword1!") },
+                { assertThat(updatedUser.password).isEqualTo("encoded_NewPassword1!") },
                 { assertThat(updatedUser.id).isEqualTo(1L) },
                 { assertThat(updatedUser.loginId).isEqualTo("testuser1") },
                 { assertThat(updatedUser.name).isEqualTo("홍길동") },
@@ -238,7 +259,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Pass word1!")
+                user.changePassword("Pass word1!", passwordHasher)
             }
 
             // assert
@@ -260,7 +281,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Pass19900101!")
+                user.changePassword("Pass19900101!", passwordHasher)
             }
 
             // assert
@@ -282,7 +303,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("P1990-01-01!")
+                user.changePassword("P1990-01-01!", passwordHasher)
             }
 
             // assert
@@ -300,10 +321,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "testuser1",
-                    password = "Password1!",
+                    rawPassword = "Password1!",
                     name = "홍길동1",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 
@@ -318,10 +340,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "testuser1",
-                    password = "Password1!",
+                    rawPassword = "Password1!",
                     name = "Hong길동",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 
@@ -336,10 +359,11 @@ class UserTest {
             val exception = assertThrows<CoreException> {
                 User.register(
                     loginId = "testuser1",
-                    password = "Password1!",
+                    rawPassword = "Password1!",
                     name = "홍 길동",
                     birthDate = defaultBirthDate,
                     email = "test@example.com",
+                    passwordHasher = passwordHasher,
                 )
             }
 

@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.user
 
 import com.loopers.domain.user.User
+import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -19,6 +20,7 @@ class UserRepositoryIntegrationTest
 @Autowired
 constructor(
     private val userRepository: UserRepository,
+    private val passwordHasher: UserPasswordHasher,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     @AfterEach
@@ -28,11 +30,18 @@ constructor(
 
     private fun createUser(
         loginId: String = "testuser1",
-        password: String = "encodedPassword",
+        rawPassword: String = "Password1!",
         name: String = "홍길동",
         birthDate: LocalDate = LocalDate.of(1990, 1, 1),
         email: String = "test@example.com",
-    ): User = User.register(loginId = loginId, password = password, name = name, birthDate = birthDate, email = email)
+    ): User = User.register(
+        loginId = loginId,
+        rawPassword = rawPassword,
+        name = name,
+        birthDate = birthDate,
+        email = email,
+        passwordHasher = passwordHasher,
+    )
 
     @Nested
     @DisplayName("회원 저장 및 조회")
@@ -49,10 +58,10 @@ constructor(
             // assert
             assertAll(
                 { assertThat(savedUser.loginId).isEqualTo("testuser1") },
-                { assertThat(savedUser.password).isEqualTo("encodedPassword") },
                 { assertThat(savedUser.name).isEqualTo("홍길동") },
                 { assertThat(savedUser.birthDate).isEqualTo(LocalDate.of(1990, 1, 1)) },
                 { assertThat(savedUser.email).isEqualTo("test@example.com") },
+                { assertThat(savedUser.password).isNotEqualTo("Password1!") },
             )
         }
 

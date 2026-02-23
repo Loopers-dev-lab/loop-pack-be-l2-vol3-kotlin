@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.application.user.UserFacade
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import com.loopers.application.user.UserService
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -26,7 +26,7 @@ class UserV1ControllerChangePasswordTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
-    @MockitoBean private val userService: UserService,
+    @MockitoBean private val userFacade: UserFacade,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/users/me/password"
@@ -50,7 +50,7 @@ constructor(
         @DisplayName("200 OK와 성공 메시지를 반환한다")
         fun changePassword_success_returns200WithMessage() {
             // arrange
-            willDoNothing().given(userService).changePassword(
+            willDoNothing().given(userFacade).changePassword(
                 eq("testuser1"),
                 eq("Password1!"),
                 any(),
@@ -78,7 +78,7 @@ constructor(
         fun changePassword_wrongCurrentPassword_returns400() {
             // arrange
             willThrow(CoreException(ErrorType.USER_INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다."))
-                .given(userService).changePassword(
+                .given(userFacade).changePassword(
                     eq("testuser1"),
                     eq("Password1!"),
                     any(),
@@ -105,7 +105,7 @@ constructor(
         fun changePassword_samePassword_returns400() {
             // arrange
             willThrow(CoreException(ErrorType.USER_INVALID_PASSWORD, "새 비밀번호는 현재 비밀번호와 달라야 합니다."))
-                .given(userService).changePassword(
+                .given(userFacade).changePassword(
                     eq("testuser1"),
                     eq("Password1!"),
                     any(),
@@ -166,7 +166,7 @@ constructor(
         fun changePassword_invalidAuth_returns401() {
             // arrange
             willThrow(CoreException(ErrorType.UNAUTHORIZED))
-                .given(userService).changePassword(
+                .given(userFacade).changePassword(
                     eq("testuser1"),
                     eq("WrongPassword1!"),
                     any(),

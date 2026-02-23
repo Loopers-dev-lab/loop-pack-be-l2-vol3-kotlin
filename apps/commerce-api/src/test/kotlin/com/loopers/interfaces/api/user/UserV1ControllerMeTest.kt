@@ -1,9 +1,9 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.application.user.UserFacade
+import com.loopers.application.user.UserInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import com.loopers.application.user.UserInfo
-import com.loopers.application.user.UserService
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -23,7 +23,7 @@ class UserV1ControllerMeTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
-    @MockitoBean private val userService: UserService,
+    @MockitoBean private val userFacade: UserFacade,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/users/me"
@@ -36,7 +36,7 @@ constructor(
         @DisplayName("유효한 인증 헤더로 조회 시 200 OK와 마스킹된 사용자 정보를 반환한다")
         fun getMe_success_returns200WithMaskedInfo() {
             // arrange
-            given(userService.getMe("testuser1", "Password1!"))
+            given(userFacade.getMe("testuser1", "Password1!"))
                 .willReturn(
                     UserInfo(
                         loginId = "testuser1",
@@ -67,7 +67,7 @@ constructor(
         @DisplayName("존재하지 않는 loginId로 조회 시 401 Unauthorized를 반환한다")
         fun getMe_invalidLoginId_returns401() {
             // arrange
-            given(userService.getMe("nonexistent", "Password1!"))
+            given(userFacade.getMe("nonexistent", "Password1!"))
                 .willThrow(CoreException(ErrorType.UNAUTHORIZED))
 
             // act & assert
@@ -84,7 +84,7 @@ constructor(
         @DisplayName("비밀번호 불일치 시 401 Unauthorized를 반환한다")
         fun getMe_wrongPassword_returns401() {
             // arrange
-            given(userService.getMe("testuser1", "WrongPassword1!"))
+            given(userFacade.getMe("testuser1", "WrongPassword1!"))
                 .willThrow(CoreException(ErrorType.UNAUTHORIZED))
 
             // act & assert
