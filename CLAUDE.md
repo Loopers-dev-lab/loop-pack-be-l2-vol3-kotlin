@@ -36,76 +36,23 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - **modules/**: 인프라 설정 모듈 (jpa, redis, kafka) — `testFixtures` 제공
 - **supports/**: 부가 기능 모듈 (jackson, logging, monitoring)
 
-### 레이어드 아키텍처 (apps 내부)
+### 레이어별 가이드
 
-```
-interfaces/api/    → Controller, ApiSpec(OpenAPI 인터페이스), Dto
-application/       → Facade(여러 Domain Service를 조합하는 유스케이스 오케스트레이션)
-domain/            → Domain Model(순수 POJO), Domain Service(@Component/@Service), Repository(인터페이스), Value Object
-infrastructure/    → XxxEntity(JPA 영속성 모델), RepositoryImpl(XxxJpaRepository 포함)
-support/error/     → CoreException, ErrorType
-```
+작업 대상 레이어의 CLAUDE.md를 **반드시** 먼저 읽는다:
 
-**의존 방향:** `Application → Domain ← Infrastructure` (DIP). Domain 계층은 다른 계층에 의존하지 않는다.
-
-**패키지 전략:** 계층 패키지 하위에 도메인별로 패키징한다 (예: `domain/product/`, `domain/order/`, `infrastructure/product/`).
-
-**요청 흐름:** `Controller → Facade 또는 Domain Service → Repository(interface) → RepositoryImpl → JpaRepository`
-- 여러 Domain Service를 조합해야 하는 경우: Controller → **Facade** → Domain Services
-- 단일 Domain Service로 충분한 경우: Controller → **Domain Service** 직접 호출 (Facade 생략)
-- 인증: **AuthInterceptor** → Domain Service (UserService) 직접 호출
-
-### 핵심 패턴
-
-**Domain Model**: 순수 POJO. JPA 애노테이션 없이, 비즈니스 규칙과 상태 변경을 스스로 수행하는 Rich Domain Model을 지향한다.
-
-**Domain Model 생성 패턴 선택 기준:**
-- **독립적으로 생성 가능한 모델** (Product, UserPoint 등): `public constructor` + `init { validate() }`.
-- **생성 시 구성 요소를 직접 조립하고 파생 값을 계산하는 모델** (Order): `private constructor` + `companion object { create() }`. 팩토리 메서드가 유일한 생성 경로. `Order.create()`는 내부에서 `OrderItem` 생성 + totalPrice 계산을 수행한다. 상태 변경은 명시적 도메인 메서드(예: `cancelItem()`)를 통해 불변식을 유지한다. cross-domain 타입 의존을 방지하기 위해 다른 도메인의 모델을 직접 받지 않고, 자기 도메인의 데이터 클래스(예: `OrderProductInfo`)를 통해 필요한 정보만 수신한다.
-
-**JPA Entity (Persistence Model)**: infrastructure 레이어에 위치. DB 테이블 매핑 전용. `BaseJpaEntity` 상속 (id, createdAt, updatedAt, deletedAt 자동관리, soft delete 지원). 매핑 메서드를 보유한다:
-- `companion object { fun fromDomain(domain: Xxx): XxxEntity }` — Domain Model → JPA Entity 변환
-- `fun toDomain(): Xxx` — JPA Entity → Domain Model 변환
-
-**Value Object**: 단일 값을 감싸는 경우 `@JvmInline value class`로 선언하여 런타임 오버헤드 없이 타입 안전성을 확보한다. 생성 시점에 자가 검증(`init` 블록에서 규칙 위반 시 `CoreException` throw). Domain Model이 순수 POJO이므로 `@Converter` 없이 한 줄짜리 검증(`Price`, `Email`, `BrandName` 등)도 VO로 자유롭게 표현한다. 복합 필드가 필요하면 `data class`, 도메인 메서드(`Stock.decrease()`)가 있으면 일반 `class`로 선언한다.
-
-**Command**: 서비스 호출 시 요청 파라미터를 `XxxCommand` class 내부에 data class로 묶는다 (예: `UserCommand.SignUp`). Controller에서 Dto → Command 변환 후 서비스에 전달.
-
-**에러 처리**: `CoreException(errorType: ErrorType, customMessage: String?)`. ErrorType enum: `INTERNAL_ERROR(500)`,
-`BAD_REQUEST(400)`, `NOT_FOUND(404)`, `CONFLICT(409)`, `UNAUTHORIZED(401)`.
-
-**API 응답**: 모든 응답은 `ApiResponse<T>` 래퍼 사용. `ApiResponse.success(data)` / `ApiResponse.fail(errorCode, message)`.
-`ApiControllerAdvice`에서 전역 예외 처리.
-
-**Repository**: 도메인 레이어에 인터페이스 정의 → infrastructure에서 구현. `XxxRepositoryImpl.kt` 파일 하나에 `internal interface XxxJpaRepository : JpaRepository<XxxEntity, Long>`와 `XxxRepositoryImpl`을 함께 선언한다. JpaRepository는 구현 세부사항이므로 외부에 노출하지 않는다.
-도메인 Repository 인터페이스는 **도메인 언어와 기본 타입만** 사용한다. Spring Data 타입(`Pageable`, `Page` 등)을 도메인 계약에 노출하지 않는다.
-페이지네이션은 `page: Int, size: Int` 파라미터와 `PageResult<T>`(도메인 고유 타입)로 표현하고, Spring `Page<T>` 변환은 Controller에서 `toSpringPage()` 확장함수로 수행한다.
-
-**Domain Service**: 도메인 레이어의 서비스. `@Service` 또는 `@Component`로 등록하며, Repository를 통해 Domain Model을 조회/저장하고 비즈니스 로직을 수행한다.
-단일 도메인 CRUD(예: CatalogService)부터 복수 도메인 객체 협력(예: PointChargingService)까지 도메인 레이어에서 처리한다.
-
-**DTO 변환 규칙**:
-
-- **Facade 없이 Controller → Domain Service 직접 호출**: Domain Service가 Domain Model 또는 domain 레이어 데이터 클래스를 반환 → Controller에서 Dto로 변환
-- **같은 바운디드 컨텍스트 내 조합** (예: Product + Brand): 조합 결과물은 **domain 레이어**에 데이터 클래스로 둔다 (예: `domain/catalog/ProductDetail`). Application 레이어에 두면 Domain → Application 의존이 생겨 DIP 위반
-- **다른 바운디드 컨텍스트 간 조합** (Facade 경유): Facade가 **application 레이어**의 Info 객체를 반환 → Controller에서 Dto로 변환
-- Dto/Info에 `companion object { fun from(...) }` 팩토리 메서드 사용
-
-## 도메인 & 객체 설계 전략
-
-- Domain Model은 비즈니스 규칙을 캡슐화한다. 검증, 상태 변경, 상태 판단은 Domain Model 내부에서 수행한다 (예: `Product.isActive()`, `UserPoint.canAfford()`)
-- Value Object는 자가 검증하며 불변이다. 도메인 규칙이 있는 값(금액, 수량, 재고 등)은 VO로 표현한다
-- 규칙이 여러 Service에 나타나면 도메인 객체(Domain Model 또는 Domain Service)에 속할 가능성이 높다
-- Domain Service는 상태 없이, 도메인 객체의 협력을 중심으로 설계한다
-- Application Layer(Facade)는 경량으로 유지하고, 실질적인 비즈니스 로직은 도메인으로 위임한다
-- 각 기능에 대한 책임과 결합도에 대해 개발자의 의도를 확인하고 개발을 진행한다
+- `apps/commerce-api/CLAUDE.md` — 레이어 의존방향, 요청 흐름, 에러/응답 패턴
+- `apps/commerce-api/src/main/kotlin/com/loopers/domain/CLAUDE.md` — Domain Model, VO, Command, Repository 인터페이스, Domain Service
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/CLAUDE.md` — Facade, @Transactional, DTO 변환
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/CLAUDE.md` — JPA Entity, 매핑, Repository 구현
+- `apps/commerce-api/src/main/kotlin/com/loopers/interfaces/CLAUDE.md` — Controller, ApiSpec, Dto, 인증
 
 ## 테스트 패턴
 
 - `@Nested` + `@DisplayName`(한국어) BDD 스타일, **3A 원칙** (Arrange → Act → Assert)
 - **통합 테스트**: `@SpringBootTest`, `@AfterEach`에서 `databaseCleanUp.truncateAllTables()`
 - **E2E 테스트**: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `TestRestTemplate`
-- **단위 테스트**: 도메인 로직은 Fake/Stub Repository를 주입하여 외부 의존 없이 검증. `@SpringBootTest` 없이 순수 도메인 테스트
+- **단위 테스트**: 도메인 로직은 외부 의존성 없이 검증한다. `@SpringBootTest`를 사용하지 않으며, **Mockito(`@Mock`, `@InjectMocks` 등) 사용을 엄격히 금지한다.**
+  대신 인메모리 컬렉션을 활용한 Fake Repository(`FakeProductRepository` 등)를 직접 구현하여 상태를 검증한다.
 - MySQL/Redis는 TestContainers 자동 구동 (프로파일: `test`), 타임존: `Asia/Seoul`
 - 상세 테스트 작성 절차는 `/red`, `/e2e` 스킬 참고
 
@@ -153,14 +100,17 @@ support/error/     → CoreException, ErrorType
 **Phase 2 — 발산 (Diverge)**: plan.md 기반 위임 + 체크포인트 검수. 에이전트는 자가 검증(lint+test) 후 보고한다.
 
 **Self-Validation 원칙**: 보고 전에 할 수 있는 검증은 전부 수행한다.
+
 1. `ktlintFormat` → `ktlintCheck` (포맷 + 린트)
 2. `./gradlew test` (전체 테스트)
 3. 통과 상태에서만 보고. 실패 시 자가 수정 시도.
 
 **보고 포맷**: 모든 작업 보고에 아래 구조를 따른다.
+
 - **Change**: 무엇을 변경했는지 (3줄 요약)
 - **Validation**: 어떤 검증을 통과했는지
-- **Risk/Ambiguity**: 개발자가 판단해야 할 모호한 부분. 임의 결정한 네이밍, 가정한 비즈니스 로직, 사용하지 않은 에러 처리 등을 반드시 명시. 정말 없으면 "Perfectly aligned with spec".
+- **Risk/Ambiguity**: 개발자가 판단해야 할 모호한 부분. 임의 결정한 네이밍, 가정한 비즈니스 로직, 사용하지 않은 에러 처리 등을 반드시 명시. 정말 없으면 "Perfectly aligned
+  with spec".
 
 ## 작업 환경
 
