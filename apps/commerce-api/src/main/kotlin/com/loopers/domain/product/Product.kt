@@ -66,4 +66,10 @@ class Product(
     fun increaseLikeCount() {
         this.likes += 1
     }
+
+    fun decreaseLikeCount() {
+        if (this.likes > 0) {
+            this.likes -= 1
+        }
+    }
 }

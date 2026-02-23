@@ -66,4 +66,38 @@ class LikeServiceIntegrationTest @Autowired constructor(
             assertThat(result).isFalse()
         }
     }
+
+    @DisplayName("좋아요를 취소할 때,")
+    @Nested
+    inner class UnlikeProduct {
+
+        @DisplayName("좋아요가 존재하면, 삭제 후 true를 반환한다.")
+        @Test
+        fun returnsTrue_whenLikeExists() {
+            // arrange
+            val product = createProduct()
+            val userId = 1L
+            likeService.like(userId, product.id) // 좋아요 등록
+
+            // act
+            val result = likeService.unlike(userId, product.id)
+
+            // assert
+            assertThat(result).isTrue()
+        }
+
+        @DisplayName("좋아요가 존재하지 않으면, false를 반환한다.")
+        @Test
+        fun returnsFalse_whenLikeNotExists() {
+            // arrange
+            val product = createProduct()
+            val userId = 1L
+
+            // act
+            val result = likeService.unlike(userId, product.id)
+
+            // assert
+            assertThat(result).isFalse()
+        }
+    }
 }

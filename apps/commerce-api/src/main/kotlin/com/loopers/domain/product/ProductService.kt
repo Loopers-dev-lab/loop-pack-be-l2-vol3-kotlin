@@ -24,4 +24,9 @@ class ProductService(
         product.increaseLikeCount()
         productRepository.save(product)
     }
+
+    fun decreaseLikeCount(product: Product) {
+        product.decreaseLikeCount()
+        productRepository.save(product)
+    }
 }

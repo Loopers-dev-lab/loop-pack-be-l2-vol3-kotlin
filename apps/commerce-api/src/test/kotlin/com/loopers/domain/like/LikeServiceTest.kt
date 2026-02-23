@@ -65,4 +65,42 @@ class LikeServiceTest {
             verify(likeRepository, never()).save(any())
         }
     }
+
+    @DisplayName("좋아요를 취소할 때,")
+    @Nested
+    inner class UnlikeProduct {
+
+        @DisplayName("좋아요가 존재하면, 삭제 후 true를 반환한다.")
+        @Test
+        fun returnsTrue_whenLikeExists() {
+            // arrange
+            val userId = 1L
+            val productId = 1L
+
+            whenever(likeRepository.deleteByUserIdAndProductId(userId, productId)).thenReturn(true)
+
+            // act
+            val result = likeService.unlike(userId, productId)
+
+            // assert
+            assertThat(result).isTrue()
+            verify(likeRepository).deleteByUserIdAndProductId(userId, productId)
+        }
+
+        @DisplayName("좋아요가 존재하지 않으면, false를 반환한다.")
+        @Test
+        fun returnsFalse_whenLikeNotExists() {
+            // arrange
+            val userId = 1L
+            val productId = 1L
+
+            whenever(likeRepository.deleteByUserIdAndProductId(userId, productId)).thenReturn(false)
+
+            // act
+            val result = likeService.unlike(userId, productId)
+
+            // assert
+            assertThat(result).isFalse()
+        }
+    }
 }

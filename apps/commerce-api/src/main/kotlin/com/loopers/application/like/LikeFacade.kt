@@ -19,4 +19,13 @@ class LikeFacade(
             productService.increaseLikeCount(product)
         }
     }
+
+    @Transactional
+    fun unlike(userId: Long, productId: Long) {
+        val product = productService.getProduct(productId)
+        val isDeleted = likeService.unlike(userId, productId)
+        if (isDeleted) {
+            productService.decreaseLikeCount(product)
+        }
+    }
 }
