@@ -120,6 +120,17 @@ class ProductTest {
         }
     }
 
+    private fun createProduct(likes: Int = 10): Product {
+        return Product(
+            name = "에어맥스",
+            description = "러닝화",
+            price = 159000,
+            likes = likes,
+            stockQuantity = 100,
+            brandId = 1L,
+        )
+    }
+
     @DisplayName("좋아요 수를 증가시킬 때,")
     @Nested
     inner class IncreaseLikeCount {
@@ -128,14 +139,7 @@ class ProductTest {
         @Test
         fun increasesLikeCountByOne() {
             // arrange
-            val product = Product(
-                name = "에어맥스",
-                description = "러닝화",
-                price = 159000,
-                likes = 10,
-                stockQuantity = 100,
-                brandId = 1L,
-            )
+            val product = createProduct(likes = 10)
 
             // act
             product.increaseLikeCount()

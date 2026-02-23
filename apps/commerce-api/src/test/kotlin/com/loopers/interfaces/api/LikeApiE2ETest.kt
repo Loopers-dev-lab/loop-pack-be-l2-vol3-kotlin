@@ -96,6 +96,27 @@ class LikeApiE2ETest @Autowired constructor(
         )
     }
 
+    private fun likeProduct(productId: Long) {
+        testRestTemplate.exchange(
+            LIKE_ENDPOINT,
+            HttpMethod.POST,
+            HttpEntity<Void>(authHeaders()),
+            LIKE_RESPONSE_TYPE,
+            productId,
+        )
+    }
+
+    private fun getLikeCount(productId: Long): Int? {
+        val detailResponse = testRestTemplate.exchange(
+            PRODUCT_DETAIL_ENDPOINT,
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders()),
+            DETAIL_RESPONSE_TYPE,
+            productId,
+        )
+        return detailResponse.body?.data?.likeCount
+    }
+
     @DisplayName("POST /api/v1/products/{productId}/likes")
     @Nested
     inner class LikeProduct {
@@ -127,22 +148,13 @@ class LikeApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val product = createProduct()
-            val httpEntity = HttpEntity<Void>(authHeaders())
-
-            // 첫 번째 좋아요
-            testRestTemplate.exchange(
-                LIKE_ENDPOINT,
-                HttpMethod.POST,
-                httpEntity,
-                LIKE_RESPONSE_TYPE,
-                product.id,
-            )
+            likeProduct(product.id)
 
             // act - 두 번째 좋아요 (멱등)
             val response = testRestTemplate.exchange(
                 LIKE_ENDPOINT,
                 HttpMethod.POST,
-                httpEntity,
+                HttpEntity<Void>(authHeaders()),
                 LIKE_RESPONSE_TYPE,
                 product.id,
             )
@@ -200,26 +212,12 @@ class LikeApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val product = createProduct()
-            val httpEntity = HttpEntity<Void>(authHeaders())
 
             // act
-            testRestTemplate.exchange(
-                LIKE_ENDPOINT,
-                HttpMethod.POST,
-                httpEntity,
-                LIKE_RESPONSE_TYPE,
-                product.id,
-            )
+            likeProduct(product.id)
 
-            // assert - 상품 상세 조회로 likeCount 검증
-            val detailResponse = testRestTemplate.exchange(
-                PRODUCT_DETAIL_ENDPOINT,
-                HttpMethod.GET,
-                HttpEntity<Void>(HttpHeaders()),
-                DETAIL_RESPONSE_TYPE,
-                product.id,
-            )
-            assertThat(detailResponse.body?.data?.likeCount).isEqualTo(1)
+            // assert
+            assertThat(getLikeCount(product.id)).isEqualTo(1)
         }
 
         @DisplayName("이미 좋아요한 상품에 다시 좋아요하면, 좋아요 수가 변경되지 않는다. (멱등)")
@@ -228,35 +226,13 @@ class LikeApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val product = createProduct()
-            val httpEntity = HttpEntity<Void>(authHeaders())
-
-            // 첫 번째 좋아요
-            testRestTemplate.exchange(
-                LIKE_ENDPOINT,
-                HttpMethod.POST,
-                httpEntity,
-                LIKE_RESPONSE_TYPE,
-                product.id,
-            )
+            likeProduct(product.id)
 
             // act - 두 번째 좋아요 (멱등)
-            testRestTemplate.exchange(
-                LIKE_ENDPOINT,
-                HttpMethod.POST,
-                httpEntity,
-                LIKE_RESPONSE_TYPE,
-                product.id,
-            )
+            likeProduct(product.id)
 
-            // assert - 좋아요 수가 1로 유지되는지 검증
-            val detailResponse = testRestTemplate.exchange(
-                PRODUCT_DETAIL_ENDPOINT,
-                HttpMethod.GET,
-                HttpEntity<Void>(HttpHeaders()),
-                DETAIL_RESPONSE_TYPE,
-                product.id,
-            )
-            assertThat(detailResponse.body?.data?.likeCount).isEqualTo(1)
+            // assert
+            assertThat(getLikeCount(product.id)).isEqualTo(1)
         }
 
         @DisplayName("삭제된 상품에 좋아요하면, 404 NOT_FOUND를 반환한다.")
