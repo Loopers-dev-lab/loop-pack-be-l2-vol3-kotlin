@@ -47,7 +47,8 @@
 
 ## Domain Service
 
-`@Service` 또는 `@Component`로 등록. Repository를 통해 Domain Model을 조회/저장하고 비즈니스 로직을 수행한다. 단일 도메인 CRUD(CatalogService)부터 복수 도메인 객체 협력(PointChargingService)까지 도메인 레이어에서 처리한다.
+- 단일 엔티티 스스로 해결할 수 없는 복잡한 비즈니스 규칙(예: 여러 엔티티 간의 상태 조율, 외부 정책 검증 등)이 있을 때만 생성한다.
+- **단순 Proxy 금지**: 단순히 Repository를 호출해서 리턴하거나 엔티티를 생성 후 저장만 하는 '책임 없는 빈 껍데기 서비스(예: 단순 UserPointService)'는 생성하지 않는다. 이 경우 Application Layer(UseCase)가 직접 Repository를 호출한다.
 
 **Domain Model은 절대적 순수성 유지. Domain Service만 Spring DI 타협 허용.**
 

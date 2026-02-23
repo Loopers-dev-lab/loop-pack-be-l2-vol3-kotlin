@@ -23,8 +23,10 @@ class PlaceOrderUseCase(
 
 - `@Component` 등록, 단일 책임 (`execute` 메서드)
 - `@Transactional` 경계 설정
-- 비즈니스 로직 없음. Domain Service 오케스트레이션만.
-- 단일 Domain Service 래핑이라도 UseCase를 생략하지 않는다 (Strict Layered Architecture)
+- 비즈니스 로직 없음. Domain Layer의 컴포넌트(Entity, Repository, Domain Service)를 용도에 맞게 오케스트레이션한다.
+- [단순 CRUD / 객체 생성]: 의미 없는 빈 껍데기 Domain Service를 만들지 않고, UseCase에서 직접 Repository나 Entity를 호출한다.
+- [복잡한 규칙]: 도메인 내부의 복잡한 얽힘이나 정책 검증이 필요한 경우에만 Domain Service에 위임한다.
+- 계층 건너뛰기 방지: 단일 도메인의 단순 조회(Repository 호출)라도 Controller가 직접 부르지 않고 반드시 UseCase를 거친다 (Strict Layered Architecture).
 
 ## Info DTO (Application → Interfaces)
 
