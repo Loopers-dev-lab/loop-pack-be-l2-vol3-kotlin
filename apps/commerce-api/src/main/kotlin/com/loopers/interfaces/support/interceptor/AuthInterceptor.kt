@@ -1,6 +1,6 @@
 package com.loopers.interfaces.support.interceptor
 
-import com.loopers.domain.user.UserService
+import com.loopers.application.user.AuthenticateUserUseCase
 import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
@@ -13,7 +13,7 @@ import org.springframework.web.servlet.HandlerInterceptor
 
 @Component
 class AuthInterceptor(
-    private val userService: UserService,
+    private val authenticateUserUseCase: AuthenticateUserUseCase,
 ) : HandlerInterceptor {
 
     // TODO: 추후 security 추가 시 변경
@@ -24,14 +24,10 @@ class AuthInterceptor(
         val loginPw = request.getHeader(HEADER_LOGIN_PW)
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증 헤더가 누락되었습니다.")
 
-        val user = userService.getUserInfo(loginId)
+        val userId = authenticateUserUseCase.execute(loginId, loginPw)
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
 
-        if (!user.verifyPassword(loginPw)) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
-        }
-
-        request.setAttribute(ATTRIBUTE_USER_ID, user.id)
+        request.setAttribute(ATTRIBUTE_USER_ID, userId)
 
         return true
     }

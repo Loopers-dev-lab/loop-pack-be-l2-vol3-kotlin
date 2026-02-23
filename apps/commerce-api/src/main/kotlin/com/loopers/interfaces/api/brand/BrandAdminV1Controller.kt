@@ -1,7 +1,11 @@
 package com.loopers.interfaces.api.brand
 
-import com.loopers.domain.catalog.CatalogCommand
-import com.loopers.domain.catalog.CatalogService
+import com.loopers.application.catalog.brand.CreateBrandUseCase
+import com.loopers.application.catalog.brand.DeleteBrandUseCase
+import com.loopers.application.catalog.brand.GetBrandUseCase
+import com.loopers.application.catalog.brand.GetBrandsUseCase
+import com.loopers.application.catalog.brand.RestoreBrandUseCase
+import com.loopers.application.catalog.brand.UpdateBrandUseCase
 import com.loopers.interfaces.api.brand.dto.BrandAdminV1Dto
 import com.loopers.interfaces.api.brand.spec.BrandAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
@@ -21,7 +25,12 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api-admin/v1/brands")
 class BrandAdminV1Controller(
-    private val catalogService: CatalogService,
+    private val createBrandUseCase: CreateBrandUseCase,
+    private val updateBrandUseCase: UpdateBrandUseCase,
+    private val deleteBrandUseCase: DeleteBrandUseCase,
+    private val restoreBrandUseCase: RestoreBrandUseCase,
+    private val getBrandUseCase: GetBrandUseCase,
+    private val getBrandsUseCase: GetBrandsUseCase,
 ) : BrandAdminV1ApiSpec {
 
     @GetMapping
@@ -29,7 +38,7 @@ class BrandAdminV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<BrandAdminV1Dto.BrandAdminResponse>> {
-        return catalogService.getBrands(page, size)
+        return getBrandsUseCase.execute(page, size)
             .map { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .toSpringPage()
             .let { ApiResponse.success(it) }
@@ -39,7 +48,7 @@ class BrandAdminV1Controller(
     override fun getBrand(
         @PathVariable brandId: Long,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
-        return catalogService.getBrand(brandId)
+        return getBrandUseCase.executeAdmin(brandId)
             .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -48,7 +57,7 @@ class BrandAdminV1Controller(
     override fun createBrand(
         @RequestParam name: String,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
-        return catalogService.createBrand(CatalogCommand.CreateBrand(name = name))
+        return createBrandUseCase.execute(name)
             .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -58,7 +67,7 @@ class BrandAdminV1Controller(
         @PathVariable brandId: Long,
         @RequestParam name: String,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
-        return catalogService.updateBrand(brandId, CatalogCommand.UpdateBrand(name = name))
+        return updateBrandUseCase.execute(brandId, name)
             .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -67,7 +76,7 @@ class BrandAdminV1Controller(
     override fun deleteBrand(
         @PathVariable brandId: Long,
     ): ApiResponse<Any> {
-        catalogService.deleteBrand(brandId)
+        deleteBrandUseCase.execute(brandId)
         return ApiResponse.success()
     }
 
@@ -75,8 +84,7 @@ class BrandAdminV1Controller(
     override fun restoreBrand(
         @PathVariable brandId: Long,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
-        catalogService.restoreBrand(brandId)
-        return catalogService.getBrand(brandId)
+        return restoreBrandUseCase.execute(brandId)
             .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

@@ -1,25 +1,26 @@
 package com.loopers.interfaces.api.like.dto
 
-import com.loopers.domain.catalog.product.entity.Product
-import com.loopers.domain.like.entity.Like
+import com.loopers.application.like.LikeWithProductInfo
 import java.math.BigDecimal
 
 class LikeV1Dto {
+    enum class ProductStatusDto { ON_SALE, SOLD_OUT, HIDDEN }
+
     data class LikeResponse(
         val likeId: Long,
         val productId: Long,
         val productName: String,
         val productPrice: BigDecimal,
-        val productStatus: Product.ProductStatus,
+        val productStatus: ProductStatusDto,
     ) {
         companion object {
-            fun from(like: Like, product: Product): LikeResponse {
+            fun from(info: LikeWithProductInfo): LikeResponse {
                 return LikeResponse(
-                    likeId = like.id,
-                    productId = product.id,
-                    productName = product.name,
-                    productPrice = product.price,
-                    productStatus = product.status,
+                    likeId = info.likeId,
+                    productId = info.productId,
+                    productName = info.productName,
+                    productPrice = info.productPrice,
+                    productStatus = ProductStatusDto.valueOf(info.productStatus),
                 )
             }
         }

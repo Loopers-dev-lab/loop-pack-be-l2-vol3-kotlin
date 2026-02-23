@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.product.dto
 
-import com.loopers.domain.catalog.ProductDetail
-import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.application.catalog.product.ProductDetailInfo
+import com.loopers.application.catalog.product.ProductInfo
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto
 import java.math.BigDecimal
 
@@ -10,17 +10,17 @@ class ProductV1Dto {
         val id: Long,
         val name: String,
         val price: BigDecimal,
-        val status: Product.ProductStatus,
+        val status: ProductStatusDto,
         val likeCount: Int,
     ) {
         companion object {
-            fun from(product: Product): CustomerProductResponse {
+            fun from(info: ProductInfo): CustomerProductResponse {
                 return CustomerProductResponse(
-                    id = product.id,
-                    name = product.name,
-                    price = product.price,
-                    status = product.status,
-                    likeCount = product.likeCount,
+                    id = info.id,
+                    name = info.name,
+                    price = info.price,
+                    status = ProductStatusDto.valueOf(info.status),
+                    likeCount = info.likeCount,
                 )
             }
         }
@@ -31,12 +31,14 @@ class ProductV1Dto {
         val brand: BrandV1Dto.BrandResponse,
     ) {
         companion object {
-            fun from(detail: ProductDetail): ProductDetailResponse {
+            fun from(info: ProductDetailInfo): ProductDetailResponse {
                 return ProductDetailResponse(
-                    product = CustomerProductResponse.from(detail.product),
-                    brand = BrandV1Dto.BrandResponse.from(detail.brand),
+                    product = CustomerProductResponse.from(info.product),
+                    brand = BrandV1Dto.BrandResponse(id = info.product.brandId, name = info.brandName),
                 )
             }
         }
     }
+
+    enum class ProductStatusDto { ON_SALE, SOLD_OUT, HIDDEN }
 }

@@ -1,7 +1,8 @@
 package com.loopers.interfaces.api.order
 
-import com.loopers.application.order.OrderFacade
-import com.loopers.domain.order.OrderService
+import com.loopers.application.order.GetOrderUseCase
+import com.loopers.application.order.GetOrdersUseCase
+import com.loopers.application.order.PlaceOrderUseCase
 import com.loopers.interfaces.api.order.dto.OrderV1Dto
 import com.loopers.interfaces.api.order.spec.OrderV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
@@ -22,8 +23,9 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/orders")
 class OrderV1Controller(
-    private val orderFacade: OrderFacade,
-    private val orderService: OrderService,
+    private val placeOrderUseCase: PlaceOrderUseCase,
+    private val getOrderUseCase: GetOrderUseCase,
+    private val getOrdersUseCase: GetOrdersUseCase,
 ) : OrderV1ApiSpec {
 
     @PostMapping
@@ -31,7 +33,7 @@ class OrderV1Controller(
         @AuthUser userId: Long,
         @RequestBody request: OrderV1Dto.CreateOrderRequest,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
-        return orderFacade.createOrder(userId, request.toCommand())
+        return placeOrderUseCase.execute(userId, request.toCommand())
             .let { OrderV1Dto.OrderResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -41,7 +43,7 @@ class OrderV1Controller(
         @AuthUser userId: Long,
         @PathVariable orderId: Long,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
-        return orderService.getOrder(userId, orderId)
+        return getOrderUseCase.execute(userId, orderId)
             .let { OrderV1Dto.OrderResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -55,7 +57,7 @@ class OrderV1Controller(
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<OrderV1Dto.OrderResponse>> {
         val range = DateTimeRange.of(from, to)
-        return orderService.getOrdersByUserId(userId, range.from, range.to, page, size)
+        return getOrdersUseCase.execute(userId, range.from, range.to, page, size)
             .map { OrderV1Dto.OrderResponse.from(it) }
             .toSpringPage()
             .let { ApiResponse.success(it) }

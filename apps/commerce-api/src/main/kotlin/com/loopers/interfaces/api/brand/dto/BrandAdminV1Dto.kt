@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.brand.dto
 
-import com.loopers.domain.catalog.brand.entity.Brand
+import com.loopers.application.catalog.brand.BrandInfo
 import java.time.ZonedDateTime
 
 class BrandAdminV1Dto {
@@ -12,13 +12,13 @@ class BrandAdminV1Dto {
         val deletedAt: ZonedDateTime?,
     ) {
         companion object {
-            fun from(brand: Brand): BrandAdminResponse {
+            fun from(info: BrandInfo): BrandAdminResponse {
                 return BrandAdminResponse(
-                    id = brand.id,
-                    name = brand.name,
-                    createdAt = brand.createdAt,
-                    updatedAt = brand.updatedAt,
-                    deletedAt = brand.deletedAt,
+                    id = info.id,
+                    name = info.name,
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
+                    deletedAt = info.deletedAt,
                 )
             }
         }

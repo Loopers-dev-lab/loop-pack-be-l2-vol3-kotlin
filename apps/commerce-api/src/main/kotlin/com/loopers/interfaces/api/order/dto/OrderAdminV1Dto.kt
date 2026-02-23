@@ -1,31 +1,34 @@
 package com.loopers.interfaces.api.order.dto
 
-import com.loopers.domain.order.OrderDetail
-import com.loopers.domain.order.entity.Order
-import com.loopers.domain.order.entity.OrderItem
+import com.loopers.application.order.OrderInfo
+import com.loopers.application.order.OrderItemInfo
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class OrderAdminV1Dto {
+
+    enum class OrderStatusDto { CREATED, PAID, CANCELLED, FAILED }
+    enum class OrderItemStatusDto { ACTIVE, CANCELLED }
+
     data class OrderAdminResponse(
         val id: Long,
         val userId: Long,
-        val status: Order.OrderStatus,
+        val status: OrderStatusDto,
         val totalPrice: BigDecimal,
         val items: List<OrderItemAdminResponse>,
         val createdAt: ZonedDateTime,
         val updatedAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(orderDetail: OrderDetail): OrderAdminResponse {
+            fun from(info: OrderInfo): OrderAdminResponse {
                 return OrderAdminResponse(
-                    id = orderDetail.order.id,
-                    userId = orderDetail.order.refUserId,
-                    status = orderDetail.order.status,
-                    totalPrice = orderDetail.order.totalPrice,
-                    items = orderDetail.items.map { OrderItemAdminResponse.from(it) },
-                    createdAt = orderDetail.order.createdAt,
-                    updatedAt = orderDetail.order.updatedAt,
+                    id = info.id,
+                    userId = info.userId,
+                    status = OrderStatusDto.valueOf(info.status),
+                    totalPrice = info.totalPrice,
+                    items = info.items.map { OrderItemAdminResponse.from(it) },
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
                 )
             }
         }
@@ -39,10 +42,10 @@ class OrderAdminV1Dto {
         val quantity: Int,
     ) {
         companion object {
-            fun from(item: OrderItem): OrderItemAdminResponse {
+            fun from(item: OrderItemInfo): OrderItemAdminResponse {
                 return OrderItemAdminResponse(
                     id = item.id,
-                    productId = item.refProductId,
+                    productId = item.productId,
                     productName = item.productName,
                     productPrice = item.productPrice,
                     quantity = item.quantity,

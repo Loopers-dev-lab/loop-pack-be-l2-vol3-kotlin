@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.point.dto
 
-import com.loopers.domain.point.entity.UserPoint
+import com.loopers.application.point.PointBalanceInfo
 
 class PointV1Dto {
     data class BalanceResponse(
@@ -8,10 +8,10 @@ class PointV1Dto {
         val balance: Long,
     ) {
         companion object {
-            fun from(userPoint: UserPoint): BalanceResponse {
+            fun from(info: PointBalanceInfo): BalanceResponse {
                 return BalanceResponse(
-                    userId = userPoint.refUserId,
-                    balance = userPoint.balance,
+                    userId = info.userId,
+                    balance = info.balance,
                 )
             }
         }

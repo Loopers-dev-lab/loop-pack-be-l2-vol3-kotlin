@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.product.dto
 
-import com.loopers.domain.catalog.CatalogCommand
-import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.application.catalog.product.ProductInfo
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
@@ -17,16 +16,7 @@ class ProductAdminV1Dto {
         val price: BigDecimal,
         @field:Min(value = 0, message = "재고는 0 이상이어야 합니다.")
         val stock: Int,
-    ) {
-        fun toCommand(): CatalogCommand.CreateProduct {
-            return CatalogCommand.CreateProduct(
-                brandId = brandId,
-                name = name,
-                price = price,
-                stock = stock,
-            )
-        }
-    }
+    )
 
     data class UpdateProductRequest(
         val name: String?,
@@ -34,17 +24,8 @@ class ProductAdminV1Dto {
         val price: BigDecimal?,
         @field:Min(value = 0, message = "재고는 0 이상이어야 합니다.")
         val stock: Int?,
-        val status: Product.ProductStatus?,
-    ) {
-        fun toCommand(): CatalogCommand.UpdateProduct {
-            return CatalogCommand.UpdateProduct(
-                name = name,
-                price = price,
-                stock = stock,
-                status = status,
-            )
-        }
-    }
+        val status: String?,
+    )
 
     data class AdminProductResponse(
         val id: Long,
@@ -52,27 +33,29 @@ class ProductAdminV1Dto {
         val name: String,
         val price: BigDecimal,
         val stock: Int,
-        val status: Product.ProductStatus,
+        val status: ProductStatusDto,
         val likeCount: Int,
         val createdAt: ZonedDateTime,
         val updatedAt: ZonedDateTime,
         val deletedAt: ZonedDateTime?,
     ) {
         companion object {
-            fun from(product: Product): AdminProductResponse {
+            fun from(info: ProductInfo): AdminProductResponse {
                 return AdminProductResponse(
-                    id = product.id,
-                    refBrandId = product.refBrandId,
-                    name = product.name,
-                    price = product.price,
-                    stock = product.stock,
-                    status = product.status,
-                    likeCount = product.likeCount,
-                    createdAt = product.createdAt,
-                    updatedAt = product.updatedAt,
-                    deletedAt = product.deletedAt,
+                    id = info.id,
+                    refBrandId = info.brandId,
+                    name = info.name,
+                    price = info.price,
+                    stock = info.stock,
+                    status = ProductStatusDto.valueOf(info.status),
+                    likeCount = info.likeCount,
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
+                    deletedAt = info.deletedAt,
                 )
             }
         }
     }
+
+    enum class ProductStatusDto { ON_SALE, SOLD_OUT, HIDDEN }
 }

@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.user.dto
 
-import com.loopers.domain.user.UserCommand
-import com.loopers.domain.user.entity.User
+import com.loopers.application.user.UserInfo
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
@@ -24,17 +23,7 @@ class UserV1Dto {
         @field:NotBlank(message = "이메일은 필수입니다.")
         @field:Email(message = "이메일 형식이 올바르지 않습니다.")
         val email: String,
-    ) {
-        fun toCommand(): UserCommand.SignUp {
-            return UserCommand.SignUp(
-                loginId = loginId,
-                password = password,
-                name = name,
-                birthDate = birthDate,
-                email = email,
-            )
-        }
-    }
+    )
 
     data class UserResponse(
         val loginId: String,
@@ -43,21 +32,21 @@ class UserV1Dto {
         val email: String,
     ) {
         companion object {
-            fun from(user: User): UserResponse {
+            fun from(info: UserInfo): UserResponse {
                 return UserResponse(
-                    loginId = user.loginId,
-                    name = user.name,
-                    birthDate = user.birthDate,
-                    email = user.email,
+                    loginId = info.loginId,
+                    name = info.name,
+                    birthDate = info.birthDate,
+                    email = info.email,
                 )
             }
 
-            fun fromWithMaskedName(user: User): UserResponse {
+            fun fromMasked(info: UserInfo): UserResponse {
                 return UserResponse(
-                    loginId = user.loginId,
-                    name = user.getMaskedName(),
-                    birthDate = user.birthDate,
-                    email = user.email,
+                    loginId = info.loginId,
+                    name = info.maskedName,
+                    birthDate = info.birthDate,
+                    email = info.email,
                 )
             }
         }
@@ -68,12 +57,5 @@ class UserV1Dto {
         val currentPassword: String,
         @field:Size(min = 8, max = 16, message = "비밀번호는 8~16자여야 합니다.")
         val newPassword: String,
-    ) {
-        fun toCommand(): UserCommand.ChangePassword {
-            return UserCommand.ChangePassword(
-                currentPassword = currentPassword,
-                newPassword = newPassword,
-            )
-        }
-    }
+    )
 }

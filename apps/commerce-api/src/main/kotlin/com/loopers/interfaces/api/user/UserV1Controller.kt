@@ -1,7 +1,8 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserFacade
-import com.loopers.domain.user.UserService
+import com.loopers.application.user.ChangePasswordUseCase
+import com.loopers.application.user.GetUserInfoUseCase
+import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.api.user.spec.UserV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
@@ -17,15 +18,22 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
-    private val userFacade: UserFacade,
-    private val userService: UserService,
+    private val registerUserUseCase: RegisterUserUseCase,
+    private val getUserInfoUseCase: GetUserInfoUseCase,
+    private val changePasswordUseCase: ChangePasswordUseCase,
 ) : UserV1ApiSpec {
 
     @PostMapping("/sign-up")
     override fun signUp(
         @RequestBody @Valid request: UserV1Dto.SignUpRequest,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        return userFacade.signUp(request.toCommand())
+        return registerUserUseCase.execute(
+            loginId = request.loginId,
+            password = request.password,
+            name = request.name,
+            birthDate = request.birthDate,
+            email = request.email,
+        )
             .let { UserV1Dto.UserResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -34,8 +42,8 @@ class UserV1Controller(
     override fun getUserInfo(
         @AuthUser userId: Long,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        return userService.getUser(userId)
-            .let { UserV1Dto.UserResponse.fromWithMaskedName(it) }
+        return getUserInfoUseCase.execute(userId)
+            .let { UserV1Dto.UserResponse.fromMasked(it) }
             .let { ApiResponse.success(it) }
     }
 
@@ -44,7 +52,7 @@ class UserV1Controller(
         @AuthUser userId: Long,
         @RequestBody @Valid request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
-        userService.changePassword(userId, request.toCommand())
+        changePasswordUseCase.execute(userId, request.currentPassword, request.newPassword)
         return ApiResponse.success()
     }
 }

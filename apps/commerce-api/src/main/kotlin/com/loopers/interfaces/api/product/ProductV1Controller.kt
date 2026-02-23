@@ -1,13 +1,11 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.domain.catalog.CatalogService
-import com.loopers.domain.catalog.product.ProductSort
+import com.loopers.application.catalog.product.GetProductDetailUseCase
+import com.loopers.application.catalog.product.GetProductsUseCase
 import com.loopers.interfaces.api.product.dto.ProductV1Dto
 import com.loopers.interfaces.api.product.spec.ProductV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -20,7 +18,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/products")
 class ProductV1Controller(
-    private val catalogService: CatalogService,
+    private val getProductsUseCase: GetProductsUseCase,
+    private val getProductDetailUseCase: GetProductDetailUseCase,
 ) : ProductV1ApiSpec {
 
     @GetMapping
@@ -30,12 +29,7 @@ class ProductV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<ProductV1Dto.CustomerProductResponse>> {
-        val productSort = ProductSort.entries.find { it.name == sort.uppercase() }
-            ?: throw CoreException(
-                ErrorType.BAD_REQUEST,
-                "잘못된 정렬 기준입니다. 사용 가능한 값: ${ProductSort.entries.joinToString(", ")}",
-            )
-        return catalogService.getProducts(brandId, productSort, page, size)
+        return getProductsUseCase.execute(brandId, sort, page, size)
             .map { ProductV1Dto.CustomerProductResponse.from(it) }
             .toSpringPage()
             .let { ApiResponse.success(it) }
@@ -45,7 +39,7 @@ class ProductV1Controller(
     override fun getProduct(
         @PathVariable productId: Long,
     ): ApiResponse<ProductV1Dto.ProductDetailResponse> {
-        return catalogService.getProductDetail(productId)
+        return getProductDetailUseCase.execute(productId)
             .let { ProductV1Dto.ProductDetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

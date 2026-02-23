@@ -1,9 +1,7 @@
 package com.loopers.interfaces.api.order.dto
 
-import com.loopers.domain.order.OrderCommand
-import com.loopers.domain.order.OrderDetail
-import com.loopers.domain.order.entity.Order
-import com.loopers.domain.order.entity.OrderItem
+import com.loopers.application.order.OrderInfo
+import com.loopers.application.order.PlaceOrderCommand
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
@@ -11,15 +9,19 @@ import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class OrderV1Dto {
+
+    enum class OrderStatusDto { CREATED, PAID, CANCELLED, FAILED }
+    enum class OrderItemStatusDto { ACTIVE, CANCELLED }
+
     data class CreateOrderRequest(
         @field:NotEmpty(message = "주문 항목은 필수입니다.")
         @field:Valid
         val items: List<CreateOrderItemRequest>,
     ) {
-        fun toCommand(): OrderCommand.CreateOrder {
-            return OrderCommand.CreateOrder(
+        fun toCommand(): PlaceOrderCommand {
+            return PlaceOrderCommand(
                 items = items.map {
-                    OrderCommand.CreateOrderItem(productId = it.productId, quantity = it.quantity)
+                    PlaceOrderCommand.PlaceOrderItemCommand(productId = it.productId, quantity = it.quantity)
                 },
             )
         }
@@ -33,19 +35,19 @@ class OrderV1Dto {
 
     data class OrderResponse(
         val id: Long,
-        val status: Order.OrderStatus,
+        val status: OrderStatusDto,
         val totalPrice: BigDecimal,
         val items: List<OrderItemResponse>,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(orderDetail: OrderDetail): OrderResponse {
+            fun from(info: OrderInfo): OrderResponse {
                 return OrderResponse(
-                    id = orderDetail.order.id,
-                    status = orderDetail.order.status,
-                    totalPrice = orderDetail.order.totalPrice,
-                    items = orderDetail.items.map { OrderItemResponse.from(it) },
-                    createdAt = orderDetail.order.createdAt,
+                    id = info.id,
+                    status = OrderStatusDto.valueOf(info.status),
+                    totalPrice = info.totalPrice,
+                    items = info.items.map { OrderItemResponse.from(it) },
+                    createdAt = info.createdAt,
                 )
             }
         }
@@ -58,9 +60,9 @@ class OrderV1Dto {
         val quantity: Int,
     ) {
         companion object {
-            fun from(item: OrderItem): OrderItemResponse {
+            fun from(item: com.loopers.application.order.OrderItemInfo): OrderItemResponse {
                 return OrderItemResponse(
-                    productId = item.refProductId,
+                    productId = item.productId,
                     productName = item.productName,
                     productPrice = item.productPrice,
                     quantity = item.quantity,

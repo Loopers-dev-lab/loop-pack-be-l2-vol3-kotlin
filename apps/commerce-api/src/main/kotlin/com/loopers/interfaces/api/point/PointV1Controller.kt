@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.point
 
-import com.loopers.domain.point.PointChargingService
-import com.loopers.domain.point.UserPointService
+import com.loopers.application.point.ChargePointUseCase
+import com.loopers.application.point.GetUserPointUseCase
 import com.loopers.interfaces.api.point.dto.PointV1Dto
 import com.loopers.interfaces.api.point.spec.PointV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/users/points")
 class PointV1Controller(
-    private val pointChargingService: PointChargingService,
-    private val userPointService: UserPointService,
+    private val chargePointUseCase: ChargePointUseCase,
+    private val getUserPointUseCase: GetUserPointUseCase,
 ) : PointV1ApiSpec {
 
     @PostMapping("/charge")
@@ -26,7 +26,7 @@ class PointV1Controller(
         @AuthUser userId: Long,
         @RequestParam amount: Long,
     ): ApiResponse<PointV1Dto.BalanceResponse> {
-        return pointChargingService.charge(userId, amount)
+        return chargePointUseCase.execute(userId, amount)
             .let { PointV1Dto.BalanceResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -35,7 +35,7 @@ class PointV1Controller(
     override fun getBalance(
         @AuthUser userId: Long,
     ): ApiResponse<PointV1Dto.BalanceResponse> {
-        return userPointService.getBalance(userId)
+        return getUserPointUseCase.execute(userId)
             .let { PointV1Dto.BalanceResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
