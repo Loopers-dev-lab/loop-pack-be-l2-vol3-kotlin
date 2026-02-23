@@ -1,6 +1,6 @@
 # 클래스 다이어그램
 
-도메인 객체의 책임, 의존 방향, Entity/VO 구분을 Mermaid 클래스 다이어그램으로 정리한다.
+도메인 객체의 책임, 의존 방향, Domain Model/VO 구분을 Mermaid 클래스 다이어그램으로 정리한다.
 **단순 Getter/Setter와 모든 필드 나열은 생략**하고, 핵심 비즈니스 로직과 아키텍처 구조 위주로 기술한다.
 
 ---
@@ -463,8 +463,8 @@ classDiagram
 
 ### 핵심 포인트
 
-- **OrderItem 관리:** `OrderItem`은 `refOrderId` FK로 `Order`를 참조하며, 별도 `OrderItemRepository`를 통해 저장/조회한다. `@OneToMany` 없이
-  독립적으로 관리된다.
+- **Aggregate Root 규칙:** `OrderItem`의 상태 변경(취소 등)은 반드시 `Order`를 통해서만 수행한다. Domain Service는 `OrderItemRepository`로 직접 수정하지 않고, `Order`의 메서드(`cancelItem()` 등)를 통해 변경하며, `Order` 내부에서 `totalPrice` 재계산이 함께 처리된다. `OrderItemRepository`는 `OrderService`에서만 사용한다는 컨벤션으로 우회를 막는다.
+- **OrderItem 관리:** `OrderItem`은 `refOrderId` FK로 `Order`를 참조하며, JPA 연관관계(@OneToMany) 없이 별도 `OrderItemRepository`를 통해 저장/조회한다.
 - **정적 팩토리 메서드:** `Order.create(userId, totalPrice)`로 주문을 생성하고, `OrderItem.create(product, quantity, orderId)`로 각 항목을 별도
   생성한다. `OrderProductInfo`의 가격과 이름을 스냅샷으로 복사한다. Order 도메인은 Catalog 도메인 타입(`Product`)에 의존하지 않으며, Facade에서 `Product` →
   `OrderProductInfo` 변환(cross-domain 매핑)을 수행한다.

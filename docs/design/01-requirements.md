@@ -63,7 +63,7 @@
 | 주문 항목    | OrderItem       | 주문에 포함된 개별 상품. 주문 당시의 상품명과 가격을 스냅샷으로 저장한다.                                                  |
 | 주문 상태    | OrderStatus     | 주문의 진행 상태. CREATED / PAID / CANCELLED / FAILED.                                             |
 | 상품 스냅샷   | ProductSnapshot | 주문 시점의 상품 정보(이름, 가격) 사본. OrderItem에 저장.                                                     |
-| 유저 포인트   | UserPoint       | 사용자의 포인트 잔액을 관리하는 엔티티. User와 1:1 관계.                                                        |
+| 유저 포인트   | UserPoint       | 사용자의 포인트 잔액을 관리하는 Domain Model. User와 1:1 관계.                                                  |
 | 포인트      | Point           | 포인트 금액을 나타내는 Value Object. 0 이상이어야 하며, 연산 시 음수 방지를 보장한다.                                    |
 | 포인트 내역   | PointHistory    | 포인트 충전/차감 이력. CHARGE(충전)와 USE(사용) 유형을 가진다.                                                  |
 | 수량       | quantity        | 주문 항목의 수량. OrderItem.init 블록에서 직접 검증 (quantity >= 1).                                       |
@@ -71,7 +71,7 @@
 | 카탈로그 서비스 | CatalogService  | Catalog 바운디드 컨텍스트의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합, 재고 관리 등을 담당한다.                 |
 | 도메인 서비스  | Domain Service  | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Entity가 수행하기 어려운 로직을 담당한다.           |
 | 어드민      | Admin           | 브랜드/상품/주문을 관리하는 내부 운영자. LDAP 헤더로 식별한다.                                                      |
-| 복구       | Restore         | soft delete된 엔티티를 다시 활성 상태로 되돌리는 어드민 작업. deletedAt을 null로 설정하며, 이미 활성인 엔티티에 대해서는 멱등하게 동작한다. |
+| 복구       | Restore         | soft delete된 Domain Model을 다시 활성 상태로 되돌리는 어드민 작업. deletedAt을 null로 설정하며, 이미 활성인 Domain Model에 대해서는 멱등하게 동작한다. |
 
 ---
 

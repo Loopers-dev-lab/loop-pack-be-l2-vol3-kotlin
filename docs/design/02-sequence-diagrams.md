@@ -36,8 +36,8 @@ sequenceDiagram
     User ->> C: 브랜드 상세 정보 요청
     C ->> S: 유효한 브랜드 조회 요청
     S ->> R: DB 조회 (삭제되지 않은 브랜드)
-    R -->> S: 브랜드 엔티티
-    S -->> C: Brand 엔티티
+    R -->> S: Brand
+    S -->> C: Brand
     C -->> User: 200 OK
 ```
 
