@@ -21,7 +21,7 @@ class UserV1Controller(
     override fun signUp(
         @RequestBody request: UserV1Dto.SignUpRequest,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        return userFacade.signUp(request.toCommand())
+        return userFacade.signUp(request.toCriteria())
             .let { UserV1Dto.UserResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -42,7 +42,7 @@ class UserV1Controller(
         @RequestHeader(HttpHeaders.LOGIN_PW) loginPw: String,
         @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Unit> {
-        userFacade.changePassword(loginId, loginPw, request.toCommand())
+        userFacade.changePassword(loginId, loginPw, request.toCriteria())
         return ApiResponse.success(Unit)
     }
 }

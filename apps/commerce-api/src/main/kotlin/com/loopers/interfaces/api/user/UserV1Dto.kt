@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserInfo
-import com.loopers.domain.user.ChangePasswordCommand
-import com.loopers.domain.user.SignUpCommand
+import com.loopers.application.user.ChangePasswordCriteria
+import com.loopers.application.user.SignUpCriteria
+import com.loopers.application.user.UserResult
 import java.time.LocalDate
 
 class UserV1Dto {
@@ -14,8 +14,8 @@ class UserV1Dto {
         val birthday: LocalDate,
         val email: String,
     ) {
-        fun toCommand(): SignUpCommand {
-            return SignUpCommand(
+        fun toCriteria(): SignUpCriteria {
+            return SignUpCriteria(
                 loginId = loginId,
                 password = password,
                 name = name,
@@ -33,13 +33,13 @@ class UserV1Dto {
         val email: String,
     ) {
         companion object {
-            fun from(info: UserInfo): UserResponse {
+            fun from(result: UserResult): UserResponse {
                 return UserResponse(
-                    id = info.id,
-                    loginId = info.loginId,
-                    name = info.name,
-                    birthday = info.birthday,
-                    email = info.email,
+                    id = result.id,
+                    loginId = result.loginId,
+                    name = result.name,
+                    birthday = result.birthday,
+                    email = result.email,
                 )
             }
         }
@@ -48,8 +48,8 @@ class UserV1Dto {
     data class ChangePasswordRequest(
         val newPassword: String,
     ) {
-        fun toCommand(): ChangePasswordCommand {
-            return ChangePasswordCommand(
+        fun toCriteria(): ChangePasswordCriteria {
+            return ChangePasswordCriteria(
                 newPassword = newPassword,
             )
         }
