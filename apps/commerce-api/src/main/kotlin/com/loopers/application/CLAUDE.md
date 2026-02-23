@@ -1,35 +1,57 @@
 # Application 레이어
 
-Cross-domain 유스케이스 오케스트레이션. 비즈니스 로직은 Domain에 위임하고 흐름만 조율한다.
+Controller와 Domain 사이의 유일한 진입점. 모든 Controller는 반드시 UseCase를 통과한다.
 
-## Facade
+## UseCase
 
 ```kotlin
-@Service
-class OrderFacade(
+@Component
+class PlaceOrderUseCase(
     private val catalogService: CatalogService,
     private val orderService: OrderService,
     private val userPointService: UserPointService,
 ) {
     @Transactional
-    fun createOrder(command: OrderCommand.CreateOrder): OrderInfo {
+    fun execute(command: PlaceOrderCommand): OrderInfo {
         val products = catalogService.getOrderableProducts(command.productIds)
-        val order = orderService.createOrder(command, products)
+        val order = orderService.createOrder(command.toOrderCommand(), products)
         userPointService.use(command.userId, order.totalPrice)
         return OrderInfo.from(order)
     }
 }
 ```
 
+- `@Component` 등록, 단일 책임 (`execute` 메서드)
 - `@Transactional` 경계 설정
-- Domain Service 오케스트레이션
-- 비즈니스 로직 없음. 흐름 조율만.
+- 비즈니스 로직 없음. Domain Service 오케스트레이션만.
+- 단일 Domain Service 래핑이라도 UseCase를 생략하지 않는다 (Strict Layered Architecture)
 
-**Facade 생략 조건:** 단일 Domain Service로 충분한 경우 Controller → Domain Service 직접 호출.
+## Info DTO (Application → Interfaces)
 
-## DTO 변환 규칙
+UseCase가 반환하는 Application 전용 DTO. **원시 타입만** 사용하여 Domain 객체(VO, Enum)가 Interfaces로 유출되지 않게 한다.
 
-- **Controller → Domain Service 직접 호출**: Domain Service가 Domain Model 반환 → Controller에서 Dto로 변환
-- **같은 BC 내 조합** (예: Product + Brand): 조합 결과물은 **domain 레이어**에 데이터 클래스로 둔다 (예: `ProductDetail`). Application에 두면 DIP 위반.
-- **다른 BC 간 조합** (Facade 경유): Facade가 **application 레이어의 Info 객체**를 반환 → Controller에서 Dto로 변환
-- Dto/Info에 `companion object { fun from(...) }` 팩토리 메서드 사용
+```kotlin
+data class ProductInfo(
+    val id: Long,
+    val name: String,
+    val price: BigDecimal,
+    val status: String,      // Domain Enum → String 변환
+) {
+    companion object {
+        fun from(product: Product): ProductInfo = ProductInfo(
+            id = product.id,
+            name = product.name,
+            price = product.price.value,
+            status = product.status.name,
+        )
+    }
+}
+```
+
+- `companion object { fun from(domainModel) }` 팩토리 메서드
+- Domain Enum은 `.name`으로 String 변환
+- VO는 `.value`로 원시 타입 추출
+
+## Application Command
+
+cross-domain 오케스트레이션이 필요한 경우 Application 전용 Command 정의 (예: `PlaceOrderCommand`). 단일 도메인이면 Domain Command를 UseCase 내부에서 직접 생성.

@@ -11,26 +11,33 @@
 - **독립적 생성** (Product, Brand, User, UserPoint): `public constructor` + `init { validate() }`
 - **조립+파생값 계산** (Order): `private constructor` + `companion object { create() }`. 팩토리 메서드가 유일한 생성 경로.
 
+**DB 복원 패턴:**
+
+- `public constructor` 모델: `companion object { fun fromPersistence(...) }` — 검증 없이 DB 데이터로 복원
+- `private constructor` 모델 (Order): `companion object { fun fromPersistence(...) }` — 팩토리 메서드가 DB 복원 경로도 제공
+
 **설계 원칙:**
 
 - 검증, 상태 변경, 상태 판단은 Domain Model 내부에서 수행 (예: `Product.isActive()`, `UserPoint.canAfford()`)
 - 규칙이 여러 Service에 나타나면 도메인 객체에 속할 가능성이 높다
 - cross-domain 타입 의존 방지: 다른 도메인 모델을 직접 받지 않고, 자기 도메인의 데이터 클래스로 필요한 정보만 수신 (예: `OrderProductInfo`)
+- POJO는 JPA dirty checking 불가 → 상태 변경 후 반드시 `repository.save()` 명시 호출
 
 ## Value Object
 
 | 유형 | 선언 방식 | 예시 |
 |---|---|---|
-| 단일 값 감싸기 | `@JvmInline value class` | `Price`, `Email`, `LoginId` |
-| 도메인 메서드 보유 | 일반 `class` | `Stock.decrease()`, `Point.add()` |
+| 단일 값 감싸기 | `@JvmInline value class` | `Money`, `Email`, `LoginId`, `BrandName` |
+| 도메인 메서드 보유 | `@JvmInline value class` | `Stock.decrease()`, `Point.plus()` |
 | 복합 필드 | `data class` | `Address` |
+| 생성자 의존 | 일반 `class` | `Password` (birthDate 의존) |
 
 - 생성 시점에 자가 검증 (`init` 블록에서 규칙 위반 시 `CoreException` throw)
 - 한 줄짜리 검증도 VO로 적극 표현
 
 ## Command
 
-서비스 호출 시 요청 파라미터를 `XxxCommand` class 내부에 data class로 묶는다 (예: `CatalogCommand.CreateProduct`). Controller에서 Dto → Command 변환 후 서비스에 전달.
+서비스 호출 시 요청 파라미터를 `XxxCommand` class 내부에 data class로 묶는다 (예: `CatalogCommand.CreateProduct`). UseCase 내부에서 Command를 생성하여 Domain Service에 전달. Controller는 Command를 직접 참조하지 않는다.
 
 ## Repository 인터페이스
 

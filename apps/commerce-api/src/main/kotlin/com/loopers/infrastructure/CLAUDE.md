@@ -4,21 +4,41 @@ Domain Model과 DB 사이의 변환을 전담한다.
 
 ## JPA Entity (Persistence Model)
 
-DB 테이블 매핑 전용. 비즈니스 로직 없음. `BaseJpaEntity` 상속 (id, createdAt, updatedAt, deletedAt 자동관리, soft delete 지원).
+DB 테이블 매핑 전용. 비즈니스 로직 없음. `BaseEntity` 상속 (id, createdAt, updatedAt, deletedAt 자동관리, soft delete 지원).
 
 **매핑 메서드:**
 
 ```kotlin
 @Entity
-class ProductEntity(...) {
+@Table(name = "products")
+class ProductEntity(
+    @Column(nullable = false) val name: String,
+    @Column(nullable = false) val price: BigDecimal,   // VO → 원시 타입
+    // ...
+) : BaseEntity() {
     companion object {
-        fun fromDomain(product: Product): ProductEntity = ProductEntity(...)
-        // VO는 내부 기본 타입을 명시적으로 꺼내어 매핑: domain.price.value
+        fun fromDomain(product: Product): ProductEntity {
+            val entity = ProductEntity(
+                name = product.name,
+                price = product.price.value,       // Money.value
+            )
+            // 기존 ID가 있으면 반영 (update 시)
+            if (product.id != 0L) {
+                BaseEntity::class.java.getDeclaredField("id").apply {
+                    isAccessible = true; set(entity, product.id)
+                }
+            }
+            return entity
+        }
     }
-    fun toDomain(): Product = Product(...)
+    fun toDomain(): Product = Product.fromPersistence(
+        id = id, name = name, price = Money(price), // ...
+    )
 }
 ```
 
+- `fromDomain()`: Domain → Entity. VO는 `.value`로 원시 타입 추출. `BaseEntity.id`는 리플렉션으로 설정.
+- `toDomain()`: Entity → Domain. `fromPersistence()` 사용 (검증 건너뜀).
 - 확장함수(`toDomain()`)는 사용하지 않는다.
 - DB 조회가 필요한 경우에만 예외적으로 `@Component` Mapper 도입.
 

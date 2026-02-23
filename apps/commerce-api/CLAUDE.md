@@ -12,11 +12,12 @@ interfaces/  →  application/  →  domain/  ←  infrastructure/
 
 계층 패키지 하위에 도메인별로 패키징한다 (예: `domain/catalog/`, `infrastructure/catalog/`).
 
-## 요청 흐름
+## 요청 흐름 (Strict Layered Architecture)
 
-- 여러 Domain Service를 조합해야 하는 경우: Controller → **Facade** → Domain Services
-- 단일 Domain Service로 충분한 경우: Controller → **Domain Service** 직접 호출 (Facade 생략)
-- 인증: **AuthInterceptor** → UserService 직접 호출
+- **모든 Controller**: Controller → **UseCase** → Domain Service(s). 예외 없음.
+- 인증: **AuthInterceptor** → `AuthenticateUserUseCase` → UserService
+- Controller는 Domain 객체(Command, VO, Enum, Service)를 절대 직접 참조하지 않는다.
+- Domain Enum은 도메인에 유지. Interfaces DTO에 API 전용 Enum을 선언하고 매핑.
 
 ## 에러 처리
 
