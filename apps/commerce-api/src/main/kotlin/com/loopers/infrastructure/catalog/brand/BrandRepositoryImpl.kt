@@ -4,24 +4,27 @@ import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.brand.entity.Brand
 import com.loopers.domain.catalog.brand.repository.BrandRepository
 import org.springframework.data.domain.PageRequest
-import org.springframework.stereotype.Component
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.stereotype.Repository
 
-@Component
+interface BrandJpaRepository : JpaRepository<BrandEntity, Long>
+
+@Repository
 class BrandRepositoryImpl(
-    private val brandJpaRepository: BrandJpaRepository,
+    private val jpa: BrandJpaRepository,
 ) : BrandRepository {
 
     override fun save(brand: Brand): Brand {
-        return brandJpaRepository.save(brand)
+        return jpa.save(BrandEntity.fromDomain(brand)).toDomain()
     }
 
     override fun findById(id: Long): Brand? {
-        return brandJpaRepository.findById(id).orElse(null)
+        return jpa.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Brand> {
         val pageable = PageRequest.of(page, size)
-        val result = brandJpaRepository.findAll(pageable)
-        return PageResult(result.content, result.totalElements, page, size)
+        val result = jpa.findAll(pageable)
+        return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 }

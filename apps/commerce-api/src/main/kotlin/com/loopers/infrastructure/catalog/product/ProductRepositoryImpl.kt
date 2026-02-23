@@ -3,35 +3,39 @@ package com.loopers.infrastructure.catalog.product
 import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.catalog.product.ProductSort
-import com.loopers.domain.catalog.product.entity.QProduct
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
 import org.springframework.data.domain.PageRequest
-import org.springframework.stereotype.Component
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.stereotype.Repository
 
-@Component
+interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
+    fun findAllByRefBrandId(brandId: Long): List<ProductEntity>
+}
+
+@Repository
 class ProductRepositoryImpl(
-    private val productJpaRepository: ProductJpaRepository,
+    private val jpa: ProductJpaRepository,
     private val queryFactory: JPAQueryFactory,
 ) : ProductRepository {
 
     override fun save(product: Product): Product {
-        return productJpaRepository.save(product)
+        return jpa.save(ProductEntity.fromDomain(product)).toDomain()
     }
 
     override fun findById(id: Long): Product? {
-        return productJpaRepository.findById(id).orElse(null)
+        return jpa.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
         val pageable = PageRequest.of(page, size)
-        val result = productJpaRepository.findAll(pageable)
-        return PageResult(result.content, result.totalElements, page, size)
+        val result = jpa.findAll(pageable)
+        return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
     override fun findActiveProducts(brandId: Long?, sort: ProductSort, page: Int, size: Int): PageResult<Product> {
-        val product = QProduct.product
+        val product = QProductEntity.productEntity
 
         val where = BooleanBuilder()
             .and(product.deletedAt.isNull)
@@ -58,14 +62,14 @@ class ProductRepositoryImpl(
             .where(where)
             .fetchOne() ?: 0L
 
-        return PageResult(content, total, page, size)
+        return PageResult(content.map { it.toDomain() }, total, page, size)
     }
 
     override fun findAllByBrandId(brandId: Long): List<Product> {
-        return productJpaRepository.findAllByRefBrandId(brandId)
+        return jpa.findAllByRefBrandId(brandId).map { it.toDomain() }
     }
 
     override fun findAllByIds(ids: List<Long>): List<Product> {
-        return productJpaRepository.findAllById(ids)
+        return jpa.findAllById(ids).map { it.toDomain() }
     }
 }

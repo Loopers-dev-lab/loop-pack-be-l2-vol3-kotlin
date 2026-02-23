@@ -2,26 +2,32 @@ package com.loopers.infrastructure.like
 
 import com.loopers.domain.like.entity.Like
 import com.loopers.domain.like.repository.LikeRepository
-import org.springframework.stereotype.Component
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.stereotype.Repository
 
-@Component
+interface LikeJpaRepository : JpaRepository<LikeEntity, Long> {
+    fun findByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): LikeEntity?
+    fun findAllByRefUserIdOrderByIdDesc(refUserId: Long): List<LikeEntity>
+}
+
+@Repository
 class LikeRepositoryImpl(
-    private val likeJpaRepository: LikeJpaRepository,
+    private val jpa: LikeJpaRepository,
 ) : LikeRepository {
 
     override fun save(like: Like): Like {
-        return likeJpaRepository.save(like)
+        return jpa.save(LikeEntity.fromDomain(like)).toDomain()
     }
 
     override fun findByUserIdAndProductId(userId: Long, productId: Long): Like? {
-        return likeJpaRepository.findByRefUserIdAndRefProductId(userId, productId)
+        return jpa.findByRefUserIdAndRefProductId(userId, productId)?.toDomain()
     }
 
     override fun delete(like: Like) {
-        likeJpaRepository.delete(like)
+        jpa.deleteById(like.id)
     }
 
     override fun findAllByUserId(userId: Long): List<Like> {
-        return likeJpaRepository.findAllByRefUserIdOrderByIdDesc(userId)
+        return jpa.findAllByRefUserIdOrderByIdDesc(userId).map { it.toDomain() }
     }
 }

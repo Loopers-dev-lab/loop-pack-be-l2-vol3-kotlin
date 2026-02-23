@@ -2,26 +2,32 @@ package com.loopers.infrastructure.user
 
 import com.loopers.domain.user.entity.User
 import com.loopers.domain.user.repository.UserRepository
-import org.springframework.stereotype.Component
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.stereotype.Repository
 
-@Component
+interface UserJpaRepository : JpaRepository<UserEntity, Long> {
+    fun findByLoginId(loginId: String): UserEntity?
+    fun existsByLoginId(loginId: String): Boolean
+}
+
+@Repository
 class UserRepositoryImpl(
-    private val userJpaRepository: UserJpaRepository,
+    private val jpa: UserJpaRepository,
 ) : UserRepository {
 
     override fun save(user: User): User {
-        return userJpaRepository.save(user)
+        return jpa.save(UserEntity.fromDomain(user)).toDomain()
     }
 
     override fun findById(id: Long): User? {
-        return userJpaRepository.findById(id).orElse(null)
+        return jpa.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findByLoginId(loginId: String): User? {
-        return userJpaRepository.findByLoginId(loginId)
+        return jpa.findByLoginId(loginId)?.toDomain()
     }
 
     override fun existsByLoginId(loginId: String): Boolean {
-        return userJpaRepository.existsByLoginId(loginId)
+        return jpa.existsByLoginId(loginId)
     }
 }
