@@ -1,6 +1,5 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.order.OrderProductInfo
 import com.loopers.domain.order.entity.Order
 import com.loopers.domain.order.entity.OrderItem
 import com.loopers.support.error.CoreException
