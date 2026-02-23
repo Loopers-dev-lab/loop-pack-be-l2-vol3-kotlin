@@ -41,8 +41,8 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 ```
 interfaces/api/    → Controller, ApiSpec(OpenAPI 인터페이스), Dto
 application/       → Facade(여러 Domain Service를 조합하는 유스케이스 오케스트레이션)
-domain/            → Entity, Domain Service(@Component), Repository(인터페이스), Value Object
-infrastructure/    → RepositoryImpl(구현체), JpaRepository
+domain/            → Domain Model(순수 POJO), Domain Service(@Component/@Service), Repository(인터페이스), Value Object
+infrastructure/    → XxxEntity(JPA 영속성 모델), RepositoryImpl(XxxJpaRepository 포함)
 support/error/     → CoreException, ErrorType
 ```
 
@@ -57,14 +57,17 @@ support/error/     → CoreException, ErrorType
 
 ### 핵심 패턴
 
-**Entity**: `BaseEntity` 상속 (id, createdAt, updatedAt, deletedAt 자동관리, soft delete 지원). 프로퍼티는 `protected set`. 도메인 검증은
-`guard()` 메서드를 override하여 VO로 수행한다. `guard()`는 `@PrePersist`/`@PreUpdate` 시 자동 호출된다.
+**Domain Model**: 순수 POJO. JPA 애노테이션 없이, 비즈니스 규칙과 상태 변경을 스스로 수행하는 Rich Domain Model을 지향한다.
 
-**Entity 생성 패턴 선택 기준:**
-- **생성 후 상태가 변하는 엔티티** (Product, UserPoint): `public constructor` + `init { guard() }`. `guard()`가 `@PrePersist`/`@PreUpdate`마다 재검증.
-- **생성 시 복합 조립이 필요하고 생성 후 불변인 엔티티** (Order, OrderItem): `private constructor` + `companion object { create() }`. 팩토리 메서드가 유일한 생성 경로이며, 생성 후 재검증할 필드가 없으므로 `guard()` 불필요. 엔티티가 자신의 구성 요소 조립과 파생 값 계산을 내부에서 책임진다 (예: `Order.create()`가 OrderItem 생성 + totalPrice 계산을 수행하며, Facade는 그 결과를 사용할 뿐이다). cross-domain 타입 의존을 방지하기 위해 다른 도메인의 엔티티를 직접 받지 않고, 자기 도메인의 데이터 클래스(예: `OrderProductInfo`)를 통해 필요한 정보만 수신한다.
+**Domain Model 생성 패턴 선택 기준:**
+- **독립적으로 생성 가능한 모델** (Product, UserPoint 등): `public constructor` + `init { validate() }`.
+- **생성 시 구성 요소를 직접 조립하고 파생 값을 계산하는 모델** (Order): `private constructor` + `companion object { create() }`. 팩토리 메서드가 유일한 생성 경로. `Order.create()`는 내부에서 `OrderItem` 생성 + totalPrice 계산을 수행한다. 상태 변경은 명시적 도메인 메서드(예: `cancelItem()`)를 통해 불변식을 유지한다. cross-domain 타입 의존을 방지하기 위해 다른 도메인의 모델을 직접 받지 않고, 자기 도메인의 데이터 클래스(예: `OrderProductInfo`)를 통해 필요한 정보만 수신한다.
 
-**Value Object**: 생성 시점에 자가 검증. `init` 블록에서 규칙 위반 시 `CoreException` throw. Entity 필드는 기본 타입(String, Int, Long, BigDecimal)으로 유지하되, 생성/변경 시 VO를 통해 검증한다.
+**JPA Entity (Persistence Model)**: infrastructure 레이어에 위치. DB 테이블 매핑 전용. `BaseJpaEntity` 상속 (id, createdAt, updatedAt, deletedAt 자동관리, soft delete 지원). 매핑 메서드를 보유한다:
+- `companion object { fun fromDomain(domain: Xxx): XxxEntity }` — Domain Model → JPA Entity 변환
+- `fun toDomain(): Xxx` — JPA Entity → Domain Model 변환
+
+**Value Object**: 단일 값을 감싸는 경우 `@JvmInline value class`로 선언하여 런타임 오버헤드 없이 타입 안전성을 확보한다. 생성 시점에 자가 검증(`init` 블록에서 규칙 위반 시 `CoreException` throw). Domain Model이 순수 POJO이므로 `@Converter` 없이 한 줄짜리 검증(`Price`, `Email`, `BrandName` 등)도 VO로 자유롭게 표현한다. 복합 필드가 필요하면 `data class`, 도메인 메서드(`Stock.decrease()`)가 있으면 일반 `class`로 선언한다.
 
 **Command**: 서비스 호출 시 요청 파라미터를 `XxxCommand` class 내부에 data class로 묶는다 (예: `UserCommand.SignUp`). Controller에서 Dto → Command 변환 후 서비스에 전달.
 
@@ -74,25 +77,25 @@ support/error/     → CoreException, ErrorType
 **API 응답**: 모든 응답은 `ApiResponse<T>` 래퍼 사용. `ApiResponse.success(data)` / `ApiResponse.fail(errorCode, message)`.
 `ApiControllerAdvice`에서 전역 예외 처리.
 
-**Repository**: 도메인 레이어에 인터페이스 정의 → infrastructure에서 구현. JPA Repository는 `JpaRepository<Entity, Long>` 상속.
+**Repository**: 도메인 레이어에 인터페이스 정의 → infrastructure에서 구현. `XxxRepositoryImpl.kt` 파일 하나에 `internal interface XxxJpaRepository : JpaRepository<XxxEntity, Long>`와 `XxxRepositoryImpl`을 함께 선언한다. JpaRepository는 구현 세부사항이므로 외부에 노출하지 않는다.
 도메인 Repository 인터페이스는 **도메인 언어와 기본 타입만** 사용한다. Spring Data 타입(`Pageable`, `Page` 등)을 도메인 계약에 노출하지 않는다.
 페이지네이션은 `page: Int, size: Int` 파라미터와 `PageResult<T>`(도메인 고유 타입)로 표현하고, Spring `Page<T>` 변환은 Controller에서 `toSpringPage()` 확장함수로 수행한다.
 
-**Domain Service**: 도메인 레이어의 서비스. `@Component`로 등록하며, Repository를 통해 도메인 객체를 조회/저장하고 비즈니스 로직을 수행한다.
+**Domain Service**: 도메인 레이어의 서비스. `@Service` 또는 `@Component`로 등록하며, Repository를 통해 Domain Model을 조회/저장하고 비즈니스 로직을 수행한다.
 단일 도메인 CRUD(예: CatalogService)부터 복수 도메인 객체 협력(예: PointChargingService)까지 도메인 레이어에서 처리한다.
 
 **DTO 변환 규칙**:
 
-- **Facade 없이 Controller → Domain Service 직접 호출**: Domain Service가 Entity 또는 domain 레이어 데이터 클래스를 반환 → Controller에서 Dto로 변환
+- **Facade 없이 Controller → Domain Service 직접 호출**: Domain Service가 Domain Model 또는 domain 레이어 데이터 클래스를 반환 → Controller에서 Dto로 변환
 - **같은 바운디드 컨텍스트 내 조합** (예: Product + Brand): 조합 결과물은 **domain 레이어**에 데이터 클래스로 둔다 (예: `domain/catalog/ProductDetail`). Application 레이어에 두면 Domain → Application 의존이 생겨 DIP 위반
 - **다른 바운디드 컨텍스트 간 조합** (Facade 경유): Facade가 **application 레이어**의 Info 객체를 반환 → Controller에서 Dto로 변환
 - Dto/Info에 `companion object { fun from(...) }` 팩토리 메서드 사용
 
 ## 도메인 & 객체 설계 전략
 
-- 도메인 객체(Entity)는 비즈니스 규칙을 캡슐화한다. 검증, 상태 변경, 상태 판단은 Entity 내부에서 수행한다 (예: `Product.isActive()`, `UserPoint.canAfford()`)
+- Domain Model은 비즈니스 규칙을 캡슐화한다. 검증, 상태 변경, 상태 판단은 Domain Model 내부에서 수행한다 (예: `Product.isActive()`, `UserPoint.canAfford()`)
 - Value Object는 자가 검증하며 불변이다. 도메인 규칙이 있는 값(금액, 수량, 재고 등)은 VO로 표현한다
-- 규칙이 여러 Service에 나타나면 도메인 객체(Entity 또는 Domain Service)에 속할 가능성이 높다
+- 규칙이 여러 Service에 나타나면 도메인 객체(Domain Model 또는 Domain Service)에 속할 가능성이 높다
 - Domain Service는 상태 없이, 도메인 객체의 협력을 중심으로 설계한다
 - Application Layer(Facade)는 경량으로 유지하고, 실질적인 비즈니스 로직은 도메인으로 위임한다
 - 각 기능에 대한 책임과 결합도에 대해 개발자의 의도를 확인하고 개발을 진행한다
