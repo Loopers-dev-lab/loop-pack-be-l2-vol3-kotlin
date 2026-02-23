@@ -59,12 +59,19 @@
 
 ## 데이터 전달 객체
 
+```
+요청: Client → Controller (Request) → Facade (Criteria → Command) → Service (Entity)
+응답: Service (Entity) → Domain (Info) → Facade (Result) → Controller (Response) → Client
+```
+
 | 한글 | 영문 (코드) | 위치 | 역할 |
 |------|------------|------|------|
-| 요청 DTO | `*Dto.CreateRequest` 등 | interfaces | HTTP 요청 역직렬화 + Bean Validation |
-| 커맨드 | `*Command` | application | 비즈니스 의도를 담은 명령 객체 (Dto → Command 변환) |
-| 인포 | `*Info` | application | Facade → Controller 응답 전달 |
-| 응답 DTO | `*Dto.Response` | interfaces | HTTP 응답 직렬화 (Info → Response 변환) |
+| 요청 DTO | `*Request` | interfaces | HTTP 요청 역직렬화 + Bean Validation |
+| 크라이테리아 | `*Criteria` | application | Facade 입력 객체 (Request → Criteria 변환). 여러 도메인 조합 가능 |
+| 커맨드 | `*Command` | domain | Domain Service 입력 계약 (Facade에서 Criteria → Command 변환) |
+| 인포 | `*Info` | domain | Domain Service 출력 (Entity → Info 변환) |
+| 리절트 | `*Result` | application | Facade 출력 객체 (Info → Result 변환). 여러 Info 조합 가능 |
+| 응답 DTO | `*Response` | interfaces | HTTP 응답 직렬화 (Result → Response 변환). Enum은 String으로 래핑 |
 
 ---
 
