@@ -1,49 +1,39 @@
 package com.loopers.domain.catalog.product.entity
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.catalog.product.vo.Stock
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.Table
-import java.math.BigDecimal
+import com.loopers.domain.common.Money
+import java.time.ZonedDateTime
 
-@Entity
-@Table(name = "products")
 class Product(
-    refBrandId: Long,
+    val id: Long = 0,
+    val refBrandId: Long,
     name: String,
-    price: BigDecimal,
+    price: Money,
     stock: Int,
-) : BaseEntity() {
+    status: ProductStatus? = null,
+    likeCount: Int = 0,
+    val createdAt: ZonedDateTime = ZonedDateTime.now(),
+    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
+    deletedAt: ZonedDateTime? = null,
+) {
 
-    @Column(name = "ref_brand_id", nullable = false)
-    var refBrandId: Long = refBrandId
-        protected set
-
-    @Column(name = "name", nullable = false)
     var name: String = name
-        protected set
+        private set
 
-    @Column(name = "price", nullable = false, precision = 19, scale = 2)
-    var price: BigDecimal = price
-        protected set
+    var price: Money = price
+        private set
 
-    @Column(name = "stock", nullable = false)
     var stock: Int = stock
-        protected set
+        private set
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    var status: ProductStatus = if (stock > 0) ProductStatus.ON_SALE else ProductStatus.SOLD_OUT
-        protected set
+    var status: ProductStatus = status ?: if (stock > 0) ProductStatus.ON_SALE else ProductStatus.SOLD_OUT
+        private set
 
-    @Column(name = "like_count", nullable = false)
-    var likeCount: Int = 0
-        protected set
+    var likeCount: Int = likeCount
+        private set
+
+    var deletedAt: ZonedDateTime? = deletedAt
+        private set
 
     enum class ProductStatus {
         ON_SALE,
@@ -55,14 +45,11 @@ class Product(
         guard()
     }
 
-    override fun guard() {
-        if (price < BigDecimal.ZERO) {
-            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0 이상이어야 합니다.")
-        }
+    private fun guard() {
         Stock(stock)
     }
 
-    fun update(name: String?, price: BigDecimal?, stock: Int?, status: ProductStatus?) {
+    fun update(name: String?, price: Money?, stock: Int?, status: ProductStatus?) {
         name?.let { this.name = it }
         price?.let { this.price = it }
         stock?.let { this.stock = it }
@@ -104,6 +91,14 @@ class Product(
     fun isActive(): Boolean = !isDeleted() && status != ProductStatus.HIDDEN
 
     fun isAvailableForOrder(): Boolean = !isDeleted() && status == ProductStatus.ON_SALE
+
+    fun delete() {
+        deletedAt ?: run { deletedAt = ZonedDateTime.now() }
+    }
+
+    fun restore() {
+        deletedAt?.let { deletedAt = null }
+    }
 
     private fun adjustStatusByStock() {
         if (status == ProductStatus.HIDDEN) return

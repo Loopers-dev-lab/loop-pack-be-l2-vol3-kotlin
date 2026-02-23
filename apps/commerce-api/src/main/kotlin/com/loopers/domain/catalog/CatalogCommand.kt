@@ -1,26 +1,27 @@
 package com.loopers.domain.catalog
 
+import com.loopers.domain.catalog.brand.vo.BrandName
 import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import java.math.BigDecimal
 
 class CatalogCommand {
 
-    data class CreateBrand(val name: String)
+    data class CreateBrand(val name: BrandName)
 
-    data class UpdateBrand(val name: String)
+    data class UpdateBrand(val name: BrandName)
 
     data class CreateProduct(
         val brandId: Long,
         val name: String,
-        val price: BigDecimal,
+        val price: Money,
         val stock: Int,
     )
 
     data class UpdateProduct(
         val name: String?,
-        val price: BigDecimal?,
+        val price: Money?,
         val stock: Int?,
         val status: Product.ProductStatus?,
     ) {

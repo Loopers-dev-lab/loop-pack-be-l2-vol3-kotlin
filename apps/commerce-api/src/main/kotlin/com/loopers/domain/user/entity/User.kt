@@ -1,61 +1,33 @@
 package com.loopers.domain.user.entity
 
-import com.loopers.domain.BaseEntity
+import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Table
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
-@Entity
-@Table(name = "users")
 class User(
-    loginId: String,
+    val id: Long = 0,
+    val loginId: LoginId,
     password: String,
-    name: String,
-    birthDate: LocalDate,
-    email: String,
-) : BaseEntity() {
+    val name: Name,
+    val birthDate: LocalDate,
+    val email: Email,
+    val createdAt: ZonedDateTime = ZonedDateTime.now(),
+    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
+    deletedAt: ZonedDateTime? = null,
+) {
 
-    @Column(name = "login_id", nullable = false, unique = true, length = 16)
-    var loginId: String = loginId
-        protected set
-
-    @Column(name = "password", nullable = false)
     var password: String = password
-        protected set
+        private set
 
-    @Column(name = "name", nullable = false)
-    var name: String = name
-        protected set
+    var deletedAt: ZonedDateTime? = deletedAt
+        private set
 
-    @Column(name = "birth_date", nullable = false)
-    var birthDate: LocalDate = birthDate
-        protected set
-
-    @Column(name = "email", nullable = false)
-    var email: String = email
-        protected set
-
-    init {
-        Password(password, birthDate)
-        this.password = encodePassword(password)
-        guard()
-    }
-
-    override fun guard() {
-        LoginId(loginId)
-        Name(name)
-        if (!Regex("^[^@]+@[^@]+\\.[^@]+$").matches(email)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "이메일 형식이 올바르지 않습니다.")
-        }
-    }
-
-    fun getMaskedName(): String = Name(name).masked()
+    fun getMaskedName(): String = name.masked()
 
     fun changePassword(currentPassword: String, newPassword: String) {
         if (!verifyPassword(currentPassword)) {
@@ -72,11 +44,29 @@ class User(
         return this.password == encodePassword(rawPassword)
     }
 
-    // TODO: 추후 security 추가 시 변경
-    private fun encodePassword(rawPassword: String): String {
-        val bytes = rawPassword.toByteArray()
-        val md = java.security.MessageDigest.getInstance("SHA-256")
-        val digest = md.digest(bytes)
-        return digest.fold("") { str, it -> str + "%02x".format(it) }
+    companion object {
+        fun create(
+            loginId: String,
+            password: String,
+            name: String,
+            birthDate: LocalDate,
+            email: String,
+        ): User {
+            Password(password, birthDate)
+            return User(
+                loginId = LoginId(loginId),
+                password = encodePassword(password),
+                name = Name(name),
+                birthDate = birthDate,
+                email = Email(email),
+            )
+        }
+
+        fun encodePassword(rawPassword: String): String {
+            val bytes = rawPassword.toByteArray()
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            val digest = md.digest(bytes)
+            return digest.fold("") { str, it -> str + "%02x".format(it) }
+        }
     }
 }

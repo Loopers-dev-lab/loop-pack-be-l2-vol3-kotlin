@@ -1,9 +1,9 @@
 package com.loopers.domain.order
 
-import java.math.BigDecimal
+import com.loopers.domain.common.Money
 
 data class OrderProductInfo(
     val id: Long,
     val name: String,
-    val price: BigDecimal,
+    val price: Money,
 )

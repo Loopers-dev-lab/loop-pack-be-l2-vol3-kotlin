@@ -1,35 +1,32 @@
 package com.loopers.domain.catalog.brand.entity
 
-import com.loopers.domain.BaseEntity
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Table
+import com.loopers.domain.catalog.brand.vo.BrandName
+import java.time.ZonedDateTime
 
-@Entity
-@Table(name = "brands")
 class Brand(
-    name: String,
-) : BaseEntity() {
+    val id: Long = 0,
+    name: BrandName,
+    val createdAt: ZonedDateTime = ZonedDateTime.now(),
+    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
+    deletedAt: ZonedDateTime? = null,
+) {
 
-    @Column(name = "name", nullable = false)
-    var name: String = name
-        protected set
+    var name: BrandName = name
+        private set
 
-    init {
-        guard()
-    }
+    var deletedAt: ZonedDateTime? = deletedAt
+        private set
 
-    override fun guard() {
-        if (name.isBlank()) {
-            throw CoreException(ErrorType.BAD_REQUEST, "브랜드명은 필수입니다.")
-        }
-    }
-
-    fun update(name: String) {
+    fun update(name: BrandName) {
         this.name = name
-        guard()
+    }
+
+    fun delete() {
+        deletedAt ?: run { deletedAt = ZonedDateTime.now() }
+    }
+
+    fun restore() {
+        deletedAt?.let { deletedAt = null }
     }
 
     fun isDeleted(): Boolean = deletedAt != null

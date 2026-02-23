@@ -1,48 +1,39 @@
 package com.loopers.domain.order.entity
 
-import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.Money
 import com.loopers.domain.order.OrderProductInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.Table
-import java.math.BigDecimal
+import java.time.ZonedDateTime
 
-@Entity
-@Table(name = "order_items")
 class OrderItem private constructor(
     refOrderId: Long,
     refProductId: Long,
     productName: String,
-    productPrice: BigDecimal,
+    productPrice: Money,
     quantity: Int,
-) : BaseEntity() {
+    val createdAt: ZonedDateTime = ZonedDateTime.now(),
+    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
+    val deletedAt: ZonedDateTime? = null,
+) {
 
-    @Column(name = "ref_order_id", nullable = false)
+    val id: Long = 0
+
     var refOrderId: Long = refOrderId
         protected set
 
-    @Column(name = "ref_product_id", nullable = false)
     var refProductId: Long = refProductId
         protected set
 
-    @Column(name = "product_name", nullable = false)
     var productName: String = productName
         protected set
 
-    @Column(name = "product_price", nullable = false)
-    var productPrice: BigDecimal = productPrice
+    var productPrice: Money = productPrice
         protected set
 
-    @Column(name = "quantity", nullable = false)
     var quantity: Int = quantity
         protected set
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
     var status: ItemStatus = ItemStatus.ACTIVE
         protected set
 
@@ -73,6 +64,39 @@ class OrderItem private constructor(
                 productPrice = product.price,
                 quantity = quantity,
             )
+        }
+
+        fun fromPersistence(
+            id: Long,
+            refOrderId: Long,
+            refProductId: Long,
+            productName: String,
+            productPrice: Money,
+            quantity: Int,
+            status: ItemStatus,
+            createdAt: ZonedDateTime,
+            updatedAt: ZonedDateTime,
+            deletedAt: ZonedDateTime?,
+        ): OrderItem {
+            return OrderItem(
+                refOrderId = refOrderId,
+                refProductId = refProductId,
+                productName = productName,
+                productPrice = productPrice,
+                quantity = quantity,
+                createdAt = createdAt,
+                updatedAt = updatedAt,
+                deletedAt = deletedAt,
+            ).also { item ->
+                OrderItem::class.java.getDeclaredField("id").apply {
+                    isAccessible = true
+                    set(item, id)
+                }
+                OrderItem::class.java.getDeclaredField("status").apply {
+                    isAccessible = true
+                    set(item, status)
+                }
+            }
         }
     }
 }

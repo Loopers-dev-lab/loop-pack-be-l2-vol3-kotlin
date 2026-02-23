@@ -3,7 +3,8 @@ package com.loopers.domain.catalog.product.vo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 
-data class Stock(val value: Int) {
+@JvmInline
+value class Stock(val value: Int) {
     init {
         if (value < 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "재고는 0 이상이어야 합니다.")

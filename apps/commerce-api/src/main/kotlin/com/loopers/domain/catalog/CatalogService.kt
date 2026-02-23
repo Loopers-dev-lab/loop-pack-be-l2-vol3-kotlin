@@ -28,20 +28,25 @@ class CatalogService(
     fun updateBrand(brandId: Long, command: CatalogCommand.UpdateBrand): Brand {
         val brand = getBrand(brandId)
         brand.update(command.name)
-        return brand
+        return brandRepository.save(brand)
     }
 
     @Transactional
     fun deleteBrand(brandId: Long) {
         val brand = brandRepository.findById(brandId) ?: return
         brand.delete()
-        productRepository.findAllByBrandId(brandId).forEach { it.delete() }
+        brandRepository.save(brand)
+        productRepository.findAllByBrandId(brandId).forEach {
+            it.delete()
+            productRepository.save(it)
+        }
     }
 
     @Transactional
-    fun restoreBrand(brandId: Long) {
+    fun restoreBrand(brandId: Long): Brand {
         val brand = getBrand(brandId)
         brand.restore()
+        return brandRepository.save(brand)
     }
 
     // === Brand 조회 ===
@@ -86,19 +91,21 @@ class CatalogService(
     fun updateProduct(productId: Long, command: CatalogCommand.UpdateProduct): Product {
         val product = getProduct(productId)
         product.update(command.name, command.price, command.stock, command.status)
-        return product
+        return productRepository.save(product)
     }
 
     @Transactional
     fun deleteProduct(productId: Long) {
         val product = productRepository.findById(productId) ?: return
         product.delete()
+        productRepository.save(product)
     }
 
     @Transactional
-    fun restoreProduct(productId: Long) {
+    fun restoreProduct(productId: Long): Product {
         val product = getProduct(productId)
         product.restore()
+        return productRepository.save(product)
     }
 
     // === 대고객 조회 ===
@@ -166,6 +173,7 @@ class CatalogService(
             val product = productMap[productId]
                 ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
             product.decreaseStock(quantity)
+            productRepository.save(product)
         }
     }
 
@@ -175,6 +183,7 @@ class CatalogService(
     fun increaseLikeCount(productId: Long) {
         val product = getProduct(productId)
         product.increaseLikeCount()
+        productRepository.save(product)
     }
 
     @Transactional
@@ -182,6 +191,7 @@ class CatalogService(
         val product = getProduct(productId)
         if (product.isDeleted()) return
         product.decreaseLikeCount()
+        productRepository.save(product)
     }
 
     // === 어드민 조회 ===

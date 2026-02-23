@@ -2,7 +2,6 @@ package com.loopers.domain.user
 
 import com.loopers.domain.user.entity.User
 import com.loopers.domain.user.repository.UserRepository
-
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -17,7 +16,7 @@ class UserService(
         if (userRepository.existsByLoginId(command.loginId)) {
             throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
         }
-        return userRepository.save(command.toEntity())
+        return userRepository.save(command.toUser())
     }
 
     @Transactional(readOnly = true)
@@ -37,5 +36,6 @@ class UserService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
 
         user.changePassword(command.currentPassword, command.newPassword)
+        userRepository.save(user)
     }
 }

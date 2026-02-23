@@ -3,7 +3,8 @@ package com.loopers.domain.user.vo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 
-class LoginId(val value: String) {
+@JvmInline
+value class LoginId(val value: String) {
     companion object {
         private const val MIN_LENGTH = 4
         private const val MAX_LENGTH = 16

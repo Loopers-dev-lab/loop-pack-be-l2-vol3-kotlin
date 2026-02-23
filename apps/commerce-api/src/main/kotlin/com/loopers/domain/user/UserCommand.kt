@@ -1,7 +1,6 @@
 package com.loopers.domain.user
 
 import com.loopers.domain.user.entity.User
-
 import java.time.LocalDate
 
 class UserCommand {
@@ -12,8 +11,8 @@ class UserCommand {
         val birthDate: LocalDate,
         val email: String,
     ) {
-        fun toEntity(): User {
-            return User(
+        fun toUser(): User {
+            return User.create(
                 loginId = loginId,
                 password = password,
                 name = name,

@@ -3,7 +3,8 @@ package com.loopers.domain.point.vo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 
-data class Point(val value: Long) {
+@JvmInline
+value class Point(val value: Long) {
 
     init {
         if (value < 0) {

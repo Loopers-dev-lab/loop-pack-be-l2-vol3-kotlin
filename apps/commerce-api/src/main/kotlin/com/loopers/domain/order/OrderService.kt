@@ -1,6 +1,7 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.PageResult
+import com.loopers.domain.common.Money
 import com.loopers.domain.order.entity.Order
 import com.loopers.domain.order.entity.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
@@ -20,6 +21,10 @@ class OrderService(
 
     @Transactional
     fun createOrder(userId: Long, products: List<OrderProductInfo>, command: OrderCommand.CreateOrder): OrderDetail {
+        if (command.items.isEmpty()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.")
+        }
+
         val productMap = products.associateBy { it.id }
 
         val itemInfos = command.items.map { item ->
@@ -28,8 +33,8 @@ class OrderService(
             product to item.quantity
         }
 
-        val totalPrice = itemInfos.fold(BigDecimal.ZERO) { acc, (product, quantity) ->
-            acc + product.price.multiply(BigDecimal(quantity))
+        val totalPrice = itemInfos.fold(Money(BigDecimal.ZERO)) { acc, (product, quantity) ->
+            acc + (product.price * quantity)
         }
 
         val order = Order.create(userId, totalPrice)

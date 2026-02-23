@@ -1,33 +1,35 @@
 package com.loopers.domain.point.entity
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Table
+import java.time.ZonedDateTime
 
-@Entity
-@Table(name = "user_points")
 class UserPoint(
     refUserId: Long,
     balance: Long = 0,
-) : BaseEntity() {
+) {
 
-    @Column(name = "ref_user_id", nullable = false, unique = true)
+    var id: Long = 0
+        private set
+
     var refUserId: Long = refUserId
         protected set
 
-    @Column(name = "balance", nullable = false)
     var balance: Long = balance
         protected set
+
+    var createdAt: ZonedDateTime = ZonedDateTime.now()
+        private set
+
+    var updatedAt: ZonedDateTime = ZonedDateTime.now()
+        private set
 
     init {
         guard()
     }
 
-    override fun guard() {
+    fun guard() {
         Point(balance)
     }
 

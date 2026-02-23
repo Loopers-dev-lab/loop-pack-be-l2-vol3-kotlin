@@ -2,6 +2,7 @@ package com.loopers.domain.like
 
 import com.loopers.domain.like.entity.Like
 import com.loopers.domain.like.repository.LikeRepository
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,8 +17,13 @@ class LikeService(
         if (existing != null) {
             return false
         }
-        likeRepository.save(Like(refUserId = userId, refProductId = productId))
-        return true
+        return try {
+            likeRepository.save(Like(refUserId = userId, refProductId = productId))
+            true
+        } catch (e: DataIntegrityViolationException) {
+            // 동시 요청으로 DB unique constraint 위반 시 멱등 처리
+            false
+        }
     }
 
     @Transactional

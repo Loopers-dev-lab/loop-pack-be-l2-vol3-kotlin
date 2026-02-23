@@ -3,7 +3,8 @@ package com.loopers.domain.user.vo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 
-class Name(val value: String) {
+@JvmInline
+value class Name(val value: String) {
     companion object {
         private const val MAX_LENGTH = 10
     }

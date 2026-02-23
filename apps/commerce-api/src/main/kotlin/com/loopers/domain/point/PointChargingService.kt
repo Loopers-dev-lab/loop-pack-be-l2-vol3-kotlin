@@ -27,14 +27,15 @@ class PointChargingService(
         val userPoint = userPointRepository.findByUserIdForUpdate(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "포인트 정보를 찾을 수 없습니다.")
         userPoint.charge(amount)
+        val savedUserPoint = userPointRepository.save(userPoint)
         pointHistoryRepository.save(
             PointHistory(
-                refUserPointId = userPoint.id,
+                refUserPointId = savedUserPoint.id,
                 type = PointHistoryType.CHARGE,
                 amount = amount,
             ),
         )
-        return userPoint
+        return savedUserPoint
     }
 
     companion object {
