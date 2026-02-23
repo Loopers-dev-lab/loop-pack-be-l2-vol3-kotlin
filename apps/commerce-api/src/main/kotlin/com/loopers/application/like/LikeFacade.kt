@@ -11,6 +11,14 @@ class LikeFacade(
     private val productService: ProductService,
 ) {
 
+    @Transactional(readOnly = true)
+    fun getUserLikes(userId: Long): List<LikeInfo> {
+        val productIds = likeService.getLikedProductIds(userId)
+        if (productIds.isEmpty()) return emptyList()
+        val products = productService.getProductsByIds(productIds)
+        return products.map { LikeInfo.from(it) }
+    }
+
     @Transactional
     fun like(userId: Long, productId: Long) {
         val product = productService.getProduct(productId)

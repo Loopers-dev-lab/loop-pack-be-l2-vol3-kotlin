@@ -100,4 +100,58 @@ class LikeServiceIntegrationTest @Autowired constructor(
             assertThat(result).isFalse()
         }
     }
+
+    @DisplayName("좋아요 목록을 조회할 때,")
+    @Nested
+    inner class GetLikedProductIds {
+
+        @DisplayName("사용자가 좋아요한 상품 ID 목록을 반환한다.")
+        @Test
+        fun returnsLikedProductIds() {
+            // arrange
+            val product1 = createProduct()
+            val product2 = createProduct()
+            val userId = 1L
+            likeService.like(userId, product1.id)
+            likeService.like(userId, product2.id)
+
+            // act
+            val result = likeService.getLikedProductIds(userId)
+
+            // assert
+            assertThat(result).containsExactlyInAnyOrder(product1.id, product2.id)
+        }
+
+        @DisplayName("삭제된 상품 ID도 포함하여 반환한다.")
+        @Test
+        fun includesDeletedProductIds() {
+            // arrange
+            val product1 = createProduct()
+            val product2 = createProduct()
+            product2.delete()
+            productRepository.save(product2)
+            val userId = 1L
+            likeService.like(userId, product1.id)
+            likeService.like(userId, product2.id)
+
+            // act
+            val result = likeService.getLikedProductIds(userId)
+
+            // assert
+            assertThat(result).containsExactlyInAnyOrder(product1.id, product2.id)
+        }
+
+        @DisplayName("좋아요한 상품이 없으면, 빈 목록을 반환한다.")
+        @Test
+        fun returnsEmptyList_whenNoLikes() {
+            // arrange
+            val userId = 1L
+
+            // act
+            val result = likeService.getLikedProductIds(userId)
+
+            // assert
+            assertThat(result).isEmpty()
+        }
+    }
 }

@@ -103,4 +103,37 @@ class LikeServiceTest {
             assertThat(result).isFalse()
         }
     }
+
+    @DisplayName("좋아요 목록을 조회할 때,")
+    @Nested
+    inner class GetLikedProductIds {
+
+        @DisplayName("사용자의 좋아요 상품 ID 목록을 반환한다.")
+        @Test
+        fun returnsLikedProductIds() {
+            // arrange
+            val userId = 1L
+            whenever(likeRepository.findProductIdsByUserId(userId)).thenReturn(listOf(1L, 2L, 3L))
+
+            // act
+            val result = likeService.getLikedProductIds(userId)
+
+            // assert
+            assertThat(result).containsExactly(1L, 2L, 3L)
+        }
+
+        @DisplayName("좋아요한 상품이 없으면, 빈 목록을 반환한다.")
+        @Test
+        fun returnsEmptyList_whenNoLikes() {
+            // arrange
+            val userId = 1L
+            whenever(likeRepository.findProductIdsByUserId(userId)).thenReturn(emptyList())
+
+            // act
+            val result = likeService.getLikedProductIds(userId)
+
+            // assert
+            assertThat(result).isEmpty()
+        }
+    }
 }

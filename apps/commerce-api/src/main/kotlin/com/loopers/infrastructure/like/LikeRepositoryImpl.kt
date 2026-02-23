@@ -22,4 +22,8 @@ class LikeRepositoryImpl(
         likeJpaRepository.delete(like)
         return true
     }
+
+    override fun findProductIdsByUserId(userId: Long): List<Long> {
+        return likeJpaRepository.findByUserId(userId).map { it.productId }
+    }
 }
