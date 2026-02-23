@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 class UserFacade(
     private val userService: UserService,
 ) {
-    fun signUp(command: UserService.SignUpCommand): UserInfo {
+    fun signUp(command: SignUpCommand): UserInfo {
         return userService.signUp(command)
             .let { UserInfo.from(it) }
     }
@@ -17,7 +17,7 @@ class UserFacade(
             .let { UserInfo.from(it) }
     }
 
-    fun changePassword(loginId: String, loginPw: String, command: UserService.ChangePasswordCommand) {
+    fun changePassword(loginId: String, loginPw: String, command: ChangePasswordCommand) {
         userService.changePassword(loginId, loginPw, command)
     }
 }

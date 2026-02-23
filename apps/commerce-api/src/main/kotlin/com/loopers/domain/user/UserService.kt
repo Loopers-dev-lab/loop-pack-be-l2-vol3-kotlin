@@ -1,11 +1,12 @@
 package com.loopers.domain.user
 
+import com.loopers.application.user.ChangePasswordCommand
+import com.loopers.application.user.SignUpCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDate
 
 @Component
 class UserService(
@@ -65,15 +66,4 @@ class UserService(
         return user
     }
 
-    data class SignUpCommand(
-        val loginId: String,
-        val password: String,
-        val name: String,
-        val birthday: LocalDate,
-        val email: String,
-    )
-
-    data class ChangePasswordCommand(
-        val newPassword: String,
-    )
 }

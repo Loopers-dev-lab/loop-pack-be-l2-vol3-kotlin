@@ -1,7 +1,8 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.application.user.ChangePasswordCommand
+import com.loopers.application.user.SignUpCommand
 import com.loopers.application.user.UserInfo
-import com.loopers.domain.user.UserService
 import java.time.LocalDate
 
 class UserV1Dto {
@@ -13,8 +14,8 @@ class UserV1Dto {
         val birthday: LocalDate,
         val email: String,
     ) {
-        fun toCommand(): UserService.SignUpCommand {
-            return UserService.SignUpCommand(
+        fun toCommand(): SignUpCommand {
+            return SignUpCommand(
                 loginId = loginId,
                 password = password,
                 name = name,
@@ -47,8 +48,8 @@ class UserV1Dto {
     data class ChangePasswordRequest(
         val newPassword: String,
     ) {
-        fun toCommand(): UserService.ChangePasswordCommand {
-            return UserService.ChangePasswordCommand(
+        fun toCommand(): ChangePasswordCommand {
+            return ChangePasswordCommand(
                 newPassword = newPassword,
             )
         }
