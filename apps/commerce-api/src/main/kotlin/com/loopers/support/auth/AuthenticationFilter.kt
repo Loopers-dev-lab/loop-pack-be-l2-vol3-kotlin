@@ -36,6 +36,10 @@ class AuthenticationFilter(
             "/swagger",
             "/v3/api-docs",
         )
+
+        private val AUTH_REQUIRED_PATTERNS = listOf(
+            Regex("^/api/v1/products/\\d+/likes$"),
+        )
     }
 
     override fun doFilter(request: ServletRequest, response: ServletResponse, chain: FilterChain) {
@@ -64,6 +68,9 @@ class AuthenticationFilter(
 
     private fun requiresAuthentication(request: HttpServletRequest): Boolean {
         val path = request.requestURI
+        if (AUTH_REQUIRED_PATTERNS.any { it.matches(path) }) {
+            return true
+        }
         return AUTH_EXCLUDE_PATHS.none { path.startsWith(it) }
     }
 

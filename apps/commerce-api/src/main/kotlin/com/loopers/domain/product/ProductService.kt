@@ -19,4 +19,9 @@ class ProductService(
         return productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
     }
+
+    fun increaseLikeCount(product: Product) {
+        product.increaseLikeCount()
+        productRepository.save(product)
+    }
 }

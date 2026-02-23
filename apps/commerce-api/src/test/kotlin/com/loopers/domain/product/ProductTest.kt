@@ -119,4 +119,29 @@ class ProductTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @DisplayName("좋아요 수를 증가시킬 때,")
+    @Nested
+    inner class IncreaseLikeCount {
+
+        @DisplayName("좋아요 수가 1 증가한다.")
+        @Test
+        fun increasesLikeCountByOne() {
+            // arrange
+            val product = Product(
+                name = "에어맥스",
+                description = "러닝화",
+                price = 159000,
+                likes = 10,
+                stockQuantity = 100,
+                brandId = 1L,
+            )
+
+            // act
+            product.increaseLikeCount()
+
+            // assert
+            assertThat(product.likes).isEqualTo(11)
+        }
+    }
 }
