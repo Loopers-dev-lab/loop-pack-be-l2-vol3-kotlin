@@ -1,6 +1,5 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.point.entity.UserPoint
 import com.loopers.domain.point.repository.UserPointRepository
 
@@ -14,7 +13,7 @@ class FakeUserPointRepository : UserPointRepository {
             userPoints.removeIf { it.id == userPoint.id }
             userPoints.add(userPoint)
         } else {
-            setEntityId(userPoint, sequence++)
+            setField(userPoint, "id", sequence++)
             userPoints.add(userPoint)
         }
         return userPoint
@@ -32,10 +31,10 @@ class FakeUserPointRepository : UserPointRepository {
         return findByUserId(userId)
     }
 
-    private fun setEntityId(entity: BaseEntity, id: Long) {
-        BaseEntity::class.java.getDeclaredField("id").apply {
+    private fun setField(target: Any, fieldName: String, value: Any) {
+        UserPoint::class.java.getDeclaredField(fieldName).apply {
             isAccessible = true
-            set(entity, id)
+            set(target, value)
         }
     }
 }

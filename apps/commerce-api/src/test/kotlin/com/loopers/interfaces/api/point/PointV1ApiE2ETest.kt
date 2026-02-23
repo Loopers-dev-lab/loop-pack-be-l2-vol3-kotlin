@@ -58,6 +58,33 @@ class PointV1ApiE2ETest @Autowired constructor(
     }
 
     @Nested
+    @DisplayName("GET /api/v1/users/points")
+    inner class GetBalance {
+
+        @Test
+        @DisplayName("회원가입 후 포인트 잔액을 조회하면 0이 반환된다")
+        fun getBalance_afterSignUp_returnsZero() {
+            // arrange
+            signUp()
+
+            // act
+            val balanceType = object : ParameterizedTypeReference<ApiResponse<PointV1Dto.BalanceResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/users/points",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders()),
+                balanceType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.balance).isEqualTo(0) },
+            )
+        }
+    }
+
+    @Nested
     @DisplayName("포인트 충전 → 잔액 조회")
     inner class ChargeAndBalance {
 

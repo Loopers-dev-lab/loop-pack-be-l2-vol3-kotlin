@@ -1,6 +1,7 @@
 package com.loopers.domain.catalog.product
 
 import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.common.Money
 import java.math.BigDecimal
 
 object ProductTestFixture {
@@ -15,5 +16,5 @@ object ProductTestFixture {
         name: String = DEFAULT_NAME,
         price: BigDecimal = DEFAULT_PRICE,
         stock: Int = DEFAULT_STOCK,
-    ): Product = Product(refBrandId, name, price, stock)
+    ): Product = Product(refBrandId = refBrandId, name = name, price = Money(price), stock = stock)
 }

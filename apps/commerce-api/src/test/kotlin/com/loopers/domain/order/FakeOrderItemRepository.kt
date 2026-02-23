@@ -1,6 +1,5 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.order.entity.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
 
@@ -14,7 +13,7 @@ class FakeOrderItemRepository : OrderItemRepository {
             items.removeIf { it.id == orderItem.id }
             items.add(orderItem)
         } else {
-            setEntityId(orderItem, sequence++)
+            setOrderItemId(orderItem, sequence++)
             items.add(orderItem)
         }
         return orderItem
@@ -32,10 +31,10 @@ class FakeOrderItemRepository : OrderItemRepository {
         return items.filter { it.refOrderId in orderIds }
     }
 
-    private fun setEntityId(entity: BaseEntity, id: Long) {
-        BaseEntity::class.java.getDeclaredField("id").apply {
+    private fun setOrderItemId(orderItem: OrderItem, id: Long) {
+        OrderItem::class.java.getDeclaredField("id").apply {
             isAccessible = true
-            set(entity, id)
+            set(orderItem, id)
         }
     }
 }

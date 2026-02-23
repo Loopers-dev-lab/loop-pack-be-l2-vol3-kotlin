@@ -4,8 +4,11 @@ import com.loopers.domain.catalog.CatalogCommand
 import com.loopers.domain.catalog.CatalogService
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
+import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.like.FakeLikeRepository
 import com.loopers.domain.like.LikeService
+import com.loopers.domain.catalog.brand.vo.BrandName
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -23,7 +26,9 @@ class LikeFacadeTest {
     private lateinit var likeRepository: FakeLikeRepository
     private lateinit var catalogService: CatalogService
     private lateinit var likeService: LikeService
-    private lateinit var likeFacade: LikeFacade
+    private lateinit var addLikeUseCase: AddLikeUseCase
+    private lateinit var removeLikeUseCase: RemoveLikeUseCase
+    private lateinit var getUserLikesUseCase: GetUserLikesUseCase
 
     @BeforeEach
     fun setUp() {
@@ -32,16 +37,18 @@ class LikeFacadeTest {
         likeRepository = FakeLikeRepository()
         catalogService = CatalogService(brandRepository, productRepository)
         likeService = LikeService(likeRepository)
-        likeFacade = LikeFacade(likeService, catalogService)
+        addLikeUseCase = AddLikeUseCase(likeService, catalogService)
+        removeLikeUseCase = RemoveLikeUseCase(likeService, catalogService)
+        getUserLikesUseCase = GetUserLikesUseCase(likeService, catalogService)
     }
 
     private fun createBrandAndProduct(): Pair<Long, Long> {
-        val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+        val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = BrandName("나이키")))
         val product = catalogService.createProduct(
             CatalogCommand.CreateProduct(
                 brandId = brand.id,
                 name = "에어맥스 90",
-                price = BigDecimal("129000"),
+                price = Money(BigDecimal("129000")),
                 stock = 100,
             ),
         )
@@ -59,7 +66,7 @@ class LikeFacadeTest {
             val (_, productId) = createBrandAndProduct()
 
             // act
-            likeFacade.addLike(1L, productId)
+            addLikeUseCase.execute(1L, productId)
 
             // assert
             val product = catalogService.getProduct(productId)
@@ -73,8 +80,8 @@ class LikeFacadeTest {
             val (_, productId) = createBrandAndProduct()
 
             // act
-            likeFacade.addLike(1L, productId)
-            likeFacade.addLike(1L, productId)
+            addLikeUseCase.execute(1L, productId)
+            addLikeUseCase.execute(1L, productId)
 
             // assert
             val product = catalogService.getProduct(productId)
@@ -90,7 +97,23 @@ class LikeFacadeTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                likeFacade.addLike(1L, productId)
+                addLikeUseCase.execute(1L, productId)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("HIDDEN 상태인 상품에 좋아요하면 NOT_FOUND 예외가 발생한다")
+        fun addLike_hiddenProduct_throwsNotFound() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            catalogService.updateProduct(productId, CatalogCommand.UpdateProduct(name = null, price = null, stock = null, status = Product.ProductStatus.HIDDEN))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                addLikeUseCase.execute(1L, productId)
             }
 
             // assert
@@ -107,10 +130,10 @@ class LikeFacadeTest {
         fun removeLike_activeProduct_decreasesLikeCount() {
             // arrange
             val (_, productId) = createBrandAndProduct()
-            likeFacade.addLike(1L, productId)
+            addLikeUseCase.execute(1L, productId)
 
             // act
-            likeFacade.removeLike(1L, productId)
+            removeLikeUseCase.execute(1L, productId)
 
             // assert
             val product = catalogService.getProduct(productId)
@@ -122,11 +145,11 @@ class LikeFacadeTest {
         fun removeLike_deletedProduct_doesNotUpdateLikeCount() {
             // arrange
             val (_, productId) = createBrandAndProduct()
-            likeFacade.addLike(1L, productId)
+            addLikeUseCase.execute(1L, productId)
             catalogService.deleteProduct(productId)
 
             // act
-            likeFacade.removeLike(1L, productId)
+            removeLikeUseCase.execute(1L, productId)
 
             // assert
             val product = catalogService.getProduct(productId)
@@ -140,7 +163,7 @@ class LikeFacadeTest {
             val (_, productId) = createBrandAndProduct()
 
             // act & assert
-            likeFacade.removeLike(1L, productId)
+            removeLikeUseCase.execute(1L, productId)
         }
     }
 
@@ -152,12 +175,12 @@ class LikeFacadeTest {
         @DisplayName("활성 상품만 포함하여 LikeInfo 목록을 반환한다")
         fun getLikes_returnsOnlyActiveProducts() {
             // arrange
-            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = "나이키"))
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = BrandName("나이키")))
             val product1 = catalogService.createProduct(
                 CatalogCommand.CreateProduct(
                     brandId = brand.id,
                     name = "상품1",
-                    price = BigDecimal("10000"),
+                    price = Money(BigDecimal("10000")),
                     stock = 10,
                 ),
             )
@@ -165,27 +188,64 @@ class LikeFacadeTest {
                 CatalogCommand.CreateProduct(
                     brandId = brand.id,
                     name = "상품2",
-                    price = BigDecimal("20000"),
+                    price = Money(BigDecimal("20000")),
                     stock = 10,
                 ),
             )
-            likeFacade.addLike(1L, product1.id)
-            likeFacade.addLike(1L, product2.id)
+            addLikeUseCase.execute(1L, product1.id)
+            addLikeUseCase.execute(1L, product2.id)
             catalogService.deleteProduct(product2.id)
 
             // act
-            val result = likeFacade.getLikes(1L)
+            val result = getUserLikesUseCase.execute(1L)
 
             // assert
             assertThat(result).hasSize(1)
-            assertThat(result[0].product.name).isEqualTo("상품1")
+            assertThat(result[0].productName).isEqualTo("상품1")
+        }
+
+        @Test
+        @DisplayName("좋아요한 상품이 HIDDEN 상태로 변경되면 목록에서 제외된다")
+        fun getLikes_hiddenProduct_isExcludedFromResult() {
+            // arrange
+            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = BrandName("나이키")))
+            val product1 = catalogService.createProduct(
+                CatalogCommand.CreateProduct(
+                    brandId = brand.id,
+                    name = "상품1",
+                    price = Money(BigDecimal("10000")),
+                    stock = 10,
+                ),
+            )
+            val product2 = catalogService.createProduct(
+                CatalogCommand.CreateProduct(
+                    brandId = brand.id,
+                    name = "상품2",
+                    price = Money(BigDecimal("20000")),
+                    stock = 10,
+                ),
+            )
+            addLikeUseCase.execute(1L, product1.id)
+            addLikeUseCase.execute(1L, product2.id)
+            // product2를 HIDDEN으로 변경
+            catalogService.updateProduct(
+                product2.id,
+                CatalogCommand.UpdateProduct(name = null, price = null, stock = null, status = Product.ProductStatus.HIDDEN),
+            )
+
+            // act
+            val result = getUserLikesUseCase.execute(1L)
+
+            // assert
+            assertThat(result).hasSize(1)
+            assertThat(result[0].productName).isEqualTo("상품1")
         }
 
         @Test
         @DisplayName("좋아요가 없으면 빈 리스트를 반환한다")
         fun getLikes_noLikes_returnsEmptyList() {
             // act
-            val result = likeFacade.getLikes(1L)
+            val result = getUserLikesUseCase.execute(1L)
 
             // assert
             assertThat(result).isEmpty()

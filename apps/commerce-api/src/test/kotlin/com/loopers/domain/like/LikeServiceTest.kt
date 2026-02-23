@@ -44,6 +44,21 @@ class LikeServiceTest {
             // assert
             assertThat(result).isFalse()
         }
+
+        @Test
+        @DisplayName("동시 요청으로 DB unique constraint 위반이 발생해도 예외 없이 false를 반환한다 (멱등)")
+        fun addLike_concurrentDuplicateSave_returnsFalse() {
+            // arrange
+            // 동시성 상황 재현: findByUserIdAndProductId는 null을 반환하지만(체크 통과),
+            // save 시점에 이미 DB에 레코드가 존재하여 DataIntegrityViolationException 발생
+            likeRepository.simulateConcurrentInsert(1L, 1L)
+
+            // act
+            val result = likeService.addLike(1L, 1L)
+
+            // assert: 예외가 전파되지 않고 false를 반환해야 한다
+            assertThat(result).isFalse()
+        }
     }
 
     @Nested

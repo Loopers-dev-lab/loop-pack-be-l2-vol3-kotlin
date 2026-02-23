@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.domain.user.UserTestFixture
-import com.loopers.infrastructure.user.UserJpaRepository
+import com.loopers.domain.user.repository.UserRepository
 import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
@@ -26,7 +26,7 @@ import java.time.LocalDate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class UserV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
-    private val userJpaRepository: UserJpaRepository,
+    private val userRepository: UserRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -180,7 +180,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsUserInfo_whenGetMeIsSuccessful() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -209,7 +209,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsUnauthorized_whenPasswordIsWrong() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -267,7 +267,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsOk_whenChangePasswordIsSuccessful() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -298,7 +298,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenNewPasswordIsSameAsCurrent() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -332,7 +332,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenCurrentPasswordIsWrong() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -366,7 +366,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsUnauthorized_whenAuthPasswordIsWrong() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -400,7 +400,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenNewPasswordIsTooShort() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -434,7 +434,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenNewPasswordIsTooLong() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -468,7 +468,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenNewPasswordContainsBirthDate() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")
@@ -502,7 +502,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun returnsBadRequest_whenNewPasswordHasConsecutiveChars() {
             // arrange
             val user = UserTestFixture.createUser()
-            userJpaRepository.save(user)
+            userRepository.save(user)
 
             val headers = HttpHeaders().apply {
                 set(HEADER_LOGIN_ID, "testuser1")

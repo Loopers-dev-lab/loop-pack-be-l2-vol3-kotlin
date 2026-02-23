@@ -21,9 +21,9 @@ class UserTest {
             val user = UserTestFixture.createUser()
 
             // assert
-            assertThat(user.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
-            assertThat(user.name).isEqualTo(UserTestFixture.DEFAULT_NAME)
-            assertThat(user.email).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
+            assertThat(user.loginId.value).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
+            assertThat(user.name.value).isEqualTo(UserTestFixture.DEFAULT_NAME)
+            assertThat(user.email.value).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
         }
 
         @Test

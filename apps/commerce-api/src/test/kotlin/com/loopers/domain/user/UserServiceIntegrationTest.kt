@@ -1,6 +1,5 @@
 package com.loopers.domain.user
 
-import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -19,7 +18,6 @@ import java.time.LocalDate
 class UserServiceIntegrationTest @Autowired constructor(
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
-    private val userJpaRepository: UserJpaRepository,
 ) {
     @AfterEach
     fun tearDown() = databaseCleanUp.truncateAllTables()
@@ -60,7 +58,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             val user = userService.signUp(command)
 
-            assertThat(user.loginId).isEqualTo("testuser1")
+            assertThat(user.loginId.value).isEqualTo("testuser1")
         }
     }
 
@@ -88,8 +86,8 @@ class UserServiceIntegrationTest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(result).isNotNull() },
-                { assertThat(result?.loginId).isEqualTo("testuser1") },
-                { assertThat(result?.name).isEqualTo("홍길동") },
+                { assertThat(result?.loginId?.value).isEqualTo("testuser1") },
+                { assertThat(result?.name?.value).isEqualTo("홍길동") },
             )
         }
 
@@ -136,7 +134,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             userService.changePassword(userId, command)
 
             // assert
-            val updatedUser = userJpaRepository.findByLoginId("testuser1")
+            val updatedUser = userService.getUserInfo("testuser1")
             assertThat(updatedUser?.verifyPassword("NewPassword1!")).isTrue()
         }
 

@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -25,7 +26,7 @@ class OrderServiceTest {
     }
 
     private fun createProductInfo(id: Long, name: String, price: BigDecimal): OrderProductInfo {
-        return OrderProductInfo(id = id, name = name, price = price)
+        return OrderProductInfo(id = id, name = name, price = Money(price))
     }
 
     private fun createAndSaveOrder(userId: Long): OrderDetail {
@@ -55,11 +56,11 @@ class OrderServiceTest {
             // assert
             assertThat(detail.order.id).isNotEqualTo(0L)
             assertThat(detail.order.refUserId).isEqualTo(1L)
-            assertThat(detail.order.totalPrice).isEqualByComparingTo(BigDecimal("258000"))
+            assertThat(detail.order.totalPrice.value).isEqualByComparingTo(BigDecimal("258000"))
             assertThat(detail.items).hasSize(1)
             assertThat(detail.items[0].refProductId).isEqualTo(1L)
             assertThat(detail.items[0].productName).isEqualTo("에어맥스 90")
-            assertThat(detail.items[0].productPrice).isEqualByComparingTo(BigDecimal("129000"))
+            assertThat(detail.items[0].productPrice.value).isEqualByComparingTo(BigDecimal("129000"))
             assertThat(detail.items[0].quantity).isEqualTo(2)
         }
 
@@ -81,7 +82,7 @@ class OrderServiceTest {
 
             // assert
             assertThat(detail.items).hasSize(2)
-            assertThat(detail.order.totalPrice).isEqualByComparingTo(BigDecimal("70000"))
+            assertThat(detail.order.totalPrice.value).isEqualByComparingTo(BigDecimal("70000"))
         }
 
         @Test
@@ -100,6 +101,39 @@ class OrderServiceTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).contains("상품을 찾을 수 없습니다")
+        }
+
+        @Test
+        @DisplayName("주문 항목이 비어있으면 BAD_REQUEST 예외가 발생한다")
+        fun createOrder_emptyItems_throwsBadRequest() {
+            // arrange
+            val command = OrderCommand.CreateOrder(items = emptyList())
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.createOrder(1L, emptyList(), command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("주문 수량이 0 이하이면 BAD_REQUEST 예외가 발생한다")
+        fun createOrder_zeroOrNegativeQuantity_throwsBadRequest() {
+            // arrange
+            val productInfo = createProductInfo(1L, "테스트 상품", BigDecimal("10000"))
+            val command = OrderCommand.CreateOrder(
+                items = listOf(OrderCommand.CreateOrderItem(productId = 1L, quantity = 0)),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.createOrder(1L, listOf(productInfo), command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 

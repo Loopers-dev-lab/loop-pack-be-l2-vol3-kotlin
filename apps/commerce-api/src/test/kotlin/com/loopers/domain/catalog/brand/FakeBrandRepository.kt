@@ -1,6 +1,5 @@
 package com.loopers.domain.catalog.brand
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.brand.entity.Brand
 import com.loopers.domain.catalog.brand.repository.BrandRepository
@@ -14,11 +13,17 @@ class FakeBrandRepository : BrandRepository {
         if (brand.id != 0L) {
             brands.removeIf { it.id == brand.id }
             brands.add(brand)
-        } else {
-            setEntityId(brand, sequence++)
-            brands.add(brand)
+            return brand
         }
-        return brand
+        val saved = Brand(
+            id = sequence++,
+            name = brand.name,
+            createdAt = brand.createdAt,
+            updatedAt = brand.updatedAt,
+            deletedAt = brand.deletedAt,
+        )
+        brands.add(saved)
+        return saved
     }
 
     override fun findById(id: Long): Brand? {
@@ -29,12 +34,5 @@ class FakeBrandRepository : BrandRepository {
         val offset = page * size
         val content = brands.drop(offset).take(size)
         return PageResult(content, brands.size.toLong(), page, size)
-    }
-
-    private fun setEntityId(entity: BaseEntity, id: Long) {
-        BaseEntity::class.java.getDeclaredField("id").apply {
-            isAccessible = true
-            set(entity, id)
-        }
     }
 }

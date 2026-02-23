@@ -18,5 +18,5 @@ object UserTestFixture {
         name: String = DEFAULT_NAME,
         birthDate: LocalDate = DEFAULT_BIRTH_DATE,
         email: String = DEFAULT_EMAIL,
-    ): User = User(loginId, password, name, birthDate, email)
+    ): User = User.create(loginId, password, name, birthDate, email)
 }

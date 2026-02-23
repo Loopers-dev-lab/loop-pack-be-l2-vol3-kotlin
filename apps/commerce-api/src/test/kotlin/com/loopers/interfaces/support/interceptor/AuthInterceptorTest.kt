@@ -1,6 +1,6 @@
 package com.loopers.interfaces.support.interceptor
 
-import com.loopers.domain.user.UserService
+import com.loopers.application.user.AuthenticateUserUseCase
 import com.loopers.domain.user.UserTestFixture
 import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
@@ -20,13 +20,13 @@ import org.springframework.mock.web.MockHttpServletResponse
 
 class AuthInterceptorTest {
 
-    private lateinit var userService: UserService
+    private lateinit var authenticateUserUseCase: AuthenticateUserUseCase
     private lateinit var authInterceptor: AuthInterceptor
 
     @BeforeEach
     fun setUp() {
-        userService = mockk()
-        authInterceptor = AuthInterceptor(userService)
+        authenticateUserUseCase = mockk()
+        authInterceptor = AuthInterceptor(authenticateUserUseCase)
     }
 
     @Nested
@@ -42,7 +42,7 @@ class AuthInterceptorTest {
             request.addHeader(HEADER_LOGIN_PW, UserTestFixture.DEFAULT_PASSWORD)
 
             val user = UserTestFixture.createUser()
-            every { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) } returns user
+            every { authenticateUserUseCase.execute(UserTestFixture.DEFAULT_LOGIN_ID, UserTestFixture.DEFAULT_PASSWORD) } returns user.id
 
             // act
             val result = authInterceptor.preHandle(request, MockHttpServletResponse(), Any())
@@ -92,7 +92,7 @@ class AuthInterceptorTest {
             request.addHeader(HEADER_LOGIN_ID, "nonexistent")
             request.addHeader(HEADER_LOGIN_PW, "Password1!")
 
-            every { userService.getUserInfo("nonexistent") } returns null
+            every { authenticateUserUseCase.execute("nonexistent", "Password1!") } returns null
 
             // act
             val exception = assertThrows<CoreException> {
@@ -112,8 +112,7 @@ class AuthInterceptorTest {
             request.addHeader(HEADER_LOGIN_ID, UserTestFixture.DEFAULT_LOGIN_ID)
             request.addHeader(HEADER_LOGIN_PW, "WrongPass1!")
 
-            val user = UserTestFixture.createUser()
-            every { userService.getUserInfo(UserTestFixture.DEFAULT_LOGIN_ID) } returns user
+            every { authenticateUserUseCase.execute(UserTestFixture.DEFAULT_LOGIN_ID, "WrongPass1!") } returns null
 
             // act
             val exception = assertThrows<CoreException> {

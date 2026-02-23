@@ -1,6 +1,7 @@
 package com.loopers.domain.catalog.product
 
 import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -25,7 +26,7 @@ class ProductTest {
             // assert
             assertThat(product.refBrandId).isEqualTo(ProductTestFixture.DEFAULT_BRAND_ID)
             assertThat(product.name).isEqualTo(ProductTestFixture.DEFAULT_NAME)
-            assertThat(product.price).isEqualByComparingTo(ProductTestFixture.DEFAULT_PRICE)
+            assertThat(product.price.value).isEqualByComparingTo(ProductTestFixture.DEFAULT_PRICE)
             assertThat(product.stock).isEqualTo(ProductTestFixture.DEFAULT_STOCK)
             assertThat(product.status).isEqualTo(Product.ProductStatus.ON_SALE)
             assertThat(product.likeCount).isEqualTo(0)
@@ -51,7 +52,7 @@ class ProductTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).isEqualTo("가격은 0 이상이어야 합니다.")
+            assertThat(exception.message).isEqualTo("금액은 0 이상이어야 합니다.")
         }
 
         @Test
@@ -174,11 +175,11 @@ class ProductTest {
             val product = ProductTestFixture.createProduct()
 
             // act
-            product.update("에어포스 1", BigDecimal("99000"), 50, null)
+            product.update("에어포스 1", Money(BigDecimal("99000")), 50, null)
 
             // assert
             assertThat(product.name).isEqualTo("에어포스 1")
-            assertThat(product.price).isEqualByComparingTo(BigDecimal("99000"))
+            assertThat(product.price.value).isEqualByComparingTo(BigDecimal("99000"))
             assertThat(product.stock).isEqualTo(50)
         }
 
@@ -275,7 +276,7 @@ class ProductTest {
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                product.update(null, BigDecimal("-1"), null, null)
+                product.update(null, Money(BigDecimal("-1")), null, null)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }

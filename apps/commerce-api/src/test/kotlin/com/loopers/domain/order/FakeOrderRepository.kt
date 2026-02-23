@@ -1,6 +1,5 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.PageResult
 import com.loopers.domain.order.entity.Order
 import com.loopers.domain.order.repository.OrderRepository
@@ -16,7 +15,8 @@ class FakeOrderRepository : OrderRepository {
             orders.removeIf { it.id == order.id }
             orders.add(order)
         } else {
-            setEntityId(order, sequence++)
+            setOrderId(order, sequence++)
+            initTimestamps(order)
             orders.add(order)
         }
         return order
@@ -49,23 +49,22 @@ class FakeOrderRepository : OrderRepository {
         return PageResult(content, orders.size.toLong(), page, size)
     }
 
-    private fun setEntityId(entity: BaseEntity, id: Long) {
-        BaseEntity::class.java.getDeclaredField("id").apply {
+    private fun setOrderId(order: Order, id: Long) {
+        Order::class.java.getDeclaredField("id").apply {
             isAccessible = true
-            set(entity, id)
+            set(order, id)
         }
-        initTimestamps(entity)
     }
 
-    private fun initTimestamps(entity: BaseEntity) {
-        val field = BaseEntity::class.java.getDeclaredField("createdAt").apply { isAccessible = true }
-        if (field.get(entity) == null) {
-            val now = ZonedDateTime.now()
-            field.set(entity, now)
-            BaseEntity::class.java.getDeclaredField("updatedAt").apply {
-                isAccessible = true
-                set(entity, now)
-            }
+    private fun initTimestamps(order: Order) {
+        val now = ZonedDateTime.now()
+        Order::class.java.getDeclaredField("createdAt").apply {
+            isAccessible = true
+            set(order, now)
+        }
+        Order::class.java.getDeclaredField("updatedAt").apply {
+            isAccessible = true
+            set(order, now)
         }
     }
 }

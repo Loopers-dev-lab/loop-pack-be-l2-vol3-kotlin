@@ -1,5 +1,6 @@
 package com.loopers.domain.catalog.brand
 
+import com.loopers.domain.catalog.brand.vo.BrandName
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -21,7 +22,7 @@ class BrandTest {
             val brand = BrandTestFixture.createBrand()
 
             // assert
-            assertThat(brand.name).isEqualTo(BrandTestFixture.DEFAULT_NAME)
+            assertThat(brand.name.value).isEqualTo(BrandTestFixture.DEFAULT_NAME)
         }
 
         @Test
@@ -57,10 +58,10 @@ class BrandTest {
             val brand = BrandTestFixture.createBrand()
 
             // act
-            brand.update("아디다스")
+            brand.update(BrandName("아디다스"))
 
             // assert
-            assertThat(brand.name).isEqualTo("아디다스")
+            assertThat(brand.name).isEqualTo(BrandName("아디다스"))
         }
 
         @Test
@@ -70,7 +71,7 @@ class BrandTest {
             val brand = BrandTestFixture.createBrand()
 
             // act & assert
-            val exception = assertThrows<CoreException> { brand.update("") }
+            val exception = assertThrows<CoreException> { brand.update(BrandName("")) }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).isEqualTo("브랜드명은 필수입니다.")
         }

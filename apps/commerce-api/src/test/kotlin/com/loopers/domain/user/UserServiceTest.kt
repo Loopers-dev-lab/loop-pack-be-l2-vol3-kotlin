@@ -44,9 +44,9 @@ class UserServiceTest {
 
             // assert
             assertThat(result.id).isNotEqualTo(0L)
-            assertThat(result.loginId).isEqualTo("testuser1")
-            assertThat(result.name).isEqualTo("홍길동")
-            assertThat(result.email).isEqualTo("test@example.com")
+            assertThat(result.loginId.value).isEqualTo("testuser1")
+            assertThat(result.name.value).isEqualTo("홍길동")
+            assertThat(result.email.value).isEqualTo("test@example.com")
         }
 
         @Test
@@ -89,7 +89,7 @@ class UserServiceTest {
 
             // assert
             assertThat(result).isNotNull()
-            assertThat(result?.loginId).isEqualTo("testuser1")
+            assertThat(result?.loginId?.value).isEqualTo("testuser1")
         }
 
         @Test
@@ -117,7 +117,7 @@ class UserServiceTest {
             val result = userService.getUser(saved.id)
 
             // assert
-            assertThat(result.loginId).isEqualTo("testuser1")
+            assertThat(result.loginId.value).isEqualTo("testuser1")
         }
 
         @Test

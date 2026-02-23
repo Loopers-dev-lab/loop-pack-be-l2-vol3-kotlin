@@ -38,13 +38,13 @@ class OrderV1ApiE2ETest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun signUp() {
+    private fun signUp(loginId: String = "testuser1") {
         val request = UserV1Dto.SignUpRequest(
-            loginId = "testuser1",
+            loginId = loginId,
             password = "Password1!",
             name = "홍길동",
             birthDate = LocalDate.of(1990, 1, 15),
-            email = "test@example.com",
+            email = "$loginId@example.com",
         )
         testRestTemplate.exchange(
             "/api/v1/users/sign-up",
@@ -54,9 +54,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
         )
     }
 
-    private fun authHeaders(): HttpHeaders {
+    private fun authHeaders(loginId: String = "testuser1"): HttpHeaders {
         return HttpHeaders().apply {
-            set(HEADER_LOGIN_ID, "testuser1")
+            set(HEADER_LOGIN_ID, loginId)
             set(HEADER_LOGIN_PW, "Password1!")
             set("Content-Type", "application/json")
         }
@@ -186,6 +186,192 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/orders")
+    inner class GetOrders {
+
+        @Test
+        @DisplayName("from/to 파라미터 없이 조회하면 기본값(최근 1달)이 적용되어 200 OK를 반환한다")
+        fun getOrders_withoutFromTo_appliesDefaultOneMonthRange() {
+            // arrange
+            signUp()
+
+            // act - from/to 없이 주문 목록 조회
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // assert - 기본값이 적용되어 정상 응답(빈 목록)이 반환된다
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        }
+
+        @Test
+        @DisplayName("from만 입력하면 to 기본값(현재 시각)이 적용되어 200 OK를 반환한다")
+        fun getOrders_withOnlyFrom_appliesToDefault() {
+            // arrange
+            signUp()
+            val from = java.time.ZonedDateTime.now().minusDays(7).toString()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders?from={from}",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+                from,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        }
+
+        @Test
+        @DisplayName("to만 입력하면 from 기본값(현재 시각 - 1달)이 적용되어 200 OK를 반환한다")
+        fun getOrders_withOnlyTo_appliesFromDefault() {
+            // arrange
+            signUp()
+            val to = java.time.ZonedDateTime.now().toString()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders?to={to}",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+                to,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        }
+
+        @Test
+        @DisplayName("주문 생성 후 목록 조회 시 생성한 주문이 포함된다")
+        fun getOrders_afterCreatingOrder_containsCreatedOrder() {
+            // arrange
+            signUp()
+            chargePoints(500000)
+            val brandId = createBrand()
+            val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
+
+            val orderRequest = OrderV1Dto.CreateOrderRequest(
+                items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
+            )
+            val createResponseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
+            val createResponse = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.POST,
+                HttpEntity(orderRequest, authHeaders()),
+                createResponseType,
+            )
+            val createdOrderId = createResponse.body!!.data!!.id
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // assert
+            @Suppress("UNCHECKED_CAST")
+            val content = response.body?.data?.get("content") as? List<Map<String, Any>>
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(content).isNotEmpty() },
+                { assertThat(content?.map { (it["id"] as Number).toLong() }).contains(createdOrderId) },
+            )
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/orders/{orderId}")
+    inner class GetOrder {
+
+        @Test
+        @DisplayName("본인이 생성한 주문을 조회하면 정상 응답한다")
+        fun getOrder_byOwner_success() {
+            // arrange
+            signUp()
+            chargePoints(500000)
+            val brandId = createBrand()
+            val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
+
+            val orderRequest = OrderV1Dto.CreateOrderRequest(
+                items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
+            )
+            val createResponseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
+            val createResponse = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.POST,
+                HttpEntity(orderRequest, authHeaders()),
+                createResponseType,
+            )
+            val orderId = createResponse.body!!.data!!.id
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders/$orderId",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.id).isEqualTo(orderId) },
+                { assertThat(response.body?.data?.totalPrice).isEqualByComparingTo(BigDecimal("129000")) },
+            )
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 주문을 조회하면 404를 반환한다")
+        fun getOrder_byOtherUser_returnsNotFound() {
+            // arrange - 첫 번째 사용자가 주문 생성
+            signUp("testuser1")
+            chargePoints(500000)
+            val brandId = createBrand()
+            val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
+
+            val orderRequest = OrderV1Dto.CreateOrderRequest(
+                items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
+            )
+            val createResponseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
+            val createResponse = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.POST,
+                HttpEntity(orderRequest, authHeaders("testuser1")),
+                createResponseType,
+            )
+            val orderId = createResponse.body!!.data!!.id
+
+            // 두 번째 사용자 등록
+            signUp("testuser2")
+
+            // act - 두 번째 사용자가 첫 번째 사용자의 주문 조회
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders/$orderId",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders("testuser2")),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         }
     }
 }

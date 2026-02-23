@@ -1,6 +1,5 @@
 package com.loopers.domain.catalog.product
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.catalog.product.repository.ProductRepository
@@ -14,11 +13,22 @@ class FakeProductRepository : ProductRepository {
         if (product.id != 0L) {
             products.removeIf { it.id == product.id }
             products.add(product)
-        } else {
-            setEntityId(product, sequence++)
-            products.add(product)
+            return product
         }
-        return product
+        val saved = Product(
+            id = sequence++,
+            refBrandId = product.refBrandId,
+            name = product.name,
+            price = product.price,
+            stock = product.stock,
+            status = product.status,
+            likeCount = product.likeCount,
+            createdAt = product.createdAt,
+            updatedAt = product.updatedAt,
+            deletedAt = product.deletedAt,
+        )
+        products.add(saved)
+        return saved
     }
 
     override fun findById(id: Long): Product? {
@@ -39,7 +49,7 @@ class FakeProductRepository : ProductRepository {
 
         val sorted = when (sort) {
             ProductSort.LATEST -> filtered.sortedByDescending { it.id }
-            ProductSort.PRICE_ASC -> filtered.sortedBy { it.price }
+            ProductSort.PRICE_ASC -> filtered.sortedBy { it.price.value }
             ProductSort.LIKES_DESC -> filtered.sortedByDescending { it.likeCount }
         }
 
@@ -54,12 +64,5 @@ class FakeProductRepository : ProductRepository {
 
     override fun findAllByIds(ids: List<Long>): List<Product> {
         return products.filter { it.id in ids }
-    }
-
-    private fun setEntityId(entity: BaseEntity, id: Long) {
-        BaseEntity::class.java.getDeclaredField("id").apply {
-            isAccessible = true
-            set(entity, id)
-        }
     }
 }
