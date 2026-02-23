@@ -26,7 +26,6 @@ flowchart TB
         C3[ProductController]
         C4[LikeController]
         C5[OrderController]
-        C6[CouponController]
     end
 
     subgraph Application["application (조합 계층)"]
@@ -36,7 +35,6 @@ flowchart TB
         F3[ProductFacade]
         F4[LikeFacade]
         F5[OrderFacade]
-        F6[CouponFacade]
     end
 
     subgraph Domain["domain (비즈니스 계층)"]
@@ -46,7 +44,6 @@ flowchart TB
         S3[ProductService]
         S4[LikeService]
         S5[OrderService]
-        S6[CouponService]
     end
 
     subgraph Infrastructure["infrastructure (영속성 계층)"]
@@ -56,7 +53,6 @@ flowchart TB
         R3[ProductRepository]
         R4[LikeRepository]
         R5[OrderRepository]
-        R6[CouponRepository]
     end
 
     C1 --> F1
@@ -64,7 +60,6 @@ flowchart TB
     C3 --> F3
     C4 --> F4
     C5 --> F5
-    C6 --> F6
 
     F1 --> S1
     F2 --> S2
@@ -75,18 +70,13 @@ flowchart TB
     F4 -.-> S3
     F5 --> S5
     F5 -.-> S3
-    F5 -.-> S6
-    F6 --> S6
 
     S1 --> R1
     S2 --> R2
     S3 --> R3
     S4 --> R4
     S5 --> R5
-    S6 --> R6
 ```
-
-> CouponController/Facade는 향후 쿠폰 API 개발 시 사용. 현재는 OrderFacade → CouponService 의존만 활성
 
 ### 핵심 포인트
 
@@ -232,74 +222,16 @@ classDiagram
 
 ---
 
-### 2.5 Coupon / UserCoupon
-
-> 쿠폰 API는 향후 개발이나, 주문 흐름에서 참조하므로 Entity 구조를 미리 정의
-
-```mermaid
-classDiagram
-    class Coupon {
-        -id: Long
-        -name: String
-        -type: CouponType
-        -discountValue: BigDecimal
-        -minOrderAmount: BigDecimal
-        -maxDiscountAmount: BigDecimal
-        -validFrom: LocalDateTime
-        -validTo: LocalDateTime
-        -createdAt: LocalDateTime
-        -updatedAt: LocalDateTime
-        -deletedAt: LocalDateTime
-        +isFixed() boolean
-        +isRate() boolean
-        +calculateDiscount(orderAmount) BigDecimal
-    }
-
-    class UserCoupon {
-        -id: Long
-        -userId: Long
-        -couponId: Long
-        -usedOrderId: Long
-        -usedAt: LocalDateTime
-        -createdAt: LocalDateTime
-        -expiredAt: LocalDateTime
-        +isUsed() boolean
-        +isExpired() boolean
-        +isUsable() boolean
-        +markAsUsed(orderId) void
-    }
-
-    class CouponType {
-        <<enumeration>>
-        FIXED
-        RATE
-    }
-
-    Coupon "1" <-- "*" UserCoupon : couponId
-    Coupon --> CouponType : type
-```
-
-| 메서드 | 책임 |
-|--------|------|
-| `calculateDiscount()` | FIXED: 고정 금액 반환, RATE: 주문금액 × 할인율 (상한 적용) |
-| `isUsable()` | 미사용 + 미만료 여부 확인 |
-| `markAsUsed()` | usedAt, usedOrderId 설정 |
-
----
-
-### 2.6 Order / OrderItem
+### 2.5 Order / OrderItem
 
 ```mermaid
 classDiagram
     class Order {
         -id: Long
         -userId: Long
-        -userCouponId: Long
         -totalAmount: BigDecimal
-        -discountAmount: BigDecimal
         -createdAt: LocalDateTime
         +calculateTotalAmount() BigDecimal
-        +calculatePayAmount() BigDecimal
     }
 
     class OrderItem {
@@ -321,25 +253,18 @@ classDiagram
         -id: Long
     }
 
-    class UserCoupon {
-        -id: Long
-    }
-
     User "1" <-- "*" Order : userId
-    UserCoupon "0..1" <.. "0..1" Order : userCouponId
     Order "1" *-- "*" OrderItem : contains
     Product "1" <.. "*" OrderItem : snapshot
 ```
 
 | 클래스 | 필드 | 설명 |
 |--------|------|------|
-| **Order** | userCouponId, discountAmount | 쿠폰 적용 정보 (null이면 미적용) |
 | **OrderItem** | unitPrice, productName, brandName | 주문 시점 스냅샷 |
 
 | 메서드 | 책임 |
 |--------|------|
-| `calculateTotalAmount()` | 주문 총액 계산 (할인 전) |
-| `calculatePayAmount()` | 실결제 금액 (totalAmount - discountAmount) |
+| `calculateTotalAmount()` | 주문 총액 계산 |
 | `subtotal()` | 항목별 소계 (unitPrice × quantity) |
 
 ### 관계 표기 설명
@@ -357,5 +282,4 @@ classDiagram
 | **도메인 불변식** | Entity 내부에서 보장 (`decreaseStock()` → stock >= 0) |
 | **ID 참조** | 도메인 간 엔티티는 ID로만 참조 |
 | **스냅샷** | OrderItem에 주문 시점 상품 정보 복사 |
-| **쿠폰 할인** | Order에 discountAmount로 기록, Coupon Entity에서 할인 계산 캡슐화 |
-| **느슨한 결합** | OrderFacade → CouponService (Facade에서 조합, Service 간 직접 참조 없음) |
+| **느슨한 결합** | OrderFacade → ProductService (Facade에서 조합, Service 간 직접 참조 없음) |

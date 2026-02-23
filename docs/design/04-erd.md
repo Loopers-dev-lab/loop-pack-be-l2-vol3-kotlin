@@ -22,13 +22,10 @@
 erDiagram
     users ||--o{ likes : "has"
     users ||--o{ orders : "places"
-    users ||--o{ user_coupons : "receives"
     brands ||--o{ products : "has"
     products ||--o{ likes : "receives"
     products ||--o{ order_items : "snapshot"
     orders ||--|{ order_items : "contains"
-    coupons ||--o{ user_coupons : "issued as"
-    user_coupons |o--o| orders : "applied to"
 
     users {
         bigint id PK
@@ -71,36 +68,10 @@ erDiagram
         timestamp deleted_at
     }
 
-    coupons {
-        bigint id PK
-        varchar name
-        varchar type
-        decimal discount_value
-        decimal min_order_amount
-        decimal max_discount_amount
-        timestamp valid_from
-        timestamp valid_to
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
-    }
-
-    user_coupons {
-        bigint id PK
-        bigint user_id
-        bigint coupon_id
-        bigint used_order_id
-        timestamp used_at
-        timestamp created_at
-        timestamp expired_at
-    }
-
     orders {
         bigint id PK
         bigint user_id
-        bigint user_coupon_id
         decimal total_amount
-        decimal discount_amount
         timestamp created_at
     }
 
@@ -120,9 +91,6 @@ erDiagram
 - **brands → products**: 1:N, 브랜드 삭제 시 상품 연쇄 Soft Delete
 - **products → order_items**: 스냅샷 관계 (주문 시점 정보 복사)
 - **likes**: user_id + product_id 유니크 인덱스
-- **coupons → user_coupons**: 1:N, 쿠폰 템플릿과 발급 이력 분리
-- **user_coupons ↔ orders**: 1:1 (선택적), 주문당 쿠폰 1장
-- **orders**: user_coupon_id + discount_amount로 쿠폰 적용 기록
 
 ---
 
@@ -187,59 +155,20 @@ erDiagram
 
 ---
 
-### 2.5 coupons
-
-> 향후 쿠폰 API 개발 시 사용. 주문 흐름에서 참조하므로 테이블 구조를 미리 정의
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | |
-| name | VARCHAR(100) | NOT NULL | 쿠폰명 |
-| type | VARCHAR(20) | NOT NULL | FIXED / RATE |
-| discount_value | DECIMAL(15,2) | NOT NULL | 할인 금액 또는 할인율 |
-| min_order_amount | DECIMAL(15,2) | | 최소 주문 금액 (null이면 제한 없음) |
-| max_discount_amount | DECIMAL(15,2) | | 최대 할인 금액 (RATE 타입 시 필수) |
-| valid_from | TIMESTAMP | NOT NULL | 유효 시작일 |
-| valid_to | TIMESTAMP | NOT NULL | 유효 종료일 |
-| created_at | TIMESTAMP | NOT NULL | |
-| updated_at | TIMESTAMP | NOT NULL | |
-| deleted_at | TIMESTAMP | | Soft Delete |
-
----
-
-### 2.6 user_coupons
+### 2.5 orders
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | |
 | user_id | BIGINT | NOT NULL | users.id (앱에서 검증) |
-| coupon_id | BIGINT | NOT NULL | coupons.id (앱에서 검증) |
-| used_order_id | BIGINT | | orders.id (사용 시 기록, null이면 미사용) |
-| used_at | TIMESTAMP | | 사용 시점 (null이면 미사용) |
-| created_at | TIMESTAMP | NOT NULL | 발급 시점 |
-| expired_at | TIMESTAMP | NOT NULL | 만료 시점 |
-
-**사용 여부 판단**: `used_at IS NULL AND expired_at > NOW()`
-
----
-
-### 2.7 orders
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | |
-| user_id | BIGINT | NOT NULL | users.id (앱에서 검증) |
-| user_coupon_id | BIGINT | | user_coupons.id (null이면 쿠폰 미적용) |
-| total_amount | DECIMAL(15,2) | NOT NULL | 주문 총액 (할인 전) |
-| discount_amount | DECIMAL(15,2) | NOT NULL, DEFAULT 0 | 쿠폰 할인 금액 |
+| total_amount | DECIMAL(15,2) | NOT NULL | 주문 총액 |
 | created_at | TIMESTAMP | NOT NULL | |
 
 **삭제 정책**: 삭제 불가 (기록 보존)
-**실결제 금액**: total_amount - discount_amount
 
 ---
 
-### 2.8 order_items
+### 2.6 order_items
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -265,8 +194,6 @@ erDiagram
 | products | idx_products_brand_id | brand_id | INDEX | 브랜드별 상품 조회 |
 | likes | uk_likes_user_product | (user_id, product_id) | UNIQUE | 중복 좋아요 방지 |
 | likes | idx_likes_user_id | user_id | INDEX | 내 좋아요 목록 |
-| user_coupons | idx_user_coupons_user_id | user_id | INDEX | 내 쿠폰 목록 |
-| user_coupons | idx_user_coupons_coupon_id | coupon_id | INDEX | 쿠폰별 발급 현황 |
 | orders | idx_orders_user_id | user_id | INDEX | 내 주문 목록 |
 | orders | idx_orders_created_at | created_at | INDEX | 기간별 조회 |
 | order_items | idx_order_items_order_id | order_id | INDEX | 주문별 항목 조회 |
@@ -278,7 +205,6 @@ erDiagram
 | uk_likes_user_product | 동시 요청 시 중복 좋아요 방지 (멱등성) |
 | idx_products_brand_id | 브랜드별 상품 조회, 연쇄 삭제 시 사용 |
 | idx_orders_created_at | 기간별 주문 조회 (startAt ~ endAt) |
-| idx_user_coupons_user_id | 유저별 보유 쿠폰 조회 |
 
 ---
 
@@ -288,8 +214,6 @@ erDiagram
 |------|------|------|
 | **FK 제약** | 없음 | 성능, Soft Delete 호환, 운영 유연성 |
 | **참조 무결성** | 애플리케이션 검증 | Service 레이어에서 존재 확인 |
-| **Soft Delete** | brands, products, likes, coupons | 복구 가능성, 이력 추적 |
-| **삭제 불가** | orders, order_items, user_coupons | 기록 보존 필수 |
+| **Soft Delete** | brands, products, likes | 복구 가능성, 이력 추적 |
+| **삭제 불가** | orders, order_items | 기록 보존 필수 |
 | **스냅샷** | order_items에 포함 | 주문 시점 정보 보존 |
-| **쿠폰 구조** | coupons(템플릿) + user_coupons(발급) 분리 | 쿠폰 정의 재사용, 발급 이력 추적 |
-| **할인 기록** | orders.discount_amount | 쿠폰 삭제/변경과 무관하게 주문 시점 할인 보존 |

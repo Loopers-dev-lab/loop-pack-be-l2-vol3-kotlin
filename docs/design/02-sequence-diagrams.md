@@ -17,12 +17,11 @@
 ## 1. 주문 생성 (C10)
 
 ### 협력 도메인
-User → Product → Coupon → Order → OrderItem
+User → Product → Order → OrderItem
 
 ### 다이어그램 목적
 - 부분 주문 분기점과 excludedItems 결정 시점 확인
 - 비관적 락 범위와 스냅샷 저장 순서 검증
-- 쿠폰 검증/적용 시점과 실패 시 주문 진행 정책 확인
 - 트랜잭션 경계 명확화
 
 ```mermaid
@@ -33,13 +32,12 @@ sequenceDiagram
     participant Facade
     participant OrderService
     participant ProductService
-    participant CouponService
     participant OrderRepository
     participant ProductRepository
     participant DB
 
-    Client->>Controller: POST /orders {items, userCouponId?}
-    Controller->>Facade: createOrder(userId, items, userCouponId)
+    Client->>Controller: POST /orders {items}
+    Controller->>Facade: createOrder(userId, items)
 
     rect rgb(255, 245, 238)
         Note over Facade,DB: 트랜잭션 시작
@@ -64,47 +62,26 @@ sequenceDiagram
 
             Facade->>Facade: 주문 총액 계산
 
-            opt userCouponId 전송됨
-                Facade->>CouponService: validateAndCalculateDiscount(userCouponId, totalAmount)
-                CouponService->>DB: SELECT user_coupon + coupon
-                DB-->>CouponService: userCoupon
-
-                alt 쿠폰 유효 (미사용 + 미만료 + 최소금액 충족)
-                    CouponService-->>Facade: discountAmount
-                else 쿠폰 무효 (만료/사용됨/최소금액 미달)
-                    CouponService-->>Facade: discountAmount = 0
-                    Note over Facade: 쿠폰 무시, 할인 없이 진행
-                end
-            end
-
-            Facade->>OrderService: createOrder(userId, orderedItems, snapshots, discountAmount)
+            Facade->>OrderService: createOrder(userId, orderedItems, snapshots)
             OrderService->>OrderRepository: save(order)
             OrderRepository->>DB: INSERT order, order_items
             DB-->>OrderRepository: order
             OrderRepository-->>OrderService: order
             OrderService-->>Facade: order
-
-            opt 쿠폰 적용 성공 시
-                Facade->>CouponService: markAsUsed(userCouponId, orderId)
-                CouponService->>DB: UPDATE user_coupons SET used_at, used_order_id
-            end
         end
 
         Note over Facade,DB: 트랜잭션 종료
     end
 
-    Facade-->>Controller: OrderResult(orderedItems, excludedItems, discountAmount)
+    Facade-->>Controller: OrderResult(orderedItems, excludedItems)
     Controller-->>Client: 200 OK / 201 Created
 ```
 
 ### 핵심 포인트
 - **락 획득 시점**: 재고 확인 전에 `SELECT FOR UPDATE`로 락 선점
 - **분류 시점**: 락 획득 후 Facade에서 orderedItems/excludedItems 분류
-- **쿠폰 검증 시점**: 재고 차감 후, 주문 생성 전에 쿠폰 유효성 확인
-- **쿠폰 실패 정책**: 검증 실패 시 쿠폰 무시하고 주문 진행 (discountAmount = 0)
-- **쿠폰 사용 처리**: 주문 생성 성공 후 쿠폰 사용 상태 업데이트
-- **스냅샷 저장**: 재고 차감 후 주문 생성 시 상품 정보 + 할인 정보 복사
-- **트랜잭션 범위**: 락 획득 → 재고 차감 → 쿠폰 검증 → 주문 생성 → 쿠폰 사용 처리 전체를 하나의 트랜잭션으로
+- **스냅샷 저장**: 재고 차감 후 주문 생성 시 상품 정보 복사
+- **트랜잭션 범위**: 락 획득 → 재고 차감 → 주문 생성 전체를 하나의 트랜잭션으로
 
 ### 설계 결정
 | 결정 | 선택 | 이유 |
@@ -112,12 +89,10 @@ sequenceDiagram
 | 부분 주문 분기 위치 | Facade | 여러 서비스 조합 필요 |
 | 락 방식 | 비관적 락 | 재고 정합성 보장 |
 | 응답 코드 | 200 OK (부분 주문 포함) | 요청은 성공, 결과에 제외 항목 포함 |
-| 쿠폰 검증 시점 | 재고 차감 후 | 할인 대상 총액이 확정된 후 계산 |
-| 쿠폰 실패 처리 | 무시하고 진행 | 쿠폰 때문에 주문 자체를 막지 않음 (매출 우선) |
 
 ### 잠재 리스크
-- **트랜잭션 비대화**: 재고 락 + 쿠폰 검증 + 주문 생성이 하나의 트랜잭션에 포함되어 락 보유 시간 증가
-  - 현 규모에서는 문제없으나, 트래픽 증가 시 쿠폰 검증을 트랜잭션 밖으로 분리하는 방안 고려 필요
+- **트랜잭션 내 락 보유 시간**: 재고 락 + 주문 생성이 하나의 트랜잭션에 포함되어 락 보유 시간이 있음
+  - 현 규모에서는 문제없으나, 트래픽 증가 시 트랜잭션 범위 축소 방안 고려 필요
 
 ---
 
@@ -433,7 +408,7 @@ sequenceDiagram
 
 | # | API | 핵심 검증 포인트 | 트랜잭션 범위 |
 |---|-----|-----------------|--------------|
-| 1 | 주문 생성 | 비관적 락, 부분 주문 분기, 쿠폰 검증/적용, 스냅샷 | 락 → 재고 차감 → 쿠폰 검증 → 주문 생성 → 쿠폰 사용 처리 |
+| 1 | 주문 생성 | 비관적 락, 부분 주문 분기, 스냅샷 | 락 → 재고 차감 → 주문 생성 |
 | 2 | 좋아요 등록 | 멱등성, Soft Delete 복원 | 상품 조회 → 좋아요 생성/복원 |
 | 3 | 좋아요 취소 | 멱등성 (no-op), Soft Delete | 좋아요 조회 → Soft Delete |
 | 4 | 브랜드 삭제 | 연쇄 Soft Delete | 상품 일괄 삭제 → 브랜드 삭제 |
