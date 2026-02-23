@@ -1,6 +1,8 @@
 package com.loopers.domain.order.entity
 
 import com.loopers.domain.BaseEntity
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -34,6 +36,14 @@ class Order private constructor(
         PAID,
         CANCELLED,
         FAILED,
+    }
+
+    fun cancelItem(item: OrderItem) {
+        if (item.status == OrderItem.ItemStatus.CANCELLED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문 아이템입니다.")
+        }
+        item.cancel()
+        totalPrice = totalPrice.subtract(item.productPrice.multiply(BigDecimal(item.quantity)))
     }
 
     companion object {

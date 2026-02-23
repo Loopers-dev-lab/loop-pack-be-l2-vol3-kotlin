@@ -6,6 +6,8 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
@@ -39,10 +41,27 @@ class OrderItem private constructor(
     var quantity: Int = quantity
         protected set
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    var status: ItemStatus = ItemStatus.ACTIVE
+        protected set
+
     init {
         if (quantity < 1) {
             throw CoreException(ErrorType.BAD_REQUEST, "수량은 1 이상이어야 합니다.")
         }
+    }
+
+    fun cancel() {
+        if (status == ItemStatus.CANCELLED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문 아이템입니다.")
+        }
+        status = ItemStatus.CANCELLED
+    }
+
+    enum class ItemStatus {
+        ACTIVE,
+        CANCELLED,
     }
 
     companion object {
