@@ -162,13 +162,27 @@ classDiagram
 
 - **OrderStatus가 현재 ORDERED 하나인 이유**: 결제 기능이 없으므로 주문 생성 = 주문 확정입니다. 이후 결제 연동 시 PAID, CANCELLED 등으로 확장할 수 있도록 enum으로 설계해두었습니다. COMPLETED가 아닌 ORDERED로 명명한 이유는, COMPLETED는 "배송 완료"까지 연상시키기 때문입니다. 현재 상태는 "주문이 접수됨"을 의미합니다.
 
+**도메인 엔티티와 JPA 엔티티 분리:**
+
+이 다이어그램의 클래스들은 **순수 도메인 객체**입니다. JPA 어노테이션(`@Entity`, `@Column`)이 없는 순수 Kotlin 클래스로 구현합니다. 영속성 매핑은 인프라 계층의 별도 JPA 엔티티(`BrandEntity`, `ProductEntity` 등)가 담당합니다.
+
+| 계층 | 클래스 | 역할 |
+|------|--------|------|
+| 도메인 | `Brand`, `Product` 등 | 비즈니스 규칙, 불변식 검증. JPA 의존 없음 |
+| 인프라 | `BrandEntity`, `ProductEntity` 등 | DB 테이블 매핑, BaseEntity 상속. 비즈니스 규칙 없음 |
+| 인프라 | `BrandRepositoryImpl` 등 | 도메인 ↔ JPA 변환 (`toDomain()` / `fromDomain()`) |
+
+도메인 객체에는 두 가지 생성 경로가 있습니다:
+- `create()`: 신규 생성. 불변식을 검증합니다. (예: `Brand.create(name)`)
+- `reconstruct()`: DB에서 복원. 이미 검증된 데이터이므로 검증을 건너뜁니다.
+
 **이 다이어그램에 포함하지 않은 것:**
-- `id`, `createdAt`, `updatedAt`: BaseEntity를 상속하는 엔티티의 공통 인프라 필드입니다. 도메인 행위와 무관합니다.
+- `id`, `createdAt`, `updatedAt`: 도메인 객체가 운반하지만, 영속성 레이어에서 관리하는 필드입니다. 도메인 행위와 무관합니다.
 - `deletedAt`: Brand, Product에만 표기했습니다. soft delete 여부가 비즈니스 로직(`isDeleted()`)에 영향을 주기 때문입니다.
-- **BaseEntity**: `id`, `createdAt`, `updatedAt`만 제공합니다. `deletedAt`은 BaseEntity에 포함하지 않고, soft delete가 필요한 엔티티(Brand, Product)가 **직접 선언**합니다. 삭제의 맥락은 도메인마다 다르기 때문입니다(상품 판매 중지 vs 회원 탈퇴 vs 주문 취소). 공통 베이스로 묶으면 도메인별로 다른 "삭제 이후의 비즈니스 로직"을 처리하기 어려워집니다.
+- **BaseEntity**: `id`, `createdAt`, `updatedAt`만 제공하는 JPA 전용 클래스입니다. **JPA 엔티티(BrandEntity 등)만 상속**하고, 도메인 엔티티(Brand 등)는 상속하지 않습니다. `deletedAt`은 BaseEntity에 포함하지 않고, soft delete가 필요한 엔티티가 직접 선언합니다. 삭제의 맥락은 도메인마다 다르기 때문입니다.
 - Like, OrderItem은 **BaseEntity를 상속하지 않습니다.** Like는 물리 삭제 대상이므로 `updated_at`, `deleted_at`이 불필요하고, OrderItem은 불변 스냅샷이므로 독자적인 시점 관리가 불필요합니다. 각각 필요한 필드(`id`, `created_at` 등)만 직접 정의합니다.
-- User: Round 1에서 이미 설계/구현된 도메인 객체입니다. 관계선에서만 참조하고, 이 다이어그램에서 클래스 정의는 생략했습니다.
-- Repository, Service: 클래스 다이어그램은 도메인 모델만 다룹니다. 호출 흐름은 시퀀스 다이어그램에서 확인할 수 있습니다.
+- User: Round 1에서 이미 설계/구현된 도메인 객체입니다. 관계선에서만 참조하고, 이 다이어그램에서 클래스 정의는 생략했습니다. (User는 도메인/JPA 분리 미적용 상태)
+- Repository, Service, JPA Entity: 클래스 다이어그램은 도메인 모델만 다룹니다. 호출 흐름은 시퀀스 다이어그램, 영속성 구조는 ERD에서 확인할 수 있습니다.
 
 ---
 
