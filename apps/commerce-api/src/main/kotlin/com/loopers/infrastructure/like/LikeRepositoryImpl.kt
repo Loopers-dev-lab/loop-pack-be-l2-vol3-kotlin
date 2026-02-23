@@ -24,6 +24,6 @@ class LikeRepositoryImpl(
     }
 
     override fun findProductIdsByUserId(userId: Long): List<Long> {
-        return likeJpaRepository.findProductIdsByUserId(userId)
+        return likeJpaRepository.findByUserId(userId).map { it.productId }
     }
 }

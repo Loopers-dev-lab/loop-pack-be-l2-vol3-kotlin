@@ -122,9 +122,9 @@ class LikeServiceIntegrationTest @Autowired constructor(
             assertThat(result).containsExactlyInAnyOrder(product1.id, product2.id)
         }
 
-        @DisplayName("삭제된 상품은 제외된다.")
+        @DisplayName("삭제된 상품 ID도 포함하여 반환한다.")
         @Test
-        fun excludesDeletedProducts() {
+        fun includesDeletedProductIds() {
             // arrange
             val product1 = createProduct()
             val product2 = createProduct()
@@ -138,7 +138,7 @@ class LikeServiceIntegrationTest @Autowired constructor(
             val result = likeService.getLikedProductIds(userId)
 
             // assert
-            assertThat(result).containsExactly(product1.id)
+            assertThat(result).containsExactlyInAnyOrder(product1.id, product2.id)
         }
 
         @DisplayName("좋아요한 상품이 없으면, 빈 목록을 반환한다.")
