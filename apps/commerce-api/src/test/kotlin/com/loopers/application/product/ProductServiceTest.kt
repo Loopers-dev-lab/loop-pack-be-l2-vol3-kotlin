@@ -56,7 +56,7 @@ class ProductServiceTest {
                 imageUrl = "test.png",
                 description = "뉴발란스 신발",
                 price = 299_000L,
-                quantity = 100
+                quantity = 100,
             )
 
             // then
@@ -77,7 +77,7 @@ class ProductServiceTest {
                     imageUrl = "test.png",
                     description = "뉴발란스 신발",
                     price = 299_000L,
-                    quantity = 100
+                    quantity = 100,
                 )
             }
 

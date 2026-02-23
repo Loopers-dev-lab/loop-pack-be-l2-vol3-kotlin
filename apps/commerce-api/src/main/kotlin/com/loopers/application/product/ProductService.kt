@@ -32,11 +32,10 @@ class ProductService(
         price: Long,
         quantity: Long,
     ): ProductModel {
-
         if (productRepository.existsBy(brandId, Name(name))) {
             throw CoreException(
                 errorType = ErrorType.CONFLICT,
-                customMessage = "이미 존재하는 상품입니다."
+                customMessage = "이미 존재하는 상품입니다.",
             )
         }
 
@@ -52,7 +51,7 @@ class ProductService(
 
         val inventory = ProductInventoryModel(
             productId = savedProduct.id,
-            stock = Stock(quantity)
+            stock = Stock(quantity),
         )
 
         productInventoryRepository.save(inventory)

@@ -45,7 +45,7 @@ class EmailTest {
         }
 
         @Test
-        fun `최상위 도메인이 두글자 이상이 아니면 실패한다` () {
+        fun `최상위 도메인이 두글자 이상이 아니면 실패한다`() {
             assertThrows<IllegalArgumentException> {
                 Email("test1234@loppers.c")
             }

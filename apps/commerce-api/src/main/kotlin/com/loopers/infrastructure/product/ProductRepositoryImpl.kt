@@ -9,8 +9,8 @@ import org.springframework.data.domain.Pageable
 
 @Repository
 class ProductRepositoryImpl(
-    private val productJpaRepository: ProductJpaRepository
-): ProductRepository {
+    private val productJpaRepository: ProductJpaRepository,
+) : ProductRepository {
 
     override fun save(product: ProductModel): ProductModel {
         return productJpaRepository.save(product)
@@ -28,8 +28,11 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllByBrandId(brandId, pageable)
     }
 
+    override fun findAllByBrandId(brandId: Long): List<ProductModel> {
+        return productJpaRepository.findAllByBrandId(brandId)
+    }
+
     override fun existsBy(brandId: Long, name: Name): Boolean {
         return productJpaRepository.existsByBrandIdAndName(brandId, name)
     }
-
 }

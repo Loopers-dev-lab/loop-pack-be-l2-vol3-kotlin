@@ -3,7 +3,7 @@ package com.loopers.domain.brand
 data class Address(
     val zipCode: String,
     val roadAddress: String,
-    val detailAddress: String
+    val detailAddress: String,
 ) {
     init {
         require(zipCode.matches(ZIP_CODE_PATTERN)) { "우편번호는 5자리 숫자여야 합니다." }

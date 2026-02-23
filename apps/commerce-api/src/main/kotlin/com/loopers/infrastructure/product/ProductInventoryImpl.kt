@@ -6,8 +6,8 @@ import org.springframework.stereotype.Repository
 
 @Repository
 class ProductInventoryImpl(
-    private val productInventoryJpaRepository: ProductInventoryJpaRepository
-): ProductInventoryRepository {
+    private val productInventoryJpaRepository: ProductInventoryJpaRepository,
+) : ProductInventoryRepository {
     override fun save(inventory: ProductInventoryModel): ProductInventoryModel {
         return productInventoryJpaRepository.save(inventory)
     }

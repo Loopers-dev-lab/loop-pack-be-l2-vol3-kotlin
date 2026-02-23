@@ -12,7 +12,7 @@ import java.time.ZonedDateTime
 @Table(name = "tb_product_inventory")
 class ProductInventoryModel(
     productId: Long,
-    stock: Stock
+    stock: Stock,
 ) {
 
     @Id

@@ -32,4 +32,3 @@ class LikeRepositoryImpl(
         return likeJpaRepository.findAllByUserId(userId, pageable)
     }
 }
-

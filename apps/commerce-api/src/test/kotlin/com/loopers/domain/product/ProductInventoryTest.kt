@@ -19,7 +19,6 @@ class ProductInventoryTest {
             assertDoesNotThrow {
                 ProductInventoryModel(productId, stock)
             }
-
         }
     }
 
@@ -30,7 +29,7 @@ class ProductInventoryTest {
         fun `재고 증가 시 기존 재고에 입력한 수량 만큼 추가된다`() {
             val inventory = ProductInventoryModel(
                 productId = 0L,
-                stock = Stock(0)
+                stock = Stock(0),
             )
 
             val beforeStock = inventory.stock.value
@@ -44,7 +43,7 @@ class ProductInventoryTest {
         fun `재고 감소 시 기존 재고에 입력한 수량 만큼 감소한다`() {
             val inventory = ProductInventoryModel(
                 productId = 0L,
-                stock = Stock(10_000L)
+                stock = Stock(10_000L),
             )
 
             val beforeStock = inventory.stock.value
@@ -58,7 +57,7 @@ class ProductInventoryTest {
         fun `재고 감소 시 재고가 부족하면 에러 반환한다`() {
             val inventory = ProductInventoryModel(
                 productId = 0L,
-                stock = Stock(1_000L)
+                stock = Stock(1_000L),
             )
 
             val quantity = 1_001L

@@ -59,7 +59,7 @@ class UserService(
         return userRepository.findByLoginId(LoginId(loginId))
             ?: throw CoreException(
                 errorType = ErrorType.NOT_FOUND,
-                customMessage = "[loginId = ${loginId}] User를 찾을 수 없습니다.",
+                customMessage = "[loginId = $loginId] User를 찾을 수 없습니다.",
             )
     }
 

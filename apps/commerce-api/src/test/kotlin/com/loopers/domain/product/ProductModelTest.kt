@@ -34,7 +34,7 @@ class ProductModelTest {
                 name = Name("뉴발란스 991"),
                 imageUrl = ImageUrl("/tmp/test.png"),
                 description = Description("뉴발란스 신발"),
-                price = Price(299_000)
+                price = Price(299_000),
             )
 
             assertThat(product.likeCount.value).isEqualTo(0)
@@ -51,7 +51,7 @@ class ProductModelTest {
                 name = Name("뉴발란스 991"),
                 imageUrl = ImageUrl("/tmp/test.png"),
                 description = Description("뉴발란스 신발"),
-                price = Price(299_000)
+                price = Price(299_000),
             )
 
             product.increaseLikeCount()
@@ -71,7 +71,7 @@ class ProductModelTest {
                 name = Name("뉴발란스 991"),
                 imageUrl = ImageUrl("/tmp/test.png"),
                 description = Description("뉴발란스 신발"),
-                price = Price(299_000)
+                price = Price(299_000),
             )
 
             product.decreaseLikeCount()

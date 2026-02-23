@@ -1,6 +1,5 @@
 package com.loopers.domain.brand
 
-import com.loopers.domain.brand.Name
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows

@@ -4,9 +4,11 @@ import com.loopers.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import org.hibernate.annotations.SQLRestriction
 
 @Entity
 @Table(name = "tb_brand")
+@SQLRestriction("deleted_at IS NULL")
 class BrandModel(
     name: Name,
     logoImageUrl: LogoImageUrl,
@@ -14,8 +16,8 @@ class BrandModel(
     address: Address,
     email: Email,
     phoneNumber: PhoneNumber,
-    businessNumber: BusinessNumber
-): BaseEntity() {
+    businessNumber: BusinessNumber,
+) : BaseEntity() {
 
     @Column(unique = true, nullable = false)
     var name: Name = name
@@ -60,7 +62,7 @@ class BrandModel(
         address: Address,
         email: Email,
         phoneNumber: PhoneNumber,
-        businessNumber: BusinessNumber
+        businessNumber: BusinessNumber,
     ) {
         this.name = name
         this.logoImageUrl = logoImageUrl

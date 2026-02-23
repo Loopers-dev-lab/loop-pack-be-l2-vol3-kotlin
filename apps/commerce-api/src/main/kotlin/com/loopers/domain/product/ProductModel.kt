@@ -4,16 +4,18 @@ import com.loopers.domain.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import org.hibernate.annotations.SQLRestriction
 
 @Entity
 @Table(name = "tb_product")
+@SQLRestriction("deleted_at IS NULL")
 class ProductModel(
     brandId: Long,
     name: Name,
     imageUrl: ImageUrl,
     description: Description,
     price: Price,
-): BaseEntity() {
+) : BaseEntity() {
 
     @Column(nullable = false)
     var brandId: Long = brandId

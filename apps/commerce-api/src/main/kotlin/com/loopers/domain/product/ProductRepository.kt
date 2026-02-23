@@ -8,5 +8,6 @@ interface ProductRepository {
     fun findById(id: Long): ProductModel?
     fun findAll(pageable: Pageable): Page<ProductModel>
     fun findAllByBrandId(brandId: Long, pageable: Pageable): Page<ProductModel>
+    fun findAllByBrandId(brandId: Long): List<ProductModel>
     fun existsBy(brandId: Long, name: Name): Boolean
 }
