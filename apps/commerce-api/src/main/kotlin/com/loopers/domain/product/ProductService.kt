@@ -29,4 +29,8 @@ class ProductService(
         product.decreaseLikeCount()
         productRepository.save(product)
     }
+
+    fun getProductsByIds(ids: List<Long>): List<Product> {
+        return productRepository.findAllByIds(ids)
+    }
 }

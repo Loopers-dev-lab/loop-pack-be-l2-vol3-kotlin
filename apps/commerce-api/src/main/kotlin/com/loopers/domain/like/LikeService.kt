@@ -18,4 +18,8 @@ class LikeService(
     fun unlike(userId: Long, productId: Long): Boolean {
         return likeRepository.deleteByUserIdAndProductId(userId, productId)
     }
+
+    fun getLikedProductIds(userId: Long): List<Long> {
+        return likeRepository.findProductIdsByUserId(userId)
+    }
 }
