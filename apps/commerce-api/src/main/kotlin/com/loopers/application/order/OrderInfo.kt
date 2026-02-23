@@ -1,0 +1,48 @@
+package com.loopers.application.order
+
+import com.loopers.domain.order.OrderDetail
+import com.loopers.domain.order.entity.OrderItem
+import java.math.BigDecimal
+import java.time.ZonedDateTime
+
+data class OrderInfo(
+    val id: Long,
+    val userId: Long,
+    val status: String,
+    val totalPrice: BigDecimal,
+    val items: List<OrderItemInfo>,
+    val createdAt: ZonedDateTime,
+    val updatedAt: ZonedDateTime,
+) {
+    companion object {
+        fun from(detail: OrderDetail): OrderInfo = OrderInfo(
+            id = detail.order.id,
+            userId = detail.order.refUserId,
+            status = detail.order.status.name,
+            totalPrice = detail.order.totalPrice.value,
+            items = detail.items.map { OrderItemInfo.from(it) },
+            createdAt = detail.order.createdAt,
+            updatedAt = detail.order.updatedAt,
+        )
+    }
+}
+
+data class OrderItemInfo(
+    val id: Long,
+    val productId: Long,
+    val productName: String,
+    val productPrice: BigDecimal,
+    val quantity: Int,
+    val status: String,
+) {
+    companion object {
+        fun from(item: OrderItem): OrderItemInfo = OrderItemInfo(
+            id = item.id,
+            productId = item.refProductId,
+            productName = item.productName,
+            productPrice = item.productPrice.value,
+            quantity = item.quantity,
+            status = item.status.name,
+        )
+    }
+}

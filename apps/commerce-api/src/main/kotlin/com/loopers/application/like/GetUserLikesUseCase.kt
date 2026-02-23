@@ -6,31 +6,12 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class LikeFacade(
+class GetUserLikesUseCase(
     private val likeService: LikeService,
     private val catalogService: CatalogService,
 ) {
-
-    @Transactional
-    fun addLike(userId: Long, productId: Long) {
-        catalogService.getActiveProduct(productId)
-        val added = likeService.addLike(userId, productId)
-        if (added) {
-            catalogService.increaseLikeCount(productId)
-        }
-    }
-
-    @Transactional
-    fun removeLike(userId: Long, productId: Long) {
-        catalogService.getProduct(productId)
-        val removed = likeService.removeLike(userId, productId)
-        if (removed) {
-            catalogService.decreaseLikeCount(productId)
-        }
-    }
-
     @Transactional(readOnly = true)
-    fun getLikes(userId: Long): List<LikeProductInfo> {
+    fun execute(userId: Long): List<LikeWithProductInfo> {
         val likes = likeService.getLikesByUserId(userId)
         if (likes.isEmpty()) return emptyList()
 
@@ -40,7 +21,7 @@ class LikeFacade(
 
         return likes.mapNotNull { like ->
             productMap[like.refProductId]?.let { product ->
-                LikeProductInfo.from(like, product)
+                LikeWithProductInfo.from(like, product)
             }
         }
     }
