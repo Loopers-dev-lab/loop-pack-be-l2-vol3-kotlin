@@ -120,6 +120,17 @@ class ProductTest {
         }
     }
 
+    private fun createProduct(likes: Int = 10): Product {
+        return Product(
+            name = "에어맥스",
+            description = "러닝화",
+            price = 159000,
+            likes = likes,
+            stockQuantity = 100,
+            brandId = 1L,
+        )
+    }
+
     @DisplayName("좋아요 수를 증가시킬 때,")
     @Nested
     inner class IncreaseLikeCount {
@@ -128,20 +139,44 @@ class ProductTest {
         @Test
         fun increasesLikeCountByOne() {
             // arrange
-            val product = Product(
-                name = "에어맥스",
-                description = "러닝화",
-                price = 159000,
-                likes = 10,
-                stockQuantity = 100,
-                brandId = 1L,
-            )
+            val product = createProduct(likes = 10)
 
             // act
             product.increaseLikeCount()
 
             // assert
             assertThat(product.likes).isEqualTo(11)
+        }
+    }
+
+    @DisplayName("좋아요 수를 감소시킬 때,")
+    @Nested
+    inner class DecreaseLikeCount {
+
+        @DisplayName("좋아요 수가 1 감소한다.")
+        @Test
+        fun decreasesLikeCountByOne() {
+            // arrange
+            val product = createProduct(likes = 10)
+
+            // act
+            product.decreaseLikeCount()
+
+            // assert
+            assertThat(product.likes).isEqualTo(9)
+        }
+
+        @DisplayName("좋아요 수가 0이면, 0을 유지한다.")
+        @Test
+        fun doesNotDecreaseBelow_zero() {
+            // arrange
+            val product = createProduct(likes = 0)
+
+            // act
+            product.decreaseLikeCount()
+
+            // assert
+            assertThat(product.likes).isEqualTo(0)
         }
     }
 }

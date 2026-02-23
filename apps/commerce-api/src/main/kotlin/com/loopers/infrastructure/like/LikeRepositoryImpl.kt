@@ -16,4 +16,10 @@ class LikeRepositoryImpl(
     override fun existsByUserIdAndProductId(userId: Long, productId: Long): Boolean {
         return likeJpaRepository.existsByUserIdAndProductId(userId, productId)
     }
+
+    override fun deleteByUserIdAndProductId(userId: Long, productId: Long): Boolean {
+        val like = likeJpaRepository.findByUserIdAndProductId(userId, productId) ?: return false
+        likeJpaRepository.delete(like)
+        return true
+    }
 }

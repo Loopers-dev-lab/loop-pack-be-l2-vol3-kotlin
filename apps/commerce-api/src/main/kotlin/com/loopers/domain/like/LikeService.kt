@@ -14,4 +14,8 @@ class LikeService(
         likeRepository.save(Like(userId = userId, productId = productId))
         return true
     }
+
+    fun unlike(userId: Long, productId: Long): Boolean {
+        return likeRepository.deleteByUserIdAndProductId(userId, productId)
+    }
 }
