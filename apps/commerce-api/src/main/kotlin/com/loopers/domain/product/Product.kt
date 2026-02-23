@@ -62,4 +62,8 @@ class Product(
             throw CoreException(ErrorType.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다.")
         }
     }
+
+    fun increaseLikeCount() {
+        this.likes += 1
+    }
 }
