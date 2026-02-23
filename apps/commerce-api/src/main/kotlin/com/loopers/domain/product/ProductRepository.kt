@@ -20,16 +20,3 @@ interface ProductRepository {
 
     fun findAllByBrandIdAndStatus(brandId: Long, status: ProductStatus): List<ProductModel>
 }
-
-data class ProductSearchCondition(
-    val brandId: Long? = null,
-    val sort: ProductSort = ProductSort.LATEST,
-    val size: Int = 20,
-    val cursor: Map<String, Any>? = null,
-)
-
-enum class ProductSort {
-    LATEST,
-    PRICE_ASC,
-    LIKES_DESC,
-}
