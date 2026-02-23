@@ -16,12 +16,12 @@ class User private constructor(
     val maskedName: String
         get() = name.dropLast(1) + "*"
 
-    fun changePassword(newPassword: String): User {
-        validatePassword(newPassword, birthDate)
+    fun changePassword(rawPassword: String, passwordHasher: UserPasswordHasher): User {
+        validatePassword(rawPassword, birthDate)
         return User(
             id = id,
             loginId = loginId,
-            password = newPassword,
+            password = passwordHasher.encode(rawPassword),
             name = name,
             birthDate = birthDate,
             email = email,
@@ -54,19 +54,20 @@ class User private constructor(
 
         fun register(
             loginId: String,
-            password: String,
+            rawPassword: String,
             name: String,
             birthDate: LocalDate,
             email: String,
+            passwordHasher: UserPasswordHasher,
         ): User {
             validateLoginId(loginId)
-            validatePassword(password, birthDate)
+            validatePassword(rawPassword, birthDate)
             validateName(name)
 
             return User(
                 id = null,
                 loginId = loginId,
-                password = password,
+                password = passwordHasher.encode(rawPassword),
                 name = name,
                 birthDate = birthDate,
                 email = email,
@@ -79,7 +80,7 @@ class User private constructor(
             }
         }
 
-        fun validatePassword(password: String, birthDate: LocalDate) {
+        private fun validatePassword(password: String, birthDate: LocalDate) {
             if (!PASSWORD_PATTERN.matches(password)) {
                 throw CoreException(ErrorType.USER_INVALID_PASSWORD)
             }

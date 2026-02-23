@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.application.user.UserFacade
 import com.loopers.interfaces.api.ApiResponse
-import com.loopers.application.user.UserService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -16,13 +16,13 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
-    private val userService: UserService,
+    private val userFacade: UserFacade,
 ) : UserV1ApiSpec {
     @PostMapping
     override fun signUp(
         @Valid @RequestBody request: UserV1Dto.SignUpRequest,
     ): ResponseEntity<ApiResponse<UserV1Dto.SignUpResponse>> {
-        return userService.signUp(request.toCommand())
+        return userFacade.signUp(request.toCommand())
             .let { UserV1Dto.SignUpResponse.from(it) }
             .let { ApiResponse.success(it) }
             .let { ResponseEntity.status(HttpStatus.CREATED).body(it) }
@@ -34,7 +34,7 @@ class UserV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @Valid @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ResponseEntity<ApiResponse<UserV1Dto.ChangePasswordResponse>> {
-        userService.changePassword(loginId, password, request.toCommand())
+        userFacade.changePassword(loginId, password, request.toCommand())
         return UserV1Dto.ChangePasswordResponse.success()
             .let { ApiResponse.success(it) }
             .let { ResponseEntity.ok(it) }
@@ -45,7 +45,7 @@ class UserV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
     ): ResponseEntity<ApiResponse<UserV1Dto.MeResponse>> {
-        return userService.getMe(loginId, password)
+        return userFacade.getMe(loginId, password)
             .let { UserV1Dto.MeResponse.from(it) }
             .let { ApiResponse.success(it) }
             .let { ResponseEntity.ok(it) }
