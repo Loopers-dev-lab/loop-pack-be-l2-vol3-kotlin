@@ -85,9 +85,9 @@ sequenceDiagram
     User ->> C: 상품 상세 정보 요청
     C ->> S: 상세 정보 조회 요청
     S ->> PR: Product 조회 (삭제/HIDDEN 제외)
-    PR -->> S: Product 엔티티
+    PR -->> S: Product
     S ->> BR: 상품의 브랜드 정보 조회
-    BR -->> S: Brand 엔티티
+    BR -->> S: Brand
     S ->> S: 상품 + 브랜드 정보 조합
     S -->> C: ProductDetail 반환
     C -->> User: 200 OK
@@ -140,8 +140,8 @@ sequenceDiagram
     Admin ->> C: 브랜드 상세 조회 요청
     C ->> S: ID로 브랜드 검색
     S ->> R: DB 조회
-    R -->> S: 브랜드 엔티티
-    S -->> C: Brand 엔티티
+    R -->> S: Brand
+    S -->> C: Brand
     C -->> Admin: 200 OK
 ```
 
@@ -163,7 +163,7 @@ sequenceDiagram
     Admin ->> C: 브랜드 등록 요청
     C ->> S: 브랜드 생성 요청
     Note over S, R: @Transactional
-    S ->> S: Brand 엔티티 생성 (이름 검증 포함)
+    S ->> S: Brand 생성 (이름 검증 포함)
     S ->> R: 저장
     R -->> S: 생성된 브랜드 (ID 채번)
     S -->> C: brandId 반환
@@ -251,7 +251,7 @@ sequenceDiagram
         S -->> C: CoreException(NOT_FOUND)
         C -->> Admin: 404 Not Found
     else 브랜드 존재
-        R -->> S: Brand 엔티티
+        R -->> S: Brand
         S ->> S: brand.restore()
         Note right of S: deletedAt = null (이미 활성이면 no-op)
         S -->> C: void
@@ -296,8 +296,8 @@ sequenceDiagram
     Admin ->> C: 상품 상세 조회 요청
     C ->> S: ID로 상품 검색
     S ->> R: DB 조회
-    R -->> S: 상품 엔티티
-    S -->> C: Product 엔티티
+    R -->> S: Product
+    S -->> C: Product
     C -->> Admin: 200 OK
 ```
 
@@ -326,7 +326,7 @@ sequenceDiagram
         Note right of S: @Transactional
         S ->> BR: 브랜드 유효성 확인 (존재 및 활성 여부)
         BR -->> S: 유효한 브랜드 확인
-        S ->> S: Product 엔티티 생성 (가격/재고 검증 포함)
+        S ->> S: Product 생성 (가격/재고 검증 포함)
         S ->> PR: 상품 저장
     end
 
@@ -404,7 +404,7 @@ sequenceDiagram
         S -->> C: CoreException(NOT_FOUND)
         C -->> Admin: 404 Not Found
     else 상품 존재
-        R -->> S: Product 엔티티
+        R -->> S: Product
         S ->> S: product.restore()
         Note right of S: deletedAt = null (이미 활성이면 no-op)
         S -->> C: void
@@ -435,11 +435,11 @@ sequenceDiagram
     rect rgb(245, 245, 245)
         Note right of F: @Transactional (Facade)
         F ->> CS: 활성 상품 조회 (삭제/HIDDEN 제외)
-        CS -->> F: Product 엔티티
+        CS -->> F: Product
         F ->> LS: 좋아요 추가 요청
         LS ->> R: 기존 좋아요 여부 확인
         alt 새로운 좋아요
-            LS ->> R: 좋아요 엔티티 저장
+            LS ->> R: Like 저장
             LS -->> F: true (실제 변경 발생)
             F ->> CS: 상품의 likeCount 증가 요청
             CS ->> R: 상품 업데이트
@@ -473,11 +473,11 @@ sequenceDiagram
     rect rgb(245, 245, 245)
         Note right of F: @Transactional (Facade)
         F ->> CS: 대상 상품 조회 (삭제된 상품 포함)
-        CS -->> F: Product 엔티티
+        CS -->> F: Product
         F ->> LS: 좋아요 삭제 요청
         LS ->> R: 기존 좋아요 여부 확인
         alt 좋아요 존재
-            LS ->> R: 좋아요 엔티티 물리 삭제
+            LS ->> R: Like 물리 삭제
             LS -->> F: true (실제 삭제 발생)
         else 좋아요 없음
             LS -->> F: false (멱등, 상태 변화 없음)
@@ -495,6 +495,7 @@ sequenceDiagram
 
 #### 참고
 
+- **동시성(Race Condition) 방어 및 멱등성 보장:** 시퀀스 상으로는 '조회 후 저장(Check-then-Act)' 흐름이지만, 동시 요청 시 DB의 Unique 제약조건(`ref_user_id`, `ref_product_id`) 위반 예외(예: `DataIntegrityViolationException`)가 발생할 수 있다. `LikeService`는 저장 시 이 예외를 catch하여 에러로 던지지 않고, 이미 좋아요가 존재하는 것으로 간주하여 멱등하게 `false`(상태 변화 없음)를 반환하도록 구현해야 한다.
 - **삭제된 상품 포함 조회:** 좋아요 취소 시에는 삭제된 상품도 포함하여 조회한다. 삭제된 상품의 좋아요도 취소할 수 있어야 하기 때문이다 (요구사항: "삭제된 상품에 대한 좋아요 취소 → 200 OK")
 - 삭제된 상품의 likeCount는 갱신하지 않음 (의미 없는 카운트 변경 방지)
 
@@ -568,13 +569,11 @@ sequenceDiagram
         CS ->> CS: 상품별 재고 차감 처리
         CS ->> R: 재고 변경 저장
         Note right of CS: 재고 부족 시 예외 → 트랜잭션 전체 롤백
-    %% 3단계: 주문 생성 (totalPrice 계산 → Order 생성 → OrderItem 스냅샷)
+    %% 3단계: 주문 생성 (Order.create()가 내부에서 OrderItem 생성 + totalPrice 계산)
         F ->> F: Product → OrderProductInfo 변환
         F ->> OS: 주문 생성 요청 (userId, OrderProductInfo 목록, command)
-        OS ->> OS: totalPrice 계산 (Σ price × quantity)
-        OS ->> OS: Order.create(userId, totalPrice)
-        OS ->> OS: OrderItem.create() — 각 상품 스냅샷 생성
-        Note right of OS: 각 상품의 name, price를<br/>OrderItem에 스냅샷으로 복사
+        OS ->> OS: Order.create(userId, orderProductInfos, quantities)
+        Note right of OS: Order.create() 내부에서<br/>OrderItem 생성 + totalPrice 계산<br/>(각 상품의 name, price를 스냅샷으로 복사)
         OS ->> R: 주문 저장
         OS -->> F: OrderDetail 반환
     %% 4단계: 포인트 차감
@@ -595,7 +594,7 @@ sequenceDiagram
 - 재고 부족 또는 포인트 부족 시 트랜잭션 롤백으로 이전 차감분 모두 원복
 - OrderItem은 주문 시점의 상품 정보(이름, 가격)를 스냅샷으로 보존
 - Facade는 Product → OrderProductInfo 변환(cross-domain 매핑)을 수행한 뒤 OrderService에 위임한다. Order 도메인은 Catalog 도메인 타입에 의존하지 않는다
-- totalPrice는 Order.create() 내부에서 계산하여 Order 엔티티에 저장. Facade는 생성된 OrderDetail에서 totalPrice를 추출하여 UserPointService에 전달
+- Order.create()는 내부에서 OrderItem 생성 + totalPrice 계산을 수행하는 Rich Domain Model 팩토리. Facade는 생성된 OrderDetail에서 totalPrice를 추출하여 UserPointService에 전달
 - UserPointService는 포인트 차감 + PointHistory(USE, refOrderId) 기록을 함께 수행
 
 ### 4.2 주문 목록 조회 (기간 필터링)
@@ -636,7 +635,7 @@ sequenceDiagram
     User ->> C: 주문 상세 정보 요청
     C ->> OS: 주문 상세 조회 요청
     OS ->> OR: Order 조회
-    OR -->> OS: Order 엔티티
+    OR -->> OS: Order
     Note right of OS: 본인 주문인지 소유권 검증
     OS ->> OIR: OrderItems 조회
     OIR -->> OS: List<OrderItem>
@@ -687,7 +686,7 @@ sequenceDiagram
     Admin ->> C: 주문 상세 조회 요청
     C ->> OS: 주문 ID로 검색 요청
     OS ->> OR: Order 조회
-    OR -->> OS: Order 엔티티
+    OR -->> OS: Order
     OS ->> OIR: OrderItems 조회
     OIR -->> OS: List<OrderItem>
     OS ->> OS: OrderDetail로 조합
@@ -723,7 +722,7 @@ sequenceDiagram
     rect rgb(245, 245, 245)
         Note right of PCS: @Transactional
         PCS ->> UPR: UserPoint 조회 (userId)
-        UPR -->> PCS: UserPoint 엔티티
+        UPR -->> PCS: UserPoint
         PCS ->> PCS: UserPoint.charge(amount) — 잔액 증가
         PCS ->> UPR: UserPoint 저장
         PCS ->> PHR: PointHistory(CHARGE) 저장
@@ -753,7 +752,7 @@ sequenceDiagram
     User ->> C: 포인트 잔액 조회 요청
     C ->> UPS: 잔액 조회 요청
     UPS ->> R: UserPoint 조회 (userId)
-    R -->> UPS: UserPoint 엔티티
+    R -->> UPS: UserPoint
     UPS -->> C: 잔액 정보 반환
     C -->> User: 200 OK
 ```

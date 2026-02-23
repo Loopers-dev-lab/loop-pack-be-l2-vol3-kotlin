@@ -77,11 +77,9 @@ flowchart TB
     CheckStock -->|충분| Deduct[상품별 재고 차감]
     Deduct --> AutoStatus{차감 후 재고 == 0?}
     AutoStatus -->|예| StatusChange[status → SOLD_OUT 자동 전환]
-    AutoStatus -->|아니오| CalcTotal
-    StatusChange --> CalcTotal[totalPrice 계산]
-    CalcTotal --> CreateOrder[Order.create(userId, totalPrice)]
-    CreateOrder --> CreateItems[OrderItem.create() 각각 생성 (스냅샷 포함)]
-    CreateItems --> CheckPoint{포인트 잔액 충분?}
+    AutoStatus -->|아니오| CreateOrder
+    StatusChange --> CreateOrder[Order.create — OrderItem 생성 + totalPrice 계산]
+    CreateOrder --> CheckPoint{포인트 잔액 충분?}
     CheckPoint -->|부족| Err400_5[400 포인트 부족]:::error
     CheckPoint -->|충분| DeductPoint[포인트 차감 + PointHistory 기록]
     DeductPoint --> Save[DB 저장]
@@ -93,6 +91,7 @@ flowchart TB
 
 ### 참고
 
+- `Order.create()`가 내부에서 OrderItem 생성과 totalPrice 계산을 수행한다 (Rich Domain Model)
 - 전체 과정이 **하나의 트랜잭션** 내에서 원자적으로 실행 (all-or-nothing)
 - 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감 + 포인트 차감 모두 원복
 - **Round 3 추가**: 포인트 잔액 확인 및 차감 단계가 주문 생성 후 수행된다
@@ -115,7 +114,7 @@ flowchart TB
     CheckProduct -->|유효| CheckLike{이미 좋아요 존재?}
     CheckLike -->|존재| Idempotent([200 OK — 변경 없음]):::idempotent
 
-    CheckLike -->|없음| SaveLike[Like 엔티티 저장]
+    CheckLike -->|없음| SaveLike[Like 저장]
     SaveLike --> IncCount[Product.likeCount + 1]
     IncCount --> Success([200 OK]):::success
 
@@ -134,7 +133,7 @@ flowchart TB
     CheckProduct -->|존재| CheckLike{좋아요 존재?}
     CheckLike -->|없음| Idempotent([200 OK — 변경 없음]):::idempotent
 
-    CheckLike -->|존재| DeleteLike[Like 엔티티 물리 삭제]
+    CheckLike -->|존재| DeleteLike[Like 물리 삭제]
     DeleteLike --> CheckDeleted{상품이 삭제 상태?}
     CheckDeleted -->|삭제됨| SkipCount([200 OK — likeCount 미갱신]):::idempotent
     CheckDeleted -->|활성| DecCount[Product.likeCount - 1]
@@ -202,7 +201,7 @@ flowchart TB
     SaveNew --> Success201[201 Created]:::success
 
     Select -->|수정| Update[브랜드/상품 수정]
-    Update --> FindForUpdate{엔티티 조회}
+    Update --> FindForUpdate{대상 조회}
     FindForUpdate -->|미존재| Err404_1[404 Not Found]:::error
     FindForUpdate -->|존재 - 정상 또는 삭제| ValidUpdate{입력값 검증}
     ValidUpdate -->|실패| Err400_2[400 Bad Request]:::error
@@ -210,13 +209,13 @@ flowchart TB
     SaveUpdate --> Success200_1[200 OK]:::success
 
     Select -->|삭제| Delete[브랜드/상품 삭제]
-    Delete --> FindForDelete{엔티티 조회}
+    Delete --> FindForDelete{대상 조회}
     FindForDelete -->|미존재 또는 이미 삭제| Success200_2[200 OK - 멱등]:::success
     FindForDelete -->|존재| SoftDel[deletedAt 설정]
     SoftDel --> Success200_3[200 OK]:::success
 
     Select -->|복구| Restore[브랜드/상품 복구]
-    Restore --> FindForRestore{엔티티 조회}
+    Restore --> FindForRestore{대상 조회}
     FindForRestore -->|미존재| Err404_2[404 Not Found]:::error
     FindForRestore -->|이미 활성| Success200_4[200 OK - 멱등]:::success
     FindForRestore -->|삭제 상태| RestoreEntity[deletedAt = null]

@@ -5,9 +5,9 @@
 
 ---
 
-## 1. 도메인 모델 전체 관계도 (Entity Relationship)
+## 1. 도메인 모델 전체 관계도 (Domain Model Relationship)
 
-시스템의 뼈대가 되는 4개 도메인(Brand, Product, Like, Order)의 엔티티 간 관계와 참조 방식을 정의한다.
+시스템의 뼈대가 되는 4개 도메인(Brand, Product, Like, Order)의 Domain Model 간 관계와 참조 방식을 정의한다.
 
 ```mermaid
 classDiagram
@@ -163,7 +163,7 @@ classDiagram
             -String name
             +update(name)
         }
-    %% BrandName VO 삭제 — Brand.guard()에서 인라인 검증
+    %% BrandName VO — @JvmInline value class (빈 값 불가)
         class CatalogService {
             +getActiveBrand(brandId)
             +getBrand(brandId)
@@ -187,7 +187,7 @@ classDiagram
 
 - **CatalogService 단일 서비스:** Brand와 Product가 같은 Catalog 바운디드 컨텍스트에 속하므로, CatalogService가 브랜드 CRUD와 cascade 삭제를 모두 담당한다.
   Facade 없이 Controller가 직접 호출한다.
-- **인라인 검증:** `BrandName` VO를 제거하고, `Brand.guard()`에서 이름 생성 규칙(빈 값 불가 등)을 인라인 검증한다.
+- **BrandName VO:** `@JvmInline value class BrandName`으로 브랜드명을 타입 안전하게 표현한다. 빈 값 불가 규칙은 VO 생성자에서 검증한다.
 - **getActiveBrand vs getBrand:** 대고객 API는 `getActiveBrand`(삭제 상태 체크), 어드민은 `getBrand`(삭제 포함)을 사용한다.
 
 ---
@@ -250,7 +250,7 @@ classDiagram
             +decrease(quantity)
             +increase(quantity)
         }
-    %% Price VO 삭제 — Product.guard()에서 인라인 검증
+    %% Price VO — @JvmInline value class (BigDecimal >= 0)
         class CatalogService {
             +getProductDetail(productId) ProductDetail
             +getProducts(filter) PageResult~Product~
@@ -278,8 +278,8 @@ classDiagram
 
 ### 핵심 포인트
 
-- **adjustStatusByStock():** `decreaseStock()`/`increaseStock()`/`update()` 내부에서 호출. 재고가 0이 되면 `SOLD_OUT`, 0에서 양수가 되면
-  `ON_SALE`로 자동 전환. 단, `HIDDEN`이 명시된 경우 자동 전이를 적용하지 않는다 (어드민의 HIDDEN 설정이 우선).
+- 
+- **adjustStatusByStock():** `decreaseStock()`/`increaseStock()` 호출 시 내부에서 자동 실행된다. 재고가 0이 되면 `SOLD_OUT`, 0에서 양수가 되면 `ON_SALE`로 자동 전환. 단, 현재 상태가 `HIDDEN`인 경우 이 자동 상태 전이 로직은 무시되고 기존 `HIDDEN` 상태를 그대로 유지해야 한다.
 - **CatalogService 통합 (Round 3):** 상품/브랜드 CRUD, 상품 상세 조합 (Product + Brand + likeCount), 재고 관리 등을 단일 서비스가 담당한다.
   Controller가 직접 호출하며 Facade를 거치지 않는다.
 
@@ -464,6 +464,10 @@ classDiagram
 ### 핵심 포인트
 
 - **Aggregate Root 규칙:** `OrderItem`의 상태 변경(취소 등)은 반드시 `Order`를 통해서만 수행한다. Domain Service는 `OrderItemRepository`로 직접 수정하지 않고, `Order`의 메서드(`cancelItem()` 등)를 통해 변경하며, `Order` 내부에서 `totalPrice` 재계산이 함께 처리된다. `OrderItemRepository`는 `OrderService`에서만 사용한다는 컨벤션으로 우회를 막는다.
+- **Aggregate 영속성 및 ID 주입 규칙:** JPA 연관관계를 미사용하므로, `Order.create()` 시점에는 아직 DB에 저장되기 전이라 `Order`의 ID가 없다 (null 또는 0). 따라서 `OrderItem` 생성 시점에 `refOrderId`를 넣을 수 없다. 이를 해결하기 위해 `OrderService`는 주문 저장 시 다음 순서를 엄격히 따른다:
+    1. `Order`를 먼저 DB에 저장하여 ID를 채번받는다 (`orderRepository.save(order)`).
+    2. 채번된 `Order`의 ID를 생성되어 있던 `OrderItem`들에 주입(copy 등)한다.
+    3. `OrderItemRepository.saveAll()`을 호출하여 항목들을 저장한다.
 - **OrderItem 관리:** `OrderItem`은 `refOrderId` FK로 `Order`를 참조하며, JPA 연관관계(@OneToMany) 없이 별도 `OrderItemRepository`를 통해 저장/조회한다.
 - **정적 팩토리 메서드:** `Order.create(userId, totalPrice)`로 주문을 생성하고, `OrderItem.create(product, quantity, orderId)`로 각 항목을 별도
   생성한다. `OrderProductInfo`의 가격과 이름을 스냅샷으로 복사한다. Order 도메인은 Catalog 도메인 타입(`Product`)에 의존하지 않으며, Facade에서 `Product` →
@@ -643,21 +647,20 @@ classDiagram
 
 ## 9. Value Object 정리
 
-| VO            | 소속 도메인  | 검증 규칙                             | 사용 시점                      | 상태                        |
-|---------------|---------|-----------------------------------|----------------------------|---------------------------|
-| ~~BrandName~~ | Brand   | 빈 값 불가                            | Brand guard()에서 인라인 검증     | 삭제됨 — guard() 인라인 검증으로 대체 |
-| ~~Price~~     | Product | BigDecimal >= 0                   | Product guard()에서 인라인 검증   | 삭제됨 — guard() 인라인 검증으로 대체 |
-| Stock         | Product | Int >= 0, decrease 시 부족 확인        | Product 생성/수정/재고차감 시 검증    | 유지                        |
-| Point         | point   | Long >= 0, 연산(plus/minus) 시 음수 방지 | UserPoint 충전/사용 시 검증       | 유지                        |
-| ~~Quantity~~  | order   | Int >= 1                          | OrderItem init 블록에서 인라인 검증 | 삭제됨 — init 블록 인라인 검증으로 대체 |
+| VO        | 타입                     | 소속 도메인  | 검증 규칙                             | 사용 시점                  |
+|-----------|------------------------|---------|-----------------------------------|------------------------|
+| BrandName | @JvmInline value class | Brand   | 빈 값 불가                            | Brand 생성/수정 시          |
+| Price     | @JvmInline value class | Product | BigDecimal >= 0                   | Product 생성/수정 시        |
+| Stock     | class (도메인 메서드)        | Product | Int >= 0, decrease 시 부족 확인        | Product 생성/수정/재고차감 시  |
+| Point     | class (도메인 메서드)        | Point   | Long >= 0, 연산(plus/minus) 시 음수 방지 | UserPoint 충전/사용 시      |
 
-> VO는 Entity 필드로 저장되지 않는다. Entity 필드는 기본 타입(String, BigDecimal, Int, Long)을 유지하되, 생성/변경 시점에 VO를 통해 검증한다.
+> **VO 도입 기준**: Domain Model이 순수 POJO이므로 `@Converter` 부담 없이 모든 도메인 값을 VO로 표현할 수 있다. 단일 값은 `@JvmInline value class`, 도메인 메서드가 있으면 일반 `class`로 선언한다. JPA Entity는 DB 컬럼 타입(String, BigDecimal 등)으로 저장하고, `toDomain()`에서 VO로 복원한다.
 >
 > **Point VO와 충전 금액의 검증 차이:** Point VO는 `>= 0`을 검증하지만, 포인트 충전 금액은 `>= 1`이어야 한다. Point VO만으로는 0원 충전이 통과하므로,
 > PointChargingService에서 충전 금액에 대한 별도 검증(`>= 1`)을 수행한다.
 
 > **DTO 변환 흐름:**
-> - **단일 Entity 반환** (Facade 없음): Domain Service → Entity 반환 → Controller에서 Dto 변환
+> - **단일 Domain Model 반환** (Facade 없음): Domain Service → Domain Model 반환 → Controller에서 Dto 변환
 > - **같은 BC 내 조합** (Facade 없음): CatalogService → `ProductDetail`(domain 데이터 클래스) 반환 → Controller에서 Dto 변환
 > - **다른 BC 간 조합** (Facade 경유): Facade → `List<Pair<Like, Product>>` 반환 → Controller에서 Dto 변환
 
@@ -673,14 +676,13 @@ classDiagram
     - **결정**: 단일 서비스 호출(1:1)인 경우 Controller가 Service를 직접 호출한다. 2개 이상의 서비스를 조율하는 경우에만 Facade를 사용한다.
     - **이유**: 1:1 pass-through Facade는 불필요한 레이어를 추가할 뿐이다. Facade는 도메인 간 흐름 제어가 실제로 필요한 경우에만 그 가치를 발휘한다.
 
-3. **Product 엔티티의 책임 범위 (Rich Domain Model)**
-    - **결정**: `stock`, `status`, `likeCount` 등 변경 성격이 다른 필드들을 `Product` 하나의 엔티티에 둔다.
-    - **이유 (Trade-off)**: 현재 단계에서는 엔티티 분리보다 복잡도가 더 크다. 추후 트래픽 증가 시 Stock 분리나 Redis 캐싱을 고려한다.
+3. **Product Domain Model의 책임 범위 (Rich Domain Model)**
+    - **결정**: `stock`, `status`, `likeCount` 등 변경 성격이 다른 필드들을 `Product` 하나의 Domain Model에 둔다.
+    - **이유 (Trade-off)**: 현재 단계에서는 Domain Model 분리보다 복잡도가 더 크다. 추후 트래픽 증가 시 Stock 분리나 Redis 캐싱을 고려한다.
 
-4. **VO (Value Object) 선별적 도입**
-    - **결정**: `Stock`, `Point` 등 연산이 필요한 값은 VO로, 단순 검증만 필요한 값(`BrandName`, `Price`, `Quantity`)은 `guard()`/`init` 블록에서
-      인라인 검증한다.
-    - **이유**: 검증 로직을 도메인 객체 내부에 캡슐화하되, 단순 범위 검증만 필요한 경우 별도 VO 클래스를 만들지 않아 복잡도를 줄인다.
+4. **VO (Value Object) 적극 도입**
+    - **결정**: Domain Model이 순수 POJO이므로 `@Converter` 부담 없이 모든 도메인 값을 VO로 표현한다. 단일 값(`BrandName`, `Price`)은 `@JvmInline value class`, 도메인 메서드가 있는 값(`Stock`, `Point`)은 일반 `class`로 선언한다.
+    - **이유**: JPA Entity와 분리된 Domain Model은 기술적 제약이 없으므로, 한 줄짜리 검증이라도 VO로 표현하여 타입 안전성을 확보한다. JPA Entity는 기본 타입으로 저장하고 `toDomain()`에서 VO로 복원한다.
 
 5. **주문 스냅샷 (Snapshot)**
     - **결정**: `OrderItem`은 Product를 참조하는 대신 `productName`, `productPrice` 값을 별도 컬럼으로 저장한다.

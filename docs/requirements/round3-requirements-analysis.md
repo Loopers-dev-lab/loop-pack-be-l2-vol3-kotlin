@@ -21,7 +21,7 @@ Round 2에서 설계한 기능 요구사항(Product, Brand, Like, Order)을 **DD
 | 상품 상세 조합          | ProductFacade.getProductDetail() | CatalogService (Domain Service) — Catalog 경계 내 단일 서비스로 통합                  |
 | 바운디드 컨텍스트         | Product, Brand 별도 도메인            | Catalog 컨텍스트로 통합 (Product + Brand)                                         |
 | 테스트 전략            | E2E 위주                           | 단위 테스트 중심 (Fake/Stub 기반 도메인 로직 검증)                                         |
-| VO 범위             | Stock, Price, BrandName          | Stock, Point 유지. Price, BrandName, Quantity는 guard()/init 인라인 검증으로 대체      |
+| VO 범위             | Stock, Price, BrandName          | Stock, Point 유지 + Price, BrandName 등 `@JvmInline value class`로 적극 활용       |
 | 주문 흐름             | 재고 차감만                           | 재고 차감 + 포인트 차감                                                             |
 
 ---
@@ -30,11 +30,11 @@ Round 2에서 설계한 기능 요구사항(Product, Brand, Like, Order)을 **DD
 
 ### DDD 관점에서의 핵심 문제
 
-| 관점   | 문제                                                                                               |
-|------|--------------------------------------------------------------------------------------------------|
-| 설계   | 비즈니스 로직이 Service에 집중되면 도메인 객체가 빈혈 모델(Anemic Model)이 된다. Entity와 VO가 자신의 규칙을 스스로 검증하고 행위를 수행해야 한다 |
-| 아키텍처 | Application Layer가 비대해지면 도메인 로직의 재사용이 어려워진다. Domain Service를 도입하여 도메인 간 협력 로직을 분리해야 한다           |
-| 테스트  | 외부 의존성(DB, Redis)과 결합된 구조에서는 단위 테스트가 불가능하다. DIP를 통해 Repository를 인터페이스로 분리하고 Fake/Stub으로 대체해야 한다  |
+| 관점   | 문제                                                                                                     |
+|------|--------------------------------------------------------------------------------------------------------|
+| 설계   | 비즈니스 로직이 Service에 집중되면 도메인 객체가 빈혈 모델(Anemic Model)이 된다. Domain Model과 VO가 자신의 규칙을 스스로 검증하고 행위를 수행해야 한다 |
+| 아키텍처 | Application Layer가 비대해지면 도메인 로직의 재사용이 어려워진다. Domain Service를 도입하여 도메인 간 협력 로직을 분리해야 한다                 |
+| 테스트  | 외부 의존성(DB, Redis)과 결합된 구조에서는 단위 테스트가 불가능하다. DIP를 통해 Repository를 인터페이스로 분리하고 Fake/Stub으로 대체해야 한다        |
 
 ### 포인트 시스템 도입 배경
 
@@ -52,7 +52,7 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 
 | 한글         | 영문                   | 정의                                                                             |
 |------------|----------------------|--------------------------------------------------------------------------------|
-| 유저 포인트     | UserPoint            | 사용자의 포인트 잔액을 관리하는 엔티티. User와 1:1 관계                                            |
+| 유저 포인트     | UserPoint            | 사용자의 포인트 잔액을 관리하는 Domain Model. User와 1:1 관계                                   |
 | 포인트        | Point                | 포인트 금액을 나타내는 Value Object. 0 이상이어야 하며, 연산 시 음수 방지를 보장                          |
 | 포인트 내역     | PointHistory         | 포인트 충전/차감 이력. 충전(CHARGE)과 사용(USE) 유형을 가진다                                      |
 | 포인트 충전 서비스 | PointChargingService | 포인트 충전을 처리하는 Domain Service. 잔액 변경 + 내역 생성을 조율                                 |
@@ -68,21 +68,21 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 
 ### 3.1 UserPoint (유저 포인트)
 
-사용자의 포인트 잔액을 별도 엔티티로 관리한다. User 엔티티에 balance 필드를 추가하지 않는다.
+사용자의 포인트 잔액을 별도 Domain Model로 관리한다. User에 balance 필드를 추가하지 않는다.
 
 **분리 이유:**
 
-- User 엔티티의 책임 과다 방지 (인증 + 프로필 + 잔액이 한 엔티티에 몰리면 변경 이유가 너무 많음)
+- User의 책임 과다 방지 (인증 + 프로필 + 잔액이 하나의 Domain Model에 몰리면 변경 이유가 너무 많음)
 - 포인트 관련 로직(충전, 차감, 이력)을 독립적으로 발전시킬 수 있음
 - 추후 포인트와 결제가 별도 바운디드 컨텍스트로 분리될 가능성
 
-**엔티티 구조:**
+**Domain Model 구조:**
 
 | 필드        | 타입   | 설명                                 |
 |-----------|------|------------------------------------|
 | id        | Long | PK                                 |
 | refUserId | Long | User 참조 (1:1, 논리FK)                |
-| balance   | Long | 현재 포인트 잔액 (guard()에서 Point VO로 검증) |
+| balance   | Long | 현재 포인트 잔액 (init 블록에서 Point VO로 검증) |
 
 **행위:**
 
@@ -98,7 +98,7 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 
 포인트 변동 이력을 기록한다. 감사(Audit) 목적과 향후 포인트 사용 내역 조회에 활용한다.
 
-**엔티티 구조:**
+**Domain Model 구조:**
 
 | 필드             | 타입               | 설명                              |
 |----------------|------------------|---------------------------------|
@@ -210,8 +210,8 @@ Round 2의 주문 흐름에 포인트 차감이 추가된다.
 ```
 interfaces/api/     → Controller, ApiSpec, Dto
 application/        → Facade (여러 Domain Service를 조합하는 유스케이스 오케스트레이션)
-domain/             → Entity, VO, Domain Service(@Component), Repository(인터페이스)
-infrastructure/     → RepositoryImpl, JpaRepository
+domain/             → Domain Model(순수 POJO), VO, Domain Service(@Component), Repository(인터페이스)
+infrastructure/     → XxxEntity(JPA), XxxRepositoryImpl(internal JpaRepository 포함)
 ```
 
 **의존 방향:** `Application → Domain ← Infrastructure`
@@ -292,7 +292,8 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 |-------|-------------------|----------------------------|
 | Stock | Catalog (Product) | Int >= 0, decrease 시 부족 확인 |
 
-> BrandName, Price VO는 삭제됨 -- 각각 `Brand.guard()`, `Product.guard()`에서 인라인 검증으로 대체.
+> BrandName, Price VO는 `@JvmInline value class`로 부활 -- Domain Model이 순수 POJO이므로 `@Converter` 부담 없이 모든 도메인 값을 VO로 표현할 수
+> 있다.
 
 ### 신규 추가
 
@@ -300,10 +301,10 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 |-------|-------------------|-----------|--------------------------------------|
 | Point | point (UserPoint) | Long >= 0 | plus, minus, isGreaterThanOrEqual 연산 |
 
-> Quantity VO는 삭제됨 -- `OrderItem.init` 블록에서 `quantity >= 1` 직접 검증으로 대체.
+> Quantity VO는 도입하지 않음 -- `OrderItem.init` 블록에서 `quantity >= 1` 직접 검증으로 충분.
 
-> VO는 Entity 필드로 직접 저장되지 않는다. Entity 필드는 기본 타입을 유지하되, 생성/변경 시점에 VO를 통해 검증한다.
-> (기존 프로젝트 패턴 유지)
+> Domain Model은 순수 POJO이므로 VO를 필드 타입으로 직접 사용할 수 있다. JPA Entity는 DB 컬럼 타입(String, BigDecimal 등)으로 저장하고, `toDomain()`에서
+> VO로 복원한다.
 
 ---
 
@@ -356,11 +357,11 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 **예외 흐름:**
 
-| 조건          | 응답  | 설명        |
-|-------------|-----|-----------|
-| 존재하지 않는 엔티티 | 404 | NOT_FOUND |
+| 조건         | 응답  | 설명        |
+|------------|-----|-----------|
+| 존재하지 않는 대상 | 404 | NOT_FOUND |
 
-**멱등성:** 이미 활성(미삭제) 상태인 엔티티를 복구해도 200 OK를 반환한다.
+**멱등성:** 이미 활성(미삭제) 상태인 대상을 복구해도 200 OK를 반환한다.
 
 ### 7.4 인증 경로 추가
 
@@ -378,11 +379,11 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 **테스트 대상:**
 
-| 대상                                   | 검증 내용                    | 테스트 방식             |
-|--------------------------------------|--------------------------|--------------------|
-| Entity (Product, Order, UserPoint 등) | 비즈니스 메서드, init 검증, 상태 전이 | 순수 단위 테스트 (의존성 없음) |
-| VO (Point, Stock 등)                  | 자가 검증, 연산 규칙             | 순수 단위 테스트          |
-| Domain Service                       | 비즈니스 로직, 도메인 객체 간 협력     | Fake Repository 주입 |
+| 대상                                         | 검증 내용                    | 테스트 방식             |
+|--------------------------------------------|--------------------------|--------------------|
+| Domain Model (Product, Order, UserPoint 등) | 비즈니스 메서드, init 검증, 상태 전이 | 순수 단위 테스트 (의존성 없음) |
+| VO (Point, Stock 등)                        | 자가 검증, 연산 규칙             | 순수 단위 테스트          |
+| Domain Service                             | 비즈니스 로직, 도메인 객체 간 협력     | Fake Repository 주입 |
 
 **Fake/Stub 전략:**
 
@@ -433,10 +434,10 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 ### UserPoint를 User와 분리하는 이유
 
-- **결정**: User 엔티티에 balance 필드를 추가하지 않고, UserPoint 별도 엔티티로 관리한다
+- **결정**: User에 balance 필드를 추가하지 않고, UserPoint 별도 Domain Model로 관리한다
 - **근거**: User는 인증/프로필 책임, UserPoint는 잔액 관리 책임. SRP(단일 책임 원칙) 준수. 추후 포인트를 별도 바운디드 컨텍스트로 분리할 때 유리하다
 
-### PointHistory를 별도 엔티티로 관리하는 이유
+### PointHistory를 별도 Domain Model로 관리하는 이유
 
 - **결정**: 포인트 변동마다 PointHistory 레코드를 생성한다
 - **근거**: 충전/사용 이력을 추적할 수 있어야 한다. UserPoint.balance만으로는 "언제, 왜, 얼마나" 변동했는지 알 수 없다. 감사(Audit) 목적으로도 필수
@@ -498,7 +499,7 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 ### Point 도메인 (신규)
 
-- [ ] UserPoint 엔티티가 User와 분리되어 별도 관리된다
+- [ ] UserPoint Domain Model이 User와 분리되어 별도 관리된다
 - [ ] 포인트 충전 시 잔액 변경 + 내역 생성이 함께 처리된다
 - [ ] 포인트 사용 시 잔액 부족 예외가 도메인 레벨에서 처리된다
 - [ ] 단위 테스트에서 충전/사용/부족 흐름을 검증했다
@@ -529,7 +530,7 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 - [ ] 전체 프로젝트의 구성은 Application → Domain ← Infrastructure 아키텍처를 기반으로 구성되었다
 - [ ] Application Layer는 도메인 객체를 조합해 흐름을 orchestration 했다
-- [ ] 핵심 비즈니스 로직은 Entity, VO, Domain Service에 위치한다
+- [ ] 핵심 비즈니스 로직은 Domain Model, VO, Domain Service에 위치한다
 - [ ] Repository Interface는 Domain Layer에 정의되고, 구현체는 Infra에 위치한다
 - [ ] 패키지는 계층 + 도메인 기준으로 구성되었다
 - [ ] 테스트는 외부 의존성을 분리하고, Fake/Stub 등을 사용해 단위 테스트가 가능하게 구성되었다
@@ -538,17 +539,17 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 ## 11. 어드민/대고객 권한 경계 (추가 정의)
 
-코드 리뷰에서 권한 경계 미정의로 인한 버그가 발견되어, 각 엔티티의 상태별 접근 권한을 명시한다.
+코드 리뷰에서 권한 경계 미정의로 인한 버그가 발견되어, 각 도메인 객체의 상태별 접근 권한을 명시한다.
 
 ### 11.1 원칙
 
-- 대고객 API: 활성(정상) 엔티티만 접근 가능. 삭제/HIDDEN 엔티티는 404 반환
-- 어드민 API: 모든 상태의 엔티티에 접근 가능. 조회/수정/복구 모두 허용
+- 대고객 API: 활성(정상) 데이터만 접근 가능. 삭제/HIDDEN 대상은 404 반환
+- 어드민 API: 모든 상태의 데이터에 접근 가능. 조회/수정/복구 모두 허용
 - 타인 리소스 접근: 404 반환 (리소스 존재 여부를 노출하지 않음)
 
 ### 11.2 Soft Delete 정책
 
-- soft delete된 엔티티는 어드민이 복구할 수 있다
+- soft delete된 대상은 어드민이 복구할 수 있다
 - 복구 API: `POST /api-admin/v1/{entity}/{id}/restore`
 - 브랜드 삭제 시 소속 상품은 cascade soft delete되지만, 복구는 개별 수행
 - soft delete 목적: 감사 로그, 참조 무결성 보호, 어드민 복구

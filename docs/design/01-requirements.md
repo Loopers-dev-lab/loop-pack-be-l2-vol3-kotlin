@@ -69,7 +69,7 @@
 | 수량       | quantity        | 주문 항목의 수량. OrderItem.init 블록에서 직접 검증 (quantity >= 1).                                       |
 | 카탈로그     | Catalog         | Product와 Brand를 포함하는 바운디드 컨텍스트. 상품 탐색에 필요한 정보를 하나의 경계로 관리한다.                                |
 | 카탈로그 서비스 | CatalogService  | Catalog 바운디드 컨텍스트의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합, 재고 관리 등을 담당한다.                 |
-| 도메인 서비스  | Domain Service  | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Entity가 수행하기 어려운 로직을 담당한다.           |
+| 도메인 서비스  | Domain Service  | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Domain Model이 수행하기 어려운 로직을 담당한다.           |
 | 어드민      | Admin           | 브랜드/상품/주문을 관리하는 내부 운영자. LDAP 헤더로 식별한다.                                                      |
 | 복구       | Restore         | soft delete된 Domain Model을 다시 활성 상태로 되돌리는 어드민 작업. deletedAt을 null로 설정하며, 이미 활성인 Domain Model에 대해서는 멱등하게 동작한다. |
 
@@ -90,9 +90,9 @@
 
 ## 3-1. 어드민/대고객 권한 경계
 
-각 엔티티의 상태별로 대고객과 어드민이 수행 가능한 작업을 정의한다.
+각 Domain Model의 상태별로 대고객과 어드민이 수행 가능한 작업을 정의한다.
 
-| 엔티티     | 상태       | 대고객 조회 | 어드민 조회 | 어드민 수정 | 어드민 복구 |
+| Domain Model | 상태       | 대고객 조회 | 어드민 조회 | 어드민 수정 | 어드민 복구 |
 |---------|----------|--------|--------|--------|--------|
 | Brand   | 정상       | O      | O      | O      | -      |
 | Brand   | 삭제       | X      | O      | O      | O      |
@@ -103,7 +103,7 @@
 
 **원칙**: 대고객용 조회 메서드(`getActive*`)는 어드민 CUD 경로에서 재사용하지 않는다.
 
-- 대고객 조회: 활성 엔티티만 반환 (삭제/HIDDEN 필터링)
+- 대고객 조회: 활성 Domain Model만 반환 (삭제/HIDDEN 필터링)
 - 어드민 조회: 모든 상태 반환
 - 어드민 CUD: 작업 목적에 맞는 조회 메서드 사용 (`getBrand`, `getProduct` 등)
 
@@ -373,7 +373,7 @@ stateDiagram-v2
 
 ### 5.4 좋아요 규칙
 
-- 공통 엔티티(감사 필드 포함)를 상속하지 않는다 (id, userId, productId만 보유)
+- 공통 Base 클래스(감사 필드 포함)를 상속하지 않는다 (id, userId, productId만 보유)
 - 취소 시 하드 딜리트(물리 삭제)로 관리한다 (soft delete 미적용)
 - 사용자-상품 쌍은 유일하다 (unique constraint: userId + productId)
 - 등록/취소 모두 멱등하게 동작한다
@@ -410,6 +410,10 @@ stateDiagram-v2
 
 ### 5.6 주문 규칙
 
+- Aggregate 영속성 저장 순서: JPA 연관관계를 사용하지 않으므로, Order.create() 시점에는 OrderItem이 refOrderId를 가질 수 없다. 따라서 OrderService에서 영속화할 때 아래 순서를 반드시 따른다. 
+  1. orderRepository.save(order) 실행 → DB에서 채번된 ID를 가진 savedOrder 반환 
+  2. savedOrder.items를 순회하며 savedOrder.id를 refOrderId로 세팅 (copy 사용)
+  3. orderItemRepository.saveAll(...) 실행
 - 주문은 최소 1개 이상의 주문 항목(OrderItem)을 가져야 한다
 - 주문 항목의 수량(quantity)은 1 이상이어야 한다
 - 주문 항목의 상품은 고유해야 한다 (같은 productId 중복 불가)
@@ -444,7 +448,7 @@ stateDiagram-v2
 
 - **기본 정책:** 모든 데이터(User, Brand, Product, Order)는 물리적으로 삭제하지 않고 `deletedAt` 타임스탬프를 찍는 Soft Delete 방식을 따른다.
 - **예외:** Like(좋아요)는 이력이 불필요하므로 취소 시 물리 삭제(Hard Delete)한다. PointHistory는 불변 이력 데이터이므로 soft delete를 적용하지 않는다.
-- **복구 정책:** 어드민은 soft delete된 Brand와 Product를 복구할 수 있다. 복구는 `deletedAt = null`로 설정하며, 이미 활성 상태인 엔티티에 대해서는 멱등하게 동작한다 (
+- **복구 정책:** 어드민은 soft delete된 Brand와 Product를 복구할 수 있다. 복구는 `deletedAt = null`로 설정하며, 이미 활성 상태인 Domain Model에 대해서는 멱등하게 동작한다 (
   200 OK, 변경 없음). 브랜드 복구 시 소속 상품은 연쇄 복구되지 않으며, 상품은 개별적으로 복구해야 한다.
 - **조회 정책:**
     - 대고객 API: `deletedAt IS NULL`인 데이터만 조회한다.
@@ -580,23 +584,23 @@ stateDiagram-v2
 
 - **User 도메인**: 회원가입, 내 정보 조회, 비밀번호 변경
 - **AuthInterceptor**: `X-Loopers-LoginId/LoginPw` 헤더 기반 식별
-- **BaseEntity**: id, createdAt, updatedAt, deletedAt 자동관리, soft delete(delete()/restore())
+- **BaseJpaEntity(Persistence Model)**: id, createdAt, updatedAt, deletedAt 자동관리, soft delete 지원
 - **에러 처리**: CoreException, ErrorType(BAD_REQUEST/NOT_FOUND/UNAUTHORIZED/CONFLICT/INTERNAL_ERROR)
 - **API 응답**: ApiResponse 래퍼, ApiControllerAdvice 전역 예외 처리
-- **Value Object 패턴**: 생성 시점에 VO로 검증, 엔티티 필드는 기본 타입으로 유지
+- **Value Object 패턴**: Domain Model이 순수 POJO이므로 모든 도메인 값을 VO로 표현 가능. 단일 값은 @JvmInline value class, 도메인 메서드가 있으면 일반 class로 선언
 
 ### 2주차 신규 구현
 
-- **Brand 도메인**: 엔티티, 서비스, CRUD API (고객 + 어드민)
-- **Product 도메인**: 엔티티 (stock VO, status enum, likeCount), 서비스, CRUD API (고객 + 어드민)
-- **Like 도메인**: 엔티티 (userId + productId unique), 서비스, 등록/취소/목록 API
-- **Order 도메인**: 엔티티 (Order + OrderItem with snapshot), 서비스, 주문 생성/조회 API
+- **Brand 도메인**: Domain Model, 서비스, CRUD API (고객 + 어드민)
+- **Product 도메인**: Domain Model (Stock VO, ProductStatus enum, likeCount), 서비스, CRUD API (고객 + 어드민)
+- **Like 도메인**: Domain Model (userId + productId unique), 서비스, 등록/취소/목록 API
+- **Order 도메인**: Domain Model (Order + OrderItem with snapshot), 서비스, 주문 생성/조회 API
 - **AdminInterceptor**: `X-Loopers-Ldap` 헤더 기반 어드민 식별 (신규)
 - **인증 경로 확장**: 좋아요, 주문 경로에 AuthInterceptor 추가
 
 ### 3주차 신규/변경
 
-- **Point 도메인**: UserPoint 엔티티 (잔액 관리, User와 1:1), PointHistory 엔티티 (충전/사용 이력), Point VO
+- **Point 도메인**: UserPoint Domain Model (잔액 관리, User와 1:1), PointHistory Domain Model (충전/사용 이력), Point VO
 - **Catalog 바운디드 컨텍스트**: Product + Brand를 하나의 도메인 경계로 통합. ProductFacade, BrandFacade 제거
 - **CatalogService**: Catalog 경계의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합 (Product + Brand + likeCount), 재고 관리 등을 담당
 - **PointChargingService**: 포인트 충전 Domain Service (잔액 변경 + 내역 생성 조율)
@@ -724,10 +728,10 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 
 ### UserPoint를 User와 분리하는 이유
 
-- **결정**: User 엔티티에 balance 필드를 추가하지 않고, UserPoint 별도 엔티티로 관리한다
+- **결정**: User에 balance 필드를 추가하지 않고, UserPoint 별도 Domain Model로 관리한다
 - **근거**: User는 인증/프로필 책임, UserPoint는 잔액 관리 책임. SRP(단일 책임 원칙) 준수. 추후 포인트를 별도 바운디드 컨텍스트로 분리할 때 유리하다
 
-### PointHistory를 별도 엔티티로 관리하는 이유
+### PointHistory를 별도 Domain Model로 관리하는 이유
 
 - **결정**: 포인트 변동마다 PointHistory 레코드를 생성한다
 - **근거**: 충전/사용 이력을 추적할 수 있어야 한다. UserPoint.balance만으로는 "언제, 왜, 얼마나" 변동했는지 알 수 없다. 감사(Audit) 목적으로도 필수

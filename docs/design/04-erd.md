@@ -1,6 +1,6 @@
 # ERD (Entity-Relationship Diagram)
 
-영속성 구조를 정의한다. 도메인 엔티티와 VO가 실제 데이터베이스 스키마로 매핑되는 전략과 인덱스 계획을 포함한다.
+영속성 구조를 정의한다. JPA Entity(Persistence Model) 기준의 물리 스키마와 인덱스 전략을 기술한다. Domain Model과 JPA Entity는 완전 분리되어 있으며, 이 문서의 스키마는 `infrastructure/` 레이어의 XxxEntity 클래스에 대응한다.
 
 ---
 
@@ -119,11 +119,11 @@ erDiagram
 | 테이블          | 컬럼           | 타입            | 제약조건         | 설명                                         |
 |--------------|--------------|---------------|--------------|--------------------------------------------|
 | **brands**   | id           | BIGINT        | PK, Auto Inc |                                            |
-|              | name         | VARCHAR(255)  | NOT NULL     | 브랜드명 (빈 값 불가, guard()에서 검증)                |
+|              | name         | VARCHAR(255)  | NOT NULL     | 브랜드명 (빈 값 불가, BrandName VO에서 검증)                |
 | **products** | id           | BIGINT        | PK, Auto Inc |                                            |
 |              | ref_brand_id | BIGINT        | NOT NULL     | [논리FK] Brand 참조                            |
 |              | name         | VARCHAR(255)  | NOT NULL     | 상품명                                        |
-|              | price        | DECIMAL(19,2) | NOT NULL     | 상품 가격 (>= 0, guard()에서 검증)                 |
+|              | price        | DECIMAL(19,2) | NOT NULL     | 상품 가격 (>= 0, Price VO에서 검증)                 |
 |              | stock        | INT           | NOT NULL     | 재고 수량 (VO: Stock >= 0)                     |
 |              | status       | VARCHAR(20)   | NOT NULL     | 상품 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
 |              | like_count   | INT           | NOT NULL     | [반정규화] 좋아요 수 캐싱                            |
