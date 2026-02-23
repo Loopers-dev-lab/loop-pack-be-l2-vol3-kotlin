@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.ChangePasswordCommand
-import com.loopers.application.user.SignUpCommand
 import com.loopers.application.user.UserInfo
+import com.loopers.domain.user.ChangePasswordCommand
+import com.loopers.domain.user.SignUpCommand
 import java.time.LocalDate
 
 class UserV1Dto {

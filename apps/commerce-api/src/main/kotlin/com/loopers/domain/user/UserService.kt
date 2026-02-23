@@ -1,7 +1,5 @@
 package com.loopers.domain.user
 
-import com.loopers.application.user.ChangePasswordCommand
-import com.loopers.application.user.SignUpCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.security.crypto.password.PasswordEncoder

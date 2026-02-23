@@ -1,5 +1,7 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.ChangePasswordCommand
+import com.loopers.domain.user.SignUpCommand
 import com.loopers.domain.user.UserService
 import org.springframework.stereotype.Component
 
