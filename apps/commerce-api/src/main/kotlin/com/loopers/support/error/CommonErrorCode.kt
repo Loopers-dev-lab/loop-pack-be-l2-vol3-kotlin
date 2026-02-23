@@ -13,4 +13,5 @@ enum class CommonErrorCode(
     MISSING_REQUIRED_VALUE(HttpStatus.BAD_REQUEST, "COMMON_004", "필수값이 누락되었습니다."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMON_005", "요청한 정보를 찾을 수 없습니다."),
     RESOURCE_ALREADY_EXISTS(HttpStatus.CONFLICT, "COMMON_006", "이미 존재하는 데이터입니다."),
+    ADMIN_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "COMMON_007", "어드민 인증에 실패했습니다."),
 }
