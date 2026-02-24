@@ -131,6 +131,54 @@ class ProductTest {
         )
     }
 
+    @DisplayName("재고를 차감할 때,")
+    @Nested
+    inner class DeductStock {
+
+        @DisplayName("차감 수량만큼 재고가 감소한다.")
+        @Test
+        fun deductsStockByGivenQuantity() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            product.deductStock(10)
+
+            // assert
+            assertThat(product.stockQuantity).isEqualTo(90)
+        }
+
+        @DisplayName("재고가 부족하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenInsufficientStock() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                product.deductStock(101)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("차감 수량이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenQuantityIsZeroOrNegative() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                product.deductStock(0)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
     @DisplayName("좋아요 수를 증가시킬 때,")
     @Nested
     inner class IncreaseLikeCount {
