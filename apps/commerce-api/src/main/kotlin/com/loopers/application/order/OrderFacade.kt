@@ -54,7 +54,8 @@ class OrderFacade(
         val productMap = products.associateBy { it.id }
 
         val brandIds = products.map { it.brandId }.distinct()
-        val brandMap = brandIds.associateWith { brandService.getBrand(it) }
+        val brands = brandService.getBrandsByIds(brandIds)
+        val brandMap = brands.associateBy { it.id }
 
         for (item in items) {
             productService.deductStock(productMap.getValue(item.productId), item.quantity)
