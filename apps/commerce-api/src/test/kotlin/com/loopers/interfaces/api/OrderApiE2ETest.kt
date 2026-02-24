@@ -549,4 +549,163 @@ class OrderApiE2ETest @Autowired constructor(
             )
         }
     }
+
+    @DisplayName("GET /api/v1/orders/{orderId}")
+    @Nested
+    inner class GetOrderDetailApi {
+
+        private fun getOrderDetail(
+            orderId: Long,
+            headers: HttpHeaders = authHeaders(),
+        ) = testRestTemplate.exchange(
+            "$ORDER_ENDPOINT/$orderId",
+            HttpMethod.GET,
+            HttpEntity<Void>(headers),
+            ORDER_RESPONSE_TYPE,
+        )
+
+        private fun placeOrderAndGetId(
+            request: PlaceOrderRequest,
+            headers: HttpHeaders = authHeaders(),
+        ): Long {
+            placeOrder(request, headers)
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt, headers)
+            val order = ordersResponse.body?.data?.first() as Map<*, *>
+            return (order["orderId"] as Number).toLong()
+        }
+
+        @DisplayName("주문 상세 조회 시, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenGetOrderDetail() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val orderId = placeOrderAndGetId(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 2))))
+
+            // act
+            val response = getOrderDetail(orderId)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("응답 데이터에 주문 정보와 주문 항목이 포함된다.")
+        @Test
+        fun returnsCorrectOrderDetailData() {
+            // arrange
+            signUp()
+            val brand = createBrand()
+            val product = createProduct(name = "에어맥스", price = 159000, brand = brand)
+            val orderId = placeOrderAndGetId(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 2))))
+
+            // act
+            val response = getOrderDetail(orderId)
+
+            // assert
+            val data = response.body?.data as Map<*, *>
+            assertAll(
+                { assertThat(data["orderId"]).isNotNull() },
+                { assertThat((data["totalAmount"] as Number).toLong()).isEqualTo(318000L) },
+                { assertThat(data["status"]).isEqualTo("ORDERED") },
+                { assertThat(data["orderedAt"]).isNotNull() },
+                { assertThat(data["items"]).isNotNull() },
+            )
+            val items = data["items"] as List<*>
+            assertThat(items).hasSize(1)
+            val item = items[0] as Map<*, *>
+            assertAll(
+                { assertThat((item["productId"] as Number).toLong()).isEqualTo(product.id) },
+                { assertThat((item["quantity"] as Number).toInt()).isEqualTo(2) },
+                { assertThat(item["productName"]).isEqualTo("에어맥스") },
+                { assertThat((item["productPrice"] as Number).toLong()).isEqualTo(159000L) },
+                { assertThat(item["brandName"]).isEqualTo("나이키") },
+            )
+        }
+
+        @DisplayName("여러 상품을 주문한 경우, 모든 주문 항목이 포함된다.")
+        @Test
+        fun returnsAllOrderItems_whenMultipleProducts() {
+            // arrange
+            signUp()
+            val brand = createBrand()
+            val product1 = createProduct(name = "에어맥스", price = 159000, brand = brand)
+            val product2 = createProduct(name = "에어포스", price = 139000, brand = brand)
+            val orderId = placeOrderAndGetId(
+                PlaceOrderRequest(
+                    items = listOf(
+                        OrderItemRequest(productId = product1.id, quantity = 2),
+                        OrderItemRequest(productId = product2.id, quantity = 3),
+                    ),
+                ),
+            )
+
+            // act
+            val response = getOrderDetail(orderId)
+
+            // assert
+            val data = response.body?.data as Map<*, *>
+            // 159000 * 2 + 139000 * 3 = 318000 + 417000 = 735000
+            assertThat((data["totalAmount"] as Number).toLong()).isEqualTo(735000L)
+            val items = data["items"] as List<*>
+            assertThat(items).hasSize(2)
+        }
+
+        @DisplayName("존재하지 않는 주문이면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFound_whenOrderDoesNotExist() {
+            // arrange
+            signUp()
+
+            // act
+            val response = getOrderDetail(999999L)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("타 유저의 주문이면, 403 FORBIDDEN을 반환한다.")
+        @Test
+        fun returnsForbidden_whenOtherUsersOrder() {
+            // arrange
+            signUp(loginId = "user1", name = "유저1", email = "user1@example.com")
+            signUp(loginId = "user2", name = "유저2", email = "user2@example.com")
+            val product = createProduct()
+            val orderId = placeOrderAndGetId(
+                PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 1))),
+                headers = authHeaders(loginId = "user1"),
+            )
+
+            // act - user2가 user1의 주문을 조회
+            val response = getOrderDetail(orderId, authHeaders(loginId = "user2"))
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("인증 헤더가 없으면, 401 Unauthorized를 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenNotAuthenticated() {
+            // arrange
+            val unauthHeaders = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+            }
+
+            // act
+            val response = getOrderDetail(1L, unauthHeaders)
+
+            // assert
+            assertThat(response.statusCode.value()).isEqualTo(401)
+        }
+    }
 }

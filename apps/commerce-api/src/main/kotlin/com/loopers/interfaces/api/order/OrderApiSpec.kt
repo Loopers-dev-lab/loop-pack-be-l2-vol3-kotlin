@@ -20,4 +20,10 @@ interface OrderApiSpec {
         description = "기간별 주문 목록을 조회합니다.",
     )
     fun getOrders(user: User, startAt: LocalDateTime, endAt: LocalDateTime): ApiResponse<List<OrderDto.GetOrdersResponse>>
+
+    @Operation(
+        summary = "주문 상세 조회",
+        description = "주문 ID로 주문 상세 정보를 조회합니다.",
+    )
+    fun getOrder(user: User, orderId: Long): ApiResponse<OrderDto.GetOrderResponse>
 }

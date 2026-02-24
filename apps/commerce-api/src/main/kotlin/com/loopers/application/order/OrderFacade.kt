@@ -18,6 +18,16 @@ class OrderFacade(
 ) {
 
     @Transactional(readOnly = true)
+    fun getOrder(userId: Long, orderId: Long): OrderDetailInfo {
+        val order = orderService.getOrder(orderId)
+        if (order.userId != userId) {
+            throw CoreException(ErrorType.FORBIDDEN, "다른 사용자의 주문을 조회할 수 없습니다.")
+        }
+        val items = orderService.getOrderItems(orderId)
+        return OrderDetailInfo.from(order, items)
+    }
+
+    @Transactional(readOnly = true)
     fun getOrders(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<OrderInfo> {
         if (startAt.isAfter(endAt)) {
             throw CoreException(ErrorType.BAD_REQUEST, "시작일이 종료일보다 클 수 없습니다.")

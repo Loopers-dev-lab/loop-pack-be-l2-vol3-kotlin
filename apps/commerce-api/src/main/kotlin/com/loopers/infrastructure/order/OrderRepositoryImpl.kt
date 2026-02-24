@@ -15,6 +15,10 @@ class OrderRepositoryImpl(
         return orderJpaRepository.save(order)
     }
 
+    override fun findById(orderId: Long): Order? {
+        return orderJpaRepository.findById(orderId).orElse(null)
+    }
+
     override fun findByUserIdAndCreatedAtBetween(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<Order> {
         val zoneId = ZoneId.systemDefault()
         return orderJpaRepository.findByUserIdAndCreatedAtBetween(
