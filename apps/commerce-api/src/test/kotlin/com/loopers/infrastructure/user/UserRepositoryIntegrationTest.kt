@@ -3,6 +3,8 @@ package com.loopers.infrastructure.user
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDate
@@ -87,6 +90,26 @@ constructor(
 
             // assert
             assertThat(exists).isFalse()
+        }
+    }
+
+    @Nested
+    @DisplayName("중복 loginId 저장 시 예외 변환")
+    inner class SaveDuplicateLoginId {
+        @Test
+        @DisplayName("동일 loginId로 저장하면 CoreException(USER_DUPLICATE_LOGIN_ID)을 던진다")
+        fun save_duplicateLoginId_throwsCoreException() {
+            // arrange
+            val user = createUser()
+            userRepository.save(user)
+
+            val duplicateUser = createUser(email = "other@example.com")
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                userRepository.save(duplicateUser)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.USER_DUPLICATE_LOGIN_ID)
         }
     }
 
