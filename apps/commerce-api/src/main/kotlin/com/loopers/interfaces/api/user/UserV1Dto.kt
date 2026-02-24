@@ -35,6 +35,9 @@ class UserV1Dto {
                 birthDate = birthDate,
                 email = email,
             )
+
+        override fun toString(): String =
+            "SignUpRequest(loginId=$loginId, password=[PROTECTED], name=$name, birthDate=$birthDate, email=$email)"
     }
 
     data class SignUpResponse(
@@ -60,6 +63,9 @@ class UserV1Dto {
                 currentPassword = currentPassword,
                 newPassword = newPassword,
             )
+
+        override fun toString(): String =
+            "ChangePasswordRequest(currentPassword=[PROTECTED], newPassword=[PROTECTED])"
     }
 
     data class ChangePasswordResponse(

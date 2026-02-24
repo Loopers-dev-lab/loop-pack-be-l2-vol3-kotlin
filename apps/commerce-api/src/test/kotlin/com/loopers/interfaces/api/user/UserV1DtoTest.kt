@@ -180,6 +180,36 @@ class UserV1DtoTest {
     }
 
     @Nested
+    @DisplayName("SignUpRequest toString에 비밀번호가 포함되지 않는다")
+    inner class SignUpRequestToString {
+        @Test
+        @DisplayName("toString 호출 시 password가 [PROTECTED]로 마스킹된다")
+        fun toString_passwordMasked() {
+            val request = createRequest(password = "Password1!")
+            val result = request.toString()
+            assertThat(result).doesNotContain("Password1!")
+            assertThat(result).contains("[PROTECTED]")
+        }
+    }
+
+    @Nested
+    @DisplayName("ChangePasswordRequest toString에 비밀번호가 포함되지 않는다")
+    inner class ChangePasswordRequestToString {
+        @Test
+        @DisplayName("toString 호출 시 currentPassword, newPassword가 [PROTECTED]로 마스킹된다")
+        fun toString_passwordsMasked() {
+            val request = UserV1Dto.ChangePasswordRequest(
+                currentPassword = "OldPassword1!",
+                newPassword = "NewPassword1!",
+            )
+            val result = request.toString()
+            assertThat(result).doesNotContain("OldPassword1!")
+            assertThat(result).doesNotContain("NewPassword1!")
+            assertThat(result).contains("[PROTECTED]")
+        }
+    }
+
+    @Nested
     @DisplayName("email 검증")
     inner class EmailValidation {
         @Test

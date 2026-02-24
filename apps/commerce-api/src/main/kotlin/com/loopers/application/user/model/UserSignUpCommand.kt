@@ -8,4 +8,7 @@ data class UserSignUpCommand(
     val name: String,
     val birthDate: LocalDate,
     val email: String,
-)
+) {
+    override fun toString(): String =
+        "UserSignUpCommand(loginId=$loginId, password=[PROTECTED], name=$name, birthDate=$birthDate, email=$email)"
+}
