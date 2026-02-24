@@ -33,4 +33,9 @@ class ProductService(
     fun getProductsByIds(ids: List<Long>): List<Product> {
         return productRepository.findAllByIds(ids)
     }
+
+    fun deductStock(product: Product, quantity: Int) {
+        product.deductStock(quantity)
+        productRepository.save(product)
+    }
 }

@@ -72,4 +72,14 @@ class Product(
             this.likes -= 1
         }
     }
+
+    fun deductStock(quantity: Int) {
+        if (quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "차감 수량은 0보다 커야 합니다.")
+        }
+        if (this.stockQuantity < quantity) {
+            throw CoreException(ErrorType.BAD_REQUEST, "상품 '${this.name}'의 재고가 부족합니다.")
+        }
+        this.stockQuantity -= quantity
+    }
 }
