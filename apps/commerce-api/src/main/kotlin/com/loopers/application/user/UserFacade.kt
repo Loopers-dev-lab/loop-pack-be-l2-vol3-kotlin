@@ -11,9 +11,9 @@ class UserFacade(
     private val userService: UserService,
 ) {
     @Transactional
-    fun signUp(command: UserSignUpCommand): UserInfo {
+    fun signUp(command: UserSignUpCommand): UserSignUpInfo {
         val user = userService.register(command)
-        return UserInfo(loginId = user.loginId)
+        return UserSignUpInfo(loginId = user.loginId)
     }
 
     @Transactional
@@ -22,9 +22,9 @@ class UserFacade(
     }
 
     @Transactional(readOnly = true)
-    fun getMe(loginId: String, password: String): UserInfo {
+    fun getMe(loginId: String, password: String): UserMeInfo {
         val user = userService.findByCredentials(loginId, password)
-        return UserInfo(
+        return UserMeInfo(
             loginId = user.loginId,
             name = user.maskedName,
             birthDate = user.birthDate,

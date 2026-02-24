@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.application.user.UserFacade
-import com.loopers.application.user.UserInfo
+import com.loopers.application.user.UserMeInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -38,7 +38,7 @@ constructor(
             // arrange
             given(userFacade.getMe("testuser1", "Password1!"))
                 .willReturn(
-                    UserInfo(
+                    UserMeInfo(
                         loginId = "testuser1",
                         name = "홍길*",
                         birthDate = LocalDate.of(1990, 1, 1),

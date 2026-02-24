@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.application.user.UserFacade
-import com.loopers.application.user.UserInfo
+import com.loopers.application.user.UserSignUpInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -33,7 +33,7 @@ constructor(
     @Test
     fun signUp_success_returns201WithLoginId() {
         // arrange
-        given(userFacade.signUp(any())).willReturn(UserInfo(loginId = "testuser1"))
+        given(userFacade.signUp(any())).willReturn(UserSignUpInfo(loginId = "testuser1"))
 
         val requestBody =
             """
