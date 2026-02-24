@@ -1,6 +1,6 @@
 package com.loopers.domain.catalog.brand
 
-import com.loopers.domain.catalog.brand.entity.Brand
+import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
 
 object BrandTestFixture {

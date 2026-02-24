@@ -1,34 +1,29 @@
 package com.loopers.application.user
 
-import com.loopers.domain.point.FakePointHistoryRepository
 import com.loopers.domain.point.FakeUserPointRepository
-import com.loopers.domain.point.UserPointService
 import com.loopers.domain.user.FakeUserRepository
-import com.loopers.domain.user.UserCommand
-import com.loopers.domain.user.UserService
+import com.loopers.domain.user.UserTestFixture
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 
 class RegisterUserUseCaseTest {
 
-    private lateinit var userService: UserService
+    private lateinit var userRepository: FakeUserRepository
     private lateinit var userPointRepository: FakeUserPointRepository
-    private lateinit var pointHistoryRepository: FakePointHistoryRepository
-    private lateinit var userPointService: UserPointService
     private lateinit var registerUserUseCase: RegisterUserUseCase
 
     @BeforeEach
     fun setUp() {
-        val userRepository = FakeUserRepository()
-        userService = UserService(userRepository)
+        userRepository = FakeUserRepository()
         userPointRepository = FakeUserPointRepository()
-        pointHistoryRepository = FakePointHistoryRepository()
-        userPointService = UserPointService(userPointRepository, pointHistoryRepository)
-        registerUserUseCase = RegisterUserUseCase(userService, userPointService)
+        registerUserUseCase = RegisterUserUseCase(userRepository, userPointRepository)
     }
 
     @Nested
@@ -36,32 +31,51 @@ class RegisterUserUseCaseTest {
     inner class Execute {
 
         @Test
-        @DisplayName("User 생성과 함께 초기 잔액 0의 UserPoint가 생성된다")
+        @DisplayName("유효한 정보로 가입하면 User 생성과 함께 초기 잔액 0의 UserPoint가 생성된다")
         fun execute_createsUserAndUserPoint() {
-            // arrange
-            val command = UserCommand.SignUp(
-                loginId = "testuser1",
-                password = "Password1!",
-                name = "홍길동",
-                birthDate = LocalDate.of(1990, 1, 15),
-                email = "test@example.com",
-            )
-
             // act
             val result = registerUserUseCase.execute(
-                loginId = command.loginId,
-                password = command.password,
-                name = command.name,
-                birthDate = command.birthDate,
-                email = command.email,
+                loginId = UserTestFixture.DEFAULT_LOGIN_ID,
+                password = UserTestFixture.DEFAULT_PASSWORD,
+                name = UserTestFixture.DEFAULT_NAME,
+                birthDate = UserTestFixture.DEFAULT_BIRTH_DATE,
+                email = UserTestFixture.DEFAULT_EMAIL,
             )
 
             // assert
-            assertThat(result.loginId).isEqualTo("testuser1")
+            assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
 
             val userPoint = userPointRepository.findByUserId(result.id)
             assertThat(userPoint).isNotNull
             assertThat(userPoint!!.balance).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("이미 존재하는 로그인 ID로 가입하면 CONFLICT 예외가 발생한다")
+        fun execute_duplicateLoginId_throwsConflict() {
+            // arrange
+            registerUserUseCase.execute(
+                loginId = UserTestFixture.DEFAULT_LOGIN_ID,
+                password = UserTestFixture.DEFAULT_PASSWORD,
+                name = UserTestFixture.DEFAULT_NAME,
+                birthDate = UserTestFixture.DEFAULT_BIRTH_DATE,
+                email = UserTestFixture.DEFAULT_EMAIL,
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                registerUserUseCase.execute(
+                    loginId = UserTestFixture.DEFAULT_LOGIN_ID,
+                    password = "Password2!",
+                    name = "김철수",
+                    birthDate = LocalDate.of(1995, 5, 20),
+                    email = "other@example.com",
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+            assertThat(exception.message).isEqualTo("이미 존재하는 로그인 ID입니다.")
         }
     }
 }

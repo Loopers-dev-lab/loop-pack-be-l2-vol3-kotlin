@@ -1,6 +1,6 @@
 package com.loopers.domain.like
 
-import com.loopers.domain.like.entity.Like
+import com.loopers.domain.like.model.Like
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

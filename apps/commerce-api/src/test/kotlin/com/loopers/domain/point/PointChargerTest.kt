@@ -1,7 +1,7 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.point.entity.PointHistory.PointHistoryType
-import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.model.PointHistory.PointHistoryType
+import com.loopers.domain.point.model.UserPoint
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -11,17 +11,17 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
-class PointChargingServiceTest {
+class PointChargerTest {
 
     private lateinit var userPointRepository: FakeUserPointRepository
     private lateinit var pointHistoryRepository: FakePointHistoryRepository
-    private lateinit var pointChargingService: PointChargingService
+    private lateinit var pointCharger: PointCharger
 
     @BeforeEach
     fun setUp() {
         userPointRepository = FakeUserPointRepository()
         pointHistoryRepository = FakePointHistoryRepository()
-        pointChargingService = PointChargingService(userPointRepository, pointHistoryRepository)
+        pointCharger = PointCharger(userPointRepository, pointHistoryRepository)
     }
 
     private fun createUserPoint(userId: Long): UserPoint {
@@ -39,7 +39,7 @@ class PointChargingServiceTest {
             val userPoint = createUserPoint(1L)
 
             // act
-            val result = pointChargingService.charge(1L, 5000)
+            val result = pointCharger.charge(1L, 5000)
 
             // assert
             assertThat(result.balance).isEqualTo(5000)
@@ -58,8 +58,8 @@ class PointChargingServiceTest {
             val userPoint = createUserPoint(1L)
 
             // act
-            pointChargingService.charge(1L, 3000)
-            pointChargingService.charge(1L, 2000)
+            pointCharger.charge(1L, 3000)
+            pointCharger.charge(1L, 2000)
 
             // assert
             val updated = userPointRepository.findByUserId(1L)!!
@@ -77,7 +77,7 @@ class PointChargingServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                pointChargingService.charge(1L, 0)
+                pointCharger.charge(1L, 0)
             }
 
             // assert
@@ -93,7 +93,7 @@ class PointChargingServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                pointChargingService.charge(1L, -1000)
+                pointCharger.charge(1L, -1000)
             }
 
             // assert
@@ -106,7 +106,7 @@ class PointChargingServiceTest {
         fun charge_noPointInfo_throwsNotFound() {
             // act
             val exception = assertThrows<CoreException> {
-                pointChargingService.charge(999L, 5000)
+                pointCharger.charge(999L, 5000)
             }
 
             // assert
@@ -120,7 +120,7 @@ class PointChargingServiceTest {
             createUserPoint(1L)
 
             // act
-            val result = pointChargingService.charge(1L, 10_000_000)
+            val result = pointCharger.charge(1L, 10_000_000)
 
             // assert
             assertThat(result.balance).isEqualTo(10_000_000)
@@ -134,7 +134,7 @@ class PointChargingServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                pointChargingService.charge(1L, 10_000_001)
+                pointCharger.charge(1L, 10_000_001)
             }
 
             // assert
@@ -147,11 +147,11 @@ class PointChargingServiceTest {
         fun charge_exceedMaxBalance_throwsBadRequest() {
             // arrange
             createUserPoint(1L)
-            pointChargingService.charge(1L, 5_000_000)
+            pointCharger.charge(1L, 5_000_000)
 
             // act
             val exception = assertThrows<CoreException> {
-                pointChargingService.charge(1L, 6_000_000)
+                pointCharger.charge(1L, 6_000_000)
             }
 
             // assert

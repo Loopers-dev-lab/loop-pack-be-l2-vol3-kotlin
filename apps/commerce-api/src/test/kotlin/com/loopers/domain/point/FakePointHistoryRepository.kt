@@ -1,6 +1,6 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.point.entity.PointHistory
+import com.loopers.domain.point.model.PointHistory
 import com.loopers.domain.point.repository.PointHistoryRepository
 
 class FakePointHistoryRepository : PointHistoryRepository {

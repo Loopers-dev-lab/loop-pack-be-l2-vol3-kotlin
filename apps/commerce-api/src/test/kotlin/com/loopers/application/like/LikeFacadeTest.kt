@@ -1,14 +1,12 @@
 package com.loopers.application.like
 
-import com.loopers.domain.catalog.CatalogCommand
-import com.loopers.domain.catalog.CatalogService
 import com.loopers.domain.catalog.brand.FakeBrandRepository
-import com.loopers.domain.catalog.product.FakeProductRepository
-import com.loopers.domain.catalog.product.entity.Product
-import com.loopers.domain.like.FakeLikeRepository
-import com.loopers.domain.like.LikeService
+import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
+import com.loopers.domain.catalog.product.FakeProductRepository
+import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.common.Money
+import com.loopers.domain.like.FakeLikeRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -24,8 +22,6 @@ class LikeFacadeTest {
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var productRepository: FakeProductRepository
     private lateinit var likeRepository: FakeLikeRepository
-    private lateinit var catalogService: CatalogService
-    private lateinit var likeService: LikeService
     private lateinit var addLikeUseCase: AddLikeUseCase
     private lateinit var removeLikeUseCase: RemoveLikeUseCase
     private lateinit var getUserLikesUseCase: GetUserLikesUseCase
@@ -35,23 +31,29 @@ class LikeFacadeTest {
         brandRepository = FakeBrandRepository()
         productRepository = FakeProductRepository()
         likeRepository = FakeLikeRepository()
-        catalogService = CatalogService(brandRepository, productRepository)
-        likeService = LikeService(likeRepository)
-        addLikeUseCase = AddLikeUseCase(likeService, catalogService)
-        removeLikeUseCase = RemoveLikeUseCase(likeService, catalogService)
-        getUserLikesUseCase = GetUserLikesUseCase(likeService, catalogService)
+        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository)
+        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository)
+        getUserLikesUseCase = GetUserLikesUseCase(likeRepository, productRepository)
+    }
+
+    private fun createBrand(name: String = "나이키"): Brand {
+        return brandRepository.save(Brand(name = BrandName(name)))
+    }
+
+    private fun createProduct(brandId: Long, name: String = "에어맥스 90", price: BigDecimal = BigDecimal("129000"), stock: Int = 100): Product {
+        return productRepository.save(
+            Product(
+                refBrandId = brandId,
+                name = name,
+                price = Money(price),
+                stock = stock,
+            ),
+        )
     }
 
     private fun createBrandAndProduct(): Pair<Long, Long> {
-        val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = BrandName("나이키")))
-        val product = catalogService.createProduct(
-            CatalogCommand.CreateProduct(
-                brandId = brand.id,
-                name = "에어맥스 90",
-                price = Money(BigDecimal("129000")),
-                stock = 100,
-            ),
-        )
+        val brand = createBrand()
+        val product = createProduct(brand.id)
         return brand.id to product.id
     }
 
@@ -69,7 +71,7 @@ class LikeFacadeTest {
             addLikeUseCase.execute(1L, productId)
 
             // assert
-            val product = catalogService.getProduct(productId)
+            val product = productRepository.findById(productId)!!
             assertThat(product.likeCount).isEqualTo(1)
         }
 
@@ -84,8 +86,24 @@ class LikeFacadeTest {
             addLikeUseCase.execute(1L, productId)
 
             // assert
-            val product = catalogService.getProduct(productId)
+            val product = productRepository.findById(productId)!!
             assertThat(product.likeCount).isEqualTo(1)
+        }
+
+        @Test
+        @DisplayName("동시 요청으로 DB unique constraint 위반이 발생해도 예외 없이 likeCount가 증가하지 않는다 (멱등)")
+        fun addLike_concurrentDuplicateSave_doesNotIncreaseLikeCount() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            // 동시성 상황 재현: find에는 보이지 않지만 save 시 unique constraint 위반 발생
+            likeRepository.simulateConcurrentInsert(1L, productId)
+
+            // act
+            addLikeUseCase.execute(1L, productId)
+
+            // assert: 예외가 전파되지 않고 likeCount도 증가하지 않는다
+            val product = productRepository.findById(productId)!!
+            assertThat(product.likeCount).isEqualTo(0)
         }
 
         @Test
@@ -93,7 +111,9 @@ class LikeFacadeTest {
         fun addLike_deletedProduct_throwsNotFound() {
             // arrange
             val (_, productId) = createBrandAndProduct()
-            catalogService.deleteProduct(productId)
+            val product = productRepository.findById(productId)!!
+            product.delete()
+            productRepository.save(product)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -109,7 +129,9 @@ class LikeFacadeTest {
         fun addLike_hiddenProduct_throwsNotFound() {
             // arrange
             val (_, productId) = createBrandAndProduct()
-            catalogService.updateProduct(productId, CatalogCommand.UpdateProduct(name = null, price = null, stock = null, status = Product.ProductStatus.HIDDEN))
+            val product = productRepository.findById(productId)!!
+            product.update(null, null, null, Product.ProductStatus.HIDDEN)
+            productRepository.save(product)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -136,7 +158,7 @@ class LikeFacadeTest {
             removeLikeUseCase.execute(1L, productId)
 
             // assert
-            val product = catalogService.getProduct(productId)
+            val product = productRepository.findById(productId)!!
             assertThat(product.likeCount).isEqualTo(0)
         }
 
@@ -146,14 +168,16 @@ class LikeFacadeTest {
             // arrange
             val (_, productId) = createBrandAndProduct()
             addLikeUseCase.execute(1L, productId)
-            catalogService.deleteProduct(productId)
+            val product = productRepository.findById(productId)!!
+            product.delete()
+            productRepository.save(product)
 
             // act
             removeLikeUseCase.execute(1L, productId)
 
             // assert
-            val product = catalogService.getProduct(productId)
-            assertThat(product.likeCount).isEqualTo(1)
+            val found = productRepository.findById(productId)!!
+            assertThat(found.likeCount).isEqualTo(1)
         }
 
         @Test
@@ -175,26 +199,14 @@ class LikeFacadeTest {
         @DisplayName("활성 상품만 포함하여 LikeInfo 목록을 반환한다")
         fun getLikes_returnsOnlyActiveProducts() {
             // arrange
-            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = BrandName("나이키")))
-            val product1 = catalogService.createProduct(
-                CatalogCommand.CreateProduct(
-                    brandId = brand.id,
-                    name = "상품1",
-                    price = Money(BigDecimal("10000")),
-                    stock = 10,
-                ),
-            )
-            val product2 = catalogService.createProduct(
-                CatalogCommand.CreateProduct(
-                    brandId = brand.id,
-                    name = "상품2",
-                    price = Money(BigDecimal("20000")),
-                    stock = 10,
-                ),
-            )
+            val brand = createBrand()
+            val product1 = createProduct(brand.id, "상품1", BigDecimal("10000"), 10)
+            val product2 = createProduct(brand.id, "상품2", BigDecimal("20000"), 10)
             addLikeUseCase.execute(1L, product1.id)
             addLikeUseCase.execute(1L, product2.id)
-            catalogService.deleteProduct(product2.id)
+            val p2 = productRepository.findById(product2.id)!!
+            p2.delete()
+            productRepository.save(p2)
 
             // act
             val result = getUserLikesUseCase.execute(1L)
@@ -208,30 +220,15 @@ class LikeFacadeTest {
         @DisplayName("좋아요한 상품이 HIDDEN 상태로 변경되면 목록에서 제외된다")
         fun getLikes_hiddenProduct_isExcludedFromResult() {
             // arrange
-            val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = BrandName("나이키")))
-            val product1 = catalogService.createProduct(
-                CatalogCommand.CreateProduct(
-                    brandId = brand.id,
-                    name = "상품1",
-                    price = Money(BigDecimal("10000")),
-                    stock = 10,
-                ),
-            )
-            val product2 = catalogService.createProduct(
-                CatalogCommand.CreateProduct(
-                    brandId = brand.id,
-                    name = "상품2",
-                    price = Money(BigDecimal("20000")),
-                    stock = 10,
-                ),
-            )
+            val brand = createBrand()
+            val product1 = createProduct(brand.id, "상품1", BigDecimal("10000"), 10)
+            val product2 = createProduct(brand.id, "상품2", BigDecimal("20000"), 10)
             addLikeUseCase.execute(1L, product1.id)
             addLikeUseCase.execute(1L, product2.id)
             // product2를 HIDDEN으로 변경
-            catalogService.updateProduct(
-                product2.id,
-                CatalogCommand.UpdateProduct(name = null, price = null, stock = null, status = Product.ProductStatus.HIDDEN),
-            )
+            val p2 = productRepository.findById(product2.id)!!
+            p2.update(null, null, null, Product.ProductStatus.HIDDEN)
+            productRepository.save(p2)
 
             // act
             val result = getUserLikesUseCase.execute(1L)
@@ -239,6 +236,28 @@ class LikeFacadeTest {
             // assert
             assertThat(result).hasSize(1)
             assertThat(result[0].productName).isEqualTo("상품1")
+        }
+
+        @Test
+        @DisplayName("사용자의 좋아요 목록을 id 역순으로 반환한다")
+        fun getLikes_returnsInReverseIdOrder() {
+            // arrange
+            val brand = createBrand()
+            val product1 = createProduct(brand.id, "상품1", BigDecimal("10000"), 10)
+            val product2 = createProduct(brand.id, "상품2", BigDecimal("20000"), 10)
+            val product3 = createProduct(brand.id, "상품3", BigDecimal("30000"), 10)
+            addLikeUseCase.execute(1L, product1.id)
+            addLikeUseCase.execute(1L, product2.id)
+            addLikeUseCase.execute(1L, product3.id)
+
+            // act
+            val result = getUserLikesUseCase.execute(1L)
+
+            // assert
+            assertThat(result).hasSize(3)
+            assertThat(result[0].productName).isEqualTo("상품3")
+            assertThat(result[1].productName).isEqualTo("상품2")
+            assertThat(result[2].productName).isEqualTo("상품1")
         }
 
         @Test

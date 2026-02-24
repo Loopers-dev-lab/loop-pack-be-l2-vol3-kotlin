@@ -1,7 +1,7 @@
 package com.loopers.domain.catalog.product
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.repository.ProductRepository
 
 class FakeProductRepository : ProductRepository {
@@ -64,5 +64,13 @@ class FakeProductRepository : ProductRepository {
 
     override fun findAllByIds(ids: List<Long>): List<Product> {
         return products.filter { it.id in ids }
+    }
+
+    override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
+        return products.filter { it.id in ids }.sortedBy { it.id }
+    }
+
+    override fun saveAll(products: List<Product>): List<Product> {
+        return products.map { save(it) }
     }
 }

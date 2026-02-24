@@ -1,6 +1,6 @@
 package com.loopers.domain.like
 
-import com.loopers.domain.like.entity.Like
+import com.loopers.domain.like.model.Like
 import com.loopers.domain.like.repository.LikeRepository
 import org.springframework.dao.DataIntegrityViolationException
 

@@ -1,6 +1,6 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.model.UserPoint
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

@@ -1,6 +1,7 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.point.entity.PointHistory.PointHistoryType
+import com.loopers.domain.common.Money
+import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -9,66 +10,19 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.math.BigDecimal
 
-class UserPointServiceTest {
+class PointPaymentProcessorTest {
 
     private lateinit var userPointRepository: FakeUserPointRepository
     private lateinit var pointHistoryRepository: FakePointHistoryRepository
-    private lateinit var userPointService: UserPointService
+    private lateinit var pointPaymentProcessor: PointPaymentProcessor
 
     @BeforeEach
     fun setUp() {
         userPointRepository = FakeUserPointRepository()
         pointHistoryRepository = FakePointHistoryRepository()
-        userPointService = UserPointService(userPointRepository, pointHistoryRepository)
-    }
-
-    @Nested
-    @DisplayName("createUserPoint 시")
-    inner class CreateUserPoint {
-
-        @Test
-        @DisplayName("초기 잔액 0으로 UserPoint가 생성된다")
-        fun createUserPoint_createsWithZeroBalance() {
-            // act
-            val result = userPointService.createUserPoint(1L)
-
-            // assert
-            assertThat(result.refUserId).isEqualTo(1L)
-            assertThat(result.balance).isEqualTo(0)
-            assertThat(result.id).isNotEqualTo(0L)
-        }
-    }
-
-    @Nested
-    @DisplayName("getBalance 시")
-    inner class GetBalance {
-
-        @Test
-        @DisplayName("존재하는 사용자의 포인트를 조회하면 UserPoint가 반환된다")
-        fun getBalance_existingUser_returnsUserPoint() {
-            // arrange
-            userPointService.createUserPoint(1L)
-
-            // act
-            val result = userPointService.getBalance(1L)
-
-            // assert
-            assertThat(result.refUserId).isEqualTo(1L)
-            assertThat(result.balance).isEqualTo(0)
-        }
-
-        @Test
-        @DisplayName("존재하지 않는 사용자를 조회하면 NOT_FOUND 예외가 발생한다")
-        fun getBalance_nonExistentUser_throwsNotFound() {
-            // act
-            val exception = assertThrows<CoreException> {
-                userPointService.getBalance(999L)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
-        }
+        pointPaymentProcessor = PointPaymentProcessor(userPointRepository, pointHistoryRepository)
     }
 
     @Nested
@@ -79,14 +33,15 @@ class UserPointServiceTest {
         @DisplayName("잔액이 충분하면 차감되고 USE 이력이 기록된다")
         fun usePoints_sufficientBalance_deductsAndRecordsHistory() {
             // arrange
-            val userPoint = userPointService.createUserPoint(1L)
+            val userPoint = userPointRepository.save(com.loopers.domain.point.model.UserPoint(refUserId = 1L))
             userPoint.charge(10000)
+            userPointRepository.save(userPoint)
 
             // act
-            userPointService.usePoints(1L, 3000, 100L)
+            pointPaymentProcessor.usePoints(1L, Money(BigDecimal("3000")), 100L)
 
             // assert
-            val updated = userPointService.getBalance(1L)
+            val updated = userPointRepository.findByUserId(1L)!!
             assertThat(updated.balance).isEqualTo(7000)
 
             val histories = pointHistoryRepository.findAllByUserPointId(userPoint.id)
@@ -100,12 +55,13 @@ class UserPointServiceTest {
         @DisplayName("잔액이 부족하면 CoreException이 발생한다")
         fun usePoints_insufficientBalance_throwsException() {
             // arrange
-            val userPoint = userPointService.createUserPoint(1L)
+            val userPoint = userPointRepository.save(com.loopers.domain.point.model.UserPoint(refUserId = 1L))
             userPoint.charge(1000)
+            userPointRepository.save(userPoint)
 
             // act
             val exception = assertThrows<CoreException> {
-                userPointService.usePoints(1L, 5000, 100L)
+                pointPaymentProcessor.usePoints(1L, Money(BigDecimal("5000")), 100L)
             }
 
             // assert
@@ -119,7 +75,7 @@ class UserPointServiceTest {
         fun usePoints_noPointInfo_throwsNotFound() {
             // act
             val exception = assertThrows<CoreException> {
-                userPointService.usePoints(999L, 1000, 100L)
+                pointPaymentProcessor.usePoints(999L, Money(BigDecimal("1000")), 100L)
             }
 
             // assert

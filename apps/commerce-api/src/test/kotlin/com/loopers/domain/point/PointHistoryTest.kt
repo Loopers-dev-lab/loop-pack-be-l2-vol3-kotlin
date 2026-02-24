@@ -1,7 +1,7 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.point.entity.PointHistory
-import com.loopers.domain.point.entity.PointHistory.PointHistoryType
+import com.loopers.domain.point.model.PointHistory
+import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

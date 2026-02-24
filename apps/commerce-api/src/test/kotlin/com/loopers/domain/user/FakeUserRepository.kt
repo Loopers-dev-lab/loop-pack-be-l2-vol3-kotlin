@@ -1,6 +1,6 @@
 package com.loopers.domain.user
 
-import com.loopers.domain.user.entity.User
+import com.loopers.domain.user.model.User
 import com.loopers.domain.user.repository.UserRepository
 
 class FakeUserRepository : UserRepository {

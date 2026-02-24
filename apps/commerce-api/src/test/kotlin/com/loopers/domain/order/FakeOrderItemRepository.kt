@@ -1,6 +1,6 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.order.entity.OrderItem
+import com.loopers.domain.order.model.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
 
 class FakeOrderItemRepository : OrderItemRepository {
