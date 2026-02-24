@@ -8,6 +8,8 @@ import java.time.ZonedDateTime
 
 interface OrderJpaRepository : JpaRepository<Order, Long> {
 
+    fun findByIdAndDeletedAtIsNull(id: Long): Order?
+
     @Query(
         """
         SELECT o FROM Order o

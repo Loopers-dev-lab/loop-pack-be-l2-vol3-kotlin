@@ -16,7 +16,7 @@ class OrderRepositoryImpl(
     }
 
     override fun findById(orderId: Long): Order? {
-        return orderJpaRepository.findById(orderId).orElse(null)
+        return orderJpaRepository.findByIdAndDeletedAtIsNull(orderId)
     }
 
     override fun findByUserIdAndCreatedAtBetween(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<Order> {

@@ -14,6 +14,10 @@ class BrandRepositoryImpl(
             ?.takeIf { it.deletedAt == null }
     }
 
+    override fun findAllByIds(ids: List<Long>): List<Brand> {
+        return brandJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
+    }
+
     override fun save(brand: Brand): Brand {
         return brandJpaRepository.save(brand)
     }
