@@ -30,15 +30,14 @@ class GetOrderUseCaseTest {
     }
 
     private fun createAndSaveOrder(userId: Long): Pair<Order, List<OrderItem>> {
-        val order = orderRepository.save(Order.create(userId, Money(BigDecimal("10000"))))
-        val item = orderItemRepository.save(
-            OrderItem.create(
-                OrderProductInfo(1L, "테스트 상품", Money(BigDecimal("10000"))),
-                1,
-                order.id,
-            ),
+        val order = Order.create(
+            userId,
+            listOf(OrderProductInfo(1L, "테스트 상품", Money(BigDecimal("10000"))) to 1),
         )
-        return order to listOf(item)
+        val savedOrder = orderRepository.save(order)
+        order.assignOrderIdToItems(savedOrder.id)
+        val savedItems = order.items.map { orderItemRepository.save(it) }
+        return savedOrder to savedItems
     }
 
     @Nested

@@ -5,7 +5,6 @@ import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductInfo
 import com.loopers.domain.order.model.Order
-import com.loopers.domain.order.model.OrderItem
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -27,15 +26,14 @@ class GetOrdersAdminUseCaseTest {
     }
 
     private fun createAndSaveOrder(userId: Long): Order {
-        val order = orderRepository.save(Order.create(userId, Money(BigDecimal("10000"))))
-        orderItemRepository.save(
-            OrderItem.create(
-                OrderProductInfo(1L, "테스트 상품", Money(BigDecimal("10000"))),
-                1,
-                order.id,
-            ),
+        val order = Order.create(
+            userId,
+            listOf(OrderProductInfo(1L, "테스트 상품", Money(BigDecimal("10000"))) to 1),
         )
-        return order
+        val savedOrder = orderRepository.save(order)
+        order.assignOrderIdToItems(savedOrder.id)
+        order.items.forEach { orderItemRepository.save(it) }
+        return savedOrder
     }
 
     @Nested

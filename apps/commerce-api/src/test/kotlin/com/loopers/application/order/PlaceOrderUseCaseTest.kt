@@ -8,7 +8,8 @@ import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.point.FakePointHistoryRepository
 import com.loopers.domain.point.FakeUserPointRepository
 import com.loopers.domain.point.PointCharger
-import com.loopers.domain.point.PointPaymentProcessor
+import com.loopers.domain.point.PointDeductor
+import com.loopers.domain.point.vo.Point
 import com.loopers.domain.point.model.UserPoint
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -27,7 +28,7 @@ class PlaceOrderUseCaseTest {
     private lateinit var orderItemRepository: FakeOrderItemRepository
     private lateinit var userPointRepository: FakeUserPointRepository
     private lateinit var pointHistoryRepository: FakePointHistoryRepository
-    private lateinit var pointPaymentProcessor: PointPaymentProcessor
+    private lateinit var pointDeductor: PointDeductor
     private lateinit var pointCharger: PointCharger
     private lateinit var placeOrderUseCase: PlaceOrderUseCase
 
@@ -38,9 +39,9 @@ class PlaceOrderUseCaseTest {
         orderItemRepository = FakeOrderItemRepository()
         userPointRepository = FakeUserPointRepository()
         pointHistoryRepository = FakePointHistoryRepository()
-        pointPaymentProcessor = PointPaymentProcessor(userPointRepository, pointHistoryRepository)
+        pointDeductor = PointDeductor(userPointRepository, pointHistoryRepository)
         pointCharger = PointCharger(userPointRepository, pointHistoryRepository)
-        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository, pointPaymentProcessor)
+        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository, pointDeductor)
     }
 
     private fun createProduct(
@@ -60,7 +61,7 @@ class PlaceOrderUseCaseTest {
     private fun setupUserPoint(userId: Long, balance: Long) {
         userPointRepository.save(UserPoint(refUserId = userId))
         if (balance > 0) {
-            pointCharger.charge(userId, balance)
+            pointCharger.charge(userId, Point(balance))
         }
     }
 

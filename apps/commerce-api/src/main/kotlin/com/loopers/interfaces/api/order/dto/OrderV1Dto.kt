@@ -1,12 +1,12 @@
 package com.loopers.interfaces.api.order.dto
 
 import com.loopers.application.order.OrderInfo
+import com.loopers.application.order.OrderItemInfo
 import com.loopers.application.order.PlaceOrderCommand
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
 import java.math.BigDecimal
-import java.time.ZonedDateTime
 
 class OrderV1Dto {
 
@@ -38,7 +38,6 @@ class OrderV1Dto {
         val status: OrderStatusDto,
         val totalPrice: BigDecimal,
         val items: List<OrderItemResponse>,
-        val createdAt: ZonedDateTime,
     ) {
         companion object {
             fun from(info: OrderInfo): OrderResponse {
@@ -47,7 +46,6 @@ class OrderV1Dto {
                     status = OrderStatusDto.valueOf(info.status),
                     totalPrice = info.totalPrice,
                     items = info.items.map { OrderItemResponse.from(it) },
-                    createdAt = info.createdAt,
                 )
             }
         }
@@ -60,7 +58,7 @@ class OrderV1Dto {
         val quantity: Int,
     ) {
         companion object {
-            fun from(item: com.loopers.application.order.OrderItemInfo): OrderItemResponse {
+            fun from(item: OrderItemInfo): OrderItemResponse {
                 return OrderItemResponse(
                     productId = item.productId,
                     productName = item.productName,

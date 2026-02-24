@@ -3,7 +3,6 @@ package com.loopers.application.order
 import com.loopers.domain.order.OrderDetail
 import com.loopers.domain.order.model.OrderItem
 import java.math.BigDecimal
-import java.time.ZonedDateTime
 
 data class OrderInfo(
     val id: Long,
@@ -11,8 +10,6 @@ data class OrderInfo(
     val status: String,
     val totalPrice: BigDecimal,
     val items: List<OrderItemInfo>,
-    val createdAt: ZonedDateTime,
-    val updatedAt: ZonedDateTime,
 ) {
     companion object {
         fun from(detail: OrderDetail): OrderInfo = OrderInfo(
@@ -21,8 +18,6 @@ data class OrderInfo(
             status = detail.order.status.name,
             totalPrice = detail.order.totalPrice.value,
             items = detail.items.map { OrderItemInfo.from(it) },
-            createdAt = detail.order.createdAt,
-            updatedAt = detail.order.updatedAt,
         )
     }
 }

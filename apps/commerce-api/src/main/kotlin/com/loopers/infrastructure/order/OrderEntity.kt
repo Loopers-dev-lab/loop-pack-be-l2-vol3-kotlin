@@ -31,8 +31,6 @@ class OrderEntity(
                 totalPrice = order.totalPrice.value,
             ).withBaseFields(
                 id = order.id,
-                createdAt = order.createdAt,
-                updatedAt = order.updatedAt,
                 deletedAt = order.deletedAt,
             )
         }
@@ -43,8 +41,6 @@ class OrderEntity(
         refUserId = refUserId,
         status = status,
         totalPrice = Money(totalPrice),
-        createdAt = createdAt,
-        updatedAt = updatedAt,
         deletedAt = deletedAt,
     )
 }

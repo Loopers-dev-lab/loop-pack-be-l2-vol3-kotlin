@@ -1,23 +1,22 @@
 package com.loopers.domain.order.model
 
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.annotation.AggregateRootOnly
+import com.loopers.domain.order.OrderProductInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class Order private constructor(
-    refUserId: Long,
+    val refUserId: Long,
     status: OrderStatus,
     totalPrice: Money,
-    val createdAt: ZonedDateTime = ZonedDateTime.now(),
-    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
+    val items: List<OrderItem> = emptyList(),
     val deletedAt: ZonedDateTime? = null,
 ) {
 
     val id: Long = 0
-
-    var refUserId: Long = refUserId
-        private set
 
     var status: OrderStatus = status
         private set
@@ -32,20 +31,33 @@ class Order private constructor(
         FAILED,
     }
 
+    @OptIn(AggregateRootOnly::class)
     fun cancelItem(item: OrderItem) {
         if (item.status == OrderItem.ItemStatus.CANCELLED) {
             throw CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문 아이템입니다.")
         }
         item.cancel()
-        totalPrice = totalPrice - (item.productPrice * item.quantity)
+        totalPrice -= (item.productPrice * item.quantity)
+    }
+
+    @OptIn(AggregateRootOnly::class)
+    fun assignOrderIdToItems(orderId: Long) {
+        items.forEach { it.assignToOrder(orderId) }
     }
 
     companion object {
-        fun create(userId: Long, totalPrice: Money): Order {
+        fun create(userId: Long, items: List<Pair<OrderProductInfo, Int>>): Order {
+            val orderItems = items.map { (info, quantity) ->
+                OrderItem.create(info, quantity)
+            }
+            val totalPrice = orderItems.fold(Money(BigDecimal.ZERO)) { acc, item ->
+                acc + (item.productPrice * item.quantity)
+            }
             return Order(
                 refUserId = userId,
                 status = OrderStatus.CREATED,
                 totalPrice = totalPrice,
+                items = orderItems,
             )
         }
 
@@ -54,16 +66,14 @@ class Order private constructor(
             refUserId: Long,
             status: OrderStatus,
             totalPrice: Money,
-            createdAt: ZonedDateTime,
-            updatedAt: ZonedDateTime,
             deletedAt: ZonedDateTime?,
+            items: List<OrderItem> = emptyList(),
         ): Order {
             return Order(
                 refUserId = refUserId,
                 status = status,
                 totalPrice = totalPrice,
-                createdAt = createdAt,
-                updatedAt = updatedAt,
+                items = items,
                 deletedAt = deletedAt,
             ).also {
                 Order::class.java.getDeclaredField("id").apply {

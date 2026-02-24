@@ -8,16 +8,18 @@ import java.time.ZonedDateTime
 class FakeOrderRepository : OrderRepository {
 
     private val orders = mutableListOf<Order>()
+    private val savedAt = mutableMapOf<Long, ZonedDateTime>()
     private var sequence = 1L
 
     override fun save(order: Order): Order {
         if (order.id != 0L) {
             orders.removeIf { it.id == order.id }
             orders.add(order)
+            savedAt.putIfAbsent(order.id, ZonedDateTime.now())
         } else {
             setOrderId(order, sequence++)
-            initTimestamps(order)
             orders.add(order)
+            savedAt[order.id] = ZonedDateTime.now()
         }
         return order
     }
@@ -33,11 +35,10 @@ class FakeOrderRepository : OrderRepository {
         page: Int,
         size: Int,
     ): PageResult<Order> {
-        val filtered = orders.filter {
-            it.refUserId == userId &&
-                    !it.createdAt.isBefore(from) &&
-                    !it.createdAt.isAfter(to)
-        }.sortedByDescending { it.createdAt }
+        val filtered = orders.filter { order ->
+            order.refUserId == userId &&
+                savedAt[order.id]?.let { !it.isBefore(from) && !it.isAfter(to) } ?: false
+        }
         val offset = page * size
         val content = filtered.drop(offset).take(size)
         return PageResult(content, filtered.size.toLong(), page, size)
@@ -53,18 +54,6 @@ class FakeOrderRepository : OrderRepository {
         Order::class.java.getDeclaredField("id").apply {
             isAccessible = true
             set(order, id)
-        }
-    }
-
-    private fun initTimestamps(order: Order) {
-        val now = ZonedDateTime.now()
-        Order::class.java.getDeclaredField("createdAt").apply {
-            isAccessible = true
-            set(order, now)
-        }
-        Order::class.java.getDeclaredField("updatedAt").apply {
-            isAccessible = true
-            set(order, now)
         }
     }
 }

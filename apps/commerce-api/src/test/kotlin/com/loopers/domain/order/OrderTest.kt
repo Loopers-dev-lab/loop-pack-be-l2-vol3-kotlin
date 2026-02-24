@@ -19,15 +19,38 @@ class OrderTest {
     inner class Create {
 
         @Test
-        @DisplayName("정상적인 주문이 생성된다")
-        fun create_validOrder_success() {
+        @DisplayName("items 기반으로 주문이 생성되고 totalPrice가 자동 계산된다")
+        fun create_withItems_computesTotalPrice() {
             // act
-            val order = Order.create(1L, Money(BigDecimal("258000")))
+            val order = Order.create(
+                1L,
+                listOf(
+                    OrderProductInfo(id = 1L, name = "상품A", price = Money(BigDecimal("10000"))) to 2,
+                    OrderProductInfo(id = 2L, name = "상품B", price = Money(BigDecimal("20000"))) to 1,
+                ),
+            )
 
             // assert
             assertThat(order.refUserId).isEqualTo(1L)
             assertThat(order.status).isEqualTo(Order.OrderStatus.CREATED)
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("40000"))
+            assertThat(order.items).hasSize(2)
+        }
+
+        @Test
+        @DisplayName("단일 상품 주문이 정상 생성된다")
+        fun create_singleItem_success() {
+            // act
+            val order = Order.create(
+                1L,
+                listOf(
+                    OrderProductInfo(id = 1L, name = "상품A", price = Money(BigDecimal("129000"))) to 2,
+                ),
+            )
+
+            // assert
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("258000"))
+            assertThat(order.items).hasSize(1)
         }
     }
 
@@ -35,19 +58,21 @@ class OrderTest {
     @DisplayName("cancelItem 시")
     inner class CancelItem {
 
-        private fun createItem(price: BigDecimal, quantity: Int): OrderItem =
-            OrderItem.create(
-                product = OrderProductInfo(id = 1L, name = "상품A", price = Money(price)),
-                quantity = quantity,
-                orderId = 0L,
+        private fun createOrderWithItems(): Order =
+            Order.create(
+                1L,
+                listOf(
+                    OrderProductInfo(id = 1L, name = "상품A", price = Money(BigDecimal("10000"))) to 2,
+                    OrderProductInfo(id = 2L, name = "상품B", price = Money(BigDecimal("10000"))) to 1,
+                ),
             )
 
         @Test
         @DisplayName("아이템을 취소하면 해당 아이템의 status가 CANCELLED로 변경된다")
         fun cancelItem_validItem_itemStatusCancelled() {
             // arrange
-            val order = Order.create(1L, Money(BigDecimal("20000")))
-            val item = createItem(price = BigDecimal("10000"), quantity = 2)
+            val order = createOrderWithItems()
+            val item = order.items[0]
 
             // act
             order.cancelItem(item)
@@ -60,22 +85,22 @@ class OrderTest {
         @DisplayName("아이템을 취소하면 totalPrice가 해당 아이템 금액만큼 차감된다")
         fun cancelItem_validItem_totalPriceReduced() {
             // arrange
-            val order = Order.create(1L, Money(BigDecimal("30000")))
-            val item = createItem(price = BigDecimal("10000"), quantity = 2)
+            val order = createOrderWithItems() // totalPrice = 10000*2 + 10000*1 = 30000
+            val item = order.items[0] // 10000 * 2 = 20000
 
             // act
             order.cancelItem(item)
 
             // assert
-            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("10000")) // 30000 - 10000*2
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("10000")) // 30000 - 20000
         }
 
         @Test
         @DisplayName("이미 취소된 아이템을 다시 취소하면 BAD_REQUEST 예외가 발생한다")
         fun cancelItem_alreadyCancelled_throwsException() {
             // arrange
-            val order = Order.create(1L, Money(BigDecimal("20000")))
-            val item = createItem(price = BigDecimal("10000"), quantity = 2)
+            val order = createOrderWithItems()
+            val item = order.items[0]
             order.cancelItem(item)
 
             // act

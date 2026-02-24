@@ -3,7 +3,6 @@ package com.loopers.interfaces.api.order.dto
 import com.loopers.application.order.OrderInfo
 import com.loopers.application.order.OrderItemInfo
 import java.math.BigDecimal
-import java.time.ZonedDateTime
 
 class OrderAdminV1Dto {
 
@@ -16,8 +15,6 @@ class OrderAdminV1Dto {
         val status: OrderStatusDto,
         val totalPrice: BigDecimal,
         val items: List<OrderItemAdminResponse>,
-        val createdAt: ZonedDateTime,
-        val updatedAt: ZonedDateTime,
     ) {
         companion object {
             fun from(info: OrderInfo): OrderAdminResponse {
@@ -27,8 +24,6 @@ class OrderAdminV1Dto {
                     status = OrderStatusDto.valueOf(info.status),
                     totalPrice = info.totalPrice,
                     items = info.items.map { OrderItemAdminResponse.from(it) },
-                    createdAt = info.createdAt,
-                    updatedAt = info.updatedAt,
                 )
             }
         }

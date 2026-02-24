@@ -40,9 +40,6 @@ class OrderItemEntity(
                 status = orderItem.status,
             ).withBaseFields(
                 id = orderItem.id,
-                createdAt = orderItem.createdAt,
-                updatedAt = orderItem.updatedAt,
-                deletedAt = orderItem.deletedAt,
             )
         }
     }
@@ -55,8 +52,5 @@ class OrderItemEntity(
         productPrice = Money(productPrice),
         quantity = quantity,
         status = status,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        deletedAt = deletedAt,
     )
 }
