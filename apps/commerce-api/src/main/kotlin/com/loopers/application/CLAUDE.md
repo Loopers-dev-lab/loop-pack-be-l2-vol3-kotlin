@@ -38,8 +38,8 @@ class CreateOrderUseCase(
 - `@Transactional` 경계 설정
 - 비즈니스 로직 없음. Domain Layer의 컴포넌트(Entity, Repository, Domain Service)를 용도에 맞게 오케스트레이션한다.
 - **기본 패턴**: UseCase가 Repository를 직접 호출한다. 의미 없는 빈 껍데기 Domain Service를 만들지 않는다.
-- **Domain Service 사용 시점**: 여러 Entity 간 원자적 얽힘이 있거나 복잡한 정책 검증이 필요한 경우에만 Domain Service에 위임한다 (예:
-  `PointPaymentProcessor` — 잔고 차감 + 이력 생성 원자성 보장).
+- **Domain Service 사용 시점**: 여러 Entity 간 원자적 얽힘이 있거나 복잡한 정책 검증이 필요한 경우에만 Domain Service에 위임한다 (예: `PointDeductor` — 잔고 차감 +
+  이력 생성 원자성 보장).
 - 계층 건너뛰기 방지: 단일 도메인의 단순 조회(Repository 호출)라도 Controller가 직접 부르지 않고 반드시 UseCase를 거친다 (Strict Layered Architecture).
 
 ## Info DTO (Application → Interfaces)

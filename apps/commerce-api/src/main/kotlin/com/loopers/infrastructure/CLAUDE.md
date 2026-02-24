@@ -48,23 +48,23 @@ class ProductEntity(
 `XxxRepositoryImpl.kt` 파일 **하나**에 JpaRepository 인터페이스와 구현체를 함께 선언한다.
 
 ```kotlin
-internal interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
+interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     fun findByIdAndDeletedAtIsNull(id: Long): ProductEntity?
 }
 
 @Repository
 class ProductRepositoryImpl(
-    private val jpa: ProductJpaRepository,
+    private val productJpaRepository: ProductJpaRepository,
 ) : ProductRepository {
     override fun findById(id: Long): Product? =
-        jpa.findByIdAndDeletedAtIsNull(id)?.toDomain()
+        productJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
     override fun save(product: Product): Product =
-        jpa.save(ProductEntity.fromDomain(product)).toDomain()
+        productJpaRepository.save(ProductEntity.fromDomain(product)).toDomain()
 }
 ```
 
-- `XxxJpaRepository`는 구현 세부사항 → `internal`로 외부 노출 차단.
 - 별도 `XxxJpaRepository.kt` 파일 생성 금지.
+- JpaRepository 변수명은 `xxxJpaRepository` 풀네임으로 작성한다.
 
 ## JPA 연관관계 전면 미사용
 
@@ -78,6 +78,7 @@ class ProductRepositoryImpl(
 JPA 연관관계 미사용이므로 Aggregate Root 저장 시 Service 계층에서 내부 컬렉션을 명시적으로 순회하며 개별 Repository를 직접 호출한다.
 
 ```kotlin
-orderRepository.save(order)
-order.items.forEach { orderItemRepository.save(it) }
+val savedOrder = orderRepository.save(order)
+order.assignOrderIdToItems(savedOrder.id)
+orderItemRepository.saveAll(order.items)
 ```

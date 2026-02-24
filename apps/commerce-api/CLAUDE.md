@@ -16,7 +16,7 @@ interfaces/  →  application/  →  domain/  ←  infrastructure/
 
 - **모든 Controller**: Controller → **UseCase** → Repository / Domain Service. 예외 없음. UseCase가 Repository를 직접 호출하는 것이
   기본이며, 원자적 얽힘이 있는 경우에만 Domain Service를 경유한다.
-- 인증: **AuthInterceptor** → `AuthenticateUserUseCase` → UserService
+- 인증: **AuthInterceptor** → `AuthenticateUserUseCase` → UserRepository
 - Controller는 Domain 객체(Command, VO, Enum, Service)를 절대 직접 참조하지 않는다.
 - Domain Enum은 도메인에 유지. Interfaces DTO에 API 전용 Enum을 선언하고 매핑.
 

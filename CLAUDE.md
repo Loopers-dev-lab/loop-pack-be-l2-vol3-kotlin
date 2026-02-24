@@ -7,6 +7,13 @@
 - 응답, 코드 주석, 커밋 메시지, 문서화: 한국어
 - 변수명/함수명/클래스명: 영어
 
+## 상호작용 규칙
+
+- **질문 vs 실행 구분**: 개념/설계/아키텍처 질문에는 코드 변경 없이 답변만 한다. 코드를 grep하거나 수정하지 않는다. 코드 수정은 "~해줘", "~수정해줘", "~구현해줘" 등 명시적 실행 요청이 있을 때만 수행한다
+- **수정 의도 확인**: 코드 수정/삭제 전 의도를 확인한다. 특히 어노테이션/검증 관련 변경은 ADD/REMOVE/MOVE 중 무엇인지, 어떤 파일(Controller? ApiSpec? Entity?)에 대한 것인지 반드시 확인 후 착수한다
+- **문서화된 규칙 준수**: CLAUDE.md에 문서화된 규칙은 non-negotiable이다. 'out of scope'로 무시하거나 건너뛰지 않는다. 규칙이 불합리하다고 판단되면 무시하지 말고 개발자에게 이의를 제기한다
+- **완료 전 검증 필수**: 작업 완료를 선언하기 전에 반드시 `./gradlew ktlintCheck test`를 실행하여 검증한다. 검증 없이 "완료했습니다"라고 말하지 않는다
+
 ## Commands
 
 ```bash
@@ -45,6 +52,14 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - `apps/commerce-api/src/main/kotlin/com/loopers/application/CLAUDE.md` — Facade, @Transactional, DTO 변환
 - `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/CLAUDE.md` — JPA Entity, 매핑, Repository 구현
 - `apps/commerce-api/src/main/kotlin/com/loopers/interfaces/CLAUDE.md` — Controller, ApiSpec, Dto, 인증
+
+## 기술 주의사항 (Kotlin / Spring / JPA)
+
+- **allOpen 플러그인**: `plugin.spring`은 `@Component`/`@Service` 등을 open하지만, `plugin.jpa`는 no-arg 생성자만 생성하고 allOpen은 아님. **`@Entity` 클래스는 final**이다. Kotlin의 protected/final 동작에 대해 주장하기 전에 반드시 allOpen 설정(`build.gradle.kts`)과 디컴파일 결과를 확인한다
+- **kapt**: Kotlin 2.0+과 비호환. QClass 생성에 kapt/KSP가 필요하며, IDE에서 인식 안 될 수 있으나 빌드는 정상 동작할 수 있다
+- **JPQL/NativeQuery 금지**: `@Query` 어노테이션을 사용한 JPQL이나 NativeQuery를 제안하지 않는다. QueryDSL(`JPAQueryFactory`) 또는 Spring Data JPA 메서드명 쿼리로 해결한다
+- **fetch join + paging 호환 불가**: N+1 문제 해결 시 fetch join과 paging을 동시에 사용하는 방안을 제안하지 않는다. `@BatchSize`, `@EntityGraph`, 별도 쿼리 분리 등 대안을 사용한다
+- **@Transactional 전파**: readOnly 속성의 전파 규칙, REQUIRES_NEW의 동작 방식을 정확히 이해하고 적용한다
 
 ## 테스트 패턴
 
@@ -148,4 +163,18 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - 브랜치: `main`에서 분기 (예: `feature/round2-design`)
 - 커밋 접두사: `feat:` | `refactor:` | `fix:` | `test:` | `docs:` | `chore:`
 - 커밋 상세 절차는 `/commit` 스킬 참고
+- 멀티 커밋 계획 파일이 있으면 자체 분석 루프 없이 해당 계획을 바로 실행한다 (`/commit-plan` 스킬 참고)
+- 로컬 전용 파일(review-plan.md, 개인 메모, .omc/ 하위 파일 등)은 staging 전 개발자에게 확인한다
 - PR 제목: `[N주차] 제출 내용`, 리뷰 포인트 필수 작성
+
+## 세션 관리
+
+- 장시간 세션보다 짧고 집중된 세션을 지향한다
+- 세션 종료 전 `/handoff` 스킬로 핸드오프 노트를 남길 수 있다
+- 다음 세션 시작 시 `.claude/handoff.md`가 있으면 읽고 이어서 작업한다
+
+## 애그리거트 캡슐화 원칙
+
+- 애그리거트 루트가 아닌 객체(Entity)의 상태 변경 메서드는 `@AggregateRootOnly`를 부착하여 외부 노출을 차단한다.
+- 루트 객체에서 해당 메서드를 호출할 때는 `@OptIn(AggregateRootOnly::class)`를 사용한다.
+- UseCase나 외부 Service에서 Opt-In을 통해 경고를 무시하고 자식 객체를 직접 조작하는 것을 엄격히 금지한다.

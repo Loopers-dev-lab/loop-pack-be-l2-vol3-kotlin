@@ -61,7 +61,7 @@ Controller는 Command를 직접 참조하지 않는다.
 
 | 클래스                     | 역할                             |
 |-------------------------|--------------------------------|
-| `PointPaymentProcessor` | 포인트 결제 — 잔고 차감 + 이력 생성의 원자적 보장 |
+| `PointDeductor`            | 포인트 결제 — 잔고 차감 + 이력 생성의 원자적 보장 |
 | `PointCharger`          | 포인트 충전 로직                      |
 
 **Domain Model은 절대적 순수성 유지. Domain Service만 Spring DI 타협 허용.**
@@ -69,6 +69,8 @@ Controller는 Command를 직접 참조하지 않는다.
 ## Aggregate Root
 
 - `Order`와 `OrderItem`은 하나의 Aggregate. `Order`가 Root.
+- `Order.create(userId, items: List<Pair<OrderProductInfo, Int>>)`가 OrderItem 생성과 totalPrice 계산을 내부에서 수행한다.
+- 저장 후 `order.assignOrderIdToItems(savedOrder.id)`로 FK를 할당한다.
 - 비즈니스 변경 진입점은 반드시 `Order`를 통한다 (예: `cancelItem()` → 내부에서 totalPrice 재계산).
 - `OrderItemRepository`는 UseCase 계층에서 직접 의존하여 사용할 수 있다. 단, 그 용도는 오직 Order 애그리거트를 DB에 저장(save)하거나 단순 조회(findById)할 때만
   허용되며, 비즈니스 로직을 우회하는 용도로는 절대 사용 불가하다.

@@ -1056,3 +1056,33 @@ Domain Model이 순수 POJO이므로 `@Converter` 부담 없이 모든 도메인
 - `fromDomain()`/`toDomain()` 매핑 보일러플레이트 증가
 - Domain Model과 JPA Entity의 필드 동기화 필요 (스키마 변경 시 양쪽 수정)
 - 초기 학습 비용: 두 객체의 역할 구분에 대한 팀 이해 필요
+
+---
+
+## 13. findItemsByOrders 중복과 CQRS 검토
+
+### 13.1 현상
+
+`GetOrdersUseCase`와 `GetOrdersAdminUseCase`에 동일한 `findItemsByOrders()` private 메서드가 중복되어 있다.
+
+```kotlin
+private fun findItemsByOrders(orders: List<Order>): Map<Long, List<OrderItem>> {
+    if (orders.isEmpty()) return emptyMap()
+    return orderItemRepository.findAllByOrderIds(orders.map { it.id })
+        .groupBy { it.refOrderId }
+}
+```
+
+### 13.2 중복 제거 선택지
+
+| 선택지 | 방법 | 장점 | 단점 |
+|-----|----|-----|-----|
+| A | 공통 유틸 함수 추출 | 단순, 즉시 적용 가능 | UseCase 간 결합 증가, 유틸 패키지 오염 |
+| B | OrderQueryService (Domain Service) | 도메인 언어로 표현 | 단순 조회를 위한 서비스는 빈 껍데기 |
+| C | CQRS 패턴 도입 | 조회 전용 모델로 근본 해결 | 변경 범위가 큼 |
+
+### 13.3 결정: 보류 (다음 라운드 재검토)
+
+현재 중복은 2곳이며, 로직이 단순하다 (3줄). 잘못된 추상화보다 약간의 중복이 낫다는 원칙에 따라 현행 유지한다.
+
+CQRS 도입 시 조회 전용 Read Model(예: `OrderSummaryView`)을 정의하면 `findItemsByOrders` 중복이 자연 해소되지만, 현재 프로젝트 규모에서는 오버엔지니어링이다. 주문 조회 요구사항이 복잡해지거나(필터, 정렬, 집계), 쓰기/읽기 성능 요구가 분리될 때 재검토한다.
