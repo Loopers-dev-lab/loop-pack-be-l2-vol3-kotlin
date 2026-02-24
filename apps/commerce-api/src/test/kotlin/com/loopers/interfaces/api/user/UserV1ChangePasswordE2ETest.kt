@@ -1,8 +1,6 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.interfaces.api.ApiResponse
-import com.loopers.infrastructure.user.UserEntity
-import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -19,8 +17,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.security.crypto.password.PasswordEncoder
-import java.time.LocalDate
 
 @DisplayName("PATCH /api/v1/users/me/password - 비밀번호 변경 E2E")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -28,11 +24,10 @@ class UserV1ChangePasswordE2ETest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,
-    private val userJpaRepository: UserJpaRepository,
-    private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
+        private const val SIGN_UP_ENDPOINT = "/api/v1/users"
         private const val CHANGE_PASSWORD_ENDPOINT = "/api/v1/users/me/password"
         private const val GET_ME_ENDPOINT = "/api/v1/users/me"
     }
@@ -42,22 +37,30 @@ constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun createUserInDb(
+    private fun signUpViaApi(
         loginId: String = "testuser1",
-        rawPassword: String = "Password1!",
+        password: String = "Password1!",
         name: String = "홍길동",
-        birthDate: LocalDate = LocalDate.of(1990, 1, 1),
+        birthDate: String = "1990-01-01",
         email: String = "test@example.com",
-    ): UserEntity {
-        return userJpaRepository.save(
-            UserEntity(
-                id = null,
-                loginId = loginId,
-                password = passwordEncoder.encode(rawPassword),
-                name = name,
-                birthDate = birthDate,
-                email = email,
-            ),
+    ) {
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_JSON
+        }
+        val body = """
+            {
+                "loginId": "$loginId",
+                "password": "$password",
+                "name": "$name",
+                "birthDate": "$birthDate",
+                "email": "$email"
+            }
+        """.trimIndent()
+        testRestTemplate.exchange(
+            SIGN_UP_ENDPOINT,
+            HttpMethod.POST,
+            HttpEntity(body, headers),
+            object : ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {},
         )
     }
 
@@ -99,7 +102,7 @@ constructor(
         @DisplayName("200 OK와 성공 메시지를 반환한다")
         fun changePassword_success_returns200() {
             // arrange
-            createUserInDb()
+            signUpViaApi()
 
             // act
             val response = testRestTemplate.exchange(
@@ -121,15 +124,18 @@ constructor(
         @DisplayName("변경 후 새 비밀번호로 인증이 성공한다 (AC-8)")
         fun changePassword_thenAuthWithNewPassword_succeeds() {
             // arrange
-            createUserInDb()
+            signUpViaApi()
 
             // act - 비밀번호 변경
-            testRestTemplate.exchange(
+            val changeResponse = testRestTemplate.exchange(
                 CHANGE_PASSWORD_ENDPOINT,
                 HttpMethod.PATCH,
                 changePasswordRequest("testuser1", "Password1!", "Password1!", "NewPassword1!"),
                 object : ParameterizedTypeReference<ApiResponse<UserV1Dto.ChangePasswordResponse>>() {},
             )
+
+            // assert - 변경 API 성공 확인
+            assertThat(changeResponse.statusCode).isEqualTo(HttpStatus.OK)
 
             // assert - 새 비밀번호로 내 정보 조회 성공
             val meResponse = testRestTemplate.exchange(
@@ -145,15 +151,18 @@ constructor(
         @DisplayName("변경 후 기존 비밀번호로 인증이 실패한다 (AC-9)")
         fun changePassword_thenAuthWithOldPassword_fails() {
             // arrange
-            createUserInDb()
+            signUpViaApi()
 
             // act - 비밀번호 변경
-            testRestTemplate.exchange(
+            val changeResponse = testRestTemplate.exchange(
                 CHANGE_PASSWORD_ENDPOINT,
                 HttpMethod.PATCH,
                 changePasswordRequest("testuser1", "Password1!", "Password1!", "NewPassword1!"),
                 object : ParameterizedTypeReference<ApiResponse<UserV1Dto.ChangePasswordResponse>>() {},
             )
+
+            // assert - 변경 API 성공 확인
+            assertThat(changeResponse.statusCode).isEqualTo(HttpStatus.OK)
 
             // assert - 기존 비밀번호로 내 정보 조회 실패
             val meResponse = testRestTemplate.exchange(
@@ -173,7 +182,7 @@ constructor(
         @DisplayName("400 Bad Request를 반환한다")
         fun changePassword_wrongCurrentPassword_returns400() {
             // arrange
-            createUserInDb()
+            signUpViaApi()
 
             // act
             val response = testRestTemplate.exchange(
@@ -195,7 +204,7 @@ constructor(
         @DisplayName("헤더 비밀번호가 틀리면 401 Unauthorized를 반환한다")
         fun changePassword_invalidHeaderPassword_returns401() {
             // arrange
-            createUserInDb()
+            signUpViaApi()
 
             // act
             val response = testRestTemplate.exchange(
