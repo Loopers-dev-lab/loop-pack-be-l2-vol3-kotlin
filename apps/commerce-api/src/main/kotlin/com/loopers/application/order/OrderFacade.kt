@@ -15,6 +15,7 @@ class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
+    private val stockLockManager: StockLockManager,
 ) {
 
     @Transactional(readOnly = true)
@@ -41,6 +42,11 @@ class OrderFacade(
         validateOrderItems(items)
 
         val productIds = items.map { it.productId }
+
+        // 재고 차감 동시성 제어: 락 획득 후 트랜잭션 커밋 시 자동 해제
+        stockLockManager.acquireLocksForTransaction(productIds)
+
+        // 락 획득 후 상품 재조회 (최신 재고 상태 보장)
         val products = productService.getProductsByIds(productIds)
         if (products.size != productIds.size) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
