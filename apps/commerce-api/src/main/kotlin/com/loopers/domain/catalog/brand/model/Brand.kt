@@ -6,8 +6,6 @@ import java.time.ZonedDateTime
 class Brand(
     val id: Long = 0,
     name: BrandName,
-    val createdAt: ZonedDateTime = ZonedDateTime.now(),
-    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
     deletedAt: ZonedDateTime? = null,
 ) {
 

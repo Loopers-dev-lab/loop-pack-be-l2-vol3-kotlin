@@ -18,8 +18,6 @@ class FakeBrandRepository : BrandRepository {
         val saved = Brand(
             id = sequence++,
             name = brand.name,
-            createdAt = brand.createdAt,
-            updatedAt = brand.updatedAt,
             deletedAt = brand.deletedAt,
         )
         brands.add(saved)

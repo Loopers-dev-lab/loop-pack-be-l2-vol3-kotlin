@@ -19,8 +19,6 @@ class BrandEntity(
         fun fromDomain(brand: Brand): BrandEntity {
             return BrandEntity(name = brand.name.value).withBaseFields(
                 id = brand.id,
-                createdAt = brand.createdAt,
-                updatedAt = brand.updatedAt,
                 deletedAt = brand.deletedAt,
             )
         }
@@ -29,8 +27,6 @@ class BrandEntity(
     fun toDomain(): Brand = Brand(
         id = id,
         name = BrandName(name),
-        createdAt = createdAt,
-        updatedAt = updatedAt,
         deletedAt = deletedAt,
     )
 }

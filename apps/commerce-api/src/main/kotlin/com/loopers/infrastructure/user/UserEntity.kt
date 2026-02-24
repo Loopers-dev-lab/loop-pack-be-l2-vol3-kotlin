@@ -40,8 +40,6 @@ class UserEntity(
                 email = user.email.value,
             ).withBaseFields(
                 id = user.id,
-                createdAt = user.createdAt,
-                updatedAt = user.updatedAt,
                 deletedAt = user.deletedAt,
             )
         }
@@ -54,8 +52,6 @@ class UserEntity(
         name = Name(name),
         birthDate = birthDate,
         email = Email(email),
-        createdAt = createdAt,
-        updatedAt = updatedAt,
         deletedAt = deletedAt,
     )
 }

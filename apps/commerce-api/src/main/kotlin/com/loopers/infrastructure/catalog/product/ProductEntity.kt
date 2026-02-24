@@ -45,8 +45,6 @@ class ProductEntity(
                 likeCount = product.likeCount,
             ).withBaseFields(
                 id = product.id,
-                createdAt = product.createdAt,
-                updatedAt = product.updatedAt,
                 deletedAt = product.deletedAt,
             )
         }
@@ -60,8 +58,6 @@ class ProductEntity(
         stock = stock,
         status = status,
         likeCount = likeCount,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
         deletedAt = deletedAt,
     )
 }

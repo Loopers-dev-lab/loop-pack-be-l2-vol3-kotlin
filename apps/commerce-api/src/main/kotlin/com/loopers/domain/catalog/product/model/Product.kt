@@ -12,8 +12,6 @@ class Product(
     stock: Int,
     status: ProductStatus? = null,
     likeCount: Int = 0,
-    val createdAt: ZonedDateTime = ZonedDateTime.now(),
-    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
     deletedAt: ZonedDateTime? = null,
 ) {
 

@@ -12,8 +12,6 @@ data class ProductInfo(
     val stock: Int,
     val likeCount: Int,
     val status: String,
-    val createdAt: ZonedDateTime,
-    val updatedAt: ZonedDateTime,
     val deletedAt: ZonedDateTime?,
 ) {
     companion object {
@@ -25,8 +23,6 @@ data class ProductInfo(
             stock = product.stock,
             likeCount = product.likeCount,
             status = product.status.name,
-            createdAt = product.createdAt,
-            updatedAt = product.updatedAt,
             deletedAt = product.deletedAt,
         )
     }

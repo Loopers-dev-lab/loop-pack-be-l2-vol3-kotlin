@@ -6,6 +6,7 @@ import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
@@ -16,8 +17,6 @@ class User(
     val name: Name,
     val birthDate: LocalDate,
     val email: Email,
-    val createdAt: ZonedDateTime = ZonedDateTime.now(),
-    val updatedAt: ZonedDateTime = ZonedDateTime.now(),
     deletedAt: ZonedDateTime? = null,
 ) {
 
@@ -64,7 +63,7 @@ class User(
 
         fun encodePassword(rawPassword: String): String {
             val bytes = rawPassword.toByteArray()
-            val md = java.security.MessageDigest.getInstance("SHA-256")
+            val md = MessageDigest.getInstance("SHA-256")
             val digest = md.digest(bytes)
             return digest.fold("") { str, it -> str + "%02x".format(it) }
         }

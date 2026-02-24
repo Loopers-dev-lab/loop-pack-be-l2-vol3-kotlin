@@ -7,8 +7,6 @@ class BrandAdminV1Dto {
     data class BrandAdminResponse(
         val id: Long,
         val name: String,
-        val createdAt: ZonedDateTime,
-        val updatedAt: ZonedDateTime,
         val deletedAt: ZonedDateTime?,
     ) {
         companion object {
@@ -16,8 +14,6 @@ class BrandAdminV1Dto {
                 return BrandAdminResponse(
                     id = info.id,
                     name = info.name,
-                    createdAt = info.createdAt,
-                    updatedAt = info.updatedAt,
                     deletedAt = info.deletedAt,
                 )
             }

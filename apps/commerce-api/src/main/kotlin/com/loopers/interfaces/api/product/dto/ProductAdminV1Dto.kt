@@ -35,8 +35,6 @@ class ProductAdminV1Dto {
         val stock: Int,
         val status: ProductStatusDto,
         val likeCount: Int,
-        val createdAt: ZonedDateTime,
-        val updatedAt: ZonedDateTime,
         val deletedAt: ZonedDateTime?,
     ) {
         companion object {
@@ -49,8 +47,6 @@ class ProductAdminV1Dto {
                     stock = info.stock,
                     status = ProductStatusDto.valueOf(info.status),
                     likeCount = info.likeCount,
-                    createdAt = info.createdAt,
-                    updatedAt = info.updatedAt,
                     deletedAt = info.deletedAt,
                 )
             }

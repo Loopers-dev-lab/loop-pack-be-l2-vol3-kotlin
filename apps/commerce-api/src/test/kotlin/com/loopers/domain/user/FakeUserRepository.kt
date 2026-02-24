@@ -21,8 +21,6 @@ class FakeUserRepository : UserRepository {
             name = user.name,
             birthDate = user.birthDate,
             email = user.email,
-            createdAt = user.createdAt,
-            updatedAt = user.updatedAt,
             deletedAt = user.deletedAt,
         )
         users.add(saved)
