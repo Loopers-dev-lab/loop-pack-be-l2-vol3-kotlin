@@ -12,22 +12,22 @@ interface UserJpaRepository : JpaRepository<UserEntity, Long> {
 
 @Repository
 class UserRepositoryImpl(
-    private val jpa: UserJpaRepository,
+    private val userJpaRepository: UserJpaRepository,
 ) : UserRepository {
 
     override fun save(user: User): User {
-        return jpa.save(UserEntity.fromDomain(user)).toDomain()
+        return userJpaRepository.save(UserEntity.fromDomain(user)).toDomain()
     }
 
     override fun findById(id: Long): User? {
-        return jpa.findById(id).orElse(null)?.toDomain()
+        return userJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findByLoginId(loginId: String): User? {
-        return jpa.findByLoginId(loginId)?.toDomain()
+        return userJpaRepository.findByLoginId(loginId)?.toDomain()
     }
 
     override fun existsByLoginId(loginId: String): Boolean {
-        return jpa.existsByLoginId(loginId)
+        return userJpaRepository.existsByLoginId(loginId)
     }
 }

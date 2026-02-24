@@ -21,21 +21,21 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
 
 @Repository
 class ProductRepositoryImpl(
-    private val jpa: ProductJpaRepository,
+    private val productJpaRepository: ProductJpaRepository,
     private val queryFactory: JPAQueryFactory,
 ) : ProductRepository {
 
     override fun save(product: Product): Product {
-        return jpa.save(ProductEntity.fromDomain(product)).toDomain()
+        return productJpaRepository.save(ProductEntity.fromDomain(product)).toDomain()
     }
 
     override fun findById(id: Long): Product? {
-        return jpa.findById(id).orElse(null)?.toDomain()
+        return productJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
         val pageable = PageRequest.of(page, size)
-        val result = jpa.findAll(pageable)
+        val result = productJpaRepository.findAll(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
@@ -71,18 +71,34 @@ class ProductRepositoryImpl(
     }
 
     override fun findAllByBrandId(brandId: Long): List<Product> {
-        return jpa.findAllByRefBrandId(brandId).map { it.toDomain() }
+        return productJpaRepository.findAllByRefBrandId(brandId).map { it.toDomain() }
     }
 
     override fun findAllByIds(ids: List<Long>): List<Product> {
-        return jpa.findAllById(ids).map { it.toDomain() }
+        return productJpaRepository.findAllById(ids).map { it.toDomain() }
     }
 
     override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
-        return jpa.findAllByIdInOrderByIdAsc(ids).map { it.toDomain() }
+        return productJpaRepository.findAllByIdInOrderByIdAsc(ids).map { it.toDomain() }
     }
 
     override fun saveAll(products: List<Product>): List<Product> {
-        return jpa.saveAll(products.map { ProductEntity.fromDomain(it) }).map { it.toDomain() }
+        return productJpaRepository.saveAll(products.map { ProductEntity.fromDomain(it) }).map { it.toDomain() }
+    }
+
+    override fun increaseLikeCount(productId: Long) {
+        val product = QProductEntity.productEntity
+        queryFactory.update(product)
+            .set(product.likeCount, product.likeCount.add(1))
+            .where(product.id.eq(productId))
+            .execute()
+    }
+
+    override fun decreaseLikeCount(productId: Long) {
+        val product = QProductEntity.productEntity
+        queryFactory.update(product)
+            .set(product.likeCount, product.likeCount.subtract(1))
+            .where(product.id.eq(productId).and(product.likeCount.gt(0)))
+            .execute()
     }
 }

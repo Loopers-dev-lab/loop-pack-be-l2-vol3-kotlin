@@ -2,6 +2,11 @@ package com.loopers.domain
 
 import java.time.ZonedDateTime
 
+private val idField = BaseEntity::class.java.getDeclaredField("id").apply { isAccessible = true }
+private val createdAtField = BaseEntity::class.java.getDeclaredField("createdAt").apply { isAccessible = true }
+private val updatedAtField = BaseEntity::class.java.getDeclaredField("updatedAt").apply { isAccessible = true }
+private val deletedAtField = BaseEntity::class.java.getDeclaredField("deletedAt").apply { isAccessible = true }
+
 fun <T : BaseEntity> T.withBaseFields(
     id: Long,
     createdAt: ZonedDateTime? = null,
@@ -9,17 +14,10 @@ fun <T : BaseEntity> T.withBaseFields(
     deletedAt: ZonedDateTime? = null,
 ): T = this.apply {
     if (id != 0L) {
-        val idField = BaseEntity::class.java.getDeclaredField("id").apply { isAccessible = true }
         idField.set(this, id)
-
-        val createdAtField = BaseEntity::class.java.getDeclaredField("createdAt").apply { isAccessible = true }
-        createdAtField.set(this, createdAt)
-
-        val updatedAtField = BaseEntity::class.java.getDeclaredField("updatedAt").apply { isAccessible = true }
-        updatedAtField.set(this, updatedAt)
+        val now = ZonedDateTime.now()
+        createdAtField.set(this, createdAt ?: now)
+        updatedAtField.set(this, updatedAt ?: now)
     }
-    deletedAt?.let {
-        val deletedAtField = BaseEntity::class.java.getDeclaredField("deletedAt").apply { isAccessible = true }
-        deletedAtField.set(this, it)
-    }
+    deletedAt?.let { deletedAtField.set(this, it) }
 }

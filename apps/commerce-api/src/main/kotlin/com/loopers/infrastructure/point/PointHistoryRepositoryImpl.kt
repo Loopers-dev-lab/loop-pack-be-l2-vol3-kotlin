@@ -11,14 +11,14 @@ interface PointHistoryJpaRepository : JpaRepository<PointHistoryEntity, Long> {
 
 @Repository
 class PointHistoryRepositoryImpl(
-    private val jpa: PointHistoryJpaRepository,
+    private val pointHistoryJpaRepository: PointHistoryJpaRepository,
 ) : PointHistoryRepository {
 
     override fun save(pointHistory: PointHistory): PointHistory {
-        return jpa.save(PointHistoryEntity.fromDomain(pointHistory)).toDomain()
+        return pointHistoryJpaRepository.save(PointHistoryEntity.fromDomain(pointHistory)).toDomain()
     }
 
     override fun findAllByUserPointId(userPointId: Long): List<PointHistory> {
-        return jpa.findAllByRefUserPointId(userPointId).map { it.toDomain() }
+        return pointHistoryJpaRepository.findAllByRefUserPointId(userPointId).map { it.toDomain() }
     }
 }

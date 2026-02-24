@@ -21,15 +21,15 @@ interface OrderJpaRepository : JpaRepository<OrderEntity, Long> {
 
 @Repository
 class OrderRepositoryImpl(
-    private val jpa: OrderJpaRepository,
+    private val orderJpaRepository: OrderJpaRepository,
 ) : OrderRepository {
 
     override fun save(order: Order): Order {
-        return jpa.save(OrderEntity.fromDomain(order)).toDomain()
+        return orderJpaRepository.save(OrderEntity.fromDomain(order)).toDomain()
     }
 
     override fun findById(id: Long): Order? {
-        return jpa.findById(id).orElse(null)?.toDomain()
+        return orderJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findAllByUserId(
@@ -40,13 +40,13 @@ class OrderRepositoryImpl(
         size: Int,
     ): PageResult<Order> {
         val pageable = PageRequest.of(page, size)
-        val result = jpa.findAllByRefUserIdAndCreatedAtBetween(userId, from, to, pageable)
+        val result = orderJpaRepository.findAllByRefUserIdAndCreatedAtBetween(userId, from, to, pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Order> {
         val pageable = PageRequest.of(page, size)
-        val result = jpa.findAll(pageable)
+        val result = orderJpaRepository.findAll(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 }

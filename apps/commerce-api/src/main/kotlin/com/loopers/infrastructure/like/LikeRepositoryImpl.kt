@@ -12,22 +12,22 @@ interface LikeJpaRepository : JpaRepository<LikeEntity, Long> {
 
 @Repository
 class LikeRepositoryImpl(
-    private val jpa: LikeJpaRepository,
+    private val likeJpaRepository: LikeJpaRepository,
 ) : LikeRepository {
 
     override fun save(like: Like): Like {
-        return jpa.save(LikeEntity.fromDomain(like)).toDomain()
+        return likeJpaRepository.save(LikeEntity.fromDomain(like)).toDomain()
     }
 
     override fun findByUserIdAndProductId(userId: Long, productId: Long): Like? {
-        return jpa.findByRefUserIdAndRefProductId(userId, productId)?.toDomain()
+        return likeJpaRepository.findByRefUserIdAndRefProductId(userId, productId)?.toDomain()
     }
 
     override fun delete(like: Like) {
-        jpa.deleteById(like.id)
+        likeJpaRepository.deleteById(like.id)
     }
 
     override fun findAllByUserId(userId: Long): List<Like> {
-        return jpa.findAllByRefUserIdOrderByIdDesc(userId).map { it.toDomain() }
+        return likeJpaRepository.findAllByRefUserIdOrderByIdDesc(userId).map { it.toDomain() }
     }
 }

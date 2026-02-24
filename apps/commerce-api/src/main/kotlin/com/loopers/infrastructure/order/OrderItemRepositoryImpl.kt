@@ -12,22 +12,22 @@ interface OrderItemJpaRepository : JpaRepository<OrderItemEntity, Long> {
 
 @Repository
 class OrderItemRepositoryImpl(
-    private val jpa: OrderItemJpaRepository,
+    private val orderItemJpaRepository: OrderItemJpaRepository,
 ) : OrderItemRepository {
 
     override fun save(orderItem: OrderItem): OrderItem {
-        return jpa.save(OrderItemEntity.fromDomain(orderItem)).toDomain()
+        return orderItemJpaRepository.save(OrderItemEntity.fromDomain(orderItem)).toDomain()
     }
 
     override fun saveAll(orderItems: List<OrderItem>): List<OrderItem> {
-        return jpa.saveAll(orderItems.map { OrderItemEntity.fromDomain(it) }).map { it.toDomain() }
+        return orderItemJpaRepository.saveAll(orderItems.map { OrderItemEntity.fromDomain(it) }).map { it.toDomain() }
     }
 
     override fun findAllByOrderId(orderId: Long): List<OrderItem> {
-        return jpa.findAllByRefOrderId(orderId).map { it.toDomain() }
+        return orderItemJpaRepository.findAllByRefOrderId(orderId).map { it.toDomain() }
     }
 
     override fun findAllByOrderIds(orderIds: List<Long>): List<OrderItem> {
-        return jpa.findAllByRefOrderIdIn(orderIds).map { it.toDomain() }
+        return orderItemJpaRepository.findAllByRefOrderIdIn(orderIds).map { it.toDomain() }
     }
 }

@@ -11,20 +11,20 @@ interface BrandJpaRepository : JpaRepository<BrandEntity, Long>
 
 @Repository
 class BrandRepositoryImpl(
-    private val jpa: BrandJpaRepository,
+    private val brandJpaRepository: BrandJpaRepository,
 ) : BrandRepository {
 
     override fun save(brand: Brand): Brand {
-        return jpa.save(BrandEntity.fromDomain(brand)).toDomain()
+        return brandJpaRepository.save(BrandEntity.fromDomain(brand)).toDomain()
     }
 
     override fun findById(id: Long): Brand? {
-        return jpa.findById(id).orElse(null)?.toDomain()
+        return brandJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Brand> {
         val pageable = PageRequest.of(page, size)
-        val result = jpa.findAll(pageable)
+        val result = brandJpaRepository.findAll(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 }

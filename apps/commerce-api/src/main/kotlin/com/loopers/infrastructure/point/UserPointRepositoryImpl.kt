@@ -16,22 +16,22 @@ interface UserPointJpaRepository : JpaRepository<UserPointEntity, Long> {
 
 @Repository
 class UserPointRepositoryImpl(
-    private val jpa: UserPointJpaRepository,
+    private val userPointJpaRepository: UserPointJpaRepository,
 ) : UserPointRepository {
 
     override fun save(userPoint: UserPoint): UserPoint {
-        return jpa.save(UserPointEntity.fromDomain(userPoint)).toDomain()
+        return userPointJpaRepository.save(UserPointEntity.fromDomain(userPoint)).toDomain()
     }
 
     override fun findById(id: Long): UserPoint? {
-        return jpa.findById(id).orElse(null)?.toDomain()
+        return userPointJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findByUserId(userId: Long): UserPoint? {
-        return jpa.findByRefUserId(userId)?.toDomain()
+        return userPointJpaRepository.findByRefUserId(userId)?.toDomain()
     }
 
     override fun findByUserIdForUpdate(userId: Long): UserPoint? {
-        return jpa.findFirstByRefUserId(userId)?.toDomain()
+        return userPointJpaRepository.findFirstByRefUserId(userId)?.toDomain()
     }
 }
