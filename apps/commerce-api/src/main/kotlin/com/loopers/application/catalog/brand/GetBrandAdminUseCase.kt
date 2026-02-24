@@ -7,14 +7,11 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class GetBrandUseCase(private val brandRepository: BrandRepository) {
+class GetBrandAdminUseCase(private val brandRepository: BrandRepository) {
     @Transactional(readOnly = true)
     fun execute(brandId: Long): BrandInfo {
         val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        if (brand.isDeleted()) {
-            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        }
         return BrandInfo.from(brand)
     }
 }

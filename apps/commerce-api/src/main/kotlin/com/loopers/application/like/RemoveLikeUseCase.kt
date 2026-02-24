@@ -23,8 +23,7 @@ class RemoveLikeUseCase(
         likeRepository.delete(existing)
 
         if (!product.isDeleted()) {
-            product.decreaseLikeCount()
-            productRepository.save(product)
+            productRepository.decreaseLikeCount(productId)
         }
     }
 }

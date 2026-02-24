@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.brand
 
 import com.loopers.application.catalog.brand.CreateBrandUseCase
 import com.loopers.application.catalog.brand.DeleteBrandUseCase
-import com.loopers.application.catalog.brand.GetBrandUseCase
+import com.loopers.application.catalog.brand.GetBrandAdminUseCase
 import com.loopers.application.catalog.brand.GetBrandsUseCase
 import com.loopers.application.catalog.brand.RestoreBrandUseCase
 import com.loopers.application.catalog.brand.UpdateBrandUseCase
@@ -29,7 +29,7 @@ class BrandAdminV1Controller(
     private val updateBrandUseCase: UpdateBrandUseCase,
     private val deleteBrandUseCase: DeleteBrandUseCase,
     private val restoreBrandUseCase: RestoreBrandUseCase,
-    private val getBrandUseCase: GetBrandUseCase,
+    private val getBrandAdminUseCase: GetBrandAdminUseCase,
     private val getBrandsUseCase: GetBrandsUseCase,
 ) : BrandAdminV1ApiSpec {
 
@@ -48,7 +48,7 @@ class BrandAdminV1Controller(
     override fun getBrand(
         @PathVariable brandId: Long,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
-        return getBrandUseCase.executeAdmin(brandId)
+        return getBrandAdminUseCase.execute(brandId)
             .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

@@ -34,8 +34,7 @@ class AddLikeUseCase(
         }
 
         if (added) {
-            product.increaseLikeCount()
-            productRepository.save(product)
+            productRepository.increaseLikeCount(productId)
         }
     }
 }

@@ -19,7 +19,7 @@ class BrandV1Controller(
     override fun getBrand(
         @PathVariable brandId: Long,
     ): ApiResponse<BrandV1Dto.BrandResponse> {
-        return getBrandUseCase.executeActive(brandId)
+        return getBrandUseCase.execute(brandId)
             .let { BrandV1Dto.BrandResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

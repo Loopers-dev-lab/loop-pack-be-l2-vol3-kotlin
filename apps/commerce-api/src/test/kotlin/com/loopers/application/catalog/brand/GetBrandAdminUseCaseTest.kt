@@ -12,49 +12,35 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
-class GetBrandUseCaseTest {
+class GetBrandAdminUseCaseTest {
 
     private lateinit var brandRepository: FakeBrandRepository
-    private lateinit var useCase: GetBrandUseCase
+    private lateinit var useCase: GetBrandAdminUseCase
 
     @BeforeEach
     fun setUp() {
         brandRepository = FakeBrandRepository()
-        useCase = GetBrandUseCase(brandRepository)
+        useCase = GetBrandAdminUseCase(brandRepository)
     }
 
     @Nested
-    @DisplayName("활성 브랜드 조회 시")
+    @DisplayName("어드민 브랜드 조회 시")
     inner class Execute {
 
         @Test
-        @DisplayName("활성 브랜드를 조회하면 반환된다")
-        fun execute_activeBrand_returns() {
-            // arrange
-            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
-
-            // act
-            val result = useCase.execute(brand.id)
-
-            // assert
-            assertThat(result.name).isEqualTo("나이키")
-        }
-
-        @Test
-        @DisplayName("삭제된 브랜드를 조회하면 NOT_FOUND 예외가 발생한다")
-        fun execute_deletedBrand_throwsNotFound() {
+        @DisplayName("삭제 포함하여 브랜드를 조회한다")
+        fun execute_includesDeleted() {
             // arrange
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             brand.delete()
             brandRepository.save(brand)
 
             // act
-            val exception = assertThrows<CoreException> {
-                useCase.execute(brand.id)
-            }
+            val result = useCase.execute(brand.id)
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(result.name).isEqualTo("나이키")
+            assertThat(result.deletedAt).isNotNull()
         }
 
         @Test

@@ -66,5 +66,28 @@ class DeleteBrandUseCaseTest {
             // act & assert
             useCase.execute(brand.id)
         }
+
+        @Test
+        @DisplayName("이미 삭제된 브랜드를 다시 삭제하면 소속 상품이 재처리되지 않는다")
+        fun deleteBrand_alreadyDeleted_doesNotReprocessProducts() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스", price = Money(BigDecimal("129000")), stock = 10),
+            )
+            useCase.execute(brand.id)
+
+            // 삭제된 상품을 복구
+            val deletedProduct = productRepository.findById(product.id)!!
+            deletedProduct.restore()
+            productRepository.save(deletedProduct)
+
+            // act — 이미 삭제된 브랜드를 다시 삭제
+            useCase.execute(brand.id)
+
+            // assert — 상품이 재처리되지 않으므로 복구된 상태 유지
+            val found = productRepository.findById(product.id)!!
+            assertThat(found.deletedAt).isNull()
+        }
     }
 }
