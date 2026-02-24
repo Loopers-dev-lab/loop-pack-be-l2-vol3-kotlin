@@ -1,3 +1,8 @@
+---
+name: tdd
+description: TDD 방식으로 개발할 때 아래 워크플로우와 테스트 규칙을 따르세요.
+---
+
 TDD 방식으로 개발할 때 아래 워크플로우와 테스트 규칙을 따르세요.
 
 ## TDD (Red > Green > Refactor)

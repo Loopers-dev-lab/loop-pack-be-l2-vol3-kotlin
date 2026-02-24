@@ -1,3 +1,8 @@
+---
+name: performance
+description: 성능 최적화 작업 시 아래 가이드를 적용하세요.
+---
+
 성능 최적화 작업 시 아래 가이드를 적용하세요.
 
 ## JPA/Hibernate

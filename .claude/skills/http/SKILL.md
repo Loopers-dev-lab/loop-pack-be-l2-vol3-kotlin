@@ -1,3 +1,8 @@
+---
+name: http
+description: 개발 완료된 API의 .http 테스트 파일을 생성합니다.
+---
+
 개발 완료된 API의 .http 테스트 파일을 생성합니다.
 
 대상 Controller의 엔드포인트를 분석한 후, 아래 규칙에 맞게 .http 파일을 생성하세요.

@@ -1,3 +1,8 @@
+---
+name: swagger
+description: API 문서화 작업 시 아래 Swagger 규칙을 적용하세요.
+---
+
 API 문서화 작업 시 아래 Swagger 규칙을 적용하세요.
 
 > 참고 구현: `MemberV1Controller.kt`, `MemberV1Dto.kt`

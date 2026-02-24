@@ -1,3 +1,8 @@
+---
+name: domain-modeling
+description: 도메인 모델링 시 아래 규칙을 따르세요.
+---
+
 도메인 모델링 시 아래 규칙을 따르세요.
 
 ## 핵심 원칙
