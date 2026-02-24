@@ -102,11 +102,11 @@ docker compose -f docker/monitoring-compose.yml up -d
 ### Naming Rules
 
 - **Info**: `{Domain}Info` — application 레이어 반환 DTO
-- **Domain Model**: `{Domain}` — private constructor + companion object factory method (예: `Example`)
-- **Entity**: `{Domain}Entity extends BaseEntity` — infrastructure 레이어 (예: `ExampleEntity`)
-- **Repository Interface**: `{Domain}Repository` — domain 레이어 (예: `ExampleRepository`)
-- **Repository Impl**: `{Domain}RepositoryImpl` — infrastructure 레이어 (예: `ExampleRepositoryImpl`)
-- **JPA Repository**: `{Domain}JpaRepository` — infrastructure 레이어 (예: `ExampleJpaRepository`)
+- **Domain Model**: `{Domain}` — private constructor + companion object factory method (예: `User`)
+- **Entity**: `{Domain}Entity extends BaseEntity` — infrastructure 레이어 (예: `UserEntity`)
+- **Repository Interface**: `{Domain}Repository` — domain 레이어 (예: `UserRepository`)
+- **Repository Impl**: `{Domain}RepositoryImpl` — infrastructure 레이어 (예: `UserRepositoryImpl`)
+- **JPA Repository**: `{Domain}JpaRepository` — infrastructure 레이어 (예: `UserJpaRepository`)
 > API 전용 네이밍(Controller, ApiSpec, DTO, 버전 관리)은 `apps/commerce-api/AGENTS.md` 참조
 
 ## Build & Test

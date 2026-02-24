@@ -38,29 +38,31 @@ Example: `com.loopers.domain.user`, `com.loopers.infrastructure.user`
 
 ## Naming Rules (API-Specific)
 
-- **Controller**: `{Domain}V{Version}Controller` implements `{Domain}V{Version}ApiSpec` (예: `ExampleV1Controller`)
+- **Controller**: `{Domain}V{Version}Controller` implements `{Domain}V{Version}ApiSpec` (예: `UserV1Controller`)
 - **ApiSpec**: `{Domain}V{Version}ApiSpec` — Swagger 어노테이션 분리용 인터페이스
-- **DTO**: `{Domain}V{Version}Dto` container + inner class (예: `ExampleV1Dto.ExampleResponse`)
+- **DTO**: `{Domain}V{Version}Dto` container + inner class (예: `UserV1Dto.SignUpResponse`)
 - **버전 관리**: 클래스명에 V{Version} 포함, 패키지 경로에는 버전 없음
 
-## 패턴 레퍼런스 (Example 코드)
+## 패턴 레퍼런스
 
 새로운 도메인 구현 시 아래 파일들의 패턴을 따른다 (경로는 `apps/commerce-api` 기준):
 
-| 패턴                   | 참조 파일                                                                                             |
-|----------------------|---------------------------------------------------------------------------------------------------|
-| Controller + ApiSpec | `src/main/kotlin/com/loopers/interfaces/api/example/ExampleV1Controller.kt`, `ExampleV1ApiSpec.kt` |
-| DTO (Response)       | `src/main/kotlin/com/loopers/interfaces/api/example/ExampleV1Dto.kt`                              |
-| Domain Service       | `src/main/kotlin/com/loopers/domain/user/UserService.kt`                                          |
-| Facade               | `src/main/kotlin/com/loopers/application/user/UserFacade.kt`                                      |
-| Port Interface       | `src/main/kotlin/com/loopers/domain/user/UserPasswordHasher.kt`                                   |
-| Info DTO             | `src/main/kotlin/com/loopers/application/example/ExampleInfo.kt`                                  |
-| Domain Model         | `src/main/kotlin/com/loopers/domain/example/Example.kt`                                           |
-| Repository Interface | `src/main/kotlin/com/loopers/domain/example/ExampleRepository.kt`                                 |
-| Entity               | `src/main/kotlin/com/loopers/infrastructure/example/ExampleEntity.kt`                             |
-| Repository Impl      | `src/main/kotlin/com/loopers/infrastructure/example/ExampleRepositoryImpl.kt`                     |
-| Unit Test (Domain)   | `src/test/kotlin/com/loopers/domain/user/UserTest.kt`                                             |
-| Unit Test (Service)  | `src/test/kotlin/com/loopers/domain/user/UserServiceTest.kt`                                      |
-| Unit Test (Facade)   | `src/test/kotlin/com/loopers/application/user/UserFacadeTest.kt`                                  |
-| Integration Test     | `src/test/kotlin/com/loopers/infrastructure/user/UserRepositoryIntegrationTest.kt`                |
-| E2E Test             | `src/test/kotlin/com/loopers/interfaces/api/user/UserV1SignUpE2ETest.kt`                          |
+| 패턴                   | 참조 파일                                                                                       |
+|----------------------|---------------------------------------------------------------------------------------------|
+| Controller + ApiSpec | `src/main/kotlin/com/loopers/interfaces/api/user/UserV1Controller.kt`, `UserV1ApiSpec.kt`   |
+| DTO                  | `src/main/kotlin/com/loopers/interfaces/api/user/UserV1Dto.kt`                              |
+| Domain Service       | `src/main/kotlin/com/loopers/domain/user/UserService.kt`                                    |
+| Facade               | `src/main/kotlin/com/loopers/application/user/UserFacade.kt`                                |
+| Port Interface       | `src/main/kotlin/com/loopers/domain/user/UserPasswordHasher.kt`                             |
+| Info DTO             | `src/main/kotlin/com/loopers/application/user/UserInfo.kt`                                  |
+| Command              | `src/main/kotlin/com/loopers/application/user/model/UserSignUpCommand.kt`                   |
+| Domain Model         | `src/main/kotlin/com/loopers/domain/user/User.kt`                                          |
+| Repository Interface | `src/main/kotlin/com/loopers/domain/user/UserRepository.kt`                                 |
+| Entity               | `src/main/kotlin/com/loopers/infrastructure/user/UserEntity.kt`                             |
+| Repository Impl      | `src/main/kotlin/com/loopers/infrastructure/user/UserRepositoryImpl.kt`                     |
+| JPA Repository       | `src/main/kotlin/com/loopers/infrastructure/user/UserJpaRepository.kt`                      |
+| Unit Test (Domain)   | `src/test/kotlin/com/loopers/domain/user/UserTest.kt`                                      |
+| Unit Test (Service)  | `src/test/kotlin/com/loopers/domain/user/UserServiceTest.kt`                                |
+| Unit Test (Facade)   | `src/test/kotlin/com/loopers/application/user/UserFacadeTest.kt`                            |
+| Integration Test     | `src/test/kotlin/com/loopers/infrastructure/user/UserRepositoryIntegrationTest.kt`          |
+| E2E Test             | `src/test/kotlin/com/loopers/interfaces/api/user/UserV1SignUpE2ETest.kt`                    |
