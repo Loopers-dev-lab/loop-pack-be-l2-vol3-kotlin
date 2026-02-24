@@ -7,6 +7,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.MappedSuperclass
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
+import org.hibernate.Hibernate
 import java.time.ZonedDateTime
 
 /**
@@ -74,4 +75,13 @@ abstract class BaseEntity {
     fun restore() {
         deletedAt?.let { deletedAt = null }
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || Hibernate.getClass(this) != Hibernate.getClass(other)) return false
+        other as BaseEntity
+        return id != null && id == other.id
+    }
+
+    override fun hashCode(): Int = Hibernate.getClass(this).hashCode()
 }
