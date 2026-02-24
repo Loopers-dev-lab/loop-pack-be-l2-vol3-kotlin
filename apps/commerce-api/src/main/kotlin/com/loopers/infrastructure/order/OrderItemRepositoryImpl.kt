@@ -14,6 +14,6 @@ class OrderItemRepositoryImpl(
     }
 
     override fun findByOrderId(orderId: Long): List<OrderItem> {
-        return orderItemJpaRepository.findByOrderId(orderId)
+        return orderItemJpaRepository.findByOrderIdAndDeletedAtIsNull(orderId)
     }
 }
