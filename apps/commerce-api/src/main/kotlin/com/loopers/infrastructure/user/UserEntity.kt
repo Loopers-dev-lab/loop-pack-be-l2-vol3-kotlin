@@ -10,7 +10,7 @@ import java.time.LocalDate
 @Table(name = "users")
 @Entity
 class UserEntity(
-    id: Long?,
+    id: Long? = null,
     @Column(nullable = false, unique = true)
     val loginId: String,
     @Column(nullable = false)
@@ -22,6 +22,7 @@ class UserEntity(
     @Column(nullable = false)
     val email: String,
 ) : BaseEntity() {
+
     init {
         this.id = id
     }

@@ -10,7 +10,7 @@ import jakarta.persistence.Table
 @Table(name = "example")
 @Entity
 class ExampleEntity(
-    id: Long?,
+    id: Long? = null,
     val name: String,
     val description: String,
 ) : BaseEntity() {
@@ -26,6 +26,6 @@ class ExampleEntity(
     }
 
     fun toEntity(domain: Example): ExampleEntity {
-        return ExampleEntity(domain.id, domain.name, domain.description)
+        return ExampleEntity(id = domain.id, name = domain.name, description = domain.description)
     }
 }
