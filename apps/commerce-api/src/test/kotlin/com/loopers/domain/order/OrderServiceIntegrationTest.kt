@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import org.junit.jupiter.api.assertThrows
 import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDateTime
 
@@ -223,6 +226,52 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(result).isEmpty()
+        }
+    }
+
+    @DisplayName("주문을 단건 조회할 때,")
+    @Nested
+    inner class GetOrder {
+
+        @DisplayName("DB에서 주문을 조회한다.")
+        @Test
+        fun returnsOrderFromDatabase() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(
+                OrderItemCommand(
+                    productId = product.id,
+                    quantity = 2,
+                    productName = product.name,
+                    productPrice = product.price,
+                    brandName = brand.name,
+                ),
+            )
+            val createdOrder = orderService.createOrder(1L, items)
+
+            // act
+            val result = orderService.getOrder(createdOrder.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(createdOrder.id) },
+                { assertThat(result.userId).isEqualTo(1L) },
+                { assertThat(result.totalAmount).isEqualTo(318000L) },
+                { assertThat(result.status).isEqualTo(OrderStatus.ORDERED) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 주문이면, NOT_FOUND 예외를 던진다.")
+        @Test
+        fun throwsNotFound_whenOrderDoesNotExist() {
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrder(999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }

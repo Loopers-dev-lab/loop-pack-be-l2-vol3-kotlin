@@ -15,6 +15,9 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.capture
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import org.junit.jupiter.api.assertThrows
 import java.time.LocalDateTime
 
 @ExtendWith(MockitoExtension::class)
@@ -164,6 +167,47 @@ class OrderServiceTest {
             // assert
             assertThat(result).hasSize(1)
             verify(orderRepository).findByUserIdAndCreatedAtBetween(userId, startAt, endAt)
+        }
+    }
+
+    @DisplayName("주문을 단건 조회할 때,")
+    @Nested
+    inner class GetOrder {
+
+        @DisplayName("존재하는 주문이면, 주문을 반환한다.")
+        @Test
+        fun returnsOrder_whenOrderExists() {
+            // arrange
+            val orderId = 1L
+            val expectedOrder = Order(userId = 1L, totalAmount = 318000L)
+            whenever(orderRepository.findById(orderId)).thenReturn(expectedOrder)
+
+            // act
+            val result = orderService.getOrder(orderId)
+
+            // assert
+            assertAll(
+                { assertThat(result.userId).isEqualTo(1L) },
+                { assertThat(result.totalAmount).isEqualTo(318000L) },
+                { assertThat(result.status).isEqualTo(OrderStatus.ORDERED) },
+            )
+            verify(orderRepository).findById(orderId)
+        }
+
+        @DisplayName("존재하지 않는 주문이면, NOT_FOUND 예외를 던진다.")
+        @Test
+        fun throwsNotFound_whenOrderDoesNotExist() {
+            // arrange
+            val orderId = 999L
+            whenever(orderRepository.findById(orderId)).thenReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrder(orderId)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }
