@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.time.LocalDateTime
 
 @SpringBootTest
 class OrderServiceIntegrationTest @Autowired constructor(
@@ -133,6 +134,95 @@ class OrderServiceIntegrationTest @Autowired constructor(
             assertThat(savedItems).hasSize(2)
             // 159000 * 2 + 139000 * 1 = 457000
             assertThat(order.totalAmount).isEqualTo(457000L)
+        }
+    }
+
+    @DisplayName("주문 목록을 조회할 때,")
+    @Nested
+    inner class GetOrders {
+
+        @DisplayName("해당 유저의 기간 내 주문만 반환한다.")
+        @Test
+        fun returnsOrdersWithinPeriod() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(
+                OrderItemCommand(
+                    productId = product.id,
+                    quantity = 2,
+                    productName = product.name,
+                    productPrice = product.price,
+                    brandName = brand.name,
+                ),
+            )
+            orderService.createOrder(1L, items)
+
+            val startAt = LocalDateTime.now().minusDays(1)
+            val endAt = LocalDateTime.now().plusDays(1)
+
+            // act
+            val result = orderService.getOrders(1L, startAt, endAt)
+
+            // assert
+            assertThat(result).hasSize(1)
+            assertThat(result[0].userId).isEqualTo(1L)
+        }
+
+        @DisplayName("다른 유저의 주문은 반환하지 않는다.")
+        @Test
+        fun doesNotReturnOtherUsersOrders() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(
+                OrderItemCommand(
+                    productId = product.id,
+                    quantity = 1,
+                    productName = product.name,
+                    productPrice = product.price,
+                    brandName = brand.name,
+                ),
+            )
+            orderService.createOrder(1L, items)
+            orderService.createOrder(2L, items)
+
+            val startAt = LocalDateTime.now().minusDays(1)
+            val endAt = LocalDateTime.now().plusDays(1)
+
+            // act
+            val result = orderService.getOrders(1L, startAt, endAt)
+
+            // assert
+            assertThat(result).hasSize(1)
+            assertThat(result[0].userId).isEqualTo(1L)
+        }
+
+        @DisplayName("기간 외 주문은 반환하지 않는다.")
+        @Test
+        fun doesNotReturnOrdersOutsidePeriod() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(
+                OrderItemCommand(
+                    productId = product.id,
+                    quantity = 1,
+                    productName = product.name,
+                    productPrice = product.price,
+                    brandName = brand.name,
+                ),
+            )
+            orderService.createOrder(1L, items)
+
+            val startAt = LocalDateTime.now().minusDays(30)
+            val endAt = LocalDateTime.now().minusDays(29)
+
+            // act
+            val result = orderService.getOrders(1L, startAt, endAt)
+
+            // assert
+            assertThat(result).isEmpty()
         }
     }
 }

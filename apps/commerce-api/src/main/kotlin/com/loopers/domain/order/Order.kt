@@ -7,10 +7,14 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 
 @Entity
-@Table(name = "orders")
+@Table(
+    name = "orders",
+    indexes = [Index(name = "idx_orders_user_created", columnList = "user_id, created_at")],
+)
 class Order(
     userId: Long,
     totalAmount: Long,
