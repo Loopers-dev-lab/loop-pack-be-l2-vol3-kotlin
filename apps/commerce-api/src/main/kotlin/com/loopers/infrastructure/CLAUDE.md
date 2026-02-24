@@ -31,6 +31,7 @@ class ProductEntity(
             return entity
         }
     }
+
     fun toDomain(): Product = Product.fromPersistence(
         id = id, name = name, price = Money(price), // ...
     )

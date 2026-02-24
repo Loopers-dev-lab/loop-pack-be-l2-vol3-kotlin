@@ -1,6 +1,6 @@
 # Interfaces 레이어
 
-API 진입점. Controller → Dto 변환 → Service/Facade 호출.
+API 진입점. Controller → Dto 변환 → UseCase 호출.
 
 ## Controller
 
@@ -14,9 +14,9 @@ API 진입점. Controller → Dto 변환 → Service/Facade 호출.
 - Request Dto → Command 변환은 Controller에서 수행
 - Response Dto ← Domain Model 변환은 Controller에서 수행
 
-## 계층 뛰어넘기 허용
+## 계층 건너뛰기 금지
 
-단일 도메인이면 Controller → Domain Service 직접 호출 (Facade 생략 가능).
+- 모든 요청은 예외 없이 UseCase를 통과해야 한다.
 
 ## 인증
 

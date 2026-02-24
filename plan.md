@@ -1,275 +1,455 @@
-# Round 3 — Architecture Migration & Quality Improvement
+# 통합 코드 리뷰 반영 Plan
 
-## 개요
+## Context
 
-핵심 목표: **Domain Model과 JPA Entity의 완벽 분리**.
-현재 Domain Model이 JPA Entity를 겸하는 구조를 순수 POJO(Domain)와 JPA Entity(Infrastructure)로 분리한다.
-Value Object를 적극 도입하고, Facade를 UseCase 패턴으로 전환한다.
-아키텍처 마이그레이션(Phase 0) 완료 후, 새 구조 위에서 버그 수정과 테스트를 추가한다(Phase 1).
+Architect + Quality Reviewer + Gemini 통합 리뷰 결과 18개 항목에 대한 개발자 의사결정을 반영한다.
+핵심 변경: (1) Order Aggregate Root 패턴 강화, (2) Point VO 통합 + 네이밍 개선, (3) Like 동시성 해결, (4) UseCase 분리/정리, (5) 버그 수정.
 
-### 설계 원칙
+## 범위 요약
 
-- **Tidy First**: 구조적 변경(Phase 0)을 행위적 변경(Phase 1)보다 먼저 수행
-- **기존 테스트가 안전망**: 각 리팩토링 단계 후 기존 테스트 전체 통과 검증
-- **도메인별 순차 마이그레이션**: 한 도메인씩 분리하여 리스크 최소화
+| # | 항목 | 분류 |
+|---|------|------|
+| 1 | likeCount 동시성 — findByIdForUpdate | 버그 |
+| 3 | UpdateProductUseCase valueOf → BAD_REQUEST | 버그 |
+| 4 | GetBrandUseCase → GetBrandUseCase + GetBrandAdminUseCase 분리 | 구조 |
+| 5 | findItemsByOrders CQRS → round3-decisions.md 기록 | 문서 |
+| 6 | 조회 UseCase @Transactional(readOnly=true) 추가 (7개) | 구조 |
+| 8 | JpaRepository internal 키워드 (8개) | 구조 |
+| 9 | LikeFacadeTest → LikeUseCaseTest 리네이밍 | 구조 |
+| 10 | Order Aggregate Root — Order.create가 items 생성 + totalPrice 계산, items 필드 보유 | 구조 |
+| 11 | RegisterUserUseCase DataIntegrityViolationException 처리 | 버그 |
+| 12 | `!!` 연산자 제거 (PlaceOrderUseCase — CP2에서 자연 해소) | 구조 |
+| 13 | ChargePointUseCaseTest 추가 | 테스트 |
+| 14 | DeleteBrandUseCase 이미 삭제된 브랜드 가드 | 버그 |
+| 15 | 도메인 모델 정리 — Like/PointHistory val, guard() 인라인, PointHistory amount→Point | 구조 |
+| 16 | Point VO 통합 — PointCharger/UserPoint Point 파라미터, PointPaymentProcessor→PointPayer | 구조 |
+| 7 | CLAUDE.md 문서 동기화 | 문서 |
 
-### 마이그레이션 패턴 (모든 도메인 공통)
-
-1. Domain Model → 순수 POJO (JPA 애노테이션 제거, BaseEntity 상속 해제, VO 적용)
-2. XxxEntity 생성 (infrastructure, BaseEntity 상속, `fromDomain()`/`toDomain()` 매핑)
-3. XxxRepositoryImpl에 XxxJpaRepository `internal interface`로 통합 + Entity 매핑 적용
-4. 별도 XxxJpaRepository.kt 파일 삭제
-5. FakeXxxRepository 업데이트 (순수 Domain Model 저장, id 할당 로직 조정)
-6. Service/Command/Controller/Dto 수정
-
-### 설계 결정
-
-| 결정               | 선택                        | 근거                                                                     |
-|------------------|---------------------------|------------------------------------------------------------------------|
-| 가격 VO 네이밍        | `Money` (`domain.common`) | 범용적 금액 표현. Product, OrderItem, OrderProductInfo 공유                     |
-| VO 선언 방식         | `@JvmInline value class`  | 단일 값 래핑 + 타입 안전성. Money, Email, LoginId, Name, BrandName, Stock, Point |
-| Password VO      | 일반 `class` 유지             | 생성자에 `birthDate` 의존 → `@JvmInline` 불가                                  |
-| Domain Model 패키지 | `domain/xxx/entity/` 유지   | DDD Entity ≠ JPA Entity. 기존 import 경로 변경 최소화                           |
-| Facade → UseCase | 단일 책임 UseCase 클래스         | Facade 해체 → RegisterUserUseCase, PlaceOrderUseCase 등                   |
+스킵: #2(중복 productId — 의도된 설계), #17(ProductEntity.status — 문제없음), #18(LikeEntity BaseEntity — 의도됨)
 
 ---
 
-## Phase 0: Architecture Migration
+## CP1: Point 도메인 리팩토링 (Structural)
 
-### CP0-1: 공통 기반 준비 — Value Object 생성/전환
+모든 테스트가 통과하는 상태에서 구조만 변경. 기존 테스트를 새 시그니처에 맞춰 수정.
 
-**신규 생성:**
+### 1-1. Like 도메인 모델 — 불변 필드 전환
 
-- [x] [REFACTOR] `Money` VO 생성 (`domain/common/Money.kt`, `@JvmInline value class`, `BigDecimal` 래핑, 음수 검증)
-- [x] [REFACTOR] `Email` VO 생성 (`domain/user/vo/Email.kt`, `@JvmInline value class`, 정규식 검증)
-- [x] [REFACTOR] `BrandName` VO 생성 (`domain/catalog/brand/vo/BrandName.kt`, `@JvmInline value class`, 빈 문자열 검증)
+**파일**: `domain/like/model/Like.kt`
 
-**기존 VO → `@JvmInline value class` 전환:**
+- `var refUserId private set` → `val refUserId`
+- `var refProductId private set` → `val refProductId`
+- 생성 후 절대 변경되지 않으므로 val이 정확
 
-- [x] [REFACTOR] `LoginId` → `@JvmInline value class` 전환 (기존 정규식 검증 유지)
-- [x] [REFACTOR] `Name` → `@JvmInline value class` 전환 (`masked()` 메서드 유지)
-- [x] [REFACTOR] `Stock` → `@JvmInline value class` 전환 (`decrease()`/`increase()` 메서드 유지)
-- [x] [REFACTOR] `Point` → `@JvmInline value class` 전환 (`plus()`/`minus()` 메서드 유지)
+### 1-2. PointHistory — 불변 필드 + Point VO
 
---- checkpoint: VO 생성/전환 완료. 기존 코드에 미적용 상태이므로 빌드 영향 없음. ---
+**파일**: `domain/point/model/PointHistory.kt`
 
-### CP0-2: Catalog 도메인 분리 (Brand + Product)
+- 모든 `var ... private set` → `val` (refUserPointId, type, amount, refOrderId)
+- `amount: Long` → `amount: Point` 타입 변경
+- init 블록: `if (amount.value <= 0)` 으로 검증 유지 (Point는 >= 0 허용이므로 > 0 체크 필요)
 
-**Brand:**
+**파일**: `infrastructure/point/PointHistoryEntity.kt`
+- `fromDomain`: `amount = pointHistory.amount.value`
+- `toDomain`: `amount = Point(amount)`
 
-- [x] [REFACTOR] Brand Domain Model → 순수 POJO (JPA 애노테이션 제거, BaseEntity 상속 해제, `BrandName` VO 적용)
-- [x] [REFACTOR] `BrandEntity` 생성 (`infrastructure/catalog/brand/`, BaseEntity 상속, `fromDomain()`/`toDomain()`)
-- [x] [REFACTOR] `BrandRepositoryImpl`에 `BrandJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `BrandJpaRepository.kt` 삭제
-- [x] [REFACTOR] `FakeBrandRepository` 업데이트
+**파일**: `domain/point/PointCharger.kt` — PointHistory 생성부 `amount = Point(amount)` 로 변경
+**파일**: `domain/point/PointPaymentProcessor.kt` — PointHistory 생성부 동일 변경
 
-**Product:**
+**테스트**: `PointHistoryTest.kt` — Point VO 생성자 사용하도록 수정
 
-- [x] [REFACTOR] Product Domain Model → 순수 POJO (JPA 제거, `Money` VO 적용, `Stock` VO 유지)
-- [x] [REFACTOR] `ProductEntity` 생성 (`infrastructure/catalog/product/`, BaseEntity 상속, `fromDomain()`/`toDomain()`,
-  `Money`↔`BigDecimal` 매핑)
-- [x] [REFACTOR] `ProductRepositoryImpl`에 `ProductJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `ProductJpaRepository.kt` 삭제
-- [x] [REFACTOR] `FakeProductRepository` 업데이트
+### 1-3. UserPoint — guard() 인라인 + Point 파라미터
 
-**연쇄 수정:**
+**파일**: `domain/point/model/UserPoint.kt`
 
-- [x] [REFACTOR] `CatalogService` 수정 (VO 타입 대응, 명시적 save 추가)
-- [x] [REFACTOR] `CatalogCommand` 수정 (`Money`/`BrandName` 타입 적용)
-- [x] [REFACTOR] Catalog Controller/Dto 수정 (VO↔원시타입 변환)
+- `guard()` 메서드 삭제, `init { Point(balance) }` 로 인라인
+- `fun charge(amount: Long)` → `fun charge(amount: Point)`
+    - 내부: `amount.value <= 0` 검증 제거 (Point가 >= 0 보장, 0 체크만 추가)
+    - `Point(balance).plus(amount).value` 로 계산
+- `fun use(amount: Long)` → `fun use(amount: Point)`
+    - 동일 패턴으로 변경
+- `fun canAfford(amount: Long)` → `fun canAfford(amount: Point)`
 
---- checkpoint: Catalog 도메인 분리 완료. ktlintCheck + test 검수 ---
+**테스트**: `UserPointTest.kt` — 모든 charge/use/canAfford 호출을 `Point(값)` 으로 변경
 
-### CP0-3: User 도메인 분리
+### 1-4. PointCharger — Point 파라미터 + 이중 검증 제거
 
-- [x] [REFACTOR] User Domain Model → 순수 POJO (JPA 제거, `LoginId`/`Email`/`Name` VO를 필드 타입으로 적용, `password: String` 유지)
-- [x] [REFACTOR] `UserEntity` 생성 (`infrastructure/user/`, BaseEntity 상속, `fromDomain()`/`toDomain()`, VO↔원시타입 매핑)
-- [x] [REFACTOR] `UserRepositoryImpl`에 `UserJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `UserJpaRepository.kt` 삭제
-- [x] [REFACTOR] `FakeUserRepository` 업데이트
-- [x] [REFACTOR] `UserService`, `UserCommand`, User Controller/Dto 수정
+**파일**: `domain/point/PointCharger.kt`
 
---- checkpoint: User 도메인 분리 완료. ktlintCheck + test 검수 ---
+- `fun charge(userId: Long, amount: Long)` → `fun charge(userId: Long, amount: Point)`
+- `amount <= 0` 검증 삭제 (Point가 >= 0 보장)
+- `amount.value == 0L` 검증 추가 (0 포인트 충전 방지)
+- `amount.value > MAX_CHARGE_AMOUNT` 검증 유지
+- `userPoint.charge(amount)` — Point 직접 전달
+- PointHistory 생성: `amount = amount` (이미 Point 타입)
 
-### CP0-4: Order 도메인 분리
+**테스트**: `PointChargerTest.kt` — Point VO 사용하도록 수정
 
-**Order (Aggregate Root):**
+### 1-5. PointPaymentProcessor → PointPayer 리네이밍 + Money→Point 변환
 
-- [x] [REFACTOR] Order Domain Model → 순수 POJO (JPA 제거, `Money` VO 적용, `create()` 팩토리 유지)
-- [x] [REFACTOR] `OrderEntity` 생성 (`infrastructure/order/`, `fromDomain()`/`toDomain()`)
-- [x] [REFACTOR] `OrderRepositoryImpl`에 `OrderJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `OrderJpaRepository.kt` 삭제
+**파일**: `domain/point/PointPaymentProcessor.kt` → `domain/point/PointPayer.kt`
 
-**OrderItem:**
+- 클래스명: `PointPaymentProcessor` → `PointPayer`
+- `fun usePoints(userId: Long, amount: Money, refOrderId: Long)` 시그니처 유지
+- 내부: `val pointAmount = Point(amount.toLong())` — Money→Point 명시적 변환
+- `userPoint.use(pointAmount)` — Point 직접 전달
+- PointHistory 생성: `amount = pointAmount`
 
-- [x] [REFACTOR] OrderItem Domain Model → 순수 POJO (JPA 제거, `Money` VO 적용, `create()` 팩토리 유지)
-- [x] [REFACTOR] `OrderItemEntity` 생성 (`infrastructure/order/`, `fromDomain()`/`toDomain()`)
-- [x] [REFACTOR] `OrderItemRepositoryImpl`에 `OrderItemJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `OrderItemJpaRepository.kt` 삭제
+**파일**: `application/order/PlaceOrderUseCase.kt` — import + 필드명 변경
+**파일**: `test/application/order/PlaceOrderUseCaseTest.kt` — import + 필드명 변경
+**파일**: `test/domain/point/PointPaymentProcessorTest.kt` → 리네이밍 (존재하면)
 
-**연쇄 수정:**
-
-- [x] [REFACTOR] `FakeOrderRepository`, `FakeOrderItemRepository` 업데이트
-- [x] [REFACTOR] `OrderService`, `OrderCommand`, `OrderProductInfo` 수정 (`Money` 적용)
-- [x] [REFACTOR] Order Controller/Dto 수정
-
---- checkpoint: Order 도메인 분리 완료. ktlintCheck + test 검수 ---
-
-### CP0-5: Point 도메인 분리
-
-**UserPoint:**
-
-- [x] [REFACTOR] UserPoint Domain Model → 순수 POJO (JPA 제거)
-- [x] [REFACTOR] `UserPointEntity` 생성 (`infrastructure/point/`, `fromDomain()`/`toDomain()`, `@Lock(PESSIMISTIC_WRITE)`
-  비관적 락 보존)
-- [x] [REFACTOR] `UserPointRepositoryImpl`에 `UserPointJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `UserPointJpaRepository.kt` 삭제
-
-**PointHistory:**
-
-- [x] [REFACTOR] PointHistory Domain Model → 순수 POJO (JPA 제거)
-- [x] [REFACTOR] `PointHistoryEntity` 생성 (`infrastructure/point/`, `fromDomain()`/`toDomain()`)
-- [x] [REFACTOR] `PointHistoryRepositoryImpl`에 `PointHistoryJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `PointHistoryJpaRepository.kt` 삭제
-
-**연쇄 수정:**
-
-- [x] [REFACTOR] `FakeUserPointRepository`, `FakePointHistoryRepository` 업데이트
-- [x] [REFACTOR] `UserPointService`, `PointChargingService` 수정 (명시적 save 추가)
-
---- checkpoint: Point 도메인 분리 완료. ktlintCheck + test 검수 ---
-
-### CP0-6: Like 도메인 분리
-
-- [x] [REFACTOR] Like Domain Model → 순수 POJO (JPA 제거)
-- [x] [REFACTOR] `LikeEntity` 생성 (`infrastructure/like/`, `fromDomain()`/`toDomain()`, `@UniqueConstraint` 보존)
-- [x] [REFACTOR] `LikeRepositoryImpl`에 `LikeJpaRepository` 통합 + Entity 매핑
-- [x] [REFACTOR] `LikeJpaRepository.kt` 삭제
-- [x] [REFACTOR] `FakeLikeRepository` 업데이트
-- [x] [REFACTOR] `LikeService` 수정
-
---- checkpoint: Like 도메인 분리 완료. 전체 Domain/Entity 분리 종료. ktlintCheck + test 검수 ---
-
-### CP0-7: Strict Layered Architecture — Facade → UseCase + Controller 도메인 참조 완전 제거
-
-**원칙 (타협 없음):**
-1. Controller는 Domain 객체(Command, VO, Enum, Service)를 절대 직접 참조하지 않는다
-2. 모든 Controller는 반드시 Application Layer UseCase를 통과한다 (1줄 위임이라도 UseCase 명세를 남긴다)
-3. Domain Enum은 도메인에 유지. Interfaces Layer DTO 안에 API 전용 Enum/String을 선언하고 매핑
-
-**CP0-7a: Application Layer UseCase + Command/Info 객체 생성**
-
-_User:_
-- [x] [P-A] [REFACTOR] `RegisterUserUseCase` 생성 (UserFacade.signUp 이전)
-- [x] [P-A] [REFACTOR] `GetUserInfoUseCase` 생성 (UserService.getUserInfo 래핑)
-- [x] [P-A] [REFACTOR] `ChangePasswordUseCase` 생성 (UserService.changePassword 래핑)
-- [x] [P-A] [REFACTOR] `application/user/` 에 `UserInfo` DTO 정의
-
-_Catalog (Brand):_
-- [x] [P-B] [REFACTOR] `CreateBrandUseCase`, `UpdateBrandUseCase`, `DeleteBrandUseCase`, `RestoreBrandUseCase` 생성
-- [x] [P-B] [REFACTOR] `GetBrandUseCase`, `GetBrandsUseCase` 생성
-- [x] [P-B] [REFACTOR] `application/catalog/brand/` 에 `BrandInfo` DTO 정의
-
-_Catalog (Product):_
-- [x] [P-C] [REFACTOR] `CreateProductUseCase`, `UpdateProductUseCase`, `DeleteProductUseCase`, `RestoreProductUseCase` 생성
-- [x] [P-C] [REFACTOR] `GetProductUseCase`, `GetProductsUseCase` 생성
-- [x] [P-C] [REFACTOR] `application/catalog/product/` 에 `ProductInfo`, `ProductDetailInfo` DTO 정의
-
-_Order:_
-- [x] [P-D] [REFACTOR] `PlaceOrderUseCase` 생성 (OrderFacade.createOrder 이전)
-- [x] [P-D] [REFACTOR] `GetOrderUseCase`, `GetOrdersUseCase`, `GetOrderAdminUseCase`, `GetOrdersAdminUseCase` 생성
-- [x] [P-D] [REFACTOR] `application/order/` 에 `PlaceOrderCommand`, `OrderInfo` DTO 정의
-
-_Like:_
-- [x] [P-E] [REFACTOR] `AddLikeUseCase`, `RemoveLikeUseCase`, `GetUserLikesUseCase` 생성 (LikeFacade 이전)
-- [x] [P-E] [REFACTOR] `application/like/` 에 `LikeWithProductInfo` DTO 정의
-
-_Point:_
-- [x] [P-F] [REFACTOR] `GetUserPointUseCase`, `ChargePointUseCase` 생성
-- [x] [P-F] [REFACTOR] `application/point/` 에 `PointBalanceInfo` DTO 정의
-
-_Auth:_
-- [x] [REFACTOR] `AuthenticateUserUseCase` 생성 (AuthInterceptor → Application Layer 통과)
-
---- checkpoint: CP0-7a UseCase + Application DTO 생성 완료. ktlintCheck + test 검수 ---
-
-**CP0-7b: Controller 수정 — Domain 참조 완전 제거**
-
-- [x] [P-A] [REFACTOR] User Controller → UseCase 의존 + DTO↔Application Command/Info 변환
-- [x] [P-B] [REFACTOR] BrandAdmin/Brand Controller → UseCase 의존 + DTO 변환
-- [x] [P-C] [REFACTOR] ProductAdmin/Product Controller → UseCase 의존 + DTO 변환
-- [x] [P-D] [REFACTOR] Order Controller → UseCase 의존 + DTO 변환
-- [x] [P-E] [REFACTOR] Like Controller → UseCase 의존 + DTO 변환
-- [x] [P-F] [REFACTOR] Point Controller → UseCase 의존 + DTO 변환
-- [x] [REFACTOR] Interfaces DTO 내 API 전용 Enum 선언 + Domain Enum 매핑 코드 작성
-- [x] [REFACTOR] Controller에서 Domain import 가 0건인지 검증 (PageResult 제외 0건 확인)
-
---- checkpoint: CP0-7b Controller 도메인 참조 제거 완료. ktlintCheck + test 검수 ---
-
-**CP0-7c: 기존 Facade 삭제 + 테스트 전환**
-
-- [x] [REFACTOR] `UserFacade`, `OrderFacade`, `LikeFacade` 삭제
-- [x] [REFACTOR] Facade 테스트 → UseCase 테스트로 전환
-- [x] [REFACTOR] AuthInterceptor → `AuthenticateUserUseCase` 통과로 변경
-
---- checkpoint: CP0-7 전체 완료. ktlintCheck + test 검수 (275 tests pass) ---
-
-### CP0-8: CLAUDE.md 문서 동기화
-
-- [x] `application/CLAUDE.md`: Facade → UseCase 패턴 반영, Info DTO/Application Command 문서화
-- [x] `infrastructure/CLAUDE.md`: Entity 매핑 패턴 현행화 (fromDomain/toDomain, BaseEntity 리플렉션, fromPersistence)
-- [x] `domain/CLAUDE.md`: VO 목록 현행화 (Money, Email, BrandName 추가), fromPersistence 패턴, 명시적 save 규칙
-- [x] `commerce-api/CLAUDE.md`: 요청 흐름을 Strict Layered Architecture로 현행화
-
---- checkpoint: Phase 0 완료. 전체 아키텍처 마이그레이션 종료. (275 tests pass) ---
+**검증**: `./gradlew ktlintFormat && ./gradlew test`
 
 ---
 
-## Phase 1: Bug Fix & Testing
+## CP2: Order Aggregate Root 리팩토링 (Structural)
 
-### CP1-1: 구조 코드 수정 — Critical Bugs
+Order가 OrderItem의 라이프사이클을 제어하도록 변경. Aggregate Root 패턴 강화.
 
-- [x] [P-A] [RED] 주문 생성 시 동일 productId 중복 → BAD_REQUEST 테스트 (PlaceOrderUseCaseTest)
-- [x] [P-A] [GREEN] PlaceOrderUseCase에 중복 productId 검증 추가
-- [x] [P-B] [RED] LikeService 동시 좋아요 등록 시 DataIntegrityViolationException → 멱등 처리 테스트 (LikeServiceTest)
-- [x] [P-B] [GREEN] LikeService.addLike에서 DataIntegrityViolationException catch → false 반환
-- [x] [P-C] [RED] totalPrice 소수점 포함 시 포인트 차감 정확성 테스트 (PlaceOrderUseCaseTest)
-- [x] [P-C] [GREEN] Money.toLong()에 setScale(0, RoundingMode.HALF_UP) 적용
+### 2-1. OrderItem.create 시그니처 변경
 
---- checkpoint: Critical 버그 수정 완료. ktlintCheck + test 검수 (전체 통과) ---
+**파일**: `domain/order/model/OrderItem.kt`
 
-### CP1-2: 구조 코드 수정 — Code Quality
+- `fun create(product: OrderProductInfo, quantity: Int, orderId: Long)` → `fun create(product: OrderProductInfo, quantity: Int)`
+- `refOrderId` 초기값 0 (`refOrderId = 0`)
+- `fun assignToOrder(orderId: Long)` 메서드 추가 — `this.refOrderId = orderId`
 
-- [x] [P-A] [REFACTOR] CatalogService.restoreBrand/restoreProduct가 복원된 객체를 직접 반환하도록 변경
-- [x] [P-A] [REFACTOR] BrandAdminV1Controller/ProductAdminV1Controller에서 불필요한 2차 조회 제거
+### 2-2. Order.create + items 필드
 
---- checkpoint: 코드 품질 수정 완료. ktlintCheck + test 검수 (전체 통과) ---
+**파일**: `domain/order/model/Order.kt`
 
-### CP1-3: 누락 단위 테스트 추가 (High)
+- 생성자에 `items: List<OrderItem> = emptyList()` 파라미터 추가
+- `val items: List<OrderItem> = items` 필드 추가
+- `create` 시그니처 변경:
+  ```kotlin
+  fun create(userId: Long, items: List<Pair<OrderProductInfo, Int>>): Order {
+      val orderItems = items.map { (info, quantity) ->
+          OrderItem.create(info, quantity)
+      }
+      val totalPrice = orderItems.fold(Money(BigDecimal.ZERO)) { acc, item ->
+          acc + (item.productPrice * item.quantity)
+      }
+      return Order(
+          refUserId = userId,
+          status = OrderStatus.CREATED,
+          totalPrice = totalPrice,
+          items = orderItems,
+      )
+  }
+  ```
+- `fun assignOrderIdToItems(orderId: Long)` 메서드 추가:
+  ```kotlin
+  fun assignOrderIdToItems(orderId: Long) {
+      items.forEach { it.assignToOrder(orderId) }
+  }
+  ```
+- `fromPersistence`에 `items: List<OrderItem> = emptyList()` 파라미터 추가
 
-- [x] [P-A] [RED] HIDDEN 상품에 좋아요 등록 → NOT_FOUND (AddLikeUseCaseTest)
-- [x] [P-A] [RED] 좋아요 목록에서 HIDDEN 상품 미포함 (GetUserLikesUseCaseTest)
-- [x] [P-B] [RED] 주문 항목 비어있음 → BAD_REQUEST (PlaceOrderUseCaseTest + OrderServiceTest)
-- [x] [P-B] [RED+GREEN] 주문 수량 0 이하 → BAD_REQUEST (OrderServiceTest) — OrderService에 빈 items 검증 추가
-- [x] [P-C] [RED] SOLD_OUT 상품 주문 → BAD_REQUEST (CatalogServiceTest.getProductsForOrder) — 기존 로직 정상 동작 확인
-- [x] [P-D] [REFACTOR] RegisterUserUseCaseTest: mockk → Fake Repository 기반 전환 완료
+### 2-3. OrderEntity 매핑 — items 무시
 
---- checkpoint: High 누락 테스트 추가 완료. ktlintCheck + test 검수 (285 tests pass) ---
+**파일**: `infrastructure/order/OrderEntity.kt`
 
-### CP1-4: 누락 E2E/Medium 테스트 추가
+- `fromDomain`: 변경 없음 (items는 JPA 관계 아니므로 무시)
+- `toDomain`: `Order.fromPersistence(... items = emptyList())` — 명시적
 
-- [x] [P-A] [RED] E2E 주문 목록 조회 (OrderV1ApiE2ETest.GetOrders)
-- [x] [P-A] [RED] E2E 주문 상세 조회 — 본인 조회 성공 + 타인 조회 404 (OrderV1ApiE2ETest.GetOrder)
-- [x] [P-B] [RED] E2E 주문 목록 from/to 미입력 시 기본값 적용 검증 (OrderV1ApiE2ETest.GetOrders)
-- [x] [P-B] [RED] E2E 회원가입 후 포인트 잔액 0 확인 (PointV1ApiE2ETest.GetBalance)
+### 2-4. PlaceOrderUseCase 간소화
 
---- checkpoint: 전체 테스트 완료. ktlintCheck + test 최종 검수 (292 tests pass) ---
+**파일**: `application/order/PlaceOrderUseCase.kt`
 
-## 참고: 기존 판단 유지 항목
+```kotlin
+@Transactional
+fun execute(userId: Long, command: PlaceOrderCommand): OrderInfo {
+    if (command.items.isEmpty()) throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.")
 
-| 항목                                  | 판단     | 근거                                   |
-|-------------------------------------|--------|--------------------------------------|
-| restoreBrand가 소속 상품 미복구             | 의도된 동작 | 설계 문서: "브랜드 복구가 소속 상품을 연쇄 복구하지는 않는다" |
-| PointHistory/Like에 updatedAt 없음     | 의도된 설계 | 불변 이력 데이터 / 물리 삭제 모델                 |
-| LikeV1Controller @RequestMapping 없음 | 구조적 제약 | 2개 베이스 경로(/products/*, /users/*) 걸침  |
-| BrandAdmin POST/PUT에 @RequestParam  | 기존 설계  | 필드 1개(name)뿐이라 현 구조 유지               |
+    val products = productRepository.findAllByIdsForUpdate(command.items.map { it.productId })
+    if (products.size != command.items.size) {
+        throw CoreException(ErrorType.BAD_REQUEST, "존재하지 않는 상품이 포함되어 있습니다.")
+    }
+    val productMap = products.associateBy { it.id }
+
+    val orderItemInputs = command.items.map { item ->
+        val product = productMap[item.productId]
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "존재하지 않는 상품이 포함되어 있습니다.")
+        if (!product.isAvailableForOrder()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 불가 상품이 포함되어 있습니다.")
+        }
+        product.decreaseStock(item.quantity)
+        OrderProductInfo(product.id, product.name, product.price) to item.quantity
+    }
+    productRepository.saveAll(products)
+
+    val order = Order.create(userId, orderItemInputs)
+    val savedOrder = orderRepository.save(order)
+
+    order.assignOrderIdToItems(savedOrder.id)
+    val savedItems = orderItemRepository.saveAll(order.items)
+
+    pointPayer.usePoints(userId, savedOrder.totalPrice, savedOrder.id)
+
+    return OrderInfo.from(OrderDetail(savedOrder, savedItems))
+}
+```
+
+- `!!` 연산자 완전 제거 (#12)
+- 중간 변수 (quantityMap, foundIds, missingIds) 제거
+- Aggregate Root를 통한 OrderItem 생성 — UseCase가 OrderItem을 직접 만지지 않음
+
+### 2-5. 테스트 수정
+
+**파일**: `test/domain/order/OrderTest.kt`
+- `Order.create(userId, totalPrice)` → `Order.create(userId, items: List<Pair<OrderProductInfo, Int>>)` 로 변경
+- items 기반 totalPrice 자동 계산 검증 테스트 추가
+
+**파일**: `test/application/order/PlaceOrderUseCaseTest.kt`
+- PointPaymentProcessor → PointPayer 임포트/필드명 변경
+- UseCase 내부 흐름 변경에 맞춰 fixture 조정
+
+**파일**: `test/domain/order/FakeOrderRepository.kt` — 변경 없을 가능성 높음 (items 미포함)
+
+**검증**: `./gradlew ktlintFormat && ./gradlew test`
+
+---
+
+## CP3: 버그 수정 (Behavioral — TDD)
+
+### 3-1. Like 동시성 — findByIdForUpdate
+
+**[RED]** AddLikeUseCase 동시성 테스트 — 비관적 락 검증 (기존 테스트로 충분할 수 있음)
+
+**[GREEN]**
+- **파일**: `domain/catalog/product/repository/ProductRepository.kt` — `fun findByIdForUpdate(id: Long): Product?` 추가
+- **파일**: `infrastructure/catalog/product/ProductRepositoryImpl.kt` — `@Lock(PESSIMISTIC_WRITE)` 구현
+- **파일**: `application/like/AddLikeUseCase.kt` — `findById` → `findByIdForUpdate`
+- **파일**: `application/like/RemoveLikeUseCase.kt` — `findById` → `findByIdForUpdate`
+
+### 3-2. UpdateProductUseCase — valueOf 에러 처리
+
+**[RED]** `test/application/catalog/product/UpdateProductUseCaseTest.kt`
+- 잘못된 status 문자열 입력 시 BAD_REQUEST 에러 검증
+
+**[GREEN]**
+- **파일**: `application/catalog/product/UpdateProductUseCase.kt`
+  ```kotlin
+  val domainStatus = status?.let {
+      try { Product.ProductStatus.valueOf(it) }
+      catch (e: IllegalArgumentException) {
+          throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 상품 상태입니다: $it")
+      }
+  }
+  ```
+
+### 3-3. RegisterUserUseCase — 동시 가입 방어
+
+**[RED]** `test/application/user/RegisterUserUseCaseTest.kt`
+- DataIntegrityViolationException 발생 시 CONFLICT 에러 변환 검증
+
+**[GREEN]**
+- **파일**: `application/user/RegisterUserUseCase.kt`
+  ```kotlin
+  val savedUser = try {
+      userRepository.save(user)
+  } catch (e: DataIntegrityViolationException) {
+      throw CoreException(ErrorType.CONFLICT, "이미 존재하는 아이디입니다.")
+  }
+  ```
+
+### 3-4. DeleteBrandUseCase — 이미 삭제된 브랜드 가드
+
+**[RED]** `test/application/catalog/brand/DeleteBrandUseCaseTest.kt`
+- 이미 삭제된 브랜드에 대해 products 재처리하지 않음 검증 (기존 테스트가 이미 커버할 수 있음)
+
+**[GREEN]**
+- **파일**: `application/catalog/brand/DeleteBrandUseCase.kt`
+  ```kotlin
+  fun execute(brandId: Long) {
+      val brand = brandRepository.findById(brandId) ?: return
+      if (brand.isDeleted()) return  // early return — 이미 삭제됨
+      brand.delete()
+      // ...
+  }
+  ```
+
+**검증**: `./gradlew ktlintFormat && ./gradlew test`
+
+---
+
+## CP4: UseCase 분리 + 인프라 정리 (Structural)
+
+### 4-1. GetBrandUseCase → GetBrandUseCase + GetBrandAdminUseCase 분리
+
+**파일** (신규): `application/catalog/brand/GetBrandAdminUseCase.kt`
+```kotlin
+@Component
+class GetBrandAdminUseCase(private val brandRepository: BrandRepository) {
+    @Transactional(readOnly = true)
+    fun execute(brandId: Long): BrandInfo {
+        val brand = brandRepository.findById(brandId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        return BrandInfo.from(brand)
+    }
+}
+```
+
+**파일**: `application/catalog/brand/GetBrandUseCase.kt`
+- `executeAdmin` 메서드 삭제
+- `executeActive` → `execute` 리네이밍
+
+**파일**: `interfaces/api/brand/BrandV1Controller.kt`
+- `getBrandUseCase.executeActive(brandId)` → `getBrandUseCase.execute(brandId)`
+
+**파일**: `interfaces/api/brand/BrandAdminV1Controller.kt`
+- `GetBrandUseCase` → `GetBrandAdminUseCase` 임포트/필드 변경
+- `getBrandUseCase.executeAdmin(brandId)` → `getBrandAdminUseCase.execute(brandId)`
+
+### 4-2. @Transactional(readOnly = true) 추가 (7개)
+
+| 파일 | 메서드 |
+|------|--------|
+| `application/order/GetOrderUseCase.kt` | `execute` |
+| `application/order/GetOrderAdminUseCase.kt` | `execute` |
+| `application/order/GetOrdersUseCase.kt` | `execute` |
+| `application/order/GetOrdersAdminUseCase.kt` | `execute` |
+| `application/user/GetUserInfoUseCase.kt` | `execute` |
+| `application/user/AuthenticateUserUseCase.kt` | `execute` |
+| `application/point/GetUserPointUseCase.kt` | `execute` |
+
+### 4-3. JpaRepository internal 키워드 추가 (8개)
+
+| 파일 | 인터페이스 |
+|------|-----------|
+| `infrastructure/user/UserRepositoryImpl.kt` | `UserJpaRepository` |
+| `infrastructure/order/OrderRepositoryImpl.kt` | `OrderJpaRepository` |
+| `infrastructure/order/OrderItemRepositoryImpl.kt` | `OrderItemJpaRepository` |
+| `infrastructure/like/LikeRepositoryImpl.kt` | `LikeJpaRepository` |
+| `infrastructure/point/UserPointRepositoryImpl.kt` | `UserPointJpaRepository` |
+| `infrastructure/point/PointHistoryRepositoryImpl.kt` | `PointHistoryJpaRepository` |
+| `infrastructure/catalog/product/ProductRepositoryImpl.kt` | `ProductJpaRepository` |
+| `infrastructure/catalog/brand/BrandRepositoryImpl.kt` | `BrandJpaRepository` |
+
+### 4-4. LikeFacadeTest → LikeUseCaseTest 리네이밍
+
+**파일**: `test/application/like/LikeFacadeTest.kt` → `test/application/like/LikeUseCaseTest.kt`
+- 파일명 + 클래스명 `LikeFacadeTest` → `LikeUseCaseTest`
+
+**검증**: `./gradlew ktlintFormat && ./gradlew test`
+
+---
+
+## CP5: 테스트 추가
+
+### 5-1. ChargePointUseCaseTest
+
+**파일** (신규): `test/application/point/ChargePointUseCaseTest.kt`
+
+- Fake: FakeUserPointRepository, FakePointHistoryRepository
+- PointCharger + ChargePointUseCase 조립
+- 테스트 케이스:
+    - 정상 충전 시 PointBalanceInfo 반환 검증
+    - 0 포인트 충전 시 BAD_REQUEST
+    - MAX_CHARGE_AMOUNT 초과 시 BAD_REQUEST
+    - 존재하지 않는 userId 시 NOT_FOUND
+
+**검증**: `./gradlew ktlintFormat && ./gradlew test`
+
+---
+
+## CP6: 문서 업데이트
+
+### 6-1. round3-decisions.md — CQRS 검토 항목 추가
+
+`docs/note/round3-decisions.md`에 신규 섹션 추가:
+- GetOrdersUseCase/GetOrdersAdminUseCase의 `findItemsByOrders` 중복 코드
+- CQRS 패턴 도입 시 해소 가능
+- 이번 라운드에서는 결정 보류, 다음 라운드에서 재검토
+
+### 6-2. CLAUDE.md 동기화
+
+**업데이트 대상**:
+- `apps/commerce-api/CLAUDE.md`: AuthenticateUserUseCase → UseCase 경유 (AuthService 언급 제거)
+- `apps/commerce-api/src/main/kotlin/com/loopers/domain/CLAUDE.md`:
+    - Domain Service 테이블: `PointPaymentProcessor` → `PointPayer`
+    - Order Aggregate Root 섹션: Order.create가 items 생성 + totalPrice 계산 패턴 반영
+    - OrderItem.create 시그니처 변경 반영
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/CLAUDE.md`:
+    - UseCase 예시 코드: PlaceOrderUseCase 최신 패턴 반영
+    - `PlaceOrderCommand` 네이밍 확인 (PlaceOrder 유지)
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/CLAUDE.md`:
+    - JpaRepository `internal` 키워드 명시
+    - Aggregate 저장 규칙: `order.assignOrderIdToItems(savedOrder.id)` 패턴 반영
+
+---
+
+## 검증
+
+각 CP 완료 후:
+```bash
+./gradlew ktlintFormat
+./gradlew ktlintCheck
+./gradlew test
+```
+
+전체 완료 후:
+```bash
+./gradlew ktlintCheck test
+```
+
+## 변경 파일 목록 (예상)
+
+### Domain (10)
+- `domain/like/model/Like.kt`
+- `domain/point/model/PointHistory.kt`
+- `domain/point/model/UserPoint.kt`
+- `domain/point/vo/Point.kt` (변경 없을 수 있음)
+- `domain/point/PointCharger.kt`
+- `domain/point/PointPaymentProcessor.kt` → `domain/point/PointPayer.kt`
+- `domain/order/model/Order.kt`
+- `domain/order/model/OrderItem.kt`
+- `domain/order/OrderProductInfo.kt` (변경 없음)
+- `domain/catalog/product/repository/ProductRepository.kt`
+
+### Infrastructure (10)
+- `infrastructure/point/PointHistoryEntity.kt`
+- `infrastructure/catalog/product/ProductRepositoryImpl.kt`
+- `infrastructure/user/UserRepositoryImpl.kt`
+- `infrastructure/order/OrderRepositoryImpl.kt`
+- `infrastructure/order/OrderItemRepositoryImpl.kt`
+- `infrastructure/order/OrderEntity.kt`
+- `infrastructure/like/LikeRepositoryImpl.kt`
+- `infrastructure/point/UserPointRepositoryImpl.kt`
+- `infrastructure/point/PointHistoryRepositoryImpl.kt`
+- `infrastructure/catalog/brand/BrandRepositoryImpl.kt`
+
+### Application (12)
+- `application/order/PlaceOrderUseCase.kt`
+- `application/like/AddLikeUseCase.kt`
+- `application/like/RemoveLikeUseCase.kt`
+- `application/catalog/product/UpdateProductUseCase.kt`
+- `application/catalog/brand/GetBrandUseCase.kt`
+- `application/catalog/brand/GetBrandAdminUseCase.kt` (신규)
+- `application/catalog/brand/DeleteBrandUseCase.kt`
+- `application/user/RegisterUserUseCase.kt`
+- `application/order/GetOrder{s}{Admin}UseCase.kt` (4개 — readOnly)
+- `application/user/GetUserInfoUseCase.kt`, `AuthenticateUserUseCase.kt`
+- `application/point/GetUserPointUseCase.kt`
+
+### Interfaces (2)
+- `interfaces/api/brand/BrandV1Controller.kt`
+- `interfaces/api/brand/BrandAdminV1Controller.kt`
+
+### Tests (~8)
+- `test/domain/order/OrderTest.kt`
+- `test/domain/point/UserPointTest.kt`
+- `test/domain/point/PointHistoryTest.kt`
+- `test/domain/point/PointChargerTest.kt`
+- `test/application/order/PlaceOrderUseCaseTest.kt`
+- `test/application/like/LikeFacadeTest.kt` → `LikeUseCaseTest.kt`
+- `test/application/point/ChargePointUseCaseTest.kt` (신규)
+- `test/application/user/RegisterUserUseCaseTest.kt`
+
+### Docs (4+)
+- `docs/note/round3-decisions.md`
+- `apps/commerce-api/CLAUDE.md`
+- `apps/commerce-api/src/main/kotlin/com/loopers/domain/CLAUDE.md`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/CLAUDE.md`
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/CLAUDE.md`

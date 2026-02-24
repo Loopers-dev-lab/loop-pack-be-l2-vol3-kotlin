@@ -14,7 +14,8 @@ interfaces/  →  application/  →  domain/  ←  infrastructure/
 
 ## 요청 흐름 (Strict Layered Architecture)
 
-- **모든 Controller**: Controller → **UseCase** → Domain Service(s). 예외 없음.
+- **모든 Controller**: Controller → **UseCase** → Repository / Domain Service. 예외 없음. UseCase가 Repository를 직접 호출하는 것이
+  기본이며, 원자적 얽힘이 있는 경우에만 Domain Service를 경유한다.
 - 인증: **AuthInterceptor** → `AuthenticateUserUseCase` → UserService
 - Controller는 Domain 객체(Command, VO, Enum, Service)를 절대 직접 참조하지 않는다.
 - Domain Enum은 도메인에 유지. Interfaces DTO에 API 전용 Enum을 선언하고 매핑.
@@ -27,7 +28,8 @@ ErrorType: `INTERNAL_ERROR(500)`, `BAD_REQUEST(400)`, `NOT_FOUND(404)`, `CONFLIC
 
 ## API 응답
 
-모든 응답은 `ApiResponse<T>` 래퍼 사용. `ApiResponse.success(data)` / `ApiResponse.fail(errorCode, message)`. `ApiControllerAdvice`에서 전역 예외 처리.
+모든 응답은 `ApiResponse<T>` 래퍼 사용. `ApiResponse.success(data)` / `ApiResponse.fail(errorCode, message)`.
+`ApiControllerAdvice`에서 전역 예외 처리.
 
 ## 설계 결정 기록
 
