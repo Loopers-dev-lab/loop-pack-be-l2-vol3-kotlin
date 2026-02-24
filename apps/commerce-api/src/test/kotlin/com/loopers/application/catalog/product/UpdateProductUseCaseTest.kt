@@ -107,5 +107,21 @@ class UpdateProductUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
+
+        @Test
+        @DisplayName("유효하지 않은 상품 상태를 입력하면 BAD_REQUEST 예외가 발생한다")
+        fun updateProduct_invalidStatus_throwsBadRequest() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(product.id, null, null, null, "INVALID_STATUS")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).contains("유효하지 않은 상품 상태입니다")
+        }
     }
 }

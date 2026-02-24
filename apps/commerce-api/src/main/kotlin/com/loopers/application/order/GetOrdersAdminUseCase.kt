@@ -7,6 +7,7 @@ import com.loopers.domain.order.model.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class GetOrdersAdminUseCase(
@@ -14,6 +15,7 @@ class GetOrdersAdminUseCase(
     private val orderItemRepository: OrderItemRepository,
 ) {
 
+    @Transactional(readOnly = true)
     fun execute(page: Int, size: Int): PageResult<OrderInfo> {
         val pageResult = orderRepository.findAll(page, size)
         val itemsByOrderId = findItemsByOrders(pageResult.content)

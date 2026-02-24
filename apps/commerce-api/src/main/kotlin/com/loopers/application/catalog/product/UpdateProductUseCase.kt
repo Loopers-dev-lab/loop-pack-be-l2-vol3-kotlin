@@ -14,7 +14,10 @@ import java.math.BigDecimal
 class UpdateProductUseCase(private val productRepository: ProductRepository) {
     @Transactional
     fun execute(productId: Long, name: String?, price: BigDecimal?, stock: Int?, status: String?): ProductInfo {
-        val domainStatus = status?.let { Product.ProductStatus.valueOf(it) }
+        val domainStatus = status?.let {
+            Product.ProductStatus.entries.find { enum -> enum.name == it }
+                ?: throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 상품 상태입니다: $it")
+        }
         val command = CatalogCommand.UpdateProduct(
             name = name,
             price = price?.let { Money(it) },

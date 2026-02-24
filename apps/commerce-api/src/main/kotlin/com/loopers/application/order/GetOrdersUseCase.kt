@@ -7,6 +7,7 @@ import com.loopers.domain.order.model.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
 
 @Component
@@ -15,6 +16,7 @@ class GetOrdersUseCase(
     private val orderItemRepository: OrderItemRepository,
 ) {
 
+    @Transactional(readOnly = true)
     fun execute(userId: Long, from: ZonedDateTime, to: ZonedDateTime, page: Int, size: Int): PageResult<OrderInfo> {
         val pageResult = orderRepository.findAllByUserId(userId, from, to, page, size)
         val itemsByOrderId = findItemsByOrders(pageResult.content)
