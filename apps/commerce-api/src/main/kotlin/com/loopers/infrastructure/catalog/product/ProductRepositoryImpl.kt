@@ -1,17 +1,22 @@
 package com.loopers.infrastructure.catalog.product
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.catalog.product.entity.Product
 import com.loopers.domain.catalog.product.ProductSort
+import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
 
 interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     fun findAllByRefBrandId(brandId: Long): List<ProductEntity>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findAllByIdInOrderByIdAsc(ids: List<Long>): List<ProductEntity>
 }
 
 @Repository
@@ -71,5 +76,13 @@ class ProductRepositoryImpl(
 
     override fun findAllByIds(ids: List<Long>): List<Product> {
         return jpa.findAllById(ids).map { it.toDomain() }
+    }
+
+    override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
+        return jpa.findAllByIdInOrderByIdAsc(ids).map { it.toDomain() }
+    }
+
+    override fun saveAll(products: List<Product>): List<Product> {
+        return jpa.saveAll(products.map { ProductEntity.fromDomain(it) }).map { it.toDomain() }
     }
 }

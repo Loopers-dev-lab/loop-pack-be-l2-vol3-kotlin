@@ -1,6 +1,6 @@
 package com.loopers.application.point
 
-import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.model.UserPoint
 
 data class PointBalanceInfo(
     val userId: Long,

@@ -1,6 +1,6 @@
 package com.loopers.domain.point.repository
 
-import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.model.UserPoint
 
 interface UserPointRepository {
     fun save(userPoint: UserPoint): UserPoint

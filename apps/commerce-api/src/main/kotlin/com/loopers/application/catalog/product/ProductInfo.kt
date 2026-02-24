@@ -1,6 +1,6 @@
 package com.loopers.application.catalog.product
 
-import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.catalog.product.model.Product
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 

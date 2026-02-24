@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.point
 
-import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.model.UserPoint
 import com.loopers.domain.point.repository.UserPointRepository
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository

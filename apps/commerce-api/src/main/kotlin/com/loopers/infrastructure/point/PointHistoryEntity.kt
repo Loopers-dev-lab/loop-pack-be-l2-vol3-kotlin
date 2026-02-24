@@ -1,8 +1,9 @@
 package com.loopers.infrastructure.point
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.point.entity.PointHistory
-import com.loopers.domain.point.entity.PointHistory.PointHistoryType
+import com.loopers.domain.point.model.PointHistory
+import com.loopers.domain.point.model.PointHistory.PointHistoryType
+import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -30,19 +31,10 @@ class PointHistoryEntity(
                 type = pointHistory.type,
                 amount = pointHistory.amount,
                 refOrderId = pointHistory.refOrderId,
-            ).also { entity ->
-                if (pointHistory.id != 0L) {
-                    setBaseEntityField(entity, "id", pointHistory.id)
-                    setBaseEntityField(entity, "createdAt", pointHistory.createdAt)
-                }
-            }
-        }
-
-        private fun setBaseEntityField(entity: BaseEntity, fieldName: String, value: Any) {
-            BaseEntity::class.java.getDeclaredField(fieldName).apply {
-                isAccessible = true
-                set(entity, value)
-            }
+            ).withBaseFields(
+                id = pointHistory.id,
+                createdAt = pointHistory.createdAt,
+            )
         }
     }
 

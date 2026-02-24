@@ -1,4 +1,4 @@
-package com.loopers.domain.like.entity
+package com.loopers.domain.like.model
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

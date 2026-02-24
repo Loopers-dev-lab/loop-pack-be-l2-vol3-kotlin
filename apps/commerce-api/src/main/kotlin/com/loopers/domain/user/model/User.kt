@@ -1,4 +1,4 @@
-package com.loopers.domain.user.entity
+package com.loopers.domain.user.model
 
 import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId

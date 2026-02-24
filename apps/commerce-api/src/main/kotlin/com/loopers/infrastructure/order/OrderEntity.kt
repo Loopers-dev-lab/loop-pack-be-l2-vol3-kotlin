@@ -2,7 +2,8 @@ package com.loopers.infrastructure.order
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.Money
-import com.loopers.domain.order.entity.Order
+import com.loopers.domain.order.model.Order
+import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -28,21 +29,12 @@ class OrderEntity(
                 refUserId = order.refUserId,
                 status = order.status,
                 totalPrice = order.totalPrice.value,
-            ).also { entity ->
-                if (order.id != 0L) {
-                    setBaseEntityField(entity, "id", order.id)
-                    setBaseEntityField(entity, "createdAt", order.createdAt)
-                    setBaseEntityField(entity, "updatedAt", order.updatedAt)
-                }
-                order.deletedAt?.let { setBaseEntityField(entity, "deletedAt", it) }
-            }
-        }
-
-        private fun setBaseEntityField(entity: BaseEntity, fieldName: String, value: Any) {
-            BaseEntity::class.java.getDeclaredField(fieldName).apply {
-                isAccessible = true
-                set(entity, value)
-            }
+            ).withBaseFields(
+                id = order.id,
+                createdAt = order.createdAt,
+                updatedAt = order.updatedAt,
+                deletedAt = order.deletedAt,
+            )
         }
     }
 

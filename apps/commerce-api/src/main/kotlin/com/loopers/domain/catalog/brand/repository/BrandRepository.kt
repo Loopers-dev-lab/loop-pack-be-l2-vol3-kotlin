@@ -1,7 +1,7 @@
 package com.loopers.domain.catalog.brand.repository
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.catalog.brand.entity.Brand
+import com.loopers.domain.catalog.brand.model.Brand
 
 interface BrandRepository {
     fun save(brand: Brand): Brand

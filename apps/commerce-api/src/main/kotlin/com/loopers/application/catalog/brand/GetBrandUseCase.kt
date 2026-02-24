@@ -1,17 +1,27 @@
 package com.loopers.application.catalog.brand
 
-import com.loopers.domain.catalog.CatalogService
+import com.loopers.domain.catalog.brand.repository.BrandRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
-class GetBrandUseCase(private val catalogService: CatalogService) {
+class GetBrandUseCase(private val brandRepository: BrandRepository) {
+    @Transactional(readOnly = true)
     fun executeActive(brandId: Long): BrandInfo {
-        val brand = catalogService.getActiveBrand(brandId)
+        val brand = brandRepository.findById(brandId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        if (brand.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        }
         return BrandInfo.from(brand)
     }
 
+    @Transactional(readOnly = true)
     fun executeAdmin(brandId: Long): BrandInfo {
-        val brand = catalogService.getBrand(brandId)
+        val brand = brandRepository.findById(brandId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         return BrandInfo.from(brand)
     }
 }

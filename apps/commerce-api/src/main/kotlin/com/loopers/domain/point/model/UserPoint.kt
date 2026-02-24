@@ -1,4 +1,4 @@
-package com.loopers.domain.point.entity
+package com.loopers.domain.point.model
 
 import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
@@ -14,10 +14,10 @@ class UserPoint(
         private set
 
     var refUserId: Long = refUserId
-        protected set
+        private set
 
     var balance: Long = balance
-        protected set
+        private set
 
     var createdAt: ZonedDateTime = ZonedDateTime.now()
         private set
@@ -29,7 +29,7 @@ class UserPoint(
         guard()
     }
 
-    fun guard() {
+    private fun guard() {
         Point(balance)
     }
 

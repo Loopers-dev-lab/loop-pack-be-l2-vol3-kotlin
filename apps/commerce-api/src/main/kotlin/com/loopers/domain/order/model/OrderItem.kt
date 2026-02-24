@@ -1,4 +1,4 @@
-package com.loopers.domain.order.entity
+package com.loopers.domain.order.model
 
 import com.loopers.domain.common.Money
 import com.loopers.domain.order.OrderProductInfo
@@ -20,22 +20,22 @@ class OrderItem private constructor(
     val id: Long = 0
 
     var refOrderId: Long = refOrderId
-        protected set
+        private set
 
     var refProductId: Long = refProductId
-        protected set
+        private set
 
     var productName: String = productName
-        protected set
+        private set
 
     var productPrice: Money = productPrice
-        protected set
+        private set
 
     var quantity: Int = quantity
-        protected set
+        private set
 
     var status: ItemStatus = ItemStatus.ACTIVE
-        protected set
+        private set
 
     init {
         if (quantity < 1) {

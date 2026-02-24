@@ -1,6 +1,6 @@
-package com.loopers.domain.user
+package com.loopers.application.user
 
-import com.loopers.domain.user.entity.User
+import com.loopers.domain.user.model.User
 import java.time.LocalDate
 
 class UserCommand {
@@ -21,9 +21,4 @@ class UserCommand {
             )
         }
     }
-
-    data class ChangePassword(
-        val currentPassword: String,
-        val newPassword: String,
-    )
 }

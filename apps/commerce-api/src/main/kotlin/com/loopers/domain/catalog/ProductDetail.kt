@@ -1,7 +1,7 @@
 package com.loopers.domain.catalog
 
-import com.loopers.domain.catalog.brand.entity.Brand
-import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.catalog.brand.model.Brand
+import com.loopers.domain.catalog.product.model.Product
 
 data class ProductDetail(
     val product: Product,

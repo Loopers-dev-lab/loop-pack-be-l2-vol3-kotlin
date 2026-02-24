@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.order
 
-import com.loopers.domain.order.entity.OrderItem
+import com.loopers.domain.order.model.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository

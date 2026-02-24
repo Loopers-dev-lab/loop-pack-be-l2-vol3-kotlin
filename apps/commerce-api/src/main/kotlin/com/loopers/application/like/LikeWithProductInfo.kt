@@ -1,7 +1,7 @@
 package com.loopers.application.like
 
-import com.loopers.domain.catalog.product.entity.Product
-import com.loopers.domain.like.entity.Like
+import com.loopers.domain.catalog.product.model.Product
+import com.loopers.domain.like.model.Like
 import java.math.BigDecimal
 
 data class LikeWithProductInfo(

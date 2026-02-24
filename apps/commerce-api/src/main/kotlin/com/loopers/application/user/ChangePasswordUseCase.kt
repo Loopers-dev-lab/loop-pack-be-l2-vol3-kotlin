@@ -1,18 +1,20 @@
 package com.loopers.application.user
 
-import com.loopers.domain.user.UserCommand
-import com.loopers.domain.user.UserService
+import com.loopers.domain.user.repository.UserRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class ChangePasswordUseCase(
-    private val userService: UserService,
+    private val userRepository: UserRepository,
 ) {
+    @Transactional
     fun execute(userId: Long, currentPassword: String, newPassword: String) {
-        val command = UserCommand.ChangePassword(
-            currentPassword = currentPassword,
-            newPassword = newPassword,
-        )
-        userService.changePassword(userId, command)
+        val user = userRepository.findById(userId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+        user.changePassword(currentPassword, newPassword)
+        userRepository.save(user)
     }
 }

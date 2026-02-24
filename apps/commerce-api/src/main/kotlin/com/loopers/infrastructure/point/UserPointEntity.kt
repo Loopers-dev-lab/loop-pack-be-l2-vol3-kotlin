@@ -1,7 +1,8 @@
 package com.loopers.infrastructure.point
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.point.entity.UserPoint
+import com.loopers.domain.point.model.UserPoint
+import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -20,20 +21,11 @@ class UserPointEntity(
             return UserPointEntity(
                 refUserId = userPoint.refUserId,
                 balance = userPoint.balance,
-            ).also { entity ->
-                if (userPoint.id != 0L) {
-                    setBaseEntityField(entity, "id", userPoint.id)
-                    setBaseEntityField(entity, "createdAt", userPoint.createdAt)
-                    setBaseEntityField(entity, "updatedAt", userPoint.updatedAt)
-                }
-            }
-        }
-
-        private fun setBaseEntityField(entity: BaseEntity, fieldName: String, value: Any) {
-            BaseEntity::class.java.getDeclaredField(fieldName).apply {
-                isAccessible = true
-                set(entity, value)
-            }
+            ).withBaseFields(
+                id = userPoint.id,
+                createdAt = userPoint.createdAt,
+                updatedAt = userPoint.updatedAt,
+            )
         }
     }
 

@@ -1,8 +1,9 @@
 package com.loopers.infrastructure.catalog.product
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.catalog.product.entity.Product
+import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.common.Money
+import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -42,21 +43,12 @@ class ProductEntity(
                 stock = product.stock,
                 status = product.status,
                 likeCount = product.likeCount,
-            ).also { entity ->
-                if (product.id != 0L) {
-                    setBaseEntityField(entity, "id", product.id)
-                    setBaseEntityField(entity, "createdAt", product.createdAt)
-                    setBaseEntityField(entity, "updatedAt", product.updatedAt)
-                }
-                product.deletedAt?.let { setBaseEntityField(entity, "deletedAt", it) }
-            }
-        }
-
-        private fun setBaseEntityField(entity: BaseEntity, fieldName: String, value: Any) {
-            BaseEntity::class.java.getDeclaredField(fieldName).apply {
-                isAccessible = true
-                set(entity, value)
-            }
+            ).withBaseFields(
+                id = product.id,
+                createdAt = product.createdAt,
+                updatedAt = product.updatedAt,
+                deletedAt = product.deletedAt,
+            )
         }
     }
 

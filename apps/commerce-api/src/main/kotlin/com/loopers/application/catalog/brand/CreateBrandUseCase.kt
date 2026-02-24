@@ -1,14 +1,18 @@
 package com.loopers.application.catalog.brand
 
-import com.loopers.domain.catalog.CatalogCommand
-import com.loopers.domain.catalog.CatalogService
+import com.loopers.application.catalog.CatalogCommand
+import com.loopers.domain.catalog.brand.model.Brand
+import com.loopers.domain.catalog.brand.repository.BrandRepository
 import com.loopers.domain.catalog.brand.vo.BrandName
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
-class CreateBrandUseCase(private val catalogService: CatalogService) {
+class CreateBrandUseCase(private val brandRepository: BrandRepository) {
+    @Transactional
     fun execute(name: String): BrandInfo {
-        val brand = catalogService.createBrand(CatalogCommand.CreateBrand(name = BrandName(name)))
+        val command = CatalogCommand.CreateBrand(name = BrandName(name))
+        val brand = brandRepository.save(Brand(name = command.name))
         return BrandInfo.from(brand)
     }
 }

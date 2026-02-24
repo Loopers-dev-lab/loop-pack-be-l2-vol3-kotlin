@@ -1,4 +1,4 @@
-package com.loopers.domain.catalog.product.entity
+package com.loopers.domain.catalog.product.model
 
 import com.loopers.domain.catalog.product.vo.Stock
 import com.loopers.domain.common.Money

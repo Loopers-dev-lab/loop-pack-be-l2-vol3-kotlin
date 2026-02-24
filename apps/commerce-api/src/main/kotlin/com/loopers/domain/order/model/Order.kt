@@ -1,4 +1,4 @@
-package com.loopers.domain.order.entity
+package com.loopers.domain.order.model
 
 import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
@@ -17,13 +17,13 @@ class Order private constructor(
     val id: Long = 0
 
     var refUserId: Long = refUserId
-        protected set
+        private set
 
     var status: OrderStatus = status
-        protected set
+        private set
 
     var totalPrice: Money = totalPrice
-        protected set
+        private set
 
     enum class OrderStatus {
         CREATED,

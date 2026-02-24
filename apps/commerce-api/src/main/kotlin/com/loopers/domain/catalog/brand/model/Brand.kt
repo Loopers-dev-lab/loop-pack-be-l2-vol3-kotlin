@@ -1,4 +1,4 @@
-package com.loopers.domain.catalog.brand.entity
+package com.loopers.domain.catalog.brand.model
 
 import com.loopers.domain.catalog.brand.vo.BrandName
 import java.time.ZonedDateTime

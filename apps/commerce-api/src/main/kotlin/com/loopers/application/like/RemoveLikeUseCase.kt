@@ -1,19 +1,30 @@
 package com.loopers.application.like
 
-import com.loopers.domain.catalog.CatalogService
-import com.loopers.domain.like.LikeService
+import com.loopers.domain.catalog.product.repository.ProductRepository
+import com.loopers.domain.like.repository.LikeRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class RemoveLikeUseCase(
-    private val likeService: LikeService,
-    private val catalogService: CatalogService,
+    private val likeRepository: LikeRepository,
+    private val productRepository: ProductRepository,
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
-        catalogService.getProduct(productId)
-        val removed = likeService.removeLike(userId, productId)
-        if (removed) catalogService.decreaseLikeCount(productId)
+        val product = productRepository.findById(productId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+
+        val existing = likeRepository.findByUserIdAndProductId(userId, productId)
+            ?: return
+
+        likeRepository.delete(existing)
+
+        if (!product.isDeleted()) {
+            product.decreaseLikeCount()
+            productRepository.save(product)
+        }
     }
 }

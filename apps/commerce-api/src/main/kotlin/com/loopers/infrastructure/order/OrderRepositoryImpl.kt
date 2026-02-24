@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.order
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.order.entity.Order
+import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest

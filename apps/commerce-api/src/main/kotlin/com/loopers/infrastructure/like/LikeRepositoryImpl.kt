@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.like
 
-import com.loopers.domain.like.entity.Like
+import com.loopers.domain.like.model.Like
 import com.loopers.domain.like.repository.LikeRepository
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository

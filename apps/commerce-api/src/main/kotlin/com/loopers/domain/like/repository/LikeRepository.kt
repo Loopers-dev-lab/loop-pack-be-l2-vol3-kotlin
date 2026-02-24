@@ -1,6 +1,6 @@
 package com.loopers.domain.like.repository
 
-import com.loopers.domain.like.entity.Like
+import com.loopers.domain.like.model.Like
 
 interface LikeRepository {
     fun save(like: Like): Like

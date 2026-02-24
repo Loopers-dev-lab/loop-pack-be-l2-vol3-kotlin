@@ -1,4 +1,4 @@
-package com.loopers.domain.point.entity
+package com.loopers.domain.point.model
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -28,16 +28,16 @@ class PointHistory(
     val id: Long = 0
 
     var refUserPointId: Long = refUserPointId
-        protected set
+        private set
 
     var type: PointHistoryType = type
-        protected set
+        private set
 
     var amount: Long = amount
-        protected set
+        private set
 
     var refOrderId: Long? = refOrderId
-        protected set
+        private set
 
     val createdAt: ZonedDateTime = ZonedDateTime.now()
 }

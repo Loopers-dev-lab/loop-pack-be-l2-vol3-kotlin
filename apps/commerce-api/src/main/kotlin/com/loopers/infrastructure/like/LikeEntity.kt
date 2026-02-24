@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.like
 
-import com.loopers.domain.like.entity.Like
+import com.loopers.domain.like.model.Like
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue

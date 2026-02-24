@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.user
 
-import com.loopers.domain.user.entity.User
+import com.loopers.domain.user.model.User
 import com.loopers.domain.user.repository.UserRepository
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository

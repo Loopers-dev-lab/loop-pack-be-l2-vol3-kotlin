@@ -1,10 +1,11 @@
 package com.loopers.infrastructure.user
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.user.entity.User
+import com.loopers.domain.user.model.User
 import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
+import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -37,21 +38,12 @@ class UserEntity(
                 name = user.name.value,
                 birthDate = user.birthDate,
                 email = user.email.value,
-            ).also { entity ->
-                if (user.id != 0L) {
-                    setBaseEntityField(entity, "id", user.id)
-                    setBaseEntityField(entity, "createdAt", user.createdAt)
-                    setBaseEntityField(entity, "updatedAt", user.updatedAt)
-                }
-                user.deletedAt?.let { setBaseEntityField(entity, "deletedAt", it) }
-            }
-        }
-
-        private fun setBaseEntityField(entity: BaseEntity, fieldName: String, value: Any) {
-            BaseEntity::class.java.getDeclaredField(fieldName).apply {
-                isAccessible = true
-                set(entity, value)
-            }
+            ).withBaseFields(
+                id = user.id,
+                createdAt = user.createdAt,
+                updatedAt = user.updatedAt,
+                deletedAt = user.deletedAt,
+            )
         }
     }
 

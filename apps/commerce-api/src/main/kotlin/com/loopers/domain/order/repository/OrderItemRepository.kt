@@ -1,6 +1,6 @@
 package com.loopers.domain.order.repository
 
-import com.loopers.domain.order.entity.OrderItem
+import com.loopers.domain.order.model.OrderItem
 
 interface OrderItemRepository {
     fun save(orderItem: OrderItem): OrderItem

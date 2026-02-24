@@ -1,7 +1,7 @@
 package com.loopers.domain.order.repository
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.order.entity.Order
+import com.loopers.domain.order.model.Order
 import java.time.ZonedDateTime
 
 interface OrderRepository {
