@@ -91,7 +91,7 @@ class ApiControllerAdvice {
 
             is JsonMappingException -> {
                 val fieldPath = rootCause.path.joinToString(".") { it.fieldName ?: "?" }
-                "필드 '$fieldPath'에서 JSON 매핑 오류가 발생했습니다: ${rootCause.originalMessage}"
+                "필드 '$fieldPath'에서 JSON 매핑 오류가 발생했습니다."
             }
 
             else -> "요청 본문을 처리하는 중 오류가 발생했습니다. JSON 메세지 규격을 확인해주세요."
