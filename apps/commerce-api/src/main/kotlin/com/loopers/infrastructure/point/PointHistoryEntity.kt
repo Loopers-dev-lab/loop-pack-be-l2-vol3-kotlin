@@ -3,6 +3,7 @@ package com.loopers.infrastructure.point
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.point.model.PointHistory
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
+import com.loopers.domain.point.vo.Point
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -29,11 +30,10 @@ class PointHistoryEntity(
             return PointHistoryEntity(
                 refUserPointId = pointHistory.refUserPointId,
                 type = pointHistory.type,
-                amount = pointHistory.amount,
+                amount = pointHistory.amount.value,
                 refOrderId = pointHistory.refOrderId,
             ).withBaseFields(
                 id = pointHistory.id,
-                createdAt = pointHistory.createdAt,
             )
         }
     }
@@ -42,16 +42,12 @@ class PointHistoryEntity(
         val ph = PointHistory(
             refUserPointId = refUserPointId,
             type = type,
-            amount = amount,
+            amount = Point(amount),
             refOrderId = refOrderId,
         )
         PointHistory::class.java.getDeclaredField("id").apply {
             isAccessible = true
             set(ph, id)
-        }
-        PointHistory::class.java.getDeclaredField("createdAt").apply {
-            isAccessible = true
-            set(ph, createdAt)
         }
         return ph
     }

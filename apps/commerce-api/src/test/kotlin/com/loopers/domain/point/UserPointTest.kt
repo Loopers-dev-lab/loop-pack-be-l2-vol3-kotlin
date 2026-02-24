@@ -1,6 +1,7 @@
 package com.loopers.domain.point
 
 import com.loopers.domain.point.model.UserPoint
+import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -50,7 +51,7 @@ class UserPointTest {
             val userPoint = UserPoint(refUserId = 1L)
 
             // act
-            userPoint.charge(5000)
+            userPoint.charge(Point(5000))
 
             // assert
             assertThat(userPoint.balance).isEqualTo(5000)
@@ -64,7 +65,7 @@ class UserPointTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                userPoint.charge(0)
+                userPoint.charge(Point(0))
             }
 
             // assert
@@ -80,7 +81,7 @@ class UserPointTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                userPoint.charge(-1000)
+                userPoint.charge(Point(-1000))
             }
 
             // assert
@@ -94,8 +95,8 @@ class UserPointTest {
             val userPoint = UserPoint(refUserId = 1L)
 
             // act
-            userPoint.charge(3000)
-            userPoint.charge(2000)
+            userPoint.charge(Point(3000))
+            userPoint.charge(Point(2000))
 
             // assert
             assertThat(userPoint.balance).isEqualTo(5000)
@@ -106,11 +107,11 @@ class UserPointTest {
         fun charge_exceedMaxBalance_throwsBadRequest() {
             // arrange
             val userPoint = UserPoint(refUserId = 1L)
-            userPoint.charge(5_000_000)
+            userPoint.charge(Point(5_000_000))
 
             // act
             val exception = assertThrows<CoreException> {
-                userPoint.charge(6_000_000)
+                userPoint.charge(Point(6_000_000))
             }
 
             // assert
@@ -128,10 +129,10 @@ class UserPointTest {
         fun use_sufficientBalance_decreasesBalance() {
             // arrange
             val userPoint = UserPoint(refUserId = 1L)
-            userPoint.charge(10000)
+            userPoint.charge(Point(10000))
 
             // act
-            userPoint.use(3000)
+            userPoint.use(Point(3000))
 
             // assert
             assertThat(userPoint.balance).isEqualTo(7000)
@@ -142,11 +143,11 @@ class UserPointTest {
         fun use_insufficientBalance_throwsException() {
             // arrange
             val userPoint = UserPoint(refUserId = 1L)
-            userPoint.charge(1000)
+            userPoint.charge(Point(1000))
 
             // act
             val exception = assertThrows<CoreException> {
-                userPoint.use(5000)
+                userPoint.use(Point(5000))
             }
 
             // assert
@@ -160,11 +161,11 @@ class UserPointTest {
         fun use_zeroAmount_throwsBadRequest() {
             // arrange
             val userPoint = UserPoint(refUserId = 1L)
-            userPoint.charge(5000)
+            userPoint.charge(Point(5000))
 
             // act
             val exception = assertThrows<CoreException> {
-                userPoint.use(0)
+                userPoint.use(Point(0))
             }
 
             // assert
@@ -177,11 +178,11 @@ class UserPointTest {
         fun use_negativeAmount_throwsBadRequest() {
             // arrange
             val userPoint = UserPoint(refUserId = 1L)
-            userPoint.charge(5000)
+            userPoint.charge(Point(5000))
 
             // act
             val exception = assertThrows<CoreException> {
-                userPoint.use(-1000)
+                userPoint.use(Point(-1000))
             }
 
             // assert
@@ -198,10 +199,10 @@ class UserPointTest {
         fun canAfford_sufficientBalance_returnsTrue() {
             // arrange
             val userPoint = UserPoint(refUserId = 1L)
-            userPoint.charge(5000)
+            userPoint.charge(Point(5000))
 
             // act & assert
-            assertThat(userPoint.canAfford(5000)).isTrue()
+            assertThat(userPoint.canAfford(Point(5000))).isTrue()
         }
 
         @Test
@@ -209,10 +210,10 @@ class UserPointTest {
         fun canAfford_insufficientBalance_returnsFalse() {
             // arrange
             val userPoint = UserPoint(refUserId = 1L)
-            userPoint.charge(1000)
+            userPoint.charge(Point(1000))
 
             // act & assert
-            assertThat(userPoint.canAfford(5000)).isFalse()
+            assertThat(userPoint.canAfford(Point(5000))).isFalse()
         }
     }
 }

@@ -5,6 +5,7 @@ import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.domain.point.model.UserPoint
 import com.loopers.domain.point.repository.PointHistoryRepository
 import com.loopers.domain.point.repository.UserPointRepository
+import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -17,11 +18,11 @@ class PointCharger(
 ) {
 
     @Transactional
-    fun charge(userId: Long, amount: Long): UserPoint {
-        if (amount <= 0) {
+    fun charge(userId: Long, amount: Point): UserPoint {
+        if (amount.value == 0L) {
             throw CoreException(ErrorType.BAD_REQUEST, "충전 금액은 0보다 커야 합니다.")
         }
-        if (amount > MAX_CHARGE_AMOUNT) {
+        if (amount.value > MAX_CHARGE_AMOUNT) {
             throw CoreException(ErrorType.BAD_REQUEST, "1회 충전 한도는 ${MAX_CHARGE_AMOUNT}포인트입니다.")
         }
         val userPoint = userPointRepository.findByUserIdForUpdate(userId)

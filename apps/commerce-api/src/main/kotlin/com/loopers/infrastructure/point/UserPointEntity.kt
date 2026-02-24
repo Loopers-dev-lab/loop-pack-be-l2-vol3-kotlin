@@ -23,8 +23,6 @@ class UserPointEntity(
                 balance = userPoint.balance,
             ).withBaseFields(
                 id = userPoint.id,
-                createdAt = userPoint.createdAt,
-                updatedAt = userPoint.updatedAt,
             )
         }
     }
@@ -34,14 +32,6 @@ class UserPointEntity(
         UserPoint::class.java.getDeclaredField("id").apply {
             isAccessible = true
             set(up, id)
-        }
-        UserPoint::class.java.getDeclaredField("createdAt").apply {
-            isAccessible = true
-            set(up, createdAt)
-        }
-        UserPoint::class.java.getDeclaredField("updatedAt").apply {
-            isAccessible = true
-            set(up, updatedAt)
         }
         return up
     }

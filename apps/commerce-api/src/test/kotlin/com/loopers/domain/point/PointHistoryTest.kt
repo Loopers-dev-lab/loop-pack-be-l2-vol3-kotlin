@@ -2,6 +2,7 @@ package com.loopers.domain.point
 
 import com.loopers.domain.point.model.PointHistory
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
+import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -23,11 +24,11 @@ class PointHistoryTest {
             val history = PointHistory(
                 refUserPointId = 1L,
                 type = PointHistoryType.CHARGE,
-                amount = 1000,
+                amount = Point(1000),
             )
 
             // assert
-            assertThat(history.amount).isEqualTo(1000)
+            assertThat(history.amount.value).isEqualTo(1000)
             assertThat(history.type).isEqualTo(PointHistoryType.CHARGE)
             assertThat(history.refUserPointId).isEqualTo(1L)
         }
@@ -40,7 +41,7 @@ class PointHistoryTest {
                 PointHistory(
                     refUserPointId = 1L,
                     type = PointHistoryType.CHARGE,
-                    amount = 0,
+                    amount = Point(0),
                 )
             }
 
@@ -56,7 +57,7 @@ class PointHistoryTest {
                 PointHistory(
                     refUserPointId = 1L,
                     type = PointHistoryType.USE,
-                    amount = -1000,
+                    amount = Point(-1000),
                 )
             }
 
@@ -71,7 +72,7 @@ class PointHistoryTest {
             val history = PointHistory(
                 refUserPointId = 1L,
                 type = PointHistoryType.USE,
-                amount = 5000,
+                amount = Point(5000),
                 refOrderId = 100L,
             )
 

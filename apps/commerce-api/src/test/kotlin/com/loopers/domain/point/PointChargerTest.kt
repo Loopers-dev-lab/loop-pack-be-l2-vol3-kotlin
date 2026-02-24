@@ -2,6 +2,7 @@ package com.loopers.domain.point
 
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.domain.point.model.UserPoint
+import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -39,7 +40,7 @@ class PointChargerTest {
             val userPoint = createUserPoint(1L)
 
             // act
-            val result = pointCharger.charge(1L, 5000)
+            val result = pointCharger.charge(1L, Point(5000))
 
             // assert
             assertThat(result.balance).isEqualTo(5000)
@@ -47,7 +48,7 @@ class PointChargerTest {
             val histories = pointHistoryRepository.findAllByUserPointId(userPoint.id)
             assertThat(histories).hasSize(1)
             assertThat(histories[0].type).isEqualTo(PointHistoryType.CHARGE)
-            assertThat(histories[0].amount).isEqualTo(5000)
+            assertThat(histories[0].amount.value).isEqualTo(5000)
             assertThat(histories[0].refOrderId).isNull()
         }
 
@@ -58,8 +59,8 @@ class PointChargerTest {
             val userPoint = createUserPoint(1L)
 
             // act
-            pointCharger.charge(1L, 3000)
-            pointCharger.charge(1L, 2000)
+            pointCharger.charge(1L, Point(3000))
+            pointCharger.charge(1L, Point(2000))
 
             // assert
             val updated = userPointRepository.findByUserId(1L)!!
@@ -77,7 +78,7 @@ class PointChargerTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                pointCharger.charge(1L, 0)
+                pointCharger.charge(1L, Point(0))
             }
 
             // assert
@@ -93,12 +94,11 @@ class PointChargerTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                pointCharger.charge(1L, -1000)
+                pointCharger.charge(1L, Point(-1000))
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).contains("충전 금액은 0보다 커야")
         }
 
         @Test
@@ -106,7 +106,7 @@ class PointChargerTest {
         fun charge_noPointInfo_throwsNotFound() {
             // act
             val exception = assertThrows<CoreException> {
-                pointCharger.charge(999L, 5000)
+                pointCharger.charge(999L, Point(5000))
             }
 
             // assert
@@ -120,7 +120,7 @@ class PointChargerTest {
             createUserPoint(1L)
 
             // act
-            val result = pointCharger.charge(1L, 10_000_000)
+            val result = pointCharger.charge(1L, Point(10_000_000))
 
             // assert
             assertThat(result.balance).isEqualTo(10_000_000)
@@ -134,7 +134,7 @@ class PointChargerTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                pointCharger.charge(1L, 10_000_001)
+                pointCharger.charge(1L, Point(10_000_001))
             }
 
             // assert
@@ -147,11 +147,11 @@ class PointChargerTest {
         fun charge_exceedMaxBalance_throwsBadRequest() {
             // arrange
             createUserPoint(1L)
-            pointCharger.charge(1L, 5_000_000)
+            pointCharger.charge(1L, Point(5_000_000))
 
             // act
             val exception = assertThrows<CoreException> {
-                pointCharger.charge(1L, 6_000_000)
+                pointCharger.charge(1L, Point(6_000_000))
             }
 
             // assert

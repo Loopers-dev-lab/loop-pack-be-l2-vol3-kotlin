@@ -2,6 +2,7 @@ package com.loopers.domain.point
 
 import com.loopers.domain.common.Money
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
+import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -12,17 +13,17 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
 
-class PointPaymentProcessorTest {
+class PointDeductorTest {
 
     private lateinit var userPointRepository: FakeUserPointRepository
     private lateinit var pointHistoryRepository: FakePointHistoryRepository
-    private lateinit var pointPaymentProcessor: PointPaymentProcessor
+    private lateinit var pointDeductor: PointDeductor
 
     @BeforeEach
     fun setUp() {
         userPointRepository = FakeUserPointRepository()
         pointHistoryRepository = FakePointHistoryRepository()
-        pointPaymentProcessor = PointPaymentProcessor(userPointRepository, pointHistoryRepository)
+        pointDeductor = PointDeductor(userPointRepository, pointHistoryRepository)
     }
 
     @Nested
@@ -34,11 +35,11 @@ class PointPaymentProcessorTest {
         fun usePoints_sufficientBalance_deductsAndRecordsHistory() {
             // arrange
             val userPoint = userPointRepository.save(com.loopers.domain.point.model.UserPoint(refUserId = 1L))
-            userPoint.charge(10000)
+            userPoint.charge(Point(10000))
             userPointRepository.save(userPoint)
 
             // act
-            pointPaymentProcessor.usePoints(1L, Money(BigDecimal("3000")), 100L)
+            pointDeductor.usePoints(1L, Money(BigDecimal("3000")), 100L)
 
             // assert
             val updated = userPointRepository.findByUserId(1L)!!
@@ -47,7 +48,7 @@ class PointPaymentProcessorTest {
             val histories = pointHistoryRepository.findAllByUserPointId(userPoint.id)
             assertThat(histories).hasSize(1)
             assertThat(histories[0].type).isEqualTo(PointHistoryType.USE)
-            assertThat(histories[0].amount).isEqualTo(3000)
+            assertThat(histories[0].amount.value).isEqualTo(3000)
             assertThat(histories[0].refOrderId).isEqualTo(100L)
         }
 
@@ -56,12 +57,12 @@ class PointPaymentProcessorTest {
         fun usePoints_insufficientBalance_throwsException() {
             // arrange
             val userPoint = userPointRepository.save(com.loopers.domain.point.model.UserPoint(refUserId = 1L))
-            userPoint.charge(1000)
+            userPoint.charge(Point(1000))
             userPointRepository.save(userPoint)
 
             // act
             val exception = assertThrows<CoreException> {
-                pointPaymentProcessor.usePoints(1L, Money(BigDecimal("5000")), 100L)
+                pointDeductor.usePoints(1L, Money(BigDecimal("5000")), 100L)
             }
 
             // assert
@@ -75,7 +76,7 @@ class PointPaymentProcessorTest {
         fun usePoints_noPointInfo_throwsNotFound() {
             // act
             val exception = assertThrows<CoreException> {
-                pointPaymentProcessor.usePoints(999L, Money(BigDecimal("1000")), 100L)
+                pointDeductor.usePoints(999L, Money(BigDecimal("1000")), 100L)
             }
 
             // assert
