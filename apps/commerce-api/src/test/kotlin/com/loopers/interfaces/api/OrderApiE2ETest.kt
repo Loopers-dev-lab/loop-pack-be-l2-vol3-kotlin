@@ -22,6 +22,8 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class OrderApiE2ETest @Autowired constructor(
@@ -38,6 +40,8 @@ class OrderApiE2ETest @Autowired constructor(
         private const val LOGIN_PW_HEADER = "X-Loopers-LoginPw"
         private val ORDER_RESPONSE_TYPE =
             object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+        private val ORDER_LIST_RESPONSE_TYPE =
+            object : ParameterizedTypeReference<ApiResponse<List<Any>>>() {}
     }
 
     @AfterEach
@@ -115,6 +119,17 @@ class OrderApiE2ETest @Autowired constructor(
         HttpMethod.POST,
         HttpEntity(request, headers),
         ORDER_RESPONSE_TYPE,
+    )
+
+    private fun getOrders(
+        startAt: String,
+        endAt: String,
+        headers: HttpHeaders = authHeaders(),
+    ) = testRestTemplate.exchange(
+        "$ORDER_ENDPOINT?startAt=$startAt&endAt=$endAt",
+        HttpMethod.GET,
+        HttpEntity<Void>(headers),
+        ORDER_LIST_RESPONSE_TYPE,
     )
 
     @DisplayName("POST /api/v1/orders")
@@ -373,6 +388,165 @@ class OrderApiE2ETest @Autowired constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             val updatedProduct1 = productRepository.findById(product1.id)
             assertThat(updatedProduct1?.stockQuantity).isEqualTo(100)
+        }
+    }
+
+    @DisplayName("GET /api/v1/orders")
+    @Nested
+    inner class GetOrdersApi {
+
+        @DisplayName("기간 내 주문 목록을 조회하면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenGetOrdersWithinPeriod() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 1))))
+
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+            // act
+            val response = getOrders(startAt, endAt)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(response.body?.data).hasSize(1) },
+            )
+        }
+
+        @DisplayName("조회된 주문의 응답 데이터가 올바르다.")
+        @Test
+        fun returnsCorrectOrderData() {
+            // arrange
+            signUp()
+            val brand = createBrand()
+            val product = createProduct(name = "에어맥스", price = 159000, brand = brand)
+            placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 2))))
+
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+            // act
+            val response = getOrders(startAt, endAt)
+
+            // assert
+            val order = response.body?.data?.first() as Map<*, *>
+            assertAll(
+                { assertThat(order["orderId"]).isNotNull() },
+                { assertThat((order["totalAmount"] as Number).toLong()).isEqualTo(318000L) },
+                { assertThat(order["status"]).isEqualTo("ORDERED") },
+                { assertThat(order["orderedAt"]).isNotNull() },
+            )
+        }
+
+        @DisplayName("여러 건 주문 후 조회하면, 모든 주문이 반환된다.")
+        @Test
+        fun returnsMultipleOrders() {
+            // arrange
+            signUp()
+            val brand = createBrand()
+            val product1 = createProduct(name = "에어맥스", price = 159000, brand = brand)
+            val product2 = createProduct(name = "에어포스", price = 139000, brand = brand)
+            placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product1.id, quantity = 1))))
+            placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product2.id, quantity = 1))))
+
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+            // act
+            val response = getOrders(startAt, endAt)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).hasSize(2) },
+            )
+        }
+
+        @DisplayName("기간 외 주문은 조회되지 않는다.")
+        @Test
+        fun doesNotReturnOrdersOutsidePeriod() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 1))))
+
+            val startAt = LocalDateTime.now().minusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().minusDays(29).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+            // act
+            val response = getOrders(startAt, endAt)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).isEmpty() },
+            )
+        }
+
+        @DisplayName("startAt이 endAt보다 크면, 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenStartAtIsAfterEndAt() {
+            // arrange
+            signUp()
+            val startAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+            // act
+            val response = getOrders(startAt, endAt)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("인증 헤더가 없으면, 401 Unauthorized를 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenNotAuthenticated() {
+            // arrange
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val unauthHeaders = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+            }
+
+            // act
+            val response = getOrders(startAt, endAt, unauthHeaders)
+
+            // assert
+            assertThat(response.statusCode.value()).isEqualTo(401)
+        }
+
+        @DisplayName("다른 유저의 주문은 조회되지 않는다.")
+        @Test
+        fun doesNotReturnOtherUsersOrders() {
+            // arrange
+            signUp(loginId = "user1", name = "유저1", email = "user1@example.com")
+            signUp(loginId = "user2", name = "유저2", email = "user2@example.com")
+            val product = createProduct()
+
+            // user1이 주문
+            placeOrder(
+                PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 1))),
+                authHeaders(loginId = "user1"),
+            )
+
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+            // act - user2가 조회
+            val response = getOrders(startAt, endAt, authHeaders(loginId = "user2"))
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).isEmpty() },
+            )
         }
     }
 }

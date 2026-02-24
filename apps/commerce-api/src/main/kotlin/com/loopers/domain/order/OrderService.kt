@@ -1,12 +1,17 @@
 package com.loopers.domain.order
 
 import org.springframework.stereotype.Component
+import java.time.LocalDateTime
 
 @Component
 class OrderService(
     private val orderRepository: OrderRepository,
     private val orderItemRepository: OrderItemRepository,
 ) {
+
+    fun getOrders(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<Order> {
+        return orderRepository.findByUserIdAndCreatedAtBetween(userId, startAt, endAt)
+    }
 
     fun createOrder(userId: Long, items: List<OrderItemCommand>): Order {
         val totalAmount = items.sumOf { it.productPrice * it.quantity }

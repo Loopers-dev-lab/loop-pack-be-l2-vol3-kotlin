@@ -15,6 +15,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.capture
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.time.LocalDateTime
 
 @ExtendWith(MockitoExtension::class)
 class OrderServiceTest {
@@ -139,6 +140,30 @@ class OrderServiceTest {
             verify(orderRepository).save(capture(orderCaptor))
             assertThat(orderCaptor.value.totalAmount).isEqualTo(735000L)
             assertThat(result.totalAmount).isEqualTo(735000L)
+        }
+    }
+
+    @DisplayName("주문 목록을 조회할 때,")
+    @Nested
+    inner class GetOrders {
+
+        @DisplayName("Repository에서 조회한 결과를 반환한다.")
+        @Test
+        fun returnsOrdersFromRepository() {
+            // arrange
+            val userId = 1L
+            val startAt = LocalDateTime.of(2026, 2, 1, 0, 0)
+            val endAt = LocalDateTime.of(2026, 2, 28, 23, 59, 59)
+            val expectedOrders = listOf(Order(userId = userId, totalAmount = 159000L))
+            whenever(orderRepository.findByUserIdAndCreatedAtBetween(userId, startAt, endAt))
+                .thenReturn(expectedOrders)
+
+            // act
+            val result = orderService.getOrders(userId, startAt, endAt)
+
+            // assert
+            assertThat(result).hasSize(1)
+            verify(orderRepository).findByUserIdAndCreatedAtBetween(userId, startAt, endAt)
         }
     }
 }
