@@ -1,4 +1,4 @@
-package com.loopers.domain.member
+package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -10,20 +10,20 @@ import java.time.format.DateTimeFormatter
  * 회원 도메인 서비스
  */
 @Component
-class MemberService(
-    private val memberRepository: MemberRepository,
+class UserService(
+    private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
 
     @Transactional
-    fun signUp(command: SignUpCommand): Member {
+    fun signUp(command: SignUpCommand): User {
         validateLoginIdNotDuplicated(command.loginId)
         validatePassword(command.password, command.birthDate.format(BIRTH_DATE_FORMAT))
 
         val encodedPassword = passwordEncoder.encode(command.password)
 
-        return memberRepository.save(
-            Member(
+        return userRepository.save(
+            User(
                 loginId = command.loginId,
                 password = encodedPassword,
                 name = command.name,
@@ -34,17 +34,17 @@ class MemberService(
     }
 
     @Transactional(readOnly = true)
-    fun getMyInfo(memberId: Long): Member {
-        return memberRepository.findById(memberId)
+    fun getMyInfo(userId: Long): User {
+        return userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다.")
     }
 
     @Transactional
-    fun changePassword(memberId: Long, currentPassword: String, newPassword: String) {
-        val member = memberRepository.findById(memberId)
+    fun changePassword(userId: Long, currentPassword: String, newPassword: String) {
+        val user = userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다.")
 
-        if (!passwordEncoder.matches(currentPassword, member.password)) {
+        if (!passwordEncoder.matches(currentPassword, user.password)) {
             throw CoreException(ErrorType.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.")
         }
 
@@ -52,15 +52,15 @@ class MemberService(
             throw CoreException(ErrorType.BAD_REQUEST, "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
         }
 
-        validatePassword(newPassword, member.birthDate.format(BIRTH_DATE_FORMAT))
+        validatePassword(newPassword, user.birthDate.format(BIRTH_DATE_FORMAT))
 
         val encodedNewPassword = passwordEncoder.encode(newPassword)
-        member.changePassword(encodedNewPassword)
-        memberRepository.save(member)
+        user.changePassword(encodedNewPassword)
+        userRepository.save(user)
     }
 
     private fun validateLoginIdNotDuplicated(loginId: String) {
-        if (memberRepository.existsByLoginId(loginId)) {
+        if (userRepository.existsByLoginId(loginId)) {
             throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
         }
     }

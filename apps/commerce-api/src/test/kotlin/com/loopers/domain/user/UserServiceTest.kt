@@ -1,4 +1,4 @@
-package com.loopers.domain.member
+package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -16,7 +16,7 @@ import org.mockito.kotlin.whenever
 import java.time.LocalDate
 
 /**
- * MemberService 단위 테스트
+ * UserService 단위 테스트
  * - Mock을 사용하여 외부 의존성(Repository, PasswordEncoder) 격리
  * - 비밀번호 검증 및 암호화 로직 테스트
  *
@@ -25,7 +25,7 @@ import java.time.LocalDate
  * - JUnit5에서는 @ExtendWith 사용
  */
 @ExtendWith(MockitoExtension::class)
-class MemberServiceTest {
+class UserServiceTest {
 
     /**
      * 📌 Kotlin 설명: @Mock, @InjectMocks
@@ -33,13 +33,13 @@ class MemberServiceTest {
      * - @InjectMocks: Mock 객체들을 주입받아 테스트 대상 생성
      */
     @Mock
-    private lateinit var memberRepository: MemberRepository
+    private lateinit var userRepository: UserRepository
 
     @Mock
     private lateinit var passwordEncoder: PasswordEncoder
 
     @InjectMocks
-    private lateinit var memberService: MemberService
+    private lateinit var userService: UserService
 
     @DisplayName("회원가입할 때,")
     @Nested
@@ -47,7 +47,7 @@ class MemberServiceTest {
 
         @DisplayName("정상적인 정보가 주어지면, 회원이 생성된다.")
         @Test
-        fun createsMember_whenValidInfoProvided() {
+        fun createsUser_whenValidInfoProvided() {
             // arrange
             val command = SignUpCommand(
                 loginId = "testuser1",
@@ -58,12 +58,12 @@ class MemberServiceTest {
             )
             val encodedPassword = "encodedPassword123"
 
-            whenever(memberRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
             whenever(passwordEncoder.encode(command.password)).thenReturn(encodedPassword)
-            whenever(memberRepository.save(any())).thenAnswer { it.arguments[0] }
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            val result = memberService.signUp(command)
+            val result = userService.signUp(command)
 
             // assert
             assertThat(result.loginId).isEqualTo(command.loginId)
@@ -82,11 +82,11 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.existsByLoginId(command.loginId)).thenReturn(true)
+            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.signUp(command)
+                userService.signUp(command)
             }
 
             // assert
@@ -105,11 +105,11 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.signUp(command)
+                userService.signUp(command)
             }
 
             // assert
@@ -128,11 +128,11 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.signUp(command)
+                userService.signUp(command)
             }
 
             // assert
@@ -152,11 +152,11 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.signUp(command)
+                userService.signUp(command)
             }
 
             // assert
@@ -175,11 +175,11 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.signUp(command)
+                userService.signUp(command)
             }
 
             // assert
@@ -193,10 +193,10 @@ class MemberServiceTest {
 
         @DisplayName("존재하는 회원 ID로 조회하면, 회원 정보가 반환된다.")
         @Test
-        fun returnsMemberInfo_whenMemberExists() {
+        fun returnsUserInfo_whenUserExists() {
             // arrange
-            val memberId = 1L
-            val member = Member(
+            val userId = 1L
+            val user = User(
                 loginId = "testuser1",
                 password = "encodedPassword",
                 name = "홍길동",
@@ -204,10 +204,10 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.findById(memberId)).thenReturn(member)
+            whenever(userRepository.findById(userId)).thenReturn(user)
 
             // act
-            val result = memberService.getMyInfo(memberId)
+            val result = userService.getMyInfo(userId)
 
             // assert
             assertThat(result.loginId).isEqualTo("testuser1")
@@ -217,15 +217,15 @@ class MemberServiceTest {
 
         @DisplayName("존재하지 않는 회원 ID로 조회하면, NOT_FOUND 예외가 발생한다.")
         @Test
-        fun throwsException_whenMemberNotFound() {
+        fun throwsException_whenUserNotFound() {
             // arrange
-            val memberId = 999L
+            val userId = 999L
 
-            whenever(memberRepository.findById(memberId)).thenReturn(null)
+            whenever(userRepository.findById(userId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.getMyInfo(memberId)
+                userService.getMyInfo(userId)
             }
 
             // assert
@@ -241,10 +241,10 @@ class MemberServiceTest {
         @Test
         fun changesPassword_whenCurrentPasswordMatches() {
             // arrange
-            val memberId = 1L
+            val userId = 1L
             val currentPassword = "OldPassword1!"
             val newPassword = "NewPassword1!"
-            val member = Member(
+            val user = User(
                 loginId = "testuser1",
                 password = "encodedOldPassword",
                 name = "홍길동",
@@ -252,26 +252,26 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.findById(memberId)).thenReturn(member)
-            whenever(passwordEncoder.matches(currentPassword, member.password)).thenReturn(true)
+            whenever(userRepository.findById(userId)).thenReturn(user)
+            whenever(passwordEncoder.matches(currentPassword, user.password)).thenReturn(true)
             whenever(passwordEncoder.encode(newPassword)).thenReturn("encodedNewPassword")
-            whenever(memberRepository.save(any())).thenAnswer { it.arguments[0] }
+            whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            memberService.changePassword(memberId, currentPassword, newPassword)
+            userService.changePassword(userId, currentPassword, newPassword)
 
             // assert
-            assertThat(member.password).isEqualTo("encodedNewPassword")
+            assertThat(user.password).isEqualTo("encodedNewPassword")
         }
 
         @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
         @Test
         fun throwsException_whenCurrentPasswordDoesNotMatch() {
             // arrange
-            val memberId = 1L
+            val userId = 1L
             val currentPassword = "WrongPassword!"
             val newPassword = "NewPassword1!"
-            val member = Member(
+            val user = User(
                 loginId = "testuser1",
                 password = "encodedOldPassword",
                 name = "홍길동",
@@ -279,12 +279,12 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.findById(memberId)).thenReturn(member)
-            whenever(passwordEncoder.matches(currentPassword, member.password)).thenReturn(false)
+            whenever(userRepository.findById(userId)).thenReturn(user)
+            whenever(passwordEncoder.matches(currentPassword, user.password)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.changePassword(memberId, currentPassword, newPassword)
+                userService.changePassword(userId, currentPassword, newPassword)
             }
 
             // assert
@@ -293,17 +293,17 @@ class MemberServiceTest {
 
         @DisplayName("존재하지 않는 회원 ID로 변경하면, NOT_FOUND 예외가 발생한다.")
         @Test
-        fun throwsException_whenMemberNotFound() {
+        fun throwsException_whenUserNotFound() {
             // arrange
-            val memberId = 999L
+            val userId = 999L
             val currentPassword = "OldPassword1!"
             val newPassword = "NewPassword1!"
 
-            whenever(memberRepository.findById(memberId)).thenReturn(null)
+            whenever(userRepository.findById(userId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.changePassword(memberId, currentPassword, newPassword)
+                userService.changePassword(userId, currentPassword, newPassword)
             }
 
             // assert
@@ -314,10 +314,10 @@ class MemberServiceTest {
         @Test
         fun throwsException_whenNewPasswordIsInvalid() {
             // arrange
-            val memberId = 1L
+            val userId = 1L
             val currentPassword = "OldPassword1!"
             val newPassword = "short"
-            val member = Member(
+            val user = User(
                 loginId = "testuser1",
                 password = "encodedOldPassword",
                 name = "홍길동",
@@ -325,12 +325,12 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.findById(memberId)).thenReturn(member)
-            whenever(passwordEncoder.matches(currentPassword, member.password)).thenReturn(true)
+            whenever(userRepository.findById(userId)).thenReturn(user)
+            whenever(passwordEncoder.matches(currentPassword, user.password)).thenReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.changePassword(memberId, currentPassword, newPassword)
+                userService.changePassword(userId, currentPassword, newPassword)
             }
 
             // assert
@@ -341,10 +341,10 @@ class MemberServiceTest {
         @Test
         fun throwsException_whenNewPasswordSameAsCurrent() {
             // arrange
-            val memberId = 1L
+            val userId = 1L
             val currentPassword = "SamePassword1!"
             val newPassword = "SamePassword1!"
-            val member = Member(
+            val user = User(
                 loginId = "testuser1",
                 password = "encodedPassword",
                 name = "홍길동",
@@ -352,12 +352,12 @@ class MemberServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.findById(memberId)).thenReturn(member)
-            whenever(passwordEncoder.matches(currentPassword, member.password)).thenReturn(true)
+            whenever(userRepository.findById(userId)).thenReturn(user)
+            whenever(passwordEncoder.matches(currentPassword, user.password)).thenReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
-                memberService.changePassword(memberId, currentPassword, newPassword)
+                userService.changePassword(userId, currentPassword, newPassword)
             }
 
             // assert

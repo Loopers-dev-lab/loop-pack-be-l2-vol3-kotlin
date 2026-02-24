@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api.member
+package com.loopers.interfaces.api.user
 
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
@@ -19,7 +19,7 @@ import org.springframework.http.HttpStatus
 import java.time.LocalDate
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class MemberV1ApiE2ETest @Autowired constructor(
+class UserV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -38,11 +38,11 @@ class MemberV1ApiE2ETest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun createTestMember(
+    private fun createTestUser(
         loginId: String = TEST_LOGIN_ID,
         password: String = TEST_PASSWORD,
     ) {
-        val request = MemberV1Dto.SignUpRequest(
+        val request = UserV1Dto.SignUpRequest(
             loginId = loginId,
             password = password,
             name = TEST_NAME,
@@ -51,7 +51,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         )
         val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
         testRestTemplate.exchange(
-            "/api/v1/members/signup",
+            "/api/v1/users",
             HttpMethod.POST,
             HttpEntity(request),
             responseType,
@@ -65,7 +65,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    @DisplayName("POST /api/v1/members/signup")
+    @DisplayName("POST /api/v1/users")
     @Nested
     inner class SignUp {
 
@@ -73,7 +73,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsOk_whenSignUpSucceeds() {
             // arrange
-            val request = MemberV1Dto.SignUpRequest(
+            val request = UserV1Dto.SignUpRequest(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
@@ -84,7 +84,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/signup",
+                "/api/v1/users",
                 HttpMethod.POST,
                 HttpEntity(request),
                 responseType,
@@ -101,7 +101,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsConflict_whenLoginIdAlreadyExists() {
             // arrange
-            val request = MemberV1Dto.SignUpRequest(
+            val request = UserV1Dto.SignUpRequest(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
@@ -112,7 +112,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // 먼저 한 번 가입
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             testRestTemplate.exchange(
-                "/api/v1/members/signup",
+                "/api/v1/users",
                 HttpMethod.POST,
                 HttpEntity(request),
                 responseType,
@@ -120,7 +120,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
 
             // act - 같은 ID로 다시 가입 시도
             val response = testRestTemplate.exchange(
-                "/api/v1/members/signup",
+                "/api/v1/users",
                 HttpMethod.POST,
                 HttpEntity(request),
                 responseType,
@@ -136,7 +136,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsBadRequest_whenPasswordTooShort() {
             // arrange
-            val request = MemberV1Dto.SignUpRequest(
+            val request = UserV1Dto.SignUpRequest(
                 loginId = "testuser1",
                 password = "Pass1!",
                 name = "홍길동",
@@ -147,7 +147,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/signup",
+                "/api/v1/users",
                 HttpMethod.POST,
                 HttpEntity(request),
                 responseType,
@@ -163,7 +163,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsBadRequest_whenLoginIdTooLong() {
             // arrange
-            val request = MemberV1Dto.SignUpRequest(
+            val request = UserV1Dto.SignUpRequest(
                 loginId = "abcdefghijk",
                 password = "Password1!",
                 name = "홍길동",
@@ -174,7 +174,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/signup",
+                "/api/v1/users",
                 HttpMethod.POST,
                 HttpEntity(request),
                 responseType,
@@ -190,7 +190,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsBadRequest_whenEmailFormatInvalid() {
             // arrange
-            val request = MemberV1Dto.SignUpRequest(
+            val request = UserV1Dto.SignUpRequest(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
@@ -201,7 +201,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/signup",
+                "/api/v1/users",
                 HttpMethod.POST,
                 HttpEntity(request),
                 responseType,
@@ -214,7 +214,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    @DisplayName("GET /api/v1/members/me")
+    @DisplayName("GET /api/v1/users/me")
     @Nested
     inner class GetMyInfo {
 
@@ -222,13 +222,13 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsMyInfo_whenAuthHeadersAreValid() {
             // arrange
-            createTestMember()
+            createTestUser()
             val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberInfoResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserInfoResponse>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me",
+                "/api/v1/users/me",
                 HttpMethod.GET,
                 HttpEntity<Any>(headers),
                 responseType,
@@ -251,9 +251,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
             val headers = createAuthHeaders("nonexistent", TEST_PASSWORD)
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberInfoResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserInfoResponse>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me",
+                "/api/v1/users/me",
                 HttpMethod.GET,
                 HttpEntity<Any>(headers),
                 responseType,
@@ -269,13 +269,13 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsUnauthorized_whenPasswordNotMatch() {
             // arrange
-            createTestMember()
+            createTestUser()
             val headers = createAuthHeaders(TEST_LOGIN_ID, "WrongPassword1!")
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<MemberV1Dto.MemberInfoResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserInfoResponse>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me",
+                "/api/v1/users/me",
                 HttpMethod.GET,
                 HttpEntity<Any>(headers),
                 responseType,
@@ -288,7 +288,7 @@ class MemberV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    @DisplayName("PATCH /api/v1/members/me/password")
+    @DisplayName("PUT /api/v1/users/password")
     @Nested
     inner class ChangePassword {
 
@@ -296,9 +296,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsOk_whenPasswordChangeSucceeds() {
             // arrange
-            createTestMember()
+            createTestUser()
             val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
-            val request = MemberV1Dto.ChangePasswordRequest(
+            val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = TEST_PASSWORD,
                 newPassword = "NewPassword1!",
             )
@@ -306,8 +306,8 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me/password",
-                HttpMethod.PATCH,
+                "/api/v1/users/password",
+                HttpMethod.PUT,
                 HttpEntity(request, headers),
                 responseType,
             )
@@ -322,9 +322,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsUnauthorized_whenCurrentPasswordNotMatch() {
             // arrange
-            createTestMember()
+            createTestUser()
             val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
-            val request = MemberV1Dto.ChangePasswordRequest(
+            val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = "WrongPassword1!",
                 newPassword = "NewPassword1!",
             )
@@ -332,8 +332,8 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me/password",
-                HttpMethod.PATCH,
+                "/api/v1/users/password",
+                HttpMethod.PUT,
                 HttpEntity(request, headers),
                 responseType,
             )
@@ -348,9 +348,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsBadRequest_whenNewPasswordSameAsCurrent() {
             // arrange
-            createTestMember()
+            createTestUser()
             val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
-            val request = MemberV1Dto.ChangePasswordRequest(
+            val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = TEST_PASSWORD,
                 newPassword = TEST_PASSWORD,
             )
@@ -358,8 +358,8 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me/password",
-                HttpMethod.PATCH,
+                "/api/v1/users/password",
+                HttpMethod.PUT,
                 HttpEntity(request, headers),
                 responseType,
             )
@@ -374,9 +374,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsBadRequest_whenNewPasswordTooShort() {
             // arrange
-            createTestMember()
+            createTestUser()
             val headers = createAuthHeaders(TEST_LOGIN_ID, TEST_PASSWORD)
-            val request = MemberV1Dto.ChangePasswordRequest(
+            val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = TEST_PASSWORD,
                 newPassword = "Short1!",
             )
@@ -384,8 +384,8 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me/password",
-                HttpMethod.PATCH,
+                "/api/v1/users/password",
+                HttpMethod.PUT,
                 HttpEntity(request, headers),
                 responseType,
             )
@@ -400,9 +400,9 @@ class MemberV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsUnauthorized_whenAuthHeadersInvalid() {
             // arrange
-            createTestMember()
+            createTestUser()
             val headers = createAuthHeaders(TEST_LOGIN_ID, "WrongPassword1!")
-            val request = MemberV1Dto.ChangePasswordRequest(
+            val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = TEST_PASSWORD,
                 newPassword = "NewPassword1!",
             )
@@ -410,8 +410,8 @@ class MemberV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                "/api/v1/members/me/password",
-                HttpMethod.PATCH,
+                "/api/v1/users/password",
+                HttpMethod.PUT,
                 HttpEntity(request, headers),
                 responseType,
             )

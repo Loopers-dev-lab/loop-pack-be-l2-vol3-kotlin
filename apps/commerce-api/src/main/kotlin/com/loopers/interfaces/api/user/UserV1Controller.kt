@@ -1,26 +1,26 @@
-package com.loopers.interfaces.api.member
+package com.loopers.interfaces.api.user
 
-import com.loopers.domain.member.AuthService
-import com.loopers.domain.member.MemberService
+import com.loopers.domain.user.AuthService
+import com.loopers.domain.user.UserService
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 
-@Tag(name = "Member V1 API", description = "회원 관련 API")
+@Tag(name = "User V1 API", description = "회원 관련 API")
 @RestController
-@RequestMapping("/api/v1/members")
-class MemberV1Controller(
-    private val memberService: MemberService,
+@RequestMapping("/api/v1/users")
+class UserV1Controller(
+    private val userService: UserService,
     private val authService: AuthService,
 ) {
 
@@ -32,11 +32,11 @@ class MemberV1Controller(
             SwaggerApiResponse(responseCode = "409", description = "이미 존재하는 로그인 ID"),
         ],
     )
-    @PostMapping("/signup")
+    @PostMapping
     fun signUp(
-        @RequestBody request: MemberV1Dto.SignUpRequest,
+        @RequestBody request: UserV1Dto.SignUpRequest,
     ): ApiResponse<Any> {
-        memberService.signUp(request.toCommand())
+        userService.signUp(request.toCommand())
         return ApiResponse.success()
     }
 
@@ -53,9 +53,9 @@ class MemberV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @Parameter(description = "비밀번호", required = true)
         @RequestHeader("X-Loopers-LoginPw") password: String,
-    ): ApiResponse<MemberV1Dto.MemberInfoResponse> {
-        val member = authService.authenticate(loginId, password)
-        return MemberV1Dto.MemberInfoResponse.from(member)
+    ): ApiResponse<UserV1Dto.UserInfoResponse> {
+        val user = authService.authenticate(loginId, password)
+        return UserV1Dto.UserInfoResponse.from(user)
             .let { ApiResponse.success(it) }
     }
 
@@ -67,16 +67,16 @@ class MemberV1Controller(
             SwaggerApiResponse(responseCode = "401", description = "인증 실패 (현재 비밀번호 불일치)"),
         ],
     )
-    @PatchMapping("/me/password")
+    @PutMapping("/password")
     fun changePassword(
         @Parameter(description = "로그인 ID", required = true)
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @Parameter(description = "비밀번호", required = true)
         @RequestHeader("X-Loopers-LoginPw") password: String,
-        @RequestBody request: MemberV1Dto.ChangePasswordRequest,
+        @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
-        val member = authService.authenticate(loginId, password)
-        memberService.changePassword(member.id, request.currentPassword, request.newPassword)
+        val user = authService.authenticate(loginId, password)
+        userService.changePassword(user.id, request.currentPassword, request.newPassword)
         return ApiResponse.success()
     }
 }

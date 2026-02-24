@@ -1,6 +1,6 @@
-package com.loopers.domain.member
+package com.loopers.domain.user
 
-import com.loopers.infrastructure.member.MemberJpaRepository
+import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -16,14 +16,14 @@ import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDate
 
 /**
- * MemberService 통합 테스트
+ * UserService 통합 테스트
  * - 실제 DB(TestContainers)와 연동하여 Service + Repository 레이어 통합 테스트
  * - 단위 테스트와 달리 Mock 없이 실제 저장/조회 검증
  */
 @SpringBootTest
-class MemberServiceIntegrationTest @Autowired constructor(
-    private val memberService: MemberService,
-    private val memberJpaRepository: MemberJpaRepository,
+class UserServiceIntegrationTest @Autowired constructor(
+    private val userService: UserService,
+    private val userJpaRepository: UserJpaRepository,
     private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -39,7 +39,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
         @DisplayName("정상적인 정보가 주어지면, 회원이 DB에 저장된다.")
         @Test
-        fun savesMemberToDatabase_whenValidInfoProvided() {
+        fun savesUserToDatabase_whenValidInfoProvided() {
             // given
             val command = SignUpCommand(
                 loginId = "testuser1",
@@ -50,15 +50,15 @@ class MemberServiceIntegrationTest @Autowired constructor(
             )
 
             // when
-            val result = memberService.signUp(command)
+            val result = userService.signUp(command)
 
             // then
-            val savedMember = memberJpaRepository.findByLoginId("testuser1")!!
+            val savedUser = userJpaRepository.findByLoginId("testuser1")!!
             assertAll(
-                { assertThat(savedMember.id).isEqualTo(result.id) },
-                { assertThat(savedMember.loginId).isEqualTo("testuser1") },
-                { assertThat(savedMember.name).isEqualTo("홍길동") },
-                { assertThat(savedMember.email).isEqualTo("test@example.com") },
+                { assertThat(savedUser.id).isEqualTo(result.id) },
+                { assertThat(savedUser.loginId).isEqualTo("testuser1") },
+                { assertThat(savedUser.name).isEqualTo("홍길동") },
+                { assertThat(savedUser.email).isEqualTo("test@example.com") },
             )
         }
 
@@ -76,13 +76,13 @@ class MemberServiceIntegrationTest @Autowired constructor(
             )
 
             // when
-            memberService.signUp(command)
+            userService.signUp(command)
 
             // then
-            val savedMember = memberJpaRepository.findByLoginId("testuser1")!!
+            val savedUser = userJpaRepository.findByLoginId("testuser1")!!
             assertAll(
-                { assertThat(savedMember.password).isNotEqualTo(rawPassword) },
-                { assertThat(passwordEncoder.matches(rawPassword, savedMember.password)).isTrue() },
+                { assertThat(savedUser.password).isNotEqualTo(rawPassword) },
+                { assertThat(passwordEncoder.matches(rawPassword, savedUser.password)).isTrue() },
             )
         }
 
@@ -90,14 +90,14 @@ class MemberServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsConflict_whenDuplicateLoginId() {
             // given
-            val existingMember = Member(
+            val existingUser = User(
                 loginId = "testuser1",
                 password = "encoded",
                 name = "기존회원",
                 birthDate = LocalDate.of(1990, 1, 1),
                 email = "existing@example.com",
             )
-            memberJpaRepository.save(existingMember)
+            userJpaRepository.save(existingUser)
 
             val command = SignUpCommand(
                 loginId = "testuser1",
@@ -109,7 +109,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
             // when & then
             val exception = assertThrows<CoreException> {
-                memberService.signUp(command)
+                userService.signUp(command)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
@@ -121,10 +121,10 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
         @DisplayName("존재하는 회원 ID가 주어지면, 회원 정보를 반환한다.")
         @Test
-        fun returnsMemberInfo_whenValidMemberId() {
+        fun returnsUserInfo_whenValidUserId() {
             // given
-            val savedMember = memberJpaRepository.save(
-                Member(
+            val savedUser = userJpaRepository.save(
+                User(
                     loginId = "testuser1",
                     password = "encoded",
                     name = "홍길동",
@@ -134,11 +134,11 @@ class MemberServiceIntegrationTest @Autowired constructor(
             )
 
             // when
-            val result = memberService.getMyInfo(savedMember.id)
+            val result = userService.getMyInfo(savedUser.id)
 
             // then
             assertAll(
-                { assertThat(result.id).isEqualTo(savedMember.id) },
+                { assertThat(result.id).isEqualTo(savedUser.id) },
                 { assertThat(result.loginId).isEqualTo("testuser1") },
                 { assertThat(result.name).isEqualTo("홍길동") },
                 { assertThat(result.email).isEqualTo("test@example.com") },
@@ -147,13 +147,13 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
         @DisplayName("존재하지 않는 회원 ID가 주어지면, NOT_FOUND 예외가 발생한다.")
         @Test
-        fun throwsNotFound_whenMemberNotExists() {
+        fun throwsNotFound_whenUserNotExists() {
             // given
             val nonExistentId = 9999L
 
             // when & then
             val exception = assertThrows<CoreException> {
-                memberService.getMyInfo(nonExistentId)
+                userService.getMyInfo(nonExistentId)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
@@ -169,8 +169,8 @@ class MemberServiceIntegrationTest @Autowired constructor(
             // given
             val currentPassword = "OldPassword1!"
             val newPassword = "NewPassword1!"
-            val savedMember = memberJpaRepository.save(
-                Member(
+            val savedUser = userJpaRepository.save(
+                User(
                     loginId = "testuser1",
                     password = passwordEncoder.encode(currentPassword),
                     name = "홍길동",
@@ -180,13 +180,13 @@ class MemberServiceIntegrationTest @Autowired constructor(
             )
 
             // when
-            memberService.changePassword(savedMember.id, currentPassword, newPassword)
+            userService.changePassword(savedUser.id, currentPassword, newPassword)
 
             // then
-            val updatedMember = memberJpaRepository.findById(savedMember.id).get()
+            val updatedUser = userJpaRepository.findById(savedUser.id).get()
             assertAll(
-                { assertThat(passwordEncoder.matches(newPassword, updatedMember.password)).isTrue() },
-                { assertThat(passwordEncoder.matches(currentPassword, updatedMember.password)).isFalse() },
+                { assertThat(passwordEncoder.matches(newPassword, updatedUser.password)).isTrue() },
+                { assertThat(passwordEncoder.matches(currentPassword, updatedUser.password)).isFalse() },
             )
         }
 
@@ -194,8 +194,8 @@ class MemberServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsUnauthorized_whenCurrentPasswordMismatch() {
             // given
-            val savedMember = memberJpaRepository.save(
-                Member(
+            val savedUser = userJpaRepository.save(
+                User(
                     loginId = "testuser1",
                     password = passwordEncoder.encode("CorrectPassword1!"),
                     name = "홍길동",
@@ -206,7 +206,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
             // when & then
             val exception = assertThrows<CoreException> {
-                memberService.changePassword(savedMember.id, "WrongPassword1!", "NewPassword1!")
+                userService.changePassword(savedUser.id, "WrongPassword1!", "NewPassword1!")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
@@ -216,8 +216,8 @@ class MemberServiceIntegrationTest @Autowired constructor(
         fun throwsBadRequest_whenNewPasswordSameAsCurrent() {
             // given
             val currentPassword = "SamePassword1!"
-            val savedMember = memberJpaRepository.save(
-                Member(
+            val savedUser = userJpaRepository.save(
+                User(
                     loginId = "testuser1",
                     password = passwordEncoder.encode(currentPassword),
                     name = "홍길동",
@@ -228,7 +228,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
             // when & then
             val exception = assertThrows<CoreException> {
-                memberService.changePassword(savedMember.id, currentPassword, currentPassword)
+                userService.changePassword(savedUser.id, currentPassword, currentPassword)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }

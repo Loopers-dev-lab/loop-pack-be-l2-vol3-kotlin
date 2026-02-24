@@ -1,11 +1,11 @@
-package com.loopers.interfaces.api.member
+package com.loopers.interfaces.api.user
 
-import com.loopers.domain.member.Member
-import com.loopers.domain.member.SignUpCommand
+import com.loopers.domain.user.SignUpCommand
+import com.loopers.domain.user.User
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 
-class MemberV1Dto {
+class UserV1Dto {
 
     @Schema(description = "회원가입 요청")
     data class SignUpRequest(
@@ -32,7 +32,7 @@ class MemberV1Dto {
     }
 
     @Schema(description = "회원 정보 응답")
-    data class MemberInfoResponse(
+    data class UserInfoResponse(
         @Schema(description = "로그인 ID", example = "testuser1")
         val loginId: String,
         @Schema(description = "이름 (마스킹 처리)", example = "홍길*")
@@ -43,12 +43,12 @@ class MemberV1Dto {
         val email: String,
     ) {
         companion object {
-            fun from(member: Member): MemberInfoResponse {
-                return MemberInfoResponse(
-                    loginId = member.loginId,
-                    name = member.getMaskedName(),
-                    birthDate = member.birthDate,
-                    email = member.email,
+            fun from(user: User): UserInfoResponse {
+                return UserInfoResponse(
+                    loginId = user.loginId,
+                    name = user.getMaskedName(),
+                    birthDate = user.birthDate,
+                    email = user.email,
                 )
             }
         }

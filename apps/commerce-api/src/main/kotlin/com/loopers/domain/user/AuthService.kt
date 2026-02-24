@@ -1,4 +1,4 @@
-package com.loopers.domain.member
+package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -10,18 +10,18 @@ import org.springframework.stereotype.Component
  */
 @Component
 class AuthService(
-    private val memberRepository: MemberRepository,
+    private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
 
-    fun authenticate(loginId: String, password: String): Member {
-        val member = memberRepository.findByLoginId(loginId)
+    fun authenticate(loginId: String, password: String): User {
+        val user = userRepository.findByLoginId(loginId)
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "로그인 정보가 올바르지 않습니다.")
 
-        if (!passwordEncoder.matches(password, member.password)) {
+        if (!passwordEncoder.matches(password, user.password)) {
             throw CoreException(ErrorType.UNAUTHORIZED, "로그인 정보가 올바르지 않습니다.")
         }
 
-        return member
+        return user
     }
 }

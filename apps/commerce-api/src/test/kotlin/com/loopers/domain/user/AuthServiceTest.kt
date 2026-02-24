@@ -1,4 +1,4 @@
-package com.loopers.domain.member
+package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -18,7 +18,7 @@ import java.time.LocalDate
 class AuthServiceTest {
 
     @Mock
-    private lateinit var memberRepository: MemberRepository
+    private lateinit var userRepository: UserRepository
 
     @Mock
     private lateinit var passwordEncoder: PasswordEncoder
@@ -32,11 +32,11 @@ class AuthServiceTest {
 
         @DisplayName("로그인 ID와 비밀번호가 일치하면, 회원 정보가 반환된다.")
         @Test
-        fun returnsMember_whenCredentialsMatch() {
+        fun returnsUser_whenCredentialsMatch() {
             // arrange
             val loginId = "testuser1"
             val password = "Password1!"
-            val member = Member(
+            val user = User(
                 loginId = loginId,
                 password = "encodedPassword",
                 name = "홍길동",
@@ -44,8 +44,8 @@ class AuthServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.findByLoginId(loginId)).thenReturn(member)
-            whenever(passwordEncoder.matches(password, member.password)).thenReturn(true)
+            whenever(userRepository.findByLoginId(loginId)).thenReturn(user)
+            whenever(passwordEncoder.matches(password, user.password)).thenReturn(true)
 
             // act
             val result = authService.authenticate(loginId, password)
@@ -61,7 +61,7 @@ class AuthServiceTest {
             val loginId = "nonexistent"
             val password = "Password1!"
 
-            whenever(memberRepository.findByLoginId(loginId)).thenReturn(null)
+            whenever(userRepository.findByLoginId(loginId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -78,7 +78,7 @@ class AuthServiceTest {
             // arrange
             val loginId = "testuser1"
             val password = "WrongPassword!"
-            val member = Member(
+            val user = User(
                 loginId = loginId,
                 password = "encodedPassword",
                 name = "홍길동",
@@ -86,8 +86,8 @@ class AuthServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(memberRepository.findByLoginId(loginId)).thenReturn(member)
-            whenever(passwordEncoder.matches(password, member.password)).thenReturn(false)
+            whenever(userRepository.findByLoginId(loginId)).thenReturn(user)
+            whenever(passwordEncoder.matches(password, user.password)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {

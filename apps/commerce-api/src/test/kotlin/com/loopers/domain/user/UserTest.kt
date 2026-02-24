@@ -1,4 +1,4 @@
-package com.loopers.domain.member
+package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -11,11 +11,11 @@ import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 
 /**
- * Member 엔티티 단위 테스트
+ * User 엔티티 단위 테스트
  * - 엔티티 생성 시 기본 검증 로직 테스트
  * - 비밀번호는 이미 암호화된 상태로 전달받는다고 가정
  */
-class MemberTest {
+class UserTest {
 
     @DisplayName("회원을 생성할 때,")
     @Nested
@@ -23,7 +23,7 @@ class MemberTest {
 
         @DisplayName("정상적인 정보가 주어지면, 회원이 생성된다.")
         @Test
-        fun createsMember_whenValidInfoProvided() {
+        fun createsUser_whenValidInfoProvided() {
             // arrange
             val loginId = "testuser1"
             val encodedPassword = "encodedPassword123"
@@ -32,7 +32,7 @@ class MemberTest {
             val email = "test@example.com"
 
             // act
-            val member = Member(
+            val user = User(
                 loginId = loginId,
                 password = encodedPassword,
                 name = name,
@@ -42,11 +42,11 @@ class MemberTest {
 
             // assert
             assertAll(
-                { assertThat(member.loginId).isEqualTo(loginId) },
-                { assertThat(member.password).isEqualTo(encodedPassword) },
-                { assertThat(member.name).isEqualTo(name) },
-                { assertThat(member.birthDate).isEqualTo(birthDate) },
-                { assertThat(member.email).isEqualTo(email) },
+                { assertThat(user.loginId).isEqualTo(loginId) },
+                { assertThat(user.password).isEqualTo(encodedPassword) },
+                { assertThat(user.name).isEqualTo(name) },
+                { assertThat(user.birthDate).isEqualTo(birthDate) },
+                { assertThat(user.email).isEqualTo(email) },
             )
         }
 
@@ -58,7 +58,7 @@ class MemberTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                Member(
+                User(
                     loginId = invalidLoginId,
                     password = "encodedPassword123",
                     name = "홍길동",
@@ -79,7 +79,7 @@ class MemberTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                Member(
+                User(
                     loginId = blankLoginId,
                     password = "encodedPassword123",
                     name = "홍길동",
@@ -100,7 +100,7 @@ class MemberTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                Member(
+                User(
                     loginId = longLoginId,
                     password = "encodedPassword123",
                     name = "홍길동",
@@ -121,7 +121,7 @@ class MemberTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                Member(
+                User(
                     loginId = "testuser1",
                     password = "encodedPassword123",
                     name = "홍길동",
@@ -142,7 +142,7 @@ class MemberTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                Member(
+                User(
                     loginId = "testuser1",
                     password = "encodedPassword123",
                     name = blankName,
@@ -164,7 +164,7 @@ class MemberTest {
         @Test
         fun masksLastCharacter() {
             // arrange
-            val member = Member(
+            val user = User(
                 loginId = "testuser1",
                 password = "encodedPassword123",
                 name = "홍길동",
@@ -173,7 +173,7 @@ class MemberTest {
             )
 
             // act
-            val maskedName = member.getMaskedName()
+            val maskedName = user.getMaskedName()
 
             // assert
             assertThat(maskedName).isEqualTo("홍길*")
@@ -183,7 +183,7 @@ class MemberTest {
         @Test
         fun masksSingleCharacterName() {
             // arrange
-            val member = Member(
+            val user = User(
                 loginId = "testuser1",
                 password = "encodedPassword123",
                 name = "홍",
@@ -192,7 +192,7 @@ class MemberTest {
             )
 
             // act
-            val maskedName = member.getMaskedName()
+            val maskedName = user.getMaskedName()
 
             // assert
             assertThat(maskedName).isEqualTo("*")
