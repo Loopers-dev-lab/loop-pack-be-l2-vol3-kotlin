@@ -43,41 +43,15 @@ e-commerce/
 
 ## Architecture
 
-### Layered Package Structure
-
-```
-com.loopers.
-├── application/<domain>/           # Service, Facade(필요 시), Info DTO, Command
-├── domain/<domain>/                # Domain Model, Repository interface
-├── infrastructure/<domain>/        # Entity, RepositoryImpl, JpaRepository
-├── interfaces/
-│   └── api/                        # ApiResponse, ApiControllerAdvice
-│       └── <domain>/               # Controller, ApiSpec, Dto
-└── support/                        # Cross-cutting (CoreException, ErrorType, Config)
-```
-
 ### Key Patterns
 
 - **Hexagonal Architecture**: Domain defines Repository interfaces, Infrastructure provides JPA implementations
 - **DDD 우선 설계**: Domain 계층의 순수성(Persistence Ignorance)을 유지하고, 애그리거트/VO/도메인 서비스로 비즈니스 규칙을 모델링한다
 - **CQRS 도입 기준**: 읽기/쓰기 모델의 관심사가 명확히 분리되고 성능/정합성 요구가 있을 때 Command/Query 모델 분리를 도입한다
-- **Service per Use Case**: `application/` layer implements use cases via Service classes. Facade is introduced only when multiple services need orchestration. 단일 Service만 필요한 경우 Controller → Service
-  직접 호출
 - **Domain Model**: private constructor + companion object factory method (`register()`, `retrieve()`)
 - **Entity ↔ Domain 변환**: `Entity.toDomain()` / `Entity` companion object (or constructor)
-- **Controller 변환 체인**: `.let { Dto.from(it) }.let { ApiResponse.success(it) }`
 - **Soft Delete**: `BaseEntity` provides `delete()`/`restore()` via `deletedAt` field
 - **BaseEntity**: `@MappedSuperclass` with `id`, `createdAt`, `updatedAt`, `deletedAt` + `guard()` template method
-- **ApiResponse**: `{ "meta": { "result": "SUCCESS", "errorCode": null, "message": null }, "data": {...} }` 형태의 표준 응답 래퍼
-- **ApiControllerAdvice**: Global exception handling via `CoreException` + `ErrorType`
-
-### Package Naming Convention
-
-```
-com.loopers.<layer>.<domain>
-```
-
-Example: `com.loopers.domain.user`, `com.loopers.infrastructure.user`
 
 ## Development Setup
 
@@ -127,44 +101,13 @@ docker compose -f docker/monitoring-compose.yml up -d
 
 ### Naming Rules
 
-- **Controller**: `{Domain}V{Version}Controller` implements `{Domain}V{Version}ApiSpec` (예: `ExampleV1Controller`)
-- **ApiSpec**: `{Domain}V{Version}ApiSpec` — Swagger 어노테이션 분리용 인터페이스
-- **DTO**: `{Domain}V{Version}Dto` container + inner class (예: `ExampleV1Dto.ExampleResponse`)
 - **Info**: `{Domain}Info` — application 레이어 반환 DTO
 - **Domain Model**: `{Domain}` — private constructor + companion object factory method (예: `Example`)
 - **Entity**: `{Domain}Entity extends BaseEntity` — infrastructure 레이어 (예: `ExampleEntity`)
 - **Repository Interface**: `{Domain}Repository` — domain 레이어 (예: `ExampleRepository`)
 - **Repository Impl**: `{Domain}RepositoryImpl` — infrastructure 레이어 (예: `ExampleRepositoryImpl`)
 - **JPA Repository**: `{Domain}JpaRepository` — infrastructure 레이어 (예: `ExampleJpaRepository`)
-- **Application Service**: `{Domain}Service` — use case 단위로 분리 (예: `ExampleService`)
-- **Domain Service**: `{Domain}DomainService` — 여러 엔티티 간 순수 비즈니스 규칙 (필요 시)
-- **Facade**: `{Domain}Facade` — 여러 Service 조합이 필요할 때 도입 (필요 시)
-- **버전 관리**: 클래스명에 V{Version} 포함, 패키지 경로에는 버전 없음
-
-### 패턴 레퍼런스 (Example 코드)
-
-새로운 도메인 구현 시 아래 example 파일들의 패턴을 따른다:
-
-| 패턴                   | 참조 파일                                                                  |
-|----------------------|------------------------------------------------------------------------|
-| Controller + ApiSpec | `example/interfaces/api/ExampleV1Controller.kt`, `ExampleV1ApiSpec.kt` |
-| DTO (Response)       | `example/interfaces/api/ExampleV1Dto.kt`                               |
-| Service              | `example/application/ExampleService.kt`                                |
-| Info DTO             | `example/application/ExampleInfo.kt`                                   |
-| Domain Model         | `example/domain/Example.kt`                                            |
-| Repository Interface | `example/domain/ExampleRepository.kt`                                  |
-| Entity               | `example/infrastructure/ExampleEntity.kt`                              |
-| Repository Impl      | `example/infrastructure/ExampleRepositoryImpl.kt`                      |
-| Unit Test            | `example/domain/ExampleModelTest.kt`                                   |
-| Integration Test     | `example/domain/ExampleServiceIntegrationTest.kt`                      |
-| E2E Test             | `example/interfaces/api/ExampleV1ApiE2ETest.kt`                        |
-
-### Layer Rules
-
-- `interfaces` depends on `application`
-- `application` depends on `domain`
-- `infrastructure` depends on `domain`
-- `domain` has **no outward dependencies** (defines interfaces only)
+> API 전용 네이밍(Controller, ApiSpec, DTO, 버전 관리)은 `apps/commerce-api/AGENTS.md` 참조
 
 ## Build & Test
 
@@ -232,34 +175,4 @@ docker compose -f docker/monitoring-compose.yml up -d
 - TDD 사이클 완료 후 (Red → Green → Refactor 완료 시점)
 - 복잡한 계획 수립 시 (아키텍처 변경, 대규모 리팩토링)
 
-> 상세 워크플로우: `docs/claude/guides/codex-collaboration.md` 참조
-
-### 개발 Workflow - 인수조건 기반 TDD
-
-**핵심 원칙: 인수조건 먼저, 코드는 나중**
-
-- 기능 구현 전 반드시 인수조건을 정의한다
-- 인수조건 → 테스트 스켈레톤 → TDD 사이클 순서로 진행한다
-
-> 참조 문서: `.claude/rules/acceptance-criteria.md`
-
-### 개발 Workflow - TDD (Red → Green → Refactor)
-
-**핵심 원칙: Macro to Micro (Outside-In TDD)**
-
-- 기능 구현 시 상위 레이어(Controller)에서 하위 레이어(Repository)로 단계별 진행
-- 각 레이어에서 Red → Green → Refactor 사이클 완료 후 다음 레이어로 이동
-
-> 참조 문서: `.claude/rules/tdd-workflow.md`
-
-### 테스트 레벨별 가이드라인
-
-> 참조 문서: `.claude/rules/testing-levels.md`
-
-### Git Workflow - PR 기반 과제 제출
-
-> 참조 문서: `.claude/rules/pr-guide.md`
-
-### 학습자 컨텍스트
-
-> 참조 문서: `@docs/claude/learning/learner-context.md`
+> 상세 워크플로우: `.claude/guides/codex-collaboration.md` 참조
