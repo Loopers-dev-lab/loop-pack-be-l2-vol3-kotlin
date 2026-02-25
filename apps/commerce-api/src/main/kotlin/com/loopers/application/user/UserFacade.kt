@@ -15,6 +15,10 @@ class UserFacade(
             .let { UserInfo.from(it) }
     }
 
+    fun authenticate(loginId: String, password: String): User {
+        return userService.authenticate(loginId, password)
+    }
+
     fun getMe(user: User): UserInfo {
         return UserInfo.fromWithMasking(user)
     }
