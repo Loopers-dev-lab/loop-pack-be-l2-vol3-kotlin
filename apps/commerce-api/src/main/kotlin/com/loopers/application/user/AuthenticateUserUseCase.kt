@@ -11,6 +11,7 @@ class AuthenticateUserUseCase(
     @Transactional(readOnly = true)
     fun execute(loginId: String, password: String): Long? {
         val user = userRepository.findByLoginId(loginId) ?: return null
+        if (user.isDeleted()) return null
         if (!user.verifyPassword(password)) return null
         return user.id
     }

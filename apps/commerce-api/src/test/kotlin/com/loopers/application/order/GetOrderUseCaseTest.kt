@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 class GetOrderUseCaseTest {
 
@@ -68,6 +69,28 @@ class GetOrderUseCaseTest {
             // act
             val exception = assertThrows<CoreException> {
                 getOrderUseCase.execute(2L, order.id)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("삭제된 주문을 조회하면 NOT_FOUND 예외가 발생한다")
+        fun execute_deletedOrder_throwsNotFound() {
+            // arrange
+            val deletedOrder = Order.fromPersistence(
+                id = 0,
+                refUserId = 1L,
+                status = Order.OrderStatus.CREATED,
+                totalPrice = Money(BigDecimal("10000")),
+                deletedAt = ZonedDateTime.now(),
+            )
+            val saved = orderRepository.save(deletedOrder)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                getOrderUseCase.execute(1L, saved.id)
             }
 
             // assert

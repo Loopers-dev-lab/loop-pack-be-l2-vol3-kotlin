@@ -18,6 +18,7 @@ class RemoveLikeUseCase(
         likeRepository.delete(existing)
 
         productRepository.findByIdForUpdate(productId)?.let { product ->
+            if (product.isDeleted()) return
             product.decreaseLikeCount()
             productRepository.save(product)
         }

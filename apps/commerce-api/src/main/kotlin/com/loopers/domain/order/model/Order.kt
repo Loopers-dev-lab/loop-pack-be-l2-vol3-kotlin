@@ -20,6 +20,8 @@ class Order private constructor(
     var totalPrice: Money = totalPrice
         private set
 
+    fun isDeleted(): Boolean = deletedAt != null
+
     enum class OrderStatus {
         CREATED,
         PAID,

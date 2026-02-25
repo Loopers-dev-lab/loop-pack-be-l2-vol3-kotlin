@@ -26,6 +26,8 @@ class User(
     var deletedAt: ZonedDateTime? = deletedAt
         private set
 
+    fun isDeleted(): Boolean = deletedAt != null
+
     fun getMaskedName(): String = name.masked()
 
     fun changePassword(currentPassword: String, newPassword: String) {

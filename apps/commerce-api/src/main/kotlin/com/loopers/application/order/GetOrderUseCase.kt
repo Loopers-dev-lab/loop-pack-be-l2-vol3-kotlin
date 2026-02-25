@@ -18,6 +18,9 @@ class GetOrderUseCase(
     fun execute(userId: Long, orderId: Long): OrderInfo {
         val order = orderRepository.findById(orderId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
+        if (order.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
+        }
         if (order.refUserId != userId) {
             throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
         }

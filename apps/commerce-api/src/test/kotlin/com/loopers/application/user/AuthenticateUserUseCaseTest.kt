@@ -2,11 +2,13 @@ package com.loopers.application.user
 
 import com.loopers.domain.user.FakeUserRepository
 import com.loopers.domain.user.UserTestFixture
+import com.loopers.domain.user.model.User
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.time.ZonedDateTime
 
 class AuthenticateUserUseCaseTest {
 
@@ -45,6 +47,31 @@ class AuthenticateUserUseCaseTest {
             // act
             val result = authenticateUserUseCase.execute(
                 loginId = "nonexistent",
+                password = UserTestFixture.DEFAULT_PASSWORD,
+            )
+
+            // assert
+            assertThat(result).isNull()
+        }
+
+        @Test
+        @DisplayName("삭제된 사용자로 인증하면 null을 반환한다")
+        fun execute_deletedUser_returnsNull() {
+            // arrange
+            val user = UserTestFixture.createUser()
+            val deletedUser = User(
+                loginId = user.loginId,
+                password = user.password,
+                name = user.name,
+                birthDate = user.birthDate,
+                email = user.email,
+                deletedAt = ZonedDateTime.now(),
+            )
+            userRepository.save(deletedUser)
+
+            // act
+            val result = authenticateUserUseCase.execute(
+                loginId = UserTestFixture.DEFAULT_LOGIN_ID,
                 password = UserTestFixture.DEFAULT_PASSWORD,
             )
 

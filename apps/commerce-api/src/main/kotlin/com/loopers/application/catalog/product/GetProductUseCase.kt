@@ -18,7 +18,7 @@ class GetProductUseCase(
     fun execute(productId: Long): CatalogInfo {
         val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        if (!product.isActive()) {
+        if (product.isDeleted() || !product.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
         val brand = brandRepository.findById(product.refBrandId)

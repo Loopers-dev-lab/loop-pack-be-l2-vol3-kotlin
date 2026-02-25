@@ -26,6 +26,9 @@ class CreateProductUseCase(
         )
         val brand = brandRepository.findById(command.brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        if (brand.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        }
         val product = productRepository.save(
             Product(
                 refBrandId = command.brandId,

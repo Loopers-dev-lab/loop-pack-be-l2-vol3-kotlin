@@ -17,7 +17,7 @@ class AddLikeUseCase(
     fun execute(userId: Long, productId: Long) {
         val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        if (!product.isActive()) {
+        if (product.isDeleted() || !product.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
 
@@ -27,6 +27,9 @@ class AddLikeUseCase(
 
         val lockedProduct = productRepository.findByIdForUpdate(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        if (lockedProduct.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        }
         lockedProduct.increaseLikeCount()
         productRepository.save(lockedProduct)
     }

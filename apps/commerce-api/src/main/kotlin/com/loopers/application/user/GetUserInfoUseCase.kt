@@ -14,6 +14,9 @@ class GetUserInfoUseCase(
     fun execute(userId: Long): UserInfo {
         val user = userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+        if (user.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+        }
         return UserInfo.from(user)
     }
 }

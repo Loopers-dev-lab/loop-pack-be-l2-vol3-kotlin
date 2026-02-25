@@ -12,6 +12,9 @@ class GetBrandUseCase(private val brandRepository: BrandRepository) {
     fun execute(brandId: Long): BrandInfo {
         val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        if (brand.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        }
         return BrandInfo.from(brand)
     }
 }

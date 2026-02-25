@@ -29,16 +29,16 @@ class FakeProductRepository : ProductRepository {
         return saved
     }
 
-    override fun findById(id: Long): Product? {
-        return products.find { it.id == id }?.takeIf { it.deletedAt == null }
+    override fun saveAll(products: List<Product>): List<Product> {
+        return products.map { save(it) }
     }
 
-    override fun findByIdIncludeDeleted(id: Long): Product? {
+    override fun findById(id: Long): Product? {
         return products.find { it.id == id }
     }
 
     override fun findByIdForUpdate(id: Long): Product? {
-        return products.find { it.id == id }?.takeIf { it.deletedAt == null }
+        return products.find { it.id == id }
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
@@ -81,9 +81,5 @@ class FakeProductRepository : ProductRepository {
 
     override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
         return products.filter { it.id in ids && it.deletedAt == null }.sortedBy { it.id }
-    }
-
-    override fun saveAll(products: List<Product>): List<Product> {
-        return products.map { save(it) }
     }
 }

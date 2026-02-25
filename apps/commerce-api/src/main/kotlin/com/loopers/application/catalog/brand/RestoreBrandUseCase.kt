@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional
 class RestoreBrandUseCase(private val brandRepository: BrandRepository) {
     @Transactional
     fun execute(brandId: Long): BrandInfo {
-        val brand = brandRepository.findByIdIncludeDeleted(brandId)
+        val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         brand.restore()
         val saved = brandRepository.save(brand)

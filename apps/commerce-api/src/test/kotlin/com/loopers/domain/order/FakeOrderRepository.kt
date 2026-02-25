@@ -25,7 +25,7 @@ class FakeOrderRepository : OrderRepository {
     }
 
     override fun findById(id: Long): Order? {
-        return orders.find { it.id == id }?.takeIf { it.deletedAt == null }
+        return orders.find { it.id == id }
     }
 
     override fun findAllByUserId(

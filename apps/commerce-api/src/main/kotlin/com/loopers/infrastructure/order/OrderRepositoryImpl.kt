@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository
 import java.time.ZonedDateTime
 
 interface OrderJpaRepository : JpaRepository<OrderEntity, Long> {
-    fun findByIdAndDeletedAtIsNull(id: Long): OrderEntity?
     fun findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(
         refUserId: Long,
         from: ZonedDateTime,
@@ -31,7 +30,7 @@ class OrderRepositoryImpl(
     }
 
     override fun findById(id: Long): Order? {
-        return orderJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
+        return orderJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findAllByUserId(

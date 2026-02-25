@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
 interface BrandJpaRepository : JpaRepository<BrandEntity, Long> {
-    fun findByIdAndDeletedAtIsNull(id: Long): BrandEntity?
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<BrandEntity>
 }
 
@@ -24,10 +23,6 @@ class BrandRepositoryImpl(
     }
 
     override fun findById(id: Long): Brand? {
-        return brandJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
-    }
-
-    override fun findByIdIncludeDeleted(id: Long): Brand? {
         return brandJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 

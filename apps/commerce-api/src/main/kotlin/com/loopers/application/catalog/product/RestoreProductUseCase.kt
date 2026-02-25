@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional
 class RestoreProductUseCase(private val productRepository: ProductRepository) {
     @Transactional
     fun execute(productId: Long): ProductInfo {
-        val product = productRepository.findByIdIncludeDeleted(productId)
+        val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.restore()
         val saved = productRepository.save(product)

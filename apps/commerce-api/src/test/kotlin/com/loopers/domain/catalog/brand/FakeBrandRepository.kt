@@ -25,10 +25,6 @@ class FakeBrandRepository : BrandRepository {
     }
 
     override fun findById(id: Long): Brand? {
-        return brands.find { it.id == id && it.deletedAt == null }
-    }
-
-    override fun findByIdIncludeDeleted(id: Long): Brand? {
         return brands.find { it.id == id }
     }
 

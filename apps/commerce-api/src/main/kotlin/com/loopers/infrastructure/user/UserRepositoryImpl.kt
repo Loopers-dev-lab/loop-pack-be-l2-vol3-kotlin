@@ -6,9 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
 interface UserJpaRepository : JpaRepository<UserEntity, Long> {
-    fun findByIdAndDeletedAtIsNull(id: Long): UserEntity?
-    fun findByLoginIdAndDeletedAtIsNull(loginId: String): UserEntity?
-    fun existsByLoginIdAndDeletedAtIsNull(loginId: String): Boolean
+    fun findByLoginId(loginId: String): UserEntity?
+    fun existsByLoginId(loginId: String): Boolean
 }
 
 @Repository
@@ -21,14 +20,14 @@ class UserRepositoryImpl(
     }
 
     override fun findById(id: Long): User? {
-        return userJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
+        return userJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findByLoginId(loginId: String): User? {
-        return userJpaRepository.findByLoginIdAndDeletedAtIsNull(loginId)?.toDomain()
+        return userJpaRepository.findByLoginId(loginId)?.toDomain()
     }
 
     override fun existsByLoginId(loginId: String): Boolean {
-        return userJpaRepository.existsByLoginIdAndDeletedAtIsNull(loginId)
+        return userJpaRepository.existsByLoginId(loginId)
     }
 }

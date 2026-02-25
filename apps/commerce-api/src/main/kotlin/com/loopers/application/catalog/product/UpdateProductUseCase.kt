@@ -24,7 +24,7 @@ class UpdateProductUseCase(private val productRepository: ProductRepository) {
             Product.ProductStatus.entries.find { enum -> enum.name == it }
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 상품 상태입니다: $it")
         }
-        val product = productRepository.findByIdIncludeDeleted(productId)
+        val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.update(command.name, command.price?.let { Money(it) }, command.stock, domainStatus)
         val saved = productRepository.save(product)

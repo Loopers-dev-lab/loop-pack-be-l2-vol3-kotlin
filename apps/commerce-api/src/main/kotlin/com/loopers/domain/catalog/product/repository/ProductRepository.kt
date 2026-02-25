@@ -6,8 +6,8 @@ import com.loopers.domain.catalog.product.model.Product
 
 interface ProductRepository {
     fun save(product: Product): Product
+    fun saveAll(products: List<Product>): List<Product>
     fun findById(id: Long): Product?
-    fun findByIdIncludeDeleted(id: Long): Product?
     fun findByIdForUpdate(id: Long): Product?
     fun findAll(page: Int, size: Int): PageResult<Product>
     fun findAllIncludeDeleted(page: Int, size: Int): PageResult<Product>
@@ -15,5 +15,4 @@ interface ProductRepository {
     fun findAllByBrandId(brandId: Long): List<Product>
     fun findAllByIds(ids: List<Long>): List<Product>
     fun findAllByIdsForUpdate(ids: List<Long>): List<Product>
-    fun saveAll(products: List<Product>): List<Product>
 }

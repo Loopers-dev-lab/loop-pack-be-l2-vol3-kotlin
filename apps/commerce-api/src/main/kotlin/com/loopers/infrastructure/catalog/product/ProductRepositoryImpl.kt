@@ -15,13 +15,12 @@ import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
 
 interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
-    fun findByIdAndDeletedAtIsNull(id: Long): ProductEntity?
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<ProductEntity>
     fun findAllByRefBrandIdAndDeletedAtIsNull(brandId: Long): List<ProductEntity>
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findForUpdateByIdAndDeletedAtIsNull(id: Long): ProductEntity?
+    fun findForUpdateById(id: Long): ProductEntity?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findAllForUpdateByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
@@ -37,16 +36,16 @@ class ProductRepositoryImpl(
         return productJpaRepository.save(ProductEntity.fromDomain(product)).toDomain()
     }
 
-    override fun findById(id: Long): Product? {
-        return productJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
+    override fun saveAll(products: List<Product>): List<Product> {
+        return productJpaRepository.saveAll(products.map { ProductEntity.fromDomain(it) }).map { it.toDomain() }
     }
 
-    override fun findByIdIncludeDeleted(id: Long): Product? {
+    override fun findById(id: Long): Product? {
         return productJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
     override fun findByIdForUpdate(id: Long): Product? {
-        return productJpaRepository.findForUpdateByIdAndDeletedAtIsNull(id)?.toDomain()
+        return productJpaRepository.findForUpdateById(id)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
@@ -102,9 +101,5 @@ class ProductRepositoryImpl(
 
     override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
         return productJpaRepository.findAllForUpdateByIdInAndDeletedAtIsNull(ids).map { it.toDomain() }
-    }
-
-    override fun saveAll(products: List<Product>): List<Product> {
-        return productJpaRepository.saveAll(products.map { ProductEntity.fromDomain(it) }).map { it.toDomain() }
     }
 }
