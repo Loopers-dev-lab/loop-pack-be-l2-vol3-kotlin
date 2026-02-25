@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.auth
 
+import com.loopers.support.constant.AuthHeaders
 import com.loopers.support.error.CommonErrorCode
 import com.loopers.support.error.CoreException
 import org.springframework.core.MethodParameter
@@ -23,14 +24,9 @@ class AdminAuthArgumentResolver : HandlerMethodArgumentResolver {
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
     ) {
-        val ldapHeader = webRequest.getHeader(HEADER_LDAP)
-        if (ldapHeader != ADMIN_LDAP_VALUE) {
+        val ldapHeader = webRequest.getHeader(AuthHeaders.Admin.LDAP)
+        if (ldapHeader != AuthHeaders.Admin.LDAP_VALUE) {
             throw CoreException(CommonErrorCode.ADMIN_AUTHENTICATION_FAILED)
         }
-    }
-
-    companion object {
-        private const val HEADER_LDAP = "X-Loopers-Ldap"
-        private const val ADMIN_LDAP_VALUE = "loopers.admin"
     }
 }

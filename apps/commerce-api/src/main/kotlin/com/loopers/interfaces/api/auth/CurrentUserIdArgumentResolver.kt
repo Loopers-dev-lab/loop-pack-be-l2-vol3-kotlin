@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.auth
 
 import com.loopers.domain.user.UserAuthService
+import com.loopers.support.constant.AuthHeaders
 import com.loopers.support.error.UserException
 import org.springframework.core.MethodParameter
 import org.springframework.stereotype.Component
@@ -25,16 +26,11 @@ class CurrentUserIdArgumentResolver(
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
     ): Long {
-        val loginId = webRequest.getHeader(HEADER_LOGIN_ID)
+        val loginId = webRequest.getHeader(AuthHeaders.User.LOGIN_ID)
             ?: throw UserException.invalidCredentials()
-        val password = webRequest.getHeader(HEADER_LOGIN_PW)
+        val password = webRequest.getHeader(AuthHeaders.User.LOGIN_PW)
             ?: throw UserException.invalidCredentials()
 
         return userAuthService.authenticateAndGetId(loginId, password)
-    }
-
-    companion object {
-        private const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
-        private const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
     }
 }

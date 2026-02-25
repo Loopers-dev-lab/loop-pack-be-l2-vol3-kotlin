@@ -3,6 +3,7 @@ package com.loopers.interfaces.api
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.support.constant.ApiPaths
+import com.loopers.support.constant.AuthHeaders
 import com.loopers.support.error.CommonErrorCode
 import com.loopers.support.error.UserErrorCode
 import com.loopers.testcontainers.MySqlTestContainersConfig
@@ -30,11 +31,6 @@ class UserV1ApiE2ETest @Autowired constructor(
     private val userJpaRepository: UserJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
-    companion object {
-        private const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
-        private const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
-    }
-
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
@@ -219,8 +215,8 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act - 내 정보 조회
             val headers = HttpHeaders().apply {
-                set(HEADER_LOGIN_ID, loginId)
-                set(HEADER_LOGIN_PW, password)
+                set(AuthHeaders.User.LOGIN_ID, loginId)
+                set(AuthHeaders.User.LOGIN_PW, password)
             }
             val responseType = object : ParameterizedTypeReference<ApiResponse<UserV1Dto.UserResponse>>() {}
             val response = testRestTemplate.exchange(
@@ -270,8 +266,8 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act - 잘못된 비밀번호로 조회
             val headers = HttpHeaders().apply {
-                set(HEADER_LOGIN_ID, loginId)
-                set(HEADER_LOGIN_PW, "WrongPassword!")
+                set(AuthHeaders.User.LOGIN_ID, loginId)
+                set(AuthHeaders.User.LOGIN_PW, "WrongPassword!")
             }
             val response = testRestTemplate.exchange(
                 ApiPaths.Users.ME,
@@ -292,8 +288,8 @@ class UserV1ApiE2ETest @Autowired constructor(
         fun failWhenUserNotFound() {
             // act - 존재하지 않는 사용자로 조회
             val headers = HttpHeaders().apply {
-                set(HEADER_LOGIN_ID, "nonexistent")
-                set(HEADER_LOGIN_PW, "Test123!")
+                set(AuthHeaders.User.LOGIN_ID, "nonexistent")
+                set(AuthHeaders.User.LOGIN_PW, "Test123!")
             }
             val response = testRestTemplate.exchange(
                 ApiPaths.Users.ME,
@@ -325,8 +321,8 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act - 비밀번호 변경
             val headers = HttpHeaders().apply {
-                set(HEADER_LOGIN_ID, loginId)
-                set(HEADER_LOGIN_PW, currentPassword)
+                set(AuthHeaders.User.LOGIN_ID, loginId)
+                set(AuthHeaders.User.LOGIN_PW, currentPassword)
             }
             val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = currentPassword,
@@ -344,8 +340,8 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // 변경된 비밀번호로 인증 가능한지 확인
             val newHeaders = HttpHeaders().apply {
-                set(HEADER_LOGIN_ID, loginId)
-                set(HEADER_LOGIN_PW, newPassword)
+                set(AuthHeaders.User.LOGIN_ID, loginId)
+                set(AuthHeaders.User.LOGIN_PW, newPassword)
             }
             val meResponse = testRestTemplate.exchange(
                 ApiPaths.Users.ME,
@@ -388,8 +384,8 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act - 잘못된 현재 비밀번호로 변경 시도
             val headers = HttpHeaders().apply {
-                set(HEADER_LOGIN_ID, loginId)
-                set(HEADER_LOGIN_PW, currentPassword)
+                set(AuthHeaders.User.LOGIN_ID, loginId)
+                set(AuthHeaders.User.LOGIN_PW, currentPassword)
             }
             val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = "WrongPass123!",
@@ -419,8 +415,8 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             // act - 같은 비밀번호로 변경 시도
             val headers = HttpHeaders().apply {
-                set(HEADER_LOGIN_ID, loginId)
-                set(HEADER_LOGIN_PW, currentPassword)
+                set(AuthHeaders.User.LOGIN_ID, loginId)
+                set(AuthHeaders.User.LOGIN_PW, currentPassword)
             }
             val request = UserV1Dto.ChangePasswordRequest(
                 currentPassword = currentPassword,
