@@ -40,8 +40,10 @@ class OrderFacade(
 
         // 락 획득 후 상품 재조회 (최신 재고 상태 보장)
         val products = productService.getProductsByIds(productIds)
-        if (products.size != productIds.size) {
-            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        val foundIds = products.map { it.id }.toSet()
+        val missingIds = productIds.filter { it !in foundIds }
+        if (missingIds.isNotEmpty()) {
+            throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: $missingIds")
         }
         val productMap = products.associateBy { it.id }
 
