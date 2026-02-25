@@ -1,272 +1,206 @@
-# 아키텍처 감사 후속 리팩토링 Plan
+# Plan: Repository 메서드 설계 개선 — isDeleted/isActive 관심사 분리
 
 ## Context
 
-Round 3 리팩토링 완료 후 5개 레이어별 병렬 감사 수행. 코드 의존 방향 위반 0건이나, 문서-코드 불일치(6건), soft delete 필터링 누락, 중복 검증, 네이밍 불일치 등 총 56건 발견. 개발자와
-논의 후 수정 방향 전부 확정.
+CP0~CP3(Domain Service 평탄화) 완료 후, next-refactor.md에 정리된 설계 개선 착수.
+현재 `isDeleted`(DB 관심사)와 `isActive`(앱 관심사)가 혼재되어 있다:
+- `Product.isActive()` = `!isDeleted() && status != HIDDEN` → isDeleted 중복 검증
+- `findById()`가 DB 레벨에서 `deletedAt IS NULL` 필터링 → UseCase가 삭제 상태를 인지 불가
+- `findByIdIncludeDeleted`가 별도 메서드로 존재 → 불필요한 인터페이스 복잡성
 
-## 변경 범위 요약
+**목표**: 단건 조회는 DB 필터링 없이 UseCase에서 판단. 다건 조회(페이징)만 DB 필터링 유지.
 
-- **문서**: 3개 CLAUDE.md + architecture-compliance.md
-- **구조적 리팩토링**: StatusDto, CatalogCommand, UseCase 네이밍, 확장함수 추출
-- **Soft delete**: Brand/Product/Order/User Repository 필터링 적용
-- **행위 수정**: existsBy, @Transactional 이동, 중복 검증 제거, likeCount Domain Model 경유
+## 결정 사항
 
----
-
-## CP0: 문서 수정
-
-**커밋**: `docs: 아키텍처 감사 결과 — 문서-코드 불일치 정정`
-
-| 파일                                         | 변경                                                                                                                           |
-|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| `.claude/rules/architecture-compliance.md` | L24: "Facade" → "UseCase". L25: "UserService" → "AuthenticateUserUseCase". L30: "Domain Service에 위치" → "Domain Model 내부에 위치" |
-| `interfaces/CLAUDE.md`                     | L23: "UserService를 직접 호출" → "AuthenticateUserUseCase를 호출". L15: "Domain Model 변환" → "Info DTO(Application) 변환"               |
-| `domain/CLAUDE.md`                         | L16: "검증 없이 DB 데이터로 복원" → "생성 로직(파생값 계산) 없이 DB 데이터로 복원"                                                                      |
+- `isAvailableForOrder()`에서 `!isDeleted()` 제거 (UseCase에서 이미 검증)
+- `existsByLoginId`의 deletedAt 필터 제거 (삭제된 사용자의 loginId로 재가입 불가)
 
 ---
 
-## CP1: 구조적 리팩토링 (Tidy First — 기존 테스트 전부 통과 유지)
+## CP1: Product 도메인 모델 관심사 분리
 
-### CP1-1: StatusDto → String
+`isActive()`, `isAvailableForOrder()`에서 `!isDeleted()` 제거.
 
-**커밋**: `refactor: Interfaces DTO에서 StatusDto enum 제거, String 타입 통일`
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/domain/catalog/product/model/Product.kt`
+- `apps/commerce-api/src/test/kotlin/com/loopers/domain/catalog/product/model/ProductTest.kt` (또는 관련 테스트)
 
-| 파일                                                | 변경                                                                            |
-|---------------------------------------------------|-------------------------------------------------------------------------------|
-| `interfaces/api/product/dto/ProductV1Dto.kt`      | `ProductStatusDto` enum 제거, status 필드 String, `from()` 에서 `info.status` 직접 사용 |
-| `interfaces/api/product/dto/ProductAdminV1Dto.kt` | 동일                                                                            |
-| `interfaces/api/like/dto/LikeV1Dto.kt`            | 동일                                                                            |
-| `interfaces/api/order/dto/OrderV1Dto.kt`          | `OrderStatusDto`/`OrderItemStatusDto` 제거, status String                       |
-| `interfaces/api/order/dto/OrderAdminV1Dto.kt`     | 동일                                                                            |
-
-### CP1-2: CatalogCommand 원시 타입
-
-**커밋**: `refactor: CatalogCommand를 원시 타입으로 전환, UseCase에서 VO 생성`
-
-| 파일                                                    | 변경                                                                                                                                                                                                                                   |
-|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `application/catalog/CatalogCommand.kt`               | `CreateBrand(name: BrandName)` → `(name: String)`. `UpdateBrand` 동일. `CreateProduct(price: Money)` → `(price: BigDecimal)`. `UpdateProduct(price: Money?, status: Product.ProductStatus?)` → `(price: BigDecimal?, status: String?)` |
-| `application/catalog/brand/CreateBrandUseCase.kt`     | `Brand(name = BrandName(command.name))` — UseCase에서 VO 생성                                                                                                                                                                            |
-| `application/catalog/brand/UpdateBrandUseCase.kt`     | `brand.update(BrandName(command.name))`                                                                                                                                                                                              |
-| `application/catalog/product/CreateProductUseCase.kt` | `Product(price = Money(command.price))`                                                                                                                                                                                              |
-| `application/catalog/product/UpdateProductUseCase.kt` | `command.price?.let { Money(it) }`, `command.status?.let { ProductStatus.valueOf(it) }`                                                                                                                                              |
-| 테스트                                                   | `UpdateProductUseCaseTest` 등 Command 생성부 수정                                                                                                                                                                                          |
-
-### CP1-3: UseCase 네이밍
-
-**커밋**: `refactor: GetProduct UseCase 네이밍 교정 — 대고객/어드민 구분 명확화`
-
-실행 순서 (파일명 충돌 방지):
-
-1. `GetProductUseCase.kt` → `GetProductAdminUseCase.kt` (클래스명+파일명, `executeAdmin` → `execute`, BrandRepository 의존 추가, 반환
-   `ProductDetailInfo`)
-2. `GetProductDetailUseCase.kt` → `GetProductUseCase.kt` (클래스명+파일명)
-3. Controller/ApiSpec 참조 업데이트
-
-| 파일                                                                                | 변경                                                                       |
-|-----------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| `application/catalog/product/GetProductUseCase.kt` → `GetProductAdminUseCase.kt`  | 클래스명, `execute()` 통일, BrandRepository 추가, `ProductDetailInfo` 반환         |
-| `application/catalog/product/GetProductDetailUseCase.kt` → `GetProductUseCase.kt` | 클래스명만 변경                                                                 |
-| `interfaces/api/product/ProductAdminV1Controller.kt`                              | `getProductAdminUseCase.execute()`, `AdminProductResponse`에 brandName 추가 |
-| `interfaces/api/product/dto/ProductAdminV1Dto.kt`                                 | `AdminProductResponse.from(info: ProductDetailInfo)`, brandName 필드 추가    |
-| `interfaces/api/product/ProductV1Controller.kt`                                   | `getProductUseCase: GetProductUseCase`                                   |
-| ApiSpec 파일들                                                                       | 참조 업데이트                                                                  |
-| 테스트                                                                               | 클래스명/import 변경                                                           |
-
-### CP1-4: findItemsByOrders 추출
-
-**커밋**: `refactor: findItemsByOrders를 공용 함수로 추출`
-
-| 파일                                            | 변경                                                                                                  |
-|-----------------------------------------------|-----------------------------------------------------------------------------------------------------|
-| `application/order/OrderQuerySupport.kt` (신규) | `fun findItemsByOrders(repo: OrderItemRepository, orders: List<Order>): Map<Long, List<OrderItem>>` |
-| `application/order/GetOrdersUseCase.kt`       | private 메서드 제거 → 공용 함수 호출                                                                           |
-| `application/order/GetOrdersAdminUseCase.kt`  | 동일                                                                                                  |
+**작업:**
+- [ ] [RED] Product 단위 테스트: deletedAt 설정 + ON_SALE → `isActive() == true`, `isAvailableForOrder() == true`
+- [ ] [GREEN] `isActive()` → `status != ProductStatus.HIDDEN`
+- [ ] [GREEN] `isAvailableForOrder()` → `status == ProductStatus.ON_SALE`
+- [ ] 기존 테스트 중 isActive/isAvailableForOrder가 isDeleted를 포함한다고 가정한 케이스 수정
 
 ---
 
-## CP2: Soft Delete 필터링
+## CP2: Product 단건 조회 리팩토링
 
-### Soft delete 적용 범위 (도메인 모델에 deletedAt 필드가 있는 엔티티만)
+### CP2-1: findById deletedAt 필터 제거
 
-| 엔티티          | deletedAt      | delete()/restore() | 적용           |
-|--------------|----------------|--------------------|--------------|
-| Brand        | O              | O                  | **적용**       |
-| Product      | O              | O                  | **적용**       |
-| Order        | O              | X (deletedAt 필드만)  | **적용** (방어적) |
-| User         | O              | X (deletedAt 필드만)  | **적용** (방어적) |
-| UserPoint    | X              | X                  | 미적용          |
-| PointHistory | X              | X                  | 미적용          |
-| OrderItem    | X              | X                  | 미적용          |
-| Like         | BaseEntity 미상속 | hard delete        | 미적용          |
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/catalog/product/ProductRepositoryImpl.kt`
+- `apps/commerce-api/src/test/kotlin/.../FakeProductRepository.kt` (테스트 Fake)
 
-### CP2-1: Repository 인터페이스 확장 (구조적)
+**작업:**
+- [ ] FakeProductRepository.findById에서 deletedAt 필터 제거
+- [ ] ProductRepositoryImpl.findById: `findByIdAndDeletedAtIsNull` → `findById` (JPA 기본)
+- [ ] ProductRepositoryImpl.findByIdForUpdate: 동일하게 필터 제거
 
-**커밋**: `refactor: Restore용 findByIdIncludeDeleted + findByIdForUpdate 추가`
+### CP2-2: UseCase에 상태 검증 추가
 
-| 파일                                                       | 변경                                                                                        |
-|----------------------------------------------------------|-------------------------------------------------------------------------------------------|
-| `domain/catalog/brand/repository/BrandRepository.kt`     | `findByIdIncludeDeleted(id: Long): Brand?` 추가                                             |
-| `domain/catalog/product/repository/ProductRepository.kt` | `findByIdIncludeDeleted(id: Long): Product?` + `findByIdForUpdate(id: Long): Product?` 추가 |
-| Infrastructure 구현체 2개                                    | 구현 (현재 findById와 동일 — 아직 필터링 미적용)                                                         |
-| Fake Repository 2개                                       | 구현                                                                                        |
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/catalog/product/GetProductUseCase.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/catalog/product/DeleteProductUseCase.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/like/AddLikeUseCase.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/like/RemoveLikeUseCase.kt`
+- 각 UseCase의 테스트 파일 (LikeUseCaseTest 포함)
 
-### CP2-2: deletedAt 필터링 적용
+**작업:**
+- [ ] [RED] GetProductUseCase: 삭제된 상품 조회 → NOT_FOUND
+- [ ] [GREEN] `product.isDeleted()` 검증 추가
+- [ ] [RED] DeleteProductUseCase: 이미 삭제된 상품 삭제 시도 → NOT_FOUND
+- [ ] [GREEN] `product.isDeleted()` 검증 추가
+- [ ] [RED] AddLikeUseCase: 삭제된 상품 좋아요 → 에러 (throw)
+- [ ] [GREEN] 첫 번째 `findById` 결과에 `product.isDeleted()` 검증 추가
+  - 분리 유지: findById(검증) → findByIdForUpdate(likeCount 변경). 락 점유 최소화.
+  - 두 번째 findByIdForUpdate 결과에도 `isDeleted()` 검증 추가 (Race Condition 방어: findById~findByIdForUpdate 사이 다른 트랜잭션의 soft delete 대응)
+- [ ] [RED] RemoveLikeUseCase: 삭제된 상품의 좋아요 취소 시 likeCount 변경하지 않음 (멱등, throw 아님)
+- [ ] [GREEN] `findByIdForUpdate` 결과에 `isDeleted() || !isActive()` 가드 추가
+  - 현재: `findByIdForUpdate(id)?.let { ... }` — 필터 제거 후 삭제 상품도 반환되어 likeCount 감소
+  - 변경: `findByIdForUpdate(id)?.takeIf { !it.isDeleted() && it.isActive() }?.let { ... }`
+  - 에러 없이 조용히 return (멱등 설계)
+- [ ] LikeUseCaseTest에서 `findByIdIncludeDeleted` → `findById`로 전환 (CP2-3과 연동)
 
-**커밋**: `feat: Brand/Product/Order/User Repository에 deletedAt 필터링 전면 적용`
+### CP2-3: findByIdIncludeDeleted 제거
 
-**JpaRepository 메서드 추가 + RepositoryImpl 수정:**
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/domain/catalog/product/repository/ProductRepository.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/catalog/product/ProductRepositoryImpl.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/catalog/product/GetProductAdminUseCase.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/catalog/product/UpdateProductUseCase.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/catalog/product/RestoreProductUseCase.kt`
+- FakeProductRepository, 관련 테스트
 
-| Repository  | 수정 메서드                                                                                                  | JPA 메서드 변경                                                                                                                         |
-|-------------|---------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| **Brand**   | `findById`, `findAll`                                                                                   | `findByIdAndDeletedAtIsNull`, `findAllByDeletedAtIsNull(Pageable)`                                                                 |
-| **Product** | `findById`, `findAll`, `findAllByBrandId`, `findAllByIds`, `findAllByIdsForUpdate`, `findByIdForUpdate` | 각각 `...AndDeletedAtIsNull` 메서드 추가                                                                                                  |
-| **Order**   | `findById`, `findAllByUserId`, `findAll`                                                                | `findByIdAndDeletedAtIsNull`, `findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(...)`, `findAllByDeletedAtIsNull(Pageable)` |
-| **User**    | `findById`, `findByLoginId`, `existsByLoginId`                                                          | `findByIdAndDeletedAtIsNull`, `findByLoginIdAndDeletedAtIsNull`, `existsByLoginIdAndDeletedAtIsNull`                               |
-
-**findByIdForUpdate (Product) 비관적 락 구현:**
-
-```kotlin
-// ProductJpaRepository
-@Lock(LockModeType.PESSIMISTIC_WRITE)
-fun findForUpdateByIdAndDeletedAtIsNull(id: Long): ProductEntity?
-```
-
-- `findForUpdateBy...`는 Spring Data가 `By` 이후만 쿼리 파싱 → `findByIdAndDeletedAtIsNull`과 동일 쿼리 + `@Lock`으로 비관적 락 추가
-- OrderBy 불필요 (단건)
-
-**UseCase 마이그레이션:**
-
-| 파일                         | 변경                                                            |
-|----------------------------|---------------------------------------------------------------|
-| `RestoreBrandUseCase.kt`   | `findById` → `findByIdIncludeDeleted`                         |
-| `RestoreProductUseCase.kt` | `findById` → `findByIdIncludeDeleted`                         |
-| `RemoveLikeUseCase.kt`     | `findById` → `findByIdIncludeDeleted` (삭제된 상품도 좋아요 취소 가능해야 함) |
-| `DeleteBrandUseCase.kt`    | `brand.isDeleted()` 체크 제거 (findById가 이미 필터링)                  |
-| `DeleteProductUseCase.kt`  | 동일                                                            |
-| `GetBrandUseCase.kt`       | `brand.isDeleted()` 체크 제거                                     |
-| `CreateProductUseCase.kt`  | `brand.isDeleted()` 체크 제거                                     |
-
-**Fake Repository 수정:**
-
-| 파일                         | 변경                                                                               |
-|----------------------------|----------------------------------------------------------------------------------|
-| `FakeBrandRepository.kt`   | `findById`: `?.takeIf { it.deletedAt == null }`, `findAll`: deletedAt 필터         |
-| `FakeProductRepository.kt` | 동일 패턴 (findById, findAll, findAllByBrandId, findAllByIds, findAllByIdsForUpdate) |
-| `FakeOrderRepository.kt`   | `findById`: deletedAt 필터 추가                                                      |
-| `FakeUserRepository.kt`    | `findById`, `findByLoginId`, `existsByLoginId`: deletedAt 필터 추가                  |
+**작업:**
+- [ ] Admin/Restore UseCase에서 `findByIdIncludeDeleted()` → `findById()` 전환
+- [ ] ProductRepository 인터페이스에서 `findByIdIncludeDeleted` 제거
+- [ ] ProductRepositoryImpl, FakeProductRepository에서 구현 제거
+- [ ] 관련 테스트 업데이트
 
 ---
 
-## CP3: 행위적 수정
+## CP3: Brand 단건 조회 리팩토링
 
-### CP3-1: AddLikeUseCase existsBy 패턴
+CP2와 동일 패턴.
 
-**커밋**: `feat: AddLikeUseCase에 existsBy 사전검증 도입, 인프라 예외 의존 제거`
+### CP3-1: findById deletedAt 필터 제거
 
-| 파일                                          | 변경                                                                                                                  |
-|---------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
-| `domain/like/repository/LikeRepository.kt`  | `existsByUserIdAndProductId(userId, productId): Boolean` 추가                                                         |
-| `infrastructure/like/LikeRepositoryImpl.kt` | `LikeJpaRepository`에 `existsByRefUserIdAndRefProductId` 추가, 구현                                                      |
-| `test/.../FakeLikeRepository.kt`            | `existsByUserIdAndProductId` 구현                                                                                     |
-| `application/like/AddLikeUseCase.kt`        | `DataIntegrityViolationException` import 제거, try-catch 제거, `existsByUserIdAndProductId` 사전검증 (`if (exists) return`) |
-| `test/.../LikeUseCaseTest.kt`               | `simulateConcurrentInsert` 기반 동시성 테스트 제거 또는 예외 전파 확인으로 변경                                                           |
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/catalog/brand/BrandRepositoryImpl.kt`
+- FakeBrandRepository
 
-### CP3-2: @Transactional UseCase 이동
+**작업:**
+- [ ] FakeBrandRepository.findById에서 deletedAt 필터 제거
+- [ ] BrandRepositoryImpl.findById: `findByIdAndDeletedAtIsNull` → `findById`
 
-**커밋**: `refactor: @Transactional을 Domain Service에서 UseCase로 이동`
+### CP3-2: 대고객 UseCase에 상태 검증 추가
 
-| 파일                                        | 변경                               |
-|-------------------------------------------|----------------------------------|
-| `application/point/ChargePointUseCase.kt` | `execute()`에 `@Transactional` 추가 |
-| `domain/point/PointCharger.kt`            | `@Transactional` 제거, import 제거   |
-| `domain/point/PointDeductor.kt`           | `@Transactional` 제거, import 제거   |
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/catalog/brand/GetBrandUseCase.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/catalog/brand/DeleteBrandUseCase.kt`
+- 각 UseCase의 테스트 파일
 
-테스트 영향 없음 (단위 테스트는 Fake 사용, 트랜잭션 무관)
+**작업:**
+- [ ] [RED] GetBrandUseCase: 삭제된 브랜드 조회 → NOT_FOUND
+- [ ] [GREEN] `brand.isDeleted()` 검증 추가
+- [ ] [RED] DeleteBrandUseCase: 이미 삭제된 브랜드 삭제 시도 → NOT_FOUND
+- [ ] [GREEN] `brand.isDeleted()` 검증 추가
 
-### CP3-3: 중복 검증 제거
+### CP3-3: findByIdIncludeDeleted 제거
 
-**커밋**: `refactor: Domain Service/Aggregate Root 중복 검증 제거, Domain Model에 일원화`
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/domain/catalog/brand/repository/BrandRepository.kt`
+- BrandRepositoryImpl, FakeBrandRepository
+- GetBrandAdminUseCase, UpdateBrandUseCase, RestoreBrandUseCase + 테스트
 
-| 파일                             | 변경                                                                                            |
-|--------------------------------|-----------------------------------------------------------------------------------------------|
-| `domain/point/PointCharger.kt` | `if (amount.value == 0L)` 체크 제거 (L22-24). `MAX_CHARGE_AMOUNT` 검증은 유지 (고유 정책)                  |
-| `domain/order/model/Order.kt`  | `cancelItem()`에서 `if (item.status == CANCELLED)` 체크 제거 (L36-38). `item.cancel()` 내부에 동일 검증 존재 |
-
-검증 책임 정리:
-
-- `Point VO init`: `value >= 0` (일반 제약)
-- `UserPoint.charge()/use()`: `value > 0` (비즈니스 규칙) — **유지**
-- `PointCharger`: 없음 (Domain Model에 위임) — **제거**
-- `OrderItem.cancel()`: `status != CANCELLED` — **유지**
-- `Order.cancelItem()`: 없음 (자식에게 위임) — **제거**
-
-### CP3-4: likeCount Domain Model 경유
-
-**커밋**: `feat: likeCount 변경을 Domain Model 경유로 전환, Repository 직접 UPDATE 제거`
-
-| 파일                                                        | 변경                                                                                                                                                                                                  |
-|-----------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `domain/catalog/product/repository/ProductRepository.kt`  | `increaseLikeCount(productId)` 제거, `decreaseLikeCount(productId)` 제거                                                                                                                                |
-| `application/like/AddLikeUseCase.kt`                      | `productRepository.increaseLikeCount(productId)` → `productRepository.findByIdForUpdate(productId)!!.also { it.increaseLikeCount(); productRepository.save(it) }`                                   |
-| `application/like/RemoveLikeUseCase.kt`                   | `productRepository.decreaseLikeCount(productId)` → `productRepository.findByIdForUpdate(productId)?.let { it.decreaseLikeCount(); productRepository.save(it) }` (deletedAt 필터링으로 삭제된 상품은 null → 스킵) |
-| `infrastructure/catalog/product/ProductRepositoryImpl.kt` | QueryDSL `increaseLikeCount`/`decreaseLikeCount` 구현 삭제 (L89-103)                                                                                                                                    |
-| `test/.../FakeProductRepository.kt`                       | `increaseLikeCount`/`decreaseLikeCount` 삭제                                                                                                                                                          |
-| `test/.../LikeUseCaseTest.kt`                             | likeCount 검증 로직 조정                                                                                                                                                                                  |
-
-### CP3-5: 최종 문서
-
-**커밋**: `docs: 아키텍처 감사 후속 리팩토링 반영`
-
-| 파일                              | 변경                                                |
-|---------------------------------|---------------------------------------------------|
-| `infrastructure/CLAUDE.md`      | soft delete 필터링 패턴 + `findByIdIncludeDeleted` 문서화 |
-| `application/CLAUDE.md`         | UseCase 네이밍 규칙 업데이트                               |
-| `docs/note/round3-decisions.md` | 감사 결과 및 리팩토링 섹션 추가                                |
+**작업:**
+- [ ] Admin/Restore UseCase에서 `findByIdIncludeDeleted()` → `findById()` 전환
+- [ ] BrandRepository 인터페이스에서 `findByIdIncludeDeleted` 제거
+- [ ] 구현체/Fake에서 제거, 관련 테스트 업데이트
 
 ---
 
-## 의존성 순서
+## CP4: Order/User 단건 조회 리팩토링
 
-```
-CP0 (문서) ─────────────────────────────────
-CP1-1 (StatusDto) ──┐
-CP1-2 (Command)  ───┤ 독립, 병렬 가능
-CP1-3 (네이밍)   ───┤
-CP1-4 (추출)     ───┘
-                    │
-CP2-1 (인터페이스 확장) ──→ CP2-2 (필터링 적용)
-                              │
-                    ┌─────────┼─────────┐
-              CP3-1 (existsBy) CP3-2 (@Tx) CP3-3 (검증)
-                    │
-              CP3-4 (likeCount) ← CP3-1 + CP2-2 이후
-                    │
-              CP3-5 (최종 문서)
-```
+### CP4-1: Order
 
-## 커밋 순서 (총 12건)
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/order/OrderRepositoryImpl.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/order/GetOrderUseCase.kt`
+- FakeOrderRepository, 관련 테스트
 
-1. `docs:` CP0
-2. `refactor:` CP1-1 StatusDto
-3. `refactor:` CP1-2 CatalogCommand
-4. `refactor:` CP1-3 UseCase 네이밍
-5. `refactor:` CP1-4 findItemsByOrders
-6. `refactor:` CP2-1 Repository 확장
-7. `feat:` CP2-2 soft delete 필터링
-8. `feat:` CP3-1 existsBy
-9. `refactor:` CP3-2 @Transactional
-10. `refactor:` CP3-3 중복 검증 제거
-11. `feat:` CP3-4 likeCount Domain Model
-12. `docs:` CP3-5 최종 문서
+**작업:**
+- [ ] OrderRepositoryImpl.findById에서 deletedAt 필터 제거
+- [ ] FakeOrderRepository.findById 필터 제거
+- [ ] [RED] GetOrderUseCase: 삭제된 주문 조회 → NOT_FOUND
+- [ ] [GREEN] `order.isDeleted()` 검증 추가
+- [ ] GetOrderAdminUseCase: 삭제된 주문도 조회 가능 → 검증 불필요
 
-## Verification
+### CP4-2: User
 
-매 체크포인트마다:
+**수정 파일:**
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/user/UserRepositoryImpl.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/user/GetUserInfoUseCase.kt`
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/user/AuthenticateUserUseCase.kt` (또는 인증 관련)
+- FakeUserRepository, 관련 테스트
 
+**작업:**
+- [ ] UserRepositoryImpl.findById에서 deletedAt 필터 제거
+- [ ] UserRepositoryImpl.findByLoginId에서 deletedAt 필터 제거
+- [ ] existsByLoginId에서도 deletedAt 필터 제거
+- [ ] FakeUserRepository 필터 제거 (findById, findByLoginId, existsByLoginId)
+- [ ] [RED] AuthenticateUserUseCase: 삭제된 사용자 로그인 → 에러
+- [ ] [GREEN] `user.isDeleted()` 검증 추가
+- [ ] [RED] GetUserInfoUseCase: 삭제된 사용자 조회 → 에러
+- [ ] [GREEN] `user.isDeleted()` 검증 추가
+
+---
+
+## CP5: Repository 메서드 순서 정리
+
+구조적 변경만 (Tidy First). 동작 변경 없음.
+
+**작업:**
+- [ ] ProductRepository / Impl: 공용 → 단건 조회 → 다건 조회 → 내부용
+- [ ] BrandRepository / Impl: 공용 → 단건 조회 → 다건 조회
+- [ ] OrderRepository / Impl: 공용 → 단건 조회 → 다건 조회
+- [ ] UserRepository / Impl: 공용 → 단건 조회 → 존재 확인
+- [ ] Fake Repository들도 동일 순서
+
+---
+
+## CP6: 문서 업데이트
+
+- [ ] next-refactor.md TODO 완료 처리 또는 정리
+- [ ] Domain CLAUDE.md에 isDeleted/isActive 관심사 분리 원칙 반영
+- [ ] Infrastructure CLAUDE.md에 단건/다건 필터링 정책 반영
+
+---
+
+## 커밋 전략 (Tidy First)
+
+| 순서 | 타입 | 내용 |
+|------|------|------|
+| 1 | refactor | CP1: Product.isActive() 관심사 분리 |
+| 2 | feat | CP2: Product 단건 조회 리팩토링 |
+| 3 | feat | CP3: Brand 단건 조회 리팩토링 |
+| 4 | feat | CP4: Order/User 단건 조회 리팩토링 |
+| 5 | refactor | CP5: Repository 메서드 순서 정리 |
+| 6 | docs | CP6: 문서 업데이트 |
+
+## 검증
+
+각 CP 완료 후:
 ```bash
-./gradlew ktlintFormat && ./gradlew ktlintCheck test
+./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test
 ```
-
-전체 완료 후: 292+ 테스트 통과 + lint clean 확인
