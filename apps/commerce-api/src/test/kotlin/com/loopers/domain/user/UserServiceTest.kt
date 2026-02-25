@@ -205,6 +205,7 @@ class UserServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+            then(userRepository).should(never()).save(any())
         }
 
         @Test
