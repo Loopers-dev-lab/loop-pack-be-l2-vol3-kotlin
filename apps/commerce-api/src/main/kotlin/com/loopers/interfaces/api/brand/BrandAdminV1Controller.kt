@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.brand
 
 import com.loopers.application.brand.BrandFacade
+import com.loopers.application.brand.BrandService
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api-admin/v1/brands")
 class BrandAdminV1Controller(
+    private val brandService: BrandService,
     private val brandFacade: BrandFacade,
 ) : BrandAdminV1ApiSpec {
 
@@ -28,7 +30,7 @@ class BrandAdminV1Controller(
         pageable: Pageable,
     ): ApiResponse<Page<BrandV1Dto.BrandAdminResponse>> {
         validateAdminAuth(ldap)
-        return brandFacade.getAllBrands(pageable)
+        return brandService.getAllBrands(pageable)
             .map { BrandV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -39,7 +41,7 @@ class BrandAdminV1Controller(
         @PathVariable brandId: Long,
     ): ApiResponse<BrandV1Dto.BrandAdminResponse> {
         validateAdminAuth(ldap)
-        return brandFacade.getBrand(brandId)
+        return brandService.getBrand(brandId)
             .let { BrandV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -50,7 +52,7 @@ class BrandAdminV1Controller(
         @RequestBody request: BrandV1Dto.CreateRequest,
     ): ApiResponse<BrandV1Dto.BrandAdminResponse> {
         validateAdminAuth(ldap)
-        return brandFacade.createBrand(request.toCommand())
+        return brandService.createBrand(request.toCommand())
             .let { BrandV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -62,7 +64,7 @@ class BrandAdminV1Controller(
         @RequestBody request: BrandV1Dto.UpdateRequest,
     ): ApiResponse<BrandV1Dto.BrandAdminResponse> {
         validateAdminAuth(ldap)
-        return brandFacade.updateBrand(brandId, request.toCommand())
+        return brandService.updateBrand(brandId, request.toCommand())
             .let { BrandV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

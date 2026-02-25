@@ -1,10 +1,9 @@
 package com.loopers.application.product
 
+import com.loopers.application.brand.BrandService
 import com.loopers.domain.brand.Brand
-import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
-import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

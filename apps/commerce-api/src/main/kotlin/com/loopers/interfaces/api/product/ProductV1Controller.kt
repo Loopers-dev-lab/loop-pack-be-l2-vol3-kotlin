@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.application.product.ProductFacade
+import com.loopers.application.product.ProductService
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/products")
 class ProductV1Controller(
-    private val productFacade: ProductFacade,
+    private val productService: ProductService,
 ) : ProductV1ApiSpec {
 
     @GetMapping
@@ -23,7 +23,7 @@ class ProductV1Controller(
         @RequestParam(required = false) brandId: Long?,
         @PageableDefault(size = 20, sort = ["createdAt"], direction = Sort.Direction.DESC) pageable: Pageable,
     ): ApiResponse<Page<ProductV1Dto.ProductResponse>> {
-        return productFacade.getAllProducts(brandId, pageable)
+        return productService.getAllProducts(brandId, pageable)
             .map { ProductV1Dto.ProductResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -32,7 +32,7 @@ class ProductV1Controller(
     override fun getProduct(
         @PathVariable productId: Long,
     ): ApiResponse<ProductV1Dto.ProductResponse> {
-        return productFacade.getProduct(productId)
+        return productService.getProduct(productId)
             .let { ProductV1Dto.ProductResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

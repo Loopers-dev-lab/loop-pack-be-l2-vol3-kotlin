@@ -1,5 +1,9 @@
-package com.loopers.domain.product
+package com.loopers.application.product
 
+import com.loopers.domain.product.CreateProductCommand
+import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.UpdateProductCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

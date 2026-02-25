@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.domain.user.AuthService
-import com.loopers.domain.user.UserService
+import com.loopers.application.user.UserService
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -21,7 +20,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
     private val userService: UserService,
-    private val authService: AuthService,
 ) {
 
     @Operation(summary = "회원가입", description = "새로운 회원을 등록합니다.")
@@ -54,7 +52,7 @@ class UserV1Controller(
         @Parameter(description = "비밀번호", required = true)
         @RequestHeader("X-Loopers-LoginPw") password: String,
     ): ApiResponse<UserV1Dto.UserInfoResponse> {
-        val user = authService.authenticate(loginId, password)
+        val user = userService.authenticate(loginId, password)
         return UserV1Dto.UserInfoResponse.from(user)
             .let { ApiResponse.success(it) }
     }
@@ -75,7 +73,7 @@ class UserV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
-        val user = authService.authenticate(loginId, password)
+        val user = userService.authenticate(loginId, password)
         userService.changePassword(user.id, request.currentPassword, request.newPassword)
         return ApiResponse.success()
     }

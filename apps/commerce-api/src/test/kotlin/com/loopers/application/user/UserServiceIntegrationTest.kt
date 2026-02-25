@@ -1,5 +1,8 @@
-package com.loopers.domain.user
+package com.loopers.application.user
 
+import com.loopers.domain.user.PasswordEncoder
+import com.loopers.domain.user.SignUpCommand
+import com.loopers.domain.user.User
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -17,8 +20,8 @@ import java.time.LocalDate
 
 /**
  * UserService 통합 테스트
- * - 실제 DB(TestContainers)와 연동하여 Service + Repository 레이어 통합 테스트
- * - 단위 테스트와 달리 Mock 없이 실제 저장/조회 검증
+ * - 실제 DB(TestContainers)와 연동하여 Service → Repository 레이어 통합 테스트
+ * - @Transactional 경계가 Service에 있으므로 Service를 통해 테스트
  */
 @SpringBootTest
 class UserServiceIntegrationTest @Autowired constructor(
@@ -40,7 +43,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("정상적인 정보가 주어지면, 회원이 DB에 저장된다.")
         @Test
         fun savesUserToDatabase_whenValidInfoProvided() {
-            // given
+            // arrange
             val command = SignUpCommand(
                 loginId = "testuser1",
                 password = "Password1!",
@@ -49,10 +52,10 @@ class UserServiceIntegrationTest @Autowired constructor(
                 email = "test@example.com",
             )
 
-            // when
+            // act
             val result = userService.signUp(command)
 
-            // then
+            // assert
             val savedUser = userJpaRepository.findByLoginId("testuser1")!!
             assertAll(
                 { assertThat(savedUser.id).isEqualTo(result.id) },
@@ -65,7 +68,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("비밀번호가 암호화되어 저장된다.")
         @Test
         fun savesEncodedPassword_whenSignUp() {
-            // given
+            // arrange
             val rawPassword = "Password1!"
             val command = SignUpCommand(
                 loginId = "testuser1",
@@ -75,10 +78,10 @@ class UserServiceIntegrationTest @Autowired constructor(
                 email = "test@example.com",
             )
 
-            // when
+            // act
             userService.signUp(command)
 
-            // then
+            // assert
             val savedUser = userJpaRepository.findByLoginId("testuser1")!!
             assertAll(
                 { assertThat(savedUser.password).isNotEqualTo(rawPassword) },
@@ -89,7 +92,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("중복된 loginId가 있으면, CONFLICT 예외가 발생한다.")
         @Test
         fun throwsConflict_whenDuplicateLoginId() {
-            // given
+            // arrange
             val existingUser = User(
                 loginId = "testuser1",
                 password = "encoded",
@@ -107,7 +110,7 @@ class UserServiceIntegrationTest @Autowired constructor(
                 email = "new@example.com",
             )
 
-            // when & then
+            // act & assert
             val exception = assertThrows<CoreException> {
                 userService.signUp(command)
             }
@@ -122,7 +125,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("존재하는 회원 ID가 주어지면, 회원 정보를 반환한다.")
         @Test
         fun returnsUserInfo_whenValidUserId() {
-            // given
+            // arrange
             val savedUser = userJpaRepository.save(
                 User(
                     loginId = "testuser1",
@@ -133,10 +136,10 @@ class UserServiceIntegrationTest @Autowired constructor(
                 ),
             )
 
-            // when
+            // act
             val result = userService.getMyInfo(savedUser.id)
 
-            // then
+            // assert
             assertAll(
                 { assertThat(result.id).isEqualTo(savedUser.id) },
                 { assertThat(result.loginId).isEqualTo("testuser1") },
@@ -148,10 +151,10 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("존재하지 않는 회원 ID가 주어지면, NOT_FOUND 예외가 발생한다.")
         @Test
         fun throwsNotFound_whenUserNotExists() {
-            // given
+            // arrange
             val nonExistentId = 9999L
 
-            // when & then
+            // act & assert
             val exception = assertThrows<CoreException> {
                 userService.getMyInfo(nonExistentId)
             }
@@ -166,7 +169,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("정상적인 요청이면, 비밀번호가 변경되어 DB에 저장된다.")
         @Test
         fun changesPasswordInDatabase_whenValidRequest() {
-            // given
+            // arrange
             val currentPassword = "OldPassword1!"
             val newPassword = "NewPassword1!"
             val savedUser = userJpaRepository.save(
@@ -179,10 +182,10 @@ class UserServiceIntegrationTest @Autowired constructor(
                 ),
             )
 
-            // when
+            // act
             userService.changePassword(savedUser.id, currentPassword, newPassword)
 
-            // then
+            // assert
             val updatedUser = userJpaRepository.findById(savedUser.id).get()
             assertAll(
                 { assertThat(passwordEncoder.matches(newPassword, updatedUser.password)).isTrue() },
@@ -193,7 +196,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("현재 비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
         @Test
         fun throwsUnauthorized_whenCurrentPasswordMismatch() {
-            // given
+            // arrange
             val savedUser = userJpaRepository.save(
                 User(
                     loginId = "testuser1",
@@ -204,7 +207,7 @@ class UserServiceIntegrationTest @Autowired constructor(
                 ),
             )
 
-            // when & then
+            // act & assert
             val exception = assertThrows<CoreException> {
                 userService.changePassword(savedUser.id, "WrongPassword1!", "NewPassword1!")
             }
@@ -214,7 +217,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @DisplayName("새 비밀번호가 현재 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenNewPasswordSameAsCurrent() {
-            // given
+            // arrange
             val currentPassword = "SamePassword1!"
             val savedUser = userJpaRepository.save(
                 User(
@@ -226,7 +229,7 @@ class UserServiceIntegrationTest @Autowired constructor(
                 ),
             )
 
-            // when & then
+            // act & assert
             val exception = assertThrows<CoreException> {
                 userService.changePassword(savedUser.id, currentPassword, currentPassword)
             }

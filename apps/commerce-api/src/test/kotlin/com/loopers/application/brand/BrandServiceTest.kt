@@ -1,5 +1,9 @@
-package com.loopers.domain.brand
+package com.loopers.application.brand
 
+import com.loopers.domain.brand.Brand
+import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.brand.CreateBrandCommand
+import com.loopers.domain.brand.UpdateBrandCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

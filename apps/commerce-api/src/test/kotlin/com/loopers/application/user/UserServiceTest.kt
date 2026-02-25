@@ -1,5 +1,9 @@
-package com.loopers.domain.user
+package com.loopers.application.user
 
+import com.loopers.domain.user.PasswordEncoder
+import com.loopers.domain.user.SignUpCommand
+import com.loopers.domain.user.User
+import com.loopers.domain.user.UserRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -40,6 +44,79 @@ class UserServiceTest {
 
     @InjectMocks
     private lateinit var userService: UserService
+
+    @DisplayName("인증할 때,")
+    @Nested
+    inner class Authenticate {
+
+        @DisplayName("로그인 ID와 비밀번호가 일치하면, 회원 정보가 반환된다.")
+        @Test
+        fun returnsUser_whenCredentialsMatch() {
+            // arrange
+            val loginId = "testuser1"
+            val password = "Password1!"
+            val user = User(
+                loginId = loginId,
+                password = "encodedPassword",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+
+            whenever(userRepository.findByLoginId(loginId)).thenReturn(user)
+            whenever(passwordEncoder.matches(password, user.password)).thenReturn(true)
+
+            // act
+            val result = userService.authenticate(loginId, password)
+
+            // assert
+            assertThat(result.loginId).isEqualTo(loginId)
+        }
+
+        @DisplayName("로그인 ID가 존재하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        fun throwsException_whenLoginIdNotFound() {
+            // arrange
+            val loginId = "nonexistent"
+            val password = "Password1!"
+
+            whenever(userRepository.findByLoginId(loginId)).thenReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.authenticate(loginId, password)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+
+        @DisplayName("비밀번호가 일치하지 않으면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        fun throwsException_whenPasswordNotMatch() {
+            // arrange
+            val loginId = "testuser1"
+            val password = "WrongPassword!"
+            val user = User(
+                loginId = loginId,
+                password = "encodedPassword",
+                name = "홍길동",
+                birthDate = LocalDate.of(1990, 1, 15),
+                email = "test@example.com",
+            )
+
+            whenever(userRepository.findByLoginId(loginId)).thenReturn(user)
+            whenever(passwordEncoder.matches(password, user.password)).thenReturn(false)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                userService.authenticate(loginId, password)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
+        }
+    }
 
     @DisplayName("회원가입할 때,")
     @Nested

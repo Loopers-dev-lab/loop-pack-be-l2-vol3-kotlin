@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductFacade
+import com.loopers.application.product.ProductService
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api-admin/v1/products")
 class ProductAdminV1Controller(
+    private val productService: ProductService,
     private val productFacade: ProductFacade,
 ) : ProductAdminV1ApiSpec {
 
@@ -30,7 +32,7 @@ class ProductAdminV1Controller(
         pageable: Pageable,
     ): ApiResponse<Page<ProductAdminV1Dto.ProductAdminResponse>> {
         validateAdminAuth(ldap)
-        return productFacade.getAllProducts(brandId, pageable)
+        return productService.getAllProducts(brandId, pageable)
             .map { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -41,7 +43,7 @@ class ProductAdminV1Controller(
         @PathVariable productId: Long,
     ): ApiResponse<ProductAdminV1Dto.ProductAdminResponse> {
         validateAdminAuth(ldap)
-        return productFacade.getProduct(productId)
+        return productService.getProduct(productId)
             .let { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -64,7 +66,7 @@ class ProductAdminV1Controller(
         @RequestBody request: ProductAdminV1Dto.UpdateRequest,
     ): ApiResponse<ProductAdminV1Dto.ProductAdminResponse> {
         validateAdminAuth(ldap)
-        return productFacade.updateProduct(productId, request.toCommand())
+        return productService.updateProduct(productId, request.toCommand())
             .let { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -75,7 +77,7 @@ class ProductAdminV1Controller(
         @PathVariable productId: Long,
     ): ApiResponse<Any> {
         validateAdminAuth(ldap)
-        productFacade.deleteProduct(productId)
+        productService.deleteProduct(productId)
         return ApiResponse.success()
     }
 

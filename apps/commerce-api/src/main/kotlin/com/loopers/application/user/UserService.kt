@@ -1,5 +1,9 @@
-package com.loopers.domain.user
+package com.loopers.application.user
 
+import com.loopers.domain.user.PasswordEncoder
+import com.loopers.domain.user.SignUpCommand
+import com.loopers.domain.user.User
+import com.loopers.domain.user.UserRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -8,12 +12,26 @@ import java.time.format.DateTimeFormatter
 
 /**
  * 회원 도메인 서비스
+ * - 회원가입, 내 정보 조회, 비밀번호 변경
+ * - X-Loopers-LoginId, X-Loopers-LoginPw 헤더를 통한 인증 처리
  */
 @Component
 class UserService(
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
+
+    @Transactional(readOnly = true)
+    fun authenticate(loginId: String, password: String): User {
+        val user = userRepository.findByLoginId(loginId)
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, "로그인 정보가 올바르지 않습니다.")
+
+        if (!passwordEncoder.matches(password, user.password)) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "로그인 정보가 올바르지 않습니다.")
+        }
+
+        return user
+    }
 
     @Transactional
     fun signUp(command: SignUpCommand): User {
