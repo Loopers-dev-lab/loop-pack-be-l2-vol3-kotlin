@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -41,22 +43,28 @@ class Order(
     val items: List<OrderItem>
         get() = orderItems.toList()
 
-    fun addItem(
-        productId: Long,
-        quantity: Int,
-        productName: String,
-        productPrice: Long,
-        brandName: String,
-    ) {
-        val item = OrderItem(
-            order = this,
-            productId = productId,
-            quantity = quantity,
-            productName = productName,
-            productPrice = productPrice,
-            brandName = brandName,
+    fun addItems(items: List<OrderItemCommand>) {
+        if (items.isEmpty()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.")
+        }
+        val productIds = items.map { it.productId }
+        if (productIds.size != productIds.toSet().size) {
+            throw CoreException(ErrorType.BAD_REQUEST, "중복된 상품이 포함되어 있습니다.")
+        }
+        items.forEach { addItem(it) }
+    }
+
+    private fun addItem(item: OrderItemCommand) {
+        orderItems.add(
+            OrderItem(
+                order = this,
+                productId = item.productId,
+                quantity = item.quantity,
+                productName = item.productName,
+                productPrice = item.productPrice,
+                brandName = item.brandName,
+            ),
         )
-        orderItems.add(item)
         calculateTotalAmount()
     }
 

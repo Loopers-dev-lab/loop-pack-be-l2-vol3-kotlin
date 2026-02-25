@@ -33,7 +33,7 @@ class OrderTest {
 
     @DisplayName("주문 항목을 추가할 때,")
     @Nested
-    inner class AddItem {
+    inner class AddItems {
 
         @DisplayName("항목이 추가되고 총 금액이 계산된다.")
         @Test
@@ -42,12 +42,16 @@ class OrderTest {
             val order = Order(userId = 1L)
 
             // act
-            order.addItem(
-                productId = 1L,
-                quantity = 2,
-                productName = "에어맥스",
-                productPrice = 159000L,
-                brandName = "나이키",
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = 2,
+                        productName = "에어맥스",
+                        productPrice = 159000L,
+                        brandName = "나이키",
+                    ),
+                ),
             )
 
             // assert
@@ -64,19 +68,23 @@ class OrderTest {
             val order = Order(userId = 1L)
 
             // act
-            order.addItem(
-                productId = 1L,
-                quantity = 2,
-                productName = "에어맥스",
-                productPrice = 159000L,
-                brandName = "나이키",
-            )
-            order.addItem(
-                productId = 2L,
-                quantity = 3,
-                productName = "에어포스",
-                productPrice = 139000L,
-                brandName = "나이키",
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = 2,
+                        productName = "에어맥스",
+                        productPrice = 159000L,
+                        brandName = "나이키",
+                    ),
+                    OrderItemCommand(
+                        productId = 2L,
+                        quantity = 3,
+                        productName = "에어포스",
+                        productPrice = 139000L,
+                        brandName = "나이키",
+                    ),
+                ),
             )
 
             // assert
@@ -87,6 +95,53 @@ class OrderTest {
             )
         }
 
+        @DisplayName("주문 항목이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenItemsEmpty() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.addItems(emptyList())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("중복된 상품이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenDuplicateProductIds() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.addItems(
+                    listOf(
+                        OrderItemCommand(
+                            productId = 1L,
+                            quantity = 1,
+                            productName = "에어맥스",
+                            productPrice = 159000L,
+                            brandName = "나이키",
+                        ),
+                        OrderItemCommand(
+                            productId = 1L,
+                            quantity = 2,
+                            productName = "에어맥스",
+                            productPrice = 159000L,
+                            brandName = "나이키",
+                        ),
+                    ),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
         @DisplayName("수량이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenQuantityIsZeroOrNegative() {
@@ -95,12 +150,16 @@ class OrderTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                order.addItem(
-                    productId = 1L,
-                    quantity = 0,
-                    productName = "에어맥스",
-                    productPrice = 159000L,
-                    brandName = "나이키",
+                order.addItems(
+                    listOf(
+                        OrderItemCommand(
+                            productId = 1L,
+                            quantity = 0,
+                            productName = "에어맥스",
+                            productPrice = 159000L,
+                            brandName = "나이키",
+                        ),
+                    ),
                 )
             }
 
