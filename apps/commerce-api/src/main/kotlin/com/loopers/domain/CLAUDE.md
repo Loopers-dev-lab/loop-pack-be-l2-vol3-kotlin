@@ -23,6 +23,12 @@
 - cross-domain 타입 의존 방지: 다른 도메인 모델을 직접 받지 않고, 자기 도메인의 데이터 클래스로 필요한 정보만 수신 (예: `OrderProductInfo`)
 - POJO는 JPA dirty checking 불가 → 상태 변경 후 반드시 `repository.save()` 명시 호출
 
+**isDeleted vs 비즈니스 상태 관심사 분리:**
+
+- `isDeleted()`: DB soft delete 관심사. 도메인 모델의 비즈니스 상태 판단 메서드(`isActive`, `isAvailableForOrder` 등) 내부에서 사용하지 않는다.
+- `isActive()`, `isAvailableForOrder()` 등: 순수 비즈니스 상태(`status` 필드 등)만 판단한다.
+- 삭제 여부 검증(`isDeleted()` 호출)은 UseCase(Application 계층)의 책임이다.
+
 ## Value Object
 
 | 유형         | 선언 방식                    | 예시                                       |

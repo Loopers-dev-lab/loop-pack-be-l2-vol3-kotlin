@@ -55,26 +55,10 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/CLAUDE.md` — JPA Entity, 매핑, Repository 구현
 - `apps/commerce-api/src/main/kotlin/com/loopers/interfaces/CLAUDE.md` — Controller, ApiSpec, Dto, 인증
 
-## 기술 주의사항 (Kotlin / Spring / JPA)
+## 기술 주의사항 / 테스트 패턴
 
-- **allOpen 플러그인**: `plugin.spring`은 `@Component`/`@Service` 등을 open하지만, `plugin.jpa`는 no-arg 생성자만 생성하고 allOpen은 아님. **`@Entity` 클래스는 final**이다. Kotlin의 protected/final 동작에 대해 주장하기 전에 반드시 allOpen 설정(`build.gradle.kts`)과 디컴파일 결과를 확인한다
-- **kapt + ktlint 태스크 충돌**: kapt이 생성하는 소스 디렉토리를 ktlint가 참조하면서 Gradle 태스크 순서 충돌(`implicit dependency`)이 발생한다. **`./gradlew ktlintCheck test`를 한 번에 실행하면 실패한다.** 반드시 `ktlintCheck`와 `test`를 분리 실행해야 한다:
-  ```bash
-  ./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test
-  ```
-- **JPQL/NativeQuery 금지**: `@Query` 어노테이션을 사용한 JPQL이나 NativeQuery를 제안하지 않는다. QueryDSL(`JPAQueryFactory`) 또는 Spring Data JPA 메서드명 쿼리로 해결한다
-- **fetch join + paging 호환 불가**: N+1 문제 해결 시 fetch join과 paging을 동시에 사용하는 방안을 제안하지 않는다. `@BatchSize`, `@EntityGraph`, 별도 쿼리 분리 등 대안을 사용한다
-- **@Transactional 전파**: readOnly 속성의 전파 규칙, REQUIRES_NEW의 동작 방식을 정확히 이해하고 적용한다
-
-## 테스트 패턴
-
-- `@Nested` + `@DisplayName`(한국어) BDD 스타일, **3A 원칙** (Arrange → Act → Assert)
-- **통합 테스트**: `@SpringBootTest`, `@AfterEach`에서 `databaseCleanUp.truncateAllTables()`
-- **E2E 테스트**: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `TestRestTemplate`
-- **단위 테스트**: 도메인 로직은 외부 의존성 없이 검증한다. `@SpringBootTest`를 사용하지 않으며, **Mockito(`@Mock`, `@InjectMocks` 등) 사용을 엄격히 금지한다.**
-  대신 인메모리 컬렉션을 활용한 Fake Repository(`FakeProductRepository` 등)를 직접 구현하여 상태를 검증한다.
-- MySQL/Redis는 TestContainers 자동 구동 (프로파일: `test`), 타임존: `Asia/Seoul`
-- 상세 테스트 작성 절차는 `/red`, `/e2e` 스킬 참고
+→ `.claude/rules/kotlin-spring-jpa.md` (kapt 충돌, allOpen, JPQL 금지 등)
+→ `.claude/rules/test-patterns.md` (3A 원칙, Fake Repository, TestContainers 등)
 
 ## 개발 방법론: TDD (Kent Beck) + Tidy First
 
@@ -124,23 +108,7 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 
 ### 병렬 작업 워크플로우
 
-생산성 = 속도 × 인지 안정성 × 병렬 처리량. 인지 부하를 통제한 상태에서 유지 가능한 처리량을 높인다.
-
-**Phase 1 — 수렴 (Converge)**: 요구사항 정제 → 설계 확정. 이 구간에서 Q&A를 집중하여 모호함을 전부 해소한다.
-**Phase 2 — 발산 (Diverge)**: plan.md 기반 위임 + 체크포인트 검수. 에이전트는 자가 검증(lint+test) 후 보고한다.
-
-**Self-Validation 원칙**: 보고 전에 할 수 있는 검증은 전부 수행한다.
-
-1. `ktlintFormat` → `ktlintCheck` (포맷 + 린트)
-2. `./gradlew test` (전체 테스트)
-3. 통과 상태에서만 보고. 실패 시 자가 수정 시도.
-
-**보고 포맷**: 모든 작업 보고에 아래 구조를 따른다.
-
-- **Change**: 무엇을 변경했는지 (3줄 요약)
-- **Validation**: 어떤 검증을 통과했는지
-- **Risk/Ambiguity**: 개발자가 판단해야 할 모호한 부분. 임의 결정한 네이밍, 가정한 비즈니스 로직, 사용하지 않은 에러 처리 등을 반드시 명시. 정말 없으면 "Perfectly aligned
-  with spec".
+→ `.claude/rules/parallel-workflow.md` (서브에이전트 위임 원칙, Self-Validation, 보고 포맷)
 
 ## 작업 환경
 
@@ -150,25 +118,7 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 
 ## 주의사항
 
-### Never Do
-
-- 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이용한 구현 금지
-- null-safety 하지 않게 코드 작성 금지
-- println 코드 남기지 않는다
-
-### Recommendation
-
-- 실제 API를 호출해 확인하는 E2E 테스트 코드 작성
-- 재사용 가능한 객체 설계
-- 성능 최적화에 대한 대안 및 제안
-- 개발 완료된 API는 `http/*.http` 파일에 분류하여 작성
-
-### Priority
-
-1. 실제 동작하는 해결책만 고려
-2. null-safety, thread-safety 고려
-3. 테스트 가능한 구조로 설계
-4. 기존 코드 패턴 분석 후 일관성 유지
+→ `.claude/rules/code-guidelines.md` (Never Do, Recommendation, Priority)
 
 ## 브랜치 및 PR 규칙
 
