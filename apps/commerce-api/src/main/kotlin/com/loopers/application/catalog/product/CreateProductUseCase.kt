@@ -21,7 +21,7 @@ class CreateProductUseCase(
         val command = CatalogCommand.CreateProduct(
             brandId = brandId,
             name = name,
-            price = Money(price),
+            price = price,
             stock = stock,
         )
         val brand = brandRepository.findById(command.brandId)
@@ -33,7 +33,7 @@ class CreateProductUseCase(
             Product(
                 refBrandId = command.brandId,
                 name = command.name,
-                price = command.price,
+                price = Money(command.price),
                 stock = command.stock,
             ),
         )

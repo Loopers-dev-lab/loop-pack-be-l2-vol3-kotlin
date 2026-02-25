@@ -12,10 +12,10 @@ import org.springframework.transaction.annotation.Transactional
 class UpdateBrandUseCase(private val brandRepository: BrandRepository) {
     @Transactional
     fun execute(brandId: Long, name: String): BrandInfo {
-        val command = CatalogCommand.UpdateBrand(name = BrandName(name))
+        val command = CatalogCommand.UpdateBrand(name = name)
         val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        brand.update(command.name)
+        brand.update(BrandName(command.name))
         val saved = brandRepository.save(brand)
         return BrandInfo.from(saved)
     }

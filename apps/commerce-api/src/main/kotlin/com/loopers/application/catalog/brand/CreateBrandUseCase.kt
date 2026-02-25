@@ -11,8 +11,8 @@ import org.springframework.transaction.annotation.Transactional
 class CreateBrandUseCase(private val brandRepository: BrandRepository) {
     @Transactional
     fun execute(name: String): BrandInfo {
-        val command = CatalogCommand.CreateBrand(name = BrandName(name))
-        val brand = brandRepository.save(Brand(name = command.name))
+        val command = CatalogCommand.CreateBrand(name = name)
+        val brand = brandRepository.save(Brand(name = BrandName(command.name)))
         return BrandInfo.from(brand)
     }
 }
