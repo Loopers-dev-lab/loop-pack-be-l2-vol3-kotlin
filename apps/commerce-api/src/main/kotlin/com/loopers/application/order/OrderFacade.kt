@@ -3,6 +3,7 @@ package com.loopers.application.order
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.StockLockManager
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
