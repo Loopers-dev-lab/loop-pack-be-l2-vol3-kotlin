@@ -18,7 +18,7 @@ class UserFacade(
 
     @Transactional
     fun changePassword(loginId: String, headerPassword: String, command: UserChangePasswordCommand) {
-        userService.changePassword(loginId, headerPassword, command)
+        userService.changePassword(loginId, headerPassword, command.currentPassword, command.newPassword)
     }
 
     @Transactional(readOnly = true)

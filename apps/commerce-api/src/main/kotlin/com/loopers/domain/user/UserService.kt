@@ -1,6 +1,5 @@
 package com.loopers.domain.user
 
-import com.loopers.application.user.model.UserChangePasswordCommand
 import com.loopers.application.user.model.UserSignUpCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -28,23 +27,9 @@ class UserService(
         return userRepository.save(user)
     }
 
-    fun changePassword(loginId: String, headerPassword: String, command: UserChangePasswordCommand) {
-        val user = userRepository.findByLoginId(loginId)
-            ?: throw CoreException(ErrorType.UNAUTHORIZED)
-
-        if (!passwordHasher.matches(headerPassword, user.password)) {
-            throw CoreException(ErrorType.UNAUTHORIZED)
-        }
-
-        if (!passwordHasher.matches(command.currentPassword, user.password)) {
-            throw CoreException(ErrorType.USER_INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다.")
-        }
-
-        if (command.currentPassword == command.newPassword) {
-            throw CoreException(ErrorType.USER_INVALID_PASSWORD, "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
-        }
-
-        val updatedUser = user.changePassword(command.newPassword, passwordHasher)
+    fun changePassword(loginId: String, headerPassword: String, currentPassword: String, newPassword: String) {
+        val user = findByCredentials(loginId, headerPassword)
+        val updatedUser = user.changePassword(currentPassword, newPassword, passwordHasher)
         userRepository.save(updatedUser)
     }
 

@@ -16,12 +16,18 @@ class User private constructor(
     val maskedName: String
         get() = name.dropLast(1) + "*"
 
-    fun changePassword(rawPassword: String, passwordHasher: UserPasswordHasher): User {
-        validatePassword(rawPassword, birthDate)
+    fun changePassword(currentPassword: String, newPassword: String, passwordHasher: UserPasswordHasher): User {
+        if (!passwordHasher.matches(currentPassword, password)) {
+            throw CoreException(ErrorType.USER_INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다.")
+        }
+        if (passwordHasher.matches(newPassword, password)) {
+            throw CoreException(ErrorType.USER_INVALID_PASSWORD, "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
+        }
+        validatePassword(newPassword, birthDate)
         return User(
             id = id,
             loginId = loginId,
-            password = passwordHasher.encode(rawPassword),
+            password = passwordHasher.encode(newPassword),
             name = name,
             birthDate = birthDate,
             email = email,
