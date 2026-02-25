@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springdoc.core.annotations.ParameterObject
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
@@ -22,7 +23,7 @@ interface BrandAdminV1ApiSpec {
     fun getAllBrands(
         @Parameter(description = "어드민 LDAP 인증", required = true)
         ldap: String?,
-        pageable: Pageable,
+        @ParameterObject pageable: Pageable,
     ): ApiResponse<Page<BrandV1Dto.BrandAdminResponse>>
 
     @Operation(summary = "브랜드 상세 조회", description = "브랜드 ID로 브랜드를 조회합니다.")
