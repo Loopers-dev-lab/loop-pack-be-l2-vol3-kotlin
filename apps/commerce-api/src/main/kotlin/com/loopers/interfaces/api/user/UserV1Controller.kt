@@ -17,7 +17,7 @@ class UserV1Controller(
      * @param request [UserV1Dto.SignupRequest] 회원가입 양식 DTO
      * @return ApiResponse<UserV1Dto.UserResponse>
      */
-    @PostMapping("/signup")
+    @PostMapping
     override fun signup(@RequestBody request: UserV1Dto.SignupRequest): ApiResponse<UserV1Dto.UserResponse> {
         return authFacade.signup(
             userId = request.userId,
