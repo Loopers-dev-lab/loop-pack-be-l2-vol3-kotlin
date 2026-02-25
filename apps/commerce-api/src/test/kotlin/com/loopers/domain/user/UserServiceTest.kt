@@ -1,6 +1,5 @@
 package com.loopers.domain.user
 
-import com.loopers.application.user.model.UserSignUpCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -22,14 +21,6 @@ class UserServiceTest {
     private val passwordHasher: UserPasswordHasher = mock()
     private val userService = UserService(userRepository, passwordHasher)
 
-    private fun createSignUpCommand(
-        loginId: String = "testuser1",
-        password: String = "Password1!",
-        name: String = "홍길동",
-        birthDate: LocalDate = LocalDate.of(1990, 1, 1),
-        email: String = "test@example.com",
-    ): UserSignUpCommand = UserSignUpCommand(loginId, password, name, birthDate, email)
-
     private fun existingUser(
         password: String = "encoded_Password1!",
         birthDate: LocalDate = LocalDate.of(1990, 1, 1),
@@ -49,13 +40,12 @@ class UserServiceTest {
         @DisplayName("회원가입 성공 - 저장된 User 반환")
         fun register_success_returnsUser() {
             // arrange
-            val command = createSignUpCommand()
-            given(userRepository.existsByLoginId(command.loginId)).willReturn(false)
-            given(passwordHasher.encode(command.password)).willReturn("encoded_Password1!")
+            given(userRepository.existsByLoginId("testuser1")).willReturn(false)
+            given(passwordHasher.encode("Password1!")).willReturn("encoded_Password1!")
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
-            val result = userService.register(command)
+            val result = userService.register("testuser1", "Password1!", "홍길동", LocalDate.of(1990, 1, 1), "test@example.com")
 
             // assert
             assertThat(result.loginId).isEqualTo("testuser1")
@@ -65,13 +55,12 @@ class UserServiceTest {
         @DisplayName("회원가입 성공 - 비밀번호가 인코딩되어 저장된다")
         fun register_success_passwordIsEncoded() {
             // arrange
-            val command = createSignUpCommand()
-            given(userRepository.existsByLoginId(command.loginId)).willReturn(false)
-            given(passwordHasher.encode(command.password)).willReturn("encoded_Password1!")
+            given(userRepository.existsByLoginId("testuser1")).willReturn(false)
+            given(passwordHasher.encode("Password1!")).willReturn("encoded_Password1!")
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
-            userService.register(command)
+            userService.register("testuser1", "Password1!", "홍길동", LocalDate.of(1990, 1, 1), "test@example.com")
 
             // assert
             then(userRepository).should().save(
@@ -85,28 +74,30 @@ class UserServiceTest {
         @DisplayName("회원가입 성공 - Repository.save() 호출됨")
         fun register_success_callsRepositorySave() {
             // arrange
-            val command = createSignUpCommand()
-            given(userRepository.existsByLoginId(command.loginId)).willReturn(false)
-            given(passwordHasher.encode(command.password)).willReturn("encoded_Password1!")
+            given(userRepository.existsByLoginId("testuser1")).willReturn(false)
+            given(passwordHasher.encode("Password1!")).willReturn("encoded_Password1!")
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
-            userService.register(command)
+            userService.register("testuser1", "Password1!", "홍길동", LocalDate.of(1990, 1, 1), "test@example.com")
 
             // assert
-            then(userRepository).should().save(any())
+            then(userRepository).should().save(
+                check { user ->
+                    assertThat(user.loginId).isEqualTo("testuser1")
+                },
+            )
         }
 
         @Test
         @DisplayName("회원가입 실패 - 중복 loginId - CoreException(USER_DUPLICATE_LOGIN_ID)")
         fun register_duplicateLoginId_throwsException() {
             // arrange
-            val command = createSignUpCommand()
-            given(userRepository.existsByLoginId(command.loginId)).willReturn(true)
+            given(userRepository.existsByLoginId("testuser1")).willReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.register(command)
+                userService.register("testuser1", "Password1!", "홍길동", LocalDate.of(1990, 1, 1), "test@example.com")
             }
 
             // assert

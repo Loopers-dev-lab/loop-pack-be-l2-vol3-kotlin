@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
-import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import java.time.LocalDate
@@ -39,7 +38,15 @@ class UserFacadeTest {
         @DisplayName("signUp 성공 - UserInfo(loginId)를 반환한다")
         fun signUp_success_returnsUserInfo() {
             // arrange
-            given(userService.register(any())).willReturn(savedUser())
+            given(
+                userService.register(
+                    eq("testuser1"),
+                    eq("Password1!"),
+                    eq("홍길동"),
+                    eq(defaultBirthDate),
+                    eq("test@example.com"),
+                ),
+            ).willReturn(savedUser())
 
             // act
             val result = userFacade.signUp(
@@ -54,7 +61,15 @@ class UserFacadeTest {
         @DisplayName("signUp 호출 시 UserService.register()에 위임한다")
         fun signUp_delegatesToUserServiceRegister() {
             // arrange
-            given(userService.register(any())).willReturn(savedUser())
+            given(
+                userService.register(
+                    eq("testuser1"),
+                    eq("Password1!"),
+                    eq("홍길동"),
+                    eq(defaultBirthDate),
+                    eq("test@example.com"),
+                ),
+            ).willReturn(savedUser())
 
             // act
             userFacade.signUp(
@@ -62,7 +77,13 @@ class UserFacadeTest {
             )
 
             // assert
-            then(userService).should().register(any())
+            then(userService).should().register(
+                eq("testuser1"),
+                eq("Password1!"),
+                eq("홍길동"),
+                eq(defaultBirthDate),
+                eq("test@example.com"),
+            )
         }
     }
 
