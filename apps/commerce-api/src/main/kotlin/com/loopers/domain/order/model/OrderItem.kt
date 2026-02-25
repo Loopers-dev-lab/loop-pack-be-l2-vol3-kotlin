@@ -7,15 +7,13 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 
 class OrderItem private constructor(
-    refOrderId: Long,
+    val id: Long = 0,
     val refProductId: Long,
     val productName: String,
     val productPrice: Money,
     val quantity: Int,
+    refOrderId: Long,
 ) {
-
-    val id: Long = 0
-
     var refOrderId: Long = refOrderId
         private set
 

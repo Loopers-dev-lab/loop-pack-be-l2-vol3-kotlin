@@ -9,15 +9,13 @@ import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class Order private constructor(
+    val id: Long = 0,
     val refUserId: Long,
     status: OrderStatus,
     totalPrice: Money,
     val items: List<OrderItem> = emptyList(),
     val deletedAt: ZonedDateTime? = null,
 ) {
-
-    val id: Long = 0
-
     var status: OrderStatus = status
         private set
 
