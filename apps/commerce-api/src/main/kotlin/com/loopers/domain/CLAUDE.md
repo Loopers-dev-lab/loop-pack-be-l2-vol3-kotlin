@@ -13,7 +13,7 @@
 
 **DB 복원 패턴:**
 
-- `public constructor` 모델: `companion object { fun fromPersistence(...) }` — 검증 없이 DB 데이터로 복원
+- `public constructor` 모델: `companion object { fun fromPersistence(...) }` — 생성 로직(파생값 계산) 없이 DB 데이터로 복원
 - `private constructor` 모델 (Order): `companion object { fun fromPersistence(...) }` — 팩토리 메서드가 DB 복원 경로도 제공
 
 **설계 원칙:**

@@ -21,13 +21,13 @@ globs: "apps/**/*.kt"
   - 예외: `@Transactional`은 Application 계층에서만 사용
 - Domain 계층에서 JPA Entity 직접 참조
 - Application 계층에서 Infrastructure 구현체 직접 참조 (Repository 인터페이스만 허용)
-- Interfaces(Controller) 계층에서 Domain Service 직접 호출 (Facade를 통해야 함)
-  - 예외: AuthInterceptor는 UserService 직접 호출 허용
+- Interfaces(Controller) 계층에서 Domain Service 직접 호출 (UseCase를 통해야 함)
+  - 예외: AuthInterceptor는 AuthenticateUserUseCase 직접 호출 허용
 
 ## 변경 완료 후 Self-Audit
 
 코드 변경 후 아래를 점검한다:
 
 - Domain 계층에 Spring import가 새로 추가되지 않았는가?
-- 비즈니스 로직이 Entity가 아닌 Domain Service에 위치하는가?
+- 비즈니스 로직이 Domain Model 내부에 위치하는가?
 - Repository 인터페이스가 Domain 계층에 정의되어 있는가?

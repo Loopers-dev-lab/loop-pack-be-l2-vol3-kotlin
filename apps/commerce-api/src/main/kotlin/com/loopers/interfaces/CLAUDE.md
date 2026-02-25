@@ -12,7 +12,7 @@ API 진입점. Controller → Dto 변환 → UseCase 호출.
 
 - `companion object { fun from(domain: Xxx): XxxDto }` 팩토리 메서드로 변환
 - Request Dto → Command 변환은 Controller에서 수행
-- Response Dto ← Domain Model 변환은 Controller에서 수행
+- Response Dto ← Info DTO(Application) 변환은 Controller에서 수행
 
 ## 계층 건너뛰기 금지
 
@@ -20,7 +20,7 @@ API 진입점. Controller → Dto 변환 → UseCase 호출.
 
 ## 인증
 
-`AuthInterceptor`가 UserService를 직접 호출하여 헤더 기반 인증 처리.
+`AuthInterceptor`가 `AuthenticateUserUseCase`를 호출하여 헤더 기반 인증 처리.
 
 ## 페이지네이션
 
