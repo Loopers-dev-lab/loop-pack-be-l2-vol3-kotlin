@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.application.catalog.product.CreateProductUseCase
 import com.loopers.application.catalog.product.DeleteProductUseCase
-import com.loopers.application.catalog.product.GetProductUseCase
+import com.loopers.application.catalog.product.GetProductAdminUseCase
 import com.loopers.application.catalog.product.GetProductsAdminUseCase
 import com.loopers.application.catalog.product.RestoreProductUseCase
 import com.loopers.application.catalog.product.UpdateProductUseCase
@@ -30,7 +30,7 @@ class ProductAdminV1Controller(
     private val updateProductUseCase: UpdateProductUseCase,
     private val deleteProductUseCase: DeleteProductUseCase,
     private val restoreProductUseCase: RestoreProductUseCase,
-    private val getProductUseCase: GetProductUseCase,
+    private val getProductAdminUseCase: GetProductAdminUseCase,
     private val getProductsAdminUseCase: GetProductsAdminUseCase,
 ) : ProductAdminV1ApiSpec {
 
@@ -49,7 +49,7 @@ class ProductAdminV1Controller(
     override fun getProduct(
         @PathVariable productId: Long,
     ): ApiResponse<ProductAdminV1Dto.AdminProductResponse> {
-        return getProductUseCase.executeAdmin(productId)
+        return getProductAdminUseCase.execute(productId)
             .let { ProductAdminV1Dto.AdminProductResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

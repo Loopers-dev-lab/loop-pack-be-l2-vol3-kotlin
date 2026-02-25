@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class GetProductDetailUseCase(
+class GetProductAdminUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
 ) {
@@ -17,9 +17,6 @@ class GetProductDetailUseCase(
     fun execute(productId: Long): ProductDetailInfo {
         val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        if (!product.isActive()) {
-            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        }
         val brand = brandRepository.findById(product.refBrandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         val detail = ProductDetail(product = product, brand = brand)

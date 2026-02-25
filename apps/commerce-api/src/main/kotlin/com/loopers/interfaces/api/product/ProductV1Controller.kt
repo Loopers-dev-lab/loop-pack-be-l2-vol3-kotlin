@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.application.catalog.product.GetProductDetailUseCase
+import com.loopers.application.catalog.product.GetProductUseCase
 import com.loopers.application.catalog.product.GetProductsUseCase
 import com.loopers.interfaces.api.product.dto.ProductV1Dto
 import com.loopers.interfaces.api.product.spec.ProductV1ApiSpec
@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/v1/products")
 class ProductV1Controller(
     private val getProductsUseCase: GetProductsUseCase,
-    private val getProductDetailUseCase: GetProductDetailUseCase,
+    private val getProductUseCase: GetProductUseCase,
 ) : ProductV1ApiSpec {
 
     @GetMapping
@@ -39,7 +39,7 @@ class ProductV1Controller(
     override fun getProduct(
         @PathVariable productId: Long,
     ): ApiResponse<ProductV1Dto.ProductDetailResponse> {
-        return getProductDetailUseCase.execute(productId)
+        return getProductUseCase.execute(productId)
             .let { ProductV1Dto.ProductDetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
