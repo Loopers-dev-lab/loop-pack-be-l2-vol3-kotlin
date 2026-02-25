@@ -1086,3 +1086,100 @@ private fun findItemsByOrders(orders: List<Order>): Map<Long, List<OrderItem>> {
 현재 중복은 2곳이며, 로직이 단순하다 (3줄). 잘못된 추상화보다 약간의 중복이 낫다는 원칙에 따라 현행 유지한다.
 
 CQRS 도입 시 조회 전용 Read Model(예: `OrderSummaryView`)을 정의하면 `findItemsByOrders` 중복이 자연 해소되지만, 현재 프로젝트 규모에서는 오버엔지니어링이다. 주문 조회 요구사항이 복잡해지거나(필터, 정렬, 집계), 쓰기/읽기 성능 요구가 분리될 때 재검토한다.
+
+---
+
+## 14. 아키텍처 감사 후속 리팩토링 (CP0~CP3)
+
+Round 3 구현 완료 후 아키텍처 감사를 통해 식별된 개선 항목을 4개 체크포인트(CP)로 분류하여 순차 적용하였다.
+
+### 14.1 CP0 — 문서 정정
+
+**내용:** infrastructure/CLAUDE.md 예시 코드의 `internal interface` 누락 정정.
+
+`XxxRepositoryImpl.kt` 내에 함께 선언되는 JpaRepository 인터페이스는 `internal`로 외부 노출을 차단해야 하지만, 문서 예시에 `internal` 키워드가 누락되어 있었다.
+
+**수정:** `interface ProductJpaRepository` → `internal interface ProductJpaRepository`
+
+### 14.2 CP1 — 구조적 리팩토링
+
+이하 항목은 행위 변경 없이 구조만 정리한 커밋으로 적용하였다.
+
+**StatusDto enum 제거 → String 통일**
+
+Interfaces 레이어 DTO에 선언된 `StatusDto` enum이 Domain enum과 1:1로 중복되어 있었다. `ProductStatus`, `OrderStatus` 등 모든 상태값을 String으로 통일하고 `StatusDto` enum을 삭제하였다.
+
+- 변경 전: `status: StatusDto` (enum)
+- 변경 후: `status: String` (Domain enum `.name` 변환)
+
+**CatalogCommand 원시 타입 전환**
+
+`CatalogCommand`의 필드가 VO 타입(예: `BrandName`, `Price`)을 사용하고 있었다. Command는 Application 계층 객체이며, VO 생성(검증)은 UseCase 내부에서 수행하는 것이 적절하다.
+
+- 변경 전: `data class CatalogCommand.CreateProduct(val name: BrandName, val price: Price, ...)`
+- 변경 후: `data class CatalogCommand.CreateProduct(val name: String, val price: BigDecimal, ...)`
+- VO 생성 위치를 Command → UseCase 내부로 이동
+
+**findItemsByOrders → OrderItemRepository 확장 함수 추출**
+
+`GetOrdersUseCase`와 `GetOrdersAdminUseCase`에 중복된 `findItemsByOrders()` private 메서드를 `OrderItemRepository`의 확장 함수로 추출하였다.
+
+```kotlin
+// OrderItemRepository 확장 함수
+fun OrderItemRepository.findItemsByOrders(orders: List<Order>): Map<Long, List<OrderItem>> {
+    if (orders.isEmpty()) return emptyMap()
+    return findAllByOrderIds(orders.map { it.id }).groupBy { it.refOrderId }
+}
+```
+
+**GetProduct UseCase 네이밍 교정**
+
+대고객/어드민 구분이 명확하지 않던 UseCase 이름을 정정하였다. (섹션 14.5 UseCase 네이밍 규칙 참조)
+
+### 14.3 CP2 — @Transactional UseCase 이동
+
+**문제:** `@Transactional`이 Domain Service(`CatalogService`, `UserPointService` 등)에 선언되어 있었다. 트랜잭션 경계는 Application 계층(UseCase)에서 관리해야 한다.
+
+**변경:** 각 Domain Service의 `@Transactional`을 제거하고, 호출하는 UseCase의 `execute()` 메서드에 이동하였다.
+
+- `CatalogService` 메서드 → `@Transactional` 제거
+- `UserPointService` 메서드 → `@Transactional` 제거
+- 각 UseCase `execute()` → `@Transactional` 추가
+
+**근거:** Domain Service는 순수 도메인 로직 조율에 집중한다. 트랜잭션 경계를 UseCase에 두면 "어느 작업이 하나의 트랜잭션 단위인가"를 Application 계층에서 일관되게 파악할 수 있다.
+
+### 14.4 CP3 — 행위적 수정
+
+**AddLikeUseCase existsBy 사전검증 도입**
+
+`AddLikeUseCase`에서 중복 좋아요 여부를 `findBy...`로 조회 후 null 체크하는 방식 대신, `existsBy...` 메서드로 존재 여부만 확인하도록 변경하였다. 불필요한 엔티티 로드를 제거하고 의도를 명확히 표현한다.
+
+**Domain Service/Aggregate Root 중복 검증 제거**
+
+Domain Service와 Aggregate Root(Entity)에 동일한 검증 로직이 이중으로 존재하던 항목을 정리하였다. Entity의 `init` 블록/도메인 메서드가 불변식을 보장하므로, Service의 중복 검증을 제거하였다. (섹션 10의 DbC 원칙 적용)
+
+**likeCount Domain Model 경유 전환**
+
+좋아요 등록/취소 시 `likeCount` 증감이 Repository를 통해 직접 DB 값을 조작하던 방식을, Domain Model(`Product`)의 `increaseLikeCount()` / `decreaseLikeCount()` 메서드를 경유하도록 전환하였다.
+
+- 변경 전: Repository에서 `likeCount` 직접 증감
+- 변경 후: `product.increaseLikeCount()` → `productRepository.save(product)` 패턴
+
+이로써 likeCount 관련 불변식(`likeCount >= 0` 등)이 Domain Model 내부에서 일관되게 보장된다.
+
+### 14.5 UseCase 네이밍 규칙 (확정)
+
+CP1 리팩토링에서 확정된 대고객/어드민 UseCase 네이밍 규칙:
+
+| 대상   | 패턴                | 예시                                             |
+|------|-------------------|------------------------------------------------|
+| 대고객  | `XxxUseCase`      | `GetProductUseCase`, `GetOrderUseCase`         |
+| 어드민  | `XxxAdminUseCase` | `GetProductAdminUseCase`, `GetOrderAdminUseCase` |
+
+### 14.6 Repository deletedAt 전면 필터링 (확정)
+
+Brand, Product, Order, User 4개 Repository의 `findById`에 `deletedAt` 필터링을 전면 적용하였다. 삭제된 엔티티는 일반 조회에서 자동 제외된다.
+
+- `findById` — `deletedAt IS NULL` 필터링 포함 (기본)
+- `findByIdIncludeDeleted` — 삭제된 엔티티 포함 조회 (Restore UseCase 전용)
+- `findByIdForUpdate` — 비관적 락 + `deletedAt` 필터링 (동시성 제어 필요 시)

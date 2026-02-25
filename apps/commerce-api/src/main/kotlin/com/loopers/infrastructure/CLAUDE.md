@@ -66,6 +66,42 @@ class ProductRepositoryImpl(
 - 별도 `XxxJpaRepository.kt` 파일 생성 금지.
 - JpaRepository 변수명은 `xxxJpaRepository` 풀네임으로 작성한다.
 
+## Soft Delete 필터링 패턴
+
+**기본 원칙:** `findById`는 항상 `deletedAt` 필터링이 적용된다. 삭제된 엔티티는 일반 조회에서 투명하게 제외된다.
+
+적용 대상: Brand, Product, Order, User
+
+```kotlin
+// JpaRepository — deletedAt 필터링 포함
+interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
+    fun findByIdAndDeletedAtIsNull(id: Long): ProductEntity?           // 일반 조회
+    fun findById(id: Long): Optional<ProductEntity>                    // 삭제 포함 조회 (findByIdIncludeDeleted용)
+}
+
+// Repository 구현
+override fun findById(id: Long): Product? =
+    productJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
+
+override fun findByIdIncludeDeleted(id: Long): Product? =
+    productJpaRepository.findById(id).orElse(null)?.toDomain()
+
+override fun findByIdForUpdate(id: Long): Product? =
+    productJpaRepository.findByIdAndDeletedAtIsNullWithLock(id)?.toDomain()
+```
+
+**findByIdIncludeDeleted:** Restore UseCase 등 삭제된 엔티티를 조회해야 하는 경우에 사용한다. `findById`는 `deletedAt` 필터링이 적용되므로, 삭제된 엔티티를 조회할 때 반드시 이 메서드를 사용한다.
+
+**findByIdForUpdate:** 비관적 락(`@Lock(LockModeType.PESSIMISTIC_WRITE)`) + `deletedAt` 필터링을 함께 적용한다. likeCount 증가/감소 등 동시성 제어가 필요한 경우에 사용한다.
+
+```kotlin
+// 비관적 락 + deletedAt 필터링
+@Lock(LockModeType.PESSIMISTIC_WRITE)
+fun findByIdAndDeletedAtIsNullWithLock(id: Long): ProductEntity?
+// Spring Data JPA 메서드명 쿼리로 표현할 수 없으므로 별도 메서드명으로 선언하고
+// @Lock 어노테이션으로 FOR UPDATE를 적용한다.
+```
+
 ## JPA 연관관계 전면 미사용
 
 `@OneToMany`, `@ManyToOne`, `@ManyToMany` 등을 사용하지 않는다.

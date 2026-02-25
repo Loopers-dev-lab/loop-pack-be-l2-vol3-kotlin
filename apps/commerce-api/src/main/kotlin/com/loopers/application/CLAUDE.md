@@ -68,6 +68,34 @@ data class ProductInfo(
 - Domain Enum은 `.name`으로 String 변환
 - VO는 `.value`로 원시 타입 추출
 
+## UseCase 네이밍 규칙
+
+대고객 UseCase와 어드민 UseCase는 접미사로 구분한다.
+
+| 대상   | 네이밍 패턴          | 예시                                               |
+|------|-----------------|--------------------------------------------------|
+| 대고객  | `XxxUseCase`    | `GetProductUseCase`, `GetOrderUseCase`           |
+| 어드민  | `XxxAdminUseCase` | `GetProductAdminUseCase`, `GetOrderAdminUseCase` |
+
+동일한 도메인 객체를 조회하더라도 대고객/어드민 권한 경계가 다르므로 UseCase를 분리한다.
+
+- 대고객 UseCase: 활성 데이터만 반환, 삭제/HIDDEN 필터링 적용
+- 어드민 UseCase: 모든 상태 포함, 삭제된 엔티티도 조회 가능
+
+## @Transactional 위치
+
+`@Transactional`은 UseCase의 `execute()` 메서드에 부착한다.
+
+```kotlin
+@Component
+class CreateOrderUseCase(...) {
+    @Transactional           // UseCase execute()에 부착
+    fun execute(command: CreateOrderCommand): OrderInfo { ... }
+}
+```
+
+**금지:** Domain Service(`CatalogService`, `UserPointService` 등)에 `@Transactional`을 사용하지 않는다. 트랜잭션 경계는 반드시 UseCase(Application 계층)에서 관리한다.
+
 ## Application Command
 
 여러 도메인에 걸친 오케스트레이션이 필요한 경우 Application 전용 Command를 application 레이어에 정의한다 (예: `PlaceOrderCommand`, `CatalogCommand`). 단일
