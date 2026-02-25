@@ -10,9 +10,6 @@ import java.math.BigDecimal
 
 class OrderV1Dto {
 
-    enum class OrderStatusDto { CREATED, PAID, CANCELLED, FAILED }
-    enum class OrderItemStatusDto { ACTIVE, CANCELLED }
-
     data class CreateOrderRequest(
         @field:NotEmpty(message = "주문 항목은 필수입니다.")
         @field:Valid
@@ -35,7 +32,7 @@ class OrderV1Dto {
 
     data class OrderResponse(
         val id: Long,
-        val status: OrderStatusDto,
+        val status: String,
         val totalPrice: BigDecimal,
         val items: List<OrderItemResponse>,
     ) {
@@ -43,7 +40,7 @@ class OrderV1Dto {
             fun from(info: OrderInfo): OrderResponse {
                 return OrderResponse(
                     id = info.id,
-                    status = OrderStatusDto.valueOf(info.status),
+                    status = info.status,
                     totalPrice = info.totalPrice,
                     items = info.items.map { OrderItemResponse.from(it) },
                 )

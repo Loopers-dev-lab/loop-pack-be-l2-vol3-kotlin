@@ -138,7 +138,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.totalPrice).isEqualByComparingTo(BigDecimal("258000")) },
                 { assertThat(response.body?.data?.items).hasSize(1) },
-                { assertThat(response.body?.data?.status?.name).isEqualTo("CREATED") },
+                { assertThat(response.body?.data?.status).isEqualTo("CREATED") },
             )
 
             // 재고 차감 확인

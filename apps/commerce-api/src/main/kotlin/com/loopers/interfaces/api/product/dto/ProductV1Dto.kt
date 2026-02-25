@@ -10,7 +10,7 @@ class ProductV1Dto {
         val id: Long,
         val name: String,
         val price: BigDecimal,
-        val status: ProductStatusDto,
+        val status: String,
         val likeCount: Int,
     ) {
         companion object {
@@ -19,7 +19,7 @@ class ProductV1Dto {
                     id = info.id,
                     name = info.name,
                     price = info.price,
-                    status = ProductStatusDto.valueOf(info.status),
+                    status = info.status,
                     likeCount = info.likeCount,
                 )
             }
@@ -39,6 +39,4 @@ class ProductV1Dto {
             }
         }
     }
-
-    enum class ProductStatusDto { ON_SALE, SOLD_OUT, HIDDEN }
 }

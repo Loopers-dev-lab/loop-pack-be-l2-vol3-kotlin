@@ -6,13 +6,10 @@ import java.math.BigDecimal
 
 class OrderAdminV1Dto {
 
-    enum class OrderStatusDto { CREATED, PAID, CANCELLED, FAILED }
-    enum class OrderItemStatusDto { ACTIVE, CANCELLED }
-
     data class OrderAdminResponse(
         val id: Long,
         val userId: Long,
-        val status: OrderStatusDto,
+        val status: String,
         val totalPrice: BigDecimal,
         val items: List<OrderItemAdminResponse>,
     ) {
@@ -21,7 +18,7 @@ class OrderAdminV1Dto {
                 return OrderAdminResponse(
                     id = info.id,
                     userId = info.userId,
-                    status = OrderStatusDto.valueOf(info.status),
+                    status = info.status,
                     totalPrice = info.totalPrice,
                     items = info.items.map { OrderItemAdminResponse.from(it) },
                 )

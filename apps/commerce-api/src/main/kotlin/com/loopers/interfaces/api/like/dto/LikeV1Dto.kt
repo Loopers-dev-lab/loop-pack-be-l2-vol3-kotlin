@@ -4,14 +4,12 @@ import com.loopers.application.like.LikeWithProductInfo
 import java.math.BigDecimal
 
 class LikeV1Dto {
-    enum class ProductStatusDto { ON_SALE, SOLD_OUT, HIDDEN }
-
     data class LikeResponse(
         val likeId: Long,
         val productId: Long,
         val productName: String,
         val productPrice: BigDecimal,
-        val productStatus: ProductStatusDto,
+        val productStatus: String,
     ) {
         companion object {
             fun from(info: LikeWithProductInfo): LikeResponse {
@@ -20,7 +18,7 @@ class LikeV1Dto {
                     productId = info.productId,
                     productName = info.productName,
                     productPrice = info.productPrice,
-                    productStatus = ProductStatusDto.valueOf(info.productStatus),
+                    productStatus = info.productStatus,
                 )
             }
         }
