@@ -65,20 +65,14 @@ class OrderItem private constructor(
             status: ItemStatus,
         ): OrderItem {
             return OrderItem(
+                id = id,
                 refOrderId = refOrderId,
                 refProductId = refProductId,
                 productName = productName,
                 productPrice = productPrice,
                 quantity = quantity,
-            ).also { item ->
-                OrderItem::class.java.getDeclaredField("id").apply {
-                    isAccessible = true
-                    set(item, id)
-                }
-                OrderItem::class.java.getDeclaredField("status").apply {
-                    isAccessible = true
-                    set(item, status)
-                }
+            ).also {
+                it.status = status
             }
         }
     }

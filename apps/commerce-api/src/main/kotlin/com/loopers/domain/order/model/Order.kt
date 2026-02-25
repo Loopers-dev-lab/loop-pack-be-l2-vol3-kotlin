@@ -65,17 +65,13 @@ class Order private constructor(
             items: List<OrderItem> = emptyList(),
         ): Order {
             return Order(
+                id = id,
                 refUserId = refUserId,
                 status = status,
                 totalPrice = totalPrice,
                 items = items,
                 deletedAt = deletedAt,
-            ).also {
-                Order::class.java.getDeclaredField("id").apply {
-                    isAccessible = true
-                    set(it, id)
-                }
-            }
+            )
         }
     }
 }
