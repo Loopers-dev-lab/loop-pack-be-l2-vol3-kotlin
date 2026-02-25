@@ -24,8 +24,7 @@ class OrderFacade(
         if (order.userId != userId) {
             throw CoreException(ErrorType.FORBIDDEN, "다른 사용자의 주문을 조회할 수 없습니다.")
         }
-        val items = orderService.getOrderItems(orderId)
-        return OrderDetailInfo.from(order, items)
+        return OrderDetailInfo.from(order)
     }
 
     @Transactional(readOnly = true)

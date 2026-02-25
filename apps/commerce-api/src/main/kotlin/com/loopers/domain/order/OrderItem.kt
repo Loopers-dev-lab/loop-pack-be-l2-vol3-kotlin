@@ -5,7 +5,10 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.FetchType
 import jakarta.persistence.Index
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 
 @Entity
@@ -14,7 +17,7 @@ import jakarta.persistence.Table
     indexes = [Index(name = "idx_order_items_order_id", columnList = "order_id")],
 )
 class OrderItem(
-    orderId: Long,
+    order: Order,
     productId: Long,
     quantity: Int,
     productName: String,
@@ -22,8 +25,9 @@ class OrderItem(
     brandName: String,
 ) : BaseEntity() {
 
-    @Column(name = "order_id", nullable = false)
-    var orderId: Long = orderId
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    var order: Order = order
         protected set
 
     @Column(name = "product_id", nullable = false)

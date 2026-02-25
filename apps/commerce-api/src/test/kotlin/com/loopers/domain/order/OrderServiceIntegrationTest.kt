@@ -21,7 +21,6 @@ import java.time.LocalDateTime
 @SpringBootTest
 class OrderServiceIntegrationTest @Autowired constructor(
     private val orderService: OrderService,
-    private val orderItemRepository: OrderItemRepository,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -46,7 +45,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
     @Nested
     inner class CreateOrder {
 
-        @DisplayName("Order가 DB에 저장된다.")
+        @DisplayName("Order가 항목과 함께 DB에 저장된다.")
         @Test
         fun savesOrderToDatabase() {
             // arrange
@@ -71,12 +70,13 @@ class OrderServiceIntegrationTest @Autowired constructor(
                 { assertThat(order.userId).isEqualTo(1L) },
                 { assertThat(order.totalAmount).isEqualTo(318000L) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
+                { assertThat(order.items).hasSize(1) },
             )
         }
 
-        @DisplayName("OrderItem이 DB에 저장된다.")
+        @DisplayName("OrderItem의 스냅샷 정보가 정확히 저장된다.")
         @Test
-        fun savesOrderItemsToDatabase() {
+        fun savesOrderItemSnapshotCorrectly() {
             // arrange
             val brand = createBrand()
             val product = createProduct(brand)
@@ -94,14 +94,13 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val order = orderService.createOrder(1L, items)
 
             // assert
-            val savedItems = orderItemRepository.findByOrderId(order.id)
-            assertThat(savedItems).hasSize(1)
+            val savedItem = order.items[0]
             assertAll(
-                { assertThat(savedItems[0].productId).isEqualTo(product.id) },
-                { assertThat(savedItems[0].quantity).isEqualTo(2) },
-                { assertThat(savedItems[0].productName).isEqualTo("에어맥스") },
-                { assertThat(savedItems[0].productPrice).isEqualTo(159000L) },
-                { assertThat(savedItems[0].brandName).isEqualTo("나이키") },
+                { assertThat(savedItem.productId).isEqualTo(product.id) },
+                { assertThat(savedItem.quantity).isEqualTo(2) },
+                { assertThat(savedItem.productName).isEqualTo("에어맥스") },
+                { assertThat(savedItem.productPrice).isEqualTo(159000L) },
+                { assertThat(savedItem.brandName).isEqualTo("나이키") },
             )
         }
 
@@ -133,8 +132,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val order = orderService.createOrder(1L, items)
 
             // assert
-            val savedItems = orderItemRepository.findByOrderId(order.id)
-            assertThat(savedItems).hasSize(2)
+            assertThat(order.items).hasSize(2)
             // 159000 * 2 + 139000 * 1 = 457000
             assertThat(order.totalAmount).isEqualTo(457000L)
         }
