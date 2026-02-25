@@ -34,7 +34,7 @@ class GetProductUseCaseTest {
     inner class Execute {
 
         @Test
-        @DisplayName("ProductDetailInfo(Product + Brand)를 반환한다")
+        @DisplayName("CatalogInfo(Product + Brand)를 반환한다")
         fun getProduct_returnsProductWithBrand() {
             // arrange
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product.dto
 
-import com.loopers.application.catalog.product.ProductDetailInfo
+import com.loopers.application.catalog.CatalogInfo
 import com.loopers.application.catalog.product.ProductInfo
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Min
@@ -40,7 +40,7 @@ class ProductAdminV1Dto {
         val deletedAt: ZonedDateTime?,
     ) {
         companion object {
-            fun from(info: ProductDetailInfo): AdminProductResponse {
+            fun from(info: CatalogInfo): AdminProductResponse {
                 return AdminProductResponse(
                     id = info.product.id,
                     refBrandId = info.product.brandId,

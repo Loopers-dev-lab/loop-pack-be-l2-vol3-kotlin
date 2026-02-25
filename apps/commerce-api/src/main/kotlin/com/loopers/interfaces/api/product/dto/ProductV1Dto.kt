@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product.dto
 
-import com.loopers.application.catalog.product.ProductDetailInfo
+import com.loopers.application.catalog.CatalogInfo
 import com.loopers.application.catalog.product.ProductInfo
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto
 import java.math.BigDecimal
@@ -31,7 +31,7 @@ class ProductV1Dto {
         val brand: BrandV1Dto.BrandResponse,
     ) {
         companion object {
-            fun from(info: ProductDetailInfo): ProductDetailResponse {
+            fun from(info: CatalogInfo): ProductDetailResponse {
                 return ProductDetailResponse(
                     product = CustomerProductResponse.from(info.product),
                     brand = BrandV1Dto.BrandResponse(id = info.product.brandId, name = info.brandName),
