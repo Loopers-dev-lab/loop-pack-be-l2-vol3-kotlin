@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 class ProductTest {
 
@@ -378,26 +379,13 @@ class ProductTest {
         }
 
         @Test
-        @DisplayName("삭제된 상품은 false를 반환한다")
-        fun isActive_deleted_returnsFalse() {
+        @DisplayName("소프트 삭제된 ON_SALE 상품도 true를 반환한다 — 삭제 여부는 도메인 판단 대상 아님")
+        fun isActive_softDeletedOnSale_returnsTrue() {
             // arrange
-            val product = ProductTestFixture.createProduct()
-            product.delete()
+            val product = ProductTestFixture.createProduct(deletedAt = ZonedDateTime.now())
 
             // assert
-            assertThat(product.isActive()).isFalse()
-        }
-
-        @Test
-        @DisplayName("삭제되고 HIDDEN인 상품은 false를 반환한다")
-        fun isActive_deletedAndHidden_returnsFalse() {
-            // arrange
-            val product = ProductTestFixture.createProduct()
-            product.update(null, null, null, Product.ProductStatus.HIDDEN)
-            product.delete()
-
-            // assert
-            assertThat(product.isActive()).isFalse()
+            assertThat(product.isActive()).isTrue()
         }
     }
 
@@ -437,14 +425,13 @@ class ProductTest {
         }
 
         @Test
-        @DisplayName("삭제된 상품은 false를 반환한다")
-        fun isAvailableForOrder_deleted_returnsFalse() {
+        @DisplayName("소프트 삭제된 ON_SALE 상품도 true를 반환한다 — 삭제 여부는 도메인 판단 대상 아님")
+        fun isAvailableForOrder_softDeletedOnSale_returnsTrue() {
             // arrange
-            val product = ProductTestFixture.createProduct()
-            product.delete()
+            val product = ProductTestFixture.createProduct(deletedAt = ZonedDateTime.now())
 
             // assert
-            assertThat(product.isAvailableForOrder()).isFalse()
+            assertThat(product.isAvailableForOrder()).isTrue()
         }
     }
 

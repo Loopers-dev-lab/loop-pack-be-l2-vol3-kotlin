@@ -86,9 +86,9 @@ class Product(
 
     fun isDeleted(): Boolean = deletedAt != null
 
-    fun isActive(): Boolean = !isDeleted() && status != ProductStatus.HIDDEN
+    fun isActive(): Boolean = status != ProductStatus.HIDDEN
 
-    fun isAvailableForOrder(): Boolean = !isDeleted() && status == ProductStatus.ON_SALE
+    fun isAvailableForOrder(): Boolean = status == ProductStatus.ON_SALE
 
     fun delete() {
         deletedAt ?: run { deletedAt = ZonedDateTime.now() }

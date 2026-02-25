@@ -3,6 +3,7 @@ package com.loopers.domain.catalog.product
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.common.Money
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 object ProductTestFixture {
 
@@ -16,5 +17,6 @@ object ProductTestFixture {
         name: String = DEFAULT_NAME,
         price: BigDecimal = DEFAULT_PRICE,
         stock: Int = DEFAULT_STOCK,
-    ): Product = Product(refBrandId = refBrandId, name = name, price = Money(price), stock = stock)
+        deletedAt: ZonedDateTime? = null,
+    ): Product = Product(refBrandId = refBrandId, name = name, price = Money(price), stock = stock, deletedAt = deletedAt)
 }
