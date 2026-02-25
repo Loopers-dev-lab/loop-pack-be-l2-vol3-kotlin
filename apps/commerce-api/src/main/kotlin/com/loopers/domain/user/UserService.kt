@@ -1,26 +1,26 @@
 package com.loopers.domain.user
 
-import com.loopers.application.user.model.UserSignUpCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 
 @Service
 class UserService(
     private val userRepository: UserRepository,
     private val passwordHasher: UserPasswordHasher,
 ) {
-    fun register(command: UserSignUpCommand): User {
-        if (userRepository.existsByLoginId(command.loginId)) {
+    fun register(loginId: String, rawPassword: String, name: String, birthDate: LocalDate, email: String): User {
+        if (userRepository.existsByLoginId(loginId)) {
             throw CoreException(ErrorType.USER_DUPLICATE_LOGIN_ID)
         }
 
         val user = User.register(
-            loginId = command.loginId,
-            rawPassword = command.password,
-            name = command.name,
-            birthDate = command.birthDate,
-            email = command.email,
+            loginId = loginId,
+            rawPassword = rawPassword,
+            name = name,
+            birthDate = birthDate,
+            email = email,
             passwordHasher = passwordHasher,
         )
 

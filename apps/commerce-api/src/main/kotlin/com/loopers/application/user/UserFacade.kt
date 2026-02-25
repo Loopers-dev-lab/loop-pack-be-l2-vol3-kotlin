@@ -12,7 +12,13 @@ class UserFacade(
 ) {
     @Transactional
     fun signUp(command: UserSignUpCommand): UserSignUpInfo {
-        val user = userService.register(command)
+        val user = userService.register(
+            loginId = command.loginId,
+            rawPassword = command.password,
+            name = command.name,
+            birthDate = command.birthDate,
+            email = command.email,
+        )
         return UserSignUpInfo(loginId = user.loginId)
     }
 
