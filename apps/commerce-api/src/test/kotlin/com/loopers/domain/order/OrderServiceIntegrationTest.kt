@@ -225,6 +225,22 @@ class OrderServiceIntegrationTest @Autowired constructor(
             // assert
             assertThat(result).isEmpty()
         }
+
+        @DisplayName("시작일이 종료일보다 크면, BAD_REQUEST 예외를 던진다.")
+        @Test
+        fun throwsBadRequest_whenStartAtIsAfterEndAt() {
+            // arrange
+            val startAt = LocalDateTime.now().plusDays(1)
+            val endAt = LocalDateTime.now().minusDays(1)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrders(1L, startAt, endAt)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 
     @DisplayName("주문을 단건 조회할 때,")
@@ -249,7 +265,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val createdOrder = orderService.createOrder(1L, items)
 
             // act
-            val result = orderService.getOrder(createdOrder.id)
+            val result = orderService.getOrder(1L, createdOrder.id)
 
             // assert
             assertAll(
@@ -265,11 +281,37 @@ class OrderServiceIntegrationTest @Autowired constructor(
         fun throwsNotFound_whenOrderDoesNotExist() {
             // act
             val exception = assertThrows<CoreException> {
-                orderService.getOrder(999L)
+                orderService.getOrder(1L, 999L)
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("다른 사용자의 주문이면, FORBIDDEN 예외를 던진다.")
+        @Test
+        fun throwsForbidden_whenOtherUsersOrder() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(
+                OrderItemCommand(
+                    productId = product.id,
+                    quantity = 1,
+                    productName = product.name,
+                    productPrice = product.price,
+                    brandName = brand.name,
+                ),
+            )
+            val createdOrder = orderService.createOrder(1L, items)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrder(2L, createdOrder.id)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
 }

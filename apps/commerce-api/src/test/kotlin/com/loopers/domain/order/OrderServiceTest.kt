@@ -102,6 +102,71 @@ class OrderServiceTest {
             assertThat(orderCaptor.value.totalAmount).isEqualTo(735000L)
             assertThat(result.totalAmount).isEqualTo(735000L)
         }
+
+        @DisplayName("주문 항목이 비어있으면, BAD_REQUEST 예외를 던진다.")
+        @Test
+        fun throwsBadRequest_whenItemsEmpty() {
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.createOrder(1L, emptyList())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("주문 수량이 0 이하이면, BAD_REQUEST 예외를 던진다.")
+        @Test
+        fun throwsBadRequest_whenQuantityIsZeroOrNegative() {
+            // arrange
+            val items = listOf(
+                OrderItemCommand(
+                    productId = 1L,
+                    quantity = 0,
+                    productName = "에어맥스",
+                    productPrice = 159000L,
+                    brandName = "나이키",
+                ),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.createOrder(1L, items)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("중복된 상품이 포함되면, BAD_REQUEST 예외를 던진다.")
+        @Test
+        fun throwsBadRequest_whenDuplicateProductIds() {
+            // arrange
+            val items = listOf(
+                OrderItemCommand(
+                    productId = 1L,
+                    quantity = 1,
+                    productName = "에어맥스",
+                    productPrice = 159000L,
+                    brandName = "나이키",
+                ),
+                OrderItemCommand(
+                    productId = 1L,
+                    quantity = 2,
+                    productName = "에어맥스",
+                    productPrice = 159000L,
+                    brandName = "나이키",
+                ),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.createOrder(1L, items)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 
     @DisplayName("주문 목록을 조회할 때,")
@@ -126,6 +191,23 @@ class OrderServiceTest {
             assertThat(result).hasSize(1)
             verify(orderRepository).findByUserIdAndCreatedAtBetween(userId, startAt, endAt)
         }
+
+        @DisplayName("시작일이 종료일보다 크면, BAD_REQUEST 예외를 던진다.")
+        @Test
+        fun throwsBadRequest_whenStartAtIsAfterEndAt() {
+            // arrange
+            val userId = 1L
+            val startAt = LocalDateTime.of(2026, 2, 28, 23, 59, 59)
+            val endAt = LocalDateTime.of(2026, 2, 1, 0, 0)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrders(userId, startAt, endAt)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 
     @DisplayName("주문을 단건 조회할 때,")
@@ -136,16 +218,17 @@ class OrderServiceTest {
         @Test
         fun returnsOrder_whenOrderExists() {
             // arrange
+            val userId = 1L
             val orderId = 1L
-            val expectedOrder = Order(userId = 1L)
+            val expectedOrder = Order(userId = userId)
             whenever(orderRepository.findById(orderId)).thenReturn(expectedOrder)
 
             // act
-            val result = orderService.getOrder(orderId)
+            val result = orderService.getOrder(userId, orderId)
 
             // assert
             assertAll(
-                { assertThat(result.userId).isEqualTo(1L) },
+                { assertThat(result.userId).isEqualTo(userId) },
                 { assertThat(result.status).isEqualTo(OrderStatus.ORDERED) },
             )
             verify(orderRepository).findById(orderId)
@@ -155,16 +238,36 @@ class OrderServiceTest {
         @Test
         fun throwsNotFound_whenOrderDoesNotExist() {
             // arrange
+            val userId = 1L
             val orderId = 999L
             whenever(orderRepository.findById(orderId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
-                orderService.getOrder(orderId)
+                orderService.getOrder(userId, orderId)
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("다른 사용자의 주문이면, FORBIDDEN 예외를 던진다.")
+        @Test
+        fun throwsForbidden_whenOtherUsersOrder() {
+            // arrange
+            val orderId = 1L
+            val orderOwnerUserId = 1L
+            val requestUserId = 2L
+            val expectedOrder = Order(userId = orderOwnerUserId)
+            whenever(orderRepository.findById(orderId)).thenReturn(expectedOrder)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrder(requestUserId, orderId)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
 }

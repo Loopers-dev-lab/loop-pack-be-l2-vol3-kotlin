@@ -20,27 +20,19 @@ class OrderFacade(
 
     @Transactional(readOnly = true)
     fun getOrder(userId: Long, orderId: Long): OrderDetailInfo {
-        val order = orderService.getOrder(orderId)
-        if (order.userId != userId) {
-            throw CoreException(ErrorType.FORBIDDEN, "다른 사용자의 주문을 조회할 수 없습니다.")
-        }
+        val order = orderService.getOrder(userId, orderId)
         return OrderDetailInfo.from(order)
     }
 
     @Transactional(readOnly = true)
     fun getOrders(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<OrderInfo> {
-        if (startAt.isAfter(endAt)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "시작일이 종료일보다 클 수 없습니다.")
-        }
         val orders = orderService.getOrders(userId, startAt, endAt)
         return orders.map { OrderInfo.from(it) }
     }
 
     @Transactional
     fun placeOrder(userId: Long, items: List<OrderPlaceCommand>) {
-        validateOrderItems(items)
-
-        val productIds = items.map { it.productId }
+        val productIds = items.map { it.productId }.distinct()
 
         // 재고 차감 동시성 제어: 락 획득 후 트랜잭션 커밋 시 자동 해제
         stockLockManager.acquireLocksForTransaction(productIds)
@@ -73,18 +65,5 @@ class OrderFacade(
         }
 
         orderService.createOrder(userId, orderItemCommands)
-    }
-
-    private fun validateOrderItems(items: List<OrderPlaceCommand>) {
-        if (items.isEmpty()) {
-            throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.")
-        }
-        if (items.any { it.quantity <= 0 }) {
-            throw CoreException(ErrorType.BAD_REQUEST, "주문 수량은 0보다 커야 합니다.")
-        }
-        val productIds = items.map { it.productId }
-        if (productIds.size != productIds.toSet().size) {
-            throw CoreException(ErrorType.BAD_REQUEST, "중복된 상품이 포함되어 있습니다.")
-        }
     }
 }
