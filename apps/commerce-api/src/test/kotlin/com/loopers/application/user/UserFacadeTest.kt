@@ -1,5 +1,7 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.Email
+import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
 import org.assertj.core.api.Assertions.assertThat
@@ -35,10 +37,10 @@ class UserFacadeTest {
         fun returnsUserInfoWithMaskedName_whenAuthenticatedUserProvided() {
             // arrange
             val user = User(
-                loginId = "testuser",
+                loginId = LoginId.of("testuser"),
                 password = "encoded_password",
                 name = "홍길동",
-                email = "test@example.com",
+                email = Email.of("test@example.com"),
                 birthday = LocalDate.of(1990, 1, 1),
             )
 
@@ -63,10 +65,10 @@ class UserFacadeTest {
         fun callsUserServiceChangePassword_whenValidPasswordsProvided() {
             // arrange
             val user = User(
-                loginId = "testuser",
+                loginId = LoginId.of("testuser"),
                 password = "encoded_password",
                 name = "홍길동",
-                email = "test@example.com",
+                email = Email.of("test@example.com"),
                 birthday = LocalDate.of(1990, 5, 15),
             )
             val currentPassword = "CurrentPassword1!"

@@ -6,6 +6,13 @@ import com.loopers.support.error.ErrorType
 class LoginId private constructor(
     val value: String,
 ) {
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is LoginId && value == other.value)
+
+    override fun hashCode(): Int = value.hashCode()
+
+    override fun toString(): String = value
+
     companion object {
         private val LOGIN_ID_PATTERN = Regex("^[a-zA-Z0-9]+$")
 

@@ -1,6 +1,8 @@
 package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.loopers.domain.user.Email
+import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
 import com.loopers.support.error.ErrorType
@@ -51,10 +53,10 @@ class AuthenticationFilterTest {
             val loginId = "testuser"
             val password = "Test1234!@"
             val user = User(
-                loginId = loginId,
+                loginId = LoginId.of(loginId),
                 password = "encoded",
                 name = "홍길동",
-                email = "test@example.com",
+                email = Email.of("test@example.com"),
                 birthday = LocalDate.of(1990, 1, 1),
             )
 
@@ -68,7 +70,7 @@ class AuthenticationFilterTest {
 
             // assert
             val authenticatedUser = request.getAttribute("authenticatedUser") as User
-            assertThat(authenticatedUser.loginId).isEqualTo(loginId)
+            assertThat(authenticatedUser.loginId.value).isEqualTo(loginId)
             verify(filterChain).doFilter(request, response)
         }
 

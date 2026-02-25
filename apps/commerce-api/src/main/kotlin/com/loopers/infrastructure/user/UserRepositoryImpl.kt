@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.user
 
+import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserRepository
 import org.springframework.data.repository.findByIdOrNull
@@ -13,11 +14,11 @@ class UserRepositoryImpl(
         return userJpaRepository.findByIdOrNull(id)
     }
 
-    override fun findByLoginId(loginId: String): User? {
+    override fun findByLoginId(loginId: LoginId): User? {
         return userJpaRepository.findByLoginId(loginId)
     }
 
-    override fun existsByLoginId(loginId: String): Boolean {
+    override fun existsByLoginId(loginId: LoginId): Boolean {
         return userJpaRepository.existsByLoginId(loginId)
     }
 

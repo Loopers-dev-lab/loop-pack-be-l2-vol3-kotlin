@@ -16,18 +16,18 @@ data class UserInfo(
         fun from(user: User): UserInfo {
             return UserInfo(
                 id = user.id,
-                loginId = user.loginId,
+                loginId = user.loginId.value,
                 name = user.name,
-                email = user.email,
+                email = user.email.value,
             )
         }
 
         fun fromWithMasking(user: User): UserInfo {
             return UserInfo(
                 id = user.id,
-                loginId = user.loginId,
+                loginId = user.loginId.value,
                 name = user.name,
-                email = user.email,
+                email = user.email.value,
                 maskedName = MaskedName.from(user.name).value,
                 birthday = user.birthday,
             )

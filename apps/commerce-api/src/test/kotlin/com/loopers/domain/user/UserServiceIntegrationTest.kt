@@ -47,9 +47,9 @@ class UserServiceIntegrationTest @Autowired constructor(
             val savedUser = userRepository.find(result.id)
             assertAll(
                 { assertThat(savedUser).isNotNull() },
-                { assertThat(savedUser?.loginId).isEqualTo(loginId) },
+                { assertThat(savedUser?.loginId?.value).isEqualTo(loginId) },
                 { assertThat(savedUser?.name).isEqualTo(name) },
-                { assertThat(savedUser?.email).isEqualTo(email) },
+                { assertThat(savedUser?.email?.value).isEqualTo(email) },
                 { assertThat(savedUser?.birthday).isEqualTo(birthday) },
             )
         }
@@ -140,7 +140,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(result).isNotNull() },
-                { assertThat(result.loginId).isEqualTo(loginId) },
+                { assertThat(result.loginId.value).isEqualTo(loginId) },
                 { assertThat(result.name).isEqualTo(name) },
             )
         }
@@ -228,7 +228,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             val result = userService.authenticate(loginId, newPassword)
 
             // assert
-            assertThat(result.loginId).isEqualTo(loginId)
+            assertThat(result.loginId.value).isEqualTo(loginId)
         }
 
         @DisplayName("존재하지 않는 사용자 ID를 전달하면, NOT_FOUND 예외가 발생한다.")

@@ -27,10 +27,10 @@ class UserTest {
             // arrange
             val newEncodedPassword = "encoded_new_password"
             val user = User(
-                loginId = loginId,
+                loginId = LoginId.of(loginId),
                 password = currentEncodedPassword,
                 name = name,
-                email = email,
+                email = Email.of(email),
                 birthday = birthday,
             )
 
@@ -54,13 +54,13 @@ class UserTest {
         @DisplayName("회원 데이터가 모두 주어지면, 정상적으로 생성된다.")
         @Test
         fun createUser() {
-            val user = User(loginId = loginId, password = password, name = name, email = email, birthday = birthday)
+            val user = User(loginId = LoginId.of(loginId), password = password, name = name, email = Email.of(email), birthday = birthday)
 
             assertAll(
-                { assertThat(user.loginId).isEqualTo(loginId) },
+                { assertThat(user.loginId.value).isEqualTo(loginId) },
                 { assertThat(user.password).isEqualTo(password) },
                 { assertThat(user.name).isEqualTo(name) },
-                { assertThat(user.email).isEqualTo(email) },
+                { assertThat(user.email.value).isEqualTo(email) },
                 { assertThat(user.birthday).isEqualTo(birthday) },
             )
         }
@@ -71,7 +71,7 @@ class UserTest {
             val blankName = "  "
 
             val result = assertThrows<CoreException> {
-                User(loginId = loginId, password = password, name = blankName, email = email, birthday = birthday)
+                User(loginId = LoginId.of(loginId), password = password, name = blankName, email = Email.of(email), birthday = birthday)
             }
 
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)

@@ -13,24 +13,28 @@ class UserService(
 ) {
 
     fun signUp(loginId: String, password: String, name: String, email: String, birthday: LocalDate): User {
-        if (userRepository.existsByLoginId(loginId)) {
+        val loginIdVo = LoginId.of(loginId)
+        val emailVo = Email.of(email)
+
+        if (userRepository.existsByLoginId(loginIdVo)) {
             throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID 입니다.")
         }
 
         val encodedPassword = encodePassword(password, birthday)
 
         val user = User(
-            loginId = loginId,
+            loginId = loginIdVo,
             password = encodedPassword,
             name = name,
-            email = email,
+            email = emailVo,
             birthday = birthday,
         )
         return userRepository.save(user)
     }
 
     fun authenticate(loginId: String, password: String): User {
-        val user = userRepository.findByLoginId(loginId)
+        val loginIdVo = LoginId.of(loginId)
+        val user = userRepository.findByLoginId(loginIdVo)
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "존재하지 않는 사용자입니다.")
 
         verifyPassword(password, user.password)
