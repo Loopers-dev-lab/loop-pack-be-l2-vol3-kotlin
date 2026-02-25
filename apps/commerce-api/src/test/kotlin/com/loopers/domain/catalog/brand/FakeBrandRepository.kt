@@ -28,6 +28,10 @@ class FakeBrandRepository : BrandRepository {
         return brands.find { it.id == id }
     }
 
+    override fun findByIdIncludeDeleted(id: Long): Brand? {
+        return brands.find { it.id == id }
+    }
+
     override fun findAll(page: Int, size: Int): PageResult<Brand> {
         val offset = page * size
         val content = brands.drop(offset).take(size)

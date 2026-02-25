@@ -17,7 +17,7 @@ class GetOrdersUseCase(
     @Transactional(readOnly = true)
     fun execute(userId: Long, from: ZonedDateTime, to: ZonedDateTime, page: Int, size: Int): PageResult<OrderInfo> {
         val pageResult = orderRepository.findAllByUserId(userId, from, to, page, size)
-        val itemsByOrderId = orderItemRepository.findGroupedByOrderIds( pageResult.content)
+        val itemsByOrderId = orderItemRepository.findGroupedByOrderIds(pageResult.content)
         return pageResult.map { order -> OrderInfo.from(OrderDetail(order, itemsByOrderId[order.id] ?: emptyList())) }
     }
 }

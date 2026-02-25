@@ -22,6 +22,10 @@ class BrandRepositoryImpl(
         return brandJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
+    override fun findByIdIncludeDeleted(id: Long): Brand? {
+        return brandJpaRepository.findById(id).orElse(null)?.toDomain()
+    }
+
     override fun findAll(page: Int, size: Int): PageResult<Brand> {
         val pageable = PageRequest.of(page, size)
         val result = brandJpaRepository.findAll(pageable)

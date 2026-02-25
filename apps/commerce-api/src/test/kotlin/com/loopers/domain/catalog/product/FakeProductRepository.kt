@@ -33,6 +33,14 @@ class FakeProductRepository : ProductRepository {
         return products.find { it.id == id }
     }
 
+    override fun findByIdIncludeDeleted(id: Long): Product? {
+        return products.find { it.id == id }
+    }
+
+    override fun findByIdForUpdate(id: Long): Product? {
+        return products.find { it.id == id }
+    }
+
     override fun findAll(page: Int, size: Int): PageResult<Product> {
         val offset = page * size
         val content = products.drop(offset).take(size)

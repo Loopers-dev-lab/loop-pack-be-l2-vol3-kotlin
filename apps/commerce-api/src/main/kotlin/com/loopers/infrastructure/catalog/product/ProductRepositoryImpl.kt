@@ -33,6 +33,14 @@ class ProductRepositoryImpl(
         return productJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
+    override fun findByIdIncludeDeleted(id: Long): Product? {
+        return productJpaRepository.findById(id).orElse(null)?.toDomain()
+    }
+
+    override fun findByIdForUpdate(id: Long): Product? {
+        return productJpaRepository.findById(id).orElse(null)?.toDomain()
+    }
+
     override fun findAll(page: Int, size: Int): PageResult<Product> {
         val pageable = PageRequest.of(page, size)
         val result = productJpaRepository.findAll(pageable)
