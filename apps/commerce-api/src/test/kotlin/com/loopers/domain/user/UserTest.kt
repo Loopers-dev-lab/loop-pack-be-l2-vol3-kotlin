@@ -218,22 +218,32 @@ class UserTest {
     @Nested
     @DisplayName("비밀번호 변경")
     inner class ChangePassword {
+        private val currentPassword = "Password1!"
+        private val encodedPassword = "encoded_Password1!"
+
+        private fun retrievedUser(
+            password: String = encodedPassword,
+            birthDate: LocalDate = defaultBirthDate,
+        ): User = User.retrieve(
+            id = 1L,
+            loginId = "testuser1",
+            password = password,
+            name = "홍길동",
+            birthDate = birthDate,
+            email = "test@example.com",
+        )
+
         @Test
         @DisplayName("새 비밀번호로 변경하면 인코딩된 비밀번호를 가진 User를 반환한다")
         fun changePassword_success_returnsUpdatedUser() {
             // arrange
-            val user = User.retrieve(
-                id = 1L,
-                loginId = "testuser1",
-                password = "encodedOldPassword",
-                name = "홍길동",
-                birthDate = defaultBirthDate,
-                email = "test@example.com",
-            )
+            val user = retrievedUser()
+            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
+            given(passwordHasher.matches("NewPassword1!", encodedPassword)).willReturn(false)
             given(passwordHasher.encode("NewPassword1!")).willReturn("encoded_NewPassword1!")
 
             // act
-            val updatedUser = user.changePassword("NewPassword1!", passwordHasher)
+            val updatedUser = user.changePassword(currentPassword, "NewPassword1!", passwordHasher)
 
             // assert
             assertAll(
@@ -245,21 +255,49 @@ class UserTest {
         }
 
         @Test
-        @DisplayName("새 비밀번호 패턴이 유효하지 않으면 실패한다")
-        fun changePassword_invalidPattern_throwsException() {
+        @DisplayName("현재 비밀번호가 일치하지 않으면 실패한다")
+        fun changePassword_wrongCurrentPassword_throwsException() {
             // arrange
-            val user = User.retrieve(
-                id = 1L,
-                loginId = "testuser1",
-                password = "encodedOldPassword",
-                name = "홍길동",
-                birthDate = defaultBirthDate,
-                email = "test@example.com",
-            )
+            val user = retrievedUser()
+            given(passwordHasher.matches("WrongPassword1!", encodedPassword)).willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Pass word1!", passwordHasher)
+                user.changePassword("WrongPassword1!", "NewPassword1!", passwordHasher)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
+        }
+
+        @Test
+        @DisplayName("새 비밀번호가 현재 비밀번호와 동일하면 실패한다 (해시 기반 비교)")
+        fun changePassword_samePassword_throwsException() {
+            // arrange
+            val user = retrievedUser()
+            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
+            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword(currentPassword, currentPassword, passwordHasher)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
+        }
+
+        @Test
+        @DisplayName("새 비밀번호 패턴이 유효하지 않으면 실패한다")
+        fun changePassword_invalidPattern_throwsException() {
+            // arrange
+            val user = retrievedUser()
+            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
+            given(passwordHasher.matches("Pass word1!", encodedPassword)).willReturn(false)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword(currentPassword, "Pass word1!", passwordHasher)
             }
 
             // assert
@@ -270,18 +308,13 @@ class UserTest {
         @DisplayName("새 비밀번호에 생년월일(yyyyMMdd) 포함 시 실패한다")
         fun changePassword_containsBirthDateCompact_throwsException() {
             // arrange
-            val user = User.retrieve(
-                id = 1L,
-                loginId = "testuser1",
-                password = "encodedOldPassword",
-                name = "홍길동",
-                birthDate = defaultBirthDate,
-                email = "test@example.com",
-            )
+            val user = retrievedUser()
+            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
+            given(passwordHasher.matches("Pass19900101!", encodedPassword)).willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Pass19900101!", passwordHasher)
+                user.changePassword(currentPassword, "Pass19900101!", passwordHasher)
             }
 
             // assert
@@ -292,18 +325,13 @@ class UserTest {
         @DisplayName("새 비밀번호에 생년월일(yyyy-MM-dd) 포함 시 실패한다")
         fun changePassword_containsBirthDateWithDash_throwsException() {
             // arrange
-            val user = User.retrieve(
-                id = 1L,
-                loginId = "testuser1",
-                password = "encodedOldPassword",
-                name = "홍길동",
-                birthDate = defaultBirthDate,
-                email = "test@example.com",
-            )
+            val user = retrievedUser()
+            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
+            given(passwordHasher.matches("P1990-01-01!", encodedPassword)).willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("P1990-01-01!", passwordHasher)
+                user.changePassword(currentPassword, "P1990-01-01!", passwordHasher)
             }
 
             // assert

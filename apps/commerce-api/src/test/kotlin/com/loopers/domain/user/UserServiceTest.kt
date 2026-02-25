@@ -1,6 +1,5 @@
 package com.loopers.domain.user
 
-import com.loopers.application.user.model.UserChangePasswordCommand
 import com.loopers.application.user.model.UserSignUpCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -14,6 +13,7 @@ import org.mockito.BDDMockito.then
 import org.mockito.kotlin.any
 import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import java.time.LocalDate
 
 @DisplayName("UserService (domain)")
@@ -29,11 +29,6 @@ class UserServiceTest {
         birthDate: LocalDate = LocalDate.of(1990, 1, 1),
         email: String = "test@example.com",
     ): UserSignUpCommand = UserSignUpCommand(loginId, password, name, birthDate, email)
-
-    private fun createChangePasswordCommand(
-        currentPassword: String = "Password1!",
-        newPassword: String = "NewPassword1!",
-    ): UserChangePasswordCommand = UserChangePasswordCommand(currentPassword, newPassword)
 
     private fun existingUser(
         password: String = "encoded_Password1!",
@@ -180,11 +175,12 @@ class UserServiceTest {
             val user = existingUser()
             given(userRepository.findByLoginId("testuser1")).willReturn(user)
             given(passwordHasher.matches("Password1!", "encoded_Password1!")).willReturn(true)
+            given(passwordHasher.matches("NewPassword1!", "encoded_Password1!")).willReturn(false)
             given(passwordHasher.encode("NewPassword1!")).willReturn("encoded_NewPassword1!")
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
-            userService.changePassword("testuser1", "Password1!", createChangePasswordCommand())
+            userService.changePassword("testuser1", "Password1!", "Password1!", "NewPassword1!")
 
             // assert
             then(userRepository).should().save(
@@ -204,7 +200,7 @@ class UserServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword("testuser1", "WrongPassword1!", createChangePasswordCommand())
+                userService.changePassword("testuser1", "WrongPassword1!", "Password1!", "NewPassword1!")
             }
 
             // assert
@@ -212,8 +208,8 @@ class UserServiceTest {
         }
 
         @Test
-        @DisplayName("currentPassword가 저장된 비밀번호와 불일치하면 CoreException(USER_INVALID_PASSWORD)")
-        fun changePassword_wrongCurrentPassword_throwsException() {
+        @DisplayName("도메인에서 현재 비밀번호 불일치 예외가 발생하면 전파하고 save를 호출하지 않는다")
+        fun changePassword_wrongCurrentPassword_propagatesExceptionAndDoesNotSave() {
             // arrange
             val user = existingUser()
             given(userRepository.findByLoginId("testuser1")).willReturn(user)
@@ -222,20 +218,17 @@ class UserServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword(
-                    "testuser1",
-                    "Password1!",
-                    createChangePasswordCommand(currentPassword = "WrongCurrent1!"),
-                )
+                userService.changePassword("testuser1", "Password1!", "WrongCurrent1!", "NewPassword1!")
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
+            then(userRepository).should(never()).save(any())
         }
 
         @Test
-        @DisplayName("currentPassword와 newPassword가 동일하면 CoreException(USER_INVALID_PASSWORD)")
-        fun changePassword_samePassword_throwsException() {
+        @DisplayName("도메인에서 동일 비밀번호 예외가 발생하면 전파하고 save를 호출하지 않는다")
+        fun changePassword_samePassword_propagatesExceptionAndDoesNotSave() {
             // arrange
             val user = existingUser()
             given(userRepository.findByLoginId("testuser1")).willReturn(user)
@@ -243,57 +236,12 @@ class UserServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.changePassword(
-                    "testuser1",
-                    "Password1!",
-                    createChangePasswordCommand(currentPassword = "Password1!", newPassword = "Password1!"),
-                )
+                userService.changePassword("testuser1", "Password1!", "Password1!", "Password1!")
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
-        }
-
-        @Test
-        @DisplayName("newPassword가 허용되지 않은 문자를 포함하면 CoreException(USER_INVALID_PASSWORD)")
-        fun changePassword_invalidPattern_throwsException() {
-            // arrange
-            val user = existingUser()
-            given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches("Password1!", "encoded_Password1!")).willReturn(true)
-
-            // act
-            val exception = assertThrows<CoreException> {
-                userService.changePassword(
-                    "testuser1",
-                    "Password1!",
-                    createChangePasswordCommand(newPassword = "Pass word1!"),
-                )
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
-        }
-
-        @Test
-        @DisplayName("newPassword에 생년월일 포함 시 CoreException(USER_INVALID_PASSWORD)")
-        fun changePassword_containsBirthDate_throwsException() {
-            // arrange
-            val user = existingUser()
-            given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches("Password1!", "encoded_Password1!")).willReturn(true)
-
-            // act
-            val exception = assertThrows<CoreException> {
-                userService.changePassword(
-                    "testuser1",
-                    "Password1!",
-                    createChangePasswordCommand(newPassword = "Pass19900101!"),
-                )
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.USER_INVALID_PASSWORD)
+            then(userRepository).should(never()).save(any())
         }
     }
 }

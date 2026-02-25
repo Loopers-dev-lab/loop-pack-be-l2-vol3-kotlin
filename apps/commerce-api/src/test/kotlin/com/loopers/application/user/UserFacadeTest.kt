@@ -92,7 +92,7 @@ class UserFacadeTest {
     @DisplayName("비밀번호 수정")
     inner class ChangePassword {
         @Test
-        @DisplayName("changePassword 호출 시 UserService.changePassword()에 위임한다")
+        @DisplayName("changePassword 호출 시 Command를 언패킹하여 UserService.changePassword()에 위임한다")
         fun changePassword_delegatesToUserServiceChangePassword() {
             // arrange
             val command = UserChangePasswordCommand("Password1!", "NewPassword1!")
@@ -101,7 +101,12 @@ class UserFacadeTest {
             userFacade.changePassword("testuser1", "Password1!", command)
 
             // assert
-            then(userService).should().changePassword(eq("testuser1"), eq("Password1!"), eq(command))
+            then(userService).should().changePassword(
+                eq("testuser1"),
+                eq("Password1!"),
+                eq("Password1!"),
+                eq("NewPassword1!"),
+            )
         }
     }
 }
