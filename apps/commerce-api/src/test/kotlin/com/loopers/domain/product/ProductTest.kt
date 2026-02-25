@@ -1,5 +1,6 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -16,7 +17,7 @@ class ProductTest {
     inner class Create {
         private val name = "에어맥스"
         private val description = "러닝화"
-        private val price = 159000L
+        private val price = Money.of(159000L)
         private val likes = 10
         private val stockQuantity = 100
         private val brandId = 1L
@@ -86,14 +87,7 @@ class ProductTest {
         fun throwsBadRequest_whenPriceIsNegative() {
             // act
             val exception = assertThrows<CoreException> {
-                Product(
-                    name = name,
-                    description = description,
-                    price = -1,
-                    likes = likes,
-                    stockQuantity = stockQuantity,
-                    brandId = brandId,
-                )
+                Money.of(-1)
             }
 
             // assert
@@ -124,7 +118,7 @@ class ProductTest {
         return Product(
             name = "에어맥스",
             description = "러닝화",
-            price = 159000,
+            price = Money.of(159000L),
             likes = likes,
             stockQuantity = 100,
             brandId = 1L,

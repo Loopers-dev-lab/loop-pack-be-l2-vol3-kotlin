@@ -2,6 +2,7 @@ package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.interfaces.api.user.UserDto
@@ -92,7 +93,7 @@ class OrderApiE2ETest @Autowired constructor(
     private fun createProduct(
         name: String = "에어맥스",
         description: String? = "러닝화",
-        price: Long = 159000,
+        price: Money = Money.of(159000L),
         stockQuantity: Int = 100,
         brand: Brand? = null,
     ): Product {
@@ -320,8 +321,8 @@ class OrderApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val brand = createBrand()
-            val product1 = createProduct(name = "에어맥스", price = 159000, brand = brand)
-            val product2 = createProduct(name = "에어포스", price = 139000, brand = brand)
+            val product1 = createProduct(name = "에어맥스", price = Money.of(159000L), brand = brand)
+            val product2 = createProduct(name = "에어포스", price = Money.of(139000L), brand = brand)
             val request = PlaceOrderRequest(
                 items = listOf(
                     OrderItemRequest(productId = product1.id, quantity = 2),
@@ -345,8 +346,8 @@ class OrderApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val brand = createBrand()
-            val product1 = createProduct(name = "에어맥스", price = 159000, stockQuantity = 50, brand = brand)
-            val product2 = createProduct(name = "에어포스", price = 139000, stockQuantity = 30, brand = brand)
+            val product1 = createProduct(name = "에어맥스", price = Money.of(159000L), stockQuantity = 50, brand = brand)
+            val product2 = createProduct(name = "에어포스", price = Money.of(139000L), stockQuantity = 30, brand = brand)
             val request = PlaceOrderRequest(
                 items = listOf(
                     OrderItemRequest(productId = product1.id, quantity = 5),
@@ -372,8 +373,8 @@ class OrderApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val brand = createBrand()
-            val product1 = createProduct(name = "에어맥스", price = 159000, stockQuantity = 100, brand = brand)
-            val product2 = createProduct(name = "에어포스", price = 139000, stockQuantity = 2, brand = brand)
+            val product1 = createProduct(name = "에어맥스", price = Money.of(159000L), stockQuantity = 100, brand = brand)
+            val product2 = createProduct(name = "에어포스", price = Money.of(139000L), stockQuantity = 2, brand = brand)
             val request = PlaceOrderRequest(
                 items = listOf(
                     OrderItemRequest(productId = product1.id, quantity = 5),
@@ -423,7 +424,7 @@ class OrderApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val brand = createBrand()
-            val product = createProduct(name = "에어맥스", price = 159000, brand = brand)
+            val product = createProduct(name = "에어맥스", price = Money.of(159000L), brand = brand)
             placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 2))))
 
             val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
@@ -448,8 +449,8 @@ class OrderApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val brand = createBrand()
-            val product1 = createProduct(name = "에어맥스", price = 159000, brand = brand)
-            val product2 = createProduct(name = "에어포스", price = 139000, brand = brand)
+            val product1 = createProduct(name = "에어맥스", price = Money.of(159000L), brand = brand)
+            val product2 = createProduct(name = "에어포스", price = Money.of(139000L), brand = brand)
             placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product1.id, quantity = 1))))
             placeOrder(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product2.id, quantity = 1))))
 
@@ -600,7 +601,7 @@ class OrderApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val brand = createBrand()
-            val product = createProduct(name = "에어맥스", price = 159000, brand = brand)
+            val product = createProduct(name = "에어맥스", price = Money.of(159000L), brand = brand)
             val orderId = placeOrderAndGetId(PlaceOrderRequest(items = listOf(OrderItemRequest(productId = product.id, quantity = 2))))
 
             // act
@@ -633,8 +634,8 @@ class OrderApiE2ETest @Autowired constructor(
             // arrange
             signUp()
             val brand = createBrand()
-            val product1 = createProduct(name = "에어맥스", price = 159000, brand = brand)
-            val product2 = createProduct(name = "에어포스", price = 139000, brand = brand)
+            val product1 = createProduct(name = "에어맥스", price = Money.of(159000L), brand = brand)
+            val product2 = createProduct(name = "에어포스", price = Money.of(139000L), brand = brand)
             val orderId = placeOrderAndGetId(
                 PlaceOrderRequest(
                     items = listOf(

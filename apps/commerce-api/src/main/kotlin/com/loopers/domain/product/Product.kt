@@ -1,6 +1,7 @@
 package com.loopers.domain.product
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Entity
@@ -15,7 +16,7 @@ import jakarta.persistence.Table
 class Product(
     name: String,
     description: String?,
-    price: Long,
+    price: Money,
     likes: Int,
     stockQuantity: Int,
     brandId: Long,
@@ -27,7 +28,7 @@ class Product(
     var description: String? = description
         protected set
 
-    var price: Long = price
+    var price: Money = price
         protected set
 
     var likes: Int = likes
@@ -41,19 +42,12 @@ class Product(
 
     init {
         validateName(name)
-        validatePrice(price)
         validateStockQuantity(stockQuantity)
     }
 
     private fun validateName(name: String) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "상품 이름은 비어있을 수 없습니다.")
-        }
-    }
-
-    private fun validatePrice(price: Long) {
-        if (price < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "상품 가격은 0 이상이어야 합니다.")
         }
     }
 

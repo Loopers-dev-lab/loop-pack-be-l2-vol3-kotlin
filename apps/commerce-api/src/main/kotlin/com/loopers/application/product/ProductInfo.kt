@@ -18,7 +18,7 @@ data class ProductInfo(
                 id = product.id,
                 name = product.name,
                 description = product.description,
-                price = product.price,
+                price = product.price.value,
                 likes = product.likes,
                 stockQuantity = product.stockQuantity,
                 brandId = product.brandId,
@@ -41,7 +41,7 @@ data class ProductDetailInfo(
             return ProductDetailInfo(
                 id = product.id,
                 name = product.name,
-                price = product.price,
+                price = product.price.value,
                 description = product.description,
                 brandId = brand.id,
                 brandName = brand.name,

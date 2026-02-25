@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -50,7 +51,7 @@ class OrderServiceTest {
                     productId = 1L,
                     quantity = 2,
                     productName = "에어맥스",
-                    productPrice = 159000L,
+                    productPrice = Money.of(159000L),
                     brandName = "나이키",
                 ),
             )
@@ -64,7 +65,7 @@ class OrderServiceTest {
             val capturedOrder = orderCaptor.value
             assertAll(
                 { assertThat(capturedOrder.userId).isEqualTo(userId) },
-                { assertThat(capturedOrder.totalAmount).isEqualTo(318000L) },
+                { assertThat(capturedOrder.totalAmount).isEqualTo(Money.of(318000L)) },
                 { assertThat(capturedOrder.items).hasSize(1) },
                 { assertThat(result.status).isEqualTo(OrderStatus.ORDERED) },
             )
@@ -80,14 +81,14 @@ class OrderServiceTest {
                     productId = 1L,
                     quantity = 2,
                     productName = "에어맥스",
-                    productPrice = 159000L,
+                    productPrice = Money.of(159000L),
                     brandName = "나이키",
                 ),
                 OrderItemCommand(
                     productId = 2L,
                     quantity = 3,
                     productName = "에어포스",
-                    productPrice = 139000L,
+                    productPrice = Money.of(139000L),
                     brandName = "나이키",
                 ),
             )
@@ -99,8 +100,8 @@ class OrderServiceTest {
 
             // assert
             verify(orderRepository).save(capture(orderCaptor))
-            assertThat(orderCaptor.value.totalAmount).isEqualTo(735000L)
-            assertThat(result.totalAmount).isEqualTo(735000L)
+            assertThat(orderCaptor.value.totalAmount).isEqualTo(Money.of(735000L))
+            assertThat(result.totalAmount).isEqualTo(Money.of(735000L))
         }
 
         @DisplayName("주문 항목이 비어있으면, BAD_REQUEST 예외를 던진다.")
@@ -124,7 +125,7 @@ class OrderServiceTest {
                     productId = 1L,
                     quantity = 0,
                     productName = "에어맥스",
-                    productPrice = 159000L,
+                    productPrice = Money.of(159000L),
                     brandName = "나이키",
                 ),
             )
@@ -147,14 +148,14 @@ class OrderServiceTest {
                     productId = 1L,
                     quantity = 1,
                     productName = "에어맥스",
-                    productPrice = 159000L,
+                    productPrice = Money.of(159000L),
                     brandName = "나이키",
                 ),
                 OrderItemCommand(
                     productId = 1L,
                     quantity = 2,
                     productName = "에어맥스",
-                    productPrice = 159000L,
+                    productPrice = Money.of(159000L),
                     brandName = "나이키",
                 ),
             )

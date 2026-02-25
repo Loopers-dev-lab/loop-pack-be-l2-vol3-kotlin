@@ -2,6 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -35,7 +36,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
         return brandRepository.save(Brand(name = name, description = "스포츠 브랜드"))
     }
 
-    private fun createProduct(brand: Brand, name: String = "에어맥스", price: Long = 159000L): Product {
+    private fun createProduct(brand: Brand, name: String = "에어맥스", price: Money = Money.of(159000L)): Product {
         return productRepository.save(
             Product(name = name, description = "러닝화", price = price, likes = 0, stockQuantity = 100, brandId = brand.id),
         )
@@ -68,7 +69,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(order.id).isNotNull() },
                 { assertThat(order.userId).isEqualTo(1L) },
-                { assertThat(order.totalAmount).isEqualTo(318000L) },
+                { assertThat(order.totalAmount).isEqualTo(Money.of(318000L)) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
                 { assertThat(order.items).hasSize(1) },
             )
@@ -99,7 +100,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
                 { assertThat(savedItem.productId).isEqualTo(product.id) },
                 { assertThat(savedItem.quantity).isEqualTo(2) },
                 { assertThat(savedItem.productName).isEqualTo("에어맥스") },
-                { assertThat(savedItem.productPrice).isEqualTo(159000L) },
+                { assertThat(savedItem.productPrice).isEqualTo(Money.of(159000L)) },
                 { assertThat(savedItem.brandName).isEqualTo("나이키") },
             )
         }
@@ -109,8 +110,8 @@ class OrderServiceIntegrationTest @Autowired constructor(
         fun savesMultipleOrderItems() {
             // arrange
             val brand = createBrand()
-            val product1 = createProduct(brand, name = "에어맥스", price = 159000L)
-            val product2 = createProduct(brand, name = "에어포스", price = 139000L)
+            val product1 = createProduct(brand, name = "에어맥스", price = Money.of(159000L))
+            val product2 = createProduct(brand, name = "에어포스", price = Money.of(139000L))
             val items = listOf(
                 OrderItemCommand(
                     productId = product1.id,
@@ -134,7 +135,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             // assert
             assertThat(order.items).hasSize(2)
             // 159000 * 2 + 139000 * 1 = 457000
-            assertThat(order.totalAmount).isEqualTo(457000L)
+            assertThat(order.totalAmount).isEqualTo(Money.of(457000L))
         }
     }
 
@@ -271,7 +272,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(result.id).isEqualTo(createdOrder.id) },
                 { assertThat(result.userId).isEqualTo(1L) },
-                { assertThat(result.totalAmount).isEqualTo(318000L) },
+                { assertThat(result.totalAmount).isEqualTo(Money.of(318000L)) },
                 { assertThat(result.status).isEqualTo(OrderStatus.ORDERED) },
             )
         }

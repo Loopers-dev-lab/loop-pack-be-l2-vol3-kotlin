@@ -2,6 +2,7 @@ package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.interfaces.api.product.ProductDto
@@ -86,7 +87,7 @@ class LikeApiE2ETest @Autowired constructor(
     private fun createProduct(
         name: String = "에어맥스",
         description: String? = "러닝화",
-        price: Long = 159000,
+        price: Money = Money.of(159000L),
         likes: Int = 0,
         stockQuantity: Int = 100,
     ): Product {
@@ -250,7 +251,7 @@ class LikeApiE2ETest @Autowired constructor(
         fun returnsNotFound_whenProductIsDeleted() {
             // arrange
             signUp()
-            val product = createProduct(name = "단종상품", description = "단종", price = 99000, stockQuantity = 0)
+            val product = createProduct(name = "단종상품", description = "단종", price = Money.of(99000L), stockQuantity = 0)
             product.delete()
             productRepository.save(product)
             val httpEntity = HttpEntity<Void>(authHeaders())
@@ -395,7 +396,7 @@ class LikeApiE2ETest @Autowired constructor(
         fun returnsNotFound_whenProductIsDeleted() {
             // arrange
             signUp()
-            val product = createProduct(name = "단종상품", description = "단종", price = 99000, stockQuantity = 0)
+            val product = createProduct(name = "단종상품", description = "단종", price = Money.of(99000L), stockQuantity = 0)
             product.delete()
             productRepository.save(product)
             val httpEntity = HttpEntity<Void>(authHeaders())

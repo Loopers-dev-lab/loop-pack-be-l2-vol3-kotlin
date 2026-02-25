@@ -1,6 +1,7 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.CascadeType
@@ -28,7 +29,7 @@ class Order(
         protected set
 
     @Column(name = "total_amount", nullable = false)
-    var totalAmount: Long = 0
+    var totalAmount: Money = Money.ZERO
         protected set
 
     @Enumerated(EnumType.STRING)
@@ -69,6 +70,8 @@ class Order(
     }
 
     private fun calculateTotalAmount() {
-        this.totalAmount = orderItems.sumOf { it.productPrice * it.quantity }
+        this.totalAmount = orderItems.fold(Money.ZERO) { acc, item ->
+            acc + item.productPrice * item.quantity
+        }
     }
 }

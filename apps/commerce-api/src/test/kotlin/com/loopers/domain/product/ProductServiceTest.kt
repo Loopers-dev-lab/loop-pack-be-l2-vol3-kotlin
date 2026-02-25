@@ -1,5 +1,6 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -39,7 +40,7 @@ class ProductServiceTest {
             val product = Product(
                 name = "에어맥스",
                 description = "러닝화",
-                price = 159000,
+                price = Money.of(159000L),
                 likes = 10,
                 stockQuantity = 100,
                 brandId = 1L,
@@ -53,7 +54,7 @@ class ProductServiceTest {
             // assert
             assertAll(
                 { assertThat(result.name).isEqualTo("에어맥스") },
-                { assertThat(result.price).isEqualTo(159000) },
+                { assertThat(result.price).isEqualTo(Money.of(159000L)) },
             )
         }
 

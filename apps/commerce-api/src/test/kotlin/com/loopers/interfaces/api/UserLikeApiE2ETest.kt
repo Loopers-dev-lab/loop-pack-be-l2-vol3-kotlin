@@ -2,6 +2,7 @@ package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.interfaces.api.like.LikeDto
@@ -87,7 +88,7 @@ class UserLikeApiE2ETest @Autowired constructor(
     private fun createProduct(
         name: String = "에어맥스",
         description: String? = "러닝화",
-        price: Long = 159000,
+        price: Money = Money.of(159000L),
         likes: Int = 0,
         stockQuantity: Int = 100,
     ): Product {
@@ -116,8 +117,8 @@ class UserLikeApiE2ETest @Autowired constructor(
         fun returnsLikedProducts_whenAuthenticatedUserRequestsOwnLikes() {
             // arrange
             val userId = signUpAndGetUserId()
-            val product1 = createProduct(name = "에어맥스", price = 159000)
-            val product2 = createProduct(name = "에어포스", price = 129000)
+            val product1 = createProduct(name = "에어맥스", price = Money.of(159000L))
+            val product2 = createProduct(name = "에어포스", price = Money.of(129000L))
             likeProduct(product1.id)
             likeProduct(product2.id)
 
@@ -164,8 +165,8 @@ class UserLikeApiE2ETest @Autowired constructor(
         fun excludesDeletedProducts() {
             // arrange
             val userId = signUpAndGetUserId()
-            val product1 = createProduct(name = "에어맥스", price = 159000)
-            val product2 = createProduct(name = "단종상품", price = 99000)
+            val product1 = createProduct(name = "에어맥스", price = Money.of(159000L))
+            val product2 = createProduct(name = "단종상품", price = Money.of(99000L))
             likeProduct(product1.id)
             likeProduct(product2.id)
             product2.delete()

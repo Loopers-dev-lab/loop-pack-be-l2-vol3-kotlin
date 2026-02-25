@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -24,7 +25,7 @@ class OrderTest {
             // assert
             assertAll(
                 { assertThat(order.userId).isEqualTo(1L) },
-                { assertThat(order.totalAmount).isEqualTo(0L) },
+                { assertThat(order.totalAmount).isEqualTo(Money.ZERO) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
                 { assertThat(order.items).isEmpty() },
             )
@@ -48,7 +49,7 @@ class OrderTest {
                         productId = 1L,
                         quantity = 2,
                         productName = "에어맥스",
-                        productPrice = 159000L,
+                        productPrice = Money.of(159000L),
                         brandName = "나이키",
                     ),
                 ),
@@ -57,7 +58,7 @@ class OrderTest {
             // assert
             assertAll(
                 { assertThat(order.items).hasSize(1) },
-                { assertThat(order.totalAmount).isEqualTo(318000L) },
+                { assertThat(order.totalAmount).isEqualTo(Money.of(318000L)) },
             )
         }
 
@@ -74,14 +75,14 @@ class OrderTest {
                         productId = 1L,
                         quantity = 2,
                         productName = "에어맥스",
-                        productPrice = 159000L,
+                        productPrice = Money.of(159000L),
                         brandName = "나이키",
                     ),
                     OrderItemCommand(
                         productId = 2L,
                         quantity = 3,
                         productName = "에어포스",
-                        productPrice = 139000L,
+                        productPrice = Money.of(139000L),
                         brandName = "나이키",
                     ),
                 ),
@@ -91,7 +92,7 @@ class OrderTest {
             assertAll(
                 { assertThat(order.items).hasSize(2) },
                 // 159000 * 2 + 139000 * 3 = 318000 + 417000 = 735000
-                { assertThat(order.totalAmount).isEqualTo(735000L) },
+                { assertThat(order.totalAmount).isEqualTo(Money.of(735000L)) },
             )
         }
 
@@ -124,14 +125,14 @@ class OrderTest {
                             productId = 1L,
                             quantity = 1,
                             productName = "에어맥스",
-                            productPrice = 159000L,
+                            productPrice = Money.of(159000L),
                             brandName = "나이키",
                         ),
                         OrderItemCommand(
                             productId = 1L,
                             quantity = 2,
                             productName = "에어맥스",
-                            productPrice = 159000L,
+                            productPrice = Money.of(159000L),
                             brandName = "나이키",
                         ),
                     ),
@@ -156,7 +157,7 @@ class OrderTest {
                             productId = 1L,
                             quantity = 0,
                             productName = "에어맥스",
-                            productPrice = 159000L,
+                            productPrice = Money.of(159000L),
                             brandName = "나이키",
                         ),
                     ),

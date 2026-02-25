@@ -18,7 +18,7 @@ data class OrderDetailInfo(
             return OrderDetailInfo(
                 orderId = order.id,
                 userId = order.userId,
-                totalAmount = order.totalAmount,
+                totalAmount = order.totalAmount.value,
                 status = order.status,
                 orderedAt = order.createdAt,
                 items = order.items.map { OrderItemInfo.from(it) },
@@ -40,7 +40,7 @@ data class OrderItemInfo(
                 productId = orderItem.productId,
                 quantity = orderItem.quantity,
                 productName = orderItem.productName,
-                productPrice = orderItem.productPrice,
+                productPrice = orderItem.productPrice.value,
                 brandName = orderItem.brandName,
             )
         }

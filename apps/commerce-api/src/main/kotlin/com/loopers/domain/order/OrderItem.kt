@@ -1,6 +1,7 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
@@ -21,7 +22,7 @@ class OrderItem(
     productId: Long,
     quantity: Int,
     productName: String,
-    productPrice: Long,
+    productPrice: Money,
     brandName: String,
 ) : BaseEntity() {
 
@@ -43,7 +44,7 @@ class OrderItem(
         protected set
 
     @Column(name = "product_price", nullable = false)
-    var productPrice: Long = productPrice
+    var productPrice: Money = productPrice
         protected set
 
     @Column(name = "brand_name", nullable = false)
