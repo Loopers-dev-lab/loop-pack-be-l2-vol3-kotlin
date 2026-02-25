@@ -9,7 +9,6 @@ import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 @Component
 class PointDeductor(
@@ -17,7 +16,6 @@ class PointDeductor(
     private val pointHistoryRepository: PointHistoryRepository,
 ) {
 
-    @Transactional
     fun usePoints(userId: Long, amount: Money, refOrderId: Long) {
         val pointAmount = Point(amount.toLong())
         val userPoint = userPointRepository.findByUserIdForUpdate(userId)

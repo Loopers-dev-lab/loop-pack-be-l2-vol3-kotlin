@@ -3,8 +3,6 @@ package com.loopers.domain.order.model
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.annotation.AggregateRootOnly
 import com.loopers.domain.order.OrderProductInfo
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
@@ -31,9 +29,6 @@ class Order private constructor(
 
     @OptIn(AggregateRootOnly::class)
     fun cancelItem(item: OrderItem) {
-        if (item.status == OrderItem.ItemStatus.CANCELLED) {
-            throw CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문 아이템입니다.")
-        }
         item.cancel()
         totalPrice -= (item.productPrice * item.quantity)
     }

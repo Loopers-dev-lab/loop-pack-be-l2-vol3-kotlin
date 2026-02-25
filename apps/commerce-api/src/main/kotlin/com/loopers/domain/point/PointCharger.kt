@@ -9,7 +9,6 @@ import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 @Component
 class PointCharger(
@@ -17,11 +16,7 @@ class PointCharger(
     private val pointHistoryRepository: PointHistoryRepository,
 ) {
 
-    @Transactional
     fun charge(userId: Long, amount: Point): UserPoint {
-        if (amount.value == 0L) {
-            throw CoreException(ErrorType.BAD_REQUEST, "충전 금액은 0보다 커야 합니다.")
-        }
         if (amount.value > MAX_CHARGE_AMOUNT) {
             throw CoreException(ErrorType.BAD_REQUEST, "1회 충전 한도는 ${MAX_CHARGE_AMOUNT}포인트입니다.")
         }
