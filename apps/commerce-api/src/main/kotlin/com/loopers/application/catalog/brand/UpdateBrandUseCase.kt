@@ -13,7 +13,7 @@ class UpdateBrandUseCase(private val brandRepository: BrandRepository) {
     @Transactional
     fun execute(brandId: Long, name: String): BrandInfo {
         val command = CatalogCommand.UpdateBrand(name = name)
-        val brand = brandRepository.findById(brandId)
+        val brand = brandRepository.findByIdIncludeDeleted(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         brand.update(BrandName(command.name))
         val saved = brandRepository.save(brand)

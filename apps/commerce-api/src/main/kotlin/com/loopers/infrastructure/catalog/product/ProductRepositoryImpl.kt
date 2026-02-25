@@ -7,16 +7,24 @@ import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
 import jakarta.persistence.LockModeType
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
 
 interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
-    fun findAllByRefBrandId(brandId: Long): List<ProductEntity>
+    fun findByIdAndDeletedAtIsNull(id: Long): ProductEntity?
+    fun findAllByDeletedAtIsNull(pageable: Pageable): Page<ProductEntity>
+    fun findAllByRefBrandIdAndDeletedAtIsNull(brandId: Long): List<ProductEntity>
+    fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findAllByIdInOrderByIdAsc(ids: List<Long>): List<ProductEntity>
+    fun findForUpdateByIdAndDeletedAtIsNull(id: Long): ProductEntity?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findAllForUpdateByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
 }
 
 @Repository
@@ -30,7 +38,7 @@ class ProductRepositoryImpl(
     }
 
     override fun findById(id: Long): Product? {
-        return productJpaRepository.findById(id).orElse(null)?.toDomain()
+        return productJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
     }
 
     override fun findByIdIncludeDeleted(id: Long): Product? {
@@ -38,10 +46,16 @@ class ProductRepositoryImpl(
     }
 
     override fun findByIdForUpdate(id: Long): Product? {
-        return productJpaRepository.findById(id).orElse(null)?.toDomain()
+        return productJpaRepository.findForUpdateByIdAndDeletedAtIsNull(id)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
+        val pageable = PageRequest.of(page, size)
+        val result = productJpaRepository.findAllByDeletedAtIsNull(pageable)
+        return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
+    }
+
+    override fun findAllIncludeDeleted(page: Int, size: Int): PageResult<Product> {
         val pageable = PageRequest.of(page, size)
         val result = productJpaRepository.findAll(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
@@ -79,15 +93,15 @@ class ProductRepositoryImpl(
     }
 
     override fun findAllByBrandId(brandId: Long): List<Product> {
-        return productJpaRepository.findAllByRefBrandId(brandId).map { it.toDomain() }
+        return productJpaRepository.findAllByRefBrandIdAndDeletedAtIsNull(brandId).map { it.toDomain() }
     }
 
     override fun findAllByIds(ids: List<Long>): List<Product> {
-        return productJpaRepository.findAllById(ids).map { it.toDomain() }
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids).map { it.toDomain() }
     }
 
     override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
-        return productJpaRepository.findAllByIdInOrderByIdAsc(ids).map { it.toDomain() }
+        return productJpaRepository.findAllForUpdateByIdInAndDeletedAtIsNull(ids).map { it.toDomain() }
     }
 
     override fun saveAll(products: List<Product>): List<Product> {

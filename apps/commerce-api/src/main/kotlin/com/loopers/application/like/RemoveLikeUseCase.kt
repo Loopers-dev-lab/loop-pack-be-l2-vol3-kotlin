@@ -14,7 +14,7 @@ class RemoveLikeUseCase(
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
-        val product = productRepository.findById(productId)
+        val product = productRepository.findByIdIncludeDeleted(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
 
         val existing = likeRepository.findByUserIdAndProductId(userId, productId)

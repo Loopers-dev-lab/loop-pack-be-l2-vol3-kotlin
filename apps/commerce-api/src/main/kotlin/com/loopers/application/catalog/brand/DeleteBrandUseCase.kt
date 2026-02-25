@@ -13,7 +13,6 @@ class DeleteBrandUseCase(
     @Transactional
     fun execute(brandId: Long) {
         val brand = brandRepository.findById(brandId) ?: return
-        if (brand.isDeleted()) return
         brand.delete()
         brandRepository.save(brand)
 

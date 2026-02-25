@@ -176,7 +176,7 @@ class LikeUseCaseTest {
             removeLikeUseCase.execute(1L, productId)
 
             // assert
-            val found = productRepository.findById(productId)!!
+            val found = productRepository.findByIdIncludeDeleted(productId)!!
             assertThat(found.likeCount).isEqualTo(1)
         }
 

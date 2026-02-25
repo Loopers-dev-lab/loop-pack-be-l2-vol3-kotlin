@@ -25,7 +25,7 @@ class FakeBrandRepository : BrandRepository {
     }
 
     override fun findById(id: Long): Brand? {
-        return brands.find { it.id == id }
+        return brands.find { it.id == id && it.deletedAt == null }
     }
 
     override fun findByIdIncludeDeleted(id: Long): Brand? {
@@ -34,7 +34,8 @@ class FakeBrandRepository : BrandRepository {
 
     override fun findAll(page: Int, size: Int): PageResult<Brand> {
         val offset = page * size
-        val content = brands.drop(offset).take(size)
-        return PageResult(content, brands.size.toLong(), page, size)
+        val active = brands.filter { it.deletedAt == null }
+        val content = active.drop(offset).take(size)
+        return PageResult(content, active.size.toLong(), page, size)
     }
 }

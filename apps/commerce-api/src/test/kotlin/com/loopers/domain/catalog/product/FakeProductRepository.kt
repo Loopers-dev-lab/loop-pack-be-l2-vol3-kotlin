@@ -30,7 +30,7 @@ class FakeProductRepository : ProductRepository {
     }
 
     override fun findById(id: Long): Product? {
-        return products.find { it.id == id }
+        return products.find { it.id == id }?.takeIf { it.deletedAt == null }
     }
 
     override fun findByIdIncludeDeleted(id: Long): Product? {
@@ -38,10 +38,17 @@ class FakeProductRepository : ProductRepository {
     }
 
     override fun findByIdForUpdate(id: Long): Product? {
-        return products.find { it.id == id }
+        return products.find { it.id == id }?.takeIf { it.deletedAt == null }
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
+        val offset = page * size
+        val active = products.filter { it.deletedAt == null }
+        val content = active.drop(offset).take(size)
+        return PageResult(content, active.size.toLong(), page, size)
+    }
+
+    override fun findAllIncludeDeleted(page: Int, size: Int): PageResult<Product> {
         val offset = page * size
         val content = products.drop(offset).take(size)
         return PageResult(content, products.size.toLong(), page, size)
@@ -65,15 +72,15 @@ class FakeProductRepository : ProductRepository {
     }
 
     override fun findAllByBrandId(brandId: Long): List<Product> {
-        return products.filter { it.refBrandId == brandId }
+        return products.filter { it.refBrandId == brandId && it.deletedAt == null }
     }
 
     override fun findAllByIds(ids: List<Long>): List<Product> {
-        return products.filter { it.id in ids }
+        return products.filter { it.id in ids && it.deletedAt == null }
     }
 
     override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
-        return products.filter { it.id in ids }.sortedBy { it.id }
+        return products.filter { it.id in ids && it.deletedAt == null }.sortedBy { it.id }
     }
 
     override fun saveAll(products: List<Product>): List<Product> {

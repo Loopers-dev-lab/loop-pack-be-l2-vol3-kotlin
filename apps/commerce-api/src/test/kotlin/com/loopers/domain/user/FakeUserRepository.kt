@@ -28,14 +28,14 @@ class FakeUserRepository : UserRepository {
     }
 
     override fun findById(id: Long): User? {
-        return users.find { it.id == id }
+        return users.find { it.id == id }?.takeIf { it.deletedAt == null }
     }
 
     override fun findByLoginId(loginId: String): User? {
-        return users.find { it.loginId.value == loginId }
+        return users.find { it.loginId.value == loginId && it.deletedAt == null }
     }
 
     override fun existsByLoginId(loginId: String): Boolean {
-        return users.any { it.loginId.value == loginId }
+        return users.any { it.loginId.value == loginId && it.deletedAt == null }
     }
 }

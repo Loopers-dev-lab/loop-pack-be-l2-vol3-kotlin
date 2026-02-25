@@ -37,7 +37,7 @@ class DeleteProductUseCaseTest {
             useCase.execute(product.id)
 
             // assert
-            val deleted = productRepository.findById(product.id)
+            val deleted = productRepository.findByIdIncludeDeleted(product.id)
             assertThat(deleted?.deletedAt).isNotNull()
         }
 

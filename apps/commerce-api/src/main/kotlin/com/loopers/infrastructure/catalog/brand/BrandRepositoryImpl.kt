@@ -3,11 +3,16 @@ package com.loopers.infrastructure.catalog.brand
 import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.repository.BrandRepository
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
-interface BrandJpaRepository : JpaRepository<BrandEntity, Long>
+interface BrandJpaRepository : JpaRepository<BrandEntity, Long> {
+    fun findByIdAndDeletedAtIsNull(id: Long): BrandEntity?
+    fun findAllByDeletedAtIsNull(pageable: Pageable): Page<BrandEntity>
+}
 
 @Repository
 class BrandRepositoryImpl(
@@ -19,7 +24,7 @@ class BrandRepositoryImpl(
     }
 
     override fun findById(id: Long): Brand? {
-        return brandJpaRepository.findById(id).orElse(null)?.toDomain()
+        return brandJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
     }
 
     override fun findByIdIncludeDeleted(id: Long): Brand? {
@@ -28,7 +33,7 @@ class BrandRepositoryImpl(
 
     override fun findAll(page: Int, size: Int): PageResult<Brand> {
         val pageable = PageRequest.of(page, size)
-        val result = brandJpaRepository.findAll(pageable)
+        val result = brandJpaRepository.findAllByDeletedAtIsNull(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 }

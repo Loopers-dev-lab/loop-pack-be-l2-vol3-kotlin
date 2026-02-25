@@ -15,9 +15,9 @@ class GetProductAdminUseCase(
 ) {
     @Transactional(readOnly = true)
     fun execute(productId: Long): ProductDetailInfo {
-        val product = productRepository.findById(productId)
+        val product = productRepository.findByIdIncludeDeleted(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        val brand = brandRepository.findById(product.refBrandId)
+        val brand = brandRepository.findByIdIncludeDeleted(product.refBrandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         val detail = ProductDetail(product = product, brand = brand)
         return ProductDetailInfo.from(detail)

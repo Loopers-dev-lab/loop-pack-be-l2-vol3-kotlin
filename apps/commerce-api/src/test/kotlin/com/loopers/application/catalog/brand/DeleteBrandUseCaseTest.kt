@@ -43,9 +43,9 @@ class DeleteBrandUseCaseTest {
             useCase.execute(brand.id)
 
             // assert
-            val deletedBrand = brandRepository.findById(brand.id)
+            val deletedBrand = brandRepository.findByIdIncludeDeleted(brand.id)
             assertThat(deletedBrand?.deletedAt).isNotNull()
-            val deletedProduct = productRepository.findById(product.id)
+            val deletedProduct = productRepository.findByIdIncludeDeleted(product.id)
             assertThat(deletedProduct?.deletedAt).isNotNull()
         }
 
@@ -78,7 +78,7 @@ class DeleteBrandUseCaseTest {
             useCase.execute(brand.id)
 
             // 삭제된 상품을 복구
-            val deletedProduct = productRepository.findById(product.id)!!
+            val deletedProduct = productRepository.findByIdIncludeDeleted(product.id)!!
             deletedProduct.restore()
             productRepository.save(deletedProduct)
 
@@ -86,7 +86,7 @@ class DeleteBrandUseCaseTest {
             useCase.execute(brand.id)
 
             // assert — 상품이 재처리되지 않으므로 복구된 상태 유지
-            val found = productRepository.findById(product.id)!!
+            val found = productRepository.findByIdIncludeDeleted(product.id)!!
             assertThat(found.deletedAt).isNull()
         }
     }

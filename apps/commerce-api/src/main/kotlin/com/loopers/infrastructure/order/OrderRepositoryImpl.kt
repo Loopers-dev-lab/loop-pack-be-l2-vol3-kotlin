@@ -11,12 +11,14 @@ import org.springframework.stereotype.Repository
 import java.time.ZonedDateTime
 
 interface OrderJpaRepository : JpaRepository<OrderEntity, Long> {
-    fun findAllByRefUserIdAndCreatedAtBetween(
+    fun findByIdAndDeletedAtIsNull(id: Long): OrderEntity?
+    fun findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(
         refUserId: Long,
         from: ZonedDateTime,
         to: ZonedDateTime,
         pageable: Pageable,
     ): Page<OrderEntity>
+    fun findAllByDeletedAtIsNull(pageable: Pageable): Page<OrderEntity>
 }
 
 @Repository
@@ -29,7 +31,7 @@ class OrderRepositoryImpl(
     }
 
     override fun findById(id: Long): Order? {
-        return orderJpaRepository.findById(id).orElse(null)?.toDomain()
+        return orderJpaRepository.findByIdAndDeletedAtIsNull(id)?.toDomain()
     }
 
     override fun findAllByUserId(
@@ -40,13 +42,13 @@ class OrderRepositoryImpl(
         size: Int,
     ): PageResult<Order> {
         val pageable = PageRequest.of(page, size)
-        val result = orderJpaRepository.findAllByRefUserIdAndCreatedAtBetween(userId, from, to, pageable)
+        val result = orderJpaRepository.findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(userId, from, to, pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Order> {
         val pageable = PageRequest.of(page, size)
-        val result = orderJpaRepository.findAll(pageable)
+        val result = orderJpaRepository.findAllByDeletedAtIsNull(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 }
