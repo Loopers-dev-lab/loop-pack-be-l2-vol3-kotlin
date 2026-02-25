@@ -12,6 +12,7 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @SpringBootTest
@@ -191,6 +192,7 @@ class UserServiceIntegrationTest @Autowired constructor(
     @Nested
     inner class ChangePassword {
         @DisplayName("유효한 현재 비밀번호와 새 비밀번호를 전달하면, 비밀번호가 변경된다.")
+        @Transactional
         @Test
         fun changesPassword_whenValidPasswordsProvided() {
             // arrange
@@ -213,6 +215,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         }
 
         @DisplayName("변경된 비밀번호로 인증이 가능하다.")
+        @Transactional
         @Test
         fun canAuthenticateWithNewPassword_afterPasswordChange() {
             // arrange

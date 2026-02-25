@@ -3,7 +3,6 @@ package com.loopers.domain.user
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @Component
@@ -42,7 +41,6 @@ class UserService(
         return user
     }
 
-    @Transactional
     fun changePassword(userId: Long, currentPassword: String, newPassword: String) {
         val user = userRepository.find(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")

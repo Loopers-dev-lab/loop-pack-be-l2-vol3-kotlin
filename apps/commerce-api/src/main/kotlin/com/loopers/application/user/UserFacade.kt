@@ -3,6 +3,7 @@ package com.loopers.application.user
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @Component
@@ -18,6 +19,7 @@ class UserFacade(
         return UserInfo.fromWithMasking(user)
     }
 
+    @Transactional
     fun changePassword(user: User, currentPassword: String, newPassword: String) {
         userService.changePassword(user.id, currentPassword, newPassword)
     }
