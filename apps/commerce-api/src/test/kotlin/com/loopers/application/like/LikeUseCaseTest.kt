@@ -91,22 +91,6 @@ class LikeUseCaseTest {
         }
 
         @Test
-        @DisplayName("동시 요청으로 DB unique constraint 위반이 발생해도 예외 없이 likeCount가 증가하지 않는다 (멱등)")
-        fun addLike_concurrentDuplicateSave_doesNotIncreaseLikeCount() {
-            // arrange
-            val (_, productId) = createBrandAndProduct()
-            // 동시성 상황 재현: find에는 보이지 않지만 save 시 unique constraint 위반 발생
-            likeRepository.simulateConcurrentInsert(1L, productId)
-
-            // act
-            addLikeUseCase.execute(1L, productId)
-
-            // assert: 예외가 전파되지 않고 likeCount도 증가하지 않는다
-            val product = productRepository.findById(productId)!!
-            assertThat(product.likeCount).isEqualTo(0)
-        }
-
-        @Test
         @DisplayName("삭제된 상품에 좋아요하면 NOT_FOUND 예외가 발생한다")
         fun addLike_deletedProduct_throwsNotFound() {
             // arrange

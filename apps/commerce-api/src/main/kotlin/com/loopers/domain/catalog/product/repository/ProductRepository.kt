@@ -16,6 +16,4 @@ interface ProductRepository {
     fun findAllByIds(ids: List<Long>): List<Product>
     fun findAllByIdsForUpdate(ids: List<Long>): List<Product>
     fun saveAll(products: List<Product>): List<Product>
-    fun increaseLikeCount(productId: Long)
-    fun decreaseLikeCount(productId: Long)
 }

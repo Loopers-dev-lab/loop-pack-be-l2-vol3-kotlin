@@ -107,20 +107,4 @@ class ProductRepositoryImpl(
     override fun saveAll(products: List<Product>): List<Product> {
         return productJpaRepository.saveAll(products.map { ProductEntity.fromDomain(it) }).map { it.toDomain() }
     }
-
-    override fun increaseLikeCount(productId: Long) {
-        val product = QProductEntity.productEntity
-        queryFactory.update(product)
-            .set(product.likeCount, product.likeCount.add(1))
-            .where(product.id.eq(productId))
-            .execute()
-    }
-
-    override fun decreaseLikeCount(productId: Long) {
-        val product = QProductEntity.productEntity
-        queryFactory.update(product)
-            .set(product.likeCount, product.likeCount.subtract(1))
-            .where(product.id.eq(productId).and(product.likeCount.gt(0)))
-            .execute()
-    }
 }

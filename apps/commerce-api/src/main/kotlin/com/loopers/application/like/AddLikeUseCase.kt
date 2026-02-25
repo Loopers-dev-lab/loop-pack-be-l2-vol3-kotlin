@@ -5,7 +5,6 @@ import com.loopers.domain.like.model.Like
 import com.loopers.domain.like.repository.LikeRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -22,19 +21,13 @@ class AddLikeUseCase(
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
 
-        val existing = likeRepository.findByUserIdAndProductId(userId, productId)
-        if (existing != null) return
+        if (likeRepository.existsByUserIdAndProductId(userId, productId)) return
 
-        val added = try {
-            likeRepository.save(Like(refUserId = userId, refProductId = productId))
-            true
-        } catch (e: DataIntegrityViolationException) {
-            // 동시 요청으로 DB unique constraint 위반 시 멱등 처리
-            false
-        }
+        likeRepository.save(Like(refUserId = userId, refProductId = productId))
 
-        if (added) {
-            productRepository.increaseLikeCount(productId)
-        }
+        val lockedProduct = productRepository.findByIdForUpdate(productId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        lockedProduct.increaseLikeCount()
+        productRepository.save(lockedProduct)
     }
 }

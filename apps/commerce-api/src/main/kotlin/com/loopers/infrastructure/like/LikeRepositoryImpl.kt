@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 
 interface LikeJpaRepository : JpaRepository<LikeEntity, Long> {
+    fun existsByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): Boolean
     fun findByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): LikeEntity?
     fun findAllByRefUserIdOrderByIdDesc(refUserId: Long): List<LikeEntity>
 }
@@ -17,6 +18,10 @@ class LikeRepositoryImpl(
 
     override fun save(like: Like): Like {
         return likeJpaRepository.save(LikeEntity.fromDomain(like)).toDomain()
+    }
+
+    override fun existsByUserIdAndProductId(userId: Long, productId: Long): Boolean {
+        return likeJpaRepository.existsByRefUserIdAndRefProductId(userId, productId)
     }
 
     override fun findByUserIdAndProductId(userId: Long, productId: Long): Like? {

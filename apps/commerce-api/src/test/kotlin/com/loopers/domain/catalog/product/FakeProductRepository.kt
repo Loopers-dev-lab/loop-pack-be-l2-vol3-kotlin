@@ -86,12 +86,4 @@ class FakeProductRepository : ProductRepository {
     override fun saveAll(products: List<Product>): List<Product> {
         return products.map { save(it) }
     }
-
-    override fun increaseLikeCount(productId: Long) {
-        products.find { it.id == productId }?.increaseLikeCount()
-    }
-
-    override fun decreaseLikeCount(productId: Long) {
-        products.find { it.id == productId }?.decreaseLikeCount()
-    }
 }
