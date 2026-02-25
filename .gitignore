@@ -43,3 +43,4 @@ nul
 /.claude/settings.local.json
 /.env
 /career_logs.md
+/.claude/handoff.md

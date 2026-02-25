@@ -12,7 +12,7 @@
 - **질문 vs 실행 구분**: 개념/설계/아키텍처 질문에는 코드 변경 없이 답변만 한다. 코드를 grep하거나 수정하지 않는다. 코드 수정은 "~해줘", "~수정해줘", "~구현해줘" 등 명시적 실행 요청이 있을 때만 수행한다
 - **수정 의도 확인**: 코드 수정/삭제 전 의도를 확인한다. 특히 어노테이션/검증 관련 변경은 ADD/REMOVE/MOVE 중 무엇인지, 어떤 파일(Controller? ApiSpec? Entity?)에 대한 것인지 반드시 확인 후 착수한다
 - **문서화된 규칙 준수**: CLAUDE.md에 문서화된 규칙은 non-negotiable이다. 'out of scope'로 무시하거나 건너뛰지 않는다. 규칙이 불합리하다고 판단되면 무시하지 말고 개발자에게 이의를 제기한다
-- **완료 전 검증 필수**: 작업 완료를 선언하기 전에 반드시 `./gradlew ktlintCheck test`를 실행하여 검증한다. 검증 없이 "완료했습니다"라고 말하지 않는다
+- **완료 전 검증 필수**: 작업 완료를 선언하기 전에 반드시 `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`를 실행하여 검증한다. 검증 없이 "완료했습니다"라고 말하지 않는다
 - **환각 금지**: 존재하지 않는 API, 패키지, 파일 경로, 설정 옵션을 지어내지 않는다. 확실하지 않으면 먼저 확인한다
 - **피드백 반영**: 개발자가 실수를 지적하면 `MEMORY.md`에 교훈을 기록한다. 2회 이상 반복되면 `.claude/rules/corrections.md`로 승격하고 개발자에게 알린다
 
@@ -25,7 +25,7 @@
 ./gradlew test                         # 전체 테스트
 ./gradlew ktlintCheck                  # 린트 체크
 ./gradlew ktlintFormat                 # 린트 자동 수정
-./gradlew ktlintCheck test             # 커밋 전 최종 검증
+./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test  # 커밋 전 최종 검증 (kapt 충돌 방지를 위해 분리 실행)
 ```
 
 단일 테스트 실행:
@@ -58,7 +58,10 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 ## 기술 주의사항 (Kotlin / Spring / JPA)
 
 - **allOpen 플러그인**: `plugin.spring`은 `@Component`/`@Service` 등을 open하지만, `plugin.jpa`는 no-arg 생성자만 생성하고 allOpen은 아님. **`@Entity` 클래스는 final**이다. Kotlin의 protected/final 동작에 대해 주장하기 전에 반드시 allOpen 설정(`build.gradle.kts`)과 디컴파일 결과를 확인한다
-- **kapt**: Kotlin 2.0+과 비호환. QClass 생성에 kapt/KSP가 필요하며, IDE에서 인식 안 될 수 있으나 빌드는 정상 동작할 수 있다
+- **kapt + ktlint 태스크 충돌**: kapt이 생성하는 소스 디렉토리를 ktlint가 참조하면서 Gradle 태스크 순서 충돌(`implicit dependency`)이 발생한다. **`./gradlew ktlintCheck test`를 한 번에 실행하면 실패한다.** 반드시 `ktlintCheck`와 `test`를 분리 실행해야 한다:
+  ```bash
+  ./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test
+  ```
 - **JPQL/NativeQuery 금지**: `@Query` 어노테이션을 사용한 JPQL이나 NativeQuery를 제안하지 않는다. QueryDSL(`JPAQueryFactory`) 또는 Spring Data JPA 메서드명 쿼리로 해결한다
 - **fetch join + paging 호환 불가**: N+1 문제 해결 시 fetch join과 paging을 동시에 사용하는 방안을 제안하지 않는다. `@BatchSize`, `@EntityGraph`, 별도 쿼리 분리 등 대안을 사용한다
 - **@Transactional 전파**: readOnly 속성의 전파 규칙, REQUIRES_NEW의 동작 방식을 정확히 이해하고 적용한다
