@@ -22,7 +22,7 @@ class AdminAuthArgumentResolver : HandlerMethodArgumentResolver {
         mavContainer: ModelAndViewContainer?,
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
-    ): Unit {
+    ) {
         val ldapHeader = webRequest.getHeader(HEADER_LDAP)
         if (ldapHeader != ADMIN_LDAP_VALUE) {
             throw CoreException(CommonErrorCode.ADMIN_AUTHENTICATION_FAILED)
