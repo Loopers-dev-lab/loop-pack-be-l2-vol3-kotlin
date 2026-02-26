@@ -1,7 +1,9 @@
 package com.loopers.interfaces.apiadmin
 
+import com.loopers.domain.brand.BrandRepository
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
+import org.springframework.data.domain.PageRequest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -20,10 +22,11 @@ import org.springframework.http.MediaType
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AdminBrandApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
+    private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
-        private const val CREATE_BRAND_ENDPOINT = "/api-admin/v1/brands"
+        private const val BRAND_ENDPOINT = "/api-admin/v1/brands"
         private const val LDAP_HEADER = "X-Loopers-Ldap"
         private const val LDAP_VALUE = "loopers.admin"
     }
@@ -37,6 +40,222 @@ class AdminBrandApiE2ETest @Autowired constructor(
         return HttpHeaders().apply {
             contentType = MediaType.APPLICATION_JSON
             set(LDAP_HEADER, LDAP_VALUE)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun extractPageContent(data: Map<String, Any>?): List<Map<String, Any>>? {
+        return data?.get("content") as? List<Map<String, Any>>
+    }
+
+    private fun deleteBrand(name: String) {
+        val brand = brandRepository.findAll(PageRequest.of(0, 100))
+            .content.first { it.name == name }
+        brand.delete()
+        brandRepository.save(brand)
+    }
+
+    private fun createBrand(name: String, description: String? = null) {
+        val request = mutableMapOf<String, Any>("name" to name)
+        description?.let { request["description"] = it }
+        val httpEntity = HttpEntity(request, adminHeaders())
+        testRestTemplate.exchange(
+            BRAND_ENDPOINT,
+            HttpMethod.POST,
+            httpEntity,
+            object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {},
+        )
+    }
+
+    @DisplayName("GET /api-admin/v1/brands")
+    @Nested
+    inner class GetBrands {
+
+        @DisplayName("유효한 LDAP 헤더로 조회하면, 200 OK와 브랜드 목록을 반환한다.")
+        @Test
+        fun returnsOk_whenValidRequest() {
+            // arrange
+            createBrand("나이키", "스포츠 브랜드")
+            createBrand("아디다스", "스포츠 브랜드")
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$BRAND_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(content).hasSize(2) },
+                { assertThat(data?.get("totalElements")).isEqualTo(2) },
+            )
+        }
+
+        @DisplayName("페이지 크기를 지정하면, 해당 크기만큼 반환한다.")
+        @Test
+        fun returnsPagedBrands_whenPageSizeSpecified() {
+            // arrange
+            createBrand("나이키", "스포츠 브랜드")
+            createBrand("아디다스", "스포츠 브랜드")
+            createBrand("무인양품")
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$BRAND_ENDPOINT?page=0&size=2",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content).hasSize(2) },
+                { assertThat(data?.get("totalElements")).isEqualTo(3) },
+                { assertThat(data?.get("totalPages")).isEqualTo(2) },
+            )
+        }
+
+        @DisplayName("브랜드가 없으면, 빈 페이지를 반환한다.")
+        @Test
+        fun returnsEmptyPage_whenNoBrandsExist() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$BRAND_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content).isEmpty() },
+                { assertThat(data?.get("totalElements")).isEqualTo(0) },
+            )
+        }
+
+        @DisplayName("페이지 파라미터 없이 요청하면, 기본값(page=0, size=20)이 적용된다.")
+        @Test
+        fun returnsDefaultPage_whenNoPageParams() {
+            // arrange
+            createBrand("나이키", "스포츠 브랜드")
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content).hasSize(1) },
+                { assertThat(data?.get("size")).isEqualTo(20) },
+                { assertThat(data?.get("number")).isEqualTo(0) },
+            )
+        }
+
+        @DisplayName("삭제된 브랜드는 목록에 포함되지 않는다.")
+        @Test
+        fun excludesDeletedBrands() {
+            // arrange
+            createBrand("나이키", "스포츠 브랜드")
+            createBrand("삭제될 브랜드", "설명")
+            // 삭제될 브랜드를 soft delete
+            deleteBrand("삭제될 브랜드")
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$BRAND_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content).hasSize(1) },
+                { assertThat(data?.get("totalElements")).isEqualTo(1) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$BRAND_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더 값이 올바르지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsInvalid() {
+            // arrange
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(LDAP_HEADER, "wrong.value")
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$BRAND_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
         }
     }
 
@@ -54,7 +273,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
             val response = testRestTemplate.exchange(
-                CREATE_BRAND_ENDPOINT,
+                BRAND_ENDPOINT,
                 HttpMethod.POST,
                 httpEntity,
                 responseType,
@@ -79,7 +298,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
             val response = testRestTemplate.exchange(
-                CREATE_BRAND_ENDPOINT,
+                BRAND_ENDPOINT,
                 HttpMethod.POST,
                 httpEntity,
                 responseType,
@@ -103,7 +322,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                CREATE_BRAND_ENDPOINT,
+                BRAND_ENDPOINT,
                 HttpMethod.POST,
                 httpEntity,
                 responseType,
@@ -126,7 +345,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                CREATE_BRAND_ENDPOINT,
+                BRAND_ENDPOINT,
                 HttpMethod.POST,
                 httpEntity,
                 responseType,
@@ -150,7 +369,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                CREATE_BRAND_ENDPOINT,
+                BRAND_ENDPOINT,
                 HttpMethod.POST,
                 httpEntity,
                 responseType,
@@ -177,7 +396,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
-                CREATE_BRAND_ENDPOINT,
+                BRAND_ENDPOINT,
                 HttpMethod.POST,
                 httpEntity,
                 responseType,
