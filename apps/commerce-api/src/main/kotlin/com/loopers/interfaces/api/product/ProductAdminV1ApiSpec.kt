@@ -29,7 +29,7 @@ interface ProductAdminV1ApiSpec {
     )
     fun getProducts(
         brandId: Long?,
-        sortType: ProductSortType,
+        sort: ProductSortType,
         pageable: Pageable,
     ): ApiResponse<Page<ProductAdminV1Dto.ProductResponse>>
 

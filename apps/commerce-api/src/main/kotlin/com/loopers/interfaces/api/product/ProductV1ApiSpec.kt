@@ -16,7 +16,7 @@ interface ProductV1ApiSpec {
     )
     fun getProducts(
         brandId: Long?,
-        sortType: ProductSortType,
+        sort: ProductSortType,
         pageable: Pageable,
     ): ApiResponse<Page<ProductV1Dto.ProductResponse>>
 

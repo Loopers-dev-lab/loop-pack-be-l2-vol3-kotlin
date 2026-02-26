@@ -24,10 +24,10 @@ class ProductAdminV1Controller(
     @GetMapping
     override fun getProducts(
         @RequestParam(required = false) brandId: Long?,
-        @RequestParam(defaultValue = "LATEST") sortType: ProductSortType,
+        @RequestParam(name = "sort", defaultValue = "latest") sort: ProductSortType,
         pageable: Pageable,
     ): ApiResponse<Page<ProductAdminV1Dto.ProductResponse>> =
-        productFacade.getProducts(brandId, PageRequest.of(pageable.pageNumber, pageable.pageSize, sortType.sort))
+        productFacade.getProducts(brandId, PageRequest.of(pageable.pageNumber, pageable.pageSize, sort.sort))
             .map { ProductAdminV1Dto.ProductResponse.from(it) }
             .let { ApiResponse.success(it) }
 
