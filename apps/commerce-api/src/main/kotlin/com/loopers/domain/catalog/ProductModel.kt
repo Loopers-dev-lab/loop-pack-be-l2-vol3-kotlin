@@ -1,0 +1,69 @@
+package com.loopers.domain.catalog
+
+import com.loopers.domain.BaseEntity
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Table
+import java.math.BigDecimal
+
+@Entity
+@Table(name = "products")
+class ProductModel(
+    brandId: Long,
+    name: String,
+    quantity: Int,
+    price: BigDecimal,
+) : BaseEntity() {
+    @Column(name = "brand_id", nullable = false)
+    var brandId: Long = brandId
+        protected set
+
+    var name: String = name
+        protected set
+
+    var quantity: Int = quantity
+        protected set
+
+    @Column(precision = 10, scale = 2)
+    var price: BigDecimal = price
+        protected set
+
+    init {
+        validateName(name)
+        validatePrice(price)
+        validateQuantity(quantity)
+    }
+
+    fun update(
+        newName: String,
+        newQuantity: Int,
+        newPrice: BigDecimal,
+    ) {
+        validateName(newName)
+        validatePrice(newPrice)
+        validateQuantity(newQuantity)
+        this.name = newName
+        this.quantity = newQuantity
+        this.price = newPrice
+    }
+
+    private fun validateName(name: String) {
+        if (name.isBlank()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "상품명은 비어있을 수 없습니다.")
+        }
+    }
+
+    private fun validatePrice(price: BigDecimal) {
+        if (price <= BigDecimal.ZERO) {
+            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.")
+        }
+    }
+
+    private fun validateQuantity(quantity: Int) {
+        if (quantity < 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "수량은 0 이상이어야 합니다.")
+        }
+    }
+}
