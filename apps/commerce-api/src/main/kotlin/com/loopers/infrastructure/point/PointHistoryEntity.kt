@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.point
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.point.model.PointHistory
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.domain.point.vo.Point
@@ -31,7 +32,7 @@ class PointHistoryEntity(
                 refUserPointId = pointHistory.refUserPointId,
                 type = pointHistory.type,
                 amount = pointHistory.amount.value,
-                refOrderId = pointHistory.refOrderId,
+                refOrderId = pointHistory.refOrderId?.value,
             ).withBaseFields(
                 id = pointHistory.id,
             )
@@ -43,7 +44,7 @@ class PointHistoryEntity(
             refUserPointId = refUserPointId,
             type = type,
             amount = Point(amount),
-            refOrderId = refOrderId,
+            refOrderId = refOrderId?.let { OrderId(it) },
         )
         PointHistory::class.java.getDeclaredField("id").apply {
             isAccessible = true

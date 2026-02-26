@@ -1,6 +1,7 @@
 package com.loopers.application.catalog.product
 
 import com.loopers.domain.catalog.product.repository.ProductRepository
+import com.loopers.domain.common.vo.ProductId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -10,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 class DeleteProductUseCase(private val productRepository: ProductRepository) {
     @Transactional
     fun execute(productId: Long) {
-        val product = productRepository.findById(productId) ?: return
+        val product = productRepository.findById(ProductId(productId)) ?: return
         if (product.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }

@@ -16,11 +16,11 @@ data class ProductInfo(
 ) {
     companion object {
         fun from(product: Product): ProductInfo = ProductInfo(
-            id = product.id,
-            brandId = product.refBrandId,
+            id = product.id.value,
+            brandId = product.refBrandId.value,
             name = product.name,
             price = product.price.value,
-            stock = product.stock,
+            stock = product.stock.value,
             likeCount = product.likeCount,
             status = product.status.name,
             deletedAt = product.deletedAt,

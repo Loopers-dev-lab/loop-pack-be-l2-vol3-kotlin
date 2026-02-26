@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.user
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.user.model.User
 import com.loopers.domain.user.repository.UserRepository
 import org.springframework.data.jpa.repository.JpaRepository
@@ -19,8 +20,8 @@ class UserRepositoryImpl(
         return userJpaRepository.save(UserEntity.fromDomain(user)).toDomain()
     }
 
-    override fun findById(id: Long): User? {
-        return userJpaRepository.findById(id).orElse(null)?.toDomain()
+    override fun findById(id: UserId): User? {
+        return userJpaRepository.findById(id.value).orElse(null)?.toDomain()
     }
 
     override fun findByLoginId(loginId: String): User? {

@@ -1,15 +1,18 @@
 package com.loopers.domain.catalog.product.model
 
 import com.loopers.domain.catalog.product.vo.Stock
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.Quantity
 import java.time.ZonedDateTime
 
 class Product(
-    val id: Long = 0,
-    val refBrandId: Long,
+    val id: ProductId = ProductId(0),
+    val refBrandId: BrandId,
     name: String,
     price: Money,
-    stock: Int,
+    stock: Stock,
     status: ProductStatus? = null,
     likeCount: Int = 0,
     deletedAt: ZonedDateTime? = null,
@@ -21,10 +24,10 @@ class Product(
     var price: Money = price
         private set
 
-    var stock: Int = stock
+    var stock: Stock = stock
         private set
 
-    var status: ProductStatus = status ?: if (stock > 0) ProductStatus.ON_SALE else ProductStatus.SOLD_OUT
+    var status: ProductStatus = status ?: if (stock.value > 0) ProductStatus.ON_SALE else ProductStatus.SOLD_OUT
         private set
 
     var likeCount: Int = likeCount
@@ -39,38 +42,27 @@ class Product(
         HIDDEN,
     }
 
-    init {
-        guard()
-    }
-
-    private fun guard() {
-        Stock(stock)
-    }
-
     fun update(name: String?, price: Money?, stock: Int?, status: ProductStatus?) {
         name?.let { this.name = it }
         price?.let { this.price = it }
-        stock?.let { this.stock = it }
-        guard()
+        stock?.let { this.stock = Stock(it) }
 
         val newStatus = when {
             status == ProductStatus.HIDDEN -> ProductStatus.HIDDEN
             this.status == ProductStatus.HIDDEN && status == null -> ProductStatus.HIDDEN
-            else -> if (this.stock > 0) ProductStatus.ON_SALE else ProductStatus.SOLD_OUT
+            else -> if (this.stock.value > 0) ProductStatus.ON_SALE else ProductStatus.SOLD_OUT
         }
 
         this.status = newStatus
     }
 
-    fun decreaseStock(quantity: Int) {
-        val decreased = Stock(stock).decrease(quantity)
-        this.stock = decreased.value
+    fun decreaseStock(quantity: Quantity) {
+        this.stock = stock.decrease(quantity)
         adjustStatusByStock()
     }
 
-    fun increaseStock(quantity: Int) {
-        val increased = Stock(stock).increase(quantity)
-        this.stock = increased.value
+    fun increaseStock(quantity: Quantity) {
+        this.stock = stock.increase(quantity)
         adjustStatusByStock()
     }
 
@@ -100,6 +92,6 @@ class Product(
 
     private fun adjustStatusByStock() {
         if (status == ProductStatus.HIDDEN) return
-        status = if (stock == 0) ProductStatus.SOLD_OUT else ProductStatus.ON_SALE
+        status = if (stock.value == 0) ProductStatus.SOLD_OUT else ProductStatus.ON_SALE
     }
 }

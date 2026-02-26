@@ -1,5 +1,6 @@
 package com.loopers.application.user
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.user.repository.UserRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -12,7 +13,7 @@ class ChangePasswordUseCase(
 ) {
     @Transactional
     fun execute(userId: Long, currentPassword: String, newPassword: String) {
-        val user = userRepository.findById(userId)
+        val user = userRepository.findById(UserId(userId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
         user.changePassword(currentPassword, newPassword)
         userRepository.save(user)

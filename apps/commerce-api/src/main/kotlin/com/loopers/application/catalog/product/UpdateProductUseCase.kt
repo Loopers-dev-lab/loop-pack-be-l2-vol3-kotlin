@@ -3,7 +3,8 @@ package com.loopers.application.catalog.product
 import com.loopers.application.catalog.CatalogCommand
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.repository.ProductRepository
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.ProductId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -24,7 +25,7 @@ class UpdateProductUseCase(private val productRepository: ProductRepository) {
             Product.ProductStatus.entries.find { enum -> enum.name == it }
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 상품 상태입니다: $it")
         }
-        val product = productRepository.findById(productId)
+        val product = productRepository.findById(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.update(command.name, command.price?.let { Money(it) }, command.stock, domainStatus)
         val saved = productRepository.save(product)

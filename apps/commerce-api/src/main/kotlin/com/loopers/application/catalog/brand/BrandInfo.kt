@@ -10,7 +10,7 @@ data class BrandInfo(
 ) {
     companion object {
         fun from(brand: Brand): BrandInfo = BrandInfo(
-            id = brand.id,
+            id = brand.id.value,
             name = brand.name.value,
             deletedAt = brand.deletedAt,
         )

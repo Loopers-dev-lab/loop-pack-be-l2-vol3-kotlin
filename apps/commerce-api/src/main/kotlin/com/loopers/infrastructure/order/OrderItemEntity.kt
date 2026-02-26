@@ -1,8 +1,11 @@
 package com.loopers.infrastructure.order
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.order.model.OrderItem
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -32,11 +35,11 @@ class OrderItemEntity(
     companion object {
         fun fromDomain(orderItem: OrderItem): OrderItemEntity {
             return OrderItemEntity(
-                refOrderId = orderItem.refOrderId,
-                refProductId = orderItem.refProductId,
+                refOrderId = orderItem.refOrderId.value,
+                refProductId = orderItem.refProductId.value,
                 productName = orderItem.productName,
                 productPrice = orderItem.productPrice.value,
-                quantity = orderItem.quantity,
+                quantity = orderItem.quantity.value,
                 status = orderItem.status,
             ).withBaseFields(
                 id = orderItem.id,
@@ -46,11 +49,11 @@ class OrderItemEntity(
 
     fun toDomain(): OrderItem = OrderItem.fromPersistence(
         id = id,
-        refOrderId = refOrderId,
-        refProductId = refProductId,
+        refOrderId = OrderId(refOrderId),
+        refProductId = ProductId(refProductId),
         productName = productName,
         productPrice = Money(productPrice),
-        quantity = quantity,
+        quantity = Quantity(quantity),
         status = status,
     )
 }

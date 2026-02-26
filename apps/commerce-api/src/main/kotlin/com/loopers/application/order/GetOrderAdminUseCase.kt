@@ -1,5 +1,6 @@
 package com.loopers.application.order
 
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.order.OrderDetail
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
@@ -16,9 +17,9 @@ class GetOrderAdminUseCase(
 
     @Transactional(readOnly = true)
     fun execute(orderId: Long): OrderInfo {
-        val order = orderRepository.findById(orderId)
+        val order = orderRepository.findById(OrderId(orderId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
-        val items = orderItemRepository.findAllByOrderId(orderId)
+        val items = orderItemRepository.findAllByOrderId(OrderId(orderId))
         return OrderInfo.from(OrderDetail(order, items))
     }
 }

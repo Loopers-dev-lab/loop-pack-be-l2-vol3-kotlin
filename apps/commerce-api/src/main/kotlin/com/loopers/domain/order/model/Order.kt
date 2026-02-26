@@ -1,14 +1,17 @@
 package com.loopers.domain.order.model
 
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.annotation.AggregateRootOnly
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.OrderProductInfo
+import com.loopers.domain.common.vo.Quantity
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class Order private constructor(
-    val id: Long = 0,
-    val refUserId: Long,
+    val id: OrderId = OrderId(0),
+    val refUserId: UserId,
     status: OrderStatus,
     totalPrice: Money,
     val items: List<OrderItem> = emptyList(),
@@ -32,21 +35,21 @@ class Order private constructor(
     @OptIn(AggregateRootOnly::class)
     fun cancelItem(item: OrderItem) {
         item.cancel()
-        totalPrice -= (item.productPrice * item.quantity)
+        totalPrice -= (item.productPrice * item.quantity.value)
     }
 
     @OptIn(AggregateRootOnly::class)
-    fun assignOrderIdToItems(orderId: Long) {
+    fun assignOrderIdToItems(orderId: OrderId) {
         items.forEach { it.assignToOrder(orderId) }
     }
 
     companion object {
-        fun create(userId: Long, items: List<Pair<OrderProductInfo, Int>>): Order {
+        fun create(userId: UserId, items: List<Pair<OrderProductInfo, Quantity>>): Order {
             val orderItems = items.map { (info, quantity) ->
                 OrderItem.create(info, quantity)
             }
             val totalPrice = orderItems.fold(Money(BigDecimal.ZERO)) { acc, item ->
-                acc + (item.productPrice * item.quantity)
+                acc + (item.productPrice * item.quantity.value)
             }
             return Order(
                 refUserId = userId,
@@ -57,8 +60,8 @@ class Order private constructor(
         }
 
         fun fromPersistence(
-            id: Long,
-            refUserId: Long,
+            id: OrderId,
+            refUserId: UserId,
             status: OrderStatus,
             totalPrice: Money,
             deletedAt: ZonedDateTime?,

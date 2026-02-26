@@ -13,6 +13,6 @@ class AuthenticateUserUseCase(
         val user = userRepository.findByLoginId(loginId) ?: return null
         if (user.isDeleted()) return null
         if (!user.verifyPassword(password)) return null
-        return user.id
+        return user.id.value
     }
 }

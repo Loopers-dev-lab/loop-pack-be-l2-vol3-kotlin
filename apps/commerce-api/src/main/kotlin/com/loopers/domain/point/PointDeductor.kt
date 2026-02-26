@@ -1,6 +1,8 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.model.PointHistory
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.domain.point.repository.PointHistoryRepository
@@ -16,7 +18,7 @@ class PointDeductor(
     private val pointHistoryRepository: PointHistoryRepository,
 ) {
 
-    fun usePoints(userId: Long, amount: Money, refOrderId: Long) {
+    fun usePoints(userId: UserId, amount: Money, refOrderId: OrderId) {
         val pointAmount = Point(amount.toLong())
         val userPoint = userPointRepository.findByUserIdForUpdate(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "포인트 정보를 찾을 수 없습니다.")

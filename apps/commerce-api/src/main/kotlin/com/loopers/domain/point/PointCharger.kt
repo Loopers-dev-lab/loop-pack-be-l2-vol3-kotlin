@@ -1,5 +1,6 @@
 package com.loopers.domain.point
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.model.PointHistory
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.domain.point.model.UserPoint
@@ -16,7 +17,7 @@ class PointCharger(
     private val pointHistoryRepository: PointHistoryRepository,
 ) {
 
-    fun charge(userId: Long, amount: Point): UserPoint {
+    fun charge(userId: UserId, amount: Point): UserPoint {
         if (amount.value > MAX_CHARGE_AMOUNT) {
             throw CoreException(ErrorType.BAD_REQUEST, "1회 충전 한도는 ${MAX_CHARGE_AMOUNT}포인트입니다.")
         }

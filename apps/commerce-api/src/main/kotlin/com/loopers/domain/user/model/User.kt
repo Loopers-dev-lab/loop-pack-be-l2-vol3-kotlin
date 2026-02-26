@@ -1,5 +1,6 @@
 package com.loopers.domain.user.model
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
@@ -11,7 +12,7 @@ import java.time.LocalDate
 import java.time.ZonedDateTime
 
 class User(
-    val id: Long = 0,
+    val id: UserId = UserId(0),
     val loginId: LoginId,
     password: String,
     val name: Name,

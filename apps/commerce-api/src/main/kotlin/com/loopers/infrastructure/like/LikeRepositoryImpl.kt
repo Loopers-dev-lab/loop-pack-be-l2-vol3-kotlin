@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.like
 
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.model.Like
 import com.loopers.domain.like.repository.LikeRepository
 import org.springframework.data.jpa.repository.JpaRepository
@@ -20,19 +22,19 @@ class LikeRepositoryImpl(
         return likeJpaRepository.save(LikeEntity.fromDomain(like)).toDomain()
     }
 
-    override fun existsByUserIdAndProductId(userId: Long, productId: Long): Boolean {
-        return likeJpaRepository.existsByRefUserIdAndRefProductId(userId, productId)
+    override fun existsByUserIdAndProductId(userId: UserId, productId: ProductId): Boolean {
+        return likeJpaRepository.existsByRefUserIdAndRefProductId(userId.value, productId.value)
     }
 
-    override fun findByUserIdAndProductId(userId: Long, productId: Long): Like? {
-        return likeJpaRepository.findByRefUserIdAndRefProductId(userId, productId)?.toDomain()
+    override fun findByUserIdAndProductId(userId: UserId, productId: ProductId): Like? {
+        return likeJpaRepository.findByRefUserIdAndRefProductId(userId.value, productId.value)?.toDomain()
     }
 
     override fun delete(like: Like) {
         likeJpaRepository.deleteById(like.id)
     }
 
-    override fun findAllByUserId(userId: Long): List<Like> {
-        return likeJpaRepository.findAllByRefUserIdOrderByIdDesc(userId).map { it.toDomain() }
+    override fun findAllByUserId(userId: UserId): List<Like> {
+        return likeJpaRepository.findAllByRefUserIdOrderByIdDesc(userId.value).map { it.toDomain() }
     }
 }

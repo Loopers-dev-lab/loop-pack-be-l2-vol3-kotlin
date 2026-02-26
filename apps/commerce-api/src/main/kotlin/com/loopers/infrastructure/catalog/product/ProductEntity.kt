@@ -2,7 +2,10 @@ package com.loopers.infrastructure.catalog.product
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -37,25 +40,25 @@ class ProductEntity(
     companion object {
         fun fromDomain(product: Product): ProductEntity {
             return ProductEntity(
-                refBrandId = product.refBrandId,
+                refBrandId = product.refBrandId.value,
                 name = product.name,
                 price = product.price.value,
-                stock = product.stock,
+                stock = product.stock.value,
                 status = product.status,
                 likeCount = product.likeCount,
             ).withBaseFields(
-                id = product.id,
+                id = product.id.value,
                 deletedAt = product.deletedAt,
             )
         }
     }
 
     fun toDomain(): Product = Product(
-        id = id,
-        refBrandId = refBrandId,
+        id = ProductId(id),
+        refBrandId = BrandId(refBrandId),
         name = name,
         price = Money(price),
-        stock = stock,
+        stock = Stock(stock),
         status = status,
         likeCount = likeCount,
         deletedAt = deletedAt,

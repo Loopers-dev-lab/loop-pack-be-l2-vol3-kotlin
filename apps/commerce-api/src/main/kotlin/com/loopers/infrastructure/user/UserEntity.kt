@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.user
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.user.model.User
 import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
@@ -39,14 +40,14 @@ class UserEntity(
                 birthDate = user.birthDate,
                 email = user.email.value,
             ).withBaseFields(
-                id = user.id,
+                id = user.id.value,
                 deletedAt = user.deletedAt,
             )
         }
     }
 
     fun toDomain(): User = User(
-        id = id,
+        id = UserId(id),
         loginId = LoginId(loginId),
         password = password,
         name = Name(name),

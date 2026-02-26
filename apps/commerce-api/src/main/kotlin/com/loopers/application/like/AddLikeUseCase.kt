@@ -1,6 +1,8 @@
 package com.loopers.application.like
 
 import com.loopers.domain.catalog.product.repository.ProductRepository
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.model.Like
 import com.loopers.domain.like.repository.LikeRepository
 import com.loopers.support.error.CoreException
@@ -15,17 +17,17 @@ class AddLikeUseCase(
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
-        val product = productRepository.findById(productId)
+        val product = productRepository.findById(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         if (product.isDeleted() || !product.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
 
-        if (likeRepository.existsByUserIdAndProductId(userId, productId)) return
+        if (likeRepository.existsByUserIdAndProductId(UserId(userId), ProductId(productId))) return
 
-        likeRepository.save(Like(refUserId = userId, refProductId = productId))
+        likeRepository.save(Like(refUserId = UserId(userId), refProductId = ProductId(productId)))
 
-        val lockedProduct = productRepository.findByIdForUpdate(productId)
+        val lockedProduct = productRepository.findByIdForUpdate(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         if (lockedProduct.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")

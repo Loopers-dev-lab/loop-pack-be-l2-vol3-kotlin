@@ -1,7 +1,9 @@
 package com.loopers.infrastructure.point
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.model.UserPoint
+import com.loopers.domain.point.vo.Point
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -19,8 +21,8 @@ class UserPointEntity(
     companion object {
         fun fromDomain(userPoint: UserPoint): UserPointEntity {
             return UserPointEntity(
-                refUserId = userPoint.refUserId,
-                balance = userPoint.balance,
+                refUserId = userPoint.refUserId.value,
+                balance = userPoint.balance.value,
             ).withBaseFields(
                 id = userPoint.id,
             )
@@ -28,7 +30,7 @@ class UserPointEntity(
     }
 
     fun toDomain(): UserPoint {
-        val up = UserPoint(refUserId = refUserId, balance = balance)
+        val up = UserPoint(refUserId = UserId(refUserId), balance = Point(balance))
         UserPoint::class.java.getDeclaredField("id").apply {
             isAccessible = true
             set(up, id)

@@ -1,30 +1,27 @@
 package com.loopers.domain.order.model
 
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.annotation.AggregateRootOnly
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.order.OrderProductInfo
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 
 class OrderItem private constructor(
     val id: Long = 0,
-    val refProductId: Long,
+    val refProductId: ProductId,
     val productName: String,
     val productPrice: Money,
-    val quantity: Int,
-    refOrderId: Long,
+    val quantity: Quantity,
+    refOrderId: OrderId,
 ) {
-    var refOrderId: Long = refOrderId
+    var refOrderId: OrderId = refOrderId
         private set
 
     var status: ItemStatus = ItemStatus.ACTIVE
         private set
-
-    init {
-        if (quantity < 1) {
-            throw CoreException(ErrorType.BAD_REQUEST, "수량은 1 이상이어야 합니다.")
-        }
-    }
 
     @AggregateRootOnly
     fun cancel() {
@@ -40,14 +37,14 @@ class OrderItem private constructor(
     }
 
     @AggregateRootOnly
-    fun assignToOrder(orderId: Long) {
+    fun assignToOrder(orderId: OrderId) {
         this.refOrderId = orderId
     }
 
     companion object {
-        fun create(product: OrderProductInfo, quantity: Int): OrderItem {
+        fun create(product: OrderProductInfo, quantity: Quantity): OrderItem {
             return OrderItem(
-                refOrderId = 0,
+                refOrderId = OrderId(0),
                 refProductId = product.id,
                 productName = product.name,
                 productPrice = product.price,
@@ -57,11 +54,11 @@ class OrderItem private constructor(
 
         fun fromPersistence(
             id: Long,
-            refOrderId: Long,
-            refProductId: Long,
+            refOrderId: OrderId,
+            refProductId: ProductId,
             productName: String,
             productPrice: Money,
-            quantity: Int,
+            quantity: Quantity,
             status: ItemStatus,
         ): OrderItem {
             return OrderItem(

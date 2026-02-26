@@ -1,7 +1,9 @@
 package com.loopers.infrastructure.order
 
 import com.loopers.domain.BaseEntity
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
@@ -26,19 +28,19 @@ class OrderEntity(
     companion object {
         fun fromDomain(order: Order): OrderEntity {
             return OrderEntity(
-                refUserId = order.refUserId,
+                refUserId = order.refUserId.value,
                 status = order.status,
                 totalPrice = order.totalPrice.value,
             ).withBaseFields(
-                id = order.id,
+                id = order.id.value,
                 deletedAt = order.deletedAt,
             )
         }
     }
 
     fun toDomain(): Order = Order.fromPersistence(
-        id = id,
-        refUserId = refUserId,
+        id = OrderId(id),
+        refUserId = UserId(refUserId),
         status = status,
         totalPrice = Money(totalPrice),
         deletedAt = deletedAt,

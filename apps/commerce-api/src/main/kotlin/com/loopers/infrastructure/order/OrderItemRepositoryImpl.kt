@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.order
 
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.order.model.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
 import org.springframework.data.jpa.repository.JpaRepository
@@ -23,11 +24,11 @@ class OrderItemRepositoryImpl(
         return orderItemJpaRepository.saveAll(orderItems.map { OrderItemEntity.fromDomain(it) }).map { it.toDomain() }
     }
 
-    override fun findAllByOrderId(orderId: Long): List<OrderItem> {
-        return orderItemJpaRepository.findAllByRefOrderId(orderId).map { it.toDomain() }
+    override fun findAllByOrderId(orderId: OrderId): List<OrderItem> {
+        return orderItemJpaRepository.findAllByRefOrderId(orderId.value).map { it.toDomain() }
     }
 
-    override fun findAllByOrderIds(orderIds: List<Long>): List<OrderItem> {
-        return orderItemJpaRepository.findAllByRefOrderIdIn(orderIds).map { it.toDomain() }
+    override fun findAllByOrderIds(orderIds: List<OrderId>): List<OrderItem> {
+        return orderItemJpaRepository.findAllByRefOrderIdIn(orderIds.map { it.value }).map { it.toDomain() }
     }
 }

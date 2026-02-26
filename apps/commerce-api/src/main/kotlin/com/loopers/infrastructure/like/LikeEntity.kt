@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.like
 
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.model.Like
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -24,8 +26,8 @@ class LikeEntity(
     companion object {
         fun fromDomain(like: Like): LikeEntity {
             return LikeEntity(
-                refUserId = like.refUserId,
-                refProductId = like.refProductId,
+                refUserId = like.refUserId.value,
+                refProductId = like.refProductId.value,
             ).also { entity ->
                 if (like.id != 0L) {
                     LikeEntity::class.java.getDeclaredField("id").apply {
@@ -38,7 +40,7 @@ class LikeEntity(
     }
 
     fun toDomain(): Like {
-        val like = Like(refUserId = refUserId, refProductId = refProductId)
+        val like = Like(refUserId = UserId(refUserId), refProductId = ProductId(refProductId))
         if (id != 0L) {
             Like::class.java.getDeclaredField("id").apply {
                 isAccessible = true

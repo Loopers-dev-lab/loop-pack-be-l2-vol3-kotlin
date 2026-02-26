@@ -3,6 +3,7 @@ package com.loopers.infrastructure.catalog.brand
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
+import com.loopers.domain.common.vo.BrandId
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -18,14 +19,14 @@ class BrandEntity(
     companion object {
         fun fromDomain(brand: Brand): BrandEntity {
             return BrandEntity(name = brand.name.value).withBaseFields(
-                id = brand.id,
+                id = brand.id.value,
                 deletedAt = brand.deletedAt,
             )
         }
     }
 
     fun toDomain(): Brand = Brand(
-        id = id,
+        id = BrandId(id),
         name = BrandName(name),
         deletedAt = deletedAt,
     )

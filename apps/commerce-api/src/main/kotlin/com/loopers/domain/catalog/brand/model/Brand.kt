@@ -1,10 +1,11 @@
 package com.loopers.domain.catalog.brand.model
 
 import com.loopers.domain.catalog.brand.vo.BrandName
+import com.loopers.domain.common.vo.BrandId
 import java.time.ZonedDateTime
 
 class Brand(
-    val id: Long = 0,
+    val id: BrandId = BrandId(0),
     name: BrandName,
     deletedAt: ZonedDateTime? = null,
 ) {

@@ -1,5 +1,6 @@
 package com.loopers.domain.point.model
 
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -7,9 +8,9 @@ import com.loopers.support.error.ErrorType
 class PointHistory(
     val id: Long = 0,
     val refUserPointId: Long,
+    val refOrderId: OrderId? = null,
     val type: PointHistoryType,
     val amount: Point,
-    val refOrderId: Long? = null,
 ) {
 
     init {

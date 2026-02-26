@@ -13,7 +13,7 @@ data class UserInfo(
 ) {
     companion object {
         fun from(user: User): UserInfo = UserInfo(
-            id = user.id,
+            id = user.id.value,
             loginId = user.loginId.value,
             name = user.name.value,
             maskedName = user.getMaskedName(),

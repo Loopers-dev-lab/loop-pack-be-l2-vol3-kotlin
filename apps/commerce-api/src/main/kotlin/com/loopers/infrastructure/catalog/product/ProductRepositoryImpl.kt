@@ -4,6 +4,8 @@ import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.product.ProductSort
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.repository.ProductRepository
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.ProductId
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
 import jakarta.persistence.LockModeType
@@ -40,12 +42,12 @@ class ProductRepositoryImpl(
         return productJpaRepository.saveAll(products.map { ProductEntity.fromDomain(it) }).map { it.toDomain() }
     }
 
-    override fun findById(id: Long): Product? {
-        return productJpaRepository.findById(id).orElse(null)?.toDomain()
+    override fun findById(id: ProductId): Product? {
+        return productJpaRepository.findById(id.value).orElse(null)?.toDomain()
     }
 
-    override fun findByIdForUpdate(id: Long): Product? {
-        return productJpaRepository.findForUpdateById(id)?.toDomain()
+    override fun findByIdForUpdate(id: ProductId): Product? {
+        return productJpaRepository.findForUpdateById(id.value)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
@@ -60,13 +62,13 @@ class ProductRepositoryImpl(
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
-    override fun findActiveProducts(brandId: Long?, sort: ProductSort, page: Int, size: Int): PageResult<Product> {
+    override fun findActiveProducts(brandId: BrandId?, sort: ProductSort, page: Int, size: Int): PageResult<Product> {
         val product = QProductEntity.productEntity
 
         val where = BooleanBuilder()
             .and(product.deletedAt.isNull)
             .and(product.status.ne(Product.ProductStatus.HIDDEN))
-        brandId?.let { where.and(product.refBrandId.eq(it)) }
+        brandId?.let { where.and(product.refBrandId.eq(it.value)) }
 
         val orderSpecifier = when (sort) {
             ProductSort.LATEST -> product.createdAt.desc()
@@ -91,15 +93,15 @@ class ProductRepositoryImpl(
         return PageResult(content.map { it.toDomain() }, total, page, size)
     }
 
-    override fun findAllByBrandId(brandId: Long): List<Product> {
-        return productJpaRepository.findAllByRefBrandIdAndDeletedAtIsNull(brandId).map { it.toDomain() }
+    override fun findAllByBrandId(brandId: BrandId): List<Product> {
+        return productJpaRepository.findAllByRefBrandIdAndDeletedAtIsNull(brandId.value).map { it.toDomain() }
     }
 
-    override fun findAllByIds(ids: List<Long>): List<Product> {
-        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids).map { it.toDomain() }
+    override fun findAllByIds(ids: List<ProductId>): List<Product> {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids.map { it.value }).map { it.toDomain() }
     }
 
-    override fun findAllByIdsForUpdate(ids: List<Long>): List<Product> {
-        return productJpaRepository.findAllForUpdateByIdInAndDeletedAtIsNull(ids).map { it.toDomain() }
+    override fun findAllByIdsForUpdate(ids: List<ProductId>): List<Product> {
+        return productJpaRepository.findAllForUpdateByIdInAndDeletedAtIsNull(ids.map { it.value }).map { it.toDomain() }
     }
 }

@@ -1,6 +1,7 @@
 package com.loopers.application.like
 
 import com.loopers.domain.catalog.product.repository.ProductRepository
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.repository.LikeRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -12,7 +13,7 @@ class GetUserLikesUseCase(
 ) {
     @Transactional(readOnly = true)
     fun execute(userId: Long): List<LikeWithProductInfo> {
-        val likes = likeRepository.findAllByUserId(userId)
+        val likes = likeRepository.findAllByUserId(UserId(userId))
         if (likes.isEmpty()) return emptyList()
 
         val productIds = likes.map { it.refProductId }

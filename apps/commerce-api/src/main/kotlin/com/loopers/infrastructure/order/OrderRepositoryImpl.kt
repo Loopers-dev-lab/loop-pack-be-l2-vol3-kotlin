@@ -1,6 +1,8 @@
 package com.loopers.infrastructure.order
 
 import com.loopers.domain.PageResult
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderRepository
 import org.springframework.data.domain.Page
@@ -29,19 +31,19 @@ class OrderRepositoryImpl(
         return orderJpaRepository.save(OrderEntity.fromDomain(order)).toDomain()
     }
 
-    override fun findById(id: Long): Order? {
-        return orderJpaRepository.findById(id).orElse(null)?.toDomain()
+    override fun findById(id: OrderId): Order? {
+        return orderJpaRepository.findById(id.value).orElse(null)?.toDomain()
     }
 
     override fun findAllByUserId(
-        userId: Long,
+        userId: UserId,
         from: ZonedDateTime,
         to: ZonedDateTime,
         page: Int,
         size: Int,
     ): PageResult<Order> {
         val pageable = PageRequest.of(page, size)
-        val result = orderJpaRepository.findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(userId, from, to, pageable)
+        val result = orderJpaRepository.findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(userId.value, from, to, pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 

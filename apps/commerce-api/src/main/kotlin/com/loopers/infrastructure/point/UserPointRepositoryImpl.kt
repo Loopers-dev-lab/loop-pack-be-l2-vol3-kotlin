@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.point
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.model.UserPoint
 import com.loopers.domain.point.repository.UserPointRepository
 import jakarta.persistence.LockModeType
@@ -27,11 +28,11 @@ class UserPointRepositoryImpl(
         return userPointJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
-    override fun findByUserId(userId: Long): UserPoint? {
-        return userPointJpaRepository.findByRefUserId(userId)?.toDomain()
+    override fun findByUserId(userId: UserId): UserPoint? {
+        return userPointJpaRepository.findByRefUserId(userId.value)?.toDomain()
     }
 
-    override fun findByUserIdForUpdate(userId: Long): UserPoint? {
-        return userPointJpaRepository.findFirstByRefUserId(userId)?.toDomain()
+    override fun findByUserIdForUpdate(userId: UserId): UserPoint? {
+        return userPointJpaRepository.findFirstByRefUserId(userId.value)?.toDomain()
     }
 }

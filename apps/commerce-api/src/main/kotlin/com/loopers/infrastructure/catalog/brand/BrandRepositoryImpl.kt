@@ -3,6 +3,7 @@ package com.loopers.infrastructure.catalog.brand
 import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.repository.BrandRepository
+import com.loopers.domain.common.vo.BrandId
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
@@ -22,8 +23,8 @@ class BrandRepositoryImpl(
         return brandJpaRepository.save(BrandEntity.fromDomain(brand)).toDomain()
     }
 
-    override fun findById(id: Long): Brand? {
-        return brandJpaRepository.findById(id).orElse(null)?.toDomain()
+    override fun findById(id: BrandId): Brand? {
+        return brandJpaRepository.findById(id.value).orElse(null)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Brand> {

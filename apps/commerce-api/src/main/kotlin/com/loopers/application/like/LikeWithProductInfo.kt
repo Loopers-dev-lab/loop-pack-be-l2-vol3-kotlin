@@ -14,7 +14,7 @@ data class LikeWithProductInfo(
     companion object {
         fun from(like: Like, product: Product): LikeWithProductInfo = LikeWithProductInfo(
             likeId = like.id,
-            productId = product.id,
+            productId = product.id.value,
             productName = product.name,
             productPrice = product.price.value,
             productStatus = product.status.name,

@@ -8,8 +8,8 @@ data class PointBalanceInfo(
 ) {
     companion object {
         fun from(userPoint: UserPoint): PointBalanceInfo = PointBalanceInfo(
-            userId = userPoint.refUserId,
-            balance = userPoint.balance,
+            userId = userPoint.refUserId.value,
+            balance = userPoint.balance.value,
         )
     }
 }
