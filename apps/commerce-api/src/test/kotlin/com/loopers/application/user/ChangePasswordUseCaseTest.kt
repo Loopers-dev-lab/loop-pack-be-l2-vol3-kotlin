@@ -2,6 +2,7 @@ package com.loopers.application.user
 
 import com.loopers.domain.user.FakeUserRepository
 import com.loopers.domain.user.UserTestFixture
+import com.loopers.domain.user.model.User
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.time.ZonedDateTime
 
 class ChangePasswordUseCaseTest {
 
@@ -157,6 +159,35 @@ class ChangePasswordUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).isEqualTo("비밀번호에 생년월일을 포함할 수 없습니다.")
+        }
+
+        @Test
+        @DisplayName("삭제된 사용자의 비밀번호를 변경하면 NOT_FOUND 예외가 발생한다")
+        fun execute_deletedUser_throwsNotFound() {
+            // arrange
+            val user = UserTestFixture.createUser()
+            val deletedUser = User(
+                loginId = user.loginId,
+                password = user.password,
+                name = user.name,
+                birthDate = user.birthDate,
+                email = user.email,
+                deletedAt = ZonedDateTime.now(),
+            )
+            val saved = userRepository.save(deletedUser)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                changePasswordUseCase.execute(
+                    userId = saved.id.value,
+                    currentPassword = UserTestFixture.DEFAULT_PASSWORD,
+                    newPassword = "NewPass12!",
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(exception.message).isEqualTo("사용자를 찾을 수 없습니다.")
         }
 
         @Test

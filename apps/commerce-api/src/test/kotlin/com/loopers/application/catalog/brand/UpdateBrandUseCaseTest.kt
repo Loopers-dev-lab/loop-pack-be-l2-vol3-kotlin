@@ -53,19 +53,20 @@ class UpdateBrandUseCaseTest {
         }
 
         @Test
-        @DisplayName("삭제된 브랜드를 수정하면 브랜드명이 변경된다")
-        fun updateBrand_deletedBrand_updatesName() {
+        @DisplayName("삭제된 브랜드를 수정하면 NOT_FOUND 예외가 발생한다")
+        fun updateBrand_deletedBrand_throwsNotFound() {
             // arrange
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             brand.delete()
             brandRepository.save(brand)
 
             // act
-            val result = useCase.execute(brand.id.value, "아디다스")
+            val exception = assertThrows<CoreException> {
+                useCase.execute(brand.id.value, "아디다스")
+            }
 
             // assert
-            assertThat(result.name).isEqualTo("아디다스")
-            assertThat(result.deletedAt).isNotNull()
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }

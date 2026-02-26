@@ -27,6 +27,9 @@ class UpdateProductUseCase(private val productRepository: ProductRepository) {
         }
         val product = productRepository.findById(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        if (product.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        }
         product.update(command.name, command.price?.let { Money(it) }, command.stock, domainStatus)
         val saved = productRepository.save(product)
         return ProductInfo.from(saved)

@@ -23,15 +23,15 @@ class AddLikeUseCase(
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
 
-        if (likeRepository.existsByUserIdAndProductId(UserId(userId), ProductId(productId))) return
-
-        likeRepository.save(Like(refUserId = UserId(userId), refProductId = ProductId(productId)))
-
         val lockedProduct = productRepository.findByIdForUpdate(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         if (lockedProduct.isDeleted() || !lockedProduct.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
+
+        if (likeRepository.existsByUserIdAndProductId(UserId(userId), ProductId(productId))) return
+
+        likeRepository.save(Like(refUserId = UserId(userId), refProductId = ProductId(productId)))
         lockedProduct.increaseLikeCount()
         productRepository.save(lockedProduct)
     }

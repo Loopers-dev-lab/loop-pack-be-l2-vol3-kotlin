@@ -15,6 +15,9 @@ class ChangePasswordUseCase(
     fun execute(userId: Long, currentPassword: String, newPassword: String) {
         val user = userRepository.findById(UserId(userId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+        if (user.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
+        }
         user.changePassword(currentPassword, newPassword)
         userRepository.save(user)
     }

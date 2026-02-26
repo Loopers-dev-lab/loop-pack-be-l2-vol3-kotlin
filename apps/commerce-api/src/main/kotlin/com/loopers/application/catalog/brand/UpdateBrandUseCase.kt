@@ -1,6 +1,5 @@
 package com.loopers.application.catalog.brand
 
-import com.loopers.application.catalog.CatalogCommand
 import com.loopers.domain.catalog.brand.repository.BrandRepository
 import com.loopers.domain.catalog.brand.vo.BrandName
 import com.loopers.domain.common.vo.BrandId
@@ -13,10 +12,12 @@ import org.springframework.transaction.annotation.Transactional
 class UpdateBrandUseCase(private val brandRepository: BrandRepository) {
     @Transactional
     fun execute(brandId: Long, name: String): BrandInfo {
-        val command = CatalogCommand.UpdateBrand(name = name)
         val brand = brandRepository.findById(BrandId(brandId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        brand.update(BrandName(command.name))
+        if (brand.isDeleted()) {
+            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        }
+        brand.update(BrandName(name))
         val saved = brandRepository.save(brand)
         return BrandInfo.from(saved)
     }

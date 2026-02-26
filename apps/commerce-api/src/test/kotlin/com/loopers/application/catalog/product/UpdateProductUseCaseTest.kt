@@ -56,18 +56,20 @@ class UpdateProductUseCaseTest {
         }
 
         @Test
-        @DisplayName("삭제된 상품도 수정할 수 있다")
-        fun updateProduct_deletedProduct_succeeds() {
+        @DisplayName("삭제된 상품을 수정하면 NOT_FOUND 예외가 발생한다")
+        fun updateProduct_deletedProduct_throwsNotFound() {
             // arrange
             val product = createProduct()
             product.delete()
             productRepository.save(product)
 
             // act
-            val result = useCase.execute(product.id.value, "변경", null, null, null)
+            val exception = assertThrows<CoreException> {
+                useCase.execute(product.id.value, "변경", null, null, null)
+            }
 
             // assert
-            assertThat(result.name).isEqualTo("변경")
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
         @Test
