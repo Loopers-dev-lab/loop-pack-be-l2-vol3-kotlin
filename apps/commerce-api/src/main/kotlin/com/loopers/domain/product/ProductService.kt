@@ -22,12 +22,10 @@ class ProductService(
 
     fun increaseLikeCount(product: Product) {
         product.increaseLikeCount()
-        productRepository.save(product)
     }
 
     fun decreaseLikeCount(product: Product) {
         product.decreaseLikeCount()
-        productRepository.save(product)
     }
 
     fun getProductsByIds(ids: List<Long>): List<Product> {
@@ -36,6 +34,5 @@ class ProductService(
 
     fun deductStock(product: Product, quantity: Int) {
         product.deductStock(quantity)
-        productRepository.save(product)
     }
 }
