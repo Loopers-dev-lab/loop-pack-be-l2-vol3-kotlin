@@ -176,84 +176,86 @@ graph TB
 
 ### 다이어그램의 목적
 
-Entity 간 상속 구조와 각 도메인 모델의 필드 및 비즈니스 메서드를 파악한다.
+Domain Model(순수 data class) 간 관계와 각 도메인 모델의 필드 및 비즈니스 메서드를 파악한다. Domain Model은 JPA 어노테이션 없이 순수 Kotlin data class로 구현되며, JPA Entity(`@Entity`, `BaseEntity` 상속)는 Infrastructure 레이어의 JpaModel에 위치한다.
 
 ```mermaid
 classDiagram
-    class BaseEntity {
-        <<abstract>>
-        #Long id
-        #LocalDateTime createdAt
-        #LocalDateTime updatedAt
-        #LocalDateTime deletedAt
-        +delete()
-        +restore()
-        #guard()
-    }
-
     class MemberModel {
-        -String loginId
-        -String password
-        -String name
-        -LocalDate birthday
-        -String email
+        <<data class>>
+        +Long id
+        +String loginId
+        +String password
+        +String name
+        +LocalDate birthday
+        +String email
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
         +changePassword()
     }
 
     class BrandModel {
-        -String name
-        -String description
-        -String imageUrl
-        -BrandStatus status
+        <<data class>>
+        +Long id
+        +String name
+        +String description
+        +String imageUrl
+        +BrandStatus status
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
         +update()
         +delete()
     }
 
     class ProductModel {
-        -Long brandId
-        -String name
-        -Long price
-        -Int stockQuantity
-        -Int likeCount
-        -String imageUrl
-        -ProductStatus status
+        <<data class>>
+        +Long id
+        +Long brandId
+        +String name
+        +Long price
+        +Int stockQuantity
+        +Int likeCount
+        +String imageUrl
+        +ProductStatus status
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
         +deductStock(quantity)
         +update()
         +delete()
     }
 
     class OrderModel {
-        -Long memberId
-        -String orderNumber
-        -OrderStatus status
-        -ZonedDateTime orderedAt
-        -List~OrderItemModel~ orderItems
+        <<data class>>
+        +Long id
+        +Long memberId
+        +String orderNumber
+        +OrderStatus status
+        +ZonedDateTime orderedAt
+        +List~OrderItemModel~ orderItems
+        +LocalDateTime createdAt
         +addItem()
         +getTotalAmount()
         +validateOwner(memberId)
     }
 
     class OrderItemModel {
-        -Long orderId
-        -Long productId
-        -String productName
-        -Long productPrice
-        -String brandName
-        -Int quantity
-        -Long amount
+        <<data class>>
+        +Long id
+        +Long orderId
+        +Long productId
+        +String productName
+        +Long productPrice
+        +String brandName
+        +Int quantity
+        +Long amount
     }
 
     class ProductLikeModel {
-        -Long memberId
-        -Long productId
+        <<data class>>
+        +Long id
+        +Long memberId
+        +Long productId
+        +LocalDateTime createdAt
     }
-
-    BaseEntity <|-- MemberModel
-    BaseEntity <|-- BrandModel
-    BaseEntity <|-- ProductModel
-    BaseEntity <|-- OrderModel
-    BaseEntity <|-- OrderItemModel
-    BaseEntity <|-- ProductLikeModel
 
     OrderModel "1" *-- "N" OrderItemModel : contains
 
@@ -280,6 +282,8 @@ classDiagram
     ProductModel --> ProductStatus
     OrderModel --> OrderStatus
 ```
+
+> **참고**: `BaseEntity`(`@MappedSuperclass`, id/createdAt/updatedAt/deletedAt)는 Infrastructure 레이어의 JpaModel(`BrandJpaModel`, `ProductJpaModel` 등)에서만 상속한다.
 
 ---
 
@@ -532,7 +536,7 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph Config
+    subgraph Config["Interfaces / Config"]
         subgraph Auth["인증"]
             MAI["MemberAuthenticationInterceptor<br/>@MemberAuthenticated"]
             AAI["AdminAuthenticationInterceptor<br/>@AdminAuthenticated"]
@@ -549,13 +553,27 @@ graph TB
             WMC["WebMvcConfig<br/>인터셉터 · 리졸버 등록"]
             PEC["PasswordEncoderConfig<br/>BCryptPasswordEncoder"]
         end
+        subgraph Presentation["예외 처리 (Interfaces)"]
+            AR2["ApiResponse&lt;T&gt;<br/>통합 응답: meta + data"]
+            ACA["ApiControllerAdvice<br/>ApplicationException → ApiResponse 변환"]
+        end
     end
 
-    subgraph Support
-        ET["ErrorType<br/>BAD_REQUEST · NOT_FOUND · UNAUTHORIZED · FORBIDDEN · CONFLICT"]
-        CE["CoreException<br/>ErrorType + message 래핑"]
-        AR2["ApiResponse&lt;T&gt;<br/>통합 응답: meta + data"]
-        ACA["ApiControllerAdvice<br/>글로벌 예외 → ApiResponse 변환"]
+    subgraph AppLayer["Application Layer"]
+        subgraph AppError["예외 처리 (Application)"]
+            AE["ApplicationException<br/>HTTP 상태 + message 래핑"]
+            DET["DomainExceptionTranslator<br/>@Aspect: CoreException → ApplicationException"]
+        end
+    end
+
+    subgraph DomainLayer["Domain Layer"]
+        subgraph DomainError["예외 처리 (Domain)"]
+            ET["ErrorType<br/>BAD_REQUEST · NOT_FOUND · UNAUTHORIZED · FORBIDDEN · CONFLICT"]
+            CE["CoreException<br/>ErrorType + message 래핑"]
+        end
+    end
+
+    subgraph Support["Support (cross-cutting)"]
         CU["CursorUtils<br/>커서 인코딩/디코딩 (Base64+JSON)"]
     end
 
@@ -564,7 +582,9 @@ graph TB
     WMC --> MAI
     WMC --> AAI
     WMC --> AMAR
-    ACA --> CE
+    ACA --> AE
+    DET --> AE
+    DET -->|catches| CE
     CE --> ET
 ```
 
