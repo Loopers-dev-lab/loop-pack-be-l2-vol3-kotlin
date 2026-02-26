@@ -1,6 +1,5 @@
 package com.loopers.application.example
 
-import com.loopers.domain.example.ExampleService
 import org.springframework.stereotype.Component
 
 @Component

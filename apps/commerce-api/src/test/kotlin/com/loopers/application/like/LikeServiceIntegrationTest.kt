@@ -1,9 +1,9 @@
-package com.loopers.domain.like
+package com.loopers.application.like
 
 import com.loopers.domain.brand.BrandCommand
-import com.loopers.domain.brand.BrandService
+import com.loopers.application.brand.BrandService
 import com.loopers.domain.product.ProductCommand
-import com.loopers.domain.product.ProductService
+import com.loopers.application.product.ProductService
 import com.loopers.infrastructure.like.ProductLikeJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat

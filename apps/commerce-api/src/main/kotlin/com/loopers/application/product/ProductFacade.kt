@@ -1,8 +1,7 @@
 package com.loopers.application.product
 
-import com.loopers.domain.brand.BrandService
+import com.loopers.application.brand.BrandService
 import com.loopers.domain.product.ProductSearchCondition
-import com.loopers.domain.product.ProductService
 import com.loopers.support.cursor.CursorUtils
 import org.springframework.stereotype.Component
 

@@ -1,23 +1,30 @@
-package com.loopers.domain.brand
+package com.loopers.application.brand
 
+import com.loopers.domain.brand.BrandCommand
+import com.loopers.domain.brand.BrandStatus
+import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
 
-class BrandServiceTest {
-    private lateinit var brandService: BrandService
-    private lateinit var fakeRepository: FakeBrandRepository
-
-    @BeforeEach
-    fun setUp() {
-        fakeRepository = FakeBrandRepository()
-        brandService = BrandService(fakeRepository)
+@SpringBootTest
+class BrandServiceIntegrationTest @Autowired constructor(
+    private val brandService: BrandService,
+    private val brandJpaRepository: BrandJpaRepository,
+    private val databaseCleanUp: DatabaseCleanUp,
+) {
+    @AfterEach
+    fun tearDown() {
+        databaseCleanUp.truncateAllTables()
     }
 
     private fun createCommand(
@@ -36,11 +43,13 @@ class BrandServiceTest {
             val brand = brandService.createBrand(createCommand())
 
             // assert
+            val saved = brandJpaRepository.findById(brand.id).orElse(null)
             assertAll(
-                { assertThat(brand.name).isEqualTo("루퍼스") },
-                { assertThat(brand.description).isEqualTo("루퍼스 브랜드 설명") },
-                { assertThat(brand.imageUrl).isEqualTo("https://example.com/brand.jpg") },
-                { assertThat(brand.status).isEqualTo(BrandStatus.ACTIVE) },
+                { assertThat(saved).isNotNull() },
+                { assertThat(saved!!.name).isEqualTo("루퍼스") },
+                { assertThat(saved!!.description).isEqualTo("루퍼스 브랜드 설명") },
+                { assertThat(saved!!.imageUrl).isEqualTo("https://example.com/brand.jpg") },
+                { assertThat(saved!!.status).isEqualTo(BrandStatus.ACTIVE) },
             )
         }
     }
@@ -78,7 +87,6 @@ class BrandServiceTest {
         @DisplayName("존재하지 않는 ID로 조회하면, NOT_FOUND 예외가 발생한다.")
         @Test
         fun throwsNotFound_whenIdDoesNotExist() {
-            // act & assert
             val result = assertThrows<CoreException> {
                 brandService.getBrandForAdmin(999L)
             }
@@ -135,11 +143,11 @@ class BrandServiceTest {
             brandService.updateBrand(created.id, updateCommand)
 
             // assert
-            val updated = brandService.getBrandForAdmin(created.id)
+            val updated = brandJpaRepository.findById(created.id).orElse(null)
             assertAll(
-                { assertThat(updated.name).isEqualTo("새 브랜드") },
-                { assertThat(updated.description).isEqualTo("새 설명") },
-                { assertThat(updated.imageUrl).isEqualTo("https://example.com/new.jpg") },
+                { assertThat(updated!!.name).isEqualTo("새 브랜드") },
+                { assertThat(updated!!.description).isEqualTo("새 설명") },
+                { assertThat(updated!!.imageUrl).isEqualTo("https://example.com/new.jpg") },
             )
         }
     }
@@ -157,10 +165,10 @@ class BrandServiceTest {
             brandService.deleteBrand(created.id)
 
             // assert
-            val deleted = brandService.getBrandForAdmin(created.id)
+            val deleted = brandJpaRepository.findById(created.id).orElse(null)
             assertAll(
-                { assertThat(deleted.status).isEqualTo(BrandStatus.DELETED) },
-                { assertThat(deleted.deletedAt).isNotNull() },
+                { assertThat(deleted!!.status).isEqualTo(BrandStatus.DELETED) },
+                { assertThat(deleted!!.deletedAt).isNotNull() },
             )
         }
     }

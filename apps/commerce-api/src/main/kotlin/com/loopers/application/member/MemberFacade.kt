@@ -1,7 +1,6 @@
 package com.loopers.application.member
 
-import com.loopers.config.cache.CacheConfig
-import com.loopers.domain.member.MemberService
+import com.loopers.infrastructure.config.CacheConfig
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.cache.CacheManager

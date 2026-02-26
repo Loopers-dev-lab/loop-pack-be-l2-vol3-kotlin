@@ -1,5 +1,7 @@
-package com.loopers.domain.brand
+package com.loopers.application.brand
 
+import com.loopers.domain.brand.BrandModel
+import com.loopers.domain.brand.BrandRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable

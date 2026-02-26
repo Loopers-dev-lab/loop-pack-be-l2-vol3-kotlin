@@ -1,4 +1,4 @@
-package com.loopers.domain.like
+package com.loopers.application.like
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach

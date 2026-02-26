@@ -1,5 +1,7 @@
-package com.loopers.domain.order
+package com.loopers.application.order
 
+import com.loopers.domain.order.OrderCommand
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.vo.ProductDescription
 import com.loopers.domain.product.vo.ProductName

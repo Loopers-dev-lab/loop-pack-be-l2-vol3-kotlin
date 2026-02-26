@@ -1,5 +1,10 @@
-package com.loopers.domain.product
+package com.loopers.application.product
 
+import com.loopers.domain.product.ProductCommand
+import com.loopers.domain.product.ProductModel
+import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductSearchCondition
+import com.loopers.domain.product.ProductStatus
 import com.loopers.domain.product.vo.ProductDescription
 import com.loopers.domain.product.vo.ProductName
 import com.loopers.domain.product.vo.StockQuantity

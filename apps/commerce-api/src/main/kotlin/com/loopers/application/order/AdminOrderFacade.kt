@@ -1,6 +1,5 @@
 package com.loopers.application.order
 
-import com.loopers.domain.order.OrderService
 import org.springframework.data.domain.Page
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional

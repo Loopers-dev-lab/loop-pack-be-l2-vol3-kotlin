@@ -1,5 +1,9 @@
-package com.loopers.domain.order
+package com.loopers.application.order
 
+import com.loopers.domain.order.OrderCommand
+import com.loopers.domain.order.OrderItemModel
+import com.loopers.domain.order.OrderModel
+import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.product.ProductModel
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

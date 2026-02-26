@@ -1,5 +1,7 @@
-package com.loopers.domain.like
+package com.loopers.application.like
 
+import com.loopers.domain.like.ProductLikeModel
+import com.loopers.domain.like.ProductLikeRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 

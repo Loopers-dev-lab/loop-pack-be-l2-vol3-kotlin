@@ -1,8 +1,7 @@
 package com.loopers.application.like
 
-import com.loopers.domain.brand.BrandService
-import com.loopers.domain.like.LikeService
-import com.loopers.domain.product.ProductService
+import com.loopers.application.brand.BrandService
+import com.loopers.application.product.ProductService
 import org.springframework.stereotype.Component
 
 @Component

@@ -1,6 +1,9 @@
-package com.loopers.domain.member
+package com.loopers.application.member
 
 import com.loopers.domain.common.vo.Email
+import com.loopers.domain.member.MemberModel
+import com.loopers.domain.member.MemberRepository
+import com.loopers.domain.member.RawPassword
 import com.loopers.domain.member.vo.LoginId
 import com.loopers.domain.member.vo.MemberName
 import com.loopers.support.error.CoreException

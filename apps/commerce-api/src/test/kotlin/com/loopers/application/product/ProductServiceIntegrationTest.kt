@@ -1,7 +1,9 @@
-package com.loopers.domain.product
+package com.loopers.application.product
 
 import com.loopers.domain.brand.BrandCommand
-import com.loopers.domain.brand.BrandService
+import com.loopers.domain.product.ProductCommand
+import com.loopers.domain.product.ProductStatus
+import com.loopers.application.brand.BrandService
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

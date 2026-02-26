@@ -1,5 +1,8 @@
-package com.loopers.domain.brand
+package com.loopers.application.brand
 
+import com.loopers.domain.brand.BrandCommand
+import com.loopers.domain.brand.BrandModel
+import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.brand.vo.BrandName
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

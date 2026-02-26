@@ -1,10 +1,13 @@
-package com.loopers.domain.order
+package com.loopers.application.order
 
 import com.loopers.domain.brand.BrandCommand
-import com.loopers.domain.brand.BrandService
+import com.loopers.domain.order.OrderCommand
+import com.loopers.domain.order.OrderModel
+import com.loopers.domain.order.OrderStatus
+import com.loopers.application.brand.BrandService
 import com.loopers.domain.product.ProductCommand
 import com.loopers.domain.product.ProductModel
-import com.loopers.domain.product.ProductService
+import com.loopers.application.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp

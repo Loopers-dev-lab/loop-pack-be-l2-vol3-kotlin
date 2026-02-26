@@ -1,9 +1,8 @@
 package com.loopers.application.order
 
-import com.loopers.domain.brand.BrandService
+import com.loopers.application.brand.BrandService
 import com.loopers.domain.order.OrderCommand
-import com.loopers.domain.order.OrderService
-import com.loopers.domain.product.ProductService
+import com.loopers.application.product.ProductService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime

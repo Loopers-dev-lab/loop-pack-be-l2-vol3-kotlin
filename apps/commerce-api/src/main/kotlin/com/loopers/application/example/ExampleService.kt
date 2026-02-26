@@ -1,5 +1,7 @@
-package com.loopers.domain.example
+package com.loopers.application.example
 
+import com.loopers.domain.example.ExampleModel
+import com.loopers.domain.example.ExampleRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component

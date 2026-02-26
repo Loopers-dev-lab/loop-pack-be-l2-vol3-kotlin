@@ -1,4 +1,4 @@
-package com.loopers.domain.member
+package com.loopers.application.member
 
 import com.loopers.infrastructure.member.MemberJpaRepository
 import com.loopers.support.error.CoreException

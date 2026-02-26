@@ -1,4 +1,7 @@
-package com.loopers.domain.like
+package com.loopers.application.like
+
+import com.loopers.domain.like.ProductLikeModel
+import com.loopers.domain.like.ProductLikeRepository
 
 class FakeProductLikeRepository : ProductLikeRepository {
     private val store = mutableListOf<ProductLikeModel>()
