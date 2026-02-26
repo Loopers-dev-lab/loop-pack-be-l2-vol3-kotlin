@@ -1,5 +1,6 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
 import com.loopers.domain.common.StockQuantity
@@ -20,7 +21,7 @@ class ProductTest {
         private val name = "에어맥스"
         private val description = "러닝화"
         private val price = Money.of(159000L)
-        private val likes = 10
+        private val likes = LikeCount.of(10)
         private val stockQuantity = StockQuantity.of(100)
         private val brandId = 1L
 
@@ -109,7 +110,7 @@ class ProductTest {
         }
     }
 
-    private fun createProduct(likes: Int = 10): Product {
+    private fun createProduct(likes: LikeCount = LikeCount.of(10)): Product {
         return Product(
             name = "에어맥스",
             description = "러닝화",
@@ -173,13 +174,13 @@ class ProductTest {
         @Test
         fun increasesLikeCountByOne() {
             // arrange
-            val product = createProduct(likes = 10)
+            val product = createProduct(likes = LikeCount.of(10))
 
             // act
             product.increaseLikeCount()
 
             // assert
-            assertThat(product.likes).isEqualTo(11)
+            assertThat(product.likes).isEqualTo(LikeCount.of(11))
         }
     }
 
@@ -191,26 +192,26 @@ class ProductTest {
         @Test
         fun decreasesLikeCountByOne() {
             // arrange
-            val product = createProduct(likes = 10)
+            val product = createProduct(likes = LikeCount.of(10))
 
             // act
             product.decreaseLikeCount()
 
             // assert
-            assertThat(product.likes).isEqualTo(9)
+            assertThat(product.likes).isEqualTo(LikeCount.of(9))
         }
 
         @DisplayName("좋아요 수가 0이면, 0을 유지한다.")
         @Test
         fun doesNotDecreaseBelow_zero() {
             // arrange
-            val product = createProduct(likes = 0)
+            val product = createProduct(likes = LikeCount.of(0))
 
             // act
             product.decreaseLikeCount()
 
             // assert
-            assertThat(product.likes).isEqualTo(0)
+            assertThat(product.likes).isEqualTo(LikeCount.of(0))
         }
     }
 }

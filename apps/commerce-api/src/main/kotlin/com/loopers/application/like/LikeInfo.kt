@@ -18,7 +18,7 @@ data class LikeInfo(
                 price = product.price.value,
                 description = product.description,
                 brandId = product.brandId,
-                likes = product.likes,
+                likes = product.likes.value,
             )
         }
     }

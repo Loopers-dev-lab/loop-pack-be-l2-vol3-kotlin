@@ -2,6 +2,7 @@ package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
@@ -100,7 +101,7 @@ class OrderApiE2ETest @Autowired constructor(
     ): Product {
         val resolvedBrand = brand ?: createBrand()
         return productRepository.save(
-            Product(name = name, description = description, price = price, likes = 0, stockQuantity = stockQuantity, brandId = resolvedBrand.id),
+            Product(name = name, description = description, price = price, likes = LikeCount.of(0), stockQuantity = stockQuantity, brandId = resolvedBrand.id),
         )
     }
 

@@ -19,7 +19,7 @@ data class ProductInfo(
                 name = product.name,
                 description = product.description,
                 price = product.price.value,
-                likes = product.likes,
+                likes = product.likes.value,
                 stockQuantity = product.stockQuantity.value,
                 brandId = product.brandId,
             )
@@ -45,7 +45,7 @@ data class ProductDetailInfo(
                 description = product.description,
                 brandId = brand.id,
                 brandName = brand.name,
-                likeCount = product.likes,
+                likeCount = product.likes.value,
             )
         }
     }

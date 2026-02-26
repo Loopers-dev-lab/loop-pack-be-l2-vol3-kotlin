@@ -1,6 +1,7 @@
 package com.loopers.domain.product
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
 import com.loopers.domain.common.StockQuantity
@@ -19,7 +20,7 @@ class Product(
     name: String,
     description: String?,
     price: Money,
-    likes: Int,
+    likes: LikeCount,
     stockQuantity: StockQuantity,
     brandId: Long,
 ) : BaseEntity() {
@@ -33,7 +34,7 @@ class Product(
     var price: Money = price
         protected set
 
-    var likes: Int = likes
+    var likes: LikeCount = likes
         protected set
 
     var stockQuantity: StockQuantity = stockQuantity
@@ -53,13 +54,11 @@ class Product(
     }
 
     fun increaseLikeCount() {
-        this.likes += 1
+        this.likes = this.likes.increment()
     }
 
     fun decreaseLikeCount() {
-        if (this.likes > 0) {
-            this.likes -= 1
-        }
+        this.likes = this.likes.decrement()
     }
 
     fun deductStock(quantity: Quantity) {

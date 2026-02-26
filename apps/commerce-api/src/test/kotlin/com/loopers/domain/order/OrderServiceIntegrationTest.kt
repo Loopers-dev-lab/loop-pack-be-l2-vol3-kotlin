@@ -2,6 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
 import com.loopers.domain.common.StockQuantity
@@ -40,7 +41,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
     private fun createProduct(brand: Brand, name: String = "에어맥스", price: Money = Money.of(159000L)): Product {
         return productRepository.save(
-            Product(name = name, description = "러닝화", price = price, likes = 0, stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            Product(name = name, description = "러닝화", price = price, likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
         )
     }
 

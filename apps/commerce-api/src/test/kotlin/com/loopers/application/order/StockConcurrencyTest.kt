@@ -2,6 +2,7 @@ package com.loopers.application.order
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
 import com.loopers.domain.common.StockQuantity
@@ -44,7 +45,7 @@ class StockConcurrencyTest @Autowired constructor(
                 name = "에어맥스",
                 description = "러닝화",
                 price = Money.of(10000L),
-                likes = 0,
+                likes = LikeCount.of(0),
                 stockQuantity = stockQuantity,
                 brandId = brand.id,
             ),

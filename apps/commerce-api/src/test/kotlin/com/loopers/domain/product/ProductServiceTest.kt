@@ -1,5 +1,6 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.StockQuantity
 import com.loopers.support.error.CoreException
@@ -42,7 +43,7 @@ class ProductServiceTest {
                 name = "에어맥스",
                 description = "러닝화",
                 price = Money.of(159000L),
-                likes = 10,
+                likes = LikeCount.of(10),
                 stockQuantity = StockQuantity.of(100),
                 brandId = 1L,
             )

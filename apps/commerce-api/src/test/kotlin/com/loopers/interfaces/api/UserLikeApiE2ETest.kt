@@ -2,6 +2,7 @@ package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
@@ -90,7 +91,7 @@ class UserLikeApiE2ETest @Autowired constructor(
         name: String = "에어맥스",
         description: String? = "러닝화",
         price: Money = Money.of(159000L),
-        likes: Int = 0,
+        likes: LikeCount = LikeCount.of(0),
         stockQuantity: StockQuantity = StockQuantity.of(100),
     ): Product {
         val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))

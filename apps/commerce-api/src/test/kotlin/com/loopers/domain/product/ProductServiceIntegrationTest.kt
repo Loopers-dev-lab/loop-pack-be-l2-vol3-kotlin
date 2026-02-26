@@ -2,6 +2,7 @@ package com.loopers.domain.product
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.StockQuantity
 import com.loopers.support.error.CoreException
@@ -42,7 +43,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             val saved = productRepository.save(
-                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 10, stockQuantity = StockQuantity.of(100), brandId = brand.id),
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
             )
 
             // act
@@ -78,7 +79,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             val saved = productRepository.save(
-                Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = 5, stockQuantity = StockQuantity.of(0), brandId = brand.id),
+                Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = LikeCount.of(5), stockQuantity = StockQuantity.of(0), brandId = brand.id),
             )
             saved.delete()
             productRepository.save(saved)
@@ -103,8 +104,8 @@ class ProductServiceIntegrationTest @Autowired constructor(
             // arrange
             val nike = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             val adidas = brandRepository.save(Brand(name = "아디다스", description = "스포츠 브랜드"))
-            productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 10, stockQuantity = StockQuantity.of(100), brandId = nike.id))
-            productRepository.save(Product(name = "울트라부스트", description = "러닝화", price = Money.of(199000L), likes = 30, stockQuantity = StockQuantity.of(80), brandId = adidas.id))
+            productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = nike.id))
+            productRepository.save(Product(name = "울트라부스트", description = "러닝화", price = Money.of(199000L), likes = LikeCount.of(30), stockQuantity = StockQuantity.of(80), brandId = adidas.id))
 
             val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
 
@@ -123,8 +124,8 @@ class ProductServiceIntegrationTest @Autowired constructor(
         fun returnsAllProducts_whenBrandIdIsNull() {
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
-            productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 10, stockQuantity = StockQuantity.of(100), brandId = brand.id))
-            productRepository.save(Product(name = "에어포스", description = "캐주얼화", price = Money.of(139000L), likes = 20, stockQuantity = StockQuantity.of(50), brandId = brand.id))
+            productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id))
+            productRepository.save(Product(name = "에어포스", description = "캐주얼화", price = Money.of(139000L), likes = LikeCount.of(20), stockQuantity = StockQuantity.of(50), brandId = brand.id))
 
             val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
 
@@ -140,8 +141,8 @@ class ProductServiceIntegrationTest @Autowired constructor(
         fun excludesDeletedProducts() {
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
-            productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 10, stockQuantity = StockQuantity.of(100), brandId = brand.id))
-            val deleted = productRepository.save(Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = 5, stockQuantity = StockQuantity.of(0), brandId = brand.id))
+            productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id))
+            val deleted = productRepository.save(Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = LikeCount.of(5), stockQuantity = StockQuantity.of(0), brandId = brand.id))
             deleted.delete()
             productRepository.save(deleted)
 
