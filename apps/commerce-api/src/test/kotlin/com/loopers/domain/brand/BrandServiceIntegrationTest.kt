@@ -3,14 +3,18 @@ package com.loopers.domain.brand
 import com.loopers.application.catalog.AdminDeleteBrandUseCase
 import com.loopers.application.catalog.AdminListBrandsUseCase
 import com.loopers.application.catalog.AdminRegisterBrandUseCase
+import com.loopers.application.catalog.AdminRegisterProductUseCase
 import com.loopers.application.catalog.AdminUpdateBrandUseCase
 import com.loopers.application.catalog.ListBrandsCriteria
 import com.loopers.application.catalog.RegisterBrandCriteria
+import com.loopers.application.catalog.RegisterProductCriteria
 import com.loopers.application.catalog.UpdateBrandCriteria
 import com.loopers.infrastructure.catalog.BrandJpaRepository
+import com.loopers.infrastructure.catalog.ProductJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
+import java.math.BigDecimal
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -27,7 +31,9 @@ class BrandServiceIntegrationTest @Autowired constructor(
     private val adminUpdateBrandUseCase: AdminUpdateBrandUseCase,
     private val adminListBrandsUseCase: AdminListBrandsUseCase,
     private val adminDeleteBrandUseCase: AdminDeleteBrandUseCase,
+    private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val brandJpaRepository: BrandJpaRepository,
+    private val productJpaRepository: ProductJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -303,6 +309,28 @@ class BrandServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(newBrand.id).isNotEqualTo(brand.id)
+        }
+
+        @DisplayName("브랜드를 삭제하면, 해당 브랜드의 상품도 함께 삭제된다.")
+        @Test
+        fun cascadeDeletesProductsWhenBrandIsDeleted() {
+            // arrange
+            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val product = adminRegisterProductUseCase.execute(
+                RegisterProductCriteria(
+                    brandId = brand.id,
+                    name = "에어맥스 90",
+                    quantity = 100,
+                    price = BigDecimal("129000"),
+                ),
+            )
+
+            // act
+            adminDeleteBrandUseCase.execute(brand.id)
+
+            // assert
+            val deletedProduct = productJpaRepository.findById(product.id).get()
+            assertThat(deletedProduct.deletedAt).isNotNull()
         }
     }
 }

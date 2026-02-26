@@ -18,6 +18,10 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllByDeletedAtIsNull(pageable)
     }
 
+    override fun findAllByBrandId(brandId: Long): List<ProductModel> {
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
+    }
+
     override fun findAllByBrandId(brandId: Long, pageable: Pageable): Slice<ProductModel> {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId, pageable)
     }
