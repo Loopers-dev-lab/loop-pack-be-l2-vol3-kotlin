@@ -1,9 +1,9 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 
 @Component
@@ -11,8 +11,8 @@ class ProductService(
     private val productRepository: ProductRepository,
 ) {
 
-    fun getProducts(brandId: Long?, pageable: Pageable): Page<Product> {
-        return productRepository.findAll(brandId, pageable)
+    fun getProducts(brandId: Long?, pageQuery: PageQuery): PageResult<Product> {
+        return productRepository.findAll(brandId, pageQuery)
     }
 
     fun getProduct(productId: Long): Product {

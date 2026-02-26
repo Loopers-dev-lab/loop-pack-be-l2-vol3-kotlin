@@ -1,9 +1,9 @@
 package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductFacade
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.SortOrder
 import com.loopers.interfaces.api.ApiResponse
-import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -23,8 +23,8 @@ class ProductController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<ProductDto.PageResponse> {
-        val pageable = PageRequest.of(page, size, toSort(sort))
-        return productFacade.getProducts(brandId, pageable)
+        val pageQuery = PageQuery(page, size, toSortOrder(sort))
+        return productFacade.getProducts(brandId, pageQuery)
             .let { ProductDto.PageResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -36,11 +36,11 @@ class ProductController(
             .let { ApiResponse.success(it) }
     }
 
-    private fun toSort(sort: String): Sort {
+    private fun toSortOrder(sort: String): SortOrder {
         return when (sort) {
-            "price_asc" -> Sort.by(Sort.Direction.ASC, "price")
-            "likes_desc" -> Sort.by(Sort.Direction.DESC, "likes")
-            else -> Sort.by(Sort.Direction.DESC, "createdAt")
+            "price_asc" -> SortOrder.by("price", SortOrder.Direction.ASC)
+            "likes_desc" -> SortOrder.by("likes", SortOrder.Direction.DESC)
+            else -> SortOrder.UNSORTED
         }
     }
 }

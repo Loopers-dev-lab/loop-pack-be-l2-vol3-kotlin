@@ -13,10 +13,10 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.SortOrder
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
 
 @SpringBootTest
 class ProductServiceIntegrationTest @Autowired constructor(
@@ -105,10 +105,10 @@ class ProductServiceIntegrationTest @Autowired constructor(
             productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 10, stockQuantity = 100, brandId = nike.id))
             productRepository.save(Product(name = "울트라부스트", description = "러닝화", price = Money.of(199000L), likes = 30, stockQuantity = 80, brandId = adidas.id))
 
-            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"))
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
 
             // act
-            val result = productService.getProducts(nike.id, pageable)
+            val result = productService.getProducts(nike.id, pageQuery)
 
             // assert
             assertAll(
@@ -125,10 +125,10 @@ class ProductServiceIntegrationTest @Autowired constructor(
             productRepository.save(Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 10, stockQuantity = 100, brandId = brand.id))
             productRepository.save(Product(name = "에어포스", description = "캐주얼화", price = Money.of(139000L), likes = 20, stockQuantity = 50, brandId = brand.id))
 
-            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"))
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
 
             // act
-            val result = productService.getProducts(null, pageable)
+            val result = productService.getProducts(null, pageQuery)
 
             // assert
             assertThat(result.totalElements).isEqualTo(2)
@@ -144,10 +144,10 @@ class ProductServiceIntegrationTest @Autowired constructor(
             deleted.delete()
             productRepository.save(deleted)
 
-            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"))
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
 
             // act
-            val result = productService.getProducts(null, pageable)
+            val result = productService.getProducts(null, pageQuery)
 
             // assert
             assertAll(

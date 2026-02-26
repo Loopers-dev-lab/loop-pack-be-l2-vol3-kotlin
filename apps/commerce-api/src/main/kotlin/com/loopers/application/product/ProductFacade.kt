@@ -1,9 +1,9 @@
 package com.loopers.application.product
 
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductService
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 
 @Component
@@ -12,8 +12,8 @@ class ProductFacade(
     private val brandService: BrandService,
 ) {
 
-    fun getProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> {
-        return productService.getProducts(brandId, pageable)
+    fun getProducts(brandId: Long?, pageQuery: PageQuery): PageResult<ProductInfo> {
+        return productService.getProducts(brandId, pageQuery)
             .map { ProductInfo.from(it) }
     }
 
