@@ -1,6 +1,7 @@
 package com.loopers.application.order
 
 import com.loopers.domain.order.Order
+import com.loopers.domain.order.OrderItemCommand
 import com.loopers.infrastructure.order.OrderJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -110,6 +111,49 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(result).isEmpty()
+        }
+    }
+
+    @DisplayName("주문을 생성할 때,")
+    @Nested
+    inner class CreateOrder {
+
+        @DisplayName("유효한 주문 항목이 있으면, DB에 저장된다.")
+        @Test
+        fun savesOrderToDatabase_whenValidItems() {
+            // arrange
+            val items = listOf(
+                OrderItemCommand(
+                    productId = 1L,
+                    productName = "에어맥스 90",
+                    brandName = "나이키",
+                    quantity = 2,
+                    unitPrice = BigDecimal("129000"),
+                ),
+            )
+
+            // act
+            val result = orderService.createOrder(1L, items)
+
+            // assert
+            val savedOrder = orderJpaRepository.findById(result.id).orElse(null)
+            assertAll(
+                { assertThat(savedOrder).isNotNull() },
+                { assertThat(savedOrder!!.userId).isEqualTo(1L) },
+                { assertThat(savedOrder!!.totalAmount).isEqualByComparingTo(BigDecimal("258000")) },
+            )
+        }
+
+        @DisplayName("주문 항목이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenItemsEmpty() {
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.createOrder(1L, emptyList())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

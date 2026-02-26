@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.application.order.OrderItemCriteria
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
@@ -88,5 +89,31 @@ class ProductService(
     @Transactional
     fun getProductsWithLock(productIds: List<Long>): List<Product> {
         return productRepository.findAllByIdWithLock(productIds)
+    }
+
+    fun reserveStock(
+        products: List<Product>,
+        criteria: List<OrderItemCriteria>,
+    ): StockReservationResult {
+        val productMap = products.associateBy { it.id }
+        val reservedProducts = mutableListOf<ReservedProduct>()
+        val failedReservations = mutableListOf<FailedReservation>()
+
+        for (item in criteria) {
+            val product = productMap[item.productId]
+            if (product == null) {
+                failedReservations.add(FailedReservation(item.productId, "존재하지 않는 상품입니다."))
+                continue
+            }
+            if (!product.reserve(item.quantity)) {
+                failedReservations.add(FailedReservation(item.productId, "재고가 부족합니다. 현재 재고: ${product.stock}"))
+                continue
+            }
+            reservedProducts.add(
+                ReservedProduct(product.id, product.name, product.brandId, item.quantity, product.price),
+            )
+        }
+
+        return StockReservationResult(reservedProducts, failedReservations)
     }
 }

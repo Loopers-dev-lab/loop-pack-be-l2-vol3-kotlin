@@ -317,6 +317,78 @@ class ProductTest {
         }
     }
 
+    @DisplayName("재고를 예약할 때,")
+    @Nested
+    inner class Reserve {
+
+        @DisplayName("재고가 충분하면, true를 반환하고 재고가 차감된다.")
+        @Test
+        fun reservesStock_whenSufficientStock() {
+            // arrange
+            val product = createProduct(stock = 10)
+
+            // act
+            val result = product.reserve(3)
+
+            // assert
+            assertAll(
+                { assertThat(result).isTrue() },
+                { assertThat(product.stock).isEqualTo(7) },
+            )
+        }
+
+        @DisplayName("재고가 부족하면, false를 반환하고 재고가 변경되지 않는다.")
+        @Test
+        fun returnsFalse_whenInsufficientStock() {
+            // arrange
+            val product = createProduct(stock = 2)
+
+            // act
+            val result = product.reserve(3)
+
+            // assert
+            assertAll(
+                { assertThat(result).isFalse() },
+                { assertThat(product.stock).isEqualTo(2) },
+            )
+        }
+
+        @DisplayName("수량이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenQuantityNotPositive() {
+            // arrange
+            val product = createProduct(stock = 10)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                product.reserve(0)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("연속 예약 시 재고가 누적 차감된다.")
+        @Test
+        fun tracksStockAcrossMultipleReserves() {
+            // arrange
+            val product = createProduct(stock = 10)
+
+            // act
+            val first = product.reserve(3)
+            val second = product.reserve(3)
+            val third = product.reserve(5)
+
+            // assert
+            assertAll(
+                { assertThat(first).isTrue() },
+                { assertThat(second).isTrue() },
+                { assertThat(third).isFalse() },
+                { assertThat(product.stock).isEqualTo(4) },
+            )
+        }
+    }
+
     @DisplayName("상품을 삭제할 때,")
     @Nested
     inner class Delete {

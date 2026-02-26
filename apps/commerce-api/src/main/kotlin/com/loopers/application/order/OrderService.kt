@@ -1,6 +1,8 @@
 package com.loopers.application.order
 
 import com.loopers.domain.order.Order
+import com.loopers.domain.order.OrderDomainService
+import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -13,10 +15,12 @@ import java.time.ZonedDateTime
 @Component
 class OrderService(
     private val orderRepository: OrderRepository,
+    private val orderDomainService: OrderDomainService,
 ) {
 
     @Transactional
-    fun createOrder(order: Order): Order {
+    fun createOrder(userId: Long, items: List<OrderItemCommand>): Order {
+        val order = orderDomainService.buildOrder(userId, items)
         return orderRepository.save(order)
     }
 

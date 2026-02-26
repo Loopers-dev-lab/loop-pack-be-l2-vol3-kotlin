@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.application.order.OrderItemCriteria
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
@@ -45,6 +46,7 @@ class ProductServiceTest {
     }
 
     private fun createProduct(
+        id: Long = 0L,
         brandId: Long = TEST_BRAND_ID,
         name: String = TEST_NAME,
         price: BigDecimal = TEST_PRICE,
@@ -52,7 +54,7 @@ class ProductServiceTest {
         description: String? = TEST_DESCRIPTION,
         imageUrl: String? = TEST_IMAGE_URL,
     ): Product {
-        return Product(
+        val product = Product(
             brandId = brandId,
             name = name,
             price = price,
@@ -60,6 +62,10 @@ class ProductServiceTest {
             description = description,
             imageUrl = imageUrl,
         )
+        if (id > 0) {
+            ReflectionTestUtils.setField(product, "id", id)
+        }
+        return product
     }
 
     @DisplayName("상품을 조회할 때,")
@@ -325,6 +331,83 @@ class ProductServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("재고를 예약할 때,")
+    @Nested
+    inner class ReserveStock {
+
+        @DisplayName("모든 상품의 재고가 충분하면, 전부 예약 성공한다.")
+        @Test
+        fun reservesAllProducts_whenAllStockSufficient() {
+            // arrange
+            val product1 = createProduct(id = 1L, name = "에어맥스 90", stock = 100, price = BigDecimal("129000"))
+            val product2 = createProduct(id = 2L, brandId = 2L, name = "울트라부스트", stock = 50, price = BigDecimal("199000"))
+            val products = listOf(product1, product2)
+            val criteria = listOf(
+                OrderItemCriteria(productId = 1L, quantity = 2),
+                OrderItemCriteria(productId = 2L, quantity = 1),
+            )
+
+            // act
+            val result = productService.reserveStock(products, criteria)
+
+            // assert
+            assertAll(
+                { assertThat(result.reservedProducts).hasSize(2) },
+                { assertThat(result.failedReservations).isEmpty() },
+                { assertThat(product1.stock).isEqualTo(98) },
+                { assertThat(product2.stock).isEqualTo(49) },
+            )
+        }
+
+        @DisplayName("일부 상품의 재고가 부족하면, 성공/실패로 분류된다.")
+        @Test
+        fun classifiesFailedReservations_whenSomeStockInsufficient() {
+            // arrange
+            val product1 = createProduct(id = 1L, name = "에어맥스 90", stock = 100, price = BigDecimal("129000"))
+            val product2 = createProduct(id = 2L, brandId = 2L, name = "울트라부스트", stock = 0, price = BigDecimal("199000"))
+            val products = listOf(product1, product2)
+            val criteria = listOf(
+                OrderItemCriteria(productId = 1L, quantity = 2),
+                OrderItemCriteria(productId = 2L, quantity = 1),
+            )
+
+            // act
+            val result = productService.reserveStock(products, criteria)
+
+            // assert
+            assertAll(
+                { assertThat(result.reservedProducts).hasSize(1) },
+                { assertThat(result.reservedProducts[0].productId).isEqualTo(1L) },
+                { assertThat(result.failedReservations).hasSize(1) },
+                { assertThat(result.failedReservations[0].productId).isEqualTo(2L) },
+                { assertThat(result.failedReservations[0].reason).contains("재고가 부족") },
+            )
+        }
+
+        @DisplayName("상품이 존재하지 않으면, 실패 예약으로 분류된다.")
+        @Test
+        fun returnsFailedReservation_whenProductNotFound() {
+            // arrange
+            val product1 = createProduct(id = 1L, name = "에어맥스 90", stock = 100, price = BigDecimal("129000"))
+            val products = listOf(product1)
+            val criteria = listOf(
+                OrderItemCriteria(productId = 1L, quantity = 2),
+                OrderItemCriteria(productId = 999L, quantity = 1),
+            )
+
+            // act
+            val result = productService.reserveStock(products, criteria)
+
+            // assert
+            assertAll(
+                { assertThat(result.reservedProducts).hasSize(1) },
+                { assertThat(result.failedReservations).hasSize(1) },
+                { assertThat(result.failedReservations[0].productId).isEqualTo(999L) },
+                { assertThat(result.failedReservations[0].reason).contains("존재하지 않") },
+            )
         }
     }
 }

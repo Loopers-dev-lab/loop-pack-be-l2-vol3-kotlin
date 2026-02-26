@@ -1,8 +1,13 @@
 package com.loopers.application.order
 
 import com.loopers.application.brand.BrandService
+import com.loopers.application.product.FailedReservation
 import com.loopers.application.product.ProductService
+import com.loopers.application.product.ReservedProduct
+import com.loopers.application.product.StockReservationResult
 import com.loopers.domain.brand.Brand
+import com.loopers.domain.order.Order
+import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.product.Product
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -17,6 +22,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
@@ -56,27 +62,54 @@ class OrderFacadeTest {
         return product
     }
 
+    private fun createBrand(id: Long = 1L, name: String = "나이키"): Brand {
+        val brand = Brand(name = name, description = "스포츠 브랜드")
+        ReflectionTestUtils.setField(brand, "id", id)
+        return brand
+    }
+
+    private fun createOrder(userId: Long, items: List<OrderItemCommand>): Order {
+        val order = Order(userId = userId)
+        items.forEach {
+            order.addItem(
+                productId = it.productId,
+                productName = it.productName,
+                brandName = it.brandName,
+                quantity = it.quantity,
+                unitPrice = it.unitPrice,
+            )
+        }
+        ReflectionTestUtils.setField(order, "createdAt", ZonedDateTime.now())
+        return order
+    }
+
     @DisplayName("주문을 생성할 때,")
     @Nested
     inner class CreateOrder {
 
-        @DisplayName("모든 상품의 재고가 충분하면, 주문이 생성된다.")
+        @DisplayName("재고 예약 후 주문을 생성하고 결과를 반환한다.")
         @Test
-        fun createsOrder_whenAllStockSufficient() {
+        fun reservesStockAndCreatesOrder_whenCalled() {
             // arrange
             val userId = 1L
-            val now = ZonedDateTime.now()
-            val product = createProduct(id = 1L, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100)
+            val product = createProduct(id = 1L, stock = 100)
             val criteria = listOf(OrderItemCriteria(productId = 1L, quantity = 2))
-            val brand = Brand(name = "나이키", description = "스포츠 브랜드")
+            val brand = createBrand(id = 1L, name = "나이키")
+            val reservation = StockReservationResult(
+                reservedProducts = listOf(
+                    ReservedProduct(1L, "에어맥스 90", 1L, 2, BigDecimal("129000")),
+                ),
+                failedReservations = emptyList(),
+            )
+            val orderItemCommands = listOf(
+                OrderItemCommand(1L, "에어맥스 90", "나이키", 2, BigDecimal("129000")),
+            )
+            val order = createOrder(userId, orderItemCommands)
 
             whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
-            whenever(brandService.getBrandIncludingDeleted(1L)).thenReturn(brand)
-            whenever(orderService.createOrder(any())).thenAnswer {
-                val order = it.arguments[0] as com.loopers.domain.order.Order
-                ReflectionTestUtils.setField(order, "createdAt", now)
-                order
-            }
+            whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
+            whenever(brandService.getBrandsIncludingDeleted(listOf(1L))).thenReturn(listOf(brand))
+            whenever(orderService.createOrder(eq(userId), any())).thenReturn(order)
 
             // act
             val result = orderFacade.createOrder(userId, criteria)
@@ -85,33 +118,39 @@ class OrderFacadeTest {
             assertAll(
                 { assertThat(result.order.userId).isEqualTo(userId) },
                 { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.order.totalAmount).isEqualByComparingTo(BigDecimal("258000")) },
                 { assertThat(result.excludedItems).isEmpty() },
-                { assertThat(product.stock).isEqualTo(98) },
             )
         }
 
-        @DisplayName("일부 상품의 재고가 부족하면, 부분 주문이 생성된다.")
+        @DisplayName("일부 예약 실패 시, 성공 항목은 주문되고 실패 항목은 excludedItems로 반환된다.")
         @Test
-        fun createsPartialOrder_whenSomeStockInsufficient() {
+        fun returnsExcludedItems_whenSomeReservationsFail() {
             // arrange
             val userId = 1L
-            val now = ZonedDateTime.now()
-            val product1 = createProduct(id = 1L, brandId = 1L, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100)
-            val product2 = createProduct(id = 2L, brandId = 2L, name = "울트라부스트", price = BigDecimal("199000"), stock = 0)
+            val product1 = createProduct(id = 1L, stock = 100)
+            val product2 = createProduct(id = 2L, brandId = 2L, name = "울트라부스트", stock = 0)
             val criteria = listOf(
                 OrderItemCriteria(productId = 1L, quantity = 2),
                 OrderItemCriteria(productId = 2L, quantity = 1),
             )
-            val brand1 = Brand(name = "나이키", description = "스포츠 브랜드")
+            val brand = createBrand(id = 1L, name = "나이키")
+            val reservation = StockReservationResult(
+                reservedProducts = listOf(
+                    ReservedProduct(1L, "에어맥스 90", 1L, 2, BigDecimal("129000")),
+                ),
+                failedReservations = listOf(
+                    FailedReservation(2L, "재고가 부족합니다. 현재 재고: 0"),
+                ),
+            )
+            val orderItemCommands = listOf(
+                OrderItemCommand(1L, "에어맥스 90", "나이키", 2, BigDecimal("129000")),
+            )
+            val order = createOrder(userId, orderItemCommands)
 
             whenever(productService.getProductsWithLock(listOf(1L, 2L))).thenReturn(listOf(product1, product2))
-            whenever(brandService.getBrandIncludingDeleted(1L)).thenReturn(brand1)
-            whenever(orderService.createOrder(any())).thenAnswer {
-                val order = it.arguments[0] as com.loopers.domain.order.Order
-                ReflectionTestUtils.setField(order, "createdAt", now)
-                order
-            }
+            whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
+            whenever(brandService.getBrandsIncludingDeleted(listOf(1L))).thenReturn(listOf(brand))
+            whenever(orderService.createOrder(eq(userId), any())).thenReturn(order)
 
             // act
             val result = orderFacade.createOrder(userId, criteria)
@@ -119,21 +158,29 @@ class OrderFacadeTest {
             // assert
             assertAll(
                 { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.order.totalAmount).isEqualByComparingTo(BigDecimal("258000")) },
                 { assertThat(result.excludedItems).hasSize(1) },
                 { assertThat(result.excludedItems[0].productId).isEqualTo(2L) },
             )
         }
 
-        @DisplayName("모든 상품의 재고가 부족하면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("전체 예약 실패 시, BAD_REQUEST 예외가 전파된다.")
         @Test
-        fun throwsBadRequest_whenAllStockInsufficient() {
+        fun throwsBadRequest_whenAllReservationsFail() {
             // arrange
             val userId = 1L
-            val product = createProduct(id = 1L, name = "에어맥스 90", stock = 0)
+            val product = createProduct(id = 1L, stock = 0)
             val criteria = listOf(OrderItemCriteria(productId = 1L, quantity = 2))
+            val reservation = StockReservationResult(
+                reservedProducts = emptyList(),
+                failedReservations = listOf(
+                    FailedReservation(1L, "재고가 부족합니다. 현재 재고: 0"),
+                ),
+            )
 
             whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
+            whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
+            whenever(orderService.createOrder(eq(userId), any()))
+                .thenThrow(CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다."))
 
             // act
             val exception = assertThrows<CoreException> {
@@ -142,39 +189,6 @@ class OrderFacadeTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("존재하지 않는 상품은 제외된다.")
-        @Test
-        fun excludesNonExistentProducts() {
-            // arrange
-            val userId = 1L
-            val now = ZonedDateTime.now()
-            val product = createProduct(id = 1L, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100)
-            val criteria = listOf(
-                OrderItemCriteria(productId = 1L, quantity = 2),
-                OrderItemCriteria(productId = 999L, quantity = 1),
-            )
-            val brand = Brand(name = "나이키", description = "스포츠 브랜드")
-
-            whenever(productService.getProductsWithLock(listOf(1L, 999L))).thenReturn(listOf(product))
-            whenever(brandService.getBrandIncludingDeleted(1L)).thenReturn(brand)
-            whenever(orderService.createOrder(any())).thenAnswer {
-                val order = it.arguments[0] as com.loopers.domain.order.Order
-                ReflectionTestUtils.setField(order, "createdAt", now)
-                order
-            }
-
-            // act
-            val result = orderFacade.createOrder(userId, criteria)
-
-            // assert
-            assertAll(
-                { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.excludedItems).hasSize(1) },
-                { assertThat(result.excludedItems[0].productId).isEqualTo(999L) },
-                { assertThat(result.excludedItems[0].reason).contains("존재하지 않") },
-            )
         }
     }
 }

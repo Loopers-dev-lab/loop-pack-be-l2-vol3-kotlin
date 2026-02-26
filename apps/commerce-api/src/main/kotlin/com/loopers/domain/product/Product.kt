@@ -81,6 +81,15 @@ class Product(
         this.stock -= quantity
     }
 
+    fun reserve(quantity: Int): Boolean {
+        if (quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "예약 수량은 1 이상이어야 합니다.")
+        }
+        if (!hasEnoughStock(quantity)) return false
+        this.stock -= quantity
+        return true
+    }
+
     fun isDeleted(): Boolean = deletedAt != null
 
     private fun validateName(name: String) {

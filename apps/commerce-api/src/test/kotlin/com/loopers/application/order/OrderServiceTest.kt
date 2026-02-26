@@ -1,6 +1,8 @@
 package com.loopers.application.order
 
 import com.loopers.domain.order.Order
+import com.loopers.domain.order.OrderDomainService
+import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -14,6 +16,8 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
@@ -27,6 +31,9 @@ class OrderServiceTest {
     @Mock
     private lateinit var orderRepository: OrderRepository
 
+    @Mock
+    private lateinit var orderDomainService: OrderDomainService
+
     @InjectMocks
     private lateinit var orderService: OrderService
 
@@ -34,21 +41,31 @@ class OrderServiceTest {
     @Nested
     inner class CreateOrder {
 
-        @DisplayName("정상적인 주문이 주어지면, 저장된다.")
+        @DisplayName("DomainService에 조립을 위임하고, 결과를 저장한다.")
         @Test
-        fun savesOrder_whenValidOrderProvided() {
+        fun delegatesToDomainServiceAndSavesOrder() {
             // arrange
+            val items = listOf(
+                OrderItemCommand(
+                    productId = 1L,
+                    productName = "에어맥스 90",
+                    brandName = "나이키",
+                    quantity = 2,
+                    unitPrice = BigDecimal("129000"),
+                ),
+            )
             val order = Order(userId = 1L)
-            order.addItem(productId = 1L, productName = "에어맥스 90", brandName = "나이키", quantity = 2, unitPrice = BigDecimal("129000"))
 
+            whenever(orderDomainService.buildOrder(eq(1L), any())).thenReturn(order)
             whenever(orderRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            val result = orderService.createOrder(order)
+            val result = orderService.createOrder(1L, items)
 
             // assert
+            verify(orderDomainService).buildOrder(eq(1L), any())
+            verify(orderRepository).save(order)
             assertThat(result.userId).isEqualTo(1L)
-            assertThat(result.totalAmount).isEqualByComparingTo(BigDecimal("258000"))
         }
     }
 
