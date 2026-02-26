@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.auth
 
-import com.loopers.domain.user.UserAuthService
+import com.loopers.application.user.AuthenticateUserUseCase
 import com.loopers.support.constant.AuthHeaders
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.UserErrorCode
@@ -13,7 +13,7 @@ import org.springframework.web.method.support.ModelAndViewContainer
 
 @Component
 class CurrentUserIdArgumentResolver(
-    private val userAuthService: UserAuthService,
+    private val authenticateUserUseCase: AuthenticateUserUseCase,
 ) : HandlerMethodArgumentResolver {
 
     override fun supportsParameter(parameter: MethodParameter): Boolean {
@@ -32,6 +32,6 @@ class CurrentUserIdArgumentResolver(
         val password = webRequest.getHeader(AuthHeaders.User.LOGIN_PW)
             ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
 
-        return userAuthService.authenticateAndGetId(loginId, password)
+        return authenticateUserUseCase.execute(loginId, password)
     }
 }

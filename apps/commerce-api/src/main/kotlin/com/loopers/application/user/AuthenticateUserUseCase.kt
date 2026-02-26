@@ -1,16 +1,18 @@
-package com.loopers.domain.user
+package com.loopers.application.user
 
+import com.loopers.domain.user.UserRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.UserErrorCode
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
 @Component
-class UserAuthService(
+class AuthenticateUserUseCase(
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
-    fun authenticate(loginId: String, rawPassword: String): User {
+
+    fun execute(loginId: String, rawPassword: String): Long {
         val user = userRepository.findByLoginId(loginId)
             ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
 
@@ -18,11 +20,6 @@ class UserAuthService(
             throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
         }
 
-        return user
-    }
-
-    fun authenticateAndGetId(loginId: String, rawPassword: String): Long {
-        val user = authenticate(loginId, rawPassword)
         return requireNotNull(user.id) { "Authenticated user must have an id" }
     }
 }
