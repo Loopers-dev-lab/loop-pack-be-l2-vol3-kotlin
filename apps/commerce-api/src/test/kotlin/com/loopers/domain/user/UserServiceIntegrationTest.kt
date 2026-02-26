@@ -45,7 +45,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             val result = userService.signUp(loginId, password, name, email, birthday)
 
             // assert
-            val savedUser = userRepository.find(result.id)
+            val savedUser = userRepository.findById(result.id)
             assertAll(
                 { assertThat(savedUser).isNotNull() },
                 { assertThat(savedUser?.loginId?.value).isEqualTo(loginId) },
@@ -69,7 +69,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             val result = userService.signUp(loginId, password, name, email, birthday)
 
             // assert
-            val savedUser = userRepository.find(result.id)
+            val savedUser = userRepository.findById(result.id)
             assertAll(
                 { assertThat(savedUser?.password).isNotEqualTo(password) },
                 { assertThat(passwordEncoder.matches(password, savedUser!!.password)).isTrue() },
@@ -207,7 +207,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             userService.changePassword(user.id, currentPassword, newPassword)
 
             // assert
-            val updatedUser = userRepository.find(user.id)
+            val updatedUser = userRepository.findById(user.id)
             assertAll(
                 { assertThat(passwordEncoder.matches(newPassword, updatedUser!!.password)).isTrue() },
                 { assertThat(passwordEncoder.matches(currentPassword, updatedUser!!.password)).isFalse() },

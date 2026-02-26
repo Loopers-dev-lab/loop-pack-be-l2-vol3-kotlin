@@ -42,7 +42,7 @@ class UserService(
     }
 
     fun changePassword(userId: Long, currentPassword: String, newPassword: String) {
-        val user = userRepository.find(userId)
+        val user = userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")
 
         verifyPassword(currentPassword, user.password)

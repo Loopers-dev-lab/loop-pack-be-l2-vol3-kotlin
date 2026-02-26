@@ -209,7 +209,7 @@ class UserServiceTest {
             val currentPassword = "CurrentPassword1!"
             val newPassword = "NewPassword1!"
 
-            whenever(userRepository.find(userId)).thenReturn(null)
+            whenever(userRepository.findById(userId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -227,7 +227,7 @@ class UserServiceTest {
             val wrongCurrentPassword = "WrongPassword1!"
             val newPassword = "NewPassword1!"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(wrongCurrentPassword, encodedCurrentPassword)).thenReturn(false)
 
             // act
@@ -245,7 +245,7 @@ class UserServiceTest {
             // arrange
             val currentPassword = "CurrentPassword1!"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
 
             // act
@@ -264,7 +264,7 @@ class UserServiceTest {
             val currentPassword = "CurrentPassword1!"
             val invalidNewPassword = "weak"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
 
             // act
@@ -283,7 +283,7 @@ class UserServiceTest {
             val currentPassword = "CurrentPassword1!"
             val newPasswordWithBirthday = "Pass19900515!@"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
 
             // act
@@ -303,7 +303,7 @@ class UserServiceTest {
             val newPassword = "NewPassword1!"
             val encodedNewPassword = "encoded_new_password"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
             whenever(passwordEncoder.encode(newPassword)).thenReturn(encodedNewPassword)
 

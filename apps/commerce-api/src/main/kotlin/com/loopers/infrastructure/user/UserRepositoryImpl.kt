@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 class UserRepositoryImpl(
     private val userJpaRepository: UserJpaRepository,
 ) : UserRepository {
-    override fun find(id: Long): User? {
+    override fun findById(id: Long): User? {
         return userJpaRepository.findByIdOrNull(id)
     }
 
