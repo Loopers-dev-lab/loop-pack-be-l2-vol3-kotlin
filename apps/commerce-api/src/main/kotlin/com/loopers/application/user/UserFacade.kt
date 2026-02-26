@@ -1,11 +1,17 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.BirthDate
+import com.loopers.domain.user.Password
+import com.loopers.domain.user.PasswordEncryptor
 import com.loopers.domain.user.UserService
+import com.loopers.domain.user.UserValidator
 import org.springframework.stereotype.Component
 
 @Component
 class UserFacade(
     private val userService: UserService,
+    private val userValidator: UserValidator,
+    private val passwordEncryptor: PasswordEncryptor,
 ) {
     fun register(
         loginId: String,
@@ -14,9 +20,11 @@ class UserFacade(
         birthDate: String,
         email: String,
     ): UserInfo {
+        userValidator.validateNoBirthDate(Password(password), BirthDate(birthDate))
+        val encrypted = passwordEncryptor.encrypt(password)
         return userService.createUser(
             loginId = loginId,
-            rawPassword = password,
+            encryptedPassword = encrypted,
             name = name,
             birthDate = birthDate,
             email = email,
@@ -33,10 +41,8 @@ class UserFacade(
         newPassword: String,
         birthDate: String,
     ) {
-        userService.updatePassword(
-            loginId = loginId,
-            newRawPassword = newPassword,
-            birthDate = birthDate,
-        )
+        userValidator.validateNoBirthDate(Password(newPassword), BirthDate(birthDate))
+        val encrypted = passwordEncryptor.encrypt(newPassword)
+        userService.updatePassword(loginId, encrypted)
     }
 }

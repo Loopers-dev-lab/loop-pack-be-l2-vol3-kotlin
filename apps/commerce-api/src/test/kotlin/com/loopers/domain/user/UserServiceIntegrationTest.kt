@@ -39,8 +39,9 @@ class UserServiceIntegrationTest @Autowired constructor(
             val name = "loopers"
             val birthDate = "2000-01-01"
             val email = "test1234@loopers.com"
+            val encryptedPassword = passwordEncryptor.encrypt(password)
 
-            val user = userService.createUser(loginId, password, name, birthDate, email)
+            val user = userService.createUser(loginId, encryptedPassword, name, birthDate, email)
 
             assertAll(
                 { assertThat(user.id).isGreaterThan(0) },
@@ -52,36 +53,6 @@ class UserServiceIntegrationTest @Autowired constructor(
                 { assertThat(user.email.value).isEqualTo(email) },
             )
         }
-
-        @Test
-        fun `비밀번호에 생년월일(8자리)이 포함되면 실패한다`() {
-            val loginId = "test1234"
-            val password = "Test20000101!@#$"
-            val name = "loopers"
-            val birthDate = "2000-01-01"
-            val email = "test1234@loopers.com"
-
-            val exception = assertThrows<CoreException> {
-                userService.createUser(loginId, password, name, birthDate, email)
-            }
-
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @Test
-        fun `비밀번호에 생년월일(6자리)이 포함되면 실패한다`() {
-            val loginId = "test1234"
-            val password = "Test000101!@#$"
-            val name = "loopers"
-            val birthDate = "2000-01-01"
-            val email = "test1234@loopers.com"
-
-            val exception = assertThrows<CoreException> {
-                userService.createUser(loginId, password, name, birthDate, email)
-            }
-
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
     }
 
     @DisplayName("사용자 조회 시,")
@@ -92,8 +63,8 @@ class UserServiceIntegrationTest @Autowired constructor(
         fun `존재하는 LoginId로 조회하면 성공한다`() {
             val user = userService.createUser(
                 "test1234",
-                "Test1234!@#$",
-               "loopers",
+                passwordEncryptor.encrypt("Test1234!@#$"),
+                "loopers",
                 "2000-01-01",
                 "test1234@loopers.com",
             )
@@ -121,35 +92,17 @@ class UserServiceIntegrationTest @Autowired constructor(
         fun `유효한 비밀번호로 수정하면 성공한다`() {
             val user = userService.createUser(
                 "test1234",
-                "Test1234!@#$",
+                passwordEncryptor.encrypt("Test1234!@#$"),
                 "loopers",
                 "2000-01-01",
                 "test1234@loopers.com",
             )
             val newPassword = "Newpass1234!@#$"
 
-            userService.updatePassword(user.loginId.value, newPassword, user.birthDate.value)
+            userService.updatePassword(user.loginId.value, passwordEncryptor.encrypt(newPassword))
 
             val updated = userService.getUserByLoginId(user.loginId.value)
             updated?.let { assertThat(passwordEncryptor.matches(newPassword, it.password)) }?.isTrue()
-        }
-
-        @Test
-        fun `비밀번호에 생년월일이 포함되면 실패한다`() {
-            val user = userService.createUser(
-                "test1234",
-                "Test1234!@#$",
-                "loopers",
-                "2000-01-01",
-                "test1234@loopers.com",
-            )
-            val newPassword = "Test20000101!@#$"
-
-            val exception = assertThrows<CoreException> {
-                userService.updatePassword(user.loginId.value, newPassword, user.birthDate.value)
-            }
-
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }
