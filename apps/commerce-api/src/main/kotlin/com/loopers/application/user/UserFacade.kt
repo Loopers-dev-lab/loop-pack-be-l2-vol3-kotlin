@@ -6,6 +6,7 @@ import com.loopers.domain.user.PasswordEncryptor
 import com.loopers.domain.user.UserService
 import com.loopers.domain.user.UserValidator
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class UserFacade(
@@ -13,6 +14,7 @@ class UserFacade(
     private val userValidator: UserValidator,
     private val passwordEncryptor: PasswordEncryptor,
 ) {
+    @Transactional
     fun register(
         loginId: String,
         password: String,
@@ -36,6 +38,7 @@ class UserFacade(
             .let { UserInfo.from(it) }
     }
 
+    @Transactional
     fun changePassword(
         loginId: String,
         newPassword: String,

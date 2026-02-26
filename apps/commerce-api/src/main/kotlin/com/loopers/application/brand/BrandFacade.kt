@@ -14,6 +14,7 @@ class BrandFacade(
     private val productService: ProductService,
     private val productInventoryService: ProductInventoryService,
 ) {
+    @Transactional
     fun createBrand(
         name: String,
         logoImageUrl: String,
@@ -43,6 +44,7 @@ class BrandFacade(
     fun getBrandById(id: Long): BrandInfo =
         brandService.getBrandById(id).let { BrandInfo.from(it) }
 
+    @Transactional
     fun updateBrand(
         id: Long,
         name: String,
