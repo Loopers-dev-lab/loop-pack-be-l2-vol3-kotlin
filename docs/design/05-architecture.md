@@ -599,14 +599,15 @@ graph TB
 | Interfaces | `MemberV1Controller` | `POST /api/v1/members` 회원가입, `GET /api/v1/members/me` 내 정보 조회, `PATCH /api/v1/members/me/password` 비밀번호 변경 |
 | Interfaces | `MemberV1ApiSpec` | OpenAPI 스펙 |
 | Interfaces | `MemberV1Dto` | RegisterRequest, MemberResponse, ChangePasswordRequest |
-| Application | `MemberFacade` | 가입 · 인증 · 조회 · 비밀번호 변경 오케스트레이션 |
-| Application | `MemberService` | 단일 도메인 로직: 가입, 인증, 조회, 비밀번호 변경 |
+| Application | `MemberFacade` | 가입 · 인증 · 조회 · 비밀번호 변경 오케스트레이션 (`@Transactional`) |
+| Application | `MemberService` | 단일 도메인 로직: 가입, 인증, 조회, 비밀번호 변경 (`@Transactional` 없음) |
 | Application | `MemberInfo` | 회원 정보 DTO |
-| Domain | `MemberModel` | Entity: Aggregate Root, `changePassword()` |
+| Domain | `MemberModel` | data class: Aggregate Root, `changePassword()` |
 | Domain | `MemberRepository` | Interface: save, findByLoginId, existsByLoginId |
 | Domain/VO | `LoginId` | `@JvmInline value class`: 로그인 ID (영숫자 검증) |
 | Domain/VO | `MemberName` | `@JvmInline value class`: 이름 + 마스킹 |
 | Domain/Validator | `RawPassword` | `object`: VO로 검증 불가능한 복합 비즈니스 규칙 (비밀번호 내 생년월일 포함 금지 등) |
+| Infrastructure | `MemberJpaModel` | `@Entity`: DB 매핑, `BaseEntity` 상속 |
 | Infrastructure | `MemberRepositoryImpl` | Repository 구현체 |
 | Infrastructure | `MemberJpaRepository` | Spring Data JPA |
 
@@ -620,15 +621,16 @@ graph TB
 | Interfaces (Admin) | `AdminBrandV1Controller` | `POST/GET/PUT/DELETE /api-admin/v1/brands` |
 | Interfaces (Admin) | `AdminBrandV1ApiSpec` | 어드민 브랜드 CRUD 스펙 |
 | Interfaces (Admin) | `AdminBrandV1Dto` | CreateRequest, UpdateRequest, AdminBrandResponse |
-| Application | `BrandFacade` | 고객용 브랜드 조회 |
-| Application | `AdminBrandFacade` | 어드민 CRUD + 삭제 시 하위 상품 캐스케이드 |
-| Application | `BrandService` | 단일 도메인 로직: CRUD + deleteProductsByBrandId |
+| Application | `BrandFacade` | 고객용 브랜드 조회 (`@Transactional`) |
+| Application | `AdminBrandFacade` | 어드민 CRUD + 삭제 시 하위 상품 캐스케이드 (`@Transactional`) |
+| Application | `BrandService` | 단일 도메인 로직: CRUD + deleteProductsByBrandId (`@Transactional` 없음) |
+| Application | `BrandCommand` | Create, Update 커맨드 |
 | Application | `BrandInfo` | 브랜드 정보 DTO |
-| Domain | `BrandModel` | Entity: Aggregate Root, `update()`, `delete()` |
+| Domain | `BrandModel` | data class: Aggregate Root, `update()`, `delete()` |
 | Domain | `BrandRepository` | Interface: save, findById, findAll |
 | Domain | `BrandStatus` | Enum: ACTIVE, DELETED |
-| Domain | `BrandCommand` | Create, Update 커맨드 |
 | Domain/VO | `BrandName` | `@JvmInline value class`: 브랜드명 길이 검증 |
+| Infrastructure | `BrandJpaModel` | `@Entity`: DB 매핑, `BaseEntity` 상속 |
 | Infrastructure | `BrandRepositoryImpl` | Repository 구현체 |
 | Infrastructure | `BrandJpaRepository` | Spring Data JPA |
 
@@ -642,20 +644,21 @@ graph TB
 | Interfaces (Admin) | `AdminProductV1Controller` | `POST/GET/PUT/DELETE /api-admin/v1/products` (offset) |
 | Interfaces (Admin) | `AdminProductV1ApiSpec` | 어드민 상품 CRUD 스펙 |
 | Interfaces (Admin) | `AdminProductV1Dto` | CreateRequest, UpdateRequest, AdminProductResponse |
-| Application | `ProductFacade` | 고객용 조회 + 재고 차감 |
-| Application | `AdminProductFacade` | 어드민 CRUD + 브랜드 존재 검증 |
-| Application | `ProductService` | 단일 도메인 로직: CRUD + findByIdWithLock (비관적 락) |
+| Application | `ProductFacade` | 고객용 조회 + 재고 차감 (`@Transactional`) |
+| Application | `AdminProductFacade` | 어드민 CRUD + 브랜드 존재 검증 (`@Transactional`) |
+| Application | `ProductService` | 단일 도메인 로직: CRUD + findByIdWithLock (비관적 락) (`@Transactional` 없음) |
+| Application | `ProductCommand` | Create, Update 커맨드 |
 | Application | `ProductInfo` | 상품 정보 DTO |
 | Application | `ProductListResult` | 커서 기반 페이징 결과 |
-| Domain | `ProductModel` | Entity: Aggregate Root, `deductStock()`, `update()`, `delete()` |
+| Domain | `ProductModel` | data class: Aggregate Root, `deductStock()`, `update()`, `delete()` |
 | Domain | `ProductRepository` | Interface: save, findById, findByIdWithLock, findActiveProducts |
 | Domain | `ProductStatus` | Enum: ACTIVE, DELETED |
-| Domain | `ProductCommand` | Create, Update 커맨드 |
 | Domain | `ProductSearchCondition` | 커서 페이징 쿼리 조건 |
 | Domain | `ProductSort` | Enum: LATEST, PRICE_ASC, LIKES_DESC |
 | Domain/VO | `ProductName` | `@JvmInline value class`: 상품명 길이 검증 |
 | Domain/VO | `ProductDescription` | `@JvmInline value class`: 설명 길이 검증 |
 | Domain/VO | `StockQuantity` | `@JvmInline value class`: 재고 비음수 검증 |
+| Infrastructure | `ProductJpaModel` | `@Entity`: DB 매핑, `BaseEntity` 상속 |
 | Infrastructure | `ProductRepositoryImpl` | Repository 구현체 (SELECT FOR UPDATE 포함) |
 | Infrastructure | `ProductJpaRepository` | Spring Data JPA |
 
@@ -666,11 +669,12 @@ graph TB
 | Interfaces | `LikeV1Controller` | `POST/DELETE /api/v1/products/{id}/likes`, `GET /api/v1/likes` |
 | Interfaces | `LikeV1ApiSpec` | OpenAPI 스펙 |
 | Interfaces | `LikeV1Dto` | LikedProductResponse |
-| Application | `LikeFacade` | 좋아요/취소 (양방향 멱등) + 목록 조회 |
-| Application | `LikeService` | 단일 도메인 로직: like (멱등), unlike, getLikedProductIds |
+| Application | `LikeFacade` | 좋아요/취소 (양방향 멱등) + 목록 조회 (`@Transactional`) |
+| Application | `LikeService` | 단일 도메인 로직: like (멱등), unlike, getLikedProductIds (`@Transactional` 없음) |
 | Application | `LikedProductInfo` | 좋아요 상품 정보 DTO |
-| Domain | `ProductLikeModel` | Entity: 회원-상품 관계 (UNIQUE Constraint) |
+| Domain | `ProductLikeModel` | data class: 회원-상품 관계 (UNIQUE Constraint) |
 | Domain | `ProductLikeRepository` | Interface: save, find, delete, findAllByMemberId |
+| Infrastructure | `ProductLikeJpaModel` | `@Entity`: DB 매핑, `BaseEntity` 상속 |
 | Infrastructure | `ProductLikeRepositoryImpl` | Repository 구현체 |
 | Infrastructure | `ProductLikeJpaRepository` | Spring Data JPA |
 
@@ -684,17 +688,19 @@ graph TB
 | Interfaces (Admin) | `AdminOrderV1Controller` | `GET /api-admin/v1/orders`, `GET /{id}` |
 | Interfaces (Admin) | `AdminOrderV1ApiSpec` | 어드민 주문 조회 스펙 |
 | Interfaces (Admin) | `AdminOrderV1Dto` | AdminOrderResponse |
-| Application | `OrderFacade` | 주문 생성 (상품 조회 + 재고 차감 + 스냅샷) |
-| Application | `AdminOrderFacade` | 어드민 주문 목록/상세 조회 |
-| Application | `OrderService` | 단일 도메인 로직: 주문 생성 · 조회 · 목록 (본인 검증) |
+| Application | `OrderFacade` | 주문 생성 (상품 조회 + 재고 차감 + 스냅샷) (`@Transactional`) |
+| Application | `AdminOrderFacade` | 어드민 주문 목록/상세 조회 (`@Transactional`) |
+| Application | `OrderService` | 단일 도메인 로직: 주문 생성 · 조회 · 목록 (본인 검증) (`@Transactional` 없음) |
+| Application | `OrderCommand` | Create, CreateOrderItem 커맨드 |
 | Application | `OrderInfo` | 주문 정보 DTO (UUID 주문번호) |
 | Application | `OrderItemInfo` | 주문 항목 DTO (스냅샷 포함) |
-| Domain | `OrderModel` | Entity: Aggregate Root, `addItem()`, `getTotalAmount()`, `validateOwner()` |
-| Domain | `OrderItemModel` | Entity: 주문 항목 (스냅샷 데이터) |
+| Domain | `OrderModel` | data class: Aggregate Root, `addItem()`, `getTotalAmount()`, `validateOwner()` |
+| Domain | `OrderItemModel` | data class: 주문 항목 (스냅샷 데이터) |
 | Domain | `OrderRepository` | Interface: save, findById, findAll, findByMemberIdAndRange |
 | Domain | `OrderItemRepository` | Interface: save, findByOrderId |
 | Domain | `OrderStatus` | Enum: ORDERED, CANCELLED, COMPLETED |
-| Domain | `OrderCommand` | Create, CreateOrderItem 커맨드 |
+| Infrastructure | `OrderJpaModel` | `@Entity`: DB 매핑, `BaseEntity` 상속 |
+| Infrastructure | `OrderItemJpaModel` | `@Entity`: 주문 항목 DB 매핑, `BaseEntity` 상속 |
 | Infrastructure | `OrderRepositoryImpl` | Repository 구현체 |
 | Infrastructure | `OrderJpaRepository` | Spring Data JPA |
 | Infrastructure | `OrderItemRepositoryImpl` | Repository 구현체 |
@@ -704,12 +710,14 @@ graph TB
 
 | 레이어 | 클래스 | 책임 |
 |--------|--------|------|
-| Domain | `BaseEntity` | 추상 MappedSuperclass: id, createdAt, updatedAt, deletedAt, `delete()`, `guard()` |
 | Domain/VO | `Email` | `@JvmInline value class`: 이메일 형식 검증 |
-| Support | `ErrorType` | 에러 코드 Enum |
-| Support | `CoreException` | 커스텀 런타임 예외 |
-| Support | `ApiResponse<T>` | 통합 응답 래퍼 |
-| Support | `ApiControllerAdvice` | 글로벌 예외 핸들러 |
+| Domain/Error | `ErrorType` | 에러 코드 Enum (BAD_REQUEST, NOT_FOUND, UNAUTHORIZED, FORBIDDEN, CONFLICT) |
+| Domain/Error | `CoreException` | 도메인 커스텀 런타임 예외 (ErrorType + message) |
+| Application/Error | `ApplicationException` | HTTP 상태 + message 래핑 (Presentation 전달용) |
+| Application/Error | `DomainExceptionTranslator` | `@Aspect`: CoreException → ApplicationException 변환 |
+| Interfaces | `ApiResponse<T>` | 통합 응답 래퍼 |
+| Interfaces | `ApiControllerAdvice` | 글로벌 예외 핸들러: ApplicationException → ApiResponse 변환 |
+| Infrastructure | `BaseEntity` | `@MappedSuperclass`: id, createdAt, updatedAt, deletedAt (JpaModel 전용) |
 | Support | `CursorUtils` | 커서 인코딩/디코딩 |
 
 ---
@@ -719,7 +727,9 @@ graph TB
 | 패턴 | 적용 | 관련 Decision |
 |------|------|---------------|
 | DIP (의존성 역전) | Domain → Repository(IF), Infrastructure → RepositoryImpl | - |
-| Facade 분리 | 고객/어드민 Facade 분리, Service 공유. 단일 도메인 API는 Controller → Service 직접 호출 | D8 |
+| Facade 분리 | 모든 API는 Facade 경유. 고객/어드민 Facade 분리, Service 공유. Facade만 `@Transactional` | D8 |
+| Domain Model 분리 | Domain Model은 순수 data class. JPA Entity(JpaModel)는 Infrastructure 레이어에 격리 | - |
+| 예외 계층 변환 | CoreException(Domain) → DomainExceptionTranslator(@Aspect) → ApplicationException → ApiControllerAdvice | - |
 | Validator | VO로 검증 불가능한 복합 비즈니스 규칙 검증 (`RawPassword`: 비밀번호 내 생년월일 포함 금지) | - |
 | VO (@JvmInline) | LoginId, MemberName, ProductName, StockQuantity 등 | D23 |
 | Soft Delete | status=DELETED + deleted_at 병행, `delete()` 메서드 | D11 |
