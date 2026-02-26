@@ -15,6 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 
 @ExtendWith(MockitoExtension::class)
@@ -75,6 +76,73 @@ class ProductServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("상품 생성할 때,")
+    @Nested
+    inner class CreateProduct {
+
+        @DisplayName("유효한 상품 정보가 주어지면, 저장된 상품을 반환한다.")
+        @Test
+        fun returnsSavedProduct_whenValidInfoProvided() {
+            // arrange
+            val name = "에어맥스"
+            val description = "러닝화"
+            val price = 159000L
+            val stockQuantity = 100
+            val brandId = 1L
+            val product = Product(
+                name = name,
+                description = description,
+                price = Money.of(price),
+                likes = LikeCount.of(0),
+                stockQuantity = StockQuantity.of(stockQuantity),
+                brandId = brandId,
+            )
+
+            whenever(productRepository.save(any())).thenReturn(product)
+
+            // act
+            val result = productService.createProduct(name, description, price, stockQuantity, brandId)
+
+            // assert
+            assertAll(
+                { assertThat(result.name).isEqualTo(name) },
+                { assertThat(result.description).isEqualTo(description) },
+                { assertThat(result.price).isEqualTo(Money.of(price)) },
+                { assertThat(result.stockQuantity).isEqualTo(StockQuantity.of(stockQuantity)) },
+                { assertThat(result.brandId).isEqualTo(brandId) },
+            )
+        }
+
+        @DisplayName("설명이 null이면, 설명 없이 저장된 상품을 반환한다.")
+        @Test
+        fun returnsSavedProduct_whenDescriptionIsNull() {
+            // arrange
+            val name = "에어맥스"
+            val price = 159000L
+            val stockQuantity = 100
+            val brandId = 1L
+            val product = Product(
+                name = name,
+                description = null,
+                price = Money.of(price),
+                likes = LikeCount.of(0),
+                stockQuantity = StockQuantity.of(stockQuantity),
+                brandId = brandId,
+            )
+
+            whenever(productRepository.save(any())).thenReturn(product)
+
+            // act
+            val result = productService.createProduct(name, null, price, stockQuantity, brandId)
+
+            // assert
+            assertAll(
+                { assertThat(result.name).isEqualTo(name) },
+                { assertThat(result.description).isNull() },
+            )
         }
     }
 }
