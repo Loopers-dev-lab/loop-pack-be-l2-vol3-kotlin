@@ -1,6 +1,7 @@
 package com.loopers.application.brand
 
 import com.loopers.domain.brand.Brand
+import com.loopers.domain.brand.BrandDomainService
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.brand.CreateBrandCommand
 import com.loopers.domain.brand.UpdateBrandCommand
@@ -38,7 +39,7 @@ class BrandServiceTest {
 
     @BeforeEach
     fun setUp() {
-        brandService = BrandService(brandRepository, productRepository)
+        brandService = BrandService(brandRepository, productRepository, BrandDomainService())
     }
 
     @DisplayName("브랜드를 조회할 때,")

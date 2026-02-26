@@ -17,8 +17,8 @@ import org.springframework.transaction.annotation.Transactional
 class BrandService(
     private val brandRepository: BrandRepository,
     private val productRepository: ProductRepository,
+    private val brandDomainService: BrandDomainService,
 ) {
-    private val brandDomainService = BrandDomainService()
 
     @Transactional(readOnly = true)
     fun getBrand(brandId: Long): Brand {
