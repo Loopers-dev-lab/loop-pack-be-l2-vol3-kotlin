@@ -19,11 +19,10 @@ class ProductFacade(
     }
 
     @Transactional(readOnly = true)
-    fun getProducts(brandId: Long?, sort: String, size: Int, cursor: String?): ProductListResult {
-        val productSort = resolveSort(sort)
+    fun getProducts(brandId: Long?, sort: ProductSort, size: Int, cursor: String?): ProductListResult {
         val condition = ProductSearchCondition(
             brandId = brandId,
-            sort = productSort,
+            sort = sort,
             size = size,
             cursor = cursor,
         )
@@ -42,14 +41,6 @@ class ProductFacade(
             nextCursor = cursorResult.nextCursor,
             hasNext = cursorResult.hasNext,
         )
-    }
-
-    private fun resolveSort(sort: String): ProductSort {
-        return when (sort.lowercase()) {
-            "price_asc" -> ProductSort.PRICE_ASC
-            "likes_desc" -> ProductSort.LIKES_DESC
-            else -> ProductSort.LATEST
-        }
     }
 }
 

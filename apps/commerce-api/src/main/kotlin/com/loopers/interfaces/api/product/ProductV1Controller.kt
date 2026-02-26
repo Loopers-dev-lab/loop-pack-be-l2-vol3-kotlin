@@ -16,11 +16,11 @@ class ProductV1Controller(
     @GetMapping
     override fun getProducts(
         @RequestParam(required = false) brandId: Long?,
-        @RequestParam(required = false, defaultValue = "latest") sort: String?,
+        @RequestParam(defaultValue = "LATEST") sort: ProductSortRequest,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) cursor: String?,
     ): ApiResponse<ProductV1Dto.ProductListResponse> {
-        return productFacade.getProducts(brandId, sort ?: "latest", size, cursor)
+        return productFacade.getProducts(brandId, sort.toDomain(), size, cursor)
             .let { ProductV1Dto.ProductListResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
