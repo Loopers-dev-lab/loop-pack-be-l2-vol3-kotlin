@@ -3,6 +3,7 @@ package com.loopers.application.like
 import com.loopers.application.brand.BrandService
 import com.loopers.application.product.ProductService
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class LikeFacade(
@@ -10,15 +11,18 @@ class LikeFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
+    @Transactional
     fun like(memberId: Long, productId: Long) {
         productService.getProduct(productId) // ACTIVE 검증 (BR-L4)
         likeService.like(memberId, productId)
     }
 
+    @Transactional
     fun unlike(memberId: Long, productId: Long) {
         likeService.unlike(memberId, productId) // 상품 존재 검증 없이 멱등 삭제
     }
 
+    @Transactional(readOnly = true)
     fun getMyLikes(memberId: Long): List<LikedProductInfo> {
         val productIds = likeService.getLikedProductIds(memberId)
         if (productIds.isEmpty()) return emptyList()

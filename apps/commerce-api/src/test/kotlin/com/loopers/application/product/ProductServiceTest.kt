@@ -1,9 +1,8 @@
 package com.loopers.application.product
 
-import com.loopers.domain.product.ProductCommand
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.domain.product.ProductStatus
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName

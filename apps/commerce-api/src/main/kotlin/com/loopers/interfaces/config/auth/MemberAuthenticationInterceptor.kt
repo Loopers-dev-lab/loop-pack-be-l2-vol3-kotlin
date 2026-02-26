@@ -1,9 +1,9 @@
 package com.loopers.interfaces.config.auth
 
-import com.loopers.infrastructure.config.CacheConfig
+import com.loopers.application.error.ApplicationException
 import com.loopers.application.member.MemberService
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.infrastructure.config.CacheConfig
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.cache.CacheManager
@@ -34,7 +34,7 @@ class MemberAuthenticationInterceptor(
         val password = request.getHeader(HEADER_LOGIN_PW)
 
         if (loginId.isNullOrBlank() || password.isNullOrBlank()) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 없습니다.")
+            throw ApplicationException(httpStatus = 401, code = "Unauthorized", message = "인증 정보가 없습니다.")
         }
 
         val authenticatedMember = resolveFromCacheOrAuthenticate(loginId, password)
@@ -51,7 +51,11 @@ class MemberAuthenticationInterceptor(
             return cachedAuth.toAuthenticatedMember()
         }
 
-        val member = memberService.authenticate(loginId, password)
+        val member = try {
+            memberService.authenticate(loginId, password)
+        } catch (e: CoreException) {
+            throw ApplicationException.from(e)
+        }
         val authenticatedMember = AuthenticatedMember(id = member.id, loginId = member.loginId)
         cache?.put(loginId, CachedAuth.of(authenticatedMember, password))
 

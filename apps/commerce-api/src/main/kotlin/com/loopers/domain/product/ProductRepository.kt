@@ -1,7 +1,7 @@
 package com.loopers.domain.product
 
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
 
 interface ProductRepository {
     fun save(product: ProductModel): ProductModel
@@ -10,9 +10,9 @@ interface ProductRepository {
 
     fun findByIdWithLock(id: Long): ProductModel?
 
-    fun findAll(pageable: Pageable): Page<ProductModel>
+    fun findAll(pageQuery: PageQuery): PageResult<ProductModel>
 
-    fun findAllByBrandId(brandId: Long, pageable: Pageable): Page<ProductModel>
+    fun findAllByBrandId(brandId: Long, pageQuery: PageQuery): PageResult<ProductModel>
 
     fun findAllByIdIn(ids: List<Long>): List<ProductModel>
 

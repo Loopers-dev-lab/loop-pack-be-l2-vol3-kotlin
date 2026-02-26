@@ -9,11 +9,11 @@ class ProductLikeRepositoryImpl(
     private val productLikeJpaRepository: ProductLikeJpaRepository,
 ) : ProductLikeRepository {
     override fun save(productLike: ProductLikeModel): ProductLikeModel {
-        return productLikeJpaRepository.save(productLike)
+        return productLikeJpaRepository.save(ProductLikeJpaModel.from(productLike)).toModel()
     }
 
     override fun findByMemberIdAndProductId(memberId: Long, productId: Long): ProductLikeModel? {
-        return productLikeJpaRepository.findByMemberIdAndProductId(memberId, productId)
+        return productLikeJpaRepository.findByMemberIdAndProductId(memberId, productId)?.toModel()
     }
 
     override fun deleteByMemberIdAndProductId(memberId: Long, productId: Long) {
@@ -21,6 +21,6 @@ class ProductLikeRepositoryImpl(
     }
 
     override fun findAllByMemberId(memberId: Long): List<ProductLikeModel> {
-        return productLikeJpaRepository.findAllByMemberId(memberId)
+        return productLikeJpaRepository.findAllByMemberId(memberId).map { it.toModel() }
     }
 }

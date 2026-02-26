@@ -1,13 +1,14 @@
 package com.loopers.infrastructure.product
 
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductSort
 import com.loopers.domain.product.ProductStatus
 import jakarta.persistence.EntityManager
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 
 @Component
@@ -16,32 +17,49 @@ class ProductRepositoryImpl(
     private val entityManager: EntityManager,
 ) : ProductRepository {
     override fun save(product: ProductModel): ProductModel {
-        return productJpaRepository.save(product)
+        if (product.id == 0L) {
+            return productJpaRepository.save(ProductJpaModel.from(product)).toModel()
+        }
+        val existing = productJpaRepository.findById(product.id).orElseThrow()
+        existing.updateFrom(product)
+        return existing.toModel()
     }
 
     override fun findById(id: Long): ProductModel? {
-        return productJpaRepository.findById(id).orElse(null)
+        return productJpaRepository.findById(id).orElse(null)?.toModel()
     }
 
     override fun findByIdWithLock(id: Long): ProductModel? {
-        return productJpaRepository.findByIdWithLock(id)
+        return productJpaRepository.findByIdWithLock(id)?.toModel()
     }
 
-    override fun findAll(pageable: Pageable): Page<ProductModel> {
-        return productJpaRepository.findAll(pageable)
+    override fun findAll(pageQuery: PageQuery): PageResult<ProductModel> {
+        val pageable = PageRequest.of(pageQuery.page, pageQuery.size)
+        val page = productJpaRepository.findAll(pageable)
+        return PageResult(
+            content = page.content.map { it.toModel() },
+            totalElements = page.totalElements,
+            totalPages = page.totalPages,
+        )
     }
 
-    override fun findAllByBrandId(brandId: Long, pageable: Pageable): Page<ProductModel> {
-        return productJpaRepository.findAllByBrandId(brandId, pageable)
+    override fun findAllByBrandId(brandId: Long, pageQuery: PageQuery): PageResult<ProductModel> {
+        val pageable = PageRequest.of(pageQuery.page, pageQuery.size)
+        val page = productJpaRepository.findAllByBrandId(brandId, pageable)
+        return PageResult(
+            content = page.content.map { it.toModel() },
+            totalElements = page.totalElements,
+            totalPages = page.totalPages,
+        )
     }
 
     override fun findAllByIdIn(ids: List<Long>): List<ProductModel> {
         if (ids.isEmpty()) return emptyList()
-        return productJpaRepository.findAllByIdIn(ids)
+        return productJpaRepository.findAllByIdIn(ids).map { it.toModel() }
     }
 
     override fun findActiveProducts(condition: ProductSearchCondition): List<ProductModel> {
-        val sb = StringBuilder("SELECT p FROM ProductModel p WHERE p.status = :status")
+        val sb = StringBuilder("SELECT p FROM ProductJpaModel p WHERE p.status = :status")
         val params = mutableMapOf<String, Any>("status" to ProductStatus.ACTIVE)
 
         if (condition.brandId != null) {
@@ -55,15 +73,15 @@ class ProductRepositoryImpl(
 
         appendOrderBy(sb, condition.sort)
 
-        val query = entityManager.createQuery(sb.toString(), ProductModel::class.java)
+        val query = entityManager.createQuery(sb.toString(), ProductJpaModel::class.java)
         params.forEach { (key, value) -> query.setParameter(key, value) }
         query.maxResults = condition.size + 1
 
-        return query.resultList
+        return query.resultList.map { it.toModel() }
     }
 
     override fun findAllByBrandIdAndStatus(brandId: Long, status: ProductStatus): List<ProductModel> {
-        return productJpaRepository.findAllByBrandIdAndStatus(brandId, status)
+        return productJpaRepository.findAllByBrandIdAndStatus(brandId, status).map { it.toModel() }
     }
 
     private fun appendCursorCondition(

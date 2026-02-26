@@ -1,7 +1,5 @@
 package com.loopers.domain.example
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -25,40 +23,34 @@ class ExampleModelTest {
 
             // assert
             assertAll(
-                { assertThat(exampleModel.id).isNotNull() },
+                { assertThat(exampleModel.id).isEqualTo(0L) },
                 { assertThat(exampleModel.name).isEqualTo(name) },
                 { assertThat(exampleModel.description).isEqualTo(description) },
             )
         }
 
-        @DisplayName("제목이 빈칸으로만 이루어져 있으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("제목이 빈칸으로만 이루어져 있으면, IllegalArgumentException 예외가 발생한다.")
         @Test
-        fun throwsBadRequestException_whenTitleIsBlank() {
+        fun throwsException_whenTitleIsBlank() {
             // arrange
             val name = "   "
 
-            // act
-            val result = assertThrows<CoreException> {
+            // act & assert
+            assertThrows<IllegalArgumentException> {
                 ExampleModel(name = name, description = "설명")
             }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
-        @DisplayName("설명이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("설명이 비어있으면, IllegalArgumentException 예외가 발생한다.")
         @Test
-        fun throwsBadRequestException_whenDescriptionIsEmpty() {
+        fun throwsException_whenDescriptionIsEmpty() {
             // arrange
             val description = ""
 
-            // act
-            val result = assertThrows<CoreException> {
+            // act & assert
+            assertThrows<IllegalArgumentException> {
                 ExampleModel(name = "제목", description = description)
             }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

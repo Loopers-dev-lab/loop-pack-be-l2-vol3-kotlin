@@ -1,6 +1,6 @@
 package com.loopers.application.order
 
-import org.springframework.data.domain.Page
+import com.loopers.domain.common.PageResult
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -9,8 +9,13 @@ class AdminOrderFacade(
     private val orderService: OrderService,
 ) {
     @Transactional(readOnly = true)
-    fun getOrders(page: Int, size: Int): Page<OrderInfo> {
-        return orderService.getOrders(page, size).map { OrderInfo.from(it) }
+    fun getOrders(page: Int, size: Int): PageResult<OrderInfo> {
+        val result = orderService.getOrders(page, size)
+        return PageResult(
+            content = result.content.map { OrderInfo.from(it) },
+            totalElements = result.totalElements,
+            totalPages = result.totalPages,
+        )
     }
 
     @Transactional(readOnly = true)

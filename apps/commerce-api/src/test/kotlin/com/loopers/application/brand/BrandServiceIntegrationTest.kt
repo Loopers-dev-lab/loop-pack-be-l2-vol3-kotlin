@@ -1,10 +1,9 @@
 package com.loopers.application.brand
 
-import com.loopers.domain.brand.BrandCommand
 import com.loopers.domain.brand.BrandStatus
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.infrastructure.brand.BrandJpaRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach

@@ -1,12 +1,11 @@
 package com.loopers.interfaces.config.auth
 
-import com.loopers.infrastructure.config.CacheConfig
-import com.loopers.domain.common.vo.Email
-import com.loopers.domain.member.MemberModel
+import com.loopers.application.error.ApplicationException
 import com.loopers.application.member.MemberService
-import com.loopers.domain.member.vo.LoginId
-import com.loopers.domain.member.vo.MemberName
-import com.loopers.support.error.CoreException
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
+import com.loopers.domain.member.MemberModel
+import com.loopers.infrastructure.config.CacheConfig
 import io.mockk.every
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
@@ -28,17 +27,13 @@ class MemberAuthenticationInterceptorTest {
     private lateinit var cacheManager: CacheManager
 
     private val testMember = MemberModel(
-        loginId = LoginId.of("testuser01"),
-        encodedPassword = "TestPass123!",
-        name = MemberName.of("홍길동"),
-        email = Email.of("test@example.com"),
+        id = 1L,
+        loginId = "testuser01",
+        password = "TestPass123!",
+        name = "홍길동",
+        email = "test@example.com",
         birthday = LocalDate.of(1990, 1, 1),
-    ).apply {
-        // ID를 리플렉션으로 설정 (테스트용)
-        val idField = this::class.java.superclass.getDeclaredField("id")
-        idField.isAccessible = true
-        idField.set(this, 1L)
-    }
+    )
 
     @BeforeEach
     fun setUp() {
@@ -121,14 +116,14 @@ class MemberAuthenticationInterceptorTest {
             // arrange
             every { memberService.authenticate("testuser01", "TestPass123!") } returns testMember
             every { memberService.authenticate("testuser01", "WrongPass456!") } throws
-                CoreException(com.loopers.support.error.ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
+                CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
             val handler = createAuthenticatedHandlerMethod()
 
             // 첫 번째 요청 (캐시 적재)
             interceptor.preHandle(createRequest("testuser01", "TestPass123!"), MockHttpServletResponse(), handler)
 
-            // act & assert - 다른 비밀번호로 요청
-            assertThrows<CoreException> {
+            // act & assert - 다른 비밀번호로 요청 (CoreException is caught and translated to ApplicationException)
+            assertThrows<ApplicationException> {
                 interceptor.preHandle(createRequest("testuser01", "WrongPass456!"), MockHttpServletResponse(), handler)
             }
             verify(exactly = 1) { memberService.authenticate("testuser01", "WrongPass456!") }

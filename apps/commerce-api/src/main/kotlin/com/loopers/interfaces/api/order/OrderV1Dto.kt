@@ -2,7 +2,6 @@ package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderInfo
 import com.loopers.application.order.OrderItemInfo
-import com.loopers.domain.order.OrderStatus
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
@@ -24,7 +23,7 @@ class OrderV1Dto {
     data class OrderResponse(
         val orderId: Long,
         val orderNumber: String,
-        val status: OrderStatus,
+        val status: String,
         val totalAmount: Long,
         val orderedAt: ZonedDateTime,
         val items: List<OrderItemResponse>,

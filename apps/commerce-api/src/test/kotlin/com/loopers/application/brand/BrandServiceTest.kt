@@ -1,9 +1,8 @@
 package com.loopers.application.brand
 
-import com.loopers.domain.brand.BrandCommand
 import com.loopers.domain.brand.BrandStatus
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName

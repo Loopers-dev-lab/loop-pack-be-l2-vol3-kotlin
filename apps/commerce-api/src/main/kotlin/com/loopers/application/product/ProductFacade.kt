@@ -2,20 +2,24 @@ package com.loopers.application.product
 
 import com.loopers.application.brand.BrandService
 import com.loopers.domain.product.ProductSearchCondition
+import com.loopers.domain.product.ProductSort
 import com.loopers.support.cursor.CursorUtils
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
+    @Transactional(readOnly = true)
     fun getProduct(productId: Long): ProductInfo {
         val product = productService.getProduct(productId)
         val brand = brandService.getBrand(product.brandId)
         return ProductInfo.from(product, brand.name)
     }
 
+    @Transactional(readOnly = true)
     fun getProducts(condition: ProductSearchCondition): ProductListResult {
         val products = productService.getProducts(condition)
         val hasNext = products.size > condition.size
@@ -48,9 +52,9 @@ class ProductFacade(
         last: com.loopers.domain.product.ProductModel,
     ): Map<String, Any> {
         return when (condition.sort) {
-            com.loopers.domain.product.ProductSort.LATEST -> mapOf("id" to last.id)
-            com.loopers.domain.product.ProductSort.PRICE_ASC -> mapOf("price" to last.price, "id" to last.id)
-            com.loopers.domain.product.ProductSort.LIKES_DESC -> mapOf("likeCount" to last.likeCount, "id" to last.id)
+            ProductSort.LATEST -> mapOf("id" to last.id)
+            ProductSort.PRICE_ASC -> mapOf("price" to last.price, "id" to last.id)
+            ProductSort.LIKES_DESC -> mapOf("likeCount" to last.likeCount, "id" to last.id)
         }
     }
 }

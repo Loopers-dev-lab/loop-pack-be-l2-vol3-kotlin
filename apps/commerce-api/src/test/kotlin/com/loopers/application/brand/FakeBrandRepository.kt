@@ -2,42 +2,38 @@ package com.loopers.application.brand
 
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.brand.BrandRepository
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.Pageable
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
 import java.time.ZonedDateTime
 
 class FakeBrandRepository : BrandRepository {
-    private val store = mutableListOf<BrandModel>()
+    private val store = mutableMapOf<Long, BrandModel>()
     private var idSequence = 1L
 
     override fun save(brand: BrandModel): BrandModel {
-        val idField = brand.javaClass.superclass.getDeclaredField("id")
-        idField.isAccessible = true
-        idField.set(brand, idSequence++)
-
         val now = ZonedDateTime.now()
-        brand.javaClass.superclass.getDeclaredField("createdAt").apply {
-            isAccessible = true
-            set(brand, now)
+        val saved = if (brand.id == 0L) {
+            brand.copy(id = idSequence++, createdAt = now, updatedAt = now)
+        } else {
+            brand.copy(updatedAt = now)
         }
-        brand.javaClass.superclass.getDeclaredField("updatedAt").apply {
-            isAccessible = true
-            set(brand, now)
-        }
-
-        store.add(brand)
-        return brand
+        store[saved.id] = saved
+        return saved
     }
 
     override fun findById(id: Long): BrandModel? {
-        return store.find { it.id == id }
+        return store[id]
     }
 
-    override fun findAll(pageable: Pageable): Page<BrandModel> {
-        val start = pageable.offset.toInt()
-        val end = minOf(start + pageable.pageSize, store.size)
-        val content = if (start < store.size) store.subList(start, end) else emptyList()
-        return PageImpl(content, pageable, store.size.toLong())
+    override fun findAll(pageQuery: PageQuery): PageResult<BrandModel> {
+        val all = store.values.toList()
+        val start = pageQuery.page * pageQuery.size
+        val end = minOf(start + pageQuery.size, all.size)
+        val content = if (start < all.size) all.subList(start, end) else emptyList()
+        return PageResult(
+            content = content,
+            totalElements = all.size.toLong(),
+            totalPages = if (pageQuery.size > 0) (all.size + pageQuery.size - 1) / pageQuery.size else 0,
+        )
     }
 }

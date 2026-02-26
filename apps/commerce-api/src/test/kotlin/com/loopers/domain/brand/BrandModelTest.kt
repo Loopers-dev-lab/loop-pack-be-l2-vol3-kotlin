@@ -1,6 +1,5 @@
 package com.loopers.domain.brand
 
-import com.loopers.domain.brand.vo.BrandName
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -9,7 +8,7 @@ import org.junit.jupiter.api.assertAll
 
 class BrandModelTest {
     private fun createBrand(
-        name: BrandName = BrandName.of("루퍼스"),
+        name: String = "루퍼스",
         description: String = "루퍼스 브랜드 설명",
         imageUrl: String = "https://example.com/brand.jpg",
     ) = BrandModel(
@@ -47,17 +46,17 @@ class BrandModelTest {
             val brand = createBrand()
 
             // act
-            brand.update(
-                name = BrandName.of("새 브랜드"),
+            val updated = brand.update(
+                name = "새 브랜드",
                 description = "새 설명",
                 imageUrl = "https://example.com/new.jpg",
             )
 
             // assert
             assertAll(
-                { assertThat(brand.name).isEqualTo("새 브랜드") },
-                { assertThat(brand.description).isEqualTo("새 설명") },
-                { assertThat(brand.imageUrl).isEqualTo("https://example.com/new.jpg") },
+                { assertThat(updated.name).isEqualTo("새 브랜드") },
+                { assertThat(updated.description).isEqualTo("새 설명") },
+                { assertThat(updated.imageUrl).isEqualTo("https://example.com/new.jpg") },
             )
         }
     }
@@ -72,12 +71,12 @@ class BrandModelTest {
             val brand = createBrand()
 
             // act
-            brand.delete()
+            val deleted = brand.delete()
 
             // assert
             assertAll(
-                { assertThat(brand.status).isEqualTo(BrandStatus.DELETED) },
-                { assertThat(brand.isDeleted()).isTrue() },
+                { assertThat(deleted.status).isEqualTo(BrandStatus.DELETED) },
+                { assertThat(deleted.isDeleted()).isTrue() },
             )
         }
     }

@@ -1,11 +1,11 @@
 package com.loopers.interfaces.api.admin.product
 
 import com.loopers.application.product.AdminProductFacade
-import com.loopers.interfaces.config.auth.AdminAuthenticated
-import com.loopers.domain.product.ProductCommand
+import com.loopers.application.product.ProductCommand
+import com.loopers.domain.common.PageResult
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.config.auth.AdminAuthenticated
 import jakarta.validation.Valid
-import org.springframework.data.domain.Page
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -47,10 +47,13 @@ class AdminProductV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) brandId: Long?,
-    ): ApiResponse<Page<AdminProductV1Dto.ProductResponse>> {
-        return adminProductFacade.getProducts(page, size, brandId)
-            .map { AdminProductV1Dto.ProductResponse.from(it) }
-            .let { ApiResponse.success(it) }
+    ): ApiResponse<PageResult<AdminProductV1Dto.ProductResponse>> {
+        val result = adminProductFacade.getProducts(page, size, brandId)
+        return PageResult(
+            content = result.content.map { AdminProductV1Dto.ProductResponse.from(it) },
+            totalElements = result.totalElements,
+            totalPages = result.totalPages,
+        ).let { ApiResponse.success(it) }
     }
 
     @GetMapping("/{productId}")

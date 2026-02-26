@@ -1,6 +1,6 @@
 package com.loopers.interfaces.config.auth
 
-import com.loopers.support.error.CoreException
+import com.loopers.application.error.ApplicationException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -69,7 +69,7 @@ class AdminAuthenticationInterceptorTest {
             val handler = createMethodAnnotatedHandlerMethod()
 
             // act & assert
-            assertThrows<CoreException> {
+            assertThrows<ApplicationException> {
                 interceptor.preHandle(request, response, handler)
             }
         }
@@ -83,7 +83,7 @@ class AdminAuthenticationInterceptorTest {
             val handler = createMethodAnnotatedHandlerMethod()
 
             // act & assert
-            assertThrows<CoreException> {
+            assertThrows<ApplicationException> {
                 interceptor.preHandle(request, response, handler)
             }
         }
@@ -112,7 +112,7 @@ class AdminAuthenticationInterceptorTest {
             val handler = createClassAnnotatedHandlerMethod()
 
             // act & assert
-            assertThrows<CoreException> {
+            assertThrows<ApplicationException> {
                 interceptor.preHandle(request, response, handler)
             }
         }

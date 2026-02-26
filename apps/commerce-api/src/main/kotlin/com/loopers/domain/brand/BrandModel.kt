@@ -1,47 +1,26 @@
 package com.loopers.domain.brand
 
-import com.loopers.domain.BaseEntity
-import com.loopers.domain.brand.vo.BrandName
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
-import jakarta.persistence.Table
+import java.time.ZonedDateTime
 
-@Entity
-@Table(name = "brand")
-class BrandModel(
-    name: BrandName,
-    description: String,
-    imageUrl: String,
-) : BaseEntity() {
-    @Column(name = "name", nullable = false)
-    var name: String = name.value
-        protected set
-
-    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
-    var description: String = description
-        protected set
-
-    @Column(name = "image_url", nullable = false, length = 512)
-    var imageUrl: String = imageUrl
-        protected set
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    var status: BrandStatus = BrandStatus.ACTIVE
-        protected set
-
-    fun update(name: BrandName, description: String, imageUrl: String) {
-        this.name = name.value
-        this.description = description
-        this.imageUrl = imageUrl
+data class BrandModel(
+    val id: Long = 0,
+    val name: String,
+    val description: String,
+    val imageUrl: String,
+    val status: BrandStatus = BrandStatus.ACTIVE,
+    val createdAt: ZonedDateTime? = null,
+    val updatedAt: ZonedDateTime? = null,
+    val deletedAt: ZonedDateTime? = null,
+) {
+    init {
+        require(name.isNotBlank()) { "브랜드 이름은 비어있을 수 없습니다." }
     }
 
-    override fun delete() {
-        this.status = BrandStatus.DELETED
-        super.delete()
-    }
+    fun update(name: String, description: String, imageUrl: String): BrandModel =
+        copy(name = name, description = description, imageUrl = imageUrl)
+
+    fun delete(): BrandModel =
+        copy(status = BrandStatus.DELETED, deletedAt = deletedAt ?: ZonedDateTime.now())
 
     fun isDeleted(): Boolean = status == BrandStatus.DELETED
 }

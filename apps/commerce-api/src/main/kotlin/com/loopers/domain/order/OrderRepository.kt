@@ -1,7 +1,7 @@
 package com.loopers.domain.order
 
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
 import java.time.ZonedDateTime
 
 interface OrderRepository {
@@ -15,5 +15,5 @@ interface OrderRepository {
         endAt: ZonedDateTime,
     ): List<OrderModel>
 
-    fun findAll(pageable: Pageable): Page<OrderModel>
+    fun findAll(pageQuery: PageQuery): PageResult<OrderModel>
 }

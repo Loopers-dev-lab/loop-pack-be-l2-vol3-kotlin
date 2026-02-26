@@ -1,9 +1,9 @@
 package com.loopers.interfaces.api.admin.order
 
 import com.loopers.application.order.AdminOrderFacade
-import com.loopers.interfaces.config.auth.AdminAuthenticated
+import com.loopers.domain.common.PageResult
 import com.loopers.interfaces.api.ApiResponse
-import org.springframework.data.domain.Page
+import com.loopers.interfaces.config.auth.AdminAuthenticated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -20,10 +20,13 @@ class AdminOrderV1Controller(
     override fun getOrders(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-    ): ApiResponse<Page<AdminOrderV1Dto.OrderResponse>> {
-        return adminOrderFacade.getOrders(page, size)
-            .map { AdminOrderV1Dto.OrderResponse.from(it) }
-            .let { ApiResponse.success(it) }
+    ): ApiResponse<PageResult<AdminOrderV1Dto.OrderResponse>> {
+        val result = adminOrderFacade.getOrders(page, size)
+        return PageResult(
+            content = result.content.map { AdminOrderV1Dto.OrderResponse.from(it) },
+            totalElements = result.totalElements,
+            totalPages = result.totalPages,
+        ).let { ApiResponse.success(it) }
     }
 
     @GetMapping("/{orderId}")

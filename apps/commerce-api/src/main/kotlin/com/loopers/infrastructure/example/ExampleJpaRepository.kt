@@ -1,6 +1,5 @@
 package com.loopers.infrastructure.example
 
-import com.loopers.domain.example.ExampleModel
 import org.springframework.data.jpa.repository.JpaRepository
 
-interface ExampleJpaRepository : JpaRepository<ExampleModel, Long>
+interface ExampleJpaRepository : JpaRepository<ExampleJpaModel, Long>
