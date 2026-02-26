@@ -23,6 +23,12 @@ class ProductService(
     }
 
     @Transactional(readOnly = true)
+    fun getProductIncludingDeleted(productId: Long): Product {
+        return productRepository.findByIdIncludingDeleted(productId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+    }
+
+    @Transactional(readOnly = true)
     fun getAllProducts(brandId: Long?, pageable: Pageable): Page<Product> {
         return if (brandId != null) {
             productRepository.findAllByBrandId(brandId, pageable)

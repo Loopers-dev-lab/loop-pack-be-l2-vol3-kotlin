@@ -10,6 +10,7 @@ class BrandFacade(
     private val productService: ProductService,
 ) {
 
+    // todo brand 삭제시 product 연쇄 삭제되도록 수정 예정
     @Transactional
     fun deleteBrand(brandId: Long) {
         brandService.deleteBrand(brandId)
