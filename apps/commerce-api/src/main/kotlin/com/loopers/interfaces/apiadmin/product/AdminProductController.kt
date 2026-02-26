@@ -1,10 +1,14 @@
 package com.loopers.interfaces.apiadmin.product
 
 import com.loopers.application.product.AdminProductFacade
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.SortOrder
 import com.loopers.interfaces.common.ApiResponse
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -12,6 +16,18 @@ import org.springframework.web.bind.annotation.RestController
 class AdminProductController(
     private val adminProductFacade: AdminProductFacade,
 ) : AdminProductApiSpec {
+
+    @GetMapping
+    override fun getProducts(
+        @RequestParam(required = false) brandId: Long?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): ApiResponse<AdminProductDto.PageResponse> {
+        val pageQuery = PageQuery(page, size, SortOrder.UNSORTED)
+        return adminProductFacade.getProducts(brandId, pageQuery)
+            .let { AdminProductDto.PageResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 
     @PostMapping
     override fun createProduct(

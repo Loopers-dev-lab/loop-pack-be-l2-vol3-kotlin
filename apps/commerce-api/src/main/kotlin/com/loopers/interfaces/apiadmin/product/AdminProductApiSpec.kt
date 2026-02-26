@@ -11,4 +11,14 @@ interface AdminProductApiSpec {
         description = "새로운 상품을 등록합니다.",
     )
     fun createProduct(request: AdminProductDto.CreateRequest): ApiResponse<AdminProductDto.CreateResponse>
+
+    @Operation(
+        summary = "상품 목록 조회",
+        description = "상품 목록을 페이징하여 조회합니다.",
+    )
+    fun getProducts(
+        brandId: Long?,
+        page: Int,
+        size: Int,
+    ): ApiResponse<AdminProductDto.PageResponse>
 }
