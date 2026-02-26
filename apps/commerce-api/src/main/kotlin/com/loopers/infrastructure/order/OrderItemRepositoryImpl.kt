@@ -29,6 +29,7 @@ class OrderItemRepositoryImpl(
     }
 
     override fun findAllByOrderIds(orderIds: List<OrderId>): List<OrderItem> {
+        if (orderIds.isEmpty()) return emptyList()
         return orderItemJpaRepository.findAllByRefOrderIdIn(orderIds.map { it.value }).map { it.toDomain() }
     }
 }
