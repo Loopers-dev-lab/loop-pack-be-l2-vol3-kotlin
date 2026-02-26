@@ -1,5 +1,6 @@
 package com.loopers.domain.brand
 
+import com.loopers.domain.catalog.BrandModel
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat

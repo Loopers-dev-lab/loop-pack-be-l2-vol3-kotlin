@@ -1,9 +1,9 @@
 package com.loopers.interfaces.api
 
-import com.loopers.domain.brand.BrandModel
-import com.loopers.domain.brand.BrandService
-import com.loopers.domain.brand.RegisterCommand
-import com.loopers.interfaces.api.brand.BrandV1AdminDto
+import com.loopers.application.catalog.AdminRegisterBrandUseCase
+import com.loopers.application.catalog.RegisterBrandCriteria
+import com.loopers.application.catalog.RegisterBrandResult
+import com.loopers.interfaces.api.catalog.BrandV1AdminDto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -23,7 +23,7 @@ import kotlin.test.Test
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BrandAdminV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
-    private val brandService: BrandService,
+    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
     private val databaseCleanUp: DatabaseCleanUp,
 ){
     companion object {
@@ -44,13 +44,13 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
         name: String = DEFAULT_BRAND_NAME,
         description: String = DEFAULT_BRAND_DESCRIPTION,
         logoUrl: String = DEFAULT_BRAND_LOGO_URL
-    ): BrandModel {
-        val command = RegisterCommand(
+    ): RegisterBrandResult {
+        val criteria = RegisterBrandCriteria(
             name = name,
             description = description,
-            logoUrl = logoUrl
+            logoUrl = logoUrl,
         )
-        return brandService.register(command)
+        return adminRegisterBrandUseCase.execute(criteria)
     }
 
     private fun createAuthAdminHeader(): HttpHeaders {
@@ -103,6 +103,47 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         }
+    }
+
+    @DisplayName("GET /api-admin/v1/brands/{brandId}")
+    @Nested
+    inner class GetBrand {
+        @DisplayName("유효한 정보가 주어지면, 200 OK와 브랜드 상세 정보를 반환한다.")
+        @Test
+        fun returnBrandDetailAndOkWhenValidInfoIsProvided() {
+            // arrange
+            val brand = registerBrand()
+
+            // act
+            val headers = createAuthAdminHeader()
+            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1AdminDto.BrandDetailResponse>>() {}
+            val response = testRestTemplate.exchange("$ENDPOINT_BASE/${brand.id}", HttpMethod.GET, HttpEntity(null, headers), responseType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.id).isEqualTo(brand.id) },
+                { assertThat(response.body?.data?.name).isEqualTo(DEFAULT_BRAND_NAME) },
+                { assertThat(response.body?.data?.description).isEqualTo(DEFAULT_BRAND_DESCRIPTION) },
+                { assertThat(response.body?.data?.logoUrl).isEqualTo(DEFAULT_BRAND_LOGO_URL) },
+            )
+        }
+
+        @DisplayName("브랜드가 존재하지 않으면 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnNotFoundWhenBrandDoesNotExist() {
+            // arrange
+            val brandId = 999
+
+            // act
+            val headers = createAuthAdminHeader()
+            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1AdminDto.BrandDetailResponse>>() {}
+            val response = testRestTemplate.exchange("$ENDPOINT_BASE/${brandId}", HttpMethod.GET, HttpEntity(null, headers), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
+
     }
 
     @DisplayName("PUT /api-admin/v1/brands/{brandId}")
@@ -164,42 +205,86 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    @DisplayName("인증 헤더가 누락되면, 401 UNAUTHORIZED 응답을 받는다.")
-    @Test
-    fun returnsUnauthorizedWhenAuthHeaderIsMissing() {
-        // arrange
-        val request = BrandV1AdminDto.RegisterRequest(
-            name = DEFAULT_BRAND_NAME,
-            description = DEFAULT_BRAND_DESCRIPTION,
-            logoUrl = DEFAULT_BRAND_LOGO_URL,
-        )
+    @DisplayName("GET /api-admin/v1/brands")
+    @Nested
+    inner class GetBrands {
 
-        // act
-        val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-        val response = testRestTemplate.exchange(ENDPOINT_BASE, HttpMethod.POST, HttpEntity(request), responseType)
+        @DisplayName("브랜드 목록을 조회하면, 200 OK와 Slice 페이지네이션 응답을 반환한다.")
+        @Test
+        fun returnsBrandSliceAndOk() {
+            // arrange
+            registerBrand(name = "brand-1")
+            registerBrand(name = "brand-2")
+            val headers = createAuthAdminHeader()
+            val url = "$ENDPOINT_BASE?page=0&size=10"
 
-        // assert
-        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
-    }
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1AdminDto.BrandSliceResponse>>() {}
+            val response = testRestTemplate.exchange(url, HttpMethod.GET, HttpEntity(null, headers), responseType)
 
-    @DisplayName("잘못된 LDAP 값이면, 401 UNAUTHORIZED 응답을 받는다.")
-    @Test
-    fun returnsUnauthorizedWhenInvalidLdapValueIsProvided() {
-        // arrange
-        val request = BrandV1AdminDto.RegisterRequest(
-            name = DEFAULT_BRAND_NAME,
-            description = DEFAULT_BRAND_DESCRIPTION,
-            logoUrl = DEFAULT_BRAND_LOGO_URL,
-        )
-        val headers = HttpHeaders().apply {
-            set("X-Loopers-Ldap", "invalid.value")
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.content).hasSize(2) },
+                { assertThat(response.body?.data?.hasNext).isFalse() },
+            )
         }
 
-        // act
-        val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-        val response = testRestTemplate.exchange(ENDPOINT_BASE, HttpMethod.POST, HttpEntity(request, headers), responseType)
+        @DisplayName("페이지 크기보다 많은 브랜드가 있으면, hasNext가 true인 응답을 반환한다.")
+        @Test
+        fun returnsHasNextTrueWhenMoreBrandsExist() {
+            // arrange
+            registerBrand(name = "brand-1")
+            registerBrand(name = "brand-2")
+            registerBrand(name = "brand-3")
+            val headers = createAuthAdminHeader()
+            val url = "$ENDPOINT_BASE?page=0&size=2"
 
-        // assert
-        assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1AdminDto.BrandSliceResponse>>() {}
+            val response = testRestTemplate.exchange(url, HttpMethod.GET, HttpEntity(null, headers), responseType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.content).hasSize(2) },
+                { assertThat(response.body?.data?.hasNext).isTrue() },
+            )
+        }
+    }
+
+    @DisplayName("DELETE /api-admin/v1/brands/{brandId}")
+    @Nested
+    inner class DeleteBrand {
+
+        @DisplayName("존재하는 브랜드를 삭제하면, 204 NO_CONTENT를 반환한다.")
+        @Test
+        fun returnsNoContentWhenBrandIsDeleted() {
+            // arrange
+            val brand = registerBrand()
+            val headers = createAuthAdminHeader()
+            val url = "$ENDPOINT_BASE/${brand.id}"
+
+            // act
+            val response = testRestTemplate.exchange(url, HttpMethod.DELETE, HttpEntity(null, headers), Void::class.java)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+        }
+
+        @DisplayName("존재하지 않는 브랜드를 삭제하면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFoundWhenBrandDoesNotExist() {
+            // arrange
+            val headers = createAuthAdminHeader()
+            val url = "$ENDPOINT_BASE/999"
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(url, HttpMethod.DELETE, HttpEntity(null, headers), responseType)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
     }
 }
