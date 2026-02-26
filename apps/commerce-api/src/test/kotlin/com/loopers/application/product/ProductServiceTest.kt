@@ -1,6 +1,6 @@
 package com.loopers.application.product
 
-import com.loopers.application.brand.BrandService
+import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -16,8 +16,6 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
-import org.mockito.kotlin.doNothing
-import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
@@ -32,7 +30,7 @@ class ProductServiceTest {
     private lateinit var productRepository: ProductRepository
 
     @Mock
-    private lateinit var brandService: BrandService
+    private lateinit var brandRepository: BrandRepository
 
     @InjectMocks
     private lateinit var productService: ProductService
@@ -182,7 +180,7 @@ class ProductServiceTest {
                 imageUrl = TEST_IMAGE_URL,
             )
 
-            doNothing().whenever(brandService).validateBrandExists(TEST_BRAND_ID)
+            whenever(brandRepository.existsById(TEST_BRAND_ID)).thenReturn(true)
             whenever(productRepository.save(any())).thenAnswer {
                 val product = it.arguments[0] as Product
                 ReflectionTestUtils.setField(product, "createdAt", now)
@@ -217,8 +215,7 @@ class ProductServiceTest {
                 imageUrl = null,
             )
 
-            doThrow(CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."))
-                .whenever(brandService).validateBrandExists(999L)
+            whenever(brandRepository.existsById(999L)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {

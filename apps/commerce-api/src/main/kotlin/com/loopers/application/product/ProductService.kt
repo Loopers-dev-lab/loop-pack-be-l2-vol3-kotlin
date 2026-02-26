@@ -1,6 +1,6 @@
 package com.loopers.application.product
 
-import com.loopers.application.brand.BrandService
+import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class ProductService(
     private val productRepository: ProductRepository,
-    private val brandService: BrandService,
+    private val brandRepository: BrandRepository,
 ) {
 
     @Transactional(readOnly = true)
@@ -25,12 +25,6 @@ class ProductService(
     @Transactional(readOnly = true)
     fun getProductInfo(productId: Long): ProductInfo {
         return ProductInfo.from(getProduct(productId))
-    }
-
-    @Transactional(readOnly = true)
-    fun getProductIncludingDeleted(productId: Long): Product {
-        return productRepository.findByIdIncludingDeleted(productId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +46,9 @@ class ProductService(
 
     @Transactional
     fun createProduct(criteria: CreateProductCriteria): ProductInfo {
-        brandService.validateBrandExists(criteria.brandId)
+        if (!brandRepository.existsById(criteria.brandId)) {
+            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        }
         val product = productRepository.save(
             Product(
                 brandId = criteria.brandId,
