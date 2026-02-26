@@ -12,6 +12,7 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.data.domain.PageRequest
 
 @SpringBootTest
 class BrandServiceIntegrationTest @Autowired constructor(
@@ -54,6 +55,68 @@ class BrandServiceIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(found.name).isEqualTo("무인양품") },
                 { assertThat(found.description).isNull() },
+            )
+        }
+    }
+
+    @DisplayName("브랜드 목록 조회할 때,")
+    @Nested
+    inner class GetBrands {
+
+        @DisplayName("DB에 저장된 브랜드를 페이징으로 조회하면, 해당 페이지의 브랜드를 반환한다.")
+        @Test
+        fun returnsPagedBrands_whenBrandsExistInDb() {
+            // arrange
+            brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            brandRepository.save(Brand(name = "아디다스", description = "스포츠 브랜드"))
+            brandRepository.save(Brand(name = "무인양품", description = null))
+            val pageable = PageRequest.of(0, 2)
+
+            // act
+            val result = brandService.getBrands(pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.totalElements).isEqualTo(3) },
+                { assertThat(result.totalPages).isEqualTo(2) },
+            )
+        }
+
+        @DisplayName("삭제된 브랜드는 목록에 포함되지 않는다.")
+        @Test
+        fun excludesDeletedBrands() {
+            // arrange
+            brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val deletedBrand = brandRepository.save(Brand(name = "삭제될 브랜드", description = "설명"))
+            deletedBrand.delete()
+            brandRepository.save(deletedBrand)
+            val pageable = PageRequest.of(0, 20)
+
+            // act
+            val result = brandService.getBrands(pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(1) },
+                { assertThat(result.totalElements).isEqualTo(1) },
+                { assertThat(result.content[0].name).isEqualTo("나이키") },
+            )
+        }
+
+        @DisplayName("브랜드가 없으면, 빈 페이지를 반환한다.")
+        @Test
+        fun returnsEmptyPage_whenNoBrandsExistInDb() {
+            // arrange
+            val pageable = PageRequest.of(0, 20)
+
+            // act
+            val result = brandService.getBrands(pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).isEmpty() },
+                { assertThat(result.totalElements).isEqualTo(0) },
             )
         }
     }
