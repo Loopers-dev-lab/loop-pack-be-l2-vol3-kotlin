@@ -29,7 +29,7 @@ class AddLikeUseCase(
 
         val lockedProduct = productRepository.findByIdForUpdate(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        if (lockedProduct.isDeleted()) {
+        if (lockedProduct.isDeleted() || !lockedProduct.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
         lockedProduct.increaseLikeCount()
