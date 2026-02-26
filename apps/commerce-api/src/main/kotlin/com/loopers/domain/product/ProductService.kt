@@ -32,7 +32,19 @@ class ProductService(
         return productRepository.findAllByIds(ids)
     }
 
-    fun deductStock(product: Product, quantity: Int) {
-        product.deductStock(quantity)
+    fun getProductsForOrder(productIds: List<Long>): List<Product> {
+        val products = getProductsByIds(productIds)
+        val foundIds = products.map { it.id }.toSet()
+        val missingIds = productIds.filter { it !in foundIds }
+        if (missingIds.isNotEmpty()) {
+            throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: $missingIds")
+        }
+        return products
+    }
+
+    fun deductStocks(products: Map<Long, Product>, requests: List<StockDeductionRequest>) {
+        for (request in requests) {
+            products.getValue(request.productId).deductStock(request.quantity)
+        }
     }
 }
