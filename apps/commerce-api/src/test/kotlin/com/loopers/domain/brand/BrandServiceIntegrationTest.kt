@@ -1,7 +1,7 @@
 package com.loopers.domain.brand
 
 import com.loopers.application.catalog.AdminDeleteBrandUseCase
-import com.loopers.application.catalog.AdminListBrandsUseCase
+import com.loopers.application.catalog.AdminGetBrandsUseCase
 import com.loopers.application.catalog.AdminRegisterBrandUseCase
 import com.loopers.application.catalog.AdminRegisterProductUseCase
 import com.loopers.application.catalog.AdminUpdateBrandUseCase
@@ -29,7 +29,7 @@ import org.springframework.boot.test.context.SpringBootTest
 class BrandServiceIntegrationTest @Autowired constructor(
     private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
     private val adminUpdateBrandUseCase: AdminUpdateBrandUseCase,
-    private val adminListBrandsUseCase: AdminListBrandsUseCase,
+    private val adminGetBrandsUseCase: AdminGetBrandsUseCase,
     private val adminDeleteBrandUseCase: AdminDeleteBrandUseCase,
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val brandJpaRepository: BrandJpaRepository,
@@ -182,7 +182,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
             val criteria = ListBrandsCriteria(page = 0, size = 10)
 
             // act
-            val result = adminListBrandsUseCase.execute(criteria)
+            val result = adminGetBrandsUseCase.execute(criteria)
 
             // assert
             assertAll(
@@ -200,7 +200,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
             val criteria = ListBrandsCriteria(page = 0, size = 10)
 
             // act
-            val result = adminListBrandsUseCase.execute(criteria)
+            val result = adminGetBrandsUseCase.execute(criteria)
 
             // assert
             assertAll(
@@ -219,7 +219,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
             val criteria = ListBrandsCriteria(page = 0, size = 2)
 
             // act
-            val result = adminListBrandsUseCase.execute(criteria)
+            val result = adminGetBrandsUseCase.execute(criteria)
 
             // assert
             assertAll(
@@ -238,7 +238,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
             val criteria = ListBrandsCriteria(page = 0, size = 10)
 
             // act
-            val result = adminListBrandsUseCase.execute(criteria)
+            val result = adminGetBrandsUseCase.execute(criteria)
 
             // assert
             assertAll(

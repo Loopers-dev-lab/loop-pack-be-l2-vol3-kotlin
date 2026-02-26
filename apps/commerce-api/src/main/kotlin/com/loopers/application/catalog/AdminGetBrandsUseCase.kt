@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class AdminListBrandsUseCase(
+class AdminGetBrandsUseCase(
     private val brandRepository: BrandRepository,
 ) : UseCase<ListBrandsCriteria, ListBrandsResult> {
 

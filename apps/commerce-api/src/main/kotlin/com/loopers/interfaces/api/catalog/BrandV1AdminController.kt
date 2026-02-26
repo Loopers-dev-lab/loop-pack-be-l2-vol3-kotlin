@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.catalog
 
 import com.loopers.application.catalog.AdminDeleteBrandUseCase
 import com.loopers.application.catalog.AdminGetBrandUseCase
-import com.loopers.application.catalog.AdminListBrandsUseCase
+import com.loopers.application.catalog.AdminGetBrandsUseCase
 import com.loopers.application.catalog.AdminRegisterBrandUseCase
 import com.loopers.application.catalog.AdminUpdateBrandUseCase
 import com.loopers.application.catalog.ListBrandsCriteria
@@ -28,7 +28,7 @@ class BrandV1AdminController(
     private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
     private val adminGetBrandUseCase: AdminGetBrandUseCase,
     private val adminUpdateBrandUseCase: AdminUpdateBrandUseCase,
-    private val adminListBrandsUseCase: AdminListBrandsUseCase,
+    private val adminGetBrandsUseCase: AdminGetBrandsUseCase,
     private val adminDeleteBrandUseCase: AdminDeleteBrandUseCase,
 ) : BrandV1AdminApiSpec {
 
@@ -54,7 +54,7 @@ class BrandV1AdminController(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<BrandV1AdminDto.BrandSliceResponse> {
-        return adminListBrandsUseCase.execute(ListBrandsCriteria(page = page, size = size))
+        return adminGetBrandsUseCase.execute(ListBrandsCriteria(page = page, size = size))
             .let { BrandV1AdminDto.BrandSliceResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
