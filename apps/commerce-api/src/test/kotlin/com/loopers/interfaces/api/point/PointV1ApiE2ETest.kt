@@ -41,12 +41,13 @@ class PointV1ApiE2ETest @Autowired constructor(
             birthDate = LocalDate.of(1990, 1, 15),
             email = "test@example.com",
         )
-        testRestTemplate.exchange(
+        val response = testRestTemplate.exchange(
             "/api/v1/users/sign-up",
             HttpMethod.POST,
             HttpEntity(request),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
     }
 
     private fun authHeaders(): HttpHeaders {
@@ -95,7 +96,7 @@ class PointV1ApiE2ETest @Autowired constructor(
             signUp()
 
             // act - 충전
-            val chargeResponseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val chargeResponseType = object : ParameterizedTypeReference<ApiResponse<PointV1Dto.BalanceResponse>>() {}
             val chargeResponse = testRestTemplate.exchange(
                 "/api/v1/users/points/charge?amount=50000",
                 HttpMethod.POST,
@@ -105,6 +106,7 @@ class PointV1ApiE2ETest @Autowired constructor(
 
             // assert - 충전 성공
             assertThat(chargeResponse.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(chargeResponse.body?.data?.balance).isEqualTo(50000)
 
             // act - 잔액 조회
             val balanceType = object : ParameterizedTypeReference<ApiResponse<PointV1Dto.BalanceResponse>>() {}
@@ -129,7 +131,7 @@ class PointV1ApiE2ETest @Autowired constructor(
             signUp()
 
             // act
-            val chargeResponseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val chargeResponseType = object : ParameterizedTypeReference<ApiResponse<PointV1Dto.BalanceResponse>>() {}
             testRestTemplate.exchange(
                 "/api/v1/users/points/charge?amount=10000",
                 HttpMethod.POST,
