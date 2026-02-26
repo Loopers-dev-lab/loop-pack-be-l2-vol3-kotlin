@@ -1,4 +1,4 @@
-package com.loopers.domain.order
+package com.loopers.application.order
 
 interface StockLockManager {
 

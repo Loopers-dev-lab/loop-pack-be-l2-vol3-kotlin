@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.order
 
-import com.loopers.domain.order.StockLockManager
+import com.loopers.application.order.StockLockManager
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
