@@ -45,6 +45,8 @@ class AdminBrandFacadeIntegrationTest @Autowired constructor(
                 { assertThat(result.id).isEqualTo(saved.id) },
                 { assertThat(result.name).isEqualTo("나이키") },
                 { assertThat(result.description).isEqualTo("스포츠 브랜드") },
+                { assertThat(result.createdAt).isNotNull() },
+                { assertThat(result.updatedAt).isNotNull() },
             )
         }
 

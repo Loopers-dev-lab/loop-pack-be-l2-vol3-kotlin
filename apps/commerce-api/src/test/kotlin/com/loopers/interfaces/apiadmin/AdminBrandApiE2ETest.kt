@@ -439,6 +439,8 @@ class AdminBrandApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
                 { assertThat(response.body?.data?.get("name")).isEqualTo("나이키") },
                 { assertThat(response.body?.data?.get("description")).isEqualTo("스포츠 브랜드") },
+                { assertThat(response.body?.data?.get("createdAt")).isNotNull() },
+                { assertThat(response.body?.data?.get("updatedAt")).isNotNull() },
             )
         }
 

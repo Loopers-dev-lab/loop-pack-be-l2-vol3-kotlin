@@ -12,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.whenever
+import org.springframework.test.util.ReflectionTestUtils
+import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
 class AdminBrandFacadeTest {
@@ -35,7 +37,10 @@ class AdminBrandFacadeTest {
         fun returnsBrandInfo_whenValidBrandIdProvided() {
             // arrange
             val brandId = 1L
+            val now = ZonedDateTime.now()
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
+            ReflectionTestUtils.setField(brand, "createdAt", now)
+            ReflectionTestUtils.setField(brand, "updatedAt", now)
 
             whenever(brandService.getBrand(brandId)).thenReturn(brand)
 
@@ -46,6 +51,8 @@ class AdminBrandFacadeTest {
             assertAll(
                 { assertThat(result.name).isEqualTo("나이키") },
                 { assertThat(result.description).isEqualTo("스포츠 브랜드") },
+                { assertThat(result.createdAt).isEqualTo(now) },
+                { assertThat(result.updatedAt).isEqualTo(now) },
             )
         }
     }
