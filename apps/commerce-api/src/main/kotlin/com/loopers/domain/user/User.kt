@@ -1,7 +1,8 @@
 package com.loopers.domain.user
 
 import com.loopers.domain.BaseEntity
-import com.loopers.support.error.UserException
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.UserErrorCode
 import jakarta.persistence.AttributeOverride
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
@@ -78,28 +79,28 @@ class User private constructor(
 
         private fun validateLoginId(loginId: String) {
             if (loginId.length < LOGIN_ID_MIN_LENGTH || loginId.length > LOGIN_ID_MAX_LENGTH) {
-                throw UserException.invalidLoginIdLength()
+                throw CoreException(UserErrorCode.INVALID_LOGIN_ID_LENGTH)
             }
             if (!loginId.matches(LOGIN_ID_PATTERN)) {
-                throw UserException.invalidLoginIdFormat()
+                throw CoreException(UserErrorCode.INVALID_LOGIN_ID_FORMAT)
             }
         }
 
         private fun validateEmail(email: String) {
             if (!email.matches(EMAIL_PATTERN)) {
-                throw UserException.invalidEmailFormat()
+                throw CoreException(UserErrorCode.INVALID_EMAIL_FORMAT)
             }
         }
 
         private fun validateName(name: String) {
             if (name.length < NAME_MIN_LENGTH || name.length > NAME_MAX_LENGTH) {
-                throw UserException.invalidNameFormat()
+                throw CoreException(UserErrorCode.INVALID_NAME_FORMAT)
             }
         }
 
         private fun validateBirthDate(birthDate: LocalDate) {
             if (birthDate.isAfter(LocalDate.now())) {
-                throw UserException.invalidBirthDate()
+                throw CoreException(UserErrorCode.INVALID_BIRTH_DATE)
             }
         }
     }

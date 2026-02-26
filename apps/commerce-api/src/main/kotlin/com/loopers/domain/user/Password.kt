@@ -1,6 +1,7 @@
 package com.loopers.domain.user
 
-import com.loopers.support.error.UserException
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.UserErrorCode
 import jakarta.persistence.Embeddable
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -39,20 +40,20 @@ class Password protected constructor(
 
         private fun validateLength(rawPassword: String) {
             if (rawPassword.length < MIN_LENGTH || rawPassword.length > MAX_LENGTH) {
-                throw UserException.invalidPasswordLength()
+                throw CoreException(UserErrorCode.INVALID_PASSWORD_LENGTH)
             }
         }
 
         private fun validateFormat(rawPassword: String) {
             if (!rawPassword.matches(ALLOWED_PATTERN)) {
-                throw UserException.invalidPasswordFormat()
+                throw CoreException(UserErrorCode.INVALID_PASSWORD_FORMAT)
             }
         }
 
         private fun validateNotContainsBirthDate(rawPassword: String, birthDate: LocalDate) {
             val birthDateString = birthDate.format(BIRTH_DATE_FORMAT)
             if (rawPassword.contains(birthDateString)) {
-                throw UserException.passwordContainsBirthDate()
+                throw CoreException(UserErrorCode.PASSWORD_CONTAINS_BIRTH_DATE)
             }
         }
     }

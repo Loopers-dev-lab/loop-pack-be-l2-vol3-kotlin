@@ -1,7 +1,7 @@
 package com.loopers.domain.brand
 
 import com.loopers.support.error.BrandErrorCode
-import com.loopers.support.error.BrandException
+import com.loopers.support.error.CoreException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -37,7 +37,7 @@ class BrandTest {
         @DisplayName("이름이 빈값이면 실패한다")
         @Test
         fun failWhenNameIsEmpty() {
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 Brand.create(name = "")
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.INVALID_BRAND_NAME)
@@ -46,7 +46,7 @@ class BrandTest {
         @DisplayName("이름이 공백으로만 이루어져 있으면 실패한다")
         @Test
         fun failWhenNameIsBlank() {
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 Brand.create(name = "   ")
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.INVALID_BRAND_NAME)
@@ -57,7 +57,7 @@ class BrandTest {
         fun failWhenNameTooLong() {
             val longName = "가".repeat(51)
 
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 Brand.create(name = longName)
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.INVALID_BRAND_NAME)
@@ -104,7 +104,7 @@ class BrandTest {
         fun failWhenUpdateNameIsEmpty() {
             val brand = Brand.create(name = "나이키")
 
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 brand.update(name = "")
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.INVALID_BRAND_NAME)
@@ -116,7 +116,7 @@ class BrandTest {
             val brand = Brand.create(name = "나이키")
             val longName = "가".repeat(51)
 
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 brand.update(name = longName)
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.INVALID_BRAND_NAME)

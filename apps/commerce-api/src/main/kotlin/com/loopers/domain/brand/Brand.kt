@@ -1,7 +1,8 @@
 package com.loopers.domain.brand
 
 import com.loopers.domain.BaseEntity
-import com.loopers.support.error.BrandException
+import com.loopers.support.error.BrandErrorCode
+import com.loopers.support.error.CoreException
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -45,7 +46,7 @@ class Brand private constructor(
         private fun validateName(name: String) {
             val trimmed = name.trim()
             if (trimmed.length < NAME_MIN_LENGTH || trimmed.length > NAME_MAX_LENGTH) {
-                throw BrandException.invalidName()
+                throw CoreException(BrandErrorCode.INVALID_BRAND_NAME)
             }
         }
     }

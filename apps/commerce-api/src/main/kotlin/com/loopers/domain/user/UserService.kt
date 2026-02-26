@@ -1,6 +1,7 @@
 package com.loopers.domain.user
 
-import com.loopers.support.error.UserException
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.UserErrorCode
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -20,7 +21,7 @@ class UserService(
         email: String,
     ): User {
         if (userRepository.existsByLoginId(loginId)) {
-            throw UserException.duplicateLoginId()
+            throw CoreException(UserErrorCode.DUPLICATE_LOGIN_ID)
         }
 
         Password.validate(rawPassword, birthDate)
@@ -39,14 +40,14 @@ class UserService(
     @Transactional
     fun changePassword(userId: Long, currentPassword: String, newPassword: String) {
         val user = userRepository.findById(userId)
-            ?: throw UserException.invalidCredentials()
+            ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
 
         if (!passwordEncoder.matches(currentPassword, user.password.value)) {
-            throw UserException.invalidCurrentPassword()
+            throw CoreException(UserErrorCode.INVALID_CURRENT_PASSWORD)
         }
 
         if (passwordEncoder.matches(newPassword, user.password.value)) {
-            throw UserException.samePassword()
+            throw CoreException(UserErrorCode.SAME_PASSWORD)
         }
 
         Password.validate(newPassword, user.birthDate)

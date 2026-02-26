@@ -2,7 +2,8 @@ package com.loopers.interfaces.api.auth
 
 import com.loopers.domain.user.UserAuthService
 import com.loopers.support.constant.AuthHeaders
-import com.loopers.support.error.UserException
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.UserErrorCode
 import org.springframework.core.MethodParameter
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebDataBinderFactory
@@ -27,9 +28,9 @@ class CurrentUserIdArgumentResolver(
         binderFactory: WebDataBinderFactory?,
     ): Long {
         val loginId = webRequest.getHeader(AuthHeaders.User.LOGIN_ID)
-            ?: throw UserException.invalidCredentials()
+            ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
         val password = webRequest.getHeader(AuthHeaders.User.LOGIN_PW)
-            ?: throw UserException.invalidCredentials()
+            ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
 
         return userAuthService.authenticateAndGetId(loginId, password)
     }

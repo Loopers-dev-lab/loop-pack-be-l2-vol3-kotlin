@@ -1,6 +1,7 @@
 package com.loopers.domain.user
 
-import com.loopers.support.error.UserException
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.UserErrorCode
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
@@ -11,10 +12,10 @@ class UserAuthService(
 ) {
     fun authenticate(loginId: String, rawPassword: String): User {
         val user = userRepository.findByLoginId(loginId)
-            ?: throw UserException.invalidCredentials()
+            ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
 
         if (!passwordEncoder.matches(rawPassword, user.password.value)) {
-            throw UserException.invalidCredentials()
+            throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
         }
 
         return user

@@ -1,7 +1,7 @@
 package com.loopers.application.brand
 
 import com.loopers.support.error.BrandErrorCode
-import com.loopers.support.error.BrandException
+import com.loopers.support.error.CoreException
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -54,7 +54,7 @@ class UpdateBrandUseCaseTest @Autowired constructor(
             registerBrandUseCase.execute(BrandCommand.Register(name = "나이키"))
             val adidas = registerBrandUseCase.execute(BrandCommand.Register(name = "아디다스"))
 
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 updateBrandUseCase.execute(BrandCommand.Update(brandId = adidas.id, name = "나이키"))
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.DUPLICATE_BRAND_NAME)

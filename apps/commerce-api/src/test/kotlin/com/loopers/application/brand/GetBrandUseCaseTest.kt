@@ -1,7 +1,7 @@
 package com.loopers.application.brand
 
 import com.loopers.support.error.BrandErrorCode
-import com.loopers.support.error.BrandException
+import com.loopers.support.error.CoreException
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -43,7 +43,7 @@ class GetBrandUseCaseTest @Autowired constructor(
         @DisplayName("존재하지 않는 브랜드를 조회하면 BRAND_NOT_FOUND 예외가 발생한다")
         @Test
         fun failWhenNotFound() {
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 getBrandUseCase.execute(999L)
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.BRAND_NOT_FOUND)
