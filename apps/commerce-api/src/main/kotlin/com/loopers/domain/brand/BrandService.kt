@@ -27,4 +27,10 @@ class BrandService(
     fun getBrandsByIds(ids: List<Long>): List<Brand> {
         return brandRepository.findAllByIds(ids)
     }
+
+    fun updateBrand(brandId: Long, name: String, description: String?): Brand {
+        val brand = getBrand(brandId)
+        brand.update(name, description)
+        return brandRepository.save(brand)
+    }
 }

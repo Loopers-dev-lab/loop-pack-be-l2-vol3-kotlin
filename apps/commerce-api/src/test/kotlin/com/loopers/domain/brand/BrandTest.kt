@@ -58,4 +58,52 @@ class BrandTest {
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @DisplayName("브랜드 수정할 때,")
+    @Nested
+    inner class Update {
+        private val brand = Brand(name = "나이키", description = "스포츠 브랜드")
+
+        @DisplayName("유효한 이름과 설명이 주어지면, 정상적으로 수정된다.")
+        @Test
+        fun updatesBrand_whenValidNameAndDescriptionProvided() {
+            // arrange
+            val newName = "아디다스"
+            val newDescription = "독일 스포츠 브랜드"
+
+            // act
+            brand.update(name = newName, description = newDescription)
+
+            // assert
+            assertAll(
+                { assertThat(brand.name).isEqualTo(newName) },
+                { assertThat(brand.description).isEqualTo(newDescription) },
+            )
+        }
+
+        @DisplayName("설명을 null로 변경하면, 정상적으로 수정된다.")
+        @Test
+        fun updatesBrand_whenDescriptionIsNull() {
+            // act
+            brand.update(name = "아디다스", description = null)
+
+            // assert
+            assertAll(
+                { assertThat(brand.name).isEqualTo("아디다스") },
+                { assertThat(brand.description).isNull() },
+            )
+        }
+
+        @DisplayName("이름이 빈칸이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenNameIsBlank() {
+            // act
+            val result = assertThrows<CoreException> {
+                brand.update(name = "  ", description = "설명")
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
 }

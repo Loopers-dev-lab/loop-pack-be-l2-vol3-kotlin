@@ -567,4 +567,168 @@ class AdminBrandApiE2ETest @Autowired constructor(
             )
         }
     }
+
+    @DisplayName("PUT /api-admin/v1/brands/{brandId}")
+    @Nested
+    inner class UpdateBrand {
+
+        @DisplayName("유효한 LDAP 헤더와 요청으로 브랜드를 수정하면, 200 OK와 수정된 브랜드 정보를 반환한다.")
+        @Test
+        fun returnsOk_whenValidRequest() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val request = mapOf("name" to "아디다스", "description" to "독일 스포츠 브랜드")
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(response.body?.data?.get("name")).isEqualTo("아디다스") },
+                { assertThat(response.body?.data?.get("description")).isEqualTo("독일 스포츠 브랜드") },
+                { assertThat(response.body?.data?.get("createdAt")).isNotNull() },
+                { assertThat(response.body?.data?.get("updatedAt")).isNotNull() },
+            )
+        }
+
+        @DisplayName("설명을 null로 수정하면, description이 null로 반환된다.")
+        @Test
+        fun returnsNullDescription_whenDescriptionIsNull() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val request = mapOf("name" to "나이키")
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.data?.get("name")).isEqualTo("나이키") },
+                { assertThat(response.body?.data?.get("description")).isNull() },
+            )
+        }
+
+        @DisplayName("이름이 비어있으면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returnsBadRequest_whenNameIsBlank() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val request = mapOf("name" to "  ", "description" to "설명")
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(400) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 브랜드 ID로 요청하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenBrandNotExists() {
+            // arrange
+            val request = mapOf("name" to "아디다스", "description" to "설명")
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                999L,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val request = mapOf("name" to "아디다스")
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val httpEntity = HttpEntity(request, headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더 값이 올바르지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsInvalid() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val request = mapOf("name" to "아디다스")
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(LDAP_HEADER, "wrong.value")
+            }
+            val httpEntity = HttpEntity(request, headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
 }

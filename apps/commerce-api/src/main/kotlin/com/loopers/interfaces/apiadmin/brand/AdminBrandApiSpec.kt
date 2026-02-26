@@ -24,4 +24,10 @@ interface AdminBrandApiSpec {
         description = "브랜드 ID로 상세 정보를 조회합니다.",
     )
     fun getBrand(brandId: Long): ApiResponse<AdminBrandDto.DetailResponse>
+
+    @Operation(
+        summary = "브랜드 수정",
+        description = "브랜드 정보를 수정합니다.",
+    )
+    fun updateBrand(brandId: Long, request: AdminBrandDto.UpdateRequest): ApiResponse<AdminBrandDto.DetailResponse>
 }

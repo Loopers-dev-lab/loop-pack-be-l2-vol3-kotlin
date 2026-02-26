@@ -23,4 +23,9 @@ class AdminBrandFacade(
         return brandService.getBrands(pageable)
             .map { BrandInfo.from(it) }
     }
+
+    fun updateBrand(brandId: Long, name: String, description: String?): BrandInfo {
+        return brandService.updateBrand(brandId, name, description)
+            .let { BrandInfo.from(it) }
+    }
 }
