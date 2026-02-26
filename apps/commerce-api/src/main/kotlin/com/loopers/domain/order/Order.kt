@@ -48,6 +48,9 @@ class Order(
         if (items.isEmpty()) {
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.")
         }
+        if (items.any { it.quantity <= 0 }) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 수량은 0보다 커야 합니다.")
+        }
         val productIds = items.map { it.productId }
         if (productIds.size != productIds.toSet().size) {
             throw CoreException(ErrorType.BAD_REQUEST, "중복된 상품이 포함되어 있습니다.")
