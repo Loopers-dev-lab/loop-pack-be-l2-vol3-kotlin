@@ -103,5 +103,24 @@ class GetProductUseCaseTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
+        @Test
+        @DisplayName("삭제된 브랜드의 상품을 조회하면 NOT_FOUND 예외가 발생한다")
+        fun getProduct_deletedBrand_throwsNotFound() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            brand.delete()
+            brandRepository.save(brand)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(product.id.value)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
     }
 }
