@@ -1,8 +1,8 @@
-package com.loopers.config
+package com.loopers.interfaces.config
 
-import com.loopers.config.auth.AdminAuthenticationInterceptor
-import com.loopers.config.auth.AuthenticatedMemberArgumentResolver
-import com.loopers.config.auth.MemberAuthenticationInterceptor
+import com.loopers.interfaces.config.auth.AdminAuthenticationInterceptor
+import com.loopers.interfaces.config.auth.AuthenticatedMemberArgumentResolver
+import com.loopers.interfaces.config.auth.MemberAuthenticationInterceptor
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry

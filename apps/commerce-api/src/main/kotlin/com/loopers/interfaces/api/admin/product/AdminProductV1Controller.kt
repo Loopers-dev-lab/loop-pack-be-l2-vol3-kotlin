@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin.product
 
 import com.loopers.application.product.AdminProductFacade
-import com.loopers.config.auth.AdminAuthenticated
+import com.loopers.interfaces.config.auth.AdminAuthenticated
 import com.loopers.domain.product.ProductCommand
 import com.loopers.interfaces.api.ApiResponse
 import jakarta.validation.Valid

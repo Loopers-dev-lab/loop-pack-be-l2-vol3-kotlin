@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin.brand
 
 import com.loopers.application.brand.AdminBrandFacade
-import com.loopers.config.auth.AdminAuthenticated
+import com.loopers.interfaces.config.auth.AdminAuthenticated
 import com.loopers.domain.brand.BrandCommand
 import com.loopers.interfaces.api.ApiResponse
 import jakarta.validation.Valid

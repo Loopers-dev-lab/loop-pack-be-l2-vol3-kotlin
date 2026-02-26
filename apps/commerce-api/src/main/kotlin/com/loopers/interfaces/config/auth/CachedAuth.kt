@@ -1,6 +1,5 @@
-package com.loopers.config.cache
+package com.loopers.interfaces.config.auth
 
-import com.loopers.config.auth.AuthenticatedMember
 import java.security.MessageDigest
 
 data class CachedAuth(

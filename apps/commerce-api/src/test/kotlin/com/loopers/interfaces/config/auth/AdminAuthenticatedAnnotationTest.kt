@@ -1,4 +1,4 @@
-package com.loopers.config.auth
+package com.loopers.interfaces.config.auth
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName

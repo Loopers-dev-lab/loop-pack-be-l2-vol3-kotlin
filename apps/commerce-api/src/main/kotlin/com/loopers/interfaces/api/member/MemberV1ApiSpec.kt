@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.member
 
-import com.loopers.config.auth.AuthenticatedMember
+import com.loopers.interfaces.config.auth.AuthenticatedMember
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag

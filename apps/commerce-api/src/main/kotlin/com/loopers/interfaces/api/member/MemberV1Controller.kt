@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.member
 
 import com.loopers.application.member.MemberFacade
-import com.loopers.config.auth.MemberAuthenticated
-import com.loopers.config.auth.AuthenticatedMember
+import com.loopers.interfaces.config.auth.MemberAuthenticated
+import com.loopers.interfaces.config.auth.AuthenticatedMember
 import com.loopers.interfaces.api.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus

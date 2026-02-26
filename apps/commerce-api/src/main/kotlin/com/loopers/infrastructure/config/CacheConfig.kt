@@ -1,4 +1,4 @@
-package com.loopers.config.cache
+package com.loopers.infrastructure.config
 
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.cache.CacheManager

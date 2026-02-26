@@ -1,4 +1,4 @@
-package com.loopers.config
+package com.loopers.infrastructure.config
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

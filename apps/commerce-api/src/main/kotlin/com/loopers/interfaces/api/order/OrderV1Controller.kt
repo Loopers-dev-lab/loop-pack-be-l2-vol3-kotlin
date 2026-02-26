@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderFacade
-import com.loopers.config.auth.AuthenticatedMember
-import com.loopers.config.auth.MemberAuthenticated
+import com.loopers.interfaces.config.auth.AuthenticatedMember
+import com.loopers.interfaces.config.auth.MemberAuthenticated
 import com.loopers.domain.order.OrderCommand
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.http.HttpStatus

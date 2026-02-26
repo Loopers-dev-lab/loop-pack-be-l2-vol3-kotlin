@@ -1,4 +1,4 @@
-package com.loopers.config.auth
+package com.loopers.interfaces.config.auth
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType

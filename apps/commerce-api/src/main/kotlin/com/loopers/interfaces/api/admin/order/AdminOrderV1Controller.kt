@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin.order
 
 import com.loopers.application.order.AdminOrderFacade
-import com.loopers.config.auth.AdminAuthenticated
+import com.loopers.interfaces.config.auth.AdminAuthenticated
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.GetMapping

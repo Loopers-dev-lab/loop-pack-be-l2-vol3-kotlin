@@ -1,4 +1,4 @@
-package com.loopers.config.auth
+package com.loopers.interfaces.config.auth
 
 @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

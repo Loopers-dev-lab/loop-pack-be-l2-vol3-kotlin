@@ -1,8 +1,7 @@
-package com.loopers.config.auth
+package com.loopers.interfaces.config.auth
 
-import com.loopers.config.cache.CacheConfig
-import com.loopers.config.cache.CachedAuth
-import com.loopers.domain.member.MemberService
+import com.loopers.infrastructure.config.CacheConfig
+import com.loopers.application.member.MemberService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.http.HttpServletRequest
@@ -27,7 +26,9 @@ class MemberAuthenticationInterceptor(
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
         if (handler !is HandlerMethod) return true
 
-        handler.getMethodAnnotation(MemberAuthenticated::class.java) ?: return true
+        val hasAnnotation = handler.getMethodAnnotation(MemberAuthenticated::class.java) != null ||
+            handler.beanType.getAnnotation(MemberAuthenticated::class.java) != null
+        if (!hasAnnotation) return true
 
         val loginId = request.getHeader(HEADER_LOGIN_ID)
         val password = request.getHeader(HEADER_LOGIN_PW)

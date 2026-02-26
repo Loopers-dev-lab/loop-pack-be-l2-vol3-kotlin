@@ -1,4 +1,4 @@
-package com.loopers.config.auth
+package com.loopers.interfaces.config.auth
 
 import com.loopers.support.error.CoreException
 import org.assertj.core.api.Assertions.assertThat
@@ -26,19 +26,19 @@ class AdminAuthenticationInterceptorTest {
         }
     }
 
-    private fun createAnnotatedHandlerMethod(): HandlerMethod {
-        val method = AnnotatedTestController::class.java.getMethod("adminEndpoint")
-        return HandlerMethod(AnnotatedTestController(), method)
+    private fun createMethodAnnotatedHandlerMethod(): HandlerMethod {
+        val method = MethodAnnotatedTestController::class.java.getMethod("adminEndpoint")
+        return HandlerMethod(MethodAnnotatedTestController(), method)
+    }
+
+    private fun createClassAnnotatedHandlerMethod(): HandlerMethod {
+        val method = ClassAnnotatedTestController::class.java.getMethod("adminEndpoint")
+        return HandlerMethod(ClassAnnotatedTestController(), method)
     }
 
     private fun createNonAnnotatedHandlerMethod(): HandlerMethod {
         val method = NonAnnotatedTestController::class.java.getMethod("publicEndpoint")
         return HandlerMethod(NonAnnotatedTestController(), method)
-    }
-
-    private fun createClassLevelAnnotatedHandlerMethod(): HandlerMethod {
-        val method = ClassLevelAnnotatedTestController::class.java.getMethod("adminEndpoint")
-        return HandlerMethod(ClassLevelAnnotatedTestController(), method)
     }
 
     @DisplayName("어드민 인증 인터셉터 동작 검증")
@@ -51,7 +51,7 @@ class AdminAuthenticationInterceptorTest {
             // arrange
             val request = createRequest(AdminAuthenticationInterceptor.LDAP_VALUE)
             val response = MockHttpServletResponse()
-            val handler = createAnnotatedHandlerMethod()
+            val handler = createMethodAnnotatedHandlerMethod()
 
             // act
             val result = interceptor.preHandle(request, response, handler)
@@ -66,7 +66,7 @@ class AdminAuthenticationInterceptorTest {
             // arrange
             val request = createRequest()
             val response = MockHttpServletResponse()
-            val handler = createAnnotatedHandlerMethod()
+            val handler = createMethodAnnotatedHandlerMethod()
 
             // act & assert
             assertThrows<CoreException> {
@@ -80,7 +80,7 @@ class AdminAuthenticationInterceptorTest {
             // arrange
             val request = createRequest("wrong.value")
             val response = MockHttpServletResponse()
-            val handler = createAnnotatedHandlerMethod()
+            val handler = createMethodAnnotatedHandlerMethod()
 
             // act & assert
             assertThrows<CoreException> {
@@ -109,7 +109,7 @@ class AdminAuthenticationInterceptorTest {
             // arrange
             val request = createRequest()
             val response = MockHttpServletResponse()
-            val handler = createClassLevelAnnotatedHandlerMethod()
+            val handler = createClassAnnotatedHandlerMethod()
 
             // act & assert
             assertThrows<CoreException> {
@@ -119,19 +119,19 @@ class AdminAuthenticationInterceptorTest {
     }
 
     // 메서드 레벨 @AdminAuthenticated 테스트용 컨트롤러
-    class AnnotatedTestController {
+    class MethodAnnotatedTestController {
         @AdminAuthenticated
+        fun adminEndpoint() {}
+    }
+
+    // 클래스 레벨 @AdminAuthenticated 테스트용 컨트롤러
+    @AdminAuthenticated
+    class ClassAnnotatedTestController {
         fun adminEndpoint() {}
     }
 
     // @AdminAuthenticated 없는 테스트용 컨트롤러
     class NonAnnotatedTestController {
         fun publicEndpoint() {}
-    }
-
-    // 클래스 레벨 @AdminAuthenticated 테스트용 컨트롤러
-    @AdminAuthenticated
-    class ClassLevelAnnotatedTestController {
-        fun adminEndpoint() {}
     }
 }

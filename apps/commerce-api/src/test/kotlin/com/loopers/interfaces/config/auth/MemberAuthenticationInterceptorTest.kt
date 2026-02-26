@@ -1,10 +1,9 @@
-package com.loopers.config.auth
+package com.loopers.interfaces.config.auth
 
-import com.loopers.config.cache.CacheConfig
-import com.loopers.config.cache.CachedAuth
+import com.loopers.infrastructure.config.CacheConfig
 import com.loopers.domain.common.vo.Email
 import com.loopers.domain.member.MemberModel
-import com.loopers.domain.member.MemberService
+import com.loopers.application.member.MemberService
 import com.loopers.domain.member.vo.LoginId
 import com.loopers.domain.member.vo.MemberName
 import com.loopers.support.error.CoreException
@@ -56,8 +55,13 @@ class MemberAuthenticationInterceptorTest {
     }
 
     private fun createAuthenticatedHandlerMethod(): HandlerMethod {
-        val method = TestController::class.java.getMethod("authenticatedEndpoint")
-        return HandlerMethod(TestController(), method)
+        val method = MethodAnnotatedTestController::class.java.getMethod("authenticatedEndpoint")
+        return HandlerMethod(MethodAnnotatedTestController(), method)
+    }
+
+    private fun createClassAnnotatedHandlerMethod(): HandlerMethod {
+        val method = ClassAnnotatedTestController::class.java.getMethod("authenticatedEndpoint")
+        return HandlerMethod(ClassAnnotatedTestController(), method)
     }
 
     private fun createRequest(loginId: String?, password: String?): MockHttpServletRequest {
@@ -149,11 +153,38 @@ class MemberAuthenticationInterceptorTest {
             // assert
             verify(exactly = 2) { memberService.authenticate("testuser01", "TestPass123!") }
         }
+
+        @DisplayName("클래스 레벨 @MemberAuthenticated 어노테이션이 적용되면 메서드에서도 인증을 수행한다.")
+        @Test
+        fun performsAuthentication_whenClassLevelAnnotationIsPresent() {
+            // arrange
+            every { memberService.authenticate("testuser01", "TestPass123!") } returns testMember
+            val request = createRequest("testuser01", "TestPass123!")
+            val response = MockHttpServletResponse()
+            val handler = createClassAnnotatedHandlerMethod()
+
+            // act
+            val result = interceptor.preHandle(request, response, handler)
+
+            // assert
+            assertThat(result).isTrue()
+            val authenticatedMember = request.getAttribute(
+                MemberAuthenticationInterceptor.AUTHENTICATED_MEMBER_ATTRIBUTE,
+            ) as AuthenticatedMember
+            assertThat(authenticatedMember.id).isEqualTo(1L)
+            assertThat(authenticatedMember.loginId).isEqualTo("testuser01")
+        }
     }
 
-    // @MemberAuthenticated 어노테이션이 붙은 테스트용 컨트롤러
-    class TestController {
+    // 메서드 레벨 @MemberAuthenticated 테스트용 컨트롤러
+    class MethodAnnotatedTestController {
         @MemberAuthenticated
+        fun authenticatedEndpoint() {}
+    }
+
+    // 클래스 레벨 @MemberAuthenticated 테스트용 컨트롤러
+    @MemberAuthenticated
+    class ClassAnnotatedTestController {
         fun authenticatedEndpoint() {}
     }
 }
