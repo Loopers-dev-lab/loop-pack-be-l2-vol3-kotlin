@@ -3,7 +3,8 @@ package com.loopers.application.user
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserRepository
 import com.loopers.domain.user.UserService
-import com.loopers.support.error.UserException
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.UserErrorCode
 import com.loopers.support.utils.MaskingUtils
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -34,7 +35,7 @@ class UserFacade(
     @Transactional(readOnly = true)
     fun getMyInfo(userId: Long): UserInfo {
         val user = userRepository.findById(userId)
-            ?: throw UserException.invalidCredentials()
+            ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
         return toUserInfo(user)
     }
 
