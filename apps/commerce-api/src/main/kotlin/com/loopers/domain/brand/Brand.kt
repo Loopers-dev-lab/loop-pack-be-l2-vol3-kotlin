@@ -1,21 +1,26 @@
 package com.loopers.domain.brand
 
+import com.loopers.domain.BaseEntity
 import com.loopers.support.error.BrandException
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Table
 import java.time.ZonedDateTime
 
+@Entity
+@Table(name = "brands")
 class Brand private constructor(
-    val id: Long,
     name: String,
-    deletedAt: ZonedDateTime?,
-    val createdAt: ZonedDateTime?,
-    val updatedAt: ZonedDateTime?,
-) {
+    deletedAt: ZonedDateTime? = null,
+) : BaseEntity() {
 
+    @Column(nullable = false, length = 50)
     var name: String = name
-        private set
+        protected set
 
+    @Column(name = "deleted_at")
     var deletedAt: ZonedDateTime? = deletedAt
-        private set
+        protected set
 
     fun isDeleted(): Boolean = deletedAt != null
 
@@ -34,29 +39,7 @@ class Brand private constructor(
 
         fun create(name: String): Brand {
             validateName(name)
-            return Brand(
-                id = 0,
-                name = name,
-                deletedAt = null,
-                createdAt = null,
-                updatedAt = null,
-            )
-        }
-
-        fun reconstruct(
-            id: Long,
-            name: String,
-            deletedAt: ZonedDateTime?,
-            createdAt: ZonedDateTime,
-            updatedAt: ZonedDateTime,
-        ): Brand {
-            return Brand(
-                id = id,
-                name = name,
-                deletedAt = deletedAt,
-                createdAt = createdAt,
-                updatedAt = updatedAt,
-            )
+            return Brand(name = name)
         }
 
         private fun validateName(name: String) {

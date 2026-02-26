@@ -45,7 +45,7 @@ class BrandV1ApiE2ETest @Autowired constructor(
             HttpEntity(request, headers),
             responseType,
         )
-        return response.body!!.data!!
+        return requireNotNull(response.body?.data) { "브랜드 등록 응답이 비어 있습니다." }
     }
 
     private fun deleteBrandViaAdmin(brandId: Long) {

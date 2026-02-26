@@ -51,7 +51,7 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
-        return response.body!!.data!!
+        return requireNotNull(response.body?.data) { "브랜드 등록 응답이 비어 있습니다." }
     }
 
     @DisplayName("POST /api/admin/v1/brands - 브랜드 등록")
@@ -106,6 +106,27 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
         fun failWhenNameBlank() {
             // arrange
             val request = AdminBrandRegisterRequest(name = "")
+
+            // act
+            val response = testRestTemplate.exchange(
+                ApiPaths.AdminBrands.BASE,
+                HttpMethod.POST,
+                HttpEntity(request, adminHeaders()),
+                ApiResponse::class.java,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(CommonErrorCode.INVALID_INPUT_VALUE.code) },
+            )
+        }
+
+        @DisplayName("브랜드명이 50자를 초과하면, 400 BAD_REQUEST와 COMMON_002 에러를 반환한다.")
+        @Test
+        fun failWhenNameTooLong() {
+            // arrange
+            val request = AdminBrandRegisterRequest(name = "가".repeat(51))
 
             // act
             val response = testRestTemplate.exchange(
@@ -299,6 +320,24 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
                 ApiResponse::class.java,
             )
             assertThat(getResponse.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
+
+        @DisplayName("존재하지 않는 브랜드를 삭제하면, 404 NOT_FOUND와 BRAND_001 에러를 반환한다.")
+        @Test
+        fun failWhenNotFound() {
+            // act
+            val response = testRestTemplate.exchange(
+                "${ApiPaths.AdminBrands.BASE}/999",
+                HttpMethod.DELETE,
+                HttpEntity<Void>(adminHeaders()),
+                ApiResponse::class.java,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(BrandErrorCode.BRAND_NOT_FOUND.code) },
+            )
         }
     }
 }

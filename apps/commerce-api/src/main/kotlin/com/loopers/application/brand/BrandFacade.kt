@@ -51,7 +51,7 @@ class BrandFacade(
     }
 
     private fun getActiveBrandOrThrow(brandId: Long): Brand {
-        val brand = brandRepository.findById(brandId)
+        val brand = brandRepository.findByIdOrNull(brandId)
             ?: throw BrandException.notFound()
         if (brand.isDeleted()) throw BrandException.notFound()
         return brand
