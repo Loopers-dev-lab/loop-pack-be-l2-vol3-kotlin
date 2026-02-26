@@ -158,4 +158,59 @@ class ProductServiceIntegrationTest @Autowired constructor(
             )
         }
     }
+
+    @DisplayName("상품 생성할 때,")
+    @Nested
+    inner class CreateProduct {
+
+        @DisplayName("유효한 상품 정보가 주어지면, DB에 저장되고 조회할 수 있다.")
+        @Test
+        fun savesProductToDb_whenValidInfo() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+
+            // act
+            val result = productService.createProduct(
+                name = "에어맥스",
+                description = "러닝화",
+                price = 159000L,
+                stockQuantity = 100,
+                brandId = brand.id,
+            )
+
+            // assert
+            val found = productService.getProduct(result.id)
+            assertAll(
+                { assertThat(found.name).isEqualTo("에어맥스") },
+                { assertThat(found.description).isEqualTo("러닝화") },
+                { assertThat(found.price).isEqualTo(Money.of(159000L)) },
+                { assertThat(found.stockQuantity).isEqualTo(StockQuantity.of(100)) },
+                { assertThat(found.brandId).isEqualTo(brand.id) },
+                { assertThat(found.likes).isEqualTo(LikeCount.of(0)) },
+            )
+        }
+
+        @DisplayName("설명이 null이면, 설명 없이 저장된다.")
+        @Test
+        fun savesProductWithNullDescription() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+
+            // act
+            val result = productService.createProduct(
+                name = "에어맥스",
+                description = null,
+                price = 159000L,
+                stockQuantity = 100,
+                brandId = brand.id,
+            )
+
+            // assert
+            val found = productService.getProduct(result.id)
+            assertAll(
+                { assertThat(found.name).isEqualTo("에어맥스") },
+                { assertThat(found.description).isNull() },
+            )
+        }
+    }
 }

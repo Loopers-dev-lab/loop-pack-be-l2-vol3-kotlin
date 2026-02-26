@@ -1,7 +1,10 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.common.LikeCount
+import com.loopers.domain.common.Money
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
+import com.loopers.domain.common.StockQuantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -10,6 +13,28 @@ import org.springframework.stereotype.Component
 class ProductService(
     private val productRepository: ProductRepository,
 ) {
+
+    fun createProduct(
+        name: String,
+        description: String?,
+        price: Long,
+        stockQuantity: Int,
+        brandId: Long,
+    ): Product {
+        if (price <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.")
+        }
+        return productRepository.save(
+            Product(
+                name = name,
+                description = description,
+                price = Money.of(price),
+                likes = LikeCount.of(0),
+                stockQuantity = StockQuantity.of(stockQuantity),
+                brandId = brandId,
+            ),
+        )
+    }
 
     fun getProducts(brandId: Long?, pageQuery: PageQuery): PageResult<Product> {
         return productRepository.findAll(brandId, pageQuery)
