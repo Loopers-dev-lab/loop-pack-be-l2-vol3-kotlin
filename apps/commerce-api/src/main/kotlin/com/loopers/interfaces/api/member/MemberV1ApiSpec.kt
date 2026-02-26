@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.member
 
-import com.loopers.config.auth.AuthenticatedMember
+import com.loopers.interfaces.config.auth.AuthenticatedMember
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -13,7 +13,7 @@ interface MemberV1ApiSpec {
     )
     fun register(
         request: MemberV1Dto.RegisterRequest,
-    ): ApiResponse<Any>
+    ): ApiResponse<MemberV1Dto.MemberResponse>
 
     @Operation(
         summary = "내 정보 조회",
@@ -30,5 +30,5 @@ interface MemberV1ApiSpec {
     fun changePassword(
         authenticatedMember: AuthenticatedMember,
         request: MemberV1Dto.ChangePasswordRequest,
-    ): ApiResponse<Any>
+    ): ApiResponse<MemberV1Dto.MemberResponse>
 }

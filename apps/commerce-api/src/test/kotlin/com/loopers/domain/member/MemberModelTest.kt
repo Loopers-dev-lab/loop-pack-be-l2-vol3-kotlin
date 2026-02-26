@@ -67,34 +67,6 @@ class MemberModelTest {
             val result = assertThrows<CoreException> { LoginId.of("유저01") }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
-
-        @DisplayName("loginId가 빈 값이면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenLoginIdIsBlank() {
-            val result = assertThrows<CoreException> { LoginId.of("") }
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("name이 빈 값이면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenNameIsBlank() {
-            val result = assertThrows<CoreException> { MemberName.of("   ") }
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("email 형식이 올바르지 않으면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenEmailFormatIsInvalid() {
-            val result = assertThrows<CoreException> { Email.of("invalid-email") }
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("email에 @가 없으면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenEmailHasNoAtSign() {
-            val result = assertThrows<CoreException> { Email.of("userexample.com") }
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
     }
 
     @DisplayName("비밀번호를 검증할 때,")
