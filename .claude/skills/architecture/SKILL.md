@@ -67,13 +67,13 @@ com.loopers/
 │   ├── order/      → OrderV1Controller, OrderV1Dto
 │   └── like/       → LikeV1Controller, LikeV1Dto
 ├── application/
-│   ├── product/    → ProductFacade, ProductInfo
-│   ├── order/      → OrderFacade, OrderInfo
-│   └── like/       → LikeFacade
+│   ├── product/    → ProductService, ProductFacade (2+ 서비스 조합 시만), ProductInfo
+│   ├── order/      → OrderService, OrderFacade (2+ 서비스 조합 시만), OrderInfo
+│   └── like/       → LikeService, LikeFacade (2+ 서비스 조합 시만)
 ├── domain/
-│   ├── product/    → Product, ProductRepository, ProductService
-│   ├── order/      → Order, OrderItem, OrderRepository, OrderService
-│   ├── like/       → Like, LikeRepository, LikeService
+│   ├── product/    → Product, ProductRepository, ProductCommand
+│   ├── order/      → Order, OrderItem, OrderRepository
+│   ├── like/       → Like, LikeRepository
 │   └── brand/      → Brand, BrandRepository
 └── infrastructure/
     ├── product/    → ProductRepositoryImpl, ProductJpaRepository

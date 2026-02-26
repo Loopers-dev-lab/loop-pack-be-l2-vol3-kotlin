@@ -42,9 +42,9 @@ loopers-kotlin-spring-template/
 ## 레이어 아키텍처 (commerce-api 기준)
 
 ```
-interfaces/api/     → Controller, DTO, ApiSpec (Swagger)
-application/        → Facade (비즈니스 로직 조정)
-domain/             → Service, Repository, Entity (핵심 도메인)
+interfaces/api/     → Controller, ApiSpec (Swagger), DTO
+application/        → Service (@Transactional), Facade (2+ 서비스 조합 시만)
+domain/             → Entity, Repository Interface, Command (핵심 도메인, 프레임워크 비의존)
 infrastructure/     → Repository 구현체, 외부 연동
 support/            → 공통 유틸, 에러 처리
 ```
@@ -52,15 +52,27 @@ support/            → 공통 유틸, 에러 처리
 ### 코드 패턴 예시
 
 ```kotlin
-// Controller → Facade → Service → Repository
+// ApiSpec — Swagger 어노테이션 담당
+@Tag(name = "Xxx V1 API", description = "도메인 API")
+interface XxxV1ApiSpec { ... }
+
+// 단일 서비스: Controller → Service 직접 호출
 @RestController
-class XxxV1Controller(private val xxxFacade: XxxFacade) : XxxV1ApiSpec
+class XxxV1Controller(private val xxxService: XxxService) : XxxV1ApiSpec
+
+// 2+ 서비스 조합: Controller → Facade 호출
+@RestController
+class XxxAdminV1Controller(
+    private val xxxService: XxxService,    // 대부분 메서드
+    private val xxxFacade: XxxFacade,      // 교차 도메인 메서드만
+) : XxxAdminV1ApiSpec
 
 @Component
-class XxxFacade(private val xxxService: XxxService)
+class XxxService(private val xxxRepository: XxxRepository)  // @Transactional은 여기에
 
 @Component
-class XxxService(private val xxxRepository: XxxRepository)
+class XxxFacade(private val xxxService: XxxService, private val yyyService: YyyService)
+// @Transactional은 여기에 (교차 도메인 원자성 보장)
 ```
 
 ## 도메인 & 객체 설계 전략
@@ -95,7 +107,10 @@ class XxxService(private val xxxRepository: XxxRepository)
 - 메서드명은 영어 camelCase `결과_when조건`, `@DisplayName`은 한글로 작성한다.
 - 기능별 `@Nested`로 그룹핑한다.
 - 정상 흐름, 예외 흐름, 경계값 케이스를 반드시 포함한다.
-- 도메인 단위 테스트는 Mock 없이 순수 인스턴스화, 서비스 단위 테스트는 Mockito 사용.
+- 도메인별로 3가지 테스트를 반드시 작성한다:
+  - **단위 테스트**: 도메인 엔티티는 Mock 없이 순수 인스턴스화, 서비스는 Mockito 사용 (`@ExtendWith(MockitoExtension::class)`)
+  - **통합 테스트**: `@SpringBootTest` + 실제 DB(Testcontainers)로 Service → Repository 레이어 통합 검증, Mock 없이 실제 저장/조회 (`@Transactional` 경계인 Service 기준, 2+ 서비스 조합 시 Facade 기준)
+  - **E2E 테스트**: `@SpringBootTest(webEnvironment = RANDOM_PORT)` + `TestRestTemplate`으로 HTTP 요청/응답 검증
 
 ### 코드 스타일 & 추상화 원칙
 
@@ -144,6 +159,7 @@ class XxxService(private val xxxRepository: XxxRepository)
   - `type`: `feat`, `fix`, `docs`, `refactor`, `test`, `chore` 등
   - `subject`: 변경 대상 요약
   - 본문: 빈 줄 후 구체적인 변경 내용을 `-`로 나열
+- Co-Authored-By: ~ 내용 절대 커밋 내용에 포함시키지마
 
 
 ## 빌드 및 실행 명령어
@@ -194,3 +210,43 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     BAD_REQUEST, NOT_FOUND, CONFLICT, INTERNAL_ERROR
 }
 ```
+
+## API 인증 헤더
+
+| 구분 | Base Path | 인증 헤더 | 설명 |
+|------|-----------|----------|------|
+| 대고객 (인증 필요) | `/api/v1` | `X-Loopers-LoginId` + `X-Loopers-LoginPw` | UserService.authenticate()로 검증 |
+| 대고객 (인증 불필요) | `/api/v1` | 없음 | 회원가입, 브랜드 조회 등 |
+| 어드민 | `/api-admin/v1` | `X-Loopers-Ldap: "loopers.admin"` | 어드민 전용 |
+
+### 인증 헤더 적용 규칙
+
+- 설계 문서(`01-requirements.md`)의 인증 컬럼을 반드시 확인하고, 인증이 필요한 API에는 헤더를 받아 처리할 것
+- 대고객 인증: `@RequestHeader("X-Loopers-LoginId")`, `@RequestHeader("X-Loopers-LoginPw")` → `UserService.authenticate()` 호출
+- 어드민 인증: `@RequestHeader("X-Loopers-Ldap")` → 값 검증
+- 참고 구현: `UserV1Controller.kt`
+
+## Swagger 문서화 규칙
+
+- **ApiSpec 인터페이스에 Swagger 어노테이션을 분리한다.** Controller는 Spring 어노테이션(`@GetMapping`, `@PathVariable` 등)만 작성한다.
+- 참고 구현: `ExampleV1ApiSpec.kt`, `ExampleV1Controller.kt`
+
+### 필수 어노테이션 체크리스트
+
+| 위치 | 어노테이션 | 필수 |
+|------|-----------|:----:|
+| ApiSpec 인터페이스 | `@Tag(name, description)` | O |
+| ApiSpec 각 메서드 | `@Operation(summary, description)` | O |
+| ApiSpec 각 메서드 | `@ApiResponses` (가능한 응답 코드별) | O |
+| ApiSpec 메서드 파라미터 | `@Parameter(description, required)` | O |
+| DTO 클래스 | `@Schema(description)` | O |
+| DTO 필드 | `@Schema(description, example)` | O |
+
+```kotlin
+// Swagger import alias (프로젝트 ApiResponse와 이름 충돌 방지)
+import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
+```
+
+## 대화 로그
+- 내가 고민하는 내용은 주차별로 docs/logs/n-weeks-talk-log.md 에 요약 정리해서 저장해
+- 저장할때는 내가 고민한 부분, 너가 준 선택지, 내가 고른 답, 내가 느꼈을것 같은 내용 으로 저장해

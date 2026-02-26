@@ -40,6 +40,7 @@ class User(
 - 불변(immutable) 특성을 가진다.
 - 값 자체가 동일하면 같은 객체로 간주한다.
 - 도메인 무결성 보장과 표현력을 높이는 데 사용한다.
+- **Context에 따라 VO가 Entity가 될 수 있다.** 해당 도메인에서 식별/추적이 필요하면 Entity, 값 자체만 의미 있으면 VO이다. (예: Address는 이커머스에서는 VO지만, 우체국 시스템에서는 추적 대상이므로 Entity가 될 수 있다)
 - 예: `Money`, `Address`, `Quantity`
 
 ```kotlin
@@ -58,8 +59,9 @@ value class Money(val amount: BigDecimal) {
 - 도메인 객체들이 직접 수행하기 어려운 도메인 로직을 위임받아 처리한다.
 - **상태를 가지지 않는다.** Input과 Output이 명확하다.
 - 동일한 도메인 경계 내의 객체 협력 중심으로 설계한다.
-- "행위자(doer)"나 Manager 같은 이름이 붙으면 Domain Service일 가능성이 높다.
 - 예: `PointChargingService`, `CouponApplyService`
+
+> **Manager/doer 주의**: `XxxManager`, `XxxProcessor` 같은 클래스는 고유한 상태나 도메인적 의미 없이 연산만 수행하는 "행위자(doer)"일 뿐, 그 자체로 도메인 개념이 아니다. 다만 도메인 모델을 더럽히지 않고 로직을 분리해서 관리할 수 있다는 점에서 유용하다. 도메인 객체와 혼동하지 않도록 주의한다.
 
 ```kotlin
 class PointChargingService {
@@ -78,6 +80,30 @@ class PointChargingService {
 | 상태가 변하는가? | O | X (불변) | X (상태 없음) |
 | 값 비교만으로 동일성 판단 가능한가? | X | O | - |
 | 여러 객체 협력이 필요한가? | - | - | O |
+
+## 잘못된 설계 Anti-pattern
+
+### 비즈니스 개념을 다른 Entity에 끼워 넣기
+
+```kotlin
+// ❌ 잘못된 구조 - 좋아요를 Product 안에 넣음
+class Product {
+    val likedUserIds = mutableSetOf<Long>()
+    fun like(userId: Long) { likedUserIds.add(userId) }
+}
+```
+
+- 응집도가 낮고, 좋아요 자체가 가진 의미(누가, 언제, 어떤 상품에)를 확장하기 어렵다.
+- **비즈니스 의미가 커질 수 있는 개념은 별도 도메인으로 분리**해야 한다.
+
+```kotlin
+// ✅ 올바른 구조 - Like를 독립된 도메인으로 분리
+class Like(
+    val userId: Long,
+    val productId: Long,
+    val likedAt: LocalDateTime = LocalDateTime.now()
+)
+```
 
 ## 유스케이스 중심 객체 협력
 
