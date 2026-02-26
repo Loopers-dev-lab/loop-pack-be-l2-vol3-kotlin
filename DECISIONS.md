@@ -725,6 +725,61 @@ Decision 17에서 좋아요 등록의 멱등성을 `DuplicateKeyException catch 
 
 ---
 
+## 30. DIP 레이어 분리 — Domain Model ↔ JPA Entity 분리, 예외 계층 변환, 포트 패턴
+
+### 배경
+
+기존 구조에서 Domain Model이 JPA Entity(`@Entity`, `BaseEntity`)를 직접 상속하고, CoreException이 `support/` 패키지에 위치하며, Interceptor가 Domain/Infrastructure에 직접 의존하는 등 DIP 위반이 존재했다. 레이어 간 의존 방향을 정리하여 `Presentation → Application → Domain ← Infrastructure` 구조를 달성해야 했다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 현행 유지 | JPA Entity = Domain Model, 레이어 경계 느슨 |
+| **B. 완전 분리** | Domain Model(data class) + JPA Entity(JpaModel) 분리, 예외 계층화, 포트 패턴 |
+
+### 판단: B. 완전 분리
+
+### 변경 내역
+
+| 영역 | Before | After |
+|------|--------|-------|
+| Domain Model | `@Entity` + `BaseEntity` 상속 | 순수 `data class` (JPA 의존 없음) |
+| JPA Entity | Domain Model과 동일 | `JpaModel`(@Entity, Infrastructure), `toModel()`/`from()` 매핑 |
+| 에러 | `support/error/CoreException` | `domain/error/CoreException` → `DomainExceptionTranslator`(@Aspect) → `application/error/ApplicationException` |
+| 인증 | Interceptor → MemberService(Domain) + CacheManager 직접 참조 | Interceptor → `AuthService`(Application) 단일 의존 |
+| 비밀번호 암호화 | `infrastructure/config/PasswordEncoderConfig` (@Bean) | `domain/member/PasswordEncryptor`(포트) ← `infrastructure/member/BcryptPasswordEncryptor`(구현) |
+| 페이징 응답 | Controller가 `domain/common/PageResult` 직접 반환 | `interfaces/api/PageResponse` (Presentation DTO, Domain 타입 미참조) |
+| 정렬 파라미터 | Controller가 `domain/product/ProductSort` 직접 참조 | Controller는 `String` 전달, Facade에서 `ProductSort`로 변환 |
+| 커서 처리 | `support/cursor/CursorUtils` + Facade에서 파싱 | Infrastructure에서 커서 파싱/인코딩, Domain은 `String?`/`CursorResult<T>` |
+| support/ 패키지 | error/, cursor/ 포함 | **완전 제거** (error → domain, cursor → infrastructure) |
+| Command | `domain/` 패키지 | `application/` 패키지 (입력 검증은 Application 책임) |
+| @Transactional | Service에 존재 | Facade만 소유, Service는 @Transactional 없음 |
+
+### 근거
+
+- **DIP 달성**: Presentation → Infrastructure 0건, Application → Infrastructure 0건으로 검증 완료.
+- **Domain 순수성**: Domain Model이 JPA, Spring, 인프라 프레임워크에 일절 의존하지 않음. 테스트가 DB 없이 가능.
+- **예외 계층 분리**: Domain은 `ErrorType`(HttpStatus 없음, 순수 도메인)만 알고, Application이 HTTP 상태로 변환하여 Presentation에 전달. Presentation은 `ApplicationException`만 처리.
+- **포트 패턴**: `PasswordEncryptor`, `Repository` 인터페이스가 Domain에 위치. 구현은 Infrastructure에서 주입. Domain이 기술 선택(BCrypt, JPA)에 의존하지 않음.
+- **AuthService 도입**: Interceptor(Presentation)가 MemberService(Application/Domain)와 CacheManager(Infrastructure)에 직접 의존하던 구조를 AuthService(Application) 하나로 통합. Presentation → Application 단방향 의존만 남음.
+
+### 트레이드오프
+
+- Model ↔ JpaModel 변환 보일러플레이트 증가 → `toModel()` / `from()` / `updateFrom()`으로 표준화
+- Service Integration Test에 `@Transactional` 추가 필요 → Service가 더 이상 트랜잭션을 소유하지 않으므로 테스트에서 명시
+- Duplicate Key 테스트에 `Propagation.NOT_SUPPORTED` 필요 → DB flush 타이밍 차이
+
+### DIP 검증 결과
+
+| 방향 | 결과 |
+|------|------|
+| Presentation → Infrastructure | 0건 ✅ |
+| Application → Infrastructure | 0건 ✅ |
+| Presentation → Domain | 0건 ✅ (PageResponse, String sort로 해결) |
+
+---
+
 ## 결론
 
 모든 판단의 공통 원칙:

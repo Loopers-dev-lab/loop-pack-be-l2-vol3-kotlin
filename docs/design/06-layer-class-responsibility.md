@@ -29,7 +29,7 @@ graph LR
         D_MODEL["Model\n(data class)"]
         D_VO["VO\n(value class)"]
         D_REPO["Repository\n(interface)"]
-        D_DS["PasswordEncoder\n(interface)"]
+        D_DS["PasswordEncryptor\n(interface)"]
         D_ENUM["Enum\n(Status 등)"]
         D_COND["SearchCondition\nPageQuery / PageResult"]
         D_VALID["Validator"]
@@ -41,7 +41,7 @@ graph LR
         I_JPA_MODEL["JpaModel\n(@Entity)"]
         I_JPA_REPO["JpaRepository\n(Spring Data JPA)"]
         I_REPO_IMPL["RepositoryImpl"]
-        I_DS_IMPL["BcryptPasswordEncoder"]
+        I_DS_IMPL["BcryptPasswordEncryptor"]
         I_CONFIG["Config\n(CacheConfig 등)"]
     end
 
