@@ -3,10 +3,13 @@ package com.loopers.application.brand
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.CreateBrandCommand
 import com.loopers.domain.brand.UpdateBrandCommand
+import com.loopers.domain.product.Product
 import com.loopers.infrastructure.brand.BrandJpaRepository
+import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
+import java.math.BigDecimal
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -27,6 +30,7 @@ import org.springframework.data.domain.PageRequest
 class BrandServiceIntegrationTest @Autowired constructor(
     private val brandService: BrandService,
     private val brandJpaRepository: BrandJpaRepository,
+    private val productJpaRepository: ProductJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -239,6 +243,53 @@ class BrandServiceIntegrationTest @Autowired constructor(
                 brandService.deleteBrand(999L)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("브랜드 삭제 시, 해당 브랜드의 상품들도 cascade soft delete 된다.")
+        @Test
+        fun cascadeSoftDeletesProducts_whenBrandDeleted() {
+            // arrange
+            val brand = brandJpaRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product1 = productJpaRepository.save(
+                Product(brandId = brand.id, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100, description = null, imageUrl = null),
+            )
+            val product2 = productJpaRepository.save(
+                Product(brandId = brand.id, name = "에어포스 1", price = BigDecimal("139000"), stock = 50, description = null, imageUrl = null),
+            )
+
+            // act
+            brandService.deleteBrand(brand.id)
+
+            // assert
+            val deletedProduct1 = productJpaRepository.findById(product1.id).get()
+            val deletedProduct2 = productJpaRepository.findById(product2.id).get()
+            assertAll(
+                { assertThat(deletedProduct1.isDeleted()).isTrue() },
+                { assertThat(deletedProduct2.isDeleted()).isTrue() },
+                { assertThat(productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brand.id)).isEmpty() },
+            )
+        }
+
+        @DisplayName("브랜드 삭제 시, 다른 브랜드의 상품에는 영향을 주지 않는다.")
+        @Test
+        fun doesNotAffectOtherBrandProducts_whenBrandDeleted() {
+            // arrange
+            val brand1 = brandJpaRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val brand2 = brandJpaRepository.save(Brand(name = "아디다스", description = "독일 스포츠 브랜드"))
+            productJpaRepository.save(
+                Product(brandId = brand1.id, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100, description = null, imageUrl = null),
+            )
+            val otherProduct = productJpaRepository.save(
+                Product(brandId = brand2.id, name = "울트라부스트", price = BigDecimal("199000"), stock = 30, description = null, imageUrl = null),
+            )
+
+            // act
+            brandService.deleteBrand(brand1.id)
+
+            // assert
+            val result = productJpaRepository.findByIdAndDeletedAtIsNull(otherProduct.id)
+            assertThat(result).isNotNull()
+            assertThat(result!!.name).isEqualTo("울트라부스트")
         }
     }
 }

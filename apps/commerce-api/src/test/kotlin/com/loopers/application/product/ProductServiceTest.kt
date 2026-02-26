@@ -281,41 +281,4 @@ class ProductServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
-
-    @DisplayName("브랜드 ID로 상품을 삭제할 때,")
-    @Nested
-    inner class DeleteProductsByBrandId {
-
-        @DisplayName("해당 브랜드의 상품이 존재하면, 모두 soft delete 된다.")
-        @Test
-        fun deletesAllProducts_whenProductsExist() {
-            // arrange
-            val brandId = 1L
-            val product1 = createProduct(brandId = brandId, name = "에어맥스 90")
-            val product2 = createProduct(brandId = brandId, name = "에어포스 1")
-
-            whenever(productRepository.findAllByBrandId(brandId)).thenReturn(listOf(product1, product2))
-
-            // act
-            productService.deleteProductsByBrandId(brandId)
-
-            // assert
-            assertAll(
-                { assertThat(product1.isDeleted()).isTrue() },
-                { assertThat(product2.isDeleted()).isTrue() },
-            )
-        }
-
-        @DisplayName("해당 브랜드의 상품이 없으면, 아무 일도 일어나지 않는다.")
-        @Test
-        fun doesNothing_whenNoProductsExist() {
-            // arrange
-            val brandId = 999L
-
-            whenever(productRepository.findAllByBrandId(brandId)).thenReturn(emptyList())
-
-            // act & assert (예외 없이 정상 종료)
-            productService.deleteProductsByBrandId(brandId)
-        }
-    }
 }

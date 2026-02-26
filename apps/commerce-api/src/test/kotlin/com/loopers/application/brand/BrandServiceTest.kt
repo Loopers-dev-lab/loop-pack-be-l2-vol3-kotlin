@@ -4,22 +4,26 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.brand.CreateBrandCommand
 import com.loopers.domain.brand.UpdateBrandCommand
+import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import java.math.BigDecimal
 
 @ExtendWith(MockitoExtension::class)
 class BrandServiceTest {
@@ -27,8 +31,15 @@ class BrandServiceTest {
     @Mock
     private lateinit var brandRepository: BrandRepository
 
-    @InjectMocks
+    @Mock
+    private lateinit var productRepository: ProductRepository
+
     private lateinit var brandService: BrandService
+
+    @BeforeEach
+    fun setUp() {
+        brandService = BrandService(brandRepository, productRepository)
+    }
 
     @DisplayName("브랜드를 조회할 때,")
     @Nested
@@ -232,21 +243,29 @@ class BrandServiceTest {
     @Nested
     inner class DeleteBrand {
 
-        @DisplayName("존재하는 브랜드를 삭제하면, soft delete 된다.")
+        @DisplayName("존재하는 브랜드를 삭제하면, 브랜드와 상품이 soft delete 된다.")
         @Test
         fun deletesBrand_whenBrandExists() {
             // arrange
             val brandId = 1L
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
+            val product = Product(brandId = brandId, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100, description = null, imageUrl = null)
 
             whenever(brandRepository.findById(brandId)).thenReturn(brand)
+            whenever(productRepository.findAllByBrandId(brandId)).thenReturn(listOf(product))
             whenever(brandRepository.save(any())).thenAnswer { it.arguments[0] }
+            whenever(productRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
             brandService.deleteBrand(brandId)
 
             // assert
-            assertThat(brand.isDeleted()).isTrue()
+            assertAll(
+                { assertThat(brand.isDeleted()).isTrue() },
+                { assertThat(product.isDeleted()).isTrue() },
+            )
+            verify(brandRepository).save(brand)
+            verify(productRepository).save(product)
         }
 
         @DisplayName("존재하지 않는 브랜드를 삭제하면, NOT_FOUND 예외가 발생한다.")

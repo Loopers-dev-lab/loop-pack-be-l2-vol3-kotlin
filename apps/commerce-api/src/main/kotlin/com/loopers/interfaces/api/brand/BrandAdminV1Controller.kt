@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.brand
 
-import com.loopers.application.brand.BrandFacade
 import com.loopers.application.brand.BrandService
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
@@ -21,7 +20,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api-admin/v1/brands")
 class BrandAdminV1Controller(
     private val brandService: BrandService,
-    private val brandFacade: BrandFacade,
 ) : BrandAdminV1ApiSpec {
 
     @GetMapping
@@ -75,7 +73,7 @@ class BrandAdminV1Controller(
         @PathVariable brandId: Long,
     ): ApiResponse<Any> {
         validateAdminAuth(ldap)
-        brandFacade.deleteBrand(brandId)
+        brandService.deleteBrand(brandId)
         return ApiResponse.success()
     }
 
