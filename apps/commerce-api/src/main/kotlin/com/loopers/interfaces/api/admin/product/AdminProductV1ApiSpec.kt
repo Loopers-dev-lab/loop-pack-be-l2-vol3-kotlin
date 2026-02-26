@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin.product
 
-import com.loopers.domain.common.PageResult
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.PageResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 
@@ -11,7 +11,7 @@ interface AdminProductV1ApiSpec {
     fun createProduct(request: AdminProductV1Dto.CreateRequest): ApiResponse<AdminProductV1Dto.ProductResponse>
 
     @Operation(summary = "상품 목록 조회", description = "상품 목록을 조회합니다.")
-    fun getProducts(page: Int, size: Int, brandId: Long?): ApiResponse<PageResult<AdminProductV1Dto.ProductResponse>>
+    fun getProducts(page: Int, size: Int, brandId: Long?): ApiResponse<PageResponse<AdminProductV1Dto.ProductResponse>>
 
     @Operation(summary = "상품 상세 조회", description = "상품 상세 정보를 조회합니다.")
     fun getProduct(productId: Long): ApiResponse<AdminProductV1Dto.ProductResponse>

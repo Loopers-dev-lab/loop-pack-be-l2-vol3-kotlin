@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin.brand
 
-import com.loopers.domain.common.PageResult
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.PageResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 
@@ -11,7 +11,7 @@ interface AdminBrandV1ApiSpec {
     fun createBrand(request: AdminBrandV1Dto.CreateRequest): ApiResponse<AdminBrandV1Dto.BrandResponse>
 
     @Operation(summary = "브랜드 목록 조회", description = "브랜드 목록을 조회합니다.")
-    fun getBrands(page: Int, size: Int): ApiResponse<PageResult<AdminBrandV1Dto.BrandResponse>>
+    fun getBrands(page: Int, size: Int): ApiResponse<PageResponse<AdminBrandV1Dto.BrandResponse>>
 
     @Operation(summary = "브랜드 상세 조회", description = "브랜드 상세 정보를 조회합니다.")
     fun getBrand(brandId: Long): ApiResponse<AdminBrandV1Dto.BrandResponse>

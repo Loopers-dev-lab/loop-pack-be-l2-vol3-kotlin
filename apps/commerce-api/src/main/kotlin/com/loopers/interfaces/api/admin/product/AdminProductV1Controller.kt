@@ -2,8 +2,8 @@ package com.loopers.interfaces.api.admin.product
 
 import com.loopers.application.product.AdminProductFacade
 import com.loopers.application.product.ProductCommand
-import com.loopers.domain.common.PageResult
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.PageResponse
 import com.loopers.interfaces.config.auth.AdminAuthenticated
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -47,9 +47,9 @@ class AdminProductV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) brandId: Long?,
-    ): ApiResponse<PageResult<AdminProductV1Dto.ProductResponse>> {
+    ): ApiResponse<PageResponse<AdminProductV1Dto.ProductResponse>> {
         val result = adminProductFacade.getProducts(page, size, brandId)
-        return PageResult(
+        return PageResponse(
             content = result.content.map { AdminProductV1Dto.ProductResponse.from(it) },
             totalElements = result.totalElements,
             totalPages = result.totalPages,
