@@ -14,6 +14,13 @@ class BrandV1Dto {
                     name = info.name,
                 )
             }
+
+            fun from(brandId: Long, name: String): BrandResponse {
+                return BrandResponse(
+                    id = brandId,
+                    name = name,
+                )
+            }
         }
     }
 }

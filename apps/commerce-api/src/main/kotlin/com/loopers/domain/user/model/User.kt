@@ -38,7 +38,7 @@ class User(
         if (verifyPassword(newPassword)) {
             throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.")
         }
-        Password(newPassword, birthDate)
+        Password.validate(newPassword, birthDate)
         this.password = encodePassword(newPassword)
     }
 
@@ -54,7 +54,7 @@ class User(
             birthDate: LocalDate,
             email: String,
         ): User {
-            Password(password, birthDate)
+            Password.validate(password, birthDate)
             return User(
                 loginId = LoginId(loginId),
                 password = encodePassword(password),

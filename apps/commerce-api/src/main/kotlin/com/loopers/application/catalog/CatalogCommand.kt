@@ -6,10 +6,6 @@ import java.math.BigDecimal
 
 class CatalogCommand {
 
-    data class CreateBrand(val name: String)
-
-    data class UpdateBrand(val name: String)
-
     data class CreateProduct(
         val brandId: Long,
         val name: String,

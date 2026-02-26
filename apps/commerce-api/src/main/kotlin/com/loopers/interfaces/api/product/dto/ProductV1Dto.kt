@@ -34,7 +34,7 @@ class ProductV1Dto {
             fun from(info: CatalogInfo): ProductDetailResponse {
                 return ProductDetailResponse(
                     product = CustomerProductResponse.from(info.product),
-                    brand = BrandV1Dto.BrandResponse(id = info.product.brandId, name = info.brandName),
+                    brand = BrandV1Dto.BrandResponse.from(info.product.brandId, info.brandName),
                 )
             }
         }
