@@ -23,6 +23,12 @@ class Brand(
         validateName(name)
     }
 
+    fun update(name: String, description: String?) {
+        validateName(name)
+        this.name = name
+        this.description = description
+    }
+
     private fun validateName(name: String) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "브랜드 이름은 비어있을 수 없습니다.")

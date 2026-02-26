@@ -41,6 +41,11 @@ class AdminBrandDto {
         }
     }
 
+    data class UpdateRequest(
+        val name: String,
+        val description: String?,
+    )
+
     data class DetailResponse(
         val id: Long,
         val name: String,

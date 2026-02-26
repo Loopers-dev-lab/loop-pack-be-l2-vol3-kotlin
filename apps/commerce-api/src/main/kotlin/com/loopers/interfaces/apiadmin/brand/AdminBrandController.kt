@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -43,6 +44,16 @@ class AdminBrandController(
         @PathVariable brandId: Long,
     ): ApiResponse<AdminBrandDto.DetailResponse> {
         return adminBrandFacade.getBrand(brandId)
+            .let { AdminBrandDto.DetailResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @PutMapping("/{brandId}")
+    override fun updateBrand(
+        @PathVariable brandId: Long,
+        @RequestBody request: AdminBrandDto.UpdateRequest,
+    ): ApiResponse<AdminBrandDto.DetailResponse> {
+        return adminBrandFacade.updateBrand(brandId, request.name, request.description)
             .let { AdminBrandDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

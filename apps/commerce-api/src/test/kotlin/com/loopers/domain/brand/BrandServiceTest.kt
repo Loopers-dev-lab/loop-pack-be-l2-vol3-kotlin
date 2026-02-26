@@ -164,4 +164,46 @@ class BrandServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
+
+    @DisplayName("브랜드 수정할 때,")
+    @Nested
+    inner class UpdateBrand {
+
+        @DisplayName("유효한 brandId와 수정 정보가 주어지면, 수정된 브랜드를 반환한다.")
+        @Test
+        fun returnsUpdatedBrand_whenValidRequest() {
+            // arrange
+            val brandId = 1L
+            val brand = Brand(name = "나이키", description = "스포츠 브랜드")
+
+            whenever(brandRepository.findById(brandId)).thenReturn(brand)
+            whenever(brandRepository.save(any())).thenAnswer { it.arguments[0] }
+
+            // act
+            val result = brandService.updateBrand(brandId, "아디다스", "독일 스포츠 브랜드")
+
+            // assert
+            assertAll(
+                { assertThat(result.name).isEqualTo("아디다스") },
+                { assertThat(result.description).isEqualTo("독일 스포츠 브랜드") },
+            )
+        }
+
+        @DisplayName("존재하지 않는 brandId를 전달하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenBrandNotExists() {
+            // arrange
+            val brandId = 999L
+
+            whenever(brandRepository.findById(brandId)).thenReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                brandService.updateBrand(brandId, "아디다스", "설명")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
 }

@@ -177,4 +177,72 @@ class BrandServiceIntegrationTest @Autowired constructor(
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
+
+    @DisplayName("브랜드 수정할 때,")
+    @Nested
+    inner class UpdateBrand {
+
+        @DisplayName("유효한 수정 정보가 주어지면, DB에 반영되고 조회할 수 있다.")
+        @Test
+        fun updatesBrandInDb_whenValidRequest() {
+            // arrange
+            val saved = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+
+            // act
+            brandService.updateBrand(saved.id, "아디다스", "독일 스포츠 브랜드")
+
+            // assert
+            val found = brandService.getBrand(saved.id)
+            assertAll(
+                { assertThat(found.name).isEqualTo("아디다스") },
+                { assertThat(found.description).isEqualTo("독일 스포츠 브랜드") },
+            )
+        }
+
+        @DisplayName("설명을 null로 변경하면, DB에 반영된다.")
+        @Test
+        fun updatesBrandDescriptionToNull() {
+            // arrange
+            val saved = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+
+            // act
+            brandService.updateBrand(saved.id, "나이키", null)
+
+            // assert
+            val found = brandService.getBrand(saved.id)
+            assertAll(
+                { assertThat(found.name).isEqualTo("나이키") },
+                { assertThat(found.description).isNull() },
+            )
+        }
+
+        @DisplayName("삭제된 브랜드를 수정하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenBrandIsDeleted() {
+            // arrange
+            val saved = brandRepository.save(Brand(name = "삭제될 브랜드", description = "설명"))
+            saved.delete()
+            brandRepository.save(saved)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                brandService.updateBrand(saved.id, "새 이름", "새 설명")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("존재하지 않는 brandId로 수정하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenBrandNotExistsInDb() {
+            // act
+            val exception = assertThrows<CoreException> {
+                brandService.updateBrand(9999L, "새 이름", "새 설명")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
 }
