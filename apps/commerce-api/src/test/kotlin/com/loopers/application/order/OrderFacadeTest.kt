@@ -149,6 +149,32 @@ class OrderFacadeTest {
             assertEquals(1, result.items.size)
             verify(exactly = 1) { orderService.createOrder(user.id, any()) }
         }
+
+        @Test
+        fun `재고 부족 시 BAD_REQUEST 예외가 발생한다`() {
+            // given
+            val user = createUserModel()
+            val product = createProductModel(price = 10_000L)
+
+            every { userService.getUserByLoginId("testuser") } returns user
+            every { productService.getProductById(1L) } returns product
+            every { productInventoryService.decreaseStock(1L, 1L) } throws CoreException(
+                errorType = ErrorType.BAD_REQUEST,
+                customMessage = "재고가 부족합니다.",
+            )
+
+            // when
+            val exception = assertThrows<CoreException> {
+                orderFacade.createOrder(
+                    loginId = "testuser",
+                    items = listOf(OrderFacade.OrderItemRequest(productId = 1L, quantity = 1L)),
+                )
+            }
+
+            // then
+            assertEquals(ErrorType.BAD_REQUEST, exception.errorType)
+            verify(exactly = 0) { orderService.createOrder(any(), any()) }
+        }
     }
 
     @Nested

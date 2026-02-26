@@ -55,8 +55,14 @@ class ProductInventoryService(
             errorType = ErrorType.NOT_FOUND,
             customMessage = "해당 상품의 재고를 찾을 수 없습니다.",
         )
-
-        inventory.decreaseStock(quantity)
+        try {
+            inventory.decreaseStock(quantity)
+        } catch (e: IllegalArgumentException) {
+            throw CoreException(
+                errorType = ErrorType.BAD_REQUEST,
+                customMessage = e.message,
+            )
+        }
         return inventory
     }
 
