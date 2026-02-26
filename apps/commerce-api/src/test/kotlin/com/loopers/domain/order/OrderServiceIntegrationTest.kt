@@ -2,6 +2,10 @@ package com.loopers.domain.order
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.LikeCount
+import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
+import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -21,7 +25,6 @@ import java.time.LocalDateTime
 @SpringBootTest
 class OrderServiceIntegrationTest @Autowired constructor(
     private val orderService: OrderService,
-    private val orderItemRepository: OrderItemRepository,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -36,9 +39,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
         return brandRepository.save(Brand(name = name, description = "스포츠 브랜드"))
     }
 
-    private fun createProduct(brand: Brand, name: String = "에어맥스", price: Long = 159000L): Product {
+    private fun createProduct(brand: Brand, name: String = "에어맥스", price: Money = Money.of(159000L)): Product {
         return productRepository.save(
-            Product(name = name, description = "러닝화", price = price, likes = 0, stockQuantity = 100, brandId = brand.id),
+            Product(name = name, description = "러닝화", price = price, likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
         )
     }
 
@@ -46,7 +49,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
     @Nested
     inner class CreateOrder {
 
-        @DisplayName("Order가 DB에 저장된다.")
+        @DisplayName("Order가 항목과 함께 DB에 저장된다.")
         @Test
         fun savesOrderToDatabase() {
             // arrange
@@ -55,7 +58,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -69,21 +72,22 @@ class OrderServiceIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(order.id).isNotNull() },
                 { assertThat(order.userId).isEqualTo(1L) },
-                { assertThat(order.totalAmount).isEqualTo(318000L) },
+                { assertThat(order.totalAmount).isEqualTo(Money.of(318000L)) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
+                { assertThat(order.items).hasSize(1) },
             )
         }
 
-        @DisplayName("OrderItem이 DB에 저장된다.")
+        @DisplayName("OrderItem의 스냅샷 정보가 정확히 저장된다.")
         @Test
-        fun savesOrderItemsToDatabase() {
+        fun savesOrderItemSnapshotCorrectly() {
             // arrange
             val brand = createBrand()
             val product = createProduct(brand)
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -94,14 +98,13 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val order = orderService.createOrder(1L, items)
 
             // assert
-            val savedItems = orderItemRepository.findByOrderId(order.id)
-            assertThat(savedItems).hasSize(1)
+            val savedItem = order.items[0]
             assertAll(
-                { assertThat(savedItems[0].productId).isEqualTo(product.id) },
-                { assertThat(savedItems[0].quantity).isEqualTo(2) },
-                { assertThat(savedItems[0].productName).isEqualTo("에어맥스") },
-                { assertThat(savedItems[0].productPrice).isEqualTo(159000L) },
-                { assertThat(savedItems[0].brandName).isEqualTo("나이키") },
+                { assertThat(savedItem.productId).isEqualTo(product.id) },
+                { assertThat(savedItem.quantity).isEqualTo(Quantity.of(2)) },
+                { assertThat(savedItem.productName).isEqualTo("에어맥스") },
+                { assertThat(savedItem.productPrice).isEqualTo(Money.of(159000L)) },
+                { assertThat(savedItem.brandName).isEqualTo("나이키") },
             )
         }
 
@@ -110,19 +113,19 @@ class OrderServiceIntegrationTest @Autowired constructor(
         fun savesMultipleOrderItems() {
             // arrange
             val brand = createBrand()
-            val product1 = createProduct(brand, name = "에어맥스", price = 159000L)
-            val product2 = createProduct(brand, name = "에어포스", price = 139000L)
+            val product1 = createProduct(brand, name = "에어맥스", price = Money.of(159000L))
+            val product2 = createProduct(brand, name = "에어포스", price = Money.of(139000L))
             val items = listOf(
                 OrderItemCommand(
                     productId = product1.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product1.name,
                     productPrice = product1.price,
                     brandName = brand.name,
                 ),
                 OrderItemCommand(
                     productId = product2.id,
-                    quantity = 1,
+                    quantity = Quantity.of(1),
                     productName = product2.name,
                     productPrice = product2.price,
                     brandName = brand.name,
@@ -133,10 +136,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val order = orderService.createOrder(1L, items)
 
             // assert
-            val savedItems = orderItemRepository.findByOrderId(order.id)
-            assertThat(savedItems).hasSize(2)
+            assertThat(order.items).hasSize(2)
             // 159000 * 2 + 139000 * 1 = 457000
-            assertThat(order.totalAmount).isEqualTo(457000L)
+            assertThat(order.totalAmount).isEqualTo(Money.of(457000L))
         }
     }
 
@@ -153,7 +155,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -181,7 +183,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 1,
+                    quantity = Quantity.of(1),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -210,7 +212,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 1,
+                    quantity = Quantity.of(1),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -227,6 +229,22 @@ class OrderServiceIntegrationTest @Autowired constructor(
             // assert
             assertThat(result).isEmpty()
         }
+
+        @DisplayName("시작일이 종료일보다 크면, BAD_REQUEST 예외를 던진다.")
+        @Test
+        fun throwsBadRequest_whenStartAtIsAfterEndAt() {
+            // arrange
+            val startAt = LocalDateTime.now().plusDays(1)
+            val endAt = LocalDateTime.now().minusDays(1)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrders(1L, startAt, endAt)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 
     @DisplayName("주문을 단건 조회할 때,")
@@ -242,7 +260,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -251,13 +269,13 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val createdOrder = orderService.createOrder(1L, items)
 
             // act
-            val result = orderService.getOrder(createdOrder.id)
+            val result = orderService.getOrder(1L, createdOrder.id)
 
             // assert
             assertAll(
                 { assertThat(result.id).isEqualTo(createdOrder.id) },
                 { assertThat(result.userId).isEqualTo(1L) },
-                { assertThat(result.totalAmount).isEqualTo(318000L) },
+                { assertThat(result.totalAmount).isEqualTo(Money.of(318000L)) },
                 { assertThat(result.status).isEqualTo(OrderStatus.ORDERED) },
             )
         }
@@ -267,11 +285,37 @@ class OrderServiceIntegrationTest @Autowired constructor(
         fun throwsNotFound_whenOrderDoesNotExist() {
             // act
             val exception = assertThrows<CoreException> {
-                orderService.getOrder(999L)
+                orderService.getOrder(1L, 999L)
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("다른 사용자의 주문이면, FORBIDDEN 예외를 던진다.")
+        @Test
+        fun throwsForbidden_whenOtherUsersOrder() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(
+                OrderItemCommand(
+                    productId = product.id,
+                    quantity = Quantity.of(1),
+                    productName = product.name,
+                    productPrice = product.price,
+                    brandName = brand.name,
+                ),
+            )
+            val createdOrder = orderService.createOrder(1L, items)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderService.getOrder(2L, createdOrder.id)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
 }

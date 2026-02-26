@@ -15,10 +15,10 @@ data class LikeInfo(
             return LikeInfo(
                 productId = product.id,
                 productName = product.name,
-                price = product.price,
+                price = product.price.value,
                 description = product.description,
                 brandId = product.brandId,
-                likes = product.likes,
+                likes = product.likes.value,
             )
         }
     }

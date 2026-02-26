@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 class BrandRepositoryImpl(
     private val brandJpaRepository: BrandJpaRepository,
 ) : BrandRepository {
-    override fun find(id: Long): Brand? {
+    override fun findById(id: Long): Brand? {
         return brandJpaRepository.findByIdOrNull(id)
             ?.takeIf { it.deletedAt == null }
     }

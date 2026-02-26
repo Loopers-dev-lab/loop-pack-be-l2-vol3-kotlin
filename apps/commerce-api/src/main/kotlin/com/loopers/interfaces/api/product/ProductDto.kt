@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductDetailInfo
 import com.loopers.application.product.ProductInfo
-import org.springframework.data.domain.Page
+import com.loopers.domain.common.PageResult
 
 class ProductDto {
     data class DetailResponse(
@@ -37,10 +37,10 @@ class ProductDto {
         val totalPages: Int,
     ) {
         companion object {
-            fun from(page: Page<ProductInfo>): PageResponse {
+            fun from(page: PageResult<ProductInfo>): PageResponse {
                 return PageResponse(
                     content = page.content.map { ListItem.from(it) },
-                    page = page.number,
+                    page = page.page,
                     size = page.size,
                     totalElements = page.totalElements,
                     totalPages = page.totalPages,

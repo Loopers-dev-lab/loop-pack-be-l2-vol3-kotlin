@@ -12,6 +12,7 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @SpringBootTest
@@ -44,12 +45,12 @@ class UserServiceIntegrationTest @Autowired constructor(
             val result = userService.signUp(loginId, password, name, email, birthday)
 
             // assert
-            val savedUser = userRepository.find(result.id)
+            val savedUser = userRepository.findById(result.id)
             assertAll(
                 { assertThat(savedUser).isNotNull() },
-                { assertThat(savedUser?.loginId).isEqualTo(loginId) },
+                { assertThat(savedUser?.loginId?.value).isEqualTo(loginId) },
                 { assertThat(savedUser?.name).isEqualTo(name) },
-                { assertThat(savedUser?.email).isEqualTo(email) },
+                { assertThat(savedUser?.email?.value).isEqualTo(email) },
                 { assertThat(savedUser?.birthday).isEqualTo(birthday) },
             )
         }
@@ -68,7 +69,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             val result = userService.signUp(loginId, password, name, email, birthday)
 
             // assert
-            val savedUser = userRepository.find(result.id)
+            val savedUser = userRepository.findById(result.id)
             assertAll(
                 { assertThat(savedUser?.password).isNotEqualTo(password) },
                 { assertThat(passwordEncoder.matches(password, savedUser!!.password)).isTrue() },
@@ -140,7 +141,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(result).isNotNull() },
-                { assertThat(result.loginId).isEqualTo(loginId) },
+                { assertThat(result.loginId.value).isEqualTo(loginId) },
                 { assertThat(result.name).isEqualTo(name) },
             )
         }
@@ -191,6 +192,7 @@ class UserServiceIntegrationTest @Autowired constructor(
     @Nested
     inner class ChangePassword {
         @DisplayName("유효한 현재 비밀번호와 새 비밀번호를 전달하면, 비밀번호가 변경된다.")
+        @Transactional
         @Test
         fun changesPassword_whenValidPasswordsProvided() {
             // arrange
@@ -205,7 +207,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             userService.changePassword(user.id, currentPassword, newPassword)
 
             // assert
-            val updatedUser = userRepository.find(user.id)
+            val updatedUser = userRepository.findById(user.id)
             assertAll(
                 { assertThat(passwordEncoder.matches(newPassword, updatedUser!!.password)).isTrue() },
                 { assertThat(passwordEncoder.matches(currentPassword, updatedUser!!.password)).isFalse() },
@@ -213,6 +215,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         }
 
         @DisplayName("변경된 비밀번호로 인증이 가능하다.")
+        @Transactional
         @Test
         fun canAuthenticateWithNewPassword_afterPasswordChange() {
             // arrange
@@ -228,7 +231,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             val result = userService.authenticate(loginId, newPassword)
 
             // assert
-            assertThat(result.loginId).isEqualTo(loginId)
+            assertThat(result.loginId.value).isEqualTo(loginId)
         }
 
         @DisplayName("존재하지 않는 사용자 ID를 전달하면, NOT_FOUND 예외가 발생한다.")

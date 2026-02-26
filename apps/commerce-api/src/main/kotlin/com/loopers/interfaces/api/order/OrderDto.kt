@@ -4,6 +4,7 @@ import com.loopers.application.order.OrderDetailInfo
 import com.loopers.application.order.OrderInfo
 import com.loopers.application.order.OrderItemInfo
 import com.loopers.application.order.OrderPlaceCommand
+import com.loopers.domain.common.Quantity
 import java.time.ZonedDateTime
 
 class OrderDto {
@@ -17,7 +18,7 @@ class OrderDto {
         )
 
         fun toCommands(): List<OrderPlaceCommand> {
-            return items.map { OrderPlaceCommand(productId = it.productId, quantity = it.quantity) }
+            return items.map { OrderPlaceCommand(productId = it.productId, quantity = Quantity.of(it.quantity)) }
         }
     }
 

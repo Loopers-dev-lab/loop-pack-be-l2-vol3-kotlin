@@ -1,5 +1,9 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.common.LikeCount
+import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
+import com.loopers.domain.common.StockQuantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -16,9 +20,9 @@ class ProductTest {
     inner class Create {
         private val name = "에어맥스"
         private val description = "러닝화"
-        private val price = 159000L
-        private val likes = 10
-        private val stockQuantity = 100
+        private val price = Money.of(159000L)
+        private val likes = LikeCount.of(10)
+        private val stockQuantity = StockQuantity.of(100)
         private val brandId = 1L
 
         @DisplayName("유효한 값이 주어지면, 정상적으로 생성된다.")
@@ -86,14 +90,7 @@ class ProductTest {
         fun throwsBadRequest_whenPriceIsNegative() {
             // act
             val exception = assertThrows<CoreException> {
-                Product(
-                    name = name,
-                    description = description,
-                    price = -1,
-                    likes = likes,
-                    stockQuantity = stockQuantity,
-                    brandId = brandId,
-                )
+                Money.of(-1)
             }
 
             // assert
@@ -105,14 +102,7 @@ class ProductTest {
         fun throwsBadRequest_whenStockQuantityIsNegative() {
             // act
             val exception = assertThrows<CoreException> {
-                Product(
-                    name = name,
-                    description = description,
-                    price = price,
-                    likes = likes,
-                    stockQuantity = -1,
-                    brandId = brandId,
-                )
+                StockQuantity.of(-1)
             }
 
             // assert
@@ -120,13 +110,13 @@ class ProductTest {
         }
     }
 
-    private fun createProduct(likes: Int = 10): Product {
+    private fun createProduct(likes: LikeCount = LikeCount.of(10)): Product {
         return Product(
             name = "에어맥스",
             description = "러닝화",
-            price = 159000,
+            price = Money.of(159000L),
             likes = likes,
-            stockQuantity = 100,
+            stockQuantity = StockQuantity.of(100),
             brandId = 1L,
         )
     }
@@ -142,10 +132,10 @@ class ProductTest {
             val product = createProduct()
 
             // act
-            product.deductStock(10)
+            product.deductStock(Quantity.of(10))
 
             // assert
-            assertThat(product.stockQuantity).isEqualTo(90)
+            assertThat(product.stockQuantity).isEqualTo(StockQuantity.of(90))
         }
 
         @DisplayName("재고가 부족하면, BAD_REQUEST 예외가 발생한다.")
@@ -156,7 +146,7 @@ class ProductTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                product.deductStock(101)
+                product.deductStock(Quantity.of(101))
             }
 
             // assert
@@ -166,12 +156,9 @@ class ProductTest {
         @DisplayName("차감 수량이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenQuantityIsZeroOrNegative() {
-            // arrange
-            val product = createProduct()
-
             // act
             val exception = assertThrows<CoreException> {
-                product.deductStock(0)
+                Quantity.of(0)
             }
 
             // assert
@@ -187,13 +174,13 @@ class ProductTest {
         @Test
         fun increasesLikeCountByOne() {
             // arrange
-            val product = createProduct(likes = 10)
+            val product = createProduct(likes = LikeCount.of(10))
 
             // act
             product.increaseLikeCount()
 
             // assert
-            assertThat(product.likes).isEqualTo(11)
+            assertThat(product.likes).isEqualTo(LikeCount.of(11))
         }
     }
 
@@ -205,26 +192,26 @@ class ProductTest {
         @Test
         fun decreasesLikeCountByOne() {
             // arrange
-            val product = createProduct(likes = 10)
+            val product = createProduct(likes = LikeCount.of(10))
 
             // act
             product.decreaseLikeCount()
 
             // assert
-            assertThat(product.likes).isEqualTo(9)
+            assertThat(product.likes).isEqualTo(LikeCount.of(9))
         }
 
         @DisplayName("좋아요 수가 0이면, 0을 유지한다.")
         @Test
         fun doesNotDecreaseBelow_zero() {
             // arrange
-            val product = createProduct(likes = 0)
+            val product = createProduct(likes = LikeCount.of(0))
 
             // act
             product.decreaseLikeCount()
 
             // assert
-            assertThat(product.likes).isEqualTo(0)
+            assertThat(product.likes).isEqualTo(LikeCount.of(0))
         }
     }
 }

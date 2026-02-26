@@ -38,7 +38,7 @@ class BrandServiceTest {
             val brandId = 1L
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
 
-            whenever(brandRepository.find(brandId)).thenReturn(brand)
+            whenever(brandRepository.findById(brandId)).thenReturn(brand)
 
             // act
             val result = brandService.getBrand(brandId)
@@ -56,7 +56,7 @@ class BrandServiceTest {
             // arrange
             val brandId = 999L
 
-            whenever(brandRepository.find(brandId)).thenReturn(null)
+            whenever(brandRepository.findById(brandId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {

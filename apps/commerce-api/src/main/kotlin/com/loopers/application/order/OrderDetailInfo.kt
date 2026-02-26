@@ -14,14 +14,14 @@ data class OrderDetailInfo(
     val items: List<OrderItemInfo>,
 ) {
     companion object {
-        fun from(order: Order, items: List<OrderItem>): OrderDetailInfo {
+        fun from(order: Order): OrderDetailInfo {
             return OrderDetailInfo(
                 orderId = order.id,
                 userId = order.userId,
-                totalAmount = order.totalAmount,
+                totalAmount = order.totalAmount.value,
                 status = order.status,
                 orderedAt = order.createdAt,
-                items = items.map { OrderItemInfo.from(it) },
+                items = order.items.map { OrderItemInfo.from(it) },
             )
         }
     }
@@ -38,9 +38,9 @@ data class OrderItemInfo(
         fun from(orderItem: OrderItem): OrderItemInfo {
             return OrderItemInfo(
                 productId = orderItem.productId,
-                quantity = orderItem.quantity,
+                quantity = orderItem.quantity.value,
                 productName = orderItem.productName,
-                productPrice = orderItem.productPrice,
+                productPrice = orderItem.productPrice.value,
                 brandName = orderItem.brandName,
             )
         }

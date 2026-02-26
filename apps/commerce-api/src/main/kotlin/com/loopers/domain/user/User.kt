@@ -10,14 +10,14 @@ import java.time.LocalDate
 @Entity
 @Table(name = "users")
 class User(
-    loginId: String,
+    loginId: LoginId,
     password: String,
     name: String,
     birthday: LocalDate,
-    email: String,
+    email: Email,
 ) : BaseEntity() {
 
-    var loginId: String = loginId
+    var loginId: LoginId = loginId
         protected set
 
     var password: String = password
@@ -29,13 +29,11 @@ class User(
     var birthday: LocalDate = birthday
         protected set
 
-    var email: String = email
+    var email: Email = email
         protected set
 
     init {
-        LoginId.of(loginId)
         validateName(name)
-        Email.of(email)
     }
 
     private fun validateName(name: String) {

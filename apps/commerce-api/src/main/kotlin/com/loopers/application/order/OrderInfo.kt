@@ -14,7 +14,7 @@ data class OrderInfo(
         fun from(order: Order): OrderInfo {
             return OrderInfo(
                 orderId = order.id,
-                totalAmount = order.totalAmount,
+                totalAmount = order.totalAmount.value,
                 status = order.status,
                 orderedAt = order.createdAt,
             )

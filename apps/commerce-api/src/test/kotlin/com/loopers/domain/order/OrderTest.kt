@@ -1,5 +1,7 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -19,25 +21,135 @@ class OrderTest {
         @Test
         fun createsOrder_whenValidValuesProvided() {
             // arrange & act
-            val order = Order(
-                userId = 1L,
-                totalAmount = 318000L,
-            )
+            val order = Order(userId = 1L)
 
             // assert
             assertAll(
                 { assertThat(order.userId).isEqualTo(1L) },
-                { assertThat(order.totalAmount).isEqualTo(318000L) },
+                { assertThat(order.totalAmount).isEqualTo(Money.ZERO) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
+                { assertThat(order.items).isEmpty() },
+            )
+        }
+    }
+
+    @DisplayName("주문 항목을 추가할 때,")
+    @Nested
+    inner class AddItems {
+
+        @DisplayName("항목이 추가되고 총 금액이 계산된다.")
+        @Test
+        fun addsItemAndCalculatesTotalAmount() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = Quantity.of(2),
+                        productName = "에어맥스",
+                        productPrice = Money.of(159000L),
+                        brandName = "나이키",
+                    ),
+                ),
+            )
+
+            // assert
+            assertAll(
+                { assertThat(order.items).hasSize(1) },
+                { assertThat(order.totalAmount).isEqualTo(Money.of(318000L)) },
             )
         }
 
-        @DisplayName("총 금액이 0 미만이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("여러 항목을 추가하면 총 금액이 합산된다.")
         @Test
-        fun throwsBadRequest_whenTotalAmountIsNegative() {
+        fun calculatesTotalAmountForMultipleItems() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = Quantity.of(2),
+                        productName = "에어맥스",
+                        productPrice = Money.of(159000L),
+                        brandName = "나이키",
+                    ),
+                    OrderItemCommand(
+                        productId = 2L,
+                        quantity = Quantity.of(3),
+                        productName = "에어포스",
+                        productPrice = Money.of(139000L),
+                        brandName = "나이키",
+                    ),
+                ),
+            )
+
+            // assert
+            assertAll(
+                { assertThat(order.items).hasSize(2) },
+                // 159000 * 2 + 139000 * 3 = 318000 + 417000 = 735000
+                { assertThat(order.totalAmount).isEqualTo(Money.of(735000L)) },
+            )
+        }
+
+        @DisplayName("주문 항목이 비어있으면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenItemsEmpty() {
+            // arrange
+            val order = Order(userId = 1L)
+
             // act
             val exception = assertThrows<CoreException> {
-                Order(userId = 1L, totalAmount = -1L)
+                order.addItems(emptyList())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("중복된 상품이 포함되면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenDuplicateProductIds() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.addItems(
+                    listOf(
+                        OrderItemCommand(
+                            productId = 1L,
+                            quantity = Quantity.of(1),
+                            productName = "에어맥스",
+                            productPrice = Money.of(159000L),
+                            brandName = "나이키",
+                        ),
+                        OrderItemCommand(
+                            productId = 1L,
+                            quantity = Quantity.of(2),
+                            productName = "에어맥스",
+                            productPrice = Money.of(159000L),
+                            brandName = "나이키",
+                        ),
+                    ),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("수량이 0 이하이면, Quantity 생성 시 BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenQuantityIsZeroOrNegative() {
+            // act
+            val exception = assertThrows<CoreException> {
+                Quantity.of(0)
             }
 
             // assert

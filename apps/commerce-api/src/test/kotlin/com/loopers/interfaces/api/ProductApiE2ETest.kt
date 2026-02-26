@@ -2,6 +2,9 @@ package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.LikeCount
+import com.loopers.domain.common.Money
+import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.interfaces.api.product.ProductDto
@@ -56,9 +59,9 @@ class ProductApiE2ETest @Autowired constructor(
                 Product(
                     name = "에어맥스",
                     description = "러닝화",
-                    price = 159000,
-                    likes = 10,
-                    stockQuantity = 100,
+                    price = Money.of(159000L),
+                    likes = LikeCount.of(10),
+                    stockQuantity = StockQuantity.of(100),
                     brandId = brand.id,
                 ),
             )
@@ -66,9 +69,9 @@ class ProductApiE2ETest @Autowired constructor(
                 Product(
                     name = "에어포스",
                     description = "캐주얼화",
-                    price = 139000,
-                    likes = 20,
-                    stockQuantity = 50,
+                    price = Money.of(139000L),
+                    likes = LikeCount.of(20),
+                    stockQuantity = StockQuantity.of(50),
                     brandId = brand.id,
                 ),
             )
@@ -99,9 +102,9 @@ class ProductApiE2ETest @Autowired constructor(
                 Product(
                     name = "에어맥스",
                     description = "러닝화",
-                    price = 159000,
-                    likes = 10,
-                    stockQuantity = 100,
+                    price = Money.of(159000L),
+                    likes = LikeCount.of(10),
+                    stockQuantity = StockQuantity.of(100),
                     brandId = nike.id,
                 ),
             )
@@ -109,9 +112,9 @@ class ProductApiE2ETest @Autowired constructor(
                 Product(
                     name = "울트라부스트",
                     description = "러닝화",
-                    price = 199000,
-                    likes = 30,
-                    stockQuantity = 80,
+                    price = Money.of(199000L),
+                    likes = LikeCount.of(30),
+                    stockQuantity = StockQuantity.of(80),
                     brandId = adidas.id,
                 ),
             )
@@ -119,9 +122,9 @@ class ProductApiE2ETest @Autowired constructor(
                 Product(
                     name = "에어포스",
                     description = "캐주얼화",
-                    price = 139000,
-                    likes = 20,
-                    stockQuantity = 50,
+                    price = Money.of(139000L),
+                    likes = LikeCount.of(20),
+                    stockQuantity = StockQuantity.of(50),
                     brandId = nike.id,
                 ),
             )
@@ -152,13 +155,13 @@ class ProductApiE2ETest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             productRepository.save(
-                Product(name = "에어맥스", description = "러닝화", price = 159000, likes = 10, stockQuantity = 100, brandId = brand.id),
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
             )
             productRepository.save(
-                Product(name = "조던", description = "농구화", price = 239000, likes = 50, stockQuantity = 30, brandId = brand.id),
+                Product(name = "조던", description = "농구화", price = Money.of(239000L), likes = LikeCount.of(50), stockQuantity = StockQuantity.of(30), brandId = brand.id),
             )
             productRepository.save(
-                Product(name = "에어포스", description = "캐주얼화", price = 139000, likes = 20, stockQuantity = 50, brandId = brand.id),
+                Product(name = "에어포스", description = "캐주얼화", price = Money.of(139000L), likes = LikeCount.of(20), stockQuantity = StockQuantity.of(50), brandId = brand.id),
             )
 
             // act
@@ -183,13 +186,13 @@ class ProductApiE2ETest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             productRepository.save(
-                Product(name = "에어맥스", description = "러닝화", price = 159000, likes = 10, stockQuantity = 100, brandId = brand.id),
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
             )
             productRepository.save(
-                Product(name = "조던", description = "농구화", price = 239000, likes = 50, stockQuantity = 30, brandId = brand.id),
+                Product(name = "조던", description = "농구화", price = Money.of(239000L), likes = LikeCount.of(50), stockQuantity = StockQuantity.of(30), brandId = brand.id),
             )
             productRepository.save(
-                Product(name = "에어포스", description = "캐주얼화", price = 139000, likes = 20, stockQuantity = 50, brandId = brand.id),
+                Product(name = "에어포스", description = "캐주얼화", price = Money.of(139000L), likes = LikeCount.of(20), stockQuantity = StockQuantity.of(50), brandId = brand.id),
             )
 
             // act
@@ -218,9 +221,9 @@ class ProductApiE2ETest @Autowired constructor(
                     Product(
                         name = "상품${i + 1}",
                         description = "설명",
-                        price = (i + 1) * 10000L,
-                        likes = 0,
-                        stockQuantity = 10,
+                        price = Money.of((i + 1) * 10000L),
+                        likes = LikeCount.of(0),
+                        stockQuantity = StockQuantity.of(10),
                         brandId = brand.id,
                     ),
                 )
@@ -271,10 +274,10 @@ class ProductApiE2ETest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             productRepository.save(
-                Product(name = "에어맥스", description = "러닝화", price = 159000, likes = 10, stockQuantity = 100, brandId = brand.id),
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
             )
             val deletedProduct = productRepository.save(
-                Product(name = "단종상품", description = "단종", price = 99000, likes = 5, stockQuantity = 0, brandId = brand.id),
+                Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = LikeCount.of(5), stockQuantity = StockQuantity.of(0), brandId = brand.id),
             )
             deletedProduct.delete()
             productRepository.save(deletedProduct)
@@ -301,7 +304,7 @@ class ProductApiE2ETest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             val product = productRepository.save(
-                Product(name = "에어맥스", description = "러닝화", price = 159000, likes = 10, stockQuantity = 100, brandId = brand.id),
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
             )
 
             // act
@@ -339,9 +342,9 @@ class ProductApiE2ETest @Autowired constructor(
                 Product(
                     name = "에어맥스",
                     description = "러닝화",
-                    price = 159000,
-                    likes = 10,
-                    stockQuantity = 100,
+                    price = Money.of(159000L),
+                    likes = LikeCount.of(10),
+                    stockQuantity = StockQuantity.of(100),
                     brandId = brand.id,
                 ),
             )
@@ -394,7 +397,7 @@ class ProductApiE2ETest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             val product = productRepository.save(
-                Product(name = "단종상품", description = "단종", price = 99000, likes = 5, stockQuantity = 0, brandId = brand.id),
+                Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = LikeCount.of(5), stockQuantity = StockQuantity.of(0), brandId = brand.id),
             )
             product.delete()
             productRepository.save(product)
@@ -421,7 +424,7 @@ class ProductApiE2ETest @Autowired constructor(
             // arrange
             val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
             val product = productRepository.save(
-                Product(name = "에어맥스", description = null, price = 159000, likes = 0, stockQuantity = 50, brandId = brand.id),
+                Product(name = "에어맥스", description = null, price = Money.of(159000L), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(50), brandId = brand.id),
             )
 
             // act
