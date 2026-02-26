@@ -16,4 +16,7 @@ interface ProductJpaRepository : JpaRepository<Product, Long>, JpaSpecificationE
 
     @Query("SELECT p FROM Product p WHERE p.brandId = :brandId AND p.deletedAt IS NULL")
     fun findAllActiveByBrandId(@Param("brandId") brandId: Long): List<Product>
+
+    @Query("SELECT p FROM Product p WHERE p.id IN :ids AND p.deletedAt IS NULL")
+    fun findAllActiveByIds(@Param("ids") ids: List<Long>): List<Product>
 }
