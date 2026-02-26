@@ -29,6 +29,12 @@ object ApiPaths {
         const val BY_ID = "$BASE/{productId}"
     }
 
+    object Likes {
+        const val BASE = "/api/v1/likes"
+        const val BY_PRODUCT_ID = "$BASE/{productId}"
+        const val ME = "$BASE/me"
+    }
+
     object Examples {
         const val BASE = "/api/v1/examples"
         const val BY_ID = "$BASE/{id}"
