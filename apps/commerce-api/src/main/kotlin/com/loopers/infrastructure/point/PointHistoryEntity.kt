@@ -39,17 +39,11 @@ class PointHistoryEntity(
         }
     }
 
-    fun toDomain(): PointHistory {
-        val ph = PointHistory(
-            refUserPointId = refUserPointId,
-            type = type,
-            amount = Point(amount),
-            refOrderId = refOrderId?.let { OrderId(it) },
-        )
-        PointHistory::class.java.getDeclaredField("id").apply {
-            isAccessible = true
-            set(ph, id)
-        }
-        return ph
-    }
+    fun toDomain(): PointHistory = PointHistory(
+        id = id,
+        refUserPointId = refUserPointId,
+        refOrderId = refOrderId?.let { OrderId(it) },
+        type = type,
+        amount = Point(amount),
+    )
 }

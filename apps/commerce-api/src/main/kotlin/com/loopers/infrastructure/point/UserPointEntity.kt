@@ -29,12 +29,9 @@ class UserPointEntity(
         }
     }
 
-    fun toDomain(): UserPoint {
-        val up = UserPoint(refUserId = UserId(refUserId), balance = Point(balance))
-        UserPoint::class.java.getDeclaredField("id").apply {
-            isAccessible = true
-            set(up, id)
-        }
-        return up
-    }
+    fun toDomain(): UserPoint = UserPoint(
+        id = id,
+        refUserId = UserId(refUserId),
+        balance = Point(balance),
+    )
 }

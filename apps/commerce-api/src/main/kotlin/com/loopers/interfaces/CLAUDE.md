@@ -10,9 +10,10 @@ API 진입점. Controller → Dto 변환 → UseCase 호출.
 
 ## Dto
 
-- `companion object { fun from(domain: Xxx): XxxDto }` 팩토리 메서드로 변환
+- Response Dto: `companion object { fun from(info: XxxInfo): XxxResponse }` 팩토리 메서드로 Info DTO에서 변환
 - Request Dto → Command 변환은 Controller에서 수행
 - Response Dto ← Info DTO(Application) 변환은 Controller에서 수행
+- Controller는 Domain 객체를 직접 참조하지 않으므로, Response Dto는 반드시 Info DTO(Application)에서 변환한다
 
 ## 계층 건너뛰기 금지
 
