@@ -22,6 +22,10 @@ class FakeBrandRepository : BrandRepository {
         return store.find { it.id == id && it.deletedAt == null }
     }
 
+    override fun findByIds(ids: List<Long>): List<Brand> {
+        return store.filter { it.id in ids && it.deletedAt == null }
+    }
+
     override fun findAll(): List<Brand> {
         return store.filter { it.deletedAt == null }
     }

@@ -46,6 +46,11 @@ class BrandService(
     }
 
     @Transactional(readOnly = true)
+    fun findByIds(ids: List<Long>): List<Brand> {
+        return brandRepository.findByIds(ids)
+    }
+
+    @Transactional(readOnly = true)
     fun findAll(): List<Brand> {
         return brandRepository.findAll()
     }
