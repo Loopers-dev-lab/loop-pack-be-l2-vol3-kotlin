@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
+import com.loopers.interfaces.common.ApiResponse
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.interfaces.api.brand.BrandDto
 import com.loopers.utils.DatabaseCleanUp

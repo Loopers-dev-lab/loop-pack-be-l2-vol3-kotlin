@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.like
 
 import com.loopers.application.like.LikeFacade
 import com.loopers.domain.user.User
-import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.DeleteMapping

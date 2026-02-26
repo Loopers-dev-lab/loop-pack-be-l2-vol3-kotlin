@@ -2,7 +2,7 @@ package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.application.user.UserFacade
-import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.Filter
@@ -32,6 +32,7 @@ class AuthenticationFilter(
             "/api/v1/brands",
             "/api/v1/products",
             "/api/v1/examples",
+            "/api-admin/",
             "/actuator",
             "/swagger",
             "/v3/api-docs",
