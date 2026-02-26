@@ -2,7 +2,9 @@ package com.loopers.application.catalog.product
 
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -30,7 +32,7 @@ class UpdateProductUseCaseTest {
         stock: Int = 100,
     ): Product {
         return productRepository.save(
-            Product(refBrandId = 1L, name = name, price = Money(price), stock = stock),
+            Product(refBrandId = BrandId(1), name = name, price = Money(price), stock = Stock(stock)),
         )
     }
 
@@ -45,7 +47,7 @@ class UpdateProductUseCaseTest {
             val product = createProduct()
 
             // act
-            val result = useCase.execute(product.id, "에어맥스 95", BigDecimal("159000"), 50, null)
+            val result = useCase.execute(product.id.value, "에어맥스 95", BigDecimal("159000"), 50, null)
 
             // assert
             assertThat(result.name).isEqualTo("에어맥스 95")
@@ -62,7 +64,7 @@ class UpdateProductUseCaseTest {
             productRepository.save(product)
 
             // act
-            val result = useCase.execute(product.id, "변경", null, null, null)
+            val result = useCase.execute(product.id.value, "변경", null, null, null)
 
             // assert
             assertThat(result.name).isEqualTo("변경")
@@ -86,10 +88,10 @@ class UpdateProductUseCaseTest {
         fun updateProduct_hiddenProduct_success() {
             // arrange
             val product = createProduct()
-            useCase.execute(product.id, null, null, null, "HIDDEN")
+            useCase.execute(product.id.value, null, null, null, "HIDDEN")
 
             // act
-            val updated = useCase.execute(product.id, "변경", null, null, null)
+            val updated = useCase.execute(product.id.value, "변경", null, null, null)
 
             // assert
             assertThat(updated.name).isEqualTo("변경")
@@ -116,7 +118,7 @@ class UpdateProductUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                useCase.execute(product.id, null, null, null, "INVALID_STATUS")
+                useCase.execute(product.id.value, null, null, null, "INVALID_STATUS")
             }
 
             // assert

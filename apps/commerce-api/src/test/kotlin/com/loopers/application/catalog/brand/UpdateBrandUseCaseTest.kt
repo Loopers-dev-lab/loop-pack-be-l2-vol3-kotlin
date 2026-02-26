@@ -34,7 +34,7 @@ class UpdateBrandUseCaseTest {
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
 
             // act
-            val result = useCase.execute(brand.id, "아디다스")
+            val result = useCase.execute(brand.id.value, "아디다스")
 
             // assert
             assertThat(result.name).isEqualTo("아디다스")
@@ -61,7 +61,7 @@ class UpdateBrandUseCaseTest {
             brandRepository.save(brand)
 
             // act
-            val result = useCase.execute(brand.id, "아디다스")
+            val result = useCase.execute(brand.id.value, "아디다스")
 
             // assert
             assertThat(result.name).isEqualTo("아디다스")

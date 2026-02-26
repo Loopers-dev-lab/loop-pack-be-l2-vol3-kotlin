@@ -36,7 +36,7 @@ class RestoreBrandUseCaseTest {
             brandRepository.save(brand)
 
             // act
-            val result = useCase.execute(brand.id)
+            val result = useCase.execute(brand.id.value)
 
             // assert
             assertThat(result.deletedAt).isNull()
@@ -50,7 +50,7 @@ class RestoreBrandUseCaseTest {
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
 
             // act
-            val result = useCase.execute(brand.id)
+            val result = useCase.execute(brand.id.value)
 
             // assert
             assertThat(result.deletedAt).isNull()

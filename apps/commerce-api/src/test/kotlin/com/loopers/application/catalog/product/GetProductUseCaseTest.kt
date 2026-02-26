@@ -5,7 +5,8 @@ import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -39,11 +40,11 @@ class GetProductUseCaseTest {
             // arrange
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
-                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = 100),
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
             )
 
             // act
-            val result = useCase.execute(product.id)
+            val result = useCase.execute(product.id.value)
 
             // assert
             assertThat(result.product.name).isEqualTo("에어맥스 90")
@@ -56,14 +57,14 @@ class GetProductUseCaseTest {
             // arrange
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
-                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = 100),
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
             )
             product.delete()
             productRepository.save(product)
 
             // act
             val exception = assertThrows<CoreException> {
-                useCase.execute(product.id)
+                useCase.execute(product.id.value)
             }
 
             // assert
@@ -76,14 +77,14 @@ class GetProductUseCaseTest {
             // arrange
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
-                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = 100),
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
             )
             product.update(null, null, null, Product.ProductStatus.HIDDEN)
             productRepository.save(product)
 
             // act
             val exception = assertThrows<CoreException> {
-                useCase.execute(product.id)
+                useCase.execute(product.id.value)
             }
 
             // assert
@@ -101,5 +102,6 @@ class GetProductUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
+
     }
 }

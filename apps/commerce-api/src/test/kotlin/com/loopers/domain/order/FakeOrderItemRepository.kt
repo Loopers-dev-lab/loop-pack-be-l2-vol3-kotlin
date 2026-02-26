@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.order.model.OrderItem
 import com.loopers.domain.order.repository.OrderItemRepository
 
@@ -23,11 +24,11 @@ class FakeOrderItemRepository : OrderItemRepository {
         return orderItems.map { save(it) }
     }
 
-    override fun findAllByOrderId(orderId: Long): List<OrderItem> {
+    override fun findAllByOrderId(orderId: OrderId): List<OrderItem> {
         return items.filter { it.refOrderId == orderId }
     }
 
-    override fun findAllByOrderIds(orderIds: List<Long>): List<OrderItem> {
+    override fun findAllByOrderIds(orderIds: List<OrderId>): List<OrderItem> {
         return items.filter { it.refOrderId in orderIds }
     }
 

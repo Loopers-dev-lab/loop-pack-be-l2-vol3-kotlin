@@ -1,5 +1,6 @@
 package com.loopers.domain.user
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.user.model.User
 import com.loopers.domain.user.repository.UserRepository
 
@@ -9,13 +10,13 @@ class FakeUserRepository : UserRepository {
     private var sequence = 1L
 
     override fun save(user: User): User {
-        if (user.id != 0L) {
+        if (user.id != UserId(0)) {
             users.removeIf { it.id == user.id }
             users.add(user)
             return user
         }
         val saved = User(
-            id = sequence++,
+            id = UserId(sequence++),
             loginId = user.loginId,
             password = user.password,
             name = user.name,
@@ -27,7 +28,7 @@ class FakeUserRepository : UserRepository {
         return saved
     }
 
-    override fun findById(id: Long): User? {
+    override fun findById(id: UserId): User? {
         return users.find { it.id == id }
     }
 

@@ -1,10 +1,13 @@
 package com.loopers.application.order
 
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductInfo
 import com.loopers.domain.order.model.Order
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -30,8 +33,8 @@ class GetOrderAdminUseCaseTest {
 
     private fun createAndSaveOrder(userId: Long): Order {
         val order = Order.create(
-            userId,
-            listOf(OrderProductInfo(1L, "테스트 상품", Money(BigDecimal("10000"))) to 1),
+            UserId(userId),
+            listOf(OrderProductInfo(ProductId(1), "테스트 상품", Money(BigDecimal("10000"))) to Quantity(1)),
         )
         val savedOrder = orderRepository.save(order)
         order.assignOrderIdToItems(savedOrder.id)
@@ -50,10 +53,10 @@ class GetOrderAdminUseCaseTest {
             val order = createAndSaveOrder(1L)
 
             // act
-            val result = getOrderAdminUseCase.execute(order.id)
+            val result = getOrderAdminUseCase.execute(order.id.value)
 
             // assert
-            assertThat(result.id).isEqualTo(order.id)
+            assertThat(result.id).isEqualTo(order.id.value)
             assertThat(result.items).hasSize(1)
         }
 

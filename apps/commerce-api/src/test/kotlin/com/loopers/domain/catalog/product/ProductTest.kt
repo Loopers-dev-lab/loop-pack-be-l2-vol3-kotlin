@@ -1,7 +1,8 @@
 package com.loopers.domain.catalog.product
 
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -28,7 +29,7 @@ class ProductTest {
             assertThat(product.refBrandId).isEqualTo(ProductTestFixture.DEFAULT_BRAND_ID)
             assertThat(product.name).isEqualTo(ProductTestFixture.DEFAULT_NAME)
             assertThat(product.price.value).isEqualByComparingTo(ProductTestFixture.DEFAULT_PRICE)
-            assertThat(product.stock).isEqualTo(ProductTestFixture.DEFAULT_STOCK)
+            assertThat(product.stock.value).isEqualTo(ProductTestFixture.DEFAULT_STOCK)
             assertThat(product.status).isEqualTo(Product.ProductStatus.ON_SALE)
             assertThat(product.likeCount).isEqualTo(0)
         }
@@ -81,10 +82,10 @@ class ProductTest {
             val product = ProductTestFixture.createProduct(stock = 10)
 
             // act
-            product.decreaseStock(3)
+            product.decreaseStock(Quantity(3))
 
             // assert
-            assertThat(product.stock).isEqualTo(7)
+            assertThat(product.stock.value).isEqualTo(7)
             assertThat(product.status).isEqualTo(Product.ProductStatus.ON_SALE)
         }
 
@@ -95,10 +96,10 @@ class ProductTest {
             val product = ProductTestFixture.createProduct(stock = 5)
 
             // act
-            product.decreaseStock(5)
+            product.decreaseStock(Quantity(5))
 
             // assert
-            assertThat(product.stock).isEqualTo(0)
+            assertThat(product.stock.value).isEqualTo(0)
             assertThat(product.status).isEqualTo(Product.ProductStatus.SOLD_OUT)
         }
 
@@ -109,7 +110,7 @@ class ProductTest {
             val product = ProductTestFixture.createProduct(stock = 2)
 
             // act & assert
-            val exception = assertThrows<CoreException> { product.decreaseStock(3) }
+            val exception = assertThrows<CoreException> { product.decreaseStock(Quantity(3)) }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).isEqualTo("재고가 부족합니다.")
         }
@@ -122,10 +123,10 @@ class ProductTest {
             product.update(null, null, null, Product.ProductStatus.HIDDEN)
 
             // act
-            product.decreaseStock(5)
+            product.decreaseStock(Quantity(5))
 
             // assert
-            assertThat(product.stock).isEqualTo(0)
+            assertThat(product.stock.value).isEqualTo(0)
             assertThat(product.status).isEqualTo(Product.ProductStatus.HIDDEN)
         }
     }
@@ -142,10 +143,10 @@ class ProductTest {
             assertThat(product.status).isEqualTo(Product.ProductStatus.SOLD_OUT)
 
             // act
-            product.increaseStock(10)
+            product.increaseStock(Quantity(10))
 
             // assert
-            assertThat(product.stock).isEqualTo(10)
+            assertThat(product.stock.value).isEqualTo(10)
             assertThat(product.status).isEqualTo(Product.ProductStatus.ON_SALE)
         }
 
@@ -157,10 +158,10 @@ class ProductTest {
             product.update(null, null, null, Product.ProductStatus.HIDDEN)
 
             // act
-            product.increaseStock(10)
+            product.increaseStock(Quantity(10))
 
             // assert
-            assertThat(product.stock).isEqualTo(10)
+            assertThat(product.stock.value).isEqualTo(10)
             assertThat(product.status).isEqualTo(Product.ProductStatus.HIDDEN)
         }
     }
@@ -181,7 +182,7 @@ class ProductTest {
             // assert
             assertThat(product.name).isEqualTo("에어포스 1")
             assertThat(product.price.value).isEqualByComparingTo(BigDecimal("99000"))
-            assertThat(product.stock).isEqualTo(50)
+            assertThat(product.stock.value).isEqualTo(50)
         }
 
         @Test
@@ -194,7 +195,7 @@ class ProductTest {
             product.update(null, null, 123, Product.ProductStatus.HIDDEN)
 
             // assert
-            assertThat(product.stock).isEqualTo(123)
+            assertThat(product.stock.value).isEqualTo(123)
             assertThat(product.status).isEqualTo(Product.ProductStatus.HIDDEN)
         }
 
@@ -237,7 +238,7 @@ class ProductTest {
 
             // assert
             assertThat(product.name).isEqualTo("새이름")
-            assertThat(product.stock).isEqualTo(0)
+            assertThat(product.stock.value).isEqualTo(0)
             assertThat(product.status).isEqualTo(Product.ProductStatus.HIDDEN)
         }
 

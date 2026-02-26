@@ -1,5 +1,6 @@
 package com.loopers.application.point
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.FakeUserPointRepository
 import com.loopers.domain.point.model.UserPoint
 import com.loopers.support.error.CoreException
@@ -30,7 +31,7 @@ class GetUserPointUseCaseTest {
         @DisplayName("존재하는 사용자의 포인트를 조회하면 PointBalanceInfo가 반환된다")
         fun execute_existingUser_returnsPointBalanceInfo() {
             // arrange
-            userPointRepository.save(UserPoint(refUserId = 1L))
+            userPointRepository.save(UserPoint(refUserId = UserId(1)))
 
             // act
             val result = getUserPointUseCase.execute(1L)

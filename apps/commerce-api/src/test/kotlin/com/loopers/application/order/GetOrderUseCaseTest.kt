@@ -1,11 +1,15 @@
 package com.loopers.application.order
 
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductInfo
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.model.OrderItem
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -32,8 +36,8 @@ class GetOrderUseCaseTest {
 
     private fun createAndSaveOrder(userId: Long): Pair<Order, List<OrderItem>> {
         val order = Order.create(
-            userId,
-            listOf(OrderProductInfo(1L, "테스트 상품", Money(BigDecimal("10000"))) to 1),
+            UserId(userId),
+            listOf(OrderProductInfo(ProductId(1), "테스트 상품", Money(BigDecimal("10000"))) to Quantity(1)),
         )
         val savedOrder = orderRepository.save(order)
         order.assignOrderIdToItems(savedOrder.id)
@@ -52,10 +56,10 @@ class GetOrderUseCaseTest {
             val (order, _) = createAndSaveOrder(1L)
 
             // act
-            val result = getOrderUseCase.execute(1L, order.id)
+            val result = getOrderUseCase.execute(1L, order.id.value)
 
             // assert
-            assertThat(result.id).isEqualTo(order.id)
+            assertThat(result.id).isEqualTo(order.id.value)
             assertThat(result.userId).isEqualTo(1L)
             assertThat(result.items).hasSize(1)
         }
@@ -68,7 +72,7 @@ class GetOrderUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                getOrderUseCase.execute(2L, order.id)
+                getOrderUseCase.execute(2L, order.id.value)
             }
 
             // assert
@@ -80,8 +84,8 @@ class GetOrderUseCaseTest {
         fun execute_deletedOrder_throwsNotFound() {
             // arrange
             val deletedOrder = Order.fromPersistence(
-                id = 0,
-                refUserId = 1L,
+                id = OrderId(0),
+                refUserId = UserId(1),
                 status = Order.OrderStatus.CREATED,
                 totalPrice = Money(BigDecimal("10000")),
                 deletedAt = ZonedDateTime.now(),
@@ -90,7 +94,7 @@ class GetOrderUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                getOrderUseCase.execute(1L, saved.id)
+                getOrderUseCase.execute(1L, saved.id.value)
             }
 
             // assert

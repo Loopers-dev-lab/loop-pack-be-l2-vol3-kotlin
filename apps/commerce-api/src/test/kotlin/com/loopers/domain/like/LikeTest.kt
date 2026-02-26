@@ -1,7 +1,8 @@
 package com.loopers.domain.like
 
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.model.Like
-
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -20,11 +21,11 @@ class LikeTest {
         @DisplayName("정상 입력이면 생성에 성공한다")
         fun create_validInput_success() {
             // act
-            val like = Like(refUserId = 1L, refProductId = 1L)
+            val like = Like(refUserId = UserId(1), refProductId = ProductId(1))
 
             // assert
-            assertThat(like.refUserId).isEqualTo(1L)
-            assertThat(like.refProductId).isEqualTo(1L)
+            assertThat(like.refUserId).isEqualTo(UserId(1))
+            assertThat(like.refProductId).isEqualTo(ProductId(1))
         }
 
         @Test
@@ -32,7 +33,7 @@ class LikeTest {
         fun create_zeroUserId_throwsException() {
             // act
             val exception = assertThrows<CoreException> {
-                Like(refUserId = 0L, refProductId = 1L)
+                Like(refUserId = UserId(0), refProductId = ProductId(1))
             }
 
             // assert
@@ -44,7 +45,7 @@ class LikeTest {
         fun create_negativeUserId_throwsException() {
             // act
             val exception = assertThrows<CoreException> {
-                Like(refUserId = -1L, refProductId = 1L)
+                Like(refUserId = UserId(-1), refProductId = ProductId(1))
             }
 
             // assert
@@ -56,7 +57,7 @@ class LikeTest {
         fun create_zeroProductId_throwsException() {
             // act
             val exception = assertThrows<CoreException> {
-                Like(refUserId = 1L, refProductId = 0L)
+                Like(refUserId = UserId(1), refProductId = ProductId(0))
             }
 
             // assert
@@ -68,7 +69,7 @@ class LikeTest {
         fun create_negativeProductId_throwsException() {
             // act
             val exception = assertThrows<CoreException> {
-                Like(refUserId = 1L, refProductId = -1L)
+                Like(refUserId = UserId(1), refProductId = ProductId(-1))
             }
 
             // assert

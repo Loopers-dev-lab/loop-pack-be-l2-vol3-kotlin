@@ -5,7 +5,9 @@ import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.like.FakeLikeRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -43,18 +45,18 @@ class LikeUseCaseTest {
     private fun createProduct(brandId: Long, name: String = "에어맥스 90", price: BigDecimal = BigDecimal("129000"), stock: Int = 100): Product {
         return productRepository.save(
             Product(
-                refBrandId = brandId,
+                refBrandId = com.loopers.domain.common.vo.BrandId(brandId),
                 name = name,
                 price = Money(price),
-                stock = stock,
+                stock = Stock(stock),
             ),
         )
     }
 
     private fun createBrandAndProduct(): Pair<Long, Long> {
         val brand = createBrand()
-        val product = createProduct(brand.id)
-        return brand.id to product.id
+        val product = createProduct(brand.id.value)
+        return brand.id.value to product.id.value
     }
 
     @Nested
@@ -71,7 +73,7 @@ class LikeUseCaseTest {
             addLikeUseCase.execute(1L, productId)
 
             // assert
-            val product = productRepository.findById(productId)!!
+            val product = productRepository.findById(ProductId(productId))!!
             assertThat(product.likeCount).isEqualTo(1)
         }
 
@@ -86,7 +88,7 @@ class LikeUseCaseTest {
             addLikeUseCase.execute(1L, productId)
 
             // assert
-            val product = productRepository.findById(productId)!!
+            val product = productRepository.findById(ProductId(productId))!!
             assertThat(product.likeCount).isEqualTo(1)
         }
 
@@ -95,7 +97,7 @@ class LikeUseCaseTest {
         fun addLike_deletedProduct_throwsNotFound() {
             // arrange
             val (_, productId) = createBrandAndProduct()
-            val product = productRepository.findById(productId)!!
+            val product = productRepository.findById(ProductId(productId))!!
             product.delete()
             productRepository.save(product)
 
@@ -113,7 +115,7 @@ class LikeUseCaseTest {
         fun addLike_hiddenProduct_throwsNotFound() {
             // arrange
             val (_, productId) = createBrandAndProduct()
-            val product = productRepository.findById(productId)!!
+            val product = productRepository.findById(ProductId(productId))!!
             product.update(null, null, null, Product.ProductStatus.HIDDEN)
             productRepository.save(product)
 
@@ -142,7 +144,7 @@ class LikeUseCaseTest {
             removeLikeUseCase.execute(1L, productId)
 
             // assert
-            val product = productRepository.findById(productId)!!
+            val product = productRepository.findById(ProductId(productId))!!
             assertThat(product.likeCount).isEqualTo(0)
         }
 
@@ -152,7 +154,7 @@ class LikeUseCaseTest {
             // arrange
             val (_, productId) = createBrandAndProduct()
             addLikeUseCase.execute(1L, productId)
-            val product = productRepository.findById(productId)!!
+            val product = productRepository.findById(ProductId(productId))!!
             product.delete()
             productRepository.save(product)
 
@@ -160,7 +162,7 @@ class LikeUseCaseTest {
             removeLikeUseCase.execute(1L, productId)
 
             // assert
-            val found = productRepository.findById(productId)!!
+            val found = productRepository.findById(ProductId(productId))!!
             assertThat(found.likeCount).isEqualTo(1)
         }
 
@@ -184,10 +186,10 @@ class LikeUseCaseTest {
         fun getLikes_returnsOnlyActiveProducts() {
             // arrange
             val brand = createBrand()
-            val product1 = createProduct(brand.id, "상품1", BigDecimal("10000"), 10)
-            val product2 = createProduct(brand.id, "상품2", BigDecimal("20000"), 10)
-            addLikeUseCase.execute(1L, product1.id)
-            addLikeUseCase.execute(1L, product2.id)
+            val product1 = createProduct(brand.id.value, "상품1", BigDecimal("10000"), 10)
+            val product2 = createProduct(brand.id.value, "상품2", BigDecimal("20000"), 10)
+            addLikeUseCase.execute(1L, product1.id.value)
+            addLikeUseCase.execute(1L, product2.id.value)
             val p2 = productRepository.findById(product2.id)!!
             p2.delete()
             productRepository.save(p2)
@@ -205,10 +207,10 @@ class LikeUseCaseTest {
         fun getLikes_hiddenProduct_isExcludedFromResult() {
             // arrange
             val brand = createBrand()
-            val product1 = createProduct(brand.id, "상품1", BigDecimal("10000"), 10)
-            val product2 = createProduct(brand.id, "상품2", BigDecimal("20000"), 10)
-            addLikeUseCase.execute(1L, product1.id)
-            addLikeUseCase.execute(1L, product2.id)
+            val product1 = createProduct(brand.id.value, "상품1", BigDecimal("10000"), 10)
+            val product2 = createProduct(brand.id.value, "상품2", BigDecimal("20000"), 10)
+            addLikeUseCase.execute(1L, product1.id.value)
+            addLikeUseCase.execute(1L, product2.id.value)
             // product2를 HIDDEN으로 변경
             val p2 = productRepository.findById(product2.id)!!
             p2.update(null, null, null, Product.ProductStatus.HIDDEN)
@@ -227,12 +229,12 @@ class LikeUseCaseTest {
         fun getLikes_returnsInReverseIdOrder() {
             // arrange
             val brand = createBrand()
-            val product1 = createProduct(brand.id, "상품1", BigDecimal("10000"), 10)
-            val product2 = createProduct(brand.id, "상품2", BigDecimal("20000"), 10)
-            val product3 = createProduct(brand.id, "상품3", BigDecimal("30000"), 10)
-            addLikeUseCase.execute(1L, product1.id)
-            addLikeUseCase.execute(1L, product2.id)
-            addLikeUseCase.execute(1L, product3.id)
+            val product1 = createProduct(brand.id.value, "상품1", BigDecimal("10000"), 10)
+            val product2 = createProduct(brand.id.value, "상품2", BigDecimal("20000"), 10)
+            val product3 = createProduct(brand.id.value, "상품3", BigDecimal("30000"), 10)
+            addLikeUseCase.execute(1L, product1.id.value)
+            addLikeUseCase.execute(1L, product2.id.value)
+            addLikeUseCase.execute(1L, product3.id.value)
 
             // act
             val result = getUserLikesUseCase.execute(1L)

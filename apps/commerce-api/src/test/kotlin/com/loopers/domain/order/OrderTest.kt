@@ -1,8 +1,11 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.model.OrderItem
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -23,15 +26,15 @@ class OrderTest {
         fun create_withItems_computesTotalPrice() {
             // act
             val order = Order.create(
-                1L,
+                UserId(1),
                 listOf(
-                    OrderProductInfo(id = 1L, name = "상품A", price = Money(BigDecimal("10000"))) to 2,
-                    OrderProductInfo(id = 2L, name = "상품B", price = Money(BigDecimal("20000"))) to 1,
+                    OrderProductInfo(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                    OrderProductInfo(id = ProductId(2), name = "상품B", price = Money(BigDecimal("20000"))) to Quantity(1),
                 ),
             )
 
             // assert
-            assertThat(order.refUserId).isEqualTo(1L)
+            assertThat(order.refUserId).isEqualTo(UserId(1))
             assertThat(order.status).isEqualTo(Order.OrderStatus.CREATED)
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("40000"))
             assertThat(order.items).hasSize(2)
@@ -42,9 +45,9 @@ class OrderTest {
         fun create_singleItem_success() {
             // act
             val order = Order.create(
-                1L,
+                UserId(1),
                 listOf(
-                    OrderProductInfo(id = 1L, name = "상품A", price = Money(BigDecimal("129000"))) to 2,
+                    OrderProductInfo(id = ProductId(1), name = "상품A", price = Money(BigDecimal("129000"))) to Quantity(2),
                 ),
             )
 
@@ -60,10 +63,10 @@ class OrderTest {
 
         private fun createOrderWithItems(): Order =
             Order.create(
-                1L,
+                UserId(1),
                 listOf(
-                    OrderProductInfo(id = 1L, name = "상품A", price = Money(BigDecimal("10000"))) to 2,
-                    OrderProductInfo(id = 2L, name = "상품B", price = Money(BigDecimal("10000"))) to 1,
+                    OrderProductInfo(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                    OrderProductInfo(id = ProductId(2), name = "상품B", price = Money(BigDecimal("10000"))) to Quantity(1),
                 ),
             )
 

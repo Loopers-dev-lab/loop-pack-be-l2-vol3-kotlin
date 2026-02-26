@@ -3,6 +3,7 @@ package com.loopers.domain.catalog.brand
 import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.repository.BrandRepository
+import com.loopers.domain.common.vo.BrandId
 
 class FakeBrandRepository : BrandRepository {
 
@@ -10,13 +11,13 @@ class FakeBrandRepository : BrandRepository {
     private var sequence = 1L
 
     override fun save(brand: Brand): Brand {
-        if (brand.id != 0L) {
+        if (brand.id != BrandId(0)) {
             brands.removeIf { it.id == brand.id }
             brands.add(brand)
             return brand
         }
         val saved = Brand(
-            id = sequence++,
+            id = BrandId(sequence++),
             name = brand.name,
             deletedAt = brand.deletedAt,
         )
@@ -24,7 +25,7 @@ class FakeBrandRepository : BrandRepository {
         return saved
     }
 
-    override fun findById(id: Long): Brand? {
+    override fun findById(id: BrandId): Brand? {
         return brands.find { it.id == id }
     }
 

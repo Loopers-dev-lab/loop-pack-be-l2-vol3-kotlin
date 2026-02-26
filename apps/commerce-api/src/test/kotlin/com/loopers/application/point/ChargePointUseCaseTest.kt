@@ -1,5 +1,6 @@
 package com.loopers.application.point
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.FakePointHistoryRepository
 import com.loopers.domain.point.FakeUserPointRepository
 import com.loopers.domain.point.PointCharger
@@ -28,7 +29,7 @@ class ChargePointUseCaseTest {
     }
 
     private fun createUserPoint(userId: Long): UserPoint {
-        return userPointRepository.save(UserPoint(refUserId = userId))
+        return userPointRepository.save(UserPoint(refUserId = UserId(userId)))
     }
 
     @Nested

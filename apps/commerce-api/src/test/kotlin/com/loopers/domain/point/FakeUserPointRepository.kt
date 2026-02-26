@@ -1,5 +1,6 @@
 package com.loopers.domain.point
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.model.UserPoint
 import com.loopers.domain.point.repository.UserPointRepository
 
@@ -23,11 +24,11 @@ class FakeUserPointRepository : UserPointRepository {
         return userPoints.find { it.id == id }
     }
 
-    override fun findByUserId(userId: Long): UserPoint? {
+    override fun findByUserId(userId: UserId): UserPoint? {
         return userPoints.find { it.refUserId == userId }
     }
 
-    override fun findByUserIdForUpdate(userId: Long): UserPoint? {
+    override fun findByUserIdForUpdate(userId: UserId): UserPoint? {
         return findByUserId(userId)
     }
 

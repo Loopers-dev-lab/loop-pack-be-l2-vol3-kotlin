@@ -42,14 +42,14 @@ class AuthInterceptorTest {
             request.addHeader(HEADER_LOGIN_PW, UserTestFixture.DEFAULT_PASSWORD)
 
             val user = UserTestFixture.createUser()
-            every { authenticateUserUseCase.execute(UserTestFixture.DEFAULT_LOGIN_ID, UserTestFixture.DEFAULT_PASSWORD) } returns user.id
+            every { authenticateUserUseCase.execute(UserTestFixture.DEFAULT_LOGIN_ID, UserTestFixture.DEFAULT_PASSWORD) } returns user.id.value
 
             // act
             val result = authInterceptor.preHandle(request, MockHttpServletResponse(), Any())
 
             // assert
             assertThat(result).isTrue()
-            assertThat(request.getAttribute(ATTRIBUTE_USER_ID)).isEqualTo(user.id)
+            assertThat(request.getAttribute(ATTRIBUTE_USER_ID)).isEqualTo(user.id.value)
         }
 
         @Test

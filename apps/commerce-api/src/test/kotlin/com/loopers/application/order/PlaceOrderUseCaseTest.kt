@@ -2,7 +2,10 @@ package com.loopers.application.order
 
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.point.FakePointHistoryRepository
@@ -50,18 +53,18 @@ class PlaceOrderUseCaseTest {
     ): Product {
         return productRepository.save(
             Product(
-                refBrandId = 1L,
+                refBrandId = BrandId(1),
                 name = "에어맥스 90",
                 price = Money(price),
-                stock = stock,
+                stock = Stock(stock),
             ),
         )
     }
 
     private fun setupUserPoint(userId: Long, balance: Long) {
-        userPointRepository.save(UserPoint(refUserId = userId))
+        userPointRepository.save(UserPoint(refUserId = UserId(userId)))
         if (balance > 0) {
-            pointCharger.charge(userId, Point(balance))
+            pointCharger.charge(UserId(userId), Point(balance))
         }
     }
 
@@ -76,7 +79,7 @@ class PlaceOrderUseCaseTest {
             val product = createProduct(price = BigDecimal("10000"), stock = 100)
             setupUserPoint(1L, 50000)
             val command = PlaceOrderCommand(
-                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id, quantity = 2)),
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2)),
             )
 
             // act
@@ -90,11 +93,11 @@ class PlaceOrderUseCaseTest {
 
             // 재고 차감 확인
             val updatedProduct = productRepository.findById(product.id)!!
-            assertThat(updatedProduct.stock).isEqualTo(98)
+            assertThat(updatedProduct.stock.value).isEqualTo(98)
 
             // 포인트 차감 확인
-            val userPoint = userPointRepository.findByUserId(1L)!!
-            assertThat(userPoint.balance).isEqualTo(30000)
+            val userPoint = userPointRepository.findByUserId(UserId(1))!!
+            assertThat(userPoint.balance.value).isEqualTo(30000)
         }
 
         @Test
@@ -104,7 +107,7 @@ class PlaceOrderUseCaseTest {
             val product = createProduct(price = BigDecimal("10000"), stock = 2)
             setupUserPoint(1L, 50000)
             val command = PlaceOrderCommand(
-                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id, quantity = 5)),
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 5)),
             )
 
             // act
@@ -123,7 +126,7 @@ class PlaceOrderUseCaseTest {
             val product = createProduct(price = BigDecimal("10000"), stock = 100)
             setupUserPoint(1L, 5000)
             val command = PlaceOrderCommand(
-                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id, quantity = 2)),
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2)),
             )
 
             // act
@@ -144,7 +147,7 @@ class PlaceOrderUseCaseTest {
             product.delete()
             productRepository.save(product)
             val command = PlaceOrderCommand(
-                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id, quantity = 1)),
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
             )
 
             // act
@@ -179,7 +182,7 @@ class PlaceOrderUseCaseTest {
             val product = createProduct(price = BigDecimal("10000"), stock = 100)
             setupUserPoint(1L, 50000)
             val command = PlaceOrderCommand(
-                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id, quantity = 0)),
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 0)),
             )
 
             // act
@@ -198,7 +201,7 @@ class PlaceOrderUseCaseTest {
             val product = createProduct(price = BigDecimal("1000.50"), stock = 10)
             setupUserPoint(1L, 5000)
             val command = PlaceOrderCommand(
-                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id, quantity = 1)),
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
             )
 
             // act
@@ -206,8 +209,8 @@ class PlaceOrderUseCaseTest {
 
             // assert
             assertThat(orderInfo.totalPrice).isEqualByComparingTo(BigDecimal("1000.50"))
-            val userPoint = userPointRepository.findByUserId(1L)!!
-            assertThat(userPoint.balance).isEqualTo(3999) // 5000 - 1001 (HALF_UP 반올림)
+            val userPoint = userPointRepository.findByUserId(UserId(1))!!
+            assertThat(userPoint.balance.value).isEqualTo(3999) // 5000 - 1001 (HALF_UP 반올림)
         }
 
         @Test
@@ -216,25 +219,25 @@ class PlaceOrderUseCaseTest {
             // arrange
             val product1 = productRepository.save(
                 Product(
-                    refBrandId = 1L,
+                    refBrandId = BrandId(1),
                     name = "상품1",
                     price = Money(BigDecimal("10000")),
-                    stock = 50,
+                    stock = Stock(50),
                 ),
             )
             val product2 = productRepository.save(
                 Product(
-                    refBrandId = 1L,
+                    refBrandId = BrandId(1),
                     name = "상품2",
                     price = Money(BigDecimal("20000")),
-                    stock = 50,
+                    stock = Stock(50),
                 ),
             )
             setupUserPoint(1L, 100000)
             val command = PlaceOrderCommand(
                 items = listOf(
-                    PlaceOrderCommand.PlaceOrderItemCommand(productId = product1.id, quantity = 2),
-                    PlaceOrderCommand.PlaceOrderItemCommand(productId = product2.id, quantity = 3),
+                    PlaceOrderCommand.PlaceOrderItemCommand(productId = product1.id.value, quantity = 2),
+                    PlaceOrderCommand.PlaceOrderItemCommand(productId = product2.id.value, quantity = 3),
                 ),
             )
 
@@ -247,11 +250,11 @@ class PlaceOrderUseCaseTest {
 
             val p1 = productRepository.findById(product1.id)!!
             val p2 = productRepository.findById(product2.id)!!
-            assertThat(p1.stock).isEqualTo(48)
-            assertThat(p2.stock).isEqualTo(47)
+            assertThat(p1.stock.value).isEqualTo(48)
+            assertThat(p2.stock.value).isEqualTo(47)
 
-            val userPoint = userPointRepository.findByUserId(1L)!!
-            assertThat(userPoint.balance).isEqualTo(20000)
+            val userPoint = userPointRepository.findByUserId(UserId(1))!!
+            assertThat(userPoint.balance.value).isEqualTo(20000)
         }
 
         @Test

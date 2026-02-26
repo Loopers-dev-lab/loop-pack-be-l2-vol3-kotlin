@@ -1,6 +1,7 @@
 package com.loopers.domain.catalog.product
 
 import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.Quantity
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -59,7 +60,7 @@ class StockTest {
             val stock = Stock(10)
 
             // act
-            val decreased = stock.decrease(3)
+            val decreased = stock.decrease(Quantity(3))
 
             // assert
             assertThat(decreased.value).isEqualTo(7)
@@ -72,7 +73,7 @@ class StockTest {
             val stock = Stock(2)
 
             // act & assert
-            val exception = assertThrows<CoreException> { stock.decrease(3) }
+            val exception = assertThrows<CoreException> { stock.decrease(Quantity(3)) }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).isEqualTo("재고가 부족합니다.")
         }
@@ -84,7 +85,7 @@ class StockTest {
             val stock = Stock(5)
 
             // act
-            val decreased = stock.decrease(5)
+            val decreased = stock.decrease(Quantity(5))
 
             // assert
             assertThat(decreased.value).isEqualTo(0)
@@ -102,7 +103,7 @@ class StockTest {
             val stock = Stock(10)
 
             // act
-            val exception = assertThrows<CoreException> { stock.decrease(-1) }
+            val exception = assertThrows<CoreException> { stock.decrease(Quantity(-1)) }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
@@ -116,7 +117,7 @@ class StockTest {
             val stock = Stock(10)
 
             // act
-            val exception = assertThrows<CoreException> { stock.decrease(0) }
+            val exception = assertThrows<CoreException> { stock.decrease(Quantity(0)) }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
@@ -135,7 +136,7 @@ class StockTest {
             val stock = Stock(10)
 
             // act
-            val increased = stock.increase(5)
+            val increased = stock.increase(Quantity(5))
 
             // assert
             assertThat(increased.value).isEqualTo(15)
@@ -148,7 +149,7 @@ class StockTest {
             val stock = Stock(10)
 
             // act
-            val exception = assertThrows<CoreException> { stock.increase(-1) }
+            val exception = assertThrows<CoreException> { stock.increase(Quantity(-1)) }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
@@ -162,7 +163,7 @@ class StockTest {
             val stock = Stock(10)
 
             // act
-            val exception = assertThrows<CoreException> { stock.increase(0) }
+            val exception = assertThrows<CoreException> { stock.increase(Quantity(0)) }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)

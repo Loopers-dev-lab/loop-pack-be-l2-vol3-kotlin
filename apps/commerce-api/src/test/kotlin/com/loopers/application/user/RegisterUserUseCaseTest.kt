@@ -1,5 +1,6 @@
 package com.loopers.application.user
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.FakeUserPointRepository
 import com.loopers.domain.user.FakeUserRepository
 import com.loopers.domain.user.UserTestFixture
@@ -45,9 +46,9 @@ class RegisterUserUseCaseTest {
             // assert
             assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
 
-            val userPoint = userPointRepository.findByUserId(result.id)
+            val userPoint = userPointRepository.findByUserId(UserId(result.id))
             assertThat(userPoint).isNotNull
-            assertThat(userPoint!!.balance).isEqualTo(0)
+            assertThat(userPoint!!.balance.value).isEqualTo(0)
         }
 
         @Test

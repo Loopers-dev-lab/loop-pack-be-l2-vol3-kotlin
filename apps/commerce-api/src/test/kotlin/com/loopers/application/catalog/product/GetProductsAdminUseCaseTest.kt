@@ -2,7 +2,9 @@ package com.loopers.application.catalog.product
 
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.Money
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -30,10 +32,10 @@ class GetProductsAdminUseCaseTest {
         fun getAdminProducts_includesDeleted() {
             // arrange
             productRepository.save(
-                Product(refBrandId = 1L, name = "활성상품", price = Money(BigDecimal("10000")), stock = 10),
+                Product(refBrandId = BrandId(1), name = "활성상품", price = Money(BigDecimal("10000")), stock = Stock(10)),
             )
             val deleted = productRepository.save(
-                Product(refBrandId = 1L, name = "삭제상품", price = Money(BigDecimal("20000")), stock = 10),
+                Product(refBrandId = BrandId(1), name = "삭제상품", price = Money(BigDecimal("20000")), stock = Stock(10)),
             )
             deleted.delete()
             productRepository.save(deleted)

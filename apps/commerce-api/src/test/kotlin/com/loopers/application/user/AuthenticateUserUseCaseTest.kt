@@ -38,7 +38,7 @@ class AuthenticateUserUseCaseTest {
             )
 
             // assert
-            assertThat(result).isEqualTo(user.id)
+            assertThat(result).isEqualTo(user.id.value)
         }
 
         @Test

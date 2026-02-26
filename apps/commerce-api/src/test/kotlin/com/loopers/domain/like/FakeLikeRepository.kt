@@ -1,5 +1,7 @@
 package com.loopers.domain.like
 
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.model.Like
 import com.loopers.domain.like.repository.LikeRepository
 
@@ -19,11 +21,11 @@ class FakeLikeRepository : LikeRepository {
         return like
     }
 
-    override fun existsByUserIdAndProductId(userId: Long, productId: Long): Boolean {
+    override fun existsByUserIdAndProductId(userId: UserId, productId: ProductId): Boolean {
         return likes.any { it.refUserId == userId && it.refProductId == productId }
     }
 
-    override fun findByUserIdAndProductId(userId: Long, productId: Long): Like? {
+    override fun findByUserIdAndProductId(userId: UserId, productId: ProductId): Like? {
         return likes.find { it.refUserId == userId && it.refProductId == productId }
     }
 
@@ -31,7 +33,7 @@ class FakeLikeRepository : LikeRepository {
         likes.removeIf { it.id == like.id }
     }
 
-    override fun findAllByUserId(userId: Long): List<Like> {
+    override fun findAllByUserId(userId: UserId): List<Like> {
         return likes.filter { it.refUserId == userId }.sortedByDescending { it.id }
     }
 

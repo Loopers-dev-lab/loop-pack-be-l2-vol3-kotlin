@@ -34,7 +34,7 @@ class GetBrandUseCaseTest {
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
 
             // act
-            val result = useCase.execute(brand.id)
+            val result = useCase.execute(brand.id.value)
 
             // assert
             assertThat(result.name).isEqualTo("나이키")
@@ -50,7 +50,7 @@ class GetBrandUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                useCase.execute(brand.id)
+                useCase.execute(brand.id.value)
             }
 
             // assert

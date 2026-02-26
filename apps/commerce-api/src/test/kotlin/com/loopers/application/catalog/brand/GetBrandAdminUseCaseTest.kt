@@ -36,7 +36,7 @@ class GetBrandAdminUseCaseTest {
             brandRepository.save(brand)
 
             // act
-            val result = useCase.execute(brand.id)
+            val result = useCase.execute(brand.id.value)
 
             // assert
             assertThat(result.name).isEqualTo("나이키")

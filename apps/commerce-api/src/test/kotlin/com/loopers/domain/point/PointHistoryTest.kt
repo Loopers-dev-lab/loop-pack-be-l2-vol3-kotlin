@@ -1,5 +1,6 @@
 package com.loopers.domain.point
 
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.point.model.PointHistory
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
 import com.loopers.domain.point.vo.Point
@@ -73,11 +74,11 @@ class PointHistoryTest {
                 refUserPointId = 1L,
                 type = PointHistoryType.USE,
                 amount = Point(5000),
-                refOrderId = 100L,
+                refOrderId = OrderId(100),
             )
 
             // assert
-            assertThat(history.refOrderId).isEqualTo(100L)
+            assertThat(history.refOrderId).isEqualTo(OrderId(100))
         }
     }
 }

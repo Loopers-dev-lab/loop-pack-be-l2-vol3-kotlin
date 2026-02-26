@@ -2,7 +2,9 @@ package com.loopers.application.catalog.product
 
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.Money
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -28,7 +30,7 @@ class GetProductsUseCaseTest {
         stock: Int = 10,
     ): Product {
         return productRepository.save(
-            Product(refBrandId = brandId, name = name, price = Money(price), stock = stock),
+            Product(refBrandId = BrandId(brandId), name = name, price = Money(price), stock = Stock(stock)),
         )
     }
 

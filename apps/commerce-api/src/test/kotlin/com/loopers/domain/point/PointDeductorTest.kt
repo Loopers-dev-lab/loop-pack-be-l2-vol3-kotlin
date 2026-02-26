@@ -1,7 +1,10 @@
 package com.loopers.domain.point
 
-import com.loopers.domain.common.Money
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.model.PointHistory.PointHistoryType
+import com.loopers.domain.point.model.UserPoint
 import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -34,35 +37,35 @@ class PointDeductorTest {
         @DisplayName("잔액이 충분하면 차감되고 USE 이력이 기록된다")
         fun usePoints_sufficientBalance_deductsAndRecordsHistory() {
             // arrange
-            val userPoint = userPointRepository.save(com.loopers.domain.point.model.UserPoint(refUserId = 1L))
+            val userPoint = userPointRepository.save(UserPoint(refUserId = UserId(1)))
             userPoint.charge(Point(10000))
             userPointRepository.save(userPoint)
 
             // act
-            pointDeductor.usePoints(1L, Money(BigDecimal("3000")), 100L)
+            pointDeductor.usePoints(UserId(1), Money(BigDecimal("3000")), OrderId(100))
 
             // assert
-            val updated = userPointRepository.findByUserId(1L)!!
-            assertThat(updated.balance).isEqualTo(7000)
+            val updated = userPointRepository.findByUserId(UserId(1))!!
+            assertThat(updated.balance.value).isEqualTo(7000)
 
             val histories = pointHistoryRepository.findAllByUserPointId(userPoint.id)
             assertThat(histories).hasSize(1)
             assertThat(histories[0].type).isEqualTo(PointHistoryType.USE)
             assertThat(histories[0].amount.value).isEqualTo(3000)
-            assertThat(histories[0].refOrderId).isEqualTo(100L)
+            assertThat(histories[0].refOrderId).isEqualTo(OrderId(100))
         }
 
         @Test
         @DisplayName("잔액이 부족하면 CoreException이 발생한다")
         fun usePoints_insufficientBalance_throwsException() {
             // arrange
-            val userPoint = userPointRepository.save(com.loopers.domain.point.model.UserPoint(refUserId = 1L))
+            val userPoint = userPointRepository.save(UserPoint(refUserId = UserId(1)))
             userPoint.charge(Point(1000))
             userPointRepository.save(userPoint)
 
             // act
             val exception = assertThrows<CoreException> {
-                pointDeductor.usePoints(1L, Money(BigDecimal("5000")), 100L)
+                pointDeductor.usePoints(UserId(1), Money(BigDecimal("5000")), OrderId(100))
             }
 
             // assert
@@ -76,7 +79,7 @@ class PointDeductorTest {
         fun usePoints_noPointInfo_throwsNotFound() {
             // act
             val exception = assertThrows<CoreException> {
-                pointDeductor.usePoints(999L, Money(BigDecimal("1000")), 100L)
+                pointDeductor.usePoints(UserId(999), Money(BigDecimal("1000")), OrderId(100))
             }
 
             // assert

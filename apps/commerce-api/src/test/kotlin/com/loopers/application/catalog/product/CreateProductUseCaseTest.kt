@@ -39,7 +39,7 @@ class CreateProductUseCaseTest {
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
 
             // act
-            val result = useCase.execute(brand.id, "에어맥스 90", BigDecimal("129000"), 100)
+            val result = useCase.execute(brand.id.value, "에어맥스 90", BigDecimal("129000"), 100)
 
             // assert
             assertThat(result.name).isEqualTo("에어맥스 90")
@@ -70,7 +70,7 @@ class CreateProductUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                useCase.execute(brand.id, "에어맥스 90", BigDecimal("129000"), 100)
+                useCase.execute(brand.id.value, "에어맥스 90", BigDecimal("129000"), 100)
             }
 
             // assert

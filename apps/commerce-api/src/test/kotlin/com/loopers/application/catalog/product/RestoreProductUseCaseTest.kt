@@ -2,7 +2,9 @@ package com.loopers.application.catalog.product
 
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
-import com.loopers.domain.common.Money
+import com.loopers.domain.catalog.product.vo.Stock
+import com.loopers.domain.common.vo.BrandId
+import com.loopers.domain.common.vo.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -33,13 +35,13 @@ class RestoreProductUseCaseTest {
         fun restoreProduct_deletedProduct_restoresSuccessfully() {
             // arrange
             val product = productRepository.save(
-                Product(refBrandId = 1L, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = 100),
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
             )
             product.delete()
             productRepository.save(product)
 
             // act
-            val result = useCase.execute(product.id)
+            val result = useCase.execute(product.id.value)
 
             // assert
             assertThat(result.deletedAt).isNull()
@@ -51,11 +53,11 @@ class RestoreProductUseCaseTest {
         fun restoreProduct_activeProduct_isIdempotent() {
             // arrange
             val product = productRepository.save(
-                Product(refBrandId = 1L, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = 100),
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
             )
 
             // act
-            val result = useCase.execute(product.id)
+            val result = useCase.execute(product.id.value)
 
             // assert
             assertThat(result.deletedAt).isNull()

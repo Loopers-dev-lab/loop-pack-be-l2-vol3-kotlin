@@ -34,7 +34,7 @@ class ChangePasswordUseCaseTest {
 
             // act
             changePasswordUseCase.execute(
-                userId = user.id,
+                userId = user.id.value,
                 currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                 newPassword = "NewPass12!",
             )
@@ -70,7 +70,7 @@ class ChangePasswordUseCaseTest {
             // act
             val exception = assertThrows<CoreException> {
                 changePasswordUseCase.execute(
-                    userId = user.id,
+                    userId = user.id.value,
                     currentPassword = "WrongPass1!",
                     newPassword = "NewPass12!",
                 )
@@ -90,7 +90,7 @@ class ChangePasswordUseCaseTest {
             // act
             val exception = assertThrows<CoreException> {
                 changePasswordUseCase.execute(
-                    userId = user.id,
+                    userId = user.id.value,
                     currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                     newPassword = UserTestFixture.DEFAULT_PASSWORD,
                 )
@@ -110,7 +110,7 @@ class ChangePasswordUseCaseTest {
             // act
             val exception = assertThrows<CoreException> {
                 changePasswordUseCase.execute(
-                    userId = user.id,
+                    userId = user.id.value,
                     currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                     newPassword = "Short1!",
                 )
@@ -129,7 +129,7 @@ class ChangePasswordUseCaseTest {
             // act
             val exception = assertThrows<CoreException> {
                 changePasswordUseCase.execute(
-                    userId = user.id,
+                    userId = user.id.value,
                     currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                     newPassword = "Password12345678!",
                 )
@@ -148,7 +148,7 @@ class ChangePasswordUseCaseTest {
             // act
             val exception = assertThrows<CoreException> {
                 changePasswordUseCase.execute(
-                    userId = user.id,
+                    userId = user.id.value,
                     currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                     newPassword = "Pass19900115!",
                 )
@@ -168,7 +168,7 @@ class ChangePasswordUseCaseTest {
             // act
             val exception = assertThrows<CoreException> {
                 changePasswordUseCase.execute(
-                    userId = user.id,
+                    userId = user.id.value,
                     currentPassword = UserTestFixture.DEFAULT_PASSWORD,
                     newPassword = "Passsword1!",
                 )

@@ -35,7 +35,7 @@ class GetUserInfoUseCaseTest {
             val user = userRepository.save(UserTestFixture.createUser())
 
             // act
-            val result = getUserInfoUseCase.execute(user.id)
+            val result = getUserInfoUseCase.execute(user.id.value)
 
             // assert
             assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
@@ -59,7 +59,7 @@ class GetUserInfoUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                getUserInfoUseCase.execute(saved.id)
+                getUserInfoUseCase.execute(saved.id.value)
             }
 
             // assert

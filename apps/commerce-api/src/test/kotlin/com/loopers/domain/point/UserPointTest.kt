@@ -1,5 +1,6 @@
 package com.loopers.domain.point
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.point.model.UserPoint
 import com.loopers.domain.point.vo.Point
 import com.loopers.support.error.CoreException
@@ -20,11 +21,11 @@ class UserPointTest {
         @DisplayName("초기 잔액 0으로 생성된다")
         fun create_withDefaultBalance_success() {
             // act
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
 
             // assert
-            assertThat(userPoint.refUserId).isEqualTo(1L)
-            assertThat(userPoint.balance).isEqualTo(0)
+            assertThat(userPoint.refUserId).isEqualTo(UserId(1))
+            assertThat(userPoint.balance).isEqualTo(Point(0))
         }
 
         @Test
@@ -32,7 +33,7 @@ class UserPointTest {
         fun create_withNegativeBalance_throwsException() {
             // act
             val exception = assertThrows<CoreException> {
-                UserPoint(refUserId = 1L, balance = -100)
+                UserPoint(refUserId = UserId(1), balance = Point(-100))
             }
 
             // assert
@@ -48,20 +49,20 @@ class UserPointTest {
         @DisplayName("충전하면 잔액이 증가한다")
         fun charge_increasesBalance() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
 
             // act
             userPoint.charge(Point(5000))
 
             // assert
-            assertThat(userPoint.balance).isEqualTo(5000)
+            assertThat(userPoint.balance).isEqualTo(Point(5000))
         }
 
         @Test
         @DisplayName("충전 금액이 0이면 BAD_REQUEST 예외가 발생한다")
         fun charge_zeroAmount_throwsException() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
 
             // act
             val exception = assertThrows<CoreException> {
@@ -77,7 +78,7 @@ class UserPointTest {
         @DisplayName("충전 금액이 음수이면 BAD_REQUEST 예외가 발생한다")
         fun charge_negativeAmount_throwsException() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
 
             // act
             val exception = assertThrows<CoreException> {
@@ -92,21 +93,21 @@ class UserPointTest {
         @DisplayName("여러 번 충전하면 잔액이 누적된다")
         fun charge_multiple_accumulatesBalance() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
 
             // act
             userPoint.charge(Point(3000))
             userPoint.charge(Point(2000))
 
             // assert
-            assertThat(userPoint.balance).isEqualTo(5000)
+            assertThat(userPoint.balance).isEqualTo(Point(5000))
         }
 
         @Test
         @DisplayName("충전 후 잔액이 MAX_BALANCE를 초과하면 BAD_REQUEST 예외가 발생한다")
         fun charge_exceedMaxBalance_throwsBadRequest() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
             userPoint.charge(Point(5_000_000))
 
             // act
@@ -128,21 +129,21 @@ class UserPointTest {
         @DisplayName("잔액이 충분하면 차감된다")
         fun use_sufficientBalance_decreasesBalance() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
             userPoint.charge(Point(10000))
 
             // act
             userPoint.use(Point(3000))
 
             // assert
-            assertThat(userPoint.balance).isEqualTo(7000)
+            assertThat(userPoint.balance).isEqualTo(Point(7000))
         }
 
         @Test
         @DisplayName("잔액이 부족하면 CoreException이 발생한다")
         fun use_insufficientBalance_throwsException() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
             userPoint.charge(Point(1000))
 
             // act
@@ -160,7 +161,7 @@ class UserPointTest {
         @DisplayName("사용 금액이 0이면 BAD_REQUEST 예외가 발생한다")
         fun use_zeroAmount_throwsBadRequest() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
             userPoint.charge(Point(5000))
 
             // act
@@ -177,7 +178,7 @@ class UserPointTest {
         @DisplayName("사용 금액이 음수이면 BAD_REQUEST 예외가 발생한다")
         fun use_negativeAmount_throwsBadRequest() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
             userPoint.charge(Point(5000))
 
             // act
@@ -198,7 +199,7 @@ class UserPointTest {
         @DisplayName("잔액이 충분하면 true를 반환한다")
         fun canAfford_sufficientBalance_returnsTrue() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
             userPoint.charge(Point(5000))
 
             // act & assert
@@ -209,7 +210,7 @@ class UserPointTest {
         @DisplayName("잔액이 부족하면 false를 반환한다")
         fun canAfford_insufficientBalance_returnsFalse() {
             // arrange
-            val userPoint = UserPoint(refUserId = 1L)
+            val userPoint = UserPoint(refUserId = UserId(1))
             userPoint.charge(Point(1000))
 
             // act & assert
