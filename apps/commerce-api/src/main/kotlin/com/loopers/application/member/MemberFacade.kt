@@ -1,9 +1,8 @@
 package com.loopers.application.member
 
+import com.loopers.application.auth.AuthService
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
-import com.loopers.infrastructure.config.CacheConfig
-import org.springframework.cache.CacheManager
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -12,7 +11,7 @@ import java.time.LocalDate
 @Component
 class MemberFacade(
     private val memberService: MemberService,
-    private val cacheManager: CacheManager,
+    private val authService: AuthService,
 ) {
     @Transactional
     fun register(
@@ -45,7 +44,7 @@ class MemberFacade(
     @Transactional
     fun changePassword(loginId: String, newPassword: String): MemberInfo {
         memberService.changePassword(loginId, newPassword)
-        cacheManager.getCache(CacheConfig.AUTH_CACHE)?.evict(loginId)
+        authService.evictAuthCache(loginId)
         val member = memberService.getMemberByLoginId(loginId)
         return MemberInfo.from(member)
     }

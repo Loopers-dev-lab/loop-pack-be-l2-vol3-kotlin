@@ -13,14 +13,10 @@ import java.util.concurrent.TimeUnit
 @EnableCaching
 class CacheConfig {
 
-    companion object {
-        const val AUTH_CACHE = "auth-cache"
-    }
-
     @Bean
     fun cacheManager(): CacheManager {
         val authCache = CaffeineCache(
-            AUTH_CACHE,
+            "auth-cache",
             Caffeine.newBuilder()
                 .expireAfterWrite(5, TimeUnit.MINUTES)
                 .maximumSize(10_000)
