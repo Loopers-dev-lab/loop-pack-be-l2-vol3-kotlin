@@ -3,7 +3,6 @@ package com.loopers.application.product
 import com.loopers.application.brand.BrandService
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductSort
-import com.loopers.support.cursor.CursorUtils
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,41 +19,36 @@ class ProductFacade(
     }
 
     @Transactional(readOnly = true)
-    fun getProducts(condition: ProductSearchCondition): ProductListResult {
-        val products = productService.getProducts(condition)
-        val hasNext = products.size > condition.size
-        val content = if (hasNext) products.dropLast(1) else products
+    fun getProducts(brandId: Long?, sort: String, size: Int, cursor: String?): ProductListResult {
+        val productSort = resolveSort(sort)
+        val condition = ProductSearchCondition(
+            brandId = brandId,
+            sort = productSort,
+            size = size,
+            cursor = cursor,
+        )
 
-        val brandIds = content.map { it.brandId }.distinct()
+        val cursorResult = productService.getProducts(condition)
+
+        val brandIds = cursorResult.content.map { it.brandId }.distinct()
         val brandMap = brandIds.associateWith { id ->
             runCatching { brandService.getBrand(id) }.getOrNull()?.name
         }
 
-        val items = content.map { ProductInfo.from(it, brandMap[it.brandId]) }
-
-        val nextCursor = if (hasNext && content.isNotEmpty()) {
-            val last = content.last()
-            val cursorMap = buildCursorMap(condition, last)
-            CursorUtils.encode(cursorMap)
-        } else {
-            null
-        }
+        val items = cursorResult.content.map { ProductInfo.from(it, brandMap[it.brandId]) }
 
         return ProductListResult(
             data = items,
-            nextCursor = nextCursor,
-            hasNext = hasNext,
+            nextCursor = cursorResult.nextCursor,
+            hasNext = cursorResult.hasNext,
         )
     }
 
-    private fun buildCursorMap(
-        condition: ProductSearchCondition,
-        last: com.loopers.domain.product.ProductModel,
-    ): Map<String, Any> {
-        return when (condition.sort) {
-            ProductSort.LATEST -> mapOf("id" to last.id)
-            ProductSort.PRICE_ASC -> mapOf("price" to last.price, "id" to last.id)
-            ProductSort.LIKES_DESC -> mapOf("likeCount" to last.likeCount, "id" to last.id)
+    private fun resolveSort(sort: String): ProductSort {
+        return when (sort.lowercase()) {
+            "price_asc" -> ProductSort.PRICE_ASC
+            "likes_desc" -> ProductSort.LIKES_DESC
+            else -> ProductSort.LATEST
         }
     }
 }

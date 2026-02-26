@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product
 
+import com.loopers.domain.common.CursorResult
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
 import com.loopers.domain.product.ProductModel
@@ -7,6 +8,7 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductSort
 import com.loopers.domain.product.ProductStatus
+import com.loopers.infrastructure.support.CursorUtils
 import jakarta.persistence.EntityManager
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
@@ -58,7 +60,9 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllByIdIn(ids).map { it.toModel() }
     }
 
-    override fun findActiveProducts(condition: ProductSearchCondition): List<ProductModel> {
+    override fun findActiveProducts(condition: ProductSearchCondition): CursorResult<ProductModel> {
+        val cursor = condition.cursor?.let { decodeCursor(it, condition.sort) }
+
         val sb = StringBuilder("SELECT p FROM ProductJpaModel p WHERE p.status = :status")
         val params = mutableMapOf<String, Any>("status" to ProductStatus.ACTIVE)
 
@@ -67,8 +71,8 @@ class ProductRepositoryImpl(
             params["brandId"] = condition.brandId
         }
 
-        if (condition.cursor != null) {
-            appendCursorCondition(sb, params, condition.sort, condition.cursor)
+        if (cursor != null) {
+            appendCursorCondition(sb, params, cursor)
         }
 
         appendOrderBy(sb, condition.sort)
@@ -77,38 +81,72 @@ class ProductRepositoryImpl(
         params.forEach { (key, value) -> query.setParameter(key, value) }
         query.maxResults = condition.size + 1
 
-        return query.resultList.map { it.toModel() }
+        val results = query.resultList.map { it.toModel() }
+        val hasNext = results.size > condition.size
+        val content = if (hasNext) results.dropLast(1) else results
+
+        val nextCursor = if (hasNext && content.isNotEmpty()) {
+            encodeCursor(condition.sort, content.last())
+        } else {
+            null
+        }
+
+        return CursorResult(
+            content = content,
+            nextCursor = nextCursor,
+            hasNext = hasNext,
+        )
     }
 
     override fun findAllByBrandIdAndStatus(brandId: Long, status: ProductStatus): List<ProductModel> {
         return productJpaRepository.findAllByBrandIdAndStatus(brandId, status).map { it.toModel() }
     }
 
+    private fun decodeCursor(cursor: String, sort: ProductSort): ProductCursor {
+        val map = CursorUtils.decode(cursor)
+        return when (sort) {
+            ProductSort.LATEST -> ProductCursor.Latest(
+                id = (map["id"] as Number).toLong(),
+            )
+            ProductSort.PRICE_ASC -> ProductCursor.PriceAsc(
+                price = (map["price"] as Number).toLong(),
+                id = (map["id"] as Number).toLong(),
+            )
+            ProductSort.LIKES_DESC -> ProductCursor.LikesDesc(
+                likeCount = (map["likeCount"] as Number).toInt(),
+                id = (map["id"] as Number).toLong(),
+            )
+        }
+    }
+
+    private fun encodeCursor(sort: ProductSort, last: ProductModel): String {
+        val cursorMap = when (sort) {
+            ProductSort.LATEST -> mapOf("id" to last.id)
+            ProductSort.PRICE_ASC -> mapOf("price" to last.price, "id" to last.id)
+            ProductSort.LIKES_DESC -> mapOf("likeCount" to last.likeCount, "id" to last.id)
+        }
+        return CursorUtils.encode(cursorMap)
+    }
+
     private fun appendCursorCondition(
         sb: StringBuilder,
         params: MutableMap<String, Any>,
-        sort: ProductSort,
-        cursor: Map<String, Any>,
+        cursor: ProductCursor,
     ) {
-        when (sort) {
-            ProductSort.LATEST -> {
-                val cursorId = (cursor["id"] as Number).toLong()
+        when (cursor) {
+            is ProductCursor.Latest -> {
                 sb.append(" AND p.id < :cursorId")
-                params["cursorId"] = cursorId
+                params["cursorId"] = cursor.id
             }
-            ProductSort.PRICE_ASC -> {
-                val cursorPrice = (cursor["price"] as Number).toLong()
-                val cursorId = (cursor["id"] as Number).toLong()
+            is ProductCursor.PriceAsc -> {
                 sb.append(" AND (p.price > :cursorPrice OR (p.price = :cursorPrice AND p.id < :cursorId))")
-                params["cursorPrice"] = cursorPrice
-                params["cursorId"] = cursorId
+                params["cursorPrice"] = cursor.price
+                params["cursorId"] = cursor.id
             }
-            ProductSort.LIKES_DESC -> {
-                val cursorLikeCount = (cursor["likeCount"] as Number).toInt()
-                val cursorId = (cursor["id"] as Number).toLong()
+            is ProductCursor.LikesDesc -> {
                 sb.append(" AND (p.likeCount < :cursorLikeCount OR (p.likeCount = :cursorLikeCount AND p.id < :cursorId))")
-                params["cursorLikeCount"] = cursorLikeCount
-                params["cursorId"] = cursorId
+                params["cursorLikeCount"] = cursor.likeCount
+                params["cursorId"] = cursor.id
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.domain.common.CursorResult
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
 import com.loopers.domain.product.ProductModel
@@ -59,12 +60,17 @@ class FakeProductRepository : ProductRepository {
         return store.values.filter { it.id in ids }
     }
 
-    override fun findActiveProducts(condition: ProductSearchCondition): List<ProductModel> {
+    override fun findActiveProducts(condition: ProductSearchCondition): CursorResult<ProductModel> {
         var result = store.values.filter { it.status == ProductStatus.ACTIVE }
         if (condition.brandId != null) {
             result = result.filter { it.brandId == condition.brandId }
         }
-        return result.take(condition.size)
+        val content = result.take(condition.size)
+        return CursorResult(
+            content = content,
+            nextCursor = null,
+            hasNext = result.size > condition.size,
+        )
     }
 
     override fun findAllByBrandIdAndStatus(brandId: Long, status: ProductStatus): List<ProductModel> {

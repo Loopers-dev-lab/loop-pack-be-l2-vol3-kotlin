@@ -1,4 +1,4 @@
-package com.loopers.support.cursor
+package com.loopers.infrastructure.support
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue

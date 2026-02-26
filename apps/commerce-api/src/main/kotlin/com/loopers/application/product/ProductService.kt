@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.domain.common.CursorResult
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
 import com.loopers.domain.error.CoreException
@@ -48,7 +49,7 @@ class ProductService(
         }
     }
 
-    fun getProducts(condition: ProductSearchCondition): List<ProductModel> {
+    fun getProducts(condition: ProductSearchCondition): CursorResult<ProductModel> {
         return productRepository.findActiveProducts(condition)
     }
 
