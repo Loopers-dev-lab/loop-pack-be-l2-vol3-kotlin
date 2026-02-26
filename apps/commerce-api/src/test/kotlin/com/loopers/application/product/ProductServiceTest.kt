@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.application.brand.BrandService
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -15,6 +16,8 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doNothing
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
@@ -27,6 +30,9 @@ class ProductServiceTest {
 
     @Mock
     private lateinit var productRepository: ProductRepository
+
+    @Mock
+    private lateinit var brandService: BrandService
 
     @InjectMocks
     private lateinit var productService: ProductService
@@ -162,10 +168,11 @@ class ProductServiceTest {
     @Nested
     inner class CreateProduct {
 
-        @DisplayName("정상적인 정보가 주어지면, 상품이 생성된다.")
+        @DisplayName("브랜드가 존재하면, 상품이 생성된다.")
         @Test
-        fun createsProduct_whenValidInfoProvided() {
+        fun createsProduct_whenBrandExists() {
             // arrange
+            val now = ZonedDateTime.now()
             val criteria = CreateProductCriteria(
                 brandId = TEST_BRAND_ID,
                 name = TEST_NAME,
@@ -175,7 +182,13 @@ class ProductServiceTest {
                 imageUrl = TEST_IMAGE_URL,
             )
 
-            whenever(productRepository.save(any())).thenAnswer { it.arguments[0] }
+            doNothing().whenever(brandService).validateBrandExists(TEST_BRAND_ID)
+            whenever(productRepository.save(any())).thenAnswer {
+                val product = it.arguments[0] as Product
+                ReflectionTestUtils.setField(product, "createdAt", now)
+                ReflectionTestUtils.setField(product, "updatedAt", now)
+                product
+            }
 
             // act
             val result = productService.createProduct(criteria)
@@ -189,6 +202,31 @@ class ProductServiceTest {
                 { assertThat(result.description).isEqualTo(TEST_DESCRIPTION) },
                 { assertThat(result.imageUrl).isEqualTo(TEST_IMAGE_URL) },
             )
+        }
+
+        @DisplayName("브랜드가 존재하지 않으면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsException_whenBrandNotFound() {
+            // arrange
+            val criteria = CreateProductCriteria(
+                brandId = 999L,
+                name = TEST_NAME,
+                price = TEST_PRICE,
+                stock = TEST_STOCK,
+                description = null,
+                imageUrl = null,
+            )
+
+            doThrow(CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."))
+                .whenever(brandService).validateBrandExists(999L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                productService.createProduct(criteria)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 

@@ -7,6 +7,7 @@ interface ProductRepository {
     fun save(product: Product): Product
     fun findById(id: Long): Product?
     fun findByIdIncludingDeleted(id: Long): Product?
+    fun existsByIdIncludingDeleted(id: Long): Boolean
     fun findByIdWithLock(id: Long): Product?
     fun findAll(pageable: Pageable): Page<Product>
     fun findAllByBrandId(brandId: Long, pageable: Pageable): Page<Product>

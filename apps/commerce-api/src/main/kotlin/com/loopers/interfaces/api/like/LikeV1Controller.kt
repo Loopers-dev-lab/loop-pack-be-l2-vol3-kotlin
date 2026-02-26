@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.like
 
 import com.loopers.application.like.LikeService
-import com.loopers.application.product.ProductFacade
 import com.loopers.application.user.UserService
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
@@ -16,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class LikeV1Controller(
     private val userService: UserService,
-    private val productFacade: ProductFacade,
     private val likeService: LikeService,
 ) : LikeV1ApiSpec {
 
@@ -27,7 +25,7 @@ class LikeV1Controller(
         @PathVariable productId: Long,
     ): ApiResponse<Any> {
         val authUser = userService.authenticate(loginId, password)
-        productFacade.addLike(authUser.id, productId)
+        likeService.addLike(authUser.id, productId)
         return ApiResponse.success()
     }
 

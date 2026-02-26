@@ -27,6 +27,10 @@ class BrandRepositoryImpl(
         return brandJpaRepository.findAllByDeletedAtIsNull(pageable)
     }
 
+    override fun existsById(id: Long): Boolean {
+        return brandJpaRepository.existsByIdAndDeletedAtIsNull(id)
+    }
+
     override fun existsByName(name: String): Boolean {
         return brandJpaRepository.existsByNameAndDeletedAtIsNull(name)
     }

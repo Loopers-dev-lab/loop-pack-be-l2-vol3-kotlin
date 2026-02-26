@@ -25,6 +25,13 @@ class BrandService(
     }
 
     @Transactional(readOnly = true)
+    fun validateBrandExists(brandId: Long) {
+        if (!brandRepository.existsById(brandId)) {
+            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        }
+    }
+
+    @Transactional(readOnly = true)
     fun getBrandInfo(brandId: Long): BrandInfo {
         return BrandInfo.from(getBrand(brandId))
     }

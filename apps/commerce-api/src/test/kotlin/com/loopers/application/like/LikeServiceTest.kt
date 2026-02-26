@@ -1,17 +1,23 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductService
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doNothing
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -23,6 +29,9 @@ class LikeServiceTest {
 
     @Mock
     private lateinit var likeRepository: LikeRepository
+
+    @Mock
+    private lateinit var productService: ProductService
 
     @InjectMocks
     private lateinit var likeService: LikeService
@@ -37,16 +46,21 @@ class LikeServiceTest {
             // arrange
             val userId = 1L
             val productId = 1L
+            val now = ZonedDateTime.now()
 
+            doNothing().whenever(productService).validateProductExistsIncludingDeleted(productId)
             whenever(likeRepository.findByUserIdAndProductId(userId, productId)).thenReturn(null)
-            whenever(likeRepository.save(any())).thenAnswer { it.arguments[0] }
+            whenever(likeRepository.save(any())).thenAnswer {
+                val like = it.arguments[0] as Like
+                ReflectionTestUtils.setField(like, "createdAt", now)
+                like
+            }
 
             // act
             val result = likeService.addLike(userId, productId)
 
             // assert
             assertAll(
-                { assertThat(result.userId).isEqualTo(userId) },
                 { assertThat(result.productId).isEqualTo(productId) },
             )
             verify(likeRepository).save(any())
@@ -58,15 +72,18 @@ class LikeServiceTest {
             // arrange
             val userId = 1L
             val productId = 1L
+            val now = ZonedDateTime.now()
             val existingLike = Like(userId = userId, productId = productId)
+            ReflectionTestUtils.setField(existingLike, "createdAt", now)
 
+            doNothing().whenever(productService).validateProductExistsIncludingDeleted(productId)
             whenever(likeRepository.findByUserIdAndProductId(userId, productId)).thenReturn(existingLike)
 
             // act
             val result = likeService.addLike(userId, productId)
 
             // assert
-            assertThat(result).isSameAs(existingLike)
+            assertThat(result.productId).isEqualTo(productId)
             verify(likeRepository, never()).save(any())
         }
 
@@ -76,21 +93,43 @@ class LikeServiceTest {
             // arrange
             val userId = 1L
             val productId = 1L
+            val now = ZonedDateTime.now()
             val deletedLike = Like(userId = userId, productId = productId)
             deletedLike.delete()
 
+            doNothing().whenever(productService).validateProductExistsIncludingDeleted(productId)
             whenever(likeRepository.findByUserIdAndProductId(userId, productId)).thenReturn(deletedLike)
-            whenever(likeRepository.save(any())).thenAnswer { it.arguments[0] }
+            whenever(likeRepository.save(any())).thenAnswer {
+                val like = it.arguments[0] as Like
+                ReflectionTestUtils.setField(like, "createdAt", now)
+                like
+            }
 
             // act
             val result = likeService.addLike(userId, productId)
 
             // assert
-            assertAll(
-                { assertThat(result.isDeleted()).isFalse() },
-                { assertThat(result.userId).isEqualTo(userId) },
-            )
+            assertThat(result.productId).isEqualTo(productId)
             verify(likeRepository).save(any())
+        }
+
+        @DisplayName("상품이 존재하지 않으면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsException_whenProductNotFound() {
+            // arrange
+            val userId = 1L
+            val productId = 999L
+
+            doThrow(CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."))
+                .whenever(productService).validateProductExistsIncludingDeleted(productId)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                likeService.addLike(userId, productId)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 

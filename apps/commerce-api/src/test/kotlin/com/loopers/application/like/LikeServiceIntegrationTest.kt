@@ -8,6 +8,8 @@ import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.like.LikeJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.infrastructure.user.UserJpaRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.math.BigDecimal
@@ -23,7 +26,7 @@ import java.time.LocalDate
 
 /**
  * LikeService 통합 테스트
- * - 좋아요 취소(cancelLike), 목록 조회(getUserLikes) 검증
+ * - 좋아요 등록(addLike), 취소(cancelLike), 목록 조회(getUserLikes) 검증
  * - 실제 DB(TestContainers)와 연동
  */
 @SpringBootTest
@@ -77,6 +80,85 @@ class LikeServiceIntegrationTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+    }
+
+    @DisplayName("좋아요를 등록할 때,")
+    @Nested
+    inner class AddLike {
+
+        @DisplayName("정상적인 요청이면, DB에 좋아요가 저장된다.")
+        @Test
+        fun savesLikeToDatabase_whenValidRequest() {
+            // act
+            val result = likeService.addLike(savedUser.id, savedProduct.id)
+
+            // assert
+            val saved = likeJpaRepository.findByUserIdAndProductIdAndDeletedAtIsNull(savedUser.id, savedProduct.id)!!
+            assertAll(
+                { assertThat(saved.userId).isEqualTo(savedUser.id) },
+                { assertThat(saved.productId).isEqualTo(savedProduct.id) },
+                { assertThat(result.productId).isEqualTo(savedProduct.id) },
+            )
+        }
+
+        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면, 기존 좋아요가 유지된다.")
+        @Test
+        fun returnsExistingLike_whenAlreadyLiked() {
+            // arrange
+            val first = likeService.addLike(savedUser.id, savedProduct.id)
+
+            // act
+            val second = likeService.addLike(savedUser.id, savedProduct.id)
+
+            // assert
+            assertAll(
+                { assertThat(second.id).isEqualTo(first.id) },
+                { assertThat(likeJpaRepository.findAll()).hasSize(1) },
+            )
+        }
+
+        @DisplayName("Soft Delete된 좋아요가 있으면, 복원된다.")
+        @Test
+        fun restoresLike_whenSoftDeletedLikeExists() {
+            // arrange
+            val like = likeJpaRepository.save(Like(userId = savedUser.id, productId = savedProduct.id))
+            like.delete()
+            likeJpaRepository.save(like)
+
+            // act
+            val result = likeService.addLike(savedUser.id, savedProduct.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(like.id) },
+                { assertThat(result.productId).isEqualTo(savedProduct.id) },
+                { assertThat(likeJpaRepository.findAll()).hasSize(1) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 상품이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductNotExists() {
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                likeService.addLike(savedUser.id, 999L)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("삭제된 상품에도 좋아요를 등록할 수 있다.")
+        @Test
+        fun addsLike_whenProductIsSoftDeleted() {
+            // arrange
+            savedProduct.delete()
+            productJpaRepository.save(savedProduct)
+
+            // act
+            val result = likeService.addLike(savedUser.id, savedProduct.id)
+
+            // assert
+            assertThat(result.productId).isEqualTo(savedProduct.id)
+        }
     }
 
     @DisplayName("좋아요를 취소할 때,")

@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.application.product.ProductFacade
 import com.loopers.application.product.ProductService
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api-admin/v1/products")
 class ProductAdminV1Controller(
     private val productService: ProductService,
-    private val productFacade: ProductFacade,
 ) : ProductAdminV1ApiSpec {
 
     @GetMapping
@@ -54,7 +52,7 @@ class ProductAdminV1Controller(
         @RequestBody request: ProductAdminV1Dto.CreateRequest,
     ): ApiResponse<ProductAdminV1Dto.ProductAdminResponse> {
         validateAdminAuth(ldap)
-        return productFacade.createProduct(request.toCriteria())
+        return productService.createProduct(request.toCriteria())
             .let { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

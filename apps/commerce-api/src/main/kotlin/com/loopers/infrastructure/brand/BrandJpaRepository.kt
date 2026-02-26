@@ -11,6 +11,8 @@ interface BrandJpaRepository : JpaRepository<Brand, Long> {
 
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<Brand>
 
+    fun existsByIdAndDeletedAtIsNull(id: Long): Boolean
+
     fun existsByNameAndDeletedAtIsNull(name: String): Boolean
     fun existsByNameAndDeletedAtIsNullAndIdNot(name: String, id: Long): Boolean
 }

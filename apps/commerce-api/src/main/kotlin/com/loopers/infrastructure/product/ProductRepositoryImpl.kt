@@ -23,6 +23,10 @@ class ProductRepositoryImpl(
         return productJpaRepository.findById(id).orElse(null)
     }
 
+    override fun existsByIdIncludingDeleted(id: Long): Boolean {
+        return productJpaRepository.existsById(id)
+    }
+
     override fun findByIdWithLock(id: Long): Product? {
         return productJpaRepository.findByIdWithLock(id)
     }
