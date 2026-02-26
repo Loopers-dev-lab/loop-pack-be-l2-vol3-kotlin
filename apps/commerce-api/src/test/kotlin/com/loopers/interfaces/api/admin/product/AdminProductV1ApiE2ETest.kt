@@ -1,7 +1,7 @@
-package com.loopers.interfaces.api
+package com.loopers.interfaces.api.admin.product
 
+import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.admin.brand.AdminBrandV1Dto
-import com.loopers.interfaces.api.admin.product.AdminProductV1Dto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach

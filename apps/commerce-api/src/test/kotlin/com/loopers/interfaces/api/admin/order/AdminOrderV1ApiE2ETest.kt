@@ -1,7 +1,7 @@
-package com.loopers.interfaces.api
+package com.loopers.interfaces.api.admin.order
 
+import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.admin.brand.AdminBrandV1Dto
-import com.loopers.interfaces.api.admin.order.AdminOrderV1Dto
 import com.loopers.interfaces.api.admin.product.AdminProductV1Dto
 import com.loopers.interfaces.api.member.MemberV1Dto
 import com.loopers.interfaces.api.order.OrderV1Dto

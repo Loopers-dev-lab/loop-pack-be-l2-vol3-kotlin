@@ -1,5 +1,6 @@
-package com.loopers.interfaces.api
+package com.loopers.interfaces.api.like
 
+import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.admin.brand.AdminBrandV1Dto
 import com.loopers.interfaces.api.admin.product.AdminProductV1Dto
 import com.loopers.interfaces.api.member.MemberV1Dto

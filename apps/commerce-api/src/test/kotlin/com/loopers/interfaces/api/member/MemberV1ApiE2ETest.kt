@@ -1,7 +1,7 @@
-package com.loopers.interfaces.api
+package com.loopers.interfaces.api.member
 
+import com.loopers.interfaces.api.ApiResponse
 import com.loopers.infrastructure.member.MemberJpaRepository
-import com.loopers.interfaces.api.member.MemberV1Dto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
