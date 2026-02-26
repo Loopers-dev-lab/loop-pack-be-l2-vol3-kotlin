@@ -68,8 +68,8 @@
 | 포인트 내역   | PointHistory    | 포인트 충전/차감 이력. CHARGE(충전)와 USE(사용) 유형을 가진다.                                                  |
 | 수량       | quantity        | 주문 항목의 수량. OrderItem.init 블록에서 직접 검증 (quantity >= 1).                                       |
 | 카탈로그     | Catalog         | Product와 Brand를 포함하는 바운디드 컨텍스트. 상품 탐색에 필요한 정보를 하나의 경계로 관리한다.                                |
-| 카탈로그 서비스 | CatalogService  | Catalog 바운디드 컨텍스트의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합, 재고 관리 등을 담당한다.                 |
 | 도메인 서비스  | Domain Service  | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Domain Model이 수행하기 어려운 로직을 담당한다.           |
+| 유스케이스    | UseCase         | Application 계층의 진입점. 단일 기능(기능명+UseCase)을 담당하며, 도메인 경계를 넘는 오케스트레이션을 조율한다. 예: GetProductUseCase, PlaceOrderUseCase |
 | 어드민      | Admin           | 브랜드/상품/주문을 관리하는 내부 운영자. LDAP 헤더로 식별한다.                                                      |
 | 복구       | Restore         | soft delete된 Domain Model을 다시 활성 상태로 되돌리는 어드민 작업. deletedAt을 null로 설정하며, 이미 활성인 Domain Model에 대해서는 멱등하게 동작한다. |
 
@@ -232,7 +232,6 @@
 **주문 요청:** 사용자는 여러 상품을 담아 한 번에 주문할 수 있다.
 
 - **유효성 검증:** 주문하려는 상품은 모두 판매 중(`ON_SALE`)이어야 하며, 요청 수량만큼의 재고가 있어야 한다.
-- **중복 제한:** 하나의 주문 내에서 동일한 상품(productId)이 중복되어 포함될 수 없다.
 
 **주문 처리:**
 
@@ -267,7 +266,7 @@
 | 주문 항목에 삭제된 상품 포함             | 400 | soft deleted 상품 주문 불가     |
 | 주문 항목에 HIDDEN/SOLD_OUT 상품 포함 | 400 | 판매중(ON_SALE)이 아닌 상품 주문 불가 |
 | 수량이 0 이하                     | 400 | quantity >= 1             |
-| 재고 부족 (1개 상품이라도)             | 400 | 전체 실패, 부족 상품 명시           |
+| 재고 부족 (1개 상품이라도)             | 400 | 전체 실패                     |
 | 포인트 잔액 부족                    | 400 | 전체 실패, 필요 포인트와 현재 잔액 명시   |
 | 타인의 주문 상세 조회                 | 404 | 본인 주문이 아니면 미노출            |
 
@@ -292,7 +291,7 @@
 
 - 충전 금액은 1 이상이어야 한다
 - 충전 시 잔액 변경(UserPoint 수정)과 충전 내역(PointHistory 생성)이 함께 처리된다
-- 이 복합 로직은 `PointChargingService` (Domain Service)가 조율한다
+- 이 복합 로직은 `PointCharger` (Domain Service)가 조율한다
 
 **잔액 조회:** 사용자는 본인의 포인트 잔액을 조회할 수 있다.
 
@@ -410,13 +409,12 @@ stateDiagram-v2
 
 ### 5.6 주문 규칙
 
-- Aggregate 영속성 저장 순서: JPA 연관관계를 사용하지 않으므로, Order.create() 시점에는 OrderItem이 refOrderId를 가질 수 없다. 따라서 OrderService에서 영속화할 때 아래 순서를 반드시 따른다. 
+- Aggregate 영속성 저장 순서: JPA 연관관계를 사용하지 않으므로, Order.create() 시점에는 OrderItem이 refOrderId를 가질 수 없다. 따라서 PlaceOrderUseCase에서 영속화할 때 아래 순서를 반드시 따른다.
   1. orderRepository.save(order) 실행 → DB에서 채번된 ID를 가진 savedOrder 반환 
   2. savedOrder.items를 순회하며 savedOrder.id를 refOrderId로 세팅 (copy 사용)
   3. orderItemRepository.saveAll(...) 실행
 - 주문은 최소 1개 이상의 주문 항목(OrderItem)을 가져야 한다
 - 주문 항목의 수량(quantity)은 1 이상이어야 한다
-- 주문 항목의 상품은 고유해야 한다 (같은 productId 중복 불가)
 - 주문 시 각 상품의 재고를 확인하고 차감한다 (트랜잭션 내)
 - 재고가 부족하면 주문 전체가 실패한다 (all-or-nothing, 부분 주문 없음)
 - 주문 항목에는 주문 시점의 상품 스냅샷(이름, 가격)이 저장된다
@@ -436,8 +434,8 @@ stateDiagram-v2
 - 포인트 충전 금액은 1 이상이어야 한다
 - 포인트 사용 시 잔액이 부족하면 `CoreException(BAD_REQUEST)` 발생
 - 포인트 충전은 잔액 변경(UserPoint 수정) + 충전 내역(PointHistory 생성)을 하나의 트랜잭션에서 처리한다
-- 이 복합 로직은 `PointChargingService` (Domain Service)가 조율한다
-- PointHistory는 불변(immutable) 데이터이며, BaseEntity를 상속하지 않는다 (id + createdAt만 보유, soft delete 미적용)
+- 이 복합 로직은 `PointCharger` (Domain Service)가 조율한다
+- PointHistory는 불변(immutable) 데이터이며, soft delete를 적용하지 않는다. Domain Model은 영속성 필드를 갖지 않으며, Entity 레벨에서 BaseEntity를 상속하여 createdAt, updatedAt, deletedAt을 관리한다 (향후 충전 취소 등 기능 확장 대비)
 - PointHistory는 추적용 필드 `refOrderId`(nullable)를 가진다. 주문으로 인한 포인트 사용(USE) 시 해당 주문 ID를 기록하며, 충전(CHARGE) 시에는 null이다
 - PointHistoryType: `CHARGE`(충전), `USE`(사용)
 - UserPoint는 User와 생명주기를 같이한다. User 탈퇴(soft delete) 시 UserPoint도 함께 soft delete 처리한다
@@ -598,14 +596,13 @@ stateDiagram-v2
 - **AdminInterceptor**: `X-Loopers-Ldap` 헤더 기반 어드민 식별 (신규)
 - **인증 경로 확장**: 좋아요, 주문 경로에 AuthInterceptor 추가
 
-### 3주차 신규/변경
+### 3주차 신규/변경 요약
 
 - **Point 도메인**: UserPoint Domain Model (잔액 관리, User와 1:1), PointHistory Domain Model (충전/사용 이력), Point VO
-- **Catalog 바운디드 컨텍스트**: Product + Brand를 하나의 도메인 경계로 통합. ProductFacade, BrandFacade 제거
-- **CatalogService**: Catalog 경계의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합 (Product + Brand + likeCount), 재고 관리 등을 담당
-- **PointChargingService**: 포인트 충전 Domain Service (잔액 변경 + 내역 생성 조율)
-- **UserPointService**: 포인트 잔액 조회, 포인트 사용
-- **UserFacade**: 회원가입 시 UserService + UserPointService 조합 (신규)
+- **Catalog 바운디드 컨텍스트**: Product + Brand를 하나의 도메인 경계로 통합. 개별 UseCase(GetProductUseCase, CreateProductUseCase, GetBrandUseCase 등)가 각 기능을 담당
+- **PointCharger**: 포인트 충전 Domain Service (잔액 변경 + 내역 생성 조율)
+- **PointDeductor**: 포인트 차감 Domain Service (주문 시 잔액 차감 + 사용 내역 생성 조율)
+- **RegisterUserUseCase**: 회원가입 시 User 생성 + UserPoint 초기화를 하나의 UseCase에서 조율 (신규)
 - **주문 흐름 변경**: 재고 차감 + 포인트 차감 (all-or-nothing)
 - **Domain Service 도입**: 동일 도메인 경계 내 협력 로직을 Domain Service로 분리
 - **단위 테스트 강화**: Fake/Stub Repository 기반 도메인 로직 검증
@@ -637,38 +634,37 @@ stateDiagram-v2
 
 ## 10. 설계 결정 사항
 
-### Domain Service vs Facade 역할 분담
+### UseCase 패턴과 Domain Service 역할 분담
 
-- **Domain Service**: 도메인 레이어(`domain/`)에 위치. **동일한 도메인 경계 내**의 도메인 로직 수행. Repository를 직접 주입받아 사용. 바운디드 컨텍스트 당 하나의 최상위
-  서비스를 두고, 복잡도는 도메인 컴포넌트(Entity, VO)로 분산한다.
-    - 예: `CatalogService` (Catalog 경계 내 상품/브랜드 전체), `PointChargingService` (Point 경계 내 잔액 변경 + 내역 생성)
-- **Facade**: Application 레이어(`application/`)에 위치. **도메인 경계를 넘는** 유스케이스 오케스트레이션만 담당.
-    - 예: `OrderFacade.createOrder()` (Catalog + Point + Order 경계 조합), `LikeFacade` (Like + Catalog 경계 조합)
-- 단일 Domain Service로 충분한 경우 Controller가 Domain Service를 직접 호출한다 (Facade 생략).
-    - 예: `ProductController → CatalogService.getProductDetail()` — Catalog 경계 내이므로 Facade 불필요
+- **Domain Service**: 도메인 레이어(`domain/`)에 위치. **동일한 도메인 경계 내**의 도메인 로직 수행. Repository를 직접 주입받아 사용. 단일 Domain Model이 수행하기 어려운 복합 로직만 담당한다.
+    - 예: `PointCharger` (Point 경계 내 잔액 변경 + 내역 생성), `PointDeductor` (Point 경계 내 차감 + 사용 내역 생성)
+- **UseCase**: Application 레이어(`application/`)에 위치. 단일 기능을 담당하며, 필요 시 **도메인 경계를 넘는** 오케스트레이션을 수행한다. Controller의 유일한 진입점.
+    - 예: `PlaceOrderUseCase.execute()` (Catalog + Point + Order 경계 조합), `AddLikeUseCase.execute()` (Like + Catalog 경계 조합)
+    - 단일 도메인 경계 내 기능도 UseCase를 통해 호출한다: `GetProductUseCase`, `CreateBrandUseCase` 등
 
-### Facade 역할 변경 (Round 2 → Round 3)
+### UseCase 매핑 (Round 2 → Round 3)
 
-Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 제거된다.
+Catalog 바운디드 컨텍스트 도입 및 UseCase 패턴 적용으로 기존 Facade/Service 구조가 개별 UseCase로 대체된다.
 
-| 기존 (Round 2)                       | 변경 (Round 3)                                         | 이유                                                                  |
-|------------------------------------|------------------------------------------------------|---------------------------------------------------------------------|
-| `ProductFacade.getProductDetail()` | `CatalogService.getProductDetail()` (Domain Service) | Catalog 경계 내 조합. Facade 불필요. 조합 결과(`ProductDetail`)는 domain 레이어에 위치 |
-| `ProductFacade.createProduct()`    | `CatalogService.createProduct()` (Domain Service)    | Catalog 경계 내 브랜드 검증. Facade 불필요                                     |
-| `BrandFacade.deleteBrand()`        | `CatalogService.deleteBrand()` (Domain Service)      | Catalog 경계 내 cascade. Facade 불필요                                    |
-| `OrderFacade.createOrder()`        | 유지 + 포인트 차감 추가                                       | cross-boundary (Catalog + Point + Order)                            |
-| `LikeFacade`                       | 유지                                                   | cross-boundary (Like + Catalog)                                     |
-| —                                  | `UserFacade.signUp()` (신규)                           | cross-boundary (User + Point)                                       |
+| 기존 (Round 2)                       | 변경 (Round 3)                                      | 이유                                                                  |
+|------------------------------------|---------------------------------------------------|---------------------------------------------------------------------|
+| `ProductFacade.getProductDetail()` | `GetProductUseCase.execute()` (UseCase)           | Catalog 경계 내 조합. 조합 결과(`ProductDetail`)는 domain 레이어에 위치             |
+| `ProductFacade.createProduct()`    | `CreateProductUseCase.execute()` (UseCase)        | Catalog 경계 내 브랜드 검증                                                |
+| `BrandFacade.deleteBrand()`        | `DeleteBrandUseCase.execute()` (UseCase)          | Catalog 경계 내 cascade                                               |
+| `OrderFacade.createOrder()`        | `PlaceOrderUseCase.execute()` (UseCase)           | cross-boundary (Catalog + Point + Order), 포인트 차감 추가                 |
+| `LikeFacade.addLike()`             | `AddLikeUseCase.execute()` (UseCase)              | cross-boundary (Like + Catalog)                                     |
+| `LikeFacade.removeLike()`          | `RemoveLikeUseCase.execute()` (UseCase)           | cross-boundary (Like + Catalog)                                     |
+| `LikeFacade.getUserLikes()`        | `GetUserLikesUseCase.execute()` (UseCase)         | cross-boundary (Like + Catalog)                                     |
+| —                                  | `RegisterUserUseCase.execute()` (신규, UseCase)    | cross-boundary (User + Point): User 생성 + UserPoint 초기화              |
 
-**제거:** `ProductFacade`, `BrandFacade` / **유지/신규:** `OrderFacade`, `LikeFacade`, `UserFacade`
+**제거:** `ProductFacade`, `BrandFacade`, `LikeFacade`, `OrderFacade`, `UserFacade`, `CatalogService`, `PointChargingService`, `UserPointService`
 
 ### DTO 변환 규칙
 
-- **Facade 없이 Controller → Domain Service 직접 호출**: Domain Service가 Entity 또는 domain 레이어 데이터 클래스를 반환 → Controller에서 Dto로
-  변환
+- **Controller → UseCase 호출**: UseCase가 Entity 또는 domain 레이어 데이터 클래스를 반환 → Controller에서 Dto로 변환
 - **같은 바운디드 컨텍스트 내 조합** (예: Product + Brand): 조합 결과물은 **domain 레이어**에 데이터 클래스로 둔다 (예: `domain/catalog/ProductDetail`).
   Application 레이어에 두면 Domain → Application 의존이 생겨 DIP 위반
-- **다른 바운디드 컨텍스트 간 조합** (Facade 경유): Facade가 **application 레이어**의 Info 객체를 반환 → Controller에서 Dto로 변환
+- **다른 바운디드 컨텍스트 간 조합** (UseCase 경유): UseCase가 **application 레이어**의 Info 객체를 반환 → Controller에서 Dto로 변환
 - Dto/Info에 `companion object { fun from(...) }` 팩토리 메서드 사용
 
 ### soft delete 조회 전략
@@ -679,9 +675,8 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 
 ### 트랜잭션 전략
 
-- **Service**: 변경 작업에 `@Transactional` 필수 적용
-- **Facade**: 선택적 적용. 여러 Service를 조합하여 원자성이 필요한 경우에만 사용
-- 단일 Service 호출만 하는 경우 Service의 `@Transactional`에 위임한다
+- **UseCase**: 변경 작업에 `@Transactional` 필수 적용. 여러 도메인을 조합하여 원자성이 필요한 경우 UseCase에서 트랜잭션을 제어한다
+- 단일 도메인 경계 내 조회만 하는 UseCase는 Domain Service 또는 Repository의 트랜잭션에 위임할 수 있다
 
 ### 인증 구현 메커니즘
 
@@ -738,15 +733,14 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 
 ### 포인트 충전을 Domain Service로 분리하는 이유
 
-- **결정**: `PointChargingService`가 잔액 변경(UserPoint) + 내역 생성(PointHistory)을 조율한다
+- **결정**: `PointCharger` (Domain Service)가 잔액 변경(UserPoint) + 내역 생성(PointHistory)을 조율한다
 - **근거**: 충전은 단일 Entity의 메서드 호출로 완결되지 않는다. UserPoint.charge()와 PointHistory 생성이 반드시 함께 수행되어야 하므로, 이 협력을 Domain Service가
   보장한다
 
 ### Catalog 바운디드 컨텍스트 도입
 
-- **결정**: Product와 Brand를 하나의 Catalog 바운디드 컨텍스트로 통합한다. 단일 `CatalogService`가 Catalog 경계 내 모든 도메인 로직을 담당한다
-- **근거**: 상품 탐색 시 브랜드 정보는 필수적으로 함께 제공되며, 대고객 API(상품 목록, 상품 상세, 브랜드 조회) 모두 Catalog 내에서 해결 가능하다. 이를 통해 ProductFacade,
-  BrandFacade가 불필요해지며, Application Layer를 경량으로 유지할 수 있다. 멘토 원칙("최상위 서비스는 하나, 복잡도는 도메인 컴포넌트로")에 부합한다
+- **결정**: Product와 Brand를 하나의 Catalog 바운디드 컨텍스트로 통합한다. 개별 UseCase(GetProductUseCase, CreateProductUseCase, DeleteBrandUseCase 등)가 각 기능을 담당하며, 도메인 내 복합 협력이 필요한 경우 Domain Model 메서드로 분산한다
+- **근거**: 상품 탐색 시 브랜드 정보는 필수적으로 함께 제공되며, 대고객 API(상품 목록, 상품 상세, 브랜드 조회) 모두 Catalog 경계 내에서 해결 가능하다. 기능별 UseCase로 분리함으로써 단일 책임 원칙을 준수하고, Application Layer를 경량으로 유지할 수 있다
 
 ### 주문 생성 시 처리 순서
 
@@ -754,9 +748,9 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 - **근거**: 향후 재고 선점(Stock Reservation) 도입을 고려한 배치이다. 사용자가 포인트 부족으로 주문에 실패했을 때, 충전 후 재주문하는 사이 재고가 소진되는 경험을 방지하기 위해 재고 차감을
   포인트 차감보다 선행한다. 현재는 단일 트랜잭션(all-or-nothing)으로 포인트 부족 시 재고도 롤백되지만, 향후 재고 선점(5분 TTL) 메커니즘을 도입하면 재고 차감과 포인트 차감을 별도 단계로 분리할
   수 있다
-- **totalPrice 계산**: OrderService.createOrder()에서 상품의 가격 × 수량을 합산하여 totalPrice를 계산하고, Order.create(userId, totalPrice)에
-  전달한다. OrderFacade는 Product → OrderProductInfo 변환(cross-domain 매핑) 후 OrderService에 주문 생성을 위임하며, 생성된 Order에서 totalPrice를
-  추출하여 UserPointService(포인트 차감)에 전달한다
+- **totalPrice 계산**: `PlaceOrderUseCase.execute()`에서 상품의 가격 × 수량을 합산하여 totalPrice를 계산하고, Order.create(userId, totalPrice)에
+  전달한다. PlaceOrderUseCase는 Product → OrderProductInfo 변환(cross-domain 매핑) 후 주문을 생성하며, 생성된 Order에서 totalPrice를
+  추출하여 `PointDeductor`(포인트 차감 Domain Service)에 전달한다
 - **현재 동작**: 포인트 부족 시 트랜잭션 전체 롤백 (재고 차감 포함)
 - **향후 확장**: 재고 선점 TTL 도입 시, 재고 차감 커밋 → 포인트 차감 시도 → 실패 시 5분간 재고 유지 → 타임아웃 시 재고 원복
 

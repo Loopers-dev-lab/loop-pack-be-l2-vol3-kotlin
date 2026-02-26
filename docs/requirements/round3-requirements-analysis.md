@@ -17,8 +17,8 @@ Round 2에서 설계한 기능 요구사항(Product, Brand, Like, Order)을 **DD
 | 구분                | Round 2                          | Round 3                                                                    |
 |-------------------|----------------------------------|----------------------------------------------------------------------------|
 | 결제                | "추후 추가 개발 예정"                    | 포인트 기반 결제 도입 (UserPoint + PointHistory)                                    |
-| Application Layer | Facade가 cross-domain 오케스트레이션     | Catalog 바운디드 컨텍스트 도입 + Domain Service로 역할 분담. ProductFacade/BrandFacade 제거 |
-| 상품 상세 조합          | ProductFacade.getProductDetail() | CatalogService (Domain Service) — Catalog 경계 내 단일 서비스로 통합                  |
+| Application Layer | Facade가 cross-domain 오케스트레이션     | UseCase only — Facade 전면 제거. UseCase가 Repository/Domain Service를 직접 주입받아 호출 |
+| 상품 상세 조합          | ProductFacade.getProductDetail() | `GetProductUseCase` — UseCase가 ProductRepository + BrandRepository 직접 조합      |
 | 바운디드 컨텍스트         | Product, Brand 별도 도메인            | Catalog 컨텍스트로 통합 (Product + Brand)                                         |
 | 테스트 전략            | E2E 위주                           | 단위 테스트 중심 (Fake/Stub 기반 도메인 로직 검증)                                         |
 | VO 범위             | Stock, Price, BrandName          | Stock, Point 유지 + Price, BrandName 등 `@JvmInline value class`로 적극 활용       |
@@ -55,12 +55,12 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 | 유저 포인트     | UserPoint            | 사용자의 포인트 잔액을 관리하는 Domain Model. User와 1:1 관계                                   |
 | 포인트        | Point                | 포인트 금액을 나타내는 Value Object. 0 이상이어야 하며, 연산 시 음수 방지를 보장                          |
 | 포인트 내역     | PointHistory         | 포인트 충전/차감 이력. 충전(CHARGE)과 사용(USE) 유형을 가진다                                      |
-| 포인트 충전 서비스 | PointChargingService | 포인트 충전을 처리하는 Domain Service. 잔액 변경 + 내역 생성을 조율                                 |
-| 수량         | quantity             | 주문 항목의 수량 (Int). OrderItem.init에서 >= 1 직접 검증                                   |
+| 포인트 충전기    | PointCharger         | 포인트 충전을 처리하는 Domain Service. 잔액 변경 + 내역 생성의 원자적 보장                               |
+| 수량         | Quantity             | 주문 항목의 수량을 나타내는 Value Object (`@JvmInline value class`). 1 이상이어야 한다             |
 | 카탈로그       | Catalog              | Product와 Brand를 포함하는 바운디드 컨텍스트. 상품 탐색/조회에 필요한 정보를 하나의 경계로 관리                   |
-| 카탈로그 서비스   | CatalogService       | Catalog 바운디드 컨텍스트의 단일 Domain Service. 상품/브랜드 CRUD, 상품 상세 조합, 재고 관리 등을 담당       |
+| 포인트 차감기    | PointDeductor        | 포인트 결제를 처리하는 Domain Service. 잔고 차감 + 이력 생성의 원자적 보장                                |
 | 도메인 서비스    | Domain Service       | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Entity가 수행하기 어려운 로직을 담당 |
-| 유저 파사드     | UserFacade           | 회원가입 시 UserService + UserPointService를 조합하는 Application Layer 오케스트레이터          |
+| 회원가입 유스케이스 | RegisterUserUseCase  | 회원가입 시 UserRepository + UserPointRepository를 조합하는 UseCase                     |
 
 ---
 
@@ -129,7 +129,7 @@ Round 2 유비쿼터스 언어에 다음 용어를 추가한다.
 - 포인트 충전 금액은 1 이상이어야 한다
 - 포인트 사용 시 잔액이 부족하면 `CoreException(BAD_REQUEST)` 발생
 - 포인트 충전은 잔액 변경(UserPoint 수정) + 충전 내역(PointHistory 생성)을 하나의 트랜잭션에서 처리한다
-- 이 복합 로직은 `PointChargingService` (Domain Service)가 조율한다
+- 이 복합 로직은 `PointCharger` (Domain Service)가 조율한다
 - PointHistory는 추적용 필드 `refOrderId`(nullable)를 가진다. 주문으로 인한 포인트 사용(USE) 시 해당 주문 ID를 기록하며, 충전(CHARGE) 시에는 null이다
 
 ### 4.2 주문 흐름 변경
@@ -155,8 +155,7 @@ Round 2의 주문 흐름에 포인트 차감이 추가된다.
 
 ### 4.3 도메인 경계 정의
 
-각 도메인의 경계(Bounded Context)를 명시한다. Domain Service는 **동일한 도메인 경계 내**에서만 도메인 객체를 조율하며, 경계를 넘는 조합은 Application Layer(Facade)
-가 담당한다.
+각 도메인의 경계(Bounded Context)를 명시한다. Domain Service는 여러 Entity 간 원자적 얽힘이 있는 경우에만 사용한다. 모든 오케스트레이션(단일 도메인이든 cross-domain이든)은 UseCase가 담당한다.
 
 | 도메인 경계      | 포함 객체                                                                       | 근거                                                      |
 |-------------|-----------------------------------------------------------------------------|---------------------------------------------------------|
@@ -170,36 +169,35 @@ Round 2의 주문 흐름에 포인트 차감이 추가된다.
 
 | 조합                           | 경계 판단           | 서비스 위치                                  |
 |------------------------------|-----------------|-----------------------------------------|
-| Product + Brand (상세 조합)      | 같은 경계 (Catalog) | Domain Service (`CatalogService`)       |
-| UserPoint + PointHistory     | 같은 경계 (Point)   | Domain Service (`PointChargingService`) |
-| Brand + Product (삭제 cascade) | 같은 경계 (Catalog) | Domain Service (`CatalogService`)       |
-| Brand + Product (등록 검증)      | 같은 경계 (Catalog) | Domain Service (`CatalogService`)       |
-| User + UserPoint             | 다른 경계           | Facade (`UserFacade.signUp()`)          |
-| Product + UserPoint + Order  | 다른 경계           | Facade (`OrderFacade.createOrder()`)    |
-| Like + Product               | 다른 경계           | Facade (`LikeFacade`)                   |
+| Product + Brand (상세 조합)      | 같은 경계 (Catalog) | UseCase (`GetProductUseCase`) — Repository 직접 호출  |
+| UserPoint + PointHistory     | 같은 경계 (Point)   | Domain Service (`PointCharger`, `PointDeductor`)  |
+| Brand + Product (삭제 cascade) | 같은 경계 (Catalog) | UseCase (`DeleteBrandUseCase`) — Repository 직접 호출 |
+| Brand + Product (등록 검증)      | 같은 경계 (Catalog) | UseCase (`CreateProductUseCase`) — Repository 직접 호출 |
+| User + UserPoint             | 다른 경계           | UseCase (`RegisterUserUseCase`)                     |
+| Product + UserPoint + Order  | 다른 경계           | UseCase (`PlaceOrderUseCase`)                       |
+| Like + Product               | 다른 경계           | UseCase (`AddLikeUseCase`, `GetUserLikesUseCase`)   |
 
 ### 4.4 Domain Service 구조
 
-도메인 레이어의 모든 서비스는 Domain Service이다. `@Component`로 등록하여 DI를 활용한다.
-단일 도메인 CRUD부터 복수 도메인 객체 협력까지 모두 Domain Service가 담당한다.
+Domain Service는 여러 Entity 간 원자적 얽힘이 있는 경우에만 생성한다. 단순 CRUD는 UseCase가 Repository를 직접 호출한다.
+`@Component`로 등록하여 DI를 활용한다.
 
-| Domain Service         | 경계      | 책임                                                                                                                 | Repository                                  |
-|------------------------|---------|--------------------------------------------------------------------------------------------------------------------|---------------------------------------------|
-| `CatalogService`       | Catalog | 상품/브랜드 CRUD, 상품 상세 조합 (Product + Brand + likeCount), 재고 차감/증가, likeCount 증감, 등록 시 브랜드 검증, 삭제 시 cascade soft delete | ProductRepository, BrandRepository          |
-| `LikeService`          | Like    | 좋아요 등록/취소/조회                                                                                                       | LikeRepository                              |
-| `OrderService`         | Order   | 주문 생성(총액 계산 + OrderItem 조립 + 저장)/조회                                                                                | OrderRepository, OrderItemRepository        |
-| `UserPointService`     | Point   | 포인트 잔액 조회, 포인트 사용                                                                                                  | UserPointRepository, PointHistoryRepository |
-| `PointChargingService` | Point   | 포인트 충전 (잔액 변경 + 내역 생성)                                                                                             | UserPointRepository, PointHistoryRepository |
+| Domain Service  | 경계    | 책임                              | Repository                                  |
+|-----------------|-------|---------------------------------|---------------------------------------------|
+| `PointDeductor` | Point | 포인트 결제 — 잔고 차감 + 이력 생성의 원자적 보장 | UserPointRepository, PointHistoryRepository |
+| `PointCharger`  | Point | 포인트 충전 — 잔액 변경 + 내역 생성의 원자적 보장 | UserPointRepository, PointHistoryRepository |
 
-**Domain Service vs Facade 구분 기준:**
+> Catalog, Like, Order, User 도메인에는 Domain Service가 없다. UseCase가 Repository를 직접 호출한다.
 
-| 기준            | Domain Service                                         | Facade                                                |
-|---------------|--------------------------------------------------------|-------------------------------------------------------|
-| 위치            | domain 패키지                                             | application 패키지                                       |
-| 역할            | 동일한 도메인 경계 내의 도메인 로직 수행                                | 여러 Domain Service를 조합하는 cross-boundary 유스케이스 오케스트레이션  |
-| 예시            | CatalogService (Catalog 내 상품/브랜드 전체), 포인트 충전 (Point 내) | 주문 생성 (Catalog + Point + Order), 좋아요 (Like + Catalog) |
-| Repository 접근 | 직접 접근 (@Component)                                     | Domain Service를 통해 간접 접근                              |
-| 트랜잭션          | 필요 시 @Transactional                                    | 유스케이스 단위 @Transactional                               |
+**Domain Service vs UseCase 역할 분담:**
+
+| 기준            | Domain Service                                  | UseCase                                          |
+|---------------|-------------------------------------------------|--------------------------------------------------|
+| 위치            | domain 패키지                                      | application 패키지                                  |
+| 역할            | 여러 Entity 간 원자적 얽힘 보장                           | 오케스트레이션 (단일/cross-domain 모두)                     |
+| 예시            | `PointDeductor` (잔고 차감 + 이력 생성), `PointCharger` | `PlaceOrderUseCase`, `RegisterUserUseCase`       |
+| Repository 접근 | 직접 접근 (@Component)                               | 직접 접근 (기본 패턴)                                    |
+| 트랜잭션          | 없음 (UseCase에 위임)                                | 유스케이스 단위 @Transactional                           |
 
 ---
 
@@ -209,7 +207,7 @@ Round 2의 주문 흐름에 포인트 차감이 추가된다.
 
 ```
 interfaces/api/     → Controller, ApiSpec, Dto
-application/        → Facade (여러 Domain Service를 조합하는 유스케이스 오케스트레이션)
+application/        → UseCase (트랜잭션 경계, 오케스트레이션)
 domain/             → Domain Model(순수 POJO), VO, Domain Service(@Component), Repository(인터페이스)
 infrastructure/     → XxxEntity(JPA), XxxRepositoryImpl(internal JpaRepository 포함)
 ```
@@ -218,7 +216,7 @@ infrastructure/     → XxxEntity(JPA), XxxRepositoryImpl(internal JpaRepository
 
 - Domain 계층은 다른 계층에 의존하지 않는다
 - Repository 인터페이스는 Domain에 정의, 구현체는 Infrastructure에 위치
-- Application Layer(Facade)는 여러 Domain Service를 조합하여 유스케이스를 완성
+- UseCase는 필요한 Repository와 Domain Service를 직접 주입받아 유스케이스를 완성
 
 ### 5.2 패키지 구조
 
@@ -232,13 +230,15 @@ com.loopers/
 │   ├── order/
 │   └── point/              ← 신규
 ├── application/
-│   ├── user/               ← 신규 (UserFacade)
+│   ├── user/               ← 신규 (RegisterUserUseCase 등)
+│   ├── catalog/            ← 신규 (brand/, product/ 하위 UseCase)
 │   ├── order/
-│   └── like/
+│   ├── like/
+│   └── point/              ← 신규 (ChargePointUseCase, GetUserPointUseCase)
 ├── domain/
 │   ├── user/
 │   ├── catalog/            ← 신규 (Product + Brand 통합)
-│   │   ├── CatalogService.kt
+│   │   ├── ProductDetail.kt
 │   │   ├── product/
 │   │   │   ├── Product.kt
 │   │   │   └── ProductRepository.kt
@@ -251,8 +251,8 @@ com.loopers/
 │       ├── UserPoint.kt
 │       ├── PointHistory.kt
 │       ├── Point.kt (VO)
-│       ├── PointChargingService.kt
-│       ├── UserPointService.kt
+│       ├── PointCharger.kt
+│       ├── PointDeductor.kt
 │       ├── UserPointRepository.kt
 │       └── PointHistoryRepository.kt
 └── infrastructure/
@@ -265,22 +265,20 @@ com.loopers/
     └── point/              ← 신규
 ```
 
-### 5.3 Facade 역할 변경
+### 5.3 Facade 제거 — UseCase 직접 호출 구조
 
-Facade는 **도메인 경계를 넘는 조합이 필요한 경우**에만 사용한다.
-Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 제거된다.
+Round 2의 Facade 패턴을 전면 제거하고, UseCase가 필요한 Repository와 Domain Service를 직접 주입받아 호출한다.
 
-| 기존 (Round 2)                       | 변경 (Round 3)                                         | 이유                                       |
-|------------------------------------|------------------------------------------------------|------------------------------------------|
-| `ProductFacade.getProductDetail()` | `CatalogService.getProductDetail()` (Domain Service) | Catalog 경계 내 조합. Facade 불필요              |
-| `ProductFacade.createProduct()`    | `CatalogService.createProduct()` (Domain Service)    | Catalog 경계 내 브랜드 검증. Facade 불필요          |
-| `BrandFacade.deleteBrand()`        | `CatalogService.deleteBrand()` (Domain Service)      | Catalog 경계 내 cascade. Facade 불필요         |
-| `OrderFacade.createOrder()`        | 유지 + 포인트 차감 추가                                       | cross-boundary (Catalog + Point + Order) |
-| `LikeFacade`                       | 유지                                                   | cross-boundary (Like + Catalog)          |
-| —                                  | `UserFacade.signUp()` (신규)                           | cross-boundary (User + Point)            |
+| 기존 (Round 2)                       | 변경 (Round 3)                                        | 이유                                         |
+|------------------------------------|-----------------------------------------------------|--------------------------------------------|
+| `ProductFacade.getProductDetail()` | `GetProductUseCase` (Repository 직접 호출)              | UseCase가 ProductRepository + BrandRepository 직접 조합 |
+| `ProductFacade.createProduct()`    | `CreateProductUseCase` (Repository 직접 호출)           | UseCase가 브랜드 검증 후 상품 생성                    |
+| `BrandFacade.deleteBrand()`        | `DeleteBrandUseCase` (Repository 직접 호출)             | UseCase가 cascade soft delete 처리             |
+| `OrderFacade.createOrder()`        | `PlaceOrderUseCase` (Repository + PointDeductor 조합) | UseCase가 cross-domain 오케스트레이션               |
+| `LikeFacade`                       | `AddLikeUseCase`, `RemoveLikeUseCase` 등             | UseCase가 Like + Product 조합                  |
+| —                                  | `RegisterUserUseCase` (신규)                          | UseCase가 User + UserPoint 생성                |
 
-**제거된 Facade:** `ProductFacade`, `BrandFacade`
-**유지/신규 Facade:** `OrderFacade`, `LikeFacade`, `UserFacade`
+**Facade 전면 제거.** 모든 오케스트레이션은 UseCase가 담당한다.
 
 ---
 
@@ -301,7 +299,7 @@ Catalog 바운디드 컨텍스트 도입으로 Product + Brand 관련 Facade가 
 |-------|-------------------|-----------|--------------------------------------|
 | Point | point (UserPoint) | Long >= 0 | plus, minus, isGreaterThanOrEqual 연산 |
 
-> Quantity VO는 도입하지 않음 -- `OrderItem.init` 블록에서 `quantity >= 1` 직접 검증으로 충분.
+| Quantity | common (OrderItem 등에서 사용) | Int >= 1 | — (`@JvmInline value class`) |
 
 > Domain Model은 순수 POJO이므로 VO를 필드 타입으로 직접 사용할 수 있다. JPA Entity는 DB 컬럼 타입(String, BigDecimal 등)으로 저장하고, `toDomain()`에서
 > VO로 복원한다.
@@ -425,7 +423,7 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 |---------------------------|----------------------------------------------------------|---------------------------------------------------------------------|---------------------------------------------|
 | **주문 트랜잭션 비대화**           | 재고 차감 + 포인트 차감 + 주문 생성 + 스냅샷 + 내역 기록이 하나의 트랜잭션 → 락 경합 증가 | 단일 트랜잭션으로 처리 (현재 규모)                                                | 이벤트 기반 분리 (재고 선점 → 포인트 차감 → 주문 확정)          |
 | **포인트 정합성**               | 동시 주문/충전 시 잔액 불일치 가능                                     | 단일 트랜잭션 내 처리                                                        | Optimistic Lock (@Version) 또는 Atomic UPDATE |
-| **CatalogService 비대화**    | Catalog 경계의 단일 서비스(CatalogService)에 책임이 과도하게 집중될 수 있음    | 복잡도는 도메인 컴포넌트(Entity, VO)로 분산. 멘토 원칙: "최상위 서비스는 하나, 복잡도는 도메인 컴포넌트로" | 정기 리뷰로 경계 재조정. 비대화 시 Catalog 경계 자체를 분리 검토   |
+| **Catalog UseCase 비대화**   | Catalog 경계의 UseCase 수가 증가하면 패키지 복잡도가 높아질 수 있음          | 복잡도는 도메인 컴포넌트(Entity, VO)로 분산. UseCase는 단일 책임 유지                             | 정기 리뷰로 경계 재조정. 비대화 시 Catalog 경계 자체를 분리 검토   |
 | **Fake Repository 유지 비용** | Repository 인터페이스 변경 시 Fake도 함께 수정 필요                     | 테스트 코드의 투자로 감수                                                      | Fake 생성 자동화 검토                              |
 
 ---
@@ -444,17 +442,15 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 
 ### 포인트 충전을 Domain Service로 분리하는 이유
 
-- **결정**: `PointChargingService`가 잔액 변경(UserPoint) + 내역 생성(PointHistory)을 조율한다
-- **근거**: 충전은 단일 Entity의 메서드 호출로 완결되지 않는다. UserPoint.charge()와 PointHistory 생성이 반드시 함께 수행되어야 하므로, 이 협력을 Domain Service가
+- **결정**: `PointCharger`가 잔액 변경(UserPoint) + 내역 생성(PointHistory)을 조율한다. 포인트 사용(차감)은 `PointDeductor`가 담당한다
+- **근거**: 충전/사용 모두 단일 Entity의 메서드 호출로 완결되지 않는다. UserPoint 상태 변경과 PointHistory 생성이 반드시 함께 수행되어야 하므로, 이 원자적 얽힘을 Domain Service가
   보장한다
 
 ### Catalog 바운디드 컨텍스트 도입
 
 - **결정**: Product와 Brand를 별도 도메인이 아닌 하나의 Catalog 바운디드 컨텍스트로 통합한다
-- **근거**: 상품 탐색 시 브랜드 정보는 필수적으로 함께 제공된다. 대고객 API(상품 목록, 상품 상세, 브랜드 조회) 모두 Catalog 내에서 해결 가능하다. 이를 통해 ProductFacade,
-  BrandFacade가 불필요해지며, Application Layer를 경량으로 유지할 수 있다
-- **효과**: 단일 CatalogService가 상품/브랜드 전체를 담당. 상품 상세 조합, 등록 시 브랜드 검증, 삭제 시 상품 cascade가 모두 하나의 Domain Service에서 동작. 멘토 원칙("
-  최상위 서비스는 하나, 복잡도는 도메인 컴포넌트로")에 부합
+- **근거**: 상품 탐색 시 브랜드 정보는 필수적으로 함께 제공된다. 대고객 API(상품 목록, 상품 상세, 브랜드 조회) 모두 Catalog 내에서 해결 가능하다. UseCase가 같은 경계 내의 Repository를 직접 조합하므로 Facade가 불필요하다
+- **효과**: UseCase가 ProductRepository + BrandRepository를 직접 주입받아 처리. 상품 상세 조합, 등록 시 브랜드 검증, 삭제 시 상품 cascade를 UseCase 내에서 수행. 복잡도는 도메인 컴포넌트(Entity, VO)로 분산
 
 ### Like를 Catalog에 포함하지 않는 이유
 
@@ -465,7 +461,7 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 ### Domain Service에 @Component를 사용하는 이유
 
 - **결정**: Domain Service도 Spring `@Component`로 등록하여 DI를 활용한다
-- **근거**: 기존 프로젝트 패턴과의 일관성. Repository 접근이 필요한 Domain Service(CatalogService, PointChargingService)는 DI 없이는 사용이 불편하다. 순수
+- **근거**: 기존 프로젝트 패턴과의 일관성. Repository 접근이 필요한 Domain Service(`PointDeductor`, `PointCharger`)는 DI 없이는 사용이 불편하다. 순수
   DDD 이론보다 실용성을 우선한다
 
 ### 결제 시스템 분리 전략
@@ -515,16 +511,15 @@ Round 2의 모든 API 명세는 그대로 유지한다.
 >
 > 체크리스트 원문: "상품 상세 조회 시 Product + Brand 정보 조합은 Application Layer에서 처리했다"
 >
-> 본 설계의 결정: Catalog 바운디드 컨텍스트를 도입하여 Product + Brand 조합을 **Domain Service(CatalogService)** 에서 처리한다.
-> CatalogService가 반환하는 조합 결과물(`ProductDetail`)은 `domain/catalog/` 패키지에 위치한다.
+> 본 설계의 결정: Catalog 바운디드 컨텍스트를 도입하여 Product + Brand 조합을 **UseCase(`GetProductUseCase`)** 에서 처리한다.
+> 조합 결과물(`ProductDetail`)은 `domain/catalog/` 패키지에 위치한다.
 >
-> **변경 근거 (DIP 위반 방지):** CatalogService는 domain 레이어의 서비스이다. 이 서비스가 application 레이어의 Info 객체를
-> 반환하면 Domain → Application 방향 의존이 생겨 DIP를 위반한다. Product와 Brand는 같은 Catalog 경계에 속하므로,
-> 조합 결과물도 domain 레이어에 두는 것이 올바르다.
+> **변경 근거:** Product와 Brand는 같은 Catalog 경계에 속하므로 조합 결과물도 domain 레이어에 둔다.
+> UseCase가 domain 레이어의 `ProductDetail`을 조립하여 반환하므로 DIP를 위반하지 않는다.
 >
 > **Info 객체 배치 원칙:**
 > - 같은 BC 내 조합 → domain 레이어 데이터 클래스 (예: `domain/catalog/ProductDetail`)
-> - BC 간 조합 (Facade 경유) → application 레이어 Info 객체 (예: `application/like/LikeInfo`)
+> - BC 간 조합 (UseCase 경유) → application 레이어 Info 객체 (예: `application/like/LikeInfo`)
 
 ### 소프트웨어 아키텍처 & 설계
 

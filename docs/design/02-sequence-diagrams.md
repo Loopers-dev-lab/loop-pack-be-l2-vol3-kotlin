@@ -7,10 +7,10 @@
 
 - **참여자(Participant) 레벨 통일**:
     - **Controller**: 요청 수신, 파라미터 매핑, 응답 변환
-    - **Facade**: 트랜잭션 단위 설정 및 도메인 간 조율
-    - **Service**: 핵심 비즈니스 로직 및 도메인 규칙 수행
+    - **UseCase**: `@Transactional` 경계 설정, Repository / Domain Service 오케스트레이션
+    - **Domain Service**: 여러 엔티티 간 원자적 얽힘이 있는 복잡한 비즈니스 로직 (예: `PointCharger`, `PointDeductor`)
     - **Repository**: DB 접근 (JPA)
-- **트랜잭션 경계**: Service는 변경 작업에 `@Transactional` 필수 적용. Facade는 여러 Service를 조합하여 원자성이 필요한 경우에만 선택적 적용.
+- **트랜잭션 경계**: `@Transactional`은 UseCase의 `execute()` 메서드에 부착. Domain Service는 UseCase가 열어 둔 트랜잭션에 참여.
 - **인증**: AuthInterceptor → `@AuthUser userId: Long` 파라미터 주입. 어드민은 AdminInterceptor가 `X-Loopers-Ldap` 헤더 검증.
 - **soft delete**: `@Where` 미사용. Repository 메서드마다 `deletedAt IS NULL` 조건을 명시적으로 추가.
 - **생략된 내용**:
@@ -31,13 +31,13 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as BrandV1Controller
-    participant S as CatalogService
+    participant UC as GetBrandUseCase
     participant R as BrandRepository
     User ->> C: 브랜드 상세 정보 요청
-    C ->> S: 유효한 브랜드 조회 요청
-    S ->> R: DB 조회 (삭제되지 않은 브랜드)
-    R -->> S: Brand
-    S -->> C: Brand
+    C ->> UC: execute(brandId)
+    UC ->> R: findById(brandId) — 삭제된 브랜드 제외
+    R -->> UC: Brand
+    UC -->> C: BrandInfo
     C -->> User: 200 OK
 ```
 
@@ -50,13 +50,13 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as ProductV1Controller
-    participant S as CatalogService
+    participant UC as GetProductsUseCase
     participant R as ProductRepository
     User ->> C: 상품 목록 조회 요청 (brandId, 정렬, 페이징)
-    C ->> S: 조건에 맞는 판매중인 상품 검색
-    S ->> R: DB 조회 (삭제/HIDDEN 제외, 정렬 적용)
-    R -->> S: 상품 목록 (PageResult)
-    S -->> C: PageResult<Product> 반환
+    C ->> UC: execute(brandId, sort, page, size)
+    UC ->> R: findActiveProducts(brandId, sort, page, size) — 삭제/HIDDEN 제외
+    R -->> UC: 상품 목록 (PageResult)
+    UC -->> C: PageResult<ProductInfo> 반환
     C -->> User: 200 OK
 ```
 
@@ -65,12 +65,9 @@ sequenceDiagram
 - 필터 조건: `deletedAt IS NULL AND status != 'HIDDEN'`, brandId 선택적 필터
 - 응답에 페이징 메타데이터 포함: content, totalElements, totalPages, number, size
 
-### 1.3 상품 상세 조회 (Domain Service)
+### 1.3 상품 상세 조회
 
-> **Round 3 변경**: ProductFacade → CatalogService (Domain Service)로 이동
-
-상품 정보와 해당 브랜드 정보를 **도메인 서비스**에서 조합하여 응답하는 흐름이다.
-Facade를 사용하지 않고 Controller가 CatalogService를 직접 호출한다.
+상품 정보와 해당 브랜드 정보를 **UseCase**에서 조합하여 응답하는 흐름이다.
 
 **API:** `GET /api/v1/products/{productId}` — 인증 불필요
 
@@ -79,25 +76,24 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as ProductV1Controller
-    participant S as CatalogService
+    participant UC as GetProductUseCase
     participant PR as ProductRepository
     participant BR as BrandRepository
     User ->> C: 상품 상세 정보 요청
-    C ->> S: 상세 정보 조회 요청
-    S ->> PR: Product 조회 (삭제/HIDDEN 제외)
-    PR -->> S: Product
-    S ->> BR: 상품의 브랜드 정보 조회
-    BR -->> S: Brand
-    S ->> S: 상품 + 브랜드 정보 조합
-    S -->> C: ProductDetail 반환
+    C ->> UC: execute(productId)
+    UC ->> PR: findById(productId) — 삭제/HIDDEN 제외
+    PR -->> UC: Product
+    UC ->> BR: findById(refBrandId) — 삭제된 브랜드 제외
+    BR -->> UC: Brand
+    UC ->> UC: ProductDetail(product, brand) 조합
+    UC -->> C: CatalogInfo 반환
     C -->> User: 200 OK
 ```
 
 #### 참고
 
-- CatalogService는 Catalog 바운디드 컨텍스트의 단일 Domain Service이다 (`domain/catalog/` 패키지에 위치)
-- Product와 Brand가 같은 Catalog 경계에 있으므로 ProductRepository와 BrandRepository를 직접 주입받아 사용한다
-- Facade를 거치지 않으므로 Controller가 직접 호출한다
+- `GetProductUseCase`는 ProductRepository와 BrandRepository를 직접 주입받아 사용한다
+- 삭제된 브랜드의 상품 조회 시 NOT_FOUND 예외 발생
 
 ---
 
@@ -112,13 +108,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminV1Controller
-    participant S as CatalogService
+    participant UC as GetBrandsUseCase
     participant R as BrandRepository
     Admin ->> C: 브랜드 목록 조회 요청 (페이징)
-    C ->> S: 전체 브랜드 조회 요청
-    S ->> R: DB 조회 (삭제된 브랜드 포함)
-    R -->> S: 브랜드 목록 (PageResult)
-    S -->> C: PageResult<Brand> 반환
+    C ->> UC: execute(page, size)
+    UC ->> R: findAll(page, size) — 삭제된 브랜드 포함
+    R -->> UC: 브랜드 목록 (PageResult)
+    UC -->> C: PageResult<BrandInfo> 반환
     C -->> Admin: 200 OK
 ```
 
@@ -135,13 +131,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminV1Controller
-    participant S as CatalogService
+    participant UC as GetBrandAdminUseCase
     participant R as BrandRepository
     Admin ->> C: 브랜드 상세 조회 요청
-    C ->> S: ID로 브랜드 검색
-    S ->> R: DB 조회
-    R -->> S: Brand
-    S -->> C: Brand
+    C ->> UC: execute(brandId)
+    UC ->> R: findById(brandId) — 삭제된 브랜드 포함
+    R -->> UC: Brand
+    UC -->> C: BrandInfo
     C -->> Admin: 200 OK
 ```
 
@@ -158,15 +154,15 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminV1Controller
-    participant S as CatalogService
+    participant UC as CreateBrandUseCase
     participant R as BrandRepository
     Admin ->> C: 브랜드 등록 요청
-    C ->> S: 브랜드 생성 요청
-    Note over S, R: @Transactional
-    S ->> S: Brand 생성 (이름 검증 포함)
-    S ->> R: 저장
-    R -->> S: 생성된 브랜드 (ID 채번)
-    S -->> C: brandId 반환
+    C ->> UC: execute(name)
+    Note over UC, R: @Transactional
+    UC ->> UC: Brand 생성 (BrandName 검증 포함)
+    UC ->> R: save(brand)
+    R -->> UC: 생성된 BrandInfo (ID 채번)
+    UC -->> C: BrandInfo 반환
     C -->> Admin: 200 OK
 ```
 
@@ -179,14 +175,17 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminV1Controller
-    participant S as CatalogService
+    participant UC as UpdateBrandUseCase
     participant R as BrandRepository
     Admin ->> C: 브랜드 수정 요청
-    C ->> S: 브랜드 정보 수정 요청
-    Note over S, R: @Transactional
-    S ->> R: getBrand() — ID로 브랜드 조회 (삭제 여부 무관)
-    S ->> S: 정보 업데이트 (Dirty Checking)
-    S -->> C: brandId 반환
+    C ->> UC: execute(brandId, name)
+    Note over UC, R: @Transactional
+    UC ->> R: findById(brandId) — 삭제 여부 무관
+    R -->> UC: Brand
+    UC ->> UC: brand.update(BrandName(name))
+    UC ->> R: save(brand)
+    R -->> UC: BrandInfo
+    UC -->> C: BrandInfo 반환
     C -->> Admin: 200 OK
 ```
 
@@ -196,7 +195,7 @@ sequenceDiagram
 
 ### 2.5 브랜드 삭제 (Cascade Soft Delete)
 
-브랜드 삭제 시 소속 상품까지 일괄 soft delete하는 Catalog 경계 내 Domain Service 흐름이다.
+브랜드 삭제 시 소속 상품까지 일괄 soft delete하는 흐름이다.
 
 **API:** `DELETE /api-admin/v1/brands/{brandId}` — LDAP 인증
 
@@ -205,23 +204,25 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminV1Controller
-    participant S as CatalogService
+    participant UC as DeleteBrandUseCase
     participant BR as BrandRepository
     participant PR as ProductRepository
     Admin ->> C: 브랜드 삭제 요청
-    C ->> S: 삭제 프로세스 시작
+    C ->> UC: execute(brandId)
 
     rect rgb(245, 245, 245)
-        Note right of S: @Transactional
-        S ->> BR: 브랜드 조회
-        S ->> S: Soft Delete 처리
-        S ->> BR: 변경 저장
-        S ->> PR: 해당 브랜드의 상품 전체 조회
-        S ->> S: 상품별 Soft Delete 마킹
-        S ->> PR: 변경 사항 일괄 저장
+        Note right of UC: @Transactional
+        UC ->> BR: findById(brandId)
+        BR -->> UC: Brand
+        UC ->> UC: brand.delete()
+        UC ->> BR: save(brand)
+        UC ->> PR: findAllByBrandId(brandId)
+        PR -->> UC: List<Product>
+        UC ->> UC: 상품별 product.delete() 마킹
+        UC ->> PR: saveAll(products)
     end
 
-    S -->> C: 처리 완료
+    UC -->> C: 처리 완료
     C -->> Admin: 200 OK
 ```
 
@@ -229,7 +230,7 @@ sequenceDiagram
 
 - BaseEntity.delete()는 이미 삭제 상태면 무시 (멱등)
 - 기존 주문의 OrderItem 스냅샷은 Product 삭제와 무관하게 보존
-- CatalogService는 같은 Catalog 경계 내의 ProductRepository를 직접 주입받아 cascade 삭제를 처리한다
+- `DeleteBrandUseCase`는 BrandRepository와 ProductRepository를 직접 주입받아 cascade 삭제를 처리한다
 
 ### 2.6 브랜드 복구
 
@@ -240,21 +241,23 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as BrandAdminV1Controller
-    participant S as CatalogService
+    participant UC as RestoreBrandUseCase
     participant R as BrandRepository
 
     Admin ->> C: POST /api-admin/v1/brands/{brandId}/restore
-    C ->> S: restoreBrand(brandId)
-    S ->> R: findById(brandId)
+    C ->> UC: execute(brandId)
+    Note over UC, R: @Transactional
+    UC ->> R: findById(brandId)
     alt 브랜드 미존재
-        R -->> S: null
-        S -->> C: CoreException(NOT_FOUND)
+        R -->> UC: null
+        UC -->> C: CoreException(NOT_FOUND)
         C -->> Admin: 404 Not Found
     else 브랜드 존재
-        R -->> S: Brand
-        S ->> S: brand.restore()
-        Note right of S: deletedAt = null (이미 활성이면 no-op)
-        S -->> C: void
+        R -->> UC: Brand
+        UC ->> UC: brand.restore()
+        Note right of UC: deletedAt = null (이미 활성이면 no-op)
+        UC ->> R: save(brand)
+        UC -->> C: BrandInfo
         C -->> Admin: 200 OK
     end
 ```
@@ -268,13 +271,13 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
-    participant S as CatalogService
+    participant UC as GetProductsAdminUseCase
     participant R as ProductRepository
-    Admin ->> C: 상품 목록 조회 요청 (brandId 필터, 페이징)
-    C ->> S: 조건별 상품 목록 검색
-    S ->> R: DB 조회 (삭제된 상품 포함)
-    R -->> S: 상품 목록 (PageResult)
-    S -->> C: PageResult<Product> 반환
+    Admin ->> C: 상품 목록 조회 요청 (페이징)
+    C ->> UC: execute(page, size)
+    UC ->> R: findAllIncludeDeleted(page, size) — 삭제된 상품 포함
+    R -->> UC: 상품 목록 (PageResult)
+    UC -->> C: PageResult<ProductInfo> 반환
     C -->> Admin: 200 OK
 ```
 
@@ -291,13 +294,17 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
-    participant S as CatalogService
-    participant R as ProductRepository
+    participant UC as GetProductAdminUseCase
+    participant PR as ProductRepository
+    participant BR as BrandRepository
     Admin ->> C: 상품 상세 조회 요청
-    C ->> S: ID로 상품 검색
-    S ->> R: DB 조회
-    R -->> S: Product
-    S -->> C: Product
+    C ->> UC: execute(productId)
+    UC ->> PR: findById(productId) — 삭제된 상품 포함
+    PR -->> UC: Product
+    UC ->> BR: findById(refBrandId)
+    BR -->> UC: Brand
+    UC ->> UC: ProductDetail(product, brand) 조합
+    UC -->> C: CatalogInfo
     C -->> Admin: 200 OK
 ```
 
@@ -305,9 +312,9 @@ sequenceDiagram
 
 - 어드민은 삭제된 상품도 조회 가능 (삭제 상태 확인 목적)
 
-### 2.9 상품 등록 (Catalog 내 브랜드 검증)
+### 2.9 상품 등록
 
-상품 등록 시 같은 Catalog 경계 내의 브랜드 유효성을 검증하는 흐름이다.
+상품 등록 시 BrandRepository로 브랜드 유효성을 검증하는 흐름이다.
 
 **API:** `POST /api-admin/v1/products` — LDAP 인증
 
@@ -316,21 +323,22 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
-    participant S as CatalogService
+    participant UC as CreateProductUseCase
     participant BR as BrandRepository
     participant PR as ProductRepository
     Admin ->> C: 상품 등록 요청 (brandId 포함)
-    C ->> S: 상품 생성 요청
+    C ->> UC: execute(brandId, name, price, stock)
 
     rect rgb(245, 245, 245)
-        Note right of S: @Transactional
-        S ->> BR: 브랜드 유효성 확인 (존재 및 활성 여부)
-        BR -->> S: 유효한 브랜드 확인
-        S ->> S: Product 생성 (가격/재고 검증 포함)
-        S ->> PR: 상품 저장
+        Note right of UC: @Transactional
+        UC ->> BR: findById(brandId) — 존재 및 활성 여부 확인
+        BR -->> UC: Brand
+        UC ->> UC: Product 생성 (가격/재고 검증 포함)
+        UC ->> PR: save(product)
+        PR -->> UC: ProductInfo
     end
 
-    S -->> C: productId 반환
+    UC -->> C: ProductInfo 반환
     C -->> Admin: 200 OK
 ```
 
@@ -343,15 +351,18 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
-    participant S as CatalogService
+    participant UC as UpdateProductUseCase
     participant R as ProductRepository
     Admin ->> C: 상품 수정 요청
-    C ->> S: 상품 정보 수정 요청
-    Note over S, R: @Transactional
-    S ->> R: getProduct() — ID로 상품 조회 (삭제 여부 무관)
-    S ->> S: 정보 업데이트 (가격/재고/상태)
-    Note right of S: 브랜드 변경 불가 규칙 검증<br/>HIDDEN 명시 시 자동 전이 미적용
-    S -->> C: productId 반환
+    C ->> UC: execute(productId, name, price, stock, status)
+    Note over UC, R: @Transactional
+    UC ->> R: findById(productId) — 삭제 여부 무관
+    R -->> UC: Product
+    UC ->> UC: product.update(name, price, stock, status)
+    Note right of UC: 브랜드 변경 불가 규칙 검증<br/>HIDDEN 명시 시 자동 전이 미적용
+    UC ->> R: save(product)
+    R -->> UC: ProductInfo
+    UC -->> C: ProductInfo 반환
     C -->> Admin: 200 OK
 ```
 
@@ -368,14 +379,16 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
-    participant S as CatalogService
+    participant UC as DeleteProductUseCase
     participant R as ProductRepository
     Admin ->> C: 상품 삭제 요청
-    C ->> S: 상품 삭제 요청
-    Note over S, R: @Transactional
-    S ->> R: ID로 상품 조회
-    S ->> S: Soft Delete 처리
-    S -->> C: 처리 완료
+    C ->> UC: execute(productId)
+    Note over UC, R: @Transactional
+    UC ->> R: findById(productId)
+    R -->> UC: Product
+    UC ->> UC: product.delete()
+    UC ->> R: save(product)
+    UC -->> C: 처리 완료
     C -->> Admin: 200 OK
 ```
 
@@ -393,21 +406,23 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
-    participant S as CatalogService
+    participant UC as RestoreProductUseCase
     participant R as ProductRepository
 
     Admin ->> C: POST /api-admin/v1/products/{productId}/restore
-    C ->> S: restoreProduct(productId)
-    S ->> R: findById(productId)
+    C ->> UC: execute(productId)
+    Note over UC, R: @Transactional
+    UC ->> R: findById(productId)
     alt 상품 미존재
-        R -->> S: null
-        S -->> C: CoreException(NOT_FOUND)
+        R -->> UC: null
+        UC -->> C: CoreException(NOT_FOUND)
         C -->> Admin: 404 Not Found
     else 상품 존재
-        R -->> S: Product
-        S ->> S: product.restore()
-        Note right of S: deletedAt = null (이미 활성이면 no-op)
-        S -->> C: void
+        R -->> UC: Product
+        UC ->> UC: product.restore()
+        Note right of UC: deletedAt = null (이미 활성이면 no-op)
+        UC ->> R: save(product)
+        UC -->> C: ProductInfo
         C -->> Admin: 200 OK
     end
 ```
@@ -425,30 +440,30 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as LikeV1Controller
-    participant F as LikeFacade
-    participant CS as CatalogService
-    participant LS as LikeService
-    participant R as Repository
+    participant UC as AddLikeUseCase
+    participant PR as ProductRepository
+    participant LR as LikeRepository
     User ->> C: 좋아요 등록 요청
-    C ->> F: 좋아요 처리 위임
+    C ->> UC: execute(userId, productId)
 
     rect rgb(245, 245, 245)
-        Note right of F: @Transactional (Facade)
-        F ->> CS: 활성 상품 조회 (삭제/HIDDEN 제외)
-        CS -->> F: Product
-        F ->> LS: 좋아요 추가 요청
-        LS ->> R: 기존 좋아요 여부 확인
-        alt 새로운 좋아요
-            LS ->> R: Like 저장
-            LS -->> F: true (실제 변경 발생)
-            F ->> CS: 상품의 likeCount 증가 요청
-            CS ->> R: 상품 업데이트
-        else 이미 좋아요 존재
-            LS -->> F: false (멱등, 상태 변화 없음)
+        Note right of UC: @Transactional
+        UC ->> PR: findById(productId) — 삭제/HIDDEN 제외
+        PR -->> UC: Product
+        UC ->> LR: existsByUserIdAndProductId(userId, productId)
+        alt 이미 좋아요 존재
+            LR -->> UC: true (멱등, 상태 변화 없음)
+        else 새로운 좋아요
+            LR -->> UC: false
+            UC ->> LR: save(Like)
+            UC ->> PR: findByIdForUpdate(productId) — 비관적 락
+            PR -->> UC: Product (locked)
+            UC ->> UC: lockedProduct.increaseLikeCount()
+            UC ->> PR: save(lockedProduct)
         end
     end
 
-    F -->> C: 성공 반환
+    UC -->> C: 성공 반환
     C -->> User: 200 OK
 ```
 
@@ -463,43 +478,42 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as LikeV1Controller
-    participant F as LikeFacade
-    participant CS as CatalogService
-    participant LS as LikeService
-    participant R as Repository
+    participant UC as RemoveLikeUseCase
+    participant LR as LikeRepository
+    participant PR as ProductRepository
     User ->> C: 좋아요 취소 요청
-    C ->> F: 처리 위임
+    C ->> UC: execute(userId, productId)
 
     rect rgb(245, 245, 245)
-        Note right of F: @Transactional (Facade)
-        F ->> CS: 대상 상품 조회 (삭제된 상품 포함)
-        CS -->> F: Product
-        F ->> LS: 좋아요 삭제 요청
-        LS ->> R: 기존 좋아요 여부 확인
-        alt 좋아요 존재
-            LS ->> R: Like 물리 삭제
-            LS -->> F: true (실제 삭제 발생)
-        else 좋아요 없음
-            LS -->> F: false (멱등, 상태 변화 없음)
-        end
-
-        opt 실제 삭제(true) AND 상품이 활성 상태
-            F ->> CS: 상품의 likeCount 감소 요청
-            CS ->> R: 상품 업데이트
+        Note right of UC: @Transactional
+        UC ->> LR: findByUserIdAndProductId(userId, productId)
+        alt 좋아요 없음
+            LR -->> UC: null (멱등, 상태 변화 없음)
+        else 좋아요 존재
+            LR -->> UC: Like
+            UC ->> LR: delete(like)
+            UC ->> PR: findByIdForUpdate(productId) — 비관적 락
+            alt 상품이 활성 상태
+                PR -->> UC: Product (not deleted)
+                UC ->> UC: product.decreaseLikeCount()
+                UC ->> PR: save(product)
+            else 삭제된 상품
+                PR -->> UC: Product (deleted)
+                Note right of UC: likeCount 갱신 생략
+            end
         end
     end
 
-    F -->> C: 성공 반환
+    UC -->> C: 성공 반환
     C -->> User: 200 OK
 ```
 
 #### 참고
 
-- **동시성(Race Condition) 방어 및 멱등성 보장:** 시퀀스 상으로는 '조회 후 저장(Check-then-Act)' 흐름이지만, 동시 요청 시 DB의 Unique 제약조건(`ref_user_id`, `ref_product_id`) 위반 예외(예: `DataIntegrityViolationException`)가 발생할 수 있다. `LikeService`는 저장 시 이 예외를 catch하여 에러로 던지지 않고, 이미 좋아요가 존재하는 것으로 간주하여 멱등하게 `false`(상태 변화 없음)를 반환하도록 구현해야 한다.
-- **삭제된 상품 포함 조회:** 좋아요 취소 시에는 삭제된 상품도 포함하여 조회한다. 삭제된 상품의 좋아요도 취소할 수 있어야 하기 때문이다 (요구사항: "삭제된 상품에 대한 좋아요 취소 → 200 OK")
+- **삭제된 상품 포함 조회:** 좋아요 취소 시에는 삭제된 상품도 포함하여 처리한다. 삭제된 상품의 좋아요도 취소할 수 있어야 하기 때문이다 (요구사항: "삭제된 상품에 대한 좋아요 취소 → 200 OK")
 - 삭제된 상품의 likeCount는 갱신하지 않음 (의미 없는 카운트 변경 방지)
 
-### 3.3 내 좋아요 목록 조회 (Data Assembly)
+### 3.3 내 좋아요 목록 조회
 
 서로 다른 도메인(Like, Product)의 데이터를 조합하는 흐름이다.
 
@@ -510,20 +524,18 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as LikeV1Controller
-    participant F as LikeFacade
-    participant LS as LikeService
-    participant CS as CatalogService
-    participant R as Repository
+    participant UC as GetUserLikesUseCase
+    participant LR as LikeRepository
+    participant PR as ProductRepository
     User ->> C: 내 좋아요 목록 조회 요청
-    C ->> F: 데이터 조회 위임
-    F ->> LS: 사용자의 좋아요 목록 조회
-    LS ->> R: Like 테이블 조회
-    LS -->> F: List<Like>
-    F ->> CS: 활성 상품 일괄 조회 (productIds)
-    CS ->> R: Product IN 쿼리 (삭제/HIDDEN 제외)
-    CS -->> F: List<Product>
-    F ->> F: 좋아요 + 상품 정보 조합
-    F -->> C: List<LikeInfo> 반환
+    C ->> UC: execute(userId)
+    Note over UC, PR: @Transactional(readOnly = true)
+    UC ->> LR: findAllByUserId(userId)
+    LR -->> UC: List<Like>
+    UC ->> PR: findAllByIds(productIds) — 활성 상품만 필터
+    PR -->> UC: List<Product>
+    UC ->> UC: Like + Product 조합 → LikeWithProductInfo
+    UC -->> C: List<LikeWithProductInfo> 반환
     C -->> User: 200 OK
 ```
 
@@ -531,7 +543,7 @@ sequenceDiagram
 
 - URL에 userId가 없으므로 타인 좋아요 조회 불가 (`@AuthUser`로 본인만 주입)
 - 쿼리 총 2회: Like 조회 1회 + Product IN 조회 1회 (N+1 방지)
-- Facade에서 Like + Product를 조합하여 LikeInfo 생성
+- 비활성(HIDDEN) 또는 삭제된 상품과 연결된 좋아요는 응답에서 제외
 
 ---
 
@@ -550,42 +562,41 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as OrderV1Controller
-    participant F as OrderFacade
-    participant CS as CatalogService
-    participant UPS as UserPointService
-    participant OS as OrderService
-    participant R as Repository
+    participant UC as PlaceOrderUseCase
+    participant PR as ProductRepository
+    participant OR as OrderRepository
+    participant OIR as OrderItemRepository
+    participant PD as PointDeductor
+    participant UPR as UserPointRepository
+    participant PHR as PointHistoryRepository
     User ->> C: 주문 요청 (상품 목록, 수량)
-    C ->> F: 주문 프로세스 시작
+    C ->> UC: execute(userId, command)
 
     rect rgb(245, 245, 245)
-        Note right of F: @Transactional (Facade)
-    %% 1단계: 상품 유효성 확인
-        F ->> CS: 주문 대상 상품 검증 요청
-        CS ->> R: 상품 일괄 조회
-        Note right of CS: 존재 여부 + 판매 가능 상태 확인
-    %% 2단계: 재고 차감
-        F ->> CS: 재고 차감 요청
-        CS ->> CS: 상품별 재고 차감 처리
-        CS ->> R: 재고 변경 저장
-        Note right of CS: 재고 부족 시 예외 → 트랜잭션 전체 롤백
-    %% 3단계: 주문 생성 (Order.create()가 내부에서 OrderItem 생성 + totalPrice 계산)
-        F ->> F: Product → OrderProductInfo 변환
-        F ->> OS: 주문 생성 요청 (userId, OrderProductInfo 목록, command)
-        OS ->> OS: Order.create(userId, orderProductInfos, quantities)
-        Note right of OS: Order.create() 내부에서<br/>OrderItem 생성 + totalPrice 계산<br/>(각 상품의 name, price를 스냅샷으로 복사)
-        OS ->> R: 주문 저장
-        OS -->> F: OrderDetail 반환
-    %% 4단계: 포인트 차감
-        F ->> UPS: 포인트 차감 요청 (userId, orderDetail.totalPrice, orderId)
-        UPS ->> R: UserPoint 조회
-        UPS ->> UPS: 잔액 확인 + 차감
-        Note right of UPS: 포인트 부족 시 예외 → 트랜잭션 전체 롤백
-        UPS ->> R: UserPoint 저장
-        UPS ->> R: PointHistory(USE, refOrderId) 저장
+        Note right of UC: @Transactional
+    %% 1단계: 상품 유효성 확인 + 재고 차감
+        UC ->> PR: findAllByIdsForUpdate(productIds) — 비관적 락
+        PR -->> UC: List<Product>
+        Note right of UC: 존재 여부 + 판매 가능 상태 확인<br/>product.decreaseStock(quantity) — 재고 부족 시 예외
+        UC ->> PR: saveAll(products)
+    %% 2단계: 주문 생성
+        UC ->> UC: Order.create(userId, orderItemInputs)
+        Note right of UC: Order.create() 내부에서<br/>OrderItem 생성 + totalPrice 계산<br/>(각 상품의 name, price를 스냅샷으로 복사)
+        UC ->> OR: save(order)
+        OR -->> UC: savedOrder (ID 채번)
+        UC ->> UC: order.assignOrderIdToItems(savedOrder.id)
+        UC ->> OIR: saveAll(order.items)
+    %% 3단계: 포인트 차감
+        UC ->> PD: usePoints(userId, totalPrice, orderId)
+        PD ->> UPR: findByUserIdForUpdate(userId) — 비관적 락
+        UPR -->> PD: UserPoint
+        PD ->> PD: userPoint.use(amount) — 잔액 부족 시 예외
+        Note right of PD: 포인트 부족 시 예외 → 트랜잭션 전체 롤백
+        PD ->> UPR: save(userPoint)
+        PD ->> PHR: save(PointHistory(USE, refOrderId))
     end
 
-    F -->> C: orderId 반환
+    UC -->> C: OrderInfo 반환
     C -->> User: 200 OK
 ```
 
@@ -593,9 +604,8 @@ sequenceDiagram
 
 - 재고 부족 또는 포인트 부족 시 트랜잭션 롤백으로 이전 차감분 모두 원복
 - OrderItem은 주문 시점의 상품 정보(이름, 가격)를 스냅샷으로 보존
-- Facade는 Product → OrderProductInfo 변환(cross-domain 매핑)을 수행한 뒤 OrderService에 위임한다. Order 도메인은 Catalog 도메인 타입에 의존하지 않는다
-- Order.create()는 내부에서 OrderItem 생성 + totalPrice 계산을 수행하는 Rich Domain Model 팩토리. Facade는 생성된 OrderDetail에서 totalPrice를 추출하여 UserPointService에 전달
-- UserPointService는 포인트 차감 + PointHistory(USE, refOrderId) 기록을 함께 수행
+- `PlaceOrderUseCase`는 ProductRepository, OrderRepository, OrderItemRepository, PointDeductor를 직접 주입받아 오케스트레이션한다
+- `PointDeductor`는 Domain Service로서 UseCase가 열어 둔 트랜잭션에 참여하여 잔고 차감 + 이력 생성의 원자성을 보장한다
 
 ### 4.2 주문 목록 조회 (기간 필터링)
 
@@ -606,13 +616,18 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as OrderV1Controller
-    participant OS as OrderService
-    participant R as OrderRepository
+    participant UC as GetOrdersUseCase
+    participant OR as OrderRepository
+    participant OIR as OrderItemRepository
     User ->> C: 주문 목록 조회 요청 (기간, 페이징)
-    C ->> OS: 내 주문 내역 검색 요청
-    OS ->> R: DB 조회 (userId + 기간 조건)
-    R -->> OS: 주문 목록 (PageResult)
-    OS -->> C: PageResult<OrderDetail> 반환
+    C ->> UC: execute(userId, from, to, page, size)
+    Note over UC, OIR: @Transactional(readOnly = true)
+    UC ->> OR: findAllByUserId(userId, from, to, page, size)
+    OR -->> UC: 주문 목록 (PageResult)
+    UC ->> OIR: findGroupedByOrderIds(orders)
+    OIR -->> UC: Map<OrderId, List<OrderItem>>
+    UC ->> UC: OrderDetail 조합 → OrderInfo 변환
+    UC -->> C: PageResult<OrderInfo> 반환
     C -->> User: 200 OK
 ```
 
@@ -629,18 +644,19 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as OrderV1Controller
-    participant OS as OrderService
+    participant UC as GetOrderUseCase
     participant OR as OrderRepository
     participant OIR as OrderItemRepository
     User ->> C: 주문 상세 정보 요청
-    C ->> OS: 주문 상세 조회 요청
-    OS ->> OR: Order 조회
-    OR -->> OS: Order
-    Note right of OS: 본인 주문인지 소유권 검증
-    OS ->> OIR: OrderItems 조회
-    OIR -->> OS: List<OrderItem>
-    OS ->> OS: OrderDetail로 조합
-    OS -->> C: OrderDetail 반환
+    C ->> UC: execute(userId, orderId)
+    Note over UC, OIR: @Transactional(readOnly = true)
+    UC ->> OR: findById(orderId)
+    OR -->> UC: Order
+    Note right of UC: 본인 주문인지 소유권 검증 (order.refUserId == userId)
+    UC ->> OIR: findAllByOrderId(orderId)
+    OIR -->> UC: List<OrderItem>
+    UC ->> UC: OrderDetail(order, items) 조합
+    UC -->> C: OrderInfo 반환
     C -->> User: 200 OK
 ```
 
@@ -661,13 +677,18 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as OrderAdminV1Controller
-    participant OS as OrderService
-    participant R as OrderRepository
+    participant UC as GetOrdersAdminUseCase
+    participant OR as OrderRepository
+    participant OIR as OrderItemRepository
     Admin ->> C: 전체 주문 목록 조회 요청
-    C ->> OS: 전체 주문 검색 요청
-    OS ->> R: DB 조회 (userId 필터 없음)
-    R -->> OS: 주문 목록 (PageResult)
-    OS -->> C: PageResult<OrderDetail> 반환
+    C ->> UC: execute(page, size)
+    Note over UC, OIR: @Transactional(readOnly = true)
+    UC ->> OR: findAll(page, size) — userId 필터 없음
+    OR -->> UC: 주문 목록 (PageResult)
+    UC ->> OIR: findGroupedByOrderIds(orders)
+    OIR -->> UC: Map<OrderId, List<OrderItem>>
+    UC ->> UC: OrderDetail 조합 → OrderInfo 변환
+    UC -->> C: PageResult<OrderInfo> 반환
     C -->> Admin: 200 OK
 ```
 
@@ -680,17 +701,18 @@ sequenceDiagram
     autonumber
     actor Admin as 어드민
     participant C as OrderAdminV1Controller
-    participant OS as OrderService
+    participant UC as GetOrderAdminUseCase
     participant OR as OrderRepository
     participant OIR as OrderItemRepository
     Admin ->> C: 주문 상세 조회 요청
-    C ->> OS: 주문 ID로 검색 요청
-    OS ->> OR: Order 조회
-    OR -->> OS: Order
-    OS ->> OIR: OrderItems 조회
-    OIR -->> OS: List<OrderItem>
-    OS ->> OS: OrderDetail로 조합
-    OS -->> C: OrderDetail 반환
+    C ->> UC: execute(orderId)
+    Note over UC, OIR: @Transactional(readOnly = true)
+    UC ->> OR: findById(orderId)
+    OR -->> UC: Order
+    UC ->> OIR: findAllByOrderId(orderId)
+    OIR -->> UC: List<OrderItem>
+    UC ->> UC: OrderDetail(order, items) 조합
+    UC -->> C: OrderInfo 반환
     C -->> Admin: 200 OK
 ```
 
@@ -704,7 +726,7 @@ sequenceDiagram
 
 ### 6.1 포인트 충전 (Domain Service)
 
-포인트 충전은 잔액 변경(UserPoint)과 충전 내역(PointHistory) 생성을 **PointChargingService**(Domain Service)가 조율하는 흐름이다.
+포인트 충전은 잔액 변경(UserPoint)과 충전 내역(PointHistory) 생성을 **PointCharger**(Domain Service)가 조율하는 흐름이다.
 
 **API:** `POST /api/v1/users/points/charge` — 인증 필요
 
@@ -713,30 +735,33 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as PointV1Controller
-    participant PCS as PointChargingService
+    participant UC as ChargePointUseCase
+    participant PC as PointCharger
     participant UPR as UserPointRepository
     participant PHR as PointHistoryRepository
     User ->> C: 포인트 충전 요청 (amount)
-    C ->> PCS: 충전 처리 위임
+    C ->> UC: execute(userId, amount)
 
     rect rgb(245, 245, 245)
-        Note right of PCS: @Transactional
-        PCS ->> UPR: UserPoint 조회 (userId)
-        UPR -->> PCS: UserPoint
-        PCS ->> PCS: UserPoint.charge(amount) — 잔액 증가
-        PCS ->> UPR: UserPoint 저장
-        PCS ->> PHR: PointHistory(CHARGE) 저장
+        Note right of UC: @Transactional
+        UC ->> PC: charge(userId, amount)
+        PC ->> UPR: findByUserIdForUpdate(userId) — 비관적 락
+        UPR -->> PC: UserPoint
+        PC ->> PC: userPoint.charge(amount) — 잔액 증가
+        PC ->> UPR: save(userPoint)
+        PC ->> PHR: save(PointHistory(CHARGE))
+        PC -->> UC: UserPoint
     end
 
-    PCS -->> C: 충전 완료
+    UC -->> C: PointBalanceInfo 반환
     C -->> User: 200 OK
 ```
 
 #### 참고
 
-- PointChargingService는 도메인 레이어의 Domain Service이다
-- UserPointRepository와 PointHistoryRepository를 직접 주입받아 사용한다
-- Facade를 거치지 않으므로 Controller가 직접 호출한다
+- `PointCharger`는 Domain Layer의 Domain Service이다
+- `ChargePointUseCase`가 `PointCharger`에 위임하며, `PointCharger`는 UserPointRepository와 PointHistoryRepository를 직접 주입받아 사용한다
+- `@Transactional`은 UseCase에 설정하고, `PointCharger`는 해당 트랜잭션에 참여한다
 
 ### 6.2 포인트 잔액 조회
 
@@ -747,13 +772,14 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as PointV1Controller
-    participant UPS as UserPointService
+    participant UC as GetUserPointUseCase
     participant R as UserPointRepository
     User ->> C: 포인트 잔액 조회 요청
-    C ->> UPS: 잔액 조회 요청
-    UPS ->> R: UserPoint 조회 (userId)
-    R -->> UPS: UserPoint
-    UPS -->> C: 잔액 정보 반환
+    C ->> UC: execute(userId)
+    Note over UC, R: @Transactional(readOnly = true)
+    UC ->> R: findByUserId(userId)
+    R -->> UC: UserPoint
+    UC -->> C: PointBalanceInfo 반환
     C -->> User: 200 OK
 ```
 
@@ -763,10 +789,9 @@ sequenceDiagram
 
 ### 7.1 회원가입 (Cross-Domain)
 
-> **Round 3 변경**: UserPoint 초기화를 위해 UserFacade 신규 도입
+> **Round 3 변경**: UserPoint 초기화를 위해 RegisterUserUseCase가 UserPointRepository를 직접 호출
 
 회원가입 시 User 생성과 함께 UserPoint(초기 잔액 0)를 생성하는 흐름이다.
-User(인증/프로필)와 Point(잔액 관리) 경계를 넘으므로 Facade를 사용한다.
 
 **API:** `POST /api/v1/users/sign-up` — 인증 불필요
 
@@ -775,31 +800,27 @@ sequenceDiagram
     autonumber
     actor User as 사용자
     participant C as UserV1Controller
-    participant F as UserFacade
-    participant US as UserService
-    participant UPS as UserPointService
-    participant R as Repository
+    participant UC as RegisterUserUseCase
+    participant UR as UserRepository
+    participant UPR as UserPointRepository
     User ->> C: 회원가입 요청 (loginId, password, name 등)
-    C ->> F: 회원가입 프로세스 시작
+    C ->> UC: execute(loginId, password, name, birthDate, email)
 
     rect rgb(245, 245, 245)
-        Note right of F: @Transactional (Facade)
-        F ->> US: 사용자 생성 요청
-        US ->> US: loginId 중복 확인
-        US ->> R: User 저장
-        R -->> US: 생성된 User (ID 채번)
-        US -->> F: userId 반환
-        F ->> UPS: 초기 포인트 생성 요청 (userId)
-        UPS ->> UPS: UserPoint 생성 (balance: 0)
-        UPS ->> R: UserPoint 저장
+        Note right of UC: @Transactional
+        UC ->> UR: existsByLoginId(loginId) — 중복 확인
+        UR -->> UC: false (중복 없음)
+        UC ->> UR: save(user)
+        UR -->> UC: 생성된 User (ID 채번)
+        UC ->> UPR: save(UserPoint(refUserId = user.id, balance = 0))
     end
 
-    F -->> C: 회원가입 완료
+    UC -->> C: UserInfo 반환
     C -->> User: 200 OK
 ```
 
 #### 참고
 
-- UserFacade는 User와 Point 경계를 넘는 조합이므로 Facade를 사용한다
-- **@Transactional은 Facade 레벨에서 설정**하여, User 생성과 UserPoint 생성의 원자성을 보장한다 (UserPoint 생성 실패 시 User 생성도 롤백)
-- 기존 회원가입(Round 1~2)에서는 UserService만 호출했으나, Round 3에서 UserPoint 초기화가 추가되어 UserFacade를 도입
+- `RegisterUserUseCase`는 UserRepository와 UserPointRepository를 직접 주입받아 사용한다
+- **@Transactional은 UseCase 레벨에서 설정**하여, User 생성과 UserPoint 생성의 원자성을 보장한다 (UserPoint 생성 실패 시 User 생성도 롤백)
+- 기존 Facade 패턴 없이 UseCase가 cross-domain 오케스트레이션을 직접 수행한다

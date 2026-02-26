@@ -64,7 +64,7 @@ flowchart TB
     Start([주문 요청 수신]) --> Validate{요청 데이터 검증}
     Validate -->|items 비어있음 / quantity ≤ 0| Err400[400 Bad Request]:::error
 
-    Validate -->|유효| FetchProducts[주문 대상 상품 일괄 조회]
+    Validate -->|유효| FetchProducts[주문 대상 상품 일괄 조회 — FOR UPDATE]
     FetchProducts --> CheckExist{모든 상품 존재?}
     CheckExist -->|일부 없음 / 삭제됨| Err400_2[400 존재하지 않는 상품]:::error
 
@@ -77,13 +77,14 @@ flowchart TB
     CheckStock -->|충분| Deduct[상품별 재고 차감]
     Deduct --> AutoStatus{차감 후 재고 == 0?}
     AutoStatus -->|예| StatusChange[status → SOLD_OUT 자동 전환]
-    AutoStatus -->|아니오| CreateOrder
-    StatusChange --> CreateOrder[Order.create — OrderItem 생성 + totalPrice 계산]
-    CreateOrder --> CheckPoint{포인트 잔액 충분?}
+    AutoStatus -->|아니오| SaveProducts
+    StatusChange --> SaveProducts[productRepository.saveAll]
+    SaveProducts --> CreateOrder[Order.create — OrderItem 생성 + totalPrice 계산]
+    CreateOrder --> SaveOrder[orderRepository.save + orderItemRepository.saveAll]
+    SaveOrder --> CheckPoint{포인트 잔액 충분?}
     CheckPoint -->|부족| Err400_5[400 포인트 부족]:::error
     CheckPoint -->|충분| DeductPoint[포인트 차감 + PointHistory 기록]
-    DeductPoint --> Save[DB 저장]
-    Save --> Response([200 OK + orderId]):::success
+    DeductPoint --> Response([200 OK + orderId]):::success
 
     classDef error fill:#ffcdd2,stroke:#c62828
     classDef success fill:#c8e6c9,stroke:#2e7d32
@@ -94,7 +95,7 @@ flowchart TB
 - `Order.create()`가 내부에서 OrderItem 생성과 totalPrice 계산을 수행한다 (Rich Domain Model)
 - 전체 과정이 **하나의 트랜잭션** 내에서 원자적으로 실행 (all-or-nothing)
 - 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감 + 포인트 차감 모두 원복
-- **Round 3 추가**: 포인트 잔액 확인 및 차감 단계가 주문 생성 후 수행된다
+- **실행 순서**: 재고 차감 → 상품 저장 → 주문 생성/저장 → 포인트 차감 (포인트 확인은 주문 저장 후)
 - 인증 인터셉터 검증은 전제 조건으로 생략 (시퀀스 다이어그램 공통 규칙 참고)
 
 ---
@@ -108,14 +109,21 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    Start([좋아요 등록 요청]) --> CheckProduct{상품 활성 상태(미삭제 & 미숨김)?}
-    CheckProduct -->|없음 / 삭제됨 / HIDDEN| Err404[404 Not Found]:::error
+    Start([좋아요 등록 요청]) --> CheckProduct{상품 조회}
+    CheckProduct -->|없음| Err404_1[404 Not Found]:::error
+    CheckProduct -->|존재| CheckActive{삭제됨 또는 비활성?}
+    CheckActive -->|삭제됨 / HIDDEN| Err404_2[404 Not Found]:::error
 
-    CheckProduct -->|유효| CheckLike{이미 좋아요 존재?}
+    CheckActive -->|활성| CheckLike{이미 좋아요 존재?}
     CheckLike -->|존재| Idempotent([200 OK — 변경 없음]):::idempotent
 
     CheckLike -->|없음| SaveLike[Like 저장]
-    SaveLike --> IncCount[Product.likeCount + 1]
+    SaveLike --> AcquireLock[상품 재조회 — FOR UPDATE Lock 획득]
+    AcquireLock --> CheckLockProduct{Lock 후 상품 존재?}
+    CheckLockProduct -->|없음| Err404_3[404 Not Found]:::error
+    CheckLockProduct -->|존재| ReCheckActive{삭제됨 또는 비활성?}
+    ReCheckActive -->|삭제됨 / HIDDEN| Err404_4[404 Not Found]:::error
+    ReCheckActive -->|활성| IncCount[Product.likeCount + 1]
     IncCount --> Success([200 OK]):::success
 
     classDef error fill:#ffcdd2,stroke:#c62828
@@ -127,15 +135,15 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    Start([좋아요 취소 요청]) --> CheckProduct{상품 존재?}
-    CheckProduct -->|없음| Err404[404 Not Found]:::error
-
-    CheckProduct -->|존재| CheckLike{좋아요 존재?}
+    Start([좋아요 취소 요청]) --> CheckLike{좋아요 레코드 존재?}
     CheckLike -->|없음| Idempotent([200 OK — 변경 없음]):::idempotent
 
     CheckLike -->|존재| DeleteLike[Like 물리 삭제]
-    DeleteLike --> CheckDeleted{상품이 삭제 상태?}
-    CheckDeleted -->|삭제됨| SkipCount([200 OK — likeCount 미갱신]):::idempotent
+    DeleteLike --> AcquireLock[상품 재조회 — FOR UPDATE Lock 획득]
+    AcquireLock --> CheckProduct{상품 존재?}
+    CheckProduct -->|없음| SkipCount1([200 OK — likeCount 미갱신]):::idempotent
+    CheckProduct -->|존재| CheckDeleted{상품이 삭제 상태?}
+    CheckDeleted -->|삭제됨| SkipCount2([200 OK — likeCount 미갱신]):::idempotent
     CheckDeleted -->|활성| DecCount[Product.likeCount - 1]
     DecCount --> Success([200 OK]):::success
 
@@ -146,26 +154,29 @@ flowchart TB
 
 ### 참고
 
-- 등록: 삭제된 상품에는 좋아요 등록 불가 (404)
-- 취소: 삭제된 상품이라도 Like 레코드가 있으면 물리 삭제 수행, 단 likeCount는 갱신하지 않음
+- 등록: 삭제된 상품에는 좋아요 등록 불가 (404). Like 저장 후 Lock 획득하여 likeCount 증가 전 상태를 재검증한다
+- 취소: 좋아요 레코드가 없으면 상품 조회 없이 즉시 200 반환 (멱등). 상품이 없거나 삭제 상태이면 likeCount 갱신 생략
 - 노란색 경로는 멱등성에 의한 무변경 응답
 
 ---
 
 ## 4. 포인트 충전 (Domain Service)
 
-포인트 충전 시 PointChargingService(Domain Service)가 잔액 변경과 내역 생성을 조율하는 흐름이다.
+포인트 충전 시 PointCharger(Domain Service)가 잔액 변경과 내역 생성을 조율하는 흐름이다.
 
 ```mermaid
 flowchart TB
-    Start([포인트 충전 요청]) --> CheckAmount{충전 금액 >= 1?}
-    CheckAmount -->|아니오| Err400[400 Bad Request]:::error
+    Start([포인트 충전 요청]) --> CheckLimit{1회 충전 한도 초과?}
+    CheckLimit -->|초과| Err400_1[400 Bad Request]:::error
 
-    CheckAmount -->|유효| CheckLimit{1회 충전 한도(1000만) 초과?}
-    CheckLimit -->|초과| Err400_2[400 Bad Request]:::error
+    CheckLimit -->|이내| FindUP[UserPoint 조회 — FOR UPDATE]
+    FindUP --> CheckUserPoint{UserPoint 존재?}
+    CheckUserPoint -->|없음| Err404[404 Not Found]:::error
 
-    CheckLimit -->|이내| FindUP[UserPoint 조회]
-    FindUP --> CheckBalance{충전 후 잔액이 최대 한도(1000만) 초과?}
+    CheckUserPoint -->|존재| CheckZero{충전 금액 == 0?}
+    CheckZero -->|예| Err400_2[400 Bad Request]:::error
+
+    CheckZero -->|아니오| CheckBalance{충전 후 잔액이 최대 한도 초과?}
     CheckBalance -->|초과| Err400_3[400 Bad Request]:::error
 
     CheckBalance -->|이내| Charge[UserPoint.charge — 잔액 증가]
@@ -179,9 +190,10 @@ flowchart TB
 
 ### 참고
 
-- PointChargingService는 도메인 레이어의 Domain Service이다
+- PointCharger는 도메인 레이어의 Domain Service이다
+- 검증 순서: 1회 충전 한도(PointCharger) → UserPoint 조회 → 0 금액 검증(UserPoint.charge) → 최대 잔액 한도(UserPoint.charge)
 - 잔액 변경(UserPoint.charge)과 내역 생성(PointHistory)이 하나의 트랜잭션에서 원자적으로 처리된다
-- Controller가 PointChargingService를 직접 호출한다 (Facade 없음)
+- Controller가 ChargePointUseCase를 통해 PointCharger를 호출한다
 
 ---
 
@@ -210,8 +222,11 @@ flowchart TB
 
     Select -->|삭제| Delete[브랜드/상품 삭제]
     Delete --> FindForDelete{대상 조회}
-    FindForDelete -->|미존재 또는 이미 삭제| Success200_2[200 OK - 멱등]:::success
-    FindForDelete -->|존재| SoftDel[deletedAt 설정]
+    FindForDelete -->|미존재| DeleteNotFound{브랜드 or 상품?}
+    DeleteNotFound -->|브랜드| Err404_brand[404 Not Found]:::error
+    DeleteNotFound -->|상품| Success200_silent[200 OK — silent return]:::success
+    FindForDelete -->|이미 삭제| Err404_deleted[404 Not Found]:::error
+    FindForDelete -->|존재 & 미삭제| SoftDel[deletedAt 설정]
     SoftDel --> Success200_3[200 OK]:::success
 
     Select -->|복구| Restore[브랜드/상품 복구]
@@ -228,5 +243,7 @@ flowchart TB
 ### 참고
 
 - 수정(Update)은 삭제 상태와 무관하게 어드민이 수행 가능 — 대고객 API와의 핵심 차이점
-- 삭제와 복구는 멱등하게 동작
+- **상품 삭제**: 미존재 시 silent return(200), 이미 삭제 시 404 NOT_FOUND
+- **브랜드 삭제**: 미존재 시 404 NOT_FOUND, 이미 삭제 시 404 NOT_FOUND (상품과 동작이 다름)
 - 브랜드 삭제 시 소속 상품도 연쇄 soft delete 처리
+- 복구는 멱등하게 동작

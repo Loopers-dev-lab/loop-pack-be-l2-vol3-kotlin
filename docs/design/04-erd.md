@@ -65,7 +65,7 @@ erDiagram
         bigint id PK
         bigint ref_user_id "Logical FK -> users.id"
         varchar status "CREATED | PAID | CANCELLED | FAILED"
-        decimal total_price "Denormalized (Sum Cache)"
+        decimal(10_2) total_price "Denormalized (Sum Cache)"
         datetime created_at
         datetime updated_at
         datetime deleted_at
@@ -76,8 +76,9 @@ erDiagram
         bigint ref_order_id "Logical FK -> orders.id"
         bigint ref_product_id "Trace Only (No FK constraint)"
         varchar product_name "Snapshot"
-        decimal product_price "Snapshot"
+        decimal(10_2) product_price "Snapshot"
         int quantity
+        varchar status "CREATED | CANCELLED"
         datetime created_at
         datetime updated_at
         datetime deleted_at
@@ -99,6 +100,8 @@ erDiagram
         bigint amount "amount > 0 (init 블록에서 직접 검증)"
         bigint ref_order_id "Nullable, Logical FK -> orders.id (USE only)"
         datetime created_at
+        datetime updated_at
+        datetime deleted_at
     }
 
     brands ||--o{ products: "Brand owns Products"
@@ -135,13 +138,14 @@ erDiagram
 | **orders**      | id             | BIGINT        | PK, Auto Inc |                                            |
 |                 | ref_user_id    | BIGINT        | NOT NULL     | [논리FK] User 참조                             |
 |                 | status         | VARCHAR(20)   | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
-|                 | total_price    | DECIMAL(19,2) | NOT NULL     | [반정규화] 주문 총액                               |
+|                 | total_price    | DECIMAL(10,2) | NOT NULL     | [반정규화] 주문 총액                               |
 | **order_items** | id             | BIGINT        | PK, Auto Inc |                                            |
 |                 | ref_order_id   | BIGINT        | NOT NULL     | [논리FK] Order 참조 (Aggregate Root)           |
 |                 | ref_product_id | BIGINT        | NOT NULL     | 단순 참조용 (데이터 추적)                            |
 |                 | product_name   | VARCHAR(255)  | NOT NULL     | [Snapshot] 주문 시점 상품명                       |
-|                 | product_price  | DECIMAL(19,2) | NOT NULL     | [Snapshot] 주문 시점 가격                        |
+|                 | product_price  | DECIMAL(10,2) | NOT NULL     | [Snapshot] 주문 시점 가격                        |
 |                 | quantity       | INT           | NOT NULL     | 주문 수량 (>= 1)                               |
+|                 | status         | VARCHAR(20)   | NOT NULL     | 주문 항목 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
 
 ### 2.3 Point Domain
 
@@ -157,9 +161,7 @@ erDiagram
 |                     | ref_order_id      | BIGINT      | NULLABLE     | [추적용] 주문 참조 (USE 시 주문 ID, CHARGE 시 null) |
 |                     | created_at        | DATETIME    | NOT NULL     | 발생 시각                                    |
 
-*참고: user_points는 BaseEntity 상속 (created_at, updated_at, deleted_at 포함). User 탈퇴(soft delete) 시 UserPoint도 함께 soft
-delete 처리한다. point_histories는 BaseEntity 미상속 (id +
-created_at만 보유, 불변 이력 데이터).*
+*참고: user_points, point_histories 모두 BaseEntity 상속 (created_at, updated_at, deleted_at 포함). User 탈퇴(soft delete) 시 UserPoint도 함께 soft delete 처리한다. point_histories는 향후 충전 취소 등의 기능에서 updated_at이 필요할 수 있으므로 BaseEntity 상속 구조를 유지한다.*
 
 ### 2.4 User Interaction
 
@@ -170,7 +172,7 @@ created_at만 보유, 불변 이력 데이터).*
 |           | ref_product_id | BIGINT | NOT NULL     | [논리FK] Product 참조                     |
 |           | (UK)           |        | UNIQUE       | `(ref_user_id, ref_product_id)` 중복 방지 |
 
-*참고: 모든 테이블(likes, point_histories 제외)은 `created_at`, `updated_at`, `deleted_at`(Soft Delete)을 공통으로 포함한다.*
+*참고: 모든 테이블(likes 제외)은 `created_at`, `updated_at`, `deleted_at`(Soft Delete)을 공통으로 포함한다.*
 
 ---
 
