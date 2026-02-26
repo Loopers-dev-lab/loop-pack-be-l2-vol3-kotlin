@@ -11,4 +11,9 @@ class AdminBrandFacade(
         return brandService.createBrand(name, description)
             .let { BrandInfo.from(it) }
     }
+
+    fun getBrand(brandId: Long): BrandInfo {
+        return brandService.getBrand(brandId)
+            .let { BrandInfo.from(it) }
+    }
 }
