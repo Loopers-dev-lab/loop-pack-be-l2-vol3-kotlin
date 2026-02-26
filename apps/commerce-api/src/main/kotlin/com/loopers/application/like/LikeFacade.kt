@@ -2,7 +2,6 @@ package com.loopers.application.like
 
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.ProductService
-import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.like.LikeService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,7 +11,6 @@ class LikeFacade(
     private val likeService: LikeService,
     private val productService: ProductService,
     private val brandService: BrandService,
-    private val likeRepository: LikeRepository,
 ) {
 
     @Transactional
@@ -29,12 +27,10 @@ class LikeFacade(
     }
 
     @Transactional(readOnly = true)
-    fun getLikedProducts(userId: Long): List<LikedProductResult> {
-        val likes = likeRepository.findAllByUserId(userId)
-        return likes.map { like ->
+    fun getLikedProducts(userId: Long): List<LikedProductResult> =
+        likeService.getLikedByUser(userId).map { like ->
             val product = productService.getById(like.productId)
             val brand = brandService.getById(product.brandId)
             LikedProductResult.from(product, brand)
         }
-    }
 }

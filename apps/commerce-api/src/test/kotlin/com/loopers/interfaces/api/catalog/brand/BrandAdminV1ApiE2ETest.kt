@@ -62,7 +62,7 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<List<Map<String, Any?>>>>() {}
-            val response = testRestTemplate.exchange(BASE_URL, HttpMethod.GET, HttpEntity.EMPTY, responseType)
+            val response = testRestTemplate.exchange(BASE_URL, HttpMethod.GET, HttpEntity<Any>(adminHeaders()), responseType)
 
             // assert
             assertAll(
@@ -77,7 +77,7 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
         fun returnsEmptyList_whenNoBrandsExist() {
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<List<Map<String, Any?>>>>() {}
-            val response = testRestTemplate.exchange(BASE_URL, HttpMethod.GET, HttpEntity.EMPTY, responseType)
+            val response = testRestTemplate.exchange(BASE_URL, HttpMethod.GET, HttpEntity<Any>(adminHeaders()), responseType)
 
             // assert
             assertAll(
@@ -102,7 +102,7 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any?>>>() {}
             val response = testRestTemplate.exchange(
-                "$BASE_URL/${brand.id}", HttpMethod.GET, HttpEntity.EMPTY, responseType
+                "$BASE_URL/${brand.id}", HttpMethod.GET, HttpEntity<Any>(adminHeaders()), responseType
             )
 
             // assert
@@ -118,7 +118,7 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any?>>() {}
             val response = testRestTemplate.exchange(
-                "$BASE_URL/9999", HttpMethod.GET, HttpEntity.EMPTY, responseType
+                "$BASE_URL/9999", HttpMethod.GET, HttpEntity<Any>(adminHeaders()), responseType
             )
 
             // assert

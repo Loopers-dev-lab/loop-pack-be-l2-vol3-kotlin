@@ -74,6 +74,34 @@ class LikeServiceUnitTest {
         verify(exactly = 0) { mockRepository.deleteByUserIdAndProductId(any(), any()) }
     }
 
+    // ─── getLikedByUser ───
+
+    @Test
+    fun `getLikedByUser() should return all likes for the user`() {
+        // Arrange
+        val likes = listOf(createLike(userId = 1L, productId = 10L), createLike(userId = 1L, productId = 20L))
+        every { mockRepository.findAllByUserId(1L) } returns likes
+
+        // Act
+        val result = likeService.getLikedByUser(userId = 1L)
+
+        // Assert
+        assertThat(result).hasSize(2)
+        assertThat(result.map { it.productId }).containsExactly(10L, 20L)
+    }
+
+    @Test
+    fun `getLikedByUser() should return empty list when user has no likes`() {
+        // Arrange
+        every { mockRepository.findAllByUserId(1L) } returns emptyList()
+
+        // Act
+        val result = likeService.getLikedByUser(userId = 1L)
+
+        // Assert
+        assertThat(result).isEmpty()
+    }
+
     private fun createLike(
         id: Long = 0L,
         userId: Long = 1L,

@@ -27,4 +27,7 @@ class LikeService(
         likeRepository.deleteByUserIdAndProductId(userId, productId)
     }
 
+    @Transactional(readOnly = true)
+    fun getLikedByUser(userId: Long): List<Like> =
+        likeRepository.findAllByUserId(userId)
 }

@@ -3,7 +3,6 @@ package com.loopers.application.order
 import com.loopers.domain.catalog.brand.Brand
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
-import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
@@ -22,9 +21,8 @@ class OrderFacadeUnitTest {
     private val mockOrderService = mockk<OrderService>()
     private val mockProductService = mockk<ProductService>()
     private val mockBrandService = mockk<BrandService>()
-    private val mockProductRepository = mockk<ProductRepository>()
 
-    private val orderFacade = OrderFacade(mockOrderService, mockProductService, mockBrandService, mockProductRepository)
+    private val orderFacade = OrderFacade(mockOrderService, mockProductService, mockBrandService)
 
     // ─── placeOrder ───
 
@@ -38,7 +36,7 @@ class OrderFacadeUnitTest {
 
         every { mockProductService.getById(1L) } returns product
         every { mockBrandService.getById(1L) } returns brand
-        every { mockProductRepository.save(any()) } returns product
+        every { mockProductService.decrementStock(1L, 2) } returns product
         every { mockOrderService.createOrder(any(), any()) } returns order
 
         val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 2)))
@@ -49,7 +47,7 @@ class OrderFacadeUnitTest {
         // Assert
         assertThat(result).isNotNull
         verify { mockProductService.getById(1L) }
-        verify { mockProductRepository.save(any()) }
+        verify { mockProductService.decrementStock(1L, 2) }
         verify { mockOrderService.createOrder(1L, any()) }
     }
 
@@ -77,7 +75,7 @@ class OrderFacadeUnitTest {
         }
 
         // stock should NOT be decremented for any product
-        verify(exactly = 0) { mockProductRepository.save(any()) }
+        verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
         verify(exactly = 0) { mockOrderService.createOrder(any(), any()) }
     }
 
@@ -95,7 +93,7 @@ class OrderFacadeUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
-        verify(exactly = 0) { mockProductRepository.save(any()) }
+        verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
         verify(exactly = 0) { mockOrderService.createOrder(any(), any()) }
     }
 

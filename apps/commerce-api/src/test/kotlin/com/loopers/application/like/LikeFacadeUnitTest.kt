@@ -5,7 +5,6 @@ import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.Like
-import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.like.LikeService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -22,9 +21,8 @@ class LikeFacadeUnitTest {
     private val mockLikeService = mockk<LikeService>()
     private val mockProductService = mockk<ProductService>()
     private val mockBrandService = mockk<BrandService>()
-    private val mockLikeRepository = mockk<LikeRepository>()
 
-    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockBrandService, mockLikeRepository)
+    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockBrandService)
 
     // ─── addLike ───
 
@@ -105,7 +103,7 @@ class LikeFacadeUnitTest {
         val likes = listOf(createLike(userId = 1L, productId = 10L))
         val product = createProduct(id = 10L, brandId = 1L)
         val brand = createBrand(id = 1L, name = "Nike")
-        every { mockLikeRepository.findAllByUserId(1L) } returns likes
+        every { mockLikeService.getLikedByUser(1L) } returns likes
         every { mockProductService.getById(10L) } returns product
         every { mockBrandService.getById(1L) } returns brand
 

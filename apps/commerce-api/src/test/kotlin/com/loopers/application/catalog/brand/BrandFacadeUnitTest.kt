@@ -1,9 +1,8 @@
 package com.loopers.application.catalog.brand
 
 import com.loopers.domain.catalog.brand.Brand
-import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.brand.BrandService
-import com.loopers.domain.catalog.product.ProductRepository
+import com.loopers.domain.catalog.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -17,10 +16,9 @@ import org.junit.jupiter.api.assertThrows
 class BrandFacadeUnitTest {
 
     private val mockBrandService = mockk<BrandService>()
-    private val mockBrandRepository = mockk<BrandRepository>()
-    private val mockProductRepository = mockk<ProductRepository>()
+    private val mockProductService = mockk<ProductService>()
 
-    private val brandFacade = BrandFacade(mockBrandService, mockBrandRepository, mockProductRepository)
+    private val brandFacade = BrandFacade(mockBrandService, mockProductService)
 
     // ─── deleteBrand ───
 
@@ -29,8 +27,8 @@ class BrandFacadeUnitTest {
         // Arrange
         val brand = createBrand(id = 1L)
         every { mockBrandService.getById(1L) } returns brand
-        every { mockProductRepository.deleteAllByBrandId(1L) } returns Unit
-        every { mockBrandRepository.deleteById(1L) } returns Unit
+        every { mockProductService.deleteAllByBrandId(1L) } returns Unit
+        every { mockBrandService.delete(1L) } returns Unit
 
         // Act
         brandFacade.deleteBrand(1L)
@@ -38,8 +36,8 @@ class BrandFacadeUnitTest {
         // Assert
         verifyOrder {
             mockBrandService.getById(1L)
-            mockProductRepository.deleteAllByBrandId(1L)
-            mockBrandRepository.deleteById(1L)
+            mockProductService.deleteAllByBrandId(1L)
+            mockBrandService.delete(1L)
         }
     }
 
@@ -55,8 +53,8 @@ class BrandFacadeUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
-        verify(exactly = 0) { mockProductRepository.deleteAllByBrandId(any()) }
-        verify(exactly = 0) { mockBrandRepository.deleteById(any()) }
+        verify(exactly = 0) { mockProductService.deleteAllByBrandId(any()) }
+        verify(exactly = 0) { mockBrandService.delete(any()) }
     }
 
     private fun createBrand(

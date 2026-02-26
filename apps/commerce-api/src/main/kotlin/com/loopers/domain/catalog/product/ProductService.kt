@@ -41,6 +41,13 @@ class ProductService(
     }
 
     @Transactional
+    fun decrementStock(productId: Long, quantity: Int): Product {
+        val product = getById(productId)
+        product.decrementStock(quantity)
+        return productRepository.save(product)
+    }
+
+    @Transactional
     fun incrementLikeCount(productId: Long): Product {
         val product = getById(productId)
         product.incrementLike()
@@ -53,4 +60,13 @@ class ProductService(
         product.decrementLike()
         return productRepository.save(product)
     }
+
+    @Transactional
+    fun deleteAllByBrandId(brandId: Long) {
+        productRepository.deleteAllByBrandId(brandId)
+    }
+
+    @Transactional(readOnly = true)
+    fun findAll(condition: ProductSearchCondition): List<Product> =
+        productRepository.findAll(condition)
 }

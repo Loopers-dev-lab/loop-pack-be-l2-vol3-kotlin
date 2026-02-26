@@ -3,7 +3,6 @@ package com.loopers.application.catalog.product
 import com.loopers.domain.catalog.brand.Brand
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
-import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.support.error.CoreException
@@ -19,9 +18,8 @@ class ProductFacadeUnitTest {
 
     private val mockProductService = mockk<ProductService>()
     private val mockBrandService = mockk<BrandService>()
-    private val mockProductRepository = mockk<ProductRepository>()
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockProductRepository)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService)
 
     // ─── createProduct ───
 
@@ -100,7 +98,7 @@ class ProductFacadeUnitTest {
         // Arrange
         val products = listOf(createProduct(id = 1L, brandId = 1L), createProduct(id = 2L, brandId = 1L))
         val brand = createBrand(id = 1L, name = "Nike")
-        every { mockProductRepository.findAll(any()) } returns products
+        every { mockProductService.findAll(any()) } returns products
         every { mockBrandService.getById(1L) } returns brand
 
         // Act

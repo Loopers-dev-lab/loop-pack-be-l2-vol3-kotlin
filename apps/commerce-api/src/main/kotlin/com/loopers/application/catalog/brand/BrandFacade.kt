@@ -1,16 +1,14 @@
 package com.loopers.application.catalog.brand
 
-import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.brand.BrandService
-import com.loopers.domain.catalog.product.ProductRepository
+import com.loopers.domain.catalog.product.ProductService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class BrandFacade(
     private val brandService: BrandService,
-    private val brandRepository: BrandRepository,
-    private val productRepository: ProductRepository,
+    private val productService: ProductService,
 ) {
 
     /**
@@ -21,7 +19,7 @@ class BrandFacade(
     @Transactional
     fun deleteBrand(brandId: Long) {
         brandService.getById(brandId) // 존재 확인
-        productRepository.deleteAllByBrandId(brandId)
-        brandRepository.deleteById(brandId)
+        productService.deleteAllByBrandId(brandId)
+        brandService.delete(brandId)
     }
 }

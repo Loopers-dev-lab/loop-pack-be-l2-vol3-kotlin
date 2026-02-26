@@ -2,7 +2,6 @@ package com.loopers.application.catalog.product
 
 import com.loopers.application.catalog.brand.BrandResult
 import com.loopers.domain.catalog.brand.BrandService
-import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductService
 import org.springframework.stereotype.Service
@@ -12,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional
 class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
-    private val productRepository: ProductRepository,
 ) {
 
     @Transactional
@@ -73,11 +71,9 @@ class ProductFacade(
     }
 
     @Transactional(readOnly = true)
-    fun findProducts(condition: ProductSearchCondition): List<ProductSummaryResult> {
-        val products = productRepository.findAll(condition)
-        return products.map { product ->
+    fun findProducts(condition: ProductSearchCondition): List<ProductSummaryResult> =
+        productService.findAll(condition).map { product ->
             val brand = brandService.getById(product.brandId)
             ProductSummaryResult.from(product, brand.name)
         }
-    }
 }

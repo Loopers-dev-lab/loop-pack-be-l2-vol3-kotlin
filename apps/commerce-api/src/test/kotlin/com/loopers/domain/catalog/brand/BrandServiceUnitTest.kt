@@ -115,6 +115,48 @@ class BrandServiceUnitTest {
         }
     }
 
+    // ─── delete ───
+
+    @Test
+    fun `delete() should call repository deleteById`() {
+        // Arrange
+        every { mockRepository.deleteById(1L) } returns Unit
+
+        // Act
+        brandService.delete(1L)
+
+        // Assert
+        verify { mockRepository.deleteById(1L) }
+    }
+
+    // ─── findAll ───
+
+    @Test
+    fun `findAll() should return paged list of brands`() {
+        // Arrange
+        val brands = listOf(createBrand(id = 1L, name = "Nike"), createBrand(id = 2L, name = "Adidas"))
+        every { mockRepository.findAll(0, 20) } returns brands
+
+        // Act
+        val result = brandService.findAll(0, 20)
+
+        // Assert
+        assertThat(result).hasSize(2)
+        assertThat(result.map { it.name }).containsExactly("Nike", "Adidas")
+    }
+
+    @Test
+    fun `findAll() should return empty list when no brands exist`() {
+        // Arrange
+        every { mockRepository.findAll(0, 20) } returns emptyList()
+
+        // Act
+        val result = brandService.findAll(0, 20)
+
+        // Assert
+        assertThat(result).isEmpty()
+    }
+
     private fun createBrand(
         id: Long = 0L,
         name: String = "TestBrand",

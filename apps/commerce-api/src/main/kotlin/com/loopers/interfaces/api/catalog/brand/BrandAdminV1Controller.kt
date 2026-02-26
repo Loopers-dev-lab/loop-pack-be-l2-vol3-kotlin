@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.catalog.brand
 
 import com.loopers.application.catalog.brand.BrandFacade
-import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController
 class BrandAdminV1Controller(
     private val brandFacade: BrandFacade,
     private val brandService: BrandService,
-    private val brandRepository: BrandRepository,
 ) : BrandAdminV1ApiSpec {
 
     @GetMapping
@@ -27,7 +25,7 @@ class BrandAdminV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<List<BrandAdminV1Dto.BrandResponse>> =
-        brandRepository.findAll(page, size)
+        brandService.findAll(page, size)
             .map { BrandAdminV1Dto.BrandResponse.from(it) }
             .let { ApiResponse.success(it) }
 

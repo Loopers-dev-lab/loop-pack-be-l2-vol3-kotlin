@@ -1,7 +1,6 @@
 package com.loopers.application.order
 
 import com.loopers.domain.catalog.brand.BrandService
-import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
@@ -15,7 +14,6 @@ class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
-    private val productRepository: ProductRepository,
 ) {
 
     @Transactional
@@ -37,9 +35,8 @@ class OrderFacade(
         }
 
         // 3. 모든 재고 차감
-        itemWithProducts.forEach { (item, product) ->
-            product.decrementStock(item.quantity)
-            productRepository.save(product)
+        itemWithProducts.forEach { (item, _) ->
+            productService.decrementStock(item.productId, item.quantity)
         }
 
         // 4. 브랜드 조회 및 주문 항목 스냅샷 생성

@@ -27,4 +27,13 @@ class BrandService(
         brand.update(name, description)
         return brandRepository.save(brand)
     }
+
+    @Transactional
+    fun delete(id: Long) {
+        brandRepository.deleteById(id)
+    }
+
+    @Transactional(readOnly = true)
+    fun findAll(page: Int, size: Int): List<Brand> =
+        brandRepository.findAll(page, size)
 }
