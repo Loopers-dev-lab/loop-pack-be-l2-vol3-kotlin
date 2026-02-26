@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api
 
 import com.loopers.domain.brand.Brand
+import com.loopers.interfaces.common.ApiResponse
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money

@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api
 
+import com.loopers.interfaces.common.ApiResponse
 import com.loopers.interfaces.api.user.UserDto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
