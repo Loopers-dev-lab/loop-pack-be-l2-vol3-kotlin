@@ -35,7 +35,7 @@ class OrderAdminV1Controller(
         @PathVariable orderId: Long,
     ): ApiResponse<OrderAdminV1Dto.OrderAdminResponse> {
         validateAdminAuth(ldap)
-        return orderService.getOrder(orderId)
+        return orderService.getOrderInfo(orderId)
             .let { OrderAdminV1Dto.OrderAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

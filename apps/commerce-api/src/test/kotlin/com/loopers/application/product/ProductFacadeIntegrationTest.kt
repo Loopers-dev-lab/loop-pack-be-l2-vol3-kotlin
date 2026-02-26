@@ -2,7 +2,6 @@ package com.loopers.application.product
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.like.Like
-import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
 import com.loopers.domain.user.User
 import com.loopers.infrastructure.brand.BrandJpaRepository
@@ -83,7 +82,7 @@ class ProductFacadeIntegrationTest @Autowired constructor(
         fun savesProductToDatabase_whenValidInfoProvided() {
             // arrange
             val brand = createBrand()
-            val command = CreateProductCommand(
+            val criteria = CreateProductCriteria(
                 brandId = brand.id,
                 name = "에어맥스 90",
                 price = BigDecimal("129000"),
@@ -93,7 +92,7 @@ class ProductFacadeIntegrationTest @Autowired constructor(
             )
 
             // act
-            val result = productFacade.createProduct(command)
+            val result = productFacade.createProduct(criteria)
 
             // assert
             val saved = productJpaRepository.findByIdAndDeletedAtIsNull(result.id)!!
@@ -109,7 +108,7 @@ class ProductFacadeIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFound_whenBrandNotExists() {
             // arrange
-            val command = CreateProductCommand(
+            val criteria = CreateProductCriteria(
                 brandId = 999L,
                 name = "에어맥스 90",
                 price = BigDecimal("129000"),
@@ -120,7 +119,7 @@ class ProductFacadeIntegrationTest @Autowired constructor(
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                productFacade.createProduct(command)
+                productFacade.createProduct(criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
@@ -145,7 +144,7 @@ class ProductFacadeIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(saved.userId).isEqualTo(user.id) },
                 { assertThat(saved.productId).isEqualTo(product.id) },
-                { assertThat(result.isDeleted()).isFalse() },
+                { assertThat(result.productId).isEqualTo(product.id) },
             )
         }
 
@@ -183,7 +182,7 @@ class ProductFacadeIntegrationTest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(result.id).isEqualTo(like.id) },
-                { assertThat(result.isDeleted()).isFalse() },
+                { assertThat(result.productId).isEqualTo(product.id) },
                 { assertThat(likeJpaRepository.findAll()).hasSize(1) },
             )
         }
@@ -215,7 +214,6 @@ class ProductFacadeIntegrationTest @Autowired constructor(
 
             // assert
             assertAll(
-                { assertThat(result.userId).isEqualTo(user.id) },
                 { assertThat(result.productId).isEqualTo(product.id) },
             )
         }

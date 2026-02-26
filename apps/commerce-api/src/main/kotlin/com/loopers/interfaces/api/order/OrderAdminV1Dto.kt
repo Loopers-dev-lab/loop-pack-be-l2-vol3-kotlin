@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.order
 
-import com.loopers.domain.order.Order
-import com.loopers.domain.order.OrderItem
+import com.loopers.application.order.OrderInfo
+import com.loopers.application.order.OrderItemInfo
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -22,13 +22,13 @@ class OrderAdminV1Dto {
         val createdAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(order: Order): OrderAdminResponse {
+            fun from(info: OrderInfo): OrderAdminResponse {
                 return OrderAdminResponse(
-                    id = order.id,
-                    userId = order.userId,
-                    totalAmount = order.totalAmount,
-                    items = order.orderItems.map { OrderItemAdminResponse.from(it) },
-                    createdAt = order.createdAt,
+                    id = info.id,
+                    userId = info.userId,
+                    totalAmount = info.totalAmount,
+                    items = info.items.map { OrderItemAdminResponse.from(it) },
+                    createdAt = info.createdAt,
                 )
             }
         }
@@ -50,14 +50,14 @@ class OrderAdminV1Dto {
         val unitPrice: BigDecimal,
     ) {
         companion object {
-            fun from(item: OrderItem): OrderItemAdminResponse {
+            fun from(info: OrderItemInfo): OrderItemAdminResponse {
                 return OrderItemAdminResponse(
-                    id = item.id,
-                    productId = item.productId,
-                    productName = item.productName,
-                    brandName = item.brandName,
-                    quantity = item.quantity,
-                    unitPrice = item.unitPrice,
+                    id = info.id,
+                    productId = info.productId,
+                    productName = info.productName,
+                    brandName = info.brandName,
+                    quantity = info.quantity,
+                    unitPrice = info.unitPrice,
                 )
             }
         }

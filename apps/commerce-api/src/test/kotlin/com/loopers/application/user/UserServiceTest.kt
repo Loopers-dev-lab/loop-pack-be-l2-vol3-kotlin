@@ -1,7 +1,6 @@
 package com.loopers.application.user
 
 import com.loopers.domain.user.PasswordEncoder
-import com.loopers.domain.user.SignUpCommand
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserRepository
 import com.loopers.support.error.CoreException
@@ -70,7 +69,7 @@ class UserServiceTest {
             val result = userService.authenticate(loginId, password)
 
             // assert
-            assertThat(result.loginId).isEqualTo(loginId)
+            assertThat(result).isInstanceOf(AuthenticatedUserInfo::class.java)
         }
 
         @DisplayName("로그인 ID가 존재하지 않으면, UNAUTHORIZED 예외가 발생한다.")
@@ -126,7 +125,7 @@ class UserServiceTest {
         @Test
         fun createsUser_whenValidInfoProvided() {
             // arrange
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
@@ -135,15 +134,15 @@ class UserServiceTest {
             )
             val encodedPassword = "encodedPassword123"
 
-            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
-            whenever(passwordEncoder.encode(command.password)).thenReturn(encodedPassword)
+            whenever(userRepository.existsByLoginId(criteria.loginId)).thenReturn(false)
+            whenever(passwordEncoder.encode(criteria.password)).thenReturn(encodedPassword)
             whenever(userRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            val result = userService.signUp(command)
+            val result = userService.signUp(criteria)
 
             // assert
-            assertThat(result.loginId).isEqualTo(command.loginId)
+            assertThat(result.loginId).isEqualTo(criteria.loginId)
             assertThat(result.password).isEqualTo(encodedPassword)
         }
 
@@ -151,7 +150,7 @@ class UserServiceTest {
         @Test
         fun throwsException_whenLoginIdAlreadyExists() {
             // arrange
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "existingUser",
                 password = "Password1!",
                 name = "홍길동",
@@ -159,11 +158,11 @@ class UserServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(true)
+            whenever(userRepository.existsByLoginId(criteria.loginId)).thenReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.signUp(command)
+                userService.signUp(criteria)
             }
 
             // assert
@@ -174,7 +173,7 @@ class UserServiceTest {
         @Test
         fun throwsException_whenPasswordLessThan8Characters() {
             // arrange
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = "Pass1!",
                 name = "홍길동",
@@ -182,11 +181,11 @@ class UserServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(criteria.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.signUp(command)
+                userService.signUp(criteria)
             }
 
             // assert
@@ -197,7 +196,7 @@ class UserServiceTest {
         @Test
         fun throwsException_whenPasswordMoreThan16Characters() {
             // arrange
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = "Password1!Password1!",
                 name = "홍길동",
@@ -205,11 +204,11 @@ class UserServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(criteria.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.signUp(command)
+                userService.signUp(criteria)
             }
 
             // assert
@@ -221,7 +220,7 @@ class UserServiceTest {
         fun throwsException_whenPasswordContainsBirthDate() {
             // arrange
             val birthDate = LocalDate.of(1990, 1, 15)
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = "Pass19900115!",
                 name = "홍길동",
@@ -229,11 +228,11 @@ class UserServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(criteria.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.signUp(command)
+                userService.signUp(criteria)
             }
 
             // assert
@@ -244,7 +243,7 @@ class UserServiceTest {
         @Test
         fun throwsException_whenPasswordContainsInvalidCharacter() {
             // arrange
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = "Password1! ",
                 name = "홍길동",
@@ -252,11 +251,11 @@ class UserServiceTest {
                 email = "test@example.com",
             )
 
-            whenever(userRepository.existsByLoginId(command.loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(criteria.loginId)).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
-                userService.signUp(command)
+                userService.signUp(criteria)
             }
 
             // assert
@@ -288,7 +287,7 @@ class UserServiceTest {
 
             // assert
             assertThat(result.loginId).isEqualTo("testuser1")
-            assertThat(result.name).isEqualTo("홍길동")
+            assertThat(result.maskedName).isEqualTo("홍길*")
             assertThat(result.email).isEqualTo("test@example.com")
         }
 

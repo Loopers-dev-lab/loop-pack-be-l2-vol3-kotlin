@@ -4,7 +4,6 @@ import com.loopers.application.brand.BrandService
 import com.loopers.application.like.LikeService
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.like.Like
-import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -12,7 +11,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -20,7 +18,9 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
+import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
 class ProductFacadeTest {
@@ -46,7 +46,7 @@ class ProductFacadeTest {
         fun createsProduct_whenBrandExists() {
             // arrange
             val brandId = 1L
-            val command = CreateProductCommand(
+            val criteria = CreateProductCriteria(
                 brandId = brandId,
                 name = "에어맥스 90",
                 price = BigDecimal("129000"),
@@ -54,21 +54,24 @@ class ProductFacadeTest {
                 description = "나이키 에어맥스 90",
                 imageUrl = "https://example.com/airmax90.jpg",
             )
+            val now = ZonedDateTime.now()
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
             val product = Product(
                 brandId = brandId,
-                name = command.name,
-                price = command.price,
-                stock = command.stock,
-                description = command.description,
-                imageUrl = command.imageUrl,
+                name = criteria.name,
+                price = criteria.price,
+                stock = criteria.stock,
+                description = criteria.description,
+                imageUrl = criteria.imageUrl,
             )
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
 
             whenever(brandService.getBrand(brandId)).thenReturn(brand)
             whenever(productService.createProduct(any())).thenReturn(product)
 
             // act
-            val result = productFacade.createProduct(command)
+            val result = productFacade.createProduct(criteria)
 
             // assert
             assertThat(result.name).isEqualTo("에어맥스 90")
@@ -78,7 +81,7 @@ class ProductFacadeTest {
         @Test
         fun throwsException_whenBrandNotFound() {
             // arrange
-            val command = CreateProductCommand(
+            val criteria = CreateProductCriteria(
                 brandId = 999L,
                 name = "에어맥스 90",
                 price = BigDecimal("129000"),
@@ -93,7 +96,7 @@ class ProductFacadeTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                productFacade.createProduct(command)
+                productFacade.createProduct(criteria)
             }
 
             // assert
@@ -111,6 +114,7 @@ class ProductFacadeTest {
             // arrange
             val userId = 1L
             val productId = 1L
+            val now = ZonedDateTime.now()
             val product = Product(
                 brandId = 1L,
                 name = "에어맥스 90",
@@ -120,6 +124,7 @@ class ProductFacadeTest {
                 imageUrl = null,
             )
             val like = Like(userId = userId, productId = productId)
+            ReflectionTestUtils.setField(like, "createdAt", now)
 
             whenever(productService.getProductIncludingDeleted(productId)).thenReturn(product)
             whenever(likeService.addLike(userId, productId)).thenReturn(like)
@@ -128,10 +133,7 @@ class ProductFacadeTest {
             val result = productFacade.addLike(userId, productId)
 
             // assert
-            assertAll(
-                { assertThat(result.userId).isEqualTo(userId) },
-                { assertThat(result.productId).isEqualTo(productId) },
-            )
+            assertThat(result.productId).isEqualTo(productId)
         }
 
         @DisplayName("상품이 존재하지 않으면, NOT_FOUND 예외가 발생한다.")
@@ -160,6 +162,7 @@ class ProductFacadeTest {
             // arrange
             val userId = 1L
             val productId = 1L
+            val now = ZonedDateTime.now()
             val deletedProduct = Product(
                 brandId = 1L,
                 name = "삭제된 상품",
@@ -170,6 +173,7 @@ class ProductFacadeTest {
             )
             deletedProduct.delete()
             val like = Like(userId = userId, productId = productId)
+            ReflectionTestUtils.setField(like, "createdAt", now)
 
             whenever(productService.getProductIncludingDeleted(productId)).thenReturn(deletedProduct)
             whenever(likeService.addLike(userId, productId)).thenReturn(like)
@@ -178,10 +182,7 @@ class ProductFacadeTest {
             val result = productFacade.addLike(userId, productId)
 
             // assert
-            assertAll(
-                { assertThat(result.userId).isEqualTo(userId) },
-                { assertThat(result.productId).isEqualTo(productId) },
-            )
+            assertThat(result.productId).isEqualTo(productId)
         }
     }
 }

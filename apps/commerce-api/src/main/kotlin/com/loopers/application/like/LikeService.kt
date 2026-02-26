@@ -45,7 +45,7 @@ class LikeService(
     }
 
     @Transactional(readOnly = true)
-    fun getUserLikes(userId: Long): List<Like> {
-        return likeRepository.findAllActiveByUserId(userId)
+    fun getUserLikes(userId: Long): List<LikeInfo> {
+        return likeRepository.findAllActiveByUserId(userId).map { LikeInfo.from(it) }
     }
 }

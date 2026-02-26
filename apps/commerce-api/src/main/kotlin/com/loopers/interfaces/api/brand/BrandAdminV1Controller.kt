@@ -39,7 +39,7 @@ class BrandAdminV1Controller(
         @PathVariable brandId: Long,
     ): ApiResponse<BrandV1Dto.BrandAdminResponse> {
         validateAdminAuth(ldap)
-        return brandService.getBrand(brandId)
+        return brandService.getBrandInfo(brandId)
             .let { BrandV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -50,7 +50,7 @@ class BrandAdminV1Controller(
         @RequestBody request: BrandV1Dto.CreateRequest,
     ): ApiResponse<BrandV1Dto.BrandAdminResponse> {
         validateAdminAuth(ldap)
-        return brandService.createBrand(request.toCommand())
+        return brandService.createBrand(request.toCriteria())
             .let { BrandV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -62,7 +62,7 @@ class BrandAdminV1Controller(
         @RequestBody request: BrandV1Dto.UpdateRequest,
     ): ApiResponse<BrandV1Dto.BrandAdminResponse> {
         validateAdminAuth(ldap)
-        return brandService.updateBrand(brandId, request.toCommand())
+        return brandService.updateBrand(brandId, request.toCriteria())
             .let { BrandV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

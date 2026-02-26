@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.domain.user.SignUpCommand
-import com.loopers.domain.user.User
+import com.loopers.application.user.SignUpCriteria
+import com.loopers.application.user.UserInfo
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 
@@ -20,8 +20,8 @@ class UserV1Dto {
         @Schema(description = "이메일", example = "test@example.com")
         val email: String,
     ) {
-        fun toCommand(): SignUpCommand {
-            return SignUpCommand(
+        fun toCriteria(): SignUpCriteria {
+            return SignUpCriteria(
                 loginId = loginId,
                 password = password,
                 name = name,
@@ -43,12 +43,12 @@ class UserV1Dto {
         val email: String,
     ) {
         companion object {
-            fun from(user: User): UserInfoResponse {
+            fun from(info: UserInfo): UserInfoResponse {
                 return UserInfoResponse(
-                    loginId = user.loginId,
-                    name = user.getMaskedName(),
-                    birthDate = user.birthDate,
-                    email = user.email,
+                    loginId = info.loginId,
+                    name = info.maskedName,
+                    birthDate = info.birthDate,
+                    email = info.email,
                 )
             }
         }

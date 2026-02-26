@@ -3,7 +3,6 @@ package com.loopers.application.order
 import com.loopers.application.brand.BrandService
 import com.loopers.application.product.ProductService
 import com.loopers.domain.brand.Brand
-import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.product.Product
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -21,6 +20,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
 class OrderFacadeTest {
@@ -65,21 +65,26 @@ class OrderFacadeTest {
         fun createsOrder_whenAllStockSufficient() {
             // arrange
             val userId = 1L
+            val now = ZonedDateTime.now()
             val product = createProduct(id = 1L, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100)
-            val commands = listOf(OrderItemCommand(productId = 1L, quantity = 2))
+            val criteria = listOf(OrderItemCriteria(productId = 1L, quantity = 2))
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
 
             whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
             whenever(brandService.getBrandIncludingDeleted(1L)).thenReturn(brand)
-            whenever(orderService.createOrder(any())).thenAnswer { it.arguments[0] }
+            whenever(orderService.createOrder(any())).thenAnswer {
+                val order = it.arguments[0] as com.loopers.domain.order.Order
+                ReflectionTestUtils.setField(order, "createdAt", now)
+                order
+            }
 
             // act
-            val result = orderFacade.createOrder(userId, commands)
+            val result = orderFacade.createOrder(userId, criteria)
 
             // assert
             assertAll(
                 { assertThat(result.order.userId).isEqualTo(userId) },
-                { assertThat(result.order.orderItems).hasSize(1) },
+                { assertThat(result.order.items).hasSize(1) },
                 { assertThat(result.order.totalAmount).isEqualByComparingTo(BigDecimal("258000")) },
                 { assertThat(result.excludedItems).isEmpty() },
                 { assertThat(product.stock).isEqualTo(98) },
@@ -91,24 +96,29 @@ class OrderFacadeTest {
         fun createsPartialOrder_whenSomeStockInsufficient() {
             // arrange
             val userId = 1L
+            val now = ZonedDateTime.now()
             val product1 = createProduct(id = 1L, brandId = 1L, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100)
             val product2 = createProduct(id = 2L, brandId = 2L, name = "울트라부스트", price = BigDecimal("199000"), stock = 0)
-            val commands = listOf(
-                OrderItemCommand(productId = 1L, quantity = 2),
-                OrderItemCommand(productId = 2L, quantity = 1),
+            val criteria = listOf(
+                OrderItemCriteria(productId = 1L, quantity = 2),
+                OrderItemCriteria(productId = 2L, quantity = 1),
             )
             val brand1 = Brand(name = "나이키", description = "스포츠 브랜드")
 
             whenever(productService.getProductsWithLock(listOf(1L, 2L))).thenReturn(listOf(product1, product2))
             whenever(brandService.getBrandIncludingDeleted(1L)).thenReturn(brand1)
-            whenever(orderService.createOrder(any())).thenAnswer { it.arguments[0] }
+            whenever(orderService.createOrder(any())).thenAnswer {
+                val order = it.arguments[0] as com.loopers.domain.order.Order
+                ReflectionTestUtils.setField(order, "createdAt", now)
+                order
+            }
 
             // act
-            val result = orderFacade.createOrder(userId, commands)
+            val result = orderFacade.createOrder(userId, criteria)
 
             // assert
             assertAll(
-                { assertThat(result.order.orderItems).hasSize(1) },
+                { assertThat(result.order.items).hasSize(1) },
                 { assertThat(result.order.totalAmount).isEqualByComparingTo(BigDecimal("258000")) },
                 { assertThat(result.excludedItems).hasSize(1) },
                 { assertThat(result.excludedItems[0].productId).isEqualTo(2L) },
@@ -121,13 +131,13 @@ class OrderFacadeTest {
             // arrange
             val userId = 1L
             val product = createProduct(id = 1L, name = "에어맥스 90", stock = 0)
-            val commands = listOf(OrderItemCommand(productId = 1L, quantity = 2))
+            val criteria = listOf(OrderItemCriteria(productId = 1L, quantity = 2))
 
             whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
 
             // act
             val exception = assertThrows<CoreException> {
-                orderFacade.createOrder(userId, commands)
+                orderFacade.createOrder(userId, criteria)
             }
 
             // assert
@@ -139,23 +149,28 @@ class OrderFacadeTest {
         fun excludesNonExistentProducts() {
             // arrange
             val userId = 1L
+            val now = ZonedDateTime.now()
             val product = createProduct(id = 1L, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100)
-            val commands = listOf(
-                OrderItemCommand(productId = 1L, quantity = 2),
-                OrderItemCommand(productId = 999L, quantity = 1),
+            val criteria = listOf(
+                OrderItemCriteria(productId = 1L, quantity = 2),
+                OrderItemCriteria(productId = 999L, quantity = 1),
             )
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
 
             whenever(productService.getProductsWithLock(listOf(1L, 999L))).thenReturn(listOf(product))
             whenever(brandService.getBrandIncludingDeleted(1L)).thenReturn(brand)
-            whenever(orderService.createOrder(any())).thenAnswer { it.arguments[0] }
+            whenever(orderService.createOrder(any())).thenAnswer {
+                val order = it.arguments[0] as com.loopers.domain.order.Order
+                ReflectionTestUtils.setField(order, "createdAt", now)
+                order
+            }
 
             // act
-            val result = orderFacade.createOrder(userId, commands)
+            val result = orderFacade.createOrder(userId, criteria)
 
             // assert
             assertAll(
-                { assertThat(result.order.orderItems).hasSize(1) },
+                { assertThat(result.order.items).hasSize(1) },
                 { assertThat(result.excludedItems).hasSize(1) },
                 { assertThat(result.excludedItems[0].productId).isEqualTo(999L) },
                 { assertThat(result.excludedItems[0].reason).contains("존재하지 않") },

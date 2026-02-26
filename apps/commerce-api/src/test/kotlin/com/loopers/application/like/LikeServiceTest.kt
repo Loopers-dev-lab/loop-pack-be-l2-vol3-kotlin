@@ -15,6 +15,8 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.test.util.ReflectionTestUtils
+import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
 class LikeServiceTest {
@@ -141,10 +143,12 @@ class LikeServiceTest {
         fun returnsActiveLikes() {
             // arrange
             val userId = 1L
-            val likes = listOf(
-                Like(userId = userId, productId = 1L),
-                Like(userId = userId, productId = 2L),
-            )
+            val now = ZonedDateTime.now()
+            val like1 = Like(userId = userId, productId = 1L)
+            ReflectionTestUtils.setField(like1, "createdAt", now)
+            val like2 = Like(userId = userId, productId = 2L)
+            ReflectionTestUtils.setField(like2, "createdAt", now)
+            val likes = listOf(like1, like2)
 
             whenever(likeRepository.findAllActiveByUserId(userId)).thenReturn(likes)
 

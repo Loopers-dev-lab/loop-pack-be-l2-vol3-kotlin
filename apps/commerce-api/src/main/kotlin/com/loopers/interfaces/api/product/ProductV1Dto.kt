@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.domain.product.Product
+import com.loopers.application.product.ProductInfo
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 
@@ -24,15 +24,15 @@ class ProductV1Dto {
         val imageUrl: String?,
     ) {
         companion object {
-            fun from(product: Product): ProductResponse {
+            fun from(info: ProductInfo): ProductResponse {
                 return ProductResponse(
-                    id = product.id,
-                    brandId = product.brandId,
-                    name = product.name,
-                    price = product.price,
-                    stock = product.stock,
-                    description = product.description,
-                    imageUrl = product.imageUrl,
+                    id = info.id,
+                    brandId = info.brandId,
+                    name = info.name,
+                    price = info.price,
+                    stock = info.stock,
+                    description = info.description,
+                    imageUrl = info.imageUrl,
                 )
             }
         }

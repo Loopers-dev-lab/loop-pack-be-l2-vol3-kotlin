@@ -17,6 +17,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
@@ -94,9 +95,14 @@ class OrderServiceTest {
         fun returnsOrders_whenOrdersExistInPeriod() {
             // arrange
             val userId = 1L
-            val startAt = ZonedDateTime.now().minusDays(7)
-            val endAt = ZonedDateTime.now()
-            val orders = listOf(Order(userId = userId), Order(userId = userId))
+            val now = ZonedDateTime.now()
+            val startAt = now.minusDays(7)
+            val endAt = now
+            val order1 = Order(userId = userId)
+            ReflectionTestUtils.setField(order1, "createdAt", now)
+            val order2 = Order(userId = userId)
+            ReflectionTestUtils.setField(order2, "createdAt", now)
+            val orders = listOf(order1, order2)
 
             whenever(orderRepository.findAllByUserId(userId, startAt, endAt)).thenReturn(orders)
 
@@ -117,7 +123,12 @@ class OrderServiceTest {
         fun returnsPagedOrders() {
             // arrange
             val pageable = PageRequest.of(0, 20)
-            val orders = listOf(Order(userId = 1L), Order(userId = 2L))
+            val now = ZonedDateTime.now()
+            val order1 = Order(userId = 1L)
+            ReflectionTestUtils.setField(order1, "createdAt", now)
+            val order2 = Order(userId = 2L)
+            ReflectionTestUtils.setField(order2, "createdAt", now)
+            val orders = listOf(order1, order2)
             val page = PageImpl(orders, pageable, 2L)
 
             whenever(orderRepository.findAll(pageable)).thenReturn(page)

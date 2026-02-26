@@ -3,8 +3,6 @@ package com.loopers.application.brand
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandDomainService
 import com.loopers.domain.brand.BrandRepository
-import com.loopers.domain.brand.CreateBrandCommand
-import com.loopers.domain.brand.UpdateBrandCommand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -24,7 +22,9 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
 class BrandServiceTest {
@@ -92,10 +92,14 @@ class BrandServiceTest {
         fun returnsBrandList_whenBrandsExist() {
             // arrange
             val pageable = PageRequest.of(0, 20)
-            val brands = listOf(
-                Brand(name = "나이키", description = "스포츠 브랜드"),
-                Brand(name = "아디다스", description = "독일 스포츠 브랜드"),
-            )
+            val now = ZonedDateTime.now()
+            val brand1 = Brand(name = "나이키", description = "스포츠 브랜드")
+            ReflectionTestUtils.setField(brand1, "createdAt", now)
+            ReflectionTestUtils.setField(brand1, "updatedAt", now)
+            val brand2 = Brand(name = "아디다스", description = "독일 스포츠 브랜드")
+            ReflectionTestUtils.setField(brand2, "createdAt", now)
+            ReflectionTestUtils.setField(brand2, "updatedAt", now)
+            val brands = listOf(brand1, brand2)
             val brandPage = PageImpl(brands, pageable, brands.size.toLong())
 
             whenever(brandRepository.findAll(pageable)).thenReturn(brandPage)
@@ -120,13 +124,19 @@ class BrandServiceTest {
         @Test
         fun createsBrand_whenValidInfoProvided() {
             // arrange
-            val command = CreateBrandCommand(name = "나이키", description = "스포츠 브랜드")
+            val criteria = CreateBrandCriteria(name = "나이키", description = "스포츠 브랜드")
+            val now = ZonedDateTime.now()
 
-            whenever(brandRepository.existsByName(command.name)).thenReturn(false)
-            whenever(brandRepository.save(any())).thenAnswer { it.arguments[0] }
+            whenever(brandRepository.existsByName(criteria.name)).thenReturn(false)
+            whenever(brandRepository.save(any())).thenAnswer {
+                val brand = it.arguments[0] as Brand
+                ReflectionTestUtils.setField(brand, "createdAt", now)
+                ReflectionTestUtils.setField(brand, "updatedAt", now)
+                brand
+            }
 
             // act
-            val result = brandService.createBrand(command)
+            val result = brandService.createBrand(criteria)
 
             // assert
             assertAll(
@@ -139,13 +149,13 @@ class BrandServiceTest {
         @Test
         fun throwsException_whenBrandNameAlreadyExists() {
             // arrange
-            val command = CreateBrandCommand(name = "나이키", description = "스포츠 브랜드")
+            val criteria = CreateBrandCriteria(name = "나이키", description = "스포츠 브랜드")
 
-            whenever(brandRepository.existsByName(command.name)).thenReturn(true)
+            whenever(brandRepository.existsByName(criteria.name)).thenReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
-                brandService.createBrand(command)
+                brandService.createBrand(criteria)
             }
 
             // assert
@@ -162,15 +172,18 @@ class BrandServiceTest {
         fun updatesBrand_whenValidInfoProvided() {
             // arrange
             val brandId = 1L
+            val now = ZonedDateTime.now()
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
-            val command = UpdateBrandCommand(name = "아디다스", description = "독일 스포츠 브랜드")
+            ReflectionTestUtils.setField(brand, "createdAt", now)
+            ReflectionTestUtils.setField(brand, "updatedAt", now)
+            val criteria = UpdateBrandCriteria(name = "아디다스", description = "독일 스포츠 브랜드")
 
             whenever(brandRepository.findById(brandId)).thenReturn(brand)
-            whenever(brandRepository.existsByNameAndIdNot(command.name, brandId)).thenReturn(false)
+            whenever(brandRepository.existsByNameAndIdNot(criteria.name, brandId)).thenReturn(false)
             whenever(brandRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            val result = brandService.updateBrand(brandId, command)
+            val result = brandService.updateBrand(brandId, criteria)
 
             // assert
             assertAll(
@@ -184,13 +197,13 @@ class BrandServiceTest {
         fun throwsException_whenBrandNotFound() {
             // arrange
             val brandId = 999L
-            val command = UpdateBrandCommand(name = "아디다스", description = "독일 스포츠 브랜드")
+            val criteria = UpdateBrandCriteria(name = "아디다스", description = "독일 스포츠 브랜드")
 
             whenever(brandRepository.findById(brandId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
-                brandService.updateBrand(brandId, command)
+                brandService.updateBrand(brandId, criteria)
             }
 
             // assert
@@ -203,14 +216,14 @@ class BrandServiceTest {
             // arrange
             val brandId = 1L
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
-            val command = UpdateBrandCommand(name = "아디다스", description = "설명")
+            val criteria = UpdateBrandCriteria(name = "아디다스", description = "설명")
 
             whenever(brandRepository.findById(brandId)).thenReturn(brand)
-            whenever(brandRepository.existsByNameAndIdNot(command.name, brandId)).thenReturn(true)
+            whenever(brandRepository.existsByNameAndIdNot(criteria.name, brandId)).thenReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
-                brandService.updateBrand(brandId, command)
+                brandService.updateBrand(brandId, criteria)
             }
 
             // assert
@@ -222,15 +235,18 @@ class BrandServiceTest {
         fun updatesBrand_whenSameNameAsSelf() {
             // arrange
             val brandId = 1L
+            val now = ZonedDateTime.now()
             val brand = Brand(name = "나이키", description = "스포츠 브랜드")
-            val command = UpdateBrandCommand(name = "나이키", description = "설명 변경")
+            ReflectionTestUtils.setField(brand, "createdAt", now)
+            ReflectionTestUtils.setField(brand, "updatedAt", now)
+            val criteria = UpdateBrandCriteria(name = "나이키", description = "설명 변경")
 
             whenever(brandRepository.findById(brandId)).thenReturn(brand)
-            whenever(brandRepository.existsByNameAndIdNot(command.name, brandId)).thenReturn(false)
+            whenever(brandRepository.existsByNameAndIdNot(criteria.name, brandId)).thenReturn(false)
             whenever(brandRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            val result = brandService.updateBrand(brandId, command)
+            val result = brandService.updateBrand(brandId, criteria)
 
             // assert
             assertAll(

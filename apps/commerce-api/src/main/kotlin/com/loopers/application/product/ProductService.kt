@@ -1,9 +1,7 @@
 package com.loopers.application.product
 
-import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
-import com.loopers.domain.product.UpdateProductCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
@@ -23,46 +21,53 @@ class ProductService(
     }
 
     @Transactional(readOnly = true)
+    fun getProductInfo(productId: Long): ProductInfo {
+        return ProductInfo.from(getProduct(productId))
+    }
+
+    @Transactional(readOnly = true)
     fun getProductIncludingDeleted(productId: Long): Product {
         return productRepository.findByIdIncludingDeleted(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
     }
 
     @Transactional(readOnly = true)
-    fun getAllProducts(brandId: Long?, pageable: Pageable): Page<Product> {
-        return if (brandId != null) {
+    fun getAllProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> {
+        val products = if (brandId != null) {
             productRepository.findAllByBrandId(brandId, pageable)
         } else {
             productRepository.findAll(pageable)
         }
+        return products.map { ProductInfo.from(it) }
     }
 
     @Transactional
-    fun createProduct(command: CreateProductCommand): Product {
+    fun createProduct(criteria: CreateProductCriteria): Product {
         return productRepository.save(
             Product(
-                brandId = command.brandId,
-                name = command.name,
-                price = command.price,
-                stock = command.stock,
-                description = command.description,
-                imageUrl = command.imageUrl,
+                brandId = criteria.brandId,
+                name = criteria.name,
+                price = criteria.price,
+                stock = criteria.stock,
+                description = criteria.description,
+                imageUrl = criteria.imageUrl,
             ),
         )
     }
 
     @Transactional
-    fun updateProduct(productId: Long, command: UpdateProductCommand): Product {
+    fun updateProduct(productId: Long, criteria: UpdateProductCriteria): ProductInfo {
         val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.update(
-            name = command.name,
-            price = command.price,
-            stock = command.stock,
-            description = command.description,
-            imageUrl = command.imageUrl,
+            name = criteria.name,
+            price = criteria.price,
+            stock = criteria.stock,
+            description = criteria.description,
+            imageUrl = criteria.imageUrl,
         )
-        return productRepository.save(product)
+        val savedProduct = productRepository.save(product)
+        return ProductInfo.from(savedProduct)
     }
 
     @Transactional

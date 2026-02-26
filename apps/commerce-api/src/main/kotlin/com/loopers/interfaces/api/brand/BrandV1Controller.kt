@@ -17,7 +17,7 @@ class BrandV1Controller(
     override fun getBrand(
         @PathVariable brandId: Long,
     ): ApiResponse<BrandV1Dto.BrandResponse> {
-        return brandService.getBrand(brandId)
+        return brandService.getBrandInfo(brandId)
             .let { BrandV1Dto.BrandResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

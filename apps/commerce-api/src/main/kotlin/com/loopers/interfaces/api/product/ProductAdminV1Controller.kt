@@ -43,7 +43,7 @@ class ProductAdminV1Controller(
         @PathVariable productId: Long,
     ): ApiResponse<ProductAdminV1Dto.ProductAdminResponse> {
         validateAdminAuth(ldap)
-        return productService.getProduct(productId)
+        return productService.getProductInfo(productId)
             .let { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -54,7 +54,7 @@ class ProductAdminV1Controller(
         @RequestBody request: ProductAdminV1Dto.CreateRequest,
     ): ApiResponse<ProductAdminV1Dto.ProductAdminResponse> {
         validateAdminAuth(ldap)
-        return productFacade.createProduct(request.toCommand())
+        return productFacade.createProduct(request.toCriteria())
             .let { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -66,7 +66,7 @@ class ProductAdminV1Controller(
         @RequestBody request: ProductAdminV1Dto.UpdateRequest,
     ): ApiResponse<ProductAdminV1Dto.ProductAdminResponse> {
         validateAdminAuth(ldap)
-        return productService.updateProduct(productId, request.toCommand())
+        return productService.updateProduct(productId, request.toCriteria())
             .let { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

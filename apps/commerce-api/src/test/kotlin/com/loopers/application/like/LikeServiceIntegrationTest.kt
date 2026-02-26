@@ -182,7 +182,7 @@ class LikeServiceIntegrationTest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(result).hasSize(1) },
-                { assertThat(result[0].userId).isEqualTo(savedUser.id) },
+                { assertThat(result[0].productId).isEqualTo(savedProduct.id) },
             )
         }
     }

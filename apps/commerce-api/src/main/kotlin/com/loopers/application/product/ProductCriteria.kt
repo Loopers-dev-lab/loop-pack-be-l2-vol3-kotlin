@@ -1,8 +1,8 @@
-package com.loopers.domain.product
+package com.loopers.application.product
 
 import java.math.BigDecimal
 
-data class CreateProductCommand(
+data class CreateProductCriteria(
     val brandId: Long,
     val name: String,
     val price: BigDecimal,
@@ -11,7 +11,7 @@ data class CreateProductCommand(
     val imageUrl: String?,
 )
 
-data class UpdateProductCommand(
+data class UpdateProductCriteria(
     val name: String,
     val price: BigDecimal,
     val stock: Int,

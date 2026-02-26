@@ -1,11 +1,11 @@
-package com.loopers.domain.brand
+package com.loopers.application.brand
 
-data class CreateBrandCommand(
+data class CreateBrandCriteria(
     val name: String,
     val description: String?,
 )
 
-data class UpdateBrandCommand(
+data class UpdateBrandCriteria(
     val name: String,
     val description: String?,
 )

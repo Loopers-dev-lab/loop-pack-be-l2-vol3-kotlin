@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.brand
 
-import com.loopers.domain.brand.Brand
-import com.loopers.domain.brand.CreateBrandCommand
-import com.loopers.domain.brand.UpdateBrandCommand
+import com.loopers.application.brand.BrandInfo
+import com.loopers.application.brand.CreateBrandCriteria
+import com.loopers.application.brand.UpdateBrandCriteria
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.ZonedDateTime
 
@@ -18,11 +18,11 @@ class BrandV1Dto {
         val description: String?,
     ) {
         companion object {
-            fun from(brand: Brand): BrandResponse {
+            fun from(info: BrandInfo): BrandResponse {
                 return BrandResponse(
-                    id = brand.id,
-                    name = brand.name,
-                    description = brand.description,
+                    id = info.id,
+                    name = info.name,
+                    description = info.description,
                 )
             }
         }
@@ -42,13 +42,13 @@ class BrandV1Dto {
         val updatedAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(brand: Brand): BrandAdminResponse {
+            fun from(info: BrandInfo): BrandAdminResponse {
                 return BrandAdminResponse(
-                    id = brand.id,
-                    name = brand.name,
-                    description = brand.description,
-                    createdAt = brand.createdAt,
-                    updatedAt = brand.updatedAt,
+                    id = info.id,
+                    name = info.name,
+                    description = info.description,
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
                 )
             }
         }
@@ -61,8 +61,8 @@ class BrandV1Dto {
         @Schema(description = "브랜드 설명", example = "스포츠 브랜드")
         val description: String?,
     ) {
-        fun toCommand(): CreateBrandCommand {
-            return CreateBrandCommand(
+        fun toCriteria(): CreateBrandCriteria {
+            return CreateBrandCriteria(
                 name = name,
                 description = description,
             )
@@ -76,8 +76,8 @@ class BrandV1Dto {
         @Schema(description = "브랜드 설명", example = "독일 스포츠 브랜드")
         val description: String?,
     ) {
-        fun toCommand(): UpdateBrandCommand {
-            return UpdateBrandCommand(
+        fun toCriteria(): UpdateBrandCriteria {
+            return UpdateBrandCriteria(
                 name = name,
                 description = description,
             )

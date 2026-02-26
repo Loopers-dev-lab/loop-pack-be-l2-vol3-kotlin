@@ -1,7 +1,6 @@
 package com.loopers.application.user
 
 import com.loopers.domain.user.PasswordEncoder
-import com.loopers.domain.user.SignUpCommand
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserRepository
 import com.loopers.support.error.CoreException
@@ -22,7 +21,7 @@ class UserService(
 ) {
 
     @Transactional(readOnly = true)
-    fun authenticate(loginId: String, password: String): User {
+    fun authenticate(loginId: String, password: String): AuthenticatedUserInfo {
         val user = userRepository.findByLoginId(loginId)
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "로그인 정보가 올바르지 않습니다.")
 
@@ -30,31 +29,32 @@ class UserService(
             throw CoreException(ErrorType.UNAUTHORIZED, "로그인 정보가 올바르지 않습니다.")
         }
 
-        return user
+        return AuthenticatedUserInfo.from(user)
     }
 
     @Transactional
-    fun signUp(command: SignUpCommand): User {
-        validateLoginIdNotDuplicated(command.loginId)
-        validatePassword(command.password, command.birthDate.format(BIRTH_DATE_FORMAT))
+    fun signUp(criteria: SignUpCriteria): User {
+        validateLoginIdNotDuplicated(criteria.loginId)
+        validatePassword(criteria.password, criteria.birthDate.format(BIRTH_DATE_FORMAT))
 
-        val encodedPassword = passwordEncoder.encode(command.password)
+        val encodedPassword = passwordEncoder.encode(criteria.password)
 
         return userRepository.save(
             User(
-                loginId = command.loginId,
+                loginId = criteria.loginId,
                 password = encodedPassword,
-                name = command.name,
-                birthDate = command.birthDate,
-                email = command.email,
+                name = criteria.name,
+                birthDate = criteria.birthDate,
+                email = criteria.email,
             ),
         )
     }
 
     @Transactional(readOnly = true)
-    fun getMyInfo(userId: Long): User {
-        return userRepository.findById(userId)
+    fun getMyInfo(userId: Long): UserInfo {
+        val user = userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다.")
+        return UserInfo.from(user)
     }
 
     @Transactional

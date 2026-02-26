@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.like
 
-import com.loopers.domain.like.Like
+import com.loopers.application.like.LikeInfo
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.ZonedDateTime
 
@@ -16,11 +16,11 @@ class LikeV1Dto {
         val createdAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(like: Like): LikeResponse {
+            fun from(info: LikeInfo): LikeResponse {
                 return LikeResponse(
-                    id = like.id,
-                    productId = like.productId,
-                    createdAt = like.createdAt,
+                    id = info.id,
+                    productId = info.productId,
+                    createdAt = info.createdAt,
                 )
             }
         }

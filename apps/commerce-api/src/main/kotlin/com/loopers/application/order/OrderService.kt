@@ -27,12 +27,17 @@ class OrderService(
     }
 
     @Transactional(readOnly = true)
-    fun getUserOrders(userId: Long, startAt: ZonedDateTime, endAt: ZonedDateTime): List<Order> {
-        return orderRepository.findAllByUserId(userId, startAt, endAt)
+    fun getOrderInfo(orderId: Long): OrderInfo {
+        return OrderInfo.from(getOrder(orderId))
     }
 
     @Transactional(readOnly = true)
-    fun getAllOrders(pageable: Pageable): Page<Order> {
-        return orderRepository.findAll(pageable)
+    fun getUserOrders(userId: Long, startAt: ZonedDateTime, endAt: ZonedDateTime): List<OrderInfo> {
+        return orderRepository.findAllByUserId(userId, startAt, endAt).map { OrderInfo.from(it) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getAllOrders(pageable: Pageable): Page<OrderInfo> {
+        return orderRepository.findAll(pageable).map { OrderInfo.from(it) }
     }
 }

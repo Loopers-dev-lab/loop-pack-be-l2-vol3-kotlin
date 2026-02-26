@@ -1,9 +1,7 @@
 package com.loopers.application.product
 
-import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
-import com.loopers.domain.product.UpdateProductCommand
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -20,7 +18,9 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
 class ProductServiceTest {
@@ -109,10 +109,14 @@ class ProductServiceTest {
         fun returnsAllProducts_whenNoBrandIdFilter() {
             // arrange
             val pageable = PageRequest.of(0, 20)
-            val products = listOf(
-                createProduct(name = "에어맥스 90"),
-                createProduct(name = "에어포스 1"),
-            )
+            val now = ZonedDateTime.now()
+            val product1 = createProduct(name = "에어맥스 90")
+            ReflectionTestUtils.setField(product1, "createdAt", now)
+            ReflectionTestUtils.setField(product1, "updatedAt", now)
+            val product2 = createProduct(name = "에어포스 1")
+            ReflectionTestUtils.setField(product2, "createdAt", now)
+            ReflectionTestUtils.setField(product2, "updatedAt", now)
+            val products = listOf(product1, product2)
             val productPage = PageImpl(products, pageable, products.size.toLong())
 
             whenever(productRepository.findAll(pageable)).thenReturn(productPage)
@@ -134,7 +138,11 @@ class ProductServiceTest {
             // arrange
             val brandId = 1L
             val pageable = PageRequest.of(0, 20)
-            val products = listOf(createProduct(brandId = brandId))
+            val now = ZonedDateTime.now()
+            val product = createProduct(brandId = brandId)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+            val products = listOf(product)
             val productPage = PageImpl(products, pageable, products.size.toLong())
 
             whenever(productRepository.findAllByBrandId(brandId, pageable)).thenReturn(productPage)
@@ -158,7 +166,7 @@ class ProductServiceTest {
         @Test
         fun createsProduct_whenValidInfoProvided() {
             // arrange
-            val command = CreateProductCommand(
+            val criteria = CreateProductCriteria(
                 brandId = TEST_BRAND_ID,
                 name = TEST_NAME,
                 price = TEST_PRICE,
@@ -170,7 +178,7 @@ class ProductServiceTest {
             whenever(productRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            val result = productService.createProduct(command)
+            val result = productService.createProduct(criteria)
 
             // assert
             assertAll(
@@ -193,8 +201,11 @@ class ProductServiceTest {
         fun updatesProduct_whenValidInfoProvided() {
             // arrange
             val productId = 1L
+            val now = ZonedDateTime.now()
             val product = createProduct()
-            val command = UpdateProductCommand(
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+            val criteria = UpdateProductCriteria(
                 name = "에어포스 1",
                 price = BigDecimal("139000"),
                 stock = 50,
@@ -206,7 +217,7 @@ class ProductServiceTest {
             whenever(productRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
-            val result = productService.updateProduct(productId, command)
+            val result = productService.updateProduct(productId, criteria)
 
             // assert
             assertAll(
@@ -223,7 +234,7 @@ class ProductServiceTest {
         fun throwsException_whenProductNotFound() {
             // arrange
             val productId = 999L
-            val command = UpdateProductCommand(
+            val criteria = UpdateProductCriteria(
                 name = "에어포스 1",
                 price = BigDecimal("139000"),
                 stock = 50,
@@ -235,7 +246,7 @@ class ProductServiceTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                productService.updateProduct(productId, command)
+                productService.updateProduct(productId, criteria)
             }
 
             // assert

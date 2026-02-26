@@ -34,7 +34,7 @@ class UserV1Controller(
     fun signUp(
         @RequestBody request: UserV1Dto.SignUpRequest,
     ): ApiResponse<Any> {
-        userService.signUp(request.toCommand())
+        userService.signUp(request.toCriteria())
         return ApiResponse.success()
     }
 
@@ -52,8 +52,9 @@ class UserV1Controller(
         @Parameter(description = "비밀번호", required = true)
         @RequestHeader("X-Loopers-LoginPw") password: String,
     ): ApiResponse<UserV1Dto.UserInfoResponse> {
-        val user = userService.authenticate(loginId, password)
-        return UserV1Dto.UserInfoResponse.from(user)
+        val authUser = userService.authenticate(loginId, password)
+        val userInfo = userService.getMyInfo(authUser.id)
+        return UserV1Dto.UserInfoResponse.from(userInfo)
             .let { ApiResponse.success(it) }
     }
 
@@ -73,8 +74,8 @@ class UserV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
-        val user = userService.authenticate(loginId, password)
-        userService.changePassword(user.id, request.currentPassword, request.newPassword)
+        val authUser = userService.authenticate(loginId, password)
+        userService.changePassword(authUser.id, request.currentPassword, request.newPassword)
         return ApiResponse.success()
     }
 }

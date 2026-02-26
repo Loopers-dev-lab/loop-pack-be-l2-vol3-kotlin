@@ -1,7 +1,6 @@
 package com.loopers.application.order
 
 import com.loopers.domain.brand.Brand
-import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.product.Product
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.order.OrderJpaRepository
@@ -71,10 +70,10 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             // arrange
             val brand = createBrand()
             val product = createProduct(brand = brand, stock = 100)
-            val commands = listOf(OrderItemCommand(productId = product.id, quantity = 2))
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 2))
 
             // act
-            val result = orderFacade.createOrder(userId = 1L, commands = commands)
+            val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
 
             // assert
             val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!
@@ -95,17 +94,17 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val brand = createBrand()
             val product1 = createProduct(brand = brand, name = "에어맥스 90", stock = 100)
             val product2 = createProduct(brand = brand, name = "에어포스 1", stock = 0)
-            val commands = listOf(
-                OrderItemCommand(productId = product1.id, quantity = 2),
-                OrderItemCommand(productId = product2.id, quantity = 1),
+            val criteria = listOf(
+                OrderItemCriteria(productId = product1.id, quantity = 2),
+                OrderItemCriteria(productId = product2.id, quantity = 1),
             )
 
             // act
-            val result = orderFacade.createOrder(userId = 1L, commands = commands)
+            val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
 
             // assert
             assertAll(
-                { assertThat(result.order.orderItems).hasSize(1) },
+                { assertThat(result.order.items).hasSize(1) },
                 { assertThat(result.excludedItems).hasSize(1) },
                 { assertThat(result.excludedItems[0].productId).isEqualTo(product2.id) },
             )
@@ -117,11 +116,11 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             // arrange
             val brand = createBrand()
             val product = createProduct(brand = brand, stock = 0)
-            val commands = listOf(OrderItemCommand(productId = product.id, quantity = 1))
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 1))
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                orderFacade.createOrder(userId = 1L, commands = commands)
+                orderFacade.createOrder(userId = 1L, criteria = criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -132,10 +131,10 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             // arrange
             val brand = createBrand(name = "나이키")
             val product = createProduct(brand = brand, name = "에어맥스 90", price = BigDecimal("129000"), stock = 100)
-            val commands = listOf(OrderItemCommand(productId = product.id, quantity = 1))
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 1))
 
             // act
-            val result = orderFacade.createOrder(userId = 1L, commands = commands)
+            val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
 
             // assert
             val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!

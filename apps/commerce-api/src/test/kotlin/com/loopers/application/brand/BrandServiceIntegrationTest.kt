@@ -1,8 +1,6 @@
 package com.loopers.application.brand
 
 import com.loopers.domain.brand.Brand
-import com.loopers.domain.brand.CreateBrandCommand
-import com.loopers.domain.brand.UpdateBrandCommand
 import com.loopers.domain.product.Product
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
@@ -135,10 +133,10 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun savesBrandToDatabase_whenValidInfoProvided() {
             // arrange
-            val command = CreateBrandCommand(name = "나이키", description = "스포츠 브랜드")
+            val criteria = CreateBrandCriteria(name = "나이키", description = "스포츠 브랜드")
 
             // act
-            val result = brandService.createBrand(command)
+            val result = brandService.createBrand(criteria)
 
             // assert
             val saved = brandJpaRepository.findByIdAndDeletedAtIsNull(result.id)!!
@@ -153,11 +151,11 @@ class BrandServiceIntegrationTest @Autowired constructor(
         fun throwsConflict_whenDuplicateName() {
             // arrange
             brandJpaRepository.save(Brand(name = "나이키", description = "기존 브랜드"))
-            val command = CreateBrandCommand(name = "나이키", description = "새 브랜드")
+            val criteria = CreateBrandCriteria(name = "나이키", description = "새 브랜드")
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                brandService.createBrand(command)
+                brandService.createBrand(criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
@@ -172,10 +170,10 @@ class BrandServiceIntegrationTest @Autowired constructor(
         fun updatesBrandInDatabase_whenValidInfoProvided() {
             // arrange
             val saved = brandJpaRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
-            val command = UpdateBrandCommand(name = "아디다스", description = "독일 스포츠 브랜드")
+            val criteria = UpdateBrandCriteria(name = "아디다스", description = "독일 스포츠 브랜드")
 
             // act
-            brandService.updateBrand(saved.id, command)
+            brandService.updateBrand(saved.id, criteria)
 
             // assert
             val updated = brandJpaRepository.findByIdAndDeletedAtIsNull(saved.id)!!
@@ -191,11 +189,11 @@ class BrandServiceIntegrationTest @Autowired constructor(
             // arrange
             brandJpaRepository.save(Brand(name = "아디다스", description = "독일 스포츠 브랜드"))
             val target = brandJpaRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
-            val command = UpdateBrandCommand(name = "아디다스", description = "설명 변경")
+            val criteria = UpdateBrandCriteria(name = "아디다스", description = "설명 변경")
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                brandService.updateBrand(target.id, command)
+                brandService.updateBrand(target.id, criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
@@ -204,11 +202,11 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFound_whenBrandNotExists() {
             // arrange
-            val command = UpdateBrandCommand(name = "아디다스", description = "설명")
+            val criteria = UpdateBrandCriteria(name = "아디다스", description = "설명")
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                brandService.updateBrand(999L, command)
+                brandService.updateBrand(999L, criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }

@@ -33,7 +33,7 @@ class ProductV1Controller(
     override fun getProduct(
         @PathVariable productId: Long,
     ): ApiResponse<ProductV1Dto.ProductResponse> {
-        return productService.getProduct(productId)
+        return productService.getProductInfo(productId)
             .let { ProductV1Dto.ProductResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

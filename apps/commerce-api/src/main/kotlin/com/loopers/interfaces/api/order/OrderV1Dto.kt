@@ -1,10 +1,10 @@
 package com.loopers.interfaces.api.order
 
-import com.loopers.domain.order.ExcludedItem
-import com.loopers.domain.order.Order
-import com.loopers.domain.order.OrderItem
-import com.loopers.domain.order.OrderItemCommand
-import com.loopers.domain.order.OrderResult
+import com.loopers.application.order.ExcludedItemInfo
+import com.loopers.application.order.OrderInfo
+import com.loopers.application.order.OrderItemCriteria
+import com.loopers.application.order.OrderItemInfo
+import com.loopers.application.order.OrderResultInfo
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -16,8 +16,8 @@ class OrderV1Dto {
         @Schema(description = "주문 항목 목록")
         val items: List<OrderItemRequest>,
     ) {
-        fun toCommands(): List<OrderItemCommand> {
-            return items.map { OrderItemCommand(productId = it.productId, quantity = it.quantity) }
+        fun toCriteria(): List<OrderItemCriteria> {
+            return items.map { OrderItemCriteria(productId = it.productId, quantity = it.quantity) }
         }
     }
 
@@ -41,11 +41,11 @@ class OrderV1Dto {
         val excludedItems: List<ExcludedItemResponse>,
     ) {
         companion object {
-            fun from(result: OrderResult): CreateOrderResponse {
+            fun from(result: OrderResultInfo): CreateOrderResponse {
                 return CreateOrderResponse(
                     orderId = result.order.id,
                     totalAmount = result.order.totalAmount,
-                    items = result.order.orderItems.map { OrderItemResponse.from(it) },
+                    items = result.order.items.map { OrderItemResponse.from(it) },
                     excludedItems = result.excludedItems.map { ExcludedItemResponse.from(it) },
                 )
             }
@@ -66,13 +66,13 @@ class OrderV1Dto {
         val createdAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(order: Order): OrderResponse {
+            fun from(info: OrderInfo): OrderResponse {
                 return OrderResponse(
-                    id = order.id,
-                    userId = order.userId,
-                    totalAmount = order.totalAmount,
-                    items = order.orderItems.map { OrderItemResponse.from(it) },
-                    createdAt = order.createdAt,
+                    id = info.id,
+                    userId = info.userId,
+                    totalAmount = info.totalAmount,
+                    items = info.items.map { OrderItemResponse.from(it) },
+                    createdAt = info.createdAt,
                 )
             }
         }
@@ -90,12 +90,12 @@ class OrderV1Dto {
         val createdAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(order: Order): OrderSummaryResponse {
+            fun from(info: OrderInfo): OrderSummaryResponse {
                 return OrderSummaryResponse(
-                    id = order.id,
-                    totalAmount = order.totalAmount,
-                    itemCount = order.orderItems.size,
-                    createdAt = order.createdAt,
+                    id = info.id,
+                    totalAmount = info.totalAmount,
+                    itemCount = info.items.size,
+                    createdAt = info.createdAt,
                 )
             }
         }
@@ -117,14 +117,14 @@ class OrderV1Dto {
         val unitPrice: BigDecimal,
     ) {
         companion object {
-            fun from(item: OrderItem): OrderItemResponse {
+            fun from(info: OrderItemInfo): OrderItemResponse {
                 return OrderItemResponse(
-                    id = item.id,
-                    productId = item.productId,
-                    productName = item.productName,
-                    brandName = item.brandName,
-                    quantity = item.quantity,
-                    unitPrice = item.unitPrice,
+                    id = info.id,
+                    productId = info.productId,
+                    productName = info.productName,
+                    brandName = info.brandName,
+                    quantity = info.quantity,
+                    unitPrice = info.unitPrice,
                 )
             }
         }
@@ -138,10 +138,10 @@ class OrderV1Dto {
         val reason: String,
     ) {
         companion object {
-            fun from(item: ExcludedItem): ExcludedItemResponse {
+            fun from(info: ExcludedItemInfo): ExcludedItemResponse {
                 return ExcludedItemResponse(
-                    productId = item.productId,
-                    reason = item.reason,
+                    productId = info.productId,
+                    reason = info.reason,
                 )
             }
         }

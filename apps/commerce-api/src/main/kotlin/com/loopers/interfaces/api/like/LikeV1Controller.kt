@@ -26,8 +26,8 @@ class LikeV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable productId: Long,
     ): ApiResponse<Any> {
-        val user = userService.authenticate(loginId, password)
-        productFacade.addLike(user.id, productId)
+        val authUser = userService.authenticate(loginId, password)
+        productFacade.addLike(authUser.id, productId)
         return ApiResponse.success()
     }
 
@@ -37,8 +37,8 @@ class LikeV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable productId: Long,
     ): ApiResponse<Any> {
-        val user = userService.authenticate(loginId, password)
-        likeService.cancelLike(user.id, productId)
+        val authUser = userService.authenticate(loginId, password)
+        likeService.cancelLike(authUser.id, productId)
         return ApiResponse.success()
     }
 
@@ -48,9 +48,9 @@ class LikeV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable userId: Long,
     ): ApiResponse<List<LikeV1Dto.LikeResponse>> {
-        val user = userService.authenticate(loginId, password)
+        val authUser = userService.authenticate(loginId, password)
 
-        if (user.id != userId) {
+        if (authUser.id != userId) {
             throw CoreException(ErrorType.FORBIDDEN, "본인의 좋아요 목록만 조회할 수 있습니다.")
         }
 

@@ -1,7 +1,6 @@
 package com.loopers.application.user
 
 import com.loopers.domain.user.PasswordEncoder
-import com.loopers.domain.user.SignUpCommand
 import com.loopers.domain.user.User
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
@@ -44,7 +43,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         @Test
         fun savesUserToDatabase_whenValidInfoProvided() {
             // arrange
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
@@ -53,7 +52,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             )
 
             // act
-            val result = userService.signUp(command)
+            val result = userService.signUp(criteria)
 
             // assert
             val savedUser = userJpaRepository.findByLoginId("testuser1")!!
@@ -70,7 +69,7 @@ class UserServiceIntegrationTest @Autowired constructor(
         fun savesEncodedPassword_whenSignUp() {
             // arrange
             val rawPassword = "Password1!"
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = rawPassword,
                 name = "홍길동",
@@ -79,7 +78,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             )
 
             // act
-            userService.signUp(command)
+            userService.signUp(criteria)
 
             // assert
             val savedUser = userJpaRepository.findByLoginId("testuser1")!!
@@ -102,7 +101,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             )
             userJpaRepository.save(existingUser)
 
-            val command = SignUpCommand(
+            val criteria = SignUpCriteria(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "신규회원",
@@ -112,7 +111,7 @@ class UserServiceIntegrationTest @Autowired constructor(
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                userService.signUp(command)
+                userService.signUp(criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
@@ -143,7 +142,7 @@ class UserServiceIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(result.id).isEqualTo(savedUser.id) },
                 { assertThat(result.loginId).isEqualTo("testuser1") },
-                { assertThat(result.name).isEqualTo("홍길동") },
+                { assertThat(result.maskedName).isEqualTo("홍길*") },
                 { assertThat(result.email).isEqualTo("test@example.com") },
             )
         }

@@ -29,8 +29,8 @@ class OrderV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestBody request: OrderV1Dto.CreateRequest,
     ): ApiResponse<OrderV1Dto.CreateOrderResponse> {
-        val user = userService.authenticate(loginId, password)
-        val result = orderFacade.createOrder(user.id, request.toCommands())
+        val authUser = userService.authenticate(loginId, password)
+        val result = orderFacade.createOrder(authUser.id, request.toCriteria())
         return ApiResponse.success(OrderV1Dto.CreateOrderResponse.from(result))
     }
 
@@ -41,8 +41,8 @@ class OrderV1Controller(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) startAt: ZonedDateTime,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) endAt: ZonedDateTime,
     ): ApiResponse<List<OrderV1Dto.OrderSummaryResponse>> {
-        val user = userService.authenticate(loginId, password)
-        return orderService.getUserOrders(user.id, startAt, endAt)
+        val authUser = userService.authenticate(loginId, password)
+        return orderService.getUserOrders(authUser.id, startAt, endAt)
             .map { OrderV1Dto.OrderSummaryResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -53,13 +53,13 @@ class OrderV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable orderId: Long,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
-        val user = userService.authenticate(loginId, password)
-        val order = orderService.getOrder(orderId)
+        val authUser = userService.authenticate(loginId, password)
+        val orderInfo = orderService.getOrderInfo(orderId)
 
-        if (order.userId != user.id) {
+        if (orderInfo.userId != authUser.id) {
             throw CoreException(ErrorType.FORBIDDEN, "본인의 주문만 조회할 수 있습니다.")
         }
 
-        return ApiResponse.success(OrderV1Dto.OrderResponse.from(order))
+        return ApiResponse.success(OrderV1Dto.OrderResponse.from(orderInfo))
     }
 }

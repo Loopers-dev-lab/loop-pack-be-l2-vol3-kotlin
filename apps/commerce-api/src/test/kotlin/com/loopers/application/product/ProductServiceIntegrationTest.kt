@@ -2,7 +2,6 @@ package com.loopers.application.product
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
-import com.loopers.domain.product.UpdateProductCommand
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.support.error.CoreException
@@ -185,7 +184,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
             // arrange
             val brand = createBrand()
             val saved = createProduct(brandId = brand.id)
-            val command = UpdateProductCommand(
+            val criteria = UpdateProductCriteria(
                 name = "에어포스 1",
                 price = BigDecimal("139000"),
                 stock = 50,
@@ -194,7 +193,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
             )
 
             // act
-            productService.updateProduct(saved.id, command)
+            productService.updateProduct(saved.id, criteria)
 
             // assert
             val updated = productJpaRepository.findByIdAndDeletedAtIsNull(saved.id)!!
@@ -210,7 +209,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFound_whenProductNotExists() {
             // arrange
-            val command = UpdateProductCommand(
+            val criteria = UpdateProductCriteria(
                 name = "에어포스 1",
                 price = BigDecimal("139000"),
                 stock = 50,
@@ -220,7 +219,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                productService.updateProduct(999L, command)
+                productService.updateProduct(999L, criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }

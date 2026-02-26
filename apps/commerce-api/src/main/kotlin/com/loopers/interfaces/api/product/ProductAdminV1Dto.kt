@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.domain.product.CreateProductCommand
-import com.loopers.domain.product.Product
-import com.loopers.domain.product.UpdateProductCommand
+import com.loopers.application.product.CreateProductCriteria
+import com.loopers.application.product.ProductInfo
+import com.loopers.application.product.UpdateProductCriteria
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -31,17 +31,17 @@ class ProductAdminV1Dto {
         val updatedAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(product: Product): ProductAdminResponse {
+            fun from(info: ProductInfo): ProductAdminResponse {
                 return ProductAdminResponse(
-                    id = product.id,
-                    brandId = product.brandId,
-                    name = product.name,
-                    price = product.price,
-                    stock = product.stock,
-                    description = product.description,
-                    imageUrl = product.imageUrl,
-                    createdAt = product.createdAt,
-                    updatedAt = product.updatedAt,
+                    id = info.id,
+                    brandId = info.brandId,
+                    name = info.name,
+                    price = info.price,
+                    stock = info.stock,
+                    description = info.description,
+                    imageUrl = info.imageUrl,
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
                 )
             }
         }
@@ -62,8 +62,8 @@ class ProductAdminV1Dto {
         @Schema(description = "이미지 URL", example = "https://example.com/airmax90.jpg")
         val imageUrl: String?,
     ) {
-        fun toCommand(): CreateProductCommand {
-            return CreateProductCommand(
+        fun toCriteria(): CreateProductCriteria {
+            return CreateProductCriteria(
                 brandId = brandId,
                 name = name,
                 price = price,
@@ -87,8 +87,8 @@ class ProductAdminV1Dto {
         @Schema(description = "이미지 URL", example = "https://example.com/airforce1.jpg")
         val imageUrl: String?,
     ) {
-        fun toCommand(): UpdateProductCommand {
-            return UpdateProductCommand(
+        fun toCriteria(): UpdateProductCriteria {
+            return UpdateProductCriteria(
                 name = name,
                 price = price,
                 stock = stock,
