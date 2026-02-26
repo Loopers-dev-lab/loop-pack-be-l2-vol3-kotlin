@@ -17,18 +17,18 @@
 
 ## CP0: VO 생성 및 Money 이동 (non-breaking)
 
-- [ ] `domain/common/vo/UserId.kt` — `@JvmInline value class UserId(val value: Long)`
-- [ ] `domain/common/vo/ProductId.kt` — `@JvmInline value class ProductId(val value: Long)`
-- [ ] `domain/common/vo/OrderId.kt` — `@JvmInline value class OrderId(val value: Long)`
-- [ ] `domain/common/vo/BrandId.kt` — `@JvmInline value class BrandId(val value: Long)`
-- [ ] `domain/order/vo/Quantity.kt` — `@JvmInline value class Quantity(val value: Int)` + `init { require value > 0 }`
-- [ ] `domain/common/Money.kt` → `domain/common/vo/Money.kt` 이동 + import 전체 수정
+- [x] `domain/common/vo/UserId.kt` — `@JvmInline value class UserId(val value: Long)`
+- [x] `domain/common/vo/ProductId.kt` — `@JvmInline value class ProductId(val value: Long)`
+- [x] `domain/common/vo/OrderId.kt` — `@JvmInline value class OrderId(val value: Long)`
+- [x] `domain/common/vo/BrandId.kt` — `@JvmInline value class BrandId(val value: Long)`
+- [x] `domain/order/vo/Quantity.kt` — `@JvmInline value class Quantity(val value: Int)` + `init { require value > 0 }`
+- [x] `domain/common/Money.kt` → `domain/common/vo/Money.kt` 이동 + import 전체 수정
 
 **파일**: 신규 5개, 이동 1개 (Money)
 
 ---
 
-## CP1: Domain 레이어 변경
+## CP1: Domain 레이어 변경 ✅ 완료
 
 ### Domain Models
 
@@ -68,7 +68,7 @@
 
 ---
 
-## CP2: Infrastructure 레이어 변경
+## CP2: Infrastructure 레이어 변경 ✅ 완료
 
 ### Entity 매핑 (fromDomain / toDomain)
 
@@ -91,7 +91,7 @@ Repository 인터페이스와 동일하게 VO 타입으로 변경. 내부에서 
 
 ---
 
-## CP3: Application 레이어 변경
+## CP3: Application 레이어 변경 ✅ 완료
 
 ### UseCase — execute() 시그니처는 Long 유지, 내부 변환
 
@@ -125,7 +125,7 @@ data class ProductInfo(val id: Long, ...) {
 
 ---
 
-## CP4: 테스트 변경
+## CP4: 테스트 변경 ✅ 완료
 
 ### Fake Repository (8개)
 
