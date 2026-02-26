@@ -7,6 +7,7 @@ paths:
 
 ## Entity
 
+- JPA 어노테이션 + 비즈니스 로직을 함께 가진다 (분리하지 않음)
 - `private constructor` + `companion object { fun create() }`
 - 생성 시 유효성 검증
 - 불변 필드는 `val`, 가변 필드는 `var ... protected set`
@@ -40,6 +41,28 @@ class Product private constructor(
 }
 ```
 
+## 도메인 Entity 간 참조 규칙
+
+Entity는 다른 도메인 Entity 타입을 직접 참조하지 않는다. (파라미터로 받는 것도 포함)
+
+다른 도메인의 값이 필요한 경우:
+- 단순한 값 (ID, 이름 등 스냅샷) → 원시 타입으로 전달
+
+```kotlin
+// ✅ 원시 타입으로 전달
+class OrderItem private constructor(
+    val productId: Long,        // Product 타입이 아닌 Long
+    val productName: String,    // 스냅샷 값
+    val brandName: String,      // 스냅샷 값
+)
+
+// ❌ 다른 도메인 Entity를 직접 참조
+class OrderItem private constructor(
+    val product: Product,       // 금지
+    val brand: Brand,           // 금지
+)
+```
+
 ## Value Object (VO)
 
 - 도메인 규칙을 값 자체에 내장 — 잘못된 값이 존재할 수 없음
@@ -47,7 +70,6 @@ class Product private constructor(
 - 생성자에서 불변식 검증
 
 ```kotlin
-// Money: 금액 >= 0 보장
 @Embeddable
 data class Money(val amount: Long) {
     init {
@@ -55,7 +77,6 @@ data class Money(val amount: Long) {
     }
 }
 
-// Stock: 수량 >= 0, 차감 시 새 인스턴스 반환
 @Embeddable
 data class Stock(val quantity: Int) {
     init {
@@ -63,8 +84,7 @@ data class Stock(val quantity: Int) {
     }
 
     fun deduct(amount: Int): Stock {
-        // 부족하면 예외, 충분하면 새 Stock 반환
-        if (quantity < amount) throw ProductException.insufficientStock(...)
+        if (quantity < amount) throw CoreException(ProductErrorCode.INSUFFICIENT_STOCK)
         return Stock(quantity - amount)
     }
 }
@@ -80,62 +100,78 @@ data class Stock(val quantity: Int) {
 ## Domain Service
 
 - **상태 없음(stateless)** — 필드가 없고, 매번 데이터를 받아서 계산/판단만
-- 하나의 Entity에 넣기 어려운 비즈니스 로직 담당
-- 여러 도메인 객체의 협력이 필요할 때 사용
+- **Repository 주입 금지** — UseCase에서 데이터를 조회해서 넘겨줌 (순수 함수)
+- 여러 Entity/VO 데이터를 받아 검증/계산하는 비즈니스 로직 담당
+- UseCase에서 순수 Domain만으로 처리하지 못하는 부분을 위임받는다
 
 ```kotlin
-// 상태 없음: 필드 없이 계산만 수행
-class OrderPriceCalculator {
-    fun calculate(items: List<Pair<Product, Quantity>>): Money {
-        val total = items.sumOf { (product, quantity) ->
-            product.price.amount * quantity.value
-        }
-        return Money(total)
+// ✅ Repository 없음 — UseCase에서 데이터를 전달받아 순수 검증만 수행
+@Component
+class OrderValidator {
+    fun validate(items: List<OrderLine>, products: List<Product>) {
+        // 상품 존재 여부, 판매 상태, 재고 충분 여부를 전수 조사
     }
 }
+
+// ❌ Domain Service가 Repository를 주입받으면 안 됨
+class OrderValidator(private val productRepository: ProductRepository) { ... }
 ```
 
 **Entity에 넣을지 Domain Service에 넣을지 판단:**
 - 자기 데이터만 필요 → Entity 메서드 (예: `Product.decreaseStock()`)
-- 여러 Entity/VO의 데이터 필요 → Domain Service (예: 주문 금액 계산)
+- 여러 Entity/VO의 데이터 필요, DB 조회 없음 → Domain Service (예: `OrderValidator.validate()`)
+- DB 조회가 필요 → UseCase에서 처리
 
-## Service
-
-- `@Component` + `@Transactional`
-- Repository 인터페이스만 의존 (구현체 X)
-- DB 조회가 필요한 비즈니스 규칙 검증 (중복 체크 등)
-- 비즈니스 규칙 자체는 도메인 메서드 호출로 위임
+## UseCase에 있으면 안 되는 것 — Domain으로 내릴 신호
 
 ```kotlin
-@Component
-class ProductService(
-    private val productRepository: ProductRepository,
-) {
-    @Transactional
-    fun decreaseStock(productId: Long, quantity: Int) {
-        val product = productRepository.getById(productId)
-        product.decreaseStock(quantity)  // 도메인에 위임
-    }
-}
+// ❌ Entity 필드 직접 조작 → Entity 메서드로
+brand.status = BrandStatus.DELETED
+product.stock -= quantity
+
+// ✅
+brand.delete()
+product.decreaseStock(quantity)
 ```
+
+```kotlin
+// ❌ 도메인 상태 판단 if문 → Entity 메서드로
+if (product.status != ProductStatus.ACTIVE || product.deletedAt != null) { ... }
+
+// ✅
+product.validateAvailable()
+```
+
+UseCase는 **"누구한테 뭘 시킬지"만 알고, "어떻게 하는지"는 모르는 게 목표**다.
 
 ## Repository Interface
 
 - Domain Layer에 위치
 - 구현은 Infrastructure Layer
+- **Spring Data 타입 노출 금지** (`Pageable`, `Page<T>`, `Sort`)
+- 페이지네이션: `page: Int, size: Int` → `PageResult<T>`
+- 조회 조건: 도메인 자체 타입 사용 (`ProductSearchCondition` 등)
+- **메서드 네이밍은 비즈니스 언어** (인프라 구현 방식 노출 금지)
 
 ```kotlin
-interface ProductRepository {
-    fun getById(id: Long): Product        // 없으면 예외
-    fun findById(id: Long): Product?      // 없으면 null
-    fun save(product: Product): Product
+// ✅ 비즈니스 언어
+interface BrandRepository {
+    fun findActiveByIdOrNull(id: Long): Brand?
+    fun findAllActive(): List<Brand>
+    fun existsActiveByName(name: String): Boolean
+    fun save(brand: Brand): Brand
+}
+
+// ❌ 인프라 구현 노출
+interface BrandRepository {
+    fun findAllByDeletedAtIsNull(): List<Brand>
 }
 ```
 
 ## 예외
 
-- `{도메인}Exception.xxx()` 팩토리 메서드 사용
-- 인증 실패는 항상 `invalidCredentials()` (정보 노출 방지)
+- `CoreException(ErrorCode)` 사용
+- 인증 실패는 항상 동일한 에러 (정보 노출 방지)
 
 ## BaseEntity 상속 전략
 
