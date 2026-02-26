@@ -81,13 +81,17 @@ graph TB
     end
 
     subgraph Application["Application Layer (트랜잭션 주체)"]
-        subgraph Facades["Facades (cross-domain 조합)"]
+        subgraph Facades["Facades (모든 API 진입점)"]
+            MF["MemberFacade"]
+            BF["BrandFacade"]
+            PF["ProductFacade"]
             LF["LikeFacade"]
             OF["OrderFacade"]
             ABF["AdminBrandFacade"]
             APF["AdminProductFacade"]
+            AOF["AdminOrderFacade"]
         end
-        subgraph Services["Services (단일 도메인 로직)"]
+        subgraph Services["Services (단일 도메인 로직, @Transactional 없음)"]
             MS["MemberService"]
             BS["BrandService"]
             PS["ProductService"]
@@ -112,15 +116,18 @@ graph TB
         ORI["OrderRepositoryImpl · OrderItemRepositoryImpl"]
     end
 
-    MC --> MS
-    BC --> BS
-    PC --> PS
+    MC --> MF
+    BC --> BF
+    PC --> PF
     LC --> LF
     OC --> OF
     ABC --> ABF
     APC --> APF
-    AOC --> OS
+    AOC --> AOF
 
+    MF --> MS
+    BF --> BS
+    PF --> PS
     LF --> LS
     LF --> PS
     OF --> OS
@@ -129,6 +136,7 @@ graph TB
     ABF --> PS
     APF --> PS
     APF --> BS
+    AOF --> OS
 
     MS -.-> MRI
     BS -.-> BRI
@@ -142,19 +150,20 @@ graph TB
 | 레이어 | 패키지 | 책임 |
 |--------|--------|------|
 | Interfaces | `interfaces/api/`, `interfaces/config/` | REST 엔드포인트 정의, 요청 DTO 값 유효성 검증, 응답 DTO 반환, 인증 어노테이션/Interceptor/ArgumentResolver, WebMvcConfig |
-| Application | `application/` | **트랜잭션의 주체.** Facade: 여러 도메인에 걸친 로직 (cross-domain 조합). Service: 단일 도메인 로직 |
-| Domain | `domain/` | Entity(Model): 단일 객체의 비즈니스 로직 및 데이터. Repository 인터페이스. VO: 값 검증. Validator: VO로 검증 불가능한 복합 비즈니스 규칙 |
-| Infrastructure | `infrastructure/`, `infrastructure/config/` | Repository 구현체 (JPA Repository), DB 접근 기술, 인프라 빈 설정 (CacheConfig, PasswordEncoderConfig) |
-| Support (cross-cutting) | `support/` | 에러 타입, 공통 예외, 유틸리티 (CursorUtils) — 모든 레이어에서 참조 |
+| Application | `application/` | **Facade(`@Transactional`): 유일한 트랜잭션 주체. 모든 Controller의 진입점.** Service: 단일 도메인 로직 (`@Transactional` 없음). Command, Info DTO. ApplicationException, DomainExceptionTranslator(@Aspect) |
+| Domain | `domain/` | Model(data class): 순수 불변 도메인 모델. Repository 인터페이스. VO: 값 검증. Validator: VO로 검증 불가능한 복합 비즈니스 규칙. CoreException, ErrorType |
+| Infrastructure | `infrastructure/`, `infrastructure/config/` | JpaModel(@Entity): DB 매핑. Repository 구현체 (JPA Repository). BaseEntity. 인프라 빈 설정 (CacheConfig, PasswordEncoderConfig) |
+| Support (cross-cutting) | `support/` | 유틸리티 (CursorUtils) — 모든 레이어에서 참조 |
 
 ### 핵심 설계 원칙
 
-- **트랜잭션 소유권은 Application Layer**: Facade와 Service 모두 `@Transactional` 부여
-- **Facade = cross-domain, Service = 단일 도메인**: Service는 하나의 도메인 내 로직만 담당, 여러 도메인 조합은 Facade에서
-- **단일 도메인 API는 Facade 경유하지 않음**: Controller → Service 직접 호출. 불필요한 Facade 구현 및 DTO 변환을 줄임
-- **cross-domain API만 Facade 경유**: 여러 도메인 조합이 필요한 경우에만 Controller → Facade → Service
+- **@Transactional 소유권은 Facade만**: Facade만 `@Transactional`을 부여하며, Service는 `@Transactional` 없음
+- **모든 API는 Facade 경유**: Controller → Facade → Service. 예외 없음
+- **Facade = API 진입점 및 트랜잭션 경계**: 단일 도메인이라도 반드시 Facade 경유
 - **Service 공유, Facade만 분리**: 고객/어드민 Facade가 동일한 Service를 사용
 - **cross-domain 접근은 Facade에서만**: Service 간 직접 참조 금지
+- **Domain Model은 순수 data class**: JPA Entity는 Infrastructure의 JpaModel로 분리. Model은 JPA 어노테이션 없음
+- **예외 전파**: `CoreException`(Domain) → `DomainExceptionTranslator`(@Aspect, Application) → `ApplicationException`(Application) → `ApiControllerAdvice`(Interfaces)
 - **Model이 비즈니스 불변식 보호**: `deductStock()`, `validateOwner()`, `delete()` 등 단일 객체 규칙은 Model 내부
 - **VO = 값 검증, Validator = 복합 비즈니스 규칙 검증**: VO는 단일 필드 형식 검증, Validator는 여러 필드 조합이 필요한 규칙 (예: 비밀번호 내 생년월일 포함 금지)
 - **Interfaces Layer에서 값 유효성 검증**: 요청 DTO에서 null, 음수, 이메일 형식 등 기본 검증 수행

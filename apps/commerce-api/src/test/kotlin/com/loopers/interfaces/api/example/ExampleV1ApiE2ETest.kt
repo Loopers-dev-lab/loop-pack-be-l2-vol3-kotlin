@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.example
 
-import com.loopers.interfaces.api.ApiResponse
-import com.loopers.domain.example.ExampleModel
+import com.loopers.infrastructure.example.ExampleJpaModel
 import com.loopers.infrastructure.example.ExampleJpaRepository
+import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -40,8 +40,8 @@ class ExampleV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsExampleInfo_whenValidIdIsProvided() {
             // arrange
-            val exampleModel = exampleJpaRepository.save(ExampleModel(name = "예시 제목", description = "예시 설명"))
-            val requestUrl = ENDPOINT_GET(exampleModel.id)
+            val exampleJpaModel = exampleJpaRepository.save(ExampleJpaModel(name = "예시 제목", description = "예시 설명"))
+            val requestUrl = ENDPOINT_GET(exampleJpaModel.id)
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<ExampleV1Dto.ExampleResponse>>() {}
@@ -50,9 +50,9 @@ class ExampleV1ApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
-                { assertThat(response.body?.data?.id).isEqualTo(exampleModel.id) },
-                { assertThat(response.body?.data?.name).isEqualTo(exampleModel.name) },
-                { assertThat(response.body?.data?.description).isEqualTo(exampleModel.description) },
+                { assertThat(response.body?.data?.id).isEqualTo(exampleJpaModel.id) },
+                { assertThat(response.body?.data?.name).isEqualTo(exampleJpaModel.name) },
+                { assertThat(response.body?.data?.description).isEqualTo(exampleJpaModel.description) },
             )
         }
 

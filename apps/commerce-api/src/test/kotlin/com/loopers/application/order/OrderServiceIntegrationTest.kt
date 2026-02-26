@@ -1,15 +1,14 @@
 package com.loopers.application.order
 
-import com.loopers.domain.brand.BrandCommand
-import com.loopers.domain.order.OrderCommand
+import com.loopers.application.brand.BrandCommand
+import com.loopers.application.brand.BrandService
+import com.loopers.application.product.ProductCommand
+import com.loopers.application.product.ProductService
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.domain.order.OrderModel
 import com.loopers.domain.order.OrderStatus
-import com.loopers.application.brand.BrandService
-import com.loopers.domain.product.ProductCommand
 import com.loopers.domain.product.ProductModel
-import com.loopers.application.product.ProductService
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -21,8 +20,10 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 
 @SpringBootTest
+@Transactional
 class OrderServiceIntegrationTest @Autowired constructor(
     private val orderService: OrderService,
     private val brandService: BrandService,
@@ -76,9 +77,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(order.memberId).isEqualTo(memberId) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
-                { assertThat(order.orderItems).hasSize(1) },
-                { assertThat(order.orderItems[0].productName).isEqualTo("감성 티셔츠") },
-                { assertThat(order.orderItems[0].amount).isEqualTo(78000L) },
+                { assertThat(order.items).hasSize(1) },
+                { assertThat(order.items[0].productName).isEqualTo("감성 티셔츠") },
+                { assertThat(order.items[0].amount).isEqualTo(78000L) },
                 { assertThat(order.getTotalAmount()).isEqualTo(78000L) },
             )
         }

@@ -1,8 +1,8 @@
 package com.loopers.application.like
 
-import com.loopers.domain.brand.BrandCommand
+import com.loopers.application.brand.BrandCommand
 import com.loopers.application.brand.BrandService
-import com.loopers.domain.product.ProductCommand
+import com.loopers.application.product.ProductCommand
 import com.loopers.application.product.ProductService
 import com.loopers.infrastructure.like.ProductLikeJpaRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -14,8 +14,10 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 
 @SpringBootTest
+@Transactional
 class LikeServiceIntegrationTest @Autowired constructor(
     private val likeService: LikeService,
     private val brandService: BrandService,

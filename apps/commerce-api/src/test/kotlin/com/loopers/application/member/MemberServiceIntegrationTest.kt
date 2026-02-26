@@ -1,8 +1,8 @@
 package com.loopers.application.member
 
 import com.loopers.infrastructure.member.MemberJpaRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 
 import org.assertj.core.api.Assertions.assertThat
@@ -17,8 +17,10 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.LocalDate
+import org.springframework.transaction.annotation.Transactional
 
 @SpringBootTest
+@Transactional
 class MemberServiceIntegrationTest @Autowired constructor(
     private val memberService: MemberService,
     private val memberJpaRepository: MemberJpaRepository,
@@ -64,6 +66,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
         @DisplayName("이미 존재하는 loginId로 가입하면, DataIntegrityViolationException이 발생한다.")
         @Test
+        @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
         fun throwsDataIntegrityViolation_whenLoginIdAlreadyExists() {
             // arrange
             memberService.register(
@@ -75,14 +78,18 @@ class MemberServiceIntegrationTest @Autowired constructor(
             )
 
             // act & assert
-            assertThrows<DataIntegrityViolationException> {
-                memberService.register(
-                    loginId = validLoginId,
-                    password = validPassword,
-                    name = "다른이름",
-                    birthday = validBirthday,
-                    email = "other@example.com",
-                )
+            try {
+                assertThrows<DataIntegrityViolationException> {
+                    memberService.register(
+                        loginId = validLoginId,
+                        password = validPassword,
+                        name = "다른이름",
+                        birthday = validBirthday,
+                        email = "other@example.com",
+                    )
+                }
+            } finally {
+                databaseCleanUp.truncateAllTables()
             }
         }
     }
