@@ -293,6 +293,143 @@ class AdminProductApiE2ETest @Autowired constructor(
         }
     }
 
+    @DisplayName("GET /api-admin/v1/products/{productId}")
+    @Nested
+    inner class GetProductDetail {
+
+        @DisplayName("유효한 요청으로 존재하는 상품을 조회하면, 200 OK와 상품 상세 정보를 반환한다.")
+        @Test
+        fun returnsOk_whenProductExists() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = createProduct(brand, "에어맥스")
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/${product.id}",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(data?.get("id")).isEqualTo(product.id.toInt()) },
+                { assertThat(data?.get("name")).isEqualTo("에어맥스") },
+                { assertThat(data?.get("description")).isEqualTo("에어맥스 설명") },
+                { assertThat(data?.get("price")).isEqualTo(159000) },
+                { assertThat(data?.get("brandId")).isEqualTo(brand.id.toInt()) },
+                { assertThat(data?.get("brandName")).isEqualTo("나이키") },
+                { assertThat(data?.get("stockQuantity")).isEqualTo(100) },
+                { assertThat(data?.get("likeCount")).isEqualTo(10) },
+                { assertThat(data?.get("createdAt")).isNotNull() },
+                { assertThat(data?.get("updatedAt")).isNotNull() },
+            )
+        }
+
+        @DisplayName("존재하지 않는 productId로 요청하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenProductNotExists() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/9999",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("삭제된 상품을 조회하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenProductIsDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = createProduct(brand, "단종상품")
+            product.delete()
+            productRepository.save(product)
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/${product.id}",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/1",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더 값이 올바르지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsInvalid() {
+            // arrange
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(LDAP_HEADER, "wrong.value")
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/1",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
     @DisplayName("POST /api-admin/v1/products")
     @Nested
     inner class CreateProduct {

@@ -7,12 +7,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 @Tag(name = "Admin Product API", description = "어드민 상품 API")
 interface AdminProductApiSpec {
     @Operation(
-        summary = "상품 등록",
-        description = "새로운 상품을 등록합니다.",
-    )
-    fun createProduct(request: AdminProductDto.CreateRequest): ApiResponse<AdminProductDto.CreateResponse>
-
-    @Operation(
         summary = "상품 목록 조회",
         description = "상품 목록을 페이징하여 조회합니다.",
     )
@@ -21,4 +15,16 @@ interface AdminProductApiSpec {
         page: Int,
         size: Int,
     ): ApiResponse<AdminProductDto.PageResponse>
+
+    @Operation(
+        summary = "상품 등록",
+        description = "새로운 상품을 등록합니다.",
+    )
+    fun createProduct(request: AdminProductDto.CreateRequest): ApiResponse<AdminProductDto.CreateResponse>
+
+    @Operation(
+        summary = "상품 상세 조회",
+        description = "특정 상품의 상세 정보를 조회합니다.",
+    )
+    fun getProductDetail(productId: Long): ApiResponse<AdminProductDto.DetailResponse>
 }

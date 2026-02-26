@@ -24,6 +24,12 @@ class AdminProductFacade(
         }
     }
 
+    fun getProductDetail(productId: Long): AdminProductInfo {
+        val product = productService.getProduct(productId)
+        val brand = brandService.getBrand(product.brandId)
+        return AdminProductInfo.from(product, brand)
+    }
+
     fun createProduct(
         name: String,
         description: String?,

@@ -9,6 +9,8 @@ import com.loopers.domain.common.SortOrder
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
@@ -122,6 +125,68 @@ class AdminProductFacadeIntegrationTest @Autowired constructor(
                 { assertThat(result.totalElements).isEqualTo(3) },
                 { assertThat(result.totalPages).isEqualTo(2) },
             )
+        }
+    }
+
+    @DisplayName("어드민 상품 상세 조회할 때,")
+    @Nested
+    inner class GetProductDetail {
+
+        @DisplayName("DB에 저장된 상품을 조회하면, 브랜드명이 포함된 AdminProductInfo를 반환한다.")
+        @Test
+        fun returnsAdminProductInfo_whenProductExistsInDb() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val saved = productRepository.save(
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+
+            // act
+            val result = adminProductFacade.getProductDetail(saved.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(saved.id) },
+                { assertThat(result.name).isEqualTo("에어맥스") },
+                { assertThat(result.description).isEqualTo("러닝화") },
+                { assertThat(result.price).isEqualTo(159000L) },
+                { assertThat(result.brandId).isEqualTo(brand.id) },
+                { assertThat(result.brandName).isEqualTo("나이키") },
+                { assertThat(result.stockQuantity).isEqualTo(100) },
+                { assertThat(result.likeCount).isEqualTo(10) },
+                { assertThat(result.createdAt).isNotNull() },
+                { assertThat(result.updatedAt).isNotNull() },
+            )
+        }
+
+        @DisplayName("존재하지 않는 productId로 조회하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductNotExistsInDb() {
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.getProductDetail(9999L)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("삭제된 상품을 조회하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductIsDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val saved = productRepository.save(
+                Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = LikeCount.of(5), stockQuantity = StockQuantity.of(0), brandId = brand.id),
+            )
+            saved.delete()
+            productRepository.save(saved)
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.getProductDetail(saved.id)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }

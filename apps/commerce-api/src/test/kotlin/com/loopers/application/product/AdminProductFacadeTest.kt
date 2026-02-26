@@ -10,12 +10,15 @@ import com.loopers.domain.common.SortOrder
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductService
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -157,6 +160,67 @@ class AdminProductFacadeTest {
                 { assertThat(result.content).isEmpty() },
                 { assertThat(result.totalElements).isEqualTo(0) },
             )
+        }
+    }
+
+    @DisplayName("어드민 상품 상세 조회할 때,")
+    @Nested
+    inner class GetProductDetail {
+
+        @DisplayName("유효한 productId를 전달하면, AdminProductInfo를 반환한다.")
+        @Test
+        fun returnsAdminProductInfo_whenValidProductIdProvided() {
+            // arrange
+            val now = ZonedDateTime.now()
+            val brand = Brand(name = "나이키", description = "스포츠 브랜드")
+            ReflectionTestUtils.setField(brand, "id", 1L)
+
+            val product = Product(
+                name = "에어맥스",
+                description = "러닝화",
+                price = Money.of(159000L),
+                likes = LikeCount.of(10),
+                stockQuantity = StockQuantity.of(100),
+                brandId = 1L,
+            )
+            ReflectionTestUtils.setField(product, "id", 1L)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productService.getProduct(1L)).thenReturn(product)
+            whenever(brandService.getBrand(1L)).thenReturn(brand)
+
+            // act
+            val result = adminProductFacade.getProductDetail(1L)
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(1L) },
+                { assertThat(result.name).isEqualTo("에어맥스") },
+                { assertThat(result.description).isEqualTo("러닝화") },
+                { assertThat(result.price).isEqualTo(159000L) },
+                { assertThat(result.brandId).isEqualTo(1L) },
+                { assertThat(result.brandName).isEqualTo("나이키") },
+                { assertThat(result.stockQuantity).isEqualTo(100) },
+                { assertThat(result.likeCount).isEqualTo(10) },
+                { assertThat(result.createdAt).isEqualTo(now) },
+                { assertThat(result.updatedAt).isEqualTo(now) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 productId를 전달하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductNotExists() {
+            // arrange
+            whenever(productService.getProduct(999L))
+                .thenThrow(CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.getProductDetail(999L)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }
