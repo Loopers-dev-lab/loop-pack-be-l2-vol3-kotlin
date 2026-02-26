@@ -25,6 +25,39 @@ class BrandServiceIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
+    @DisplayName("브랜드 생성할 때,")
+    @Nested
+    inner class CreateBrand {
+
+        @DisplayName("유효한 이름과 설명이 주어지면, DB에 저장되고 조회할 수 있다.")
+        @Test
+        fun savesBrandToDb_whenValidNameAndDescription() {
+            // act
+            val result = brandService.createBrand("나이키", "스포츠 브랜드")
+
+            // assert
+            val found = brandService.getBrand(result.id)
+            assertAll(
+                { assertThat(found.name).isEqualTo("나이키") },
+                { assertThat(found.description).isEqualTo("스포츠 브랜드") },
+            )
+        }
+
+        @DisplayName("설명이 null이면, 설명 없이 저장된다.")
+        @Test
+        fun savesBrandWithNullDescription() {
+            // act
+            val result = brandService.createBrand("무인양품", null)
+
+            // assert
+            val found = brandService.getBrand(result.id)
+            assertAll(
+                { assertThat(found.name).isEqualTo("무인양품") },
+                { assertThat(found.description).isNull() },
+            )
+        }
+    }
+
     @DisplayName("브랜드 조회할 때,")
     @Nested
     inner class GetBrand {

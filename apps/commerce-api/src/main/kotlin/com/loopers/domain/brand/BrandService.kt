@@ -9,6 +9,10 @@ class BrandService(
     private val brandRepository: BrandRepository,
 ) {
 
+    fun createBrand(name: String, description: String?): Brand {
+        return brandRepository.save(Brand(name = name, description = description))
+    }
+
     fun getBrand(brandId: Long): Brand {
         return brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
