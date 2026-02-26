@@ -5,6 +5,7 @@ import com.loopers.interfaces.common.ApiResponse
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -34,6 +35,15 @@ class AdminBrandController(
     ): ApiResponse<AdminBrandDto.CreateResponse> {
         return adminBrandFacade.createBrand(request.name, request.description)
             .let { AdminBrandDto.CreateResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/{brandId}")
+    override fun getBrand(
+        @PathVariable brandId: Long,
+    ): ApiResponse<AdminBrandDto.DetailResponse> {
+        return adminBrandFacade.getBrand(brandId)
+            .let { AdminBrandDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 }

@@ -1,6 +1,7 @@
 package com.loopers.interfaces.apiadmin.brand
 
 import com.loopers.application.brand.BrandInfo
+import java.time.ZonedDateTime
 
 class AdminBrandDto {
     data class BrandResponse(
@@ -35,6 +36,26 @@ class AdminBrandDto {
                     id = info.id,
                     name = info.name,
                     description = info.description,
+                )
+            }
+        }
+    }
+
+    data class DetailResponse(
+        val id: Long,
+        val name: String,
+        val description: String?,
+        val createdAt: ZonedDateTime,
+        val updatedAt: ZonedDateTime,
+    ) {
+        companion object {
+            fun from(info: BrandInfo): DetailResponse {
+                return DetailResponse(
+                    id = info.id,
+                    name = info.name,
+                    description = info.description,
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
                 )
             }
         }

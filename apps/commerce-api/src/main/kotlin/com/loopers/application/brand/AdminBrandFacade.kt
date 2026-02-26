@@ -14,6 +14,11 @@ class AdminBrandFacade(
             .let { BrandInfo.from(it) }
     }
 
+    fun getBrand(brandId: Long): BrandInfo {
+        return brandService.getBrand(brandId)
+            .let { BrandInfo.from(it) }
+    }
+
     fun getBrands(pageable: Pageable): Page<BrandInfo> {
         return brandService.getBrands(pageable)
             .map { BrandInfo.from(it) }
