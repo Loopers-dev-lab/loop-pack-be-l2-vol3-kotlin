@@ -3,6 +3,8 @@ package com.loopers.application.order
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
+import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -35,7 +37,7 @@ class StockConcurrencyTest @Autowired constructor(
         return brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
     }
 
-    private fun createProduct(stockQuantity: Int = 100): Product {
+    private fun createProduct(stockQuantity: StockQuantity = StockQuantity.of(100)): Product {
         val brand = createBrand()
         return productRepository.save(
             Product(
@@ -57,7 +59,7 @@ class StockConcurrencyTest @Autowired constructor(
         @Test
         fun deductsStockCorrectly_whenConcurrentOrders() {
             // arrange
-            val product = createProduct(stockQuantity = 100)
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
             val threadCount = 10
             val executorService = Executors.newFixedThreadPool(threadCount)
             val latch = CountDownLatch(threadCount)
@@ -69,7 +71,7 @@ class StockConcurrencyTest @Autowired constructor(
                     try {
                         orderFacade.placeOrder(
                             userId = i.toLong() + 1,
-                            items = listOf(OrderPlaceCommand(productId = product.id, quantity = 1)),
+                            items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1))),
                         )
                         successCount.incrementAndGet()
                     } catch (_: Exception) {
@@ -85,7 +87,7 @@ class StockConcurrencyTest @Autowired constructor(
             val updatedProduct = productRepository.findById(product.id)
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(10) },
-                { assertThat(updatedProduct?.stockQuantity).isEqualTo(90) },
+                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(90)) },
             )
         }
 
@@ -93,7 +95,7 @@ class StockConcurrencyTest @Autowired constructor(
         @Test
         fun doesNotGoNegative_whenConcurrentOrdersExceedStock() {
             // arrange
-            val product = createProduct(stockQuantity = 5)
+            val product = createProduct(stockQuantity = StockQuantity.of(5))
             val threadCount = 10
             val executorService = Executors.newFixedThreadPool(threadCount)
             val latch = CountDownLatch(threadCount)
@@ -106,7 +108,7 @@ class StockConcurrencyTest @Autowired constructor(
                     try {
                         orderFacade.placeOrder(
                             userId = i.toLong() + 1,
-                            items = listOf(OrderPlaceCommand(productId = product.id, quantity = 1)),
+                            items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1))),
                         )
                         successCount.incrementAndGet()
                     } catch (_: Exception) {
@@ -124,7 +126,7 @@ class StockConcurrencyTest @Autowired constructor(
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(5) },
                 { assertThat(failCount.get()).isEqualTo(5) },
-                { assertThat(updatedProduct?.stockQuantity).isEqualTo(0) },
+                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(0)) },
             )
         }
     }

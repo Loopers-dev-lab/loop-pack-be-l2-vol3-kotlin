@@ -10,6 +10,8 @@ class Money private constructor(
 
     operator fun times(quantity: Int): Money = Money(value * quantity)
 
+    operator fun times(quantity: Quantity): Money = Money(value * quantity.value)
+
     override fun equals(other: Any?): Boolean =
         this === other || (other is Money && value == other.value)
 

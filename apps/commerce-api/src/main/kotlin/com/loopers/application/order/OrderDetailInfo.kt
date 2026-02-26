@@ -38,7 +38,7 @@ data class OrderItemInfo(
         fun from(orderItem: OrderItem): OrderItemInfo {
             return OrderItemInfo(
                 productId = orderItem.productId,
-                quantity = orderItem.quantity,
+                quantity = orderItem.quantity.value,
                 productName = orderItem.productName,
                 productPrice = orderItem.productPrice.value,
                 brandName = orderItem.brandName,

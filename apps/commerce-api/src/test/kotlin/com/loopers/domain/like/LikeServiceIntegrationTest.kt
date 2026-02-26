@@ -3,6 +3,7 @@ package com.loopers.domain.like
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -30,7 +31,7 @@ class LikeServiceIntegrationTest @Autowired constructor(
     private fun createProduct(): Product {
         val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
         return productRepository.save(
-            Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 0, stockQuantity = 100, brandId = brand.id),
+            Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = 0, stockQuantity = StockQuantity.of(100), brandId = brand.id),
         )
     }
 

@@ -20,7 +20,7 @@ data class ProductInfo(
                 description = product.description,
                 price = product.price.value,
                 likes = product.likes,
-                stockQuantity = product.stockQuantity,
+                stockQuantity = product.stockQuantity.value,
                 brandId = product.brandId,
             )
         }

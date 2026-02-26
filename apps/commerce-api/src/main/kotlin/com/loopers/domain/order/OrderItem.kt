@@ -2,8 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.Money
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.common.Quantity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -20,7 +19,7 @@ import jakarta.persistence.Table
 class OrderItem(
     order: Order,
     productId: Long,
-    quantity: Int,
+    quantity: Quantity,
     productName: String,
     productPrice: Money,
     brandName: String,
@@ -36,7 +35,7 @@ class OrderItem(
         protected set
 
     @Column(name = "quantity", nullable = false)
-    var quantity: Int = quantity
+    var quantity: Quantity = quantity
         protected set
 
     @Column(name = "product_name", nullable = false)
@@ -50,14 +49,4 @@ class OrderItem(
     @Column(name = "brand_name", nullable = false)
     var brandName: String = brandName
         protected set
-
-    init {
-        validateQuantity(quantity)
-    }
-
-    private fun validateQuantity(quantity: Int) {
-        if (quantity <= 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "주문 수량은 0보다 커야 합니다.")
-        }
-    }
 }

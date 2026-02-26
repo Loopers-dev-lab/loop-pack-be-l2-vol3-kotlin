@@ -1,6 +1,8 @@
 package com.loopers.domain.product
 
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
+import com.loopers.domain.common.StockQuantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -19,7 +21,7 @@ class ProductTest {
         private val description = "러닝화"
         private val price = Money.of(159000L)
         private val likes = 10
-        private val stockQuantity = 100
+        private val stockQuantity = StockQuantity.of(100)
         private val brandId = 1L
 
         @DisplayName("유효한 값이 주어지면, 정상적으로 생성된다.")
@@ -99,14 +101,7 @@ class ProductTest {
         fun throwsBadRequest_whenStockQuantityIsNegative() {
             // act
             val exception = assertThrows<CoreException> {
-                Product(
-                    name = name,
-                    description = description,
-                    price = price,
-                    likes = likes,
-                    stockQuantity = -1,
-                    brandId = brandId,
-                )
+                StockQuantity.of(-1)
             }
 
             // assert
@@ -120,7 +115,7 @@ class ProductTest {
             description = "러닝화",
             price = Money.of(159000L),
             likes = likes,
-            stockQuantity = 100,
+            stockQuantity = StockQuantity.of(100),
             brandId = 1L,
         )
     }
@@ -136,10 +131,10 @@ class ProductTest {
             val product = createProduct()
 
             // act
-            product.deductStock(10)
+            product.deductStock(Quantity.of(10))
 
             // assert
-            assertThat(product.stockQuantity).isEqualTo(90)
+            assertThat(product.stockQuantity).isEqualTo(StockQuantity.of(90))
         }
 
         @DisplayName("재고가 부족하면, BAD_REQUEST 예외가 발생한다.")
@@ -150,7 +145,7 @@ class ProductTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                product.deductStock(101)
+                product.deductStock(Quantity.of(101))
             }
 
             // assert
@@ -160,12 +155,9 @@ class ProductTest {
         @DisplayName("차감 수량이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenQuantityIsZeroOrNegative() {
-            // arrange
-            val product = createProduct()
-
             // act
             val exception = assertThrows<CoreException> {
-                product.deductStock(0)
+                Quantity.of(0)
             }
 
             // assert

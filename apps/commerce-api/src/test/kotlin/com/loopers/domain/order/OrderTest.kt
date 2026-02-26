@@ -1,6 +1,7 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -47,7 +48,7 @@ class OrderTest {
                 listOf(
                     OrderItemCommand(
                         productId = 1L,
-                        quantity = 2,
+                        quantity = Quantity.of(2),
                         productName = "에어맥스",
                         productPrice = Money.of(159000L),
                         brandName = "나이키",
@@ -73,14 +74,14 @@ class OrderTest {
                 listOf(
                     OrderItemCommand(
                         productId = 1L,
-                        quantity = 2,
+                        quantity = Quantity.of(2),
                         productName = "에어맥스",
                         productPrice = Money.of(159000L),
                         brandName = "나이키",
                     ),
                     OrderItemCommand(
                         productId = 2L,
-                        quantity = 3,
+                        quantity = Quantity.of(3),
                         productName = "에어포스",
                         productPrice = Money.of(139000L),
                         brandName = "나이키",
@@ -123,14 +124,14 @@ class OrderTest {
                     listOf(
                         OrderItemCommand(
                             productId = 1L,
-                            quantity = 1,
+                            quantity = Quantity.of(1),
                             productName = "에어맥스",
                             productPrice = Money.of(159000L),
                             brandName = "나이키",
                         ),
                         OrderItemCommand(
                             productId = 1L,
-                            quantity = 2,
+                            quantity = Quantity.of(2),
                             productName = "에어맥스",
                             productPrice = Money.of(159000L),
                             brandName = "나이키",
@@ -143,25 +144,12 @@ class OrderTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
-        @DisplayName("수량이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("수량이 0 이하이면, Quantity 생성 시 BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenQuantityIsZeroOrNegative() {
-            // arrange
-            val order = Order(userId = 1L)
-
             // act
             val exception = assertThrows<CoreException> {
-                order.addItems(
-                    listOf(
-                        OrderItemCommand(
-                            productId = 1L,
-                            quantity = 0,
-                            productName = "에어맥스",
-                            productPrice = Money.of(159000L),
-                            brandName = "나이키",
-                        ),
-                    ),
-                )
+                Quantity.of(0)
             }
 
             // assert

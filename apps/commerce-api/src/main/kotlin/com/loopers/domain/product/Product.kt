@@ -2,6 +2,8 @@ package com.loopers.domain.product
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
+import com.loopers.domain.common.StockQuantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Entity
@@ -18,7 +20,7 @@ class Product(
     description: String?,
     price: Money,
     likes: Int,
-    stockQuantity: Int,
+    stockQuantity: StockQuantity,
     brandId: Long,
 ) : BaseEntity() {
 
@@ -34,7 +36,7 @@ class Product(
     var likes: Int = likes
         protected set
 
-    var stockQuantity: Int = stockQuantity
+    var stockQuantity: StockQuantity = stockQuantity
         protected set
 
     var brandId: Long = brandId
@@ -42,18 +44,11 @@ class Product(
 
     init {
         validateName(name)
-        validateStockQuantity(stockQuantity)
     }
 
     private fun validateName(name: String) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "상품 이름은 비어있을 수 없습니다.")
-        }
-    }
-
-    private fun validateStockQuantity(stockQuantity: Int) {
-        if (stockQuantity < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다.")
         }
     }
 
@@ -67,13 +62,7 @@ class Product(
         }
     }
 
-    fun deductStock(quantity: Int) {
-        if (quantity <= 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "차감 수량은 0보다 커야 합니다.")
-        }
-        if (this.stockQuantity < quantity) {
-            throw CoreException(ErrorType.BAD_REQUEST, "상품 '${this.name}'의 재고가 부족합니다.")
-        }
-        this.stockQuantity -= quantity
+    fun deductStock(quantity: Quantity) {
+        this.stockQuantity = this.stockQuantity - quantity
     }
 }

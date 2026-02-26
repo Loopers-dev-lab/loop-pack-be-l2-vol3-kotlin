@@ -1,6 +1,7 @@
 package com.loopers.domain.product
 
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.StockQuantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -42,7 +43,7 @@ class ProductServiceTest {
                 description = "러닝화",
                 price = Money.of(159000L),
                 likes = 10,
-                stockQuantity = 100,
+                stockQuantity = StockQuantity.of(100),
                 brandId = 1L,
             )
 

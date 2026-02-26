@@ -3,6 +3,8 @@ package com.loopers.domain.order
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
+import com.loopers.domain.common.Quantity
+import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -38,7 +40,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
     private fun createProduct(brand: Brand, name: String = "에어맥스", price: Money = Money.of(159000L)): Product {
         return productRepository.save(
-            Product(name = name, description = "러닝화", price = price, likes = 0, stockQuantity = 100, brandId = brand.id),
+            Product(name = name, description = "러닝화", price = price, likes = 0, stockQuantity = StockQuantity.of(100), brandId = brand.id),
         )
     }
 
@@ -55,7 +57,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -84,7 +86,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -98,7 +100,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val savedItem = order.items[0]
             assertAll(
                 { assertThat(savedItem.productId).isEqualTo(product.id) },
-                { assertThat(savedItem.quantity).isEqualTo(2) },
+                { assertThat(savedItem.quantity).isEqualTo(Quantity.of(2)) },
                 { assertThat(savedItem.productName).isEqualTo("에어맥스") },
                 { assertThat(savedItem.productPrice).isEqualTo(Money.of(159000L)) },
                 { assertThat(savedItem.brandName).isEqualTo("나이키") },
@@ -115,14 +117,14 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product1.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product1.name,
                     productPrice = product1.price,
                     brandName = brand.name,
                 ),
                 OrderItemCommand(
                     productId = product2.id,
-                    quantity = 1,
+                    quantity = Quantity.of(1),
                     productName = product2.name,
                     productPrice = product2.price,
                     brandName = brand.name,
@@ -152,7 +154,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -180,7 +182,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 1,
+                    quantity = Quantity.of(1),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -209,7 +211,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 1,
+                    quantity = Quantity.of(1),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -257,7 +259,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 2,
+                    quantity = Quantity.of(2),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
@@ -298,7 +300,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             val items = listOf(
                 OrderItemCommand(
                     productId = product.id,
-                    quantity = 1,
+                    quantity = Quantity.of(1),
                     productName = product.name,
                     productPrice = product.price,
                     brandName = brand.name,
