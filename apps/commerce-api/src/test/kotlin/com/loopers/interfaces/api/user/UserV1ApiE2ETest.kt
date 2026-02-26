@@ -73,6 +73,34 @@ class UserV1ApiE2ETest @Autowired constructor(
                 { Assertions.assertThat(response.body?.data?.email).isEqualTo("test@example.com") },
             )
         }
+
+        @Test
+        @DisplayName("생년월일이 미래 날짜이면, 400 Bad Request 응답을 반환한다.")
+        fun returnsBadRequest_whenBirthDateIsFuture() {
+            // arrange
+            val request = UserV1Dto.SignUpRequest(
+                loginId = "testuser1",
+                password = "Password1!",
+                name = "홍길동",
+                birthDate = LocalDate.now().plusDays(1),
+                email = "test@example.com",
+            )
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                HttpEntity(request),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { Assertions.assertThat(response.statusCode.is4xxClientError).isTrue() },
+                { Assertions.assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+            )
+        }
     }
 
     @Nested

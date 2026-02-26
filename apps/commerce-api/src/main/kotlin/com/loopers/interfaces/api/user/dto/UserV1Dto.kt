@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.user.dto
 import com.loopers.application.user.UserInfo
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Past
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import java.time.LocalDate
@@ -19,6 +20,7 @@ class UserV1Dto {
         @field:Size(max = 10, message = "이름은 10자 이내여야 합니다.")
         @field:Pattern(regexp = "^[가-힣a-zA-Z]+$", message = "이름은 한글 또는 영문만 허용됩니다.")
         val name: String,
+        @field:Past(message = "생년월일은 과거 날짜여야 합니다.")
         val birthDate: LocalDate,
         @field:NotBlank(message = "이메일은 필수입니다.")
         @field:Email(message = "이메일 형식이 올바르지 않습니다.")

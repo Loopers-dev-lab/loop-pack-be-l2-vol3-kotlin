@@ -18,7 +18,7 @@ interface BrandAdminV1ApiSpec {
     fun getBrands(@PositiveOrZero page: Int, @Positive @Max(100) size: Int): ApiResponse<Page<BrandAdminV1Dto.BrandAdminResponse>>
 
     @Operation(summary = "브랜드 상세 조회", description = "브랜드를 상세 조회합니다.")
-    fun getBrand(brandId: Long): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
+    fun getBrand(@Positive brandId: Long): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 생성", description = "브랜드를 생성합니다.")
     fun createBrand(
@@ -27,13 +27,13 @@ interface BrandAdminV1ApiSpec {
 
     @Operation(summary = "브랜드 수정", description = "브랜드를 수정합니다.")
     fun updateBrand(
-        brandId: Long,
+        @Positive brandId: Long,
         @Parameter(description = "브랜드명") @NotBlank(message = "브랜드명은 필수입니다.") name: String,
     ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 삭제", description = "브랜드를 삭제합니다.")
-    fun deleteBrand(brandId: Long): ApiResponse<Any>
+    fun deleteBrand(@Positive brandId: Long): ApiResponse<Any>
 
     @Operation(summary = "브랜드 복구", description = "삭제된 브랜드를 복구합니다.")
-    fun restoreBrand(brandId: Long): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
+    fun restoreBrand(@Positive brandId: Long): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 }
