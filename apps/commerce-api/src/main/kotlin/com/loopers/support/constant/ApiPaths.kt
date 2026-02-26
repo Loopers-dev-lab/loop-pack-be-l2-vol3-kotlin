@@ -19,6 +19,16 @@ object ApiPaths {
         const val BY_ID = "$BASE/{brandId}"
     }
 
+    object Products {
+        const val BASE = "/api/v1/products"
+        const val BY_ID = "$BASE/{productId}"
+    }
+
+    object AdminProducts {
+        const val BASE = "/api/admin/v1/products"
+        const val BY_ID = "$BASE/{productId}"
+    }
+
     object Examples {
         const val BASE = "/api/v1/examples"
         const val BY_ID = "$BASE/{id}"
