@@ -2,6 +2,8 @@ package com.loopers.domain.brand
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 
 @Component
@@ -11,6 +13,10 @@ class BrandService(
 
     fun createBrand(name: String, description: String?): Brand {
         return brandRepository.save(Brand(name = name, description = description))
+    }
+
+    fun getBrands(pageable: Pageable): Page<Brand> {
+        return brandRepository.findAll(pageable)
     }
 
     fun getBrand(brandId: Long): Brand {

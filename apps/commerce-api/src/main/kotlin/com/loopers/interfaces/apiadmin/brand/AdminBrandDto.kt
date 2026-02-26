@@ -3,6 +3,22 @@ package com.loopers.interfaces.apiadmin.brand
 import com.loopers.application.brand.BrandInfo
 
 class AdminBrandDto {
+    data class BrandResponse(
+        val id: Long,
+        val name: String,
+        val description: String?,
+    ) {
+        companion object {
+            fun from(info: BrandInfo): BrandResponse {
+                return BrandResponse(
+                    id = info.id,
+                    name = info.name,
+                    description = info.description,
+                )
+            }
+        }
+    }
+
     data class CreateRequest(
         val name: String,
         val description: String?,

@@ -3,9 +3,16 @@ package com.loopers.interfaces.apiadmin.brand
 import com.loopers.interfaces.common.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import org.springframework.data.domain.Page
 
 @Tag(name = "Admin Brand API", description = "어드민 브랜드 API")
 interface AdminBrandApiSpec {
+    @Operation(
+        summary = "브랜드 목록 조회",
+        description = "브랜드 목록을 페이징하여 조회합니다.",
+    )
+    fun getBrands(page: Int, size: Int): ApiResponse<Page<AdminBrandDto.BrandResponse>>
+
     @Operation(
         summary = "브랜드 등록",
         description = "새로운 브랜드를 등록합니다.",
