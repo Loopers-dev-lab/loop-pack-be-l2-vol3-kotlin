@@ -243,26 +243,26 @@ sequenceDiagram
 sequenceDiagram
     participant Client
     participant BrandController
-    participant BrandService
+    participant AdminGetBrandsUseCase
     participant BrandRepository
     participant DB
 
     Client->>BrandController: 브랜드 목록 조회 요청
     Note right of Client: LDAP 인증
-    BrandController->>+BrandService: 브랜드 목록 조회 요청
+    BrandController->>+AdminGetBrandsUseCase: 브랜드 목록 조회 요청
 
-    Note right of BrandService: 사전조건: Admin LDAP 인증 완료
+    Note right of AdminGetBrandsUseCase: 사전조건: Admin LDAP 인증 완료
 
-    BrandService->>BrandRepository: 브랜드 목록 페이징 조회
+    AdminGetBrandsUseCase->>BrandRepository: 브랜드 목록 페이징 조회
     BrandRepository->>DB: 브랜드 목록 조회
     DB-->>BrandRepository: 조회 결과
-    BrandRepository-->>BrandService: 브랜드 목록
+    BrandRepository-->>AdminGetBrandsUseCase: 브랜드 목록
 
-    Note right of BrandService: 사후조건: 브랜드 목록 반환
+    Note right of AdminGetBrandsUseCase: 사후조건: 브랜드 목록 반환
 
-    BrandService-->>BrandController: 페이징된 브랜드 목록 반환
+    AdminGetBrandsUseCase-->>BrandController: 페이징된 브랜드 목록 반환
     BrandController-->>Client: 200 OK + 브랜드 목록
-    deactivate BrandService
+    deactivate AdminGetBrandsUseCase
 ```
 
 ### 브랜드 상세 조회 (Admin)
@@ -271,30 +271,30 @@ sequenceDiagram
 sequenceDiagram
     participant Client
     participant BrandController
-    participant BrandService
+    participant AdminGetBrandUseCase
     participant BrandRepository
     participant DB
 
     Client->>BrandController: 브랜드 상세 조회 요청
     Note right of Client: LDAP 인증
-    BrandController->>+BrandService: 브랜드 상세 조회 요청
+    BrandController->>+AdminGetBrandUseCase: 브랜드 상세 조회 요청
 
-    Note right of BrandService: 사전조건: Admin LDAP 인증 완료
+    Note right of AdminGetBrandUseCase: 사전조건: Admin LDAP 인증 완료
 
-    BrandService->>BrandRepository: 브랜드 조회
+    AdminGetBrandUseCase->>BrandRepository: 브랜드 조회
     BrandRepository->>DB: 브랜드 조회
     DB-->>BrandRepository: 조회 결과
-    BrandRepository-->>BrandService: 조회 결과
+    BrandRepository-->>AdminGetBrandUseCase: 조회 결과
 
     alt 브랜드 미존재
-        BrandService-->>BrandController: 미존재 에러
+        AdminGetBrandUseCase-->>BrandController: 미존재 에러
         BrandController-->>Client: 404 Not Found
     else 브랜드 존재
-        Note right of BrandService: 사후조건: 브랜드 상세 정보 반환
-        BrandService-->>BrandController: 브랜드 상세 반환
+        Note right of AdminGetBrandUseCase: 사후조건: 브랜드 상세 정보 반환
+        AdminGetBrandUseCase-->>BrandController: 브랜드 상세 반환
         BrandController-->>Client: 200 OK + 브랜드 상세 정보
     end
-    deactivate BrandService
+    deactivate AdminGetBrandUseCase
 ```
 
 ### UC-B02: 브랜드 등록 (Admin)

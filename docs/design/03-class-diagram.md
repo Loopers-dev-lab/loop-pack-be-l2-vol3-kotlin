@@ -16,7 +16,7 @@
 | 도메인 | 도메인 비즈니스 (엔티티 메서드) | 어플리케이션 비즈니스 (서비스 오케스트레이션) |
 |--------|------------------------------|---------------------------------------------|
 | **User** | VO 자기 검증(Username, Email, Password), 인코딩된 비밀번호 적용 | username 중복 확인, BCrypt 암호화 |
-| **Brand** | 브랜드 정보 수정 | — |
+| **Brand** | 브랜드 정보 수정, 이름 유효성 검증 | 브랜드명 중복 확인 |
 | **Product** | 재고 차감/증가, 상품 정보 수정, 가격 유효성(Money VO) | 브랜드 존재 확인, 브랜드 변경 불가 검증 |
 | **Like** | — | 상품 존재 확인, 중복 좋아요 확인 |
 | **Order** | 총액 계산, 스냅샷 구성 | 재고 확인/차감, 상품 존재 확인 |
@@ -82,7 +82,9 @@ classDiagram
 
     class BrandModel {
         +String name
-        +update(name: String)
+        +String? description
+        +String? logoUrl
+        +update(newName, newDescription, newLogoUrl)
     }
 
     %% ── Product 도메인 ──
