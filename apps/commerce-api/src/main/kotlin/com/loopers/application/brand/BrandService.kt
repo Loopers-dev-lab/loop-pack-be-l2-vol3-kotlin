@@ -23,6 +23,11 @@ class BrandService(
     }
 
     @Transactional(readOnly = true)
+    fun getBrandIncludingDeleted(brandId: Long): Brand? {
+        return brandRepository.findByIdIncludingDeleted(brandId)
+    }
+
+    @Transactional(readOnly = true)
     fun getAllBrands(pageable: Pageable): Page<Brand> {
         return brandRepository.findAll(pageable)
     }

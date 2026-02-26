@@ -74,6 +74,11 @@ class ProductService(
     }
 
     @Transactional
+    fun getProductsWithLock(productIds: List<Long>): List<Product> {
+        return productRepository.findAllByIdWithLock(productIds)
+    }
+
+    @Transactional
     fun deleteProductsByBrandId(brandId: Long) {
         val products = productRepository.findAllByBrandId(brandId)
         products.forEach {

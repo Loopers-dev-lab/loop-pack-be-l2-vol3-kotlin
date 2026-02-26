@@ -18,6 +18,7 @@ class ProductV1Controller(
     private val productService: ProductService,
 ) : ProductV1ApiSpec {
 
+    // todo 상품 목록 조회 쿼리 파라미터 sort = latest / price_asc / likes_desc
     @GetMapping
     override fun getAllProducts(
         @RequestParam(required = false) brandId: Long?,
