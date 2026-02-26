@@ -56,6 +56,36 @@ class AdminProductDto {
         }
     }
 
+    data class DetailResponse(
+        val id: Long,
+        val name: String,
+        val description: String?,
+        val price: Long,
+        val brandId: Long,
+        val brandName: String,
+        val stockQuantity: Int,
+        val likeCount: Int,
+        val createdAt: ZonedDateTime,
+        val updatedAt: ZonedDateTime,
+    ) {
+        companion object {
+            fun from(info: AdminProductInfo): DetailResponse {
+                return DetailResponse(
+                    id = info.id,
+                    name = info.name,
+                    description = info.description,
+                    price = info.price,
+                    brandId = info.brandId,
+                    brandName = info.brandName,
+                    stockQuantity = info.stockQuantity,
+                    likeCount = info.likeCount,
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
+                )
+            }
+        }
+    }
+
     data class CreateRequest(
         val name: String,
         val description: String?,

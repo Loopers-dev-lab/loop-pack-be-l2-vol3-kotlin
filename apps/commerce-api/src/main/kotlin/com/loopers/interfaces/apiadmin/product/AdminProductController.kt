@@ -5,6 +5,7 @@ import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.SortOrder
 import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -41,6 +42,15 @@ class AdminProductController(
             brandId = request.brandId,
         )
             .let { AdminProductDto.CreateResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/{productId}")
+    override fun getProductDetail(
+        @PathVariable productId: Long,
+    ): ApiResponse<AdminProductDto.DetailResponse> {
+        return adminProductFacade.getProductDetail(productId)
+            .let { AdminProductDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 }
