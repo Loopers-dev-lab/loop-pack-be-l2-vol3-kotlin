@@ -29,8 +29,4 @@ class ProductRepositoryImpl(
     override fun save(product: ProductModel): ProductModel {
         return productJpaRepository.save(product)
     }
-
-    override fun update(product: ProductModel) {
-        productJpaRepository.save(product)
-    }
 }

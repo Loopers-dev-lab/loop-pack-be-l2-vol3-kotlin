@@ -17,6 +17,5 @@ class AdminDeleteProductUseCase(
         val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.delete()
-        productRepository.update(product)
     }
 }

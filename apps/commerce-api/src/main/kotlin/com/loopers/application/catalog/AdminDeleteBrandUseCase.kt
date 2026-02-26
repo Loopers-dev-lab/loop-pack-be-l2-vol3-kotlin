@@ -21,10 +21,8 @@ class AdminDeleteBrandUseCase(
 
         productRepository.findAllByBrandId(brandId).forEach { product ->
             product.delete()
-            productRepository.update(product)
         }
 
         brand.delete()
-        brandRepository.update(brand)
     }
 }

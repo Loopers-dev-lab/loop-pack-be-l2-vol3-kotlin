@@ -9,5 +9,4 @@ interface ProductRepository {
     fun findAllByBrandId(brandId: Long): List<ProductModel>
     fun findAllByBrandId(brandId: Long, pageable: Pageable): Slice<ProductModel>
     fun save(product: ProductModel): ProductModel
-    fun update(product: ProductModel)
 }

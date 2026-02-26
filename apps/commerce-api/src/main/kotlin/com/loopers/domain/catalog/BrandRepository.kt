@@ -8,5 +8,4 @@ interface BrandRepository {
     fun findByName(name: String): BrandModel?
     fun findAll(pageable: Pageable): Slice<BrandModel>
     fun save(brand: BrandModel): BrandModel
-    fun update(brand: BrandModel)
 }

@@ -25,8 +25,4 @@ class BrandRepositoryImpl(
     override fun save(brand: BrandModel): BrandModel {
         return brandJpaRepository.save(brand)
     }
-
-    override fun update(brand: BrandModel) {
-        brandJpaRepository.save(brand)
-    }
 }

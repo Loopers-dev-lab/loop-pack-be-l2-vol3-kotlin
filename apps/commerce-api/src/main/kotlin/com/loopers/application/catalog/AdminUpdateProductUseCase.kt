@@ -22,6 +22,5 @@ class AdminUpdateProductUseCase(
             newQuantity = criteria.newQuantity,
             newPrice = criteria.newPrice,
         )
-        productRepository.update(product)
     }
 }

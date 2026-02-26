@@ -30,6 +30,5 @@ class AdminUpdateBrandUseCase(
             newDescription = criteria.newDescription,
             newLogoUrl = criteria.newLogoUrl,
         )
-        brandRepository.update(brand)
     }
 }
