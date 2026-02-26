@@ -15,7 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DataIntegrityViolationException
-import org.springframework.security.crypto.password.PasswordEncoder
+import com.loopers.domain.member.PasswordEncryptor
 import java.time.LocalDate
 import org.springframework.transaction.annotation.Transactional
 
@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional
 class MemberServiceIntegrationTest @Autowired constructor(
     private val memberService: MemberService,
     private val memberJpaRepository: MemberJpaRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordEncryptor: PasswordEncryptor,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     private val validLoginId = "user01"
@@ -213,7 +213,7 @@ class MemberServiceIntegrationTest @Autowired constructor(
 
             // assert
             val member = memberJpaRepository.findByLoginId(validLoginId)!!
-            assertThat(passwordEncoder.matches(newPassword, member.password)).isTrue()
+            assertThat(passwordEncryptor.matches(newPassword, member.password)).isTrue()
         }
 
         @DisplayName("현재 비밀번호와 동일한 비밀번호로 변경하면, BAD_REQUEST 예외가 발생한다.")

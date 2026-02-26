@@ -8,14 +8,14 @@ import com.loopers.domain.member.MemberRepository
 import com.loopers.domain.member.RawPassword
 import com.loopers.domain.member.vo.LoginId
 import com.loopers.domain.member.vo.MemberName
-import org.springframework.security.crypto.password.PasswordEncoder
+import com.loopers.domain.member.PasswordEncryptor
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 
 @Component
 class MemberService(
     private val memberRepository: MemberRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordEncryptor: PasswordEncryptor,
 ) {
     fun register(
         loginId: String,
@@ -31,7 +31,7 @@ class MemberService(
 
         val member = MemberModel(
             loginId = loginId,
-            password = passwordEncoder.encode(password),
+            password = passwordEncryptor.encode(password),
             name = name,
             birthday = birthday,
             email = email,
@@ -48,7 +48,7 @@ class MemberService(
         val member = memberRepository.findByLoginId(loginId)
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
 
-        if (!passwordEncoder.matches(password, member.password)) {
+        if (!passwordEncryptor.matches(password, member.password)) {
             throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
         }
 
@@ -59,12 +59,12 @@ class MemberService(
         val member = memberRepository.findByLoginId(loginId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다.")
 
-        if (passwordEncoder.matches(newPassword, member.password)) {
+        if (passwordEncryptor.matches(newPassword, member.password)) {
             throw CoreException(ErrorType.BAD_REQUEST, "현재 비밀번호와 동일한 비밀번호로 변경할 수 없습니다.")
         }
 
         RawPassword.validate(newPassword, member.birthday)
-        val updated = member.changePassword(passwordEncoder.encode(newPassword))
+        val updated = member.changePassword(passwordEncryptor.encode(newPassword))
         memberRepository.save(updated)
     }
 }
