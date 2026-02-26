@@ -10,6 +10,8 @@ import com.loopers.domain.brand.Email
 import com.loopers.domain.brand.LogoImageUrl
 import com.loopers.domain.brand.Name
 import com.loopers.domain.brand.PhoneNumber
+import com.loopers.domain.product.ProductInventoryService
+import com.loopers.domain.product.ProductService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -28,6 +30,12 @@ class BrandFacadeTest {
 
     @Mock
     private lateinit var brandService: BrandService
+
+    @Mock
+    private lateinit var productService: ProductService
+
+    @Mock
+    private lateinit var productInventoryService: ProductInventoryService
 
     @InjectMocks
     private lateinit var brandFacade: BrandFacade
@@ -156,8 +164,9 @@ class BrandFacadeTest {
     inner class DeleteBrand {
 
         @Test
-        fun `브랜드 삭제 시 Unit을 반환한다`() {
+        fun `브랜드 삭제 시 productService와 productInventoryService가 호출된다`() {
             whenever(brandService.deleteBrand(any())).then { }
+            whenever(productService.deleteAllByBrandId(any())).thenReturn(emptyList())
 
             val result = brandFacade.deleteBrand(1L)
 

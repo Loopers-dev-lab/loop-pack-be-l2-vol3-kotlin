@@ -1,14 +1,5 @@
 package com.loopers.domain.brand
 
-import com.loopers.domain.product.Description as ProductDescription
-import com.loopers.domain.product.ImageUrl
-import com.loopers.domain.product.Name as ProductName
-import com.loopers.domain.product.Price
-import com.loopers.domain.product.ProductInventoryModel
-import com.loopers.domain.product.ProductInventoryRepository
-import com.loopers.domain.product.ProductModel
-import com.loopers.domain.product.ProductRepository
-import com.loopers.domain.product.Stock
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -29,14 +20,12 @@ import kotlin.test.assertNotNull
 class BrandServiceTest {
 
     private val brandRepository: BrandRepository = mockk()
-    private val productRepository: ProductRepository = mockk()
-    private val productInventoryRepository: ProductInventoryRepository = mockk()
 
     private lateinit var brandService: BrandService
 
     @BeforeEach
     fun setUp() {
-        brandService = BrandService(brandRepository, productRepository, productInventoryRepository)
+        brandService = BrandService(brandRepository)
     }
 
     private fun createBrandModel() = BrandModel(
@@ -307,28 +296,16 @@ class BrandServiceTest {
         }
 
         @Test
-        fun `삭제 시 product와 inventory도 soft delete 된다`() {
+        fun `브랜드 soft delete 성공`() {
             // given
             val brand = createBrandModel()
-            val product = ProductModel(
-                brandId = 0L,
-                name = ProductName("Air Max"),
-                imageUrl = ImageUrl("test.png"),
-                description = ProductDescription("신발"),
-                price = Price(100_000L),
-            )
-            val inventory = ProductInventoryModel(product.id, Stock(10L))
             every { brandRepository.findById(0L) } returns brand
-            every { productRepository.findAllByBrandId(0L) } returns listOf(product)
-            every { productInventoryRepository.findByProductId(0L) } returns inventory
 
             // when
             brandService.deleteBrand(0L)
 
             // then
             assertNotNull(brand.deletedAt)
-            assertNotNull(product.deletedAt)
-            assertNotNull(inventory.deletedAt)
         }
     }
 }

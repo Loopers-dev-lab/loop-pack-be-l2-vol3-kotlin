@@ -9,8 +9,6 @@ import com.loopers.domain.brand.Email
 import com.loopers.domain.brand.LogoImageUrl
 import com.loopers.domain.brand.Name
 import com.loopers.domain.brand.PhoneNumber
-import com.loopers.domain.product.ProductInventoryRepository
-import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
@@ -22,8 +20,6 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class BrandService(
     private val brandRepository: BrandRepository,
-    private val productRepository: ProductRepository,
-    private val productInventoryRepository: ProductInventoryRepository,
 ) {
 
     @Transactional
@@ -130,13 +126,6 @@ class BrandService(
             errorType = ErrorType.NOT_FOUND,
             customMessage = "해당 브랜드를 찾을 수 없습니다.",
         )
-
         brand.delete()
-
-        val products = productRepository.findAllByBrandId(id)
-        products.forEach { product ->
-            product.delete()
-            productInventoryRepository.findByProductId(product.id)?.delete()
-        }
     }
 }

@@ -1,13 +1,18 @@
 package com.loopers.application.brand
 
 import com.loopers.domain.brand.BrandService
+import com.loopers.domain.product.ProductInventoryService
+import com.loopers.domain.product.ProductService
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class BrandFacade(
     private val brandService: BrandService,
+    private val productService: ProductService,
+    private val productInventoryService: ProductInventoryService,
 ) {
     fun createBrand(
         name: String,
@@ -63,6 +68,10 @@ class BrandFacade(
             businessNumber = businessNumber,
         ).let { BrandInfo.from(it) }
 
-    fun deleteBrand(id: Long) =
+    @Transactional
+    fun deleteBrand(id: Long) {
         brandService.deleteBrand(id)
+        val productIds = productService.deleteAllByBrandId(id)
+        productIds.forEach { productInventoryService.deleteInventory(it) }
+    }
 }

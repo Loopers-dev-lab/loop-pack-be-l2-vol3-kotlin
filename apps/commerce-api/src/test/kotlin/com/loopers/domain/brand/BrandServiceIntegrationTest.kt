@@ -1,5 +1,6 @@
 package com.loopers.domain.brand
 
+import com.loopers.application.brand.BrandFacade
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -16,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest
 @SpringBootTest
 class BrandServiceIntegrationTest @Autowired constructor(
     private val brandService: BrandService,
+    private val brandFacade: BrandFacade,
     private val productService: ProductService,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -178,7 +180,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
             val product1 = createProduct(brand.id, "Air Max")
             val product2 = createProduct(brand.id, "Air Force")
 
-            brandService.deleteBrand(brand.id)
+            brandFacade.deleteBrand(brand.id)
 
             val exception1 = assertThrows<CoreException> { productService.getProductById(product1.id) }
             val exception2 = assertThrows<CoreException> { productService.getProductById(product2.id) }
