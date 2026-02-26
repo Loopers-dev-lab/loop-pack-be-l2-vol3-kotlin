@@ -1,6 +1,10 @@
 package com.loopers.interfaces.api.admin.brand
 
-import com.loopers.application.brand.BrandFacade
+import com.loopers.application.brand.DeleteBrandUseCase
+import com.loopers.application.brand.GetAllBrandsUseCase
+import com.loopers.application.brand.GetBrandUseCase
+import com.loopers.application.brand.RegisterBrandUseCase
+import com.loopers.application.brand.UpdateBrandUseCase
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.auth.AdminAuth
 import com.loopers.support.constant.ApiPaths
@@ -19,7 +23,11 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.AdminBrands.BASE)
 class AdminBrandV1Controller(
-    private val brandFacade: BrandFacade,
+    private val registerBrandUseCase: RegisterBrandUseCase,
+    private val updateBrandUseCase: UpdateBrandUseCase,
+    private val deleteBrandUseCase: DeleteBrandUseCase,
+    private val getBrandUseCase: GetBrandUseCase,
+    private val getAllBrandsUseCase: GetAllBrandsUseCase,
 ) {
 
     @PostMapping
@@ -28,7 +36,7 @@ class AdminBrandV1Controller(
         @AdminAuth adminAuth: Unit,
         @Valid @RequestBody request: AdminBrandRegisterRequest,
     ): ApiResponse<AdminBrandResponse> {
-        val brandInfo = brandFacade.register(request.toCommand())
+        val brandInfo = registerBrandUseCase.execute(request.toCommand())
         return ApiResponse.success(AdminBrandResponse.from(brandInfo))
     }
 
@@ -36,7 +44,7 @@ class AdminBrandV1Controller(
     fun getAllBrands(
         @AdminAuth adminAuth: Unit,
     ): ApiResponse<List<AdminBrandResponse>> {
-        val brands = brandFacade.getAllActiveBrands()
+        val brands = getAllBrandsUseCase.execute()
         return ApiResponse.success(brands.map { AdminBrandResponse.from(it) })
     }
 
@@ -45,7 +53,7 @@ class AdminBrandV1Controller(
         @AdminAuth adminAuth: Unit,
         @PathVariable brandId: Long,
     ): ApiResponse<AdminBrandResponse> {
-        val brand = brandFacade.getActiveBrand(brandId)
+        val brand = getBrandUseCase.execute(brandId)
         return ApiResponse.success(AdminBrandResponse.from(brand))
     }
 
@@ -55,7 +63,7 @@ class AdminBrandV1Controller(
         @PathVariable brandId: Long,
         @Valid @RequestBody request: AdminBrandUpdateRequest,
     ): ApiResponse<AdminBrandResponse> {
-        val brandInfo = brandFacade.update(request.toCommand(brandId))
+        val brandInfo = updateBrandUseCase.execute(request.toCommand(brandId))
         return ApiResponse.success(AdminBrandResponse.from(brandInfo))
     }
 
@@ -65,7 +73,7 @@ class AdminBrandV1Controller(
         @AdminAuth adminAuth: Unit,
         @PathVariable brandId: Long,
     ): ApiResponse<Unit> {
-        brandFacade.delete(brandId)
+        deleteBrandUseCase.execute(brandId)
         return ApiResponse.success(Unit)
     }
 }
