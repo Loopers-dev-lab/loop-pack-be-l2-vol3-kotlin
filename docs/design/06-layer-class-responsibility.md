@@ -146,6 +146,28 @@ sequenceDiagram
     P->>P: ApiResponse.error() 반환
 ```
 
+## 검증 전략 (A+B 혼합)
+
+```mermaid
+graph LR
+    subgraph Input["입력 검증 (Command)"]
+        CMD["Command.init {}\nVO.of() 호출\n정밀 검증 (regex, 형식)"]
+    end
+    subgraph Domain["불변식 보호 (Model)"]
+        MODEL["Model.init {}\nrequire() / check()\n최소 불변식 (blank, 음수)"]
+    end
+    subgraph DB["DB 로드"]
+        JPA["JpaModel.toModel()\nModel.init 실행\n이미 유효한 데이터 → 통과"]
+    end
+
+    CMD -->|"검증된 primitive"| MODEL
+    JPA -->|"DB 데이터"| MODEL
+```
+
+- **Command**: VO 기반 정밀 검증 (regex, 형식, 복합 규칙)
+- **Model**: 핵심 불변식만 보호 (blank, 음수 등 기본 규칙)
+- DB 로드 시 Model.init 실행되지만, 단순 체크라 성능 영향 미미
+
 ## 의존성 검증
 
 | Layer | 참조 가능 | 참조 불가 |
