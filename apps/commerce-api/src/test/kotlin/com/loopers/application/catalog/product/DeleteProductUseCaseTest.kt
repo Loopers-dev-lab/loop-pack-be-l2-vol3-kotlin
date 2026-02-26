@@ -66,10 +66,15 @@ class DeleteProductUseCaseTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 상품을 삭제해도 예외가 발생하지 않는다 (멱등)")
-        fun deleteProduct_nonExistent_isIdempotent() {
-            // act & assert
-            useCase.execute(999L)
+        @DisplayName("존재하지 않는 상품을 삭제하면 NOT_FOUND 예외가 발생한다")
+        fun deleteProduct_nonExistent_throwsNotFound() {
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }

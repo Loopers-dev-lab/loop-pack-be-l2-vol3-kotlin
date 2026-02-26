@@ -11,7 +11,8 @@ import org.springframework.transaction.annotation.Transactional
 class DeleteProductUseCase(private val productRepository: ProductRepository) {
     @Transactional
     fun execute(productId: Long) {
-        val product = productRepository.findById(ProductId(productId)) ?: return
+        val product = productRepository.findById(ProductId(productId))
+            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         if (product.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
