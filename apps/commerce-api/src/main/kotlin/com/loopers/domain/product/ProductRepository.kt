@@ -10,5 +10,6 @@ interface ProductRepository {
     fun findAll(): List<Product>
     fun findAllForUser(pageable: Pageable, brandId: Long?): Page<Product>
     fun findAllForAdmin(pageable: Pageable, brandId: Long?): Page<Product>
+    fun findByIds(ids: List<Long>): List<Product>
     fun decreaseStock(productId: Long, quantity: Int): Int
 }

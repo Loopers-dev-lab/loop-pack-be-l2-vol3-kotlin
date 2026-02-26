@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param
 
 interface ProductJpaRepository : JpaRepository<Product, Long> {
 
+    fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<Product>
+
     fun findByBrandIdAndDeletedAtIsNull(brandId: Long): List<Product>
 
     // 대고객: ACTIVE + displayYn=true + deletedAt IS NULL
