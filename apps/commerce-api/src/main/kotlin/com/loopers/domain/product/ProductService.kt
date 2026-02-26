@@ -94,4 +94,11 @@ class ProductService(
 
         product.delete()
     }
+
+    @Transactional
+    fun deleteAllByBrandId(brandId: Long): List<Long> {
+        val products = productRepository.findAllByBrandId(brandId)
+        products.forEach { it.delete() }
+        return products.map { it.id }
+    }
 }
