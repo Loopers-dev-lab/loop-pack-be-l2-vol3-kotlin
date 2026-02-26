@@ -422,46 +422,51 @@ classDiagram
 
 ```
 com.loopers
-├── interfaces/api/
-│   ├── member/         → MemberV1Controller, MemberV1ApiSpec, MemberV1Dto
-│   ├── brand/          → BrandV1Controller, BrandV1ApiSpec, BrandV1Dto
-│   ├── product/        → ProductV1Controller, ProductV1ApiSpec, ProductV1Dto
-│   ├── like/           → LikeV1Controller, LikeV1ApiSpec, LikeV1Dto
-│   ├── order/          → OrderV1Controller, OrderV1ApiSpec, OrderV1Dto
-│   └── admin/
-│       ├── brand/      → AdminBrandV1Controller, AdminBrandV1ApiSpec, AdminBrandV1Dto
-│       ├── product/    → AdminProductV1Controller, AdminProductV1ApiSpec, AdminProductV1Dto
-│       └── order/      → AdminOrderV1Controller, AdminOrderV1ApiSpec, AdminOrderV1Dto
+├── interfaces/
+│   ├── api/
+│   │   ├── member/         → MemberV1Controller, MemberV1ApiSpec, MemberV1Dto
+│   │   ├── brand/          → BrandV1Controller, BrandV1ApiSpec, BrandV1Dto
+│   │   ├── product/        → ProductV1Controller, ProductV1ApiSpec, ProductV1Dto
+│   │   ├── like/           → LikeV1Controller, LikeV1ApiSpec, LikeV1Dto
+│   │   ├── order/          → OrderV1Controller, OrderV1ApiSpec, OrderV1Dto
+│   │   └── admin/
+│   │       ├── brand/      → AdminBrandV1Controller, AdminBrandV1ApiSpec, AdminBrandV1Dto
+│   │       ├── product/    → AdminProductV1Controller, AdminProductV1ApiSpec, AdminProductV1Dto
+│   │       └── order/      → AdminOrderV1Controller, AdminOrderV1ApiSpec, AdminOrderV1Dto
+│   └── config/
+│       ├── auth/
+│       │   ├── MemberAuthenticated                (대고객 인증 필요 어노테이션)
+│       │   ├── AdminAuthenticated                 (어드민 인증 필요 어노테이션)
+│       │   ├── AuthenticatedMember               (인증된 회원 정보 DTO)
+│       │   ├── AuthenticatedMemberArgumentResolver (ArgumentResolver)
+│       │   ├── MemberAuthenticationInterceptor     (대고객 인증, @MemberAuthenticated 어노테이션 기반 선택 적용)
+│       │   ├── AdminAuthenticationInterceptor     (어드민 인증, @AdminAuthenticated 어노테이션 클래스 레벨 적용)
+│       │   └── CachedAuth                        (인증 캐시 데이터, SHA256 해시 비교)
+│       └── WebMvcConfig                           (Interceptor/ArgumentResolver 등록)
 ├── application/
-│   ├── member/         → MemberFacade, MemberInfo
-│   ├── brand/          → BrandFacade, AdminBrandFacade, BrandInfo
-│   ├── product/        → ProductFacade, AdminProductFacade, ProductInfo
-│   ├── like/           → LikeFacade
-│   └── order/          → OrderFacade, AdminOrderFacade, OrderInfo
+│   ├── member/         → MemberFacade, MemberService, MemberInfo
+│   ├── brand/          → BrandFacade, AdminBrandFacade, BrandService, BrandInfo
+│   ├── product/        → ProductFacade, AdminProductFacade, ProductService, ProductInfo
+│   ├── like/           → LikeFacade, LikeService
+│   └── order/          → OrderFacade, AdminOrderFacade, OrderService, OrderInfo
 ├── domain/
 │   ├── common/vo/      → Email (공통 VO)
-│   ├── member/         → MemberModel, MemberService, MemberRepository, RawPassword
+│   ├── member/         → MemberModel, MemberRepository, RawPassword
 │   ├── member/vo/      → LoginId, MemberName (회원 도메인 VO)
-│   ├── brand/          → BrandModel, BrandService, BrandRepository, BrandCommand
-│   ├── product/        → ProductModel, ProductService, ProductRepository, ProductCommand
-│   ├── like/           → ProductLikeModel, LikeService, ProductLikeRepository
-│   └── order/          → OrderModel, OrderItemModel, OrderService, OrderRepository, OrderCommand
+│   ├── brand/          → BrandModel, BrandRepository, BrandCommand
+│   ├── product/        → ProductModel, ProductRepository, ProductCommand
+│   ├── like/           → ProductLikeModel, ProductLikeRepository
+│   └── order/          → OrderModel, OrderItemModel, OrderRepository, OrderCommand
 ├── infrastructure/
+│   ├── config/         → CacheConfig (Caffeine auth-cache), PasswordEncoderConfig
 │   ├── member/         → MemberRepositoryImpl, MemberJpaRepository
 │   ├── brand/          → BrandRepositoryImpl, BrandJpaRepository
 │   ├── product/        → ProductRepositoryImpl, ProductJpaRepository
 │   ├── like/           → ProductLikeRepositoryImpl, ProductLikeJpaRepository
 │   └── order/          → OrderRepositoryImpl, OrderJpaRepository, OrderItemJpaRepository
-└── config/
-    ├── auth/
-    │   ├── MemberAuthenticated                (대고객 인증 필요 어노테이션)
-    │   ├── AdminAuthenticated                 (어드민 인증 필요 어노테이션)
-    │   ├── AuthenticatedMember               (인증된 회원 정보 DTO)
-    │   ├── AuthenticatedMemberArgumentResolver (ArgumentResolver)
-    │   ├── MemberAuthenticationInterceptor     (대고객 인증, @MemberAuthenticated 어노테이션 기반 선택 적용)
-    │   └── AdminAuthenticationInterceptor     (어드민 인증, @AdminAuthenticated 어노테이션 클래스 레벨 적용)
-    └── cache/
-        └── CacheConfig                        (Caffeine auth-cache, TTL 5분, max 10K)
+└── support/
+    ├── error/          → CoreException, ErrorType
+    └── cursor/         → CursorUtils
 ```
 
 ### 해석
@@ -471,5 +476,5 @@ com.loopers
 - **인증 전략 통일**: 대고객 인증은 `@MemberAuthenticated` 어노테이션 기반으로 선택적 적용 (비인증 API와 인증 API 혼재). 어드민 인증은 `@AdminAuthenticated` 어노테이션으로 클래스 레벨 일괄 적용 (전 엔드포인트 LDAP 인증 필수).
 - **좋아요 수 비정규화**: `ProductModel`의 `likeCount` 컬럼(DEFAULT 0)으로 좋아요 수를 관리한다. 별도 집계 테이블 없이 `product` 테이블에 직접 저장하며, 배치가 주기적으로 갱신한다.
 - **Value Object 패키지**: 도메인별 VO는 `domain/{domain}/vo/`에, 공통 VO는 `domain/common/vo/`에 위치한다. `RawPassword`는 VO가 아닌 검증 정책 객체이므로 `domain/member/`에 직접 위치한다.
-- **인증 컴포넌트**: `@MemberAuthenticated` 어노테이션, `AuthenticatedMember` DTO, `AuthenticatedMemberArgumentResolver`가 `config/auth/`에 위치한다. 인증이 필요한 엔드포인트에 `@MemberAuthenticated`를 선언하면, Interceptor가 인증 후 `AuthenticatedMember`를 Controller 파라미터로 주입한다.
-- **캐시 설정**: `config/cache/CacheConfig`에서 Caffeine 기반 `auth-cache`를 관리한다. BCrypt 인증 결과를 SHA256 해시 비교로 캐싱하여 CPU 부하를 절감하며, 비밀번호 변경 시 `MemberFacade`에서 해당 loginId의 캐시를 evict한다.
+- **인증 컴포넌트**: `@MemberAuthenticated` 어노테이션, `AuthenticatedMember` DTO, `AuthenticatedMemberArgumentResolver`가 `interfaces/config/auth/`에 위치한다. 인증이 필요한 엔드포인트에 `@MemberAuthenticated`를 선언하면, Interceptor가 인증 후 `AuthenticatedMember`를 Controller 파라미터로 주입한다.
+- **캐시 설정**: `infrastructure/config/CacheConfig`에서 Caffeine 기반 `auth-cache`를 관리한다. BCrypt 인증 결과를 SHA256 해시 비교로 캐싱하여 CPU 부하를 절감하며, 비밀번호 변경 시 `MemberFacade`에서 해당 loginId의 캐시를 evict한다.

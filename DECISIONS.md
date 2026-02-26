@@ -685,6 +685,46 @@ Decision 17에서 좋아요 등록의 멱등성을 `DuplicateKeyException catch 
 
 ---
 
+## D29: 4-Layer 패키지 구조 정렬 — Service를 application으로, config를 계층별로 분산
+
+### 배경
+
+기존 구조에서 Service 클래스가 `domain/` 패키지에 위치했으나, 레이어드 아키텍처 원칙상 Service는 트랜잭션의 주체로서 Application 레이어에 속해야 한다. 또한 `config/` 패키지가 4계층 밖에 독립적으로 존재했는데, 인증 관련 설정(Interceptor, 어노테이션)은 Interfaces 레이어에, 인프라 빈 설정(CacheConfig, PasswordEncoderConfig)은 Infrastructure 레이어에 속하는 것이 자연스럽다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 현행 유지 | Service는 domain/, config/는 최상위 |
+| B. Service만 이동 | Service를 application/으로 이동, config는 유지 |
+| **C. Service 이동 + config 분산** | Service → application/, config → 계층별 분산 |
+
+### 판단: C안 채택
+
+### 변경 내역
+
+| 변경 | Before | After |
+|------|--------|-------|
+| Service 클래스 6개 | `domain/{도메인}/` | `application/{도메인}/` |
+| 인증 어노테이션, Interceptor, ArgumentResolver, CachedAuth | `config/auth/` | `interfaces/config/auth/` |
+| WebMvcConfig | `config/` | `interfaces/config/` |
+| CacheConfig | `config/cache/` | `infrastructure/config/` |
+| PasswordEncoderConfig | `config/` | `infrastructure/config/` |
+| `config/` 패키지 | 존재 | **삭제** (계층에 분산) |
+
+### 근거
+
+1. **계층 책임 명확화**: Service는 트랜잭션 주체 → Application 레이어. 인증 Interceptor는 HTTP 요청 처리 → Interfaces 레이어. 빈 설정은 기술 인프라 → Infrastructure 레이어.
+2. **의존 방향 준수**: `@MemberAuthenticated` 어노테이션은 컨트롤러에서 사용 → interfaces에 두면 자연스러운 같은 레이어 참조. infrastructure에 두면 interfaces → infrastructure 역방향 의존 발생.
+3. **`support/`는 최상위 유지**: `CoreException`, `ErrorType`은 모든 레이어에서 참조하는 cross-cutting concern → 특정 레이어에 종속시키면 의존 방향이 꼬임.
+
+### 트레이드오프
+
+- Service와 동일 도메인의 Model/Repository가 다른 패키지에 위치 → import 추가 필요 (같은 패키지 참조 불가).
+- Facade와 Service가 같은 패키지 → 같은 패키지 import 불필요 (ktlint에서 unused import 제거).
+
+---
+
 ## 결론
 
 모든 판단의 공통 원칙:
