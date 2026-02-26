@@ -1,6 +1,5 @@
 package com.loopers.application.product
 
-import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
@@ -14,15 +13,9 @@ class DeleteProductUseCase(
 
     @Transactional
     fun execute(productId: Long) {
-        val product = getActiveProductOrThrow(productId)
+        val product = productRepository.findActiveByIdOrNull(productId)
+            ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
         product.delete()
         productRepository.save(product)
-    }
-
-    private fun getActiveProductOrThrow(productId: Long): Product {
-        val product = productRepository.findByIdOrNull(productId)
-            ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
-        if (product.isDeleted()) throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
-        return product
     }
 }

@@ -16,9 +16,8 @@ class RegisterProductUseCase(
 
     @Transactional
     fun execute(command: ProductCommand.Register): ProductInfo {
-        val brand = brandRepository.findByIdOrNull(command.brandId)
+        val brand = brandRepository.findActiveByIdOrNull(command.brandId)
             ?: throw CoreException(ProductErrorCode.INVALID_BRAND)
-        if (brand.isDeleted()) throw CoreException(ProductErrorCode.INVALID_BRAND)
 
         val product = Product.create(
             brandId = brand.id,

@@ -2,6 +2,7 @@ package com.loopers.domain.brand
 
 interface BrandRepository {
     fun findByIdOrNull(id: Long): Brand?
+    fun findActiveByIdOrNull(id: Long): Brand?
     fun findAllByIds(ids: List<Long>): List<Brand>
     fun findAllActive(): List<Brand>
     fun findAll(): List<Brand>

@@ -1,6 +1,5 @@
 package com.loopers.application.brand
 
-import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.BrandErrorCode
@@ -16,21 +15,13 @@ class DeleteBrandUseCase(
 
     @Transactional
     fun execute(brandId: Long) {
-        val brand = getActiveBrandOrThrow(brandId)
+        val brand = brandRepository.findActiveByIdOrNull(brandId)
+            ?: throw CoreException(BrandErrorCode.BRAND_NOT_FOUND)
         brand.delete()
         brandRepository.save(brand)
 
         val products = productRepository.findAllActiveByBrandId(brandId)
         products.forEach { it.delete() }
-        if (products.isNotEmpty()) {
-            productRepository.saveAll(products)
-        }
-    }
-
-    private fun getActiveBrandOrThrow(brandId: Long): Brand {
-        val brand = brandRepository.findByIdOrNull(brandId)
-            ?: throw CoreException(BrandErrorCode.BRAND_NOT_FOUND)
-        if (brand.isDeleted()) throw CoreException(BrandErrorCode.BRAND_NOT_FOUND)
-        return brand
+        productRepository.saveAll(products)
     }
 }

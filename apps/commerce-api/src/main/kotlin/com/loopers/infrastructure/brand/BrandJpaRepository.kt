@@ -11,6 +11,9 @@ interface BrandJpaRepository : JpaRepository<Brand, Long>, BrandRepository {
     @Query("SELECT b FROM Brand b WHERE b.id = :id")
     override fun findByIdOrNull(@Param("id") id: Long): Brand?
 
+    @Query("SELECT b FROM Brand b WHERE b.id = :id AND b.deletedAt IS NULL")
+    override fun findActiveByIdOrNull(@Param("id") id: Long): Brand?
+
     @Query("SELECT b FROM Brand b WHERE b.id IN :ids")
     override fun findAllByIds(@Param("ids") ids: List<Long>): List<Brand>
 

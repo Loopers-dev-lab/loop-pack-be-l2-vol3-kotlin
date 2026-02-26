@@ -15,9 +15,8 @@ class GetProductUseCase(
 
     @Transactional(readOnly = true)
     fun execute(productId: Long): ProductInfo {
-        val product = productRepository.findByIdOrNull(productId)
+        val product = productRepository.findActiveByIdOrNull(productId)
             ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
-        if (product.isDeleted()) throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
 
         val brand = brandRepository.findByIdOrNull(product.brandId)
         val brandName = brand?.name ?: ""

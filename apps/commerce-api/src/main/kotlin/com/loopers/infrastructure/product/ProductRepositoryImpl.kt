@@ -22,6 +22,10 @@ class ProductRepositoryImpl(
         return productJpaRepository.findByIdOrNull(id)
     }
 
+    override fun findActiveByIdOrNull(id: Long): Product? {
+        return productJpaRepository.findActiveByIdOrNull(id)
+    }
+
     override fun findAllByCondition(condition: ProductSearchCondition): PageResult<Product> {
         val spec = buildSpecification(condition)
         val sort = buildSort(condition.sort)
