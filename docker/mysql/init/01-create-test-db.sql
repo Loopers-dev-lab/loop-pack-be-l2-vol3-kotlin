@@ -1,0 +1,3 @@
+CREATE DATABASE IF NOT EXISTS loopers_test;
+GRANT ALL PRIVILEGES ON loopers_test.* TO 'application'@'%';
+FLUSH PRIVILEGES;

@@ -28,7 +28,7 @@ description: 요구사항 명세서 기반 기능 구현 워크플로우
    - Repository 구현체
 
    **c. Application Layer**
-   - Facade, Info DTO
+   - UseCase, Info DTO
 
    **d. Interface Layer**
    - Controller, DTO

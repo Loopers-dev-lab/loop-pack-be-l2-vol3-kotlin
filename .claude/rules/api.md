@@ -7,7 +7,7 @@ paths:
 
 ## Controller
 
-- Facade만 호출 (Service 직접 호출 금지)
+- UseCase만 호출 (Service 직접 호출 금지)
 - `@Valid`로 입력 검증
 - `ApiPaths` 상수 사용
 - `ApiResponse.success()`로 응답 래핑
@@ -16,11 +16,11 @@ paths:
 @RestController
 @RequestMapping(ApiPaths.Users.BASE)
 class UserV1Controller(
-    private val userFacade: UserFacade,  // Facade만
+    private val registerUserUseCase: RegisterUserUseCase,  // UseCase만
 ) {
     @PostMapping
     fun register(@Valid @RequestBody request: RegisterRequest): ApiResponse<UserResponse> {
-        val userInfo = userFacade.register(...)
+        val userInfo = registerUserUseCase.execute(request.toCommand())
         return ApiResponse.success(UserResponse.from(userInfo))
     }
 }
