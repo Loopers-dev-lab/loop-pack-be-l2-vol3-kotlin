@@ -53,8 +53,9 @@ graph LR
 ## Class Suffix별 책임
 
 ```mermaid
-graph TB
+graph TD
     subgraph Presentation["Presentation Layer"]
+        direction LR
         DTO["<b>Dto</b>\nRequest: HTTP 요청 바인딩 + @Valid\nResponse: HTTP 응답 직렬화"]
         CTRL["<b>Controller</b>\nHTTP 라우팅\nDto ↔ Command/Info 변환"]
         SPEC["<b>ApiSpec</b>\nSwagger 문서 인터페이스"]
@@ -63,6 +64,7 @@ graph TB
     end
 
     subgraph Application["Application Layer"]
+        direction LR
         FACADE["<b>Facade</b>\n@Transactional 유일한 소유자\nService 호출 조합\nModel → Info 변환"]
         SVC["<b>Service</b>\n비즈니스 로직 조합\nRepository 호출\n@Transactional 없음"]
         CMD["<b>Command</b>\nFacade/Service 입력\ndata class"]
@@ -71,6 +73,7 @@ graph TB
     end
 
     subgraph Domain["Domain Layer"]
+        direction LR
         MODEL["<b>Model</b>\n순수 불변 data class\ncopy() 기반 비즈니스 메서드\n외부 의존 없음"]
         VO["<b>VO</b>\n@JvmInline value class\n필드 단위 도메인 검증 규칙\nof() 팩토리에서만 검증"]
         REPO["<b>Repository</b>\ninterface (포트)\nDomain 자체 타입만 사용"]
@@ -82,11 +85,16 @@ graph TB
     end
 
     subgraph Infrastructure["Infrastructure Layer"]
+        direction LR
         JPA_MODEL["<b>JpaModel</b>\n@Entity, BaseEntity 상속\ntoModel() / from() 매핑\nDB 컬럼 매핑 전담"]
         JPA_REPO["<b>JpaRepository</b>\nSpring Data JPA interface\nJpaModel 대상"]
         REPO_IMPL["<b>RepositoryImpl</b>\nRepository 구현체\nModel ↔ JpaModel 변환\nPageQuery ↔ Pageable 변환"]
         DS_IMPL["<b>Domain Service Impl</b>\nDomain Service 구현체\n(예: BcryptPasswordEncoder)"]
     end
+
+    Presentation -->|"depends on"| Application
+    Application -->|"depends on"| Domain
+    Infrastructure -->|"implements"| Domain
 ```
 
 ## 레이어 경계 데이터 변환 흐름
