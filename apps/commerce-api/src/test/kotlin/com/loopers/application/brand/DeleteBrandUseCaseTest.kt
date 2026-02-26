@@ -1,7 +1,11 @@
 package com.loopers.application.brand
 
+import com.loopers.application.product.GetProductUseCase
+import com.loopers.application.product.ProductCommand
+import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.support.error.BrandErrorCode
-import com.loopers.support.error.BrandException
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ProductErrorCode
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -17,6 +21,8 @@ class DeleteBrandUseCaseTest @Autowired constructor(
     private val registerBrandUseCase: RegisterBrandUseCase,
     private val deleteBrandUseCase: DeleteBrandUseCase,
     private val getBrandUseCase: GetBrandUseCase,
+    private val registerProductUseCase: RegisterProductUseCase,
+    private val getProductUseCase: GetProductUseCase,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -36,7 +42,7 @@ class DeleteBrandUseCaseTest @Autowired constructor(
 
             deleteBrandUseCase.execute(brand.id)
 
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 getBrandUseCase.execute(brand.id)
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.BRAND_NOT_FOUND)
@@ -48,10 +54,33 @@ class DeleteBrandUseCaseTest @Autowired constructor(
             val brand = registerBrandUseCase.execute(BrandCommand.Register(name = "나이키"))
             deleteBrandUseCase.execute(brand.id)
 
-            val exception = assertThrows<BrandException> {
+            val exception = assertThrows<CoreException> {
                 deleteBrandUseCase.execute(brand.id)
             }
             assertThat(exception.errorCode).isEqualTo(BrandErrorCode.BRAND_NOT_FOUND)
+        }
+
+        @DisplayName("브랜드 삭제 시 소속 상품도 함께 소프트 삭제된다")
+        @Test
+        fun cascadeDeleteProducts() {
+            val brand = registerBrandUseCase.execute(BrandCommand.Register(name = "나이키"))
+            val product = registerProductUseCase.execute(
+                ProductCommand.Register(
+                    brandId = brand.id,
+                    name = "에어맥스",
+                    description = "설명",
+                    price = 10000,
+                    stock = 100,
+                    imageUrl = "https://example.com/image.jpg",
+                ),
+            )
+
+            deleteBrandUseCase.execute(brand.id)
+
+            val exception = assertThrows<CoreException> {
+                getProductUseCase.execute(product.id)
+            }
+            assertThat(exception.errorCode).isEqualTo(ProductErrorCode.PRODUCT_NOT_FOUND)
         }
     }
 }
