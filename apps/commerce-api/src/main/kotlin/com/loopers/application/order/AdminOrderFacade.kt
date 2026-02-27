@@ -16,4 +16,10 @@ class AdminOrderFacade(
         return orderService.getAllOrders(pageQuery)
             .map { AdminOrderInfo.from(it) }
     }
+
+    @Transactional(readOnly = true)
+    fun getOrder(orderId: Long): OrderDetailInfo {
+        val order = orderService.getOrderById(orderId)
+        return OrderDetailInfo.from(order)
+    }
 }

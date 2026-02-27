@@ -14,4 +14,10 @@ interface AdminOrderApiSpec {
         page: Int,
         size: Int,
     ): ApiResponse<AdminOrderDto.PageResponse>
+
+    @Operation(
+        summary = "주문 상세 조회",
+        description = "주문 ID로 주문 상세 정보를 조회합니다.",
+    )
+    fun getOrder(orderId: Long): ApiResponse<AdminOrderDto.DetailResponse>
 }

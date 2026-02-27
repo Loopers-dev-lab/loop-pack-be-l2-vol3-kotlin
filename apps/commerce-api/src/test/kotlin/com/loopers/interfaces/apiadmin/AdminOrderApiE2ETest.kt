@@ -63,7 +63,7 @@ class AdminOrderApiE2ETest @Autowired constructor(
         )
     }
 
-    private fun createOrder(userId: Long, brand: Brand, product: Product) {
+    private fun createOrder(userId: Long, brand: Brand, product: Product): Long {
         val items = listOf(
             OrderItemCommand(
                 productId = product.id,
@@ -73,7 +73,7 @@ class AdminOrderApiE2ETest @Autowired constructor(
                 brandName = brand.name,
             ),
         )
-        orderService.createOrder(userId, items)
+        return orderService.createOrder(userId, items).id
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -238,6 +238,119 @@ class AdminOrderApiE2ETest @Autowired constructor(
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "$ORDER_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/orders/{orderId}")
+    @Nested
+    inner class GetOrder {
+
+        @DisplayName("유효한 요청으로 조회하면, 200 OK와 주문 상세를 반환한다.")
+        @Test
+        fun returnsOk_whenValidRequest() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val orderId = createOrder(1L, brand, product)
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/$orderId",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(data?.get("orderId")).isEqualTo(orderId.toInt()) },
+                { assertThat(data?.get("userId")).isEqualTo(1) },
+                { assertThat(data?.get("totalAmount")).isEqualTo(159000) },
+                { assertThat(data?.get("status")).isEqualTo("ORDERED") },
+                { assertThat(data?.get("orderedAt")).isNotNull() },
+            )
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        @DisplayName("응답에 주문 항목 목록이 포함된다.")
+        @Test
+        fun returnsOrderItems() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val orderId = createOrder(1L, brand, product)
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/$orderId",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val data = response.body?.data
+            val items = data?.get("items") as? List<Map<String, Any>>
+            val firstItem = items?.first()
+            assertAll(
+                { assertThat(items).hasSize(1) },
+                { assertThat(firstItem?.get("productName")).isEqualTo("에어맥스") },
+                { assertThat(firstItem?.get("brandName")).isEqualTo("나이키") },
+                { assertThat(firstItem?.get("productPrice")).isEqualTo(159000) },
+                { assertThat(firstItem?.get("quantity")).isEqualTo(1) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 주문이면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenOrderNotExists() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/999",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/1",
                 HttpMethod.GET,
                 httpEntity,
                 responseType,
