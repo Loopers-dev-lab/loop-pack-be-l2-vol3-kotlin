@@ -35,7 +35,7 @@ class AdminBrandFacade(
     @Transactional
     fun deleteBrand(brandId: Long) {
         val brand = brandService.getBrand(brandId)
-        brandService.delete(brand)
         productService.deleteAllByBrandId(brandId)
+        brandService.delete(brand)
     }
 }

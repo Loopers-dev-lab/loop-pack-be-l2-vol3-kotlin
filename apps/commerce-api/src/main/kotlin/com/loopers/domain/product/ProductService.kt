@@ -54,14 +54,6 @@ class ProductService(
         product.update(name, description, Money.of(price), StockQuantity.of(stockQuantity))
     }
 
-    fun increaseLikeCount(product: Product) {
-        product.increaseLikeCount()
-    }
-
-    fun decreaseLikeCount(product: Product) {
-        product.decreaseLikeCount()
-    }
-
     fun getProductsByIds(ids: List<Long>): List<Product> {
         return productRepository.findAllByIds(ids)
     }
