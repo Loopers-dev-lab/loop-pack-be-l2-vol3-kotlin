@@ -216,6 +216,20 @@ class AdminProductV1ApiE2ETest @Autowired constructor(
     @Nested
     inner class GetProducts {
 
+        @DisplayName("어드민 인증 헤더가 없으면 401을 반환한다")
+        @Test
+        fun failWhenAdminAuthMissing() {
+            val response = testRestTemplate.getForEntity(
+                "${ApiPaths.AdminProducts.BASE}?page=0&size=20",
+                ApiResponse::class.java,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(CommonErrorCode.ADMIN_AUTHENTICATION_FAILED.code) },
+            )
+        }
+
         @DisplayName("등록된 상품 목록을 반환한다.")
         @Test
         fun success() {
@@ -293,6 +307,30 @@ class AdminProductV1ApiE2ETest @Autowired constructor(
     @Nested
     inner class Update {
 
+        @DisplayName("어드민 인증 헤더가 없으면 401을 반환한다")
+        @Test
+        fun failWhenAdminAuthMissing() {
+            val response = testRestTemplate.exchange(
+                "${ApiPaths.AdminProducts.BASE}/1",
+                HttpMethod.PUT,
+                HttpEntity(
+                    AdminProductUpdateRequest(
+                        name = "수정",
+                        description = "설명",
+                        price = 10000,
+                        stock = 10,
+                        imageUrl = "https://example.com/image.jpg",
+                    ),
+                ),
+                ApiResponse::class.java,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(CommonErrorCode.ADMIN_AUTHENTICATION_FAILED.code) },
+            )
+        }
+
         @DisplayName("새 정보로 수정하면, 200 OK와 수정된 상품 정보를 반환한다.")
         @Test
         fun success() {
@@ -328,6 +366,22 @@ class AdminProductV1ApiE2ETest @Autowired constructor(
     @DisplayName("DELETE /api/admin/v1/products/{productId} - 상품 삭제")
     @Nested
     inner class Delete {
+
+        @DisplayName("어드민 인증 헤더가 없으면 401을 반환한다")
+        @Test
+        fun failWhenAdminAuthMissing() {
+            val response = testRestTemplate.exchange(
+                "${ApiPaths.AdminProducts.BASE}/1",
+                HttpMethod.DELETE,
+                HttpEntity<Void>(HttpHeaders()),
+                ApiResponse::class.java,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(CommonErrorCode.ADMIN_AUTHENTICATION_FAILED.code) },
+            )
+        }
 
         @DisplayName("삭제하면 204 NO_CONTENT를 반환하고, 이후 조회 시 404를 반환한다.")
         @Test

@@ -229,7 +229,10 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
 
             // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(ProductErrorCode.PRODUCT_NOT_FOUND.code) },
+            )
         }
     }
 }
