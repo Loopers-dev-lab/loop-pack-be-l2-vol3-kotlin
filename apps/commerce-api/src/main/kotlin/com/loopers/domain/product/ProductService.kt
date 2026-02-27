@@ -90,8 +90,12 @@ class ProductService(
         }
     }
 
+    fun delete(product: Product) {
+        product.delete()
+    }
+
     fun deleteAllByBrandId(brandId: Long) {
         val products = productRepository.findAllByBrandId(brandId)
-        products.forEach { it.delete() }
+        products.forEach { delete(it) }
     }
 }

@@ -46,6 +46,12 @@ class AdminProductFacade(
         return AdminProductInfo.from(product, brand)
     }
 
+    @Transactional
+    fun deleteProduct(productId: Long) {
+        val product = productService.getProduct(productId)
+        productService.delete(product)
+    }
+
     fun createProduct(
         name: String,
         description: String?,

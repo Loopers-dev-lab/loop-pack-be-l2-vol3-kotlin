@@ -4,6 +4,7 @@ import com.loopers.application.product.AdminProductFacade
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.SortOrder
 import com.loopers.interfaces.common.ApiResponse
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -70,5 +71,13 @@ class AdminProductController(
         return adminProductFacade.getProductDetail(productId)
             .let { AdminProductDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
+    }
+
+    @DeleteMapping("/{productId}")
+    override fun deleteProduct(
+        @PathVariable productId: Long,
+    ): ApiResponse<Unit> {
+        adminProductFacade.deleteProduct(productId)
+        return ApiResponse.success(Unit)
     }
 }
