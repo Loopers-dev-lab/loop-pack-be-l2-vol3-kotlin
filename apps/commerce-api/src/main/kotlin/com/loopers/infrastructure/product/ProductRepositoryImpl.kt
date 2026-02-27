@@ -2,11 +2,10 @@ package com.loopers.infrastructure.product
 
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
-import com.loopers.domain.common.SortOrder
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
-import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
+import com.loopers.infrastructure.common.toPageRequest
+import com.loopers.infrastructure.common.toPageResult
 import org.springframework.stereotype.Component
 
 @Component
@@ -19,19 +18,13 @@ class ProductRepositoryImpl(
     }
 
     override fun findAll(brandId: Long?, pageQuery: PageQuery): PageResult<Product> {
-        val pageable = toPageRequest(pageQuery)
+        val pageable = pageQuery.toPageRequest()
         val page = if (brandId != null) {
             productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId, pageable)
         } else {
             productJpaRepository.findAllByDeletedAtIsNull(pageable)
         }
-        return PageResult(
-            content = page.content,
-            page = page.number,
-            size = page.size,
-            totalElements = page.totalElements,
-            totalPages = page.totalPages,
-        )
+        return page.toPageResult()
     }
 
     override fun findById(id: Long): Product? {
@@ -44,13 +37,5 @@ class ProductRepositoryImpl(
 
     override fun findAllByBrandId(brandId: Long): List<Product> {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
-    }
-
-    private fun toPageRequest(pageQuery: PageQuery): PageRequest {
-        val direction = when (pageQuery.sort.direction) {
-            SortOrder.Direction.ASC -> Sort.Direction.ASC
-            SortOrder.Direction.DESC -> Sort.Direction.DESC
-        }
-        return PageRequest.of(pageQuery.page, pageQuery.size, Sort.by(direction, pageQuery.sort.property))
     }
 }
