@@ -1,7 +1,7 @@
 package com.loopers.application.order
 
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.domain.order.OrderService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -18,8 +18,8 @@ class AdminOrderFacade(
     }
 
     @Transactional(readOnly = true)
-    fun getOrder(orderId: Long): OrderDetailInfo {
+    fun getOrder(orderId: Long): AdminOrderDetailInfo {
         val order = orderService.getOrderById(orderId)
-        return OrderDetailInfo.from(order)
+        return AdminOrderDetailInfo.from(order)
     }
 }

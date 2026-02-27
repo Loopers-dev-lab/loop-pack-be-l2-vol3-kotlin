@@ -2,8 +2,8 @@ package com.loopers.application.product
 
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.common.Money
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.ProductService
 import org.springframework.stereotype.Component

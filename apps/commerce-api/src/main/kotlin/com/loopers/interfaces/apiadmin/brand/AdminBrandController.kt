@@ -1,8 +1,8 @@
 package com.loopers.interfaces.apiadmin.brand
 
 import com.loopers.application.brand.AdminBrandFacade
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.SortOrder
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.SortOrder
 import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping

@@ -1,7 +1,7 @@
 package com.loopers.domain.product
 
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 
 interface ProductRepository {
     fun save(product: Product): Product

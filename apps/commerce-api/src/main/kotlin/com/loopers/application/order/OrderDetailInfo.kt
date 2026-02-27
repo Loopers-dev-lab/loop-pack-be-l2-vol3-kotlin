@@ -7,7 +7,6 @@ import java.time.ZonedDateTime
 
 data class OrderDetailInfo(
     val orderId: Long,
-    val userId: Long,
     val totalAmount: Long,
     val status: OrderStatus,
     val orderedAt: ZonedDateTime,
@@ -17,7 +16,6 @@ data class OrderDetailInfo(
         fun from(order: Order): OrderDetailInfo {
             return OrderDetailInfo(
                 orderId = order.id,
-                userId = order.userId,
                 totalAmount = order.totalAmount.value,
                 status = order.status,
                 orderedAt = order.createdAt,

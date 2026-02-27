@@ -1,7 +1,7 @@
 package com.loopers.interfaces.apiadmin.brand
 
 import com.loopers.application.brand.BrandInfo
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageResult
 import java.time.ZonedDateTime
 
 class AdminBrandDto {

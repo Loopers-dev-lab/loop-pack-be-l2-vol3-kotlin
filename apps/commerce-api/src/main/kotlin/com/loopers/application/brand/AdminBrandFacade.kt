@@ -1,8 +1,8 @@
 package com.loopers.application.brand
 
 import com.loopers.domain.brand.BrandService
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.domain.product.ProductService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional

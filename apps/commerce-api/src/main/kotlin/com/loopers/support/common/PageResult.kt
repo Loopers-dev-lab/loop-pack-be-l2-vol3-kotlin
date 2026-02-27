@@ -1,4 +1,4 @@
-package com.loopers.domain.common
+package com.loopers.support.common
 
 data class PageResult<T>(
     val content: List<T>,

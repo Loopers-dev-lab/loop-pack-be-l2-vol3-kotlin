@@ -1,7 +1,7 @@
 package com.loopers.interfaces.apiadmin.product
 
 import com.loopers.application.product.AdminProductInfo
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageResult
 import java.time.ZonedDateTime
 
 class AdminProductDto {

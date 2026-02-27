@@ -1,9 +1,9 @@
 package com.loopers.interfaces.apiadmin.order
 
+import com.loopers.application.order.AdminOrderDetailInfo
 import com.loopers.application.order.AdminOrderInfo
-import com.loopers.application.order.OrderDetailInfo
 import com.loopers.application.order.OrderItemInfo
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageResult
 import java.time.ZonedDateTime
 
 class AdminOrderDto {
@@ -56,7 +56,7 @@ class AdminOrderDto {
         val items: List<ItemResponse>,
     ) {
         companion object {
-            fun from(info: OrderDetailInfo): DetailResponse {
+            fun from(info: AdminOrderDetailInfo): DetailResponse {
                 return DetailResponse(
                     orderId = info.orderId,
                     userId = info.userId,

@@ -5,6 +5,8 @@ import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.StockDeductionRequest
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -25,6 +27,9 @@ class OrderFacade(
 
     @Transactional(readOnly = true)
     fun getOrders(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<OrderInfo> {
+        if (startAt.isAfter(endAt)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "시작일이 종료일보다 클 수 없습니다.")
+        }
         val orders = orderService.getOrders(userId, startAt, endAt)
         return orders.map { OrderInfo.from(it) }
     }

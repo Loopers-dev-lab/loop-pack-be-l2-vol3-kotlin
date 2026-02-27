@@ -182,23 +182,6 @@ class OrderServiceTest {
             assertThat(result).hasSize(1)
             verify(orderRepository).findByUserIdAndCreatedAtBetween(userId, startAt, endAt)
         }
-
-        @DisplayName("시작일이 종료일보다 크면, BAD_REQUEST 예외를 던진다.")
-        @Test
-        fun throwsBadRequest_whenStartAtIsAfterEndAt() {
-            // arrange
-            val userId = 1L
-            val startAt = LocalDateTime.of(2026, 2, 28, 23, 59, 59)
-            val endAt = LocalDateTime.of(2026, 2, 1, 0, 0)
-
-            // act
-            val exception = assertThrows<CoreException> {
-                orderService.getOrders(userId, startAt, endAt)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
     }
 
     @DisplayName("주문을 단건 조회할 때,")

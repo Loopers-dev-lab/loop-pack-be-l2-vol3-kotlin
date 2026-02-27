@@ -2,8 +2,8 @@ package com.loopers.infrastructure.brand
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.infrastructure.common.toPageRequest
 import com.loopers.infrastructure.common.toPageResult
 import org.springframework.stereotype.Component
