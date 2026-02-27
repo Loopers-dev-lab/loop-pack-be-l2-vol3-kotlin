@@ -34,7 +34,7 @@ class LikeV1Controller(
         addLikeUseCase.execute(
             LikeCommand.Create(
                 userId = userId,
-                productId = requireNotNull(request.productId),
+                productId = request.productId,
             ),
         )
         return ApiResponse.success(Unit)

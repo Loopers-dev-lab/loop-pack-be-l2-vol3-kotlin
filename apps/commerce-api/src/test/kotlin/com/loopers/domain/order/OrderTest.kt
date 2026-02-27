@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.product.Money
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.OrderErrorCode
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -61,12 +63,13 @@ class OrderTest {
             assertThat(order.totalAmount).isEqualTo(Money(15000))
         }
 
-        @DisplayName("빈 스냅샷 목록이면 예외가 발생한다")
+        @DisplayName("빈 스냅샷 목록이면 EMPTY_ORDER_ITEMS 에러가 발생한다")
         @Test
         fun failWhenEmptyItems() {
-            assertThrows<IllegalArgumentException> {
+            val exception = assertThrows<CoreException> {
                 Order.create(userId = 1L, items = emptyList())
             }
+            assertThat(exception.errorCode).isEqualTo(OrderErrorCode.EMPTY_ORDER_ITEMS)
         }
     }
 }

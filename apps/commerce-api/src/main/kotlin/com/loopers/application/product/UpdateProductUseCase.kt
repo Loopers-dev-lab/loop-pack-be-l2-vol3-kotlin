@@ -25,7 +25,7 @@ class UpdateProductUseCase(
             stock = command.toStock(),
             imageUrl = command.imageUrl,
         )
-        val brand = brandRepository.findByIdOrNull(product.brandId)
+        val brand = brandRepository.findActiveByIdOrNull(product.brandId)
         val brandName = brand?.name ?: ""
 
         return ProductInfo.from(product, brandName)

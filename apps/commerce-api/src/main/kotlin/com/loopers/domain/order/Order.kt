@@ -2,6 +2,8 @@ package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.product.Money
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.OrderErrorCode
 import jakarta.persistence.AttributeOverride
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
@@ -38,7 +40,7 @@ class Order private constructor(
 
     companion object {
         fun create(userId: Long, items: List<OrderItemSnapshot>): Order {
-            require(items.isNotEmpty()) { "주문 항목이 비어있습니다." }
+            if (items.isEmpty()) throw CoreException(OrderErrorCode.EMPTY_ORDER_ITEMS)
             val totalAmount = Money(items.sumOf { it.productPrice.amount * it.quantity.value })
             return Order(
                 userId = userId,
