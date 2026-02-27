@@ -573,6 +573,11 @@ graph TB
 - **Command/Info** (domain): Domain Service 입출력 계약. 도메인이 요구/제공하는 데이터
 - Entity를 HTTP 응답에 직접 노출하지 않는다
 - Interfaces 레이어가 Domain을 직접 import하지 않는다
+- **User API와 Admin API의 Response DTO는 반드시 분리한다 (SRP)**
+  - 같은 도메인이라도 대상(User/Admin)이 다르면 노출 필드가 다르다
+  - User Response: 사용자에게 필요한 정보만 (예: 재고, 상태, 전시여부 제외)
+  - Admin Response: 관리에 필요한 전체 정보 포함
+  - 하나의 Response가 두 API를 동시에 서빙하면 변경 사유가 2개 → SRP 위반
 
 ### 패키지 구조 (commerce-api 기준)
 ```
@@ -604,6 +609,7 @@ infrastructure/{domain}/       → RepositoryImpl, JpaRepository
 - 레이어 간 의존 방향 위반 금지 (Domain이 Infrastructure를 직접 의존하는 코드 작성 금지)
 - Repository Interface와 구현체를 분리하지 않는 구조 금지 (Interface는 Domain, 구현체는 Infrastructure)
 - Domain Layer에서 JPA 등 인프라 기술 패키지를 직접 import 금지
+- **git commit은 사용자가 명시적으로 요청할 때만 수행** (임의 커밋 절대 금지)
 
 ### 2. Recommendation
 - 실제 API를 호출해 확인하는 E2E 테스트 코드 작성
