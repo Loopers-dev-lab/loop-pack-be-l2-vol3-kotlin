@@ -14,13 +14,16 @@ class GetMyLikesUseCase(
 
     @Transactional(readOnly = true)
     fun execute(userId: Long, page: Int, size: Int): PageResult<LikeProductInfo> {
-        val likes = likeRepository.findAllByUserId(userId)
-        val productIds = likes.map { it.productId }
+        val likePage = likeRepository.findActiveLikesByUserId(userId, page, size)
 
-        val activeProducts = productRepository.findAllActiveByIds(productIds)
-        val productMap = activeProducts.associateBy { it.id }
+        if (likePage.content.isEmpty()) {
+            return PageResult.of(content = emptyList(), page = page, size = size, totalElements = likePage.totalElements)
+        }
 
-        val likeProductInfos = likes
+        val productIds = likePage.content.map { it.productId }
+        val productMap = productRepository.findAllActiveByIds(productIds).associateBy { it.id }
+
+        val likeProductInfos = likePage.content
             .filter { productMap.containsKey(it.productId) }
             .map { like ->
                 LikeProductInfo.from(
@@ -29,16 +32,11 @@ class GetMyLikesUseCase(
                 )
             }
 
-        val totalElements = likeProductInfos.size.toLong()
-        val fromIndex = (page * size).coerceAtMost(likeProductInfos.size)
-        val toIndex = ((page + 1) * size).coerceAtMost(likeProductInfos.size)
-        val pagedContent = likeProductInfos.subList(fromIndex, toIndex)
-
         return PageResult.of(
-            content = pagedContent,
+            content = likeProductInfos,
             page = page,
             size = size,
-            totalElements = totalElements,
+            totalElements = likePage.totalElements,
         )
     }
 }

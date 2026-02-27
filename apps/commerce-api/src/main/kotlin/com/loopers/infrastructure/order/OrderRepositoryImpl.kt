@@ -33,18 +33,14 @@ class OrderRepositoryImpl(
         val startZoned = startDate.atStartOfDay(zone)
         val endZoned = endDate.plusDays(1).atStartOfDay(zone)
 
-        val allOrders = orderJpaRepository.findByUserIdAndDateRange(userId, startZoned, endZoned)
-
-        val totalElements = allOrders.size.toLong()
-        val fromIndex = (page * size).coerceAtMost(allOrders.size)
-        val toIndex = ((page + 1) * size).coerceAtMost(allOrders.size)
-        val pagedContent = allOrders.subList(fromIndex, toIndex)
+        val pageable = PageRequest.of(page, size)
+        val result = orderJpaRepository.findByUserIdAndDateRange(userId, startZoned, endZoned, pageable)
 
         return PageResult.of(
-            content = pagedContent,
+            content = result.content,
             page = page,
             size = size,
-            totalElements = totalElements,
+            totalElements = result.totalElements,
         )
     }
 

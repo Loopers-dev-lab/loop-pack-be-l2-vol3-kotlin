@@ -1,15 +1,16 @@
 package com.loopers.infrastructure.like
 
 import com.loopers.domain.like.Like
-import com.loopers.domain.like.LikeRepository
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
-interface LikeJpaRepository : JpaRepository<Like, Long>, LikeRepository {
+interface LikeJpaRepository : JpaRepository<Like, Long> {
 
     @Query("SELECT l FROM Like l WHERE l.userId = :userId AND l.productId = :productId")
-    override fun findByUserIdAndProductId(
+    fun findByUserIdAndProductId(
         @Param("userId") userId: Long,
         @Param("productId") productId: Long,
     ): Like?
@@ -18,11 +19,20 @@ interface LikeJpaRepository : JpaRepository<Like, Long>, LikeRepository {
         "SELECT CASE WHEN COUNT(l) > 0 THEN true ELSE false END " +
             "FROM Like l WHERE l.userId = :userId AND l.productId = :productId",
     )
-    override fun existsByUserIdAndProductId(
+    fun existsByUserIdAndProductId(
         @Param("userId") userId: Long,
         @Param("productId") productId: Long,
     ): Boolean
 
-    @Query("SELECT l FROM Like l WHERE l.userId = :userId ORDER BY l.createdAt DESC")
-    override fun findAllByUserId(@Param("userId") userId: Long): List<Like>
+    @Query(
+        "SELECT l FROM Like l WHERE l.userId = :userId " +
+            "AND l.productId IN (SELECT p.id FROM Product p WHERE p.deletedAt IS NULL) " +
+            "ORDER BY l.createdAt DESC",
+        countQuery = "SELECT COUNT(l) FROM Like l WHERE l.userId = :userId " +
+            "AND l.productId IN (SELECT p.id FROM Product p WHERE p.deletedAt IS NULL)",
+    )
+    fun findActiveLikesByUserId(
+        @Param("userId") userId: Long,
+        pageable: Pageable,
+    ): Page<Like>
 }

@@ -1,6 +1,8 @@
 package com.loopers.infrastructure.order
 
 import com.loopers.domain.order.Order
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -15,10 +17,13 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
         "SELECT o FROM Order o WHERE o.userId = :userId " +
             "AND o.orderedAt >= :startDate AND o.orderedAt < :endDate " +
             "ORDER BY o.orderedAt DESC",
+        countQuery = "SELECT COUNT(o) FROM Order o WHERE o.userId = :userId " +
+            "AND o.orderedAt >= :startDate AND o.orderedAt < :endDate",
     )
     fun findByUserIdAndDateRange(
         @Param("userId") userId: Long,
         @Param("startDate") startDate: ZonedDateTime,
         @Param("endDate") endDate: ZonedDateTime,
-    ): List<Order>
+        pageable: Pageable,
+    ): Page<Order>
 }
