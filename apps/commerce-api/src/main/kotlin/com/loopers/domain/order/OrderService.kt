@@ -1,7 +1,7 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -21,9 +21,6 @@ class OrderService(
     }
 
     fun getOrders(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<Order> {
-        if (startAt.isAfter(endAt)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "시작일이 종료일보다 클 수 없습니다.")
-        }
         return orderRepository.findByUserIdAndCreatedAtBetween(userId, startAt, endAt)
     }
 

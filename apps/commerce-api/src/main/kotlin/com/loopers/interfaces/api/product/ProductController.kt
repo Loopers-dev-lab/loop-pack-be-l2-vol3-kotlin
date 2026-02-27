@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductFacade
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.SortOrder
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.SortOrder
 import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable

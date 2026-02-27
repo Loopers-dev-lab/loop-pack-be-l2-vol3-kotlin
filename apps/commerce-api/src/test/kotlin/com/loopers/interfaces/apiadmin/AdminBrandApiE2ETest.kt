@@ -2,10 +2,13 @@ package com.loopers.interfaces.apiadmin
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.Money
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.SortOrder
+import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.ProductService
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
-import org.springframework.data.domain.PageRequest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -54,7 +57,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
     }
 
     private fun deleteBrand(name: String) {
-        val brand = brandRepository.findAll(PageRequest.of(0, 100))
+        val brand = brandRepository.findAll(PageQuery(0, 100, SortOrder.UNSORTED))
             .content.first { it.name == name }
         brand.delete()
         brandRepository.save(brand)
@@ -191,7 +194,7 @@ class AdminBrandApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
                 { assertThat(content).hasSize(1) },
                 { assertThat(data?.get("size")).isEqualTo(20) },
-                { assertThat(data?.get("number")).isEqualTo(0) },
+                { assertThat(data?.get("page")).isEqualTo(0) },
             )
         }
 
@@ -830,8 +833,8 @@ class AdminBrandApiE2ETest @Autowired constructor(
             val product = productService.createProduct(
                 name = "에어맥스",
                 description = "운동화",
-                price = 100000,
-                stockQuantity = 10,
+                price = Money.of(100000L),
+                stockQuantity = StockQuantity.of(10),
                 brandId = brand.id,
             )
 

@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.SortOrder
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.SortOrder
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
@@ -173,8 +173,8 @@ class ProductServiceIntegrationTest @Autowired constructor(
             val result = productService.createProduct(
                 name = "에어맥스",
                 description = "러닝화",
-                price = 159000L,
-                stockQuantity = 100,
+                price = Money.of(159000L),
+                stockQuantity = StockQuantity.of(100),
                 brandId = brand.id,
             )
 
@@ -200,8 +200,8 @@ class ProductServiceIntegrationTest @Autowired constructor(
             val result = productService.createProduct(
                 name = "에어맥스",
                 description = null,
-                price = 159000L,
-                stockQuantity = 100,
+                price = Money.of(159000L),
+                stockQuantity = StockQuantity.of(100),
                 brandId = brand.id,
             )
 

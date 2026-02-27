@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.order
 
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
 import com.loopers.infrastructure.common.toPageRequest

@@ -69,6 +69,16 @@ class Order(
         calculateTotalAmount()
     }
 
+    fun changeStatus(next: OrderStatus) {
+        if (!status.canTransitionTo(next)) {
+            throw CoreException(
+                ErrorType.BAD_REQUEST,
+                "${status.name}에서 ${next.name}(으)로 상태를 변경할 수 없습니다.",
+            )
+        }
+        this.status = next
+    }
+
     private fun calculateTotalAmount() {
         this.totalAmount = orderItems.fold(Money.ZERO) { acc, item ->
             acc + item.productPrice * item.quantity

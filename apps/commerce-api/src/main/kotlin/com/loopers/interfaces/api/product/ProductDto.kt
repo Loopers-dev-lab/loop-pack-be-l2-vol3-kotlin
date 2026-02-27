@@ -2,7 +2,7 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductDetailInfo
 import com.loopers.application.product.ProductInfo
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageResult
 
 class ProductDto {
     data class DetailResponse(

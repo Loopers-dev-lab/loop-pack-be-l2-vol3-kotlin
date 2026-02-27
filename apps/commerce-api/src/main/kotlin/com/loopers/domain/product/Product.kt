@@ -45,11 +45,18 @@ class Product(
 
     init {
         validateName(name)
+        validatePrice(price)
     }
 
     private fun validateName(name: String) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "상품 이름은 비어있을 수 없습니다.")
+        }
+    }
+
+    private fun validatePrice(price: Money) {
+        if (price.value <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.")
         }
     }
 
@@ -59,12 +66,13 @@ class Product(
         }
     }
 
-    fun update(name: String, description: String?, price: Long, stockQuantity: Int) {
+    fun update(name: String, description: String?, price: Money, stockQuantity: StockQuantity) {
         validateName(name)
+        validatePrice(price)
         this.name = name
         this.description = description
-        this.price = Money.of(price)
-        this.stockQuantity = StockQuantity.of(stockQuantity)
+        this.price = price
+        this.stockQuantity = stockQuantity
     }
 
     fun increaseLikeCount() {
@@ -77,5 +85,24 @@ class Product(
 
     fun deductStock(quantity: Quantity) {
         this.stockQuantity = this.stockQuantity - quantity
+    }
+
+    companion object {
+        fun create(
+            name: String,
+            description: String?,
+            price: Money,
+            stockQuantity: StockQuantity,
+            brandId: Long,
+        ): Product {
+            return Product(
+                name = name,
+                description = description,
+                price = price,
+                likes = LikeCount.of(0),
+                stockQuantity = stockQuantity,
+                brandId = brandId,
+            )
+        }
     }
 }

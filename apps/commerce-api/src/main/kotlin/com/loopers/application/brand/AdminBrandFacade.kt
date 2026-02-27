@@ -1,9 +1,9 @@
 package com.loopers.application.brand
 
 import com.loopers.domain.brand.BrandService
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.domain.product.ProductService
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -22,8 +22,8 @@ class AdminBrandFacade(
             .let { BrandInfo.from(it) }
     }
 
-    fun getBrands(pageable: Pageable): Page<BrandInfo> {
-        return brandService.getBrands(pageable)
+    fun getBrands(pageQuery: PageQuery): PageResult<BrandInfo> {
+        return brandService.getBrands(pageQuery)
             .map { BrandInfo.from(it) }
     }
 
@@ -35,7 +35,7 @@ class AdminBrandFacade(
     @Transactional
     fun deleteBrand(brandId: Long) {
         val brand = brandService.getBrand(brandId)
-        brandService.delete(brand)
         productService.deleteAllByBrandId(brandId)
+        brandService.delete(brand)
     }
 }

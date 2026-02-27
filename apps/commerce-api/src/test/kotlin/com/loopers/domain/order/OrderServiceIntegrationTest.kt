@@ -229,22 +229,6 @@ class OrderServiceIntegrationTest @Autowired constructor(
             // assert
             assertThat(result).isEmpty()
         }
-
-        @DisplayName("시작일이 종료일보다 크면, BAD_REQUEST 예외를 던진다.")
-        @Test
-        fun throwsBadRequest_whenStartAtIsAfterEndAt() {
-            // arrange
-            val startAt = LocalDateTime.now().plusDays(1)
-            val endAt = LocalDateTime.now().minusDays(1)
-
-            // act
-            val exception = assertThrows<CoreException> {
-                orderService.getOrders(1L, startAt, endAt)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
     }
 
     @DisplayName("주문을 단건 조회할 때,")

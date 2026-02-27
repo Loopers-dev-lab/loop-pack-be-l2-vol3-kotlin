@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderFacade
-import com.loopers.domain.user.User
+import com.loopers.support.auth.AuthenticatedUserInfo
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser
 import org.springframework.format.annotation.DateTimeFormat
@@ -22,29 +22,29 @@ class OrderController(
 
     @GetMapping
     override fun getOrders(
-        @AuthenticatedUser user: User,
+        @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) startAt: LocalDateTime,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) endAt: LocalDateTime,
     ): ApiResponse<List<OrderDto.GetOrdersResponse>> {
-        val orders = orderFacade.getOrders(user.id, startAt, endAt)
+        val orders = orderFacade.getOrders(userInfo.id, startAt, endAt)
         return ApiResponse.success(orders.map { OrderDto.GetOrdersResponse.from(it) })
     }
 
     @GetMapping("/{orderId}")
     override fun getOrder(
-        @AuthenticatedUser user: User,
+        @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @PathVariable orderId: Long,
     ): ApiResponse<OrderDto.GetOrderResponse> {
-        val orderDetail = orderFacade.getOrder(user.id, orderId)
+        val orderDetail = orderFacade.getOrder(userInfo.id, orderId)
         return ApiResponse.success(OrderDto.GetOrderResponse.from(orderDetail))
     }
 
     @PostMapping
     override fun placeOrder(
-        @AuthenticatedUser user: User,
+        @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @RequestBody request: OrderDto.PlaceOrderRequest,
     ): ApiResponse<Unit> {
-        orderFacade.placeOrder(user.id, request.toCommands())
+        orderFacade.placeOrder(userInfo.id, request.toCommands())
         return ApiResponse.success(Unit)
     }
 }

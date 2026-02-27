@@ -1,8 +1,7 @@
 package com.loopers.interfaces.apiadmin.product
 
 import com.loopers.application.product.AdminProductInfo
-import com.loopers.application.product.ProductInfo
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageResult
 import java.time.ZonedDateTime
 
 class AdminProductDto {
@@ -109,9 +108,13 @@ class AdminProductDto {
         val price: Long,
         val stockQuantity: Int,
         val brandId: Long,
+        val brandName: String,
+        val likeCount: Int,
+        val createdAt: ZonedDateTime,
+        val updatedAt: ZonedDateTime,
     ) {
         companion object {
-            fun from(info: ProductInfo): CreateResponse {
+            fun from(info: AdminProductInfo): CreateResponse {
                 return CreateResponse(
                     id = info.id,
                     name = info.name,
@@ -119,6 +122,10 @@ class AdminProductDto {
                     price = info.price,
                     stockQuantity = info.stockQuantity,
                     brandId = info.brandId,
+                    brandName = info.brandName,
+                    likeCount = info.likeCount,
+                    createdAt = info.createdAt,
+                    updatedAt = info.updatedAt,
                 )
             }
         }

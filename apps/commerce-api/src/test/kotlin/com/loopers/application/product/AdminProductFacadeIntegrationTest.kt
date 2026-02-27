@@ -4,8 +4,8 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.SortOrder
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.SortOrder
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository

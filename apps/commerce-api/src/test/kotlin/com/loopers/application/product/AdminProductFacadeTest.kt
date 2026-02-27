@@ -4,9 +4,9 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
-import com.loopers.domain.common.SortOrder
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
+import com.loopers.support.common.SortOrder
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductService
@@ -195,8 +195,8 @@ class AdminProductFacadeTest {
                 val targetProduct = invocation.getArgument<Product>(0)
                 val newName = invocation.getArgument<String>(1)
                 val newDescription = invocation.getArgument<String?>(2)
-                val newPrice = invocation.getArgument<Long>(3)
-                val newStockQuantity = invocation.getArgument<Int>(4)
+                val newPrice = invocation.getArgument<Money>(3)
+                val newStockQuantity = invocation.getArgument<StockQuantity>(4)
                 targetProduct.update(newName, newDescription, newPrice, newStockQuantity)
                 null
             }.whenever(productService).updateProduct(

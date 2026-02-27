@@ -2,6 +2,8 @@ package com.loopers.application.like
 
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductService
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -12,7 +14,10 @@ class LikeFacade(
 ) {
 
     @Transactional(readOnly = true)
-    fun getUserLikes(userId: Long): List<LikeInfo> {
+    fun getUserLikes(authenticatedUserId: Long, userId: Long): List<LikeInfo> {
+        if (authenticatedUserId != userId) {
+            throw CoreException(ErrorType.FORBIDDEN, "타 유저의 정보에 접근할 수 없습니다")
+        }
         val productIds = likeService.getLikedProductIds(userId)
         if (productIds.isEmpty()) return emptyList()
         val products = productService.getProductsByIds(productIds)
@@ -24,7 +29,7 @@ class LikeFacade(
         val product = productService.getProduct(productId)
         val isNewLike = likeService.like(userId, productId)
         if (isNewLike) {
-            productService.increaseLikeCount(product)
+            product.increaseLikeCount()
         }
     }
 
@@ -33,7 +38,7 @@ class LikeFacade(
         val product = productService.getProduct(productId)
         val isDeleted = likeService.unlike(userId, productId)
         if (isDeleted) {
-            productService.decreaseLikeCount(product)
+            product.decreaseLikeCount()
         }
     }
 }

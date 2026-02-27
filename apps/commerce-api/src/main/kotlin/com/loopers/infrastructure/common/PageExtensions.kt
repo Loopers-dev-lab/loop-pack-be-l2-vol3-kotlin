@@ -1,8 +1,8 @@
 package com.loopers.infrastructure.common
 
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
-import com.loopers.domain.common.SortOrder
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
+import com.loopers.support.common.SortOrder
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort

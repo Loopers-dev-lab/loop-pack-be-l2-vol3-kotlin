@@ -1,10 +1,10 @@
 package com.loopers.application.order
 
 import com.loopers.domain.common.Money
-import com.loopers.domain.common.PageQuery
-import com.loopers.domain.common.PageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.domain.common.Quantity
-import com.loopers.domain.common.SortOrder
+import com.loopers.support.common.SortOrder
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
@@ -106,9 +106,9 @@ class AdminOrderFacadeTest {
     @Nested
     inner class GetOrder {
 
-        @DisplayName("존재하는 주문이면, OrderDetailInfo를 반환한다.")
+        @DisplayName("존재하는 주문이면, AdminOrderDetailInfo를 반환한다.")
         @Test
-        fun returnsOrderDetailInfo_whenOrderExists() {
+        fun returnsAdminOrderDetailInfo_whenOrderExists() {
             // arrange
             val now = ZonedDateTime.now()
             val order = Order(userId = 1L)
