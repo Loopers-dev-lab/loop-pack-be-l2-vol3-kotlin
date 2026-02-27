@@ -1,7 +1,11 @@
 package com.loopers.infrastructure.order
 
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
+import com.loopers.infrastructure.common.toPageRequest
+import com.loopers.infrastructure.common.toPageResult
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -26,5 +30,10 @@ class OrderRepositoryImpl(
             startAt.atZone(zoneId),
             endAt.atZone(zoneId),
         )
+    }
+
+    override fun findAll(pageQuery: PageQuery): PageResult<Order> {
+        return orderJpaRepository.findAllByDeletedAtIsNull(pageQuery.toPageRequest())
+            .toPageResult()
     }
 }
