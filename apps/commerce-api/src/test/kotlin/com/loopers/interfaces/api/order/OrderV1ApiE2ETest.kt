@@ -23,7 +23,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.time.ZonedDateTime
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -243,8 +243,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun returnsOk_whenQueryOwnOrders() {
             // arrange
             createOrder(testProductId)
-            val startAt = ZonedDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            val endAt = ZonedDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            val formatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss")
+            val startAt = LocalDateTime.now().minusDays(1).format(formatter)
+            val endAt = LocalDateTime.now().plusDays(1).format(formatter)
 
             // act
             val response = testRestTemplate.exchange(
@@ -269,8 +270,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun returnsEmptyList_whenNoOrdersInPeriod() {
             // arrange
             createOrder(testProductId)
-            val startAt = ZonedDateTime.now().minusDays(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            val endAt = ZonedDateTime.now().minusDays(5).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            val formatter = DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss")
+            val startAt = LocalDateTime.now().minusDays(10).format(formatter)
+            val endAt = LocalDateTime.now().minusDays(5).format(formatter)
 
             // act
             val response = testRestTemplate.exchange(

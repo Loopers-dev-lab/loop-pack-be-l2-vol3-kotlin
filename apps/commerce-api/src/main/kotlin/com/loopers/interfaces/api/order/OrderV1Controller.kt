@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.ZonedDateTime
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 @RestController
 class OrderV1Controller(
@@ -38,11 +39,12 @@ class OrderV1Controller(
     override fun getUserOrders(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) startAt: ZonedDateTime,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) endAt: ZonedDateTime,
+        @RequestParam @DateTimeFormat(pattern = "yyyyMMdd HH:mm:ss") startAt: LocalDateTime,
+        @RequestParam @DateTimeFormat(pattern = "yyyyMMdd HH:mm:ss") endAt: LocalDateTime,
     ): ApiResponse<List<OrderV1Dto.OrderSummaryResponse>> {
         val authUser = userService.authenticate(loginId, password)
-        return orderService.getUserOrders(authUser.id, startAt, endAt)
+        val zoneId = ZoneId.of("Asia/Seoul")
+        return orderService.getUserOrders(authUser.id, startAt.atZone(zoneId), endAt.atZone(zoneId))
             .map { OrderV1Dto.OrderSummaryResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

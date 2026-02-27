@@ -3,9 +3,10 @@ package com.loopers.interfaces.api.order
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
-import java.time.ZonedDateTime
+import java.time.LocalDateTime
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 
 @Tag(name = "Order V1 API", description = "주문 관련 API")
@@ -39,10 +40,20 @@ interface OrderV1ApiSpec {
         loginId: String,
         @Parameter(description = "비밀번호", required = true)
         password: String,
-        @Parameter(description = "조회 시작일시", required = true)
-        startAt: ZonedDateTime,
-        @Parameter(description = "조회 종료일시", required = true)
-        endAt: ZonedDateTime,
+        @Parameter(
+            description = "조회 시작일시 (yyyyMMdd HH:mm:ss)",
+            required = true,
+            example = "20260101 00:00:00",
+            schema = Schema(type = "string"),
+        )
+        startAt: LocalDateTime,
+        @Parameter(
+            description = "조회 종료일시 (yyyyMMdd HH:mm:ss)",
+            required = true,
+            example = "20260228 23:59:59",
+            schema = Schema(type = "string"),
+        )
+        endAt: LocalDateTime,
     ): ApiResponse<List<OrderV1Dto.OrderSummaryResponse>>
 
     @Operation(summary = "주문 상세 조회", description = "주문 ID로 주문 상세를 조회합니다. 본인의 주문만 조회 가능합니다.")
