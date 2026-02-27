@@ -13,15 +13,19 @@ import com.loopers.domain.user.BirthDate
 import com.loopers.domain.user.Email
 import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.UserModel
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
+import org.springframework.data.domain.PageRequest
 
 @ExtendWith(MockitoExtension::class)
 class LikeFacadeTest {
@@ -86,6 +90,49 @@ class LikeFacadeTest {
             val result = likeFacade.unlike("testuser", 1L)
 
             assertThat(result).isEqualTo(Unit)
+        }
+    }
+
+    @Nested
+    inner class GetLikedProducts {
+
+        @Test
+        fun `본인이 좋아요한 상품 목록 조회 시 LikeInfo 목록을 반환한다`() {
+            // given
+            val userModel = createTestUserModel()  // user.id = 0 (기본값)
+            val likeModels = listOf(
+                createTestLikeModel(userId = 0L, productId = 1L),
+                createTestLikeModel(userId = 0L, productId = 2L),
+            )
+            val pageable = PageRequest.of(0, 10)
+
+            whenever(userService.getUserByLoginId(any())).thenReturn(userModel)
+            whenever(likeService.getLikedProducts(0L, pageable)).thenReturn(likeModels)
+
+            // when
+            val result = likeFacade.getLikedProducts("testuser", 0L, pageable)
+
+            // then
+            assertThat(result).hasSize(2)
+            assertThat(result[0]).isInstanceOf(LikeInfo::class.java)
+            assertThat(result[0].productId).isEqualTo(1L)
+            assertThat(result[1].productId).isEqualTo(2L)
+        }
+
+        @Test
+        fun `타인의 좋아요 목록 조회 시 FORBIDDEN 예외가 발생한다`() {
+            // given
+            val userModel = createTestUserModel()  // user.id = 0 (기본값)
+
+            whenever(userService.getUserByLoginId(any())).thenReturn(userModel)
+
+            // when
+            val exception = assertThrows<CoreException> {
+                likeFacade.getLikedProducts("testuser", 999L, PageRequest.of(0, 10))
+            }
+
+            // then
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
 }

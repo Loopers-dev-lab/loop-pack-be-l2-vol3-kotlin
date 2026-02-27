@@ -2,12 +2,16 @@ package com.loopers.domain.product
 
 import com.loopers.domain.brand.BrandService
 import com.loopers.interfaces.api.product.ProductSortType
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.domain.PageRequest
@@ -36,6 +40,123 @@ class ProductServiceIntegrationTest @Autowired constructor(
         phoneNumber = "02-3783-4401",
         businessNumber = "123-45-67890",
     )
+
+    @Nested
+    inner class CreateProduct {
+
+        @Test
+        fun `브랜드 생성 후 상품 생성 시 id가 0보다 크고 모든 필드가 올바르게 저장된다`() {
+            val brand = createBrand()
+
+            val product = productService.createProduct(brand.id, "Air Max", "image.png", "설명", 50_000L)
+
+            assertAll(
+                { assertThat(product.id).isGreaterThan(0) },
+                { assertThat(product.brandId).isEqualTo(brand.id) },
+                { assertThat(product.name.value).isEqualTo("Air Max") },
+                { assertThat(product.imageUrl.value).isEqualTo("image.png") },
+                { assertThat(product.description.value).isEqualTo("설명") },
+                { assertThat(product.price.value).isEqualTo(50_000L) },
+            )
+        }
+    }
+
+    @Nested
+    inner class GetProducts {
+
+        @Test
+        fun `brandId로 필터링하여 해당 브랜드의 상품 목록만 반환한다`() {
+            val brand1 = createBrand()
+            val brand2 = brandService.createBrand(
+                name = "Adidas",
+                logoImageUrl = "adidas.png",
+                description = "아디다스",
+                zipCode = "12345",
+                roadAddress = "서울특별시 강남구 테헤란로 1",
+                detailAddress = "2층",
+                email = "adidas@google.com",
+                phoneNumber = "02-1234-5678",
+                businessNumber = "234-56-78901",
+            )
+            productService.createProduct(brand1.id, "Air Max", "img1.png", "설명1", 50_000L)
+            productService.createProduct(brand1.id, "Air Force", "img2.png", "설명2", 30_000L)
+            productService.createProduct(brand2.id, "Ultraboost", "img3.png", "설명3", 60_000L)
+
+            val result = productService.getProducts(brand1.id, PageRequest.of(0, 10))
+
+            assertThat(result.content).hasSize(2)
+            assertThat(result.content.map { it.brandId }).containsOnly(brand1.id)
+        }
+
+        @Test
+        fun `brandId 없이 전체 상품 목록을 반환한다`() {
+            val brand = createBrand()
+            productService.createProduct(brand.id, "Air Max", "img1.png", "설명1", 50_000L)
+            productService.createProduct(brand.id, "Air Force", "img2.png", "설명2", 30_000L)
+
+            val result = productService.getProducts(null, PageRequest.of(0, 10))
+
+            assertThat(result.content).hasSize(2)
+        }
+    }
+
+    @Nested
+    inner class GetProductById {
+
+        @Test
+        fun `존재하는 ID로 상품을 조회한다`() {
+            val brand = createBrand()
+            val created = productService.createProduct(brand.id, "Air Max", "image.png", "설명", 50_000L)
+
+            val result = productService.getProductById(created.id)
+
+            assertThat(result.id).isEqualTo(created.id)
+            assertThat(result.name.value).isEqualTo("Air Max")
+        }
+
+        @Test
+        fun `존재하지 않는 ID로 조회 시 NOT_FOUND 예외가 발생한다`() {
+            val exception = assertThrows<CoreException> {
+                productService.getProductById(99999L)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @Nested
+    inner class UpdateProduct {
+
+        @Test
+        fun `상품 수정 후 변경된 필드가 반영된다`() {
+            val brand = createBrand()
+            val product = productService.createProduct(brand.id, "Air Max", "image.png", "설명", 50_000L)
+
+            val updated = productService.updateProduct(product.id, "Air Max 2024", "new.png", "새 설명", 60_000L)
+
+            assertThat(updated.name.value).isEqualTo("Air Max 2024")
+            assertThat(updated.imageUrl.value).isEqualTo("new.png")
+            assertThat(updated.description.value).isEqualTo("새 설명")
+            assertThat(updated.price.value).isEqualTo(60_000L)
+        }
+    }
+
+    @Nested
+    inner class DeleteProduct {
+
+        @Test
+        fun `상품 삭제 후 조회 시 NOT_FOUND 예외가 발생한다`() {
+            val brand = createBrand()
+            val product = productService.createProduct(brand.id, "Air Max", "image.png", "설명", 50_000L)
+
+            productService.deleteProduct(product.id)
+
+            val exception = assertThrows<CoreException> {
+                productService.getProductById(product.id)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
 
     @Nested
     inner class SortProducts {
