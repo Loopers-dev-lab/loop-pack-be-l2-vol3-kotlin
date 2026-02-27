@@ -1,6 +1,5 @@
 package com.loopers.domain.product
 
-import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
@@ -17,17 +16,16 @@ class ProductService(
     fun createProduct(
         name: String,
         description: String?,
-        price: Long,
-        stockQuantity: Int,
+        price: Money,
+        stockQuantity: StockQuantity,
         brandId: Long,
     ): Product {
         return productRepository.save(
-            Product(
+            Product.create(
                 name = name,
                 description = description,
-                price = Money.of(price),
-                likes = LikeCount.of(0),
-                stockQuantity = StockQuantity.of(stockQuantity),
+                price = price,
+                stockQuantity = stockQuantity,
                 brandId = brandId,
             ),
         )
@@ -46,12 +44,12 @@ class ProductService(
         product: Product,
         name: String,
         description: String?,
-        price: Long,
-        stockQuantity: Int,
+        price: Money,
+        stockQuantity: StockQuantity,
         brandId: Long,
     ) {
         product.validateBrandChange(brandId)
-        product.update(name, description, Money.of(price), StockQuantity.of(stockQuantity))
+        product.update(name, description, price, stockQuantity)
     }
 
     fun getProductsByIds(ids: List<Long>): List<Product> {

@@ -86,4 +86,23 @@ class Product(
     fun deductStock(quantity: Quantity) {
         this.stockQuantity = this.stockQuantity - quantity
     }
+
+    companion object {
+        fun create(
+            name: String,
+            description: String?,
+            price: Money,
+            stockQuantity: StockQuantity,
+            brandId: Long,
+        ): Product {
+            return Product(
+                name = name,
+                description = description,
+                price = price,
+                likes = LikeCount.of(0),
+                stockQuantity = stockQuantity,
+                brandId = brandId,
+            )
+        }
+    }
 }

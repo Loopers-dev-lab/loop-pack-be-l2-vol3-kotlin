@@ -22,14 +22,14 @@ data class UserInfo(
             )
         }
 
-        fun fromWithMasking(user: User): UserInfo {
+        fun fromWithMasking(userInfo: AuthenticatedUserInfo): UserInfo {
             return UserInfo(
-                id = user.id,
-                loginId = user.loginId.value,
-                name = user.name,
-                email = user.email.value,
-                maskedName = MaskedName.from(user.name).value,
-                birthday = user.birthday,
+                id = userInfo.id,
+                loginId = userInfo.loginId,
+                name = userInfo.name,
+                email = userInfo.email,
+                maskedName = MaskedName.from(userInfo.name).value,
+                birthday = userInfo.birthday,
             )
         }
     }

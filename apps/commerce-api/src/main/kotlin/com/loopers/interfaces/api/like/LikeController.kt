@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.like
 
 import com.loopers.application.like.LikeFacade
-import com.loopers.domain.user.User
+import com.loopers.application.user.AuthenticatedUserInfo
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser
 import org.springframework.web.bind.annotation.PathVariable
@@ -18,19 +18,19 @@ class LikeController(
 
     @PostMapping("/{productId}/likes")
     override fun like(
-        @AuthenticatedUser user: User,
+        @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @PathVariable productId: Long,
     ): ApiResponse<Unit> {
-        likeFacade.like(user.id, productId)
+        likeFacade.like(userInfo.id, productId)
         return ApiResponse.success(Unit)
     }
 
     @DeleteMapping("/{productId}/likes")
     override fun unlike(
-        @AuthenticatedUser user: User,
+        @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @PathVariable productId: Long,
     ): ApiResponse<Unit> {
-        likeFacade.unlike(user.id, productId)
+        likeFacade.unlike(userInfo.id, productId)
         return ApiResponse.success(Unit)
     }
 }

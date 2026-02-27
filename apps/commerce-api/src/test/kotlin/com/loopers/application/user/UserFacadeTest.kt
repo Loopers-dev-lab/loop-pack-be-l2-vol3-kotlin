@@ -1,8 +1,5 @@
 package com.loopers.application.user
 
-import com.loopers.domain.user.Email
-import com.loopers.domain.user.LoginId
-import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -36,16 +33,16 @@ class UserFacadeTest {
         @Test
         fun returnsUserInfoWithMaskedName_whenAuthenticatedUserProvided() {
             // arrange
-            val user = User(
-                loginId = LoginId.of("testuser"),
-                password = "encoded_password",
+            val userInfo = AuthenticatedUserInfo(
+                id = 0L,
+                loginId = "testuser",
                 name = "홍길동",
-                email = Email.of("test@example.com"),
+                email = "test@example.com",
                 birthday = LocalDate.of(1990, 1, 1),
             )
 
             // act
-            val result = userFacade.getMe(user)
+            val result = userFacade.getMe(userInfo)
 
             // assert
             assertAll(
@@ -64,21 +61,15 @@ class UserFacadeTest {
         @Test
         fun callsUserServiceChangePassword_whenValidPasswordsProvided() {
             // arrange
-            val user = User(
-                loginId = LoginId.of("testuser"),
-                password = "encoded_password",
-                name = "홍길동",
-                email = Email.of("test@example.com"),
-                birthday = LocalDate.of(1990, 5, 15),
-            )
+            val userId = 1L
             val currentPassword = "CurrentPassword1!"
             val newPassword = "NewPassword1!"
 
             // act
-            userFacade.changePassword(user, currentPassword, newPassword)
+            userFacade.changePassword(userId, currentPassword, newPassword)
 
             // assert
-            verify(userService).changePassword(user.id, currentPassword, newPassword)
+            verify(userService).changePassword(userId, currentPassword, newPassword)
         }
     }
 }

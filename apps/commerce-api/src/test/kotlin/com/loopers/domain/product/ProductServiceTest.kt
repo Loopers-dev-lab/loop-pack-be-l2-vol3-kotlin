@@ -104,7 +104,7 @@ class ProductServiceTest {
             whenever(productRepository.save(any())).thenReturn(product)
 
             // act
-            val result = productService.createProduct(name, description, price, stockQuantity, brandId)
+            val result = productService.createProduct(name, description, Money.of(price), StockQuantity.of(stockQuantity), brandId)
 
             // assert
             assertAll(
@@ -136,7 +136,7 @@ class ProductServiceTest {
             whenever(productRepository.save(any())).thenReturn(product)
 
             // act
-            val result = productService.createProduct(name, null, price, stockQuantity, brandId)
+            val result = productService.createProduct(name, null, Money.of(price), StockQuantity.of(stockQuantity), brandId)
 
             // assert
             assertAll(

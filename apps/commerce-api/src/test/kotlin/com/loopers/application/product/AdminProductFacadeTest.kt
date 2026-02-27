@@ -195,9 +195,9 @@ class AdminProductFacadeTest {
                 val targetProduct = invocation.getArgument<Product>(0)
                 val newName = invocation.getArgument<String>(1)
                 val newDescription = invocation.getArgument<String?>(2)
-                val newPrice = invocation.getArgument<Long>(3)
-                val newStockQuantity = invocation.getArgument<Int>(4)
-                targetProduct.update(newName, newDescription, Money.of(newPrice), StockQuantity.of(newStockQuantity))
+                val newPrice = invocation.getArgument<Money>(3)
+                val newStockQuantity = invocation.getArgument<StockQuantity>(4)
+                targetProduct.update(newName, newDescription, newPrice, newStockQuantity)
                 null
             }.whenever(productService).updateProduct(
                 any(),

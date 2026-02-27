@@ -173,8 +173,8 @@ class ProductServiceIntegrationTest @Autowired constructor(
             val result = productService.createProduct(
                 name = "에어맥스",
                 description = "러닝화",
-                price = 159000L,
-                stockQuantity = 100,
+                price = Money.of(159000L),
+                stockQuantity = StockQuantity.of(100),
                 brandId = brand.id,
             )
 
@@ -200,8 +200,8 @@ class ProductServiceIntegrationTest @Autowired constructor(
             val result = productService.createProduct(
                 name = "에어맥스",
                 description = null,
-                price = 159000L,
-                stockQuantity = 100,
+                price = Money.of(159000L),
+                stockQuantity = StockQuantity.of(100),
                 brandId = brand.id,
             )
 

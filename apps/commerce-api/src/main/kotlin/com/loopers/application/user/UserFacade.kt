@@ -1,6 +1,5 @@
 package com.loopers.application.user
 
-import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -15,16 +14,17 @@ class UserFacade(
             .let { UserInfo.from(it) }
     }
 
-    fun authenticate(loginId: String, password: String): User {
+    fun authenticate(loginId: String, password: String): AuthenticatedUserInfo {
         return userService.authenticate(loginId, password)
+            .let { AuthenticatedUserInfo.from(it) }
     }
 
-    fun getMe(user: User): UserInfo {
-        return UserInfo.fromWithMasking(user)
+    fun getMe(userInfo: AuthenticatedUserInfo): UserInfo {
+        return UserInfo.fromWithMasking(userInfo)
     }
 
     @Transactional
-    fun changePassword(user: User, currentPassword: String, newPassword: String) {
-        userService.changePassword(user.id, currentPassword, newPassword)
+    fun changePassword(userId: Long, currentPassword: String, newPassword: String) {
+        userService.changePassword(userId, currentPassword, newPassword)
     }
 }

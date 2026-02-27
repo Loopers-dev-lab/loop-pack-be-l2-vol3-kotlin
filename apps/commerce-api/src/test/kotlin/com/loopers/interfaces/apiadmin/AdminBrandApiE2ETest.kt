@@ -2,8 +2,10 @@ package com.loopers.interfaces.apiadmin
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.Money
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.SortOrder
+import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.ProductService
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
@@ -831,8 +833,8 @@ class AdminBrandApiE2ETest @Autowired constructor(
             val product = productService.createProduct(
                 name = "에어맥스",
                 description = "운동화",
-                price = 100000,
-                stockQuantity = 10,
+                price = Money.of(100000L),
+                stockQuantity = StockQuantity.of(10),
                 brandId = brand.id,
             )
 

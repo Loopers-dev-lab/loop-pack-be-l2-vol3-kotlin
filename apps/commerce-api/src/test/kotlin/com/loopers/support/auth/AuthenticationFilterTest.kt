@@ -1,10 +1,8 @@
 package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.loopers.application.user.AuthenticatedUserInfo
 import com.loopers.application.user.UserFacade
-import com.loopers.domain.user.Email
-import com.loopers.domain.user.LoginId
-import com.loopers.domain.user.User
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
@@ -52,25 +50,25 @@ class AuthenticationFilterTest {
             val response = MockHttpServletResponse()
             val loginId = "testuser"
             val password = "Test1234!@"
-            val user = User(
-                loginId = LoginId.of(loginId),
-                password = "encoded",
+            val userInfo = AuthenticatedUserInfo(
+                id = 1L,
+                loginId = loginId,
                 name = "홍길동",
-                email = Email.of("test@example.com"),
+                email = "test@example.com",
                 birthday = LocalDate.of(1990, 1, 1),
             )
 
             request.addHeader("X-Loopers-LoginId", loginId)
             request.addHeader("X-Loopers-LoginPw", password)
 
-            whenever(userFacade.authenticate(loginId, password)).thenReturn(user)
+            whenever(userFacade.authenticate(loginId, password)).thenReturn(userInfo)
 
             // act
             authenticationFilter.doFilter(request, response, filterChain)
 
             // assert
-            val authenticatedUser = request.getAttribute("authenticatedUser") as User
-            assertThat(authenticatedUser.loginId.value).isEqualTo(loginId)
+            val authenticatedUser = request.getAttribute("authenticatedUser") as AuthenticatedUserInfo
+            assertThat(authenticatedUser.loginId).isEqualTo(loginId)
             verify(filterChain).doFilter(request, response)
         }
 

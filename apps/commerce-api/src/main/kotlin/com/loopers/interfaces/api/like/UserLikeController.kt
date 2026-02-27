@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.like
 
 import com.loopers.application.like.LikeFacade
-import com.loopers.domain.user.User
+import com.loopers.application.user.AuthenticatedUserInfo
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,10 +17,10 @@ class UserLikeController(
 
     @GetMapping("/{userId}/likes")
     override fun getUserLikes(
-        @AuthenticatedUser user: User,
+        @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @PathVariable userId: Long,
     ): ApiResponse<List<LikeDto.UserLikeResponse>> {
-        val likes = likeFacade.getUserLikes(user.id, userId)
+        val likes = likeFacade.getUserLikes(userInfo.id, userId)
         return ApiResponse.success(likes.map { LikeDto.UserLikeResponse.from(it) })
     }
 }
