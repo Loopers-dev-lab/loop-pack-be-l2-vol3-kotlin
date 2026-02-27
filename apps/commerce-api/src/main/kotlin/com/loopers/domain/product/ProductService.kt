@@ -21,7 +21,6 @@ class ProductService(
         stockQuantity: Int,
         brandId: Long,
     ): Product {
-        validatePrice(price)
         return productRepository.save(
             Product(
                 name = name,
@@ -51,15 +50,8 @@ class ProductService(
         stockQuantity: Int,
         brandId: Long,
     ) {
-        validatePrice(price)
         product.validateBrandChange(brandId)
         product.update(name, description, price, stockQuantity)
-    }
-
-    private fun validatePrice(price: Long) {
-        if (price <= 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.")
-        }
     }
 
     fun increaseLikeCount(product: Product) {

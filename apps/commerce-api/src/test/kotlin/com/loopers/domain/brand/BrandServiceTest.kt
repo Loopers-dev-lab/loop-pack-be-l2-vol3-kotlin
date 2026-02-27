@@ -1,5 +1,8 @@
 package com.loopers.domain.brand
 
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
+import com.loopers.domain.common.SortOrder
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -14,9 +17,6 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.PageRequest
 
 @ExtendWith(MockitoExtension::class)
 class BrandServiceTest {
@@ -83,17 +83,23 @@ class BrandServiceTest {
         @Test
         fun returnsPagedBrands_whenBrandsExist() {
             // arrange
-            val pageable = PageRequest.of(0, 20)
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
             val brands = listOf(
                 Brand(name = "나이키", description = "스포츠 브랜드"),
                 Brand(name = "아디다스", description = "스포츠 브랜드"),
             )
-            val page: Page<Brand> = PageImpl(brands, pageable, brands.size.toLong())
+            val pageResult = PageResult(
+                content = brands,
+                page = 0,
+                size = 20,
+                totalElements = 2L,
+                totalPages = 1,
+            )
 
-            whenever(brandRepository.findAll(pageable)).thenReturn(page)
+            whenever(brandRepository.findAll(pageQuery)).thenReturn(pageResult)
 
             // act
-            val result = brandService.getBrands(pageable)
+            val result = brandService.getBrands(pageQuery)
 
             // assert
             assertAll(
@@ -108,13 +114,19 @@ class BrandServiceTest {
         @Test
         fun returnsEmptyPage_whenNoBrandsExist() {
             // arrange
-            val pageable = PageRequest.of(0, 20)
-            val page: Page<Brand> = PageImpl(emptyList(), pageable, 0)
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+            val pageResult = PageResult(
+                content = emptyList<Brand>(),
+                page = 0,
+                size = 20,
+                totalElements = 0L,
+                totalPages = 0,
+            )
 
-            whenever(brandRepository.findAll(pageable)).thenReturn(page)
+            whenever(brandRepository.findAll(pageQuery)).thenReturn(pageResult)
 
             // act
-            val result = brandService.getBrands(pageable)
+            val result = brandService.getBrands(pageQuery)
 
             // assert
             assertAll(

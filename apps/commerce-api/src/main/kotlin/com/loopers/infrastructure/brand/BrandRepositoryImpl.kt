@@ -2,8 +2,10 @@ package com.loopers.infrastructure.brand
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
+import com.loopers.infrastructure.common.toPageRequest
+import com.loopers.infrastructure.common.toPageResult
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 
@@ -16,8 +18,9 @@ class BrandRepositoryImpl(
             ?.takeIf { it.deletedAt == null }
     }
 
-    override fun findAll(pageable: Pageable): Page<Brand> {
-        return brandJpaRepository.findAllByDeletedAtIsNull(pageable)
+    override fun findAll(pageQuery: PageQuery): PageResult<Brand> {
+        return brandJpaRepository.findAllByDeletedAtIsNull(pageQuery.toPageRequest())
+            .toPageResult()
     }
 
     override fun findAllByIds(ids: List<Long>): List<Brand> {

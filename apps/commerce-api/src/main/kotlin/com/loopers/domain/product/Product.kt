@@ -45,11 +45,18 @@ class Product(
 
     init {
         validateName(name)
+        validatePrice(price)
     }
 
     private fun validateName(name: String) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "상품 이름은 비어있을 수 없습니다.")
+        }
+    }
+
+    private fun validatePrice(price: Money) {
+        if (price.value <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.")
         }
     }
 
@@ -61,9 +68,11 @@ class Product(
 
     fun update(name: String, description: String?, price: Long, stockQuantity: Int) {
         validateName(name)
+        val newPrice = Money.of(price)
+        validatePrice(newPrice)
         this.name = name
         this.description = description
-        this.price = Money.of(price)
+        this.price = newPrice
         this.stockQuantity = StockQuantity.of(stockQuantity)
     }
 

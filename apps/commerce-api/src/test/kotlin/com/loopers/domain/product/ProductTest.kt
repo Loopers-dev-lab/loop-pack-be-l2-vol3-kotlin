@@ -97,6 +97,25 @@ class ProductTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
+        @DisplayName("가격이 0이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenPriceIsZero() {
+            // act
+            val exception = assertThrows<CoreException> {
+                Product(
+                    name = name,
+                    description = description,
+                    price = Money.of(0),
+                    likes = likes,
+                    stockQuantity = stockQuantity,
+                    brandId = brandId,
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
         @DisplayName("재고 수량이 음수이면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenStockQuantityIsNegative() {
@@ -165,6 +184,21 @@ class ProductTest {
             // act
             val exception = assertThrows<CoreException> {
                 product.update(name = "  ", description = "설명", price = 200000L, stockQuantity = 50)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("가격이 0이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenPriceIsZero() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                product.update(name = "수정된 상품", description = "설명", price = 0L, stockQuantity = 50)
             }
 
             // assert

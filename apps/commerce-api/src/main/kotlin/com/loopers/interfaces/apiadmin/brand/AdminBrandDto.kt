@@ -1,17 +1,38 @@
 package com.loopers.interfaces.apiadmin.brand
 
 import com.loopers.application.brand.BrandInfo
+import com.loopers.domain.common.PageResult
 import java.time.ZonedDateTime
 
 class AdminBrandDto {
-    data class BrandResponse(
+    data class PageResponse(
+        val content: List<ListItem>,
+        val page: Int,
+        val size: Int,
+        val totalElements: Long,
+        val totalPages: Int,
+    ) {
+        companion object {
+            fun from(page: PageResult<BrandInfo>): PageResponse {
+                return PageResponse(
+                    content = page.content.map { ListItem.from(it) },
+                    page = page.page,
+                    size = page.size,
+                    totalElements = page.totalElements,
+                    totalPages = page.totalPages,
+                )
+            }
+        }
+    }
+
+    data class ListItem(
         val id: Long,
         val name: String,
         val description: String?,
     ) {
         companion object {
-            fun from(info: BrandInfo): BrandResponse {
-                return BrandResponse(
+            fun from(info: BrandInfo): ListItem {
+                return ListItem(
                     id = info.id,
                     name = info.name,
                     description = info.description,
