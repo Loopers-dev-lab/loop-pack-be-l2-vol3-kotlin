@@ -58,14 +58,15 @@ class AdminProductFacade(
         price: Long,
         stockQuantity: Int,
         brandId: Long,
-    ): ProductInfo {
-        brandService.getBrand(brandId)
-        return productService.createProduct(
+    ): AdminProductInfo {
+        val brand = brandService.getBrand(brandId)
+        val product = productService.createProduct(
             name = name,
             description = description,
             price = price,
             stockQuantity = stockQuantity,
             brandId = brandId,
-        ).let { ProductInfo.from(it) }
+        )
+        return AdminProductInfo.from(product, brand)
     }
 }
