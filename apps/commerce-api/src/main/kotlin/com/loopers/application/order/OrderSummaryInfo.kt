@@ -1,0 +1,24 @@
+package com.loopers.application.order
+
+import com.loopers.domain.order.Order
+import java.time.ZonedDateTime
+
+data class OrderSummaryInfo(
+    val orderId: Long,
+    val totalAmount: Long,
+    val status: String,
+    val orderedAt: ZonedDateTime,
+    val itemCount: Int,
+) {
+    companion object {
+        fun from(order: Order, itemCount: Int): OrderSummaryInfo {
+            return OrderSummaryInfo(
+                orderId = order.id,
+                totalAmount = order.totalAmount.amount,
+                status = order.status.name,
+                orderedAt = order.orderedAt,
+                itemCount = itemCount,
+            )
+        }
+    }
+}

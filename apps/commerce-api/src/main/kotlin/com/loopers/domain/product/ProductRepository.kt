@@ -8,6 +8,7 @@ interface ProductRepository {
     fun findAllByCondition(condition: ProductSearchCondition): PageResult<Product>
     fun findAllActiveByBrandId(brandId: Long): List<Product>
     fun findAllActiveByIds(ids: List<Long>): List<Product>
+    fun findAllByIds(ids: List<Long>): List<Product>
     fun save(product: Product): Product
     fun saveAll(products: List<Product>): List<Product>
 }

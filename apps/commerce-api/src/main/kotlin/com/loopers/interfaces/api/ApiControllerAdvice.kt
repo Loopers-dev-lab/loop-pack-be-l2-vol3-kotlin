@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.support.error.CommonErrorCode
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorCode
+import com.loopers.support.error.OrderValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -20,6 +21,29 @@ import org.springframework.web.servlet.resource.NoResourceFoundException
 @RestControllerAdvice
 class ApiControllerAdvice {
     private val log = LoggerFactory.getLogger(ApiControllerAdvice::class.java)
+
+    @ExceptionHandler
+    fun handle(e: OrderValidationException): ResponseEntity<ApiResponse<*>> {
+        log.warn("OrderValidationException: {} errors", e.errors.size, e)
+        val errorData = mapOf(
+            "errors" to e.errors.map { error ->
+                buildMap {
+                    put("productId", error.productId)
+                    put("reason", error.reason)
+                    error.detail?.let { put("detail", it) }
+                }
+            },
+        )
+        return ResponseEntity(
+            ApiResponse.success(errorData).copy(
+                meta = ApiResponse.Metadata.fail(
+                    errorCode = e.errorCode.code,
+                    errorMessage = e.message,
+                ),
+            ),
+            e.errorCode.status,
+        )
+    }
 
     /**
      * 비즈니스 예외 처리

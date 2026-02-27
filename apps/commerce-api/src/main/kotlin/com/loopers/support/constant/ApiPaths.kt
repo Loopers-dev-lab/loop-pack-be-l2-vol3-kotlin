@@ -35,6 +35,17 @@ object ApiPaths {
         const val ME = "$BASE/me"
     }
 
+    object Orders {
+        const val BASE = "/api/v1/orders"
+        const val ME = "$BASE/me"
+        const val ME_BY_ID = "$ME/{orderId}"
+    }
+
+    object AdminOrders {
+        const val BASE = "/api/admin/v1/orders"
+        const val BY_ID = "$BASE/{orderId}"
+    }
+
     object Examples {
         const val BASE = "/api/v1/examples"
         const val BY_ID = "$BASE/{id}"

@@ -50,6 +50,11 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllActiveByIds(ids)
     }
 
+    override fun findAllByIds(ids: List<Long>): List<Product> {
+        if (ids.isEmpty()) return emptyList()
+        return productJpaRepository.findAllByIds(ids)
+    }
+
     override fun save(product: Product): Product {
         return productJpaRepository.save(product)
     }
