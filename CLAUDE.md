@@ -51,28 +51,37 @@ Interfaces → Application (UseCase) → Domain ← Infrastructure
 | Value Object | ✅ 있음 (불변) | 도메인 규칙을 값 자체에 내장. 변경 시 새 인스턴스 반환 | `Money(amount >= 0)`, `Stock.deduct()` |
 | Domain Service | ❌ 없음 | 여러 Entity/VO를 받아 계산/판단만 수행 (순수 함수, **Repository 주입 금지**) | `OrderValidator.validate(items, products)` |
 
-**"이 로직은 어디에?" 판단 기준:**
+**"이 로직은 어디에?" 판단 플로우:**
 
 | 질문 | 답이 "예"면 → |
 |------|-------------|
-| 자기 데이터만으로 판단 가능한가? | Entity 메서드 |
-| 값 자체에 규칙이 있는가? (금액 >= 0, 수량 >= 1) | Value Object |
-| 여러 Entity/VO의 데이터가 필요한 순수 검증/계산인가? | Domain Service (Repository 주입 금지) |
-| DB 조회가 필요한 비즈니스 규칙인가? | UseCase |
-| 여러 도메인을 조합하는 흐름 정책인가? | UseCase |
+| 이 규칙이 현실 세계에서도 참인가? | 아래 계속. NO면 UseCase |
+| 이 개념이 ID로 식별되고 상태가 변하는가? | Entity 메서드 |
+| 이 개념이 값 자체로 의미를 가지고 불변인가? | VO 메서드 |
+| 여러 Entity/VO 협력이 필요하고 DB 조회 없는가? | Domain Service (Repository 주입 금지) |
+| DB 조회가 필요하거나 여러 도메인 조합인가? | UseCase |
 
-세부 규칙과 코드 패턴은 `/.claude/rules/domain.md`를 따릅니다.
+상세 판단 플로우와 예시는 `/.claude/rules/domain.md`의 "로직 배치 판단 플로우" 참조.
+
+**도메인 경계(패키지) 설정 기준:**
+
+| 질문 | YES → |
+|------|-------|
+| 하나가 없어지면 다른 하나도 의미 없어지는가? | 같은 경계 (Aggregate) |
+| 항상 함께 변경되는가? | 같은 경계 고려 |
+| 같은 트랜잭션에서 정합성을 반드시 함께 보장해야 하는가? | 같은 Aggregate |
+| 변경 이유가 다르고 독립적으로 존재 가능한가? | 다른 경계, UseCase에서 조합 |
+
+이번 프로젝트 경계 결정:
+- `catalog` 경계: Product + Brand (Brand 없이 Product 존재 불가, 함께 변경됨)
+- `like` 경계: Like 독립 도메인 (User ↔ Product 관계 추적, 확장 가능성)
+- `order` 경계: Order + OrderItem 같은 Aggregate / Order와 Product는 다른 도메인
+
+세부 규칙과 코드 패턴은 `/.claude/rules/domain.md`, 예외 처리는 `/.claude/rules/error-handling.md`를 따릅니다.
 
 ### 3.3 패키지 구성
 
-```
-/interfaces/api/{domain}/     ← Controller, DTO
-/application/{domain}/         ← UseCase, Command(입력 DTO), Info(출력 DTO)
-/domain/{domain}/              ← Entity, VO, Domain Service, Repository(interface)
-/infrastructure/{domain}/      ← JpaRepository
-/support/                      ← PageResult, ApiResponse
-/support/error/                ← Exception, ErrorCode
-```
+패키지 구성과 예시는 `/.claude/rules/arch.md`의 "패키지 구성" 참조.
 
 ### 3.4 BaseEntity 상속 전략
 
@@ -89,7 +98,7 @@ BaseEntity는 `id`, `createdAt`, `updatedAt`만 제공한다. `deletedAt`은 삭
 ### 4.1 TDD 진행 방식
 
 - **기본 사이클**: Red → Green → Refactor
-- **OUT TO IN** (탑다운): Controller Test → Controller → Service Test → Service → Repository 순서로 **요청/응답 계약을 먼저 고정**
+- **OUT TO IN** (탑다운): Controller Test → Controller → UseCase Test → UseCase → Repository 순서로 **요청/응답 계약을 먼저 고정**
 - **Inside-Out** (도메인 병렬): Password, Email, BirthDate 등 도메인 규칙은 **Domain Unit Test로 먼저 고정**
 
 **요청**: 새 기능마다 아래 순서로 제안해 주세요.
@@ -105,7 +114,7 @@ BaseEntity는 `id`, `createdAt`, `updatedAt`만 제공한다. `deletedAt`은 삭
 | Integration | UseCase + Repository | ⭕ 외부 의존성 격리 시 |
 | E2E | 전체 HTTP 흐름 | ❌ 사용하지 않음 |
 
-**단언문 규칙**: 테스트당 **핵심 단언문 1개**. "이 테스트가 정말 검증하고 싶은 것"에만 집중.
+**단언문 규칙**: 테스트당 **검증 대상(행위) 1개**. 하나의 행위 결과를 `assertAll()`로 완전히 검증하되, 관련 없는 부수적 검증은 넣지 않는다.
 
 자세한 테스트 규칙은 `/.claude/rules/testing.md`를 참고해 주세요.
 

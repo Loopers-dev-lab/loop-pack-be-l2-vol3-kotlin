@@ -90,6 +90,30 @@ interfaces/api/brand/BrandResponse.kt
 - Controller → UseCase로 Entity 대신 **ID 전달**
 - UseCase가 `@Transactional` 내에서 Entity 조회
 
+### save() 호출 원칙 (JPA Dirty Checking)
+
+`@Transactional` 내에서 조회한 managed entity는 트랜잭션 커밋 시 변경 사항이 **자동으로 DB에 반영**된다 (JPA dirty checking).
+
+| 상황 | save() 필요 여부 | 이유 |
+|------|:---:|------|
+| **새 Entity 생성** (INSERT) | ✅ 필요 | 영속성 컨텍스트에 등록 + ID 생성 |
+| **조회한 Entity 수정** (UPDATE) | ❌ 불필요 | dirty checking이 자동 반영 |
+
+```kotlin
+// ✅ 새 Entity — save() 필요
+val order = Order.create(userId, items)
+val savedOrder = orderRepository.save(order)
+
+// ✅ 조회한 Entity 수정 — save() 불필요 (dirty checking)
+val product = productRepository.findActiveByIdOrNull(id)
+product.update(name, price, stock)  // 트랜잭션 커밋 시 자동 반영
+
+// ❌ 안티패턴 — 불필요한 save()
+val product = productRepository.findActiveByIdOrNull(id)
+product.update(name, price, stock)
+productRepository.save(product)  // 무의미한 호출
+```
+
 ## Repository 설계 원칙
 
 - Repository 인터페이스는 **Domain Layer**에 위치
@@ -142,14 +166,12 @@ interface LikeRepository {
 
 ## 로직 배치 기준
 
+상세 판단 플로우와 예시는 `domain.md`의 "로직 배치 판단 플로우" 참조.
+
 | 상황 | 위치 | 이유 |
 |------|------|------|
-| 단일 Entity 혼자 판단 가능 | Entity 내부 메서드 | 자기 책임 |
-| 여러 Entity 협력, DB 조회 없음 | Domain Service | 순수 도메인 협력 |
-| DB 조회가 필요한 비즈니스 규칙 | UseCase | Repository는 UseCase 역할 |
-| 두 도메인 이상 조합 | UseCase | 어셈블링은 UseCase 역할 |
-| 비밀번호 길이/형식 | `Password` Value Object | 값 자체에 규칙 내장 |
-| 재고는 0 미만 불가 | `Product.decreaseStock()` | 현실에서도 참인 규칙 |
-| 브랜드명 중복 불가 | `RegisterBrandUseCase` | DB 조회 필요 |
-| 브랜드 삭제 시 상품 중지 | `DeleteBrandUseCase` | 두 도메인 조합 |
-| 주문 전수 검증 | `OrderValidator` (Domain Service) | 순수 함수, 여러 Entity 협력 |
+| ID로 식별, 상태 변경 (자기 데이터) | Entity 메서드 | `Brand.delete()`, `Product.decreaseStock()` |
+| 값 자체에 규칙, 불변 | Value Object | `Stock.deduct()`, `Money`, `Quantity` |
+| 여러 Entity/VO 협력, DB 조회 없음 | Domain Service | `OrderValidator.validate()` |
+| DB 조회 필요한 비즈니스 규칙 | UseCase | `RegisterBrandUseCase` (중복 검증) |
+| 여러 도메인 조합 | UseCase | `DeleteBrandUseCase` (Brand + Product) |

@@ -35,7 +35,7 @@ class UserV1Controller(
 ```kotlin
 // ✅ 좋음
 fun from(info: UserInfo) = UserResponse(
-    name = info.name,  // 이미 Facade에서 마스킹됨
+    name = info.name,  // UseCase/Domain에서 이미 가공된 값
 )
 
 // ❌ 나쁨
@@ -85,5 +85,20 @@ interfaces/api/brand/
 
 ## 인증
 
-- `@CurrentUserId`로 userId(Long) 받음
-- Entity가 아닌 ID 전달 (Detached Entity 방지)
+- 고객 API: `@CurrentUserId userId: Long` — 로그인 유저 ID 전달
+- 어드민 API: `@AdminAuth adminAuth: Unit` — 관리자 인증만 확인 (ID 불필요)
+- Entity가 아닌 **ID 전달** (Detached Entity 방지)
+
+```kotlin
+// ✅ 고객 API — userId(Long) 전달
+@GetMapping("/me")
+fun getMyInfo(@CurrentUserId userId: Long): ApiResponse<UserResponse> { ... }
+
+// ✅ 어드민 API — 인증만 확인
+@PostMapping
+fun register(@AdminAuth adminAuth: Unit, @Valid @RequestBody request: ...): ApiResponse<...> { ... }
+
+// ❌ Entity를 직접 받으면 안 됨
+@GetMapping("/me")
+fun getMyInfo(@CurrentUserId user: User): ApiResponse<UserResponse> { ... }
+```
