@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Multi-module e-commerce platform built with Kotlin + Spring Boot. Follows Hexagonal/Layered Architecture with 3 application modules, 3 infrastructure modules, and 3 cross-cutting support modules.
+Multi-module e-commerce platform built with Kotlin + Spring Boot. DDD/TDD 기반으로 Layered, Clean, Hexagonal Architecture의 장점을 선택적으로 적용한다. 3 application modules, 3 infrastructure modules, 3 cross-cutting support modules.
 
 ## Infrastructure
 
@@ -45,7 +45,7 @@ e-commerce/
 
 ### Key Patterns
 
-- **Hexagonal Architecture**: Domain defines Repository interfaces, Infrastructure provides JPA implementations
+- **Port/Adapter 패턴**: Domain이 Repository/Port 인터페이스를 정의하고, Infrastructure가 구현을 제공한다
 - **DDD 우선 설계**: Domain 계층의 순수성(Persistence Ignorance)을 유지하고, 애그리거트/VO/도메인 서비스로 비즈니스 규칙을 모델링한다
 - **CQRS 도입 기준**: 읽기/쓰기 모델의 관심사가 명확히 분리되고 성능/정합성 요구가 있을 때 Command/Query 모델 분리를 도입한다
 - **Domain Model**: private constructor + companion object factory method (`register()`, `retrieve()`)

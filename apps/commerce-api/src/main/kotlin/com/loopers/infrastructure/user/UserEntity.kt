@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.user
 
-import com.loopers.domain.BaseEntity
+import com.loopers.infrastructure.BaseEntity
 import com.loopers.domain.user.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

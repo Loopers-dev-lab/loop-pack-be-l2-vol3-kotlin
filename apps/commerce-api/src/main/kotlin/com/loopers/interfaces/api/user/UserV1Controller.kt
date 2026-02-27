@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserFacade
+import com.loopers.application.user.UserChangePasswordService
+import com.loopers.application.user.UserMeService
+import com.loopers.application.user.UserSignUpService
 import com.loopers.interfaces.api.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -16,13 +18,15 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
-    private val userFacade: UserFacade,
+    private val userSignUpService: UserSignUpService,
+    private val userChangePasswordService: UserChangePasswordService,
+    private val userMeService: UserMeService,
 ) : UserV1ApiSpec {
     @PostMapping
     override fun signUp(
         @Valid @RequestBody request: UserV1Dto.SignUpRequest,
     ): ResponseEntity<ApiResponse<UserV1Dto.SignUpResponse>> {
-        return userFacade.signUp(request.toCommand())
+        return userSignUpService.signUp(request.toCommand())
             .let { UserV1Dto.SignUpResponse.from(it) }
             .let { ApiResponse.success(it) }
             .let { ResponseEntity.status(HttpStatus.CREATED).body(it) }
@@ -34,7 +38,7 @@ class UserV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @Valid @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ResponseEntity<ApiResponse<UserV1Dto.ChangePasswordResponse>> {
-        userFacade.changePassword(loginId, password, request.toCommand())
+        userChangePasswordService.changePassword(loginId, password, request.toCommand())
         return UserV1Dto.ChangePasswordResponse.success()
             .let { ApiResponse.success(it) }
             .let { ResponseEntity.ok(it) }
@@ -45,7 +49,7 @@ class UserV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
     ): ResponseEntity<ApiResponse<UserV1Dto.MeResponse>> {
-        return userFacade.getMe(loginId, password)
+        return userMeService.getMe(loginId, password)
             .let { UserV1Dto.MeResponse.from(it) }
             .let { ApiResponse.success(it) }
             .let { ResponseEntity.ok(it) }
