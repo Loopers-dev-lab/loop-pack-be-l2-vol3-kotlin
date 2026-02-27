@@ -4,6 +4,7 @@ import com.loopers.domain.catalog.product.Product
 import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductSort
+import com.loopers.domain.catalog.product.ProductStatus
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 
@@ -15,9 +16,8 @@ class ProductRepositoryImpl(
     override fun save(product: Product): Product {
         val entity = if (product.id > 0L) {
             productJpaRepository.getReferenceById(product.id).apply {
-                update(product.name, product.description, product.price, product.stock)
+                update(product.name, product.description, product.price, product.stock, product.status)
                 updateLikeCount(product.likeCount)
-                updateStock(product.stock)
             }
         } else {
             ProductEntity.from(product)
@@ -34,22 +34,28 @@ class ProductRepositoryImpl(
     override fun findAll(condition: ProductSearchCondition): List<Product> {
         val pageable = PageRequest.of(condition.page, condition.size)
         return when (condition.sort) {
-            ProductSort.LATEST -> productJpaRepository.findAllActiveOrderByCreatedAtDesc(condition.brandId, pageable)
-            ProductSort.PRICE_ASC -> productJpaRepository.findAllActiveOrderByPriceAsc(condition.brandId, pageable)
-            ProductSort.LIKES_DESC -> productJpaRepository.findAllActiveOrderByLikeCountDesc(condition.brandId, pageable)
+            ProductSort.LATEST -> productJpaRepository.findAllByStatusOrderByCreatedAtDesc(condition.brandId, ProductStatus.ACTIVE, pageable)
+            ProductSort.PRICE_ASC -> productJpaRepository.findAllByStatusOrderByPriceAsc(condition.brandId, ProductStatus.ACTIVE, pageable)
+            ProductSort.LIKES_DESC -> productJpaRepository.findAllByStatusOrderByLikeCountDesc(condition.brandId, ProductStatus.ACTIVE, pageable)
         }.map { it.toDomain() }
     }
 
     override fun findAllByBrandId(brandId: Long): List<Product> =
-        productJpaRepository.findAllActiveByBrandId(brandId).map { it.toDomain() }
+        productJpaRepository.findAllByBrandId(brandId).map { it.toDomain() }
 
     override fun deleteById(id: Long) {
         productJpaRepository.findById(id)
             .filter { it.deletedAt == null }
-            .ifPresent { it.delete() }
+            .ifPresent {
+                it.updateStatus(ProductStatus.DISCONTINUED)
+                it.delete()
+            }
     }
 
     override fun deleteAllByBrandId(brandId: Long) {
-        productJpaRepository.findAllActiveByBrandId(brandId).forEach { it.delete() }
+        productJpaRepository.findAllByBrandId(brandId).forEach {
+            it.updateStatus(ProductStatus.DISCONTINUED)
+            it.delete()
+        }
     }
 }

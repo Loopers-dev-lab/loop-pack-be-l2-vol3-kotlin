@@ -33,6 +33,15 @@ class ProductService(
         productRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "[$id] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
 
+    @Transactional(readOnly = true)
+    fun getActiveById(id: Long): Product {
+        val product = productRepository.findById(id)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "[$id] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
+        if (product.status != ProductStatus.ACTIVE)
+            throw CoreException(ErrorType.NOT_FOUND, "[$id] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
+        return product
+    }
+
     @Transactional
     fun update(id: Long, name: String, description: String, price: Int, stock: Int): Product {
         val product = getById(id)
@@ -59,6 +68,11 @@ class ProductService(
         val product = getById(productId)
         product.decrementLike()
         return productRepository.save(product)
+    }
+
+    @Transactional
+    fun delete(id: Long) {
+        productRepository.deleteById(id)
     }
 
     @Transactional

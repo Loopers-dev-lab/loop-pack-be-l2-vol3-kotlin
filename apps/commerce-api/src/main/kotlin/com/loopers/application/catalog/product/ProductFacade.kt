@@ -36,7 +36,7 @@ class ProductFacade(
 
     @Transactional(readOnly = true)
     fun getProductDetail(productId: Long): ProductDetailResult {
-        val product = productService.getById(productId)
+        val product = productService.getActiveById(productId)
         val brand = brandService.getById(product.brandId)
         return ProductDetailResult(
             id = product.id,

@@ -3,8 +3,8 @@ package com.loopers.interfaces.api.catalog.product
 import com.loopers.application.catalog.product.CreateProductCommand
 import com.loopers.application.catalog.product.ProductFacade
 import com.loopers.application.catalog.product.UpdateProductCommand
-import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductSearchCondition
+import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductSort
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api-admin/v1/products")
 class ProductAdminV1Controller(
     private val productFacade: ProductFacade,
-    private val productRepository: ProductRepository,
+    private val productService: ProductService,
 ) : ProductAdminV1ApiSpec {
 
     @GetMapping
@@ -83,7 +83,7 @@ class ProductAdminV1Controller(
 
     @DeleteMapping("/{productId}")
     override fun deleteProduct(@PathVariable productId: Long): ApiResponse<Any> {
-        productRepository.deleteById(productId)
+        productService.delete(productId)
         return ApiResponse.success()
     }
 }

@@ -67,7 +67,7 @@ class ProductFacadeUnitTest {
         // Arrange
         val product = createProduct(id = 1L, brandId = 1L)
         val brand = createBrand(id = 1L, name = "Nike")
-        every { mockProductService.getById(1L) } returns product
+        every { mockProductService.getActiveById(1L) } returns product
         every { mockBrandService.getById(1L) } returns brand
 
         // Act
@@ -81,7 +81,7 @@ class ProductFacadeUnitTest {
     @Test
     fun `getProductDetail() throws NOT_FOUND when product does not exist`() {
         // Arrange
-        every { mockProductService.getById(99L) } throws CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
+        every { mockProductService.getActiveById(99L) } throws CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
 
         // Act & Assert
         assertThrows<CoreException> {

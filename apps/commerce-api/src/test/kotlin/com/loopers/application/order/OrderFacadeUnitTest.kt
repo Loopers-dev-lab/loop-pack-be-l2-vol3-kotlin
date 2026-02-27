@@ -4,6 +4,7 @@ import com.loopers.domain.catalog.brand.Brand
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
 import com.loopers.domain.catalog.product.ProductService
+import com.loopers.domain.catalog.product.ProductStatus
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
@@ -98,6 +99,25 @@ class OrderFacadeUnitTest {
     }
 
     @Test
+    fun `placeOrder() throws BAD_REQUEST when product is not orderable`() {
+        // Arrange
+        val hiddenProduct = createProduct(id = 1L, stock = 10, status = ProductStatus.HIDDEN)
+        every { mockProductService.getById(1L) } returns hiddenProduct
+
+        val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 1)))
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            orderFacade.placeOrder(userId = 1L, cmd = cmd)
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
+        verify(exactly = 0) { mockOrderService.createOrder(any(), any()) }
+    }
+
+    @Test
     fun `placeOrder() throws BAD_REQUEST when items list is empty`() {
         // Act & Assert
         assertThrows<CoreException> {
@@ -115,7 +135,8 @@ class OrderFacadeUnitTest {
         brandId: Long = 1L,
         name: String = "Test Product",
         stock: Int = 10,
-    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = 10000, stock = stock)
+        status: ProductStatus = ProductStatus.ACTIVE,
+    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = 10000, stock = stock, status = status)
 
     private fun createBrand(id: Long = 0L, name: String = "TestBrand"): Brand =
         Brand(id = id, name = name, description = "desc")

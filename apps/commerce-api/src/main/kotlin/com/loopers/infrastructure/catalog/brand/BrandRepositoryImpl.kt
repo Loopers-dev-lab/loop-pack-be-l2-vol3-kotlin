@@ -2,6 +2,7 @@ package com.loopers.infrastructure.catalog.brand
 
 import com.loopers.domain.catalog.brand.Brand
 import com.loopers.domain.catalog.brand.BrandRepository
+import com.loopers.domain.catalog.brand.BrandStatus
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 
@@ -14,6 +15,7 @@ class BrandRepositoryImpl(
         val entity = if (brand.id > 0L) {
             brandJpaRepository.getReferenceById(brand.id).apply {
                 update(brand.name, brand.description)
+                updateStatus(brand.status)
             }
         } else {
             BrandEntity.from(brand)
@@ -28,7 +30,7 @@ class BrandRepositoryImpl(
             .orElse(null)
 
     override fun findAll(page: Int, size: Int): List<Brand> =
-        brandJpaRepository.findAllActive(PageRequest.of(page, size))
+        brandJpaRepository.findAllByStatus(BrandStatus.ACTIVE, PageRequest.of(page, size))
             .map { it.toDomain() }
 
     override fun deleteById(id: Long) {

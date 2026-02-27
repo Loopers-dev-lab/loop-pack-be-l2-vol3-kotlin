@@ -143,6 +143,20 @@ class ProductServiceUnitTest {
         }
     }
 
+    // ─── delete ───
+
+    @Test
+    fun `delete() should call repository deleteById`() {
+        // Arrange
+        every { mockRepository.deleteById(1L) } returns Unit
+
+        // Act
+        productService.delete(1L)
+
+        // Assert
+        verify { mockRepository.deleteById(1L) }
+    }
+
     // ─── deleteAllByBrandId ───
 
     @Test

@@ -29,8 +29,9 @@ class OrderFacade(
             throw CoreException(ErrorType.BAD_REQUEST, "일부 상품이 조회되지 않았습니다.")
         }
 
-        // 2. 모든 재고 검증 (fail-fast: 부분 처리 없이 전체 실패)
+        // 2. 모든 상품 주문 가능 여부 및 재고 검증 (fail-fast: 부분 처리 없이 전체 실패)
         itemWithProducts.forEach { (item, product) ->
+            product.requireOrderable()
             product.validateStock(item.quantity)
         }
 
