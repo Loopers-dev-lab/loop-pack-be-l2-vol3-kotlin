@@ -36,6 +36,16 @@ class ProductModel(
         validateQuantity(quantity)
     }
 
+    fun decreaseStock(quantity: Int) {
+        if (quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "차감 수량은 0보다 커야 합니다.")
+        }
+        if (this.quantity < quantity) {
+            throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.")
+        }
+        this.quantity -= quantity
+    }
+
     fun update(
         newName: String,
         newQuantity: Int,

@@ -84,6 +84,76 @@ class ProductModelTest {
         }
     }
 
+    @DisplayName("재고 차감")
+    @Nested
+    inner class DecreaseStock {
+        @DisplayName("유효한 수량이 주어지면, 재고가 차감된다.")
+        @Test
+        fun decreasesStockWhenValidQuantityIsProvided() {
+            // arrange
+            val product = createProductModel(quantity = 10)
+            val expectedQuantity = 7
+
+            // act
+            product.decreaseStock(3)
+
+            // assert
+            assertThat(product.quantity).isEqualTo(expectedQuantity)
+        }
+
+        @DisplayName("재고와 동일한 수량을 차감하면, 재고가 0이 된다.")
+        @Test
+        fun decreasesStockToZeroWhenQuantityEqualsStock() {
+            // arrange
+            val product = createProductModel(quantity = 5)
+
+            // act
+            product.decreaseStock(5)
+
+            // assert
+            assertThat(product.quantity).isEqualTo(0)
+        }
+
+        @DisplayName("재고보다 많은 수량을 차감하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenQuantityExceedsStock() {
+            // arrange
+            val product = createProductModel(quantity = 3)
+
+            // act & assert
+            val result = assertThrows<CoreException> {
+                product.decreaseStock(5)
+            }
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("차감 수량이 0이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenQuantityIsZero() {
+            // arrange
+            val product = createProductModel(quantity = 10)
+
+            // act & assert
+            val result = assertThrows<CoreException> {
+                product.decreaseStock(0)
+            }
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("차감 수량이 음수이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenQuantityIsNegative() {
+            // arrange
+            val product = createProductModel(quantity = 10)
+
+            // act & assert
+            val result = assertThrows<CoreException> {
+                product.decreaseStock(-1)
+            }
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
     @DisplayName("수정")
     @Nested
     inner class Update {
