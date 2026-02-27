@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order
 
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.support.auth.LoginUser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -18,8 +19,7 @@ interface OrderV1ApiSpec {
         ],
     )
     fun createOrder(
-        loginId: String,
-        loginPw: String,
+        loginUser: LoginUser,
         request: OrderV1Dto.CreateOrderRequest,
     ): ApiResponse<OrderV1Dto.OrderResponse>
 
@@ -30,8 +30,7 @@ interface OrderV1ApiSpec {
         ],
     )
     fun getOrders(
-        loginId: String,
-        loginPw: String,
+        loginUser: LoginUser,
         request: OrderV1Dto.GetOrdersRequest,
     ): ApiResponse<List<OrderV1Dto.OrderResponse>>
 
@@ -44,8 +43,7 @@ interface OrderV1ApiSpec {
         ],
     )
     fun getOrder(
-        loginId: String,
-        loginPw: String,
+        loginUser: LoginUser,
         orderId: Long,
     ): ApiResponse<OrderV1Dto.OrderResponse>
 }
