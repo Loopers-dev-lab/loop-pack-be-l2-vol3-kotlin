@@ -217,7 +217,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun getOrders_withOnlyFrom_appliesToDefault() {
             // arrange
             signUp()
-            val from = java.time.ZonedDateTime.now().minusDays(7).toString()
+            val from = "2025-01-08T00:00:00+09:00"
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
@@ -238,7 +238,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun getOrders_withOnlyTo_appliesFromDefault() {
             // arrange
             signUp()
-            val to = java.time.ZonedDateTime.now().toString()
+            val to = "2099-01-15T00:00:00+09:00"
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}

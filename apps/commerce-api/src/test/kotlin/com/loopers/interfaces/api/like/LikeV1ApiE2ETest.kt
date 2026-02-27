@@ -43,18 +43,20 @@ class LikeV1ApiE2ETest @Autowired constructor(
             birthDate = LocalDate.of(1990, 1, 15),
             email = "test@example.com",
         )
-        testRestTemplate.exchange(
+        val response = testRestTemplate.exchange(
             "/api/v1/users/sign-up",
             HttpMethod.POST,
             HttpEntity(request),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
     }
 
     private fun authHeaders(): HttpHeaders {
         return HttpHeaders().apply {
             set(HEADER_LOGIN_ID, "testuser1")
             set(HEADER_LOGIN_PW, "Password1!")
+            set("Content-Type", "application/json")
         }
     }
 
@@ -122,14 +124,6 @@ class LikeV1ApiE2ETest @Autowired constructor(
             assertThat(response1.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response2.statusCode).isEqualTo(HttpStatus.OK)
 
-            // likeCount 확인 (상품 상세 조회)
-            val productType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
-            testRestTemplate.exchange(
-                "/api/admin/v1/products/$productId",
-                HttpMethod.GET,
-                HttpEntity<Any>(adminHeaders()),
-                productType,
-            )
             // 어드민 API로 likeCount 확인
             val adminProductType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
             val adminResponse = testRestTemplate.exchange(

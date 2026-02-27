@@ -35,6 +35,23 @@ class GetProductAdminUseCaseTest {
     inner class Execute {
 
         @Test
+        @DisplayName("활성 상품을 조회하면 CatalogInfo가 반환된다")
+        fun execute_activeProduct_returnsCatalogInfo() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+
+            // act
+            val result = useCase.execute(product.id.value)
+
+            // assert
+            assertThat(result.product.name).isEqualTo("에어맥스 90")
+            assertThat(result.product.deletedAt).isNull()
+        }
+
+        @Test
         @DisplayName("삭제된 상품도 조회된다")
         fun execute_includesDeleted() {
             // arrange
