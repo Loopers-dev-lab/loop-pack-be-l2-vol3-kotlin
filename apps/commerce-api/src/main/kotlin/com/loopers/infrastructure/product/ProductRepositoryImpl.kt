@@ -42,6 +42,10 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
     }
 
+    override fun findAllByBrandId(brandId: Long): List<Product> {
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
+    }
+
     private fun toPageRequest(pageQuery: PageQuery): PageRequest {
         val direction = when (pageQuery.sort.direction) {
             SortOrder.Direction.ASC -> Sort.Direction.ASC

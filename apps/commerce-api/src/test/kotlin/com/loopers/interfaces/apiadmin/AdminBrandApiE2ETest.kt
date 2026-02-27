@@ -2,6 +2,7 @@ package com.loopers.interfaces.apiadmin
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.product.ProductService
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.springframework.data.domain.PageRequest
@@ -24,11 +25,13 @@ import org.springframework.http.MediaType
 class AdminBrandApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val brandRepository: BrandRepository,
+    private val productService: ProductService,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
         private const val BRAND_ENDPOINT = "/api-admin/v1/brands"
         private const val BRAND_DETAIL_ENDPOINT = "/api-admin/v1/brands/{brandId}"
+        private const val PRODUCT_DETAIL_ENDPOINT = "/api-admin/v1/products/{productId}"
         private const val LDAP_HEADER = "X-Loopers-Ldap"
         private const val LDAP_VALUE = "loopers.admin"
     }
@@ -55,6 +58,16 @@ class AdminBrandApiE2ETest @Autowired constructor(
             .content.first { it.name == name }
         brand.delete()
         brandRepository.save(brand)
+    }
+
+    private fun deleteBrandApi(brandId: Long) {
+        testRestTemplate.exchange(
+            BRAND_DETAIL_ENDPOINT,
+            HttpMethod.DELETE,
+            HttpEntity<Void>(adminHeaders()),
+            object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            brandId,
+        )
     }
 
     private fun createBrand(name: String, description: String? = null) {
@@ -719,6 +732,212 @@ class AdminBrandApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 BRAND_DETAIL_ENDPOINT,
                 HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
+    @DisplayName("DELETE /api-admin/v1/brands/{brandId}")
+    @Nested
+    inner class DeleteBrand {
+
+        @DisplayName("유효한 LDAP 헤더로 존재하는 브랜드를 삭제하면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenValidRequest() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("브랜드 삭제 후 조회하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenGetDeletedBrand() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            deleteBrandApi(brand.id)
+
+            // act
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertThat(response.statusCode.value()).isEqualTo(404)
+        }
+
+        @DisplayName("브랜드 삭제 시 소속 상품도 연쇄 삭제된다.")
+        @Test
+        fun cascadeDeletesProducts_whenBrandIsDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = productService.createProduct(
+                name = "에어맥스",
+                description = "운동화",
+                price = 100000,
+                stockQuantity = 10,
+                brandId = brand.id,
+            )
+
+            // act
+            deleteBrandApi(brand.id)
+
+            // assert — 상품 상세 조회 시 404
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                PRODUCT_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                product.id,
+            )
+            assertThat(response.statusCode.value()).isEqualTo(404)
+        }
+
+        @DisplayName("브랜드 삭제 후 목록 조회 시 해당 브랜드가 포함되지 않는다.")
+        @Test
+        fun excludesDeletedBrandFromList() {
+            // arrange
+            val brand1 = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            brandRepository.save(Brand(name = "아디다스", description = "스포츠 브랜드"))
+            deleteBrandApi(brand1.id)
+
+            // act
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$BRAND_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            val content = extractPageContent(response.body?.data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content).hasSize(1) },
+                { assertThat(content?.first()?.get("name")).isEqualTo("아디다스") },
+            )
+        }
+
+        @DisplayName("이미 삭제된 브랜드를 다시 삭제하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenBrandAlreadyDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            deleteBrandApi(brand.id)
+
+            // act
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 brandId로 삭제하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenBrandNotExists() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+                999L,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val httpEntity = HttpEntity<Void>(HttpHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더 값이 올바르지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsInvalid() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val headers = HttpHeaders().apply {
+                set(LDAP_HEADER, "wrong.value")
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.DELETE,
                 httpEntity,
                 responseType,
                 brand.id,
