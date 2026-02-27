@@ -4,6 +4,7 @@ import com.loopers.application.brand.AdminBrandFacade
 import com.loopers.interfaces.common.ApiResponse
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -56,5 +57,13 @@ class AdminBrandController(
         return adminBrandFacade.updateBrand(brandId, request.name, request.description)
             .let { AdminBrandDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
+    }
+
+    @DeleteMapping("/{brandId}")
+    override fun deleteBrand(
+        @PathVariable brandId: Long,
+    ): ApiResponse<Any> {
+        adminBrandFacade.deleteBrand(brandId)
+        return ApiResponse.success()
     }
 }

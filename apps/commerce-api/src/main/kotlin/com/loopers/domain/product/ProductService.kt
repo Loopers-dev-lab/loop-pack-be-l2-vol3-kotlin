@@ -72,4 +72,9 @@ class ProductService(
             products.getValue(request.productId).deductStock(request.quantity)
         }
     }
+
+    fun deleteAllByBrandId(brandId: Long) {
+        val products = productRepository.findAllByBrandId(brandId)
+        products.forEach { it.delete() }
+    }
 }

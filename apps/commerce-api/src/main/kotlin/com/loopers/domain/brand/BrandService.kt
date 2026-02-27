@@ -33,4 +33,9 @@ class BrandService(
         brand.update(name, description)
         return brandRepository.save(brand)
     }
+
+    fun delete(brand: Brand) {
+        brand.delete()
+        brandRepository.save(brand)
+    }
 }

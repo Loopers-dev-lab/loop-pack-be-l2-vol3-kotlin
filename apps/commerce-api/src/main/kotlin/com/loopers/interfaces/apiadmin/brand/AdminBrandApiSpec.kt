@@ -30,4 +30,10 @@ interface AdminBrandApiSpec {
         description = "브랜드 정보를 수정합니다.",
     )
     fun updateBrand(brandId: Long, request: AdminBrandDto.UpdateRequest): ApiResponse<AdminBrandDto.DetailResponse>
+
+    @Operation(
+        summary = "브랜드 삭제",
+        description = "브랜드를 삭제합니다. 소속 상품도 연쇄 삭제됩니다.",
+    )
+    fun deleteBrand(brandId: Long): ApiResponse<Any>
 }
