@@ -28,15 +28,17 @@ class User private constructor(
         }
         validatePasswordNotContainsBirthDate(new, birthDate)
 
-        return User(
-            id = id,
-            loginId = loginId,
-            password = passwordHasher.encode(new),
-            name = name,
-            birthDate = birthDate,
-            email = email,
-        )
+        return copy(password = passwordHasher.encode(new))
     }
+
+    private fun copy(
+        id: Long? = this.id,
+        loginId: LoginId = this.loginId,
+        password: EncodedPassword = this.password,
+        name: UserName = this.name,
+        birthDate: LocalDate = this.birthDate,
+        email: Email = this.email,
+    ): User = User(id, loginId, password, name, birthDate, email)
 
     companion object {
         private val BIRTH_DATE_COMPACT = DateTimeFormatter.ofPattern("yyyyMMdd")
