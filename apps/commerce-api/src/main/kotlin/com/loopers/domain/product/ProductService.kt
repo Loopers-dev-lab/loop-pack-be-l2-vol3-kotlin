@@ -21,9 +21,7 @@ class ProductService(
         stockQuantity: Int,
         brandId: Long,
     ): Product {
-        if (price <= 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.")
-        }
+        validatePrice(price)
         return productRepository.save(
             Product(
                 name = name,
@@ -43,6 +41,25 @@ class ProductService(
     fun getProduct(productId: Long): Product {
         return productRepository.findById(productId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+    }
+
+    fun updateProduct(
+        product: Product,
+        name: String,
+        description: String?,
+        price: Long,
+        stockQuantity: Int,
+        brandId: Long,
+    ) {
+        validatePrice(price)
+        product.validateBrandChange(brandId)
+        product.update(name, description, price, stockQuantity)
+    }
+
+    private fun validatePrice(price: Long) {
+        if (price <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다.")
+        }
     }
 
     fun increaseLikeCount(product: Product) {
