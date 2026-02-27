@@ -16,7 +16,7 @@ interface BrandAdminV1ApiSpec {
             SwaggerResponse(responseCode = "200", description = "조회 성공"),
         ],
     )
-    fun getBrands(page: Int, size: Int): ApiResponse<Page<BrandV1Dto.BrandResponse>>
+    fun getBrands(page: Int, size: Int): ApiResponse<Page<BrandAdminV1Dto.BrandAdminResponse>>
 
     @Operation(summary = "브랜드 상세 조회", description = "브랜드 상세 정보를 조회합니다.")
     @ApiResponses(
@@ -25,7 +25,7 @@ interface BrandAdminV1ApiSpec {
             SwaggerResponse(responseCode = "404", description = "존재하지 않는 브랜드"),
         ],
     )
-    fun getBrand(brandId: Long): ApiResponse<BrandV1Dto.BrandResponse>
+    fun getBrand(brandId: Long): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 등록", description = "새로운 브랜드를 등록합니다.")
     @ApiResponses(
@@ -34,7 +34,7 @@ interface BrandAdminV1ApiSpec {
             SwaggerResponse(responseCode = "400", description = "잘못된 요청"),
         ],
     )
-    fun createBrand(request: BrandV1Dto.CreateRequest): ApiResponse<BrandV1Dto.BrandResponse>
+    fun createBrand(request: BrandAdminV1Dto.CreateRequest): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 수정", description = "브랜드 정보를 수정합니다.")
     @ApiResponses(
@@ -43,7 +43,7 @@ interface BrandAdminV1ApiSpec {
             SwaggerResponse(responseCode = "404", description = "존재하지 않는 브랜드"),
         ],
     )
-    fun updateBrand(brandId: Long, request: BrandV1Dto.UpdateRequest): ApiResponse<BrandV1Dto.BrandResponse>
+    fun updateBrand(brandId: Long, request: BrandAdminV1Dto.UpdateRequest): ApiResponse<BrandAdminV1Dto.BrandAdminResponse>
 
     @Operation(summary = "브랜드 삭제", description = "브랜드를 삭제합니다. 소속 상품과 좋아요도 함께 삭제됩니다.")
     @ApiResponses(

@@ -24,38 +24,38 @@ class BrandAdminV1Controller(
     override fun getBrands(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-    ): ApiResponse<Page<BrandV1Dto.BrandResponse>> {
+    ): ApiResponse<Page<BrandAdminV1Dto.BrandAdminResponse>> {
         val pageable = PageRequest.of(page, size)
         return brandFacade.getBrands(pageable)
-            .map { BrandV1Dto.BrandResponse.from(it) }
+            .map { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 
     @GetMapping("/{brandId}")
     override fun getBrand(
         @PathVariable brandId: Long,
-    ): ApiResponse<BrandV1Dto.BrandResponse> {
+    ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
         return brandFacade.getBrand(brandId)
-            .let { BrandV1Dto.BrandResponse.from(it) }
+            .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 
     @PostMapping
     override fun createBrand(
-        @RequestBody request: BrandV1Dto.CreateRequest,
-    ): ApiResponse<BrandV1Dto.BrandResponse> {
+        @RequestBody request: BrandAdminV1Dto.CreateRequest,
+    ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
         return brandFacade.createBrand(request.toCriteria())
-            .let { BrandV1Dto.BrandResponse.from(it) }
+            .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 
     @PutMapping("/{brandId}")
     override fun updateBrand(
         @PathVariable brandId: Long,
-        @RequestBody request: BrandV1Dto.UpdateRequest,
-    ): ApiResponse<BrandV1Dto.BrandResponse> {
+        @RequestBody request: BrandAdminV1Dto.UpdateRequest,
+    ): ApiResponse<BrandAdminV1Dto.BrandAdminResponse> {
         return brandFacade.updateBrand(brandId, request.toCriteria())
-            .let { BrandV1Dto.BrandResponse.from(it) }
+            .let { BrandAdminV1Dto.BrandAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 
