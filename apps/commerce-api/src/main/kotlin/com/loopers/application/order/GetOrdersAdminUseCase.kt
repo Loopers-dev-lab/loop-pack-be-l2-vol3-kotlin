@@ -1,7 +1,6 @@
 package com.loopers.application.order
 
 import com.loopers.domain.PageResult
-import com.loopers.domain.order.OrderDetail
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import org.springframework.stereotype.Component

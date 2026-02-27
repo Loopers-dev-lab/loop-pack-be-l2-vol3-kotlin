@@ -1,6 +1,5 @@
 package com.loopers.application.order
 
-import com.loopers.domain.order.OrderDetail
 import com.loopers.domain.order.model.OrderItem
 import java.math.BigDecimal
 

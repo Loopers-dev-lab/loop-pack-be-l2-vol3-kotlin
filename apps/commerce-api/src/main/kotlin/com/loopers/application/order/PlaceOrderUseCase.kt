@@ -3,7 +3,6 @@ package com.loopers.application.order
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
-import com.loopers.domain.order.OrderDetail
 import com.loopers.domain.order.OrderProductInfo
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderItemRepository
