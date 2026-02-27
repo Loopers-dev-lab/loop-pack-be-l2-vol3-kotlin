@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.brand
 import com.loopers.application.auth.AuthUseCase
 import com.loopers.application.brand.BrandUseCase
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -24,7 +25,7 @@ class BrandV1Controller(
     override fun register(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
-        @RequestBody request: BrandV1Dto.RegisterRequest,
+        @Valid @RequestBody request: BrandV1Dto.RegisterRequest,
     ): ApiResponse<BrandV1Dto.DetailResponse> {
         authUseCase.authenticate(loginId, password)
 
@@ -54,7 +55,7 @@ class BrandV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable id: Long,
-        @RequestBody request: BrandV1Dto.ChangeNameRequest,
+        @Valid @RequestBody request: BrandV1Dto.ChangeNameRequest,
     ): ApiResponse<BrandV1Dto.DetailResponse> {
         authUseCase.authenticate(loginId, password)
 

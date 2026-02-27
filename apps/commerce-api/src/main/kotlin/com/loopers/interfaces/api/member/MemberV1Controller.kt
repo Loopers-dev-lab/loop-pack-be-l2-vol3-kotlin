@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.member
 import com.loopers.application.auth.AuthUseCase
 import com.loopers.application.member.MemberUseCase
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -33,7 +34,7 @@ class MemberV1Controller(
     override fun changePassword(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
-        @RequestBody request: MemberV1Dto.ChangePasswordRequest,
+        @Valid @RequestBody request: MemberV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
         authUseCase.authenticate(loginId, password)
 

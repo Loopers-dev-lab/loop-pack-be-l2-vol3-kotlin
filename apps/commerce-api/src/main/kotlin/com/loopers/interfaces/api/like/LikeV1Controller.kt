@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.like
 import com.loopers.application.auth.AuthUseCase
 import com.loopers.application.like.LikeUseCase
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -23,7 +24,7 @@ class LikeV1Controller(
     override fun register(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
-        @RequestBody request: LikeV1Dto.RegisterRequest,
+        @Valid @RequestBody request: LikeV1Dto.RegisterRequest,
     ): ApiResponse<LikeV1Dto.RegisteredResponse> {
         val member = authUseCase.authenticate(loginId, password)
 

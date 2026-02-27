@@ -2,10 +2,11 @@ package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderUseCase
 import com.loopers.application.order.OrderInfo
+import jakarta.validation.constraints.NotEmpty
 
 class OrderV1Dto {
 
-    data class CreateRequest(val items: List<OrderItemRequest>) {
+    data class CreateRequest(@field:NotEmpty val items: List<OrderItemRequest>) {
         fun toCommand() = OrderUseCase.CreateOrderCommand(
             items = items.map {
                 OrderUseCase.OrderItemRequest(productId = it.productId, quantity = it.quantity)

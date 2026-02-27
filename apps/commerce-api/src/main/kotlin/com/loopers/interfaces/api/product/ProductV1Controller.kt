@@ -4,6 +4,7 @@ import com.loopers.application.auth.AuthUseCase
 import com.loopers.application.product.ProductUseCase
 import com.loopers.domain.product.ProductSortType
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -26,7 +27,7 @@ class ProductV1Controller(
     override fun register(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
-        @RequestBody request: ProductV1Dto.RegisterRequest,
+        @Valid @RequestBody request: ProductV1Dto.RegisterRequest,
     ): ApiResponse<ProductV1Dto.DetailResponse> {
         authUseCase.authenticate(loginId, password)
 
@@ -59,7 +60,7 @@ class ProductV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable id: Long,
-        @RequestBody request: ProductV1Dto.ChangeInfoRequest,
+        @Valid @RequestBody request: ProductV1Dto.ChangeInfoRequest,
     ): ApiResponse<ProductV1Dto.DetailResponse> {
         authUseCase.authenticate(loginId, password)
 

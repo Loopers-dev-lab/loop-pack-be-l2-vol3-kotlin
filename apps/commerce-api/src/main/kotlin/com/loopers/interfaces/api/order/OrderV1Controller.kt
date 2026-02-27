@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order
 import com.loopers.application.auth.AuthUseCase
 import com.loopers.application.order.OrderUseCase
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -23,7 +24,7 @@ class OrderV1Controller(
     override fun createOrder(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
-        @RequestBody request: OrderV1Dto.CreateRequest,
+        @Valid @RequestBody request: OrderV1Dto.CreateRequest,
     ): ApiResponse<OrderV1Dto.DetailResponse> {
         val member = authUseCase.authenticate(loginId, password)
 

@@ -2,14 +2,15 @@ package com.loopers.interfaces.api.brand
 
 import com.loopers.application.brand.BrandUseCase
 import com.loopers.application.brand.BrandInfo
+import jakarta.validation.constraints.NotBlank
 
 class BrandV1Dto {
 
-    data class RegisterRequest(val name: String) {
+    data class RegisterRequest(@field:NotBlank val name: String) {
         fun toCommand() = BrandUseCase.RegisterCommand(name = name)
     }
 
-    data class ChangeNameRequest(val name: String) {
+    data class ChangeNameRequest(@field:NotBlank val name: String) {
         fun toCommand() = BrandUseCase.ChangeNameCommand(name = name)
     }
 

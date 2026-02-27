@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.auth
 
 import com.loopers.application.auth.AuthUseCase
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -15,7 +16,7 @@ class AuthV1Controller(
 
     @PostMapping("/signup")
     override fun signup(
-        @RequestBody request: AuthV1Dto.SignupRequest,
+        @Valid @RequestBody request: AuthV1Dto.SignupRequest,
     ): ApiResponse<AuthV1Dto.SignupResponse> {
         return authUseCase.signup(request.toCommand())
             .let { AuthV1Dto.SignupResponse.from(it) }

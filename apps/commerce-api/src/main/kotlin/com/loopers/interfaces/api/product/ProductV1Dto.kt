@@ -2,12 +2,13 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductUseCase
 import com.loopers.application.product.ProductInfo
+import jakarta.validation.constraints.NotBlank
 
 class ProductV1Dto {
 
     data class RegisterRequest(
         val brandId: Long,
-        val name: String,
+        @field:NotBlank val name: String,
         val price: Long,
         val description: String,
         val stock: Int,
@@ -22,7 +23,7 @@ class ProductV1Dto {
     }
 
     data class ChangeInfoRequest(
-        val name: String,
+        @field:NotBlank val name: String,
         val price: Long,
         val description: String,
     ) {

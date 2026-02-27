@@ -2,16 +2,17 @@ package com.loopers.interfaces.api.auth
 
 import com.loopers.application.auth.AuthUseCase
 import com.loopers.application.auth.AuthInfo
+import jakarta.validation.constraints.NotBlank
 import java.time.LocalDate
 
 class AuthV1Dto {
 
     data class SignupRequest(
-        val loginId: String,
-        val password: String,
-        val name: String,
+        @field:NotBlank val loginId: String,
+        @field:NotBlank val password: String,
+        @field:NotBlank val name: String,
         val birthDate: LocalDate,
-        val email: String,
+        @field:NotBlank val email: String,
     ) {
         fun toCommand() = AuthUseCase.SignupCommand(
             loginId = loginId,
