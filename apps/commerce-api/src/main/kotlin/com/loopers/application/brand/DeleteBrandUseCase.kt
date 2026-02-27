@@ -18,10 +18,8 @@ class DeleteBrandUseCase(
         val brand = brandRepository.findActiveByIdOrNull(brandId)
             ?: throw CoreException(BrandErrorCode.BRAND_NOT_FOUND)
         brand.delete()
-        brandRepository.save(brand)
 
         val products = productRepository.findAllActiveByBrandId(brandId)
         products.forEach { it.delete() }
-        productRepository.saveAll(products)
     }
 }

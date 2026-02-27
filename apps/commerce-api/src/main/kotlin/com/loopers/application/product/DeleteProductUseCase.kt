@@ -16,6 +16,5 @@ class DeleteProductUseCase(
         val product = productRepository.findActiveByIdOrNull(productId)
             ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
         product.delete()
-        productRepository.save(product)
     }
 }

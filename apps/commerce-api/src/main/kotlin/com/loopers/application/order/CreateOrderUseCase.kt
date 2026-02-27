@@ -57,7 +57,6 @@ class CreateOrderUseCase(
             val product = productMap.getValue(line.productId)
             product.decreaseStock(line.quantity.value)
         }
-        productRepository.saveAll(products)
 
         return OrderInfo.from(savedOrder)
     }

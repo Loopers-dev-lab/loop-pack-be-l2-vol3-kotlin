@@ -21,7 +21,6 @@ class UpdateBrandUseCase(
             }
         }
         brand.update(command.name)
-        val saved = brandRepository.save(brand)
-        return BrandInfo.from(saved)
+        return BrandInfo.from(brand)
     }
 }
