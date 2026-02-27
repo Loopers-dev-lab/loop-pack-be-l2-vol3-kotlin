@@ -1,6 +1,7 @@
 package com.loopers.application.product
 
 import com.loopers.domain.brand.BrandService
+import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductInfo
@@ -10,11 +11,13 @@ import com.loopers.domain.product.UpdateProductCommand
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
+    private val likeService: LikeService,
 ) {
 
     fun getProduct(productId: Long): ProductResult {
@@ -75,8 +78,9 @@ class ProductFacade(
             .let { ProductResult.from(it, brand.name) }
     }
 
+    @Transactional
     fun deleteProduct(productId: Long) {
-        // TODO: Step 5에서 연쇄 삭제 연결 (Like → Product)
+        likeService.deleteAllByProductId(productId)
         productService.deleteProduct(productId)
     }
 }

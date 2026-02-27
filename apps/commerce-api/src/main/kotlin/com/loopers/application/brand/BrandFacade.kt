@@ -4,13 +4,18 @@ import com.loopers.domain.brand.BrandInfo
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.brand.CreateBrandCommand
 import com.loopers.domain.brand.UpdateBrandCommand
+import com.loopers.domain.like.LikeService
+import com.loopers.domain.product.ProductService
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class BrandFacade(
     private val brandService: BrandService,
+    private val productService: ProductService,
+    private val likeService: LikeService,
 ) {
 
     fun getBrand(brandId: Long): BrandResult {
@@ -47,8 +52,14 @@ class BrandFacade(
             .let { BrandResult.from(it) }
     }
 
+    @Transactional
     fun deleteBrand(brandId: Long) {
-        // TODO: Step 5에서 연쇄 삭제 연결 (Like → Product → Brand)
+        brandService.findById(brandId)
+        val products = productService.findByBrandId(brandId)
+        products.forEach { product ->
+            likeService.deleteAllByProductId(product.id)
+            productService.deleteProduct(product.id)
+        }
         brandService.deleteBrand(brandId)
     }
 }
