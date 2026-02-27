@@ -33,4 +33,10 @@ interface AdminProductApiSpec {
         description = "특정 상품의 정보를 수정합니다.",
     )
     fun updateProduct(productId: Long, request: AdminProductDto.UpdateRequest): ApiResponse<AdminProductDto.DetailResponse>
+
+    @Operation(
+        summary = "상품 삭제",
+        description = "특정 상품을 삭제합니다.",
+    )
+    fun deleteProduct(productId: Long): ApiResponse<Unit>
 }

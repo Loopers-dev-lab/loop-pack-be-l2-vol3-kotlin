@@ -253,6 +253,57 @@ class AdminProductFacadeTest {
         }
     }
 
+    @DisplayName("어드민 상품 삭제할 때,")
+    @Nested
+    inner class DeleteProduct {
+
+        @DisplayName("유효한 productId를 전달하면, 정상적으로 삭제된다.")
+        @Test
+        fun deletesProduct_whenValidProductIdProvided() {
+            // arrange
+            val now = ZonedDateTime.now()
+            val product = Product(
+                name = "에어맥스",
+                description = "러닝화",
+                price = Money.of(159000L),
+                likes = LikeCount.of(10),
+                stockQuantity = StockQuantity.of(100),
+                brandId = 1L,
+            )
+            ReflectionTestUtils.setField(product, "id", 1L)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productService.getProduct(1L)).thenReturn(product)
+            doAnswer { invocation ->
+                val targetProduct = invocation.getArgument<Product>(0)
+                targetProduct.delete()
+                null
+            }.whenever(productService).delete(any())
+
+            // act
+            adminProductFacade.deleteProduct(1L)
+
+            // assert
+            assertThat(product.deletedAt).isNotNull()
+        }
+
+        @DisplayName("존재하지 않는 productId를 전달하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductNotExists() {
+            // arrange
+            whenever(productService.getProduct(999L))
+                .thenThrow(CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.deleteProduct(999L)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
     @DisplayName("어드민 상품 상세 조회할 때,")
     @Nested
     inner class GetProductDetail {

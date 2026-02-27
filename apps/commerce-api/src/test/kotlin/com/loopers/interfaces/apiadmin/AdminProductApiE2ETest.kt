@@ -750,6 +750,163 @@ class AdminProductApiE2ETest @Autowired constructor(
         }
     }
 
+    @DisplayName("DELETE /api-admin/v1/products/{productId}")
+    @Nested
+    inner class DeleteProduct {
+
+        @DisplayName("유효한 LDAP 헤더로 존재하는 상품을 삭제하면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenValidRequest() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = createProduct(brand, "에어맥스")
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/${product.id}",
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("상품 삭제 후 조회하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenGetDeletedProduct() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = createProduct(brand, "에어맥스")
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act - 삭제
+            testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/${product.id}",
+                HttpMethod.DELETE,
+                httpEntity,
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            )
+
+            // act - 조회
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/${product.id}",
+                HttpMethod.GET,
+                httpEntity,
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 productId로 삭제하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenProductNotExists() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/9999",
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("이미 삭제된 상품을 삭제하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenProductAlreadyDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = createProduct(brand, "단종상품")
+            product.delete()
+            productRepository.save(product)
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/${product.id}",
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/1",
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더 값이 올바르지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsInvalid() {
+            // arrange
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(LDAP_HEADER, "wrong.value")
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCT_ENDPOINT/1",
+                HttpMethod.DELETE,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
     @DisplayName("POST /api-admin/v1/products")
     @Nested
     inner class CreateProduct {
