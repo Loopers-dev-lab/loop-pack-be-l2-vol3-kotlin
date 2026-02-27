@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class UserChangePasswordService(
+class UserChangePasswordUseCase(
     private val userRepository: UserRepository,
     private val passwordHasher: UserPasswordHasher,
 ) {

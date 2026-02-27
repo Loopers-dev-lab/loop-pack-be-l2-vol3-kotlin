@@ -21,11 +21,11 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import java.time.LocalDate
 
-@DisplayName("UserChangePasswordService")
-class UserChangePasswordServiceTest {
+@DisplayName("UserChangePasswordUseCase")
+class UserChangePasswordUseCaseTest {
     private val userRepository: UserRepository = mock()
     private val passwordHasher: UserPasswordHasher = mock()
-    private val service = UserChangePasswordService(userRepository, passwordHasher)
+    private val service = UserChangePasswordUseCase(userRepository, passwordHasher)
 
     private fun existingUser(
         password: String = "encoded_Password1!",

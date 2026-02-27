@@ -17,11 +17,11 @@ import org.mockito.BDDMockito.given
 import org.mockito.kotlin.mock
 import java.time.LocalDate
 
-@DisplayName("UserMeService")
-class UserMeServiceTest {
+@DisplayName("UserMeUseCase")
+class UserMeUseCaseTest {
     private val userRepository: UserRepository = mock()
     private val passwordHasher: UserPasswordHasher = mock()
-    private val service = UserMeService(userRepository, passwordHasher)
+    private val service = UserMeUseCase(userRepository, passwordHasher)
 
     private val defaultBirthDate = LocalDate.of(1990, 1, 1)
 
@@ -38,7 +38,7 @@ class UserMeServiceTest {
     @DisplayName("유효한 인증으로 조회하면 사용자 정보를 반환한다")
     inner class WhenValidCredentials {
         @Test
-        @DisplayName("마스킹된 UserMeInfo를 반환한다")
+        @DisplayName("마스킹된 UserMeResult를 반환한다")
         fun getMe_success_returnsMaskedUserInfo() {
             // arrange
             given(userRepository.findByLoginId("testuser1")).willReturn(existingUser())

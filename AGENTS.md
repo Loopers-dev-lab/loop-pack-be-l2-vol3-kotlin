@@ -101,7 +101,8 @@ docker compose -f docker/monitoring-compose.yml up -d
 
 ### Naming Rules
 
-- **Info**: `{Domain}Info` — application 레이어 반환 DTO
+- **Result**: `{Domain}Result` — application 레이어 반환 DTO
+- **UseCase**: `{Domain}{Action}UseCase` — application 레이어 UseCase (예: `UserSignUpUseCase`)
 - **Domain Model**: `{Domain}` — private constructor + companion object factory method (예: `User`)
 - **Entity**: `{Domain}Entity extends BaseEntity` — infrastructure 레이어 (예: `UserEntity`)
 - **Repository Interface**: `{Domain}Repository` — domain 레이어 (예: `UserRepository`)

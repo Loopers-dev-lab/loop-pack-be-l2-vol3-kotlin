@@ -10,14 +10,14 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class UserMeService(
+class UserMeUseCase(
     private val userRepository: UserRepository,
     private val passwordHasher: UserPasswordHasher,
 ) {
     @Transactional(readOnly = true)
-    fun getMe(loginId: String, password: String): UserMeInfo {
+    fun getMe(loginId: String, password: String): UserMeResult {
         val user = findByCredentials(loginId, password)
-        return UserMeInfo(
+        return UserMeResult(
             loginId = user.loginId.value,
             name = user.maskedName,
             birthDate = user.birthDate,

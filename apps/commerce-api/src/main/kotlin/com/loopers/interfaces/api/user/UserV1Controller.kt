@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserChangePasswordService
-import com.loopers.application.user.UserMeService
-import com.loopers.application.user.UserSignUpService
+import com.loopers.application.user.UserChangePasswordUseCase
+import com.loopers.application.user.UserMeUseCase
+import com.loopers.application.user.UserSignUpUseCase
 import com.loopers.interfaces.api.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
-    private val userSignUpService: UserSignUpService,
-    private val userChangePasswordService: UserChangePasswordService,
-    private val userMeService: UserMeService,
+    private val userSignUpService: UserSignUpUseCase,
+    private val userChangePasswordService: UserChangePasswordUseCase,
+    private val userMeService: UserMeUseCase,
 ) : UserV1ApiSpec {
     @PostMapping
     override fun signUp(

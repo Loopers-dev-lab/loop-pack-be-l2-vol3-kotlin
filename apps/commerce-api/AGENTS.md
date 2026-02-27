@@ -6,7 +6,7 @@
 
 ```
 com.loopers.
-├── application/<domain>/           # UseCase Service, Info DTO, Command
+├── application/<domain>/           # UseCase, Result DTO, Command
 ├── domain/<domain>/                # Domain Model, Repository interface, Port interface
 ├── infrastructure/<domain>/        # Entity, RepositoryImpl, JpaRepository
 ├── interfaces/
@@ -51,9 +51,9 @@ Example: `com.loopers.domain.user`, `com.loopers.infrastructure.user`
 |---------------------------|---------------------------------------------------------------------------------------------|
 | Controller + ApiSpec      | `src/main/kotlin/com/loopers/interfaces/api/user/UserV1Controller.kt`, `UserV1ApiSpec.kt`   |
 | DTO                       | `src/main/kotlin/com/loopers/interfaces/api/user/UserV1Dto.kt`                              |
-| UseCase Service           | `src/main/kotlin/com/loopers/application/user/UserSignUpService.kt`                         |
+| UseCase                   | `src/main/kotlin/com/loopers/application/user/UserSignUpUseCase.kt`                         |
 | Port Interface            | `src/main/kotlin/com/loopers/domain/user/UserPasswordHasher.kt`                             |
-| Info DTO                  | `src/main/kotlin/com/loopers/application/user/UserInfo.kt`                                  |
+| Result DTO                | `src/main/kotlin/com/loopers/application/user/UserResult.kt`                                |
 | Command                   | `src/main/kotlin/com/loopers/application/user/model/UserSignUpCommand.kt`                   |
 | Domain Model              | `src/main/kotlin/com/loopers/domain/user/User.kt`                                          |
 | Repository Interface      | `src/main/kotlin/com/loopers/domain/user/UserRepository.kt`                                 |
@@ -61,7 +61,7 @@ Example: `com.loopers.domain.user`, `com.loopers.infrastructure.user`
 | Repository Impl           | `src/main/kotlin/com/loopers/infrastructure/user/UserRepositoryImpl.kt`                     |
 | JPA Repository            | `src/main/kotlin/com/loopers/infrastructure/user/UserJpaRepository.kt`                      |
 | Unit Test (Domain)        | `src/test/kotlin/com/loopers/domain/user/UserTest.kt`                                      |
-| Unit Test (UseCase)       | `src/test/kotlin/com/loopers/application/user/UserSignUpServiceTest.kt`                     |
+| Unit Test (UseCase)       | `src/test/kotlin/com/loopers/application/user/UserSignUpUseCaseTest.kt`                     |
 | Integration Test          | `src/test/kotlin/com/loopers/infrastructure/user/UserRepositoryIntegrationTest.kt`          |
 | E2E Test                  | `src/test/kotlin/com/loopers/interfaces/api/user/UserV1SignUpE2ETest.kt`                    |
 | Architecture Test         | `src/test/kotlin/com/loopers/support/arch/ArchitectureTest.kt`                              |

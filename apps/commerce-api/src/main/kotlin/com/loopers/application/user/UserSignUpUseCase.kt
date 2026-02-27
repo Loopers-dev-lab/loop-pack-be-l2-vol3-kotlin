@@ -10,12 +10,12 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class UserSignUpService(
+class UserSignUpUseCase(
     private val userRepository: UserRepository,
     private val passwordHasher: UserPasswordHasher,
 ) {
     @Transactional
-    fun signUp(command: UserSignUpCommand): UserSignUpInfo {
+    fun signUp(command: UserSignUpCommand): UserSignUpResult {
         if (userRepository.existsByLoginId(command.loginId)) {
             throw CoreException(ErrorType.USER_DUPLICATE_LOGIN_ID)
         }
@@ -28,6 +28,6 @@ class UserSignUpService(
             passwordHasher = passwordHasher,
         )
         val saved = userRepository.save(user)
-        return UserSignUpInfo(loginId = saved.loginId.value)
+        return UserSignUpResult(loginId = saved.loginId.value)
     }
 }

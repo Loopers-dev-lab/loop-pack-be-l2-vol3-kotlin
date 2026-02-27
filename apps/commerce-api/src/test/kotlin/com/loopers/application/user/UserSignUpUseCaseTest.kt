@@ -20,11 +20,11 @@ import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
 import java.time.LocalDate
 
-@DisplayName("UserSignUpService")
-class UserSignUpServiceTest {
+@DisplayName("UserSignUpUseCase")
+class UserSignUpUseCaseTest {
     private val userRepository: UserRepository = mock()
     private val passwordHasher: UserPasswordHasher = mock()
-    private val userSignUpService = UserSignUpService(userRepository, passwordHasher)
+    private val userSignUpService = UserSignUpUseCase(userRepository, passwordHasher)
 
     private val defaultBirthDate = LocalDate.of(1990, 1, 1)
 
@@ -35,8 +35,8 @@ class UserSignUpServiceTest {
     @DisplayName("회원가입 성공")
     inner class WhenSignUpSuccess {
         @Test
-        @DisplayName("UserSignUpInfo(loginId)를 반환한다")
-        fun signUp_success_returnsUserSignUpInfo() {
+        @DisplayName("UserSignUpResult(loginId)를 반환한다")
+        fun signUp_success_returnsUserSignUpResult() {
             // arrange
             given(userRepository.existsByLoginId("testuser1")).willReturn(false)
             given(passwordHasher.encode(RawPassword("Password1!")))

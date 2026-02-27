@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserMeInfo
-import com.loopers.application.user.UserSignUpInfo
+import com.loopers.application.user.UserMeResult
+import com.loopers.application.user.UserSignUpResult
 import com.loopers.application.user.model.UserChangePasswordCommand
 import com.loopers.application.user.model.UserSignUpCommand
 import jakarta.validation.constraints.Email
@@ -44,7 +44,7 @@ class UserV1Dto {
         val loginId: String,
     ) {
         companion object {
-            fun from(info: UserSignUpInfo): SignUpResponse =
+            fun from(info: UserSignUpResult): SignUpResponse =
                 SignUpResponse(
                     loginId = info.loginId,
                 )
@@ -84,7 +84,7 @@ class UserV1Dto {
         val email: String,
     ) {
         companion object {
-            fun from(info: UserMeInfo): MeResponse =
+            fun from(info: UserMeResult): MeResponse =
                 MeResponse(
                     loginId = info.loginId,
                     name = info.name,

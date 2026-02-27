@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserChangePasswordService
-import com.loopers.application.user.UserMeService
-import com.loopers.application.user.UserSignUpService
+import com.loopers.application.user.UserChangePasswordUseCase
+import com.loopers.application.user.UserMeUseCase
+import com.loopers.application.user.UserSignUpUseCase
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -27,9 +27,9 @@ class UserV1ControllerChangePasswordTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
-    @MockitoBean private val userSignUpService: UserSignUpService,
-    @MockitoBean private val userChangePasswordService: UserChangePasswordService,
-    @MockitoBean private val userMeService: UserMeService,
+    @MockitoBean private val userSignUpService: UserSignUpUseCase,
+    @MockitoBean private val userChangePasswordService: UserChangePasswordUseCase,
+    @MockitoBean private val userMeService: UserMeUseCase,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/users/me/password"

@@ -2,11 +2,11 @@ package com.loopers.application.user
 
 import java.time.LocalDate
 
-data class UserSignUpInfo(
+data class UserSignUpResult(
     val loginId: String,
 )
 
-data class UserMeInfo(
+data class UserMeResult(
     val loginId: String,
     val name: String,
     val birthDate: LocalDate,
