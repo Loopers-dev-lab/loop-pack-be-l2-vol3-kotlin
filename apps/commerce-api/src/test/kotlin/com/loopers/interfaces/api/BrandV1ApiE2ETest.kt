@@ -93,7 +93,7 @@ class BrandV1ApiE2ETest @Autowired constructor(
             registerUser()
             val brand = registerBrand()
             val headers = createAuthHeaders()
-            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1Dto.BrandDetailResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1Dto.BrandResponse>>() {}
 
             // act
             val response = testRestTemplate.exchange(
@@ -108,8 +108,6 @@ class BrandV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.id).isEqualTo(brand.id) },
                 { assertThat(response.body?.data?.name).isEqualTo(DEFAULT_BRAND_NAME) },
-                { assertThat(response.body?.data?.description).isEqualTo(DEFAULT_BRAND_DESCRIPTION) },
-                { assertThat(response.body?.data?.logoUrl).isEqualTo(DEFAULT_BRAND_LOGO_URL) },
             )
         }
 
@@ -119,7 +117,7 @@ class BrandV1ApiE2ETest @Autowired constructor(
             // arrange
             registerUser()
             val headers = createAuthHeaders()
-            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1Dto.BrandDetailResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1Dto.BrandResponse>>() {}
 
             // act
             val response = testRestTemplate.exchange(
@@ -138,7 +136,7 @@ class BrandV1ApiE2ETest @Autowired constructor(
         fun returnsUnauthorizedWhenAuthHeaderIsMissing() {
             // arrange
             val brand = registerBrand()
-            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1Dto.BrandDetailResponse>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<BrandV1Dto.BrandResponse>>() {}
 
             // act
             val response = testRestTemplate.exchange(

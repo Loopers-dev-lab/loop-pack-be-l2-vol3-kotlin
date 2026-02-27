@@ -14,5 +14,5 @@ interface BrandV1ApiSpec {
         loginId: String,
         loginPw: String,
         brandId: Long,
-    ): ApiResponse<BrandV1Dto.BrandDetailResponse>
+    ): ApiResponse<BrandV1Dto.BrandResponse>
 }

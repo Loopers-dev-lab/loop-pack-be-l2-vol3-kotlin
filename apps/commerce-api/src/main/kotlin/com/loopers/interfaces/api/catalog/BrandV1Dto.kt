@@ -1,21 +1,17 @@
 package com.loopers.interfaces.api.catalog
 
-import com.loopers.application.catalog.GetBrandResult
+import com.loopers.application.catalog.UserGetBrandResult
 
 class BrandV1Dto {
-    data class BrandDetailResponse(
+    data class BrandResponse(
         val id: Long,
         val name: String,
-        val description: String?,
-        val logoUrl: String?,
     ) {
         companion object {
-            fun from(result: GetBrandResult): BrandDetailResponse {
-                return BrandDetailResponse(
+            fun from(result: UserGetBrandResult): BrandResponse {
+                return BrandResponse(
                     id = result.id,
                     name = result.name,
-                    description = result.description,
-                    logoUrl = result.logoUrl,
                 )
             }
         }

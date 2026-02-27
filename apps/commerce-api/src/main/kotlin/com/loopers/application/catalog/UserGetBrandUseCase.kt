@@ -11,12 +11,12 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class UserGetBrandUseCase(
     private val brandRepository: BrandRepository,
-) : UseCase<Long, GetBrandResult> {
+) : UseCase<Long, UserGetBrandResult> {
     @Transactional(readOnly = true)
-    override fun execute(brandId: Long): GetBrandResult {
+    override fun execute(brandId: Long): UserGetBrandResult {
         val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         val info = BrandInfo.from(brand)
-        return GetBrandResult.from(info)
+        return UserGetBrandResult.from(info)
     }
 }

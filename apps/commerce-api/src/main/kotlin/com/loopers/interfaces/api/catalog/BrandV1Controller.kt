@@ -18,9 +18,9 @@ class BrandV1Controller(
         @RequestHeader(value = "X-Loopers-LoginId") loginId: String,
         @RequestHeader(value = "X-Loopers-LoginPw") loginPw: String,
         @PathVariable brandId: Long,
-    ): ApiResponse<BrandV1Dto.BrandDetailResponse> {
+    ): ApiResponse<BrandV1Dto.BrandResponse> {
         return userGetBrandUseCase.execute(brandId)
-            .let { BrandV1Dto.BrandDetailResponse.from(it) }
+            .let { BrandV1Dto.BrandResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 }
