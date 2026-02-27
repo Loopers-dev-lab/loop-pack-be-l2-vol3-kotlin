@@ -156,4 +156,81 @@ class OrderTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @DisplayName("주문 상태를 변경할 때,")
+    @Nested
+    inner class ChangeStatus {
+
+        @DisplayName("유효한 전이이면, 상태가 변경된다.")
+        @Test
+        fun changesStatus_whenValidTransition() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            order.changeStatus(OrderStatus.CONFIRMED)
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.CONFIRMED)
+        }
+
+        @DisplayName("ORDERED에서 CANCELLED로 전이할 수 있다.")
+        @Test
+        fun transitionsFromOrderedToCancelled() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            order.changeStatus(OrderStatus.CANCELLED)
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
+        }
+
+        @DisplayName("연속 전이가 가능하다 (ORDERED → CONFIRMED → SHIPPING → DELIVERED).")
+        @Test
+        fun transitionsThroughFullLifecycle() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            order.changeStatus(OrderStatus.CONFIRMED)
+            order.changeStatus(OrderStatus.SHIPPING)
+            order.changeStatus(OrderStatus.DELIVERED)
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.DELIVERED)
+        }
+
+        @DisplayName("허용되지 않은 전이이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenInvalidTransition() {
+            // arrange
+            val order = Order(userId = 1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.changeStatus(OrderStatus.DELIVERED)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("종료 상태에서는 전이할 수 없다.")
+        @Test
+        fun throwsBadRequest_whenTransitionFromTerminalState() {
+            // arrange
+            val order = Order(userId = 1L)
+            order.changeStatus(OrderStatus.CANCELLED)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.changeStatus(OrderStatus.ORDERED)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
 }
