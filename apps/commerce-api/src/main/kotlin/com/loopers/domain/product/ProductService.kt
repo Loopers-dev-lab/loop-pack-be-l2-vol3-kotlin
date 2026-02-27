@@ -97,4 +97,10 @@ class ProductService(
         val product = findById(productId)
         product.decreaseLikeCount()
     }
+
+    @Transactional
+    fun decreaseLikeCountIfExists(productId: Long) {
+        val product = productRepository.findById(productId) ?: return
+        product.decreaseLikeCount()
+    }
 }

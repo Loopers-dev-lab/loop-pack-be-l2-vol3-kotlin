@@ -253,6 +253,45 @@ class ProductServiceTest {
     }
 
     @Nested
+    inner class DecreaseLikeCountIfExists {
+
+        @Test
+        @DisplayName("존재하는 상품의 좋아요 수를 감소시킨다")
+        fun success() {
+            // arrange
+            val created = productService.createProduct(createCommand())
+            productService.increaseLikeCount(created.id)
+            productService.increaseLikeCount(created.id)
+
+            // act
+            productService.decreaseLikeCountIfExists(created.id)
+
+            // assert
+            val found = productService.findById(created.id)
+            assertThat(found.likeCount).isEqualTo(1)
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품이면 아무 일도 일어나지 않는다")
+        fun nonExistentProductDoesNothing() {
+            // act & assert — 예외 없이 정상 종료
+            productService.decreaseLikeCountIfExists(999L)
+        }
+
+        @Test
+        @DisplayName("삭제된 상품이면 아무 일도 일어나지 않는다")
+        fun deletedProductDoesNothing() {
+            // arrange
+            val created = productService.createProduct(createCommand())
+            productService.increaseLikeCount(created.id)
+            productService.deleteProduct(created.id)
+
+            // act & assert — 예외 없이 정상 종료
+            productService.decreaseLikeCountIfExists(created.id)
+        }
+    }
+
+    @Nested
     inner class FindByBrandId {
 
         @Test
