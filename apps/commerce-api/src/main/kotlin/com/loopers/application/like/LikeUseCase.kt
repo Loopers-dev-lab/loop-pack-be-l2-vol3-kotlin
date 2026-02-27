@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class LikeFacade(
+class LikeUseCase(
     private val likeRegister: LikeRegister,
     private val likeRemover: LikeRemover,
     private val likeReader: LikeReader,
@@ -19,6 +19,7 @@ class LikeFacade(
 
     @Transactional
     fun register(memberId: Long, productId: Long): LikeInfo.Registered {
+        productReader.getSellingById(productId)
         val like = likeRegister.register(memberId, productId)
         return LikeInfo.Registered.from(like)
     }
@@ -42,13 +43,7 @@ class LikeFacade(
         return likes.mapNotNull { like ->
             val product = productMap[like.productId] ?: return@mapNotNull null
             val brand = brandMap[product.brandId]
-            LikeInfo.Detail(
-                id = requireNotNull(like.id),
-                productId = product.id!!,
-                productName = product.name.value,
-                price = product.price.value,
-                brandName = brand?.name?.value ?: "",
-            )
+            LikeInfo.Detail.from(like, product, brand)
         }
     }
 }

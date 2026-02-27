@@ -8,14 +8,11 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @Component
-class AuthFacade(
+class AuthUseCase(
     private val memberRegister: MemberRegister,
     private val memberAuthenticator: MemberAuthenticator,
 ) {
 
-    /**
-     * 회원가입을 처리합니다.
-     */
     @Transactional
     fun signup(command: SignupCommand): AuthInfo.SignupResult {
         val member = memberRegister.register(
@@ -25,13 +22,9 @@ class AuthFacade(
             birthDate = command.birthDate,
             email = command.email,
         )
-
         return AuthInfo.SignupResult.from(member)
     }
 
-    /**
-     * 인증 정보를 검증합니다.
-     */
     @Transactional(readOnly = true)
     fun authenticate(loginId: String, rawPassword: String): Member {
         return memberAuthenticator.authenticate(

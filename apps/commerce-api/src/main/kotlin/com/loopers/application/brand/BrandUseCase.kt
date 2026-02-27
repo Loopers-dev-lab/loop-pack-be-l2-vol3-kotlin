@@ -4,15 +4,19 @@ import com.loopers.domain.brand.BrandChanger
 import com.loopers.domain.brand.BrandReader
 import com.loopers.domain.brand.BrandRegister
 import com.loopers.domain.brand.BrandRemover
+import com.loopers.domain.product.ProductReader
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class BrandFacade(
+class BrandUseCase(
     private val brandRegister: BrandRegister,
     private val brandReader: BrandReader,
     private val brandChanger: BrandChanger,
     private val brandRemover: BrandRemover,
+    private val productReader: ProductReader,
 ) {
 
     @Transactional
@@ -40,6 +44,9 @@ class BrandFacade(
 
     @Transactional
     fun remove(id: Long) {
+        if (productReader.existsSellingByBrandId(id)) {
+            throw CoreException(ErrorType.BRAND_HAS_ACTIVE_PRODUCTS)
+        }
         brandRemover.remove(id)
     }
 

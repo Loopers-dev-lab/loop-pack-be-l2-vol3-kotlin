@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class ProductFacade(
+class ProductUseCase(
     private val productRegister: ProductRegister,
     private val productReader: ProductReader,
     private val productChanger: ProductChanger,
@@ -22,6 +22,7 @@ class ProductFacade(
 
     @Transactional
     fun register(command: RegisterCommand): ProductInfo.Detail {
+        val brand = brandReader.getActiveById(command.brandId)
         val product = productRegister.register(
             brandId = command.brandId,
             name = command.name,
@@ -29,8 +30,7 @@ class ProductFacade(
             description = command.description,
             stock = command.stock,
         )
-        val brand = brandReader.getById(product.brandId)
-        return ProductInfo.Detail.from(product, brand.name.value, 0L)
+        return ProductInfo.Detail.from(product, brand, 0L)
     }
 
     @Transactional(readOnly = true)
@@ -38,7 +38,7 @@ class ProductFacade(
         val product = productReader.getById(id)
         val brand = brandReader.getById(product.brandId)
         val likeCount = likeReader.countByProductId(product.id!!)
-        return ProductInfo.Detail.from(product, brand.name.value, likeCount)
+        return ProductInfo.Detail.from(product, brand, likeCount)
     }
 
     @Transactional(readOnly = true)
@@ -58,7 +58,7 @@ class ProductFacade(
         val productInfos = products.map { product ->
             val brand = brandMap[product.brandId]
             val likeCount = likeCountMap[product.id] ?: 0L
-            ProductInfo.Main.from(product, brand?.name?.value ?: "", likeCount)
+            ProductInfo.Main.from(product, brand, likeCount)
         }
 
         return when (sortType) {
@@ -78,7 +78,7 @@ class ProductFacade(
         )
         val brand = brandReader.getById(product.brandId)
         val likeCount = likeReader.countByProductId(product.id!!)
-        return ProductInfo.Detail.from(product, brand.name.value, likeCount)
+        return ProductInfo.Detail.from(product, brand, likeCount)
     }
 
     @Transactional

@@ -1,24 +1,28 @@
 package com.loopers.application.order
 
+import com.loopers.domain.order.OrderCanceller
+import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderReader
+import com.loopers.domain.order.OrderRegister
+import com.loopers.domain.product.ProductStockDeductor
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class OrderFacade(
-    private val orderService: OrderService,
+class OrderUseCase(
+    private val orderRegister: OrderRegister,
     private val orderReader: OrderReader,
+    private val orderCanceller: OrderCanceller,
+    private val productStockDeductor: ProductStockDeductor,
 ) {
 
     @Transactional
     fun createOrder(memberId: Long, command: CreateOrderCommand): OrderInfo.Detail {
-        val items = command.items.map {
-            OrderService.OrderItemCommand(
-                productId = it.productId,
-                quantity = it.quantity,
-            )
+        val orderItems = command.items.map { item ->
+            val product = productStockDeductor.deductStock(item.productId, item.quantity)
+            OrderItem.from(product, item.quantity)
         }
-        val order = orderService.createOrder(memberId, items)
+        val order = orderRegister.register(memberId, orderItems)
         return OrderInfo.Detail.from(order)
     }
 
@@ -36,7 +40,10 @@ class OrderFacade(
 
     @Transactional
     fun cancel(orderId: Long, memberId: Long) {
-        orderService.cancelOrder(orderId, memberId)
+        val order = orderCanceller.cancel(orderId, memberId)
+        order.orderItems.forEach { item ->
+            productStockDeductor.restoreStock(item.productId, item.quantity)
+        }
     }
 
     data class CreateOrderCommand(val items: List<OrderItemRequest>)
