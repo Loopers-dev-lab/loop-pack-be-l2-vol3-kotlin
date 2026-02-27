@@ -1,0 +1,4 @@
+### 브랜드 단건 조회
+GET {{commerce-api}}/api/v1/brands/1
+
+###
