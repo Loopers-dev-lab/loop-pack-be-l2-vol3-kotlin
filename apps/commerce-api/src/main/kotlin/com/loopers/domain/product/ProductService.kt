@@ -96,6 +96,6 @@ class ProductService(
 
     fun deleteAllByBrandId(brandId: Long) {
         val products = productRepository.findAllByBrandId(brandId)
-        products.forEach { it.delete() }
+        products.forEach { delete(it) }
     }
 }
