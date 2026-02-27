@@ -1,0 +1,39 @@
+package com.loopers.interfaces.api.product
+
+import com.loopers.application.product.ProductFacade
+import com.loopers.domain.product.ProductSort
+import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.PageResponse
+import org.springframework.data.domain.PageRequest
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
+
+@RestController
+@RequestMapping("/api/v1/products")
+class ProductV1Controller(
+    private val productFacade: ProductFacade,
+) : ProductV1ApiSpec {
+    @GetMapping
+    override fun getProducts(
+        @RequestParam(required = false) brandId: Long?,
+        @RequestParam(defaultValue = "latest") sort: String,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): ApiResponse<PageResponse<ProductV1Dto.ProductResponse>> {
+        val productSort = ProductSort.valueOf(sort.uppercase())
+        return productFacade.getProducts(brandId, productSort, PageRequest.of(page, size))
+            .map { ProductV1Dto.ProductResponse.from(it) }
+            .let { PageResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/{productId}")
+    override fun getProduct(@PathVariable productId: Long): ApiResponse<ProductV1Dto.ProductResponse> {
+        return productFacade.getProduct(productId)
+            .let { ProductV1Dto.ProductResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+}
