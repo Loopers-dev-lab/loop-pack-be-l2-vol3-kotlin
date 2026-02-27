@@ -143,7 +143,7 @@
 - 한 사용자가 같은 상품에 **중복 좋아요 불가** (이미 좋아요 상태면 409 CONFLICT 에러)
 - 좋아요 취소 시, 이미 취소 상태면 404 NOT_FOUND 에러
 - 동시 요청으로 UK 제약 위반 시 `DataIntegrityViolationException` → 409 CONFLICT 변환 (UK가 최종 방어선)
-- 상품이 삭제되면, 해당 상품의 좋아요 데이터도 Soft Delete 처리
+- 상품이 삭제되면, 해당 상품의 좋아요 데이터도 물리 삭제 (Hard Delete) 처리
 - 좋아요 수는 상품 목록 정렬(`likes_desc`)에 사용됨
 
 #### 결정이 필요한 사항
