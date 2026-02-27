@@ -16,6 +16,7 @@ class LikeMapper {
 
     fun toEntity(domain: Like): LikeEntity {
         return LikeEntity(
+            id = domain.id,
             memberId = domain.memberId,
             productId = domain.productId,
         )

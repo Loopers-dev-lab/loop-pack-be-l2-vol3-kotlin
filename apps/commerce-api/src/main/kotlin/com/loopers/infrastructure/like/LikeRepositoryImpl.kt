@@ -2,6 +2,9 @@ package com.loopers.infrastructure.like
 
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 
 @Component
@@ -12,8 +15,12 @@ class LikeRepositoryImpl(
 
     override fun save(like: Like): Like {
         val entity = likeMapper.toEntity(like)
-        val savedEntity = likeJpaRepository.save(entity)
-        return likeMapper.toDomain(savedEntity)
+        try {
+            val savedEntity = likeJpaRepository.save(entity)
+            return likeMapper.toDomain(savedEntity)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(ErrorType.ALREADY_LIKED)
+        }
     }
 
     override fun delete(like: Like) {

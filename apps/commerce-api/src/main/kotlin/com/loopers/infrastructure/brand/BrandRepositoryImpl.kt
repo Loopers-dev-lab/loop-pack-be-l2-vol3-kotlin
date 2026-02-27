@@ -4,6 +4,9 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.brand.BrandStatus
 import com.loopers.domain.brand.vo.BrandName
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 
 @Component
@@ -14,8 +17,12 @@ class BrandRepositoryImpl(
 
     override fun save(brand: Brand): Brand {
         val entity = resolveEntity(brand)
-        val savedEntity = brandJpaRepository.save(entity)
-        return brandMapper.toDomain(savedEntity)
+        try {
+            val savedEntity = brandJpaRepository.save(entity)
+            return brandMapper.toDomain(savedEntity)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(ErrorType.DUPLICATE_BRAND_NAME)
+        }
     }
 
     override fun findById(id: Long): Brand? {
