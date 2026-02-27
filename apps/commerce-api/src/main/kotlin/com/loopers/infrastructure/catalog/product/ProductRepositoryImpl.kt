@@ -25,7 +25,7 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     fun findForUpdateById(id: Long): ProductEntity?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findAllForUpdateByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
+    fun findAllForUpdateByIdInAndDeletedAtIsNullOrderByIdAsc(ids: List<Long>): List<ProductEntity>
 }
 
 @Repository
@@ -102,6 +102,7 @@ class ProductRepositoryImpl(
     }
 
     override fun findAllByIdsForUpdate(ids: List<ProductId>): List<Product> {
-        return productJpaRepository.findAllForUpdateByIdInAndDeletedAtIsNull(ids.map { it.value }).map { it.toDomain() }
+        val sortedIds = ids.map { it.value }.distinct().sorted()
+        return productJpaRepository.findAllForUpdateByIdInAndDeletedAtIsNullOrderByIdAsc(sortedIds).map { it.toDomain() }
     }
 }

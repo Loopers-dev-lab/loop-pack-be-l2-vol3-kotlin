@@ -4,12 +4,15 @@ import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.model.Like
 import com.loopers.domain.like.repository.LikeRepository
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
 
 interface LikeJpaRepository : JpaRepository<LikeEntity, Long> {
-    fun existsByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): Boolean
-    fun findByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): LikeEntity?
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findForUpdateByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): LikeEntity?
+
     fun findAllByRefUserIdOrderByIdDesc(refUserId: Long): List<LikeEntity>
 }
 
@@ -22,12 +25,8 @@ class LikeRepositoryImpl(
         return likeJpaRepository.save(LikeEntity.fromDomain(like)).toDomain()
     }
 
-    override fun existsByUserIdAndProductId(userId: UserId, productId: ProductId): Boolean {
-        return likeJpaRepository.existsByRefUserIdAndRefProductId(userId.value, productId.value)
-    }
-
-    override fun findByUserIdAndProductId(userId: UserId, productId: ProductId): Like? {
-        return likeJpaRepository.findByRefUserIdAndRefProductId(userId.value, productId.value)?.toDomain()
+    override fun findByUserIdAndProductIdForUpdate(userId: UserId, productId: ProductId): Like? {
+        return likeJpaRepository.findForUpdateByRefUserIdAndRefProductId(userId.value, productId.value)?.toDomain()
     }
 
     override fun delete(like: Like) {

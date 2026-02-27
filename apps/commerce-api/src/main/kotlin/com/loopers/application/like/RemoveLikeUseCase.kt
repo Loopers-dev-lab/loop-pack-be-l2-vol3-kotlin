@@ -14,12 +14,14 @@ class RemoveLikeUseCase(
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
-        val existing = likeRepository.findByUserIdAndProductId(UserId(userId), ProductId(productId))
+        val lockedProduct = productRepository.findByIdForUpdate(ProductId(productId))
+
+        val existingLike = likeRepository.findByUserIdAndProductIdForUpdate(UserId(userId), ProductId(productId))
             ?: return
 
-        likeRepository.delete(existing)
+        likeRepository.delete(existingLike)
 
-        productRepository.findByIdForUpdate(ProductId(productId))?.let { product ->
+        lockedProduct?.let { product ->
             if (product.isDeleted()) return
             product.decreaseLikeCount()
             productRepository.save(product)

@@ -21,11 +21,7 @@ class FakeLikeRepository : LikeRepository {
         return like
     }
 
-    override fun existsByUserIdAndProductId(userId: UserId, productId: ProductId): Boolean {
-        return likes.any { it.refUserId == userId && it.refProductId == productId }
-    }
-
-    override fun findByUserIdAndProductId(userId: UserId, productId: ProductId): Like? {
+    override fun findByUserIdAndProductIdForUpdate(userId: UserId, productId: ProductId): Like? {
         return likes.find { it.refUserId == userId && it.refProductId == productId }
     }
 

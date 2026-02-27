@@ -6,8 +6,7 @@ import com.loopers.domain.like.model.Like
 
 interface LikeRepository {
     fun save(like: Like): Like
-    fun existsByUserIdAndProductId(userId: UserId, productId: ProductId): Boolean
-    fun findByUserIdAndProductId(userId: UserId, productId: ProductId): Like?
+    fun findByUserIdAndProductIdForUpdate(userId: UserId, productId: ProductId): Like?
     fun delete(like: Like)
     fun findAllByUserId(userId: UserId): List<Like>
 }
