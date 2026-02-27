@@ -17,8 +17,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDate
 
 @SpringBootTest
-class AuthFacadeTest @Autowired constructor(
-    private val authFacade: AuthFacade,
+class AuthUseCaseTest @Autowired constructor(
+    private val authUseCase: AuthUseCase,
     private val memberJpaRepository: MemberJpaRepository,
     private val passwordPolicy: PasswordPolicy,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -34,7 +34,7 @@ class AuthFacadeTest @Autowired constructor(
         @Test
         fun `회원가입을_처리할_수_있다`() {
             // arrange
-            val command = AuthFacade.SignupCommand(
+            val command = AuthUseCase.SignupCommand(
                 loginId = "newuser123",
                 rawPassword = "Password1!",
                 name = "홍길동",
@@ -43,7 +43,7 @@ class AuthFacadeTest @Autowired constructor(
             )
 
             // act
-            val result = authFacade.signup(command)
+            val result = authUseCase.signup(command)
 
             // assert
             assertAll(
@@ -58,7 +58,7 @@ class AuthFacadeTest @Autowired constructor(
         fun `중복된_로그인ID로_가입하면_예외가_발생한다`() {
             // arrange
             createAndSaveMemberEntity(loginId = "existinguser")
-            val command = AuthFacade.SignupCommand(
+            val command = AuthUseCase.SignupCommand(
                 loginId = "existinguser",
                 rawPassword = "Password1!",
                 name = "새회원",
@@ -67,7 +67,7 @@ class AuthFacadeTest @Autowired constructor(
             )
 
             // act
-            val result = assertThrows<CoreException> { authFacade.signup(command) }
+            val result = assertThrows<CoreException> { authUseCase.signup(command) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.DUPLICATE_LOGIN_ID)
@@ -82,7 +82,7 @@ class AuthFacadeTest @Autowired constructor(
             createAndSaveMemberEntity(loginId = "authuser", rawPassword = "Password1!")
 
             // act
-            val member = authFacade.authenticate(
+            val member = authUseCase.authenticate(
                 loginId = "authuser",
                 rawPassword = "Password1!",
             )
@@ -98,7 +98,7 @@ class AuthFacadeTest @Autowired constructor(
 
             // act
             val result = assertThrows<CoreException> {
-                authFacade.authenticate(
+                authUseCase.authenticate(
                     loginId = "authuser2",
                     rawPassword = "WrongPassword1!",
                 )

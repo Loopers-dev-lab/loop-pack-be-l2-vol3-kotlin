@@ -18,8 +18,8 @@ import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDate
 
 @SpringBootTest
-class MemberFacadeTest @Autowired constructor(
-    private val memberFacade: MemberFacade,
+class MemberUseCaseTest @Autowired constructor(
+    private val memberUseCase: MemberUseCase,
     private val memberJpaRepository: MemberJpaRepository,
     private val passwordPolicy: PasswordPolicy,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -38,12 +38,11 @@ class MemberFacadeTest @Autowired constructor(
             createAndSaveMemberEntity(loginId = "myuser", name = "홍길동")
 
             // act
-            val result = memberFacade.getMyProfile(loginId = "myuser")
+            val result = memberUseCase.getMyProfile(loginId = "myuser")
 
             // assert
             assertAll(
                 { assertThat(result.loginId).isEqualTo("myuser") },
-                // 마스킹 확인
                 { assertThat(result.name).isEqualTo("홍길*") },
                 { assertThat(result.email).isEqualTo("test@example.com") },
             )
@@ -55,7 +54,7 @@ class MemberFacadeTest @Autowired constructor(
             createAndSaveMemberEntity(loginId = "maskuser", name = "김철수")
 
             // act
-            val result = memberFacade.getMyProfile(loginId = "maskuser")
+            val result = memberUseCase.getMyProfile(loginId = "maskuser")
 
             // assert
             assertThat(result.name).isEqualTo("김철*")
@@ -68,14 +67,14 @@ class MemberFacadeTest @Autowired constructor(
         fun `비밀번호를_수정할_수_있다`() {
             // arrange
             createAndSaveMemberEntity(loginId = "pwuser", rawPassword = "OldPassword1!")
-            val command = MemberFacade.ChangePasswordCommand(
+            val command = MemberUseCase.ChangePasswordCommand(
                 loginId = "pwuser",
                 currentPassword = "OldPassword1!",
                 newPassword = "NewPassword1!",
             )
 
             // act
-            memberFacade.changePassword(command)
+            memberUseCase.changePassword(command)
 
             // assert
             val updatedEntity = memberJpaRepository.findByLoginId("pwuser")
@@ -87,14 +86,14 @@ class MemberFacadeTest @Autowired constructor(
         fun `현재_비밀번호가_틀리면_예외가_발생한다`() {
             // arrange
             createAndSaveMemberEntity(loginId = "pwuser2", rawPassword = "OldPassword1!")
-            val command = MemberFacade.ChangePasswordCommand(
+            val command = MemberUseCase.ChangePasswordCommand(
                 loginId = "pwuser2",
                 currentPassword = "WrongPassword1!",
                 newPassword = "NewPassword1!",
             )
 
             // act
-            val result = assertThrows<CoreException> { memberFacade.changePassword(command) }
+            val result = assertThrows<CoreException> { memberUseCase.changePassword(command) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.AUTHENTICATION_FAILED)
@@ -105,14 +104,14 @@ class MemberFacadeTest @Autowired constructor(
             // arrange
             val samePassword = "SamePassword1!"
             createAndSaveMemberEntity(loginId = "pwuser3", rawPassword = samePassword)
-            val command = MemberFacade.ChangePasswordCommand(
+            val command = MemberUseCase.ChangePasswordCommand(
                 loginId = "pwuser3",
                 currentPassword = samePassword,
                 newPassword = samePassword,
             )
 
             // act
-            val result = assertThrows<CoreException> { memberFacade.changePassword(command) }
+            val result = assertThrows<CoreException> { memberUseCase.changePassword(command) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.SAME_PASSWORD_NOT_ALLOWED)
