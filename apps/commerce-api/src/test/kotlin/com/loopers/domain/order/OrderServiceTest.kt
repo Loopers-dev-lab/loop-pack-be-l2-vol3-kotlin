@@ -4,7 +4,6 @@ import com.loopers.domain.BaseEntity
 import com.loopers.domain.Money
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
-import com.loopers.domain.user.User
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.time.LocalDate
 
 class OrderServiceTest {
 
@@ -26,18 +24,6 @@ class OrderServiceTest {
         fakeOrderRepository = FakeOrderRepository()
         orderDomainService = OrderDomainService()
         orderService = OrderService(fakeOrderRepository, orderDomainService)
-    }
-
-    private fun createUser(id: Long = 1L): User {
-        val user = User(
-            loginId = "testuser",
-            password = "password123",
-            name = "홍길동",
-            birthday = LocalDate.of(1990, 1, 1),
-            email = "test@example.com",
-        )
-        setEntityId(user, id)
-        return user
     }
 
     private fun createBrand(id: Long = 1L, name: String = "나이키"): Brand {
@@ -63,14 +49,14 @@ class OrderServiceTest {
         return product
     }
 
-    private fun createCommand(
-        user: User = createUser(),
+    private fun createOrderCommand(
+        userId: Long = 1L,
         products: List<Product> = listOf(createProduct()),
         quantities: Map<Long, Int> = mapOf(1L to 1),
         brands: Map<Long, Brand> = mapOf(1L to createBrand()),
     ): CreateOrderCommand {
         return CreateOrderCommand(
-            user = user,
+            userId = userId,
             products = products,
             quantities = quantities,
             brands = brands,
@@ -84,7 +70,7 @@ class OrderServiceTest {
         @DisplayName("주문이 저장되고 주문번호가 생성된다")
         fun savedWithOrderNumber() {
             // arrange
-            val command = createCommand(quantities = mapOf(1L to 2))
+            val command = createOrderCommand(quantities = mapOf(1L to 2))
 
             // act
             val order = orderService.createOrder(command)
@@ -99,7 +85,7 @@ class OrderServiceTest {
         @DisplayName("저장된 주문을 조회할 수 있다")
         fun canBeFoundAfterSave() {
             // arrange
-            val command = createCommand()
+            val command = createOrderCommand()
 
             // act
             val savedOrder = orderService.createOrder(command)

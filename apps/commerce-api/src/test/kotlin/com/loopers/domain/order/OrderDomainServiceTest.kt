@@ -4,7 +4,6 @@ import com.loopers.domain.BaseEntity
 import com.loopers.domain.Money
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
-import com.loopers.domain.user.User
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.time.LocalDate
 
 class OrderDomainServiceTest {
 
@@ -22,18 +20,6 @@ class OrderDomainServiceTest {
     @BeforeEach
     fun setUp() {
         orderDomainService = OrderDomainService()
-    }
-
-    private fun createUser(id: Long = 1L): User {
-        val user = User(
-            loginId = "testuser",
-            password = "password123",
-            name = "홍길동",
-            birthday = LocalDate.of(1990, 1, 1),
-            email = "test@example.com",
-        )
-        setEntityId(user, id)
-        return user
     }
 
     private fun createBrand(id: Long = 1L, name: String = "나이키"): Brand {
@@ -59,14 +45,14 @@ class OrderDomainServiceTest {
         return product
     }
 
-    private fun createCommand(
-        user: User = createUser(),
+    private fun createOrderCommand(
+        userId: Long = 1L,
         products: List<Product> = listOf(createProduct()),
         quantities: Map<Long, Int> = mapOf(1L to 1),
         brands: Map<Long, Brand> = mapOf(1L to createBrand()),
     ): CreateOrderCommand {
         return CreateOrderCommand(
-            user = user,
+            userId = userId,
             products = products,
             quantities = quantities,
             brands = brands,
@@ -80,7 +66,7 @@ class OrderDomainServiceTest {
         @DisplayName("정상적인 주문이 생성된다")
         fun success() {
             // arrange
-            val command = createCommand(quantities = mapOf(1L to 2))
+            val command = createOrderCommand(quantities = mapOf(1L to 2))
 
             // act
             val order = orderDomainService.placeOrder(command)
@@ -98,7 +84,7 @@ class OrderDomainServiceTest {
             val brand = createBrand()
             val productA = createProduct(id = 1L, price = Money(10000), stockQuantity = 50)
             val productB = createProduct(id = 2L, name = "에어포스 1", price = Money(15000), stockQuantity = 50)
-            val command = createCommand(
+            val command = createOrderCommand(
                 products = listOf(productA, productB),
                 quantities = mapOf(1L to 2, 2L to 3), // 20000 + 45000
                 brands = mapOf(1L to brand),
@@ -116,7 +102,7 @@ class OrderDomainServiceTest {
         fun stockDecreased() {
             // arrange
             val product = createProduct(stockQuantity = 10)
-            val command = createCommand(
+            val command = createOrderCommand(
                 products = listOf(product),
                 quantities = mapOf(1L to 3),
             )
@@ -134,7 +120,7 @@ class OrderDomainServiceTest {
             // arrange
             val brand = createBrand(name = "나이키")
             val product = createProduct(name = "에어맥스 90", price = Money(139000))
-            val command = createCommand(
+            val command = createOrderCommand(
                 products = listOf(product),
                 quantities = mapOf(1L to 1),
                 brands = mapOf(1L to brand),
@@ -157,7 +143,7 @@ class OrderDomainServiceTest {
         fun notOrderableThrowsBadRequest() {
             // arrange
             val product = createProduct(stockQuantity = 0) // 재고 0 → isOrderable() = false
-            val command = createCommand(products = listOf(product))
+            val command = createOrderCommand(products = listOf(product))
 
             // act
             val result = assertThrows<CoreException> {
@@ -173,7 +159,7 @@ class OrderDomainServiceTest {
         fun insufficientStockThrowsBadRequest() {
             // arrange
             val product = createProduct(stockQuantity = 2)
-            val command = createCommand(
+            val command = createOrderCommand(
                 products = listOf(product),
                 quantities = mapOf(1L to 5), // 재고 2인데 5개 주문
             )
@@ -192,7 +178,7 @@ class OrderDomainServiceTest {
         fun missingBrandThrowsBadRequest() {
             // arrange
             val product = createProduct(brandId = 999L)
-            val command = createCommand(
+            val command = createOrderCommand(
                 products = listOf(product),
                 brands = emptyMap(), // 브랜드 정보 없음
             )

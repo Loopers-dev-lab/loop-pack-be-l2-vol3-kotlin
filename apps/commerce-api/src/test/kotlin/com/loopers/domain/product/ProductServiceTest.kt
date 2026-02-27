@@ -23,7 +23,7 @@ class ProductServiceTest {
         productService = ProductService(productRepository)
     }
 
-    private fun createCommand(
+    private fun createProductCommand(
         brandId: Long = 1L,
         name: String = "에어맥스 90",
         description: String? = "나이키 에어맥스",
@@ -48,7 +48,7 @@ class ProductServiceTest {
         @DisplayName("올바른 정보로 상품을 생성하면 성공한다")
         fun success() {
             // arrange
-            val command = createCommand()
+            val command = createProductCommand()
 
             // act
             val product = productService.createProduct(command)
@@ -63,7 +63,7 @@ class ProductServiceTest {
         @DisplayName("상품명이 빈칸이면 BAD_REQUEST 예외가 발생한다")
         fun nameBlankThrowsBadRequest() {
             // arrange
-            val command = createCommand(name = "   ")
+            val command = createProductCommand(name = "   ")
 
             // act
             val result = assertThrows<CoreException> {
@@ -82,7 +82,7 @@ class ProductServiceTest {
         @DisplayName("존재하는 상품을 조회하면 성공한다")
         fun success() {
             // arrange
-            val saved = productService.createProduct(createCommand())
+            val saved = productService.createProduct(createProductCommand())
 
             // act
             val found = productService.findById(saved.id)
@@ -111,7 +111,7 @@ class ProductServiceTest {
         @DisplayName("존재하는 상품을 수정하면 성공한다")
         fun success() {
             // arrange
-            val created = productService.createProduct(createCommand())
+            val created = productService.createProduct(createProductCommand())
             val command = UpdateProductCommand(
                 name = "에어포스 1",
                 description = "클래식",
@@ -161,7 +161,7 @@ class ProductServiceTest {
         @DisplayName("존재하는 상품을 삭제하면 성공한다")
         fun success() {
             // arrange
-            val created = productService.createProduct(createCommand())
+            val created = productService.createProduct(createProductCommand())
 
             // act
             productService.deleteProduct(created.id)
@@ -193,7 +193,7 @@ class ProductServiceTest {
         @DisplayName("충분한 재고가 있으면 재고가 차감된다")
         fun success() {
             // arrange
-            val created = productService.createProduct(createCommand(stockQuantity = 10))
+            val created = productService.createProduct(createProductCommand(stockQuantity = 10))
 
             // act
             productService.decreaseStock(created.id, 3)
@@ -207,7 +207,7 @@ class ProductServiceTest {
         @DisplayName("재고가 부족하면 BAD_REQUEST 예외가 발생한다")
         fun insufficientStockThrowsBadRequest() {
             // arrange
-            val created = productService.createProduct(createCommand(stockQuantity = 2))
+            val created = productService.createProduct(createProductCommand(stockQuantity = 2))
 
             // act
             val result = assertThrows<CoreException> {
@@ -226,7 +226,7 @@ class ProductServiceTest {
         @DisplayName("좋아요 수가 증가한다")
         fun increaseSuccess() {
             // arrange
-            val created = productService.createProduct(createCommand())
+            val created = productService.createProduct(createProductCommand())
 
             // act
             productService.increaseLikeCount(created.id)
@@ -240,7 +240,7 @@ class ProductServiceTest {
         @DisplayName("좋아요 수가 감소한다")
         fun decreaseSuccess() {
             // arrange
-            val created = productService.createProduct(createCommand())
+            val created = productService.createProduct(createProductCommand())
             productService.increaseLikeCount(created.id)
             productService.increaseLikeCount(created.id)
 
@@ -260,7 +260,7 @@ class ProductServiceTest {
         @DisplayName("존재하는 상품의 좋아요 수를 감소시킨다")
         fun success() {
             // arrange
-            val created = productService.createProduct(createCommand())
+            val created = productService.createProduct(createProductCommand())
             productService.increaseLikeCount(created.id)
             productService.increaseLikeCount(created.id)
 
@@ -283,7 +283,7 @@ class ProductServiceTest {
         @DisplayName("삭제된 상품이면 아무 일도 일어나지 않는다")
         fun deletedProductDoesNothing() {
             // arrange
-            val created = productService.createProduct(createCommand())
+            val created = productService.createProduct(createProductCommand())
             productService.increaseLikeCount(created.id)
             productService.deleteProduct(created.id)
 
@@ -299,9 +299,9 @@ class ProductServiceTest {
         @DisplayName("브랜드에 속한 상품 목록을 조회한다")
         fun success() {
             // arrange
-            productService.createProduct(createCommand(brandId = 1L, name = "상품A"))
-            productService.createProduct(createCommand(brandId = 1L, name = "상품B"))
-            productService.createProduct(createCommand(brandId = 2L, name = "상품C"))
+            productService.createProduct(createProductCommand(brandId = 1L, name = "상품A"))
+            productService.createProduct(createProductCommand(brandId = 1L, name = "상품B"))
+            productService.createProduct(createProductCommand(brandId = 2L, name = "상품C"))
 
             // act
             val products = productService.findByBrandId(1L)
@@ -318,8 +318,8 @@ class ProductServiceTest {
         @DisplayName("등록된 상품 목록을 조회하면 성공한다")
         fun success() {
             // arrange
-            productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
+            productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
 
             // act
             val products = productService.findAll()
@@ -332,8 +332,8 @@ class ProductServiceTest {
         @DisplayName("삭제된 상품은 목록에서 제외된다")
         fun excludeDeleted() {
             // arrange
-            val created = productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
+            val created = productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
             productService.deleteProduct(created.id)
 
             // act
@@ -352,9 +352,9 @@ class ProductServiceTest {
         @DisplayName("대고객 페이징 조회 시 ACTIVE + displayYn=true 상품만 반환된다")
         fun success() {
             // arrange
-            productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
-            productService.createProduct(createCommand(name = "상품C", displayYn = false))
+            productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
+            productService.createProduct(createProductCommand(name = "상품C", displayYn = false))
 
             // act
             val page = productService.findAllForUser(PageRequest.of(0, 20), null)
@@ -370,9 +370,9 @@ class ProductServiceTest {
         @DisplayName("brandId로 필터링하여 조회할 수 있다")
         fun filterByBrandId() {
             // arrange
-            productService.createProduct(createCommand(brandId = 1L, name = "상품A"))
-            productService.createProduct(createCommand(brandId = 1L, name = "상품B"))
-            productService.createProduct(createCommand(brandId = 2L, name = "상품C"))
+            productService.createProduct(createProductCommand(brandId = 1L, name = "상품A"))
+            productService.createProduct(createProductCommand(brandId = 1L, name = "상품B"))
+            productService.createProduct(createProductCommand(brandId = 2L, name = "상품C"))
 
             // act
             val page = productService.findAllForUser(PageRequest.of(0, 20), 1L)
@@ -388,8 +388,8 @@ class ProductServiceTest {
         @DisplayName("INACTIVE 상품은 대고객 조회에서 제외된다")
         fun excludeInactive() {
             // arrange
-            val created = productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
+            val created = productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
             created.update("상품A", null, Money(10000), 10, ProductStatus.INACTIVE, true, null)
 
             // act
@@ -404,8 +404,8 @@ class ProductServiceTest {
         @DisplayName("삭제된 상품은 대고객 조회에서 제외된다")
         fun excludeDeleted() {
             // arrange
-            val created = productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
+            val created = productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
             productService.deleteProduct(created.id)
 
             // act
@@ -419,9 +419,9 @@ class ProductServiceTest {
         @DisplayName("페이징이 정상 동작한다")
         fun paging() {
             // arrange
-            productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
-            productService.createProduct(createCommand(name = "상품C"))
+            productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
+            productService.createProduct(createProductCommand(name = "상품C"))
 
             // act
             val page = productService.findAllForUser(PageRequest.of(0, 2), null)
@@ -442,8 +442,8 @@ class ProductServiceTest {
         @DisplayName("어드민 페이징 조회 시 삭제되지 않은 모든 상품이 반환된다")
         fun success() {
             // arrange
-            productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B", displayYn = false))
+            productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B", displayYn = false))
 
             // act
             val page = productService.findAllForAdmin(PageRequest.of(0, 20), null)
@@ -456,8 +456,8 @@ class ProductServiceTest {
         @DisplayName("brandId로 필터링하여 조회할 수 있다")
         fun filterByBrandId() {
             // arrange
-            productService.createProduct(createCommand(brandId = 1L, name = "상품A"))
-            productService.createProduct(createCommand(brandId = 2L, name = "상품B"))
+            productService.createProduct(createProductCommand(brandId = 1L, name = "상품A"))
+            productService.createProduct(createProductCommand(brandId = 2L, name = "상품B"))
 
             // act
             val page = productService.findAllForAdmin(PageRequest.of(0, 20), 1L)
@@ -473,8 +473,8 @@ class ProductServiceTest {
         @DisplayName("삭제된 상품은 어드민 조회에서도 제외된다")
         fun excludeDeleted() {
             // arrange
-            val created = productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
+            val created = productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
             productService.deleteProduct(created.id)
 
             // act
@@ -488,8 +488,8 @@ class ProductServiceTest {
         @DisplayName("INACTIVE 상품도 어드민 조회에 포함된다")
         fun includeInactive() {
             // arrange
-            val created = productService.createProduct(createCommand(name = "상품A"))
-            productService.createProduct(createCommand(name = "상품B"))
+            val created = productService.createProduct(createProductCommand(name = "상품A"))
+            productService.createProduct(createProductCommand(name = "상품B"))
             created.update("상품A", null, Money(10000), 10, ProductStatus.INACTIVE, true, null)
 
             // act

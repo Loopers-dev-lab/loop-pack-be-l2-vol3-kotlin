@@ -185,14 +185,14 @@ class UserServiceTest {
                 birthday = LocalDate.of(1999, 1, 1),
                 email = "test@email.com",
             )
-            userService.signUp(signUpCommand)
+            val savedUser = userService.signUp(signUpCommand)
 
             val changePasswordCommand = ChangePasswordCommand(
                 newPassword = newPassword,
             )
 
             // act
-            userService.changePassword(loginId, originalPassword, changePasswordCommand)
+            userService.changePassword(savedUser.id, changePasswordCommand)
 
             // assert
             val updatedUser = userService.authenticate(loginId, newPassword)
@@ -202,16 +202,15 @@ class UserServiceTest {
         @Test
         fun `새 비밀번호가 규칙에 맞지 않으면 BAD_REQUEST 예외가 발생한다`() {
             // arrange
-            val loginId = "testuser1"
             val originalPassword = "Abcd1234!"
             val signUpCommand = SignUpCommand(
-                loginId = loginId,
+                loginId = "testuser1",
                 password = originalPassword,
                 name = "홍길동",
                 birthday = LocalDate.of(1999, 1, 1),
                 email = "test@email.com",
             )
-            userService.signUp(signUpCommand)
+            val savedUser = userService.signUp(signUpCommand)
 
             val changePasswordCommand = ChangePasswordCommand(
                 newPassword = "short",  // 규칙 위반
@@ -219,7 +218,7 @@ class UserServiceTest {
 
             // act
             val result = assertThrows<CoreException> {
-                userService.changePassword(loginId, originalPassword, changePasswordCommand)
+                userService.changePassword(savedUser.id, changePasswordCommand)
             }
 
             // assert
