@@ -17,6 +17,12 @@ class UserService(
         return findAndValidate(loginId, loginPw)
     }
 
+    @Transactional(readOnly = true)
+    fun findById(id: Long): User {
+        return userRepository.findById(id)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다.")
+    }
+
     @Transactional
     fun signUp(command: SignUpCommand): User {
         // 1. loginId 중복 체크
@@ -42,8 +48,8 @@ class UserService(
     }
 
     @Transactional
-    fun changePassword(loginId: String, loginPw: String, command: ChangePasswordCommand) {
-        val user = findAndValidate(loginId, loginPw)
+    fun changePassword(userId: Long, command: ChangePasswordCommand) {
+        val user = findById(userId)
 
         // 1. 새 비밀번호 규칙 검증
         PasswordValidator.validate(command.newPassword, user.birthday)

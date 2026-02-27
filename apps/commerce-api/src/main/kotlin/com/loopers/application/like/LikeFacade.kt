@@ -5,35 +5,30 @@ import com.loopers.domain.brand.BrandService
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductInfo
 import com.loopers.domain.product.ProductService
-import com.loopers.domain.user.UserService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class LikeFacade(
-    private val userService: UserService,
     private val likeService: LikeService,
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
 
     @Transactional
-    fun like(loginId: String, loginPw: String, productId: Long) {
-        val user = userService.authenticate(loginId, loginPw)
+    fun like(userId: Long, productId: Long) {
         productService.findById(productId)
-        likeService.like(user.id, productId)
+        likeService.like(userId, productId)
         productService.increaseLikeCount(productId)
     }
 
     @Transactional
-    fun unlike(loginId: String, loginPw: String, productId: Long) {
-        val user = userService.authenticate(loginId, loginPw)
-        likeService.unlike(user.id, productId)
+    fun unlike(userId: Long, productId: Long) {
+        likeService.unlike(userId, productId)
         productService.decreaseLikeCountIfExists(productId)
     }
 
-    fun getLikedProducts(loginId: String, loginPw: String, userId: Long): List<LikedProductResult> {
-        userService.authenticate(loginId, loginPw)
+    fun getLikedProducts(userId: Long): List<LikedProductResult> {
         val likes = likeService.findAllByUserId(userId)
         if (likes.isEmpty()) return emptyList()
 

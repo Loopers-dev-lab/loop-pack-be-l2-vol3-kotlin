@@ -5,7 +5,6 @@ import com.loopers.domain.order.CreateOrderCommand
 import com.loopers.domain.order.OrderInfo
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.product.ProductService
-import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
@@ -15,16 +14,13 @@ import org.springframework.transaction.annotation.Transactional
 
 @Component
 class OrderFacade(
-    private val userService: UserService,
     private val productService: ProductService,
     private val brandService: BrandService,
     private val orderService: OrderService,
 ) {
 
     @Transactional
-    fun createOrder(loginId: String, loginPw: String, criteria: CreateOrderCriteria): OrderResult {
-        val user = userService.authenticate(loginId, loginPw)
-
+    fun createOrder(userId: Long, criteria: CreateOrderCriteria): OrderResult {
         val productIds = criteria.items.map { it.productId }
         val products = productService.findByIds(productIds)
         if (products.size != productIds.toSet().size) {
@@ -36,7 +32,7 @@ class OrderFacade(
         val quantities = criteria.items.associate { it.productId to it.quantity }
 
         val command = CreateOrderCommand(
-            user = user,
+            userId = userId,
             products = products,
             quantities = quantities,
             brands = brands,
@@ -46,16 +42,14 @@ class OrderFacade(
         return OrderResult.from(OrderInfo.from(order))
     }
 
-    fun getOrders(loginId: String, loginPw: String, criteria: GetOrdersCriteria): List<OrderResult> {
-        val user = userService.authenticate(loginId, loginPw)
-        val orders = orderService.findByUserIdAndCreatedAtBetween(user.id, criteria.startAt, criteria.endAt)
+    fun getOrders(userId: Long, criteria: GetOrdersCriteria): List<OrderResult> {
+        val orders = orderService.findByUserIdAndCreatedAtBetween(userId, criteria.startAt, criteria.endAt)
         return orders.map { OrderResult.from(OrderInfo.from(it)) }
     }
 
-    fun getOrder(loginId: String, loginPw: String, orderId: Long): OrderResult {
-        val user = userService.authenticate(loginId, loginPw)
+    fun getOrder(userId: Long, orderId: Long): OrderResult {
         val order = orderService.findById(orderId)
-        if (order.userId != user.id) {
+        if (order.userId != userId) {
             throw CoreException(ErrorType.FORBIDDEN, "접근 권한이 없습니다.")
         }
         return OrderResult.from(OrderInfo.from(order))

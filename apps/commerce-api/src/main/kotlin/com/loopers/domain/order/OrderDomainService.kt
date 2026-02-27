@@ -32,7 +32,7 @@ class OrderDomainService {
             )
         }
 
-        val order = Order(userId = command.user.id)
+        val order = Order(userId = command.userId)
         orderItems.forEach { order.addItem(it) }
         order.calculateTotalAmount()
         return order

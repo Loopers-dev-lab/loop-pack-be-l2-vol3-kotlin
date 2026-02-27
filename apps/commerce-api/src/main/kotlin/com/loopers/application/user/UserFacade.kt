@@ -23,16 +23,16 @@ class UserFacade(
             .let { UserResult.from(it) }
     }
 
-    fun getMe(loginId: String, loginPw: String): UserResult {
-        return userService.authenticate(loginId, loginPw)
+    fun getMe(userId: Long): UserResult {
+        return userService.findById(userId)
             .let { UserInfo.from(it) }
             .let { UserResult.from(it) }
     }
 
-    fun changePassword(loginId: String, loginPw: String, criteria: ChangePasswordCriteria) {
+    fun changePassword(userId: Long, criteria: ChangePasswordCriteria) {
         val command = ChangePasswordCommand(
             newPassword = criteria.newPassword,
         )
-        userService.changePassword(loginId, loginPw, command)
+        userService.changePassword(userId, command)
     }
 }
