@@ -1,4 +1,4 @@
-package com.loopers.domain.catalog
+package com.loopers.application.catalog
 
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.product.model.Product

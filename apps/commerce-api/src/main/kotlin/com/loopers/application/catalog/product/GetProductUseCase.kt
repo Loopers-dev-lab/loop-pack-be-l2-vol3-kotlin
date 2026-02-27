@@ -1,7 +1,7 @@
 package com.loopers.application.catalog.product
 
 import com.loopers.application.catalog.CatalogInfo
-import com.loopers.domain.catalog.ProductDetail
+import com.loopers.application.catalog.ProductDetail
 import com.loopers.domain.catalog.brand.repository.BrandRepository
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId

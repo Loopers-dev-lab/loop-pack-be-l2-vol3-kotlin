@@ -1,7 +1,6 @@
 package com.loopers.application.catalog
 
 import com.loopers.application.catalog.product.ProductInfo
-import com.loopers.domain.catalog.ProductDetail
 
 data class CatalogInfo(
     val product: ProductInfo,

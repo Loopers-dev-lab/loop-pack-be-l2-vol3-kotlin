@@ -94,7 +94,6 @@ flowchart TD
 | **Value Object**         | 자가 검증하는 값 타입. `@JvmInline value class` 또는 `data class`     |
 | **Domain Service**       | 단일 엔티티로 해결 불가한 복합 규칙만 담당 (`PointCharger`, `PointDeductor`) |
 | **Repository Interface** | 도메인 언어와 기본 타입만 사용. Spring Data 타입 노출 금지                    |
-| **Command**              | 서비스 호출 파라미터 묶음. Controller가 직접 참조하지 않음                     |
 
 **규칙:**
 
