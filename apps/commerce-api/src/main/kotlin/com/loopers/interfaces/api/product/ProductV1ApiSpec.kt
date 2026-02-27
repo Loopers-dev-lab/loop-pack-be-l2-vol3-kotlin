@@ -17,10 +17,7 @@ interface ProductV1ApiSpec {
         ],
     )
     fun getProducts(
-        brandId: Long?,
-        sort: String,
-        page: Int,
-        size: Int,
+        request: ProductV1Dto.GetProductsRequest,
     ): ApiResponse<Page<ProductV1Dto.ProductResponse>>
 
     @Operation(summary = "상품 상세 조회", description = "상품 상세 정보를 조회합니다.")

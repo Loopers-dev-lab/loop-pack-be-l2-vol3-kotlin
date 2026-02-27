@@ -3,15 +3,28 @@ package com.loopers.interfaces.api.product
 import com.loopers.application.product.CreateProductCriteria
 import com.loopers.application.product.ProductResult
 import com.loopers.application.product.UpdateProductCriteria
+import com.loopers.domain.Money
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import java.time.ZonedDateTime
 
 class ProductAdminV1Dto {
+
+    data class GetProductsAdminRequest(
+        val page: Int = 0,
+        val size: Int = 20,
+        val brandId: Long? = null,
+    ) {
+        fun toPageable(): Pageable {
+            return PageRequest.of(page, size)
+        }
+    }
 
     data class CreateRequest(
         val brandId: Long,
         val name: String,
         val description: String?,
-        val price: Long,
+        val price: Money,
         val stockQuantity: Int,
         val displayYn: Boolean,
         val imageUrl: String?,
@@ -32,7 +45,7 @@ class ProductAdminV1Dto {
     data class UpdateRequest(
         val name: String,
         val description: String?,
-        val price: Long,
+        val price: Money,
         val stockQuantity: Int,
         val status: String,
         val displayYn: Boolean,
@@ -57,7 +70,7 @@ class ProductAdminV1Dto {
         val brandName: String,
         val name: String,
         val description: String?,
-        val price: Long,
+        val price: Money,
         val stockQuantity: Int,
         val likeCount: Int,
         val status: String,

@@ -16,7 +16,7 @@ interface ProductAdminV1ApiSpec {
             SwaggerResponse(responseCode = "200", description = "조회 성공"),
         ],
     )
-    fun getProducts(page: Int, size: Int, brandId: Long?): ApiResponse<Page<ProductAdminV1Dto.ProductAdminResponse>>
+    fun getProducts(request: ProductAdminV1Dto.GetProductsAdminRequest): ApiResponse<Page<ProductAdminV1Dto.ProductAdminResponse>>
 
     @Operation(summary = "상품 상세 조회", description = "상품 상세 정보를 조회합니다.")
     @ApiResponses(
@@ -44,7 +44,10 @@ interface ProductAdminV1ApiSpec {
             SwaggerResponse(responseCode = "404", description = "존재하지 않는 상품"),
         ],
     )
-    fun updateProduct(productId: Long, request: ProductAdminV1Dto.UpdateRequest): ApiResponse<ProductAdminV1Dto.ProductAdminResponse>
+    fun updateProduct(
+        productId: Long,
+        request: ProductAdminV1Dto.UpdateRequest,
+    ): ApiResponse<ProductAdminV1Dto.ProductAdminResponse>
 
     @Operation(summary = "상품 삭제", description = "상품을 삭제합니다. 관련 좋아요도 함께 삭제됩니다.")
     @ApiResponses(

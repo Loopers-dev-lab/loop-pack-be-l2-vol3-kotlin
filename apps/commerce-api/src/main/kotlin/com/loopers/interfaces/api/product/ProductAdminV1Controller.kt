@@ -2,8 +2,8 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductFacade
 import com.loopers.interfaces.api.ApiResponse
+import org.springdoc.core.annotations.ParameterObject
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -22,12 +21,9 @@ class ProductAdminV1Controller(
 
     @GetMapping
     override fun getProducts(
-        @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int,
-        @RequestParam(required = false) brandId: Long?,
+        @ParameterObject request: ProductAdminV1Dto.GetProductsAdminRequest,
     ): ApiResponse<Page<ProductAdminV1Dto.ProductAdminResponse>> {
-        val pageable = PageRequest.of(page, size)
-        return productFacade.getProductsForAdmin(pageable, brandId)
+        return productFacade.getProductsForAdmin(request.toPageable(), request.brandId)
             .map { ProductAdminV1Dto.ProductAdminResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
