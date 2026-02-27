@@ -4,6 +4,7 @@ import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.PageResult
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import java.time.LocalDate
 
 @Tag(name = "Order V1 API", description = "주문 관련 API")
 interface OrderV1ApiSpec {
@@ -14,8 +15,8 @@ interface OrderV1ApiSpec {
     @Operation(summary = "내 주문 목록 조회", description = "기간별 내 주문 목록을 조회합니다.")
     fun getMyOrders(
         userId: Long,
-        startDate: String,
-        endDate: String,
+        startDate: LocalDate,
+        endDate: LocalDate,
         page: Int,
         size: Int,
     ): ApiResponse<PageResult<OrderSummaryResponse>>
