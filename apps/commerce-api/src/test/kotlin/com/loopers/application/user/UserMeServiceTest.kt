@@ -1,5 +1,7 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.EncodedPassword
+import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
@@ -40,7 +42,8 @@ class UserMeServiceTest {
         fun getMe_success_returnsMaskedUserInfo() {
             // arrange
             given(userRepository.findByLoginId("testuser1")).willReturn(existingUser())
-            given(passwordHasher.matches("Password1!", "encoded_Password1!")).willReturn(true)
+            given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(true)
 
             // act
             val result = service.getMe("testuser1", "Password1!")
@@ -78,7 +81,8 @@ class UserMeServiceTest {
         fun getMe_wrongPassword_throwsException() {
             // arrange
             given(userRepository.findByLoginId("testuser1")).willReturn(existingUser())
-            given(passwordHasher.matches("WrongPassword1!", "encoded_Password1!")).willReturn(false)
+            given(passwordHasher.matches(RawPassword("WrongPassword1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {

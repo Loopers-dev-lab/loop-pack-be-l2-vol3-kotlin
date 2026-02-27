@@ -1,6 +1,8 @@
 package com.loopers.application.user
 
 import com.loopers.application.user.model.UserSignUpCommand
+import com.loopers.domain.user.EncodedPassword
+import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
@@ -37,7 +39,8 @@ class UserSignUpServiceTest {
         fun signUp_success_returnsUserSignUpInfo() {
             // arrange
             given(userRepository.existsByLoginId("testuser1")).willReturn(false)
-            given(passwordHasher.encode("Password1!")).willReturn("encoded_Password1!")
+            given(passwordHasher.encode(RawPassword("Password1!")))
+                .willReturn(EncodedPassword("encoded_Password1!"))
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
@@ -52,7 +55,8 @@ class UserSignUpServiceTest {
         fun signUp_success_passwordIsEncoded() {
             // arrange
             given(userRepository.existsByLoginId("testuser1")).willReturn(false)
-            given(passwordHasher.encode("Password1!")).willReturn("encoded_Password1!")
+            given(passwordHasher.encode(RawPassword("Password1!")))
+                .willReturn(EncodedPassword("encoded_Password1!"))
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
@@ -61,7 +65,7 @@ class UserSignUpServiceTest {
             // assert
             then(userRepository).should().save(
                 check { user ->
-                    assertThat(user.password).isEqualTo("encoded_Password1!")
+                    assertThat(user.password.value).isEqualTo("encoded_Password1!")
                 },
             )
         }
@@ -71,7 +75,8 @@ class UserSignUpServiceTest {
         fun signUp_success_callsRepositorySave() {
             // arrange
             given(userRepository.existsByLoginId("testuser1")).willReturn(false)
-            given(passwordHasher.encode("Password1!")).willReturn("encoded_Password1!")
+            given(passwordHasher.encode(RawPassword("Password1!")))
+                .willReturn(EncodedPassword("encoded_Password1!"))
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
@@ -80,7 +85,7 @@ class UserSignUpServiceTest {
             // assert
             then(userRepository).should().save(
                 check { user ->
-                    assertThat(user.loginId).isEqualTo("testuser1")
+                    assertThat(user.loginId.value).isEqualTo("testuser1")
                 },
             )
         }

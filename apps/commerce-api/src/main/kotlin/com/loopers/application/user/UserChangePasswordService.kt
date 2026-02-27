@@ -1,6 +1,7 @@
 package com.loopers.application.user
 
 import com.loopers.application.user.model.UserChangePasswordCommand
+import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
@@ -23,7 +24,7 @@ class UserChangePasswordService(
 
     private fun findByCredentials(loginId: String, password: String): User {
         val user = userRepository.findByLoginId(loginId) ?: throw CoreException(ErrorType.UNAUTHORIZED)
-        if (!passwordHasher.matches(password, user.password)) throw CoreException(ErrorType.UNAUTHORIZED)
+        if (!passwordHasher.matches(RawPassword(password), user.password)) throw CoreException(ErrorType.UNAUTHORIZED)
         return user
     }
 }

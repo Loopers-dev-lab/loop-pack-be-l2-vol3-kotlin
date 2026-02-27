@@ -60,11 +60,11 @@ constructor(
 
             // assert
             assertAll(
-                { assertThat(savedUser.loginId).isEqualTo("testuser1") },
-                { assertThat(savedUser.name).isEqualTo("홍길동") },
+                { assertThat(savedUser.loginId.value).isEqualTo("testuser1") },
+                { assertThat(savedUser.name.value).isEqualTo("홍길동") },
                 { assertThat(savedUser.birthDate).isEqualTo(LocalDate.of(1990, 1, 1)) },
-                { assertThat(savedUser.email).isEqualTo("test@example.com") },
-                { assertThat(savedUser.password).isNotEqualTo("Password1!") },
+                { assertThat(savedUser.email.value).isEqualTo("test@example.com") },
+                { assertThat(savedUser.password.value).isNotEqualTo("Password1!") },
             )
         }
 
@@ -129,10 +129,10 @@ constructor(
             // assert
             assertAll(
                 { assertThat(found).isNotNull },
-                { assertThat(found!!.loginId).isEqualTo("testuser1") },
-                { assertThat(found!!.name).isEqualTo("홍길동") },
+                { assertThat(found!!.loginId.value).isEqualTo("testuser1") },
+                { assertThat(found!!.name.value).isEqualTo("홍길동") },
                 { assertThat(found!!.birthDate).isEqualTo(LocalDate.of(1990, 1, 1)) },
-                { assertThat(found!!.email).isEqualTo("test@example.com") },
+                { assertThat(found!!.email.value).isEqualTo("test@example.com") },
             )
         }
 

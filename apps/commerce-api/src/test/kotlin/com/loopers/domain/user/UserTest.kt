@@ -24,7 +24,8 @@ class UserTest {
         birthDate: LocalDate = defaultBirthDate,
         email: String = "test@example.com",
     ): User {
-        given(passwordHasher.encode(rawPassword)).willReturn("encoded_$rawPassword")
+        given(passwordHasher.encode(RawPassword(rawPassword)))
+            .willReturn(EncodedPassword("encoded_$rawPassword"))
         return User.register(
             loginId = loginId,
             rawPassword = rawPassword,
@@ -46,11 +47,11 @@ class UserTest {
 
             // assert
             assertAll(
-                { assertThat(user.loginId).isEqualTo("testuser1") },
-                { assertThat(user.password).isEqualTo("encoded_Password1!") },
-                { assertThat(user.name).isEqualTo("홍길동") },
+                { assertThat(user.loginId.value).isEqualTo("testuser1") },
+                { assertThat(user.password.value).isEqualTo("encoded_Password1!") },
+                { assertThat(user.name.value).isEqualTo("홍길동") },
                 { assertThat(user.birthDate).isEqualTo(defaultBirthDate) },
-                { assertThat(user.email).isEqualTo("test@example.com") },
+                { assertThat(user.email.value).isEqualTo("test@example.com") },
             )
         }
 
@@ -238,19 +239,22 @@ class UserTest {
         fun changePassword_success_returnsUpdatedUser() {
             // arrange
             val user = retrievedUser()
-            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
-            given(passwordHasher.matches("NewPassword1!", encodedPassword)).willReturn(false)
-            given(passwordHasher.encode("NewPassword1!")).willReturn("encoded_NewPassword1!")
+            given(passwordHasher.matches(RawPassword(currentPassword), EncodedPassword(encodedPassword)))
+                .willReturn(true)
+            given(passwordHasher.matches(RawPassword("NewPassword1!"), EncodedPassword(encodedPassword)))
+                .willReturn(false)
+            given(passwordHasher.encode(RawPassword("NewPassword1!")))
+                .willReturn(EncodedPassword("encoded_NewPassword1!"))
 
             // act
             val updatedUser = user.changePassword(currentPassword, "NewPassword1!", passwordHasher)
 
             // assert
             assertAll(
-                { assertThat(updatedUser.password).isEqualTo("encoded_NewPassword1!") },
+                { assertThat(updatedUser.password.value).isEqualTo("encoded_NewPassword1!") },
                 { assertThat(updatedUser.id).isEqualTo(1L) },
-                { assertThat(updatedUser.loginId).isEqualTo("testuser1") },
-                { assertThat(updatedUser.name).isEqualTo("홍길동") },
+                { assertThat(updatedUser.loginId.value).isEqualTo("testuser1") },
+                { assertThat(updatedUser.name.value).isEqualTo("홍길동") },
             )
         }
 
@@ -259,7 +263,8 @@ class UserTest {
         fun changePassword_wrongCurrentPassword_throwsException() {
             // arrange
             val user = retrievedUser()
-            given(passwordHasher.matches("WrongPassword1!", encodedPassword)).willReturn(false)
+            given(passwordHasher.matches(RawPassword("WrongPassword1!"), EncodedPassword(encodedPassword)))
+                .willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -275,8 +280,8 @@ class UserTest {
         fun changePassword_samePassword_throwsException() {
             // arrange
             val user = retrievedUser()
-            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
-            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
+            given(passwordHasher.matches(RawPassword(currentPassword), EncodedPassword(encodedPassword)))
+                .willReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -292,10 +297,8 @@ class UserTest {
         fun changePassword_invalidPattern_throwsException() {
             // arrange
             val user = retrievedUser()
-            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
-            given(passwordHasher.matches("Pass word1!", encodedPassword)).willReturn(false)
 
-            // act
+            // act - RawPassword 생성 단계에서 패턴 검증 실패
             val exception = assertThrows<CoreException> {
                 user.changePassword(currentPassword, "Pass word1!", passwordHasher)
             }
@@ -309,8 +312,10 @@ class UserTest {
         fun changePassword_containsBirthDateCompact_throwsException() {
             // arrange
             val user = retrievedUser()
-            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
-            given(passwordHasher.matches("Pass19900101!", encodedPassword)).willReturn(false)
+            given(passwordHasher.matches(RawPassword(currentPassword), EncodedPassword(encodedPassword)))
+                .willReturn(true)
+            given(passwordHasher.matches(RawPassword("Pass19900101!"), EncodedPassword(encodedPassword)))
+                .willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -326,8 +331,10 @@ class UserTest {
         fun changePassword_containsBirthDateWithDash_throwsException() {
             // arrange
             val user = retrievedUser()
-            given(passwordHasher.matches(currentPassword, encodedPassword)).willReturn(true)
-            given(passwordHasher.matches("P1990-01-01!", encodedPassword)).willReturn(false)
+            given(passwordHasher.matches(RawPassword(currentPassword), EncodedPassword(encodedPassword)))
+                .willReturn(true)
+            given(passwordHasher.matches(RawPassword("P1990-01-01!"), EncodedPassword(encodedPassword)))
+                .willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {

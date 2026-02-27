@@ -42,11 +42,11 @@ class UserEntity(
         fun from(user: User): UserEntity {
             return UserEntity(
                 id = user.id,
-                loginId = user.loginId,
-                password = user.password,
-                name = user.name,
+                loginId = user.loginId.value,
+                password = user.password.value,
+                name = user.name.value,
                 birthDate = user.birthDate,
-                email = user.email,
+                email = user.email.value,
             )
         }
     }

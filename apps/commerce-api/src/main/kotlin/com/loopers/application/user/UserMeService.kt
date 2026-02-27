@@ -1,5 +1,6 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
@@ -17,16 +18,16 @@ class UserMeService(
     fun getMe(loginId: String, password: String): UserMeInfo {
         val user = findByCredentials(loginId, password)
         return UserMeInfo(
-            loginId = user.loginId,
+            loginId = user.loginId.value,
             name = user.maskedName,
             birthDate = user.birthDate,
-            email = user.email,
+            email = user.email.value,
         )
     }
 
     private fun findByCredentials(loginId: String, password: String): User {
         val user = userRepository.findByLoginId(loginId) ?: throw CoreException(ErrorType.UNAUTHORIZED)
-        if (!passwordHasher.matches(password, user.password)) throw CoreException(ErrorType.UNAUTHORIZED)
+        if (!passwordHasher.matches(RawPassword(password), user.password)) throw CoreException(ErrorType.UNAUTHORIZED)
         return user
     }
 }

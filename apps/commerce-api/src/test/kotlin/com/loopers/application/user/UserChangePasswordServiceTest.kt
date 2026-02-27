@@ -1,6 +1,8 @@
 package com.loopers.application.user
 
 import com.loopers.application.user.model.UserChangePasswordCommand
+import com.loopers.domain.user.EncodedPassword
+import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
@@ -46,9 +48,12 @@ class UserChangePasswordServiceTest {
             // arrange
             val user = existingUser()
             given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches("Password1!", "encoded_Password1!")).willReturn(true)
-            given(passwordHasher.matches("NewPassword1!", "encoded_Password1!")).willReturn(false)
-            given(passwordHasher.encode("NewPassword1!")).willReturn("encoded_NewPassword1!")
+            given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(true)
+            given(passwordHasher.matches(RawPassword("NewPassword1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(false)
+            given(passwordHasher.encode(RawPassword("NewPassword1!")))
+                .willReturn(EncodedPassword("encoded_NewPassword1!"))
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
@@ -57,7 +62,7 @@ class UserChangePasswordServiceTest {
             // assert
             then(userRepository).should().save(
                 check { saved ->
-                    assertThat(saved.password).isEqualTo("encoded_NewPassword1!")
+                    assertThat(saved.password.value).isEqualTo("encoded_NewPassword1!")
                 },
             )
         }
@@ -72,7 +77,8 @@ class UserChangePasswordServiceTest {
             // arrange
             val user = existingUser()
             given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches("WrongPassword1!", "encoded_Password1!")).willReturn(false)
+            given(passwordHasher.matches(RawPassword("WrongPassword1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -98,8 +104,10 @@ class UserChangePasswordServiceTest {
             // arrange
             val user = existingUser()
             given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches("Password1!", "encoded_Password1!")).willReturn(true)
-            given(passwordHasher.matches("WrongCurrent1!", "encoded_Password1!")).willReturn(false)
+            given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(true)
+            given(passwordHasher.matches(RawPassword("WrongCurrent1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -121,7 +129,8 @@ class UserChangePasswordServiceTest {
             // arrange
             val user = existingUser()
             given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches("Password1!", "encoded_Password1!")).willReturn(true)
+            given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
+                .willReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {

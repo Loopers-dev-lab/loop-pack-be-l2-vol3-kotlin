@@ -16,4 +16,5 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     USER_INVALID_LOGIN_ID(HttpStatus.BAD_REQUEST, "USER_INVALID_LOGIN_ID", "로그인 ID는 영문 대소문자와 숫자만 사용할 수 있습니다."),
     USER_INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "USER_INVALID_PASSWORD", "비밀번호는 영문, 숫자, 허용된 특수문자만 사용할 수 있습니다."),
     USER_INVALID_NAME(HttpStatus.BAD_REQUEST, "USER_INVALID_NAME", "이름은 한글만 입력할 수 있습니다."),
+    USER_INVALID_EMAIL(HttpStatus.BAD_REQUEST, "USER_INVALID_EMAIL", "올바른 이메일 형식이 아닙니다."),
 }

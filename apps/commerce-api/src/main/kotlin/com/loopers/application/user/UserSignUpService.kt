@@ -28,6 +28,6 @@ class UserSignUpService(
             passwordHasher = passwordHasher,
         )
         val saved = userRepository.save(user)
-        return UserSignUpInfo(loginId = saved.loginId)
+        return UserSignUpInfo(loginId = saved.loginId.value)
     }
 }
