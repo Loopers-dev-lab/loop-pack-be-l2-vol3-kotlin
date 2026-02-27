@@ -8,20 +8,9 @@ import org.springframework.stereotype.Component
 class OrderDomainService {
 
     fun placeOrder(command: CreateOrderCommand): Order {
-        command.products.forEach { product ->
-            if (!product.isOrderable()) {
-                throw CoreException(ErrorType.BAD_REQUEST, "주문할 수 없는 상품입니다: ${product.name}")
-            }
-        }
-
-        command.products.forEach { product ->
+        val orderItems = command.products.map { product ->
             val qty = command.quantities[product.id]
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "주문 수량 정보가 없습니다.")
-            product.decreaseStock(qty)
-        }
-
-        val orderItems = command.products.map { product ->
-            val qty = command.quantities[product.id]!!
             val brand = command.brands[product.brandId]
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "브랜드 정보가 없습니다.")
             OrderItem(

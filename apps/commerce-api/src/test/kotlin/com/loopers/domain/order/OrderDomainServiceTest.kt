@@ -98,23 +98,6 @@ class OrderDomainServiceTest {
         }
 
         @Test
-        @DisplayName("각 상품의 재고가 차감된다")
-        fun stockDecreased() {
-            // arrange
-            val product = createProduct(stockQuantity = 10)
-            val command = createOrderCommand(
-                products = listOf(product),
-                quantities = mapOf(1L to 3),
-            )
-
-            // act
-            orderDomainService.placeOrder(command)
-
-            // assert
-            assertThat(product.stockQuantity).isEqualTo(7)
-        }
-
-        @Test
         @DisplayName("스냅샷에 주문 당시 상품/브랜드 정보가 저장된다")
         fun snapshotSaved() {
             // arrange
@@ -139,29 +122,12 @@ class OrderDomainServiceTest {
         }
 
         @Test
-        @DisplayName("주문 불가 상품이 포함되면 BAD_REQUEST 예외가 발생한다")
-        fun notOrderableThrowsBadRequest() {
+        @DisplayName("수량 정보가 없으면 BAD_REQUEST 예외가 발생한다")
+        fun missingQuantityThrowsBadRequest() {
             // arrange
-            val product = createProduct(stockQuantity = 0) // 재고 0 → isOrderable() = false
-            val command = createOrderCommand(products = listOf(product))
-
-            // act
-            val result = assertThrows<CoreException> {
-                orderDomainService.placeOrder(command)
-            }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @Test
-        @DisplayName("재고가 부족하면 BAD_REQUEST 예외가 발생한다")
-        fun insufficientStockThrowsBadRequest() {
-            // arrange
-            val product = createProduct(stockQuantity = 2)
             val command = createOrderCommand(
-                products = listOf(product),
-                quantities = mapOf(1L to 5), // 재고 2인데 5개 주문
+                products = listOf(createProduct()),
+                quantities = emptyMap(),
             )
 
             // act

@@ -27,9 +27,15 @@ class OrderFacade(
             throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품이 포함되어 있습니다.")
         }
 
+        val quantities = criteria.items.associate { it.productId to it.quantity }
+
+        products.forEach { product ->
+            val qty = quantities[product.id]!!
+            productService.decreaseStock(product.id, qty)
+        }
+
         val brandIds = products.map { it.brandId }.distinct()
         val brands = brandService.findByIds(brandIds).associateBy { it.id }
-        val quantities = criteria.items.associate { it.productId to it.quantity }
 
         val command = CreateOrderCommand(
             userId = userId,
