@@ -4,7 +4,7 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.annotation.AggregateRootOnly
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
-import com.loopers.domain.order.OrderProductInfo
+import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -42,7 +42,7 @@ class OrderItem private constructor(
     }
 
     companion object {
-        fun create(product: OrderProductInfo, quantity: Quantity): OrderItem {
+        fun create(product: OrderProductData, quantity: Quantity): OrderItem {
             return OrderItem(
                 refOrderId = OrderId(0),
                 refProductId = product.id,

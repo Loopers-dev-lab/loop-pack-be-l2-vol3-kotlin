@@ -5,7 +5,7 @@ import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
-import com.loopers.domain.order.OrderProductInfo
+import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
@@ -34,7 +34,7 @@ class GetOrderAdminUseCaseTest {
     private fun createAndSaveOrder(userId: Long): Order {
         val order = Order.create(
             UserId(userId),
-            listOf(OrderProductInfo(ProductId(1), "테스트 상품", Money(BigDecimal("10000"))) to Quantity(1)),
+            listOf(OrderProductData(ProductId(1), "테스트 상품", Money(BigDecimal("10000"))) to Quantity(1)),
         )
         val savedOrder = orderRepository.save(order)
         order.assignOrderIdToItems(savedOrder.id)

@@ -3,7 +3,7 @@ package com.loopers.application.order
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
-import com.loopers.domain.order.OrderProductInfo
+import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
@@ -42,7 +42,7 @@ class PlaceOrderUseCase(
             }
             val quantity = Quantity(item.quantity)
             product.decreaseStock(quantity)
-            OrderProductInfo(product.id, product.name, product.price) to quantity
+            OrderProductData(product.id, product.name, product.price) to quantity
         }
         productRepository.saveAll(products)
 

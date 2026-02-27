@@ -4,7 +4,7 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.annotation.AggregateRootOnly
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.UserId
-import com.loopers.domain.order.OrderProductInfo
+import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.common.vo.Quantity
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -44,7 +44,7 @@ class Order private constructor(
     }
 
     companion object {
-        fun create(userId: UserId, items: List<Pair<OrderProductInfo, Quantity>>): Order {
+        fun create(userId: UserId, items: List<Pair<OrderProductData, Quantity>>): Order {
             require(items.isNotEmpty()) { "주문은 최소 하나 이상의 항목을 포함해야 합니다." }
             val orderItems = items.map { (info, quantity) ->
                 OrderItem.create(info, quantity)

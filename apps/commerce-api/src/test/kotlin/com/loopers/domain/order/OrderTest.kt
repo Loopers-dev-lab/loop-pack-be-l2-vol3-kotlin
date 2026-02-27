@@ -28,8 +28,8 @@ class OrderTest {
             val order = Order.create(
                 UserId(1),
                 listOf(
-                    OrderProductInfo(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-                    OrderProductInfo(id = ProductId(2), name = "상품B", price = Money(BigDecimal("20000"))) to Quantity(1),
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                    OrderProductData(id = ProductId(2), name = "상품B", price = Money(BigDecimal("20000"))) to Quantity(1),
                 ),
             )
 
@@ -47,7 +47,7 @@ class OrderTest {
             val order = Order.create(
                 UserId(1),
                 listOf(
-                    OrderProductInfo(id = ProductId(1), name = "상품A", price = Money(BigDecimal("129000"))) to Quantity(2),
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("129000"))) to Quantity(2),
                 ),
             )
 
@@ -65,8 +65,8 @@ class OrderTest {
             Order.create(
                 UserId(1),
                 listOf(
-                    OrderProductInfo(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-                    OrderProductInfo(id = ProductId(2), name = "상품B", price = Money(BigDecimal("10000"))) to Quantity(1),
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                    OrderProductData(id = ProductId(2), name = "상품B", price = Money(BigDecimal("10000"))) to Quantity(1),
                 ),
             )
 
