@@ -151,7 +151,7 @@ class ProductTest {
             val product = createProduct()
 
             // act
-            product.update(name = "수정된 상품", description = "수정된 설명", price = 200000L, stockQuantity = 50)
+            product.update(name = "수정된 상품", description = "수정된 설명", price = Money.of(200000L), stockQuantity = StockQuantity.of(50))
 
             // assert
             assertAll(
@@ -169,7 +169,7 @@ class ProductTest {
             val product = createProduct()
 
             // act
-            product.update(name = "수정된 상품", description = null, price = 200000L, stockQuantity = 50)
+            product.update(name = "수정된 상품", description = null, price = Money.of(200000L), stockQuantity = StockQuantity.of(50))
 
             // assert
             assertThat(product.description).isNull()
@@ -183,7 +183,7 @@ class ProductTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                product.update(name = "  ", description = "설명", price = 200000L, stockQuantity = 50)
+                product.update(name = "  ", description = "설명", price = Money.of(200000L), stockQuantity = StockQuantity.of(50))
             }
 
             // assert
@@ -198,7 +198,7 @@ class ProductTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                product.update(name = "수정된 상품", description = "설명", price = 0L, stockQuantity = 50)
+                product.update(name = "수정된 상품", description = "설명", price = Money.of(0), stockQuantity = StockQuantity.of(50))
             }
 
             // assert

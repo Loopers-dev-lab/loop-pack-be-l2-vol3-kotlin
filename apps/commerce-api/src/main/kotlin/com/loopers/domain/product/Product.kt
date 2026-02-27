@@ -66,14 +66,13 @@ class Product(
         }
     }
 
-    fun update(name: String, description: String?, price: Long, stockQuantity: Int) {
+    fun update(name: String, description: String?, price: Money, stockQuantity: StockQuantity) {
         validateName(name)
-        val newPrice = Money.of(price)
-        validatePrice(newPrice)
+        validatePrice(price)
         this.name = name
         this.description = description
-        this.price = newPrice
-        this.stockQuantity = StockQuantity.of(stockQuantity)
+        this.price = price
+        this.stockQuantity = stockQuantity
     }
 
     fun increaseLikeCount() {

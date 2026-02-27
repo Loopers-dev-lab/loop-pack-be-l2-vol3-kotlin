@@ -51,7 +51,7 @@ class ProductService(
         brandId: Long,
     ) {
         product.validateBrandChange(brandId)
-        product.update(name, description, price, stockQuantity)
+        product.update(name, description, Money.of(price), StockQuantity.of(stockQuantity))
     }
 
     fun increaseLikeCount(product: Product) {
