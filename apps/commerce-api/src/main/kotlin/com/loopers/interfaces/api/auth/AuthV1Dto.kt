@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.auth
 
-import com.loopers.application.auth.AuthFacade
+import com.loopers.application.auth.AuthUseCase
 import com.loopers.application.auth.AuthInfo
 import java.time.LocalDate
 
@@ -13,7 +13,7 @@ class AuthV1Dto {
         val birthDate: LocalDate,
         val email: String,
     ) {
-        fun toCommand() = AuthFacade.SignupCommand(
+        fun toCommand() = AuthUseCase.SignupCommand(
             loginId = loginId,
             rawPassword = password,
             name = name,

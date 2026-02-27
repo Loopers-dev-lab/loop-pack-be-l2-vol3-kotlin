@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.member
 
-import com.loopers.application.auth.AuthFacade
-import com.loopers.application.member.MemberFacade
+import com.loopers.application.auth.AuthUseCase
+import com.loopers.application.member.MemberUseCase
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/members")
 class MemberV1Controller(
-    private val authFacade: AuthFacade,
-    private val memberFacade: MemberFacade,
+    private val authUseCase: AuthUseCase,
+    private val memberUseCase: MemberUseCase,
 ) : MemberV1ApiSpec {
 
     @GetMapping("/me")
@@ -22,10 +22,9 @@ class MemberV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
     ): ApiResponse<MemberV1Dto.MyProfileResponse> {
-        // 인증 검증
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        return memberFacade.getMyProfile(loginId)
+        return memberUseCase.getMyProfile(loginId)
             .let { MemberV1Dto.MyProfileResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -36,10 +35,9 @@ class MemberV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestBody request: MemberV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
-        // 인증 검증
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        memberFacade.changePassword(request.toCommand(loginId))
+        memberUseCase.changePassword(request.toCommand(loginId))
 
         return ApiResponse.success()
     }

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.application.product.ProductFacade
+import com.loopers.application.product.ProductUseCase
 import com.loopers.application.product.ProductInfo
 
 class ProductV1Dto {
@@ -12,7 +12,7 @@ class ProductV1Dto {
         val description: String,
         val stock: Int,
     ) {
-        fun toCommand() = ProductFacade.RegisterCommand(
+        fun toCommand() = ProductUseCase.RegisterCommand(
             brandId = brandId,
             name = name,
             price = price,
@@ -26,7 +26,7 @@ class ProductV1Dto {
         val price: Long,
         val description: String,
     ) {
-        fun toCommand() = ProductFacade.ChangeInfoCommand(
+        fun toCommand() = ProductUseCase.ChangeInfoCommand(
             name = name,
             price = price,
             description = description,

@@ -1,16 +1,16 @@
 package com.loopers.interfaces.api.brand
 
-import com.loopers.application.brand.BrandFacade
+import com.loopers.application.brand.BrandUseCase
 import com.loopers.application.brand.BrandInfo
 
 class BrandV1Dto {
 
     data class RegisterRequest(val name: String) {
-        fun toCommand() = BrandFacade.RegisterCommand(name = name)
+        fun toCommand() = BrandUseCase.RegisterCommand(name = name)
     }
 
     data class ChangeNameRequest(val name: String) {
-        fun toCommand() = BrandFacade.ChangeNameCommand(name = name)
+        fun toCommand() = BrandUseCase.ChangeNameCommand(name = name)
     }
 
     data class DetailResponse(

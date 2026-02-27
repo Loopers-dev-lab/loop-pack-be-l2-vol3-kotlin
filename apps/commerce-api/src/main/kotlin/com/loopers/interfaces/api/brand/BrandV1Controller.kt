@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.brand
 
-import com.loopers.application.auth.AuthFacade
-import com.loopers.application.brand.BrandFacade
+import com.loopers.application.auth.AuthUseCase
+import com.loopers.application.brand.BrandUseCase
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/brands")
 class BrandV1Controller(
-    private val authFacade: AuthFacade,
-    private val brandFacade: BrandFacade,
+    private val authUseCase: AuthUseCase,
+    private val brandUseCase: BrandUseCase,
 ) : BrandV1ApiSpec {
 
     @PostMapping
@@ -26,9 +26,9 @@ class BrandV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestBody request: BrandV1Dto.RegisterRequest,
     ): ApiResponse<BrandV1Dto.DetailResponse> {
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        return brandFacade.register(request.toCommand())
+        return brandUseCase.register(request.toCommand())
             .let { BrandV1Dto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -37,14 +37,14 @@ class BrandV1Controller(
     override fun getById(
         @PathVariable id: Long,
     ): ApiResponse<BrandV1Dto.DetailResponse> {
-        return brandFacade.getById(id)
+        return brandUseCase.getById(id)
             .let { BrandV1Dto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 
     @GetMapping
     override fun getAllActive(): ApiResponse<List<BrandV1Dto.MainResponse>> {
-        return brandFacade.getAllActive()
+        return brandUseCase.getAllActive()
             .map { BrandV1Dto.MainResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -56,9 +56,9 @@ class BrandV1Controller(
         @PathVariable id: Long,
         @RequestBody request: BrandV1Dto.ChangeNameRequest,
     ): ApiResponse<BrandV1Dto.DetailResponse> {
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        return brandFacade.changeName(id, request.toCommand())
+        return brandUseCase.changeName(id, request.toCommand())
             .let { BrandV1Dto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -69,9 +69,9 @@ class BrandV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable id: Long,
     ): ApiResponse<Any> {
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        brandFacade.remove(id)
+        brandUseCase.remove(id)
         return ApiResponse.success()
     }
 }

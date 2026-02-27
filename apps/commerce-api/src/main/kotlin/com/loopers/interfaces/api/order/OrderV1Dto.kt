@@ -1,14 +1,14 @@
 package com.loopers.interfaces.api.order
 
-import com.loopers.application.order.OrderFacade
+import com.loopers.application.order.OrderUseCase
 import com.loopers.application.order.OrderInfo
 
 class OrderV1Dto {
 
     data class CreateRequest(val items: List<OrderItemRequest>) {
-        fun toCommand() = OrderFacade.CreateOrderCommand(
+        fun toCommand() = OrderUseCase.CreateOrderCommand(
             items = items.map {
-                OrderFacade.OrderItemRequest(productId = it.productId, quantity = it.quantity)
+                OrderUseCase.OrderItemRequest(productId = it.productId, quantity = it.quantity)
             },
         )
     }

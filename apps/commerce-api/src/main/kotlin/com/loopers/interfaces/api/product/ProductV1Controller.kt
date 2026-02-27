@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.product
 
-import com.loopers.application.auth.AuthFacade
-import com.loopers.application.product.ProductFacade
+import com.loopers.application.auth.AuthUseCase
+import com.loopers.application.product.ProductUseCase
 import com.loopers.domain.product.ProductSortType
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/products")
 class ProductV1Controller(
-    private val authFacade: AuthFacade,
-    private val productFacade: ProductFacade,
+    private val authUseCase: AuthUseCase,
+    private val productUseCase: ProductUseCase,
 ) : ProductV1ApiSpec {
 
     @PostMapping
@@ -28,9 +28,9 @@ class ProductV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestBody request: ProductV1Dto.RegisterRequest,
     ): ApiResponse<ProductV1Dto.DetailResponse> {
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        return productFacade.register(request.toCommand())
+        return productUseCase.register(request.toCommand())
             .let { ProductV1Dto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -39,7 +39,7 @@ class ProductV1Controller(
     override fun getById(
         @PathVariable id: Long,
     ): ApiResponse<ProductV1Dto.DetailResponse> {
-        return productFacade.getById(id)
+        return productUseCase.getById(id)
             .let { ProductV1Dto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -49,7 +49,7 @@ class ProductV1Controller(
         @RequestParam(defaultValue = "LATEST") sortType: ProductSortType,
         @RequestParam(required = false) brandId: Long?,
     ): ApiResponse<List<ProductV1Dto.MainResponse>> {
-        return productFacade.getAll(sortType, brandId)
+        return productUseCase.getAll(sortType, brandId)
             .map { ProductV1Dto.MainResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -61,9 +61,9 @@ class ProductV1Controller(
         @PathVariable id: Long,
         @RequestBody request: ProductV1Dto.ChangeInfoRequest,
     ): ApiResponse<ProductV1Dto.DetailResponse> {
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        return productFacade.changeInfo(id, request.toCommand())
+        return productUseCase.changeInfo(id, request.toCommand())
             .let { ProductV1Dto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
@@ -74,9 +74,9 @@ class ProductV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable id: Long,
     ): ApiResponse<Any> {
-        authFacade.authenticate(loginId, password)
+        authUseCase.authenticate(loginId, password)
 
-        productFacade.remove(id)
+        productUseCase.remove(id)
         return ApiResponse.success()
     }
 }

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.member
 
-import com.loopers.application.member.MemberFacade
+import com.loopers.application.member.MemberUseCase
 import com.loopers.application.member.MemberInfo
 import java.time.LocalDate
 
@@ -26,7 +26,7 @@ class MemberV1Dto {
         val currentPassword: String,
         val newPassword: String,
     ) {
-        fun toCommand(loginId: String) = MemberFacade.ChangePasswordCommand(
+        fun toCommand(loginId: String) = MemberUseCase.ChangePasswordCommand(
             loginId = loginId,
             currentPassword = currentPassword,
             newPassword = newPassword,
