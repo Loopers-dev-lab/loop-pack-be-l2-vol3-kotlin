@@ -689,6 +689,33 @@ class AdminBrandApiE2ETest @Autowired constructor(
             )
         }
 
+        @DisplayName("삭제된 브랜드를 수정하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenBrandIsDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            brand.delete()
+            brandRepository.save(brand)
+            val request = mapOf("name" to "아디다스", "description" to "수정 시도")
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                BRAND_DETAIL_ENDPOINT,
+                HttpMethod.PUT,
+                httpEntity,
+                responseType,
+                brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
         @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
         @Test
         fun returnsUnauthorized_whenLdapHeaderIsMissing() {
