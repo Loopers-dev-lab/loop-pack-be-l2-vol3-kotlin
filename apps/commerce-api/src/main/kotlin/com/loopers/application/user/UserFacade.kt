@@ -1,5 +1,6 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.MaskedName
 import com.loopers.domain.user.UserService
 import com.loopers.support.auth.AuthenticatedUserInfo
 import com.loopers.support.auth.Authenticator
@@ -28,7 +29,14 @@ class UserFacade(
     }
 
     fun getMe(userInfo: AuthenticatedUserInfo): UserMeInfo {
-        return UserMeInfo.from(userInfo)
+        val maskedName = MaskedName.from(userInfo.name)
+        return UserMeInfo(
+            id = userInfo.id,
+            loginId = userInfo.loginId,
+            maskedName = maskedName.value,
+            email = userInfo.email,
+            birthday = userInfo.birthday,
+        )
     }
 
     @Transactional
