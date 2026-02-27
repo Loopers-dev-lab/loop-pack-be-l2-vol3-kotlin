@@ -13,6 +13,7 @@ import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.support.PageResult
 import com.loopers.support.constant.ApiPaths
 import com.loopers.support.constant.AuthHeaders
+import com.loopers.support.error.CommonErrorCode
 import com.loopers.support.error.OrderErrorCode
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
@@ -153,6 +154,20 @@ class AdminOrderV1ApiE2ETest @Autowired constructor(
             )
         }
 
+        @DisplayName("어드민 인증 헤더가 없으면 401을 반환한다")
+        @Test
+        fun failWhenAdminAuthMissing() {
+            val response = testRestTemplate.getForEntity(
+                "${ApiPaths.AdminOrders.BASE}?page=0&size=20",
+                ApiResponse::class.java,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(CommonErrorCode.ADMIN_AUTHENTICATION_FAILED.code) },
+            )
+        }
+
         @DisplayName("주문이 없으면 빈 목록을 반환한다")
         @Test
         fun returnsEmpty() {
@@ -196,6 +211,20 @@ class AdminOrderV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.userId).isNotNull() },
                 { assertThat(response.body?.data?.totalAmount).isEqualTo(30000) },
                 { assertThat(response.body?.data?.items).hasSize(1) },
+            )
+        }
+
+        @DisplayName("어드민 인증 헤더가 없으면 401을 반환한다")
+        @Test
+        fun failWhenAdminAuthMissing() {
+            val response = testRestTemplate.getForEntity(
+                "${ApiPaths.AdminOrders.BASE}/1",
+                ApiResponse::class.java,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(CommonErrorCode.ADMIN_AUTHENTICATION_FAILED.code) },
             )
         }
 

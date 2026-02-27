@@ -176,7 +176,10 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ApiResponse::class.java,
             )
 
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(OrderErrorCode.ORDER_VALIDATION_FAILED.code) },
+            )
         }
 
         @DisplayName("삭제된 상품 포함 시 400을 반환한다")
@@ -197,7 +200,10 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ApiResponse::class.java,
             )
 
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(OrderErrorCode.ORDER_VALIDATION_FAILED.code) },
+            )
         }
 
         @DisplayName("재고 부족 시 400을 반환한다")
@@ -217,7 +223,10 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ApiResponse::class.java,
             )
 
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(OrderErrorCode.ORDER_VALIDATION_FAILED.code) },
+            )
         }
 
         @DisplayName("중복 상품 시 400을 반환한다")
@@ -240,7 +249,10 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ApiResponse::class.java,
             )
 
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(OrderErrorCode.DUPLICATE_ORDER_ITEM.code) },
+            )
         }
 
         @DisplayName("인증 실패 시 401을 반환한다")
