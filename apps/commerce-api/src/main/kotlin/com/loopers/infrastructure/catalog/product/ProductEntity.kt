@@ -2,8 +2,11 @@ package com.loopers.infrastructure.catalog.product
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.catalog.product.Product
+import com.loopers.domain.catalog.product.ProductStatus
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.Table
 
@@ -24,6 +27,7 @@ class ProductEntity(
     price: Int,
     stock: Int,
     likeCount: Int = 0,
+    status: ProductStatus = ProductStatus.ACTIVE,
 ) : BaseEntity() {
 
     @Column(name = "brand_id", nullable = false)
@@ -50,11 +54,17 @@ class ProductEntity(
     var likeCount: Int = likeCount
         protected set
 
-    fun update(name: String, description: String, price: Int, stock: Int) {
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var status: ProductStatus = status
+        protected set
+
+    fun update(name: String, description: String, price: Int, stock: Int, status: ProductStatus) {
         this.name = name
         this.description = description
         this.price = price
         this.stock = stock
+        this.status = status
     }
 
     fun updateLikeCount(likeCount: Int) {
@@ -65,6 +75,10 @@ class ProductEntity(
         this.stock = stock
     }
 
+    fun updateStatus(status: ProductStatus) {
+        this.status = status
+    }
+
     fun toDomain(): Product = Product(
         id = this.id,
         brandId = this.brandId,
@@ -73,6 +87,7 @@ class ProductEntity(
         price = this.price,
         stock = this.stock,
         likeCount = this.likeCount,
+        status = this.status,
     )
 
     companion object {
@@ -83,6 +98,7 @@ class ProductEntity(
             price = product.price,
             stock = product.stock,
             likeCount = product.likeCount,
+            status = product.status,
         )
     }
 }
