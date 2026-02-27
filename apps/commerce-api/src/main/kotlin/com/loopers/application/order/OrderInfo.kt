@@ -1,9 +1,7 @@
 package com.loopers.application.order
 
-import com.loopers.domain.order.ExcludedItem
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
-import com.loopers.domain.order.OrderResult
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
@@ -52,26 +50,17 @@ data class OrderItemInfo(
 data class ExcludedItemInfo(
     val productId: Long,
     val reason: String,
-) {
-    companion object {
-        fun from(item: ExcludedItem): ExcludedItemInfo {
-            return ExcludedItemInfo(
-                productId = item.productId,
-                reason = item.reason,
-            )
-        }
-    }
-}
+)
 
 data class OrderResultInfo(
     val order: OrderInfo,
     val excludedItems: List<ExcludedItemInfo>,
 ) {
     companion object {
-        fun from(result: OrderResult): OrderResultInfo {
+        fun of(order: Order, excludedItems: List<ExcludedItemInfo>): OrderResultInfo {
             return OrderResultInfo(
-                order = OrderInfo.from(result.order),
-                excludedItems = result.excludedItems.map { ExcludedItemInfo.from(it) },
+                order = OrderInfo.from(order),
+                excludedItems = excludedItems,
             )
         }
     }

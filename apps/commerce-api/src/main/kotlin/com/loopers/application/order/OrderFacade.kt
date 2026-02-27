@@ -2,9 +2,7 @@ package com.loopers.application.order
 
 import com.loopers.application.brand.BrandService
 import com.loopers.application.product.ProductService
-import com.loopers.domain.order.ExcludedItem
 import com.loopers.domain.order.OrderItemCommand
-import com.loopers.domain.order.OrderResult
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -42,8 +40,8 @@ class OrderFacade(
 
         // 4. 결과 조합
         val excludedItems = reservation.failedReservations.map {
-            ExcludedItem(it.productId, it.reason)
+            ExcludedItemInfo(it.productId, it.reason)
         }
-        return OrderResultInfo.from(OrderResult(order, excludedItems))
+        return OrderResultInfo.of(order, excludedItems)
     }
 }
