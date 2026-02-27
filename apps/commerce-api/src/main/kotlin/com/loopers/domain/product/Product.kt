@@ -53,6 +53,20 @@ class Product(
         }
     }
 
+    fun validateBrandChange(brandId: Long) {
+        if (this.brandId != brandId) {
+            throw CoreException(ErrorType.BAD_REQUEST, "상품의 브랜드는 수정할 수 없습니다.")
+        }
+    }
+
+    fun update(name: String, description: String?, price: Long, stockQuantity: Int) {
+        validateName(name)
+        this.name = name
+        this.description = description
+        this.price = Money.of(price)
+        this.stockQuantity = StockQuantity.of(stockQuantity)
+    }
+
     fun increaseLikeCount() {
         this.likes = this.likes.increment()
     }

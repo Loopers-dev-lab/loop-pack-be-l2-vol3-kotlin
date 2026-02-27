@@ -7,6 +7,7 @@ import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -42,6 +43,23 @@ class AdminProductController(
             brandId = request.brandId,
         )
             .let { AdminProductDto.CreateResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @PutMapping("/{productId}")
+    override fun updateProduct(
+        @PathVariable productId: Long,
+        @RequestBody request: AdminProductDto.UpdateRequest,
+    ): ApiResponse<AdminProductDto.DetailResponse> {
+        return adminProductFacade.updateProduct(
+            productId = productId,
+            name = request.name,
+            description = request.description,
+            price = request.price,
+            stockQuantity = request.stockQuantity,
+            brandId = request.brandId,
+        )
+            .let { AdminProductDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 

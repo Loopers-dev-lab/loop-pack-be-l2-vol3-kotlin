@@ -121,6 +121,87 @@ class ProductTest {
         )
     }
 
+    @DisplayName("상품을 수정할 때,")
+    @Nested
+    inner class Update {
+
+        @DisplayName("유효한 값으로 수정하면, 정상적으로 수정된다.")
+        @Test
+        fun updatesProduct_whenValidValuesProvided() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            product.update(name = "수정된 상품", description = "수정된 설명", price = 200000L, stockQuantity = 50)
+
+            // assert
+            assertAll(
+                { assertThat(product.name).isEqualTo("수정된 상품") },
+                { assertThat(product.description).isEqualTo("수정된 설명") },
+                { assertThat(product.price).isEqualTo(Money.of(200000L)) },
+                { assertThat(product.stockQuantity).isEqualTo(StockQuantity.of(50)) },
+            )
+        }
+
+        @DisplayName("설명을 null로 수정하면, 정상적으로 수정된다.")
+        @Test
+        fun updatesProduct_whenDescriptionIsNull() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            product.update(name = "수정된 상품", description = null, price = 200000L, stockQuantity = 50)
+
+            // assert
+            assertThat(product.description).isNull()
+        }
+
+        @DisplayName("이름이 빈칸이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenNameIsBlank() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                product.update(name = "  ", description = "설명", price = 200000L, stockQuantity = 50)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @DisplayName("브랜드 변경을 검증할 때,")
+    @Nested
+    inner class ValidateBrandChange {
+
+        @DisplayName("동일한 브랜드ID면, 예외가 발생하지 않는다.")
+        @Test
+        fun doesNotThrow_whenBrandIdIsSame() {
+            // arrange
+            val product = createProduct() // brandId = 1L
+
+            // act & assert (예외 없음)
+            product.validateBrandChange(1L)
+        }
+
+        @DisplayName("다른 브랜드ID면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenBrandIdIsDifferent() {
+            // arrange
+            val product = createProduct() // brandId = 1L
+
+            // act
+            val exception = assertThrows<CoreException> {
+                product.validateBrandChange(2L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
     @DisplayName("재고를 차감할 때,")
     @Nested
     inner class DeductStock {

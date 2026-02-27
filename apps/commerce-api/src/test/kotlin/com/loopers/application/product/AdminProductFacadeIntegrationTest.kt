@@ -128,6 +128,110 @@ class AdminProductFacadeIntegrationTest @Autowired constructor(
         }
     }
 
+    @DisplayName("어드민 상품 수정할 때,")
+    @Nested
+    inner class UpdateProduct {
+
+        @DisplayName("DB에 저장된 상품을 수정하면, 수정된 정보를 반환한다.")
+        @Test
+        fun returnsUpdatedInfo_whenProductExistsInDb() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val saved = productRepository.save(
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+
+            // act
+            val result = adminProductFacade.updateProduct(
+                productId = saved.id,
+                name = "수정된 상품",
+                description = "수정된 설명",
+                price = 200000L,
+                stockQuantity = 50,
+                brandId = brand.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(saved.id) },
+                { assertThat(result.name).isEqualTo("수정된 상품") },
+                { assertThat(result.description).isEqualTo("수정된 설명") },
+                { assertThat(result.price).isEqualTo(200000L) },
+                { assertThat(result.stockQuantity).isEqualTo(50) },
+                { assertThat(result.brandName).isEqualTo("나이키") },
+            )
+        }
+
+        @DisplayName("존재하지 않는 productId로 수정하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductNotExistsInDb() {
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.updateProduct(
+                    productId = 9999L,
+                    name = "수정",
+                    description = null,
+                    price = 100000L,
+                    stockQuantity = 10,
+                    brandId = 1L,
+                )
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("삭제된 상품을 수정하면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductIsDeleted() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val saved = productRepository.save(
+                Product(name = "단종상품", description = "단종", price = Money.of(99000L), likes = LikeCount.of(5), stockQuantity = StockQuantity.of(0), brandId = brand.id),
+            )
+            saved.delete()
+            productRepository.save(saved)
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.updateProduct(
+                    productId = saved.id,
+                    name = "수정",
+                    description = null,
+                    price = 100000L,
+                    stockQuantity = 10,
+                    brandId = brand.id,
+                )
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("brandId가 변경된 요청이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenBrandIdChanged() {
+            // arrange
+            val nike = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val adidas = brandRepository.save(Brand(name = "아디다스", description = "스포츠 브랜드"))
+            val saved = productRepository.save(
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = nike.id),
+            )
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.updateProduct(
+                    productId = saved.id,
+                    name = "에어맥스",
+                    description = "러닝화",
+                    price = 159000L,
+                    stockQuantity = 100,
+                    brandId = adidas.id,
+                )
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
     @DisplayName("어드민 상품 상세 조회할 때,")
     @Nested
     inner class GetProductDetail {
