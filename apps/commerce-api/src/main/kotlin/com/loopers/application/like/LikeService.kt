@@ -12,13 +12,6 @@ class LikeService(
     private val productService: ProductService,
 ) {
 
-    /**
-     * 좋아요 등록
-     * - 상품 존재 검증 (Soft Delete 포함)
-     * - 기존 활성 좋아요 있음 → 기존 반환 (멱등성)
-     * - Soft Delete 상태 → restore
-     * - 없음 → 신규 생성
-     */
     @Transactional
     fun addLike(userId: Long, productId: Long): LikeInfo {
         productService.validateProductExistsIncludingDeleted(productId)
@@ -36,11 +29,6 @@ class LikeService(
         return LikeInfo.from(likeRepository.save(Like(userId = userId, productId = productId)))
     }
 
-    /**
-     * 좋아요 취소
-     * - 활성 좋아요 있음 → Soft Delete
-     * - 없음 → no-op (멱등성)
-     */
     @Transactional
     fun cancelLike(userId: Long, productId: Long) {
         val like = likeRepository.findActiveByUserIdAndProductId(userId, productId) ?: return

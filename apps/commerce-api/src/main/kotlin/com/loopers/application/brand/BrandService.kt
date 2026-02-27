@@ -25,20 +25,13 @@ class BrandService(
     }
 
     @Transactional(readOnly = true)
-    fun validateBrandExists(brandId: Long) {
-        if (!brandRepository.existsById(brandId)) {
-            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        }
-    }
-
-    @Transactional(readOnly = true)
     fun getBrandInfo(brandId: Long): BrandInfo {
         return BrandInfo.from(getBrand(brandId))
     }
 
     @Transactional(readOnly = true)
-    fun getBrandIncludingDeleted(brandId: Long): Brand? {
-        return brandRepository.findByIdIncludingDeleted(brandId)
+    fun getBrandsIncludingDeleted(brandIds: List<Long>): List<Brand> {
+        return brandRepository.findAllByIdIncludingDeleted(brandIds)
     }
 
     @Transactional(readOnly = true)
@@ -59,10 +52,13 @@ class BrandService(
     fun updateBrand(brandId: Long, criteria: UpdateBrandCriteria): BrandInfo {
         val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+
         if (brandRepository.existsByNameAndIdNot(criteria.name, brandId)) {
             throw CoreException(ErrorType.CONFLICT, "이미 존재하는 브랜드명입니다.")
         }
+
         brand.update(name = criteria.name, description = criteria.description)
+
         val savedBrand = brandRepository.save(brand)
         return BrandInfo.from(savedBrand)
     }
@@ -71,6 +67,7 @@ class BrandService(
     fun deleteBrand(brandId: Long) {
         val brand = brandRepository.findById(brandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+
         val products = productRepository.findAllByBrandId(brandId)
 
         brandDomainService.deleteBrand(brand, products)

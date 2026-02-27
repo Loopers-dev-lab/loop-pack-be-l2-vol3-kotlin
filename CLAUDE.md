@@ -43,8 +43,8 @@ loopers-kotlin-spring-template/
 
 ```
 interfaces/api/     → Controller, ApiSpec (Swagger), DTO
-application/        → Service (@Transactional), Facade (2+ 서비스 조합 시만)
-domain/             → Entity, Repository Interface, Command (핵심 도메인, 프레임워크 비의존)
+application/        → Service (@Transactional), Facade (2+ 서비스 조합 시만 고려하기), Criteria
+domain/             → Entity, Repository Interface, DomainService, Command (핵심 도메인, 프레임워크 비의존)
 infrastructure/     → Repository 구현체, 외부 연동
 support/            → 공통 유틸, 에러 처리
 ```

@@ -15,4 +15,6 @@ interface BrandJpaRepository : JpaRepository<Brand, Long> {
 
     fun existsByNameAndDeletedAtIsNull(name: String): Boolean
     fun existsByNameAndDeletedAtIsNullAndIdNot(name: String, id: Long): Boolean
+
+    fun findAllByIdIn(ids: List<Long>): List<Brand>
 }

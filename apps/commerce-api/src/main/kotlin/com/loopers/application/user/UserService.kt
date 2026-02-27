@@ -9,11 +9,6 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.format.DateTimeFormatter
 
-/**
- * 회원 도메인 서비스
- * - 회원가입, 내 정보 조회, 비밀번호 변경
- * - X-Loopers-LoginId, X-Loopers-LoginPw 헤더를 통한 인증 처리
- */
 @Component
 class UserService(
     private val userRepository: UserRepository,

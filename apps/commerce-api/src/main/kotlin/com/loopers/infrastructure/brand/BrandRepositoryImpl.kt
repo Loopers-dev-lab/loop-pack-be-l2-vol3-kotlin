@@ -23,6 +23,10 @@ class BrandRepositoryImpl(
         return brandJpaRepository.findById(id).orElse(null)
     }
 
+    override fun findAllByIdIncludingDeleted(ids: List<Long>): List<Brand> {
+        return brandJpaRepository.findAllByIdIn(ids)
+    }
+
     override fun findAll(pageable: Pageable): Page<Brand> {
         return brandJpaRepository.findAllByDeletedAtIsNull(pageable)
     }
