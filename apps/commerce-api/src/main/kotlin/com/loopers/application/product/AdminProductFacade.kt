@@ -12,6 +12,7 @@ class AdminProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
+    @Transactional(readOnly = true)
     fun getProducts(brandId: Long?, pageQuery: PageQuery): PageResult<AdminProductInfo> {
         val productPage = productService.getProducts(brandId, pageQuery)
         val brandIds = productPage.content.map { it.brandId }.distinct()
@@ -25,6 +26,7 @@ class AdminProductFacade(
         }
     }
 
+    @Transactional(readOnly = true)
     fun getProductDetail(productId: Long): AdminProductInfo {
         val product = productService.getProduct(productId)
         val brand = brandService.getBrand(product.brandId)
@@ -52,6 +54,7 @@ class AdminProductFacade(
         productService.delete(product)
     }
 
+    @Transactional
     fun createProduct(
         name: String,
         description: String?,
