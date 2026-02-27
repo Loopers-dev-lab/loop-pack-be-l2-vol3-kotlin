@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.domain.Money
 import com.loopers.domain.product.ProductInfo
 import java.time.ZonedDateTime
 
@@ -9,7 +10,7 @@ data class ProductResult(
     val brandName: String,
     val name: String,
     val description: String?,
-    val price: Long,
+    val price: Money,
     val stockQuantity: Int,
     val likeCount: Int,
     val status: String,

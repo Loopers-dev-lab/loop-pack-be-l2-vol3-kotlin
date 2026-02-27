@@ -54,5 +54,4 @@ class BrandV1Dto {
             }
         }
     }
-
 }

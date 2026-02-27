@@ -1,59 +1,74 @@
 package com.loopers.domain.product
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import com.loopers.config.jpa.MoneyConverter
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import org.hibernate.annotations.Comment
 
 @Entity
 @Table(name = "products")
+@Comment("상품")
 class Product(
     brandId: Long,
     name: String,
     description: String? = null,
-    price: Long,
+    price: Money,
     stockQuantity: Int,
     displayYn: Boolean = true,
     imageUrl: String? = null,
 ) : BaseEntity() {
 
+    @Comment("소속 브랜드")
     @Column(name = "brand_id", nullable = false)
     var brandId: Long = brandId
         protected set
 
+    @Comment("상품명")
     @Column(nullable = false)
     var name: String = name
         protected set
 
+    @Comment("상품 설명")
     @Column
     var description: String? = description
         protected set
 
+    @Comment("판매가")
+    @Convert(converter = MoneyConverter::class)
     @Column(nullable = false)
-    var price: Long = price
+    var price: Money = price
         protected set
 
+    @Comment("재고 수량")
     @Column(name = "stock_quantity", nullable = false)
     var stockQuantity: Int = stockQuantity
         protected set
 
+    @Comment("좋아요 수")
     @Column(name = "like_count", nullable = false)
     var likeCount: Int = 0
         protected set
 
+    @Comment("판매 상태 (ACTIVE/INACTIVE/DELETED)")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: ProductStatus = ProductStatus.ACTIVE
         protected set
 
+    @Comment("전시 여부")
     @Column(name = "display_yn", nullable = false)
     var displayYn: Boolean = displayYn
         protected set
 
+    @Comment("상품 이미지")
     @Column(name = "image_url")
     var imageUrl: String? = imageUrl
         protected set
@@ -61,9 +76,6 @@ class Product(
     init {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "상품명은 필수입니다.")
-        }
-        if (price < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "상품 가격은 0 이상이어야 합니다.")
         }
         if (stockQuantity < 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다.")
@@ -73,7 +85,7 @@ class Product(
     fun update(
         name: String,
         description: String?,
-        price: Long,
+        price: Money,
         stockQuantity: Int,
         status: ProductStatus,
         displayYn: Boolean,
@@ -81,9 +93,6 @@ class Product(
     ) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "상품명은 필수입니다.")
-        }
-        if (price < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "상품 가격은 0 이상이어야 합니다.")
         }
         if (stockQuantity < 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "재고 수량은 0 이상이어야 합니다.")

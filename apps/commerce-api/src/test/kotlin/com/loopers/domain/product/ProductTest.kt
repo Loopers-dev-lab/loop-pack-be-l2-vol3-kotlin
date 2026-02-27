@@ -1,5 +1,6 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -15,7 +16,7 @@ class ProductTest {
         brandId: Long = 1L,
         name: String = "에어맥스 90",
         description: String? = "나이키 에어맥스 90",
-        price: Long = 139000,
+        price: Money = Money(139000),
         stockQuantity: Int = 100,
         displayYn: Boolean = true,
         imageUrl: String? = "https://example.com/airmax90.png",
@@ -42,7 +43,7 @@ class ProductTest {
             assertAll(
                 { assertThat(product.brandId).isEqualTo(1L) },
                 { assertThat(product.name).isEqualTo("에어맥스 90") },
-                { assertThat(product.price).isEqualTo(139000) },
+                { assertThat(product.price).isEqualTo(Money(139000)) },
                 { assertThat(product.stockQuantity).isEqualTo(100) },
                 { assertThat(product.likeCount).isEqualTo(0) },
                 { assertThat(product.status).isEqualTo(ProductStatus.ACTIVE) },
@@ -75,15 +76,12 @@ class ProductTest {
         }
 
         @Test
-        @DisplayName("가격이 음수이면 BAD_REQUEST 예외가 발생한다")
-        fun negativePriceThrowsBadRequest() {
-            // arrange & act
-            val result = assertThrows<CoreException> {
-                createProduct(price = -1)
+        @DisplayName("가격이 음수이면 IllegalArgumentException이 발생한다")
+        fun negativePriceThrowsException() {
+            // arrange & act & assert
+            assertThrows<IllegalArgumentException> {
+                createProduct(price = Money(-1))
             }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
         @Test
@@ -102,10 +100,10 @@ class ProductTest {
         @DisplayName("가격이 0이면 정상적으로 생성된다")
         fun zeroPriceSuccess() {
             // arrange & act
-            val product = createProduct(price = 0)
+            val product = createProduct(price = Money(0))
 
             // assert
-            assertThat(product.price).isEqualTo(0)
+            assertThat(product.price).isEqualTo(Money(0))
         }
 
         @Test
@@ -145,7 +143,7 @@ class ProductTest {
             product.update(
                 name = "에어포스 1",
                 description = "클래식 스니커즈",
-                price = 119000,
+                price = Money(119000),
                 stockQuantity = 50,
                 status = ProductStatus.INACTIVE,
                 displayYn = false,
@@ -156,7 +154,7 @@ class ProductTest {
             assertAll(
                 { assertThat(product.name).isEqualTo("에어포스 1") },
                 { assertThat(product.description).isEqualTo("클래식 스니커즈") },
-                { assertThat(product.price).isEqualTo(119000) },
+                { assertThat(product.price).isEqualTo(Money(119000)) },
                 { assertThat(product.stockQuantity).isEqualTo(50) },
                 { assertThat(product.status).isEqualTo(ProductStatus.INACTIVE) },
                 { assertThat(product.displayYn).isFalse() },
@@ -175,7 +173,7 @@ class ProductTest {
                 product.update(
                     name = "   ",
                     description = null,
-                    price = 10000,
+                    price = Money(10000),
                     stockQuantity = 10,
                     status = ProductStatus.ACTIVE,
                     displayYn = true,
@@ -188,26 +186,23 @@ class ProductTest {
         }
 
         @Test
-        @DisplayName("수정 시 가격이 음수이면 BAD_REQUEST 예외가 발생한다")
-        fun negativePriceThrowsBadRequest() {
+        @DisplayName("수정 시 가격이 음수이면 IllegalArgumentException이 발생한다")
+        fun negativePriceThrowsException() {
             // arrange
             val product = createProduct()
 
-            // act
-            val result = assertThrows<CoreException> {
+            // act & assert
+            assertThrows<IllegalArgumentException> {
                 product.update(
                     name = "에어맥스",
                     description = null,
-                    price = -1,
+                    price = Money(-1),
                     stockQuantity = 10,
                     status = ProductStatus.ACTIVE,
                     displayYn = true,
                     imageUrl = null,
                 )
             }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
         @Test
@@ -221,7 +216,7 @@ class ProductTest {
                 product.update(
                     name = "에어맥스",
                     description = null,
-                    price = 10000,
+                    price = Money(10000),
                     stockQuantity = -1,
                     status = ProductStatus.ACTIVE,
                     displayYn = true,

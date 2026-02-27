@@ -1,6 +1,7 @@
 package com.loopers.application.like
 
 import com.loopers.application.product.ProductResult
+import com.loopers.domain.Money
 import com.loopers.domain.like.LikeInfo
 import java.time.ZonedDateTime
 
@@ -10,7 +11,7 @@ data class LikedProductResult(
     val productId: Long,
     val brandName: String,
     val productName: String,
-    val price: Long,
+    val price: Money,
     val likeCount: Int,
     val imageUrl: String?,
 ) {

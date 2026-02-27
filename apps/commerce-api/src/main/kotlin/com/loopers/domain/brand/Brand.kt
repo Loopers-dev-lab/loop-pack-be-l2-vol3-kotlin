@@ -6,23 +6,28 @@ import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import org.hibernate.annotations.Comment
 
 @Entity
 @Table(name = "brands")
+@Comment("브랜드")
 class Brand(
     name: String,
     description: String? = null,
     imageUrl: String? = null,
 ) : BaseEntity() {
 
+    @Comment("브랜드명")
     @Column(nullable = false)
     var name: String = name
         protected set
 
+    @Comment("브랜드 설명")
     @Column
     var description: String? = description
         protected set
 
+    @Comment("브랜드 이미지")
     @Column(name = "image_url")
     var imageUrl: String? = imageUrl
         protected set

@@ -1,5 +1,6 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -26,7 +27,7 @@ class ProductServiceTest {
         brandId: Long = 1L,
         name: String = "에어맥스 90",
         description: String? = "나이키 에어맥스",
-        price: Long = 139000,
+        price: Money = Money(139000),
         stockQuantity: Int = 100,
         displayYn: Boolean = true,
         imageUrl: String? = null,
@@ -54,7 +55,7 @@ class ProductServiceTest {
 
             // assert
             assertThat(product.name).isEqualTo("에어맥스 90")
-            assertThat(product.price).isEqualTo(139000)
+            assertThat(product.price).isEqualTo(Money(139000))
             assertThat(product.id).isGreaterThan(0)
         }
 
@@ -114,7 +115,7 @@ class ProductServiceTest {
             val command = UpdateProductCommand(
                 name = "에어포스 1",
                 description = "클래식",
-                price = 119000,
+                price = Money(119000),
                 stockQuantity = 50,
                 status = ProductStatus.INACTIVE,
                 displayYn = false,
@@ -136,7 +137,7 @@ class ProductServiceTest {
             val command = UpdateProductCommand(
                 name = "에어포스",
                 description = null,
-                price = 100000,
+                price = Money(100000),
                 stockQuantity = 10,
                 status = ProductStatus.ACTIVE,
                 displayYn = true,
@@ -389,7 +390,7 @@ class ProductServiceTest {
             // arrange
             val created = productService.createProduct(createCommand(name = "상품A"))
             productService.createProduct(createCommand(name = "상품B"))
-            created.update("상품A", null, 10000, 10, ProductStatus.INACTIVE, true, null)
+            created.update("상품A", null, Money(10000), 10, ProductStatus.INACTIVE, true, null)
 
             // act
             val page = productService.findAllForUser(PageRequest.of(0, 20), null)
@@ -489,7 +490,7 @@ class ProductServiceTest {
             // arrange
             val created = productService.createProduct(createCommand(name = "상품A"))
             productService.createProduct(createCommand(name = "상품B"))
-            created.update("상품A", null, 10000, 10, ProductStatus.INACTIVE, true, null)
+            created.update("상품A", null, Money(10000), 10, ProductStatus.INACTIVE, true, null)
 
             // act
             val page = productService.findAllForAdmin(PageRequest.of(0, 20), null)

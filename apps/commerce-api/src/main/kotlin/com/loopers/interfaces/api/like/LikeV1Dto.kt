@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.like
 
 import com.loopers.application.like.LikedProductResult
+import com.loopers.domain.Money
 import java.time.ZonedDateTime
 
 class LikeV1Dto {
@@ -11,7 +12,7 @@ class LikeV1Dto {
         val productId: Long,
         val brandName: String,
         val productName: String,
-        val price: Long,
+        val price: Money,
         val likeCount: Int,
         val imageUrl: String?,
     ) {

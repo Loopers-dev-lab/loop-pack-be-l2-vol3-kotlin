@@ -36,11 +36,16 @@ class ProductRepositoryImpl(
     override fun findAllForUser(pageable: Pageable, brandId: Long?): Page<Product> {
         return if (brandId != null) {
             productJpaRepository.findAllByBrandIdAndStatusAndDisplayYnAndDeletedAtIsNull(
-                brandId, ProductStatus.ACTIVE, true, pageable,
+                brandId,
+                ProductStatus.ACTIVE,
+                true,
+                pageable,
             )
         } else {
             productJpaRepository.findAllByStatusAndDisplayYnAndDeletedAtIsNull(
-                ProductStatus.ACTIVE, true, pageable,
+                ProductStatus.ACTIVE,
+                true,
+                pageable,
             )
         }
     }
