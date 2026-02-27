@@ -1,5 +1,6 @@
 package com.loopers.domain.product
 
+import com.loopers.application.api.order.dto.OrderItemCriteria
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.dto.ProductInfo
 import com.loopers.support.error.CoreException
@@ -13,16 +14,20 @@ import java.math.BigDecimal
 @Service
 @Transactional(readOnly = true)
 class ProductService(
+    private val productDomainService: ProductDomainService,
     private val productRepository: ProductRepository,
 ) {
 
     fun getProductInfo(id: Long): ProductInfo {
-        val findProduct = findProduct(id)
+        val findProduct = findActiveProduct(id)
         return ProductInfo.from(findProduct)
     }
 
     fun getProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> =
         productRepository.findWithPaging(brandId, pageable).map { ProductInfo.from(it) }
+
+    fun getActiveProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> =
+        productRepository.findActiveProductsWithPaging(brandId, pageable).map { ProductInfo.from(it) }
 
     @Transactional
     fun createProduct(
@@ -51,20 +56,13 @@ class ProductService(
         stock: Int,
         status: ProductStatus,
     ) {
-        val findProduct = productRepository.findById(id)
-            ?.takeIf { !it.isDeleted() }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
-
-        findProduct.updateInfo(name, price)
-        findProduct.changeStatus(status)
-        findProduct.updateStock(stock)
+        val findProduct = findProduct(id)
+        productDomainService.updateProductInfo(findProduct, name, price, stock, status)
     }
 
     @Transactional
     fun deleteProduct(id: Long) {
-        val findProduct = productRepository.findById(id)
-            ?.takeIf { !it.isDeleted() }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
+        val findProduct = findProduct(id)
         findProduct.delete()
     }
 
@@ -73,11 +71,31 @@ class ProductService(
         productRepository.findByBrandId(brandId).forEach(Product::delete)
     }
 
-    fun getProduct(productId: Long): Product = findProduct(productId)
+    @Transactional
+    fun decreaseProductsStock(orderItemRequest: List<OrderItemCriteria>) {
+        orderItemRequest.sortedBy { it.productId }.forEach {
+            val product = findProductWithLock(it.productId)
+            product.minusStock(it.quantity)
+        }
+    }
 
-    private fun findProduct(id: Long) =
+    private fun findProductWithLock(id: Long) =
+        productRepository.findProductWithLock(id)
+            ?.takeIf { !it.isDeleted() }
+            ?.takeIf { it.status != ProductStatus.INACTIVE }
+            ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
+
+    fun getProduct(productId: Long): Product = findActiveProduct(productId)
+
+    private fun findActiveProduct(id: Long) =
         productRepository.findById(id)
         ?.takeIf { !it.isDeleted() }
         ?.takeIf { it.status != ProductStatus.INACTIVE }
         ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
+
+    private fun findProduct(id: Long) = (
+        productRepository.findById(id)
+        ?.takeIf { !it.isDeleted() }
+        ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
+    )
 }

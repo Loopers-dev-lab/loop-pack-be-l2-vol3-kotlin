@@ -42,7 +42,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    @DisplayName("POST /api/v1/user/sign-up")
+    @DisplayName("POST /api/v1/users")
     @Nested
     inner class SignUp {
 
@@ -279,7 +279,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    @DisplayName("GET /api/v1/user")
+    @DisplayName("GET /api/v1/users")
     @Nested
     inner class RetrieveUserInfo {
 
@@ -403,7 +403,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    @DisplayName("PUT /api/v1/user/password")
+    @DisplayName("PUT /api/v1/users/password")
     @Nested
     inner class ChangePassword {
 

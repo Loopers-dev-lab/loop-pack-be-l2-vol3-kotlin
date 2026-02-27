@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 
@@ -27,6 +28,13 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
 ) {
     companion object {
         private const val ADMIN_ENDPOINT = "/api-admin/v1/brands"
+
+        private fun createAdminHeaders(): HttpHeaders {
+            val headers = HttpHeaders()
+            headers["X-LDAP-Username"] = "admin"
+            headers["X-LDAP-Role"] = "ADMIN"
+            return headers
+        }
     }
 
     @AfterEach
@@ -46,7 +54,12 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
             brandJpaRepository.save(Brand.create(name = "삭제된 브랜드", description = "설명").apply { delete() })
 
             // act
-            val response = testRestTemplate.getForEntity(ADMIN_ENDPOINT, String::class.java)
+            val response = testRestTemplate.exchange(
+                ADMIN_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Any>(null, createAdminHeaders()),
+                String::class.java,
+            )
 
             // assert
             assertAll(
@@ -59,7 +72,12 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsEmptyList() {
             // act
-            val response = testRestTemplate.getForEntity(ADMIN_ENDPOINT, String::class.java)
+            val response = testRestTemplate.exchange(
+                ADMIN_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Any>(null, createAdminHeaders()),
+                String::class.java,
+            )
 
             // assert
             assertAll(
@@ -77,13 +95,14 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
         fun createsBrand_withValidRequest() {
             // arrange
             val request = AdminBrandV1Dto.CreateBrandRequest(name = "새 브랜드", description = "새 브랜드 설명")
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<BrandInfo>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -100,13 +119,14 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
         fun throwsBadRequest_whenNameIsBlank() {
             // arrange
             val request = AdminBrandV1Dto.CreateBrandRequest(name = "", description = "설명")
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<BrandInfo>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -120,13 +140,14 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
             // arrange
             brandJpaRepository.save(Brand.create(name = "기존 브랜드", description = "설명"))
             val request = AdminBrandV1Dto.CreateBrandRequest(name = "기존 브랜드", description = "새로운 설명")
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<BrandInfo>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -144,13 +165,14 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
             // arrange
             val brand = brandJpaRepository.save(Brand.create(name = "기존 브랜드", description = "기존 설명"))
             val request = AdminBrandV1Dto.UpdateBrandRequest(name = "수정된 브랜드", description = "수정된 설명")
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/${brand.id}",
                 HttpMethod.PUT,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -168,13 +190,14 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
         fun throwsNotFound_whenBrandDoesNotExist() {
             // arrange
             val request = AdminBrandV1Dto.UpdateBrandRequest(name = "수정된 이름", description = "수정된 설명")
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/999999",
                 HttpMethod.PUT,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -191,13 +214,14 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
         fun deletesBrand() {
             // arrange
             val brand = brandJpaRepository.save(Brand.create(name = "삭제할 브랜드", description = "설명"))
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/${brand.id}",
                 HttpMethod.DELETE,
-                HttpEntity<Any>(Unit),
+                HttpEntity<Any>(Unit, headers),
                 responseType,
             )
 
@@ -213,11 +237,12 @@ class AdminBrandV1ApiE2ETest @Autowired constructor(
         @Test
         fun throwsNotFound_whenBrandDoesNotExist() {
             // act
+            val headers = createAdminHeaders()
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/999999",
                 HttpMethod.DELETE,
-                HttpEntity<Any>(Unit),
+                HttpEntity<Any>(Unit, headers),
                 responseType,
             )
 

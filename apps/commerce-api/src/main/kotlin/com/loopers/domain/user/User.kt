@@ -6,6 +6,7 @@ import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
+import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
@@ -19,18 +20,23 @@ class User private constructor(
     email: Email,
 ) : BaseEntity() {
 
+    @Embedded
     var loginId: LoginId = loginId
         protected set
 
+    @Embedded
     var password: Password = password
         protected set
 
+    @Embedded
     var name: Name = name
         protected set
 
+    @Embedded
     var birthDate: BirthDate = birthDate
         protected set
 
+    @Embedded
     var email: Email = email
         protected set
 

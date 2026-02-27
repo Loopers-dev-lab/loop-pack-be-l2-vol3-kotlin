@@ -2,11 +2,16 @@ package com.loopers.domain.user.vo
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import jakarta.persistence.Column
+import jakarta.persistence.Embeddable
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-@JvmInline
-value class BirthDate(val value: String) {
+@Embeddable
+data class BirthDate(
+    @Column(name = "birth_date", nullable = false, length = 8)
+    val value: String,
+) {
 
     fun validate() {
         validateNotBlank()

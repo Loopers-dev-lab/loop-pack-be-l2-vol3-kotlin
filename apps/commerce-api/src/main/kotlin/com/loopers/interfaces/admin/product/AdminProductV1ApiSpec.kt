@@ -7,7 +7,7 @@ import com.loopers.interfaces.admin.product.AdminProductV1Dto.UpdateProductReque
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
-import org.springframework.data.domain.Page
+import com.loopers.interfaces.api.PageResponse
 
 @Tag(name = "Admin Product V1 API", description = "상품 관리 API")
 interface AdminProductV1ApiSpec {
@@ -53,7 +53,7 @@ interface AdminProductV1ApiSpec {
         page: Int,
         size: Int,
         sort: String?,
-    ): ApiResponse<Page<ProductInfo>>
+    ): ApiResponse<PageResponse<ProductInfo>>
 
     @Operation(
         summary = "상품 생성",

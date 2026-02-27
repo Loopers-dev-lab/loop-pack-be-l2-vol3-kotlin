@@ -23,9 +23,11 @@ import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.domain.PageRequest
+import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 
 @SpringBootTest
+@Transactional
 class ProductLikeServiceIntegrationTest @Autowired constructor(
     private val productLikeService: ProductLikeService,
     private val productLikeJpaRepository: ProductLikeJpaRepository,
@@ -39,14 +41,15 @@ class ProductLikeServiceIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun createBrand(): Brand {
-        return Brand.create(name = "Test Brand", description = "Test Description")
+    private fun createBrand(name: String = "Test Brand ${System.nanoTime()}"): Brand {
+        return Brand.create(name = name, description = "Test Description")
             .let { brandJpaRepository.save(it) }
     }
 
-    private fun createProduct(brand: Brand = createBrand()): Product {
+    private fun createProduct(brand: Brand? = null): Product {
+        val productBrand = brand ?: createBrand()
         return Product.create(
-            brand = brand,
+            brand = productBrand,
             name = "Test Product",
             price = BigDecimal("10000.00"),
             stock = 100,
@@ -157,9 +160,10 @@ class ProductLikeServiceIntegrationTest @Autowired constructor(
         fun returnsMyLikedProducts_inDescendingOrderByCreatedAt() {
             // arrange
             val user = createUser()
-            val product1 = createProduct()
-            val product2 = createProduct()
-            val product3 = createProduct()
+            val brand = createBrand()
+            val product1 = createProduct(brand)
+            val product2 = createProduct(brand)
+            val product3 = createProduct(brand)
 
             productLikeService.addProductLike(user, product1)
             productLikeService.addProductLike(user, product2)

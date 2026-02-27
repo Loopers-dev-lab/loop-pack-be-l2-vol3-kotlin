@@ -9,7 +9,7 @@ import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.admin.product.AdminProductV1Dto.CreateProductRequest
 import com.loopers.interfaces.admin.product.AdminProductV1Dto.UpdateProductRequest
-import org.springframework.data.domain.Page
+import com.loopers.interfaces.api.PageResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -22,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.math.BigDecimal
@@ -36,7 +37,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
 ) {
 
     companion object {
-        private const val ADMIN_ENDPOINT = "/api/v1/admin/products"
+        private const val ADMIN_ENDPOINT = "/api-admin/v1/products"
+
+        private fun createAdminHeaders(): HttpHeaders {
+            val headers = HttpHeaders()
+            headers["X-LDAP-Username"] = "admin"
+            headers["X-LDAP-Role"] = "ADMIN"
+            return headers
+        }
     }
 
     @AfterEach
@@ -62,13 +70,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -100,13 +109,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -131,13 +141,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -159,13 +170,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -187,13 +199,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = -1,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
             val response = testRestTemplate.exchange(
                 ADMIN_ENDPOINT,
                 HttpMethod.POST,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -222,13 +235,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     status = ProductStatus.ACTIVE,
                 ),
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<ProductInfo>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/${product.id}",
                 HttpMethod.GET,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 
@@ -246,11 +260,12 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
         @Test
         fun failsToRetrieveProduct_whenProductNotFound() {
             // act
+            val headers = createAdminHeaders()
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/9999",
                 HttpMethod.GET,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 
@@ -291,13 +306,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     status = ProductStatus.ACTIVE,
                 ),
             )
+            val headers = createAdminHeaders()
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT?page=0&size=20",
                 HttpMethod.GET,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 
@@ -315,11 +331,12 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
         @Test
         fun failsToRetrieveProducts_whenPageIsNegative() {
             // act
+            val headers = createAdminHeaders()
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT?page=-1&size=20",
                 HttpMethod.GET,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 
@@ -334,11 +351,12 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
         @Test
         fun failsToRetrieveProducts_whenSizeIsInvalid() {
             // act
+            val headers = createAdminHeaders()
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT?page=0&size=999",
                 HttpMethod.GET,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 
@@ -365,13 +383,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     status = ProductStatus.ACTIVE,
                 ),
             )
+            val headers = createAdminHeaders()
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT?page=0&size=50",
                 HttpMethod.GET,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 
@@ -410,13 +429,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.INACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/${product.id}",
                 HttpMethod.PUT,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -442,13 +462,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/9999",
                 HttpMethod.PUT,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -482,13 +503,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/${product.id}",
                 HttpMethod.PUT,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -519,13 +541,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 stock = 50,
                 status = ProductStatus.ACTIVE,
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/${product.id}",
                 HttpMethod.PUT,
-                HttpEntity(request),
+                HttpEntity(request, headers),
                 responseType,
             )
 
@@ -554,13 +577,14 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     status = ProductStatus.ACTIVE,
                 ),
             )
+            val headers = createAdminHeaders()
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/${product.id}",
                 HttpMethod.DELETE,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 
@@ -577,11 +601,12 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
         @Test
         fun failsToDeleteProduct_whenProductNotFound() {
             // act
+            val headers = createAdminHeaders()
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
             val response = testRestTemplate.exchange(
                 "$ADMIN_ENDPOINT/9999",
                 HttpMethod.DELETE,
-                HttpEntity<Any>(null),
+                HttpEntity<Any>(null, headers),
                 responseType,
             )
 

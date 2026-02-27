@@ -5,7 +5,7 @@ import org.springframework.data.domain.Sort
 enum class ProductSortOption(
     val sortOrder: Sort.Order,
 ) {
-    LATEST(Sort.Order.asc("createdAt")),
+    LATEST(Sort.Order.desc("createdAt")),
     PRICE_ASC(Sort.Order.asc("price")),
     ;
 

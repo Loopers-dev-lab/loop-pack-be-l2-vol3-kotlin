@@ -18,7 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
-import org.springframework.data.domain.Page
+import com.loopers.interfaces.api.PageResponse
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
@@ -166,7 +166,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 PRODUCTS_ENDPOINT,
                 HttpMethod.GET,
@@ -175,12 +175,10 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
 
             // assert
-            assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data?.totalElements).isEqualTo(2L) },
-                { assertThat(response.body?.data?.number).isEqualTo(0) },
-                { assertThat(response.body?.data?.size).isEqualTo(20) },
-            )
+            assertThat(response.statusCode).`as`("statusCode").isEqualTo(HttpStatus.OK)
+            assertThat(response.body?.data?.totalElements).`as`("totalElements").isEqualTo(2L)
+            assertThat(response.body?.data?.number).`as`("number").isEqualTo(0)
+            assertThat(response.body?.data?.size).`as`("size").isEqualTo(20)
         }
 
         @DisplayName("brandId 필터로 해당 브랜드의 상품만 반환한다.")
@@ -197,7 +195,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$PRODUCTS_ENDPOINT?brandId=${brand1.id}",
                 HttpMethod.GET,
@@ -230,7 +228,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             }
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$PRODUCTS_ENDPOINT?page=1&size=20",
                 HttpMethod.GET,
@@ -251,7 +249,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
         @Test
         fun throwsBadRequest_whenSizeIsInvalid() {
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$PRODUCTS_ENDPOINT?size=30",
                 HttpMethod.GET,
@@ -267,7 +265,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
         @Test
         fun throwsBadRequest_whenPageIsNegative() {
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$PRODUCTS_ENDPOINT?page=-1",
                 HttpMethod.GET,
@@ -304,7 +302,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 PRODUCTS_ENDPOINT,
                 HttpMethod.GET,
@@ -345,7 +343,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             productJpaRepository.save(deletedProduct)
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 PRODUCTS_ENDPOINT,
                 HttpMethod.GET,
@@ -385,7 +383,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
 
             // act - LATEST (기본값, createdAt 역순)
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$PRODUCTS_ENDPOINT?sort=latest",
                 HttpMethod.GET,
@@ -424,7 +422,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Page<ProductInfo>>>() {}
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
                 "$PRODUCTS_ENDPOINT?sort=price_asc",
                 HttpMethod.GET,
