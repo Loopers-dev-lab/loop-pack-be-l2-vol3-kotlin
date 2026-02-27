@@ -108,12 +108,12 @@ class ApiControllerAdvice {
     @ExceptionHandler
     fun handleMethodArgumentNotValid(e: MethodArgumentNotValidException): ResponseEntity<ApiResponse<*>> {
         val fieldMessages = e.bindingResult.fieldErrors.map { error ->
-            "'${error.field}': ${error.defaultMessage}"
+            "'${error.field}': ${error.defaultMessage ?: "유효하지 않은 값입니다."}"
         }
         val globalMessages = e.bindingResult.globalErrors.map { error ->
             error.defaultMessage ?: "유효하지 않은 요청입니다."
         }
-        val message = (fieldMessages + globalMessages).joinToString(", ")
+        val message = (fieldMessages + globalMessages).joinToString(", ").ifEmpty { "유효성 검증에 실패했습니다." }
         return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
     }
 

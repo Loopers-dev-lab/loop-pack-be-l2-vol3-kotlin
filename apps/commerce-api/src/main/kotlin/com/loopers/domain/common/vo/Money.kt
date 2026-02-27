@@ -17,7 +17,10 @@ value class Money(val value: BigDecimal) {
 
     operator fun minus(other: Money): Money = Money(value - other.value)
 
-    operator fun times(quantity: Int): Money = Money(value * BigDecimal(quantity))
+    operator fun times(quantity: Int): Money {
+        require(quantity > 0) { "수량은 0보다 커야 합니다." }
+        return Money(value * BigDecimal(quantity))
+    }
 
     fun toLong(): Long = value.setScale(0, RoundingMode.HALF_UP).toLong()
 }

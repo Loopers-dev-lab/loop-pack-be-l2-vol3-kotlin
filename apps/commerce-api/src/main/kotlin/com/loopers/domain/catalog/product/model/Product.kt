@@ -36,6 +36,10 @@ class Product(
     var deletedAt: ZonedDateTime? = deletedAt
         private set
 
+    init {
+        require(likeCount >= 0) { "likeCount는 0 이상이어야 합니다." }
+    }
+
     enum class ProductStatus {
         ON_SALE,
         SOLD_OUT,

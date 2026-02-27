@@ -4,11 +4,13 @@ import com.loopers.application.catalog.brand.GetBrandUseCase
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto
 import com.loopers.interfaces.api.brand.spec.BrandV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/brands")
 class BrandV1Controller(

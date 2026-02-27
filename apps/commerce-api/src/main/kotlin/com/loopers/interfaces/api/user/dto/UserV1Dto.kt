@@ -14,6 +14,7 @@ class UserV1Dto {
         @field:Size(min = 4, max = 16, message = "로그인 ID는 4~16자여야 합니다.")
         @field:Pattern(regexp = "^[a-zA-Z0-9]+$", message = "로그인 ID는 영문 및 숫자만 허용됩니다.")
         val loginId: String,
+        @field:NotBlank(message = "비밀번호는 필수입니다.")
         @field:Size(min = 8, max = 16, message = "비밀번호는 8~16자여야 합니다.")
         val password: String,
         @field:NotBlank(message = "이름은 필수입니다.")
@@ -55,8 +56,10 @@ class UserV1Dto {
     }
 
     data class ChangePasswordRequest(
+        @field:NotBlank(message = "비밀번호는 필수입니다.")
         @field:Size(min = 8, max = 16, message = "비밀번호는 8~16자여야 합니다.")
         val currentPassword: String,
+        @field:NotBlank(message = "비밀번호는 필수입니다.")
         @field:Size(min = 8, max = 16, message = "비밀번호는 8~16자여야 합니다.")
         val newPassword: String,
     )

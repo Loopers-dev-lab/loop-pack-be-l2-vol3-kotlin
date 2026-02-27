@@ -7,12 +7,14 @@ import com.loopers.interfaces.api.like.dto.LikeV1Dto
 import com.loopers.interfaces.api.like.spec.LikeV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 class LikeV1Controller(
     private val addLikeUseCase: AddLikeUseCase,

@@ -45,6 +45,7 @@ class Order private constructor(
 
     companion object {
         fun create(userId: UserId, items: List<Pair<OrderProductInfo, Quantity>>): Order {
+            require(items.isNotEmpty()) { "주문은 최소 하나 이상의 항목을 포함해야 합니다." }
             val orderItems = items.map { (info, quantity) ->
                 OrderItem.create(info, quantity)
             }

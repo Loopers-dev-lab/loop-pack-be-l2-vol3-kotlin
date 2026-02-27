@@ -20,6 +20,10 @@ value class Stock(val value: Int) {
     }
 
     fun increase(quantity: Quantity): Stock {
-        return Stock(value + quantity.value)
+        try {
+            return Stock(Math.addExact(value, quantity.value))
+        } catch (e: ArithmeticException) {
+            throw CoreException(ErrorType.BAD_REQUEST, "재고 수량이 최대값을 초과합니다.")
+        }
     }
 }
