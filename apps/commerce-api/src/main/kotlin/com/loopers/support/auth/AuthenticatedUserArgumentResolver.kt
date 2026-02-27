@@ -1,6 +1,5 @@
 package com.loopers.support.auth
 
-import com.loopers.application.user.AuthenticatedUserInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.core.MethodParameter

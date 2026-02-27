@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.application.user.UserInfo
+import com.loopers.application.user.UserMeInfo
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
@@ -43,13 +44,13 @@ class UserDto {
         val loginId: String,
         val name: String,
         val email: String,
-        val birthday: LocalDate?,
+        val birthday: LocalDate,
     ) {
         companion object {
-            fun from(info: UserInfo): MeResponse {
+            fun from(info: UserMeInfo): MeResponse {
                 return MeResponse(
                     loginId = info.loginId,
-                    name = info.maskedName ?: info.name,
+                    name = info.maskedName,
                     email = info.email,
                     birthday = info.birthday,
                 )

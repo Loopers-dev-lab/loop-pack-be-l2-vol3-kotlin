@@ -36,6 +36,5 @@ class BrandService(
 
     fun delete(brand: Brand) {
         brand.delete()
-        brandRepository.save(brand)
     }
 }

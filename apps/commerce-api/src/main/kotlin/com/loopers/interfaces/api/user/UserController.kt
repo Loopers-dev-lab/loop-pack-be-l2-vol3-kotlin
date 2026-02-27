@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.AuthenticatedUserInfo
+import com.loopers.support.auth.AuthenticatedUserInfo
 import com.loopers.application.user.UserFacade
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser

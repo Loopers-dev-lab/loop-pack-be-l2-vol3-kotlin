@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.like
 
-import com.loopers.application.user.AuthenticatedUserInfo
+import com.loopers.support.auth.AuthenticatedUserInfo
 import com.loopers.interfaces.common.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag

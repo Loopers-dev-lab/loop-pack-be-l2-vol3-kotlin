@@ -1,6 +1,7 @@
 package com.loopers.application.user
 
 import com.loopers.domain.user.UserService
+import com.loopers.support.auth.AuthenticatedUserInfo
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -31,7 +32,7 @@ class UserFacadeTest {
     inner class GetMe {
         @DisplayName("인증된 사용자를 전달하면, 마스킹된 이름이 포함된 사용자 정보를 반환한다.")
         @Test
-        fun returnsUserInfoWithMaskedName_whenAuthenticatedUserProvided() {
+        fun returnsUserMeInfoWithMaskedName_whenAuthenticatedUserProvided() {
             // arrange
             val userInfo = AuthenticatedUserInfo(
                 id = 0L,

@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderFacade
-import com.loopers.application.user.AuthenticatedUserInfo
+import com.loopers.support.auth.AuthenticatedUserInfo
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser
 import org.springframework.format.annotation.DateTimeFormat

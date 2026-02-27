@@ -1,7 +1,6 @@
 package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.loopers.application.user.UserFacade
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -18,7 +17,7 @@ import org.springframework.stereotype.Component
 @Component
 @Order(1)
 class AuthenticationFilter(
-    private val userFacade: UserFacade,
+    private val authenticator: Authenticator,
     private val objectMapper: ObjectMapper,
 ) : Filter {
 
@@ -57,7 +56,7 @@ class AuthenticationFilter(
                     return
                 }
 
-                val user = userFacade.authenticate(loginId, password)
+                val user = authenticator.authenticate(loginId, password)
                 httpRequest.setAttribute(AUTHENTICATED_USER_ATTRIBUTE, user)
             }
 

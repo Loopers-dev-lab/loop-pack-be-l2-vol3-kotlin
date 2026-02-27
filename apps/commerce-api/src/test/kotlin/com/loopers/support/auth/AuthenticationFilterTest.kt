@@ -1,8 +1,6 @@
 package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.loopers.application.user.AuthenticatedUserInfo
-import com.loopers.application.user.UserFacade
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
@@ -25,7 +23,7 @@ import java.time.LocalDate
 class AuthenticationFilterTest {
 
     @Mock
-    private lateinit var userFacade: UserFacade
+    private lateinit var authenticator: Authenticator
 
     @Mock
     private lateinit var filterChain: FilterChain
@@ -36,7 +34,7 @@ class AuthenticationFilterTest {
 
     @BeforeEach
     fun setUp() {
-        authenticationFilter = AuthenticationFilter(userFacade, objectMapper)
+        authenticationFilter = AuthenticationFilter(authenticator, objectMapper)
     }
 
     @DisplayName("인증 필터가")
@@ -61,7 +59,7 @@ class AuthenticationFilterTest {
             request.addHeader("X-Loopers-LoginId", loginId)
             request.addHeader("X-Loopers-LoginPw", password)
 
-            whenever(userFacade.authenticate(loginId, password)).thenReturn(userInfo)
+            whenever(authenticator.authenticate(loginId, password)).thenReturn(userInfo)
 
             // act
             authenticationFilter.doFilter(request, response, filterChain)
@@ -83,7 +81,7 @@ class AuthenticationFilterTest {
             authenticationFilter.doFilter(request, response, filterChain)
 
             // assert
-            verify(userFacade, never()).authenticate(any(), any())
+            verify(authenticator, never()).authenticate(any(), any())
             verify(filterChain).doFilter(request, response)
         }
 

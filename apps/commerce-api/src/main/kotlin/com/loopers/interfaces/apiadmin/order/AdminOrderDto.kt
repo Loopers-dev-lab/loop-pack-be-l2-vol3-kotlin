@@ -4,7 +4,6 @@ import com.loopers.application.order.AdminOrderInfo
 import com.loopers.application.order.OrderDetailInfo
 import com.loopers.application.order.OrderItemInfo
 import com.loopers.domain.common.PageResult
-import com.loopers.domain.order.OrderStatus
 import java.time.ZonedDateTime
 
 class AdminOrderDto {
@@ -32,7 +31,7 @@ class AdminOrderDto {
         val orderId: Long,
         val userId: Long,
         val totalAmount: Long,
-        val status: OrderStatus,
+        val status: String,
         val orderedAt: ZonedDateTime,
     ) {
         companion object {
@@ -41,7 +40,7 @@ class AdminOrderDto {
                     orderId = info.orderId,
                     userId = info.userId,
                     totalAmount = info.totalAmount,
-                    status = info.status,
+                    status = info.status.name,
                     orderedAt = info.orderedAt,
                 )
             }
@@ -52,7 +51,7 @@ class AdminOrderDto {
         val orderId: Long,
         val userId: Long,
         val totalAmount: Long,
-        val status: OrderStatus,
+        val status: String,
         val orderedAt: ZonedDateTime,
         val items: List<ItemResponse>,
     ) {
@@ -62,7 +61,7 @@ class AdminOrderDto {
                     orderId = info.orderId,
                     userId = info.userId,
                     totalAmount = info.totalAmount,
-                    status = info.status,
+                    status = info.status.name,
                     orderedAt = info.orderedAt,
                     items = info.items.map { ItemResponse.from(it) },
                 )

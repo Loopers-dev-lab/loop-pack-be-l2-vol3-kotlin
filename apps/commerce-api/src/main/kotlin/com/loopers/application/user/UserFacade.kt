@@ -1,6 +1,8 @@
 package com.loopers.application.user
 
 import com.loopers.domain.user.UserService
+import com.loopers.support.auth.AuthenticatedUserInfo
+import com.loopers.support.auth.Authenticator
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -8,19 +10,25 @@ import java.time.LocalDate
 @Component
 class UserFacade(
     private val userService: UserService,
-) {
+) : Authenticator {
     fun signUp(loginId: String, password: String, name: String, email: String, birthday: LocalDate): UserInfo {
         return userService.signUp(loginId, password, name, email, birthday)
             .let { UserInfo.from(it) }
     }
 
-    fun authenticate(loginId: String, password: String): AuthenticatedUserInfo {
-        return userService.authenticate(loginId, password)
-            .let { AuthenticatedUserInfo.from(it) }
+    override fun authenticate(loginId: String, password: String): AuthenticatedUserInfo {
+        val user = userService.authenticate(loginId, password)
+        return AuthenticatedUserInfo(
+            id = user.id,
+            loginId = user.loginId.value,
+            name = user.name,
+            email = user.email.value,
+            birthday = user.birthday,
+        )
     }
 
-    fun getMe(userInfo: AuthenticatedUserInfo): UserInfo {
-        return UserInfo.fromWithMasking(userInfo)
+    fun getMe(userInfo: AuthenticatedUserInfo): UserMeInfo {
+        return UserMeInfo.from(userInfo)
     }
 
     @Transactional

@@ -45,4 +45,10 @@ class ArchitectureTest {
         .that().resideInAPackage("..infrastructure..")
         .should().dependOnClassesThat()
         .resideInAPackage("..interfaces..")
+
+    @ArchTest
+    val `support는 application에 의존하지 않는다`: ArchRule = noClasses()
+        .that().resideInAPackage("..support..")
+        .should().dependOnClassesThat()
+        .resideInAPackage("..application..")
 }

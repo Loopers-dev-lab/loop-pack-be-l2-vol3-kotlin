@@ -6,7 +6,6 @@ import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
 import com.loopers.infrastructure.common.toPageRequest
 import com.loopers.infrastructure.common.toPageResult
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 
 @Component
@@ -14,8 +13,7 @@ class BrandRepositoryImpl(
     private val brandJpaRepository: BrandJpaRepository,
 ) : BrandRepository {
     override fun findById(id: Long): Brand? {
-        return brandJpaRepository.findByIdOrNull(id)
-            ?.takeIf { it.deletedAt == null }
+        return brandJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
     override fun findAll(pageQuery: PageQuery): PageResult<Brand> {
