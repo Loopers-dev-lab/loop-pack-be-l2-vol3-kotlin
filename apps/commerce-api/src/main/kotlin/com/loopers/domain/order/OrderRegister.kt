@@ -8,16 +8,7 @@ class OrderRegister(
     private val orderRepository: OrderRepository,
 ) {
 
-    fun register(memberId: Long, orderItemCommands: List<OrderItemCommand>): Order {
-        val orderItems = orderItemCommands.map { command ->
-            OrderItem(
-                productId = command.productId,
-                productName = command.productName,
-                productPrice = command.productPrice,
-                quantity = command.quantity,
-            )
-        }
-
+    fun register(memberId: Long, orderItems: List<OrderItem>): Order {
         val totalPrice = orderItems.sumOf { it.subtotal }
 
         val order = Order(
@@ -29,11 +20,4 @@ class OrderRegister(
 
         return orderRepository.save(order)
     }
-
-    data class OrderItemCommand(
-        val productId: Long,
-        val productName: String,
-        val productPrice: Long,
-        val quantity: Int,
-    )
 }
