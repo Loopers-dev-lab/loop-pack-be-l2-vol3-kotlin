@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository
 
 interface BrandJpaRepository : JpaRepository<BrandEntity, Long> {
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<BrandEntity>
+    fun existsByName(name: String): Boolean
 }
 
 @Repository
@@ -31,5 +32,9 @@ class BrandRepositoryImpl(
         val pageable = PageRequest.of(page, size)
         val result = brandJpaRepository.findAllByDeletedAtIsNull(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
+    }
+
+    override fun existsByName(name: String): Boolean {
+        return brandJpaRepository.existsByName(name)
     }
 }

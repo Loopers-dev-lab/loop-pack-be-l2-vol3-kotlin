@@ -12,7 +12,7 @@ import jakarta.persistence.Table
 @Entity
 @Table(name = "brands")
 class BrandEntity(
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, unique = true)
     var name: String,
 ) : BaseEntity() {
 

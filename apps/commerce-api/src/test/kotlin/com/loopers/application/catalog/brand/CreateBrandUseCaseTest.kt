@@ -1,11 +1,14 @@
 package com.loopers.application.catalog.brand
 
 import com.loopers.domain.catalog.brand.FakeBrandRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class CreateBrandUseCaseTest {
 
@@ -31,6 +34,19 @@ class CreateBrandUseCaseTest {
             // assert
             assertThat(result.name).isEqualTo("나이키")
             assertThat(result.id).isNotEqualTo(0L)
+        }
+
+        @Test
+        @DisplayName("동일한 이름의 브랜드가 이미 존재하면 CONFLICT 예외가 발생한다")
+        fun createBrand_withDuplicateName_throwsConflict() {
+            // arrange
+            useCase.execute("나이키")
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                useCase.execute("나이키")
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
     }
 }

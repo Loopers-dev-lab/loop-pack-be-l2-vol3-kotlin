@@ -35,4 +35,8 @@ class FakeBrandRepository : BrandRepository {
         val content = active.drop(offset).take(size)
         return PageResult(content, active.size.toLong(), page, size)
     }
+
+    override fun existsByName(name: String): Boolean {
+        return brands.any { it.name.value == name }
+    }
 }

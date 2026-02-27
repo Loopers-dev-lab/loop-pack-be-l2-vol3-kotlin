@@ -8,4 +8,5 @@ interface BrandRepository {
     fun save(brand: Brand): Brand
     fun findById(id: BrandId): Brand?
     fun findAll(page: Int, size: Int): PageResult<Brand>
+    fun existsByName(name: String): Boolean
 }
