@@ -86,6 +86,14 @@ class AdminProductDto {
         }
     }
 
+    data class UpdateRequest(
+        val name: String,
+        val description: String?,
+        val price: Long,
+        val stockQuantity: Int,
+        val brandId: Long,
+    )
+
     data class CreateRequest(
         val name: String,
         val description: String?,

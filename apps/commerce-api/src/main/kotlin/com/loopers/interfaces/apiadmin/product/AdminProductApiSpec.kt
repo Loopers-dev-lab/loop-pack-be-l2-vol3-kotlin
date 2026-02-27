@@ -27,4 +27,10 @@ interface AdminProductApiSpec {
         description = "특정 상품의 상세 정보를 조회합니다.",
     )
     fun getProductDetail(productId: Long): ApiResponse<AdminProductDto.DetailResponse>
+
+    @Operation(
+        summary = "상품 수정",
+        description = "특정 상품의 정보를 수정합니다.",
+    )
+    fun updateProduct(productId: Long, request: AdminProductDto.UpdateRequest): ApiResponse<AdminProductDto.DetailResponse>
 }

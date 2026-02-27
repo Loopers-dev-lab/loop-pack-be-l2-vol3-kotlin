@@ -22,6 +22,9 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.whenever
 import org.springframework.test.util.ReflectionTestUtils
 import java.time.ZonedDateTime
@@ -160,6 +163,93 @@ class AdminProductFacadeTest {
                 { assertThat(result.content).isEmpty() },
                 { assertThat(result.totalElements).isEqualTo(0) },
             )
+        }
+    }
+
+    @DisplayName("어드민 상품 수정할 때,")
+    @Nested
+    inner class UpdateProduct {
+
+        @DisplayName("유효한 요청이면, 수정된 AdminProductInfo를 반환한다.")
+        @Test
+        fun returnsUpdatedAdminProductInfo_whenValidRequest() {
+            // arrange
+            val now = ZonedDateTime.now()
+            val brand = Brand(name = "나이키", description = "스포츠 브랜드")
+            ReflectionTestUtils.setField(brand, "id", 1L)
+
+            val product = Product(
+                name = "에어맥스",
+                description = "러닝화",
+                price = Money.of(159000L),
+                likes = LikeCount.of(10),
+                stockQuantity = StockQuantity.of(100),
+                brandId = 1L,
+            )
+            ReflectionTestUtils.setField(product, "id", 1L)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productService.getProduct(1L)).thenReturn(product)
+            doAnswer { invocation ->
+                val targetProduct = invocation.getArgument<Product>(0)
+                val newName = invocation.getArgument<String>(1)
+                val newDescription = invocation.getArgument<String?>(2)
+                val newPrice = invocation.getArgument<Long>(3)
+                val newStockQuantity = invocation.getArgument<Int>(4)
+                targetProduct.update(newName, newDescription, newPrice, newStockQuantity)
+                null
+            }.whenever(productService).updateProduct(
+                any(),
+                any(),
+                anyOrNull(),
+                any(),
+                any(),
+                any(),
+            )
+            whenever(brandService.getBrand(1L)).thenReturn(brand)
+
+            // act
+            val result = adminProductFacade.updateProduct(
+                productId = 1L,
+                name = "수정된 상품",
+                description = "수정된 설명",
+                price = 200000L,
+                stockQuantity = 50,
+                brandId = 1L,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(1L) },
+                { assertThat(result.name).isEqualTo("수정된 상품") },
+                { assertThat(result.description).isEqualTo("수정된 설명") },
+                { assertThat(result.price).isEqualTo(200000L) },
+                { assertThat(result.stockQuantity).isEqualTo(50) },
+                { assertThat(result.brandName).isEqualTo("나이키") },
+            )
+        }
+
+        @DisplayName("존재하지 않는 상품이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenProductNotExists() {
+            // arrange
+            whenever(productService.getProduct(999L))
+                .thenThrow(CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminProductFacade.updateProduct(
+                    productId = 999L,
+                    name = "수정",
+                    description = null,
+                    price = 100000L,
+                    stockQuantity = 10,
+                    brandId = 1L,
+                )
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 

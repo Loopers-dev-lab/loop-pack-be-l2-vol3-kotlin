@@ -5,6 +5,7 @@ import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
 import com.loopers.domain.product.ProductService
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class AdminProductFacade(
@@ -26,6 +27,21 @@ class AdminProductFacade(
 
     fun getProductDetail(productId: Long): AdminProductInfo {
         val product = productService.getProduct(productId)
+        val brand = brandService.getBrand(product.brandId)
+        return AdminProductInfo.from(product, brand)
+    }
+
+    @Transactional
+    fun updateProduct(
+        productId: Long,
+        name: String,
+        description: String?,
+        price: Long,
+        stockQuantity: Int,
+        brandId: Long,
+    ): AdminProductInfo {
+        val product = productService.getProduct(productId)
+        productService.updateProduct(product, name, description, price, stockQuantity, brandId)
         val brand = brandService.getBrand(product.brandId)
         return AdminProductInfo.from(product, brand)
     }
