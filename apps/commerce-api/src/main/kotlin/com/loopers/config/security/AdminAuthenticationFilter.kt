@@ -11,6 +11,10 @@ import org.springframework.web.filter.OncePerRequestFilter
 
 class AdminAuthenticationFilter : OncePerRequestFilter() {
 
+    companion object {
+        private const val VALID_LDAP = "loopers.admin"
+    }
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -19,6 +23,11 @@ class AdminAuthenticationFilter : OncePerRequestFilter() {
         val ldap = request.getHeader(HttpHeaders.LDAP)
 
         if (ldap.isNullOrBlank()) {
+            filterChain.doFilter(request, response)
+            return
+        }
+
+        if (ldap != VALID_LDAP) {
             filterChain.doFilter(request, response)
             return
         }
