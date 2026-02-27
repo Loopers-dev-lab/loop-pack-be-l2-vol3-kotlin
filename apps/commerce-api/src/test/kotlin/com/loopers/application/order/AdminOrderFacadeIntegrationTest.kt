@@ -10,9 +10,12 @@ import com.loopers.domain.common.SortOrder
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 
@@ -47,7 +51,7 @@ class AdminOrderFacadeIntegrationTest @Autowired constructor(
         )
     }
 
-    private fun createOrder(userId: Long, brand: Brand, product: Product) {
+    private fun createOrder(userId: Long, brand: Brand, product: Product): Order {
         val items = listOf(
             OrderItemCommand(
                 productId = product.id,
@@ -57,7 +61,7 @@ class AdminOrderFacadeIntegrationTest @Autowired constructor(
                 brandName = brand.name,
             ),
         )
-        orderService.createOrder(userId, items)
+        return orderService.createOrder(userId, items)
     }
 
     @DisplayName("어드민 주문 목록 조회할 때,")
@@ -140,6 +144,46 @@ class AdminOrderFacadeIntegrationTest @Autowired constructor(
                 { assertThat(result.content).isEmpty() },
                 { assertThat(result.totalElements).isEqualTo(0) },
             )
+        }
+    }
+
+    @DisplayName("어드민 주문 상세 조회할 때,")
+    @Nested
+    inner class GetOrder {
+
+        @DisplayName("존재하는 주문이면, 주문 상세 정보를 반환한다.")
+        @Test
+        fun returnsOrderDetailInfo_whenOrderExists() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val order = createOrder(1L, brand, product)
+
+            // act
+            val result = adminOrderFacade.getOrder(order.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.orderId).isEqualTo(order.id) },
+                { assertThat(result.userId).isEqualTo(1L) },
+                { assertThat(result.totalAmount).isEqualTo(159000L) },
+                { assertThat(result.status).isEqualTo(OrderStatus.ORDERED) },
+                { assertThat(result.orderedAt).isNotNull() },
+                { assertThat(result.items).hasSize(1) },
+                { assertThat(result.items.first().productName).isEqualTo("에어맥스") },
+                { assertThat(result.items.first().brandName).isEqualTo("나이키") },
+            )
+        }
+
+        @DisplayName("존재하지 않는 주문이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenOrderNotExists() {
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                adminOrderFacade.getOrder(999L)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }

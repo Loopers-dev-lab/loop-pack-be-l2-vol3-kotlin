@@ -1,6 +1,8 @@
 package com.loopers.interfaces.apiadmin.order
 
 import com.loopers.application.order.AdminOrderInfo
+import com.loopers.application.order.OrderDetailInfo
+import com.loopers.application.order.OrderItemInfo
 import com.loopers.domain.common.PageResult
 import com.loopers.domain.order.OrderStatus
 import java.time.ZonedDateTime
@@ -41,6 +43,48 @@ class AdminOrderDto {
                     totalAmount = info.totalAmount,
                     status = info.status,
                     orderedAt = info.orderedAt,
+                )
+            }
+        }
+    }
+
+    data class DetailResponse(
+        val orderId: Long,
+        val userId: Long,
+        val totalAmount: Long,
+        val status: OrderStatus,
+        val orderedAt: ZonedDateTime,
+        val items: List<ItemResponse>,
+    ) {
+        companion object {
+            fun from(info: OrderDetailInfo): DetailResponse {
+                return DetailResponse(
+                    orderId = info.orderId,
+                    userId = info.userId,
+                    totalAmount = info.totalAmount,
+                    status = info.status,
+                    orderedAt = info.orderedAt,
+                    items = info.items.map { ItemResponse.from(it) },
+                )
+            }
+        }
+    }
+
+    data class ItemResponse(
+        val productId: Long,
+        val quantity: Int,
+        val productName: String,
+        val productPrice: Long,
+        val brandName: String,
+    ) {
+        companion object {
+            fun from(info: OrderItemInfo): ItemResponse {
+                return ItemResponse(
+                    productId = info.productId,
+                    quantity = info.quantity,
+                    productName = info.productName,
+                    productPrice = info.productPrice,
+                    brandName = info.brandName,
                 )
             }
         }
