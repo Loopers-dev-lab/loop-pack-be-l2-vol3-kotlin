@@ -1,6 +1,8 @@
 package com.loopers.application.like
 
+import com.loopers.domain.brand.Brand
 import com.loopers.domain.like.Like
+import com.loopers.domain.product.Product
 
 class LikeInfo {
 
@@ -24,5 +26,15 @@ class LikeInfo {
         val productName: String,
         val price: Long,
         val brandName: String,
-    )
+    ) {
+        companion object {
+            fun from(like: Like, product: Product, brand: Brand?) = Detail(
+                id = requireNotNull(like.id),
+                productId = product.id!!,
+                productName = product.name.value,
+                price = product.price.value,
+                brandName = brand?.name?.value ?: "",
+            )
+        }
+    }
 }

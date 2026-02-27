@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
 
 class ProductInfo {
@@ -16,10 +17,10 @@ class ProductInfo {
         val likeCount: Long,
     ) {
         companion object {
-            fun from(product: Product, brandName: String, likeCount: Long) = Detail(
+            fun from(product: Product, brand: Brand, likeCount: Long) = Detail(
                 id = requireNotNull(product.id) { "상품 저장 후 ID가 할당되지 않았습니다." },
                 brandId = product.brandId,
-                brandName = brandName,
+                brandName = brand.name.value,
                 name = product.name.value,
                 price = product.price.value,
                 description = product.description.value,
@@ -41,10 +42,10 @@ class ProductInfo {
         val likeCount: Long,
     ) {
         companion object {
-            fun from(product: Product, brandName: String, likeCount: Long) = Main(
+            fun from(product: Product, brand: Brand?, likeCount: Long) = Main(
                 id = requireNotNull(product.id) { "상품 저장 후 ID가 할당되지 않았습니다." },
                 brandId = product.brandId,
-                brandName = brandName,
+                brandName = brand?.name?.value ?: "",
                 name = product.name.value,
                 price = product.price.value,
                 stock = product.stock.value,
