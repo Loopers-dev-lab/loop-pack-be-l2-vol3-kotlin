@@ -2,9 +2,14 @@ package com.loopers.domain.user.vo
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import jakarta.persistence.Column
+import jakarta.persistence.Embeddable
 
-@JvmInline
-value class Email(val value: String) {
+@Embeddable
+data class Email(
+    @Column(name = "email", nullable = false, length = 255)
+    val value: String,
+) {
 
     fun validate() {
         validateNotBlank()

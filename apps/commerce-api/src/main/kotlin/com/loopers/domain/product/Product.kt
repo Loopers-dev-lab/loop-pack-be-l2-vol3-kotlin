@@ -61,6 +61,17 @@ class Product private constructor(
         this.stock = newStock
     }
 
+    fun minusStock(quantity: Int) {
+        if (stock - quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족 합니다")
+        }
+        this.stock -= quantity
+    }
+
+    fun plusStock(quantity: Int) {
+        this.stock += quantity
+    }
+
     override fun guard() {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "이름은 비어있을 수 없습니다")
@@ -93,8 +104,7 @@ class Product private constructor(
 
     fun decrementLikeCount() {
         if (likeCount <= 0) {
-            this.likeCount = 0
-            return
+            throw CoreException(ErrorType.BAD_REQUEST, "좋아요 수가 0 이하일 수 없습니다")
         }
         this.likeCount--
     }

@@ -294,7 +294,7 @@ class UserServiceTest {
 
         val existingUser = mockk<User> {
             every { password } returns Password("encodedOldPass")
-            every { this@mockk.birthDate } returns BirthDate.of("20260101")
+            every { this@mockk.birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -320,7 +320,7 @@ class UserServiceTest {
 
         val existingUser = mockk<User> {
             every { password } returns Password("encodedOldPass")
-            every { birthDate } returns BirthDate.of("20260101")
+            every { birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -346,7 +346,7 @@ class UserServiceTest {
 
         val existingUser = mockk<User> {
             every { password } returns Password("encodedOldPass")
-            every { birthDate } returns BirthDate.of("20260101")
+            every { birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -372,7 +372,7 @@ class UserServiceTest {
 
         val existingUser = mockk<User> {
             every { password } returns Password("encodedOldPass")
-            every { birthDate } returns BirthDate.of("20260101")
+            every { birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser

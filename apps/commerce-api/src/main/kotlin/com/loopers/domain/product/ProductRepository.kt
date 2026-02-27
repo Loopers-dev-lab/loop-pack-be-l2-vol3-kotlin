@@ -7,9 +7,13 @@ interface ProductRepository {
 
     fun findById(id: Long): Product?
 
+    fun findProductWithLock(id: Long): Product?
+
     fun findByBrandId(brandId: Long): List<Product>
 
     fun findWithPaging(brandId: Long?, pageable: Pageable): Page<Product>
+
+    fun findActiveProductsWithPaging(brandId: Long?, pageable: Pageable): Page<Product>
 
     fun save(product: Product): Product
 }

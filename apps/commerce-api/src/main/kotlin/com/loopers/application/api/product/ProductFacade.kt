@@ -14,6 +14,6 @@ class ProductFacade(
 ) {
     fun getProductInfo(id: Long): ProductInfo = productService.getProductInfo(id)
 
-    fun getProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> =
-        productService.getProducts(brandId, pageable)
+    fun getActiveProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> =
+        productService.getActiveProducts(brandId, pageable)
 }

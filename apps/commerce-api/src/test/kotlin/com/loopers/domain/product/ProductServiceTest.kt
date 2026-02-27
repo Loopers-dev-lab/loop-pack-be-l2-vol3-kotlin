@@ -17,7 +17,8 @@ import java.math.BigDecimal
 @DisplayName("ProductService")
 class ProductServiceTest {
     private val productRepository: ProductRepository = mockk()
-    private val productService = ProductService(productRepository)
+    private val productDomainService: ProductDomainService = mockk()
+    private val productService = ProductService(productDomainService, productRepository)
 
     private fun createBrand(name: String = "Test Brand"): Brand {
         return Brand.create(name = name, description = "Test Description")
@@ -170,6 +171,11 @@ class ProductServiceTest {
             val newStatus = ProductStatus.INACTIVE
 
             every { productRepository.findById(productId) } returns product
+            every { productDomainService.updateProductInfo(product, newName, newPrice, newStock, newStatus) } answers {
+                product.updateInfo(newName, newPrice)
+                product.changeStatus(newStatus)
+                product.updateStock(newStock)
+            }
 
             // act
             productService.updateProduct(
@@ -228,6 +234,10 @@ class ProductServiceTest {
             val productId = 1L
 
             every { productRepository.findById(productId) } returns product
+            every { productDomainService.updateProductInfo(product, "상품", BigDecimal("-100.00"), 100, ProductStatus.ACTIVE) } throws CoreException(
+                ErrorType.BAD_REQUEST,
+                "가격은 0 이상이어야 합니다.",
+            )
 
             // act & assert
             assertThatThrownBy {
@@ -257,6 +267,10 @@ class ProductServiceTest {
             val productId = 1L
 
             every { productRepository.findById(productId) } returns product
+            every { productDomainService.updateProductInfo(product, "상품", BigDecimal("10000.00"), -10, ProductStatus.ACTIVE) } throws CoreException(
+                ErrorType.BAD_REQUEST,
+                "재고는 0 이상이어야 합니다.",
+            )
 
             // act & assert
             assertThatThrownBy {
