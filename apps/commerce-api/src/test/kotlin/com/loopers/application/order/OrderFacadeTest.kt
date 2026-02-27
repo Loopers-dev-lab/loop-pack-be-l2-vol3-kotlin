@@ -163,7 +163,7 @@ class OrderFacadeTest {
             )
         }
 
-        @DisplayName("전체 예약 실패 시, BAD_REQUEST 예외가 전파된다.")
+        @DisplayName("전체 예약 실패 시, 실패 사유가 포함된 BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenAllReservationsFail() {
             // arrange
@@ -179,8 +179,6 @@ class OrderFacadeTest {
 
             whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
             whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
-            whenever(orderService.createOrder(eq(userId), any()))
-                .thenThrow(CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다."))
 
             // act
             val exception = assertThrows<CoreException> {
@@ -188,7 +186,10 @@ class OrderFacadeTest {
             }
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertAll(
+                { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
+                { assertThat(exception.message).contains("주문 가능한 상품이 없습니다") },
+            )
         }
     }
 }
