@@ -1,12 +1,13 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserFacade
+import com.loopers.application.user.UserChangePasswordService
+import com.loopers.application.user.UserMeService
+import com.loopers.application.user.UserSignUpService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.willDoNothing
 import org.mockito.BDDMockito.willThrow
 import org.mockito.kotlin.any
@@ -26,7 +27,9 @@ class UserV1ControllerChangePasswordTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
-    @MockitoBean private val userFacade: UserFacade,
+    @MockitoBean private val userSignUpService: UserSignUpService,
+    @MockitoBean private val userChangePasswordService: UserChangePasswordService,
+    @MockitoBean private val userMeService: UserMeService,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/users/me/password"
@@ -50,7 +53,7 @@ constructor(
         @DisplayName("200 OK와 성공 메시지를 반환한다")
         fun changePassword_success_returns200WithMessage() {
             // arrange
-            willDoNothing().given(userFacade).changePassword(
+            willDoNothing().given(userChangePasswordService).changePassword(
                 eq("testuser1"),
                 eq("Password1!"),
                 any(),
@@ -78,7 +81,7 @@ constructor(
         fun changePassword_wrongCurrentPassword_returns400() {
             // arrange
             willThrow(CoreException(ErrorType.USER_INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다."))
-                .given(userFacade).changePassword(
+                .given(userChangePasswordService).changePassword(
                     eq("testuser1"),
                     eq("Password1!"),
                     any(),
@@ -105,7 +108,7 @@ constructor(
         fun changePassword_samePassword_returns400() {
             // arrange
             willThrow(CoreException(ErrorType.USER_INVALID_PASSWORD, "새 비밀번호는 현재 비밀번호와 달라야 합니다."))
-                .given(userFacade).changePassword(
+                .given(userChangePasswordService).changePassword(
                     eq("testuser1"),
                     eq("Password1!"),
                     any(),
@@ -166,7 +169,7 @@ constructor(
         fun changePassword_invalidAuth_returns401() {
             // arrange
             willThrow(CoreException(ErrorType.UNAUTHORIZED))
-                .given(userFacade).changePassword(
+                .given(userChangePasswordService).changePassword(
                     eq("testuser1"),
                     eq("WrongPassword1!"),
                     any(),

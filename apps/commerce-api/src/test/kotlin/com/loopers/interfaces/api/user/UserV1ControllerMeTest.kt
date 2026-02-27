@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserFacade
+import com.loopers.application.user.UserChangePasswordService
 import com.loopers.application.user.UserMeInfo
+import com.loopers.application.user.UserMeService
+import com.loopers.application.user.UserSignUpService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -23,7 +25,9 @@ class UserV1ControllerMeTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
-    @MockitoBean private val userFacade: UserFacade,
+    @MockitoBean private val userSignUpService: UserSignUpService,
+    @MockitoBean private val userChangePasswordService: UserChangePasswordService,
+    @MockitoBean private val userMeService: UserMeService,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/users/me"
@@ -36,7 +40,7 @@ constructor(
         @DisplayName("유효한 인증 헤더로 조회 시 200 OK와 마스킹된 사용자 정보를 반환한다")
         fun getMe_success_returns200WithMaskedInfo() {
             // arrange
-            given(userFacade.getMe("testuser1", "Password1!"))
+            given(userMeService.getMe("testuser1", "Password1!"))
                 .willReturn(
                     UserMeInfo(
                         loginId = "testuser1",
@@ -67,7 +71,7 @@ constructor(
         @DisplayName("존재하지 않는 loginId로 조회 시 401 Unauthorized를 반환한다")
         fun getMe_invalidLoginId_returns401() {
             // arrange
-            given(userFacade.getMe("nonexistent", "Password1!"))
+            given(userMeService.getMe("nonexistent", "Password1!"))
                 .willThrow(CoreException(ErrorType.UNAUTHORIZED))
 
             // act & assert
@@ -84,7 +88,7 @@ constructor(
         @DisplayName("비밀번호 불일치 시 401 Unauthorized를 반환한다")
         fun getMe_wrongPassword_returns401() {
             // arrange
-            given(userFacade.getMe("testuser1", "WrongPassword1!"))
+            given(userMeService.getMe("testuser1", "WrongPassword1!"))
                 .willThrow(CoreException(ErrorType.UNAUTHORIZED))
 
             // act & assert

@@ -1,4 +1,4 @@
-package com.loopers.domain
+package com.loopers.infrastructure
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName

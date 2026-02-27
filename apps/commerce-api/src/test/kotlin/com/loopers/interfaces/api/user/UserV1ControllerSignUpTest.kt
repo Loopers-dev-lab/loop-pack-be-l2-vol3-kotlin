@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserFacade
+import com.loopers.application.user.UserChangePasswordService
+import com.loopers.application.user.UserMeService
 import com.loopers.application.user.UserSignUpInfo
+import com.loopers.application.user.UserSignUpService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -23,7 +25,9 @@ class UserV1ControllerSignUpTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
-    @MockitoBean private val userFacade: UserFacade,
+    @MockitoBean private val userSignUpService: UserSignUpService,
+    @MockitoBean private val userChangePasswordService: UserChangePasswordService,
+    @MockitoBean private val userMeService: UserMeService,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/users"
@@ -33,7 +37,7 @@ constructor(
     @Test
     fun signUp_success_returns201WithLoginId() {
         // arrange
-        given(userFacade.signUp(any())).willReturn(UserSignUpInfo(loginId = "testuser1"))
+        given(userSignUpService.signUp(any())).willReturn(UserSignUpInfo(loginId = "testuser1"))
 
         val requestBody =
             """
@@ -84,7 +88,7 @@ constructor(
     @Test
     fun signUp_duplicateLoginId_returns409() {
         // arrange
-        given(userFacade.signUp(any()))
+        given(userSignUpService.signUp(any()))
             .willThrow(CoreException(ErrorType.USER_DUPLICATE_LOGIN_ID))
 
         val requestBody =
