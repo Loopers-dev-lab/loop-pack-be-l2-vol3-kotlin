@@ -87,14 +87,14 @@
 |------|------|------|
 | 좋아요 등록 | 회원 | 상품에 좋아요를 누른다 |
 | 좋아요 취소 | 회원 | 좋아요를 취소한다 |
-| 좋아요 목록 조회 | 회원 | 내가 좋아요한 상품 목록을 조회한다 |
+| 좋아요 목록 조회 | 회원 | 내가 좋아요한 상품 목록을 페이징으로 조회한다 |
 
 ### 주문
 
 | 기능 | 액터 | 설명 |
 |------|------|------|
 | 주문 생성 | 회원 | 상품을 주문한다 |
-| 주문 목록 조회 | 회원 | 내 주문 목록을 조회한다 |
+| 주문 목록 조회 | 회원 | 내 주문 목록을 날짜 범위 필터링 및 페이징으로 조회한다 |
 | 주문 상세 조회 | 회원 | 주문 상세를 조회한다 |
 | 주문 취소 | 회원 | 주문을 취소한다 |
 | 주문 조회 | 어드민 | 전체 주문을 조회한다 |
@@ -174,15 +174,16 @@
 
 ```
 현재:
-  PENDING → COMPLETED (결제 없음, 즉시 전이)
-          → CANCELLED (사용자 취소)
+  PENDING → CANCELLED (사용자 취소)
+          → COMPLETED (결제 도입 시)
 
 확장 시 (결제 도입):
   PENDING_PAYMENT → PAID → SHIPPING → COMPLETED
                                     → CANCEL_REQUESTED → CANCELLED → REFUNDED
 ```
 
-현재는 결제 기능이 구현되지 않았으므로, 주문 생성 직후 PENDING → COMPLETED로 즉시 전이된다.
+현재는 결제 기능이 구현되지 않았으므로, 주문은 PENDING 상태로 유지된다. 사용자는 PENDING 상태에서 취소할 수 있다.
+결제 도입 시 별도 유스케이스(ConfirmPaymentUseCase)에서 `complete()`를 호출하여 COMPLETED로 전이한다.
 상태 전이 규칙은 도메인이 보호하고, 전이 시점은 ApplicationService가 결정한다.
 확장 시 상태 추가만으로 대응 가능한 구조를 전제한다.
 
@@ -229,13 +230,12 @@
 
 **Main Flow**
 1. 회원은 상품과 수량을 선택하여 주문을 요청한다
-2. 시스템은 각 상품의 존재 여부를 확인한다
+2. 시스템은 각 상품의 존재 여부를 확인한다 (상품ID 오름차순, 데드락 방지)
 3. 시스템은 각 상품의 재고가 충분한지 검증한다
 4. 시스템은 각 상품의 재고를 차감한다
-5. 시스템은 주문 시점의 상품 정보로 스냅샷을 생성한다
+5. 시스템은 주문 시점의 상품/브랜드 정보로 스냅샷을 생성한다
 6. 시스템은 주문(PENDING)을 저장한다
-7. 현재는 결제 미구현이므로 즉시 COMPLETED로 전이한다
-8. 회원에게 주문 생성 성공을 응답한다
+7. 회원에게 주문 생성 성공을 응답한다
 
 **Alternate Flow**
 - A1: 상품이 존재하지 않거나 삭제됨 → 즉시 실패 (BR-O04)
@@ -347,7 +347,7 @@
 주문 생성은 "결제 요청 가능한 주문을 만드는 것"까지 책임진다.
 결제 승인/실패는 별도 유스케이스로 분리한다.
 
-- **현재 구조**: 주문 생성(재고 차감 + 스냅샷 + 저장) → 즉시 COMPLETED 전이. 결제 없으므로 ApplicationService가 `complete()`를 직접 호출한다
+- **현재 구조**: 주문 생성(중복 검증 + 재고 차감 + 스냅샷 + PENDING 저장). 결제 미구현이므로 PENDING 상태 유지. 사용자가 취소 가능
 - **확장 시**: 주문 생성은 PENDING까지만 책임. 결제 성공 시 별도 유스케이스(ConfirmPaymentUseCase)에서 `complete()` 호출
 - **경계**: 상태 전이 규칙은 도메인이 보호한다. "언제 전이할 것인가"는 ApplicationService가 결정한다. 도메인 코드(`complete()` 검증 규칙)는 변경 없이 확장된다
 
@@ -382,9 +382,9 @@
 | GET | `/products/{id}` | X |
 | POST | `/products/{id}/likes` | O |
 | DELETE | `/products/{id}/likes` | O |
-| GET | `/me/likes` | O |
+| GET | `/users/{userId}/likes?page=0&size=20` | O |
 | POST | `/orders` | O |
-| GET | `/orders` | O |
+| GET | `/orders?startAt={yyyy-MM-dd}&endAt={yyyy-MM-dd}&page=0&size=20` | O |
 | GET | `/orders/{id}` | O |
 | DELETE | `/orders/{id}` | O |
 

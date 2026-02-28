@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.user
 
-import com.loopers.domain.BaseEntity
+import com.loopers.support.jpa.BaseEntity
 import com.loopers.domain.user.GenderType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

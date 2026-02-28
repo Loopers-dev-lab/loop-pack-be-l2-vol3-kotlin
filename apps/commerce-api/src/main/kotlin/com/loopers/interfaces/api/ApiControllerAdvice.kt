@@ -3,10 +3,17 @@ package com.loopers.interfaces.api
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
+import com.loopers.domain.brand.BrandError
+import com.loopers.domain.brand.BrandException
+import com.loopers.domain.order.OrderError
+import com.loopers.domain.order.OrderException
+import com.loopers.domain.product.ProductError
+import com.loopers.domain.product.ProductException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -20,6 +27,45 @@ import org.springframework.web.servlet.resource.NoResourceFoundException
 @RestControllerAdvice
 class ApiControllerAdvice {
     private val log = LoggerFactory.getLogger(ApiControllerAdvice::class.java)
+
+    @ExceptionHandler
+    fun handle(e: BrandException): ResponseEntity<ApiResponse<*>> {
+        log.warn("BrandException[{}] : {}", e.error, e.message, e)
+        val status = when (e.error) {
+            BrandError.DELETED -> HttpStatus.BAD_REQUEST
+        }
+        return ResponseEntity(
+            ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "브랜드 오류"),
+            status,
+        )
+    }
+
+    @ExceptionHandler
+    fun handle(e: ProductException): ResponseEntity<ApiResponse<*>> {
+        log.warn("ProductException[{}] : {}", e.error, e.message, e)
+        val status = when (e.error) {
+            ProductError.DELETED -> HttpStatus.BAD_REQUEST
+            ProductError.INSUFFICIENT_STOCK -> HttpStatus.CONFLICT
+        }
+        return ResponseEntity(
+            ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "상품 오류"),
+            status,
+        )
+    }
+
+    @ExceptionHandler
+    fun handle(e: OrderException): ResponseEntity<ApiResponse<*>> {
+        log.warn("OrderException[{}] : {}", e.error, e.message, e)
+        val status = when (e.error) {
+            OrderError.NOT_CANCELLABLE -> HttpStatus.BAD_REQUEST
+            OrderError.NOT_COMPLETABLE -> HttpStatus.BAD_REQUEST
+            OrderError.NOT_OWNED -> HttpStatus.FORBIDDEN
+        }
+        return ResponseEntity(
+            ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "주문 오류"),
+            status,
+        )
+    }
 
     @ExceptionHandler
     fun handle(e: CoreException): ResponseEntity<ApiResponse<*>> {

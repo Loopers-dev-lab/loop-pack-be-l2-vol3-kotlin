@@ -4,10 +4,10 @@ import com.loopers.domain.user.PasswordEncoder
 import com.loopers.domain.user.UserRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.stereotype.Service
+import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
-@Service
+@Component
 @Transactional
 class ChangePasswordUseCase(
     private val userRepository: UserRepository,

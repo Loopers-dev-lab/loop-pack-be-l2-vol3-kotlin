@@ -1,7 +1,8 @@
 # ERD (Entity Relationship Diagram)
 
 > 도메인 모델(03-class-diagram.md)을 물리 테이블로 매핑한다.
-> 모든 JPA Entity는 BaseEntity(id, created_at, updated_at, deleted_at)를 상속한다.
+> LikeEntity를 제외한 모든 JPA Entity는 BaseEntity(id, created_at, updated_at, deleted_at)를 상속한다.
+> LikeEntity는 BaseEntity를 상속하지 않으며, id와 created_at만 직접 선언한다 (updated_at, deleted_at 없음).
 
 **전제**
 
@@ -70,6 +71,7 @@ erDiagram
         int display_order "표시 순서"
         timestamp created_at "생성 시점"
         timestamp updated_at "수정 시점"
+        timestamp deleted_at "BaseEntity 상속 (nullable, 미사용)"
     }
 
     LIKES {
@@ -99,6 +101,7 @@ erDiagram
         int quantity "주문 수량"
         timestamp created_at "생성 시점"
         timestamp updated_at "수정 시점"
+        timestamp deleted_at "BaseEntity 상속 (nullable, 미사용)"
     }
 ```
 
@@ -154,9 +157,11 @@ erDiagram
 | display_order | INT | NOT NULL, DEFAULT 0 | 표시 순서 |
 | created_at | TIMESTAMP | NOT NULL | |
 | updated_at | TIMESTAMP | NOT NULL | |
+| deleted_at | TIMESTAMP | NULLABLE | BaseEntity 상속으로 존재 (미사용) |
 
-> product_image는 product의 lifecycle에 종속된다.    
-> product가 Soft Delete되면 image도 조회 대상에서 제외되므로, 별도 Soft Delete를 두지 않는다.   
+> product_image는 product의 lifecycle에 종속된다.
+> product가 Soft Delete되면 image도 조회 대상에서 제외되므로, 별도 Soft Delete를 두지 않는다.
+> `deleted_at` 컬럼은 BaseEntity 상속으로 DB에 존재하지만 현재 사용하지 않는다.
 
 ### likes
 
@@ -167,12 +172,13 @@ erDiagram
 | product_id | BIGINT | NOT NULL, FK → product.id | 상품 ID |
 | created_at | TIMESTAMP | NOT NULL | |
 
-> **UNIQUE(user_id, product_id)** — BR-L01 보장 + `INSERT ON CONFLICT DO NOTHING`의 핵심.  
+> **UNIQUE(user_id, product_id)** — BR-L01 보장 + `INSERT IGNORE`의 핵심.  
 > Soft Delete 없음. 좋아요 취소 시 물리 삭제한다.   
 >
 > **FK 정책:** `user_id`, `product_id` 모두 FK를 건다.   
 > product는 Soft Delete(물리 행 유지)이므로 FK 무결성이 깨지지 않는다.   
-> 좋아요 취소 시 likes 행을 물리 삭제하므로, product Soft Delete와 충돌하지 않는다.   
+> 좋아요 취소 시 likes 행을 물리 삭제하므로, product Soft Delete와 충돌하지 않는다. 
+> 
 > **삭제된 상품의 좋아요 정책:**
 > 삭제된 상품의 좋아요 레코드는 유지된다 (BR-C05). 삭제된 상품은 고객 조회에서 제외되므로 (BR-C02),   
 > 잔존 좋아요와 like_count는 더 이상 노출/집계 대상이 아니다.   
@@ -216,11 +222,12 @@ erDiagram
 | quantity | INT | NOT NULL, CHECK > 0 | 주문 수량 |
 | created_at | TIMESTAMP | NOT NULL | |
 | updated_at | TIMESTAMP | NOT NULL | |
+| deleted_at | TIMESTAMP | NULLABLE | BaseEntity 상속으로 존재 (미사용) |
 
 > `product_id`는 FK가 아니다. 상품이 삭제되어도 주문 이력은 보존되어야 한다 (BR-O03, BR-C04).
 >
-> **스냅샷과 환불:** 환불 금액은 `order_item.price`(주문 시점 단가) 기준이다.
-> 현재 `product.price`가 변경/삭제되어도 주문 이력의 금액은 영향받지 않는다.
+> **스냅샷과 환불:** 환불 금액은 `order_item.price`(주문 시점 단가) 기준이다.  
+> 현재 `product.price`가 변경/삭제되어도 주문 이력의 금액은 영향받지 않는다.  
 > 주문은 과거의 사실이며, 스냅샷은 자기 완결적이다.
 
 ---
@@ -230,11 +237,11 @@ erDiagram
 | 테이블 | 인덱스명 | 타입 | 컬럼 | 용도 |
 |--------|---------|------|------|------|
 | brand | `uk_brand_name` | UNIQUE | name | 브랜드명 중복 방지 (BR-B01) |
-| product | `idx_product_brand_id` | INDEX | brand_id | 브랜드별 상품 조회 |
-| product | `idx_product_like_count` | INDEX | like_count | 좋아요순 정렬 (BR-P05) |
-| product | `idx_product_created_at` | INDEX | created_at | 최신순 정렬 |
+| product | `idx_product_brand_created` | INDEX | (brand_id, created_at DESC) | 브랜드별 최신순 조회 |
+| product | `idx_product_brand_like` | INDEX | (brand_id, like_count DESC) | 브랜드별 인기순 조회 (BR-P05) |
 | likes | `uk_likes_user_product` | UNIQUE | (user_id, product_id) | 중복 좋아요 방지 + INSERT ON CONFLICT 핵심 |
 | likes | `idx_likes_user_id` | INDEX | user_id | 내 좋아요 목록 조회 |
+| likes | `idx_likes_product_id` | INDEX | product_id | 상품별 좋아요 조회, 배치 재계산 |
 | orders | `idx_orders_user_id` | INDEX | user_id | 내 주문 목록 조회 |
 | order_item | `idx_order_item_order_id` | INDEX | order_id | 주문별 항목 조회 (FK 자동 생성 가능) |
 
@@ -262,7 +269,7 @@ erDiagram
 | orders에 Soft Delete 없음 | 주문 상태(CANCELLED)가 이미 삭제를 표현한다 |
 | `like_count`를 product에 비정규화 | COUNT 쿼리 없이 정렬 가능 (BR-P05) |
 | `stock`을 product에 직접 보관 | 현재 단일 RDB 환경에서 충분. 재고 차감 병목 발생 시 stock 전용 테이블 분리 가능 (FOR UPDATE → 조건부 UPDATE 전환과 함께) |
-| likes.id를 PK로 유지 | UNIQUE(user_id, product_id)만으로도 PK 가능하나, BaseEntity 패턴과 일관성 유지 |
+| likes.id를 PK로 유지 | UNIQUE(user_id, product_id)만으로도 PK 가능하나, surrogate PK(AUTO INCREMENT) 패턴 일관성 유지 |
 | `price`를 BIGINT으로 | Money VO의 amount(Long)와 1:1 매핑. 소수점 없는 원(₩) 단위 |
 | `status`와 `deleted_at` 분리 | status는 가역적 운영 제어, deleted_at은 비가역적 삭제 표시. 역할이 다르다 |
 | likes에 FK 적용 | Soft Delete로 물리 행이 유지되므로 FK 무결성이 깨지지 않는다 |

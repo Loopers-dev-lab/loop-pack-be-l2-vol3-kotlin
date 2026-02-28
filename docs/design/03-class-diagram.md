@@ -79,6 +79,7 @@ classDiagram
         +deactivate() Brand
         +delete() Brand
         +isDeleted() boolean
+        +assertNotDeleted() void
     }
 
     class BrandName {
@@ -100,7 +101,7 @@ classDiagram
     class Product {
         <<Aggregate Root>>
         -Long? persistenceId
-        -Long brandId
+        -Long refBrandId
         -ProductName name
         -String? description
         -Money price
@@ -115,6 +116,7 @@ classDiagram
         +update(name, description, price, ...) Product
         +delete() Product
         +canOrder(quantity) boolean
+        +assertOrderable(quantity) void
         +isDeleted() boolean
     }
 
@@ -152,6 +154,15 @@ classDiagram
         -Long? persistenceId
         -String imageUrl
         -int displayOrder
+        +create(imageUrl, displayOrder)$ ProductImage
+        +reconstitute(...)$ ProductImage
+    }
+
+    class ProductSortType {
+        <<Enum>>
+        CREATED_AT
+        LIKE_COUNT
+        PRICE_ASC
     }
 
     Product *-- ProductName
@@ -164,17 +175,18 @@ classDiagram
     class Like {
         <<Entity>>
         -Long? persistenceId
-        -Long userId
-        -Long productId
+        -Long refUserId
+        -Long refProductId
         -ZonedDateTime createdAt
         +create(userId, productId)$ Like
+        +reconstitute(...)$ Like
     }
 
     %% Order Aggregate
     class Order {
         <<Aggregate Root>>
         -Long? persistenceId
-        -Long userId
+        -Long refUserId
         -OrderStatus status
         -Money totalAmount
         -ZonedDateTime orderedAt
@@ -184,6 +196,7 @@ classDiagram
         +cancel() Order
         +complete() Order
         +isOwnedBy(userId) boolean
+        +assertOwnedBy(userId) void
         +canCancel() boolean
     }
 
@@ -197,18 +210,27 @@ classDiagram
     class OrderItem {
         <<Entity>>
         -Long? persistenceId
-        -Long productId
+        -Long refProductId
         -String productName
         -String brandName
         -Money price
         -int quantity
         +create(product, brand, quantity)$ OrderItem
+        +reconstitute(...)$ OrderItem
         +getSubtotal() Money
+    }
+
+    class OrderItemFactory {
+        <<Domain Service>>
+        +create(product, brand, quantity) OrderItem
     }
 
     Order *-- OrderStatus
     Order "1" *-- "1..*" OrderItem
     OrderItem *-- Money
+    OrderItemFactory ..> Product : uses
+    OrderItemFactory ..> Brand : uses
+    OrderItemFactory ..> OrderItem : creates
 ```
 
 ---
@@ -244,6 +266,7 @@ classDiagram
 | `deactivate()` | Brand | INACTIVE로 변경 |
 | `delete()` | Brand | deletedAt 설정 (soft delete) |
 | `isDeleted()` | Boolean | 삭제 여부 확인 |
+| `assertNotDeleted()` | Unit | 삭제된 브랜드면 BrandException throw |
 
 #### 불변식
 
@@ -268,7 +291,7 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| brandId | Long | 브랜드 ID (ID 참조, 생성 시 설정, 변경 불가) |
+| refBrandId | Long | 브랜드 ID (ID 참조, 생성 시 설정, 변경 불가) |
 | name | ProductName | 상품명 |
 | description | String? | 상품 설명 |
 | price | Money | 가격 |
@@ -293,6 +316,7 @@ classDiagram
 | `update(name, description, price, ...)` | Product | 정보 수정 (brandId 제외) |
 | `delete()` | Product | soft delete |
 | `canOrder(quantity)` | Boolean | 주문 가능 여부 (삭제 안 됨 + 재고 충분) |
+| `assertOrderable(quantity)` | Unit | 주문 불가 시 ProductException throw |
 | `isDeleted()` | Boolean | 삭제 여부 확인 |
 
 #### 재고 차감/좋아요 카운트는 왜 도메인 메서드가 아닌가
@@ -301,7 +325,7 @@ classDiagram
 
 - 재고 차감: `UPDATE SET stock = stock - ? WHERE stock >= ?` (DB 레벨 원자적 보장)
 - 좋아요 증가: `UPDATE SET like_count = like_count + 1`
-- 좋아요 감소: `UPDATE SET like_count = GREATEST(like_count - 1, 0)`
+- 좋아요 감소: `UPDATE SET like_count = like_count - 1 WHERE like_count > 0`
 
 도메인 객체는 **검증**(`canOrder`)만 담당하고, 실제 변경은 Repository가 DB 레벨에서 원자적으로 수행한다.  
 
@@ -309,7 +333,7 @@ classDiagram
 
 #### 불변식
 
-- brandId는 생성 시 설정, 변경 불가 (BR-P02)
+- refBrandId는 생성 시 설정, 변경 불가 (BR-P02)
 - 재고가 0이어도 삭제되지 않으면 조회 가능 (BR-P04)
 - likeCount는 0 미만 불가
 
@@ -351,6 +375,13 @@ classDiagram
 | imageUrl | String | 이미지 URL |
 | displayOrder | Int | 표시 순서 |
 
+#### 생성 메서드
+
+| 메서드 | 설명 |
+|--------|------|
+| `create(imageUrl, displayOrder)` | 이미지 생성 (persistenceId=null) |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
+
 ---
 
 ## 3. Like (좋아요)
@@ -367,8 +398,8 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| userId | Long | 회원 ID |
-| productId | Long | 상품 ID |
+| refUserId | Long | 회원 ID |
+| refProductId | Long | 상품 ID |
 | createdAt | ZonedDateTime | 생성 시점 |
 
 #### 생성 메서드
@@ -376,6 +407,7 @@ classDiagram
 | 메서드 | 설명 |
 |--------|------|
 | `create(userId, productId)` | 좋아요 생성 |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
 
 #### 불변식
 
@@ -393,7 +425,7 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| userId | Long | 회원 ID |
+| refUserId | Long | 회원 ID |
 | status | OrderStatus | 주문 상태 |
 | totalAmount | Money | 총 주문 금액 |
 | orderedAt | ZonedDateTime | 주문 시점 |
@@ -413,6 +445,7 @@ classDiagram
 | `cancel()` | Order | 취소 (PENDING → CANCELLED). PENDING이 아니면 예외 |
 | `complete()` | Order | 완료 (PENDING → COMPLETED). PENDING이 아니면 예외 |
 | `isOwnedBy(userId)` | Boolean | 본인 주문 여부 확인 (BR-O07) |
+| `assertOwnedBy(userId)` | Unit | 본인 주문 아니면 OrderException throw |
 | `canCancel()` | Boolean | 취소 가능 여부 (PENDING인지) |
 
 #### 상태 전이 규칙
@@ -420,7 +453,7 @@ classDiagram
 ```
          ┌──────────────┐
          │   PENDING    │
-         │  (결제 대기)  │
+         │  (결제 대기)   │
          └──────┬───────┘
                 │
     ┌───────────┴───────────┐
@@ -440,7 +473,7 @@ classDiagram
 | 전이 규칙 | 도메인 (`cancel()`, `complete()`) | 현재 상태가 PENDING인지 검증. 위반 시 예외 |
 | 전이 시점 | ApplicationService | 언제 `cancel()`/`complete()`를 호출할지 결정 |
 
-**현재**: 주문 생성 직후 `complete()` 즉시 호출 (결제 없음)
+**현재**: 주문 생성 시 PENDING 상태로 저장. 사용자가 취소 가능
 **확장 시**: 결제 도입 시 별도 유스케이스(ConfirmPaymentUseCase)에서 `complete()` 호출. 도메인 코드 변경 없음
 
 #### OrderStatus
@@ -448,12 +481,12 @@ classDiagram
 | 값 | 의미 | 설명 |
 |------|------|------|
 | PENDING | 결제 대기 | 주문 생성 직후. 취소 가능 |
-| COMPLETED | 주문 완료 | 결제 완료 (현재는 즉시 전이). 변경 불가 |
+| COMPLETED | 주문 완료 | 결제 완료 시 전이. 변경 불가 |
 | CANCELLED | 취소됨 | 사용자 취소. 재고 복구됨 |
 
 ### OrderItem (Entity)
 
-> Order 내부 Entity. Order를 통해서만 접근.
+> Order 내부 Entity. Order를 통해서만 접근.  
 > 주문 시점의 상품/브랜드 정보를 스냅샷으로 보존한다 (BR-O03).
 
 #### 속성
@@ -461,7 +494,7 @@ classDiagram
 | 속성 | 타입 | 설명 |
 |------|------|------|
 | persistenceId | Long? | 식별자 |
-| productId | Long | 상품 ID (참조용, 스냅샷) |
+| refProductId | Long | 상품 ID (참조용, 스냅샷) |
 | productName | String | 주문 시점 상품명 (스냅샷) |
 | brandName | String | 주문 시점 브랜드명 (스냅샷) |
 | price | Money | 주문 시점 단가 (스냅샷) |
@@ -472,6 +505,7 @@ classDiagram
 | 메서드 | 설명 |
 |--------|------|
 | `create(product, brand, quantity)` | 스냅샷 생성 (상품/브랜드에서 이름, 가격 복사) |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
 
 #### 행위
 
@@ -489,39 +523,45 @@ classDiagram
 
 ```kotlin
 interface BrandRepository {
+    fun save(brand: Brand): Long
     fun findById(id: Long): Brand?
-    fun findByName(name: BrandName): Brand?
     fun existsByName(name: BrandName): Boolean
-    fun save(brand: Brand): Brand
-    fun findAllActive(pageable: Pageable): Page<Brand>
+    fun findAll(): List<Brand>                             // 어드민용 전체 조회
+    fun findAllActive(): List<Brand>                       // 고객용 (deletedAt IS NULL)
+    fun findAllByIds(ids: Set<Long>): List<Brand>          // Product+Brand 합성용 일괄 조회
 }
 
 interface ProductRepository {
+    fun save(product: Product): Long
     fun findById(id: Long): Product?
-    fun findByIdForUpdate(id: Long): Product?       // SELECT ... FOR UPDATE
-    fun findAllByBrandId(brandId: Long): List<Product>
-    fun save(product: Product): Product
-    fun decreaseStock(id: Long, quantity: Int): Int  // affected rows (0이면 재고 부족)
-    fun increaseStock(id: Long, quantity: Int)       // 주문 취소 시 재고 복구
-    fun incrementLikeCount(id: Long)
-    fun decrementLikeCount(id: Long)                 // GREATEST(like_count - 1, 0)
-    fun softDeleteByBrandId(brandId: Long)           // 연쇄 Soft Delete (BR-B02)
+    fun findByIdForUpdate(id: Long): Product?              // SELECT ... FOR UPDATE
+    fun decreaseStock(id: Long, quantity: Int): Int        // affected rows (0이면 재고 부족)
+    fun increaseStock(id: Long, quantity: Int): Int        // affected rows (0이면 상품 없음)
+    fun incrementLikeCount(id: Long): Int
+    fun decrementLikeCount(id: Long): Int                  // like_count - 1 WHERE like_count > 0
+    fun softDeleteByBrandId(brandId: Long): Int            // 연쇄 Soft Delete (BR-B02)
+    fun findAllActive(brandId: Long?, sortType: ProductSortType): List<Product>  // 고객용
+    fun findAll(brandId: Long?): List<Product>             // 어드민용
 }
 
 interface LikeRepository {
-    fun insertIgnore(userId: Long, productId: Long): Boolean  // ON CONFLICT DO NOTHING
-    fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int  // affected rows
-    fun findAllByUserId(userId: Long, pageable: Pageable): Page<Like>
+    fun addLike(userId: Long, productId: Long): Boolean    // INSERT IGNORE (멱등)
+    fun removeLike(userId: Long, productId: Long): Int     // affected rows
+    fun findAllByUserId(userId: Long, page: Int, size: Int): List<Like>  // 페이징
+    fun countByUserId(userId: Long): Long                  // 페이징 total count
 }
 
 interface OrderRepository {
+    fun save(order: Order): Long
     fun findById(id: Long): Order?
-    fun findByIdForUpdate(id: Long): Order?          // SELECT ... FOR UPDATE
-    fun save(order: Order): Order
-    fun findAllByUserId(userId: Long, pageable: Pageable): Page<Order>
-    fun findAll(pageable: Pageable): Page<Order>     // 어드민용
+    fun findByIdForUpdate(id: Long): Order?                // SELECT ... FOR UPDATE
+    fun findAllByUserIdAndOrderedDate(userId: Long, startAt: LocalDate, endAt: LocalDate, page: Int, size: Int): List<Order>  // 날짜 필터 + 페이징
+    fun countByUserIdAndOrderedDate(userId: Long, startAt: LocalDate, endAt: LocalDate): Long  // 페이징 total count
+    fun findAll(): List<Order>                             // 어드민용
 }
 ```
+
+> **ProductSortType**: `CREATED_AT`(최신순), `LIKE_COUNT`(인기순), `PRICE_ASC`(가격순)
 
 ### Repository 핵심 메서드 매핑
 
@@ -529,12 +569,30 @@ interface OrderRepository {
 |------------|--------|---------|-------------|
 | ProductRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `ProductNotFoundException` |
 | ProductRepository | `decreaseStock(id, qty)` | `UPDATE SET stock = stock - ? WHERE stock >= ?` | `InsufficientStockException` |
-| ProductRepository | `increaseStock(id, qty)` | `UPDATE SET stock = stock + ?` | - |
+| ProductRepository | `increaseStock(id, qty)` | `UPDATE SET stock = stock + ?` | affected=0이면 예외 |
 | ProductRepository | `incrementLikeCount(id)` | `UPDATE SET like_count = like_count + 1` | - |
-| ProductRepository | `decrementLikeCount(id)` | `UPDATE SET like_count = GREATEST(like_count - 1, 0)` | - |
-| LikeRepository | `insertIgnore(userId, productId)` | `INSERT ... ON CONFLICT DO NOTHING` | - |
-| LikeRepository | `deleteByUserIdAndProductId(...)` | `DELETE WHERE user_id = ? AND product_id = ?` | - |
+| ProductRepository | `decrementLikeCount(id)` | `UPDATE SET like_count = like_count - 1 WHERE like_count > 0` | - |
+| LikeRepository | `addLike(userId, productId)` | `INSERT IGNORE INTO likes ...` | - |
+| LikeRepository | `removeLike(userId, productId)` | `DELETE WHERE user_id = ? AND product_id = ?` | - |
 | OrderRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `OrderNotFoundException` |
+
+---
+
+## Domain Service
+
+### OrderItemFactory
+
+> 교차 Aggregate 검증(Product.assertOrderable) + 스냅샷 생성(OrderItem.create)을 캡슐화한다.
+> 순수 POJO (Spring 어노테이션 없음).
+
+```kotlin
+class OrderItemFactory {
+    fun create(product: Product, brand: Brand, quantity: Int): OrderItem {
+        product.assertOrderable(quantity)
+        return OrderItem.create(product = product, brand = brand, quantity = quantity)
+    }
+}
+```
 
 ---
 
@@ -543,12 +601,22 @@ interface OrderRepository {
 > 트랜잭션 경계를 소유하고, 도메인 객체를 조합하여 유스케이스를 수행한다.
 > 상태 전이 시점을 결정하되, 전이 규칙 자체는 도메인에 위임한다.
 
-| AppService | 주요 책임 |
-|------------|----------|
-| BrandAppService | 브랜드 CRUD. 삭제 시 연쇄 Soft Delete 조율 (BR-B02) |
-| ProductAppService | 상품 CRUD. 브랜드 존재 확인 (BR-P01) |
-| LikeAppService | 좋아요 등록/취소. 상품 존재 확인 (BR-L04), 카운트 증감 조율 |
-| OrderAppService | 주문 생성 (재고 차감→스냅샷→저장→complete), 주문 취소 (권한/상태 검증→cancel→재고 복구) |
+| UseCase | 주요 책임 |
+|---------|----------|
+| RegisterBrandUseCase | 브랜드 등록. 브랜드명 중복 검사 (BR-B01) |
+| GetBrandUseCase / GetBrandListUseCase | 브랜드 조회 (단건/목록) |
+| UpdateBrandUseCase | 브랜드 수정 |
+| DeleteBrandUseCase | 브랜드 삭제. 연쇄 Soft Delete 조율 (BR-B02) |
+| RegisterProductUseCase | 상품 등록. 브랜드 존재 확인 (BR-P01) |
+| GetProductUseCase / GetProductListUseCase | 상품 조회. Brand 정보 합성 |
+| UpdateProductUseCase | 상품 수정 |
+| DeleteProductUseCase | 상품 삭제 |
+| AddLikeUseCase | 좋아요 등록. 상품 존재 확인 (BR-L04), 카운트 증가 |
+| RemoveLikeUseCase | 좋아요 취소. 카운트 감소 |
+| GetMyLikesUseCase | 내 좋아요 목록 조회 (페이징) |
+| CreateOrderUseCase | 주문 생성. 재고 차감 → 스냅샷 → PENDING 저장 |
+| GetOrderUseCase | 주문 조회 (단건/목록/어드민). 권한 검증 (BR-O07), 날짜 필터 + 페이징 |
+| CancelOrderUseCase | 주문 취소. 권한/상태 검증 → cancel → 재고 복구 |
 
 ---
 
