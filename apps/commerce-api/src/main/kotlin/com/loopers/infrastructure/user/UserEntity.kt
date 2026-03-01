@@ -1,7 +1,6 @@
 package com.loopers.infrastructure.user
 
 import com.loopers.infrastructure.BaseEntity
-import com.loopers.domain.user.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -25,29 +24,5 @@ class UserEntity(
 
     init {
         this.id = id
-    }
-
-    fun toDomain(): User {
-        return User.retrieve(
-            id = id!!,
-            loginId = loginId,
-            password = password,
-            name = name,
-            birthDate = birthDate,
-            email = email,
-        )
-    }
-
-    companion object {
-        fun from(user: User): UserEntity {
-            return UserEntity(
-                id = user.id,
-                loginId = user.loginId.value,
-                password = user.password.value,
-                name = user.name.value,
-                birthDate = user.birthDate,
-                email = user.email.value,
-            )
-        }
     }
 }

@@ -10,10 +10,11 @@ import org.springframework.stereotype.Repository
 @Repository
 class UserRepositoryImpl(
     private val userJpaRepository: UserJpaRepository,
+    private val userMapper: UserMapper,
 ) : UserRepository {
     override fun save(user: User): User {
         try {
-            return userJpaRepository.saveAndFlush(UserEntity.from(user)).toDomain()
+            return userMapper.toDomain(userJpaRepository.saveAndFlush(userMapper.toEntity(user)))
         } catch (e: DataIntegrityViolationException) {
             throw CoreException(ErrorType.USER_DUPLICATE_LOGIN_ID)
         }
@@ -24,6 +25,6 @@ class UserRepositoryImpl(
     }
 
     override fun findByLoginId(loginId: String): User? {
-        return userJpaRepository.findByLoginId(loginId)?.toDomain()
+        return userJpaRepository.findByLoginId(loginId)?.let { userMapper.toDomain(it) }
     }
 }

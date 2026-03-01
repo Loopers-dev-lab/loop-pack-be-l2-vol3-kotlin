@@ -1,6 +1,5 @@
-package com.loopers.application.user
+package com.loopers.application.user.auth
 
-import com.loopers.application.user.model.UserChangePasswordCommand
 import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
@@ -16,7 +15,7 @@ class UserChangePasswordUseCase(
     private val passwordHasher: UserPasswordHasher,
 ) {
     @Transactional
-    fun changePassword(loginId: String, headerPassword: String, command: UserChangePasswordCommand) {
+    fun changePassword(loginId: String, headerPassword: String, command: UserAuthCommand.ChangePassword) {
         val user = findByCredentials(loginId, headerPassword)
         val updatedUser = user.changePassword(command.currentPassword, command.newPassword, passwordHasher)
         userRepository.save(updatedUser)

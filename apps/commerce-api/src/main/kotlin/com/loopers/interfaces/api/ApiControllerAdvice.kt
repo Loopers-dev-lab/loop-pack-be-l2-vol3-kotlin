@@ -33,9 +33,17 @@ class ApiControllerAdvice {
 
     @ExceptionHandler
     fun handleBadRequest(e: MethodArgumentNotValidException): ResponseEntity<ApiResponse<*>> {
-        val errorMessage = e.bindingResult.fieldErrors.firstOrNull()?.defaultMessage
-            ?: "입력값이 올바르지 않습니다."
-        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = errorMessage)
+        val errors = e.bindingResult.fieldErrors
+            .groupBy { it.field }
+            .mapValues { (_, fieldErrors) -> fieldErrors.map { it.defaultMessage ?: "유효하지 않은 값입니다." } }
+        return ResponseEntity(
+            ApiResponse.fail(
+                errorCode = ErrorType.BAD_REQUEST.code,
+                errorMessage = "입력값이 올바르지 않습니다.",
+                errors = errors,
+            ),
+            ErrorType.BAD_REQUEST.status,
+        )
     }
 
     @ExceptionHandler
@@ -64,40 +72,49 @@ class ApiControllerAdvice {
 
     @ExceptionHandler
     fun handleBadRequest(e: HttpMessageNotReadableException): ResponseEntity<ApiResponse<*>> {
-        val errorMessage = when (val rootCause = e.rootCause) {
+        return when (val rootCause = e.rootCause) {
             is InvalidFormatException -> {
                 val fieldName = rootCause.path.joinToString(".") { it.fieldName ?: "?" }
-
                 val valueIndicationMessage = when {
                     rootCause.targetType.isEnum -> {
-                        val enumClass = rootCause.targetType
-                        val enumValues = enumClass.enumConstants.joinToString(", ") { it.toString() }
-                        "사용 가능한 값 : [$enumValues]"
+                        val enumValues = rootCause.targetType.enumConstants.joinToString(", ") { it.toString() }
+                        " 사용 가능한 값 : [$enumValues]"
                     }
-
                     else -> ""
                 }
-
                 val expectedType = rootCause.targetType.simpleName
                 val value = rootCause.value
-
-                "필드 '$fieldName'의 값 '$value'이(가) 예상 타입($expectedType)과 일치하지 않습니다. $valueIndicationMessage"
+                val message = "예상 타입($expectedType)과 일치하지 않습니다.$valueIndicationMessage"
+                val errors = mapOf(fieldName to listOf("값 '$value'이(가) $message"))
+                ResponseEntity(
+                    ApiResponse.fail("BAD_REQUEST", "입력값이 올바르지 않습니다.", errors),
+                    ErrorType.BAD_REQUEST.status,
+                )
             }
 
             is MismatchedInputException -> {
                 val fieldPath = rootCause.path.joinToString(".") { it.fieldName ?: "?" }
-                "필수 필드 '$fieldPath'이(가) 누락되었습니다."
+                val errors = mapOf(fieldPath to listOf("필수 필드가 누락되었습니다."))
+                ResponseEntity(
+                    ApiResponse.fail("BAD_REQUEST", "입력값이 올바르지 않습니다.", errors),
+                    ErrorType.BAD_REQUEST.status,
+                )
             }
 
             is JsonMappingException -> {
                 val fieldPath = rootCause.path.joinToString(".") { it.fieldName ?: "?" }
-                "필드 '$fieldPath'에서 JSON 매핑 오류가 발생했습니다."
+                val errors = mapOf(fieldPath to listOf("JSON 매핑 오류가 발생했습니다."))
+                ResponseEntity(
+                    ApiResponse.fail("BAD_REQUEST", "입력값이 올바르지 않습니다.", errors),
+                    ErrorType.BAD_REQUEST.status,
+                )
             }
 
-            else -> "요청 본문을 처리하는 중 오류가 발생했습니다. JSON 메세지 규격을 확인해주세요."
+            else -> failureResponse(
+                errorType = ErrorType.BAD_REQUEST,
+                errorMessage = "요청 본문을 처리하는 중 오류가 발생했습니다. JSON 메세지 규격을 확인해주세요.",
+            )
         }
-
-        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = errorMessage)
     }
 
     @ExceptionHandler

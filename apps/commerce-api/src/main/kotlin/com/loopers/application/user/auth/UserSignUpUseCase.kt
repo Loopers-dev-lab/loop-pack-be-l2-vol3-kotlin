@@ -1,6 +1,5 @@
-package com.loopers.application.user
+package com.loopers.application.user.auth
 
-import com.loopers.application.user.model.UserSignUpCommand
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
@@ -15,7 +14,7 @@ class UserSignUpUseCase(
     private val passwordHasher: UserPasswordHasher,
 ) {
     @Transactional
-    fun signUp(command: UserSignUpCommand): UserSignUpResult {
+    fun signUp(command: UserAuthCommand.SignUp): UserResult.SignUp {
         if (userRepository.existsByLoginId(command.loginId)) {
             throw CoreException(ErrorType.USER_DUPLICATE_LOGIN_ID)
         }
@@ -28,6 +27,6 @@ class UserSignUpUseCase(
             passwordHasher = passwordHasher,
         )
         val saved = userRepository.save(user)
-        return UserSignUpResult(loginId = saved.loginId.value)
+        return UserResult.SignUp(loginId = saved.loginId.value)
     }
 }

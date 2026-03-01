@@ -1,4 +1,4 @@
-package com.loopers.application.user
+package com.loopers.application.user.auth
 
 import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
@@ -15,9 +15,9 @@ class UserMeUseCase(
     private val passwordHasher: UserPasswordHasher,
 ) {
     @Transactional(readOnly = true)
-    fun getMe(loginId: String, password: String): UserMeResult {
+    fun getMe(loginId: String, password: String): UserResult.Me {
         val user = findByCredentials(loginId, password)
-        return UserMeResult(
+        return UserResult.Me(
             loginId = user.loginId.value,
             name = user.maskedName,
             birthDate = user.birthDate,
