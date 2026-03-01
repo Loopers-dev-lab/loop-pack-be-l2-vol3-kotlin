@@ -96,7 +96,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val savedProduct = productJpaRepository.save(product)
 
             val request = OrderV1Dto.OrderRequest(
-                orderItems = listOf(
+                items = listOf(
                     OrderV1Dto.OrderItemRequest(
                         productId = savedProduct.id,
                         quantity = 2,
@@ -141,7 +141,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             userJpaRepository.save(user)
 
             val request = OrderV1Dto.OrderRequest(
-                orderItems = emptyList(),
+                items = emptyList(),
             )
 
             val headers = createAuthHeaders("test123", "encryptedPassword")
@@ -164,7 +164,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun createOrderWithoutAuthHeader() {
             // given
             val request = OrderV1Dto.OrderRequest(
-                orderItems = listOf(
+                items = listOf(
                     OrderV1Dto.OrderItemRequest(
                         productId = 1L,
                         quantity = 1,
@@ -355,6 +355,73 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             // then
             assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode)
+        }
+    }
+
+    @DisplayName("쿠폰 적용 시나리오")
+    @Nested
+    inner class CouponApply {
+
+        @Test
+        @DisplayName("쿠폰 ID를 포함한 주문 요청을 처리할 수 있다")
+        fun createOrderWithCouponId() {
+            // given
+            val plainPassword = "encryptedPassword"
+            val user = User.create(
+                loginId = LoginId.of("test456"),
+                password = Password.ofEncrypted(passwordEncoder.encode(plainPassword)),
+                name = Name.of("테스트2"),
+                birthDate = BirthDate.of("20260101"),
+                email = Email.of("test2@test.com"),
+            )
+            val savedUser = userJpaRepository.save(user)
+
+            val brand = Brand.create(
+                name = "테스트 브랜드2",
+                description = "테스트 브랜드2 설명",
+            )
+            val savedBrand = brandJpaRepository.save(brand)
+
+            val product = Product.create(
+                brand = savedBrand,
+                name = "테스트 상품2",
+                price = BigDecimal("10000"),
+                stock = 10,
+                status = ProductStatus.ACTIVE,
+            )
+            val savedProduct = productJpaRepository.save(product)
+
+            val request = OrderV1Dto.OrderRequest(
+                items = listOf(
+                    OrderV1Dto.OrderItemRequest(
+                        productId = savedProduct.id,
+                        quantity = 1,
+                    ),
+                ),
+                // 쿠폰이 없어도 정상 처리되어야 함
+                couponId = null,
+            )
+
+            val headers = createAuthHeaders("test456", "encryptedPassword")
+
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // then
+            assertAll(
+                { assertEquals(HttpStatus.CREATED, response.statusCode) },
+                { assertThat(response.body?.data).isNotNull },
+            )
+
+            val savedOrder = orderJpaRepository.findById(response.body?.data!!)
+            assertThat(savedOrder).isPresent
+            assertThat(savedOrder.get().couponId).isNull()
         }
     }
 }

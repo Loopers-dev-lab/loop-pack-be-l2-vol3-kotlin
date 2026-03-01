@@ -16,10 +16,10 @@ class OrderService(
 ) {
 
     @Transactional
-    fun createOrder(userId: Long, items: List<CreateOrderItemCommand>): Long {
+    fun createOrder(userId: Long, items: List<CreateOrderItemCommand>, couponId: Long? = null): Long {
         validateItems(items)
 
-        val order = Order.create(userId)
+        val order = Order.create(userId, couponId)
         val savedOrder = orderRepository.save(order)
 
         items.forEach { itemRequest ->

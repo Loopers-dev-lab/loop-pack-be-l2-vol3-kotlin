@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -21,7 +23,24 @@ class OrderItem protected constructor(
     val productName: String = "",
 ) : BaseEntity() {
 
-    fun getSubtotal(): BigDecimal = price.multiply(BigDecimal(quantity))
+    @Column(nullable = false, precision = 19, scale = 2)
+    var discountAmount: BigDecimal = BigDecimal.ZERO
+        protected set
+
+    fun getSubtotal(): BigDecimal {
+        return (price * BigDecimal(quantity.toLong())) - discountAmount
+    }
+
+    fun applyDiscountAmount(discount: BigDecimal) {
+        if (discount < BigDecimal.ZERO) {
+            throw CoreException(ErrorType.BAD_REQUEST, "할인액은 0 이상이어야 합니다")
+        }
+        this.discountAmount = discount
+    }
+
+    fun getItemAmount(): BigDecimal {
+        return price * BigDecimal(quantity.toLong())
+    }
 
     companion object {
         fun create(

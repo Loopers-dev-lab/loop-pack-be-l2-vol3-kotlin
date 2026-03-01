@@ -17,6 +17,7 @@ import java.time.ZonedDateTime
 @Table(name = "orders")
 class Order protected constructor(
     val userId: Long = 0L,
+    val couponId: Long? = null,
 ) : BaseEntity() {
 
     @Enumerated(EnumType.STRING)
@@ -48,8 +49,8 @@ class Order protected constructor(
     }
 
     companion object {
-        fun create(userId: Long, status: OrderStatus = OrderStatus.PENDING): Order =
-            Order(userId = userId)
+        fun create(userId: Long, couponId: Long? = null, status: OrderStatus = OrderStatus.PENDING): Order =
+            Order(userId = userId, couponId = couponId)
                 .apply {
                     this.status = status
                 }
