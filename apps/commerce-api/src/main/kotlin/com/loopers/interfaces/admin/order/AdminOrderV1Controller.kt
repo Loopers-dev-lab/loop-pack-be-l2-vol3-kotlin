@@ -3,8 +3,7 @@ package com.loopers.interfaces.admin.order
 import com.loopers.application.admin.order.AdminOrderFacade
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.PageResponse
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.support.validator.PageValidator
 import org.springframework.data.domain.PageRequest
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -23,12 +22,7 @@ class AdminOrderV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<PageResponse<AdminOrderV1Dto.OrderResponse>> {
-        if (size !in listOf(20, 50, 100)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "size는 20, 50, 100만 가능합니다")
-        }
-        if (page < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "page는 음수일 수 없습니다")
-        }
+        PageValidator.validatePageRequest(page, size)
 
         val pageable = PageRequest.of(page, size)
         val dto = adminOrderFacade.getOrders(pageable).map { AdminOrderV1Dto.OrderResponse.from(it) }
