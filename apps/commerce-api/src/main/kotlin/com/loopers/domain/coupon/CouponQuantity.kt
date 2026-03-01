@@ -28,7 +28,7 @@ class CouponQuantity(
     }
 
     fun issue(): CouponQuantity {
-        if (issued >= total) {
+        if (isExhausted()) {
             throw CoreException(ErrorType.BAD_REQUEST, "발급 수량이 소진되었습니다.")
         }
         return CouponQuantity(total, issued + 1)

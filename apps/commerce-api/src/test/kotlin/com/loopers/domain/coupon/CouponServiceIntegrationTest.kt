@@ -30,17 +30,15 @@ class CouponServiceIntegrationTest @Autowired constructor(
 
     private fun createCoupon(
         name: String = "신규가입 할인",
-        discountType: DiscountType = DiscountType.FIXED_AMOUNT,
-        discountValue: Long = 5000L,
+        discount: Discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
         totalQuantity: Int = 100,
         expiresAt: ZonedDateTime = ZonedDateTime.now().plusDays(30),
     ): Coupon {
         return couponRepository.save(
             Coupon(
                 name = name,
-                discountType = discountType,
-                discountValue = discountValue,
-                totalQuantity = totalQuantity,
+                discount = discount,
+                quantity = CouponQuantity(totalQuantity, 0),
                 expiresAt = expiresAt,
             ),
         )

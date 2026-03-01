@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api
 
 import com.loopers.domain.coupon.Coupon
+import com.loopers.domain.coupon.CouponQuantity
 import com.loopers.domain.coupon.CouponRepository
+import com.loopers.domain.coupon.Discount
 import com.loopers.domain.coupon.DiscountType
 import com.loopers.domain.coupon.IssuedCouponRepository
 import com.loopers.interfaces.api.user.UserDto
@@ -95,17 +97,15 @@ class CouponApiE2ETest @Autowired constructor(
 
     private fun createCoupon(
         name: String = "신규가입 할인",
-        discountType: DiscountType = DiscountType.FIXED_AMOUNT,
-        discountValue: Long = 5000L,
+        discount: Discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
         totalQuantity: Int = 100,
         expiresAt: ZonedDateTime = ZonedDateTime.now().plusDays(30),
     ): Coupon {
         return couponRepository.save(
             Coupon(
                 name = name,
-                discountType = discountType,
-                discountValue = discountValue,
-                totalQuantity = totalQuantity,
+                discount = discount,
+                quantity = CouponQuantity(totalQuantity, 0),
                 expiresAt = expiresAt,
             ),
         )

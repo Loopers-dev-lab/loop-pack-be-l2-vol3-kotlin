@@ -16,10 +16,9 @@ class CouponTest {
     @Nested
     inner class Create {
         private val name = "신규가입 할인"
-        private val discountType = DiscountType.FIXED_AMOUNT
-        private val discountValue = 5000L
-        private val totalQuantity = 100
-        private val expiresAt: ZonedDateTime = ZonedDateTime.now().plusDays(30)
+        private val discount = Discount(DiscountType.FIXED_AMOUNT, 5000L)
+        private val quantity = CouponQuantity(100, 0)
+        private val expiresAt = ZonedDateTime.now().plusDays(30)
 
         @DisplayName("유효한 값이 주어지면, 정상적으로 생성된다.")
         @Test
@@ -27,19 +26,16 @@ class CouponTest {
             // arrange & act
             val coupon = Coupon(
                 name = name,
-                discountType = discountType,
-                discountValue = discountValue,
-                totalQuantity = totalQuantity,
+                discount = discount,
+                quantity = quantity,
                 expiresAt = expiresAt,
             )
 
             // assert
             assertAll(
                 { assertThat(coupon.name).isEqualTo(name) },
-                { assertThat(coupon.discountType).isEqualTo(discountType) },
-                { assertThat(coupon.discountValue).isEqualTo(discountValue) },
-                { assertThat(coupon.totalQuantity).isEqualTo(totalQuantity) },
-                { assertThat(coupon.issuedQuantity).isEqualTo(0) },
+                { assertThat(coupon.discount).isEqualTo(discount) },
+                { assertThat(coupon.quantity).isEqualTo(quantity) },
                 { assertThat(coupon.expiresAt).isEqualTo(expiresAt) },
             )
         }
@@ -51,9 +47,8 @@ class CouponTest {
             val exception = assertThrows<CoreException> {
                 Coupon(
                     name = "",
-                    discountType = discountType,
-                    discountValue = discountValue,
-                    totalQuantity = totalQuantity,
+                    discount = discount,
+                    quantity = quantity,
                     expiresAt = expiresAt,
                 )
             }
@@ -67,13 +62,7 @@ class CouponTest {
         fun throwsBadRequest_whenDiscountValueIsNotPositive() {
             // act
             val exception = assertThrows<CoreException> {
-                Coupon(
-                    name = name,
-                    discountType = discountType,
-                    discountValue = 0L,
-                    totalQuantity = totalQuantity,
-                    expiresAt = expiresAt,
-                )
+                Discount(DiscountType.FIXED_AMOUNT, 0L)
             }
 
             // assert
@@ -85,13 +74,7 @@ class CouponTest {
         fun throwsBadRequest_whenTotalQuantityIsNotPositive() {
             // act
             val exception = assertThrows<CoreException> {
-                Coupon(
-                    name = name,
-                    discountType = discountType,
-                    discountValue = discountValue,
-                    totalQuantity = 0,
-                    expiresAt = expiresAt,
-                )
+                CouponQuantity(0, 0)
             }
 
             // assert
@@ -109,9 +92,8 @@ class CouponTest {
             // arrange
             val coupon = Coupon(
                 name = "신규가입 할인",
-                discountType = DiscountType.FIXED_AMOUNT,
-                discountValue = 5000L,
-                totalQuantity = 100,
+                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+                quantity = CouponQuantity(100, 0),
                 expiresAt = ZonedDateTime.now().plusDays(30),
             )
 
@@ -119,7 +101,7 @@ class CouponTest {
             coupon.issue()
 
             // assert
-            assertThat(coupon.issuedQuantity).isEqualTo(1)
+            assertThat(coupon.quantity.issued).isEqualTo(1)
         }
 
         @DisplayName("만료된 쿠폰이면, BAD_REQUEST 예외가 발생한다.")
@@ -128,9 +110,8 @@ class CouponTest {
             // arrange
             val coupon = Coupon(
                 name = "만료된 쿠폰",
-                discountType = DiscountType.FIXED_AMOUNT,
-                discountValue = 5000L,
-                totalQuantity = 100,
+                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+                quantity = CouponQuantity(100, 0),
                 expiresAt = ZonedDateTime.now().minusDays(1),
             )
 
@@ -149,9 +130,8 @@ class CouponTest {
             // arrange
             val coupon = Coupon(
                 name = "한정 쿠폰",
-                discountType = DiscountType.FIXED_AMOUNT,
-                discountValue = 5000L,
-                totalQuantity = 1,
+                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+                quantity = CouponQuantity(1, 0),
                 expiresAt = ZonedDateTime.now().plusDays(30),
             )
             coupon.issue()
