@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api.user
+package com.loopers.interfaces.api.user.auth
 
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
@@ -21,7 +21,7 @@ import java.time.LocalDate
 
 @DisplayName("POST /api/v1/users - 회원가입 E2E")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class UserV1SignUpE2ETest
+class UserAuthV1SignUpE2ETest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,
@@ -81,7 +81,7 @@ constructor(
                 SIGN_UP_ENDPOINT,
                 HttpMethod.POST,
                 signUpRequest(),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.SignUp>>() {},
             )
 
             // assert
@@ -100,7 +100,7 @@ constructor(
                 SIGN_UP_ENDPOINT,
                 HttpMethod.POST,
                 signUpRequest(),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.SignUp>>() {},
             )
 
             // act - 가입한 계정으로 내 정보 조회
@@ -108,7 +108,7 @@ constructor(
                 GET_ME_ENDPOINT,
                 HttpMethod.GET,
                 getMeRequest("testuser1", "Password1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.MeResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.Me>>() {},
             )
 
             // assert
@@ -133,7 +133,7 @@ constructor(
                 SIGN_UP_ENDPOINT,
                 HttpMethod.POST,
                 signUpRequest(),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.SignUp>>() {},
             )
 
             // act - 동일 loginId로 두 번째 가입
@@ -141,7 +141,7 @@ constructor(
                 SIGN_UP_ENDPOINT,
                 HttpMethod.POST,
                 signUpRequest(),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.SignUp>>() {},
             )
 
             // assert
@@ -160,7 +160,7 @@ constructor(
                 SIGN_UP_ENDPOINT,
                 HttpMethod.POST,
                 signUpRequest(loginId = ""),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.SignUp>>() {},
             )
 
             // assert

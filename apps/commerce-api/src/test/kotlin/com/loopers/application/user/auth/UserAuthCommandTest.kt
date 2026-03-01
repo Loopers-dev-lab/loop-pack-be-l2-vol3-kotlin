@@ -1,4 +1,4 @@
-package com.loopers.application.user.model
+package com.loopers.application.user.auth
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -6,15 +6,15 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
-@DisplayName("User Command toString 마스킹")
-class UserCommandTest {
+@DisplayName("UserAuthCommand toString 마스킹")
+class UserAuthCommandTest {
     @Nested
-    @DisplayName("UserSignUpCommand toString에 비밀번호가 포함되지 않는다")
+    @DisplayName("UserAuthCommand.SignUp toString에 비밀번호가 포함되지 않는다")
     inner class SignUpCommandToString {
         @Test
         @DisplayName("toString 호출 시 password가 [PROTECTED]로 마스킹된다")
         fun toString_passwordMasked() {
-            val command = UserSignUpCommand(
+            val command = UserAuthCommand.SignUp(
                 loginId = "testuser1",
                 password = "Password1!",
                 name = "홍길동",
@@ -28,12 +28,12 @@ class UserCommandTest {
     }
 
     @Nested
-    @DisplayName("UserChangePasswordCommand toString에 비밀번호가 포함되지 않는다")
+    @DisplayName("UserAuthCommand.ChangePassword toString에 비밀번호가 포함되지 않는다")
     inner class ChangePasswordCommandToString {
         @Test
         @DisplayName("toString 호출 시 currentPassword, newPassword가 [PROTECTED]로 마스킹된다")
         fun toString_passwordsMasked() {
-            val command = UserChangePasswordCommand(
+            val command = UserAuthCommand.ChangePassword(
                 currentPassword = "OldPassword1!",
                 newPassword = "NewPassword1!",
             )

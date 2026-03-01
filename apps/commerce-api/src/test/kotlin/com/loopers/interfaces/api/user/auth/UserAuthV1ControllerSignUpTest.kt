@@ -1,9 +1,9 @@
-package com.loopers.interfaces.api.user
+package com.loopers.interfaces.api.user.auth
 
-import com.loopers.application.user.UserChangePasswordUseCase
-import com.loopers.application.user.UserMeUseCase
-import com.loopers.application.user.UserSignUpResult
-import com.loopers.application.user.UserSignUpUseCase
+import com.loopers.application.user.auth.UserChangePasswordUseCase
+import com.loopers.application.user.auth.UserMeUseCase
+import com.loopers.application.user.auth.UserResult
+import com.loopers.application.user.auth.UserSignUpUseCase
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -20,8 +20,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @DisplayName("POST /api/v1/users - 회원가입")
-@WebMvcTest(UserV1Controller::class)
-class UserV1ControllerSignUpTest
+@WebMvcTest(UserAuthV1Controller::class)
+class UserAuthV1ControllerSignUpTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
@@ -37,7 +37,7 @@ constructor(
     @Test
     fun signUp_success_returns201WithLoginId() {
         // arrange
-        given(userSignUpService.signUp(any())).willReturn(UserSignUpResult(loginId = "testuser1"))
+        given(userSignUpService.signUp(any())).willReturn(UserResult.SignUp(loginId = "testuser1"))
 
         val requestBody =
             """

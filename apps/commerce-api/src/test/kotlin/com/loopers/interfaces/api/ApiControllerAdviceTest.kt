@@ -32,8 +32,9 @@ class ApiControllerAdviceTest {
             // assert
             val body = response.body as ApiResponse<*>
             assertThat(body.meta.message).doesNotContain("Internal detail message")
-            assertThat(body.meta.message).contains("fieldName")
-            assertThat(body.meta.message).contains("JSON 매핑 오류")
+            assertThat(body.meta.message).isEqualTo("입력값이 올바르지 않습니다.")
+            assertThat(body.meta.errors).containsKey("fieldName")
+            assertThat(body.meta.errors?.get("fieldName")).contains("JSON 매핑 오류가 발생했습니다.")
         }
     }
 }

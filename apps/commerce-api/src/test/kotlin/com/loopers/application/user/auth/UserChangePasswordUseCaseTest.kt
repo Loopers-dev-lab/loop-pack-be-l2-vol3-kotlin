@@ -1,6 +1,5 @@
-package com.loopers.application.user
+package com.loopers.application.user.auth
 
-import com.loopers.application.user.model.UserChangePasswordCommand
 import com.loopers.domain.user.EncodedPassword
 import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
@@ -57,7 +56,7 @@ class UserChangePasswordUseCaseTest {
             given(userRepository.save(any())).willAnswer { it.arguments[0] as User }
 
             // act
-            service.changePassword("testuser1", "Password1!", UserChangePasswordCommand("Password1!", "NewPassword1!"))
+            service.changePassword("testuser1", "Password1!", UserAuthCommand.ChangePassword("Password1!", "NewPassword1!"))
 
             // assert
             then(userRepository).should().save(
@@ -85,7 +84,7 @@ class UserChangePasswordUseCaseTest {
                 service.changePassword(
                     "testuser1",
                     "WrongPassword1!",
-                    UserChangePasswordCommand("Password1!", "NewPassword1!"),
+                    UserAuthCommand.ChangePassword("Password1!", "NewPassword1!"),
                 )
             }
 
@@ -114,7 +113,7 @@ class UserChangePasswordUseCaseTest {
                 service.changePassword(
                     "testuser1",
                     "Password1!",
-                    UserChangePasswordCommand("WrongCurrent1!", "NewPassword1!"),
+                    UserAuthCommand.ChangePassword("WrongCurrent1!", "NewPassword1!"),
                 )
             }
 
@@ -137,7 +136,7 @@ class UserChangePasswordUseCaseTest {
                 service.changePassword(
                     "testuser1",
                     "Password1!",
-                    UserChangePasswordCommand("Password1!", "Password1!"),
+                    UserAuthCommand.ChangePassword("Password1!", "Password1!"),
                 )
             }
 

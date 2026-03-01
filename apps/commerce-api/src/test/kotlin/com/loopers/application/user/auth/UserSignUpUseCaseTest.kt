@@ -1,6 +1,5 @@
-package com.loopers.application.user
+package com.loopers.application.user.auth
 
-import com.loopers.application.user.model.UserSignUpCommand
 import com.loopers.domain.user.EncodedPassword
 import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
@@ -28,15 +27,15 @@ class UserSignUpUseCaseTest {
 
     private val defaultBirthDate = LocalDate.of(1990, 1, 1)
 
-    private fun command(loginId: String = "testuser1"): UserSignUpCommand =
-        UserSignUpCommand(loginId, "Password1!", "홍길동", defaultBirthDate, "test@example.com")
+    private fun command(loginId: String = "testuser1"): UserAuthCommand.SignUp =
+        UserAuthCommand.SignUp(loginId, "Password1!", "홍길동", defaultBirthDate, "test@example.com")
 
     @Nested
     @DisplayName("회원가입 성공")
     inner class WhenSignUpSuccess {
         @Test
-        @DisplayName("UserSignUpResult(loginId)를 반환한다")
-        fun signUp_success_returnsUserSignUpResult() {
+        @DisplayName("UserResult.SignUp(loginId)를 반환한다")
+        fun signUp_success_returnsUserResultSignUp() {
             // arrange
             given(userRepository.existsByLoginId("testuser1")).willReturn(false)
             given(passwordHasher.encode(RawPassword("Password1!")))

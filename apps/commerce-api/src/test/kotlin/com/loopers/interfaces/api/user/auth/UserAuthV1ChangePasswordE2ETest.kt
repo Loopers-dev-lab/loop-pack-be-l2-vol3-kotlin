@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api.user
+package com.loopers.interfaces.api.user.auth
 
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
@@ -20,7 +20,7 @@ import org.springframework.http.MediaType
 
 @DisplayName("PATCH /api/v1/users/me/password - 비밀번호 변경 E2E")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class UserV1ChangePasswordE2ETest
+class UserAuthV1ChangePasswordE2ETest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,
@@ -60,7 +60,7 @@ constructor(
             SIGN_UP_ENDPOINT,
             HttpMethod.POST,
             HttpEntity(body, headers),
-            object : ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {},
+            object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.SignUp>>() {},
         )
     }
 
@@ -109,14 +109,14 @@ constructor(
                 CHANGE_PASSWORD_ENDPOINT,
                 HttpMethod.PATCH,
                 changePasswordRequest("testuser1", "Password1!", "Password1!", "NewPassword1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.ChangePasswordResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS") },
-                { assertThat(response.body?.data?.message).isEqualTo("비밀번호가 변경되었습니다.") },
+                { assertThat(response.body?.data).isNull() },
             )
         }
 
@@ -131,7 +131,7 @@ constructor(
                 CHANGE_PASSWORD_ENDPOINT,
                 HttpMethod.PATCH,
                 changePasswordRequest("testuser1", "Password1!", "Password1!", "NewPassword1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.ChangePasswordResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 
             // assert - 변경 API 성공 확인
@@ -142,7 +142,7 @@ constructor(
                 GET_ME_ENDPOINT,
                 HttpMethod.GET,
                 getMeRequest("testuser1", "NewPassword1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.MeResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.Me>>() {},
             )
             assertThat(meResponse.statusCode).isEqualTo(HttpStatus.OK)
         }
@@ -158,7 +158,7 @@ constructor(
                 CHANGE_PASSWORD_ENDPOINT,
                 HttpMethod.PATCH,
                 changePasswordRequest("testuser1", "Password1!", "Password1!", "NewPassword1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.ChangePasswordResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 
             // assert - 변경 API 성공 확인
@@ -169,7 +169,7 @@ constructor(
                 GET_ME_ENDPOINT,
                 HttpMethod.GET,
                 getMeRequest("testuser1", "Password1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.MeResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<UserAuthV1Response.Me>>() {},
             )
             assertThat(meResponse.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
@@ -189,7 +189,7 @@ constructor(
                 CHANGE_PASSWORD_ENDPOINT,
                 HttpMethod.PATCH,
                 changePasswordRequest("testuser1", "Password1!", "WrongPassword1!", "NewPassword1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.ChangePasswordResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 
             // assert
@@ -211,7 +211,7 @@ constructor(
                 CHANGE_PASSWORD_ENDPOINT,
                 HttpMethod.PATCH,
                 changePasswordRequest("testuser1", "WrongPassword1!", "Password1!", "NewPassword1!"),
-                object : ParameterizedTypeReference<ApiResponse<UserV1Dto.ChangePasswordResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 
             // assert

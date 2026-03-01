@@ -1,8 +1,8 @@
-package com.loopers.interfaces.api.user
+package com.loopers.interfaces.api.user.auth
 
-import com.loopers.application.user.UserChangePasswordUseCase
-import com.loopers.application.user.UserMeUseCase
-import com.loopers.application.user.UserSignUpUseCase
+import com.loopers.application.user.auth.UserChangePasswordUseCase
+import com.loopers.application.user.auth.UserMeUseCase
+import com.loopers.application.user.auth.UserSignUpUseCase
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -22,13 +22,13 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @DisplayName("PATCH /api/v1/users/me/password - 비밀번호 수정")
-@WebMvcTest(UserV1Controller::class)
-class UserV1ControllerChangePasswordTest
+@WebMvcTest(UserAuthV1Controller::class)
+class UserAuthV1ControllerChangePasswordTest
 @Autowired
 constructor(
     private val mockMvc: MockMvc,
-    @MockitoBean private val userSignUpService: UserSignUpUseCase,
     @MockitoBean private val userChangePasswordService: UserChangePasswordUseCase,
+    @MockitoBean private val userSignUpService: UserSignUpUseCase,
     @MockitoBean private val userMeService: UserMeUseCase,
 ) {
     companion object {
@@ -69,7 +69,7 @@ constructor(
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
-                .andExpect(jsonPath("$.data.message").value("비밀번호가 변경되었습니다."))
+                .andExpect(jsonPath("$.data").doesNotExist())
         }
     }
 

@@ -1,4 +1,4 @@
-package com.loopers.interfaces.api.user
+package com.loopers.interfaces.api.user.auth
 
 import jakarta.validation.Validation
 import org.assertj.core.api.Assertions.assertThat
@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
-@DisplayName("UserV1Dto 유효성 검증")
-class UserV1DtoTest {
+@DisplayName("UserAuthV1Request 유효성 검증")
+class UserAuthV1RequestTest {
     private val validator = Validation.buildDefaultValidatorFactory().validator
 
     private fun createRequest(
@@ -17,7 +17,7 @@ class UserV1DtoTest {
         name: String = "홍길동",
         birthDate: LocalDate = LocalDate.of(1990, 1, 1),
         email: String = "test@example.com",
-    ): UserV1Dto.SignUpRequest = UserV1Dto.SignUpRequest(loginId, password, name, birthDate, email)
+    ): UserAuthV1Request.SignUp = UserAuthV1Request.SignUp(loginId, password, name, birthDate, email)
 
     @Nested
     @DisplayName("loginId 검증")
@@ -180,8 +180,8 @@ class UserV1DtoTest {
     }
 
     @Nested
-    @DisplayName("SignUpRequest toString에 비밀번호가 포함되지 않는다")
-    inner class SignUpRequestToString {
+    @DisplayName("SignUp toString에 비밀번호가 포함되지 않는다")
+    inner class SignUpToString {
         @Test
         @DisplayName("toString 호출 시 password가 [PROTECTED]로 마스킹된다")
         fun toString_passwordMasked() {
@@ -193,12 +193,12 @@ class UserV1DtoTest {
     }
 
     @Nested
-    @DisplayName("ChangePasswordRequest toString에 비밀번호가 포함되지 않는다")
-    inner class ChangePasswordRequestToString {
+    @DisplayName("ChangePassword toString에 비밀번호가 포함되지 않는다")
+    inner class ChangePasswordToString {
         @Test
         @DisplayName("toString 호출 시 currentPassword, newPassword가 [PROTECTED]로 마스킹된다")
         fun toString_passwordsMasked() {
-            val request = UserV1Dto.ChangePasswordRequest(
+            val request = UserAuthV1Request.ChangePassword(
                 currentPassword = "OldPassword1!",
                 newPassword = "NewPassword1!",
             )

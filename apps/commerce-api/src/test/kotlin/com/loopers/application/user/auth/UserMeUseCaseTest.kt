@@ -1,4 +1,4 @@
-package com.loopers.application.user
+package com.loopers.application.user.auth
 
 import com.loopers.domain.user.EncodedPassword
 import com.loopers.domain.user.RawPassword
@@ -38,7 +38,7 @@ class UserMeUseCaseTest {
     @DisplayName("유효한 인증으로 조회하면 사용자 정보를 반환한다")
     inner class WhenValidCredentials {
         @Test
-        @DisplayName("마스킹된 UserMeResult를 반환한다")
+        @DisplayName("마스킹된 UserResult.Me를 반환한다")
         fun getMe_success_returnsMaskedUserInfo() {
             // arrange
             given(userRepository.findByLoginId("testuser1")).willReturn(existingUser())
