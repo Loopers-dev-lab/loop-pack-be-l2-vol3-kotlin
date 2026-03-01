@@ -20,4 +20,8 @@ class CouponRepositoryImpl(
     override fun findByIdWithLock(id: Long): Coupon? {
         return couponJpaRepository.findByIdWithLockAndDeletedAtIsNull(id)
     }
+
+    override fun findByIdIn(ids: List<Long>): List<Coupon> {
+        return couponJpaRepository.findByIdInAndDeletedAtIsNull(ids)
+    }
 }
