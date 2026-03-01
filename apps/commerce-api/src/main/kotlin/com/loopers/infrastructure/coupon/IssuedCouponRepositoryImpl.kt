@@ -17,6 +17,10 @@ class IssuedCouponRepositoryImpl(
         return issuedCouponJpaRepository.existsByCouponIdAndUserId(couponId, userId)
     }
 
+    override fun findByCouponIdAndUserId(couponId: Long, userId: Long): IssuedCoupon? {
+        return issuedCouponJpaRepository.findByCouponIdAndUserId(couponId, userId)
+    }
+
     override fun findByUserId(userId: Long): List<IssuedCoupon> {
         return issuedCouponJpaRepository.findByUserId(userId)
     }

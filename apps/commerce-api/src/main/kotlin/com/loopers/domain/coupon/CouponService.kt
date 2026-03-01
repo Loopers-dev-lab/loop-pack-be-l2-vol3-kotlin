@@ -31,4 +31,14 @@ class CouponService(
     fun findCouponsByIds(ids: List<Long>): List<Coupon> {
         return couponRepository.findByIdIn(ids)
     }
+
+    fun findCouponById(couponId: Long): Coupon {
+        return couponRepository.findById(couponId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
+    }
+
+    fun findIssuedCouponByCouponIdAndUserId(couponId: Long, userId: Long): IssuedCoupon {
+        return issuedCouponRepository.findByCouponIdAndUserId(couponId, userId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
+    }
 }
