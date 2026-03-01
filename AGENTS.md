@@ -49,7 +49,7 @@ e-commerce/
 - **DDD 우선 설계**: Domain 계층의 순수성(Persistence Ignorance)을 유지하고, 애그리거트/VO/도메인 서비스로 비즈니스 규칙을 모델링한다
 - **CQRS 도입 기준**: 읽기/쓰기 모델의 관심사가 명확히 분리되고 성능/정합성 요구가 있을 때 Command/Query 모델 분리를 도입한다
 - **Domain Model**: private constructor + companion object factory method (`register()`, `retrieve()`)
-- **Entity ↔ Domain 변환**: `Entity.toDomain()` / `Entity` companion object (or constructor)
+- **Entity ↔ Domain 변환**: `{Domain}Mapper` (`@Component`) — `toDomain(entity)` / `toEntity(domain)`
 - **Soft Delete**: `BaseEntity` provides `delete()`/`restore()` via `deletedAt` field
 - **BaseEntity**: `@MappedSuperclass` with `id`, `createdAt`, `updatedAt`, `deletedAt` + `guard()` template method
 
@@ -101,6 +101,7 @@ docker compose -f docker/monitoring-compose.yml up -d
 
 ### Naming Rules
 
+- **Command**: `{Domain}Command` container + inner class — application 레이어 입력 DTO (예: `UserAuthCommand.SignUp`)
 - **Result**: `{Domain}Result` — application 레이어 반환 DTO
 - **UseCase**: `{Domain}{Action}UseCase` — application 레이어 UseCase (예: `UserSignUpUseCase`)
 - **Domain Model**: `{Domain}` — private constructor + companion object factory method (예: `User`)
@@ -108,7 +109,8 @@ docker compose -f docker/monitoring-compose.yml up -d
 - **Repository Interface**: `{Domain}Repository` — domain 레이어 (예: `UserRepository`)
 - **Repository Impl**: `{Domain}RepositoryImpl` — infrastructure 레이어 (예: `UserRepositoryImpl`)
 - **JPA Repository**: `{Domain}JpaRepository` — infrastructure 레이어 (예: `UserJpaRepository`)
-> API 전용 네이밍(Controller, ApiSpec, DTO, 버전 관리)은 `apps/commerce-api/AGENTS.md` 참조
+
+> API 전용 네이밍(Controller, ApiSpec, Request, Response, 버전 관리)은 `apps/commerce-api/AGENTS.md` 참조
 
 ## Build & Test
 

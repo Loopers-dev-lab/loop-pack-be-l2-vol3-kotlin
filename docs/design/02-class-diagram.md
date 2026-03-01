@@ -1,7 +1,7 @@
 # 클래스 다이어그램 (도메인 모델)
 
 - **작성자**: 김민주
-- **최종 수정일**: 2026-02-14
+- **최종 수정일**: 2026-03-02
 
 ## 목차
 
@@ -73,13 +73,13 @@ classDiagram
 %% ============================================
     class User {
         <<AggregateRoot>>
-        +loginId: String
-        +password: String
-        +name: String
+        +loginId: LoginId
+        +password: EncodedPassword
+        +name: UserName
         +birthDate: LocalDate
         +email: Email
-        +register()
-        +changePassword()
+        +register(passwordHasher)
+        +changePassword(currentPassword, newPassword, passwordHasher)
     }
 
 %% ============================================
@@ -128,7 +128,7 @@ classDiagram
 %% ============================================
     class ProductLike {
         <<AggregateRoot>>
-        +customerId: Long
+        +userId: Long
         +productId: Long
         +register()
     }
@@ -138,7 +138,7 @@ classDiagram
 %% ============================================
     class Order {
         <<AggregateRoot>>
-        +customerId: Long
+        +userId: Long
         +idempotencyKey: IdempotencyKey
         +status: OrderStatus
         +items: List~OrderItem~
@@ -163,6 +163,28 @@ classDiagram
         +isEnoughFor(requested: Quantity)
     }
 
+    class LoginId {
+        <<ValueObject>>
+        +value: String
+    }
+
+    class EncodedPassword {
+        <<ValueObject>>
+        +value: String
+    }
+
+    class RawPassword {
+        <<ValueObject>>
+        +value: String
+        +withBirthDateValidation(value, birthDate)$
+    }
+
+    class UserName {
+        <<ValueObject>>
+        +value: String
+        +masked: String
+    }
+
     class Email {
         <<ValueObject>>
         +value: String
@@ -178,16 +200,19 @@ classDiagram
 %% ============================================
     class OrderDomainService {
         <<DomainService>>
-        +createOrder(customerId, idempotencyKey, orderItems)
+        +createOrder(userId, idempotencyKey, orderItems)
     }
 
 %% Relationships - Aggregate 간 ID 참조
     Product --> Brand: brandId
     ProductStock --> Product: productId
-    ProductLike --> User: customerId
+    ProductLike --> User: userId
     ProductLike --> Product: productId
-    Order --> User: customerId
+    Order --> User: userId
 %% Relationships - Value Object 사용
+    User --> LoginId
+    User --> EncodedPassword
+    User --> UserName
     User --> Email
     Product --> Money
     ProductStock --> Quantity
@@ -255,13 +280,35 @@ User Aggregate는 시스템 사용자의 신원을 관리한다. Customer와 Adm
 classDiagram
     class User {
         <<AggregateRoot>>
-        +loginId: String
-        +password: String
-        +name: String
+        +loginId: LoginId
+        +password: EncodedPassword
+        +name: UserName
         +birthDate: LocalDate
         +email: Email
-        +register()
-        +changePassword()
+        +register(passwordHasher)
+        +changePassword(currentPassword, newPassword, passwordHasher)
+    }
+
+    class LoginId {
+        <<ValueObject>>
+        +value: String
+    }
+
+    class EncodedPassword {
+        <<ValueObject>>
+        +value: String
+    }
+
+    class RawPassword {
+        <<ValueObject>>
+        +value: String
+        +withBirthDateValidation(value, birthDate)$
+    }
+
+    class UserName {
+        <<ValueObject>>
+        +value: String
+        +masked: String
     }
 
     class Email {
@@ -269,6 +316,9 @@ classDiagram
         +value: String
     }
 
+    User --> LoginId
+    User --> EncodedPassword
+    User --> UserName
     User --> Email
 ```
 
@@ -279,7 +329,10 @@ classDiagram
 #### True Invariant
 
 - `loginId` 유일성 (시스템 내에서 중복될 수 없다)
+- `loginId` 형식 검증 (영문+숫자만 허용, LoginId VO를 통해 보장된다)
+- `name` 형식 검증 (한글만 허용, UserName VO를 통해 보장된다)
 - `email` 형식 검증 (Email VO를 통해 보장된다)
+- `password` 생년월일 포함 불가 (RawPassword.withBirthDateValidation()을 통해 보장된다)
 
 #### 핵심 비즈니스 규칙 vs 구현 세부사항
 
@@ -287,6 +340,7 @@ classDiagram
 |--------------------------------------|------------------------------|
 | 사용자 신원 관리 (loginId, password, email) | 인증 방식 (비밀번호 vs OAuth vs JWT) |
 | loginId 유일성                          | 역할 관리 방식 (단일 역할 vs 다중 역할)    |
+| 각 필드의 형식 검증 (VO를 통한 자기 보호)          | 비밀번호 해싱 알고리즘                  |
 
 ---
 
@@ -502,7 +556,7 @@ ProductLike Aggregate는 Customer의 특정 상품에 대한 선호를 표시하
 classDiagram
     class ProductLike {
         <<AggregateRoot>>
-        +customerId: Long
+        +userId: Long
         +productId: Long
         +register()
     }
@@ -517,17 +571,17 @@ classDiagram
         +name: String
     }
 
-    ProductLike --> User: customerId (ID 참조)
+    ProductLike --> User: userId (ID 참조)
     ProductLike --> Product: productId (ID 참조)
 ```
 
 #### 본질적 책임
 
-- **Customer의 선호 표시**: 누가(customerId) 어떤 상품(productId)을 좋아하는지 기록한다
+- **Customer의 선호 표시**: 누가(userId) 어떤 상품(productId)을 좋아하는지 기록한다
 
 #### True Invariant
 
-- `(customerId, productId)` 쌍의 유일성 (중복 좋아요를 방지한다)
+- `(userId, productId)` 쌍의 유일성 (중복 좋아요를 방지한다)
 - 존재하지 않는 상품에 대한 좋아요 등록이 불가능하다 (요구사항 4.2)
 
 #### 독립 Aggregate 근거
@@ -548,7 +602,7 @@ ProductLike를 Product 내부에 두지 않은 이유:
 | 핵심 비즈니스 규칙                    | 구현 세부사항                      |
 |-------------------------------|------------------------------|
 | Customer의 특정 상품에 대한 선호 표시     | 좋아요 수 집계 방식                  |
-| (customerId, productId) 쌍 유일성 | 추천 알고리즘 (좋아요 기반 추천 로직 변경 가능) |
+| (userId, productId) 쌍 유일성 | 추천 알고리즘 (좋아요 기반 추천 로직 변경 가능) |
 
 ---
 
@@ -564,7 +618,7 @@ Order Aggregate는 Customer의 구매 의사를 기록한다. Order의 본질은
 classDiagram
     class Order {
         <<AggregateRoot>>
-        +customerId: Long
+        +userId: Long
         +idempotencyKey: IdempotencyKey
         +status: OrderStatus
         +items: List~OrderItem~
@@ -617,7 +671,7 @@ classDiagram
     OrderSnapshot --> Money
     Order --> IdempotencyKey
     Order --> OrderStatus
-    Order --> User: customerId (ID 참조)
+    Order --> User: userId (ID 참조)
 ```
 
 #### 본질적 책임
@@ -648,7 +702,7 @@ Order에 재고 검증 로직이 **없는** 이유:
 
 #### 관계
 
-- **Order → User (ID 참조)**: 주문 소유자 (customerId)를 참조한다
+- **Order → User (ID 참조)**: 주문 소유자 (userId)를 참조한다
 - **Order *-- OrderItem (Composition — 부모가 삭제되면 자식도 함께 삭제되는 강한 소속 관계)**: Aggregate 내부, 생명주기 종속 (1..*)
 - **OrderItem *-- OrderSnapshot (Composition)**: VO, 생명주기 종속 (1)
 
@@ -700,6 +754,66 @@ classDiagram
 - **불변식**: value >= 0 (재고), value > 0 (주문 수량)
 - **행위**: decrease(amount), isEnoughFor(requested)
 - **사용처**: ProductStock.quantity, OrderItem.quantity
+
+#### LoginId
+
+```mermaid
+classDiagram
+    class LoginId {
+        <<ValueObject>>
+        +value: String
+    }
+```
+
+- **본질**: 사용자의 로그인 식별자를 캡슐화한다
+- **불변식**: 영문+숫자만 허용 (`^[a-zA-Z0-9]+$`)
+- **사용처**: User.loginId
+
+#### EncodedPassword
+
+```mermaid
+classDiagram
+    class EncodedPassword {
+        <<ValueObject>>
+        +value: String
+    }
+```
+
+- **본질**: 해싱된 비밀번호 값을 보유한다
+- **불변식**: 없음 (이미 해싱된 값)
+- **사용처**: User.password (영속 상태)
+
+#### RawPassword
+
+```mermaid
+classDiagram
+    class RawPassword {
+        <<ValueObject>>
+        +value: String
+        +withBirthDateValidation(value, birthDate)$
+    }
+```
+
+- **본질**: 사용자가 입력한 평문 비밀번호를 캡슐화한다
+- **불변식**: 영문+숫자+특수문자만 허용, 생년월일 포함 불가
+- **행위**: withBirthDateValidation(value, birthDate) — 비밀번호에 생년월일이 포함되면 예외를 발생시킨다
+- **사용처**: 회원가입, 비밀번호 변경 시 입력값 검증 (User에 저장되지 않고, 해싱 후 EncodedPassword로 변환된다)
+
+#### UserName
+
+```mermaid
+classDiagram
+    class UserName {
+        <<ValueObject>>
+        +value: String
+        +masked: String
+    }
+```
+
+- **본질**: 사용자 이름의 형식과 마스킹 정책을 캡슐화한다
+- **불변식**: 한글만 허용 (`^[가-힣]+$`)
+- **행위**: masked — 마지막 글자를 `*`로 치환한 값을 반환한다
+- **사용처**: User.name
 
 #### Email
 
@@ -976,6 +1090,6 @@ ProductStock 차감 + Order 생성을 동일 트랜잭션 내에서 처리한다
 | **5.1 노출 원칙**          | Brand.status, Product.status     | BrandStatus, ProductStatus Enumeration으로 활성/비활성을 관리한다. Customer 조회 시 ACTIVE + 미삭제만 노출한다           |
 | **5.2 All-or-Nothing** | OrderDomainService.createOrder() | ProductStock.decrease() → 재고 부족 시 예외, 전체 롤백. IdempotencyKey로 중복을 방지한다                             |
 | **5.3 스냅샷 보존**         | OrderSnapshot VO                 | 주문 생성 시점의 productName, brandName, unitPrice를 OrderSnapshot에 보존한다. 이후 Product/Brand 변경 시 영향 없다     |
-| **5.4 접근 원칙**          | User, ProductLike, Order         | Customer는 본인 customerId와 일치하는 데이터만 조회/수정 가능하다 (Application Service에서 검증)                          |
+| **5.4 접근 원칙**          | User, ProductLike, Order         | Customer는 본인 userId와 일치하는 데이터만 조회/수정 가능하다 (Application Service에서 검증)                          |
 | **5.5 브랜드-상품 종속**      | Product.brandId (불변)             | Product 생성 시 brandId를 설정하며, 이후 변경이 불가능하다. Brand 삭제 시 Product Cascade Delete (Application Service) |
 | **6.3 멱등성**            | Order.idempotencyKey             | IdempotencyKey VO로 요청 고유성을 보장한다. OrderDomainService가 중복을 검증한다                                     |

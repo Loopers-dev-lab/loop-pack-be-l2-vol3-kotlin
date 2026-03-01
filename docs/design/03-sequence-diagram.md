@@ -1,7 +1,7 @@
 # 시퀀스 다이어그램
 
 - **작성자**: 김민주
-- **최종 수정일**: 2026-02-14
+- **최종 수정일**: 2026-03-02
 
 ## 목차
 
@@ -84,14 +84,14 @@ sequenceDiagram
     participant PS as ProductStock
     participant O as Order
     participant OR as OrderRepository
-    C ->>+ OS: createOrder(customerId, items, idempotencyKey)
+    C ->>+ OS: createOrder(userId, items, idempotencyKey)
     Note over OS: 멱등성 검증
     OS ->>+ OR: existsByIdempotencyKey(idempotencyKey)
     OR -->>- OS: false (중복 없음)
     Note over OS: 상품 존재 및 노출 검증
     OS ->>+ PR: findAllByIdIn(productIds)
     PR -->>- OS: products (ACTIVE + 미삭제만)
-    OS ->>+ ODS: createOrder(customerId, idempotencyKey, orderItems)
+    OS ->>+ ODS: createOrder(userId, idempotencyKey, orderItems)
 
     rect rgb(240, 248, 255)
         Note over ODS, PS: 재고 검증 및 차감 (All-or-Nothing)
@@ -103,7 +103,7 @@ sequenceDiagram
 
     rect rgb(255, 250, 240)
         Note over ODS, O: 주문 생성 및 스냅샷 보존
-        ODS ->>+ O: create(customerId, idempotencyKey, items)
+        ODS ->>+ O: create(userId, idempotencyKey, items)
         Note right of O: OrderSnapshot 생성<br/>(productName, brandName,<br/>unitPrice 시점 보존)
         O -->>- ODS: order
     end
@@ -142,10 +142,10 @@ sequenceDiagram
     participant PR as ProductRepository
     participant ODS as OrderDomainService
     participant PS as ProductStock
-    C ->>+ OS: createOrder(customerId, items, idempotencyKey)
+    C ->>+ OS: createOrder(userId, items, idempotencyKey)
     OS ->>+ PR: findAllByIdIn(productIds)
     PR -->>- OS: products
-    OS ->>+ ODS: createOrder(customerId, idempotencyKey, orderItems)
+    OS ->>+ ODS: createOrder(userId, idempotencyKey, orderItems)
 
     rect rgb(255, 240, 240)
         Note over ODS, PS: 재고 검증 실패
@@ -185,20 +185,20 @@ sequenceDiagram
     participant PR as ProductRepository
     participant PLR as ProductLikeRepository
     participant PL as ProductLike
-    C ->>+ PLS: registerLike(customerId, productId)
+    C ->>+ PLS: registerLike(userId, productId)
     Note over PLS: 상품 존재 및 노출 검증
     PLS ->>+ PR: findById(productId)
     PR -->>- PLS: product (ACTIVE + 미삭제)
 
     Note over PLS: 중복 검증
-    PLS ->>+ PLR: existsByCustomerIdAndProductId(customerId, productId)
+    PLS ->>+ PLR: existsByCustomerIdAndProductId(userId, productId)
     PLR -->>- PLS: exists
 
     alt 이미 좋아요 등록됨
         PLS -->> C: 이미 등록됨 (중복 방지)
     else 좋아요 미등록
-        PLS ->>+ PL: register(customerId, productId)
-        Note right of PL: ProductLike 생성<br/>(customerId, productId)
+        PLS ->>+ PL: register(userId, productId)
+        Note right of PL: ProductLike 생성<br/>(userId, productId)
         PL -->>- PLS: productLike
         PLS ->>+ PLR: save(productLike)
         PLR -->>- PLS: savedProductLike
@@ -214,7 +214,7 @@ sequenceDiagram
 |------------------|---------------------------------------------|-----------------------------------|
 | **상품 존재 검증**     | 존재하지 않는 상품에 대한 좋아요는 등록할 수 없다                | 요구사항 4.2 (예외 흐름)                  |
 | **노출 검증**        | ACTIVE이고 삭제되지 않은 상품만 좋아요 등록 가능하다            | 요구사항 5.1 (노출 원칙)                  |
-| **중복 방지**        | (customerId, productId) 쌍의 유일성을 검증한다        | 클래스 다이어그램 섹션 3.5 (True Invariant) |
+| **중복 방지**        | (userId, productId) 쌍의 유일성을 검증한다        | 클래스 다이어그램 섹션 3.5 (True Invariant) |
 | **독립 Aggregate** | ProductLike는 Product에 종속되지 않는 독립 Aggregate다 | 클래스 다이어그램 섹션 3.5 (독립 lifecycle)   |
 
 ---
@@ -357,7 +357,7 @@ sequenceDiagram
 | **5.1 노출 원칙**          | ProductRepository.findAllByIdIn()                          | 2.1 (상품 노출 검증), 2.3 (상품 노출 검증), 3.2 (삭제 후 노출 차단) |
 | **5.2 All-or-Nothing** | OrderDomainService.createOrder() + ProductStock.decrease() | 2.1 (재고 차감 loop), 2.2 (트랜잭션 롤백)                  |
 | **5.3 주문 스냅샷 보존**      | Order.create()                                             | 2.1 (OrderSnapshot 생성 Note)                      |
-| **5.4 접근 원칙**          | Service 계층 customerId 검증                                   | 2.1, 2.2, 2.3 (customerId 파라미터)                  |
+| **5.4 접근 원칙**          | Service 계층 userId 검증                                   | 2.1, 2.2, 2.3 (userId 파라미터)                  |
 | **5.5 브랜드-상품 종속**      | Product.register() + BrandService.deleteBrand()            | 3.1 (브랜드 검증), 3.2 (Cascade Delete)               |
 | **6.3 멱등성**            | OrderRepository.existsByIdempotencyKey()                   | 2.1 (멱등성 검증)                                     |
 
