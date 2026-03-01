@@ -31,6 +31,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 
 @SpringBootTest
 class OrderFacadeIntegrationTest @Autowired constructor(
@@ -259,6 +261,46 @@ class OrderFacadeIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("동일 쿠폰으로 동시에 주문하면, 1건만 성공하고 나머지는 실패한다.")
+        @Test
+        fun onlyOneOrderSucceeds_whenConcurrentOrdersWithSameCoupon() {
+            // arrange
+            val userId = 1L
+            val brand = createBrand()
+            val product = createProduct(brand, price = Money.of(100000L))
+            val coupon = createCoupon(discountType = DiscountType.FIXED_AMOUNT, discountValue = 5000L)
+            issueCoupon(coupon.id, userId)
+
+            val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1)))
+
+            val threadCount = 2
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val latch = CountDownLatch(threadCount)
+            val results = mutableListOf<Result<Unit>>()
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        val result = runCatching { orderFacade.placeOrder(userId, items, coupon.id) }
+                        synchronized(results) { results.add(result) }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            val successCount = results.count { it.isSuccess }
+            val failureCount = results.count { it.isFailure }
+            assertAll(
+                { assertThat(successCount).isEqualTo(1) },
+                { assertThat(failureCount).isEqualTo(1) },
+            )
         }
     }
 }

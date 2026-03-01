@@ -41,4 +41,9 @@ class CouponService(
         return issuedCouponRepository.findByCouponIdAndUserId(couponId, userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
     }
+
+    fun findIssuedCouponWithLock(couponId: Long, userId: Long): IssuedCoupon {
+        return issuedCouponRepository.findByCouponIdAndUserIdWithLock(couponId, userId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
+    }
 }

@@ -42,7 +42,7 @@ class OrderFacade(
     fun placeOrder(userId: Long, items: List<OrderPlaceCommand>, couponId: Long? = null) {
         // 쿠폰 검증 (fail-fast)
         val couponInfo = couponId?.let { id ->
-            val issuedCoupon = couponService.findIssuedCouponByCouponIdAndUserId(id, userId)
+            val issuedCoupon = couponService.findIssuedCouponWithLock(id, userId)
             val coupon = couponService.findCouponById(id)
             issuedCoupon.validateUsable(coupon.expiresAt)
             CouponApplyInfo(id, coupon.discount, issuedCoupon)
