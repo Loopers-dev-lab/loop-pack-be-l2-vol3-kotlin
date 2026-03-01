@@ -1,6 +1,7 @@
 package com.loopers.application.order
 
 import com.loopers.domain.brand.BrandService
+import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.product.ProductService
@@ -33,13 +34,16 @@ class OrderFacadeTest {
     private lateinit var brandService: BrandService
 
     @Mock
+    private lateinit var couponService: CouponService
+
+    @Mock
     private lateinit var stockLockManager: StockLockManager
 
     private lateinit var orderFacade: OrderFacade
 
     @BeforeEach
     fun setUp() {
-        orderFacade = OrderFacade(orderService, productService, brandService, stockLockManager)
+        orderFacade = OrderFacade(orderService, productService, brandService, couponService, stockLockManager)
     }
 
     @DisplayName("주문 목록을 조회할 때,")
