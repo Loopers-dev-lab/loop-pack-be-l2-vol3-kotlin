@@ -1,9 +1,9 @@
 package com.loopers.interfaces.apiadmin.coupon
 
 import com.loopers.application.coupon.AdminCouponFacade
+import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.common.PageQuery
 import com.loopers.support.common.SortOrder
-import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
