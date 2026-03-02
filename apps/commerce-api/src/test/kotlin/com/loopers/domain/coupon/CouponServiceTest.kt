@@ -175,4 +175,60 @@ class CouponServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
+
+    @DisplayName("쿠폰 발급 내역을 조회할 때,")
+    @Nested
+    inner class FindIssuedCouponsByCouponId {
+
+        @DisplayName("존재하는 쿠폰이면, 페이징된 발급 내역을 반환한다.")
+        @Test
+        fun returnsPagedIssuedCoupons_whenCouponExists() {
+            // arrange
+            val couponId = 1L
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+            val coupon = Coupon(
+                name = "신규가입 할인",
+                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+                quantity = CouponQuantity(100, 1),
+                expiresAt = ZonedDateTime.now().plusDays(30),
+            )
+            val issuedCoupon = IssuedCoupon(couponId = couponId, userId = 1L)
+            val pageResult = PageResult(
+                content = listOf(issuedCoupon),
+                page = 0,
+                size = 20,
+                totalElements = 1L,
+                totalPages = 1,
+            )
+            whenever(couponRepository.findById(couponId)).thenReturn(coupon)
+            whenever(issuedCouponRepository.findByCouponId(couponId, pageQuery)).thenReturn(pageResult)
+
+            // act
+            val result = couponService.findIssuedCouponsByCouponId(couponId, pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(1) },
+                { assertThat(result.content[0].couponId).isEqualTo(couponId) },
+                { assertThat(result.content[0].userId).isEqualTo(1L) },
+                { assertThat(result.totalElements).isEqualTo(1L) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 쿠폰이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenCouponNotExists() {
+            // arrange
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+            whenever(couponRepository.findById(999L)).thenReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                couponService.findIssuedCouponsByCouponId(999L, pageQuery)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
 }

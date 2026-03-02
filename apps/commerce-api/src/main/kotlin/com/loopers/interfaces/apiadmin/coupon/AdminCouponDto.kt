@@ -1,6 +1,7 @@
 package com.loopers.interfaces.apiadmin.coupon
 
 import com.loopers.application.coupon.CouponInfo
+import com.loopers.application.coupon.CouponIssueInfo
 import com.loopers.domain.coupon.DiscountType
 import com.loopers.support.common.PageResult
 import java.time.ZonedDateTime
@@ -88,6 +89,46 @@ class AdminCouponDto {
                     issuedQuantity = info.issuedQuantity,
                     expiresAt = info.expiresAt,
                     createdAt = info.createdAt,
+                )
+            }
+        }
+    }
+
+    data class IssuePageResponse(
+        val content: List<IssueItem>,
+        val page: Int,
+        val size: Int,
+        val totalElements: Long,
+        val totalPages: Int,
+    ) {
+        companion object {
+            fun from(page: PageResult<CouponIssueInfo>): IssuePageResponse {
+                return IssuePageResponse(
+                    content = page.content.map { IssueItem.from(it) },
+                    page = page.page,
+                    size = page.size,
+                    totalElements = page.totalElements,
+                    totalPages = page.totalPages,
+                )
+            }
+        }
+    }
+
+    data class IssueItem(
+        val userId: Long,
+        val userName: String,
+        val issuedAt: ZonedDateTime,
+        val usedAt: ZonedDateTime?,
+        val status: String,
+    ) {
+        companion object {
+            fun from(info: CouponIssueInfo): IssueItem {
+                return IssueItem(
+                    userId = info.userId,
+                    userName = info.userName,
+                    issuedAt = info.issuedAt,
+                    usedAt = info.usedAt,
+                    status = info.status.name,
                 )
             }
         }

@@ -5,6 +5,7 @@ import com.loopers.domain.user.User
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface UserJpaRepository : JpaRepository<User, Long> {
+    fun findByIdIn(ids: List<Long>): List<User>
     fun findByLoginId(loginId: LoginId): User?
     fun existsByLoginId(loginId: LoginId): Boolean
 }

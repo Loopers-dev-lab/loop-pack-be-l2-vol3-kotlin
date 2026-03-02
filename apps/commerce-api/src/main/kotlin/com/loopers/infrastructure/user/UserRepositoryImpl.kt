@@ -14,6 +14,10 @@ class UserRepositoryImpl(
         return userJpaRepository.findByIdOrNull(id)
     }
 
+    override fun findByIdIn(ids: List<Long>): List<User> {
+        return userJpaRepository.findByIdIn(ids)
+    }
+
     override fun findByLoginId(loginId: LoginId): User? {
         return userJpaRepository.findByLoginId(loginId)
     }

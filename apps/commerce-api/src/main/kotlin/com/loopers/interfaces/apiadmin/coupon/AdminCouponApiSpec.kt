@@ -35,4 +35,10 @@ interface AdminCouponApiSpec {
         description = "쿠폰 ID로 상세 정보를 조회합니다.",
     )
     fun getCoupon(couponId: Long): ApiResponse<AdminCouponDto.DetailResponse>
+
+    @Operation(
+        summary = "쿠폰 발급 내역 조회",
+        description = "쿠폰 ID로 발급 내역을 페이징하여 조회합니다.",
+    )
+    fun getCouponIssues(couponId: Long, page: Int, size: Int): ApiResponse<AdminCouponDto.IssuePageResponse>
 }

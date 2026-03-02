@@ -78,4 +78,16 @@ class AdminCouponController(
             .let { AdminCouponDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
+
+    @GetMapping("/{couponId}/issues")
+    override fun getCouponIssues(
+        @PathVariable couponId: Long,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): ApiResponse<AdminCouponDto.IssuePageResponse> {
+        val pageQuery = PageQuery(page, size, SortOrder.UNSORTED)
+        return adminCouponFacade.getCouponIssues(couponId, pageQuery)
+            .let { AdminCouponDto.IssuePageResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 }

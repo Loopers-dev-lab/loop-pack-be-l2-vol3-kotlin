@@ -4,6 +4,7 @@ import com.loopers.domain.coupon.CouponQuantity
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.coupon.Discount
 import com.loopers.domain.coupon.DiscountType
+import com.loopers.domain.user.UserRepository
 import com.loopers.support.common.PageQuery
 import com.loopers.support.common.PageResult
 import org.springframework.stereotype.Component
@@ -13,6 +14,7 @@ import java.time.ZonedDateTime
 @Component
 class AdminCouponFacade(
     private val couponService: CouponService,
+    private val userRepository: UserRepository,
 ) {
 
     @Transactional
@@ -60,5 +62,21 @@ class AdminCouponFacade(
     fun getCoupon(couponId: Long): CouponInfo {
         return couponService.findCouponById(couponId)
             .let { CouponInfo.from(it) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getCouponIssues(couponId: Long, pageQuery: PageQuery): PageResult<CouponIssueInfo> {
+        val coupon = couponService.findCouponById(couponId)
+        val issuedCouponsPage = couponService.findIssuedCouponsByCouponId(couponId, pageQuery)
+        val userIds = issuedCouponsPage.content.map { it.userId }
+        val usersMap = userRepository.findByIdIn(userIds).associateBy { it.id }
+
+        return issuedCouponsPage.map { issuedCoupon ->
+            CouponIssueInfo.from(
+                issuedCoupon = issuedCoupon,
+                user = usersMap.getValue(issuedCoupon.userId),
+                couponExpiresAt = coupon.expiresAt,
+            )
+        }
     }
 }
