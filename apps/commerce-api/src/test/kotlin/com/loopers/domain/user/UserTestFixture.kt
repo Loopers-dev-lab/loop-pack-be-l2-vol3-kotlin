@@ -1,5 +1,7 @@
 package com.loopers.domain.user
 
+import com.loopers.domain.user.model.User
+
 import java.time.LocalDate
 
 object UserTestFixture {
@@ -16,5 +18,5 @@ object UserTestFixture {
         name: String = DEFAULT_NAME,
         birthDate: LocalDate = DEFAULT_BIRTH_DATE,
         email: String = DEFAULT_EMAIL,
-    ): User = User(loginId, password, name, birthDate, email)
+    ): User = User.create(loginId, password, name, birthDate, email)
 }

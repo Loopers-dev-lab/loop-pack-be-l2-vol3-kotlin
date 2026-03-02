@@ -21,9 +21,9 @@ class UserTest {
             val user = UserTestFixture.createUser()
 
             // assert
-            assertThat(user.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
-            assertThat(user.name).isEqualTo(UserTestFixture.DEFAULT_NAME)
-            assertThat(user.email).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
+            assertThat(user.loginId.value).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
+            assertThat(user.name.value).isEqualTo(UserTestFixture.DEFAULT_NAME)
+            assertThat(user.email.value).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
         }
 
         @Test
@@ -179,12 +179,28 @@ class UserTest {
     @DisplayName("비밀번호 변경 시")
     inner class ChangePassword {
         @Test
+        @DisplayName("현재 비밀번호가 일치하지 않으면 실패한다")
+        fun changePassword_wrongCurrentPassword_throwsException() {
+            // arrange
+            val user = UserTestFixture.createUser()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                user.changePassword("WrongPass1!", "NewPass12!")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("현재 비밀번호가 일치하지 않습니다.")
+        }
+
+        @Test
         @DisplayName("현재 비밀번호와 같으면 실패한다")
         fun changePassword_sameAsCurrent_throwsException() {
             val user = UserTestFixture.createUser()
 
             val exception = assertThrows<CoreException> {
-                user.changePassword(UserTestFixture.DEFAULT_PASSWORD)
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, UserTestFixture.DEFAULT_PASSWORD)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -194,7 +210,7 @@ class UserTest {
         fun changePassword_withValidPassword_success() {
             val user = UserTestFixture.createUser()
 
-            user.changePassword("NewPass12!")
+            user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "NewPass12!")
 
             assertThat(user.verifyPassword("NewPass12!")).isTrue()
         }
@@ -207,7 +223,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Short1!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Short1!")
             }
 
             // assert
@@ -222,7 +238,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Password12345678!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Password12345678!")
             }
 
             // assert
@@ -237,7 +253,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Pass19900115!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Pass19900115!")
             }
 
             // assert
@@ -253,7 +269,7 @@ class UserTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                user.changePassword("Passsword1!")
+                user.changePassword(UserTestFixture.DEFAULT_PASSWORD, "Passsword1!")
             }
 
             // assert
