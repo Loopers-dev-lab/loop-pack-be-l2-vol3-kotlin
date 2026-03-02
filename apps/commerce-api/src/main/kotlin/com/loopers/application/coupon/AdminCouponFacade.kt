@@ -31,6 +31,22 @@ class AdminCouponFacade(
         ).let { CouponInfo.from(it) }
     }
 
+    @Transactional
+    fun updateCoupon(
+        couponId: Long,
+        name: String,
+        discountType: DiscountType,
+        discountValue: Long,
+        expiresAt: ZonedDateTime,
+    ): CouponInfo {
+        return couponService.update(
+            couponId = couponId,
+            name = name,
+            discount = Discount(discountType, discountValue),
+            expiresAt = expiresAt,
+        ).let { CouponInfo.from(it) }
+    }
+
     fun getCoupons(pageQuery: PageQuery): PageResult<CouponInfo> {
         return couponService.findAll(pageQuery)
             .map { CouponInfo.from(it) }

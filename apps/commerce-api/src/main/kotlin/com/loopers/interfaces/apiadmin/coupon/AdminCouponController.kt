@@ -7,6 +7,7 @@ import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -27,6 +28,22 @@ class AdminCouponController(
             discountType = request.discountType,
             discountValue = request.discountValue,
             totalQuantity = request.totalQuantity,
+            expiresAt = request.expiresAt,
+        )
+            .let { AdminCouponDto.DetailResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @PutMapping("/{couponId}")
+    override fun updateCoupon(
+        @PathVariable couponId: Long,
+        @RequestBody request: AdminCouponDto.UpdateRequest,
+    ): ApiResponse<AdminCouponDto.DetailResponse> {
+        return adminCouponFacade.updateCoupon(
+            couponId = couponId,
+            name = request.name,
+            discountType = request.discountType,
+            discountValue = request.discountValue,
             expiresAt = request.expiresAt,
         )
             .let { AdminCouponDto.DetailResponse.from(it) }

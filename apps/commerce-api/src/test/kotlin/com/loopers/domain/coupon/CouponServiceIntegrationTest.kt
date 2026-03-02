@@ -84,6 +84,81 @@ class CouponServiceIntegrationTest @Autowired constructor(
         }
     }
 
+    @DisplayName("쿠폰을 수정할 때,")
+    @Nested
+    inner class UpdateCoupon {
+
+        @DisplayName("유효한 값으로 수정하면, DB에 반영되고 수정된 쿠폰이 반환된다.")
+        @Test
+        fun updatesCoupon_whenValidValuesProvided() {
+            // arrange
+            val coupon = createCoupon(
+                name = "신규가입 할인",
+                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+            )
+            val newName = "수정된 쿠폰"
+            val newDiscount = Discount(DiscountType.PERCENTAGE, 20L)
+            val newExpiresAt = ZonedDateTime.now().plusDays(60)
+
+            // act
+            couponService.update(
+                couponId = coupon.id,
+                name = newName,
+                discount = newDiscount,
+                expiresAt = newExpiresAt,
+            )
+
+            // assert
+            val updated = couponService.findCouponById(coupon.id)
+            assertAll(
+                { assertThat(updated.name).isEqualTo(newName) },
+                { assertThat(updated.discount.type).isEqualTo(DiscountType.PERCENTAGE) },
+                { assertThat(updated.discount.value).isEqualTo(20L) },
+                { assertThat(updated.expiresAt).isEqualTo(newExpiresAt) },
+                { assertThat(updated.quantity.total).isEqualTo(100) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 쿠폰 ID이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenCouponNotExists() {
+            // act
+            val exception = assertThrows<CoreException> {
+                couponService.update(
+                    couponId = 999999L,
+                    name = "수정된 쿠폰",
+                    discount = Discount(DiscountType.FIXED_AMOUNT, 3000L),
+                    expiresAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("삭제된 쿠폰 ID이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenCouponIsDeleted() {
+            // arrange
+            val coupon = createCoupon(name = "삭제될 쿠폰")
+            coupon.delete()
+            couponRepository.save(coupon)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                couponService.update(
+                    couponId = coupon.id,
+                    name = "수정된 쿠폰",
+                    discount = Discount(DiscountType.FIXED_AMOUNT, 3000L),
+                    expiresAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
     @DisplayName("쿠폰을 발급할 때,")
     @Nested
     inner class IssueCoupon {

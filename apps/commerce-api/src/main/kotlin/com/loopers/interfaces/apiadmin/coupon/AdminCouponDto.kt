@@ -14,6 +14,13 @@ class AdminCouponDto {
         val expiresAt: ZonedDateTime,
     )
 
+    data class UpdateRequest(
+        val name: String,
+        val discountType: DiscountType,
+        val discountValue: Long,
+        val expiresAt: ZonedDateTime,
+    )
+
     data class PageResponse(
         val content: List<ListItem>,
         val page: Int,

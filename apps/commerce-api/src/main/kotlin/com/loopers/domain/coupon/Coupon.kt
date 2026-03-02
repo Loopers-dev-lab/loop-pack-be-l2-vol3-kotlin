@@ -44,6 +44,13 @@ class Coupon(
         }
     }
 
+    fun update(name: String, discount: Discount, expiresAt: ZonedDateTime) {
+        validateName(name)
+        this.name = name
+        this.discount = discount
+        this.expiresAt = expiresAt
+    }
+
     fun issue() {
         if (expiresAt.isBefore(ZonedDateTime.now())) {
             throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
