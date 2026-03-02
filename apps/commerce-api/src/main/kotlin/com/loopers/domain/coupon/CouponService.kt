@@ -1,5 +1,7 @@
 package com.loopers.domain.coupon
 
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -20,6 +22,10 @@ class CouponService(
 
         coupon.issue()
         issuedCouponRepository.save(IssuedCoupon(couponId = couponId, userId = userId))
+    }
+
+    fun findAll(pageQuery: PageQuery): PageResult<Coupon> {
+        return couponRepository.findAll(pageQuery)
     }
 
     fun findIssuedCouponsByUserId(userId: Long): List<IssuedCoupon> {

@@ -1,6 +1,8 @@
 package com.loopers.domain.coupon
 
 import com.loopers.application.coupon.CouponFacade
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.SortOrder
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -9,6 +11,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -176,6 +179,91 @@ class CouponServiceIntegrationTest @Autowired constructor(
             assertThat(issuedCoupons).hasSize(1)
             assertThat(issuedCoupons[0].status(savedCoupon.expiresAt))
                 .isEqualTo(IssuedCouponStatus.EXPIRED)
+        }
+    }
+
+    @DisplayName("쿠폰 목록을 페이징 조회할 때,")
+    @Nested
+    inner class FindAll {
+
+        @DisplayName("DB에 저장된 쿠폰을 페이징으로 조회하면, 해당 페이지의 쿠폰을 반환한다.")
+        @Test
+        fun returnsPagedCoupons_whenCouponsExistInDb() {
+            // arrange
+            createCoupon(name = "신규가입 할인")
+            createCoupon(name = "여름 할인", discount = Discount(DiscountType.PERCENTAGE, 15L))
+            createCoupon(name = "VIP 할인")
+            val pageQuery = PageQuery(0, 2, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.totalElements).isEqualTo(3) },
+                { assertThat(result.totalPages).isEqualTo(2) },
+            )
+        }
+
+        @DisplayName("쿠폰이 없으면, 빈 페이지를 반환한다.")
+        @Test
+        fun returnsEmptyPage_whenNoCouponsExistInDb() {
+            // arrange
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).isEmpty() },
+                { assertThat(result.totalElements).isEqualTo(0) },
+            )
+        }
+
+        @DisplayName("삭제된 쿠폰은 목록에 포함되지 않는다.")
+        @Test
+        fun excludesDeletedCoupons() {
+            // arrange
+            createCoupon(name = "활성 쿠폰")
+            val deletedCoupon = createCoupon(name = "삭제될 쿠폰")
+            deletedCoupon.delete()
+            couponRepository.save(deletedCoupon)
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(1) },
+                { assertThat(result.totalElements).isEqualTo(1) },
+                { assertThat(result.content[0].name).isEqualTo("활성 쿠폰") },
+            )
+        }
+
+        @DisplayName("응답에 쿠폰 타입, 할인값, 만료일, 생성일이 포함된다.")
+        @Test
+        fun includesCouponDetails() {
+            // arrange
+            createCoupon(
+                name = "고정액 할인",
+                discount = Discount(DiscountType.FIXED_AMOUNT, 3000L),
+            )
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            val found = result.content[0]
+            assertAll(
+                { assertThat(found.discount.type).isEqualTo(DiscountType.FIXED_AMOUNT) },
+                { assertThat(found.discount.value).isEqualTo(3000L) },
+                { assertThat(found.expiresAt).isNotNull() },
+                { assertThat(found.createdAt).isNotNull() },
+            )
         }
     }
 
