@@ -82,6 +82,36 @@ class CouponTest {
         }
     }
 
+    @DisplayName("정률(PERCENTAGE) 할인을 생성할 때,")
+    @Nested
+    inner class CreatePercentageDiscount {
+
+        @DisplayName("value가 100을 초과하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenPercentageValueExceeds100() {
+            // act
+            val exception = assertThrows<CoreException> {
+                Discount(DiscountType.PERCENTAGE, 101L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("value가 1~100 범위이면, 정상적으로 생성된다.")
+        @Test
+        fun createsDiscount_whenPercentageValueIsInRange() {
+            // act
+            val discount = Discount(DiscountType.PERCENTAGE, 50L)
+
+            // assert
+            assertAll(
+                { assertThat(discount.type).isEqualTo(DiscountType.PERCENTAGE) },
+                { assertThat(discount.value).isEqualTo(50L) },
+            )
+        }
+    }
+
     @DisplayName("쿠폰을 발급할 때,")
     @Nested
     inner class Issue {

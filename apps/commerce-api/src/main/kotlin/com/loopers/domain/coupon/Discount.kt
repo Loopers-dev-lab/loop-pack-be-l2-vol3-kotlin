@@ -26,6 +26,9 @@ class Discount(
         if (value <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "할인값은 양수여야 합니다.")
         }
+        if (type == DiscountType.PERCENTAGE && value > 100) {
+            throw CoreException(ErrorType.BAD_REQUEST, "정률 할인값은 1~100 범위여야 합니다.")
+        }
     }
 
     fun calculateDiscountAmount(totalAmount: Money): Money {

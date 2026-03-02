@@ -5,12 +5,29 @@ import com.loopers.support.common.PageResult
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
+import java.time.ZonedDateTime
 
 @Component
 class CouponService(
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
 ) {
+
+    fun create(
+        name: String,
+        discount: Discount,
+        quantity: CouponQuantity,
+        expiresAt: ZonedDateTime,
+    ): Coupon {
+        return couponRepository.save(
+            Coupon(
+                name = name,
+                discount = discount,
+                quantity = quantity,
+                expiresAt = expiresAt,
+            ),
+        )
+    }
 
     fun issue(couponId: Long, userId: Long) {
         val coupon = couponRepository.findByIdWithLock(couponId)

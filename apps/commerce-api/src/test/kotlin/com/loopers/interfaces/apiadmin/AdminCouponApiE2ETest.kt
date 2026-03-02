@@ -70,6 +70,301 @@ class AdminCouponApiE2ETest @Autowired constructor(
         )
     }
 
+    @DisplayName("POST /api-admin/v1/coupons")
+    @Nested
+    inner class CreateCoupon {
+
+        @DisplayName("유효한 요청으로 쿠폰을 생성하면, 200 OK와 쿠폰 정보를 반환한다.")
+        @Test
+        fun returnsOk_whenValidRequest() {
+            // arrange
+            val request = mapOf(
+                "name" to "신규가입 10% 할인",
+                "discountType" to "PERCENTAGE",
+                "discountValue" to 10,
+                "totalQuantity" to 100,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(response.body?.data?.get("name")).isEqualTo("신규가입 10% 할인") },
+                { assertThat(response.body?.data?.get("discountType")).isEqualTo("PERCENTAGE") },
+                { assertThat(response.body?.data?.get("discountValue")).isEqualTo(10) },
+                { assertThat(response.body?.data?.get("totalQuantity")).isEqualTo(100) },
+                { assertThat(response.body?.data?.get("expiresAt")).isNotNull() },
+            )
+        }
+
+        @DisplayName("FIXED_AMOUNT 타입으로 쿠폰을 생성하면, 200 OK와 쿠폰 정보를 반환한다.")
+        @Test
+        fun returnsOk_whenFixedAmountType() {
+            // arrange
+            val request = mapOf(
+                "name" to "5000원 할인 쿠폰",
+                "discountType" to "FIXED_AMOUNT",
+                "discountValue" to 5000,
+                "totalQuantity" to 50,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(response.body?.data?.get("name")).isEqualTo("5000원 할인 쿠폰") },
+                { assertThat(response.body?.data?.get("discountType")).isEqualTo("FIXED_AMOUNT") },
+                { assertThat(response.body?.data?.get("discountValue")).isEqualTo(5000) },
+            )
+        }
+
+        @DisplayName("쿠폰명이 비어있으면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returnsBadRequest_whenNameIsBlank() {
+            // arrange
+            val request = mapOf(
+                "name" to "  ",
+                "discountType" to "PERCENTAGE",
+                "discountValue" to 10,
+                "totalQuantity" to 100,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(400) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("정률 쿠폰의 할인값이 100을 초과하면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returnsBadRequest_whenPercentageValueExceeds100() {
+            // arrange
+            val request = mapOf(
+                "name" to "잘못된 할인",
+                "discountType" to "PERCENTAGE",
+                "discountValue" to 101,
+                "totalQuantity" to 100,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(400) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("생성된 쿠폰을 상세 조회하면, 동일한 정보가 반환된다.")
+        @Test
+        fun createdCouponCanBeRetrieved() {
+            // arrange
+            val request = mapOf(
+                "name" to "신규가입 10% 할인",
+                "discountType" to "PERCENTAGE",
+                "discountValue" to 10,
+                "totalQuantity" to 100,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act - 생성
+            val createResponseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val createResponse = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                createResponseType,
+            )
+            val createdId = createResponse.body?.data?.get("id")
+
+            // act - 조회
+            val detailResponseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val detailResponse = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                detailResponseType,
+                createdId,
+            )
+
+            // assert
+            val data = detailResponse.body?.data
+            assertAll(
+                { assertThat(detailResponse.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(data?.get("name")).isEqualTo("신규가입 10% 할인") },
+                { assertThat(data?.get("discountType")).isEqualTo("PERCENTAGE") },
+                { assertThat(data?.get("discountValue")).isEqualTo(10) },
+                { assertThat(data?.get("totalQuantity")).isEqualTo(100) },
+                { assertThat(data?.get("issuedQuantity")).isEqualTo(0) },
+            )
+        }
+
+        @DisplayName("할인값이 0이면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returnsBadRequest_whenDiscountValueIsZero() {
+            // arrange
+            val request = mapOf(
+                "name" to "잘못된 쿠폰",
+                "discountType" to "FIXED_AMOUNT",
+                "discountValue" to 0,
+                "totalQuantity" to 100,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(400) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("총 발급 수량이 0이면, 400 BAD_REQUEST 응답을 받는다.")
+        @Test
+        fun returnsBadRequest_whenTotalQuantityIsZero() {
+            // arrange
+            val request = mapOf(
+                "name" to "잘못된 쿠폰",
+                "discountType" to "FIXED_AMOUNT",
+                "discountValue" to 5000,
+                "totalQuantity" to 0,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val httpEntity = HttpEntity(request, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(400) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val request = mapOf(
+                "name" to "신규가입 10% 할인",
+                "discountType" to "PERCENTAGE",
+                "discountValue" to 10,
+                "totalQuantity" to 100,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val httpEntity = HttpEntity(request, headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더 값이 올바르지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsInvalid() {
+            // arrange
+            val request = mapOf(
+                "name" to "신규가입 10% 할인",
+                "discountType" to "PERCENTAGE",
+                "discountValue" to 10,
+                "totalQuantity" to 100,
+                "expiresAt" to "2026-12-31T23:59:59+09:00",
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(LDAP_HEADER, "wrong.value")
+            }
+            val httpEntity = HttpEntity(request, headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ENDPOINT,
+                HttpMethod.POST,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
     @DisplayName("GET /api-admin/v1/coupons")
     @Nested
     inner class GetCoupons {
