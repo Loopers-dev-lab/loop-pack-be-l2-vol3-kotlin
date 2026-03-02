@@ -16,6 +16,9 @@ import java.time.ZonedDateTime
 @Table(name = "tb_order")
 class OrderModel(
     userId: Long,
+    originalAmount: OriginalAmount,
+    discountAmount: DiscountAmount,
+    couponId: Long?,
     totalAmount: TotalAmount,
     status: OrderStatus,
 ) {
@@ -25,6 +28,18 @@ class OrderModel(
 
     @Column(nullable = false)
     var userId: Long = userId
+        protected set
+
+    @Column(name = "original_amount", nullable = false)
+    var originalAmount: OriginalAmount = originalAmount
+        protected set
+
+    @Column(name = "discount_amount", nullable = false)
+    var discountAmount: DiscountAmount = discountAmount
+        protected set
+
+    @Column(name = "coupon_id", nullable = true)
+    var couponId: Long? = couponId
         protected set
 
     @Column(nullable = false)

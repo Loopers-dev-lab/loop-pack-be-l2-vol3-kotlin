@@ -6,6 +6,7 @@ import java.time.ZonedDateTime
 class OrderV1Dto {
     data class CreateOrderRequest(
         val items: List<OrderItemRequest>,
+        val couponId: Long? = null,
     ) {
         data class OrderItemRequest(
             val productId: Long,

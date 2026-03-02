@@ -1,5 +1,7 @@
 package com.loopers.application.order
 
+import com.loopers.domain.coupon.CouponTemplateService
+import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.ImageUrl
 import com.loopers.domain.order.OrderItemModel
 import com.loopers.domain.order.OrderItemService
@@ -26,9 +28,11 @@ class OrderFacade(
     private val productService: ProductService,
     private val productInventoryService: ProductInventoryService,
     private val userService: UserService,
+    private val userCouponService: UserCouponService,
+    private val couponTemplateService: CouponTemplateService,
 ) {
     @Transactional
-    fun createOrder(loginId: String, items: List<OrderItemRequest>): OrderInfo {
+    fun createOrder(loginId: String, items: List<OrderItemRequest>, couponId: Long?): OrderInfo {
         val user = userService.getUserByLoginId(loginId)
 
         val orderItems = items.map { req ->
@@ -37,8 +41,24 @@ class OrderFacade(
             Pair(product, req.quantity)
         }
 
-        val totalAmount = orderItems.sumOf { (product, qty) -> product.price.value * qty }
-        val order = orderService.createOrder(user.id, totalAmount)
+        val originalAmount = orderItems.sumOf { (product, qty) -> product.price.value * qty }
+        val discountAmount = if (couponId != null) {
+            val userCoupon = userCouponService.getUserCouponByIdAndUserId(couponId, user.id)
+            val template = couponTemplateService.getTemplateById(userCoupon.couponTemplateId)
+            val discount = template.calculate(originalAmount)
+            userCoupon.use()
+            discount
+        } else {
+            0L
+        }
+
+        val order = orderService.createOrder(
+            userId = user.id,
+            originalAmount = originalAmount,
+            discountAmount = discountAmount,
+            couponId = couponId,
+            totalAmount = originalAmount - discountAmount,
+        )
 
         val savedItems = orderItemService.saveAll(
             orderItems.map { (product, qty) ->

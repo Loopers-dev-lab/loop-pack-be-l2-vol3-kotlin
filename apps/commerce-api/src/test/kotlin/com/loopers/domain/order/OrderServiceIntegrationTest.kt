@@ -30,7 +30,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
         @Test
         fun `유효한 userId와 totalAmount로 주문을 생성한다`() {
-            val order = orderService.createOrder(userId = 1L, totalAmount = 50_000L)
+            val order = orderService.createOrder(userId = 1L, originalAmount = 50_000L, discountAmount = 0L, couponId = null, totalAmount = 50_000L)
 
             assertThat(order.id).isGreaterThan(0)
             assertThat(order.userId).isEqualTo(1L)
@@ -44,9 +44,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
         @Test
         fun `userId와 날짜 범위로 주문 목록을 조회한다`() {
-            orderService.createOrder(userId = 1L, totalAmount = 10_000L)
-            orderService.createOrder(userId = 1L, totalAmount = 20_000L)
-            orderService.createOrder(userId = 2L, totalAmount = 30_000L)
+            orderService.createOrder(userId = 1L, originalAmount = 10_000L, discountAmount = 0L, couponId = null, totalAmount = 10_000L)
+            orderService.createOrder(userId = 1L, originalAmount = 20_000L, discountAmount = 0L, couponId = null, totalAmount = 20_000L)
+            orderService.createOrder(userId = 2L, originalAmount = 30_000L, discountAmount = 0L, couponId = null, totalAmount = 30_000L)
 
             val startAt = LocalDate.now().minusDays(1).atStartOfDay(ZoneId.systemDefault())
             val endAt = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault())
@@ -64,7 +64,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
         @Test
         fun `존재하는 ID로 주문을 조회한다`() {
-            val created = orderService.createOrder(userId = 1L, totalAmount = 50_000L)
+            val created = orderService.createOrder(userId = 1L, originalAmount = 50_000L, discountAmount = 0L, couponId = null, totalAmount = 50_000L)
 
             val result = orderService.getOrderById(created.id)
 
@@ -87,9 +87,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
 
         @Test
         fun `전체 주문 페이징 조회를 반환한다`() {
-            orderService.createOrder(userId = 1L, totalAmount = 10_000L)
-            orderService.createOrder(userId = 2L, totalAmount = 20_000L)
-            orderService.createOrder(userId = 3L, totalAmount = 30_000L)
+            orderService.createOrder(userId = 1L, originalAmount = 10_000L, discountAmount = 0L, couponId = null, totalAmount = 10_000L)
+            orderService.createOrder(userId = 2L, originalAmount = 20_000L, discountAmount = 0L, couponId = null, totalAmount = 20_000L)
+            orderService.createOrder(userId = 3L, originalAmount = 30_000L, discountAmount = 0L, couponId = null, totalAmount = 30_000L)
 
             val pageable = PageRequest.of(0, 10)
             val result = orderService.getAllOrders(pageable)

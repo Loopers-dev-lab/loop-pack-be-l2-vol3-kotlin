@@ -1,5 +1,7 @@
 package com.loopers.application.order
 
+import com.loopers.domain.coupon.CouponTemplateService
+import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItemService
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.user.UserService
@@ -10,6 +12,8 @@ import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.order.Price
 import com.loopers.domain.order.ProductName
 import com.loopers.domain.order.Quantity
+import com.loopers.domain.order.DiscountAmount
+import com.loopers.domain.order.OriginalAmount
 import com.loopers.domain.order.TotalAmount
 import com.loopers.domain.product.Description
 import com.loopers.domain.product.ImageUrl as ProductImageUrl
@@ -51,12 +55,14 @@ class OrderFacadeTest {
     private val productService: ProductService = mockk()
     private val productInventoryService: ProductInventoryService = mockk()
     private val userService: UserService = mockk()
+    private val userCouponService: UserCouponService = mockk()
+    private val couponTemplateService: CouponTemplateService = mockk()
 
     private lateinit var orderFacade: OrderFacade
 
     @BeforeEach
     fun setUp() {
-        orderFacade = OrderFacade(orderService, orderItemService, productService, productInventoryService, userService)
+        orderFacade = OrderFacade(orderService, orderItemService, productService, productInventoryService, userService, userCouponService, couponTemplateService)
     }
 
     private fun createUserModel(
@@ -92,7 +98,14 @@ class OrderFacadeTest {
         totalAmount: Long = 10_000L,
         status: OrderStatus = OrderStatus.PENDING_PAYMENT,
     ): OrderModel {
-        val model = OrderModel(userId = userId, totalAmount = TotalAmount(totalAmount), status = status)
+        val model = OrderModel(
+            userId = userId,
+            originalAmount = OriginalAmount(totalAmount),
+            discountAmount = DiscountAmount(0L),
+            couponId = null,
+            totalAmount = TotalAmount(totalAmount),
+            status = status,
+        )
         val now = ZonedDateTime.now()
         listOf("createdAt", "updatedAt").forEach { fieldName ->
             val field = OrderModel::class.java.getDeclaredField(fieldName)
@@ -133,13 +146,14 @@ class OrderFacadeTest {
             every { userService.getUserByLoginId("testuser") } returns user
             every { productService.getProductById(1L) } returns product
             every { productInventoryService.decreaseStock(1L, 1L) } returns inventory
-            every { orderService.createOrder(any(), any()) } returns order
+            every { orderService.createOrder(any(), any(), any(), isNull(), any()) } returns order
             every { orderItemService.saveAll(any()) } returns items
 
             // when
             val result = orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = 1L, quantity = 1L)),
+                couponId = null,
             )
 
             // then
@@ -147,7 +161,7 @@ class OrderFacadeTest {
             assertEquals(order.userId, result.userId)
             assertEquals(order.totalAmount.value, result.totalAmount)
             assertEquals(1, result.items.size)
-            verify(exactly = 1) { orderService.createOrder(user.id, any()) }
+            verify(exactly = 1) { orderService.createOrder(user.id, any(), any(), isNull(), any()) }
         }
 
         @Test
@@ -168,12 +182,13 @@ class OrderFacadeTest {
                 orderFacade.createOrder(
                     loginId = "testuser",
                     items = listOf(OrderFacade.OrderItemRequest(productId = 1L, quantity = 1L)),
+                    couponId = null,
                 )
             }
 
             // then
             assertEquals(ErrorType.BAD_REQUEST, exception.errorType)
-            verify(exactly = 0) { orderService.createOrder(any(), any()) }
+            verify(exactly = 0) { orderService.createOrder(any(), any(), any(), isNull(), any()) }
         }
     }
 

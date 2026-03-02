@@ -180,6 +180,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val startAt = LocalDate.now().minusDays(1)
@@ -214,6 +215,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val created = orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val responseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
@@ -241,6 +243,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val otherOrder = orderFacade.createOrder(
                 loginId = "otheruser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val responseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
@@ -268,6 +271,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
@@ -299,6 +303,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val created = orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val responseType = object : ParameterizedTypeReference<ApiResponse<OrderAdminV1Dto.OrderResponse>>() {}
