@@ -35,6 +35,10 @@ class Coupon(
         protected set
 
     init {
+        validateName(name)
+    }
+
+    private fun validateName(name: String) {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰명은 비어있을 수 없습니다.")
         }
