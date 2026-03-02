@@ -48,6 +48,12 @@ class CouponService(
         issuedCouponRepository.save(IssuedCoupon(couponId = couponId, userId = userId))
     }
 
+    fun delete(couponId: Long) {
+        val coupon = findCouponById(couponId)
+        coupon.delete()
+        couponRepository.save(coupon)
+    }
+
     fun findAll(pageQuery: PageQuery): PageResult<Coupon> {
         return couponRepository.findAll(pageQuery)
     }

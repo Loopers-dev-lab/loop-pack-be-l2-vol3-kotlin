@@ -15,6 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.ZonedDateTime
 
@@ -134,6 +135,46 @@ class CouponServiceTest {
                 { assertThat(result.content).isEmpty() },
                 { assertThat(result.totalElements).isEqualTo(0L) },
             )
+        }
+    }
+
+    @DisplayName("쿠폰을 삭제할 때,")
+    @Nested
+    inner class DeleteCoupon {
+
+        @DisplayName("존재하는 쿠폰이면, soft delete가 수행된다.")
+        @Test
+        fun deletesCoupon_whenCouponExists() {
+            // arrange
+            val coupon = Coupon(
+                name = "삭제할 쿠폰",
+                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+                quantity = CouponQuantity(100, 0),
+                expiresAt = ZonedDateTime.now().plusDays(30),
+            )
+            whenever(couponRepository.findById(1L)).thenReturn(coupon)
+
+            // act
+            couponService.delete(1L)
+
+            // assert
+            verify(couponRepository).save(coupon)
+            assertThat(coupon.deletedAt).isNotNull()
+        }
+
+        @DisplayName("존재하지 않는 쿠폰이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenCouponNotExists() {
+            // arrange
+            whenever(couponRepository.findById(999L)).thenReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                couponService.delete(999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }

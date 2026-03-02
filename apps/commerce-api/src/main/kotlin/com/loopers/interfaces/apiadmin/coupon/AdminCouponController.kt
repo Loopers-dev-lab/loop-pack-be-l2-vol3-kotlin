@@ -4,6 +4,7 @@ import com.loopers.application.coupon.AdminCouponFacade
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.common.PageQuery
 import com.loopers.support.common.SortOrder
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -48,6 +49,14 @@ class AdminCouponController(
         )
             .let { AdminCouponDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
+    }
+
+    @DeleteMapping("/{couponId}")
+    override fun deleteCoupon(
+        @PathVariable couponId: Long,
+    ): ApiResponse<Any> {
+        adminCouponFacade.deleteCoupon(couponId)
+        return ApiResponse.success()
     }
 
     @GetMapping
