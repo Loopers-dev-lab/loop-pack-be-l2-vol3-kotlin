@@ -104,6 +104,12 @@ class ApiControllerAdvice {
         return failureResponse(errorType = ErrorType.NOT_FOUND)
     }
 
+     @ExceptionHandler
+    fun handleBadRequest(e: IllegalArgumentException): ResponseEntity<ApiResponse<*>> {
+        log.warn("IllegalArgumentException : {}", e.message, e)
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = e.message)
+    }
+
     @ExceptionHandler
     fun handle(e: Throwable): ResponseEntity<ApiResponse<*>> {
         log.error("Exception : {}", e.message, e)

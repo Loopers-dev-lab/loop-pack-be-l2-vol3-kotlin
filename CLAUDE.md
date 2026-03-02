@@ -502,6 +502,99 @@ graph TB
 
 ---
 
+## 도메인 & 객체 설계 전략
+
+### 핵심 원칙
+- 도메인 객체는 **비즈니스 규칙을 캡슐화**해야 한다 (Anemic Domain Model 금지)
+- 비즈니스 규칙이 여러 서비스에 나타나면 **도메인 객체에 속할 가능성**이 높다
+- Entity의 상태 변경은 반드시 **엔티티 내부 메서드**를 통해서만 수행 (`var + protected set`)
+- 각 기능에 대한 **책임과 결합도**에 대해 개발자의 의도를 확인하고 개발을 진행한다
+
+### Entity / Value Object / Domain Service 구분
+| 구분 | 기준 | 예시 |
+|------|------|------|
+| **Entity** | 고유 ID로 식별, 상태 변화가 중요, 연속성을 가짐 | `User`, `Product`, `Brand`, `Order`, `Like` |
+| **Value Object** | 값 자체로 동등성 판단, 불변, ID 없음 | `ProductSnapshot`, `PriceSnapshot` |
+| **Domain Service** | 단일 Entity에 속하기 어려운 도메인 로직, 상태 없음 | `OrderService` (재고 차감 + 포인트 차감 조합) |
+
+### Entity 설계 규칙
+- `BaseEntity` 상속 필수 (id, createdAt, updatedAt, deletedAt 자동 관리)
+- `init` 블록에서 **생성 시점 검증** (필수 필드, 범위 검증)
+- 행위 메서드에서 **비즈니스 규칙 검증** (예: `decreaseStock()` → 재고 음수 방지)
+- Entity에는 일반 `class` 사용, DTO/Command/Info에는 `data class` 사용
+
+### VO 설계 규칙
+- `@Embeddable`로 구현 (JPA 임베디드 타입)
+- 불변 객체로 설계 (모든 필드 `val`)
+- VO 조합은 **도메인 내부에서만** 수행
+
+### Domain Service 규칙
+- **상태를 갖지 않는다** (Input/Output이 명확)
+- **같은 도메인 경계 내** 객체 협력을 중심으로 설계
+- Repository Interface 호출 가능 (같은 Domain Layer이므로 의존 방향 위반 아님)
+- **Domain Service가 있는 도메인은 반드시 Domain Service를 통해서만 접근** (도메인 경계 보호)
+
+---
+
+## 아키텍처, 패키지 구성 전략
+
+### 레이어드 아키텍처 + DIP
+
+```
+의존 방향: Presentation(Interfaces) → Application → Domain ← Infrastructure
+```
+
+모든 코드는 이 의존 방향을 준수해야 한다.
+
+### 각 레이어 책임
+
+| 레이어 | 패키지 | 책임 | 포함 클래스 |
+|--------|--------|------|-------------|
+| **Interfaces** | `/interfaces/api/{domain}/` | HTTP 요청 수신, DTO 변환, 응답 포장 | Controller, ApiSpec, Dto (Request, Response) |
+| **Application** | `/application/{domain}/` | 유스케이스 조율(오케스트레이션), Criteria↔Command 변환, 도메인 간 협력 조합 | Facade, Criteria, Result |
+| **Domain** | `/domain/{domain}/` | 핵심 비즈니스 로직, 도메인 규칙, 입출력 계약 | Entity, VO, Service, Repository(인터페이스), Command, Info |
+| **Infrastructure** | `/infrastructure/{domain}/` | 기술 구현 (JPA, Redis 등) | RepositoryImpl, JpaRepository |
+
+### Application Layer 규칙
+- **경량(lightweight) 유지** — 비즈니스 로직은 Domain에 위임
+- Facade는 **흐름 제어(orchestration)만** 담당
+- Domain Service가 있는 도메인 → **Domain Service를 통해서만** 접근 (Repository 직접 호출 금지)
+- Domain Service가 없는 단순 CRUD → Facade에서 Repository 직접 호출 OK
+- Facade가 너무 복잡해지면 → Application Service 도입 고려
+- **도메인 간 협력**(Product + Brand 조합, 주문 시 재고+포인트 차감 등)은 Application Layer에서 처리
+
+### DTO 분리 전략
+```
+요청: Client → Controller (Request) → Facade (Criteria → Command) → Service (Entity)
+응답: Service (Entity) → Domain (Info) → Facade (Result) → Controller (Response) → Client
+```
+- **Request/Response** (interfaces): HTTP 직렬화. Enum은 String으로 래핑하여 노출
+- **Criteria/Result** (application): Facade 입출력. 여러 도메인의 정보를 조합할 수 있음
+- **Command/Info** (domain): Domain Service 입출력 계약. 도메인이 요구/제공하는 데이터
+- Entity를 HTTP 응답에 직접 노출하지 않는다
+- Interfaces 레이어가 Domain을 직접 import하지 않는다
+- **User API와 Admin API의 Response DTO는 반드시 분리한다 (SRP)**
+  - 같은 도메인이라도 대상(User/Admin)이 다르면 노출 필드가 다르다
+  - User Response: 사용자에게 필요한 정보만 (예: 재고, 상태, 전시여부 제외)
+  - Admin Response: 관리에 필요한 전체 정보 포함
+  - 하나의 Response가 두 API를 동시에 서빙하면 변경 사유가 2개 → SRP 위반
+
+### 패키지 구조 (commerce-api 기준)
+```
+interfaces/api/{domain}/       → Controller, ApiSpec, Dto (Request, Response)
+application/{domain}/          → Facade, Criteria, Result
+domain/{domain}/               → Entity, VO, Service, Repository(인터페이스), Command, Info
+infrastructure/{domain}/       → RepositoryImpl, JpaRepository
+```
+
+### Repository 규칙
+- **Repository Interface** → Domain Layer에 위치 (기술 무관한 순수 인터페이스)
+- **Repository 구현체** → Infrastructure Layer에 위치 (JPA 기술에 의존)
+- **JpaRepository** → Infrastructure Layer에 위치 (Spring Data JPA 인터페이스)
+- Domain Layer의 import에 JPA 관련 패키지가 있으면 안 된다
+
+---
+
 ## 주의사항
 
 ### 1. Never Do
@@ -513,6 +606,10 @@ graph TB
 - 트랜잭션 범위 내 외부 API 호출 금지
 - 민감 정보 평문 로그 출력 금지
 - 비밀번호 에러 시 유추 가능한 메시지 금지 (예: "비밀번호가 틀렸습니다" → 아이디가 맞았음을 유추 가능)
+- 레이어 간 의존 방향 위반 금지 (Domain이 Infrastructure를 직접 의존하는 코드 작성 금지)
+- Repository Interface와 구현체를 분리하지 않는 구조 금지 (Interface는 Domain, 구현체는 Infrastructure)
+- Domain Layer에서 JPA 등 인프라 기술 패키지를 직접 import 금지
+- **git commit은 사용자가 명시적으로 요청할 때만 수행** (임의 커밋 절대 금지)
 
 ### 2. Recommendation
 - 실제 API를 호출해 확인하는 E2E 테스트 코드 작성
@@ -553,8 +650,9 @@ graph TB
 - 테스트 메서드명에 **예외 타입까지 명시** (예: `BAD_REQUEST 예외가 발생한다`, `CoreException을 던진다`)
 - 테스트코드의 모든 input/output은 **명확**해야 함
 - 단위 테스트를 꼼꼼하게 짜는 것이 우선, 통합 테스트는 필요 시 추가
-- **테스트 메서드명**: `@DisplayName` 대신 **Kotlin 백틱(`)** 사용 (예: `` `유효하지 않은 이메일이면 BAD_REQUEST 예외가 발생한다`() ``)
-- **기존 템플릿 코드(Example 등)는 수정하지 않음** - 새로 작성하는 코드만 백틱 스타일 적용
+- **테스트 메서드명**: **`@DisplayName`** 사용 (예: `@DisplayName("유효하지 않은 이메일이면 BAD_REQUEST 예외가 발생한다")`)
+- Kotlin 백틱 메서드명은 Java 호환성 문제가 있으므로 사용하지 않음
+- **기존 템플릿 코드(Example 등)는 수정하지 않음** - 새로 작성하는 코드만 DisplayName 스타일 적용
 
 ### PR 규칙
 - 브랜치: main 기준으로 feature 브랜치 생성 (예: `feat/volume-1-user-tests`)

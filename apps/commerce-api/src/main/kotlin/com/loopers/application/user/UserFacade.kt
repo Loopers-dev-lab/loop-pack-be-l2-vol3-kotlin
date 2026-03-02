@@ -1,5 +1,8 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.ChangePasswordCommand
+import com.loopers.domain.user.SignUpCommand
+import com.loopers.domain.user.UserInfo
 import com.loopers.domain.user.UserService
 import org.springframework.stereotype.Component
 
@@ -7,17 +10,29 @@ import org.springframework.stereotype.Component
 class UserFacade(
     private val userService: UserService,
 ) {
-    fun signUp(command: UserService.SignUpCommand): UserInfo {
+    fun signUp(criteria: SignUpCriteria): UserResult {
+        val command = SignUpCommand(
+            loginId = criteria.loginId,
+            password = criteria.password,
+            name = criteria.name,
+            birthday = criteria.birthday,
+            email = criteria.email,
+        )
         return userService.signUp(command)
             .let { UserInfo.from(it) }
+            .let { UserResult.from(it) }
     }
 
-    fun getMe(loginId: String, loginPw: String): UserInfo {
-        return userService.authenticate(loginId, loginPw)
+    fun getMe(userId: Long): UserResult {
+        return userService.findById(userId)
             .let { UserInfo.from(it) }
+            .let { UserResult.from(it) }
     }
 
-    fun changePassword(loginId: String, loginPw: String, command: UserService.ChangePasswordCommand) {
-        userService.changePassword(loginId, loginPw, command)
+    fun changePassword(userId: Long, criteria: ChangePasswordCriteria) {
+        val command = ChangePasswordCommand(
+            newPassword = criteria.newPassword,
+        )
+        userService.changePassword(userId, command)
     }
 }

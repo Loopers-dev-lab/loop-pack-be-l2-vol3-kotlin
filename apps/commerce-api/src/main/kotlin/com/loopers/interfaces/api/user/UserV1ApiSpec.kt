@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.user
 
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.support.auth.LoginUser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -31,13 +32,10 @@ interface UserV1ApiSpec {
     @ApiResponses(
         value = [
             SwaggerResponse(responseCode = "200", description = "조회 성공"),
-            SwaggerResponse(responseCode = "401", description = "인증 실패 (로그인 ID 없음 또는 비밀번호 불일치)"),
+            SwaggerResponse(responseCode = "401", description = "인증 실패"),
         ],
     )
-    fun getMe(
-        loginId: String,
-        loginPw: String,
-    ): ApiResponse<UserV1Dto.UserResponse>
+    fun getMe(loginUser: LoginUser): ApiResponse<UserV1Dto.UserResponse>
 
     @Operation(
         summary = "비밀번호 변경",
@@ -47,12 +45,11 @@ interface UserV1ApiSpec {
         value = [
             SwaggerResponse(responseCode = "200", description = "비밀번호 변경 성공"),
             SwaggerResponse(responseCode = "400", description = "새 비밀번호 규칙 위반"),
-            SwaggerResponse(responseCode = "401", description = "인증 실패 (로그인 ID 없음 또는 비밀번호 불일치)"),
+            SwaggerResponse(responseCode = "401", description = "인증 실패"),
         ],
     )
     fun changePassword(
-        loginId: String,
-        loginPw: String,
+        loginUser: LoginUser,
         request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Unit>
 }

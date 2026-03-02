@@ -1,6 +1,5 @@
-package com.loopers.application.user
+package com.loopers.domain.user
 
-import com.loopers.domain.user.User
 import java.time.LocalDate
 
 data class UserInfo(

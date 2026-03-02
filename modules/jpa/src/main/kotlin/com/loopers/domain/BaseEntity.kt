@@ -7,6 +7,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.MappedSuperclass
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
+import org.hibernate.annotations.Comment
 import java.time.ZonedDateTime
 
 /**
@@ -24,14 +25,17 @@ abstract class BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
 
+    @Comment("생성 일시")
     @Column(name = "created_at", nullable = false, updatable = false)
     lateinit var createdAt: ZonedDateTime
         protected set
 
+    @Comment("수정 일시")
     @Column(name = "updated_at", nullable = false)
     lateinit var updatedAt: ZonedDateTime
         protected set
 
+    @Comment("삭제 일시")
     @Column(name = "deleted_at")
     var deletedAt: ZonedDateTime? = null
         protected set

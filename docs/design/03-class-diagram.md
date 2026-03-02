@@ -334,44 +334,104 @@ classDiagram
 
 ## 5. DTO 분리 전략
 
-> 멘토 피드백: "DTO는 따로 만들어야 한다" — Entity를 직접 응답하지 않고, 레이어별 전용 객체를 사용
+> 멘토 피드백 (DEVIN): "Enum을 API에서 쓰면 사고. 상태코드를 변경하면 API 버전이 달라진다. 래핑이 결국 필요해진다."
+> "DTO는 따로 만들어야 한다" — Entity를 직접 응답하지 않고, **레이어별 전용 객체**를 사용
+
+### 레이어별 DTO 구조
 
 ```
-요청: Client → Controller (Dto.Request) → Facade (Command) → Service (Entity)
-응답: Service (Entity) → Facade (Info) → Controller (Dto.Response) → Client
+요청: Client → Controller (Request) → Facade (Criteria → Command) → Service (Entity)
+응답: Service (Entity) → Domain (Info) → Facade (Result) → Controller (Response) → Client
 ```
 
 | 객체 | 위치 | 방향 | 역할 | 예시 |
 |------|------|------|------|------|
-| `*Dto.Request` | interfaces | 요청 → | HTTP 요청 역직렬화 + Bean Validation | `ProductV1Dto.CreateRequest` |
-| `*Command` | application | 요청 → | 비즈니스 의도를 담은 명령 객체 | `CreateProductCommand` |
+| `*Request` | interfaces | 요청 → | HTTP 요청 역직렬화 + Bean Validation | `ProductV1Dto.CreateRequest` |
+| `*Criteria` | application | 요청 → | Facade 입력 객체 (여러 도메인 조합 가능) | `CreateProductCriteria` |
+| `*Command` | domain | 요청 → | Domain Service 입력 계약 (도메인이 요구하는 데이터) | `CreateProductCommand` |
 | Entity | domain | — | 비즈니스 로직 + 영속성 | `Product`, `Order` |
-| `*Info` | application | ← 응답 | Facade → Controller 응답 전달 | `ProductInfo`, `OrderInfo` |
-| `*Dto.Response` | interfaces | ← 응답 | HTTP 응답 직렬화 | `ProductV1Dto.Response` |
+| `*Info` | domain | ← 응답 | Domain Service 출력 (도메인 데이터 표현) | `ProductInfo`, `OrderInfo` |
+| `*Result` | application | ← 응답 | Facade 출력 객체 (여러 Info 조합 가능) | `ProductResult`, `OrderResult` |
+| `*Response` | interfaces | ← 응답 | HTTP 응답 직렬화 (Enum → String 변환 등) | `ProductV1Dto.Response` |
 
-### 왜 분리하는가
+### 의존방향과 변환 흐름
 
-1. **Entity 보호**: Entity가 HTTP 요청/응답에 직접 노출되면 필드 추가/삭제 시 API가 깨짐
-2. **관심사 분리**: Controller는 직렬화, Facade는 조합, Service는 비즈니스에만 집중
-3. **테스트 용이**: 각 레이어를 독립적으로 테스트 가능
-4. **Entity ≠ Response**: 내부 상태(deletedAt, password 등)가 노출되면 안 됨
+```mermaid
+graph LR
+    subgraph interfaces["Interfaces Layer"]
+        REQ["Request"]
+        RES["Response"]
+    end
 
-### Info 객체 예시
+    subgraph application["Application Layer"]
+        CRI["Criteria"]
+        RLT["Result"]
+        FAC["Facade"]
+    end
+
+    subgraph domain["Domain Layer"]
+        CMD["Command"]
+        INF["Info"]
+        SVC["Service"]
+        ENT["Entity"]
+    end
+
+    REQ -->|"toCriteria()"| CRI
+    CRI -->|"Facade에서 변환"| CMD
+    CMD --> SVC
+    SVC --> ENT
+    ENT --> INF
+    INF -->|"Result.from(info)"| RLT
+    RLT -->|"Response.from(result)"| RES
+
+    style interfaces fill:#d6eaf8,stroke:#2980b9
+    style application fill:#d5f5e3,stroke:#27ae60
+    style domain fill:#fdebd0,stroke:#e67e22
+```
+
+### 왜 이렇게 분리하는가
+
+1. **의존방향 준수**: Interfaces → Application → Domain. 역방향 참조 없음
+2. **Entity 보호**: 내부 상태(deletedAt, password 등)가 HTTP 응답에 노출되지 않음
+3. **Enum 안전성**: Domain의 Enum을 Response에 직접 노출하면, Enum 변경 시 앱 네이티브가 깨짐. Response에서 String으로 래핑
+4. **관심사 분리**: Controller는 직렬화, Facade는 조합/변환, Service는 비즈니스에만 집중
+5. **테스트 용이**: 각 레이어를 독립적으로 테스트 가능
+6. **확장성**: 여러 도메인의 Info를 조합하여 하나의 Result로 만들 수 있음 (예: ProductResult에 brandName 포함)
+
+### 각 레이어 DTO 예시
 
 ```
+// Domain Layer
 ProductInfo {
     id, name, description, price, stockQuantity, likeCount,
-    status, displayYn, imageUrl, brandId, brandName
+    status: ProductStatus, displayYn, imageUrl, brandId
 }
 
 OrderInfo {
-    id, orderNumber, totalAmount, orderStatus,
-    items: List<OrderItemInfo> {
-        productId, quantity,
-        productSnapshot: { productName, brandName, imageUrl },
-        priceSnapshot: { originalPrice, discountAmount, finalPrice }
-    }
+    id, orderNumber, totalAmount, orderStatus: OrderStatus,
+    items: List<OrderItemInfo> { ... }
 }
+
+// Application Layer
+ProductResult {
+    id, name, description, price, stockQuantity, likeCount,
+    status: String, displayYn, imageUrl, brandId, brandName
+}
+
+OrderResult {
+    id, orderNumber, totalAmount, orderStatus: String,
+    items: List<OrderItemResult> { ... }
+}
+```
+
+### Command의 위치가 Domain인 이유
+
+Command는 Domain Service가 요구하는 **입력 데이터의 계약**이다.
+Application에 두면 Domain이 Application을 import하게 되어 의존방향이 역전된다.
+
+```
+❌ Domain(Service) → Application(Command)  의존방향 위반
+✅ Application(Facade) → Domain(Command)   정방향
 ```
 
 ---
@@ -394,7 +454,7 @@ OrderInfo {
 
 ```
 apps/commerce-api/src/main/kotlin/com/loopers/
-├── interfaces/api/
+├── interfaces/api/                        ← Request, Response (HTTP 직렬화)
 │   ├── brand/
 │   │   ├── BrandV1Controller.kt          (대고객)
 │   │   ├── BrandAdminV1Controller.kt     (어드민)
@@ -414,42 +474,53 @@ apps/commerce-api/src/main/kotlin/com/loopers/
 │       ├── OrderAdminV1Controller.kt
 │       ├── OrderV1ApiSpec.kt
 │       └── OrderV1Dto.kt
-├── application/
+├── application/                           ← Criteria, Result, Facade (조합/변환)
 │   ├── brand/
 │   │   ├── BrandFacade.kt
-│   │   └── BrandInfo.kt
+│   │   ├── BrandCriteria.kt
+│   │   └── BrandResult.kt
 │   ├── product/
 │   │   ├── ProductFacade.kt
-│   │   └── ProductInfo.kt
+│   │   ├── ProductCriteria.kt
+│   │   └── ProductResult.kt
 │   ├── like/
 │   │   ├── LikeFacade.kt
-│   │   └── LikeInfo.kt
+│   │   ├── LikeCriteria.kt
+│   │   └── LikeResult.kt
 │   └── order/
 │       ├── OrderFacade.kt
-│       └── OrderInfo.kt
-├── domain/
+│       ├── OrderCriteria.kt
+│       └── OrderResult.kt
+├── domain/                                ← Command, Info, Entity, Service, Repository(인터페이스)
 │   ├── brand/
 │   │   ├── Brand.kt
+│   │   ├── BrandCommand.kt
+│   │   ├── BrandInfo.kt
 │   │   ├── BrandService.kt
-│   │   └── BrandRepository.kt           (인터페이스)
+│   │   └── BrandRepository.kt
 │   ├── product/
 │   │   ├── Product.kt
 │   │   ├── ProductStatus.kt
+│   │   ├── ProductCommand.kt
+│   │   ├── ProductInfo.kt
 │   │   ├── ProductService.kt
 │   │   └── ProductRepository.kt
 │   ├── like/
 │   │   ├── Like.kt
+│   │   ├── LikeInfo.kt
 │   │   ├── LikeService.kt
 │   │   └── LikeRepository.kt
 │   └── order/
 │       ├── Order.kt
 │       ├── OrderItem.kt
 │       ├── OrderStatus.kt
+│       ├── OrderCommand.kt
+│       ├── OrderInfo.kt
 │       ├── ProductSnapshot.kt            (@Embeddable)
 │       ├── PriceSnapshot.kt              (@Embeddable)
 │       ├── OrderService.kt
 │       └── OrderRepository.kt
-└── infrastructure/
+└── infrastructure/                        ← RepositoryImpl, JpaRepository (기술 구현)
     ├── brand/
     │   ├── BrandRepositoryImpl.kt
     │   └── BrandJpaRepository.kt

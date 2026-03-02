@@ -5,7 +5,6 @@ import com.loopers.support.error.ErrorType
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDate
 
 @Component
 class UserService(
@@ -16,6 +15,12 @@ class UserService(
     @Transactional(readOnly = true)
     fun authenticate(loginId: String, loginPw: String): User {
         return findAndValidate(loginId, loginPw)
+    }
+
+    @Transactional(readOnly = true)
+    fun findById(id: Long): User {
+        return userRepository.findById(id)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 회원입니다.")
     }
 
     @Transactional
@@ -43,8 +48,8 @@ class UserService(
     }
 
     @Transactional
-    fun changePassword(loginId: String, loginPw: String, command: ChangePasswordCommand) {
-        val user = findAndValidate(loginId, loginPw)
+    fun changePassword(userId: Long, command: ChangePasswordCommand) {
+        val user = findById(userId)
 
         // 1. 새 비밀번호 규칙 검증
         PasswordValidator.validate(command.newPassword, user.birthday)
@@ -64,16 +69,4 @@ class UserService(
 
         return user
     }
-
-    data class SignUpCommand(
-        val loginId: String,
-        val password: String,
-        val name: String,
-        val birthday: LocalDate,
-        val email: String,
-    )
-
-    data class ChangePasswordCommand(
-        val newPassword: String,
-    )
 }
