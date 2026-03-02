@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon
 
+import com.loopers.application.coupon.CouponFacade
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -18,6 +19,7 @@ import java.util.concurrent.Executors
 @SpringBootTest
 class CouponServiceIntegrationTest @Autowired constructor(
     private val couponService: CouponService,
+    private val couponFacade: CouponFacade,
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -56,7 +58,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
             val userId = 1L
 
             // act
-            couponService.issue(couponId = coupon.id, userId = userId)
+            couponFacade.issue(couponId = coupon.id, userId = userId)
 
             // assert
             val issuedCoupons = issuedCouponRepository.findByUserId(userId)
@@ -70,11 +72,11 @@ class CouponServiceIntegrationTest @Autowired constructor(
             // arrange
             val coupon = createCoupon()
             val userId = 1L
-            couponService.issue(couponId = coupon.id, userId = userId)
+            couponFacade.issue(couponId = coupon.id, userId = userId)
 
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = coupon.id, userId = userId)
+                couponFacade.issue(couponId = coupon.id, userId = userId)
             }
 
             // assert
@@ -90,7 +92,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = coupon.id, userId = userId)
+                couponFacade.issue(couponId = coupon.id, userId = userId)
             }
 
             // assert
@@ -102,11 +104,11 @@ class CouponServiceIntegrationTest @Autowired constructor(
         fun throwsBadRequest_whenCouponIsExhausted() {
             // arrange
             val coupon = createCoupon(totalQuantity = 1)
-            couponService.issue(couponId = coupon.id, userId = 1L)
+            couponFacade.issue(couponId = coupon.id, userId = 1L)
 
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = coupon.id, userId = 2L)
+                couponFacade.issue(couponId = coupon.id, userId = 2L)
             }
 
             // assert
@@ -118,7 +120,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
         fun throwsNotFound_whenCouponNotExists() {
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = 999999L, userId = 1L)
+                couponFacade.issue(couponId = 999999L, userId = 1L)
             }
 
             // assert
@@ -136,7 +138,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
             // arrange
             val coupon = createCoupon()
             val userId = 1L
-            couponService.issue(couponId = coupon.id, userId = userId)
+            couponFacade.issue(couponId = coupon.id, userId = userId)
 
             // act
             val issuedCoupons = issuedCouponRepository.findByUserId(userId)
@@ -194,7 +196,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
             (1..threadCount).forEach { userId ->
                 executorService.submit {
                     try {
-                        couponService.issue(couponId = coupon.id, userId = userId.toLong())
+                        couponFacade.issue(couponId = coupon.id, userId = userId.toLong())
                     } catch (_: CoreException) {
                         // 수량 초과 시 예외 발생 예상
                     } finally {

@@ -3,7 +3,6 @@ package com.loopers.domain.coupon
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 @Component
 class CouponService(
@@ -11,7 +10,6 @@ class CouponService(
     private val issuedCouponRepository: IssuedCouponRepository,
 ) {
 
-    @Transactional
     fun issue(couponId: Long, userId: Long) {
         val coupon = couponRepository.findByIdWithLock(couponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
