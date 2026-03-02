@@ -15,7 +15,6 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.ZonedDateTime
 
@@ -158,7 +157,6 @@ class CouponServiceTest {
             couponService.delete(1L)
 
             // assert
-            verify(couponRepository).save(coupon)
             assertThat(coupon.deletedAt).isNotNull()
         }
 
