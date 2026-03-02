@@ -7,9 +7,9 @@ ApiControllerAdvice (전역 핸들러)
         ▲
 ApiResponse (일관된 응답 포맷)
         ▲
-CoreException ← UserException, OrderException, ...
+CoreException (모든 도메인이 직접 사용)
         ▲
-ErrorCode (CommonErrorCode, UserErrorCode, ...)
+ErrorCode (CommonErrorCode, UserErrorCode, BrandErrorCode, ...)
 ```
 
 ## ErrorCode 정의
@@ -23,24 +23,21 @@ ErrorCode (CommonErrorCode, UserErrorCode, ...)
 | 클라이언트가 다른 처리 필요 | 코드 분리 |
 | 모니터링/알람 집계 필요 | 코드 분리 |
 
-## 도메인 예외 클래스
+## 예외 사용 패턴
 
-**팩토리 메서드 패턴 사용** - 참조: `support/error/UserException.kt`
+모든 도메인이 `CoreException(ErrorCode)`를 직접 사용한다. 도메인별 예외 클래스(UserException 등)는 만들지 않는다.
 
 ```kotlin
-class UserException private constructor(
-    errorCode: UserErrorCode,
-    message: String = errorCode.message,  // 기본값 사용
-    cause: Throwable? = null,
-) : CoreException(errorCode, message, cause) {
+// Domain에서 — 비즈니스 규칙 위반
+throw CoreException(UserErrorCode.INVALID_LOGIN_ID_FORMAT)
+throw CoreException(ProductErrorCode.INSUFFICIENT_STOCK)
 
-    companion object {
-        fun invalidCredentials() = UserException(UserErrorCode.AUTHENTICATION_FAILED)
-        fun duplicateLoginId() = UserException(UserErrorCode.DUPLICATE_LOGIN_ID)
-        fun invalidCurrentPassword() = UserException(UserErrorCode.INVALID_CURRENT_PASSWORD)
-        fun samePassword() = UserException(UserErrorCode.SAME_PASSWORD)
-        // ... 등
-    }
+// UseCase에서 — DB 조회 실패, 비즈니스 규칙
+val brand = brandRepository.findActiveByIdOrNull(id)
+    ?: throw CoreException(BrandErrorCode.BRAND_NOT_FOUND)
+
+if (brandRepository.existsActiveByName(name)) {
+    throw CoreException(BrandErrorCode.DUPLICATE_BRAND_NAME)
 }
 ```
 
@@ -48,21 +45,21 @@ class UserException private constructor(
 
 | 위치 | 예외 종류 | 예시 |
 |------|----------|------|
-| Domain Model | 도메인 규칙 위반 | 로그인ID 형식 오류 |
-| Service | 비즈니스 규칙 위반 | 중복 로그인ID |
+| Domain (Entity/VO) | 도메인 규칙 위반 | 로그인ID 형식 오류, 재고 부족 |
+| UseCase | DB 조회 필요한 비즈니스 규칙 | 중복 로그인ID, 엔티티 미존재 |
 | ArgumentResolver | 인증 실패 | 헤더 누락, 잘못된 비밀번호 |
 
 ## 보안 원칙
 
 **인증 실패 시 상세 원인을 노출하지 않음:**
 ```kotlin
-// ✅ 좋음 - 동일한 에러
-throw UserException.invalidCredentials()  // 사용자 없음
-throw UserException.invalidCredentials()  // 비밀번호 틀림
+// ✅ 좋음 - 동일한 에러코드로 통일
+throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)  // 사용자 없음
+throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)  // 비밀번호 틀림
 
 // ❌ 나쁨 - 사용자 존재 여부 노출
-throw UserException.userNotFound()    // 아이디가 없음을 알려줌
-throw UserException.wrongPassword()   // 아이디는 맞다는 것을 알려줌
+throw CoreException(UserErrorCode.USER_NOT_FOUND)   // 아이디가 없음을 알려줌
+throw CoreException(UserErrorCode.WRONG_PASSWORD)    // 아이디는 맞다는 것을 알려줌
 ```
 
 ## 테스트에서 예외 검증
@@ -70,7 +67,7 @@ throw UserException.wrongPassword()   // 아이디는 맞다는 것을 알려줌
 > 참조: `domain/user/UserTest.kt`
 
 ```kotlin
-val exception = assertThrows<UserException> {
+val exception = assertThrows<CoreException> {
     User.create(loginId = "test!", ...)  // 특수문자 포함
 }
 assertThat(exception.errorCode).isEqualTo(UserErrorCode.INVALID_LOGIN_ID_FORMAT)

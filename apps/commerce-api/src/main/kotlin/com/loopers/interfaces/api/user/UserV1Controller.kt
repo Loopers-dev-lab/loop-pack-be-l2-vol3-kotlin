@@ -1,6 +1,9 @@
 package com.loopers.interfaces.api.user
 
-import com.loopers.application.user.UserFacade
+import com.loopers.application.user.ChangePasswordUseCase
+import com.loopers.application.user.GetMyInfoUseCase
+import com.loopers.application.user.RegisterUserUseCase
+import com.loopers.application.user.UserCommand
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.auth.CurrentUserId
 import com.loopers.support.constant.ApiPaths
@@ -17,7 +20,9 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping(ApiPaths.Users.BASE)
 class UserV1Controller(
-    private val userFacade: UserFacade,
+    private val registerUserUseCase: RegisterUserUseCase,
+    private val getMyInfoUseCase: GetMyInfoUseCase,
+    private val changePasswordUseCase: ChangePasswordUseCase,
 ) : UserV1ApiSpec {
 
     @PostMapping
@@ -25,19 +30,21 @@ class UserV1Controller(
     override fun register(
         @Valid @RequestBody request: UserV1Dto.RegisterRequest,
     ): ApiResponse<UserV1Dto.UserResponse> {
-        val userInfo = userFacade.register(
-            loginId = request.loginId,
-            rawPassword = request.password,
-            name = request.name,
-            birthDate = request.toBirthDate(),
-            email = request.email,
+        val userInfo = registerUserUseCase.execute(
+            UserCommand.Register(
+                loginId = request.loginId,
+                rawPassword = request.password,
+                name = request.name,
+                birthDate = request.toBirthDate(),
+                email = request.email,
+            ),
         )
         return ApiResponse.success(UserV1Dto.UserResponse.from(userInfo))
     }
 
     @GetMapping("/me")
     override fun getMe(@CurrentUserId userId: Long): ApiResponse<UserV1Dto.UserResponse> {
-        val userInfo = userFacade.getMyInfo(userId)
+        val userInfo = getMyInfoUseCase.execute(userId)
         return ApiResponse.success(UserV1Dto.UserResponse.from(userInfo))
     }
 
@@ -46,7 +53,13 @@ class UserV1Controller(
         @CurrentUserId userId: Long,
         @Valid @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Unit> {
-        userFacade.changePassword(userId, request.currentPassword, request.newPassword)
+        changePasswordUseCase.execute(
+            UserCommand.ChangePassword(
+                userId = userId,
+                currentPassword = request.currentPassword,
+                newPassword = request.newPassword,
+            ),
+        )
         return ApiResponse.success(Unit)
     }
 }

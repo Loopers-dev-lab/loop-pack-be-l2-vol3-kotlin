@@ -22,6 +22,16 @@
 
 - `!!` 사용 금지 → `requireNotNull()` 또는 `?: throw`
 - nullable 타입 명시적 처리 필수
+- UseCase에서 조회 실패 시 `?: throw CoreException(ErrorCode)` 패턴 사용
+
+```kotlin
+// ✅ 조회 실패 시 표준 패턴
+val brand = brandRepository.findActiveByIdOrNull(id)
+    ?: throw CoreException(BrandErrorCode.BRAND_NOT_FOUND)
+
+// ❌ !! 사용
+val brand = brandRepository.findActiveByIdOrNull(id)!!
+```
 
 ## Data Class
 

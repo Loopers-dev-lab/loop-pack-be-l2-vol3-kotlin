@@ -1,5 +1,7 @@
 package com.loopers.application.user
 
+import com.loopers.domain.user.User
+import com.loopers.support.utils.MaskingUtils
 import java.time.LocalDate
 
 data class UserInfo(
@@ -7,4 +9,15 @@ data class UserInfo(
     val name: String,
     val birthDate: LocalDate,
     val email: String,
-)
+) {
+    companion object {
+        fun from(user: User): UserInfo {
+            return UserInfo(
+                loginId = user.loginId,
+                name = MaskingUtils.maskLastCharacter(user.name),
+                birthDate = user.birthDate,
+                email = user.email,
+            )
+        }
+    }
+}

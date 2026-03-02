@@ -100,14 +100,20 @@ erDiagram
 
 BaseEntity는 `id`(PK), `created_at`, `updated_at`만 공통으로 제공합니다. `deleted_at`은 BaseEntity에 포함하지 않고, soft delete가 필요한 엔티티가 **직접 선언**합니다. 삭제의 맥락은 도메인마다 다르기 때문입니다(상품 판매 중지 vs 회원 탈퇴 vs 주문 취소). ERD에는 각 테이블에서 **비즈니스 의미가 있는 필드만** 표기합니다.
 
-| 테이블 | BaseEntity 상속 | deleted_at | 비고 |
+> **참고: JPA Entity = Domain Entity (통합)**
+>
+> 모든 엔티티는 JPA 어노테이션 + 비즈니스 로직을 함께 가진 통합 Entity입니다.
+> BaseEntity를 상속하는 엔티티는 `id`, `createdAt`, `updatedAt`을 자동 관리합니다.
+> 자세한 내용은 [03-class-diagram.md](./03-class-diagram.md)의 "JPA Entity = Domain Entity" 섹션을 참고하세요.
+
+| 테이블 | Entity (BaseEntity 상속) | deleted_at | 비고 |
 |--------|:---:|:---:|------|
-| users | ✅ | ❌ | 회원 탈퇴 미구현 (→ 정책 16) |
-| brands | ✅ | ✅ 직접 선언 | soft delete — 비즈니스 로직에 영향 |
-| products | ✅ | ✅ 직접 선언 | soft delete — 비즈니스 로직에 영향 |
-| orders | ✅ | ❌ | 주문은 삭제하지 않고 상태(status)로 관리 |
-| likes | ❌ | ❌ | 물리 삭제(hard delete) 대상. `updated_at`도 불필요. `id`와 `created_at`만 직접 정의. (→ 정책 12) |
-| order_items | ❌ | ❌ | 불변 스냅샷 — 독자적인 시점 관리 불필요 |
+| users | `User` ✅ | ❌ | Round 1 구현. 회원 탈퇴 미구현 (→ 정책 16) |
+| brands | `Brand` ✅ | ✅ 직접 선언 | soft delete — 비즈니스 로직에 영향 |
+| products | `Product` ✅ | ✅ 직접 선언 | soft delete — 비즈니스 로직에 영향 |
+| orders | `Order` ✅ | ❌ | 주문은 삭제하지 않고 상태(status)로 관리 |
+| likes | `Like` ❌ | ❌ | 물리 삭제(hard delete) 대상. `id`와 `created_at`만 직접 정의. (→ 정책 12) |
+| order_items | `OrderItem` ❌ | ❌ | 불변 스냅샷 — 독자적인 시점 관리 불필요 |
 
 ### 핵심 포인트
 
@@ -188,6 +194,6 @@ DB FK 제약을 사용하지 않는 이유:
 | 좋아요 중복 불가 | DB UNIQUE 제약 + 애플리케이션 검증 이중 방어 | (→ 정책 13) |
 | likeCount = 실제 좋아요 수 | 좋아요 등록/취소 시 동기적 +1/-1 | 트랜잭션 내 처리 (→ 정책 15) |
 | 재고 음수 방지 | 도메인 엔티티에서 검증 (Product.decreaseStock) | (→ 정책 1, 2) |
-| 주문 금액 = 서버 계산 | Facade에서 상품 가격 × 수량으로 계산 후 Order에 전달 | 클라이언트 금액 무시 (→ 정책 28) |
+| 주문 금액 = 서버 계산 | UseCase에서 스냅샷 생성 후 Order.create()에서 계산 | 클라이언트는 금액을 보내지 않음, 서버가 계산 (→ 정책 28) |
 | 스냅샷 불변성 | order_items 수정 불가 (created_at/updated_at 없음) | (→ 정책 3) |
 | 참조 무결성 | 애플리케이션 레벨 검증 (DB FK 제약 없음) | Service/ArgumentResolver에서 보장 |

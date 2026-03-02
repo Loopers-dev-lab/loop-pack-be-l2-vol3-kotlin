@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.auth
 
-import com.loopers.domain.user.UserAuthService
-import com.loopers.support.error.UserException
+import com.loopers.application.user.AuthenticateUserUseCase
+import com.loopers.support.constant.AuthHeaders
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.UserErrorCode
 import org.springframework.core.MethodParameter
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebDataBinderFactory
@@ -11,7 +13,7 @@ import org.springframework.web.method.support.ModelAndViewContainer
 
 @Component
 class CurrentUserIdArgumentResolver(
-    private val userAuthService: UserAuthService,
+    private val authenticateUserUseCase: AuthenticateUserUseCase,
 ) : HandlerMethodArgumentResolver {
 
     override fun supportsParameter(parameter: MethodParameter): Boolean {
@@ -25,16 +27,11 @@ class CurrentUserIdArgumentResolver(
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
     ): Long {
-        val loginId = webRequest.getHeader(HEADER_LOGIN_ID)
-            ?: throw UserException.invalidCredentials()
-        val password = webRequest.getHeader(HEADER_LOGIN_PW)
-            ?: throw UserException.invalidCredentials()
+        val loginId = webRequest.getHeader(AuthHeaders.User.LOGIN_ID)
+            ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
+        val password = webRequest.getHeader(AuthHeaders.User.LOGIN_PW)
+            ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
 
-        return userAuthService.authenticateAndGetId(loginId, password)
-    }
-
-    companion object {
-        private const val HEADER_LOGIN_ID = "X-Loopers-LoginId"
-        private const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
+        return authenticateUserUseCase.execute(loginId, password)
     }
 }

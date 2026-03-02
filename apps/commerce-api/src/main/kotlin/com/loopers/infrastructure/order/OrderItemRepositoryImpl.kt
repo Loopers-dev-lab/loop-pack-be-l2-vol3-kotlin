@@ -1,0 +1,24 @@
+package com.loopers.infrastructure.order
+
+import com.loopers.domain.order.OrderItem
+import com.loopers.domain.order.OrderItemRepository
+import org.springframework.stereotype.Repository
+
+@Repository
+class OrderItemRepositoryImpl(
+    private val orderItemJpaRepository: OrderItemJpaRepository,
+) : OrderItemRepository {
+
+    override fun saveAll(items: List<OrderItem>): List<OrderItem> {
+        return orderItemJpaRepository.saveAll(items)
+    }
+
+    override fun findByOrderId(orderId: Long): List<OrderItem> {
+        return orderItemJpaRepository.findByOrderId(orderId)
+    }
+
+    override fun findByOrderIds(orderIds: List<Long>): List<OrderItem> {
+        if (orderIds.isEmpty()) return emptyList()
+        return orderItemJpaRepository.findByOrderIds(orderIds)
+    }
+}
