@@ -32,9 +32,9 @@ class UserV1ApiE2ETest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
-        private const val ENDPOINT_REGISTER = "/api/v1/user/register"
-        private const val ENDPOINT_GET_USER_INFO = "/api/v1/user/me"
-        private const val ENDPOINT_CHANGE_PASSWORD = "/api/v1/user/password"
+        private const val ENDPOINT_REGISTER = "/api/v1/users"
+        private const val ENDPOINT_GET_USER_INFO = "/api/v1/users/me"
+        private const val ENDPOINT_CHANGE_PASSWORD = "/api/v1/users/password"
     }
 
     @AfterEach
@@ -42,7 +42,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    @DisplayName("POST /api/v1/user/register")
+    @DisplayName("POST /api/v1/users")
     @Nested
     inner class Register {
         @DisplayName("유효한 정보로 회원가입하면, 성공 응답과 사용자 정보를 반환한다.")
@@ -51,7 +51,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             // arrange
             val request = UserV1Dto.UserRegisterRequest(
                 loginId = "testuser",
-                password = "password123!",
+                password = "Password123!",
                 name = "홍길동",
                 birthDate = "1990-01-01",
                 email = "test@example.com",
@@ -70,7 +70,8 @@ class UserV1ApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.loginId).isEqualTo(request.loginId) },
-                { assertThat(response.body?.data?.name).isEqualTo("홍길*") }, // masked
+                // masked
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
                 { assertThat(response.body?.data?.birthDate).isEqualTo(request.birthDate) },
                 { assertThat(response.body?.data?.email).isEqualTo(request.email) },
                 { assertThat(response.body?.data?.id).isNotNull() },
@@ -88,7 +89,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             val existingUser = userJpaRepository.save(
                 UserModel(
                     loginId = LoginId("existinguser"),
-                    password = passwordEncryptor.encrypt("password123!"),
+                    encryptedPassword = passwordEncryptor.encrypt("Password123!"),
                     name = Name("기존사용자"),
                     birthDate = BirthDate("1990-01-01"),
                     email = Email("existing@example.com"),
@@ -97,7 +98,7 @@ class UserV1ApiE2ETest @Autowired constructor(
 
             val request = UserV1Dto.UserRegisterRequest(
                 loginId = "existinguser",
-                password = "password123!",
+                password = "Password123!",
                 name = "홍길동",
                 birthDate = "1990-01-01",
                 email = "new@example.com",
@@ -124,7 +125,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             // arrange
             val request = UserV1Dto.UserRegisterRequest(
                 loginId = "testuser",
-                password = "password123!",
+                password = "Password123!",
                 name = "홍길동",
                 birthDate = "1990-01-01",
                 email = "invalid-email",
@@ -153,11 +154,11 @@ class UserV1ApiE2ETest @Autowired constructor(
         @Test
         fun getUserInfo_whenValidAuth_thenReturnsUserInfo() {
             // arrange
-            val password = "password123!"
+            val password = "Password123!"
             val user = userJpaRepository.save(
                 UserModel(
                     loginId = LoginId("testuser"),
-                    password = passwordEncryptor.encrypt(password),
+                    encryptedPassword = passwordEncryptor.encrypt(password),
                     name = Name("홍길동"),
                     birthDate = BirthDate("1990-01-01"),
                     email = Email("test@example.com"),
@@ -183,7 +184,8 @@ class UserV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.id).isEqualTo(user.id) },
                 { assertThat(response.body?.data?.loginId).isEqualTo("testuser") },
-                { assertThat(response.body?.data?.name).isEqualTo("홍길*") }, // masked
+                // masked
+                { assertThat(response.body?.data?.name).isEqualTo("홍길*") },
                 { assertThat(response.body?.data?.birthDate).isEqualTo("1990-01-01") },
                 { assertThat(response.body?.data?.email).isEqualTo("test@example.com") },
             )
@@ -212,7 +214,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             userJpaRepository.save(
                 UserModel(
                     loginId = LoginId("testuser"),
-                    password = passwordEncryptor.encrypt("password123!"),
+                    encryptedPassword = passwordEncryptor.encrypt("Password123!"),
                     name = Name("홍길동"),
                     birthDate = BirthDate("1990-01-01"),
                     email = Email("test@example.com"),
@@ -243,7 +245,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             // arrange
             val headers = HttpHeaders().apply {
                 set("X-Loopers-LoginId", "nonexistentuser")
-                set("X-Loopers-LoginPw", "password123!")
+                set("X-Loopers-LoginPw", "Password123!")
             }
 
             // act
@@ -267,12 +269,12 @@ class UserV1ApiE2ETest @Autowired constructor(
         @Test
         fun changePassword_whenValidAuth_thenSuccess() {
             // arrange
-            val oldPassword = "password123!"
-            val newPassword = "newpassword456!"
+            val oldPassword = "Password123!"
+            val newPassword = "Newpassword456!"
             val user = userJpaRepository.save(
                 UserModel(
                     loginId = LoginId("testuser"),
-                    password = passwordEncryptor.encrypt(oldPassword),
+                    encryptedPassword = passwordEncryptor.encrypt(oldPassword),
                     name = Name("홍길동"),
                     birthDate = BirthDate("1990-01-01"),
                     email = Email("test@example.com"),
@@ -308,12 +310,12 @@ class UserV1ApiE2ETest @Autowired constructor(
         @Test
         fun changePassword_afterChange_canLoginWithNewPassword() {
             // arrange
-            val oldPassword = "password123!"
-            val newPassword = "newpassword456!"
+            val oldPassword = "Password123!"
+            val newPassword = "Newpassword456!"
             userJpaRepository.save(
                 UserModel(
                     loginId = LoginId("testuser"),
-                    password = passwordEncryptor.encrypt(oldPassword),
+                    encryptedPassword = passwordEncryptor.encrypt(oldPassword),
                     name = Name("홍길동"),
                     birthDate = BirthDate("1990-01-01"),
                     email = Email("test@example.com"),
@@ -360,7 +362,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @Test
         fun changePassword_whenNoAuthHeader_thenThrowsUnauthorized() {
             // arrange
-            val request = UserV1Dto.ChangePasswordRequest(newPassword = "newpassword456!")
+            val request = UserV1Dto.ChangePasswordRequest(newPassword = "Newpassword456!")
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}
@@ -382,7 +384,7 @@ class UserV1ApiE2ETest @Autowired constructor(
             userJpaRepository.save(
                 UserModel(
                     loginId = LoginId("testuser"),
-                    password = passwordEncryptor.encrypt("password123!"),
+                    encryptedPassword = passwordEncryptor.encrypt("Password123!"),
                     name = Name("홍길동"),
                     birthDate = BirthDate("1990-01-01"),
                     email = Email("test@example.com"),
@@ -394,7 +396,7 @@ class UserV1ApiE2ETest @Autowired constructor(
                 set("X-Loopers-LoginPw", "wrongpassword")
             }
 
-            val request = UserV1Dto.ChangePasswordRequest(newPassword = "newpassword456!")
+            val request = UserV1Dto.ChangePasswordRequest(newPassword = "Newpassword456!")
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Unit>>() {}

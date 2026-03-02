@@ -1,14 +1,20 @@
 package com.loopers.domain.user
 
-data class Password(val value: String) {
+@JvmInline
+value class Password(val value: String) {
 
     init {
-        require(value.matches(Regex("^[a-zA-Z0-9!@#\$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]{8,16}\$"))) {
+        require(value.matches(PASSWORD_PATTERN)) {
             "Password는 8~16자의 영문 대소문자, 숫자, 특수문자로만 구성합니다."
         }
 
         require(value.isNotBlank()) {
             "Password는 필수 입니다."
         }
+    }
+
+    companion object {
+        val PASSWORD_PATTERN =
+            """^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]).{8,16}$""".toRegex()
     }
 }

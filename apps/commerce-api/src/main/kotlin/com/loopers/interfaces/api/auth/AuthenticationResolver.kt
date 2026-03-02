@@ -28,36 +28,36 @@ class AuthenticationResolver(
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
     ): AuthenticatedUser {
-        // 1. Extract headers
+        // 1. 헤더에서 인증 정보 추출
         val loginIdValue = webRequest.getHeader("X-Loopers-LoginId")
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "X-Loopers-LoginId 헤더가 필요합니다.")
 
         val password = webRequest.getHeader("X-Loopers-LoginPw")
             ?: throw CoreException(ErrorType.UNAUTHORIZED, "X-Loopers-LoginPw 헤더가 필요합니다.")
 
-        // 2. Validate LoginId format and convert to value object
+        // 2. LoginId 형식 검증
         val loginId = try {
             LoginId(loginIdValue)
         } catch (e: IllegalArgumentException) {
             throw CoreException(ErrorType.UNAUTHORIZED, "올바르지 않은 LoginId 형식입니다.")
         }
 
-        // 3. Get user from database
+        // 3. 데이터베이스로부터 유저 존재 확인
         val user = try {
-            userService.getUserByLoginId(loginId)
+            userService.getUserByLoginId(loginId.value)
         } catch (e: CoreException) {
             throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
         }
 
-        // 4. Verify password
+        // 4. 패스워드 검증
         if (!passwordEncryptor.matches(password, user.password)) {
             throw CoreException(ErrorType.UNAUTHORIZED, "인증에 실패했습니다.")
         }
 
-        // 5. Return authenticated user context
+        // 5. AuthenticatedUser 반환
         return AuthenticatedUser(
-            loginId = user.loginId,
-            birthDate = user.birthDate,
+            loginId = user.loginId.value,
+            birthDate = user.birthDate.value,
         )
     }
 }

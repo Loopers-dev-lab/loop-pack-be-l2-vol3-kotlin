@@ -6,11 +6,9 @@ import org.springframework.stereotype.Component
 
 @Component
 class UserValidator {
-
-    fun validatePasswordNotContainsBirthDate(password: Password, birthDate: BirthDate) {
-        val fullBirthDate = birthDate.value.replace("-", "") // "20020101"
-        val shortBirthDate = fullBirthDate.substring(2) // "020101"
-
+    fun validateNoBirthDate(password: Password, birthDate: BirthDate) {
+        val fullBirthDate = birthDate.value.replace("-", "")
+        val shortBirthDate = fullBirthDate.substring(2)
         if (password.value.contains(fullBirthDate) || password.value.contains(shortBirthDate)) {
             throw CoreException(
                 errorType = ErrorType.BAD_REQUEST,

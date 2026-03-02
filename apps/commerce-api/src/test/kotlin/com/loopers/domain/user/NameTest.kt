@@ -7,10 +7,35 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class NameTest {
-    @Test
-    fun `빈 값이면 실패한다`() {
-        assertThrows<IllegalArgumentException> {
-            Name("")
+
+    @Nested
+    inner class Validation {
+        @Test
+        fun `빈 값이면 실패한다`() {
+            assertThrows<IllegalArgumentException> {
+                Name("")
+            }
+        }
+
+        @Test
+        fun `이름 앞에 공백이 있으면 실패한다`() {
+            assertThrows<IllegalArgumentException> {
+                Name(" 홍길동")
+            }
+        }
+
+        @Test
+        fun `이름 뒤에 공백이 있으면 실패한다`() {
+            assertThrows<IllegalArgumentException> {
+                Name("홍길동 ")
+            }
+        }
+
+        @Test
+        fun `이름 사이에 공백이 연속해서 있으면 실패한다`() {
+            assertThrows<IllegalArgumentException> {
+                Name("홍  길동")
+            }
         }
     }
 
@@ -19,49 +44,37 @@ class NameTest {
     inner class Masked {
         @Test
         fun `한글 이름의 마지막 글자를 마스킹한다`() {
-            // given
-            val name = Name("김철수")
+            val name = Name("홍길동")
 
-            // when
             val masked = name.masked()
 
-            // then
-            assertThat(masked).isEqualTo("김철*")
+            assertThat(masked).isEqualTo("홍길*")
         }
 
         @Test
         fun `영어 이름의 마지막 글자를 마스킹한다`() {
-            // given
             val name = Name("John")
 
-            // when
             val masked = name.masked()
 
-            // then
             assertThat(masked).isEqualTo("Joh*")
         }
 
         @Test
         fun `한 글자 이름도 마스킹한다`() {
-            // given
-            val name = Name("김")
+            val name = Name("홍")
 
-            // when
             val masked = name.masked()
 
-            // then
             assertThat(masked).isEqualTo("*")
         }
 
         @Test
         fun `공백이 포함된 이름의 마지막 글자를 마스킹한다`() {
-            // given
             val name = Name("김 철 수")
 
-            // when
             val masked = name.masked()
 
-            // then
             assertThat(masked).isEqualTo("김 철 *")
         }
     }

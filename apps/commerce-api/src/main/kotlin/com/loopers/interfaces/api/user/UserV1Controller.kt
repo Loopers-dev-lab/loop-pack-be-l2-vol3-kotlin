@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/v1/user")
+@RequestMapping("/api/v1/users")
 class UserV1Controller(
     private val userFacade: UserFacade,
 ) : UserV1ApiSpec {
 
-    @PostMapping("/register")
+    @PostMapping("")
     override fun register(
         @RequestBody request: UserV1Dto.UserRegisterRequest,
     ): ApiResponse<UserV1Dto.UserRegisterResponse> {
@@ -47,8 +47,8 @@ class UserV1Controller(
     ): ApiResponse<Unit> {
         userFacade.changePassword(
             loginId = authenticatedUser.loginId,
-            birthDate = authenticatedUser.birthDate,
             newPassword = request.newPassword,
+            birthDate = authenticatedUser.birthDate,
         )
         return ApiResponse.success(Unit)
     }
