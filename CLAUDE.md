@@ -1,136 +1,142 @@
 # CLAUDE.md
 
-## 프로젝트 개요
+이 파일은 Claude Code가 이 저장소에서 작업할 때 참고하는 가이드입니다.
 
-**loopers-kotlin-spring-template** — Kotlin + Spring Boot 기반 멀티모듈 커머스 백엔드 템플릿 프로젝트
+## 언어 규칙
 
-## 기술 스택 및 버전
+- 응답, 코드 주석, 커밋 메시지, 문서화: 한국어
+- 변수명/함수명/클래스명: 영어
 
-| 기술                             | 버전                    |
-|--------------------------------|-----------------------|
-| Kotlin                         | 2.0.20                |
-| Java                           | 21                    |
-| Spring Boot                    | 3.4.4                 |
-| Spring Cloud                   | 2024.0.1              |
-| Spring Dependency Management   | 1.1.7                 |
-| QueryDSL                       | jakarta               |
-| SpringDoc OpenAPI              | 2.7.0                 |
-| ktLint                         | 1.0.1 (plugin 12.1.2) |
-| Micrometer (Prometheus, Brave) | Spring Boot 관리        |
-| Testcontainers                 | Spring Boot 관리        |
+## 상호작용 규칙
 
-## 모듈 구조
+- **질문 vs 실행 구분**: 개념/설계/아키텍처 질문에는 코드 변경 없이 답변만 한다. 코드를 grep하거나 수정하지 않는다. 코드 수정은 "~해줘", "~수정해줘", "~구현해줘" 등 명시적 실행 요청이 있을 때만 수행한다
+- **수정 의도 확인**: 코드 수정/삭제 전 의도를 확인한다. 특히 어노테이션/검증 관련 변경은 ADD/REMOVE/MOVE 중 무엇인지, 어떤 파일(Controller? ApiSpec? Entity?)에 대한 것인지 반드시 확인 후 착수한다
+- **문서화된 규칙 준수**: CLAUDE.md에 문서화된 규칙은 non-negotiable이다. 'out of scope'로 무시하거나 건너뛰지 않는다. 규칙이 불합리하다고 판단되면 무시하지 말고 개발자에게 이의를 제기한다
+- **완료 전 검증 필수**: 작업 완료를 선언하기 전에 반드시 `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`를 실행하여 검증한다. 검증 없이 "완료했습니다"라고 말하지 않는다
+- **환각 금지**: 존재하지 않는 API, 패키지, 파일 경로, 설정 옵션을 지어내지 않는다. 확실하지 않으면 먼저 확인한다
+- **피드백 반영**: 개발자가 실수를 지적하면 `MEMORY.md`에 교훈을 기록한다. 2회 이상 반복되면 `.claude/rules/corrections.md`로 승격하고 개발자에게 알린다
 
-```
-loopers-kotlin-spring-template/
-├── apps/                          # 실행 가능한 애플리케이션 (BootJar)
-│   ├── commerce-api/              # REST API 서버 (Spring MVC, Swagger)
-│   ├── commerce-batch/            # Spring Batch 배치 서버
-│   └── commerce-streamer/         # Kafka Consumer 스트리밍 서버
-│
-├── modules/                       # 재사용 인프라 모듈 (Library Jar)
-│   ├── jpa/                       # JPA + QueryDSL + MySQL DataSource 설정
-│   ├── redis/                     # Redis Master-Replica 설정
-│   └── kafka/                     # Kafka Producer/Consumer 설정
-│
-├── supports/                      # 횡단 관심사 모듈 (Library Jar)
-│   ├── jackson/                   # Jackson ObjectMapper 설정
-│   ├── logging/                   # Logback + Slack Appender 설정
-│   └── monitoring/                # Actuator + Prometheus 메트릭 설정
-│
-├── build.gradle.kts               # 루트 빌드 (공통 의존성, 서브프로젝트 설정)
-├── settings.gradle.kts            # 모듈 포함 및 플러그인 버전 관리
-└── gradle.properties              # 버전 프로퍼티
-```
-
-## 패키지 구조 (Layered Architecture)
-
-```
-com.loopers
-├── application/       # Facade 계층 (유스케이스 조합)
-├── domain/            # 도메인 모델 및 비즈니스 로직
-├── infrastructure/    # Repository 구현체
-├── interfaces/        # API Controller / Kafka Consumer
-└── support/           # 에러 처리 (CoreException, ErrorType)
-```
-
-## 빌드 및 실행
+## Commands
 
 ```bash
-# 전체 빌드
-./gradlew build
-
-# 특정 앱 실행
-./gradlew :apps:commerce-api:bootRun
-./gradlew :apps:commerce-batch:bootRun --args='--job.name=demoJob'
-./gradlew :apps:commerce-streamer:bootRun
-
-# 테스트 (Testcontainers 사용, Docker 필요)
-./gradlew test
-
-# 코드 스타일 검사
-./gradlew ktlintCheck
-
-# 코드 스타일 자동 포맷
-./gradlew ktlintFormat
+./gradlew build                        # 전체 빌드
+./gradlew :apps:commerce-api:build     # 특정 모듈 빌드
+./gradlew :apps:commerce-api:bootRun   # 애플리케이션 실행
+./gradlew test                         # 전체 테스트
+./gradlew ktlintCheck                  # 린트 체크
+./gradlew ktlintFormat                 # 린트 자동 수정
+./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test  # 커밋 전 최종 검증 (kapt 충돌 방지를 위해 분리 실행)
 ```
 
-## 테스트
+단일 테스트 실행:
 
-- JUnit 5 + SpringMockK + Mockito Kotlin + Instancio
-- Testcontainers로 MySQL, Redis, Kafka 격리 테스트
-- 테스트 프로파일: `test` (자동 적용, `spring.profiles.active=test`)
-- 타임존: `Asia/Seoul`
-- `testFixtures`로 MySqlTestContainersConfig, RedisTestContainersConfig, DatabaseCleanUp, RedisCleanUp 제공
+```bash
+./gradlew :apps:commerce-api:test --tests "패키지.클래스명"
+./gradlew :apps:commerce-api:test --tests "패키지.클래스명.메서드명"
+```
 
-## 프로파일
+## 아키텍처
 
-- `local` — 로컬 개발 (show-sql, DDL auto-create)
-- `test` — 테스트 (Testcontainers, DDL auto-create)
-- `dev`, `qa`, `prd` — 환경변수 기반 설정 (`MYSQL_HOST`, `REDIS_MASTER_HOST`, `BOOTSTRAP_SERVERS` 등)
+Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 
-## 주요 인프라 설정
+### 모듈 구조
 
-- **DB**: MySQL (HikariCP 커넥션 풀, 배치 rewrite 지원)
-- **Redis**: Master-Replica 구성
-- **Kafka**: JSON 직렬화, Manual ACK, auto-commit 비활성화
-- **모니터링**: Prometheus 메트릭 (`/actuator/prometheus`, 포트 8081), Liveness/Readiness probe
-- **로깅**: Logback + Slack Appender
+- **apps/**: 실행 가능한 Spring Boot 애플리케이션 (commerce-api, commerce-batch, commerce-streamer)
+- **modules/**: 인프라 설정 모듈 (jpa, redis, kafka) — `testFixtures` 제공
+- **supports/**: 부가 기능 모듈 (jackson, logging, monitoring)
 
-## 개발 규칙
-### 진행 Workflow - 증강 코딩
-- **대원칙** : 방향성 및 주요 의사 결정은 개발자에게 제안만 할 수 있으며, 최종 승인된 사항을 기반으로 작업을 수행.
-- **중간 결과 보고** : AI 가 반복적인 동작을 하거나, 요청하지 않은 기능을 구현, 테스트 삭제를 임의로 진행할 경우 개발자가 개입.
-- **설계 주도권 유지** : AI 가 임의판단을 하지 않고, 방향성에 대한 제안 등을 진행할 수 있으나 개발자의 승인을 받은 후 수행.
+### 레이어별 가이드
 
-### 개발 Workflow - TDD (Red > Green > Refactor)
-- 모든 테스트는 3A 원칙으로 작성할 것 (Arrange - Act - Assert)
-#### 1. Red Phase : 실패하는 테스트 먼저 작성
-- 요구사항을 만족하는 기능 테스트 케이스 작성
-- 테스트 예시
-#### 2. Green Phase : 테스트를 통과하는 코드 작성
-- Red Phase 의 테스트가 모두 통과할 수 있는 코드 작성
-- 오버엔지니어링 금지
-#### 3. Refactor Phase : 불필요한 코드 제거 및 품질 개선
-- 불필요한 private 함수 지양, 객체지향적 코드 작성
-- unused import 제거
-- 성능 최적화
-- 모든 테스트 케이스가 통과해야 함
+작업 대상 레이어의 CLAUDE.md를 **반드시** 먼저 읽는다:
+
+- `apps/commerce-api/CLAUDE.md` — 레이어 의존방향, 요청 흐름, 에러/응답 패턴
+- `apps/commerce-api/src/main/kotlin/com/loopers/domain/CLAUDE.md` — Domain Model, VO, Command, Repository 인터페이스, Domain Service
+- `apps/commerce-api/src/main/kotlin/com/loopers/application/CLAUDE.md` — Facade, @Transactional, DTO 변환
+- `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/CLAUDE.md` — JPA Entity, 매핑, Repository 구현
+- `apps/commerce-api/src/main/kotlin/com/loopers/interfaces/CLAUDE.md` — Controller, ApiSpec, Dto, 인증
+
+## 기술 주의사항 / 테스트 패턴
+
+→ `.claude/rules/kotlin-spring-jpa.md` (kapt 충돌, allOpen, JPQL 금지 등)
+→ `.claude/rules/test-patterns.md` (3A 원칙, Fake Repository, TestContainers 등)
+
+## 개발 방법론: TDD (Kent Beck) + Tidy First
+
+### 증강 코딩 원칙
+
+- **대원칙**: 방향성 및 주요 의사 결정은 개발자에게 제안만 하며, 최종 승인된 사항을 기반으로 작업 수행
+- **임의 작업 금지**: 반복적 동작, 요청하지 않은 기능 구현, 테스트 삭제를 임의로 진행하지 않는다
+- **금지 행동 엄수**: 사용자가 "하지 마라"고 한 행동은 어떤 형태로든 시도하지 않는다 (예: "테스트 돌리지 마" → 테스트 실행 금지)
+- **git commit/push 제한**: 명시적으로 커밋/푸시를 요청할 때만 실행한다. 커밋 메시지만 요청하면 메시지 텍스트만 제공한다
+- **기존 분석 활용**: 이전 분석 결과(Gemini, Codex 등)를 참조하라고 하면 해당 출력을 직접 사용한다. 독자적으로 재분석하지 않는다
+- **설계 주도권**: AI는 임의판단하지 않고 방향성을 제안할 수 있으나, 개발자 승인 후 수행
+- **가정 명시**: 불확실한 부분은 가정을 명시적으로 나열하고 질문한다. 조용히 하나를 선택하지 않는다
+- **모호함 표면화**: 해석이 여러 개 가능하면 선택지와 영향도를 함께 제시한다. 혼란스러우면 멈추고 무엇이 혼란스러운지 명명한다
+- **목표 중심 실행**: 작업을 검증 가능한 목표로 변환한다. "버그 수정" → "재현 테스트 작성 후 통과시켜라", "리팩토링" → "리팩토링 전후로 테스트가 통과하는지 확인하라". 강한 성공 기준이 있으면 자율적으로 반복하고, 약한 기준이면 확인을 구한다
+
+### 수술적 변경 원칙
+
+요청받은 것만 변경한다. 변경된 모든 줄은 사용자의 요청으로 추적 가능해야 한다.
+
+- 인접한 코드, 주석, 포맷을 "개선"하지 않는다
+- 깨지지 않은 것을 리팩토링하지 않는다
+- 본인이 다르게 했을지라도 기존 스타일을 따른다
+- 관련 없는 dead code를 발견하면 언급만 하고 삭제하지 않는다
+- 내 변경으로 인해 사용되지 않게 된 import/변수/함수만 정리한다
+
+### TDD 사이클: Red → Green → Refactor
+
+- **Red** → **Green** → **Refactor** 순서를 반드시 따른다
+- 구조적 변경과 행위적 변경을 절대 같은 커밋에 섞지 않는다 (Tidy First)
+- 둘 다 필요하면 구조적 변경을 먼저 수행한다
+- 각 단계의 상세 절차는 `/red`, `/green`, `/refactor` 스킬 참고
+- **plan 작성 시에도 TDD 형식을 따른다**: 각 구현 항목을 `[RED] 테스트 → [GREEN] 구현` 쌍으로 구성한다. Fake Repository 생성 항목도 포함한다
+
+### 코드 품질 기준
+
+- 중복을 철저히 제거한다
+- 이름과 구조로 의도를 명확히 표현한다
+- 의존성을 명시적으로 드러낸다
+- 메서드는 작게, 단일 책임으로 유지한다
+- 가능한 가장 단순한 해결책을 사용한다
+
+### 실패 대응
+
+- 에러 발생 시 증상만 고치지 말고 **근본 원인**을 분석한다
+- 같은 명령을 재시도하기 전에 왜 실패했는지 먼저 이해한다
+- 방향이 틀렸으면 고치려 하지 말고 과감히 버리고 다시 작성한다. 매몰 비용에 집착하지 않는다
+
+### 병렬 작업 워크플로우
+
+→ `.claude/rules/parallel-workflow.md` (서브에이전트 위임 원칙, Self-Validation, 보고 포맷)
+
+## 작업 환경
+
+- **OS**: Windows 또는 WSL (Ubuntu)
+- Windows 환경에서는 Linux/Unix 전용 명령어(`chmod`, `ln -s` 등) 사용 금지
+- WSL 환경에서는 Unix 명령어 사용 가능하나, 파일 조작은 Claude Code 전용 도구(Read, Edit, Write, Grep, Glob 등)를 우선 사용할 것
 
 ## 주의사항
-### 1. Never Do
-- 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이요한 구현을 하지 말 것
-- null-safety 하지 않게 코드 작성하지 말 것 (Java 의 경우, Optional 을 활용할 것)
-- println 코드 남기지 말 것
 
-### 2. Recommendation
-- 실제 API 를 호출해 확인하는 E2E 테스트 코드 작성
-- 재사용 가능한 객체 설계
-- 성능 최적화에 대한 대안 및 제안
-- 개발 완료된 API 의 경우, `.http/**.http` 에 분류해 작성
+→ `.claude/rules/code-guidelines.md` (Never Do, Recommendation, Priority)
 
-### 3. Priority
-1. 실제 동작하는 해결책만 고려
-2. null-safety, thread-safety 고려
-3. 테스트 가능한 구조로 설계
-4. 기존 코드 패턴 분석 후 일관성 유지
+## 브랜치 및 PR 규칙
+
+- 브랜치: `main`에서 분기 (예: `feature/round2-design`)
+- 커밋 접두사: `feat:` | `refactor:` | `fix:` | `test:` | `docs:` | `chore:`
+- 커밋 상세 절차는 `/commit` 스킬 참고
+- 멀티 커밋 계획 파일이 있으면 자체 분석 루프 없이 해당 계획을 바로 실행한다 (`/commit-plan` 스킬 참고)
+- 로컬 전용 파일(review-plan.md, 개인 메모, .omc/ 하위 파일 등)은 staging 전 개발자에게 확인한다
+- PR 제목: `[N주차] 제출 내용`, 리뷰 포인트 필수 작성
+
+## 세션 관리
+
+- 장시간 세션보다 짧고 집중된 세션을 지향한다
+- 세션 종료 전 `/handoff` 스킬로 핸드오프 노트를 남길 수 있다
+- 다음 세션 시작 시 `.claude/handoff.md`가 있으면 읽고 이어서 작업한다
+
+## 애그리거트 캡슐화 원칙
+
+- 애그리거트 루트가 아닌 객체(Entity)의 상태 변경 메서드는 `@AggregateRootOnly`를 부착하여 외부 노출을 차단한다.
+- 루트 객체에서 해당 메서드를 호출할 때는 `@OptIn(AggregateRootOnly::class)`를 사용한다.
+- UseCase나 외부 Service에서 Opt-In을 통해 경고를 무시하고 자식 객체를 직접 조작하는 것을 엄격히 금지한다.

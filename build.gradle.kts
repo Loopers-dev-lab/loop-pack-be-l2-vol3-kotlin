@@ -52,6 +52,11 @@ subprojects {
     apply(plugin = "jacoco")
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
 
+    afterEvaluate {
+        val kaptMainDir = file("${layout.buildDirectory.get()}/generated/source/kapt/main")
+            kotlin.sourceSets.getByName("main").kotlin.srcDir(kaptMainDir)
+    }
+
     dependencyManagement {
         imports {
             mavenBom("org.springframework.cloud:spring-cloud-dependencies:${project.properties["springCloudDependenciesVersion"]}")

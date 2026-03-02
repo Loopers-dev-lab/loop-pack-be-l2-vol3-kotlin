@@ -1,0 +1,29 @@
+package com.loopers.application.catalog.product
+
+import com.loopers.domain.catalog.product.model.Product
+import java.math.BigDecimal
+import java.time.ZonedDateTime
+
+data class ProductInfo(
+    val id: Long,
+    val brandId: Long,
+    val name: String,
+    val price: BigDecimal,
+    val stock: Int,
+    val likeCount: Int,
+    val status: String,
+    val deletedAt: ZonedDateTime?,
+) {
+    companion object {
+        fun from(product: Product): ProductInfo = ProductInfo(
+            id = product.id.value,
+            brandId = product.refBrandId.value,
+            name = product.name,
+            price = product.price.value,
+            stock = product.stock.value,
+            likeCount = product.likeCount,
+            status = product.status.name,
+            deletedAt = product.deletedAt,
+        )
+    }
+}

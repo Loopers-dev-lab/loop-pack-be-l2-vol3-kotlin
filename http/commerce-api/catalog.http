@@ -1,0 +1,98 @@
+### === Brand 대고객 API ===
+
+### 브랜드 조회
+GET {{commerce-api}}/api/v1/brands/1
+
+### 브랜드 조회 - 존재하지 않는 브랜드
+GET {{commerce-api}}/api/v1/brands/999
+
+### === Brand 어드민 API ===
+
+### 브랜드 목록 조회
+GET {{commerce-api}}/api-admin/v1/brands?page=0&size=20
+X-Loopers-Ldap: loopers.admin
+
+### 브랜드 상세 조회
+GET {{commerce-api}}/api-admin/v1/brands/1
+X-Loopers-Ldap: loopers.admin
+
+### 브랜드 생성
+POST {{commerce-api}}/api-admin/v1/brands?name=나이키
+X-Loopers-Ldap: loopers.admin
+
+### 브랜드 수정
+PUT {{commerce-api}}/api-admin/v1/brands/1?name=아디다스
+X-Loopers-Ldap: loopers.admin
+
+### 브랜드 삭제
+DELETE {{commerce-api}}/api-admin/v1/brands/1
+X-Loopers-Ldap: loopers.admin
+
+### 브랜드 생성 - 어드민 인증 없이 (401)
+POST {{commerce-api}}/api-admin/v1/brands?name=나이키
+
+### === Product 대고객 API ===
+
+### 상품 목록 조회 - 최신순
+GET {{commerce-api}}/api/v1/products?sort=LATEST&page=0&size=20
+
+### 상품 목록 조회 - 가격 오름차순
+GET {{commerce-api}}/api/v1/products?sort=PRICE_ASC&page=0&size=20
+
+### 상품 목록 조회 - 좋아요 내림차순
+GET {{commerce-api}}/api/v1/products?sort=LIKES_DESC&page=0&size=20
+
+### 상품 목록 조회 - 브랜드 필터
+GET {{commerce-api}}/api/v1/products?brandId=1&sort=LATEST&page=0&size=20
+
+### 상품 상세 조회
+GET {{commerce-api}}/api/v1/products/1
+
+### 상품 상세 조회 - 존재하지 않는 상품 (404)
+GET {{commerce-api}}/api/v1/products/999
+
+### === Product 어드민 API ===
+
+### 상품 목록 조회 (삭제 포함)
+GET {{commerce-api}}/api-admin/v1/products?page=0&size=20
+X-Loopers-Ldap: loopers.admin
+
+### 상품 상세 조회
+GET {{commerce-api}}/api-admin/v1/products/1
+X-Loopers-Ldap: loopers.admin
+
+### 상품 생성
+POST {{commerce-api}}/api-admin/v1/products
+X-Loopers-Ldap: loopers.admin
+Content-Type: application/json
+
+{
+  "brandId": 1,
+  "name": "에어맥스 90",
+  "price": 129000,
+  "stock": 100
+}
+
+### 상품 수정
+PUT {{commerce-api}}/api-admin/v1/products/1
+X-Loopers-Ldap: loopers.admin
+Content-Type: application/json
+
+{
+  "name": "에어맥스 95",
+  "price": 159000,
+  "stock": 50
+}
+
+### 상품 수정 - HIDDEN 상태로 변경
+PUT {{commerce-api}}/api-admin/v1/products/1
+X-Loopers-Ldap: loopers.admin
+Content-Type: application/json
+
+{
+  "status": "HIDDEN"
+}
+
+### 상품 삭제
+DELETE {{commerce-api}}/api-admin/v1/products/1
+X-Loopers-Ldap: loopers.admin
