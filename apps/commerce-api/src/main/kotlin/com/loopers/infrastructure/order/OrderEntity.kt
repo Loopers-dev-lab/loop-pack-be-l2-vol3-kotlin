@@ -21,8 +21,14 @@ class OrderEntity(
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     var status: Order.OrderStatus,
+    @Column(name = "original_price", nullable = false, precision = 10, scale = 2)
+    var originalPrice: BigDecimal,
+    @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
+    var discountAmount: BigDecimal,
     @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
     var totalPrice: BigDecimal,
+    @Column(name = "ref_coupon_id")
+    var refCouponId: Long?,
 ) : BaseEntity() {
 
     companion object {
@@ -30,7 +36,10 @@ class OrderEntity(
             return OrderEntity(
                 refUserId = order.refUserId.value,
                 status = order.status,
+                originalPrice = order.originalPrice.value,
+                discountAmount = order.discountAmount.value,
                 totalPrice = order.totalPrice.value,
+                refCouponId = order.refCouponId,
             ).withBaseFields(
                 id = order.id.value,
                 deletedAt = order.deletedAt,
@@ -42,7 +51,10 @@ class OrderEntity(
         id = OrderId(id),
         refUserId = UserId(refUserId),
         status = status,
+        originalPrice = Money(originalPrice),
+        discountAmount = Money(discountAmount),
         totalPrice = Money(totalPrice),
+        refCouponId = refCouponId,
         deletedAt = deletedAt,
     )
 }
