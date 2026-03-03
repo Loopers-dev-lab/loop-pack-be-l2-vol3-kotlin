@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.order
 
 import com.loopers.interfaces.api.order.dto.OrderV1Dto
-import com.loopers.interfaces.api.point.dto.PointV1Dto
 import com.loopers.interfaces.api.product.dto.ProductAdminV1Dto
 import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.support.ApiResponse
@@ -69,15 +68,6 @@ class OrderV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    private fun chargePoints(amount: Long) {
-        testRestTemplate.exchange(
-            "/api/v1/users/points/charge?amount=$amount",
-            HttpMethod.POST,
-            HttpEntity<Any>(authHeaders()),
-            object : ParameterizedTypeReference<ApiResponse<Any>>() {},
-        )
-    }
-
     private fun createBrand(): Long {
         val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
         val response = testRestTemplate.exchange(
@@ -112,11 +102,10 @@ class OrderV1ApiE2ETest @Autowired constructor(
     inner class CreateOrder {
 
         @Test
-        @DisplayName("회원가입 → 포인트 충전 → 상품 등록 → 주문 생성이 성공한다")
+        @DisplayName("회원가입 → 상품 등록 → 주문 생성이 성공한다")
         fun createOrder_fullFlow_success() {
             // arrange
             signUp()
-            chargePoints(500000)
             val brandId = createBrand()
             val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
 
@@ -150,42 +139,6 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 productResponseType,
             )
             assertThat((productResponse.body!!.data!!["stock"] as Number).toInt()).isEqualTo(98)
-
-            // 포인트 차감 확인
-            val balanceType = object : ParameterizedTypeReference<ApiResponse<PointV1Dto.BalanceResponse>>() {}
-            val balanceResponse = testRestTemplate.exchange(
-                "/api/v1/users/points",
-                HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
-                balanceType,
-            )
-            assertThat(balanceResponse.body?.data?.balance).isEqualTo(242000)
-        }
-
-        @Test
-        @DisplayName("포인트가 부족하면 주문이 실패한다")
-        fun createOrder_insufficientPoints_fails() {
-            // arrange
-            signUp()
-            chargePoints(1000)
-            val brandId = createBrand()
-            val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
-
-            val orderRequest = OrderV1Dto.CreateOrderRequest(
-                items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
-            )
-
-            // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-            val response = testRestTemplate.exchange(
-                "/api/v1/orders",
-                HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders()),
-                responseType,
-            )
-
-            // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
     }
 
@@ -259,7 +212,6 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun getOrders_afterCreatingOrder_containsCreatedOrder() {
             // arrange
             signUp()
-            chargePoints(500000)
             val brandId = createBrand()
             val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
 
@@ -304,7 +256,6 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun getOrder_byOwner_success() {
             // arrange
             signUp()
-            chargePoints(500000)
             val brandId = createBrand()
             val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
 
@@ -342,7 +293,6 @@ class OrderV1ApiE2ETest @Autowired constructor(
         fun getOrder_byOtherUser_returnsNotFound() {
             // arrange - 첫 번째 사용자가 주문 생성
             signUp("testuser1")
-            chargePoints(500000)
             val brandId = createBrand()
             val productId = createProduct(brandId, "에어맥스 90", BigDecimal("129000"), 100)
 
