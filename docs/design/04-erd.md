@@ -65,10 +65,39 @@ erDiagram
         bigint id PK
         bigint ref_user_id "Logical FK -> users.id"
         varchar status "CREATED | PAID | CANCELLED | FAILED"
-        decimal(10_2) total_price "Denormalized (Sum Cache)"
+        decimal(10_2) original_price "쿠폰 적용 전 원래 금액"
+        decimal(10_2) discount_amount "쿠폰 할인 금액 (0이면 미적용)"
+        decimal(10_2) total_price "Denormalized (original_price - discount_amount)"
+        bigint ref_coupon_id "Logical FK -> coupons.id (nullable)"
         datetime created_at
         datetime updated_at
         datetime deleted_at
+    }
+
+    coupons {
+        bigint id PK
+        varchar name "쿠폰 이름"
+        varchar type "FIXED | RATE"
+        bigint value "정액(원) 또는 정률(%)"
+        decimal(10_2) max_discount "정률 쿠폰 최대 할인액 (nullable)"
+        decimal(10_2) min_order_amount "최소 주문 금액 조건 (nullable)"
+        int total_quantity "총 발급 가능 수량 (null = 무제한)"
+        int issued_count "현재 발급된 수량"
+        datetime expired_at "만료일시"
+        datetime created_at
+        datetime updated_at
+        datetime deleted_at
+    }
+
+    issued_coupons {
+        bigint id PK
+        bigint ref_coupon_id "Logical FK -> coupons.id"
+        bigint ref_user_id "Logical FK -> users.id"
+        varchar status "AVAILABLE | USED | EXPIRED"
+        datetime used_at "사용 일시 (nullable)"
+        datetime issued_at "발급 일시"
+        datetime created_at
+        datetime updated_at
     }
 
     order_items {
@@ -89,6 +118,9 @@ erDiagram
     users ||--o{ likes: "User likes Products"
     users ||--o{ orders: "User places Orders"
     orders ||--|{ order_items: "Order contains Items"
+    coupons ||--o{ issued_coupons: "Coupon is issued to Users"
+    users ||--o{ issued_coupons: "User holds IssuedCoupons"
+    coupons ||--o{ orders: "Coupon applied to Order (optional)"
 ```
 
 ---
@@ -111,19 +143,43 @@ erDiagram
 
 ### 2.2 Order Domain
 
-| 테이블             | 컬럼             | 타입            | 제약조건         | 설명                                         |
-|-----------------|----------------|---------------|--------------|--------------------------------------------|
-| **orders**      | id             | BIGINT        | PK, Auto Inc |                                            |
-|                 | ref_user_id    | BIGINT        | NOT NULL     | [논리FK] User 참조                             |
-|                 | status         | VARCHAR(20)   | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
-|                 | total_price    | DECIMAL(10,2) | NOT NULL     | [반정규화] 주문 총액                               |
-| **order_items** | id             | BIGINT        | PK, Auto Inc |                                            |
-|                 | ref_order_id   | BIGINT        | NOT NULL     | [논리FK] Order 참조 (Aggregate Root)           |
-|                 | ref_product_id | BIGINT        | NOT NULL     | 단순 참조용 (데이터 추적)                            |
-|                 | product_name   | VARCHAR(255)  | NOT NULL     | [Snapshot] 주문 시점 상품명                       |
-|                 | product_price  | DECIMAL(10,2) | NOT NULL     | [Snapshot] 주문 시점 가격                        |
-|                 | quantity       | INT           | NOT NULL     | 주문 수량 (>= 1)                               |
-|                 | status         | VARCHAR(20)   | NOT NULL     | 주문 항목 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
+| 테이블             | 컬럼              | 타입            | 제약조건         | 설명                                         |
+|-----------------|-----------------|---------------|--------------|--------------------------------------------|
+| **orders**      | id              | BIGINT        | PK, Auto Inc |                                            |
+|                 | ref_user_id     | BIGINT        | NOT NULL     | [논리FK] User 참조                             |
+|                 | status          | VARCHAR(20)   | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
+|                 | original_price  | DECIMAL(10,2) | NOT NULL     | 쿠폰 적용 전 원래 금액                              |
+|                 | discount_amount | DECIMAL(10,2) | NOT NULL     | 쿠폰 할인 금액 (미적용 시 0)                         |
+|                 | total_price     | DECIMAL(10,2) | NOT NULL     | [반정규화] 주문 총액 (original_price - discount_amount) |
+|                 | ref_coupon_id   | BIGINT        | NULL 허용      | [논리FK] 적용된 쿠폰 참조 (미적용 시 null)              |
+| **order_items** | id              | BIGINT        | PK, Auto Inc |                                            |
+|                 | ref_order_id    | BIGINT        | NOT NULL     | [논리FK] Order 참조 (Aggregate Root)           |
+|                 | ref_product_id  | BIGINT        | NOT NULL     | 단순 참조용 (데이터 추적)                            |
+|                 | product_name    | VARCHAR(255)  | NOT NULL     | [Snapshot] 주문 시점 상품명                       |
+|                 | product_price   | DECIMAL(10,2) | NOT NULL     | [Snapshot] 주문 시점 가격                        |
+|                 | quantity        | INT           | NOT NULL     | 주문 수량 (>= 1)                               |
+|                 | status          | VARCHAR(20)   | NOT NULL     | 주문 항목 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
+
+### 2.3 Coupon Domain
+
+| 테이블                | 컬럼               | 타입            | 제약조건         | 설명                                              |
+|--------------------|------------------|---------------|--------------|-------------------------------------------------|
+| **coupons**        | id               | BIGINT        | PK, Auto Inc |                                                 |
+|                    | name             | VARCHAR(255)  | NOT NULL     | 쿠폰 이름 (빈 값 불가)                                  |
+|                    | type             | VARCHAR(20)   | NOT NULL     | 할인 타입 (FIXED / RATE)                            |
+|                    | value            | BIGINT        | NOT NULL     | 할인 값 (FIXED: 원, RATE: %)                        |
+|                    | max_discount     | DECIMAL(10,2) | NULL 허용      | 정률 쿠폰 최대 할인 금액 상한                               |
+|                    | min_order_amount | DECIMAL(10,2) | NULL 허용      | 최소 주문 금액 조건                                     |
+|                    | total_quantity   | INT           | NULL 허용      | 총 발급 가능 수량 (null = 무제한)                         |
+|                    | issued_count     | INT           | NOT NULL     | 현재 발급된 수량 (>= 0)                                |
+|                    | expired_at       | DATETIME      | NOT NULL     | 쿠폰 만료 일시                                        |
+| **issued_coupons** | id               | BIGINT        | PK, Auto Inc |                                                 |
+|                    | ref_coupon_id    | BIGINT        | NOT NULL     | [논리FK] Coupon 참조                               |
+|                    | ref_user_id      | BIGINT        | NOT NULL     | [논리FK] User 참조                                 |
+|                    | status           | VARCHAR(20)   | NOT NULL     | 발급 쿠폰 상태 (AVAILABLE / USED / EXPIRED)          |
+|                    | used_at          | DATETIME      | NULL 허용      | 사용 일시 (미사용 시 null)                              |
+|                    | issued_at        | DATETIME      | NOT NULL     | 발급 일시                                           |
+|                    | (UK)             |               | UNIQUE       | `(ref_coupon_id, ref_user_id)` 중복 발급 방지         |
 
 ### 2.3 User Interaction
 
@@ -152,6 +208,9 @@ erDiagram
 | **orders**          | `(ref_user_id, created_at)`             | Composite | 유저별 주문 이력 조회 (최신순)             |
 | **order_items**     | `(ref_order_id, ref_product_id)`        | Normal    | 주문별 상품 항목 조회                   |
 | **order_items**     | `(ref_product_id)`                      | Normal    | 상품별 주문 이력 추적 (논리FK, 명시적 추가 필요) |
+| **coupons**         | `(expired_at, deleted_at)`              | Composite | 유효한 쿠폰 조회                       |
+| **issued_coupons**  | `(ref_coupon_id, ref_user_id)`          | UNIQUE    | 중복 발급 방지 및 쿠폰별 발급 내역 조회        |
+| **issued_coupons**  | `(ref_user_id)`                         | Normal    | 사용자별 보유 쿠폰 목록 조회               |
 
 > `likes(ref_user_id, ref_product_id)` UNIQUE 인덱스가 `ref_user_id` 단독 조회도 커버하므로, 별도 ref_user_id 인덱스는 불필요하다. \
 > likes 테이블에 created_at은 두지 않는다. 최신순 정렬이 필요하면 id 역순으로 대체한다. \

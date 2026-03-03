@@ -23,7 +23,10 @@ flowchart TB
     E --> F[상품 선택 & 수량 결정]
     C --> F
 
-    F --> G[주문 요청]
+    F --> F2{쿠폰 사용?}
+    F2 -->|예| FC[쿠폰 선택]
+    F2 -->|아니오| G
+    FC --> G[주문 요청]
     G --> H{상품 유효성 검증}
     H -->|실패| I[주문 실패]:::error
     I --> C
@@ -42,7 +45,6 @@ flowchart TB
 
 ### 참고
 
-- 쿠폰 발급/적용 단계는 추후 개발 시 F→G 사이에 삽입 예정
 - 어드민 흐름(브랜드/상품 관리)은 별도 경로이므로 이 조감도에서 생략
 
 ---
@@ -67,12 +69,21 @@ flowchart TB
     CheckStatus -->|모두 판매중| CheckStock{모든 상품 재고 충분?}
     CheckStock -->|1개라도 부족| Err400_4[400 재고 부족]:::error
 
-    CheckStock -->|충분| Deduct[상품별 재고 차감]
-    Deduct --> AutoStatus{차감 후 재고 == 0?}
+    CheckStock -->|충분| CheckCoupon{쿠폰 ID 포함?}
+    CheckCoupon -->|없음| Deduct
+    CheckCoupon -->|있음| ValidateCoupon{쿠폰 유효성 검증}
+    ValidateCoupon -->|미존재 / 삭제됨| Err404_coupon[404 쿠폰 없음]:::error
+    ValidateCoupon -->|만료됨 / 수량 소진| Err400_coupon[400 발급 불가 쿠폰]:::error
+    ValidateCoupon -->|미발급 쿠폰| Err400_notissued[400 보유하지 않은 쿠폰]:::error
+    ValidateCoupon -->|이미 사용됨| Err400_used[400 이미 사용된 쿠폰]:::error
+    ValidateCoupon -->|유효| CalcDiscount[coupon.calculateDiscount 할인 금액 계산]
+    CalcDiscount --> MarkUsed[issuedCoupon.use — USED 상태 전환]
+    MarkUsed --> Deduct
+    Deduct[상품별 재고 차감] --> AutoStatus{차감 후 재고 == 0?}
     AutoStatus -->|예| StatusChange[status → SOLD_OUT 자동 전환]
     AutoStatus -->|아니오| SaveProducts
     StatusChange --> SaveProducts[productRepository.saveAll]
-    SaveProducts --> CreateOrder[Order.create — OrderItem 생성 + totalPrice 계산]
+    SaveProducts --> CreateOrder[Order.create — OrderItem 생성 + originalPrice / discountAmount / totalPrice 계산]
     CreateOrder --> SaveOrder[orderRepository.save + orderItemRepository.saveAll]
     SaveOrder --> Response([200 OK + orderId]):::success
 
@@ -82,15 +93,52 @@ flowchart TB
 
 ### 참고
 
-- `Order.create()`가 내부에서 OrderItem 생성과 totalPrice 계산을 수행한다 (Rich Domain Model)
+- `Order.create()`가 내부에서 OrderItem 생성과 originalPrice/discountAmount/totalPrice 계산을 수행한다 (Rich Domain Model)
 - 전체 과정이 **하나의 트랜잭션** 내에서 원자적으로 실행 (all-or-nothing)
-- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감 모두 원복
-- **실행 순서**: 재고 차감 → 상품 저장 → 주문 생성/저장
+- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감·쿠폰 사용 처리 모두 원복
+- **실행 순서**: 쿠폰 검증/사용 → 재고 차감 → 상품 저장 → 주문 생성/저장
+- 쿠폰 미포함 주문의 경우 discountAmount = 0, refCouponId = null
 - 인증 인터셉터 검증은 전제 조건으로 생략 (시퀀스 다이어그램 공통 규칙 참고)
 
 ---
 
-## 3. 좋아요 토글 (등록 / 취소)
+## 3. 쿠폰 발급 프로세스
+
+사용자가 쿠폰을 발급받을 때의 의사결정 흐름이다. 선착순 제한과 중복 발급 방지가 핵심이다.
+
+```mermaid
+flowchart TB
+    Start([쿠폰 발급 요청]) --> FindCoupon{쿠폰 조회}
+    FindCoupon -->|미존재 / 삭제됨| Err404[404 Not Found]:::error
+
+    FindCoupon -->|존재| CheckDuplicate{이미 발급받은 쿠폰?}
+    CheckDuplicate -->|예| Err409[409 Conflict — 중복 발급 불가]:::error
+
+    CheckDuplicate -->|아니오| CheckExpired{만료됐는가?}
+    CheckExpired -->|만료됨| Err400_expired[400 만료된 쿠폰]:::error
+
+    CheckExpired -->|유효| CheckQuantity{수량 제한 있는가?}
+    CheckQuantity -->|무제한| Issue
+    CheckQuantity -->|제한 있음| CheckRemaining{issuedCount < totalQuantity?}
+    CheckRemaining -->|소진됨| Err400_qty[400 수량 소진]:::error
+    CheckRemaining -->|남아있음| Issue[coupon.issue — issuedCount++]
+
+    Issue --> SaveIssuedCoupon[IssuedCoupon 저장]
+    SaveIssuedCoupon --> Response([200 OK + IssuedCouponInfo]):::success
+
+    classDef error fill:#ffcdd2,stroke:#c62828
+    classDef success fill:#c8e6c9,stroke:#2e7d32
+```
+
+### 참고
+
+- `coupon.canIssue()`가 만료·삭제·수량 초과를 복합 검증한다
+- Coupon은 비관적 락(`FOR UPDATE`)으로 조회하여 동시 발급 경쟁 조건을 방지한다
+- 발급 성공 시 `Coupon.issuedCount`와 `IssuedCoupon` 레코드가 같은 트랜잭션 내에서 저장된다
+
+---
+
+## 4. 좋아요 토글 (등록 / 취소)
 
 좋아요의 멱등성 보장과 삭제된 상품에 대한 분기 처리를 시각화한다.
 시퀀스 다이어그램 3.1, 3.2와 대응된다.
@@ -150,7 +198,7 @@ flowchart TB
 
 ---
 
-## 4. 어드민 카탈로그 관리 프로세스
+## 5. 어드민 카탈로그 관리 프로세스
 
 어드민이 브랜드/상품을 생성, 수정, 삭제, 복구하는 전체 의사결정 흐름이다.
 대고객 API와의 핵심 차이는 수정 시 삭제 상태 여부를 구분하지 않고 허용한다는 점이다.

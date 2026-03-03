@@ -65,10 +65,13 @@ classDiagram
         +OrderId id
         -UserId refUserId
         -OrderStatus status
+        -Money originalPrice
+        -Money discountAmount
         -Money totalPrice
+        -Long? refCouponId
         -List~OrderItem~ items
         -ZonedDateTime? deletedAt
-        +create(userId, items)$ Order
+        +create(userId, items, discountAmount, refCouponId)$ Order
         +cancelItem(item: OrderItem)
         +assignOrderIdToItems(orderId: OrderId)
         +isDeleted() Boolean
@@ -451,10 +454,13 @@ classDiagram
             +OrderId id
             -UserId refUserId
             -OrderStatus status
+            -Money originalPrice
+            -Money discountAmount
             -Money totalPrice
+            -Long? refCouponId
             -List~OrderItem~ items
             -ZonedDateTime? deletedAt
-            +create(userId, items: List~Pair~OrderProductInfo, Quantity~~)$ Order
+            +create(userId, items, discountAmount, refCouponId)$ Order
             +cancelItem(item: OrderItem)
             +assignOrderIdToItems(orderId: OrderId)
             +isDeleted() Boolean
@@ -524,7 +530,139 @@ classDiagram
 
 ---
 
-## 6. Controller → UseCase 의존 관계 (Architecture View)
+## 6. Coupon 도메인
+
+쿠폰 템플릿(Coupon)과 발급 인스턴스(IssuedCoupon)로 구성된다.
+어드민은 쿠폰 템플릿을 관리하고, 사용자는 발급 API를 통해 IssuedCoupon을 생성한다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    namespace interfaces {
+        class CouponV1Controller {
+            +issueCoupon()
+            +getMyCoupons()
+        }
+        class CouponAdminV1Controller {
+            +getCoupons()
+            +createCoupon()
+            +getCoupon()
+            +updateCoupon()
+            +deleteCoupon()
+            +getCouponIssues()
+        }
+    }
+
+    namespace application {
+        class IssueCouponUseCase {
+            +execute(userId: Long, couponId: Long) IssuedCouponInfo
+        }
+        class GetMyCouponsUseCase {
+            +execute(userId: Long) List~IssuedCouponInfo~
+        }
+        class CreateCouponAdminUseCase {
+            +execute(command) CouponInfo
+        }
+        class UpdateCouponAdminUseCase {
+            +execute(couponId, command) CouponInfo
+        }
+        class DeleteCouponAdminUseCase {
+            +execute(couponId: Long)
+        }
+        class GetCouponAdminUseCase {
+            +execute(couponId: Long) CouponInfo
+        }
+        class GetCouponsAdminUseCase {
+            +execute(page, size) PageResult~CouponInfo~
+        }
+        class GetCouponIssuesAdminUseCase {
+            +execute(couponId, page, size) PageResult~IssuedCouponInfo~
+        }
+    }
+
+    namespace domain {
+        class Coupon {
+            +Long id
+            -String name
+            -CouponType type
+            -Long value
+            -Money? maxDiscount
+            -Money? minOrderAmount
+            -Int? totalQuantity
+            -Int issuedCount
+            -ZonedDateTime expiredAt
+            -ZonedDateTime? deletedAt
+            +canIssue() Boolean
+            +issue()
+            +calculateDiscount(orderAmount: Money) Money
+            +isExpired() Boolean
+            +isDeleted() Boolean
+            +update(...)
+            +delete()
+        }
+        class CouponType {
+            <<enumeration>>
+            FIXED
+            RATE
+        }
+        class IssuedCoupon {
+            +Long id
+            -Long refCouponId
+            -UserId refUserId
+            -CouponStatus status
+            -ZonedDateTime? usedAt
+            -ZonedDateTime createdAt
+            +use()
+            +isAvailable() Boolean
+            +isOwnedBy(userId) Boolean
+        }
+        class CouponStatus {
+            <<enumeration>>
+            AVAILABLE
+            USED
+            EXPIRED
+        }
+        class CouponRepository {
+            <<interface>>
+        }
+        class IssuedCouponRepository {
+            <<interface>>
+        }
+    }
+
+    CouponV1Controller --> IssueCouponUseCase
+    CouponV1Controller --> GetMyCouponsUseCase
+    CouponAdminV1Controller --> CreateCouponAdminUseCase
+    CouponAdminV1Controller --> UpdateCouponAdminUseCase
+    CouponAdminV1Controller --> DeleteCouponAdminUseCase
+    CouponAdminV1Controller --> GetCouponAdminUseCase
+    CouponAdminV1Controller --> GetCouponsAdminUseCase
+    CouponAdminV1Controller --> GetCouponIssuesAdminUseCase
+    IssueCouponUseCase --> CouponRepository
+    IssueCouponUseCase --> IssuedCouponRepository
+    GetMyCouponsUseCase --> IssuedCouponRepository
+    GetMyCouponsUseCase --> CouponRepository
+    CreateCouponAdminUseCase --> CouponRepository
+    UpdateCouponAdminUseCase --> CouponRepository
+    DeleteCouponAdminUseCase --> CouponRepository
+    GetCouponAdminUseCase --> CouponRepository
+    GetCouponsAdminUseCase --> CouponRepository
+    GetCouponIssuesAdminUseCase --> IssuedCouponRepository
+    Coupon --> CouponType
+    IssuedCoupon --> CouponStatus
+```
+
+### 핵심 포인트
+
+- **Coupon (템플릿)**: 어드민이 생성/관리하는 쿠폰 정의. `canIssue()`로 발급 가능 여부를 자가 검증한다.
+- **IssuedCoupon (인스턴스)**: 사용자에게 발급된 쿠폰. `use()` 호출로 USED 상태로 전이되며 중복 사용이 방지된다.
+- **FIXED vs RATE**: `calculateDiscount()`가 타입에 따라 정액/정률 할인을 계산한다. RATE 타입은 maxDiscount로 상한을 제한할 수 있다.
+- **Order 연결**: 주문 생성 시 쿠폰 ID를 전달하면 `discountAmount`와 `refCouponId`가 Order에 기록된다.
+
+---
+
+## 7. Controller → UseCase 의존 관계 (Architecture View)
 
 모든 Controller는 UseCase를 직접 호출한다. Facade 레이어는 존재하지 않는다.
 cross-domain 조율(예: 주문 시 재고 차감)은 UseCase 내부에서 직접 수행한다.
@@ -540,6 +678,8 @@ classDiagram
     class LikeV1Controller
     class OrderV1Controller
     class OrderAdminV1Controller
+    class CouponV1Controller
+    class CouponAdminV1Controller
 
     class GetBrandUseCase
     class GetBrandAdminUseCase
@@ -568,6 +708,15 @@ classDiagram
     class GetOrderAdminUseCase
     class GetOrdersAdminUseCase
 
+    class IssueCouponUseCase
+    class GetMyCouponsUseCase
+    class CreateCouponAdminUseCase
+    class UpdateCouponAdminUseCase
+    class DeleteCouponAdminUseCase
+    class GetCouponAdminUseCase
+    class GetCouponsAdminUseCase
+    class GetCouponIssuesAdminUseCase
+
     BrandV1Controller ..> GetBrandUseCase
     BrandAdminV1Controller ..> GetBrandsUseCase
     BrandAdminV1Controller ..> GetBrandAdminUseCase
@@ -594,6 +743,15 @@ classDiagram
     OrderV1Controller ..> GetOrdersUseCase
     OrderAdminV1Controller ..> GetOrderAdminUseCase
     OrderAdminV1Controller ..> GetOrdersAdminUseCase
+
+    CouponV1Controller ..> IssueCouponUseCase
+    CouponV1Controller ..> GetMyCouponsUseCase
+    CouponAdminV1Controller ..> CreateCouponAdminUseCase
+    CouponAdminV1Controller ..> UpdateCouponAdminUseCase
+    CouponAdminV1Controller ..> DeleteCouponAdminUseCase
+    CouponAdminV1Controller ..> GetCouponAdminUseCase
+    CouponAdminV1Controller ..> GetCouponsAdminUseCase
+    CouponAdminV1Controller ..> GetCouponIssuesAdminUseCase
 ```
 
 ### Controller → UseCase 직접 호출 요약
@@ -607,6 +765,8 @@ classDiagram
 | `LikeV1Controller`         | `AddLikeUseCase`, `RemoveLikeUseCase`, `GetUserLikesUseCase` | 좋아요 등록/취소/목록                   |
 | `OrderV1Controller`        | `PlaceOrderUseCase`, `GetOrderUseCase`, `GetOrdersUseCase` | 주문 생성/상세/목록                    |
 | `OrderAdminV1Controller`   | `GetOrderAdminUseCase`, `GetOrdersAdminUseCase`      | 어드민 주문 조회                       |
+| `CouponV1Controller`       | `IssueCouponUseCase`, `GetMyCouponsUseCase`          | 쿠폰 발급 / 내 쿠폰 목록               |
+| `CouponAdminV1Controller`  | `CreateCouponAdminUseCase`, `UpdateCouponAdminUseCase`, `DeleteCouponAdminUseCase`, `GetCouponAdminUseCase`, `GetCouponsAdminUseCase`, `GetCouponIssuesAdminUseCase` | 쿠폰 CRUD + 발급 내역 |
 
 ---
 

@@ -1,4 +1,4 @@
-# 요구사항 명세서 v3
+# 요구사항 명세서 v4
 
 ## 1. 문제 정의
 
@@ -56,6 +56,12 @@
 | 상품 스냅샷   | ProductSnapshot | 주문 시점의 상품 정보(이름, 가격) 사본. OrderItem에 저장.                                                     |
 | 수량       | quantity        | 주문 항목의 수량. OrderItem.init 블록에서 직접 검증 (quantity >= 1).                                       |
 | 카탈로그     | Catalog         | Product와 Brand를 포함하는 바운디드 컨텍스트. 상품 탐색에 필요한 정보를 하나의 경계로 관리한다.                                |
+| 쿠폰       | Coupon          | 할인 혜택을 정의하는 템플릿. FIXED(정액) / RATE(정률) 두 가지 타입을 가진다. 만료일, 총 발급 수량, 최소 주문금액 등의 조건을 포함한다.   |
+| 쿠폰 타입    | CouponType      | FIXED(정액 할인) / RATE(정률 할인).                                                                   |
+| 발급 쿠폰    | IssuedCoupon    | 사용자에게 발급된 쿠폰 인스턴스. 쿠폰 템플릿(Coupon)을 참조하며, AVAILABLE / USED / EXPIRED 상태를 가진다.              |
+| 쿠폰 상태    | CouponStatus    | 발급 쿠폰의 사용 상태. AVAILABLE(사용 가능) / USED(사용 완료) / EXPIRED(만료).                                  |
+| 선착순 쿠폰   | Limited Coupon  | totalQuantity가 설정된 쿠폰. issuedCount가 totalQuantity에 도달하면 발급 불가.                               |
+| 쿠폰 할인    | CouponDiscount  | 주문 생성 시 쿠폰을 적용하여 계산된 할인 금액. Order.discountAmount에 저장된다.                                      |
 | 도메인 서비스  | Domain Service  | 상태를 갖지 않고, **동일한 도메인 경계 내**의 도메인 객체 간 협력을 조율하는 서비스. 단일 Domain Model이 수행하기 어려운 로직을 담당한다.           |
 | 유스케이스    | UseCase         | Application 계층의 진입점. 단일 기능(기능명+UseCase)을 담당하며, 도메인 경계를 넘는 오케스트레이션을 조율한다. 예: GetProductUseCase, PlaceOrderUseCase |
 | 어드민      | Admin           | 브랜드/상품/주문을 관리하는 내부 운영자. LDAP 헤더로 식별한다.                                                      |
@@ -254,7 +260,31 @@
 | 재고 부족 (1개 상품이라도)             | 400 | 전체 실패                     |
 | 타인의 주문 상세 조회                 | 404 | 본인 주문이 아니면 미노출            |
 
-### 4.5 주문 조회 (어드민)
+### 4.5 쿠폰 (사용자)
+
+**사전 조건:** 요청 헤더에 `X-Loopers-LoginId` + `X-Loopers-LoginPw` 포함 (인증 필수)
+
+**쿠폰 발급:** 사용자는 원하는 쿠폰을 발급받을 수 있다.
+
+- **유효성 검증:** 쿠폰이 존재하고 삭제되지 않아야 하며, 만료되지 않아야 하고, 남은 발급 수량이 있어야 한다 (선착순).
+- **중복 발급 금지:** 동일 쿠폰을 이미 발급받은 사용자는 재발급 불가.
+- 발급 성공 시 Coupon.issuedCount 1 증가.
+
+**내 쿠폰 목록:** 사용자는 자신에게 발급된 쿠폰 목록을 조회할 수 있다.
+
+- 쿠폰 템플릿 정보(이름, 타입, 할인값)와 발급 상태(AVAILABLE/USED/EXPIRED)를 포함한다.
+
+**예외 흐름:**
+
+| 조건                     | 응답  | 설명                        |
+|------------------------|-----|---------------------------|
+| 인증 헤더 누락               | 401 | 메시지 통일                    |
+| 존재하지 않거나 삭제된 쿠폰 발급     | 404 |                           |
+| 만료된 쿠폰 발급              | 400 | expiredAt 이전               |
+| 발급 수량 초과 (선착순 소진)      | 400 | issuedCount >= totalQuantity |
+| 중복 발급                  | 409 | 동일 쿠폰 재발급 불가              |
+
+### 4.6 주문 조회 (어드민)
 
 **사전 조건:** 요청 헤더에 `X-Loopers-Ldap: loopers.admin` 포함
 
@@ -414,9 +444,11 @@ stateDiagram-v2
 | POST   | `/api/v1/products/{productId}/likes`       | O  | 좋아요 등록 (멱등)          |
 | DELETE | `/api/v1/products/{productId}/likes`       | O  | 좋아요 취소 (멱등)          |
 | GET    | `/api/v1/users/likes`                      | O  | 내 좋아요 상품 목록 (본인만)    |
-| POST   | `/api/v1/orders`                           | O  | 주문 생성                |
+| POST   | `/api/v1/orders`                           | O  | 주문 생성 (쿠폰 선택 적용 가능)  |
 | GET    | `/api/v1/orders?startedAt=...&endedAt=...` | O  | 주문 목록 조회 (기간, 본인만)   |
 | GET    | `/api/v1/orders/{orderId}`                 | O  | 주문 상세 조회 (본인만)       |
+| POST   | `/api/v1/coupons/{couponId}/issue`         | O  | 쿠폰 발급 (선착순)          |
+| GET    | `/api/v1/users/me/coupons`                 | O  | 내 쿠폰 목록 조회           |
 
 **상품 목록 조회 쿼리 파라미터:**
 
@@ -476,6 +508,12 @@ stateDiagram-v2
 | POST   | `/api-admin/v1/products/{productId}/restore` | 상품 복구 (멱등)           |
 | GET    | `/api-admin/v1/orders?page=0&size=20`        | 주문 목록 조회             |
 | GET    | `/api-admin/v1/orders/{orderId}`             | 주문 상세 조회             |
+| GET    | `/api-admin/v1/coupons?page=0&size=20`       | 쿠폰 목록 조회 (삭제 포함)     |
+| POST   | `/api-admin/v1/coupons`                      | 쿠폰 생성                |
+| GET    | `/api-admin/v1/coupons/{couponId}`           | 쿠폰 상세 조회             |
+| PUT    | `/api-admin/v1/coupons/{couponId}`           | 쿠폰 수정                |
+| DELETE | `/api-admin/v1/coupons/{couponId}`           | 쿠폰 삭제 (Soft Delete)   |
+| GET    | `/api-admin/v1/coupons/{couponId}/issues`    | 쿠폰 발급 내역 조회          |
 
 **어드민 조회 필터 조건:**
 
@@ -540,6 +578,14 @@ stateDiagram-v2
 - **RegisterUserUseCase**: 회원가입 시 User 생성을 담당하는 UseCase 도입 (신규)
 - **주문 흐름**: 재고 차감 all-or-nothing 보장
 - **단위 테스트 강화**: Fake/Stub Repository 기반 도메인 로직 검증
+
+### 4주차 신규/변경 요약
+
+- **Coupon 도메인**: Coupon(템플릿) + IssuedCoupon(발급 인스턴스) 도입. FIXED/RATE 두 가지 할인 타입 지원
+- **쿠폰 발급 API**: 사용자가 선착순 쿠폰을 발급받을 수 있는 대고객 API
+- **내 쿠폰 목록 API**: 사용자가 본인에게 발급된 쿠폰 목록을 조회하는 대고객 API
+- **쿠폰 어드민 API**: 쿠폰 CRUD + 발급 내역 조회 어드민 API
+- **Order 변경**: originalPrice, discountAmount, refCouponId 필드 추가. 주문 생성 시 쿠폰 적용 가능
 
 ### 추후 확장
 

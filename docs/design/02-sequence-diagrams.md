@@ -707,7 +707,177 @@ sequenceDiagram
 
 ---
 
-## 6. 회원가입
+## 6. 쿠폰
+
+### 6.1 쿠폰 발급 (선착순)
+
+**API:** `POST /api/v1/coupons/{couponId}/issue` — 인증 필요
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as CouponV1Controller
+    participant UC as IssueCouponUseCase
+    participant CR as CouponRepository
+    participant ICR as IssuedCouponRepository
+    User ->> C: 쿠폰 발급 요청 (couponId)
+    C ->> UC: execute(userId, couponId)
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        UC ->> CR: findById(couponId)
+        alt 쿠폰 미존재 또는 삭제됨
+            CR -->> UC: null
+            UC -->> C: CoreException(NOT_FOUND)
+            C -->> User: 404 Not Found
+        else 쿠폰 존재
+            CR -->> UC: Coupon
+            UC ->> ICR: existsByRefCouponIdAndRefUserId(couponId, userId)
+            alt 이미 발급됨
+                ICR -->> UC: true
+                UC -->> C: CoreException(CONFLICT)
+                C -->> User: 409 Conflict
+            else 미발급
+                ICR -->> UC: false
+                Note right of UC: coupon.canIssue() 검증<br/>(만료 여부 + 수량 초과 여부)
+                UC ->> UC: coupon.issue() — issuedCount++
+                UC ->> CR: save(coupon)
+                UC ->> ICR: save(IssuedCoupon)
+                UC -->> C: IssuedCouponInfo 반환
+                C -->> User: 200 OK
+            end
+        end
+    end
+```
+
+#### 참고
+
+- `coupon.canIssue()`: 만료 여부(`isExpired()`) + 삭제 여부(`isDeleted()`) + 수량 제한(totalQuantity == null 이거나 issuedCount < totalQuantity) 복합 검증
+- 만료 또는 수량 초과 시 400 BAD_REQUEST, 중복 발급 시 409 CONFLICT
+- `CR.findById`는 비관적 락(`FOR UPDATE`)으로 동시 발급 경쟁 조건을 방지한다
+
+### 6.2 내 쿠폰 목록 조회
+
+**API:** `GET /api/v1/users/me/coupons` — 인증 필요
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as CouponV1Controller
+    participant UC as GetMyCouponsUseCase
+    participant ICR as IssuedCouponRepository
+    participant CR as CouponRepository
+    User ->> C: 내 쿠폰 목록 조회 요청
+    C ->> UC: execute(userId)
+    Note over UC, CR: @Transactional(readOnly = true)
+    UC ->> ICR: findAllByRefUserId(userId)
+    ICR -->> UC: List<IssuedCoupon>
+    UC ->> CR: findAllByIds(couponIds)
+    CR -->> UC: List<Coupon>
+    UC ->> UC: IssuedCoupon + Coupon 조합 → IssuedCouponInfo
+    UC -->> C: List<IssuedCouponInfo> 반환
+    C -->> User: 200 OK
+```
+
+#### 참고
+
+- 쿼리 총 2회: IssuedCoupon 조회 1회 + Coupon IN 조회 1회 (N+1 방지)
+- 삭제된 쿠폰 템플릿과 연결된 발급 쿠폰도 조회 결과에 포함된다
+
+---
+
+## 7. 쿠폰 — 어드민 API
+
+### 7.1 쿠폰 생성
+
+**API:** `POST /api-admin/v1/coupons` — LDAP 인증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as CreateCouponAdminUseCase
+    participant CR as CouponRepository
+    Admin ->> C: 쿠폰 생성 요청 (name, type, value, ...)
+    C ->> UC: execute(command)
+    Note over UC, CR: @Transactional
+    UC ->> UC: Coupon 생성 (validate 포함)
+    UC ->> CR: save(coupon)
+    CR -->> UC: CouponInfo (ID 채번)
+    UC -->> C: CouponInfo 반환
+    C -->> Admin: 200 OK
+```
+
+### 7.2 쿠폰 수정
+
+**API:** `PUT /api-admin/v1/coupons/{couponId}` — LDAP 인증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as UpdateCouponAdminUseCase
+    participant CR as CouponRepository
+    Admin ->> C: 쿠폰 수정 요청
+    C ->> UC: execute(couponId, command)
+    Note over UC, CR: @Transactional
+    UC ->> CR: findById(couponId)
+    CR -->> UC: Coupon
+    UC ->> UC: coupon.update(...)
+    UC ->> CR: save(coupon)
+    UC -->> C: CouponInfo 반환
+    C -->> Admin: 200 OK
+```
+
+### 7.3 쿠폰 삭제
+
+**API:** `DELETE /api-admin/v1/coupons/{couponId}` — LDAP 인증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as DeleteCouponAdminUseCase
+    participant CR as CouponRepository
+    Admin ->> C: 쿠폰 삭제 요청
+    C ->> UC: execute(couponId)
+    Note over UC, CR: @Transactional
+    UC ->> CR: findById(couponId)
+    CR -->> UC: Coupon
+    UC ->> UC: coupon.delete() — deletedAt 설정
+    UC ->> CR: save(coupon)
+    UC -->> C: 처리 완료
+    C -->> Admin: 200 OK
+```
+
+### 7.4 쿠폰 발급 내역 조회
+
+**API:** `GET /api-admin/v1/coupons/{couponId}/issues` — LDAP 인증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as GetCouponIssuesAdminUseCase
+    participant ICR as IssuedCouponRepository
+    Admin ->> C: 발급 내역 조회 요청 (couponId, page, size)
+    C ->> UC: execute(couponId, page, size)
+    Note over UC, ICR: @Transactional(readOnly = true)
+    UC ->> ICR: findAllByRefCouponId(couponId, page, size)
+    ICR -->> UC: PageResult<IssuedCoupon>
+    UC -->> C: PageResult<IssuedCouponInfo> 반환
+    C -->> Admin: 200 OK
+```
+
+---
+
+## 8. 회원가입
 
 ### 6.1 회원가입
 
