@@ -10,6 +10,7 @@ import com.loopers.domain.coupon.FakeCouponRepository
 import com.loopers.domain.coupon.FakeIssuedCouponRepository
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.coupon.model.IssuedCoupon
+import com.loopers.domain.coupon.service.CouponValidator
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.support.error.CoreException
@@ -39,7 +40,7 @@ class PlaceOrderUseCaseTest {
         orderItemRepository = FakeOrderItemRepository()
         couponRepository = FakeCouponRepository()
         issuedCouponRepository = FakeIssuedCouponRepository()
-        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository, couponRepository, issuedCouponRepository)
+        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository, couponRepository, issuedCouponRepository, CouponValidator())
     }
 
     private fun createProduct(

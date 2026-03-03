@@ -126,13 +126,16 @@ class OrderConcurrencyTest @Autowired constructor(
         return response.body!!.data!!.id
     }
 
-    private fun issueCoupon(loginId: String, couponId: Long) {
-        testRestTemplate.exchange(
+    private fun issueCoupon(loginId: String, couponId: Long): Long {
+        val responseType =
+            object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+        val response = testRestTemplate.exchange(
             "/api/v1/coupons/$couponId/issue",
             HttpMethod.POST,
             HttpEntity<Any>(authHeaders(loginId)),
-            object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            responseType,
         )
+        return (response.body!!.data!!["id"] as Number).toLong()
     }
 
     @Nested
@@ -149,7 +152,7 @@ class OrderConcurrencyTest @Autowired constructor(
             val brandId = createBrand()
             val productId = createProduct(brandId, 100)
             val couponId = createCoupon(10)
-            issueCoupon(loginId, couponId)
+            val issuedCouponId = issueCoupon(loginId, couponId)
 
             val concurrentRequests = 10
             val executorService = Executors.newFixedThreadPool(concurrentRequests)
@@ -172,7 +175,7 @@ class OrderConcurrencyTest @Autowired constructor(
                                     quantity = 1,
                                 ),
                             ),
-                            couponId = couponId,
+                            couponId = issuedCouponId,
                         )
                         val responseType =
                             object : ParameterizedTypeReference<ApiResponse<Any>>() {}
