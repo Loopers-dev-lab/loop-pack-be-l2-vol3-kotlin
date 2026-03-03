@@ -9,39 +9,18 @@ import java.time.ZonedDateTime
 
 class Coupon(
     val id: CouponId = CouponId(0),
-    name: String,
-    type: CouponType,
-    value: Long,
-    maxDiscount: Money? = null,
-    minOrderAmount: Money? = null,
-    totalQuantity: Int? = null,
+    val name: String,
+    val type: CouponType,
+    val value: Long,
+    val maxDiscount: Money? = null,
+    val minOrderAmount: Money? = null,
+    val totalQuantity: Int? = null,
     issuedCount: Int = 0,
-    expiredAt: ZonedDateTime,
+    val expiredAt: ZonedDateTime,
     deletedAt: ZonedDateTime? = null,
 ) {
 
-    var name: String = name
-        private set
-
-    var type: CouponType = type
-        private set
-
-    var value: Long = value
-        private set
-
-    var maxDiscount: Money? = maxDiscount
-        private set
-
-    var minOrderAmount: Money? = minOrderAmount
-        private set
-
-    var totalQuantity: Int? = totalQuantity
-        private set
-
     var issuedCount: Int = issuedCount
-        private set
-
-    var expiredAt: ZonedDateTime = expiredAt
         private set
 
     var deletedAt: ZonedDateTime? = deletedAt
@@ -95,15 +74,19 @@ class Coupon(
         minOrderAmount: Money?,
         totalQuantity: Int?,
         expiredAt: ZonedDateTime,
-    ) {
-        this.name = name
-        this.type = type
-        this.value = value
-        this.maxDiscount = maxDiscount
-        this.minOrderAmount = minOrderAmount
-        this.totalQuantity = totalQuantity
-        this.expiredAt = expiredAt
-        validate()
+    ): Coupon {
+        return Coupon(
+            id = this.id,
+            name = name,
+            type = type,
+            value = value,
+            maxDiscount = maxDiscount,
+            minOrderAmount = minOrderAmount,
+            totalQuantity = totalQuantity,
+            issuedCount = this.issuedCount,
+            expiredAt = expiredAt,
+            deletedAt = this.deletedAt,
+        )
     }
 
     fun delete() {

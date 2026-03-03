@@ -27,7 +27,7 @@ class UpdateCouponAdminUseCase(
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 쿠폰 타입입니다: $it")
         } ?: coupon.type
 
-        coupon.update(
+        val updated = coupon.update(
             name = command.name ?: coupon.name,
             type = newType,
             value = command.value ?: coupon.value,
@@ -43,7 +43,7 @@ class UpdateCouponAdminUseCase(
             } ?: coupon.expiredAt,
         )
 
-        val saved = couponRepository.save(coupon)
+        val saved = couponRepository.save(updated)
         return CouponInfo.from(saved)
     }
 }
