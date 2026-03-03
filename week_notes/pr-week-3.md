@@ -4,7 +4,7 @@
 
 - **배경**: 1주차에서 User 도메인만 구축된 상태였으며, 실제 커머스 운영에 필요한 상품/브랜드/좋아요/주문 도메인이 전무했다. 또한 JPA Entity를 도메인 모델로 직접 사용하는 구조에서 Spring/JPA 의존성이 비즈니스 로직에 침투하는 문제가 있었다.
 - **목표**: Brand · Product · Like · Order 네 도메인을 `Interfaces → Application → Domain ← Infrastructure` 4-레이어 구조로 구현하고, JPA Entity와 도메인 모델을 분리한다. Brand/Product에 명시적 상태 머신(Status)을 도입해 비활성 상품이 공개 API로 노출되거나 주문되는 것을 차단한다.
-- **결과**: 전 도메인에 걸쳐 DIP가 준수되고, 공개/어드민 접근 경로가 코드 레벨에서 분리됐다. 도메인 모델이 상태 전이 규칙을 직접 소유하며, 재고 차감 시 자동 SOLD_OUT 전환 등 인변관트가 하나의 경로에서만 처리된다.
+- **결과**: 전 도메인에 걸쳐 DIP를 준수하는 구조로 구현하고, 공개/어드민 접근 경로가 코드 레벨에서 분리됐다. 도메인 모델이 상태 전이 규칙을 직접 소유하며, 재고 차감 시 자동 SOLD_OUT 전환 등 상태관리를 처리한다.
 
 
 ## 🧭 Context & Decision
@@ -32,6 +32,7 @@
 - **B — Entity / 도메인 모델 분리**: Infrastructure에 `*Entity`, Domain에 순수 Kotlin 클래스를 두고 `toDomain()` / `from()`으로 변환. 변환 보일러플레이트가 생기지만 도메인 모델이 프레임워크 독립적이 된다.
 - **최종 결정**: **B**. 도메인 모델을 Spring/JPA에서 완전 분리해 단위 테스트에서 Spring 컨텍스트 없이 비즈니스 로직을 검증할 수 있도록 했다.
 - **트레이드오프**: `toDomain()` / `from()` 변환 코드가 추가되지만, 영속성 스키마 변경이 도메인 로직에 파급되지 않는 이점이 더 크다.
+> **추가 배경**: 본인은 JVM 계열의 JPA 와 Python/Django 혹은 Ruby/Rails 와 같은 환경에서 도메인영역과 ORM이 강결합된 구조의 코드를 많이 접해왔다. 그 과정에서 영속성 스키마 변경이 도메인 로직에 파급되는 문제와 의존성 분리의 어려움으로 기능 고도화/테스트 세팅의 어려움 등 불편함 경험을 바탕으로 이번 과제에서 도메인 영역과 영속성 영역을 완전히 분리하는 구조를 선택했다.
 
 #### (2) Product Status 기본값
 
@@ -47,7 +48,21 @@
 - **최종 결정**: **A**. 어드민은 `getById()`, 공개 API는 `getActiveById()`를 호출하도록 분리. NOT_FOUND 응답으로 상품 존재 여부를 노출하지 않는다.
 - **트레이드오프**: 서비스 메서드가 두 개가 되지만, 어드민/공개 경계를 코드 레벨에서 명시적으로 분리할 수 있다.
 
-#### (4) 주문 시 비활성 상품 오류 타입
+#### (4) 어드민 인증 처리 방식
+
+- **A — Controller 인라인 검증**: 각 어드민 Controller에서 LDAP 헤더를 직접 확인. 구현은 단순하지만 모든 어드민 엔드포인트(특히 GET)에 빠짐없이 적용해야 하고, 누락 시 인증 우회 가능.
+- **B — `HandlerInterceptor` 일원화**: `AdminAuthInterceptor`가 `/api-admin/**` 패턴 전체를 가로채 검증. Controller는 인증 코드를 전혀 갖지 않는다.
+- **최종 결정**: **B**. 인증 로직을 한 곳에서 관리해 누락 위험을 없애고, Controller가 비즈니스 로직에만 집중하도록 했다. GET 엔드포인트도 추가 코드 없이 자동 보호된다.
+- **트레이드오프**: Interceptor 등록(`WebMvcConfig`) 설정이 하나 추가되지만, 어드민 엔드포인트가 늘어날수록 중복 제거 효과가 커진다.
+
+#### (5) 사용자 인증 파라미터 처리 방식
+
+- **A — Controller 직접 주입**: 각 Controller에서 `authFacade.authenticate(userId)` 를 호출해 `User` 객체를 얻음. 흐름이 명시적이지만 모든 인증 필요 메서드에 보일러플레이트가 반복된다.
+- **B — `HandlerMethodArgumentResolver`**: `@LoginUser` 애노테이션을 마커로 두고, `LoginUserArgumentResolver`가 헤더에서 userId를 추출해 `User` 도메인 객체로 자동 변환. Controller 파라미터에 `@LoginUser user: User`만 선언하면 된다.
+- **최종 결정**: **B**. Controller 메서드 시그니처에서 인증 관심사를 완전히 제거했다. 인증 로직 변경 시 Resolver 한 곳만 수정하면 된다.
+- **트레이드오프**: `ArgumentResolver` + `WebMvcConfig` 등록 + `SpringDocConfig`(OpenAPI 파라미터 노출 방지) 세 파일이 추가되지만, Controller 코드가 선언적이고 깔끔해진다.
+
+#### (6) 주문 시 비활성 상품 오류 타입
 
 - **A — NOT_FOUND**: 공개 API와 일관성. 단, 사용자 입장에서 "왜 안 되는지" 알 수 없다.
 - **B — BAD_REQUEST**: 상품은 존재하지만 현재 주문 불가 상태임을 알림. 상품 상세 페이지에서 이미 확인한 상품을 주문하는 흐름이므로 이유를 알려주는 것이 UX상 맞다.
