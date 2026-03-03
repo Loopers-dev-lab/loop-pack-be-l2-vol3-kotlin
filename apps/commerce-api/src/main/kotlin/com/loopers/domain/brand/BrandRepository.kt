@@ -8,5 +8,6 @@ interface BrandRepository {
     fun delete(brandId: Long, admin: String)
     fun findById(id: Long): Brand?
     fun findAll(): List<Brand>
+    fun findAllByIdIn(ids: List<Long>): List<Brand>
     fun findAll(pageRequest: PageRequest): PageResponse<Brand>
 }

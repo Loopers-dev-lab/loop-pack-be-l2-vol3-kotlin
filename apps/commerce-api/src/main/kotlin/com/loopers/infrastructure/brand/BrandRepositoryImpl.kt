@@ -39,6 +39,11 @@ class BrandRepositoryImpl(
         return brandJpaRepository.findAllByDeletedAtIsNull().map { brandMapper.toDomain(it) }
     }
 
+    override fun findAllByIdIn(ids: List<Long>): List<Brand> {
+        if (ids.isEmpty()) return emptyList()
+        return brandJpaRepository.findAllByIdInAndDeletedAtIsNull(ids).map { brandMapper.toDomain(it) }
+    }
+
     override fun findAll(pageRequest: PageRequest): PageResponse<Brand> {
         val pageable = SpringPageRequest.of(pageRequest.page, pageRequest.size)
         val page = brandJpaRepository.findAllByDeletedAtIsNull(pageable)

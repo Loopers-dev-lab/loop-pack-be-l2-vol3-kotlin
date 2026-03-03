@@ -2,6 +2,8 @@ package com.loopers.application.admin.brand
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -16,7 +18,9 @@ import org.mockito.kotlin.mock
 @DisplayName("AdminBrandDeleteUseCase")
 class AdminBrandDeleteUseCaseTest {
     private val brandRepository: BrandRepository = mock()
-    private val useCase = AdminBrandDeleteUseCase(brandRepository)
+    private val productRepository: ProductRepository = mock()
+    private val productStockRepository: ProductStockRepository = mock()
+    private val useCase = AdminBrandDeleteUseCase(brandRepository, productRepository, productStockRepository)
 
     @Nested
     @DisplayName("브랜드 삭제 시")
@@ -28,6 +32,7 @@ class AdminBrandDeleteUseCaseTest {
             given(brandRepository.findById(1L)).willReturn(
                 Brand.retrieve(id = 1L, name = "나이키", status = Brand.Status.ACTIVE),
             )
+            given(productRepository.findAllByBrandId(1L)).willReturn(emptyList())
 
             // act
             useCase.delete(1L, "loopers.admin")

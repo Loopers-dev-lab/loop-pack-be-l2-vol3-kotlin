@@ -47,13 +47,20 @@ class MoneyTest {
             val exception = assertThrows<CoreException> { Money(BigDecimal("-1")) }
             assertThat(exception.errorType).isEqualTo(ErrorType.INVALID_MONEY)
         }
+
+        @Test
+        @DisplayName("반올림 시 0이 되는 미세 음수도 예외를 던진다")
+        fun create_tinyNegativeAmount() {
+            val exception = assertThrows<CoreException> { Money(BigDecimal("-0.001")) }
+            assertThat(exception.errorType).isEqualTo(ErrorType.INVALID_MONEY)
+        }
     }
 
     @Nested
     @DisplayName("multiply 연산")
     inner class Multiply {
         @Test
-        @DisplayName("금액 × 수량 = 총액")
+        @DisplayName("금액 x 수량 = 총액")
         fun multiply_quantity() {
             val money = Money(BigDecimal("1000"))
             val quantity = Quantity(3)
@@ -63,15 +70,46 @@ class MoneyTest {
     }
 
     @Nested
-    @DisplayName("add 연산")
-    inner class Add {
+    @DisplayName("plus 연산")
+    inner class Plus {
         @Test
         @DisplayName("금액 + 금액")
-        fun add_money() {
+        fun plus_money() {
             val money1 = Money(BigDecimal("1000"))
             val money2 = Money(BigDecimal("2500.50"))
-            val result = money1.add(money2)
+            val result = money1 + money2
             assertThat(result.amount).isEqualByComparingTo(BigDecimal("3500.50"))
+        }
+    }
+
+    @Nested
+    @DisplayName("minus 연산")
+    inner class Minus {
+        @Test
+        @DisplayName("금액 - 금액 (정상)")
+        fun minus_money() {
+            val money1 = Money(BigDecimal("3000"))
+            val money2 = Money(BigDecimal("1000"))
+            val result = money1 - money2
+            assertThat(result.amount).isEqualByComparingTo(BigDecimal("2000.00"))
+        }
+
+        @Test
+        @DisplayName("동일 금액 차감 시 0원 (경계값)")
+        fun minus_exactAmount() {
+            val money1 = Money(BigDecimal("1000"))
+            val money2 = Money(BigDecimal("1000"))
+            val result = money1 - money2
+            assertThat(result.amount).isEqualByComparingTo(BigDecimal("0.00"))
+        }
+
+        @Test
+        @DisplayName("결과가 음수이면 예외를 던진다")
+        fun minus_negativeResult() {
+            val money1 = Money(BigDecimal("500"))
+            val money2 = Money(BigDecimal("1000"))
+            val exception = assertThrows<CoreException> { money1 - money2 }
+            assertThat(exception.errorType).isEqualTo(ErrorType.INVALID_MONEY)
         }
     }
 
@@ -100,6 +138,34 @@ class MoneyTest {
             val money1 = Money(BigDecimal("500"))
             val money2 = Money(BigDecimal("1000"))
             assertThat(money1.isGreaterThan(money2)).isFalse()
+        }
+    }
+
+    @Nested
+    @DisplayName("isGreaterThanOrEqual 비교")
+    inner class IsGreaterThanOrEqual {
+        @Test
+        @DisplayName("금액이 크면 true")
+        fun isGreaterThanOrEqual_greater() {
+            val money1 = Money(BigDecimal("2000"))
+            val money2 = Money(BigDecimal("1000"))
+            assertThat(money1.isGreaterThanOrEqual(money2)).isTrue()
+        }
+
+        @Test
+        @DisplayName("금액이 같으면 true")
+        fun isGreaterThanOrEqual_equal() {
+            val money1 = Money(BigDecimal("1000"))
+            val money2 = Money(BigDecimal("1000"))
+            assertThat(money1.isGreaterThanOrEqual(money2)).isTrue()
+        }
+
+        @Test
+        @DisplayName("금액이 작으면 false")
+        fun isGreaterThanOrEqual_less() {
+            val money1 = Money(BigDecimal("500"))
+            val money2 = Money(BigDecimal("1000"))
+            assertThat(money1.isGreaterThanOrEqual(money2)).isFalse()
         }
     }
 }
