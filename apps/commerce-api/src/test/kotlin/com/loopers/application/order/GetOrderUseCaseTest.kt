@@ -87,7 +87,10 @@ class GetOrderUseCaseTest {
                 id = OrderId(0),
                 refUserId = UserId(1),
                 status = Order.OrderStatus.CREATED,
+                originalPrice = Money(BigDecimal("10000")),
+                discountAmount = Money(BigDecimal.ZERO),
                 totalPrice = Money(BigDecimal("10000")),
+                refCouponId = null,
                 deletedAt = ZonedDateTime.now(),
             )
             val saved = orderRepository.save(deletedOrder)

@@ -55,6 +55,44 @@ class OrderTest {
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("258000"))
             assertThat(order.items).hasSize(1)
         }
+
+        @Test
+        @DisplayName("쿠폰 미적용 시 originalPrice와 totalPrice가 동일하고 discountAmount는 0이다")
+        fun create_withoutCoupon_originalEqualsTotalPrice() {
+            // act
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                ),
+            )
+
+            // assert
+            assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal.ZERO)
+            assertThat(order.refCouponId).isNull()
+        }
+
+        @Test
+        @DisplayName("쿠폰 적용 시 originalPrice, discountAmount, totalPrice 정합성이 유지된다")
+        fun create_withCoupon_discountApplied() {
+            // act
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                ),
+                discountAmount = Money(BigDecimal("3000")),
+                refCouponId = 100L,
+            )
+
+            // assert
+            assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("3000"))
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("17000"))
+            assertThat(order.refCouponId).isEqualTo(100L)
+        }
     }
 
     @Nested

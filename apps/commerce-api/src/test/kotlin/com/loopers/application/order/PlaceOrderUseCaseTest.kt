@@ -5,6 +5,11 @@ import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
 import com.loopers.domain.common.vo.BrandId
 import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.coupon.FakeCouponRepository
+import com.loopers.domain.coupon.FakeIssuedCouponRepository
+import com.loopers.domain.coupon.model.Coupon
+import com.loopers.domain.coupon.model.IssuedCoupon
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.support.error.CoreException
@@ -16,12 +21,15 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 class PlaceOrderUseCaseTest {
 
     private lateinit var productRepository: FakeProductRepository
     private lateinit var orderRepository: FakeOrderRepository
     private lateinit var orderItemRepository: FakeOrderItemRepository
+    private lateinit var couponRepository: FakeCouponRepository
+    private lateinit var issuedCouponRepository: FakeIssuedCouponRepository
     private lateinit var placeOrderUseCase: PlaceOrderUseCase
 
     @BeforeEach
@@ -29,7 +37,9 @@ class PlaceOrderUseCaseTest {
         productRepository = FakeProductRepository()
         orderRepository = FakeOrderRepository()
         orderItemRepository = FakeOrderItemRepository()
-        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository)
+        couponRepository = FakeCouponRepository()
+        issuedCouponRepository = FakeIssuedCouponRepository()
+        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository, couponRepository, issuedCouponRepository)
     }
 
     private fun createProduct(
@@ -215,6 +225,218 @@ class PlaceOrderUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("쿠폰 미적용 주문 시 originalPrice와 totalPrice가 동일하다")
+        fun execute_withoutCoupon_originalEqualsTotal() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2)),
+            )
+
+            // act
+            val orderInfo = placeOrderUseCase.execute(1L, command)
+
+            // assert
+            assertThat(orderInfo.originalPrice).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal.ZERO)
+            assertThat(orderInfo.totalPrice).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(orderInfo.couponId).isNull()
+        }
+    }
+
+    @Nested
+    @DisplayName("쿠폰 적용 주문 시")
+    inner class ExecuteWithCoupon {
+
+        private fun createFixedCoupon(
+            value: Long = 3000,
+            minOrderAmount: Money? = null,
+        ): Coupon {
+            return couponRepository.save(
+                Coupon(
+                    name = "정액 할인 쿠폰",
+                    type = Coupon.CouponType.FIXED,
+                    value = value,
+                    minOrderAmount = minOrderAmount,
+                    expiredAt = ZonedDateTime.now().plusDays(30),
+                ),
+            )
+        }
+
+        private fun createRateCoupon(
+            value: Long = 10,
+            maxDiscount: Money? = null,
+        ): Coupon {
+            return couponRepository.save(
+                Coupon(
+                    name = "정률 할인 쿠폰",
+                    type = Coupon.CouponType.RATE,
+                    value = value,
+                    maxDiscount = maxDiscount,
+                    expiredAt = ZonedDateTime.now().plusDays(30),
+                ),
+            )
+        }
+
+        private fun issueToUser(coupon: Coupon, userId: Long): IssuedCoupon {
+            return issuedCouponRepository.save(
+                IssuedCoupon(
+                    refCouponId = coupon.id,
+                    refUserId = UserId(userId),
+                    createdAt = ZonedDateTime.now(),
+                ),
+            )
+        }
+
+        @Test
+        @DisplayName("FIXED 쿠폰 적용 시 할인 금액이 반영된 totalPrice가 계산된다")
+        fun execute_withFixedCoupon_discountApplied() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val coupon = createFixedCoupon(value = 3000)
+            val issuedCoupon = issueToUser(coupon, 1L)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2)),
+                couponId = issuedCoupon.id,
+            )
+
+            // act
+            val orderInfo = placeOrderUseCase.execute(1L, command)
+
+            // assert
+            assertThat(orderInfo.originalPrice).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal("3000"))
+            assertThat(orderInfo.totalPrice).isEqualByComparingTo(BigDecimal("17000"))
+            assertThat(orderInfo.couponId).isEqualTo(issuedCoupon.id)
+        }
+
+        @Test
+        @DisplayName("RATE 쿠폰 적용 시 할인 금액이 반영된 totalPrice가 계산된다")
+        fun execute_withRateCoupon_discountApplied() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val coupon = createRateCoupon(value = 10) // 10%
+            val issuedCoupon = issueToUser(coupon, 1L)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2)),
+                couponId = issuedCoupon.id,
+            )
+
+            // act
+            val orderInfo = placeOrderUseCase.execute(1L, command)
+
+            // assert
+            assertThat(orderInfo.originalPrice).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal("2000"))
+            assertThat(orderInfo.totalPrice).isEqualByComparingTo(BigDecimal("18000"))
+            assertThat(orderInfo.couponId).isEqualTo(issuedCoupon.id)
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 발급 쿠폰이면 BAD_REQUEST 예외가 발생한다")
+        fun execute_nonExistentIssuedCoupon_throwsBadRequest() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                couponId = 999L,
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                placeOrderUseCase.execute(1L, command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("타인 소유 쿠폰이면 BAD_REQUEST 예외가 발생한다")
+        fun execute_otherUserCoupon_throwsBadRequest() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val coupon = createFixedCoupon(value = 3000)
+            val issuedCoupon = issueToUser(coupon, 2L) // 다른 사용자 소유
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                couponId = issuedCoupon.id,
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                placeOrderUseCase.execute(1L, command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("이미 사용된 쿠폰이면 BAD_REQUEST 예외가 발생한다")
+        fun execute_alreadyUsedCoupon_throwsBadRequest() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val coupon = createFixedCoupon(value = 3000)
+            val issuedCoupon = issueToUser(coupon, 1L)
+            issuedCoupon.use() // 이미 사용 처리
+            issuedCouponRepository.save(issuedCoupon)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                couponId = issuedCoupon.id,
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                placeOrderUseCase.execute(1L, command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("최소 주문 금액 미충족 시 BAD_REQUEST 예외가 발생한다")
+        fun execute_minOrderAmountNotMet_throwsBadRequest() {
+            // arrange
+            val product = createProduct(price = BigDecimal("5000"), stock = 100)
+            val coupon = createFixedCoupon(value = 3000, minOrderAmount = Money(BigDecimal("20000")))
+            val issuedCoupon = issueToUser(coupon, 1L)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                couponId = issuedCoupon.id,
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                placeOrderUseCase.execute(1L, command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("쿠폰 사용 후 IssuedCoupon의 상태가 USED로 변경된다")
+        fun execute_withCoupon_issuedCouponStatusBecomesUsed() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val coupon = createFixedCoupon(value = 3000)
+            val issuedCoupon = issueToUser(coupon, 1L)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                couponId = issuedCoupon.id,
+            )
+
+            // act
+            placeOrderUseCase.execute(1L, command)
+
+            // assert
+            val updated = issuedCouponRepository.findById(issuedCoupon.id)!!
+            assertThat(updated.status).isEqualTo(IssuedCoupon.CouponStatus.USED)
         }
     }
 }
