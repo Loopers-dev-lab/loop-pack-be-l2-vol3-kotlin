@@ -46,6 +46,18 @@ object ApiPaths {
         const val BY_ID = "$BASE/{orderId}"
     }
 
+    object Coupons {
+        const val BASE = "/api/v1/coupons"
+        const val ISSUE = "$BASE/{couponId}/issue"
+        const val ME = "$BASE/me"
+    }
+
+    object AdminCoupons {
+        const val BASE = "/api/admin/v1/coupons"
+        const val BY_ID = "$BASE/{couponId}"
+        const val ISSUES = "$BASE/{couponId}/issues"
+    }
+
     object Examples {
         const val BASE = "/api/v1/examples"
         const val BY_ID = "$BASE/{id}"
