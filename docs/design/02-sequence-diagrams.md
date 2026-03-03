@@ -8,7 +8,6 @@
 - **참여자(Participant) 레벨 통일**:
     - **Controller**: 요청 수신, 파라미터 매핑, 응답 변환
     - **UseCase**: `@Transactional` 경계 설정, Repository / Domain Service 오케스트레이션
-    - **Domain Service**: 여러 엔티티 간 원자적 얽힘이 있는 복잡한 비즈니스 로직 (예: `PointCharger`, `PointDeductor`)
     - **Repository**: DB 접근 (JPA)
 - **트랜잭션 경계**: `@Transactional`은 UseCase의 `execute()` 메서드에 부착. Domain Service는 UseCase가 열어 둔 트랜잭션에 참여.
 - **인증**: AuthInterceptor → `@AuthUser userId: Long` 파라미터 주입. 어드민은 AdminInterceptor가 `X-Loopers-Ldap` 헤더 검증.
@@ -551,9 +550,7 @@ sequenceDiagram
 
 ### 4.1 주문 생성 (Cross-Domain Transaction)
 
-> **Round 3 변경**: 포인트 차감 단계 추가
-
-주문 생성은 **상품 검증 → 재고 차감 → 주문 생성(totalPrice 계산 + Order/OrderItem 저장) → 포인트 차감**이 원자적으로 이루어져야 하는 핵심 트랜잭션이다.
+주문 생성은 **상품 검증 → 재고 차감 → 주문 생성(totalPrice 계산 + Order/OrderItem 저장)**이 원자적으로 이루어져야 하는 핵심 트랜잭션이다.
 
 **API:** `POST /api/v1/orders` — 인증 필요
 
@@ -566,9 +563,6 @@ sequenceDiagram
     participant PR as ProductRepository
     participant OR as OrderRepository
     participant OIR as OrderItemRepository
-    participant PD as PointDeductor
-    participant UPR as UserPointRepository
-    participant PHR as PointHistoryRepository
     User ->> C: 주문 요청 (상품 목록, 수량)
     C ->> UC: execute(userId, command)
 
@@ -586,14 +580,6 @@ sequenceDiagram
         OR -->> UC: savedOrder (ID 채번)
         UC ->> UC: order.assignOrderIdToItems(savedOrder.id)
         UC ->> OIR: saveAll(order.items)
-    %% 3단계: 포인트 차감
-        UC ->> PD: usePoints(userId, totalPrice, orderId)
-        PD ->> UPR: findByUserIdForUpdate(userId) — 비관적 락
-        UPR -->> PD: UserPoint
-        PD ->> PD: userPoint.use(amount) — 잔액 부족 시 예외
-        Note right of PD: 포인트 부족 시 예외 → 트랜잭션 전체 롤백
-        PD ->> UPR: save(userPoint)
-        PD ->> PHR: save(PointHistory(USE, refOrderId))
     end
 
     UC -->> C: OrderInfo 반환
@@ -602,10 +588,9 @@ sequenceDiagram
 
 #### 참고
 
-- 재고 부족 또는 포인트 부족 시 트랜잭션 롤백으로 이전 차감분 모두 원복
+- 재고 부족 시 트랜잭션 롤백으로 이전 차감분 모두 원복
 - OrderItem은 주문 시점의 상품 정보(이름, 가격)를 스냅샷으로 보존
-- `PlaceOrderUseCase`는 ProductRepository, OrderRepository, OrderItemRepository, PointDeductor를 직접 주입받아 오케스트레이션한다
-- `PointDeductor`는 Domain Service로서 UseCase가 열어 둔 트랜잭션에 참여하여 잔고 차감 + 이력 생성의 원자성을 보장한다
+- `PlaceOrderUseCase`는 ProductRepository, OrderRepository, OrderItemRepository를 직접 주입받아 오케스트레이션한다
 
 ### 4.2 주문 목록 조회 (기간 필터링)
 
@@ -722,76 +707,9 @@ sequenceDiagram
 
 ---
 
-## 6. 포인트
+## 6. 회원가입
 
-### 6.1 포인트 충전 (Domain Service)
-
-포인트 충전은 잔액 변경(UserPoint)과 충전 내역(PointHistory) 생성을 **PointCharger**(Domain Service)가 조율하는 흐름이다.
-
-**API:** `POST /api/v1/users/points/charge` — 인증 필요
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 사용자
-    participant C as PointV1Controller
-    participant UC as ChargePointUseCase
-    participant PC as PointCharger
-    participant UPR as UserPointRepository
-    participant PHR as PointHistoryRepository
-    User ->> C: 포인트 충전 요청 (amount)
-    C ->> UC: execute(userId, amount)
-
-    rect rgb(245, 245, 245)
-        Note right of UC: @Transactional
-        UC ->> PC: charge(userId, amount)
-        PC ->> UPR: findByUserIdForUpdate(userId) — 비관적 락
-        UPR -->> PC: UserPoint
-        PC ->> PC: userPoint.charge(amount) — 잔액 증가
-        PC ->> UPR: save(userPoint)
-        PC ->> PHR: save(PointHistory(CHARGE))
-        PC -->> UC: UserPoint
-    end
-
-    UC -->> C: PointBalanceInfo 반환
-    C -->> User: 200 OK
-```
-
-#### 참고
-
-- `PointCharger`는 Domain Layer의 Domain Service이다
-- `ChargePointUseCase`가 `PointCharger`에 위임하며, `PointCharger`는 UserPointRepository와 PointHistoryRepository를 직접 주입받아 사용한다
-- `@Transactional`은 UseCase에 설정하고, `PointCharger`는 해당 트랜잭션에 참여한다
-
-### 6.2 포인트 잔액 조회
-
-**API:** `GET /api/v1/users/points` — 인증 필요
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 사용자
-    participant C as PointV1Controller
-    participant UC as GetUserPointUseCase
-    participant R as UserPointRepository
-    User ->> C: 포인트 잔액 조회 요청
-    C ->> UC: execute(userId)
-    Note over UC, R: @Transactional(readOnly = true)
-    UC ->> R: findByUserId(userId)
-    R -->> UC: UserPoint
-    UC -->> C: PointBalanceInfo 반환
-    C -->> User: 200 OK
-```
-
----
-
-## 7. 회원가입
-
-### 7.1 회원가입 (Cross-Domain)
-
-> **Round 3 변경**: UserPoint 초기화를 위해 RegisterUserUseCase가 UserPointRepository를 직접 호출
-
-회원가입 시 User 생성과 함께 UserPoint(초기 잔액 0)를 생성하는 흐름이다.
+### 6.1 회원가입
 
 **API:** `POST /api/v1/users/sign-up` — 인증 불필요
 
@@ -802,7 +720,6 @@ sequenceDiagram
     participant C as UserV1Controller
     participant UC as RegisterUserUseCase
     participant UR as UserRepository
-    participant UPR as UserPointRepository
     User ->> C: 회원가입 요청 (loginId, password, name 등)
     C ->> UC: execute(loginId, password, name, birthDate, email)
 
@@ -812,7 +729,6 @@ sequenceDiagram
         UR -->> UC: false (중복 없음)
         UC ->> UR: save(user)
         UR -->> UC: 생성된 User (ID 채번)
-        UC ->> UPR: save(UserPoint(refUserId = user.id, balance = 0))
     end
 
     UC -->> C: UserInfo 반환
@@ -821,6 +737,5 @@ sequenceDiagram
 
 #### 참고
 
-- `RegisterUserUseCase`는 UserRepository와 UserPointRepository를 직접 주입받아 사용한다
-- **@Transactional은 UseCase 레벨에서 설정**하여, User 생성과 UserPoint 생성의 원자성을 보장한다 (UserPoint 생성 실패 시 User 생성도 롤백)
-- 기존 Facade 패턴 없이 UseCase가 cross-domain 오케스트레이션을 직접 수행한다
+- `RegisterUserUseCase`는 UserRepository를 직접 주입받아 사용한다
+- **@Transactional은 UseCase 레벨에서 설정**하여 User 생성의 원자성을 보장한다

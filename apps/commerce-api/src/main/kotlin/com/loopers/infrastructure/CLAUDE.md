@@ -34,7 +34,7 @@ class ProductEntity(
 - `fromDomain()`: Domain → Entity. VO는 `.value`로 원시 타입 추출. `BaseEntity` 필드(id, createdAt 등)는 `withBaseFields()` 유틸리티로 설정.
 - `toDomain()`: Entity → Domain. 두 가지 패턴이 공존한다:
   - **`fromPersistence()` 팩토리**: `private constructor` 모델 (Order, OrderItem 등). 검증 건너뜀.
-  - **`public constructor` 직접 호출**: Like, UserPoint, PointHistory 등. 생성자에 `id`를 포함하여 Reflection 없이 매핑.
+  - **`public constructor` 직접 호출**: Like 등. 생성자에 `id`를 포함하여 Reflection 없이 매핑.
 - 확장함수(`toDomain()`)는 사용하지 않는다.
 - DB 조회가 필요한 경우에만 예외적으로 `@Component` Mapper 도입.
 

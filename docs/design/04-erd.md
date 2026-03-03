@@ -84,32 +84,10 @@ erDiagram
         datetime deleted_at
     }
 
-    user_points {
-        bigint id PK
-        bigint ref_user_id UK "Logical FK -> users.id (1:1)"
-        bigint balance "Point VO (>= 0)"
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
-    }
-
-    point_histories {
-        bigint id PK
-        bigint ref_user_point_id "Logical FK -> user_points.id"
-        varchar type "CHARGE | USE"
-        bigint amount "amount > 0 (init 블록에서 직접 검증)"
-        bigint ref_order_id "Nullable, Logical FK -> orders.id (USE only)"
-        datetime created_at
-        datetime updated_at
-        datetime deleted_at
-    }
-
     brands ||--o{ products: "Brand owns Products"
     products ||--o{ likes: "Product has Likes"
     users ||--o{ likes: "User likes Products"
     users ||--o{ orders: "User places Orders"
-    users ||--|| user_points: "User has Point Balance"
-    user_points ||--o{ point_histories: "Point changes History"
     orders ||--|{ order_items: "Order contains Items"
 ```
 
@@ -147,23 +125,7 @@ erDiagram
 |                 | quantity       | INT           | NOT NULL     | 주문 수량 (>= 1)                               |
 |                 | status         | VARCHAR(20)   | NOT NULL     | 주문 항목 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
 
-### 2.3 Point Domain
-
-| 테이블                 | 컬럼                | 타입          | 제약조건         | 설명                                       |
-|---------------------|-------------------|-------------|--------------|------------------------------------------|
-| **user_points**     | id                | BIGINT      | PK, Auto Inc |                                          |
-|                     | ref_user_id       | BIGINT      | NOT NULL, UK | [논리FK] User 참조 (1:1)                     |
-|                     | balance           | BIGINT      | NOT NULL     | 포인트 잔액 (VO: Point >= 0)                  |
-| **point_histories** | id                | BIGINT      | PK, Auto Inc |                                          |
-|                     | ref_user_point_id | BIGINT      | NOT NULL     | [논리FK] UserPoint 참조                      |
-|                     | type              | VARCHAR(20) | NOT NULL     | 포인트 유형 (`@Enumerated(STRING)`)           |
-|                     | amount            | BIGINT      | NOT NULL     | 변동 금액 (amount > 0, init에서 직접 검증)         |
-|                     | ref_order_id      | BIGINT      | NULLABLE     | [추적용] 주문 참조 (USE 시 주문 ID, CHARGE 시 null) |
-|                     | created_at        | DATETIME    | NOT NULL     | 발생 시각                                    |
-
-*참고: user_points, point_histories 모두 BaseEntity 상속 (created_at, updated_at, deleted_at 포함). User 탈퇴(soft delete) 시 UserPoint도 함께 soft delete 처리한다. point_histories는 향후 충전 취소 등의 기능에서 updated_at이 필요할 수 있으므로 BaseEntity 상속 구조를 유지한다.*
-
-### 2.4 User Interaction
+### 2.3 User Interaction
 
 | 테이블       | 컬럼             | 타입     | 제약조건         | 설명                                    |
 |-----------|----------------|--------|--------------|---------------------------------------|
@@ -190,8 +152,6 @@ erDiagram
 | **orders**          | `(ref_user_id, created_at)`             | Composite | 유저별 주문 이력 조회 (최신순)             |
 | **order_items**     | `(ref_order_id, ref_product_id)`        | Normal    | 주문별 상품 항목 조회                   |
 | **order_items**     | `(ref_product_id)`                      | Normal    | 상품별 주문 이력 추적 (논리FK, 명시적 추가 필요) |
-| **user_points**     | `(ref_user_id)`                         | UNIQUE    | 사용자-포인트 1:1 보장 및 빠른 조회         |
-| **point_histories** | `(ref_user_point_id, created_at)`       | Composite | 포인트 변동 이력 조회 (최신순)             |
 
 > `likes(ref_user_id, ref_product_id)` UNIQUE 인덱스가 `ref_user_id` 단독 조회도 커버하므로, 별도 ref_user_id 인덱스는 불필요하다. \
 > likes 테이블에 created_at은 두지 않는다. 최신순 정렬이 필요하면 id 역순으로 대체한다. \
@@ -216,8 +176,6 @@ erDiagram
 
 - brands ↔ products: 정규화 유지. products에 brand_name을 두지 않고 ref_brand_id FK로 참조한다.
 - users ↔ likes/orders: 정규화 유지. ref_user_id FK로 참조한다.
-- users ↔ user_points: 정규화 유지. ref_user_id FK로 참조한다. User에 balance를 두지 않고 별도 엔티티로 분리 (SRP 준수).
-- user_points ↔ point_histories: 정규화 유지. ref_user_point_id FK로 참조한다.
 
 ---
 
@@ -237,5 +195,3 @@ erDiagram
 | **복구 정합성**    | 상품 복구 시 likeCount와 실제 likes 수 불일치 가능                                                                                     | 어드민 전용 복구 API 제공. `deleted_at`을 `null`로 설정하여 복구하며, 멱등하게 동작한다. Brand와 Product에 대해 개별 복구 API를 제공한다.  |
 | **인덱스 커버리지**  | `refBrandId` 필터 + 정렬 조합 시 기존 복합 인덱스 미활용 (`(ref_brand_id)` 단독 → filesort, `(deleted_at, status, ...)` → ref_brand_id 후필터) | 현재 데이터 규모에서 무시 가능. 데이터 증가 시 `(ref_brand_id, deleted_at, status, created_at)` 등 브랜드 기반 복합 인덱스 추가 검토 |
 | **UK 충돌**     | Soft Delete 된 login_id, brand name 재사용 시 UK 중복 에러                                                                        | 탈퇴/삭제 시 식별자 변조 (예: `name_deleted_{timestamp}`) 또는 정책 결정 필요. MySQL은 Partial Unique Index 미지원        |
-| **포인트 정합성**   | 동시 충전/사용 시 balance 불일치 가능 (Lost Update)                                                                                  | 단일 트랜잭션 내 처리. 향후 Optimistic Lock (@Version) 또는 Atomic UPDATE 검토                                    |
-| **포인트 이력 증가** | point_histories 테이블이 계속 성장 (삭제 정책 없음)                                                                                    | 현재 규모 무시 가능. 향후 파티셔닝 또는 아카이빙 검토                                                                    |

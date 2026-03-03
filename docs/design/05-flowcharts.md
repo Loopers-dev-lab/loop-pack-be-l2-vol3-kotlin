@@ -15,8 +15,6 @@
 flowchart TB
     A([사용자 진입]) --> B[회원가입 / 로그인]
     B --> C[브랜드 & 상품 탐색]
-    B --> PC[포인트 충전]:::charge
-    PC --> C
 
     C --> D{마음에 드는 상품?}
     D -->|예| E[좋아요 등록]
@@ -33,23 +31,18 @@ flowchart TB
     H -->|통과| J{재고 충분?}
     J -->|부족| I
     J -->|충분| K[재고 차감 + 스냅샷 저장]
-    K --> K2{포인트 충분?}
-    K2 -->|부족| I
-    K2 -->|충분| K3[포인트 차감]
-    K3 --> L[주문 완료]:::success
+    K --> L[주문 완료]:::success
 
     L --> M[주문 내역 조회]
     M --> C
 
     classDef success fill:#c8e6c9,stroke:#2e7d32
     classDef error fill:#ffcdd2,stroke:#c62828
-    classDef charge fill:#bbdefb,stroke:#1565c0
 ```
 
 ### 참고
 
 - 쿠폰 발급/적용 단계는 추후 개발 시 F→G 사이에 삽입 예정
-- 포인트 충전은 로그인 후 탐색 전에 수행하는 선택적 단계이며, 상세 흐름은 아래 Section 4를 참고
 - 어드민 흐름(브랜드/상품 관리)은 별도 경로이므로 이 조감도에서 생략
 
 ---
@@ -81,10 +74,7 @@ flowchart TB
     StatusChange --> SaveProducts[productRepository.saveAll]
     SaveProducts --> CreateOrder[Order.create — OrderItem 생성 + totalPrice 계산]
     CreateOrder --> SaveOrder[orderRepository.save + orderItemRepository.saveAll]
-    SaveOrder --> CheckPoint{포인트 잔액 충분?}
-    CheckPoint -->|부족| Err400_5[400 포인트 부족]:::error
-    CheckPoint -->|충분| DeductPoint[포인트 차감 + PointHistory 기록]
-    DeductPoint --> Response([200 OK + orderId]):::success
+    SaveOrder --> Response([200 OK + orderId]):::success
 
     classDef error fill:#ffcdd2,stroke:#c62828
     classDef success fill:#c8e6c9,stroke:#2e7d32
@@ -94,8 +84,8 @@ flowchart TB
 
 - `Order.create()`가 내부에서 OrderItem 생성과 totalPrice 계산을 수행한다 (Rich Domain Model)
 - 전체 과정이 **하나의 트랜잭션** 내에서 원자적으로 실행 (all-or-nothing)
-- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감 + 포인트 차감 모두 원복
-- **실행 순서**: 재고 차감 → 상품 저장 → 주문 생성/저장 → 포인트 차감 (포인트 확인은 주문 저장 후)
+- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감 모두 원복
+- **실행 순서**: 재고 차감 → 상품 저장 → 주문 생성/저장
 - 인증 인터셉터 검증은 전제 조건으로 생략 (시퀀스 다이어그램 공통 규칙 참고)
 
 ---
@@ -160,44 +150,7 @@ flowchart TB
 
 ---
 
-## 4. 포인트 충전 (Domain Service)
-
-포인트 충전 시 PointCharger(Domain Service)가 잔액 변경과 내역 생성을 조율하는 흐름이다.
-
-```mermaid
-flowchart TB
-    Start([포인트 충전 요청]) --> CheckLimit{1회 충전 한도 초과?}
-    CheckLimit -->|초과| Err400_1[400 Bad Request]:::error
-
-    CheckLimit -->|이내| FindUP[UserPoint 조회 — FOR UPDATE]
-    FindUP --> CheckUserPoint{UserPoint 존재?}
-    CheckUserPoint -->|없음| Err404[404 Not Found]:::error
-
-    CheckUserPoint -->|존재| CheckZero{충전 금액 == 0?}
-    CheckZero -->|예| Err400_2[400 Bad Request]:::error
-
-    CheckZero -->|아니오| CheckBalance{충전 후 잔액이 최대 한도 초과?}
-    CheckBalance -->|초과| Err400_3[400 Bad Request]:::error
-
-    CheckBalance -->|이내| Charge[UserPoint.charge — 잔액 증가]
-    Charge --> History[PointHistory 생성 — type: CHARGE]
-    History --> Save[DB 저장]
-    Save --> Success([200 OK]):::success
-
-    classDef error fill:#ffcdd2,stroke:#c62828
-    classDef success fill:#c8e6c9,stroke:#2e7d32
-```
-
-### 참고
-
-- PointCharger는 도메인 레이어의 Domain Service이다
-- 검증 순서: 1회 충전 한도(PointCharger) → UserPoint 조회 → 0 금액 검증(UserPoint.charge) → 최대 잔액 한도(UserPoint.charge)
-- 잔액 변경(UserPoint.charge)과 내역 생성(PointHistory)이 하나의 트랜잭션에서 원자적으로 처리된다
-- Controller가 ChargePointUseCase를 통해 PointCharger를 호출한다
-
----
-
-## 5. 어드민 카탈로그 관리 프로세스
+## 4. 어드민 카탈로그 관리 프로세스
 
 어드민이 브랜드/상품을 생성, 수정, 삭제, 복구하는 전체 의사결정 흐름이다.
 대고객 API와의 핵심 차이는 수정 시 삭제 상태 여부를 구분하지 않고 허용한다는 점이다.

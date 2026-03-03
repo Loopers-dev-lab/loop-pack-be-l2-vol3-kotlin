@@ -108,26 +108,6 @@ classDiagram
         FAILED
     }
 
-    class UserPoint {
-        +Long id
-        -UserId refUserId
-        -Point balance
-        +MAX_BALANCE$ Long
-        +charge(amount: Point)
-        +use(amount: Point)
-        +canAfford(amount: Point) Boolean
-    }
-
-    class PointHistory {
-        +Long id
-        -Long refUserPointId
-        -PointHistoryType type
-        -Point amount
-        -OrderId? refOrderId
-        <<inner>>
-        enum PointHistoryType
-    }
-
     class User {
         <<External>>
         +Long id
@@ -137,8 +117,6 @@ classDiagram
     Product "1" -- "*" Like: refProductId 참조
     User "1" -- "*" Like: refUserId 참조
     User "1" -- "*" Order: refUserId 참조
-    User "1" -- "1" UserPoint: refUserId 참조
-    UserPoint "1" -- "*" PointHistory: refUserPointId 참조
     Order "1" *-- "*" OrderItem: items (Aggregate)
     Order ..> OrderProductInfo: create() 입력
     Product .. OrderItem: 스냅샷 (productName, productPrice)
@@ -528,7 +506,6 @@ classDiagram
     PlaceOrderUseCase --> OrderRepository
     PlaceOrderUseCase --> OrderItemRepository
     PlaceOrderUseCase --> ProductRepository: 재고 차감 / 상품 검증
-    PlaceOrderUseCase --> PointDeductor: 포인트 차감
     GetOrderUseCase --> OrderRepository
     GetOrderUseCase --> OrderItemRepository
     OrderItem --> ItemStatus
@@ -547,99 +524,10 @@ classDiagram
 
 ---
 
-## 6. Point 도메인
-
-포인트 충전은 **PointCharger**(Domain Service), 포인트 차감은 **PointDeductor**(Domain Service)가 조율한다.
-어드민 기능 없이 사용자 기능만 존재한다.
-
-```mermaid
-classDiagram
-    direction LR
-
-    namespace interfaces {
-        class PointV1Controller {
-            +chargePoints()
-            +getBalance()
-        }
-    }
-
-    namespace application {
-        class ChargePointUseCase {
-            +execute(userId: Long, amount: Long) PointBalanceInfo
-        }
-        class GetUserPointUseCase {
-            +execute(userId: Long) PointBalanceInfo
-        }
-    }
-
-    namespace domain {
-        class UserPoint {
-            +Long id
-            -UserId refUserId
-            -Point balance
-            +MAX_BALANCE$ Long
-            +charge(amount: Point)
-            +use(amount: Point)
-            +canAfford(amount: Point) Boolean
-        }
-        class PointHistory {
-            +Long id
-            -Long refUserPointId
-            -PointHistoryType type
-            -Point amount
-            -OrderId? refOrderId
-        }
-        class Point {
-            <<ValueObject>>
-            +value: Long
-            +plus(other: Point) Point
-            +minus(other: Point) Point
-            +isGreaterThanOrEqual(other: Point) Boolean
-        }
-        class PointCharger {
-            <<DomainService>>
-            +MAX_CHARGE_AMOUNT$ Long
-            +charge(userId: UserId, amount: Point) UserPoint
-        }
-        class PointDeductor {
-            <<DomainService>>
-            +usePoints(userId: UserId, amount: Money, refOrderId: OrderId)
-        }
-        class UserPointRepository {
-            <<interface>>
-        }
-        class PointHistoryRepository {
-            <<interface>>
-        }
-    }
-
-    PointV1Controller --> ChargePointUseCase: 충전
-    PointV1Controller --> GetUserPointUseCase: 잔액 조회
-    ChargePointUseCase --> PointCharger
-    GetUserPointUseCase --> UserPointRepository
-    PointCharger --> UserPointRepository
-    PointCharger --> PointHistoryRepository
-    PointDeductor --> UserPointRepository
-    PointDeductor --> PointHistoryRepository
-    UserPoint ..> Point: 잔액 연산
-    PointHistory ..> Point: 금액 검증
-```
-
-> **PointHistory의 영속성 필드:** Domain Model에는 `createdAt` 필드가 없다. 생성 시각은 Entity 레벨(`PointHistoryEntity`)에서 BaseEntity 상속으로 관리된다.
-
-### 핵심 포인트
-
-- **PointCharger (Domain Service):** 포인트 충전의 복합 로직(잔액 변경 + 이력 생성)을 조율한다. `UserPoint.charge()`와 `PointHistory` 생성이 반드시 함께 수행되어야 하므로 Domain Service가 이 협력을 보장한다. 1회 충전 한도(`MAX_CHARGE_AMOUNT`) 검증도 여기서 수행한다.
-- **PointDeductor (Domain Service):** 주문 시 포인트 차감(잔고 차감 + 이력 생성)의 원자적 보장을 담당한다. `PlaceOrderUseCase`에서 직접 호출된다.
-- **서비스 분리 근거:** PointCharger는 독립적인 진입점(Controller → UseCase → PointCharger)이며 추후 PG사 연동 시 확장 가능. PointDeductor는 OrderUseCase에서 호출되는 빌딩 블록.
-- **Point VO:** `@JvmInline value class Point`로 금액의 음수 방지, 연산(plus/minus/isGreaterThanOrEqual)을 캡슐화한다.
-
----
-
-## 7. Controller → UseCase 의존 관계 (Architecture View)
+## 6. Controller → UseCase 의존 관계 (Architecture View)
 
 모든 Controller는 UseCase를 직접 호출한다. Facade 레이어는 존재하지 않는다.
-cross-domain 조율(예: 주문 시 재고 차감 + 포인트 차감)은 UseCase 내부에서 직접 수행하거나 Domain Service에 위임한다.
+cross-domain 조율(예: 주문 시 재고 차감)은 UseCase 내부에서 직접 수행한다.
 
 ```mermaid
 classDiagram
@@ -652,7 +540,6 @@ classDiagram
     class LikeV1Controller
     class OrderV1Controller
     class OrderAdminV1Controller
-    class PointV1Controller
 
     class GetBrandUseCase
     class GetBrandAdminUseCase
@@ -681,9 +568,6 @@ classDiagram
     class GetOrderAdminUseCase
     class GetOrdersAdminUseCase
 
-    class ChargePointUseCase
-    class GetUserPointUseCase
-
     BrandV1Controller ..> GetBrandUseCase
     BrandAdminV1Controller ..> GetBrandsUseCase
     BrandAdminV1Controller ..> GetBrandAdminUseCase
@@ -710,9 +594,6 @@ classDiagram
     OrderV1Controller ..> GetOrdersUseCase
     OrderAdminV1Controller ..> GetOrderAdminUseCase
     OrderAdminV1Controller ..> GetOrdersAdminUseCase
-
-    PointV1Controller ..> ChargePointUseCase
-    PointV1Controller ..> GetUserPointUseCase
 ```
 
 ### Controller → UseCase 직접 호출 요약
@@ -726,7 +607,6 @@ classDiagram
 | `LikeV1Controller`         | `AddLikeUseCase`, `RemoveLikeUseCase`, `GetUserLikesUseCase` | 좋아요 등록/취소/목록                   |
 | `OrderV1Controller`        | `PlaceOrderUseCase`, `GetOrderUseCase`, `GetOrdersUseCase` | 주문 생성/상세/목록                    |
 | `OrderAdminV1Controller`   | `GetOrderAdminUseCase`, `GetOrdersAdminUseCase`      | 어드민 주문 조회                       |
-| `PointV1Controller`        | `ChargePointUseCase`, `GetUserPointUseCase`          | 포인트 충전/잔액 조회                   |
 
 ---
 
@@ -770,12 +650,9 @@ classDiagram
 | Quantity | @JvmInline value class    | 공통 (common) | Int >= 1                                     | 주문 수량                     |
 | BrandName | @JvmInline value class   | Brand     | 빈 값 불가                                      | Brand 생성/수정 시             |
 | Stock    | @JvmInline value class    | Product   | Int >= 0, decrease 시 부족 확인                   | Product 생성/수정/재고차감 시     |
-| Point    | @JvmInline value class    | Point     | Long >= 0, 연산(plus/minus/isGreaterThanOrEqual) 지원 | UserPoint 충전/사용 시        |
 
 > **VO 도입 기준**: Domain Model이 순수 POJO이므로 `@Converter` 부담 없이 모든 도메인 값을 VO로 표현할 수 있다. 단일 값과 도메인 메서드가 있는 경우 모두 `@JvmInline value class`로 선언한다. JPA Entity는 DB 컬럼 타입(String, BigDecimal 등)으로 저장하고, `toDomain()`에서 VO로 복원한다.
 >
-> **Point VO와 충전 금액의 검증 차이:** Point VO는 `>= 0`을 검증하지만, 포인트 충전 금액은 `>= 1`이어야 한다. `PointCharger`의 `MAX_CHARGE_AMOUNT` 초과 검증과 함께, `UserPoint.charge()`에서 0원 충전을 거부하여 별도 검증을 수행한다.
-
 > **DTO 변환 흐름:**
 > - **단일 도메인 조회** (UseCase → Repository): UseCase → Domain Model → Info DTO → Controller에서 Response Dto 변환
 > - **같은 BC 내 조합**: UseCase → `ProductDetail`(domain 데이터 클래스) → `CatalogInfo` → Controller에서 Response Dto 변환
