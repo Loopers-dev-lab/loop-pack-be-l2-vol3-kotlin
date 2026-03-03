@@ -1,13 +1,12 @@
 package com.loopers.interfaces.api.catalog
 
-import com.loopers.application.catalog.AdminDeleteProductUseCase
 import com.loopers.application.catalog.AdminGetProductUseCase
 import com.loopers.application.catalog.AdminListProductsUseCase
 import com.loopers.application.catalog.AdminRegisterProductUseCase
-import com.loopers.application.catalog.AdminUpdateProductUseCase
 import com.loopers.application.catalog.ListProductsCriteria
 import com.loopers.application.catalog.RegisterProductCriteria
-import com.loopers.application.catalog.UpdateProductCriteria
+import com.loopers.domain.catalog.ProductService
+import com.loopers.domain.catalog.UpdateProductCommand
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -27,9 +26,8 @@ import org.springframework.web.bind.annotation.RestController
 class ProductV1AdminController(
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val adminGetProductUseCase: AdminGetProductUseCase,
-    private val adminUpdateProductUseCase: AdminUpdateProductUseCase,
     private val adminListProductsUseCase: AdminListProductsUseCase,
-    private val adminDeleteProductUseCase: AdminDeleteProductUseCase,
+    private val productService: ProductService,
 ) : ProductV1AdminApiSpec {
 
     @PostMapping
@@ -79,9 +77,9 @@ class ProductV1AdminController(
         @PathVariable productId: Long,
         @RequestBody request: ProductV1AdminDto.UpdateRequest,
     ) {
-        adminUpdateProductUseCase.execute(
-            UpdateProductCriteria(
-                productId = productId,
+        productService.update(
+            productId,
+            UpdateProductCommand(
                 newName = request.newName,
                 newQuantity = request.newQuantity,
                 newPrice = request.newPrice,
@@ -95,6 +93,6 @@ class ProductV1AdminController(
         @RequestHeader(value = "X-Loopers-Ldap") ldap: String,
         @PathVariable productId: Long,
     ) {
-        adminDeleteProductUseCase.execute(productId)
+        productService.delete(productId)
     }
 }

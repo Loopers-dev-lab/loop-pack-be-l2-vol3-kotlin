@@ -45,6 +45,17 @@ class UserService(
             ?: throw CoreException(errorType = ErrorType.NOT_FOUND, customMessage = "사용자를 찾을 수 없습니다.")
     }
 
+    @Transactional(readOnly = true)
+    fun getUserById(id: Long): UserModel {
+        return userRepository.find(id)
+            ?: throw CoreException(errorType = ErrorType.NOT_FOUND, customMessage = "사용자를 찾을 수 없습니다.")
+    }
+
+    @Transactional(readOnly = true)
+    fun findUserById(id: Long): UserModel? {
+        return userRepository.find(id)
+    }
+
     @Transactional
     fun updatePassword(command: UpdatePasswordCommand): UserModel {
         val user = getUser(command.username)

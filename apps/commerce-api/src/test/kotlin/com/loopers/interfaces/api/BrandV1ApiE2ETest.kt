@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api
 
-import com.loopers.application.catalog.AdminRegisterBrandUseCase
-import com.loopers.application.catalog.RegisterBrandCriteria
-import com.loopers.application.catalog.RegisterBrandResult
+import com.loopers.domain.catalog.BrandInfo
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserService
 import com.loopers.interfaces.api.catalog.BrandV1Dto
@@ -27,7 +27,7 @@ import java.time.ZonedDateTime
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BrandV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
-    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
+    private val brandService: BrandService,
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -66,9 +66,9 @@ class BrandV1ApiE2ETest @Autowired constructor(
         name: String = DEFAULT_BRAND_NAME,
         description: String = DEFAULT_BRAND_DESCRIPTION,
         logoUrl: String = DEFAULT_BRAND_LOGO_URL,
-    ): RegisterBrandResult {
-        return adminRegisterBrandUseCase.execute(
-            RegisterBrandCriteria(
+    ): BrandInfo {
+        return brandService.register(
+            RegisterBrandCommand(
                 name = name,
                 description = description,
                 logoUrl = logoUrl,

@@ -1,17 +1,16 @@
 package com.loopers.domain.catalog
 
-import com.loopers.application.catalog.AdminDeleteProductUseCase
 import com.loopers.application.catalog.AdminGetProductUseCase
 import com.loopers.application.catalog.AdminListProductsUseCase
-import com.loopers.application.catalog.AdminRegisterBrandUseCase
 import com.loopers.application.catalog.AdminRegisterProductUseCase
-import com.loopers.application.catalog.AdminUpdateProductUseCase
 import com.loopers.application.catalog.ListProductsCriteria
-import com.loopers.application.catalog.RegisterBrandCriteria
-import com.loopers.application.catalog.RegisterBrandResult
 import com.loopers.application.catalog.RegisterProductCriteria
 import com.loopers.application.catalog.RegisterProductResult
-import com.loopers.application.catalog.UpdateProductCriteria
+import com.loopers.domain.catalog.BrandInfo
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.ProductService
+import com.loopers.domain.catalog.RegisterBrandCommand
+import com.loopers.domain.catalog.UpdateProductCommand
 import com.loopers.infrastructure.catalog.ProductJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -32,9 +31,8 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val adminGetProductUseCase: AdminGetProductUseCase,
     private val adminListProductsUseCase: AdminListProductsUseCase,
-    private val adminUpdateProductUseCase: AdminUpdateProductUseCase,
-    private val adminDeleteProductUseCase: AdminDeleteProductUseCase,
-    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
+    private val productService: ProductService,
+    private val brandService: BrandService,
     private val productJpaRepository: ProductJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -50,8 +48,8 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun registerBrand(name: String = DEFAULT_BRAND_NAME): RegisterBrandResult {
-        return adminRegisterBrandUseCase.execute(RegisterBrandCriteria(name = name))
+    private fun registerBrand(name: String = DEFAULT_BRAND_NAME): BrandInfo {
+        return brandService.register(RegisterBrandCommand(name = name))
     }
 
     private fun registerProduct(
@@ -223,7 +221,7 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
             val brand = registerBrand()
             val product = registerProduct(brandId = brand.id, name = "상품1")
             registerProduct(brandId = brand.id, name = "상품2")
-            adminDeleteProductUseCase.execute(product.id)
+            productService.delete(product.id)
             val criteria = ListProductsCriteria(page = 0, size = 10)
 
             // act
@@ -249,15 +247,14 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
             val expectedName = "에어포스 1"
             val expectedQuantity = 50
             val expectedPrice = BigDecimal("99000")
-            val criteria = UpdateProductCriteria(
-                productId = product.id,
+            val command = UpdateProductCommand(
                 newName = expectedName,
                 newQuantity = expectedQuantity,
                 newPrice = expectedPrice,
             )
 
             // act
-            adminUpdateProductUseCase.execute(criteria)
+            productService.update(product.id, command)
 
             // assert
             val updated = productJpaRepository.findById(product.id).get()
@@ -272,8 +269,7 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFoundExceptionWhenProductDoesNotExist() {
             // arrange
-            val criteria = UpdateProductCriteria(
-                productId = 999L,
+            val command = UpdateProductCommand(
                 newName = "변경된 상품",
                 newQuantity = 50,
                 newPrice = BigDecimal("99000"),
@@ -281,7 +277,7 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
 
             // act & assert
             val result = assertThrows<CoreException> {
-                adminUpdateProductUseCase.execute(criteria)
+                productService.update(999L, command)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
@@ -298,7 +294,7 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
             val product = registerProduct(brandId = brand.id)
 
             // act
-            adminDeleteProductUseCase.execute(product.id)
+            productService.delete(product.id)
 
             // assert
             val deleted = productJpaRepository.findById(product.id).get()
@@ -313,7 +309,7 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
 
             // act & assert
             val result = assertThrows<CoreException> {
-                adminDeleteProductUseCase.execute(nonExistentId)
+                productService.delete(nonExistentId)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
@@ -324,11 +320,11 @@ class ProductUseCaseIntegrationTest @Autowired constructor(
             // arrange
             val brand = registerBrand()
             val product = registerProduct(brandId = brand.id)
-            adminDeleteProductUseCase.execute(product.id)
+            productService.delete(product.id)
 
             // act & assert
             val result = assertThrows<CoreException> {
-                adminDeleteProductUseCase.execute(product.id)
+                productService.delete(product.id)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }

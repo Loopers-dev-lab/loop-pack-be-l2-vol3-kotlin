@@ -146,17 +146,16 @@ This is a E-Commerce platform backend (multi-module Gradle project).
    - Acts as Anti-Corruption Layer between HTTP and Domain
 
  - Domain (Service + Entity) layer
-   - Encapsulates domain-level operations
-   - Must not depend on other services
+   - Domain Service: single-domain operations only, depends on own domain's repositories
+   - Must NOT depend on other domain's repositories or services
    - Models business concepts and rules
    - Avoid anemic domain models
    - Must be independent of infrastructure concerns
-   - Domain Service: coordinates entities/repositories, handles operations requiring collaborators
    - Domain Entity: owns validation (init block), state changes, business rules
 
  - Application (UseCase) layer
-   - Single domain → UseCase calls Repository directly (Domain Service unnecessary)
-   - Multiple domains → Domain Service coordinates and saves, UseCase only calls Service
+   - Single domain → Controller calls Domain Service directly (UseCase unnecessary)
+   - Multiple domains → UseCase orchestrates Domain Services (not Repositories)
 
  - Infrastructure layer
    - Handles persistence only (Repository implementations)

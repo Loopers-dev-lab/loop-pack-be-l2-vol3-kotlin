@@ -1,9 +1,9 @@
 package com.loopers.domain.like
 
-import com.loopers.application.catalog.AdminRegisterBrandUseCase
 import com.loopers.application.catalog.AdminRegisterProductUseCase
-import com.loopers.application.catalog.RegisterBrandCriteria
 import com.loopers.application.catalog.RegisterProductCriteria
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.application.like.GetLikedProductsCriteria
 import com.loopers.application.like.LikeProductCriteria
 import com.loopers.application.like.UnlikeProductCriteria
@@ -33,7 +33,7 @@ class UserLikeUseCaseIntegrationTest @Autowired constructor(
     private val userLikeProductUseCase: UserLikeProductUseCase,
     private val userUnlikeProductUseCase: UserUnlikeProductUseCase,
     private val userGetLikedProductsUseCase: UserGetLikedProductsUseCase,
-    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
+    private val brandService: BrandService,
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -70,7 +70,7 @@ class UserLikeUseCaseIntegrationTest @Autowired constructor(
     }
 
     private fun registerBrand(name: String = DEFAULT_BRAND_NAME): Long {
-        return adminRegisterBrandUseCase.execute(RegisterBrandCriteria(name = name)).id
+        return brandService.register(RegisterBrandCommand(name = name)).id
     }
 
     private fun registerProduct(

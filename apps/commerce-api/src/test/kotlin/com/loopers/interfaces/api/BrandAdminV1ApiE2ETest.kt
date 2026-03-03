@@ -1,8 +1,8 @@
 package com.loopers.interfaces.api
 
-import com.loopers.application.catalog.AdminRegisterBrandUseCase
-import com.loopers.application.catalog.RegisterBrandCriteria
-import com.loopers.application.catalog.RegisterBrandResult
+import com.loopers.domain.catalog.BrandInfo
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.interfaces.api.catalog.BrandV1AdminDto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -23,7 +23,7 @@ import kotlin.test.Test
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BrandAdminV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
-    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
+    private val brandService: BrandService,
     private val databaseCleanUp: DatabaseCleanUp,
 ){
     companion object {
@@ -43,14 +43,14 @@ class BrandAdminV1ApiE2ETest @Autowired constructor(
     private fun registerBrand(
         name: String = DEFAULT_BRAND_NAME,
         description: String = DEFAULT_BRAND_DESCRIPTION,
-        logoUrl: String = DEFAULT_BRAND_LOGO_URL
-    ): RegisterBrandResult {
-        val criteria = RegisterBrandCriteria(
+        logoUrl: String = DEFAULT_BRAND_LOGO_URL,
+    ): BrandInfo {
+        val command = RegisterBrandCommand(
             name = name,
             description = description,
             logoUrl = logoUrl,
         )
-        return adminRegisterBrandUseCase.execute(criteria)
+        return brandService.register(command)
     }
 
     private fun createAuthAdminHeader(): HttpHeaders {

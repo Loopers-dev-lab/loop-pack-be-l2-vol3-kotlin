@@ -1,11 +1,11 @@
 package com.loopers.interfaces.api
 
-import com.loopers.application.catalog.AdminRegisterBrandUseCase
 import com.loopers.application.catalog.AdminRegisterProductUseCase
-import com.loopers.application.catalog.RegisterBrandCriteria
-import com.loopers.application.catalog.RegisterBrandResult
 import com.loopers.application.catalog.RegisterProductCriteria
 import com.loopers.application.catalog.RegisterProductResult
+import com.loopers.domain.catalog.BrandInfo
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserService
 import com.loopers.interfaces.api.catalog.ProductV1Dto
@@ -31,7 +31,7 @@ import java.time.ZonedDateTime
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProductV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
-    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
+    private val brandService: BrandService,
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -68,8 +68,8 @@ class ProductV1ApiE2ETest @Autowired constructor(
         )
     }
 
-    private fun registerBrand(name: String = DEFAULT_BRAND_NAME): RegisterBrandResult {
-        return adminRegisterBrandUseCase.execute(RegisterBrandCriteria(name = name))
+    private fun registerBrand(name: String = DEFAULT_BRAND_NAME): BrandInfo {
+        return brandService.register(RegisterBrandCommand(name = name))
     }
 
     private fun registerProduct(

@@ -1,11 +1,11 @@
 package com.loopers.domain.catalog
 
-import com.loopers.application.catalog.AdminRegisterBrandUseCase
 import com.loopers.application.catalog.AdminRegisterProductUseCase
-import com.loopers.application.catalog.RegisterBrandCriteria
-import com.loopers.application.catalog.RegisterBrandResult
 import com.loopers.application.catalog.RegisterProductCriteria
 import com.loopers.application.catalog.RegisterProductResult
+import com.loopers.domain.catalog.BrandInfo
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.application.catalog.UserGetProductUseCase
 import com.loopers.application.catalog.UserGetProductsUseCase
 import com.loopers.application.catalog.UserListProductsCriteria
@@ -27,7 +27,7 @@ import java.math.BigDecimal
 class UserProductUseCaseIntegrationTest @Autowired constructor(
     private val userGetProductUseCase: UserGetProductUseCase,
     private val userGetProductsUseCase: UserGetProductsUseCase,
-    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
+    private val brandService: BrandService,
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -43,8 +43,8 @@ class UserProductUseCaseIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun registerBrand(name: String = DEFAULT_BRAND_NAME): RegisterBrandResult {
-        return adminRegisterBrandUseCase.execute(RegisterBrandCriteria(name = name))
+    private fun registerBrand(name: String = DEFAULT_BRAND_NAME): BrandInfo {
+        return brandService.register(RegisterBrandCommand(name = name))
     }
 
     private fun registerProduct(

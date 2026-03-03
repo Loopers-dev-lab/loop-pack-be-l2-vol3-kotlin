@@ -1,14 +1,12 @@
 package com.loopers.domain.brand
 
 import com.loopers.application.catalog.AdminDeleteBrandUseCase
-import com.loopers.application.catalog.AdminGetBrandsUseCase
-import com.loopers.application.catalog.AdminRegisterBrandUseCase
 import com.loopers.application.catalog.AdminRegisterProductUseCase
-import com.loopers.application.catalog.AdminUpdateBrandUseCase
-import com.loopers.application.catalog.ListBrandsCriteria
-import com.loopers.application.catalog.RegisterBrandCriteria
 import com.loopers.application.catalog.RegisterProductCriteria
-import com.loopers.application.catalog.UpdateBrandCriteria
+import com.loopers.domain.catalog.BrandInfo
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
+import com.loopers.domain.catalog.UpdateBrandCommand
 import com.loopers.infrastructure.catalog.BrandJpaRepository
 import com.loopers.infrastructure.catalog.ProductJpaRepository
 import com.loopers.support.error.CoreException
@@ -24,12 +22,11 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.data.domain.PageRequest
 
 @SpringBootTest
 class BrandServiceIntegrationTest @Autowired constructor(
-    private val adminRegisterBrandUseCase: AdminRegisterBrandUseCase,
-    private val adminUpdateBrandUseCase: AdminUpdateBrandUseCase,
-    private val adminGetBrandsUseCase: AdminGetBrandsUseCase,
+    private val brandService: BrandService,
     private val adminDeleteBrandUseCase: AdminDeleteBrandUseCase,
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val brandJpaRepository: BrandJpaRepository,
@@ -47,11 +44,11 @@ class BrandServiceIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun createRegisterCriteria(
+    private fun createRegisterCommand(
         name: String = DEFAULT_NAME,
         description: String? = DEFAULT_DESCRIPTION,
         logoUrl: String? = DEFAULT_LOGO_URL,
-    ): RegisterBrandCriteria = RegisterBrandCriteria(
+    ): RegisterBrandCommand = RegisterBrandCommand(
         name = name,
         description = description,
         logoUrl = logoUrl,
@@ -65,10 +62,10 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun registersBrandWhenValidInfoIsProvided() {
             // arrange
-            val command = createRegisterCriteria()
+            val command = createRegisterCommand()
 
             // act
-            val result = adminRegisterBrandUseCase.execute(command)
+            val result = brandService.register(command)
 
             // assert
             assertThat(result.id).isNotNull()
@@ -78,12 +75,12 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsConflictExceptionWhenDuplicateNameIsProvided() {
             // arrange
-            adminRegisterBrandUseCase.execute(createRegisterCriteria())
-            val duplicateCommand = createRegisterCriteria()
+            brandService.register(createRegisterCommand())
+            val duplicateCommand = createRegisterCommand()
 
             // act
             val result = assertThrows<CoreException> {
-                adminRegisterBrandUseCase.execute(duplicateCommand)
+                brandService.register(duplicateCommand)
             }
 
             // assert
@@ -98,14 +95,14 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun updatesBrandWhenValidInfoIsProvided() {
             // arrange
-            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val brand = brandService.register(createRegisterCommand())
             val expectedName = "나이키 우먼"
             val expectedDescription = "여성용 나이키 스포츠 브랜드"
             val expectedLogoUrl = "https://example.com/nike-logo-women.png"
-            val command = UpdateBrandCriteria(brand.id, expectedName, expectedDescription, expectedLogoUrl)
+            val command = UpdateBrandCommand(expectedName, expectedDescription, expectedLogoUrl)
 
             // act
-            adminUpdateBrandUseCase.execute(command)
+            brandService.update(brand.id, command)
 
             // assert
             val updatedBrand = brandJpaRepository.findById(brand.id).get()
@@ -123,11 +120,11 @@ class BrandServiceIntegrationTest @Autowired constructor(
             val newName = "나이키 우먼"
             val newDescription = "여성용 나이키 스포츠 브랜드"
             val newLogoUrl = "https://example.com/nike-logo-women.png"
-            val command = UpdateBrandCriteria(999, newName, newDescription, newLogoUrl)
+            val command = UpdateBrandCommand(newName, newDescription, newLogoUrl)
 
             // act
             val result = assertThrows<CoreException> {
-                adminUpdateBrandUseCase.execute(command)
+                brandService.update(999, command)
             }
 
             // assert
@@ -138,12 +135,12 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun updatesBrandWhenSameNameIsProvided() {
             // arrange
-            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val brand = brandService.register(createRegisterCommand())
             val expectedDescription = "변경된 설명"
-            val command = UpdateBrandCriteria(brand.id, DEFAULT_NAME, expectedDescription, null)
+            val command = UpdateBrandCommand(DEFAULT_NAME, expectedDescription, null)
 
             // act
-            adminUpdateBrandUseCase.execute(command)
+            brandService.update(brand.id, command)
 
             // assert
             val updatedBrand = brandJpaRepository.findById(brand.id).get()
@@ -157,13 +154,13 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsConflictExceptionWhenDuplicateNameIsProvided() {
             // arrange
-            adminRegisterBrandUseCase.execute(createRegisterCriteria())
-            val anotherBrand = adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "아디다스"))
-            val command = UpdateBrandCriteria(anotherBrand.id, DEFAULT_NAME, null, null)
+            brandService.register(createRegisterCommand())
+            val anotherBrand = brandService.register(createRegisterCommand(name = "아디다스"))
+            val command = UpdateBrandCommand(DEFAULT_NAME, null, null)
 
             // act
             val result = assertThrows<CoreException> {
-                adminUpdateBrandUseCase.execute(command)
+                brandService.update(anotherBrand.id, command)
             }
 
             // assert
@@ -179,15 +176,15 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun returnsEmptyListWhenNoBrandsExist() {
             // arrange
-            val criteria = ListBrandsCriteria(page = 0, size = 10)
+            val pageable = PageRequest.of(0, 10)
 
             // act
-            val result = adminGetBrandsUseCase.execute(criteria)
+            val result = brandService.getBrands(pageable)
 
             // assert
             assertAll(
                 { assertThat(result.content).isEmpty() },
-                { assertThat(result.hasNext).isFalse() },
+                { assertThat(result.hasNext()).isFalse() },
             )
         }
 
@@ -195,17 +192,17 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun returnsBrandsWhenBrandsExist() {
             // arrange
-            adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "나이키"))
-            adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "아디다스"))
-            val criteria = ListBrandsCriteria(page = 0, size = 10)
+            brandService.register(createRegisterCommand(name = "나이키"))
+            brandService.register(createRegisterCommand(name = "아디다스"))
+            val pageable = PageRequest.of(0, 10)
 
             // act
-            val result = adminGetBrandsUseCase.execute(criteria)
+            val result = brandService.getBrands(pageable)
 
             // assert
             assertAll(
                 { assertThat(result.content).hasSize(2) },
-                { assertThat(result.hasNext).isFalse() },
+                { assertThat(result.hasNext()).isFalse() },
             )
         }
 
@@ -213,18 +210,18 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun returnsHasNextTrueWhenMoreBrandsExist() {
             // arrange
-            adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "나이키"))
-            adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "아디다스"))
-            adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "퓨마"))
-            val criteria = ListBrandsCriteria(page = 0, size = 2)
+            brandService.register(createRegisterCommand(name = "나이키"))
+            brandService.register(createRegisterCommand(name = "아디다스"))
+            brandService.register(createRegisterCommand(name = "퓨마"))
+            val pageable = PageRequest.of(0, 2)
 
             // act
-            val result = adminGetBrandsUseCase.execute(criteria)
+            val result = brandService.getBrands(pageable)
 
             // assert
             assertAll(
                 { assertThat(result.content).hasSize(2) },
-                { assertThat(result.hasNext).isTrue() },
+                { assertThat(result.hasNext()).isTrue() },
             )
         }
 
@@ -232,13 +229,13 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun excludesDeletedBrandsFromList() {
             // arrange
-            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "나이키"))
-            adminRegisterBrandUseCase.execute(createRegisterCriteria(name = "아디다스"))
+            val brand = brandService.register(createRegisterCommand(name = "나이키"))
+            brandService.register(createRegisterCommand(name = "아디다스"))
             adminDeleteBrandUseCase.execute(brand.id)
-            val criteria = ListBrandsCriteria(page = 0, size = 10)
+            val pageable = PageRequest.of(0, 10)
 
             // act
-            val result = adminGetBrandsUseCase.execute(criteria)
+            val result = brandService.getBrands(pageable)
 
             // assert
             assertAll(
@@ -256,7 +253,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun setsDeletedAtWhenBrandIsDeleted() {
             // arrange
-            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val brand = brandService.register(createRegisterCommand())
 
             // act
             adminDeleteBrandUseCase.execute(brand.id)
@@ -285,7 +282,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFoundExceptionWhenBrandIsAlreadyDeleted() {
             // arrange
-            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val brand = brandService.register(createRegisterCommand())
             adminDeleteBrandUseCase.execute(brand.id)
 
             // act
@@ -301,11 +298,11 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun allowsRegisteringBrandWithDeletedBrandName() {
             // arrange
-            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val brand = brandService.register(createRegisterCommand())
             adminDeleteBrandUseCase.execute(brand.id)
 
             // act
-            val newBrand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val newBrand = brandService.register(createRegisterCommand())
 
             // assert
             assertThat(newBrand.id).isNotEqualTo(brand.id)
@@ -315,7 +312,7 @@ class BrandServiceIntegrationTest @Autowired constructor(
         @Test
         fun cascadeDeletesProductsWhenBrandIsDeleted() {
             // arrange
-            val brand = adminRegisterBrandUseCase.execute(createRegisterCriteria())
+            val brand = brandService.register(createRegisterCommand())
             val product = adminRegisterProductUseCase.execute(
                 RegisterProductCriteria(
                     brandId = brand.id,

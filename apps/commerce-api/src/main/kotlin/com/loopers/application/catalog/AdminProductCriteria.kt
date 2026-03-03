@@ -9,13 +9,6 @@ data class RegisterProductCriteria(
     val price: BigDecimal,
 )
 
-data class UpdateProductCriteria(
-    val productId: Long,
-    val newName: String,
-    val newQuantity: Int,
-    val newPrice: BigDecimal,
-)
-
 data class ListProductsCriteria(
     val page: Int,
     val size: Int,

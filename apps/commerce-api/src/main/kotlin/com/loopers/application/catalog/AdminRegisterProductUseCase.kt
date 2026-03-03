@@ -1,34 +1,30 @@
 package com.loopers.application.catalog
 
 import com.loopers.application.UseCase
-import com.loopers.domain.catalog.BrandRepository
-import com.loopers.domain.catalog.ProductInfo
-import com.loopers.domain.catalog.ProductModel
-import com.loopers.domain.catalog.ProductRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.ProductService
+import com.loopers.domain.catalog.RegisterProductCommand
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class AdminRegisterProductUseCase(
-    private val productRepository: ProductRepository,
-    private val brandRepository: BrandRepository,
+    private val brandService: BrandService,
+    private val productService: ProductService,
 ) : UseCase<RegisterProductCriteria, RegisterProductResult> {
 
     @Transactional
     override fun execute(criteria: RegisterProductCriteria): RegisterProductResult {
-        brandRepository.findById(criteria.brandId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        brandService.getBrand(criteria.brandId)
 
-        val product = ProductModel(
-            brandId = criteria.brandId,
-            name = criteria.name,
-            quantity = criteria.quantity,
-            price = criteria.price,
+        val info = productService.register(
+            RegisterProductCommand(
+                brandId = criteria.brandId,
+                name = criteria.name,
+                quantity = criteria.quantity,
+                price = criteria.price,
+            ),
         )
-        val saved = productRepository.save(product)
-        val info = ProductInfo.from(saved)
         return RegisterProductResult.from(info)
     }
 }

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.catalog
 
-import com.loopers.application.catalog.UserGetBrandResult
+import com.loopers.domain.catalog.BrandInfo
 
 class BrandV1Dto {
     data class BrandResponse(
@@ -8,10 +8,10 @@ class BrandV1Dto {
         val name: String,
     ) {
         companion object {
-            fun from(result: UserGetBrandResult): BrandResponse {
+            fun from(info: BrandInfo): BrandResponse {
                 return BrandResponse(
-                    id = result.id,
-                    name = result.name,
+                    id = info.id,
+                    name = info.name,
                 )
             }
         }

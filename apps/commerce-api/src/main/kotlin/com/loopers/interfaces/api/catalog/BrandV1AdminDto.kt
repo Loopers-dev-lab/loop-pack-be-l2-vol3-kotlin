@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.catalog
 
-import com.loopers.application.catalog.GetBrandResult
-import com.loopers.application.catalog.ListBrandsResult
+import com.loopers.domain.catalog.BrandInfo
+import org.springframework.data.domain.Slice
 
 class BrandV1AdminDto {
     data class RegisterRequest(
@@ -15,10 +15,10 @@ class BrandV1AdminDto {
         val name: String,
     ) {
         companion object {
-            fun from(result: GetBrandResult): BrandResponse {
+            fun from(info: BrandInfo): BrandResponse {
                 return BrandResponse(
-                    id = result.id,
-                    name = result.name,
+                    id = info.id,
+                    name = info.name,
                 )
             }
         }
@@ -31,12 +31,12 @@ class BrandV1AdminDto {
         val logoUrl: String?,
     ) {
         companion object {
-            fun from(result: GetBrandResult): BrandDetailResponse {
+            fun from(info: BrandInfo): BrandDetailResponse {
                 return BrandDetailResponse(
-                    id = result.id,
-                    name = result.name,
-                    description = result.description,
-                    logoUrl = result.logoUrl,
+                    id = info.id,
+                    name = info.name,
+                    description = info.description,
+                    logoUrl = info.logoUrl,
                 )
             }
         }
@@ -49,12 +49,12 @@ class BrandV1AdminDto {
         val hasNext: Boolean,
     ) {
         companion object {
-            fun from(result: ListBrandsResult): BrandSliceResponse {
+            fun from(slice: Slice<BrandInfo>): BrandSliceResponse {
                 return BrandSliceResponse(
-                    content = result.content.map { BrandResponse.from(it) },
-                    page = result.page,
-                    size = result.size,
-                    hasNext = result.hasNext,
+                    content = slice.content.map { BrandResponse.from(it) },
+                    page = slice.number,
+                    size = slice.size,
+                    hasNext = slice.hasNext(),
                 )
             }
         }
