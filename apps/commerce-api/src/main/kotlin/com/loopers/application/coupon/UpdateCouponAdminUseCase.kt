@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.coupon.repository.CouponRepository
@@ -15,7 +16,7 @@ class UpdateCouponAdminUseCase(
 ) {
     @Transactional
     fun execute(couponId: Long, command: CouponCommand.UpdateCoupon): CouponInfo {
-        val coupon = couponRepository.findById(couponId)
+        val coupon = couponRepository.findById(CouponId(couponId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
         if (coupon.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
@@ -33,7 +34,13 @@ class UpdateCouponAdminUseCase(
             maxDiscount = if (command.maxDiscount != null) Money(command.maxDiscount) else coupon.maxDiscount,
             minOrderAmount = if (command.minOrderAmount != null) Money(command.minOrderAmount) else coupon.minOrderAmount,
             totalQuantity = command.totalQuantity ?: coupon.totalQuantity,
-            expiredAt = command.expiredAt?.let { ZonedDateTime.parse(it) } ?: coupon.expiredAt,
+            expiredAt = command.expiredAt?.let {
+                try {
+                    ZonedDateTime.parse(it)
+                } catch (e: Exception) {
+                    throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 만료일 형식입니다: $it")
+                }
+            } ?: coupon.expiredAt,
         )
 
         val saved = couponRepository.save(coupon)

@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
@@ -84,14 +85,14 @@ class OrderTest {
                     OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
                 ),
                 discountAmount = Money(BigDecimal("3000")),
-                refCouponId = 100L,
+                refCouponId = CouponId(100L),
             )
 
             // assert
             assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
             assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("3000"))
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("17000"))
-            assertThat(order.refCouponId).isEqualTo(100L)
+            assertThat(order.refCouponId).isEqualTo(CouponId(100L))
         }
     }
 
@@ -151,6 +152,53 @@ class OrderTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Nested
+    @DisplayName("할인 금액 불변식")
+    inner class DiscountAmountInvariant {
+
+        @Test
+        @DisplayName("음수 할인 금액으로 생성하면 예외가 발생한다")
+        fun create_negativeDiscount_throwsException() {
+            // arrange & act & assert
+            assertThrows<CoreException> {
+                Money(BigDecimal.valueOf(-1000))
+            }
+        }
+
+        @Test
+        @DisplayName("할인 금액이 원가를 초과하면 예외가 발생한다")
+        fun create_excessiveDiscount_throwsException() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            // items의 원가: 10000 * 2 = 20000
+            val excessiveDiscount = Money(BigDecimal("20001"))
+
+            // act & assert
+            assertThrows<IllegalArgumentException> {
+                Order.create(UserId(1L), items, excessiveDiscount)
+            }
+        }
+
+        @Test
+        @DisplayName("정상 할인 금액으로 주문을 생성한다")
+        fun create_validDiscount_success() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            val validDiscount = Money(BigDecimal("1000"))
+
+            // act
+            val order = Order.create(UserId(1L), items, validDiscount)
+
+            // assert
+            assertThat(order.discountAmount).isEqualTo(validDiscount)
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("19000"))
         }
     }
 }

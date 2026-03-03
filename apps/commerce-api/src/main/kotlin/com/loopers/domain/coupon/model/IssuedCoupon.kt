@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon.model
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -7,7 +8,7 @@ import java.time.ZonedDateTime
 
 class IssuedCoupon(
     val id: Long = 0,
-    val refCouponId: Long,
+    val refCouponId: CouponId,
     val refUserId: UserId,
     status: CouponStatus = CouponStatus.AVAILABLE,
     usedAt: ZonedDateTime? = null,

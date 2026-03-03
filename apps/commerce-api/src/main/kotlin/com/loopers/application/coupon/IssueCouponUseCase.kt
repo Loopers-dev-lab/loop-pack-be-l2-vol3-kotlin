@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.IssuedCoupon
 import com.loopers.domain.coupon.repository.CouponRepository
@@ -18,7 +19,8 @@ class IssueCouponUseCase(
 
     @Transactional
     fun execute(userId: Long, couponId: Long): IssuedCouponInfo {
-        val coupon = couponRepository.findByIdForUpdate(couponId)
+        val couponIdVo = CouponId(couponId)
+        val coupon = couponRepository.findByIdForUpdate(couponIdVo)
             ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
 
         if (coupon.isDeleted()) {
@@ -30,7 +32,7 @@ class IssueCouponUseCase(
         }
 
         val userIdVo = UserId(userId)
-        val existing = issuedCouponRepository.findByRefCouponIdAndRefUserId(couponId, userIdVo)
+        val existing = issuedCouponRepository.findByRefCouponIdAndRefUserId(couponIdVo, userIdVo)
         if (existing != null) {
             throw CoreException(ErrorType.BAD_REQUEST, "이미 발급받은 쿠폰입니다.")
         }

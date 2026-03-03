@@ -21,7 +21,7 @@ data class OrderInfo(
             originalPrice = detail.order.originalPrice.value,
             discountAmount = detail.order.discountAmount.value,
             totalPrice = detail.order.totalPrice.value,
-            couponId = detail.order.refCouponId,
+            couponId = detail.order.refCouponId?.value,
             items = detail.items.map { OrderItemInfo.from(it) },
         )
     }

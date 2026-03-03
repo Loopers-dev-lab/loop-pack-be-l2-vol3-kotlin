@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.UserId
@@ -39,7 +40,7 @@ class OrderEntity(
                 originalPrice = order.originalPrice.value,
                 discountAmount = order.discountAmount.value,
                 totalPrice = order.totalPrice.value,
-                refCouponId = order.refCouponId,
+                refCouponId = order.refCouponId?.value,
             ).withBaseFields(
                 id = order.id.value,
                 deletedAt = order.deletedAt,
@@ -54,7 +55,7 @@ class OrderEntity(
         originalPrice = Money(originalPrice),
         discountAmount = Money(discountAmount),
         totalPrice = Money(totalPrice),
-        refCouponId = refCouponId,
+        refCouponId = refCouponId?.let { CouponId(it) },
         deletedAt = deletedAt,
     )
 }

@@ -42,7 +42,7 @@ class DeleteCouponAdminUseCaseTest {
             val coupon = createCoupon()
 
             // act
-            useCase.execute(coupon.id)
+            useCase.execute(coupon.id.value)
 
             // assert
             val deleted = couponRepository.findById(coupon.id)
@@ -58,7 +58,7 @@ class DeleteCouponAdminUseCaseTest {
             couponRepository.save(coupon)
 
             // act & assert — 예외 없이 정상 반환
-            useCase.execute(coupon.id)
+            useCase.execute(coupon.id.value)
         }
 
         @Test

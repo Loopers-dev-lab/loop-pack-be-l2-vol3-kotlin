@@ -57,11 +57,11 @@ class IssueCouponUseCaseTest {
             val userId = 1L
 
             // act
-            val result = issueCouponUseCase.execute(userId, coupon.id)
+            val result = issueCouponUseCase.execute(userId, coupon.id.value)
 
             // assert
             assertThat(result.id).isNotEqualTo(0L)
-            assertThat(result.couponId).isEqualTo(coupon.id)
+            assertThat(result.couponId).isEqualTo(coupon.id.value)
             assertThat(result.userId).isEqualTo(userId)
             assertThat(result.status).isEqualTo("AVAILABLE")
 
@@ -94,7 +94,7 @@ class IssueCouponUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                issueCouponUseCase.execute(userId, coupon.id)
+                issueCouponUseCase.execute(userId, coupon.id.value)
             }
 
             // assert
@@ -110,7 +110,7 @@ class IssueCouponUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                issueCouponUseCase.execute(userId, coupon.id)
+                issueCouponUseCase.execute(userId, coupon.id.value)
             }
 
             // assert
@@ -126,7 +126,7 @@ class IssueCouponUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                issueCouponUseCase.execute(userId, coupon.id)
+                issueCouponUseCase.execute(userId, coupon.id.value)
             }
 
             // assert
@@ -139,11 +139,11 @@ class IssueCouponUseCaseTest {
             // arrange
             val coupon = createCoupon()
             val userId = 1L
-            issueCouponUseCase.execute(userId, coupon.id)
+            issueCouponUseCase.execute(userId, coupon.id.value)
 
             // act
             val exception = assertThrows<CoreException> {
-                issueCouponUseCase.execute(userId, coupon.id)
+                issueCouponUseCase.execute(userId, coupon.id.value)
             }
 
             // assert

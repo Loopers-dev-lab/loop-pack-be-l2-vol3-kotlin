@@ -21,5 +21,19 @@ object CouponCommand {
         val minOrderAmount: BigDecimal?,
         val totalQuantity: Int?,
         val expiredAt: String?,
-    )
+    ) {
+        init {
+            require(
+                name != null ||
+                    type != null ||
+                    value != null ||
+                    maxDiscount != null ||
+                    minOrderAmount != null ||
+                    totalQuantity != null ||
+                    expiredAt != null,
+            ) {
+                "수정할 항목이 최소 하나 이상 있어야 합니다."
+            }
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.FakeCouponRepository
 import com.loopers.domain.coupon.FakeIssuedCouponRepository
@@ -37,7 +38,7 @@ class GetMyCouponsUseCaseTest {
         )
     }
 
-    private fun createIssuedCoupon(couponId: Long, userId: Long): IssuedCoupon {
+    private fun createIssuedCoupon(couponId: CouponId, userId: Long): IssuedCoupon {
         return issuedCouponRepository.save(
             IssuedCoupon(
                 refCouponId = couponId,

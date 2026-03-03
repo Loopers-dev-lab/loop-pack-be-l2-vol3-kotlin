@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.coupon
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.withBaseFields
@@ -46,14 +47,14 @@ class CouponEntity(
                 issuedCount = coupon.issuedCount,
                 expiredAt = coupon.expiredAt,
             ).withBaseFields(
-                id = coupon.id,
+                id = coupon.id.value,
                 deletedAt = coupon.deletedAt,
             )
         }
     }
 
     fun toDomain(): Coupon = Coupon(
-        id = id,
+        id = CouponId(id),
         name = name,
         type = type,
         value = value,

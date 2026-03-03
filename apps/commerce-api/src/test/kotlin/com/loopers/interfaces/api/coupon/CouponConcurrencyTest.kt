@@ -27,7 +27,9 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import org.junit.jupiter.api.Timeout
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CouponConcurrencyTest @Autowired constructor(
@@ -97,6 +99,7 @@ class CouponConcurrencyTest @Autowired constructor(
     inner class ConcurrentCouponIssue {
 
         @Test
+        @Timeout(60)
         @DisplayName("totalQuantity=10인 쿠폰에 50명이 동시에 발급 요청하면 10명만 성공한다")
         fun concurrentIssue_onlyTotalQuantitySucceeds() {
             // arrange
@@ -109,6 +112,8 @@ class CouponConcurrencyTest @Autowired constructor(
             }
 
             val executorService = Executors.newFixedThreadPool(concurrentUsers)
+            val readyLatch = CountDownLatch(concurrentUsers)
+            val startLatch = CountDownLatch(1)
             val latch = CountDownLatch(concurrentUsers)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
@@ -117,6 +122,8 @@ class CouponConcurrencyTest @Autowired constructor(
             for (i in 1..concurrentUsers) {
                 executorService.submit {
                     try {
+                        readyLatch.countDown()
+                        startLatch.await(30, TimeUnit.SECONDS)
                         val responseType =
                             object : ParameterizedTypeReference<ApiResponse<Any>>() {}
                         val response = testRestTemplate.exchange(
@@ -130,13 +137,17 @@ class CouponConcurrencyTest @Autowired constructor(
                         } else {
                             failCount.incrementAndGet()
                         }
+                    } catch (e: Exception) {
+                        failCount.incrementAndGet()
                     } finally {
                         latch.countDown()
                     }
                 }
             }
 
-            latch.await()
+            readyLatch.await(30, TimeUnit.SECONDS)
+            startLatch.countDown()
+            latch.await(30, TimeUnit.SECONDS)
             executorService.shutdown()
 
             // assert - 어드민 API로 issuedCount 확인

@@ -41,6 +41,9 @@ class RegisterUserUseCaseTest {
 
             // assert
             assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
+            assertThat(result.name).isEqualTo(UserTestFixture.DEFAULT_NAME)
+            assertThat(result.email).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
+            assertThat(result.birthDate).isEqualTo(UserTestFixture.DEFAULT_BIRTH_DATE)
         }
 
         @Test

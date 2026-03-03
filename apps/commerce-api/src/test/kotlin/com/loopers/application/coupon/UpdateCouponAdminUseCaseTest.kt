@@ -59,7 +59,7 @@ class UpdateCouponAdminUseCaseTest {
             )
 
             // act
-            val result = useCase.execute(coupon.id, command)
+            val result = useCase.execute(coupon.id.value, command)
 
             // assert
             assertThat(result.name).isEqualTo("수정된 쿠폰")
@@ -108,11 +108,55 @@ class UpdateCouponAdminUseCaseTest {
 
             // act
             val exception = assertThrows<CoreException> {
-                useCase.execute(coupon.id, command)
+                useCase.execute(coupon.id.value, command)
             }
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("모든 필드가 null인 커맨드를 전달하면 예외가 발생한다")
+        fun updateCoupon_allNullCommand_throwsException() {
+            // arrange
+            val coupon = createCoupon()
+
+            // act & assert
+            assertThrows<IllegalArgumentException> {
+                CouponCommand.UpdateCoupon(
+                    name = null,
+                    type = null,
+                    value = null,
+                    maxDiscount = null,
+                    minOrderAmount = null,
+                    totalQuantity = null,
+                    expiredAt = null,
+                )
+            }
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 만료일 형식이면 BAD_REQUEST 예외가 발생한다")
+        fun updateCoupon_invalidExpiredAt_throwsBadRequest() {
+            // arrange
+            val coupon = createCoupon()
+            val command = CouponCommand.UpdateCoupon(
+                name = null,
+                type = null,
+                value = null,
+                maxDiscount = null,
+                minOrderAmount = null,
+                totalQuantity = null,
+                expiredAt = "invalid-date",
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(coupon.id.value, command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

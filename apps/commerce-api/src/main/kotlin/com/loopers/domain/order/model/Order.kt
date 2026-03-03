@@ -1,5 +1,6 @@
 package com.loopers.domain.order.model
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.annotation.AggregateRootOnly
 import com.loopers.domain.common.vo.OrderId
@@ -16,7 +17,7 @@ class Order private constructor(
     val originalPrice: Money,
     val discountAmount: Money,
     totalPrice: Money,
-    val refCouponId: Long? = null,
+    val refCouponId: CouponId? = null,
     val items: List<OrderItem> = emptyList(),
     val deletedAt: ZonedDateTime? = null,
 ) {
@@ -51,7 +52,7 @@ class Order private constructor(
             userId: UserId,
             items: List<Pair<OrderProductData, Quantity>>,
             discountAmount: Money = Money(BigDecimal.ZERO),
-            refCouponId: Long? = null,
+            refCouponId: CouponId? = null,
         ): Order {
             require(items.isNotEmpty()) { "주문은 최소 하나 이상의 항목을 포함해야 합니다." }
             val orderItems = items.map { (info, quantity) ->
@@ -60,6 +61,8 @@ class Order private constructor(
             val originalPrice = orderItems.fold(Money(BigDecimal.ZERO)) { acc, item ->
                 acc + (item.productPrice * item.quantity.value)
             }
+            require(discountAmount.value >= BigDecimal.ZERO) { "할인 금액은 0 이상이어야 합니다." }
+            require(discountAmount.value <= originalPrice.value) { "할인 금액은 원래 가격을 초과할 수 없습니다." }
             val totalPrice = originalPrice - discountAmount
             return Order(
                 refUserId = userId,
@@ -79,7 +82,7 @@ class Order private constructor(
             originalPrice: Money,
             discountAmount: Money,
             totalPrice: Money,
-            refCouponId: Long?,
+            refCouponId: CouponId?,
             deletedAt: ZonedDateTime?,
             items: List<OrderItem> = emptyList(),
         ): Order {

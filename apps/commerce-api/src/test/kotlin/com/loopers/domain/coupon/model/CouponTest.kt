@@ -146,6 +146,19 @@ class CouponTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).isEqualTo("총 수량은 0보다 커야 합니다.")
         }
+
+        @Test
+        @DisplayName("issuedCount가 totalQuantity를 초과하면 BAD_REQUEST 예외가 발생한다")
+        fun create_issuedCountExceedsTotalQuantity_throwsException() {
+            // act
+            val exception = assertThrows<CoreException> {
+                fixedCoupon(totalQuantity = 5, issuedCount = 6)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("발급 수량이 총 수량을 초과할 수 없습니다.")
+        }
     }
 
     @Nested

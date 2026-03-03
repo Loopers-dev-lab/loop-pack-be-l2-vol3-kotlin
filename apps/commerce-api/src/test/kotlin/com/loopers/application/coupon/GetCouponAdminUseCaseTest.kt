@@ -45,10 +45,10 @@ class GetCouponAdminUseCaseTest {
             val coupon = createCoupon("신규 가입 쿠폰")
 
             // act
-            val result = useCase.execute(coupon.id)
+            val result = useCase.execute(coupon.id.value)
 
             // assert
-            assertThat(result.id).isEqualTo(coupon.id)
+            assertThat(result.id).isEqualTo(coupon.id.value)
             assertThat(result.name).isEqualTo("신규 가입 쿠폰")
         }
 

@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.FakeCouponRepository
 import com.loopers.domain.coupon.FakeIssuedCouponRepository
@@ -58,14 +59,14 @@ class GetCouponIssuesAdminUseCaseTest {
             // 다른 쿠폰의 발급 내역은 조회되지 않아야 함
             issuedCouponRepository.save(
                 IssuedCoupon(
-                    refCouponId = 999L,
+                    refCouponId = CouponId(999L),
                     refUserId = UserId(3L),
                     createdAt = ZonedDateTime.now(),
                 ),
             )
 
             // act
-            val result = useCase.execute(coupon.id, 0, 10)
+            val result = useCase.execute(coupon.id.value, 0, 10)
 
             // assert
             assertThat(result.content).hasSize(2)

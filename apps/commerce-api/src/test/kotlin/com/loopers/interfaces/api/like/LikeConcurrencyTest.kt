@@ -26,7 +26,9 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import org.junit.jupiter.api.Timeout
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LikeConcurrencyTest @Autowired constructor(
@@ -102,6 +104,7 @@ class LikeConcurrencyTest @Autowired constructor(
     inner class ConcurrentLike {
 
         @Test
+        @Timeout(60)
         @DisplayName("N명이 동시에 같은 상품에 좋아요하면 likeCount가 N이 된다")
         fun concurrentLike_likeCountEqualsN() {
             // arrange
@@ -113,6 +116,8 @@ class LikeConcurrencyTest @Autowired constructor(
             }
 
             val executorService = Executors.newFixedThreadPool(concurrentUsers)
+            val readyLatch = CountDownLatch(concurrentUsers)
+            val startLatch = CountDownLatch(1)
             val latch = CountDownLatch(concurrentUsers)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
@@ -121,6 +126,8 @@ class LikeConcurrencyTest @Autowired constructor(
             for (i in 1..concurrentUsers) {
                 executorService.submit {
                     try {
+                        readyLatch.countDown()
+                        startLatch.await(30, TimeUnit.SECONDS)
                         val responseType =
                             object : ParameterizedTypeReference<ApiResponse<Any>>() {}
                         val response = testRestTemplate.exchange(
@@ -134,13 +141,17 @@ class LikeConcurrencyTest @Autowired constructor(
                         } else {
                             failCount.incrementAndGet()
                         }
+                    } catch (e: Exception) {
+                        failCount.incrementAndGet()
                     } finally {
                         latch.countDown()
                     }
                 }
             }
 
-            latch.await()
+            readyLatch.await(30, TimeUnit.SECONDS)
+            startLatch.countDown()
+            latch.await(30, TimeUnit.SECONDS)
             executorService.shutdown()
 
             // assert - 어드민 API로 likeCount 확인

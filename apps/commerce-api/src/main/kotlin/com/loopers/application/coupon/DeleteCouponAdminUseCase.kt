@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.coupon.repository.CouponRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -10,7 +11,7 @@ class DeleteCouponAdminUseCase(
 ) {
     @Transactional
     fun execute(couponId: Long) {
-        val coupon = couponRepository.findById(couponId) ?: return
+        val coupon = couponRepository.findById(CouponId(couponId)) ?: return
         if (coupon.isDeleted()) return
         coupon.delete()
         couponRepository.save(coupon)

@@ -18,7 +18,7 @@ data class CouponInfo(
 ) {
     companion object {
         fun from(coupon: Coupon): CouponInfo = CouponInfo(
-            id = coupon.id,
+            id = coupon.id.value,
             name = coupon.name,
             type = coupon.type.name,
             value = coupon.value,
@@ -42,7 +42,7 @@ data class IssuedCouponInfo(
     companion object {
         fun from(issuedCoupon: IssuedCoupon): IssuedCouponInfo = IssuedCouponInfo(
             id = issuedCoupon.id,
-            couponId = issuedCoupon.refCouponId,
+            couponId = issuedCoupon.refCouponId.value,
             userId = issuedCoupon.refUserId.value,
             status = issuedCoupon.status.name,
             usedAt = issuedCoupon.usedAt?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),

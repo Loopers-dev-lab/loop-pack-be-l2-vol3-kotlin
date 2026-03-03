@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.coupon
 
 import com.loopers.domain.PageResult
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.IssuedCoupon
 import com.loopers.domain.coupon.repository.IssuedCouponRepository
@@ -8,6 +9,7 @@ import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
@@ -37,15 +39,15 @@ class IssuedCouponRepositoryImpl(
     override fun findByIdForUpdate(id: Long): IssuedCoupon? =
         issuedCouponJpaRepository.findWithLockById(id)?.toDomain()
 
-    override fun findByRefCouponIdAndRefUserId(couponId: Long, userId: UserId): IssuedCoupon? =
-        issuedCouponJpaRepository.findByRefCouponIdAndRefUserId(couponId, userId.value)?.toDomain()
+    override fun findByRefCouponIdAndRefUserId(couponId: CouponId, userId: UserId): IssuedCoupon? =
+        issuedCouponJpaRepository.findByRefCouponIdAndRefUserId(couponId.value, userId.value)?.toDomain()
 
     override fun findAllByRefUserId(userId: UserId): List<IssuedCoupon> =
         issuedCouponJpaRepository.findAllByRefUserId(userId.value).map { it.toDomain() }
 
-    override fun findAllByRefCouponId(couponId: Long, page: Int, size: Int): PageResult<IssuedCoupon> {
-        val pageable = PageRequest.of(page, size)
-        val result = issuedCouponJpaRepository.findAllByRefCouponId(couponId, pageable)
+    override fun findAllByRefCouponId(couponId: CouponId, page: Int, size: Int): PageResult<IssuedCoupon> {
+        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))
+        val result = issuedCouponJpaRepository.findAllByRefCouponId(couponId.value, pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 }

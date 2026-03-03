@@ -1,6 +1,7 @@
 package com.loopers.application.order
 
 import com.loopers.domain.catalog.product.repository.ProductRepository
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
@@ -45,17 +46,15 @@ class PlaceOrderUseCase(
                 throw CoreException(ErrorType.BAD_REQUEST, "주문 가능한 상태가 아닌 상품이 포함되어 있습니다.")
             }
             val quantity = Quantity(item.quantity)
-            product.decreaseStock(quantity)
             OrderProductData(product.id, product.name, product.price) to quantity
         }
-        productRepository.saveAll(products)
 
         // 쿠폰 할인 계산
         val originalPrice = orderItemInputs.fold(Money(BigDecimal.ZERO)) { acc, (data, qty) ->
             acc + (data.price * qty.value)
         }
         var discountAmount = Money(BigDecimal.ZERO)
-        var refCouponId: Long? = null
+        var refCouponId: CouponId? = null
 
         if (command.couponId != null) {
             val issuedCoupon = issuedCouponRepository.findByIdForUpdate(command.couponId)
@@ -84,8 +83,15 @@ class PlaceOrderUseCase(
             discountAmount = coupon.calculateDiscount(originalPrice)
             issuedCoupon.use()
             issuedCouponRepository.save(issuedCoupon)
-            refCouponId = command.couponId
+            refCouponId = command.couponId?.let { CouponId(it) }
         }
+
+        // 재고 차감 (쿠폰 검증 통과 후)
+        command.items.forEach { item ->
+            val product = productMap[ProductId(item.productId)]!!
+            product.decreaseStock(Quantity(item.quantity))
+        }
+        productRepository.saveAll(products)
 
         val order = Order.create(UserId(userId), orderItemInputs, discountAmount, refCouponId)
         val savedOrder = orderRepository.save(order)

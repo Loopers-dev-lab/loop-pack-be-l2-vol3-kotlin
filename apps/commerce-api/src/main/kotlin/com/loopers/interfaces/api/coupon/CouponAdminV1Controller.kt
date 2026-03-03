@@ -10,7 +10,6 @@ import com.loopers.interfaces.api.coupon.dto.CouponAdminV1Dto
 import com.loopers.interfaces.api.coupon.spec.CouponAdminV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.toSpringPage
-import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -48,7 +47,7 @@ class CouponAdminV1Controller(
 
     @PostMapping
     override fun createCoupon(
-        @Valid @RequestBody request: CouponAdminV1Dto.CreateCouponRequest,
+        @RequestBody request: CouponAdminV1Dto.CreateCouponRequest,
     ): ApiResponse<CouponAdminV1Dto.CouponAdminResponse> {
         return createCouponAdminUseCase.execute(request.toCommand())
             .let { CouponAdminV1Dto.CouponAdminResponse.from(it) }
@@ -67,7 +66,7 @@ class CouponAdminV1Controller(
     @PutMapping("/{couponId}")
     override fun updateCoupon(
         @PathVariable couponId: Long,
-        @Valid @RequestBody request: CouponAdminV1Dto.UpdateCouponRequest,
+        @RequestBody request: CouponAdminV1Dto.UpdateCouponRequest,
     ): ApiResponse<CouponAdminV1Dto.CouponAdminResponse> {
         return updateCouponAdminUseCase.execute(couponId, request.toCommand())
             .let { CouponAdminV1Dto.CouponAdminResponse.from(it) }

@@ -1,6 +1,7 @@
 package com.loopers.domain.coupon
 
 import com.loopers.domain.PageResult
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.coupon.repository.CouponRepository
 
@@ -10,13 +11,13 @@ class FakeCouponRepository : CouponRepository {
     private var sequence = 1L
 
     override fun save(coupon: Coupon): Coupon {
-        if (coupon.id != 0L) {
+        if (coupon.id != CouponId(0)) {
             coupons.removeIf { it.id == coupon.id }
             coupons.add(coupon)
             return coupon
         }
         val saved = Coupon(
-            id = sequence++,
+            id = CouponId(sequence++),
             name = coupon.name,
             type = coupon.type,
             value = coupon.value,
@@ -31,11 +32,11 @@ class FakeCouponRepository : CouponRepository {
         return saved
     }
 
-    override fun findById(id: Long): Coupon? {
+    override fun findById(id: CouponId): Coupon? {
         return coupons.find { it.id == id }
     }
 
-    override fun findByIdForUpdate(id: Long): Coupon? {
+    override fun findByIdForUpdate(id: CouponId): Coupon? {
         return coupons.find { it.id == id }
     }
 
@@ -50,5 +51,9 @@ class FakeCouponRepository : CouponRepository {
         val offset = page * size
         val content = coupons.drop(offset).take(size)
         return PageResult(content, coupons.size.toLong(), page, size)
+    }
+
+    override fun findAllByIds(ids: List<CouponId>): List<Coupon> {
+        return coupons.filter { it.id in ids }
     }
 }

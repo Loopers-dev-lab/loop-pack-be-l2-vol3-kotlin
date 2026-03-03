@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.coupon.repository.CouponRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -12,7 +13,7 @@ class GetCouponAdminUseCase(
 ) {
     @Transactional(readOnly = true)
     fun execute(couponId: Long): CouponInfo {
-        val coupon = couponRepository.findById(couponId)
+        val coupon = couponRepository.findById(CouponId(couponId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
         return CouponInfo.from(coupon)
     }

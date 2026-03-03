@@ -1,6 +1,7 @@
 package com.loopers.domain.coupon
 
 import com.loopers.domain.PageResult
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.IssuedCoupon
 import com.loopers.domain.coupon.repository.IssuedCouponRepository
@@ -36,7 +37,7 @@ class FakeIssuedCouponRepository : IssuedCouponRepository {
         return issuedCoupons.find { it.id == id }
     }
 
-    override fun findByRefCouponIdAndRefUserId(couponId: Long, userId: UserId): IssuedCoupon? {
+    override fun findByRefCouponIdAndRefUserId(couponId: CouponId, userId: UserId): IssuedCoupon? {
         return issuedCoupons.find { it.refCouponId == couponId && it.refUserId == userId }
     }
 
@@ -44,7 +45,7 @@ class FakeIssuedCouponRepository : IssuedCouponRepository {
         return issuedCoupons.filter { it.refUserId == userId }
     }
 
-    override fun findAllByRefCouponId(couponId: Long, page: Int, size: Int): PageResult<IssuedCoupon> {
+    override fun findAllByRefCouponId(couponId: CouponId, page: Int, size: Int): PageResult<IssuedCoupon> {
         val filtered = issuedCoupons.filter { it.refCouponId == couponId }
         val offset = page * size
         val content = filtered.drop(offset).take(size)

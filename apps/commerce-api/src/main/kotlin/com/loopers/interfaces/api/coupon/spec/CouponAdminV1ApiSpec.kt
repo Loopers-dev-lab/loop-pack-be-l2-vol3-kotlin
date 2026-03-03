@@ -25,20 +25,20 @@ interface CouponAdminV1ApiSpec {
     ): ApiResponse<CouponAdminV1Dto.CouponAdminResponse>
 
     @Operation(summary = "쿠폰 상세 조회 (관리자)", description = "관리자가 쿠폰을 조회합니다.")
-    fun getCoupon(couponId: Long): ApiResponse<CouponAdminV1Dto.CouponAdminResponse>
+    fun getCoupon(@Positive couponId: Long): ApiResponse<CouponAdminV1Dto.CouponAdminResponse>
 
     @Operation(summary = "쿠폰 수정", description = "쿠폰을 수정합니다.")
     fun updateCoupon(
-        couponId: Long,
+        @Positive couponId: Long,
         @Valid request: CouponAdminV1Dto.UpdateCouponRequest,
     ): ApiResponse<CouponAdminV1Dto.CouponAdminResponse>
 
     @Operation(summary = "쿠폰 삭제", description = "쿠폰을 삭제합니다.")
-    fun deleteCoupon(couponId: Long): ApiResponse<Any>
+    fun deleteCoupon(@Positive couponId: Long): ApiResponse<Any>
 
     @Operation(summary = "쿠폰 발급 내역 조회 (관리자)", description = "관리자가 쿠폰 발급 내역을 조회합니다.")
     fun getCouponIssues(
-        couponId: Long,
+        @Positive couponId: Long,
         @PositiveOrZero page: Int,
         @Positive @Max(100) size: Int,
     ): ApiResponse<Page<CouponAdminV1Dto.IssuedCouponAdminResponse>>

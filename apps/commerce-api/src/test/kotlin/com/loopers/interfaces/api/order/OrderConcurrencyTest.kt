@@ -30,7 +30,9 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import org.junit.jupiter.api.Timeout
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class OrderConcurrencyTest @Autowired constructor(
@@ -138,6 +140,7 @@ class OrderConcurrencyTest @Autowired constructor(
     inner class ConcurrentCouponUsage {
 
         @Test
+        @Timeout(60)
         @DisplayName("동일한 발급 쿠폰으로 여러 스레드에서 동시 주문 시 1건만 성공한다")
         fun concurrentOrderWithSameCoupon_onlyOneSucceeds() {
             // arrange
@@ -150,6 +153,8 @@ class OrderConcurrencyTest @Autowired constructor(
 
             val concurrentRequests = 10
             val executorService = Executors.newFixedThreadPool(concurrentRequests)
+            val readyLatch = CountDownLatch(concurrentRequests)
+            val startLatch = CountDownLatch(1)
             val latch = CountDownLatch(concurrentRequests)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
@@ -158,6 +163,8 @@ class OrderConcurrencyTest @Autowired constructor(
             for (i in 1..concurrentRequests) {
                 executorService.submit {
                     try {
+                        readyLatch.countDown()
+                        startLatch.await(30, TimeUnit.SECONDS)
                         val orderRequest = OrderV1Dto.CreateOrderRequest(
                             items = listOf(
                                 OrderV1Dto.CreateOrderItemRequest(
@@ -180,13 +187,17 @@ class OrderConcurrencyTest @Autowired constructor(
                         } else {
                             failCount.incrementAndGet()
                         }
+                    } catch (e: Exception) {
+                        failCount.incrementAndGet()
                     } finally {
                         latch.countDown()
                     }
                 }
             }
 
-            latch.await()
+            readyLatch.await(30, TimeUnit.SECONDS)
+            startLatch.countDown()
+            latch.await(30, TimeUnit.SECONDS)
             executorService.shutdown()
 
             // assert
@@ -202,6 +213,7 @@ class OrderConcurrencyTest @Autowired constructor(
     inner class ConcurrentStockDeduction {
 
         @Test
+        @Timeout(60)
         @DisplayName("재고 10개 상품에 20명이 동시 주문하면 최대 10건만 성공한다")
         fun concurrentOrder_stockLimitEnforced() {
             // arrange
@@ -215,6 +227,8 @@ class OrderConcurrencyTest @Autowired constructor(
             }
 
             val executorService = Executors.newFixedThreadPool(concurrentUsers)
+            val readyLatch = CountDownLatch(concurrentUsers)
+            val startLatch = CountDownLatch(1)
             val latch = CountDownLatch(concurrentUsers)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
@@ -223,6 +237,8 @@ class OrderConcurrencyTest @Autowired constructor(
             for (i in 1..concurrentUsers) {
                 executorService.submit {
                     try {
+                        readyLatch.countDown()
+                        startLatch.await(30, TimeUnit.SECONDS)
                         val orderRequest = OrderV1Dto.CreateOrderRequest(
                             items = listOf(
                                 OrderV1Dto.CreateOrderItemRequest(
@@ -244,13 +260,17 @@ class OrderConcurrencyTest @Autowired constructor(
                         } else {
                             failCount.incrementAndGet()
                         }
+                    } catch (e: Exception) {
+                        failCount.incrementAndGet()
                     } finally {
                         latch.countDown()
                     }
                 }
             }
 
-            latch.await()
+            readyLatch.await(30, TimeUnit.SECONDS)
+            startLatch.countDown()
+            latch.await(30, TimeUnit.SECONDS)
             executorService.shutdown()
 
             // assert - 어드민 API로 최종 재고 확인

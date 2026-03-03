@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon.model
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -13,7 +14,7 @@ import java.time.ZonedDateTime
 class IssuedCouponTest {
 
     private fun issuedCoupon(
-        refCouponId: Long = 1L,
+        refCouponId: CouponId = CouponId(1L),
         refUserId: UserId = UserId(1L),
         status: IssuedCoupon.CouponStatus = IssuedCoupon.CouponStatus.AVAILABLE,
         usedAt: ZonedDateTime? = null,

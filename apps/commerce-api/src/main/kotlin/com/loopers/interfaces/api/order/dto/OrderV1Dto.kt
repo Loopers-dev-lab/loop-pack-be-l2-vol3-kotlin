@@ -14,6 +14,7 @@ class OrderV1Dto {
         @field:NotEmpty(message = "주문 항목은 필수입니다.")
         @field:Valid
         val items: List<CreateOrderItemRequest>,
+        @field:Min(value = 1, message = "쿠폰 ID는 1 이상이어야 합니다.")
         val couponId: Long? = null,
     ) {
         fun toCommand(): PlaceOrderCommand {

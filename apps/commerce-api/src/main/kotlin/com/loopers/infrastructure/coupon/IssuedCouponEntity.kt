@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.coupon
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.IssuedCoupon
 import com.loopers.domain.withBaseFields
@@ -30,7 +31,7 @@ class IssuedCouponEntity(
     companion object {
         fun fromDomain(issuedCoupon: IssuedCoupon): IssuedCouponEntity {
             return IssuedCouponEntity(
-                refCouponId = issuedCoupon.refCouponId,
+                refCouponId = issuedCoupon.refCouponId.value,
                 refUserId = issuedCoupon.refUserId.value,
                 status = issuedCoupon.status,
                 usedAt = issuedCoupon.usedAt,
@@ -43,7 +44,7 @@ class IssuedCouponEntity(
 
     fun toDomain(): IssuedCoupon = IssuedCoupon(
         id = id,
-        refCouponId = refCouponId,
+        refCouponId = CouponId(refCouponId),
         refUserId = UserId(refUserId),
         status = status,
         usedAt = usedAt,

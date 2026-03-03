@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon.model
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -7,7 +8,7 @@ import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class Coupon(
-    val id: Long = 0,
+    val id: CouponId = CouponId(0),
     name: String,
     type: CouponType,
     value: Long,
@@ -124,6 +125,9 @@ class Coupon(
         }
         if (issuedCount < 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "발급 수량은 0 이상이어야 합니다.")
+        }
+        if (totalQuantity != null && issuedCount > totalQuantity!!) {
+            throw CoreException(ErrorType.BAD_REQUEST, "발급 수량이 총 수량을 초과할 수 없습니다.")
         }
     }
 }

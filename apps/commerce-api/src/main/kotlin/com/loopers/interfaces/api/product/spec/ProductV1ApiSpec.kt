@@ -26,5 +26,5 @@ interface ProductV1ApiSpec {
     ): ApiResponse<Page<ProductV1Dto.CustomerProductResponse>>
 
     @Operation(summary = "상품 상세 조회", description = "상품을 상세 조회합니다.")
-    fun getProduct(productId: Long): ApiResponse<ProductV1Dto.ProductDetailResponse>
+    fun getProduct(@Positive productId: Long): ApiResponse<ProductV1Dto.ProductDetailResponse>
 }
