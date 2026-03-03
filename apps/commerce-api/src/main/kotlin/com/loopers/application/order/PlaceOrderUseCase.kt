@@ -8,7 +8,6 @@ import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.common.vo.Quantity
-import com.loopers.domain.point.PointDeductor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -19,7 +18,6 @@ class PlaceOrderUseCase(
     private val productRepository: ProductRepository,
     private val orderRepository: OrderRepository,
     private val orderItemRepository: OrderItemRepository,
-    private val pointDeductor: PointDeductor,
 ) {
 
     @Transactional
@@ -51,8 +49,6 @@ class PlaceOrderUseCase(
 
         order.assignOrderIdToItems(savedOrder.id)
         val savedItems = orderItemRepository.saveAll(order.items)
-
-        pointDeductor.usePoints(UserId(userId), savedOrder.totalPrice, savedOrder.id)
 
         return OrderInfo.from(OrderDetail(savedOrder, savedItems))
     }
