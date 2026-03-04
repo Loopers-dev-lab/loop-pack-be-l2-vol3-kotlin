@@ -7,6 +7,7 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import java.time.ZonedDateTime
 
 @Entity
 @Table(
@@ -26,6 +27,10 @@ class IssuedCoupon(
     var userId: Long = userId
         protected set
 
+    @Column(name = "used_at")
+    var usedAt: ZonedDateTime? = null
+        protected set
+
     init {
         if (couponId <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 ID는 양수여야 합니다.")
@@ -33,5 +38,15 @@ class IssuedCoupon(
         if (userId <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 양수여야 합니다.")
         }
+    }
+
+    fun use() {
+        usedAt = ZonedDateTime.now()
+    }
+
+    fun status(couponExpiresAt: ZonedDateTime): IssuedCouponStatus = when {
+        usedAt != null -> IssuedCouponStatus.USED
+        couponExpiresAt.isBefore(ZonedDateTime.now()) -> IssuedCouponStatus.EXPIRED
+        else -> IssuedCouponStatus.AVAILABLE
     }
 }

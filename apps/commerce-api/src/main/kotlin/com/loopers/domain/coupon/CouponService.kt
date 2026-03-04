@@ -23,4 +23,12 @@ class CouponService(
         coupon.issue()
         issuedCouponRepository.save(IssuedCoupon(couponId = couponId, userId = userId))
     }
+
+    fun findIssuedCouponsByUserId(userId: Long): List<IssuedCoupon> {
+        return issuedCouponRepository.findByUserId(userId)
+    }
+
+    fun findCouponsByIds(ids: List<Long>): List<Coupon> {
+        return couponRepository.findByIdIn(ids)
+    }
 }

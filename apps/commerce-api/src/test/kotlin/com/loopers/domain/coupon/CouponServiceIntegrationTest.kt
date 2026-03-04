@@ -126,6 +126,57 @@ class CouponServiceIntegrationTest @Autowired constructor(
         }
     }
 
+    @DisplayName("사용자의 쿠폰 목록을 조회할 때,")
+    @Nested
+    inner class GetMyCoupons {
+
+        @DisplayName("발급받은 쿠폰이 있으면, 상태와 함께 반환된다.")
+        @Test
+        fun returnsCouponsWithStatus_whenUserHasIssuedCoupons() {
+            // arrange
+            val coupon = createCoupon()
+            val userId = 1L
+            couponService.issue(couponId = coupon.id, userId = userId)
+
+            // act
+            val issuedCoupons = issuedCouponRepository.findByUserId(userId)
+            val savedCoupon = couponRepository.findById(coupon.id)!!
+
+            // assert
+            assertThat(issuedCoupons).hasSize(1)
+            assertThat(issuedCoupons[0].status(savedCoupon.expiresAt))
+                .isEqualTo(IssuedCouponStatus.AVAILABLE)
+        }
+
+        @DisplayName("발급받은 쿠폰이 없으면, 빈 목록이 반환된다.")
+        @Test
+        fun returnsEmptyList_whenUserHasNoCoupons() {
+            // act
+            val issuedCoupons = issuedCouponRepository.findByUserId(1L)
+
+            // assert
+            assertThat(issuedCoupons).isEmpty()
+        }
+
+        @DisplayName("만료된 쿠폰이면, EXPIRED 상태로 반환된다.")
+        @Test
+        fun returnsExpiredStatus_whenCouponIsExpired() {
+            // arrange
+            val coupon = createCoupon(expiresAt = ZonedDateTime.now().minusDays(1))
+            val userId = 1L
+            issuedCouponRepository.save(IssuedCoupon(couponId = coupon.id, userId = userId))
+
+            // act
+            val issuedCoupons = issuedCouponRepository.findByUserId(userId)
+            val savedCoupon = couponRepository.findById(coupon.id)!!
+
+            // assert
+            assertThat(issuedCoupons).hasSize(1)
+            assertThat(issuedCoupons[0].status(savedCoupon.expiresAt))
+                .isEqualTo(IssuedCouponStatus.EXPIRED)
+        }
+    }
+
     @DisplayName("동시에 여러 사용자가 같은 쿠폰 발급을 요청하면,")
     @Nested
     inner class ConcurrentIssueCoupon {
