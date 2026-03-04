@@ -8,96 +8,6 @@ import org.junit.jupiter.api.assertThrows
 
 class ProductUnitTest {
 
-    // ─── decrementStock ───
-
-    @Test
-    fun `decrementStock() should reduce stock by quantity`() {
-        // Arrange
-        val product = createProduct(stock = 10)
-
-        // Act
-        product.decrementStock(3)
-
-        // Assert
-        assertThat(product.stock).isEqualTo(7)
-    }
-
-    @Test
-    fun `decrementStock() should succeed when quantity equals stock (boundary)`() {
-        // Arrange
-        val product = createProduct(stock = 5)
-
-        // Act
-        product.decrementStock(5)
-
-        // Assert
-        assertThat(product.stock).isEqualTo(0)
-    }
-
-    @Test
-    fun `decrementStock() throws CoreException(BAD_REQUEST) when quantity exceeds stock`() {
-        // Arrange
-        val product = createProduct(stock = 3)
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            product.decrementStock(4)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-        assertThat(product.stock).isEqualTo(3) // unchanged
-    }
-
-    @Test
-    fun `decrementStock() throws CoreException(BAD_REQUEST) when quantity is zero`() {
-        // Arrange
-        val product = createProduct(stock = 10)
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            product.decrementStock(0)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-    }
-
-    @Test
-    fun `decrementStock() throws CoreException(BAD_REQUEST) when quantity is negative`() {
-        // Arrange
-        val product = createProduct(stock = 10)
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            product.decrementStock(-1)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-    }
-
-    // ─── validateStock ───
-
-    @Test
-    fun `validateStock() should pass when quantity equals stock (exact boundary)`() {
-        // Arrange
-        val product = createProduct(stock = 5)
-
-        // Act & Assert (no exception)
-        product.validateStock(5)
-    }
-
-    @Test
-    fun `validateStock() throws CoreException(BAD_REQUEST) when quantity exceeds stock`() {
-        // Arrange
-        val product = createProduct(stock = 3)
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            product.validateStock(4)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-    }
-
     // ─── incrementLike / decrementLike ───
 
     @Test
@@ -159,15 +69,41 @@ class ProductUnitTest {
 
     @Test
     fun `Product init allows price of 0`() {
-        // no exception
         val product = createProduct(price = 0)
         assertThat(product.price).isEqualTo(0)
     }
 
+    // ─── update ───
+
     @Test
-    fun `Product init throws CoreException(BAD_REQUEST) when stock is negative`() {
+    fun `update() should change name, description and price`() {
+        // Arrange
+        val product = createProduct(name = "Old", price = 1000)
+
+        // Act
+        product.update(name = "New", description = "new desc", price = 2000)
+
+        // Assert
+        assertThat(product.name).isEqualTo("New")
+        assertThat(product.description).isEqualTo("new desc")
+        assertThat(product.price).isEqualTo(2000)
+    }
+
+    @Test
+    fun `update() throws BAD_REQUEST when name is blank`() {
+        val product = createProduct()
         assertThrows<CoreException> {
-            createProduct(stock = -1)
+            product.update(name = "  ", description = "desc", price = 1000)
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `update() throws BAD_REQUEST when price is negative`() {
+        val product = createProduct()
+        assertThrows<CoreException> {
+            product.update(name = "Name", description = "desc", price = -1)
         }.also {
             assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -179,7 +115,6 @@ class ProductUnitTest {
         name: String = "Test Product",
         description: String = "Test Description",
         price: Int = 10000,
-        stock: Int = 100,
         likeCount: Int = 0,
     ): Product = Product(
         id = id,
@@ -187,7 +122,6 @@ class ProductUnitTest {
         name = name,
         description = description,
         price = price,
-        stock = stock,
         likeCount = likeCount,
     )
 }

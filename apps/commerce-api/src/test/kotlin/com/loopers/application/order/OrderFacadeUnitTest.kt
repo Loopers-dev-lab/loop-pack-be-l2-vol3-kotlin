@@ -5,6 +5,8 @@ import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStatus
+import com.loopers.domain.catalog.product.ProductStock
+import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.Order
@@ -24,24 +26,31 @@ class OrderFacadeUnitTest {
     private val mockOrderService = mockk<OrderService>()
     private val mockProductService = mockk<ProductService>()
     private val mockBrandService = mockk<BrandService>()
+    private val mockProductStockService = mockk<ProductStockService>()
     private val mockUserCouponService = mockk<UserCouponService>()
     private val mockCouponTemplateService = mockk<CouponTemplateService>()
 
-    private val orderFacade = OrderFacade(mockOrderService, mockProductService, mockBrandService, mockUserCouponService, mockCouponTemplateService)
+    private val orderFacade = OrderFacade(
+        mockOrderService, mockProductService, mockBrandService,
+        mockProductStockService, mockUserCouponService, mockCouponTemplateService
+    )
 
     // ─── placeOrder ───
 
     @Test
     fun `placeOrder() should fetch products, validate stock, decrement stock, and create order`() {
         // Arrange
-        val product = createProduct(id = 1L, stock = 10, brandId = 1L)
+        val product = createProduct(id = 1L, brandId = 1L)
+        val stock = createStock(productId = 1L, quantity = 10)
+        val decrementedStock = createStock(productId = 1L, quantity = 8)
         val brand = createBrand(id = 1L, name = "Nike")
         val orderItem = createOrderItem(productId = 1L, brandId = 1L)
         val order = createOrder(userId = 1L, items = listOf(orderItem))
 
         every { mockProductService.getById(1L) } returns product
+        every { mockProductStockService.getByProductId(1L) } returns stock
+        every { mockProductStockService.decrementStock(1L, 2) } returns decrementedStock
         every { mockBrandService.getById(1L) } returns brand
-        every { mockProductService.decrementStock(1L, 2) } returns product
         every { mockOrderService.createOrder(any(), any(), any(), any()) } returns order
 
         val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 2)))
@@ -52,18 +61,22 @@ class OrderFacadeUnitTest {
         // Assert
         assertThat(result).isNotNull
         verify { mockProductService.getById(1L) }
-        verify { mockProductService.decrementStock(1L, 2) }
+        verify { mockProductStockService.decrementStock(1L, 2) }
         verify { mockOrderService.createOrder(1L, any(), any(), any()) }
     }
 
     @Test
     fun `placeOrder() throws BAD_REQUEST when one product is out of stock`() {
         // Arrange
-        val product1 = createProduct(id = 1L, stock = 10)
-        val product2 = createProduct(id = 2L, stock = 1) // only 1 in stock
+        val product1 = createProduct(id = 1L)
+        val product2 = createProduct(id = 2L)
+        val stock1 = createStock(productId = 1L, quantity = 10)
+        val stock2 = createStock(productId = 2L, quantity = 1) // only 1 in stock
 
         every { mockProductService.getById(1L) } returns product1
         every { mockProductService.getById(2L) } returns product2
+        every { mockProductStockService.getByProductId(1L) } returns stock1
+        every { mockProductStockService.getByProductId(2L) } returns stock2
 
         val cmd = PlaceOrderCommand(
             items = listOf(
@@ -80,7 +93,7 @@ class OrderFacadeUnitTest {
         }
 
         // stock should NOT be decremented for any product
-        verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
+        verify(exactly = 0) { mockProductStockService.decrementStock(any(), any()) }
         verify(exactly = 0) { mockOrderService.createOrder(any(), any(), any(), any()) }
     }
 
@@ -98,15 +111,17 @@ class OrderFacadeUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
-        verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
+        verify(exactly = 0) { mockProductStockService.decrementStock(any(), any()) }
         verify(exactly = 0) { mockOrderService.createOrder(any(), any(), any(), any()) }
     }
 
     @Test
     fun `placeOrder() throws BAD_REQUEST when product is not orderable`() {
         // Arrange
-        val hiddenProduct = createProduct(id = 1L, stock = 10, status = ProductStatus.HIDDEN)
+        val hiddenProduct = createProduct(id = 1L, status = ProductStatus.HIDDEN)
+        val stock = createStock(productId = 1L, quantity = 10)
         every { mockProductService.getById(1L) } returns hiddenProduct
+        every { mockProductStockService.getByProductId(1L) } returns stock
 
         val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 1)))
 
@@ -117,7 +132,7 @@ class OrderFacadeUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
-        verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
+        verify(exactly = 0) { mockProductStockService.decrementStock(any(), any()) }
         verify(exactly = 0) { mockOrderService.createOrder(any(), any(), any(), any()) }
     }
 
@@ -138,9 +153,14 @@ class OrderFacadeUnitTest {
         id: Long = 0L,
         brandId: Long = 1L,
         name: String = "Test Product",
-        stock: Int = 10,
         status: ProductStatus = ProductStatus.ACTIVE,
-    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = 10000, stock = stock, status = status)
+    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = 10000, status = status)
+
+    private fun createStock(
+        productId: Long = 1L,
+        quantity: Int = 10,
+        id: Long = 0L,
+    ): ProductStock = ProductStock(productId = productId, quantity = quantity, id = id)
 
     private fun createBrand(id: Long = 0L, name: String = "TestBrand"): Brand =
         Brand(id = id, name = name, description = "desc")

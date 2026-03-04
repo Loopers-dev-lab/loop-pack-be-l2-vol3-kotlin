@@ -27,7 +27,6 @@ class ProductServiceUnitTest {
             name = "Shoes",
             description = "Running shoes",
             price = 50000,
-            stock = 100,
         )
 
         // Assert
@@ -62,6 +61,52 @@ class ProductServiceUnitTest {
         // Assert
         assertThat(result.id).isEqualTo(1L)
         assertThat(result.name).isEqualTo("Shoes")
+    }
+
+    // ─── updateStockStatus ───
+
+    @Test
+    fun `updateStockStatus() should markSoldOut when newStock is 0 and product is ACTIVE`() {
+        // Arrange
+        val product = createProduct(id = 1L, status = ProductStatus.ACTIVE)
+        every { mockRepository.findById(1L) } returns product
+        every { mockRepository.save(any()) } answers { firstArg() }
+
+        // Act
+        productService.updateStockStatus(1L, 0)
+
+        // Assert
+        assertThat(product.status).isEqualTo(ProductStatus.SOLD_OUT)
+        verify { mockRepository.save(any()) }
+    }
+
+    @Test
+    fun `updateStockStatus() should restock when newStock is positive and product is SOLD_OUT`() {
+        // Arrange
+        val product = createProduct(id = 1L, status = ProductStatus.SOLD_OUT)
+        every { mockRepository.findById(1L) } returns product
+        every { mockRepository.save(any()) } answers { firstArg() }
+
+        // Act
+        productService.updateStockStatus(1L, 10)
+
+        // Assert
+        assertThat(product.status).isEqualTo(ProductStatus.ACTIVE)
+        verify { mockRepository.save(any()) }
+    }
+
+    @Test
+    fun `updateStockStatus() should be no-op when newStock is positive and product is ACTIVE`() {
+        // Arrange
+        val product = createProduct(id = 1L, status = ProductStatus.ACTIVE)
+        every { mockRepository.findById(1L) } returns product
+
+        // Act
+        productService.updateStockStatus(1L, 10)
+
+        // Assert
+        assertThat(product.status).isEqualTo(ProductStatus.ACTIVE)
+        verify(exactly = 0) { mockRepository.save(any()) }
     }
 
     // ─── incrementLikeCount ───
@@ -113,51 +158,6 @@ class ProductServiceUnitTest {
         // Act & Assert
         assertThrows<CoreException> {
             productService.decrementLikeCount(99L)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
-        }
-    }
-
-    // ─── decrementStock ───
-
-    @Test
-    fun `decrementStock() should reduce stock and save`() {
-        // Arrange
-        val product = createProduct(id = 1L, stock = 10)
-        every { mockRepository.findByIdForUpdate(1L) } returns product
-        every { mockRepository.save(any()) } answers { firstArg() }
-
-        // Act
-        val result = productService.decrementStock(1L, 3)
-
-        // Assert
-        assertThat(result.stock).isEqualTo(7)
-        verify { mockRepository.save(any()) }
-    }
-
-    @Test
-    fun `decrementStock() throws BAD_REQUEST when quantity exceeds stock`() {
-        // Arrange
-        val product = createProduct(id = 1L, stock = 2)
-        every { mockRepository.findByIdForUpdate(1L) } returns product
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            productService.decrementStock(1L, 5)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-        verify(exactly = 0) { mockRepository.save(any()) }
-    }
-
-    @Test
-    fun `decrementStock() throws NOT_FOUND when product does not exist`() {
-        // Arrange
-        every { mockRepository.findByIdForUpdate(99L) } returns null
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            productService.decrementStock(99L, 1)
         }.also {
             assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
@@ -224,15 +224,15 @@ class ProductServiceUnitTest {
         name: String = "Test Product",
         description: String = "Test Description",
         price: Int = 10000,
-        stock: Int = 100,
         likeCount: Int = 0,
+        status: ProductStatus = ProductStatus.ACTIVE,
     ): Product = Product(
         id = id,
         brandId = brandId,
         name = name,
         description = description,
         price = price,
-        stock = stock,
         likeCount = likeCount,
+        status = status,
     )
 }
