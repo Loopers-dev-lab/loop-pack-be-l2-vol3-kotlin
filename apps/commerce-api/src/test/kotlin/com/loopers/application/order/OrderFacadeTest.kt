@@ -1,6 +1,7 @@
 package com.loopers.application.order
 
 import com.loopers.application.brand.BrandService
+import com.loopers.application.coupon.CouponService
 import com.loopers.application.product.FailedReservation
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
@@ -22,6 +23,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import org.springframework.test.util.ReflectionTestUtils
@@ -39,6 +41,9 @@ class OrderFacadeTest {
 
     @Mock
     private lateinit var brandService: BrandService
+
+    @Mock
+    private lateinit var couponService: CouponService
 
     @InjectMocks
     private lateinit var orderFacade: OrderFacade
@@ -109,7 +114,7 @@ class OrderFacadeTest {
             whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
             whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
             whenever(brandService.getBrandsIncludingDeleted(listOf(1L))).thenReturn(listOf(brand))
-            whenever(orderService.createOrder(eq(userId), any())).thenReturn(order)
+            whenever(orderService.createOrder(eq(userId), any(), anyOrNull())).thenReturn(order)
 
             // act
             val result = orderFacade.createOrder(userId, criteria)
@@ -150,7 +155,7 @@ class OrderFacadeTest {
             whenever(productService.getProductsWithLock(listOf(1L, 2L))).thenReturn(listOf(product1, product2))
             whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
             whenever(brandService.getBrandsIncludingDeleted(listOf(1L))).thenReturn(listOf(brand))
-            whenever(orderService.createOrder(eq(userId), any())).thenReturn(order)
+            whenever(orderService.createOrder(eq(userId), any(), anyOrNull())).thenReturn(order)
 
             // act
             val result = orderFacade.createOrder(userId, criteria)
