@@ -9,14 +9,15 @@
 | 상품 | 2개 | 5개 | 목록/상세 조회, CRUD |
 | 좋아요 | 3개 | - | 등록, 취소, 목록 |
 | 주문 | 3개 | 2개 | 생성, 목록, 상세 |
-| **합계** | **12개** | **12개** | **총 24개** |
+| 쿠폰 | 2개 | 6개 | 발급, 내 쿠폰, 템플릿 CRUD, 발급 내역 |
+| **합계** | **14개** | **18개** | **총 32개** |
 
 ---
 
 ## 서비스 흐름
 
 ```
-회원가입 → 상품탐색 → 좋아요 → 주문
+회원가입 → 상품탐색 → 좋아요 → 쿠폰발급 → 주문(쿠폰적용)
 ```
 
 ---
@@ -25,6 +26,7 @@
 
 ```
 USER ─┬─ LIKE ─── PRODUCT ─── BRAND
+      ├─ ISSUED_COUPON ─── COUPON
       └─ ORDER ─── ORDER_ITEM ─┘
 ```
 
@@ -54,9 +56,11 @@ USER ─┬─ LIKE ─── PRODUCT ─── BRAND
 | C07 | 좋아요 | POST | `/products/{productId}/likes` | O | 좋아요 등록 |
 | C08 | 좋아요 | DELETE | `/products/{productId}/likes` | O | 좋아요 취소 |
 | C09 | 좋아요 | GET | `/users/{userId}/likes` | O | 좋아요 목록 |
-| C10 | 주문 | POST | `/orders` | O | 주문 생성 |
+| C10 | 주문 | POST | `/orders` | O | 주문 생성 (쿠폰 적용 가능) |
 | C11 | 주문 | GET | `/orders` | O | 주문 목록 |
 | C12 | 주문 | GET | `/orders/{orderId}` | O | 주문 상세 |
+| C13 | 쿠폰 | POST | `/coupons/{couponId}/issue` | O | 쿠폰 발급 |
+| C14 | 쿠폰 | GET | `/users/me/coupons` | O | 내 쿠폰 목록 |
 
 ### 어드민 API (`/api-admin/v1`)
 
@@ -74,6 +78,12 @@ USER ─┬─ LIKE ─── PRODUCT ─── BRAND
 | A10 | 상품 | DELETE | `/products/{productId}` | 삭제 |
 | A11 | 주문 | GET | `/orders?page=0&size=20` | 목록 조회 |
 | A12 | 주문 | GET | `/orders/{orderId}` | 상세 조회 |
+| A13 | 쿠폰 | GET | `/coupons?page=0&size=20` | 쿠폰 템플릿 목록 |
+| A14 | 쿠폰 | GET | `/coupons/{couponId}` | 쿠폰 템플릿 상세 |
+| A15 | 쿠폰 | POST | `/coupons` | 쿠폰 템플릿 등록 |
+| A16 | 쿠폰 | PUT | `/coupons/{couponId}` | 쿠폰 템플릿 수정 |
+| A17 | 쿠폰 | DELETE | `/coupons/{couponId}` | 쿠폰 템플릿 삭제 |
+| A18 | 쿠폰 | GET | `/coupons/{couponId}/issues?page=0&size=20` | 발급 내역 조회 |
 
 ---
 
@@ -391,9 +401,97 @@ X-Loopers-LoginPw: {password}
 
 ---
 
-## 6. 정책 결정 사항
+## 6. 쿠폰 도메인 (Coupons)
 
-### 6.1 삭제 정책
+### 6.1 문제 정의
+
+| 관점 | 문제 |
+|------|------|
+| 사용자 | 할인 혜택을 받아 저렴하게 구매하고 싶음 |
+| 비즈니스 | 프로모션 운영, 구매 전환율 향상 |
+| 시스템 | 쿠폰 발급/사용 동시성 제어, 주문과의 트랜잭션 일관성 |
+
+### 6.2 비즈니스 규칙
+
+| 규칙 | 설명 |
+|------|------|
+| CP-01 | 쿠폰 타입: 정액(FIXED), 정률(RATE) |
+| CP-02 | 1인 1쿠폰 (동일 쿠폰 중복 발급 불가) |
+| CP-03 | 만료된 쿠폰은 발급 불가 |
+| CP-04 | 쿠폰 사용 시 비관적 락으로 동시성 제어 (SELECT FOR UPDATE) |
+| CP-05 | 쿠폰 사용 주문은 부분 주문 불가 (전체 성공 or 전체 실패) |
+| CP-06 | 쿠폰 미사용 주문은 기존대로 부분 주문 허용 |
+| CP-07 | 최소 주문 금액 미달 시 쿠폰 사용 불가 |
+| CP-08 | FIXED: 할인 금액이 주문 금액 초과 시 주문 금액만큼만 할인 |
+| CP-09 | 타인의 쿠폰 사용 불가 (FORBIDDEN) |
+
+### 6.3 API 상세
+
+#### C13: 쿠폰 발급
+
+```
+POST /api/v1/coupons/{couponId}/issue
+X-Loopers-LoginId: {loginId}
+X-Loopers-LoginPw: {password}
+```
+
+**검증:**
+- 쿠폰 존재 여부 (삭제된 쿠폰 → NOT_FOUND)
+- 쿠폰 만료 여부 (만료 → BAD_REQUEST)
+- 중복 발급 여부 (이미 발급 → CONFLICT)
+
+#### C14: 내 쿠폰 목록 조회
+
+```
+GET /api/v1/users/me/coupons
+X-Loopers-LoginId: {loginId}
+X-Loopers-LoginPw: {password}
+```
+
+**응답:** 발급된 쿠폰 목록 (상태별 포함: AVAILABLE, USED, EXPIRED)
+
+#### A13-A18: 쿠폰 CRUD + 발급 내역 (어드민)
+
+| API | 설명 | 요청 바디 |
+|-----|------|----------|
+| A13 | 템플릿 목록 조회 | - (page, size 쿼리) |
+| A14 | 템플릿 상세 조회 | - |
+| A15 | 템플릿 등록 | { name, type, value, minOrderAmount, expiredAt } |
+| A16 | 템플릿 수정 | { name, value, minOrderAmount, expiredAt } |
+| A17 | 템플릿 삭제 | - (Soft Delete) |
+| A18 | 발급 내역 조회 | - (couponId 경로, page/size 쿼리) |
+
+#### C10 변경: 쿠폰 적용 주문
+
+```
+POST /api/v1/orders
+X-Loopers-LoginId: {loginId}
+X-Loopers-LoginPw: {password}
+Content-Type: application/json
+
+{
+  "items": [
+    { "productId": 1, "quantity": 2 }
+  ],
+  "couponId": 1  // optional, 발급된 쿠폰 ID (issued_coupons.id)
+}
+```
+
+**쿠폰 적용 시 처리 순서:**
+1. 비관적 락으로 상품 조회
+2. 전체 재고 확인 (부분 주문 불가)
+3. 비관적 락으로 발급 쿠폰 조회
+4. 소유자 검증, 사용 가능 상태 검증
+5. 재고 차감
+6. 할인 계산 (최소 주문 금액 검증)
+7. 쿠폰 사용 처리 (USED)
+8. 주문 생성 (originalAmount, discountAmount, totalAmount)
+
+---
+
+## 7. 정책 결정 사항
+
+### 7.1 삭제 정책
 
 | 도메인 | 방식 | 비고 |
 |--------|------|------|
@@ -401,8 +499,10 @@ X-Loopers-LoginPw: {password}
 | 브랜드 | Soft Delete | 삭제 시 연관 상품도 Soft Delete |
 | 상품 | Soft Delete | 주문 스냅샷에서 참조 가능 |
 | 주문 | 삭제 불가 | 기록 보존 |
+| 쿠폰 | Soft Delete | deletedAt 필드 사용 |
+| 발급 쿠폰 | 삭제 불가 | status로 상태 관리 (AVAILABLE/USED/EXPIRED) |
 
-### 6.2 좋아요 정책
+### 7.2 좋아요 정책
 
 | 상황 | 응답 | 설명 |
 |------|------|------|
@@ -410,7 +510,7 @@ X-Loopers-LoginPw: {password}
 | 없는 좋아요 취소 | 200 OK | 멱등성 보장, 이미 없는 상태 |
 | 삭제된 상품에 등록 | 허용 | Soft Delete 상품도 좋아요 가능 |
 
-### 6.3 주문 정책
+### 7.3 주문 정책
 
 | 상황 | 처리 |
 |------|------|
@@ -430,16 +530,27 @@ X-Loopers-LoginPw: {password}
 }
 ```
 
-### 6.4 동시성 처리
+### 7.4 쿠폰 정책
+
+| 상황 | 처리 |
+|------|------|
+| 쿠폰 적용 주문 | 부분 주문 불가, 전체 성공 or 전체 실패 |
+| 쿠폰 미적용 주문 | 기존 부분 주문 허용 |
+| 동일 쿠폰 동시 사용 | 비관적 락으로 1건만 성공 |
+| FIXED 할인 > 주문 금액 | 주문 금액만큼만 할인 |
+| RATE 할인 | 주문 금액 × (value / 100), 소수점 반올림 |
+
+### 7.5 동시성 처리
 
 | 상황 | 방안 |
 |------|------|
 | 재고 차감 | 비관적 락 (SELECT FOR UPDATE) |
 | 좋아요 중복 | 유니크 인덱스 (user_id, product_id) + 멱등성 |
+| 쿠폰 사용 | 비관적 락 (SELECT FOR UPDATE) — 재고와 동일 패턴 |
 
 ---
 
-## 7. 확장 고려사항 (향후)
+## 8. 확장 고려사항 (향후)
 
 > ⚙️ 결제 등은 추후 개발 예정
 
@@ -452,10 +563,11 @@ X-Loopers-LoginPw: {password}
 
 ---
 
-## 8. 고객/어드민 정보 차별화
+## 9. 고객/어드민 정보 차별화
 
 | 도메인 | 고객용 | 어드민용 |
 |--------|--------|----------|
 | 브랜드 | 기본 정보 | + 생성일, 수정일, 통계 |
 | 상품 | 공개 정보 | + 재고, 판매 상태, 관리 정보 |
 | 주문 | 본인 주문만 | 전체 주문 + 유저 정보 |
+| 쿠폰 | 내 발급 쿠폰 목록 | 템플릿 CRUD + 발급 내역 조회 |

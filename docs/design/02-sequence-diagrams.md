@@ -11,6 +11,8 @@
 3. [좋아요 취소 (C08)](#3-좋아요-취소-c08)
 4. [브랜드 삭제 - 어드민 (A05)](#4-브랜드-삭제---어드민-a05)
 5. [상품 등록 - 어드민 (A08)](#5-상품-등록---어드민-a08)
+6. [쿠폰 적용 주문 생성 (C10 + 쿠폰)](#6-쿠폰-적용-주문-생성-c10--쿠폰)
+7. [쿠폰 발급 (C13)](#7-쿠폰-발급-c13)
 
 ---
 
@@ -404,6 +406,173 @@ sequenceDiagram
 
 ---
 
+---
+
+## 6. 쿠폰 적용 주문 생성 (C10 + 쿠폰)
+
+### 협력 도메인
+User → Product → IssuedCoupon → Coupon → Order → OrderItem
+
+### 다이어그램 목적
+- 쿠폰 적용 시 부분 주문 불가 정책 확인
+- 비관적 락 범위 (상품 + 쿠폰) 확인
+- 쿠폰 유효성 검증 순서와 롤백 범위 확인
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant Controller
+    participant Facade as OrderFacade
+    participant ProductService
+    participant IssuedCouponService
+    participant CouponService
+    participant OrderService
+    participant DB
+
+    Client->>Controller: POST /orders {items, couponId}
+    Controller->>Facade: createOrder(userId, items, couponId)
+
+    rect rgb(255, 245, 238)
+        Note over Facade,DB: 트랜잭션 시작
+
+        Facade->>ProductService: getProductsWithLock(productIds)
+        ProductService->>DB: SELECT ... FOR UPDATE
+        DB-->>ProductService: products (with lock)
+        ProductService-->>Facade: products
+
+        Note over Facade: 쿠폰 사용 시: 부분 주문 불가
+        Facade->>Facade: validateAllStockAvailable(products, items)
+
+        alt 재고 부족 상품 존재
+            Facade-->>Controller: throw CoreException(BAD_REQUEST)
+            Controller-->>Client: 400 Bad Request (전체 실패)
+        else 전체 재고 충분
+            Facade->>IssuedCouponService: getIssuedCouponWithLock(couponId)
+            IssuedCouponService->>DB: SELECT ... FOR UPDATE
+            DB-->>IssuedCouponService: issuedCoupon (with lock)
+
+            Facade->>Facade: issuedCoupon.validateOwner(userId)
+            Facade->>Facade: issuedCoupon.validateUsable()
+
+            Facade->>CouponService: getCoupon(issuedCoupon.couponId)
+            CouponService->>DB: SELECT coupon
+            DB-->>CouponService: coupon
+            CouponService-->>Facade: coupon
+
+            Facade->>Facade: 할인 계산
+            Note over Facade: originalAmount = sum(price × qty)
+            Note over Facade: coupon.validateMinOrderAmount(originalAmount)
+            Note over Facade: discountAmount = coupon.calculateDiscount(originalAmount)
+            Note over Facade: totalAmount = originalAmount - discountAmount
+
+            Facade->>ProductService: decreaseStock(products, items)
+            ProductService->>DB: UPDATE stock
+
+            Facade->>Facade: issuedCoupon.use()
+            Facade->>IssuedCouponService: save(issuedCoupon)
+
+            Facade->>OrderService: createOrder(userId, items, couponId, originalAmount, discountAmount, totalAmount)
+            OrderService->>DB: INSERT order, order_items
+            DB-->>OrderService: order
+            OrderService-->>Facade: order
+        end
+
+        Note over Facade,DB: 트랜잭션 종료
+    end
+
+    Facade-->>Controller: OrderResult(orderedItems, excludedItems=[])
+    Controller-->>Client: 200 OK
+```
+
+### 핵심 포인트
+- **부분 주문 불가**: 쿠폰 사용 시 모든 상품 재고가 충분해야 함 (전체 성공 or 전체 실패)
+- **이중 비관적 락**: 상품(재고) + 발급 쿠폰을 모두 `SELECT FOR UPDATE`로 락
+- **검증 순서**: 재고 확인 → 쿠폰 소유자 검증 → 사용 가능 검증 → 최소 주문 금액 검증
+- **원자성**: 재고 차감 + 쿠폰 사용 처리 + 주문 생성이 하나의 트랜잭션
+
+### 설계 결정
+| 결정 | 선택 | 이유 |
+|------|------|------|
+| 쿠폰 + 부분 주문 | 불가 | 할인 금액 재계산 복잡성 회피 |
+| 쿠폰 락 방식 | 비관적 락 | 동시 주문 시 중복 사용 방지 |
+| 쿠폰 미사용 주문 | 기존 부분 주문 로직 유지 | 하위 호환성 |
+
+---
+
+## 7. 쿠폰 발급 (C13)
+
+### 협력 도메인
+User → Coupon → IssuedCoupon
+
+### 다이어그램 목적
+- 중복 발급 방지 로직 확인
+- 만료/삭제 쿠폰 발급 거부 확인
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant Controller
+    participant IssuedCouponService
+    participant CouponRepository
+    participant IssuedCouponRepository
+    participant DB
+
+    Client->>Controller: POST /coupons/{couponId}/issue
+    Controller->>IssuedCouponService: issueCoupon(couponId, userId)
+
+    IssuedCouponService->>CouponRepository: findByIdAndDeletedAtIsNull(couponId)
+    CouponRepository->>DB: SELECT * WHERE id = ? AND deletedAt IS NULL
+    DB-->>CouponRepository: coupon (or null)
+
+    alt 쿠폰 없음 (또는 삭제됨)
+        CouponRepository-->>IssuedCouponService: null
+        IssuedCouponService-->>Controller: throw NOT_FOUND
+        Controller-->>Client: 404 Not Found
+    else 쿠폰 존재
+        CouponRepository-->>IssuedCouponService: coupon
+
+        alt 쿠폰 만료
+            IssuedCouponService->>IssuedCouponService: coupon.isExpired() → true
+            IssuedCouponService-->>Controller: throw BAD_REQUEST
+            Controller-->>Client: 400 Bad Request (만료된 쿠폰)
+        else 쿠폰 유효
+            IssuedCouponService->>IssuedCouponRepository: existsByCouponIdAndUserId(couponId, userId)
+            IssuedCouponRepository->>DB: SELECT EXISTS
+            DB-->>IssuedCouponRepository: exists
+
+            alt 이미 발급됨
+                IssuedCouponRepository-->>IssuedCouponService: true
+                IssuedCouponService-->>Controller: throw CONFLICT
+                Controller-->>Client: 409 Conflict (중복 발급)
+            else 미발급
+                IssuedCouponRepository-->>IssuedCouponService: false
+                IssuedCouponService->>IssuedCouponRepository: save(IssuedCoupon(AVAILABLE))
+                IssuedCouponRepository->>DB: INSERT
+                DB-->>IssuedCouponRepository: issuedCoupon
+                IssuedCouponRepository-->>IssuedCouponService: issuedCoupon
+                IssuedCouponService-->>Controller: issuedCouponInfo
+                Controller-->>Client: 200 OK
+            end
+        end
+    end
+```
+
+### 핵심 포인트
+- **검증 순서**: 쿠폰 존재 → 만료 여부 → 중복 발급 여부
+- **중복 발급 방지**: `existsByCouponIdAndUserId`로 확인
+- **상태 초기화**: 발급 시 `AVAILABLE` 상태로 생성
+
+### 설계 결정
+| 결정 | 선택 | 이유 |
+|------|------|------|
+| 중복 발급 | 거부 (CONFLICT) | 1인 1쿠폰 정책 |
+| 만료 쿠폰 | 발급 거부 | 사용 불가 쿠폰 발급 방지 |
+| 삭제 쿠폰 | 발급 거부 | Soft Delete된 쿠폰은 비활성 |
+
+---
+
 ## 요약
 
 | # | API | 핵심 검증 포인트 | 트랜잭션 범위 |
@@ -413,3 +582,5 @@ sequenceDiagram
 | 3 | 좋아요 취소 | 멱등성 (no-op), Soft Delete | 좋아요 조회 → Soft Delete |
 | 4 | 브랜드 삭제 | 연쇄 Soft Delete | 상품 일괄 삭제 → 브랜드 삭제 |
 | 5 | 상품 등록 | 브랜드 존재 검증 | 브랜드 조회 → 상품 저장 |
+| 6 | 쿠폰 적용 주문 | 이중 비관적 락, 부분 주문 불가, 쿠폰 사용 처리 | 상품 락 → 쿠폰 락 → 재고 차감 → 쿠폰 사용 → 주문 생성 |
+| 7 | 쿠폰 발급 | 중복 발급 방지, 만료/삭제 검증 | 쿠폰 조회 → 중복 확인 → 발급 |

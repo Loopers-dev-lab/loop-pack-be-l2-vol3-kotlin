@@ -26,6 +26,8 @@ flowchart TB
         C3[ProductController]
         C4[LikeController]
         C5[OrderController]
+        C6[CouponAdminController]
+        C7[CouponController]
     end
 
     subgraph Application["application (조합 계층)"]
@@ -35,6 +37,8 @@ flowchart TB
         F3[ProductFacade]
         F4[LikeFacade]
         F5[OrderFacade]
+        F6[CouponService]
+        F7[IssuedCouponService]
     end
 
     subgraph Domain["domain (비즈니스 계층)"]
@@ -53,6 +57,8 @@ flowchart TB
         R3[ProductRepository]
         R4[LikeRepository]
         R5[OrderRepository]
+        R6[CouponRepository]
+        R7[IssuedCouponRepository]
     end
 
     C1 --> F1
@@ -60,6 +66,9 @@ flowchart TB
     C3 --> F3
     C4 --> F4
     C5 --> F5
+    C6 --> F6
+    C6 --> F7
+    C7 --> F7
 
     F1 --> S1
     F2 --> S2
@@ -70,12 +79,16 @@ flowchart TB
     F4 -.-> S3
     F5 --> S5
     F5 -.-> S3
+    F5 -.-> F6
+    F5 -.-> F7
 
     S1 --> R1
     S2 --> R2
     S3 --> R3
     S4 --> R4
     S5 --> R5
+    F6 --> R6
+    F7 --> R7
 ```
 
 ### 핵심 포인트
@@ -229,6 +242,9 @@ classDiagram
     class Order {
         -id: Long
         -userId: Long
+        -couponId: Long?
+        -originalAmount: BigDecimal
+        -discountAmount: BigDecimal
         -totalAmount: BigDecimal
         -createdAt: LocalDateTime
         +calculateTotalAmount() BigDecimal
@@ -253,19 +269,118 @@ classDiagram
         -id: Long
     }
 
+    class IssuedCoupon {
+        -id: Long
+    }
+
     User "1" <-- "*" Order : userId
     Order "1" *-- "*" OrderItem : contains
     Product "1" <.. "*" OrderItem : snapshot
+    IssuedCoupon "0..1" <.. "0..*" Order : couponId (optional)
 ```
 
 | 클래스 | 필드 | 설명 |
 |--------|------|------|
+| **Order** | couponId | 사용된 발급 쿠폰 ID (nullable) |
+| **Order** | originalAmount | 쿠폰 적용 전 원래 금액 |
+| **Order** | discountAmount | 쿠폰 할인 금액 (기본 0) |
+| **Order** | totalAmount | 최종 결제 금액 (originalAmount - discountAmount) |
 | **OrderItem** | unitPrice, productName, brandName | 주문 시점 스냅샷 |
 
 | 메서드 | 책임 |
 |--------|------|
 | `calculateTotalAmount()` | 주문 총액 계산 |
 | `subtotal()` | 항목별 소계 (unitPrice × quantity) |
+
+---
+
+### 2.6 Coupon
+
+```mermaid
+classDiagram
+    class Coupon {
+        -id: Long
+        -name: String
+        -type: CouponType
+        -value: BigDecimal
+        -minOrderAmount: BigDecimal?
+        -expiredAt: ZonedDateTime
+        -createdAt: LocalDateTime
+        -updatedAt: LocalDateTime
+        -deletedAt: LocalDateTime
+        +calculateDiscount(orderAmount) BigDecimal
+        +isExpired() boolean
+        +validateMinOrderAmount(orderAmount) void
+        +update(name, value, minOrderAmount, expiredAt) void
+        +softDelete() void
+        +isDeleted() boolean
+    }
+
+    class CouponType {
+        <<enumeration>>
+        FIXED
+        RATE
+    }
+
+    Coupon --> CouponType : type
+```
+
+| 메서드 | 책임 |
+|--------|------|
+| `calculateDiscount()` | 할인 금액 계산 (FIXED: value, RATE: orderAmount × value/100) |
+| `isExpired()` | 만료 여부 확인 |
+| `validateMinOrderAmount()` | 최소 주문 금액 검증 |
+| `update()` | 쿠폰 템플릿 수정 |
+| `softDelete()` | deletedAt 설정 |
+
+---
+
+### 2.7 IssuedCoupon
+
+```mermaid
+classDiagram
+    class IssuedCoupon {
+        -id: Long
+        -couponId: Long
+        -userId: Long
+        -status: IssuedCouponStatus
+        -usedAt: ZonedDateTime?
+        -createdAt: ZonedDateTime
+        -updatedAt: ZonedDateTime
+        +use() void
+        +isUsable() boolean
+        +validateUsable() void
+        +validateOwner(userId) void
+    }
+
+    class IssuedCouponStatus {
+        <<enumeration>>
+        AVAILABLE
+        USED
+        EXPIRED
+    }
+
+    class Coupon {
+        -id: Long
+    }
+
+    class User {
+        -id: Long
+    }
+
+    IssuedCoupon --> IssuedCouponStatus : status
+    Coupon "1" <-- "*" IssuedCoupon : couponId
+    User "1" <-- "*" IssuedCoupon : userId
+```
+
+| 메서드 | 책임 |
+|--------|------|
+| `use()` | 쿠폰 사용 처리 (AVAILABLE → USED, usedAt 설정) |
+| `isUsable()` | 사용 가능 여부 확인 |
+| `validateUsable()` | 사용 불가 시 예외 |
+| `validateOwner()` | 쿠폰 소유자 검증 (타인 쿠폰 → FORBIDDEN) |
+
+**설계 특이사항**: `IssuedCoupon`은 `BaseEntity`를 상속하지 않고 독자 구현. Soft Delete 대상이 아니며 (사용된 쿠폰도 기록 보존), `status` 필드로 생명주기를 관리함.
 
 ### 관계 표기 설명
 - `<--` : ID 참조 (느슨한 결합)
@@ -279,7 +394,8 @@ classDiagram
 | 원칙 | 적용 |
 |------|------|
 | **Soft Delete** | Entity 메서드로 캡슐화 (`softDelete()`, `isDeleted()`) |
-| **도메인 불변식** | Entity 내부에서 보장 (`decreaseStock()` → stock >= 0) |
+| **도메인 불변식** | Entity 내부에서 보장 (`decreaseStock()` → stock >= 0, `use()` → AVAILABLE 상태만) |
 | **ID 참조** | 도메인 간 엔티티는 ID로만 참조 |
 | **스냅샷** | OrderItem에 주문 시점 상품 정보 복사 |
 | **느슨한 결합** | OrderFacade → ProductService (Facade에서 조합, Service 간 직접 참조 없음) |
+| **독자 엔티티** | IssuedCoupon은 BaseEntity 미상속, status로 생명주기 관리 |
