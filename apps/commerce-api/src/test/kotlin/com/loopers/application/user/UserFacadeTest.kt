@@ -1,7 +1,7 @@
 package com.loopers.application.user
 
-import com.loopers.domain.user.User
 import com.loopers.domain.user.UserService
+import com.loopers.support.auth.AuthenticatedUserInfo
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -32,18 +32,18 @@ class UserFacadeTest {
     inner class GetMe {
         @DisplayName("인증된 사용자를 전달하면, 마스킹된 이름이 포함된 사용자 정보를 반환한다.")
         @Test
-        fun returnsUserInfoWithMaskedName_whenAuthenticatedUserProvided() {
+        fun returnsUserMeInfoWithMaskedName_whenAuthenticatedUserProvided() {
             // arrange
-            val user = User(
+            val userInfo = AuthenticatedUserInfo(
+                id = 0L,
                 loginId = "testuser",
-                password = "encoded_password",
                 name = "홍길동",
                 email = "test@example.com",
                 birthday = LocalDate.of(1990, 1, 1),
             )
 
             // act
-            val result = userFacade.getMe(user)
+            val result = userFacade.getMe(userInfo)
 
             // assert
             assertAll(
@@ -62,21 +62,15 @@ class UserFacadeTest {
         @Test
         fun callsUserServiceChangePassword_whenValidPasswordsProvided() {
             // arrange
-            val user = User(
-                loginId = "testuser",
-                password = "encoded_password",
-                name = "홍길동",
-                email = "test@example.com",
-                birthday = LocalDate.of(1990, 5, 15),
-            )
+            val userId = 1L
             val currentPassword = "CurrentPassword1!"
             val newPassword = "NewPassword1!"
 
             // act
-            userFacade.changePassword(user, currentPassword, newPassword)
+            userFacade.changePassword(userId, currentPassword, newPassword)
 
             // assert
-            verify(userService).changePassword(user.id, currentPassword, newPassword)
+            verify(userService).changePassword(userId, currentPassword, newPassword)
         }
     }
 }

@@ -1,8 +1,6 @@
 package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.loopers.domain.user.User
-import com.loopers.domain.user.UserService
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
@@ -25,7 +23,7 @@ import java.time.LocalDate
 class AuthenticationFilterTest {
 
     @Mock
-    private lateinit var userService: UserService
+    private lateinit var authenticator: Authenticator
 
     @Mock
     private lateinit var filterChain: FilterChain
@@ -36,7 +34,7 @@ class AuthenticationFilterTest {
 
     @BeforeEach
     fun setUp() {
-        authenticationFilter = AuthenticationFilter(userService, objectMapper)
+        authenticationFilter = AuthenticationFilter(authenticator, objectMapper)
     }
 
     @DisplayName("인증 필터가")
@@ -50,9 +48,9 @@ class AuthenticationFilterTest {
             val response = MockHttpServletResponse()
             val loginId = "testuser"
             val password = "Test1234!@"
-            val user = User(
+            val userInfo = AuthenticatedUserInfo(
+                id = 1L,
                 loginId = loginId,
-                password = "encoded",
                 name = "홍길동",
                 email = "test@example.com",
                 birthday = LocalDate.of(1990, 1, 1),
@@ -61,13 +59,13 @@ class AuthenticationFilterTest {
             request.addHeader("X-Loopers-LoginId", loginId)
             request.addHeader("X-Loopers-LoginPw", password)
 
-            whenever(userService.authenticate(loginId, password)).thenReturn(user)
+            whenever(authenticator.authenticate(loginId, password)).thenReturn(userInfo)
 
             // act
             authenticationFilter.doFilter(request, response, filterChain)
 
             // assert
-            val authenticatedUser = request.getAttribute("authenticatedUser") as User
+            val authenticatedUser = request.getAttribute("authenticatedUser") as AuthenticatedUserInfo
             assertThat(authenticatedUser.loginId).isEqualTo(loginId)
             verify(filterChain).doFilter(request, response)
         }
@@ -83,7 +81,7 @@ class AuthenticationFilterTest {
             authenticationFilter.doFilter(request, response, filterChain)
 
             // assert
-            verify(userService, never()).authenticate(any(), any())
+            verify(authenticator, never()).authenticate(any(), any())
             verify(filterChain).doFilter(request, response)
         }
 

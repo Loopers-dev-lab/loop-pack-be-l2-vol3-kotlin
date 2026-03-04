@@ -1,6 +1,5 @@
 package com.loopers.support.auth
 
-import com.loopers.domain.user.User
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.core.MethodParameter
@@ -16,7 +15,7 @@ class AuthenticatedUserArgumentResolver : HandlerMethodArgumentResolver {
 
     override fun supportsParameter(parameter: MethodParameter): Boolean {
         return parameter.hasParameterAnnotation(AuthenticatedUser::class.java) &&
-            parameter.parameterType == User::class.java
+            parameter.parameterType == AuthenticatedUserInfo::class.java
     }
 
     override fun resolveArgument(
@@ -24,12 +23,12 @@ class AuthenticatedUserArgumentResolver : HandlerMethodArgumentResolver {
         mavContainer: ModelAndViewContainer?,
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
-    ): User {
-        val user = webRequest.getAttribute(
+    ): AuthenticatedUserInfo {
+        val userInfo = webRequest.getAttribute(
             AuthenticationFilter.AUTHENTICATED_USER_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST,
-        ) as? User
+        ) as? AuthenticatedUserInfo
 
-        return user ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증된 사용자 정보가 없습니다.")
+        return userInfo ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증된 사용자 정보가 없습니다.")
     }
 }

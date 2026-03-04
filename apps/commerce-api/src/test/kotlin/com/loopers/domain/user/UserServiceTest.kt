@@ -46,7 +46,7 @@ class UserServiceTest {
             val birthday = LocalDate.of(1980, 1, 1)
             val encodedPassword = "encoded_password"
 
-            whenever(userRepository.existsByLoginId(loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(LoginId.of(loginId))).thenReturn(false)
             whenever(passwordEncoder.encode(password)).thenReturn(encodedPassword)
             whenever(userRepository.save(any())).thenAnswer { invocation ->
                 invocation.getArgument<User>(0)
@@ -58,9 +58,9 @@ class UserServiceTest {
             // assert
             assertAll(
                 { assertThat(result).isNotNull() },
-                { assertThat(result.loginId).isEqualTo(loginId) },
+                { assertThat(result.loginId.value).isEqualTo(loginId) },
                 { assertThat(result.name).isEqualTo(name) },
-                { assertThat(result.email).isEqualTo(email) },
+                { assertThat(result.email.value).isEqualTo(email) },
                 { assertThat(result.birthday).isEqualTo(birthday) },
             )
         }
@@ -75,7 +75,7 @@ class UserServiceTest {
             val email = "abcde@gmail.com"
             val birthday = LocalDate.of(1980, 1, 1)
 
-            whenever(userRepository.existsByLoginId(loginId)).thenReturn(true)
+            whenever(userRepository.existsByLoginId(LoginId.of(loginId))).thenReturn(true)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -97,7 +97,7 @@ class UserServiceTest {
             val birthday = LocalDate.of(1980, 1, 1)
             val encodedPassword = "encoded_password_hash"
 
-            whenever(userRepository.existsByLoginId(loginId)).thenReturn(false)
+            whenever(userRepository.existsByLoginId(LoginId.of(loginId))).thenReturn(false)
             whenever(passwordEncoder.encode(password)).thenReturn(encodedPassword)
             whenever(userRepository.save(any())).thenAnswer { invocation ->
                 invocation.getArgument<User>(0)
@@ -122,14 +122,14 @@ class UserServiceTest {
             val password = "Abcd1234!@#$"
             val encodedPassword = "encoded_password"
             val user = User(
-                loginId = loginId,
+                loginId = LoginId.of(loginId),
                 password = encodedPassword,
                 name = "홍길동",
-                email = "test@example.com",
+                email = Email.of("test@example.com"),
                 birthday = LocalDate.of(1990, 1, 1),
             )
 
-            whenever(userRepository.findByLoginId(loginId)).thenReturn(user)
+            whenever(userRepository.findByLoginId(LoginId.of(loginId))).thenReturn(user)
             whenever(passwordEncoder.matches(password, encodedPassword)).thenReturn(true)
 
             // act
@@ -138,7 +138,7 @@ class UserServiceTest {
             // assert
             assertAll(
                 { assertThat(result).isNotNull() },
-                { assertThat(result.loginId).isEqualTo(loginId) },
+                { assertThat(result.loginId.value).isEqualTo(loginId) },
             )
         }
 
@@ -149,7 +149,7 @@ class UserServiceTest {
             val loginId = "nonexistent"
             val password = "Abcd1234!@#$"
 
-            whenever(userRepository.findByLoginId(loginId)).thenReturn(null)
+            whenever(userRepository.findByLoginId(LoginId.of(loginId))).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -168,14 +168,14 @@ class UserServiceTest {
             val password = "WrongPassword1!"
             val encodedPassword = "encoded_password"
             val user = User(
-                loginId = loginId,
+                loginId = LoginId.of(loginId),
                 password = encodedPassword,
                 name = "홍길동",
-                email = "test@example.com",
+                email = Email.of("test@example.com"),
                 birthday = LocalDate.of(1990, 1, 1),
             )
 
-            whenever(userRepository.findByLoginId(loginId)).thenReturn(user)
+            whenever(userRepository.findByLoginId(LoginId.of(loginId))).thenReturn(user)
             whenever(passwordEncoder.matches(password, encodedPassword)).thenReturn(false)
 
             // act
@@ -194,10 +194,10 @@ class UserServiceTest {
         private val loginId = "testuser"
         private val encodedCurrentPassword = "encoded_current_password"
         private val user = User(
-            loginId = loginId,
+            loginId = LoginId.of(loginId),
             password = encodedCurrentPassword,
             name = "홍길동",
-            email = "test@example.com",
+            email = Email.of("test@example.com"),
             birthday = LocalDate.of(1990, 5, 15),
         )
 
@@ -209,7 +209,7 @@ class UserServiceTest {
             val currentPassword = "CurrentPassword1!"
             val newPassword = "NewPassword1!"
 
-            whenever(userRepository.find(userId)).thenReturn(null)
+            whenever(userRepository.findById(userId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -227,7 +227,7 @@ class UserServiceTest {
             val wrongCurrentPassword = "WrongPassword1!"
             val newPassword = "NewPassword1!"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(wrongCurrentPassword, encodedCurrentPassword)).thenReturn(false)
 
             // act
@@ -245,7 +245,7 @@ class UserServiceTest {
             // arrange
             val currentPassword = "CurrentPassword1!"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
 
             // act
@@ -264,7 +264,7 @@ class UserServiceTest {
             val currentPassword = "CurrentPassword1!"
             val invalidNewPassword = "weak"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
 
             // act
@@ -283,7 +283,7 @@ class UserServiceTest {
             val currentPassword = "CurrentPassword1!"
             val newPasswordWithBirthday = "Pass19900515!@"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
 
             // act
@@ -303,7 +303,7 @@ class UserServiceTest {
             val newPassword = "NewPassword1!"
             val encodedNewPassword = "encoded_new_password"
 
-            whenever(userRepository.find(user.id)).thenReturn(user)
+            whenever(userRepository.findById(user.id)).thenReturn(user)
             whenever(passwordEncoder.matches(currentPassword, encodedCurrentPassword)).thenReturn(true)
             whenever(passwordEncoder.encode(newPassword)).thenReturn(encodedNewPassword)
 

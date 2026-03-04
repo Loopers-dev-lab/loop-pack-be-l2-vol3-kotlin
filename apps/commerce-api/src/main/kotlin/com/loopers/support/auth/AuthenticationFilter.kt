@@ -1,8 +1,7 @@
 package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.loopers.domain.user.UserService
-import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.Filter
@@ -18,7 +17,7 @@ import org.springframework.stereotype.Component
 @Component
 @Order(1)
 class AuthenticationFilter(
-    private val userService: UserService,
+    private val authenticator: Authenticator,
     private val objectMapper: ObjectMapper,
 ) : Filter {
 
@@ -29,10 +28,17 @@ class AuthenticationFilter(
 
         private val AUTH_EXCLUDE_PATHS = listOf(
             "/api/v1/users/signup",
+            "/api/v1/brands",
+            "/api/v1/products",
             "/api/v1/examples",
+            "/api-admin/",
             "/actuator",
             "/swagger",
             "/v3/api-docs",
+        )
+
+        private val AUTH_REQUIRED_PATTERNS = listOf(
+            Regex("^/api/v1/products/\\d+/likes$"),
         )
     }
 
@@ -50,7 +56,7 @@ class AuthenticationFilter(
                     return
                 }
 
-                val user = userService.authenticate(loginId, password)
+                val user = authenticator.authenticate(loginId, password)
                 httpRequest.setAttribute(AUTHENTICATED_USER_ATTRIBUTE, user)
             }
 
@@ -62,6 +68,9 @@ class AuthenticationFilter(
 
     private fun requiresAuthentication(request: HttpServletRequest): Boolean {
         val path = request.requestURI
+        if (AUTH_REQUIRED_PATTERNS.any { it.matches(path) }) {
+            return true
+        }
         return AUTH_EXCLUDE_PATHS.none { path.startsWith(it) }
     }
 
