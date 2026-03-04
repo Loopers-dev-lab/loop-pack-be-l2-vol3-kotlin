@@ -12,7 +12,10 @@ class OrderMapperTest {
         val entity = OrderEntity(
             id = null,
             userId = 1L,
+            userCouponId = null,
             status = OrderStatus.COMPLETED,
+            originalAmount = 30000L,
+            discountAmount = 0L,
             totalAmount = 30000L,
             orderedAt = ZonedDateTime.now(),
         )
@@ -27,7 +30,10 @@ class OrderMapperTest {
         val orderEntity = OrderEntity(
             id = 1L,
             userId = 1L,
+            userCouponId = null,
             status = OrderStatus.COMPLETED,
+            originalAmount = 30000L,
+            discountAmount = 0L,
             totalAmount = 30000L,
             orderedAt = ZonedDateTime.now(),
         )

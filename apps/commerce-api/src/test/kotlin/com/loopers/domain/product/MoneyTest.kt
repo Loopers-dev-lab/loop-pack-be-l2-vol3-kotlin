@@ -64,4 +64,57 @@ class MoneyTest {
         assertThat(result).isNotSameAs(original)
         assertThat(original.amount).isEqualTo(1000)
     }
+
+    @Test
+    fun `subtract 호출시 차감된 금액을 반환해야 한다`() {
+        val money = Money(3000)
+
+        val result = money.subtract(Money(1000))
+
+        assertThat(result.amount).isEqualTo(2000)
+    }
+
+    @Test
+    fun `subtract 결과가 음수이면 0을 반환해야 한다`() {
+        val money = Money(500)
+
+        val result = money.subtract(Money(1000))
+
+        assertThat(result.amount).isEqualTo(0)
+    }
+
+    @Test
+    fun `percentage 호출시 비율 금액을 반환해야 한다`() {
+        val money = Money(10000)
+
+        val result = money.percentage(10)
+
+        assertThat(result.amount).isEqualTo(1000)
+    }
+
+    @Test
+    fun `percentage 결과는 소수점 이하 버림이어야 한다`() {
+        val money = Money(10000)
+
+        val result = money.percentage(33)
+
+        assertThat(result.amount).isEqualTo(3300)
+    }
+
+    @Test
+    fun `min 호출시 두 금액 중 작은 값을 반환해야 한다`() {
+        val money1 = Money(1000)
+        val money2 = Money(2000)
+
+        assertThat(money1.min(money2).amount).isEqualTo(1000)
+        assertThat(money2.min(money1).amount).isEqualTo(1000)
+    }
+
+    @Test
+    fun `min 호출시 같은 금액이면 그 값을 반환해야 한다`() {
+        val money1 = Money(1000)
+        val money2 = Money(1000)
+
+        assertThat(money1.min(money2).amount).isEqualTo(1000)
+    }
 }
