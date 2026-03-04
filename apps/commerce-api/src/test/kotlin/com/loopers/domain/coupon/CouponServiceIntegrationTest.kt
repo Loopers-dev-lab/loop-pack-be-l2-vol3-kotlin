@@ -1,5 +1,8 @@
 package com.loopers.domain.coupon
 
+import com.loopers.application.coupon.CouponFacade
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.SortOrder
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -8,6 +11,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -18,6 +22,7 @@ import java.util.concurrent.Executors
 @SpringBootTest
 class CouponServiceIntegrationTest @Autowired constructor(
     private val couponService: CouponService,
+    private val couponFacade: CouponFacade,
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -56,7 +61,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
             val userId = 1L
 
             // act
-            couponService.issue(couponId = coupon.id, userId = userId)
+            couponFacade.issue(couponId = coupon.id, userId = userId)
 
             // assert
             val issuedCoupons = issuedCouponRepository.findByUserId(userId)
@@ -70,11 +75,11 @@ class CouponServiceIntegrationTest @Autowired constructor(
             // arrange
             val coupon = createCoupon()
             val userId = 1L
-            couponService.issue(couponId = coupon.id, userId = userId)
+            couponFacade.issue(couponId = coupon.id, userId = userId)
 
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = coupon.id, userId = userId)
+                couponFacade.issue(couponId = coupon.id, userId = userId)
             }
 
             // assert
@@ -90,7 +95,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = coupon.id, userId = userId)
+                couponFacade.issue(couponId = coupon.id, userId = userId)
             }
 
             // assert
@@ -102,11 +107,11 @@ class CouponServiceIntegrationTest @Autowired constructor(
         fun throwsBadRequest_whenCouponIsExhausted() {
             // arrange
             val coupon = createCoupon(totalQuantity = 1)
-            couponService.issue(couponId = coupon.id, userId = 1L)
+            couponFacade.issue(couponId = coupon.id, userId = 1L)
 
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = coupon.id, userId = 2L)
+                couponFacade.issue(couponId = coupon.id, userId = 2L)
             }
 
             // assert
@@ -118,7 +123,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
         fun throwsNotFound_whenCouponNotExists() {
             // act
             val exception = assertThrows<CoreException> {
-                couponService.issue(couponId = 999999L, userId = 1L)
+                couponFacade.issue(couponId = 999999L, userId = 1L)
             }
 
             // assert
@@ -136,7 +141,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
             // arrange
             val coupon = createCoupon()
             val userId = 1L
-            couponService.issue(couponId = coupon.id, userId = userId)
+            couponFacade.issue(couponId = coupon.id, userId = userId)
 
             // act
             val issuedCoupons = issuedCouponRepository.findByUserId(userId)
@@ -177,6 +182,91 @@ class CouponServiceIntegrationTest @Autowired constructor(
         }
     }
 
+    @DisplayName("쿠폰 목록을 페이징 조회할 때,")
+    @Nested
+    inner class FindAll {
+
+        @DisplayName("DB에 저장된 쿠폰을 페이징으로 조회하면, 해당 페이지의 쿠폰을 반환한다.")
+        @Test
+        fun returnsPagedCoupons_whenCouponsExistInDb() {
+            // arrange
+            createCoupon(name = "신규가입 할인")
+            createCoupon(name = "여름 할인", discount = Discount(DiscountType.PERCENTAGE, 15L))
+            createCoupon(name = "VIP 할인")
+            val pageQuery = PageQuery(0, 2, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.totalElements).isEqualTo(3) },
+                { assertThat(result.totalPages).isEqualTo(2) },
+            )
+        }
+
+        @DisplayName("쿠폰이 없으면, 빈 페이지를 반환한다.")
+        @Test
+        fun returnsEmptyPage_whenNoCouponsExistInDb() {
+            // arrange
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).isEmpty() },
+                { assertThat(result.totalElements).isEqualTo(0) },
+            )
+        }
+
+        @DisplayName("삭제된 쿠폰은 목록에 포함되지 않는다.")
+        @Test
+        fun excludesDeletedCoupons() {
+            // arrange
+            createCoupon(name = "활성 쿠폰")
+            val deletedCoupon = createCoupon(name = "삭제될 쿠폰")
+            deletedCoupon.delete()
+            couponRepository.save(deletedCoupon)
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(1) },
+                { assertThat(result.totalElements).isEqualTo(1) },
+                { assertThat(result.content[0].name).isEqualTo("활성 쿠폰") },
+            )
+        }
+
+        @DisplayName("응답에 쿠폰 타입, 할인값, 만료일, 생성일이 포함된다.")
+        @Test
+        fun includesCouponDetails() {
+            // arrange
+            createCoupon(
+                name = "고정액 할인",
+                discount = Discount(DiscountType.FIXED_AMOUNT, 3000L),
+            )
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+
+            // act
+            val result = couponService.findAll(pageQuery)
+
+            // assert
+            val found = result.content[0]
+            assertAll(
+                { assertThat(found.discount.type).isEqualTo(DiscountType.FIXED_AMOUNT) },
+                { assertThat(found.discount.value).isEqualTo(3000L) },
+                { assertThat(found.expiresAt).isNotNull() },
+                { assertThat(found.createdAt).isNotNull() },
+            )
+        }
+    }
+
     @DisplayName("동시에 여러 사용자가 같은 쿠폰 발급을 요청하면,")
     @Nested
     inner class ConcurrentIssueCoupon {
@@ -194,7 +284,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
             (1..threadCount).forEach { userId ->
                 executorService.submit {
                     try {
-                        couponService.issue(couponId = coupon.id, userId = userId.toLong())
+                        couponFacade.issue(couponId = coupon.id, userId = userId.toLong())
                     } catch (_: CoreException) {
                         // 수량 초과 시 예외 발생 예상
                     } finally {

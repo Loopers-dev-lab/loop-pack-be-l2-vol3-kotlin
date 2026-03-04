@@ -2,6 +2,10 @@ package com.loopers.infrastructure.coupon
 
 import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponRepository
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
+import com.loopers.infrastructure.common.toPageRequest
+import com.loopers.infrastructure.common.toPageResult
 import org.springframework.stereotype.Component
 
 @Component
@@ -23,5 +27,10 @@ class CouponRepositoryImpl(
 
     override fun findByIdIn(ids: List<Long>): List<Coupon> {
         return couponJpaRepository.findByIdInAndDeletedAtIsNull(ids)
+    }
+
+    override fun findAll(pageQuery: PageQuery): PageResult<Coupon> {
+        return couponJpaRepository.findAllByDeletedAtIsNull(pageQuery.toPageRequest())
+            .toPageResult()
     }
 }

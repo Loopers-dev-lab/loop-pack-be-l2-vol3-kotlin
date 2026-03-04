@@ -9,6 +9,7 @@ class CouponFacade(
     private val couponService: CouponService,
 ) {
 
+    @Transactional
     fun issue(couponId: Long, userId: Long) {
         couponService.issue(couponId, userId)
     }
