@@ -1,5 +1,7 @@
 package com.loopers.domain.product
 
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 
 @Component
@@ -9,14 +11,14 @@ class ProductStockDeductor(
 ) {
 
     fun deductStock(productId: Long, quantity: Int): Product {
-        val product = productReader.getSellingById(productId)
-        product.deductStock(quantity)
-        return productRepository.save(product)
+        val affected = productRepository.deductStock(productId, quantity)
+        if (affected == 0) {
+            throw CoreException(ErrorType.INSUFFICIENT_STOCK)
+        }
+        return productReader.getSellingById(productId)
     }
 
     fun restoreStock(productId: Long, quantity: Int) {
-        val product = productReader.getById(productId)
-        product.restoreStock(quantity)
-        productRepository.save(product)
+        productRepository.restoreStock(productId, quantity)
     }
 }
