@@ -22,9 +22,10 @@ import java.time.LocalDate
 
 @DisplayName("UserChangePasswordUseCase")
 class UserChangePasswordUseCaseTest {
+    private val userAuthenticateUseCase: UserAuthenticateUseCase = mock()
     private val userRepository: UserRepository = mock()
     private val passwordHasher: UserPasswordHasher = mock()
-    private val service = UserChangePasswordUseCase(userRepository, passwordHasher)
+    private val service = UserChangePasswordUseCase(userAuthenticateUseCase, userRepository, passwordHasher)
 
     private fun existingUser(
         password: String = "encoded_Password1!",
@@ -46,7 +47,8 @@ class UserChangePasswordUseCaseTest {
         fun changePassword_success_savesEncodedPassword() {
             // arrange
             val user = existingUser()
-            given(userRepository.findByLoginId("testuser1")).willReturn(user)
+            given(userAuthenticateUseCase.authenticate("testuser1", "Password1!"))
+                .willReturn(user)
             given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
                 .willReturn(true)
             given(passwordHasher.matches(RawPassword("NewPassword1!"), EncodedPassword("encoded_Password1!")))
@@ -74,10 +76,8 @@ class UserChangePasswordUseCaseTest {
         @DisplayName("CoreException(UNAUTHORIZED)을 던지고 save를 호출하지 않는다")
         fun changePassword_wrongHeaderPassword_throwsUnauthorized() {
             // arrange
-            val user = existingUser()
-            given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches(RawPassword("WrongPassword1!"), EncodedPassword("encoded_Password1!")))
-                .willReturn(false)
+            given(userAuthenticateUseCase.authenticate("testuser1", "WrongPassword1!"))
+                .willThrow(CoreException(ErrorType.UNAUTHORIZED))
 
             // act
             val exception = assertThrows<CoreException> {
@@ -102,9 +102,8 @@ class UserChangePasswordUseCaseTest {
         fun changePassword_wrongCurrentPassword_propagatesExceptionAndDoesNotSave() {
             // arrange
             val user = existingUser()
-            given(userRepository.findByLoginId("testuser1")).willReturn(user)
-            given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
-                .willReturn(true)
+            given(userAuthenticateUseCase.authenticate("testuser1", "Password1!"))
+                .willReturn(user)
             given(passwordHasher.matches(RawPassword("WrongCurrent1!"), EncodedPassword("encoded_Password1!")))
                 .willReturn(false)
 
@@ -127,7 +126,8 @@ class UserChangePasswordUseCaseTest {
         fun changePassword_samePassword_propagatesExceptionAndDoesNotSave() {
             // arrange
             val user = existingUser()
-            given(userRepository.findByLoginId("testuser1")).willReturn(user)
+            given(userAuthenticateUseCase.authenticate("testuser1", "Password1!"))
+                .willReturn(user)
             given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
                 .willReturn(true)
 

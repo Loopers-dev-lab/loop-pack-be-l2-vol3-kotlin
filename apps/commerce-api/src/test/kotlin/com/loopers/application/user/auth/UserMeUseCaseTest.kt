@@ -1,10 +1,6 @@
 package com.loopers.application.user.auth
 
-import com.loopers.domain.user.EncodedPassword
-import com.loopers.domain.user.RawPassword
 import com.loopers.domain.user.User
-import com.loopers.domain.user.UserPasswordHasher
-import com.loopers.domain.user.UserRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -19,9 +15,8 @@ import java.time.LocalDate
 
 @DisplayName("UserMeUseCase")
 class UserMeUseCaseTest {
-    private val userRepository: UserRepository = mock()
-    private val passwordHasher: UserPasswordHasher = mock()
-    private val service = UserMeUseCase(userRepository, passwordHasher)
+    private val userAuthenticateUseCase: UserAuthenticateUseCase = mock()
+    private val service = UserMeUseCase(userAuthenticateUseCase)
 
     private val defaultBirthDate = LocalDate.of(1990, 1, 1)
 
@@ -41,9 +36,8 @@ class UserMeUseCaseTest {
         @DisplayName("마스킹된 UserResult.Me를 반환한다")
         fun getMe_success_returnsMaskedUserInfo() {
             // arrange
-            given(userRepository.findByLoginId("testuser1")).willReturn(existingUser())
-            given(passwordHasher.matches(RawPassword("Password1!"), EncodedPassword("encoded_Password1!")))
-                .willReturn(true)
+            given(userAuthenticateUseCase.authenticate("testuser1", "Password1!"))
+                .willReturn(existingUser())
 
             // act
             val result = service.getMe("testuser1", "Password1!")
@@ -65,7 +59,8 @@ class UserMeUseCaseTest {
         @DisplayName("존재하지 않는 loginId로 조회 시 CoreException(UNAUTHORIZED)")
         fun getMe_invalidLoginId_throwsException() {
             // arrange
-            given(userRepository.findByLoginId("nonexistent")).willReturn(null)
+            given(userAuthenticateUseCase.authenticate("nonexistent", "Password1!"))
+                .willThrow(CoreException(ErrorType.UNAUTHORIZED))
 
             // act
             val exception = assertThrows<CoreException> {
@@ -80,9 +75,8 @@ class UserMeUseCaseTest {
         @DisplayName("비밀번호 불일치 시 CoreException(UNAUTHORIZED)")
         fun getMe_wrongPassword_throwsException() {
             // arrange
-            given(userRepository.findByLoginId("testuser1")).willReturn(existingUser())
-            given(passwordHasher.matches(RawPassword("WrongPassword1!"), EncodedPassword("encoded_Password1!")))
-                .willReturn(false)
+            given(userAuthenticateUseCase.authenticate("testuser1", "WrongPassword1!"))
+                .willThrow(CoreException(ErrorType.UNAUTHORIZED))
 
             // act
             val exception = assertThrows<CoreException> {
