@@ -31,7 +31,7 @@ class OrderV1Controller(
         @RequestBody request: OrderV1Dto.CreateRequest,
     ): ApiResponse<OrderV1Dto.CreateOrderResponse> {
         val authUser = userService.authenticate(loginId, password)
-        val result = orderFacade.createOrder(authUser.id, request.toCriteria())
+        val result = orderFacade.createOrder(authUser.id, request.toCriteria(), request.couponId)
         return ApiResponse.success(OrderV1Dto.CreateOrderResponse.from(result))
     }
 

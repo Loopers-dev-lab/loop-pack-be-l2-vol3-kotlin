@@ -15,6 +15,8 @@ class OrderV1Dto {
     data class CreateRequest(
         @Schema(description = "주문 항목 목록")
         val items: List<OrderItemRequest>,
+        @Schema(description = "발급 쿠폰 ID (optional)", example = "1", required = false)
+        val couponId: Long? = null,
     ) {
         fun toCriteria(): List<OrderItemCriteria> {
             return items.map { OrderItemCriteria(productId = it.productId, quantity = it.quantity) }
@@ -33,7 +35,13 @@ class OrderV1Dto {
     data class CreateOrderResponse(
         @Schema(description = "주문 ID", example = "1")
         val orderId: Long,
-        @Schema(description = "총 주문 금액", example = "258000")
+        @Schema(description = "쿠폰 ID", example = "1")
+        val couponId: Long?,
+        @Schema(description = "원래 주문 금액", example = "258000")
+        val originalAmount: BigDecimal,
+        @Schema(description = "할인 금액", example = "5000")
+        val discountAmount: BigDecimal,
+        @Schema(description = "최종 주문 금액", example = "253000")
         val totalAmount: BigDecimal,
         @Schema(description = "주문 항목")
         val items: List<OrderItemResponse>,
@@ -44,6 +52,9 @@ class OrderV1Dto {
             fun from(result: OrderResultInfo): CreateOrderResponse {
                 return CreateOrderResponse(
                     orderId = result.order.id,
+                    couponId = result.order.couponId,
+                    originalAmount = result.order.originalAmount,
+                    discountAmount = result.order.discountAmount,
                     totalAmount = result.order.totalAmount,
                     items = result.order.items.map { OrderItemResponse.from(it) },
                     excludedItems = result.excludedItems.map { ExcludedItemResponse.from(it) },
@@ -58,7 +69,13 @@ class OrderV1Dto {
         val id: Long,
         @Schema(description = "유저 ID", example = "1")
         val userId: Long,
-        @Schema(description = "총 주문 금액", example = "258000")
+        @Schema(description = "쿠폰 ID", example = "1")
+        val couponId: Long?,
+        @Schema(description = "원래 주문 금액", example = "258000")
+        val originalAmount: BigDecimal,
+        @Schema(description = "할인 금액", example = "5000")
+        val discountAmount: BigDecimal,
+        @Schema(description = "최종 주문 금액", example = "253000")
         val totalAmount: BigDecimal,
         @Schema(description = "주문 항목")
         val items: List<OrderItemResponse>,
@@ -70,6 +87,9 @@ class OrderV1Dto {
                 return OrderResponse(
                     id = info.id,
                     userId = info.userId,
+                    couponId = info.couponId,
+                    originalAmount = info.originalAmount,
+                    discountAmount = info.discountAmount,
                     totalAmount = info.totalAmount,
                     items = info.items.map { OrderItemResponse.from(it) },
                     createdAt = info.createdAt,
