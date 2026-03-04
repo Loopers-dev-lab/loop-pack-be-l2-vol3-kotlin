@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.jdbc.Sql
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig::class)
@@ -98,6 +99,27 @@ class OrderApiE2ETest {
                 .statusCode(HttpStatus.CONFLICT.value())
                 .body("meta.result", equalTo("FAIL"))
                 .body("meta.errorCode", equalTo("INSUFFICIENT_STOCK"))
+        }
+
+        @Test
+        fun `쿠폰 적용 주문이 정상적으로 생성된다`() {
+            registerUser()
+            val brandId = createBrand()
+            val productId = createProduct(brandId)
+            val couponId = createCoupon()
+            val userCouponId = issueCoupon(couponId)
+
+            RestAssured.given()
+                .contentType(ContentType.JSON)
+                .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+                .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+                .body(createOrderRequestWithCoupon(productId, userCouponId))
+            .`when`()
+                .post("/api/v1/orders")
+            .then()
+                .statusCode(HttpStatus.CREATED.value())
+                .body("meta.result", equalTo("SUCCESS"))
+                .body("data.id", notNullValue())
         }
 
         @Test
@@ -369,8 +391,48 @@ class OrderApiE2ETest {
             .statusCode(HttpStatus.OK.value())
     }
 
+    private fun createCoupon(): Long {
+        return RestAssured.given()
+            .contentType(ContentType.JSON)
+            .body(
+                mapOf(
+                    "name" to "테스트쿠폰",
+                    "discountType" to "FIXED",
+                    "discountValue" to 3000,
+                    "minOrderAmount" to 0,
+                    "maxIssueCount" to 100,
+                    "expiredAt" to ZonedDateTime.now().plusDays(30).toString(),
+                ),
+            )
+        .`when`()
+            .post("/api-admin/v1/coupons")
+        .then()
+            .statusCode(HttpStatus.CREATED.value())
+            .extract()
+            .jsonPath()
+            .getLong("data.id")
+    }
+
+    private fun issueCoupon(couponId: Long): Long {
+        return RestAssured.given()
+            .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)
+            .header(AuthenticationFilter.HEADER_LOGIN_PW, PASSWORD)
+        .`when`()
+            .post("/api/v1/coupons/$couponId/issue")
+        .then()
+            .statusCode(HttpStatus.CREATED.value())
+            .extract()
+            .jsonPath()
+            .getLong("data.id")
+    }
+
     private fun createOrderRequest(productId: Long, quantity: Int = 2) = mapOf(
         "items" to listOf(mapOf("productId" to productId, "quantity" to quantity)),
+    )
+
+    private fun createOrderRequestWithCoupon(productId: Long, couponId: Long) = mapOf(
+        "items" to listOf(mapOf("productId" to productId, "quantity" to 2)),
+        "couponId" to couponId,
     )
 
     companion object {
