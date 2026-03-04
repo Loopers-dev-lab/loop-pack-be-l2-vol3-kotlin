@@ -190,6 +190,6 @@ class OrderServiceUnitTest {
         id = id,
         userId = userId,
         items = items,
-        totalPrice = items.sumOf { it.subtotal() },
+        originalTotalPrice = items.sumOf { it.subtotal() },
     )
 }

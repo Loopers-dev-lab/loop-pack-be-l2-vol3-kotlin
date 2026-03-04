@@ -2,6 +2,8 @@ package com.loopers.application.order
 
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.ProductService
+import com.loopers.domain.coupon.CouponTemplateService
+import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
 import com.loopers.support.error.CoreException
@@ -14,6 +16,8 @@ class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
+    private val userCouponService: UserCouponService,
+    private val couponTemplateService: CouponTemplateService,
 ) {
 
     @Transactional
@@ -56,8 +60,41 @@ class OrderFacade(
             )
         }
 
-        // 5. 주문 생성 및 저장
-        val order = orderService.createOrder(userId = userId, items = orderItems)
+        // 5. 쿠폰 할인 계산
+        val originalTotalPrice = orderItems.sumOf { it.subtotal() }
+        var discountAmount = 0
+
+        if (cmd.userCouponId != null) {
+            val userCoupon = userCouponService.getById(cmd.userCouponId)
+            if (userCoupon.userId != userId) {
+                throw CoreException(ErrorType.BAD_REQUEST, "다른 사용자의 쿠폰은 사용할 수 없습니다.")
+            }
+            userCoupon.requireAvailable()
+
+            val template = couponTemplateService.getById(userCoupon.couponTemplateId)
+            if (template.isExpired()) {
+                throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
+            }
+            if (originalTotalPrice < template.minOrderAmount) {
+                throw CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액(${template.minOrderAmount}원)을 충족하지 못했습니다.")
+            }
+
+            discountAmount = template.discount(originalTotalPrice)
+        }
+
+        // 6. 주문 생성 및 저장
+        val order = orderService.createOrder(
+            userId = userId,
+            items = orderItems,
+            discountAmount = discountAmount,
+            userCouponId = cmd.userCouponId,
+        )
+
+        // 7. 쿠폰 사용 처리 (주문 ID 확정 후)
+        if (cmd.userCouponId != null) {
+            userCouponService.useForOrder(cmd.userCouponId, order.id)
+        }
+
         return OrderResult.from(order)
     }
 }

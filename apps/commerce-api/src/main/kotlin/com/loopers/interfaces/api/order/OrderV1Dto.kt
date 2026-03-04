@@ -14,6 +14,7 @@ class OrderV1Dto {
 
     data class PlaceOrderRequest(
         val items: List<OrderItemRequest>,
+        val userCouponId: Long? = null,
     )
 
     data class OrderItemResponse(
@@ -51,21 +52,30 @@ class OrderV1Dto {
     data class OrderResponse(
         val id: Long,
         val userId: Long,
+        val originalTotalPrice: Int,
+        val discountAmount: Int,
         val totalPrice: Int,
+        val userCouponId: Long?,
         val items: List<OrderItemResponse>,
     ) {
         companion object {
             fun from(result: OrderResult) = OrderResponse(
                 id = result.id,
                 userId = result.userId,
+                originalTotalPrice = result.originalTotalPrice,
+                discountAmount = result.discountAmount,
                 totalPrice = result.totalPrice,
+                userCouponId = result.userCouponId,
                 items = result.items.map { OrderItemResponse.from(it) },
             )
 
             fun from(order: Order) = OrderResponse(
                 id = order.id,
                 userId = order.userId,
+                originalTotalPrice = order.originalTotalPrice,
+                discountAmount = order.discountAmount,
                 totalPrice = order.totalPrice,
+                userCouponId = order.userCouponId,
                 items = order.items.map { OrderItemResponse.from(it) },
             )
         }

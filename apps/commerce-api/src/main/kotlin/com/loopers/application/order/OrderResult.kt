@@ -30,14 +30,20 @@ data class OrderItemResult(
 data class OrderResult(
     val id: Long,
     val userId: Long,
+    val originalTotalPrice: Int,
+    val discountAmount: Int,
     val totalPrice: Int,
+    val userCouponId: Long?,
     val items: List<OrderItemResult>,
 ) {
     companion object {
         fun from(order: Order): OrderResult = OrderResult(
             id = order.id,
             userId = order.userId,
+            originalTotalPrice = order.originalTotalPrice,
+            discountAmount = order.discountAmount,
             totalPrice = order.totalPrice,
+            userCouponId = order.userCouponId,
             items = order.items.map { OrderItemResult.from(it) },
         )
     }

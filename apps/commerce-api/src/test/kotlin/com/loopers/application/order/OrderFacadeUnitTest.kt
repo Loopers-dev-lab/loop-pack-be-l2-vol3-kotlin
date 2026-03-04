@@ -5,6 +5,8 @@ import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStatus
+import com.loopers.domain.coupon.CouponTemplateService
+import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
@@ -22,8 +24,10 @@ class OrderFacadeUnitTest {
     private val mockOrderService = mockk<OrderService>()
     private val mockProductService = mockk<ProductService>()
     private val mockBrandService = mockk<BrandService>()
+    private val mockUserCouponService = mockk<UserCouponService>()
+    private val mockCouponTemplateService = mockk<CouponTemplateService>()
 
-    private val orderFacade = OrderFacade(mockOrderService, mockProductService, mockBrandService)
+    private val orderFacade = OrderFacade(mockOrderService, mockProductService, mockBrandService, mockUserCouponService, mockCouponTemplateService)
 
     // ─── placeOrder ───
 
@@ -38,7 +42,7 @@ class OrderFacadeUnitTest {
         every { mockProductService.getById(1L) } returns product
         every { mockBrandService.getById(1L) } returns brand
         every { mockProductService.decrementStock(1L, 2) } returns product
-        every { mockOrderService.createOrder(any(), any()) } returns order
+        every { mockOrderService.createOrder(any(), any(), any(), any()) } returns order
 
         val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 2)))
 
@@ -49,7 +53,7 @@ class OrderFacadeUnitTest {
         assertThat(result).isNotNull
         verify { mockProductService.getById(1L) }
         verify { mockProductService.decrementStock(1L, 2) }
-        verify { mockOrderService.createOrder(1L, any()) }
+        verify { mockOrderService.createOrder(1L, any(), any(), any()) }
     }
 
     @Test
@@ -77,7 +81,7 @@ class OrderFacadeUnitTest {
 
         // stock should NOT be decremented for any product
         verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
-        verify(exactly = 0) { mockOrderService.createOrder(any(), any()) }
+        verify(exactly = 0) { mockOrderService.createOrder(any(), any(), any(), any()) }
     }
 
     @Test
@@ -95,7 +99,7 @@ class OrderFacadeUnitTest {
         }
 
         verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
-        verify(exactly = 0) { mockOrderService.createOrder(any(), any()) }
+        verify(exactly = 0) { mockOrderService.createOrder(any(), any(), any(), any()) }
     }
 
     @Test
@@ -114,7 +118,7 @@ class OrderFacadeUnitTest {
         }
 
         verify(exactly = 0) { mockProductService.decrementStock(any(), any()) }
-        verify(exactly = 0) { mockOrderService.createOrder(any(), any()) }
+        verify(exactly = 0) { mockOrderService.createOrder(any(), any(), any(), any()) }
     }
 
     @Test
@@ -127,7 +131,7 @@ class OrderFacadeUnitTest {
         }
 
         verify(exactly = 0) { mockProductService.getById(any()) }
-        verify(exactly = 0) { mockOrderService.createOrder(any(), any()) }
+        verify(exactly = 0) { mockOrderService.createOrder(any(), any(), any(), any()) }
     }
 
     private fun createProduct(
@@ -165,6 +169,6 @@ class OrderFacadeUnitTest {
         id = id,
         userId = userId,
         items = items,
-        totalPrice = items.sumOf { it.subtotal() },
+        originalTotalPrice = items.sumOf { it.subtotal() },
     )
 }
