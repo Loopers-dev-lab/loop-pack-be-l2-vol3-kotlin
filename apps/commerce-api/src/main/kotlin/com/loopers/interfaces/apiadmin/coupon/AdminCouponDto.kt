@@ -25,6 +25,32 @@ class AdminCouponDto {
         }
     }
 
+    data class DetailResponse(
+        val id: Long,
+        val name: String,
+        val discountType: String,
+        val discountValue: Long,
+        val totalQuantity: Int,
+        val issuedQuantity: Int,
+        val expiresAt: ZonedDateTime,
+        val createdAt: ZonedDateTime,
+    ) {
+        companion object {
+            fun from(info: CouponInfo): DetailResponse {
+                return DetailResponse(
+                    id = info.id,
+                    name = info.name,
+                    discountType = info.discountType.name,
+                    discountValue = info.discountValue,
+                    totalQuantity = info.totalQuantity,
+                    issuedQuantity = info.issuedQuantity,
+                    expiresAt = info.expiresAt,
+                    createdAt = info.createdAt,
+                )
+            }
+        }
+    }
+
     data class ListItem(
         val id: Long,
         val name: String,

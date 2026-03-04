@@ -31,6 +31,7 @@ class AdminCouponApiE2ETest @Autowired constructor(
 ) {
     companion object {
         private const val COUPON_ENDPOINT = "/api-admin/v1/coupons"
+        private const val COUPON_DETAIL_ENDPOINT = "/api-admin/v1/coupons/{couponId}"
         private const val LDAP_HEADER = "X-Loopers-Ldap"
         private const val LDAP_VALUE = "loopers.admin"
     }
@@ -321,6 +322,201 @@ class AdminCouponApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode.value()).isEqualTo(401) },
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/coupons/{couponId}")
+    @Nested
+    inner class GetCouponDetail {
+
+        @DisplayName("존재하는 쿠폰을 조회하면, 200 OK와 쿠폰 상세 정보를 반환한다.")
+        @Test
+        fun returnsOk_whenCouponExists() {
+            // arrange
+            val coupon = createCoupon(
+                name = "신규가입 할인",
+                discountType = DiscountType.FIXED_AMOUNT,
+                discountValue = 5000L,
+                totalQuantity = 100,
+            )
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(data?.get("name")).isEqualTo("신규가입 할인") },
+                { assertThat(data?.get("discountType")).isEqualTo("FIXED_AMOUNT") },
+                { assertThat(data?.get("discountValue")).isEqualTo(5000) },
+                { assertThat(data?.get("totalQuantity")).isEqualTo(100) },
+                { assertThat(data?.get("issuedQuantity")).isEqualTo(0) },
+                { assertThat(data?.get("expiresAt")).isNotNull() },
+                { assertThat(data?.get("createdAt")).isNotNull() },
+            )
+        }
+
+        @DisplayName("PERCENTAGE 타입 쿠폰의 상세 정보가 올바르게 반환된다.")
+        @Test
+        fun returnsPercentageDiscountDetails() {
+            // arrange
+            val coupon = createCoupon(
+                name = "여름 할인",
+                discountType = DiscountType.PERCENTAGE,
+                discountValue = 15L,
+            )
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(data?.get("name")).isEqualTo("여름 할인") },
+                { assertThat(data?.get("discountType")).isEqualTo("PERCENTAGE") },
+                { assertThat(data?.get("discountValue")).isEqualTo(15) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 쿠폰 ID로 요청하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenCouponNotExists() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                999999L,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("삭제된 쿠폰 ID로 요청하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenCouponIsDeleted() {
+            // arrange
+            val coupon = createCoupon(name = "삭제될 쿠폰")
+            coupon.delete()
+            couponRepository.save(coupon)
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            assertThat(response.statusCode.value()).isEqualTo(404)
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val coupon = createCoupon()
+            val httpEntity = HttpEntity<Void>(HttpHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더 값이 올바르지 않으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsInvalid() {
+            // arrange
+            val coupon = createCoupon()
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(LDAP_HEADER, "wrong.value")
+            }
+            val httpEntity = HttpEntity<Void>(headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("404 에러 응답에 에러 메시지가 포함된다.")
+        @Test
+        fun returnsErrorMessage_whenCouponNotFound() {
+            // arrange
+            val httpEntity = HttpEntity<Void>(adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                httpEntity,
+                responseType,
+                999999L,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+                { assertThat(response.body?.meta?.message).contains("쿠폰을 찾을 수 없습니다") },
             )
         }
     }

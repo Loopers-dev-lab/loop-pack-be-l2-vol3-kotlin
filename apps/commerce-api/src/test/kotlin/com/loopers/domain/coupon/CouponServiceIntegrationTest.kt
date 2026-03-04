@@ -182,6 +182,64 @@ class CouponServiceIntegrationTest @Autowired constructor(
         }
     }
 
+    @DisplayName("쿠폰을 ID로 조회할 때,")
+    @Nested
+    inner class FindCouponById {
+
+        @DisplayName("존재하는 쿠폰 ID이면, 쿠폰을 반환한다.")
+        @Test
+        fun returnsCoupon_whenCouponExistsInDb() {
+            // arrange
+            val coupon = createCoupon(
+                name = "신규가입 할인",
+                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+            )
+
+            // act
+            val result = couponService.findCouponById(coupon.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(coupon.id) },
+                { assertThat(result.name).isEqualTo("신규가입 할인") },
+                { assertThat(result.discount.type).isEqualTo(DiscountType.FIXED_AMOUNT) },
+                { assertThat(result.discount.value).isEqualTo(5000L) },
+                { assertThat(result.quantity.total).isEqualTo(100) },
+                { assertThat(result.expiresAt).isNotNull() },
+                { assertThat(result.createdAt).isNotNull() },
+            )
+        }
+
+        @DisplayName("존재하지 않는 쿠폰 ID이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenCouponNotExistsInDb() {
+            // act
+            val exception = assertThrows<CoreException> {
+                couponService.findCouponById(999999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("삭제된 쿠폰 ID이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenCouponIsDeleted() {
+            // arrange
+            val coupon = createCoupon(name = "삭제될 쿠폰")
+            coupon.delete()
+            couponRepository.save(coupon)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                couponService.findCouponById(coupon.id)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
     @DisplayName("쿠폰 목록을 페이징 조회할 때,")
     @Nested
     inner class FindAll {

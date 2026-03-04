@@ -5,6 +5,7 @@ import com.loopers.support.common.PageQuery
 import com.loopers.support.common.SortOrder
 import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -23,6 +24,15 @@ class AdminCouponController(
         val pageQuery = PageQuery(page, size, SortOrder.UNSORTED)
         return adminCouponFacade.getCoupons(pageQuery)
             .let { AdminCouponDto.PageResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/{couponId}")
+    override fun getCoupon(
+        @PathVariable couponId: Long,
+    ): ApiResponse<AdminCouponDto.DetailResponse> {
+        return adminCouponFacade.getCoupon(couponId)
+            .let { AdminCouponDto.DetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 }

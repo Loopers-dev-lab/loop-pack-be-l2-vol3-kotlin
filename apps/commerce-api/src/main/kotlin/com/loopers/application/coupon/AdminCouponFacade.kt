@@ -14,4 +14,9 @@ class AdminCouponFacade(
         return couponService.findAll(pageQuery)
             .map { CouponInfo.from(it) }
     }
+
+    fun getCoupon(couponId: Long): CouponInfo {
+        return couponService.findCouponById(couponId)
+            .let { CouponInfo.from(it) }
+    }
 }
