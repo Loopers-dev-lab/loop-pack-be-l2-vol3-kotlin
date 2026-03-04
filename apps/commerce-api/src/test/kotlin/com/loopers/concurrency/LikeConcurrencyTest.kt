@@ -16,12 +16,11 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import java.time.LocalDate
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig::class)
@@ -79,35 +78,20 @@ class LikeConcurrencyTest @Autowired constructor(
         val brandId = registerBrand()
         val productId = registerProduct(brandId)
 
-        val executorService = Executors.newFixedThreadPool(threadCount)
-        val readyLatch = CountDownLatch(threadCount)
-        val startLatch = CountDownLatch(1)
-
         // act
-        val futures = userIds.map { userId ->
-            executorService.submit<Boolean> {
-                try {
-                    readyLatch.countDown()
-                    startLatch.await()
-                    addLikeUseCase.execute(LikeCommand.Create(userId = userId, productId = productId))
-                    true
-                } catch (e: Exception) {
-                    false
-                }
-            }
+        val actions = userIds.map { userId ->
+            { addLikeUseCase.execute(LikeCommand.Create(userId = userId, productId = productId)) }
         }
+        val results = ConcurrencyTestHelper.executeConcurrently(actions)
 
-        readyLatch.await()
-        startLatch.countDown()
-
-        val successCount = futures.count { it.get() }
-        executorService.shutdown()
+        val successes = results.filter { it.isSuccess }
 
         // assert
         val product = productRepository.findByIdOrNull(productId)!!
 
-        assertThat(product.likeCount)
-            .`as`("좋아요 성공 수($successCount)와 likeCount가 일치해야 한다")
-            .isEqualTo(successCount.toLong())
+        assertAll(
+            { assertThat(successes).`as`("모든 좋아요가 성공해야 한다").hasSize(threadCount) },
+            { assertThat(product.likeCount).`as`("likeCount가 정확히 일치해야 한다").isEqualTo(threadCount.toLong()) },
+        )
     }
 }

@@ -8,6 +8,7 @@ import com.loopers.application.user.UserCommand
 import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.infrastructure.user.UserJpaRepository
+import com.loopers.support.error.CoreException
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -20,8 +21,6 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import java.time.LocalDate
 import java.time.ZonedDateTime
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig::class)
@@ -64,7 +63,7 @@ class CouponIssueConcurrencyTest @Autowired constructor(
         ).id
     }
 
-    @DisplayName("같은 유저가 같은 쿠폰을 동시에 발급 요청하면 1건만 성공해야 한다")
+    @DisplayName("같은 유저가 같은 쿠폰을 동시에 발급 요청하면 1건만 성공하고 나머지는 CoreException으로 실패해야 한다")
     @Test
     fun onlyOneIssueShouldSucceedWhenSameUserRequestsConcurrently() {
         // arrange
@@ -72,39 +71,27 @@ class CouponIssueConcurrencyTest @Autowired constructor(
         val userId = registerUser("testuser")
         val couponId = registerCoupon()
 
-        val executorService = Executors.newFixedThreadPool(threadCount)
-        val readyLatch = CountDownLatch(threadCount)
-        val startLatch = CountDownLatch(1)
-
         // act
-        val futures = (1..threadCount).map {
-            executorService.submit<Boolean> {
-                try {
-                    readyLatch.countDown()
-                    startLatch.await()
-                    issueCouponUseCase.execute(
-                        CouponCommand.Issue(couponId = couponId, userId = userId),
-                    )
-                    true
-                } catch (e: Exception) {
-                    false
-                }
-            }
+        val actions = (1..threadCount).map {
+            { issueCouponUseCase.execute(CouponCommand.Issue(couponId = couponId, userId = userId)) }
         }
+        val results = ConcurrencyTestHelper.executeConcurrently(actions)
 
-        readyLatch.await()
-        startLatch.countDown()
-
-        val results = futures.map { it.get() }
-        val successCount = results.count { it }
-        executorService.shutdown()
+        val successes = results.filter { it.isSuccess }
+        val failures = results.filter { it.isFailure }
 
         // assert
         val issuedCoupon = userCouponRepository.findByUserIdAndCouponId(userId, couponId)
 
         assertAll(
-            { assertThat(successCount).`as`("1건만 발급 성공해야 한다").isEqualTo(1) },
+            { assertThat(successes).`as`("1건만 발급 성공해야 한다").hasSize(1) },
             { assertThat(issuedCoupon).`as`("발급된 쿠폰이 존재해야 한다").isNotNull() },
+            {
+                assertThat(failures).`as`("실패는 모두 CoreException이어야 한다")
+                    .allSatisfy { result ->
+                        assertThat(result.exceptionOrNull()).isInstanceOf(CoreException::class.java)
+                    }
+            },
         )
     }
 }

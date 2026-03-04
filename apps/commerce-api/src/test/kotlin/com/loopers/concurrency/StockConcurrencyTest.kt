@@ -10,6 +10,7 @@ import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.application.user.UserCommand
 import com.loopers.domain.product.ProductRepository
 import com.loopers.infrastructure.user.UserJpaRepository
+import com.loopers.support.error.CoreException
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -21,9 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import java.time.LocalDate
-import java.util.concurrent.Callable
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig::class)
@@ -82,46 +80,37 @@ class StockConcurrencyTest @Autowired constructor(
         val brandId = registerBrand()
         val productId = registerProduct(brandId, stock = initialStock)
 
-        val executorService = Executors.newFixedThreadPool(threadCount)
-        val readyLatch = CountDownLatch(threadCount)
-        val startLatch = CountDownLatch(1)
-
         // act
-        val futures = userIds.map { userId ->
-            executorService.submit(Callable {
-                try {
-                    readyLatch.countDown()
-                    startLatch.await()
-                    createOrderUseCase.execute(
-                        OrderCommand.Create(
-                            userId = userId,
-                            items = listOf(
-                                OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1),
-                            ),
+        val actions = userIds.map { userId ->
+            {
+                createOrderUseCase.execute(
+                    OrderCommand.Create(
+                        userId = userId,
+                        items = listOf(
+                            OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1),
                         ),
-                    )
-                    true
-                } catch (e: Exception) {
-                    false
-                }
-            })
+                    ),
+                )
+            }
         }
+        val results = ConcurrencyTestHelper.executeConcurrently(actions)
 
-        readyLatch.await()
-        startLatch.countDown()
-
-        val results = futures.map { it.get() }
-        val successCount = results.count { it }
-        val failCount = results.count { !it }
-        executorService.shutdown()
+        val successes = results.filter { it.isSuccess }
+        val failures = results.filter { it.isFailure }
 
         // assert
         val product = productRepository.findByIdOrNull(productId)!!
 
         assertAll(
-            { assertThat(successCount).`as`("재고 수만큼만 성공해야 한다").isEqualTo(initialStock) },
-            { assertThat(failCount).`as`("초과 주문은 실패해야 한다").isEqualTo(threadCount - initialStock) },
+            { assertThat(successes).`as`("재고 수만큼만 성공해야 한다").hasSize(initialStock) },
+            { assertThat(failures).`as`("초과 주문은 실패해야 한다").hasSize(threadCount - initialStock) },
             { assertThat(product.stock.quantity).`as`("재고가 정확히 0이어야 한다").isEqualTo(0) },
+            {
+                assertThat(failures).`as`("실패는 모두 CoreException이어야 한다")
+                    .allSatisfy { result ->
+                        assertThat(result.exceptionOrNull()).isInstanceOf(CoreException::class.java)
+                    }
+            },
         )
     }
 }
