@@ -13,6 +13,12 @@ interface AdminCouponApiSpec {
     fun createCoupon(request: AdminCouponDto.CreateRequest): ApiResponse<AdminCouponDto.DetailResponse>
 
     @Operation(
+        summary = "쿠폰 템플릿 수정",
+        description = "쿠폰 템플릿을 수정합니다.",
+    )
+    fun updateCoupon(couponId: Long, request: AdminCouponDto.UpdateRequest): ApiResponse<AdminCouponDto.DetailResponse>
+
+    @Operation(
         summary = "쿠폰 템플릿 목록 조회",
         description = "쿠폰 템플릿 목록을 페이징하여 조회합니다.",
     )

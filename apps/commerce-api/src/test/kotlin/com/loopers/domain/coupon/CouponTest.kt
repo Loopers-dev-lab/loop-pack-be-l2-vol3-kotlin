@@ -112,6 +112,88 @@ class CouponTest {
         }
     }
 
+    @DisplayName("쿠폰을 수정할 때,")
+    @Nested
+    inner class Update {
+        private val coupon = Coupon(
+            name = "신규가입 할인",
+            discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+            quantity = CouponQuantity(100, 0),
+            expiresAt = ZonedDateTime.now().plusDays(30),
+        )
+
+        @DisplayName("유효한 값이 주어지면, 정상적으로 수정된다.")
+        @Test
+        fun updatesCoupon_whenValidValuesProvided() {
+            // arrange
+            val newName = "수정된 쿠폰"
+            val newDiscount = Discount(DiscountType.PERCENTAGE, 20L)
+            val newExpiresAt = ZonedDateTime.now().plusDays(60)
+
+            // act
+            coupon.update(
+                name = newName,
+                discount = newDiscount,
+                expiresAt = newExpiresAt,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(coupon.name).isEqualTo(newName) },
+                { assertThat(coupon.discount).isEqualTo(newDiscount) },
+                { assertThat(coupon.expiresAt).isEqualTo(newExpiresAt) },
+            )
+        }
+
+        @DisplayName("쿠폰명이 빈 문자열이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenNameIsBlank() {
+            // act
+            val exception = assertThrows<CoreException> {
+                coupon.update(
+                    name = "  ",
+                    discount = Discount(DiscountType.FIXED_AMOUNT, 3000L),
+                    expiresAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("할인값이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenDiscountValueIsNotPositive() {
+            // act
+            val exception = assertThrows<CoreException> {
+                coupon.update(
+                    name = "수정된 쿠폰",
+                    discount = Discount(DiscountType.FIXED_AMOUNT, 0L),
+                    expiresAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("정률 할인값이 100을 초과하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenPercentageValueExceeds100() {
+            // act
+            val exception = assertThrows<CoreException> {
+                coupon.update(
+                    name = "수정된 쿠폰",
+                    discount = Discount(DiscountType.PERCENTAGE, 101L),
+                    expiresAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
     @DisplayName("쿠폰을 발급할 때,")
     @Nested
     inner class Issue {

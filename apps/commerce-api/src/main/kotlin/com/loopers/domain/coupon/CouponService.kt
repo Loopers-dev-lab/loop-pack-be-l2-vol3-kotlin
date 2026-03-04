@@ -29,6 +29,13 @@ class CouponService(
         )
     }
 
+    fun update(couponId: Long, name: String, discount: Discount, expiresAt: ZonedDateTime): Coupon {
+        val coupon = findCouponById(couponId)
+        coupon.update(name, discount, expiresAt)
+        couponRepository.save(coupon)
+        return coupon
+    }
+
     fun issue(couponId: Long, userId: Long) {
         val coupon = couponRepository.findByIdWithLock(couponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
