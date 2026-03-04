@@ -36,7 +36,7 @@ classDiagram
         -ProductStatus status
         -Int likeCount
         -ZonedDateTime? deletedAt
-        +update(name, price, stock, status)
+        +update(name?, price?, stock?, status?)
         +decreaseStock(quantity: Quantity)
         +increaseStock(quantity: Quantity)
         +increaseLikeCount()
@@ -68,7 +68,7 @@ classDiagram
         -Money originalPrice
         -Money discountAmount
         -Money totalPrice
-        -Long? refCouponId
+        -CouponId? refCouponId
         -List~OrderItem~ items
         -ZonedDateTime? deletedAt
         +create(userId, items, discountAmount, refCouponId)$ Order
@@ -77,7 +77,7 @@ classDiagram
         +isDeleted() Boolean
     }
 
-    class OrderProductInfo {
+    class OrderProductData {
         <<DataClass>>
         +ProductId id
         +String name
@@ -92,7 +92,7 @@ classDiagram
         -Money productPrice
         -Quantity quantity
         -ItemStatus status
-        +create(product: OrderProductInfo, quantity: Quantity)$ OrderItem
+        +create(product: OrderProductData, quantity: Quantity)$ OrderItem
         +cancel() AggregateRootOnly
         +assignToOrder(orderId: OrderId) AggregateRootOnly
     }
@@ -121,7 +121,7 @@ classDiagram
     User "1" -- "*" Like: refUserId 참조
     User "1" -- "*" Order: refUserId 참조
     Order "1" *-- "*" OrderItem: items (Aggregate)
-    Order ..> OrderProductInfo: create() 입력
+    Order ..> OrderProductData: create() 입력
     Product .. OrderItem: 스냅샷 (productName, productPrice)
     Product --> ProductStatus
     Order --> OrderStatus
@@ -299,7 +299,7 @@ classDiagram
             -Stock stock
             -Int likeCount
             -ZonedDateTime? deletedAt
-            +update(name, price, stock, status)
+            +update(name?, price?, stock?, status?)
             +decreaseStock(quantity: Quantity)
             +increaseStock(quantity: Quantity)
             +increaseLikeCount()
@@ -457,7 +457,7 @@ classDiagram
             -Money originalPrice
             -Money discountAmount
             -Money totalPrice
-            -Long? refCouponId
+            -CouponId? refCouponId
             -List~OrderItem~ items
             -ZonedDateTime? deletedAt
             +create(userId, items, discountAmount, refCouponId)$ Order
@@ -465,7 +465,7 @@ classDiagram
             +assignOrderIdToItems(orderId: OrderId)
             +isDeleted() Boolean
         }
-        class OrderProductInfo {
+        class OrderProductData {
             <<DataClass>>
             +ProductId id
             +String name
@@ -479,7 +479,7 @@ classDiagram
             -Money productPrice
             -Quantity quantity
             -ItemStatus status
-            +create(product: OrderProductInfo, quantity: Quantity)$ OrderItem
+            +create(product: OrderProductData, quantity: Quantity)$ OrderItem
             +cancel() AggregateRootOnly
             +assignToOrder(orderId: OrderId) AggregateRootOnly
         }
@@ -487,11 +487,6 @@ classDiagram
             <<enumeration>>
             ACTIVE
             CANCELLED
-        }
-        class OrderDetail {
-            <<DataClass>>
-            +Order order
-            +List~OrderItem~ items
         }
         class OrderRepository {
             <<interface>>
@@ -524,8 +519,7 @@ classDiagram
     1. `Order`를 먼저 DB에 저장하여 ID를 채번받는다 (`orderRepository.save(order)`).
     2. `order.assignOrderIdToItems(savedOrder.id)`로 OrderItem에 FK를 주입한다.
     3. `orderItemRepository.saveAll(order.items)`로 항목들을 저장한다.
-- **Order.create() 팩토리 메서드:** `Order.create(userId, items: List<Pair<OrderProductInfo, Quantity>>)`가 OrderItem 생성과 totalPrice 계산을 내부에서 수행한다.
-- **OrderDetail:** `OrderDetail(order, items)` 데이터 클래스로 Order와 OrderItem 목록을 조합하여 반환한다.
+- **Order.create() 팩토리 메서드:** `Order.create(userId, items: List<Pair<OrderProductData, Quantity>>)`가 OrderItem 생성과 totalPrice 계산을 내부에서 수행한다.
 - **소유권 검증:** 대고객 `GetOrderUseCase`는 UseCase 내에서 소유권 검증. 어드민 `GetOrderAdminUseCase`는 검증 없이 조회.
 
 ---
@@ -622,6 +616,10 @@ classDiagram
             AVAILABLE
             USED
             EXPIRED
+        }
+        class CouponValidator {
+            <<DomainService>>
+            +validateForOrder(issuedCoupon, coupon, userId, orderAmount)
         }
         class CouponRepository {
             <<interface>>
@@ -806,6 +804,7 @@ classDiagram
 | ProductId | @JvmInline value class   | 공통 (common) | -                                            | Product 참조 시              |
 | UserId   | @JvmInline value class    | 공통 (common) | -                                            | User 참조 시                 |
 | OrderId  | @JvmInline value class    | 공통 (common) | -                                            | Order 참조 시                |
+| CouponId | @JvmInline value class    | 공통 (common) | -                                            | Coupon 참조 시               |
 | Money    | @JvmInline value class    | 공통 (common) | BigDecimal >= 0, 연산(plus/minus/times) 지원    | Product 가격, 주문 총액 등       |
 | Quantity | @JvmInline value class    | 공통 (common) | Int >= 1                                     | 주문 수량                     |
 | BrandName | @JvmInline value class   | Brand     | 빈 값 불가                                      | Brand 생성/수정 시             |

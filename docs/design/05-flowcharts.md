@@ -69,8 +69,13 @@ flowchart TB
     CheckStatus -->|모두 판매중| CheckStock{모든 상품 재고 충분?}
     CheckStock -->|1개라도 부족| Err400_4[400 재고 부족]:::error
 
-    CheckStock -->|충분| CheckCoupon{쿠폰 ID 포함?}
-    CheckCoupon -->|없음| Deduct
+    CheckStock -->|충분| Deduct
+    Deduct[상품별 재고 차감] --> AutoStatus{차감 후 재고 == 0?}
+    AutoStatus -->|예| StatusChange[status → SOLD_OUT 자동 전환]
+    AutoStatus -->|아니오| SaveProducts
+    StatusChange --> SaveProducts[productRepository.saveAll]
+    SaveProducts --> CheckCoupon{쿠폰 ID 포함?}
+    CheckCoupon -->|없음| CreateOrder
     CheckCoupon -->|있음| ValidateCoupon{쿠폰 유효성 검증}
     ValidateCoupon -->|미존재 / 삭제됨| Err404_coupon[404 쿠폰 없음]:::error
     ValidateCoupon -->|만료됨 / 수량 소진| Err400_coupon[400 발급 불가 쿠폰]:::error
@@ -78,12 +83,8 @@ flowchart TB
     ValidateCoupon -->|이미 사용됨| Err400_used[400 이미 사용된 쿠폰]:::error
     ValidateCoupon -->|유효| CalcDiscount[coupon.calculateDiscount 할인 금액 계산]
     CalcDiscount --> MarkUsed[issuedCoupon.use — USED 상태 전환]
-    MarkUsed --> Deduct
-    Deduct[상품별 재고 차감] --> AutoStatus{차감 후 재고 == 0?}
-    AutoStatus -->|예| StatusChange[status → SOLD_OUT 자동 전환]
-    AutoStatus -->|아니오| SaveProducts
-    StatusChange --> SaveProducts[productRepository.saveAll]
-    SaveProducts --> CreateOrder[Order.create — OrderItem 생성 + originalPrice / discountAmount / totalPrice 계산]
+    MarkUsed --> CreateOrder
+    CreateOrder[Order.create — OrderItem 생성 + originalPrice / discountAmount / totalPrice 계산]
     CreateOrder --> SaveOrder[orderRepository.save + orderItemRepository.saveAll]
     SaveOrder --> Response([200 OK + orderId]):::success
 
@@ -96,7 +97,7 @@ flowchart TB
 - `Order.create()`가 내부에서 OrderItem 생성과 originalPrice/discountAmount/totalPrice 계산을 수행한다 (Rich Domain Model)
 - 전체 과정이 **하나의 트랜잭션** 내에서 원자적으로 실행 (all-or-nothing)
 - 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감·쿠폰 사용 처리 모두 원복
-- **실행 순서**: 쿠폰 검증/사용 → 재고 차감 → 상품 저장 → 주문 생성/저장
+- **실행 순서**: 재고 차감 → 상품 저장 → 쿠폰 검증/사용 → 주문 생성/저장
 - 쿠폰 미포함 주문의 경우 discountAmount = 0, refCouponId = null
 - 인증 인터셉터 검증은 전제 조건으로 생략 (시퀀스 다이어그램 공통 규칙 참고)
 
@@ -132,7 +133,7 @@ flowchart TB
 
 ### 참고
 
-- `coupon.canIssue()`가 만료·삭제·수량 초과를 복합 검증한다
+- `coupon.canIssue()`가 만료 여부 + 수량 초과를 복합 검증한다. 삭제 여부는 UseCase에서 별도 수행(findById 결과 null 처리)
 - Coupon은 비관적 락(`FOR UPDATE`)으로 조회하여 동시 발급 경쟁 조건을 방지한다
 - 발급 성공 시 `Coupon.issuedCount`와 `IssuedCoupon` 레코드가 같은 트랜잭션 내에서 저장된다
 
@@ -156,12 +157,7 @@ flowchart TB
     CheckLike -->|존재| Idempotent([200 OK — 변경 없음]):::idempotent
 
     CheckLike -->|없음| SaveLike[Like 저장]
-    SaveLike --> AcquireLock[상품 재조회 — FOR UPDATE Lock 획득]
-    AcquireLock --> CheckLockProduct{Lock 후 상품 존재?}
-    CheckLockProduct -->|없음| Err404_3[404 Not Found]:::error
-    CheckLockProduct -->|존재| ReCheckActive{삭제됨 또는 비활성?}
-    ReCheckActive -->|삭제됨 / HIDDEN| Err404_4[404 Not Found]:::error
-    ReCheckActive -->|활성| IncCount[Product.likeCount + 1]
+    SaveLike --> IncCount[Product.likeCount + 1]
     IncCount --> Success([200 OK]):::success
 
     classDef error fill:#ffcdd2,stroke:#c62828
@@ -173,12 +169,12 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    Start([좋아요 취소 요청]) --> CheckLike{좋아요 레코드 존재?}
+    Start([좋아요 취소 요청]) --> AcquireLock[상품 조회 — FOR UPDATE Lock 획득]
+    AcquireLock --> CheckLike{좋아요 레코드 존재?}
     CheckLike -->|없음| Idempotent([200 OK — 변경 없음]):::idempotent
 
     CheckLike -->|존재| DeleteLike[Like 물리 삭제]
-    DeleteLike --> AcquireLock[상품 재조회 — FOR UPDATE Lock 획득]
-    AcquireLock --> CheckProduct{상품 존재?}
+    DeleteLike --> CheckProduct{상품 존재?}
     CheckProduct -->|없음| SkipCount1([200 OK — likeCount 미갱신]):::idempotent
     CheckProduct -->|존재| CheckDeleted{상품이 삭제 상태?}
     CheckDeleted -->|삭제됨| SkipCount2([200 OK — likeCount 미갱신]):::idempotent
@@ -192,8 +188,8 @@ flowchart TB
 
 ### 참고
 
-- 등록: 삭제된 상품에는 좋아요 등록 불가 (404). Like 저장 후 Lock 획득하여 likeCount 증가 전 상태를 재검증한다
-- 취소: 좋아요 레코드가 없으면 상품 조회 없이 즉시 200 반환 (멱등). 상품이 없거나 삭제 상태이면 likeCount 갱신 생략
+- 등록: 상품 Lock을 먼저 획득한 후 삭제/비활성 검증을 수행한다. 삭제된 상품에는 좋아요 등록 불가 (404). 이미 좋아요가 있으면 멱등 처리 후 200 반환
+- 취소: 상품 Lock을 먼저 획득한 후 좋아요 레코드를 조회한다. 좋아요가 없으면 멱등 처리 후 200 반환. 상품이 없거나 삭제 상태이면 likeCount 갱신 생략
 - 노란색 경로는 멱등성에 의한 무변경 응답
 
 ---

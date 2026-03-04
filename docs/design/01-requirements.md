@@ -445,7 +445,7 @@ stateDiagram-v2
 | DELETE | `/api/v1/products/{productId}/likes`       | O  | 좋아요 취소 (멱등)          |
 | GET    | `/api/v1/users/likes`                      | O  | 내 좋아요 상품 목록 (본인만)    |
 | POST   | `/api/v1/orders`                           | O  | 주문 생성 (쿠폰 선택 적용 가능)  |
-| GET    | `/api/v1/orders?startedAt=...&endedAt=...` | O  | 주문 목록 조회 (기간, 본인만)   |
+| GET    | `/api/v1/orders?from=...&to=...`           | O  | 주문 목록 조회 (기간, 본인만)   |
 | GET    | `/api/v1/orders/{orderId}`                 | O  | 주문 상세 조회 (본인만)       |
 | POST   | `/api/v1/coupons/{couponId}/issue`         | O  | 쿠폰 발급 (선착순)          |
 | GET    | `/api/v1/users/me/coupons`                 | O  | 내 쿠폰 목록 조회           |

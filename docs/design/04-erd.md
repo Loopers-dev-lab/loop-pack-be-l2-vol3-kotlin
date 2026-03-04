@@ -24,7 +24,7 @@
 erDiagram
     users {
         bigint id PK
-        varchar login_id UK
+        varchar(16) login_id UK
         varchar password
         varchar name
         date birth_date
@@ -95,9 +95,9 @@ erDiagram
         bigint ref_user_id "Logical FK -> users.id"
         varchar status "AVAILABLE | USED | EXPIRED"
         datetime used_at "사용 일시 (nullable)"
-        datetime issued_at "발급 일시"
-        datetime created_at
+        datetime created_at "created_at이 발급 시점(issuedAt) 역할 겸임"
         datetime updated_at
+        datetime deleted_at "미사용 (BaseEntity 상속)"
     }
 
     order_items {
@@ -107,7 +107,7 @@ erDiagram
         varchar product_name "Snapshot"
         decimal(10_2) product_price "Snapshot"
         int quantity
-        varchar status "CREATED | CANCELLED"
+        varchar status "ACTIVE | CANCELLED"
         datetime created_at
         datetime updated_at
         datetime deleted_at
@@ -132,7 +132,7 @@ erDiagram
 | 테이블          | 컬럼           | 타입            | 제약조건         | 설명                                         |
 |--------------|--------------|---------------|--------------|--------------------------------------------|
 | **brands**   | id           | BIGINT        | PK, Auto Inc |                                            |
-|              | name         | VARCHAR(255)  | NOT NULL     | 브랜드명 (빈 값 불가, BrandName VO에서 검증)                |
+|              | name         | VARCHAR(255)  | NOT NULL, UK | 브랜드명 (빈 값 불가, BrandName VO에서 검증)                |
 | **products** | id           | BIGINT        | PK, Auto Inc |                                            |
 |              | ref_brand_id | BIGINT        | NOT NULL     | [논리FK] Brand 참조                            |
 |              | name         | VARCHAR(255)  | NOT NULL     | 상품명                                        |
@@ -147,7 +147,7 @@ erDiagram
 |-----------------|-----------------|---------------|--------------|--------------------------------------------|
 | **orders**      | id              | BIGINT        | PK, Auto Inc |                                            |
 |                 | ref_user_id     | BIGINT        | NOT NULL     | [논리FK] User 참조                             |
-|                 | status          | VARCHAR(20)   | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
+|                 | status          | VARCHAR       | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
 |                 | original_price  | DECIMAL(10,2) | NOT NULL     | 쿠폰 적용 전 원래 금액                              |
 |                 | discount_amount | DECIMAL(10,2) | NOT NULL     | 쿠폰 할인 금액 (미적용 시 0)                         |
 |                 | total_price     | DECIMAL(10,2) | NOT NULL     | [반정규화] 주문 총액 (original_price - discount_amount) |
@@ -158,7 +158,7 @@ erDiagram
 |                 | product_name    | VARCHAR(255)  | NOT NULL     | [Snapshot] 주문 시점 상품명                       |
 |                 | product_price   | DECIMAL(10,2) | NOT NULL     | [Snapshot] 주문 시점 가격                        |
 |                 | quantity        | INT           | NOT NULL     | 주문 수량 (>= 1)                               |
-|                 | status          | VARCHAR(20)   | NOT NULL     | 주문 항목 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
+|                 | status          | VARCHAR       | NOT NULL     | 주문 항목 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
 
 ### 2.3 Coupon Domain
 
@@ -176,9 +176,10 @@ erDiagram
 | **issued_coupons** | id               | BIGINT        | PK, Auto Inc |                                                 |
 |                    | ref_coupon_id    | BIGINT        | NOT NULL     | [논리FK] Coupon 참조                               |
 |                    | ref_user_id      | BIGINT        | NOT NULL     | [논리FK] User 참조                                 |
-|                    | status           | VARCHAR(20)   | NOT NULL     | 발급 쿠폰 상태 (AVAILABLE / USED / EXPIRED)          |
+|                    | status           | VARCHAR       | NOT NULL     | 발급 쿠폰 상태 (AVAILABLE / USED / EXPIRED)          |
 |                    | used_at          | DATETIME      | NULL 허용      | 사용 일시 (미사용 시 null)                              |
-|                    | issued_at        | DATETIME      | NOT NULL     | 발급 일시                                           |
+|                    | created_at       | DATETIME      | NOT NULL     | 발급 일시 (created_at이 issuedAt 역할 겸임)              |
+|                    | deleted_at       | DATETIME      | NULL 허용      | BaseEntity 상속으로 존재하나 soft delete 미적용            |
 |                    | (UK)             |               | UNIQUE       | `(ref_coupon_id, ref_user_id)` 중복 발급 방지         |
 
 ### 2.3 User Interaction
@@ -200,6 +201,7 @@ erDiagram
 
 | 대상 테이블              | 인덱스 컬럼                                  | 타입        | 목적                             |
 |---------------------|-----------------------------------------|-----------|--------------------------------|
+| **brands**          | `(name)`                                | UNIQUE    | 브랜드명 중복 방지                      |
 | **products**        | `(ref_brand_id)`                        | Normal    | 브랜드별 상품 리스트 조회                 |
 | **products**        | `(deleted_at, status, like_count DESC)` | Composite | 활성 상품 인기순 정렬 조회 (커버링)          |
 | **products**        | `(deleted_at, status, created_at DESC)` | Composite | 활성 상품 최신순 정렬 조회 (커버링)          |

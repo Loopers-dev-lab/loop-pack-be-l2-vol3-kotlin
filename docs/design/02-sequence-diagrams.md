@@ -485,19 +485,19 @@ sequenceDiagram
 
     rect rgb(245, 245, 245)
         Note right of UC: @Transactional
+        UC ->> PR: findByIdForUpdate(productId) — 비관적 락 (선취득)
+        PR -->> UC: Product or null
         UC ->> LR: findByUserIdAndProductId(userId, productId)
         alt 좋아요 없음
             LR -->> UC: null (멱등, 상태 변화 없음)
         else 좋아요 존재
             LR -->> UC: Like
             UC ->> LR: delete(like)
-            UC ->> PR: findByIdForUpdate(productId) — 비관적 락
-            alt 상품이 활성 상태
-                PR -->> UC: Product (not deleted)
+            alt 상품이 존재하고 활성 상태
+                Note right of UC: Product (not deleted)
                 UC ->> UC: product.decreaseLikeCount()
                 UC ->> PR: save(product)
-            else 삭제된 상품
-                PR -->> UC: Product (deleted)
+            else 상품 없음 또는 삭제된 상품
                 Note right of UC: likeCount 갱신 생략
             end
         end
@@ -550,7 +550,7 @@ sequenceDiagram
 
 ### 4.1 주문 생성 (Cross-Domain Transaction)
 
-주문 생성은 **상품 검증 → 재고 차감 → 주문 생성(totalPrice 계산 + Order/OrderItem 저장)**이 원자적으로 이루어져야 하는 핵심 트랜잭션이다.
+주문 생성은 **상품 검증 → 재고 차감 → 쿠폰 검증/사용 → 주문 생성(totalPrice 계산 + Order/OrderItem 저장)**이 원자적으로 이루어져야 하는 핵심 트랜잭션이다.
 
 **API:** `POST /api/v1/orders` — 인증 필요
 
@@ -561,9 +561,12 @@ sequenceDiagram
     participant C as OrderV1Controller
     participant UC as PlaceOrderUseCase
     participant PR as ProductRepository
+    participant CR as CouponRepository
+    participant ICR as IssuedCouponRepository
+    participant CV as CouponValidator
     participant OR as OrderRepository
     participant OIR as OrderItemRepository
-    User ->> C: 주문 요청 (상품 목록, 수량)
+    User ->> C: 주문 요청 (상품 목록, 수량, 쿠폰ID 선택)
     C ->> UC: execute(userId, command)
 
     rect rgb(245, 245, 245)
@@ -573,9 +576,21 @@ sequenceDiagram
         PR -->> UC: List<Product>
         Note right of UC: 존재 여부 + 판매 가능 상태 확인<br/>product.decreaseStock(quantity) — 재고 부족 시 예외
         UC ->> PR: saveAll(products)
-    %% 2단계: 주문 생성
-        UC ->> UC: Order.create(userId, orderItemInputs)
-        Note right of UC: Order.create() 내부에서<br/>OrderItem 생성 + totalPrice 계산<br/>(각 상품의 name, price를 스냅샷으로 복사)
+    %% 2단계: 쿠폰 검증 + 사용 처리 (쿠폰 ID가 있는 경우)
+        opt 쿠폰 ID 포함 시
+            UC ->> ICR: findByIdForUpdate(couponId) — 비관적 락
+            ICR -->> UC: IssuedCoupon
+            UC ->> CR: findById(issuedCoupon.refCouponId)
+            CR -->> UC: Coupon
+            UC ->> CV: validateForOrder(issuedCoupon, coupon, userId, originalPrice)
+            CV -->> UC: 검증 통과
+            UC ->> UC: coupon.calculateDiscount(originalPrice)
+            UC ->> UC: issuedCoupon.use() — USED 상태 전환
+            UC ->> ICR: save(issuedCoupon)
+        end
+    %% 3단계: 주문 생성
+        UC ->> UC: Order.create(userId, orderItemInputs, discountAmount, refCouponId)
+        Note right of UC: Order.create() 내부에서<br/>OrderItem 생성 + originalPrice / discountAmount / totalPrice 계산<br/>(각 상품의 name, price를 스냅샷으로 복사)
         UC ->> OR: save(order)
         OR -->> UC: savedOrder (ID 채번)
         UC ->> UC: order.assignOrderIdToItems(savedOrder.id)
@@ -590,7 +605,8 @@ sequenceDiagram
 
 - 재고 부족 시 트랜잭션 롤백으로 이전 차감분 모두 원복
 - OrderItem은 주문 시점의 상품 정보(이름, 가격)를 스냅샷으로 보존
-- `PlaceOrderUseCase`는 ProductRepository, OrderRepository, OrderItemRepository를 직접 주입받아 오케스트레이션한다
+- `PlaceOrderUseCase`는 ProductRepository, OrderRepository, OrderItemRepository, CouponRepository, IssuedCouponRepository, CouponValidator를 직접 주입받아 오케스트레이션한다
+- 실행 순서: 재고 차감 → 쿠폰 검증/사용 → 주문 생성/저장
 
 ### 4.2 주문 목록 조회 (기간 필터링)
 
@@ -753,7 +769,7 @@ sequenceDiagram
 
 #### 참고
 
-- `coupon.canIssue()`: 만료 여부(`isExpired()`) + 삭제 여부(`isDeleted()`) + 수량 제한(totalQuantity == null 이거나 issuedCount < totalQuantity) 복합 검증
+- `coupon.canIssue()`: 만료 여부(`isExpired()`) + 수량 제한(totalQuantity == null 이거나 issuedCount < totalQuantity) 복합 검증. 삭제 여부(`isDeleted()`) 검증은 UseCase에서 별도 수행(findById 결과 null 처리)
 - 만료 또는 수량 초과 시 400 BAD_REQUEST, 중복 발급 시 409 CONFLICT
 - `CR.findById`는 비관적 락(`FOR UPDATE`)으로 동시 발급 경쟁 조건을 방지한다
 
