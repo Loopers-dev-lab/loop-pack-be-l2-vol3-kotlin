@@ -7,6 +7,12 @@ import io.swagger.v3.oas.annotations.tags.Tag
 @Tag(name = "Admin Coupon API", description = "어드민 쿠폰 API")
 interface AdminCouponApiSpec {
     @Operation(
+        summary = "쿠폰 템플릿 등록",
+        description = "새로운 쿠폰 템플릿을 등록합니다.",
+    )
+    fun createCoupon(request: AdminCouponDto.CreateRequest): ApiResponse<AdminCouponDto.DetailResponse>
+
+    @Operation(
         summary = "쿠폰 템플릿 목록 조회",
         description = "쿠폰 템플릿 목록을 페이징하여 조회합니다.",
     )

@@ -6,6 +6,8 @@ import com.loopers.support.common.SortOrder
 import com.loopers.interfaces.common.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -15,6 +17,21 @@ import org.springframework.web.bind.annotation.RestController
 class AdminCouponController(
     private val adminCouponFacade: AdminCouponFacade,
 ) : AdminCouponApiSpec {
+
+    @PostMapping
+    override fun createCoupon(
+        @RequestBody request: AdminCouponDto.CreateRequest,
+    ): ApiResponse<AdminCouponDto.DetailResponse> {
+        return adminCouponFacade.createCoupon(
+            name = request.name,
+            discountType = request.discountType,
+            discountValue = request.discountValue,
+            totalQuantity = request.totalQuantity,
+            expiresAt = request.expiresAt,
+        )
+            .let { AdminCouponDto.DetailResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 
     @GetMapping
     override fun getCoupons(

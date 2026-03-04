@@ -49,6 +49,41 @@ class CouponServiceIntegrationTest @Autowired constructor(
         )
     }
 
+    @DisplayName("쿠폰을 생성할 때,")
+    @Nested
+    inner class CreateCoupon {
+
+        @DisplayName("유효한 값이 주어지면, DB에 저장되고 쿠폰 정보가 반환된다.")
+        @Test
+        fun createsCoupon_whenValidValuesProvided() {
+            // arrange
+            val name = "신규가입 10% 할인"
+            val discount = Discount(DiscountType.PERCENTAGE, 10L)
+            val quantity = CouponQuantity(100, 0)
+            val expiresAt = ZonedDateTime.now().plusDays(30)
+
+            // act
+            val coupon = couponService.create(
+                name = name,
+                discount = discount,
+                quantity = quantity,
+                expiresAt = expiresAt,
+            )
+
+            // assert
+            val found = couponService.findCouponById(coupon.id)
+            assertAll(
+                { assertThat(found.name).isEqualTo(name) },
+                { assertThat(found.discount.type).isEqualTo(DiscountType.PERCENTAGE) },
+                { assertThat(found.discount.value).isEqualTo(10L) },
+                { assertThat(found.quantity.total).isEqualTo(100) },
+                { assertThat(found.quantity.issued).isEqualTo(0) },
+                { assertThat(found.expiresAt).isNotNull() },
+                { assertThat(found.createdAt).isNotNull() },
+            )
+        }
+    }
+
     @DisplayName("쿠폰을 발급할 때,")
     @Nested
     inner class IssueCoupon {
