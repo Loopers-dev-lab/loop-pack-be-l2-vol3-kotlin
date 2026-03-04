@@ -5,6 +5,7 @@ import com.loopers.domain.coupon.UserCoupon
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.CouponErrorCode
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -32,7 +33,11 @@ class IssueCouponUseCase(
             userId = command.userId,
             expiredAt = coupon.expiredAt,
         )
-        val saved = userCouponRepository.save(userCoupon)
-        return UserCouponInfo.from(saved)
+        try {
+            val saved = userCouponRepository.save(userCoupon)
+            return UserCouponInfo.from(saved)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(CouponErrorCode.ALREADY_ISSUED_COUPON)
+        }
     }
 }

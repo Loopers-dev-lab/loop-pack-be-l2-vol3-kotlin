@@ -27,6 +27,6 @@ class AddLikeUseCase(
         val like = Like.create(userId = command.userId, productId = command.productId)
         likeRepository.save(like)
 
-        product.increaseLikeCount()
+        productRepository.increaseLikeCount(product.id)
     }
 }

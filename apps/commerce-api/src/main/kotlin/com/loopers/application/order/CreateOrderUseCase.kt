@@ -23,8 +23,11 @@ class CreateOrderUseCase(
     fun execute(command: OrderCommand.Create): OrderInfo {
         val orderLines = command.toOrderLines()
 
-        val productIds = orderLines.map { it.productId }
-        val products = productRepository.findAllByIds(productIds)
+        // 데드락 방지를 위해 productId 오름차순으로 비관적 락 획득
+        val sortedProductIds = orderLines.map { it.productId }.distinct().sorted()
+        val products = sortedProductIds.mapNotNull { productId ->
+            productRepository.findByIdForUpdate(productId)
+        }
         val productMap = products.associateBy { it.id }
 
         orderValidator.validate(orderLines, productMap)

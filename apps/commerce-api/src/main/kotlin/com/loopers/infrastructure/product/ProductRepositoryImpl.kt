@@ -22,6 +22,10 @@ class ProductRepositoryImpl(
         return productJpaRepository.findByIdOrNull(id)
     }
 
+    override fun findByIdForUpdate(id: Long): Product? {
+        return productJpaRepository.findByIdForUpdate(id)
+    }
+
     override fun findActiveByIdOrNull(id: Long): Product? {
         return productJpaRepository.findActiveByIdOrNull(id)
     }
@@ -53,6 +57,14 @@ class ProductRepositoryImpl(
     override fun findAllByIds(ids: List<Long>): List<Product> {
         if (ids.isEmpty()) return emptyList()
         return productJpaRepository.findAllByIds(ids)
+    }
+
+    override fun increaseLikeCount(id: Long) {
+        productJpaRepository.increaseLikeCount(id)
+    }
+
+    override fun decreaseLikeCount(id: Long) {
+        productJpaRepository.decreaseLikeCount(id)
     }
 
     override fun save(product: Product): Product {
