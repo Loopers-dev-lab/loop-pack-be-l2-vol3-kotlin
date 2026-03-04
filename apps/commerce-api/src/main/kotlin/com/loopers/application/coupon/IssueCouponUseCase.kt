@@ -27,14 +27,10 @@ class IssueCouponUseCase(
             throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
         }
 
-        if (coupon.isExpired()) {
-            throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
-        }
-
         val userIdVo = UserId(userId)
         val existing = issuedCouponRepository.findByRefCouponIdAndRefUserId(couponIdVo, userIdVo)
         if (existing != null) {
-            throw CoreException(ErrorType.BAD_REQUEST, "이미 발급받은 쿠폰입니다.")
+            throw CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.")
         }
 
         coupon.issue()

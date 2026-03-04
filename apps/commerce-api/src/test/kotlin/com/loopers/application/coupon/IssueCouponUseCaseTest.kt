@@ -134,8 +134,8 @@ class IssueCouponUseCaseTest {
         }
 
         @Test
-        @DisplayName("이미 발급받은 쿠폰이면 BAD_REQUEST 예외가 발생한다")
-        fun execute_alreadyIssuedCoupon_throwsBadRequest() {
+        @DisplayName("이미 발급받은 쿠폰이면 CONFLICT 예외가 발생한다")
+        fun execute_alreadyIssuedCoupon_throwsConflict() {
             // arrange
             val coupon = createCoupon()
             val userId = 1L
@@ -147,7 +147,7 @@ class IssueCouponUseCaseTest {
             }
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
     }
 }

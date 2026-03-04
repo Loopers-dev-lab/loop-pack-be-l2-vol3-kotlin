@@ -21,6 +21,15 @@ class IssuedCoupon(
     var usedAt: ZonedDateTime? = usedAt
         private set
 
+    init {
+        if (status == CouponStatus.USED && usedAt == null) {
+            throw CoreException(ErrorType.BAD_REQUEST, "USED 상태의 쿠폰은 usedAt이 필수입니다.")
+        }
+        if (status != CouponStatus.USED && usedAt != null) {
+            throw CoreException(ErrorType.BAD_REQUEST, "USED 상태가 아닌 쿠폰은 usedAt이 null이어야 합니다.")
+        }
+    }
+
     enum class CouponStatus {
         AVAILABLE,
         USED,

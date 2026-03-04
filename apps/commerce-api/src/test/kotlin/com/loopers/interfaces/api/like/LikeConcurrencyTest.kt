@@ -81,7 +81,9 @@ class LikeConcurrencyTest @Autowired constructor(
             brandResponseType,
             "나이키",
         )
-        val brandId = (brandResponse.body!!.data!!["id"] as Number).toLong()
+        val brandBody = requireNotNull(brandResponse.body) { "브랜드 생성 응답 body가 null입니다" }
+        val brandData = requireNotNull(brandBody.data) { "브랜드 생성 응답 data가 null입니다" }
+        val brandId = (brandData["id"] as Number).toLong()
 
         val productRequest = ProductAdminV1Dto.CreateProductRequest(
             brandId = brandId,
@@ -96,7 +98,9 @@ class LikeConcurrencyTest @Autowired constructor(
             HttpEntity(productRequest, adminHeaders()),
             productResponseType,
         )
-        return (productResponse.body!!.data!!["id"] as Number).toLong()
+        val productBody = requireNotNull(productResponse.body) { "상품 생성 응답 body가 null입니다" }
+        val productData = requireNotNull(productBody.data) { "상품 생성 응답 data가 null입니다" }
+        return (productData["id"] as Number).toLong()
     }
 
     @Nested
@@ -163,8 +167,9 @@ class LikeConcurrencyTest @Autowired constructor(
                 HttpEntity<Any>(adminHeaders()),
                 adminProductType,
             )
-            val likeCount =
-                (adminResponse.body!!.data!!["likeCount"] as Number).toInt()
+            val adminBody = requireNotNull(adminResponse.body) { "좋아요 조회 응답 body가 null입니다" }
+            val adminData = requireNotNull(adminBody.data) { "좋아요 조회 응답 data가 null입니다" }
+            val likeCount = (adminData["likeCount"] as Number).toInt()
 
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(concurrentUsers) },

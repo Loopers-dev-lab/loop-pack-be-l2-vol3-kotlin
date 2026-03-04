@@ -28,6 +28,47 @@ class IssuedCouponTest {
     )
 
     @Nested
+    @DisplayName("IssuedCoupon 생성 시")
+    inner class Create {
+
+        @Test
+        @DisplayName("USED 상태에 usedAt이 null이면 예외가 발생한다")
+        fun create_usedWithoutUsedAt_throwsException() {
+            // arrange & act
+            val exception = assertThrows<CoreException> {
+                IssuedCoupon(
+                    refCouponId = CouponId(1),
+                    refUserId = UserId(1),
+                    status = IssuedCoupon.CouponStatus.USED,
+                    usedAt = null,
+                    createdAt = ZonedDateTime.now(),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("AVAILABLE 상태에 usedAt이 있으면 예외가 발생한다")
+        fun create_availableWithUsedAt_throwsException() {
+            // arrange & act
+            val exception = assertThrows<CoreException> {
+                IssuedCoupon(
+                    refCouponId = CouponId(1),
+                    refUserId = UserId(1),
+                    status = IssuedCoupon.CouponStatus.AVAILABLE,
+                    usedAt = ZonedDateTime.now(),
+                    createdAt = ZonedDateTime.now(),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Nested
     @DisplayName("use 호출 시")
     inner class Use {
 
@@ -96,7 +137,7 @@ class IssuedCouponTest {
         @DisplayName("USED 상태이면 false를 반환한다")
         fun isAvailable_used_returnsFalse() {
             // arrange
-            val issuedCoupon = issuedCoupon(status = IssuedCoupon.CouponStatus.USED)
+            val issuedCoupon = issuedCoupon(status = IssuedCoupon.CouponStatus.USED, usedAt = ZonedDateTime.now())
 
             // assert
             assertThat(issuedCoupon.isAvailable()).isFalse()

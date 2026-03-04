@@ -36,11 +36,14 @@ class Coupon(
     }
 
     fun canIssue(): Boolean =
-        !isExpired() && !isDeleted() && (totalQuantity == null || issuedCount < totalQuantity!!)
+        !isExpired() && (totalQuantity == null || issuedCount < totalQuantity!!)
 
     fun issue() {
-        if (!canIssue()) {
-            throw CoreException(ErrorType.BAD_REQUEST, "쿠폰을 발급할 수 없습니다.")
+        if (isExpired()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
+        }
+        if (totalQuantity != null && issuedCount >= totalQuantity!!) {
+            throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 발급 수량이 초과되었습니다.")
         }
         issuedCount++
     }

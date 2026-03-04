@@ -186,13 +186,13 @@ class CouponTest {
         }
 
         @Test
-        @DisplayName("삭제된 쿠폰은 false를 반환한다")
-        fun canIssue_deleted_returnsFalse() {
+        @DisplayName("삭제된 쿠폰도 canIssue는 true를 반환한다 (삭제 검증은 UseCase 책임)")
+        fun canIssue_deleted_returnsTrue() {
             // arrange
             val coupon = fixedCoupon(deletedAt = ZonedDateTime.now().minusDays(1))
 
             // assert
-            assertThat(coupon.canIssue()).isFalse()
+            assertThat(coupon.canIssue()).isTrue()
         }
 
         @Test
@@ -234,8 +234,24 @@ class CouponTest {
         }
 
         @Test
-        @DisplayName("canIssue()가 false인 경우 BAD_REQUEST 예외가 발생한다")
-        fun issue_whenCannotIssue_throwsException() {
+        @DisplayName("만료된 쿠폰을 발급하면 BAD_REQUEST 예외가 발생한다")
+        fun issue_expired_throwsException() {
+            // arrange
+            val coupon = fixedCoupon(expiredAt = ZonedDateTime.now().minusDays(1))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                coupon.issue()
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("만료된 쿠폰입니다.")
+        }
+
+        @Test
+        @DisplayName("수량이 소진된 쿠폰을 발급하면 BAD_REQUEST 예외가 발생한다")
+        fun issue_quantityExhausted_throwsException() {
             // arrange
             val coupon = fixedCoupon(totalQuantity = 5, issuedCount = 5)
 
@@ -246,7 +262,7 @@ class CouponTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-            assertThat(exception.message).isEqualTo("쿠폰을 발급할 수 없습니다.")
+            assertThat(exception.message).isEqualTo("쿠폰 발급 수량이 초과되었습니다.")
         }
     }
 

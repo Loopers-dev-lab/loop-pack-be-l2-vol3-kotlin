@@ -117,8 +117,8 @@ class CouponV1ApiE2ETest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("동일 쿠폰을 중복 발급하면 400을 반환한다")
-        fun issueCoupon_duplicate_returnsBadRequest() {
+        @DisplayName("동일 쿠폰을 중복 발급하면 409를 반환한다")
+        fun issueCoupon_duplicate_returnsConflict() {
             // arrange
             signUp()
             val couponId = createCoupon()
@@ -141,7 +141,7 @@ class CouponV1ApiE2ETest @Autowired constructor(
             )
 
             // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         }
 
         @Test

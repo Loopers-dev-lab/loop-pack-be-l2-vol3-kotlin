@@ -85,7 +85,9 @@ class OrderConcurrencyTest @Autowired constructor(
             responseType,
             "나이키",
         )
-        return (response.body!!.data!!["id"] as Number).toLong()
+        val body = requireNotNull(response.body) { "브랜드 생성 응답 body가 null입니다" }
+        val data = requireNotNull(body.data) { "브랜드 생성 응답 data가 null입니다" }
+        return (data["id"] as Number).toLong()
     }
 
     private fun createProduct(brandId: Long, stock: Int): Long {
@@ -102,7 +104,9 @@ class OrderConcurrencyTest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
-        return (response.body!!.data!!["id"] as Number).toLong()
+        val body = requireNotNull(response.body) { "상품 생성 응답 body가 null입니다" }
+        val data = requireNotNull(body.data) { "상품 생성 응답 data가 null입니다" }
+        return (data["id"] as Number).toLong()
     }
 
     private fun createCoupon(totalQuantity: Int): Long {
@@ -123,7 +127,9 @@ class OrderConcurrencyTest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
-        return response.body!!.data!!.id
+        val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
+        val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
+        return data.id
     }
 
     private fun issueCoupon(loginId: String, couponId: Long): Long {
@@ -135,7 +141,9 @@ class OrderConcurrencyTest @Autowired constructor(
             HttpEntity<Any>(authHeaders(loginId)),
             responseType,
         )
-        return (response.body!!.data!!["id"] as Number).toLong()
+        val body = requireNotNull(response.body) { "쿠폰 발급 응답 body가 null입니다" }
+        val data = requireNotNull(body.data) { "쿠폰 발급 응답 data가 null입니다" }
+        return (data["id"] as Number).toLong()
     }
 
     @Nested
@@ -285,8 +293,9 @@ class OrderConcurrencyTest @Autowired constructor(
                 HttpEntity<Any>(adminHeaders()),
                 adminResponseType,
             )
-            val remainingStock =
-                (adminResponse.body!!.data!!["stock"] as Number).toInt()
+            val adminBody = requireNotNull(adminResponse.body) { "재고 조회 응답 body가 null입니다" }
+            val adminData = requireNotNull(adminBody.data) { "재고 조회 응답 data가 null입니다" }
+            val remainingStock = (adminData["stock"] as Number).toInt()
 
             assertAll(
                 { assertThat(successCount.get() + failCount.get()).isEqualTo(concurrentUsers) },
