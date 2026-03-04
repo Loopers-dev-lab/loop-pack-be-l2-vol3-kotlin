@@ -55,10 +55,17 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - `apps/commerce-api/src/main/kotlin/com/loopers/infrastructure/CLAUDE.md` — JPA Entity, 매핑, Repository 구현
 - `apps/commerce-api/src/main/kotlin/com/loopers/interfaces/CLAUDE.md` — Controller, ApiSpec, Dto, 인증
 
-## 기술 주의사항 / 테스트 패턴
+## 기술 주의사항
 
-→ `.claude/rules/kotlin-spring-jpa.md` (kapt 충돌, allOpen, JPQL 금지 등)
-→ `.claude/rules/test-patterns.md` (3A 원칙, Fake Repository, TestContainers 등)
+- **allOpen 플러그인**: `plugin.spring`은 @Component/@Service 등을 open하지만, `plugin.jpa`는 no-arg 생성자만 생성하고 allOpen은 아님. **@Entity 클래스는 final**이다. 주장 전 반드시 allOpen 설정(build.gradle.kts)과 디컴파일 결과를 확인한다
+- **kapt + ktlint 태스크 충돌**: `./gradlew ktlintCheck test`를 한 번에 실행하면 실패한다. 반드시 분리 실행 (Commands 섹션 참고)
+- **JPQL/NativeQuery 금지**: @Query 어노테이션 사용 금지. QueryDSL 또는 Spring Data JPA 메서드명 쿼리 사용
+- **fetch join + paging 호환 불가**: N+1 해결 시 fetch join과 paging 동시 사용 금지. @BatchSize, @EntityGraph, 별도 쿼리 분리 대안 사용
+- **@Transactional 전파**: readOnly 속성의 전파 규칙, REQUIRES_NEW의 동작 방식을 정확히 이해하고 적용
+
+## 테스트 패턴
+
+→ `apps/commerce-api/src/test/CLAUDE.md` (3A 원칙, Fake Repository, TestContainers 등)
 
 ## 개발 방법론: TDD (Kent Beck) + Tidy First
 
@@ -107,6 +114,14 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - 같은 명령을 재시도하기 전에 왜 실패했는지 먼저 이해한다
 - 방향이 틀렸으면 고치려 하지 말고 과감히 버리고 다시 작성한다. 매몰 비용에 집착하지 않는다
 
+### 점진적 실행 원칙
+
+대규모 변경을 한 번에 하지 마라. 작은 단위로 나눠서 각 단계마다 검증하라.
+
+- 여러 파일을 동시에 변경하기보다, 한 단위씩 변경하고 중간 검증 수행
+- 뭔가 깨졌을 때 원인을 특정할 수 있도록 변경 범위 최소화
+- 다단계 작업에는 간략한 계획을 제시: `[단계] → 검증: [확인사항]`
+
 ### 병렬 작업 워크플로우
 
 생산성 = 속도 × 인지 안정성 × 병렬 처리량. 인지 부하를 통제한 상태에서 유지 가능한 처리량을 높인다.
@@ -119,19 +134,19 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 1. **메인 컨텍스트 절약**: 코드 탐색/구현/검증은 서브에이전트에 위임하고, 메인은 오케스트레이션과 개발자 대화에 집중한다
 2. **위임 단위는 작게**: 에이전트 1개당 변경 파일 5개 이하, 항목 5개 이하. 대형 작업은 레이어별/도메인별로 분할하여 여러 sonnet에 위임한다
 3. **대형 작업은 plan 먼저**: 5개 이상 파일을 변경하는 작업은 먼저 탐색 에이전트로 영향 범위를 파악하고, 파일 겹침 없는 서브태스크로 분할한 후 병렬 위임한다
-4. **서브에이전트 보고를 맹신하지 않는다**: CP 완료 후 메인에서 직접 `./gradlew test`를 실행하여 검증한다. 다음 CP로 넘어가기 전에 반드시 확인한다
+4. **서브에이전트 보고를 맹신하지 않는다**: CP 완료 보고 후 메인에서 Grep/Read로 핵심 변경이 실제 반영되었는지 확인한다. 확인 전까지 서브에이전트를 종료하지 않는다. 미반영 시 같은 에이전트에 재반영을 지시한다(resume). 전체 테스트는 최종 완료 전 1회만 실행한다.
 5. **실패 시 원인을 좁혀서 위임**: 실패 로그를 메인에서 먼저 확인하고, 원인을 특정한 후 수정을 위임한다. 막연히 "10개 실패 고쳐줘"로 던지지 않는다
 6. **모델 선택**: sonnet이 기본. opus는 복잡한 분석/설계 판단이 필요할 때만 사용한다. 대량 파일 변경은 opus 1개보다 sonnet 여러 개가 낫다
 7. **탐색은 1회만**: 동일한 파일을 여러 탐색 에이전트가 중복 읽지 않는다. 탐색 결과는 메인에서 공유하고 실행 에이전트에 필요한 부분만 전달한다
 8. **탐색 범위 제한**: 열린 탐색(빈틈 분석, 전체 조사 등)은 현재 작업에 직결되는 범위로 한정한다. "모든 가능한 개선점"을 찾지 않는다
-9. **rules 파일 전달**: 서브에이전트 위임 시 작업과 관련된 `.claude/rules/` 파일 경로를 프롬프트에 명시하여 읽도록 지시한다
+9. **컨텍스트 파일 전달**: 서브에이전트 위임 시 작업 대상 레이어의 CLAUDE.md 경로와 `.claude/rules/` 파일 경로를 프롬프트에 명시하여 읽도록 지시한다
 
 #### 서브에이전트 결과 검증 원칙
 
 서브에이전트의 "완료" 보고를 맹신하지 않는다. **오케스트레이터가 직접 파일 변경을 검증**한다.
 
 1. 서브에이전트 완료 후, Grep/Read로 핵심 변경이 실제 파일에 반영되었는지 확인한다
-2. 미반영 시 즉시 재실행한다. 재실행 프롬프트에 "변경 후 Read로 재확인" 지시를 명시한다
+2. 확인 전까지 서브에이전트를 종료하지 않는다. 미반영 시 같은 에이전트에 재반영을 지시한다(resume)
 3. 서브에이전트 프롬프트에도 "Edit 후 반드시 Read로 재확인하고, 변경이 없으면 재시도" 지시를 기본 포함한다
 
 #### Self-Validation 원칙
@@ -158,7 +173,22 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 
 ## 주의사항
 
-→ `.claude/rules/code-guidelines.md` (Never Do, Recommendation, Priority)
+### Never Do
+- 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이용한 구현 금지
+- null-safety 하지 않게 코드 작성 금지
+- println 코드 남기지 않는다
+
+### Recommendation
+- 실제 API를 호출해 확인하는 E2E 테스트 코드 작성
+- 재사용 가능한 객체 설계
+- 성능 최적화에 대한 대안 및 제안
+- 개발 완료된 API는 `http/*.http` 파일에 분류하여 작성
+
+### Priority
+1. 실제 동작하는 해결책만 고려
+2. null-safety, thread-safety 고려
+3. 테스트 가능한 구조로 설계
+4. 기존 코드 패턴 분석 후 일관성 유지
 
 ## 브랜치 및 PR 규칙
 

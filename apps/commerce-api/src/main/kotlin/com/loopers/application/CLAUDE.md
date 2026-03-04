@@ -95,3 +95,9 @@ class CreateOrderUseCase(...) {
 
 여러 도메인에 걸친 오케스트레이션이 필요한 경우 Application 전용 Command를 application 레이어에 정의한다 (예: `PlaceOrderCommand`, `CatalogCommand`). 단일
 도메인이면 Domain Command를 UseCase 내부에서 직접 생성하거나, Domain 레이어의 Command를 그대로 사용한다.
+
+## 검증 책임
+
+- Interfaces에서 이미 검증된 값을 신뢰한다
+- 비즈니스 규칙에 의한 검증만 수행 (예: "이미 사용된 쿠폰", "재고 부족")
+- 페이지네이션 파라미터 재검증은 하지 않는다

@@ -112,3 +112,18 @@ val savedOrder = orderRepository.save(order)
 order.assignOrderIdToItems(savedOrder.id)
 orderItemRepository.saveAll(order.items)
 ```
+
+## 페이지네이션 정렬 규칙
+
+- 페이지네이션 쿼리에는 **반드시 안정적인 정렬 기준을 명시**한다
+- 정렬 기준 없으면 동시 생성/삭제 시 같은 데이터가 여러 페이지에 나타나거나 누락된다
+- 기본 정렬: `Sort.by(Sort.Direction.DESC, "id")`
+- 비즈니스 정렬이 필요한 경우에도 마지막에 `id`를 추가하여 안정성 보장
+
+```kotlin
+// 올바른 패턴
+val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))
+
+// 잘못된 패턴: 정렬 기준 없음
+val pageable = PageRequest.of(page, size)
+```

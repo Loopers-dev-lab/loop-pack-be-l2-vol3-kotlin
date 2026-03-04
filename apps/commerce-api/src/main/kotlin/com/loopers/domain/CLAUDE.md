@@ -41,6 +41,11 @@
 - 생성 시점에 자가 검증 (`init` 블록에서 규칙 위반 시 `CoreException` throw)
 - 한 줄짜리 검증도 VO로 적극 표현
 
+### 도메인 불변식 검증 예시
+- 금액: 음수 불가, 상한 초과 불가 (예: discountAmount >= 0 && discountAmount <= originalPrice)
+- 수량: 음수 불가
+- 상태-필드 일관성 (예: USED 상태면 usedAt != null)
+
 ## Command
 
 서비스 호출 시 요청 파라미터를 `XxxCommand` class 내부에 data class로 묶는다 (예: `CatalogCommand.CreateProduct`).
@@ -56,6 +61,7 @@ Controller는 Command를 직접 참조하지 않는다.
 - **도메인 언어와 기본 타입만** 사용. Spring Data 타입(`Pageable`, `Page`) 노출 금지.
 - 페이지네이션: `page: Int, size: Int` 파라미터 + `PageResult<T>(data, totalElements, page, size)`
 - 락 의도를 이름으로 표현 (예: `findByUserIdForUpdate`)
+- 정렬 파라미터는 Infrastructure 계층에서 결정 (Domain은 정렬 세부사항을 모른다)
 
 ## Domain Service
 
