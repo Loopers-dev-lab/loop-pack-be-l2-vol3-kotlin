@@ -21,95 +21,126 @@
 flowchart TB
     subgraph Interfaces["interfaces (API 계층)"]
         direction LR
-        C1[UserController]
-        C2[BrandController]
-        C3[ProductController]
-        C4[LikeController]
-        C5[OrderController]
-        C6[CouponAdminController]
-        C7[CouponController]
+        C1[UserV1Controller]
+        C2[BrandV1Controller]
+        C2A[BrandAdminV1Controller]
+        C3[ProductV1Controller]
+        C3A[ProductAdminV1Controller]
+        C4[LikeV1Controller]
+        C5[OrderV1Controller]
+        C5A[OrderAdminV1Controller]
     end
 
-    subgraph Application["application (조합 계층)"]
-        direction LR
-        F1[UserFacade]
-        F2[BrandFacade]
-        F3[ProductFacade]
-        F4[LikeFacade]
-        F5[OrderFacade]
-        F6[CouponService]
-        F7[IssuedCouponService]
-    end
-
-    subgraph Domain["domain (비즈니스 계층)"]
+    subgraph Application["application (응용 계층)"]
         direction LR
         S1[UserService]
         S2[BrandService]
         S3[ProductService]
         S4[LikeService]
         S5[OrderService]
+        S6[CouponService]
+        S7[IssuedCouponService]
+        F1[OrderFacade]
+    end
+
+    subgraph Domain["domain (도메인 계층)"]
+        direction LR
+        D1[User]
+        D2[Brand]
+        D3[Product]
+        D4[Like]
+        D5[Order / OrderItem]
+        D6[Coupon]
+        D7[IssuedCoupon]
+        DS1[BrandDomainService]
+        DS2[OrderDomainService]
+        RI1[UserRepository]
+        RI2[BrandRepository]
+        RI3[ProductRepository]
+        RI4[LikeRepository]
+        RI5[OrderRepository]
+        RI6[CouponRepository]
+        RI7[IssuedCouponRepository]
     end
 
     subgraph Infrastructure["infrastructure (영속성 계층)"]
         direction LR
-        R1[UserRepository]
-        R2[BrandRepository]
-        R3[ProductRepository]
-        R4[LikeRepository]
-        R5[OrderRepository]
-        R6[CouponRepository]
-        R7[IssuedCouponRepository]
+        R1[UserRepositoryImpl]
+        R2[BrandRepositoryImpl]
+        R3[ProductRepositoryImpl]
+        R4[LikeRepositoryImpl]
+        R5[OrderRepositoryImpl]
+        R6[CouponRepositoryImpl]
+        R7[IssuedCouponRepositoryImpl]
     end
 
-    C1 --> F1
-    C2 --> F2
-    C3 --> F3
-    C4 --> F4
-    C5 --> F5
-    C6 --> F6
-    C6 --> F7
-    C7 --> F7
+    C1 --> S1
+    C2 --> S2
+    C2A --> S2
+    C3 --> S3
+    C3A --> S3
+    C4 --> S4
+    C4 -.-> S1
+    C5 --> F1
+    C5 -.-> S5
+    C5 -.-> S1
+    C5A --> S5
 
-    F1 --> S1
-    F2 --> S2
-    F2 -.-> S3
-    F3 --> S3
-    F3 -.-> S2
-    F4 --> S4
-    F4 -.-> S3
-    F5 --> S5
-    F5 -.-> S3
-    F5 -.-> F6
-    F5 -.-> F7
+    F1 --> S5
+    F1 -.-> S3
+    F1 -.-> S2
+    S2 --> RI2
+    S2 -.-> RI3
+    S2 -.-> DS1
+    S3 --> RI3
+    S3 -.-> RI2
+    S4 --> RI4
+    S4 -.-> S3
+    S5 --> RI5
+    S5 -.-> DS2
+    S1 --> RI1
+    S6 --> RI6
+    S7 --> RI7
+    S7 -.-> RI6
 
-    S1 --> R1
-    S2 --> R2
-    S3 --> R3
-    S4 --> R4
-    S5 --> R5
-    F6 --> R6
-    F7 --> R7
+    R1 -.->|implements| RI1
+    R2 -.->|implements| RI2
+    R3 -.->|implements| RI3
+    R4 -.->|implements| RI4
+    R5 -.->|implements| RI5
+    R6 -.->|implements| RI6
+    R7 -.->|implements| RI7
 ```
 
 ### 핵심 포인트
 
-| 레이어 | 역할 | 알아야 하는 것 | 몰라야 하는 것 |
-|--------|------|---------------|---------------|
-| **Controller** | 요청/응답 처리, DTO 변환 | Facade | Service, Repository, Entity |
-| **Facade** | 도메인 간 조합, 트랜잭션 경계 | 여러 Service | Repository, DB |
-| **Service** | 단일 도메인 로직 | 자기 Repository, Entity | 다른 Service |
-| **Repository** | 영속성 처리 | Entity, DB | 비즈니스 로직 |
+| 레이어 | 역할 | 포함 클래스 | 알아야 하는 것 | 몰라야 하는 것 |
+|--------|------|-----------|---------------|---------------|
+| **interfaces** | 요청/응답 처리, DTO 변환 | Controller, ApiSpec, Dto | Service, Facade | Repository, Entity |
+| **application** | 비즈니스 조합, 트랜잭션 경계 | Service, Facade, Info, Criteria | Repository Interface, Entity, DomainService | RepositoryImpl, DB |
+| **domain** | 엔티티, 도메인 규칙, 저장소 인터페이스 | Entity, DomainService, Repository Interface | Entity 자신 | 다른 도메인, 프레임워크 |
+| **infrastructure** | Repository 구현체, 외부 연동 | RepositoryImpl, JpaRepository | Entity, JPA | 비즈니스 로직 |
 
 ### 의존 방향 규칙
 
 ```
-Controller → Facade → Service → Repository
-     ↓           ↓         ↓          ↓
-   (DTO)    (여러 Service) (Entity)   (DB)
+Controller → Service/Facade → Repository Interface ← RepositoryImpl
+     ↓           ↓                    ↓                     ↓
+   (DTO)    (Entity, DomainService) (Domain 계층)         (JPA)
 
 ※ 화살표 반대 방향 의존 금지
-※ 같은 레이어 내 의존 금지 (Service → Service 금지)
+※ Repository 인터페이스는 domain 레이어, 구현체는 infrastructure 레이어 (DIP)
 ```
+
+### 의존 관계 특이사항
+
+| 관계 | 설명 |
+|------|------|
+| Controller → 다수 Service | OrderV1Controller는 UserService(인증) + OrderService + OrderFacade 의존 |
+| LikeService → ProductService | 좋아요 등록 시 상품 존재 검증을 위해 application 레이어 내 교차 의존 |
+| BrandService → ProductRepository | 브랜드 삭제 시 연쇄 상품 삭제를 위해 직접 참조 |
+| ProductService → BrandRepository | 상품 등록 시 브랜드 존재 검증을 위해 직접 참조 |
+| OrderFacade | 교차 도메인 조합 시에만 사용 (OrderService + ProductService + BrandService) |
 
 ---
 
@@ -130,15 +161,18 @@ classDiagram
         -name: String
         -birthDate: LocalDate
         -email: String
-        -createdAt: LocalDateTime
-        -updatedAt: LocalDateTime
-        +maskName() String
+        -createdAt: ZonedDateTime
+        -updatedAt: ZonedDateTime
+        -deletedAt: ZonedDateTime
+        +getMaskedName() String
+        +changePassword(newEncodedPassword) void
     }
 ```
 
 | 메서드 | 책임 |
 |--------|------|
-| `maskName()` | 이름 마스킹 (홍길동 → 홍길*) |
+| `getMaskedName()` | 이름 마스킹 (홍길동 → 홍길*) |
+| `changePassword()` | 암호화된 비밀번호 변경 |
 
 ---
 
@@ -149,12 +183,14 @@ classDiagram
     class Brand {
         -id: Long
         -name: String
-        -description: String
-        -createdAt: LocalDateTime
-        -updatedAt: LocalDateTime
-        -deletedAt: LocalDateTime
-        +softDelete() void
+        -description: String?
+        -createdAt: ZonedDateTime
+        -updatedAt: ZonedDateTime
+        -deletedAt: ZonedDateTime
+        +update(name, description) void
         +isDeleted() boolean
+        +delete() void
+        +restore() void
     }
 
     class Product {
@@ -166,8 +202,10 @@ classDiagram
 
 | 메서드 | 책임 |
 |--------|------|
-| `softDelete()` | deletedAt 설정 |
+| `update()` | 브랜드 정보 수정 |
 | `isDeleted()` | 삭제 여부 확인 |
+| `delete()` | deletedAt 설정 (BaseEntity 상속) |
+| `restore()` | deletedAt = null (BaseEntity 상속) |
 
 ---
 
@@ -181,23 +219,27 @@ classDiagram
         -name: String
         -price: BigDecimal
         -stock: Int
-        -description: String
-        -imageUrl: String
-        -createdAt: LocalDateTime
-        -updatedAt: LocalDateTime
-        -deletedAt: LocalDateTime
-        +softDelete() void
-        +isDeleted() boolean
-        +decreaseStock(quantity) void
+        -description: String?
+        -imageUrl: String?
+        -createdAt: ZonedDateTime
+        -updatedAt: ZonedDateTime
+        -deletedAt: ZonedDateTime
+        +update(name, price, stock, description, imageUrl) void
         +hasEnoughStock(quantity) boolean
+        +decreaseStock(quantity) void
+        +reserve(quantity) boolean
+        +isDeleted() boolean
+        +delete() void
     }
 ```
 
 | 메서드 | 책임 |
 |--------|------|
-| `decreaseStock()` | 재고 차감 (stock >= 0 보장) |
+| `update()` | 상품 정보 수정 |
+| `decreaseStock()` | 재고 차감 (stock >= 0 보장, 부족 시 예외) |
+| `reserve()` | 재고 예약 차감 (부족 시 false 반환, 예외 없음) |
 | `hasEnoughStock()` | 재고 충분 여부 확인 |
-| `softDelete()` | deletedAt 설정 |
+| `isDeleted()` | 삭제 여부 확인 |
 
 ---
 
@@ -209,11 +251,11 @@ classDiagram
         -id: Long
         -userId: Long
         -productId: Long
-        -createdAt: LocalDateTime
-        -deletedAt: LocalDateTime
-        +softDelete() void
-        +restore() void
+        -createdAt: ZonedDateTime
+        -deletedAt: ZonedDateTime
         +isDeleted() boolean
+        +delete() void
+        +restore() void
     }
 
     class User {
@@ -230,8 +272,9 @@ classDiagram
 
 | 메서드 | 책임 |
 |--------|------|
-| `softDelete()` | deletedAt 설정 |
-| `restore()` | deletedAt = null (멱등성 복원) |
+| `isDeleted()` | 삭제 여부 확인 |
+| `delete()` | deletedAt 설정 (BaseEntity 상속) |
+| `restore()` | deletedAt = null, 멱등성 복원 (BaseEntity 상속) |
 
 ---
 
@@ -242,23 +285,23 @@ classDiagram
     class Order {
         -id: Long
         -userId: Long
-        -couponId: Long?
-        -originalAmount: BigDecimal
-        -discountAmount: BigDecimal
         -totalAmount: BigDecimal
-        -createdAt: LocalDateTime
-        +calculateTotalAmount() BigDecimal
+        -orderItems: List~OrderItem~
+        -createdAt: ZonedDateTime
+        +addItem(productId, productName, brandName, quantity, unitPrice) void
+        +validateNotEmpty() void
+        -recalculateTotalAmount() void
     }
 
     class OrderItem {
         -id: Long
-        -orderId: Long
+        -order: Order
         -productId: Long
-        -quantity: Int
-        -unitPrice: BigDecimal
         -productName: String
         -brandName: String
-        +subtotal() BigDecimal
+        -quantity: Int
+        -unitPrice: BigDecimal
+        +getSubtotal() BigDecimal
     }
 
     class User {
@@ -269,28 +312,23 @@ classDiagram
         -id: Long
     }
 
-    class IssuedCoupon {
-        -id: Long
-    }
-
     User "1" <-- "*" Order : userId
     Order "1" *-- "*" OrderItem : contains
     Product "1" <.. "*" OrderItem : snapshot
-    IssuedCoupon "0..1" <.. "0..*" Order : couponId (optional)
 ```
 
 | 클래스 | 필드 | 설명 |
 |--------|------|------|
-| **Order** | couponId | 사용된 발급 쿠폰 ID (nullable) |
-| **Order** | originalAmount | 쿠폰 적용 전 원래 금액 |
-| **Order** | discountAmount | 쿠폰 할인 금액 (기본 0) |
-| **Order** | totalAmount | 최종 결제 금액 (originalAmount - discountAmount) |
 | **OrderItem** | unitPrice, productName, brandName | 주문 시점 스냅샷 |
 
 | 메서드 | 책임 |
 |--------|------|
-| `calculateTotalAmount()` | 주문 총액 계산 |
-| `subtotal()` | 항목별 소계 (unitPrice × quantity) |
+| `addItem()` | 주문 항목 추가 + 총액 재계산 |
+| `validateNotEmpty()` | 주문 항목 비어있으면 예외 |
+| `recalculateTotalAmount()` | 주문 총액 재계산 (private) |
+| `getSubtotal()` | 항목별 소계 (unitPrice × quantity) |
+
+> **Phase 6 계획**: Order에 `couponId: Long?`, `originalAmount`, `discountAmount` 필드 추가 예정
 
 ---
 
@@ -305,15 +343,15 @@ classDiagram
         -value: BigDecimal
         -minOrderAmount: BigDecimal?
         -expiredAt: ZonedDateTime
-        -createdAt: LocalDateTime
-        -updatedAt: LocalDateTime
-        -deletedAt: LocalDateTime
+        -createdAt: ZonedDateTime
+        -updatedAt: ZonedDateTime
+        -deletedAt: ZonedDateTime
         +calculateDiscount(orderAmount) BigDecimal
         +isExpired() boolean
         +validateMinOrderAmount(orderAmount) void
         +update(name, value, minOrderAmount, expiredAt) void
-        +softDelete() void
         +isDeleted() boolean
+        +delete() void
     }
 
     class CouponType {
@@ -331,7 +369,7 @@ classDiagram
 | `isExpired()` | 만료 여부 확인 |
 | `validateMinOrderAmount()` | 최소 주문 금액 검증 |
 | `update()` | 쿠폰 템플릿 수정 |
-| `softDelete()` | deletedAt 설정 |
+| `delete()` | deletedAt 설정 (BaseEntity 상속) |
 
 ---
 
@@ -393,9 +431,10 @@ classDiagram
 
 | 원칙 | 적용 |
 |------|------|
-| **Soft Delete** | Entity 메서드로 캡슐화 (`softDelete()`, `isDeleted()`) |
+| **DIP** | Repository 인터페이스는 domain, 구현체는 infrastructure |
+| **Soft Delete** | BaseEntity의 `delete()`, `restore()` 메서드로 캡슐화 |
 | **도메인 불변식** | Entity 내부에서 보장 (`decreaseStock()` → stock >= 0, `use()` → AVAILABLE 상태만) |
 | **ID 참조** | 도메인 간 엔티티는 ID로만 참조 |
 | **스냅샷** | OrderItem에 주문 시점 상품 정보 복사 |
-| **느슨한 결합** | OrderFacade → ProductService (Facade에서 조합, Service 간 직접 참조 없음) |
+| **Facade** | 교차 도메인 조합 시에만 사용 (OrderFacade) |
 | **독자 엔티티** | IssuedCoupon은 BaseEntity 미상속, status로 생명주기 관리 |
