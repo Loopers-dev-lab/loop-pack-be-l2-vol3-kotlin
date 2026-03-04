@@ -6,11 +6,15 @@ import jakarta.validation.constraints.NotEmpty
 
 class OrderV1Dto {
 
-    data class CreateRequest(@field:NotEmpty val items: List<OrderItemRequest>) {
+    data class CreateRequest(
+        @field:NotEmpty val items: List<OrderItemRequest>,
+        val couponId: Long? = null,
+    ) {
         fun toCommand() = OrderUseCase.CreateOrderCommand(
             items = items.map {
                 OrderUseCase.OrderItemRequest(productId = it.productId, quantity = it.quantity)
             },
+            couponId = couponId,
         )
     }
 
@@ -21,6 +25,9 @@ class OrderV1Dto {
         val memberId: Long,
         val status: String,
         val totalPrice: Long,
+        val discountAmount: Long,
+        val finalPrice: Long,
+        val couponId: Long?,
         val orderedAt: String,
         val items: List<OrderItemResponse>,
     ) {
@@ -30,6 +37,9 @@ class OrderV1Dto {
                 memberId = info.memberId,
                 status = info.status,
                 totalPrice = info.totalPrice,
+                discountAmount = info.discountAmount,
+                finalPrice = info.finalPrice,
+                couponId = info.couponId,
                 orderedAt = info.orderedAt,
                 items = info.items.map { OrderItemResponse.from(it) },
             )
@@ -56,6 +66,7 @@ class OrderV1Dto {
         val id: Long,
         val status: String,
         val totalPrice: Long,
+        val finalPrice: Long,
         val orderedAt: String,
         val itemCount: Int,
     ) {
@@ -64,6 +75,7 @@ class OrderV1Dto {
                 id = info.id,
                 status = info.status,
                 totalPrice = info.totalPrice,
+                finalPrice = info.finalPrice,
                 orderedAt = info.orderedAt,
                 itemCount = info.itemCount,
             )

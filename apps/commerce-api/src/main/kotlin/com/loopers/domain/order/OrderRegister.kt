@@ -8,13 +8,22 @@ class OrderRegister(
     private val orderRepository: OrderRepository,
 ) {
 
-    fun register(memberId: Long, orderItems: List<OrderItem>): Order {
+    fun register(
+        memberId: Long,
+        orderItems: List<OrderItem>,
+        discountAmount: Long = 0L,
+        couponId: Long? = null,
+    ): Order {
         val totalPrice = orderItems.sumOf { it.subtotal }
+        val finalPrice = totalPrice - discountAmount
 
         val order = Order(
             memberId = memberId,
             orderItems = orderItems,
             totalPrice = totalPrice,
+            discountAmount = discountAmount,
+            finalPrice = finalPrice,
+            couponId = couponId,
             orderedAt = ZonedDateTime.now(),
         )
 
