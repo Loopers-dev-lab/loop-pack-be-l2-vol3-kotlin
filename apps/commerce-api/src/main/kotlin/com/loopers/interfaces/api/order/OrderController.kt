@@ -44,7 +44,7 @@ class OrderController(
         @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @RequestBody request: OrderDto.PlaceOrderRequest,
     ): ApiResponse<Unit> {
-        orderFacade.placeOrder(userInfo.id, request.toCommands())
+        orderFacade.placeOrder(userInfo.id, request.toCommands(), request.couponId)
         return ApiResponse.success(Unit)
     }
 }

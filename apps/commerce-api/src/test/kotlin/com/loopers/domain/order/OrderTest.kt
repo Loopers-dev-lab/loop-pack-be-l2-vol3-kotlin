@@ -157,6 +157,64 @@ class OrderTest {
         }
     }
 
+    @DisplayName("쿠폰 할인을 적용할 때,")
+    @Nested
+    inner class ApplyCouponDiscount {
+
+        @DisplayName("할인 금액과 결제 금액이 정상적으로 설정된다.")
+        @Test
+        fun setsDiscountAndPaymentAmount() {
+            // arrange
+            val order = Order(userId = 1L)
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = Quantity.of(2),
+                        productName = "에어맥스",
+                        productPrice = Money.of(100000L),
+                        brandName = "나이키",
+                    ),
+                ),
+            )
+
+            // act
+            order.applyCouponDiscount(couponId = 42L, discountAmount = Money.of(10000L))
+
+            // assert
+            assertAll(
+                { assertThat(order.couponId).isEqualTo(42L) },
+                { assertThat(order.discountAmount).isEqualTo(Money.of(10000L)) },
+                { assertThat(order.paymentAmount).isEqualTo(Money.of(190000L)) },
+            )
+        }
+
+        @DisplayName("쿠폰 미적용 시, 할인 금액은 0이고 결제 금액은 총 금액과 같다.")
+        @Test
+        fun noDiscount_whenCouponNotApplied() {
+            // arrange
+            val order = Order(userId = 1L)
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = Quantity.of(1),
+                        productName = "에어맥스",
+                        productPrice = Money.of(100000L),
+                        brandName = "나이키",
+                    ),
+                ),
+            )
+
+            // assert
+            assertAll(
+                { assertThat(order.couponId).isNull() },
+                { assertThat(order.discountAmount).isEqualTo(Money.ZERO) },
+                { assertThat(order.paymentAmount).isEqualTo(Money.of(100000L)) },
+            )
+        }
+    }
+
     @DisplayName("주문 상태를 변경할 때,")
     @Nested
     inner class ChangeStatus {

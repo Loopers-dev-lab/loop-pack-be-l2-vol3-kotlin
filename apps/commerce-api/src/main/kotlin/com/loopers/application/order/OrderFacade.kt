@@ -1,6 +1,9 @@
 package com.loopers.application.order
 
 import com.loopers.domain.brand.BrandService
+import com.loopers.domain.coupon.CouponService
+import com.loopers.domain.coupon.Discount
+import com.loopers.domain.coupon.IssuedCoupon
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.product.ProductService
@@ -16,6 +19,7 @@ class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
+    private val couponService: CouponService,
     private val stockLockManager: StockLockManager,
 ) {
 
@@ -35,7 +39,15 @@ class OrderFacade(
     }
 
     @Transactional
-    fun placeOrder(userId: Long, items: List<OrderPlaceCommand>) {
+    fun placeOrder(userId: Long, items: List<OrderPlaceCommand>, couponId: Long? = null) {
+        // 쿠폰 검증 (fail-fast)
+        val couponInfo = couponId?.let { id ->
+            val issuedCoupon = couponService.findIssuedCouponWithLock(id, userId)
+            val coupon = couponService.findCouponById(id)
+            issuedCoupon.validateUsable(coupon.expiresAt)
+            CouponApplyInfo(id, coupon.discount, issuedCoupon)
+        }
+
         val productIds = items.map { it.productId }
 
         // 재고 차감 동시성 제어: 락 획득 후 트랜잭션 커밋 시 자동 해제
@@ -65,6 +77,19 @@ class OrderFacade(
             )
         }
 
-        orderService.createOrder(userId, orderItemCommands)
+        val order = orderService.createOrder(userId, orderItemCommands)
+
+        // 쿠폰 할인 적용
+        couponInfo?.let {
+            val discountAmount = it.discount.calculateDiscountAmount(order.totalAmount)
+            order.applyCouponDiscount(it.couponId, discountAmount)
+            it.issuedCoupon.use()
+        }
     }
+
+    private data class CouponApplyInfo(
+        val couponId: Long,
+        val discount: Discount,
+        val issuedCoupon: IssuedCoupon,
+    )
 }

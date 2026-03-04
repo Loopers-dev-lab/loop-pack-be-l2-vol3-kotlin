@@ -32,6 +32,18 @@ class Order(
     var totalAmount: Money = Money.ZERO
         protected set
 
+    @Column(name = "coupon_id")
+    var couponId: Long? = null
+        protected set
+
+    @Column(name = "discount_amount", nullable = false)
+    var discountAmount: Money = Money.ZERO
+        protected set
+
+    @Column(name = "payment_amount", nullable = false)
+    var paymentAmount: Money = Money.ZERO
+        protected set
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     var status: OrderStatus = status
@@ -69,6 +81,12 @@ class Order(
         calculateTotalAmount()
     }
 
+    fun applyCouponDiscount(couponId: Long, discountAmount: Money) {
+        this.couponId = couponId
+        this.discountAmount = discountAmount
+        calculatePaymentAmount()
+    }
+
     fun changeStatus(next: OrderStatus) {
         if (!status.canTransitionTo(next)) {
             throw CoreException(
@@ -83,5 +101,10 @@ class Order(
         this.totalAmount = orderItems.fold(Money.ZERO) { acc, item ->
             acc + item.productPrice * item.quantity
         }
+        calculatePaymentAmount()
+    }
+
+    private fun calculatePaymentAmount() {
+        this.paymentAmount = Money.of(totalAmount.value - discountAmount.value)
     }
 }

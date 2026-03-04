@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon
 
+import com.loopers.domain.common.Money
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
@@ -25,6 +26,14 @@ class Discount(
         if (value <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "할인값은 양수여야 합니다.")
         }
+    }
+
+    fun calculateDiscountAmount(totalAmount: Money): Money {
+        val discountValue = when (type) {
+            DiscountType.FIXED_AMOUNT -> minOf(value, totalAmount.value)
+            DiscountType.PERCENTAGE -> totalAmount.value * value / 100
+        }
+        return Money.of(minOf(discountValue, totalAmount.value))
     }
 
     override fun equals(other: Any?): Boolean =

@@ -11,6 +11,7 @@ class OrderDto {
 
     data class PlaceOrderRequest(
         val items: List<OrderItemRequest>,
+        val couponId: Long? = null,
     ) {
         data class OrderItemRequest(
             val productId: Long,
@@ -25,6 +26,8 @@ class OrderDto {
     data class GetOrderResponse(
         val orderId: Long,
         val totalAmount: Long,
+        val discountAmount: Long,
+        val paymentAmount: Long,
         val status: String,
         val orderedAt: ZonedDateTime,
         val items: List<OrderItemResponse>,
@@ -54,6 +57,8 @@ class OrderDto {
                 return GetOrderResponse(
                     orderId = info.orderId,
                     totalAmount = info.totalAmount,
+                    discountAmount = info.discountAmount,
+                    paymentAmount = info.paymentAmount,
                     status = info.status.name,
                     orderedAt = info.orderedAt,
                     items = info.items.map { OrderItemResponse.from(it) },
