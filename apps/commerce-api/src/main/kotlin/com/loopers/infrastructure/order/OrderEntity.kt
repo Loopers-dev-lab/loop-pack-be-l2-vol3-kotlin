@@ -11,11 +11,17 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "orders")
+@Table(
+    name = "orders",
+    indexes = [
+        Index(name = "idx_orders_ref_user_id_created_at", columnList = "ref_user_id, created_at DESC"),
+    ],
+)
 class OrderEntity(
     @Column(name = "ref_user_id", nullable = false)
     var refUserId: Long,

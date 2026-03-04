@@ -9,12 +9,18 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 @Entity
-@Table(name = "coupons")
+@Table(
+    name = "coupons",
+    indexes = [
+        Index(name = "idx_coupons_expired_at_deleted_at", columnList = "expired_at, deleted_at"),
+    ],
+)
 class CouponEntity(
     @Column(name = "name", nullable = false)
     var name: String,
