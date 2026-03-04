@@ -1,7 +1,6 @@
 package com.loopers.domain.member
 
 import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -28,68 +27,13 @@ class PasswordPolicyTest {
         }
 
         @Test
-        fun `8자_미만이면_예외가_발생한다`() {
+        fun `검증_실패_시_예외가_전파된다`() {
             // arrange
-            val value = "Pass1!"
+            val value = "short"
             val birthDate = LocalDate.of(1990, 1, 15)
-
-            // act
-            val result = assertThrows<CoreException> { passwordPolicy.createPassword(value, birthDate) }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT)
-        }
-
-        @Test
-        fun `16자_초과면_예외가_발생한다`() {
-            // arrange
-            val value = "Password12345678!"
-            val birthDate = LocalDate.of(1990, 1, 15)
-
-            // act
-            val result = assertThrows<CoreException> { passwordPolicy.createPassword(value, birthDate) }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT)
-        }
-
-        @Test
-        fun `허용되지_않는_문자가_포함되면_예외가_발생한다`() {
-            // arrange
-            val value = "Password1한글"
-            val birthDate = LocalDate.of(1990, 1, 15)
-
-            // act
-            val result = assertThrows<CoreException> { passwordPolicy.createPassword(value, birthDate) }
-
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT)
-        }
-
-        @Test
-        fun `생년월일이_포함되면_예외가_발생한다`() {
-            // arrange
-            val birthDate = LocalDate.of(1990, 1, 15)
-            val invalidPasswords = listOf("Pass19900115!", "19900115Ab!", "Ab19900115!")
 
             // act & assert
-            invalidPasswords.forEach { value ->
-                val result = assertThrows<CoreException> { passwordPolicy.createPassword(value, birthDate) }
-                assertThat(result.errorType).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDATE)
-            }
-        }
-
-        @Test
-        fun `구분자_포함_생년월일이_포함되면_예외가_발생한다`() {
-            // arrange
-            val birthDate = LocalDate.of(1990, 1, 15)
-            val invalidPasswords = listOf("1990-01-15Ab", "Ab1990/01/15")
-
-            // act & assert
-            invalidPasswords.forEach { value ->
-                val result = assertThrows<CoreException> { passwordPolicy.createPassword(value, birthDate) }
-                assertThat(result.errorType).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDATE)
-            }
+            assertThrows<CoreException> { passwordPolicy.createPassword(value, birthDate) }
         }
     }
 

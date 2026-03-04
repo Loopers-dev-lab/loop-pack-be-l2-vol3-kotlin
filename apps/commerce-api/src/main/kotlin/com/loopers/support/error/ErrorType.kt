@@ -20,4 +20,34 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "E008", "인증에 실패했습니다."),
     INVALID_NAME_FORMAT(HttpStatus.BAD_REQUEST, "E009", "이름 형식이 올바르지 않습니다."),
     INVALID_BIRTHDATE_FORMAT(HttpStatus.BAD_REQUEST, "E010", "생년월일 형식이 올바르지 않습니다."),
+
+    /** 브랜드 도메인 에러 */
+    DUPLICATE_BRAND_NAME(HttpStatus.CONFLICT, "E101", "이미 존재하는 브랜드명입니다."),
+    BRAND_NOT_FOUND(HttpStatus.NOT_FOUND, "E102", "브랜드를 찾을 수 없습니다."),
+    INVALID_BRAND_NAME_FORMAT(HttpStatus.BAD_REQUEST, "E103", "브랜드명 형식이 올바르지 않습니다."),
+    BRAND_HAS_ACTIVE_PRODUCTS(HttpStatus.CONFLICT, "E104", "판매 중인 상품이 있는 브랜드는 비활성화할 수 없습니다."),
+    BRAND_ALREADY_INACTIVE(HttpStatus.CONFLICT, "E105", "이미 비활성화된 브랜드입니다."),
+    BRAND_NOT_ACTIVE(HttpStatus.BAD_REQUEST, "E106", "활성 상태가 아닌 브랜드입니다."),
+
+    /** 상품 도메인 에러 */
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "E201", "상품을 찾을 수 없습니다."),
+    INVALID_PRODUCT_NAME_FORMAT(HttpStatus.BAD_REQUEST, "E202", "상품명 형식이 올바르지 않습니다."),
+    INVALID_PRODUCT_PRICE(HttpStatus.BAD_REQUEST, "E203", "상품 가격이 올바르지 않습니다."),
+    INVALID_PRODUCT_DESCRIPTION_LENGTH(HttpStatus.BAD_REQUEST, "E204", "상품 설명 길이가 올바르지 않습니다."),
+    PRODUCT_ALREADY_STOP_SELLING(HttpStatus.CONFLICT, "E205", "이미 판매 중지된 상품입니다."),
+    INSUFFICIENT_STOCK(HttpStatus.BAD_REQUEST, "E206", "재고가 부족합니다."),
+
+    /** 좋아요 도메인 에러 */
+    LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "E301", "좋아요를 찾을 수 없습니다."),
+    ALREADY_LIKED(HttpStatus.CONFLICT, "E302", "이미 좋아요한 상품입니다."),
+    LIKE_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "E303", "좋아요 대상 상품을 찾을 수 없습니다."),
+    LIKE_NOT_OWNER(HttpStatus.FORBIDDEN, "E304", "본인의 좋아요만 취소할 수 있습니다."),
+
+    /** 주문 도메인 에러 */
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "E401", "주문을 찾을 수 없습니다."),
+    ORDER_ALREADY_CANCELLED(HttpStatus.CONFLICT, "E402", "이미 취소된 주문입니다."),
+    ORDER_ITEM_EMPTY(HttpStatus.BAD_REQUEST, "E403", "주문 상품이 비어있습니다."),
+    INVALID_ORDER_QUANTITY(HttpStatus.BAD_REQUEST, "E404", "주문 수량이 올바르지 않습니다."),
+    ORDER_NOT_OWNER(HttpStatus.FORBIDDEN, "E405", "본인의 주문만 조회/취소할 수 있습니다."),
+    ORDER_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "E406", "주문 대상 상품을 찾을 수 없습니다."),
 }
