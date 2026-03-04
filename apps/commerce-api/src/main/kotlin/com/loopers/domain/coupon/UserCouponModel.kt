@@ -9,6 +9,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.Version
 import org.hibernate.annotations.SQLRestriction
 
 @Entity
@@ -34,6 +35,10 @@ class UserCouponModel(
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     var status: UserCouponStatus = status
+        protected set
+
+    @Version
+    var version: Long = 0
         protected set
 
     fun use() {

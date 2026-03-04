@@ -2,6 +2,7 @@ package com.loopers.domain.coupon
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
@@ -13,16 +14,17 @@ class UserCouponService(
 ) {
     @Transactional
     fun issueCoupon(userId: Long, couponTemplateId: Long): UserCouponModel {
-        if (userCouponRepository.existsByUserIdAndCouponTemplateId(userId, couponTemplateId)) {
+        try {
+            return userCouponRepository.save(
+                UserCouponModel(
+                    userId = userId,
+                    couponTemplateId = couponTemplateId,
+                    status = UserCouponStatus.AVAILABLE,
+                )
+            )
+        } catch (e: DataIntegrityViolationException) {
             throw CoreException(ErrorType.CONFLICT, "이미 발급된 쿠폰입니다.")
         }
-        return userCouponRepository.save(
-            UserCouponModel(
-                userId = userId,
-                couponTemplateId = couponTemplateId,
-                status = UserCouponStatus.AVAILABLE,
-            )
-        )
     }
 
     @Transactional(readOnly = true)

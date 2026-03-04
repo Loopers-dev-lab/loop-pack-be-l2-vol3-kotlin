@@ -16,6 +16,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -33,47 +34,51 @@ class OrderFacade(
 ) {
     @Transactional
     fun createOrder(loginId: String, items: List<OrderItemRequest>, couponId: Long?): OrderInfo {
-        val user = userService.getUserByLoginId(loginId)
+        try {
+            val user = userService.getUserByLoginId(loginId)
 
-        val orderItems = items.map { req ->
-            val product = productService.getProductById(req.productId)
-            productInventoryService.decreaseStock(req.productId, req.quantity)
-            Pair(product, req.quantity)
-        }
-
-        val originalAmount = orderItems.sumOf { (product, qty) -> product.price.value * qty }
-        val discountAmount = if (couponId != null) {
-            val userCoupon = userCouponService.getUserCouponByIdAndUserId(couponId, user.id)
-            val template = couponTemplateService.getTemplateById(userCoupon.couponTemplateId)
-            val discount = template.calculate(originalAmount)
-            userCoupon.use()
-            discount
-        } else {
-            0L
-        }
-
-        val order = orderService.createOrder(
-            userId = user.id,
-            originalAmount = originalAmount,
-            discountAmount = discountAmount,
-            couponId = couponId,
-            totalAmount = originalAmount - discountAmount,
-        )
-
-        val savedItems = orderItemService.saveAll(
-            orderItems.map { (product, qty) ->
-                OrderItemModel(
-                    orderId = order.id,
-                    brandId = product.brandId,
-                    productId = product.id,
-                    quantity = Quantity(qty),
-                    unitPrice = Price(product.price.value),
-                    productName = ProductName(product.name.value),
-                    imageUrl = ImageUrl(product.imageUrl.value),
-                )
+            val orderItems = items.map { req ->
+                val product = productService.getProductById(req.productId)
+                productInventoryService.decreaseStock(req.productId, req.quantity)
+                Pair(product, req.quantity)
             }
-        )
-        return OrderInfo.from(order, savedItems)
+
+            val originalAmount = orderItems.sumOf { (product, qty) -> product.price.value * qty }
+            val discountAmount = if (couponId != null) {
+                val userCoupon = userCouponService.getUserCouponByIdAndUserId(couponId, user.id)
+                val template = couponTemplateService.getTemplateById(userCoupon.couponTemplateId)
+                val discount = template.calculate(originalAmount)
+                userCoupon.use()
+                discount
+            } else {
+                0L
+            }
+
+            val order = orderService.createOrder(
+                userId = user.id,
+                originalAmount = originalAmount,
+                discountAmount = discountAmount,
+                couponId = couponId,
+                totalAmount = originalAmount - discountAmount,
+            )
+
+            val savedItems = orderItemService.saveAll(
+                orderItems.map { (product, qty) ->
+                    OrderItemModel(
+                        orderId = order.id,
+                        brandId = product.brandId,
+                        productId = product.id,
+                        quantity = Quantity(qty),
+                        unitPrice = Price(product.price.value),
+                        productName = ProductName(product.name.value),
+                        imageUrl = ImageUrl(product.imageUrl.value),
+                    )
+                }
+            )
+            return OrderInfo.from(order, savedItems)
+        } catch (e: ObjectOptimisticLockingFailureException) {
+            throw CoreException(ErrorType.CONFLICT, "쿠폰이 이미 사용되었습니다.")
+        }
     }
 
     fun getOrders(loginId: String, startAt: LocalDate, endAt: LocalDate, pageable: Pageable): Page<OrderInfo> {
