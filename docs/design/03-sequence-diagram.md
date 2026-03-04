@@ -1,7 +1,7 @@
 # 시퀀스 다이어그램
 
 - **작성자**: 김민주
-- **최종 수정일**: 2026-03-02
+- **최종 수정일**: 2026-03-04
 
 ## 목차
 
@@ -181,21 +181,21 @@ Customer가 특정 상품에 대해 좋아요를 등록한다. 상품 존재 여
 sequenceDiagram
     autonumber
     participant C as Customer
-    participant PLS as ProductLikeService
+    participant PLS as ProductLikeRegisterUseCase
     participant PR as ProductRepository
     participant PLR as ProductLikeRepository
     participant PL as ProductLike
-    C ->>+ PLS: registerLike(userId, productId)
+    C ->>+ PLS: register(command)
     Note over PLS: 상품 존재 및 노출 검증
     PLS ->>+ PR: findById(productId)
     PR -->>- PLS: product (ACTIVE + 미삭제)
 
     Note over PLS: 중복 검증
-    PLS ->>+ PLR: existsByCustomerIdAndProductId(userId, productId)
+    PLS ->>+ PLR: existsByUserIdAndProductId(userId, productId)
     PLR -->>- PLS: exists
 
     alt 이미 좋아요 등록됨
-        PLS -->> C: 이미 등록됨 (중복 방지)
+        PLS -->> C: 이미 등록됨 (멱등적 처리)
     else 좋아요 미등록
         PLS ->>+ PL: register(userId, productId)
         Note right of PL: ProductLike 생성<br/>(userId, productId)
@@ -346,7 +346,7 @@ sequenceDiagram
 
 | 요구사항                    | 커버 시나리오                           | 참여자                                                                                                  |
 |-------------------------|-----------------------------------|------------------------------------------------------------------------------------------------------|
-| **4.2 좋아요 관리**          | 2.3 좋아요 등록                        | Customer, ProductLikeService, ProductRepository, ProductLikeRepository, ProductLike                  |
+| **4.2 좋아요 관리**          | 2.3 좋아요 등록                        | Customer, ProductLikeRegisterUseCase, ProductRepository, ProductLikeRepository, ProductLike          |
 | **4.3 주문 생성**           | 2.1 주문 생성 (정상), 2.2 주문 생성 (재고 부족) | Customer, OrderService, ProductRepository, OrderDomainService, ProductStock, Order, OrderRepository  |
 | **4.4 Admin 브랜드/상품 관리** | 3.1 상품 등록, 3.2 브랜드 삭제             | Admin, ProductService/BrandService, BrandRepository, ProductRepository, Product, ProductStock, Brand |
 
@@ -379,7 +379,7 @@ sequenceDiagram
 |-------------------|-----------------------------------|------------------------------------|
 | 2.1 주문 생성 (정상)    | OrderService.createOrder()        | OrderRepository.save() 완료          |
 | 2.2 주문 생성 (재고 부족) | OrderService.createOrder()        | InsufficientStockException 발생 시 롤백 |
-| 2.3 좋아요 등록        | ProductLikeService.registerLike() | ProductLikeRepository.save() 완료    |
+| 2.3 좋아요 등록        | ProductLikeRegisterUseCase.register() | ProductLikeRepository.save() 완료    |
 | 3.1 상품 등록         | ProductService.registerProduct()  | ProductRepository.save() 완료        |
 | 3.2 브랜드 삭제        | BrandService.deleteBrand()        | BrandRepository.save() 완료          |
 
@@ -395,7 +395,7 @@ sequenceDiagram
 Actor → Application Service → Domain Service → Domain (Aggregate Root) → Repository (인터페이스)
 ```
 
-- **Application Service**: 유스케이스 조율 (OrderService, ProductLikeService, ProductService, BrandService)
+- **Application Service**: 유스케이스 조율 (OrderService, ProductLikeRegisterUseCase, ProductService, BrandService)
 - **Domain Service**: 여러 Aggregate 간 비즈니스 규칙 (OrderDomainService)
 - **Domain**: 불변식 보호 및 비즈니스 로직 (Order, ProductStock, ProductLike, Product, Brand)
 - **Repository**: 영속성 추상화 (도메인 계층 인터페이스)
