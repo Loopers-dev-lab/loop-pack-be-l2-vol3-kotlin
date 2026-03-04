@@ -425,7 +425,6 @@ sequenceDiagram
     participant Controller
     participant Facade as OrderFacade
     participant ProductService
-    participant IssuedCouponService
     participant CouponService
     participant OrderService
     participant DB
@@ -448,9 +447,9 @@ sequenceDiagram
             Facade-->>Controller: throw CoreException(BAD_REQUEST)
             Controller-->>Client: 400 Bad Request (전체 실패)
         else 전체 재고 충분
-            Facade->>IssuedCouponService: getIssuedCouponWithLock(couponId)
-            IssuedCouponService->>DB: SELECT ... FOR UPDATE
-            DB-->>IssuedCouponService: issuedCoupon (with lock)
+            Facade->>CouponService: getIssuedCouponWithLock(couponId)
+            CouponService->>DB: SELECT ... FOR UPDATE
+            DB-->>CouponService: issuedCoupon (with lock)
 
             Facade->>Facade: issuedCoupon.validateOwner(userId)
             Facade->>Facade: issuedCoupon.validateUsable()
@@ -470,7 +469,7 @@ sequenceDiagram
             ProductService->>DB: UPDATE stock
 
             Facade->>Facade: issuedCoupon.use()
-            Facade->>IssuedCouponService: save(issuedCoupon)
+            Facade->>CouponService: save(issuedCoupon)
 
             Facade->>OrderService: createOrder(userId, items, couponId, originalAmount, discountAmount, totalAmount)
             OrderService->>DB: INSERT order, order_items
@@ -514,45 +513,45 @@ sequenceDiagram
     autonumber
     actor Client
     participant Controller
-    participant IssuedCouponService
+    participant CouponService
     participant CouponRepository
     participant IssuedCouponRepository
     participant DB
 
     Client->>Controller: POST /coupons/{couponId}/issue
-    Controller->>IssuedCouponService: issueCoupon(couponId, userId)
+    Controller->>CouponService: issueCoupon(couponId, userId)
 
-    IssuedCouponService->>CouponRepository: findByIdAndDeletedAtIsNull(couponId)
+    CouponService->>CouponRepository: findByIdAndDeletedAtIsNull(couponId)
     CouponRepository->>DB: SELECT * WHERE id = ? AND deletedAt IS NULL
     DB-->>CouponRepository: coupon (or null)
 
     alt 쿠폰 없음 (또는 삭제됨)
-        CouponRepository-->>IssuedCouponService: null
-        IssuedCouponService-->>Controller: throw NOT_FOUND
+        CouponRepository-->>CouponService: null
+        CouponService-->>Controller: throw NOT_FOUND
         Controller-->>Client: 404 Not Found
     else 쿠폰 존재
-        CouponRepository-->>IssuedCouponService: coupon
+        CouponRepository-->>CouponService: coupon
 
         alt 쿠폰 만료
-            IssuedCouponService->>IssuedCouponService: coupon.isExpired() → true
-            IssuedCouponService-->>Controller: throw BAD_REQUEST
+            CouponService->>CouponService: coupon.isExpired() → true
+            CouponService-->>Controller: throw BAD_REQUEST
             Controller-->>Client: 400 Bad Request (만료된 쿠폰)
         else 쿠폰 유효
-            IssuedCouponService->>IssuedCouponRepository: existsByCouponIdAndUserId(couponId, userId)
+            CouponService->>IssuedCouponRepository: existsByCouponIdAndUserId(couponId, userId)
             IssuedCouponRepository->>DB: SELECT EXISTS
             DB-->>IssuedCouponRepository: exists
 
             alt 이미 발급됨
-                IssuedCouponRepository-->>IssuedCouponService: true
-                IssuedCouponService-->>Controller: throw CONFLICT
+                IssuedCouponRepository-->>CouponService: true
+                CouponService-->>Controller: throw CONFLICT
                 Controller-->>Client: 409 Conflict (중복 발급)
             else 미발급
-                IssuedCouponRepository-->>IssuedCouponService: false
-                IssuedCouponService->>IssuedCouponRepository: save(IssuedCoupon(AVAILABLE))
+                IssuedCouponRepository-->>CouponService: false
+                CouponService->>IssuedCouponRepository: save(IssuedCoupon(AVAILABLE))
                 IssuedCouponRepository->>DB: INSERT
                 DB-->>IssuedCouponRepository: issuedCoupon
-                IssuedCouponRepository-->>IssuedCouponService: issuedCoupon
-                IssuedCouponService-->>Controller: issuedCouponInfo
+                IssuedCouponRepository-->>CouponService: issuedCoupon
+                CouponService-->>Controller: issuedCouponInfo
                 Controller-->>Client: 200 OK
             end
         end

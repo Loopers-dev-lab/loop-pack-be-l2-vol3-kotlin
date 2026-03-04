@@ -39,7 +39,6 @@ flowchart TB
         S4[LikeService]
         S5[OrderService]
         S6[CouponService]
-        S7[IssuedCouponService]
         F1[OrderFacade]
     end
 
@@ -100,8 +99,7 @@ flowchart TB
     S5 -.-> DS2
     S1 --> RI1
     S6 --> RI6
-    S7 --> RI7
-    S7 -.-> RI6
+    S6 --> RI7
 
     R1 -.->|implements| RI1
     R2 -.->|implements| RI2
