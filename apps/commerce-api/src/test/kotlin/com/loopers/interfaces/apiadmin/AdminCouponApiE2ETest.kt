@@ -5,6 +5,12 @@ import com.loopers.domain.coupon.CouponQuantity
 import com.loopers.domain.coupon.CouponRepository
 import com.loopers.domain.coupon.Discount
 import com.loopers.domain.coupon.DiscountType
+import com.loopers.domain.coupon.IssuedCoupon
+import com.loopers.domain.coupon.IssuedCouponRepository
+import com.loopers.domain.user.Email
+import com.loopers.domain.user.LoginId
+import com.loopers.domain.user.User
+import com.loopers.domain.user.UserRepository
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -21,17 +27,21 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
+import java.time.LocalDate
 import java.time.ZonedDateTime
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AdminCouponApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val couponRepository: CouponRepository,
+    private val issuedCouponRepository: IssuedCouponRepository,
+    private val userRepository: UserRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
         private const val COUPON_ENDPOINT = "/api-admin/v1/coupons"
         private const val COUPON_DETAIL_ENDPOINT = "/api-admin/v1/coupons/{couponId}"
+        private const val COUPON_ISSUES_ENDPOINT = "/api-admin/v1/coupons/{couponId}/issues"
         private const val LDAP_HEADER = "X-Loopers-Ldap"
         private const val LDAP_VALUE = "loopers.admin"
     }
@@ -67,6 +77,30 @@ class AdminCouponApiE2ETest @Autowired constructor(
                 quantity = CouponQuantity(totalQuantity, 0),
                 expiresAt = expiresAt,
             ),
+        )
+    }
+
+    private fun createUser(
+        loginId: String = "testuser",
+        password: String = "Test1234!@",
+        name: String = "홍길동",
+        email: String = "test@example.com",
+        birthday: LocalDate = LocalDate.of(1990, 1, 15),
+    ): User {
+        return userRepository.save(
+            User(
+                loginId = LoginId.of(loginId),
+                password = password,
+                name = name,
+                birthday = birthday,
+                email = Email.of(email),
+            ),
+        )
+    }
+
+    private fun createIssuedCoupon(couponId: Long, userId: Long): IssuedCoupon {
+        return issuedCouponRepository.save(
+            IssuedCoupon(couponId = couponId, userId = userId),
         )
     }
 
@@ -1444,6 +1478,262 @@ class AdminCouponApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode.value()).isEqualTo(401) },
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
+
+    @DisplayName("GET /api-admin/v1/coupons/{couponId}/issues")
+    @Nested
+    inner class GetCouponIssues {
+
+        @DisplayName("발급 내역이 있으면, 200 OK와 페이징된 발급 내역을 반환한다.")
+        @Test
+        fun returnsOk_whenIssuedCouponsExist() {
+            // arrange
+            val coupon = createCoupon()
+            val user = createUser()
+            createIssuedCoupon(coupon.id, user.id)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$COUPON_ISSUES_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+                { assertThat(content).hasSize(1) },
+                { assertThat(content?.get(0)?.get("userId")).isEqualTo(user.id.toInt()) },
+                { assertThat(content?.get(0)?.get("userName")).isEqualTo(user.name) },
+                { assertThat(content?.get(0)?.get("status")).isEqualTo("AVAILABLE") },
+                { assertThat(content?.get(0)?.get("issuedAt")).isNotNull() },
+                { assertThat(data?.get("totalElements")).isEqualTo(1) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 쿠폰 ID이면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenCouponNotExists() {
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ISSUES_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                999999L,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("발급 내역이 없으면, 200 OK와 빈 페이지를 반환한다.")
+        @Test
+        fun returnsEmptyPage_whenNoIssuedCoupons() {
+            // arrange
+            val coupon = createCoupon()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$COUPON_ISSUES_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content).isEmpty() },
+                { assertThat(data?.get("totalElements")).isEqualTo(0) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderMissing() {
+            // arrange
+            val coupon = createCoupon()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ISSUES_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(HttpHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("페이지 크기를 지정하면, 해당 크기만큼 반환하고 페이징 정보가 올바르다.")
+        @Test
+        fun returnsPagedIssues_whenPageSizeSpecified() {
+            // arrange
+            val coupon = createCoupon()
+            val user1 = createUser(loginId = "user1", email = "user1@example.com")
+            val user2 = createUser(loginId = "user2", email = "user2@example.com")
+            val user3 = createUser(loginId = "user3", email = "user3@example.com")
+            createIssuedCoupon(coupon.id, user1.id)
+            createIssuedCoupon(coupon.id, user2.id)
+            createIssuedCoupon(coupon.id, user3.id)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$COUPON_ISSUES_ENDPOINT?page=0&size=2",
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            val content = extractPageContent(data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content).hasSize(2) },
+                { assertThat(data?.get("totalElements")).isEqualTo(3) },
+                { assertThat(data?.get("totalPages")).isEqualTo(2) },
+            )
+        }
+
+        @DisplayName("사용된 쿠폰은 USED 상태와 usedAt이 포함된다.")
+        @Test
+        fun returnsUsedStatus_whenCouponIsUsed() {
+            // arrange
+            val coupon = createCoupon()
+            val user = createUser()
+            val issuedCoupon = createIssuedCoupon(coupon.id, user.id)
+            issuedCoupon.use()
+            issuedCouponRepository.save(issuedCoupon)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$COUPON_ISSUES_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            val content = extractPageContent(response.body?.data)
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(content?.get(0)?.get("status")).isEqualTo("USED") },
+                { assertThat(content?.get(0)?.get("usedAt")).isNotNull() },
+            )
+        }
+
+        @DisplayName("삭제된 쿠폰의 발급 내역을 조회하면, 404 NOT_FOUND 응답을 받는다.")
+        @Test
+        fun returnsNotFound_whenCouponIsDeleted() {
+            // arrange
+            val coupon = createCoupon()
+            val user = createUser()
+            createIssuedCoupon(coupon.id, user.id)
+            coupon.delete()
+            couponRepository.save(coupon)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ISSUES_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("응답에 사용자 ID, 사용자 이름, 발급일시, 상태가 포함되고, 미사용 쿠폰은 usedAt이 없다.")
+        @Test
+        fun includesAllFieldsInResponse() {
+            // arrange
+            val coupon = createCoupon()
+            val user = createUser(name = "테스트유저")
+            createIssuedCoupon(coupon.id, user.id)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$COUPON_ISSUES_ENDPOINT?page=0&size=20",
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert (NON_NULL 설정으로 usedAt이 null이면 응답에 포함되지 않음)
+            val content = extractPageContent(response.body?.data)
+            val item = content?.first()
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(item?.containsKey("userId")).isTrue() },
+                { assertThat(item?.containsKey("userName")).isTrue() },
+                { assertThat(item?.containsKey("issuedAt")).isTrue() },
+                { assertThat(item?.containsKey("status")).isTrue() },
+                { assertThat(item?.get("userName")).isEqualTo("테스트유저") },
+                { assertThat(item?.containsKey("usedAt")).isFalse() },
+                { assertThat(item?.get("status")).isEqualTo("AVAILABLE") },
+            )
+        }
+
+        @DisplayName("페이지 파라미터 없이 요청하면, 기본값(page=0, size=20)이 적용된다.")
+        @Test
+        fun returnsDefaultPage_whenNoPageParams() {
+            // arrange
+            val coupon = createCoupon()
+            val user = createUser()
+            createIssuedCoupon(coupon.id, user.id)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                COUPON_ISSUES_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                responseType,
+                coupon.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(data?.get("page")).isEqualTo(0) },
+                { assertThat(data?.get("size")).isEqualTo(20) },
             )
         }
     }

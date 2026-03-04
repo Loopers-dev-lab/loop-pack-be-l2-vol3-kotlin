@@ -41,6 +41,10 @@ class UserService(
         return user
     }
 
+    fun findByIds(ids: List<Long>): List<User> {
+        return userRepository.findByIdIn(ids)
+    }
+
     fun changePassword(userId: Long, currentPassword: String, newPassword: String) {
         val user = userRepository.findById(userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다.")

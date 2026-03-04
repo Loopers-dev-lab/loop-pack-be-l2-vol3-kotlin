@@ -2,6 +2,10 @@ package com.loopers.infrastructure.coupon
 
 import com.loopers.domain.coupon.IssuedCoupon
 import com.loopers.domain.coupon.IssuedCouponRepository
+import com.loopers.infrastructure.common.toPageRequest
+import com.loopers.infrastructure.common.toPageResult
+import com.loopers.support.common.PageQuery
+import com.loopers.support.common.PageResult
 import org.springframework.stereotype.Component
 
 @Component
@@ -27,6 +31,11 @@ class IssuedCouponRepositoryImpl(
 
     override fun findByCouponId(couponId: Long): List<IssuedCoupon> {
         return issuedCouponJpaRepository.findByCouponId(couponId)
+    }
+
+    override fun findByCouponId(couponId: Long, pageQuery: PageQuery): PageResult<IssuedCoupon> {
+        return issuedCouponJpaRepository.findByCouponId(couponId, pageQuery.toPageRequest())
+            .toPageResult()
     }
 
     override fun findByCouponIdAndUserIdWithLock(couponId: Long, userId: Long): IssuedCoupon? {
