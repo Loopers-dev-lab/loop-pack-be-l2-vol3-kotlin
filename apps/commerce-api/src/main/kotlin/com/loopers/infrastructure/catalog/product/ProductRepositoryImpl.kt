@@ -5,12 +5,16 @@ import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductSort
 import com.loopers.domain.catalog.product.ProductStatus
+import jakarta.persistence.EntityManager
+import jakarta.persistence.LockModeType
+import jakarta.persistence.PersistenceContext
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 
 @Repository
 class ProductRepositoryImpl(
     private val productJpaRepository: ProductJpaRepository,
+    @PersistenceContext private val entityManager: EntityManager,
 ) : ProductRepository {
 
     override fun save(product: Product): Product {
@@ -30,6 +34,15 @@ class ProductRepositoryImpl(
             .filter { it.deletedAt == null }
             .map { it.toDomain() }
             .orElse(null)
+
+    override fun findByIdForUpdate(id: Long): Product? {
+        val entity = productJpaRepository.findById(id)
+            .filter { it.deletedAt == null }
+            .orElse(null) ?: return null
+        // EntityManager.refresh bypasses JPA 1st-level cache and acquires FOR UPDATE lock
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE)
+        return entity.toDomain()
+    }
 
     override fun findAll(condition: ProductSearchCondition): List<Product> {
         val pageable = PageRequest.of(condition.page, condition.size)
@@ -58,4 +71,10 @@ class ProductRepositoryImpl(
             it.delete()
         }
     }
+
+    override fun incrementLikeCountAtomic(id: Long): Boolean =
+        productJpaRepository.incrementLikeCountAtomic(id) > 0
+
+    override fun decrementLikeCountAtomic(id: Long): Boolean =
+        productJpaRepository.decrementLikeCountAtomic(id) > 0
 }

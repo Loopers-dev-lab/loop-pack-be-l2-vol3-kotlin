@@ -22,8 +22,10 @@ class OrderFacade(
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있을 수 없습니다.")
         }
 
-        // 1. 모든 상품 조회 및 페어링 (즉시 페어링하여 수량 불일치로 인한 묵시적 누락 방지)
-        val itemWithProducts = cmd.items.map { item -> item to productService.getById(item.productId) }
+        // 1. 모든 상품 조회 및 페어링 (productId 오름차순 정렬 → 데드락 방지)
+        val itemWithProducts = cmd.items
+            .sortedBy { it.productId }
+            .map { item -> item to productService.getById(item.productId) }
 
         if (itemWithProducts.size != cmd.items.size) {
             throw CoreException(ErrorType.BAD_REQUEST, "일부 상품이 조회되지 않았습니다.")

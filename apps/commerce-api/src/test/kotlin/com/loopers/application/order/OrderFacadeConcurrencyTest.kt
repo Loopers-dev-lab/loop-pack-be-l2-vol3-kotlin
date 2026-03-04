@@ -1,0 +1,80 @@
+package com.loopers.application.order
+
+import com.loopers.infrastructure.catalog.brand.BrandEntity
+import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
+import com.loopers.infrastructure.catalog.product.ProductEntity
+import com.loopers.infrastructure.catalog.product.ProductJpaRepository
+import com.loopers.utils.DatabaseCleanUp
+import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.ActiveProfiles
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import com.loopers.domain.catalog.product.ProductStatus
+
+@SpringBootTest
+@ActiveProfiles("test")
+class OrderFacadeConcurrencyTest @Autowired constructor(
+    private val orderFacade: OrderFacade,
+    private val brandJpaRepository: BrandJpaRepository,
+    private val productJpaRepository: ProductJpaRepository,
+    private val databaseCleanUp: DatabaseCleanUp,
+) {
+
+    @AfterEach
+    fun tearDown() = databaseCleanUp.truncateAllTables()
+
+    @Test
+    fun `placeOrder() - 동시에 10명이 주문해도 재고 5개를 초과해서는 안된다`() {
+        // Arrange
+        val brand = brandJpaRepository.save(BrandEntity(name = "TestBrand", description = "desc"))
+        val product = productJpaRepository.save(
+            ProductEntity(
+                brandId = brand.id,
+                name = "TestProduct",
+                description = "desc",
+                price = 10000,
+                stock = 5,
+                status = ProductStatus.ACTIVE,
+            )
+        )
+
+        val threadCount = 10
+        val latch = CountDownLatch(threadCount)
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val successCount = AtomicInteger(0)
+        val failCount = AtomicInteger(0)
+
+        // Act
+        repeat(threadCount) { i ->
+            executor.submit {
+                try {
+                    orderFacade.placeOrder(
+                        userId = (i + 1).toLong(),
+                        cmd = PlaceOrderCommand(
+                            items = listOf(OrderItemCommand(productId = product.id, quantity = 1))
+                        ),
+                    )
+                    successCount.incrementAndGet()
+                } catch (e: Exception) {
+                    failCount.incrementAndGet()
+                } finally {
+                    latch.countDown()
+                }
+            }
+        }
+        latch.await(30, TimeUnit.SECONDS)
+        executor.shutdown()
+
+        // Assert
+        val finalProduct = productJpaRepository.findById(product.id).get()
+        assertThat(successCount.get()).isEqualTo(5)
+        assertThat(failCount.get()).isEqualTo(5)
+        assertThat(finalProduct.stock).isEqualTo(0)
+    }
+}

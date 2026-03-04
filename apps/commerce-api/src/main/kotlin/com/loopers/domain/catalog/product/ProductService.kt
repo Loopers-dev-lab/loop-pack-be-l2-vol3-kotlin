@@ -51,23 +51,22 @@ class ProductService(
 
     @Transactional
     fun decrementStock(productId: Long, quantity: Int): Product {
-        val product = getById(productId)
+        val product = productRepository.findByIdForUpdate(productId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "[$productId] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
         product.decrementStock(quantity)
         return productRepository.save(product)
     }
 
     @Transactional
-    fun incrementLikeCount(productId: Long): Product {
-        val product = getById(productId)
-        product.incrementLike()
-        return productRepository.save(product)
+    fun incrementLikeCount(productId: Long) {
+        if (!productRepository.incrementLikeCountAtomic(productId))
+            throw CoreException(ErrorType.NOT_FOUND, "[$productId] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
     }
 
     @Transactional
-    fun decrementLikeCount(productId: Long): Product {
-        val product = getById(productId)
-        product.decrementLike()
-        return productRepository.save(product)
+    fun decrementLikeCount(productId: Long) {
+        if (!productRepository.decrementLikeCountAtomic(productId))
+            throw CoreException(ErrorType.NOT_FOUND, "[$productId] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
     }
 
     @Transactional

@@ -67,35 +67,55 @@ class ProductServiceUnitTest {
     // ─── incrementLikeCount ───
 
     @Test
-    fun `incrementLikeCount() should call product incrementLike and save`() {
+    fun `incrementLikeCount() should call incrementLikeCountAtomic`() {
         // Arrange
-        val product = createProduct(id = 1L, likeCount = 5)
-        every { mockRepository.findById(1L) } returns product
-        every { mockRepository.save(any()) } answers { firstArg() }
+        every { mockRepository.incrementLikeCountAtomic(1L) } returns true
 
         // Act
-        val result = productService.incrementLikeCount(1L)
+        productService.incrementLikeCount(1L)
 
         // Assert
-        assertThat(result.likeCount).isEqualTo(6)
-        verify { mockRepository.save(any()) }
+        verify { mockRepository.incrementLikeCountAtomic(1L) }
+    }
+
+    @Test
+    fun `incrementLikeCount() throws NOT_FOUND when product does not exist`() {
+        // Arrange
+        every { mockRepository.incrementLikeCountAtomic(99L) } returns false
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            productService.incrementLikeCount(99L)
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
     }
 
     // ─── decrementLikeCount ───
 
     @Test
-    fun `decrementLikeCount() should call product decrementLike and save`() {
+    fun `decrementLikeCount() should call decrementLikeCountAtomic`() {
         // Arrange
-        val product = createProduct(id = 1L, likeCount = 5)
-        every { mockRepository.findById(1L) } returns product
-        every { mockRepository.save(any()) } answers { firstArg() }
+        every { mockRepository.decrementLikeCountAtomic(1L) } returns true
 
         // Act
-        val result = productService.decrementLikeCount(1L)
+        productService.decrementLikeCount(1L)
 
         // Assert
-        assertThat(result.likeCount).isEqualTo(4)
-        verify { mockRepository.save(any()) }
+        verify { mockRepository.decrementLikeCountAtomic(1L) }
+    }
+
+    @Test
+    fun `decrementLikeCount() throws NOT_FOUND when product does not exist`() {
+        // Arrange
+        every { mockRepository.decrementLikeCountAtomic(99L) } returns false
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            productService.decrementLikeCount(99L)
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
     }
 
     // ─── decrementStock ───
@@ -104,7 +124,7 @@ class ProductServiceUnitTest {
     fun `decrementStock() should reduce stock and save`() {
         // Arrange
         val product = createProduct(id = 1L, stock = 10)
-        every { mockRepository.findById(1L) } returns product
+        every { mockRepository.findByIdForUpdate(1L) } returns product
         every { mockRepository.save(any()) } answers { firstArg() }
 
         // Act
@@ -119,7 +139,7 @@ class ProductServiceUnitTest {
     fun `decrementStock() throws BAD_REQUEST when quantity exceeds stock`() {
         // Arrange
         val product = createProduct(id = 1L, stock = 2)
-        every { mockRepository.findById(1L) } returns product
+        every { mockRepository.findByIdForUpdate(1L) } returns product
 
         // Act & Assert
         assertThrows<CoreException> {
@@ -133,7 +153,7 @@ class ProductServiceUnitTest {
     @Test
     fun `decrementStock() throws NOT_FOUND when product does not exist`() {
         // Arrange
-        every { mockRepository.findById(99L) } returns null
+        every { mockRepository.findByIdForUpdate(99L) } returns null
 
         // Act & Assert
         assertThrows<CoreException> {

@@ -9,6 +9,8 @@ import com.loopers.domain.like.LikeService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
+import io.mockk.just
+import io.mockk.Runs
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
@@ -32,7 +34,7 @@ class LikeFacadeUnitTest {
         val product = createProduct(id = 10L)
         every { mockProductService.getById(10L) } returns product
         every { mockLikeService.addLike(1L, 10L) } returns createLike(userId = 1L, productId = 10L)
-        every { mockProductService.incrementLikeCount(10L) } returns product
+        every { mockProductService.incrementLikeCount(10L) } just Runs
 
         // Act
         likeFacade.addLike(userId = 1L, productId = 10L)
@@ -66,9 +68,8 @@ class LikeFacadeUnitTest {
     @Test
     fun `removeLike() should call likeService then decrementLikeCount in order`() {
         // Arrange
-        val product = createProduct(id = 10L, likeCount = 1)
         every { mockLikeService.removeLike(1L, 10L) } returns Unit
-        every { mockProductService.decrementLikeCount(10L) } returns product
+        every { mockProductService.decrementLikeCount(10L) } just Runs
 
         // Act
         likeFacade.removeLike(userId = 1L, productId = 10L)
