@@ -28,7 +28,7 @@ class OrderV1Controller(
         @RequestBody req: OrderV1Dto.CreateOrderRequest,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
         val itemRequests = req.items.map { OrderItemRequest(it.productId, it.quantity) }
-        return orderFacade.createOrder(loginId, password, itemRequests)
+        return orderFacade.createOrder(loginId, password, itemRequests, req.couponId)
             .let { OrderV1Dto.OrderResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

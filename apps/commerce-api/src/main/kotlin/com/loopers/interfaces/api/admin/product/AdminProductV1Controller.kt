@@ -40,7 +40,9 @@ class AdminProductV1Controller(
     }
 
     @PostMapping
-    override fun createProduct(@RequestBody req: AdminProductV1Dto.CreateProductRequest): ApiResponse<AdminProductV1Dto.ProductResponse> {
+    override fun createProduct(
+        @RequestBody req: AdminProductV1Dto.CreateProductRequest,
+    ): ApiResponse<AdminProductV1Dto.ProductResponse> {
         return productFacade.createProduct(req.brandId, req.name, req.description, req.price, req.stockQuantity)
             .let { AdminProductV1Dto.ProductResponse.from(it) }
             .let { ApiResponse.success(it) }

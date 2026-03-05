@@ -6,6 +6,7 @@ import com.loopers.application.order.OrderItemInfo
 class OrderV1Dto {
     data class CreateOrderRequest(
         val items: List<OrderItemRequest>,
+        val couponId: Long? = null,
     )
 
     data class OrderItemRequest(
@@ -15,14 +16,20 @@ class OrderV1Dto {
 
     data class OrderResponse(
         val id: Long,
+        val originalTotalPrice: Long,
+        val discountAmount: Long,
         val totalPrice: Long,
+        val couponId: Long?,
         val items: List<OrderItemResponse>,
     ) {
         companion object {
             fun from(orderInfo: OrderInfo): OrderResponse {
                 return OrderResponse(
                     id = orderInfo.id,
+                    originalTotalPrice = orderInfo.originalTotalPrice,
+                    discountAmount = orderInfo.discountAmount,
                     totalPrice = orderInfo.totalPrice,
+                    couponId = orderInfo.couponId,
                     items = orderInfo.items.map { OrderItemResponse.from(it) },
                 )
             }
