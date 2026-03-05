@@ -69,7 +69,7 @@ class OrderV1AdminApiE2ETest @Autowired constructor(
 
     private fun createOrder(userId: Long, totalPrice: BigDecimal = DEFAULT_TOTAL_PRICE): OrderModel {
         return orderJpaRepository.save(
-            OrderModel(userId = userId, totalPrice = totalPrice),
+            OrderModel(userId = userId, originalPrice = totalPrice, totalPrice = totalPrice),
         )
     }
 

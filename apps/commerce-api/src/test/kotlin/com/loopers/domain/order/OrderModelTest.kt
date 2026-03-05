@@ -19,8 +19,16 @@ class OrderModelTest {
     private fun createOrderModel(
         userId: Long = DEFAULT_USER_ID,
         status: OrderStatus = OrderStatus.ORDERED,
+        originalPrice: BigDecimal = DEFAULT_TOTAL_PRICE,
+        discountAmount: BigDecimal = BigDecimal.ZERO,
         totalPrice: BigDecimal = DEFAULT_TOTAL_PRICE,
-    ) = OrderModel(userId = userId, status = status, totalPrice = totalPrice)
+    ) = OrderModel(
+        userId = userId,
+        status = status,
+        originalPrice = originalPrice,
+        discountAmount = discountAmount,
+        totalPrice = totalPrice,
+    )
 
     @DisplayName("생성")
     @Nested

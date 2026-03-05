@@ -7,8 +7,11 @@ data class OrderInfo(
     val id: Long,
     val userId: Long,
     val status: OrderStatus,
+    val originalPrice: BigDecimal,
+    val discountAmount: BigDecimal,
     val totalPrice: BigDecimal,
     val createdAt: ZonedDateTime,
+    val issuedCouponId: Long? = null,
     val items: List<OrderItemInfo> = emptyList(),
 ) {
     companion object {
@@ -17,8 +20,11 @@ data class OrderInfo(
                 id = model.id,
                 userId = model.userId,
                 status = model.status,
+                originalPrice = model.originalPrice,
+                discountAmount = model.discountAmount,
                 totalPrice = model.totalPrice,
                 createdAt = model.createdAt,
+                issuedCouponId = model.issuedCouponId,
             )
         }
 
@@ -27,8 +33,11 @@ data class OrderInfo(
                 id = model.id,
                 userId = model.userId,
                 status = model.status,
+                originalPrice = model.originalPrice,
+                discountAmount = model.discountAmount,
                 totalPrice = model.totalPrice,
                 createdAt = model.createdAt,
+                issuedCouponId = model.issuedCouponId,
                 items = items,
             )
         }

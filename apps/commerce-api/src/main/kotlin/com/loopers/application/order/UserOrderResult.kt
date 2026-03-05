@@ -20,6 +20,8 @@ data class CreateOrderResult(
 data class UserGetOrderResult(
     val id: Long,
     val status: OrderStatus,
+    val originalPrice: BigDecimal,
+    val discountAmount: BigDecimal,
     val totalPrice: BigDecimal,
     val items: List<UserGetOrderItemResult>,
     val createdAt: ZonedDateTime,
@@ -29,6 +31,8 @@ data class UserGetOrderResult(
             return UserGetOrderResult(
                 id = info.id,
                 status = info.status,
+                originalPrice = info.originalPrice,
+                discountAmount = info.discountAmount,
                 totalPrice = info.totalPrice,
                 items = info.items.map { UserGetOrderItemResult.from(it) },
                 createdAt = info.createdAt,
@@ -54,6 +58,14 @@ data class UserGetOrderItemResult(
                 price = info.price,
             )
         }
+    }
+}
+
+data class CancelOrderResult(
+    val id: Long,
+) {
+    companion object {
+        fun from(info: OrderInfo): CancelOrderResult = CancelOrderResult(id = info.id)
     }
 }
 
