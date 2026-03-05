@@ -14,8 +14,8 @@ class ProductLikeService(
 ) {
     fun like(command: LikeProductCommand) {
         try {
-            productLikeRepository.save(ProductLikeModel(userId = command.userId, productId = command.productId))
-            productLikeRepository.flush()
+            val productLike =  ProductLikeModel(userId = command.userId, productId = command.productId)
+            productLikeRepository.save(productLike)
         } catch (e: DataIntegrityViolationException) {
             // 이미 좋아요 상태 → 멱등
         }
