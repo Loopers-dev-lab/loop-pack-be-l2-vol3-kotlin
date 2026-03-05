@@ -28,6 +28,7 @@ import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CouponApiE2ETest @Autowired constructor(
@@ -266,6 +267,53 @@ class CouponApiE2ETest @Autowired constructor(
             issueCoupon(coupon.id)
 
             // assert
+            val issuedCoupons = issuedCouponRepository.findByCouponId(coupon.id)
+            assertThat(issuedCoupons).hasSize(1)
+        }
+    }
+
+    @DisplayName("같은 사용자가 동시에 같은 쿠폰 발급을 요청하면,")
+    @Nested
+    inner class ConcurrentIssueSameUser {
+
+        @DisplayName("500 에러 없이 처리되고, 발급된 쿠폰은 정확히 1개이다. (TOCTOU 처리)")
+        @Test
+        fun noInternalServerError_whenSameUserConcurrentlyIssues() {
+            // arrange
+            signUp()
+            val coupon = createCoupon()
+            val threadCount = 10
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val internalErrorCount = AtomicInteger(0)
+            val successCount = AtomicInteger(0)
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        val response = testRestTemplate.exchange(
+                            ISSUE_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity<Void>(authHeaders()),
+                            ISSUE_RESPONSE_TYPE,
+                            coupon.id,
+                        )
+                        when {
+                            response.statusCode == HttpStatus.OK -> successCount.incrementAndGet()
+                            response.statusCode == HttpStatus.INTERNAL_SERVER_ERROR -> internalErrorCount.incrementAndGet()
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            assertThat(internalErrorCount.get()).isZero()
+            assertThat(successCount.get()).isEqualTo(1)
             val issuedCoupons = issuedCouponRepository.findByCouponId(coupon.id)
             assertThat(issuedCoupons).hasSize(1)
         }

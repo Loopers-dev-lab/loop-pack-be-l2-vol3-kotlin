@@ -15,7 +15,9 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
+import org.springframework.dao.DataIntegrityViolationException
 import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
@@ -34,6 +36,61 @@ class CouponServiceTest {
         couponService = CouponService(couponRepository, issuedCouponRepository)
     }
 
+    private fun createCoupon(
+        name: String = "할인 쿠폰",
+        discount: Discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+        quantity: CouponQuantity = CouponQuantity(100, 0),
+        expiresAt: ZonedDateTime = ZonedDateTime.now().plusDays(30),
+    ): Coupon = Coupon(name = name, discount = discount, quantity = quantity, expiresAt = expiresAt)
+
+    @DisplayName("쿠폰을 발급할 때,")
+    @Nested
+    inner class IssueCoupon {
+
+        @DisplayName("존재하지 않는 쿠폰이면, NOT_FOUND 예외를 던진다.")
+        @Test
+        fun throwsNotFound_whenCouponNotExists() {
+            // arrange
+            whenever(couponRepository.findByIdWithLock(1L)).thenReturn(null)
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                couponService.issue(1L, 1L)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("이미 발급받은 쿠폰이면, CONFLICT 예외를 던진다.")
+        @Test
+        fun throwsConflict_whenAlreadyIssued() {
+            // arrange
+            val coupon = createCoupon()
+            whenever(couponRepository.findByIdWithLock(1L)).thenReturn(coupon)
+            whenever(issuedCouponRepository.existsByCouponIdAndUserId(1L, 1L)).thenReturn(true)
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                couponService.issue(1L, 1L)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+        }
+
+        @DisplayName("저장 시 UNIQUE 제약 위반이 발생하면, 예외가 전파된다. (TOCTOU — Facade에서 처리)")
+        @Test
+        fun throwsException_whenUniqueConstraintViolation() {
+            // arrange
+            val coupon = createCoupon()
+            whenever(couponRepository.findByIdWithLock(1L)).thenReturn(coupon)
+            whenever(issuedCouponRepository.existsByCouponIdAndUserId(1L, 1L)).thenReturn(false)
+            whenever(issuedCouponRepository.save(any())).thenThrow(DataIntegrityViolationException("Duplicate entry"))
+
+            // act & assert
+            assertThrows<DataIntegrityViolationException> {
+                couponService.issue(1L, 1L)
+            }
+        }
+    }
+
     @DisplayName("쿠폰을 ID로 조회할 때,")
     @Nested
     inner class FindCouponById {
@@ -42,12 +99,7 @@ class CouponServiceTest {
         @Test
         fun returnsCoupon_whenCouponExists() {
             // arrange
-            val coupon = Coupon(
-                name = "신규가입 할인",
-                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
-                quantity = CouponQuantity(100, 0),
-                expiresAt = ZonedDateTime.now().plusDays(30),
-            )
+            val coupon = createCoupon(name = "신규가입 할인")
             whenever(couponRepository.findById(1L)).thenReturn(coupon)
 
             // act
@@ -86,12 +138,7 @@ class CouponServiceTest {
         fun returnsPagedCoupons_whenCouponsExist() {
             // arrange
             val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
-            val coupon = Coupon(
-                name = "신규가입 할인",
-                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
-                quantity = CouponQuantity(100, 0),
-                expiresAt = ZonedDateTime.now().plusDays(30),
-            )
+            val coupon = createCoupon(name = "신규가입 할인")
             val pageResult = PageResult(
                 content = listOf(coupon),
                 page = 0,
@@ -145,12 +192,7 @@ class CouponServiceTest {
         @Test
         fun deletesCoupon_whenCouponExists() {
             // arrange
-            val coupon = Coupon(
-                name = "삭제할 쿠폰",
-                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
-                quantity = CouponQuantity(100, 0),
-                expiresAt = ZonedDateTime.now().plusDays(30),
-            )
+            val coupon = createCoupon(name = "삭제할 쿠폰")
             whenever(couponRepository.findById(1L)).thenReturn(coupon)
 
             // act
@@ -186,12 +228,7 @@ class CouponServiceTest {
             // arrange
             val couponId = 1L
             val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
-            val coupon = Coupon(
-                name = "신규가입 할인",
-                discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
-                quantity = CouponQuantity(100, 1),
-                expiresAt = ZonedDateTime.now().plusDays(30),
-            )
+            val coupon = createCoupon(name = "신규가입 할인", quantity = CouponQuantity(100, 1))
             val issuedCoupon = IssuedCoupon(couponId = couponId, userId = 1L)
             val pageResult = PageResult(
                 content = listOf(issuedCoupon),
