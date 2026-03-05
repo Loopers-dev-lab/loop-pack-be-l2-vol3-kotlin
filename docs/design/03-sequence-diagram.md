@@ -173,7 +173,7 @@ sequenceDiagram
 
 #### 시나리오 개요
 
-Customer가 특정 상품에 대해 좋아요를 등록한다. 상품 존재 여부를 검증한 후, ProductLike Aggregate를 생성한다.
+Customer가 특정 상품에 대해 좋아요를 등록한다. 상품 존재 여부와 상품 상태(ACTIVE)를 검증한 후, ProductLike Aggregate를 생성한다.
 
 #### 시퀀스 다이어그램
 
@@ -186,7 +186,7 @@ sequenceDiagram
     participant PLR as ProductLikeRepository
     participant PL as ProductLike
     C ->>+ PLS: register(command)
-    Note over PLS: 상품 존재 및 노출 검증
+    Note over PLS: 상품 존재 및 상품 상태 검증
     PLS ->>+ PR: findById(productId)
     PR -->>- PLS: product (ACTIVE + 미삭제)
 
@@ -210,12 +210,13 @@ sequenceDiagram
 
 #### 설계 포인트
 
-| 포인트              | 설명                                          | 근거                                |
-|------------------|---------------------------------------------|-----------------------------------|
-| **상품 존재 검증**     | 존재하지 않는 상품에 대한 좋아요는 등록할 수 없다                | 요구사항 4.2 (예외 흐름)                  |
-| **노출 검증**        | ACTIVE이고 삭제되지 않은 상품만 좋아요 등록 가능하다            | 요구사항 5.1 (노출 원칙)                  |
-| **중복 방지**        | (userId, productId) 쌍의 유일성을 검증한다        | 클래스 다이어그램 섹션 3.5 (True Invariant) |
-| **독립 Aggregate** | ProductLike는 Product에 종속되지 않는 독립 Aggregate다 | 클래스 다이어그램 섹션 3.5 (독립 lifecycle)   |
+| 포인트                  | 설명                                                               | 근거                                |
+|----------------------|------------------------------------------------------------------|-----------------------------------|
+| **상품 존재 검증**         | 존재하지 않는 상품에 대한 좋아요는 등록할 수 없다                                     | 요구사항 4.2 (예외 흐름)                  |
+| **상품 상태 검증**         | ACTIVE이고 삭제되지 않은 상품만 좋아요 등록 가능하다                                 | 요구사항 5.1 (노출 원칙)                  |
+| **브랜드 상태 반영 방식**     | 좋아요 등록 시 Brand를 직접 조회하지 않고, Brand 상태 변화가 Product 상태에 동기화된다는 정책을 따른다 | 요구사항 5.1 (노출 원칙), 책임 경계            |
+| **중복 방지**            | (userId, productId) 쌍의 유일성을 검증한다                                  | 클래스 다이어그램 섹션 3.5 (True Invariant) |
+| **독립 Aggregate**     | ProductLike는 Product에 종속되지 않는 독립 Aggregate다                       | 클래스 다이어그램 섹션 3.5 (독립 lifecycle)   |
 
 ---
 

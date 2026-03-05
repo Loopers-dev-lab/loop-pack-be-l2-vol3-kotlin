@@ -22,6 +22,18 @@ class ProductStockRepositoryImpl(
         return productStockMapper.toDomain(productStockJpaRepository.saveAndFlush(entity))
     }
 
+    override fun saveAll(stocks: List<ProductStock>): List<ProductStock> {
+        if (stocks.isEmpty()) return emptyList()
+        val entities = stocks.map { stock ->
+            val existing = productStockJpaRepository.findById(stock.id!!).orElseThrow()
+            existing.quantity = stock.quantity.value
+            existing.updateBy(SYSTEM)
+            existing
+        }
+        return productStockJpaRepository.saveAllAndFlush(entities)
+            .map { productStockMapper.toDomain(it) }
+    }
+
     override fun findByProductId(productId: Long): ProductStock? {
         return productStockJpaRepository.findByProductIdAndDeletedAtIsNull(productId)
             ?.let { productStockMapper.toDomain(it) }
@@ -44,5 +56,9 @@ class ProductStockRepositoryImpl(
         val entities = productStockJpaRepository.findAllByProductIdInAndDeletedAtIsNull(productIds)
         entities.forEach { it.deleteBy(admin) }
         productStockJpaRepository.saveAllAndFlush(entities)
+    }
+
+    companion object {
+        private const val SYSTEM = "SYSTEM"
     }
 }

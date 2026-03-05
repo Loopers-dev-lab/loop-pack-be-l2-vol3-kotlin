@@ -2,7 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
-import java.time.LocalDateTime
+import java.time.ZonedDateTime
 
 interface OrderRepository {
     fun save(order: Order): Order
@@ -10,8 +10,8 @@ interface OrderRepository {
     fun findByIdAndUserId(id: Long, userId: Long): Order?
     fun findAllByUserId(
         userId: Long,
-        startAt: LocalDateTime?,
-        endAt: LocalDateTime?,
+        from: ZonedDateTime?,
+        to: ZonedDateTime?,
         pageRequest: PageRequest,
     ): PageResponse<Order>
     fun findAll(pageRequest: PageRequest): PageResponse<Order>

@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 @DisplayName("Order 도메인")
 class OrderTest {
@@ -139,12 +141,65 @@ class OrderTest {
     }
 
     @Nested
+    @DisplayName("totalAmount — 주문 항목의 (판매가 × 수량) 합산")
+    inner class TotalAmount {
+
+        @Test
+        @DisplayName("단일 상품: 판매가 8000 × 수량 3 = 24000")
+        fun totalAmount_singleItem() {
+            val order = Order.create(
+                userId = 1L,
+                idempotencyKey = IdempotencyKey("total-1"),
+                items = listOf(
+                    createOrderItem(
+                        snapshot = createSnapshot(sellingPrice = Money(BigDecimal("8000"))),
+                        quantity = 3,
+                    ),
+                ),
+            )
+
+            assertThat(order.totalAmount()).isEqualTo(Money(BigDecimal("24000")))
+        }
+
+        @Test
+        @DisplayName("여러 상품: (8000×2) + (5000×3) = 31000")
+        fun totalAmount_multipleItems() {
+            val order = Order.create(
+                userId = 1L,
+                idempotencyKey = IdempotencyKey("total-2"),
+                items = listOf(
+                    createOrderItem(
+                        snapshot = createSnapshot(
+                            productId = 1L,
+                            sellingPrice = Money(BigDecimal("8000")),
+                        ),
+                        quantity = 2,
+                    ),
+                    createOrderItem(
+                        snapshot = createSnapshot(
+                            productId = 2L,
+                            regularPrice = Money(BigDecimal("7000")),
+                            sellingPrice = Money(BigDecimal("5000")),
+                        ),
+                        quantity = 3,
+                    ),
+                ),
+            )
+
+            assertThat(order.totalAmount()).isEqualTo(Money(BigDecimal("31000")))
+        }
+    }
+
+    @Nested
     @DisplayName("영속성 복원")
     inner class Retrieve {
 
         @Test
-        @DisplayName("retrieve로 기존 데이터 복원 성공")
+        @DisplayName("retrieve로 기존 데이터 복원 성공 — createdAt 포함")
         fun retrieve_success() {
+            // arrange
+            val now = ZonedDateTime.of(2026, 3, 5, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
+
             // act
             val order = Order.retrieve(
                 id = 100L,
@@ -152,12 +207,14 @@ class OrderTest {
                 idempotencyKey = IdempotencyKey("existing-key"),
                 status = Order.Status.CREATED,
                 items = listOf(createOrderItem()),
+                createdAt = now,
             )
 
             // assert
             assertAll(
                 { assertThat(order.id).isEqualTo(100L) },
                 { assertThat(order.status).isEqualTo(Order.Status.CREATED) },
+                { assertThat(order.createdAt).isEqualTo(now) },
             )
         }
     }
