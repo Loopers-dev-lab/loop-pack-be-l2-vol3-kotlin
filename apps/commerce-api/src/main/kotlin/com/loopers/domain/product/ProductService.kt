@@ -78,6 +78,13 @@ class ProductService(
         return productRepository.findAllForAdmin(pageable, brandId)
     }
 
+    /**
+     * 재고 차감 — Atomic Update.
+     *
+     * UPDATE SET stock = stock - quantity WHERE stock >= quantity
+     * → DB 레벨에서 원자적으로 차감하므로 Lost Update 불가.
+     * → affectedRows=0이면 재고 부족 → 비즈니스 실패이므로 재시도 불필요.
+     */
     @Transactional
     fun decreaseStock(productId: Long, quantity: Int) {
         val affectedRows = productRepository.decreaseStock(productId, quantity)
@@ -86,21 +93,26 @@ class ProductService(
         }
     }
 
+    /**
+     * 좋아요 수 증가 — Atomic Update.
+     *
+     * 왜 dirty checking(product.increaseLikeCount())이 아닌가?
+     * - 인기 상품에 다수 유저가 동시 좋아요 → Lost Update 위험
+     * - Product에 @Version 걸면 좋아요/재고/상품수정이 같은 version 공유 → false contention
+     * - Atomic Update는 DB 레벨에서 원자적 증감 → 동시성 안전 + 재시도 불필요
+     */
     @Transactional
     fun increaseLikeCount(productId: Long) {
-        val product = findById(productId)
-        product.increaseLikeCount()
+        productRepository.increaseLikeCount(productId)
     }
 
     @Transactional
     fun decreaseLikeCount(productId: Long) {
-        val product = findById(productId)
-        product.decreaseLikeCount()
+        productRepository.decreaseLikeCount(productId)
     }
 
     @Transactional
     fun decreaseLikeCountIfExists(productId: Long) {
-        val product = productRepository.findById(productId) ?: return
-        product.decreaseLikeCount()
+        productRepository.decreaseLikeCount(productId)
     }
 }
