@@ -36,6 +36,9 @@ class Coupon(
     }
 
     fun issue() {
+        if (isDeleted()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "삭제된 쿠폰입니다.")
+        }
         if (isExpired()) {
             throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
         }

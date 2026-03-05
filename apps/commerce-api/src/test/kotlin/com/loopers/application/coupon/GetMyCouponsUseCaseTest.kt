@@ -100,5 +100,29 @@ class GetMyCouponsUseCaseTest {
             // assert
             assertThat(result).isEmpty()
         }
+
+        @Test
+        @DisplayName("쿠폰 템플릿이 존재하지 않는 발급건은 스킵되고 나머지만 반환된다")
+        fun execute_orphanIssuedCoupon_skipsAndReturnsRest() {
+            // arrange
+            val coupon = createCoupon("정상 쿠폰")
+            val userId = 1L
+            createIssuedCoupon(coupon.id, userId)
+            // FakeCouponRepository에 등록되지 않은 고아 couponId를 직접 save
+            issuedCouponRepository.save(
+                IssuedCoupon(
+                    refCouponId = CouponId(9999L),
+                    refUserId = UserId(userId),
+                    createdAt = ZonedDateTime.now(),
+                ),
+            )
+
+            // act
+            val result = getMyCouponsUseCase.execute(userId)
+
+            // assert
+            assertThat(result).hasSize(1)
+            assertThat(result[0].couponName).isEqualTo("정상 쿠폰")
+        }
     }
 }

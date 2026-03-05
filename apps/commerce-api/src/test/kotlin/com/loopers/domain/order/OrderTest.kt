@@ -138,6 +138,53 @@ class OrderTest {
         }
 
         @Test
+        @DisplayName("할인 적용된 주문에서 아이템 취소 시 totalPrice가 음수가 되지 않고 재계산된다")
+        fun cancelItem_discountedOrder_totalPriceNotNegative() {
+            // arrange
+            // originalPrice = 10000*1 = 10000, discountAmount = 3000, totalPrice = 7000
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(1),
+                ),
+                discountAmount = Money(BigDecimal("3000")),
+                refCouponId = CouponId(100L),
+            )
+            val item = order.items[0]
+
+            // act
+            order.cancelItem(item)
+
+            // assert
+            // 활성 아이템 합계 = 0, 적용할 할인 = min(3000, 0) = 0, totalPrice = 0
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal.ZERO)
+        }
+
+        @Test
+        @DisplayName("할인 적용된 주문에서 일부 아이템 취소 시 활성 아이템 기준으로 totalPrice가 재계산된다")
+        fun cancelItem_discountedOrder_partialCancel_totalPriceRecalculated() {
+            // arrange
+            // originalPrice = 10000*1 + 20000*1 = 30000, discountAmount = 5000, totalPrice = 25000
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(1),
+                    OrderProductData(id = ProductId(2), name = "상품B", price = Money(BigDecimal("20000"))) to Quantity(1),
+                ),
+                discountAmount = Money(BigDecimal("5000")),
+                refCouponId = CouponId(100L),
+            )
+            val item = order.items[0] // 상품A: 10000
+
+            // act
+            order.cancelItem(item)
+
+            // assert
+            // 활성 아이템 합계 = 20000, 적용할 할인 = min(5000, 20000) = 5000, totalPrice = 15000
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("15000"))
+        }
+
+        @Test
         @DisplayName("이미 취소된 아이템을 다시 취소하면 BAD_REQUEST 예외가 발생한다")
         fun cancelItem_alreadyCancelled_throwsException() {
             // arrange

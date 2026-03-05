@@ -39,7 +39,11 @@ class Order private constructor(
     @OptIn(AggregateRootOnly::class)
     fun cancelItem(item: OrderItem) {
         item.cancel()
-        totalPrice -= (item.productPrice * item.quantity.value)
+        val activeItemsTotal = items
+            .filter { it.status == OrderItem.ItemStatus.ACTIVE }
+            .fold(Money(BigDecimal.ZERO)) { acc, it -> acc + (it.productPrice * it.quantity.value) }
+        val applicableDiscount = if (discountAmount.value <= activeItemsTotal.value) discountAmount else activeItemsTotal
+        totalPrice = activeItemsTotal - applicableDiscount
     }
 
     @OptIn(AggregateRootOnly::class)

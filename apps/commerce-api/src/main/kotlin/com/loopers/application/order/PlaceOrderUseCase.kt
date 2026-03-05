@@ -36,7 +36,11 @@ class PlaceOrderUseCase(
         }
 
         // 1. Product 락 + 검증 + 재고 차감
-        val products = productRepository.findAllByIdsForUpdate(command.items.map { ProductId(it.productId) })
+        val productIds = command.items.map { ProductId(it.productId) }
+        if (productIds.size != productIds.distinct().size) {
+            throw CoreException(ErrorType.BAD_REQUEST, "중복된 상품이 포함되어 있습니다.")
+        }
+        val products = productRepository.findAllByIdsForUpdate(productIds)
         if (products.size != command.items.size) {
             throw CoreException(ErrorType.BAD_REQUEST, "존재하지 않는 상품이 포함되어 있습니다.")
         }

@@ -5,6 +5,7 @@ import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.coupon.repository.CouponRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import java.time.ZonedDateTime
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,6 +15,10 @@ class CreateCouponAdminUseCase(
 ) {
     @Transactional
     fun execute(command: CouponCommand.CreateCoupon): CouponInfo {
+        if (command.expiredAt.isBefore(ZonedDateTime.now())) {
+            throw CoreException(ErrorType.BAD_REQUEST, "만료일은 현재 시각 이후여야 합니다.")
+        }
+
         val couponType = Coupon.CouponType.entries.find { it.name == command.type }
             ?: throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 쿠폰 타입입니다: ${command.type}")
 

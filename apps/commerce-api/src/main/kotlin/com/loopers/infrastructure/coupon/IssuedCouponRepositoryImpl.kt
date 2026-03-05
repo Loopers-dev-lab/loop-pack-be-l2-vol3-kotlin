@@ -17,7 +17,7 @@ import org.springframework.stereotype.Repository
 interface IssuedCouponJpaRepository : JpaRepository<IssuedCouponEntity, Long> {
     fun findByRefCouponIdAndRefUserId(couponId: Long, refUserId: Long): IssuedCouponEntity?
 
-    fun findAllByRefUserId(refUserId: Long): List<IssuedCouponEntity>
+    fun findAllByRefUserIdOrderByIdDesc(refUserId: Long): List<IssuedCouponEntity>
 
     fun findAllByRefCouponId(couponId: Long, pageable: Pageable): Page<IssuedCouponEntity>
 
@@ -43,7 +43,7 @@ class IssuedCouponRepositoryImpl(
         issuedCouponJpaRepository.findByRefCouponIdAndRefUserId(couponId.value, userId.value)?.toDomain()
 
     override fun findAllByRefUserId(userId: UserId): List<IssuedCoupon> =
-        issuedCouponJpaRepository.findAllByRefUserId(userId.value).map { it.toDomain() }
+        issuedCouponJpaRepository.findAllByRefUserIdOrderByIdDesc(userId.value).map { it.toDomain() }
 
     override fun findAllByRefCouponId(couponId: CouponId, page: Int, size: Int): PageResult<IssuedCoupon> {
         val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))

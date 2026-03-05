@@ -180,8 +180,9 @@ class CouponV1ApiE2ETest @Autowired constructor(
         fun issueCoupon_expired_returnsBadRequest() {
             // arrange
             signUp()
-            val expiredAt = ZonedDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            val expiredAt = ZonedDateTime.now().plusSeconds(2).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             val couponId = createCoupon(expiredAt = expiredAt)
+            Thread.sleep(3000) // 쿠폰 만료 대기
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}

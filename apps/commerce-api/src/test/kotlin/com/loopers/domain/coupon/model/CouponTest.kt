@@ -195,6 +195,23 @@ class CouponTest {
         }
 
         @Test
+        @DisplayName("삭제된 쿠폰을 발급하면 BAD_REQUEST 예외가 발생한다")
+        fun issue_deleted_throwsException() {
+            // arrange
+            val coupon = fixedCoupon()
+            coupon.delete()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                coupon.issue()
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).isEqualTo("삭제된 쿠폰입니다.")
+        }
+
+        @Test
         @DisplayName("수량이 소진된 쿠폰을 발급하면 BAD_REQUEST 예외가 발생한다")
         fun issue_quantityExhausted_throwsException() {
             // arrange

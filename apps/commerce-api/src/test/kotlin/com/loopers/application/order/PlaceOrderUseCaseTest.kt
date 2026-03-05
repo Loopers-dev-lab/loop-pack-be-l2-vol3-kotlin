@@ -229,6 +229,28 @@ class PlaceOrderUseCaseTest {
         }
 
         @Test
+        @DisplayName("중복 상품 ID가 포함된 주문 시 BAD_REQUEST 예외가 발생한다")
+        fun execute_duplicateProductId_throwsBadRequest() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val command = PlaceOrderCommand(
+                items = listOf(
+                    PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2),
+                    PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 3),
+                ),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                placeOrderUseCase.execute(1L, command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(exception.message).contains("중복된 상품")
+        }
+
+        @Test
         @DisplayName("쿠폰 미적용 주문 시 originalPrice와 totalPrice가 동일하다")
         fun execute_withoutCoupon_originalEqualsTotal() {
             // arrange
@@ -418,6 +440,72 @@ class PlaceOrderUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("만료된 쿠폰으로 주문 시 BAD_REQUEST 예외가 발생한다")
+        fun execute_expiredCoupon_throwsBadRequest() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val expiredCoupon = couponRepository.save(
+                Coupon(
+                    name = "만료 쿠폰",
+                    type = Coupon.CouponType.FIXED,
+                    value = 1000,
+                    expiredAt = ZonedDateTime.now().minusDays(1),
+                ),
+            )
+            val issuedCoupon = issueToUser(expiredCoupon, 1L)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                issuedCouponId = issuedCoupon.id,
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                placeOrderUseCase.execute(1L, command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("RATE 쿠폰의 maxDiscount cap이 적용된다")
+        fun execute_rateCouponWithMaxDiscount_capApplied() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val coupon = createRateCoupon(value = 50, maxDiscount = Money(BigDecimal("2000"))) // 50%, cap=2000
+            val issuedCoupon = issueToUser(coupon, 1L)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                issuedCouponId = issuedCoupon.id,
+            )
+
+            // act
+            val orderInfo = placeOrderUseCase.execute(1L, command)
+
+            // assert -- 10000 * 50% = 5000 이지만 cap=2000 적용
+            assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal("2000"))
+        }
+
+        @Test
+        @DisplayName("FIXED 쿠폰이 주문금액을 초과하면 주문금액으로 cap된다")
+        fun execute_fixedCouponExceedsOrderAmount_capToOrderAmount() {
+            // arrange
+            val product = createProduct(price = BigDecimal("10000"), stock = 100)
+            val coupon = createFixedCoupon(value = 30000) // 쿠폰=30000 > 주문=10000
+            val issuedCoupon = issueToUser(coupon, 1L)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+                issuedCouponId = issuedCoupon.id,
+            )
+
+            // act
+            val orderInfo = placeOrderUseCase.execute(1L, command)
+
+            // assert -- 쿠폰 30000원이지만 주문금액 10000원으로 cap
+            assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal("10000"))
         }
 
         @Test

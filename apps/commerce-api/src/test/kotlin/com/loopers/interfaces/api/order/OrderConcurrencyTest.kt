@@ -206,10 +206,13 @@ class OrderConcurrencyTest @Autowired constructor(
                 }
             }
 
-            readyLatch.await(30, TimeUnit.SECONDS)
+            val allReady = readyLatch.await(30, TimeUnit.SECONDS)
+            assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
             startLatch.countDown()
-            latch.await(30, TimeUnit.SECONDS)
+            val allDone = latch.await(30, TimeUnit.SECONDS)
+            assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
             executorService.shutdown()
+            executorService.awaitTermination(10, TimeUnit.SECONDS)
 
             // assert
             assertAll(
@@ -279,10 +282,13 @@ class OrderConcurrencyTest @Autowired constructor(
                 }
             }
 
-            readyLatch.await(30, TimeUnit.SECONDS)
+            val allReady = readyLatch.await(30, TimeUnit.SECONDS)
+            assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
             startLatch.countDown()
-            latch.await(30, TimeUnit.SECONDS)
+            val allDone = latch.await(30, TimeUnit.SECONDS)
+            assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
             executorService.shutdown()
+            executorService.awaitTermination(10, TimeUnit.SECONDS)
 
             // assert - 어드민 API로 최종 재고 확인
             val adminResponseType =

@@ -122,7 +122,7 @@ class UpdateCouponAdminUseCaseTest {
             val coupon = createCoupon()
 
             // act & assert
-            assertThrows<IllegalArgumentException> {
+            val exception = assertThrows<CoreException> {
                 CouponCommand.UpdateCoupon(
                     name = null,
                     type = null,
@@ -133,6 +133,7 @@ class UpdateCouponAdminUseCaseTest {
                     expiredAt = null,
                 )
             }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }
