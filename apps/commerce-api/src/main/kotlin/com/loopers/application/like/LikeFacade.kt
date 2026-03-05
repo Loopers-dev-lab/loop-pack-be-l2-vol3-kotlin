@@ -4,6 +4,7 @@ import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class LikeFacade(
     private val likeService: LikeService,
     private val productService: ProductService,
+    private val likeTransactionExecutor: LikeTransactionExecutor,
 ) {
 
     @Transactional(readOnly = true)
@@ -24,21 +26,15 @@ class LikeFacade(
         return products.map { LikeInfo.from(it) }
     }
 
-    @Transactional
     fun like(userId: Long, productId: Long) {
-        productService.validateProductExists(productId)
-        val isNewLike = likeService.like(userId, productId)
-        if (isNewLike) {
-            productService.incrementLikeCount(productId)
+        try {
+            likeTransactionExecutor.like(userId, productId)
+        } catch (_: DataIntegrityViolationException) {
+            // TOCTOU 경쟁 조건: 다른 스레드가 먼저 좋아요를 등록함 → 멱등 처리
         }
     }
 
-    @Transactional
     fun unlike(userId: Long, productId: Long) {
-        productService.validateProductExists(productId)
-        val isDeleted = likeService.unlike(userId, productId)
-        if (isDeleted) {
-            productService.decrementLikeCount(productId)
-        }
+        likeTransactionExecutor.unlike(userId, productId)
     }
 }
