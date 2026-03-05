@@ -68,6 +68,14 @@ reviews:
         상태 코드와 에러 응답 포맷이 일관되는지 점검하고, @ControllerAdvice 기반 표준 처리로 유도한다.
         요청 DTO와 응답 DTO를 명확히 분리하고, 엔티티를 직접 노출하지 않도록 점검한다.
         바인딩/검증 실패 시 메시지와 로깅 전략이 과도하지 않은지 점검한다.
+        이 프로젝트는 Bean Validation 어노테이션(@Valid, @Positive 등)을 ApiSpec 인터페이스에만 선언하고, Controller 구현체에는 @Validated만 클래스 레벨에 부착한다. Spring의 MethodValidationInterceptor가 인터페이스 어노테이션을 상속하므로, Controller에 검증 어노테이션을 중복 선언하라는 제안을 하지 않는다.
+
+    - path: "**/application/**/*.kt"
+      instructions: >
+        이 프로젝트의 Application 계층(UseCase) 리뷰 기준이다.
+        Interfaces 계층(ApiSpec)에서 Bean Validation으로 검증된 값은 신뢰한다. UseCase에서 page/size 범위 재검증, ID > 0 재검증 등 Interfaces 검증을 중복하는 코드를 요구하지 않는다.
+        어드민 API의 UseCase에 비관적 락(findByIdForUpdate)을 요구하지 않는다. 어드민은 저빈도 트래픽이므로 과도한 동시성 제어는 불필요하다.
+        @Transactional 경계와 도메인 오케스트레이션 책임에 집중하여 리뷰한다.
 
     - path: "**/*Service*.kt"
       instructions: >
