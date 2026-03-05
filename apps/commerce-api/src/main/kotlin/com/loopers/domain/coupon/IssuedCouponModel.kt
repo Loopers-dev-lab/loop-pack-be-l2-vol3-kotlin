@@ -58,7 +58,7 @@ class IssuedCouponModel(
         status = CouponStatus.EXPIRED
     }
 
-    fun restore() {
+    fun restoreUsage() {
         if (status != CouponStatus.USED) {
             throw CoreException(ErrorType.BAD_REQUEST, "사용된 상태의 쿠폰만 복구할 수 있습니다.")
         }
