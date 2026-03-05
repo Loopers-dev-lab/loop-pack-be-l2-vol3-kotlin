@@ -19,6 +19,12 @@ class Coupon(
     var name: CouponName = name
         private set
 
+    init {
+        if (type == CouponType.RATE && discountValue.value > 100) {
+            throw CoreException(ErrorType.INVALID_COUPON_VALUE)
+        }
+    }
+
     fun changeInfo(
         name: CouponName,
         type: CouponType,
@@ -43,6 +49,17 @@ class Coupon(
     fun validateIssuable() {
         if (isExpired()) {
             throw CoreException(ErrorType.COUPON_EXPIRED)
+        }
+    }
+
+    fun validateApplicable(totalPrice: Long) {
+        if (isExpired()) {
+            throw CoreException(ErrorType.COUPON_EXPIRED)
+        }
+        minOrderAmount.value?.let {
+            if (totalPrice < it) {
+                throw CoreException(ErrorType.COUPON_MIN_ORDER_AMOUNT_NOT_MET)
+            }
         }
     }
 

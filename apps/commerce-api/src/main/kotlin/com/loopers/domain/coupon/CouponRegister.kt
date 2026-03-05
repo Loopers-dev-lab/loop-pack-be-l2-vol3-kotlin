@@ -3,8 +3,6 @@ package com.loopers.domain.coupon
 import com.loopers.domain.coupon.vo.CouponName
 import com.loopers.domain.coupon.vo.DiscountValue
 import com.loopers.domain.coupon.vo.MinOrderAmount
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import java.time.ZonedDateTime
 
@@ -23,10 +21,6 @@ class CouponRegister(
         val couponName = CouponName(name)
         val discount = DiscountValue(discountValue)
         val minAmount = MinOrderAmount(minOrderAmount)
-
-        if (type == CouponType.RATE && discountValue > 100) {
-            throw CoreException(ErrorType.INVALID_COUPON_VALUE)
-        }
 
         val coupon = Coupon(
             name = couponName,

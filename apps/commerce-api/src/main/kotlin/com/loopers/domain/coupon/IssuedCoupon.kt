@@ -15,15 +15,13 @@ class IssuedCoupon(
         private set
 
     fun use() {
-        if (status != CouponStatus.AVAILABLE) {
-            throw CoreException(ErrorType.COUPON_NOT_AVAILABLE)
-        }
+        validateUsable()
         this.status = CouponStatus.USED
     }
 
     fun restore() {
         if (status != CouponStatus.USED) {
-            throw CoreException(ErrorType.COUPON_ALREADY_USED)
+            throw CoreException(ErrorType.COUPON_NOT_AVAILABLE)
         }
         this.status = CouponStatus.AVAILABLE
     }
