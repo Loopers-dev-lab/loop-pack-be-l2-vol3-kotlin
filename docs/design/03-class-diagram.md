@@ -283,10 +283,14 @@ classDiagram
     class Order {
         -id: Long
         -userId: Long
+        -couponId: Long?
+        -originalAmount: BigDecimal
+        -discountAmount: BigDecimal
         -totalAmount: BigDecimal
         -orderItems: List~OrderItem~
         -createdAt: ZonedDateTime
         +addItem(productId, productName, brandName, quantity, unitPrice) void
+        +applyDiscount(discountAmount) void
         +validateNotEmpty() void
         -recalculateTotalAmount() void
     }
@@ -317,16 +321,16 @@ classDiagram
 
 | 클래스 | 필드 | 설명 |
 |--------|------|------|
+| **Order** | couponId, originalAmount, discountAmount | 쿠폰 적용 시 할인 정보 |
 | **OrderItem** | unitPrice, productName, brandName | 주문 시점 스냅샷 |
 
 | 메서드 | 책임 |
 |--------|------|
 | `addItem()` | 주문 항목 추가 + 총액 재계산 |
+| `applyDiscount()` | 쿠폰 할인 금액 적용 |
 | `validateNotEmpty()` | 주문 항목 비어있으면 예외 |
 | `recalculateTotalAmount()` | 주문 총액 재계산 (private) |
 | `getSubtotal()` | 항목별 소계 (unitPrice × quantity) |
-
-> **Phase 6 계획**: Order에 `couponId: Long?`, `originalAmount`, `discountAmount` 필드 추가 예정
 
 ---
 
