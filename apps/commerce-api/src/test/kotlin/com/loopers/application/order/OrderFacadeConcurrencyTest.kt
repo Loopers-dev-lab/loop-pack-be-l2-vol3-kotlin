@@ -4,6 +4,8 @@ import com.loopers.infrastructure.catalog.brand.BrandEntity
 import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductEntity
 import com.loopers.infrastructure.catalog.product.ProductJpaRepository
+import com.loopers.infrastructure.catalog.product.ProductStockEntity
+import com.loopers.infrastructure.catalog.product.ProductStockJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -23,6 +25,7 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
     private val orderFacade: OrderFacade,
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
+    private val productStockJpaRepository: ProductStockJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -39,9 +42,11 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
                 name = "TestProduct",
                 description = "desc",
                 price = 10000,
-                stock = 5,
                 status = ProductStatus.ACTIVE,
             )
+        )
+        productStockJpaRepository.save(
+            ProductStockEntity(productId = product.id, quantity = 5)
         )
 
         val threadCount = 10
@@ -72,9 +77,9 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
         executor.shutdown()
 
         // Assert
-        val finalProduct = productJpaRepository.findById(product.id).get()
+        val finalStock = productStockJpaRepository.findByProductId(product.id)!!
         assertThat(successCount.get()).isEqualTo(5)
         assertThat(failCount.get()).isEqualTo(5)
-        assertThat(finalProduct.stock).isEqualTo(0)
+        assertThat(finalStock.quantity).isEqualTo(0)
     }
 }

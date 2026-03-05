@@ -27,7 +27,6 @@ class ProductServiceUnitTest {
             name = "Shoes",
             description = "Running shoes",
             price = 50000,
-            stock = 100,
         )
 
         // Assert
@@ -118,49 +117,50 @@ class ProductServiceUnitTest {
         }
     }
 
-    // ─── decrementStock ───
+    // ─── updateStockStatus ───
 
     @Test
-    fun `decrementStock() should reduce stock and save`() {
+    fun `updateStockStatus() should mark product as SOLD_OUT when stock is 0 and status is ACTIVE`() {
         // Arrange
-        val product = createProduct(id = 1L, stock = 10)
-        every { mockRepository.findByIdForUpdate(1L) } returns product
+        val product = createProduct(id = 1L, status = ProductStatus.ACTIVE)
+        every { mockRepository.findById(1L) } returns product
         every { mockRepository.save(any()) } answers { firstArg() }
 
         // Act
-        val result = productService.decrementStock(1L, 3)
+        productService.updateStockStatus(1L, 0)
 
         // Assert
-        assertThat(result.stock).isEqualTo(7)
+        assertThat(product.status).isEqualTo(ProductStatus.SOLD_OUT)
         verify { mockRepository.save(any()) }
     }
 
     @Test
-    fun `decrementStock() throws BAD_REQUEST when quantity exceeds stock`() {
+    fun `updateStockStatus() should restock product when stock is positive and status is SOLD_OUT`() {
         // Arrange
-        val product = createProduct(id = 1L, stock = 2)
-        every { mockRepository.findByIdForUpdate(1L) } returns product
+        val product = createProduct(id = 1L, status = ProductStatus.SOLD_OUT)
+        every { mockRepository.findById(1L) } returns product
+        every { mockRepository.save(any()) } answers { firstArg() }
 
-        // Act & Assert
-        assertThrows<CoreException> {
-            productService.decrementStock(1L, 5)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-        verify(exactly = 0) { mockRepository.save(any()) }
+        // Act
+        productService.updateStockStatus(1L, 10)
+
+        // Assert
+        assertThat(product.status).isEqualTo(ProductStatus.ACTIVE)
+        verify { mockRepository.save(any()) }
     }
 
     @Test
-    fun `decrementStock() throws NOT_FOUND when product does not exist`() {
+    fun `updateStockStatus() should not change status when stock is positive and status is ACTIVE`() {
         // Arrange
-        every { mockRepository.findByIdForUpdate(99L) } returns null
+        val product = createProduct(id = 1L, status = ProductStatus.ACTIVE)
+        every { mockRepository.findById(1L) } returns product
 
-        // Act & Assert
-        assertThrows<CoreException> {
-            productService.decrementStock(99L, 1)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
-        }
+        // Act
+        productService.updateStockStatus(1L, 10)
+
+        // Assert
+        assertThat(product.status).isEqualTo(ProductStatus.ACTIVE)
+        verify(exactly = 0) { mockRepository.save(any()) }
     }
 
     // ─── delete ───
@@ -224,15 +224,15 @@ class ProductServiceUnitTest {
         name: String = "Test Product",
         description: String = "Test Description",
         price: Int = 10000,
-        stock: Int = 100,
         likeCount: Int = 0,
+        status: ProductStatus = ProductStatus.ACTIVE,
     ): Product = Product(
         id = id,
         brandId = brandId,
         name = name,
         description = description,
         price = price,
-        stock = stock,
         likeCount = likeCount,
+        status = status,
     )
 }

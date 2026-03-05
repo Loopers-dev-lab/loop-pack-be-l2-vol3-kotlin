@@ -125,7 +125,7 @@ class LikeFacadeUnitTest {
         brandId: Long = 1L,
         name: String = "Test Product",
         likeCount: Int = 0,
-    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = 10000, stock = 100, likeCount = likeCount)
+    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = 10000, likeCount = likeCount)
 
     private fun createBrand(id: Long = 0L, name: String = "TestBrand"): Brand =
         Brand(id = id, name = name, description = "desc")

@@ -1,6 +1,5 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.catalog.product.Product
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -58,57 +57,6 @@ class OrderUnitTest {
         }
     }
 
-    // ─── Product.validateStock (via domain) ───
-
-    @Test
-    fun `validateStock() should pass when quantity equals stock (exact boundary)`() {
-        // Arrange
-        val product = createProduct(stock = 5)
-
-        // Act & Assert (no exception)
-        product.validateStock(5)
-    }
-
-    @Test
-    fun `validateStock() throws CoreException(BAD_REQUEST) when quantity exceeds stock by 1`() {
-        // Arrange
-        val product = createProduct(stock = 5)
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            product.validateStock(6)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-    }
-
-    // ─── Product.decrementStock (via domain) ───
-
-    @Test
-    fun `decrementStock() should succeed with valid quantity`() {
-        // Arrange
-        val product = createProduct(stock = 10)
-
-        // Act
-        product.decrementStock(3)
-
-        // Assert
-        assertThat(product.stock).isEqualTo(7)
-    }
-
-    @Test
-    fun `decrementStock() throws CoreException(BAD_REQUEST) when quantity is negative`() {
-        // Arrange
-        val product = createProduct(stock = 10)
-
-        // Act & Assert
-        assertThrows<CoreException> {
-            product.decrementStock(-1)
-        }.also {
-            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-    }
-
     // ─── OrderItem init ───
 
     @Test
@@ -155,11 +103,4 @@ class OrderUnitTest {
         price = price,
         quantity = quantity,
     )
-
-    private fun createProduct(
-        id: Long = 0L,
-        brandId: Long = 1L,
-        name: String = "Test Product",
-        stock: Int = 10,
-    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = 10000, stock = stock)
 }
