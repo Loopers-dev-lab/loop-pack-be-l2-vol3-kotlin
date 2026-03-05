@@ -37,10 +37,12 @@ class ProductService(
     }
 
     @Transactional(readOnly = true)
-    fun getProducts(pageable: Pageable, brandId: Long? = null): Slice<ProductInfo> {
-        val slice = brandId
-            ?.let { productRepository.findAllByBrandId(it, pageable) }
-            ?: productRepository.findAll(pageable)
+    fun getProducts(
+        pageable: Pageable,
+        brandId: Long? = null,
+        sortType: ProductSortType = ProductSortType.LATEST,
+    ): Slice<ProductInfo> {
+        val slice = productRepository.search(sortType, brandId, pageable)
         return slice.map { ProductInfo.from(it) }
     }
 
