@@ -127,9 +127,9 @@ class UserLikeUseCaseIntegrationTest @Autowired constructor(
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
-        @DisplayName("이미 좋아요한 상품이면, CONFLICT 예외가 발생한다.")
+        @DisplayName("이미 좋아요한 상품이면, 예외 없이 멱등하게 성공한다.")
         @Test
-        fun throwsConflictExceptionWhenAlreadyLiked() {
+        fun succeedsIdempotentlyWhenAlreadyLiked() {
             // arrange
             registerUser()
             val brandId = registerBrand()
@@ -137,13 +137,14 @@ class UserLikeUseCaseIntegrationTest @Autowired constructor(
             userLikeProductUseCase.execute(LikeProductCriteria(loginId = DEFAULT_USERNAME, productId = productId))
             val criteria = LikeProductCriteria(loginId = DEFAULT_USERNAME, productId = productId)
 
-            // act
-            val result = assertThrows<CoreException> {
-                userLikeProductUseCase.execute(criteria)
-            }
+            // act — 두 번째 좋아요도 예외 없이 성공
+            userLikeProductUseCase.execute(criteria)
 
-            // assert
-            assertThat(result.errorType).isEqualTo(ErrorType.CONFLICT)
+            // assert — 좋아요는 1개만 존재
+            val result = userGetLikedProductsUseCase.execute(
+                GetLikedProductsCriteria(loginId = DEFAULT_USERNAME, userId = 1L, page = 0, size = 10),
+            )
+            assertThat(result.content).hasSize(1)
         }
     }
 
