@@ -3,6 +3,7 @@ package com.loopers.application.coupon
 import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.coupon.IssuedCoupon
+import com.loopers.domain.coupon.IssuedCouponStatus
 import com.loopers.infrastructure.coupon.CouponJpaRepository
 import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository
 import com.loopers.support.error.CoreException
@@ -354,6 +355,41 @@ class CouponServiceIntegrationTest @Autowired constructor(
                 { assertThat(result.content).hasSize(2) },
                 { assertThat(result.totalElements).isEqualTo(2L) },
             )
+        }
+    }
+
+    @DisplayName("발급 쿠폰을 비관적 락으로 조회할 때,")
+    @Nested
+    inner class GetIssuedCouponWithLock {
+
+        @DisplayName("존재하는 발급 쿠폰이면, 쿠폰을 반환한다.")
+        @Test
+        fun returnsIssuedCoupon_whenExists() {
+            // arrange
+            val coupon = createTestCoupon()
+            val issuedCoupon = issuedCouponJpaRepository.save(
+                IssuedCoupon(couponId = coupon.id, userId = 1L),
+            )
+
+            // act
+            val result = couponService.getIssuedCouponWithLock(issuedCoupon.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.couponId).isEqualTo(coupon.id) },
+                { assertThat(result.userId).isEqualTo(1L) },
+                { assertThat(result.status).isEqualTo(IssuedCouponStatus.AVAILABLE) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 발급 쿠폰이면, NOT_FOUND 예외가 발생한다.")
+        @Test
+        fun throwsNotFound_whenNotExists() {
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                couponService.getIssuedCouponWithLock(999L)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 }
