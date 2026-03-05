@@ -56,6 +56,7 @@ erDiagram
         varchar name
         decimal price
         int stock
+        int like_count
         text description
         varchar image_url
         timestamp created_at
@@ -164,6 +165,7 @@ erDiagram
 | name | VARCHAR(200) | NOT NULL | |
 | price | DECIMAL(15,2) | NOT NULL | |
 | stock | INT | NOT NULL, DEFAULT 0 | >= 0 |
+| like_count | INT | NOT NULL, DEFAULT 0 | 좋아요 수 (Atomic Update) |
 | description | TEXT | | |
 | image_url | VARCHAR(500) | | |
 | created_at | TIMESTAMP | NOT NULL | |
