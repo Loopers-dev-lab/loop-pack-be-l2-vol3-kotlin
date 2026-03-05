@@ -104,7 +104,7 @@ class CouponService(
 
     @Transactional
     fun validateAndUseForOrder(issuedCouponId: Long, userId: Long): CouponDiscountInfo {
-        val issuedCoupon = issuedCouponRepository.findByIdWithLock(issuedCouponId)
+        val issuedCoupon = issuedCouponRepository.findById(issuedCouponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
 
         issuedCoupon.validate(userId)
