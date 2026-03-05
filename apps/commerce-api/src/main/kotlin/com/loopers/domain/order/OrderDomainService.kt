@@ -23,6 +23,11 @@ class OrderDomainService {
 
         val order = Order(userId = command.userId)
         orderItems.forEach { order.addItem(it) }
+
+        if (command.couponIssueId != null) {
+            order.applyCoupon(command.couponIssueId, command.couponDiscountAmount)
+        }
+
         order.calculateTotalAmount()
         return order
     }
