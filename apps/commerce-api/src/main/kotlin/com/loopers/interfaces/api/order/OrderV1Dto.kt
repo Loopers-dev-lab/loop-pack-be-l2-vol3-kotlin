@@ -10,6 +10,7 @@ import java.time.ZonedDateTime
 class OrderV1Dto {
     data class CreateOrderRequest(
         val items: List<CreateOrderItemRequest>,
+        val couponId: Long? = null,
     )
 
     data class CreateOrderItemRequest(
@@ -20,6 +21,8 @@ class OrderV1Dto {
     data class OrderResponse(
         val id: Long,
         val status: OrderStatus,
+        val originalPrice: BigDecimal,
+        val discountAmount: BigDecimal,
         val totalPrice: BigDecimal,
         val items: List<OrderItemResponse>,
         val createdAt: ZonedDateTime,
@@ -29,6 +32,8 @@ class OrderV1Dto {
                 return OrderResponse(
                     id = result.id,
                     status = result.status,
+                    originalPrice = result.originalPrice,
+                    discountAmount = result.discountAmount,
                     totalPrice = result.totalPrice,
                     items = result.items.map { OrderItemResponse.from(it) },
                     createdAt = result.createdAt,

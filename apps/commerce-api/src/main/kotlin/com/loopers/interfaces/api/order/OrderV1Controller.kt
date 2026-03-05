@@ -1,9 +1,11 @@
 package com.loopers.interfaces.api.order
 
+import com.loopers.application.order.CancelOrderCriteria
 import com.loopers.application.order.CreateOrderCriteria
 import com.loopers.application.order.CreateOrderItemCriteria
 import com.loopers.application.order.GetOrderCriteria
 import com.loopers.application.order.GetOrdersCriteria
+import com.loopers.application.order.UserCancelOrderUseCase
 import com.loopers.application.order.UserCreateOrderUseCase
 import com.loopers.application.order.UserGetOrderUseCase
 import com.loopers.application.order.UserGetOrdersUseCase
@@ -11,6 +13,7 @@ import com.loopers.interfaces.api.ApiResponse
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -25,6 +28,7 @@ import java.time.LocalDate
 @RequestMapping("/api/v1/orders")
 class OrderV1Controller(
     private val userCreateOrderUseCase: UserCreateOrderUseCase,
+    private val userCancelOrderUseCase: UserCancelOrderUseCase,
     private val userGetOrdersUseCase: UserGetOrdersUseCase,
     private val userGetOrderUseCase: UserGetOrderUseCase,
 ) : OrderV1ApiSpec {
@@ -41,6 +45,7 @@ class OrderV1Controller(
             items = request.items.map {
                 CreateOrderItemCriteria(productId = it.productId, quantity = it.quantity)
             },
+            couponId = request.couponId,
         )
         val result = userCreateOrderUseCase.execute(criteria)
         return ApiResponse.success(result)
@@ -79,5 +84,17 @@ class OrderV1Controller(
         return userGetOrderUseCase.execute(criteria)
             .let { OrderV1Dto.OrderResponse.from(it) }
             .let { ApiResponse.success(it) }
+    }
+
+    @PatchMapping("/{orderId}/cancel")
+    @ResponseStatus(HttpStatus.OK)
+    override fun cancelOrder(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") loginPw: String,
+        @PathVariable orderId: Long,
+    ): ApiResponse<Any> {
+        val criteria = CancelOrderCriteria(loginId = loginId, orderId = orderId)
+        val result = userCancelOrderUseCase.execute(criteria)
+        return ApiResponse.success(result)
     }
 }

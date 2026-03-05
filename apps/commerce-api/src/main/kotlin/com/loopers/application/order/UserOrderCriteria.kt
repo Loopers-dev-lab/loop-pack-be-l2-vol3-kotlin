@@ -5,6 +5,7 @@ import java.time.LocalDate
 data class CreateOrderCriteria(
     val loginId: String,
     val items: List<CreateOrderItemCriteria>,
+    val couponId: Long? = null,
 )
 
 data class CreateOrderItemCriteria(
@@ -21,6 +22,11 @@ data class GetOrdersCriteria(
 )
 
 data class GetOrderCriteria(
+    val loginId: String,
+    val orderId: Long,
+)
+
+data class CancelOrderCriteria(
     val loginId: String,
     val orderId: Long,
 )

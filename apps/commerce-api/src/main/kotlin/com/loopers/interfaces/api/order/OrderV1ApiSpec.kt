@@ -42,4 +42,15 @@ interface OrderV1ApiSpec {
         loginPw: String,
         orderId: Long,
     ): ApiResponse<OrderV1Dto.OrderResponse>
+
+    @Operation(
+        summary = "주문 취소",
+        description = "주문을 취소합니다. 주문 완료 상태에서만 취소할 수 있습니다.",
+    )
+    @SwaggerResponse(responseCode = "200", description = "주문 취소 성공")
+    fun cancelOrder(
+        loginId: String,
+        loginPw: String,
+        orderId: Long,
+    ): ApiResponse<Any>
 }
