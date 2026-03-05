@@ -3,13 +3,17 @@ package com.loopers.interfaces.api.coupon
 import com.loopers.application.coupon.UserIssuedCouponResult
 import com.loopers.application.coupon.UserListCouponsResult
 import com.loopers.domain.coupon.CouponStatus
+import com.loopers.domain.coupon.DiscountType
 import java.time.ZonedDateTime
 
 class CouponV1Dto {
     data class IssuedCouponResponse(
         val id: Long,
         val couponId: Long,
+        val discountType: DiscountType,
+        val discountValue: Int,
         val status: CouponStatus,
+        val expiredAt: ZonedDateTime,
         val usedAt: ZonedDateTime?,
     ) {
         companion object {
@@ -17,7 +21,10 @@ class CouponV1Dto {
                 return IssuedCouponResponse(
                     id = result.id,
                     couponId = result.couponId,
+                    discountType = result.discountType,
+                    discountValue = result.discountValue,
                     status = result.status,
+                    expiredAt = result.expiredAt,
                     usedAt = result.usedAt,
                 )
             }

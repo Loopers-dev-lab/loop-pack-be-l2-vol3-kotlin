@@ -8,6 +8,8 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.ZonedDateTime
 
 @Entity
@@ -15,6 +17,9 @@ import java.time.ZonedDateTime
 class IssuedCouponModel(
     couponId: Long,
     userId: Long,
+    discountType: DiscountType,
+    discountValue: Int,
+    expiredAt: ZonedDateTime,
     status: CouponStatus = CouponStatus.AVAILABLE,
 ) : BaseEntity() {
     @Column(name = "coupon_id", nullable = false)
@@ -23,6 +28,19 @@ class IssuedCouponModel(
 
     @Column(name = "user_id", nullable = false)
     var userId: Long = userId
+        protected set
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_type", nullable = false)
+    var discountType: DiscountType = discountType
+        protected set
+
+    @Column(name = "discount_value", nullable = false)
+    var discountValue: Int = discountValue
+        protected set
+
+    @Column(name = "expired_at", nullable = false)
+    var expiredAt: ZonedDateTime = expiredAt
         protected set
 
     @Enumerated(EnumType.STRING)
@@ -40,6 +58,26 @@ class IssuedCouponModel(
         }
         if (userId <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 0보다 커야 합니다.")
+        }
+    }
+
+    fun calculateDiscount(originalPrice: BigDecimal): BigDecimal {
+        return when (discountType) {
+            DiscountType.FIXED -> originalPrice.min(BigDecimal(discountValue))
+            DiscountType.PERCENTAGE -> originalPrice.multiply(BigDecimal(discountValue))
+                .divide(BigDecimal(100), 2, RoundingMode.FLOOR)
+        }
+    }
+
+    fun validate(userId: Long) {
+        if (this.userId != userId) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "본인의 쿠폰만 사용할 수 있습니다.")
+        }
+        if (expiredAt.isBefore(ZonedDateTime.now())) {
+            throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
+        }
+        if (status != CouponStatus.AVAILABLE) {
+            throw CoreException(ErrorType.BAD_REQUEST, "사용 가능한 상태의 쿠폰이 아닙니다.")
         }
     }
 

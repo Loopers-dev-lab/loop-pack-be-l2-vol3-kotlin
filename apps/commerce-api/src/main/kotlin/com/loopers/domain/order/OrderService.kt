@@ -2,6 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.domain.catalog.ProductRepository
 import com.loopers.domain.coupon.CouponDiscountInfo
+import com.loopers.domain.coupon.DiscountType
 import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Slice
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.ZonedDateTime
 
 @Service
@@ -35,7 +37,13 @@ class OrderService(
             product.price * BigDecimal(quantity)
         }
 
-        val discountAmount = command.couponDiscount?.calculateDiscount(originalPrice) ?: BigDecimal.ZERO
+        val discountAmount = command.couponDiscount?.let { discount ->
+            when (discount.discountType) {
+                DiscountType.FIXED -> originalPrice.min(BigDecimal(discount.discountValue))
+                DiscountType.PERCENTAGE -> originalPrice.multiply(BigDecimal(discount.discountValue))
+                    .divide(BigDecimal(100), 2, RoundingMode.FLOOR)
+            }
+        } ?: BigDecimal.ZERO
         val totalPrice = originalPrice.subtract(discountAmount).coerceAtLeast(BigDecimal.ONE)
 
         val order = orderRepository.save(
