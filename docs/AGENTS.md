@@ -47,7 +47,7 @@ UML 2.5.1 Notation (Chapter 17: Interactions):
 - Message arrows:
 
   | MessageSort | Line | Arrowhead | Usage |
-  |-------------|------|-----------|-------|
+          |-------------|------|-----------|-------|
   | synchCall | solid | filled (solid) | Synchronous operation call |
   | asynchCall | solid | open | Asynchronous operation call |
   | reply | dashed | open | Return from synchronous call |
@@ -58,7 +58,7 @@ UML 2.5.1 Notation (Chapter 17: Interactions):
 - Fragment operators:
 
   | Operator | Semantics |
-  |----------|-----------|
+          |----------|-----------|
   | `alt` | Choice — at most one operand executes. `[else]` = negation of all other guards. |
   | `opt` | Optional — equivalent to `alt` with one operand + empty. |
   | `loop` | `loop(min, max)` — guard checked after min iterations. Bare `loop` = 0..∞. |
@@ -94,7 +94,7 @@ UML 2.5.1 Notation (Chapters 9, 11: Classification, Structured Classifiers):
 - Relationships:
 
   | Relationship | Line | Arrowhead | Meaning |
-  |-------------|------|-----------|---------|
+          |-------------|------|-----------|---------|
   | Association | solid | none (or open for navigability) | Structural link between classifiers |
   | Composition | solid | filled diamond on whole side | Part lifecycle depends on whole; cascade delete |
   | Aggregation | solid | hollow diamond on whole side | Whole-part (weak); no lifecycle dependency |
@@ -119,5 +119,4 @@ Rules:
 - Resolve M:N relationships with a junction table. Promote to an independent entity if additional attributes exist (e.g., `ORDER_ITEM` with `quantity`, `unit_price`).
 - Design with DDD Aggregate boundaries in mind: only Aggregate Roots are referenced externally via FK. Internal entities have lifecycle dependency (CASCADE) on the Root.
 - Include soft-delete field (`deleted_at`) and audit fields (`created_at`, `updated_at`) following the BaseEntity pattern.
-- Mermaid erDiagram caveats: NOT NULL, ENUM, INDEX, and composite PK are not directly supported — use comments (`"NN"`, `"ENUM: CREATED|COMPLETED"`) as supplements. Parentheses in data types are not
-  allowed.
+- Mermaid erDiagram caveats: NOT NULL, ENUM, INDEX, and composite PK are not directly supported — use comments (`"NN"`, `"ENUM: CREATED|COMPLETED"`) as supplements. Parentheses in data types are not allowed.

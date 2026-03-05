@@ -1,0 +1,83 @@
+package com.loopers.domain.user
+
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import java.time.LocalDate
+
+class User private constructor(
+    val id: Long?,
+    val loginId: LoginId,
+    val password: EncodedPassword,
+    val name: UserName,
+    val birthDate: LocalDate,
+    val email: Email,
+) {
+    val maskedName: String
+        get() = name.masked
+
+    fun changePassword(currentPassword: String, newPassword: String, passwordHasher: UserPasswordHasher): User {
+        val current = RawPassword(currentPassword)
+        val new = RawPassword.withBirthDateValidation(newPassword, birthDate)
+
+        if (!passwordHasher.matches(current, password)) {
+            throw CoreException(ErrorType.USER_INVALID_PASSWORD, "현재 비밀번호가 일치하지 않습니다.")
+        }
+        if (passwordHasher.matches(new, password)) {
+            throw CoreException(ErrorType.USER_INVALID_PASSWORD, "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
+        }
+
+        return copy(password = passwordHasher.encode(new))
+    }
+
+    private fun copy(
+        id: Long? = this.id,
+        loginId: LoginId = this.loginId,
+        password: EncodedPassword = this.password,
+        name: UserName = this.name,
+        birthDate: LocalDate = this.birthDate,
+        email: Email = this.email,
+    ): User = User(id, loginId, password, name, birthDate, email)
+
+    companion object {
+        fun retrieve(
+            id: Long,
+            loginId: String,
+            password: String,
+            name: String,
+            birthDate: LocalDate,
+            email: String,
+        ): User {
+            return User(
+                id = id,
+                loginId = LoginId(loginId),
+                password = EncodedPassword(password),
+                name = UserName(name),
+                birthDate = birthDate,
+                email = Email(email),
+            )
+        }
+
+        fun register(
+            loginId: String,
+            rawPassword: String,
+            name: String,
+            birthDate: LocalDate,
+            email: String,
+            passwordHasher: UserPasswordHasher,
+        ): User {
+            val loginIdVo = LoginId(loginId)
+            val rawPasswordVo = RawPassword.withBirthDateValidation(rawPassword, birthDate)
+            val nameVo = UserName(name)
+            val emailVo = Email(email)
+
+            return User(
+                id = null,
+                loginId = loginIdVo,
+                password = passwordHasher.encode(rawPasswordVo),
+                name = nameVo,
+                birthDate = birthDate,
+                email = emailVo,
+            )
+        }
+    }
+}
