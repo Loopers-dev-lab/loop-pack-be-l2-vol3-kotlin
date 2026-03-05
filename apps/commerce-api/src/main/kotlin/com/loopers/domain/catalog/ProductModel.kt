@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.math.BigDecimal
 
 @Entity
@@ -28,6 +29,10 @@ class ProductModel(
 
     @Column(precision = 10, scale = 2)
     var price: BigDecimal = price
+        protected set
+
+    @Version
+    var version: Long = 0
         protected set
 
     init {

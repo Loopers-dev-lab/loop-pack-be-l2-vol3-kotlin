@@ -5,6 +5,7 @@ import com.loopers.domain.catalog.ProductRepository
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
 import org.springframework.stereotype.Component
+import java.time.ZonedDateTime
 
 @Component
 class ProductRepositoryImpl(
@@ -12,6 +13,14 @@ class ProductRepositoryImpl(
 ) : ProductRepository {
     override fun findById(id: Long): ProductModel? {
         return productJpaRepository.findByIdAndDeletedAtIsNull(id)
+    }
+
+    override fun decreaseStock(id: Long, quantity: Int): Boolean {
+        return productJpaRepository.decreaseStock(id, quantity, ZonedDateTime.now()) > 0
+    }
+
+    override fun increaseStock(id: Long, quantity: Int): Boolean {
+        return productJpaRepository.increaseStock(id, quantity, ZonedDateTime.now()) > 0
     }
 
     override fun findAll(pageable: Pageable): Slice<ProductModel> {

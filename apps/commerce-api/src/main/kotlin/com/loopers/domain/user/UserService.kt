@@ -3,6 +3,7 @@ package com.loopers.domain.user
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import java.time.ZonedDateTime
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,9 +15,6 @@ class UserService(
 ) {
     @Transactional
     fun register(command: RegisterCommand): UserModel {
-        userRepository.findByUsername(command.username)?.let {
-            throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "이미 존재하는 아이디입니다.")
-        }
         val username = Username.of(command.username)
         val email = Email.of(command.email)
         val password = Password.of(command.password, command.birthDate)
@@ -28,7 +26,13 @@ class UserService(
             birthDate = command.birthDate,
         )
         user.applyEncodedPassword(passwordEncoder.encode(password.value))
-        return userRepository.save(user)
+        try {
+            val saved = userRepository.save(user)
+            userRepository.flush()
+            return saved
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "이미 존재하는 아이디입니다.")
+        }
     }
 
     @Transactional(readOnly = true)
