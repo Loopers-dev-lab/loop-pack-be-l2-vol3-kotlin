@@ -49,16 +49,12 @@ class PlaceOrderUseCase(
                 throw CoreException(ErrorType.BAD_REQUEST, "주문 가능한 상태가 아닌 상품이 포함되어 있습니다.")
             }
             val quantity = Quantity(item.quantity)
+            product.decreaseStock(quantity)
             OrderProductData(product.id, product.name, product.price) to quantity
         }
 
         val originalPrice = orderItemInputs.fold(Money(BigDecimal.ZERO)) { acc, (data, qty) ->
             acc + (data.price * qty.value)
-        }
-
-        command.items.forEach { item ->
-            val product = productMap[ProductId(item.productId)]!!
-            product.decreaseStock(Quantity(item.quantity))
         }
         productRepository.saveAll(products)
 
@@ -66,8 +62,8 @@ class PlaceOrderUseCase(
         var discountAmount = Money(BigDecimal.ZERO)
         var refCouponId: CouponId? = null
 
-        if (command.couponId != null) {
-            val issuedCoupon = issuedCouponRepository.findByIdForUpdate(command.couponId)
+        if (command.issuedCouponId != null) {
+            val issuedCoupon = issuedCouponRepository.findByIdForUpdate(command.issuedCouponId)
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "존재하지 않는 발급 쿠폰입니다.")
 
             val coupon = couponRepository.findById(issuedCoupon.refCouponId)
@@ -78,7 +74,7 @@ class PlaceOrderUseCase(
             discountAmount = coupon.calculateDiscount(originalPrice)
             issuedCoupon.use()
             issuedCouponRepository.save(issuedCoupon)
-            refCouponId = CouponId(command.couponId)
+            refCouponId = coupon.id
         }
 
         // 3. 주문 생성 + 저장

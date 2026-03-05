@@ -301,7 +301,7 @@ class PlaceOrderUseCaseTest {
             val issuedCoupon = issueToUser(coupon, 1L)
             val command = PlaceOrderCommand(
                 items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2)),
-                couponId = issuedCoupon.id,
+                issuedCouponId = issuedCoupon.id,
             )
 
             // act
@@ -311,7 +311,7 @@ class PlaceOrderUseCaseTest {
             assertThat(orderInfo.originalPrice).isEqualByComparingTo(BigDecimal("20000"))
             assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal("3000"))
             assertThat(orderInfo.totalPrice).isEqualByComparingTo(BigDecimal("17000"))
-            assertThat(orderInfo.couponId).isEqualTo(issuedCoupon.id)
+            assertThat(orderInfo.couponId).isEqualTo(coupon.id.value)
         }
 
         @Test
@@ -323,7 +323,7 @@ class PlaceOrderUseCaseTest {
             val issuedCoupon = issueToUser(coupon, 1L)
             val command = PlaceOrderCommand(
                 items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 2)),
-                couponId = issuedCoupon.id,
+                issuedCouponId = issuedCoupon.id,
             )
 
             // act
@@ -333,7 +333,7 @@ class PlaceOrderUseCaseTest {
             assertThat(orderInfo.originalPrice).isEqualByComparingTo(BigDecimal("20000"))
             assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal("2000"))
             assertThat(orderInfo.totalPrice).isEqualByComparingTo(BigDecimal("18000"))
-            assertThat(orderInfo.couponId).isEqualTo(issuedCoupon.id)
+            assertThat(orderInfo.couponId).isEqualTo(coupon.id.value)
         }
 
         @Test
@@ -343,7 +343,7 @@ class PlaceOrderUseCaseTest {
             val product = createProduct(price = BigDecimal("10000"), stock = 100)
             val command = PlaceOrderCommand(
                 items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
-                couponId = 999L,
+                issuedCouponId = 999L,
             )
 
             // act
@@ -364,7 +364,7 @@ class PlaceOrderUseCaseTest {
             val issuedCoupon = issueToUser(coupon, 2L) // 다른 사용자 소유
             val command = PlaceOrderCommand(
                 items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
-                couponId = issuedCoupon.id,
+                issuedCouponId = issuedCoupon.id,
             )
 
             // act
@@ -387,7 +387,7 @@ class PlaceOrderUseCaseTest {
             issuedCouponRepository.save(issuedCoupon)
             val command = PlaceOrderCommand(
                 items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
-                couponId = issuedCoupon.id,
+                issuedCouponId = issuedCoupon.id,
             )
 
             // act
@@ -408,7 +408,7 @@ class PlaceOrderUseCaseTest {
             val issuedCoupon = issueToUser(coupon, 1L)
             val command = PlaceOrderCommand(
                 items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
-                couponId = issuedCoupon.id,
+                issuedCouponId = issuedCoupon.id,
             )
 
             // act
@@ -429,7 +429,7 @@ class PlaceOrderUseCaseTest {
             val issuedCoupon = issueToUser(coupon, 1L)
             val command = PlaceOrderCommand(
                 items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
-                couponId = issuedCoupon.id,
+                issuedCouponId = issuedCoupon.id,
             )
 
             // act
