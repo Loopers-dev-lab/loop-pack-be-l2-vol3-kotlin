@@ -14,10 +14,6 @@ class IssuedCouponRepositoryImpl(
         return issuedCouponJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
-    override fun findByIdWithLock(id: Long): IssuedCouponModel? {
-        return issuedCouponJpaRepository.findByIdWithLock(id)
-    }
-
     override fun findByCouponIdAndUserId(couponId: Long, userId: Long): IssuedCouponModel? {
         return issuedCouponJpaRepository.findByCouponIdAndUserIdAndDeletedAtIsNull(couponId, userId)
     }
