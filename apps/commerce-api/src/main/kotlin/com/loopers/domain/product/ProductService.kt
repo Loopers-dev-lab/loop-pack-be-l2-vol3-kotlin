@@ -60,14 +60,18 @@ class ProductService(
         return productRepository.findAllByIds(ids)
     }
 
-    fun getProductsForOrder(productIds: List<Long>): List<Product> {
-        val products = getProductsByIds(productIds)
-        val foundIds = products.map { it.id }.toSet()
-        val missingIds = productIds.filter { it !in foundIds }
+    fun getProductsForOrderWithLock(productIds: List<Long>): List<Product> {
+        val products = productRepository.findAllByIdsWithLock(productIds)
+        validateAllProductsFound(productIds, products)
+        return products
+    }
+
+    private fun validateAllProductsFound(requestedIds: List<Long>, foundProducts: List<Product>) {
+        val foundIds = foundProducts.map { it.id }.toSet()
+        val missingIds = requestedIds.filter { it !in foundIds }
         if (missingIds.isNotEmpty()) {
             throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: $missingIds")
         }
-        return products
     }
 
     fun deductStocks(products: Map<Long, Product>, requests: List<StockDeductionRequest>) {

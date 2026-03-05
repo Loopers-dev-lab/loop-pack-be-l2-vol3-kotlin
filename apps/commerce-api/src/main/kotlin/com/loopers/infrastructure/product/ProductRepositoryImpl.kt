@@ -35,6 +35,10 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
     }
 
+    override fun findAllByIdsWithLock(ids: List<Long>): List<Product> {
+        return productJpaRepository.findAllByIdInWithLock(ids)
+    }
+
     override fun findAllByBrandId(brandId: Long): List<Product> {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
     }

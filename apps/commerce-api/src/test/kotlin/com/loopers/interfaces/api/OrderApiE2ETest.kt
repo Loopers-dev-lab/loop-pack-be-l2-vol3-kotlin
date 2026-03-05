@@ -38,6 +38,9 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class OrderApiE2ETest @Autowired constructor(
@@ -1063,6 +1066,105 @@ class OrderApiE2ETest @Autowired constructor(
             // assert
             val updatedProduct = productRepository.findById(product.id)
             assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(100))
+        }
+    }
+
+    @DisplayName("POST /api/v1/orders - 동시 주문")
+    @Nested
+    inner class ConcurrentPlaceOrderApi {
+
+        @DisplayName("동시에 여러 사용자가 같은 상품을 주문하면, 재고가 정확히 차감된다.")
+        @Test
+        fun deductsStockCorrectly_whenConcurrentOrders() {
+            // arrange
+            val threadCount = 10
+            (1..threadCount).forEach { i ->
+                signUp(loginId = "user$i", password = "Test1234!@", name = "사용자$i", email = "user$i@example.com")
+            }
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val successCount = AtomicInteger(0)
+
+            // act
+            (1..threadCount).forEach { i ->
+                executor.submit {
+                    try {
+                        val request = PlaceOrderRequest(
+                            items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                        )
+                        val response = testRestTemplate.exchange(
+                            ORDER_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity(request, authHeaders(loginId = "user$i")),
+                            ORDER_RESPONSE_TYPE,
+                        )
+                        if (response.statusCode == HttpStatus.OK) {
+                            successCount.incrementAndGet()
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            val updatedProduct = productRepository.findById(product.id)
+            assertAll(
+                { assertThat(successCount.get()).isEqualTo(10) },
+                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(90)) },
+            )
+        }
+
+        @DisplayName("재고보다 많은 동시 주문이 들어오면, 재고가 음수가 되지 않는다.")
+        @Test
+        fun doesNotGoNegative_whenConcurrentOrdersExceedStock() {
+            // arrange
+            val threadCount = 10
+            (1..threadCount).forEach { i ->
+                signUp(loginId = "user$i", password = "Test1234!@", name = "사용자$i", email = "user$i@example.com")
+            }
+            val product = createProduct(stockQuantity = StockQuantity.of(5))
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val successCount = AtomicInteger(0)
+            val failCount = AtomicInteger(0)
+
+            // act
+            (1..threadCount).forEach { i ->
+                executor.submit {
+                    try {
+                        val request = PlaceOrderRequest(
+                            items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                        )
+                        val response = testRestTemplate.exchange(
+                            ORDER_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity(request, authHeaders(loginId = "user$i")),
+                            ORDER_RESPONSE_TYPE,
+                        )
+                        when (response.statusCode) {
+                            HttpStatus.OK -> successCount.incrementAndGet()
+                            HttpStatus.BAD_REQUEST -> failCount.incrementAndGet()
+                            else -> {}
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            val updatedProduct = productRepository.findById(product.id)
+            assertAll(
+                { assertThat(successCount.get()).isEqualTo(5) },
+                { assertThat(failCount.get()).isEqualTo(5) },
+                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(0)) },
+            )
         }
     }
 }

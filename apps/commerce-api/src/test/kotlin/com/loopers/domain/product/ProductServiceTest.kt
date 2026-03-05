@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.test.util.ReflectionTestUtils
 
 @ExtendWith(MockitoExtension::class)
 class ProductServiceTest {
@@ -31,6 +32,21 @@ class ProductServiceTest {
     fun setUp() {
         productService = ProductService(productRepository)
     }
+
+    private fun createProduct(
+        name: String = "에어맥스",
+        description: String? = "러닝화",
+        price: Money = Money.of(159000L),
+        stockQuantity: StockQuantity = StockQuantity.of(100),
+        brandId: Long = 1L,
+    ): Product = Product(
+        name = name,
+        description = description,
+        price = price,
+        likes = LikeCount.of(0),
+        stockQuantity = stockQuantity,
+        brandId = brandId,
+    )
 
     @DisplayName("상품 단건 조회할 때,")
     @Nested
@@ -113,6 +129,42 @@ class ProductServiceTest {
 
             // assert
             verify(productRepository).decrementLikeCount(productId)
+        }
+    }
+
+    @DisplayName("주문용 상품을 락과 함께 조회할 때,")
+    @Nested
+    inner class GetProductsForOrderWithLock {
+
+        @DisplayName("모든 상품이 존재하면, 상품 목록을 반환한다.")
+        @Test
+        fun returnsProducts_whenAllProductsExist() {
+            // arrange
+            val product1 = createProduct(name = "에어맥스").also { ReflectionTestUtils.setField(it, "id", 1L) }
+            val product2 = createProduct(name = "에어포스").also { ReflectionTestUtils.setField(it, "id", 2L) }
+            val productIds = listOf(1L, 2L)
+            whenever(productRepository.findAllByIdsWithLock(productIds)).thenReturn(listOf(product1, product2))
+
+            // act
+            val result = productService.getProductsForOrderWithLock(productIds)
+
+            // assert
+            assertThat(result).hasSize(2)
+        }
+
+        @DisplayName("일부 상품이 존재하지 않으면, NOT_FOUND 예외를 던진다.")
+        @Test
+        fun throwsNotFound_whenSomeProductsNotExist() {
+            // arrange
+            val product1 = createProduct(name = "에어맥스").also { ReflectionTestUtils.setField(it, "id", 1L) }
+            val productIds = listOf(1L, 2L)
+            whenever(productRepository.findAllByIdsWithLock(productIds)).thenReturn(listOf(product1))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                productService.getProductsForOrderWithLock(productIds)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 
