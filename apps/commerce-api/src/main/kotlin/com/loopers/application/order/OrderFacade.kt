@@ -20,7 +20,6 @@ class OrderFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val couponService: CouponService,
-    private val stockLockManager: StockLockManager,
 ) {
 
     @Transactional(readOnly = true)
@@ -50,11 +49,8 @@ class OrderFacade(
 
         val productIds = items.map { it.productId }
 
-        // 재고 차감 동시성 제어: 락 획득 후 트랜잭션 커밋 시 자동 해제
-        stockLockManager.acquireLocksForTransaction(productIds)
-
-        // 락 획득 후 상품 재조회 (최신 재고 상태 보장) + 존재 검증
-        val products = productService.getProductsForOrder(productIds)
+        // DB 비관적 락(SELECT FOR UPDATE)으로 상품 조회 + 존재 검증
+        val products = productService.getProductsForOrderWithLock(productIds)
         val productMap = products.associateBy { it.id }
 
         val brandMap = brandService.getBrandsByIds(
