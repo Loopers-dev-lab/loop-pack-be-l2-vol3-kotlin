@@ -29,6 +29,7 @@ import org.springframework.http.MediaType
 import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LikeApiE2ETest @Autowired constructor(
@@ -309,6 +310,44 @@ class LikeApiE2ETest @Autowired constructor(
     @DisplayName("동시성 좋아요 테스트")
     @Nested
     inner class ConcurrentLike {
+
+        @DisplayName("같은 사용자가 동시에 좋아요하면, 모두 200 OK를 반환하고 좋아요 수는 1이다. (TOCTOU 처리)")
+        @Test
+        fun returnsOkForAll_whenSameUserConcurrentlyLikes() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val threadCount = 10
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val failCount = AtomicInteger(0)
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        val response = testRestTemplate.exchange(
+                            LIKE_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity<Void>(authHeaders()),
+                            LIKE_RESPONSE_TYPE,
+                            product.id,
+                        )
+                        if (!response.statusCode.is2xxSuccessful) {
+                            failCount.incrementAndGet()
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            assertThat(failCount.get()).isZero()
+            assertThat(getLikeCount(product.id)).isEqualTo(1)
+        }
 
         @DisplayName("서로 다른 사용자 10명이 동시에 좋아요하면, 좋아요 수가 정확히 10이 된다.")
         @Test

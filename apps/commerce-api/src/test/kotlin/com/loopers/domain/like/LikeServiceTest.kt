@@ -8,10 +8,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.dao.DataIntegrityViolationException
 
 @ExtendWith(MockitoExtension::class)
 class LikeServiceTest {
@@ -46,6 +48,22 @@ class LikeServiceTest {
             // assert
             assertThat(result).isTrue()
             verify(likeRepository).save(any())
+        }
+
+        @DisplayName("저장 시 UNIQUE 제약 위반이 발생하면, 예외가 전파된다. (TOCTOU — Facade에서 처리)")
+        @Test
+        fun throwsException_whenUniqueConstraintViolation() {
+            // arrange
+            val userId = 1L
+            val productId = 1L
+
+            whenever(likeRepository.existsByUserIdAndProductId(userId, productId)).thenReturn(false)
+            whenever(likeRepository.save(any())).thenThrow(DataIntegrityViolationException("Duplicate entry"))
+
+            // act & assert
+            assertThrows<DataIntegrityViolationException> {
+                likeService.like(userId, productId)
+            }
         }
 
         @DisplayName("이미 좋아요가 존재하면, false를 반환하고 저장하지 않는다.")

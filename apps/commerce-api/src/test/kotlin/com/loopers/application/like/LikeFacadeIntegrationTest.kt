@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
 class LikeFacadeIntegrationTest @Autowired constructor(
@@ -56,6 +57,37 @@ class LikeFacadeIntegrationTest @Autowired constructor(
             // assert
             val updated = productService.getProduct(product.id)
             assertThat(updated.likes).isEqualTo(LikeCount.of(6))
+        }
+
+        @DisplayName("같은 사용자가 동시에 좋아요하면, 예외 없이 좋아요 수가 1만 증가한다. (TOCTOU 처리)")
+        @Test
+        fun handlesRaceCondition_whenSameUserConcurrentlyLikes() {
+            // arrange
+            val product = createProduct()
+            val threadCount = 10
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val exceptionCount = AtomicInteger(0)
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        likeFacade.like(userId = 1L, productId = product.id)
+                    } catch (_: Exception) {
+                        exceptionCount.incrementAndGet()
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            val updated = productService.getProduct(product.id)
+            assertThat(exceptionCount.get()).isZero()
+            assertThat(updated.likes).isEqualTo(LikeCount.of(1))
         }
 
         @DisplayName("서로 다른 사용자 10명이 동시에 좋아요하면, 좋아요 수가 정확히 10 증가한다.")
