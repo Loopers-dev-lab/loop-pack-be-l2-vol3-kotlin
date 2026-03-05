@@ -41,7 +41,10 @@ data class GetIssuedCouponResult(
     val id: Long,
     val couponId: Long,
     val userId: Long,
+    val discountType: DiscountType,
+    val discountValue: Int,
     val status: CouponStatus,
+    val expiredAt: ZonedDateTime,
     val usedAt: ZonedDateTime?,
 ) {
     companion object {
@@ -50,7 +53,10 @@ data class GetIssuedCouponResult(
                 id = info.id,
                 couponId = info.couponId,
                 userId = info.userId,
+                discountType = info.discountType,
+                discountValue = info.discountValue,
                 status = info.status,
+                expiredAt = info.expiredAt,
                 usedAt = info.usedAt,
             )
         }

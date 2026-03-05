@@ -1,6 +1,5 @@
 package com.loopers.domain.coupon
 
-import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 data class CouponInfo(
@@ -31,7 +30,10 @@ data class IssuedCouponInfo(
     val id: Long,
     val couponId: Long,
     val userId: Long,
+    val discountType: DiscountType,
+    val discountValue: Int,
     val status: CouponStatus,
+    val expiredAt: ZonedDateTime,
     val usedAt: ZonedDateTime?,
 ) {
     companion object {
@@ -40,7 +42,10 @@ data class IssuedCouponInfo(
                 id = model.id,
                 couponId = model.couponId,
                 userId = model.userId,
+                discountType = model.discountType,
+                discountValue = model.discountValue,
                 status = model.status,
+                expiredAt = model.expiredAt,
                 usedAt = model.usedAt,
             )
         }
@@ -48,15 +53,6 @@ data class IssuedCouponInfo(
 }
 
 data class CouponDiscountInfo(
-    val couponId: Long,
     val discountType: DiscountType,
     val discountValue: Int,
-) {
-    fun calculateDiscount(originalPrice: BigDecimal): BigDecimal {
-        return when (discountType) {
-            DiscountType.FIXED -> originalPrice.min(BigDecimal(discountValue))
-            DiscountType.PERCENTAGE -> originalPrice.multiply(BigDecimal(discountValue))
-                .divide(BigDecimal(100), 2, java.math.RoundingMode.FLOOR)
-        }
-    }
-}
+)

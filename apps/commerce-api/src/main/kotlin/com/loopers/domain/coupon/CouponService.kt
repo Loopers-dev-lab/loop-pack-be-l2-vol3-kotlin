@@ -81,6 +81,9 @@ class CouponService(
         val issuedCoupon = IssuedCouponModel(
             couponId = command.couponId,
             userId = command.userId,
+            discountType = coupon.discountType,
+            discountValue = coupon.discountValue,
+            expiredAt = coupon.expiredAt,
         )
         val saved = issuedCouponRepository.save(issuedCoupon)
         return IssuedCouponInfo.from(saved)
@@ -104,24 +107,13 @@ class CouponService(
         val issuedCoupon = issuedCouponRepository.findByIdWithLock(issuedCouponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
 
-        if (issuedCoupon.userId != userId) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "본인의 쿠폰만 사용할 수 있습니다.")
-        }
-
-        val coupon = couponRepository.findById(issuedCoupon.couponId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다.")
-
-        if (coupon.isExpired()) {
-            throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
-        }
-
+        issuedCoupon.validate(userId)
         issuedCoupon.use()
         issuedCouponRepository.save(issuedCoupon)
 
         return CouponDiscountInfo(
-            couponId = coupon.id,
-            discountType = coupon.discountType,
-            discountValue = coupon.discountValue,
+            discountType = issuedCoupon.discountType,
+            discountValue = issuedCoupon.discountValue,
         )
     }
 }

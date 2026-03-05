@@ -8,8 +8,6 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
-import java.math.BigDecimal
-import java.math.RoundingMode
 import java.time.ZonedDateTime
 
 @Entity
@@ -62,14 +60,6 @@ class CouponModel(
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 발급 수량이 초과되었습니다.")
         }
         issuedQuantity++
-    }
-
-    fun calculateDiscount(originalPrice: BigDecimal): BigDecimal {
-        return when (discountType) {
-            DiscountType.FIXED -> originalPrice.min(BigDecimal(discountValue))
-            DiscountType.PERCENTAGE -> originalPrice.multiply(BigDecimal(discountValue))
-                .divide(BigDecimal(100), 2, RoundingMode.FLOOR)
-        }
     }
 
     fun isExpired(): Boolean {
