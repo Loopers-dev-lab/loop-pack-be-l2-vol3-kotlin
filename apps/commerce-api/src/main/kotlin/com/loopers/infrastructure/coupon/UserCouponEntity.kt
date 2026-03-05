@@ -9,6 +9,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.Version
 
 @Entity
 @Table(
@@ -35,6 +36,11 @@ class UserCouponEntity(
 
     @Column(name = "used_order_id")
     var usedOrderId: Long? = usedOrderId
+        protected set
+
+    @Version
+    @Column(nullable = false)
+    var version: Long = 0L
         protected set
 
     fun updateStatus(status: UserCouponStatus) {

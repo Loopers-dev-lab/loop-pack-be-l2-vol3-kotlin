@@ -30,7 +30,7 @@ class UserCouponService(
 
     @Transactional
     fun useForOrder(userCouponId: Long, orderId: Long): UserCoupon {
-        val userCoupon = userCouponRepository.findByIdForUpdate(userCouponId)
+        val userCoupon = userCouponRepository.findById(userCouponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "[$userCouponId] 해당 ID에 해당하는 사용자 쿠폰이 존재하지 않습니다.")
 
         userCoupon.use(orderId)

@@ -88,21 +88,21 @@ class UserCouponServiceUnitTest {
     // ─── useForOrder ───
 
     @Test
-    fun `useForOrder() should mark coupon as USED with pessimistic lock`() {
+    fun `useForOrder() should mark coupon as USED`() {
         val userCoupon = UserCoupon(id = 1L, userId = 1L, couponTemplateId = 1L)
-        every { mockUserCouponRepository.findByIdForUpdate(1L) } returns userCoupon
+        every { mockUserCouponRepository.findById(1L) } returns userCoupon
         every { mockUserCouponRepository.save(any()) } answers { firstArg() }
 
         val result = service.useForOrder(userCouponId = 1L, orderId = 100L)
 
         assertThat(result.status).isEqualTo(UserCouponStatus.USED)
         assertThat(result.usedOrderId).isEqualTo(100L)
-        verify { mockUserCouponRepository.findByIdForUpdate(1L) }
+        verify { mockUserCouponRepository.findById(1L) }
     }
 
     @Test
     fun `useForOrder() should throw NOT_FOUND when coupon does not exist`() {
-        every { mockUserCouponRepository.findByIdForUpdate(99L) } returns null
+        every { mockUserCouponRepository.findById(99L) } returns null
 
         assertThrows<CoreException> {
             service.useForOrder(userCouponId = 99L, orderId = 100L)
@@ -114,7 +114,7 @@ class UserCouponServiceUnitTest {
     @Test
     fun `useForOrder() should throw BAD_REQUEST when coupon already used`() {
         val userCoupon = UserCoupon(id = 1L, userId = 1L, couponTemplateId = 1L, status = UserCouponStatus.USED)
-        every { mockUserCouponRepository.findByIdForUpdate(1L) } returns userCoupon
+        every { mockUserCouponRepository.findById(1L) } returns userCoupon
 
         assertThrows<CoreException> {
             service.useForOrder(userCouponId = 1L, orderId = 100L)

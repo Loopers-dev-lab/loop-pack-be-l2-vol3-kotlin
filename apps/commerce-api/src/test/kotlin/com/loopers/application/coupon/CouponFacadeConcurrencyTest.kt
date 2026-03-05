@@ -104,7 +104,7 @@ class CouponFacadeConcurrencyTest @Autowired constructor(
         latch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
-        // Assert: only 1 should succeed (pessimistic lock on user_coupons)
+        // Assert: only 1 should succeed (optimistic lock via @Version on user_coupons)
         assertThat(successCount.get()).isEqualTo(1)
         assertThat(failCount.get()).isEqualTo(4)
 
