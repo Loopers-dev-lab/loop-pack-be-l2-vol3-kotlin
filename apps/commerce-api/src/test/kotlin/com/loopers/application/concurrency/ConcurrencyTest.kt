@@ -13,6 +13,10 @@ import com.loopers.application.product.RegisterProductCommand
 import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.application.user.RegisterUserCommand
 import com.loopers.application.user.RegisterUserUseCase
+import com.loopers.domain.coupon.CouponException
+import com.loopers.domain.coupon.CouponStatus
+import com.loopers.domain.coupon.UserCouponRepository
+import com.loopers.domain.product.ProductException
 import com.loopers.domain.product.ProductRepository
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import org.assertj.core.api.Assertions.assertThat
@@ -24,8 +28,10 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.jdbc.Sql
 import java.time.ZonedDateTime
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
@@ -70,6 +76,9 @@ class ConcurrencyTest {
     @Autowired
     private lateinit var productRepository: ProductRepository
 
+    @Autowired
+    private lateinit var userCouponRepository: UserCouponRepository
+
     private var brandId: Long = 0
 
     @BeforeEach
@@ -82,120 +91,75 @@ class ConcurrencyTest {
     @Nested
     inner class CouponConcurrency {
         @Test
-        fun `동일 쿠폰으로 동시에 2건 주문 시 1건만 성공해야 한다`() {
+        fun `동일 쿠폰으로 동시에 100건 주문 시 1건만 성공해야 한다`() {
             val userId = registerUser("cpnuser1")
-            val productId = registerProduct(stock = 100)
+            val productId = registerProduct(stock = 1000)
             val couponId = registerCouponUseCase.register(createCouponCommand())
             val userCouponId = issueCouponUseCase.issue(userId, couponId)
 
-            val threadCount = 2
-            val executor = Executors.newFixedThreadPool(threadCount)
-            val latch = CountDownLatch(threadCount)
-            val successCount = AtomicInteger(0)
-            val failCount = AtomicInteger(0)
-
-            repeat(threadCount) {
-                executor.submit {
-                    try {
-                        createOrderUseCase.create(
-                            userId,
-                            CreateOrderCommand(
-                                items = listOf(OrderItemCommand(productId = productId, quantity = 1)),
-                                couponId = userCouponId,
-                            ),
-                        )
-                        successCount.incrementAndGet()
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                    } finally {
-                        latch.countDown()
-                    }
-                }
+            val result = executeConcurrently(100) {
+                createOrderUseCase.create(
+                    userId,
+                    CreateOrderCommand(
+                        items = listOf(OrderItemCommand(productId = productId, quantity = 1)),
+                        couponId = userCouponId,
+                    ),
+                )
             }
 
-            latch.await()
-            executor.shutdown()
+            assertThat(result.successCount).isEqualTo(1)
+            assertThat(result.failures).hasSize(99)
+            assertThat(result.failures).allSatisfy { e ->
+                assertThat(e).isInstanceOf(CouponException::class.java)
+            }
 
-            assertThat(successCount.get()).isEqualTo(1)
-            assertThat(failCount.get()).isEqualTo(1)
+            val userCoupon = userCouponRepository.findById(userCouponId)!!
+            assertThat(userCoupon.status).isEqualTo(CouponStatus.USED)
         }
     }
 
     @Nested
     inner class StockConcurrency {
         @Test
-        fun `재고 100개 상품에 10개 스레드가 수량 10씩 주문하면 모두 성공하고 재고 0이 된다`() {
-            val productId = registerProduct(stock = 100)
-            val threadCount = 10
+        fun `재고 1000개 상품에 100개 스레드가 수량 10씩 주문하면 모두 성공하고 재고 0이 된다`() {
+            val productId = registerProduct(stock = 1000)
+            val userIds = (1..100).map { registerUser("stku$it") }
 
-            val userIds = (1..threadCount).map { registerUser("stku$it") }
-            val executor = Executors.newFixedThreadPool(threadCount)
-            val latch = CountDownLatch(threadCount)
-            val successCount = AtomicInteger(0)
-            val failCount = AtomicInteger(0)
-
-            userIds.forEach { userId ->
-                executor.submit {
-                    try {
-                        createOrderUseCase.create(
-                            userId,
-                            CreateOrderCommand(
-                                items = listOf(OrderItemCommand(productId = productId, quantity = 10)),
-                            ),
-                        )
-                        successCount.incrementAndGet()
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                    } finally {
-                        latch.countDown()
-                    }
-                }
+            val result = executeConcurrently(userIds) { userId ->
+                createOrderUseCase.create(
+                    userId,
+                    CreateOrderCommand(
+                        items = listOf(OrderItemCommand(productId = productId, quantity = 10)),
+                    ),
+                )
             }
 
-            latch.await()
-            executor.shutdown()
-
-            assertThat(successCount.get()).isEqualTo(10)
-            assertThat(failCount.get()).isEqualTo(0)
+            assertThat(result.successCount).isEqualTo(100)
+            assertThat(result.failures).isEmpty()
 
             val product = productRepository.findById(productId)!!
             assertThat(product.stock.quantity).isEqualTo(0)
         }
 
         @Test
-        fun `재고 5개 상품에 10개 스레드가 수량 1씩 주문하면 5건만 성공한다`() {
-            val productId = registerProduct(stock = 5)
-            val threadCount = 10
+        fun `재고 50개 상품에 100개 스레드가 수량 1씩 주문하면 50건만 성공한다`() {
+            val productId = registerProduct(stock = 50)
+            val userIds = (1..100).map { registerUser("limu$it") }
 
-            val userIds = (1..threadCount).map { registerUser("limu$it") }
-            val executor = Executors.newFixedThreadPool(threadCount)
-            val latch = CountDownLatch(threadCount)
-            val successCount = AtomicInteger(0)
-            val failCount = AtomicInteger(0)
-
-            userIds.forEach { userId ->
-                executor.submit {
-                    try {
-                        createOrderUseCase.create(
-                            userId,
-                            CreateOrderCommand(
-                                items = listOf(OrderItemCommand(productId = productId, quantity = 1)),
-                            ),
-                        )
-                        successCount.incrementAndGet()
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                    } finally {
-                        latch.countDown()
-                    }
-                }
+            val result = executeConcurrently(userIds) { userId ->
+                createOrderUseCase.create(
+                    userId,
+                    CreateOrderCommand(
+                        items = listOf(OrderItemCommand(productId = productId, quantity = 1)),
+                    ),
+                )
             }
 
-            latch.await()
-            executor.shutdown()
-
-            assertThat(successCount.get()).isEqualTo(5)
-            assertThat(failCount.get()).isEqualTo(5)
+            assertThat(result.successCount).isEqualTo(50)
+            assertThat(result.failures).hasSize(50)
+            assertThat(result.failures).allSatisfy { e ->
+                assertThat(e).isInstanceOf(ProductException::class.java)
+            }
 
             val product = productRepository.findById(productId)!!
             assertThat(product.stock.quantity).isEqualTo(0)
@@ -205,58 +169,86 @@ class ConcurrencyTest {
     @Nested
     inner class LikeConcurrency {
         @Test
-        fun `같은 사용자가 10번 동시에 좋아요하면 likeCount는 1이어야 한다`() {
+        fun `같은 사용자가 100번 동시에 좋아요하면 likeCount는 1이어야 한다`() {
             val userId = registerUser("lku1")
             val productId = registerProduct(stock = 100)
 
-            val threadCount = 10
-            val executor = Executors.newFixedThreadPool(threadCount)
-            val latch = CountDownLatch(threadCount)
-
-            repeat(threadCount) {
-                executor.submit {
-                    try {
-                        addLikeUseCase.add(userId, productId)
-                    } catch (_: Exception) {
-                    } finally {
-                        latch.countDown()
-                    }
-                }
+            val result = executeConcurrently(100) {
+                addLikeUseCase.add(userId, productId)
             }
 
-            latch.await()
-            executor.shutdown()
+            assertThat(result.successCount + result.failures.size).isEqualTo(100)
 
             val product = productRepository.findById(productId)!!
             assertThat(product.likeCount).isEqualTo(1)
         }
 
         @Test
-        fun `10명이 동시에 좋아요하면 likeCount는 10이어야 한다`() {
+        fun `100명이 동시에 좋아요하면 likeCount는 100이어야 한다`() {
             val productId = registerProduct(stock = 100)
-            val threadCount = 10
+            val userIds = (1..100).map { registerUser("mlik$it") }
 
-            val userIds = (1..threadCount).map { registerUser("mlik$it") }
-            val executor = Executors.newFixedThreadPool(threadCount)
-            val latch = CountDownLatch(threadCount)
+            val result = executeConcurrently(userIds) { userId ->
+                addLikeUseCase.add(userId, productId)
+            }
 
-            userIds.forEach { userId ->
+            assertThat(result.successCount).isEqualTo(100)
+            assertThat(result.failures).isEmpty()
+
+            val product = productRepository.findById(productId)!!
+            assertThat(product.likeCount).isEqualTo(100)
+        }
+    }
+
+    private data class ConcurrentResult(
+        val successCount: Int,
+        val failures: List<Exception>,
+    )
+
+    private fun executeConcurrently(threadCount: Int, action: () -> Unit): ConcurrentResult {
+        return executeConcurrently((1..threadCount).toList()) { action() }
+    }
+
+    private fun <T> executeConcurrently(items: List<T>, action: (T) -> Unit): ConcurrentResult {
+        val threadCount = items.size
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val doneLatch = CountDownLatch(threadCount)
+        val successCount = AtomicInteger(0)
+        val failures = CopyOnWriteArrayList<Exception>()
+
+        try {
+            items.forEach { item ->
                 executor.submit {
                     try {
-                        addLikeUseCase.add(userId, productId)
-                    } catch (_: Exception) {
+                        readyLatch.countDown()
+                        startLatch.await()
+                        action(item)
+                        successCount.incrementAndGet()
+                    } catch (e: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                    } catch (e: Exception) {
+                        failures.add(e)
                     } finally {
-                        latch.countDown()
+                        doneLatch.countDown()
                     }
                 }
             }
 
-            latch.await()
-            executor.shutdown()
+            readyLatch.await()
+            startLatch.countDown()
 
-            val product = productRepository.findById(productId)!!
-            assertThat(product.likeCount).isEqualTo(10)
+            val completed = doneLatch.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            assertThat(completed)
+                .withFailMessage("동시성 테스트가 ${TIMEOUT_SECONDS}초 내에 완료되지 않았습니다.")
+                .isTrue()
+        } finally {
+            executor.shutdown()
+            executor.awaitTermination(5, TimeUnit.SECONDS)
         }
+
+        return ConcurrentResult(successCount.get(), failures.toList())
     }
 
     private fun registerUser(loginId: String): Long {
@@ -294,4 +286,8 @@ class ConcurrencyTest {
         maxIssueCount = 100,
         expiredAt = ZonedDateTime.now().plusDays(30),
     )
+
+    companion object {
+        private const val TIMEOUT_SECONDS = 60L
+    }
 }

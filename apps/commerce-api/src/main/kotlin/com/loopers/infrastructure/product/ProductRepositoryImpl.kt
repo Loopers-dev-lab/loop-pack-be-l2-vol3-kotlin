@@ -23,7 +23,7 @@ class ProductRepositoryImpl(
     }
 
     override fun findByIdForUpdate(id: Long): Product? {
-        return jpaRepository.findByIdForUpdate(id)?.let { ProductMapper.toDomain(it) }
+        return jpaRepository.findByIdForUpdate(id)?.let { ProductMapper.toDomainWithoutImages(it) }
     }
 
     override fun decreaseStock(id: Long, quantity: Int): Int {
