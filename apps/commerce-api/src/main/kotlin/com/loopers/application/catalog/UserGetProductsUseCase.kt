@@ -15,8 +15,8 @@ class UserGetProductsUseCase(
 ) : UseCase<UserListProductsCriteria, UserListProductsResult> {
     @Transactional(readOnly = true)
     override fun execute(criteria: UserListProductsCriteria): UserListProductsResult {
-        val pageable = PageRequest.of(criteria.page, criteria.size, criteria.sort.toSort())
-        val slice = productService.getProducts(pageable, criteria.brandId)
+        val pageable = PageRequest.of(criteria.page, criteria.size)
+        val slice = productService.getProducts(pageable, criteria.brandId, criteria.sort)
 
         val brandIds = slice.content.map { it.brandId }.distinct()
         val brandNameMap = brandIds.associateWith { id ->
