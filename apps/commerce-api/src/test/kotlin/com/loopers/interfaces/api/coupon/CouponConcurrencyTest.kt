@@ -29,6 +29,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.jupiter.api.Timeout
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -91,7 +92,9 @@ class CouponConcurrencyTest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
-        return response.body!!.data!!.id
+        val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
+        val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
+        return data.id
     }
 
     @Nested
@@ -117,41 +120,46 @@ class CouponConcurrencyTest @Autowired constructor(
             val latch = CountDownLatch(concurrentUsers)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
+            val firstException = AtomicReference<Exception>()
 
             // act
-            for (i in 1..concurrentUsers) {
-                executorService.submit {
-                    try {
-                        readyLatch.countDown()
-                        startLatch.await(30, TimeUnit.SECONDS)
-                        val responseType =
-                            object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-                        val response = testRestTemplate.exchange(
-                            "/api/v1/coupons/$couponId/issue",
-                            HttpMethod.POST,
-                            HttpEntity<Any>(authHeaders("user$i")),
-                            responseType,
-                        )
-                        if (response.statusCode == HttpStatus.OK) {
-                            successCount.incrementAndGet()
-                        } else {
+            try {
+                for (i in 1..concurrentUsers) {
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            startLatch.await(30, TimeUnit.SECONDS)
+                            val responseType =
+                                object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+                            val response = testRestTemplate.exchange(
+                                "/api/v1/coupons/$couponId/issue",
+                                HttpMethod.POST,
+                                HttpEntity<Any>(authHeaders("user$i")),
+                                responseType,
+                            )
+                            if (response.statusCode == HttpStatus.OK) {
+                                successCount.incrementAndGet()
+                            } else {
+                                failCount.incrementAndGet()
+                            }
+                        } catch (e: Exception) {
                             failCount.incrementAndGet()
+                            firstException.compareAndSet(null, e)
+                        } finally {
+                            latch.countDown()
                         }
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                    } finally {
-                        latch.countDown()
                     }
                 }
-            }
 
-            val allReady = readyLatch.await(30, TimeUnit.SECONDS)
-            assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
-            startLatch.countDown()
-            val allDone = latch.await(30, TimeUnit.SECONDS)
-            assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
-            executorService.shutdown()
-            executorService.awaitTermination(10, TimeUnit.SECONDS)
+                val allReady = readyLatch.await(30, TimeUnit.SECONDS)
+                assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
+                startLatch.countDown()
+                val allDone = latch.await(30, TimeUnit.SECONDS)
+                assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
+            } finally {
+                executorService.shutdownNow()
+                executorService.awaitTermination(5, TimeUnit.SECONDS)
+            }
 
             // assert - 어드민 API로 issuedCount 확인
             val adminResponseType =
@@ -162,7 +170,9 @@ class CouponConcurrencyTest @Autowired constructor(
                 HttpEntity<Any>(adminHeaders()),
                 adminResponseType,
             )
-            val issuedCount = adminResponse.body!!.data!!.issuedCount
+            val body = requireNotNull(adminResponse.body) { "어드민 쿠폰 조회 응답 body가 null입니다" }
+            val data = requireNotNull(body.data) { "어드민 쿠폰 조회 응답 data가 null입니다" }
+            val issuedCount = data.issuedCount
 
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(totalQuantity) },

@@ -85,7 +85,9 @@ class CouponV1ApiE2ETest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
-        return response.body!!.data!!.id
+        val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
+        val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
+        return data.id
     }
 
     @Nested
@@ -176,13 +178,51 @@ class CouponV1ApiE2ETest @Autowired constructor(
         }
 
         @Test
+        @DisplayName("couponId가 0이면 400을 반환한다")
+        fun issueCoupon_couponIdZero_returns400() {
+            // arrange
+            signUp()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/coupons/0/issue",
+                HttpMethod.POST,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("couponId가 음수이면 400을 반환한다")
+        fun issueCoupon_couponIdNegative_returns400() {
+            // arrange
+            signUp()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/coupons/-1/issue",
+                HttpMethod.POST,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @Test
         @DisplayName("만료된 쿠폰 발급 시 400을 반환한다")
         fun issueCoupon_expired_returnsBadRequest() {
             // arrange
             signUp()
-            val expiredAt = ZonedDateTime.now().plusSeconds(2).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            val expiredAt = ZonedDateTime.now().plusSeconds(1).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             val couponId = createCoupon(expiredAt = expiredAt)
-            Thread.sleep(3000) // 쿠폰 만료 대기
+            Thread.sleep(1500) // 쿠폰 만료 대기
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}

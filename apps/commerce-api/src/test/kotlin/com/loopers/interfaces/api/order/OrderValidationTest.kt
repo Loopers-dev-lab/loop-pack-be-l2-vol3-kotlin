@@ -106,5 +106,23 @@ class OrderValidationTest @Autowired constructor(
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
+
+        @Test
+        @DisplayName("issuedCouponId가 0이면 400을 반환한다 (ApiSpec의 @Min(1) 동작 확인)")
+        fun createOrder_issuedCouponIdZero_returns400() {
+            // arrange
+            val request = OrderV1Dto.CreateOrderRequest(
+                items = listOf(
+                    OrderV1Dto.CreateOrderItemRequest(productId = 1L, quantity = 1),
+                ),
+                issuedCouponId = 0L,
+            )
+
+            // act
+            val response = createOrder(request)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
     }
 }

@@ -216,7 +216,7 @@ class OrderTest {
         }
 
         @Test
-        @DisplayName("할인 금액이 원가를 초과하면 예외가 발생한다")
+        @DisplayName("할인 금액이 원가를 초과하면 BAD_REQUEST 예외가 발생한다")
         fun create_excessiveDiscount_throwsException() {
             // arrange
             val items = listOf(
@@ -225,10 +225,31 @@ class OrderTest {
             // items의 원가: 10000 * 2 = 20000
             val excessiveDiscount = Money(BigDecimal("20001"))
 
-            // act & assert
-            assertThrows<IllegalArgumentException> {
-                Order.create(UserId(1L), items, excessiveDiscount)
+            // act
+            val exception = assertThrows<CoreException> {
+                Order.create(UserId(1L), items, excessiveDiscount, CouponId(1L))
             }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("할인 금액이 있으면서 쿠폰 참조가 없으면 BAD_REQUEST 예외가 발생한다")
+        fun create_discountWithoutCoupon_throwsBadRequest() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            val discount = Money(BigDecimal("1000"))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                Order.create(UserId(1L), items, discount, null)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
         @Test
@@ -241,7 +262,7 @@ class OrderTest {
             val validDiscount = Money(BigDecimal("1000"))
 
             // act
-            val order = Order.create(UserId(1L), items, validDiscount)
+            val order = Order.create(UserId(1L), items, validDiscount, CouponId(1L))
 
             // assert
             assertThat(order.discountAmount).isEqualTo(validDiscount)

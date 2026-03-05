@@ -7,6 +7,8 @@ import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.common.vo.Quantity
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
@@ -58,15 +60,24 @@ class Order private constructor(
             discountAmount: Money = Money(BigDecimal.ZERO),
             refCouponId: CouponId? = null,
         ): Order {
-            require(items.isNotEmpty()) { "주문은 최소 하나 이상의 항목을 포함해야 합니다." }
+            if (items.isEmpty()) {
+                throw CoreException(ErrorType.BAD_REQUEST, "주문은 최소 하나 이상의 항목을 포함해야 합니다.")
+            }
             val orderItems = items.map { (info, quantity) ->
                 OrderItem.create(info, quantity)
             }
             val originalPrice = orderItems.fold(Money(BigDecimal.ZERO)) { acc, item ->
                 acc + (item.productPrice * item.quantity.value)
             }
-            require(discountAmount.value >= BigDecimal.ZERO) { "할인 금액은 0 이상이어야 합니다." }
-            require(discountAmount.value <= originalPrice.value) { "할인 금액은 원래 가격을 초과할 수 없습니다." }
+            if (discountAmount.value < BigDecimal.ZERO) {
+                throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 0 이상이어야 합니다.")
+            }
+            if (discountAmount.value > originalPrice.value) {
+                throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 원래 가격을 초과할 수 없습니다.")
+            }
+            if (discountAmount.value > BigDecimal.ZERO && refCouponId == null) {
+                throw CoreException(ErrorType.BAD_REQUEST, "할인 금액이 있으면 쿠폰 참조가 필요합니다.")
+            }
             val totalPrice = originalPrice - discountAmount
             return Order(
                 refUserId = userId,

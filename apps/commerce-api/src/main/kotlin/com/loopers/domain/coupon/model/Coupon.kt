@@ -49,6 +49,10 @@ class Coupon(
     }
 
     fun calculateDiscount(orderAmount: Money): Money {
+        val minAmount = minOrderAmount
+        if (minAmount != null && orderAmount.value < minAmount.value) {
+            throw CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액 미달")
+        }
         return when (type) {
             CouponType.FIXED -> {
                 val discount = Money(BigDecimal(value))
@@ -65,7 +69,7 @@ class Coupon(
         }
     }
 
-    fun isExpired(): Boolean = expiredAt.isBefore(ZonedDateTime.now())
+    fun isExpired(): Boolean = !expiredAt.isAfter(ZonedDateTime.now())
 
     fun isDeleted(): Boolean = deletedAt != null
 

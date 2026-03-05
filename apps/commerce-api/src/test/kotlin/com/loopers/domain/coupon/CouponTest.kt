@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon
 
+import com.loopers.domain.common.vo.Money
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class CouponTest {
@@ -90,6 +92,161 @@ class CouponTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.customMessage).contains("수량")
+        }
+    }
+
+    @Nested
+    @DisplayName("isExpired 시")
+    inner class IsExpired {
+
+        @Test
+        @DisplayName("만료 시각이 현재보다 이전이면 만료로 판단한다")
+        fun isExpired_exactlyAtExpiredAt_returnsTrue() {
+            // arrange
+            val expiredAt = ZonedDateTime.now().minusNanos(1) // 현재보다 1ns 이전 = 이미 지남
+            val coupon = Coupon(
+                name = "테스트 쿠폰",
+                type = Coupon.CouponType.FIXED,
+                value = 1000L,
+                expiredAt = expiredAt,
+            )
+
+            // act
+            val result = coupon.isExpired()
+
+            // assert
+            assertThat(result).isTrue()
+        }
+    }
+
+    @Nested
+    @DisplayName("calculateDiscount 시")
+    inner class CalculateDiscount {
+
+        private fun fixedCoupon(
+            discountAmount: Long,
+            minOrderAmount: Money? = null,
+        ): Coupon = Coupon(
+            name = "고정 할인 쿠폰",
+            type = Coupon.CouponType.FIXED,
+            value = discountAmount,
+            minOrderAmount = minOrderAmount,
+            expiredAt = ZonedDateTime.now().plusDays(30),
+        )
+
+        private fun rateCoupon(
+            ratePercent: Long,
+            minOrderAmount: Money? = null,
+            maxDiscount: Money? = null,
+        ): Coupon = Coupon(
+            name = "비율 할인 쿠폰",
+            type = Coupon.CouponType.RATE,
+            value = ratePercent,
+            minOrderAmount = minOrderAmount,
+            maxDiscount = maxDiscount,
+            expiredAt = ZonedDateTime.now().plusDays(30),
+        )
+
+        @Test
+        @DisplayName("FIXED 쿠폰 — minOrderAmount 미달 시 BAD_REQUEST 예외가 발생한다")
+        fun calculateDiscount_fixed_belowMinOrderAmount_throwsBadRequest() {
+            // arrange
+            val coupon = fixedCoupon(
+                discountAmount = 1000L,
+                minOrderAmount = Money(BigDecimal("5000")),
+            )
+            val orderAmount = Money(BigDecimal("4999"))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                coupon.calculateDiscount(orderAmount)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("RATE 쿠폰 — minOrderAmount 미달 시 BAD_REQUEST 예외가 발생한다")
+        fun calculateDiscount_rate_belowMinOrderAmount_throwsBadRequest() {
+            // arrange
+            val coupon = rateCoupon(
+                ratePercent = 10L,
+                minOrderAmount = Money(BigDecimal("5000")),
+            )
+            val orderAmount = Money(BigDecimal("4999"))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                coupon.calculateDiscount(orderAmount)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("FIXED 쿠폰 — minOrderAmount와 동일한 금액이면 정상 할인을 반환한다")
+        fun calculateDiscount_fixed_exactlyMinOrderAmount_returnsDiscount() {
+            // arrange
+            val coupon = fixedCoupon(
+                discountAmount = 1000L,
+                minOrderAmount = Money(BigDecimal("5000")),
+            )
+            val orderAmount = Money(BigDecimal("5000"))
+
+            // act
+            val discount = coupon.calculateDiscount(orderAmount)
+
+            // assert
+            assertThat(discount.value).isEqualByComparingTo(BigDecimal("1000"))
+        }
+
+        @Test
+        @DisplayName("RATE 쿠폰 — minOrderAmount와 동일한 금액이면 정상 할인을 반환한다")
+        fun calculateDiscount_rate_exactlyMinOrderAmount_returnsDiscount() {
+            // arrange
+            val coupon = rateCoupon(
+                ratePercent = 10L,
+                minOrderAmount = Money(BigDecimal("5000")),
+            )
+            val orderAmount = Money(BigDecimal("5000"))
+
+            // act
+            val discount = coupon.calculateDiscount(orderAmount)
+
+            // assert
+            assertThat(discount.value).isEqualByComparingTo(BigDecimal("500"))
+        }
+
+        @Test
+        @DisplayName("FIXED 쿠폰 — minOrderAmount 초과 시 정상 할인을 반환한다")
+        fun calculateDiscount_fixed_aboveMinOrderAmount_returnsDiscount() {
+            // arrange
+            val coupon = fixedCoupon(
+                discountAmount = 1000L,
+                minOrderAmount = Money(BigDecimal("5000")),
+            )
+            val orderAmount = Money(BigDecimal("10000"))
+
+            // act
+            val discount = coupon.calculateDiscount(orderAmount)
+
+            // assert
+            assertThat(discount.value).isEqualByComparingTo(BigDecimal("1000"))
+        }
+
+        @Test
+        @DisplayName("RATE 쿠폰 — minOrderAmount 초과 시 정상 할인을 반환한다")
+        fun calculateDiscount_rate_aboveMinOrderAmount_returnsDiscount() {
+            // arrange
+            val coupon = rateCoupon(
+                ratePercent = 10L,
+                minOrderAmount = Money(BigDecimal("5000")),
+            )
+            val orderAmount = Money(BigDecimal("10000"))
+
+            // act
+            val discount = coupon.calculateDiscount(orderAmount)
+
+            // assert
+            assertThat(discount.value).isEqualByComparingTo(BigDecimal("1000"))
         }
     }
 }

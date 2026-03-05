@@ -116,11 +116,35 @@ class UpdateCouponAdminUseCaseTest {
         }
 
         @Test
-        @DisplayName("모든 필드가 null인 커맨드를 전달하면 예외가 발생한다")
-        fun updateCoupon_allNullCommand_throwsException() {
+        @DisplayName("쿠폰 타입을 FIXED에서 RATE로 변경하면 type이 RATE로 갱신된다")
+        fun updateCoupon_withTypeChange_updatesType() {
             // arrange
-            val coupon = createCoupon()
+            val coupon = createCoupon(type = Coupon.CouponType.FIXED)
+            val command = CouponCommand.UpdateCoupon(
+                name = null,
+                type = "RATE",
+                value = 10L,
+                maxDiscount = null,
+                minOrderAmount = null,
+                totalQuantity = null,
+                expiredAt = null,
+            )
 
+            // act
+            val result = useCase.execute(coupon.id.value, command)
+
+            // assert
+            assertThat(result.type).isEqualTo("RATE")
+        }
+    }
+
+    @Nested
+    @DisplayName("Command 불변식 검증 시")
+    inner class CommandValidation {
+
+        @Test
+        @DisplayName("모든 필드가 null인 커맨드를 전달하면 예외가 발생한다")
+        fun createCommand_allNull_throwsBadRequest() {
             // act & assert
             val exception = assertThrows<CoreException> {
                 CouponCommand.UpdateCoupon(

@@ -15,7 +15,7 @@ class CreateCouponAdminUseCase(
 ) {
     @Transactional
     fun execute(command: CouponCommand.CreateCoupon): CouponInfo {
-        if (command.expiredAt.isBefore(ZonedDateTime.now())) {
+        if (!command.expiredAt.isAfter(ZonedDateTime.now())) {
             throw CoreException(ErrorType.BAD_REQUEST, "만료일은 현재 시각 이후여야 합니다.")
         }
 

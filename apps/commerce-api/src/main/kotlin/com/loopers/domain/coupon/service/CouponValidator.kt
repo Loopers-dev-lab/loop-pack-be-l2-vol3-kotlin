@@ -17,6 +17,10 @@ class CouponValidator {
         userId: UserId,
         orderAmount: Money,
     ) {
+        if (issuedCoupon.refCouponId != coupon.id) {
+            throw CoreException(ErrorType.BAD_REQUEST, "발급 쿠폰과 쿠폰 정보가 일치하지 않습니다.")
+        }
+
         if (!issuedCoupon.isOwnedBy(userId)) {
             throw CoreException(ErrorType.BAD_REQUEST, "본인 소유의 쿠폰이 아닙니다.")
         }

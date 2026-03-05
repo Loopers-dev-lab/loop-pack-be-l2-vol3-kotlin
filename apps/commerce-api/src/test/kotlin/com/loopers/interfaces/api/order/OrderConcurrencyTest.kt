@@ -53,12 +53,13 @@ class OrderConcurrencyTest @Autowired constructor(
             birthDate = LocalDate.of(1990, 1, 15),
             email = "$loginId@example.com",
         )
-        testRestTemplate.exchange(
+        val response = testRestTemplate.exchange(
             "/api/v1/users/sign-up",
             HttpMethod.POST,
             HttpEntity(request),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
+        assertThat(response.statusCode.is2xxSuccessful).describedAs("회원가입 API 호출이 성공해야 합니다: ${response.statusCode}").isTrue()
     }
 
     private fun authHeaders(loginId: String): HttpHeaders {
@@ -85,6 +86,7 @@ class OrderConcurrencyTest @Autowired constructor(
             responseType,
             "나이키",
         )
+        assertThat(response.statusCode.is2xxSuccessful).describedAs("브랜드 생성 API 호출이 성공해야 합니다: ${response.statusCode}").isTrue()
         val body = requireNotNull(response.body) { "브랜드 생성 응답 body가 null입니다" }
         val data = requireNotNull(body.data) { "브랜드 생성 응답 data가 null입니다" }
         return (data["id"] as Number).toLong()
@@ -104,6 +106,7 @@ class OrderConcurrencyTest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
+        assertThat(response.statusCode.is2xxSuccessful).describedAs("상품 생성 API 호출이 성공해야 합니다: ${response.statusCode}").isTrue()
         val body = requireNotNull(response.body) { "상품 생성 응답 body가 null입니다" }
         val data = requireNotNull(body.data) { "상품 생성 응답 data가 null입니다" }
         return (data["id"] as Number).toLong()
@@ -127,6 +130,7 @@ class OrderConcurrencyTest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
+        assertThat(response.statusCode.is2xxSuccessful).describedAs("쿠폰 생성 API 호출이 성공해야 합니다: ${response.statusCode}").isTrue()
         val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
         val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
         return data.id
@@ -141,6 +145,7 @@ class OrderConcurrencyTest @Autowired constructor(
             HttpEntity<Any>(authHeaders(loginId)),
             responseType,
         )
+        assertThat(response.statusCode.is2xxSuccessful).describedAs("쿠폰 발급 API 호출이 성공해야 합니다: ${response.statusCode}").isTrue()
         val body = requireNotNull(response.body) { "쿠폰 발급 응답 body가 null입니다" }
         val data = requireNotNull(body.data) { "쿠폰 발급 응답 data가 null입니다" }
         return (data["id"] as Number).toLong()
@@ -171,48 +176,51 @@ class OrderConcurrencyTest @Autowired constructor(
             val failCount = AtomicInteger(0)
 
             // act
-            for (i in 1..concurrentRequests) {
-                executorService.submit {
-                    try {
-                        readyLatch.countDown()
-                        startLatch.await(30, TimeUnit.SECONDS)
-                        val orderRequest = OrderV1Dto.CreateOrderRequest(
-                            items = listOf(
-                                OrderV1Dto.CreateOrderItemRequest(
-                                    productId = productId,
-                                    quantity = 1,
+            try {
+                for (i in 1..concurrentRequests) {
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            startLatch.await(30, TimeUnit.SECONDS)
+                            val orderRequest = OrderV1Dto.CreateOrderRequest(
+                                items = listOf(
+                                    OrderV1Dto.CreateOrderItemRequest(
+                                        productId = productId,
+                                        quantity = 1,
+                                    ),
                                 ),
-                            ),
-                            issuedCouponId = issuedCouponId,
-                        )
-                        val responseType =
-                            object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-                        val response = testRestTemplate.exchange(
-                            "/api/v1/orders",
-                            HttpMethod.POST,
-                            HttpEntity(orderRequest, authHeaders(loginId)),
-                            responseType,
-                        )
-                        if (response.statusCode == HttpStatus.OK) {
-                            successCount.incrementAndGet()
-                        } else {
+                                issuedCouponId = issuedCouponId,
+                            )
+                            val responseType =
+                                object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+                            val response = testRestTemplate.exchange(
+                                "/api/v1/orders",
+                                HttpMethod.POST,
+                                HttpEntity(orderRequest, authHeaders(loginId)),
+                                responseType,
+                            )
+                            if (response.statusCode == HttpStatus.OK) {
+                                successCount.incrementAndGet()
+                            } else {
+                                failCount.incrementAndGet()
+                            }
+                        } catch (e: Exception) {
                             failCount.incrementAndGet()
+                        } finally {
+                            latch.countDown()
                         }
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                    } finally {
-                        latch.countDown()
                     }
                 }
-            }
 
-            val allReady = readyLatch.await(30, TimeUnit.SECONDS)
-            assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
-            startLatch.countDown()
-            val allDone = latch.await(30, TimeUnit.SECONDS)
-            assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
-            executorService.shutdown()
-            executorService.awaitTermination(10, TimeUnit.SECONDS)
+                val allReady = readyLatch.await(30, TimeUnit.SECONDS)
+                assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
+                startLatch.countDown()
+                val allDone = latch.await(30, TimeUnit.SECONDS)
+                assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
+            } finally {
+                executorService.shutdownNow()
+                executorService.awaitTermination(5, TimeUnit.SECONDS)
+            }
 
             // assert
             assertAll(
@@ -248,47 +256,50 @@ class OrderConcurrencyTest @Autowired constructor(
             val failCount = AtomicInteger(0)
 
             // act
-            for (i in 1..concurrentUsers) {
-                executorService.submit {
-                    try {
-                        readyLatch.countDown()
-                        startLatch.await(30, TimeUnit.SECONDS)
-                        val orderRequest = OrderV1Dto.CreateOrderRequest(
-                            items = listOf(
-                                OrderV1Dto.CreateOrderItemRequest(
-                                    productId = productId,
-                                    quantity = 1,
+            try {
+                for (i in 1..concurrentUsers) {
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            startLatch.await(30, TimeUnit.SECONDS)
+                            val orderRequest = OrderV1Dto.CreateOrderRequest(
+                                items = listOf(
+                                    OrderV1Dto.CreateOrderItemRequest(
+                                        productId = productId,
+                                        quantity = 1,
+                                    ),
                                 ),
-                            ),
-                        )
-                        val responseType =
-                            object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-                        val response = testRestTemplate.exchange(
-                            "/api/v1/orders",
-                            HttpMethod.POST,
-                            HttpEntity(orderRequest, authHeaders("stockuser$i")),
-                            responseType,
-                        )
-                        if (response.statusCode == HttpStatus.OK) {
-                            successCount.incrementAndGet()
-                        } else {
+                            )
+                            val responseType =
+                                object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+                            val response = testRestTemplate.exchange(
+                                "/api/v1/orders",
+                                HttpMethod.POST,
+                                HttpEntity(orderRequest, authHeaders("stockuser$i")),
+                                responseType,
+                            )
+                            if (response.statusCode == HttpStatus.OK) {
+                                successCount.incrementAndGet()
+                            } else {
+                                failCount.incrementAndGet()
+                            }
+                        } catch (e: Exception) {
                             failCount.incrementAndGet()
+                        } finally {
+                            latch.countDown()
                         }
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                    } finally {
-                        latch.countDown()
                     }
                 }
-            }
 
-            val allReady = readyLatch.await(30, TimeUnit.SECONDS)
-            assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
-            startLatch.countDown()
-            val allDone = latch.await(30, TimeUnit.SECONDS)
-            assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
-            executorService.shutdown()
-            executorService.awaitTermination(10, TimeUnit.SECONDS)
+                val allReady = readyLatch.await(30, TimeUnit.SECONDS)
+                assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
+                startLatch.countDown()
+                val allDone = latch.await(30, TimeUnit.SECONDS)
+                assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
+            } finally {
+                executorService.shutdownNow()
+                executorService.awaitTermination(5, TimeUnit.SECONDS)
+            }
 
             // assert - 어드민 API로 최종 재고 확인
             val adminResponseType =
@@ -305,9 +316,9 @@ class OrderConcurrencyTest @Autowired constructor(
 
             assertAll(
                 { assertThat(successCount.get() + failCount.get()).isEqualTo(concurrentUsers) },
-                { assertThat(successCount.get()).isLessThanOrEqualTo(stock) },
-                { assertThat(remainingStock).isGreaterThanOrEqualTo(0) },
-                { assertThat(remainingStock).isEqualTo(stock - successCount.get()) },
+                { assertThat(successCount.get()).isEqualTo(stock) },
+                { assertThat(failCount.get()).isEqualTo(concurrentUsers - stock) },
+                { assertThat(remainingStock).isEqualTo(0) },
             )
         }
     }

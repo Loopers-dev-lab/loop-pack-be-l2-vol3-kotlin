@@ -141,5 +141,28 @@ class CreateCouponAdminUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
+
+        @Test
+        @DisplayName("만료 시각이 현재보다 1나노초 이전이면 BAD_REQUEST 예외가 발생한다")
+        fun createCoupon_expiryJustBeforeNow_throwsBadRequest() {
+            // arrange
+            val command = CouponCommand.CreateCoupon(
+                name = "경계만료 쿠폰",
+                type = "FIXED",
+                value = 1000L,
+                maxDiscount = null,
+                minOrderAmount = null,
+                totalQuantity = null,
+                expiredAt = ZonedDateTime.now().minusNanos(1),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
     }
 }

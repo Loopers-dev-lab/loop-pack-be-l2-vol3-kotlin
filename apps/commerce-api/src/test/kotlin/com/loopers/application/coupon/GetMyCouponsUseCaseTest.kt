@@ -69,7 +69,29 @@ class GetMyCouponsUseCaseTest {
             assertThat(result).hasSize(2)
             val names = result.map { it.couponName }
             assertThat(names).containsExactlyInAnyOrder("할인쿠폰A", "할인쿠폰B")
-            assertThat(result[0].status).isEqualTo("AVAILABLE")
+            assertThat(result).allMatch { it.status == "AVAILABLE" }
+        }
+
+        @Test
+        @DisplayName("AVAILABLE과 USED 상태의 쿠폰이 혼합되어 있으면 각각의 상태가 정확히 반환된다")
+        fun execute_mixedStatus_returnsBothStatusesCorrectly() {
+            // arrange
+            val coupon1 = createCoupon("할인쿠폰A")
+            val coupon2 = createCoupon("할인쿠폰B")
+            val userId = 1L
+            val issuedCoupon1 = createIssuedCoupon(coupon1.id, userId)
+            createIssuedCoupon(coupon2.id, userId)
+            issuedCoupon1.use()
+            issuedCouponRepository.save(issuedCoupon1)
+
+            // act
+            val result = getMyCouponsUseCase.execute(userId)
+
+            // assert
+            assertThat(result).hasSize(2)
+            val statusMap = result.associate { it.couponName to it.status }
+            assertThat(statusMap["할인쿠폰A"]).isEqualTo("USED")
+            assertThat(statusMap["할인쿠폰B"]).isEqualTo("AVAILABLE")
         }
 
         @Test

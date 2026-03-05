@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.jupiter.api.Timeout
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -125,38 +126,46 @@ class LikeConcurrencyTest @Autowired constructor(
             val latch = CountDownLatch(concurrentUsers)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
+            val firstException = AtomicReference<Exception>()
 
             // act
-            for (i in 1..concurrentUsers) {
-                executorService.submit {
-                    try {
-                        readyLatch.countDown()
-                        startLatch.await(30, TimeUnit.SECONDS)
-                        val responseType =
-                            object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-                        val response = testRestTemplate.exchange(
-                            "/api/v1/products/$productId/likes",
-                            HttpMethod.POST,
-                            HttpEntity<Any>(authHeaders("likeuser$i")),
-                            responseType,
-                        )
-                        if (response.statusCode == HttpStatus.OK) {
-                            successCount.incrementAndGet()
-                        } else {
+            try {
+                for (i in 1..concurrentUsers) {
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            startLatch.await(30, TimeUnit.SECONDS)
+                            val responseType =
+                                object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+                            val response = testRestTemplate.exchange(
+                                "/api/v1/products/$productId/likes",
+                                HttpMethod.POST,
+                                HttpEntity<Any>(authHeaders("likeuser$i")),
+                                responseType,
+                            )
+                            if (response.statusCode == HttpStatus.OK) {
+                                successCount.incrementAndGet()
+                            } else {
+                                failCount.incrementAndGet()
+                            }
+                        } catch (e: Exception) {
                             failCount.incrementAndGet()
+                            firstException.compareAndSet(null, e)
+                        } finally {
+                            latch.countDown()
                         }
-                    } catch (e: Exception) {
-                        failCount.incrementAndGet()
-                    } finally {
-                        latch.countDown()
                     }
                 }
-            }
 
-            readyLatch.await(30, TimeUnit.SECONDS)
-            startLatch.countDown()
-            latch.await(30, TimeUnit.SECONDS)
-            executorService.shutdown()
+                val allReady = readyLatch.await(30, TimeUnit.SECONDS)
+                assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
+                startLatch.countDown()
+                val allDone = latch.await(30, TimeUnit.SECONDS)
+                assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
+            } finally {
+                executorService.shutdownNow()
+                executorService.awaitTermination(5, TimeUnit.SECONDS)
+            }
 
             // assert - 어드민 API로 likeCount 확인
             val adminProductType =

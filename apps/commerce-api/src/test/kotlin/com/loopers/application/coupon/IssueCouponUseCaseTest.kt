@@ -65,7 +65,7 @@ class IssueCouponUseCaseTest {
             assertThat(result.userId).isEqualTo(userId)
             assertThat(result.status).isEqualTo("AVAILABLE")
 
-            val updatedCoupon = couponRepository.findById(coupon.id)!!
+            val updatedCoupon = requireNotNull(couponRepository.findById(coupon.id)) { "발급 후 쿠폰이 존재해야 합니다" }
             assertThat(updatedCoupon.issuedCount).isEqualTo(1)
         }
 

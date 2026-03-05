@@ -139,7 +139,8 @@ class ApiControllerAdvice {
 
     @ExceptionHandler
     fun handleConflict(e: DataIntegrityViolationException): ResponseEntity<ApiResponse<*>> {
-        log.warn("DataIntegrityViolation : {}", e.message)
+        log.warn("DataIntegrityViolation 발생")
+        log.debug("DataIntegrityViolation 상세", e)
         return failureResponse(errorType = ErrorType.CONFLICT)
     }
 

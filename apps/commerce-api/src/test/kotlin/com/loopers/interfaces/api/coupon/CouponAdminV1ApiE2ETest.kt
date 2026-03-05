@@ -98,7 +98,9 @@ class CouponAdminV1ApiE2ETest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
-        return response.body!!.data!!.id
+        val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
+        val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
+        return data.id
     }
 
     @Nested
