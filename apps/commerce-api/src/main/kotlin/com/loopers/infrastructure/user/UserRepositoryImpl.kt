@@ -20,4 +20,8 @@ class UserRepositoryImpl(
     override fun save(user: UserModel): UserModel {
         return userJpaRepository.save(user)
     }
+
+    override fun flush() {
+        userJpaRepository.flush()
+    }
 }

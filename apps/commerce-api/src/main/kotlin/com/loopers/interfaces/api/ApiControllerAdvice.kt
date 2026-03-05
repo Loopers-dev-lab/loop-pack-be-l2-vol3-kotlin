@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MissingRequestHeaderException
@@ -116,6 +117,15 @@ class ApiControllerAdvice {
         } else {
             failureResponse(errorType = ErrorType.BAD_REQUEST)
         }
+    }
+
+    @ExceptionHandler
+    fun handleOptimisticLock(e: OptimisticLockingFailureException): ResponseEntity<ApiResponse<*>> {
+        log.warn("OptimisticLockingFailureException : {}", e.message, e)
+        return failureResponse(
+            errorType = ErrorType.CONFLICT,
+            errorMessage = "다른 관리자가 이미 수정했습니다. 새로고침 후 다시 시도해주세요.",
+        )
     }
 
     @ExceptionHandler

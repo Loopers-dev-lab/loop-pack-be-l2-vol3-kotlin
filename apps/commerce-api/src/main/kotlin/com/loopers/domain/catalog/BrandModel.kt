@@ -5,6 +5,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 
 @Entity
 @Table(name = "brands")
@@ -20,6 +21,10 @@ class BrandModel(
         protected set
 
     var logoUrl: String? = logoUrl
+        protected set
+
+    @Version
+    var version: Long = 0
         protected set
 
     init {
