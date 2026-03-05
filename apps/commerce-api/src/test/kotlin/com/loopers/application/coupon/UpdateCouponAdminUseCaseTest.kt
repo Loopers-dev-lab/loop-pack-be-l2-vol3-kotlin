@@ -55,7 +55,7 @@ class UpdateCouponAdminUseCaseTest {
                 maxDiscount = null,
                 minOrderAmount = null,
                 totalQuantity = null,
-                expiredAt = "2099-12-31T23:59:59+09:00",
+                expiredAt = ZonedDateTime.parse("2099-12-31T23:59:59+09:00"),
             )
 
             // act
@@ -133,30 +133,6 @@ class UpdateCouponAdminUseCaseTest {
                     expiredAt = null,
                 )
             }
-        }
-
-        @Test
-        @DisplayName("유효하지 않은 만료일 형식이면 BAD_REQUEST 예외가 발생한다")
-        fun updateCoupon_invalidExpiredAt_throwsBadRequest() {
-            // arrange
-            val coupon = createCoupon()
-            val command = CouponCommand.UpdateCoupon(
-                name = null,
-                type = null,
-                value = null,
-                maxDiscount = null,
-                minOrderAmount = null,
-                totalQuantity = null,
-                expiredAt = "invalid-date",
-            )
-
-            // act
-            val exception = assertThrows<CoreException> {
-                useCase.execute(coupon.id.value, command)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

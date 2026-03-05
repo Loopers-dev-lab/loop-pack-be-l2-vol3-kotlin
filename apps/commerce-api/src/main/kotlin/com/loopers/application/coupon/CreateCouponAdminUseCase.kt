@@ -7,7 +7,6 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.ZonedDateTime
 
 @Component
 class CreateCouponAdminUseCase(
@@ -25,7 +24,7 @@ class CreateCouponAdminUseCase(
             maxDiscount = command.maxDiscount?.let { Money(it) },
             minOrderAmount = command.minOrderAmount?.let { Money(it) },
             totalQuantity = command.totalQuantity,
-            expiredAt = ZonedDateTime.parse(command.expiredAt),
+            expiredAt = command.expiredAt,
         )
         val saved = couponRepository.save(coupon)
         return CouponInfo.from(saved)

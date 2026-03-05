@@ -1,8 +1,9 @@
 package com.loopers.application.coupon
 
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
-object CouponCommand {
+class CouponCommand {
     data class CreateCoupon(
         val name: String,
         val type: String,
@@ -10,7 +11,7 @@ object CouponCommand {
         val maxDiscount: BigDecimal?,
         val minOrderAmount: BigDecimal?,
         val totalQuantity: Int?,
-        val expiredAt: String,
+        val expiredAt: ZonedDateTime,
     )
 
     data class UpdateCoupon(
@@ -20,7 +21,7 @@ object CouponCommand {
         val maxDiscount: BigDecimal?,
         val minOrderAmount: BigDecimal?,
         val totalQuantity: Int?,
-        val expiredAt: String?,
+        val expiredAt: ZonedDateTime?,
     ) {
         init {
             require(

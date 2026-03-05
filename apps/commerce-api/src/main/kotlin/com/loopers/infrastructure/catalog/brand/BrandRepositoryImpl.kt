@@ -4,8 +4,8 @@ import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.repository.BrandRepository
 import com.loopers.domain.common.vo.BrandId
+import com.loopers.infrastructure.support.defaultPageRequest
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
@@ -29,7 +29,7 @@ class BrandRepositoryImpl(
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Brand> {
-        val pageable = PageRequest.of(page, size)
+        val pageable = defaultPageRequest(page, size)
         val result = brandJpaRepository.findAllByDeletedAtIsNull(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }

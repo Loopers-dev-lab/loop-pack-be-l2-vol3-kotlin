@@ -183,7 +183,7 @@ class OrderConcurrencyTest @Autowired constructor(
                                     quantity = 1,
                                 ),
                             ),
-                            couponId = issuedCouponId,
+                            issuedCouponId = issuedCouponId,
                         )
                         val responseType =
                             object : ParameterizedTypeReference<ApiResponse<Any>>() {}

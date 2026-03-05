@@ -35,14 +35,11 @@ class Coupon(
         RATE,
     }
 
-    fun canIssue(): Boolean =
-        !isExpired() && (totalQuantity == null || issuedCount < totalQuantity!!)
-
     fun issue() {
         if (isExpired()) {
             throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
         }
-        if (totalQuantity != null && issuedCount >= totalQuantity!!) {
+        if (totalQuantity != null && issuedCount >= totalQuantity) {
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 발급 수량이 초과되었습니다.")
         }
         issuedCount++
@@ -106,13 +103,13 @@ class Coupon(
         if (type == CouponType.RATE && (value < 1 || value > 100)) {
             throw CoreException(ErrorType.BAD_REQUEST, "할인율은 1~100 사이여야 합니다.")
         }
-        if (totalQuantity != null && totalQuantity!! <= 0) {
+        if (totalQuantity != null && totalQuantity <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "총 수량은 0보다 커야 합니다.")
         }
         if (issuedCount < 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "발급 수량은 0 이상이어야 합니다.")
         }
-        if (totalQuantity != null && issuedCount > totalQuantity!!) {
+        if (totalQuantity != null && issuedCount > totalQuantity) {
             throw CoreException(ErrorType.BAD_REQUEST, "발급 수량이 총 수량을 초과할 수 없습니다.")
         }
     }

@@ -162,61 +162,6 @@ class CouponTest {
     }
 
     @Nested
-    @DisplayName("canIssue 확인 시")
-    inner class CanIssue {
-
-        @Test
-        @DisplayName("수량 잔여, 미만료, 미삭제 쿠폰은 true를 반환한다")
-        fun canIssue_available_returnsTrue() {
-            // arrange
-            val coupon = fixedCoupon(totalQuantity = 10, issuedCount = 5)
-
-            // assert
-            assertThat(coupon.canIssue()).isTrue()
-        }
-
-        @Test
-        @DisplayName("만료된 쿠폰은 false를 반환한다")
-        fun canIssue_expired_returnsFalse() {
-            // arrange
-            val coupon = fixedCoupon(expiredAt = ZonedDateTime.now().minusDays(1))
-
-            // assert
-            assertThat(coupon.canIssue()).isFalse()
-        }
-
-        @Test
-        @DisplayName("삭제된 쿠폰도 canIssue는 true를 반환한다 (삭제 검증은 UseCase 책임)")
-        fun canIssue_deleted_returnsTrue() {
-            // arrange
-            val coupon = fixedCoupon(deletedAt = ZonedDateTime.now().minusDays(1))
-
-            // assert
-            assertThat(coupon.canIssue()).isTrue()
-        }
-
-        @Test
-        @DisplayName("수량이 소진된 쿠폰은 false를 반환한다")
-        fun canIssue_quantityExhausted_returnsFalse() {
-            // arrange
-            val coupon = fixedCoupon(totalQuantity = 5, issuedCount = 5)
-
-            // assert
-            assertThat(coupon.canIssue()).isFalse()
-        }
-
-        @Test
-        @DisplayName("totalQuantity가 null(무제한)이면 수량에 관계없이 true를 반환한다")
-        fun canIssue_unlimitedQuantity_returnsTrue() {
-            // arrange
-            val coupon = fixedCoupon(totalQuantity = null, issuedCount = 9999)
-
-            // assert
-            assertThat(coupon.canIssue()).isTrue()
-        }
-    }
-
-    @Nested
     @DisplayName("issue 호출 시")
     inner class Issue {
 

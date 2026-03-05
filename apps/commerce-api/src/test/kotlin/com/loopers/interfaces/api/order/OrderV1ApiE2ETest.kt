@@ -379,7 +379,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             val orderRequest = OrderV1Dto.CreateOrderRequest(
                 items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
-                couponId = issuedCouponId,
+                issuedCouponId = issuedCouponId,
             )
 
             // act
@@ -397,7 +397,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.originalPrice).isEqualByComparingTo(BigDecimal("129000")) },
                 { assertThat(response.body?.data?.discountAmount).isEqualByComparingTo(BigDecimal("5000")) },
                 { assertThat(response.body?.data?.totalPrice).isEqualByComparingTo(BigDecimal("124000")) },
-                { assertThat(response.body?.data?.couponId).isEqualTo(issuedCouponId) },
+                { assertThat(response.body?.data?.couponId).isEqualTo(couponId) },
             )
 
             // 쿠폰 USED 상태 확인
@@ -460,7 +460,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             // user2가 user1의 쿠폰으로 주문 시도
             val orderRequest = OrderV1Dto.CreateOrderRequest(
                 items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
-                couponId = issuedCouponId,
+                issuedCouponId = issuedCouponId,
             )
 
             // act
@@ -489,7 +489,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             // 첫 번째 주문으로 쿠폰 사용
             val firstOrder = OrderV1Dto.CreateOrderRequest(
                 items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
-                couponId = issuedCouponId,
+                issuedCouponId = issuedCouponId,
             )
             testRestTemplate.exchange(
                 "/api/v1/orders",
@@ -501,7 +501,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             // act - 동일 쿠폰으로 두 번째 주문 시도
             val secondOrder = OrderV1Dto.CreateOrderRequest(
                 items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 1)),
-                couponId = issuedCouponId,
+                issuedCouponId = issuedCouponId,
             )
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
             val response = testRestTemplate.exchange(

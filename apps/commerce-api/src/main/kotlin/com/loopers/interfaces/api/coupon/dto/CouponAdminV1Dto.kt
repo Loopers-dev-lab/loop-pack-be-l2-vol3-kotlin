@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 class CouponAdminV1Dto {
 
@@ -34,7 +35,7 @@ class CouponAdminV1Dto {
                 maxDiscount = maxDiscount,
                 minOrderAmount = minOrderAmount,
                 totalQuantity = totalQuantity,
-                expiredAt = expiredAt,
+                expiredAt = ZonedDateTime.parse(expiredAt),
             )
         }
     }
@@ -60,7 +61,7 @@ class CouponAdminV1Dto {
                 maxDiscount = maxDiscount,
                 minOrderAmount = minOrderAmount,
                 totalQuantity = totalQuantity,
-                expiredAt = expiredAt,
+                expiredAt = expiredAt?.let { ZonedDateTime.parse(it) },
             )
         }
     }

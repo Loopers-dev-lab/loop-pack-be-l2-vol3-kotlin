@@ -16,11 +16,12 @@ class OrderItem private constructor(
     val productPrice: Money,
     val quantity: Quantity,
     refOrderId: OrderId,
+    status: ItemStatus,
 ) {
     var refOrderId: OrderId = refOrderId
         private set
 
-    var status: ItemStatus = ItemStatus.ACTIVE
+    var status: ItemStatus = status
         private set
 
     @AggregateRootOnly
@@ -49,6 +50,7 @@ class OrderItem private constructor(
                 productName = product.name,
                 productPrice = product.price,
                 quantity = quantity,
+                status = ItemStatus.ACTIVE,
             )
         }
 
@@ -68,9 +70,8 @@ class OrderItem private constructor(
                 productName = productName,
                 productPrice = productPrice,
                 quantity = quantity,
-            ).also {
-                it.status = status
-            }
+                status = status,
+            )
         }
     }
 }

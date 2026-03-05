@@ -8,7 +8,6 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.ZonedDateTime
 
 @Component
 class UpdateCouponAdminUseCase(
@@ -34,13 +33,7 @@ class UpdateCouponAdminUseCase(
             maxDiscount = if (command.maxDiscount != null) Money(command.maxDiscount) else coupon.maxDiscount,
             minOrderAmount = if (command.minOrderAmount != null) Money(command.minOrderAmount) else coupon.minOrderAmount,
             totalQuantity = command.totalQuantity ?: coupon.totalQuantity,
-            expiredAt = command.expiredAt?.let {
-                try {
-                    ZonedDateTime.parse(it)
-                } catch (e: Exception) {
-                    throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 만료일 형식입니다: $it")
-                }
-            } ?: coupon.expiredAt,
+            expiredAt = command.expiredAt ?: coupon.expiredAt,
         )
 
         val saved = couponRepository.save(updated)

@@ -3,6 +3,7 @@ package com.loopers.application.coupon
 import com.loopers.domain.coupon.FakeCouponRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import java.time.ZonedDateTime
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -36,7 +37,7 @@ class CreateCouponAdminUseCaseTest {
                 maxDiscount = null,
                 minOrderAmount = null,
                 totalQuantity = 100,
-                expiredAt = "2099-12-31T23:59:59+09:00",
+                expiredAt = ZonedDateTime.parse("2099-12-31T23:59:59+09:00"),
             )
 
             // act
@@ -60,7 +61,7 @@ class CreateCouponAdminUseCaseTest {
                 maxDiscount = null,
                 minOrderAmount = null,
                 totalQuantity = null,
-                expiredAt = "2099-12-31T23:59:59+09:00",
+                expiredAt = ZonedDateTime.parse("2099-12-31T23:59:59+09:00"),
             )
 
             // act
