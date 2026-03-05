@@ -29,6 +29,12 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     INVALID_MONEY(HttpStatus.BAD_REQUEST, "INVALID_MONEY", "금액이 유효하지 않습니다."),
     INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "INVALID_QUANTITY", "수량이 유효하지 않습니다."),
 
+    /** Order 도메인 */
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
+    ORDER_INVALID_ITEMS(HttpStatus.BAD_REQUEST, "ORDER_INVALID_ITEMS", "주문 항목이 비어있습니다."),
+    ORDER_INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "ORDER_INVALID_IDEMPOTENCY_KEY", "멱등성 키가 유효하지 않습니다."),
+    ORDER_IDEMPOTENCY_KEY_DUPLICATE(HttpStatus.CONFLICT, "ORDER_IDEMPOTENCY_KEY_DUPLICATE", "이미 처리된 주문 요청입니다."),
+
     /** User 도메인 */
     USER_DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "USER_DUPLICATE_LOGIN_ID", "이미 사용 중인 로그인 ID입니다."),
     USER_INVALID_LOGIN_ID(HttpStatus.BAD_REQUEST, "USER_INVALID_LOGIN_ID", "로그인 ID는 영문 대소문자와 숫자만 사용할 수 있습니다."),
