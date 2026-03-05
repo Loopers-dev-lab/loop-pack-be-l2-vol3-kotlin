@@ -234,12 +234,164 @@ sequenceDiagram
 - **충돌 시**: `ObjectOptimisticLockingFailureException` → 트랜잭션 전체 롤백 (주문도 함께 롤백)
 - **재시도 불필요**: 충돌 = 이미 다른 요청이 사용 완료 → 실패가 올바른 결과
 
-### 4. 왜 재고에 원자적 SQL을 쓰지 않는가?
-- `UPDATE product_stocks SET quantity = quantity - :qty WHERE product_id = :productId AND quantity >= :qty` → `affected rows = 0`이면 재고 부족으로 예외 발생
-- **기술적으로는 동작한다**: native `@Modifying` 쿼리도 Spring `@Transactional` 내에서 실행되므로 롤백 시 함께 롤백됨. 원자적 SQL이 "트랜잭션에 참여하지 않는다"는 것은 JPA 엔티티 상태 관리(1차 캐시, dirty checking)를 우회한다는 의미이지, DB 트랜잭션 자체를 우회하는 것은 아님
-- **그럼에도 비관적 락을 선택한 이유**: 재고 비즈니스 룰이 SQL로 이동함. 현재는 `quantity >= :qty` 하나지만, 예약 재고(reserved stock), 사용자별 구매 제한, 번들 재고 등 요구사항이 추가되면 모든 룰이 SQL에서 관리되어야 함. 도메인 모델(`ProductStock.decrement()`)에 룰을 두면 단위 테스트만으로 검증 가능하지만, SQL에 두면 항상 DB 연동 통합 테스트가 필요
-- **Product/Stock 분리가 원자적 SQL을 선택지로 만들었다**: 분리 전에는 `products` 행에 stock이 있어 원자적 SQL로 재고만 차감해도 좋아요 카운트 등 다른 컬럼과 동일 행에서 충돌 가능. 분리 후 `product_stocks`는 `quantity` 하나만 관리하므로 원자적 SQL이 기술적으로 깔끔하게 적용 가능. 즉, **느슨한 결합이 전략 선택의 자유도를 높인 사례**
-- **결론**: 현재 요구사항만 보면 원자적 SQL도 충분하지만, 재고 도메인의 확장 가능성을 고려해 비즈니스 룰을 도메인 모델에 유지하는 비관적 락을 선택
+### 4. 재고 차감: 비관적 락 vs 원자적 SQL 코드 비교
+
+#### A. 현재 구현 — 비관적 락 (채택)
+
+```kotlin
+// Domain Model — 비즈니스 룰 소유
+class ProductStock(productId: Long, quantity: Int, val id: Long = 0L) {
+    var quantity: Int = quantity; private set
+
+    val isSoldOut: Boolean get() = quantity == 0
+
+    fun validate(qty: Int) {
+        if (qty <= 0) throw CoreException(BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
+        if (quantity < qty) throw CoreException(BAD_REQUEST, "재고가 부족합니다. 현재 재고: $quantity, 요청 수량: $qty")
+    }
+
+    fun decrement(qty: Int) {
+        if (qty <= 0) throw CoreException(BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
+        if (quantity - qty < 0) throw CoreException(BAD_REQUEST, "재고가 부족합니다. 현재 재고: $quantity, 요청 수량: $qty")
+        this.quantity -= qty
+    }
+}
+
+// Service — SELECT ... FOR UPDATE → 도메인 모델에서 차감
+@Service
+class ProductStockService(private val productStockRepository: ProductStockRepository) {
+    @Transactional
+    fun decrementStock(productId: Long, quantity: Int): ProductStock {
+        val stock = productStockRepository.findByProductIdForUpdate(productId)  // PESSIMISTIC_WRITE
+            ?: throw CoreException(NOT_FOUND, "재고 정보가 존재하지 않습니다.")
+        stock.decrement(quantity)           // 비즈니스 룰은 도메인 모델이 소유
+        return productStockRepository.save(stock)
+    }
+}
+
+// Repository — EntityManager.refresh로 행 잠금 획득
+class ProductStockRepositoryImpl(...) : ProductStockRepository {
+    override fun findByProductIdForUpdate(productId: Long): ProductStock? {
+        val entity = productStockJpaRepository.findByProductId(productId) ?: return null
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE)  // SELECT ... FOR UPDATE
+        return entity.toDomain()
+    }
+}
+
+// Facade 호출
+val updatedStock = productStockService.decrementStock(item.productId, item.quantity)
+if (updatedStock.isSoldOut) {
+    productService.updateStockStatus(item.productId, 0)
+}
+```
+
+**장점:**
+- 비즈니스 룰(`validate`, `decrement`, `isSoldOut`)이 도메인 모델에 집중 → **단위 테스트만으로 검증 가능**
+- 요구사항 확장 시(예약 재고, 구매 제한, 번들 재고) 도메인 모델에 메서드 추가로 대응
+- `decrement()` 후 결과(`isSoldOut`)를 즉시 사용 가능 → 상태 전이 오케스트레이션 자연스러움
+- JPA 영속성 컨텍스트와 일관 — dirty checking, 트랜잭션 롤백이 투명하게 동작
+
+**단점:**
+- `SELECT ... FOR UPDATE` → 동시 요청이 직렬 대기 (처리량 제한)
+- 다중 상품 주문 시 데드락 가능 → `productId` 오름차순 정렬로 해결 필요
+- `EntityManager` 의존 — infrastructure 레이어에 JPA 구현 상세가 노출
+
+---
+
+#### B. 대안 — 원자적 SQL (미채택)
+
+```kotlin
+// JpaRepository — 비즈니스 룰이 SQL에 존재
+interface ProductStockJpaRepository : JpaRepository<ProductStockEntity, Long> {
+    fun findByProductId(productId: Long): ProductStockEntity?
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+        UPDATE product_stocks
+        SET quantity = quantity - :qty
+        WHERE product_id = :productId AND quantity >= :qty
+    """, nativeQuery = true)
+    fun decrementStock(productId: Long, qty: Int): Int  // affected rows
+}
+
+// Service — SQL 결과(affected rows)로 성공/실패 판단
+@Service
+class ProductStockService(private val productStockRepository: ProductStockRepository) {
+    @Transactional
+    fun decrementStock(productId: Long, quantity: Int): ProductStock {
+        val affected = productStockRepository.decrementStockAtomic(productId, quantity)
+        if (affected == 0) {
+            throw CoreException(BAD_REQUEST, "재고가 부족합니다.")
+        }
+        return productStockRepository.findByProductId(productId)!!  // 차감 후 결과를 다시 조회
+    }
+}
+
+// Repository — EntityManager 불필요
+class ProductStockRepositoryImpl(...) : ProductStockRepository {
+    override fun decrementStockAtomic(productId: Long, qty: Int): Int =
+        productStockJpaRepository.decrementStock(productId, qty)
+    // findByProductIdForUpdate() 제거
+    // EntityManager 의존 제거
+}
+
+// Facade 호출 — 동일
+val updatedStock = productStockService.decrementStock(item.productId, item.quantity)
+if (updatedStock.isSoldOut) {
+    productService.updateStockStatus(item.productId, 0)
+}
+```
+
+**장점:**
+- 잠금 대기 없음 → **높은 처리량** (플래시 세일 등 고경합 시나리오에 유리)
+- 데드락 불가 — 단일 UPDATE 문이므로 정렬 불필요
+- `EntityManager` 의존 제거 → infrastructure 레이어 단순화
+- Product/Stock 분리 덕분에 `product_stocks`는 `quantity`만 관리 → 원자적 SQL이 깔끔하게 적용 가능
+
+**단점:**
+- 비즈니스 룰(`quantity >= :qty`)이 SQL에 존재 → **단위 테스트 불가, 통합 테스트 필수**
+- 차감 후 결과를 알려면 **추가 SELECT 필요** (`affected rows`만으로는 남은 수량을 알 수 없음)
+- 요구사항 확장 시(예약 재고, 구매 제한 등) **모든 룰이 SQL에서 관리되어야 함**
+- JPA 영속성 컨텍스트 우회 → `clearAutomatically = true` 필요, 1차 캐시 무효화
+
+---
+
+#### 결론
+
+| 기준 | 비관적 락 (채택) | 원자적 SQL (미채택) |
+|---|---|---|
+| 비즈니스 룰 위치 | 도메인 모델 (`ProductStock`) | SQL (`WHERE quantity >= :qty`) |
+| 단위 테스트 | ✅ 가능 | ❌ 불가 (DB 필요) |
+| 처리량 | 직렬 대기 (소-중규모 충분) | 높음 (고경합 유리) |
+| 데드락 | 가능 (정렬로 해결) | 불가 |
+| 확장성 | 도메인 메서드 추가 | SQL 수정 필요 |
+| 차감 후 결과 | 즉시 사용 가능 | 추가 SELECT 필요 |
+
+- **기술적으로 둘 다 동작한다**: native `@Modifying` 쿼리도 Spring `@Transactional` 내에서 실행되므로 롤백 시 함께 롤백됨
+- **Product/Stock 분리가 원자적 SQL을 선택지로 만들었다**: 분리 전에는 `products` 행에 stock이 있어 다른 컬럼과 충돌 가능. 분리 후 `product_stocks`는 `quantity`만 관리하므로 원자적 SQL이 깔끔하게 적용 가능. 즉, **느슨한 결합이 전략 선택의 자유도를 높인 사례**
+- **현재 선택**: 재고 도메인의 확장 가능성을 고려해 비즈니스 룰을 도메인 모델에 유지하는 비관적 락 채택. 성능 병목 발생 시 원자적 SQL로 전환 비용이 낮음 (Stock 도메인만 변경)
+
+#### 성능 차이 추정 — 락 보유 시간
+
+`OrderFacade.placeOrder()` 흐름에서 비관적 락은 Step 3(재고 차감)에서 획득 → Step 7(쿠폰 사용) 이후 COMMIT까지 보유. 원자적 SQL은 UPDATE 문 실행 동안만 DB 내부 행 잠금.
+
+```
+Step 3. 재고 차감 ← 비관적 락 획득 / 원자적 SQL 실행+해제
+Step 4. 브랜드 조회 + 스냅샷 생성
+Step 5. 쿠폰 할인 계산
+Step 6. 주문 생성 (INSERT)
+Step 7. 쿠폰 사용 처리 (UPDATE)
+        ← COMMIT → 비관적 락 해제
+```
+
+| | 비관적 락 | 원자적 SQL |
+|---|---|---|
+| 락 보유 시간 (추정) | ~10-50ms (Step 3~COMMIT) | ~1-5ms (UPDATE문만) |
+| 10 스레드 시 마지막 대기 | ~270ms (9 × 30ms) | ~27ms (9 × 3ms) |
+| 차이 | 약 **5~10배** | |
+
+- 정확한 수치는 DB 종류, 커넥션 풀, 네트워크 지연에 따라 달라지며 실제 부하 테스트(`k6`, `JMeter`)로 측정 필요
+- 현재 소-중규모에서는 유의미한 병목이 아니며, 병목이 실측되었을 때 전환하는 것이 합리적
 
 ### 5. 왜 쿠폰에 원자적 SQL을 쓰지 않는가?
 - 쿠폰 사용은 주문 생성과 같은 `@Transactional` 안에서 JPA 엔티티 상태로 관리되어야 함

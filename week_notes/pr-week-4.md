@@ -87,6 +87,104 @@ Q1. 비즈니스 룰 없이 단일 컬럼 증감만으로 완결되는가?
 | 주문 + 재고 | No (validate→decrement→isSoldOut) | 높음 | 비관적 락 |
 | 쿠폰 | No (requireAvailable→use 상태전이) | 낮음 | 낙관적 락 |
 
+#### 재고 차감: 비관적 락 vs 원자적 SQL 코드 비교
+
+**A. 비관적 락 (채택)**
+
+```kotlin
+// Domain Model — 비즈니스 룰 소유
+class ProductStock(productId: Long, quantity: Int, val id: Long = 0L) {
+    var quantity: Int = quantity; private set
+    val isSoldOut: Boolean get() = quantity == 0
+
+    fun validate(qty: Int) {
+        if (qty <= 0) throw CoreException(BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
+        if (quantity < qty) throw CoreException(BAD_REQUEST, "재고가 부족합니다. 현재 재고: $quantity, 요청 수량: $qty")
+    }
+
+    fun decrement(qty: Int) {
+        if (qty <= 0) throw CoreException(BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
+        if (quantity - qty < 0) throw CoreException(BAD_REQUEST, "재고가 부족합니다.")
+        this.quantity -= qty
+    }
+}
+
+// Service — SELECT ... FOR UPDATE → 도메인 모델에서 차감
+@Transactional
+fun decrementStock(productId: Long, quantity: Int): ProductStock {
+    val stock = productStockRepository.findByProductIdForUpdate(productId)  // PESSIMISTIC_WRITE
+        ?: throw CoreException(NOT_FOUND, "재고 정보가 존재하지 않습니다.")
+    stock.decrement(quantity)
+    return productStockRepository.save(stock)
+}
+
+// Repository — EntityManager.refresh로 행 잠금
+override fun findByProductIdForUpdate(productId: Long): ProductStock? {
+    val entity = productStockJpaRepository.findByProductId(productId) ?: return null
+    entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE)
+    return entity.toDomain()
+}
+```
+
+| 장점 | 단점 |
+|---|---|
+| 비즈니스 룰이 도메인 모델에 집중 → 단위 테스트 가능 | 동시 요청 직렬 대기 → 처리량 제한 |
+| 확장 시 도메인 메서드 추가로 대응 | 다중 상품 주문 시 데드락 가능 (정렬로 해결) |
+| 차감 후 결과(`isSoldOut`) 즉시 사용 가능 | `EntityManager` 의존 노출 |
+| JPA 영속성 컨텍스트와 일관 | |
+
+**B. 원자적 SQL (미채택)**
+
+```kotlin
+// JpaRepository — 비즈니스 룰이 SQL에 존재
+@Modifying(clearAutomatically = true)
+@Query("""
+    UPDATE product_stocks
+    SET quantity = quantity - :qty
+    WHERE product_id = :productId AND quantity >= :qty
+""", nativeQuery = true)
+fun decrementStock(productId: Long, qty: Int): Int  // affected rows
+
+// Service — affected rows로 성공/실패 판단
+@Transactional
+fun decrementStock(productId: Long, quantity: Int): ProductStock {
+    val affected = productStockRepository.decrementStockAtomic(productId, quantity)
+    if (affected == 0) throw CoreException(BAD_REQUEST, "재고가 부족합니다.")
+    return productStockRepository.findByProductId(productId)!!  // 추가 SELECT 필요
+}
+```
+
+| 장점 | 단점 |
+|---|---|
+| 잠금 대기 없음 → 높은 처리량 | 비즈니스 룰이 SQL에 존재 → 단위 테스트 불가 |
+| 데드락 불가 (단일 UPDATE) | 차감 후 결과 확인에 추가 SELECT 필요 |
+| `EntityManager` 의존 제거 | 확장 시 모든 룰이 SQL 레벨에서 관리 |
+| | JPA 영속성 컨텍스트 우회 (`clearAutomatically` 필요) |
+
+**핵심 트레이드오프**: 비즈니스 룰의 위치 — 도메인 모델(단위 테스트 가능, 확장 용이) vs SQL(높은 처리량, 데드락 없음). Product/Stock 분리(느슨한 결합)가 원자적 SQL을 선택지로 만들었으며, 성능 병목 시 전환 비용이 낮다(Stock 도메인만 변경).
+
+**성능 차이 추정 — 락 보유 시간**
+
+`OrderFacade.placeOrder()` 흐름에서 비관적 락은 Step 3(재고 차감)에서 획득 → Step 7(쿠폰 사용) 이후 COMMIT까지 보유. 원자적 SQL은 UPDATE 문 실행 동안만 DB 내부 행 잠금.
+
+```
+Step 3. 재고 차감 ← 비관적 락 획득 / 원자적 SQL 실행+해제
+Step 4. 브랜드 조회 + 스냅샷 생성
+Step 5. 쿠폰 할인 계산
+Step 6. 주문 생성 (INSERT)
+Step 7. 쿠폰 사용 처리 (UPDATE)
+        ← COMMIT → 비관적 락 해제
+```
+
+| | 비관적 락 | 원자적 SQL |
+|---|---|---|
+| 락 보유 시간 (추정) | ~10-50ms (Step 3~COMMIT) | ~1-5ms (UPDATE문만) |
+| 10 스레드 시 마지막 대기 | ~270ms (9 × 30ms) | ~27ms (9 × 3ms) |
+| 차이 | 약 **5~10배** | |
+
+- 정확한 수치는 DB 종류, 커넥션 풀, 네트워크 지연에 따라 달라지며 실제 부하 테스트(`k6`, `JMeter`)로 측정 필요
+- 현재 소-중규모에서는 유의미한 병목이 아니며, 병목이 실측되었을 때 전환하는 것이 합리적
+
 ---
 
 
