@@ -26,7 +26,7 @@ class LikeFacade(
 
     @Transactional
     fun like(userId: Long, productId: Long) {
-        productService.getProduct(productId)
+        productService.validateProductExists(productId)
         val isNewLike = likeService.like(userId, productId)
         if (isNewLike) {
             productService.incrementLikeCount(productId)
@@ -35,7 +35,7 @@ class LikeFacade(
 
     @Transactional
     fun unlike(userId: Long, productId: Long) {
-        productService.getProduct(productId)
+        productService.validateProductExists(productId)
         val isDeleted = likeService.unlike(userId, productId)
         if (isDeleted) {
             productService.decrementLikeCount(productId)

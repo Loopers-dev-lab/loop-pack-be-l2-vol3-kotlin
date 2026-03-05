@@ -75,14 +75,6 @@ class Product(
         this.stockQuantity = stockQuantity
     }
 
-    fun increaseLikeCount() {
-        this.likes = this.likes.increment()
-    }
-
-    fun decreaseLikeCount() {
-        this.likes = this.likes.decrement()
-    }
-
     fun deductStock(quantity: Quantity) {
         this.stockQuantity = this.stockQuantity - quantity
     }
