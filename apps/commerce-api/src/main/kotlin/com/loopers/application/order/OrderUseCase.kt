@@ -8,8 +8,6 @@ import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderReader
 import com.loopers.domain.order.OrderRegister
 import com.loopers.domain.product.ProductStockDeductor
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -37,19 +35,15 @@ class OrderUseCase(
         if (command.couponId != null) {
             val issuedCoupon = issuedCouponReader.getByIdForUpdate(command.couponId)
             issuedCoupon.validateOwner(memberId)
-            issuedCoupon.validateUsable()
             val coupon = couponReader.getById(issuedCoupon.couponId)
-            if (coupon.isExpired()) throw CoreException(ErrorType.COUPON_EXPIRED)
-            coupon.minOrderAmount.value?.let {
-                if (totalPrice < it) throw CoreException(ErrorType.COUPON_MIN_ORDER_AMOUNT_NOT_MET)
-            }
+            coupon.validateApplicable(totalPrice)
             discountAmount = coupon.calculateDiscount(totalPrice)
             issuedCoupon.use()
             issuedCouponRepository.save(issuedCoupon)
             usedCouponId = issuedCoupon.id
         }
 
-        val order = orderRegister.register(memberId, orderItems, discountAmount, usedCouponId)
+        val order = orderRegister.register(memberId, orderItems, totalPrice, discountAmount, usedCouponId)
         return OrderInfo.Detail.from(order)
     }
 

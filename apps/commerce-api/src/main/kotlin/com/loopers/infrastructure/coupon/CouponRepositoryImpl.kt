@@ -24,6 +24,10 @@ class CouponRepositoryImpl(
             .orElse(null)
     }
 
+    override fun findAllByIds(ids: List<Long>): List<Coupon> {
+        return couponJpaRepository.findAllByIdIn(ids).map { couponMapper.toDomain(it) }
+    }
+
     override fun findAll(pageable: Pageable): Page<Coupon> {
         return couponJpaRepository.findAll(pageable).map { couponMapper.toDomain(it) }
     }

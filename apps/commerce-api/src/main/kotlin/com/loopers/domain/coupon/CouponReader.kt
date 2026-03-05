@@ -16,6 +16,10 @@ class CouponReader(
             ?: throw CoreException(ErrorType.COUPON_NOT_FOUND)
     }
 
+    fun getAllByIds(ids: List<Long>): List<Coupon> {
+        return couponRepository.findAllByIds(ids)
+    }
+
     fun getAll(pageable: Pageable): Page<Coupon> {
         return couponRepository.findAll(pageable)
     }

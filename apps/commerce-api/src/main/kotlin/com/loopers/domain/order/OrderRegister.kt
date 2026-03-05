@@ -11,10 +11,10 @@ class OrderRegister(
     fun register(
         memberId: Long,
         orderItems: List<OrderItem>,
+        totalPrice: Long = orderItems.sumOf { it.subtotal },
         discountAmount: Long = 0L,
         couponId: Long? = null,
     ): Order {
-        val totalPrice = orderItems.sumOf { it.subtotal }
         val finalPrice = totalPrice - discountAmount
 
         val order = Order(
