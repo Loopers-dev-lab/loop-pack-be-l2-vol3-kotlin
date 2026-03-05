@@ -72,6 +72,14 @@ class ProductService(
         }
     }
 
+    fun incrementLikeCount(productId: Long) {
+        productRepository.incrementLikeCount(productId)
+    }
+
+    fun decrementLikeCount(productId: Long) {
+        productRepository.decrementLikeCount(productId)
+    }
+
     fun delete(product: Product) {
         product.delete()
     }

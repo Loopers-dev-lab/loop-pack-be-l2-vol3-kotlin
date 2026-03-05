@@ -4,6 +4,8 @@ import com.loopers.domain.product.Product
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
 
 interface ProductJpaRepository : JpaRepository<Product, Long> {
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<Product>
@@ -11,4 +13,12 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
     fun findByIdAndDeletedAtIsNull(id: Long): Product?
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<Product>
     fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long): List<Product>
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE products SET likes = likes + 1 WHERE id = :productId", nativeQuery = true)
+    fun incrementLikeCount(productId: Long)
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE products SET likes = CASE WHEN likes > 0 THEN likes - 1 ELSE 0 END WHERE id = :productId", nativeQuery = true)
+    fun decrementLikeCount(productId: Long)
 }

@@ -38,4 +38,12 @@ class ProductRepositoryImpl(
     override fun findAllByBrandId(brandId: Long): List<Product> {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
     }
+
+    override fun incrementLikeCount(productId: Long) {
+        productJpaRepository.incrementLikeCount(productId)
+    }
+
+    override fun decrementLikeCount(productId: Long) {
+        productJpaRepository.decrementLikeCount(productId)
+    }
 }
