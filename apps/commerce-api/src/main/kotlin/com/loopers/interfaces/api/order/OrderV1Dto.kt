@@ -1,10 +1,8 @@
 package com.loopers.interfaces.api.order
 
-import com.loopers.application.order.ExcludedItemInfo
 import com.loopers.application.order.OrderInfo
 import com.loopers.application.order.OrderItemCriteria
 import com.loopers.application.order.OrderItemInfo
-import com.loopers.application.order.OrderResultInfo
 import io.swagger.v3.oas.annotations.media.Schema
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -45,19 +43,16 @@ class OrderV1Dto {
         val totalAmount: BigDecimal,
         @Schema(description = "주문 항목")
         val items: List<OrderItemResponse>,
-        @Schema(description = "제외된 항목")
-        val excludedItems: List<ExcludedItemResponse>,
     ) {
         companion object {
-            fun from(result: OrderResultInfo): CreateOrderResponse {
+            fun from(info: OrderInfo): CreateOrderResponse {
                 return CreateOrderResponse(
-                    orderId = result.order.id,
-                    couponId = result.order.couponId,
-                    originalAmount = result.order.originalAmount,
-                    discountAmount = result.order.discountAmount,
-                    totalAmount = result.order.totalAmount,
-                    items = result.order.items.map { OrderItemResponse.from(it) },
-                    excludedItems = result.excludedItems.map { ExcludedItemResponse.from(it) },
+                    orderId = info.id,
+                    couponId = info.couponId,
+                    originalAmount = info.originalAmount,
+                    discountAmount = info.discountAmount,
+                    totalAmount = info.totalAmount,
+                    items = info.items.map { OrderItemResponse.from(it) },
                 )
             }
         }
@@ -145,23 +140,6 @@ class OrderV1Dto {
                     brandName = info.brandName,
                     quantity = info.quantity,
                     unitPrice = info.unitPrice,
-                )
-            }
-        }
-    }
-
-    @Schema(description = "제외된 항목 응답")
-    data class ExcludedItemResponse(
-        @Schema(description = "상품 ID", example = "1")
-        val productId: Long,
-        @Schema(description = "제외 사유", example = "재고가 부족합니다.")
-        val reason: String,
-    ) {
-        companion object {
-            fun from(info: ExcludedItemInfo): ExcludedItemResponse {
-                return ExcludedItemResponse(
-                    productId = info.productId,
-                    reason = info.reason,
                 )
             }
         }

@@ -2,10 +2,8 @@ package com.loopers.application.order
 
 import com.loopers.application.brand.BrandService
 import com.loopers.application.coupon.CouponService
-import com.loopers.application.product.FailedReservation
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
-import com.loopers.application.product.StockReservationResult
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItemCommand
@@ -100,11 +98,8 @@ class OrderFacadeTest {
             val product = createProduct(id = 1L, stock = 100)
             val criteria = listOf(OrderItemCriteria(productId = 1L, quantity = 2))
             val brand = createBrand(id = 1L, name = "나이키")
-            val reservation = StockReservationResult(
-                reservedProducts = listOf(
-                    ReservedProduct(1L, "에어맥스 90", 1L, 2, BigDecimal("129000")),
-                ),
-                failedReservations = emptyList(),
+            val reservedProducts = listOf(
+                ReservedProduct(1L, "에어맥스 90", 1L, 2, BigDecimal("129000")),
             )
             val orderItemCommands = listOf(
                 OrderItemCommand(1L, "에어맥스 90", "나이키", 2, BigDecimal("129000")),
@@ -112,7 +107,7 @@ class OrderFacadeTest {
             val order = createOrder(userId, orderItemCommands)
 
             whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
-            whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
+            whenever(productService.reserveStock(any(), any())).thenReturn(reservedProducts)
             whenever(brandService.getBrandsIncludingDeleted(listOf(1L))).thenReturn(listOf(brand))
             whenever(orderService.createOrder(eq(userId), any(), anyOrNull())).thenReturn(order)
 
@@ -121,15 +116,14 @@ class OrderFacadeTest {
 
             // assert
             assertAll(
-                { assertThat(result.order.userId).isEqualTo(userId) },
-                { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.excludedItems).isEmpty() },
+                { assertThat(result.userId).isEqualTo(userId) },
+                { assertThat(result.items).hasSize(1) },
             )
         }
 
-        @DisplayName("일부 예약 실패 시, 성공 항목은 주문되고 실패 항목은 excludedItems로 반환된다.")
+        @DisplayName("일부 재고 부족 시, BAD_REQUEST 예외가 발생한다.")
         @Test
-        fun returnsExcludedItems_whenSomeReservationsFail() {
+        fun throwsBadRequest_whenSomeStockInsufficient() {
             // arrange
             val userId = 1L
             val product1 = createProduct(id = 1L, stock = 100)
@@ -138,52 +132,11 @@ class OrderFacadeTest {
                 OrderItemCriteria(productId = 1L, quantity = 2),
                 OrderItemCriteria(productId = 2L, quantity = 1),
             )
-            val brand = createBrand(id = 1L, name = "나이키")
-            val reservation = StockReservationResult(
-                reservedProducts = listOf(
-                    ReservedProduct(1L, "에어맥스 90", 1L, 2, BigDecimal("129000")),
-                ),
-                failedReservations = listOf(
-                    FailedReservation(2L, "재고가 부족합니다. 현재 재고: 0"),
-                ),
-            )
-            val orderItemCommands = listOf(
-                OrderItemCommand(1L, "에어맥스 90", "나이키", 2, BigDecimal("129000")),
-            )
-            val order = createOrder(userId, orderItemCommands)
 
             whenever(productService.getProductsWithLock(listOf(1L, 2L))).thenReturn(listOf(product1, product2))
-            whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
-            whenever(brandService.getBrandsIncludingDeleted(listOf(1L))).thenReturn(listOf(brand))
-            whenever(orderService.createOrder(eq(userId), any(), anyOrNull())).thenReturn(order)
-
-            // act
-            val result = orderFacade.createOrder(userId, criteria)
-
-            // assert
-            assertAll(
-                { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.excludedItems).hasSize(1) },
-                { assertThat(result.excludedItems[0].productId).isEqualTo(2L) },
+            whenever(productService.reserveStock(any(), any())).thenThrow(
+                CoreException(ErrorType.BAD_REQUEST, "재고가 부족한 상품이 있습니다."),
             )
-        }
-
-        @DisplayName("전체 예약 실패 시, 실패 사유가 포함된 BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenAllReservationsFail() {
-            // arrange
-            val userId = 1L
-            val product = createProduct(id = 1L, stock = 0)
-            val criteria = listOf(OrderItemCriteria(productId = 1L, quantity = 2))
-            val reservation = StockReservationResult(
-                reservedProducts = emptyList(),
-                failedReservations = listOf(
-                    FailedReservation(1L, "재고가 부족합니다. 현재 재고: 0"),
-                ),
-            )
-
-            whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
-            whenever(productService.reserveStock(any(), any())).thenReturn(reservation)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -193,7 +146,32 @@ class OrderFacadeTest {
             // assert
             assertAll(
                 { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
-                { assertThat(exception.message).contains("주문 가능한 상품이 없습니다") },
+                { assertThat(exception.message).contains("재고가 부족한 상품이 있습니다") },
+            )
+        }
+
+        @DisplayName("전체 재고 부족 시, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenAllReservationsFail() {
+            // arrange
+            val userId = 1L
+            val product = createProduct(id = 1L, stock = 0)
+            val criteria = listOf(OrderItemCriteria(productId = 1L, quantity = 2))
+
+            whenever(productService.getProductsWithLock(listOf(1L))).thenReturn(listOf(product))
+            whenever(productService.reserveStock(any(), any())).thenThrow(
+                CoreException(ErrorType.BAD_REQUEST, "재고가 부족한 상품이 있습니다."),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderFacade.createOrder(userId, criteria)
+            }
+
+            // assert
+            assertAll(
+                { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
+                { assertThat(exception.message).contains("재고가 부족한 상품이 있습니다") },
             )
         }
     }

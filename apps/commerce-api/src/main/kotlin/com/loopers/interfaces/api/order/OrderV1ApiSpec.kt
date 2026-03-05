@@ -14,12 +14,12 @@ interface OrderV1ApiSpec {
 
     @Operation(
         summary = "주문 생성",
-        description = "상품을 주문합니다. 쿠폰 미사용 시 부분 주문이 가능하고, 쿠폰 사용 시 전체 성공 또는 전체 실패로 처리됩니다.",
+        description = "상품을 주문합니다. 하나라도 재고가 부족하면 전체 주문이 거부됩니다.",
     )
     @ApiResponses(
         value = [
             SwaggerApiResponse(responseCode = "200", description = "주문 성공"),
-            SwaggerApiResponse(responseCode = "400", description = "잘못된 요청 (재고 부족, 최소 주문 금액 미달 등)"),
+            SwaggerApiResponse(responseCode = "400", description = "잘못된 요청 (재고 부족 시 전체 주문 거부, 최소 주문 금액 미달 등)"),
             SwaggerApiResponse(responseCode = "401", description = "인증 실패"),
             SwaggerApiResponse(responseCode = "403", description = "타인의 쿠폰 사용 시도"),
             SwaggerApiResponse(responseCode = "404", description = "쿠폰 없음"),

@@ -104,20 +104,19 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
 
             // assert
-            val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
             val updatedProduct = productJpaRepository.findById(product.id).get()
             assertAll(
                 { assertThat(savedOrder.userId).isEqualTo(1L) },
                 { assertThat(savedOrder.totalAmount).isEqualByComparingTo(BigDecimal("258000")) },
                 { assertThat(savedOrder.orderItems).hasSize(1) },
                 { assertThat(updatedProduct.stock).isEqualTo(98) },
-                { assertThat(result.excludedItems).isEmpty() },
             )
         }
 
-        @DisplayName("일부 상품의 재고가 부족하면, 부분 주문이 생성되고 excludedItems가 반환된다.")
+        @DisplayName("일부 상품의 재고가 부족하면, BAD_REQUEST 예외가 발생하고 주문이 생성되지 않는다.")
         @Test
-        fun createsPartialOrder_whenSomeStockInsufficient() {
+        fun throwsBadRequest_whenSomeStockInsufficient() {
             // arrange
             val brand = createBrand()
             val product1 = createProduct(brand = brand, name = "에어맥스 90", stock = 100)
@@ -127,14 +126,13 @@ class OrderFacadeIntegrationTest @Autowired constructor(
                 OrderItemCriteria(productId = product2.id, quantity = 1),
             )
 
-            // act
-            val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
-
-            // assert
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                orderFacade.createOrder(userId = 1L, criteria = criteria)
+            }
             assertAll(
-                { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.excludedItems).hasSize(1) },
-                { assertThat(result.excludedItems[0].productId).isEqualTo(product2.id) },
+                { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
+                { assertThat(orderJpaRepository.findAll()).isEmpty() },
             )
         }
 
@@ -165,7 +163,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
 
             // assert
-            val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
             val item = savedOrder.orderItems[0]
             assertAll(
                 { assertThat(item.productName).isEqualTo("에어맥스 90") },
@@ -193,7 +191,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val result = orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
 
             // assert
-            val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
             val usedCoupon = issuedCouponJpaRepository.findById(issuedCoupon.id).get()
             assertAll(
                 { assertThat(savedOrder.originalAmount).isEqualByComparingTo(BigDecimal("100000")) },
@@ -219,33 +217,12 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val result = orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
 
             // assert
-            val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
             assertAll(
                 { assertThat(savedOrder.originalAmount).isEqualByComparingTo(BigDecimal("100000")) },
                 { assertThat(savedOrder.discountAmount).isEqualByComparingTo(BigDecimal("10000")) },
                 { assertThat(savedOrder.totalAmount).isEqualByComparingTo(BigDecimal("90000")) },
             )
-        }
-
-        @DisplayName("쿠폰 사용 주문에서 일부 상품 재고가 부족하면, BAD_REQUEST 예외가 발생한다.")
-        @Test
-        fun throwsBadRequest_whenPartialStockInsufficient() {
-            // arrange
-            val brand = createBrand()
-            val product1 = createProduct(brand = brand, name = "상품A", stock = 100)
-            val product2 = createProduct(brand = brand, name = "상품B", stock = 0)
-            val coupon = createCoupon()
-            val issuedCoupon = issueCoupon(coupon.id, 1L)
-            val criteria = listOf(
-                OrderItemCriteria(productId = product1.id, quantity = 1),
-                OrderItemCriteria(productId = product2.id, quantity = 1),
-            )
-
-            // act & assert
-            val exception = assertThrows<CoreException> {
-                orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
-            }
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
         @DisplayName("타인의 쿠폰을 사용하면, FORBIDDEN 예외가 발생한다.")
@@ -299,28 +276,6 @@ class OrderFacadeIntegrationTest @Autowired constructor(
                 orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("쿠폰 미사용 주문은 기존대로 부분 주문이 허용된다.")
-        @Test
-        fun allowsPartialOrder_whenNoCoupon() {
-            // arrange
-            val brand = createBrand()
-            val product1 = createProduct(brand = brand, name = "상품A", stock = 100)
-            val product2 = createProduct(brand = brand, name = "상품B", stock = 0)
-            val criteria = listOf(
-                OrderItemCriteria(productId = product1.id, quantity = 1),
-                OrderItemCriteria(productId = product2.id, quantity = 1),
-            )
-
-            // act
-            val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
-
-            // assert
-            assertAll(
-                { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.excludedItems).hasSize(1) },
-            )
         }
     }
 }

@@ -197,9 +197,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("일부 상품 재고 부족이면, 부분 주문과 excludedItems를 반환한다.")
+        @DisplayName("일부 상품 재고 부족이면, 400 BAD_REQUEST를 반환한다.")
         @Test
-        fun returnsPartialOrder_whenSomeStockInsufficient() {
+        fun returnsBadRequest_whenSomeStockInsufficient() {
             // arrange
             val outOfStockProductId = createTestProduct(testBrandId, name = "재고없는상품", stock = 0)!!
             val request = OrderV1Dto.CreateRequest(
@@ -214,14 +214,11 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 "/api/v1/orders",
                 HttpMethod.POST,
                 HttpEntity(request, authHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
             )
 
             // assert
-            assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data).isNotNull() },
-            )
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
 
         @DisplayName("모든 상품의 재고가 부족하면, 400 BAD_REQUEST를 반환한다.")
@@ -442,33 +439,6 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.get("couponId")).isNotNull() },
                 { assertThat(response.body?.data?.get("discountAmount")).isNotNull() },
             )
-        }
-
-        @DisplayName("쿠폰 사용 주문에서 일부 재고 부족이면, 400 BAD_REQUEST를 반환한다.")
-        @Test
-        fun returnsBadRequest_whenPartialStockWithCoupon() {
-            // arrange
-            val couponId = createTestCoupon()!!
-            val issuedCouponId = issueCoupon(couponId)!!
-            val outOfStockProductId = createTestProduct(testBrandId, name = "재고없는상품", stock = 0)!!
-            val request = OrderV1Dto.CreateRequest(
-                items = listOf(
-                    OrderV1Dto.OrderItemRequest(productId = testProductId, quantity = 1),
-                    OrderV1Dto.OrderItemRequest(productId = outOfStockProductId, quantity = 1),
-                ),
-                couponId = issuedCouponId,
-            )
-
-            // act
-            val response = testRestTemplate.exchange(
-                "/api/v1/orders",
-                HttpMethod.POST,
-                HttpEntity(request, authHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
-            )
-
-            // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
 
         @DisplayName("최소 주문 금액 미달 시, 400 BAD_REQUEST를 반환한다.")

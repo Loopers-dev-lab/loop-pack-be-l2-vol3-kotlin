@@ -52,22 +52,3 @@ data class OrderItemInfo(
         }
     }
 }
-
-data class ExcludedItemInfo(
-    val productId: Long,
-    val reason: String,
-)
-
-data class OrderResultInfo(
-    val order: OrderInfo,
-    val excludedItems: List<ExcludedItemInfo>,
-) {
-    companion object {
-        fun of(order: Order, excludedItems: List<ExcludedItemInfo>): OrderResultInfo {
-            return OrderResultInfo(
-                order = OrderInfo.from(order),
-                excludedItems = excludedItems,
-            )
-        }
-    }
-}

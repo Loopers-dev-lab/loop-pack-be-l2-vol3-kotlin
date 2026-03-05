@@ -5,9 +5,6 @@ import com.loopers.application.coupon.CouponService
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
 import com.loopers.domain.order.OrderItemCommand
-import com.loopers.domain.product.Product
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,71 +17,38 @@ class OrderFacade(
 ) {
 
     @Transactional
-    fun createOrder(userId: Long, criteria: List<OrderItemCriteria>, couponId: Long? = null): OrderResultInfo {
+    fun createOrder(userId: Long, criteria: List<OrderItemCriteria>, couponId: Long? = null): OrderInfo {
         val productIds = criteria.map { it.productId }
         val products = productService.getProductsWithLock(productIds)
 
+        // 1. 재고 예약 (실패 시 예외)
+        val reservedProducts = productService.reserveStock(products, criteria)
+
+        // 2. 주문 아이템 조립
+        val orderItemCommands = buildOrderItemCommands(reservedProducts)
+
+        // 3. 쿠폰 적용 (optional)
         if (couponId != null) {
-            return createOrderWithCoupon(userId, criteria, couponId, products)
+            val issuedCoupon = couponService.getIssuedCouponWithLock(couponId)
+            issuedCoupon.validateOwner(userId)
+            issuedCoupon.validateUsable()
+
+            val coupon = couponService.getCoupon(issuedCoupon.couponId)
+            val order = orderService.createOrder(userId, orderItemCommands, couponId)
+
+            val originalAmount = order.originalAmount
+            coupon.validateMinOrderAmount(originalAmount)
+            val discountAmount = coupon.calculateDiscount(originalAmount)
+
+            issuedCoupon.use()
+            order.applyDiscount(discountAmount)
+
+            return OrderInfo.from(order)
         }
-        return createOrderWithoutCoupon(userId, criteria, products)
-    }
 
-    private fun createOrderWithoutCoupon(
-        userId: Long,
-        criteria: List<OrderItemCriteria>,
-        products: List<Product>,
-    ): OrderResultInfo {
-        val reservation = productService.reserveStock(products, criteria)
-
-        if (reservation.reservedProducts.isEmpty()) {
-            val reasons = reservation.failedReservations.joinToString(", ") { it.reason }
-            throw CoreException(ErrorType.BAD_REQUEST, "주문 가능한 상품이 없습니다. ($reasons)")
-        }
-
-        val orderItemCommands = buildOrderItemCommands(reservation.reservedProducts)
+        // 4. 쿠폰 없는 주문
         val order = orderService.createOrder(userId, orderItemCommands)
-
-        val excludedItems = reservation.failedReservations.map {
-            ExcludedItemInfo(it.productId, it.reason)
-        }
-        return OrderResultInfo.of(order, excludedItems)
-    }
-
-    private fun createOrderWithCoupon(
-        userId: Long,
-        criteria: List<OrderItemCriteria>,
-        couponId: Long,
-        products: List<Product>,
-    ): OrderResultInfo {
-        // 쿠폰 사용 시 부분 주문 불가 — 전체 재고 확인
-        val reservation = productService.reserveStock(products, criteria)
-
-        if (reservation.failedReservations.isNotEmpty()) {
-            val reasons = reservation.failedReservations.joinToString(", ") { it.reason }
-            throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 사용 주문은 부분 주문이 불가합니다. ($reasons)")
-        }
-
-        // 비관적 락으로 발급 쿠폰 조회
-        val issuedCoupon = couponService.getIssuedCouponWithLock(couponId)
-        issuedCoupon.validateOwner(userId)
-        issuedCoupon.validateUsable()
-
-        // 쿠폰 정보 조회 및 할인 계산
-        val coupon = couponService.getCoupon(issuedCoupon.couponId)
-
-        val orderItemCommands = buildOrderItemCommands(reservation.reservedProducts)
-        val order = orderService.createOrder(userId, orderItemCommands, couponId)
-
-        val originalAmount = order.originalAmount
-        coupon.validateMinOrderAmount(originalAmount)
-        val discountAmount = coupon.calculateDiscount(originalAmount)
-
-        // 쿠폰 사용 처리 + 할인 적용
-        issuedCoupon.use()
-        order.applyDiscount(discountAmount)
-
-        return OrderResultInfo.of(order, emptyList())
+        return OrderInfo.from(order)
     }
 
     private fun buildOrderItemCommands(
