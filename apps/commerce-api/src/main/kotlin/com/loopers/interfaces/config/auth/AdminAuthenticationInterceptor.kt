@@ -1,7 +1,6 @@
 package com.loopers.interfaces.config.auth
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.application.error.ApplicationException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.stereotype.Component
@@ -25,7 +24,7 @@ class AdminAuthenticationInterceptor : HandlerInterceptor {
 
         val ldapHeader = request.getHeader(HEADER_LDAP)
         if (ldapHeader != LDAP_VALUE) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "관리자 인증 정보가 없습니다.")
+            throw ApplicationException(httpStatus = 401, code = "Unauthorized", message = "관리자 인증 정보가 없습니다.")
         }
         return true
     }

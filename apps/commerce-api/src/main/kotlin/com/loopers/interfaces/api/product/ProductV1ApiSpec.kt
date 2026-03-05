@@ -9,7 +9,7 @@ interface ProductV1ApiSpec {
     @Operation(summary = "상품 목록 조회", description = "상품 목록을 커서 기반 페이징으로 조회합니다.")
     fun getProducts(
         brandId: Long?,
-        sort: String?,
+        sort: ProductSortRequest,
         size: Int,
         cursor: String?,
     ): ApiResponse<ProductV1Dto.ProductListResponse>

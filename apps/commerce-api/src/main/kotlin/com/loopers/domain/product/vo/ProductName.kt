@@ -1,7 +1,7 @@
 package com.loopers.domain.product.vo
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 
 @JvmInline
 value class ProductName(val value: String) {

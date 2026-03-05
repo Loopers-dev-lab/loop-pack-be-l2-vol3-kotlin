@@ -1,7 +1,7 @@
 package com.loopers.domain.order
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -40,7 +40,7 @@ class OrderModelTest {
                 { assertThat(order.memberId).isEqualTo(1L) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
                 { assertThat(order.orderNumber).isNotBlank() },
-                { assertThat(order.orderItems).isEmpty() },
+                { assertThat(order.items).isEmpty() },
             )
         }
     }
@@ -56,13 +56,12 @@ class OrderModelTest {
             val item = createOrderItem()
 
             // act
-            order.addItem(item)
+            val updated = order.addItem(item)
 
             // assert
             assertAll(
-                { assertThat(order.orderItems).hasSize(1) },
-                { assertThat(order.orderItems[0].productName).isEqualTo("감성 티셔츠") },
-                { assertThat(item.order).isEqualTo(order) },
+                { assertThat(updated.items).hasSize(1) },
+                { assertThat(updated.items[0].productName).isEqualTo("감성 티셔츠") },
             )
         }
     }
@@ -75,8 +74,8 @@ class OrderModelTest {
         fun returnsSumOfAmounts() {
             // arrange
             val order = createOrder()
-            order.addItem(createOrderItem(productPrice = 39000, quantity = 2))
-            order.addItem(createOrderItem(productId = 2L, productPrice = 15000, quantity = 1))
+                .addItem(createOrderItem(productPrice = 39000, quantity = 2))
+                .addItem(createOrderItem(productId = 2L, productPrice = 15000, quantity = 1))
 
             // act
             val totalAmount = order.getTotalAmount()

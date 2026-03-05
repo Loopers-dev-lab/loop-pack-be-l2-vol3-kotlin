@@ -1,7 +1,7 @@
 package com.loopers.domain.brand.vo
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 
 @JvmInline
 value class BrandName(val value: String) {

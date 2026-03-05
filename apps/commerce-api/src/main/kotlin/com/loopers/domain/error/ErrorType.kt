@@ -1,0 +1,10 @@
+package com.loopers.domain.error
+
+enum class ErrorType(val code: String, val message: String) {
+    INTERNAL_ERROR("Internal Server Error", "일시적인 오류가 발생했습니다."),
+    BAD_REQUEST("Bad Request", "잘못된 요청입니다."),
+    NOT_FOUND("Not Found", "존재하지 않는 요청입니다."),
+    UNAUTHORIZED("Unauthorized", "인증에 실패했습니다."),
+    FORBIDDEN("Forbidden", "접근 권한이 없습니다."),
+    CONFLICT("Conflict", "이미 존재하는 리소스입니다."),
+}

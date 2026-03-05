@@ -1,20 +1,16 @@
 package com.loopers.interfaces.config.auth
 
-import com.loopers.infrastructure.config.CacheConfig
-import com.loopers.application.member.MemberService
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.application.auth.AuthService
+import com.loopers.application.error.ApplicationException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.cache.CacheManager
 import org.springframework.stereotype.Component
 import org.springframework.web.method.HandlerMethod
 import org.springframework.web.servlet.HandlerInterceptor
 
 @Component
 class MemberAuthenticationInterceptor(
-    private val memberService: MemberService,
-    private val cacheManager: CacheManager,
+    private val authService: AuthService,
 ) : HandlerInterceptor {
 
     companion object {
@@ -34,27 +30,13 @@ class MemberAuthenticationInterceptor(
         val password = request.getHeader(HEADER_LOGIN_PW)
 
         if (loginId.isNullOrBlank() || password.isNullOrBlank()) {
-            throw CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 없습니다.")
+            throw ApplicationException(httpStatus = 401, code = "Unauthorized", message = "인증 정보가 없습니다.")
         }
 
-        val authenticatedMember = resolveFromCacheOrAuthenticate(loginId, password)
+        val authResult = authService.authenticate(loginId, password)
+        val authenticatedMember = AuthenticatedMember(id = authResult.id, loginId = authResult.loginId)
         request.setAttribute(AUTHENTICATED_MEMBER_ATTRIBUTE, authenticatedMember)
 
         return true
-    }
-
-    private fun resolveFromCacheOrAuthenticate(loginId: String, password: String): AuthenticatedMember {
-        val cache = cacheManager.getCache(CacheConfig.AUTH_CACHE)
-        val cachedAuth = cache?.get(loginId, CachedAuth::class.java)
-
-        if (cachedAuth != null && cachedAuth.matchesPassword(password)) {
-            return cachedAuth.toAuthenticatedMember()
-        }
-
-        val member = memberService.authenticate(loginId, password)
-        val authenticatedMember = AuthenticatedMember(id = member.id, loginId = member.loginId)
-        cache?.put(loginId, CachedAuth.of(authenticatedMember, password))
-
-        return authenticatedMember
     }
 }

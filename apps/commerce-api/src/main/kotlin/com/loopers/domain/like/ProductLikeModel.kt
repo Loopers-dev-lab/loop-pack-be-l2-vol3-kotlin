@@ -1,25 +1,12 @@
 package com.loopers.domain.like
 
-import com.loopers.domain.BaseEntity
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
+import java.time.ZonedDateTime
 
-@Entity
-@Table(
-    name = "product_like",
-    uniqueConstraints = [UniqueConstraint(name = "uk_product_like_member_product", columnNames = ["member_id", "product_id"])],
+data class ProductLikeModel(
+    val id: Long = 0,
+    val memberId: Long,
+    val productId: Long,
+    val createdAt: ZonedDateTime? = null,
+    val updatedAt: ZonedDateTime? = null,
+    val deletedAt: ZonedDateTime? = null,
 )
-class ProductLikeModel(
-    memberId: Long,
-    productId: Long,
-) : BaseEntity() {
-    @Column(name = "member_id", nullable = false)
-    var memberId: Long = memberId
-        protected set
-
-    @Column(name = "product_id", nullable = false)
-    var productId: Long = productId
-        protected set
-}

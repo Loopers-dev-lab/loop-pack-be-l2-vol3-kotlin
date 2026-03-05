@@ -1,37 +1,31 @@
 package com.loopers.application.brand
 
-import com.loopers.domain.brand.BrandCommand
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.brand.BrandRepository
-import com.loopers.domain.brand.vo.BrandName
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
+import com.loopers.domain.common.PageQuery
+import com.loopers.domain.common.PageResult
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 @Component
 class BrandService(
     private val brandRepository: BrandRepository,
 ) {
-    @Transactional
     fun createBrand(command: BrandCommand.Create): BrandModel {
         val brand = BrandModel(
-            name = BrandName.of(command.name),
+            name = command.name,
             description = command.description,
             imageUrl = command.imageUrl,
         )
         return brandRepository.save(brand)
     }
 
-    @Transactional(readOnly = true)
     fun getBrandForAdmin(id: Long): BrandModel {
         return brandRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다.")
     }
 
-    @Transactional(readOnly = true)
     fun getBrand(id: Long): BrandModel {
         val brand = brandRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다.")
@@ -41,25 +35,23 @@ class BrandService(
         return brand
     }
 
-    @Transactional(readOnly = true)
-    fun getBrands(page: Int, size: Int): Page<BrandModel> {
-        return brandRepository.findAll(PageRequest.of(page, size))
+    fun getBrands(page: Int, size: Int): PageResult<BrandModel> {
+        return brandRepository.findAll(PageQuery(page, size))
     }
 
-    @Transactional
     fun updateBrand(id: Long, command: BrandCommand.Update): BrandModel {
         val brand = getBrandForAdmin(id)
-        brand.update(
-            name = BrandName.of(command.name),
+        val updated = brand.update(
+            name = command.name,
             description = command.description,
             imageUrl = command.imageUrl,
         )
-        return brand
+        return brandRepository.save(updated)
     }
 
-    @Transactional
     fun deleteBrand(id: Long) {
         val brand = getBrandForAdmin(id)
-        brand.delete()
+        val deleted = brand.delete()
+        brandRepository.save(deleted)
     }
 }

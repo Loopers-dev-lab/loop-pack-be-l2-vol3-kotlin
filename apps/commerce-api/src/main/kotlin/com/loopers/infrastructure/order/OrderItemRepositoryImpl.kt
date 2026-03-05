@@ -9,6 +9,6 @@ class OrderItemRepositoryImpl(
     private val orderItemJpaRepository: OrderItemJpaRepository,
 ) : OrderItemRepository {
     override fun findAllByOrderId(orderId: Long): List<OrderItemModel> {
-        return orderItemJpaRepository.findAllByOrderId(orderId)
+        return orderItemJpaRepository.findAllByOrderId(orderId).map { it.toModel() }
     }
 }

@@ -1,4 +1,4 @@
-package com.loopers.support.error
+package com.loopers.domain.error
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName

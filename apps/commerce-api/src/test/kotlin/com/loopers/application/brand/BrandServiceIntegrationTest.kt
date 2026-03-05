@@ -1,10 +1,9 @@
 package com.loopers.application.brand
 
-import com.loopers.domain.brand.BrandCommand
 import com.loopers.domain.brand.BrandStatus
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.infrastructure.brand.BrandJpaRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -15,8 +14,10 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 
 @SpringBootTest
+@Transactional
 class BrandServiceIntegrationTest @Autowired constructor(
     private val brandService: BrandService,
     private val brandJpaRepository: BrandJpaRepository,

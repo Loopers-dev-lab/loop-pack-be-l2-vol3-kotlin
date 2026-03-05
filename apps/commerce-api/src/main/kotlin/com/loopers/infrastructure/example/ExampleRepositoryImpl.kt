@@ -10,6 +10,6 @@ class ExampleRepositoryImpl(
     private val exampleJpaRepository: ExampleJpaRepository,
 ) : ExampleRepository {
     override fun find(id: Long): ExampleModel? {
-        return exampleJpaRepository.findByIdOrNull(id)
+        return exampleJpaRepository.findByIdOrNull(id)?.toModel()
     }
 }

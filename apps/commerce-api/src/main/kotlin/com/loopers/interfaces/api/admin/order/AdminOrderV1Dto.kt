@@ -2,7 +2,6 @@ package com.loopers.interfaces.api.admin.order
 
 import com.loopers.application.order.OrderInfo
 import com.loopers.application.order.OrderItemInfo
-import com.loopers.domain.order.OrderStatus
 import java.time.ZonedDateTime
 
 class AdminOrderV1Dto {
@@ -10,7 +9,7 @@ class AdminOrderV1Dto {
         val orderId: Long,
         val orderNumber: String,
         val memberId: Long,
-        val status: OrderStatus,
+        val status: String,
         val totalAmount: Long,
         val orderedAt: ZonedDateTime,
         val items: List<OrderItemResponse>,

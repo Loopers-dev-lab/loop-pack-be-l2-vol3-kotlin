@@ -9,11 +9,17 @@ class MemberRepositoryImpl(
     private val memberJpaRepository: MemberJpaRepository,
 ) : MemberRepository {
     override fun save(member: MemberModel): MemberModel {
-        return memberJpaRepository.save(member)
+        if (member.id == 0L) {
+            return memberJpaRepository.save(MemberJpaModel.from(member)).toModel()
+        }
+        val existing = memberJpaRepository.findByLoginId(member.loginId)
+            ?: throw IllegalStateException("Member not found: ${member.loginId}")
+        existing.updateFrom(member)
+        return existing.toModel()
     }
 
     override fun findByLoginId(loginId: String): MemberModel? {
-        return memberJpaRepository.findByLoginId(loginId)
+        return memberJpaRepository.findByLoginId(loginId)?.toModel()
     }
 
     override fun existsByLoginId(loginId: String): Boolean {

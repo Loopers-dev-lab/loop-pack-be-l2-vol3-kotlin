@@ -1,10 +1,8 @@
 package com.loopers.domain.member
 
-import com.loopers.domain.common.vo.Email
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.domain.member.vo.LoginId
-import com.loopers.domain.member.vo.MemberName
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -15,21 +13,21 @@ import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
 
 class MemberModelTest {
-    private val validLoginId = LoginId.of("user01")
+    private val validLoginId = "user01"
     private val validEncodedPassword = "encodedPassword"
-    private val validName = MemberName.of("홍길동")
+    private val validName = "홍길동"
     private val validBirthday = LocalDate.of(2000, 1, 1)
-    private val validEmail = Email.of("user@example.com")
+    private val validEmail = "user@example.com"
 
     private fun createMember(
-        loginId: LoginId = validLoginId,
+        loginId: String = validLoginId,
         encodedPassword: String = validEncodedPassword,
-        name: MemberName = validName,
+        name: String = validName,
         birthday: LocalDate = validBirthday,
-        email: Email = validEmail,
+        email: String = validEmail,
     ) = MemberModel(
         loginId = loginId,
-        encodedPassword = encodedPassword,
+        password = encodedPassword,
         name = name,
         birthday = birthday,
         email = email,
@@ -141,21 +139,21 @@ class MemberModelTest {
         @DisplayName("3글자 이름이면, 마지막 글자를 *로 대체한다.")
         @Test
         fun masksLastCharacter_whenNameHasThreeCharacters() {
-            val member = createMember(name = MemberName.of("홍길동"))
+            val member = createMember(name = "홍길동")
             assertThat(member.getMaskedName()).isEqualTo("홍길*")
         }
 
         @DisplayName("2글자 이름이면, 마지막 글자를 *로 대체한다.")
         @Test
         fun masksLastCharacter_whenNameHasTwoCharacters() {
-            val member = createMember(name = MemberName.of("AB"))
+            val member = createMember(name = "AB")
             assertThat(member.getMaskedName()).isEqualTo("A*")
         }
 
         @DisplayName("1글자 이름이면, *로 대체한다.")
         @Test
         fun masksEntireName_whenNameHasOneCharacter() {
-            val member = createMember(name = MemberName.of("김"))
+            val member = createMember(name = "김")
             assertThat(member.getMaskedName()).isEqualTo("*")
         }
     }
@@ -171,10 +169,10 @@ class MemberModelTest {
             val newEncodedPassword = "newEncodedPassword"
 
             // act
-            member.changePassword(newEncodedPassword)
+            val updated = member.changePassword(newEncodedPassword)
 
             // assert
-            assertThat(member.password).isEqualTo(newEncodedPassword)
+            assertThat(updated.password).isEqualTo(newEncodedPassword)
         }
     }
 }

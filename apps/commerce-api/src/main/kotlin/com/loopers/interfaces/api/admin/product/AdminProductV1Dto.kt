@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.admin.product
 
 import com.loopers.application.product.ProductInfo
-import com.loopers.domain.product.ProductStatus
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import java.time.ZonedDateTime
@@ -44,9 +43,9 @@ class AdminProductV1Dto {
         val imageUrl: String,
         val likeCount: Int,
         val stockQuantity: Int,
-        val status: ProductStatus,
-        val createdAt: ZonedDateTime,
-        val updatedAt: ZonedDateTime,
+        val status: String,
+        val createdAt: ZonedDateTime?,
+        val updatedAt: ZonedDateTime?,
     ) {
         companion object {
             fun from(info: ProductInfo): ProductResponse {

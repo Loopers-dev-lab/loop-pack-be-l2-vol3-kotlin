@@ -1,11 +1,11 @@
 package com.loopers.interfaces.api.admin.brand
 
 import com.loopers.application.brand.AdminBrandFacade
-import com.loopers.interfaces.config.auth.AdminAuthenticated
-import com.loopers.domain.brand.BrandCommand
+import com.loopers.application.brand.BrandCommand
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.PageResponse
+import com.loopers.interfaces.config.auth.AdminAuthenticated
 import jakarta.validation.Valid
-import org.springframework.data.domain.Page
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -43,10 +43,13 @@ class AdminBrandV1Controller(
     override fun getBrands(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-    ): ApiResponse<Page<AdminBrandV1Dto.BrandResponse>> {
-        return adminBrandFacade.getBrands(page, size)
-            .map { AdminBrandV1Dto.BrandResponse.from(it) }
-            .let { ApiResponse.success(it) }
+    ): ApiResponse<PageResponse<AdminBrandV1Dto.BrandResponse>> {
+        val result = adminBrandFacade.getBrands(page, size)
+        return PageResponse(
+            content = result.content.map { AdminBrandV1Dto.BrandResponse.from(it) },
+            totalElements = result.totalElements,
+            totalPages = result.totalPages,
+        ).let { ApiResponse.success(it) }
     }
 
     @GetMapping("/{brandId}")

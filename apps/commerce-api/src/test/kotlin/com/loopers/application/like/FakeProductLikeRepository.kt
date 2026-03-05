@@ -5,7 +5,6 @@ import com.loopers.domain.like.ProductLikeRepository
 
 class FakeProductLikeRepository : ProductLikeRepository {
     private val store = mutableListOf<ProductLikeModel>()
-    private var idSequence = 1L
 
     override fun save(productLike: ProductLikeModel): ProductLikeModel {
         store.add(productLike)
