@@ -47,7 +47,7 @@ class IssuedCouponTest {
         fun `AVAILABLE_상태에서_복원하면_예외가_발생한다`() {
             val issuedCoupon = createIssuedCoupon()
             val result = assertThrows<CoreException> { issuedCoupon.restore() }
-            assertThat(result.errorType).isEqualTo(ErrorType.COUPON_ALREADY_USED)
+            assertThat(result.errorType).isEqualTo(ErrorType.COUPON_NOT_AVAILABLE)
         }
     }
 

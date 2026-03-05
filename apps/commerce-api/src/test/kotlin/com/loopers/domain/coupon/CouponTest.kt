@@ -14,6 +14,29 @@ import java.time.ZonedDateTime
 class CouponTest {
 
     @Nested
+    inner class Create {
+        @Test
+        fun `RATE_타입에서_할인값이_100을_초과하면_예외가_발생한다`() {
+            val result = assertThrows<CoreException> {
+                createCoupon(type = CouponType.RATE, discountValue = 101L)
+            }
+            assertThat(result.errorType).isEqualTo(ErrorType.INVALID_COUPON_VALUE)
+        }
+
+        @Test
+        fun `RATE_타입에서_할인값이_100이면_생성할_수_있다`() {
+            val coupon = createCoupon(type = CouponType.RATE, discountValue = 100L)
+            assertThat(coupon.discountValue.value).isEqualTo(100L)
+        }
+
+        @Test
+        fun `FIXED_타입에서_할인값이_100을_초과해도_생성할_수_있다`() {
+            val coupon = createCoupon(type = CouponType.FIXED, discountValue = 50000L)
+            assertThat(coupon.discountValue.value).isEqualTo(50000L)
+        }
+    }
+
+    @Nested
     inner class CalculateDiscount {
         @Test
         fun `FIXED_타입은_할인금액_그대로_반환한다`() {
