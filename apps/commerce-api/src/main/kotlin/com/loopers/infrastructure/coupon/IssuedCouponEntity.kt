@@ -22,6 +22,7 @@ import java.time.ZonedDateTime
     ],
     indexes = [
         Index(name = "idx_issued_coupons_ref_user_id", columnList = "ref_user_id"),
+        Index(name = "idx_issued_coupons_ref_coupon_id", columnList = "ref_coupon_id"),
     ],
 )
 class IssuedCouponEntity(
