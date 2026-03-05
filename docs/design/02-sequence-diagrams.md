@@ -286,6 +286,7 @@ sequenceDiagram
 3. **좋아요 취소 시**: 물리 삭제 (Like 테이블에서 DELETE). 좋아요 이력이 필요하면 Soft Delete로 전환 가능
 4. **상품 존재 확인을 먼저**: 삭제된 상품에 좋아요를 시도하면 404 반환
 5. **서비스 간 직접 호출 없음**: LikeService와 ProductService가 서로 의존하지 않고, Facade가 조합하는 역할
+6. **Atomic Update**: `increaseLikeCount`/`decreaseLikeCount`는 엔티티 메서드가 아닌 `@Modifying @Query`로 DB 레벨 원자적 증감. Product에 @Version을 걸면 재고/좋아요/상품수정이 같은 version 공유 → 불필요한 경합(false contention) 발생하므로 Atomic Update 채택
 
 ---
 
@@ -425,6 +426,8 @@ sequenceDiagram
 | **application** | `OrderFacade` | 여러 도메인 서비스 조합, 트랜잭션 경계 |
 | **application** | `OrderInfo` | 응답용 데이터 (Entity → Info 변환) |
 | **domain** | `OrderService` | 주문 생성, 상태 관리, 비즈니스 규칙 |
+| **domain** | `CouponService` | 쿠폰 발급, 검증, 사용 처리, @Version 낙관적 락 |
+| **domain** | `OrderDomainService` | 순수 객체 협력 (OrderItem 조합, 스냅샷 생성, 쿠폰 적용, 총액 계산) |
 | **domain** | `ProductService` | 상품 조회, 재고 차감, 좋아요 수 관리 |
 | **domain** | `BrandService` | 브랜드 CRUD, 존재 확인 |
 | **domain** | `LikeService` | 좋아요 등록/취소, 중복 확인 |
@@ -432,4 +435,6 @@ sequenceDiagram
 | **domain** | `Product` | 상품 엔티티, 재고, 상태 관리 |
 | **domain** | `Brand` | 브랜드 엔티티 |
 | **domain** | `Like` | 좋아요 엔티티 (userId + productId) |
+| **domain** | `CouponIssue` | 쿠폰 발급 엔티티, @Version 낙관적 락, 상태 전이(AVAILABLE→USED) |
+| **domain** | `Coupon` | 쿠폰 정책 엔티티 (정액/정률, 할인 값(value), 만료일시(expiredAt)) |
 | **infrastructure** | `*RepositoryImpl` | 도메인 Repository 인터페이스의 JPA 구현체 |

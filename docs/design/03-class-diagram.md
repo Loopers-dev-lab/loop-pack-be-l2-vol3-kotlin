@@ -48,7 +48,7 @@ classDiagram
         -Long brandId
         -String name
         -String description
-        -Long price
+        -Money price
         -Int stockQuantity
         -Int likeCount
         -ProductStatus status
@@ -76,9 +76,13 @@ classDiagram
     class Order {
         -Long userId
         -String orderNumber
-        -Long totalAmount
+        -Long couponIssueId
+        -Money originalTotalAmount
+        -Money couponDiscountAmount
+        -Money totalAmount
         -OrderStatus orderStatus
         -List~OrderItem~ orderItems
+        +applyCoupon(couponIssueId, discountAmount) void
         +calculateTotalAmount() void
     }
 
@@ -110,9 +114,42 @@ classDiagram
 
     class PriceSnapshot {
         <<Embeddable>>
-        -Long originalPrice
-        -Long discountAmount
-        -Long finalPrice
+        -Money originalPrice
+        -Money discountAmount
+        -Money finalPrice
+    }
+
+    class Coupon {
+        -String name
+        -CouponType type
+        -Long value
+        -ZonedDateTime expiredAt
+        +update(name, type, value, expiredAt) void
+        +isExpired() Boolean
+        +calculateDiscount(orderAmount) Money
+        +softDelete() void
+    }
+
+    class CouponType {
+        <<enum>>
+        FIXED "정액 할인"
+        RATE "정률 할인"
+    }
+
+    class CouponIssue {
+        -Long couponId
+        -Long userId
+        -CouponIssueStatus status
+        -ZonedDateTime usedAt
+        -Long version "@Version 낙관적 락"
+        +use() void
+    }
+
+    class CouponIssueStatus {
+        <<enum>>
+        AVAILABLE
+        USED
+        EXPIRED
     }
 
     BaseEntity <|-- User
@@ -121,9 +158,13 @@ classDiagram
     BaseEntity <|-- Like
     BaseEntity <|-- Order
     BaseEntity <|-- OrderItem
+    BaseEntity <|-- Coupon
+    BaseEntity <|-- CouponIssue
 
     Product --> ProductStatus
     Order --> OrderStatus
+    Coupon --> CouponType
+    CouponIssue --> CouponIssueStatus
     OrderItem *-- ProductSnapshot : "@Embedded"
     OrderItem *-- PriceSnapshot : "@Embedded"
 
@@ -132,6 +173,8 @@ classDiagram
     Product "1" <-- "*" Like : productId
     User "1" <-- "*" Order : userId
     Order "1" *-- "*" OrderItem : orderItems
+    Coupon "1" <-- "*" CouponIssue : couponId
+    User "1" <-- "*" CouponIssue : userId
 ```
 
 ### 이 다이어그램에서 봐야 할 포인트
@@ -200,6 +243,8 @@ classDiagram
         +findByBrandId(brandId, pageable) Page~Product~
         +findAll(sort, pageable) Page~Product~
         +decreaseStock(productId, quantity) Int
+        +increaseLikeCount(productId) Int
+        +decreaseLikeCount(productId) Int
     }
 
     class LikeRepository {
@@ -217,10 +262,34 @@ classDiagram
         +findByUserIdAndCreatedAtBetween(userId, startAt, endAt) List~Order~
     }
 
+    class CouponService {
+        -CouponRepository couponRepository
+        -CouponIssueRepository couponIssueRepository
+        +issueCoupon(couponId, userId) CouponIssue
+        +useCouponForOrder(couponIssueId, userId, orderAmount) CouponUsage
+        +findMyCouponIssues(userId) List~CouponIssue~
+    }
+
+    class CouponRepository {
+        <<interface>>
+        +save(coupon) Coupon
+        +findById(couponId) Coupon?
+        +findAll(pageable) Page~Coupon~
+    }
+
+    class CouponIssueRepository {
+        <<interface>>
+        +save(couponIssue) CouponIssue
+        +findById(couponIssueId) CouponIssue?
+        +findByUserId(userId) List~CouponIssue~
+    }
+
     BrandService --> BrandRepository
     ProductService --> ProductRepository
     LikeService --> LikeRepository
     OrderService --> OrderRepository
+    CouponService --> CouponRepository
+    CouponService --> CouponIssueRepository
 ```
 
 ### 이 다이어그램에서 봐야 할 포인트
@@ -240,6 +309,7 @@ classDiagram
     class OrderFacade {
         -OrderService orderService
         -ProductService productService
+        -CouponService couponService
         +createOrder(userId, items) OrderInfo
         +getOrders(userId, startAt, endAt) List~OrderInfo~
         +getOrder(orderId) OrderInfo
@@ -267,8 +337,16 @@ classDiagram
         +getLikes(userId) List~ProductInfo~
     }
 
+    class CouponFacade {
+        -CouponService couponService
+        +issueCoupon(userId, couponId) CouponIssueResult
+        +getMyIssues(userId) List~CouponIssueResult~
+    }
+
     OrderFacade --> OrderService
     OrderFacade --> ProductService
+    OrderFacade --> CouponService
+    CouponFacade --> CouponService
     ProductFacade --> ProductService
     ProductFacade --> BrandService
     BrandFacade --> BrandService
@@ -295,7 +373,7 @@ classDiagram
         -Long brandId
         -String name
         -String description
-        -Long price
+        -Money price
         -Int stockQuantity
         -Int likeCount
         -ProductStatus status
@@ -469,11 +547,18 @@ apps/commerce-api/src/main/kotlin/com/loopers/
 │   │   ├── LikeV1Controller.kt
 │   │   ├── LikeV1ApiSpec.kt
 │   │   └── LikeV1Dto.kt
-│   └── order/
-│       ├── OrderV1Controller.kt
-│       ├── OrderAdminV1Controller.kt
-│       ├── OrderV1ApiSpec.kt
-│       └── OrderV1Dto.kt
+│   ├── order/
+│   │   ├── OrderV1Controller.kt
+│   │   ├── OrderAdminV1Controller.kt
+│   │   ├── OrderV1ApiSpec.kt
+│   │   └── OrderV1Dto.kt
+│   └── coupon/
+│       ├── CouponV1Controller.kt
+│       ├── CouponAdminV1Controller.kt
+│       ├── CouponV1ApiSpec.kt
+│       ├── CouponAdminV1ApiSpec.kt
+│       ├── CouponV1Dto.kt
+│       └── CouponAdminV1Dto.kt
 ├── application/                           ← Criteria, Result, Facade (조합/변환)
 │   ├── brand/
 │   │   ├── BrandFacade.kt
@@ -487,10 +572,14 @@ apps/commerce-api/src/main/kotlin/com/loopers/
 │   │   ├── LikeFacade.kt
 │   │   ├── LikeCriteria.kt
 │   │   └── LikeResult.kt
-│   └── order/
-│       ├── OrderFacade.kt
-│       ├── OrderCriteria.kt
-│       └── OrderResult.kt
+│   ├── order/
+│   │   ├── OrderFacade.kt
+│   │   ├── OrderCriteria.kt
+│   │   └── OrderResult.kt
+│   └── coupon/
+│       ├── CouponFacade.kt
+│       ├── CouponCriteria.kt
+│       └── CouponResult.kt
 ├── domain/                                ← Command, Info, Entity, Service, Repository(인터페이스)
 │   ├── brand/
 │   │   ├── Brand.kt
@@ -510,16 +599,26 @@ apps/commerce-api/src/main/kotlin/com/loopers/
 │   │   ├── LikeInfo.kt
 │   │   ├── LikeService.kt
 │   │   └── LikeRepository.kt
-│   └── order/
-│       ├── Order.kt
-│       ├── OrderItem.kt
-│       ├── OrderStatus.kt
-│       ├── OrderCommand.kt
-│       ├── OrderInfo.kt
-│       ├── ProductSnapshot.kt            (@Embeddable)
-│       ├── PriceSnapshot.kt              (@Embeddable)
-│       ├── OrderService.kt
-│       └── OrderRepository.kt
+│   ├── order/
+│   │   ├── Order.kt
+│   │   ├── OrderItem.kt
+│   │   ├── OrderStatus.kt
+│   │   ├── OrderCommand.kt
+│   │   ├── OrderInfo.kt
+│   │   ├── ProductSnapshot.kt            (@Embeddable)
+│   │   ├── PriceSnapshot.kt              (@Embeddable)
+│   │   ├── OrderService.kt
+│   │   └── OrderRepository.kt
+│   └── coupon/
+│       ├── Coupon.kt
+│       ├── CouponIssue.kt
+│       ├── CouponIssueStatus.kt
+│       ├── CouponType.kt
+│       ├── CouponCommand.kt
+│       ├── CouponInfo.kt
+│       ├── CouponService.kt
+│       ├── CouponRepository.kt
+│       └── CouponIssueRepository.kt
 └── infrastructure/                        ← RepositoryImpl, JpaRepository (기술 구현)
     ├── brand/
     │   ├── BrandRepositoryImpl.kt
@@ -530,7 +629,12 @@ apps/commerce-api/src/main/kotlin/com/loopers/
     ├── like/
     │   ├── LikeRepositoryImpl.kt
     │   └── LikeJpaRepository.kt
-    └── order/
-        ├── OrderRepositoryImpl.kt
-        └── OrderJpaRepository.kt
+    ├── order/
+    │   ├── OrderRepositoryImpl.kt
+    │   └── OrderJpaRepository.kt
+    └── coupon/
+        ├── CouponRepositoryImpl.kt
+        ├── CouponJpaRepository.kt
+        ├── CouponIssueRepositoryImpl.kt
+        └── CouponIssueJpaRepository.kt
 ```
