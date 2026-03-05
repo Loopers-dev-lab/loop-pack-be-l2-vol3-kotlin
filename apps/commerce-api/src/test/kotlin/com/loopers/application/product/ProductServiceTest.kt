@@ -17,6 +17,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
@@ -331,6 +332,42 @@ class ProductServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("좋아요 수를 증가시킬 때,")
+    @Nested
+    inner class IncrementLikeCount {
+
+        @DisplayName("productId로 호출하면, Repository의 incrementLikeCount가 호출된다.")
+        @Test
+        fun callsRepositoryIncrementLikeCount() {
+            // arrange
+            val productId = 1L
+
+            // act
+            productService.incrementLikeCount(productId)
+
+            // assert
+            verify(productRepository).incrementLikeCount(productId)
+        }
+    }
+
+    @DisplayName("좋아요 수를 감소시킬 때,")
+    @Nested
+    inner class DecrementLikeCount {
+
+        @DisplayName("productId로 호출하면, Repository의 decrementLikeCount가 호출된다.")
+        @Test
+        fun callsRepositoryDecrementLikeCount() {
+            // arrange
+            val productId = 1L
+
+            // act
+            productService.decrementLikeCount(productId)
+
+            // assert
+            verify(productRepository).decrementLikeCount(productId)
         }
     }
 
