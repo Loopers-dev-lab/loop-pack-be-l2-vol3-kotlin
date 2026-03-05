@@ -5,18 +5,22 @@ import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductSort
 import com.loopers.domain.catalog.product.ProductStatus
+import jakarta.persistence.EntityManager
+import jakarta.persistence.LockModeType
+import jakarta.persistence.PersistenceContext
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 
 @Repository
 class ProductRepositoryImpl(
     private val productJpaRepository: ProductJpaRepository,
+    @PersistenceContext private val entityManager: EntityManager,
 ) : ProductRepository {
 
     override fun save(product: Product): Product {
         val entity = if (product.id > 0L) {
             productJpaRepository.getReferenceById(product.id).apply {
-                update(product.name, product.description, product.price, product.status)
+                update(product.name, product.description, product.price, product.stock, product.status)
                 updateLikeCount(product.likeCount)
             }
         } else {
@@ -30,6 +34,15 @@ class ProductRepositoryImpl(
             .filter { it.deletedAt == null }
             .map { it.toDomain() }
             .orElse(null)
+
+    override fun findByIdForUpdate(id: Long): Product? {
+        val entity = productJpaRepository.findById(id)
+            .filter { it.deletedAt == null }
+            .orElse(null) ?: return null
+        // EntityManager.refresh bypasses JPA 1st-level cache and acquires FOR UPDATE lock
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE)
+        return entity.toDomain()
+    }
 
     override fun findAll(condition: ProductSearchCondition): List<Product> {
         val pageable = PageRequest.of(condition.page, condition.size)

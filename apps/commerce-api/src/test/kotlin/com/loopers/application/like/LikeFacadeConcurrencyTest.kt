@@ -38,6 +38,7 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
                 name = "TestProduct",
                 description = "desc",
                 price = 10000,
+                stock = 100,
                 status = ProductStatus.ACTIVE,
             )
         )

@@ -6,8 +6,6 @@ import com.loopers.infrastructure.catalog.brand.BrandEntity
 import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductEntity
 import com.loopers.infrastructure.catalog.product.ProductJpaRepository
-import com.loopers.infrastructure.catalog.product.ProductStockEntity
-import com.loopers.infrastructure.catalog.product.ProductStockJpaRepository
 import com.loopers.infrastructure.coupon.CouponTemplateEntity
 import com.loopers.infrastructure.coupon.CouponTemplateJpaRepository
 import com.loopers.infrastructure.coupon.UserCouponEntity
@@ -35,7 +33,6 @@ class CouponFacadeConcurrencyTest @Autowired constructor(
     private val orderFacade: OrderFacade,
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
-    private val productStockJpaRepository: ProductStockJpaRepository,
     private val couponTemplateJpaRepository: CouponTemplateJpaRepository,
     private val userCouponJpaRepository: UserCouponJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -54,10 +51,10 @@ class CouponFacadeConcurrencyTest @Autowired constructor(
                 name = "TestProduct",
                 description = "desc",
                 price = 10000,
+                stock = 100,
                 status = ProductStatus.ACTIVE,
             )
         )
-        productStockJpaRepository.save(ProductStockEntity(productId = product.id, quantity = 100))
         val template = couponTemplateJpaRepository.save(
             CouponTemplateEntity(
                 name = "3000원 할인",

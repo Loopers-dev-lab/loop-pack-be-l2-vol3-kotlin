@@ -4,8 +4,6 @@ import com.loopers.infrastructure.catalog.brand.BrandEntity
 import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductEntity
 import com.loopers.infrastructure.catalog.product.ProductJpaRepository
-import com.loopers.infrastructure.catalog.product.ProductStockEntity
-import com.loopers.infrastructure.catalog.product.ProductStockJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -27,7 +25,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
-    private val productStockJpaRepository: ProductStockJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -42,13 +39,10 @@ class ProductV1ApiE2ETest @Autowired constructor(
     private fun setupBrand(name: String = "Nike"): BrandEntity =
         brandJpaRepository.save(BrandEntity(name = name, description = "desc"))
 
-    private fun setupProduct(brandId: Long, name: String = "Test Product", price: Int = 10000, stock: Int = 100): ProductEntity {
-        val product = productJpaRepository.save(
-            ProductEntity(brandId = brandId, name = name, description = "desc", price = price)
+    private fun setupProduct(brandId: Long, name: String = "Test Product", price: Int = 10000, stock: Int = 100): ProductEntity =
+        productJpaRepository.save(
+            ProductEntity(brandId = brandId, name = name, description = "desc", price = price, stock = stock)
         )
-        productStockJpaRepository.save(ProductStockEntity(productId = product.id, quantity = stock))
-        return product
-    }
 
     // ─── GET /api/v1/products ───
 

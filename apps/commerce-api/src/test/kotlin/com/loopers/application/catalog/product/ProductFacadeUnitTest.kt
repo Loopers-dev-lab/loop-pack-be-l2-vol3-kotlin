@@ -5,8 +5,6 @@ import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
 import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductService
-import com.loopers.domain.catalog.product.ProductStock
-import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -20,21 +18,18 @@ class ProductFacadeUnitTest {
 
     private val mockProductService = mockk<ProductService>()
     private val mockBrandService = mockk<BrandService>()
-    private val mockProductStockService = mockk<ProductStockService>()
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockProductStockService)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService)
 
     // ─── createProduct ───
 
     @Test
-    fun `createProduct() should validate brand exists then create product and stock`() {
+    fun `createProduct() should validate brand exists then create product`() {
         // Arrange
         val brand = createBrand(id = 1L, name = "Nike")
         val product = createProduct(id = 1L, brandId = 1L, name = "Shoes")
-        val stock = createStock(productId = 1L, quantity = 100)
         every { mockBrandService.getById(1L) } returns brand
-        every { mockProductService.createProduct(any(), any(), any(), any()) } returns product
-        every { mockProductStockService.createStock(1L, 100) } returns stock
+        every { mockProductService.createProduct(any(), any(), any(), any(), any()) } returns product
 
         // Act
         val result = productFacade.createProduct(
@@ -43,11 +38,9 @@ class ProductFacadeUnitTest {
 
         // Assert
         assertThat(result.name).isEqualTo("Shoes")
-        assertThat(result.stock).isEqualTo(100)
         assertThat(result.brand.name).isEqualTo("Nike")
         verify { mockBrandService.getById(1L) }
-        verify { mockProductService.createProduct(1L, "Shoes", "desc", 50000) }
-        verify { mockProductStockService.createStock(1L, 100) }
+        verify { mockProductService.createProduct(1L, "Shoes", "desc", 50000, 100) }
     }
 
     @Test
@@ -64,27 +57,24 @@ class ProductFacadeUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
-        verify(exactly = 0) { mockProductService.createProduct(any(), any(), any(), any()) }
+        verify(exactly = 0) { mockProductService.createProduct(any(), any(), any(), any(), any()) }
     }
 
     // ─── getProductDetail ───
 
     @Test
-    fun `getProductDetail() should return ProductDetailResult with brand and stock info`() {
+    fun `getProductDetail() should return ProductDetailResult with brand info`() {
         // Arrange
         val product = createProduct(id = 1L, brandId = 1L)
         val brand = createBrand(id = 1L, name = "Nike")
-        val stock = createStock(productId = 1L, quantity = 50)
         every { mockProductService.getActiveById(1L) } returns product
         every { mockBrandService.getById(1L) } returns brand
-        every { mockProductStockService.getByProductId(1L) } returns stock
 
         // Act
         val result = productFacade.getProductDetail(1L)
 
         // Assert
         assertThat(result.id).isEqualTo(1L)
-        assertThat(result.stock).isEqualTo(50)
         assertThat(result.brand.name).isEqualTo("Nike")
     }
 
@@ -126,10 +116,7 @@ class ProductFacadeUnitTest {
         // Arrange
         val updated = createProduct(id = 1L, brandId = 1L, name = "Updated Shoes", price = 60000)
         val brand = createBrand(id = 1L, name = "Nike")
-        val stock = createStock(productId = 1L, quantity = 50)
-        every { mockProductService.update(1L, "Updated Shoes", "new desc", 60000) } returns updated
-        every { mockProductStockService.updateStock(1L, 50) } returns stock
-        every { mockProductService.updateStockStatus(1L, 50) } returns Unit
+        every { mockProductService.update(1L, "Updated Shoes", "new desc", 60000, 50) } returns updated
         every { mockBrandService.getById(1L) } returns brand
 
         // Act
@@ -140,14 +127,13 @@ class ProductFacadeUnitTest {
         // Assert
         assertThat(result.name).isEqualTo("Updated Shoes")
         assertThat(result.price).isEqualTo(60000)
-        assertThat(result.stock).isEqualTo(50)
         assertThat(result.brand.name).isEqualTo("Nike")
     }
 
     @Test
     fun `updateProduct() throws NOT_FOUND when product does not exist`() {
         // Arrange
-        every { mockProductService.update(99L, any(), any(), any()) } throws CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
+        every { mockProductService.update(99L, any(), any(), any(), any()) } throws CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
 
         // Act & Assert
         assertThrows<CoreException> {
@@ -162,13 +148,7 @@ class ProductFacadeUnitTest {
         brandId: Long = 1L,
         name: String = "Test Product",
         price: Int = 10000,
-    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = price)
-
-    private fun createStock(
-        productId: Long = 1L,
-        quantity: Int = 100,
-        id: Long = 0L,
-    ): ProductStock = ProductStock(productId = productId, quantity = quantity, id = id)
+    ): Product = Product(id = id, brandId = brandId, name = name, description = "desc", price = price, stock = 100)
 
     private fun createBrand(id: Long = 0L, name: String = "TestBrand"): Brand =
         Brand(id = id, name = name, description = "desc")

@@ -2,7 +2,6 @@ package com.loopers.application.order
 
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.ProductService
-import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItem
@@ -17,7 +16,6 @@ class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
-    private val productStockService: ProductStockService,
     private val userCouponService: UserCouponService,
     private val couponTemplateService: CouponTemplateService,
 ) {
@@ -28,31 +26,28 @@ class OrderFacade(
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있을 수 없습니다.")
         }
 
-        // 1. 모든 상품 및 재고 조회 (productId 오름차순 정렬 → 데드락 방지)
-        val itemWithProductsAndStocks = cmd.items
+        // 1. 모든 상품 조회 및 페어링 (productId 오름차순 정렬 → 데드락 방지)
+        val itemWithProducts = cmd.items
             .sortedBy { it.productId }
-            .map { item ->
-                val product = productService.getById(item.productId)
-                val stock = productStockService.getByProductId(item.productId)
-                Triple(item, product, stock)
-            }
+            .map { item -> item to productService.getById(item.productId) }
+
+        if (itemWithProducts.size != cmd.items.size) {
+            throw CoreException(ErrorType.BAD_REQUEST, "일부 상품이 조회되지 않았습니다.")
+        }
 
         // 2. 모든 상품 주문 가능 여부 및 재고 검증 (fail-fast: 부분 처리 없이 전체 실패)
-        itemWithProductsAndStocks.forEach { (item, product, stock) ->
+        itemWithProducts.forEach { (item, product) ->
             product.requireOrderable()
-            stock.validate(item.quantity)
+            product.validateStock(item.quantity)
         }
 
         // 3. 모든 재고 차감
-        itemWithProductsAndStocks.forEach { (item, _, _) ->
-            val updatedStock = productStockService.decrementStock(item.productId, item.quantity)
-            if (updatedStock.isSoldOut) {
-                productService.updateStockStatus(item.productId, 0)
-            }
+        itemWithProducts.forEach { (item, _) ->
+            productService.decrementStock(item.productId, item.quantity)
         }
 
         // 4. 브랜드 조회 및 주문 항목 스냅샷 생성
-        val orderItems = itemWithProductsAndStocks.map { (item, product, _) ->
+        val orderItems = itemWithProducts.map { (item, product) ->
             val brand = brandService.getById(product.brandId)
             OrderItem(
                 orderId = 0L,
