@@ -87,6 +87,16 @@ class ProductService(
     }
 
     @Transactional
+    fun incrementLikeCount(productId: Long) {
+        productRepository.incrementLikeCount(productId)
+    }
+
+    @Transactional
+    fun decrementLikeCount(productId: Long) {
+        productRepository.decrementLikeCount(productId)
+    }
+
+    @Transactional
     fun getProductsWithLock(productIds: List<Long>): List<Product> {
         return productRepository.findAllByIdWithLock(productIds)
     }
