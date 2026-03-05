@@ -18,7 +18,7 @@ class ProductRepositoryImpl(
     }
 
     override fun findById(id: Long): Product? {
-        return productJpaRepository.findByIdOrNull(id)
+        return productJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
     override fun findByIds(ids: List<Long>): List<Product> {
@@ -60,5 +60,13 @@ class ProductRepositoryImpl(
 
     override fun decreaseStock(productId: Long, quantity: Int): Int {
         return productJpaRepository.decreaseStock(productId, quantity)
+    }
+
+    override fun increaseLikeCount(productId: Long): Int {
+        return productJpaRepository.increaseLikeCount(productId)
+    }
+
+    override fun decreaseLikeCount(productId: Long): Int {
+        return productJpaRepository.decreaseLikeCount(productId)
     }
 }

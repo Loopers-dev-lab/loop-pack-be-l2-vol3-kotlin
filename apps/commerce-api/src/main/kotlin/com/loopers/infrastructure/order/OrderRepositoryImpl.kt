@@ -18,7 +18,7 @@ class OrderRepositoryImpl(
     }
 
     override fun findById(id: Long): Order? {
-        return orderJpaRepository.findByIdOrNull(id)
+        return orderJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
     override fun findAll(pageable: Pageable): Page<Order> {

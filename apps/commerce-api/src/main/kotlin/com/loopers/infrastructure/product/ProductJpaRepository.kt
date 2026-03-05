@@ -11,6 +11,8 @@ import org.springframework.data.repository.query.Param
 
 interface ProductJpaRepository : JpaRepository<Product, Long> {
 
+    fun findByIdAndDeletedAtIsNull(id: Long): Product?
+
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<Product>
 
     fun findByBrandIdAndDeletedAtIsNull(brandId: Long): List<Product>
@@ -45,4 +47,18 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
         @Param("productId") productId: Long,
         @Param("quantity") quantity: Int,
     ): Int
+
+    @Modifying
+    @Query(
+        "UPDATE Product p SET p.likeCount = p.likeCount + 1 " +
+            "WHERE p.id = :productId AND p.deletedAt IS NULL",
+    )
+    fun increaseLikeCount(@Param("productId") productId: Long): Int
+
+    @Modifying
+    @Query(
+        "UPDATE Product p SET p.likeCount = p.likeCount - 1 " +
+            "WHERE p.id = :productId AND p.likeCount > 0 AND p.deletedAt IS NULL",
+    )
+    fun decreaseLikeCount(@Param("productId") productId: Long): Int
 }
