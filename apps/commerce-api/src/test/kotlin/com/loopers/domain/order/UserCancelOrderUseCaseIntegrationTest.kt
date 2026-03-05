@@ -135,7 +135,14 @@ class UserCancelOrderUseCaseIntegrationTest @Autowired constructor(
     }
 
     private fun createIssuedCoupon(couponId: Long, userId: Long, used: Boolean = false): IssuedCouponModel {
-        val issuedCoupon = IssuedCouponModel(couponId = couponId, userId = userId)
+        val coupon = couponJpaRepository.findById(couponId).get()
+        val issuedCoupon = IssuedCouponModel(
+            couponId = couponId,
+            userId = userId,
+            discountType = coupon.discountType,
+            discountValue = coupon.discountValue,
+            expiredAt = coupon.expiredAt,
+        )
         if (used) issuedCoupon.use()
         return issuedCouponJpaRepository.save(issuedCoupon)
     }
