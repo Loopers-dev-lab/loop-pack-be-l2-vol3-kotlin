@@ -95,7 +95,10 @@ class CouponV1AdminDto {
         val id: Long,
         val couponId: Long,
         val userId: Long,
+        val discountType: DiscountType,
+        val discountValue: Int,
         val status: CouponStatus,
+        val expiredAt: ZonedDateTime,
         val usedAt: ZonedDateTime?,
     ) {
         companion object {
@@ -104,7 +107,10 @@ class CouponV1AdminDto {
                     id = result.id,
                     couponId = result.couponId,
                     userId = result.userId,
+                    discountType = result.discountType,
+                    discountValue = result.discountValue,
                     status = result.status,
+                    expiredAt = result.expiredAt,
                     usedAt = result.usedAt,
                 )
             }
