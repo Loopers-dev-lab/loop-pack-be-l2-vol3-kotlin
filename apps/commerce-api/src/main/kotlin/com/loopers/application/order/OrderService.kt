@@ -20,6 +20,8 @@ class OrderService(
         products: Map<Long, ProductModel>,
         brandNames: Map<Long, String>,
         items: List<OrderCommand.CreateOrderItem>,
+        couponId: Long? = null,
+        discountAmount: Long = 0,
     ): OrderModel {
         if (items.isEmpty()) {
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목은 최소 1개 이상이어야 합니다.")
@@ -28,7 +30,7 @@ class OrderService(
             throw CoreException(ErrorType.BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
         }
 
-        var order = OrderModel(memberId = memberId)
+        var order = OrderModel(memberId = memberId, couponId = couponId, discountAmount = discountAmount)
         items.forEach { item ->
             val product = products[item.productId]
                 ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다.")
