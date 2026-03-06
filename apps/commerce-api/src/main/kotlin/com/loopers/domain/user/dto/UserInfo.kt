@@ -11,10 +11,10 @@ data class UserInfo(
     companion object {
         fun from(user: User): UserInfo {
             return UserInfo(
-                loginId = user.loginId,
-                name = maskLastCharacter(user.name),
-                birthDate = user.birthDate,
-                email = user.email,
+                loginId = user.loginId.value,
+                name = maskLastCharacter(user.name.value),
+                birthDate = user.birthDate.value,
+                email = user.email.value,
             )
         }
 

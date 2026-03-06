@@ -2,6 +2,11 @@ package com.loopers.domain.user
 
 import com.loopers.domain.user.dto.SignUpCommand
 import com.loopers.domain.user.dto.UserInfo
+import com.loopers.domain.user.vo.BirthDate
+import com.loopers.domain.user.vo.Email
+import com.loopers.domain.user.vo.LoginId
+import com.loopers.domain.user.vo.Name
+import com.loopers.domain.user.vo.Password
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -10,6 +15,7 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.security.crypto.password.PasswordEncoder
 
@@ -26,8 +32,9 @@ class UserServiceTest {
         userService = UserService(userRepository, passwordEncoder)
     }
 
+    @DisplayName("회원가입을 할 수 있다")
     @Test
-    fun `회원가입을 할 수 있다`() {
+    fun signUp() {
         // given
         val command = SignUpCommand(
             loginId = "test123",
@@ -37,24 +44,19 @@ class UserServiceTest {
             email = "test@test.com",
         )
 
-        val expectedUser = User.create(
-            loginId = command.loginId,
-            password = command.password,
-            name = command.name,
-            birthDate = command.birthDate,
-            email = command.email,
-        )
-
         every { userRepository.existsByLoginId(any()) } returns false
-        every { userRepository.save(any()) } returns expectedUser
-        every { passwordEncoder.encode(any()) } returns "test1234"
+        every { userRepository.save(any()) } answers { firstArg() }
+        every { passwordEncoder.encode(any()) } returns "encodedPassword"
 
         // when + then
         userService.signUp(command)
+
+        verify { userRepository.save(any()) }
     }
 
+    @DisplayName("중복된 로그인ID로 회원가입을 할 수 없다")
     @Test
-    fun `중복된 로그인ID로 회원가입을 할 수 없다`() {
+    fun signUpWithDuplicateLoginId() {
         // given
         val command = SignUpCommand(
             loginId = "test123",
@@ -74,8 +76,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("회원가입 시 비밀번호가 8자 미만이면 예외가 발생한다")
     @Test
-    fun `회원가입 시 비밀번호가 8자 미만이면 예외가 발생한다`() {
+    fun signUpWithPasswordTooShort() {
         // given
         val command = SignUpCommand(
             loginId = "test123",
@@ -95,8 +98,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("회원가입 시 비밀번호가 16자 초과면 예외가 발생한다")
     @Test
-    fun `회원가입 시 비밀번호가 16자 초과면 예외가 발생한다`() {
+    fun signUpWithPasswordTooLong() {
         // given
         val command = SignUpCommand(
             loginId = "test123",
@@ -116,8 +120,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("회원가입 시 비밀번호에 허용되지 않는 문자가 포함되면 예외가 발생한다")
     @Test
-    fun `회원가입 시 비밀번호에 허용되지 않는 문자가 포함되면 예외가 발생한다`() {
+    fun signUpWithInvalidPasswordCharacters() {
         // given
         val command = SignUpCommand(
             loginId = "test123",
@@ -137,8 +142,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("회원가입 시 비밀번호에 생년월일이 포함되면 예외가 발생한다")
     @Test
-    fun `회원가입 시 비밀번호에 생년월일이 포함되면 예외가 발생한다`() {
+    fun signUpWithBirthDateInPassword() {
         // given
         val command = SignUpCommand(
             loginId = "test123",
@@ -158,16 +164,17 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("내 정보를 조회할 수 있다")
     @Test
-    fun `내 정보를 조회할 수 있다`() {
+    fun findUserInfo() {
         // given
         val id = 1L
 
         val expectedUser = mockk<User> {
-            every { loginId } returns "test123"
-            every { name } returns "테스트"
-            every { birthDate } returns "20260101"
-            every { email } returns "test@test.com"
+            every { loginId } returns LoginId.of("test123")
+            every { name } returns Name.of("테스트")
+            every { birthDate } returns BirthDate.of("20260101")
+            every { email } returns Email.of("test@test.com")
         }
 
         val expectedUserInfo = UserInfo.from(expectedUser)
@@ -184,8 +191,9 @@ class UserServiceTest {
         assertEquals(expectedUserInfo.email, userInfo.email)
     }
 
+    @DisplayName("내 정보 조회 시 고객정보가 없으면 NotFound Exception이 발생한다")
     @Test
-    fun `내 정보 조회 시 고객정보가 없으면 NotFound Exception이 발생한다`() {
+    fun findUserInfoNotFound() {
         // given
         val id = 1L
         every { userRepository.findUserById(any()) } returns null
@@ -198,8 +206,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.NOT_FOUND)
     }
 
+    @DisplayName("비밀번호를 변경할 수 있다")
     @Test
-    fun `비밀번호를 변경할 수 있다`() {
+    fun changePassword() {
         // given
         val id = 1L
         val currentPassword = "oldPass123"
@@ -207,24 +216,26 @@ class UserServiceTest {
         val encodedCurrentPassword = "encodedOldPass"
 
         val existingUser = mockk<User>(relaxed = true) {
-            every { password } returns encodedCurrentPassword
-            every { birthDate } returns "20260101"
+            every { password } returns Password("encodedOldPass")
+            every { birthDate } returns BirthDate.of("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
         every { passwordEncoder.matches(currentPassword, encodedCurrentPassword) } returns true
         every { passwordEncoder.matches(newPassword, encodedCurrentPassword) } returns false
         every { passwordEncoder.encode(newPassword) } returns "encodedNewPass"
+        every { userRepository.save(any()) } returns existingUser
 
         // when
         userService.changePassword(id, currentPassword, newPassword)
 
         // then
-        verify { existingUser.changePassword("encodedNewPass") }
+        verify { existingUser.changePassword(any()) }
     }
 
+    @DisplayName("비밀번호 변경 시 기존 비밀번호가 일치하지 않으면 예외가 발생한다")
     @Test
-    fun `비밀번호 변경 시 기존 비밀번호가 일치하지 않으면 예외가 발생한다`() {
+    fun changePasswordWithIncorrectCurrentPassword() {
         // given
         val id = 1L
         val currentPassword = "wrongPassword"
@@ -232,7 +243,7 @@ class UserServiceTest {
         val encodedCurrentPassword = "encodedOldPass"
 
         val existingUser = mockk<User> {
-            every { password } returns encodedCurrentPassword
+            every { password } returns Password("encodedOldPass")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -246,8 +257,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("비밀번호 변경 시 새 비밀번호가 기존과 같으면 예외가 발생한다")
     @Test
-    fun `비밀번호 변경 시 새 비밀번호가 기존과 같으면 예외가 발생한다`() {
+    fun changePasswordWithSamePassword() {
         // given
         val id = 1L
         val currentPassword = "samePass123"
@@ -255,7 +267,7 @@ class UserServiceTest {
         val encodedPassword = "encodedSamePass"
 
         val existingUser = mockk<User> {
-            every { password } returns encodedPassword
+            every { password } returns Password("encodedSamePass")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -270,8 +282,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("비밀번호 변경 시 새 비밀번호에 생년월일이 포함되면 예외가 발생한다")
     @Test
-    fun `비밀번호 변경 시 새 비밀번호에 생년월일이 포함되면 예외가 발생한다`() {
+    fun changePasswordWithBirthDateInNewPassword() {
         // given
         val id = 1L
         val currentPassword = "oldPass123"
@@ -280,8 +293,8 @@ class UserServiceTest {
         val encodedCurrentPassword = "encodedOldPass"
 
         val existingUser = mockk<User> {
-            every { password } returns encodedCurrentPassword
-            every { this@mockk.birthDate } returns birthDate
+            every { password } returns Password("encodedOldPass")
+            every { this@mockk.birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -296,8 +309,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("비밀번호 변경 시 새 비밀번호가 8자 미만이면 예외가 발생한다")
     @Test
-    fun `비밀번호 변경 시 새 비밀번호가 8자 미만이면 예외가 발생한다`() {
+    fun changePasswordWithNewPasswordTooShort() {
         // given
         val id = 1L
         val currentPassword = "oldPass123"
@@ -305,8 +319,8 @@ class UserServiceTest {
         val encodedCurrentPassword = "encodedOldPass"
 
         val existingUser = mockk<User> {
-            every { password } returns encodedCurrentPassword
-            every { birthDate } returns "20260101"
+            every { password } returns Password("encodedOldPass")
+            every { birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -321,8 +335,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("비밀번호 변경 시 새 비밀번호가 16자 초과면 예외가 발생한다")
     @Test
-    fun `비밀번호 변경 시 새 비밀번호가 16자 초과면 예외가 발생한다`() {
+    fun changePasswordWithNewPasswordTooLong() {
         // given
         val id = 1L
         val currentPassword = "oldPass123"
@@ -330,8 +345,8 @@ class UserServiceTest {
         val encodedCurrentPassword = "encodedOldPass"
 
         val existingUser = mockk<User> {
-            every { password } returns encodedCurrentPassword
-            every { birthDate } returns "20260101"
+            every { password } returns Password("encodedOldPass")
+            every { birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
@@ -346,8 +361,9 @@ class UserServiceTest {
             .isEqualTo(ErrorType.BAD_REQUEST)
     }
 
+    @DisplayName("비밀번호 변경 시 새 비밀번호에 허용되지 않는 문자가 포함되면 예외가 발생한다")
     @Test
-    fun `비밀번호 변경 시 새 비밀번호에 허용되지 않는 문자가 포함되면 예외가 발생한다`() {
+    fun changePasswordWithInvalidCharactersInNewPassword() {
         // given
         val id = 1L
         val currentPassword = "oldPass123"
@@ -355,8 +371,8 @@ class UserServiceTest {
         val encodedCurrentPassword = "encodedOldPass"
 
         val existingUser = mockk<User> {
-            every { password } returns encodedCurrentPassword
-            every { birthDate } returns "20260101"
+            every { password } returns Password("encodedOldPass")
+            every { birthDate } returns BirthDate("20260101")
         }
 
         every { userRepository.findUserById(id) } returns existingUser
