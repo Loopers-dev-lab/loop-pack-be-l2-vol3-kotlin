@@ -1,0 +1,26 @@
+package com.loopers.application.api.user
+
+import com.loopers.domain.user.UserService
+import com.loopers.domain.user.dto.SignUpCommand
+import com.loopers.domain.user.dto.UserInfo
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+@Service
+@Transactional(readOnly = true)
+class UserFacade(
+    private val userService: UserService,
+) {
+
+    @Transactional
+    fun signUp(command: SignUpCommand) {
+        userService.signUp(command)
+    }
+
+    fun findUserInfo(id: Long): UserInfo = userService.findUserInfo(id)
+
+    @Transactional
+    fun changePassword(id: Long, currentPassword: String, newPassword: String) {
+        userService.changePassword(id, currentPassword, newPassword)
+    }
+}

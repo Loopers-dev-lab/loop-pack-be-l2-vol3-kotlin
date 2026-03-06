@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.domain.productlike.dto.LikedProductInfo
 import com.loopers.domain.user.dto.UserInfo
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.PageResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.parameters.RequestBody
@@ -54,4 +56,21 @@ interface UserV1ApiSpec {
         @RequestBody(description = "비밀번호 변경 요청 정보", required = true)
         passwordChangeRequest: UserV1Dto.PasswordChangeRequest,
     ): ApiResponse<Any>
+
+    @Operation(
+        summary = "사용자 좋아요 목록 조회",
+        description = "특정 사용자가 좋아요한 상품 목록을 페이징으로 조회합니다.",
+        responses = [
+            io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+            io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 (페이지 정보 오류)"),
+        ],
+    )
+    fun getMyLikedProducts(
+        @Parameter(description = "사용자 ID", required = true)
+        userId: Long,
+        @Parameter(description = "페이지 번호 (0부터 시작, 기본값: 0)", required = false)
+        page: Int,
+        @Parameter(description = "페이지 크기 (20, 50, 100만 가능, 기본값: 20)", required = false)
+        size: Int,
+    ): ApiResponse<PageResponse<LikedProductInfo>>
 }
