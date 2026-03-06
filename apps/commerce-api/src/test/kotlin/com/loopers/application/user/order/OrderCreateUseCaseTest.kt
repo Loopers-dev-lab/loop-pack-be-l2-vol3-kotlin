@@ -4,6 +4,8 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
+import com.loopers.domain.coupon.CouponRepository
+import com.loopers.domain.coupon.IssuedCouponRepository
 import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
@@ -32,11 +34,15 @@ class OrderCreateUseCaseTest {
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
     private val brandRepository: BrandRepository = mock()
+    private val couponRepository: CouponRepository = mock()
+    private val issuedCouponRepository: IssuedCouponRepository = mock()
     private val useCase = OrderCreateUseCase(
         orderRepository = orderRepository,
         productRepository = productRepository,
         productStockRepository = productStockRepository,
         brandRepository = brandRepository,
+        couponRepository = couponRepository,
+        issuedCouponRepository = issuedCouponRepository,
     )
 
     private fun command(
@@ -95,7 +101,7 @@ class OrderCreateUseCaseTest {
         given(orderRepository.existsByIdempotencyKey(IdempotencyKey("test-key-001"))).willReturn(false)
         given(productRepository.findAllByIdIn(products.map { it.id!! })).willReturn(products)
         given(brandRepository.findAllByIdIn(brands.map { it.id!! })).willReturn(brands)
-        given(productStockRepository.findAllByProductIdIn(products.map { it.id!! })).willReturn(stocks)
+        given(productStockRepository.findAllByProductIdInWithLock(products.map { it.id!! })).willReturn(stocks)
         given(
             orderRepository.save(
                 check { order ->
@@ -150,7 +156,7 @@ class OrderCreateUseCaseTest {
             given(orderRepository.existsByIdempotencyKey(IdempotencyKey("test-key-001"))).willReturn(false)
             given(productRepository.findAllByIdIn(listOf(1L, 2L))).willReturn(listOf(p1, p2))
             given(brandRepository.findAllByIdIn(listOf(1L, 2L))).willReturn(listOf(b1, b2))
-            given(productStockRepository.findAllByProductIdIn(listOf(1L, 2L))).willReturn(listOf(s1, s2))
+            given(productStockRepository.findAllByProductIdInWithLock(listOf(1L, 2L))).willReturn(listOf(s1, s2))
             given(
                 orderRepository.save(
                     check { order ->
@@ -314,7 +320,7 @@ class OrderCreateUseCaseTest {
             given(orderRepository.existsByIdempotencyKey(IdempotencyKey("test-key-001"))).willReturn(false)
             given(productRepository.findAllByIdIn(listOf(1L))).willReturn(listOf(product()))
             given(brandRepository.findAllByIdIn(listOf(1L))).willReturn(listOf(brand()))
-            given(productStockRepository.findAllByProductIdIn(listOf(1L))).willReturn(emptyList())
+            given(productStockRepository.findAllByProductIdInWithLock(listOf(1L))).willReturn(emptyList())
 
             // act
             val exception = assertThrows<CoreException> {
@@ -388,7 +394,7 @@ class OrderCreateUseCaseTest {
             given(orderRepository.existsByIdempotencyKey(IdempotencyKey("test-key-001"))).willReturn(false)
             given(productRepository.findAllByIdIn(listOf(1L))).willReturn(listOf(product()))
             given(brandRepository.findAllByIdIn(listOf(1L))).willReturn(listOf(brand()))
-            given(productStockRepository.findAllByProductIdIn(listOf(1L)))
+            given(productStockRepository.findAllByProductIdInWithLock(listOf(1L)))
                 .willReturn(listOf(stock(quantity = 1)))
 
             // act

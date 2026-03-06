@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
 import com.loopers.domain.product.ProductStock
 import com.loopers.support.error.CoreException
@@ -29,6 +30,8 @@ object OrderDomainService {
         userId: Long,
         idempotencyKey: IdempotencyKey,
         orderItemRequests: List<OrderItemRequest>,
+        issuedCouponId: Long? = null,
+        discountAmount: Money = Money.ZERO,
     ): CreateOrderResult {
         // 0. Precondition 검증
         validatePreconditions(orderItemRequests)
@@ -65,6 +68,8 @@ object OrderDomainService {
             userId = userId,
             idempotencyKey = idempotencyKey,
             items = orderItems,
+            issuedCouponId = issuedCouponId,
+            discountAmount = discountAmount,
         )
 
         return CreateOrderResult(order = order, decreasedStocks = decreasedStocks)

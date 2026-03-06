@@ -12,6 +12,7 @@ class UserOrderV1Request {
         @field:Valid
         @field:NotEmpty
         val items: List<Item>,
+        val issuedCouponId: Long? = null,
     ) {
         data class Item(
             @field:NotNull
@@ -25,6 +26,7 @@ class UserOrderV1Request {
                 userId = userId,
                 idempotencyKey = idempotencyKey,
                 items = items.map { OrderCreateCommand.Item(it.productId, it.quantity) },
+                issuedCouponId = issuedCouponId,
             )
     }
 }

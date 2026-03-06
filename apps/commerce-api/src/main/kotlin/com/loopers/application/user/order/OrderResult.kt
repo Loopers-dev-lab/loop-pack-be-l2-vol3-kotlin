@@ -10,11 +10,15 @@ class OrderResult {
     data class Created(
         val orderId: Long,
         val status: String,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
     ) {
         companion object {
             fun from(order: Order): Created = Created(
                 orderId = order.id!!,
                 status = order.status.name,
+                discountAmount = order.discountAmount.amount,
+                finalAmount = order.finalAmount().amount,
             )
         }
     }
@@ -25,6 +29,8 @@ class OrderResult {
         val status: String,
         val items: List<OrderItemDetail>,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -34,6 +40,8 @@ class OrderResult {
                 status = order.status.name,
                 items = order.items.map { OrderItemDetail.from(it) },
                 totalAmount = order.totalAmount().amount,
+                discountAmount = order.discountAmount.amount,
+                finalAmount = order.finalAmount().amount,
                 createdAt = order.createdAt!!,
             )
         }
@@ -67,6 +75,8 @@ class OrderResult {
         val orderSummary: String,
         val itemCount: Int,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -84,6 +94,8 @@ class OrderResult {
                     orderSummary = orderSummary,
                     itemCount = itemCount,
                     totalAmount = order.totalAmount().amount,
+                    discountAmount = order.discountAmount.amount,
+                    finalAmount = order.finalAmount().amount,
                     createdAt = order.createdAt!!,
                 )
             }

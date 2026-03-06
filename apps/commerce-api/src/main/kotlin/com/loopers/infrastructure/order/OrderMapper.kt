@@ -34,6 +34,8 @@ class OrderMapper {
             idempotencyKey = IdempotencyKey(entity.idempotencyKey),
             status = entity.status,
             items = items,
+            issuedCouponId = entity.issuedCouponId,
+            discountAmount = Money(entity.discountAmount),
             createdAt = entity.createdAt,
         )
     }
@@ -44,6 +46,8 @@ class OrderMapper {
             userId = order.userId,
             idempotencyKey = order.idempotencyKey.value,
             status = order.status,
+            issuedCouponId = order.issuedCouponId,
+            discountAmount = order.discountAmount.amount,
         )
         entity.items.addAll(
             order.items.map { item ->
