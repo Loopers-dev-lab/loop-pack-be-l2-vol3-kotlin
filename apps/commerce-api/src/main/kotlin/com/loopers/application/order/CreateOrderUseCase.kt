@@ -12,6 +12,7 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderValidator
 import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.CouponErrorCode
 import org.springframework.stereotype.Component
@@ -22,6 +23,7 @@ class CreateOrderUseCase(
     private val orderRepository: OrderRepository,
     private val orderItemRepository: OrderItemRepository,
     private val productRepository: ProductRepository,
+    private val productStockRepository: ProductStockRepository,
     private val brandRepository: BrandRepository,
     private val orderValidator: OrderValidator,
     private val userCouponRepository: UserCouponRepository,
@@ -35,14 +37,18 @@ class CreateOrderUseCase(
         // 1. 쿠폰 사전 검증 (락 전, fast-fail)
         val coupon = validateCoupon(command.userCouponId, command.userId)
 
-        // 2. 데드락 방지를 위해 productId 오름차순으로 비관적 락 획득
-        val sortedProductIds = orderLines.map { it.productId }.distinct().sorted()
-        val products = sortedProductIds.mapNotNull { productId ->
-            productRepository.findByIdForUpdate(productId)
-        }
+        // 2. 상품 정보 조회 (락 없이)
+        val productIds = orderLines.map { it.productId }.distinct()
+        val products = productRepository.findAllByIds(productIds)
         val productMap = products.associateBy { it.id }
 
-        orderValidator.validate(orderLines, productMap)
+        // 3. 데드락 방지를 위해 productId 오름차순으로 재고 비관적 락 획득
+        val sortedProductIds = productIds.sorted()
+        val productStockMap = sortedProductIds.mapNotNull { productId ->
+            productStockRepository.findByProductIdForUpdate(productId)
+        }.associateBy { it.productId }
+
+        orderValidator.validate(orderLines, productMap, productStockMap)
 
         val brandIds = products.map { it.brandId }.distinct()
         val brandMap = brandRepository.findAllByIds(brandIds).associateBy { it.id }
@@ -60,11 +66,11 @@ class CreateOrderUseCase(
             )
         }
 
-        // 3. 할인 계산
+        // 4. 할인 계산
         val originalAmount = Money(snapshots.sumOf { it.productPrice.amount * it.quantity.value })
         val discountAmount = calculateDiscount(coupon, originalAmount)
 
-        // 4. 주문 생성 + 재고 차감
+        // 5. 주문 생성 + 재고 차감
         val order = Order.create(
             userId = command.userId,
             items = snapshots,
@@ -79,11 +85,11 @@ class CreateOrderUseCase(
         orderItemRepository.saveAll(orderItems)
 
         orderLines.forEach { line ->
-            val product = productMap.getValue(line.productId)
-            product.decreaseStock(line.quantity.value)
+            val productStock = productStockMap.getValue(line.productId)
+            productStock.decreaseStock(line.quantity.value)
         }
 
-        // 5. 쿠폰 Conditional Update
+        // 6. 쿠폰 Conditional Update
         command.userCouponId?.let { userCouponId ->
             val updated = userCouponRepository.useIfAvailable(userCouponId, savedOrder.id)
             if (updated == 0) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)

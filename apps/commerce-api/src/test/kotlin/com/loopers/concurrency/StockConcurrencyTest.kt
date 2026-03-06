@@ -8,7 +8,7 @@ import com.loopers.application.product.ProductCommand
 import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.application.user.UserCommand
-import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.testcontainers.MySqlTestContainersConfig
@@ -30,7 +30,7 @@ class StockConcurrencyTest @Autowired constructor(
     private val registerUserUseCase: RegisterUserUseCase,
     private val registerBrandUseCase: RegisterBrandUseCase,
     private val registerProductUseCase: RegisterProductUseCase,
-    private val productRepository: ProductRepository,
+    private val productStockRepository: ProductStockRepository,
     private val userJpaRepository: UserJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -99,12 +99,12 @@ class StockConcurrencyTest @Autowired constructor(
         val failures = results.filter { it.isFailure }
 
         // assert
-        val product = productRepository.findByIdOrNull(productId)!!
+        val productStock = productStockRepository.findByProductId(productId)!!
 
         assertAll(
             { assertThat(successes).`as`("재고 수만큼만 성공해야 한다").hasSize(initialStock) },
             { assertThat(failures).`as`("초과 주문은 실패해야 한다").hasSize(threadCount - initialStock) },
-            { assertThat(product.stock.quantity).`as`("재고가 정확히 0이어야 한다").isEqualTo(0) },
+            { assertThat(productStock.stock.quantity).`as`("재고가 정확히 0이어야 한다").isEqualTo(0) },
             {
                 assertThat(failures).`as`("실패는 모두 CoreException이어야 한다")
                     .allSatisfy { result ->

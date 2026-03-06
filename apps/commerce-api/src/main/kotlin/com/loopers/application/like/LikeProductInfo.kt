@@ -18,7 +18,7 @@ data class LikeProductInfo(
                 productName = product.name,
                 price = product.price.amount,
                 imageUrl = product.imageUrl,
-                available = product.isAvailable(),
+                available = !product.isDeleted(),
                 likedAt = likedAt,
             )
         }

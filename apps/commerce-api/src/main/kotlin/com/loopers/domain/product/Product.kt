@@ -17,7 +17,6 @@ class Product private constructor(
     name: String,
     description: String,
     price: Money,
-    stock: Stock,
     imageUrl: String,
     likeCount: Long = 0,
     deletedAt: ZonedDateTime? = null,
@@ -40,11 +39,6 @@ class Product private constructor(
     var price: Money = price
         protected set
 
-    @Embedded
-    @AttributeOverride(name = "quantity", column = Column(name = "stock", nullable = false))
-    var stock: Stock = stock
-        protected set
-
     @Column(name = "image_url", nullable = false)
     var imageUrl: String = imageUrl
         protected set
@@ -59,29 +53,21 @@ class Product private constructor(
 
     fun isDeleted(): Boolean = deletedAt != null
 
-    fun isAvailable(): Boolean = !isDeleted() && stock.quantity > 0
-
     fun update(
         name: String,
         description: String,
         price: Money,
-        stock: Stock,
         imageUrl: String,
     ) {
         validateName(name)
         this.name = name.trim()
         this.description = description
         this.price = price
-        this.stock = stock
         this.imageUrl = imageUrl
     }
 
     fun delete() {
         this.deletedAt = ZonedDateTime.now()
-    }
-
-    fun decreaseStock(quantity: Int) {
-        this.stock = stock.deduct(quantity)
     }
 
     fun increaseLikeCount() {
@@ -103,7 +89,6 @@ class Product private constructor(
             name: String,
             description: String,
             price: Money,
-            stock: Stock,
             imageUrl: String,
         ): Product {
             validateName(name)
@@ -112,7 +97,6 @@ class Product private constructor(
                 name = name.trim(),
                 description = description,
                 price = price,
-                stock = stock,
                 imageUrl = imageUrl,
             )
         }

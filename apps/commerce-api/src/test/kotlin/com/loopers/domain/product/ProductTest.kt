@@ -16,7 +16,6 @@ class ProductTest {
         name: String = "테스트 상품",
         description: String = "상품 설명",
         price: Money = Money(10000),
-        stock: Stock = Stock(100),
         imageUrl: String = "https://example.com/image.jpg",
     ): Product {
         return Product.create(
@@ -24,7 +23,6 @@ class ProductTest {
             name = name,
             description = description,
             price = price,
-            stock = stock,
             imageUrl = imageUrl,
         )
     }
@@ -43,7 +41,6 @@ class ProductTest {
                 { assertThat(product.name).isEqualTo("테스트 상품") },
                 { assertThat(product.description).isEqualTo("상품 설명") },
                 { assertThat(product.price).isEqualTo(Money(10000)) },
-                { assertThat(product.stock).isEqualTo(Stock(100)) },
                 { assertThat(product.likeCount).isEqualTo(0) },
                 { assertThat(product.isDeleted()).isFalse() },
             )
@@ -93,7 +90,6 @@ class ProductTest {
                 name = "수정된 상품",
                 description = "수정된 설명",
                 price = Money(20000),
-                stock = Stock(50),
                 imageUrl = "https://example.com/new.jpg",
             )
 
@@ -101,7 +97,6 @@ class ProductTest {
                 { assertThat(product.name).isEqualTo("수정된 상품") },
                 { assertThat(product.description).isEqualTo("수정된 설명") },
                 { assertThat(product.price).isEqualTo(Money(20000)) },
-                { assertThat(product.stock).isEqualTo(Stock(50)) },
                 { assertThat(product.imageUrl).isEqualTo("https://example.com/new.jpg") },
             )
         }
@@ -115,7 +110,6 @@ class ProductTest {
                 name = "수정된 상품",
                 description = "수정된 설명",
                 price = Money(20000),
-                stock = Stock(50),
                 imageUrl = "https://example.com/new.jpg",
             )
 
@@ -132,7 +126,6 @@ class ProductTest {
                     name = "",
                     description = "설명",
                     price = Money(10000),
-                    stock = Stock(10),
                     imageUrl = "https://example.com/image.jpg",
                 )
             }
@@ -150,7 +143,6 @@ class ProductTest {
                     name = "가".repeat(101),
                     description = "설명",
                     price = Money(10000),
-                    stock = Stock(10),
                     imageUrl = "https://example.com/image.jpg",
                 )
             }
@@ -171,63 +163,6 @@ class ProductTest {
             product.delete()
 
             assertThat(product.isDeleted()).isTrue()
-        }
-    }
-
-    @DisplayName("상품 구매 가능 여부")
-    @Nested
-    inner class IsAvailable {
-
-        @DisplayName("재고가 있으면 구매 가능하다")
-        @Test
-        fun availableWhenStockExists() {
-            val product = createProduct(stock = Stock(1))
-
-            assertThat(product.isAvailable()).isTrue()
-        }
-
-        @DisplayName("재고가 0이면 구매 불가능하다")
-        @Test
-        fun unavailableWhenStockZero() {
-            val product = createProduct(stock = Stock(0))
-
-            assertThat(product.isAvailable()).isFalse()
-        }
-
-        @DisplayName("삭제된 상품은 구매 불가능하다")
-        @Test
-        fun unavailableWhenDeleted() {
-            val product = createProduct(stock = Stock(10))
-            product.delete()
-
-            assertThat(product.isAvailable()).isFalse()
-        }
-    }
-
-    @DisplayName("재고 차감")
-    @Nested
-    inner class DecreaseStock {
-
-        @DisplayName("재고가 충분하면 차감에 성공한다")
-        @Test
-        fun success() {
-            val product = createProduct(stock = Stock(10))
-
-            product.decreaseStock(3)
-
-            assertThat(product.stock).isEqualTo(Stock(7))
-        }
-
-        @DisplayName("재고가 부족하면 INSUFFICIENT_STOCK 예외가 발생한다")
-        @Test
-        fun failWhenInsufficient() {
-            val product = createProduct(stock = Stock(3))
-
-            val exception = assertThrows<CoreException> {
-                product.decreaseStock(5)
-            }
-
-            assertThat(exception.errorCode).isEqualTo(ProductErrorCode.INSUFFICIENT_STOCK)
         }
     }
 

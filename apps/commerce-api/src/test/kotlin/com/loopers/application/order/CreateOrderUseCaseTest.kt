@@ -13,6 +13,7 @@ import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.coupon.UserCoupon
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.CouponErrorCode
@@ -40,6 +41,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
     private val registerCouponUseCase: RegisterCouponUseCase,
     private val issueCouponUseCase: IssueCouponUseCase,
     private val productRepository: ProductRepository,
+    private val productStockRepository: ProductStockRepository,
     private val userCouponRepository: UserCouponRepository,
     private val userJpaRepository: UserJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -133,8 +135,8 @@ class CreateOrderUseCaseTest @Autowired constructor(
                 { assertThat(result.status).isEqualTo("ORDERED") },
             )
 
-            val product = productRepository.findByIdOrNull(productId)
-            assertThat(product?.stock?.quantity).isEqualTo(47)
+            val productStock = productStockRepository.findByProductId(productId)
+            assertThat(productStock?.stock?.quantity).isEqualTo(47)
         }
 
         @DisplayName("정액 쿠폰 적용 시 할인이 반영된다")

@@ -22,10 +22,6 @@ class ProductRepositoryImpl(
         return productJpaRepository.findByIdOrNull(id)
     }
 
-    override fun findByIdForUpdate(id: Long): Product? {
-        return productJpaRepository.findByIdForUpdate(id)
-    }
-
     override fun findActiveByIdOrNull(id: Long): Product? {
         return productJpaRepository.findActiveByIdOrNull(id)
     }

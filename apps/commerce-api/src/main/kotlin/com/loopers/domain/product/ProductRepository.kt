@@ -4,7 +4,6 @@ import com.loopers.support.PageResult
 
 interface ProductRepository {
     fun findByIdOrNull(id: Long): Product?
-    fun findByIdForUpdate(id: Long): Product?
     fun findActiveByIdOrNull(id: Long): Product?
     fun findAllByCondition(condition: ProductSearchCondition): PageResult<Product>
     fun findAllActiveByBrandId(brandId: Long): List<Product>
