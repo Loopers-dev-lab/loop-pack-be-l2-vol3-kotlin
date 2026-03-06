@@ -2,6 +2,7 @@ package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,7 +34,11 @@ class UserService(
             email = Email(email),
         )
 
-        return userRepository.save(user)
+        return try {
+            userRepository.save(user)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(ErrorType.CONFLICT, "이미 존재하는 로그인 ID입니다.")
+        }
     }
 
     @Transactional(readOnly = true)

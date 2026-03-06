@@ -21,8 +21,8 @@ class LikeRepositoryImpl(
         return likeJpaRepository.existsByUserIdAndProductId(userId, productId)
     }
 
-    override fun delete(like: LikeModel) {
-        return likeJpaRepository.delete(like)
+    override fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int {
+        return likeJpaRepository.deleteByUserIdAndProductId(userId, productId)
     }
 
     override fun findAllByUserId(

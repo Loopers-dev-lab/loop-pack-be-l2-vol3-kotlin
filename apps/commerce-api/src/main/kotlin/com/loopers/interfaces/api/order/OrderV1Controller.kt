@@ -29,6 +29,7 @@ class OrderV1Controller(
         orderFacade.createOrder(
             loginId = authenticatedUser.loginId,
             items = request.items.map { OrderFacade.OrderItemRequest(it.productId, it.quantity) },
+            couponId = request.couponId,
         ).let { OrderV1Dto.OrderResponse.from(it) }
          .let { ApiResponse.success(it) }
 

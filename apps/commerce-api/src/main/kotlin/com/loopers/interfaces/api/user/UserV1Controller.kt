@@ -52,4 +52,13 @@ class UserV1Controller(
         )
         return ApiResponse.success(Unit)
     }
+
+    @GetMapping("/me/coupons")
+    override fun getMyCoupons(
+        @RequireAuth authenticatedUser: AuthenticatedUser,
+    ): ApiResponse<List<UserV1Dto.UserCouponResponse>> {
+        return userFacade.getMyCoupons(authenticatedUser.loginId)
+            .map { UserV1Dto.UserCouponResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 }

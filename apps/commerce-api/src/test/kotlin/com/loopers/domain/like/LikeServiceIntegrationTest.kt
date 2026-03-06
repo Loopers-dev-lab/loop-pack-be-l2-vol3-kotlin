@@ -47,7 +47,7 @@ class LikeServiceIntegrationTest @Autowired constructor(
             val brand = createBrand()
             val product = createProduct(brand.id)
 
-            val likeModel = likeService.like(1L, product)
+            val (_, likeModel) = likeService.like(1L, product.id)
 
             assertThat(likeModel.id).isGreaterThan(0)
             assertThat(likeModel.userId).isEqualTo(1L)
@@ -59,8 +59,8 @@ class LikeServiceIntegrationTest @Autowired constructor(
             val brand = createBrand()
             val product = createProduct(brand.id)
 
-            val firstLike = likeService.like(1L, product)
-            val secondLike = likeService.like(1L, product)
+            val (_, firstLike) = likeService.like(1L, product.id)
+            val (_, secondLike) = likeService.like(1L, product.id)
 
             assertThat(secondLike.id).isEqualTo(firstLike.id)
 
@@ -76,9 +76,9 @@ class LikeServiceIntegrationTest @Autowired constructor(
         fun `좋아요 취소 시 해당 좋아요가 삭제된다`() {
             val brand = createBrand()
             val product = createProduct(brand.id)
-            likeService.like(1L, product)
+            likeService.like(1L, product.id)
 
-            likeService.unlike(1L, product)
+            likeService.unlike(1L, product.id)
 
             val result = likeService.getLikedProducts(1L, PageRequest.of(0, 10))
             assertThat(result).isEmpty()
@@ -90,7 +90,7 @@ class LikeServiceIntegrationTest @Autowired constructor(
             val product = createProduct(brand.id)
 
             // 에러 없이 종료
-            likeService.unlike(999L, product)
+            likeService.unlike(999L, product.id)
         }
     }
 
@@ -104,9 +104,9 @@ class LikeServiceIntegrationTest @Autowired constructor(
             val product2 = createProduct(brand.id, "Product2")
             val product3 = createProduct(brand.id, "Product3")
 
-            likeService.like(1L, product1)
-            likeService.like(1L, product2)
-            likeService.like(2L, product3)
+            likeService.like(1L, product1.id)
+            likeService.like(1L, product2.id)
+            likeService.like(2L, product3.id)
 
             val result = likeService.getLikedProducts(1L, PageRequest.of(0, 10))
 

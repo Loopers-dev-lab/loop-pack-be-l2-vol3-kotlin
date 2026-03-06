@@ -1,8 +1,10 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.order.DiscountAmount
 import com.loopers.domain.order.OrderModel
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderStatus
+import com.loopers.domain.order.OriginalAmount
 import com.loopers.domain.order.TotalAmount
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -38,7 +40,14 @@ class OrderServiceTest {
         totalAmount: Long = 10_000L,
         status: OrderStatus = OrderStatus.PENDING_PAYMENT,
     ): OrderModel {
-        val model = OrderModel(userId = userId, totalAmount = TotalAmount(totalAmount), status = status)
+        val model = OrderModel(
+            userId = userId,
+            originalAmount = OriginalAmount(totalAmount),
+            discountAmount = DiscountAmount(0L),
+            couponId = null,
+            totalAmount = TotalAmount(totalAmount),
+            status = status,
+        )
         val now = ZonedDateTime.now()
         listOf("createdAt", "updatedAt").forEach { fieldName ->
             val field = OrderModel::class.java.getDeclaredField(fieldName)
@@ -58,7 +67,13 @@ class OrderServiceTest {
             every { orderRepository.save(any()) } returns savedOrder
 
             // when
-            val result = orderService.createOrder(userId = 1L, totalAmount = 20_000L)
+            val result = orderService.createOrder(
+                userId = 1L,
+                originalAmount = 20_000L,
+                discountAmount = 0L,
+                couponId = null,
+                totalAmount = 20_000L,
+            )
 
             // then
             assertNotNull(result)

@@ -1,8 +1,6 @@
 package com.loopers.domain.like
 
-import com.loopers.domain.like.LikeModel
-import com.loopers.domain.like.LikeRepository
-import com.loopers.domain.product.ProductModel
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -13,14 +11,17 @@ class LikeService(
 ) {
 
     @Transactional
-    fun like(userId: Long, product: ProductModel): LikeModel {
-        val existingLike = likeRepository.findByUserIdAndProductId(userId, product.id)
-        if (existingLike != null) {
-            return existingLike
-        }
+    fun like(userId: Long, productId: Long): Pair<Boolean, LikeModel> {
+        val existingLike = likeRepository.findByUserIdAndProductId(userId, productId)
+        if (existingLike != null) return Pair(false, existingLike)
 
-        product.increaseLikeCount()
-        return likeRepository.save(LikeModel(userId = userId, productId = product.id))
+        return try {
+            val newLike = likeRepository.save(LikeModel(userId = userId, productId = productId))
+            Pair(true, newLike)
+        } catch (e: DataIntegrityViolationException) {
+            val saved = likeRepository.findByUserIdAndProductId(userId, productId)!!
+            Pair(false, saved)
+        }
     }
 
     @Transactional(readOnly = true)
@@ -29,9 +30,7 @@ class LikeService(
     }
 
     @Transactional
-    fun unlike(userId: Long, product: ProductModel) {
-        val like = likeRepository.findByUserIdAndProductId(userId, product.id) ?: return
-        product.decreaseLikeCount()
-        likeRepository.delete(like)
+    fun unlike(userId: Long, productId: Long): Boolean {
+        return likeRepository.deleteByUserIdAndProductId(userId, productId) > 0
     }
 }

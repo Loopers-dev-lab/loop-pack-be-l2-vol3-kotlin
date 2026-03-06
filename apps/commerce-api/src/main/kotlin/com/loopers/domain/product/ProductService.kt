@@ -101,4 +101,12 @@ class ProductService(
         products.forEach { it.delete() }
         return products.map { it.id }
     }
+
+    @Transactional
+    fun incrementLikeCount(productId: Long) =
+        productRepository.incrementLikeCount(productId)
+
+    @Transactional
+    fun decrementLikeCount(productId: Long) =
+        productRepository.decrementLikeCount(productId)
 }

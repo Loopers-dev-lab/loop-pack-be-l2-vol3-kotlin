@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.application.coupon.CouponFacade
 import com.loopers.domain.user.BirthDate
 import com.loopers.domain.user.Email
 import com.loopers.domain.user.LoginId
@@ -9,6 +10,7 @@ import com.loopers.domain.user.UserModel
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
+import java.time.ZonedDateTime
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -29,12 +31,14 @@ class UserV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val userJpaRepository: UserJpaRepository,
     private val passwordEncryptor: PasswordEncryptor,
+    private val couponFacade: CouponFacade,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
         private const val ENDPOINT_REGISTER = "/api/v1/users"
         private const val ENDPOINT_GET_USER_INFO = "/api/v1/users/me"
         private const val ENDPOINT_CHANGE_PASSWORD = "/api/v1/users/password"
+        private const val ENDPOINT_MY_COUPONS = "/api/v1/users/me/coupons"
     }
 
     @AfterEach
@@ -404,6 +408,108 @@ class UserV1ApiE2ETest @Autowired constructor(
                 ENDPOINT_CHANGE_PASSWORD,
                 HttpMethod.PUT,
                 HttpEntity(request, headers),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+    }
+
+    @DisplayName("GET /api/v1/users/me/coupons")
+    @Nested
+    inner class GetMyCoupons {
+
+        @DisplayName("쿠폰이 없을 때 요청하면 200과 빈 리스트를 반환한다.")
+        @Test
+        fun getMyCoupons_whenNoCoupons_thenReturnsEmptyList() {
+            // arrange
+            userJpaRepository.save(
+                UserModel(
+                    loginId = LoginId("testuser"),
+                    encryptedPassword = passwordEncryptor.encrypt("Password123!"),
+                    name = Name("홍길동"),
+                    birthDate = BirthDate("1990-01-01"),
+                    email = Email("test@example.com"),
+                ),
+            )
+
+            val headers = HttpHeaders().apply {
+                set("X-Loopers-LoginId", "testuser")
+                set("X-Loopers-LoginPw", "Password123!")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<List<UserV1Dto.UserCouponResponse>>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_MY_COUPONS,
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).isEmpty() },
+            )
+        }
+
+        @DisplayName("쿠폰 발급 후 요청하면 200과 발급된 쿠폰 목록을 반환한다.")
+        @Test
+        fun getMyCoupons_afterIssueCoupon_thenReturnsCouponList() {
+            // arrange
+            userJpaRepository.save(
+                UserModel(
+                    loginId = LoginId("testuser"),
+                    encryptedPassword = passwordEncryptor.encrypt("Password123!"),
+                    name = Name("홍길동"),
+                    birthDate = BirthDate("1990-01-01"),
+                    email = Email("test@example.com"),
+                ),
+            )
+
+            val template = couponFacade.createTemplate(
+                name = "테스트쿠폰",
+                type = "FIXED",
+                value = 1000L,
+                minOrderAmount = null,
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            )
+            couponFacade.issueCoupon("testuser", template.id)
+
+            val headers = HttpHeaders().apply {
+                set("X-Loopers-LoginId", "testuser")
+                set("X-Loopers-LoginPw", "Password123!")
+            }
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<List<UserV1Dto.UserCouponResponse>>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_MY_COUPONS,
+                HttpMethod.GET,
+                HttpEntity<Any>(headers),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).hasSize(1) },
+                { assertThat(response.body?.data?.first()?.couponTemplateId).isEqualTo(template.id) },
+                { assertThat(response.body?.data?.first()?.status).isEqualTo("AVAILABLE") },
+            )
+        }
+
+        @DisplayName("인증 헤더 없이 요청하면, 401 UNAUTHORIZED 응답을 받는다.")
+        @Test
+        fun getMyCoupons_whenNoAuthHeader_thenThrowsUnauthorized() {
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<List<UserV1Dto.UserCouponResponse>>>() {}
+            val response = testRestTemplate.exchange(
+                ENDPOINT_MY_COUPONS,
+                HttpMethod.GET,
+                HttpEntity<Any>(Unit),
                 responseType,
             )
 

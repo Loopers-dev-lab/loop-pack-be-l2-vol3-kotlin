@@ -51,7 +51,7 @@ class ProductInventoryService(
 
     @Transactional
     fun decreaseStock(productId: Long, quantity: Long): ProductInventoryModel {
-        val inventory = productInventoryRepository.findByProductId(productId) ?: throw CoreException(
+        val inventory = productInventoryRepository.findByProductIdForUpdate(productId) ?: throw CoreException(
             errorType = ErrorType.NOT_FOUND,
             customMessage = "해당 상품의 재고를 찾을 수 없습니다.",
         )

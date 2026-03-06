@@ -6,6 +6,6 @@ interface LikeRepository {
     fun save(like: LikeModel): LikeModel
     fun findByUserIdAndProductId(userId: Long, productId: Long): LikeModel?
     fun existsByUserIdAndProductId(userId: Long, productId: Long): Boolean
-    fun delete(like: LikeModel)
+    fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int
     fun findAllByUserId(userId: Long, pageable: Pageable): List<LikeModel>
 }

@@ -18,15 +18,16 @@ class LikeFacade(
     @Transactional
     fun like(loginId: String, productId: Long): LikeInfo {
         val user = userService.getUserByLoginId(loginId)
-        val product = productService.getProductById(productId)
-        return likeService.like(user.id, product).let { LikeInfo.from(it) }
+        val (isNew, likeModel) = likeService.like(user.id, productId)
+        if (isNew) productService.incrementLikeCount(productId)
+        return LikeInfo.from(likeModel)
     }
 
     @Transactional
     fun unlike(loginId: String, productId: Long) {
         val user = userService.getUserByLoginId(loginId)
-        val product = productService.getProductById(productId)
-        likeService.unlike(user.id, product)
+        val deleted = likeService.unlike(user.id, productId)
+        if (deleted) productService.decrementLikeCount(productId)
     }
 
     fun getLikedProducts(loginId: String, userId: Long, pageable: Pageable): List<LikeInfo> {

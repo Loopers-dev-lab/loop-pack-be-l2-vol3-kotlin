@@ -7,6 +7,8 @@ import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.order.Price
 import com.loopers.domain.order.ProductName
 import com.loopers.domain.order.Quantity
+import com.loopers.domain.order.DiscountAmount
+import com.loopers.domain.order.OriginalAmount
 import com.loopers.domain.order.TotalAmount
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -34,6 +36,9 @@ class OrderInfoTest {
         val now = ZonedDateTime.now()
         val orderModel = OrderModel(
             userId = 1L,
+            originalAmount = OriginalAmount(30_000L),
+            discountAmount = DiscountAmount(0L),
+            couponId = null,
             totalAmount = TotalAmount(30_000L),
             status = OrderStatus.PENDING_PAYMENT,
         )
@@ -80,6 +85,9 @@ class OrderInfoTest {
         val now = ZonedDateTime.now()
         val orderModel = OrderModel(
             userId = 1L,
+            originalAmount = OriginalAmount(75_000L),
+            discountAmount = DiscountAmount(0L),
+            couponId = null,
             totalAmount = TotalAmount(75_000L),
             status = OrderStatus.PENDING_PAYMENT,
         )
@@ -111,6 +119,9 @@ class OrderInfoTest {
         val now = ZonedDateTime.now()
         val orderModel = OrderModel(
             userId = 1L,
+            originalAmount = OriginalAmount(1L),
+            discountAmount = DiscountAmount(0L),
+            couponId = null,
             totalAmount = TotalAmount(1L),
             status = OrderStatus.PENDING_PAYMENT,
         )

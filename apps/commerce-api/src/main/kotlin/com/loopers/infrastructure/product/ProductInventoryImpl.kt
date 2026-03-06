@@ -15,4 +15,8 @@ class ProductInventoryImpl(
     override fun findByProductId(productId: Long): ProductInventoryModel? {
         return productInventoryJpaRepository.findByProductId(productId)
     }
+
+    override fun findByProductIdForUpdate(productId: Long): ProductInventoryModel? {
+        return productInventoryJpaRepository.findByProductIdForUpdate(productId)
+    }
 }

@@ -17,9 +17,22 @@ class OrderService(
     private val orderRepository: OrderRepository,
 ) {
     @Transactional
-    fun createOrder(userId: Long, totalAmount: Long): OrderModel {
+    fun createOrder(
+        userId: Long,
+        originalAmount: Long,
+        discountAmount: Long,
+        couponId: Long?,
+        totalAmount: Long,
+    ): OrderModel {
         return orderRepository.save(
-            OrderModel(userId = userId, totalAmount = TotalAmount(totalAmount), status = OrderStatus.PENDING_PAYMENT)
+            OrderModel(
+                userId = userId,
+                originalAmount = OriginalAmount(originalAmount),
+                discountAmount = DiscountAmount(discountAmount),
+                couponId = couponId,
+                totalAmount = TotalAmount(totalAmount),
+                status = OrderStatus.PENDING_PAYMENT,
+            )
         )
     }
 

@@ -82,6 +82,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val result = orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 2L)),
+                couponId = null,
             )
 
             assertThat(result.userId).isEqualTo(user.id)
@@ -103,6 +104,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
                 orderFacade.createOrder(
                     loginId = "testuser",
                     items = listOf(OrderFacade.OrderItemRequest(productId = productInfo.id, quantity = 5L)),
+                    couponId = null,
                 )
             }
 
@@ -122,10 +124,12 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
             orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val result = orderFacade.getOrders(
@@ -152,6 +156,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val created = orderFacade.createOrder(
                 loginId = "testuser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val result = orderFacade.getOrderById("testuser", created.id)
@@ -170,6 +175,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val otherOrder = orderFacade.createOrder(
                 loginId = "otheruser",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val exception = assertThrows<CoreException> {
@@ -193,10 +199,12 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             orderFacade.createOrder(
                 loginId = "user1",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
             orderFacade.createOrder(
                 loginId = "user2",
                 items = listOf(OrderFacade.OrderItemRequest(productId = product.id, quantity = 1L)),
+                couponId = null,
             )
 
             val result = orderFacade.getAllOrders(PageRequest.of(0, 10))

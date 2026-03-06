@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.application.coupon.UserCouponInfo
 import com.loopers.application.user.UserInfo
+import java.time.ZonedDateTime
 
 class UserV1Dto {
     data class UserRegisterRequest(
@@ -54,4 +56,22 @@ class UserV1Dto {
     data class ChangePasswordRequest(
         val newPassword: String,
     )
+
+    data class UserCouponResponse(
+        val id: Long,
+        val couponTemplateId: Long,
+        val status: String,
+        val createdAt: ZonedDateTime,
+        val updatedAt: ZonedDateTime,
+    ) {
+        companion object {
+            fun from(info: UserCouponInfo) = UserCouponResponse(
+                id = info.id,
+                couponTemplateId = info.couponTemplateId,
+                status = info.status,
+                createdAt = info.createdAt,
+                updatedAt = info.updatedAt,
+            )
+        }
+    }
 }

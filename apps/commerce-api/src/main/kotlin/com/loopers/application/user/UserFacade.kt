@@ -1,5 +1,7 @@
 package com.loopers.application.user
 
+import com.loopers.application.coupon.UserCouponInfo
+import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.user.BirthDate
 import com.loopers.domain.user.Password
 import com.loopers.domain.user.PasswordEncryptor
@@ -13,6 +15,7 @@ class UserFacade(
     private val userService: UserService,
     private val userValidator: UserValidator,
     private val passwordEncryptor: PasswordEncryptor,
+    private val userCouponService: UserCouponService,
 ) {
     @Transactional
     fun register(
@@ -36,6 +39,13 @@ class UserFacade(
     fun getUserInfo(loginId: String): UserInfo {
         return userService.getUserByLoginId(loginId)
             .let { UserInfo.from(it) }
+    }
+
+    @Transactional(readOnly = true)
+    fun getMyCoupons(loginId: String): List<UserCouponInfo> {
+        val user = userService.getUserByLoginId(loginId)
+        return userCouponService.getUserCouponsByUserId(user.id)
+            .map { UserCouponInfo.from(it) }
     }
 
     @Transactional

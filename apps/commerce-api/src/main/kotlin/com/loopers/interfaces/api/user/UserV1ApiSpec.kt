@@ -68,4 +68,28 @@ interface UserV1ApiSpec {
         @Parameter(hidden = true) @RequireAuth authenticatedUser: AuthenticatedUser,
         @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Unit>
+
+    @Operation(
+        summary = "내 쿠폰 목록 조회",
+        description = "인증된 사용자의 보유 쿠폰 목록을 조회합니다.",
+        parameters = [
+            Parameter(
+                name = "X-Loopers-LoginId",
+                description = "사용자 로그인 ID",
+                required = true,
+                schema = Schema(type = "string"),
+                `in` = io.swagger.v3.oas.annotations.enums.ParameterIn.HEADER,
+            ),
+            Parameter(
+                name = "X-Loopers-LoginPw",
+                description = "사용자 비밀번호",
+                required = true,
+                schema = Schema(type = "string"),
+                `in` = io.swagger.v3.oas.annotations.enums.ParameterIn.HEADER,
+            ),
+        ],
+    )
+    fun getMyCoupons(
+        @Parameter(hidden = true) @RequireAuth authenticatedUser: AuthenticatedUser,
+    ): ApiResponse<List<UserV1Dto.UserCouponResponse>>
 }

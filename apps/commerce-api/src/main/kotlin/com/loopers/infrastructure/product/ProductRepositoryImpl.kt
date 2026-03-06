@@ -35,4 +35,10 @@ class ProductRepositoryImpl(
     override fun existsBy(brandId: Long, name: Name): Boolean {
         return productJpaRepository.existsByBrandIdAndName(brandId, name)
     }
+
+    override fun incrementLikeCount(id: Long) =
+        productJpaRepository.incrementLikeCount(id)
+
+    override fun decrementLikeCount(id: Long) =
+        productJpaRepository.decrementLikeCount(id)
 }
