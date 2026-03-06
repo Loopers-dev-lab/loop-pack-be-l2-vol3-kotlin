@@ -8,6 +8,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 
 @Entity
 @Table(name = "product")
@@ -61,6 +62,11 @@ class ProductModel(
     var displayStatus: DisplayStatus = displayStatus
         protected set
 
+    @Version
+    @Column(name = "version")
+    var version: Long = 0
+        protected set
+
     init {
         validateName(name)
         validatePrice(price)
@@ -96,6 +102,29 @@ class ProductModel(
 
     fun decrementLikesCount() {
         if (this.likesCount > 0) this.likesCount--
+    }
+
+    // === 상품 정보 수정 ===
+
+    fun update(
+        name: String,
+        price: Long,
+        description: String?,
+        thumbnailImageUrl: String?,
+        stockQuantity: Int,
+        saleStatus: SaleStatus,
+        displayStatus: DisplayStatus,
+    ) {
+        validateName(name)
+        validatePrice(price)
+        validateStockQuantity(stockQuantity)
+        this.name = name
+        this.price = price
+        this.description = description
+        this.thumbnailImageUrl = thumbnailImageUrl
+        this.stockQuantity = stockQuantity
+        this.saleStatus = saleStatus
+        this.displayStatus = displayStatus
     }
 
     // === 검증 로직 ===

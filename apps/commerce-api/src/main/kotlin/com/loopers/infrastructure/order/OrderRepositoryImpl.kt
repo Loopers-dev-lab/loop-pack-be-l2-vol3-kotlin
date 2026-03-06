@@ -5,6 +5,7 @@ import com.loopers.domain.order.OrderRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 
 @Component
 class OrderRepositoryImpl(
@@ -21,5 +22,18 @@ class OrderRepositoryImpl(
 
     override fun findAllByUserIdAndDeletedAtIsNull(userId: Long, pageable: Pageable): Page<OrderModel> {
         return orderJpaRepository.findAllByUserIdAndDeletedAtIsNull(userId, pageable)
+    }
+
+    override fun findAllByDeletedAtIsNull(pageable: Pageable): Page<OrderModel> {
+        return orderJpaRepository.findAllByDeletedAtIsNull(pageable)
+    }
+
+    override fun findAllByUserIdAndCreatedAtBetween(
+        userId: Long,
+        startAt: LocalDate,
+        endAt: LocalDate,
+        pageable: Pageable,
+    ): Page<OrderModel> {
+        return orderJpaRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt, pageable)
     }
 }
