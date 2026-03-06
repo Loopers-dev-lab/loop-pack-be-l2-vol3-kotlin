@@ -9,8 +9,8 @@ import com.loopers.domain.common.vo.ProductId
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
 import jakarta.persistence.LockModeType
+import com.loopers.infrastructure.support.defaultPageRequest
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
@@ -51,13 +51,13 @@ class ProductRepositoryImpl(
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {
-        val pageable = PageRequest.of(page, size)
+        val pageable = defaultPageRequest(page, size)
         val result = productJpaRepository.findAllByDeletedAtIsNull(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
     override fun findAllIncludeDeleted(page: Int, size: Int): PageResult<Product> {
-        val pageable = PageRequest.of(page, size)
+        val pageable = defaultPageRequest(page, size)
         val result = productJpaRepository.findAll(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
@@ -80,7 +80,7 @@ class ProductRepositoryImpl(
 
         val content = queryFactory.selectFrom(product)
             .where(where)
-            .orderBy(orderSpecifier)
+            .orderBy(orderSpecifier, product.id.desc())
             .offset(offset)
             .limit(size.toLong())
             .fetch()

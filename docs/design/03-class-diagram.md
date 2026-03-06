@@ -36,7 +36,7 @@ classDiagram
         -ProductStatus status
         -Int likeCount
         -ZonedDateTime? deletedAt
-        +update(name, price, stock, status)
+        +update(name?, price?, stock?, status?)
         +decreaseStock(quantity: Quantity)
         +increaseStock(quantity: Quantity)
         +increaseLikeCount()
@@ -65,16 +65,19 @@ classDiagram
         +OrderId id
         -UserId refUserId
         -OrderStatus status
+        -Money originalPrice
+        -Money discountAmount
         -Money totalPrice
+        -CouponId? refCouponId
         -List~OrderItem~ items
         -ZonedDateTime? deletedAt
-        +create(userId, items)$ Order
+        +create(userId, items, discountAmount, refCouponId)$ Order
         +cancelItem(item: OrderItem)
         +assignOrderIdToItems(orderId: OrderId)
         +isDeleted() Boolean
     }
 
-    class OrderProductInfo {
+    class OrderProductData {
         <<DataClass>>
         +ProductId id
         +String name
@@ -89,7 +92,7 @@ classDiagram
         -Money productPrice
         -Quantity quantity
         -ItemStatus status
-        +create(product: OrderProductInfo, quantity: Quantity)$ OrderItem
+        +create(product: OrderProductData, quantity: Quantity)$ OrderItem
         +cancel() AggregateRootOnly
         +assignToOrder(orderId: OrderId) AggregateRootOnly
     }
@@ -108,26 +111,6 @@ classDiagram
         FAILED
     }
 
-    class UserPoint {
-        +Long id
-        -UserId refUserId
-        -Point balance
-        +MAX_BALANCE$ Long
-        +charge(amount: Point)
-        +use(amount: Point)
-        +canAfford(amount: Point) Boolean
-    }
-
-    class PointHistory {
-        +Long id
-        -Long refUserPointId
-        -PointHistoryType type
-        -Point amount
-        -OrderId? refOrderId
-        <<inner>>
-        enum PointHistoryType
-    }
-
     class User {
         <<External>>
         +Long id
@@ -137,10 +120,8 @@ classDiagram
     Product "1" -- "*" Like: refProductId 참조
     User "1" -- "*" Like: refUserId 참조
     User "1" -- "*" Order: refUserId 참조
-    User "1" -- "1" UserPoint: refUserId 참조
-    UserPoint "1" -- "*" PointHistory: refUserPointId 참조
     Order "1" *-- "*" OrderItem: items (Aggregate)
-    Order ..> OrderProductInfo: create() 입력
+    Order ..> OrderProductData: create() 입력
     Product .. OrderItem: 스냅샷 (productName, productPrice)
     Product --> ProductStatus
     Order --> OrderStatus
@@ -318,7 +299,7 @@ classDiagram
             -Stock stock
             -Int likeCount
             -ZonedDateTime? deletedAt
-            +update(name, price, stock, status)
+            +update(name?, price?, stock?, status?)
             +decreaseStock(quantity: Quantity)
             +increaseStock(quantity: Quantity)
             +increaseLikeCount()
@@ -473,15 +454,18 @@ classDiagram
             +OrderId id
             -UserId refUserId
             -OrderStatus status
+            -Money originalPrice
+            -Money discountAmount
             -Money totalPrice
+            -CouponId? refCouponId
             -List~OrderItem~ items
             -ZonedDateTime? deletedAt
-            +create(userId, items: List~Pair~OrderProductInfo, Quantity~~)$ Order
+            +create(userId, items, discountAmount, refCouponId)$ Order
             +cancelItem(item: OrderItem)
             +assignOrderIdToItems(orderId: OrderId)
             +isDeleted() Boolean
         }
-        class OrderProductInfo {
+        class OrderProductData {
             <<DataClass>>
             +ProductId id
             +String name
@@ -495,7 +479,7 @@ classDiagram
             -Money productPrice
             -Quantity quantity
             -ItemStatus status
-            +create(product: OrderProductInfo, quantity: Quantity)$ OrderItem
+            +create(product: OrderProductData, quantity: Quantity)$ OrderItem
             +cancel() AggregateRootOnly
             +assignToOrder(orderId: OrderId) AggregateRootOnly
         }
@@ -503,11 +487,6 @@ classDiagram
             <<enumeration>>
             ACTIVE
             CANCELLED
-        }
-        class OrderDetail {
-            <<DataClass>>
-            +Order order
-            +List~OrderItem~ items
         }
         class OrderRepository {
             <<interface>>
@@ -528,7 +507,6 @@ classDiagram
     PlaceOrderUseCase --> OrderRepository
     PlaceOrderUseCase --> OrderItemRepository
     PlaceOrderUseCase --> ProductRepository: 재고 차감 / 상품 검증
-    PlaceOrderUseCase --> PointDeductor: 포인트 차감
     GetOrderUseCase --> OrderRepository
     GetOrderUseCase --> OrderItemRepository
     OrderItem --> ItemStatus
@@ -541,105 +519,151 @@ classDiagram
     1. `Order`를 먼저 DB에 저장하여 ID를 채번받는다 (`orderRepository.save(order)`).
     2. `order.assignOrderIdToItems(savedOrder.id)`로 OrderItem에 FK를 주입한다.
     3. `orderItemRepository.saveAll(order.items)`로 항목들을 저장한다.
-- **Order.create() 팩토리 메서드:** `Order.create(userId, items: List<Pair<OrderProductInfo, Quantity>>)`가 OrderItem 생성과 totalPrice 계산을 내부에서 수행한다.
-- **OrderDetail:** `OrderDetail(order, items)` 데이터 클래스로 Order와 OrderItem 목록을 조합하여 반환한다.
+- **Order.create() 팩토리 메서드:** `Order.create(userId, items: List<Pair<OrderProductData, Quantity>>)`가 OrderItem 생성과 totalPrice 계산을 내부에서 수행한다.
 - **소유권 검증:** 대고객 `GetOrderUseCase`는 UseCase 내에서 소유권 검증. 어드민 `GetOrderAdminUseCase`는 검증 없이 조회.
 
 ---
 
-## 6. Point 도메인
+## 6. Coupon 도메인
 
-포인트 충전은 **PointCharger**(Domain Service), 포인트 차감은 **PointDeductor**(Domain Service)가 조율한다.
-어드민 기능 없이 사용자 기능만 존재한다.
+쿠폰 템플릿(Coupon)과 발급 인스턴스(IssuedCoupon)로 구성된다.
+어드민은 쿠폰 템플릿을 관리하고, 사용자는 발급 API를 통해 IssuedCoupon을 생성한다.
 
 ```mermaid
 classDiagram
     direction LR
 
     namespace interfaces {
-        class PointV1Controller {
-            +chargePoints()
-            +getBalance()
+        class CouponV1Controller {
+            +issueCoupon()
+            +getMyCoupons()
+        }
+        class CouponAdminV1Controller {
+            +getCoupons()
+            +createCoupon()
+            +getCoupon()
+            +updateCoupon()
+            +deleteCoupon()
+            +getCouponIssues()
         }
     }
 
     namespace application {
-        class ChargePointUseCase {
-            +execute(userId: Long, amount: Long) PointBalanceInfo
+        class IssueCouponUseCase {
+            +execute(userId: Long, couponId: Long) IssuedCouponInfo
         }
-        class GetUserPointUseCase {
-            +execute(userId: Long) PointBalanceInfo
+        class GetMyCouponsUseCase {
+            +execute(userId: Long) List~IssuedCouponInfo~
+        }
+        class CreateCouponAdminUseCase {
+            +execute(command) CouponInfo
+        }
+        class UpdateCouponAdminUseCase {
+            +execute(couponId, command) CouponInfo
+        }
+        class DeleteCouponAdminUseCase {
+            +execute(couponId: Long)
+        }
+        class GetCouponAdminUseCase {
+            +execute(couponId: Long) CouponInfo
+        }
+        class GetCouponsAdminUseCase {
+            +execute(page, size) PageResult~CouponInfo~
+        }
+        class GetCouponIssuesAdminUseCase {
+            +execute(couponId, page, size) PageResult~IssuedCouponInfo~
         }
     }
 
     namespace domain {
-        class UserPoint {
+        class Coupon {
             +Long id
+            -String name
+            -CouponType type
+            -Long value
+            -Money? maxDiscount
+            -Money? minOrderAmount
+            -Int? totalQuantity
+            -Int issuedCount
+            -ZonedDateTime expiredAt
+            -ZonedDateTime? deletedAt
+            +canIssue() Boolean
+            +issue()
+            +calculateDiscount(orderAmount: Money) Money
+            +isExpired() Boolean
+            +isDeleted() Boolean
+            +update(...)
+            +delete()
+        }
+        class CouponType {
+            <<enumeration>>
+            FIXED
+            RATE
+        }
+        class IssuedCoupon {
+            +Long id
+            -Long refCouponId
             -UserId refUserId
-            -Point balance
-            +MAX_BALANCE$ Long
-            +charge(amount: Point)
-            +use(amount: Point)
-            +canAfford(amount: Point) Boolean
+            -CouponStatus status
+            -ZonedDateTime? usedAt
+            -ZonedDateTime createdAt
+            +use()
+            +isAvailable() Boolean
+            +isOwnedBy(userId) Boolean
         }
-        class PointHistory {
-            +Long id
-            -Long refUserPointId
-            -PointHistoryType type
-            -Point amount
-            -OrderId? refOrderId
+        class CouponStatus {
+            <<enumeration>>
+            AVAILABLE
+            USED
+            EXPIRED
         }
-        class Point {
-            <<ValueObject>>
-            +value: Long
-            +plus(other: Point) Point
-            +minus(other: Point) Point
-            +isGreaterThanOrEqual(other: Point) Boolean
-        }
-        class PointCharger {
+        class CouponValidator {
             <<DomainService>>
-            +MAX_CHARGE_AMOUNT$ Long
-            +charge(userId: UserId, amount: Point) UserPoint
+            +validateForOrder(issuedCoupon, coupon, userId, orderAmount)
         }
-        class PointDeductor {
-            <<DomainService>>
-            +usePoints(userId: UserId, amount: Money, refOrderId: OrderId)
-        }
-        class UserPointRepository {
+        class CouponRepository {
             <<interface>>
         }
-        class PointHistoryRepository {
+        class IssuedCouponRepository {
             <<interface>>
         }
     }
 
-    PointV1Controller --> ChargePointUseCase: 충전
-    PointV1Controller --> GetUserPointUseCase: 잔액 조회
-    ChargePointUseCase --> PointCharger
-    GetUserPointUseCase --> UserPointRepository
-    PointCharger --> UserPointRepository
-    PointCharger --> PointHistoryRepository
-    PointDeductor --> UserPointRepository
-    PointDeductor --> PointHistoryRepository
-    UserPoint ..> Point: 잔액 연산
-    PointHistory ..> Point: 금액 검증
+    CouponV1Controller --> IssueCouponUseCase
+    CouponV1Controller --> GetMyCouponsUseCase
+    CouponAdminV1Controller --> CreateCouponAdminUseCase
+    CouponAdminV1Controller --> UpdateCouponAdminUseCase
+    CouponAdminV1Controller --> DeleteCouponAdminUseCase
+    CouponAdminV1Controller --> GetCouponAdminUseCase
+    CouponAdminV1Controller --> GetCouponsAdminUseCase
+    CouponAdminV1Controller --> GetCouponIssuesAdminUseCase
+    IssueCouponUseCase --> CouponRepository
+    IssueCouponUseCase --> IssuedCouponRepository
+    GetMyCouponsUseCase --> IssuedCouponRepository
+    GetMyCouponsUseCase --> CouponRepository
+    CreateCouponAdminUseCase --> CouponRepository
+    UpdateCouponAdminUseCase --> CouponRepository
+    DeleteCouponAdminUseCase --> CouponRepository
+    GetCouponAdminUseCase --> CouponRepository
+    GetCouponsAdminUseCase --> CouponRepository
+    GetCouponIssuesAdminUseCase --> IssuedCouponRepository
+    Coupon --> CouponType
+    IssuedCoupon --> CouponStatus
 ```
-
-> **PointHistory의 영속성 필드:** Domain Model에는 `createdAt` 필드가 없다. 생성 시각은 Entity 레벨(`PointHistoryEntity`)에서 BaseEntity 상속으로 관리된다.
 
 ### 핵심 포인트
 
-- **PointCharger (Domain Service):** 포인트 충전의 복합 로직(잔액 변경 + 이력 생성)을 조율한다. `UserPoint.charge()`와 `PointHistory` 생성이 반드시 함께 수행되어야 하므로 Domain Service가 이 협력을 보장한다. 1회 충전 한도(`MAX_CHARGE_AMOUNT`) 검증도 여기서 수행한다.
-- **PointDeductor (Domain Service):** 주문 시 포인트 차감(잔고 차감 + 이력 생성)의 원자적 보장을 담당한다. `PlaceOrderUseCase`에서 직접 호출된다.
-- **서비스 분리 근거:** PointCharger는 독립적인 진입점(Controller → UseCase → PointCharger)이며 추후 PG사 연동 시 확장 가능. PointDeductor는 OrderUseCase에서 호출되는 빌딩 블록.
-- **Point VO:** `@JvmInline value class Point`로 금액의 음수 방지, 연산(plus/minus/isGreaterThanOrEqual)을 캡슐화한다.
+- **Coupon (템플릿)**: 어드민이 생성/관리하는 쿠폰 정의. `canIssue()`로 발급 가능 여부를 자가 검증한다.
+- **IssuedCoupon (인스턴스)**: 사용자에게 발급된 쿠폰. `use()` 호출로 USED 상태로 전이되며 중복 사용이 방지된다.
+- **FIXED vs RATE**: `calculateDiscount()`가 타입에 따라 정액/정률 할인을 계산한다. RATE 타입은 maxDiscount로 상한을 제한할 수 있다.
+- **Order 연결**: 주문 생성 시 쿠폰 ID를 전달하면 `discountAmount`와 `refCouponId`가 Order에 기록된다.
 
 ---
 
 ## 7. Controller → UseCase 의존 관계 (Architecture View)
 
 모든 Controller는 UseCase를 직접 호출한다. Facade 레이어는 존재하지 않는다.
-cross-domain 조율(예: 주문 시 재고 차감 + 포인트 차감)은 UseCase 내부에서 직접 수행하거나 Domain Service에 위임한다.
+cross-domain 조율(예: 주문 시 재고 차감)은 UseCase 내부에서 직접 수행한다.
 
 ```mermaid
 classDiagram
@@ -652,7 +676,8 @@ classDiagram
     class LikeV1Controller
     class OrderV1Controller
     class OrderAdminV1Controller
-    class PointV1Controller
+    class CouponV1Controller
+    class CouponAdminV1Controller
 
     class GetBrandUseCase
     class GetBrandAdminUseCase
@@ -681,8 +706,14 @@ classDiagram
     class GetOrderAdminUseCase
     class GetOrdersAdminUseCase
 
-    class ChargePointUseCase
-    class GetUserPointUseCase
+    class IssueCouponUseCase
+    class GetMyCouponsUseCase
+    class CreateCouponAdminUseCase
+    class UpdateCouponAdminUseCase
+    class DeleteCouponAdminUseCase
+    class GetCouponAdminUseCase
+    class GetCouponsAdminUseCase
+    class GetCouponIssuesAdminUseCase
 
     BrandV1Controller ..> GetBrandUseCase
     BrandAdminV1Controller ..> GetBrandsUseCase
@@ -711,8 +742,14 @@ classDiagram
     OrderAdminV1Controller ..> GetOrderAdminUseCase
     OrderAdminV1Controller ..> GetOrdersAdminUseCase
 
-    PointV1Controller ..> ChargePointUseCase
-    PointV1Controller ..> GetUserPointUseCase
+    CouponV1Controller ..> IssueCouponUseCase
+    CouponV1Controller ..> GetMyCouponsUseCase
+    CouponAdminV1Controller ..> CreateCouponAdminUseCase
+    CouponAdminV1Controller ..> UpdateCouponAdminUseCase
+    CouponAdminV1Controller ..> DeleteCouponAdminUseCase
+    CouponAdminV1Controller ..> GetCouponAdminUseCase
+    CouponAdminV1Controller ..> GetCouponsAdminUseCase
+    CouponAdminV1Controller ..> GetCouponIssuesAdminUseCase
 ```
 
 ### Controller → UseCase 직접 호출 요약
@@ -726,7 +763,8 @@ classDiagram
 | `LikeV1Controller`         | `AddLikeUseCase`, `RemoveLikeUseCase`, `GetUserLikesUseCase` | 좋아요 등록/취소/목록                   |
 | `OrderV1Controller`        | `PlaceOrderUseCase`, `GetOrderUseCase`, `GetOrdersUseCase` | 주문 생성/상세/목록                    |
 | `OrderAdminV1Controller`   | `GetOrderAdminUseCase`, `GetOrdersAdminUseCase`      | 어드민 주문 조회                       |
-| `PointV1Controller`        | `ChargePointUseCase`, `GetUserPointUseCase`          | 포인트 충전/잔액 조회                   |
+| `CouponV1Controller`       | `IssueCouponUseCase`, `GetMyCouponsUseCase`          | 쿠폰 발급 / 내 쿠폰 목록               |
+| `CouponAdminV1Controller`  | `CreateCouponAdminUseCase`, `UpdateCouponAdminUseCase`, `DeleteCouponAdminUseCase`, `GetCouponAdminUseCase`, `GetCouponsAdminUseCase`, `GetCouponIssuesAdminUseCase` | 쿠폰 CRUD + 발급 내역 |
 
 ---
 
@@ -766,16 +804,14 @@ classDiagram
 | ProductId | @JvmInline value class   | 공통 (common) | -                                            | Product 참조 시              |
 | UserId   | @JvmInline value class    | 공통 (common) | -                                            | User 참조 시                 |
 | OrderId  | @JvmInline value class    | 공통 (common) | -                                            | Order 참조 시                |
+| CouponId | @JvmInline value class    | 공통 (common) | -                                            | Coupon 참조 시               |
 | Money    | @JvmInline value class    | 공통 (common) | BigDecimal >= 0, 연산(plus/minus/times) 지원    | Product 가격, 주문 총액 등       |
 | Quantity | @JvmInline value class    | 공통 (common) | Int >= 1                                     | 주문 수량                     |
 | BrandName | @JvmInline value class   | Brand     | 빈 값 불가                                      | Brand 생성/수정 시             |
 | Stock    | @JvmInline value class    | Product   | Int >= 0, decrease 시 부족 확인                   | Product 생성/수정/재고차감 시     |
-| Point    | @JvmInline value class    | Point     | Long >= 0, 연산(plus/minus/isGreaterThanOrEqual) 지원 | UserPoint 충전/사용 시        |
 
 > **VO 도입 기준**: Domain Model이 순수 POJO이므로 `@Converter` 부담 없이 모든 도메인 값을 VO로 표현할 수 있다. 단일 값과 도메인 메서드가 있는 경우 모두 `@JvmInline value class`로 선언한다. JPA Entity는 DB 컬럼 타입(String, BigDecimal 등)으로 저장하고, `toDomain()`에서 VO로 복원한다.
 >
-> **Point VO와 충전 금액의 검증 차이:** Point VO는 `>= 0`을 검증하지만, 포인트 충전 금액은 `>= 1`이어야 한다. `PointCharger`의 `MAX_CHARGE_AMOUNT` 초과 검증과 함께, `UserPoint.charge()`에서 0원 충전을 거부하여 별도 검증을 수행한다.
-
 > **DTO 변환 흐름:**
 > - **단일 도메인 조회** (UseCase → Repository): UseCase → Domain Model → Info DTO → Controller에서 Response Dto 변환
 > - **같은 BC 내 조합**: UseCase → `ProductDetail`(domain 데이터 클래스) → `CatalogInfo` → Controller에서 Response Dto 변환

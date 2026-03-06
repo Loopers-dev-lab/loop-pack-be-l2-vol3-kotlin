@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
@@ -55,6 +56,44 @@ class OrderTest {
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("258000"))
             assertThat(order.items).hasSize(1)
         }
+
+        @Test
+        @DisplayName("쿠폰 미적용 시 originalPrice와 totalPrice가 동일하고 discountAmount는 0이다")
+        fun create_withoutCoupon_originalEqualsTotalPrice() {
+            // act
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                ),
+            )
+
+            // assert
+            assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal.ZERO)
+            assertThat(order.refCouponId).isNull()
+        }
+
+        @Test
+        @DisplayName("쿠폰 적용 시 originalPrice, discountAmount, totalPrice 정합성이 유지된다")
+        fun create_withCoupon_discountApplied() {
+            // act
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                ),
+                discountAmount = Money(BigDecimal("3000")),
+                refCouponId = CouponId(100L),
+            )
+
+            // assert
+            assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("3000"))
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("17000"))
+            assertThat(order.refCouponId).isEqualTo(CouponId(100L))
+        }
     }
 
     @Nested
@@ -99,6 +138,53 @@ class OrderTest {
         }
 
         @Test
+        @DisplayName("할인 적용된 주문에서 아이템 취소 시 totalPrice가 음수가 되지 않고 재계산된다")
+        fun cancelItem_discountedOrder_totalPriceNotNegative() {
+            // arrange
+            // originalPrice = 10000*1 = 10000, discountAmount = 3000, totalPrice = 7000
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(1),
+                ),
+                discountAmount = Money(BigDecimal("3000")),
+                refCouponId = CouponId(100L),
+            )
+            val item = order.items[0]
+
+            // act
+            order.cancelItem(item)
+
+            // assert
+            // 활성 아이템 합계 = 0, 적용할 할인 = min(3000, 0) = 0, totalPrice = 0
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal.ZERO)
+        }
+
+        @Test
+        @DisplayName("할인 적용된 주문에서 일부 아이템 취소 시 활성 아이템 기준으로 totalPrice가 재계산된다")
+        fun cancelItem_discountedOrder_partialCancel_totalPriceRecalculated() {
+            // arrange
+            // originalPrice = 10000*1 + 20000*1 = 30000, discountAmount = 5000, totalPrice = 25000
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(1),
+                    OrderProductData(id = ProductId(2), name = "상품B", price = Money(BigDecimal("20000"))) to Quantity(1),
+                ),
+                discountAmount = Money(BigDecimal("5000")),
+                refCouponId = CouponId(100L),
+            )
+            val item = order.items[0] // 상품A: 10000
+
+            // act
+            order.cancelItem(item)
+
+            // assert
+            // 활성 아이템 합계 = 20000, 적용할 할인 = min(5000, 20000) = 5000, totalPrice = 15000
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("15000"))
+        }
+
+        @Test
         @DisplayName("이미 취소된 아이템을 다시 취소하면 BAD_REQUEST 예외가 발생한다")
         fun cancelItem_alreadyCancelled_throwsException() {
             // arrange
@@ -113,6 +199,91 @@ class OrderTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Nested
+    @DisplayName("할인 금액 불변식")
+    inner class DiscountAmountInvariant {
+
+        @Test
+        @DisplayName("Money에 음수 값을 넣으면 예외가 발생한다")
+        fun negativeMoneyValue_throwsException() {
+            // arrange & act & assert
+            assertThrows<CoreException> {
+                Money(BigDecimal.valueOf(-1000))
+            }
+        }
+
+        @Test
+        @DisplayName("할인 금액이 원가와 동일하면 totalPrice가 0이 된다")
+        fun create_fullDiscount_totalPriceIsZero() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            val fullDiscount = Money(BigDecimal("20000"))
+
+            // act
+            val order = Order.create(UserId(1L), items, fullDiscount, CouponId(1L))
+
+            // assert
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal.ZERO)
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("20000"))
+        }
+
+        @Test
+        @DisplayName("할인 금액이 원가를 초과하면 BAD_REQUEST 예외가 발생한다")
+        fun create_excessiveDiscount_throwsException() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            // items의 원가: 10000 * 2 = 20000
+            val excessiveDiscount = Money(BigDecimal("20001"))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                Order.create(UserId(1L), items, excessiveDiscount, CouponId(1L))
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("할인 금액이 있으면서 쿠폰 참조가 없으면 BAD_REQUEST 예외가 발생한다")
+        fun create_discountWithoutCoupon_throwsBadRequest() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            val discount = Money(BigDecimal("1000"))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                Order.create(UserId(1L), items, discount, null)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("정상 할인 금액으로 주문을 생성한다")
+        fun create_validDiscount_success() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            val validDiscount = Money(BigDecimal("1000"))
+
+            // act
+            val order = Order.create(UserId(1L), items, validDiscount, CouponId(1L))
+
+            // assert
+            assertThat(order.discountAmount).isEqualTo(validDiscount)
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("19000"))
         }
     }
 }

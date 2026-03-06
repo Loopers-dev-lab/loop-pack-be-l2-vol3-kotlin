@@ -5,8 +5,8 @@ import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderRepository
+import com.loopers.infrastructure.support.defaultPageRequest
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
@@ -42,13 +42,13 @@ class OrderRepositoryImpl(
         page: Int,
         size: Int,
     ): PageResult<Order> {
-        val pageable = PageRequest.of(page, size)
+        val pageable = defaultPageRequest(page, size)
         val result = orderJpaRepository.findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(userId.value, from, to, pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Order> {
-        val pageable = PageRequest.of(page, size)
+        val pageable = defaultPageRequest(page, size)
         val result = orderJpaRepository.findAllByDeletedAtIsNull(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
