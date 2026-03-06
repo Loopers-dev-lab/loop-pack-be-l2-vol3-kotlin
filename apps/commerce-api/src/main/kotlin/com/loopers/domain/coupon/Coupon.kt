@@ -82,7 +82,7 @@ class Coupon private constructor(
     fun calculateDiscount(orderAmount: Money): Money {
         val discount = when (type) {
             CouponType.FIXED -> min(value, orderAmount.amount)
-            CouponType.RATE -> orderAmount.amount * value / 100
+            CouponType.RATE -> min(orderAmount.amount * value / 100, orderAmount.amount)
         }
         return Money(discount)
     }
