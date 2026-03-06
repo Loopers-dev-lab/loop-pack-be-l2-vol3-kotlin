@@ -28,6 +28,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -174,6 +175,7 @@ class OrderConcurrencyTest @Autowired constructor(
             val latch = CountDownLatch(concurrentRequests)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
+            val exceptions = ConcurrentLinkedQueue<Exception>()
 
             // act
             try {
@@ -181,7 +183,11 @@ class OrderConcurrencyTest @Autowired constructor(
                     executorService.submit {
                         try {
                             readyLatch.countDown()
-                            startLatch.await(30, TimeUnit.SECONDS)
+                            val started = startLatch.await(30, TimeUnit.SECONDS)
+                            if (!started) {
+                                failCount.incrementAndGet()
+                                return@submit
+                            }
                             val orderRequest = OrderV1Dto.CreateOrderRequest(
                                 items = listOf(
                                     OrderV1Dto.CreateOrderItemRequest(
@@ -205,6 +211,7 @@ class OrderConcurrencyTest @Autowired constructor(
                                 failCount.incrementAndGet()
                             }
                         } catch (e: Exception) {
+                            exceptions.add(e)
                             failCount.incrementAndGet()
                         } finally {
                             latch.countDown()
@@ -219,11 +226,13 @@ class OrderConcurrencyTest @Autowired constructor(
                 assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
             } finally {
                 executorService.shutdownNow()
-                executorService.awaitTermination(5, TimeUnit.SECONDS)
+                val terminated = executorService.awaitTermination(5, TimeUnit.SECONDS)
+                assertThat(terminated).describedAs("스레드풀이 제한 시간 내에 종료되어야 합니다").isTrue()
             }
 
             // assert
             assertAll(
+                { assertThat(exceptions).describedAs("스레드 내부 예외: $exceptions").isEmpty() },
                 { assertThat(successCount.get()).isEqualTo(1) },
                 { assertThat(failCount.get()).isEqualTo(concurrentRequests - 1) },
             )
@@ -254,6 +263,7 @@ class OrderConcurrencyTest @Autowired constructor(
             val latch = CountDownLatch(concurrentUsers)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
+            val exceptions = ConcurrentLinkedQueue<Exception>()
 
             // act
             try {
@@ -261,7 +271,11 @@ class OrderConcurrencyTest @Autowired constructor(
                     executorService.submit {
                         try {
                             readyLatch.countDown()
-                            startLatch.await(30, TimeUnit.SECONDS)
+                            val started = startLatch.await(30, TimeUnit.SECONDS)
+                            if (!started) {
+                                failCount.incrementAndGet()
+                                return@submit
+                            }
                             val orderRequest = OrderV1Dto.CreateOrderRequest(
                                 items = listOf(
                                     OrderV1Dto.CreateOrderItemRequest(
@@ -284,6 +298,7 @@ class OrderConcurrencyTest @Autowired constructor(
                                 failCount.incrementAndGet()
                             }
                         } catch (e: Exception) {
+                            exceptions.add(e)
                             failCount.incrementAndGet()
                         } finally {
                             latch.countDown()
@@ -298,7 +313,8 @@ class OrderConcurrencyTest @Autowired constructor(
                 assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
             } finally {
                 executorService.shutdownNow()
-                executorService.awaitTermination(5, TimeUnit.SECONDS)
+                val terminated = executorService.awaitTermination(5, TimeUnit.SECONDS)
+                assertThat(terminated).describedAs("스레드풀이 제한 시간 내에 종료되어야 합니다").isTrue()
             }
 
             // assert - 어드민 API로 최종 재고 확인
@@ -310,11 +326,14 @@ class OrderConcurrencyTest @Autowired constructor(
                 HttpEntity<Any>(adminHeaders()),
                 adminResponseType,
             )
+            assertThat(adminResponse.statusCode.is2xxSuccessful)
+                .describedAs("재고 조회 API 호출이 성공해야 합니다: ${adminResponse.statusCode}").isTrue()
             val adminBody = requireNotNull(adminResponse.body) { "재고 조회 응답 body가 null입니다" }
             val adminData = requireNotNull(adminBody.data) { "재고 조회 응답 data가 null입니다" }
             val remainingStock = (adminData["stock"] as Number).toInt()
 
             assertAll(
+                { assertThat(exceptions).describedAs("스레드 내부 예외: $exceptions").isEmpty() },
                 { assertThat(successCount.get() + failCount.get()).isEqualTo(concurrentUsers) },
                 { assertThat(successCount.get()).isEqualTo(stock) },
                 { assertThat(failCount.get()).isEqualTo(concurrentUsers - stock) },

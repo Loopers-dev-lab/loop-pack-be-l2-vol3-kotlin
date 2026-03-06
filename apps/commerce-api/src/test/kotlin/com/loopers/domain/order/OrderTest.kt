@@ -207,12 +207,29 @@ class OrderTest {
     inner class DiscountAmountInvariant {
 
         @Test
-        @DisplayName("음수 할인 금액으로 생성하면 예외가 발생한다")
-        fun create_negativeDiscount_throwsException() {
+        @DisplayName("Money에 음수 값을 넣으면 예외가 발생한다")
+        fun negativeMoneyValue_throwsException() {
             // arrange & act & assert
             assertThrows<CoreException> {
                 Money(BigDecimal.valueOf(-1000))
             }
+        }
+
+        @Test
+        @DisplayName("할인 금액이 원가와 동일하면 totalPrice가 0이 된다")
+        fun create_fullDiscount_totalPriceIsZero() {
+            // arrange
+            val items = listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            )
+            val fullDiscount = Money(BigDecimal("20000"))
+
+            // act
+            val order = Order.create(UserId(1L), items, fullDiscount, CouponId(1L))
+
+            // assert
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal.ZERO)
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("20000"))
         }
 
         @Test

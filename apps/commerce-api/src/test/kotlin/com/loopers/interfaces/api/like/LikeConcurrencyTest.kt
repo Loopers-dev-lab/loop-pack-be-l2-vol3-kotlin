@@ -37,6 +37,11 @@ class LikeConcurrencyTest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
+    companion object {
+        val ANY_TYPE = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+        val MAP_TYPE = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+    }
+
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
@@ -50,12 +55,15 @@ class LikeConcurrencyTest @Autowired constructor(
             birthDate = LocalDate.of(1990, 1, 15),
             email = "$loginId@example.com",
         )
-        testRestTemplate.exchange(
+        val response = testRestTemplate.exchange(
             "/api/v1/users/sign-up",
             HttpMethod.POST,
             HttpEntity(request),
-            object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            ANY_TYPE,
         )
+        assertThat(response.statusCode.is2xxSuccessful)
+            .describedAs("회원가입 API 호출이 성공해야 합니다: ${response.statusCode}")
+            .isTrue()
     }
 
     private fun authHeaders(loginId: String): HttpHeaders {
@@ -74,14 +82,16 @@ class LikeConcurrencyTest @Autowired constructor(
     }
 
     private fun createBrandAndProduct(): Long {
-        val brandResponseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
         val brandResponse = testRestTemplate.exchange(
             "/api-admin/v1/brands?name={name}",
             HttpMethod.POST,
             HttpEntity<Void>(adminHeaders()),
-            brandResponseType,
+            MAP_TYPE,
             "나이키",
         )
+        assertThat(brandResponse.statusCode.is2xxSuccessful)
+            .describedAs("브랜드 생성 API 호출이 성공해야 합니다: ${brandResponse.statusCode}")
+            .isTrue()
         val brandBody = requireNotNull(brandResponse.body) { "브랜드 생성 응답 body가 null입니다" }
         val brandData = requireNotNull(brandBody.data) { "브랜드 생성 응답 data가 null입니다" }
         val brandId = (brandData["id"] as Number).toLong()
@@ -92,13 +102,15 @@ class LikeConcurrencyTest @Autowired constructor(
             price = BigDecimal("129000"),
             stock = 100,
         )
-        val productResponseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
         val productResponse = testRestTemplate.exchange(
             "/api-admin/v1/products",
             HttpMethod.POST,
             HttpEntity(productRequest, adminHeaders()),
-            productResponseType,
+            MAP_TYPE,
         )
+        assertThat(productResponse.statusCode.is2xxSuccessful)
+            .describedAs("상품 생성 API 호출이 성공해야 합니다: ${productResponse.statusCode}")
+            .isTrue()
         val productBody = requireNotNull(productResponse.body) { "상품 생성 응답 body가 null입니다" }
         val productData = requireNotNull(productBody.data) { "상품 생성 응답 data가 null입니다" }
         return (productData["id"] as Number).toLong()
@@ -134,14 +146,16 @@ class LikeConcurrencyTest @Autowired constructor(
                     executorService.submit {
                         try {
                             readyLatch.countDown()
-                            startLatch.await(30, TimeUnit.SECONDS)
-                            val responseType =
-                                object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+                            val started = startLatch.await(30, TimeUnit.SECONDS)
+                            if (!started) {
+                                failCount.incrementAndGet()
+                                return@submit
+                            }
                             val response = testRestTemplate.exchange(
                                 "/api/v1/products/$productId/likes",
                                 HttpMethod.POST,
                                 HttpEntity<Any>(authHeaders("likeuser$i")),
-                                responseType,
+                                ANY_TYPE,
                             )
                             if (response.statusCode == HttpStatus.OK) {
                                 successCount.incrementAndGet()
@@ -164,17 +178,16 @@ class LikeConcurrencyTest @Autowired constructor(
                 assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
             } finally {
                 executorService.shutdownNow()
-                executorService.awaitTermination(5, TimeUnit.SECONDS)
+                val terminated = executorService.awaitTermination(5, TimeUnit.SECONDS)
+                assertThat(terminated).describedAs("스레드풀이 제한 시간 내에 종료되어야 합니다").isTrue()
             }
 
             // assert - 어드민 API로 likeCount 확인
-            val adminProductType =
-                object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
             val adminResponse = testRestTemplate.exchange(
                 "/api-admin/v1/products/$productId",
                 HttpMethod.GET,
                 HttpEntity<Any>(adminHeaders()),
-                adminProductType,
+                MAP_TYPE,
             )
             val adminBody = requireNotNull(adminResponse.body) { "좋아요 조회 응답 body가 null입니다" }
             val adminData = requireNotNull(adminBody.data) { "좋아요 조회 응답 data가 null입니다" }
@@ -182,6 +195,8 @@ class LikeConcurrencyTest @Autowired constructor(
 
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(concurrentUsers) },
+                { assertThat(failCount.get()).describedAs("실패 건수").isEqualTo(0) },
+                { assertThat(firstException.get()).describedAs("첫 번째 예외").isNull() },
                 { assertThat(likeCount).isEqualTo(concurrentUsers) },
             )
         }

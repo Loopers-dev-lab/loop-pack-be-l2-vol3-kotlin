@@ -11,9 +11,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 class GetMyCouponsUseCaseTest {
+
+    companion object {
+        private val FIXED_NOW: ZonedDateTime = ZonedDateTime.of(2025, 6, 1, 0, 0, 0, 0, ZoneId.of("Asia/Seoul"))
+    }
 
     private lateinit var couponRepository: FakeCouponRepository
     private lateinit var issuedCouponRepository: FakeIssuedCouponRepository
@@ -33,7 +38,7 @@ class GetMyCouponsUseCaseTest {
                 type = Coupon.CouponType.FIXED,
                 value = 1000L,
                 totalQuantity = 100,
-                expiredAt = ZonedDateTime.now().plusDays(7),
+                expiredAt = FIXED_NOW.plusDays(7),
             ),
         )
     }
@@ -43,7 +48,7 @@ class GetMyCouponsUseCaseTest {
             IssuedCoupon(
                 refCouponId = couponId,
                 refUserId = UserId(userId),
-                createdAt = ZonedDateTime.now(),
+                createdAt = FIXED_NOW,
             ),
         )
     }
@@ -70,6 +75,9 @@ class GetMyCouponsUseCaseTest {
             val names = result.map { it.couponName }
             assertThat(names).containsExactlyInAnyOrder("할인쿠폰A", "할인쿠폰B")
             assertThat(result).allMatch { it.status == "AVAILABLE" }
+            val couponA = result.first { it.couponName == "할인쿠폰A" }
+            assertThat(couponA.couponType).isEqualTo("FIXED")
+            assertThat(couponA.couponValue).isEqualTo(1000L)
         }
 
         @Test
@@ -135,7 +143,7 @@ class GetMyCouponsUseCaseTest {
                 IssuedCoupon(
                     refCouponId = CouponId(9999L),
                     refUserId = UserId(userId),
-                    createdAt = ZonedDateTime.now(),
+                    createdAt = FIXED_NOW,
                 ),
             )
 

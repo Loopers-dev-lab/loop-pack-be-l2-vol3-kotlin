@@ -56,12 +56,15 @@ class CouponV1ApiE2ETest @Autowired constructor(
             birthDate = LocalDate.of(1990, 1, 15),
             email = "$loginId@example.com",
         )
-        testRestTemplate.exchange(
+        val response = testRestTemplate.exchange(
             "/api/v1/users/sign-up",
             HttpMethod.POST,
             HttpEntity(request),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
+        assertThat(response.statusCode.is2xxSuccessful)
+            .describedAs("회원가입 API 호출이 성공해야 합니다: ${response.statusCode}")
+            .isTrue()
     }
 
     private fun createCoupon(
@@ -85,6 +88,9 @@ class CouponV1ApiE2ETest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
+        assertThat(response.statusCode.is2xxSuccessful)
+            .describedAs("쿠폰 생성 API 호출이 성공해야 합니다: ${response.statusCode}")
+            .isTrue()
         val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
         val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
         return data.id
@@ -222,7 +228,7 @@ class CouponV1ApiE2ETest @Autowired constructor(
             signUp()
             val expiredAt = ZonedDateTime.now().plusSeconds(1).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             val couponId = createCoupon(expiredAt = expiredAt)
-            Thread.sleep(1500) // 쿠폰 만료 대기
+            Thread.sleep(2500) // 쿠폰 만료 대기 (CI 플래키 방지를 위해 여유 있게 대기)
 
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}

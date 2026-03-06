@@ -74,7 +74,6 @@ reviews:
       instructions: >
         이 프로젝트의 Application 계층(UseCase) 리뷰 기준이다.
         Interfaces 계층(ApiSpec)에서 Bean Validation으로 검증된 값은 신뢰한다. UseCase에서 page/size 범위 재검증, ID > 0 재검증 등 Interfaces 검증을 중복하는 코드를 요구하지 않는다.
-        어드민 API의 UseCase에 비관적 락(findByIdForUpdate)을 요구하지 않는다. 어드민은 저빈도 트래픽이므로 과도한 동시성 제어는 불필요하다.
         @Transactional 경계와 도메인 오케스트레이션 책임에 집중하여 리뷰한다.
 
     - path: "**/*Service*.kt"

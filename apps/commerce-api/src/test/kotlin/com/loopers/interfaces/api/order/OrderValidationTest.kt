@@ -45,12 +45,15 @@ class OrderValidationTest @Autowired constructor(
             birthDate = LocalDate.of(1990, 1, 15),
             email = "$loginId@example.com",
         )
-        testRestTemplate.exchange(
+        val response = testRestTemplate.exchange(
             "/api/v1/users/sign-up",
             HttpMethod.POST,
             HttpEntity(request),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
+        assertThat(response.statusCode.is2xxSuccessful)
+            .describedAs("회원가입 API 호출이 성공해야 합니다: ${response.statusCode}")
+            .isTrue()
     }
 
     private fun authHeaders(loginId: String = "testuser1"): HttpHeaders {
@@ -62,7 +65,6 @@ class OrderValidationTest @Autowired constructor(
     }
 
     private fun createOrder(request: Any): org.springframework.http.ResponseEntity<ApiResponse<Any>> {
-        signUp()
         return testRestTemplate.exchange(
             ENDPOINT_ORDERS,
             HttpMethod.POST,
@@ -79,6 +81,7 @@ class OrderValidationTest @Autowired constructor(
         @DisplayName("items가 빈 리스트이면 400을 반환한다 (ApiSpec의 @Valid + @NotEmpty 동작 확인)")
         fun createOrder_emptyItems_returns400() {
             // arrange
+            signUp()
             val request = OrderV1Dto.CreateOrderRequest(
                 items = emptyList(),
             )
@@ -88,12 +91,14 @@ class OrderValidationTest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.body?.meta?.message).contains("items")
         }
 
         @Test
         @DisplayName("items 내 quantity가 0이면 400을 반환한다 (ApiSpec의 @Valid + items 내부 @Min 동작 확인)")
         fun createOrder_itemWithZeroQuantity_returns400() {
             // arrange
+            signUp()
             val request = OrderV1Dto.CreateOrderRequest(
                 items = listOf(
                     OrderV1Dto.CreateOrderItemRequest(productId = 1L, quantity = 0),
@@ -105,12 +110,14 @@ class OrderValidationTest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.body?.meta?.message).contains("quantity")
         }
 
         @Test
         @DisplayName("issuedCouponId가 0이면 400을 반환한다 (ApiSpec의 @Min(1) 동작 확인)")
         fun createOrder_issuedCouponIdZero_returns400() {
             // arrange
+            signUp()
             val request = OrderV1Dto.CreateOrderRequest(
                 items = listOf(
                     OrderV1Dto.CreateOrderItemRequest(productId = 1L, quantity = 1),
@@ -123,6 +130,7 @@ class OrderValidationTest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.body?.meta?.message).contains("issuedCouponId")
         }
     }
 }

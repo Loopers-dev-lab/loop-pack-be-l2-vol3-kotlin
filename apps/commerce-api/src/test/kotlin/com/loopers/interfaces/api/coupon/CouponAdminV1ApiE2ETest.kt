@@ -60,12 +60,15 @@ class CouponAdminV1ApiE2ETest @Autowired constructor(
             birthDate = LocalDate.of(1990, 1, 15),
             email = "$loginId@example.com",
         )
-        testRestTemplate.exchange(
+        val response = testRestTemplate.exchange(
             "/api/v1/users/sign-up",
             HttpMethod.POST,
             HttpEntity(request),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
+        assertThat(response.statusCode.is2xxSuccessful)
+            .describedAs("회원가입 API 호출이 성공해야 합니다: ${response.statusCode}")
+            .isTrue()
     }
 
     private fun createCouponRequest(
@@ -98,6 +101,9 @@ class CouponAdminV1ApiE2ETest @Autowired constructor(
             HttpEntity(request, adminHeaders()),
             responseType,
         )
+        assertThat(response.statusCode.is2xxSuccessful)
+            .describedAs("쿠폰 생성 API 호출이 성공해야 합니다: ${response.statusCode}")
+            .isTrue()
         val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
         val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
         return data.id
