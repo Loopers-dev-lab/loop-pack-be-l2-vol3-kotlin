@@ -100,6 +100,8 @@
 | 재고 검증 | ProductModel.deductStock()이 불변식 보호 (도메인 모델 내부) |
 | 대고객 페이징 | 커서 기반 페이징 (Base64 인코딩). 어드민은 offset 페이징 |
 | 좋아요 수 조회 | product.like_count 컬럼 직접 반환 (배치 갱신) |
+| 정렬 타입 안전 | ProductSortRequest enum (Presentation) → ProductSort enum (Domain). case-insensitive Converter 적용 |
+| 커서 페이징 구현 | QueryDSL 동적 쿼리 (ProductQueryDslRepository). JPA/QueryDSL Repository 분리 |
 
 ### 좋아요 — DONE
 
@@ -130,7 +132,8 @@
 | | BR-O3: 최소 1개 상품, BR-O4: 수량 1 이상 |
 | | BR-O5: 본인 주문만 조회 (OrderModel.validateOwner 도메인 검증) |
 | | BR-O6: 재고 부족 시 주문 실패 |
-| 주문 총액 | 비정규화 안 함. `getTotalAmount() = orderItems.sumOf { it.amount }` 파생 계산 |
+| 주문 총액 | `getOriginalAmount() = items.sumOf { it.amount }`, `getTotalAmount() = originalAmount - discountAmount` |
+| 쿠폰 연동 | couponId(nullable), discountAmount 스냅샷 저장. 쿠폰 검증 후 할인 적용 |
 | 스냅샷 범위 | productName, productPrice, brandName (imageUrl, description 제외) |
 | OrderItem 필드 역할 | 참조(productId), 스냅샷(Name/Price/Brand), 주문입력(quantity), 파생(amount) |
 | 주문 번호 | UUID (내부 ID 노출 방지) |
@@ -139,14 +142,33 @@
 | 동시성 | Phase 1에 비관적 락(SELECT FOR UPDATE) 포함. 재고 차감 시 정합성 보장 |
 | 대고객 페이징 | 기간 필터만 적용, 페이징 없음 (API 명세대로) |
 
-### 쿠폰 — TODO
+### 쿠폰 — DONE
 
-#### FEAT-8: 쿠폰 (예정)
+#### FEAT-8: 쿠폰
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | TODO |
-| 예상 기능 | 쿠폰 발급, 조회, 사용 처리 |
+| 상태 | DONE |
+| 대고객 API | `POST /api/v1/coupons/templates/{templateId}/issue` (발급, 인증), `GET /api/v1/members/me/coupons` (내 쿠폰 목록, 인증) |
+| 어드민 API | CRUD: `GET/POST/PUT/DELETE /api-admin/v1/coupons` (LDAP), `GET /api-admin/v1/coupons/{couponId}/issues` (발급 내역) |
+| 비즈니스 규칙 | BR-C1: 쿠폰 타입 — FIXED(정액), RATE(정률, maxDiscountAmount 한도) |
+| | BR-C2: 만료 정책 — FIXED_DATE(특정일), DAYS_FROM_ISSUE(발급일+N일) |
+| | BR-C3: 발급 쿠폰에 개별 expiredAt 저장 (만료 정책에 따라 계산) |
+| | BR-C4: 중복 발급 허용 (동일 템플릿 여러 장 발급 가능) |
+| | BR-C5: 삭제된 템플릿 쿠폰 — 이미 발급된 쿠폰은 만료일까지 사용 가능 |
+| | BR-C6: 표시 상태 — DB(AVAILABLE/USED) + 조회 시 만료 판단(EXPIRED) |
+| | BR-C7: 쿠폰 동시 사용 방지 — 낙관적 락(@Version), 충돌 시 409 CONFLICT |
+| | BR-C8: 최소 주문 금액 검증 (minOrderAmount) |
+| 주문 연동 | BR-C9: 주문 시 쿠폰 할인 적용 (originalAmount, discountAmount, totalAmount 스냅샷) |
+| | BR-C10: 쿠폰 검증 순서 — 소유자 → 사용 가능 상태 → 만료 → 최소 주문 금액 → 할인 계산 |
+| | BR-C11: 쿠폰 사용 실패 시 전체 트랜잭션 롤백 (재고 복원) |
+| 동시성 | 재고: 비관적 락(SELECT FOR UPDATE), 데드락 방지(productId 정렬) |
+| | 쿠폰: 낙관적 락(@Version), flush()로 조기 충돌 감지, 1건만 성공, 나머지 409 |
+| | 좋아요: 멱등(모두 200), DataIntegrityViolation catch |
+| 주문 플로우 최적화 | 쿠폰 차감(@Version + flush)을 재고 락(SELECT FOR UPDATE) 전에 실행하여 불필요한 락 점유 방지 (D34) |
+| 락 비교 테스트 | 비관적/낙관적 락 동일 시나리오 비교 테스트 — 단일 자원 경합, 초과 경합 (D35) |
+| Soft Delete | 템플릿: status=DELETED + deleted_at |
+| DDL | `docs/ddl/V4A__create_coupon.sql`, `docs/ddl/V4B__alter_orders_add_coupon.sql` |
 
 ### 결제 — TODO
 
@@ -348,12 +370,14 @@
 | restoreStock / cancel | 미구현 (현재 스코프 외. 주문 취소 API 없음) | — |
 | 물리 FK | 미사용. 논리적 참조만. 애플리케이션 레벨에서 참조 무결성 보장 | — |
 | 어드민 주문 조회 | validateOwner 없음. 전체 주문 조회 가능 | D18 |
-| 인증 전략 통일 | 대고객: @MemberAuthenticated 어노테이션 선택 적용. 어드민: @AdminAuthenticated 어노테이션 클래스 레벨 일괄 적용 | D3 |
+| 인증 전략 통일 | 대고객: @MemberAuthenticated 어노테이션 선택 적용. 어드민: @AdminAuthenticated 어노테이션 클래스 레벨 일괄 적용 → **3주차 D30에서 path 기반 Interceptor로 전환, 어노테이션 제거** | D3, D30 |
 | VO 패턴 | `@JvmInline value class` + Entity primitive 저장. Service에서 `VO.of()` 생성. Hibernate 6.x AttributeConverter 미사용 | D23 |
 | 스냅샷 범위 | productName, productPrice, brandName만 복사. quantity는 주문입력, amount는 파생값 | D25 |
 | 주문 총액 비정규화 제거 | totalAmount 컬럼 미사용. `getTotalAmount() = orderItems.sumOf { it.amount }` 파생 계산 | D24 |
 | 비밀번호 변경 시 캐시 eviction | MemberFacade에서 loginId 기반 auth-cache evict | D5 |
 | 재고 동시성 제어 | 비관적 락(SELECT FOR UPDATE). Phase 1 기능 구현 시 포함 | D9 |
+| 주문 플로우 동시성 최적화 | 쿠폰 차감(@Version + flush)을 재고 비관적 락 전에 실행. 불필요한 락 점유 방지 | D34 |
+| 비관적/낙관적 락 비교 테스트 | 동일 시나리오(단일 자원 경합, 초과 경합)로 두 전략 동작 차이 검증 | D35 |
 | 개발 순서 원칙 | Phase 1: 기능 정합성 → Phase 2: 동시성/멱등성/일관성/성능 | — |
 
 ---
@@ -400,6 +424,103 @@
 
 ---
 
+## 3주차: 아키텍처 리팩토링 — DONE
+
+### REQ-A1: DIP 전 도메인 적용 (Domain Model / JpaModel 분리)
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | Domain Model이 JPA Entity를 겸하여 @Entity, JPA 어노테이션이 Domain 레이어에 노출. 모듈 분리 시 순환 의존 발생 |
+| 요구사항 | Domain Model(data class)과 Infrastructure JpaModel(@Entity)을 분리하여 DIP 완전 적용 |
+| 수용 기준 | - 6개 도메인(Member, Brand, Product, Order, Like, Example) 전체 적용 |
+|  | - DIP 위반 0건 (Presentation→Domain 0, Presentation→Infrastructure 0, Application→Infrastructure 0) |
+|  | - JpaModel에 toModel()/from()/updateFrom() 변환 메서드 구현 |
+|  | - 전체 테스트 통과, ktlint 클린 |
+| 트레이드오프 | JpaModel ↔ Model 변환 보일러플레이트 증가 |
+| Decision | D30 |
+
+### REQ-A2: QueryDSL 전환
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | 상품 커서 페이징에서 StringBuilder 기반 JPQL 사용 → 타입 안전하지 않음 |
+| 요구사항 | QueryDSL 타입 안전 API로 동적 커서 쿼리 전환. JPA/QueryDSL Repository 분리 |
+| 수용 기준 | - ProductQueryDslRepository 분리 (커서 페이징 전담) |
+|  | - BooleanExpression 기반 동적 커서 조건 (null 자동 무시) |
+|  | - ProductRepositoryImpl은 JPA/QueryDSL 양쪽에 위임만 수행 |
+|  | - 기존 테스트 전체 통과 |
+
+### REQ-A3: 타입 안전 정렬 (ProductSortRequest enum)
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | Controller에서 sort 파라미터를 String으로 수신 → Facade에서 문자열 변환 필요 |
+| 요구사항 | Presentation 레이어에 ProductSortRequest enum 도입, 컴파일 타임 타입 안전성 확보 |
+| 수용 기준 | - ProductSortRequest enum (Presentation) → toDomain() → ProductSort (Domain) |
+|  | - StringToProductSortRequestConverter로 case-insensitive 바인딩 (?sort=latest 호환) |
+|  | - Facade는 ProductSort 직접 수신 (String 변환 로직 제거) |
+
+### REQ-A4: 인증 구조 단순화
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | @MemberAuthenticated/@AdminAuthenticated 어노테이션 + Interceptor가 MemberService/CacheManager 직접 참조 → DIP 위반 |
+| 요구사항 | 어노테이션 기반 → Interceptor path 패턴 기반 인증 전환. AuthService(Application) 도입 |
+| 수용 기준 | - @MemberAuthenticated/@AdminAuthenticated 어노테이션 제거 |
+|  | - Interceptor가 URL path 패턴으로 인증 대상 판별 |
+|  | - AuthService(Application)에서 인증 + Caffeine 캐시 통합 관리 |
+|  | - Interceptor → AuthService 단일 의존 (Domain/Infrastructure 직접 참조 제거) |
+| Decision | D30 |
+
+---
+
+## 3주차 구현 체크리스트
+
+> DIP 아키텍처 리팩토링 달성 여부를 추적한다.
+
+### DIP 분리
+
+- [x] 6개 도메인 Domain Model(data class) + Infrastructure JpaModel(@Entity) 분리 완료
+- [x] DIP 위반 0건 달성 (grep 기반 검증)
+- [x] Domain 레이어에 JPA/Spring/Infrastructure 의존 없음
+- [x] JpaModel에 toModel()/from()/updateFrom() 변환 표준화
+
+### 예외 계층
+
+- [x] CoreException/ErrorType → Domain 레이어로 이동
+- [x] DomainExceptionTranslator(@Aspect) → ApplicationException 변환
+- [x] Presentation은 ApplicationException만 처리
+
+### 인증 구조
+
+- [x] @MemberAuthenticated/@AdminAuthenticated 어노테이션 제거
+- [x] AuthService(Application) 도입 — 인증 + 캐시 통합
+- [x] Interceptor → AuthService 단일 의존
+
+### QueryDSL & 타입 안전
+
+- [x] ProductQueryDslRepository 분리 (JPA/QueryDSL 책임 분리)
+- [x] StringBuilder JPQL → QueryDSL BooleanExpression 동적 쿼리
+- [x] ProductSortRequest enum 도입 (Presentation → Domain 변환)
+- [x] StringToProductSortRequestConverter 등록 (case-insensitive)
+
+### 포트 패턴
+
+- [x] PasswordEncryptor 인터페이스(Domain) ← BcryptPasswordEncryptor 구현(Infrastructure)
+- [x] Repository 인터페이스(Domain) ← RepositoryImpl 구현(Infrastructure)
+
+### 검증
+
+- [x] 198개 테스트 전체 통과
+- [x] ktlint 클린
+- [x] DIP 위반 0건 (Presentation→Domain, Presentation→Infrastructure, Application→Infrastructure)
+
+---
+
 ## 공통 제약사항
 
 | 제약 | 설명 |
@@ -408,7 +529,7 @@
 | BCrypt 반복 호출 금지 | 매 요청 CPU-intensive 연산 반복 금지, 캐싱 레이어로 해결 |
 | 사전 조회 중복체크 금지 | DB Unique Constraint + 예외 처리 방식 사용 |
 | `synchronized` 금지 | Virtual Thread pinning 방지, `ReentrantLock` 사용 |
-| `saveAndFlush()` 금지 | Hibernate write-behind 최적화 파괴 방지 |
+| `saveAndFlush()` 금지 | Hibernate write-behind 최적화 파괴 방지. 단, @Version 낙관적 락의 조기 충돌 감지 목적 flush()는 예외 (D34) |
 | null-safety 필수 | Kotlin null-safety 활용 |
 | TDD 워크플로우 | Red → Green → Refactor, 3A 원칙 (Arrange-Act-Assert) |
 | 도메인 확장 패턴 | example 패키지 구조 참고, 4-layer 구조 유지 |
@@ -426,10 +547,16 @@
 | 상품 | 1 | 1 | 0 | 0 |
 | 좋아요 | 1 | 1 | 0 | 0 |
 | 주문 | 1 | 1 | 0 | 0 |
-| 쿠폰 | 1 | 0 | 0 | 1 |
+| 쿠폰 | 1 | 1 | 0 | 0 |
 | 결제 | 1 | 0 | 0 | 1 |
 | 랭킹/추천 | 1 | 0 | 0 | 1 |
-| **합계** | **10** | **7** | **0** | **3** |
+| **합계** | **10** | **8** | **0** | **2** |
+
+### 아키텍처 요구사항
+
+| 항목 | 전체 | 완료 | 미착수 |
+|------|------|------|--------|
+| 3주차 리팩토링 (REQ-A1~A4) | 4 | 4 | 0 |
 
 ### 성능 요구사항 (10K TPS)
 
