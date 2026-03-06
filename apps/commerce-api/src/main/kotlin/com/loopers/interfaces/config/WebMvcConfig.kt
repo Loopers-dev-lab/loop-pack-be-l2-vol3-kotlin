@@ -4,6 +4,7 @@ import com.loopers.interfaces.config.auth.AdminAuthenticationInterceptor
 import com.loopers.interfaces.config.auth.AuthenticatedMemberArgumentResolver
 import com.loopers.interfaces.config.auth.MemberAuthenticationInterceptor
 import org.springframework.context.annotation.Configuration
+import org.springframework.format.FormatterRegistry
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
@@ -20,6 +21,10 @@ class WebMvcConfig(
             .addPathPatterns("/api/**")
         registry.addInterceptor(adminAuthenticationInterceptor)
             .addPathPatterns("/api-admin/**")
+    }
+
+    override fun addFormatters(registry: FormatterRegistry) {
+        registry.addConverter(StringToProductSortRequestConverter())
     }
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {

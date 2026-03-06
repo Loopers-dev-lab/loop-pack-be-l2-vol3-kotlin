@@ -1,4 +1,4 @@
-package com.loopers.interfaces.config.auth
+package com.loopers.application.auth
 
 import java.security.MessageDigest
 
@@ -11,15 +11,15 @@ data class CachedAuth(
         return passwordDigest == sha256(rawPassword)
     }
 
-    fun toAuthenticatedMember(): AuthenticatedMember {
-        return AuthenticatedMember(id = memberId, loginId = loginId)
+    fun toAuthResult(): AuthResult {
+        return AuthResult(id = memberId, loginId = loginId)
     }
 
     companion object {
-        fun of(authenticatedMember: AuthenticatedMember, rawPassword: String): CachedAuth {
+        fun of(authResult: AuthResult, rawPassword: String): CachedAuth {
             return CachedAuth(
-                memberId = authenticatedMember.id,
-                loginId = authenticatedMember.loginId,
+                memberId = authResult.id,
+                loginId = authResult.loginId,
                 passwordDigest = sha256(rawPassword),
             )
         }

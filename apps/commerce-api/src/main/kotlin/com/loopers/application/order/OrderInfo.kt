@@ -2,14 +2,13 @@ package com.loopers.application.order
 
 import com.loopers.domain.order.OrderItemModel
 import com.loopers.domain.order.OrderModel
-import com.loopers.domain.order.OrderStatus
 import java.time.ZonedDateTime
 
 data class OrderInfo(
     val id: Long,
     val orderNumber: String,
     val memberId: Long,
-    val status: OrderStatus,
+    val status: String,
     val totalAmount: Long,
     val orderedAt: ZonedDateTime,
     val items: List<OrderItemInfo>,
@@ -20,10 +19,10 @@ data class OrderInfo(
                 id = model.id,
                 orderNumber = model.orderNumber,
                 memberId = model.memberId,
-                status = model.status,
+                status = model.status.name,
                 totalAmount = model.getTotalAmount(),
                 orderedAt = model.orderedAt,
-                items = model.orderItems.map { OrderItemInfo.from(it) },
+                items = model.items.map { OrderItemInfo.from(it) },
             )
         }
     }

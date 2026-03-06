@@ -1,7 +1,6 @@
 package com.loopers.application.product
 
 import com.loopers.domain.product.ProductModel
-import com.loopers.domain.product.ProductStatus
 import java.time.ZonedDateTime
 
 data class ProductInfo(
@@ -14,9 +13,9 @@ data class ProductInfo(
     val stockQuantity: Int,
     val likeCount: Int,
     val imageUrl: String,
-    val status: ProductStatus,
-    val createdAt: ZonedDateTime,
-    val updatedAt: ZonedDateTime,
+    val status: String,
+    val createdAt: ZonedDateTime?,
+    val updatedAt: ZonedDateTime?,
 ) {
     val soldOut: Boolean get() = stockQuantity == 0
 
@@ -32,7 +31,7 @@ data class ProductInfo(
                 stockQuantity = model.stockQuantity,
                 likeCount = model.likeCount,
                 imageUrl = model.imageUrl,
-                status = model.status,
+                status = model.status.name,
                 createdAt = model.createdAt,
                 updatedAt = model.updatedAt,
             )

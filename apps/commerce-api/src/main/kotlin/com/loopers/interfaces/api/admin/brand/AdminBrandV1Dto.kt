@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.admin.brand
 
 import com.loopers.application.brand.BrandInfo
-import com.loopers.domain.brand.BrandStatus
 import jakarta.validation.constraints.NotBlank
 import java.time.ZonedDateTime
 
@@ -29,9 +28,9 @@ class AdminBrandV1Dto {
         val name: String,
         val description: String,
         val imageUrl: String,
-        val status: BrandStatus,
-        val createdAt: ZonedDateTime,
-        val updatedAt: ZonedDateTime,
+        val status: String,
+        val createdAt: ZonedDateTime?,
+        val updatedAt: ZonedDateTime?,
     ) {
         companion object {
             fun from(info: BrandInfo): BrandResponse {

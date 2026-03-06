@@ -1,7 +1,7 @@
 package com.loopers.domain.member
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 

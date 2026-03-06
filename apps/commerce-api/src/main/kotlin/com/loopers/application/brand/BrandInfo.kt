@@ -1,7 +1,6 @@
 package com.loopers.application.brand
 
 import com.loopers.domain.brand.BrandModel
-import com.loopers.domain.brand.BrandStatus
 import java.time.ZonedDateTime
 
 data class BrandInfo(
@@ -9,9 +8,9 @@ data class BrandInfo(
     val name: String,
     val description: String,
     val imageUrl: String,
-    val status: BrandStatus,
-    val createdAt: ZonedDateTime,
-    val updatedAt: ZonedDateTime,
+    val status: String,
+    val createdAt: ZonedDateTime?,
+    val updatedAt: ZonedDateTime?,
 ) {
     companion object {
         fun from(model: BrandModel): BrandInfo {
@@ -20,7 +19,7 @@ data class BrandInfo(
                 name = model.name,
                 description = model.description,
                 imageUrl = model.imageUrl,
-                status = model.status,
+                status = model.status.name,
                 createdAt = model.createdAt,
                 updatedAt = model.updatedAt,
             )

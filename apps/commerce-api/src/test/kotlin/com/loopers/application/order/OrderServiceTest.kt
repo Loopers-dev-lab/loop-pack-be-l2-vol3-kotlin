@@ -1,13 +1,9 @@
 package com.loopers.application.order
 
-import com.loopers.domain.order.OrderCommand
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.ProductModel
-import com.loopers.domain.product.vo.ProductDescription
-import com.loopers.domain.product.vo.ProductName
-import com.loopers.domain.product.vo.StockQuantity
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -27,18 +23,15 @@ class OrderServiceTest {
     }
 
     private fun createProduct(id: Long = 1L, brandId: Long = 10L): ProductModel {
-        val product = ProductModel(
+        return ProductModel(
+            id = id,
             brandId = brandId,
-            name = ProductName.of("감성 티셔츠"),
-            description = ProductDescription.of("좋은 상품"),
+            name = "감성 티셔츠",
+            description = "좋은 상품",
             price = 39000,
-            stockQuantity = StockQuantity.of(100),
+            stockQuantity = 100,
             imageUrl = "https://example.com/product.jpg",
         )
-        val idField = product.javaClass.superclass.getDeclaredField("id")
-        idField.isAccessible = true
-        idField.set(product, id)
-        return product
     }
 
     private fun defaultProductMap(): Map<Long, ProductModel> {
@@ -64,10 +57,10 @@ class OrderServiceTest {
             assertAll(
                 { assertThat(order.memberId).isEqualTo(1L) },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
-                { assertThat(order.orderItems).hasSize(1) },
-                { assertThat(order.orderItems[0].productName).isEqualTo("감성 티셔츠") },
-                { assertThat(order.orderItems[0].brandName).isEqualTo("루퍼스") },
-                { assertThat(order.orderItems[0].amount).isEqualTo(78000L) },
+                { assertThat(order.items).hasSize(1) },
+                { assertThat(order.items[0].productName).isEqualTo("감성 티셔츠") },
+                { assertThat(order.items[0].brandName).isEqualTo("루퍼스") },
+                { assertThat(order.items[0].amount).isEqualTo(78000L) },
                 { assertThat(order.getTotalAmount()).isEqualTo(78000L) },
             )
         }

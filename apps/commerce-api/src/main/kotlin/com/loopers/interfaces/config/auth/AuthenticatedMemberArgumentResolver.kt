@@ -1,7 +1,6 @@
 package com.loopers.interfaces.config.auth
 
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.application.error.ApplicationException
 import org.springframework.core.MethodParameter
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebDataBinderFactory
@@ -27,6 +26,6 @@ class AuthenticatedMemberArgumentResolver : HandlerMethodArgumentResolver {
             MemberAuthenticationInterceptor.AUTHENTICATED_MEMBER_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST,
         ) as? AuthenticatedMember
-            ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 없습니다.")
+            ?: throw ApplicationException(httpStatus = 401, code = "Unauthorized", message = "인증 정보가 없습니다.")
     }
 }

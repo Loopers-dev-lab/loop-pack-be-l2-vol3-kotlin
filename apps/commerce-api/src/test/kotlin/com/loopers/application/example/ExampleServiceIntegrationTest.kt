@@ -1,9 +1,9 @@
 package com.loopers.application.example
 
-import com.loopers.domain.example.ExampleModel
+import com.loopers.infrastructure.example.ExampleJpaModel
 import com.loopers.infrastructure.example.ExampleJpaRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -33,7 +33,7 @@ class ExampleServiceIntegrationTest @Autowired constructor(
         @Test
         fun returnsExampleInfo_whenValidIdIsProvided() {
             // arrange
-            val exampleModel = exampleJpaRepository.save(ExampleModel(name = "예시 제목", description = "예시 설명"))
+            val exampleModel = exampleJpaRepository.save(ExampleJpaModel(name = "예시 제목", description = "예시 설명"))
 
             // act
             val result = exampleService.getExample(exampleModel.id)
