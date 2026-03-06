@@ -2,6 +2,7 @@ package com.loopers.application.product
 
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
 import org.springframework.stereotype.Component
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productStockRepository: ProductStockRepository,
 ) {
 
     @Transactional(readOnly = true)
@@ -21,6 +23,8 @@ class GetProductUseCase(
         val brand = brandRepository.findByIdOrNull(product.brandId)
         val brandName = brand?.name ?: ""
 
-        return ProductInfo.from(product, brandName)
+        val stock = productStockRepository.findByProductId(productId)?.stock?.quantity ?: 0
+
+        return ProductInfo.from(product, brandName, stock)
     }
 }

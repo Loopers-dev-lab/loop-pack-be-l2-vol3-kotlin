@@ -55,6 +55,14 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllByIds(ids)
     }
 
+    override fun increaseLikeCount(id: Long) {
+        productJpaRepository.increaseLikeCount(id)
+    }
+
+    override fun decreaseLikeCount(id: Long) {
+        productJpaRepository.decreaseLikeCount(id)
+    }
+
     override fun save(product: Product): Product {
         return productJpaRepository.save(product)
     }

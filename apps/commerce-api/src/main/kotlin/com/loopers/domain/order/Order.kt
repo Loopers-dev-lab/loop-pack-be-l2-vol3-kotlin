@@ -17,7 +17,10 @@ import java.time.ZonedDateTime
 @Table(name = "orders")
 class Order private constructor(
     userId: Long,
+    originalAmount: Money,
+    discountAmount: Money,
     totalAmount: Money,
+    userCouponId: Long?,
     status: OrderStatus,
     orderedAt: ZonedDateTime,
 ) : BaseEntity() {
@@ -26,9 +29,20 @@ class Order private constructor(
     val userId: Long = userId
 
     @Embedded
+    @AttributeOverride(name = "amount", column = Column(name = "original_amount", nullable = false))
+    val originalAmount: Money = originalAmount
+
+    @Embedded
+    @AttributeOverride(name = "amount", column = Column(name = "discount_amount", nullable = false))
+    val discountAmount: Money = discountAmount
+
+    @Embedded
     @AttributeOverride(name = "amount", column = Column(name = "total_amount", nullable = false))
     var totalAmount: Money = totalAmount
         protected set
+
+    @Column(name = "user_coupon_id")
+    val userCouponId: Long? = userCouponId
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -39,12 +53,21 @@ class Order private constructor(
     val orderedAt: ZonedDateTime = orderedAt
 
     companion object {
-        fun create(userId: Long, items: List<OrderItemSnapshot>): Order {
+        fun create(
+            userId: Long,
+            items: List<OrderItemSnapshot>,
+            discountAmount: Money = Money(0),
+            userCouponId: Long? = null,
+        ): Order {
             if (items.isEmpty()) throw CoreException(OrderErrorCode.EMPTY_ORDER_ITEMS)
-            val totalAmount = Money(items.sumOf { it.productPrice.amount * it.quantity.value })
+            val originalAmount = Money(items.sumOf { it.productPrice.amount * it.quantity.value })
+            val totalAmount = Money(originalAmount.amount - discountAmount.amount)
             return Order(
                 userId = userId,
+                originalAmount = originalAmount,
+                discountAmount = discountAmount,
                 totalAmount = totalAmount,
+                userCouponId = userCouponId,
                 status = OrderStatus.ORDERED,
                 orderedAt = ZonedDateTime.now(),
             )

@@ -2,13 +2,21 @@ package com.loopers.application.order
 
 import com.loopers.application.brand.BrandCommand
 import com.loopers.application.brand.RegisterBrandUseCase
+import com.loopers.application.coupon.CouponCommand
+import com.loopers.application.coupon.IssueCouponUseCase
+import com.loopers.application.coupon.RegisterCouponUseCase
 import com.loopers.application.product.ProductCommand
 import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.application.user.UserCommand
+import com.loopers.domain.coupon.CouponType
+import com.loopers.domain.coupon.UserCoupon
+import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.support.error.CoreException
+import com.loopers.support.error.CouponErrorCode
 import com.loopers.support.error.OrderErrorCode
 import com.loopers.support.error.OrderValidationException
 import com.loopers.utils.DatabaseCleanUp
@@ -22,6 +30,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
 @SpringBootTest
 class CreateOrderUseCaseTest @Autowired constructor(
@@ -29,7 +38,11 @@ class CreateOrderUseCaseTest @Autowired constructor(
     private val registerUserUseCase: RegisterUserUseCase,
     private val registerBrandUseCase: RegisterBrandUseCase,
     private val registerProductUseCase: RegisterProductUseCase,
+    private val registerCouponUseCase: RegisterCouponUseCase,
+    private val issueCouponUseCase: IssueCouponUseCase,
     private val productRepository: ProductRepository,
+    private val productStockRepository: ProductStockRepository,
+    private val userCouponRepository: UserCouponRepository,
     private val userJpaRepository: UserJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -69,6 +82,29 @@ class CreateOrderUseCaseTest @Autowired constructor(
         ).id
     }
 
+    private fun registerCoupon(
+        type: CouponType = CouponType.FIXED,
+        value: Long = 1000,
+        minOrderAmount: Long? = null,
+        expiredAt: ZonedDateTime = ZonedDateTime.now().plusDays(30),
+    ): Long {
+        return registerCouponUseCase.execute(
+            CouponCommand.Register(
+                name = "테스트쿠폰",
+                type = type,
+                value = value,
+                minOrderAmount = minOrderAmount,
+                expiredAt = expiredAt,
+            ),
+        ).id
+    }
+
+    private fun issueCoupon(couponId: Long, userId: Long): Long {
+        return issueCouponUseCase.execute(
+            CouponCommand.Issue(couponId = couponId, userId = userId),
+        ).id
+    }
+
     @DisplayName("주문 생성")
     @Nested
     inner class Execute {
@@ -93,12 +129,179 @@ class CreateOrderUseCaseTest @Autowired constructor(
 
             // assert
             assertAll(
+                { assertThat(result.originalAmount).isEqualTo(30000) },
+                { assertThat(result.discountAmount).isEqualTo(0) },
                 { assertThat(result.totalAmount).isEqualTo(30000) },
                 { assertThat(result.status).isEqualTo("ORDERED") },
             )
 
-            val product = productRepository.findByIdOrNull(productId)
-            assertThat(product?.stock?.quantity).isEqualTo(47)
+            val productStock = productStockRepository.findByProductId(productId)
+            assertThat(productStock?.stock?.quantity).isEqualTo(47)
+        }
+
+        @DisplayName("정액 쿠폰 적용 시 할인이 반영된다")
+        @Test
+        fun successWithFixedCoupon() {
+            // arrange
+            val userId = registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId, price = 10000, stock = 50)
+            val couponId = registerCoupon(type = CouponType.FIXED, value = 3000)
+            issueCoupon(couponId, userId)
+
+            // act
+            val result = createOrderUseCase.execute(
+                OrderCommand.Create(
+                    userId = userId,
+                    items = listOf(
+                        OrderCommand.Create.OrderLineItem(productId = productId, quantity = 3),
+                    ),
+                    couponId = couponId,
+                ),
+            )
+
+            // assert
+            assertAll(
+                { assertThat(result.originalAmount).isEqualTo(30000) },
+                { assertThat(result.discountAmount).isEqualTo(3000) },
+                { assertThat(result.totalAmount).isEqualTo(27000) },
+            )
+
+            val userCoupon = userCouponRepository.findByUserIdAndCouponId(userId, couponId)!!
+            assertThat(userCoupon.usedOrderId).isEqualTo(result.orderId)
+        }
+
+        @DisplayName("정률 쿠폰 적용 시 할인이 반영된다")
+        @Test
+        fun successWithRateCoupon() {
+            // arrange
+            val userId = registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId, price = 10000, stock = 50)
+            val couponId = registerCoupon(type = CouponType.RATE, value = 10)
+            issueCoupon(couponId, userId)
+
+            // act
+            val result = createOrderUseCase.execute(
+                OrderCommand.Create(
+                    userId = userId,
+                    items = listOf(
+                        OrderCommand.Create.OrderLineItem(productId = productId, quantity = 2),
+                    ),
+                    couponId = couponId,
+                ),
+            )
+
+            // assert
+            assertAll(
+                { assertThat(result.originalAmount).isEqualTo(20000) },
+                { assertThat(result.discountAmount).isEqualTo(2000) },
+                { assertThat(result.totalAmount).isEqualTo(18000) },
+            )
+        }
+
+        @DisplayName("이미 사용된 쿠폰으로 주문하면 실패한다")
+        @Test
+        fun failWhenCouponAlreadyUsed() {
+            // arrange
+            val userId = registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId, price = 10000, stock = 50)
+            val couponId = registerCoupon(type = CouponType.FIXED, value = 1000)
+            issueCoupon(couponId, userId)
+
+            createOrderUseCase.execute(
+                OrderCommand.Create(
+                    userId = userId,
+                    items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
+                    couponId = couponId,
+                ),
+            )
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                createOrderUseCase.execute(
+                    OrderCommand.Create(
+                        userId = userId,
+                        items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
+                        couponId = couponId,
+                    ),
+                )
+            }
+            assertThat(exception.errorCode).isEqualTo(CouponErrorCode.COUPON_ALREADY_USED)
+        }
+
+        @DisplayName("만료된 쿠폰으로 주문하면 실패한다")
+        @Test
+        fun failWhenCouponExpired() {
+            // arrange
+            val userId = registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId, price = 10000, stock = 50)
+            val couponId = registerCoupon(expiredAt = ZonedDateTime.now().plusDays(30))
+            val expiredUserCoupon = UserCoupon.create(
+                couponId = couponId,
+                userId = userId,
+                expiredAt = ZonedDateTime.now().minusDays(1),
+            )
+            userCouponRepository.save(expiredUserCoupon)
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                createOrderUseCase.execute(
+                    OrderCommand.Create(
+                        userId = userId,
+                        items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
+                        couponId = couponId,
+                    ),
+                )
+            }
+            assertThat(exception.errorCode).isEqualTo(CouponErrorCode.COUPON_EXPIRED)
+        }
+
+        @DisplayName("최소 주문금액 미달 시 쿠폰 적용이 실패한다")
+        @Test
+        fun failWhenMinOrderAmountNotMet() {
+            // arrange
+            val userId = registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId, price = 5000, stock = 50)
+            val couponId = registerCoupon(value = 1000, minOrderAmount = 20000)
+            issueCoupon(couponId, userId)
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                createOrderUseCase.execute(
+                    OrderCommand.Create(
+                        userId = userId,
+                        items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
+                        couponId = couponId,
+                    ),
+                )
+            }
+            assertThat(exception.errorCode).isEqualTo(CouponErrorCode.MIN_ORDER_AMOUNT_NOT_MET)
+        }
+
+        @DisplayName("미발급 쿠폰으로 주문하면 실패한다")
+        @Test
+        fun failWhenCouponNotIssued() {
+            // arrange
+            val userId = registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId, price = 10000, stock = 50)
+            val couponId = registerCoupon()
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                createOrderUseCase.execute(
+                    OrderCommand.Create(
+                        userId = userId,
+                        items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
+                        couponId = couponId,
+                    ),
+                )
+            }
+            assertThat(exception.errorCode).isEqualTo(CouponErrorCode.USER_COUPON_NOT_FOUND)
         }
 
         @DisplayName("미존재 상품 포함 시 검증 실패")

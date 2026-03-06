@@ -2,6 +2,7 @@ package com.loopers.application.product
 
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.support.PageResult
 import org.springframework.stereotype.Component
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetProductListUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productStockRepository: ProductStockRepository,
 ) {
 
     @Transactional(readOnly = true)
@@ -32,9 +34,18 @@ class GetProductListUseCase(
             emptyMap()
         }
 
+        val productIds = pageResult.content.map { it.id }
+        val stockMap = if (productIds.isNotEmpty()) {
+            productStockRepository.findAllByProductIds(productIds)
+                .associateBy { it.productId }
+        } else {
+            emptyMap()
+        }
+
         val productInfos = pageResult.content.map { product ->
             val brandName = brandMap[product.brandId]?.name ?: ""
-            ProductInfo.from(product, brandName)
+            val stock = stockMap[product.id]?.stock?.quantity ?: 0
+            ProductInfo.from(product, brandName, stock)
         }
 
         return PageResult.of(

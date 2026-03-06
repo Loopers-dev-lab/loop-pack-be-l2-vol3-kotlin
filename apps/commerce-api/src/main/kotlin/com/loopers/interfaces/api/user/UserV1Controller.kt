@@ -1,11 +1,15 @@
 package com.loopers.interfaces.api.user
 
+import com.loopers.application.coupon.GetMyCouponsUseCase
 import com.loopers.application.user.ChangePasswordUseCase
 import com.loopers.application.user.GetMyInfoUseCase
 import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.application.user.UserCommand
+import com.loopers.domain.coupon.UserCouponStatus
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.auth.CurrentUserId
+import com.loopers.interfaces.api.coupon.UserCouponResponse
+import com.loopers.support.PageResult
 import com.loopers.support.constant.ApiPaths
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -23,6 +28,7 @@ class UserV1Controller(
     private val registerUserUseCase: RegisterUserUseCase,
     private val getMyInfoUseCase: GetMyInfoUseCase,
     private val changePasswordUseCase: ChangePasswordUseCase,
+    private val getMyCouponsUseCase: GetMyCouponsUseCase,
 ) : UserV1ApiSpec {
 
     @PostMapping
@@ -61,5 +67,22 @@ class UserV1Controller(
             ),
         )
         return ApiResponse.success(Unit)
+    }
+
+    @GetMapping("/me/coupons")
+    fun getMyCoupons(
+        @CurrentUserId userId: Long,
+        @RequestParam(required = false) status: UserCouponStatus?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): ApiResponse<PageResult<UserCouponResponse>> {
+        val result = getMyCouponsUseCase.execute(userId, status, page, size)
+        val response = PageResult.of(
+            content = result.content.map { UserCouponResponse.from(it) },
+            page = result.page,
+            size = result.size,
+            totalElements = result.totalElements,
+        )
+        return ApiResponse.success(response)
     }
 }
