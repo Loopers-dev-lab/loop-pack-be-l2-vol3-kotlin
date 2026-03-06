@@ -7,6 +7,7 @@ object ApiPaths {
         const val REGISTER = BASE
         const val ME = "$BASE/me"
         const val ME_PASSWORD = "$BASE/me/password"
+        const val ME_COUPONS = "$BASE/me/coupons"
     }
 
     object Brands {
@@ -49,7 +50,6 @@ object ApiPaths {
     object Coupons {
         const val BASE = "/api/v1/coupons"
         const val ISSUE = "$BASE/{couponId}/issue"
-        const val ME = "$BASE/me"
     }
 
     object AdminCoupons {
