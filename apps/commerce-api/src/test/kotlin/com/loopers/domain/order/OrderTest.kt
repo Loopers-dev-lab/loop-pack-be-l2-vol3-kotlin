@@ -291,4 +291,19 @@ class OrderTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    @DisplayName("낙관적 락 version 필드")
+    @Nested
+    inner class Version {
+
+        @DisplayName("Order 생성 시, version 초기값은 0이다.")
+        @Test
+        fun hasVersionFieldWithInitialValueZero() {
+            // arrange & act
+            val order = Order(userId = 1L)
+
+            // assert
+            assertThat(order.version).isEqualTo(0L)
+        }
+    }
 }

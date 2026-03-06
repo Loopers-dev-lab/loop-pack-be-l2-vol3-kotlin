@@ -38,4 +38,10 @@ class OrderService(
         order.addItems(items)
         return orderRepository.save(order)
     }
+
+    fun changeStatus(orderId: Long, next: OrderStatus) {
+        val order = getOrderById(orderId)
+        order.changeStatus(next)
+        orderRepository.saveAndFlush(order)
+    }
 }
