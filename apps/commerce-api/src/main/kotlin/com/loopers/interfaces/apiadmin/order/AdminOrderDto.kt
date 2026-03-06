@@ -3,6 +3,7 @@ package com.loopers.interfaces.apiadmin.order
 import com.loopers.application.order.AdminOrderDetailInfo
 import com.loopers.application.order.AdminOrderInfo
 import com.loopers.application.order.OrderItemInfo
+import com.loopers.domain.order.OrderStatus
 import com.loopers.support.common.PageResult
 import java.time.ZonedDateTime
 
@@ -92,4 +93,8 @@ class AdminOrderDto {
             }
         }
     }
+
+    data class ChangeStatusRequest(
+        val status: OrderStatus,
+    )
 }

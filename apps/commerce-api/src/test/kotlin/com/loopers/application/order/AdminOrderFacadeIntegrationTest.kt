@@ -26,6 +26,9 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
 class AdminOrderFacadeIntegrationTest @Autowired constructor(
@@ -184,6 +187,71 @@ class AdminOrderFacadeIntegrationTest @Autowired constructor(
             }
 
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("어드민 주문 상태 변경할 때,")
+    @Nested
+    inner class ChangeOrderStatus {
+
+        @DisplayName("유효한 상태 전이이면, 주문 상태가 변경된다.")
+        @Test
+        fun changesOrderStatus_whenValidTransition() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val order = createOrder(1L, brand, product)
+
+            // act
+            adminOrderFacade.changeOrderStatus(order.id, OrderStatus.CONFIRMED)
+
+            // assert
+            val result = adminOrderFacade.getOrder(order.id)
+            assertThat(result.status).isEqualTo(OrderStatus.CONFIRMED)
+        }
+
+        @DisplayName("동시에 같은 주문의 상태를 변경하면, 하나는 CONFLICT 예외가 발생한다.")
+        @Test
+        fun throwsConflict_whenConcurrentStatusChange() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val order = createOrder(1L, brand, product)
+            val threadCount = 2
+            val executorService = Executors.newFixedThreadPool(threadCount)
+            val latch = CountDownLatch(threadCount)
+            val successCount = AtomicInteger(0)
+            val conflictCount = AtomicInteger(0)
+
+            // act
+            executorService.submit {
+                try {
+                    adminOrderFacade.changeOrderStatus(order.id, OrderStatus.CONFIRMED)
+                    successCount.incrementAndGet()
+                } catch (e: CoreException) {
+                    if (e.errorType == ErrorType.CONFLICT) conflictCount.incrementAndGet()
+                } finally {
+                    latch.countDown()
+                }
+            }
+            executorService.submit {
+                try {
+                    adminOrderFacade.changeOrderStatus(order.id, OrderStatus.CANCELLED)
+                    successCount.incrementAndGet()
+                } catch (e: CoreException) {
+                    if (e.errorType == ErrorType.CONFLICT) conflictCount.incrementAndGet()
+                } finally {
+                    latch.countDown()
+                }
+            }
+            latch.await()
+            executorService.shutdown()
+
+            // assert
+            assertAll(
+                { assertThat(successCount.get()).isEqualTo(1) },
+                { assertThat(conflictCount.get()).isEqualTo(1) },
+            )
         }
     }
 }

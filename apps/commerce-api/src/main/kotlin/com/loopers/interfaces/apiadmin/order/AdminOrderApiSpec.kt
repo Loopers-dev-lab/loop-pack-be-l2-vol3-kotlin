@@ -20,4 +20,10 @@ interface AdminOrderApiSpec {
         description = "주문 ID로 주문 상세 정보를 조회합니다.",
     )
     fun getOrder(orderId: Long): ApiResponse<AdminOrderDto.DetailResponse>
+
+    @Operation(
+        summary = "주문 상태 변경",
+        description = "주문의 상태를 변경합니다.",
+    )
+    fun changeOrderStatus(orderId: Long, request: AdminOrderDto.ChangeStatusRequest): ApiResponse<Unit>
 }

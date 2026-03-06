@@ -12,6 +12,7 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import org.hibernate.annotations.SQLRestriction
 
 @Entity
@@ -23,6 +24,10 @@ class Order(
     userId: Long,
     status: OrderStatus = OrderStatus.ORDERED,
 ) : BaseEntity() {
+
+    @Version
+    var version: Long = 0
+        protected set
 
     @Column(name = "user_id", nullable = false)
     var userId: Long = userId

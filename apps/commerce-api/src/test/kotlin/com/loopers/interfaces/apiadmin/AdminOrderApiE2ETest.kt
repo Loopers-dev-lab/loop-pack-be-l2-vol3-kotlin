@@ -363,4 +363,139 @@ class AdminOrderApiE2ETest @Autowired constructor(
             )
         }
     }
+
+    @DisplayName("PATCH /api-admin/v1/orders/{orderId}/status")
+    @Nested
+    inner class ChangeOrderStatus {
+
+        @DisplayName("유효한 상태 전이 요청이면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenValidStatusTransition() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val orderId = createOrder(1L, brand, product)
+            val requestBody = mapOf("status" to "CONFIRMED")
+            val httpEntity = HttpEntity(requestBody, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/$orderId/status",
+                HttpMethod.PATCH,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 주문이면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFound_whenOrderNotExists() {
+            // arrange
+            val requestBody = mapOf("status" to "CONFIRMED")
+            val httpEntity = HttpEntity(requestBody, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/999/status",
+                HttpMethod.PATCH,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(404) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("LDAP 헤더가 없으면, 401 UNAUTHORIZED를 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenLdapHeaderIsMissing() {
+            // arrange
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val requestBody = mapOf("status" to "CONFIRMED")
+            val httpEntity = HttpEntity(requestBody, headers)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/1/status",
+                HttpMethod.PATCH,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(401) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("상태 변경 후 조회하면, 변경된 상태가 반환된다.")
+        @Test
+        fun returnsUpdatedStatus_whenGetOrderAfterStatusChange() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val orderId = createOrder(1L, brand, product)
+            val requestBody = mapOf("status" to "CONFIRMED")
+            val httpEntity = HttpEntity(requestBody, adminHeaders())
+
+            // act
+            val patchResponseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/$orderId/status",
+                HttpMethod.PATCH,
+                httpEntity,
+                patchResponseType,
+            )
+
+            val getResponseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/$orderId",
+                HttpMethod.GET,
+                HttpEntity<Void>(adminHeaders()),
+                getResponseType,
+            )
+
+            // assert
+            assertThat(response.body?.data?.get("status")).isEqualTo("CONFIRMED")
+        }
+
+        @DisplayName("허용되지 않은 상태 전이이면, 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenInvalidStatusTransition() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val orderId = createOrder(1L, brand, product)
+            val requestBody = mapOf("status" to "DELIVERED")
+            val httpEntity = HttpEntity(requestBody, adminHeaders())
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = testRestTemplate.exchange(
+                "$ORDER_ENDPOINT/$orderId/status",
+                HttpMethod.PATCH,
+                httpEntity,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode.value()).isEqualTo(400) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+    }
 }
