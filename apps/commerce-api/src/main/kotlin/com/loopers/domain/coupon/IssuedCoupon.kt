@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.ZonedDateTime
 
 @Entity
@@ -17,6 +18,10 @@ class IssuedCoupon(
     @Column(name = "coupon_template_id", nullable = false)
     val couponTemplateId: Long,
 ) : BaseEntity() {
+    @Version
+    var version: Long = 0
+        protected set
+
     @Column(nullable = false)
     var used: Boolean = false
         protected set

@@ -2,7 +2,7 @@ package com.loopers.domain.coupon
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.transaction.Transactional
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -13,11 +13,13 @@ class CouponService(
     private val couponTemplateRepository: CouponTemplateRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
 ) {
+    @Transactional(readOnly = true)
     fun getCouponTemplate(id: Long): CouponTemplate {
         return couponTemplateRepository.findByIdAndDeletedAtIsNull(id)
             ?: throw CoreException(ErrorType.NOT_FOUND)
     }
 
+    @Transactional(readOnly = true)
     fun getCouponTemplates(pageable: Pageable): Page<CouponTemplate> {
         return couponTemplateRepository.findAllByDeletedAtIsNull(pageable)
     }
@@ -69,15 +71,18 @@ class CouponService(
         return issuedCouponRepository.save(IssuedCoupon(userId = userId, couponTemplateId = couponTemplateId))
     }
 
+    @Transactional(readOnly = true)
     fun getIssuedCoupon(id: Long): IssuedCoupon {
         return issuedCouponRepository.findByIdAndDeletedAtIsNull(id)
             ?: throw CoreException(ErrorType.NOT_FOUND)
     }
 
+    @Transactional(readOnly = true)
     fun getUserIssuedCoupons(userId: Long): List<IssuedCoupon> {
         return issuedCouponRepository.findAllByUserIdAndDeletedAtIsNull(userId)
     }
 
+    @Transactional(readOnly = true)
     fun getIssuedCouponsByCouponTemplateId(couponTemplateId: Long, pageable: Pageable): Page<IssuedCoupon> {
         return issuedCouponRepository.findAllByCouponTemplateIdAndDeletedAtIsNull(couponTemplateId, pageable)
     }

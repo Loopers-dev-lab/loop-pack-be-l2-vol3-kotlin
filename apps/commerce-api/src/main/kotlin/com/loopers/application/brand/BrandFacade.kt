@@ -2,7 +2,7 @@ package com.loopers.application.brand
 
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductService
-import jakarta.transaction.Transactional
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component

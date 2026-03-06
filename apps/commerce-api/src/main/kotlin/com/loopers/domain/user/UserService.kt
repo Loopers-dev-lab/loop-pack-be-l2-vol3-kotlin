@@ -2,7 +2,7 @@ package com.loopers.domain.user
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.transaction.Transactional
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Component
 
 @Component
@@ -22,6 +22,7 @@ class UserService(
         return userRepository.save(User(loginId, password, name, birth, email))
     }
 
+    @Transactional(readOnly = true)
     fun getUserByLoginIdAndPassword(loginId: String, password: String): User? {
         val user = userRepository.findByLoginId(loginId)
 
