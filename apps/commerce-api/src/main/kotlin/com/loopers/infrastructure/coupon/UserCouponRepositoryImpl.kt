@@ -50,7 +50,7 @@ class UserCouponRepositoryImpl(
         return userCouponJpaRepository.save(userCoupon)
     }
 
-    override fun flush() {
-        userCouponJpaRepository.flush()
+    override fun useIfAvailable(id: Long, orderId: Long): Int {
+        return userCouponJpaRepository.useIfAvailable(id, orderId)
     }
 }

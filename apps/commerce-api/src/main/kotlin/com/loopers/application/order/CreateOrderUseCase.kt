@@ -3,7 +3,6 @@ package com.loopers.application.order
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponRepository
-import com.loopers.domain.coupon.UserCoupon
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
@@ -15,7 +14,6 @@ import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.CouponErrorCode
-import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -34,8 +32,8 @@ class CreateOrderUseCase(
     fun execute(command: OrderCommand.Create): OrderInfo {
         val orderLines = command.toOrderLines()
 
-        // 1. 쿠폰 조회 + 검증 (락 없이, 유효하지 않으면 여기서 빠르게 실패)
-        val (userCoupon, coupon) = validateCoupon(command.userCouponId, command.userId)
+        // 1. 쿠폰 사전 검증 (락 전, fast-fail)
+        val coupon = validateCoupon(command.userCouponId, command.userId)
 
         // 2. 데드락 방지를 위해 productId 오름차순으로 비관적 락 획득
         val sortedProductIds = orderLines.map { it.productId }.distinct().sorted()
@@ -62,11 +60,11 @@ class CreateOrderUseCase(
             )
         }
 
-        // 3. 할인 계산 (originalAmount 필요하므로 상품 조회 후)
+        // 3. 할인 계산
         val originalAmount = Money(snapshots.sumOf { it.productPrice.amount * it.quantity.value })
         val discountAmount = calculateDiscount(coupon, originalAmount)
 
-        // 4. 주문 생성 + 재고 차감 + 쿠폰 사용
+        // 4. 주문 생성 + 재고 차감
         val order = Order.create(
             userId = command.userId,
             items = snapshots,
@@ -85,13 +83,10 @@ class CreateOrderUseCase(
             product.decreaseStock(line.quantity.value)
         }
 
-        userCoupon?.let {
-            it.use(savedOrder.id)
-            try {
-                userCouponRepository.flush()
-            } catch (e: ObjectOptimisticLockingFailureException) {
-                throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
-            }
+        // 5. 쿠폰 Conditional Update
+        command.userCouponId?.let { userCouponId ->
+            val updated = userCouponRepository.useIfAvailable(userCouponId, savedOrder.id)
+            if (updated == 0) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
         }
 
         return OrderInfo.from(savedOrder)
@@ -100,17 +95,15 @@ class CreateOrderUseCase(
     private fun validateCoupon(
         userCouponId: Long?,
         userId: Long,
-    ): Pair<UserCoupon?, Coupon?> {
-        if (userCouponId == null) return Pair(null, null)
+    ): Coupon? {
+        if (userCouponId == null) return null
 
         val userCoupon = userCouponRepository.findByIdOrNull(userCouponId)
             ?: throw CoreException(CouponErrorCode.USER_COUPON_NOT_FOUND)
         userCoupon.validateUsableBy(userId)
 
-        val coupon = couponRepository.findActiveByIdOrNull(userCoupon.couponId)
+        return couponRepository.findActiveByIdOrNull(userCoupon.couponId)
             ?: throw CoreException(CouponErrorCode.COUPON_NOT_FOUND)
-
-        return Pair(userCoupon, coupon)
     }
 
     private fun calculateDiscount(

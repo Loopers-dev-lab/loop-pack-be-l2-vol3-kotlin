@@ -5,10 +5,18 @@ import com.loopers.domain.coupon.UserCouponStatus
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface UserCouponJpaRepository : JpaRepository<UserCoupon, Long> {
+
+    @Modifying
+    @Query(
+        "UPDATE UserCoupon uc SET uc.status = 'USED', uc.usedOrderId = :orderId, uc.usedAt = CURRENT_TIMESTAMP" +
+            " WHERE uc.id = :id AND uc.status = 'AVAILABLE'",
+    )
+    fun useIfAvailable(@Param("id") id: Long, @Param("orderId") orderId: Long): Int
 
     @Query("SELECT uc FROM UserCoupon uc WHERE uc.userId = :userId AND uc.couponId = :couponId")
     fun findByUserIdAndCouponId(@Param("userId") userId: Long, @Param("couponId") couponId: Long): UserCoupon?
