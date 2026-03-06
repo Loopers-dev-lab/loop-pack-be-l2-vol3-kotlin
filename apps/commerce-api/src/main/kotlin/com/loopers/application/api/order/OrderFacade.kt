@@ -1,6 +1,5 @@
 package com.loopers.application.api.order
 
-import com.loopers.application.api.order.dto.OrderItemCriteria
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.order.DiscountDistributer
 import com.loopers.domain.order.Order
@@ -8,6 +7,9 @@ import com.loopers.domain.order.OrderService
 import com.loopers.domain.order.dto.CreateOrderItemCommand
 import com.loopers.domain.order.dto.OrderedInfo
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.stock.StockDecreaseCommand
+import com.loopers.domain.stock.StockIncreaseCommand
+import com.loopers.domain.stock.StockService
 import com.loopers.interfaces.api.order.OrderV1Dto
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -20,45 +22,82 @@ import java.math.BigDecimal
 class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
+    private val stockService: StockService,
     private val couponService: CouponService,
 ) {
 
     @Transactional
     fun createOrder(userId: Long, orderRequest: OrderV1Dto.OrderRequest): Long {
-        val orderItems = orderRequest.items.map { OrderItemCriteria(it.productId, it.quantity) }
-        productService.decreaseProductsStock(orderItems)
+        val sortedItems = orderRequest.items.sortedBy { it.productId }
+        decreaseStock(sortedItems)
 
-        val createOrderItems = orderRequest.items
-            .map { orderItem ->
-                val product = productService.getProduct(orderItem.productId)
-                CreateOrderItemCommand(
-                    productId = orderItem.productId,
-                    productName = product.name,
-                    quantity = orderItem.quantity,
-                    price = product.price,
-                )
+        try {
+            val createOrderItems = prepareOrderItems(orderRequest)
+            val discountAmount = applyCoupon(orderRequest, createOrderItems)
+            val order = orderService.createOrder(userId, createOrderItems, orderRequest.couponId)
+
+            if (discountAmount > BigDecimal.ZERO) {
+                applyDiscount(order, discountAmount, createOrderItems)
             }
-        val orderId = orderService.createOrder(userId, createOrderItems, orderRequest.couponId)
 
-        // 쿠폰 적용 (선택사항)
-        if (orderRequest.couponId != null) {
-            val order = orderService.getOrderByIdForAdmin(orderId)
-            val totalAmount = order.getTotalPrice() + calculateTotalDiscount(order)
-
-            try {
-                val discount = couponService.calculateDiscount(orderRequest.couponId, totalAmount)
-                DiscountDistributer.distributeDiscount(order.orderItems, discount, totalAmount)
-                couponService.useCoupon(orderRequest.couponId, totalAmount)
-            } catch (e: Exception) {
-                throw e
-            }
+            return order.id
+        } catch (e: Exception) {
+            increaseStock(sortedItems)
+            throw e
         }
-
-        return orderId
     }
 
-    private fun calculateTotalDiscount(order: Order): BigDecimal {
-        return order.orderItems.sumOf { it.discountAmount }
+    private fun decreaseStock(items: List<OrderV1Dto.OrderItemRequest>) {
+        val decreaseCommands = items.map {
+            StockDecreaseCommand(
+                productId = it.productId,
+                quantity = it.quantity,
+            )
+        }
+        stockService.decreaseAllStocks(decreaseCommands)
+    }
+
+    private fun prepareOrderItems(orderRequest: OrderV1Dto.OrderRequest): List<CreateOrderItemCommand> {
+        return orderRequest.items.map { orderItem ->
+            val product = productService.getProduct(orderItem.productId)
+            CreateOrderItemCommand(
+                productId = orderItem.productId,
+                productName = product.name,
+                quantity = orderItem.quantity,
+                price = product.price,
+            )
+        }
+    }
+
+    private fun applyCoupon(orderRequest: OrderV1Dto.OrderRequest, items: List<CreateOrderItemCommand>): BigDecimal {
+        if (orderRequest.couponId == null) {
+            return BigDecimal.ZERO
+        }
+
+        val totalAmount = items.sumOf { it.price * it.quantity.toBigDecimal() }
+        val discountAmount = couponService.calculateDiscount(orderRequest.couponId, totalAmount)
+        couponService.useCoupon(orderRequest.couponId, totalAmount)
+
+        return discountAmount
+    }
+
+    private fun applyDiscount(order: Order, discountAmount: BigDecimal, items: List<CreateOrderItemCommand>) {
+        val totalAmount = items.sumOf { it.price * it.quantity.toBigDecimal() }
+        DiscountDistributer.distributeDiscount(order.orderItems, discountAmount, totalAmount)
+    }
+
+    private fun increaseStock(items: List<OrderV1Dto.OrderItemRequest>) {
+        try {
+            val increaseCommands = items.map {
+                StockIncreaseCommand(
+                    productId = it.productId,
+                    quantity = it.quantity,
+                )
+            }
+            stockService.increaseAllStocks(increaseCommands)
+        } catch (ex: Exception) {
+            throw ex
+        }
     }
 
     fun getOrdersByUserId(userId: Long, pageable: Pageable): Page<OrderedInfo> =

@@ -9,6 +9,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.Version
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
@@ -37,6 +38,10 @@ class Coupon private constructor(
 
     @Column(name = "used_at")
     var usedAt: ZonedDateTime? = null
+        protected set
+
+    @Version
+    var version: Long = 0
         protected set
 
     fun isValid(): Boolean {

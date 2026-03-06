@@ -16,7 +16,7 @@ class OrderService(
 ) {
 
     @Transactional
-    fun createOrder(userId: Long, items: List<CreateOrderItemCommand>, couponId: Long? = null): Long {
+    fun createOrder(userId: Long, items: List<CreateOrderItemCommand>, couponId: Long? = null): Order {
         validateItems(items)
 
         val order = Order.create(userId, couponId)
@@ -33,7 +33,7 @@ class OrderService(
             savedOrder.addOrderItem(orderItem)
         }
 
-        return savedOrder.id
+        return savedOrder
     }
 
     fun getOrdersByUserId(userId: Long, pageable: Pageable): Page<OrderedInfo> {
