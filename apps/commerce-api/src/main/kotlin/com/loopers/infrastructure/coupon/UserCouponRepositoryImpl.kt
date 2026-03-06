@@ -50,7 +50,7 @@ class UserCouponRepositoryImpl(
         return userCouponJpaRepository.save(userCoupon)
     }
 
-    override fun useIfAvailable(id: Long, orderId: Long): Int {
-        return userCouponJpaRepository.useIfAvailable(id, orderId)
+    override fun markAsUsed(id: Long, orderId: Long): Boolean {
+        return userCouponJpaRepository.useIfAvailable(id, orderId) > 0
     }
 }

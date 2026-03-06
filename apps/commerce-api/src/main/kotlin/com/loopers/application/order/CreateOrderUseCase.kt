@@ -92,8 +92,8 @@ class CreateOrderUseCase(
 
         // 6. 쿠폰 Conditional Update
         userCoupon?.let {
-            val updated = userCouponRepository.useIfAvailable(it.id, savedOrder.id)
-            if (updated == 0) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
+            val success = userCouponRepository.markAsUsed(it.id, savedOrder.id)
+            if (!success) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
         }
 
         return OrderInfo.from(savedOrder)
