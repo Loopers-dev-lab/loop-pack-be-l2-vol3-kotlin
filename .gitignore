@@ -41,3 +41,11 @@ out/
 
 ### Worktrees ###
 .worktrees/
+
+### AI Tools ###
+.omc/
+.claude/
+CLAUDE.md
+
+### OS ###
+.DS_Store

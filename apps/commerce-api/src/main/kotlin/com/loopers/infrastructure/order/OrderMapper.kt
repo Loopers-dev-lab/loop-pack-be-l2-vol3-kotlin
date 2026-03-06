@@ -24,6 +24,9 @@ class OrderMapper {
             memberId = entity.memberId,
             orderItems = orderItems,
             totalPrice = entity.totalPrice,
+            discountAmount = entity.discountAmount,
+            finalPrice = entity.finalPrice,
+            couponId = entity.couponId,
             orderedAt = entity.orderedAt,
             status = OrderStatus.valueOf(entity.status),
         )
@@ -34,6 +37,9 @@ class OrderMapper {
             memberId = domain.memberId,
             status = domain.status.name,
             totalPrice = domain.totalPrice,
+            discountAmount = domain.discountAmount,
+            finalPrice = domain.finalPrice,
+            couponId = domain.couponId,
             orderedAt = domain.orderedAt,
         )
 

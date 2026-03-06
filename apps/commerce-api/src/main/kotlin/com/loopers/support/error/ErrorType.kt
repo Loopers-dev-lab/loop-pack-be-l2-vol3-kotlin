@@ -50,4 +50,16 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     INVALID_ORDER_QUANTITY(HttpStatus.BAD_REQUEST, "E404", "주문 수량이 올바르지 않습니다."),
     ORDER_NOT_OWNER(HttpStatus.FORBIDDEN, "E405", "본인의 주문만 조회/취소할 수 있습니다."),
     ORDER_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "E406", "주문 대상 상품을 찾을 수 없습니다."),
+
+    /** 쿠폰 도메인 에러 */
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "E501", "쿠폰을 찾을 수 없습니다."),
+    COUPON_ALREADY_USED(HttpStatus.CONFLICT, "E502", "이미 사용된 쿠폰입니다."),
+    COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "E503", "만료된 쿠폰입니다."),
+    COUPON_NOT_OWNER(HttpStatus.FORBIDDEN, "E504", "본인의 쿠폰만 사용할 수 있습니다."),
+    COUPON_MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "E505", "최소 주문 금액 조건을 충족하지 않습니다."),
+    COUPON_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "E506", "사용 가능한 상태의 쿠폰이 아닙니다."),
+    DUPLICATE_COUPON_ISSUE(HttpStatus.CONFLICT, "E507", "이미 발급받은 쿠폰입니다."),
+    INVALID_COUPON_NAME(HttpStatus.BAD_REQUEST, "E508", "쿠폰명 형식이 올바르지 않습니다."),
+    INVALID_COUPON_VALUE(HttpStatus.BAD_REQUEST, "E509", "쿠폰 할인값이 올바르지 않습니다."),
+    INVALID_MIN_ORDER_AMOUNT(HttpStatus.BAD_REQUEST, "E510", "최소 주문 금액이 올바르지 않습니다."),
 }
