@@ -1,13 +1,48 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.product.ProductModel
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Component
 class OrderService(
     private val orderRepository: OrderRepository,
 ) {
+    @Transactional(readOnly = true)
+    fun findById(id: Long): OrderModel {
+        return orderRepository.findByIdAndDeletedAtIsNull(id)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다: $id")
+    }
+
+    @Transactional(readOnly = true)
+    fun findByIdAndUserId(id: Long, userId: Long): OrderModel {
+        val order = findById(id)
+        if (order.userId != userId) {
+            throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다: $id")
+        }
+        return order
+    }
+
+    @Transactional(readOnly = true)
+    fun findAll(pageable: Pageable): Page<OrderModel> {
+        return orderRepository.findAllByDeletedAtIsNull(pageable)
+    }
+
+    @Transactional(readOnly = true)
+    fun findByUserIdAndDateRange(
+        userId: Long,
+        startAt: LocalDate,
+        endAt: LocalDate,
+        pageable: Pageable,
+    ): Page<OrderModel> {
+        return orderRepository.findAllByUserIdAndCreatedAtBetween(userId, startAt, endAt, pageable)
+    }
+
     /**
      * 주문을 생성한다.
      * - 재고 확인 및 차감 (Product.decreaseStock)

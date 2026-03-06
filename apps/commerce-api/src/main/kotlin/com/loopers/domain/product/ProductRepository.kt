@@ -8,4 +8,5 @@ interface ProductRepository {
     fun findByIdAndDeletedAtIsNull(id: Long): ProductModel?
     fun findAllByDeletedAtIsNull(brandId: Long?, pageable: Pageable): Page<ProductModel>
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductModel>
+    fun findAllByIdsForUpdate(ids: List<Long>): List<ProductModel>
 }
