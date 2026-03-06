@@ -49,4 +49,8 @@ class UserCouponRepositoryImpl(
     override fun save(userCoupon: UserCoupon): UserCoupon {
         return userCouponJpaRepository.save(userCoupon)
     }
+
+    override fun flush() {
+        userCouponJpaRepository.flush()
+    }
 }

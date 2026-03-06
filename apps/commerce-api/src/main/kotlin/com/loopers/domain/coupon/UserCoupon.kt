@@ -12,6 +12,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.PrePersist
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.Version
 import java.time.ZonedDateTime
 
 @Entity
@@ -49,6 +50,11 @@ class UserCoupon private constructor(
 
     @Column(name = "used_order_id")
     var usedOrderId: Long? = null
+        protected set
+
+    @Version
+    @Column(nullable = false)
+    var version: Long = 0
         protected set
 
     @Column(name = "created_at", nullable = false, updatable = false)

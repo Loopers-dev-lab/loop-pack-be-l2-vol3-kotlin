@@ -9,4 +9,5 @@ interface UserCouponRepository {
     fun findAllByUserId(userId: Long, status: UserCouponStatus?, page: Int, size: Int): PageResult<UserCoupon>
     fun findAllByCouponId(couponId: Long, page: Int, size: Int): PageResult<UserCoupon>
     fun save(userCoupon: UserCoupon): UserCoupon
+    fun flush()
 }
