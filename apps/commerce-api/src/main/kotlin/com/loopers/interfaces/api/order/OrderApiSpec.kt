@@ -13,7 +13,11 @@ interface OrderApiSpec {
         summary = "주문 요청",
         description = "상품을 주문합니다. 재고가 차감되고 주문이 생성됩니다.",
     )
-    fun placeOrder(userInfo: AuthenticatedUserInfo, request: OrderDto.PlaceOrderRequest): ApiResponse<Unit>
+    fun placeOrder(
+        userInfo: AuthenticatedUserInfo,
+        idempotencyKey: String,
+        request: OrderDto.PlaceOrderRequest,
+    ): ApiResponse<Unit>
 
     @Operation(
         summary = "주문 목록 조회",

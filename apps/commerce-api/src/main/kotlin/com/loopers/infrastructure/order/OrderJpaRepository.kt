@@ -12,6 +12,8 @@ interface OrderJpaRepository : JpaRepository<Order, Long> {
 
     fun findByIdAndDeletedAtIsNull(id: Long): Order?
 
+    fun findByIdempotencyKeyAndDeletedAtIsNull(idempotencyKey: String): Order?
+
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<Order>
 
     @Query(

@@ -303,4 +303,46 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             )
         }
     }
+
+    @DisplayName("멱등성 키로 중복 주문을 방지할 때,")
+    @Nested
+    inner class IdempotencyKeyDuplicatePrevention {
+
+        @DisplayName("같은 idempotencyKey로 두 번 주문하면, 주문이 1건만 생성된다.")
+        @Test
+        fun createsOnlyOneOrder_whenSameIdempotencyKey() {
+            // arrange
+            val userId = 1L
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1)))
+            val idempotencyKey = "test-idempotency-key-123"
+
+            // act
+            orderFacade.placeOrder(userId, items, null, idempotencyKey)
+            orderFacade.placeOrder(userId, items, null, idempotencyKey)
+
+            // assert
+            val orders = orderService.getOrders(userId, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))
+            assertThat(orders).hasSize(1)
+        }
+
+        @DisplayName("다른 idempotencyKey로 주문하면, 각각 주문이 생성된다.")
+        @Test
+        fun createsSeparateOrders_whenDifferentIdempotencyKeys() {
+            // arrange
+            val userId = 1L
+            val brand = createBrand()
+            val product = createProduct(brand)
+            val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1)))
+
+            // act
+            orderFacade.placeOrder(userId, items, null, "key-1")
+            orderFacade.placeOrder(userId, items, null, "key-2")
+
+            // assert
+            val orders = orderService.getOrders(userId, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))
+            assertThat(orders).hasSize(2)
+        }
+    }
 }

@@ -22,6 +22,7 @@ import org.hibernate.annotations.SQLRestriction
 )
 class Order(
     userId: Long,
+    idempotencyKey: String? = null,
     status: OrderStatus = OrderStatus.ORDERED,
 ) : BaseEntity() {
 
@@ -31,6 +32,10 @@ class Order(
 
     @Column(name = "user_id", nullable = false)
     var userId: Long = userId
+        protected set
+
+    @Column(name = "idempotency_key", unique = true)
+    var idempotencyKey: String? = idempotencyKey
         protected set
 
     @Column(name = "total_amount", nullable = false)

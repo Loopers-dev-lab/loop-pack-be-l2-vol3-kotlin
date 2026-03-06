@@ -27,6 +27,10 @@ class OrderRepositoryImpl(
         return orderJpaRepository.findByIdAndDeletedAtIsNull(orderId)
     }
 
+    override fun findByIdempotencyKey(idempotencyKey: String): Order? {
+        return orderJpaRepository.findByIdempotencyKeyAndDeletedAtIsNull(idempotencyKey)
+    }
+
     override fun findByUserIdAndCreatedAtBetween(userId: Long, startAt: LocalDateTime, endAt: LocalDateTime): List<Order> {
         val zoneId = ZoneId.systemDefault()
         return orderJpaRepository.findByUserIdAndCreatedAtBetween(

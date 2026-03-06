@@ -38,7 +38,12 @@ class OrderFacade(
     }
 
     @Transactional
-    fun placeOrder(userId: Long, items: List<OrderPlaceCommand>, couponId: Long? = null) {
+    fun placeOrder(userId: Long, items: List<OrderPlaceCommand>, couponId: Long? = null, idempotencyKey: String? = null) {
+        // 멱등성 키 중복 체크
+        if (idempotencyKey != null && orderService.findByIdempotencyKey(idempotencyKey) != null) {
+            return
+        }
+
         // 쿠폰 검증 (fail-fast)
         val couponInfo = couponId?.let { id ->
             val issuedCoupon = couponService.findIssuedCouponWithLock(id, userId)
@@ -73,7 +78,7 @@ class OrderFacade(
             )
         }
 
-        val order = orderService.createOrder(userId, orderItemCommands)
+        val order = orderService.createOrder(userId, orderItemCommands, idempotencyKey)
 
         // 쿠폰 할인 적용
         couponInfo?.let {
