@@ -30,6 +30,57 @@ class CouponConcurrencyTest @Autowired constructor(
     }
 
     @Test
+    @DisplayName("같은 (userId, templateId)로 동시에 쿠폰 발급 시 1개만 성공 (DB unique constraint)")
+    fun testConcurrentCouponIssuance() {
+        // Arrange
+        val userId = 100L
+        val template = CouponTemplate.create(
+            name = "발급 동시성 테스트",
+            type = CouponType.FIXED,
+            value = BigDecimal("1000"),
+            minOrderAmount = BigDecimal("5000"),
+            expiredAt = ZonedDateTime.now().plusDays(30),
+        )
+        val savedTemplate = couponTemplateRepository.save(template)
+
+        val threadCount = 10
+        val latch = CountDownLatch(threadCount)
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val successCount = Collections.synchronizedList(mutableListOf<Long>())
+        val failCount = Collections.synchronizedList(mutableListOf<String>())
+
+        // Act: 모든 스레드가 동시에 같은 (userId, templateId)로 발급 시도
+        val tasks = (1..threadCount).map {
+            executor.submit {
+                latch.countDown()
+                latch.await()
+                try {
+                    val coupon = couponService.issueCoupon(userId, savedTemplate.id)
+                    successCount.add(coupon.id)
+                } catch (e: CoreException) {
+                    failCount.add("DUPLICATE")
+                } catch (e: Exception) {
+                    failCount.add(e.javaClass.simpleName)
+                }
+            }
+        }
+
+        tasks.forEach { it.get(10, TimeUnit.SECONDS) }
+        executor.shutdown()
+        executor.awaitTermination(10, TimeUnit.SECONDS)
+
+        // Assert: 정확히 1개만 성공, 9개는 실패
+        assertThat(successCount).hasSize(1)
+        assertThat(failCount).hasSize(threadCount - 1)
+
+        // DB에는 정확히 1개의 쿠폰만 존재
+        val coupons = couponRepository.findByUserId(userId, org.springframework.data.domain.PageRequest.of(0, 100)).content
+        assertThat(coupons).hasSize(1)
+        assertThat(coupons[0].userId).isEqualTo(userId)
+        assertThat(coupons[0].templateId).isEqualTo(savedTemplate.id)
+    }
+
+    @Test
     @DisplayName("같은 쿠폰을 동시에 사용할 때 낙관락으로 방지한다 (10개 스레드)")
     fun testConcurrentCouponUsage() {
         // Arrange

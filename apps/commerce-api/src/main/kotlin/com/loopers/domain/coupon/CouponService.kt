@@ -2,6 +2,7 @@ package com.loopers.domain.coupon
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
@@ -70,7 +71,6 @@ class CouponService(
         // 템플릿 유효성 확인
         val template = getTemplateInfo(templateId)
 
-        // 중복 발급 확인 (사용자 + 템플릿 조합으로 1개만 가능)
         val existingCoupon = couponRepository.findByUserIdAndTemplateId(userId, templateId)
         if (existingCoupon != null) {
             throw CoreException(ErrorType.BAD_REQUEST, "이미 발급받은 쿠폰입니다.")
@@ -78,7 +78,11 @@ class CouponService(
 
         // 새 쿠폰 발급
         val newCoupon = Coupon.issue(userId, template)
-        return couponRepository.save(newCoupon)
+        return try {
+            couponRepository.save(newCoupon)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 발급받은 쿠폰입니다.")
+        }
     }
 
     // ===== Coupon 조회 관련 =====
