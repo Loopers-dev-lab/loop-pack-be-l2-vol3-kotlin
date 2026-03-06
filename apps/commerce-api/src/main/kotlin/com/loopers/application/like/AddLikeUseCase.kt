@@ -6,6 +6,7 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.LikeErrorCode
 import com.loopers.support.error.ProductErrorCode
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -25,7 +26,11 @@ class AddLikeUseCase(
         }
 
         val like = Like.create(userId = command.userId, productId = command.productId)
-        likeRepository.save(like)
+        try {
+            likeRepository.save(like)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(LikeErrorCode.ALREADY_LIKED)
+        }
 
         productRepository.increaseLikeCount(product.id)
     }
