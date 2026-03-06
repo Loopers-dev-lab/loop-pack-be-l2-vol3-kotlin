@@ -12,10 +12,16 @@ import jakarta.persistence.ForeignKey
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
 import jakarta.persistence.OrderBy
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
-@Table(name = "orders")
+@Table(
+    name = "orders",
+    indexes = [
+        Index(columnList = "user_id, created_at, deleted_at"),
+    ],
+)
 @Entity
 class OrderEntity(
     id: Long? = null,

@@ -3,10 +3,17 @@ package com.loopers.infrastructure.coupon
 import com.loopers.infrastructure.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.time.ZonedDateTime
 
-@Table(name = "issued_coupon")
+@Table(
+    name = "issued_coupon",
+    indexes = [
+        Index(columnList = "user_id, deleted_at"),
+        Index(columnList = "coupon_id, deleted_at"),
+    ],
+)
 @Entity
 class IssuedCouponEntity(
     id: Long? = null,
