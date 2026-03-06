@@ -831,28 +831,32 @@ Decision 17에서 좋아요 등록의 멱등성을 `DuplicateKeyException catch 
 
 ---
 
-## 33. 좋아요 동시성: 멱등 성공 응답 (DataIntegrityViolation catch)
+## 33. 좋아요 동시성: Facade exists 사전 조회 + UNIQUE Constraint 안전망
 
 ### 배경
-좋아요 check-then-insert 패턴에서 동시 요청 시 UNIQUE 제약 위반이 발생할 수 있다. 이때 500 에러가 아닌 200 성공을 반환해야 한다 (BR-L2 멱등).
+좋아요 check-then-insert 패턴에서 동시 요청 시 UNIQUE 제약 위반이 발생할 수 있다. 이때 500 에러가 아닌 멱등 처리가 필요하다 (BR-L2).
 
 ### 선택지
 | 선택지 | 설명 |
 |--------|------|
-| A. 현행 유지 (일부 500 허용) | 레코드 수 정합성만 보장 |
-| **B. DataIntegrityViolation catch → 멱등 200** | Facade에서 예외 catch, 성공 반환 |
+| A. Facade DIV catch → 멱등 200 | Facade에서 @Transactional 제거, Service에 이동. **원칙 위반** |
+| **B. Facade exists 사전 조회 + UNIQUE 안전망** | Facade가 @Transactional 주도, exists로 99.9% 멱등, race condition은 409 |
 | C. DB UPSERT (INSERT IGNORE) | DB 레벨 멱등 처리 |
 
-### 판단: B. DataIntegrityViolation catch → 멱등 200
+### 판단: B. Facade exists 사전 조회 + UNIQUE Constraint 안전망
 
 ### 근거
-- **사용자 경험**: 동시 탭/더블 클릭 시에도 항상 성공 응답. 클라이언트 에러 처리 불필요.
-- **기존 패턴 활용**: 회원가입 중복(D2)에서 동일한 예외 처리 패턴 사용 중.
-- **DB 정합성 유지**: UNIQUE 제약이 최종 방어선, 애플리케이션은 예외를 멱등으로 변환만 수행.
+- **Facade @Transactional 주도권 유지**: 대원칙(Facade가 트랜잭션 경계 소유) 준수. A안은 Service에 @Transactional을 넘기는 원칙 위반.
+- **99.9% 멱등**: exists 사전 조회로 대부분 200 반환. race condition은 극히 드물고, 409 시 클라이언트 재시도 가능.
+- **Service 단일 책임**: Service는 save만 수행. 멱등 검증은 Facade의 orchestration 역할.
+- **UNIQUE Constraint가 최종 방어선**: DB 레벨에서 정합성 보장, ApiControllerAdvice에서 DIV → 409 CONFLICT.
 
 ### 트레이드오프
-- LikeFacade에서 `@Transactional` 제거 필요 (DataIntegrityViolationException 발생 시 트랜잭션 롤백 마킹 문제 회피)
-- LikeService에 `@Transactional` 이동
+- race condition 시 409 반환 (엄밀한 멱등 위반이지만, 극히 드문 케이스)
+- "사전 조회 금지" 원칙에 예외 조건 추가 필요 → D36에서 결정
+
+### D26 수정사항
+- D26("존재 확인 후 INSERT") 접근 유지하되, exists 확인을 Service → Facade로 이동
 
 ---
 
@@ -929,6 +933,35 @@ After:  쿠폰확인 → 쿠폰차감(@Version+flush) → 재고차감(FOR UPDAT
 
 ### 테스트 파일
 - `ConcurrencyTest.kt`: `LockStrategyComparison` nested class (4개 테스트)
+
+---
+
+## 36. "사전 조회 금지" 원칙 예외: 멱등 200 반환 목적의 사전 조회 허용
+
+### 배경
+아키텍처 원칙 "사전 조회로 중복 체크하지 않음 → DB Unique Constraint + 예외 처리"는 회원가입 등 에러 반환(409)이 정상인 케이스에 적합하다. 그러나 좋아요처럼 중복 시 200 성공(멱등)을 반환해야 하는 경우, 사전 조회 없이는 Facade @Transactional 주도권을 유지하면서 멱등 처리가 불가능하다.
+
+### 선택지
+| 선택지 | 설명 |
+|--------|------|
+| A. 예외 없이 원칙 유지 | Service에 @Transactional 이동 필요 → 대원칙 위반 |
+| **B. 멱등 200 목적 사전 조회 허용** | Facade에서 exists 조회 후 분기, @Transactional 주도권 유지 |
+| C. DB UPSERT 사용 | INSERT IGNORE로 DB 레벨 처리. JPA 생태계와 거리가 있음 |
+
+### 판단: B. 멱등 200 반환 목적의 사전 조회 허용
+
+### 근거
+- **원칙의 의도 보존**: "사전 조회 금지"의 핵심 의도는 SELECT-INSERT race condition으로 인한 중복 방지를 DB에 맡기라는 것. 멱등 사전 조회는 중복 "방지"가 아닌 "응답 분기" 목적.
+- **Facade 주도권 유지**: @Transactional을 Service로 넘기면 아키텍처 원칙(Facade가 트랜잭션 경계 소유)이 깨짐.
+- **UNIQUE Constraint는 여전히 최종 방어선**: 사전 조회를 통과한 race condition은 DB Unique + ApiControllerAdvice(409)로 처리.
+
+### 트레이드오프
+- 원칙에 예외 조건이 추가되어 판단 복잡도가 약간 증가
+- race condition 시 409 반환 (완벽한 멱등이 아닌 준멱등)
+
+### 적용 범위
+- 멱등 200 반환이 필요한 경우에 한정 (현재: 좋아요)
+- 에러 반환(409)이 정상인 경우(회원가입 등)는 기존 원칙 그대로 적용
 
 ---
 

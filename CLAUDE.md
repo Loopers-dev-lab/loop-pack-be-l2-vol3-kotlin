@@ -190,7 +190,7 @@ com.loopers
 
 - `@Transactional(readOnly = true)` 를 읽기 메서드에 반드시 명시 → 향후 Read Replica 라우팅 자동 대응
 - `synchronized` 대신 `ReentrantLock` → Virtual Thread pinning 방지
-- 사전 조회로 중복 체크하지 않음 → DB Unique Constraint + 예외 처리
+- 사전 조회로 중복 체크하지 않음 → DB Unique Constraint + 예외 처리. 단, 멱등 200 반환이 필요한 경우(좋아요 등) Facade에서 exists 사전 조회 허용
 - 매 요청 CPU-intensive 연산 반복 금지 → 캐싱 레이어 도입 시 자연스럽게 해소
 - 도메인 간 결합 최소화 → 향후 서비스 분리 대비 (ID 참조, 물리 FK 미사용)
 - 도메인 모델이 자기 불변식 보호 → `deductStock()`, `validateOwner()`, `delete()` 등 비즈니스 규칙은 모델 내부
@@ -272,7 +272,7 @@ com.loopers
 - null-safety 하지 않게 코드 작성하지 말 것 (Java의 경우, Optional을 활용할 것)
 - println 코드 남기지 말 것
 - 매 요청마다 BCrypt 등 CPU-intensive 연산을 반복하지 말 것
-- 사전 조회로 중복 체크하지 말 것 (DB Unique Constraint 활용)
+- 사전 조회로 중복 체크하지 말 것 (DB Unique Constraint 활용). 단, 멱등 200 반환 목적(좋아요 등)의 사전 조회는 허용
 
 #### 2. Recommendation
 - 실제 API를 호출해 확인하는 E2E 테스트 코드 작성

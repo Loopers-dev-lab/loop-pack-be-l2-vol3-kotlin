@@ -115,6 +115,7 @@
 | | BR-L2: 좋아요 등록/취소 양방향 멱등 (이미 좋아요→성공, 좋아요 없이 취소→성공) |
 | | BR-L3: 본인 좋아요 목록만 조회 가능 (인증된 사용자 기준, URL에 userId 미포함) |
 | | BR-L4: 존재하지 않는 상품에 좋아요 불가 (Facade에서 ProductService로 검증) |
+| 멱등 전략 | Facade에서 exists 사전 조회(200 멱등) + UNIQUE Constraint 안전망(race condition → 409). @Transactional은 Facade 주도 (D33, D36) |
 | 집계 전략 | product.like_count 컬럼 (DEFAULT 0) + commerce-batch 배치 갱신 (5분 주기, 10K TPS 대응) |
 | 페이징 | 좋아요 목록 조회에 페이징 없음 (API 명세대로) |
 
@@ -362,7 +363,7 @@
 | INACTIVE/SUSPENDED 상태 | 미포함 (YAGNI. 현재 요구사항에 비활성화/판매중단 시나리오 없음) | D14 |
 | SOLD_OUT 상태 | 제거. ProductStatus = ACTIVE/DELETED. stock=0이 품절 표현. soldOut Boolean 파생 필드로 고객 전달 | D16 |
 | 브랜드명 중복 | 허용 (BR-B2 수정). UNIQUE 제거. soft delete 충돌 방지, 브랜드 식별은 PK 기반 | D19 |
-| 좋아요/취소 멱등 | 양방향 멱등 (DuplicateKeyException catch / affected rows=0 → 200 OK) | D17 |
+| 좋아요/취소 멱등 | 양방향 멱등. Facade exists 사전 조회(200) + UNIQUE 안전망(race → 409). @Transactional Facade 주도 | D17, D33, D36 |
 | Service 메서드 분리 | 고객용 (ACTIVE only) / 어드민용 (상태 무관) 분리. 확장성 확보 | D18 |
 | DELETED 리소스 고객 접근 | 404 반환 (브랜드/상품 동일). 주문은 스냅샷으로 노출 | D21 |
 | 좋아요 수 초기화 | product.like_count DEFAULT 0으로 상품 등록 시 자동 초기화 (별도 선삽입 불필요) | D20 |
@@ -527,7 +528,7 @@
 |------|------|
 | JWT 미사용 | 의도적 결정. 모든 인증은 `X-Loopers-LoginId` / `X-Loopers-LoginPw` 헤더 기반 |
 | BCrypt 반복 호출 금지 | 매 요청 CPU-intensive 연산 반복 금지, 캐싱 레이어로 해결 |
-| 사전 조회 중복체크 금지 | DB Unique Constraint + 예외 처리 방식 사용 |
+| 사전 조회 중복체크 금지 | DB Unique Constraint + 예외 처리 방식 사용. 단, 멱등 200 반환 목적(좋아요 등)의 사전 조회는 허용 (D36) |
 | `synchronized` 금지 | Virtual Thread pinning 방지, `ReentrantLock` 사용 |
 | `saveAndFlush()` 금지 | Hibernate write-behind 최적화 파괴 방지. 단, @Version 낙관적 락의 조기 충돌 감지 목적 flush()는 예외 (D34) |
 | null-safety 필수 | Kotlin null-safety 활용 |
