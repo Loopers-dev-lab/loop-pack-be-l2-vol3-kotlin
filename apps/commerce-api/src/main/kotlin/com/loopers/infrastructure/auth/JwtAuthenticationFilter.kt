@@ -25,12 +25,21 @@ class JwtAuthenticationFilter(
 
         private val AUTHENTICATED_PATHS = listOf(
             "/api/v1/members/me",
+            "/api/v1/orders",
+            "/api/v1/coupons/",
+            "/api/v1/users/me/",
+        )
+
+        private val AUTHENTICATED_PATH_SUFFIXES = listOf(
+            "/likes",
         )
     }
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
         val path = request.requestURI
-        return AUTHENTICATED_PATHS.none { path.startsWith(it) }
+        val matchesPrefix = AUTHENTICATED_PATHS.any { path.startsWith(it) }
+        val matchesSuffix = AUTHENTICATED_PATH_SUFFIXES.any { path.endsWith(it) }
+        return !matchesPrefix && !matchesSuffix
     }
 
     override fun doFilterInternal(
