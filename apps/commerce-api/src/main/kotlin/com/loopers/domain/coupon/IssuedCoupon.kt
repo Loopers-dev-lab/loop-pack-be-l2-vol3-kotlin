@@ -6,14 +6,10 @@ import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
 import java.time.ZonedDateTime
 
 @Entity
-@Table(
-    name = "issued_coupons",
-    uniqueConstraints = [UniqueConstraint(name = "uk_issued_coupons_coupon_user", columnNames = ["coupon_id", "user_id"])],
-)
+@Table(name = "issued_coupons")
 class IssuedCoupon(
     couponId: Long,
     userId: Long,

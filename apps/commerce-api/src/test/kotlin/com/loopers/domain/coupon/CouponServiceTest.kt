@@ -15,9 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
-import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
-import org.springframework.dao.DataIntegrityViolationException
 import java.time.ZonedDateTime
 
 @ExtendWith(MockitoExtension::class)
@@ -73,21 +71,6 @@ class CouponServiceTest {
                 couponService.issue(1L, 1L)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
-        }
-
-        @DisplayName("저장 시 UNIQUE 제약 위반이 발생하면, 예외가 전파된다. (TOCTOU — Facade에서 처리)")
-        @Test
-        fun throwsException_whenUniqueConstraintViolation() {
-            // arrange
-            val coupon = createCoupon()
-            whenever(couponRepository.findByIdWithLock(1L)).thenReturn(coupon)
-            whenever(issuedCouponRepository.existsByCouponIdAndUserId(1L, 1L)).thenReturn(false)
-            whenever(issuedCouponRepository.save(any())).thenThrow(DataIntegrityViolationException("Duplicate entry"))
-
-            // act & assert
-            assertThrows<DataIntegrityViolationException> {
-                couponService.issue(1L, 1L)
-            }
         }
     }
 

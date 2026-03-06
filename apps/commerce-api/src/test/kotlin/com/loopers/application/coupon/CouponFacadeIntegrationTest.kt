@@ -14,11 +14,9 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.dao.DataIntegrityViolationException
 import java.time.ZonedDateTime
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
 class CouponFacadeIntegrationTest @Autowired constructor(
@@ -53,7 +51,7 @@ class CouponFacadeIntegrationTest @Autowired constructor(
     @Nested
     inner class ConcurrentIssueSameUser {
 
-        @DisplayName("UNIQUE 제약 위반 예외 없이 처리되고, 발급된 쿠폰은 정확히 1개이다. (TOCTOU 처리)")
+        @DisplayName("비관적 락으로 직렬화되어, 발급된 쿠폰은 정확히 1개이다.")
         @Test
         fun handlesRaceCondition_whenSameUserConcurrentlyIssues() {
             // arrange
@@ -61,15 +59,12 @@ class CouponFacadeIntegrationTest @Autowired constructor(
             val threadCount = 10
             val latch = CountDownLatch(threadCount)
             val executor = Executors.newFixedThreadPool(threadCount)
-            val dataIntegrityViolationCount = AtomicInteger(0)
 
             // act
             repeat(threadCount) {
                 executor.submit {
                     try {
                         couponFacade.issue(couponId = coupon.id, userId = 1L)
-                    } catch (_: DataIntegrityViolationException) {
-                        dataIntegrityViolationCount.incrementAndGet()
                     } catch (_: Exception) {
                         // CoreException(CONFLICT) 등은 허용
                     } finally {
@@ -81,7 +76,6 @@ class CouponFacadeIntegrationTest @Autowired constructor(
             executor.shutdown()
 
             // assert
-            assertThat(dataIntegrityViolationCount.get()).isZero()
             val issuedCoupons = issuedCouponRepository.findByUserId(1L)
             assertThat(issuedCoupons).hasSize(1)
         }
