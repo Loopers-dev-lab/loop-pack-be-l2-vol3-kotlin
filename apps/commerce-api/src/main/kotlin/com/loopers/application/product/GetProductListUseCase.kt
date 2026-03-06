@@ -36,7 +36,7 @@ class GetProductListUseCase(
 
         val productIds = pageResult.content.map { it.id }
         val stockMap = if (productIds.isNotEmpty()) {
-            productIds.mapNotNull { productStockRepository.findByProductId(it) }
+            productStockRepository.findAllByProductIds(productIds)
                 .associateBy { it.productId }
         } else {
             emptyMap()

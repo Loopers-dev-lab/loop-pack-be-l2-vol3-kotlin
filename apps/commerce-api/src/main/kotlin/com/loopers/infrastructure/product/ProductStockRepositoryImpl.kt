@@ -17,6 +17,10 @@ class ProductStockRepositoryImpl(
         return productStockJpaRepository.findByProductId(productId)
     }
 
+    override fun findAllByProductIds(productIds: List<Long>): List<ProductStock> {
+        return productStockJpaRepository.findAllByProductIds(productIds)
+    }
+
     override fun save(productStock: ProductStock): ProductStock {
         return productStockJpaRepository.save(productStock)
     }
