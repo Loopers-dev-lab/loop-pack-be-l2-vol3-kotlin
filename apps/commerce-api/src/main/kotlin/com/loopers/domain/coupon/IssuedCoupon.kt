@@ -11,6 +11,7 @@ class IssuedCoupon private constructor(
     val status: Status,
     val expiredAt: ZonedDateTime,
     val usedAt: ZonedDateTime?,
+    val version: Long,
 ) {
     fun use(): IssuedCoupon {
         if (status == Status.USED) {
@@ -26,6 +27,7 @@ class IssuedCoupon private constructor(
             status = Status.USED,
             expiredAt = expiredAt,
             usedAt = ZonedDateTime.now(),
+            version = version,
         )
     }
 
@@ -60,6 +62,7 @@ class IssuedCoupon private constructor(
             status = Status.AVAILABLE,
             expiredAt = expiredAt,
             usedAt = null,
+            version = 0L,
         )
 
         fun retrieve(
@@ -69,6 +72,7 @@ class IssuedCoupon private constructor(
             status: Status,
             expiredAt: ZonedDateTime,
             usedAt: ZonedDateTime?,
+            version: Long,
         ): IssuedCoupon = IssuedCoupon(
             id = id,
             couponId = couponId,
@@ -76,6 +80,7 @@ class IssuedCoupon private constructor(
             status = status,
             expiredAt = expiredAt,
             usedAt = usedAt,
+            version = version,
         )
     }
 }

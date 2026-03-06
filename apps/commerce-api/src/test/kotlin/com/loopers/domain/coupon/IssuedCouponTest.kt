@@ -51,6 +51,7 @@ class IssuedCouponTest {
                 status = IssuedCoupon.Status.USED,
                 expiredAt = futureDate,
                 usedAt = ZonedDateTime.now().minusHours(1),
+                version = 0L,
             )
 
             val exception = assertThrows<CoreException> { issuedCoupon.use() }
@@ -72,6 +73,7 @@ class IssuedCouponTest {
                 status = IssuedCoupon.Status.AVAILABLE,
                 expiredAt = pastDate,
                 usedAt = null,
+                version = 0L,
             )
 
             val exception = assertThrows<CoreException> { issuedCoupon.use() }
@@ -114,6 +116,7 @@ class IssuedCouponTest {
                 status = IssuedCoupon.Status.AVAILABLE,
                 expiredAt = futureDate,
                 usedAt = null,
+                version = 0L,
             )
 
             assertThat(issuedCoupon.displayStatus()).isEqualTo(IssuedCoupon.DisplayStatus.AVAILABLE)
@@ -129,6 +132,7 @@ class IssuedCouponTest {
                 status = IssuedCoupon.Status.USED,
                 expiredAt = futureDate,
                 usedAt = ZonedDateTime.now().minusHours(1),
+                version = 0L,
             )
 
             assertThat(issuedCoupon.displayStatus()).isEqualTo(IssuedCoupon.DisplayStatus.USED)
@@ -144,6 +148,7 @@ class IssuedCouponTest {
                 status = IssuedCoupon.Status.AVAILABLE,
                 expiredAt = pastDate,
                 usedAt = null,
+                version = 0L,
             )
 
             assertThat(issuedCoupon.displayStatus()).isEqualTo(IssuedCoupon.DisplayStatus.EXPIRED)
