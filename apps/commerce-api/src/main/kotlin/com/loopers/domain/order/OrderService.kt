@@ -33,8 +33,12 @@ class OrderService(
         return orderRepository.findAll(pageQuery)
     }
 
-    fun createOrder(userId: Long, items: List<OrderItemCommand>): Order {
-        val order = Order(userId = userId)
+    fun findByIdempotencyKey(idempotencyKey: String): Order? {
+        return orderRepository.findByIdempotencyKey(idempotencyKey)
+    }
+
+    fun createOrder(userId: Long, items: List<OrderItemCommand>, idempotencyKey: String? = null): Order {
+        val order = Order(userId = userId, idempotencyKey = idempotencyKey)
         order.addItems(items)
         return orderRepository.save(order)
     }

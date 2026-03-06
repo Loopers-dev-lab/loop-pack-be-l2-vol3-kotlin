@@ -33,11 +33,13 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.test.util.ReflectionTestUtils
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -162,12 +164,17 @@ class OrderApiE2ETest @Autowired constructor(
     private fun placeOrder(
         request: PlaceOrderRequest,
         headers: HttpHeaders = authHeaders(),
-    ) = testRestTemplate.exchange(
-        ORDER_ENDPOINT,
-        HttpMethod.POST,
-        HttpEntity(request, headers),
-        ORDER_RESPONSE_TYPE,
-    )
+    ): ResponseEntity<ApiResponse<Any>> {
+        if (!headers.containsKey("Idempotency-Key")) {
+            headers.set("Idempotency-Key", UUID.randomUUID().toString())
+        }
+        return testRestTemplate.exchange(
+            ORDER_ENDPOINT,
+            HttpMethod.POST,
+            HttpEntity(request, headers),
+            ORDER_RESPONSE_TYPE,
+        )
+    }
 
     private fun getOrders(
         startAt: String,
@@ -1069,6 +1076,236 @@ class OrderApiE2ETest @Autowired constructor(
         }
     }
 
+    @DisplayName("POST /api/v1/orders - 멱등성 키 중복 주문 방지")
+    @Nested
+    inner class IdempotencyKeyApi {
+
+        @DisplayName("Idempotency-Key 헤더를 포함하여 주문하면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenIdempotencyKeyProvided() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", "e2e-key-${System.nanoTime()}")
+            }
+
+            // act
+            val response = placeOrder(request, headers)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("같은 Idempotency-Key로 두 번 주문하면, 주문이 1건만 생성된다.")
+        @Test
+        fun createsOnlyOneOrder_whenSameIdempotencyKey() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val idempotencyKey = "duplicate-test-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            val firstResponse = placeOrder(request, headers)
+            val secondResponse = placeOrder(request, headers)
+
+            // assert
+            assertAll(
+                { assertThat(firstResponse.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(secondResponse.statusCode).isEqualTo(HttpStatus.OK) },
+            )
+
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(1)
+        }
+
+        @DisplayName("같은 Idempotency-Key로 두 번 주문해도, 재고는 1번만 차감된다.")
+        @Test
+        fun deductsStockOnlyOnce_whenSameIdempotencyKey() {
+            // arrange
+            signUp()
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 3)),
+            )
+            val idempotencyKey = "stock-test-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            placeOrder(request, headers)
+            placeOrder(request, headers)
+
+            // assert
+            val updatedProduct = productRepository.findById(product.id)
+            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(97))
+        }
+
+        @DisplayName("다른 Idempotency-Key로 주문하면, 각각 주문이 생성된다.")
+        @Test
+        fun createsSeparateOrders_whenDifferentIdempotencyKeys() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+
+            // act
+            placeOrder(request, authHeaders().apply { set("Idempotency-Key", "key-a-${System.nanoTime()}") })
+            placeOrder(request, authHeaders().apply { set("Idempotency-Key", "key-b-${System.nanoTime()}") })
+
+            // assert
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(2)
+        }
+
+        @DisplayName("쿠폰 적용 주문을 같은 Idempotency-Key로 두 번 요청하면, 쿠폰은 1번만 사용된다.")
+        @Test
+        fun usesCouponOnlyOnce_whenSameIdempotencyKeyWithCoupon() {
+            // arrange
+            signUp()
+            val product = createProduct(price = Money.of(100000L))
+            val coupon = createCoupon(discount = Discount(DiscountType.FIXED_AMOUNT, 5000L))
+            issueCouponViaApi(coupon.id)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+                couponId = coupon.id,
+            )
+            val idempotencyKey = "coupon-idem-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            val firstResponse = placeOrder(request, headers)
+            val secondResponse = placeOrder(request, headers)
+
+            // assert
+            assertAll(
+                { assertThat(firstResponse.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(secondResponse.statusCode).isEqualTo(HttpStatus.OK) },
+            )
+
+            // 주문이 1건만 생성되었는지 확인
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(1)
+
+            // 쿠폰이 사용 처리되었는지 확인
+            val user = userRepository.findByLoginId(LoginId.of("testuser123"))!!
+            val issuedCoupons = issuedCouponRepository.findByUserId(user.id)
+            val issuedCoupon = issuedCoupons.first { it.couponId == coupon.id }
+            assertThat(issuedCoupon.usedAt).isNotNull()
+        }
+
+        @DisplayName("같은 Idempotency-Key로 동시에 주문하면, 1건만 생성된다.")
+        @Test
+        fun createsOnlyOneOrder_whenConcurrentRequestsWithSameKey() {
+            // arrange
+            signUp()
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val idempotencyKey = "concurrent-idem-key-${System.nanoTime()}"
+
+            val threadCount = 5
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val successCount = AtomicInteger(0)
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        val headers = authHeaders().apply {
+                            set("Idempotency-Key", idempotencyKey)
+                        }
+                        val response = testRestTemplate.exchange(
+                            ORDER_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity(request, headers),
+                            ORDER_RESPONSE_TYPE,
+                        )
+                        if (response.statusCode == HttpStatus.OK) {
+                            successCount.incrementAndGet()
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert - 주문이 1건만 생성되었는지 확인
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(1)
+
+            // 재고도 1번만 차감되었는지 확인
+            val updatedProduct = productRepository.findById(product.id)
+            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(99))
+        }
+
+        @DisplayName("같은 Idempotency-Key로 중복 요청 후 주문 상세를 조회하면, 첫 번째 주문 정보가 반환된다.")
+        @Test
+        fun returnsFirstOrderDetail_whenDuplicateRequestWithSameKey() {
+            // arrange
+            signUp()
+            val brand = createBrand()
+            val product = createProduct(name = "에어맥스", price = Money.of(159000L), brand = brand)
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+            )
+            val idempotencyKey = "detail-idem-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            placeOrder(request, headers)
+            placeOrder(request, headers)
+
+            // assert - 주문 상세 조회
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            val order = ordersResponse.body?.data?.first() as Map<*, *>
+            val orderId = (order["orderId"] as Number).toLong()
+
+            val detailResponse = getOrderDetail(orderId)
+            val detail = detailResponse.body?.data as Map<*, *>
+            assertAll(
+                { assertThat(detailResponse.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat((detail["totalAmount"] as Number).toLong()).isEqualTo(318000L) },
+                { assertThat(detail["status"]).isEqualTo("ORDERED") },
+                { assertThat((detail["items"] as List<*>)).hasSize(1) },
+            )
+        }
+    }
+
     @DisplayName("POST /api/v1/orders - 동시 주문")
     @Nested
     inner class ConcurrentPlaceOrderApi {
@@ -1093,10 +1330,13 @@ class OrderApiE2ETest @Autowired constructor(
                         val request = PlaceOrderRequest(
                             items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
                         )
+                        val headers = authHeaders(loginId = "user$i").apply {
+                            set("Idempotency-Key", UUID.randomUUID().toString())
+                        }
                         val response = testRestTemplate.exchange(
                             ORDER_ENDPOINT,
                             HttpMethod.POST,
-                            HttpEntity(request, authHeaders(loginId = "user$i")),
+                            HttpEntity(request, headers),
                             ORDER_RESPONSE_TYPE,
                         )
                         if (response.statusCode == HttpStatus.OK) {
@@ -1139,10 +1379,13 @@ class OrderApiE2ETest @Autowired constructor(
                         val request = PlaceOrderRequest(
                             items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
                         )
+                        val headers = authHeaders(loginId = "user$i").apply {
+                            set("Idempotency-Key", UUID.randomUUID().toString())
+                        }
                         val response = testRestTemplate.exchange(
                             ORDER_ENDPOINT,
                             HttpMethod.POST,
-                            HttpEntity(request, authHeaders(loginId = "user$i")),
+                            HttpEntity(request, headers),
                             ORDER_RESPONSE_TYPE,
                         )
                         when (response.statusCode) {

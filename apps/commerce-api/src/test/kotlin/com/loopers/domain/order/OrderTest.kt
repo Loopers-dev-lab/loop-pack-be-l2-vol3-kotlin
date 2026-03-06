@@ -306,4 +306,29 @@ class OrderTest {
             assertThat(order.version).isEqualTo(0L)
         }
     }
+
+    @DisplayName("멱등성 키를 설정할 때,")
+    @Nested
+    inner class IdempotencyKey {
+
+        @DisplayName("idempotencyKey를 설정하면, 주문에 저장된다.")
+        @Test
+        fun setsIdempotencyKey() {
+            // arrange & act
+            val order = Order(userId = 1L, idempotencyKey = "test-key-123")
+
+            // assert
+            assertThat(order.idempotencyKey).isEqualTo("test-key-123")
+        }
+
+        @DisplayName("idempotencyKey 없이 생성하면, null이다.")
+        @Test
+        fun idempotencyKeyIsNull_whenNotProvided() {
+            // arrange & act
+            val order = Order(userId = 1L)
+
+            // assert
+            assertThat(order.idempotencyKey).isNull()
+        }
+    }
 }

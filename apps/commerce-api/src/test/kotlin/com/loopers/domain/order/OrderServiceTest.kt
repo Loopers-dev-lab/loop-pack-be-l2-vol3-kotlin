@@ -244,4 +244,41 @@ class OrderServiceTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
+
+    @DisplayName("멱등성 키로 주문을 조회할 때,")
+    @Nested
+    inner class FindByIdempotencyKey {
+
+        @DisplayName("해당 키의 주문이 존재하면, 주문을 반환한다.")
+        @Test
+        fun returnsOrder_whenIdempotencyKeyExists() {
+            // arrange
+            val idempotencyKey = "test-key-123"
+            val expectedOrder = Order(userId = 1L, idempotencyKey = idempotencyKey)
+            whenever(orderRepository.findByIdempotencyKey(idempotencyKey)).thenReturn(expectedOrder)
+
+            // act
+            val result = orderService.findByIdempotencyKey(idempotencyKey)
+
+            // assert
+            assertThat(result).isNotNull()
+            assertThat(result!!.idempotencyKey).isEqualTo(idempotencyKey)
+            verify(orderRepository).findByIdempotencyKey(idempotencyKey)
+        }
+
+        @DisplayName("해당 키의 주문이 없으면, null을 반환한다.")
+        @Test
+        fun returnsNull_whenIdempotencyKeyDoesNotExist() {
+            // arrange
+            val idempotencyKey = "non-existent-key"
+            whenever(orderRepository.findByIdempotencyKey(idempotencyKey)).thenReturn(null)
+
+            // act
+            val result = orderService.findByIdempotencyKey(idempotencyKey)
+
+            // assert
+            assertThat(result).isNull()
+            verify(orderRepository).findByIdempotencyKey(idempotencyKey)
+        }
+    }
 }
