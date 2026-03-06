@@ -1,12 +1,12 @@
 package com.loopers.domain.coupon
 
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import com.loopers.support.page.PageRequest
+import com.loopers.support.page.PageResponse
 
 interface CouponRepository {
     fun save(coupon: Coupon): Coupon
 
     fun findById(id: Long): Coupon?
 
-    fun findAll(pageable: Pageable): Page<Coupon>
+    fun findAll(pageRequest: PageRequest): PageResponse<Coupon>
 }

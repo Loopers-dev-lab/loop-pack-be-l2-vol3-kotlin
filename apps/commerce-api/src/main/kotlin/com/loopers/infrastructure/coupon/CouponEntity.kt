@@ -12,15 +12,15 @@ import java.time.ZonedDateTime
 class CouponEntity(
     id: Long? = null,
     @Column(nullable = false)
-    val name: String,
+    var name: String,
     @Column(nullable = false)
     val type: String,
     @Column(name = "discount_value", nullable = false)
-    val discountValue: Long,
+    var discountValue: Long,
     @Column(name = "min_order_amount")
-    val minOrderAmount: BigDecimal?,
+    var minOrderAmount: BigDecimal?,
     @Column(name = "expired_at", nullable = false)
-    val expiredAt: ZonedDateTime,
+    var expiredAt: ZonedDateTime,
     createdBy: String,
     updatedBy: String,
 ) : AdminAuditEntity() {

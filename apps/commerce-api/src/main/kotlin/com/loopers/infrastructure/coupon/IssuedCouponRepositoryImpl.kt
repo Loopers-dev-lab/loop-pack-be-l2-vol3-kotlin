@@ -4,8 +4,9 @@ import com.loopers.domain.coupon.IssuedCoupon
 import com.loopers.domain.coupon.IssuedCouponRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import com.loopers.support.page.PageRequest
+import com.loopers.support.page.PageResponse
+import org.springframework.data.domain.PageRequest as SpringPageRequest
 import org.springframework.stereotype.Repository
 import java.time.ZonedDateTime
 
@@ -43,8 +44,17 @@ class IssuedCouponRepositoryImpl(
             .map { issuedCouponMapper.toDomain(it) }
     }
 
-    override fun findAllByCouponId(couponId: Long, pageable: Pageable): Page<IssuedCoupon> {
-        return issuedCouponJpaRepository.findAllByCouponIdAndDeletedAtIsNull(couponId, pageable)
-            .map { issuedCouponMapper.toDomain(it) }
+    override fun findAllByCouponId(
+        couponId: Long,
+        pageRequest: PageRequest,
+    ): PageResponse<IssuedCoupon> {
+        val pageable = SpringPageRequest.of(pageRequest.page, pageRequest.size)
+        val page = issuedCouponJpaRepository.findAllByCouponIdAndDeletedAtIsNull(couponId, pageable)
+        return PageResponse(
+            content = page.content.map { issuedCouponMapper.toDomain(it) },
+            totalElements = page.totalElements,
+            page = pageRequest.page,
+            size = pageRequest.size,
+        )
     }
 }

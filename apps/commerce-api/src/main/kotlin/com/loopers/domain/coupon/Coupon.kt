@@ -15,6 +15,7 @@ class Coupon private constructor(
     val minOrderAmount: Money?,
     val expiredAt: ZonedDateTime,
     val deletedAt: ZonedDateTime?,
+    val createdAt: ZonedDateTime?,
 ) {
     init {
         when (type) {
@@ -68,6 +69,7 @@ class Coupon private constructor(
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
             deletedAt = deletedAt,
+            createdAt = createdAt,
         )
     }
 
@@ -79,6 +81,7 @@ class Coupon private constructor(
         minOrderAmount = minOrderAmount,
         expiredAt = expiredAt,
         deletedAt = ZonedDateTime.now(),
+        createdAt = createdAt,
     )
 
     enum class Type {
@@ -105,6 +108,7 @@ class Coupon private constructor(
                 minOrderAmount = minOrderAmount,
                 expiredAt = expiredAt,
                 deletedAt = null,
+                createdAt = null,
             )
         }
 
@@ -116,6 +120,7 @@ class Coupon private constructor(
             minOrderAmount: Money?,
             expiredAt: ZonedDateTime,
             deletedAt: ZonedDateTime?,
+            createdAt: ZonedDateTime,
         ): Coupon = Coupon(
             id = id,
             name = name,
@@ -124,6 +129,7 @@ class Coupon private constructor(
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
             deletedAt = deletedAt,
+            createdAt = createdAt,
         )
     }
 }

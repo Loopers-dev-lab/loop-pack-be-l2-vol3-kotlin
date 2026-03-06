@@ -1,7 +1,7 @@
 package com.loopers.domain.coupon
 
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import com.loopers.support.page.PageRequest
+import com.loopers.support.page.PageResponse
 
 interface IssuedCouponRepository {
     fun save(issuedCoupon: IssuedCoupon): IssuedCoupon
@@ -12,5 +12,5 @@ interface IssuedCouponRepository {
 
     fun findAllByUserId(userId: Long): List<IssuedCoupon>
 
-    fun findAllByCouponId(couponId: Long, pageable: Pageable): Page<IssuedCoupon>
+    fun findAllByCouponId(couponId: Long, pageRequest: PageRequest): PageResponse<IssuedCoupon>
 }

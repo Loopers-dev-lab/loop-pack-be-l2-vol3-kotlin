@@ -15,6 +15,7 @@ class CouponMapper {
             minOrderAmount = entity.minOrderAmount?.let { Money(it) },
             expiredAt = entity.expiredAt,
             deletedAt = entity.deletedAt,
+            createdAt = entity.createdAt,
         )
     }
 
