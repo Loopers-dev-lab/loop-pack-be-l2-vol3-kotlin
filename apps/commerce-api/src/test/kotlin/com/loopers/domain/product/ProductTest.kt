@@ -166,40 +166,4 @@ class ProductTest {
         }
     }
 
-    @DisplayName("좋아요 수")
-    @Nested
-    inner class LikeCount {
-
-        @DisplayName("좋아요 수를 증가시킬 수 있다")
-        @Test
-        fun increase() {
-            val product = createProduct()
-
-            product.increaseLikeCount()
-
-            assertThat(product.likeCount).isEqualTo(1)
-        }
-
-        @DisplayName("좋아요 수를 감소시킬 수 있다")
-        @Test
-        fun decrease() {
-            val product = createProduct()
-            product.increaseLikeCount()
-            product.increaseLikeCount()
-
-            product.decreaseLikeCount()
-
-            assertThat(product.likeCount).isEqualTo(1)
-        }
-
-        @DisplayName("좋아요 수가 0일 때 감소해도 0을 유지한다")
-        @Test
-        fun doesNotGoBelowZero() {
-            val product = createProduct()
-
-            product.decreaseLikeCount()
-
-            assertThat(product.likeCount).isEqualTo(0)
-        }
-    }
 }

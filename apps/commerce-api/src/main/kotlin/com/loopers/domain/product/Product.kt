@@ -70,16 +70,6 @@ class Product private constructor(
         this.deletedAt = ZonedDateTime.now()
     }
 
-    fun increaseLikeCount() {
-        this.likeCount++
-    }
-
-    fun decreaseLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--
-        }
-    }
-
     companion object {
         private const val NAME_MIN_LENGTH = 1
         private const val NAME_MAX_LENGTH = 100
