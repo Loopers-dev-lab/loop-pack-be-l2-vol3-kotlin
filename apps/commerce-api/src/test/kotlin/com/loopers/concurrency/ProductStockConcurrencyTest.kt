@@ -148,4 +148,65 @@ constructor(
         assertThat(successCount.get()).isEqualTo(10)
         assertThat(finalStock.quantity.value).isEqualTo(0)
     }
+
+    @Test
+    @DisplayName("재고 10개, 100스레드 동시 주문 → 10건 성공, 90건 실패, 최종 재고 0")
+    fun decrease_concurrent_overflowBlocked() {
+        val threadCount = 100
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val latch = CountDownLatch(threadCount)
+        val successCount = AtomicInteger(0)
+        val failCount = AtomicInteger(0)
+        val txTemplate = TransactionTemplate(txManager)
+
+        repeat(threadCount) { idx ->
+            executor.submit {
+                try {
+                    txTemplate.execute {
+                        val stocks = productStockRepository.findAllByProductIdInWithLock(
+                            listOf(productId),
+                        )
+                        val stock = stocks.first()
+                        val decreased = stock.decrease(Quantity(1))
+                        productStockRepository.saveAll(listOf(decreased))
+
+                        val snapshot = OrderSnapshot(
+                            productId = productId,
+                            productName = "동시성 테스트 상품",
+                            brandId = brandId,
+                            brandName = "테스트브랜드",
+                            regularPrice = Money(BigDecimal.valueOf(10000)),
+                            sellingPrice = Money(BigDecimal.valueOf(10000)),
+                            thumbnailUrl = null,
+                        )
+                        val result = OrderDomainService.createOrder(
+                            userId = userId,
+                            idempotencyKey = IdempotencyKey("overflow-test-$idx"),
+                            orderItemRequests = listOf(
+                                OrderDomainService.OrderItemRequest(
+                                    productStock = stock,
+                                    snapshot = snapshot,
+                                    quantity = Quantity(1),
+                                ),
+                            ),
+                        )
+                        orderRepository.save(result.order)
+                    }
+                    successCount.incrementAndGet()
+                } catch (e: Exception) {
+                    failCount.incrementAndGet()
+                } finally {
+                    latch.countDown()
+                }
+            }
+        }
+
+        latch.await()
+        executor.shutdown()
+
+        val finalStock = productStockRepository.findByProductId(productId)!!
+        assertThat(successCount.get()).isEqualTo(10)
+        assertThat(failCount.get()).isEqualTo(90)
+        assertThat(finalStock.quantity.value).isEqualTo(0)
+    }
 }
