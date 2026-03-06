@@ -17,6 +17,10 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
     fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long): List<Product>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Product p WHERE p.id = :id AND p.deletedAt IS NULL")
+    fun findByIdWithLock(id: Long): Product?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Product p WHERE p.id IN :ids AND p.deletedAt IS NULL ORDER BY p.id")
     fun findAllByIdInWithLock(ids: List<Long>): List<Product>
 
