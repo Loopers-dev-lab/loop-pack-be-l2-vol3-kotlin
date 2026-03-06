@@ -5,7 +5,6 @@ import com.loopers.support.common.PageResult
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Component
@@ -40,9 +39,9 @@ class OrderService(
         return orderRepository.save(order)
     }
 
-    @Transactional
     fun changeStatus(orderId: Long, next: OrderStatus) {
         val order = getOrderById(orderId)
         order.changeStatus(next)
+        orderRepository.saveAndFlush(order)
     }
 }

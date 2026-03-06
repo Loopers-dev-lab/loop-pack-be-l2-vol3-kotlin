@@ -27,6 +27,7 @@ class AdminOrderFacade(
         return AdminOrderDetailInfo.from(order)
     }
 
+    @Transactional
     fun changeOrderStatus(orderId: Long, next: OrderStatus) {
         try {
             orderService.changeStatus(orderId, next)
