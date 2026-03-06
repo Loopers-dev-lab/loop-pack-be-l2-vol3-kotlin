@@ -10,7 +10,10 @@ class OrderAdminV1Dto {
         val id: Long,
         val userId: Long,
         val status: String,
+        val originalPrice: BigDecimal,
+        val discountAmount: BigDecimal,
         val totalPrice: BigDecimal,
+        val couponId: Long?,
         val items: List<OrderItemAdminResponse>,
     ) {
         companion object {
@@ -19,7 +22,10 @@ class OrderAdminV1Dto {
                     id = info.id,
                     userId = info.userId,
                     status = info.status,
+                    originalPrice = info.originalPrice,
+                    discountAmount = info.discountAmount,
                     totalPrice = info.totalPrice,
+                    couponId = info.couponId,
                     items = info.items.map { OrderItemAdminResponse.from(it) },
                 )
             }

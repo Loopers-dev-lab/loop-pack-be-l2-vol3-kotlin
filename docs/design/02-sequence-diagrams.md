@@ -8,7 +8,6 @@
 - **참여자(Participant) 레벨 통일**:
     - **Controller**: 요청 수신, 파라미터 매핑, 응답 변환
     - **UseCase**: `@Transactional` 경계 설정, Repository / Domain Service 오케스트레이션
-    - **Domain Service**: 여러 엔티티 간 원자적 얽힘이 있는 복잡한 비즈니스 로직 (예: `PointCharger`, `PointDeductor`)
     - **Repository**: DB 접근 (JPA)
 - **트랜잭션 경계**: `@Transactional`은 UseCase의 `execute()` 메서드에 부착. Domain Service는 UseCase가 열어 둔 트랜잭션에 참여.
 - **인증**: AuthInterceptor → `@AuthUser userId: Long` 파라미터 주입. 어드민은 AdminInterceptor가 `X-Loopers-Ldap` 헤더 검증.
@@ -486,19 +485,19 @@ sequenceDiagram
 
     rect rgb(245, 245, 245)
         Note right of UC: @Transactional
+        UC ->> PR: findByIdForUpdate(productId) — 비관적 락 (선취득)
+        PR -->> UC: Product or null
         UC ->> LR: findByUserIdAndProductId(userId, productId)
         alt 좋아요 없음
             LR -->> UC: null (멱등, 상태 변화 없음)
         else 좋아요 존재
             LR -->> UC: Like
             UC ->> LR: delete(like)
-            UC ->> PR: findByIdForUpdate(productId) — 비관적 락
-            alt 상품이 활성 상태
-                PR -->> UC: Product (not deleted)
+            alt 상품이 존재하고 활성 상태
+                Note right of UC: Product (not deleted)
                 UC ->> UC: product.decreaseLikeCount()
                 UC ->> PR: save(product)
-            else 삭제된 상품
-                PR -->> UC: Product (deleted)
+            else 상품 없음 또는 삭제된 상품
                 Note right of UC: likeCount 갱신 생략
             end
         end
@@ -551,9 +550,7 @@ sequenceDiagram
 
 ### 4.1 주문 생성 (Cross-Domain Transaction)
 
-> **Round 3 변경**: 포인트 차감 단계 추가
-
-주문 생성은 **상품 검증 → 재고 차감 → 주문 생성(totalPrice 계산 + Order/OrderItem 저장) → 포인트 차감**이 원자적으로 이루어져야 하는 핵심 트랜잭션이다.
+주문 생성은 **상품 검증 → 재고 차감 → 쿠폰 검증/사용 → 주문 생성(totalPrice 계산 + Order/OrderItem 저장)**이 원자적으로 이루어져야 하는 핵심 트랜잭션이다.
 
 **API:** `POST /api/v1/orders` — 인증 필요
 
@@ -564,12 +561,12 @@ sequenceDiagram
     participant C as OrderV1Controller
     participant UC as PlaceOrderUseCase
     participant PR as ProductRepository
+    participant CR as CouponRepository
+    participant ICR as IssuedCouponRepository
+    participant CV as CouponValidator
     participant OR as OrderRepository
     participant OIR as OrderItemRepository
-    participant PD as PointDeductor
-    participant UPR as UserPointRepository
-    participant PHR as PointHistoryRepository
-    User ->> C: 주문 요청 (상품 목록, 수량)
+    User ->> C: 주문 요청 (상품 목록, 수량, 쿠폰ID 선택)
     C ->> UC: execute(userId, command)
 
     rect rgb(245, 245, 245)
@@ -579,21 +576,25 @@ sequenceDiagram
         PR -->> UC: List<Product>
         Note right of UC: 존재 여부 + 판매 가능 상태 확인<br/>product.decreaseStock(quantity) — 재고 부족 시 예외
         UC ->> PR: saveAll(products)
-    %% 2단계: 주문 생성
-        UC ->> UC: Order.create(userId, orderItemInputs)
-        Note right of UC: Order.create() 내부에서<br/>OrderItem 생성 + totalPrice 계산<br/>(각 상품의 name, price를 스냅샷으로 복사)
+    %% 2단계: 쿠폰 검증 + 사용 처리 (쿠폰 ID가 있는 경우)
+        opt 쿠폰 ID 포함 시
+            UC ->> ICR: findByIdForUpdate(couponId) — 비관적 락
+            ICR -->> UC: IssuedCoupon
+            UC ->> CR: findById(issuedCoupon.refCouponId)
+            CR -->> UC: Coupon
+            UC ->> CV: validateForOrder(issuedCoupon, coupon, userId, originalPrice)
+            CV -->> UC: 검증 통과
+            UC ->> UC: coupon.calculateDiscount(originalPrice)
+            UC ->> UC: issuedCoupon.use() — USED 상태 전환
+            UC ->> ICR: save(issuedCoupon)
+        end
+    %% 3단계: 주문 생성
+        UC ->> UC: Order.create(userId, orderItemInputs, discountAmount, refCouponId)
+        Note right of UC: Order.create() 내부에서<br/>OrderItem 생성 + originalPrice / discountAmount / totalPrice 계산<br/>(각 상품의 name, price를 스냅샷으로 복사)
         UC ->> OR: save(order)
         OR -->> UC: savedOrder (ID 채번)
         UC ->> UC: order.assignOrderIdToItems(savedOrder.id)
         UC ->> OIR: saveAll(order.items)
-    %% 3단계: 포인트 차감
-        UC ->> PD: usePoints(userId, totalPrice, orderId)
-        PD ->> UPR: findByUserIdForUpdate(userId) — 비관적 락
-        UPR -->> PD: UserPoint
-        PD ->> PD: userPoint.use(amount) — 잔액 부족 시 예외
-        Note right of PD: 포인트 부족 시 예외 → 트랜잭션 전체 롤백
-        PD ->> UPR: save(userPoint)
-        PD ->> PHR: save(PointHistory(USE, refOrderId))
     end
 
     UC -->> C: OrderInfo 반환
@@ -602,10 +603,10 @@ sequenceDiagram
 
 #### 참고
 
-- 재고 부족 또는 포인트 부족 시 트랜잭션 롤백으로 이전 차감분 모두 원복
+- 재고 부족 시 트랜잭션 롤백으로 이전 차감분 모두 원복
 - OrderItem은 주문 시점의 상품 정보(이름, 가격)를 스냅샷으로 보존
-- `PlaceOrderUseCase`는 ProductRepository, OrderRepository, OrderItemRepository, PointDeductor를 직접 주입받아 오케스트레이션한다
-- `PointDeductor`는 Domain Service로서 UseCase가 열어 둔 트랜잭션에 참여하여 잔고 차감 + 이력 생성의 원자성을 보장한다
+- `PlaceOrderUseCase`는 ProductRepository, OrderRepository, OrderItemRepository, CouponRepository, IssuedCouponRepository, CouponValidator를 직접 주입받아 오케스트레이션한다
+- 실행 순서: 재고 차감 → 쿠폰 검증/사용 → 주문 생성/저장
 
 ### 4.2 주문 목록 조회 (기간 필터링)
 
@@ -722,76 +723,179 @@ sequenceDiagram
 
 ---
 
-## 6. 포인트
+## 6. 쿠폰
 
-### 6.1 포인트 충전 (Domain Service)
+### 6.1 쿠폰 발급 (선착순)
 
-포인트 충전은 잔액 변경(UserPoint)과 충전 내역(PointHistory) 생성을 **PointCharger**(Domain Service)가 조율하는 흐름이다.
-
-**API:** `POST /api/v1/users/points/charge` — 인증 필요
+**API:** `POST /api/v1/coupons/{couponId}/issue` — 인증 필요
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as 사용자
-    participant C as PointV1Controller
-    participant UC as ChargePointUseCase
-    participant PC as PointCharger
-    participant UPR as UserPointRepository
-    participant PHR as PointHistoryRepository
-    User ->> C: 포인트 충전 요청 (amount)
-    C ->> UC: execute(userId, amount)
+    participant C as CouponV1Controller
+    participant UC as IssueCouponUseCase
+    participant CR as CouponRepository
+    participant ICR as IssuedCouponRepository
+    User ->> C: 쿠폰 발급 요청 (couponId)
+    C ->> UC: execute(userId, couponId)
 
     rect rgb(245, 245, 245)
         Note right of UC: @Transactional
-        UC ->> PC: charge(userId, amount)
-        PC ->> UPR: findByUserIdForUpdate(userId) — 비관적 락
-        UPR -->> PC: UserPoint
-        PC ->> PC: userPoint.charge(amount) — 잔액 증가
-        PC ->> UPR: save(userPoint)
-        PC ->> PHR: save(PointHistory(CHARGE))
-        PC -->> UC: UserPoint
+        UC ->> CR: findById(couponId)
+        alt 쿠폰 미존재 또는 삭제됨
+            CR -->> UC: null
+            UC -->> C: CoreException(NOT_FOUND)
+            C -->> User: 404 Not Found
+        else 쿠폰 존재
+            CR -->> UC: Coupon
+            UC ->> ICR: existsByRefCouponIdAndRefUserId(couponId, userId)
+            alt 이미 발급됨
+                ICR -->> UC: true
+                UC -->> C: CoreException(CONFLICT)
+                C -->> User: 409 Conflict
+            else 미발급
+                ICR -->> UC: false
+                Note right of UC: coupon.canIssue() 검증<br/>(만료 여부 + 수량 초과 여부)
+                UC ->> UC: coupon.issue() — issuedCount++
+                UC ->> CR: save(coupon)
+                UC ->> ICR: save(IssuedCoupon)
+                UC -->> C: IssuedCouponInfo 반환
+                C -->> User: 200 OK
+            end
+        end
     end
+```
 
-    UC -->> C: PointBalanceInfo 반환
+#### 참고
+
+- `coupon.canIssue()`: 만료 여부(`isExpired()`) + 수량 제한(totalQuantity == null 이거나 issuedCount < totalQuantity) 복합 검증. 삭제 여부(`isDeleted()`) 검증은 UseCase에서 별도 수행(findById 결과 null 처리)
+- 만료 또는 수량 초과 시 400 BAD_REQUEST, 중복 발급 시 409 CONFLICT
+- `CR.findById`는 비관적 락(`FOR UPDATE`)으로 동시 발급 경쟁 조건을 방지한다
+
+### 6.2 내 쿠폰 목록 조회
+
+**API:** `GET /api/v1/users/me/coupons` — 인증 필요
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as CouponV1Controller
+    participant UC as GetMyCouponsUseCase
+    participant ICR as IssuedCouponRepository
+    participant CR as CouponRepository
+    User ->> C: 내 쿠폰 목록 조회 요청
+    C ->> UC: execute(userId)
+    Note over UC, CR: @Transactional(readOnly = true)
+    UC ->> ICR: findAllByRefUserId(userId)
+    ICR -->> UC: List<IssuedCoupon>
+    UC ->> CR: findAllByIds(couponIds)
+    CR -->> UC: List<Coupon>
+    UC ->> UC: IssuedCoupon + Coupon 조합 → IssuedCouponInfo
+    UC -->> C: List<IssuedCouponInfo> 반환
     C -->> User: 200 OK
 ```
 
 #### 참고
 
-- `PointCharger`는 Domain Layer의 Domain Service이다
-- `ChargePointUseCase`가 `PointCharger`에 위임하며, `PointCharger`는 UserPointRepository와 PointHistoryRepository를 직접 주입받아 사용한다
-- `@Transactional`은 UseCase에 설정하고, `PointCharger`는 해당 트랜잭션에 참여한다
+- 쿼리 총 2회: IssuedCoupon 조회 1회 + Coupon IN 조회 1회 (N+1 방지)
+- 삭제된 쿠폰 템플릿과 연결된 발급 쿠폰도 조회 결과에 포함된다
 
-### 6.2 포인트 잔액 조회
+---
 
-**API:** `GET /api/v1/users/points` — 인증 필요
+## 7. 쿠폰 — 어드민 API
+
+### 7.1 쿠폰 생성
+
+**API:** `POST /api-admin/v1/coupons` — LDAP 인증
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 사용자
-    participant C as PointV1Controller
-    participant UC as GetUserPointUseCase
-    participant R as UserPointRepository
-    User ->> C: 포인트 잔액 조회 요청
-    C ->> UC: execute(userId)
-    Note over UC, R: @Transactional(readOnly = true)
-    UC ->> R: findByUserId(userId)
-    R -->> UC: UserPoint
-    UC -->> C: PointBalanceInfo 반환
-    C -->> User: 200 OK
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as CreateCouponAdminUseCase
+    participant CR as CouponRepository
+    Admin ->> C: 쿠폰 생성 요청 (name, type, value, ...)
+    C ->> UC: execute(command)
+    Note over UC, CR: @Transactional
+    UC ->> UC: Coupon 생성 (validate 포함)
+    UC ->> CR: save(coupon)
+    CR -->> UC: CouponInfo (ID 채번)
+    UC -->> C: CouponInfo 반환
+    C -->> Admin: 200 OK
+```
+
+### 7.2 쿠폰 수정
+
+**API:** `PUT /api-admin/v1/coupons/{couponId}` — LDAP 인증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as UpdateCouponAdminUseCase
+    participant CR as CouponRepository
+    Admin ->> C: 쿠폰 수정 요청
+    C ->> UC: execute(couponId, command)
+    Note over UC, CR: @Transactional
+    UC ->> CR: findById(couponId)
+    CR -->> UC: Coupon
+    UC ->> UC: coupon.update(...)
+    UC ->> CR: save(coupon)
+    UC -->> C: CouponInfo 반환
+    C -->> Admin: 200 OK
+```
+
+### 7.3 쿠폰 삭제
+
+**API:** `DELETE /api-admin/v1/coupons/{couponId}` — LDAP 인증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as DeleteCouponAdminUseCase
+    participant CR as CouponRepository
+    Admin ->> C: 쿠폰 삭제 요청
+    C ->> UC: execute(couponId)
+    Note over UC, CR: @Transactional
+    UC ->> CR: findById(couponId)
+    CR -->> UC: Coupon
+    UC ->> UC: coupon.delete() — deletedAt 설정
+    UC ->> CR: save(coupon)
+    UC -->> C: 처리 완료
+    C -->> Admin: 200 OK
+```
+
+### 7.4 쿠폰 발급 내역 조회
+
+**API:** `GET /api-admin/v1/coupons/{couponId}/issues` — LDAP 인증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 어드민
+    participant C as CouponAdminV1Controller
+    participant UC as GetCouponIssuesAdminUseCase
+    participant ICR as IssuedCouponRepository
+    Admin ->> C: 발급 내역 조회 요청 (couponId, page, size)
+    C ->> UC: execute(couponId, page, size)
+    Note over UC, ICR: @Transactional(readOnly = true)
+    UC ->> ICR: findAllByRefCouponId(couponId, page, size)
+    ICR -->> UC: PageResult<IssuedCoupon>
+    UC -->> C: PageResult<IssuedCouponInfo> 반환
+    C -->> Admin: 200 OK
 ```
 
 ---
 
-## 7. 회원가입
+## 8. 회원가입
 
-### 7.1 회원가입 (Cross-Domain)
-
-> **Round 3 변경**: UserPoint 초기화를 위해 RegisterUserUseCase가 UserPointRepository를 직접 호출
-
-회원가입 시 User 생성과 함께 UserPoint(초기 잔액 0)를 생성하는 흐름이다.
+### 6.1 회원가입
 
 **API:** `POST /api/v1/users/sign-up` — 인증 불필요
 
@@ -802,7 +906,6 @@ sequenceDiagram
     participant C as UserV1Controller
     participant UC as RegisterUserUseCase
     participant UR as UserRepository
-    participant UPR as UserPointRepository
     User ->> C: 회원가입 요청 (loginId, password, name 등)
     C ->> UC: execute(loginId, password, name, birthDate, email)
 
@@ -812,7 +915,6 @@ sequenceDiagram
         UR -->> UC: false (중복 없음)
         UC ->> UR: save(user)
         UR -->> UC: 생성된 User (ID 채번)
-        UC ->> UPR: save(UserPoint(refUserId = user.id, balance = 0))
     end
 
     UC -->> C: UserInfo 반환
@@ -821,6 +923,5 @@ sequenceDiagram
 
 #### 참고
 
-- `RegisterUserUseCase`는 UserRepository와 UserPointRepository를 직접 주입받아 사용한다
-- **@Transactional은 UseCase 레벨에서 설정**하여, User 생성과 UserPoint 생성의 원자성을 보장한다 (UserPoint 생성 실패 시 User 생성도 롤백)
-- 기존 Facade 패턴 없이 UseCase가 cross-domain 오케스트레이션을 직접 수행한다
+- `RegisterUserUseCase`는 UserRepository를 직접 주입받아 사용한다
+- **@Transactional은 UseCase 레벨에서 설정**하여 User 생성의 원자성을 보장한다

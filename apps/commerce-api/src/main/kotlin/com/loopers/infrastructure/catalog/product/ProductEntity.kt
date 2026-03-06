@@ -11,11 +11,20 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = [
+        Index(name = "idx_products_ref_brand_id", columnList = "ref_brand_id"),
+        Index(name = "idx_products_active_like_count", columnList = "deleted_at, status, like_count DESC"),
+        Index(name = "idx_products_active_created_at", columnList = "deleted_at, status, created_at DESC"),
+        Index(name = "idx_products_active_price", columnList = "deleted_at, status, price ASC"),
+    ],
+)
 class ProductEntity(
     @Column(name = "ref_brand_id", nullable = false)
     var refBrandId: Long,

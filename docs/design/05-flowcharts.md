@@ -15,8 +15,6 @@
 flowchart TB
     A([사용자 진입]) --> B[회원가입 / 로그인]
     B --> C[브랜드 & 상품 탐색]
-    B --> PC[포인트 충전]:::charge
-    PC --> C
 
     C --> D{마음에 드는 상품?}
     D -->|예| E[좋아요 등록]
@@ -25,7 +23,10 @@ flowchart TB
     E --> F[상품 선택 & 수량 결정]
     C --> F
 
-    F --> G[주문 요청]
+    F --> F2{쿠폰 사용?}
+    F2 -->|예| FC[쿠폰 선택]
+    F2 -->|아니오| G
+    FC --> G[주문 요청]
     G --> H{상품 유효성 검증}
     H -->|실패| I[주문 실패]:::error
     I --> C
@@ -33,23 +34,17 @@ flowchart TB
     H -->|통과| J{재고 충분?}
     J -->|부족| I
     J -->|충분| K[재고 차감 + 스냅샷 저장]
-    K --> K2{포인트 충분?}
-    K2 -->|부족| I
-    K2 -->|충분| K3[포인트 차감]
-    K3 --> L[주문 완료]:::success
+    K --> L[주문 완료]:::success
 
     L --> M[주문 내역 조회]
     M --> C
 
     classDef success fill:#c8e6c9,stroke:#2e7d32
     classDef error fill:#ffcdd2,stroke:#c62828
-    classDef charge fill:#bbdefb,stroke:#1565c0
 ```
 
 ### 참고
 
-- 쿠폰 발급/적용 단계는 추후 개발 시 F→G 사이에 삽입 예정
-- 포인트 충전은 로그인 후 탐색 전에 수행하는 선택적 단계이며, 상세 흐름은 아래 Section 4를 참고
 - 어드민 흐름(브랜드/상품 관리)은 별도 경로이므로 이 조감도에서 생략
 
 ---
@@ -74,17 +69,24 @@ flowchart TB
     CheckStatus -->|모두 판매중| CheckStock{모든 상품 재고 충분?}
     CheckStock -->|1개라도 부족| Err400_4[400 재고 부족]:::error
 
-    CheckStock -->|충분| Deduct[상품별 재고 차감]
-    Deduct --> AutoStatus{차감 후 재고 == 0?}
+    CheckStock -->|충분| Deduct
+    Deduct[상품별 재고 차감] --> AutoStatus{차감 후 재고 == 0?}
     AutoStatus -->|예| StatusChange[status → SOLD_OUT 자동 전환]
     AutoStatus -->|아니오| SaveProducts
     StatusChange --> SaveProducts[productRepository.saveAll]
-    SaveProducts --> CreateOrder[Order.create — OrderItem 생성 + totalPrice 계산]
+    SaveProducts --> CheckCoupon{쿠폰 ID 포함?}
+    CheckCoupon -->|없음| CreateOrder
+    CheckCoupon -->|있음| ValidateCoupon{쿠폰 유효성 검증}
+    ValidateCoupon -->|미존재 / 삭제됨| Err404_coupon[404 쿠폰 없음]:::error
+    ValidateCoupon -->|만료됨 / 수량 소진| Err400_coupon[400 발급 불가 쿠폰]:::error
+    ValidateCoupon -->|미발급 쿠폰| Err400_notissued[400 보유하지 않은 쿠폰]:::error
+    ValidateCoupon -->|이미 사용됨| Err400_used[400 이미 사용된 쿠폰]:::error
+    ValidateCoupon -->|유효| CalcDiscount[coupon.calculateDiscount 할인 금액 계산]
+    CalcDiscount --> MarkUsed[issuedCoupon.use — USED 상태 전환]
+    MarkUsed --> CreateOrder
+    CreateOrder[Order.create — OrderItem 생성 + originalPrice / discountAmount / totalPrice 계산]
     CreateOrder --> SaveOrder[orderRepository.save + orderItemRepository.saveAll]
-    SaveOrder --> CheckPoint{포인트 잔액 충분?}
-    CheckPoint -->|부족| Err400_5[400 포인트 부족]:::error
-    CheckPoint -->|충분| DeductPoint[포인트 차감 + PointHistory 기록]
-    DeductPoint --> Response([200 OK + orderId]):::success
+    SaveOrder --> Response([200 OK + orderId]):::success
 
     classDef error fill:#ffcdd2,stroke:#c62828
     classDef success fill:#c8e6c9,stroke:#2e7d32
@@ -92,15 +94,52 @@ flowchart TB
 
 ### 참고
 
-- `Order.create()`가 내부에서 OrderItem 생성과 totalPrice 계산을 수행한다 (Rich Domain Model)
+- `Order.create()`가 내부에서 OrderItem 생성과 originalPrice/discountAmount/totalPrice 계산을 수행한다 (Rich Domain Model)
 - 전체 과정이 **하나의 트랜잭션** 내에서 원자적으로 실행 (all-or-nothing)
-- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감 + 포인트 차감 모두 원복
-- **실행 순서**: 재고 차감 → 상품 저장 → 주문 생성/저장 → 포인트 차감 (포인트 확인은 주문 저장 후)
+- 어느 단계에서든 실패하면 트랜잭션 롤백으로 재고 차감·쿠폰 사용 처리 모두 원복
+- **실행 순서**: 재고 차감 → 상품 저장 → 쿠폰 검증/사용 → 주문 생성/저장
+- 쿠폰 미포함 주문의 경우 discountAmount = 0, refCouponId = null
 - 인증 인터셉터 검증은 전제 조건으로 생략 (시퀀스 다이어그램 공통 규칙 참고)
 
 ---
 
-## 3. 좋아요 토글 (등록 / 취소)
+## 3. 쿠폰 발급 프로세스
+
+사용자가 쿠폰을 발급받을 때의 의사결정 흐름이다. 선착순 제한과 중복 발급 방지가 핵심이다.
+
+```mermaid
+flowchart TB
+    Start([쿠폰 발급 요청]) --> FindCoupon{쿠폰 조회}
+    FindCoupon -->|미존재 / 삭제됨| Err404[404 Not Found]:::error
+
+    FindCoupon -->|존재| CheckDuplicate{이미 발급받은 쿠폰?}
+    CheckDuplicate -->|예| Err409[409 Conflict — 중복 발급 불가]:::error
+
+    CheckDuplicate -->|아니오| CheckExpired{만료됐는가?}
+    CheckExpired -->|만료됨| Err400_expired[400 만료된 쿠폰]:::error
+
+    CheckExpired -->|유효| CheckQuantity{수량 제한 있는가?}
+    CheckQuantity -->|무제한| Issue
+    CheckQuantity -->|제한 있음| CheckRemaining{issuedCount < totalQuantity?}
+    CheckRemaining -->|소진됨| Err400_qty[400 수량 소진]:::error
+    CheckRemaining -->|남아있음| Issue[coupon.issue — issuedCount++]
+
+    Issue --> SaveIssuedCoupon[IssuedCoupon 저장]
+    SaveIssuedCoupon --> Response([200 OK + IssuedCouponInfo]):::success
+
+    classDef error fill:#ffcdd2,stroke:#c62828
+    classDef success fill:#c8e6c9,stroke:#2e7d32
+```
+
+### 참고
+
+- `coupon.canIssue()`가 만료 여부 + 수량 초과를 복합 검증한다. 삭제 여부는 UseCase에서 별도 수행(findById 결과 null 처리)
+- Coupon은 비관적 락(`FOR UPDATE`)으로 조회하여 동시 발급 경쟁 조건을 방지한다
+- 발급 성공 시 `Coupon.issuedCount`와 `IssuedCoupon` 레코드가 같은 트랜잭션 내에서 저장된다
+
+---
+
+## 4. 좋아요 토글 (등록 / 취소)
 
 좋아요의 멱등성 보장과 삭제된 상품에 대한 분기 처리를 시각화한다.
 시퀀스 다이어그램 3.1, 3.2와 대응된다.
@@ -118,12 +157,7 @@ flowchart TB
     CheckLike -->|존재| Idempotent([200 OK — 변경 없음]):::idempotent
 
     CheckLike -->|없음| SaveLike[Like 저장]
-    SaveLike --> AcquireLock[상품 재조회 — FOR UPDATE Lock 획득]
-    AcquireLock --> CheckLockProduct{Lock 후 상품 존재?}
-    CheckLockProduct -->|없음| Err404_3[404 Not Found]:::error
-    CheckLockProduct -->|존재| ReCheckActive{삭제됨 또는 비활성?}
-    ReCheckActive -->|삭제됨 / HIDDEN| Err404_4[404 Not Found]:::error
-    ReCheckActive -->|활성| IncCount[Product.likeCount + 1]
+    SaveLike --> IncCount[Product.likeCount + 1]
     IncCount --> Success([200 OK]):::success
 
     classDef error fill:#ffcdd2,stroke:#c62828
@@ -135,12 +169,12 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    Start([좋아요 취소 요청]) --> CheckLike{좋아요 레코드 존재?}
+    Start([좋아요 취소 요청]) --> AcquireLock[상품 조회 — FOR UPDATE Lock 획득]
+    AcquireLock --> CheckLike{좋아요 레코드 존재?}
     CheckLike -->|없음| Idempotent([200 OK — 변경 없음]):::idempotent
 
     CheckLike -->|존재| DeleteLike[Like 물리 삭제]
-    DeleteLike --> AcquireLock[상품 재조회 — FOR UPDATE Lock 획득]
-    AcquireLock --> CheckProduct{상품 존재?}
+    DeleteLike --> CheckProduct{상품 존재?}
     CheckProduct -->|없음| SkipCount1([200 OK — likeCount 미갱신]):::idempotent
     CheckProduct -->|존재| CheckDeleted{상품이 삭제 상태?}
     CheckDeleted -->|삭제됨| SkipCount2([200 OK — likeCount 미갱신]):::idempotent
@@ -154,46 +188,9 @@ flowchart TB
 
 ### 참고
 
-- 등록: 삭제된 상품에는 좋아요 등록 불가 (404). Like 저장 후 Lock 획득하여 likeCount 증가 전 상태를 재검증한다
-- 취소: 좋아요 레코드가 없으면 상품 조회 없이 즉시 200 반환 (멱등). 상품이 없거나 삭제 상태이면 likeCount 갱신 생략
+- 등록: 상품 Lock을 먼저 획득한 후 삭제/비활성 검증을 수행한다. 삭제된 상품에는 좋아요 등록 불가 (404). 이미 좋아요가 있으면 멱등 처리 후 200 반환
+- 취소: 상품 Lock을 먼저 획득한 후 좋아요 레코드를 조회한다. 좋아요가 없으면 멱등 처리 후 200 반환. 상품이 없거나 삭제 상태이면 likeCount 갱신 생략
 - 노란색 경로는 멱등성에 의한 무변경 응답
-
----
-
-## 4. 포인트 충전 (Domain Service)
-
-포인트 충전 시 PointCharger(Domain Service)가 잔액 변경과 내역 생성을 조율하는 흐름이다.
-
-```mermaid
-flowchart TB
-    Start([포인트 충전 요청]) --> CheckLimit{1회 충전 한도 초과?}
-    CheckLimit -->|초과| Err400_1[400 Bad Request]:::error
-
-    CheckLimit -->|이내| FindUP[UserPoint 조회 — FOR UPDATE]
-    FindUP --> CheckUserPoint{UserPoint 존재?}
-    CheckUserPoint -->|없음| Err404[404 Not Found]:::error
-
-    CheckUserPoint -->|존재| CheckZero{충전 금액 == 0?}
-    CheckZero -->|예| Err400_2[400 Bad Request]:::error
-
-    CheckZero -->|아니오| CheckBalance{충전 후 잔액이 최대 한도 초과?}
-    CheckBalance -->|초과| Err400_3[400 Bad Request]:::error
-
-    CheckBalance -->|이내| Charge[UserPoint.charge — 잔액 증가]
-    Charge --> History[PointHistory 생성 — type: CHARGE]
-    History --> Save[DB 저장]
-    Save --> Success([200 OK]):::success
-
-    classDef error fill:#ffcdd2,stroke:#c62828
-    classDef success fill:#c8e6c9,stroke:#2e7d32
-```
-
-### 참고
-
-- PointCharger는 도메인 레이어의 Domain Service이다
-- 검증 순서: 1회 충전 한도(PointCharger) → UserPoint 조회 → 0 금액 검증(UserPoint.charge) → 최대 잔액 한도(UserPoint.charge)
-- 잔액 변경(UserPoint.charge)과 내역 생성(PointHistory)이 하나의 트랜잭션에서 원자적으로 처리된다
-- Controller가 ChargePointUseCase를 통해 PointCharger를 호출한다
 
 ---
 

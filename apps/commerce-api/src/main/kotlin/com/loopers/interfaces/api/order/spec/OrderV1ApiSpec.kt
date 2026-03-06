@@ -24,7 +24,7 @@ interface OrderV1ApiSpec {
     @Operation(summary = "주문 상세 조회", description = "내 주문 상세를 조회합니다.")
     fun getOrder(
         @Parameter(hidden = true) @AuthUser userId: Long,
-        orderId: Long,
+        @Positive orderId: Long,
     ): ApiResponse<OrderV1Dto.OrderResponse>
 
     @Operation(summary = "주문 목록 조회", description = "내 주문 목록을 조회합니다.")

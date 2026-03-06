@@ -17,22 +17,16 @@ class AddLikeUseCase(
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
-        val product = productRepository.findById(ProductId(productId))
+        val product = productRepository.findByIdForUpdate(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         if (product.isDeleted() || !product.isActive()) {
-            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        }
-
-        val lockedProduct = productRepository.findByIdForUpdate(ProductId(productId))
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        if (lockedProduct.isDeleted() || !lockedProduct.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
 
         if (likeRepository.findByUserIdAndProductIdForUpdate(UserId(userId), ProductId(productId)) != null) return
 
         likeRepository.save(Like(refUserId = UserId(userId), refProductId = ProductId(productId)))
-        lockedProduct.increaseLikeCount()
-        productRepository.save(lockedProduct)
+        product.increaseLikeCount()
+        productRepository.save(product)
     }
 }

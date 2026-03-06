@@ -1,7 +1,5 @@
 package com.loopers.application.user
 
-import com.loopers.domain.point.model.UserPoint
-import com.loopers.domain.point.repository.UserPointRepository
 import com.loopers.domain.user.repository.UserRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -12,7 +10,6 @@ import java.time.LocalDate
 @Component
 class RegisterUserUseCase(
     private val userRepository: UserRepository,
-    private val userPointRepository: UserPointRepository,
 ) {
     @Transactional
     fun execute(loginId: String, password: String, name: String, birthDate: LocalDate, email: String): UserInfo {
@@ -27,7 +24,6 @@ class RegisterUserUseCase(
             email = email,
         )
         val user = userRepository.save(command.toUser())
-        userPointRepository.save(UserPoint(refUserId = user.id))
         return UserInfo.from(user)
     }
 }

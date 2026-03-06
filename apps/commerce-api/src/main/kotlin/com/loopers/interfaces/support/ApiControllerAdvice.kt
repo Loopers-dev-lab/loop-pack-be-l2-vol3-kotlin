@@ -7,6 +7,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -134,6 +135,13 @@ class ApiControllerAdvice {
             }
         }.joinToString(", ")
         return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    @ExceptionHandler
+    fun handleConflict(e: DataIntegrityViolationException): ResponseEntity<ApiResponse<*>> {
+        log.warn("DataIntegrityViolation 발생")
+        log.debug("DataIntegrityViolation 상세", e)
+        return failureResponse(errorType = ErrorType.CONFLICT)
     }
 
     @ExceptionHandler
