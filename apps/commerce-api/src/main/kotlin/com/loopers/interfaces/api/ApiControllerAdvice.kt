@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
@@ -119,6 +120,12 @@ class ApiControllerAdvice {
     @ExceptionHandler
     fun handleNotFound(e: NoResourceFoundException): ResponseEntity<ApiResponse<*>> {
         return failureResponse(httpStatus = HttpStatus.NOT_FOUND, errorCode = "Not Found", errorMessage = "존재하지 않는 요청입니다.")
+    }
+
+    @ExceptionHandler
+    fun handleConflict(e: DataIntegrityViolationException): ResponseEntity<ApiResponse<*>> {
+        log.warn("Data integrity violation: {}", e.message)
+        return failureResponse(HttpStatus.CONFLICT, "Conflict", "이미 존재하는 리소스입니다.")
     }
 
     @ExceptionHandler

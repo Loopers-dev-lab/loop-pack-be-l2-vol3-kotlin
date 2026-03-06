@@ -309,7 +309,7 @@ class ConcurrencyTest @Autowired constructor(
     @Nested
     inner class LikeConcurrency {
 
-        @DisplayName("동일 상품에 같은 회원이 10개 스레드로 동시에 좋아요하면, 모두 200 OK를 받는다.")
+        @DisplayName("동일 상품에 같은 회원이 10개 스레드로 동시에 좋아요하면, 200 OK 또는 409 CONFLICT를 받고 좋아요는 정확히 1건이다.")
         @Test
         fun allSucceed_whenConcurrentLikes() {
             // arrange
@@ -340,9 +340,9 @@ class ConcurrencyTest @Autowired constructor(
             executorService.shutdown()
             executorService.awaitTermination(30, TimeUnit.SECONDS)
 
-            // assert — 10개 모두 200 OK (멱등)
+            // assert — 200 OK 또는 409 CONFLICT (사전 조회 통과 후 UNIQUE 제약 충돌)
             assertThat(statusCodes).hasSize(threadCount)
-            assertThat(statusCodes.values).allMatch { it == HttpStatus.OK }
+            assertThat(statusCodes.values).allMatch { it == HttpStatus.OK || it == HttpStatus.CONFLICT }
 
             // 좋아요 목록 API로 정확히 1개 좋아요만 존재하는지 확인 (likeCount는 배치 갱신이므로 목록으로 검증)
             val likesResponse = testRestTemplate.exchange(

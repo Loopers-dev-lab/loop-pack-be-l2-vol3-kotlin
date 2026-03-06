@@ -2,7 +2,6 @@ package com.loopers.application.like
 
 import com.loopers.application.brand.BrandService
 import com.loopers.application.product.ProductService
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -12,13 +11,11 @@ class LikeFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
+    @Transactional
     fun like(memberId: Long, productId: Long) {
         productService.getProduct(productId) // ACTIVE 검증 (BR-L4)
-        try {
-            likeService.like(memberId, productId)
-        } catch (e: DataIntegrityViolationException) {
-            // 동시 요청으로 인한 중복 삽입 — 멱등 처리
-        }
+        if (likeService.exists(memberId, productId)) return // 이미 좋아요 → 멱등 처리 (BR-L2)
+        likeService.like(memberId, productId)
     }
 
     @Transactional
