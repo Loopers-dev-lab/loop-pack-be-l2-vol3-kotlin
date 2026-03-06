@@ -61,7 +61,6 @@ class AdminProductV1Controller(
             brandId = request.brandId,
             name = request.name,
             price = request.price,
-            stock = request.stock,
             status = request.status,
         ),
     )
@@ -75,7 +74,6 @@ class AdminProductV1Controller(
             id = productId,
             name = request.name,
             price = request.price,
-            stock = request.stock,
             status = request.status,
         )
         return ApiResponse.success()

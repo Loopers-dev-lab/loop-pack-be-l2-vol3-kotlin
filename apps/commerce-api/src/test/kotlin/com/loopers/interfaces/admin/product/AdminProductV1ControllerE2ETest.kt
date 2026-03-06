@@ -67,7 +67,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 brandId = brand.id,
                 name = "New Product",
                 price = BigDecimal("15000"),
-                stock = 50,
                 status = ProductStatus.ACTIVE,
             )
             val headers = createAdminHeaders()
@@ -93,7 +92,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(savedProduct.name).isEqualTo("New Product") },
                 { assertThat(savedProduct.price).isEqualByComparingTo(BigDecimal("15000")) },
-                { assertThat(savedProduct.stock).isEqualTo(50) },
                 { assertThat(savedProduct.status).isEqualTo(ProductStatus.ACTIVE) },
             )
         }
@@ -106,7 +104,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 brandId = 9999L,
                 name = "New Product",
                 price = BigDecimal("15000"),
-                stock = 50,
                 status = ProductStatus.ACTIVE,
             )
             val headers = createAdminHeaders()
@@ -138,7 +135,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 brandId = brand.id,
                 name = "",
                 price = BigDecimal("15000"),
-                stock = 50,
                 status = ProductStatus.ACTIVE,
             )
             val headers = createAdminHeaders()
@@ -167,36 +163,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 brandId = brand.id,
                 name = "New Product",
                 price = BigDecimal("-1"),
-                stock = 50,
-                status = ProductStatus.ACTIVE,
-            )
-            val headers = createAdminHeaders()
-
-            // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
-            val response = testRestTemplate.exchange(
-                ADMIN_ENDPOINT,
-                HttpMethod.POST,
-                HttpEntity(request, headers),
-                responseType,
-            )
-
-            // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-        }
-
-        @DisplayName("음수 재고로는 상품을 생성할 수 없다")
-        @Test
-        fun failsToCreateProduct_whenStockIsNegative() {
-            // arrange
-            val brand = brandJpaRepository.save(
-                Brand.create(name = "Test Brand", description = "Test Description"),
-            )
-            val request = CreateProductRequest(
-                brandId = brand.id,
-                name = "New Product",
-                price = BigDecimal("15000"),
-                stock = -1,
                 status = ProductStatus.ACTIVE,
             )
             val headers = createAdminHeaders()
@@ -231,7 +197,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Test Product",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -293,7 +258,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Product 1",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -302,7 +266,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Product 2",
                     price = BigDecimal("20000"),
-                    stock = 50,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -379,7 +342,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Test Product",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -418,7 +380,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Original Product",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -426,7 +387,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
             val request = UpdateProductRequest(
                 name = "Updated Product",
                 price = BigDecimal("20000"),
-                stock = 50,
                 status = ProductStatus.INACTIVE,
             )
             val headers = createAdminHeaders()
@@ -447,7 +407,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
                 { assertThat(updated.name).isEqualTo("Updated Product") },
                 { assertThat(updated.price).isEqualByComparingTo(BigDecimal("20000")) },
-                { assertThat(updated.stock).isEqualTo(50) },
                 { assertThat(updated.status).isEqualTo(ProductStatus.INACTIVE) },
             )
         }
@@ -459,7 +418,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
             val request = UpdateProductRequest(
                 name = "Updated Product",
                 price = BigDecimal("20000"),
-                stock = 50,
                 status = ProductStatus.ACTIVE,
             )
             val headers = createAdminHeaders()
@@ -492,7 +450,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Original Product",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -500,7 +457,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
             val request = UpdateProductRequest(
                 name = "",
                 price = BigDecimal("20000"),
-                stock = 50,
                 status = ProductStatus.ACTIVE,
             )
             val headers = createAdminHeaders()
@@ -530,7 +486,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Original Product",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -538,7 +493,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
             val request = UpdateProductRequest(
                 name = "Updated Product",
                 price = BigDecimal("-1"),
-                stock = 50,
                 status = ProductStatus.ACTIVE,
             )
             val headers = createAdminHeaders()
@@ -573,7 +527,6 @@ class AdminProductV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Product to Delete",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
