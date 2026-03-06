@@ -3,6 +3,7 @@ package com.loopers.application.order
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponRepository
+import com.loopers.domain.coupon.UserCoupon
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
@@ -35,7 +36,7 @@ class CreateOrderUseCase(
         val orderLines = command.toOrderLines()
 
         // 1. 쿠폰 사전 검증 (락 전, fast-fail)
-        val coupon = validateCoupon(command.userCouponId, command.userId)
+        val (userCoupon, coupon) = validateCoupon(command.couponId, command.userId)
 
         // 2. 상품 정보 조회 (락 없이)
         val productIds = orderLines.map { it.productId }.distinct()
@@ -75,7 +76,7 @@ class CreateOrderUseCase(
             userId = command.userId,
             items = snapshots,
             discountAmount = discountAmount,
-            userCouponId = command.userCouponId,
+            userCouponId = userCoupon?.id,
         )
         val savedOrder = orderRepository.save(order)
 
@@ -90,8 +91,8 @@ class CreateOrderUseCase(
         }
 
         // 6. 쿠폰 Conditional Update
-        command.userCouponId?.let { userCouponId ->
-            val updated = userCouponRepository.useIfAvailable(userCouponId, savedOrder.id)
+        userCoupon?.let {
+            val updated = userCouponRepository.useIfAvailable(it.id, savedOrder.id)
             if (updated == 0) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
         }
 
@@ -99,17 +100,19 @@ class CreateOrderUseCase(
     }
 
     private fun validateCoupon(
-        userCouponId: Long?,
+        couponId: Long?,
         userId: Long,
-    ): Coupon? {
-        if (userCouponId == null) return null
+    ): Pair<UserCoupon?, Coupon?> {
+        if (couponId == null) return Pair(null, null)
 
-        val userCoupon = userCouponRepository.findByIdOrNull(userCouponId)
+        val userCoupon = userCouponRepository.findByUserIdAndCouponId(userId, couponId)
             ?: throw CoreException(CouponErrorCode.USER_COUPON_NOT_FOUND)
         userCoupon.validateUsableBy(userId)
 
-        return couponRepository.findActiveByIdOrNull(userCoupon.couponId)
+        val coupon = couponRepository.findActiveByIdOrNull(couponId)
             ?: throw CoreException(CouponErrorCode.COUPON_NOT_FOUND)
+
+        return Pair(userCoupon, coupon)
     }
 
     private fun calculateDiscount(

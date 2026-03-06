@@ -147,7 +147,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
             val brandId = registerBrand()
             val productId = registerProduct(brandId, price = 10000, stock = 50)
             val couponId = registerCoupon(type = CouponType.FIXED, value = 3000)
-            val userCouponId = issueCoupon(couponId, userId)
+            issueCoupon(couponId, userId)
 
             // act
             val result = createOrderUseCase.execute(
@@ -156,7 +156,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
                     items = listOf(
                         OrderCommand.Create.OrderLineItem(productId = productId, quantity = 3),
                     ),
-                    userCouponId = userCouponId,
+                    couponId = couponId,
                 ),
             )
 
@@ -167,7 +167,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
                 { assertThat(result.totalAmount).isEqualTo(27000) },
             )
 
-            val userCoupon = userCouponRepository.findByIdOrNull(userCouponId)!!
+            val userCoupon = userCouponRepository.findByUserIdAndCouponId(userId, couponId)!!
             assertThat(userCoupon.usedOrderId).isEqualTo(result.orderId)
         }
 
@@ -179,7 +179,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
             val brandId = registerBrand()
             val productId = registerProduct(brandId, price = 10000, stock = 50)
             val couponId = registerCoupon(type = CouponType.RATE, value = 10)
-            val userCouponId = issueCoupon(couponId, userId)
+            issueCoupon(couponId, userId)
 
             // act
             val result = createOrderUseCase.execute(
@@ -188,7 +188,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
                     items = listOf(
                         OrderCommand.Create.OrderLineItem(productId = productId, quantity = 2),
                     ),
-                    userCouponId = userCouponId,
+                    couponId = couponId,
                 ),
             )
 
@@ -208,13 +208,13 @@ class CreateOrderUseCaseTest @Autowired constructor(
             val brandId = registerBrand()
             val productId = registerProduct(brandId, price = 10000, stock = 50)
             val couponId = registerCoupon(type = CouponType.FIXED, value = 1000)
-            val userCouponId = issueCoupon(couponId, userId)
+            issueCoupon(couponId, userId)
 
             createOrderUseCase.execute(
                 OrderCommand.Create(
                     userId = userId,
                     items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
-                    userCouponId = userCouponId,
+                    couponId = couponId,
                 ),
             )
 
@@ -224,7 +224,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
                     OrderCommand.Create(
                         userId = userId,
                         items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
-                        userCouponId = userCouponId,
+                        couponId = couponId,
                     ),
                 )
             }
@@ -244,7 +244,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
                 userId = userId,
                 expiredAt = ZonedDateTime.now().minusDays(1),
             )
-            val savedUserCoupon = userCouponRepository.save(expiredUserCoupon)
+            userCouponRepository.save(expiredUserCoupon)
 
             // act & assert
             val exception = assertThrows<CoreException> {
@@ -252,7 +252,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
                     OrderCommand.Create(
                         userId = userId,
                         items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
-                        userCouponId = savedUserCoupon.id,
+                        couponId = couponId,
                     ),
                 )
             }
@@ -267,7 +267,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
             val brandId = registerBrand()
             val productId = registerProduct(brandId, price = 5000, stock = 50)
             val couponId = registerCoupon(value = 1000, minOrderAmount = 20000)
-            val userCouponId = issueCoupon(couponId, userId)
+            issueCoupon(couponId, userId)
 
             // act & assert
             val exception = assertThrows<CoreException> {
@@ -275,23 +275,21 @@ class CreateOrderUseCaseTest @Autowired constructor(
                     OrderCommand.Create(
                         userId = userId,
                         items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
-                        userCouponId = userCouponId,
+                        couponId = couponId,
                     ),
                 )
             }
             assertThat(exception.errorCode).isEqualTo(CouponErrorCode.MIN_ORDER_AMOUNT_NOT_MET)
         }
 
-        @DisplayName("다른 유저의 쿠폰으로 주문하면 실패한다")
+        @DisplayName("미발급 쿠폰으로 주문하면 실패한다")
         @Test
-        fun failWhenCouponNotOwned() {
+        fun failWhenCouponNotIssued() {
             // arrange
-            val userId = registerUser("testuser")
-            val otherUserId = registerUser("otheruser")
+            val userId = registerUser()
             val brandId = registerBrand()
             val productId = registerProduct(brandId, price = 10000, stock = 50)
             val couponId = registerCoupon()
-            val otherUserCouponId = issueCoupon(couponId, otherUserId)
 
             // act & assert
             val exception = assertThrows<CoreException> {
@@ -299,11 +297,11 @@ class CreateOrderUseCaseTest @Autowired constructor(
                     OrderCommand.Create(
                         userId = userId,
                         items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
-                        userCouponId = otherUserCouponId,
+                        couponId = couponId,
                     ),
                 )
             }
-            assertThat(exception.errorCode).isEqualTo(CouponErrorCode.COUPON_NOT_OWNED)
+            assertThat(exception.errorCode).isEqualTo(CouponErrorCode.USER_COUPON_NOT_FOUND)
         }
 
         @DisplayName("미존재 상품 포함 시 검증 실패")

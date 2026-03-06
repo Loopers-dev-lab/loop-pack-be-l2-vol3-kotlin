@@ -105,7 +105,7 @@ class OrderCouponConcurrencyTest @Autowired constructor(
         val brandId = registerBrand()
         val productId = registerProduct(brandId)
         val couponId = registerCoupon()
-        val userCouponId = issueCoupon(couponId, userId)
+        issueCoupon(couponId, userId)
 
         // act
         val actions = (1..threadCount).map {
@@ -114,7 +114,7 @@ class OrderCouponConcurrencyTest @Autowired constructor(
                     OrderCommand.Create(
                         userId = userId,
                         items = listOf(OrderCommand.Create.OrderLineItem(productId = productId, quantity = 1)),
-                        userCouponId = userCouponId,
+                        couponId = couponId,
                     ),
                 )
             }
@@ -125,7 +125,7 @@ class OrderCouponConcurrencyTest @Autowired constructor(
         val failures = results.filter { it.isFailure }
 
         // assert
-        val userCoupon = userCouponRepository.findByIdOrNull(userCouponId)!!
+        val userCoupon = userCouponRepository.findByUserIdAndCouponId(userId, couponId)!!
 
         assertAll(
             { assertThat(successes).`as`("1건만 주문 성공해야 한다").hasSize(1) },

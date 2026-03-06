@@ -161,9 +161,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
     private fun createOrder(
         items: List<OrderItemRequest>,
         headers: HttpHeaders = userHeaders(),
-        userCouponId: Long? = null,
+        couponId: Long? = null,
     ): OrderCreateResponse? {
-        val request = OrderCreateRequest(items = items, userCouponId = userCouponId)
+        val request = OrderCreateRequest(items = items, couponId = couponId)
         val responseType = object : ParameterizedTypeReference<ApiResponse<OrderCreateResponse>>() {}
         val response = testRestTemplate.exchange(
             ApiPaths.Orders.BASE,
@@ -215,7 +215,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             val order = createOrder(
                 items = listOf(OrderItemRequest(productId = product.id, quantity = 3)),
-                userCouponId = userCoupon.id,
+                couponId = userCoupon.id,
             )
 
             assertAll(
@@ -236,12 +236,12 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             createOrder(
                 items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
-                userCouponId = userCoupon.id,
+                couponId = userCoupon.id,
             )
 
             val request = OrderCreateRequest(
                 items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
-                userCouponId = userCoupon.id,
+                couponId = userCoupon.id,
             )
             val response = testRestTemplate.exchange(
                 ApiPaths.Orders.BASE,

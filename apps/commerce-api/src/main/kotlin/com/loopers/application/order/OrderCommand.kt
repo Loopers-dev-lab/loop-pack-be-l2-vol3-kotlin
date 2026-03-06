@@ -8,7 +8,7 @@ class OrderCommand {
     data class Create(
         val userId: Long,
         val items: List<OrderLineItem>,
-        val userCouponId: Long? = null,
+        val couponId: Long? = null,
     ) {
         data class OrderLineItem(
             val productId: Long,
