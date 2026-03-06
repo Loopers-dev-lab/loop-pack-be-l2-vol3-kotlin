@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
 import jakarta.persistence.OrderBy
 import jakarta.persistence.Table
+import java.math.BigDecimal
 
 @Table(name = "orders")
 @Entity
@@ -25,6 +26,10 @@ class OrderEntity(
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     val status: Order.Status,
+    @Column(name = "issued_coupon_id")
+    val issuedCouponId: Long? = null,
+    @Column(name = "discount_amount", nullable = false)
+    val discountAmount: BigDecimal = BigDecimal.ZERO,
 ) : BaseEntity() {
 
     @OneToMany(cascade = [CascadeType.ALL], orphanRemoval = true)

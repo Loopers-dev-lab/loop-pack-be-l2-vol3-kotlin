@@ -11,6 +11,8 @@ class Order private constructor(
     val idempotencyKey: IdempotencyKey,
     val status: Status,
     val items: List<OrderItem>,
+    val issuedCouponId: Long?,
+    val discountAmount: Money,
     val createdAt: ZonedDateTime?,
 ) {
     init {
@@ -24,6 +26,11 @@ class Order private constructor(
             .map { it.snapshot.sellingPrice.multiply(it.quantity) }
             .reduce { acc, money -> acc + money }
 
+    fun finalAmount(): Money {
+        val total = totalAmount()
+        return if (discountAmount.isGreaterThanOrEqual(total)) Money.ZERO else total - discountAmount
+    }
+
     enum class Status {
         CREATED,
     }
@@ -33,12 +40,16 @@ class Order private constructor(
             userId: Long,
             idempotencyKey: IdempotencyKey,
             items: List<OrderItem>,
+            issuedCouponId: Long? = null,
+            discountAmount: Money = Money.ZERO,
         ): Order = Order(
             id = null,
             userId = userId,
             idempotencyKey = idempotencyKey,
             status = Status.CREATED,
             items = items,
+            issuedCouponId = issuedCouponId,
+            discountAmount = discountAmount,
             createdAt = null,
         )
 
@@ -48,6 +59,8 @@ class Order private constructor(
             idempotencyKey: IdempotencyKey,
             status: Status,
             items: List<OrderItem>,
+            issuedCouponId: Long? = null,
+            discountAmount: Money = Money.ZERO,
             createdAt: ZonedDateTime,
         ): Order = Order(
             id = id,
@@ -55,6 +68,8 @@ class Order private constructor(
             idempotencyKey = idempotencyKey,
             status = status,
             items = items,
+            issuedCouponId = issuedCouponId,
+            discountAmount = discountAmount,
             createdAt = createdAt,
         )
     }

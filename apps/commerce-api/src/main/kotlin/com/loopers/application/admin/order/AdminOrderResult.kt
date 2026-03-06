@@ -13,6 +13,8 @@ class AdminOrderResult {
         val status: String,
         val items: List<OrderItemDetail>,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -22,6 +24,8 @@ class AdminOrderResult {
                 status = order.status.name,
                 items = order.items.map { OrderItemDetail.from(it) },
                 totalAmount = order.totalAmount().amount,
+                discountAmount = order.discountAmount.amount,
+                finalAmount = order.finalAmount().amount,
                 createdAt = order.createdAt!!,
             )
         }
@@ -56,6 +60,8 @@ class AdminOrderResult {
         val orderSummary: String,
         val itemCount: Int,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -74,6 +80,8 @@ class AdminOrderResult {
                     orderSummary = orderSummary,
                     itemCount = itemCount,
                     totalAmount = order.totalAmount().amount,
+                    discountAmount = order.discountAmount.amount,
+                    finalAmount = order.finalAmount().amount,
                     createdAt = order.createdAt!!,
                 )
             }
