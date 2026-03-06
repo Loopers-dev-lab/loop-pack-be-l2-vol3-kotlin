@@ -11,9 +11,13 @@ interface ProductStockJpaRepository : JpaRepository<ProductStockEntity, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query(
-        "SELECT ps FROM ProductStockEntity ps " +
-            "WHERE ps.productId IN :productIds AND ps.deletedAt IS NULL " +
-            "ORDER BY ps.productId ASC",
+        """
+            SELECT ps
+              FROM ProductStockEntity ps
+             WHERE ps.productId IN :productIds
+               AND ps.deletedAt IS NULL
+             ORDER BY ps.productId ASC
+            """,
     )
     fun findAllByProductIdInWithLock(productIds: List<Long>): List<ProductStockEntity>
 }
