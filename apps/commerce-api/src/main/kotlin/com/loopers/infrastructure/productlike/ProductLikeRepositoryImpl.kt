@@ -52,4 +52,7 @@ class ProductLikeRepositoryImpl(
     override fun delete(productLike: ProductLike) {
         productLikeJpaRepository.delete(productLike)
     }
+
+    override fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int =
+        productLikeJpaRepository.deleteByUserIdAndProductId(userId, productId)
 }

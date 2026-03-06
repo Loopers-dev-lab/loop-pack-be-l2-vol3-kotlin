@@ -24,9 +24,6 @@ class ProductRepositoryImpl(
         productJpaRepository
             .findByIdOrNull(id)
 
-    override fun findProductWithLock(id: Long): Product? =
-        productJpaRepository.findByIdWithLock(id)
-
     override fun findByBrandId(brandId: Long): List<Product> =
         productJpaRepository.findByBrandId(brandId)
 
@@ -110,4 +107,12 @@ class ProductRepositoryImpl(
     }
 
     override fun save(product: Product): Product = productJpaRepository.save(product)
+
+    override fun incrementLikeCountAtomic(productId: Long) {
+        productJpaRepository.incrementLikeCountAtomic(productId)
+    }
+
+    override fun decrementLikeCountAtomic(productId: Long) {
+        productJpaRepository.decrementLikeCountAtomic(productId)
+    }
 }

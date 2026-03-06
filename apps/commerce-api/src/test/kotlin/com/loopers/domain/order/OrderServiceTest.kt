@@ -51,7 +51,7 @@ class OrderServiceTest {
         )
 
         // assert
-        assertThat(result).isEqualTo(orderId)
+        assertThat(result.id).isEqualTo(orderId)
     }
 
     @DisplayName("주문 항목이 없으면 BAD_REQUEST 예외를 던진다")
@@ -157,7 +157,7 @@ class OrderServiceTest {
         )
 
         // assert
-        assertThat(result).isEqualTo(orderId)
+        assertThat(result.id).isEqualTo(orderId)
         assertThat(orderSlot.captured.couponId).isEqualTo(couponId)
     }
 }
