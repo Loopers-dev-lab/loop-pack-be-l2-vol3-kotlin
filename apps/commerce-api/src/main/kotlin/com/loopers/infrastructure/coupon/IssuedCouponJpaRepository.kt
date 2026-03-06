@@ -20,18 +20,17 @@ interface IssuedCouponJpaRepository : JpaRepository<IssuedCouponEntity, Long> {
 
     @Modifying
     @Query(
-        value = """
-            UPDATE issued_coupon
-            SET status = 'USED',
-                used_at = :usedAt,
-                version = version + 1,
-                updated_at = :now
-            WHERE id = :id
-              AND version = :version
-              AND status = 'AVAILABLE'
-              AND deleted_at IS NULL
+        """
+        UPDATE IssuedCouponEntity e
+           SET e.status = 'USED',
+               e.usedAt = :usedAt,
+               e.version = e.version + 1,
+               e.updatedAt = :now
+         WHERE e.id = :id
+           AND e.version = :version
+           AND e.status = 'AVAILABLE'
+           AND e.deletedAt IS NULL
         """,
-        nativeQuery = true,
     )
     fun useOptimistic(
         @Param("id") id: Long,
