@@ -5,7 +5,7 @@ import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponTemplate
 import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.order.Order
-import com.loopers.domain.order.OrderItem
+import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductStatus
 import com.loopers.domain.stock.Stock
@@ -221,29 +221,39 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
             val savedUser = userJpaRepository.save(user)
 
-            val order1 = Order.create(savedUser.id)
-            val savedOrder1 = orderJpaRepository.save(order1)
-            val orderItem1 = OrderItem.create(
-                orderId = savedOrder1.id,
-                productId = 1L,
-                quantity = 1,
-                price = BigDecimal("10000"),
-                productName = "상품1",
+            val brand = Brand.create(
+                name = "테스트 브랜드",
+                description = "테스트 브랜드",
             )
-            savedOrder1.addOrderItem(orderItem1)
-            orderJpaRepository.save(savedOrder1)
+            val savedBrand = brandJpaRepository.save(brand)
 
-            val order2 = Order.create(savedUser.id)
-            val savedOrder2 = orderJpaRepository.save(order2)
-            val orderItem2 = OrderItem.create(
-                orderId = savedOrder2.id,
-                productId = 2L,
-                quantity = 2,
-                price = BigDecimal("20000"),
-                productName = "상품2",
+            val product1 = Product.create(
+                brand = savedBrand,
+                name = "상품1",
+                price = BigDecimal("10000"),
+                status = ProductStatus.ACTIVE,
             )
-            savedOrder2.addOrderItem(orderItem2)
-            orderJpaRepository.save(savedOrder2)
+            val savedProduct1 = productJpaRepository.save(product1)
+
+            val product2 = Product.create(
+                brand = savedBrand,
+                name = "상품2",
+                price = BigDecimal("20000"),
+                status = ProductStatus.ACTIVE,
+            )
+            val savedProduct2 = productJpaRepository.save(product2)
+
+            val itemSpecs1 = listOf(
+                OrderItemSpec(savedProduct1, 1, BigDecimal("10000")),
+            )
+            val order1 = Order.createWithItems(savedUser.id, null, itemSpecs1)
+            val savedOrder1 = orderJpaRepository.save(order1)
+
+            val itemSpecs2 = listOf(
+                OrderItemSpec(savedProduct2, 2, BigDecimal("20000")),
+            )
+            val order2 = Order.createWithItems(savedUser.id, null, itemSpecs2)
+            val savedOrder2 = orderJpaRepository.save(order2)
 
             val headers = createAuthHeaders("test123", "encryptedPassword")
 
@@ -298,17 +308,25 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
             val savedUser = userJpaRepository.save(user)
 
-            val order = Order.create(savedUser.id)
-            val savedOrder = orderJpaRepository.save(order)
-            val orderItem = OrderItem.create(
-                orderId = savedOrder.id,
-                productId = 1L,
-                quantity = 1,
-                price = BigDecimal("10000"),
-                productName = "상품1",
+            val brand = Brand.create(
+                name = "테스트 브랜드",
+                description = "테스트 브랜드",
             )
-            savedOrder.addOrderItem(orderItem)
-            orderJpaRepository.save(savedOrder)
+            val savedBrand = brandJpaRepository.save(brand)
+
+            val product = Product.create(
+                brand = savedBrand,
+                name = "상품1",
+                price = BigDecimal("10000"),
+                status = ProductStatus.ACTIVE,
+            )
+            val savedProduct = productJpaRepository.save(product)
+
+            val itemSpecs = listOf(
+                OrderItemSpec(savedProduct, 1, BigDecimal("10000")),
+            )
+            val order = Order.createWithItems(savedUser.id, null, itemSpecs)
+            val savedOrder = orderJpaRepository.save(order)
 
             val headers = createAuthHeaders("test123", "encryptedPassword")
 

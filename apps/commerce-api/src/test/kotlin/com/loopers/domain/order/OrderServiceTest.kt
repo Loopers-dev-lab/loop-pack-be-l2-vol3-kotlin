@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.order.dto.CreateOrderItemCommand
+import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -16,9 +18,19 @@ import org.junit.jupiter.api.assertThrows
 @DisplayName("OrderService")
 class OrderServiceTest {
     private val orderRepository: OrderRepository = mockk()
+    private val productService: ProductService = mockk()
     private val orderService = OrderService(
         orderRepository = orderRepository,
+        productService = productService,
     )
+
+    private fun setupProductMock(productId: Long) {
+        val product = mockk<Product>(relaxed = true)
+        every { product.id } returns productId
+        every { product.name } returns "테스트 상품"
+        every { product.price } returns BigDecimal("10000")
+        every { productService.getProduct(productId) } returns product
+    }
 
     @DisplayName("유효한 정보가 주어지면 주문이 생성되고 저장된다")
     @Test
@@ -26,9 +38,12 @@ class OrderServiceTest {
         // arrange
         val userId = 1L
         val orderId = 100L
+        val productId = 1L
+
+        setupProductMock(productId)
 
         val createOrderItemCommand = CreateOrderItemCommand(
-            productId = 1L,
+            productId = productId,
             productName = "테스트 상품",
             quantity = 2,
             price = BigDecimal("10000.00"),
@@ -132,9 +147,12 @@ class OrderServiceTest {
         val userId = 1L
         val couponId = 5L
         val orderId = 100L
+        val productId = 1L
+
+        setupProductMock(productId)
 
         val createOrderItemCommand = CreateOrderItemCommand(
-            productId = 1L,
+            productId = productId,
             productName = "테스트 상품",
             quantity = 1,
             price = BigDecimal("10000.00"),
