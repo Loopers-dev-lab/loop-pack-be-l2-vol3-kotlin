@@ -780,6 +780,191 @@ Decision 17에서 좋아요 등록의 멱등성을 `DuplicateKeyException catch 
 
 ---
 
+## 31. 쿠폰 동시 사용 방지: 낙관적 락 (@Version)
+
+### 배경
+하나의 발급 쿠폰을 여러 주문에서 동시에 사용하려는 경우, 중복 사용을 방지해야 한다. 비관적 락(재고)과 낙관적 락(쿠폰) 중 선택이 필요했다.
+
+### 선택지
+| 선택지 | 설명 |
+|--------|------|
+| A. 비관적 락 (SELECT FOR UPDATE) | 쿠폰 조회 시 행 잠금. 재고와 동일한 패턴 |
+| **B. 낙관적 락 (@Version)** | JPA @Version 필드로 동시 수정 감지 |
+| C. 애플리케이션 레벨 분산 락 | Redis 등으로 쿠폰 ID 기반 락 |
+
+### 판단: B. 낙관적 락 (@Version)
+
+### 근거
+- **충돌 빈도 낮음**: 같은 쿠폰을 동시에 사용하는 경우는 드물다. 비관적 락은 매 요청마다 DB 행 잠금을 유발하여 불필요한 성능 저하를 초래한다.
+- **재고와 성격이 다름**: 재고는 여러 사용자가 동시에 차감하므로 충돌 빈도가 높아 비관적 락이 적합. 쿠폰은 1인 소유이므로 낙관적 락으로 충분.
+- **구현 단순**: `@Version` 어노테이션 하나로 Hibernate가 자동 관리. 충돌 시 `ObjectOptimisticLockingFailureException` → 409 CONFLICT 반환.
+- **트랜잭션 롤백 안전**: 쿠폰 사용 실패 시 같은 트랜잭션의 재고 차감도 함께 롤백되어 정합성 보장.
+
+### 트레이드오프
+- 충돌 시 재시도 로직이 클라이언트에 필요 (409 응답 처리)
+- 극단적 동시 접근 시 성공률이 낮아질 수 있음 → 1인 소유 쿠폰이므로 실제로 발생하기 어려움
+
+---
+
+## 32. 쿠폰 만료 정책: FIXED_DATE + DAYS_FROM_ISSUE 이중 지원
+
+### 배경
+쿠폰 만료일을 템플릿에 고정할지, 발급 시점 기준으로 계산할지 결정이 필요했다. 실제 서비스에서는 두 가지 정책이 모두 사용된다.
+
+### 선택지
+| 선택지 | 설명 |
+|--------|------|
+| A. 템플릿 expiredAt만 사용 | 모든 쿠폰이 동일한 만료일 |
+| **B. expirationPolicy enum 도입** | FIXED_DATE(특정일) / DAYS_FROM_ISSUE(발급일+N일) |
+| C. 발급 쿠폰에 만료일 직접 입력 | 어드민이 매번 수동 설정 |
+
+### 판단: B. expirationPolicy enum 도입
+
+### 근거
+- **유연성**: "12월 31일까지" (프로모션형)와 "발급일로부터 7일" (웰컴형) 모두 지원
+- **확장성**: 새로운 만료 정책 추가 시 enum 값과 `calculateExpiredAt()` 분기만 추가
+- **발급 쿠폰 독립성**: IssuedCoupon에 구체적 expiredAt 저장 → 템플릿 삭제 후에도 만료 판단 가능
+
+### 트레이드오프
+- 템플릿 필드 증가 (expiredAt, validDays 중 하나만 사용되므로 나머지는 null)
+- 발급 시 계산 로직 필요 → `calculateExpiredAt()` 도메인 메서드로 캡슐화
+
+---
+
+## 33. 좋아요 동시성: Facade exists 사전 조회 + UNIQUE Constraint 안전망
+
+### 배경
+좋아요 check-then-insert 패턴에서 동시 요청 시 UNIQUE 제약 위반이 발생할 수 있다. 이때 500 에러가 아닌 멱등 처리가 필요하다 (BR-L2).
+
+### 선택지
+| 선택지 | 설명 |
+|--------|------|
+| A. Facade DIV catch → 멱등 200 | Facade에서 @Transactional 제거, Service에 이동. **원칙 위반** |
+| **B. Facade exists 사전 조회 + UNIQUE 안전망** | Facade가 @Transactional 주도, exists로 99.9% 멱등, race condition은 409 |
+| C. DB UPSERT (INSERT IGNORE) | DB 레벨 멱등 처리 |
+
+### 판단: B. Facade exists 사전 조회 + UNIQUE Constraint 안전망
+
+### 근거
+- **Facade @Transactional 주도권 유지**: 대원칙(Facade가 트랜잭션 경계 소유) 준수. A안은 Service에 @Transactional을 넘기는 원칙 위반.
+- **99.9% 멱등**: exists 사전 조회로 대부분 200 반환. race condition은 극히 드물고, 409 시 클라이언트 재시도 가능.
+- **Service 단일 책임**: Service는 save만 수행. 멱등 검증은 Facade의 orchestration 역할.
+- **UNIQUE Constraint가 최종 방어선**: DB 레벨에서 정합성 보장, ApiControllerAdvice에서 DIV → 409 CONFLICT.
+
+### 트레이드오프
+- race condition 시 409 반환 (엄밀한 멱등 위반이지만, 극히 드문 케이스)
+- "사전 조회 금지" 원칙에 예외 조건 추가 필요 → D36에서 결정
+
+### D26 수정사항
+- D26("존재 확인 후 INSERT") 접근 유지하되, exists 확인을 Service → Facade로 이동
+
+---
+
+## 34. 주문 플로우 동시성 최적화 — 쿠폰 차감을 재고 락 전으로 이동
+
+### 배경
+
+OrderFacade.createOrder() 트랜잭션 내부에서 `재고 차감(비관적 락)` → `쿠폰 차감(낙관적 락)` 순서로 처리하고 있었다. 동시성 분석 결과 두 가지 문제를 발견했다.
+
+**문제 1: JPA 영속성 컨텍스트 stale read**
+`getProductsByIds()`가 `deductStock()` 앞에서 호출되면, 상품 엔티티가 영속성 컨텍스트에 먼저 캐싱된다. 이후 `findByIdWithLock()` (JPQL + SELECT FOR UPDATE)이 DB에서 최신 값을 읽어도, Hibernate identity guarantee에 의해 캐싱된 stale 엔티티를 반환한다. 결과적으로 모든 스레드가 동일한 stock 값을 읽고 덮어쓴다.
+
+**문제 2: 불필요한 재고 락 대기 후 쿠폰 실패**
+같은 쿠폰으로 5스레드가 동시 주문 시, 4스레드가 재고 락을 순차 대기(각 ~수십ms)한 후에야 쿠폰 version 충돌을 감지하여 실패한다. 재고 락 보유 시간 동안 다른 정상 주문도 대기하게 되어 처리량이 저하된다.
+
+### 선택지
+| 선택지 | 설명 |
+|--------|------|
+| A. 현행 유지 (재고 → 쿠폰) | 쿠폰 실패 시 재고 락을 헛수고 |
+| **B. 쿠폰 차감 → 재고 차감 순서 변경 + flush** | 쿠폰 충돌을 재고 락 전에 감지 |
+| C. 쿠폰에도 비관적 락 적용 | 쿠폰 충돌 빈도가 낮아 과도한 직렬화 |
+
+### 판단: B. 쿠폰 차감 → 재고 차감 순서 변경 + flush
+
+### 근거
+- **조기 충돌 감지**: 쿠폰 `@Version` 체크를 flush로 즉시 실행하여, 재고 락 획득 전에 충돌을 감지. 실패 스레드가 재고 락을 잡지 않으므로 정상 스레드의 대기 시간 감소.
+- **트랜잭션 롤백 안전**: 쿠폰 USED → 이후 재고 부족 시 전체 롤백. 단일 `@Transactional` 내이므로 부분 커밋 불가.
+- **구체적 에러 메시지**: `OptimisticLockingFailureException`을 OrderFacade에서 catch하여 `CoreException(CONFLICT, "쿠폰이 이미 사용되었습니다.")`로 변환. 글로벌 핸들러의 모호한 메시지 대신 구체적 안내.
+- **stale read 해결**: 재고 차감을 상품 조회 앞으로 이동하여 영속성 컨텍스트가 비어있는 상태에서 `findByIdWithLock()`이 실행되도록 보장.
+
+### 변경된 플로우
+```
+Before: 쿠폰확인 → 상품조회 → 재고차감(FOR UPDATE) → 쿠폰차감(@Version) → 주문생성
+After:  쿠폰확인 → 쿠폰차감(@Version+flush) → 재고차감(FOR UPDATE) → 상품조회 → 할인계산 → 주문생성
+```
+
+### 트레이드오프
+- `IssuedCouponRepositoryImpl.save()` 업데이트 시 `flush()` 호출 추가 → Hibernate write-behind 최적화를 부분적으로 포기. 단, 쿠폰 사용(update) 시에만 해당하며, 쿠폰 발급(insert)은 영향 없음.
+- D2의 `saveAndFlush()` 미사용 원칙과의 관계: D2는 회원가입 INSERT의 write-behind 최적화를 보호하기 위한 결정. 본 건은 낙관적 락 UPDATE의 version 체크를 즉시 실행하기 위한 의도적 flush로, 목적이 다름.
+
+### 영향받는 파일
+- `OrderFacade.kt`: 플로우 재배치 + OptimisticLockingFailureException catch
+- `IssuedCouponRepositoryImpl.kt`: update 시 flush() 추가
+
+---
+
+## 35. 비관적 락 vs 낙관적 락 비교 테스트
+
+### 배경
+
+재고(비관적 락)와 쿠폰(낙관적 락)의 동시성 제어가 동일한 시나리오에서 어떻게 동작하는지 비교 검증이 필요했다.
+
+### 비교 시나리오
+
+**Scenario 1: 동일 자원 1개, 5스레드 경쟁**
+| | 비관적 락 (재고 1개) | 낙관적 락 (쿠폰 1장) |
+|---|---|---|
+| 동작 | SELECT FOR UPDATE로 직렬화 | @Version flush로 충돌 감지 |
+| 성공 | 1 (201 CREATED) | 1 (201 CREATED) |
+| 실패 | 4 (400 BAD_REQUEST) | 4 (409 CONFLICT) |
+| 실패 시점 | 락 획득 후 상태 확인 | flush 시 version mismatch |
+
+**Scenario 2: N개 자원, N+1 스레드 초과 경쟁**
+| | 비관적 락 (재고 5개) | 낙관적 락 (쿠폰 5장) |
+|---|---|---|
+| 동작 | 같은 행에 순차 접근 | 각자 고유 쿠폰 + 1개 중복 |
+| 성공 | 5 (201 CREATED) | 5 (201 CREATED) |
+| 실패 | 1 (400 BAD_REQUEST) | 1 (409 CONFLICT) |
+
+### 핵심 차이
+- **비관적 락**: 대기 후 최신 상태를 보장. 충돌 빈도가 높은 자원(재고)에 적합.
+- **낙관적 락**: 대기 없이 동시 진행 후 충돌 사후 감지. 충돌 빈도가 낮은 자원(1인 소유 쿠폰)에 적합.
+- 결과적으로 정합성은 동일하지만, 실패 HTTP 코드가 다름 (400 vs 409).
+
+### 테스트 파일
+- `ConcurrencyTest.kt`: `LockStrategyComparison` nested class (4개 테스트)
+
+---
+
+## 36. "사전 조회 금지" 원칙 예외: 멱등 200 반환 목적의 사전 조회 허용
+
+### 배경
+아키텍처 원칙 "사전 조회로 중복 체크하지 않음 → DB Unique Constraint + 예외 처리"는 회원가입 등 에러 반환(409)이 정상인 케이스에 적합하다. 그러나 좋아요처럼 중복 시 200 성공(멱등)을 반환해야 하는 경우, 사전 조회 없이는 Facade @Transactional 주도권을 유지하면서 멱등 처리가 불가능하다.
+
+### 선택지
+| 선택지 | 설명 |
+|--------|------|
+| A. 예외 없이 원칙 유지 | Service에 @Transactional 이동 필요 → 대원칙 위반 |
+| **B. 멱등 200 목적 사전 조회 허용** | Facade에서 exists 조회 후 분기, @Transactional 주도권 유지 |
+| C. DB UPSERT 사용 | INSERT IGNORE로 DB 레벨 처리. JPA 생태계와 거리가 있음 |
+
+### 판단: B. 멱등 200 반환 목적의 사전 조회 허용
+
+### 근거
+- **원칙의 의도 보존**: "사전 조회 금지"의 핵심 의도는 SELECT-INSERT race condition으로 인한 중복 방지를 DB에 맡기라는 것. 멱등 사전 조회는 중복 "방지"가 아닌 "응답 분기" 목적.
+- **Facade 주도권 유지**: @Transactional을 Service로 넘기면 아키텍처 원칙(Facade가 트랜잭션 경계 소유)이 깨짐.
+- **UNIQUE Constraint는 여전히 최종 방어선**: 사전 조회를 통과한 race condition은 DB Unique + ApiControllerAdvice(409)로 처리.
+
+### 트레이드오프
+- 원칙에 예외 조건이 추가되어 판단 복잡도가 약간 증가
+- race condition 시 409 반환 (완벽한 멱등이 아닌 준멱등)
+
+### 적용 범위
+- 멱등 200 반환이 필요한 경우에 한정 (현재: 좋아요)
+- 에러 반환(409)이 정상인 경우(회원가입 등)는 기존 원칙 그대로 적용
+
+---
+
 ## 결론
 
 모든 판단의 공통 원칙:

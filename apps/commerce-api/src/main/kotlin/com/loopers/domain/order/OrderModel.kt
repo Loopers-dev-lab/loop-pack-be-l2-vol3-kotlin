@@ -12,6 +12,8 @@ data class OrderModel(
     val status: OrderStatus = OrderStatus.ORDERED,
     val orderedAt: ZonedDateTime = ZonedDateTime.now(),
     val items: List<OrderItemModel> = emptyList(),
+    val couponId: Long? = null,
+    val discountAmount: Long = 0,
     val createdAt: ZonedDateTime? = null,
     val updatedAt: ZonedDateTime? = null,
     val deletedAt: ZonedDateTime? = null,
@@ -19,7 +21,9 @@ data class OrderModel(
     fun addItem(orderItem: OrderItemModel): OrderModel =
         copy(items = items + orderItem)
 
-    fun getTotalAmount(): Long = items.sumOf { it.amount }
+    fun getOriginalAmount(): Long = items.sumOf { it.amount }
+
+    fun getTotalAmount(): Long = getOriginalAmount() - discountAmount
 
     fun validateOwner(memberId: Long) {
         if (this.memberId != memberId) {

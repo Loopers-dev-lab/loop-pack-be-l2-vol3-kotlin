@@ -190,7 +190,7 @@ com.loopers
 
 - `@Transactional(readOnly = true)` 를 읽기 메서드에 반드시 명시 → 향후 Read Replica 라우팅 자동 대응
 - `synchronized` 대신 `ReentrantLock` → Virtual Thread pinning 방지
-- 사전 조회로 중복 체크하지 않음 → DB Unique Constraint + 예외 처리
+- 사전 조회로 중복 체크하지 않음 → DB Unique Constraint + 예외 처리. 단, 멱등 200 반환이 필요한 경우(좋아요 등) Facade에서 exists 사전 조회 허용
 - 매 요청 CPU-intensive 연산 반복 금지 → 캐싱 레이어 도입 시 자연스럽게 해소
 - 도메인 간 결합 최소화 → 향후 서비스 분리 대비 (ID 참조, 물리 FK 미사용)
 - 도메인 모델이 자기 불변식 보호 → `deductStock()`, `validateOwner()`, `delete()` 등 비즈니스 규칙은 모델 내부
@@ -199,8 +199,12 @@ com.loopers
 - Validator: VO로 검증 불가능한 복합 비즈니스 규칙 (예: `RawPassword` — 비밀번호 내 생년월일 포함 금지)
 - Soft Delete: `status=DELETED` + `deleted_at` 병행 → `delete()` 메서드에서 동시 설정
 - 재고 동시성 제어: `SELECT FOR UPDATE` 비관적 락 → Phase 1 기능 구현 시 포함 (정합성 핵심)
-- 좋아요 멱등: 존재 확인 후 INSERT (`findByMemberIdAndProductId` → null이면 save). DuplicateKeyException catch 대신 사전 조회 방식 (Decision 26)
+- 좋아요 멱등: 존재 확인 후 INSERT + DataIntegrityViolation catch → 멱등 200 (Decision 26, 33)
 - 대고객 상품 목록: 커서 기반 페이징 (Base64 인코딩). 어드민/주문은 offset 유지 (Decision 28)
+- 쿠폰 동시 사용 방지: 낙관적 락(@Version on IssuedCoupon) → 409 CONFLICT (Decision 31)
+- 쿠폰 만료 정책: FIXED_DATE(특정일) / DAYS_FROM_ISSUE(발급일+N일) 이중 지원 (Decision 32)
+- 삭제된 템플릿 쿠폰: 이미 발급된 쿠폰은 만료일까지 사용 가능
+- 데드락 방지: 재고 차감 시 productId 오름차순 정렬 후 SELECT FOR UPDATE
 - 개발 순서: Phase 1 기능 정합성 → Phase 2 동시성/멱등성/일관성
 
 ### 도메인 & 객체 설계 전략
@@ -268,7 +272,7 @@ com.loopers
 - null-safety 하지 않게 코드 작성하지 말 것 (Java의 경우, Optional을 활용할 것)
 - println 코드 남기지 말 것
 - 매 요청마다 BCrypt 등 CPU-intensive 연산을 반복하지 말 것
-- 사전 조회로 중복 체크하지 말 것 (DB Unique Constraint 활용)
+- 사전 조회로 중복 체크하지 말 것 (DB Unique Constraint 활용). 단, 멱등 200 반환 목적(좋아요 등)의 사전 조회는 허용
 
 #### 2. Recommendation
 - 실제 API를 호출해 확인하는 E2E 테스트 코드 작성

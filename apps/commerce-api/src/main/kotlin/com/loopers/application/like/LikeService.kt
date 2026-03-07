@@ -9,9 +9,11 @@ class LikeService(
     private val productLikeRepository: ProductLikeRepository,
 ) {
     fun like(memberId: Long, productId: Long) {
-        val existing = productLikeRepository.findByMemberIdAndProductId(memberId, productId)
-        if (existing != null) return // 이미 좋아요한 경우 멱등 처리 (BR-L2)
         productLikeRepository.save(ProductLikeModel(memberId = memberId, productId = productId))
+    }
+
+    fun exists(memberId: Long, productId: Long): Boolean {
+        return productLikeRepository.findByMemberIdAndProductId(memberId, productId) != null
     }
 
     fun unlike(memberId: Long, productId: Long) {

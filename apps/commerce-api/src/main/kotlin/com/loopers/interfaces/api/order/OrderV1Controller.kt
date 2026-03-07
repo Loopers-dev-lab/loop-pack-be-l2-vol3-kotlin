@@ -37,6 +37,7 @@ class OrderV1Controller(
                     quantity = it.quantity,
                 )
             },
+            couponId = request.couponId,
         )
         return orderFacade.createOrder(authenticatedMember.id, command)
             .let { OrderV1Dto.OrderResponse.from(it) }
