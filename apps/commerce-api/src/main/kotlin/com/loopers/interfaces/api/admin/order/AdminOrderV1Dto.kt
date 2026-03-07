@@ -7,7 +7,10 @@ class AdminOrderV1Dto {
     data class OrderResponse(
         val id: Long,
         val userId: Long,
+        val originalTotalPrice: Long,
+        val discountAmount: Long,
         val totalPrice: Long,
+        val couponId: Long?,
         val items: List<OrderItemResponse>,
     ) {
         companion object {
@@ -15,7 +18,10 @@ class AdminOrderV1Dto {
                 return OrderResponse(
                     id = orderInfo.id,
                     userId = orderInfo.userId,
+                    originalTotalPrice = orderInfo.originalTotalPrice,
+                    discountAmount = orderInfo.discountAmount,
                     totalPrice = orderInfo.totalPrice,
+                    couponId = orderInfo.couponId,
                     items = orderInfo.items.map { OrderItemResponse.from(it) },
                 )
             }

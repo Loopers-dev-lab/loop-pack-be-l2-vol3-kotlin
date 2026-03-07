@@ -159,7 +159,6 @@ class UserTest {
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
 
-
         @DisplayName("비밀번호가 이전 비밀번호와 같으면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequestException_whenNewPasswordEqualToOldPassword() {
