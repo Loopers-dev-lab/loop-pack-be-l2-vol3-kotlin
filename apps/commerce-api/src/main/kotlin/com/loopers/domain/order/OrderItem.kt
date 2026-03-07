@@ -61,5 +61,25 @@ class OrderItem protected constructor(
                 price = price,
             )
         }
+
+        // 기존 방식 오버로드 (테스트 호환성 유지)
+        fun create(
+            orderId: Long,
+            productId: Long,
+            productName: String,
+            quantity: Int,
+            price: BigDecimal,
+        ): OrderItem {
+            require(quantity > 0) { "수량은 0보다 커야 합니다" }
+            require(price > BigDecimal.ZERO) { "가격은 0보다 커야 합니다" }
+
+            return OrderItem(
+                orderId = orderId,
+                productId = productId,
+                productName = productName,
+                quantity = quantity,
+                price = price,
+            )
+        }
     }
 }

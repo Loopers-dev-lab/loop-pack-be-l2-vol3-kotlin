@@ -43,7 +43,11 @@ class CouponTemplate private constructor(
         protected set
 
     fun isApplicable(orderAmount: BigDecimal): Boolean {
-        return orderAmount >= minOrderAmount
+        return orderAmount >= minOrderAmount && !isExpired()
+    }
+
+    fun isExpired(): Boolean {
+        return ZonedDateTime.now().isAfter(expiredAt)
     }
 
     fun updateInfo(
@@ -91,6 +95,22 @@ class CouponTemplate private constructor(
             )
             template.guard()
             return template
+        }
+
+        internal fun createForTest(
+            name: String,
+            type: CouponType,
+            value: BigDecimal,
+            minOrderAmount: BigDecimal,
+            expiredAt: ZonedDateTime,
+        ): CouponTemplate {
+            return CouponTemplate(
+                name = name,
+                type = type,
+                value = value,
+                minOrderAmount = minOrderAmount,
+                expiredAt = expiredAt,
+            )
         }
     }
 }

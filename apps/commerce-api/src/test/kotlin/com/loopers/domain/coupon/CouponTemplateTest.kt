@@ -151,5 +151,85 @@ class CouponTemplateTest {
             // assert
             assertThat(isApplicable).isFalse()
         }
+
+        @DisplayName("만료된 쿠폰은 적용 불가능하다")
+        @Test
+        fun isApplicable_returnsFalse_whenCouponIsExpired() {
+            // arrange
+            val template = CouponTemplate.createForTest(
+                name = "쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().minusSeconds(1),
+            )
+            val orderAmount = BigDecimal("15000")
+
+            // act
+            val isApplicable = template.isApplicable(orderAmount)
+
+            // assert
+            assertThat(isApplicable).isFalse()
+        }
+
+        @DisplayName("유효 기간 직전은 적용 가능하다")
+        @Test
+        fun isApplicable_returnsTrue_justBeforeExpiration() {
+            // arrange
+            val now = ZonedDateTime.now()
+            val expiredAt = now.plusSeconds(10)
+            val template = CouponTemplate.create(
+                name = "쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = expiredAt,
+            )
+            val orderAmount = BigDecimal("15000")
+
+            // act
+            val isApplicable = template.isApplicable(orderAmount)
+
+            // assert
+            assertThat(isApplicable).isTrue()
+        }
+
+        @DisplayName("쿠폰이 만료되었는지 확인한다")
+        @Test
+        fun isExpired_returnsTrue_whenCouponIsExpired() {
+            // arrange
+            val template = CouponTemplate.createForTest(
+                name = "쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().minusSeconds(1),
+            )
+
+            // act
+            val isExpired = template.isExpired()
+
+            // assert
+            assertThat(isExpired).isTrue()
+        }
+
+        @DisplayName("쿠폰이 만료되지 않았는지 확인한다")
+        @Test
+        fun isExpired_returnsFalse_whenCouponIsNotExpired() {
+            // arrange
+            val template = CouponTemplate.create(
+                name = "쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            )
+
+            // act
+            val isExpired = template.isExpired()
+
+            // assert
+            assertThat(isExpired).isFalse()
+        }
     }
 }
