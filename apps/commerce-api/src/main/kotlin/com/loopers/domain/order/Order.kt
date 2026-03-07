@@ -40,13 +40,7 @@ class Order protected constructor(
 
     // ✅ 새로운 메서드: Product와 함께 OrderItem 생성
     internal fun addItem(product: Product, quantity: Int, price: BigDecimal) {
-        val item = OrderItem.create(
-            orderId = id ?: 0L,
-            productId = product.id ?: 0L,
-            productName = product.name,
-            quantity = quantity,
-            price = price,
-        )
+        val item = OrderItem.create(this, product, quantity, price)
         _orderItems.add(item)
     }
 

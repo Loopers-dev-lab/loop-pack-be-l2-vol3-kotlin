@@ -1,6 +1,7 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.product.Product
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
@@ -44,20 +45,18 @@ class OrderItem protected constructor(
 
     companion object {
         fun create(
-            orderId: Long,
-            productId: Long,
-            productName: String,
+            order: Order,
+            product: Product,
             quantity: Int,
             price: BigDecimal,
         ): OrderItem {
-            // 검증 추가
             require(quantity > 0) { "수량은 0보다 커야 합니다" }
             require(price > BigDecimal.ZERO) { "가격은 0보다 커야 합니다" }
 
             return OrderItem(
-                orderId = orderId,
-                productId = productId,
-                productName = productName,
+                orderId = order.id,
+                productId = product.id,
+                productName = product.name,
                 quantity = quantity,
                 price = price,
             )
