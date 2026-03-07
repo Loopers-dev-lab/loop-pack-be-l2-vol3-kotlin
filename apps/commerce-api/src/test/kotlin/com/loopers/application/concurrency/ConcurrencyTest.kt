@@ -6,6 +6,7 @@ import com.loopers.application.coupon.IssueCouponUseCase
 import com.loopers.application.coupon.RegisterCouponCommand
 import com.loopers.application.coupon.RegisterCouponUseCase
 import com.loopers.application.like.AddLikeUseCase
+import com.loopers.application.like.RemoveLikeUseCase
 import com.loopers.application.order.CreateOrderCommand
 import com.loopers.application.order.CreateOrderUseCase
 import com.loopers.application.order.OrderItemCommand
@@ -72,6 +73,9 @@ class ConcurrencyTest {
 
     @Autowired
     private lateinit var addLikeUseCase: AddLikeUseCase
+
+    @Autowired
+    private lateinit var removeLikeUseCase: RemoveLikeUseCase
 
     @Autowired
     private lateinit var productRepository: ProductRepository
@@ -197,6 +201,43 @@ class ConcurrencyTest {
 
             val product = productRepository.findById(productId)!!
             assertThat(product.likeCount).isEqualTo(100)
+        }
+
+        @Test
+        fun `같은 사용자가 100번 동시에 좋아요 취소하면 likeCount는 0이어야 한다`() {
+            val userId = registerUser("rlk1")
+            val productId = registerProduct(stock = 100)
+            addLikeUseCase.add(userId, productId)
+
+            val result = executeConcurrently(100) {
+                removeLikeUseCase.remove(userId, productId)
+            }
+
+            assertThat(result.successCount + result.failures.size).isEqualTo(100)
+
+            val product = productRepository.findById(productId)!!
+            assertThat(product.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        fun `100명이 좋아요 후 동시에 취소하면 likeCount는 0이어야 한다`() {
+            val productId = registerProduct(stock = 100)
+            val userIds = (1..100).map { registerUser("rmlk$it") }
+
+            userIds.forEach { userId -> addLikeUseCase.add(userId, productId) }
+
+            val product = productRepository.findById(productId)!!
+            assertThat(product.likeCount).isEqualTo(100)
+
+            val result = executeConcurrently(userIds) { userId ->
+                removeLikeUseCase.remove(userId, productId)
+            }
+
+            assertThat(result.successCount).isEqualTo(100)
+            assertThat(result.failures).isEmpty()
+
+            val updated = productRepository.findById(productId)!!
+            assertThat(updated.likeCount).isEqualTo(0)
         }
     }
 
