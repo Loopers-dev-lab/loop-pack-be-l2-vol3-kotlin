@@ -12,15 +12,15 @@ import java.math.BigDecimal
 @Table(name = "order_items")
 class OrderItem protected constructor(
     @Column(name = "order_id", nullable = false)
-    val orderId: Long = 0L,
+    val orderId: Long,
     @Column(name = "product_id", nullable = false)
-    val productId: Long = 0L,
+    val productId: Long,
+    @Column(name = "product_name", nullable = false, length = 200)
+    val productName: String,
     @Column(nullable = false)
-    val quantity: Int = 0,
+    val quantity: Int,
     @Column(nullable = false, precision = 19, scale = 2)
     val price: BigDecimal = BigDecimal.ZERO,
-    @Column(name = "product_name", nullable = false, length = 200)
-    val productName: String = "",
 ) : BaseEntity() {
 
     @Column(nullable = false, precision = 19, scale = 2)
@@ -44,18 +44,22 @@ class OrderItem protected constructor(
 
     companion object {
         fun create(
-            orderId: Long = 0L,
+            orderId: Long,
             productId: Long,
+            productName: String,
             quantity: Int,
             price: BigDecimal,
-            productName: String,
         ): OrderItem {
+            // 검증 추가
+            require(quantity > 0) { "수량은 0보다 커야 합니다" }
+            require(price > BigDecimal.ZERO) { "가격은 0보다 커야 합니다" }
+
             return OrderItem(
                 orderId = orderId,
                 productId = productId,
+                productName = productName,
                 quantity = quantity,
                 price = price,
-                productName = productName,
             )
         }
     }

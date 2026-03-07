@@ -26,9 +26,9 @@ class OrderService(
             val orderItem = OrderItem.create(
                 orderId = savedOrder.id,
                 productId = itemRequest.productId,
+                productName = itemRequest.productName,
                 quantity = itemRequest.quantity,
                 price = itemRequest.price,
-                productName = itemRequest.productName,
             )
             savedOrder.addOrderItem(orderItem)
         }
