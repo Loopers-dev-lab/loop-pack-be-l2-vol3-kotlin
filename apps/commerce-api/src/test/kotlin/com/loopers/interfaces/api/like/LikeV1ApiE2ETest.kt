@@ -4,6 +4,8 @@ import com.loopers.infrastructure.catalog.brand.BrandEntity
 import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductEntity
 import com.loopers.infrastructure.catalog.product.ProductJpaRepository
+import com.loopers.infrastructure.catalog.product.ProductStockEntity
+import com.loopers.infrastructure.catalog.product.ProductStockJpaRepository
 import com.loopers.infrastructure.like.LikeEntity
 import com.loopers.infrastructure.like.LikeJpaRepository
 import com.loopers.infrastructure.user.UserEntity
@@ -33,6 +35,7 @@ class LikeV1ApiE2ETest @Autowired constructor(
     private val userJpaRepository: UserJpaRepository,
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
+    private val productStockJpaRepository: ProductStockJpaRepository,
     private val likeJpaRepository: LikeJpaRepository,
     private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -80,9 +83,13 @@ class LikeV1ApiE2ETest @Autowired constructor(
         name: String = "Test Product",
         stock: Int = 10,
         likeCount: Int = 0,
-    ): ProductEntity = productJpaRepository.save(
-        ProductEntity(brandId = brandId, name = name, description = "desc", price = 10000, stock = stock, likeCount = likeCount)
-    )
+    ): ProductEntity {
+        val product = productJpaRepository.save(
+            ProductEntity(brandId = brandId, name = name, description = "desc", price = 10000, likeCount = likeCount)
+        )
+        productStockJpaRepository.save(ProductStockEntity(productId = product.id, quantity = stock))
+        return product
+    }
 
     // ─── POST /api/v1/products/{productId}/likes ───
 

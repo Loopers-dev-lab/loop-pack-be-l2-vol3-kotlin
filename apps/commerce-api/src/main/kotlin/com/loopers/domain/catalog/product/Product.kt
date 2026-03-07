@@ -11,7 +11,6 @@ import com.loopers.support.error.ErrorType
  * @property name 상품명
  * @property description 상품 설명
  * @property price 가격 (0 이상)
- * @property stock 재고 (0 이상)
  * @property likeCount 좋아요 수 (비정규화, 0 이상)
  * @property status 상품 상태
  */
@@ -20,7 +19,6 @@ class Product(
     name: String,
     description: String,
     price: Int,
-    stock: Int,
     likeCount: Int = 0,
     status: ProductStatus = ProductStatus.HIDDEN,
     val id: Long = 0L,
@@ -37,9 +35,6 @@ class Product(
     var price: Int = price
         private set
 
-    var stock: Int = stock
-        private set
-
     var likeCount: Int = likeCount
         private set
 
@@ -49,31 +44,14 @@ class Product(
     init {
         if (name.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "상품명은 비어있을 수 없습니다.")
         if (price < 0) throw CoreException(ErrorType.BAD_REQUEST, "가격은 0 이상이어야 합니다.")
-        if (stock < 0) throw CoreException(ErrorType.BAD_REQUEST, "재고는 0 이상이어야 합니다.")
     }
 
-    fun update(name: String, description: String, price: Int, stock: Int) {
+    fun update(name: String, description: String, price: Int) {
         if (name.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "상품명은 비어있을 수 없습니다.")
         if (price < 0) throw CoreException(ErrorType.BAD_REQUEST, "가격은 0 이상이어야 합니다.")
-        if (stock < 0) throw CoreException(ErrorType.BAD_REQUEST, "재고는 0 이상이어야 합니다.")
         this.name = name
         this.description = description
         this.price = price
-        this.stock = stock
-        if (stock > 0 && this.status == ProductStatus.SOLD_OUT) this.status = ProductStatus.ACTIVE
-        if (stock == 0 && this.status == ProductStatus.ACTIVE) this.status = ProductStatus.SOLD_OUT
-    }
-
-    fun validateStock(quantity: Int) {
-        if (quantity <= 0) throw CoreException(ErrorType.BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
-        if (stock < quantity) throw CoreException(ErrorType.BAD_REQUEST, "[$name] 재고가 부족합니다. 현재 재고: $stock, 요청 수량: $quantity")
-    }
-
-    fun decrementStock(quantity: Int) {
-        if (quantity <= 0) throw CoreException(ErrorType.BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
-        if (stock - quantity < 0) throw CoreException(ErrorType.BAD_REQUEST, "[$name] 재고가 부족합니다. 현재 재고: $stock, 요청 수량: $quantity")
-        this.stock -= quantity
-        if (this.stock == 0 && this.status == ProductStatus.ACTIVE) this.status = ProductStatus.SOLD_OUT
     }
 
     fun incrementLike() {
