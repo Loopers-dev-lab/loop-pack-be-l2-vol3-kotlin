@@ -54,11 +54,13 @@ class AdminCouponFacade(
         couponService.delete(couponId)
     }
 
+    @Transactional(readOnly = true)
     fun getCoupons(pageQuery: PageQuery): PageResult<CouponInfo> {
         return couponService.findAll(pageQuery)
             .map { CouponInfo.from(it) }
     }
 
+    @Transactional(readOnly = true)
     fun getCoupon(couponId: Long): CouponInfo {
         return couponService.findCouponById(couponId)
             .let { CouponInfo.from(it) }
