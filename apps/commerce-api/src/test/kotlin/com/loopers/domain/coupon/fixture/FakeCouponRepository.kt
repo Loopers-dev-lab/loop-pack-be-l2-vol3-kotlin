@@ -29,6 +29,10 @@ class FakeCouponRepository : CouponRepository {
         return store[id]
     }
 
+    override fun findByIdForUpdate(id: Long): Coupon? {
+        return store[id]
+    }
+
     override fun incrementIssuedCount(id: Long): Int {
         val coupon = store[id] ?: return 0
         val updated = Coupon.reconstitute(

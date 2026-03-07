@@ -22,6 +22,11 @@ class CouponRepositoryImpl(
             ?.let { CouponMapper.toDomain(it) }
     }
 
+    override fun findByIdForUpdate(id: Long): Coupon? {
+        return jpaRepository.findByIdForUpdate(id)
+            ?.let { CouponMapper.toDomain(it) }
+    }
+
     override fun incrementIssuedCount(id: Long): Int {
         return jpaRepository.incrementIssuedCount(id)
     }

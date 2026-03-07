@@ -17,7 +17,7 @@ class IssueCouponUseCase(
 ) {
     @Transactional
     fun issue(userId: Long, couponId: Long): Long {
-        val coupon = couponRepository.findById(couponId)
+        val coupon = couponRepository.findByIdForUpdate(couponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다: $couponId")
 
         if (coupon.isDeleted()) {
