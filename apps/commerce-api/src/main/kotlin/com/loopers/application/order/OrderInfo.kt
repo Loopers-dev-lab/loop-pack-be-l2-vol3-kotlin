@@ -8,6 +8,9 @@ import java.time.ZonedDateTime
 data class OrderInfo(
     val id: Long,
     val userId: Long,
+    val couponId: Long?,
+    val originalAmount: BigDecimal,
+    val discountAmount: BigDecimal,
     val totalAmount: BigDecimal,
     val items: List<OrderItemInfo>,
     val createdAt: ZonedDateTime,
@@ -17,6 +20,9 @@ data class OrderInfo(
             return OrderInfo(
                 id = order.id,
                 userId = order.userId,
+                couponId = order.couponId,
+                originalAmount = order.originalAmount,
+                discountAmount = order.discountAmount,
                 totalAmount = order.totalAmount,
                 items = order.orderItems.map { OrderItemInfo.from(it) },
                 createdAt = order.createdAt,
@@ -42,25 +48,6 @@ data class OrderItemInfo(
                 brandName = item.brandName,
                 quantity = item.quantity,
                 unitPrice = item.unitPrice,
-            )
-        }
-    }
-}
-
-data class ExcludedItemInfo(
-    val productId: Long,
-    val reason: String,
-)
-
-data class OrderResultInfo(
-    val order: OrderInfo,
-    val excludedItems: List<ExcludedItemInfo>,
-) {
-    companion object {
-        fun of(order: Order, excludedItems: List<ExcludedItemInfo>): OrderResultInfo {
-            return OrderResultInfo(
-                order = OrderInfo.from(order),
-                excludedItems = excludedItems,
             )
         }
     }

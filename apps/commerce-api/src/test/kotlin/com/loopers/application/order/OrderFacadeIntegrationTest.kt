@@ -1,8 +1,13 @@
 package com.loopers.application.order
 
 import com.loopers.domain.brand.Brand
+import com.loopers.domain.coupon.Coupon
+import com.loopers.domain.coupon.CouponType
+import com.loopers.domain.coupon.IssuedCoupon
 import com.loopers.domain.product.Product
 import com.loopers.infrastructure.brand.BrandJpaRepository
+import com.loopers.infrastructure.coupon.CouponJpaRepository
+import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository
 import com.loopers.infrastructure.order.OrderJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.support.error.CoreException
@@ -18,6 +23,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 /**
  * OrderFacade 통합 테스트
@@ -30,6 +36,8 @@ class OrderFacadeIntegrationTest @Autowired constructor(
     private val orderJpaRepository: OrderJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
     private val brandJpaRepository: BrandJpaRepository,
+    private val couponJpaRepository: CouponJpaRepository,
+    private val issuedCouponJpaRepository: IssuedCouponJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -60,6 +68,26 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         )
     }
 
+    private fun createCoupon(
+        type: CouponType = CouponType.FIXED,
+        value: BigDecimal = BigDecimal("5000"),
+        minOrderAmount: BigDecimal? = BigDecimal("10000"),
+    ): Coupon {
+        return couponJpaRepository.save(
+            Coupon(
+                name = "테스트 쿠폰",
+                type = type,
+                value = value,
+                minOrderAmount = minOrderAmount,
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            ),
+        )
+    }
+
+    private fun issueCoupon(couponId: Long, userId: Long): IssuedCoupon {
+        return issuedCouponJpaRepository.save(IssuedCoupon(couponId = couponId, userId = userId))
+    }
+
     @DisplayName("주문을 생성할 때,")
     @Nested
     inner class CreateOrder {
@@ -76,20 +104,19 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
 
             // assert
-            val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
             val updatedProduct = productJpaRepository.findById(product.id).get()
             assertAll(
                 { assertThat(savedOrder.userId).isEqualTo(1L) },
                 { assertThat(savedOrder.totalAmount).isEqualByComparingTo(BigDecimal("258000")) },
                 { assertThat(savedOrder.orderItems).hasSize(1) },
                 { assertThat(updatedProduct.stock).isEqualTo(98) },
-                { assertThat(result.excludedItems).isEmpty() },
             )
         }
 
-        @DisplayName("일부 상품의 재고가 부족하면, 부분 주문이 생성되고 excludedItems가 반환된다.")
+        @DisplayName("일부 상품의 재고가 부족하면, BAD_REQUEST 예외가 발생하고 주문이 생성되지 않는다.")
         @Test
-        fun createsPartialOrder_whenSomeStockInsufficient() {
+        fun throwsBadRequest_whenSomeStockInsufficient() {
             // arrange
             val brand = createBrand()
             val product1 = createProduct(brand = brand, name = "에어맥스 90", stock = 100)
@@ -99,14 +126,13 @@ class OrderFacadeIntegrationTest @Autowired constructor(
                 OrderItemCriteria(productId = product2.id, quantity = 1),
             )
 
-            // act
-            val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
-
-            // assert
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                orderFacade.createOrder(userId = 1L, criteria = criteria)
+            }
             assertAll(
-                { assertThat(result.order.items).hasSize(1) },
-                { assertThat(result.excludedItems).hasSize(1) },
-                { assertThat(result.excludedItems[0].productId).isEqualTo(product2.id) },
+                { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
+                { assertThat(orderJpaRepository.findAll()).isEmpty() },
             )
         }
 
@@ -137,13 +163,119 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val result = orderFacade.createOrder(userId = 1L, criteria = criteria)
 
             // assert
-            val savedOrder = orderJpaRepository.findByIdWithItems(result.order.id)!!
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
             val item = savedOrder.orderItems[0]
             assertAll(
                 { assertThat(item.productName).isEqualTo("에어맥스 90") },
                 { assertThat(item.unitPrice).isEqualByComparingTo(BigDecimal("129000")) },
                 { assertThat(item.brandName).isEqualTo("나이키") },
             )
+        }
+    }
+
+    @DisplayName("쿠폰을 적용해서 주문할 때,")
+    @Nested
+    inner class CreateOrderWithCoupon {
+
+        @DisplayName("정액 쿠폰을 적용하면, 할인 금액이 반영된 주문이 생성된다.")
+        @Test
+        fun appliesFixedCouponDiscount_whenValidCoupon() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand = brand, price = BigDecimal("50000"), stock = 100)
+            val coupon = createCoupon(type = CouponType.FIXED, value = BigDecimal("5000"), minOrderAmount = BigDecimal("10000"))
+            val issuedCoupon = issueCoupon(coupon.id, 1L)
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 2))
+
+            // act
+            val result = orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
+
+            // assert
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
+            val usedCoupon = issuedCouponJpaRepository.findById(issuedCoupon.id).get()
+            assertAll(
+                { assertThat(savedOrder.originalAmount).isEqualByComparingTo(BigDecimal("100000")) },
+                { assertThat(savedOrder.discountAmount).isEqualByComparingTo(BigDecimal("5000")) },
+                { assertThat(savedOrder.totalAmount).isEqualByComparingTo(BigDecimal("95000")) },
+                { assertThat(savedOrder.couponId).isEqualTo(issuedCoupon.id) },
+                { assertThat(usedCoupon.status.name).isEqualTo("USED") },
+                { assertThat(usedCoupon.usedAt).isNotNull() },
+            )
+        }
+
+        @DisplayName("정률 쿠폰을 적용하면, 비율에 따른 할인 금액이 반영된다.")
+        @Test
+        fun appliesRateCouponDiscount_whenValidCoupon() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand = brand, price = BigDecimal("50000"), stock = 100)
+            val coupon = createCoupon(type = CouponType.RATE, value = BigDecimal("10"), minOrderAmount = null)
+            val issuedCoupon = issueCoupon(coupon.id, 1L)
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 2))
+
+            // act
+            val result = orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
+
+            // assert
+            val savedOrder = orderJpaRepository.findByIdWithItems(result.id)!!
+            assertAll(
+                { assertThat(savedOrder.originalAmount).isEqualByComparingTo(BigDecimal("100000")) },
+                { assertThat(savedOrder.discountAmount).isEqualByComparingTo(BigDecimal("10000")) },
+                { assertThat(savedOrder.totalAmount).isEqualByComparingTo(BigDecimal("90000")) },
+            )
+        }
+
+        @DisplayName("타인의 쿠폰을 사용하면, FORBIDDEN 예외가 발생한다.")
+        @Test
+        fun throwsForbidden_whenUsingOtherUsersCoupon() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand = brand, stock = 100)
+            val coupon = createCoupon()
+            val issuedCoupon = issueCoupon(coupon.id, 2L)
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 1))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
+        }
+
+        @DisplayName("이미 사용된 쿠폰을 사용하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenCouponAlreadyUsed() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand = brand, stock = 100)
+            val coupon = createCoupon()
+            val issuedCoupon = issueCoupon(coupon.id, 1L)
+            issuedCoupon.use()
+            issuedCouponJpaRepository.save(issuedCoupon)
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 1))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("최소 주문 금액 미달 시, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequest_whenBelowMinOrderAmount() {
+            // arrange
+            val brand = createBrand()
+            val product = createProduct(brand = brand, price = BigDecimal("3000"), stock = 100)
+            val coupon = createCoupon(minOrderAmount = BigDecimal("10000"))
+            val issuedCoupon = issueCoupon(coupon.id, 1L)
+            val criteria = listOf(OrderItemCriteria(productId = product.id, quantity = 1))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                orderFacade.createOrder(userId = 1L, criteria = criteria, couponId = issuedCoupon.id)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

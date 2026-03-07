@@ -87,6 +87,16 @@ class ProductService(
     }
 
     @Transactional
+    fun incrementLikeCount(productId: Long) {
+        productRepository.incrementLikeCount(productId)
+    }
+
+    @Transactional
+    fun decrementLikeCount(productId: Long) {
+        productRepository.decrementLikeCount(productId)
+    }
+
+    @Transactional
     fun getProductsWithLock(productIds: List<Long>): List<Product> {
         return productRepository.findAllByIdWithLock(productIds)
     }
@@ -94,26 +104,27 @@ class ProductService(
     fun reserveStock(
         products: List<Product>,
         criteria: List<OrderItemCriteria>,
-    ): StockReservationResult {
+    ): List<ReservedProduct> {
         val productMap = products.associateBy { it.id }
-        val reservedProducts = mutableListOf<ReservedProduct>()
-        val failedReservations = mutableListOf<FailedReservation>()
+        val failedReasons = mutableListOf<String>()
 
         for (item in criteria) {
             val product = productMap[item.productId]
             if (product == null) {
-                failedReservations.add(FailedReservation(item.productId, "존재하지 않는 상품입니다."))
-                continue
+                failedReasons.add("상품 ID ${item.productId}: 존재하지 않는 상품입니다.")
+            } else if (!product.hasEnoughStock(item.quantity)) {
+                failedReasons.add("상품 ID ${item.productId}: 재고가 부족합니다. 현재 재고: ${product.stock}")
             }
-            if (!product.reserve(item.quantity)) {
-                failedReservations.add(FailedReservation(item.productId, "재고가 부족합니다. 현재 재고: ${product.stock}"))
-                continue
-            }
-            reservedProducts.add(
-                ReservedProduct(product.id, product.name, product.brandId, item.quantity, product.price),
-            )
         }
 
-        return StockReservationResult(reservedProducts, failedReservations)
+        if (failedReasons.isNotEmpty()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족한 상품이 있습니다. ${failedReasons.joinToString(", ")}")
+        }
+
+        return criteria.map { item ->
+            val product = productMap[item.productId]!!
+            product.reserve(item.quantity)
+            ReservedProduct(product.id, product.name, product.brandId, item.quantity, product.price)
+        }
     }
 }

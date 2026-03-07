@@ -46,4 +46,12 @@ class ProductRepositoryImpl(
     override fun findAllByIdWithLock(ids: List<Long>): List<Product> {
         return productJpaRepository.findAllByIdWithLock(ids)
     }
+
+    override fun incrementLikeCount(productId: Long) {
+        productJpaRepository.incrementLikeCount(productId)
+    }
+
+    override fun decrementLikeCount(productId: Long) {
+        productJpaRepository.decrementLikeCount(productId)
+    }
 }

@@ -86,7 +86,7 @@ class LikeServiceIntegrationTest @Autowired constructor(
     @Nested
     inner class AddLike {
 
-        @DisplayName("정상적인 요청이면, DB에 좋아요가 저장된다.")
+        @DisplayName("정상적인 요청이면, DB에 좋아요가 저장되고 likeCount가 1 증가한다.")
         @Test
         fun savesLikeToDatabase_whenValidRequest() {
             // act
@@ -94,14 +94,16 @@ class LikeServiceIntegrationTest @Autowired constructor(
 
             // assert
             val saved = likeJpaRepository.findByUserIdAndProductIdAndDeletedAtIsNull(savedUser.id, savedProduct.id)!!
+            val product = productJpaRepository.findById(savedProduct.id).get()
             assertAll(
                 { assertThat(saved.userId).isEqualTo(savedUser.id) },
                 { assertThat(saved.productId).isEqualTo(savedProduct.id) },
                 { assertThat(result.productId).isEqualTo(savedProduct.id) },
+                { assertThat(product.likeCount).isEqualTo(1) },
             )
         }
 
-        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면, 기존 좋아요가 유지된다.")
+        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면, 기존 좋아요가 유지되고 likeCount는 증가하지 않는다.")
         @Test
         fun returnsExistingLike_whenAlreadyLiked() {
             // arrange
@@ -111,13 +113,15 @@ class LikeServiceIntegrationTest @Autowired constructor(
             val second = likeService.addLike(savedUser.id, savedProduct.id)
 
             // assert
+            val product = productJpaRepository.findById(savedProduct.id).get()
             assertAll(
                 { assertThat(second.id).isEqualTo(first.id) },
                 { assertThat(likeJpaRepository.findAll()).hasSize(1) },
+                { assertThat(product.likeCount).isEqualTo(1) },
             )
         }
 
-        @DisplayName("Soft Delete된 좋아요가 있으면, 복원된다.")
+        @DisplayName("Soft Delete된 좋아요가 있으면, 복원되고 likeCount가 1 증가한다.")
         @Test
         fun restoresLike_whenSoftDeletedLikeExists() {
             // arrange
@@ -129,10 +133,12 @@ class LikeServiceIntegrationTest @Autowired constructor(
             val result = likeService.addLike(savedUser.id, savedProduct.id)
 
             // assert
+            val product = productJpaRepository.findById(savedProduct.id).get()
             assertAll(
                 { assertThat(result.id).isEqualTo(like.id) },
                 { assertThat(result.productId).isEqualTo(savedProduct.id) },
                 { assertThat(likeJpaRepository.findAll()).hasSize(1) },
+                { assertThat(product.likeCount).isEqualTo(1) },
             )
         }
 
@@ -165,20 +171,22 @@ class LikeServiceIntegrationTest @Autowired constructor(
     @Nested
     inner class CancelLike {
 
-        @DisplayName("활성 좋아요가 있으면, Soft Delete된다.")
+        @DisplayName("활성 좋아요가 있으면, Soft Delete되고 likeCount가 1 감소한다.")
         @Test
         fun softDeletesLike_whenActiveLikeExists() {
             // arrange
-            val like = likeJpaRepository.save(Like(userId = savedUser.id, productId = savedProduct.id))
+            likeService.addLike(savedUser.id, savedProduct.id)
 
             // act
             likeService.cancelLike(savedUser.id, savedProduct.id)
 
             // assert
-            val deleted = likeJpaRepository.findById(like.id).get()
+            val like = likeJpaRepository.findAll().first()
+            val product = productJpaRepository.findById(savedProduct.id).get()
             assertAll(
-                { assertThat(deleted.isDeleted()).isTrue() },
+                { assertThat(like.isDeleted()).isTrue() },
                 { assertThat(likeJpaRepository.findByUserIdAndProductIdAndDeletedAtIsNull(savedUser.id, savedProduct.id)).isNull() },
+                { assertThat(product.likeCount).isEqualTo(0) },
             )
         }
 

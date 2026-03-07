@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.order
 
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.brand.BrandV1Dto
+import com.loopers.interfaces.api.coupon.CouponAdminV1Dto
 import com.loopers.interfaces.api.product.ProductAdminV1Dto
 import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.infrastructure.user.UserJpaRepository
@@ -21,9 +22,11 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import com.loopers.domain.coupon.CouponType
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -119,6 +122,40 @@ class OrderV1ApiE2ETest @Autowired constructor(
         return response.body?.data?.id
     }
 
+    private fun createTestCoupon(
+        type: CouponType = CouponType.FIXED,
+        value: BigDecimal = BigDecimal("5000"),
+        minOrderAmount: BigDecimal? = BigDecimal("10000"),
+    ): Long? {
+        val request = CouponAdminV1Dto.CreateRequest(
+            name = "테스트 쿠폰",
+            type = type,
+            value = value,
+            minOrderAmount = minOrderAmount,
+            expiredAt = ZonedDateTime.now().plusDays(30),
+        )
+        val response = testRestTemplate.exchange(
+            "/api-admin/v1/coupons",
+            HttpMethod.POST,
+            HttpEntity(request, adminHeaders()),
+            object : ParameterizedTypeReference<ApiResponse<CouponAdminV1Dto.CouponAdminResponse>>() {},
+        )
+        return response.body?.data?.id
+    }
+
+    private fun issueCoupon(couponId: Long): Long? {
+        val response = testRestTemplate.exchange(
+            "/api/v1/coupons/$couponId/issue",
+            HttpMethod.POST,
+            HttpEntity<Any>(authHeaders()),
+            object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {},
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        val data = response.body?.data as? Map<String, Any>
+        return (data?.get("id") as? Number)?.toLong()
+    }
+
     private fun createOrder(productId: Long, quantity: Int = 2): Map<String, Any>? {
         val request = OrderV1Dto.CreateRequest(
             items = listOf(OrderV1Dto.OrderItemRequest(productId = productId, quantity = quantity)),
@@ -160,9 +197,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("일부 상품 재고 부족이면, 부분 주문과 excludedItems를 반환한다.")
+        @DisplayName("일부 상품 재고 부족이면, 400 BAD_REQUEST를 반환한다.")
         @Test
-        fun returnsPartialOrder_whenSomeStockInsufficient() {
+        fun returnsBadRequest_whenSomeStockInsufficient() {
             // arrange
             val outOfStockProductId = createTestProduct(testBrandId, name = "재고없는상품", stock = 0)!!
             val request = OrderV1Dto.CreateRequest(
@@ -177,14 +214,11 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 "/api/v1/orders",
                 HttpMethod.POST,
                 HttpEntity(request, authHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
             )
 
             // assert
-            assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data).isNotNull() },
-            )
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
 
         @DisplayName("모든 상품의 재고가 부족하면, 400 BAD_REQUEST를 반환한다.")
@@ -368,6 +402,105 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+        }
+    }
+
+    @DisplayName("POST /api/v1/orders (쿠폰 적용)")
+    @Nested
+    inner class CreateOrderWithCoupon {
+
+        @DisplayName("쿠폰을 적용한 주문이면, 할인이 반영된 200 OK를 반환한다.")
+        @Test
+        fun returnsOkWithDiscount_whenCouponApplied() {
+            // arrange
+            val couponId = createTestCoupon(
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+            )!!
+            val issuedCouponId = issueCoupon(couponId)!!
+            val request = OrderV1Dto.CreateRequest(
+                items = listOf(OrderV1Dto.OrderItemRequest(productId = testProductId, quantity = 1)),
+                couponId = issuedCouponId,
+            )
+
+            // act
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.POST,
+                HttpEntity(request, authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {},
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).isNotNull() },
+                { assertThat(response.body?.data?.get("couponId")).isNotNull() },
+                { assertThat(response.body?.data?.get("discountAmount")).isNotNull() },
+            )
+        }
+
+        @DisplayName("최소 주문 금액 미달 시, 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenBelowMinOrderAmount() {
+            // arrange
+            val cheapProductId = createTestProduct(testBrandId, name = "저가상품", stock = 100)!!
+            // 상품 가격이 129000이므로 minOrderAmount를 200000으로 설정
+            val couponId = createTestCoupon(minOrderAmount = BigDecimal("200000"))!!
+            val issuedCouponId = issueCoupon(couponId)!!
+            val request = OrderV1Dto.CreateRequest(
+                items = listOf(OrderV1Dto.OrderItemRequest(productId = cheapProductId, quantity = 1)),
+                couponId = issuedCouponId,
+            )
+
+            // act
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.POST,
+                HttpEntity(request, authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @DisplayName("이미 사용된 쿠폰이면, 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenCouponAlreadyUsed() {
+            // arrange
+            val couponId = createTestCoupon(minOrderAmount = null)!!
+            val issuedCouponId = issueCoupon(couponId)!!
+
+            // 먼저 쿠폰 사용
+            val firstRequest = OrderV1Dto.CreateRequest(
+                items = listOf(OrderV1Dto.OrderItemRequest(productId = testProductId, quantity = 1)),
+                couponId = issuedCouponId,
+            )
+            testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.POST,
+                HttpEntity(firstRequest, authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            )
+
+            // 같은 쿠폰으로 재주문
+            val secondRequest = OrderV1Dto.CreateRequest(
+                items = listOf(OrderV1Dto.OrderItemRequest(productId = testProductId, quantity = 1)),
+                couponId = issuedCouponId,
+            )
+
+            // act
+            val response = testRestTemplate.exchange(
+                "/api/v1/orders",
+                HttpMethod.POST,
+                HttpEntity(secondRequest, authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
     }
 }

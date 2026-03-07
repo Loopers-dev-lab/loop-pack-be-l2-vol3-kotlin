@@ -12,12 +12,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 @Tag(name = "Order V1 API", description = "주문 관련 API")
 interface OrderV1ApiSpec {
 
-    @Operation(summary = "주문 생성", description = "상품을 주문합니다. 재고가 부족한 상품은 제외되고 부분 주문이 생성될 수 있습니다.")
+    @Operation(
+        summary = "주문 생성",
+        description = "상품을 주문합니다. 하나라도 재고가 부족하면 전체 주문이 거부됩니다.",
+    )
     @ApiResponses(
         value = [
             SwaggerApiResponse(responseCode = "200", description = "주문 성공"),
-            SwaggerApiResponse(responseCode = "400", description = "잘못된 요청 (모든 상품 재고 부족 등)"),
+            SwaggerApiResponse(responseCode = "400", description = "잘못된 요청 (재고 부족 시 전체 주문 거부, 최소 주문 금액 미달 등)"),
             SwaggerApiResponse(responseCode = "401", description = "인증 실패"),
+            SwaggerApiResponse(responseCode = "403", description = "타인의 쿠폰 사용 시도"),
+            SwaggerApiResponse(responseCode = "404", description = "쿠폰 없음"),
         ],
     )
     fun createOrder(

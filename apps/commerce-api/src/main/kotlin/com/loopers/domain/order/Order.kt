@@ -19,10 +19,22 @@ import java.math.BigDecimal
 )
 class Order(
     userId: Long,
+    couponId: Long? = null,
 ) : OrderBaseEntity() {
 
     @Column(name = "user_id", nullable = false)
     val userId: Long = userId
+
+    @Column(name = "coupon_id")
+    val couponId: Long? = couponId
+
+    @Column(name = "original_amount", nullable = false, precision = 15, scale = 2)
+    var originalAmount: BigDecimal = BigDecimal.ZERO
+        private set
+
+    @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
+    var discountAmount: BigDecimal = BigDecimal.ZERO
+        private set
 
     @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
     var totalAmount: BigDecimal = BigDecimal.ZERO
@@ -57,6 +69,11 @@ class Order(
         recalculateTotalAmount()
     }
 
+    fun applyDiscount(discountAmount: BigDecimal) {
+        this.discountAmount = discountAmount
+        this.totalAmount = this.originalAmount - discountAmount
+    }
+
     fun validateNotEmpty() {
         if (_orderItems.isEmpty()) {
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.")
@@ -64,6 +81,7 @@ class Order(
     }
 
     private fun recalculateTotalAmount() {
-        totalAmount = _orderItems.sumOf { it.getSubtotal() }
+        originalAmount = _orderItems.sumOf { it.getSubtotal() }
+        totalAmount = originalAmount - discountAmount
     }
 }

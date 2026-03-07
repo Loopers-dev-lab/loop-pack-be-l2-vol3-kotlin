@@ -163,6 +163,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.id).isEqualTo(created.id) },
                 { assertThat(response.body?.data?.name).isEqualTo(TEST_PRODUCT_NAME) },
                 { assertThat(response.body?.data?.brandId).isEqualTo(brand.id) },
+                { assertThat(response.body?.data?.likeCount).isEqualTo(0) },
             )
         }
 
@@ -258,6 +259,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.name).isEqualTo(TEST_PRODUCT_NAME) },
                 { assertThat(response.body?.data?.brandId).isEqualTo(brand.id) },
                 { assertThat(response.body?.data?.id).isNotNull() },
+                { assertThat(response.body?.data?.likeCount).isEqualTo(0) },
                 { assertThat(response.body?.data?.createdAt).isNotNull() },
                 { assertThat(response.body?.data?.updatedAt).isNotNull() },
             )
