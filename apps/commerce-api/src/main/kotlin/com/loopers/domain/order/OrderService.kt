@@ -1,7 +1,9 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.order.dto.CreateOrderItemCommand
+import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.order.dto.OrderedInfo
+import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
@@ -13,27 +15,26 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class OrderService(
     private val orderRepository: OrderRepository,
+    // ✅ Product 조회용 추가
+    private val productService: ProductService,
 ) {
 
     @Transactional
     fun createOrder(userId: Long, items: List<CreateOrderItemCommand>, couponId: Long? = null): Order {
         validateItems(items)
 
-        val order = Order.create(userId, couponId)
-        val savedOrder = orderRepository.save(order)
-
-        items.forEach { itemRequest ->
-            val orderItem = OrderItem.create(
-                orderId = savedOrder.id,
-                productId = itemRequest.productId,
-                productName = itemRequest.productName,
-                quantity = itemRequest.quantity,
-                price = itemRequest.price,
+        // ✅ OrderItemSpec 준비
+        val itemSpecs = items.map { cmd ->
+            OrderItemSpec(
+                product = productService.getProduct(cmd.productId),
+                quantity = cmd.quantity,
+                price = cmd.price,
             )
-            savedOrder.addOrderItem(orderItem)
         }
 
-        return savedOrder
+        // ✅ Order와 OrderItem을 함께 생성
+        val order = Order.createWithItems(userId, couponId, itemSpecs)
+        return orderRepository.save(order)
     }
 
     fun getOrdersByUserId(userId: Long, pageable: Pageable): Page<OrderedInfo> {
