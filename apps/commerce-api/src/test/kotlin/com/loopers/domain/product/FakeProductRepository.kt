@@ -61,6 +61,19 @@ class FakeProductRepository : ProductRepository {
         return 1
     }
 
+    override fun increaseLikeCount(productId: Long): Int {
+        val product = store.find { it.id == productId && it.deletedAt == null } ?: return 0
+        product.increaseLikeCount()
+        return 1
+    }
+
+    override fun decreaseLikeCount(productId: Long): Int {
+        val product = store.find { it.id == productId && it.deletedAt == null } ?: return 0
+        if (product.likeCount <= 0) return 0
+        product.decreaseLikeCount()
+        return 1
+    }
+
     private fun toPage(list: List<Product>, pageable: Pageable): Page<Product> {
         val start = pageable.offset.toInt()
         val end = minOf(start + pageable.pageSize, list.size)

@@ -17,7 +17,7 @@ class BrandRepositoryImpl(
     }
 
     override fun findById(id: Long): Brand? {
-        return brandJpaRepository.findByIdOrNull(id)
+        return brandJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
     override fun findByIds(ids: List<Long>): List<Brand> {

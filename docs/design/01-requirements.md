@@ -14,7 +14,8 @@
 - 브랜드와 상품을 관리자(어드민)가 등록/수정/삭제할 수 있어야 한다
 - 브랜드 삭제 시 해당 브랜드의 상품도 함께 삭제되어야 한다
 - 주문 시 **재고 확인 및 차감**이 보장되어야 한다
-- 현재는 장바구니/결제/쿠폰 없이 **주문 즉시 완료** 구조 (추후 확장 가능)
+- 현재는 장바구니/결제 없이 **주문 즉시 완료** 구조 (추후 확장 가능)
+- 쿠폰을 발급받아 주문 시 할인을 적용할 수 있다 (주문 1건당 쿠폰 1장)
 
 ### 시스템 관점
 - 동시 주문 시 재고 정합성을 어떻게 보장할 것인가
@@ -183,7 +184,8 @@
   "items": [
     { "productId": 1, "quantity": 2 },
     { "productId": 3, "quantity": 1 }
-  ]
+  ],
+  "couponIssueId": 5
 }
 ```
 
@@ -191,6 +193,7 @@
 1. 회원 인증 확인
 2. 요청된 상품 목록의 유효성 검증 (상품 존재 여부, 판매 상태, 전시 여부)
 3. **재고 확인 및 차감** (동시성 보장)
+3-1. **쿠폰 적용** (couponIssueId가 있으면 쿠폰 검증 + 할인 계산 + 사용 처리)
 4. 주문 금액 계산 (현재는 상품 가격 × 수량, 추후 쿠폰/등급 할인 확장)
 5. **상품 정보 스냅샷 저장** (당시 가격, 상품명, 브랜드명 등)
 6. 주문 생성 (Order + OrderItem)
@@ -236,6 +239,45 @@
 
 ---
 
+### 3.5 쿠폰 (Coupon)
+
+#### 어드민 API
+
+| METHOD | URI | 인증 | 설명 |
+|--------|-----|------|------|
+| POST | `/api-admin/v1/coupons` | LDAP | 쿠폰 등록 |
+| GET | `/api-admin/v1/coupons?page=0&size=20` | LDAP | 쿠폰 목록 조회 |
+| GET | `/api-admin/v1/coupons/{couponId}` | LDAP | 쿠폰 상세 조회 |
+| PUT | `/api-admin/v1/coupons/{couponId}` | LDAP | 쿠폰 수정 |
+| DELETE | `/api-admin/v1/coupons/{couponId}` | LDAP | 쿠폰 삭제 |
+| GET | `/api-admin/v1/coupons/{couponId}/issues?page=0&size=20` | LDAP | 쿠폰별 발급 목록 조회 |
+
+#### 대고객 API
+
+| METHOD | URI | 인증 | 설명 |
+|--------|-----|------|------|
+| POST | `/api/v1/coupons/{couponId}/issue` | 회원 | 쿠폰 발급 요청 |
+| GET | `/api/v1/users/me/coupons` | 회원 | 내 쿠폰 발급 목록 조회 |
+
+> 쿠폰 사용은 별도 API 없이, 주문 생성 시 `couponIssueId`를 전달하면 `OrderFacade` 내부에서 `CouponService.useCouponForOrder()`를 호출하여 처리
+
+#### 비즈니스 규칙
+- 쿠폰 타입: 정액(FIXED) 또는 정률(RATE)
+- 주문 1건당 쿠폰 1장만 적용 가능
+- 쿠폰 발급 상태: AVAILABLE → USED (주문 시) 또는 EXPIRED (만료)
+- 동시 사용 방지: @Version 낙관적 락으로 같은 유저의 더블클릭 방어
+- 쿠폰 할인 적용: 원래 총액(originalTotalAmount) - 할인액(couponDiscountAmount) = 최종 결제액(totalAmount)
+- 정률 할인 시 내림(RoundingMode.DOWN) 적용하여 과다 할인 방지
+
+#### 동시성 제어 전략
+> **왜 @Version 낙관적 락인가?**
+> - CouponIssue는 독립 엔티티 → Product처럼 여러 필드가 version을 공유하는 문제(false contention) 없음
+> - 경합 주체 = 같은 유저의 더블클릭뿐 → 경합 극히 낮음
+> - 엔티티 메서드(`use()`)로 상태 전이 + 비즈니스 검증이 필요 → Atomic Update 부적합
+> - 하나만 성공하면 충분 → 비관적 락의 "모두 순서대로 성공" 불필요
+
+---
+
 ## 4. 향후 확장 가능 영역 (참고)
 
 > 현재 과제 범위가 아니며, 구현하지 않는다. 구조적으로 확장 여지가 있다는 점만 기록한다.
@@ -243,7 +285,6 @@
 | 영역 | 한 줄 요약 |
 |------|-----------|
 | 장바구니 | Cart 테이블 추가, 바로구매/장바구니 통합 |
-| 쿠폰/할인 | DiscountPolicy 인터페이스 (전략 패턴) → 구현체 추가만으로 확장 |
 | 결제 | PaymentGateway 인터페이스로 결제 수단 추상화 |
 | 취소/반품 | OrderItem 단위 상태 관리 + OrderClaim 이력 테이블 |
 | 상품 옵션 | OptionGroup/OptionValue/Variant 정규화 구조 |
@@ -420,3 +461,8 @@
 | 판매 중지 상품 주문 | 400 | BAD_REQUEST | 판매 중지된 상품입니다 |
 | 삭제된 상품 주문 | 404 | NOT_FOUND | 존재하지 않는 상품입니다 |
 | 다른 사용자의 주문 조회 | 403 | FORBIDDEN | 접근 권한이 없습니다 |
+| 존재하지 않는 쿠폰 | 404 | NOT_FOUND | 존재하지 않는 쿠폰입니다 |
+| 이미 사용된 쿠폰 | 400 | BAD_REQUEST | 이미 사용된 쿠폰입니다 |
+| 만료된 쿠폰 | 400 | BAD_REQUEST | 만료된 쿠폰입니다 |
+| 본인의 쿠폰이 아님 | 403 | FORBIDDEN | 본인의 쿠폰이 아닙니다 |
+| 동시 요청으로 낙관적 락 충돌 | 409 | CONFLICT | 동시 요청으로 인해 처리에 실패했습니다 |

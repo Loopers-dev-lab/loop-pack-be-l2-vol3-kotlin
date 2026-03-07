@@ -66,6 +66,9 @@ erDiagram
         bigint id PK "AUTO_INCREMENT"
         bigint user_id FK "NOT NULL, 주문자"
         varchar order_number "NOT NULL, UNIQUE, 외부 노출용 주문번호"
+        bigint coupon_issue_id "NULL, 사용된 쿠폰 발급 ID"
+        bigint original_total_amount "NOT NULL, 쿠폰 적용 전 금액"
+        bigint coupon_discount_amount "NOT NULL DEFAULT 0, 쿠폰 할인액"
         bigint total_amount "NOT NULL, 총 결제금액"
         varchar order_status "NOT NULL, 주문 상태 (ORDERED)"
         datetime created_at "NOT NULL, 주문 일시"
@@ -91,12 +94,37 @@ erDiagram
         datetime deleted_at "NULL"
     }
 
+    coupons {
+        bigint id PK "AUTO_INCREMENT"
+        varchar name "NOT NULL, 쿠폰명"
+        enum type "NOT NULL, FIXED/RATE"
+        bigint value "NOT NULL, 할인 값 (FIXED: 원 / RATE: %)"
+        datetime expired_at "NOT NULL, 만료 일시"
+        datetime created_at "NOT NULL"
+        datetime updated_at "NOT NULL"
+        datetime deleted_at "NULL"
+    }
+
+    coupon_issues {
+        bigint id PK "AUTO_INCREMENT"
+        bigint coupon_id FK "NOT NULL, 쿠폰 정책"
+        bigint user_id FK "NOT NULL, 발급 대상 (UK: user_id + coupon_id)"
+        varchar status "NOT NULL, AVAILABLE/USED/EXPIRED"
+        datetime used_at "NULL, 사용 일시"
+        bigint version "NOT NULL DEFAULT 0, @Version 낙관적 락"
+        datetime created_at "NOT NULL"
+        datetime updated_at "NOT NULL"
+        datetime deleted_at "NULL"
+    }
+
     brands ||--o{ products : "1 brand : N products"
     products ||--o{ likes : "1 product : N likes"
     users ||--o{ likes : "1 user : N likes"
     users ||--o{ orders : "1 user : N orders"
     orders ||--|{ order_items : "1 order : N order_items"
     products ||--o{ order_items : "1 product : N order_items (참조)"
+    coupons ||--o{ coupon_issues : "1 coupon : N issues"
+    users ||--o{ coupon_issues : "1 user : N issues"
 ```
 
 ---
@@ -186,6 +214,9 @@ erDiagram
 | id | BIGINT | PK, AUTO_INCREMENT | |
 | user_id | BIGINT | FK → users.id, NOT NULL | 주문자 |
 | order_number | VARCHAR(14) | UNIQUE, NOT NULL | 주문번호 (yyMMdd + id 8자리) |
+| coupon_issue_id | BIGINT | NULL | 사용된 쿠폰 발급 ID |
+| original_total_amount | BIGINT | NOT NULL | 쿠폰 적용 전 총 금액 |
+| coupon_discount_amount | BIGINT | NOT NULL, DEFAULT 0 | 쿠폰 할인 금액 |
 | total_amount | BIGINT | NOT NULL | 총 결제금액 |
 | order_status | VARCHAR(20) | NOT NULL | ORDERED / PAID / ... |
 | created_at | DATETIME | NOT NULL | 주문 일시 |
@@ -230,6 +261,41 @@ erDiagram
 > - JPA `@Embedded` / `@Embeddable` 으로 매핑
 > - 추후 할인 필드가 폭증하면 PriceSnapshot을 별도 테이블로 분리 가능
 
+### 2.7 coupons
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | |
+| name | VARCHAR(255) | NOT NULL | 쿠폰명 |
+| type | ENUM('FIXED', 'RATE') | NOT NULL | 정액(FIXED) / 정률(RATE) |
+| value | BIGINT | NOT NULL | 할인 값 (FIXED: 금액, RATE: 비율 1~100) |
+| expired_at | DATETIME | NOT NULL | 만료 일시 |
+| created_at | DATETIME | NOT NULL | |
+| updated_at | DATETIME | NOT NULL | |
+| deleted_at | DATETIME | NULL | Soft Delete |
+
+> **할인 계산 로직** (`Coupon.calculateDiscount()`):
+> - FIXED: `min(value, orderAmount)` — 주문 금액을 초과하지 않도록 제한
+> - RATE: `orderAmount × value ÷ 100`, `RoundingMode.DOWN` (내림) — 과다 할인 방지
+
+### 2.8 coupon_issues
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| id | BIGINT | PK, AUTO_INCREMENT | |
+| coupon_id | BIGINT | FK → coupons.id, NOT NULL | 쿠폰 정책 |
+| user_id | BIGINT | FK → users.id, NOT NULL | 발급 대상 |
+| status | VARCHAR(20) | NOT NULL | AVAILABLE / USED / EXPIRED |
+| used_at | DATETIME | NULL | 사용 일시 |
+| version | BIGINT | NOT NULL, DEFAULT 0 | @Version 낙관적 락 |
+| created_at | DATETIME | NOT NULL | 발급 일시 |
+| updated_at | DATETIME | NOT NULL | |
+| deleted_at | DATETIME | NULL | |
+
+> **중복 발급 방지**: `(user_id, coupon_id)` 복합 유니크 제약 (UK) — 유저당 같은 쿠폰 1장만 발급 가능
+
+> **@Version (낙관적 락)**: CouponIssue는 독립 엔티티이므로 @Version 적용 시 false contention 없음. 같은 유저의 더블클릭만 경합 → 하나만 성공하면 충분
+
 ---
 
 ## 3. 인덱스 설계
@@ -248,6 +314,7 @@ erDiagram
 | likes | `idx_likes_product_id` | product_id | 상품별 좋아요 조회/삭제 |
 | orders | `idx_orders_user_id_created_at` | user_id, created_at | 기간별 주문 목록 조회 |
 | order_items | `idx_order_items_order_id` | order_id | 주문 상세 조회 시 OrderItem 조회 |
+| coupon_issues | `uk_coupon_issues_user_coupon` | user_id, coupon_id (UNIQUE) | 유저당 쿠폰 중복 발급 방지 |
 
 ### 인덱스 설계 근거
 
@@ -283,6 +350,8 @@ LIMIT 20 OFFSET 0;
 | User → Order | 1:N | orders.user_id | 한 유저가 여러 주문 |
 | Order → OrderItem | 1:N | order_items.order_id | 한 주문에 여러 주문 상품 |
 | Product → OrderItem | 1:N | order_items.product_id | 원본 참조 (스냅샷과 병행) |
+| Coupon → CouponIssue | 1:N | coupon_issues.coupon_id | 하나의 쿠폰 정책에 여러 발급 |
+| User → CouponIssue | 1:N | coupon_issues.user_id | 한 유저에게 여러 쿠폰 발급 |
 
 ### 관계 주인
 
@@ -303,24 +372,23 @@ LIMIT 20 OFFSET 0;
 | 환불 | `order_refunds` | 없음 (취소/반품의 결과로 생성) |
 | 결제 | `order_payments` | 없음 |
 | 상품 옵션 | `option_groups`, `option_values`, `product_variants` | stock_quantity 관리 주체 이동 |
-| 쿠폰 | `coupons`, `coupon_policies` | order_items에 할인 스냅샷 컬럼 추가 |
 | 추천/랭킹 | `product_rankings`, `user_events` | 없음 (likes + likeCount로 기초 랭킹 지원, 고급 분석 시 이벤트/집계 테이블 추가) |
 
 ---
 
 ## 6. 잠재 리스크
 
-### 리스크 1: likeCount 정합성
+### 리스크 1: likeCount 정합성 (해결됨)
 
 - Product.likeCount는 캐싱된 값. 좋아요/취소 시 증감하지만, 동시 요청이 많으면 어긋날 수 있음
-- **대안**: `UPDATE like_count = like_count + 1` (DB 원자적 갱신)으로 동시성 보장
+- **해결**: Atomic Update (`UPDATE like_count = like_count + 1`) 적용으로 DB 원자적 갱신을 통해 동시성 보장
 - **추후**: Redis 캐시 또는 배치 보정 도입
 
-### 리스크 2: 재고 차감 동시성
+### 리스크 2: 재고 차감 동시성 (해결됨)
 
-- 현재 설계: `UPDATE stock_quantity = stock_quantity - :qty WHERE stock_quantity >= :qty` (D안)
-- 단일 인스턴스 + 단일 DB에서는 충분하지만, 다중 인스턴스 환경에서는 분산 락(Redisson) 필요
-- **구현 주차에서 비관적 락 / 낙관적 락 / 분산 락 / DB 원자적 갱신 4가지 비교 실험 예정**
+- **해결**: Atomic Update (`UPDATE stock_quantity = stock_quantity - :qty WHERE stock_quantity >= :qty`) 적용 완료
+- 동시성 테스트(멀티 스레드)로 정합성 검증 완료
+- 단일 인스턴스 + 단일 DB에서는 Atomic Update로 충분. 다중 인스턴스 환경에서는 분산 락(Redisson) 도입 검토
 
 ### 리스크 3: 브랜드 삭제 시 대량 상품 처리
 

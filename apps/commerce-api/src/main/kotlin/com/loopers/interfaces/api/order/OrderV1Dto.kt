@@ -24,6 +24,7 @@ class OrderV1Dto {
 
     data class CreateOrderRequest(
         val items: List<OrderItemRequest>,
+        val couponIssueId: Long? = null,
     ) {
         fun toCriteria(): CreateOrderCriteria {
             return CreateOrderCriteria(
@@ -33,6 +34,7 @@ class OrderV1Dto {
                         quantity = it.quantity,
                     )
                 },
+                couponIssueId = couponIssueId,
             )
         }
     }
@@ -45,6 +47,9 @@ class OrderV1Dto {
     data class OrderResponse(
         val id: Long,
         val orderNumber: String,
+        val couponIssueId: Long?,
+        val originalTotalAmount: Money,
+        val couponDiscountAmount: Money,
         val totalAmount: Money,
         val orderStatus: String,
         val items: List<OrderItemResponse>,
@@ -55,6 +60,9 @@ class OrderV1Dto {
                 return OrderResponse(
                     id = result.id,
                     orderNumber = result.orderNumber,
+                    couponIssueId = result.couponIssueId,
+                    originalTotalAmount = result.originalTotalAmount,
+                    couponDiscountAmount = result.couponDiscountAmount,
                     totalAmount = result.totalAmount,
                     orderStatus = result.orderStatus,
                     items = result.items.map { OrderItemResponse.from(it) },

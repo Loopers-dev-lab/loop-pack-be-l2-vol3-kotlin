@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MissingServletRequestParameterException
@@ -102,6 +103,19 @@ class ApiControllerAdvice {
     @ExceptionHandler
     fun handleNotFound(e: NoResourceFoundException): ResponseEntity<ApiResponse<*>> {
         return failureResponse(errorType = ErrorType.NOT_FOUND)
+    }
+
+    /**
+     * 낙관적 락 충돌 처리.
+     *
+     * CouponIssue의 @Version 낙관적 락에서 동시 수정 감지 시 발생.
+     * 트랜잭션 커밋(flush) 시점에 version 불일치로 발생하므로
+     * Service 내부 try-catch로는 잡을 수 없어 글로벌 핸들러에서 처리.
+     */
+    @ExceptionHandler
+    fun handleOptimisticLock(e: OptimisticLockingFailureException): ResponseEntity<ApiResponse<*>> {
+        log.warn("OptimisticLockingFailureException : {}", e.message)
+        return failureResponse(errorType = ErrorType.CONFLICT, errorMessage = "동시 요청으로 인해 처리에 실패했습니다. 다시 시도해주세요.")
     }
 
      @ExceptionHandler

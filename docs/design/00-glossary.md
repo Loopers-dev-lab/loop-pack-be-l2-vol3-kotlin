@@ -15,6 +15,8 @@
 | 주문 | `Order` | 회원이 1개 이상의 상품을 구매 요청하는 단위 |
 | 주문 상품 | `OrderItem` | 주문에 포함된 개별 상품 항목 (수량 포함) |
 | 주문번호 | `orderNumber` | 주문을 식별하는 외부 노출용 번호 (yyMMddxxxxxxxx, 14자리) |
+| 쿠폰 | `Coupon` | 할인 정책을 정의하는 단위. 정액(FIXED) 또는 정률(RATE) |
+| 쿠폰 발급 | `CouponIssue` | 특정 유저에게 발급된 쿠폰 인스턴스 |
 | 회원 | `User` | 서비스에 가입한 사용자 |
 | 관리자 | `Admin` | LDAP 인증 기반의 내부 운영자 |
 
@@ -29,6 +31,11 @@
 | 삭제됨 | `DELETED` | ProductStatus | Soft Delete된 상태 |
 | 전시 여부 | `displayYn` | Product 필드 | 목록 노출 여부 (Boolean → MySQL TINYINT(1) 자동 매핑) |
 | 주문완료 | `ORDERED` | OrderStatus | 주문이 생성된 상태 (현재 과제 범위) |
+| 사용 가능 | `AVAILABLE` | CouponIssueStatus | 발급 후 미사용 상태 |
+| 사용됨 | `USED` | CouponIssueStatus | 주문에 적용 완료 |
+| 만료됨 | `EXPIRED` | CouponIssueStatus | 유효기간 초과 |
+| 정액 할인 | `FIXED` | CouponType | 고정 금액 할인 (예: 3000원) |
+| 정률 할인 | `RATE` | CouponType | 비율 할인 (예: 10%) |
 
 ---
 
@@ -43,6 +50,10 @@
 | 재고 수량 | `stockQuantity` | 현재 판매 가능한 재고 수 |
 | 논리 삭제 | Soft Delete | `deletedAt` 컬럼에 삭제 일시를 기록하여 논리적으로 삭제 |
 | 물리 삭제 | Hard Delete | DB에서 실제 레코드를 DELETE |
+| Atomic Update | `@Modifying @Query` | DB 레벨 원자적 갱신 (UPDATE SET col = col ± N). 데이터를 직접 읽지 않고 DB가 처리 |
+| 낙관적 락 | `@Version` | 충돌 감지 후 실패 처리. version 불일치 시 OptimisticLockingFailureException |
+| 비관적 락 | `FOR UPDATE` | 조회 시점에 배타적 락 획득. 모든 요청이 순서대로 성공해야 할 때 사용 |
+| 불필요한 경합 | false contention | 관련 없는 작업끼리 같은 version을 공유하여 불필요하게 충돌하는 현상 |
 
 ---
 

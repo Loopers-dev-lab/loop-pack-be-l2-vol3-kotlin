@@ -34,7 +34,24 @@ class Order(
     var orderNumber: String = ""
         protected set
 
-    @Comment("총 결제금액")
+    @Comment("사용된 발급 쿠폰 ID")
+    @Column(name = "coupon_issue_id")
+    var couponIssueId: Long? = null
+        protected set
+
+    @Comment("쿠폰 적용 전 총 금액")
+    @Convert(converter = MoneyConverter::class)
+    @Column(name = "original_total_amount", nullable = false)
+    var originalTotalAmount: Money = Money.ZERO
+        protected set
+
+    @Comment("쿠폰 할인 금액")
+    @Convert(converter = MoneyConverter::class)
+    @Column(name = "coupon_discount_amount", nullable = false)
+    var couponDiscountAmount: Money = Money.ZERO
+        protected set
+
+    @Comment("최종 결제 금액")
     @Convert(converter = MoneyConverter::class)
     @Column(name = "total_amount", nullable = false)
     var totalAmount: Money = Money.ZERO
@@ -60,8 +77,23 @@ class Order(
         orderItem.order = this
     }
 
+    /**
+     * 쿠폰 적용 정보를 설정한다.
+     * calculateTotalAmount() 호출 전에 실행되어야 한다.
+     */
+    fun applyCoupon(couponIssueId: Long, discountAmount: Money) {
+        this.couponIssueId = couponIssueId
+        this.couponDiscountAmount = discountAmount
+    }
+
+    /**
+     * 주문 총액을 계산한다.
+     * - originalTotalAmount: 전체 상품 금액 합계 (쿠폰 적용 전)
+     * - totalAmount: 쿠폰 할인 적용 후 최종 결제 금액
+     */
     fun calculateTotalAmount() {
-        this.totalAmount = orderItems.fold(Money.ZERO) { acc, item -> acc + item.itemTotalPrice() }
+        this.originalTotalAmount = orderItems.fold(Money.ZERO) { acc, item -> acc + item.itemTotalPrice() }
+        this.totalAmount = this.originalTotalAmount - this.couponDiscountAmount
     }
 
     fun generateOrderNumber() {

@@ -19,6 +19,6 @@ class UserRepositoryImpl(
     }
 
     override fun findById(id: Long): User? {
-        return userJpaRepository.findByIdOrNull(id)
+        return userJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 }

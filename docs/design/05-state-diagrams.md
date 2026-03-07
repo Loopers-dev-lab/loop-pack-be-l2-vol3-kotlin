@@ -168,7 +168,69 @@ stateDiagram-v2
 
 ---
 
-## 4. 상태 전이의 설계 원칙
+## 4. CouponIssueStatus 상태 전이
+
+### 현재 과제 범위
+
+```mermaid
+stateDiagram-v2
+    [*] --> AVAILABLE : 쿠폰 발급
+
+    AVAILABLE --> USED : 주문 시 쿠폰 적용 (@Version 낙관적 락)
+    AVAILABLE --> EXPIRED : 유효기간 초과 (배치 처리)
+
+    note right of AVAILABLE
+        발급 후 미사용 상태
+        주문 시 사용 가능
+    end note
+
+    note right of USED
+        주문에 적용 완료
+        @Version으로 동시 사용 방지
+        충돌 시 OptimisticLockingFailureException
+    end note
+
+    note right of EXPIRED
+        유효기간 초과
+        배치에서 일괄 처리 (향후)
+    end note
+```
+
+### 전이 규칙
+
+| From | To | 트리거 | 비즈니스 규칙 |
+|------|-----|--------|-------------|
+| (발급) | AVAILABLE | 유저가 쿠폰 발급 | 쿠폰 유효기간 내, 중복 발급 불가 |
+| AVAILABLE | USED | 주문 시 쿠폰 적용 | @Version 낙관적 락. 동시 요청 시 1건만 성공 |
+| AVAILABLE | EXPIRED | 유효기간 초과 | 배치 처리 (현재 미구현, 향후 확장) |
+
+### 금지된 전이
+
+- `USED → AVAILABLE`: 사용된 쿠폰 되돌리기는 현재 미지원 (주문 취소 시 쿠폰 복원은 향후 확장)
+- `EXPIRED → AVAILABLE`: 만료된 쿠폰 재활성화 불가
+
+### 동시성 제어: @Version 낙관적 락
+
+```
+CouponIssue.use() 호출 시:
+  1. status == AVAILABLE 검증
+  2. status = USED, usedAt = now()
+  3. JPA flush 시점에 version 검증
+
+JPA 생성 SQL:
+  UPDATE coupon_issues
+  SET status = 'USED', used_at = ?, version = version + 1
+  WHERE id = ? AND version = ?
+
+충돌 시:
+  → OptimisticLockingFailureException
+  → ApiControllerAdvice에서 409 CONFLICT 반환
+  → 재시도해봐야 status=USED → 재시도 무의미 (비즈니스 실패)
+```
+
+---
+
+## 5. 상태 전이의 설계 원칙
 
 > 구현 시 아래 원칙을 기준으로 삼을 수 있다.
 
