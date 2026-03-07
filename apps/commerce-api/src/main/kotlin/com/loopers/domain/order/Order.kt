@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.order.dto.OrderItemSpec
+import com.loopers.domain.product.Product
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -36,6 +38,18 @@ class Order protected constructor(
         _orderItems.add(orderItem)
     }
 
+    // ✅ 새로운 메서드: Product와 함께 OrderItem 생성
+    internal fun addItem(product: Product, quantity: Int, price: BigDecimal) {
+        val item = OrderItem.create(
+            orderId = id ?: 0L,
+            productId = product.id ?: 0L,
+            productName = product.name,
+            quantity = quantity,
+            price = price,
+        )
+        _orderItems.add(item)
+    }
+
     fun getOrderDate(): ZonedDateTime = createdAt
 
     fun getTotalPrice(): BigDecimal {
@@ -54,5 +68,20 @@ class Order protected constructor(
                 .apply {
                     this.status = status
                 }
+
+        // ✅ 새 Factory 메서드
+        fun createWithItems(
+            userId: Long,
+            couponId: Long? = null,
+            items: List<OrderItemSpec>,
+        ): Order {
+            require(items.isNotEmpty()) { "주문 항목은 최소 1개 이상이어야 합니다" }
+
+            val order = Order(userId = userId, couponId = couponId)
+            items.forEach { spec ->
+                order.addItem(spec.product, spec.quantity, spec.price)
+            }
+            return order
+        }
     }
 }
