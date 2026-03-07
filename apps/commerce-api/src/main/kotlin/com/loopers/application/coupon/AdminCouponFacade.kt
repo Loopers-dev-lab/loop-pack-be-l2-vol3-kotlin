@@ -76,7 +76,7 @@ class AdminCouponFacade(
         return issuedCouponsPage.map { issuedCoupon ->
             CouponIssueInfo.from(
                 issuedCoupon = issuedCoupon,
-                user = usersMap.getValue(issuedCoupon.userId),
+                user = usersMap[issuedCoupon.userId],
                 couponExpiresAt = coupon.expiresAt,
             )
         }
