@@ -108,7 +108,7 @@ class CouponConcurrencyTest @Autowired constructor(
                 latch.await()
 
                 try {
-                    couponService.useCoupon(savedCoupon.id, BigDecimal("10000"))
+                    couponService.useCoupon(1L, savedCoupon.id, BigDecimal("10000"))
                     results.add(CouponUsageResult.Success)
                 } catch (e: ObjectOptimisticLockingFailureException) {
                     results.add(CouponUsageResult.OptimisticLockFailed)
@@ -169,7 +169,7 @@ class CouponConcurrencyTest @Autowired constructor(
         val initialVersion = savedCoupon.version
 
         // Act
-        couponService.useCoupon(savedCoupon.id, BigDecimal("10000"))
+        couponService.useCoupon(2L, savedCoupon.id, BigDecimal("10000"))
 
         // Assert
         val updatedCoupon = couponRepository.findById(savedCoupon.id)

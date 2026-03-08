@@ -33,7 +33,7 @@ class OrderFacade(
 
         try {
             val createOrderItems = prepareOrderItems(orderRequest)
-            val discountAmount = applyCoupon(orderRequest, createOrderItems)
+            val discountAmount = applyCoupon(userId, orderRequest, createOrderItems)
             val order = orderService.createOrder(userId, createOrderItems, orderRequest.couponId)
 
             if (discountAmount > BigDecimal.ZERO) {
@@ -69,14 +69,14 @@ class OrderFacade(
         }
     }
 
-    private fun applyCoupon(orderRequest: OrderV1Dto.OrderRequest, items: List<CreateOrderItemCommand>): BigDecimal {
+    private fun applyCoupon(userId: Long, orderRequest: OrderV1Dto.OrderRequest, items: List<CreateOrderItemCommand>): BigDecimal {
         if (orderRequest.couponId == null) {
             return BigDecimal.ZERO
         }
 
         val totalAmount = items.sumOf { it.price * it.quantity.toBigDecimal() }
-        val discountAmount = couponService.calculateDiscount(orderRequest.couponId, totalAmount)
-        couponService.useCoupon(orderRequest.couponId, totalAmount)
+        val discountAmount = couponService.calculateDiscount(userId, orderRequest.couponId, totalAmount)
+        couponService.useCoupon(userId, orderRequest.couponId, totalAmount)
 
         return discountAmount
     }

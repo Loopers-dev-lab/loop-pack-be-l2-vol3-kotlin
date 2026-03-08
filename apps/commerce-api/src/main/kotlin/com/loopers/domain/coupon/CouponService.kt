@@ -107,9 +107,14 @@ class CouponService(
     // ===== Coupon 사용 관련 =====
 
     @Transactional
-    fun useCoupon(couponId: Long, orderAmount: java.math.BigDecimal) {
+    fun useCoupon(userId: Long, couponId: Long, orderAmount: java.math.BigDecimal) {
         val coupon = getCoupon(couponId)
         val template = getTemplateInfo(coupon.templateId)
+
+        // 쿠폰 소유자 검증
+        if (coupon.userId != userId) {
+            throw CoreException(ErrorType.FORBIDDEN, "이 쿠폰을 사용할 수 없습니다.")
+        }
 
         // 유효성 검증
         if (!coupon.isValid()) {
@@ -130,9 +135,14 @@ class CouponService(
 
     // ===== 쿠폰 할인 계산 관련 =====
 
-    fun calculateDiscount(couponId: Long, orderAmount: java.math.BigDecimal): java.math.BigDecimal {
+    fun calculateDiscount(userId: Long, couponId: Long, orderAmount: java.math.BigDecimal): java.math.BigDecimal {
         val coupon = getCoupon(couponId)
         val template = getTemplateInfo(coupon.templateId)
+
+        // 쿠폰 소유자 검증
+        if (coupon.userId != userId) {
+            throw CoreException(ErrorType.FORBIDDEN, "이 쿠폰을 사용할 수 없습니다.")
+        }
 
         if (!coupon.canApplyToOrder(orderAmount)) {
             throw CoreException(ErrorType.BAD_REQUEST, "적용할 수 없는 쿠폰입니다.")

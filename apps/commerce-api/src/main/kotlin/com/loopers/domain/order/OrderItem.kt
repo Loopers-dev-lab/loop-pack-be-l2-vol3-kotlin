@@ -40,6 +40,12 @@ class OrderItem protected constructor(
         if (discount < BigDecimal.ZERO) {
             throw CoreException(ErrorType.BAD_REQUEST, "할인액은 0 이상이어야 합니다")
         }
+        if (discountAmount > BigDecimal.ZERO) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 할인이 적용된 항목입니다")
+        }
+        if (discount > getItemAmount()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "할인액은 항목 금액을 초과할 수 없습니다")
+        }
         this.discountAmount = discount
     }
 
