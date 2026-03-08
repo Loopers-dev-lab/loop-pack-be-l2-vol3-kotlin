@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.domain.brand.BrandError
 import com.loopers.domain.brand.BrandException
+import com.loopers.domain.coupon.CouponError
+import com.loopers.domain.coupon.CouponException
 import com.loopers.domain.order.OrderError
 import com.loopers.domain.order.OrderException
 import com.loopers.domain.product.ProductError
@@ -49,6 +51,24 @@ class ApiControllerAdvice {
         }
         return ResponseEntity(
             ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "상품 오류"),
+            status,
+        )
+    }
+
+    @ExceptionHandler
+    fun handle(e: CouponException): ResponseEntity<ApiResponse<*>> {
+        log.warn("CouponException[{}] : {}", e.error, e.message, e)
+        val status = when (e.error) {
+            CouponError.EXPIRED -> HttpStatus.BAD_REQUEST
+            CouponError.MAX_ISSUED -> HttpStatus.CONFLICT
+            CouponError.ALREADY_ISSUED -> HttpStatus.CONFLICT
+            CouponError.NOT_AVAILABLE -> HttpStatus.BAD_REQUEST
+            CouponError.NOT_OWNED -> HttpStatus.FORBIDDEN
+            CouponError.MIN_ORDER_AMOUNT -> HttpStatus.BAD_REQUEST
+            CouponError.DELETED -> HttpStatus.BAD_REQUEST
+        }
+        return ResponseEntity(
+            ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "쿠폰 오류"),
             status,
         )
     }

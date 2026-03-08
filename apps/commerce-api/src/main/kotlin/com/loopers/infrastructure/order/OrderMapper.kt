@@ -13,7 +13,10 @@ object OrderMapper {
         return Order.reconstitute(
             persistenceId = id,
             refUserId = entity.userId,
+            refUserCouponId = entity.userCouponId,
             status = entity.status,
+            originalAmount = Money(entity.originalAmount),
+            discountAmount = Money(entity.discountAmount),
             totalAmount = Money(entity.totalAmount),
             orderedAt = entity.orderedAt,
             items = entity.items.map { toItemDomain(it) },
@@ -24,7 +27,10 @@ object OrderMapper {
         val entity = OrderEntity(
             id = domain.persistenceId,
             userId = domain.refUserId,
+            userCouponId = domain.refUserCouponId,
             status = domain.status,
+            originalAmount = domain.originalAmount.amount,
+            discountAmount = domain.discountAmount.amount,
             totalAmount = domain.totalAmount.amount,
             orderedAt = domain.orderedAt,
         )

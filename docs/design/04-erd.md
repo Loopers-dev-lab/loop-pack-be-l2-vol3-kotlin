@@ -24,6 +24,9 @@ erDiagram
     PRODUCT ||--o{ PRODUCT_IMAGE : "이미지"
     PRODUCT ||--o{ LIKES : "좋아요 대상"
     ORDERS ||--|{ ORDER_ITEM : "주문 항목"
+    COUPON ||--o{ USER_COUPON : "발급"
+    USERS ||--o{ USER_COUPON : "보유"
+    USER_COUPON ||--o| ORDERS : "적용"
 
     USERS {
         bigint id PK "AUTO INCREMENT"
@@ -81,11 +84,43 @@ erDiagram
         timestamp created_at "생성 시점"
     }
 
+    COUPON {
+        bigint id PK "AUTO INCREMENT"
+        varchar_100 name "쿠폰명"
+        varchar_20 discount_type "FIXED / RATE"
+        bigint discount_value "할인값"
+        bigint min_order_amount "최소 주문 금액"
+        int max_issue_count "최대 발급 수 (nullable)"
+        int issued_count "발급된 수"
+        timestamp expired_at "만료 시점"
+        timestamp created_at "생성 시점"
+        timestamp updated_at "수정 시점"
+        timestamp deleted_at "Soft Delete (nullable)"
+    }
+
+    USER_COUPON {
+        bigint id PK "AUTO INCREMENT"
+        bigint coupon_id FK "쿠폰 ID"
+        bigint user_id FK "회원 ID"
+        varchar_20 status "AVAILABLE / USED / EXPIRED"
+        varchar_20 discount_type "할인 유형 (스냅샷)"
+        bigint discount_value "할인값 (스냅샷)"
+        bigint min_order_amount "최소 주문 금액 (스냅샷)"
+        timestamp expired_at "만료 시점 (스냅샷)"
+        timestamp used_at "사용 시점 (nullable)"
+        timestamp issued_at "발급 시점"
+        timestamp created_at "생성 시점"
+        timestamp updated_at "수정 시점"
+    }
+
     ORDERS {
         bigint id PK "AUTO INCREMENT"
         bigint user_id FK "회원 ID"
+        bigint user_coupon_id "UserCoupon ID (nullable)"
         varchar_20 status "PENDING / COMPLETED / CANCELLED"
-        bigint total_amount "총 주문 금액"
+        bigint original_amount "쿠폰 적용 전 금액"
+        bigint discount_amount "할인 금액"
+        bigint total_amount "최종 결제 금액"
         timestamp ordered_at "주문 시점"
         timestamp created_at "생성 시점"
         timestamp updated_at "수정 시점"
@@ -184,14 +219,53 @@ erDiagram
 > 잔존 좋아요와 like_count는 더 이상 노출/집계 대상이 아니다.   
 > 배치 정리는 선택 사항이다 — 데이터 정합성이나 서비스 동작에 영향을 주지 않으므로 필수가 아니다.  
 
+### coupon
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|------|------|---------|------|
+| id | BIGINT | PK, AUTO INCREMENT | |
+| name | VARCHAR(100) | NOT NULL | 쿠폰명 |
+| discount_type | VARCHAR(20) | NOT NULL | FIXED / RATE |
+| discount_value | BIGINT | NOT NULL | 할인값 (FIXED: 원, RATE: 1~100) |
+| min_order_amount | BIGINT | NOT NULL, DEFAULT 0 | 최소 주문 금액 |
+| max_issue_count | INT | NULLABLE | 최대 발급 수 (null = 무제한) |
+| issued_count | INT | NOT NULL, DEFAULT 0 | 발급된 수 |
+| expired_at | TIMESTAMP | NOT NULL | 만료 시점 |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
+| deleted_at | TIMESTAMP | NULLABLE | Soft Delete |
+
+### user_coupon
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|------|------|---------|------|
+| id | BIGINT | PK, AUTO INCREMENT | |
+| coupon_id | BIGINT | NOT NULL, FK → coupon.id | 쿠폰 ID |
+| user_id | BIGINT | NOT NULL, FK → users.id | 회원 ID |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'AVAILABLE' | AVAILABLE / USED / EXPIRED |
+| discount_type | VARCHAR(20) | NOT NULL | 할인 유형 (스냅샷) |
+| discount_value | BIGINT | NOT NULL | 할인값 (스냅샷) |
+| min_order_amount | BIGINT | NOT NULL | 최소 주문 금액 (스냅샷) |
+| expired_at | TIMESTAMP | NOT NULL | 만료 시점 (스냅샷) |
+| used_at | TIMESTAMP | NULLABLE | 사용 시점 |
+| issued_at | TIMESTAMP | NOT NULL | 발급 시점 |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
+
+> **UNIQUE(coupon_id, user_id)** — BR-CP05 보장 (중복 발급 방지)
+> Soft Delete 없음. user_coupon은 상태(AVAILABLE/USED/EXPIRED)로 관리한다.
+
 ### orders
 
 | 컬럼 | 타입 | 제약조건 | 설명 |
 |------|------|---------|------|
 | id | BIGINT | PK, AUTO INCREMENT | |
 | user_id | BIGINT | NOT NULL, FK → users.id | 회원 ID (BR-O07) |
+| user_coupon_id | BIGINT | NULLABLE | 적용된 UserCoupon ID |
 | status | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | PENDING / COMPLETED / CANCELLED |
-| total_amount | BIGINT | NOT NULL, CHECK >= 0 | 총 주문 금액 |
+| original_amount | BIGINT | NOT NULL, CHECK >= 0 | 쿠폰 적용 전 금액 |
+| discount_amount | BIGINT | NOT NULL, DEFAULT 0, CHECK >= 0 | 할인 금액 |
+| total_amount | BIGINT | NOT NULL, CHECK >= 0 | 최종 결제 금액 |
 | ordered_at | TIMESTAMP | NOT NULL | 주문 시점 |
 | created_at | TIMESTAMP | NOT NULL | |
 | updated_at | TIMESTAMP | NOT NULL | |
@@ -244,6 +318,9 @@ erDiagram
 | likes | `idx_likes_product_id` | INDEX | product_id | 상품별 좋아요 조회, 배치 재계산 |
 | orders | `idx_orders_user_id` | INDEX | user_id | 내 주문 목록 조회 |
 | order_item | `idx_order_item_order_id` | INDEX | order_id | 주문별 항목 조회 (FK 자동 생성 가능) |
+| user_coupon | `uk_user_coupon_coupon_user` | UNIQUE | (coupon_id, user_id) | 중복 발급 방지 (BR-CP05) |
+| user_coupon | `idx_user_coupon_user_id` | INDEX | user_id | 내 쿠폰 목록 조회 |
+| user_coupon | `idx_user_coupon_coupon_id` | INDEX | coupon_id | 쿠폰별 발급 내역 조회 |
 
 ---
 
@@ -257,6 +334,8 @@ erDiagram
 | Like | likes | X | 물리 삭제 |
 | Order | orders | X | 상태(CANCELLED)로 관리 |
 | OrderItem | order_item | X | 스냅샷, 불변 |
+| Coupon | coupon | O | `deleted_at` |
+| UserCoupon | user_coupon | X | 상태(AVAILABLE/USED/EXPIRED)로 관리 |
 
 ---
 

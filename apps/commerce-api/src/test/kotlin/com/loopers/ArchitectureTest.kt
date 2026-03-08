@@ -3,6 +3,11 @@ package com.loopers
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandName
 import com.loopers.domain.brand.BrandStatus
+import com.loopers.domain.coupon.Coupon
+import com.loopers.domain.coupon.CouponName
+import com.loopers.domain.coupon.CouponStatus
+import com.loopers.domain.coupon.DiscountType
+import com.loopers.domain.coupon.UserCoupon
 import com.loopers.domain.like.Like
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
@@ -139,7 +144,10 @@ class ArchitectureTest {
                 "reconstitute",
                 Long::class.java,
                 Long::class.java,
+                Long::class.javaObjectType,
                 OrderStatus::class.java,
+                Money::class.java,
+                Money::class.java,
                 Money::class.java,
                 ZonedDateTime::class.java,
                 List::class.java,
@@ -162,6 +170,51 @@ class ArchitectureTest {
                 String::class.java,
                 Money::class.java,
                 Int::class.java,
+            )
+            .because("reconstitute는 DB 복원 전용이며, infrastructure 레이어에서만 호출해야 한다")
+            .check(classes)
+    }
+
+    @Test
+    @DisplayName("interfaces, application 레이어에서 Coupon.reconstitute 호출 금지")
+    fun `Coupon reconstitute는 infrastructure에서만 호출 가능하다`() {
+        noClasses()
+            .that().resideInAnyPackage("..interfaces..", "..application..")
+            .should().callMethod(
+                Coupon.Companion::class.java,
+                "reconstitute",
+                Long::class.java,
+                CouponName::class.java,
+                DiscountType::class.java,
+                Long::class.java,
+                Money::class.java,
+                Int::class.javaObjectType,
+                Int::class.java,
+                ZonedDateTime::class.java,
+                ZonedDateTime::class.java,
+            )
+            .because("reconstitute는 DB 복원 전용이며, infrastructure 레이어에서만 호출해야 한다")
+            .check(classes)
+    }
+
+    @Test
+    @DisplayName("interfaces, application 레이어에서 UserCoupon.reconstitute 호출 금지")
+    fun `UserCoupon reconstitute는 infrastructure에서만 호출 가능하다`() {
+        noClasses()
+            .that().resideInAnyPackage("..interfaces..", "..application..")
+            .should().callMethod(
+                UserCoupon.Companion::class.java,
+                "reconstitute",
+                Long::class.java,
+                Long::class.java,
+                Long::class.java,
+                CouponStatus::class.java,
+                DiscountType::class.java,
+                Long::class.java,
+                Money::class.java,
+                ZonedDateTime::class.java,
+                ZonedDateTime::class.java,
+                ZonedDateTime::class.java,
             )
             .because("reconstitute는 DB 복원 전용이며, infrastructure 레이어에서만 호출해야 한다")
             .check(classes)

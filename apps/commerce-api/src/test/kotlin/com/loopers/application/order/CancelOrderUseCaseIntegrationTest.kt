@@ -2,10 +2,14 @@ package com.loopers.application.order
 
 import com.loopers.application.brand.RegisterBrandCommand
 import com.loopers.application.brand.RegisterBrandUseCase
+import com.loopers.application.coupon.IssueCouponUseCase
+import com.loopers.application.coupon.RegisterCouponCommand
+import com.loopers.application.coupon.RegisterCouponUseCase
 import com.loopers.application.product.RegisterProductCommand
 import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.application.user.RegisterUserCommand
 import com.loopers.application.user.RegisterUserUseCase
+import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.order.OrderException
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -19,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.jdbc.Sql
+import java.time.ZonedDateTime
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig::class)
@@ -26,6 +31,8 @@ import org.springframework.test.context.jdbc.Sql
     statements = [
         "DELETE FROM order_item",
         "DELETE FROM orders",
+        "DELETE FROM user_coupon",
+        "DELETE FROM coupon",
         "DELETE FROM likes",
         "DELETE FROM product_image",
         "DELETE FROM product",
@@ -75,6 +82,15 @@ class CancelOrderUseCaseIntegrationTest {
     @Autowired
     private lateinit var productRepository: ProductRepository
 
+    @Autowired
+    private lateinit var registerCouponUseCase: RegisterCouponUseCase
+
+    @Autowired
+    private lateinit var issueCouponUseCase: IssueCouponUseCase
+
+    @Autowired
+    private lateinit var userCouponRepository: UserCouponRepository
+
     @Test
     fun `정상적인 경우 주문이 취소되고 재고가 복구된다`() {
         cancelOrderUseCase.cancel(userId, orderId)
@@ -104,6 +120,37 @@ class CancelOrderUseCaseIntegrationTest {
                 assertThat(ex.errorType).isEqualTo(ErrorType.NOT_FOUND)
             }
     }
+
+    @Test
+    fun `쿠폰 적용 주문 취소 시 쿠폰이 AVAILABLE로 복원되어야 한다`() {
+        val couponId = registerCouponUseCase.register(createCouponCommand())
+        val userCouponId = issueCouponUseCase.issue(userId, couponId)
+        val brandId = registerBrandUseCase.register(
+            RegisterBrandCommand(name = "쿠폰테스트브랜드", description = null, logoUrl = null),
+        )
+        val productId = registerProductUseCase.register(createProductCommand(brandId))
+        val couponOrderId = createOrderUseCase.create(
+            userId,
+            CreateOrderCommand(
+                items = listOf(OrderItemCommand(productId = productId, quantity = 1)),
+                couponId = userCouponId,
+            ),
+        )
+
+        cancelOrderUseCase.cancel(userId, couponOrderId)
+
+        val userCoupon = userCouponRepository.findById(userCouponId)!!
+        assertThat(userCoupon.status.name).isEqualTo("AVAILABLE")
+    }
+
+    private fun createCouponCommand() = RegisterCouponCommand(
+        name = "테스트쿠폰",
+        discountType = "FIXED",
+        discountValue = 3000L,
+        minOrderAmount = 0L,
+        maxIssueCount = 100,
+        expiredAt = ZonedDateTime.now().plusDays(30),
+    )
 
     private fun createUserCommand(loginId: String) = RegisterUserCommand(
         loginId = loginId,

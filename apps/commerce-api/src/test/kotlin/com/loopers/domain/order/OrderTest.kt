@@ -48,7 +48,10 @@ class OrderTest {
         val order = Order.reconstitute(
             persistenceId = 1L,
             refUserId = USER_ID,
+            refUserCouponId = null,
             status = OrderStatus.PENDING,
+            originalAmount = Money(PRICE * QUANTITY),
+            discountAmount = Money(0),
             totalAmount = Money(PRICE * QUANTITY),
             orderedAt = java.time.ZonedDateTime.now(),
             items = listOf(createOrderItem()),
@@ -199,6 +202,76 @@ class OrderTest {
         assertThat(order.totalAmount.amount).isEqualTo(10000 * 2 + 15000 * 3)
     }
 
+    @Test
+    fun `create로 생성한 Order의 discountAmount는 0이어야 한다`() {
+        val order = createOrder()
+
+        assertThat(order.discountAmount.amount).isEqualTo(0)
+    }
+
+    @Test
+    fun `create로 생성한 Order의 originalAmount는 totalAmount와 같아야 한다`() {
+        val order = createOrder()
+
+        assertThat(order.originalAmount).isEqualTo(order.totalAmount)
+    }
+
+    @Test
+    fun `create로 생성한 Order의 refUserCouponId는 null이어야 한다`() {
+        val order = createOrder()
+
+        assertThat(order.refUserCouponId).isNull()
+    }
+
+    @Test
+    fun `createWithCoupon으로 생성한 Order에 쿠폰 정보가 포함되어야 한다`() {
+        val items = listOf(createOrderItem())
+        val order = Order.createWithCoupon(
+            userId = USER_ID,
+            items = items,
+            userCouponId = COUPON_ID,
+            discountAmount = Money(DISCOUNT_AMOUNT),
+        )
+
+        assertThat(order.refUserCouponId).isEqualTo(COUPON_ID)
+        assertThat(order.discountAmount.amount).isEqualTo(DISCOUNT_AMOUNT)
+        assertThat(order.originalAmount.amount).isEqualTo(PRICE * QUANTITY)
+        assertThat(order.totalAmount.amount).isEqualTo(PRICE * QUANTITY - DISCOUNT_AMOUNT)
+    }
+
+    @Test
+    fun `createWithCoupon에서 할인이 원래 금액을 초과하면 totalAmount는 0이어야 한다`() {
+        val items = listOf(createOrderItem())
+        val order = Order.createWithCoupon(
+            userId = USER_ID,
+            items = items,
+            userCouponId = COUPON_ID,
+            discountAmount = Money(PRICE * QUANTITY + 10000),
+        )
+
+        assertThat(order.totalAmount.amount).isEqualTo(0)
+    }
+
+    @Test
+    fun `hasCoupon은 쿠폰 적용 주문에서 true를 반환해야 한다`() {
+        val items = listOf(createOrderItem())
+        val order = Order.createWithCoupon(
+            userId = USER_ID,
+            items = items,
+            userCouponId = COUPON_ID,
+            discountAmount = Money(DISCOUNT_AMOUNT),
+        )
+
+        assertThat(order.hasCoupon()).isTrue()
+    }
+
+    @Test
+    fun `hasCoupon은 일반 주문에서 false를 반환해야 한다`() {
+        val order = createOrder()
+
+        assertThat(order.hasCoupon()).isFalse()
+    }
+
     private fun createOrderItem(): OrderItem = OrderItem.reconstitute(
         persistenceId = 1L,
         refProductId = PRODUCT_ID,
@@ -221,5 +294,7 @@ class OrderTest {
         private const val BRAND_NAME = "나이키"
         private const val PRICE = 10000L
         private const val QUANTITY = 2
+        private const val COUPON_ID = 100L
+        private const val DISCOUNT_AMOUNT = 3000L
     }
 }

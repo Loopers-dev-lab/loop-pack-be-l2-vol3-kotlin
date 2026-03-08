@@ -333,6 +333,73 @@ Q: 왜 상태 변경이 재고 복구보다 먼저인가?
 | ProductRepository | `decrementLikeCount(id)` | `UPDATE ... SET like_count = like_count - 1 WHERE like_count > 0` | - |
 | LikeRepository | `addLike(userId, productId)` | `INSERT IGNORE INTO likes ...` | - |
 | OrderRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `OrderNotFoundException` |
+| CouponRepository | `incrementIssuedCount(id)` | `UPDATE SET issued_count = issued_count + 1` | - |
+| UserCouponRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `CouponException` |
+| UserCouponRepository | `existsByCouponIdAndUserId(couponId, userId)` | `SELECT EXISTS(...)` | - |
+
+---
+
+## 5. 쿠폰 사용 - 동시성 상세
+
+### 검증 포인트
+
+- [ ] 동시 사용 방어 (1회성 쿠폰)
+- [ ] 상태 전이 안전성
+
+### 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as CreateOrderUseCase
+    participant UCRepo as UserCouponRepository
+    participant OrdRepo as OrderRepository
+    participant DB as Database
+
+    Note over App: ═══ @Transactional 시작 ═══
+
+    Note over App: ... 상품 재고 차감 (기존 흐름) ...
+
+    App->>UCRepo: findByIdForUpdate(userCouponId)
+    UCRepo->>DB: SELECT * FROM user_coupon WHERE id=? FOR UPDATE
+    DB-->>UCRepo: UserCoupon (row locked)
+
+    alt UserCoupon 없음 or 상태 != AVAILABLE
+        Note over App: ═══ 롤백 ═══
+        App-->>App: CouponException
+    end
+
+    App->>App: userCoupon.assertUsableBy(userId, orderAmount)
+    App->>App: discount = userCoupon.calculateDiscount(orderAmount)
+    App->>App: usedCoupon = userCoupon.use()
+
+    App->>UCRepo: save(usedCoupon)
+    UCRepo->>DB: UPDATE user_coupon SET status='USED', used_at=NOW()
+
+    App->>OrdRepo: save(order)
+    OrdRepo->>DB: INSERT orders (with original_amount, discount_amount)
+
+    Note over App: ═══ 커밋 ═══
+```
+
+### 동시성 전략
+
+| 전략 | 구현 | 목적 |
+|------|------|------|
+| 비관적 락 | `SELECT ... FOR UPDATE` on user_coupon | 상태 전이 보호 (AVAILABLE → USED) |
+
+### 왜 비관적 락인가
+
+쿠폰은 1회성 자원이다. 낙관적 락은 충돌 시 재시도가 필요하지만, "이미 사용된 쿠폰"을 재시도해봤자 실패한다. 비관적 락으로 순차 처리하면 첫 번째 요청만 성공하고, 두 번째 요청은 상태 검증에서 즉시 실패한다.
+
+### 동시 사용 시나리오
+
+```
+[주문A] SELECT FOR UPDATE → status=AVAILABLE (락)
+[주문B] SELECT FOR UPDATE → 대기 (락 획득 불가)
+[주문A] UPDATE status=USED → 커밋 → 락 해제
+[주문B] SELECT FOR UPDATE → status=USED → 검증 실패 → 롤백
+```
 
 ---
 
@@ -343,7 +410,9 @@ Q: 왜 상태 변경이 재고 복구보다 먼저인가?
 | 주문 생성 | AppService 진입 | 주문 저장 후 | 상품 없음, 재고 부족, 동시성 충돌 |
 | 좋아요 등록 | AppService 진입 | likeCount 증가 후 | 상품 없음 |
 | 좋아요 취소 | AppService 진입 | likeCount 감소 후 | - |
-| 주문 취소 | AppService 진입 | 재고 복구 후 | 주문 없음, 권한 없음, 상태 불가 |
+| 주문 취소 | AppService 진입 | 재고 복구 + 쿠폰 복원 후 | 주문 없음, 권한 없음, 상태 불가 |
+| 쿠폰 발급 | AppService 진입 | UserCoupon 저장 + issuedCount 증가 후 | 쿠폰 없음, 만료, 중복, 수량 초과 |
+| 쿠폰 적용 주문 | AppService 진입 | 주문 저장 + 쿠폰 USED 후 | 쿠폰 없음, 상태 불가, 만료, 금액 미달 |
 
 ---
 
@@ -355,3 +424,4 @@ Q: 왜 상태 변경이 재고 복구보다 먼저인가?
 | 좋아요 등록 | DB 레벨 멱등성 | `INSERT IGNORE DO NOTHING` | 락 없이 원자적 처리. Soft Delete 레이스는 허용 |
 | 좋아요 취소 | affected count | `DELETE` 후 count 확인 | 락 없이 멱등 보장 |
 | 주문 취소 | 비관적 락 | `FOR UPDATE` (Order만) | Product 락 불필요 (증가 연산) |
+| 쿠폰 사용 | 비관적 락 | `FOR UPDATE` (UserCoupon) | 1회성 → 상태 전이 보호 필수 |
