@@ -99,6 +99,5 @@ class OrderServiceIntegrationTest @Autowired constructor(
             assertThat(order.orderItems[1].productId).isEqualTo(product2.id)
             assertThat(order.orderItems[1].quantity).isEqualTo(1)
         }
-
     }
 }

@@ -34,4 +34,6 @@ class CouponRepositoryImpl(
         couponJpaRepository.findByTemplateId(templateId, pageable)
 
     override fun save(coupon: Coupon): Coupon = couponJpaRepository.save(coupon)
+
+    override fun updateStatusToUsed(couponId: Long): Int = couponJpaRepository.updateStatusToUsed(couponId)
 }

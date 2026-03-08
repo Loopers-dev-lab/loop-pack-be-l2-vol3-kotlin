@@ -129,8 +129,13 @@ class CouponService(
             )
         }
 
-        // 쿠폰 사용
-        coupon.use()
+        // ⭐ 원자적 업데이트로 쿠폰 사용 처리
+        // ISSUED 상태일 때만 USED로 변경됨 (동시성 제어)
+        val updatedCount = couponRepository.updateStatusToUsed(couponId)
+        if (updatedCount == 0) {
+            // ISSUED 상태가 아님 = 이미 사용됨
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.")
+        }
     }
 
     // ===== 쿠폰 할인 계산 관련 =====
