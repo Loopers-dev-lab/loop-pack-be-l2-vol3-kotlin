@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.order.dto.OrderItemSpec
+import com.loopers.domain.product.Product
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -17,6 +19,7 @@ import java.time.ZonedDateTime
 @Table(name = "orders")
 class Order protected constructor(
     val userId: Long = 0L,
+    val couponId: Long? = null,
 ) : BaseEntity() {
 
     @Enumerated(EnumType.STRING)
@@ -31,8 +34,10 @@ class Order protected constructor(
     val orderItems: List<OrderItem>
         get() = _orderItems.toList()
 
-    fun addOrderItem(orderItem: OrderItem) {
-        _orderItems.add(orderItem)
+    // ✅ Aggregate Root을 통해서만 OrderItem 추가 가능 (internal)
+    internal fun addItem(product: Product, quantity: Int, price: BigDecimal) {
+        val item = OrderItem.create(this, product, quantity, price)
+        _orderItems.add(item)
     }
 
     fun getOrderDate(): ZonedDateTime = createdAt
@@ -48,10 +53,26 @@ class Order protected constructor(
     }
 
     companion object {
-        fun create(userId: Long, status: OrderStatus = OrderStatus.PENDING): Order =
-            Order(userId = userId)
+        fun create(userId: Long, couponId: Long? = null, status: OrderStatus = OrderStatus.PENDING): Order =
+            Order(userId = userId, couponId = couponId)
                 .apply {
                     this.status = status
                 }
+
+        // ✅ Factory 메서드: 주문과 항목을 함께 생성 (저장 후 setOrderItemIds() 호출 필요)
+        // 내부에서만 사용 - orderId가 0인 상태이므로 저장 전에는 FK 제약 조건 위반 가능성이 있음
+        internal fun createWithItems(
+            userId: Long,
+            couponId: Long? = null,
+            items: List<OrderItemSpec>,
+        ): Order {
+            require(items.isNotEmpty()) { "주문 항목은 최소 1개 이상이어야 합니다" }
+
+            val order = Order(userId = userId, couponId = couponId)
+            items.forEach { spec ->
+                order.addItem(spec.product, spec.quantity, spec.price)
+            }
+            return order
+        }
     }
 }

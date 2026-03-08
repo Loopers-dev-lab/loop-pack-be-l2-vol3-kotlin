@@ -14,7 +14,8 @@ class OrderV1Dto {
     data class OrderRequest(
         @field:NotEmpty(message = "주문 상품은 최소 1개 이상이어야 합니다.")
         @field:Valid
-        val orderItems: List<OrderItemRequest>,
+        val items: List<OrderItemRequest>,
+        val couponId: Long? = null,
     )
 
     data class OrderResponse(

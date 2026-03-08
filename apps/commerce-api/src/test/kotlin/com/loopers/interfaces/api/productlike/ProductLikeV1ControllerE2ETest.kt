@@ -78,7 +78,6 @@ class ProductLikeV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Test Product",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -121,7 +120,6 @@ class ProductLikeV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Test Product",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -203,7 +201,6 @@ class ProductLikeV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Product 1",
                     price = BigDecimal("10000"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -212,7 +209,6 @@ class ProductLikeV1ControllerE2ETest @Autowired constructor(
                     brand = brand,
                     name = "Product 2",
                     price = BigDecimal("20000"),
-                    stock = 50,
                     status = ProductStatus.ACTIVE,
                 ),
             )

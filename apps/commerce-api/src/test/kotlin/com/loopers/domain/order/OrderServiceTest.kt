@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.order.dto.CreateOrderItemCommand
+import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -10,14 +12,25 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
 
 @DisplayName("OrderService")
 class OrderServiceTest {
     private val orderRepository: OrderRepository = mockk()
+    private val productService: ProductService = mockk()
     private val orderService = OrderService(
         orderRepository = orderRepository,
+        productService = productService,
     )
+
+    private fun setupProductMock(productId: Long) {
+        val product = mockk<Product>(relaxed = true)
+        every { product.id } returns productId
+        every { product.name } returns "테스트 상품"
+        every { product.price } returns BigDecimal("10000")
+        every { productService.getProduct(productId) } returns product
+    }
 
     @DisplayName("유효한 정보가 주어지면 주문이 생성되고 저장된다")
     @Test
@@ -25,9 +38,12 @@ class OrderServiceTest {
         // arrange
         val userId = 1L
         val orderId = 100L
+        val productId = 1L
+
+        setupProductMock(productId)
 
         val createOrderItemCommand = CreateOrderItemCommand(
-            productId = 1L,
+            productId = productId,
             productName = "테스트 상품",
             quantity = 2,
             price = BigDecimal("10000.00"),
@@ -46,10 +62,11 @@ class OrderServiceTest {
         val result = orderService.createOrder(
             userId = userId,
             items = listOf(createOrderItemCommand),
+            couponId = null,
         )
 
         // assert
-        assertThat(result).isEqualTo(orderId)
+        assertThat(result.id).isEqualTo(orderId)
     }
 
     @DisplayName("주문 항목이 없으면 BAD_REQUEST 예외를 던진다")
@@ -84,5 +101,81 @@ class OrderServiceTest {
         }
             .isInstanceOf(CoreException::class.java)
             .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+    }
+
+    @DisplayName("OrderItem에 할인액이 설정되어 총액에 반영된다")
+    @Test
+    fun orderItem_appliesDiscount_whenDiscountAmountSet() {
+        // arrange
+        val item = OrderItem.create(
+            orderId = 1L,
+            productId = 1L,
+            quantity = 2,
+            price = BigDecimal("10000"),
+            productName = "Test Product",
+        )
+
+        // act
+        item.applyDiscountAmount(BigDecimal("2000"))
+
+        // assert
+        assertThat(item.getSubtotal()).isEqualTo(BigDecimal("18000"))
+    }
+
+    @DisplayName("OrderItem에 음수 할인액을 설정하면 예외 발생")
+    @Test
+    fun orderItem_throwsException_whenNegativeDiscountAmount() {
+        // arrange
+        val item = OrderItem.create(
+            orderId = 1L,
+            productId = 1L,
+            quantity = 1,
+            price = BigDecimal("10000"),
+            productName = "Test Product",
+        )
+
+        // act & assert
+        assertThrows<CoreException> {
+            item.applyDiscountAmount(BigDecimal("-1000"))
+        }
+    }
+
+    @DisplayName("쿠폰이 있으면 주문 생성 시 couponId가 저장된다")
+    @Test
+    fun createsOrder_savesWithCouponId_whenCouponIdProvided() {
+        // arrange
+        val userId = 1L
+        val couponId = 5L
+        val orderId = 100L
+        val productId = 1L
+
+        setupProductMock(productId)
+
+        val createOrderItemCommand = CreateOrderItemCommand(
+            productId = productId,
+            productName = "테스트 상품",
+            quantity = 1,
+            price = BigDecimal("10000.00"),
+        )
+
+        val orderSlot = slot<Order>()
+        every { orderRepository.save(capture(orderSlot)) } answers {
+            orderSlot.captured.apply {
+                val idField = Order::class.java.superclass?.getDeclaredField("id")
+                idField?.isAccessible = true
+                idField?.set(this, orderId)
+            }
+        }
+
+        // act
+        val result = orderService.createOrder(
+            userId = userId,
+            items = listOf(createOrderItemCommand),
+            couponId = couponId,
+        )
+
+        // assert
+        assertThat(result.id).isEqualTo(orderId)
+        assertThat(orderSlot.captured.couponId).isEqualTo(couponId)
     }
 }

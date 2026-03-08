@@ -5,8 +5,7 @@ import com.loopers.application.api.productlike.ProductLikeFacade
 import com.loopers.domain.product.dto.ProductInfo
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.PageResponse
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.support.validator.PageValidator
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -37,13 +36,7 @@ class ProductV1Controller(
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) sort: String?,
     ): ApiResponse<PageResponse<ProductInfo>> {
-        if (size !in listOf(20, 50, 100)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "size는 20, 50, 100만 가능합니다")
-        }
-
-        if (page < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "page는 음수일 수 없습니다")
-        }
+        PageValidator.validatePageRequest(page, size)
 
         val sortOperation = ProductSortOption.fromValue(sort)
         val pageable = PageRequest.of(page, size, Sort.by(sortOperation.sortOrder))

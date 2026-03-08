@@ -1,6 +1,5 @@
 package com.loopers.domain.product
 
-import com.loopers.application.api.order.dto.OrderItemCriteria
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.dto.ProductInfo
 import com.loopers.support.error.CoreException
@@ -34,14 +33,12 @@ class ProductService(
         brand: Brand,
         name: String,
         price: BigDecimal,
-        stock: Int,
         status: ProductStatus,
     ): Long {
         val newProduct = Product.create(
             brand = brand,
             name = name,
             price = price,
-            stock = stock,
             status = status,
         )
         val savedProduct = productRepository.save(newProduct)
@@ -53,11 +50,10 @@ class ProductService(
         id: Long,
         name: String,
         price: BigDecimal,
-        stock: Int,
         status: ProductStatus,
     ) {
         val findProduct = findProduct(id)
-        productDomainService.updateProductInfo(findProduct, name, price, stock, status)
+        productDomainService.updateProductInfo(findProduct, name, price, status)
     }
 
     @Transactional
@@ -70,20 +66,6 @@ class ProductService(
     fun deleteProductsByBrand(brandId: Long) {
         productRepository.findByBrandId(brandId).forEach(Product::delete)
     }
-
-    @Transactional
-    fun decreaseProductsStock(orderItemRequest: List<OrderItemCriteria>) {
-        orderItemRequest.sortedBy { it.productId }.forEach {
-            val product = findProductWithLock(it.productId)
-            product.minusStock(it.quantity)
-        }
-    }
-
-    private fun findProductWithLock(id: Long) =
-        productRepository.findProductWithLock(id)
-            ?.takeIf { !it.isDeleted() }
-            ?.takeIf { it.status != ProductStatus.INACTIVE }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품이 존재하지 않습니다.")
 
     fun getProduct(productId: Long): Product = findActiveProduct(productId)
 

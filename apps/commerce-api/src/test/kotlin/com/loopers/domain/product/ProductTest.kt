@@ -1,10 +1,7 @@
 package com.loopers.domain.product
 
 import com.loopers.domain.brand.Brand
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -26,7 +23,6 @@ class ProductTest {
             val brand = createBrand()
             val name = "테스트 상품"
             val price = BigDecimal("10000.00")
-            val stock = 100
             val status = ProductStatus.ACTIVE
 
             // act
@@ -34,7 +30,6 @@ class ProductTest {
                 brand = brand,
                 name = name,
                 price = price,
-                stock = stock,
                 status = status,
             )
 
@@ -44,7 +39,6 @@ class ProductTest {
                 { assertThat(product.brand).isEqualTo(brand) },
                 { assertThat(product.name).isEqualTo(name) },
                 { assertThat(product.price).isEqualTo(price) },
-                { assertThat(product.stock).isEqualTo(stock) },
                 { assertThat(product.status).isEqualTo(status) },
             )
         }
@@ -56,62 +50,16 @@ class ProductTest {
             val brand = createBrand()
             val name = "테스트 상품"
             val price = BigDecimal("10000.00")
-            val stock = 100
 
             // act
             val product = Product.create(
                 brand = brand,
                 name = name,
                 price = price,
-                stock = stock,
             )
 
             // assert
             assertThat(product.status).isEqualTo(ProductStatus.ACTIVE)
-        }
-    }
-
-    @DisplayName("재고를 업데이트할 때, ")
-    @Nested
-    inner class UpdateStock {
-        @DisplayName("유효한 재고가 주어지면 재고가 업데이트된다")
-        @Test
-        fun updatesStock_whenValidStockIsProvided() {
-            // arrange
-            val brand = createBrand()
-            val product = Product.create(
-                brand = brand,
-                name = "상품",
-                price = BigDecimal("10000.00"),
-                stock = 100,
-            )
-            val newStock = 50
-
-            // act
-            product.updateStock(newStock)
-
-            // assert
-            assertThat(product.stock).isEqualTo(50)
-        }
-
-        @DisplayName("재고가 음수이면 예외를 던진다")
-        @Test
-        fun throwsException_whenStockIsNegative() {
-            // arrange
-            val brand = createBrand()
-            val product = Product.create(
-                brand = brand,
-                name = "상품",
-                price = BigDecimal("10000.00"),
-                stock = 100,
-            )
-
-            // act & assert
-            assertThatThrownBy {
-                product.updateStock(-1)
-            }
-                .isInstanceOf(CoreException::class.java)
-                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
         }
     }
 
@@ -127,7 +75,6 @@ class ProductTest {
                 brand = brand,
                 name = "기존 상품명",
                 price = BigDecimal("10000.00"),
-                stock = 100,
             )
             val newName = "새로운 상품명"
             val newPrice = BigDecimal("15000.00")
@@ -155,7 +102,6 @@ class ProductTest {
                 brand = brand,
                 name = "상품",
                 price = BigDecimal("10000.00"),
-                stock = 100,
                 status = ProductStatus.ACTIVE,
             )
             val newStatus = ProductStatus.INACTIVE
@@ -180,24 +126,6 @@ class ProductTest {
                 brand = brand,
                 name = "상품",
                 price = BigDecimal("10000.00"),
-                stock = 100,
-                status = ProductStatus.ACTIVE,
-            )
-
-            // act & assert
-            assertThat(product.isAvailable()).isTrue()
-        }
-
-        @DisplayName("재고 0인 ACTIVE 상태이면 가용하다")
-        @Test
-        fun isAvailable_whenStockIsZeroButActive() {
-            // arrange
-            val brand = createBrand()
-            val product = Product.create(
-                brand = brand,
-                name = "상품",
-                price = BigDecimal("10000.00"),
-                stock = 0,
                 status = ProductStatus.ACTIVE,
             )
 
@@ -214,7 +142,6 @@ class ProductTest {
                 brand = brand,
                 name = "상품",
                 price = BigDecimal("10000.00"),
-                stock = 100,
                 status = ProductStatus.INACTIVE,
             )
 
@@ -235,93 +162,10 @@ class ProductTest {
                 brand = brand,
                 name = "상품",
                 price = BigDecimal("10000.00"),
-                stock = 100,
             )
 
             // act & assert
             assertThat(product.isDeleted()).isFalse()
-        }
-    }
-
-    @DisplayName("상품 좋아요 수를 관리할 때, ")
-    @Nested
-    inner class ManageLikeCount {
-        @DisplayName("상품 생성 시 좋아요 수는 0으로 초기화된다")
-        @Test
-        fun initializeLikeCount_whenProductIsCreated() {
-            // arrange
-            val brand = createBrand()
-
-            // act
-            val product = Product.create(
-                brand = brand,
-                name = "상품",
-                price = BigDecimal("10000.00"),
-                stock = 100,
-            )
-
-            // assert
-            assertThat(product.likeCount).isZero()
-        }
-
-        @DisplayName("좋아요 수를 증가시킬 수 있다")
-        @Test
-        fun incrementLikeCount() {
-            // arrange
-            val brand = createBrand()
-            val product = Product.create(
-                brand = brand,
-                name = "상품",
-                price = BigDecimal("10000.00"),
-                stock = 100,
-            )
-
-            // act
-            product.incrementLikeCount()
-
-            // assert
-            assertThat(product.likeCount).isEqualTo(1)
-        }
-
-        @DisplayName("좋아요 수를 감소시킬 수 있다")
-        @Test
-        fun decrementLikeCount() {
-            // arrange
-            val brand = createBrand()
-            val product = Product.create(
-                brand = brand,
-                name = "상품",
-                price = BigDecimal("10000.00"),
-                stock = 100,
-            )
-            product.incrementLikeCount()
-            product.incrementLikeCount()
-
-            // act
-            product.decrementLikeCount()
-
-            // assert
-            assertThat(product.likeCount).isEqualTo(1)
-        }
-
-        @DisplayName("좋아요 수가 음수가 되지 않도록 한다")
-        @Test
-        fun preventNegativeLikeCount() {
-            // arrange
-            val brand = createBrand()
-            val product = Product.create(
-                brand = brand,
-                name = "상품",
-                price = BigDecimal("10000.00"),
-                stock = 100,
-            )
-
-            // act & assert
-            assertThatThrownBy {
-                product.decrementLikeCount()
-            }
-                .isInstanceOf(CoreException::class.java)
-                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
         }
     }
 }

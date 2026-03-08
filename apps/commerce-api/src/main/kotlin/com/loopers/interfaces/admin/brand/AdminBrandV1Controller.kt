@@ -3,8 +3,7 @@ package com.loopers.interfaces.admin.brand
 import com.loopers.application.admin.brand.AdminBrandFacade
 import com.loopers.domain.brand.dto.BrandInfo
 import com.loopers.interfaces.api.ApiResponse
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.support.validator.PageValidator
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -33,9 +32,7 @@ class AdminBrandV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<BrandInfo>> {
-        if (size !in listOf(20, 50, 100)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "size는 20, 50, 100만 가능합니다")
-        }
+        PageValidator.validatePageRequest(page, size)
 
         val pageable = PageRequest.of(page, size)
         return ApiResponse.success(data = adminBrandFacade.getAllBrands(pageable))
