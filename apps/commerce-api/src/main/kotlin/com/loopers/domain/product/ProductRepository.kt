@@ -15,7 +15,7 @@ interface ProductRepository {
 
     fun save(product: Product): Product
 
-    fun incrementLikeCountAtomic(productId: Long)
+    fun increaseLikeCount(productId: Long)
 
-    fun decrementLikeCountAtomic(productId: Long)
+    fun decreaseLikeCount(productId: Long)
 }

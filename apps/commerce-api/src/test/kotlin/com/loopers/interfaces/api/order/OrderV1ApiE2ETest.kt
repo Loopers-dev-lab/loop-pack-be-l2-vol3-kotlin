@@ -4,8 +4,6 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponTemplate
 import com.loopers.domain.coupon.CouponType
-import com.loopers.domain.order.Order
-import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductStatus
 import com.loopers.domain.stock.Stock
@@ -235,6 +233,14 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
             val savedProduct1 = productJpaRepository.save(product1)
 
+            // 재고 생성
+            stockJpaRepository.save(
+                Stock.create(
+                    productId = savedProduct1.id,
+                    quantity = 100,
+                ),
+            )
+
             val product2 = Product.create(
                 brand = savedBrand,
                 name = "상품2",
@@ -243,19 +249,49 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
             val savedProduct2 = productJpaRepository.save(product2)
 
-            val itemSpecs1 = listOf(
-                OrderItemSpec(savedProduct1, 1, BigDecimal("10000")),
+            // 재고 생성
+            stockJpaRepository.save(
+                Stock.create(
+                    productId = savedProduct2.id,
+                    quantity = 100,
+                ),
             )
-            val order1 = Order.createWithItems(savedUser.id, null, itemSpecs1)
-            val savedOrder1 = orderJpaRepository.save(order1)
-
-            val itemSpecs2 = listOf(
-                OrderItemSpec(savedProduct2, 2, BigDecimal("20000")),
-            )
-            val order2 = Order.createWithItems(savedUser.id, null, itemSpecs2)
-            val savedOrder2 = orderJpaRepository.save(order2)
 
             val headers = createAuthHeaders("test123", "encryptedPassword")
+
+            // API를 통해 주문 생성 (1번 주문)
+            val request1 = OrderV1Dto.OrderRequest(
+                items = listOf(
+                    OrderV1Dto.OrderItemRequest(
+                        productId = savedProduct1.id,
+                        quantity = 1,
+                    ),
+                ),
+            )
+            val responseType1 = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
+            restTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                HttpEntity(request1, headers),
+                responseType1,
+            )
+
+            // API를 통해 주문 생성 (2번 주문)
+            val request2 = OrderV1Dto.OrderRequest(
+                items = listOf(
+                    OrderV1Dto.OrderItemRequest(
+                        productId = savedProduct2.id,
+                        quantity = 2,
+                    ),
+                ),
+            )
+            val responseType2 = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
+            restTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                HttpEntity(request2, headers),
+                responseType2,
+            )
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<OrderV1Dto.OrderResponse>>>() {}
@@ -322,18 +358,38 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
             val savedProduct = productJpaRepository.save(product)
 
-            val itemSpecs = listOf(
-                OrderItemSpec(savedProduct, 1, BigDecimal("10000")),
+            // 재고 생성
+            stockJpaRepository.save(
+                Stock.create(
+                    productId = savedProduct.id,
+                    quantity = 100,
+                ),
             )
-            val order = Order.createWithItems(savedUser.id, null, itemSpecs)
-            val savedOrder = orderJpaRepository.save(order)
 
             val headers = createAuthHeaders("test123", "encryptedPassword")
+
+            // API를 통해 주문 생성
+            val createRequest = OrderV1Dto.OrderRequest(
+                items = listOf(
+                    OrderV1Dto.OrderItemRequest(
+                        productId = savedProduct.id,
+                        quantity = 1,
+                    ),
+                ),
+            )
+            val createResponseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
+            val createResponse = restTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                HttpEntity(createRequest, headers),
+                createResponseType,
+            )
+            val orderId = createResponse.body?.data!!
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
             val response = restTemplate.exchange(
-                "$ENDPOINT_ORDERS/${order.id}",
+                "$ENDPOINT_ORDERS/$orderId",
                 HttpMethod.GET,
                 HttpEntity<Any>(headers),
                 responseType,
@@ -342,7 +398,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             // then
             assertAll(
                 { assertEquals(HttpStatus.OK, response.statusCode) },
-                { assertThat(response.body?.data?.orderId).isEqualTo(order.id) },
+                { assertThat(response.body?.data?.orderId).isEqualTo(orderId) },
                 { assertThat(response.body?.data?.orderItems).hasSize(1) },
             )
         }

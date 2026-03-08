@@ -34,11 +34,7 @@ class Order protected constructor(
     val orderItems: List<OrderItem>
         get() = _orderItems.toList()
 
-    fun addOrderItem(orderItem: OrderItem) {
-        _orderItems.add(orderItem)
-    }
-
-    // ✅ 새로운 메서드: Product와 함께 OrderItem 생성
+    // ✅ Aggregate Root을 통해서만 OrderItem 추가 가능 (internal)
     internal fun addItem(product: Product, quantity: Int, price: BigDecimal) {
         val item = OrderItem.create(this, product, quantity, price)
         _orderItems.add(item)

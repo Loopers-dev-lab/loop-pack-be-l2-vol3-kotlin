@@ -108,11 +108,11 @@ class ProductRepositoryImpl(
 
     override fun save(product: Product): Product = productJpaRepository.save(product)
 
-    override fun incrementLikeCountAtomic(productId: Long) {
-        productJpaRepository.incrementLikeCountAtomic(productId)
+    override fun increaseLikeCount(productId: Long) {
+        productJpaRepository.increaseLikeCount(productId)
     }
 
-    override fun decrementLikeCountAtomic(productId: Long) {
-        productJpaRepository.decrementLikeCountAtomic(productId)
+    override fun decreaseLikeCount(productId: Long) {
+        productJpaRepository.decreaseLikeCount(productId)
     }
 }

@@ -4,7 +4,6 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.productlike.dto.LikedProductInfo
 import com.loopers.domain.user.User
-import jakarta.persistence.EntityManager
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
@@ -15,14 +14,13 @@ import org.springframework.transaction.annotation.Transactional
 class ProductLikeService(
     private val productLikeRepository: ProductLikeRepository,
     private val productRepository: ProductRepository,
-    private val entityManager: EntityManager,
 ) {
 
     @Transactional
     fun addProductLike(user: User, product: Product) {
         val productLike = ProductLike.create(user, product)
         productLikeRepository.save(productLike)
-        productRepository.incrementLikeCountAtomic(product.id)
+        productRepository.increaseLikeCount(product.id)
     }
 
     @Transactional
@@ -32,7 +30,7 @@ class ProductLikeService(
 
         // 실제로 삭제된 경우(deletedCount > 0)에만 like_count 감소
         if (deletedCount > 0) {
-            productRepository.decrementLikeCountAtomic(product.id)
+            productRepository.decreaseLikeCount(product.id)
         }
     }
 

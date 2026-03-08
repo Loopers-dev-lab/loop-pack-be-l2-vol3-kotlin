@@ -23,7 +23,11 @@ class OrderService(
     fun createOrder(userId: Long, items: List<CreateOrderItemCommand>, couponId: Long? = null): Order {
         validateItems(items)
 
-        // ✅ OrderItemSpec 준비
+        // Order 먼저 생성 및 저장
+        val order = Order.create(userId, couponId)
+        val savedOrder = orderRepository.save(order)
+
+        // OrderItemSpec 준비
         val itemSpecs = items.map { cmd ->
             OrderItemSpec(
                 product = productService.getProduct(cmd.productId),
@@ -32,9 +36,12 @@ class OrderService(
             )
         }
 
-        // ✅ Order와 OrderItem을 함께 생성
-        val order = Order.createWithItems(userId, couponId, itemSpecs)
-        return orderRepository.save(order)
+        // 저장된 Order에 OrderItem 추가
+        itemSpecs.forEach { spec ->
+            savedOrder.addItem(spec.product, spec.quantity, spec.price)
+        }
+
+        return savedOrder
     }
 
     fun getOrdersByUserId(userId: Long, pageable: Pageable): Page<OrderedInfo> {

@@ -17,12 +17,12 @@ interface ProductJpaRepository : JpaRepository<Product, Long>, QuerydslPredicate
         "UPDATE products SET like_count = like_count + 1 WHERE id = :productId",
         nativeQuery = true,
     )
-    fun incrementLikeCountAtomic(productId: Long)
+    fun increaseLikeCount(productId: Long)
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
         "UPDATE products SET like_count = GREATEST(like_count - 1, 0) WHERE id = :productId",
         nativeQuery = true,
     )
-    fun decrementLikeCountAtomic(productId: Long)
+    fun decreaseLikeCount(productId: Long)
 }
