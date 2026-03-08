@@ -27,7 +27,6 @@ class AdminProductFacade(
         brandId: Long,
         name: String,
         price: BigDecimal,
-        stock: Int,
         status: ProductStatus,
     ): Long {
         val brand = brandService.getBrand(brandId)
@@ -35,7 +34,6 @@ class AdminProductFacade(
             brand = brand,
             name = name,
             price = price,
-            stock = stock,
             status = status,
         )
     }
@@ -45,14 +43,12 @@ class AdminProductFacade(
         id: Long,
         name: String,
         price: BigDecimal,
-        stock: Int,
         status: ProductStatus,
     ) {
         productService.updateProduct(
             id = id,
             name = name,
             price = price,
-            stock = stock,
             status = status,
         )
     }

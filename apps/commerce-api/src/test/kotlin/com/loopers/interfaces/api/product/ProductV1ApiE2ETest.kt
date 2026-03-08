@@ -54,7 +54,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "테스트 상품",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -70,7 +69,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.id).isEqualTo(product.id) },
                 { assertThat(response.body?.data?.name).isEqualTo("테스트 상품") },
                 { assertThat(response.body?.data?.price).isEqualTo(BigDecimal("10000.00")) },
-                { assertThat(response.body?.data?.stock).isEqualTo(100) },
                 { assertThat(response.body?.data?.brandName).isEqualTo("테스트 브랜드") },
             )
         }
@@ -100,7 +98,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "삭제될 상품",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                 ),
             )
             product.delete()
@@ -125,7 +122,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "비활성 상품",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                     status = ProductStatus.INACTIVE,
                 ),
             )
@@ -153,7 +149,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "상품1",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                 ),
             )
             productJpaRepository.save(
@@ -161,7 +156,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "상품2",
                     price = BigDecimal("20000.00"),
-                    stock = 50,
                 ),
             )
 
@@ -188,10 +182,10 @@ class ProductV1ApiE2ETest @Autowired constructor(
             val brand1 = brandJpaRepository.save(Brand.create(name = "브랜드1", description = "설명"))
             val brand2 = brandJpaRepository.save(Brand.create(name = "브랜드2", description = "설명"))
             productJpaRepository.save(
-                Product.create(brand = brand1, name = "상품1", price = BigDecimal("10000.00"), stock = 100),
+                Product.create(brand = brand1, name = "상품1", price = BigDecimal("10000.00")),
             )
             productJpaRepository.save(
-                Product.create(brand = brand2, name = "상품2", price = BigDecimal("20000.00"), stock = 50),
+                Product.create(brand = brand2, name = "상품2", price = BigDecimal("20000.00")),
             )
 
             // act
@@ -222,7 +216,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                         brand = brand,
                         name = "상품$i",
                         price = BigDecimal((i + 1) * 1000),
-                        stock = 100,
                     ),
                 )
             }
@@ -287,7 +280,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "활성 상품",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                     status = ProductStatus.ACTIVE,
                 ),
             )
@@ -296,7 +288,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "비활성 상품",
                     price = BigDecimal("20000.00"),
-                    stock = 50,
                     status = ProductStatus.INACTIVE,
                 ),
             )
@@ -328,7 +319,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "활성 상품",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                 ),
             )
             val deletedProduct = productJpaRepository.save(
@@ -336,7 +326,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "삭제될 상품",
                     price = BigDecimal("20000.00"),
-                    stock = 50,
                 ),
             )
             deletedProduct.delete()
@@ -369,7 +358,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "상품1",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                 ),
             )
             Thread.sleep(10) // 생성 순서 보장
@@ -378,7 +366,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "상품2",
                     price = BigDecimal("20000.00"),
-                    stock = 50,
                 ),
             )
 
@@ -409,7 +396,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "저가 상품",
                     price = BigDecimal("10000.00"),
-                    stock = 100,
                 ),
             )
             productJpaRepository.save(
@@ -417,7 +403,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
                     brand = brand,
                     name = "고가 상품",
                     price = BigDecimal("30000.00"),
-                    stock = 50,
                 ),
             )
 

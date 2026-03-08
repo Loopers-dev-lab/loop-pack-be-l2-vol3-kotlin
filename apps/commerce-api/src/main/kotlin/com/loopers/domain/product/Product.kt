@@ -20,7 +20,6 @@ class Product private constructor(
     brand: Brand,
     name: String,
     price: BigDecimal,
-    stock: Int,
     status: ProductStatus,
 ) : BaseEntity() {
 
@@ -38,10 +37,6 @@ class Product private constructor(
         protected set
 
     @Column(nullable = false)
-    var stock: Int = stock
-        protected set
-
-    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     var status: ProductStatus = status
         protected set
@@ -54,24 +49,6 @@ class Product private constructor(
 
     fun isAvailable(): Boolean = !isDeleted() && status != ProductStatus.INACTIVE
 
-    fun updateStock(newStock: Int) {
-        if (newStock < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "재고는 0 이상이어야 합니다")
-        }
-        this.stock = newStock
-    }
-
-    fun minusStock(quantity: Int) {
-        if (stock - quantity <= 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족 합니다")
-        }
-        this.stock -= quantity
-    }
-
-    fun plusStock(quantity: Int) {
-        this.stock += quantity
-    }
-
     override fun guard() {
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "이름은 비어있을 수 없습니다")
@@ -81,9 +58,6 @@ class Product private constructor(
         }
         if (price < BigDecimal.ZERO) {
             throw CoreException(ErrorType.BAD_REQUEST, "가격은 0 이상이어야 합니다")
-        }
-        if (stock < 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "재고는 0 이상이어야 합니다")
         }
     }
 
@@ -98,30 +72,17 @@ class Product private constructor(
         guard()
     }
 
-    fun incrementLikeCount() {
-        this.likeCount++
-    }
-
-    fun decrementLikeCount() {
-        if (likeCount <= 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "좋아요 수가 0 이하일 수 없습니다")
-        }
-        this.likeCount--
-    }
-
     companion object {
         fun create(
             brand: Brand,
             name: String,
             price: BigDecimal,
-            stock: Int,
             status: ProductStatus = ProductStatus.ACTIVE,
         ): Product {
             return Product(
                 brand = brand,
                 name = name,
                 price = price,
-                stock = stock,
                 status = status,
             ).apply { guard() }
         }
