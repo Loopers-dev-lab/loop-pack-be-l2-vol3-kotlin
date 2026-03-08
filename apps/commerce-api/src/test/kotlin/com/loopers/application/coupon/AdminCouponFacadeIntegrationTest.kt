@@ -191,5 +191,25 @@ class AdminCouponFacadeIntegrationTest @Autowired constructor(
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
+
+        @DisplayName("발급받은 사용자가 존재하지 않으면, '알 수 없는 사용자'로 대체하여 정상 조회된다.")
+        @Test
+        fun returnsUnknownUserName_whenIssuedUserNotExists() {
+            // arrange
+            val coupon = createCoupon()
+            val nonExistentUserId = 999999L
+            createIssuedCoupon(coupon.id, nonExistentUserId)
+            val pageQuery = PageQuery(0, 20, SortOrder.UNSORTED)
+
+            // act
+            val result = adminCouponFacade.getCouponIssues(coupon.id, pageQuery)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(1) },
+                { assertThat(result.content[0].userId).isEqualTo(nonExistentUserId) },
+                { assertThat(result.content[0].userName).isEqualTo("알 수 없는 사용자") },
+            )
+        }
     }
 }

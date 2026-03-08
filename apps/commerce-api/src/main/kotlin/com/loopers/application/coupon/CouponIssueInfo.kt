@@ -13,10 +13,12 @@ data class CouponIssueInfo(
     val status: IssuedCouponStatus,
 ) {
     companion object {
-        fun from(issuedCoupon: IssuedCoupon, user: User, couponExpiresAt: ZonedDateTime): CouponIssueInfo {
+        private const val UNKNOWN_USER_NAME = "알 수 없는 사용자"
+
+        fun from(issuedCoupon: IssuedCoupon, user: User?, couponExpiresAt: ZonedDateTime): CouponIssueInfo {
             return CouponIssueInfo(
                 userId = issuedCoupon.userId,
-                userName = user.name,
+                userName = user?.name ?: UNKNOWN_USER_NAME,
                 issuedAt = issuedCoupon.createdAt,
                 usedAt = issuedCoupon.usedAt,
                 status = issuedCoupon.status(couponExpiresAt),
