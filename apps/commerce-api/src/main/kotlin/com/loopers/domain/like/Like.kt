@@ -11,7 +11,7 @@ import jakarta.persistence.UniqueConstraint
 @Entity
 @Table(
     name = "likes",
-    uniqueConstraints = [UniqueConstraint(name = "uk_likes_user_product", columnNames = ["user_id", "product_id"])],
+    uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "product_id"])],
 )
 class Like(
     userId: Long,

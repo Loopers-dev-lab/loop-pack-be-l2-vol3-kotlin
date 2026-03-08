@@ -1,6 +1,9 @@
 package com.loopers.application.order
 
 import com.loopers.domain.brand.BrandService
+import com.loopers.domain.coupon.CouponService
+import com.loopers.domain.coupon.Discount
+import com.loopers.domain.coupon.IssuedCoupon
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.product.ProductService
@@ -16,7 +19,7 @@ class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
-    private val stockLockManager: StockLockManager,
+    private val couponService: CouponService,
 ) {
 
     @Transactional(readOnly = true)
@@ -35,14 +38,24 @@ class OrderFacade(
     }
 
     @Transactional
-    fun placeOrder(userId: Long, items: List<OrderPlaceCommand>) {
+    fun placeOrder(userId: Long, items: List<OrderPlaceCommand>, couponId: Long? = null, idempotencyKey: String? = null) {
+        // 멱등성 키 중복 체크
+        if (idempotencyKey != null && orderService.findByIdempotencyKey(idempotencyKey) != null) {
+            return
+        }
+
+        // 쿠폰 검증 (fail-fast)
+        val couponInfo = couponId?.let { id ->
+            val issuedCoupon = couponService.findIssuedCouponWithLock(id, userId)
+            val coupon = couponService.findCouponById(id)
+            issuedCoupon.validateUsable(coupon.expiresAt)
+            CouponApplyInfo(id, coupon.discount, issuedCoupon)
+        }
+
         val productIds = items.map { it.productId }
 
-        // 재고 차감 동시성 제어: 락 획득 후 트랜잭션 커밋 시 자동 해제
-        stockLockManager.acquireLocksForTransaction(productIds)
-
-        // 락 획득 후 상품 재조회 (최신 재고 상태 보장) + 존재 검증
-        val products = productService.getProductsForOrder(productIds)
+        // DB 비관적 락(SELECT FOR UPDATE)으로 상품 조회 + 존재 검증
+        val products = productService.getProductsForOrderWithLock(productIds)
         val productMap = products.associateBy { it.id }
 
         val brandMap = brandService.getBrandsByIds(
@@ -65,6 +78,19 @@ class OrderFacade(
             )
         }
 
-        orderService.createOrder(userId, orderItemCommands)
+        val order = orderService.createOrder(userId, orderItemCommands, idempotencyKey)
+
+        // 쿠폰 할인 적용
+        couponInfo?.let {
+            val discountAmount = it.discount.calculateDiscountAmount(order.totalAmount)
+            order.applyCouponDiscount(it.couponId, discountAmount)
+            it.issuedCoupon.use()
+        }
     }
+
+    private data class CouponApplyInfo(
+        val couponId: Long,
+        val discount: Discount,
+        val issuedCoupon: IssuedCoupon,
+    )
 }

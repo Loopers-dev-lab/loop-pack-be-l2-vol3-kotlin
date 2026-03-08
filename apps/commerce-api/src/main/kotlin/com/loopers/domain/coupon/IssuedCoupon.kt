@@ -1,0 +1,56 @@
+package com.loopers.domain.coupon
+
+import com.loopers.domain.BaseEntity
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Table
+import java.time.ZonedDateTime
+
+@Entity
+@Table(name = "issued_coupons")
+class IssuedCoupon(
+    couponId: Long,
+    userId: Long,
+) : BaseEntity() {
+
+    @Column(name = "coupon_id", nullable = false)
+    var couponId: Long = couponId
+        protected set
+
+    @Column(name = "user_id", nullable = false)
+    var userId: Long = userId
+        protected set
+
+    @Column(name = "used_at")
+    var usedAt: ZonedDateTime? = null
+        protected set
+
+    init {
+        if (couponId <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 ID는 양수여야 합니다.")
+        }
+        if (userId <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "사용자 ID는 양수여야 합니다.")
+        }
+    }
+
+    fun use() {
+        usedAt = ZonedDateTime.now()
+    }
+
+    fun validateUsable(couponExpiresAt: ZonedDateTime) {
+        when (status(couponExpiresAt)) {
+            IssuedCouponStatus.USED -> throw CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.")
+            IssuedCouponStatus.EXPIRED -> throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
+            IssuedCouponStatus.AVAILABLE -> Unit
+        }
+    }
+
+    fun status(couponExpiresAt: ZonedDateTime): IssuedCouponStatus = when {
+        usedAt != null -> IssuedCouponStatus.USED
+        couponExpiresAt.isBefore(ZonedDateTime.now()) -> IssuedCouponStatus.EXPIRED
+        else -> IssuedCouponStatus.AVAILABLE
+    }
+}

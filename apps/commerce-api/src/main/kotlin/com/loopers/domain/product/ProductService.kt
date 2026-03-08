@@ -40,6 +40,11 @@ class ProductService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
     }
 
+    fun getProductWithLock(productId: Long): Product {
+        return productRepository.findByIdWithLock(productId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+    }
+
     fun updateProduct(
         product: Product,
         name: String,
@@ -56,20 +61,32 @@ class ProductService(
         return productRepository.findAllByIds(ids)
     }
 
-    fun getProductsForOrder(productIds: List<Long>): List<Product> {
-        val products = getProductsByIds(productIds)
-        val foundIds = products.map { it.id }.toSet()
-        val missingIds = productIds.filter { it !in foundIds }
+    fun getProductsForOrderWithLock(productIds: List<Long>): List<Product> {
+        val products = productRepository.findAllByIdsWithLock(productIds)
+        validateAllProductsFound(productIds, products)
+        return products
+    }
+
+    private fun validateAllProductsFound(requestedIds: List<Long>, foundProducts: List<Product>) {
+        val foundIds = foundProducts.map { it.id }.toSet()
+        val missingIds = requestedIds.filter { it !in foundIds }
         if (missingIds.isNotEmpty()) {
             throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: $missingIds")
         }
-        return products
     }
 
     fun deductStocks(products: Map<Long, Product>, requests: List<StockDeductionRequest>) {
         for (request in requests) {
             products.getValue(request.productId).deductStock(request.quantity)
         }
+    }
+
+    fun incrementLikeCount(productId: Long) {
+        productRepository.incrementLikeCount(productId)
+    }
+
+    fun decrementLikeCount(productId: Long) {
+        productRepository.decrementLikeCount(productId)
     }
 
     fun delete(product: Product) {

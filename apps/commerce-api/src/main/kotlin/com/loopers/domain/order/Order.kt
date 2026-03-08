@@ -12,6 +12,7 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import org.hibernate.annotations.SQLRestriction
 
 @Entity
@@ -21,15 +22,36 @@ import org.hibernate.annotations.SQLRestriction
 )
 class Order(
     userId: Long,
+    idempotencyKey: String? = null,
     status: OrderStatus = OrderStatus.ORDERED,
 ) : BaseEntity() {
+
+    @Version
+    var version: Long = 0
+        protected set
 
     @Column(name = "user_id", nullable = false)
     var userId: Long = userId
         protected set
 
+    @Column(name = "idempotency_key", unique = true)
+    var idempotencyKey: String? = idempotencyKey
+        protected set
+
     @Column(name = "total_amount", nullable = false)
     var totalAmount: Money = Money.ZERO
+        protected set
+
+    @Column(name = "coupon_id")
+    var couponId: Long? = null
+        protected set
+
+    @Column(name = "discount_amount", nullable = false)
+    var discountAmount: Money = Money.ZERO
+        protected set
+
+    @Column(name = "payment_amount", nullable = false)
+    var paymentAmount: Money = Money.ZERO
         protected set
 
     @Enumerated(EnumType.STRING)
@@ -69,6 +91,12 @@ class Order(
         calculateTotalAmount()
     }
 
+    fun applyCouponDiscount(couponId: Long, discountAmount: Money) {
+        this.couponId = couponId
+        this.discountAmount = discountAmount
+        calculatePaymentAmount()
+    }
+
     fun changeStatus(next: OrderStatus) {
         if (!status.canTransitionTo(next)) {
             throw CoreException(
@@ -83,5 +111,10 @@ class Order(
         this.totalAmount = orderItems.fold(Money.ZERO) { acc, item ->
             acc + item.productPrice * item.quantity
         }
+        calculatePaymentAmount()
+    }
+
+    private fun calculatePaymentAmount() {
+        this.paymentAmount = Money.of(totalAmount.value - discountAmount.value)
     }
 }

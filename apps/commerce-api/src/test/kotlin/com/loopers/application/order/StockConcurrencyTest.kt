@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -50,6 +51,65 @@ class StockConcurrencyTest @Autowired constructor(
                 brandId = brand.id,
             ),
         )
+    }
+
+    @DisplayName("DB 비관적 락으로 상품을 조회할 때,")
+    @Nested
+    inner class FindAllByIdsWithLock {
+
+        @DisplayName("ID 목록으로 조회하면, 해당 상품들을 반환한다.")
+        @Transactional
+        @Test
+        fun returnsProducts_whenValidIdsProvided() {
+            // arrange
+            val product1 = createProduct(stockQuantity = StockQuantity.of(10))
+            val product2 = createProduct(stockQuantity = StockQuantity.of(20))
+
+            // act
+            val result = productRepository.findAllByIdsWithLock(listOf(product1.id, product2.id))
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(2) },
+                { assertThat(result.map { it.id }).containsExactlyInAnyOrder(product1.id, product2.id) },
+            )
+        }
+
+        @DisplayName("삭제된 상품은 조회되지 않는다.")
+        @Transactional
+        @Test
+        fun excludesDeletedProducts() {
+            // arrange
+            val product = createProduct(stockQuantity = StockQuantity.of(10))
+            val deletedProduct = createProduct(stockQuantity = StockQuantity.of(20))
+            deletedProduct.delete()
+            productRepository.save(deletedProduct)
+
+            // act
+            val result = productRepository.findAllByIdsWithLock(listOf(product.id, deletedProduct.id))
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(1) },
+                { assertThat(result[0].id).isEqualTo(product.id) },
+            )
+        }
+
+        @DisplayName("ID 오름차순으로 정렬하여 반환한다. (데드락 방지)")
+        @Transactional
+        @Test
+        fun returnsProductsOrderedById() {
+            // arrange
+            val product1 = createProduct(stockQuantity = StockQuantity.of(10))
+            val product2 = createProduct(stockQuantity = StockQuantity.of(20))
+            val product3 = createProduct(stockQuantity = StockQuantity.of(30))
+
+            // act — 역순으로 요청해도 ID 오름차순으로 반환
+            val result = productRepository.findAllByIdsWithLock(listOf(product3.id, product1.id, product2.id))
+
+            // assert
+            assertThat(result.map { it.id }).containsExactly(product1.id, product2.id, product3.id)
+        }
     }
 
     @DisplayName("재고 차감 동시성 제어")

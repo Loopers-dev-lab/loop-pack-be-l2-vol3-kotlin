@@ -6,8 +6,16 @@ import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.StockQuantity
+import com.loopers.domain.coupon.Coupon
+import com.loopers.domain.coupon.CouponQuantity
+import com.loopers.domain.coupon.CouponRepository
+import com.loopers.domain.coupon.Discount
+import com.loopers.domain.coupon.DiscountType
+import com.loopers.domain.coupon.IssuedCouponRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.user.LoginId
+import com.loopers.domain.user.UserRepository
 import com.loopers.interfaces.api.user.UserDto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -25,21 +33,32 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
+import org.springframework.test.util.ReflectionTestUtils
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class OrderApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val couponRepository: CouponRepository,
+    private val issuedCouponRepository: IssuedCouponRepository,
+    private val userRepository: UserRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
     companion object {
         private const val ORDER_ENDPOINT = "/api/v1/orders"
         private const val SIGNUP_ENDPOINT = "/api/v1/users/signup"
+        private const val ISSUE_COUPON_ENDPOINT = "/api/v1/coupons/{couponId}/issue"
         private const val LOGIN_ID_HEADER = "X-Loopers-LoginId"
         private const val LOGIN_PW_HEADER = "X-Loopers-LoginPw"
         private val ORDER_RESPONSE_TYPE =
@@ -108,6 +127,7 @@ class OrderApiE2ETest @Autowired constructor(
 
     private data class PlaceOrderRequest(
         val items: List<OrderItemRequest>,
+        val couponId: Long? = null,
     )
 
     private data class OrderItemRequest(
@@ -115,15 +135,46 @@ class OrderApiE2ETest @Autowired constructor(
         val quantity: Int,
     )
 
+    private fun createCoupon(
+        name: String = "테스트 쿠폰",
+        discount: Discount = Discount(DiscountType.FIXED_AMOUNT, 5000L),
+        totalQuantity: Int = 100,
+        expiresAt: ZonedDateTime = ZonedDateTime.now().plusDays(30),
+    ): Coupon {
+        return couponRepository.save(
+            Coupon(
+                name = name,
+                discount = discount,
+                quantity = CouponQuantity(totalQuantity, 0),
+                expiresAt = expiresAt,
+            ),
+        )
+    }
+
+    private fun issueCouponViaApi(couponId: Long, loginId: String = "testuser123", password: String = "Test1234!@") {
+        testRestTemplate.exchange(
+            ISSUE_COUPON_ENDPOINT,
+            HttpMethod.POST,
+            HttpEntity<Void>(authHeaders(loginId = loginId, password = password)),
+            ORDER_RESPONSE_TYPE,
+            couponId,
+        )
+    }
+
     private fun placeOrder(
         request: PlaceOrderRequest,
         headers: HttpHeaders = authHeaders(),
-    ) = testRestTemplate.exchange(
-        ORDER_ENDPOINT,
-        HttpMethod.POST,
-        HttpEntity(request, headers),
-        ORDER_RESPONSE_TYPE,
-    )
+    ): ResponseEntity<ApiResponse<Any>> {
+        if (!headers.containsKey("Idempotency-Key")) {
+            headers.set("Idempotency-Key", UUID.randomUUID().toString())
+        }
+        return testRestTemplate.exchange(
+            ORDER_ENDPOINT,
+            HttpMethod.POST,
+            HttpEntity(request, headers),
+            ORDER_RESPONSE_TYPE,
+        )
+    }
 
     private fun getOrders(
         startAt: String,
@@ -135,6 +186,28 @@ class OrderApiE2ETest @Autowired constructor(
         HttpEntity<Void>(headers),
         ORDER_LIST_RESPONSE_TYPE,
     )
+
+    private fun getOrderDetail(
+        orderId: Long,
+        headers: HttpHeaders = authHeaders(),
+    ) = testRestTemplate.exchange(
+        "$ORDER_ENDPOINT/$orderId",
+        HttpMethod.GET,
+        HttpEntity<Void>(headers),
+        ORDER_RESPONSE_TYPE,
+    )
+
+    private fun placeOrderAndGetId(
+        request: PlaceOrderRequest,
+        headers: HttpHeaders = authHeaders(),
+    ): Long {
+        placeOrder(request, headers)
+        val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        val ordersResponse = getOrders(startAt, endAt, headers)
+        val order = ordersResponse.body?.data?.first() as Map<*, *>
+        return (order["orderId"] as Number).toLong()
+    }
 
     @DisplayName("POST /api/v1/orders")
     @Nested
@@ -558,28 +631,6 @@ class OrderApiE2ETest @Autowired constructor(
     @Nested
     inner class GetOrderDetailApi {
 
-        private fun getOrderDetail(
-            orderId: Long,
-            headers: HttpHeaders = authHeaders(),
-        ) = testRestTemplate.exchange(
-            "$ORDER_ENDPOINT/$orderId",
-            HttpMethod.GET,
-            HttpEntity<Void>(headers),
-            ORDER_RESPONSE_TYPE,
-        )
-
-        private fun placeOrderAndGetId(
-            request: PlaceOrderRequest,
-            headers: HttpHeaders = authHeaders(),
-        ): Long {
-            placeOrder(request, headers)
-            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            val ordersResponse = getOrders(startAt, endAt, headers)
-            val order = ordersResponse.body?.data?.first() as Map<*, *>
-            return (order["orderId"] as Number).toLong()
-        }
-
         @DisplayName("주문 상세 조회 시, 200 OK를 반환한다.")
         @Test
         fun returnsOk_whenGetOrderDetail() {
@@ -710,6 +761,653 @@ class OrderApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode.value()).isEqualTo(401)
+        }
+    }
+
+    @DisplayName("POST /api/v1/orders - 쿠폰 적용 주문")
+    @Nested
+    inner class PlaceOrderWithCouponApi {
+
+        private fun placeOrderAndGetDetail(
+            request: PlaceOrderRequest,
+            headers: HttpHeaders = authHeaders(),
+        ): Map<*, *> {
+            val orderId = placeOrderAndGetId(request, headers)
+            val response = getOrderDetail(orderId, headers)
+            return response.body?.data as Map<*, *>
+        }
+
+        @DisplayName("정액 할인 쿠폰을 적용하면, 200 OK와 할인된 주문이 생성된다.")
+        @Test
+        fun returnsOk_withFixedDiscountApplied() {
+            // arrange
+            signUp()
+            val product = createProduct(price = Money.of(100000L))
+            val coupon = createCoupon(discount = Discount(DiscountType.FIXED_AMOUNT, 5000L))
+            issueCouponViaApi(coupon.id)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+                couponId = coupon.id,
+            )
+
+            // act
+            val response = placeOrder(request)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("쿠폰 적용 주문의 상세 조회 시, 할인 정보가 포함된다.")
+        @Test
+        fun returnsDiscountInfo_whenOrderDetailQueried() {
+            // arrange
+            signUp()
+            val product = createProduct(price = Money.of(100000L))
+            val coupon = createCoupon(discount = Discount(DiscountType.FIXED_AMOUNT, 5000L))
+            issueCouponViaApi(coupon.id)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+                couponId = coupon.id,
+            )
+
+            // act
+            val detail = placeOrderAndGetDetail(request)
+
+            // assert
+            assertAll(
+                { assertThat((detail["totalAmount"] as Number).toLong()).isEqualTo(200000L) },
+                { assertThat((detail["discountAmount"] as Number).toLong()).isEqualTo(5000L) },
+                { assertThat((detail["paymentAmount"] as Number).toLong()).isEqualTo(195000L) },
+            )
+        }
+
+        @DisplayName("정률 할인 쿠폰 적용 시, 비율만큼 할인된다.")
+        @Test
+        fun appliesPercentageDiscount() {
+            // arrange
+            signUp()
+            val product = createProduct(price = Money.of(100000L))
+            val coupon = createCoupon(discount = Discount(DiscountType.PERCENTAGE, 10L))
+            issueCouponViaApi(coupon.id)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+                couponId = coupon.id,
+            )
+
+            // act
+            val detail = placeOrderAndGetDetail(request)
+
+            // assert
+            assertAll(
+                { assertThat((detail["totalAmount"] as Number).toLong()).isEqualTo(200000L) },
+                { assertThat((detail["discountAmount"] as Number).toLong()).isEqualTo(20000L) },
+                { assertThat((detail["paymentAmount"] as Number).toLong()).isEqualTo(180000L) },
+            )
+        }
+
+        @DisplayName("couponId를 생략하면, 쿠폰 없이 정상 주문된다.")
+        @Test
+        fun createsOrderWithoutCoupon_whenCouponIdIsNull() {
+            // arrange
+            signUp()
+            val product = createProduct(price = Money.of(100000L))
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+            )
+
+            // act
+            val response = placeOrder(request)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 쿠폰으로 주문하면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFound_whenCouponDoesNotExist() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                couponId = 999999L,
+            )
+
+            // act
+            val response = placeOrder(request)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("이미 사용된 쿠폰으로 주문하면, 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenCouponAlreadyUsed() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val coupon = createCoupon()
+            issueCouponViaApi(coupon.id)
+
+            // 발급된 쿠폰을 직접 사용 처리
+            val user = userRepository.findByLoginId(LoginId.of("testuser123"))!!
+            val issuedCoupons = issuedCouponRepository.findByUserId(user.id)
+            val issuedCoupon = issuedCoupons.first { it.couponId == coupon.id }
+            issuedCoupon.use()
+            issuedCouponRepository.save(issuedCoupon)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                couponId = coupon.id,
+            )
+
+            // act
+            val response = placeOrder(request)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("다른 사용자의 쿠폰으로 주문하면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFound_whenCouponBelongsToOtherUser() {
+            // arrange
+            signUp(loginId = "user1", name = "유저1", email = "user1@example.com")
+            signUp(loginId = "user2", name = "유저2", email = "user2@example.com")
+            val product = createProduct()
+            val coupon = createCoupon()
+            issueCouponViaApi(coupon.id, loginId = "user2")
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                couponId = coupon.id,
+            )
+
+            // act - user1이 user2의 쿠폰으로 주문
+            val response = placeOrder(request, authHeaders(loginId = "user1"))
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("쿠폰 적용 주문 성공 시, 쿠폰이 사용 처리된다.")
+        @Test
+        fun marksCouponAsUsed_whenOrderSucceeds() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val coupon = createCoupon()
+            issueCouponViaApi(coupon.id)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                couponId = coupon.id,
+            )
+
+            // act
+            placeOrder(request)
+
+            // assert
+            val user = userRepository.findByLoginId(LoginId.of("testuser123"))!!
+            val issuedCoupons = issuedCouponRepository.findByUserId(user.id)
+            val issuedCoupon = issuedCoupons.first { it.couponId == coupon.id }
+            assertThat(issuedCoupon.usedAt).isNotNull()
+        }
+
+        @DisplayName("만료된 쿠폰으로 주문하면, 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenCouponIsExpired() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val coupon = createCoupon()
+            issueCouponViaApi(coupon.id)
+
+            // 발급 후 쿠폰을 만료 처리
+            val savedCoupon = couponRepository.findById(coupon.id)!!
+            ReflectionTestUtils.setField(savedCoupon, "expiresAt", ZonedDateTime.now().minusDays(1))
+            couponRepository.save(savedCoupon)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                couponId = coupon.id,
+            )
+
+            // act
+            val response = placeOrder(request)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("쿠폰 미적용 주문 상세에서 할인 금액은 0이고, 결제 금액은 총 금액과 같다.")
+        @Test
+        fun returnsZeroDiscount_whenNoCouponApplied() {
+            // arrange
+            signUp()
+            val product = createProduct(price = Money.of(100000L))
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+            )
+
+            // act
+            val detail = placeOrderAndGetDetail(request)
+
+            // assert
+            assertAll(
+                { assertThat((detail["totalAmount"] as Number).toLong()).isEqualTo(200000L) },
+                { assertThat((detail["discountAmount"] as Number).toLong()).isEqualTo(0L) },
+                { assertThat((detail["paymentAmount"] as Number).toLong()).isEqualTo(200000L) },
+            )
+        }
+
+        @DisplayName("쿠폰을 사용한 주문 후, 같은 쿠폰으로 재주문하면 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenCouponAlreadyUsedByPreviousOrder() {
+            // arrange
+            signUp()
+            val brand = createBrand()
+            val product1 = createProduct(name = "에어맥스", price = Money.of(100000L), brand = brand)
+            val product2 = createProduct(name = "에어포스", price = Money.of(80000L), brand = brand)
+            val coupon = createCoupon()
+            issueCouponViaApi(coupon.id)
+
+            // 첫 번째 주문에서 쿠폰 사용
+            placeOrder(
+                PlaceOrderRequest(
+                    items = listOf(OrderItemRequest(productId = product1.id, quantity = 1)),
+                    couponId = coupon.id,
+                ),
+            )
+
+            // act - 같은 쿠폰으로 두 번째 주문
+            val response = placeOrder(
+                PlaceOrderRequest(
+                    items = listOf(OrderItemRequest(productId = product2.id, quantity = 1)),
+                    couponId = coupon.id,
+                ),
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("쿠폰 적용 실패 시, 재고는 변경되지 않는다.")
+        @Test
+        fun doesNotDeductStock_whenCouponApplicationFails() {
+            // arrange
+            signUp()
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 3)),
+                couponId = 999999L,
+            )
+
+            // act
+            placeOrder(request)
+
+            // assert
+            val updatedProduct = productRepository.findById(product.id)
+            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(100))
+        }
+    }
+
+    @DisplayName("POST /api/v1/orders - 멱등성 키 중복 주문 방지")
+    @Nested
+    inner class IdempotencyKeyApi {
+
+        @DisplayName("Idempotency-Key 헤더를 포함하여 주문하면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenIdempotencyKeyProvided() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", "e2e-key-${System.nanoTime()}")
+            }
+
+            // act
+            val response = placeOrder(request, headers)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
+            )
+        }
+
+        @DisplayName("같은 Idempotency-Key로 두 번 주문하면, 주문이 1건만 생성된다.")
+        @Test
+        fun createsOnlyOneOrder_whenSameIdempotencyKey() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val idempotencyKey = "duplicate-test-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            val firstResponse = placeOrder(request, headers)
+            val secondResponse = placeOrder(request, headers)
+
+            // assert
+            assertAll(
+                { assertThat(firstResponse.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(secondResponse.statusCode).isEqualTo(HttpStatus.OK) },
+            )
+
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(1)
+        }
+
+        @DisplayName("같은 Idempotency-Key로 두 번 주문해도, 재고는 1번만 차감된다.")
+        @Test
+        fun deductsStockOnlyOnce_whenSameIdempotencyKey() {
+            // arrange
+            signUp()
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 3)),
+            )
+            val idempotencyKey = "stock-test-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            placeOrder(request, headers)
+            placeOrder(request, headers)
+
+            // assert
+            val updatedProduct = productRepository.findById(product.id)
+            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(97))
+        }
+
+        @DisplayName("다른 Idempotency-Key로 주문하면, 각각 주문이 생성된다.")
+        @Test
+        fun createsSeparateOrders_whenDifferentIdempotencyKeys() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+
+            // act
+            placeOrder(request, authHeaders().apply { set("Idempotency-Key", "key-a-${System.nanoTime()}") })
+            placeOrder(request, authHeaders().apply { set("Idempotency-Key", "key-b-${System.nanoTime()}") })
+
+            // assert
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(2)
+        }
+
+        @DisplayName("쿠폰 적용 주문을 같은 Idempotency-Key로 두 번 요청하면, 쿠폰은 1번만 사용된다.")
+        @Test
+        fun usesCouponOnlyOnce_whenSameIdempotencyKeyWithCoupon() {
+            // arrange
+            signUp()
+            val product = createProduct(price = Money.of(100000L))
+            val coupon = createCoupon(discount = Discount(DiscountType.FIXED_AMOUNT, 5000L))
+            issueCouponViaApi(coupon.id)
+
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+                couponId = coupon.id,
+            )
+            val idempotencyKey = "coupon-idem-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            val firstResponse = placeOrder(request, headers)
+            val secondResponse = placeOrder(request, headers)
+
+            // assert
+            assertAll(
+                { assertThat(firstResponse.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(secondResponse.statusCode).isEqualTo(HttpStatus.OK) },
+            )
+
+            // 주문이 1건만 생성되었는지 확인
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(1)
+
+            // 쿠폰이 사용 처리되었는지 확인
+            val user = userRepository.findByLoginId(LoginId.of("testuser123"))!!
+            val issuedCoupons = issuedCouponRepository.findByUserId(user.id)
+            val issuedCoupon = issuedCoupons.first { it.couponId == coupon.id }
+            assertThat(issuedCoupon.usedAt).isNotNull()
+        }
+
+        @DisplayName("같은 Idempotency-Key로 동시에 주문하면, 1건만 생성된다.")
+        @Test
+        fun createsOnlyOneOrder_whenConcurrentRequestsWithSameKey() {
+            // arrange
+            signUp()
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val idempotencyKey = "concurrent-idem-key-${System.nanoTime()}"
+
+            val threadCount = 5
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val successCount = AtomicInteger(0)
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        val headers = authHeaders().apply {
+                            set("Idempotency-Key", idempotencyKey)
+                        }
+                        val response = testRestTemplate.exchange(
+                            ORDER_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity(request, headers),
+                            ORDER_RESPONSE_TYPE,
+                        )
+                        if (response.statusCode == HttpStatus.OK) {
+                            successCount.incrementAndGet()
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert - 주문이 1건만 생성되었는지 확인
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            assertThat(ordersResponse.body?.data).hasSize(1)
+
+            // 재고도 1번만 차감되었는지 확인
+            val updatedProduct = productRepository.findById(product.id)
+            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(99))
+        }
+
+        @DisplayName("같은 Idempotency-Key로 중복 요청 후 주문 상세를 조회하면, 첫 번째 주문 정보가 반환된다.")
+        @Test
+        fun returnsFirstOrderDetail_whenDuplicateRequestWithSameKey() {
+            // arrange
+            signUp()
+            val brand = createBrand()
+            val product = createProduct(name = "에어맥스", price = Money.of(159000L), brand = brand)
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 2)),
+            )
+            val idempotencyKey = "detail-idem-key-${System.nanoTime()}"
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", idempotencyKey)
+            }
+
+            // act
+            placeOrder(request, headers)
+            placeOrder(request, headers)
+
+            // assert - 주문 상세 조회
+            val startAt = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val endAt = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val ordersResponse = getOrders(startAt, endAt)
+            val order = ordersResponse.body?.data?.first() as Map<*, *>
+            val orderId = (order["orderId"] as Number).toLong()
+
+            val detailResponse = getOrderDetail(orderId)
+            val detail = detailResponse.body?.data as Map<*, *>
+            assertAll(
+                { assertThat(detailResponse.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat((detail["totalAmount"] as Number).toLong()).isEqualTo(318000L) },
+                { assertThat(detail["status"]).isEqualTo("ORDERED") },
+                { assertThat((detail["items"] as List<*>)).hasSize(1) },
+            )
+        }
+    }
+
+    @DisplayName("POST /api/v1/orders - 동시 주문")
+    @Nested
+    inner class ConcurrentPlaceOrderApi {
+
+        @DisplayName("동시에 여러 사용자가 같은 상품을 주문하면, 재고가 정확히 차감된다.")
+        @Test
+        fun deductsStockCorrectly_whenConcurrentOrders() {
+            // arrange
+            val threadCount = 10
+            (1..threadCount).forEach { i ->
+                signUp(loginId = "user$i", password = "Test1234!@", name = "사용자$i", email = "user$i@example.com")
+            }
+            val product = createProduct(stockQuantity = StockQuantity.of(100))
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val successCount = AtomicInteger(0)
+
+            // act
+            (1..threadCount).forEach { i ->
+                executor.submit {
+                    try {
+                        val request = PlaceOrderRequest(
+                            items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                        )
+                        val headers = authHeaders(loginId = "user$i").apply {
+                            set("Idempotency-Key", UUID.randomUUID().toString())
+                        }
+                        val response = testRestTemplate.exchange(
+                            ORDER_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity(request, headers),
+                            ORDER_RESPONSE_TYPE,
+                        )
+                        if (response.statusCode == HttpStatus.OK) {
+                            successCount.incrementAndGet()
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            val updatedProduct = productRepository.findById(product.id)
+            assertAll(
+                { assertThat(successCount.get()).isEqualTo(10) },
+                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(90)) },
+            )
+        }
+
+        @DisplayName("재고보다 많은 동시 주문이 들어오면, 재고가 음수가 되지 않는다.")
+        @Test
+        fun doesNotGoNegative_whenConcurrentOrdersExceedStock() {
+            // arrange
+            val threadCount = 10
+            (1..threadCount).forEach { i ->
+                signUp(loginId = "user$i", password = "Test1234!@", name = "사용자$i", email = "user$i@example.com")
+            }
+            val product = createProduct(stockQuantity = StockQuantity.of(5))
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val successCount = AtomicInteger(0)
+            val failCount = AtomicInteger(0)
+
+            // act
+            (1..threadCount).forEach { i ->
+                executor.submit {
+                    try {
+                        val request = PlaceOrderRequest(
+                            items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                        )
+                        val headers = authHeaders(loginId = "user$i").apply {
+                            set("Idempotency-Key", UUID.randomUUID().toString())
+                        }
+                        val response = testRestTemplate.exchange(
+                            ORDER_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity(request, headers),
+                            ORDER_RESPONSE_TYPE,
+                        )
+                        when (response.statusCode) {
+                            HttpStatus.OK -> successCount.incrementAndGet()
+                            HttpStatus.BAD_REQUEST -> failCount.incrementAndGet()
+                            else -> {}
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            val updatedProduct = productRepository.findById(product.id)
+            assertAll(
+                { assertThat(successCount.get()).isEqualTo(5) },
+                { assertThat(failCount.get()).isEqualTo(5) },
+                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(0)) },
+            )
         }
     }
 }

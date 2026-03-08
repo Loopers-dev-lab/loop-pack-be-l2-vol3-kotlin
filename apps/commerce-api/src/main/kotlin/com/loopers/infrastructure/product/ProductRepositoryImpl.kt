@@ -35,7 +35,23 @@ class ProductRepositoryImpl(
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
     }
 
+    override fun findByIdWithLock(id: Long): Product? {
+        return productJpaRepository.findByIdWithLock(id)
+    }
+
+    override fun findAllByIdsWithLock(ids: List<Long>): List<Product> {
+        return productJpaRepository.findAllByIdInWithLock(ids)
+    }
+
     override fun findAllByBrandId(brandId: Long): List<Product> {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
+    }
+
+    override fun incrementLikeCount(productId: Long) {
+        productJpaRepository.incrementLikeCount(productId)
+    }
+
+    override fun decrementLikeCount(productId: Long) {
+        productJpaRepository.decrementLikeCount(productId)
     }
 }

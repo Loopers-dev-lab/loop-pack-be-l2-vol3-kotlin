@@ -157,6 +157,64 @@ class OrderTest {
         }
     }
 
+    @DisplayName("쿠폰 할인을 적용할 때,")
+    @Nested
+    inner class ApplyCouponDiscount {
+
+        @DisplayName("할인 금액과 결제 금액이 정상적으로 설정된다.")
+        @Test
+        fun setsDiscountAndPaymentAmount() {
+            // arrange
+            val order = Order(userId = 1L)
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = Quantity.of(2),
+                        productName = "에어맥스",
+                        productPrice = Money.of(100000L),
+                        brandName = "나이키",
+                    ),
+                ),
+            )
+
+            // act
+            order.applyCouponDiscount(couponId = 42L, discountAmount = Money.of(10000L))
+
+            // assert
+            assertAll(
+                { assertThat(order.couponId).isEqualTo(42L) },
+                { assertThat(order.discountAmount).isEqualTo(Money.of(10000L)) },
+                { assertThat(order.paymentAmount).isEqualTo(Money.of(190000L)) },
+            )
+        }
+
+        @DisplayName("쿠폰 미적용 시, 할인 금액은 0이고 결제 금액은 총 금액과 같다.")
+        @Test
+        fun noDiscount_whenCouponNotApplied() {
+            // arrange
+            val order = Order(userId = 1L)
+            order.addItems(
+                listOf(
+                    OrderItemCommand(
+                        productId = 1L,
+                        quantity = Quantity.of(1),
+                        productName = "에어맥스",
+                        productPrice = Money.of(100000L),
+                        brandName = "나이키",
+                    ),
+                ),
+            )
+
+            // assert
+            assertAll(
+                { assertThat(order.couponId).isNull() },
+                { assertThat(order.discountAmount).isEqualTo(Money.ZERO) },
+                { assertThat(order.paymentAmount).isEqualTo(Money.of(100000L)) },
+            )
+        }
+    }
+
     @DisplayName("주문 상태를 변경할 때,")
     @Nested
     inner class ChangeStatus {
@@ -231,6 +289,46 @@ class OrderTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @DisplayName("낙관적 락 version 필드")
+    @Nested
+    inner class Version {
+
+        @DisplayName("Order 생성 시, version 초기값은 0이다.")
+        @Test
+        fun hasVersionFieldWithInitialValueZero() {
+            // arrange & act
+            val order = Order(userId = 1L)
+
+            // assert
+            assertThat(order.version).isEqualTo(0L)
+        }
+    }
+
+    @DisplayName("멱등성 키를 설정할 때,")
+    @Nested
+    inner class IdempotencyKey {
+
+        @DisplayName("idempotencyKey를 설정하면, 주문에 저장된다.")
+        @Test
+        fun setsIdempotencyKey() {
+            // arrange & act
+            val order = Order(userId = 1L, idempotencyKey = "test-key-123")
+
+            // assert
+            assertThat(order.idempotencyKey).isEqualTo("test-key-123")
+        }
+
+        @DisplayName("idempotencyKey 없이 생성하면, null이다.")
+        @Test
+        fun idempotencyKeyIsNull_whenNotProvided() {
+            // arrange & act
+            val order = Order(userId = 1L)
+
+            // assert
+            assertThat(order.idempotencyKey).isNull()
         }
     }
 }

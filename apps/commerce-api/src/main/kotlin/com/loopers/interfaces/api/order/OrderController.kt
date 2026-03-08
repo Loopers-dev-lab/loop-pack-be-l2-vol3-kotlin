@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -42,9 +43,10 @@ class OrderController(
     @PostMapping
     override fun placeOrder(
         @AuthenticatedUser userInfo: AuthenticatedUserInfo,
+        @RequestHeader("Idempotency-Key") idempotencyKey: String,
         @RequestBody request: OrderDto.PlaceOrderRequest,
     ): ApiResponse<Unit> {
-        orderFacade.placeOrder(userInfo.id, request.toCommands())
+        orderFacade.placeOrder(userInfo.id, request.toCommands(), request.couponId, idempotencyKey)
         return ApiResponse.success(Unit)
     }
 }

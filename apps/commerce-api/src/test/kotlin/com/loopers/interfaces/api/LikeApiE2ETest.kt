@@ -27,6 +27,9 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import java.time.LocalDate
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LikeApiE2ETest @Autowired constructor(
@@ -118,6 +121,34 @@ class LikeApiE2ETest @Autowired constructor(
             LIKE_RESPONSE_TYPE,
             productId,
         )
+    }
+
+    private fun signUpUsers(count: Int) {
+        repeat(count) { index ->
+            signUp(loginId = "user$index", password = "Test1234!@", name = "사용자$index", email = "user$index@example.com")
+        }
+    }
+
+    private fun concurrentLike(productId: Long, userCount: Int) {
+        val latch = CountDownLatch(userCount)
+        val executor = Executors.newFixedThreadPool(userCount)
+        repeat(userCount) { index ->
+            executor.submit {
+                try {
+                    testRestTemplate.exchange(
+                        LIKE_ENDPOINT,
+                        HttpMethod.POST,
+                        HttpEntity<Void>(authHeaders(loginId = "user$index", password = "Test1234!@")),
+                        LIKE_RESPONSE_TYPE,
+                        productId,
+                    )
+                } finally {
+                    latch.countDown()
+                }
+            }
+        }
+        latch.await()
+        executor.shutdown()
     }
 
     private fun getLikeCount(productId: Long): Int? {
@@ -273,6 +304,101 @@ class LikeApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
             )
+        }
+    }
+
+    @DisplayName("동시성 좋아요 테스트")
+    @Nested
+    inner class ConcurrentLike {
+
+        @DisplayName("같은 사용자가 동시에 좋아요하면, 모두 200 OK를 반환하고 좋아요 수는 1이다. (TOCTOU 처리)")
+        @Test
+        fun returnsOkForAll_whenSameUserConcurrentlyLikes() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val threadCount = 10
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val failCount = AtomicInteger(0)
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        val response = testRestTemplate.exchange(
+                            LIKE_ENDPOINT,
+                            HttpMethod.POST,
+                            HttpEntity<Void>(authHeaders()),
+                            LIKE_RESPONSE_TYPE,
+                            product.id,
+                        )
+                        if (!response.statusCode.is2xxSuccessful) {
+                            failCount.incrementAndGet()
+                        }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            assertThat(failCount.get()).isZero()
+            assertThat(getLikeCount(product.id)).isEqualTo(1)
+        }
+
+        @DisplayName("서로 다른 사용자 10명이 동시에 좋아요하면, 좋아요 수가 정확히 10이 된다.")
+        @Test
+        fun likeCountEquals10_when10UsersConcurrentlyLike() {
+            // arrange
+            val product = createProduct()
+            val userCount = 10
+
+            signUpUsers(userCount)
+
+            // act
+            concurrentLike(product.id, userCount)
+
+            // assert
+            assertThat(getLikeCount(product.id)).isEqualTo(userCount)
+        }
+
+        @DisplayName("10명이 좋아요한 뒤 동시에 취소하면, 좋아요 수가 정확히 0이 된다.")
+        @Test
+        fun likeCountEquals0_when10UsersConcurrentlyUnlike() {
+            // arrange
+            val product = createProduct()
+            val userCount = 10
+
+            signUpUsers(userCount)
+            concurrentLike(product.id, userCount)
+
+            val latch = CountDownLatch(userCount)
+            val executor = Executors.newFixedThreadPool(userCount)
+
+            // act
+            repeat(userCount) { index ->
+                executor.submit {
+                    try {
+                        testRestTemplate.exchange(
+                            LIKE_ENDPOINT,
+                            HttpMethod.DELETE,
+                            HttpEntity<Void>(authHeaders(loginId = "user$index", password = "Test1234!@")),
+                            LIKE_RESPONSE_TYPE,
+                            product.id,
+                        )
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert
+            assertThat(getLikeCount(product.id)).isEqualTo(0)
         }
     }
 
