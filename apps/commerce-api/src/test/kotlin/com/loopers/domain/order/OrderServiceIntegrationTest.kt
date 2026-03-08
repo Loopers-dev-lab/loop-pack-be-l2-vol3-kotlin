@@ -100,47 +100,5 @@ class OrderServiceIntegrationTest @Autowired constructor(
             assertThat(order.orderItems[1].quantity).isEqualTo(1)
         }
 
-        @DisplayName("createWithItems()로 생성된 주문이 저장되면 orderId가 올바르게 설정되어야 한다")
-        @Test
-        fun createWithItems_setsOrderIdCorrectly_afterSaving() {
-            // arrange
-            val userId = 1L
-            val brand = brandRepository.save(Brand.create("Test Brand", "Test Description"))
-            val product = productRepository.save(
-                Product.create(
-                    brand = brand,
-                    name = "Product",
-                    price = BigDecimal("10000"),
-                    status = ProductStatus.ACTIVE,
-                ),
-            )
-
-            val itemSpecs = listOf(
-                com.loopers.domain.order.dto.OrderItemSpec(
-                    product = product,
-                    quantity = 1,
-                    price = BigDecimal("10000"),
-                ),
-            )
-
-            // act - Order 생성 직후: orderId는 아직 0
-            val order = Order.createWithItems(userId, null, itemSpecs)
-            assertThat(order.orderItems[0].orderId).isEqualTo(0L)
-
-            // Order를 저장하려면 먼저 orderId를 임시로 설정해야 함
-            // (JPA를 통해 저장되면 실제 id가 할당됨)
-            order.orderItems.forEach { item ->
-                item.setOrderId(1L) // 임시값, 실제로는 저장 후 올바른 id로 업데이트됨
-            }
-
-            val savedOrder = orderJpaRepository.save(order)
-            // 저장 후 올바른 id로 업데이트
-            savedOrder.setOrderItemIds()
-
-            // assert - 저장 후 올바른 orderId가 설정되어야 함
-            assertThat(savedOrder.id).isNotEqualTo(0L)
-            assertThat(savedOrder.orderItems[0].orderId).isEqualTo(savedOrder.id)
-            assertThat(savedOrder.orderItems[0].productId).isEqualTo(product.id)
-        }
     }
 }

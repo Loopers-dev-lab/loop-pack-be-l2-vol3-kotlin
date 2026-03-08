@@ -73,7 +73,7 @@ class CouponService(
         // 행 락을 통한 중복 검사 (race condition 방지)
         val existingCoupon = couponRepository.findByUserIdAndTemplateIdForUpdate(userId, templateId)
         if (existingCoupon != null) {
-            throw CoreException(ErrorType.BAD_REQUEST, "이미 발급받은 쿠폰입니다.")
+            throw CoreException(ErrorType.BAD_REQUEST, "중복된 쿠폰 발급 요청입니다.")
         }
 
         // 새 쿠폰 발급

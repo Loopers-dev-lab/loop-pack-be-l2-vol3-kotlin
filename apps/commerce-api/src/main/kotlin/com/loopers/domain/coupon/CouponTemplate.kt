@@ -73,8 +73,18 @@ class CouponTemplate private constructor(
         if (newName.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 이름은 빈 값일 수 없습니다.")
         }
-        if (newValue < BigDecimal.ZERO) {
-            throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 음수일 수 없습니다.")
+        // Type-specific value validation
+        when (type) {
+            CouponType.RATE -> {
+                if (newValue < BigDecimal.ZERO || newValue > BigDecimal("100")) {
+                    throw CoreException(ErrorType.BAD_REQUEST, "할인율은 0 이상 100 이하여야 합니다.")
+                }
+            }
+            CouponType.FIXED -> {
+                if (newValue < BigDecimal.ZERO) {
+                    throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 음수일 수 없습니다.")
+                }
+            }
         }
         if (newMinOrderAmount < BigDecimal.ZERO) {
             throw CoreException(ErrorType.BAD_REQUEST, "최소 주문액은 음수일 수 없습니다.")
@@ -88,8 +98,18 @@ class CouponTemplate private constructor(
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 이름은 빈 값일 수 없습니다.")
         }
-        if (value < BigDecimal.ZERO) {
-            throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 음수일 수 없습니다.")
+        // Type-specific value validation
+        when (type) {
+            CouponType.RATE -> {
+                if (value < BigDecimal.ZERO || value > BigDecimal("100")) {
+                    throw CoreException(ErrorType.BAD_REQUEST, "할인율은 0 이상 100 이하여야 합니다.")
+                }
+            }
+            CouponType.FIXED -> {
+                if (value < BigDecimal.ZERO) {
+                    throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 음수일 수 없습니다.")
+                }
+            }
         }
         if (minOrderAmount < BigDecimal.ZERO) {
             throw CoreException(ErrorType.BAD_REQUEST, "최소 주문액은 음수일 수 없습니다.")

@@ -28,6 +28,9 @@ class OrderItem protected constructor(
     var discountAmount: BigDecimal = BigDecimal.ZERO
         protected set
 
+    @Column(nullable = false)
+    private var discountApplied: Boolean = false
+
     internal fun setOrderId(newOrderId: Long) {
         this.orderId = newOrderId
     }
@@ -40,13 +43,14 @@ class OrderItem protected constructor(
         if (discount < BigDecimal.ZERO) {
             throw CoreException(ErrorType.BAD_REQUEST, "할인액은 0 이상이어야 합니다")
         }
-        if (discountAmount > BigDecimal.ZERO) {
+        if (discountApplied) {
             throw CoreException(ErrorType.BAD_REQUEST, "이미 할인이 적용된 항목입니다")
         }
         if (discount > getItemAmount()) {
             throw CoreException(ErrorType.BAD_REQUEST, "할인액은 항목 금액을 초과할 수 없습니다")
         }
         this.discountAmount = discount
+        this.discountApplied = true
     }
 
     fun getItemAmount(): BigDecimal {
@@ -60,8 +64,12 @@ class OrderItem protected constructor(
             quantity: Int,
             price: BigDecimal,
         ): OrderItem {
-            require(quantity > 0) { "수량은 0보다 커야 합니다" }
-            require(price > BigDecimal.ZERO) { "가격은 0보다 커야 합니다" }
+            if (quantity <= 0) {
+                throw CoreException(ErrorType.BAD_REQUEST, "수량은 0보다 커야 합니다")
+            }
+            if (price <= BigDecimal.ZERO) {
+                throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다")
+            }
 
             // Precondition: Order must be persisted before calling addItem()
             // OrderService.createOrder()는 Order.save() 후 addItem()을 호출하므로 order.id는 올바른 값
@@ -83,8 +91,12 @@ class OrderItem protected constructor(
             quantity: Int,
             price: BigDecimal,
         ): OrderItem {
-            require(quantity > 0) { "수량은 0보다 커야 합니다" }
-            require(price > BigDecimal.ZERO) { "가격은 0보다 커야 합니다" }
+            if (quantity <= 0) {
+                throw CoreException(ErrorType.BAD_REQUEST, "수량은 0보다 커야 합니다")
+            }
+            if (price <= BigDecimal.ZERO) {
+                throw CoreException(ErrorType.BAD_REQUEST, "가격은 0보다 커야 합니다")
+            }
 
             return OrderItem(
                 orderId = orderId,

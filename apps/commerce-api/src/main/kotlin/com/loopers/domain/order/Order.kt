@@ -40,16 +40,6 @@ class Order protected constructor(
         _orderItems.add(item)
     }
 
-    // ✅ Order 저장 후 OrderItem의 orderId를 설정하기 위한 메서드
-    internal fun setOrderItemIds() {
-        if (this.id == 0L) {
-            throw IllegalStateException("Order must be persisted before setting OrderItem ids")
-        }
-        _orderItems.forEach { item ->
-            item.setOrderId(this.id)
-        }
-    }
-
     fun getOrderDate(): ZonedDateTime = createdAt
 
     fun getTotalPrice(): BigDecimal {
@@ -70,7 +60,8 @@ class Order protected constructor(
                 }
 
         // ✅ Factory 메서드: 주문과 항목을 함께 생성 (저장 후 setOrderItemIds() 호출 필요)
-        fun createWithItems(
+        // 내부에서만 사용 - orderId가 0인 상태이므로 저장 전에는 FK 제약 조건 위반 가능성이 있음
+        internal fun createWithItems(
             userId: Long,
             couponId: Long? = null,
             items: List<OrderItemSpec>,

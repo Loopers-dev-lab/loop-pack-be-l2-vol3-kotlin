@@ -69,7 +69,11 @@ class OrderFacade(
         }
     }
 
-    private fun applyCoupon(userId: Long, orderRequest: OrderV1Dto.OrderRequest, items: List<CreateOrderItemCommand>): BigDecimal {
+    private fun applyCoupon(
+        userId: Long,
+        orderRequest: OrderV1Dto.OrderRequest,
+        items: List<CreateOrderItemCommand>,
+    ): BigDecimal {
         if (orderRequest.couponId == null) {
             return BigDecimal.ZERO
         }

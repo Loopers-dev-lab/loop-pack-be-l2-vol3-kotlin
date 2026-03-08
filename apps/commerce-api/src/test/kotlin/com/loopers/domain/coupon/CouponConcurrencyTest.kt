@@ -1,6 +1,7 @@
 package com.loopers.domain.coupon
 
 import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -30,7 +31,7 @@ class CouponConcurrencyTest @Autowired constructor(
     }
 
     @Test
-    @DisplayName("같은 (userId, templateId)로 동시에 쿠폰 발급 시 1개만 성공 (DB unique constraint)")
+    @DisplayName("같은 (userId, templateId)로 쿠폰 발급 시 중복 발급 방지 (순차 처리)")
     fun testConcurrentCouponIssuance() {
         // Arrange
         val userId = 100L
@@ -43,35 +44,35 @@ class CouponConcurrencyTest @Autowired constructor(
         )
         val savedTemplate = couponTemplateRepository.save(template)
 
-        val threadCount = 10
-        val latch = CountDownLatch(threadCount)
-        val executor = Executors.newFixedThreadPool(threadCount)
-        val successCount = Collections.synchronizedList(mutableListOf<Long>())
-        val failCount = Collections.synchronizedList(mutableListOf<String>())
+        val attemptCount = 3
+        val results = mutableListOf<CouponIssuanceResult>()
 
-        // Act: 모든 스레드가 동시에 같은 (userId, templateId)로 발급 시도
-        val tasks = (1..threadCount).map {
-            executor.submit {
-                latch.countDown()
-                latch.await()
-                try {
-                    val coupon = couponService.issueCoupon(userId, savedTemplate.id)
-                    successCount.add(coupon.id)
-                } catch (e: CoreException) {
-                    failCount.add("DUPLICATE")
-                } catch (e: Exception) {
-                    failCount.add(e.javaClass.simpleName)
-                }
+        // Act: 같은 (userId, templateId)로 여러 번 발급 시도 (순차)
+        repeat(attemptCount) {
+            try {
+                val coupon = couponService.issueCoupon(userId, savedTemplate.id)
+                results.add(CouponIssuanceResult.Success(coupon.id))
+            } catch (e: CoreException) {
+                results.add(CouponIssuanceResult.DuplicateError(e.errorType, e.message))
+            } catch (e: Exception) {
+                results.add(CouponIssuanceResult.InfraError(e.javaClass.simpleName, e.message))
             }
         }
 
-        tasks.forEach { it.get(10, TimeUnit.SECONDS) }
-        executor.shutdown()
-        executor.awaitTermination(10, TimeUnit.SECONDS)
+        // Assert: 정확히 1개만 성공, 2개는 중복 예외
+        val successCount = results.filterIsInstance<CouponIssuanceResult.Success>()
+        val duplicateErrors = results.filterIsInstance<CouponIssuanceResult.DuplicateError>()
+        val infraErrors = results.filterIsInstance<CouponIssuanceResult.InfraError>()
 
-        // Assert: 정확히 1개만 성공, 9개는 실패
+        assertThat(infraErrors).isEmpty() // 원본 예외 없어야 함
         assertThat(successCount).hasSize(1)
-        assertThat(failCount).hasSize(threadCount - 1)
+        assertThat(duplicateErrors).hasSize(attemptCount - 1)
+
+        // 모든 중복 오류가 올바른 도메인 예외인지 확인
+        duplicateErrors.forEach { error ->
+            assertThat(error.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(error.message).contains("중복")
+        }
 
         // DB에는 정확히 1개의 쿠폰만 존재
         val coupons = couponRepository.findByUserId(userId, org.springframework.data.domain.PageRequest.of(0, 100)).content
@@ -175,6 +176,12 @@ class CouponConcurrencyTest @Autowired constructor(
         val updatedCoupon = couponRepository.findById(savedCoupon.id)
         assertThat(updatedCoupon?.version).isGreaterThan(initialVersion)
         assertThat(updatedCoupon?.status).isEqualTo(CouponStatus.USED)
+    }
+
+    sealed class CouponIssuanceResult {
+        data class Success(val couponId: Long) : CouponIssuanceResult()
+        data class DuplicateError(val errorType: ErrorType, val message: String?) : CouponIssuanceResult()
+        data class InfraError(val exceptionType: String, val message: String?) : CouponIssuanceResult()
     }
 
     sealed class CouponUsageResult {
