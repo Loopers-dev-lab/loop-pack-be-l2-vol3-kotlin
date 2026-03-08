@@ -9,6 +9,12 @@ interface CouponRepository {
 
     fun findByUserIdAndTemplateId(userId: Long, templateId: Long): Coupon?
 
+    /**
+     * 사용자의 쿠폰을 행 락과 함께 조회 (동시성 제어)
+     * 중복 발급 검사에 사용됨
+     */
+    fun findByUserIdAndTemplateIdForUpdate(userId: Long, templateId: Long): Coupon?
+
     fun findByUserId(userId: Long, pageable: Pageable): Page<Coupon>
 
     fun findByUserIdAndStatus(userId: Long, status: CouponStatus, pageable: Pageable): Page<Coupon>

@@ -18,6 +18,9 @@ class CouponRepositoryImpl(
     override fun findByUserIdAndTemplateId(userId: Long, templateId: Long): Coupon? =
         couponJpaRepository.findByUserIdAndTemplateId(userId, templateId)
 
+    override fun findByUserIdAndTemplateIdForUpdate(userId: Long, templateId: Long): Coupon? =
+        couponJpaRepository.findByUserIdAndTemplateIdForUpdate(userId, templateId)
+
     override fun findByUserId(userId: Long, pageable: Pageable): Page<Coupon> =
         couponJpaRepository.findByUserId(userId, pageable)
 
