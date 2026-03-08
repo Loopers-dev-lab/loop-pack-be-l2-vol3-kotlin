@@ -68,6 +68,16 @@ class ProductService(
     fun deleteAllByBrandId(brandId: Long) {
         productRepository.findAllByBrandId(brandId).forEach { it.delete() }
     }
+
+    @Transactional
+    fun increaseLikeCount(productId: Long) {
+        productRepository.increaseLikeCount(productId)
+    }
+
+    @Transactional
+    fun decreaseLikeCount(productId: Long) {
+        productRepository.decreaseLikeCount(productId)
+    }
 }
 
 data class RegisterProductCommand(

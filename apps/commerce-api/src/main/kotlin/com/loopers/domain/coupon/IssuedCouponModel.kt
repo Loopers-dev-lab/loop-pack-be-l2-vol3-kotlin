@@ -74,11 +74,11 @@ class IssuedCouponModel(
         }
     }
 
-    fun validate(userId: Long) {
+    private fun validate(userId: Long, now: ZonedDateTime = ZonedDateTime.now()) {
         if (this.userId != userId) {
             throw CoreException(ErrorType.UNAUTHORIZED, "본인의 쿠폰만 사용할 수 있습니다.")
         }
-        if (expiredAt.isBefore(ZonedDateTime.now())) {
+        if (!expiredAt.isAfter(now)) {
             throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
         }
         if (status != CouponStatus.AVAILABLE) {
@@ -86,12 +86,10 @@ class IssuedCouponModel(
         }
     }
 
-    fun use() {
-        if (status != CouponStatus.AVAILABLE) {
-            throw CoreException(ErrorType.BAD_REQUEST, "사용 가능한 상태의 쿠폰이 아닙니다.")
-        }
+    fun use(userId: Long, now: ZonedDateTime = ZonedDateTime.now()) {
+        validate(userId, now)
         status = CouponStatus.USED
-        usedAt = ZonedDateTime.now()
+        usedAt = now
     }
 
     fun expire() {

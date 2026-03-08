@@ -143,7 +143,7 @@ class UserCancelOrderUseCaseIntegrationTest @Autowired constructor(
             discountValue = coupon.discountValue,
             expiredAt = coupon.expiredAt,
         )
-        if (used) issuedCoupon.use()
+        if (used) issuedCoupon.use(userId)
         return issuedCouponJpaRepository.save(issuedCoupon)
     }
 

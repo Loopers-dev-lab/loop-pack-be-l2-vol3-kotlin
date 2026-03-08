@@ -17,6 +17,8 @@ import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductJpaRepository
 import com.loopers.infrastructure.coupon.CouponJpaRepository
 import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -25,11 +27,14 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.orm.ObjectOptimisticLockingFailureException
 import java.math.BigDecimal
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
@@ -51,6 +56,7 @@ class OrderConcurrencyTest @Autowired constructor(
         private const val DEFAULT_NAME = "테스트유저"
         private const val DEFAULT_EMAIL = "test@loopers.com"
         private val DEFAULT_BIRTH_DATE = ZonedDateTime.of(1995, 5, 29, 0, 0, 0, 0, ZoneId.of("Asia/Seoul"))
+        private const val AWAIT_TIMEOUT_SECONDS = 30L
     }
 
     @AfterEach
@@ -97,13 +103,14 @@ class OrderConcurrencyTest @Autowired constructor(
             val doneLatch = CountDownLatch(threadCount)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
+            val unexpectedExceptions = ConcurrentLinkedQueue<Throwable>()
 
             // act
             repeat(threadCount) {
                 executorService.submit {
                     try {
                         readyLatch.countDown()
-                        startLatch.await()
+                        startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
                         userCreateOrderUseCase.execute(
                             CreateOrderCriteria(
@@ -112,20 +119,27 @@ class OrderConcurrencyTest @Autowired constructor(
                             ),
                         )
                         successCount.incrementAndGet()
+                    } catch (e: CoreException) {
+                        if (e.errorType == ErrorType.BAD_REQUEST) {
+                            failCount.incrementAndGet()
+                        } else {
+                            unexpectedExceptions.add(e)
+                        }
                     } catch (e: Exception) {
-                        failCount.incrementAndGet()
+                        unexpectedExceptions.add(e)
                     } finally {
                         doneLatch.countDown()
                     }
                 }
             }
 
-            readyLatch.await()
+            readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             startLatch.countDown()
-            doneLatch.await()
+            doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             executorService.shutdown()
 
             // assert
+            assertThat(unexpectedExceptions).isEmpty()
             val finalStock = productJpaRepository.findById(product.id).get().quantity
             assertThat(successCount.get()).isEqualTo(initialStock)
             assertThat(finalStock).isZero()
@@ -162,32 +176,40 @@ class OrderConcurrencyTest @Autowired constructor(
             val doneLatch = CountDownLatch(threadCount)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
+            val unexpectedExceptions = ConcurrentLinkedQueue<Throwable>()
 
             // act
             repeat(threadCount) { i ->
                 executorService.submit {
                     try {
                         readyLatch.countDown()
-                        startLatch.await()
+                        startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
                         userIssueCouponUseCase.execute(
                             IssueCouponCriteria(loginId = "user$i", couponId = couponInfo.id),
                         )
                         successCount.incrementAndGet()
+                    } catch (e: CoreException) {
+                        if (e.errorType in setOf(ErrorType.BAD_REQUEST, ErrorType.CONFLICT)) {
+                            failCount.incrementAndGet()
+                        } else {
+                            unexpectedExceptions.add(e)
+                        }
                     } catch (e: Exception) {
-                        failCount.incrementAndGet()
+                        unexpectedExceptions.add(e)
                     } finally {
                         doneLatch.countDown()
                     }
                 }
             }
 
-            readyLatch.await()
+            readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             startLatch.countDown()
-            doneLatch.await()
+            doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             executorService.shutdown()
 
             // assert
+            assertThat(unexpectedExceptions).isEmpty()
             val finalCoupon = couponJpaRepository.findById(couponInfo.id).get()
             val issuedCount = issuedCouponJpaRepository.findAll().size
             assertThat(successCount.get()).isEqualTo(totalQuantity)
@@ -236,13 +258,14 @@ class OrderConcurrencyTest @Autowired constructor(
             val doneLatch = CountDownLatch(threadCount)
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
+            val unexpectedExceptions = ConcurrentLinkedQueue<Throwable>()
 
             // act
             repeat(threadCount) {
                 executorService.submit {
                     try {
                         readyLatch.countDown()
-                        startLatch.await()
+                        startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
                         userCreateOrderUseCase.execute(
                             CreateOrderCriteria(
@@ -252,20 +275,29 @@ class OrderConcurrencyTest @Autowired constructor(
                             ),
                         )
                         successCount.incrementAndGet()
-                    } catch (e: Exception) {
+                    } catch (e: CoreException) {
+                        if (e.errorType == ErrorType.BAD_REQUEST) {
+                            failCount.incrementAndGet()
+                        } else {
+                            unexpectedExceptions.add(e)
+                        }
+                    } catch (e: ObjectOptimisticLockingFailureException) {
                         failCount.incrementAndGet()
+                    } catch (e: Exception) {
+                        unexpectedExceptions.add(e)
                     } finally {
                         doneLatch.countDown()
                     }
                 }
             }
 
-            readyLatch.await()
+            readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             startLatch.countDown()
-            doneLatch.await()
+            doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             executorService.shutdown()
 
             // assert
+            assertThat(unexpectedExceptions).isEmpty()
             assertThat(successCount.get()).isEqualTo(1)
             assertThat(failCount.get()).isEqualTo(threadCount - 1)
         }

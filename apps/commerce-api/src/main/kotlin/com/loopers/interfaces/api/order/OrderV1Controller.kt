@@ -56,15 +56,15 @@ class OrderV1Controller(
     override fun getOrders(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") loginPw: String,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) startAt: String,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) endAt: String,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) startAt: LocalDate,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) endAt: LocalDate,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<OrderV1Dto.OrderSliceResponse> {
         val criteria = GetOrdersCriteria(
             loginId = loginId,
-            startAt = LocalDate.parse(startAt),
-            endAt = LocalDate.parse(endAt),
+            startAt = startAt,
+            endAt = endAt,
             page = page,
             size = size,
         )

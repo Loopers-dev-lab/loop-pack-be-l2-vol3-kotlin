@@ -31,6 +31,10 @@ class ProductModel(
     var price: BigDecimal = price
         protected set
 
+    @Column(name = "like_count", nullable = false)
+    var likeCount: Int = 0
+        protected set
+
     @Version
     var version: Long = 0
         protected set
@@ -49,6 +53,13 @@ class ProductModel(
             throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.")
         }
         this.quantity -= quantity
+    }
+
+    fun increaseStock(quantity: Int) {
+        if (quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "복구 수량은 0보다 커야 합니다.")
+        }
+        this.quantity += quantity
     }
 
     fun update(

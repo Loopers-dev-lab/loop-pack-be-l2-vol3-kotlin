@@ -4,6 +4,7 @@ import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerResponse
+import java.time.LocalDate
 
 @Tag(name = "Order V1 API", description = "주문 관련 사용자 API 입니다.")
 interface OrderV1ApiSpec {
@@ -26,8 +27,8 @@ interface OrderV1ApiSpec {
     fun getOrders(
         loginId: String,
         loginPw: String,
-        startAt: String,
-        endAt: String,
+        startAt: LocalDate,
+        endAt: LocalDate,
         page: Int,
         size: Int,
     ): ApiResponse<OrderV1Dto.OrderSliceResponse>

@@ -4,7 +4,6 @@ import com.loopers.domain.catalog.ProductModel
 import com.loopers.domain.catalog.ProductRepository
 import com.loopers.domain.catalog.ProductSortType
 import com.loopers.domain.catalog.QProductModel.productModel
-import com.loopers.domain.like.QProductLikeModel.productLikeModel
 import com.querydsl.jpa.impl.JPAQueryFactory
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
@@ -21,12 +20,16 @@ class ProductRepositoryImpl(
         return productJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
-    override fun decreaseStock(id: Long, quantity: Int): Boolean {
-        return productJpaRepository.decreaseStock(id, quantity, ZonedDateTime.now()) > 0
+    override fun findByIdWithLock(id: Long): ProductModel? {
+        return productJpaRepository.findByIdWithLock(id)
     }
 
-    override fun increaseStock(id: Long, quantity: Int): Boolean {
-        return productJpaRepository.increaseStock(id, quantity, ZonedDateTime.now()) > 0
+    override fun increaseLikeCount(id: Long): Boolean {
+        return productJpaRepository.increaseLikeCount(id, ZonedDateTime.now()) > 0
+    }
+
+    override fun decreaseLikeCount(id: Long): Boolean {
+        return productJpaRepository.decreaseLikeCount(id, ZonedDateTime.now()) > 0
     }
 
     override fun findAll(pageable: Pageable): Slice<ProductModel> {
@@ -48,15 +51,10 @@ class ProductRepositoryImpl(
 
         brandId?.let { query.where(productModel.brandId.eq(it)) }
 
-        if (sortType == ProductSortType.POPULAR) {
-            query.leftJoin(productLikeModel).on(productLikeModel.productId.eq(productModel.id))
-                .groupBy(productModel.id)
-        }
-
         when (sortType) {
             ProductSortType.LATEST -> query.orderBy(productModel.id.desc())
             ProductSortType.PRICE_ASC -> query.orderBy(productModel.price.asc())
-            ProductSortType.POPULAR -> query.orderBy(productLikeModel.id.count().desc(), productModel.id.desc())
+            ProductSortType.POPULAR -> query.orderBy(productModel.likeCount.desc(), productModel.id.desc())
         }
 
         val results = query

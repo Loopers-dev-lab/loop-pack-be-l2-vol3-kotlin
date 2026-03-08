@@ -107,8 +107,7 @@ class CouponService(
         val issuedCoupon = issuedCouponRepository.findById(issuedCouponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
 
-        issuedCoupon.validate(userId)
-        issuedCoupon.use()
+        issuedCoupon.use(userId)
         issuedCouponRepository.save(issuedCoupon)
 
         return CouponDiscountInfo(

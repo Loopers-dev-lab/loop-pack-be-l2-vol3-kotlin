@@ -8,5 +8,4 @@ interface ProductLikeRepository {
     fun findAllByUserId(userId: Long, pageable: Pageable): Slice<ProductLikeModel>
     fun save(like: ProductLikeModel): ProductLikeModel
     fun delete(like: ProductLikeModel)
-    fun flush()
 }
