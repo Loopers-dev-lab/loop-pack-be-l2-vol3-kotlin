@@ -25,8 +25,4 @@ class ProductLikeRepositoryImpl(
     override fun delete(like: ProductLikeModel) {
         productLikeJpaRepository.delete(like)
     }
-
-    override fun flush() {
-        productLikeJpaRepository.flush()
-    }
 }

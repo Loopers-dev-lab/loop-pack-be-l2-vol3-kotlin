@@ -12,12 +12,13 @@ import org.springframework.transaction.annotation.Transactional
 class ProductLikeService(
     private val productLikeRepository: ProductLikeRepository,
 ) {
-    fun like(command: LikeProductCommand) {
-        try {
-            val productLike =  ProductLikeModel(userId = command.userId, productId = command.productId)
+    fun like(command: LikeProductCommand): Boolean {
+        return try {
+            val productLike = ProductLikeModel(userId = command.userId, productId = command.productId)
             productLikeRepository.save(productLike)
+            true
         } catch (e: DataIntegrityViolationException) {
-            // 이미 좋아요 상태 → 멱등
+            false // 이미 좋아요 상태 → 멱등
         }
     }
 

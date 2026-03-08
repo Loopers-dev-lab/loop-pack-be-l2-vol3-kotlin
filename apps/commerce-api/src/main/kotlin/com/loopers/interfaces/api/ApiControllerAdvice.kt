@@ -145,4 +145,5 @@ class ApiControllerAdvice {
             ApiResponse.fail(errorCode = errorType.code, errorMessage = errorMessage ?: errorType.message),
             errorType.status,
         )
+
 }

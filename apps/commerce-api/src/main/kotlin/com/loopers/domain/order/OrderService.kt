@@ -26,10 +26,9 @@ class OrderService(
         val user = userService.getUser(command.loginId)
 
         val products = command.items.map { item ->
-            val product = productRepository.findById(item.productId)
+            val product = productRepository.findByIdWithLock(item.productId)
                 ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. (id: ${item.productId})")
-            val decreased = productRepository.decreaseStock(item.productId, item.quantity)
-            if (!decreased) throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.")
+            product.decreaseStock(item.quantity)
             product to item.quantity
         }
 
@@ -101,7 +100,9 @@ class OrderService(
 
         val items = orderItemRepository.findAllByOrderId(order.id)
         items.forEach { item ->
-            productRepository.increaseStock(item.productId, item.quantity)
+            val product = productRepository.findByIdWithLock(item.productId)
+                ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. (id: ${item.productId})")
+            product.increaseStock(item.quantity)
         }
 
         val itemInfos = items.map { OrderItemInfo.from(it) }

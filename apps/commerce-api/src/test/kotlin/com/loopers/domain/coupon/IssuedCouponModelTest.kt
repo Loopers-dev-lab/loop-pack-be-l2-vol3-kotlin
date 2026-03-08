@@ -102,7 +102,7 @@ class IssuedCouponModelTest {
             val issuedCoupon = createIssuedCouponModel()
 
             // act & assert
-            assertDoesNotThrow { issuedCoupon.validate(DEFAULT_USER_ID) }
+            assertDoesNotThrow { issuedCoupon.use(DEFAULT_USER_ID) }
         }
 
         @DisplayName("다른 사용자이면, UNAUTHORIZED 예외가 발생한다.")
@@ -113,7 +113,7 @@ class IssuedCouponModelTest {
             val otherUserId = 999L
 
             // act
-            val result = assertThrows<CoreException> { issuedCoupon.validate(otherUserId) }
+            val result = assertThrows<CoreException> { issuedCoupon.use(otherUserId) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
@@ -127,7 +127,7 @@ class IssuedCouponModelTest {
             val issuedCoupon = createIssuedCouponModel(expiredAt = expiredAt)
 
             // act
-            val result = assertThrows<CoreException> { issuedCoupon.validate(DEFAULT_USER_ID) }
+            val result = assertThrows<CoreException> { issuedCoupon.use(DEFAULT_USER_ID) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
@@ -138,10 +138,10 @@ class IssuedCouponModelTest {
         fun throwsBadRequestExceptionWhenAlreadyUsed() {
             // arrange
             val issuedCoupon = createIssuedCouponModel()
-            issuedCoupon.use()
+            issuedCoupon.use(DEFAULT_USER_ID)
 
             // act
-            val result = assertThrows<CoreException> { issuedCoupon.validate(DEFAULT_USER_ID) }
+            val result = assertThrows<CoreException> { issuedCoupon.use(DEFAULT_USER_ID) }
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
@@ -156,7 +156,7 @@ class IssuedCouponModelTest {
         fun restoresStatusToAvailableWhenStatusIsUsed() {
             // arrange
             val issuedCoupon = createIssuedCouponModel(status = CouponStatus.AVAILABLE)
-            issuedCoupon.use()
+            issuedCoupon.use(DEFAULT_USER_ID)
 
             // act
             issuedCoupon.restoreUsage()
