@@ -37,6 +37,7 @@ class OrderService(
         }
 
         // 저장된 Order에 OrderItem 추가
+        // Order.id는 이미 할당되어 있으므로, OrderItem.create()가 올바른 orderId를 복사함
         itemSpecs.forEach { spec ->
             savedOrder.addItem(spec.product, spec.quantity, spec.price)
         }

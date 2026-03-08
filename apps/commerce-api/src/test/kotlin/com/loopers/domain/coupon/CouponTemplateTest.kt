@@ -232,4 +232,180 @@ class CouponTemplateTest {
             assertThat(isExpired).isFalse()
         }
     }
+
+    @DisplayName("쿠폰 템플릿 정보 업데이트")
+    @Nested
+    inner class UpdateInfo {
+
+        @DisplayName("유효한 정보로 업데이트한다")
+        @Test
+        fun updateInfo_success() {
+            // arrange
+            val originalTemplate = CouponTemplate.create(
+                name = "기존 쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            )
+            val newName = "업데이트된 쿠폰"
+            val newValue = BigDecimal("10000")
+            val newMinOrderAmount = BigDecimal("20000")
+            val newExpiredAt = ZonedDateTime.now().plusDays(60)
+
+            // act
+            originalTemplate.updateInfo(
+                newName = newName,
+                newValue = newValue,
+                newMinOrderAmount = newMinOrderAmount,
+                newExpiredAt = newExpiredAt,
+            )
+
+            // assert
+            assertThat(originalTemplate.name).isEqualTo(newName)
+            assertThat(originalTemplate.value).isEqualTo(newValue)
+            assertThat(originalTemplate.minOrderAmount).isEqualTo(newMinOrderAmount)
+            assertThat(originalTemplate.expiredAt).isEqualTo(newExpiredAt)
+        }
+
+        @DisplayName("이름이 비어있으면 예외가 발생하고 원본 상태가 유지된다")
+        @Test
+        fun updateInfo_throwsException_whenNameIsBlank() {
+            // arrange
+            val originalTemplate = CouponTemplate.create(
+                name = "기존 쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            )
+            val originalName = originalTemplate.name
+            val originalValue = originalTemplate.value
+            val originalMinOrderAmount = originalTemplate.minOrderAmount
+            val originalExpiredAt = originalTemplate.expiredAt
+
+            // act & assert
+            assertThatThrownBy {
+                originalTemplate.updateInfo(
+                    newName = "",
+                    newValue = BigDecimal("10000"),
+                    newMinOrderAmount = BigDecimal("20000"),
+                    newExpiredAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+
+            // assert original state is unchanged
+            assertThat(originalTemplate.name).isEqualTo(originalName)
+            assertThat(originalTemplate.value).isEqualTo(originalValue)
+            assertThat(originalTemplate.minOrderAmount).isEqualTo(originalMinOrderAmount)
+            assertThat(originalTemplate.expiredAt).isEqualTo(originalExpiredAt)
+        }
+
+        @DisplayName("할인 금액이 음수이면 예외가 발생하고 원본 상태가 유지된다")
+        @Test
+        fun updateInfo_throwsException_whenValueIsNegative() {
+            // arrange
+            val originalTemplate = CouponTemplate.create(
+                name = "기존 쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            )
+            val originalName = originalTemplate.name
+            val originalValue = originalTemplate.value
+            val originalMinOrderAmount = originalTemplate.minOrderAmount
+            val originalExpiredAt = originalTemplate.expiredAt
+
+            // act & assert
+            assertThatThrownBy {
+                originalTemplate.updateInfo(
+                    newName = "업데이트된 쿠폰",
+                    newValue = BigDecimal("-1000"),
+                    newMinOrderAmount = BigDecimal("20000"),
+                    newExpiredAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+
+            // assert original state is unchanged
+            assertThat(originalTemplate.name).isEqualTo(originalName)
+            assertThat(originalTemplate.value).isEqualTo(originalValue)
+            assertThat(originalTemplate.minOrderAmount).isEqualTo(originalMinOrderAmount)
+            assertThat(originalTemplate.expiredAt).isEqualTo(originalExpiredAt)
+        }
+
+        @DisplayName("최소 주문액이 음수이면 예외가 발생하고 원본 상태가 유지된다")
+        @Test
+        fun updateInfo_throwsException_whenMinOrderAmountIsNegative() {
+            // arrange
+            val originalTemplate = CouponTemplate.create(
+                name = "기존 쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            )
+            val originalName = originalTemplate.name
+            val originalValue = originalTemplate.value
+            val originalMinOrderAmount = originalTemplate.minOrderAmount
+            val originalExpiredAt = originalTemplate.expiredAt
+
+            // act & assert
+            assertThatThrownBy {
+                originalTemplate.updateInfo(
+                    newName = "업데이트된 쿠폰",
+                    newValue = BigDecimal("10000"),
+                    newMinOrderAmount = BigDecimal("-1000"),
+                    newExpiredAt = ZonedDateTime.now().plusDays(60),
+                )
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+
+            // assert original state is unchanged
+            assertThat(originalTemplate.name).isEqualTo(originalName)
+            assertThat(originalTemplate.value).isEqualTo(originalValue)
+            assertThat(originalTemplate.minOrderAmount).isEqualTo(originalMinOrderAmount)
+            assertThat(originalTemplate.expiredAt).isEqualTo(originalExpiredAt)
+        }
+
+        @DisplayName("유효기간이 과거이면 예외가 발생하고 원본 상태가 유지된다")
+        @Test
+        fun updateInfo_throwsException_whenExpiredAtIsInPast() {
+            // arrange
+            val originalTemplate = CouponTemplate.create(
+                name = "기존 쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().plusDays(30),
+            )
+            val originalName = originalTemplate.name
+            val originalValue = originalTemplate.value
+            val originalMinOrderAmount = originalTemplate.minOrderAmount
+            val originalExpiredAt = originalTemplate.expiredAt
+
+            // act & assert
+            assertThatThrownBy {
+                originalTemplate.updateInfo(
+                    newName = "업데이트된 쿠폰",
+                    newValue = BigDecimal("10000"),
+                    newMinOrderAmount = BigDecimal("20000"),
+                    newExpiredAt = ZonedDateTime.now().minusDays(1),
+                )
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+
+            // assert original state is unchanged
+            assertThat(originalTemplate.name).isEqualTo(originalName)
+            assertThat(originalTemplate.value).isEqualTo(originalValue)
+            assertThat(originalTemplate.minOrderAmount).isEqualTo(originalMinOrderAmount)
+            assertThat(originalTemplate.expiredAt).isEqualTo(originalExpiredAt)
+        }
+    }
 }

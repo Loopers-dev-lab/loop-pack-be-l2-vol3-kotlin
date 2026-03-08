@@ -56,11 +56,32 @@ class CouponTemplate private constructor(
         newMinOrderAmount: BigDecimal,
         newExpiredAt: ZonedDateTime,
     ) {
+        validate(newName, newValue, newMinOrderAmount, newExpiredAt)
         this.name = newName
         this.value = newValue
         this.minOrderAmount = newMinOrderAmount
         this.expiredAt = newExpiredAt
         guard()
+    }
+
+    private fun validate(
+        newName: String,
+        newValue: BigDecimal,
+        newMinOrderAmount: BigDecimal,
+        newExpiredAt: ZonedDateTime,
+    ) {
+        if (newName.isBlank()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 이름은 빈 값일 수 없습니다.")
+        }
+        if (newValue < BigDecimal.ZERO) {
+            throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 음수일 수 없습니다.")
+        }
+        if (newMinOrderAmount < BigDecimal.ZERO) {
+            throw CoreException(ErrorType.BAD_REQUEST, "최소 주문액은 음수일 수 없습니다.")
+        }
+        if (newExpiredAt.isBefore(ZonedDateTime.now())) {
+            throw CoreException(ErrorType.BAD_REQUEST, "유효기간이 과거입니다.")
+        }
     }
 
     override fun guard() {

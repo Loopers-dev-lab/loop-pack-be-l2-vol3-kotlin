@@ -13,7 +13,7 @@ import java.math.BigDecimal
 @Table(name = "order_items")
 class OrderItem protected constructor(
     @Column(name = "order_id", nullable = false)
-    val orderId: Long,
+    var orderId: Long,
     @Column(name = "product_id", nullable = false)
     val productId: Long,
     @Column(name = "product_name", nullable = false, length = 200)
@@ -27,6 +27,10 @@ class OrderItem protected constructor(
     @Column(nullable = false, precision = 19, scale = 2)
     var discountAmount: BigDecimal = BigDecimal.ZERO
         protected set
+
+    internal fun setOrderId(newOrderId: Long) {
+        this.orderId = newOrderId
+    }
 
     fun getSubtotal(): BigDecimal {
         return (price * BigDecimal(quantity.toLong())) - discountAmount
@@ -53,6 +57,9 @@ class OrderItem protected constructor(
             require(quantity > 0) { "수량은 0보다 커야 합니다" }
             require(price > BigDecimal.ZERO) { "가격은 0보다 커야 합니다" }
 
+            // Precondition: Order must be persisted before calling addItem()
+            // OrderService.createOrder()는 Order.save() 후 addItem()을 호출하므로 order.id는 올바른 값
+            // createWithItems() 사용 시에는 저장 후 setOrderItemIds()를 호출해야 함
             return OrderItem(
                 orderId = order.id,
                 productId = product.id,
