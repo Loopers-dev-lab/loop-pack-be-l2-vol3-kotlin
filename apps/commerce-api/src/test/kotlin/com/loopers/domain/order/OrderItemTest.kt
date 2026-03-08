@@ -156,6 +156,25 @@ class OrderItemTest {
     }
 
     @Test
+    @DisplayName("할인액이 음수면 예외 발생")
+    fun `applyDiscountAmount - discount is negative`() {
+        // Arrange
+        val item = OrderItem.create(
+            orderId = 100L,
+            productId = 1L,
+            productName = "상품명",
+            quantity = 2,
+            price = BigDecimal("10000"),
+        )
+
+        // Act & Assert
+        val exception = assertThrows<CoreException> {
+            item.applyDiscountAmount(BigDecimal("-1000"))
+        }
+        assertEquals(ErrorType.BAD_REQUEST, exception.errorType)
+    }
+
+    @Test
     @DisplayName("같은 OrderItem에 할인을 두 번 적용하면 예외 발생")
     fun `applyDiscountAmount - applying discount twice`() {
         // Arrange

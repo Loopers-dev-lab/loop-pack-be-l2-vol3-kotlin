@@ -57,6 +57,5 @@ class CouponTest {
             // assert
             assertThat(isValid).isTrue()
         }
-
     }
 }
