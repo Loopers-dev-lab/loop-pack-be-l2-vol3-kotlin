@@ -12,14 +12,14 @@ interface ProductJpaRepository : JpaRepository<Product, Long>, QuerydslPredicate
 
     fun findByBrandId(brandId: Long): List<Product>
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query(
         "UPDATE products SET like_count = like_count + 1 WHERE id = :productId",
         nativeQuery = true,
     )
     fun increaseLikeCount(productId: Long)
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query(
         "UPDATE products SET like_count = GREATEST(like_count - 1, 0) WHERE id = :productId",
         nativeQuery = true,
