@@ -581,7 +581,7 @@ class CouponTemplateTest {
                 type = CouponType.FIXED,
                 value = BigDecimal("5000"),
                 minOrderAmount = BigDecimal("10000"),
-                expiredAt = ZonedDateTime.now().minusSeconds(1), // 이미 만료됨
+                expiredAt = ZonedDateTime.now().minusSeconds(1),
             )
             assertThat(expiredTemplate.isExpired()).isTrue()
 
@@ -591,7 +591,7 @@ class CouponTemplateTest {
                 newName = "업데이트된 만료 쿠폰",
                 newValue = BigDecimal("7000"),
                 newMinOrderAmount = BigDecimal("15000"),
-                newExpiredAt = ZonedDateTime.now().plusDays(30), // ✅ 미래로 연장
+                newExpiredAt = ZonedDateTime.now().plusDays(30),
             )
 
             // assert
@@ -620,7 +620,7 @@ class CouponTemplateTest {
                     newName = "업데이트된 쿠폰",
                     newValue = BigDecimal("7000"),
                     newMinOrderAmount = BigDecimal("15000"),
-                    newExpiredAt = ZonedDateTime.now().minusDays(1), // 더 오래된 시간
+                    newExpiredAt = ZonedDateTime.now().minusDays(1),
                 )
             }
                 .isInstanceOf(CoreException::class.java)

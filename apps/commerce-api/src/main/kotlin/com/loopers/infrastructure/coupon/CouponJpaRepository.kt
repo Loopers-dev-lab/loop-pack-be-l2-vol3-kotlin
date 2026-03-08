@@ -26,15 +26,15 @@ interface CouponJpaRepository : JpaRepository<Coupon, Long> {
     )
     fun findByUserIdAndTemplateIdForUpdate(userId: Long, templateId: Long): Coupon?
 
-    @Query("SELECT c FROM Coupon c WHERE c.userId = :userId ORDER BY c.createdAt DESC")
+    @Query("SELECT c FROM Coupon c WHERE c.userId = :userId ORDER BY c.createdAt DESC, c.id DESC")
     fun findByUserId(userId: Long, pageable: Pageable): Page<Coupon>
 
     @Query(
-        "SELECT c FROM Coupon c WHERE c.userId = :userId AND c.status = :status ORDER BY c.createdAt DESC",
+        "SELECT c FROM Coupon c WHERE c.userId = :userId AND c.status = :status ORDER BY c.createdAt DESC, c.id DESC",
     )
     fun findByUserIdAndStatus(userId: Long, status: CouponStatus, pageable: Pageable): Page<Coupon>
 
-    @Query("SELECT c FROM Coupon c WHERE c.templateId = :templateId ORDER BY c.createdAt DESC")
+    @Query("SELECT c FROM Coupon c WHERE c.templateId = :templateId ORDER BY c.createdAt DESC, c.id DESC")
     fun findByTemplateId(templateId: Long, pageable: Pageable): Page<Coupon>
 
     /**
