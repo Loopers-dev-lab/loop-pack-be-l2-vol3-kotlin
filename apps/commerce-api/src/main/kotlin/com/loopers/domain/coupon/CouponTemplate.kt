@@ -95,6 +95,7 @@ class CouponTemplate private constructor(
     }
 
     override fun guard() {
+        // Time-independent invariants only
         if (name.isBlank()) {
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 이름은 빈 값일 수 없습니다.")
         }
@@ -114,9 +115,7 @@ class CouponTemplate private constructor(
         if (minOrderAmount < BigDecimal.ZERO) {
             throw CoreException(ErrorType.BAD_REQUEST, "최소 주문액은 음수일 수 없습니다.")
         }
-        if (expiredAt.isBefore(ZonedDateTime.now())) {
-            throw CoreException(ErrorType.BAD_REQUEST, "유효기간이 과거입니다.")
-        }
+        // ✅ expiredAt 시간 검증 제거 - write-side validate()에서만 수행
     }
 
     companion object {
@@ -127,6 +126,9 @@ class CouponTemplate private constructor(
             minOrderAmount: BigDecimal,
             expiredAt: ZonedDateTime,
         ): CouponTemplate {
+            // ✅ write-side input validation (expiredAt 미래값 검증)
+            validateInput(name, type, value, minOrderAmount, expiredAt)
+
             val template = CouponTemplate(
                 name = name,
                 type = type,
@@ -134,8 +136,39 @@ class CouponTemplate private constructor(
                 minOrderAmount = minOrderAmount,
                 expiredAt = expiredAt,
             )
+            // ✅ time-independent invariants 검증
             template.guard()
             return template
+        }
+
+        private fun validateInput(
+            name: String,
+            type: CouponType,
+            value: BigDecimal,
+            minOrderAmount: BigDecimal,
+            expiredAt: ZonedDateTime,
+        ) {
+            if (name.isBlank()) {
+                throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 이름은 빈 값일 수 없습니다.")
+            }
+            when (type) {
+                CouponType.RATE -> {
+                    if (value < BigDecimal.ZERO || value > BigDecimal("100")) {
+                        throw CoreException(ErrorType.BAD_REQUEST, "할인율은 0 이상 100 이하여야 합니다.")
+                    }
+                }
+                CouponType.FIXED -> {
+                    if (value < BigDecimal.ZERO) {
+                        throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 음수일 수 없습니다.")
+                    }
+                }
+            }
+            if (minOrderAmount < BigDecimal.ZERO) {
+                throw CoreException(ErrorType.BAD_REQUEST, "최소 주문액은 음수일 수 없습니다.")
+            }
+            if (expiredAt.isBefore(ZonedDateTime.now())) {
+                throw CoreException(ErrorType.BAD_REQUEST, "유효기간이 과거입니다.")
+            }
         }
 
         internal fun createForTest(

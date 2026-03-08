@@ -566,4 +566,65 @@ class CouponTemplateTest {
             assertThat(template.type).isEqualTo(CouponType.FIXED)
         }
     }
+
+    @DisplayName("만료된 쿠폰 템플릿 처리")
+    @Nested
+    inner class ExpiredTemplateHandling {
+
+        @DisplayName("만료된 템플릿을 로드했을 때 필드 업데이트 가능 - expiredAt을 미래로 변경 (회귀 테스트)")
+        @Test
+        fun updateExpiredTemplate_success_whenUpdatingFieldsAndExtendingExpiration() {
+            // arrange
+            // createForTest로 expired template 생성 (guard() 호출 안 함)
+            val expiredTemplate = CouponTemplate.createForTest(
+                name = "만료된 쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().minusSeconds(1), // 이미 만료됨
+            )
+            assertThat(expiredTemplate.isExpired()).isTrue()
+
+            // act: non-time-field (name, value, minOrderAmount) 업데이트 + expiredAt을 미래로 연장
+            // guard()는 expiredAt의 과거 여부를 체크하지 않으므로 성공해야 함
+            expiredTemplate.updateInfo(
+                newName = "업데이트된 만료 쿠폰",
+                newValue = BigDecimal("7000"),
+                newMinOrderAmount = BigDecimal("15000"),
+                newExpiredAt = ZonedDateTime.now().plusDays(30), // ✅ 미래로 연장
+            )
+
+            // assert
+            assertThat(expiredTemplate.name).isEqualTo("업데이트된 만료 쿠폰")
+            assertThat(expiredTemplate.value).isEqualTo(BigDecimal("7000"))
+            assertThat(expiredTemplate.minOrderAmount).isEqualTo(BigDecimal("15000"))
+            // 이제 만료되지 않음
+            assertThat(expiredTemplate.isExpired()).isFalse()
+        }
+
+        @DisplayName("만료된 템플릿에서 새로운 expiredAt을 과거로 설정할 수 없음 (write-side 검증)")
+        @Test
+        fun updateExpiredTemplate_throwsException_whenUpdatingToEvenOlderExpiredAt() {
+            // arrange
+            val expiredTemplate = CouponTemplate.createForTest(
+                name = "만료된 쿠폰",
+                type = CouponType.FIXED,
+                value = BigDecimal("5000"),
+                minOrderAmount = BigDecimal("10000"),
+                expiredAt = ZonedDateTime.now().minusSeconds(1),
+            )
+
+            // act & assert: 새로운 입력값이 과거면 validate()에서 예외 발생
+            assertThatThrownBy {
+                expiredTemplate.updateInfo(
+                    newName = "업데이트된 쿠폰",
+                    newValue = BigDecimal("7000"),
+                    newMinOrderAmount = BigDecimal("15000"),
+                    newExpiredAt = ZonedDateTime.now().minusDays(1), // 더 오래된 시간
+                )
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
+        }
+    }
 }
