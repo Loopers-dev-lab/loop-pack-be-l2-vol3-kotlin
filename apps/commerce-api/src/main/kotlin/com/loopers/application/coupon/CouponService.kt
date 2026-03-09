@@ -95,9 +95,9 @@ class CouponService(
         return issuedCouponRepository.findAllByCouponId(couponId, pageable).map { IssuedCouponInfo.from(it) }
     }
 
-    @Transactional
-    fun getIssuedCouponWithLock(issuedCouponId: Long): IssuedCoupon {
-        return issuedCouponRepository.findByIdWithLock(issuedCouponId)
+    @Transactional(readOnly = true)
+    fun getIssuedCoupon(issuedCouponId: Long): IssuedCoupon {
+        return issuedCouponRepository.findById(issuedCouponId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
     }
 }

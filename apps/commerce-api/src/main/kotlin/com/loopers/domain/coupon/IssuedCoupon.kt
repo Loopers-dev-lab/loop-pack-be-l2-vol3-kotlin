@@ -13,6 +13,7 @@ import jakarta.persistence.Index
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.ZonedDateTime
 
 @Entity
@@ -47,6 +48,10 @@ class IssuedCoupon(
     @Column(name = "used_at")
     var usedAt: ZonedDateTime? = null
         private set
+
+    @Version
+    @Column(name = "version", nullable = false)
+    val version: Long = 0
 
     @Column(name = "created_at", nullable = false, updatable = false)
     lateinit var createdAt: ZonedDateTime

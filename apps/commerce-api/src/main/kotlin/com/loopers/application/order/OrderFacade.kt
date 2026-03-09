@@ -21,15 +21,12 @@ class OrderFacade(
         val productIds = criteria.map { it.productId }
         val products = productService.getProductsWithLock(productIds)
 
-        // 1. 재고 예약 (실패 시 예외)
         val reservedProducts = productService.reserveStock(products, criteria)
 
-        // 2. 주문 아이템 조립
         val orderItemCommands = buildOrderItemCommands(reservedProducts)
 
-        // 3. 쿠폰 적용 (optional)
         if (couponId != null) {
-            val issuedCoupon = couponService.getIssuedCouponWithLock(couponId)
+            val issuedCoupon = couponService.getIssuedCoupon(couponId)
             issuedCoupon.validateOwner(userId)
             issuedCoupon.validateUsable()
 
