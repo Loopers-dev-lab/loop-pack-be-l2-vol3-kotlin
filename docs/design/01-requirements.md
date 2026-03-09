@@ -417,7 +417,7 @@ X-Loopers-LoginPw: {password}
 | CP-01 | 쿠폰 타입: 정액(FIXED), 정률(RATE) |
 | CP-02 | 1인 1쿠폰 (동일 쿠폰 중복 발급 불가) |
 | CP-03 | 만료된 쿠폰은 발급 불가 |
-| CP-04 | 쿠폰 사용 시 비관적 락으로 동시성 제어 (SELECT FOR UPDATE) |
+| CP-04 | 쿠폰 사용 시 낙관적 락으로 동시성 제어 (@Version) |
 | CP-05 | 최소 주문 금액 미달 시 쿠폰 사용 불가 |
 | CP-06 | FIXED: 할인 금액이 주문 금액 초과 시 주문 금액만큼만 할인 |
 | CP-07 | 타인의 쿠폰 사용 불가 (FORBIDDEN) |
@@ -477,11 +477,11 @@ Content-Type: application/json
 **쿠폰 적용 시 처리 순서:**
 1. 비관적 락으로 상품 조회
 2. 전체 재고 확인 (하나라도 부족 시 전체 실패)
-3. 비관적 락으로 발급 쿠폰 조회
+3. 발급 쿠폰 조회 (일반 SELECT, @Version으로 낙관적 락)
 4. 소유자 검증, 사용 가능 상태 검증
 5. 재고 차감
 6. 할인 계산 (최소 주문 금액 검증)
-7. 쿠폰 사용 처리 (USED)
+7. 쿠폰 사용 처리 (USED, 커밋 시 version 체크)
 8. 주문 생성 (originalAmount, discountAmount, totalAmount)
 
 ---
@@ -519,7 +519,7 @@ Content-Type: application/json
 | 상황 | 처리 |
 |------|------|
 | 쿠폰 적용 주문 | 쿠폰 유무와 무관하게 전체 성공 or 전체 실패 |
-| 동일 쿠폰 동시 사용 | 비관적 락으로 1건만 성공 |
+| 동일 쿠폰 동시 사용 | 낙관적 락으로 1건만 성공 |
 | FIXED 할인 > 주문 금액 | 주문 금액만큼만 할인 |
 | RATE 할인 | 주문 금액 × (value / 100), 소수점 반올림 |
 
@@ -529,7 +529,7 @@ Content-Type: application/json
 |------|------|
 | 재고 차감 | 비관적 락 (SELECT FOR UPDATE) |
 | 좋아요 중복 | 유니크 인덱스 (user_id, product_id) + 멱등성 |
-| 쿠폰 사용 | 비관적 락 (SELECT FOR UPDATE) — 재고와 동일 패턴 |
+| 쿠폰 사용 | 낙관적 락 (@Version) — 충돌 확률 극히 낮은 1:1 귀속 리소스 |
 
 ---
 

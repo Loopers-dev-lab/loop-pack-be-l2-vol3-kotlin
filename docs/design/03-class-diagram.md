@@ -385,6 +385,7 @@ classDiagram
         -userId: Long
         -status: IssuedCouponStatus
         -usedAt: ZonedDateTime?
+        -version: Long
         -createdAt: ZonedDateTime
         -updatedAt: ZonedDateTime
         +use() void

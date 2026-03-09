@@ -110,6 +110,7 @@ erDiagram
         bigint user_id
         varchar status
         timestamp used_at
+        bigint version
         timestamp created_at
         timestamp updated_at
     }
@@ -247,6 +248,7 @@ erDiagram
 | user_id | BIGINT | NOT NULL | users.id (앱에서 검증) |
 | status | VARCHAR(20) | NOT NULL | AVAILABLE / USED / EXPIRED |
 | used_at | TIMESTAMP | | 사용 시점 (사용 시 설정) |
+| version | BIGINT | NOT NULL, DEFAULT 0 | 낙관적 락 (@Version) |
 | created_at | TIMESTAMP | NOT NULL | |
 | updated_at | TIMESTAMP | NOT NULL | |
 

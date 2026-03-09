@@ -414,7 +414,7 @@ sequenceDiagram
 User → Product → IssuedCoupon → Coupon → Order → OrderItem
 
 ### 다이어그램 목적
-- 쿠폰 적용 주문의 이중 비관적 락 범위 (상품 + 쿠폰) 확인
+- 쿠폰 적용 주문의 락 전략 확인 (상품: 비관적 락, 쿠폰: 낙관적 락)
 - 쿠폰 유효성 검증 순서와 롤백 범위 확인
 
 ```mermaid
@@ -450,9 +450,9 @@ sequenceDiagram
             Note over ProductService: 전체 재고 차감
             ProductService-->>Facade: List<ReservedProduct>
 
-            Facade->>CouponService: getIssuedCouponWithLock(couponId)
-            CouponService->>DB: SELECT ... FOR UPDATE
-            DB-->>CouponService: issuedCoupon (with lock)
+            Facade->>CouponService: getIssuedCoupon(couponId)
+            CouponService->>DB: SELECT issuedCoupon (@Version)
+            DB-->>CouponService: issuedCoupon
 
             Facade->>Facade: issuedCoupon.validateOwner(userId)
             Facade->>Facade: issuedCoupon.validateUsable()
@@ -484,7 +484,7 @@ sequenceDiagram
 
 ### 핵심 포인트
 - **전체 성공 or 전체 실패**: 쿠폰 유무와 무관하게 동일한 재고 검증 정책
-- **이중 비관적 락**: 상품(재고) + 발급 쿠폰을 모두 `SELECT FOR UPDATE`로 락
+- **혼합 락 전략**: 상품(재고)은 비관적 락(`SELECT FOR UPDATE`), 발급 쿠폰은 낙관적 락(`@Version`)
 - **검증 순서**: 재고 확인 → 쿠폰 소유자 검증 → 사용 가능 검증 → 최소 주문 금액 검증
 - **원자성**: 재고 차감 + 쿠폰 사용 처리 + 주문 생성이 하나의 트랜잭션
 
@@ -492,7 +492,7 @@ sequenceDiagram
 | 결정 | 선택 | 이유 |
 |------|------|------|
 | 재고 검증 정책 | 쿠폰 유무와 무관하게 전체 성공 or 전체 실패 | 단일 플로우로 로직 단순화 |
-| 쿠폰 락 방식 | 비관적 락 | 동시 주문 시 중복 사용 방지 |
+| 쿠폰 락 방식 | 낙관적 락 (@Version) | 1:1 귀속 리소스로 충돌 확률 극히 낮음 |
 
 ---
 
@@ -578,5 +578,5 @@ sequenceDiagram
 | 3 | 좋아요 취소 | 멱등성 (no-op), Soft Delete | 좋아요 조회 → Soft Delete |
 | 4 | 브랜드 삭제 | 연쇄 Soft Delete | 상품 일괄 삭제 → 브랜드 삭제 |
 | 5 | 상품 등록 | 브랜드 존재 검증 | 브랜드 조회 → 상품 저장 |
-| 6 | 쿠폰 적용 주문 | 이중 비관적 락, 전체 성공 or 전체 실패, 쿠폰 사용 처리 | 상품 락 → 재고 검증/차감 → 쿠폰 락 → 주문 생성 → 할인 적용 |
+| 6 | 쿠폰 적용 주문 | 상품: 비관적 락, 쿠폰: 낙관적 락, 전체 성공 or 전체 실패 | 상품 락 → 재고 검증/차감 → 쿠폰 조회(@Version) → 주문 생성 → 할인 적용 |
 | 7 | 쿠폰 발급 | 중복 발급 방지, 만료/삭제 검증 | 쿠폰 조회 → 중복 확인 → 발급 |
