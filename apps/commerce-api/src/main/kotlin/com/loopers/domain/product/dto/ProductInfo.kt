@@ -11,6 +11,7 @@ data class ProductInfo(
     val status: ProductStatus,
     val brandId: Long,
     val brandName: String,
+    val likeCount: Int,
 ) {
     companion object {
         fun from(product: Product): ProductInfo {
@@ -21,6 +22,7 @@ data class ProductInfo(
                 status = product.status,
                 brandId = product.brand.id,
                 brandName = product.brand.name,
+                likeCount = product.likeCount,
             )
         }
     }

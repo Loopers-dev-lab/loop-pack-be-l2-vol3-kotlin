@@ -17,11 +17,14 @@ import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.cache.CacheManager
 import org.springframework.core.ParameterizedTypeReference
 import com.loopers.interfaces.api.PageResponse
+import org.junit.jupiter.api.BeforeEach
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import org.springframework.jdbc.core.JdbcTemplate
 import java.math.BigDecimal
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -30,14 +33,23 @@ class ProductV1ApiE2ETest @Autowired constructor(
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val cacheManager: CacheManager,
+    private val jdbcTemplate: JdbcTemplate,
 ) {
     companion object {
         private const val PRODUCTS_ENDPOINT = "/api/v1/products"
         private val GET_PRODUCT_INFO: (Long) -> String = { id: Long -> "$PRODUCTS_ENDPOINT/$id" }
     }
 
+    @BeforeEach
+    fun setUp() {
+        // 테스트 전 캐시 초기화
+        cacheManager.getCache("product-info")?.clear()
+    }
+
     @AfterEach
     fun tearDown() {
+        cacheManager.getCache("product-info")?.clear()
         databaseCleanUp.truncateAllTables()
     }
 
@@ -386,7 +398,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("sort=price_asc로 가격 오름차순 정렬이 가능하다.")
+        @DisplayName("sort=price로 가격 오름차순 정렬이 가능하다.")
         @Test
         fun appliesSortingByPriceAsc() {
             // arrange
@@ -409,7 +421,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
             // act
             val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
             val response = testRestTemplate.exchange(
-                "$PRODUCTS_ENDPOINT?sort=price_asc",
+                "$PRODUCTS_ENDPOINT?sort=PRICE",
                 HttpMethod.GET,
                 HttpEntity<Any>(Unit),
                 responseType,
@@ -420,6 +432,94 @@ class ProductV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.content?.first()?.price).isEqualTo(BigDecimal("10000.00")) },
                 { assertThat(response.body?.data?.content?.last()?.price).isEqualTo(BigDecimal("30000.00")) },
+            )
+        }
+
+        @DisplayName("getProducts returns products sorted by likeCount DESC")
+        @Test
+        fun returnsProductsSortedByLikeCountDesc() {
+            // arrange
+            val brand = brandJpaRepository.save(Brand.create(name = "Nike", description = "설명"))
+            val product1 = productJpaRepository.save(
+                Product.create(
+                    brand = brand,
+                    name = "Product1",
+                    price = BigDecimal("100.00"),
+                ),
+            )
+            val product2 = productJpaRepository.save(
+                Product.create(
+                    brand = brand,
+                    name = "Product2",
+                    price = BigDecimal("200.00"),
+                ),
+            )
+            val product3 = productJpaRepository.save(
+                Product.create(
+                    brand = brand,
+                    name = "Product3",
+                    price = BigDecimal("150.00"),
+                ),
+            )
+
+            // Update likeCount using JdbcTemplate
+            jdbcTemplate.update("UPDATE products SET like_count = 50 WHERE id = ?", product1.id)
+            jdbcTemplate.update("UPDATE products SET like_count = 100 WHERE id = ?", product2.id)
+            jdbcTemplate.update("UPDATE products SET like_count = 75 WHERE id = ?", product3.id)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCTS_ENDPOINT?brandId=${brand.id}&sort=LIKE_COUNT",
+                HttpMethod.GET,
+                HttpEntity<Any>(Unit),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.content).hasSize(3) },
+                { assertThat(response.body?.data?.content?.get(0)?.likeCount).isEqualTo(100) },
+                { assertThat(response.body?.data?.content?.get(1)?.likeCount).isEqualTo(75) },
+                { assertThat(response.body?.data?.content?.get(2)?.likeCount).isEqualTo(50) },
+            )
+        }
+
+        @DisplayName("getProducts supports multiple sort options")
+        @Test
+        fun supportMultipleSortOptions() {
+            // arrange
+            val brand = brandJpaRepository.save(Brand.create(name = "Adidas", description = "설명"))
+            productJpaRepository.save(
+                Product.create(
+                    brand = brand,
+                    name = "Expensive",
+                    price = BigDecimal("1000.00"),
+                ),
+            )
+            productJpaRepository.save(
+                Product.create(
+                    brand = brand,
+                    name = "Cheap",
+                    price = BigDecimal("100.00"),
+                ),
+            )
+
+            // act - PRICE (ASC)
+            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
+            val response = testRestTemplate.exchange(
+                "$PRODUCTS_ENDPOINT?brandId=${brand.id}&sort=PRICE",
+                HttpMethod.GET,
+                HttpEntity<Any>(Unit),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.content?.first()?.price).isEqualTo(BigDecimal("100.00")) },
+                { assertThat(response.body?.data?.content?.last()?.price).isEqualTo(BigDecimal("1000.00")) },
             )
         }
     }

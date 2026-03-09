@@ -4,6 +4,7 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.dto.ProductInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.cache.annotation.CacheEvict
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
@@ -46,6 +47,7 @@ class ProductService(
     }
 
     @Transactional
+    @CacheEvict(value = ["product-info"], key = "#id")
     fun updateProduct(
         id: Long,
         name: String,
@@ -57,12 +59,14 @@ class ProductService(
     }
 
     @Transactional
+    @CacheEvict(value = ["product-info"], key = "#id")
     fun deleteProduct(id: Long) {
         val findProduct = findProduct(id)
         findProduct.delete()
     }
 
     @Transactional
+    @CacheEvict(value = ["product-info"], allEntries = true)
     fun deleteProductsByBrand(brandId: Long) {
         productRepository.findByBrandId(brandId).forEach(Product::delete)
     }

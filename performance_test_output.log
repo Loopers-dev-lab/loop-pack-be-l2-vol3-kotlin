@@ -1,0 +1,156 @@
+> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :kaptGenerateStubsKotlin UP-TO-DATE
+> Task :kaptKotlin SKIPPED
+> Task :compileKotlin NO-SOURCE
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :kaptGenerateStubsTestKotlin UP-TO-DATE
+> Task :kaptTestKotlin SKIPPED
+> Task :compileTestKotlin NO-SOURCE
+> Task :compileTestJava NO-SOURCE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :test NO-SOURCE
+> Task :apps:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :apps:kaptGenerateStubsKotlin SKIPPED
+> Task :apps:kaptKotlin SKIPPED
+> Task :apps:compileKotlin SKIPPED
+> Task :apps:compileJava SKIPPED
+> Task :apps:processResources SKIPPED
+> Task :apps:classes SKIPPED
+> Task :apps:jar SKIPPED
+> Task :apps:kaptGenerateStubsTestKotlin SKIPPED
+> Task :apps:kaptTestKotlin SKIPPED
+> Task :apps:compileTestKotlin SKIPPED
+> Task :apps:compileTestJava SKIPPED
+> Task :apps:processTestResources SKIPPED
+> Task :apps:testClasses SKIPPED
+> Task :apps:test SKIPPED
+> Task :modules:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:kaptGenerateStubsKotlin SKIPPED
+> Task :modules:kaptKotlin SKIPPED
+> Task :modules:compileKotlin SKIPPED
+> Task :modules:compileJava SKIPPED
+> Task :modules:processResources SKIPPED
+> Task :modules:classes SKIPPED
+> Task :modules:jar SKIPPED
+> Task :modules:kaptGenerateStubsTestKotlin SKIPPED
+> Task :modules:kaptTestKotlin SKIPPED
+> Task :modules:compileTestKotlin SKIPPED
+> Task :modules:compileTestJava SKIPPED
+> Task :modules:processTestResources SKIPPED
+> Task :modules:testClasses SKIPPED
+> Task :modules:test SKIPPED
+> Task :supports:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:kaptGenerateStubsKotlin SKIPPED
+> Task :supports:kaptKotlin SKIPPED
+> Task :supports:compileKotlin SKIPPED
+> Task :supports:compileJava SKIPPED
+> Task :supports:processResources SKIPPED
+> Task :supports:classes SKIPPED
+> Task :supports:jar SKIPPED
+> Task :supports:kaptGenerateStubsTestKotlin SKIPPED
+> Task :supports:kaptTestKotlin SKIPPED
+> Task :supports:compileTestKotlin SKIPPED
+> Task :supports:compileTestJava SKIPPED
+> Task :supports:processTestResources SKIPPED
+> Task :supports:testClasses SKIPPED
+> Task :supports:test SKIPPED
+> Task :apps:commerce-api:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:jpa:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:jpa:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :modules:jpa:kaptKotlin UP-TO-DATE
+> Task :modules:jpa:compileKotlin UP-TO-DATE
+> Task :modules:jpa:compileJava UP-TO-DATE
+> Task :modules:jpa:processResources UP-TO-DATE
+> Task :modules:jpa:classes UP-TO-DATE
+> Task :modules:jpa:jar UP-TO-DATE
+> Task :modules:redis:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:redis:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :modules:redis:kaptKotlin SKIPPED
+> Task :modules:redis:compileKotlin UP-TO-DATE
+> Task :modules:redis:compileJava NO-SOURCE
+> Task :modules:redis:processResources UP-TO-DATE
+> Task :modules:redis:classes UP-TO-DATE
+> Task :modules:redis:jar UP-TO-DATE
+> Task :supports:jackson:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:jackson:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :supports:jackson:kaptKotlin SKIPPED
+> Task :supports:jackson:compileKotlin UP-TO-DATE
+> Task :supports:jackson:compileJava NO-SOURCE
+> Task :supports:jackson:processResources NO-SOURCE
+> Task :supports:jackson:classes UP-TO-DATE
+> Task :supports:jackson:jar UP-TO-DATE
+> Task :supports:logging:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:logging:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :supports:logging:kaptKotlin SKIPPED
+> Task :supports:logging:compileKotlin NO-SOURCE
+> Task :supports:logging:compileJava NO-SOURCE
+> Task :supports:logging:processResources UP-TO-DATE
+> Task :supports:logging:classes UP-TO-DATE
+> Task :supports:logging:jar UP-TO-DATE
+> Task :supports:monitoring:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:monitoring:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :supports:monitoring:kaptKotlin SKIPPED
+> Task :supports:monitoring:compileKotlin NO-SOURCE
+> Task :supports:monitoring:compileJava NO-SOURCE
+> Task :supports:monitoring:processResources UP-TO-DATE
+> Task :supports:monitoring:classes UP-TO-DATE
+> Task :supports:monitoring:jar UP-TO-DATE
+> Task :apps:commerce-api:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :apps:commerce-api:kaptKotlin UP-TO-DATE
+> Task :apps:commerce-api:compileKotlin UP-TO-DATE
+> Task :apps:commerce-api:compileJava UP-TO-DATE
+> Task :apps:commerce-api:processResources UP-TO-DATE
+> Task :apps:commerce-api:classes UP-TO-DATE
+> Task :apps:commerce-api:jar SKIPPED
+> Task :modules:jpa:kaptGenerateStubsTestFixturesKotlin UP-TO-DATE
+> Task :modules:jpa:kaptTestFixturesKotlin UP-TO-DATE
+> Task :modules:jpa:compileTestFixturesKotlin UP-TO-DATE
+> Task :modules:jpa:compileTestFixturesJava NO-SOURCE
+> Task :modules:redis:kaptGenerateStubsTestFixturesKotlin UP-TO-DATE
+> Task :modules:redis:kaptTestFixturesKotlin SKIPPED
+> Task :modules:redis:compileTestFixturesKotlin UP-TO-DATE
+> Task :modules:redis:compileTestFixturesJava NO-SOURCE
+> Task :apps:commerce-api:processTestResources UP-TO-DATE
+> Task :modules:jpa:processTestFixturesResources NO-SOURCE
+> Task :modules:jpa:testFixturesClasses UP-TO-DATE
+> Task :modules:jpa:testFixturesJar UP-TO-DATE
+> Task :modules:redis:processTestFixturesResources NO-SOURCE
+> Task :modules:redis:testFixturesClasses UP-TO-DATE
+> Task :modules:redis:testFixturesJar UP-TO-DATE
+> Task :apps:commerce-batch:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :apps:commerce-batch:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :apps:commerce-batch:kaptKotlin UP-TO-DATE
+> Task :apps:commerce-batch:compileKotlin UP-TO-DATE
+> Task :apps:commerce-batch:compileJava NO-SOURCE
+> Task :apps:commerce-batch:processResources UP-TO-DATE
+> Task :apps:commerce-batch:classes UP-TO-DATE
+> Task :apps:commerce-batch:jar SKIPPED
+> Task :apps:commerce-batch:kaptGenerateStubsTestKotlin UP-TO-DATE
+> Task :apps:commerce-batch:kaptTestKotlin UP-TO-DATE
+> Task :apps:commerce-batch:compileTestKotlin UP-TO-DATE
+> Task :apps:commerce-batch:compileTestJava NO-SOURCE
+> Task :apps:commerce-batch:processTestResources NO-SOURCE
+> Task :apps:commerce-batch:testClasses UP-TO-DATE
+> Task :apps:commerce-batch:test FAILED
+
+> Task :apps:commerce-api:kaptGenerateStubsTestKotlin
+w: Kapt currently doesn't support language version 2.0+. Falling back to 1.9.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':apps:commerce-batch:test'.
+> No tests found for given includes: [ProductPerformanceTest](--tests filter)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 3s
+44 actionable tasks: 2 executed, 42 up-to-date

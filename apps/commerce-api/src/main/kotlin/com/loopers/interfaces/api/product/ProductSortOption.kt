@@ -5,8 +5,9 @@ import org.springframework.data.domain.Sort
 enum class ProductSortOption(
     val sortOrder: Sort.Order,
 ) {
-    LATEST(Sort.Order.desc("createdAt")),
-    PRICE_ASC(Sort.Order.asc("price")),
+    LIKE_COUNT(Sort.Order.desc("likeCount")),
+    CREATED_AT(Sort.Order.desc("createdAt")),
+    PRICE(Sort.Order.asc("price")),
     ;
 
     companion object {
@@ -15,8 +16,8 @@ enum class ProductSortOption(
                 try {
                     valueOf(it)
                 } catch (e: IllegalArgumentException) {
-                    LATEST
+                    CREATED_AT
                 }
-            } ?: LATEST
+            } ?: CREATED_AT
     }
 }

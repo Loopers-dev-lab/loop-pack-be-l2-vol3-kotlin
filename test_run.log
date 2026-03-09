@@ -1,0 +1,165 @@
+> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :kaptGenerateStubsKotlin UP-TO-DATE
+> Task :kaptKotlin SKIPPED
+> Task :compileKotlin NO-SOURCE
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :kaptGenerateStubsTestKotlin UP-TO-DATE
+> Task :kaptTestKotlin SKIPPED
+> Task :compileTestKotlin NO-SOURCE
+> Task :compileTestJava NO-SOURCE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :test NO-SOURCE
+> Task :apps:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :apps:kaptGenerateStubsKotlin SKIPPED
+> Task :apps:kaptKotlin SKIPPED
+> Task :apps:compileKotlin SKIPPED
+> Task :apps:compileJava SKIPPED
+> Task :apps:processResources SKIPPED
+> Task :apps:classes SKIPPED
+> Task :apps:jar SKIPPED
+> Task :apps:kaptGenerateStubsTestKotlin SKIPPED
+> Task :apps:kaptTestKotlin SKIPPED
+> Task :apps:compileTestKotlin SKIPPED
+> Task :apps:compileTestJava SKIPPED
+> Task :apps:processTestResources SKIPPED
+> Task :apps:testClasses SKIPPED
+> Task :apps:test SKIPPED
+> Task :modules:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:kaptGenerateStubsKotlin SKIPPED
+> Task :modules:kaptKotlin SKIPPED
+> Task :modules:compileKotlin SKIPPED
+> Task :modules:compileJava SKIPPED
+> Task :modules:processResources SKIPPED
+> Task :modules:classes SKIPPED
+> Task :modules:jar SKIPPED
+> Task :modules:kaptGenerateStubsTestKotlin SKIPPED
+> Task :modules:kaptTestKotlin SKIPPED
+> Task :modules:compileTestKotlin SKIPPED
+> Task :modules:compileTestJava SKIPPED
+> Task :modules:processTestResources SKIPPED
+> Task :modules:testClasses SKIPPED
+> Task :modules:test SKIPPED
+> Task :supports:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:kaptGenerateStubsKotlin SKIPPED
+> Task :supports:kaptKotlin SKIPPED
+> Task :supports:compileKotlin SKIPPED
+> Task :supports:compileJava SKIPPED
+> Task :supports:processResources SKIPPED
+> Task :supports:classes SKIPPED
+> Task :supports:jar SKIPPED
+> Task :supports:kaptGenerateStubsTestKotlin SKIPPED
+> Task :supports:kaptTestKotlin SKIPPED
+> Task :supports:compileTestKotlin SKIPPED
+> Task :supports:compileTestJava SKIPPED
+> Task :supports:processTestResources SKIPPED
+> Task :supports:testClasses SKIPPED
+> Task :supports:test SKIPPED
+> Task :apps:commerce-api:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:jpa:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:jpa:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :modules:jpa:kaptKotlin UP-TO-DATE
+> Task :modules:jpa:compileKotlin UP-TO-DATE
+> Task :modules:jpa:compileJava UP-TO-DATE
+> Task :modules:jpa:processResources UP-TO-DATE
+> Task :modules:jpa:classes UP-TO-DATE
+> Task :modules:jpa:jar UP-TO-DATE
+> Task :modules:redis:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :modules:redis:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :modules:redis:kaptKotlin SKIPPED
+> Task :modules:redis:compileKotlin UP-TO-DATE
+> Task :modules:redis:compileJava NO-SOURCE
+> Task :modules:redis:processResources UP-TO-DATE
+> Task :modules:redis:classes UP-TO-DATE
+> Task :modules:redis:jar UP-TO-DATE
+> Task :supports:jackson:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:jackson:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :supports:jackson:kaptKotlin SKIPPED
+> Task :supports:jackson:compileKotlin UP-TO-DATE
+> Task :supports:jackson:compileJava NO-SOURCE
+> Task :supports:jackson:processResources NO-SOURCE
+> Task :supports:jackson:classes UP-TO-DATE
+> Task :supports:jackson:jar UP-TO-DATE
+> Task :supports:logging:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:logging:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :supports:logging:kaptKotlin SKIPPED
+> Task :supports:logging:compileKotlin NO-SOURCE
+> Task :supports:logging:compileJava NO-SOURCE
+> Task :supports:logging:processResources UP-TO-DATE
+> Task :supports:logging:classes UP-TO-DATE
+> Task :supports:logging:jar UP-TO-DATE
+> Task :supports:monitoring:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :supports:monitoring:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :supports:monitoring:kaptKotlin SKIPPED
+> Task :supports:monitoring:compileKotlin NO-SOURCE
+> Task :supports:monitoring:compileJava NO-SOURCE
+> Task :supports:monitoring:processResources UP-TO-DATE
+> Task :supports:monitoring:classes UP-TO-DATE
+> Task :supports:monitoring:jar UP-TO-DATE
+> Task :apps:commerce-api:kaptGenerateStubsKotlin UP-TO-DATE
+> Task :apps:commerce-api:kaptKotlin UP-TO-DATE
+> Task :apps:commerce-api:compileKotlin UP-TO-DATE
+> Task :apps:commerce-api:compileJava UP-TO-DATE
+> Task :apps:commerce-api:processResources UP-TO-DATE
+> Task :apps:commerce-api:classes UP-TO-DATE
+> Task :apps:commerce-api:jar SKIPPED
+> Task :modules:jpa:kaptGenerateStubsTestFixturesKotlin UP-TO-DATE
+> Task :modules:jpa:kaptTestFixturesKotlin UP-TO-DATE
+> Task :modules:jpa:compileTestFixturesKotlin UP-TO-DATE
+> Task :modules:jpa:compileTestFixturesJava NO-SOURCE
+> Task :modules:redis:kaptGenerateStubsTestFixturesKotlin UP-TO-DATE
+> Task :modules:redis:kaptTestFixturesKotlin SKIPPED
+> Task :modules:redis:compileTestFixturesKotlin UP-TO-DATE
+> Task :modules:redis:compileTestFixturesJava NO-SOURCE
+> Task :apps:commerce-api:kaptGenerateStubsTestKotlin UP-TO-DATE
+> Task :apps:commerce-api:kaptTestKotlin UP-TO-DATE
+> Task :apps:commerce-api:compileTestKotlin UP-TO-DATE
+> Task :apps:commerce-api:compileTestJava NO-SOURCE
+> Task :apps:commerce-api:processTestResources NO-SOURCE
+> Task :apps:commerce-api:testClasses UP-TO-DATE
+> Task :modules:jpa:processTestFixturesResources NO-SOURCE
+> Task :modules:jpa:testFixturesClasses UP-TO-DATE
+> Task :modules:jpa:testFixturesJar UP-TO-DATE
+> Task :modules:redis:processTestFixturesResources NO-SOURCE
+> Task :modules:redis:testFixturesClasses UP-TO-DATE
+> Task :modules:redis:testFixturesJar UP-TO-DATE
+
+> Task :apps:commerce-api:test
+
+OrderV1ApiConcurrencyE2ETest > 재고 부족 시 일부 동시 주문은 실패해야 한다 FAILED
+    com.loopers.support.error.CoreException at OrderV1ApiConcurrencyE2ETest.kt:196
+
+OrderV1ApiConcurrencyE2ETest > 같은 쿠폰으로 동시에 주문하면 1개만 성공해야 한다 FAILED
+    com.loopers.support.error.CoreException at OrderV1ApiConcurrencyE2ETest.kt:196
+
+2026-03-01T23:09:38.392+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] o.s.b.w.e.tomcat.GracefulShutdown        : Commencing graceful shutdown. Waiting for active requests to complete
+2026-03-01T23:09:38.394+09:00  INFO 67832 --- [commerce-api] [tomcat-shutdown] [                                                 ] o.s.b.w.e.tomcat.GracefulShutdown        : Graceful shutdown complete
+2026-03-01T23:09:38.571+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] o.s.b.w.e.tomcat.GracefulShutdown        : Commencing graceful shutdown. Waiting for active requests to complete
+2026-03-01T23:09:38.572+09:00  INFO 67832 --- [commerce-api] [tomcat-shutdown] [                                                 ] o.s.b.w.e.tomcat.GracefulShutdown        : Graceful shutdown complete
+2026-03-01T23:09:38.589+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-03-01T23:09:38.590+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] com.zaxxer.hikari.HikariDataSource       : mysql-main-pool - Shutdown initiated...
+2026-03-01T23:09:38.595+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] com.zaxxer.hikari.HikariDataSource       : mysql-main-pool - Shutdown completed.
+2026-03-01T23:09:38.601+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-03-01T23:09:38.602+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] com.zaxxer.hikari.HikariDataSource       : mysql-main-pool - Shutdown initiated...
+2026-03-01T23:09:38.607+09:00  INFO 67832 --- [commerce-api] [ionShutdownHook] [                                                 ] com.zaxxer.hikari.HikariDataSource       : mysql-main-pool - Shutdown completed.
+
+> Task :apps:commerce-api:test
+
+258 tests completed, 2 failed
+
+> Task :apps:commerce-api:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':apps:commerce-api:test'.
+> There were failing tests. See the report at: file:///Users/chuljoongkim/Documents/loopers/loop-pack-be-l2-vol3-kotlin/apps/commerce-api/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 49s
+38 actionable tasks: 1 executed, 37 up-to-date

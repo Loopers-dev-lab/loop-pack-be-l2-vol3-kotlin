@@ -23,6 +23,11 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+  cache:
+    type: redis
+    redis:
+      time-to-live: 30m  # 상품 정보 캐시 TTL: 30분
+      use-key-prefix: false  # 각 @Cacheable의 value가 prefix 역할
 
 springdoc:
   use-fqn: true
@@ -40,18 +45,27 @@ spring:
   config:
     activate:
       on-profile: dev
+  cache:
+    redis:
+      time-to-live: 5m  # dev: 5분 (개발 중 빠른 갱신)
 
 ---
 spring:
   config:
     activate:
       on-profile: qa
+  cache:
+    redis:
+      time-to-live: 10m  # qa: 10분 (테스트 환경)
 
 ---
 spring:
   config:
     activate:
       on-profile: prd
+  cache:
+    redis:
+      time-to-live: 30m  # prd: 30분 (안정적 캐싱)
 
 springdoc:
   api-docs:

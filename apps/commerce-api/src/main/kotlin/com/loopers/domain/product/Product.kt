@@ -19,10 +19,8 @@ import java.math.BigDecimal
 @Table(
     name = "products",
     indexes = [
-        Index(name = "idx_brand_status", columnList = "brand_id,status"),
-        Index(name = "idx_status", columnList = "status"),
-        Index(name = "idx_price", columnList = "price"),
-        Index(name = "idx_created_at", columnList = "created_at"),
+        Index(name = "idx_brand_status_created_at", columnList = "brand_id,status,created_at"),
+        Index(name = "idx_brand_status_price", columnList = "brand_id,status,price"),
     ],
 )
 class Product private constructor(

@@ -40,6 +40,7 @@ class ProductRepositoryImpl(
             val path = when (order.property) {
                 "createdAt" -> qProduct.createdAt
                 "price" -> qProduct.price
+                "likeCount" -> qProduct.likeCount
                 else -> null
             }
             path?.let {
@@ -80,6 +81,7 @@ class ProductRepositoryImpl(
             val path = when (order.property) {
                 "createdAt" -> qProduct.createdAt
                 "price" -> qProduct.price
+                "likeCount" -> qProduct.likeCount
                 else -> null
             }
             path?.let {
