@@ -14,22 +14,15 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.cache.CacheManager
 import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
-import org.testcontainers.containers.GenericContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 import java.math.BigDecimal
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Testcontainers
-@TestPropertySource(properties = ["spring.cache.type=redis"])
 @DisplayName("Product 캐싱 E2E 테스트")
 class ProductCachingE2ETest @Autowired constructor(
     private val mockMvc: MockMvc,
@@ -38,13 +31,6 @@ class ProductCachingE2ETest @Autowired constructor(
     private val cacheManager: CacheManager,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
-    companion object {
-        @Container
-        @ServiceConnection
-        private val redis = GenericContainer("redis:7-alpine")
-            .withExposedPorts(6379)
-    }
-
     private lateinit var testBrand: Brand
     private lateinit var testProduct: Product
 

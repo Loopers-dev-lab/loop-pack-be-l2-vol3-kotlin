@@ -14,10 +14,13 @@ spring:
       mode: never
       continue-on-error: false
   cache:
-    type: simple  # Unit test 기본값, E2E 테스트에서는 @Testcontainers로 Redis 제공
+    type: simple  # Unit test 기본값
 
 logging:
   level:
     # JPA SQL 로깅 (대량 데이터 로딩 중 로그 확인)
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.batch: WARN
+    root: INFO
+    org.springframework.web: DEBUG
+    org.springframework.cache: DEBUG
