@@ -91,20 +91,20 @@
 
 ### Phase 7: 설계 문서 업데이트
 
-- [ ] **7-1. 요구사항 명세서** (`docs/design/01-requirements.md`)
+- [x] **7-1. 요구사항 명세서** (`docs/design/01-requirements.md`)
   - v4 → v5 업데이트, 캐시 관련 요구사항 추가
 
-- [ ] **7-2. 시퀀스 다이어그램** (`docs/design/02-sequence-diagrams.md`)
+- [x] **7-2. 시퀀스 다이어그램** (`docs/design/02-sequence-diagrams.md`)
   - 상품 상세/목록 조회에 캐시 흐름 추가
   - 좋아요 등록/취소의 캐시 갱신 흐름 추가
 
-- [ ] **7-3. 클래스 다이어그램** (`docs/design/03-class-diagram.md`)
+- [x] **7-3. 클래스 다이어그램** (`docs/design/03-class-diagram.md`)
   - ProductCacheRepository 인터페이스 + 구현체 추가
 
-- [ ] **7-4. ERD** (`docs/design/04-erd.md`)
+- [x] **7-4. ERD** (`docs/design/04-erd.md`)
   - 변경 없음 (확인만)
 
-- [ ] **7-5. 플로우차트** (`docs/design/05-flowcharts.md`)
+- [x] **7-5. 플로우차트** (`docs/design/05-flowcharts.md`)
   - 캐시 조회/무효화 플로우 추가 (필요 시)
 
 ## 의존관계

@@ -244,3 +244,75 @@ flowchart TB
 - **브랜드 삭제**: 미존재 시 404 NOT_FOUND, 이미 삭제 시 404 NOT_FOUND (상품과 동작이 다름)
 - 브랜드 삭제 시 소속 상품도 연쇄 soft delete 처리
 - 복구는 멱등하게 동작
+
+---
+
+## 6. 상품 캐시 조회/무효화 플로우
+
+### 6.1 상품 상세 조회 (Write-Through Cache)
+
+캐시 히트 시 DB를 스킵하고, 미스 시 DB 조회 후 캐시에 저장하는 흐름이다.
+
+```mermaid
+flowchart TB
+    Start([상품 상세 조회 요청]) --> CheckCache{Redis 캐시 조회}
+    CheckCache -->|캐시 히트| Validate{삭제됨 또는 비활성?}
+    CheckCache -->|캐시 미스| FetchDB[DB 조회 — ProductRepository]
+    FetchDB --> NotFound{상품 없음?}
+    NotFound -->|없음| Err404_1[404 Not Found]:::error
+    NotFound -->|존재| SaveCache[캐시 저장 — saveProductDetail]
+    SaveCache --> Validate
+    Validate -->|삭제됨 / HIDDEN| Err404_2[404 Not Found]:::error
+    Validate -->|활성| FetchBrand[브랜드 조회 — BrandRepository]
+    FetchBrand --> BrandDeleted{브랜드 삭제됨?}
+    BrandDeleted -->|삭제됨| Err404_3[404 Not Found]:::error
+    BrandDeleted -->|활성| Response([200 OK — CatalogInfo]):::success
+
+    classDef error fill:#ffcdd2,stroke:#c62828
+    classDef success fill:#c8e6c9,stroke:#2e7d32
+```
+
+#### 참고
+
+- 브랜드는 항상 DB에서 조회한다 (브랜드 캐시 미적용)
+- Redis 장애 시 캐시 오류를 warn 로그로 처리하고 DB 조회로 폴백
+
+---
+
+### 6.2 상품 캐시 무효화 트리거
+
+쓰기 작업 시 어떤 캐시를 어떻게 처리하는지 정리한다.
+
+```mermaid
+flowchart TB
+    Start([쓰기 요청]) --> Select{요청 유형}
+
+    Select -->|상품 수정 UpdateProductUseCase| Update[DB save]
+    Update --> UD1[saveProductDetail — 상세 캐시 갱신]
+    UD1 --> UD2[evictProductList — 목록 캐시 무효화]
+    UD2 --> Done1([완료]):::success
+
+    Select -->|상품 삭제 DeleteProductUseCase| Delete[DB soft delete]
+    Delete --> DD1[evictProductDetail — 상세 캐시 무효화]
+    DD1 --> Done2([완료]):::success
+
+    Select -->|좋아요 등록 AddLikeUseCase| AddLike[likeCount 증가 + DB save]
+    AddLike --> AL1[saveProductDetail — likeCount 반영]
+    AL1 --> Done3([완료]):::success
+
+    Select -->|좋아요 취소 RemoveLikeUseCase| RemoveLike{상품 활성 상태?}
+    RemoveLike -->|삭제됨| Skip([캐시 갱신 생략]):::idempotent
+    RemoveLike -->|활성| RL1[likeCount 감소 + DB save]
+    RL1 --> RL2[saveProductDetail — likeCount 반영]
+    RL2 --> Done4([완료]):::success
+
+    classDef success fill:#c8e6c9,stroke:#2e7d32
+    classDef idempotent fill:#fff9c4,stroke:#f9a825
+```
+
+#### 참고
+
+- **목록 캐시(`product:list`)**: 수정 시에만 무효화. 삭제 시에는 TTL(30분) 만료 후 자동 정리
+- **상세 캐시(`product:detail`)**: 수정 시 최신 데이터로 덮어씀(Write-Through). 삭제 시 즉시 무효화
+- **좋아요 캐시 갱신**: likeCount가 변경된 상품의 상세 캐시만 갱신. 목록 캐시는 갱신하지 않음
+- Redis 오류 발생 시 warn 로그만 남기고 쓰기 작업 자체는 성공으로 처리 (Fallback)
