@@ -29,7 +29,7 @@ erDiagram
         bigint brand_id
         varchar name
         int quantity
-        int price
+        decimal price
         datetime created_at
         datetime updated_at
         datetime deleted_at
@@ -52,7 +52,7 @@ erDiagram
         bigint product_id
         varchar product_name
         int quantity
-        bigDecimal price
+        decimal price
         datetime created_at
         datetime deleted_at
     }
