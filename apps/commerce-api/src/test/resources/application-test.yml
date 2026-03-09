@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 500
+          fetch_size: 500
+        order_inserts: true
+        order_updates: true
+  sql:
+    init:
+      mode: never
+      continue-on-error: false
+
+logging:
+  level:
+    # JPA SQL 로깅 (대량 데이터 로딩 중 로그 확인)
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.batch: WARN

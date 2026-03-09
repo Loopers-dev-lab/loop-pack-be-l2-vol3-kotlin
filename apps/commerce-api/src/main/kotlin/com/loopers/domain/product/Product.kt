@@ -9,13 +9,22 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
+import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = [
+        Index(name = "idx_brand_status", columnList = "brand_id,status"),
+        Index(name = "idx_status", columnList = "status"),
+        Index(name = "idx_price", columnList = "price"),
+        Index(name = "idx_created_at", columnList = "created_at"),
+    ],
+)
 class Product private constructor(
     brand: Brand,
     name: String,
