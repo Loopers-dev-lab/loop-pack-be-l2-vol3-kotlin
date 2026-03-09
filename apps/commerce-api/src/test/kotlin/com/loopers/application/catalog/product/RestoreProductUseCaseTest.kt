@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class RestoreProductUseCaseTest {
@@ -23,7 +24,7 @@ class RestoreProductUseCaseTest {
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        useCase = RestoreProductUseCase(productRepository)
+        useCase = RestoreProductUseCase(productRepository, ApplicationEventPublisher { })
     }
 
     @Nested

@@ -32,6 +32,7 @@ class RedisConfig(
         private const val CONNECTION_MASTER = "redisConnectionMaster"
         const val REDIS_TEMPLATE_MASTER = "redisTemplateMaster"
         private val DEFAULT_TTL: Duration = Duration.ofMinutes(30)
+        private val PRODUCT_LIST_TTL: Duration = Duration.ofMinutes(5)
     }
 
     @Primary
@@ -73,8 +74,11 @@ class RedisConfig(
             .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
             .disableCachingNullValues()
 
+        val productListConfig = defaultConfig.entryTtl(PRODUCT_LIST_TTL)
+
         return RedisCacheManager.builder(redisConnectionFactory)
             .cacheDefaults(defaultConfig)
+            .withCacheConfiguration("product:list", productListConfig)
             .build()
     }
 

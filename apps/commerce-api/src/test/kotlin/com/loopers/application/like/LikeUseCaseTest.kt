@@ -3,7 +3,6 @@ package com.loopers.application.like
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
-import com.loopers.domain.catalog.product.FakeProductCacheRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
@@ -18,6 +17,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class LikeUseCaseTest {
@@ -25,7 +25,6 @@ class LikeUseCaseTest {
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var productRepository: FakeProductRepository
     private lateinit var likeRepository: FakeLikeRepository
-    private lateinit var cacheRepository: FakeProductCacheRepository
     private lateinit var addLikeUseCase: AddLikeUseCase
     private lateinit var removeLikeUseCase: RemoveLikeUseCase
     private lateinit var getUserLikesUseCase: GetUserLikesUseCase
@@ -35,9 +34,8 @@ class LikeUseCaseTest {
         brandRepository = FakeBrandRepository()
         productRepository = FakeProductRepository()
         likeRepository = FakeLikeRepository()
-        cacheRepository = FakeProductCacheRepository()
-        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository, cacheRepository)
-        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository, cacheRepository)
+        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { })
+        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { })
         getUserLikesUseCase = GetUserLikesUseCase(likeRepository, productRepository)
     }
 
@@ -132,18 +130,18 @@ class LikeUseCaseTest {
         }
 
         @Test
-        @DisplayName("좋아요 등록 후 캐시에 갱신된 likeCount가 저장된다")
-        fun addLike_savesUpdatedLikeCountToCache() {
+        @DisplayName("좋아요 등록 후 캐시 갱신 이벤트가 발행된다")
+        fun addLike_publishesCacheUpdateEvent() {
             // arrange
             val (_, productId) = createBrandAndProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
 
             // act
-            addLikeUseCase.execute(1L, productId)
+            useCase.execute(1L, productId)
 
             // assert
-            val cached = cacheRepository.findProductDetail(ProductId(productId))
-            assertThat(cached).isNotNull()
-            assertThat(cached!!.likeCount).isEqualTo(1)
+            assertThat(publishedEvents).hasSize(1)
         }
     }
 
@@ -195,19 +193,19 @@ class LikeUseCaseTest {
         }
 
         @Test
-        @DisplayName("좋아요 취소 후 캐시에 갱신된 likeCount가 저장된다")
-        fun removeLike_savesUpdatedLikeCountToCache() {
+        @DisplayName("좋아요 취소 후 캐시 갱신 이벤트가 발행된다")
+        fun removeLike_publishesCacheUpdateEvent() {
             // arrange
             val (_, productId) = createBrandAndProduct()
             addLikeUseCase.execute(1L, productId)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
 
             // act
-            removeLikeUseCase.execute(1L, productId)
+            useCase.execute(1L, productId)
 
             // assert
-            val cached = cacheRepository.findProductDetail(ProductId(productId))
-            assertThat(cached).isNotNull()
-            assertThat(cached!!.likeCount).isEqualTo(0)
+            assertThat(publishedEvents).hasSize(1)
         }
     }
 

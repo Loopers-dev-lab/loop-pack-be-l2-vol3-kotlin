@@ -1,6 +1,5 @@
 package com.loopers.application.catalog.product
 
-import com.loopers.domain.catalog.product.FakeProductCacheRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
@@ -14,19 +13,18 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class UpdateProductUseCaseTest {
 
     private lateinit var productRepository: FakeProductRepository
-    private lateinit var cacheRepository: FakeProductCacheRepository
     private lateinit var useCase: UpdateProductUseCase
 
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        cacheRepository = FakeProductCacheRepository()
-        useCase = UpdateProductUseCase(productRepository, cacheRepository)
+        useCase = UpdateProductUseCase(productRepository, ApplicationEventPublisher { })
     }
 
     private fun createProduct(
@@ -132,34 +130,33 @@ class UpdateProductUseCaseTest {
         }
 
         @Test
-        @DisplayName("상품 수정 후 캐시에 갱신된 상품이 저장된다")
-        fun updateProduct_savesUpdatedProductToCache() {
+        @DisplayName("상품 수정 후 캐시 갱신 이벤트가 발행된다")
+        fun updateProduct_publishesCacheUpdateEvent() {
             // arrange
             val product = createProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = UpdateProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
 
             // act
             useCase.execute(product.id.value, "에어맥스 95", null, null, null)
 
             // assert
-            val cached = cacheRepository.findProductDetail(product.id)
-            assertThat(cached).isNotNull()
-            assertThat(cached!!.name).isEqualTo("에어맥스 95")
+            assertThat(publishedEvents).hasSize(1)
         }
 
         @Test
-        @DisplayName("상품 수정 후 상품 목록 캐시가 무효화된다")
-        fun updateProduct_evictsProductListCache() {
+        @DisplayName("상품 수정 후 상품 목록 캐시 무효화 이벤트가 발행된다")
+        fun updateProduct_publishesCacheEvictListEvent() {
             // arrange
             val product = createProduct()
-            // 목록 캐시가 있다고 가정 (evictProductList 호출 여부는 FakeProductCacheRepository의 동작으로 검증)
-            cacheRepository.saveProductDetail(product)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = UpdateProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
 
             // act
             useCase.execute(product.id.value, "에어맥스 95", null, null, null)
 
-            // assert — 목록 캐시 무효화는 부작용이 없으므로 예외 없이 완료되어야 한다
-            val cached = cacheRepository.findProductDetail(product.id)
-            assertThat(cached!!.name).isEqualTo("에어맥스 95")
+            // assert — evictList = true 이벤트가 발행되어야 한다
+            assertThat(publishedEvents).hasSize(1)
         }
     }
 }

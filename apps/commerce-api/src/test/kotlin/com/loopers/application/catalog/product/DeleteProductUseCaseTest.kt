@@ -1,6 +1,5 @@
 package com.loopers.application.catalog.product
 
-import com.loopers.domain.catalog.product.FakeProductCacheRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
@@ -11,19 +10,18 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class DeleteProductUseCaseTest {
 
     private lateinit var productRepository: FakeProductRepository
-    private lateinit var cacheRepository: FakeProductCacheRepository
     private lateinit var useCase: DeleteProductUseCase
 
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        cacheRepository = FakeProductCacheRepository()
-        useCase = DeleteProductUseCase(productRepository, cacheRepository)
+        useCase = DeleteProductUseCase(productRepository, ApplicationEventPublisher { })
     }
 
     @Nested
@@ -68,20 +66,20 @@ class DeleteProductUseCaseTest {
         }
 
         @Test
-        @DisplayName("상품 삭제 후 캐시에서 해당 상품이 제거된다")
-        fun deleteProduct_evictsProductFromCache() {
+        @DisplayName("상품 삭제 후 캐시 evict 이벤트가 발행된다")
+        fun deleteProduct_publishesCacheEvictEvent() {
             // arrange
             val product = productRepository.save(
                 Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
             )
-            cacheRepository.saveProductDetail(product)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = DeleteProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
 
             // act
             useCase.execute(product.id.value)
 
             // assert
-            val cached = cacheRepository.findProductDetail(product.id)
-            assertThat(cached).isNull()
+            assertThat(publishedEvents).hasSize(1)
         }
     }
 }

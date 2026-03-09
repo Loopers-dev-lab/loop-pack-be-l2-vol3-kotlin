@@ -15,6 +15,7 @@ class GetProductsUseCase(private val productRepository: ProductRepository) {
     @Cacheable(
         cacheNames = ["product:list"],
         key = "(#brandId ?: 'all') + ':' + #sort + ':' + #page + ':' + #size",
+        sync = true,
     )
     @Transactional(readOnly = true)
     fun execute(brandId: Long?, sort: String, page: Int, size: Int): PageResult<ProductInfo> {

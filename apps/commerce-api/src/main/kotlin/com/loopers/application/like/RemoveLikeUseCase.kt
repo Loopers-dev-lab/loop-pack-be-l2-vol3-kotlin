@@ -1,10 +1,11 @@
 package com.loopers.application.like
 
-import com.loopers.domain.catalog.product.repository.ProductCacheRepository
+import com.loopers.application.catalog.product.ProductCacheEvent
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.repository.LikeRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -12,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional
 class RemoveLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
-    private val productCacheRepository: ProductCacheRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
@@ -27,7 +28,7 @@ class RemoveLikeUseCase(
             if (product.isDeleted()) return
             product.decreaseLikeCount()
             val saved = productRepository.save(product)
-            productCacheRepository.saveProductDetail(saved)
+            eventPublisher.publishEvent(ProductCacheEvent.DetailUpdated(saved))
         }
     }
 }

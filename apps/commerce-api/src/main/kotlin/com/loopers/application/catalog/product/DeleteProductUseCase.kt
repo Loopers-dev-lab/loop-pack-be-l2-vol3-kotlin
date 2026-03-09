@@ -1,15 +1,15 @@
 package com.loopers.application.catalog.product
 
-import com.loopers.domain.catalog.product.repository.ProductCacheRepository
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class DeleteProductUseCase(
     private val productRepository: ProductRepository,
-    private val productCacheRepository: ProductCacheRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun execute(productId: Long) {
@@ -18,6 +18,6 @@ class DeleteProductUseCase(
         if (product.isDeleted()) return
         product.delete()
         productRepository.save(product)
-        productCacheRepository.evictProductDetail(id)
+        eventPublisher.publishEvent(ProductCacheEvent.DetailEvicted(id, product.refBrandId))
     }
 }
