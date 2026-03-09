@@ -1,17 +1,26 @@
 package com.loopers.config.redis
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.lettuce.core.ReadFrom
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.cache.annotation.EnableCaching
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
+import org.springframework.data.redis.cache.RedisCacheConfiguration
+import org.springframework.data.redis.cache.RedisCacheManager
+import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.serializer.StringRedisSerializer
+import java.time.Duration
 
+@EnableCaching
 @Configuration
 @EnableConfigurationProperties(RedisProperties::class)
 class RedisConfig(
@@ -20,6 +29,7 @@ class RedisConfig(
     companion object {
         private const val CONNECTION_MASTER = "redisConnectionMaster"
         const val REDIS_TEMPLATE_MASTER = "redisTemplateMaster"
+        private val DEFAULT_TTL: Duration = Duration.ofMinutes(30)
     }
 
     @Primary
@@ -38,6 +48,23 @@ class RedisConfig(
         return lettuceConnectionFactory(database, master, replicas) {
             readFrom(ReadFrom.MASTER)
         }
+    }
+
+    @Bean
+    fun redisCacheManager(
+        redisConnectionFactory: RedisConnectionFactory,
+        objectMapper: ObjectMapper,
+    ): RedisCacheManager {
+        val jsonSerializer = GenericJackson2JsonRedisSerializer(objectMapper)
+        val defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+            .entryTtl(DEFAULT_TTL)
+            .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
+            .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
+            .disableCachingNullValues()
+
+        return RedisCacheManager.builder(redisConnectionFactory)
+            .cacheDefaults(defaultConfig)
+            .build()
     }
 
     @Primary
