@@ -3,6 +3,7 @@ package com.loopers.application.like
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
+import com.loopers.domain.catalog.product.FakeProductCacheRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
@@ -24,6 +25,7 @@ class LikeUseCaseTest {
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var productRepository: FakeProductRepository
     private lateinit var likeRepository: FakeLikeRepository
+    private lateinit var cacheRepository: FakeProductCacheRepository
     private lateinit var addLikeUseCase: AddLikeUseCase
     private lateinit var removeLikeUseCase: RemoveLikeUseCase
     private lateinit var getUserLikesUseCase: GetUserLikesUseCase
@@ -33,8 +35,9 @@ class LikeUseCaseTest {
         brandRepository = FakeBrandRepository()
         productRepository = FakeProductRepository()
         likeRepository = FakeLikeRepository()
-        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository)
-        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository)
+        cacheRepository = FakeProductCacheRepository()
+        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository, cacheRepository)
+        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository, cacheRepository)
         getUserLikesUseCase = GetUserLikesUseCase(likeRepository, productRepository)
     }
 
@@ -127,6 +130,21 @@ class LikeUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
+
+        @Test
+        @DisplayName("좋아요 등록 후 캐시에 갱신된 likeCount가 저장된다")
+        fun addLike_savesUpdatedLikeCountToCache() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+
+            // act
+            addLikeUseCase.execute(1L, productId)
+
+            // assert
+            val cached = cacheRepository.findProductDetail(ProductId(productId))
+            assertThat(cached).isNotNull()
+            assertThat(cached!!.likeCount).isEqualTo(1)
+        }
     }
 
     @Nested
@@ -174,6 +192,22 @@ class LikeUseCaseTest {
 
             // act & assert
             removeLikeUseCase.execute(1L, productId)
+        }
+
+        @Test
+        @DisplayName("좋아요 취소 후 캐시에 갱신된 likeCount가 저장된다")
+        fun removeLike_savesUpdatedLikeCountToCache() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            addLikeUseCase.execute(1L, productId)
+
+            // act
+            removeLikeUseCase.execute(1L, productId)
+
+            // assert
+            val cached = cacheRepository.findProductDetail(ProductId(productId))
+            assertThat(cached).isNotNull()
+            assertThat(cached!!.likeCount).isEqualTo(0)
         }
     }
 

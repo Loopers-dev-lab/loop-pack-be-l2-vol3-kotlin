@@ -1,5 +1,6 @@
 package com.loopers.application.catalog.product
 
+import com.loopers.domain.catalog.product.FakeProductCacheRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
@@ -15,12 +16,14 @@ import java.math.BigDecimal
 class DeleteProductUseCaseTest {
 
     private lateinit var productRepository: FakeProductRepository
+    private lateinit var cacheRepository: FakeProductCacheRepository
     private lateinit var useCase: DeleteProductUseCase
 
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        useCase = DeleteProductUseCase(productRepository)
+        cacheRepository = FakeProductCacheRepository()
+        useCase = DeleteProductUseCase(productRepository, cacheRepository)
     }
 
     @Nested
@@ -62,6 +65,23 @@ class DeleteProductUseCaseTest {
         fun deleteProduct_nonExistent_isIdempotent() {
             // act & assert — 예외 없이 정상 반환
             useCase.execute(999L)
+        }
+
+        @Test
+        @DisplayName("상품 삭제 후 캐시에서 해당 상품이 제거된다")
+        fun deleteProduct_evictsProductFromCache() {
+            // arrange
+            val product = productRepository.save(
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            cacheRepository.saveProductDetail(product)
+
+            // act
+            useCase.execute(product.id.value)
+
+            // assert
+            val cached = cacheRepository.findProductDetail(product.id)
+            assertThat(cached).isNull()
         }
     }
 }

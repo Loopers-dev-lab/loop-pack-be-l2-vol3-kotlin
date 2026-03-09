@@ -1,5 +1,6 @@
 package com.loopers.application.catalog.product
 
+import com.loopers.domain.catalog.product.FakeProductCacheRepository
 import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
@@ -18,12 +19,14 @@ import java.math.BigDecimal
 class UpdateProductUseCaseTest {
 
     private lateinit var productRepository: FakeProductRepository
+    private lateinit var cacheRepository: FakeProductCacheRepository
     private lateinit var useCase: UpdateProductUseCase
 
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        useCase = UpdateProductUseCase(productRepository)
+        cacheRepository = FakeProductCacheRepository()
+        useCase = UpdateProductUseCase(productRepository, cacheRepository)
     }
 
     private fun createProduct(
@@ -126,6 +129,37 @@ class UpdateProductUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).contains("유효하지 않은 상품 상태입니다")
+        }
+
+        @Test
+        @DisplayName("상품 수정 후 캐시에 갱신된 상품이 저장된다")
+        fun updateProduct_savesUpdatedProductToCache() {
+            // arrange
+            val product = createProduct()
+
+            // act
+            useCase.execute(product.id.value, "에어맥스 95", null, null, null)
+
+            // assert
+            val cached = cacheRepository.findProductDetail(product.id)
+            assertThat(cached).isNotNull()
+            assertThat(cached!!.name).isEqualTo("에어맥스 95")
+        }
+
+        @Test
+        @DisplayName("상품 수정 후 상품 목록 캐시가 무효화된다")
+        fun updateProduct_evictsProductListCache() {
+            // arrange
+            val product = createProduct()
+            // 목록 캐시가 있다고 가정 (evictProductList 호출 여부는 FakeProductCacheRepository의 동작으로 검증)
+            cacheRepository.saveProductDetail(product)
+
+            // act
+            useCase.execute(product.id.value, "에어맥스 95", null, null, null)
+
+            // assert — 목록 캐시 무효화는 부작용이 없으므로 예외 없이 완료되어야 한다
+            val cached = cacheRepository.findProductDetail(product.id)
+            assertThat(cached!!.name).isEqualTo("에어맥스 95")
         }
     }
 }

@@ -6,11 +6,16 @@ import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.BrandId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class GetProductsUseCase(private val productRepository: ProductRepository) {
+    @Cacheable(
+        cacheNames = ["product:list"],
+        key = "(#brandId ?: 'all') + ':' + #sort + ':' + #page + ':' + #size",
+    )
     @Transactional(readOnly = true)
     fun execute(brandId: Long?, sort: String, page: Int, size: Int): PageResult<ProductInfo> {
         val domainSort = ProductSort.entries.find { it.name == sort.uppercase() }

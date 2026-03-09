@@ -3,6 +3,7 @@ package com.loopers.application.catalog.product
 import com.loopers.application.catalog.CatalogInfo
 import com.loopers.application.catalog.ProductDetail
 import com.loopers.domain.catalog.brand.repository.BrandRepository
+import com.loopers.domain.catalog.product.repository.ProductCacheRepository
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.support.error.CoreException
@@ -14,10 +15,13 @@ import org.springframework.transaction.annotation.Transactional
 class GetProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productCacheRepository: ProductCacheRepository,
 ) {
     @Transactional(readOnly = true)
     fun execute(productId: Long): CatalogInfo {
-        val product = productRepository.findById(ProductId(productId))
+        val id = ProductId(productId)
+        val product = productCacheRepository.findProductDetail(id)
+            ?: productRepository.findById(id)?.also { productCacheRepository.saveProductDetail(it) }
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         if (product.isDeleted() || !product.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")

@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.domain.catalog.product.repository.ProductCacheRepository
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class AddLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
+    private val productCacheRepository: ProductCacheRepository,
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
@@ -27,6 +29,7 @@ class AddLikeUseCase(
 
         likeRepository.save(Like(refUserId = UserId(userId), refProductId = ProductId(productId)))
         product.increaseLikeCount()
-        productRepository.save(product)
+        val saved = productRepository.save(product)
+        productCacheRepository.saveProductDetail(saved)
     }
 }

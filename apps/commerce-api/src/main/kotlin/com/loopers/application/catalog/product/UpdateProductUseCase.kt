@@ -2,6 +2,7 @@ package com.loopers.application.catalog.product
 
 import com.loopers.application.catalog.CatalogCommand
 import com.loopers.domain.catalog.product.model.Product
+import com.loopers.domain.catalog.product.repository.ProductCacheRepository
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
@@ -12,7 +13,10 @@ import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 
 @Component
-class UpdateProductUseCase(private val productRepository: ProductRepository) {
+class UpdateProductUseCase(
+    private val productRepository: ProductRepository,
+    private val productCacheRepository: ProductCacheRepository,
+) {
     @Transactional
     fun execute(productId: Long, name: String?, price: BigDecimal?, stock: Int?, status: String?): ProductInfo {
         val command = CatalogCommand.UpdateProduct(
@@ -32,6 +36,8 @@ class UpdateProductUseCase(private val productRepository: ProductRepository) {
         }
         product.update(command.name, command.price?.let { Money(it) }, command.stock, domainStatus)
         val saved = productRepository.save(product)
+        productCacheRepository.saveProductDetail(saved)
+        productCacheRepository.evictProductList(saved.refBrandId)
         return ProductInfo.from(saved)
     }
 }
