@@ -19,8 +19,8 @@ class OrderService(
 ) {
 
     @Transactional
-    fun createOrder(userId: Long, items: List<OrderItemCommand>): Order {
-        val order = orderDomainService.buildOrder(userId, items)
+    fun createOrder(userId: Long, items: List<OrderItemCommand>, couponId: Long? = null): Order {
+        val order = orderDomainService.buildOrder(userId, items, couponId)
         return orderRepository.save(order)
     }
 

@@ -13,4 +13,6 @@ interface ProductRepository {
     fun findAllByBrandId(brandId: Long, pageable: Pageable): Page<Product>
     fun findAllByBrandId(brandId: Long): List<Product>
     fun findAllByIdWithLock(ids: List<Long>): List<Product>
+    fun incrementLikeCount(productId: Long)
+    fun decrementLikeCount(productId: Long)
 }

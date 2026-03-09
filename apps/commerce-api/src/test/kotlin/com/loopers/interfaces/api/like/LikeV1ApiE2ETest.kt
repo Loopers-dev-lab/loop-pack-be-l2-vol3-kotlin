@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.like
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.brand.BrandV1Dto
 import com.loopers.interfaces.api.product.ProductAdminV1Dto
+import com.loopers.interfaces.api.product.ProductV1Dto
 import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -158,6 +159,34 @@ class LikeV1ApiE2ETest @Autowired constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         }
 
+        @DisplayName("좋아요 등록 후 상품을 조회하면, likeCount가 1이다.")
+        @Test
+        fun increasesLikeCount_whenAddLikeSucceeds() {
+            // arrange
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            testRestTemplate.exchange(
+                "/api/v1/products/$testProductId/likes",
+                HttpMethod.POST,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            // act
+            val productType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products/$testProductId",
+                HttpMethod.GET,
+                null,
+                productType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.likeCount).isEqualTo(1) },
+            )
+        }
+
         @DisplayName("존재하지 않는 상품이면, 404 NOT_FOUND를 반환한다.")
         @Test
         fun returnsNotFound_whenProductNotExists() {
@@ -224,6 +253,30 @@ class LikeV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        }
+
+        @DisplayName("좋아요 취소 후 상품을 조회하면, likeCount가 0이다.")
+        @Test
+        fun decreasesLikeCount_whenCancelLikeSucceeds() {
+            // arrange
+            val type = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            testRestTemplate.exchange("/api/v1/products/$testProductId/likes", HttpMethod.POST, HttpEntity<Any>(authHeaders()), type)
+            testRestTemplate.exchange("/api/v1/products/$testProductId/likes", HttpMethod.DELETE, HttpEntity<Any>(authHeaders()), type)
+
+            // act
+            val productType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products/$testProductId",
+                HttpMethod.GET,
+                null,
+                productType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.likeCount).isEqualTo(0) },
+            )
         }
 
         @DisplayName("좋아요가 없어도, 200 OK를 반환한다.")

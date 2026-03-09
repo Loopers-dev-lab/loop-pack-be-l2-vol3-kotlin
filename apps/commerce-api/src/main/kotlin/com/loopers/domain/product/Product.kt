@@ -46,6 +46,10 @@ class Product(
     var imageUrl: String? = imageUrl
         private set
 
+    @Column(name = "like_count", nullable = false)
+    var likeCount: Int = 0
+        private set
+
     init {
         validateName(name)
         validatePrice(price)

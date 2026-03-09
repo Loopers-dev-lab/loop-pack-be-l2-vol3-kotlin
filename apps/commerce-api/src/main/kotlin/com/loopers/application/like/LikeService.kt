@@ -21,12 +21,16 @@ class LikeService(
         if (existingLike != null) {
             if (existingLike.isDeleted()) {
                 existingLike.restore()
-                return LikeInfo.from(likeRepository.save(existingLike))
+                val saved = likeRepository.save(existingLike)
+                productService.incrementLikeCount(productId)
+                return LikeInfo.from(saved)
             }
             return LikeInfo.from(existingLike)
         }
 
-        return LikeInfo.from(likeRepository.save(Like(userId = userId, productId = productId)))
+        val saved = likeRepository.save(Like(userId = userId, productId = productId))
+        productService.incrementLikeCount(productId)
+        return LikeInfo.from(saved)
     }
 
     @Transactional
@@ -35,6 +39,7 @@ class LikeService(
 
         like.delete()
         likeRepository.save(like)
+        productService.decrementLikeCount(productId)
     }
 
     @Transactional(readOnly = true)

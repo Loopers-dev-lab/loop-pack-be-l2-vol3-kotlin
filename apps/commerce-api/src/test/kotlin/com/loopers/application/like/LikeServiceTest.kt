@@ -40,7 +40,7 @@ class LikeServiceTest {
     @Nested
     inner class AddLike {
 
-        @DisplayName("좋아요가 없으면, 신규 생성된다.")
+        @DisplayName("좋아요가 없으면, 신규 생성되고 likeCount가 증가한다.")
         @Test
         fun createsNewLike_whenNoExistingLike() {
             // arrange
@@ -64,9 +64,10 @@ class LikeServiceTest {
                 { assertThat(result.productId).isEqualTo(productId) },
             )
             verify(likeRepository).save(any())
+            verify(productService).incrementLikeCount(productId)
         }
 
-        @DisplayName("이미 활성 좋아요가 있으면, 기존 좋아요를 반환한다.")
+        @DisplayName("이미 활성 좋아요가 있으면, 기존 좋아요를 반환하고 likeCount는 증가하지 않는다.")
         @Test
         fun returnsExistingLike_whenActiveLikeExists() {
             // arrange
@@ -85,9 +86,10 @@ class LikeServiceTest {
             // assert
             assertThat(result.productId).isEqualTo(productId)
             verify(likeRepository, never()).save(any())
+            verify(productService, never()).incrementLikeCount(productId)
         }
 
-        @DisplayName("Soft Delete된 좋아요가 있으면, 복원된다.")
+        @DisplayName("Soft Delete된 좋아요가 있으면, 복원되고 likeCount가 증가한다.")
         @Test
         fun restoresLike_whenSoftDeletedLikeExists() {
             // arrange
@@ -111,6 +113,7 @@ class LikeServiceTest {
             // assert
             assertThat(result.productId).isEqualTo(productId)
             verify(likeRepository).save(any())
+            verify(productService).incrementLikeCount(productId)
         }
 
         @DisplayName("상품이 존재하지 않으면, NOT_FOUND 예외가 발생한다.")
@@ -137,7 +140,7 @@ class LikeServiceTest {
     @Nested
     inner class CancelLike {
 
-        @DisplayName("활성 좋아요가 있으면, Soft Delete된다.")
+        @DisplayName("활성 좋아요가 있으면, Soft Delete되고 likeCount가 감소한다.")
         @Test
         fun softDeletesLike_whenActiveLikeExists() {
             // arrange
@@ -154,9 +157,10 @@ class LikeServiceTest {
             // assert
             assertThat(like.isDeleted()).isTrue()
             verify(likeRepository).save(like)
+            verify(productService).decrementLikeCount(productId)
         }
 
-        @DisplayName("좋아요가 없으면, 아무 작업도 하지 않는다.")
+        @DisplayName("좋아요가 없으면, 아무 작업도 하지 않고 likeCount도 변하지 않는다.")
         @Test
         fun doesNothing_whenNoActiveLikeExists() {
             // arrange
@@ -170,6 +174,7 @@ class LikeServiceTest {
 
             // assert
             verify(likeRepository, never()).save(any())
+            verify(productService, never()).decrementLikeCount(productId)
         }
     }
 

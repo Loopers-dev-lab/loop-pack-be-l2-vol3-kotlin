@@ -16,6 +16,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -56,14 +57,14 @@ class OrderServiceTest {
             )
             val order = Order(userId = 1L)
 
-            whenever(orderDomainService.buildOrder(eq(1L), any())).thenReturn(order)
+            whenever(orderDomainService.buildOrder(eq(1L), any(), anyOrNull())).thenReturn(order)
             whenever(orderRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
             val result = orderService.createOrder(1L, items)
 
             // assert
-            verify(orderDomainService).buildOrder(eq(1L), any())
+            verify(orderDomainService).buildOrder(eq(1L), any(), anyOrNull())
             verify(orderRepository).save(order)
             assertThat(result.userId).isEqualTo(1L)
         }

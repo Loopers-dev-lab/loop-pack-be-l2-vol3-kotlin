@@ -21,6 +21,8 @@ class ProductAdminV1Dto {
         val price: BigDecimal,
         @Schema(description = "재고", example = "100")
         val stock: Int,
+        @Schema(description = "좋아요 수", example = "42")
+        val likeCount: Int,
         @Schema(description = "상품 설명", example = "나이키 에어맥스 90")
         val description: String?,
         @Schema(description = "이미지 URL", example = "https://example.com/airmax90.jpg")
@@ -38,6 +40,7 @@ class ProductAdminV1Dto {
                     name = info.name,
                     price = info.price,
                     stock = info.stock,
+                    likeCount = info.likeCount,
                     description = info.description,
                     imageUrl = info.imageUrl,
                     createdAt = info.createdAt,

@@ -55,6 +55,7 @@ class ProductTest {
                 { assertThat(product.name).isEqualTo(TEST_NAME) },
                 { assertThat(product.price).isEqualByComparingTo(TEST_PRICE) },
                 { assertThat(product.stock).isEqualTo(TEST_STOCK) },
+                { assertThat(product.likeCount).isEqualTo(0) },
                 { assertThat(product.description).isEqualTo(TEST_DESCRIPTION) },
                 { assertThat(product.imageUrl).isEqualTo(TEST_IMAGE_URL) },
             )

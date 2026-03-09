@@ -14,7 +14,13 @@ class OrderAdminV1Dto {
         val id: Long,
         @Schema(description = "유저 ID", example = "1")
         val userId: Long,
-        @Schema(description = "총 주문 금액", example = "258000")
+        @Schema(description = "쿠폰 ID", example = "1")
+        val couponId: Long?,
+        @Schema(description = "원래 주문 금액", example = "258000")
+        val originalAmount: BigDecimal,
+        @Schema(description = "할인 금액", example = "5000")
+        val discountAmount: BigDecimal,
+        @Schema(description = "최종 주문 금액", example = "253000")
         val totalAmount: BigDecimal,
         @Schema(description = "주문 항목")
         val items: List<OrderItemAdminResponse>,
@@ -26,6 +32,9 @@ class OrderAdminV1Dto {
                 return OrderAdminResponse(
                     id = info.id,
                     userId = info.userId,
+                    couponId = info.couponId,
+                    originalAmount = info.originalAmount,
+                    discountAmount = info.discountAmount,
                     totalAmount = info.totalAmount,
                     items = info.items.map { OrderItemAdminResponse.from(it) },
                     createdAt = info.createdAt,

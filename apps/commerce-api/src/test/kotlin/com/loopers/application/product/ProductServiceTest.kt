@@ -17,6 +17,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
@@ -334,6 +335,42 @@ class ProductServiceTest {
         }
     }
 
+    @DisplayName("좋아요 수를 증가시킬 때,")
+    @Nested
+    inner class IncrementLikeCount {
+
+        @DisplayName("productId로 호출하면, Repository의 incrementLikeCount가 호출된다.")
+        @Test
+        fun callsRepositoryIncrementLikeCount() {
+            // arrange
+            val productId = 1L
+
+            // act
+            productService.incrementLikeCount(productId)
+
+            // assert
+            verify(productRepository).incrementLikeCount(productId)
+        }
+    }
+
+    @DisplayName("좋아요 수를 감소시킬 때,")
+    @Nested
+    inner class DecrementLikeCount {
+
+        @DisplayName("productId로 호출하면, Repository의 decrementLikeCount가 호출된다.")
+        @Test
+        fun callsRepositoryDecrementLikeCount() {
+            // arrange
+            val productId = 1L
+
+            // act
+            productService.decrementLikeCount(productId)
+
+            // assert
+            verify(productRepository).decrementLikeCount(productId)
+        }
+    }
+
     @DisplayName("재고를 예약할 때,")
     @Nested
     inner class ReserveStock {
@@ -355,16 +392,15 @@ class ProductServiceTest {
 
             // assert
             assertAll(
-                { assertThat(result.reservedProducts).hasSize(2) },
-                { assertThat(result.failedReservations).isEmpty() },
+                { assertThat(result).hasSize(2) },
                 { assertThat(product1.stock).isEqualTo(98) },
                 { assertThat(product2.stock).isEqualTo(49) },
             )
         }
 
-        @DisplayName("일부 상품의 재고가 부족하면, 성공/실패로 분류된다.")
+        @DisplayName("일부 상품의 재고가 부족하면, BAD_REQUEST 예외가 발생한다.")
         @Test
-        fun classifiesFailedReservations_whenSomeStockInsufficient() {
+        fun throwsBadRequest_whenSomeStockInsufficient() {
             // arrange
             val product1 = createProduct(id = 1L, name = "에어맥스 90", stock = 100, price = BigDecimal("129000"))
             val product2 = createProduct(id = 2L, brandId = 2L, name = "울트라부스트", stock = 0, price = BigDecimal("199000"))
@@ -375,21 +411,21 @@ class ProductServiceTest {
             )
 
             // act
-            val result = productService.reserveStock(products, criteria)
+            val exception = assertThrows<CoreException> {
+                productService.reserveStock(products, criteria)
+            }
 
             // assert
             assertAll(
-                { assertThat(result.reservedProducts).hasSize(1) },
-                { assertThat(result.reservedProducts[0].productId).isEqualTo(1L) },
-                { assertThat(result.failedReservations).hasSize(1) },
-                { assertThat(result.failedReservations[0].productId).isEqualTo(2L) },
-                { assertThat(result.failedReservations[0].reason).contains("재고가 부족") },
+                { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
+                { assertThat(exception.message).contains("재고가 부족한 상품이 있습니다") },
+                { assertThat(product1.stock).isEqualTo(100) },
             )
         }
 
-        @DisplayName("상품이 존재하지 않으면, 실패 예약으로 분류된다.")
+        @DisplayName("상품이 존재하지 않으면, BAD_REQUEST 예외가 발생한다.")
         @Test
-        fun returnsFailedReservation_whenProductNotFound() {
+        fun throwsBadRequest_whenProductNotFound() {
             // arrange
             val product1 = createProduct(id = 1L, name = "에어맥스 90", stock = 100, price = BigDecimal("129000"))
             val products = listOf(product1)
@@ -399,14 +435,15 @@ class ProductServiceTest {
             )
 
             // act
-            val result = productService.reserveStock(products, criteria)
+            val exception = assertThrows<CoreException> {
+                productService.reserveStock(products, criteria)
+            }
 
             // assert
             assertAll(
-                { assertThat(result.reservedProducts).hasSize(1) },
-                { assertThat(result.failedReservations).hasSize(1) },
-                { assertThat(result.failedReservations[0].productId).isEqualTo(999L) },
-                { assertThat(result.failedReservations[0].reason).contains("존재하지 않") },
+                { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
+                { assertThat(exception.message).contains("존재하지 않는 상품") },
+                { assertThat(product1.stock).isEqualTo(100) },
             )
         }
     }
