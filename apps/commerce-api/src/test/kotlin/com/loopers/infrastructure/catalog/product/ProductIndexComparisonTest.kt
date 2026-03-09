@@ -157,6 +157,37 @@ class ProductIndexComparisonTest @Autowired constructor(
         }
     }
 
+    /**
+     * EXPLAIN ANALYZE 결과에서 actual time을 파싱한다.
+     * 형식: "-> ... (actual time=0.035..0.142 rows=20 loops=1)"
+     * 첫 번째 actual time의 두 번째 값(총 소요시간)을 추출한다.
+     */
+    private fun parseActualTime(explainAnalyzeOutput: String): Double? {
+        val pattern = Regex("""actual time=[\d.]+\.\.([\d.]+)""")
+        return pattern.findAll(explainAnalyzeOutput).lastOrNull()?.groupValues?.get(1)?.toDoubleOrNull()
+    }
+
+    private fun explainAnalyze(sql: String): String {
+        return dataSource.connection.use { conn ->
+            conn.createStatement().executeQuery("EXPLAIN ANALYZE $sql").use { rs ->
+                val sb = StringBuilder()
+                while (rs.next()) {
+                    sb.appendLine(rs.getString(1))
+                }
+                sb.toString()
+            }
+        }
+    }
+
+    /**
+     * 지정된 쿼리를 warmup 1회 + 측정 runs회 실행하여 actual time 평균을 반환한다.
+     */
+    private fun measureActualTime(sql: String, warmup: Int = 1, runs: Int = 10): Double {
+        repeat(warmup) { explainAnalyze(sql) }
+        val times = (1..runs).mapNotNull { parseActualTime(explainAnalyze(sql)) }
+        return times.average()
+    }
+
     @Nested
     @DisplayName("인덱스 AS-IS / TO-BE 비교")
     inner class IndexComparison {
@@ -251,6 +282,82 @@ class ProductIndexComparisonTest @Autowired constructor(
             assertThat(toBeTypes)
                 .withFailMessage("TO-BE 인덱스 적용 후에도 풀 스캔(ALL)이 발생한 쿼리가 있습니다: $toBeResults")
                 .noneMatch { it == "ALL" }
+        }
+
+        @Test
+        @DisplayName("인덱스 유무에 따른 EXPLAIN ANALYZE actual time 비교 (워밍업 1회, 측정 10회)")
+        fun compareActualTimeWithAndWithoutIndexes() {
+            data class QueryCase(val label: String, val sql: String)
+
+            val queries = listOf(
+                QueryCase(
+                    label = "브랜드 필터 + 좋아요 정렬",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' AND ref_brand_id = 1 ORDER BY like_count DESC LIMIT 20",
+                ),
+                QueryCase(
+                    label = "전체 좋아요 정렬",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY like_count DESC LIMIT 20",
+                ),
+                QueryCase(
+                    label = "최신순 전체 조회",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC LIMIT 20",
+                ),
+                QueryCase(
+                    label = "가격순 전체 조회",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY price ASC LIMIT 20",
+                ),
+            )
+
+            // 1. AS-IS: 커스텀 인덱스 DROP
+            dropIndexIfExists("idx_products_active_like_count", "products")
+            dropIndexIfExists("idx_products_active_created_at", "products")
+            dropIndexIfExists("idx_products_active_price", "products")
+
+            // 2. AS-IS actual time 측정 (워밍업 1회, 측정 10회 평균)
+            val asIsTimes = queries.map { query ->
+                query.label to measureActualTime(query.sql)
+            }
+
+            // 3. TO-BE: 인덱스 재생성
+            executeNativeDdl(
+                "CREATE INDEX idx_products_active_like_count ON products (deleted_at, status, like_count DESC)",
+            )
+            executeNativeDdl(
+                "CREATE INDEX idx_products_active_created_at ON products (deleted_at, status, created_at DESC)",
+            )
+            executeNativeDdl(
+                "CREATE INDEX idx_products_active_price ON products (deleted_at, status, price ASC)",
+            )
+
+            // 4. TO-BE actual time 측정 (워밍업 1회, 측정 10회 평균)
+            val toBeTimes = queries.map { query ->
+                query.label to measureActualTime(query.sql)
+            }
+
+            // 5. 비교 로그 출력
+            log.info("=== EXPLAIN ANALYZE actual time 비교 (10회 평균, ms) ===")
+            val fmt = "| %-24s | %12s | %12s | %8s |"
+            val header = String.format(fmt, "쿼리", "AS-IS (ms)", "TO-BE (ms)", "개선율")
+            log.info(header)
+            log.info("-".repeat(header.length))
+
+            queries.indices.forEach { i ->
+                val (label, asIsTime) = asIsTimes[i]
+                val (_, toBeTime) = toBeTimes[i]
+                val improvement = if (toBeTime > 0) {
+                    String.format("%.1fx", asIsTime / toBeTime)
+                } else {
+                    "N/A"
+                }
+                log.info(
+                    String.format(fmt, label, String.format("%.3f", asIsTime), String.format("%.3f", toBeTime), improvement),
+                )
+            }
+
+            // 6. assertion 없음 (측정 기록 목적)
+            // TestContainers 환경에서는 버퍼 풀에 전체 데이터가 올라가있어
+            // 풀 스캔이 인덱스 스캔보다 빠르게 나올 수 있다.
+            // 실제 성능 차이는 EXPLAIN 결과(type, filesort 유무)로 검증한다.
         }
     }
 }
