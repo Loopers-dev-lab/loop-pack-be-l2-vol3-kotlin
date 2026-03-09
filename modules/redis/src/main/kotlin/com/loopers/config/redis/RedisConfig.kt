@@ -1,6 +1,5 @@
 package com.loopers.config.redis
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.lettuce.core.ReadFrom
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -15,6 +14,9 @@ import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfigu
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory
 import org.springframework.data.redis.core.RedisTemplate
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator
+import com.fasterxml.jackson.module.kotlin.KotlinModule
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.serializer.StringRedisSerializer
@@ -53,9 +55,18 @@ class RedisConfig(
     @Bean
     fun redisCacheManager(
         redisConnectionFactory: RedisConnectionFactory,
-        objectMapper: ObjectMapper,
     ): RedisCacheManager {
-        val jsonSerializer = GenericJackson2JsonRedisSerializer(objectMapper)
+        val cacheObjectMapper = ObjectMapper().apply {
+            registerModule(KotlinModule.Builder().build())
+            configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            activateDefaultTyping(
+                BasicPolymorphicTypeValidator.builder()
+                    .allowIfBaseType(Any::class.java)
+                    .build(),
+                ObjectMapper.DefaultTyping.EVERYTHING,
+            )
+        }
+        val jsonSerializer = GenericJackson2JsonRedisSerializer(cacheObjectMapper)
         val defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
             .entryTtl(DEFAULT_TTL)
             .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
