@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
@@ -38,7 +39,7 @@ class OrderV1Controller(
     override fun createOrder(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") loginPw: String,
-        @RequestBody request: OrderV1Dto.CreateOrderRequest,
+        @Valid @RequestBody request: OrderV1Dto.CreateOrderRequest,
     ): ApiResponse<Any> {
         val criteria = CreateOrderCriteria(
             loginId = loginId,

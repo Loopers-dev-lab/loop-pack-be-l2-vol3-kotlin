@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -41,6 +42,12 @@ class ApiControllerAdvice {
         val type = e.requiredType?.simpleName ?: "unknown"
         val value = e.value ?: "null"
         val message = "요청 파라미터 '$name' (타입: $type)의 값 '$value'이(가) 잘못되었습니다."
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    @ExceptionHandler
+    fun handleValidation(e: MethodArgumentNotValidException): ResponseEntity<ApiResponse<*>> {
+        val message = e.bindingResult.fieldErrors.joinToString(", ") { "'${it.field}': ${it.defaultMessage}" }
         return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
     }
 

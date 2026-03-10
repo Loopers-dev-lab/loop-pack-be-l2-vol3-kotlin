@@ -40,9 +40,22 @@ data class GetOrdersCriteria(
     val page: Int,
     val size: Int,
 ) {
+    companion object {
+        private const val MAX_PAGE_SIZE = 100
+    }
+
     init {
         if (startAt.isAfter(endAt)) {
             throw CoreException(ErrorType.BAD_REQUEST, "시작일은 종료일 이전이어야 합니다.")
+        }
+        if (page < 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "페이지 번호는 0 이상이어야 합니다.")
+        }
+        if (size <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "페이지 크기는 0보다 커야 합니다.")
+        }
+        if (size > MAX_PAGE_SIZE) {
+            throw CoreException(ErrorType.BAD_REQUEST, "페이지 크기는 ${MAX_PAGE_SIZE}을 초과할 수 없습니다.")
         }
     }
 }
@@ -50,9 +63,21 @@ data class GetOrdersCriteria(
 data class GetOrderCriteria(
     val loginId: String,
     val orderId: Long,
-)
+) {
+    init {
+        if (orderId <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 ID는 0보다 커야 합니다.")
+        }
+    }
+}
 
 data class CancelOrderCriteria(
     val loginId: String,
     val orderId: Long,
-)
+) {
+    init {
+        if (orderId <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 ID는 0보다 커야 합니다.")
+        }
+    }
+}
