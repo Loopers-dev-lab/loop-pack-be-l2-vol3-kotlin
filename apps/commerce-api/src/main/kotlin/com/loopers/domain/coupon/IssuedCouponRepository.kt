@@ -9,4 +9,5 @@ interface IssuedCouponRepository {
     fun findAllByCouponId(couponId: Long, pageable: Pageable): Slice<IssuedCouponModel>
     fun findAllByUserId(userId: Long, pageable: Pageable): Slice<IssuedCouponModel>
     fun save(issuedCoupon: IssuedCouponModel): IssuedCouponModel
+    fun useForOrder(id: Long): Boolean
 }

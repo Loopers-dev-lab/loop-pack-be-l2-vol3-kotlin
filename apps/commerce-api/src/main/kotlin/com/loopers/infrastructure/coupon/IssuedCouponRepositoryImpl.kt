@@ -5,6 +5,7 @@ import com.loopers.domain.coupon.IssuedCouponRepository
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
 import org.springframework.stereotype.Component
+import java.time.ZonedDateTime
 
 @Component
 class IssuedCouponRepositoryImpl(
@@ -28,5 +29,9 @@ class IssuedCouponRepositoryImpl(
 
     override fun save(issuedCoupon: IssuedCouponModel): IssuedCouponModel {
         return issuedCouponJpaRepository.save(issuedCoupon)
+    }
+
+    override fun useForOrder(id: Long): Boolean {
+        return issuedCouponJpaRepository.updateStatusToUsed(id, ZonedDateTime.now()) > 0
     }
 }

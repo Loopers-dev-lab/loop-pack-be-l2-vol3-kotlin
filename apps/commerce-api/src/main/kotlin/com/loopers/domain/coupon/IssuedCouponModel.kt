@@ -8,7 +8,6 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
-import jakarta.persistence.Version
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.ZonedDateTime
@@ -53,10 +52,6 @@ class IssuedCouponModel(
     var usedAt: ZonedDateTime? = null
         protected set
 
-    @Version
-    var version: Long = 0
-        protected set
-
     init {
         if (couponId <= 0) {
             throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 ID는 0보다 커야 합니다.")
@@ -74,7 +69,7 @@ class IssuedCouponModel(
         }
     }
 
-    private fun validate(userId: Long, now: ZonedDateTime = ZonedDateTime.now()) {
+    fun validateForUse(userId: Long, now: ZonedDateTime = ZonedDateTime.now()) {
         if (this.userId != userId) {
             throw CoreException(ErrorType.UNAUTHORIZED, "본인의 쿠폰만 사용할 수 있습니다.")
         }
@@ -87,7 +82,7 @@ class IssuedCouponModel(
     }
 
     fun use(userId: Long, now: ZonedDateTime = ZonedDateTime.now()) {
-        validate(userId, now)
+        validateForUse(userId, now)
         status = CouponStatus.USED
         usedAt = now
     }
