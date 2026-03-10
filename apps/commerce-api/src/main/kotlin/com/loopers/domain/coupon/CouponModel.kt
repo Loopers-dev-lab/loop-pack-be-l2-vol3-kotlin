@@ -50,6 +50,7 @@ class CouponModel(
         validateDiscountValue(discountType, discountValue)
         validateTotalQuantity(totalQuantity)
         validateIssuedQuantity(issuedQuantity, totalQuantity)
+        validateExpiredAt(expiredAt)
     }
 
     fun issue() {
@@ -77,6 +78,7 @@ class CouponModel(
         validateDiscountValue(newDiscountType, newDiscountValue)
         validateTotalQuantity(newTotalQuantity)
         validateIssuedQuantity(issuedQuantity, newTotalQuantity)
+        validateExpiredAt(newExpiredAt)
         this.name = newName
         this.discountType = newDiscountType
         this.discountValue = newDiscountValue
@@ -108,6 +110,12 @@ class CouponModel(
     private fun validateIssuedQuantity(issuedQuantity: Int, totalQuantity: Int) {
         if (issuedQuantity > totalQuantity) {
             throw CoreException(ErrorType.BAD_REQUEST, "발급 수량이 총 수량을 초과할 수 없습니다.")
+        }
+    }
+
+    private fun validateExpiredAt(expiredAt: ZonedDateTime) {
+        if (expiredAt.isBefore(ZonedDateTime.now())) {
+            throw CoreException(ErrorType.BAD_REQUEST, "만료일은 현재 시간 이후여야 합니다.")
         }
     }
 }

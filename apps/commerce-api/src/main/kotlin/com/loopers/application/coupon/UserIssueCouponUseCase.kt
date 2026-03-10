@@ -5,12 +5,14 @@ import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.coupon.IssueCouponCommand
 import com.loopers.domain.user.UserService
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class UserIssueCouponUseCase(
     private val couponService: CouponService,
     private val userService: UserService,
 ) : UseCase<IssueCouponCriteria, UserIssuedCouponResult> {
+    @Transactional
     override fun execute(criteria: IssueCouponCriteria): UserIssuedCouponResult {
         val user = userService.getUser(criteria.loginId)
         val command = IssueCouponCommand(
