@@ -254,3 +254,260 @@ SELECT
     COUNT(*) AS cnt
 FROM products
 GROUP BY status;
+
+-- =============================================================
+-- 4. Orders + Order Items 데이터
+--    orders: 100,000개
+--    order_items: 주문당 1~3개 → 약 170,000개
+--    - user_id: 1~10,000 (멱급수 분포, 소수 유저에 주문 집중)
+--    - status: DELIVERED 40%, CONFIRMED 25%, SHIPPING 15%,
+--              ORDERED 10%, CANCELLED 10%
+--    - 쿠폰 적용: 20% 확률, 할인율 5~30%
+--    - product_price: 1,000~500,000 (로그 분포)
+--    - quantity: 1~5
+-- =============================================================
+DROP PROCEDURE IF EXISTS seed_orders;
+
+DELIMITER $$
+CREATE PROCEDURE seed_orders()
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    DECLARE batch_size INT DEFAULT 500;
+    DECLARE total INT DEFAULT 100000;
+
+    -- 주문 필드
+    DECLARE v_user_id BIGINT;
+    DECLARE v_status VARCHAR(20);
+    DECLARE v_total_amount BIGINT;
+    DECLARE v_discount_amount BIGINT;
+    DECLARE v_payment_amount BIGINT;
+    DECLARE v_coupon_id BIGINT;
+    DECLARE v_created_at DATETIME(6);
+    DECLARE v_order_id BIGINT;
+    DECLARE v_items_count INT;
+    DECLARE v_rand DOUBLE;
+
+    -- 주문 항목 필드
+    DECLARE j INT;
+    DECLARE v_product_id BIGINT;
+    DECLARE v_quantity INT;
+    DECLARE v_product_price BIGINT;
+    DECLARE v_item_amount BIGINT;
+
+    -- 상품 ID 범위 조회
+    DECLARE v_min_product_id BIGINT;
+    DECLARE v_max_product_id BIGINT;
+    DECLARE v_product_count INT;
+
+    SELECT MIN(id), MAX(id), COUNT(*)
+      INTO v_min_product_id, v_max_product_id, v_product_count
+      FROM products
+     WHERE deleted_at IS NULL;
+
+    -- 상품명/브랜드명 생성용 카테고리·형용사 배열
+    SET @o_cats = '패션,전자기기,식품,가구,뷰티,스포츠,도서,완구,주방,건강,자동차,음악,반려동물,문구,아웃도어,홈데코,유아,디지털,공구,원예';
+    SET @o_adjs = '프리미엄,베이직,럭셔리,에코,슬림,클래식,모던,빈티지,스마트,미니,울트라,맥스,프로,라이트,내추럴,오가닉,하이엔드,심플,스페셜,리미티드';
+
+    WHILE i <= total DO
+        -- 배치 단위 트랜잭션
+        IF (i - 1) % batch_size = 0 THEN
+            START TRANSACTION;
+        END IF;
+
+        -- user_id: 1~10,000 멱급수 분포 (소수 유저에 주문 집중)
+        SET v_user_id = GREATEST(1, FLOOR(POW(RAND(), 2) * 10000) + 1);
+
+        -- 주문 항목 수: 1~3 (50% 1개, 30% 2개, 20% 3개)
+        SET v_rand = RAND();
+        SET v_items_count = CASE
+            WHEN v_rand < 0.5 THEN 1
+            WHEN v_rand < 0.8 THEN 2
+            ELSE 3
+        END;
+
+        -- 주문 상태 분포
+        SET v_rand = RAND();
+        SET v_status = CASE
+            WHEN v_rand < 0.40 THEN 'DELIVERED'
+            WHEN v_rand < 0.65 THEN 'CONFIRMED'
+            WHEN v_rand < 0.80 THEN 'SHIPPING'
+            WHEN v_rand < 0.90 THEN 'ORDERED'
+            ELSE 'CANCELLED'
+        END;
+
+        -- 쿠폰: 20% 확률로 적용
+        SET v_coupon_id = CASE
+            WHEN RAND() < 0.2 THEN FLOOR(RAND() * 100) + 1
+            ELSE NULL
+        END;
+
+        -- 생성일: 최근 2년 내 다양한 시점
+        SET v_created_at = DATE_SUB(NOW(), INTERVAL FLOOR(RAND() * 730) DAY)
+                         + INTERVAL FLOOR(RAND() * 86400) SECOND;
+
+        SET v_total_amount = 0;
+
+        -- 주문 INSERT (금액은 임시 0, 아이템 삽입 후 UPDATE)
+        INSERT INTO orders (version, user_id, idempotency_key, total_amount, coupon_id,
+                            discount_amount, payment_amount, status, created_at, updated_at, deleted_at)
+        VALUES (
+            0,
+            v_user_id,
+            CONCAT('idp-', LPAD(i, 6, '0'), '-', SUBSTRING(UUID(), 1, 8)),
+            0,
+            v_coupon_id,
+            0,
+            0,
+            v_status,
+            v_created_at,
+            v_created_at,
+            CASE WHEN v_status = 'CANCELLED' AND RAND() < 0.3
+                 THEN DATE_ADD(v_created_at, INTERVAL FLOOR(RAND() * 30) DAY)
+                 ELSE NULL
+            END
+        );
+
+        SET v_order_id = LAST_INSERT_ID();
+
+        -- 주문 항목 INSERT (1~3개)
+        SET j = 1;
+        WHILE j <= v_items_count DO
+            -- 상품 ID: 상품 범위 내 랜덤
+            SET v_product_id = v_min_product_id + FLOOR(RAND() * v_product_count);
+            SET v_product_id = LEAST(v_product_id, v_max_product_id);
+
+            -- 수량: 1~5
+            SET v_quantity = FLOOR(RAND() * 5) + 1;
+
+            -- 단가: 1,000 ~ 500,000 (로그 분포)
+            SET v_product_price = GREATEST(1000, FLOOR(EXP(RAND() * LN(500000))));
+
+            SET v_item_amount = v_product_price * v_quantity;
+            SET v_total_amount = v_total_amount + v_item_amount;
+
+            INSERT INTO order_items (order_id, product_id, quantity, product_name, product_price,
+                                     brand_name, created_at, updated_at, deleted_at)
+            VALUES (
+                v_order_id,
+                v_product_id,
+                v_quantity,
+                CONCAT(
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(@o_cats, ',', 1 + (v_product_id % 20)), ',', -1),
+                    ' ',
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(@o_adjs, ',', 1 + ((v_product_id + j) % 20)), ',', -1),
+                    ' 상품 #', v_product_id
+                ),
+                v_product_price,
+                CONCAT(
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(@o_cats, ',', 1 + (FLOOR(v_product_id / 20) % 20)), ',', -1),
+                    ' 브랜드 ',
+                    LPAD(1 + (v_product_id % 100), 3, '0')
+                ),
+                v_created_at,
+                v_created_at,
+                NULL
+            );
+
+            SET j = j + 1;
+        END WHILE;
+
+        -- 할인 금액 계산: 쿠폰 적용 시 총액의 5~30% 할인
+        SET v_discount_amount = CASE
+            WHEN v_coupon_id IS NOT NULL
+                 THEN LEAST(v_total_amount, FLOOR(v_total_amount * (5 + RAND() * 25) / 100))
+            ELSE 0
+        END;
+        SET v_payment_amount = v_total_amount - v_discount_amount;
+
+        -- 주문 금액 UPDATE
+        UPDATE orders
+           SET total_amount = v_total_amount,
+               discount_amount = v_discount_amount,
+               payment_amount = v_payment_amount
+         WHERE id = v_order_id;
+
+        -- 배치 커밋
+        IF i % batch_size = 0 THEN
+            COMMIT;
+        END IF;
+
+        SET i = i + 1;
+    END WHILE;
+
+    -- 마지막 배치 커밋
+    IF (total % batch_size) != 0 THEN
+        COMMIT;
+    END IF;
+END$$
+DELIMITER ;
+
+CALL seed_orders();
+DROP PROCEDURE IF EXISTS seed_orders;
+
+-- ---------------------------------------------------------
+-- 5. Orders / Order Items 데이터 분포 확인 쿼리
+-- ---------------------------------------------------------
+
+-- 전체 건수 확인
+SELECT '== 주문 테이블 건수 ==' AS info;
+SELECT 'orders' AS table_name, COUNT(*) AS cnt FROM orders
+UNION ALL
+SELECT 'order_items', COUNT(*) FROM order_items;
+
+-- 주문 상태별 분포
+SELECT '== 주문 상태별 분포 ==' AS info;
+SELECT
+    status,
+    COUNT(*) AS cnt,
+    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 1) AS pct
+FROM orders
+GROUP BY status
+ORDER BY cnt DESC;
+
+-- 유저별 주문 수 분포 (상위 10명)
+SELECT '== 유저별 주문 수 (상위 10) ==' AS info;
+SELECT user_id, COUNT(*) AS order_count
+FROM orders
+GROUP BY user_id
+ORDER BY order_count DESC
+LIMIT 10;
+
+-- 주문당 항목 수 분포
+SELECT '== 주문당 항목 수 분포 ==' AS info;
+SELECT
+    item_count,
+    COUNT(*) AS order_count,
+    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 1) AS pct
+FROM (
+    SELECT order_id, COUNT(*) AS item_count
+    FROM order_items
+    GROUP BY order_id
+) t
+GROUP BY item_count
+ORDER BY item_count;
+
+-- 결제 금액 분포
+SELECT '== 결제 금액 분포 ==' AS info;
+SELECT
+    CASE
+        WHEN payment_amount < 10000 THEN '1만 미만'
+        WHEN payment_amount < 50000 THEN '1만~5만'
+        WHEN payment_amount < 100000 THEN '5만~10만'
+        WHEN payment_amount < 500000 THEN '10만~50만'
+        WHEN payment_amount < 1000000 THEN '50만~100만'
+        ELSE '100만 이상'
+    END AS payment_range,
+    COUNT(*) AS cnt,
+    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 1) AS pct
+FROM orders
+GROUP BY payment_range
+ORDER BY MIN(payment_amount);
+
+-- 쿠폰 적용 비율
+SELECT '== 쿠폰 적용 비율 ==' AS info;
+SELECT
+    CASE WHEN coupon_id IS NULL THEN '미적용' ELSE '적용' END AS coupon_status,
+    COUNT(*) AS cnt,
+    ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders), 1) AS pct
+FROM orders
+GROUP BY coupon_status;
