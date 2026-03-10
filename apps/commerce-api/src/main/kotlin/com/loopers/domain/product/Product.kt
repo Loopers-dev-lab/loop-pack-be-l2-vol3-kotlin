@@ -14,7 +14,11 @@ import jakarta.persistence.Table
 @Entity
 @Table(
     name = "products",
-    indexes = [Index(name = "idx_products_brand_id_likes", columnList = "brand_id, likes")],
+    indexes = [
+        Index(name = "idx_products_brand_id_created_at", columnList = "brand_id, created_at"),
+        Index(name = "idx_products_brand_id_likes", columnList = "brand_id, likes"),
+        Index(name = "idx_products_brand_id_price", columnList = "brand_id, price"),
+    ],
 )
 class Product(
     name: String,
