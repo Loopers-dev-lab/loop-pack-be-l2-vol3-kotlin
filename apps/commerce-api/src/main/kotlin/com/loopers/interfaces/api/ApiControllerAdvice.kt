@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -40,6 +42,12 @@ class ApiControllerAdvice {
         val type = e.requiredType?.simpleName ?: "unknown"
         val value = e.value ?: "null"
         val message = "요청 파라미터 '$name' (타입: $type)의 값 '$value'이(가) 잘못되었습니다."
+        return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
+    }
+
+    @ExceptionHandler
+    fun handleValidation(e: MethodArgumentNotValidException): ResponseEntity<ApiResponse<*>> {
+        val message = e.bindingResult.fieldErrors.joinToString(", ") { "'${it.field}': ${it.defaultMessage}" }
         return failureResponse(errorType = ErrorType.BAD_REQUEST, errorMessage = message)
     }
 
@@ -119,6 +127,15 @@ class ApiControllerAdvice {
     }
 
     @ExceptionHandler
+    fun handleOptimisticLock(e: OptimisticLockingFailureException): ResponseEntity<ApiResponse<*>> {
+        log.warn("OptimisticLockingFailureException : {}", e.message, e)
+        return failureResponse(
+            errorType = ErrorType.CONFLICT,
+            errorMessage = "다른 관리자가 이미 수정했습니다. 새로고침 후 다시 시도해주세요.",
+        )
+    }
+
+    @ExceptionHandler
     fun handleNotFound(e: NoResourceFoundException): ResponseEntity<ApiResponse<*>> {
         return failureResponse(errorType = ErrorType.NOT_FOUND)
     }
@@ -135,4 +152,5 @@ class ApiControllerAdvice {
             ApiResponse.fail(errorCode = errorType.code, errorMessage = errorMessage ?: errorType.message),
             errorType.status,
         )
+
 }

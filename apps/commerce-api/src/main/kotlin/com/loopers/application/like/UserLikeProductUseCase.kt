@@ -19,6 +19,9 @@ class UserLikeProductUseCase(
     override fun execute(criteria: LikeProductCriteria) {
         val user = userService.getUser(criteria.loginId)
         productService.getProduct(criteria.productId)
-        productLikeService.like(LikeProductCommand(userId = user.id, productId = criteria.productId))
+        val created = productLikeService.like(LikeProductCommand(userId = user.id, productId = criteria.productId))
+        if (created) {
+            productService.increaseLikeCount(criteria.productId)
+        }
     }
 }

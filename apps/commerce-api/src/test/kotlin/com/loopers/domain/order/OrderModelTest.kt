@@ -19,8 +19,16 @@ class OrderModelTest {
     private fun createOrderModel(
         userId: Long = DEFAULT_USER_ID,
         status: OrderStatus = OrderStatus.ORDERED,
+        originalPrice: BigDecimal = DEFAULT_TOTAL_PRICE,
+        discountAmount: BigDecimal = BigDecimal.ZERO,
         totalPrice: BigDecimal = DEFAULT_TOTAL_PRICE,
-    ) = OrderModel(userId = userId, status = status, totalPrice = totalPrice)
+    ) = OrderModel(
+        userId = userId,
+        status = status,
+        originalPrice = originalPrice,
+        discountAmount = discountAmount,
+        totalPrice = totalPrice,
+    )
 
     @DisplayName("생성")
     @Nested
@@ -56,6 +64,56 @@ class OrderModelTest {
             val result = assertThrows<CoreException> {
                 createOrderModel(totalPrice = BigDecimal("-1"))
             }
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @DisplayName("취소")
+    @Nested
+    inner class Cancel {
+        @DisplayName("ORDERED 상태이면, CANCELLED로 변경된다.")
+        @Test
+        fun changesStatusToCancelledWhenStatusIsOrdered() {
+            // arrange
+            val order = createOrderModel(status = OrderStatus.ORDERED)
+
+            // act
+            order.cancel()
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
+        }
+
+        @DisplayName("SHIPPING 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenStatusIsShipping() {
+            // arrange
+            val order = createOrderModel(status = OrderStatus.SHIPPING)
+
+            // act & assert
+            val result = assertThrows<CoreException> { order.cancel() }
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("DELIVERED 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenStatusIsDelivered() {
+            // arrange
+            val order = createOrderModel(status = OrderStatus.DELIVERED)
+
+            // act & assert
+            val result = assertThrows<CoreException> { order.cancel() }
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("CANCELLED 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenStatusIsCancelled() {
+            // arrange
+            val order = createOrderModel(status = OrderStatus.CANCELLED)
+
+            // act & assert
+            val result = assertThrows<CoreException> { order.cancel() }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }

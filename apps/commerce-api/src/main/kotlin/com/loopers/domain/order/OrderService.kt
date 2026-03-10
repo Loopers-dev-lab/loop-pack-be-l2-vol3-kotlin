@@ -1,6 +1,8 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.catalog.ProductRepository
+import com.loopers.domain.coupon.CouponDiscountInfo
+import com.loopers.domain.coupon.DiscountType
 import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -9,6 +11,7 @@ import org.springframework.data.domain.Slice
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.ZonedDateTime
 
 @Service
@@ -23,17 +26,34 @@ class OrderService(
         val user = userService.getUser(command.loginId)
 
         val products = command.items.map { item ->
-            val product = productRepository.findById(item.productId)
+            val product = productRepository.findByIdWithLock(item.productId)
                 ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. (id: ${item.productId})")
             product.decreaseStock(item.quantity)
             product to item.quantity
         }
 
-        val totalPrice = products.sumOf { (product, quantity) ->
+        val originalPrice = products.sumOf { (product, quantity) ->
             product.price * BigDecimal(quantity)
         }
 
-        val order = orderRepository.save(OrderModel(userId = user.id, totalPrice = totalPrice))
+        val discountAmount = command.couponDiscount?.let { discount ->
+            when (discount.discountType) {
+                DiscountType.FIXED -> originalPrice.min(BigDecimal(discount.discountValue))
+                DiscountType.PERCENTAGE -> originalPrice.multiply(BigDecimal(discount.discountValue))
+                    .divide(BigDecimal(100), 2, RoundingMode.FLOOR)
+            }
+        } ?: BigDecimal.ZERO
+        val totalPrice = originalPrice.subtract(discountAmount).coerceAtLeast(BigDecimal.ONE)
+
+        val order = orderRepository.save(
+            OrderModel(
+                userId = user.id,
+                originalPrice = originalPrice,
+                discountAmount = discountAmount,
+                totalPrice = totalPrice,
+                issuedCouponId = command.issuedCouponId,
+            ),
+        )
 
         val orderItems = products.map { (product, quantity) ->
             OrderItemModel(
@@ -68,6 +88,27 @@ class OrderService(
         }
     }
 
+    @Transactional
+    fun cancelOrder(command: CancelOrderCommand): OrderInfo {
+        val order = orderRepository.findById(command.orderId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
+        if (order.userId != command.userId) {
+            throw CoreException(ErrorType.UNAUTHORIZED, "본인의 주문만 취소할 수 있습니다.")
+        }
+
+        order.cancel()
+
+        val items = orderItemRepository.findAllByOrderId(order.id)
+        items.forEach { item ->
+            productRepository.findByIdWithLock(item.productId)?.let { product ->
+                product.increaseStock(item.quantity)
+            }
+        }
+
+        val itemInfos = items.map { OrderItemInfo.from(it) }
+        return OrderInfo.from(order, itemInfos)
+    }
+
     @Transactional(readOnly = true)
     fun getOrder(orderId: Long, userId: Long): OrderInfo {
         val order = orderRepository.findById(orderId)
@@ -84,9 +125,16 @@ class OrderService(
 data class CreateOrderCommand(
     val loginId: String,
     val items: List<CreateOrderItemCommand>,
+    val couponDiscount: CouponDiscountInfo? = null,
+    val issuedCouponId: Long? = null,
 )
 
 data class CreateOrderItemCommand(
     val productId: Long,
     val quantity: Int,
+)
+
+data class CancelOrderCommand(
+    val orderId: Long,
+    val userId: Long,
 )

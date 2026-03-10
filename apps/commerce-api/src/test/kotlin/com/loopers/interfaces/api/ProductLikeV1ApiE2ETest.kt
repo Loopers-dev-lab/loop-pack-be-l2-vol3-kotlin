@@ -121,9 +121,9 @@ class ProductLikeV1ApiE2ETest @Autowired constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
         }
 
-        @DisplayName("이미 좋아요한 상품이면, 409 CONFLICT를 반환한다.")
+        @DisplayName("이미 좋아요한 상품이면, 멱등하게 201 CREATED를 반환한다.")
         @Test
-        fun returnsConflictWhenAlreadyLiked() {
+        fun returnsCreatedIdempotentlyWhenAlreadyLiked() {
             // arrange
             registerUser()
             val brand = registerBrand()
@@ -145,7 +145,7 @@ class ProductLikeV1ApiE2ETest @Autowired constructor(
             )
 
             // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
         }
     }
 

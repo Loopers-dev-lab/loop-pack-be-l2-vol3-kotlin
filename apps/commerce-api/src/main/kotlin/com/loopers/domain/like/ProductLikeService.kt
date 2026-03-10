@@ -2,6 +2,7 @@ package com.loopers.domain.like
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
 import org.springframework.stereotype.Service
@@ -11,13 +12,14 @@ import org.springframework.transaction.annotation.Transactional
 class ProductLikeService(
     private val productLikeRepository: ProductLikeRepository,
 ) {
-    @Transactional
-    fun like(command: LikeProductCommand) {
-        productLikeRepository.findByUserIdAndProductId(command.userId, command.productId)?.let {
-            throw CoreException(ErrorType.CONFLICT, "이미 좋아요한 상품입니다.")
+    fun like(command: LikeProductCommand): Boolean {
+        return try {
+            val productLike = ProductLikeModel(userId = command.userId, productId = command.productId)
+            productLikeRepository.save(productLike)
+            true
+        } catch (e: DataIntegrityViolationException) {
+            false // 이미 좋아요 상태 → 멱등
         }
-        val like = ProductLikeModel(userId = command.userId, productId = command.productId)
-        productLikeRepository.save(like)
     }
 
     @Transactional

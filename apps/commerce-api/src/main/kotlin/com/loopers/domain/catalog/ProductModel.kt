@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.math.BigDecimal
 
 @Entity
@@ -30,6 +31,14 @@ class ProductModel(
     var price: BigDecimal = price
         protected set
 
+    @Column(name = "like_count", nullable = false)
+    var likeCount: Int = 0
+        protected set
+
+    @Version
+    var version: Long = 0
+        protected set
+
     init {
         validateName(name)
         validatePrice(price)
@@ -44,6 +53,13 @@ class ProductModel(
             throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.")
         }
         this.quantity -= quantity
+    }
+
+    fun increaseStock(quantity: Int) {
+        if (quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "복구 수량은 0보다 커야 합니다.")
+        }
+        this.quantity += quantity
     }
 
     fun update(

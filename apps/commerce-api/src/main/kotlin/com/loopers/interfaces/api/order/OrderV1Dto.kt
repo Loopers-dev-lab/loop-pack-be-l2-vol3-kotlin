@@ -4,22 +4,31 @@ import com.loopers.application.order.UserGetOrderItemResult
 import com.loopers.application.order.UserGetOrderResult
 import com.loopers.application.order.UserGetOrdersResult
 import com.loopers.domain.order.OrderStatus
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotEmpty
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class OrderV1Dto {
     data class CreateOrderRequest(
-        val items: List<CreateOrderItemRequest>,
+        @field:NotEmpty(message = "주문 상품 목록은 비어있을 수 없습니다.")
+        val items: List<@Valid CreateOrderItemRequest>,
+        val couponId: Long? = null,
     )
 
     data class CreateOrderItemRequest(
+        @field:Min(value = 1, message = "상품 ID는 1 이상이어야 합니다.")
         val productId: Long,
+        @field:Min(value = 1, message = "수량은 1 이상이어야 합니다.")
         val quantity: Int,
     )
 
     data class OrderResponse(
         val id: Long,
         val status: OrderStatus,
+        val originalPrice: BigDecimal,
+        val discountAmount: BigDecimal,
         val totalPrice: BigDecimal,
         val items: List<OrderItemResponse>,
         val createdAt: ZonedDateTime,
@@ -29,6 +38,8 @@ class OrderV1Dto {
                 return OrderResponse(
                     id = result.id,
                     status = result.status,
+                    originalPrice = result.originalPrice,
+                    discountAmount = result.discountAmount,
                     totalPrice = result.totalPrice,
                     items = result.items.map { OrderItemResponse.from(it) },
                     createdAt = result.createdAt,
