@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.orm.ObjectOptimisticLockingFailureException
 import java.math.BigDecimal
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -106,37 +105,41 @@ class OrderConcurrencyTest @Autowired constructor(
             val unexpectedExceptions = ConcurrentLinkedQueue<Throwable>()
 
             // act
-            repeat(threadCount) {
-                executorService.submit {
-                    try {
-                        readyLatch.countDown()
-                        startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            try {
+                repeat(threadCount) {
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-                        userCreateOrderUseCase.execute(
-                            CreateOrderCriteria(
-                                loginId = DEFAULT_USERNAME,
-                                items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1)),
-                            ),
-                        )
-                        successCount.incrementAndGet()
-                    } catch (e: CoreException) {
-                        if (e.errorType == ErrorType.BAD_REQUEST) {
-                            failCount.incrementAndGet()
-                        } else {
+                            userCreateOrderUseCase.execute(
+                                CreateOrderCriteria(
+                                    loginId = DEFAULT_USERNAME,
+                                    items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1)),
+                                ),
+                            )
+                            successCount.incrementAndGet()
+                        } catch (e: CoreException) {
+                            if (e.errorType == ErrorType.BAD_REQUEST) {
+                                failCount.incrementAndGet()
+                            } else {
+                                unexpectedExceptions.add(e)
+                            }
+                        } catch (e: Exception) {
                             unexpectedExceptions.add(e)
+                        } finally {
+                            doneLatch.countDown()
                         }
-                    } catch (e: Exception) {
-                        unexpectedExceptions.add(e)
-                    } finally {
-                        doneLatch.countDown()
                     }
                 }
-            }
 
-            readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            startLatch.countDown()
-            doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            executorService.shutdown()
+                require(readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) { "스레드 준비 타임아웃" }
+                startLatch.countDown()
+                require(doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) { "스레드 완료 타임아웃" }
+            } finally {
+                executorService.shutdownNow()
+                executorService.awaitTermination(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            }
 
             // assert
             assertThat(unexpectedExceptions).isEmpty()
@@ -179,34 +182,38 @@ class OrderConcurrencyTest @Autowired constructor(
             val unexpectedExceptions = ConcurrentLinkedQueue<Throwable>()
 
             // act
-            repeat(threadCount) { i ->
-                executorService.submit {
-                    try {
-                        readyLatch.countDown()
-                        startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            try {
+                repeat(threadCount) { i ->
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-                        userIssueCouponUseCase.execute(
-                            IssueCouponCriteria(loginId = "user$i", couponId = couponInfo.id),
-                        )
-                        successCount.incrementAndGet()
-                    } catch (e: CoreException) {
-                        if (e.errorType in setOf(ErrorType.BAD_REQUEST, ErrorType.CONFLICT)) {
-                            failCount.incrementAndGet()
-                        } else {
+                            userIssueCouponUseCase.execute(
+                                IssueCouponCriteria(loginId = "user$i", couponId = couponInfo.id),
+                            )
+                            successCount.incrementAndGet()
+                        } catch (e: CoreException) {
+                            if (e.errorType == ErrorType.BAD_REQUEST) {
+                                failCount.incrementAndGet()
+                            } else {
+                                unexpectedExceptions.add(e)
+                            }
+                        } catch (e: Exception) {
                             unexpectedExceptions.add(e)
+                        } finally {
+                            doneLatch.countDown()
                         }
-                    } catch (e: Exception) {
-                        unexpectedExceptions.add(e)
-                    } finally {
-                        doneLatch.countDown()
                     }
                 }
-            }
 
-            readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            startLatch.countDown()
-            doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            executorService.shutdown()
+                require(readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) { "스레드 준비 타임아웃" }
+                startLatch.countDown()
+                require(doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) { "스레드 완료 타임아웃" }
+            } finally {
+                executorService.shutdownNow()
+                executorService.awaitTermination(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            }
 
             // assert
             assertThat(unexpectedExceptions).isEmpty()
@@ -261,40 +268,42 @@ class OrderConcurrencyTest @Autowired constructor(
             val unexpectedExceptions = ConcurrentLinkedQueue<Throwable>()
 
             // act
-            repeat(threadCount) {
-                executorService.submit {
-                    try {
-                        readyLatch.countDown()
-                        startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            try {
+                repeat(threadCount) {
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-                        userCreateOrderUseCase.execute(
-                            CreateOrderCriteria(
-                                loginId = DEFAULT_USERNAME,
-                                items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1)),
-                                couponId = issuedCoupon.id,
-                            ),
-                        )
-                        successCount.incrementAndGet()
-                    } catch (e: CoreException) {
-                        if (e.errorType == ErrorType.BAD_REQUEST) {
-                            failCount.incrementAndGet()
-                        } else {
+                            userCreateOrderUseCase.execute(
+                                CreateOrderCriteria(
+                                    loginId = DEFAULT_USERNAME,
+                                    items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1)),
+                                    couponId = issuedCoupon.id,
+                                ),
+                            )
+                            successCount.incrementAndGet()
+                        } catch (e: CoreException) {
+                            if (e.errorType in setOf(ErrorType.BAD_REQUEST, ErrorType.CONFLICT)) {
+                                failCount.incrementAndGet()
+                            } else {
+                                unexpectedExceptions.add(e)
+                            }
+                        } catch (e: Exception) {
                             unexpectedExceptions.add(e)
+                        } finally {
+                            doneLatch.countDown()
                         }
-                    } catch (e: ObjectOptimisticLockingFailureException) {
-                        failCount.incrementAndGet()
-                    } catch (e: Exception) {
-                        unexpectedExceptions.add(e)
-                    } finally {
-                        doneLatch.countDown()
                     }
                 }
-            }
 
-            readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            startLatch.countDown()
-            doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            executorService.shutdown()
+                require(readyLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) { "스레드 준비 타임아웃" }
+                startLatch.countDown()
+                require(doneLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) { "스레드 완료 타임아웃" }
+            } finally {
+                executorService.shutdownNow()
+                executorService.awaitTermination(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            }
 
             // assert
             assertThat(unexpectedExceptions).isEmpty()
