@@ -75,8 +75,8 @@ class ProductService(
     }
 
     @Transactional
-    fun decreaseLikeCount(productId: Long) {
-        productRepository.decreaseLikeCount(productId)
+    fun decreaseLikeCount(productId: Long): Boolean {
+        return productRepository.decreaseLikeCount(productId)
     }
 }
 

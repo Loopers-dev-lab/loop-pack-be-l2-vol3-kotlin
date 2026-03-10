@@ -5,6 +5,7 @@ import com.loopers.domain.catalog.ProductService
 import com.loopers.domain.like.ProductLikeService
 import com.loopers.domain.like.UnlikeProductCommand
 import com.loopers.domain.user.UserService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,11 +15,14 @@ class UserUnlikeProductUseCase(
     private val productService: ProductService,
     private val productLikeService: ProductLikeService,
 ) : UseCase<UnlikeProductCriteria, Unit> {
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     override fun execute(criteria: UnlikeProductCriteria) {
         val user = userService.getUser(criteria.loginId)
         productLikeService.unlike(UnlikeProductCommand(userId = user.id, productId = criteria.productId))
-        productService.decreaseLikeCount(criteria.productId)
+        if (!productService.decreaseLikeCount(criteria.productId)) {
+            log.warn("좋아요 카운트 감소 실패 (이미 0): productId={}", criteria.productId)
+        }
     }
 }
