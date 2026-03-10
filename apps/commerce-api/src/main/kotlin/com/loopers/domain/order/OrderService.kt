@@ -100,9 +100,9 @@ class OrderService(
 
         val items = orderItemRepository.findAllByOrderId(order.id)
         items.forEach { item ->
-            val product = productRepository.findByIdWithLock(item.productId)
-                ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. (id: ${item.productId})")
-            product.increaseStock(item.quantity)
+            productRepository.findByIdWithLock(item.productId)?.let { product ->
+                product.increaseStock(item.quantity)
+            }
         }
 
         val itemInfos = items.map { OrderItemInfo.from(it) }
