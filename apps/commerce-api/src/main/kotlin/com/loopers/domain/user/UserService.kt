@@ -31,7 +31,11 @@ class UserService(
             userRepository.flush()
             return saved
         } catch (e: DataIntegrityViolationException) {
-            throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "이미 존재하는 아이디입니다.")
+            val causeMessage = e.mostSpecificCause.message ?: ""
+            if ("username" in causeMessage) {
+                throw CoreException(errorType = ErrorType.CONFLICT, customMessage = "이미 존재하는 아이디입니다.")
+            }
+            throw e
         }
     }
 
