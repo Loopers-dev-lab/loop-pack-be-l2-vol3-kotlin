@@ -84,9 +84,8 @@ class OrderTest {
                 listOf(
                     OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
                 ),
-                discountAmount = Money(BigDecimal("3000")),
-                refCouponId = CouponId(100L),
             )
+            order.applyDiscount(Money(BigDecimal("3000")), CouponId(100L))
 
             // assert
             assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
@@ -147,9 +146,8 @@ class OrderTest {
                 listOf(
                     OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(1),
                 ),
-                discountAmount = Money(BigDecimal("3000")),
-                refCouponId = CouponId(100L),
             )
+            order.applyDiscount(Money(BigDecimal("3000")), CouponId(100L))
             val item = order.items[0]
 
             // act
@@ -171,9 +169,8 @@ class OrderTest {
                     OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(1),
                     OrderProductData(id = ProductId(2), name = "상품B", price = Money(BigDecimal("20000"))) to Quantity(1),
                 ),
-                discountAmount = Money(BigDecimal("5000")),
-                refCouponId = CouponId(100L),
             )
+            order.applyDiscount(Money(BigDecimal("5000")), CouponId(100L))
             val item = order.items[0] // 상품A: 10000
 
             // act
@@ -225,7 +222,8 @@ class OrderTest {
             val fullDiscount = Money(BigDecimal("20000"))
 
             // act
-            val order = Order.create(UserId(1L), items, fullDiscount, CouponId(1L))
+            val order = Order.create(UserId(1L), items)
+            order.applyDiscount(fullDiscount, CouponId(1L))
 
             // assert
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal.ZERO)
@@ -234,17 +232,18 @@ class OrderTest {
 
         @Test
         @DisplayName("할인 금액이 원가를 초과하면 BAD_REQUEST 예외가 발생한다")
-        fun create_excessiveDiscount_throwsException() {
+        fun applyDiscount_excessiveDiscount_throwsException() {
             // arrange
             val items = listOf(
                 OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
             )
             // items의 원가: 10000 * 2 = 20000
             val excessiveDiscount = Money(BigDecimal("20001"))
+            val order = Order.create(UserId(1L), items)
 
             // act
             val exception = assertThrows<CoreException> {
-                Order.create(UserId(1L), items, excessiveDiscount, CouponId(1L))
+                order.applyDiscount(excessiveDiscount, CouponId(1L))
             }
 
             // assert
@@ -252,26 +251,8 @@ class OrderTest {
         }
 
         @Test
-        @DisplayName("할인 금액이 있으면서 쿠폰 참조가 없으면 BAD_REQUEST 예외가 발생한다")
-        fun create_discountWithoutCoupon_throwsBadRequest() {
-            // arrange
-            val items = listOf(
-                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-            )
-            val discount = Money(BigDecimal("1000"))
-
-            // act
-            val exception = assertThrows<CoreException> {
-                Order.create(UserId(1L), items, discount, null)
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @Test
-        @DisplayName("정상 할인 금액으로 주문을 생성한다")
-        fun create_validDiscount_success() {
+        @DisplayName("정상 할인 금액으로 주문에 쿠폰이 적용된다")
+        fun applyDiscount_validDiscount_success() {
             // arrange
             val items = listOf(
                 OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
@@ -279,7 +260,8 @@ class OrderTest {
             val validDiscount = Money(BigDecimal("1000"))
 
             // act
-            val order = Order.create(UserId(1L), items, validDiscount, CouponId(1L))
+            val order = Order.create(UserId(1L), items)
+            order.applyDiscount(validDiscount, CouponId(1L))
 
             // assert
             assertThat(order.discountAmount).isEqualTo(validDiscount)

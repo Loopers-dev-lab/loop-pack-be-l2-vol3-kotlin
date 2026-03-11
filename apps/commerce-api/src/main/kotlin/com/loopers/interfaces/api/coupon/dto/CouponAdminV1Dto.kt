@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
 import java.math.BigDecimal
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 class CouponAdminV1Dto {
 
@@ -88,7 +89,7 @@ class CouponAdminV1Dto {
                     minOrderAmount = info.minOrderAmount,
                     totalQuantity = info.totalQuantity,
                     issuedCount = info.issuedCount,
-                    expiredAt = info.expiredAt,
+                    expiredAt = info.expiredAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                 )
             }
         }
@@ -109,8 +110,8 @@ class CouponAdminV1Dto {
                     couponId = info.couponId,
                     userId = info.userId,
                     status = info.status,
-                    usedAt = info.usedAt,
-                    createdAt = info.createdAt,
+                    usedAt = info.usedAt?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    createdAt = info.createdAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                 )
             }
         }

@@ -96,6 +96,21 @@ fun findByIdWithLock(id: Long): Optional<ProductEntity>
 // @Lock 어노테이션으로 FOR UPDATE를 적용한다.
 ```
 
+## 조회 필터링 전략
+
+**비페이지네이션 조회 (목록 전체 반환)**: DB에서 전체 조회 후, UseCase에서 비즈니스 상태(isActive 등)를 메모리 필터링한다.
+
+- `isActive()` (status != HIDDEN) 같은 비즈니스 규칙은 Application 계층의 책임이다. DB가 비즈니스 로직을 모르게 한다.
+- 예: `likeRepository.findAllByUserId()` → UseCase에서 `filter { it.isActive() }`
+
+**페이지네이션 조회 (Page 반환)**: DB WHERE 조건으로 필터링하여 조회한다. UseCase에서 추가 필터링을 하지 않는다.
+
+- 이유: 페이지네이션 후 메모리 필터링을 하면 반환 행 수가 size와 불일치해 클라이언트가 마지막 페이지를 정확히 판단할 수 없다.
+- `deletedAt IS NULL` 조건을 DB 레벨에서 적용한다.
+- 예: `productRepository.findAll()` → `findAllByDeletedAtIsNull(pageable)` (필터 없이 반환)
+
+**어드민 조회**: 삭제된 레코드 포함 전체 반환. `deletedAt` 조건 없음.
+
 ## JPA 연관관계 전면 미사용
 
 `@OneToMany`, `@ManyToOne`, `@ManyToMany` 등을 사용하지 않는다.

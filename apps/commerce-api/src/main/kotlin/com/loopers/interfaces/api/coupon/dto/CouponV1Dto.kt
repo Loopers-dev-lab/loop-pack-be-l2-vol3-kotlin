@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.coupon.dto
 import com.loopers.application.coupon.IssuedCouponInfo
 import com.loopers.application.coupon.MyCouponInfo
 import java.math.BigDecimal
+import java.time.format.DateTimeFormatter
 
 class CouponV1Dto {
 
@@ -21,8 +22,8 @@ class CouponV1Dto {
                     couponId = info.couponId,
                     userId = info.userId,
                     status = info.status,
-                    usedAt = info.usedAt,
-                    createdAt = info.createdAt,
+                    usedAt = info.usedAt?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    createdAt = info.createdAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                 )
             }
         }
@@ -48,9 +49,9 @@ class CouponV1Dto {
                     couponValue = info.couponValue,
                     maxDiscount = info.maxDiscount,
                     status = info.status,
-                    usedAt = info.usedAt,
-                    createdAt = info.createdAt,
-                    expiredAt = info.expiredAt,
+                    usedAt = info.usedAt?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    createdAt = info.createdAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    expiredAt = info.expiredAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                 )
             }
         }

@@ -6,10 +6,9 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.IssuedCoupon
 import com.loopers.domain.coupon.repository.IssuedCouponRepository
 import jakarta.persistence.LockModeType
+import com.loopers.infrastructure.support.defaultPageRequest
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
-import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
@@ -46,7 +45,7 @@ class IssuedCouponRepositoryImpl(
         issuedCouponJpaRepository.findAllByRefUserIdOrderByIdDesc(userId.value).map { it.toDomain() }
 
     override fun findAllByRefCouponId(couponId: CouponId, page: Int, size: Int): PageResult<IssuedCoupon> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))
+        val pageable = defaultPageRequest(page, size)
         val result = issuedCouponJpaRepository.findAllByRefCouponId(couponId.value, pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
