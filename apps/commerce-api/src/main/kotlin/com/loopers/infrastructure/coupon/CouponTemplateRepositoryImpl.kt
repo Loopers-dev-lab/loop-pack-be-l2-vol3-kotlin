@@ -26,6 +26,10 @@ class CouponTemplateRepositoryImpl(
             .map { it.toDomain() }
             .orElse(null)
 
+    override fun findAllByIds(ids: List<Long>): List<CouponTemplate> =
+        if (ids.isEmpty()) emptyList()
+        else couponTemplateJpaRepository.findAllByIdIn(ids).map { it.toDomain() }
+
     override fun findAll(): List<CouponTemplate> =
         couponTemplateJpaRepository.findAllActive().map { it.toDomain() }
 
