@@ -1,6 +1,7 @@
 package com.loopers.application.catalog.product
 
 import com.loopers.domain.catalog.brand.Brand
+import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.brand.BrandService
 import com.loopers.domain.catalog.product.Product
 import com.loopers.domain.catalog.product.ProductSearchCondition
@@ -22,9 +23,10 @@ class ProductFacadeUnitTest {
 
     private val mockProductService = mockk<ProductService>()
     private val mockBrandService = mockk<BrandService>()
+    private val mockBrandRepository = mockk<BrandRepository>()
     private val mockProductStockService = mockk<ProductStockService>()
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockProductStockService)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService)
 
     // ─── createProduct ───
 
@@ -106,12 +108,13 @@ class ProductFacadeUnitTest {
     // ─── findProducts ───
 
     @Test
-    fun `findProducts() should return list with brand info`() {
+    fun `findProducts() should batch fetch brands instead of N+1`() {
         // Arrange
-        val products = listOf(createProduct(id = 1L, brandId = 1L), createProduct(id = 2L, brandId = 1L))
-        val brand = createBrand(id = 1L, name = "Nike")
+        val products = listOf(createProduct(id = 1L, brandId = 1L), createProduct(id = 2L, brandId = 2L))
+        val brand1 = createBrand(id = 1L, name = "Nike")
+        val brand2 = createBrand(id = 2L, name = "Adidas")
         every { mockProductService.findAll(any()) } returns products
-        every { mockBrandService.getById(1L) } returns brand
+        every { mockBrandRepository.findAllByIds(listOf(1L, 2L)) } returns listOf(brand1, brand2)
 
         // Act
         val result = productFacade.findProducts(ProductSearchCondition())
@@ -119,6 +122,10 @@ class ProductFacadeUnitTest {
         // Assert
         assertThat(result).hasSize(2)
         assertThat(result[0].brandName).isEqualTo("Nike")
+        assertThat(result[1].brandName).isEqualTo("Adidas")
+        // Verify batch fetch, NOT individual getById calls
+        verify(exactly = 1) { mockBrandRepository.findAllByIds(any()) }
+        verify(exactly = 0) { mockBrandService.getById(any()) }
     }
 
     // ─── updateProduct ───
