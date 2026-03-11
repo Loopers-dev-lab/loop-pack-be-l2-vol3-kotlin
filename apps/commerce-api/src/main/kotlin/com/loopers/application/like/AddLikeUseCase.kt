@@ -31,6 +31,8 @@ class AddLikeUseCase(
         likeRepository.save(Like(refUserId = UserId(userId), refProductId = ProductId(productId)))
         product.increaseLikeCount()
         val saved = productRepository.save(product)
+        // 좋아요는 빈번한 이벤트이므로 매번 목록 캐시를 무효화하면 캐시 효과가 소멸된다.
+        // TTL 5분 내 자동 갱신으로 충분하므로 evictList = false (기본값)를 유지한다.
         eventPublisher.publishEvent(ProductCacheEvent.DetailUpdated(saved))
     }
 }

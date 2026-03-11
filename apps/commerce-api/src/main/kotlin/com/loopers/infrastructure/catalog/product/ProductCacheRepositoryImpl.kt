@@ -19,7 +19,6 @@ import java.time.ZonedDateTime
 
 @Repository
 class ProductCacheRepositoryImpl(
-    private val redisTemplate: RedisTemplate<String, String>,
     @param:Qualifier(REDIS_TEMPLATE_MASTER)
     private val redisTemplateMaster: RedisTemplate<String, String>,
     private val objectMapper: ObjectMapper,
@@ -29,7 +28,7 @@ class ProductCacheRepositoryImpl(
 
     companion object {
         private const val DETAIL_KEY_PREFIX = "product:detail:"
-        private const val LIST_KEY_PREFIX = "product:list:"
+        private const val LIST_KEY_PREFIX = "product:list::"
         private val DETAIL_TTL: Duration = Duration.ofHours(1)
     }
 
@@ -38,7 +37,7 @@ class ProductCacheRepositoryImpl(
     override fun findProductDetail(productId: ProductId): Product? {
         return try {
             val key = detailKey(productId)
-            val json = redisTemplate.opsForValue().get(key) ?: return null
+            val json = redisTemplateMaster.opsForValue().get(key) ?: return null
             val dto = objectMapper.readValue(json, ProductCacheDto::class.java)
             dto.toDomain()
         } catch (e: Exception) {
@@ -80,17 +79,20 @@ class ProductCacheRepositoryImpl(
 
     private fun scanAndDelete(pattern: String) {
         val options = ScanOptions.scanOptions().match(pattern).count(100).build()
-        val keys = redisTemplateMaster.execute<Set<String>> { connection ->
-            val result = mutableSetOf<String>()
+        redisTemplateMaster.execute<Unit> { connection ->
+            val batch = mutableSetOf<String>()
             connection.scan(options).use { cursor ->
                 while (cursor.hasNext()) {
-                    result.add(String(cursor.next()))
+                    batch.add(String(cursor.next()))
+                    if (batch.size >= 1000) {
+                        redisTemplateMaster.delete(batch)
+                        batch.clear()
+                    }
                 }
             }
-            result
-        } ?: emptySet()
-        if (keys.isNotEmpty()) {
-            redisTemplateMaster.delete(keys)
+            if (batch.isNotEmpty()) {
+                redisTemplateMaster.delete(batch)
+            }
         }
     }
 

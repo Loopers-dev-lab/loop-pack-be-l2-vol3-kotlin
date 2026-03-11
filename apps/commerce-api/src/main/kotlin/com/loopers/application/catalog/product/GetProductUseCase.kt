@@ -20,11 +20,18 @@ class GetProductUseCase(
     @Transactional(readOnly = true)
     fun execute(productId: Long): CatalogInfo {
         val id = ProductId(productId)
+        var cached = true
         val product = productCacheRepository.findProductDetail(id)
-            ?: productRepository.findById(id)?.also { productCacheRepository.saveProductDetail(it) }
+            ?: run {
+                cached = false
+                productRepository.findById(id)
+            }
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         if (product.isDeleted() || !product.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+        }
+        if (!cached) {
+            productCacheRepository.saveProductDetail(product)
         }
         val brand = brandRepository.findById(product.refBrandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")

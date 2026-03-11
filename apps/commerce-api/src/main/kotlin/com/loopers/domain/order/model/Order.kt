@@ -45,6 +45,12 @@ class Order private constructor(
     }
 
     fun applyDiscount(discountAmount: Money, refCouponId: CouponId) {
+        if (status != OrderStatus.CREATED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "생성된 주문에만 할인을 적용할 수 있습니다.")
+        }
+        if (this.refCouponId != null) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 할인이 적용된 주문입니다.")
+        }
         if (discountAmount.value > originalPrice.value) {
             throw CoreException(ErrorType.BAD_REQUEST, "할인 금액은 원래 가격을 초과할 수 없습니다.")
         }
@@ -60,6 +66,7 @@ class Order private constructor(
             .filter { it.status == OrderItem.ItemStatus.ACTIVE }
             .fold(Money(BigDecimal.ZERO)) { acc, it -> acc + (it.productPrice * it.quantity.value) }
         val applicableDiscount = if (discountAmount.value <= activeItemsTotal.value) discountAmount else activeItemsTotal
+        discountAmount = applicableDiscount
         totalPrice = activeItemsTotal - applicableDiscount
     }
 

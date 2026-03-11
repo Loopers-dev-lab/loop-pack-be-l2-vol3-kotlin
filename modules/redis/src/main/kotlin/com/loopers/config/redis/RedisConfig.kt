@@ -55,14 +55,15 @@ class RedisConfig(
 
     @Bean
     fun redisCacheManager(
-        redisConnectionFactory: RedisConnectionFactory,
+        @Qualifier(CONNECTION_MASTER) redisConnectionFactory: RedisConnectionFactory,
     ): RedisCacheManager {
         val cacheObjectMapper = ObjectMapper().apply {
             registerModule(KotlinModule.Builder().build())
             configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             activateDefaultTyping(
                 BasicPolymorphicTypeValidator.builder()
-                    .allowIfBaseType(Any::class.java)
+                    .allowIfSubType("com.loopers")
+                    .allowIfSubType("java.")
                     .build(),
                 ObjectMapper.DefaultTyping.EVERYTHING,
             )
