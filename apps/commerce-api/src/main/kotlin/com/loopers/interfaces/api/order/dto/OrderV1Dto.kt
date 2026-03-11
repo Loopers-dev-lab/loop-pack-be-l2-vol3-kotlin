@@ -14,12 +14,15 @@ class OrderV1Dto {
         @field:NotEmpty(message = "주문 항목은 필수입니다.")
         @field:Valid
         val items: List<CreateOrderItemRequest>,
+        @field:Min(value = 1, message = "발급 쿠폰 ID는 1 이상이어야 합니다.")
+        val issuedCouponId: Long? = null,
     ) {
         fun toCommand(): PlaceOrderCommand {
             return PlaceOrderCommand(
                 items = items.map {
                     PlaceOrderCommand.PlaceOrderItemCommand(productId = it.productId, quantity = it.quantity)
                 },
+                issuedCouponId = issuedCouponId,
             )
         }
     }
@@ -33,7 +36,10 @@ class OrderV1Dto {
     data class OrderResponse(
         val id: Long,
         val status: String,
+        val originalPrice: BigDecimal,
+        val discountAmount: BigDecimal,
         val totalPrice: BigDecimal,
+        val couponId: Long?,
         val items: List<OrderItemResponse>,
     ) {
         companion object {
@@ -41,7 +47,10 @@ class OrderV1Dto {
                 return OrderResponse(
                     id = info.id,
                     status = info.status,
+                    originalPrice = info.originalPrice,
+                    discountAmount = info.discountAmount,
                     totalPrice = info.totalPrice,
+                    couponId = info.couponId,
                     items = info.items.map { OrderItemResponse.from(it) },
                 )
             }

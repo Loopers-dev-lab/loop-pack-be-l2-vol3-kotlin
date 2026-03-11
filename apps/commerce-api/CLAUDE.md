@@ -34,3 +34,13 @@ ErrorType: `INTERNAL_ERROR(500)`, `BAD_REQUEST(400)`, `NOT_FOUND(404)`, `CONFLIC
 ## 설계 결정 기록
 
 주요 설계 결정 및 근거는 `docs/note/round3-decisions.md`에 기록한다.
+
+## Self-Audit 체크리스트
+
+코드 변경 후 아래를 점검한다:
+- [ ] 새로 추가한 PathVariable에 ApiSpec에서 `@Positive`가 있는가?
+- [ ] 새로 추가한 페이지네이션 파라미터에 `@PositiveOrZero`, `@Positive @Max(100)`이 있는가?
+- [ ] Controller에 `@Validated`가 클래스 레벨에 있는가?
+- [ ] Request DTO의 모든 필드에 적절한 제약 어노테이션이 있는가?
+- [ ] 도메인 모델 생성 시 불변식이 검증되는가?
+- [ ] ApiSpec 반환 타입에 Application 타입이 직접 노출되지 않는가?

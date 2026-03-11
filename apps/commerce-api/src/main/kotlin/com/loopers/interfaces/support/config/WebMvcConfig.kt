@@ -20,6 +20,7 @@ class WebMvcConfig(
                 "/api/v1/users/**",
                 "/api/v1/products/*/likes",
                 "/api/v1/orders/**",
+                "/api/v1/coupons/**",
             )
             .excludePathPatterns("/api/v1/users/sign-up")
 

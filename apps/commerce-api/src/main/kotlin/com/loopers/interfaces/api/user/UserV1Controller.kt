@@ -7,7 +7,7 @@ import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.api.user.spec.UserV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
-import jakarta.validation.Valid
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
@@ -25,7 +26,7 @@ class UserV1Controller(
 
     @PostMapping("/sign-up")
     override fun signUp(
-        @RequestBody @Valid request: UserV1Dto.SignUpRequest,
+        @RequestBody request: UserV1Dto.SignUpRequest,
     ): ApiResponse<UserV1Dto.UserResponse> {
         return registerUserUseCase.execute(
             loginId = request.loginId,
@@ -50,7 +51,7 @@ class UserV1Controller(
     @PatchMapping("/user/password")
     override fun changePassword(
         @AuthUser userId: Long,
-        @RequestBody @Valid request: UserV1Dto.ChangePasswordRequest,
+        @RequestBody request: UserV1Dto.ChangePasswordRequest,
     ): ApiResponse<Any> {
         changePasswordUseCase.execute(userId, request.currentPassword, request.newPassword)
         return ApiResponse.success()

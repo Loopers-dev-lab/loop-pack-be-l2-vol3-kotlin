@@ -5,11 +5,13 @@ import com.loopers.application.catalog.product.ProductInfo
 import jakarta.validation.constraints.DecimalMin
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Positive
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 class ProductAdminV1Dto {
     data class CreateProductRequest(
+        @field:Positive(message = "브랜드 ID는 양수여야 합니다.")
         val brandId: Long,
         @field:NotBlank(message = "상품명은 필수입니다.")
         val name: String,

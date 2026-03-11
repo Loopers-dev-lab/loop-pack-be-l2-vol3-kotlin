@@ -1,7 +1,5 @@
 package com.loopers.application.user
 
-import com.loopers.domain.common.vo.UserId
-import com.loopers.domain.point.FakeUserPointRepository
 import com.loopers.domain.user.FakeUserRepository
 import com.loopers.domain.user.UserTestFixture
 import com.loopers.support.error.CoreException
@@ -17,14 +15,12 @@ import java.time.LocalDate
 class RegisterUserUseCaseTest {
 
     private lateinit var userRepository: FakeUserRepository
-    private lateinit var userPointRepository: FakeUserPointRepository
     private lateinit var registerUserUseCase: RegisterUserUseCase
 
     @BeforeEach
     fun setUp() {
         userRepository = FakeUserRepository()
-        userPointRepository = FakeUserPointRepository()
-        registerUserUseCase = RegisterUserUseCase(userRepository, userPointRepository)
+        registerUserUseCase = RegisterUserUseCase(userRepository)
     }
 
     @Nested
@@ -32,8 +28,8 @@ class RegisterUserUseCaseTest {
     inner class Execute {
 
         @Test
-        @DisplayName("유효한 정보로 가입하면 User 생성과 함께 초기 잔액 0의 UserPoint가 생성된다")
-        fun execute_createsUserAndUserPoint() {
+        @DisplayName("유효한 정보로 가입하면 User가 생성된다")
+        fun execute_createsUser() {
             // act
             val result = registerUserUseCase.execute(
                 loginId = UserTestFixture.DEFAULT_LOGIN_ID,
@@ -45,10 +41,9 @@ class RegisterUserUseCaseTest {
 
             // assert
             assertThat(result.loginId).isEqualTo(UserTestFixture.DEFAULT_LOGIN_ID)
-
-            val userPoint = userPointRepository.findByUserId(UserId(result.id))
-            assertThat(userPoint).isNotNull
-            assertThat(userPoint!!.balance.value).isEqualTo(0)
+            assertThat(result.name).isEqualTo(UserTestFixture.DEFAULT_NAME)
+            assertThat(result.email).isEqualTo(UserTestFixture.DEFAULT_EMAIL)
+            assertThat(result.birthDate).isEqualTo(UserTestFixture.DEFAULT_BIRTH_DATE)
         }
 
         @Test

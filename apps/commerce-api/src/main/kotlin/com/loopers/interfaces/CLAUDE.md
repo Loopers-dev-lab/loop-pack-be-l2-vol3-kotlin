@@ -26,3 +26,27 @@ API 진입점. Controller → Dto 변환 → UseCase 호출.
 ## 페이지네이션
 
 `PageResult<T>.toSpringPage()` 확장함수로 도메인 타입 → Spring `Page<T>` 변환을 Controller에서 수행.
+
+## 검증 전략
+
+### ApiSpec 인터페이스
+- **모든 Bean Validation 어노테이션은 ApiSpec 인터페이스에 선언한다**
+- Controller 구현체에는 검증 어노테이션을 중복 선언하지 않는다 (Spring의 MethodValidationInterceptor가 인터페이스 어노테이션을 상속)
+- PathVariable ID 파라미터: `@Positive` 필수
+- 페이지네이션 파라미터: `page`에 `@PositiveOrZero`, `size`에 `@Positive @Max(100)`
+- RequestBody: `@Valid` 선언
+- 페이지 크기 기본값: Controller에서 `@RequestParam(defaultValue = "20")`
+
+### Controller 구현체
+- 클래스 레벨에 `@Validated` 필수 (없으면 Bean Validation이 동작하지 않음)
+- 메서드 파라미터에 검증 어노테이션을 직접 붙이지 않는다 (ApiSpec에서 상속)
+- `@RequestBody`, `@PathVariable`, `@RequestParam` 등 바인딩 어노테이션만 선언
+
+### Request DTO
+- `@field:NotBlank`, `@field:NotNull` 등으로 필수 필드 검증
+- 숫자 필드: `@field:Positive`, `@field:Min`, `@field:Max` 등 범위 검증
+- 모든 입력 필드에 적절한 제약 어노테이션 부착
+
+### API 응답 타입 규칙
+- ApiSpec의 반환 타입에 Application 계층 타입(xxxInfo)을 직접 노출하지 않는다
+- 반드시 Interfaces 계층의 Response DTO를 정의하고 변환한다
