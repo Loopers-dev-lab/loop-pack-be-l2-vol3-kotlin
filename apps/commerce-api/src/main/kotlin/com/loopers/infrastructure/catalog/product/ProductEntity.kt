@@ -14,10 +14,15 @@ import jakarta.persistence.Table
 @Table(
     name = "products",
     indexes = [
+        // Single-column indexes — for no-brand-filter queries (ORDER BY + LIMIT) & cascade delete
         Index(name = "idx_products_brand_id", columnList = "brand_id"),
         Index(name = "idx_products_created_at", columnList = "created_at"),
         Index(name = "idx_products_price", columnList = "price"),
         Index(name = "idx_products_like_count", columnList = "like_count"),
+        // Multi-column composite indexes — for brand-filter queries (equality → sort)
+        Index(name = "idx_products_status_brand_created", columnList = "status, brand_id, created_at DESC"),
+        Index(name = "idx_products_status_brand_price", columnList = "status, brand_id, price ASC"),
+        Index(name = "idx_products_status_brand_likecount", columnList = "status, brand_id, like_count DESC"),
     ]
 )
 class ProductEntity(

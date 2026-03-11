@@ -4,10 +4,16 @@ import com.loopers.domain.BaseEntity
 import com.loopers.domain.order.Order
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 
 @Entity
-@Table(name = "orders")
+@Table(
+    name = "orders",
+    indexes = [
+        Index(name = "idx_orders_user_created", columnList = "user_id, created_at DESC"),
+    ]
+)
 class OrderEntity(
     userId: Long,
     originalTotalPrice: Int,
