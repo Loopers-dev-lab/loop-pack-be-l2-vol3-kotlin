@@ -17,32 +17,33 @@
 
 3개의 정렬 패턴에 맞는 복합 인덱스를 추가:
 
-| 인덱스                              | 컬럼                                      | 대상 쿼리     |
-|----------------------------------|-----------------------------------------|-----------|
-| `idx_products_active_like_count` | `(deleted_at, status, like_count DESC, id DESC)` | 좋아요순 정렬   |
-| `idx_products_active_created_at` | `(deleted_at, status, created_at DESC, id DESC)` | 최신순 정렬    |
-| `idx_products_active_price`      | `(deleted_at, status, price ASC, id DESC)`       | 가격 낮은순 정렬 |
+| 인덱스                              | 컬럼                                               | 대상 쿼리     |
+|----------------------------------|--------------------------------------------------|-----------|
+| `idx_products_active_like_count` | `(deleted_at, like_count DESC, id DESC)` | 좋아요순 정렬   |
+| `idx_products_active_created_at` | `(deleted_at, created_at DESC, id DESC)` | 최신순 정렬    |
+| `idx_products_active_price`      | `(deleted_at, price ASC, id DESC)`       | 가격 낮은순 정렬 |
 
 ### 실측 EXPLAIN 비교 (10만건 시딩, TestContainers MySQL 8.0)
 
 | 쿼리              | AS-IS type | AS-IS Extra                 | TO-BE type | TO-BE Extra                                        |
 |-----------------|------------|-----------------------------|------------|----------------------------------------------------|
-| 브랜드 필터 + 좋아요 정렬 | ALL        | Using where; Using filesort | ref        | Using index condition; Using where; Using filesort |
-| 브랜드 필터 + 가격 정렬  | ALL        | Using where; Using filesort | ref        | Using index condition; Using where; Using filesort |
-| 최신순 전체 조회       | ALL        | Using where; Using filesort | ref        | Using index condition                              |
-| 좋아요 내림차순 깊은 페이지 | ALL        | Using where; Using filesort | ref        | Using index condition                              |
+| 브랜드 필터 + 좋아요 정렬 | ALL        | Using where; Using filesort | ref        | Using index condition; Using where |
+| 브랜드 필터 + 가격 정렬  | ALL        | Using where; Using filesort | ref        | Using index condition; Using where |
+| 최신순 전체 조회       | ALL        | Using where; Using filesort | ref        | Using index condition; Using where |
+| 좋아요 내림차순 깊은 페이지 | ALL        | Using where; Using filesort | ref        | Using index condition; Using where |
 
 - 모든 쿼리에서 **ALL(풀 테이블 스캔) → ref(인덱스 참조)** 전환 확인
+- **4개 쿼리 전부 `Using filesort` 완전 제거**
 - `Using index condition`은 ICP(Index Condition Pushdown) 적용을 의미
-- 브랜드 필터 없는 전체 조회에서 **filesort 완전 제거** — 인덱스 후미에 `id DESC`를 명시하여 안정 정렬(`ORDER BY ... id DESC`)과 인덱스 정렬 방향을 일치시킴
-- 브랜드 필터 조회 시 filesort 잔존 — 옵티마이저가 `ref_brand_id` 단일 인덱스를 선택하여 모수를 줄인 후 메모리 정렬. 대상이 수천 건으로 한정되므로 합리적 트레이드오프
+- `Using where`는 `status != 'HIDDEN'`과 `ref_brand_id` 조건을 row-level 필터로 처리
 
 ### 인덱스 설계 근거
 
-- **선두 컬럼**: `deleted_at`, `status` — WHERE 절의 등치/비교 조건 (Equality)
-- **후미 컬럼**: 정렬 대상 — ORDER BY 절을 인덱스 순서로 커버 (Sort)
+- **선두 컬럼**: `deleted_at` — WHERE 절의 등치 조건 (`IS NULL`). 인덱스 접근의 시작점
+- **정렬 컬럼**: 정렬 대상 — ORDER BY 절을 인덱스 순서로 커버 (Sort)
 - **말미 컬럼**: `id DESC` — InnoDB 보조 인덱스는 PK를 `ASC`로 암묵 포함하나, 쿼리의 안정 정렬(`ORDER BY ... id DESC`)과 방향이 불일치하면 filesort 발생. `id DESC`를 명시하여 인덱스만으로 정렬 완결
-- 브랜드 필터(`ref_brand_id`)는 선택적 조건이므로 별도 단일 인덱스로 분리
+- **`status` 제외 이유**: `status != 'HIDDEN'`은 range 조건(`!=`)이므로, 인덱스에 포함하면 이후 컬럼의 인덱스 정렬을 차단하여 filesort가 발생. row-level 필터(`Using where`)로 처리해도 HIDDEN 비율이 극소수(~2%)라 성능 영향 없음
+- `ref_brand_id`도 동일 이유로 인덱스에서 제외. 옵티마이저가 복합 인덱스를 선택하여 정렬을 인덱스로 해결한 뒤 brand 조건을 row-level 필터로 처리
 
 ### 검증 방법
 

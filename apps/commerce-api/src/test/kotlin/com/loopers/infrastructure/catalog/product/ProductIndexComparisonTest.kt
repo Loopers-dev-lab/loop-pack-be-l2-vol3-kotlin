@@ -201,19 +201,19 @@ class ProductIndexComparisonTest @Autowired constructor(
             val queries = listOf(
                 QueryCase(
                     label = "브랜드 필터 + 좋아요 정렬",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' AND ref_brand_id = 1 ORDER BY like_count DESC LIMIT 20",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' AND ref_brand_id = 1 ORDER BY like_count DESC, id DESC LIMIT 20",
                 ),
                 QueryCase(
                     label = "브랜드 필터 + 가격 정렬",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' AND ref_brand_id = 1 ORDER BY price ASC LIMIT 20",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' AND ref_brand_id = 1 ORDER BY price ASC, id DESC LIMIT 20",
                 ),
                 QueryCase(
                     label = "최신순 전체 조회",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC LIMIT 20",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC, id DESC LIMIT 20",
                 ),
                 QueryCase(
                     label = "좋아요 내림차순 깊은 페이지",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY like_count DESC LIMIT 20 OFFSET 10000",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY like_count DESC, id DESC LIMIT 20 OFFSET 10000",
                 ),
             )
 
@@ -228,15 +228,15 @@ class ProductIndexComparisonTest @Autowired constructor(
                 query.label to explain(query.sql).first()
             }
 
-            // 3. TO-BE: 인덱스 재생성
+            // 3. TO-BE: 인덱스 재생성 (status 제거 + id DESC 명시)
             executeNativeDdl(
-                "CREATE INDEX idx_products_active_like_count ON products (deleted_at, status, like_count DESC)",
+                "CREATE INDEX idx_products_active_like_count ON products (deleted_at, like_count DESC, id DESC)",
             )
             executeNativeDdl(
-                "CREATE INDEX idx_products_active_created_at ON products (deleted_at, status, created_at DESC)",
+                "CREATE INDEX idx_products_active_created_at ON products (deleted_at, created_at DESC, id DESC)",
             )
             executeNativeDdl(
-                "CREATE INDEX idx_products_active_price ON products (deleted_at, status, price ASC)",
+                "CREATE INDEX idx_products_active_price ON products (deleted_at, price ASC, id DESC)",
             )
 
             // 4. TO-BE EXPLAIN 수집
@@ -292,19 +292,19 @@ class ProductIndexComparisonTest @Autowired constructor(
             val queries = listOf(
                 QueryCase(
                     label = "브랜드 필터 + 좋아요 정렬",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' AND ref_brand_id = 1 ORDER BY like_count DESC LIMIT 20",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' AND ref_brand_id = 1 ORDER BY like_count DESC, id DESC LIMIT 20",
                 ),
                 QueryCase(
                     label = "전체 좋아요 정렬",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY like_count DESC LIMIT 20",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY like_count DESC, id DESC LIMIT 20",
                 ),
                 QueryCase(
                     label = "최신순 전체 조회",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC LIMIT 20",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY created_at DESC, id DESC LIMIT 20",
                 ),
                 QueryCase(
                     label = "가격순 전체 조회",
-                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY price ASC LIMIT 20",
+                    sql = "SELECT * FROM products WHERE deleted_at IS NULL AND status != 'HIDDEN' ORDER BY price ASC, id DESC LIMIT 20",
                 ),
             )
 
@@ -318,15 +318,15 @@ class ProductIndexComparisonTest @Autowired constructor(
                 query.label to measureActualTime(query.sql)
             }
 
-            // 3. TO-BE: 인덱스 재생성
+            // 3. TO-BE: 인덱스 재생성 (status 제거 + id DESC 명시)
             executeNativeDdl(
-                "CREATE INDEX idx_products_active_like_count ON products (deleted_at, status, like_count DESC)",
+                "CREATE INDEX idx_products_active_like_count ON products (deleted_at, like_count DESC, id DESC)",
             )
             executeNativeDdl(
-                "CREATE INDEX idx_products_active_created_at ON products (deleted_at, status, created_at DESC)",
+                "CREATE INDEX idx_products_active_created_at ON products (deleted_at, created_at DESC, id DESC)",
             )
             executeNativeDdl(
-                "CREATE INDEX idx_products_active_price ON products (deleted_at, status, price ASC)",
+                "CREATE INDEX idx_products_active_price ON products (deleted_at, price ASC, id DESC)",
             )
 
             // 4. TO-BE actual time 측정 (워밍업 1회, 측정 10회 평균)
