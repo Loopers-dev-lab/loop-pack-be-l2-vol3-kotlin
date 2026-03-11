@@ -1,8 +1,9 @@
 package com.loopers.application.like
 
 import com.loopers.domain.catalog.brand.Brand
-import com.loopers.domain.catalog.brand.BrandService
+import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.product.Product
+import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeService
@@ -22,9 +23,10 @@ class LikeFacadeUnitTest {
 
     private val mockLikeService = mockk<LikeService>()
     private val mockProductService = mockk<ProductService>()
-    private val mockBrandService = mockk<BrandService>()
+    private val mockProductRepository = mockk<ProductRepository>()
+    private val mockBrandRepository = mockk<BrandRepository>()
 
-    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockBrandService)
+    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockProductRepository, mockBrandRepository)
 
     // ─── addLike ───
 
@@ -99,22 +101,30 @@ class LikeFacadeUnitTest {
     // ─── getLikedProducts ───
 
     @Test
-    fun `getLikedProducts() returns list of LikedProductResult for user`() {
+    fun `getLikedProducts() should batch fetch products and brands instead of N+1`() {
         // Arrange
-        val likes = listOf(createLike(userId = 1L, productId = 10L))
-        val product = createProduct(id = 10L, brandId = 1L)
-        val brand = createBrand(id = 1L, name = "Nike")
+        val likes = listOf(createLike(userId = 1L, productId = 10L), createLike(userId = 1L, productId = 20L))
+        val product1 = createProduct(id = 10L, brandId = 1L)
+        val product2 = createProduct(id = 20L, brandId = 2L)
+        val brand1 = createBrand(id = 1L, name = "Nike")
+        val brand2 = createBrand(id = 2L, name = "Adidas")
         every { mockLikeService.getLikedByUser(1L) } returns likes
-        every { mockProductService.getById(10L) } returns product
-        every { mockBrandService.getById(1L) } returns brand
+        every { mockProductRepository.findAllByIds(listOf(10L, 20L)) } returns listOf(product1, product2)
+        every { mockBrandRepository.findAllByIds(listOf(1L, 2L)) } returns listOf(brand1, brand2)
 
         // Act
         val result = likeFacade.getLikedProducts(userId = 1L)
 
         // Assert
-        assertThat(result).hasSize(1)
+        assertThat(result).hasSize(2)
         assertThat(result[0].productId).isEqualTo(10L)
         assertThat(result[0].brand.name).isEqualTo("Nike")
+        assertThat(result[1].productId).isEqualTo(20L)
+        assertThat(result[1].brand.name).isEqualTo("Adidas")
+        // Verify batch fetch, NOT individual getById calls
+        verify(exactly = 1) { mockProductRepository.findAllByIds(any()) }
+        verify(exactly = 1) { mockBrandRepository.findAllByIds(any()) }
+        verify(exactly = 0) { mockProductService.getById(any()) }
     }
 
     private fun createLike(id: Long = 0L, userId: Long = 1L, productId: Long = 10L): Like =

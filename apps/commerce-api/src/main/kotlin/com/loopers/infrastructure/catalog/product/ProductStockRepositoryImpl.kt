@@ -27,6 +27,10 @@ class ProductStockRepositoryImpl(
     override fun findByProductId(productId: Long): ProductStock? =
         productStockJpaRepository.findByProductId(productId)?.toDomain()
 
+    override fun findAllByProductIds(productIds: List<Long>): List<ProductStock> =
+        if (productIds.isEmpty()) emptyList()
+        else productStockJpaRepository.findAllByProductIdIn(productIds).map { it.toDomain() }
+
     override fun findByProductIdForUpdate(productId: Long): ProductStock? {
         val entity = productStockJpaRepository.findByProductId(productId) ?: return null
         entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE)
