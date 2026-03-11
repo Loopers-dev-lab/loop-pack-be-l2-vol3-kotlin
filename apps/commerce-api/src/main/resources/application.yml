@@ -23,7 +23,12 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
-
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 1000
+        order_inserts: true
 springdoc:
   use-fqn: true
   swagger-ui:

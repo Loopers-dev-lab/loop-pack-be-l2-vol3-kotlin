@@ -24,4 +24,6 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    implementation("net.datafaker:datafaker:2.2.2")
 }
