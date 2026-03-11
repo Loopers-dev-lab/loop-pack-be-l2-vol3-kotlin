@@ -29,6 +29,15 @@ spring:
         jdbc:
           batch_size: 1000
         order_inserts: true
+cache:
+  mode: ${CACHE_MODE:layered}
+  caffeine:
+    max-size: 5000
+    refresh-seconds: 2
+    expire-seconds: 10
+  stampede:
+    strategy: ${STAMPEDE_STRATEGY:none}
+
 springdoc:
   use-fqn: true
   swagger-ui:
