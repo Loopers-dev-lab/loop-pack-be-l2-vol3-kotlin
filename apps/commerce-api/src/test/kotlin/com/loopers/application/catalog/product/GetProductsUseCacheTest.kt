@@ -33,8 +33,6 @@ class GetProductsUseCacheTest @Autowired constructor(
             true
         } catch (e: RedisConnectionFailureException) {
             false
-        } catch (e: Exception) {
-            false
         }
     }
 

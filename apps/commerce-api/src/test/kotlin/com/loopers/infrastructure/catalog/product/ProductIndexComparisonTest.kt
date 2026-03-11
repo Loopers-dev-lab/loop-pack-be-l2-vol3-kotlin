@@ -164,7 +164,7 @@ class ProductIndexComparisonTest @Autowired constructor(
      */
     private fun parseActualTime(explainAnalyzeOutput: String): Double? {
         val pattern = Regex("""actual time=[\d.]+\.\.([\d.]+)""")
-        return pattern.findAll(explainAnalyzeOutput).lastOrNull()?.groupValues?.get(1)?.toDoubleOrNull()
+        return pattern.findAll(explainAnalyzeOutput).firstOrNull()?.groupValues?.get(1)?.toDoubleOrNull()
     }
 
     private fun explainAnalyze(sql: String): String {

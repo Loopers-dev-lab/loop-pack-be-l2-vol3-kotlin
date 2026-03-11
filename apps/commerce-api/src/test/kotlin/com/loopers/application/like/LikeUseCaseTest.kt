@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.catalog.product.ProductCacheEvent
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
@@ -142,6 +143,10 @@ class LikeUseCaseTest {
 
             // assert
             assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.product.id.value).isEqualTo(productId)
         }
     }
 
@@ -206,6 +211,10 @@ class LikeUseCaseTest {
 
             // assert
             assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.product.id.value).isEqualTo(productId)
         }
     }
 

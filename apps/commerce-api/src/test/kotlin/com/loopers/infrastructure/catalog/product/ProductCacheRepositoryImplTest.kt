@@ -6,6 +6,7 @@ import com.loopers.domain.catalog.product.vo.Stock
 import com.loopers.domain.common.vo.BrandId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.config.redis.RedisConfig.Companion.REDIS_TEMPLATE_MASTER
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -13,13 +14,16 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.data.redis.core.RedisTemplate
 import java.math.BigDecimal
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProductCacheRepositoryImplTest @Autowired constructor(
     private val productCacheRepository: ProductCacheRepository,
     private val redisCleanUp: RedisCleanUp,
+    @Qualifier(REDIS_TEMPLATE_MASTER) private val redisTemplateMaster: RedisTemplate<String, String>,
 ) {
     @AfterEach
     fun tearDown() {
@@ -97,17 +101,35 @@ class ProductCacheRepositoryImplTest @Autowired constructor(
     inner class EvictList {
 
         @Test
-        @DisplayName("brandId를 지정하여 evictProductList를 호출하면 예외가 발생하지 않는다")
-        fun evictList_withBrandId_noException() {
-            // act & assert (예외 없음)
+        @DisplayName("brandId를 지정하여 evictProductList를 호출하면 해당 브랜드의 목록 캐시가 삭제된다")
+        fun evictList_withBrandId_deletesMatchingKeys() {
+            // arrange — Spring Cache 형식(product:list::key)으로 키 저장
+            redisTemplateMaster.opsForValue().set("product:list::10:LATEST:0:20", "cached-data")
+            redisTemplateMaster.opsForValue().set("product:list::all:LATEST:0:20", "cached-data")
+            redisTemplateMaster.opsForValue().set("product:list::99:LATEST:0:20", "should-remain")
+
+            // act
             productCacheRepository.evictProductList(BrandId(10L))
+
+            // assert — brandId=10 과 all 키는 삭제, brandId=99 키는 유지
+            assertThat(redisTemplateMaster.hasKey("product:list::10:LATEST:0:20")).isFalse()
+            assertThat(redisTemplateMaster.hasKey("product:list::all:LATEST:0:20")).isFalse()
+            assertThat(redisTemplateMaster.hasKey("product:list::99:LATEST:0:20")).isTrue()
         }
 
         @Test
-        @DisplayName("brandId가 null인 경우 evictProductList를 호출하면 예외가 발생하지 않는다")
-        fun evictList_withNullBrandId_noException() {
-            // act & assert (예외 없음)
+        @DisplayName("brandId가 null이면 모든 목록 캐시가 삭제된다")
+        fun evictList_withNullBrandId_deletesAllListKeys() {
+            // arrange
+            redisTemplateMaster.opsForValue().set("product:list::10:LATEST:0:20", "cached-data")
+            redisTemplateMaster.opsForValue().set("product:list::all:LATEST:0:20", "cached-data")
+
+            // act
             productCacheRepository.evictProductList(null)
+
+            // assert
+            assertThat(redisTemplateMaster.hasKey("product:list::10:LATEST:0:20")).isFalse()
+            assertThat(redisTemplateMaster.hasKey("product:list::all:LATEST:0:20")).isFalse()
         }
     }
 }

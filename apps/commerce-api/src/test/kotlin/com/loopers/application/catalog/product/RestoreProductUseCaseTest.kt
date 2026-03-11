@@ -65,6 +65,30 @@ class RestoreProductUseCaseTest {
         }
 
         @Test
+        @DisplayName("상품 복구 후 캐시 갱신 이벤트가 발행된다")
+        fun restoreProduct_publishesCacheUpdateEvent() {
+            // arrange
+            val product = productRepository.save(
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            product.delete()
+            productRepository.save(product)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RestoreProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(product.id.value)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val updateEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(updateEvent.product.id).isEqualTo(product.id)
+            assertThat(updateEvent.evictList).isTrue()
+        }
+
+        @Test
         @DisplayName("존재하지 않는 상품을 복구하면 NOT_FOUND 예외가 발생한다")
         fun restoreProduct_nonExistent_throwsNotFound() {
             // act
