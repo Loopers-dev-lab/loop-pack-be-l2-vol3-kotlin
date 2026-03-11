@@ -39,6 +39,14 @@ class ProductRepositoryImpl(
         return productJpaRepository.existsByBrandIdAndStatus(brandId, status.name)
     }
 
+    override fun deductStock(productId: Long, quantity: Int): Int {
+        return productJpaRepository.deductStock(productId, quantity)
+    }
+
+    override fun restoreStock(productId: Long, quantity: Int): Int {
+        return productJpaRepository.restoreStock(productId, quantity)
+    }
+
     private fun resolveEntity(product: Product): ProductEntity {
         if (product.id == null) return productMapper.toEntity(product)
 

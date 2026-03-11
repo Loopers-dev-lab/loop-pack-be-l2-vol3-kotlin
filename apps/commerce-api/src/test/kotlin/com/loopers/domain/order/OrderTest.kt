@@ -34,6 +34,7 @@ class OrderTest {
                     memberId = 1L,
                     orderItems = emptyList(),
                     totalPrice = 0L,
+                    finalPrice = 0L,
                     orderedAt = ZonedDateTime.now(),
                 )
             }
@@ -100,10 +101,12 @@ class OrderTest {
             productPrice = 10000L,
             quantity = 2,
         )
+        val totalPrice = orderItem.subtotal
         return Order(
             memberId = memberId,
             orderItems = listOf(orderItem),
-            totalPrice = orderItem.subtotal,
+            totalPrice = totalPrice,
+            finalPrice = totalPrice,
             orderedAt = ZonedDateTime.now(),
         )
     }

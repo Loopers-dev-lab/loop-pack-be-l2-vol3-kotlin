@@ -34,6 +34,15 @@ class OrderEntity(
     @Column(name = "total_price", nullable = false)
     val totalPrice: Long,
 
+    @Column(name = "discount_amount", nullable = false)
+    val discountAmount: Long = 0L,
+
+    @Column(name = "final_price", nullable = false)
+    val finalPrice: Long,
+
+    @Column(name = "coupon_id")
+    val couponId: Long? = null,
+
     @Column(name = "ordered_at", nullable = false)
     val orderedAt: ZonedDateTime,
 

@@ -10,6 +10,9 @@ class OrderInfo {
         val memberId: Long,
         val status: String,
         val totalPrice: Long,
+        val discountAmount: Long,
+        val finalPrice: Long,
+        val couponId: Long?,
         val orderedAt: String,
         val items: List<OrderItemInfo>,
     ) {
@@ -19,6 +22,9 @@ class OrderInfo {
                 memberId = order.memberId,
                 status = order.status.name,
                 totalPrice = order.totalPrice,
+                discountAmount = order.discountAmount,
+                finalPrice = order.finalPrice,
+                couponId = order.couponId,
                 orderedAt = order.orderedAt.toString(),
                 items = order.orderItems.map { OrderItemInfo.from(it) },
             )
@@ -45,6 +51,7 @@ class OrderInfo {
         val id: Long,
         val status: String,
         val totalPrice: Long,
+        val finalPrice: Long,
         val orderedAt: String,
         val itemCount: Int,
     ) {
@@ -53,6 +60,7 @@ class OrderInfo {
                 id = requireNotNull(order.id) { "주문 저장 후 ID가 할당되지 않았습니다." },
                 status = order.status.name,
                 totalPrice = order.totalPrice,
+                finalPrice = order.finalPrice,
                 orderedAt = order.orderedAt.toString(),
                 itemCount = order.orderItems.size,
             )

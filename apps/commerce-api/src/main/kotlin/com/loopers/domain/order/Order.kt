@@ -9,6 +9,9 @@ class Order(
     val memberId: Long,
     val orderItems: List<OrderItem>,
     val totalPrice: Long,
+    val discountAmount: Long = 0L,
+    val finalPrice: Long,
+    val couponId: Long? = null,
     val orderedAt: ZonedDateTime,
     status: OrderStatus = OrderStatus.ORDERED,
 ) {
@@ -18,6 +21,9 @@ class Order(
     init {
         if (orderItems.isEmpty()) {
             throw CoreException(ErrorType.ORDER_ITEM_EMPTY)
+        }
+        require(finalPrice == totalPrice - discountAmount) {
+            "최종 결제액이 올바르지 않습니다. finalPrice=$finalPrice, totalPrice=$totalPrice, discountAmount=$discountAmount"
         }
     }
 
