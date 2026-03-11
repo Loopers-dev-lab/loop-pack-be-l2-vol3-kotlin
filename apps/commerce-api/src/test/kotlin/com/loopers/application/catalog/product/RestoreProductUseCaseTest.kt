@@ -65,6 +65,23 @@ class RestoreProductUseCaseTest {
         }
 
         @Test
+        @DisplayName("이미 활성 상태인 상품 복구 시 이벤트가 발행되지 않는다")
+        fun restoreProduct_activeProduct_doesNotPublishEvent() {
+            // arrange
+            val product = productRepository.save(
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RestoreProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(product.id.value)
+
+            // assert
+            assertThat(publishedEvents).isEmpty()
+        }
+
+        @Test
         @DisplayName("상품 복구 후 캐시 갱신 이벤트가 발행된다")
         fun restoreProduct_publishesCacheUpdateEvent() {
             // arrange

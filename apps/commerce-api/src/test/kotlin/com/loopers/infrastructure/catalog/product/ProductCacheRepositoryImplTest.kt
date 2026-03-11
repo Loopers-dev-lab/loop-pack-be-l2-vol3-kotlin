@@ -55,7 +55,12 @@ class ProductCacheRepositoryImplTest @Autowired constructor(
             // assert
             assertThat(found).isNotNull
             assertThat(found!!.id).isEqualTo(ProductId(1L))
+            assertThat(found.refBrandId).isEqualTo(BrandId(10L))
             assertThat(found.name).isEqualTo("에어맥스 90")
+            assertThat(found.price).isEqualTo(Money(BigDecimal("129000")))
+            assertThat(found.stock).isEqualTo(Stock(100))
+            assertThat(found.status).isEqualTo(Product.ProductStatus.ON_SALE)
+            assertThat(found.likeCount).isEqualTo(0)
         }
 
         @Test
@@ -66,6 +71,26 @@ class ProductCacheRepositoryImplTest @Autowired constructor(
 
             // assert
             assertThat(found).isNull()
+        }
+    }
+
+    @Nested
+    @DisplayName("findProductDetail — 역직렬화 실패 처리")
+    inner class FindDeserializationFailure {
+
+        @Test
+        @DisplayName("손상된 JSON이 캐시에 있으면 null을 반환하고 해당 키를 삭제한다")
+        fun find_corruptedJson_returnsNullAndDeletesKey() {
+            // arrange — 손상된 JSON을 직접 삽입
+            val key = "product:detail:1"
+            redisTemplateMaster.opsForValue().set(key, "{invalid-json}")
+
+            // act
+            val result = productCacheRepository.findProductDetail(ProductId(1L))
+
+            // assert
+            assertThat(result).isNull()
+            assertThat(redisTemplateMaster.hasKey(key)).isFalse()
         }
     }
 

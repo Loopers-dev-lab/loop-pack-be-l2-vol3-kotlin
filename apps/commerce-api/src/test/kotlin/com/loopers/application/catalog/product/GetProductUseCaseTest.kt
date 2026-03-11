@@ -127,6 +127,27 @@ class GetProductUseCaseTest {
         }
 
         @Test
+        @DisplayName("브랜드가 삭제된 상품 조회 시 캐시에 저장되지 않는다")
+        fun getProduct_deletedBrand_doesNotSaveToCache() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            brand.delete()
+            brandRepository.save(brand)
+
+            // act
+            assertThrows<CoreException> {
+                useCase.execute(product.id.value)
+            }
+
+            // assert
+            val cached = cacheRepository.findProductDetail(product.id)
+            assertThat(cached).isNull()
+        }
+
+        @Test
         @DisplayName("캐시 미스 시 DB에서 조회 후 캐시에 저장된다")
         fun getProduct_cacheMiss_savesToCache() {
             // arrange

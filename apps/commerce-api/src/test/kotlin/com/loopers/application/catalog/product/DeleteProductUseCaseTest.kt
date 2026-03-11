@@ -84,6 +84,7 @@ class DeleteProductUseCaseTest {
             assertThat(event).isInstanceOf(ProductCacheEvent.DetailEvicted::class.java)
             val evictEvent = event as ProductCacheEvent.DetailEvicted
             assertThat(evictEvent.productId).isEqualTo(product.id)
+            assertThat(evictEvent.brandId).isEqualTo(product.refBrandId)
         }
     }
 }

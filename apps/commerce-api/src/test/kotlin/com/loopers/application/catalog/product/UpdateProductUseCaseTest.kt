@@ -142,6 +142,10 @@ class UpdateProductUseCaseTest {
 
             // assert
             assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.product.id).isEqualTo(product.id)
         }
 
         @Test
@@ -157,6 +161,11 @@ class UpdateProductUseCaseTest {
 
             // assert — evictList = true 이벤트가 발행되어야 한다
             assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.evictList).isTrue()
+            assertThat(detailEvent.product.id).isEqualTo(product.id)
         }
     }
 }

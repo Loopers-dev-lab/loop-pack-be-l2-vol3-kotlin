@@ -147,6 +147,7 @@ class LikeUseCaseTest {
             assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
             val detailEvent = event as ProductCacheEvent.DetailUpdated
             assertThat(detailEvent.product.id.value).isEqualTo(productId)
+            assertThat(detailEvent.evictList).isFalse()
         }
     }
 
@@ -215,6 +216,7 @@ class LikeUseCaseTest {
             assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
             val detailEvent = event as ProductCacheEvent.DetailUpdated
             assertThat(detailEvent.product.id.value).isEqualTo(productId)
+            assertThat(detailEvent.evictList).isFalse()
         }
     }
 
