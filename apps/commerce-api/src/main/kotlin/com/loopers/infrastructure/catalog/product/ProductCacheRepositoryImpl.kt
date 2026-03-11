@@ -35,13 +35,20 @@ class ProductCacheRepositoryImpl(
     private fun detailKey(productId: ProductId) = "$DETAIL_KEY_PREFIX${productId.value}"
 
     override fun findProductDetail(productId: ProductId): Product? {
-        return try {
-            val key = detailKey(productId)
-            val json = redisTemplateMaster.opsForValue().get(key) ?: return null
-            val dto = objectMapper.readValue(json, ProductCacheDto::class.java)
-            dto.toDomain()
+        val key = detailKey(productId)
+        val json = try {
+            redisTemplateMaster.opsForValue().get(key) ?: return null
         } catch (e: Exception) {
-            log.warn("Redis 캐시 조회 실패 [key={}]: {}", detailKey(productId), e.message)
+            log.warn("Redis 캐시 조회 실패 [key={}]: {}", key, e.message)
+            return null
+        }
+        return try {
+            objectMapper.readValue(json, ProductCacheDto::class.java).toDomain()
+        } catch (e: Exception) {
+            log.warn("Redis 캐시 역직렬화 실패, 키 삭제 [key={}]: {}", key, e.message)
+            try {
+                redisTemplateMaster.delete(key)
+            } catch (ignored: Exception) { }
             null
         }
     }
@@ -80,18 +87,18 @@ class ProductCacheRepositoryImpl(
     private fun scanAndDelete(pattern: String) {
         val options = ScanOptions.scanOptions().match(pattern).count(100).build()
         redisTemplateMaster.execute<Unit> { connection ->
-            val batch = mutableSetOf<String>()
+            val batch = mutableListOf<ByteArray>()
             connection.scan(options).use { cursor ->
                 while (cursor.hasNext()) {
-                    batch.add(String(cursor.next()))
+                    batch.add(cursor.next())
                     if (batch.size >= 1000) {
-                        redisTemplateMaster.delete(batch)
+                        connection.keyCommands().del(*batch.toTypedArray())
                         batch.clear()
                     }
                 }
             }
             if (batch.isNotEmpty()) {
-                redisTemplateMaster.delete(batch)
+                connection.keyCommands().del(*batch.toTypedArray())
             }
         }
     }

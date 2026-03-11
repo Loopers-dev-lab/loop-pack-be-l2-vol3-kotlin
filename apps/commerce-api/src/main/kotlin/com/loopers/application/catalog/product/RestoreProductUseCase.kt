@@ -17,9 +17,12 @@ class RestoreProductUseCase(
     fun execute(productId: Long): ProductInfo {
         val product = productRepository.findById(ProductId(productId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        product.restore()
-        val saved = productRepository.save(product)
-        eventPublisher.publishEvent(ProductCacheEvent.DetailUpdated(saved, evictList = true))
-        return ProductInfo.from(saved)
+        if (product.isDeleted()) {
+            product.restore()
+            val saved = productRepository.save(product)
+            eventPublisher.publishEvent(ProductCacheEvent.DetailUpdated(saved, evictList = true))
+            return ProductInfo.from(saved)
+        }
+        return ProductInfo.from(product)
     }
 }

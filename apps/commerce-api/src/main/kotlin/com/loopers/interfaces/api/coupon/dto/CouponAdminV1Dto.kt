@@ -89,7 +89,7 @@ class CouponAdminV1Dto {
                     minOrderAmount = info.minOrderAmount,
                     totalQuantity = info.totalQuantity,
                     issuedCount = info.issuedCount,
-                    expiredAt = info.expiredAt.format(DateTimeFormatter.ISO_ZONED_DATE_TIME),
+                    expiredAt = info.expiredAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                 )
             }
         }
@@ -110,8 +110,8 @@ class CouponAdminV1Dto {
                     couponId = info.couponId,
                     userId = info.userId,
                     status = info.status,
-                    usedAt = info.usedAt?.format(DateTimeFormatter.ISO_ZONED_DATE_TIME),
-                    createdAt = info.createdAt.format(DateTimeFormatter.ISO_ZONED_DATE_TIME),
+                    usedAt = info.usedAt?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    createdAt = info.createdAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                 )
             }
         }

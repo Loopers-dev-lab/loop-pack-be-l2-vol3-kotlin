@@ -63,9 +63,11 @@ class RedisConfig(
             activateDefaultTyping(
                 BasicPolymorphicTypeValidator.builder()
                     .allowIfSubType("com.loopers")
-                    .allowIfSubType("java.")
+                    .allowIfSubType("java.util.")
+                    .allowIfSubType("java.time.")
+                    .allowIfSubType("java.math.")
                     .build(),
-                ObjectMapper.DefaultTyping.EVERYTHING,
+                ObjectMapper.DefaultTyping.NON_FINAL,
             )
         }
         val jsonSerializer = GenericJackson2JsonRedisSerializer(cacheObjectMapper)

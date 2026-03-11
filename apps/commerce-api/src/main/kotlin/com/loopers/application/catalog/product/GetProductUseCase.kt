@@ -30,13 +30,13 @@ class GetProductUseCase(
         if (product.isDeleted() || !product.isActive()) {
             throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         }
-        if (!cached) {
-            productCacheRepository.saveProductDetail(product)
-        }
         val brand = brandRepository.findById(product.refBrandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
         if (brand.isDeleted()) {
             throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+        }
+        if (!cached) {
+            productCacheRepository.saveProductDetail(product)
         }
         val detail = ProductDetail(product = product, brand = brand)
         return CatalogInfo.from(detail)
