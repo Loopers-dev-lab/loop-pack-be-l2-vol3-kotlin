@@ -19,9 +19,9 @@
 
 | 인덱스                              | 컬럼                                      | 대상 쿼리     |
 |----------------------------------|-----------------------------------------|-----------|
-| `idx_products_active_like_count` | `(deleted_at, status, like_count DESC)` | 좋아요순 정렬   |
-| `idx_products_active_created_at` | `(deleted_at, status, created_at DESC)` | 최신순 정렬    |
-| `idx_products_active_price`      | `(deleted_at, status, price ASC)`       | 가격 낮은순 정렬 |
+| `idx_products_active_like_count` | `(deleted_at, status, like_count DESC, id DESC)` | 좋아요순 정렬   |
+| `idx_products_active_created_at` | `(deleted_at, status, created_at DESC, id DESC)` | 최신순 정렬    |
+| `idx_products_active_price`      | `(deleted_at, status, price ASC, id DESC)`       | 가격 낮은순 정렬 |
 
 ### 실측 EXPLAIN 비교 (10만건 시딩, TestContainers MySQL 8.0)
 
@@ -29,16 +29,19 @@
 |-----------------|------------|-----------------------------|------------|----------------------------------------------------|
 | 브랜드 필터 + 좋아요 정렬 | ALL        | Using where; Using filesort | ref        | Using index condition; Using where; Using filesort |
 | 브랜드 필터 + 가격 정렬  | ALL        | Using where; Using filesort | ref        | Using index condition; Using where; Using filesort |
-| 최신순 전체 조회       | ALL        | Using where; Using filesort | ref        | Using index condition; Using filesort              |
-| 좋아요 내림차순 깊은 페이지 | ALL        | Using where; Using filesort | ref        | Using index condition; Using filesort              |
+| 최신순 전체 조회       | ALL        | Using where; Using filesort | ref        | Using index condition                              |
+| 좋아요 내림차순 깊은 페이지 | ALL        | Using where; Using filesort | ref        | Using index condition                              |
 
 - 모든 쿼리에서 **ALL(풀 테이블 스캔) → ref(인덱스 참조)** 전환 확인
 - `Using index condition`은 ICP(Index Condition Pushdown) 적용을 의미
+- 브랜드 필터 없는 전체 조회에서 **filesort 완전 제거** — 인덱스 후미에 `id DESC`를 명시하여 안정 정렬(`ORDER BY ... id DESC`)과 인덱스 정렬 방향을 일치시킴
+- 브랜드 필터 조회 시 filesort 잔존 — 옵티마이저가 `ref_brand_id` 단일 인덱스를 선택하여 모수를 줄인 후 메모리 정렬. 대상이 수천 건으로 한정되므로 합리적 트레이드오프
 
 ### 인덱스 설계 근거
 
 - **선두 컬럼**: `deleted_at`, `status` — WHERE 절의 등치/비교 조건 (Equality)
 - **후미 컬럼**: 정렬 대상 — ORDER BY 절을 인덱스 순서로 커버 (Sort)
+- **말미 컬럼**: `id DESC` — InnoDB 보조 인덱스는 PK를 `ASC`로 암묵 포함하나, 쿼리의 안정 정렬(`ORDER BY ... id DESC`)과 방향이 불일치하면 filesort 발생. `id DESC`를 명시하여 인덱스만으로 정렬 완결
 - 브랜드 필터(`ref_brand_id`)는 선택적 조건이므로 별도 단일 인덱스로 분리
 
 ### 검증 방법

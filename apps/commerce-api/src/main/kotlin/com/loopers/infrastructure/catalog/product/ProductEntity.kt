@@ -20,9 +20,9 @@ import java.math.BigDecimal
     name = "products",
     indexes = [
         Index(name = "idx_products_ref_brand_id", columnList = "ref_brand_id"),
-        Index(name = "idx_products_active_like_count", columnList = "deleted_at, status, like_count DESC"),
-        Index(name = "idx_products_active_created_at", columnList = "deleted_at, status, created_at DESC"),
-        Index(name = "idx_products_active_price", columnList = "deleted_at, status, price ASC"),
+        Index(name = "idx_products_active_like_count", columnList = "deleted_at, status, like_count DESC, id DESC"),
+        Index(name = "idx_products_active_created_at", columnList = "deleted_at, status, created_at DESC, id DESC"),
+        Index(name = "idx_products_active_price", columnList = "deleted_at, status, price ASC, id DESC"),
     ],
 )
 class ProductEntity(
