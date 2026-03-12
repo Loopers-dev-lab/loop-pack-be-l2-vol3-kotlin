@@ -4,6 +4,7 @@ import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.LikeService
+import com.loopers.infrastructure.catalog.product.ProductCacheService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -13,6 +14,7 @@ class LikeFacade(
     private val productService: ProductService,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productCacheService: ProductCacheService,
 ) {
 
     @Transactional
@@ -20,12 +22,16 @@ class LikeFacade(
         productService.getById(productId) // 상품 존재 확인
         likeService.addLike(userId, productId)
         productService.incrementLikeCount(productId)
+        productCacheService.evictProductDetail(productId)
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional
     fun removeLike(userId: Long, productId: Long) {
         likeService.removeLike(userId, productId)
         productService.decrementLikeCount(productId)
+        productCacheService.evictProductDetail(productId)
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional(readOnly = true)

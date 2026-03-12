@@ -8,6 +8,7 @@ import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStock
 import com.loopers.domain.catalog.product.ProductStockService
+import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -25,8 +26,12 @@ class ProductFacadeUnitTest {
     private val mockBrandService = mockk<BrandService>()
     private val mockBrandRepository = mockk<BrandRepository>()
     private val mockProductStockService = mockk<ProductStockService>()
+    private val mockProductCacheService = mockk<ProductCacheService>(relaxed = true) {
+        every { getProductDetail(any()) } returns null
+        every { getProductList(any()) } returns null
+    }
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService)
 
     // ─── createProduct ───
 

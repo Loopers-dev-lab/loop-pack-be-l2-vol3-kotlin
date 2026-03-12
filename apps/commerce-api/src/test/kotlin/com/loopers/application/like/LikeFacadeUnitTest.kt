@@ -7,6 +7,7 @@ import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeService
+import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -25,8 +26,9 @@ class LikeFacadeUnitTest {
     private val mockProductService = mockk<ProductService>()
     private val mockProductRepository = mockk<ProductRepository>()
     private val mockBrandRepository = mockk<BrandRepository>()
+    private val mockProductCacheService = mockk<ProductCacheService>(relaxed = true)
 
-    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockProductRepository, mockBrandRepository)
+    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockProductRepository, mockBrandRepository, mockProductCacheService)
 
     // ─── addLike ───
 

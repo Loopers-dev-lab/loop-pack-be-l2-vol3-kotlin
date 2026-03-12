@@ -6,6 +6,7 @@ import com.loopers.infrastructure.catalog.product.ProductEntity
 import com.loopers.infrastructure.catalog.product.ProductJpaRepository
 import com.loopers.infrastructure.like.LikeJpaRepository
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -26,10 +27,14 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val likeJpaRepository: LikeJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @AfterEach
-    fun tearDown() = databaseCleanUp.truncateAllTables()
+    fun tearDown() {
+        databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
+    }
 
     @Test
     fun `addLike() - 동시에 50명이 좋아요를 눌러도 likeCount가 정확히 50이어야 한다`() {

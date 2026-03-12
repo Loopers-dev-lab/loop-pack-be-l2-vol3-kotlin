@@ -7,6 +7,7 @@ import com.loopers.infrastructure.catalog.product.ProductJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductStockEntity
 import com.loopers.infrastructure.catalog.product.ProductStockJpaRepository
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -27,10 +28,14 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val productStockJpaRepository: ProductStockJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @AfterEach
-    fun tearDown() = databaseCleanUp.truncateAllTables()
+    fun tearDown() {
+        databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
+    }
 
     @Test
     fun `placeOrder() - 동시에 10명이 주문해도 재고 5개를 초과해서는 안된다`() {

@@ -14,6 +14,7 @@ import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
+import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -35,10 +36,12 @@ class OrderFacadeUnitTest {
     private val mockProductStockRepository = mockk<ProductStockRepository>()
     private val mockUserCouponService = mockk<UserCouponService>()
     private val mockCouponTemplateService = mockk<CouponTemplateService>()
+    private val mockProductCacheService = mockk<ProductCacheService>(relaxed = true)
 
     private val orderFacade = OrderFacade(
         mockOrderService, mockProductService, mockProductRepository, mockBrandRepository,
         mockProductStockService, mockProductStockRepository, mockUserCouponService, mockCouponTemplateService,
+        mockProductCacheService,
     )
 
     // ─── placeOrder ───

@@ -9,6 +9,7 @@ import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
+import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
@@ -24,6 +25,7 @@ class OrderFacade(
     private val productStockRepository: ProductStockRepository,
     private val userCouponService: UserCouponService,
     private val couponTemplateService: CouponTemplateService,
+    private val productCacheService: ProductCacheService,
 ) {
 
     @Transactional
@@ -58,7 +60,9 @@ class OrderFacade(
             if (updatedStock.isSoldOut) {
                 productService.updateStockStatus(item.productId, 0)
             }
+            productCacheService.evictProductDetail(item.productId)
         }
+        productCacheService.evictAllProductLists()
 
         // 4. 브랜드 일괄 조회 및 주문 항목 스냅샷 생성 (N+1 방지)
         val brandIds = productMap.values.map { it.brandId }.distinct()
