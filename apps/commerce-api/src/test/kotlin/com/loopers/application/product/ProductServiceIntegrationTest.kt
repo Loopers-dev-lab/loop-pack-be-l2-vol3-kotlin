@@ -6,7 +6,7 @@ import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import com.loopers.infrastructure.product.ProductCacheRepository
+import com.loopers.infrastructure.product.ProductCacheService
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -32,7 +32,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
     private val productService: ProductService,
     private val productJpaRepository: ProductJpaRepository,
     private val brandJpaRepository: BrandJpaRepository,
-    private val productCacheRepository: ProductCacheRepository,
+    private val productCacheService: ProductCacheService,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
 ) {
@@ -414,7 +414,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
 
             // act
             productService.getProductInfo(saved.id)
-            val cached = productCacheRepository.getProductDetail(saved.id)
+            val cached = productCacheService.getProductDetail(saved.id)
 
             // assert
             assertAll(
@@ -464,7 +464,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
             productService.deleteProduct(saved.id)
 
             // assert
-            assertThat(productCacheRepository.getProductDetail(saved.id)).isNull()
+            assertThat(productCacheService.getProductDetail(saved.id)).isNull()
         }
 
         @DisplayName("상품 목록 첫 조회 후 재조회하면, 캐시에서 반환된다.")
@@ -478,7 +478,7 @@ class ProductServiceIntegrationTest @Autowired constructor(
 
             // act
             productService.getAllProducts(brandId = null, pageable = pageable)
-            val cached = productCacheRepository.getProductList(null, pageable.sort.toString(), 0, 20)
+            val cached = productCacheService.getProductList(null, pageable.sort.toString(), 0, 20)
 
             // assert
             assertAll(

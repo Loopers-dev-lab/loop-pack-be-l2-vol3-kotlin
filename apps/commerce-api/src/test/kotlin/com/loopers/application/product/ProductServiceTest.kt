@@ -4,7 +4,7 @@ import com.loopers.application.order.OrderItemCriteria
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
-import com.loopers.infrastructure.product.ProductCacheRepository
+import com.loopers.infrastructure.product.ProductCacheService
 import com.loopers.support.cache.CachedPage
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -41,7 +41,7 @@ class ProductServiceTest {
     private lateinit var brandRepository: BrandRepository
 
     @Mock
-    private lateinit var productCacheRepository: ProductCacheRepository
+    private lateinit var productCacheService: ProductCacheService
 
     @InjectMocks
     private lateinit var productService: ProductService
@@ -154,7 +154,7 @@ class ProductServiceTest {
             val productId = 1L
             val cachedInfo = createProductInfo(id = productId)
 
-            whenever(productCacheRepository.getProductDetail(productId)).thenReturn(cachedInfo)
+            whenever(productCacheService.getProductDetail(productId)).thenReturn(cachedInfo)
 
             // act
             val result = productService.getProductInfo(productId)
@@ -177,7 +177,7 @@ class ProductServiceTest {
             ReflectionTestUtils.setField(product, "createdAt", now)
             ReflectionTestUtils.setField(product, "updatedAt", now)
 
-            whenever(productCacheRepository.getProductDetail(productId)).thenReturn(null)
+            whenever(productCacheService.getProductDetail(productId)).thenReturn(null)
             whenever(productRepository.findById(productId)).thenReturn(product)
 
             // act
@@ -187,7 +187,7 @@ class ProductServiceTest {
             assertAll(
                 { assertThat(result.name).isEqualTo(TEST_NAME) },
                 { verify(productRepository).findById(productId) },
-                { verify(productCacheRepository).setProductDetail(eq(productId), any()) },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
             )
         }
     }
@@ -211,7 +211,7 @@ class ProductServiceTest {
             val products = listOf(product1, product2)
             val productPage = PageImpl(products, pageable, products.size.toLong())
 
-            whenever(productCacheRepository.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
             whenever(productRepository.findAll(pageable)).thenReturn(productPage)
 
             // act
@@ -238,7 +238,7 @@ class ProductServiceTest {
             val products = listOf(product)
             val productPage = PageImpl(products, pageable, products.size.toLong())
 
-            whenever(productCacheRepository.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
             whenever(productRepository.findAllByBrandId(brandId, pageable)).thenReturn(productPage)
 
             // act
@@ -263,7 +263,7 @@ class ProductServiceTest {
             ReflectionTestUtils.setField(product, "updatedAt", now)
             val productPage = PageImpl(listOf(product), pageable, 1L)
 
-            whenever(productCacheRepository.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
             whenever(productRepository.findAll(pageable)).thenReturn(productPage)
 
             // act
@@ -285,7 +285,7 @@ class ProductServiceTest {
                 totalElements = 2L,
             )
 
-            whenever(productCacheRepository.getProductList(anyOrNull(), any(), any(), any())).thenReturn(cachedPage)
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(cachedPage)
 
             // act
             val result = productService.getAllProducts(brandId = null, pageable = pageable)
@@ -308,7 +308,7 @@ class ProductServiceTest {
             ReflectionTestUtils.setField(product, "updatedAt", now)
             val productPage = PageImpl(listOf(product), pageable, 1L)
 
-            whenever(productCacheRepository.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
             whenever(productRepository.findAll(pageable)).thenReturn(productPage)
 
             // act
@@ -316,7 +316,7 @@ class ProductServiceTest {
 
             // assert
             verify(productRepository).findAll(pageable)
-            verify(productCacheRepository).setProductList(anyOrNull(), any(), any(), any(), any())
+            verify(productCacheService).setProductList(anyOrNull(), any(), any(), any(), any())
         }
     }
 
@@ -357,7 +357,7 @@ class ProductServiceTest {
                 { assertThat(result.stock).isEqualTo(TEST_STOCK) },
                 { assertThat(result.description).isEqualTo(TEST_DESCRIPTION) },
                 { assertThat(result.imageUrl).isEqualTo(TEST_IMAGE_URL) },
-                { verify(productCacheRepository).evictAllProductLists() },
+                { verify(productCacheService).evictAllProductLists() },
             )
         }
 
@@ -420,8 +420,8 @@ class ProductServiceTest {
                 { assertThat(result.stock).isEqualTo(50) },
                 { assertThat(result.description).isEqualTo("나이키 에어포스 1") },
                 { assertThat(result.imageUrl).isEqualTo("https://example.com/airforce1.jpg") },
-                { verify(productCacheRepository).evictProductDetail(productId) },
-                { verify(productCacheRepository).evictAllProductLists() },
+                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).evictAllProductLists() },
             )
         }
 
@@ -470,8 +470,8 @@ class ProductServiceTest {
             // assert
             assertAll(
                 { assertThat(product.isDeleted()).isTrue() },
-                { verify(productCacheRepository).evictProductDetail(productId) },
-                { verify(productCacheRepository).evictAllProductLists() },
+                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).evictAllProductLists() },
             )
         }
 
@@ -509,8 +509,8 @@ class ProductServiceTest {
             // assert
             assertAll(
                 { verify(productRepository).incrementLikeCount(productId) },
-                { verify(productCacheRepository).evictProductDetail(productId) },
-                { verify(productCacheRepository).evictAllProductLists() },
+                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).evictAllProductLists() },
             )
         }
     }
@@ -531,8 +531,8 @@ class ProductServiceTest {
             // assert
             assertAll(
                 { verify(productRepository).decrementLikeCount(productId) },
-                { verify(productCacheRepository).evictProductDetail(productId) },
-                { verify(productCacheRepository).evictAllProductLists() },
+                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).evictAllProductLists() },
             )
         }
     }
