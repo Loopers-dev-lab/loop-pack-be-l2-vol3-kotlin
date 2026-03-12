@@ -1,9 +1,11 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.brand.BrandReader
 import com.loopers.domain.like.LikeReader
 import com.loopers.domain.like.LikeRegister
 import com.loopers.domain.like.LikeRemover
+import com.loopers.domain.product.ProductLikeCountUpdater
 import com.loopers.domain.product.ProductReader
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -13,20 +15,31 @@ class LikeUseCase(
     private val likeRegister: LikeRegister,
     private val likeRemover: LikeRemover,
     private val likeReader: LikeReader,
+    private val productLikeCountUpdater: ProductLikeCountUpdater,
     private val productReader: ProductReader,
     private val brandReader: BrandReader,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
     fun register(memberId: Long, productId: Long): LikeInfo.Registered {
-        productReader.getSellingById(productId)
+        val product = productReader.getSellingById(productId)
         val like = likeRegister.register(memberId, productId)
+        productLikeCountUpdater.increase(productId)
+        productCacheStore.evictDetail(productId)
+        productCacheStore.evictList()
+        productCacheStore.evictList(product.brandId)
         return LikeInfo.Registered.from(like)
     }
 
     @Transactional
     fun remove(likeId: Long, memberId: Long) {
-        likeRemover.remove(likeId, memberId)
+        val like = likeRemover.remove(likeId, memberId)
+        val product = productReader.getById(like.productId)
+        productLikeCountUpdater.decrease(like.productId)
+        productCacheStore.evictDetail(like.productId)
+        productCacheStore.evictList()
+        productCacheStore.evictList(product.brandId)
     }
 
     @Transactional(readOnly = true)

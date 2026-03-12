@@ -10,7 +10,7 @@ class LikeRemover(
     private val likeRepository: LikeRepository,
 ) {
 
-    fun remove(likeId: Long, memberId: Long) {
+    fun remove(likeId: Long, memberId: Long): Like {
         val like = likeReader.getById(likeId)
 
         if (like.memberId != memberId) {
@@ -18,5 +18,6 @@ class LikeRemover(
         }
 
         likeRepository.delete(like)
+        return like
     }
 }
