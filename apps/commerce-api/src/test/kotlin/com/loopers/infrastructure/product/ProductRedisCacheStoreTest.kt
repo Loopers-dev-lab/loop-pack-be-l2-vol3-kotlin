@@ -107,8 +107,9 @@ class ProductRedisCacheStoreTest @Autowired constructor(
                 totalElements = 100L,
             )
 
-            productRedisCacheStore.putListIds(null, ProductSortType.LATEST, 0, listCache)
-            val cached = productRedisCacheStore.getListIds(null, ProductSortType.LATEST, 0)
+            val version = productRedisCacheStore.getListVersion()
+            productRedisCacheStore.putListIds(version, null, ProductSortType.LATEST, 0, listCache)
+            val cached = productRedisCacheStore.getListIds(version, null, ProductSortType.LATEST, 0)
 
             val result = requireNotNull(cached)
             assertAll(
@@ -123,11 +124,12 @@ class ProductRedisCacheStoreTest @Autowired constructor(
             val cache1 = ProductListCache(productIds = listOf(1L), totalElements = 1L)
             val cache2 = ProductListCache(productIds = listOf(2L), totalElements = 1L)
 
-            productRedisCacheStore.putListIds(null, ProductSortType.LATEST, 0, cache1)
-            productRedisCacheStore.putListIds(1L, ProductSortType.LATEST, 0, cache2)
+            val version = productRedisCacheStore.getListVersion()
+            productRedisCacheStore.putListIds(version, null, ProductSortType.LATEST, 0, cache1)
+            productRedisCacheStore.putListIds(version, 1L, ProductSortType.LATEST, 0, cache2)
 
-            val cached1 = requireNotNull(productRedisCacheStore.getListIds(null, ProductSortType.LATEST, 0))
-            val cached2 = requireNotNull(productRedisCacheStore.getListIds(1L, ProductSortType.LATEST, 0))
+            val cached1 = requireNotNull(productRedisCacheStore.getListIds(version, null, ProductSortType.LATEST, 0))
+            val cached2 = requireNotNull(productRedisCacheStore.getListIds(version, 1L, ProductSortType.LATEST, 0))
 
             assertAll(
                 { assertThat(cached1.productIds).containsExactly(1L) },
@@ -139,14 +141,16 @@ class ProductRedisCacheStoreTest @Autowired constructor(
         @Test
         fun evictAllLists() {
             val cache = ProductListCache(productIds = listOf(1L), totalElements = 1L)
-            productRedisCacheStore.putListIds(null, ProductSortType.LATEST, 0, cache)
-            productRedisCacheStore.putListIds(1L, ProductSortType.LIKE_COUNT, 0, cache)
+            val version = productRedisCacheStore.getListVersion()
+            productRedisCacheStore.putListIds(version, null, ProductSortType.LATEST, 0, cache)
+            productRedisCacheStore.putListIds(version, 1L, ProductSortType.LIKE_COUNT, 0, cache)
 
             productRedisCacheStore.evictAllLists()
 
+            val newVersion = productRedisCacheStore.getListVersion()
             assertAll(
-                { assertThat(productRedisCacheStore.getListIds(null, ProductSortType.LATEST, 0)).isNull() },
-                { assertThat(productRedisCacheStore.getListIds(1L, ProductSortType.LIKE_COUNT, 0)).isNull() },
+                { assertThat(productRedisCacheStore.getListIds(newVersion, null, ProductSortType.LATEST, 0)).isNull() },
+                { assertThat(productRedisCacheStore.getListIds(newVersion, 1L, ProductSortType.LIKE_COUNT, 0)).isNull() },
             )
         }
 
@@ -157,7 +161,8 @@ class ProductRedisCacheStoreTest @Autowired constructor(
             productRedisCacheStore.putDetail(1L, productInfo)
 
             val listCache = ProductListCache(productIds = listOf(1L), totalElements = 1L)
-            productRedisCacheStore.putListIds(null, ProductSortType.LATEST, 0, listCache)
+            val version = productRedisCacheStore.getListVersion()
+            productRedisCacheStore.putListIds(version, null, ProductSortType.LATEST, 0, listCache)
 
             productRedisCacheStore.evictAllLists()
 
