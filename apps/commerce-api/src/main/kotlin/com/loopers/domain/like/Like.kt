@@ -5,6 +5,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.Comment
@@ -13,6 +14,9 @@ import org.hibernate.annotations.Comment
 @Table(
     name = "likes",
     uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "product_id"])],
+    indexes = [
+        Index(name = "idx_likes_product_id", columnList = "product_id"),
+    ],
 )
 @Comment("좋아요")
 class Like(

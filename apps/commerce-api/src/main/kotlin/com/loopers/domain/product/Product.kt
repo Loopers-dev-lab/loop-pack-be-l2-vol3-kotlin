@@ -10,11 +10,20 @@ import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = [
+        Index(name = "idx_products_brand_id", columnList = "brand_id"),
+        Index(name = "idx_products_created_at", columnList = "created_at"),
+        Index(name = "idx_products_price", columnList = "price"),
+        Index(name = "idx_products_like_count", columnList = "like_count"),
+    ],
+)
 @Comment("상품")
 class Product(
     brandId: Long,
@@ -125,6 +134,10 @@ class Product(
         if (this.likeCount > 0) {
             this.likeCount--
         }
+    }
+
+    fun resetLikeCount() {
+        this.likeCount = 0
     }
 
     fun isOrderable(): Boolean {

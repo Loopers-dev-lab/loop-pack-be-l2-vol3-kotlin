@@ -1,7 +1,11 @@
 package com.loopers.domain.product
 
+import com.loopers.domain.cache.CacheEvict
+import com.loopers.domain.cache.CacheNames
+import com.loopers.domain.cache.Cached
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -11,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional
 class ProductService(
     private val productRepository: ProductRepository,
 ) {
+
+    companion object {
+        private val log = LoggerFactory.getLogger(ProductService::class.java)
+    }
 
     @Transactional
     fun createProduct(command: CreateProductCommand): Product {
@@ -26,6 +34,7 @@ class ProductService(
         return productRepository.save(product)
     }
 
+    @CacheEvict(cacheName = CacheNames.PRODUCT_INFO, key = "{productId}")
     @Transactional
     fun updateProduct(productId: Long, command: UpdateProductCommand): Product {
         val product = findById(productId)
@@ -41,10 +50,24 @@ class ProductService(
         return product
     }
 
+    @CacheEvict(cacheName = CacheNames.PRODUCT_INFO)
     @Transactional
     fun deleteProduct(productId: Long) {
         val product = findById(productId)
         product.softDelete()
+    }
+
+    /**
+     * 캐시된 상품 정보 조회.
+     *
+     * 캐시 히트 시 DB 조회 없이 반환. 미스 시 DB 조회 후 캐시 저장.
+     * Entity가 아닌 Info(data class) 반환 — JSON 직렬화/역직렬화 가능.
+     */
+    @Cached(cacheName = CacheNames.PRODUCT_INFO)
+    @Transactional(readOnly = true)
+    fun getProductInfo(productId: Long): ProductInfo {
+        val product = findById(productId)
+        return ProductInfo.from(product)
     }
 
     @Transactional(readOnly = true)
@@ -108,11 +131,30 @@ class ProductService(
 
     @Transactional
     fun decreaseLikeCount(productId: Long) {
-        productRepository.decreaseLikeCount(productId)
+        val affectedRows = productRepository.decreaseLikeCount(productId)
+        if (affectedRows == 0) {
+            log.warn("likeCount 감소 실패: 대상 없음 또는 이미 0 [productId={}]", productId)
+        }
     }
 
     @Transactional
     fun decreaseLikeCountIfExists(productId: Long) {
-        productRepository.decreaseLikeCount(productId)
+        val affectedRows = productRepository.decreaseLikeCount(productId)
+        if (affectedRows == 0) {
+            log.warn("likeCount 감소 실패: 대상 없음 또는 이미 0 [productId={}]", productId)
+        }
+    }
+
+    /**
+     * 좋아요 수 초기화 — 상품 삭제 시 호출.
+     *
+     * deletedAt IS NULL 필터 없음 — 삭제 흐름에서 호출되므로 순서 무관하게 동작해야 함.
+     */
+    @Transactional
+    fun resetLikeCount(productId: Long) {
+        val affectedRows = productRepository.resetLikeCount(productId)
+        if (affectedRows == 0) {
+            log.warn("likeCount 초기화 실패: 상품이 존재하지 않음 [productId={}]", productId)
+        }
     }
 }

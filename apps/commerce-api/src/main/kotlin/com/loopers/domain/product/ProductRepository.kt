@@ -14,4 +14,5 @@ interface ProductRepository {
     fun decreaseStock(productId: Long, quantity: Int): Int
     fun increaseLikeCount(productId: Long): Int
     fun decreaseLikeCount(productId: Long): Int
+    fun resetLikeCount(productId: Long): Int
 }
