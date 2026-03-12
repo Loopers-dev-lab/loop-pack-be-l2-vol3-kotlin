@@ -13,6 +13,7 @@ class UpdateProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -33,6 +34,9 @@ class UpdateProductUseCase(
 
         val brand = brandRepository.findActiveByIdOrNull(product.brandId)
         val brandName = brand?.name ?: ""
+
+        productCacheStore.evictDetail(command.productId)
+        productCacheStore.evictAllLists()
 
         return ProductInfo.from(product, brandName, productStock.stock.quantity)
     }

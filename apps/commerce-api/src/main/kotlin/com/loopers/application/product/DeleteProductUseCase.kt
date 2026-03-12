@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class DeleteProductUseCase(
     private val productRepository: ProductRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -16,5 +17,8 @@ class DeleteProductUseCase(
         val product = productRepository.findActiveByIdOrNull(productId)
             ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
         product.delete()
+
+        productCacheStore.evictDetail(productId)
+        productCacheStore.evictAllLists()
     }
 }

@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class AddLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -33,5 +35,6 @@ class AddLikeUseCase(
         }
 
         productRepository.increaseLikeCount(product.id)
+        productCacheStore.evictDetail(product.id)
     }
 }

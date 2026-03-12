@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class CancelLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -21,5 +23,6 @@ class CancelLikeUseCase(
         likeRepository.delete(like)
 
         productRepository.decreaseLikeCount(like.productId)
+        productCacheStore.evictDetail(like.productId)
     }
 }

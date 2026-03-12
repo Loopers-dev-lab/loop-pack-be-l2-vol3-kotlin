@@ -15,6 +15,7 @@ class RegisterProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -36,6 +37,8 @@ class RegisterProductUseCase(
             stock = command.toStock(),
         )
         productStockRepository.save(productStock)
+
+        productCacheStore.evictAllLists()
 
         return ProductInfo.from(saved, brand.name, productStock.stock.quantity)
     }
