@@ -95,6 +95,22 @@ class ProductCacheRepositoryImplTest @Autowired constructor(
     }
 
     @Nested
+    @DisplayName("TTL 지터")
+    inner class TtlJitter {
+
+        @Test
+        @DisplayName("상품 상세 캐시의 TTL에 지터가 적용되어 기본 TTL(1시간) 이상이다")
+        fun saveProductDetail_ttlHasJitter() {
+            // arrange & act
+            productCacheRepository.saveProductDetail(product())
+
+            // assert — TTL이 1시간(3600초) ~ 1시간+60초(3660초) 범위 내
+            val ttl = redisTemplateMaster.getExpire("product:detail:1")
+            assertThat(ttl).isBetween(3595L, 3660L)
+        }
+    }
+
+    @Nested
     @DisplayName("evictProductDetail")
     inner class EvictDetail {
 

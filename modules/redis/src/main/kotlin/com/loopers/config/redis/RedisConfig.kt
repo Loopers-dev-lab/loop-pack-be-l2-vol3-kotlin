@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
 import org.springframework.data.redis.cache.RedisCacheConfiguration
 import org.springframework.data.redis.cache.RedisCacheManager
+import org.springframework.data.redis.cache.RedisCacheWriter
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration
@@ -85,7 +86,12 @@ class RedisConfig(
 
         val productListConfig = defaultConfig.entryTtl(PRODUCT_LIST_TTL)
 
-        return RedisCacheManager.builder(redisConnectionFactory)
+        val cacheWriter = JitteredRedisCacheWriter(
+            delegate = RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory),
+            maxJitterSeconds = 30,
+        )
+
+        return RedisCacheManager.builder(cacheWriter)
             .cacheDefaults(defaultConfig)
             .withCacheConfiguration("product:list", productListConfig)
             .build()

@@ -29,8 +29,12 @@ class ProductCacheRepositoryImpl(
     companion object {
         private const val DETAIL_KEY_PREFIX = "product:detail:"
         private const val LIST_KEY_PREFIX = "product:list::"
-        private val DETAIL_TTL: Duration = Duration.ofHours(1)
+        private val DETAIL_BASE_TTL: Duration = Duration.ofHours(1)
+        private const val DETAIL_JITTER_SECONDS = 60L
     }
+
+    private fun detailTtl(): Duration =
+        DETAIL_BASE_TTL.plusSeconds(kotlin.random.Random.nextLong(0, DETAIL_JITTER_SECONDS + 1))
 
     private fun detailKey(productId: ProductId) = "$DETAIL_KEY_PREFIX${productId.value}"
 
@@ -60,7 +64,7 @@ class ProductCacheRepositoryImpl(
         try {
             val key = detailKey(product.id)
             val json = objectMapper.writeValueAsString(ProductCacheDto.fromDomain(product))
-            redisTemplateMaster.opsForValue().set(key, json, DETAIL_TTL)
+            redisTemplateMaster.opsForValue().set(key, json, detailTtl())
         } catch (e: Exception) {
             log.warn("Redis 캐시 저장 실패 [productId={}]: {}", product.id.value, e.message)
         }
