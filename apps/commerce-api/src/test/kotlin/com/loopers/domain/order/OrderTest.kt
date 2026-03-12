@@ -75,25 +75,6 @@ class OrderTest {
             assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal.ZERO)
             assertThat(order.refCouponId).isNull()
         }
-
-        @Test
-        @DisplayName("쿠폰 적용 시 originalPrice, discountAmount, totalPrice 정합성이 유지된다")
-        fun create_withCoupon_discountApplied() {
-            // act
-            val order = Order.create(
-                UserId(1),
-                listOf(
-                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-                ),
-            )
-            order.applyDiscount(Money(BigDecimal("3000")), CouponId(100L))
-
-            // assert
-            assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
-            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("3000"))
-            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("17000"))
-            assertThat(order.refCouponId).isEqualTo(CouponId(100L))
-        }
     }
 
     @Nested
@@ -201,8 +182,32 @@ class OrderTest {
     }
 
     @Nested
-    @DisplayName("할인 금액 불변식")
-    inner class DiscountAmountInvariant {
+    @DisplayName("applyDiscount 시")
+    inner class ApplyDiscount {
+
+        // originalPrice = 20000 (상품A 10000원 × 2)
+        private fun createStandardOrder(): Order = Order.create(
+            UserId(1L),
+            listOf(
+                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+            ),
+        )
+
+        @Test
+        @DisplayName("쿠폰 적용 시 originalPrice, discountAmount, totalPrice 정합성이 유지된다")
+        fun applyDiscount_withCoupon_discountApplied() {
+            // arrange
+            val order = createStandardOrder()
+
+            // act
+            order.applyDiscount(Money(BigDecimal("3000")), CouponId(100L))
+
+            // assert
+            assertThat(order.originalPrice.value).isEqualByComparingTo(BigDecimal("20000"))
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("3000"))
+            assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("17000"))
+            assertThat(order.refCouponId).isEqualTo(CouponId(100L))
+        }
 
         @Test
         @DisplayName("Money에 음수 값을 넣으면 예외가 발생한다")
@@ -215,15 +220,12 @@ class OrderTest {
 
         @Test
         @DisplayName("할인 금액이 원가와 동일하면 totalPrice가 0이 된다")
-        fun create_fullDiscount_totalPriceIsZero() {
+        fun applyDiscount_fullDiscount_totalPriceIsZero() {
             // arrange
-            val items = listOf(
-                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-            )
+            val order = createStandardOrder()
             val fullDiscount = Money(BigDecimal("20000"))
 
             // act
-            val order = Order.create(UserId(1L), items)
             order.applyDiscount(fullDiscount, CouponId(1L))
 
             // assert
@@ -235,37 +237,34 @@ class OrderTest {
         @DisplayName("할인 금액이 원가를 초과하면 BAD_REQUEST 예외가 발생한다")
         fun applyDiscount_excessiveDiscount_throwsException() {
             // arrange
-            val items = listOf(
-                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-            )
-            // items의 원가: 10000 * 2 = 20000
-            val excessiveDiscount = Money(BigDecimal("20001"))
-            val order = Order.create(UserId(1L), items)
+            val order = createStandardOrder()
+            val originalDiscountAmount = order.discountAmount
+            val originalTotalPrice = order.totalPrice
+            val originalRefCouponId = order.refCouponId
 
             // act
             val exception = assertThrows<CoreException> {
-                order.applyDiscount(excessiveDiscount, CouponId(1L))
+                order.applyDiscount(Money(BigDecimal("20001")), CouponId(1L))
             }
 
-            // assert
+            // assert — 예외 발생 후 상태가 변경되지 않아야 한다
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(order.discountAmount).isEqualTo(originalDiscountAmount)
+            assertThat(order.totalPrice).isEqualTo(originalTotalPrice)
+            assertThat(order.refCouponId).isEqualTo(originalRefCouponId)
         }
 
         @Test
         @DisplayName("정상 할인 금액으로 주문에 쿠폰이 적용된다")
         fun applyDiscount_validDiscount_success() {
             // arrange
-            val items = listOf(
-                OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-            )
-            val validDiscount = Money(BigDecimal("1000"))
+            val order = createStandardOrder()
 
             // act
-            val order = Order.create(UserId(1L), items)
-            order.applyDiscount(validDiscount, CouponId(1L))
+            order.applyDiscount(Money(BigDecimal("1000")), CouponId(1L))
 
             // assert
-            assertThat(order.discountAmount).isEqualTo(validDiscount)
+            assertThat(order.discountAmount.value).isEqualByComparingTo(BigDecimal("1000"))
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("19000"))
         }
 
@@ -283,35 +282,42 @@ class OrderTest {
                 refCouponId = null,
                 deletedAt = null,
             )
+            val originalDiscountAmount = order.discountAmount
+            val originalTotalPrice = order.totalPrice
+            val originalRefCouponId = order.refCouponId
 
             // act
             val exception = assertThrows<CoreException> {
                 order.applyDiscount(Money(BigDecimal("1000")), CouponId(1L))
             }
 
-            // assert
+            // assert — 예외 발생 후 상태가 변경되지 않아야 한다
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(order.discountAmount).isEqualTo(originalDiscountAmount)
+            assertThat(order.totalPrice).isEqualTo(originalTotalPrice)
+            assertThat(order.refCouponId).isEqualTo(originalRefCouponId)
         }
 
         @Test
         @DisplayName("이미 할인이 적용된 주문에 재적용하면 BAD_REQUEST 예외가 발생한다")
         fun applyDiscount_alreadyDiscounted_throwsBadRequest() {
             // arrange
-            val order = Order.create(
-                UserId(1L),
-                listOf(
-                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
-                ),
-            )
+            val order = createStandardOrder()
             order.applyDiscount(Money(BigDecimal("1000")), CouponId(1L))
+            val discountAmountAfterFirstApply = order.discountAmount
+            val totalPriceAfterFirstApply = order.totalPrice
+            val couponIdAfterFirstApply = order.refCouponId
 
             // act
             val exception = assertThrows<CoreException> {
                 order.applyDiscount(Money(BigDecimal("2000")), CouponId(2L))
             }
 
-            // assert
+            // assert — 예외 발생 후 첫 번째 할인 상태가 유지되어야 한다
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(order.discountAmount).isEqualTo(discountAmountAfterFirstApply)
+            assertThat(order.totalPrice).isEqualTo(totalPriceAfterFirstApply)
+            assertThat(order.refCouponId).isEqualTo(couponIdAfterFirstApply)
         }
     }
 }

@@ -100,18 +100,32 @@ class GetProductsUseCacheTest @Autowired constructor(
         fun execute_differentBrandId_usesDifferentCacheKey() {
             assumeTrue(isRedisAvailable(), "Redis를 사용할 수 없는 환경 — 테스트 건너뜀")
 
-            // arrange — 충돌 방지를 위해 높은 값의 brandId 사용
-            saveProduct(brandId = 97L, name = "나이키 상품", price = BigDecimal("100000"))
+            // arrange — 두 브랜드의 상품을 저장하고 캐시를 워밍한다
+            val product97 = saveProduct(brandId = 97L, name = "나이키 상품", price = BigDecimal("100000"))
             saveProduct(brandId = 96L, name = "아디다스 상품", price = BigDecimal("90000"))
+            getProductsUseCase.execute(97L, "LATEST", 0, 10)
+            getProductsUseCase.execute(96L, "LATEST", 0, 10)
 
-            // act
+            // DB에서 brand 97의 상품명만 변경한다
+            productRepository.save(
+                Product(
+                    id = product97.id,
+                    refBrandId = product97.refBrandId,
+                    name = "변경된 나이키",
+                    price = product97.price,
+                    stock = product97.stock,
+                    status = product97.status,
+                    likeCount = product97.likeCount,
+                    deletedAt = product97.deletedAt,
+                ),
+            )
+
+            // act — evict 없이 재조회
             val brand97Result = getProductsUseCase.execute(97L, "LATEST", 0, 10)
             val brand96Result = getProductsUseCase.execute(96L, "LATEST", 0, 10)
 
-            // assert — 각각 독립된 캐시 키로 분리되어 다른 결과 반환
-            assertThat(brand97Result.content).hasSize(1)
+            // assert — brand 97은 캐시된 이전 값, brand 96은 오염되지 않음
             assertThat(brand97Result.content[0].name).isEqualTo("나이키 상품")
-            assertThat(brand96Result.content).hasSize(1)
             assertThat(brand96Result.content[0].name).isEqualTo("아디다스 상품")
         }
 
@@ -122,32 +136,32 @@ class GetProductsUseCacheTest @Autowired constructor(
 
             // arrange — 격리된 brandId로 상품 저장 후 1회 조회하여 캐시 적재
             val product = saveProduct(brandId = 98L, name = "에어맥스 90", price = BigDecimal("129000"))
-            val cached = getProductsUseCase.execute(98L, "LATEST", 0, 10)
-            assertThat(cached.content).hasSize(1)
-            assertThat(cached.content[0].name).isEqualTo("에어맥스 90")
+            getProductsUseCase.execute(98L, "LATEST", 0, 10)
 
             // DB에 수정된 상품 직접 저장
-            val updated = Product(
-                id = product.id,
-                refBrandId = product.refBrandId,
-                name = "에어맥스 95",
-                price = product.price,
-                stock = product.stock,
-                status = product.status,
-                likeCount = product.likeCount,
-                deletedAt = product.deletedAt,
+            productRepository.save(
+                Product(
+                    id = product.id,
+                    refBrandId = product.refBrandId,
+                    name = "에어맥스 95",
+                    price = product.price,
+                    stock = product.stock,
+                    status = product.status,
+                    likeCount = product.likeCount,
+                    deletedAt = product.deletedAt,
+                ),
             )
-            productRepository.save(updated)
 
-            // 캐시 수동 무효화
+            // assert — evict 전: 캐시에 저장된 이전 값이 반환된다
+            val beforeEvict = getProductsUseCase.execute(98L, "LATEST", 0, 10)
+            assertThat(beforeEvict.content[0].name).isEqualTo("에어맥스 90")
+
+            // act — 캐시 수동 무효화
             cacheManager.getCache("product:list")?.clear()
 
-            // act — 캐시 evict 후 재조회
-            val result = getProductsUseCase.execute(98L, "LATEST", 0, 10)
-
-            // assert
-            assertThat(result.content).hasSize(1)
-            assertThat(result.content[0].name).isEqualTo("에어맥스 95")
+            // assert — evict 후: DB의 최신 값이 반환된다
+            val afterEvict = getProductsUseCase.execute(98L, "LATEST", 0, 10)
+            assertThat(afterEvict.content[0].name).isEqualTo("에어맥스 95")
         }
     }
 }

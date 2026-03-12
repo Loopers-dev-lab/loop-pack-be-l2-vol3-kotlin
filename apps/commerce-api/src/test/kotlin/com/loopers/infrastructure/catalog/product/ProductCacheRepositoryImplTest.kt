@@ -143,6 +143,36 @@ class ProductCacheRepositoryImplTest @Autowired constructor(
         }
 
         @Test
+        @DisplayName("여러 페이지/정렬 조합이 있을 때 대상 브랜드와 all 키만 삭제되고 다른 브랜드는 유지된다")
+        fun evictList_multiplePageSortCombos_onlyTargetBrandAndAllRemoved() {
+            // arrange — 여러 브랜드 × 정렬 × 페이지 조합으로 키 적재
+            val brand10Keys = listOf(
+                "product:list::10:LATEST:0:20",
+                "product:list::10:LATEST:1:20",
+                "product:list::10:PRICE_ASC:0:20",
+            )
+            val brand20Keys = listOf(
+                "product:list::20:LATEST:0:20",
+                "product:list::20:PRICE_ASC:0:20",
+            )
+            val allKeys = listOf(
+                "product:list::all:LATEST:0:20",
+                "product:list::all:LATEST:1:20",
+            )
+            (brand10Keys + brand20Keys + allKeys).forEach {
+                redisTemplateMaster.opsForValue().set(it, "cached-data")
+            }
+
+            // act — brand 10만 evict
+            productCacheRepository.evictProductList(BrandId(10L))
+
+            // assert — brand 10과 all 키는 삭제, brand 20 키는 유지
+            brand10Keys.forEach { assertThat(redisTemplateMaster.hasKey(it)).isFalse() }
+            allKeys.forEach { assertThat(redisTemplateMaster.hasKey(it)).isFalse() }
+            brand20Keys.forEach { assertThat(redisTemplateMaster.hasKey(it)).isTrue() }
+        }
+
+        @Test
         @DisplayName("brandId가 null이면 모든 목록 캐시가 삭제된다")
         fun evictList_withNullBrandId_deletesAllListKeys() {
             // arrange
