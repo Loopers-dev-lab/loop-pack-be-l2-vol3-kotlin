@@ -1,6 +1,6 @@
 package com.loopers.application.product
 
-import com.loopers.support.PageResult
+import com.loopers.domain.product.ProductSortType
 
 interface ProductCacheStore {
 
@@ -10,9 +10,15 @@ interface ProductCacheStore {
 
     fun evictDetail(productId: Long)
 
-    fun getList(brandId: Long?, sort: String, page: Int, size: Int): PageResult<ProductInfo>?
+    fun getListIds(brandId: Long?, sort: ProductSortType, page: Int): ProductListCache?
 
-    fun putList(brandId: Long?, sort: String, page: Int, size: Int, result: PageResult<ProductInfo>)
+    fun putListIds(brandId: Long?, sort: ProductSortType, page: Int, cache: ProductListCache)
 
     fun evictAllLists()
+
+    fun getDetails(productIds: List<Long>): Map<Long, ProductInfo>
+
+    companion object {
+        const val MAX_CACHEABLE_PAGE = 2
+    }
 }
