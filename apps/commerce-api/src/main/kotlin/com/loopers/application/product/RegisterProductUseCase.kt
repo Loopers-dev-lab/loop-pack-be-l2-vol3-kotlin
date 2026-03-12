@@ -7,6 +7,7 @@ import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
+import com.loopers.support.transaction.AfterCommit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -38,7 +39,9 @@ class RegisterProductUseCase(
         )
         productStockRepository.save(productStock)
 
-        productCacheStore.evictAllLists()
+        AfterCommit.execute {
+            productCacheStore.evictAllLists()
+        }
 
         return ProductInfo.from(saved, brand.name, productStock.stock.quantity)
     }

@@ -3,6 +3,7 @@ package com.loopers.application.product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
+import com.loopers.support.transaction.AfterCommit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,7 +19,9 @@ class DeleteProductUseCase(
             ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
         product.delete()
 
-        productCacheStore.evictDetail(productId)
-        productCacheStore.evictAllLists()
+        AfterCommit.execute {
+            productCacheStore.evictDetail(productId)
+            productCacheStore.evictAllLists()
+        }
     }
 }

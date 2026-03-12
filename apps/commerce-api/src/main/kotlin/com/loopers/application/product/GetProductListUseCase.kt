@@ -45,6 +45,10 @@ class GetProductListUseCase(
 
             val orderedInfos = listCache.productIds.mapNotNull { details[it] }
 
+            if (orderedInfos.size < listCache.productIds.size) {
+                return queryAndCacheFromDb(command)
+            }
+
             return PageResult.of(
                 content = orderedInfos,
                 page = command.page,

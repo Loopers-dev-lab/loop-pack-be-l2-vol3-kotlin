@@ -5,6 +5,7 @@ import com.loopers.application.brand.RegisterBrandUseCase
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -21,11 +22,13 @@ class DeleteProductUseCaseTest @Autowired constructor(
     private val getProductUseCase: GetProductUseCase,
     private val registerBrandUseCase: RegisterBrandUseCase,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun registerBrand(name: String = "나이키"): Long {

@@ -6,6 +6,7 @@ import com.loopers.domain.product.ProductSortType
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -19,6 +20,11 @@ class ProductRedisCacheStoreTest @Autowired constructor(
     private val productRedisCacheStore: ProductRedisCacheStore,
     private val redisCleanUp: RedisCleanUp,
 ) {
+
+    @BeforeEach
+    fun setUp() {
+        redisCleanUp.truncateAll()
+    }
 
     @AfterEach
     fun tearDown() {

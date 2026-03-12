@@ -5,6 +5,7 @@ import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.LikeErrorCode
+import com.loopers.support.transaction.AfterCommit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -23,6 +24,9 @@ class CancelLikeUseCase(
         likeRepository.delete(like)
 
         productRepository.decreaseLikeCount(like.productId)
-        productCacheStore.evictDetail(like.productId)
+
+        AfterCommit.execute {
+            productCacheStore.evictDetail(like.productId)
+        }
     }
 }
