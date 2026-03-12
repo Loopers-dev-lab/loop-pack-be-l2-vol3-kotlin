@@ -2,6 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.model.Order
@@ -266,6 +267,51 @@ class OrderTest {
             // assert
             assertThat(order.discountAmount).isEqualTo(validDiscount)
             assertThat(order.totalPrice.value).isEqualByComparingTo(BigDecimal("19000"))
+        }
+
+        @Test
+        @DisplayName("CREATED 상태가 아닌 주문에 할인을 적용하면 BAD_REQUEST 예외가 발생한다")
+        fun applyDiscount_nonCreatedOrder_throwsBadRequest() {
+            // arrange
+            val order = Order.fromPersistence(
+                id = OrderId(1L),
+                refUserId = UserId(1L),
+                status = Order.OrderStatus.PAID,
+                originalPrice = Money(BigDecimal("20000")),
+                discountAmount = Money(BigDecimal.ZERO),
+                totalPrice = Money(BigDecimal("20000")),
+                refCouponId = null,
+                deletedAt = null,
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.applyDiscount(Money(BigDecimal("1000")), CouponId(1L))
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("이미 할인이 적용된 주문에 재적용하면 BAD_REQUEST 예외가 발생한다")
+        fun applyDiscount_alreadyDiscounted_throwsBadRequest() {
+            // arrange
+            val order = Order.create(
+                UserId(1L),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(2),
+                ),
+            )
+            order.applyDiscount(Money(BigDecimal("1000")), CouponId(1L))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.applyDiscount(Money(BigDecimal("2000")), CouponId(2L))
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

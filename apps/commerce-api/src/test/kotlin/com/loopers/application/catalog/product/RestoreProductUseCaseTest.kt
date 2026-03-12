@@ -102,6 +102,7 @@ class RestoreProductUseCaseTest {
             assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
             val updateEvent = event as ProductCacheEvent.DetailUpdated
             assertThat(updateEvent.product.id).isEqualTo(product.id)
+            assertThat(updateEvent.product.deletedAt).isNull()
             assertThat(updateEvent.evictList).isTrue()
         }
 

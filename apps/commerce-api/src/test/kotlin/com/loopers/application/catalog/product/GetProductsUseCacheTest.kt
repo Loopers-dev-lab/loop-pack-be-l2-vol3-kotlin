@@ -41,7 +41,7 @@ class GetProductsUseCacheTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
         try {
             redisCleanUp.truncateAll()
-        } catch (e: Exception) {
+        } catch (e: RedisConnectionFailureException) {
             // Redis 미사용 환경에서는 무시
         }
     }
@@ -67,19 +67,32 @@ class GetProductsUseCacheTest @Autowired constructor(
             assumeTrue(isRedisAvailable(), "Redis를 사용할 수 없는 환경 — 테스트 건너뜀")
 
             // arrange
-            saveProduct(brandId = 99L, name = "캐시테스트상품", price = BigDecimal("129000"))
+            val product = saveProduct(brandId = 99L, name = "캐시테스트상품", price = BigDecimal("129000"))
 
             // act — 1회차: DB 조회 후 캐시 저장
             val first = getProductsUseCase.execute(99L, "LATEST", 0, 10)
+            assertThat(first.content).hasSize(1)
+            assertThat(first.content[0].name).isEqualTo("캐시테스트상품")
 
-            // act — 2회차: 캐시 반환
+            // DB 데이터를 변경하여 캐시와 DB 불일치 상태를 만든다
+            val updated = Product(
+                id = product.id,
+                refBrandId = product.refBrandId,
+                name = "DB변경후상품",
+                price = product.price,
+                stock = product.stock,
+                status = product.status,
+                likeCount = product.likeCount,
+                deletedAt = product.deletedAt,
+            )
+            productRepository.save(updated)
+
+            // act — 2회차: DB가 변경되었어도 캐시에서 이전 값이 반환되어야 함
             val second = getProductsUseCase.execute(99L, "LATEST", 0, 10)
 
-            // assert — 두 결과가 일치함을 확인
-            assertThat(first.content).isNotEmpty
-            assertThat(second.content).hasSameSizeAs(first.content)
-            assertThat(second.content[0].name).isEqualTo(first.content[0].name)
-            assertThat(second.totalElements).isEqualTo(first.totalElements)
+            // assert — 캐시 적중 증명: DB 변경 후에도 캐시에 저장된 이전 이름이 반환된다
+            assertThat(second.content).hasSize(1)
+            assertThat(second.content[0].name).isEqualTo("캐시테스트상품")
         }
 
         @Test

@@ -95,6 +95,23 @@ class LikeUseCaseTest {
         }
 
         @Test
+        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 캐시 이벤트가 추가로 발행되지 않는다")
+        fun addLike_duplicate_doesNotPublishAdditionalEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+            useCase.execute(1L, productId)
+            val countAfterFirst = publishedEvents.size
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            assertThat(publishedEvents).hasSize(countAfterFirst)
+        }
+
+        @Test
         @DisplayName("삭제된 상품에 좋아요하면 NOT_FOUND 예외가 발생한다")
         fun addLike_deletedProduct_throwsNotFound() {
             // arrange

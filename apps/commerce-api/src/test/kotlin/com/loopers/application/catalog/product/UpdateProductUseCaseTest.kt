@@ -146,6 +146,7 @@ class UpdateProductUseCaseTest {
             assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
             val detailEvent = event as ProductCacheEvent.DetailUpdated
             assertThat(detailEvent.product.id).isEqualTo(product.id)
+            assertThat(detailEvent.product.name).isEqualTo("에어맥스 95")
         }
 
         @Test

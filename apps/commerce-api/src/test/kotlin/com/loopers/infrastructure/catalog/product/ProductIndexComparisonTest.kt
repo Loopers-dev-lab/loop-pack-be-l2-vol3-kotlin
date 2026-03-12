@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -17,7 +18,8 @@ import javax.sql.DataSource
 import kotlin.math.pow
 import kotlin.random.Random
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Tag("benchmark")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ProductIndexComparisonTest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -185,6 +187,8 @@ class ProductIndexComparisonTest @Autowired constructor(
     private fun measureActualTime(sql: String, warmup: Int = 1, runs: Int = 10): Double {
         repeat(warmup) { explainAnalyze(sql) }
         val times = (1..runs).mapNotNull { parseActualTime(explainAnalyze(sql)) }
+        check(times.size == runs) { "actual time 파싱 실패: 기대 ${runs}건, 실제 ${times.size}건 - SQL: $sql" }
+        check(times.all { it.isFinite() }) { "유효하지 않은 actual time: $times" }
         return times.average()
     }
 

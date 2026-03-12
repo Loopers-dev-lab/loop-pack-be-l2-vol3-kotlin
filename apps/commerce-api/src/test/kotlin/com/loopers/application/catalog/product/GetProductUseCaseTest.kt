@@ -162,7 +162,8 @@ class GetProductUseCaseTest {
             // assert
             val cached = cacheRepository.findProductDetail(product.id)
             assertThat(cached).isNotNull()
-            assertThat(cached!!.name).isEqualTo("에어맥스 90")
+            val cachedProduct = requireNotNull(cached) { "캐시된 상품이 null입니다" }
+            assertThat(cachedProduct.name).isEqualTo("에어맥스 90")
         }
 
         @Test

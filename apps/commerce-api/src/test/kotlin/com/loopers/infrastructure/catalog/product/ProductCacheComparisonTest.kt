@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
@@ -23,7 +24,8 @@ import org.springframework.data.redis.RedisConnectionFailureException
 import java.math.BigDecimal
 import kotlin.system.measureTimeMillis
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Tag("benchmark")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ProductCacheComparisonTest @Autowired constructor(
     private val getProductUseCase: GetProductUseCase,
     private val getProductsUseCase: GetProductsUseCase,
@@ -50,7 +52,7 @@ class ProductCacheComparisonTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
         try {
             redisCleanUp.truncateAll()
-        } catch (e: Exception) {
+        } catch (e: RedisConnectionFailureException) {
             // Redis 미사용 환경에서는 무시
         }
     }

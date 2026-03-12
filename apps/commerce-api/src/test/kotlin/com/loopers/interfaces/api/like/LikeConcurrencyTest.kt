@@ -145,6 +145,20 @@ class LikeConcurrencyTest @Autowired constructor(
                     .isTrue()
             }
 
+            // 사전 상태 검증: 동시 취소 시작 전 likeCount가 concurrentUsers와 일치해야 함
+            val preCheckResponse = testRestTemplate.exchange(
+                "/api-admin/v1/products/$productId",
+                HttpMethod.GET,
+                HttpEntity<Any>(adminHeaders()),
+                MAP_TYPE,
+            )
+            val preCheckBody = requireNotNull(preCheckResponse.body) { "사전 검증 응답 body가 null입니다" }
+            val preCheckData = requireNotNull(preCheckBody.data) { "사전 검증 응답 data가 null입니다" }
+            val preCheckLikeCount = (preCheckData["likeCount"] as Number).toInt()
+            assertThat(preCheckLikeCount)
+                .describedAs("동시 취소 시작 전 likeCount가 ${concurrentUsers}이어야 합니다")
+                .isEqualTo(concurrentUsers)
+
             val executorService = Executors.newFixedThreadPool(concurrentUsers)
             val readyLatch = CountDownLatch(concurrentUsers)
             val startLatch = CountDownLatch(1)

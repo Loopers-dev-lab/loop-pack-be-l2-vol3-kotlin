@@ -19,7 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
 import java.math.BigDecimal
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ProductCacheRepositoryImplTest @Autowired constructor(
     private val productCacheRepository: ProductCacheRepository,
     private val redisCleanUp: RedisCleanUp,
@@ -53,14 +53,14 @@ class ProductCacheRepositoryImplTest @Autowired constructor(
             val found = productCacheRepository.findProductDetail(ProductId(1L))
 
             // assert
-            assertThat(found).isNotNull
-            assertThat(found!!.id).isEqualTo(ProductId(1L))
-            assertThat(found.refBrandId).isEqualTo(BrandId(10L))
-            assertThat(found.name).isEqualTo("에어맥스 90")
-            assertThat(found.price).isEqualTo(Money(BigDecimal("129000")))
-            assertThat(found.stock).isEqualTo(Stock(100))
-            assertThat(found.status).isEqualTo(Product.ProductStatus.ON_SALE)
-            assertThat(found.likeCount).isEqualTo(0)
+            val actual = requireNotNull(found) { "캐시 조회 결과가 null입니다" }
+            assertThat(actual.id).isEqualTo(ProductId(1L))
+            assertThat(actual.refBrandId).isEqualTo(BrandId(10L))
+            assertThat(actual.name).isEqualTo("에어맥스 90")
+            assertThat(actual.price).isEqualTo(Money(BigDecimal("129000")))
+            assertThat(actual.stock).isEqualTo(Stock(100))
+            assertThat(actual.status).isEqualTo(Product.ProductStatus.ON_SALE)
+            assertThat(actual.likeCount).isEqualTo(0)
         }
 
         @Test
