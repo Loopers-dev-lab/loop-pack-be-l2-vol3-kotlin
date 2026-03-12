@@ -11,7 +11,7 @@ server:
   max-http-request-header-size: 8KB
 
 cache:
-  mode: ${CACHE_MODE:redis}
+  mode: ${CACHE_MODE:layered}
 
 spring:
   main:
