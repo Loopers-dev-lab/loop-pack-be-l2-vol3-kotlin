@@ -4,7 +4,7 @@ import com.loopers.application.order.OrderItemCriteria
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
-import com.loopers.infrastructure.product.ProductCacheRepository
+import com.loopers.infrastructure.product.ProductCacheService
 import com.loopers.support.cache.CachedPage
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional
 class ProductService(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
-    private val productCacheRepository: ProductCacheRepository,
+    private val productCacheService: ProductCacheService,
 ) {
 
     @Transactional(readOnly = true)
@@ -28,11 +28,11 @@ class ProductService(
 
     @Transactional(readOnly = true)
     fun getProductInfo(productId: Long): ProductInfo {
-        val cached = productCacheRepository.getProductDetail(productId)
+        val cached = productCacheService.getProductDetail(productId)
         if (cached != null) return cached
 
         val info = ProductInfo.from(getProduct(productId))
-        productCacheRepository.setProductDetail(productId, info)
+        productCacheService.setProductDetail(productId, info)
         return info
     }
 
@@ -46,7 +46,7 @@ class ProductService(
     @Transactional(readOnly = true)
     fun getAllProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> {
         val sortString = pageable.sort.toString()
-        val cached = productCacheRepository.getProductList(brandId, sortString, pageable.pageNumber, pageable.pageSize)
+        val cached = productCacheService.getProductList(brandId, sortString, pageable.pageNumber, pageable.pageSize)
         if (cached != null) return cached.toPage()
 
         val products = if (brandId != null) {
@@ -55,7 +55,7 @@ class ProductService(
             productRepository.findAll(pageable)
         }
         val result = products.map { ProductInfo.from(it) }
-        productCacheRepository.setProductList(
+        productCacheService.setProductList(
             brandId,
             sortString,
             pageable.pageNumber,
@@ -80,7 +80,7 @@ class ProductService(
                 imageUrl = criteria.imageUrl,
             ),
         )
-        productCacheRepository.evictAllProductLists()
+        productCacheService.evictAllProductLists()
         return ProductInfo.from(product)
     }
 
@@ -96,8 +96,8 @@ class ProductService(
             imageUrl = criteria.imageUrl,
         )
         val savedProduct = productRepository.save(product)
-        productCacheRepository.evictProductDetail(productId)
-        productCacheRepository.evictAllProductLists()
+        productCacheService.evictProductDetail(productId)
+        productCacheService.evictAllProductLists()
         return ProductInfo.from(savedProduct)
     }
 
@@ -107,22 +107,22 @@ class ProductService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.delete()
         productRepository.save(product)
-        productCacheRepository.evictProductDetail(productId)
-        productCacheRepository.evictAllProductLists()
+        productCacheService.evictProductDetail(productId)
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional
     fun incrementLikeCount(productId: Long) {
         productRepository.incrementLikeCount(productId)
-        productCacheRepository.evictProductDetail(productId)
-        productCacheRepository.evictAllProductLists()
+        productCacheService.evictProductDetail(productId)
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional
     fun decrementLikeCount(productId: Long) {
         productRepository.decrementLikeCount(productId)
-        productCacheRepository.evictProductDetail(productId)
-        productCacheRepository.evictAllProductLists()
+        productCacheService.evictProductDetail(productId)
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional

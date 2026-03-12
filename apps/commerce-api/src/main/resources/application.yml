@@ -10,6 +10,9 @@ server:
     keep-alive-timeout: 60s # 60s
   max-http-request-header-size: 8KB
 
+cache:
+  mode: ${CACHE_MODE:redis}
+
 spring:
   main:
     web-application-type: servlet
