@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class DeleteProductUseCase(
     private val productRepository: ProductRepository,
+    private val productCachePort: ProductCachePort,
 ) {
     @Transactional
     fun delete(id: Long) {
@@ -21,5 +22,6 @@ class DeleteProductUseCase(
 
         val deletedProduct = product.delete()
         productRepository.save(deletedProduct)
+        productCachePort.evictProductDetail(id)
     }
 }
