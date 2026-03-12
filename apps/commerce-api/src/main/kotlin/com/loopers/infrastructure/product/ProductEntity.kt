@@ -7,12 +7,20 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import java.time.ZonedDateTime
 
 @Entity
-@Table(name = "product")
+@Table(
+    name = "product",
+    indexes = [
+        Index(name = "idx_product_brand_created", columnList = "brand_id, created_at"),
+        Index(name = "idx_product_brand_like_count", columnList = "brand_id, like_count"),
+        Index(name = "idx_product_brand_price", columnList = "brand_id, price"),
+    ],
+)
 class ProductEntity(
     id: Long?,
 
