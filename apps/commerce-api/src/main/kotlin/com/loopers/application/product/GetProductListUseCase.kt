@@ -6,6 +6,7 @@ import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.PageResult
 import org.springframework.stereotype.Component
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 
 @Component
@@ -14,8 +15,12 @@ class GetProductListUseCase(
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
     private val productCacheStore: ProductCacheStore,
-    private val transactionTemplate: TransactionTemplate,
+    transactionManager: PlatformTransactionManager,
 ) {
+
+    private val readOnlyTx = TransactionTemplate(transactionManager).apply {
+        isReadOnly = true
+    }
 
     fun execute(command: ProductCommand.Search): PageResult<ProductInfo> {
         if (command.includeDeleted || !isCacheable(command.page)) {
@@ -85,7 +90,7 @@ class GetProductListUseCase(
     }
 
     private fun queryFromDbWithTx(command: ProductCommand.Search): PageResult<ProductInfo> {
-        return requireNotNull(transactionTemplate.execute { queryFromDb(command) })
+        return requireNotNull(readOnlyTx.execute { queryFromDb(command) })
     }
 
     private fun queryFromDb(command: ProductCommand.Search): PageResult<ProductInfo> {
@@ -129,7 +134,7 @@ class GetProductListUseCase(
     }
 
     private fun loadAndCacheDetailsWithTx(productIds: List<Long>): Map<Long, ProductInfo> {
-        return transactionTemplate.execute { loadAndCacheDetails(productIds) } ?: emptyMap()
+        return readOnlyTx.execute { loadAndCacheDetails(productIds) } ?: emptyMap()
     }
 
     private fun loadAndCacheDetails(productIds: List<Long>): Map<Long, ProductInfo> {

@@ -6,6 +6,7 @@ import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
 import org.springframework.stereotype.Component
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 
 @Component
@@ -14,14 +15,18 @@ class GetProductUseCase(
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
     private val productCacheStore: ProductCacheStore,
-    private val transactionTemplate: TransactionTemplate,
+    transactionManager: PlatformTransactionManager,
 ) {
+
+    private val readOnlyTx = TransactionTemplate(transactionManager).apply {
+        isReadOnly = true
+    }
 
     fun execute(productId: Long): ProductInfo {
         val cached = productCacheStore.getDetail(productId)
         if (cached != null) return cached
 
-        return requireNotNull(transactionTemplate.execute { loadFromDb(productId) })
+        return requireNotNull(readOnlyTx.execute { loadFromDb(productId) })
     }
 
     private fun loadFromDb(productId: Long): ProductInfo {
