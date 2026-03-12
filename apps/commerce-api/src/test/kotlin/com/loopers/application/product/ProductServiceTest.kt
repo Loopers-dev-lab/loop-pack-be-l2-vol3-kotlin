@@ -420,7 +420,7 @@ class ProductServiceTest {
                 { assertThat(result.stock).isEqualTo(50) },
                 { assertThat(result.description).isEqualTo("나이키 에어포스 1") },
                 { assertThat(result.imageUrl).isEqualTo("https://example.com/airforce1.jpg") },
-                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
                 { verify(productCacheService).evictAllProductLists() },
             )
         }
@@ -497,11 +497,17 @@ class ProductServiceTest {
     @Nested
     inner class IncrementLikeCount {
 
-        @DisplayName("productId로 호출하면, Repository의 incrementLikeCount가 호출된다.")
+        @DisplayName("productId로 호출하면, Repository의 incrementLikeCount가 호출되고 캐시가 교체된다.")
         @Test
         fun callsRepositoryIncrementLikeCount() {
             // arrange
             val productId = 1L
+            val now = ZonedDateTime.now()
+            val product = createProduct(id = productId)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productRepository.findById(productId)).thenReturn(product)
 
             // act
             productService.incrementLikeCount(productId)
@@ -509,7 +515,7 @@ class ProductServiceTest {
             // assert
             assertAll(
                 { verify(productRepository).incrementLikeCount(productId) },
-                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
                 { verify(productCacheService).evictAllProductLists() },
             )
         }
@@ -519,11 +525,17 @@ class ProductServiceTest {
     @Nested
     inner class DecrementLikeCount {
 
-        @DisplayName("productId로 호출하면, Repository의 decrementLikeCount가 호출된다.")
+        @DisplayName("productId로 호출하면, Repository의 decrementLikeCount가 호출되고 캐시가 교체된다.")
         @Test
         fun callsRepositoryDecrementLikeCount() {
             // arrange
             val productId = 1L
+            val now = ZonedDateTime.now()
+            val product = createProduct(id = productId)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productRepository.findById(productId)).thenReturn(product)
 
             // act
             productService.decrementLikeCount(productId)
@@ -531,7 +543,7 @@ class ProductServiceTest {
             // assert
             assertAll(
                 { verify(productRepository).decrementLikeCount(productId) },
-                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
                 { verify(productCacheService).evictAllProductLists() },
             )
         }

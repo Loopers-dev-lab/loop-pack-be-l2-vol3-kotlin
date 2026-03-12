@@ -96,7 +96,7 @@ class ProductService(
             imageUrl = criteria.imageUrl,
         )
         val savedProduct = productRepository.save(product)
-        productCacheService.evictProductDetail(productId)
+        productCacheService.setProductDetail(productId, ProductInfo.from(savedProduct))
         productCacheService.evictAllProductLists()
         return ProductInfo.from(savedProduct)
     }
@@ -114,14 +114,20 @@ class ProductService(
     @Transactional
     fun incrementLikeCount(productId: Long) {
         productRepository.incrementLikeCount(productId)
-        productCacheService.evictProductDetail(productId)
+        val product = productRepository.findById(productId)
+        if (product != null) {
+            productCacheService.setProductDetail(productId, ProductInfo.from(product))
+        }
         productCacheService.evictAllProductLists()
     }
 
     @Transactional
     fun decrementLikeCount(productId: Long) {
         productRepository.decrementLikeCount(productId)
-        productCacheService.evictProductDetail(productId)
+        val product = productRepository.findById(productId)
+        if (product != null) {
+            productCacheService.setProductDetail(productId, ProductInfo.from(product))
+        }
         productCacheService.evictAllProductLists()
     }
 
