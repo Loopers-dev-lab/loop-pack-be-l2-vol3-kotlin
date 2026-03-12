@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetProductsUseCase(private val productRepository: ProductRepository) {
     @Cacheable(
         cacheNames = ["product:list"],
-        key = "(#brandId ?: 'all') + ':' + #sort + ':' + #page + ':' + #size",
+        key = "(#brandId ?: 'all') + ':' + #sort.toUpperCase(T(java.util.Locale).ROOT) + ':' + #page + ':' + #size",
         sync = true,
     )
     @Transactional(readOnly = true)

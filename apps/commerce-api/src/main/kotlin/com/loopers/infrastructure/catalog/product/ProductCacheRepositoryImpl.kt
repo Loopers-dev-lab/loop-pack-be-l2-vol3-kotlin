@@ -45,10 +45,13 @@ class ProductCacheRepositoryImpl(
         return try {
             objectMapper.readValue(json, ProductCacheDto::class.java).toDomain()
         } catch (e: Exception) {
-            log.warn("Redis 캐시 역직렬화 실패, 키 삭제 [key={}]: {}", key, e.message)
+            log.warn("Redis 캐시 역직렬화 실패 [key={}]: {}", key, e.message)
             try {
                 redisTemplateMaster.delete(key)
-            } catch (ignored: Exception) { }
+                log.warn("손상된 Redis 캐시 키 삭제 완료 [key={}]", key)
+            } catch (deleteException: Exception) {
+                log.warn("손상된 Redis 캐시 키 삭제 실패 [key={}]: {}", key, deleteException.message)
+            }
             null
         }
     }
