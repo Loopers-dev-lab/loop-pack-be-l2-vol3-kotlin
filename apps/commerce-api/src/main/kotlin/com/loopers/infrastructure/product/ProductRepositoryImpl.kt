@@ -32,7 +32,7 @@ class ProductRepositoryImpl(
         val content = queryFactory
             .selectFrom(product)
             .where(*whereClause.toTypedArray())
-            .orderBy(orderBy)
+            .orderBy(*orderBy)
             .offset((condition.page * condition.size).toLong())
             .limit(condition.size.toLong())
             .fetch()
@@ -95,11 +95,12 @@ class ProductRepositoryImpl(
         return predicates
     }
 
-    private fun buildOrderBy(sortType: ProductSortType): OrderSpecifier<*> {
-        return when (sortType) {
+    private fun buildOrderBy(sortType: ProductSortType): Array<OrderSpecifier<*>> {
+        val primary = when (sortType) {
             ProductSortType.LATEST -> product.createdAt.desc()
             ProductSortType.PRICE_ASC -> product.price.amount.asc()
             ProductSortType.LIKE_COUNT -> product.likeCount.desc()
         }
+        return arrayOf(primary, product.id.desc())
     }
 }
