@@ -13,10 +13,14 @@ class GetProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional(readOnly = true)
     fun execute(productId: Long): ProductInfo {
+        val cached = productCacheStore.getDetail(productId)
+        if (cached != null) return cached
+
         val product = productRepository.findActiveByIdOrNull(productId)
             ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
 
@@ -25,6 +29,8 @@ class GetProductUseCase(
 
         val stock = productStockRepository.findByProductId(productId)?.stock?.quantity ?: 0
 
-        return ProductInfo.from(product, brandName, stock)
+        val productInfo = ProductInfo.from(product, brandName, stock)
+        productCacheStore.putDetail(productId, productInfo)
+        return productInfo
     }
 }

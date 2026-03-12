@@ -2,8 +2,8 @@ package com.loopers.application.product
 
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
-import com.loopers.domain.product.ProductStockRepository
 import com.loopers.domain.product.ProductSearchCondition
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.PageResult
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -13,10 +13,19 @@ class GetProductListUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional(readOnly = true)
     fun execute(command: ProductCommand.Search): PageResult<ProductInfo> {
+        val cached = productCacheStore.getList(
+            brandId = command.brandId,
+            sort = command.sort.name,
+            page = command.page,
+            size = command.size,
+        )
+        if (cached != null) return cached
+
         val condition = ProductSearchCondition(
             brandId = command.brandId,
             sort = command.sort,
@@ -48,11 +57,21 @@ class GetProductListUseCase(
             ProductInfo.from(product, brandName, stock)
         }
 
-        return PageResult.of(
+        val result = PageResult.of(
             content = productInfos,
             page = pageResult.page,
             size = pageResult.size,
             totalElements = pageResult.totalElements,
         )
+
+        productCacheStore.putList(
+            brandId = command.brandId,
+            sort = command.sort.name,
+            page = command.page,
+            size = command.size,
+            result = result,
+        )
+
+        return result
     }
 }
