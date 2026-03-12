@@ -2,6 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.domain.product.Money
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.Stock
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.OrderErrorCode
@@ -22,7 +23,6 @@ class OrderValidatorTest {
         brandId: Long = 1L,
         name: String = "테스트 상품",
         price: Money = Money(10000),
-        stock: Stock = Stock(100),
         deleted: Boolean = false,
     ): Product {
         val product = Product.create(
@@ -30,15 +30,21 @@ class OrderValidatorTest {
             name = name,
             description = "상품 설명",
             price = price,
-            stock = stock,
             imageUrl = "https://example.com/image.jpg",
         )
         if (deleted) product.delete()
-        // id를 세팅하기 위해 리플렉션 사용 (테스트 전용)
         val idField = product.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(product, id)
         return product
+    }
+
+    private fun createProductStock(productId: Long, stock: Stock): ProductStock {
+        val productStock = ProductStock.create(productId = productId, stock = stock)
+        val idField = productStock.javaClass.getDeclaredField("id")
+        idField.isAccessible = true
+        idField.set(productStock, productId)
+        return productStock
     }
 
     private fun orderLine(productId: Long = 1L, quantity: Int = 1): OrderLine {
@@ -54,18 +60,22 @@ class OrderValidatorTest {
         fun successWhenAllValid() {
             val lines = listOf(orderLine(1L, 2), orderLine(2L, 3))
             val products = mapOf(
-                1L to createProduct(id = 1L, stock = Stock(10)),
-                2L to createProduct(id = 2L, stock = Stock(10)),
+                1L to createProduct(id = 1L),
+                2L to createProduct(id = 2L),
+            )
+            val stocks = mapOf(
+                1L to createProductStock(1L, Stock(10)),
+                2L to createProductStock(2L, Stock(10)),
             )
 
-            assertDoesNotThrow { validator.validate(lines, products) }
+            assertDoesNotThrow { validator.validate(lines, products, stocks) }
         }
 
         @DisplayName("빈 주문 항목이면 EMPTY_ORDER_ITEMS 예외가 발생한다")
         @Test
         fun failWhenEmpty() {
             val exception = assertThrows<CoreException> {
-                validator.validate(emptyList(), emptyMap())
+                validator.validate(emptyList(), emptyMap(), emptyMap())
             }
 
             assertThat(exception.errorCode).isEqualTo(OrderErrorCode.EMPTY_ORDER_ITEMS)
@@ -78,7 +88,7 @@ class OrderValidatorTest {
             val products = mapOf(1L to createProduct(id = 1L))
 
             val exception = assertThrows<CoreException> {
-                validator.validate(lines, products)
+                validator.validate(lines, products, emptyMap())
             }
 
             assertThat(exception.errorCode).isEqualTo(OrderErrorCode.DUPLICATE_ORDER_ITEM)
@@ -91,7 +101,7 @@ class OrderValidatorTest {
             val products = (1L..21L).associateWith { createProduct(id = it) }
 
             val exception = assertThrows<CoreException> {
-                validator.validate(lines, products)
+                validator.validate(lines, products, emptyMap())
             }
 
             assertThat(exception.errorCode).isEqualTo(OrderErrorCode.EXCEED_MAX_ORDER_TYPES)
@@ -101,10 +111,10 @@ class OrderValidatorTest {
         @Test
         fun failWhenExceedMaxQuantity() {
             val lines = listOf(orderLine(1L, 100))
-            val products = mapOf(1L to createProduct(id = 1L, stock = Stock(200)))
+            val products = mapOf(1L to createProduct(id = 1L))
 
             val exception = assertThrows<CoreException> {
-                validator.validate(lines, products)
+                validator.validate(lines, products, emptyMap())
             }
 
             assertThat(exception.errorCode).isEqualTo(OrderErrorCode.EXCEED_MAX_ORDER_QUANTITY)
@@ -117,7 +127,7 @@ class OrderValidatorTest {
             val products = emptyMap<Long, Product>()
 
             val exception = assertThrows<OrderValidationException> {
-                validator.validate(lines, products)
+                validator.validate(lines, products, emptyMap())
             }
 
             assertThat(exception.errors).hasSize(1)
@@ -131,7 +141,7 @@ class OrderValidatorTest {
             val products = mapOf(1L to createProduct(id = 1L, deleted = true))
 
             val exception = assertThrows<OrderValidationException> {
-                validator.validate(lines, products)
+                validator.validate(lines, products, emptyMap())
             }
 
             assertThat(exception.errors).hasSize(1)
@@ -142,10 +152,11 @@ class OrderValidatorTest {
         @Test
         fun collectErrorWhenInsufficientStock() {
             val lines = listOf(orderLine(1L, 10))
-            val products = mapOf(1L to createProduct(id = 1L, stock = Stock(5)))
+            val products = mapOf(1L to createProduct(id = 1L))
+            val stocks = mapOf(1L to createProductStock(1L, Stock(5)))
 
             val exception = assertThrows<OrderValidationException> {
-                validator.validate(lines, products)
+                validator.validate(lines, products, stocks)
             }
 
             assertThat(exception.errors).hasSize(1)
@@ -158,11 +169,12 @@ class OrderValidatorTest {
             val lines = listOf(orderLine(1L, 1), orderLine(2L, 10))
             val products = mapOf(
                 1L to createProduct(id = 1L, deleted = true),
-                2L to createProduct(id = 2L, stock = Stock(5)),
+                2L to createProduct(id = 2L),
             )
+            val stocks = mapOf(2L to createProductStock(2L, Stock(5)))
 
             val exception = assertThrows<OrderValidationException> {
-                validator.validate(lines, products)
+                validator.validate(lines, products, stocks)
             }
 
             assertThat(exception.errors).hasSize(2)

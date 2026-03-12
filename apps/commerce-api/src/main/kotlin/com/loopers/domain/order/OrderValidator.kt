@@ -1,6 +1,7 @@
 package com.loopers.domain.order
 
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductStock
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.OrderErrorCode
 import com.loopers.support.error.OrderValidationError
@@ -15,7 +16,11 @@ class OrderValidator {
         private const val MAX_ORDER_QUANTITY = 99
     }
 
-    fun validate(orderLines: List<OrderLine>, productMap: Map<Long, Product>) {
+    fun validate(
+        orderLines: List<OrderLine>,
+        productMap: Map<Long, Product>,
+        productStockMap: Map<Long, ProductStock>,
+    ) {
         val errors = mutableListOf<OrderValidationError>()
 
         if (orderLines.isEmpty()) {
@@ -60,12 +65,14 @@ class OrderValidator {
                 return@forEach
             }
 
-            if (product.stock.quantity < line.quantity.value) {
+            val productStock = productStockMap[line.productId]
+            val stockQuantity = productStock?.stock?.quantity ?: 0
+            if (stockQuantity < line.quantity.value) {
                 errors.add(
                     OrderValidationError(
                         productId = line.productId,
                         reason = "INSUFFICIENT_STOCK",
-                        detail = "재고가 부족합니다. (요청: ${line.quantity.value}개, 잔여: ${product.stock.quantity}개)",
+                        detail = "재고가 부족합니다. (요청: ${line.quantity.value}개, 잔여: ${stockQuantity}개)",
                     ),
                 )
             }

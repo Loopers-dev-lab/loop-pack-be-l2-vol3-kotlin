@@ -1,7 +1,11 @@
 package com.loopers.interfaces.api
 
+import com.loopers.domain.coupon.CouponType
 import com.loopers.interfaces.api.admin.brand.AdminBrandRegisterRequest
 import com.loopers.interfaces.api.admin.brand.AdminBrandResponse
+import com.loopers.interfaces.api.admin.coupon.AdminCouponRegisterRequest
+import com.loopers.interfaces.api.admin.coupon.AdminCouponResponse
+import com.loopers.interfaces.api.coupon.UserCouponResponse
 import com.loopers.interfaces.api.admin.product.AdminProductRegisterRequest
 import com.loopers.interfaces.api.admin.product.AdminProductResponse
 import com.loopers.interfaces.api.order.OrderCreateRequest
@@ -13,6 +17,7 @@ import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.support.PageResult
 import com.loopers.support.constant.ApiPaths
 import com.loopers.support.constant.AuthHeaders
+import com.loopers.support.error.CouponErrorCode
 import com.loopers.support.error.OrderErrorCode
 import com.loopers.support.error.UserErrorCode
 import com.loopers.testcontainers.MySqlTestContainersConfig
@@ -33,6 +38,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig::class)
@@ -118,11 +124,46 @@ class OrderV1ApiE2ETest @Autowired constructor(
         )
     }
 
+    private fun registerCouponViaAdmin(
+        name: String = "테스트쿠폰",
+        type: CouponType = CouponType.FIXED,
+        value: Long = 3000,
+        minOrderAmount: Long? = null,
+    ): AdminCouponResponse {
+        val request = AdminCouponRegisterRequest(
+            name = name,
+            type = type,
+            value = value,
+            minOrderAmount = minOrderAmount,
+            expiredAt = ZonedDateTime.now().plusDays(30),
+        )
+        val responseType = object : ParameterizedTypeReference<ApiResponse<AdminCouponResponse>>() {}
+        val response = testRestTemplate.exchange(
+            ApiPaths.AdminCoupons.BASE,
+            HttpMethod.POST,
+            HttpEntity(request, adminHeaders()),
+            responseType,
+        )
+        return requireNotNull(response.body?.data)
+    }
+
+    private fun issueCoupon(couponId: Long, headers: HttpHeaders = userHeaders()): UserCouponResponse {
+        val responseType = object : ParameterizedTypeReference<ApiResponse<UserCouponResponse>>() {}
+        val response = testRestTemplate.exchange(
+            "${ApiPaths.Coupons.BASE}/$couponId/issue",
+            HttpMethod.POST,
+            HttpEntity<Void>(headers),
+            responseType,
+        )
+        return requireNotNull(response.body?.data)
+    }
+
     private fun createOrder(
         items: List<OrderItemRequest>,
         headers: HttpHeaders = userHeaders(),
+        couponId: Long? = null,
     ): OrderCreateResponse? {
-        val request = OrderCreateRequest(items = items)
+        val request = OrderCreateRequest(items = items, couponId = couponId)
         val responseType = object : ParameterizedTypeReference<ApiResponse<OrderCreateResponse>>() {}
         val response = testRestTemplate.exchange(
             ApiPaths.Orders.BASE,
@@ -157,7 +198,61 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED) },
+                { assertThat(response.body?.data?.originalAmount).isEqualTo(30000) },
+                { assertThat(response.body?.data?.discountAmount).isEqualTo(0) },
                 { assertThat(response.body?.data?.totalAmount).isEqualTo(30000) },
+            )
+        }
+
+        @DisplayName("쿠폰 적용 주문 시 할인이 반영된다")
+        @Test
+        fun successWithCoupon() {
+            registerUser()
+            val brand = registerBrandViaAdmin()
+            val product = registerProductViaAdmin(brand.id, price = 10000, stock = 50)
+            val coupon = registerCouponViaAdmin(value = 5000)
+            val userCoupon = issueCoupon(coupon.id)
+
+            val order = createOrder(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 3)),
+                couponId = userCoupon.id,
+            )
+
+            assertAll(
+                { assertThat(order?.originalAmount).isEqualTo(30000) },
+                { assertThat(order?.discountAmount).isEqualTo(5000) },
+                { assertThat(order?.totalAmount).isEqualTo(25000) },
+            )
+        }
+
+        @DisplayName("이미 사용된 쿠폰으로 주문하면 400을 반환한다")
+        @Test
+        fun failWhenCouponAlreadyUsed() {
+            registerUser()
+            val brand = registerBrandViaAdmin()
+            val product = registerProductViaAdmin(brand.id, price = 10000, stock = 50)
+            val coupon = registerCouponViaAdmin(value = 1000)
+            val userCoupon = issueCoupon(coupon.id)
+
+            createOrder(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                couponId = userCoupon.id,
+            )
+
+            val request = OrderCreateRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+                couponId = userCoupon.id,
+            )
+            val response = testRestTemplate.exchange(
+                ApiPaths.Orders.BASE,
+                HttpMethod.POST,
+                HttpEntity(request, userHeaders()),
+                ApiResponse::class.java,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.body?.meta?.errorCode).isEqualTo(CouponErrorCode.COUPON_ALREADY_USED.code) },
             )
         }
 

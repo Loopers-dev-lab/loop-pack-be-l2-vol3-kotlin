@@ -7,6 +7,7 @@ object ApiPaths {
         const val REGISTER = BASE
         const val ME = "$BASE/me"
         const val ME_PASSWORD = "$BASE/me/password"
+        const val ME_COUPONS = "$BASE/me/coupons"
     }
 
     object Brands {
@@ -44,6 +45,17 @@ object ApiPaths {
     object AdminOrders {
         const val BASE = "/api/admin/v1/orders"
         const val BY_ID = "$BASE/{orderId}"
+    }
+
+    object Coupons {
+        const val BASE = "/api/v1/coupons"
+        const val ISSUE = "$BASE/{couponId}/issue"
+    }
+
+    object AdminCoupons {
+        const val BASE = "/api/admin/v1/coupons"
+        const val BY_ID = "$BASE/{couponId}"
+        const val ISSUES = "$BASE/{couponId}/issues"
     }
 
     object Examples {

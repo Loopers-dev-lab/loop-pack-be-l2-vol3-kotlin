@@ -10,6 +10,7 @@ data class OrderCreateRequest(
     @field:NotEmpty(message = "주문 항목은 비어있을 수 없습니다.")
     @field:Valid
     val items: List<OrderItemRequest>,
+    val couponId: Long? = null,
 ) {
     fun toCommand(userId: Long): OrderCommand.Create {
         return OrderCommand.Create(
@@ -20,6 +21,7 @@ data class OrderCreateRequest(
                     quantity = requireNotNull(it.quantity),
                 )
             },
+            couponId = couponId,
         )
     }
 }

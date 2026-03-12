@@ -7,6 +7,8 @@ import java.time.ZonedDateTime
 data class AdminOrderDetailResponse(
     val orderId: Long,
     val userId: Long,
+    val originalAmount: Long,
+    val discountAmount: Long,
     val totalAmount: Long,
     val status: String,
     val orderedAt: ZonedDateTime,
@@ -17,6 +19,8 @@ data class AdminOrderDetailResponse(
             return AdminOrderDetailResponse(
                 orderId = info.orderId,
                 userId = info.userId,
+                originalAmount = info.originalAmount,
+                discountAmount = info.discountAmount,
                 totalAmount = info.totalAmount,
                 status = info.status,
                 orderedAt = info.orderedAt,

@@ -20,7 +20,6 @@ class CancelLikeUseCase(
 
         likeRepository.delete(like)
 
-        val product = productRepository.findByIdOrNull(like.productId)
-        product?.decreaseLikeCount()
+        productRepository.decreaseLikeCount(like.productId)
     }
 }

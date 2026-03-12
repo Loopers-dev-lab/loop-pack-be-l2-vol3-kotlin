@@ -19,7 +19,7 @@ data class ProductInfo(
     val deletedAt: ZonedDateTime?,
 ) {
     companion object {
-        fun from(product: Product, brandName: String): ProductInfo {
+        fun from(product: Product, brandName: String, stock: Int): ProductInfo {
             return ProductInfo(
                 id = product.id,
                 brandId = product.brandId,
@@ -27,10 +27,10 @@ data class ProductInfo(
                 name = product.name,
                 description = product.description,
                 price = product.price.amount,
-                stock = product.stock.quantity,
+                stock = stock,
                 imageUrl = product.imageUrl,
                 likeCount = product.likeCount,
-                available = product.isAvailable(),
+                available = !product.isDeleted() && stock > 0,
                 createdAt = product.createdAt,
                 updatedAt = product.updatedAt,
                 deletedAt = product.deletedAt,

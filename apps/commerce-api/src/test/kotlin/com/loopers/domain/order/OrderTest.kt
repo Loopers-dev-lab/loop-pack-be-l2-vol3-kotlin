@@ -46,7 +46,10 @@ class OrderTest {
 
             assertAll(
                 { assertThat(order.userId).isEqualTo(1L) },
+                { assertThat(order.originalAmount).isEqualTo(Money(35000)) },
+                { assertThat(order.discountAmount).isEqualTo(Money(0)) },
                 { assertThat(order.totalAmount).isEqualTo(Money(35000)) },
+                { assertThat(order.userCouponId).isNull() },
                 { assertThat(order.status).isEqualTo(OrderStatus.ORDERED) },
             )
         }
@@ -61,6 +64,29 @@ class OrderTest {
             val order = Order.create(userId = 1L, items = items)
 
             assertThat(order.totalAmount).isEqualTo(Money(15000))
+        }
+
+        @DisplayName("쿠폰 할인이 적용되면 totalAmount가 originalAmount - discountAmount이다")
+        @Test
+        fun successWithCouponDiscount() {
+            val items = listOf(
+                createSnapshot(productId = 1L, productPrice = Money(10000), quantity = Quantity(2)),
+                createSnapshot(productId = 2L, productPrice = Money(5000), quantity = Quantity(3)),
+            )
+
+            val order = Order.create(
+                userId = 1L,
+                items = items,
+                discountAmount = Money(5000),
+                userCouponId = 100L,
+            )
+
+            assertAll(
+                { assertThat(order.originalAmount).isEqualTo(Money(35000)) },
+                { assertThat(order.discountAmount).isEqualTo(Money(5000)) },
+                { assertThat(order.totalAmount).isEqualTo(Money(30000)) },
+                { assertThat(order.userCouponId).isEqualTo(100L) },
+            )
         }
 
         @DisplayName("빈 스냅샷 목록이면 EMPTY_ORDER_ITEMS 에러가 발생한다")
