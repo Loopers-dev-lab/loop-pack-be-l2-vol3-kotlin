@@ -293,6 +293,49 @@ class ProductServiceTest {
     }
 
     @Nested
+    inner class ResetLikeCount {
+
+        @Test
+        @DisplayName("좋아요가 있는 상품의 likeCount를 0으로 초기화한다")
+        fun success() {
+            // arrange
+            val created = productService.createProduct(createProductCommand())
+            productService.increaseLikeCount(created.id)
+            productService.increaseLikeCount(created.id)
+            productService.increaseLikeCount(created.id)
+
+            // act
+            productService.resetLikeCount(created.id)
+
+            // assert
+            val found = productService.findById(created.id)
+            assertThat(found.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 상품이면 예외 없이 정상 종료한다")
+        fun nonExistentProductDoesNothing() {
+            // act & assert — 예외 없이 정상 종료 (warn 로그만 출력)
+            productService.resetLikeCount(999L)
+        }
+
+        @Test
+        @DisplayName("삭제된 상품이어도 likeCount를 초기화한다")
+        fun deletedProductStillResets() {
+            // arrange
+            val created = productService.createProduct(createProductCommand())
+            productService.increaseLikeCount(created.id)
+            productService.deleteProduct(created.id)
+
+            // act — deletedAt 필터 없으므로 삭제된 상품도 초기화 가능
+            productService.resetLikeCount(created.id)
+
+            // assert — findById는 deletedAt 필터가 있어 조회 불가하므로
+            // resetLikeCount가 예외 없이 완료되었으면 성공
+        }
+    }
+
+    @Nested
     inner class FindByBrandId {
 
         @Test

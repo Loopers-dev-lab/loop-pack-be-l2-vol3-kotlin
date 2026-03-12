@@ -4,6 +4,7 @@ import com.loopers.domain.BaseEntity
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
+import java.time.ZonedDateTime
 
 class FakeProductRepository : ProductRepository {
 
@@ -13,6 +14,9 @@ class FakeProductRepository : ProductRepository {
     override fun save(product: Product): Product {
         if (product.id == 0L) {
             setEntityId(product, idSequence++)
+            val now = ZonedDateTime.now()
+            setField(product, "createdAt", now)
+            setField(product, "updatedAt", now)
         }
         store.add(product)
         return product
@@ -74,6 +78,13 @@ class FakeProductRepository : ProductRepository {
         return 1
     }
 
+    // deletedAt 필터 없음 — 실제 JPA 쿼리와 동일 (삭제 흐름에서 호출)
+    override fun resetLikeCount(productId: Long): Int {
+        val product = store.find { it.id == productId } ?: return 0
+        product.resetLikeCount()
+        return 1
+    }
+
     private fun toPage(list: List<Product>, pageable: Pageable): Page<Product> {
         val start = pageable.offset.toInt()
         val end = minOf(start + pageable.pageSize, list.size)
@@ -85,5 +96,11 @@ class FakeProductRepository : ProductRepository {
         val idField = BaseEntity::class.java.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(entity, id)
+    }
+
+    private fun setField(entity: BaseEntity, fieldName: String, value: Any) {
+        val field = BaseEntity::class.java.getDeclaredField(fieldName)
+        field.isAccessible = true
+        field.set(entity, value)
     }
 }
