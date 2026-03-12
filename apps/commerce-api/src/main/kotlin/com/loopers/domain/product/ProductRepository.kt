@@ -13,4 +13,5 @@ interface ProductRepository {
     fun findAllByBrandId(brandId: Long): List<Product>
     fun incrementLikeCount(productId: Long)
     fun decrementLikeCount(productId: Long)
+    fun findTopBrandIdsByProductCount(limit: Int): List<Long>
 }
