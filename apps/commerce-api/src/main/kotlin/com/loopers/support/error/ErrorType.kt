@@ -36,6 +36,7 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     INVALID_PRODUCT_DESCRIPTION_LENGTH(HttpStatus.BAD_REQUEST, "E204", "상품 설명 길이가 올바르지 않습니다."),
     PRODUCT_ALREADY_STOP_SELLING(HttpStatus.CONFLICT, "E205", "이미 판매 중지된 상품입니다."),
     INSUFFICIENT_STOCK(HttpStatus.BAD_REQUEST, "E206", "재고가 부족합니다."),
+    PRODUCT_LIKE_COUNT_SYNC_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E207", "상품 좋아요 수 동기화에 실패했습니다."),
 
     /** 좋아요 도메인 에러 */
     LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "E301", "좋아요를 찾을 수 없습니다."),

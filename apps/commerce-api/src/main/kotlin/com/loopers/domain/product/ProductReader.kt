@@ -26,6 +26,10 @@ class ProductReader(
         return productRepository.findAll()
     }
 
+    fun getAll(sortType: ProductSortType, brandId: Long?): List<Product> {
+        return productRepository.findAll(sortType, brandId)
+    }
+
     fun getAllByBrandId(brandId: Long): List<Product> {
         return productRepository.findAllByBrandId(brandId)
     }

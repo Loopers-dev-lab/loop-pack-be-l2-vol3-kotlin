@@ -14,6 +14,7 @@ class Product(
     price: ProductPrice,
     description: ProductDescription,
     stock: Stock,
+    likeCount: Long = 0L,
     status: ProductStatus = ProductStatus.SELLING,
 ) {
     var name: ProductName = name
@@ -26,6 +27,9 @@ class Product(
         private set
 
     var stock: Stock = stock
+        private set
+
+    var likeCount: Long = likeCount
         private set
 
     var status: ProductStatus = status
@@ -50,5 +54,13 @@ class Product(
 
     fun restoreStock(quantity: Int) {
         this.stock = stock.restore(quantity)
+    }
+
+    fun increaseLikeCount() {
+        this.likeCount += 1
+    }
+
+    fun decreaseLikeCount() {
+        this.likeCount = (this.likeCount - 1).coerceAtLeast(0)
     }
 }

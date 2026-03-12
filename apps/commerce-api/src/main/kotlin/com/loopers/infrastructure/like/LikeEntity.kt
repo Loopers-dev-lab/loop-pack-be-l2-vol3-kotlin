@@ -19,6 +19,7 @@ import java.time.ZonedDateTime
     ],
     indexes = [
         Index(name = "idx_likes_member_id", columnList = "member_id"),
+        Index(name = "idx_likes_product_id", columnList = "product_id"),
     ],
 )
 class LikeEntity(

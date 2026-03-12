@@ -2,6 +2,7 @@ package com.loopers.infrastructure.product
 
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductSortType
 import com.loopers.domain.product.ProductStatus
 import org.springframework.stereotype.Component
 
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Component
 class ProductRepositoryImpl(
     private val productJpaRepository: ProductJpaRepository,
     private val productMapper: ProductMapper,
+    private val productQueryRepository: ProductQueryRepository,
 ) : ProductRepository {
 
     override fun save(product: Product): Product {
@@ -25,6 +27,10 @@ class ProductRepositoryImpl(
 
     override fun findAll(): List<Product> {
         return productJpaRepository.findAll().map { productMapper.toDomain(it) }
+    }
+
+    override fun findAll(sortType: ProductSortType, brandId: Long?): List<Product> {
+        return productQueryRepository.findAll(sortType, brandId)
     }
 
     override fun findAllByBrandId(brandId: Long): List<Product> {
@@ -45,6 +51,14 @@ class ProductRepositoryImpl(
 
     override fun restoreStock(productId: Long, quantity: Int): Int {
         return productJpaRepository.restoreStock(productId, quantity)
+    }
+
+    override fun incrementLikeCount(productId: Long): Int {
+        return productJpaRepository.incrementLikeCount(productId)
+    }
+
+    override fun decrementLikeCount(productId: Long): Int {
+        return productJpaRepository.decrementLikeCount(productId)
     }
 
     private fun resolveEntity(product: Product): ProductEntity {

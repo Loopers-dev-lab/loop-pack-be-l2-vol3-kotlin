@@ -19,6 +19,7 @@ class ProductMapper {
             price = ProductPrice(entity.price),
             description = ProductDescription(entity.description),
             stock = Stock(entity.stock),
+            likeCount = entity.likeCount,
             status = ProductStatus.valueOf(entity.status),
         )
     }
@@ -30,6 +31,7 @@ class ProductMapper {
             price = domain.price.value,
             description = domain.description.value,
             stock = domain.stock.value,
+            likeCount = domain.likeCount,
             status = domain.status.name,
         )
     }
@@ -39,6 +41,7 @@ class ProductMapper {
         entity.price = domain.price.value
         entity.description = domain.description.value
         entity.stock = domain.stock.value
+        entity.likeCount = domain.likeCount
         entity.status = domain.status.name
     }
 }
