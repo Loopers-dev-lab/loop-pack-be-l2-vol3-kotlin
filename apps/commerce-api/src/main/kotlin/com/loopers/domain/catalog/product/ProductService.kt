@@ -16,14 +16,12 @@ class ProductService(
         name: String,
         description: String,
         price: Int,
-        stock: Int,
     ): Product {
         val product = Product(
             brandId = brandId,
             name = name,
             description = description,
             price = price,
-            stock = stock,
         )
         return productRepository.save(product)
     }
@@ -43,31 +41,34 @@ class ProductService(
     }
 
     @Transactional
-    fun update(id: Long, name: String, description: String, price: Int, stock: Int): Product {
+    fun update(id: Long, name: String, description: String, price: Int): Product {
         val product = getById(id)
-        product.update(name, description, price, stock)
+        product.update(name, description, price)
         return productRepository.save(product)
     }
 
     @Transactional
-    fun decrementStock(productId: Long, quantity: Int): Product {
-        val product = getById(productId)
-        product.decrementStock(quantity)
-        return productRepository.save(product)
+    fun updateStockStatus(id: Long, newStock: Int) {
+        val product = getById(id)
+        if (newStock == 0 && product.status == ProductStatus.ACTIVE) {
+            product.markSoldOut()
+            productRepository.save(product)
+        } else if (newStock > 0 && product.status == ProductStatus.SOLD_OUT) {
+            product.restock()
+            productRepository.save(product)
+        }
     }
 
     @Transactional
-    fun incrementLikeCount(productId: Long): Product {
-        val product = getById(productId)
-        product.incrementLike()
-        return productRepository.save(product)
+    fun incrementLikeCount(productId: Long) {
+        if (!productRepository.incrementLikeCountAtomic(productId))
+            throw CoreException(ErrorType.NOT_FOUND, "[$productId] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
     }
 
     @Transactional
-    fun decrementLikeCount(productId: Long): Product {
-        val product = getById(productId)
-        product.decrementLike()
-        return productRepository.save(product)
+    fun decrementLikeCount(productId: Long) {
+        if (!productRepository.decrementLikeCountAtomic(productId))
+            throw CoreException(ErrorType.NOT_FOUND, "[$productId] 해당 ID에 해당하는 상품이 존재하지 않습니다.")
     }
 
     @Transactional

@@ -7,4 +7,6 @@ interface ProductRepository {
     fun findAllByBrandId(brandId: Long): List<Product>
     fun deleteById(id: Long)
     fun deleteAllByBrandId(brandId: Long)
+    fun incrementLikeCountAtomic(id: Long): Boolean
+    fun decrementLikeCountAtomic(id: Long): Boolean
 }
