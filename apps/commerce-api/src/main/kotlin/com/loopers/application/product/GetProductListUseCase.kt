@@ -13,10 +13,15 @@ import org.springframework.transaction.annotation.Transactional
 class GetProductListUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productCachePort: ProductCachePort,
 ) {
     fun getAllActive(brandId: Long?, sortType: ProductSortType): List<ProductInfo> {
+        productCachePort.getProductList(brandId, sortType)?.let { return it }
+
         val products = productRepository.findAllActive(brandId, sortType)
-        return toProductInfos(products)
+        val result = toProductInfos(products)
+        productCachePort.setProductList(brandId, sortType, result)
+        return result
     }
 
     fun getAll(brandId: Long?): List<ProductInfo> {
