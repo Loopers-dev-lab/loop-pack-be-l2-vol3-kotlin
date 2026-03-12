@@ -173,7 +173,7 @@ sequenceDiagram
 
 #### 시나리오 개요
 
-Customer가 특정 상품에 대해 좋아요를 등록한다. 상품 존재 여부와 상품 상태(ACTIVE)를 검증한 후, ProductLike Aggregate를 생성한다.
+Customer가 특정 상품에 대해 좋아요를 등록한다. 등록 가능한 상품이면 ProductLike Aggregate를 생성하고 `like_count` 갱신을 시도한다. 대상 상품이 없거나 비활성화되어 있으면 외부 응답은 성공 no-op이다.
 
 #### 시퀀스 다이어그램
 
@@ -186,23 +186,29 @@ sequenceDiagram
     participant PLR as ProductLikeRepository
     participant PL as ProductLike
     C ->>+ PLS: register(command)
-    Note over PLS: 상품 존재 및 상품 상태 검증
+    Note over PLS: 상품 조회 + 등록 가능 여부 확인
     PLS ->>+ PR: findById(productId)
-    PR -->>- PLS: product (ACTIVE + 미삭제)
 
-    Note over PLS: 중복 검증
-    PLS ->>+ PLR: existsByUserIdAndProductId(userId, productId)
-    PLR -->>- PLS: exists
-
-    alt 이미 좋아요 등록됨
-        PLS -->> C: 이미 등록됨 (멱등적 처리)
-    else 좋아요 미등록
+    alt 상품 없음 또는 등록 불가
+        PR -->>- PLS: null / INACTIVE
+        PLS -->> C: 성공 (no-op)
+    else 등록 가능 상품
+        PR -->>- PLS: product (ACTIVE + 미삭제)
+        Note over PLS: row 저장 후 like_count 갱신 시도
         PLS ->>+ PL: register(userId, productId)
         Note right of PL: ProductLike 생성<br/>(userId, productId)
         PL -->>- PLS: productLike
         PLS ->>+ PLR: save(productLike)
-        PLR -->>- PLS: savedProductLike
-        PLS -->> C: 좋아요 등록 성공
+        PLR -->>- PLS: created
+
+        alt created = false
+            PLS -->> C: 성공 (no-op)
+        else created = true
+            PLS ->>+ PR: incrementLikeCount(productId)
+            PR -->>- PLS: updated rows
+            Note over PLS: updated rows = 0이어도 예외 없이 성공 종료<br/>상품 상태 변경 시 count 미갱신 가능
+            PLS -->> C: 좋아요 등록 성공
+        end
     end
 
     deactivate PLS
@@ -212,10 +218,10 @@ sequenceDiagram
 
 | 포인트                  | 설명                                                               | 근거                                |
 |----------------------|------------------------------------------------------------------|-----------------------------------|
-| **상품 존재 검증**         | 존재하지 않는 상품에 대한 좋아요는 등록할 수 없다                                     | 요구사항 4.2 (예외 흐름)                  |
-| **상품 상태 검증**         | ACTIVE이고 삭제되지 않은 상품만 좋아요 등록 가능하다                                 | 요구사항 5.1 (노출 원칙)                  |
+| **상품 등록 가능 여부**      | 미존재/INACTIVE 상품 요청은 row를 생성하지 않고 성공 no-op으로 종료한다                         | 요구사항 4.2, 5.1                     |
 | **브랜드 상태 반영 방식**     | 좋아요 등록 시 Brand를 직접 조회하지 않고, Brand 상태 변화가 Product 상태에 동기화된다는 정책을 따른다 | 요구사항 5.1 (노출 원칙), 책임 경계            |
-| **중복 방지**            | (userId, productId) 쌍의 유일성을 검증한다                                  | 클래스 다이어그램 섹션 3.5 (True Invariant) |
+| **중복 방지**            | (userId, productId) 쌍의 유일성을 저장 결과로 보장하고, 중복 등록은 no-op으로 처리한다             | 클래스 다이어그램 섹션 3.5 (True Invariant) |
+| **카운터 갱신 정책**        | row 생성 성공 시 `like_count` 갱신을 시도하되, atomic update 결과는 성공/실패 판단에 사용하지 않는다 | 좋아요 성공/no-op 정책                  |
 | **독립 Aggregate**     | ProductLike는 Product에 종속되지 않는 독립 Aggregate다                       | 클래스 다이어그램 섹션 3.5 (독립 lifecycle)   |
 
 ---
@@ -368,7 +374,7 @@ sequenceDiagram
 |-----------------------|-----------------------------------------------------------------------------|--------------------------------------------------|
 | **2.1 주문 생성 (정상)**    | OrderDomainService.createOrder() → ProductStock.decrease() → Order.create() | 재고 차감과 주문 생성을 단일 트랜잭션 내에서 조율하여 All-or-Nothing 보장 |
 | **2.2 주문 생성 (재고 부족)** | ProductStock.decrease() → throw InsufficientStockException                  | 재고 부족 시 예외 발생으로 전체 트랜잭션 롤백                       |
-| **2.3 좋아요 등록**        | ProductRepository.findById() → ProductLike.register()                       | 상품 존재 검증 후 독립 Aggregate 생성                       |
+| **2.3 좋아요 등록**        | ProductRepository.findById() → ProductLikeRepository.save() → ProductRepository.incrementLikeCount() | 등록 가능한 상품에 row를 만들고 카운터 갱신을 시도하되 결과와 무관하게 성공/no-op 처리 |
 | **3.1 상품 등록**         | BrandRepository.findById() → Product.register() → ProductStock.create()     | 브랜드 검증 후 상품과 초기 재고 생성                            |
 | **3.2 브랜드 삭제**        | ProductRepository.findAllByBrandId() → Brand.delete()                       | Cascade Delete를 Application Service가 조율          |
 
@@ -380,7 +386,7 @@ sequenceDiagram
 |-------------------|-----------------------------------|------------------------------------|
 | 2.1 주문 생성 (정상)    | OrderService.createOrder()        | OrderRepository.save() 완료          |
 | 2.2 주문 생성 (재고 부족) | OrderService.createOrder()        | InsufficientStockException 발생 시 롤백 |
-| 2.3 좋아요 등록        | ProductLikeRegisterUseCase.register() | ProductLikeRepository.save() 완료    |
+| 2.3 좋아요 등록        | ProductLikeRegisterUseCase.register() | insert + `like_count` 갱신 시도 후 성공/no-op 반환 |
 | 3.1 상품 등록         | ProductService.registerProduct()  | ProductRepository.save() 완료        |
 | 3.2 브랜드 삭제        | BrandService.deleteBrand()        | BrandRepository.save() 완료          |
 
