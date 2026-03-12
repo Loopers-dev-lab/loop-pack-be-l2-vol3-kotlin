@@ -160,6 +160,54 @@ Query                                    | Type    Rows(S) | Type    Rows(M) | T
 - 최종 결정: **B** — Cache-aside + eviction on mutation
 - 트레이드오프: 캐시 미스 시 첫 요청은 느리지만, Stampede Prevention(분산 락)으로 동시 DB 접근 1회 제한. 목록 캐시 FAIL_FAST 정책으로 Redis 장애 시 DB thundering herd 방지(빈 목록 반환).
 
+##### 상품 상세 조회 — Stampede Prevention (FALLBACK)
+
+```mermaid
+flowchart TD
+    A[Client 요청] --> B{Redis GET}
+    B -->|Hit| C[캐시 응답 반환]
+    B -->|Miss| D{tryLock - SET NX EX 3s}
+    B -->|Redis 장애| D
+
+    D -->|락 획득| E[DB 조회]
+    E --> F[Redis SET - TTL 5m]
+    F --> G[unlock]
+    G --> H[응답 반환]
+
+    D -->|락 실패 - 다른 스레드가 로딩 중| I[sleep 50ms]
+    I --> J{Redis GET 재시도}
+    J -->|Hit| C
+    J -->|Miss| E
+```
+
+> FALLBACK 정책: Redis 장애 시 `null` 반환 → DB fallback. 핵심 기능(상세 조회)은 항상 응답 보장.
+
+##### 상품 목록 조회 — FAIL_FAST (DB 보호)
+
+```mermaid
+flowchart TD
+    A[Client 요청] --> B{Redis GET}
+    B -->|Hit| C[캐시 응답 반환]
+    B -->|Miss| D[DB 조회]
+    D --> E[Redis SET - TTL 30s]
+    E --> F[응답 반환]
+    B -->|Redis 장애| G[빈 목록 반환]
+```
+
+> FAIL_FAST 정책: Redis 장애 시 DB 접근 차단 → 빈 목록 반환. Thundering herd 방지.
+
+##### 캐시 무효화 — Eviction on Mutation
+
+```mermaid
+flowchart LR
+    A[상품 수정/삭제] --> B[evict detail key]
+    A --> C[evict list pattern]
+    D[좋아요 추가/삭제] --> B
+    D --> C
+```
+
+> 쓰기 시 관련 캐시 삭제. 다음 읽기 요청에서 DB 조회 후 재캐싱.
+
 #### ③ 좋아요 수 비정규화 vs Materialized View
 - 고려한 대안:
     - A: `products.like_count` 비정규화
