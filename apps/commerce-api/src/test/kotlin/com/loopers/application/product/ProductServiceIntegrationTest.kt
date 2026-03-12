@@ -17,6 +17,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import java.math.BigDecimal
 
 /**
@@ -170,6 +171,91 @@ class ProductServiceIntegrationTest @Autowired constructor(
             assertAll(
                 { assertThat(result.content).hasSize(1) },
                 { assertThat(result.content[0].name).isEqualTo("에어맥스 90") },
+            )
+        }
+
+        @DisplayName("LATEST 정렬이면, createdAt 역순으로 반환된다.")
+        @Test
+        fun returnsLatestFirst_whenSortByLatest() {
+            // arrange
+            val brand = createBrand()
+            createProduct(brandId = brand.id, name = "첫 번째 상품")
+            createProduct(brandId = brand.id, name = "두 번째 상품")
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"))
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("두 번째 상품") },
+                { assertThat(result.content[1].name).isEqualTo("첫 번째 상품") },
+            )
+        }
+
+        @DisplayName("PRICE_ASC 정렬이면, 가격 오름차순으로 반환된다.")
+        @Test
+        fun returnsCheapestFirst_whenSortByPriceAsc() {
+            // arrange
+            val brand = createBrand()
+            createProduct(brandId = brand.id, name = "비싼 상품", price = BigDecimal("200000"))
+            createProduct(brandId = brand.id, name = "싼 상품", price = BigDecimal("50000"))
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "price"))
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("싼 상품") },
+                { assertThat(result.content[1].name).isEqualTo("비싼 상품") },
+            )
+        }
+
+        @DisplayName("LIKES_DESC 정렬이면, 좋아요 내림차순으로 반환된다.")
+        @Test
+        fun returnsMostLikedFirst_whenSortByLikesDesc() {
+            // arrange
+            val brand = createBrand()
+            val product1 = createProduct(brandId = brand.id, name = "인기 없는 상품")
+            val product2 = createProduct(brandId = brand.id, name = "인기 상품")
+            productService.incrementLikeCount(product2.id)
+            productService.incrementLikeCount(product2.id)
+            productService.incrementLikeCount(product1.id)
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "likeCount"))
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("인기 상품") },
+                { assertThat(result.content[1].name).isEqualTo("인기 없는 상품") },
+            )
+        }
+
+        @DisplayName("brandId + 정렬 조합이면, 필터링과 정렬이 동시에 적용된다.")
+        @Test
+        fun returnsFilteredAndSorted_whenBrandIdAndSortProvided() {
+            // arrange
+            val brand1 = createBrand(name = "나이키")
+            val brand2 = createBrand(name = "아디다스")
+            createProduct(brandId = brand1.id, name = "비싼 나이키", price = BigDecimal("200000"))
+            createProduct(brandId = brand1.id, name = "싼 나이키", price = BigDecimal("50000"))
+            createProduct(brandId = brand2.id, name = "아디다스 상품", price = BigDecimal("30000"))
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "price"))
+
+            // act
+            val result = productService.getAllProducts(brandId = brand1.id, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("싼 나이키") },
+                { assertThat(result.content[1].name).isEqualTo("비싼 나이키") },
             )
         }
     }

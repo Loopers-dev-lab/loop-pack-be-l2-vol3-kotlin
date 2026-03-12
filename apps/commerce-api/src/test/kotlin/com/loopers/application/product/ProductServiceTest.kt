@@ -21,6 +21,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -166,6 +167,27 @@ class ProductServiceTest {
                 { assertThat(result.content).hasSize(1) },
                 { assertThat(result.content[0].brandId).isEqualTo(brandId) },
             )
+        }
+
+        @DisplayName("Sort가 적용된 Pageable이 Repository에 전달된다.")
+        @Test
+        fun passesPageableWithSort_whenSortProvided() {
+            // arrange
+            val sort = Sort.by(Sort.Direction.ASC, "price")
+            val pageable = PageRequest.of(0, 20, sort)
+            val now = ZonedDateTime.now()
+            val product = createProduct()
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+            val productPage = PageImpl(listOf(product), pageable, 1L)
+
+            whenever(productRepository.findAll(pageable)).thenReturn(productPage)
+
+            // act
+            productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            verify(productRepository).findAll(pageable)
         }
     }
 

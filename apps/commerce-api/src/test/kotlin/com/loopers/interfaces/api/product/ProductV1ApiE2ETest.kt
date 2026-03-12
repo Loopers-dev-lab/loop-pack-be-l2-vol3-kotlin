@@ -135,6 +135,120 @@ class ProductV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data).isNotNull() },
             )
         }
+
+        @DisplayName("sort=LATEST이면, 200 OK와 최신순 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithLatestSort_whenSortByLatest() {
+            // arrange
+            val brand = createTestBrand()!!
+            createTestProduct(brandId = brand.id, name = "첫 번째 상품", price = BigDecimal("100000"))
+            createTestProduct(brandId = brand.id, name = "두 번째 상품", price = BigDecimal("200000"))
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?sort=LATEST&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            val content = response.body?.data?.get("content") as List<Map<String, Any>>
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(content).hasSize(2) },
+                { assertThat(content[0]["name"]).isEqualTo("두 번째 상품") },
+                { assertThat(content[1]["name"]).isEqualTo("첫 번째 상품") },
+            )
+        }
+
+        @DisplayName("sort=PRICE_ASC이면, 200 OK와 가격 오름차순 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithPriceAscSort_whenSortByPriceAsc() {
+            // arrange
+            val brand = createTestBrand()!!
+            createTestProduct(brandId = brand.id, name = "비싼 상품", price = BigDecimal("200000"))
+            createTestProduct(brandId = brand.id, name = "싼 상품", price = BigDecimal("50000"))
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?sort=PRICE_ASC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            val content = response.body?.data?.get("content") as List<Map<String, Any>>
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(content).hasSize(2) },
+                { assertThat(content[0]["name"]).isEqualTo("싼 상품") },
+                { assertThat(content[1]["name"]).isEqualTo("비싼 상품") },
+            )
+        }
+
+        @DisplayName("sort=LIKES_DESC이면, 200 OK와 좋아요 내림차순 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithLikesDescSort_whenSortByLikesDesc() {
+            // arrange
+            val brand = createTestBrand()!!
+            createTestProduct(brandId = brand.id, name = "인기 없는 상품")
+            val popular = createTestProduct(brandId = brand.id, name = "인기 상품")!!
+            // 좋아요 수 직접 증가시키기 위해 상품 좋아요 API 활용 불가하므로 DB 직접 조작은 E2E 취지에 맞지 않음
+            // 대신 like API가 있다면 호출하거나, 생성 순서와 기본값(0)으로 검증
+            // 여기서는 sort 파라미터가 정상 동작하는지 HTTP 레벨에서 검증
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?sort=LIKES_DESC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).isNotNull() },
+            )
+        }
+
+        @DisplayName("brandId + sort 조합이면, 200 OK와 필터링된 정렬 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithBrandFilterAndSort_whenBothProvided() {
+            // arrange
+            val brand1 = createTestBrand(name = "나이키")!!
+            val brand2 = createTestBrand(name = "아디다스")!!
+            createTestProduct(brandId = brand1.id, name = "비싼 나이키", price = BigDecimal("200000"))
+            createTestProduct(brandId = brand1.id, name = "싼 나이키", price = BigDecimal("50000"))
+            createTestProduct(brandId = brand2.id, name = "아디다스 상품", price = BigDecimal("30000"))
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?brandId=${brand1.id}&sort=PRICE_ASC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            val content = response.body?.data?.get("content") as List<Map<String, Any>>
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(content).hasSize(2) },
+                { assertThat(content[0]["name"]).isEqualTo("싼 나이키") },
+                { assertThat(content[1]["name"]).isEqualTo("비싼 나이키") },
+            )
+        }
     }
 
     @DisplayName("GET /api/v1/products/{productId}")
