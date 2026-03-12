@@ -91,7 +91,7 @@ class ProductRepositoryImpl(
         return when (sortType) {
             ProductSortType.LATEST -> Sort.by(Sort.Direction.DESC, "createdAt")
             ProductSortType.PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price.amount")
-            ProductSortType.POPULARITY -> Sort.by(Sort.Direction.DESC, "likeCount")
+            ProductSortType.LIKE_COUNT -> Sort.by(Sort.Direction.DESC, "likeCount")
         }
     }
 }

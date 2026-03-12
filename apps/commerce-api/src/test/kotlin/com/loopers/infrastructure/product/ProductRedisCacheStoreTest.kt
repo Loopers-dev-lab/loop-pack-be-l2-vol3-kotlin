@@ -150,13 +150,13 @@ class ProductRedisCacheStoreTest @Autowired constructor(
                 totalElements = 1L,
             )
             productRedisCacheStore.putList(null, "LATEST", 0, 20, result)
-            productRedisCacheStore.putList(1L, "POPULARITY", 0, 20, result)
+            productRedisCacheStore.putList(1L, "LIKE_COUNT", 0, 20, result)
 
             productRedisCacheStore.evictAllLists()
 
             assertAll(
                 { assertThat(productRedisCacheStore.getList(null, "LATEST", 0, 20)).isNull() },
-                { assertThat(productRedisCacheStore.getList(1L, "POPULARITY", 0, 20)).isNull() },
+                { assertThat(productRedisCacheStore.getList(1L, "LIKE_COUNT", 0, 20)).isNull() },
             )
         }
 

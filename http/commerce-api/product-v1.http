@@ -7,13 +7,13 @@
 GET {{commerce-api}}/api/v1/products?sort=LATEST&page=0&size=20
 
 ### 전체 상품 - 인기순
-GET {{commerce-api}}/api/v1/products?sort=POPULARITY&page=0&size=20
+GET {{commerce-api}}/api/v1/products?sort=LIKE_COUNT&page=0&size=20
 
 ### 전체 상품 - 가격순
 GET {{commerce-api}}/api/v1/products?sort=PRICE_ASC&page=0&size=20
 
 ### 브랜드 필터 + 인기순 (대형 브랜드: 약 1만건)
-GET {{commerce-api}}/api/v1/products?brandId=1&sort=POPULARITY&page=0&size=20
+GET {{commerce-api}}/api/v1/products?brandId=1&sort=LIKE_COUNT&page=0&size=20
 
 ### 브랜드 필터 + 최신순 (대형 브랜드)
 GET {{commerce-api}}/api/v1/products?brandId=1&sort=LATEST&page=0&size=20
@@ -28,4 +28,4 @@ GET {{commerce-api}}/api/v1/products/1
 GET {{commerce-api}}/api/v1/products/1
 
 ### 페이지네이션 2페이지
-GET {{commerce-api}}/api/v1/products?sort=POPULARITY&page=1&size=20
+GET {{commerce-api}}/api/v1/products?sort=LIKE_COUNT&page=1&size=20
