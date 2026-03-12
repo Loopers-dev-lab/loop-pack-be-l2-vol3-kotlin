@@ -67,8 +67,8 @@ class ProductRedisCacheStore(
             val values = redisTemplate.opsForValue().multiGet(keys) ?: return emptyMap()
 
             productIds.zip(values)
-                .filter { (_, json) -> json != null }
-                .associate { (id, json) -> id to objectMapper.readValue<ProductInfo>(json!!) }
+                .mapNotNull { (id, json) -> json?.let { id to objectMapper.readValue<ProductInfo>(it) } }
+                .toMap()
         } catch (e: Exception) {
             log.warn("Failed to batch get product detail caches", e)
             emptyMap()
@@ -77,9 +77,17 @@ class ProductRedisCacheStore(
 
     // ===== List Cache (version-based invalidation) =====
 
-    override fun getListIds(brandId: Long?, sort: ProductSortType, page: Int): ProductListCache? {
+    override fun getListVersion(): Long {
         return try {
-            val version = getListVersion()
+            redisTemplate.opsForValue().get(LIST_VERSION_KEY)?.toLongOrNull() ?: 0L
+        } catch (e: Exception) {
+            log.warn("Failed to get product list cache version", e)
+            0L
+        }
+    }
+
+    override fun getListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int): ProductListCache? {
+        return try {
             val key = buildListKey(version, brandId, sort, page)
             val json = redisTemplate.opsForValue().get(key)
             json?.let { objectMapper.readValue<ProductListCache>(it) }
@@ -89,9 +97,8 @@ class ProductRedisCacheStore(
         }
     }
 
-    override fun putListIds(brandId: Long?, sort: ProductSortType, page: Int, cache: ProductListCache) {
+    override fun putListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int, cache: ProductListCache) {
         try {
-            val version = getListVersion()
             val key = buildListKey(version, brandId, sort, page)
             val json = objectMapper.writeValueAsString(cache)
             val ttl = LIST_BASE_TTL.plusSeconds(Random.nextLong(0, JITTER_MAX_SECONDS))
@@ -106,15 +113,6 @@ class ProductRedisCacheStore(
             redisTemplate.opsForValue().increment(LIST_VERSION_KEY)
         } catch (e: Exception) {
             log.warn("Failed to increment product list cache version", e)
-        }
-    }
-
-    private fun getListVersion(): Long {
-        return try {
-            redisTemplate.opsForValue().get(LIST_VERSION_KEY)?.toLongOrNull() ?: 0L
-        } catch (e: Exception) {
-            log.warn("Failed to get product list cache version", e)
-            0L
         }
     }
 
