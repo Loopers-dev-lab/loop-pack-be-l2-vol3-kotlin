@@ -6,7 +6,7 @@ import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Component
 class GetProductUseCase(
@@ -14,17 +14,21 @@ class GetProductUseCase(
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
     private val productCacheStore: ProductCacheStore,
+    private val transactionTemplate: TransactionTemplate,
 ) {
 
-    @Transactional(readOnly = true)
     fun execute(productId: Long): ProductInfo {
         val cached = productCacheStore.getDetail(productId)
         if (cached != null) return cached
 
+        return requireNotNull(transactionTemplate.execute { loadFromDb(productId) })
+    }
+
+    private fun loadFromDb(productId: Long): ProductInfo {
         val product = productRepository.findActiveByIdOrNull(productId)
             ?: throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
 
-        val brand = brandRepository.findByIdOrNull(product.brandId)
+        val brand = brandRepository.findActiveByIdOrNull(product.brandId)
         val brandName = brand?.name ?: ""
 
         val stock = productStockRepository.findByProductId(productId)?.stock?.quantity ?: 0

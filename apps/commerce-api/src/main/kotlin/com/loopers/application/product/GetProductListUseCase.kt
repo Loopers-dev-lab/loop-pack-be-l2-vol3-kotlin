@@ -6,7 +6,7 @@ import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.PageResult
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Component
 class GetProductListUseCase(
@@ -14,19 +14,22 @@ class GetProductListUseCase(
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
     private val productCacheStore: ProductCacheStore,
+    private val transactionTemplate: TransactionTemplate,
 ) {
 
-    @Transactional(readOnly = true)
     fun execute(command: ProductCommand.Search): PageResult<ProductInfo> {
         if (command.includeDeleted || !isCacheable(command.page)) {
-            return queryFromDb(command)
+            return queryFromDbWithTx(command)
         }
 
         return queryWithCache(command)
     }
 
     private fun queryWithCache(command: ProductCommand.Search): PageResult<ProductInfo> {
+        val version = productCacheStore.getListVersion()
+
         val listCache = productCacheStore.getListIds(
+            version = version,
             brandId = command.brandId,
             sort = command.sort,
             page = command.page,
@@ -39,14 +42,14 @@ class GetProductListUseCase(
             val details = if (missingIds.isEmpty()) {
                 cachedDetails
             } else {
-                val missingInfos = loadAndCacheDetails(missingIds)
+                val missingInfos = loadAndCacheDetailsWithTx(missingIds)
                 cachedDetails + missingInfos
             }
 
             val orderedInfos = listCache.productIds.mapNotNull { details[it] }
 
             if (orderedInfos.size < listCache.productIds.size) {
-                return queryAndCacheFromDb(command)
+                return queryAndCacheFromDb(command, version)
             }
 
             return PageResult.of(
@@ -57,13 +60,14 @@ class GetProductListUseCase(
             )
         }
 
-        return queryAndCacheFromDb(command)
+        return queryAndCacheFromDb(command, version)
     }
 
-    private fun queryAndCacheFromDb(command: ProductCommand.Search): PageResult<ProductInfo> {
-        val result = queryFromDb(command)
+    private fun queryAndCacheFromDb(command: ProductCommand.Search, version: Long): PageResult<ProductInfo> {
+        val result = queryFromDbWithTx(command)
 
         productCacheStore.putListIds(
+            version = version,
             brandId = command.brandId,
             sort = command.sort,
             page = command.page,
@@ -78,6 +82,10 @@ class GetProductListUseCase(
         }
 
         return result
+    }
+
+    private fun queryFromDbWithTx(command: ProductCommand.Search): PageResult<ProductInfo> {
+        return requireNotNull(transactionTemplate.execute { queryFromDb(command) })
     }
 
     private fun queryFromDb(command: ProductCommand.Search): PageResult<ProductInfo> {
@@ -118,6 +126,10 @@ class GetProductListUseCase(
             size = pageResult.size,
             totalElements = pageResult.totalElements,
         )
+    }
+
+    private fun loadAndCacheDetailsWithTx(productIds: List<Long>): Map<Long, ProductInfo> {
+        return transactionTemplate.execute { loadAndCacheDetails(productIds) } ?: emptyMap()
     }
 
     private fun loadAndCacheDetails(productIds: List<Long>): Map<Long, ProductInfo> {
