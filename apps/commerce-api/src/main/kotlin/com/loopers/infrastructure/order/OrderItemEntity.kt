@@ -12,6 +12,7 @@ import jakarta.persistence.Table
     name = "order_items",
     indexes = [
         Index(name = "idx_order_items_order_id", columnList = "order_id"),
+        Index(name = "idx_order_items_brand_order", columnList = "brand_id, order_id"),
     ]
 )
 class OrderItemEntity(
