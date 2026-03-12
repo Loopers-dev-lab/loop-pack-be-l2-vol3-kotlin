@@ -69,4 +69,8 @@ class ProductRepositoryImpl(
     override fun decreaseLikeCount(productId: Long): Int {
         return productJpaRepository.decreaseLikeCount(productId)
     }
+
+    override fun resetLikeCount(productId: Long): Int {
+        return productJpaRepository.resetLikeCount(productId)
+    }
 }
