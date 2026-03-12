@@ -1,0 +1,36 @@
+### ============================================================
+### 사용자 API
+### ============================================================
+
+### 회원가입
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser1",
+  "password": "password123!",
+  "name": "테스트유저",
+  "birthDate": "1995-01-15",
+  "email": "test@example.com"
+}
+
+### 내 정보 조회
+GET {{commerce-api}}/api/v1/users/me
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password123!
+
+### 비밀번호 변경
+PATCH {{commerce-api}}/api/v1/users/me/password
+Content-Type: application/json
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password123!
+
+{
+  "currentPassword": "password123!",
+  "newPassword": "newpassword123!"
+}
+
+### 내 쿠폰 목록
+GET {{commerce-api}}/api/v1/users/me/coupons?page=0&size=20
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password123!
