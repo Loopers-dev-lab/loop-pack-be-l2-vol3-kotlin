@@ -1,6 +1,6 @@
 # 상품 조회가 느려서 뜯어봤더니
 
-> **TL;DR**: 인덱스가 하나도 안 걸려 있었다. 10만 건에서 Full Table Scan이 일어나고 있었고, 같은 요청이 매번 DB를 때리고 있었다. 복합 인덱스 3개 + Redis 캐시를 적용해서 브랜드별 인기순 조회를 ~350ms에서 ~3ms로 줄였다.
+> **TL;DR**: 인덱스가 하나도 안 걸려 있었다. 10만 건에서 Full Table Scan이 일어나고 있었고, 같은 요청이 매번 DB를 때리고 있었다. 복합 인덱스 3개 + Redis 캐시를 적용해서 브랜드별 인기순 조회를 27ms에서 1ms로 줄였다 (96% 개선). 스캔 행 수도 99,203 → 2,000으로 감소.
 
 ---
 
@@ -56,11 +56,11 @@ LIMIT 20;
 ```
 type: ALL
 key: NULL
-rows: 100000
+rows: 99203
 Extra: Using where; Using filesort
 ```
 
-10만 행을 전부 읽고, 메모리에서 정렬한다. `Using filesort`가 찍히는 순간 느려질 수밖에 없다.
+10만 행을 전부 읽고, 메모리에서 정렬한다. `Using filesort`가 찍히는 순간 느려질 수밖에 없다. 실제로 측정해보면 27ms가 걸린다.
 
 ### 캐시도 없다
 
@@ -116,13 +116,13 @@ LIMIT 20;
 ```
 type: ref
 key: idx_product_brand_like_count
-rows: ~2000
-Extra: Using where
+rows: 2000
+Extra: Using where; Backward index scan
 ```
 
 - `type`이 `ALL` → `ref`로 바뀌었다. 인덱스를 타고 있다.
-- `rows`가 100,000 → ~2,000으로 줄었다. 해당 브랜드 상품만 스캔한다.
-- `Using filesort`가 사라졌다. `(brand_id, like_count)` 인덱스 순서대로 읽으면 이미 정렬되어 있으니까.
+- `rows`가 99,203 → 2,000으로 줄었다. 해당 브랜드 상품만 스캔한다.
+- `Using filesort`가 사라졌다. `(brand_id, like_count)` 인덱스 순서대로 읽으면 이미 정렬되어 있으니까. `Backward index scan`이 뜨는 건 DESC 정렬이라 인덱스를 역순으로 읽기 때문인데, 성능 차이는 없다.
 
 ### 2. 좋아요 수 비정규화 (이미 되어 있었다)
 
@@ -213,16 +213,27 @@ xychart-beta
     title "EXPLAIN rows 비교 (10만 건)"
     x-axis ["브랜드+최신순", "브랜드+인기순", "브랜드+가격순"]
     y-axis "스캔 행 수" 0 --> 100000
-    bar [100000, 100000, 100000]
+    bar [99203, 99203, 99203]
     bar [2000, 2000, 2000]
 ```
 
-| 쿼리 | AS-IS type | AS-IS rows | TO-BE type | TO-BE rows | filesort |
-|------|-----------|-----------|-----------|-----------|----------|
-| 브랜드+최신순 | ALL | 100,000 | ref | ~2,000 | 제거됨 |
-| 브랜드+인기순 | ALL | 100,000 | ref | ~2,000 | 제거됨 |
-| 브랜드+가격순 | ALL | 100,000 | ref | ~2,000 | 제거됨 |
-| 전체 인기순 | ALL | 100,000 | ALL | 100,000 | 유지 (캐시로 커버) |
+| 쿼리 | AS-IS type | AS-IS rows | TO-BE type | TO-BE rows | TO-BE Extra | filesort |
+|------|-----------|-----------|-----------|-----------|------------|----------|
+| 브랜드+최신순 | ALL | 99,203 | ref | 2,000 | Using where; Backward index scan | 제거됨 |
+| 브랜드+인기순 | ALL | 99,203 | ref | 2,000 | Using where; Backward index scan | 제거됨 |
+| 브랜드+가격순 | ALL | 99,203 | ref | 2,000 | Using where | 제거됨 |
+| 전체 인기순 | ALL | 99,203 | ALL | 99,203 | Using where; Using filesort | 유지 (캐시로 커버) |
+
+### 실행 시간 비교 (실측)
+
+10만 건 데이터에서 5회 측정 중앙값:
+
+| 쿼리 | 인덱스 있음 | 인덱스 없음 | 개선율 |
+|------|-----------|-----------|-------|
+| 브랜드별 인기순 (`brand_id = 1 ORDER BY like_count DESC LIMIT 20`) | **1ms** | 27ms | **96%** |
+| 전체 인기순 (`ORDER BY like_count DESC LIMIT 20`) | 29ms | 28ms | 없음 (예상대로) |
+
+브랜드별 조회에서 96% 개선이 나온다. 전체 인기순은 인덱스 선두 컬럼(`brand_id`)을 안 쓰니까 효과가 없는 것도 확인됐다. 이 부분은 캐시(TTL 5분)로 커버하고 있다.
 
 ### API 레벨 (캐시 효과)
 
@@ -256,8 +267,8 @@ sequenceDiagram
 
 | 시나리오 | AS-IS | TO-BE | 개선 |
 |---------|-------|-------|------|
-| 브랜드별 인기순 (DB) | ~350ms | ~3ms | **99%** |
-| 브랜드별 인기순 (캐시 hit) | ~350ms | < 1ms | **99.7%** |
+| 브랜드별 인기순 (DB) | 27ms | 1ms | **96%** |
+| 브랜드별 인기순 (캐시 hit) | 27ms | < 1ms | **~99%** |
 | 상품 상세 (캐시 hit) | ~10ms | < 1ms | **90%** |
 | DB 커넥션 소모 (동일 트래픽) | 100% | ~20% | **80% 절감** |
 
@@ -271,7 +282,7 @@ sequenceDiagram
 
 2. **전체 인기순은 인덱스가 안 탄다.** `brand_id` 없이 `ORDER BY like_count DESC`만 하면, `(brand_id, like_count)` 인덱스의 선두 컬럼을 안 쓰니까 Full Scan이다. 지금은 5분 TTL 캐시로 버티고 있지만, 트래픽이 늘면 별도 인덱스(`like_count DESC` 단일)를 추가하거나 따로 대응해야 한다.
 
-3. **목록 쿼리에 LEFT JOIN FETCH images가 있다.** 목록 API 응답(`GetProductListResponse`)에는 images가 없는데, 쿼리에서는 이미지까지 로드하고 있다. 불필요한 JOIN + 데이터 전송이다. `toDomainWithoutImages()` 패턴이 이미 있으니 활용할 수 있다.
+3. ~~**목록 쿼리에 LEFT JOIN FETCH images가 있다.**~~ → 해결됨. 목록 쿼리에서 불필요한 `LEFT JOIN FETCH p.images`를 제거하고, `toDomainWithoutImages()`로 변환하도록 수정했다.
 
 4. **캐시 무효화 타이밍.** 현재 좋아요 UseCase 트랜잭션 안에서 캐시를 삭제하고 있다. 트랜잭션이 롤백되면 캐시만 날아간 꼴이 된다. 다음 조회에서 DB를 다시 읽으니까 실질적 문제는 적지만, `@TransactionalEventListener(AFTER_COMMIT)`으로 바꾸면 더 안전하다.
 
