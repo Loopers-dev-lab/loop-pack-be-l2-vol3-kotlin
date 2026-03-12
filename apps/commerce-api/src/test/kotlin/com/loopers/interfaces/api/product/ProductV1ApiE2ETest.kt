@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.product
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.brand.BrandV1Dto
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -23,6 +24,7 @@ import java.math.BigDecimal
 class ProductV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     companion object {
@@ -37,6 +39,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun adminHeaders(): HttpHeaders {
@@ -561,6 +564,75 @@ class ProductV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("캐시 E2E")
+    @Nested
+    inner class CacheE2E {
+
+        @DisplayName("상품 상세를 2회 연속 조회하면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenQueriedTwice() {
+            // arrange
+            val brand = createTestBrand()!!
+            val created = createTestProduct(brandId = brand.id)!!
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductResponse>>() {}
+            val first = testRestTemplate.exchange(
+                "/api/v1/products/${created.id}",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+            val second = testRestTemplate.exchange(
+                "/api/v1/products/${created.id}",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(first.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(second.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(first.body?.data?.name).isEqualTo(second.body?.data?.name) },
+            )
+        }
+
+        @DisplayName("상품 수정 후 재조회하면, 최신 데이터가 반환된다.")
+        @Test
+        fun returnsUpdatedData_whenProductUpdatedAfterCaching() {
+            // arrange
+            val brand = createTestBrand()!!
+            val created = createTestProduct(brandId = brand.id)!!
+            val getType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductResponse>>() {}
+            testRestTemplate.exchange("/api/v1/products/${created.id}", HttpMethod.GET, null, getType)
+
+            val updateRequest = ProductAdminV1Dto.UpdateRequest(
+                name = "수정된 상품",
+                price = BigDecimal("999000"),
+                stock = 50,
+                description = "수정된 설명",
+                imageUrl = null,
+            )
+            val updateType = object : ParameterizedTypeReference<ApiResponse<ProductAdminV1Dto.ProductAdminResponse>>() {}
+            testRestTemplate.exchange(
+                "/api-admin/v1/products/${created.id}",
+                HttpMethod.PUT,
+                HttpEntity(updateRequest, adminHeaders()),
+                updateType,
+            )
+
+            // act
+            val response = testRestTemplate.exchange("/api/v1/products/${created.id}", HttpMethod.GET, null, getType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.name).isEqualTo("수정된 상품") },
+            )
         }
     }
 }

@@ -6,7 +6,9 @@ import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import com.loopers.infrastructure.product.ProductCacheRepository
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -30,12 +32,15 @@ class ProductServiceIntegrationTest @Autowired constructor(
     private val productService: ProductService,
     private val productJpaRepository: ProductJpaRepository,
     private val brandJpaRepository: BrandJpaRepository,
+    private val productCacheRepository: ProductCacheRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun createBrand(name: String = "나이키"): Brand {
@@ -393,6 +398,93 @@ class ProductServiceIntegrationTest @Autowired constructor(
                 productService.createProduct(criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("캐시 통합 테스트")
+    @Nested
+    inner class CacheIntegration {
+
+        @DisplayName("상품 상세 첫 조회 후 재조회하면, 캐시에서 반환된다.")
+        @Test
+        fun returnsCachedDetail_whenQueriedTwice() {
+            // arrange
+            val brand = createBrand()
+            val saved = createProduct(brandId = brand.id)
+
+            // act
+            productService.getProductInfo(saved.id)
+            val cached = productCacheRepository.getProductDetail(saved.id)
+
+            // assert
+            assertAll(
+                { assertThat(cached).isNotNull() },
+                { assertThat(cached!!.id).isEqualTo(saved.id) },
+                { assertThat(cached!!.name).isEqualTo("에어맥스 90") },
+            )
+        }
+
+        @DisplayName("상품 수정 후 재조회하면, 최신 데이터가 반환된다.")
+        @Test
+        fun returnsUpdatedData_whenProductUpdatedAfterCaching() {
+            // arrange
+            val brand = createBrand()
+            val saved = createProduct(brandId = brand.id)
+            productService.getProductInfo(saved.id)
+
+            // act
+            productService.updateProduct(
+                saved.id,
+                UpdateProductCriteria(
+                    name = "수정된 상품",
+                    price = BigDecimal("999000"),
+                    stock = 50,
+                    description = "수정된 설명",
+                    imageUrl = null,
+                ),
+            )
+            val result = productService.getProductInfo(saved.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.name).isEqualTo("수정된 상품") },
+                { assertThat(result.price).isEqualByComparingTo(BigDecimal("999000")) },
+            )
+        }
+
+        @DisplayName("상품 삭제 후에는 캐시가 무효화된다.")
+        @Test
+        fun evictsCache_whenProductDeleted() {
+            // arrange
+            val brand = createBrand()
+            val saved = createProduct(brandId = brand.id)
+            productService.getProductInfo(saved.id)
+
+            // act
+            productService.deleteProduct(saved.id)
+
+            // assert
+            assertThat(productCacheRepository.getProductDetail(saved.id)).isNull()
+        }
+
+        @DisplayName("상품 목록 첫 조회 후 재조회하면, 캐시에서 반환된다.")
+        @Test
+        fun returnsCachedList_whenQueriedTwice() {
+            // arrange
+            val brand = createBrand()
+            createProduct(brandId = brand.id, name = "에어맥스 90")
+            createProduct(brandId = brand.id, name = "에어포스 1")
+            val pageable = PageRequest.of(0, 20)
+
+            // act
+            productService.getAllProducts(brandId = null, pageable = pageable)
+            val cached = productCacheRepository.getProductList(null, pageable.sort.toString(), 0, 20)
+
+            // assert
+            assertAll(
+                { assertThat(cached).isNotNull() },
+                { assertThat(cached!!.content).hasSize(2) },
+            )
         }
     }
 }
