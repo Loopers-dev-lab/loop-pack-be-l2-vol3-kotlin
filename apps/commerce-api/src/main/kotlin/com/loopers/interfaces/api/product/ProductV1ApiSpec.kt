@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.product
 
+import com.loopers.domain.product.ProductSortType
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -13,7 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 @Tag(name = "Product V1 API", description = "대고객 상품 API")
 interface ProductV1ApiSpec {
 
-    @Operation(summary = "상품 목록 조회", description = "상품 목록을 페이징 조회합니다. brandId로 필터링할 수 있습니다.")
+    @Operation(summary = "상품 목록 조회", description = "상품 목록을 페이징 조회합니다. brandId로 필터링하고, sort로 정렬 기준을 지정할 수 있습니다.")
     @ApiResponses(
         value = [
             SwaggerApiResponse(responseCode = "200", description = "조회 성공"),
@@ -22,6 +23,8 @@ interface ProductV1ApiSpec {
     fun getAllProducts(
         @Parameter(description = "브랜드 ID (필터)")
         brandId: Long?,
+        @Parameter(description = "정렬 기준 (LATEST, PRICE_ASC, LIKES_DESC)", example = "LATEST")
+        sort: ProductSortType,
         @ParameterObject pageable: Pageable,
     ): ApiResponse<Page<ProductV1Dto.ProductResponse>>
 
