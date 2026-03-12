@@ -16,7 +16,7 @@ class ProductRepositoryImpl(
     override fun save(product: Product): Product {
         val entity = if (product.id > 0L) {
             productJpaRepository.getReferenceById(product.id).apply {
-                update(product.name, product.description, product.price, product.stock, product.status)
+                update(product.name, product.description, product.price, product.status)
                 updateLikeCount(product.likeCount)
             }
         } else {
@@ -58,4 +58,10 @@ class ProductRepositoryImpl(
             it.delete()
         }
     }
+
+    override fun incrementLikeCountAtomic(id: Long): Boolean =
+        productJpaRepository.incrementLikeCountAtomic(id) > 0
+
+    override fun decrementLikeCountAtomic(id: Long): Boolean =
+        productJpaRepository.decrementLikeCountAtomic(id) > 0
 }

@@ -7,4 +7,5 @@ data class OrderItemCommand(
 
 data class PlaceOrderCommand(
     val items: List<OrderItemCommand>,
+    val userCouponId: Long? = null,
 )

@@ -30,7 +30,8 @@ class OrderV1Controller(
         @RequestBody request: OrderV1Dto.PlaceOrderRequest,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
         val cmd = PlaceOrderCommand(
-            items = request.items.map { OrderItemCommand(productId = it.productId, quantity = it.quantity) }
+            items = request.items.map { OrderItemCommand(productId = it.productId, quantity = it.quantity) },
+            userCouponId = request.userCouponId,
         )
         return orderFacade.placeOrder(user.id, cmd)
             .let { OrderV1Dto.OrderResponse.from(it) }
