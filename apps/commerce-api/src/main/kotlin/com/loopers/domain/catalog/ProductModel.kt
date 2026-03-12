@@ -14,10 +14,8 @@ import java.math.BigDecimal
 @Table(
     name = "products",
     indexes = [
-        Index(name = "idx_prod_popular", columnList = "deleted_at, like_count DESC, id DESC"),
-        Index(name = "idx_prod_brand_popular", columnList = "brand_id, deleted_at, like_count DESC, id DESC"),
-        Index(name = "idx_prod_price", columnList = "deleted_at, price ASC, id ASC"),
-        Index(name = "idx_prod_brand_price", columnList = "brand_id, deleted_at, price ASC, id ASC"),
+        Index(name = "idx_prod_popular", columnList = "like_count DESC, id DESC"),
+        Index(name = "idx_prod_brand_popular", columnList = "brand_id, like_count DESC, id DESC"),
     ],
 )
 class ProductModel(

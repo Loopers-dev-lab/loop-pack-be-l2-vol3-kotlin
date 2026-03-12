@@ -33,6 +33,28 @@ export function getProductDetail(productId) {
   return http.get(`${BASE_URL}/api/v1/products/${productId}`, { headers });
 }
 
+export function ensureTestUser() {
+  const payload = JSON.stringify({
+    username: LOGIN_ID,
+    password: LOGIN_PW,
+    name: 'TestUser',
+    email: 'testuser@test.com',
+    birthDate: '2000-01-01T00:00:00+09:00',
+  });
+
+  const res = http.post(`${BASE_URL}/api/v1/users`, payload, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (res.status === 201) {
+    console.log('테스트 유저 생성 완료');
+  } else if (res.status === 409) {
+    console.log('테스트 유저 이미 존재');
+  } else {
+    console.error(`테스트 유저 생성 실패: ${res.status} ${res.body}`);
+  }
+}
+
 export function flushRedis() {
   // Redis flush는 외부에서 수행 (redis-cli FLUSHALL)
 }

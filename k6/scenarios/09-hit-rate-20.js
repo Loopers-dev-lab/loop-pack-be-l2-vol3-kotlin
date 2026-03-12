@@ -1,6 +1,6 @@
 // 시나리오 09: 캐시 히트율 20%
 // CACHE_MODE=layered
-import { check, sleep } from 'k6';
+import { check } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 import { getProductDetail } from '../helpers.js';
 
@@ -10,9 +10,10 @@ const errorRate = new Rate('error_rate');
 export const options = {
   scenarios: {
     hit_rate_20: {
-      executor: 'constant-vus',
+      executor: 'shared-iterations',
       vus: 200,
-      duration: '60s',
+      iterations: 1000,
+      maxDuration: '30s',
     },
   },
 };
@@ -38,6 +39,4 @@ export default function () {
   latency.add(res.timings.duration);
   check(res, { '2xx': (r) => r.status === 200 || r.status === 404 });
   errorRate.add(res.status !== 200 && res.status !== 404);
-
-  sleep(0.1);
 }

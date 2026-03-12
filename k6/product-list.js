@@ -1,10 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
-
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
-const LOGIN_ID = __ENV.LOGIN_ID || 'testuser';
-const LOGIN_PW = __ENV.LOGIN_PW || 'testpassword1!';
+import { BASE_URL, LOGIN_ID, LOGIN_PW, ensureTestUser } from './helpers.js';
 
 const popularLatency = new Trend('popular_latency', true);
 const popularBrandLatency = new Trend('popular_brand_latency', true);
@@ -44,6 +41,10 @@ function randomProductId() {
 
 function randomPage() {
   return Math.floor(Math.random() * 10);
+}
+
+export function setup() {
+  ensureTestUser();
 }
 
 export default function () {

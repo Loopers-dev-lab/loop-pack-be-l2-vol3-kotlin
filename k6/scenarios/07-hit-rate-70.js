@@ -1,7 +1,7 @@
 // 시나리오 07: 캐시 히트율 70% — 히트율↔latency 상관관계 측정
 // CACHE_MODE=layered
 // 요청의 70%는 상위 인기 상품(사전 워밍), 30%는 cold ID
-import { check, sleep } from 'k6';
+import { check } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 import { getProductDetail, getProductList, randomPage } from '../helpers.js';
 
@@ -11,9 +11,10 @@ const errorRate = new Rate('error_rate');
 export const options = {
   scenarios: {
     hit_rate_70: {
-      executor: 'constant-vus',
+      executor: 'shared-iterations',
       vus: 200,
-      duration: '60s',
+      iterations: 1000,
+      maxDuration: '30s',
     },
   },
 };
@@ -40,6 +41,4 @@ export default function () {
   latency.add(res.timings.duration);
   check(res, { '2xx': (r) => r.status === 200 || r.status === 404 });
   errorRate.add(res.status !== 200 && res.status !== 404);
-
-  sleep(0.1);
 }
