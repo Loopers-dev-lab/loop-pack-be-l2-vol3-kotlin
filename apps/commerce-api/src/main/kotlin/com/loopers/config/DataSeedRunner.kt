@@ -178,25 +178,52 @@ class DataSeedRunner(
         """.trimIndent())
     }
 
-    // ─── Orders (power-law users, recent-biased dates) ───
+    // ─── Orders (power-law users, recent-biased dates, status distribution) ───
+
+    private val ORDER_STATUSES = listOf("DELIVERED", "SHIPPING", "PREPARING", "PAID", "PLACED", "CANCELLED", "REFUNDED")
+    private val ORDER_STATUS_WEIGHTS = listOf(0.55, 0.65, 0.75, 0.85, 0.90, 0.97, 1.0) // cumulative
 
     private fun seedOrders() {
         log.info("[DataSeed] Orders ({})...", ORDER_COUNT)
         val sql = """
-            INSERT INTO orders (user_id, original_total_price, discount_amount, total_price, created_at, updated_at)
-            VALUES (?, ?, 0, ?, NOW() - INTERVAL ? DAY, NOW())
+            INSERT INTO orders (user_id, original_total_price, discount_amount, total_price, status, paid_at, shipped_at, delivered_at, cancelled_at, created_at, updated_at)
+            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, NOW() - INTERVAL ? DAY, NOW())
         """.trimIndent()
 
         (1..ORDER_COUNT).chunked(BATCH_SIZE).forEach { chunk ->
-            jdbcTemplate.batchUpdate(sql, chunk.map {
+            jdbcTemplate.batchUpdate(sql, chunk, BATCH_SIZE) { ps, _ ->
                 val price = Random.nextInt(5_000, 100_001)
-                arrayOf<Any>(
-                    powerLawId(USER_COUNT, alpha = 2.5).toLong(), // heavy users get more orders
-                    price,
-                    price,
-                    recentBiasedDayOffset(180),                  // recent dates more frequent
-                )
-            })
+                val dayOffset = recentBiasedDayOffset(180)
+                val r = Random.nextDouble()
+                val status = ORDER_STATUSES[ORDER_STATUS_WEIGHTS.indexOfFirst { w -> r < w }]
+
+                // Generate timestamps based on status
+                val createdHoursAgo = dayOffset * 24L
+                val paidAt: java.sql.Timestamp? = if (status in listOf("PAID", "PREPARING", "SHIPPING", "DELIVERED", "REFUNDED")) {
+                    java.sql.Timestamp(System.currentTimeMillis() - (createdHoursAgo - Random.nextInt(0, 3)) * 3_600_000)
+                } else null
+                val shippedAt: java.sql.Timestamp? = if (status in listOf("SHIPPING", "DELIVERED", "REFUNDED") && paidAt != null) {
+                    java.sql.Timestamp(paidAt.time + Random.nextInt(1, 4) * 86_400_000L)
+                } else null
+                val deliveredAt: java.sql.Timestamp? = if (status in listOf("DELIVERED", "REFUNDED") && shippedAt != null) {
+                    java.sql.Timestamp(shippedAt.time + Random.nextInt(1, 6) * 86_400_000L)
+                } else null
+                val cancelledAt: java.sql.Timestamp? = when (status) {
+                    "CANCELLED" -> java.sql.Timestamp(System.currentTimeMillis() - (createdHoursAgo - Random.nextInt(0, 24)) * 3_600_000)
+                    "REFUNDED" -> if (deliveredAt != null) java.sql.Timestamp(deliveredAt.time + Random.nextInt(1, 8) * 86_400_000L) else null
+                    else -> null
+                }
+
+                ps.setLong(1, powerLawId(USER_COUNT, alpha = 2.5).toLong())
+                ps.setInt(2, price)
+                ps.setInt(3, price)
+                ps.setString(4, status)
+                ps.setTimestamp(5, paidAt)
+                ps.setTimestamp(6, shippedAt)
+                ps.setTimestamp(7, deliveredAt)
+                ps.setTimestamp(8, cancelledAt)
+                ps.setInt(9, dayOffset)
+            }
         }
     }
 

@@ -143,6 +143,8 @@ class IndexBenchmarkTest @Autowired constructor(
         safeDropIndex("products", "idx_products_status_brand_created")
         safeDropIndex("products", "idx_products_status_brand_price")
         safeDropIndex("products", "idx_products_status_brand_likecount")
+        safeDropIndex("orders", "idx_orders_status_created")
+        safeDropIndex("order_items", "idx_order_items_brand_order")
 
         showCurrentIndexes("products")
         showCurrentIndexes("orders")
@@ -183,6 +185,10 @@ class IndexBenchmarkTest @Autowired constructor(
 
         // ── Orders: add composite ──
         safeAddIndex("orders", "idx_orders_user_created", "user_id, created_at DESC")
+        safeAddIndex("orders", "idx_orders_status_created", "status, created_at")
+
+        // ── Order Items: add brand composite index ──
+        safeAddIndex("order_items", "idx_order_items_brand_order", "brand_id, order_id")
 
         // ── Likes: add single-column index for product lookups ──
         // (user_id, product_id) UNIQUE already exists → covers user lookups
@@ -309,6 +315,10 @@ class IndexBenchmarkTest @Autowired constructor(
 
         // Restore brand_id for cascade delete queries
         safeAddIndex("products", "idx_products_brand_id", "brand_id")
+
+        // Order admin indexes
+        safeAddIndex("orders", "idx_orders_status_created", "status, created_at")
+        safeAddIndex("order_items", "idx_order_items_brand_order", "brand_id, order_id")
 
         emit("  Hybrid indexes applied.")
         showCurrentIndexes("products")
@@ -494,6 +504,36 @@ class IndexBenchmarkTest @Autowired constructor(
             "[user_coupons] by user_id" to """
                 SELECT * FROM user_coupons WHERE user_id = 1 AND deleted_at IS NULL
             """.trimIndent(),
+
+            // ── Order Admin Queries ──
+            "[orders] by status (PREPARING)" to """
+                SELECT * FROM orders
+                WHERE status = 'PREPARING' AND deleted_at IS NULL
+                ORDER BY created_at DESC LIMIT 20
+            """.trimIndent(),
+
+            "[orders] by status + date range (DELIVERED)" to """
+                SELECT * FROM orders
+                WHERE status = 'DELIVERED'
+                  AND created_at >= NOW() - INTERVAL 30 DAY
+                  AND created_at <= NOW()
+                  AND deleted_at IS NULL
+                ORDER BY created_at DESC LIMIT 20
+            """.trimIndent(),
+
+            "[orders] delayed (PAID, older than 2 days)" to """
+                SELECT * FROM orders
+                WHERE status = 'PAID'
+                  AND created_at < NOW() - INTERVAL 2 DAY
+                  AND deleted_at IS NULL
+                ORDER BY created_at ASC LIMIT 20
+            """.trimIndent(),
+
+            "[order_items] by brand_id" to """
+                SELECT * FROM order_items
+                WHERE brand_id = 1 AND deleted_at IS NULL
+                ORDER BY order_id DESC LIMIT 20
+            """.trimIndent(),
         )
     }
 
@@ -623,19 +663,44 @@ class IndexBenchmarkTest @Autowired constructor(
         """.trimIndent())
     }
 
+    private val orderStatuses = listOf("DELIVERED", "SHIPPING", "PREPARING", "PAID", "PLACED", "CANCELLED", "REFUNDED")
+    private val orderStatusWeights = listOf(0.55, 0.65, 0.75, 0.85, 0.90, 0.97, 1.0)
+
     private fun seedOrders() {
         val sql = """
-            INSERT INTO orders (user_id, original_total_price, discount_amount, total_price, created_at, updated_at)
-            VALUES (?, ?, 0, ?, NOW() - INTERVAL ? DAY, NOW())
+            INSERT INTO orders (user_id, original_total_price, discount_amount, total_price, status, paid_at, shipped_at, delivered_at, cancelled_at, created_at, updated_at)
+            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, NOW() - INTERVAL ? DAY, NOW())
         """.trimIndent()
 
         (1..ORDER_COUNT).chunked(BATCH_SIZE).forEach { chunk ->
             jdbcTemplate.batchUpdate(sql, chunk.map {
                 val price = Random.nextInt(5_000, 100_001)
-                arrayOf<Any>(
+                val dayOffset = recentBiasedDayOffset(180)
+                val r = Random.nextDouble()
+                val status = orderStatuses[orderStatusWeights.indexOfFirst { w -> r < w }]
+
+                val createdMs = System.currentTimeMillis() - dayOffset * 86_400_000L
+                val paidAt: java.sql.Timestamp? = if (status in listOf("PAID", "PREPARING", "SHIPPING", "DELIVERED", "REFUNDED")) {
+                    java.sql.Timestamp(createdMs + Random.nextInt(0, 3) * 3_600_000L)
+                } else null
+                val shippedAt: java.sql.Timestamp? = if (status in listOf("SHIPPING", "DELIVERED", "REFUNDED") && paidAt != null) {
+                    java.sql.Timestamp(paidAt.time + Random.nextInt(1, 4) * 86_400_000L)
+                } else null
+                val deliveredAt: java.sql.Timestamp? = if (status in listOf("DELIVERED", "REFUNDED") && shippedAt != null) {
+                    java.sql.Timestamp(shippedAt.time + Random.nextInt(1, 6) * 86_400_000L)
+                } else null
+                val cancelledAt: java.sql.Timestamp? = when (status) {
+                    "CANCELLED" -> java.sql.Timestamp(createdMs + Random.nextInt(0, 24) * 3_600_000L)
+                    "REFUNDED" -> if (deliveredAt != null) java.sql.Timestamp(deliveredAt.time + Random.nextInt(1, 8) * 86_400_000L) else null
+                    else -> null
+                }
+
+                arrayOf<Any?>(
                     powerLawId(USER_COUNT, 2.5).toLong(),
                     price, price,
-                    recentBiasedDayOffset(180),
+                    status,
+                    paidAt, shippedAt, deliveredAt, cancelledAt,
+                    dayOffset,
                 )
             })
         }
