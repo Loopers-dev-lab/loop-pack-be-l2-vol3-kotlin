@@ -37,42 +37,50 @@ import kotlin.random.Random
  * ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
  * Query                                         | Type   Key(Single)                        Rows | Type   Key(Multi)                         Rows | Verdict
  * ---------------------------------------------------------------------------------------------------------------------------------------------------------
- * [products] LATEST + mega brand                | index  idx_products_created_at             138 | ref    idx_products_status_brand_crea     1228 | SINGLE wins: 138 vs 1228 rows
- * [products] LATEST + small brand               | ref    idx_products_brand_id               100 | ref    idx_products_status_brand_crea       81 | MULTI wins: filesort eliminated
- * [products] LATEST + no brand filter           | index  idx_products_created_at              20 | ref    idx_products_status_brand_crea     4968 | SINGLE wins: no filesort vs filesort
- * [products] PRICE_ASC + mega brand             | index  idx_products_price                  138 | ref    idx_products_status_brand_pric     1228 | SINGLE wins: 138 vs 1228 rows
- * [products] PRICE_ASC + no brand filter        | index  idx_products_price                   20 | ref    idx_products_status_brand_crea     4968 | SINGLE wins: no filesort vs filesort
- * [products] POPULAR + mega brand               | index  idx_products_like_count             138 | ref    idx_products_status_brand_like     1228 | SINGLE wins: 138 vs 1228 rows
- * [products] POPULAR + no brand filter          | index  idx_products_like_count              20 | ref    idx_products_status_brand_crea     4968 | SINGLE wins: no filesort vs filesort
- * [orders] by user (power user)                 | ref    idx_orders_user_created             676 | ref    idx_orders_user_created             676 | —
- * [orders] by user (normal)                     | ref    idx_orders_user_created               5 | ref    idx_orders_user_created               5 | —
- * [orders] by user + date range                 | range  idx_orders_user_created              24 | range  idx_orders_user_created              24 | —
- * [likes] by user (power user)                  | ref    UK18fd6srrna88d3mgfb2r1f3ps         577 | ref    UK18fd6srrna88d3mgfb2r1f3ps         577 | —
- * [likes] by product (popular)                  | ref    idx_likes_product_id                 81 | ref    idx_likes_product_id                 81 | —
- * [products] by brand_id (cascade)              | ref    idx_products_brand_id              1436 | ref    idx_products_brand_id              1436 | —
- * [order_items] by order_id                     | ref    idx_order_items_order_id              1 | ref    idx_order_items_order_id              1 | —
+ * [products] LATEST + mega brand                | index  idx_products_created_at             139 | ref    idx_products_status_brand_crea     1253 | SINGLE wins: 139 vs 1253 rows
+ * [products] LATEST + small brand               | ref    idx_products_brand_id               103 | ref    idx_products_status_brand_crea       86 | MULTI wins: filesort eliminated
+ * [products] LATEST + no brand filter           | index  idx_products_created_at              20 | ref    idx_products_status_brand_crea     5098 | SINGLE wins: no filesort vs filesort
+ * [products] PRICE_ASC + mega brand             | index  idx_products_price                  139 | ref    idx_products_status_brand_pric     1253 | SINGLE wins: 139 vs 1253 rows
+ * [products] PRICE_ASC + no brand filter        | index  idx_products_price                   20 | ref    idx_products_status_brand_crea     5098 | SINGLE wins: no filesort vs filesort
+ * [products] POPULAR + mega brand               | index  idx_products_like_count             139 | ref    idx_products_status_brand_like     1253 | SINGLE wins: 139 vs 1253 rows
+ * [products] POPULAR + no brand filter          | index  idx_products_like_count              20 | ref    idx_products_status_brand_crea     5098 | SINGLE wins: no filesort vs filesort
+ * [orders] by user (power user)                 | ref    idx_orders_user_created             611 | ref    idx_orders_user_created             611 | —
+ * [orders] by user (normal)                     | ref    idx_orders_user_created               9 | ref    idx_orders_user_created               9 | —
+ * [orders] by user + date range                 | range  idx_orders_user_created              14 | range  idx_orders_user_created              14 | —
+ * [likes] by user (power user)                  | ref    UK18fd6srrna88d3mgfb2r1f3ps         612 | ref    UK18fd6srrna88d3mgfb2r1f3ps         612 | —
+ * [likes] by product (popular)                  | ref    idx_likes_product_id                 83 | ref    idx_likes_product_id                 83 | —
+ * [products] by brand_id (cascade)              | ref    idx_products_brand_id              1466 | ref    idx_products_brand_id              1466 | —
+ * [order_items] by order_id                     | ref    idx_order_items_order_id              2 | ref    idx_order_items_order_id              2 | —
  * [user_coupons] by user_id                     | ALL    NULL                                  1 | ALL    NULL                                  1 | —
+ * [orders] by status (PREPARING)                | ALL    NULL                               9741 | ref    idx_orders_status_created           990 | MULTI wins: Full scan -> Index
+ * [orders] by status + date range (DELIVERED)   | ALL    NULL                               9741 | range  idx_orders_status_created           157 | MULTI wins: Full scan -> Index
+ * [orders] delayed (PAID, older than 2 days)    | ALL    NULL                               9741 | range  idx_orders_status_created           987 | MULTI wins: Full scan -> Index
+ * [order_items] by brand_id                     | index  idx_order_items_order_id             20 | ref    idx_order_items_brand_order        2817 | SINGLE wins: 20 vs 2817 rows
  *
  * ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
  *   FINAL COMPARISON: Single-column vs Multi-column vs Hybrid
  * ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
  * Query                                    | Type    Rows(S) | Type    Rows(M) | Type    Rows(H) | Best
  * -----------------------------------------------------------------------------------------------------
- * [products] LATEST + mega brand           | index       138 | ref        1228 | ref        1228 | SINGLE
- * [products] LATEST + small brand          | ref         100 | ref          81 | ref          81 | HYBRID
- * [products] LATEST + no brand filter      | index        20 | ref        4968 | index        40 | SINGLE
- * [products] PRICE_ASC + mega brand        | index       138 | ref        1228 | ref        1228 | SINGLE
- * [products] PRICE_ASC + no brand filter   | index        20 | ref        4968 | index        40 | SINGLE
- * [products] POPULAR + mega brand          | index       138 | ref        1228 | ref        1228 | SINGLE
- * [products] POPULAR + no brand filter     | index        20 | ref        4968 | index        40 | SINGLE
- * [orders] by user (power user)            | ref         676 | ref         676 | ref         676 | HYBRID
- * [orders] by user (normal)                | ref           5 | ref           5 | ref           5 | HYBRID
- * [orders] by user + date range            | range        24 | range        24 | range        24 | HYBRID
- * [likes] by user (power user)             | ref         577 | ref         577 | ref         577 | HYBRID
- * [likes] by product (popular)             | ref          81 | ref          81 | ref          81 | HYBRID
- * [products] by brand_id (cascade)         | ref        1436 | ref        1436 | ref        1436 | HYBRID
- * [order_items] by order_id                | ref           1 | ref           1 | ref           1 | HYBRID
+ * [products] LATEST + mega brand           | index       139 | ref        1253 | ref        1253 | SINGLE
+ * [products] LATEST + small brand          | ref         103 | ref          86 | ref          86 | HYBRID
+ * [products] LATEST + no brand filter      | index        20 | ref        5098 | index        40 | SINGLE
+ * [products] PRICE_ASC + mega brand        | index       139 | ref        1253 | ref        1253 | SINGLE
+ * [products] PRICE_ASC + no brand filter   | index        20 | ref        5098 | index        40 | SINGLE
+ * [products] POPULAR + mega brand          | index       139 | ref        1253 | ref        1253 | SINGLE
+ * [products] POPULAR + no brand filter     | index        20 | ref        5098 | index        40 | SINGLE
+ * [orders] by user (power user)            | ref         611 | ref         611 | ref         611 | HYBRID
+ * [orders] by user (normal)                | ref           9 | ref           9 | ref           9 | HYBRID
+ * [orders] by user + date range            | range        14 | range        14 | range        14 | HYBRID
+ * [likes] by user (power user)             | ref         612 | ref         612 | ref         612 | HYBRID
+ * [likes] by product (popular)             | ref          83 | ref          83 | ref          83 | HYBRID
+ * [products] by brand_id (cascade)         | ref        1466 | ref        1466 | ref        1466 | HYBRID
+ * [order_items] by order_id                | ref           2 | ref           2 | ref           2 | HYBRID
  * [user_coupons] by user_id                | ALL           1 | ALL           1 | ALL           1 | HYBRID
+ * [orders] by status (PREPARING)           | ALL        9741 | ref         990 | ref         990 | HYBRID
+ * [orders] by status + date range (DELIVER | ALL        9741 | range       157 | range       157 | HYBRID
+ * [orders] delayed (PAID, older than 2 day | ALL        9741 | range       987 | range       987 | HYBRID
+ * [order_items] by brand_id                | index        20 | ref        2817 | ref        2817 | SINGLE
  */
 @SpringBootTest
 @ActiveProfiles("test")
