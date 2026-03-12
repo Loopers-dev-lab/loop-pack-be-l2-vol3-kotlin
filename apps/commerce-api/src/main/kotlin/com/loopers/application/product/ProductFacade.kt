@@ -55,8 +55,8 @@ class ProductFacade(
         val brandIds = productPage.content.map { it.brandId }.distinct()
         val brands = brandService.findByIds(brandIds).associateBy { it.id }
         return productPage.map { product ->
-            val brand = brands[product.brandId]!!
-            ProductInfo.from(product).let { ProductResult.from(it, brand.name) }
+            val brandName = brands[product.brandId]?.name ?: "알 수 없는 브랜드"
+            ProductInfo.from(product).let { ProductResult.from(it, brandName) }
         }
     }
 
