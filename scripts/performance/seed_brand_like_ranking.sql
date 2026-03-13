@@ -4,6 +4,7 @@ TRUNCATE TABLE products;
 TRUNCATE TABLE brands;
 SET FOREIGN_KEY_CHECKS = 1;
 
+INSERT INTO brands (name, status, created_at, updated_at)
 WITH digits AS (
     SELECT 0 AS n
     UNION ALL SELECT 1
@@ -21,7 +22,6 @@ numbers AS (
     FROM digits ones
     CROSS JOIN digits tens
 )
-INSERT INTO brands (name, status, created_at, updated_at)
 SELECT
     CONCAT('BRAND-', LPAD(seq, 3, '0')),
     'ACTIVE',
@@ -30,6 +30,7 @@ SELECT
 FROM numbers
 WHERE seq <= 100;
 
+INSERT INTO products (brand_id, name, price, description, stock, like_count, status, created_at, updated_at)
 WITH digits AS (
     SELECT 0 AS n
     UNION ALL SELECT 1
@@ -56,7 +57,6 @@ numbers AS (
     CROSS JOIN digits thousands
     CROSS JOIN digits tenThousands
 )
-INSERT INTO products (brand_id, name, price, description, stock, like_count, status, created_at, updated_at)
 SELECT
     ((seq - 1) % 100) + 1 AS brand_id,
     CONCAT('PRODUCT-', LPAD(seq, 6, '0')) AS name,
@@ -70,6 +70,7 @@ SELECT
 FROM numbers
 WHERE seq <= 100000;
 
+INSERT INTO likes (member_id, product_id, created_at)
 WITH digits AS (
     SELECT 0 AS n
     UNION ALL SELECT 1
@@ -101,7 +102,6 @@ like_slots AS (
     FROM digits ones
     WHERE ones.n < 20
 )
-INSERT INTO likes (member_id, product_id, created_at)
 SELECT
     (product_seq * 100) + slot AS member_id,
     product_seq AS product_id,
