@@ -3,6 +3,7 @@ package com.loopers.infrastructure.product
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.loopers.application.product.ProductCacheStore
+import com.loopers.application.product.ProductDetailCache
 import com.loopers.application.product.ProductInfo
 import com.loopers.application.product.ProductListCache
 import com.loopers.domain.product.ProductSortType
@@ -24,21 +25,25 @@ class ProductRedisCacheStore(
         private const val DETAIL_KEY_PREFIX = "product:detail:"
         private const val LIST_VERSION_KEY = "product:list:version"
         private const val LIST_KEY_PREFIX = "product:list:"
+        private const val NULL_MARKER = "NULL"
 
         private val DETAIL_BASE_TTL = Duration.ofMinutes(5)
         private val LIST_BASE_TTL = Duration.ofMinutes(1)
+        private val NULL_TTL = Duration.ofSeconds(30)
         private val JITTER_MAX_SECONDS = 30L
     }
 
     // ===== Detail Cache =====
 
-    override fun getDetail(productId: Long): ProductInfo? {
+    override fun getDetail(productId: Long): ProductDetailCache {
         return try {
             val json = redisTemplate.opsForValue().get("$DETAIL_KEY_PREFIX$productId")
-            json?.let { objectMapper.readValue<ProductInfo>(it) }
+                ?: return ProductDetailCache.Miss
+            if (json == NULL_MARKER) return ProductDetailCache.NotExist
+            ProductDetailCache.Hit(objectMapper.readValue<ProductInfo>(json))
         } catch (e: Exception) {
             log.warn("Failed to get product detail cache for id={}", productId, e)
-            null
+            ProductDetailCache.Miss
         }
     }
 
@@ -49,6 +54,14 @@ class ProductRedisCacheStore(
             redisTemplate.opsForValue().set("$DETAIL_KEY_PREFIX$productId", json, ttl)
         } catch (e: Exception) {
             log.warn("Failed to put product detail cache for id={}", productId, e)
+        }
+    }
+
+    override fun putNullDetail(productId: Long) {
+        try {
+            redisTemplate.opsForValue().set("$DETAIL_KEY_PREFIX$productId", NULL_MARKER, NULL_TTL)
+        } catch (e: Exception) {
+            log.warn("Failed to put null product detail cache for id={}", productId, e)
         }
     }
 

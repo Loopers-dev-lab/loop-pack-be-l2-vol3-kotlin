@@ -2,11 +2,19 @@ package com.loopers.application.product
 
 import com.loopers.domain.product.ProductSortType
 
+sealed class ProductDetailCache {
+    data class Hit(val productInfo: ProductInfo) : ProductDetailCache()
+    data object NotExist : ProductDetailCache()
+    data object Miss : ProductDetailCache()
+}
+
 interface ProductCacheStore {
 
-    fun getDetail(productId: Long): ProductInfo?
+    fun getDetail(productId: Long): ProductDetailCache
 
     fun putDetail(productId: Long, productInfo: ProductInfo)
+
+    fun putNullDetail(productId: Long)
 
     fun evictDetail(productId: Long)
 

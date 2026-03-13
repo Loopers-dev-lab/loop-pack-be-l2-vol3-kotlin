@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product
 
+import com.loopers.application.product.ProductDetailCache
 import com.loopers.application.product.ProductInfo
 import com.loopers.application.product.ProductListCache
 import com.loopers.domain.product.ProductSortType
@@ -65,7 +66,8 @@ class ProductRedisCacheStoreTest @Autowired constructor(
             productRedisCacheStore.putDetail(1L, productInfo)
             val cached = productRedisCacheStore.getDetail(1L)
 
-            val result = requireNotNull(cached)
+            assertThat(cached).isInstanceOf(ProductDetailCache.Hit::class.java)
+            val result = (cached as ProductDetailCache.Hit).productInfo
             assertAll(
                 { assertThat(result.id).isEqualTo(1L) },
                 { assertThat(result.name).isEqualTo("테스트 상품") },
@@ -75,15 +77,25 @@ class ProductRedisCacheStoreTest @Autowired constructor(
             )
         }
 
-        @DisplayName("캐시가 없으면 null을 반환한다")
+        @DisplayName("캐시가 없으면 Miss를 반환한다")
         @Test
-        fun getReturnsNullWhenMiss() {
+        fun getReturnsMissWhenNotCached() {
             val cached = productRedisCacheStore.getDetail(999L)
 
-            assertThat(cached).isNull()
+            assertThat(cached).isEqualTo(ProductDetailCache.Miss)
         }
 
-        @DisplayName("캐시를 무효화하면 null을 반환한다")
+        @DisplayName("존재하지 않는 상품의 Null 캐싱 후 조회하면 NotExist를 반환한다")
+        @Test
+        fun putNullAndGet() {
+            productRedisCacheStore.putNullDetail(999L)
+
+            val cached = productRedisCacheStore.getDetail(999L)
+
+            assertThat(cached).isEqualTo(ProductDetailCache.NotExist)
+        }
+
+        @DisplayName("캐시를 무효화하면 Miss를 반환한다")
         @Test
         fun evictDetail() {
             val productInfo = createProductInfo()
@@ -91,7 +103,7 @@ class ProductRedisCacheStoreTest @Autowired constructor(
 
             productRedisCacheStore.evictDetail(1L)
 
-            assertThat(productRedisCacheStore.getDetail(1L)).isNull()
+            assertThat(productRedisCacheStore.getDetail(1L)).isEqualTo(ProductDetailCache.Miss)
         }
     }
 
@@ -166,7 +178,7 @@ class ProductRedisCacheStoreTest @Autowired constructor(
 
             productRedisCacheStore.evictAllLists()
 
-            assertThat(productRedisCacheStore.getDetail(1L)).isNotNull
+            assertThat(productRedisCacheStore.getDetail(1L)).isInstanceOf(ProductDetailCache.Hit::class.java)
         }
     }
 

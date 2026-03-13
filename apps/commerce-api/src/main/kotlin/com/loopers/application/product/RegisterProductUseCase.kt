@@ -40,6 +40,7 @@ class RegisterProductUseCase(
         productStockRepository.save(productStock)
 
         AfterCommit.execute {
+            productCacheStore.evictDetail(saved.id)
             productCacheStore.evictAllLists()
         }
 
