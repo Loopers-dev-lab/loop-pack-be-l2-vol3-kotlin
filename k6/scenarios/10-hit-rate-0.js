@@ -2,6 +2,7 @@
 // CACHE_MODE=layered
 import { check } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
+import exec from 'k6/execution';
 import { getProductDetail } from '../helpers.js';
 
 const latency = new Trend('request_latency', true);
@@ -19,11 +20,8 @@ export const options = {
 };
 
 // 모든 요청이 다른 상품 → 캐시 히트 불가
-let counter = 0;
-
 export default function () {
-  counter++;
-  const productId = (counter % 100000) + 1;
+  const productId = (exec.scenario.iterationInTest % 100000) + 1;
 
   const res = getProductDetail(productId);
   latency.add(res.timings.duration);
