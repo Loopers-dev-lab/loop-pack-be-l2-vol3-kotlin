@@ -18,8 +18,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.sql.Timestamp
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 @DisplayName("AdminOrderRepository 통합 테스트")
 @SpringBootTest
@@ -28,6 +32,7 @@ class AdminOrderRepositoryIntegrationTest
 constructor(
     private val adminOrderRepository: AdminOrderRepository,
     private val orderRepository: OrderRepository,
+    private val jdbcTemplate: JdbcTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -59,6 +64,19 @@ constructor(
             ),
         )
         return orderRepository.save(order)
+    }
+
+    private fun updateCreatedAt(
+        orderId: Long,
+        createdAt: ZonedDateTime,
+    ) {
+        val timestamp = Timestamp.from(createdAt.toInstant())
+        jdbcTemplate.update(
+            "UPDATE orders SET created_at = ?, updated_at = ? WHERE id = ?",
+            timestamp,
+            timestamp,
+            orderId,
+        )
     }
 
     @Nested
@@ -159,6 +177,29 @@ constructor(
                 { assertThat(result.totalElements).isEqualTo(3L) },
                 { assertThat(result.page).isEqualTo(0) },
             )
+        }
+
+        @Test
+        @DisplayName("createdAt DESC, id DESC 순으로 최신 주문부터 반환한다")
+        fun findAll_latestOrderFirst() {
+            val zone = ZoneId.of("Asia/Seoul")
+            val order1 = createOrder(userId = 1L, idempotencyKey = "key-101")
+            val order2 = createOrder(userId = 2L, idempotencyKey = "key-102")
+            val order3 = createOrder(userId = 3L, idempotencyKey = "key-103")
+
+            val older = ZonedDateTime.of(2026, 2, 10, 9, 0, 0, 0, zone)
+            val latest = ZonedDateTime.of(2026, 3, 10, 9, 0, 0, 0, zone)
+            updateCreatedAt(order1.id!!, older)
+            updateCreatedAt(order2.id!!, latest)
+            updateCreatedAt(order3.id!!, latest)
+
+            val result = adminOrderRepository.findAll(
+                from = older.minusDays(1),
+                to = latest.plusDays(1),
+                pageRequest = PageRequest(),
+            )
+
+            assertThat(result.content.map { it.id }).containsExactly(order3.id, order2.id, order1.id)
         }
     }
 }

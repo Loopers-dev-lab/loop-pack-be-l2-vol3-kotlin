@@ -148,5 +148,33 @@ constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
         }
+
+        @Test
+        @DisplayName("최신 주문이 먼저 반환된다")
+        fun getList_latestOrderFirst() {
+            orderCreateUseCase.create(
+                OrderCreateCommand(
+                    userId = userId,
+                    idempotencyKey = UUID.randomUUID().toString(),
+                    items = listOf(OrderCreateCommand.Item(productId = productId, quantity = 1)),
+                ),
+            )
+
+            val response = testRestTemplate.exchange(
+                ENDPOINT,
+                HttpMethod.GET,
+                authHeaders(),
+                object : ParameterizedTypeReference<ApiResponse<Map<String, Any?>>>() {},
+            )
+
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val data = response.body?.data!!
+            val content =
+                @Suppress("UNCHECKED_CAST")
+                (data["content"] as List<Map<String, Any?>>)
+            assertThat(content).hasSize(2)
+            assertThat((content[0]["orderId"] as Number).toLong())
+                .isGreaterThan((content[1]["orderId"] as Number).toLong())
+        }
     }
 }

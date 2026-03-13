@@ -3,10 +3,19 @@ package com.loopers.infrastructure.order
 import com.loopers.infrastructure.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
-@Table(name = "order_item")
+@Table(
+    name = "order_item",
+    indexes = [
+        Index(
+            name = "idx_order_item_order_id_id",
+            columnList = "order_id, id",
+        ),
+    ],
+)
 @Entity
 class OrderItemEntity(
     id: Long? = null,

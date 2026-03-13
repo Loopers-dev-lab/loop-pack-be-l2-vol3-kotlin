@@ -284,6 +284,94 @@ UPDATE product p
     ) pl ON pl.product_id = p.id
 SET p.like_count = COALESCE(pl.like_count, 0);
 
+INSERT INTO orders (
+    id,
+    user_id,
+    idempotency_key,
+    status,
+    issued_coupon_id,
+    discount_amount,
+    created_at,
+    updated_at
+)
+SELECT n AS id,
+       CASE
+           WHEN n <= 30000 THEN MOD((n - 1) * 37, 4000) + 1
+           WHEN n <= 45000 THEN MOD((n - 1) * 73, 7000) + 1
+           ELSE MOD((n - 1) * 131, 10000) + 1
+       END AS user_id,
+       CONCAT('seed-order-', LPAD(n, 6, '0')) AS idempotency_key,
+       'CREATED' AS status,
+       NULL AS issued_coupon_id,
+       CAST(0 AS DECIMAL(19, 2)) AS discount_amount,
+       CASE
+           WHEN n <= 35000 THEN TIMESTAMP('2026-03-13 09:00:00')
+               - INTERVAL MOD(n - 1, 7) DAY
+               - INTERVAL MOD((n - 1) * 53, 1440) MINUTE
+           WHEN n <= 47000 THEN TIMESTAMP('2026-03-06 09:00:00')
+               - INTERVAL (7 + MOD(n - 35001, 24)) DAY
+               - INTERVAL MOD((n - 1) * 29, 1440) MINUTE
+           ELSE TIMESTAMP('2026-02-06 09:00:00')
+               - INTERVAL (30 + MOD(n - 47001, 60)) DAY
+               - INTERVAL MOD((n - 1) * 17, 1440) MINUTE
+       END AS created_at,
+       CASE
+           WHEN n <= 35000 THEN TIMESTAMP('2026-03-13 09:00:00')
+               - INTERVAL MOD(n - 1, 7) DAY
+               - INTERVAL MOD((n - 1) * 53, 1440) MINUTE
+           WHEN n <= 47000 THEN TIMESTAMP('2026-03-06 09:00:00')
+               - INTERVAL (7 + MOD(n - 35001, 24)) DAY
+               - INTERVAL MOD((n - 1) * 29, 1440) MINUTE
+           ELSE TIMESTAMP('2026-02-06 09:00:00')
+               - INTERVAL (30 + MOD(n - 47001, 60)) DAY
+               - INTERVAL MOD((n - 1) * 17, 1440) MINUTE
+       END AS updated_at
+FROM seed_seq_100000
+WHERE n <= 50000;
+
+INSERT INTO order_item (
+    id,
+    order_id,
+    product_id,
+    product_name,
+    brand_id,
+    brand_name,
+    regular_price,
+    selling_price,
+    thumbnail_url,
+    quantity,
+    created_at,
+    updated_at
+)
+SELECT ((o.id - 1) * 3) + s.n AS id,
+       o.id AS order_id,
+       p.id AS product_id,
+       p.name AS product_name,
+       b.id AS brand_id,
+       b.name AS brand_name,
+       p.regular_price,
+       p.selling_price,
+       p.thumbnail_url,
+       MOD(o.id + s.n, 5) + 1 AS quantity,
+       o.created_at,
+       o.updated_at
+FROM orders o
+    JOIN seed_seq_3 s
+        ON s.n <= CASE
+                      WHEN MOD(o.id, 10) < 7 THEN 1
+                      WHEN MOD(o.id, 10) < 9 THEN 2
+                      ELSE 3
+                  END
+    JOIN product p
+        ON p.id = CASE
+                      WHEN MOD(o.id + s.n, 10) < 6 THEN MOD(((o.id - 1) * 97) + ((s.n - 1) * 31), 3000) + 1
+                      WHEN MOD(o.id + s.n, 10) < 9 THEN MOD(((o.id - 1) * 193) + ((s.n - 1) * 17), 17000) + 3001
+                      ELSE MOD(((o.id - 1) * 389) + ((s.n - 1) * 43), 80000) + 20001
+                  END
+    JOIN brand b
+        ON b.id = p.brand_id
+WHERE o.id <= 50000;
+
 DROP TABLE IF EXISTS seed_seq_3;
 DROP TABLE IF EXISTS seed_seq_10;
 DROP TABLE IF EXISTS seed_seq_20;

@@ -47,7 +47,10 @@ class UserOrderRepositoryImpl(
         val pageable = SpringPageRequest.of(
             pageRequest.page,
             pageRequest.size,
-            Sort.by(Sort.Direction.DESC, "id"),
+            Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id"),
+            ),
         )
         val page = orderJpaRepository.findAllByUserIdAndCreatedAtBetweenAndDeletedAtIsNull(
             userId,
@@ -68,7 +71,10 @@ class UserOrderRepositoryImpl(
         val pageable = SpringPageRequest.of(
             pageRequest.page,
             pageRequest.size,
-            Sort.by(Sort.Direction.DESC, "id"),
+            Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id"),
+            ),
         )
         val page = orderJpaRepository.findAllByDeletedAtIsNull(pageable)
 
