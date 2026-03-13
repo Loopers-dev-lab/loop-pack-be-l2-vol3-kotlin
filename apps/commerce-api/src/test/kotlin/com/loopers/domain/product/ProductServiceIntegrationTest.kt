@@ -159,6 +159,94 @@ class ProductServiceIntegrationTest @Autowired constructor(
         }
     }
 
+    @DisplayName("상위 브랜드 조회할 때,")
+    @Nested
+    inner class GetTopBrandIdsByProductCount {
+
+        @DisplayName("여러 브랜드의 상품이 개수순으로 정렬되어 반환된다.")
+        @Test
+        fun returnsBrandIdsSortedByProductCount() {
+            // arrange
+            val brandA = brandRepository.save(Brand(name = "브랜드A", description = "설명"))
+            val brandB = brandRepository.save(Brand(name = "브랜드B", description = "설명"))
+            val brandC = brandRepository.save(Brand(name = "브랜드C", description = "설명"))
+
+            // brandB: 3개, brandC: 2개, brandA: 1개
+            repeat(1) { productRepository.save(createProduct(brandA.id)) }
+            repeat(3) { productRepository.save(createProduct(brandB.id)) }
+            repeat(2) { productRepository.save(createProduct(brandC.id)) }
+
+            // act
+            val result = productService.getTopBrandIdsByProductCount(3)
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(3) },
+                { assertThat(result[0]).isEqualTo(brandB.id) },
+                { assertThat(result[1]).isEqualTo(brandC.id) },
+                { assertThat(result[2]).isEqualTo(brandA.id) },
+            )
+        }
+
+        @DisplayName("삭제된 상품은 집계에서 제외된다.")
+        @Test
+        fun excludesDeletedProductsFromCount() {
+            // arrange
+            val brandA = brandRepository.save(Brand(name = "브랜드A", description = "설명"))
+            val brandB = brandRepository.save(Brand(name = "브랜드B", description = "설명"))
+
+            // brandA: 활성 2개, 삭제 3개 → 실제 2개
+            repeat(2) { productRepository.save(createProduct(brandA.id)) }
+            repeat(3) {
+                val product = productRepository.save(createProduct(brandA.id))
+                product.delete()
+                productRepository.save(product)
+            }
+
+            // brandB: 활성 3개 → 실제 3개
+            repeat(3) { productRepository.save(createProduct(brandB.id)) }
+
+            // act
+            val result = productService.getTopBrandIdsByProductCount(2)
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(2) },
+                { assertThat(result[0]).isEqualTo(brandB.id) },
+                { assertThat(result[1]).isEqualTo(brandA.id) },
+            )
+        }
+
+        @DisplayName("limit보다 브랜드가 많으면, 상위 limit개만 반환된다.")
+        @Test
+        fun returnsExactlyLimitBrands() {
+            // arrange
+            val brands = (1..5).map {
+                brandRepository.save(Brand(name = "브랜드$it", description = "설명"))
+            }
+            brands.forEach { brand ->
+                productRepository.save(createProduct(brand.id))
+            }
+
+            // act
+            val result = productService.getTopBrandIdsByProductCount(3)
+
+            // assert
+            assertThat(result).hasSize(3)
+        }
+    }
+
+    private fun createProduct(brandId: Long): Product {
+        return Product(
+            name = "상품",
+            description = "설명",
+            price = Money.of(10000L),
+            likes = LikeCount.of(0),
+            stockQuantity = StockQuantity.of(100),
+            brandId = brandId,
+        )
+    }
+
     @DisplayName("상품 생성할 때,")
     @Nested
     inner class CreateProduct {
