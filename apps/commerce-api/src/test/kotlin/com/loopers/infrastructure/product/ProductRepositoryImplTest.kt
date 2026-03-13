@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.product
 
 import com.loopers.domain.product.ProductModel
+import com.loopers.domain.product.ProductSortType
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -81,15 +82,15 @@ class ProductRepositoryImplTest {
                 createProduct(name = "상품B", price = 20000, brandId = 2L),
             )
             val page = PageImpl(products, pageable, 2)
-            every { productJpaRepository.findAllByDeletedAtIsNull(pageable) } returns page
+            every { productJpaRepository.findAllByDeletedAtIsNullOrderByCreatedAtDescIdDesc(pageable) } returns page
 
             // act
-            val result = productRepositoryImpl.findAllByDeletedAtIsNull(null, pageable)
+            val result = productRepositoryImpl.findAllByDeletedAtIsNull(null, ProductSortType.LATEST, pageable)
 
             // assert
             assertThat(result.content).hasSize(2)
-            verify(exactly = 1) { productJpaRepository.findAllByDeletedAtIsNull(pageable) }
-            verify(exactly = 0) { productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(any(), any()) }
+            verify(exactly = 1) { productJpaRepository.findAllByDeletedAtIsNullOrderByCreatedAtDescIdDesc(pageable) }
+            verify(exactly = 0) { productJpaRepository.findAllByBrandIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(any(), any()) }
         }
 
         @DisplayName("brandId가 있으면 해당 브랜드의 상품만 조회한다.")
@@ -101,16 +102,32 @@ class ProductRepositoryImplTest {
                 createProduct(name = "나이키 상품", price = 30000, brandId = 1L),
             )
             val page = PageImpl(products, pageable, 1)
-            every { productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(1L, pageable) } returns page
+            every { productJpaRepository.findAllByBrandIdAndDeletedAtIsNullOrderByLikesCountDescIdDesc(1L, pageable) } returns page
 
             // act
-            val result = productRepositoryImpl.findAllByDeletedAtIsNull(1L, pageable)
+            val result = productRepositoryImpl.findAllByDeletedAtIsNull(1L, ProductSortType.LIKES_DESC, pageable)
 
             // assert
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].name).isEqualTo("나이키 상품")
-            verify(exactly = 1) { productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(1L, pageable) }
-            verify(exactly = 0) { productJpaRepository.findAllByDeletedAtIsNull(any<PageRequest>()) }
+            verify(exactly = 1) { productJpaRepository.findAllByBrandIdAndDeletedAtIsNullOrderByLikesCountDescIdDesc(1L, pageable) }
+            verify(exactly = 0) { productJpaRepository.findAllByDeletedAtIsNullOrderByCreatedAtDescIdDesc(any<PageRequest>()) }
+        }
+
+        @DisplayName("price_asc 정렬이면 가격순 조회 메서드를 사용한다.")
+        @Test
+        fun usesPriceSortingRepositoryMethod() {
+            // arrange
+            val pageable = PageRequest.of(0, 10)
+            val page = PageImpl(listOf(createProduct(name = "가격순 상품", price = 15000, brandId = 2L)), pageable, 1)
+            every { productJpaRepository.findAllByBrandIdAndDeletedAtIsNullOrderByPriceAscIdDesc(2L, pageable) } returns page
+
+            // act
+            val result = productRepositoryImpl.findAllByDeletedAtIsNull(2L, ProductSortType.PRICE_ASC, pageable)
+
+            // assert
+            assertThat(result.content).hasSize(1)
+            verify(exactly = 1) { productJpaRepository.findAllByBrandIdAndDeletedAtIsNullOrderByPriceAscIdDesc(2L, pageable) }
         }
     }
 
