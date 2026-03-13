@@ -38,9 +38,15 @@ class ProductPopularityMvRefresher(
             val insertedCount = entityManager.createNativeQuery(
                 """
                 INSERT INTO product_popularity_mv (product_id, brand_id, like_count, popularity_rank)
-                SELECT p.id, p.brand_id, p.like_count,
-                       ROW_NUMBER() OVER (ORDER BY p.like_count DESC, p.id DESC) AS popularity_rank
+                SELECT p.id, p.brand_id, COALESCE(lc.cnt, 0) AS like_count,
+                       ROW_NUMBER() OVER (ORDER BY COALESCE(lc.cnt, 0) DESC, p.id DESC) AS popularity_rank
                 FROM products p
+                LEFT JOIN (
+                    SELECT product_id, COUNT(*) AS cnt
+                    FROM product_likes
+                    WHERE deleted_at IS NULL
+                    GROUP BY product_id
+                ) lc ON p.id = lc.product_id
                 WHERE p.deleted_at IS NULL
                 """.trimIndent(),
             ).executeUpdate()

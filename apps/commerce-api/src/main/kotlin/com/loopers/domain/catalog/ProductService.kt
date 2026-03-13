@@ -85,15 +85,6 @@ class ProductService(
         productCache.evictProductList()
     }
 
-    @Transactional
-    fun increaseLikeCount(productId: Long) {
-        productRepository.increaseLikeCount(productId)
-    }
-
-    @Transactional
-    fun decreaseLikeCount(productId: Long): Boolean {
-        return productRepository.decreaseLikeCount(productId)
-    }
 }
 
 data class RegisterProductCommand(

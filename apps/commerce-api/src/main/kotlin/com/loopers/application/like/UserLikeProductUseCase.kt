@@ -23,7 +23,6 @@ class UserLikeProductUseCase(
         productService.getProduct(criteria.productId)
         val created = productLikeService.like(LikeProductCommand(userId = user.id, productId = criteria.productId))
         if (created) {
-            productService.increaseLikeCount(criteria.productId)
             productCache.evictProduct(criteria.productId)
             productCache.evictPopularList()
         }

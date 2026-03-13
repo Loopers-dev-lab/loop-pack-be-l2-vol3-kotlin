@@ -70,13 +70,13 @@ class ProductSeeder(
         entityManager.flush()
         entityManager.clear()
 
-        updateLikeCountsWithParetoDistribution(random)
+        seedProductLikes(random)
 
         log.info("ProductSeeder: 완료 (품절 {}개, 재고 {}개)", soldOutCount, TOTAL_PRODUCTS - soldOutCount)
     }
 
-    private fun updateLikeCountsWithParetoDistribution(random: Random) {
-        log.info("ProductSeeder: like_count 파레토 분포 업데이트 시작")
+    private fun seedProductLikes(random: Random) {
+        log.info("ProductSeeder: product_likes 파레토 분포 시딩 시작")
 
         val alpha = 0.8
         val maxLikeCount = 10_000
@@ -88,20 +88,39 @@ class ProductSeeder(
         val likeCounts = productIds.map { generateParetoValue(random, alpha, maxLikeCount) }
             .sortedDescending()
 
-        for (batch in productIds.indices.chunked(BATCH_SIZE)) {
-            for (i in batch) {
-                entityManager.createNativeQuery(
-                    "UPDATE products SET like_count = :likeCount WHERE id = :id",
-                )
-                    .setParameter("likeCount", likeCounts[i])
-                    .setParameter("id", productIds[i])
-                    .executeUpdate()
+        var totalInserted = 0
+        val values = StringBuilder()
+        var batchCount = 0
+
+        for ((index, productId) in productIds.withIndex()) {
+            val likeCount = likeCounts[index]
+            for (userId in 1..likeCount) {
+                if (batchCount > 0) values.append(",")
+                values.append("($userId,$productId,NOW(),NOW())")
+                batchCount++
+
+                if (batchCount >= BATCH_SIZE) {
+                    entityManager.createNativeQuery(
+                        "INSERT INTO product_likes (user_id, product_id, created_at, updated_at) VALUES $values",
+                    ).executeUpdate()
+                    totalInserted += batchCount
+                    values.clear()
+                    batchCount = 0
+                }
             }
-            entityManager.flush()
-            entityManager.clear()
         }
 
-        log.info("ProductSeeder: like_count 업데이트 완료")
+        if (batchCount > 0) {
+            entityManager.createNativeQuery(
+                "INSERT INTO product_likes (user_id, product_id, created_at, updated_at) VALUES $values",
+            ).executeUpdate()
+            totalInserted += batchCount
+        }
+
+        entityManager.flush()
+        entityManager.clear()
+
+        log.info("ProductSeeder: product_likes 시딩 완료 (총 {}건)", totalInserted)
     }
 
     private fun generateParetoValue(random: Random, alpha: Double, maxValue: Int): Int {

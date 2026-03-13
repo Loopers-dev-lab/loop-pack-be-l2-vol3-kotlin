@@ -10,7 +10,6 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Slice
 import org.springframework.data.domain.SliceImpl
 import org.springframework.stereotype.Component
-import java.time.ZonedDateTime
 
 @Component
 class ProductRepositoryImpl(
@@ -23,14 +22,6 @@ class ProductRepositoryImpl(
 
     override fun findByIdWithLock(id: Long): ProductModel? {
         return productJpaRepository.findByIdWithLock(id)
-    }
-
-    override fun increaseLikeCount(id: Long): Boolean {
-        return productJpaRepository.increaseLikeCount(id, ZonedDateTime.now()) > 0
-    }
-
-    override fun decreaseLikeCount(id: Long): Boolean {
-        return productJpaRepository.decreaseLikeCount(id, ZonedDateTime.now()) > 0
     }
 
     override fun findAll(pageable: Pageable): Slice<ProductModel> {

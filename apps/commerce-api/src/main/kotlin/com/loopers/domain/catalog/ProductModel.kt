@@ -14,8 +14,7 @@ import java.math.BigDecimal
 @Table(
     name = "products",
     indexes = [
-        Index(name = "idx_prod_popular", columnList = "like_count DESC, id DESC"),
-        Index(name = "idx_prod_brand_popular", columnList = "brand_id, like_count DESC, id DESC"),
+        Index(name = "idx_product_brand_id", columnList = "brand_id, id DESC"),
     ],
 )
 class ProductModel(
@@ -36,10 +35,6 @@ class ProductModel(
 
     @Column(precision = 10, scale = 2)
     var price: BigDecimal = price
-        protected set
-
-    @Column(name = "like_count", nullable = false)
-    var likeCount: Int = 0
         protected set
 
     @Version
