@@ -1,10 +1,11 @@
 package com.loopers.interfaces.api.product
 
+import com.loopers.application.product.ProductCommandFacade
 import com.loopers.application.product.ProductFacade
 import com.loopers.application.product.ProductInfo
 import com.loopers.domain.product.DisplayStatus
 import com.loopers.domain.product.ProductModel
-import com.loopers.domain.product.ProductService
+import com.loopers.domain.product.ProductSortType
 import com.loopers.domain.product.SaleStatus
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.data.domain.Page
@@ -23,25 +24,27 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api-admin/v1/products")
 class ProductAdminV1Controller(
-    private val productService: ProductService,
+    private val productCommandFacade: ProductCommandFacade,
     private val productFacade: ProductFacade,
 ) {
     @GetMapping
     fun findAll(
         @RequestParam(required = false) brandId: Long?,
+        @RequestParam(name = "sort", required = false) sort: String?,
+        @RequestParam(name = "sortBy", required = false) legacySort: String?,
         @PageableDefault(size = 20) pageable: Pageable,
-    ): ApiResponse<Page<ProductInfo>> {
-        return ApiResponse.success(productFacade.getProductList(brandId, pageable))
-    }
+    ): ApiResponse<Page<ProductInfo>> = ApiResponse.success(
+        productFacade.getProductList(brandId, ProductSortType.from(legacySort ?: sort ?: "latest"), pageable),
+    )
 
     @GetMapping("/{productId}")
-    fun findById(@PathVariable productId: Long): ApiResponse<ProductInfo> {
-        return ApiResponse.success(productFacade.getProductDetail(productId))
-    }
+    fun findById(
+        @PathVariable productId: Long,
+    ): ApiResponse<ProductInfo> = ApiResponse.success(productFacade.getProductDetail(productId))
 
     @PostMapping
     fun create(@RequestBody request: ProductAdminV1Dto.CreateRequest): ApiResponse<ProductAdminV1Dto.ProductResponse> {
-        val product = productService.create(
+        val product = productCommandFacade.create(
             name = request.name,
             price = request.price,
             brandId = request.brandId,
@@ -57,7 +60,7 @@ class ProductAdminV1Controller(
         @PathVariable productId: Long,
         @RequestBody request: ProductAdminV1Dto.UpdateRequest,
     ): ApiResponse<ProductAdminV1Dto.ProductResponse> {
-        val product = productService.update(
+        val product = productCommandFacade.update(
             id = productId,
             name = request.name,
             price = request.price,
@@ -72,7 +75,7 @@ class ProductAdminV1Controller(
 
     @DeleteMapping("/{productId}")
     fun delete(@PathVariable productId: Long): ApiResponse<Any> {
-        productService.delete(productId)
+        productCommandFacade.delete(productId)
         return ApiResponse.success()
     }
 }
@@ -107,8 +110,7 @@ class ProductAdminV1Dto {
         val displayStatus: DisplayStatus,
     ) {
         companion object {
-            fun from(product: ProductModel): ProductResponse {
-                return ProductResponse(
+            fun from(product: ProductModel): ProductResponse = ProductResponse(
                     id = product.id,
                     name = product.name,
                     price = product.price,
@@ -117,7 +119,6 @@ class ProductAdminV1Dto {
                     saleStatus = product.saleStatus,
                     displayStatus = product.displayStatus,
                 )
-            }
         }
     }
 }
