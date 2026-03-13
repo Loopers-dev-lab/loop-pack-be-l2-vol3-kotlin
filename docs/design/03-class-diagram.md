@@ -8,6 +8,7 @@
 
 1. [레이어 아키텍처 전체 구조](#1-레이어-아키텍처-전체-구조)
 2. [도메인 클래스 다이어그램](#2-도메인-클래스-다이어그램)
+3. [캐시 클래스 다이어그램](#3-캐시-클래스-다이어그램)
 
 ---
 
@@ -71,6 +72,9 @@ flowchart TB
         R5[OrderRepositoryImpl]
         R6[CouponRepositoryImpl]
         R7[IssuedCouponRepositoryImpl]
+        CS[ProductCacheService]
+        CR[ProductCacheRepository]
+        CL[ProductLocalCacheRepository]
     end
 
     C1 --> S1
@@ -108,6 +112,10 @@ flowchart TB
     R5 -.->|implements| RI5
     R6 -.->|implements| RI6
     R7 -.->|implements| RI7
+
+    S3 --> CS
+    CS --> CR
+    CS --> CL
 ```
 
 ### 핵심 포인트
@@ -117,7 +125,7 @@ flowchart TB
 | **interfaces** | 요청/응답 처리, DTO 변환 | Controller, ApiSpec, Dto | Service, Facade | Repository, Entity |
 | **application** | 비즈니스 조합, 트랜잭션 경계 | Service, Facade, Info, Criteria | Repository Interface, Entity, DomainService | RepositoryImpl, DB |
 | **domain** | 엔티티, 도메인 규칙, 저장소 인터페이스 | Entity, DomainService, Repository Interface | Entity 자신 | 다른 도메인, 프레임워크 |
-| **infrastructure** | Repository 구현체, 외부 연동 | RepositoryImpl, JpaRepository | Entity, JPA | 비즈니스 로직 |
+| **infrastructure** | Repository 구현체, 외부 연동, 캐시 | RepositoryImpl, JpaRepository, CacheService, CacheRepository | Entity, JPA | 비즈니스 로직 |
 
 ### 의존 방향 규칙
 
@@ -139,6 +147,7 @@ Controller → Service/Facade → Repository Interface ← RepositoryImpl
 | BrandService → ProductRepository | 브랜드 삭제 시 연쇄 상품 삭제를 위해 직접 참조 |
 | ProductService → BrandRepository | 상품 등록 시 브랜드 존재 검증을 위해 직접 참조 |
 | OrderFacade | 교차 도메인 조합 시에만 사용 (OrderService + ProductService + BrandService) |
+| ProductService → ProductCacheService | 캐시 조회/무효화를 위한 의존 |
 
 ---
 
@@ -430,6 +439,95 @@ classDiagram
 
 ---
 
+## 3. 캐시 클래스 다이어그램
+
+### 다이어그램 목적
+- 캐시 레이어의 클래스 구조와 역할 확인
+- 캐시 모드별 분기 전략과 정책 명시
+
+```mermaid
+classDiagram
+    class ProductCacheService {
+        -redisCacheRepository: ProductCacheRepository
+        -localCacheRepository: ProductLocalCacheRepository
+        -cacheMode: CacheMode
+        -MAX_CACHED_PAGE: Int = 3
+        +getProductDetail(productId) ProductInfo?
+        +setProductDetail(productId, info) void
+        +evictProductDetail(productId) void
+        +getProductList(brandId, sort, page, size) CachedPage~ProductInfo~?
+        +setProductList(brandId, sort, page, size, data) void
+        +evictAllProductLists() void
+    }
+
+    class ProductCacheRepository {
+        -redisTemplate: RedisTemplate
+        -objectMapper: ObjectMapper
+        -DETAIL_KEY_PREFIX: "product:detail:"
+        -LIST_KEY_PREFIX: "product:list:"
+        -DETAIL_TTL: 10분
+        -LIST_TTL: 5분
+        +getProductDetail(productId) ProductInfo?
+        +setProductDetail(productId, info) void
+        +evictProductDetail(productId) void
+        +getProductList(brandId, sort, page, size) CachedPage~ProductInfo~?
+        +setProductList(brandId, sort, page, size, data) void
+        +evictAllProductLists() void
+    }
+
+    class ProductLocalCacheRepository {
+        -detailCache: Cache~Long, ProductInfo~ (max 10000, TTL 10s)
+        -listCache: Cache~String, CachedPage~ (max 500, TTL 10s)
+        +getProductDetail(productId) ProductInfo?
+        +setProductDetail(productId, info) void
+        +evictProductDetail(productId) void
+        +getProductList(brandId, sort, page, size) CachedPage~ProductInfo~?
+        +setProductList(brandId, sort, page, size, data) void
+        +evictAllProductLists() void
+    }
+
+    class CacheMode {
+        <<enumeration>>
+        LOCAL
+        REDIS
+        LAYERED
+    }
+
+    class CachedPage~T~ {
+        -content: List~T~
+        -page: Int
+        -size: Int
+        -totalElements: Long
+        +toPage() Page~T~
+        +from(page)$ CachedPage~T~
+    }
+
+    ProductCacheService --> CacheMode : cacheMode
+    ProductCacheService --> ProductCacheRepository : Redis 캐시
+    ProductCacheService --> ProductLocalCacheRepository : 로컬 캐시
+    ProductCacheRepository ..> CachedPage : 사용
+    ProductLocalCacheRepository ..> CachedPage : 사용
+```
+
+### 클래스별 역할
+
+| 클래스 | 패키지 | 역할 |
+|--------|--------|------|
+| **ProductCacheService** | infrastructure.product | 캐시 모드별 분기 + 페이지 제한 정책 (MAX_CACHED_PAGE = 3) |
+| **ProductCacheRepository** | infrastructure.product | Redis 캐시 (TTL: 상세 10분, 목록 5분) |
+| **ProductLocalCacheRepository** | infrastructure.product | Caffeine 로컬 캐시 (TTL 10초, 상세 10000개, 목록 500개) |
+| **CacheMode** | infrastructure.product | 캐시 전략 enum (LOCAL / REDIS / LAYERED) |
+| **CachedPage\<T\>** | support.cache | 캐시용 페이지네이션 DTO, Page ↔ CachedPage 변환 |
+
+### 캐시 키 구조
+
+| 대상 | 키 패턴 | 예시 |
+|------|---------|------|
+| 상품 상세 | `product:detail:{productId}` | `product:detail:42` |
+| 상품 목록 | `product:list:{brandId}:{sort}:{page}:{size}` | `product:list:1:createdAt:0:20` |
+
+---
+
 ## 설계 원칙 요약
 
 | 원칙 | 적용 |
@@ -441,3 +539,4 @@ classDiagram
 | **스냅샷** | OrderItem에 주문 시점 상품 정보 복사 |
 | **Facade** | 교차 도메인 조합 시에만 사용 (OrderFacade) |
 | **독자 엔티티** | IssuedCoupon은 BaseEntity 미상속, status로 생명주기 관리 |
+| **캐시 정책 격리** | ProductCacheService에서만 캐시 전략 관리, ProductService는 캐시 존재를 모름 |

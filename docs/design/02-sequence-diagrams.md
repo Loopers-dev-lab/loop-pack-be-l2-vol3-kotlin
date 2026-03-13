@@ -1,6 +1,6 @@
 # 시퀀스 다이어그램
 
-> 선정 기준: 여러 도메인 협력 / 트랜잭션 경계 명확화 필요 / 동시성·정합성 처리
+> 선정 기준: 여러 도메인 협력 / 트랜잭션 경계 명확화 필요 / 동시성·정합성 처리 / 캐시 전략
 
 ---
 
@@ -13,6 +13,8 @@
 5. [상품 등록 - 어드민 (A08)](#5-상품-등록---어드민-a08)
 6. [쿠폰 적용 주문 생성 (C10 + 쿠폰)](#6-쿠폰-적용-주문-생성-c10--쿠폰)
 7. [쿠폰 발급 (C13)](#7-쿠폰-발급-c13)
+8. [상품 상세 조회 - 캐시 (C05)](#8-상품-상세-조회---캐시-c05)
+9. [상품 수정 - 캐시 무효화 (A09)](#9-상품-수정---캐시-무효화-a09)
 
 ---
 
@@ -569,6 +571,174 @@ sequenceDiagram
 
 ---
 
+## 8. 상품 상세 조회 - 캐시 (C05)
+
+### 협력 도메인
+Product (+ Cache Layer)
+
+### 다이어그램 목적
+- Layered 캐시 모드에서 Local → Redis → DB 순서 조회 흐름 확인
+- 캐시 히트/미스 분기와 백필 전략 검증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant Controller
+    participant ProductService
+    participant CacheService as ProductCacheService
+    participant LocalCache as ProductLocalCacheRepository
+    participant RedisCache as ProductCacheRepository
+    participant ProductRepository
+    participant DB
+
+    Client->>Controller: GET /products/{productId}
+    Controller->>ProductService: getProductInfo(productId)
+
+    ProductService->>CacheService: getProductDetail(productId)
+
+    rect rgb(230, 245, 255)
+        Note over CacheService,RedisCache: Layered 모드 캐시 조회
+
+        CacheService->>LocalCache: getProductDetail(productId)
+
+        alt 로컬 캐시 히트
+            LocalCache-->>CacheService: ProductInfo
+            CacheService-->>ProductService: ProductInfo (from Local)
+        else 로컬 캐시 미스
+            LocalCache-->>CacheService: null
+            CacheService->>RedisCache: getProductDetail(productId)
+
+            alt Redis 캐시 히트
+                RedisCache-->>CacheService: ProductInfo
+                CacheService->>LocalCache: setProductDetail(productId, info)
+                Note over CacheService,LocalCache: Redis 히트 시 로컬에 백필
+                CacheService-->>ProductService: ProductInfo (from Redis)
+            else Redis 캐시 미스
+                RedisCache-->>CacheService: null
+                CacheService-->>ProductService: null
+            end
+        end
+    end
+
+    alt 캐시 히트 (Local 또는 Redis)
+        ProductService-->>Controller: ProductInfo
+        Controller-->>Client: 200 OK
+    else 캐시 미스
+        ProductService->>ProductRepository: findById(productId)
+        ProductRepository->>DB: SELECT * WHERE id = ? AND deletedAt IS NULL
+        DB-->>ProductRepository: product
+
+        alt 상품 없음
+            ProductRepository-->>ProductService: null
+            ProductService-->>Controller: throw NOT_FOUND
+            Controller-->>Client: 404 Not Found
+        else 상품 존재
+            ProductRepository-->>ProductService: product
+            ProductService->>ProductService: ProductInfo.from(product)
+            ProductService->>CacheService: setProductDetail(productId, info)
+            Note over CacheService,RedisCache: Redis + Local 양쪽에 저장
+            ProductService-->>Controller: ProductInfo
+            Controller-->>Client: 200 OK
+        end
+    end
+```
+
+### 핵심 포인트
+- **조회 순서**: Local Cache → Redis Cache → DB (Layered 모드)
+- **백필**: Redis 히트 시 로컬 캐시에 자동 저장하여 다음 요청은 로컬에서 처리
+- **TTL 차이**: Local 10초 / Redis 10분 — 로컬은 짧은 TTL로 인스턴스 간 불일치 최소화
+
+### 설계 결정
+| 결정 | 선택 | 이유 |
+|------|------|------|
+| 캐시 조회 순서 | Local → Redis → DB | 가장 빠른 저장소부터 순차 조회 |
+| 로컬 TTL | 10초 | 다중 인스턴스 간 불일치 허용 범위 최소화 |
+| Redis TTL | 10분 | 상세 정보는 변경 빈도가 낮아 긴 TTL 적용 |
+| 캐시 미스 시 | DB 조회 후 양쪽 캐시에 저장 | 다음 요청부터 캐시 히트 보장 |
+
+---
+
+## 9. 상품 수정 - 캐시 무효화 (A09)
+
+### 협력 도메인
+Product (+ Cache Layer)
+
+### 다이어그램 목적
+- 상품 수정 시 캐시 무효화 전략 확인 (상세: replace, 목록: evictAll)
+- Cache Stampede 방지를 위한 replace 전략 검증
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant Controller
+    participant ProductService
+    participant ProductRepository
+    participant CacheService as ProductCacheService
+    participant LocalCache as ProductLocalCacheRepository
+    participant RedisCache as ProductCacheRepository
+    participant DB
+
+    Admin->>Controller: PUT /api-admin/v1/products/{productId}
+    Controller->>ProductService: updateProduct(productId, criteria)
+
+    rect rgb(255, 245, 238)
+        Note over ProductService,DB: 트랜잭션 시작
+
+        ProductService->>ProductRepository: findById(productId)
+        ProductRepository->>DB: SELECT * WHERE id = ? AND deletedAt IS NULL
+        DB-->>ProductRepository: product (or null)
+
+        alt 상품 없음
+            ProductRepository-->>ProductService: null
+            ProductService-->>Controller: throw NOT_FOUND
+            Controller-->>Admin: 404 Not Found
+        else 상품 존재
+            ProductRepository-->>ProductService: product
+            ProductService->>ProductService: product.update(name, price, ...)
+            ProductService->>ProductRepository: save(product)
+            ProductRepository->>DB: UPDATE products SET ...
+            DB-->>ProductRepository: savedProduct
+            ProductRepository-->>ProductService: savedProduct
+
+            rect rgb(230, 245, 255)
+                Note over CacheService,RedisCache: 캐시 무효화
+
+                ProductService->>CacheService: setProductDetail(productId, newInfo)
+                Note over CacheService: replace 전략 — 새 값으로 덮어쓰기 (Stampede 방지)
+                CacheService->>RedisCache: setProductDetail(productId, info)
+                CacheService->>LocalCache: setProductDetail(productId, info)
+
+                ProductService->>CacheService: evictAllProductLists()
+                Note over CacheService: 목록은 키 특정 불가 → 전체 무효화
+                CacheService->>RedisCache: evictAllProductLists()
+                CacheService->>LocalCache: evictAllProductLists()
+            end
+        end
+
+        Note over ProductService,DB: 트랜잭션 종료
+    end
+
+    ProductService-->>Controller: ProductInfo
+    Controller-->>Admin: 200 OK
+```
+
+### 핵심 포인트
+- **상세 캐시: replace**: 수정된 값을 즉시 캐시에 저장 → 기존 캐시를 evict하면 TTL 내 다수 요청이 DB로 몰리는 Cache Stampede 발생
+- **목록 캐시: evictAll**: brandId × sort × page × size 조합으로 키를 특정할 수 없어 전체 무효화
+- **삭제 시에는 evict**: 삭제된 상품은 replace할 값이 없으므로 캐시에서 제거
+
+### 설계 결정
+| 결정 | 선택 | 이유 |
+|------|------|------|
+| 상세 캐시 무효화 | replace (덮어쓰기) | Cache Stampede 방지 |
+| 목록 캐시 무효화 | evictAll (전체 삭제) | 캐시 키 조합이 다양해 특정 불가 |
+| 삭제 시 상세 캐시 | evict (제거) | 삭제된 상품은 캐시에 남으면 안 됨 |
+| 목록 캐시 범위 | 첫 3페이지만 (MAX_CACHED_PAGE = 3) | 캐시 키 폭발 방지, 80/20 법칙 |
+
+---
+
 ## 요약
 
 | # | API | 핵심 검증 포인트 | 트랜잭션 범위 |
@@ -580,3 +750,5 @@ sequenceDiagram
 | 5 | 상품 등록 | 브랜드 존재 검증 | 브랜드 조회 → 상품 저장 |
 | 6 | 쿠폰 적용 주문 | 상품: 비관적 락, 쿠폰: 낙관적 락, 전체 성공 or 전체 실패 | 상품 락 → 재고 검증/차감 → 쿠폰 조회(@Version) → 주문 생성 → 할인 적용 |
 | 7 | 쿠폰 발급 | 중복 발급 방지, 만료/삭제 검증 | 쿠폰 조회 → 중복 확인 → 발급 |
+| 8 | 상품 상세 조회 (캐시) | Layered 캐시 히트/미스 분기, 백필 | Local → Redis → DB → 양쪽 캐시 저장 |
+| 9 | 상품 수정 (캐시 무효화) | replace로 Stampede 방지, 목록 evictAll | DB 수정 → 상세 replace → 목록 evictAll |
