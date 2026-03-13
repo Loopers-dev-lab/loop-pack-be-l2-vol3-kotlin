@@ -68,6 +68,7 @@ class ProductRepositoryImpl(
             .select(productModel)
             .from(productPopularityMv)
             .join(productModel).on(productModel.id.eq(productPopularityMv.productId))
+            .where(productModel.deletedAt.isNull)
 
         brandId?.let { query.where(productPopularityMv.brandId.eq(it)) }
 

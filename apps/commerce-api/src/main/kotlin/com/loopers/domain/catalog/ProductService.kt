@@ -81,7 +81,9 @@ class ProductService(
 
     @Transactional
     fun deleteAllByBrandId(brandId: Long) {
-        productRepository.findAllByBrandId(brandId).forEach { it.delete() }
+        val products = productRepository.findAllByBrandId(brandId)
+        products.forEach { it.delete() }
+        products.forEach { productCache.evictProduct(it.id) }
         productCache.evictProductList()
     }
 
