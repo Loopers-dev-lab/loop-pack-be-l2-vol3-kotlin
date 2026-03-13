@@ -24,7 +24,6 @@ class UserLikeProductUseCase(
         val created = productLikeService.like(LikeProductCommand(userId = user.id, productId = criteria.productId))
         if (created) {
             productCache.evictProduct(criteria.productId)
-            productCache.evictPopularList()
         }
     }
 }

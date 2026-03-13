@@ -1,25 +1,35 @@
 package com.loopers.infrastructure.catalog
 
+import com.loopers.domain.catalog.ProductCache
 import jakarta.persistence.EntityManager
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
+import java.util.UUID
 
 @Component
 class ProductPopularityMvRefresher(
     private val entityManager: EntityManager,
     private val redisTemplate: RedisTemplate<String, String>,
+    private val productCache: ProductCache,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    private val releaseLockScript = DefaultRedisScript<Long>(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        Long::class.java,
+    )
 
     @Scheduled(fixedDelay = 60_000)
     @Transactional
     fun refresh() {
+        val token = UUID.randomUUID().toString()
         val acquired = redisTemplate.opsForValue()
-            .setIfAbsent(LOCK_KEY, "locked", Duration.ofSeconds(LOCK_TTL_SECONDS)) ?: false
+            .setIfAbsent(LOCK_KEY, token, Duration.ofSeconds(LOCK_TTL_SECONDS)) ?: false
 
         if (!acquired) {
             log.debug("product_popularity_mv 갱신 스킵 (다른 인스턴스에서 실행 중)")
@@ -29,9 +39,11 @@ class ProductPopularityMvRefresher(
         try {
             log.debug("product_popularity_mv 갱신 시작")
 
-            val sourceCount = (entityManager.createNativeQuery(
-                "SELECT COUNT(*) FROM products WHERE deleted_at IS NULL",
-            ).singleResult as Number).toLong()
+            val sourceCount = (
+                entityManager.createNativeQuery(
+                    "SELECT COUNT(*) FROM products WHERE deleted_at IS NULL",
+                ).singleResult as Number
+            ).toLong()
 
             entityManager.createNativeQuery("DELETE FROM product_popularity_mv").executeUpdate()
 
@@ -57,9 +69,10 @@ class ProductPopularityMvRefresher(
                 )
             }
 
+            productCache.evictPopularList()
             log.debug("product_popularity_mv 갱신 완료 ({}건)", insertedCount)
         } finally {
-            redisTemplate.delete(LOCK_KEY)
+            redisTemplate.execute(releaseLockScript, listOf(LOCK_KEY), token)
         }
     }
 

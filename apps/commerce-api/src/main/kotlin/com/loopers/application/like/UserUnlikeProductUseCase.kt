@@ -20,6 +20,5 @@ class UserUnlikeProductUseCase(
         val user = userService.getUser(criteria.loginId)
         productLikeService.unlike(UnlikeProductCommand(userId = user.id, productId = criteria.productId))
         productCache.evictProduct(criteria.productId)
-        productCache.evictPopularList()
     }
 }
