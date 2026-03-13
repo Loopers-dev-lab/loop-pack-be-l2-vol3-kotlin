@@ -7,11 +7,19 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.Version
 
 @Entity
-@Table(name = "product")
+@Table(
+    name = "product",
+    indexes = [
+        Index(name = "idx_product_brand_deleted_at_price", columnList = "brand_id, deleted_at, price, id"),
+        Index(name = "idx_product_brand_deleted_at_likes_count", columnList = "brand_id, deleted_at, likes_count, id"),
+        Index(name = "idx_product_deleted_at_created_at", columnList = "deleted_at, created_at, id"),
+    ],
+)
 class ProductModel(
     name: String,
     price: Long,
