@@ -63,7 +63,7 @@
 | 필요 정보 | 새 비밀번호 (기존 비밀번호는 인증 헤더로 Interceptor에서 검증) |
 | 비즈니스 규칙 | - 비밀번호 RULE을 따름 |
 |  | - 현재 비밀번호와 동일한 비밀번호로 변경 불가 |
-|  | - 변경 시 해당 loginId의 인증 캐시(auth-cache) eviction |
+|  | - 변경 시 해당 loginId의 인증 캐시(Redis) eviction |
 | 응답 | 200 OK + 회원 정보 |
 | 인증 실패 시 | 401 UNAUTHORIZED (Interceptor에서 차단) |
 
@@ -267,16 +267,17 @@
 | 항목 | 내용 |
 |------|------|
 | 상태 | DONE |
-| 배경 | 매 인증 요청마다 BCrypt 비교(~100ms) 수행 → 최대 ~2,000 TPS 병목 |
-| 요구사항 | Caffeine 로컬 캐시로 인증 결과를 캐싱하여 BCrypt 호출 스킵 |
-| 수용 기준 | - `auth-cache`: TTL 5분, max 10,000 엔트리 |
-|  | - 캐시 키: `loginId`, 값: `CachedAuth(memberId, loginId, passwordDigest)` |
+| 배경 | 매 인증 요청마다 BCrypt 비교(~100ms) 수행 → 최대 ~2,000 TPS 병목. JWT 미사용 아키텍처에서 멀티 인스턴스 시 N×BCrypt 문제 |
+| 요구사항 | Redis 글로벌 캐시로 인증 결과를 캐싱하여 BCrypt 호출 스킵 |
+| 수용 기준 | - 캐시 키: `auth:{loginId}`, 값: `CachedAuth(memberId, loginId, passwordDigest)`, TTL 5분 |
 |  | - SHA256으로 비밀번호 일치 확인 (BCrypt 대신) |
 |  | - 캐시 히트 + 비밀번호 일치 시 `memberService.authenticate()` 호출 스킵 |
 |  | - 캐시 히트 + 비밀번호 불일치 시 `authenticate()` 재호출 |
 |  | - 비밀번호 변경 시 해당 `loginId`의 캐시 eviction |
-| 제약사항 | - Redis가 아닌 Caffeine 로컬 캐시 사용 (단일 인스턴스 환경) |
-|  | - Spring Cache Abstraction 기반으로 향후 Redis 전환 가능하게 설계 |
+|  | - AuthCacheStore(Application 포트) ← AuthCacheStoreImpl(Infrastructure 구현체) |
+|  | - Master/Replica 분리, Redis 장애 시 DB fallback (try-catch) |
+| 변경 이력 | 초기: Caffeine 로컬 캐시 (D5) → Redis 전환 (D41). 멀티 인스턴스 환경 대응 |
+| Decision | D5, D41 |
 
 ### REQ-2.2: 회원 조회 캐싱
 
@@ -299,14 +300,20 @@
 | 보류 사유 | 현재 DB가 병목이 아님, 측정 후 판단 |
 | 사전 준비 | `@Transactional(readOnly = true)` 이미 적용 완료 |
 
-### REQ-2.4: Redis 캐싱 도입
+### REQ-2.4: Redis 상품 캐시 도입
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | 보류 |
-| 배경 | 멀티 인스턴스 환경에서 캐시 공유 필요 |
-| 요구사항 | Caffeine → Redis 전환 |
-| 보류 사유 | 현재 단일 인스턴스, Spring Cache Abstraction으로 전환 준비 완료 |
+| 상태 | DONE |
+| 배경 | 상품 조회가 가장 빈번한 API이며, 10K TPS 환경에서 DB 부하 감소 필요 |
+| 요구사항 | RedisTemplate 직접 사용 + Port 패턴으로 상품 상세/목록 캐시 |
+| 수용 기준 | - 상품 상세: `product:detail:{id}` (TTL 5분, CUD 시 evict) |
+|  | - 상품 목록: `product:list:{brand}:{sort}:{size}:{cursor}` (TTL 1분, LFU 자동 퇴출) |
+|  | - ProductCacheStore(Application 포트) ← ProductCacheStoreImpl(Infrastructure 구현체) |
+|  | - Master/Replica 분리 (읽기: Replica, 쓰기: Master) |
+|  | - Redis 장애 시 DB fallback (try-catch, non-fatal) |
+|  | - Redis maxmemory-policy: allkeys-lfu |
+| Decision | D37 |
 
 ### REQ-2.5: Lettuce 커넥션 풀링
 
@@ -315,7 +322,57 @@
 | 상태 | 보류 |
 | 배경 | Redis 사용 시 단일 커넥션 멀티플렉싱의 한계 |
 | 요구사항 | `LettucePoolingClientConfiguration` 적용 |
-| 보류 사유 | Redis 미사용 상태 |
+| 보류 사유 | Redis 활성 사용 중이나, 현재 트래픽 수준에서 단일 커넥션 멀티플렉싱으로 충분. 부하 테스트 후 판단 |
+
+### REQ-2.6: 상품 인덱스 최적화
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | 10만건 환경에서 브랜드 필터 + 좋아요 순 정렬 시 filesort 발생 |
+| 요구사항 | 복합 인덱스 추가로 filesort 제거 |
+| 수용 기준 | - `idx_product_brand_status_like (brand_id, status, like_count DESC, id DESC)` |
+|  | - `idx_product_brand_status_price (brand_id, status, price ASC, id DESC)` |
+|  | - 기존 `idx_product_brand_id` 제거 (복합 인덱스에 포함) |
+| Decision | D38 |
+
+### REQ-2.7: like_count 배치 집계
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | D12에서 결정한 like_count 비정규화의 구체적 배치 구현 |
+| 요구사항 | commerce-batch에서 Tasklet + JdbcTemplate으로 like_count 갱신 |
+| 수용 기준 | - LikeCountSyncJobConfig + SyncLikeCountTasklet 구현 |
+|  | - UPDATE JOIN 단일 쿼리로 전체 product.like_count 갱신 |
+|  | - LikeCountSyncJobTest 통과 |
+| Decision | D39 |
+
+### REQ-2.8: 10만건 시드 데이터
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | 인덱스/캐시 성능 검증을 위한 대량 데이터 필요 |
+| 요구사항 | ApplicationRunner + @Profile("local")로 앱 시작 시 자동 시드 |
+| 수용 기준 | - 브랜드 20개, 상품 10만건, 좋아요 ~50만건 |
+|  | - JdbcTemplate batchUpdate (1,000건 단위) |
+|  | - 멱등: 이미 데이터 존재 시 스킵 |
+| Decision | D40 |
+
+### REQ-2.9: 브랜드 Redis 캐시 도입
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | 상품 조회 시 브랜드명을 항상 함께 반환. 변경 빈도 극히 낮은 데이터에 캐시 효과 극대화 |
+| 요구사항 | RedisTemplate 직접 사용 + Port 패턴으로 브랜드 상세 캐시 |
+| 수용 기준 | - 브랜드 상세: `brand:detail:{brandId}` (TTL 10분, CUD 시 evict) |
+|  | - BrandCacheStore(Application 포트) ← BrandCacheStoreImpl(Infrastructure 구현체) |
+|  | - ProductFacade에서 getCachedBrandName() 활용 |
+|  | - AdminBrandFacade에서 수정/삭제 시 evict |
+|  | - Master/Replica 분리, Redis 장애 시 DB fallback |
+| Decision | D42 |
 
 ---
 
@@ -375,11 +432,17 @@
 | VO 패턴 | `@JvmInline value class` + Entity primitive 저장. Service에서 `VO.of()` 생성. Hibernate 6.x AttributeConverter 미사용 | D23 |
 | 스냅샷 범위 | productName, productPrice, brandName만 복사. quantity는 주문입력, amount는 파생값 | D25 |
 | 주문 총액 비정규화 제거 | totalAmount 컬럼 미사용. `getTotalAmount() = orderItems.sumOf { it.amount }` 파생 계산 | D24 |
-| 비밀번호 변경 시 캐시 eviction | MemberFacade에서 loginId 기반 auth-cache evict | D5 |
+| 비밀번호 변경 시 캐시 eviction | MemberFacade에서 loginId 기반 Redis auth 캐시 evict | D5, D41 |
 | 재고 동시성 제어 | 비관적 락(SELECT FOR UPDATE). Phase 1 기능 구현 시 포함 | D9 |
 | 주문 플로우 동시성 최적화 | 쿠폰 차감(@Version + flush)을 재고 비관적 락 전에 실행. 불필요한 락 점유 방지 | D34 |
 | 비관적/낙관적 락 비교 테스트 | 동일 시나리오(단일 자원 경합, 초과 경합)로 두 전략 동작 차이 검증 | D35 |
 | 개발 순서 원칙 | Phase 1: 기능 정합성 → Phase 2: 동시성/멱등성/일관성/성능 | — |
+| 상품 Redis 캐시 | RedisTemplate 직접 사용. ProductCacheStore 포트 패턴. 상세 5분/목록 1분 TTL. CUD evict | D37 |
+| 복합 인덱스 최적화 | (brand_id, status, like_count DESC, id DESC) 등. filesort 제거 | D38 |
+| like_count 배치 구현 | commerce-batch Tasklet + JdbcTemplate UPDATE JOIN. 단일 쿼리 갱신 | D39 |
+| 시드 데이터 | ApplicationRunner + @Profile("local"). JdbcTemplate batchUpdate 10만건 | D40 |
+| 인증 캐시 Caffeine→Redis 전환 | JWT 미사용 멀티 인스턴스 대응. AuthCacheStore 포트 패턴. N×BCrypt 문제 해소 | D41 |
+| 브랜드 Redis 캐시 | BrandCacheStore 포트 패턴. TTL 10분. CUD evict. ProductFacade에서 활용 | D42 |
 
 ---
 
@@ -473,7 +536,7 @@
 | 요구사항 | 어노테이션 기반 → Interceptor path 패턴 기반 인증 전환. AuthService(Application) 도입 |
 | 수용 기준 | - @MemberAuthenticated/@AdminAuthenticated 어노테이션 제거 |
 |  | - Interceptor가 URL path 패턴으로 인증 대상 판별 |
-|  | - AuthService(Application)에서 인증 + Caffeine 캐시 통합 관리 |
+|  | - AuthService(Application)에서 인증 + Redis 캐시 통합 관리 (초기 Caffeine → D41에서 Redis 전환) |
 |  | - Interceptor → AuthService 단일 의존 (Domain/Infrastructure 직접 참조 제거) |
 | Decision | D30 |
 
@@ -564,6 +627,6 @@
 | Phase | 전체 | 완료 | 보류 | 미착수 |
 |-------|------|------|------|--------|
 | Phase 1 | 5 | 5 | 0 | 0 |
-| Phase 2 | 5 | 1 | 4 | 0 |
+| Phase 2 | 9 | 6 | 3 | 0 |
 | Phase 3 | 3 | 0 | 0 | 3 |
-| **합계** | **13** | **6** | **4** | **3** |
+| **합계** | **17** | **11** | **3** | **3** |

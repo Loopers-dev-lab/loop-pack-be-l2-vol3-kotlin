@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional
 class AdminProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
+    private val productCacheStore: ProductCacheStore,
 ) {
     @Transactional
     fun createProduct(command: ProductCommand.Create): ProductInfo {
@@ -41,6 +42,7 @@ class AdminProductFacade(
     @Transactional
     fun updateProduct(id: Long, command: ProductCommand.Update): ProductInfo {
         val product = productService.updateProduct(id, command)
+        productCacheStore.evictProduct(id)
         val brand = brandService.getBrandForAdmin(product.brandId)
         return ProductInfo.from(product, brand.name)
     }
@@ -48,5 +50,6 @@ class AdminProductFacade(
     @Transactional
     fun deleteProduct(id: Long) {
         productService.deleteProduct(id)
+        productCacheStore.evictProduct(id)
     }
 }

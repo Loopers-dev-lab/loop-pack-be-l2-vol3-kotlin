@@ -173,10 +173,13 @@ com.loopers
 ### Phase 2: 캐싱 및 인프라 확장
 | 항목 | 현재 | 목표 | 상태 |
 |------|------|------|------|
-| 인증 BCrypt 캐싱 | 매 요청 BCrypt 호출 | Caffeine 로컬 캐시 (auth-cache, TTL 5분, max 10K) + SHA256 비교 | DONE |
+| 인증 BCrypt 캐싱 | 매 요청 BCrypt 호출 | Redis 글로벌 캐시 (auth:{loginId}, TTL 5분) + SHA256 비교. 멀티 인스턴스 N×BCrypt 해소 | DONE |
 | 비밀번호 변경 시 캐시 eviction | 미적용 | MemberFacade에서 loginId 기반 evict | DONE |
+| 상품 Redis 캐시 | 미사용 | RedisTemplate 직접 사용 + ProductCacheStore 포트 패턴 (상세 5분/목록 1분 TTL) | DONE |
+| 브랜드 Redis 캐시 | 미사용 | BrandCacheStore 포트 패턴 (TTL 10분, CUD evict). ProductFacade 활용 | DONE |
+| 상품 인덱스 최적화 | brand_id 단독 인덱스 | 복합 인덱스 (brand_id, status, like_count DESC, id DESC) | DONE |
+| like_count 배치 집계 | like_count 미갱신 | commerce-batch Tasklet + JdbcTemplate UPDATE JOIN | DONE |
 | DB Read/Write 분리 | 단일 DB | AbstractRoutingDataSource + Replica | TODO (보류) |
-| Redis 캐싱 도입 | 미사용 | Spring Cache Abstraction으로 향후 전환 가능 | TODO (보류) |
 | Lettuce 커넥션 풀링 | 단일 커넥션 멀티플렉싱 | LettucePoolingClientConfiguration | TODO (보류) |
 
 ### Phase 3: 안정성 강화
