@@ -22,7 +22,7 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findForUpdateById(id: Long): ProductEntity?
+    fun findWithLockById(id: Long): ProductEntity?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findAllForUpdateByIdInAndDeletedAtIsNullOrderByIdAsc(ids: List<Long>): List<ProductEntity>
@@ -47,7 +47,7 @@ class ProductRepositoryImpl(
     }
 
     override fun findByIdForUpdate(id: ProductId): Product? {
-        return productJpaRepository.findForUpdateById(id.value)?.toDomain()
+        return productJpaRepository.findWithLockById(id.value)?.toDomain()
     }
 
     override fun findAll(page: Int, size: Int): PageResult<Product> {

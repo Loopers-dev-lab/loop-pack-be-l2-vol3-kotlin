@@ -33,7 +33,6 @@ class ProductAdminV1Dto {
     data class AdminProductResponse(
         val id: Long,
         val refBrandId: Long,
-        val brandName: String?,
         val name: String,
         val price: BigDecimal,
         val stock: Int,
@@ -42,33 +41,42 @@ class ProductAdminV1Dto {
         val deletedAt: ZonedDateTime?,
     ) {
         companion object {
-            fun from(info: CatalogInfo): AdminProductResponse {
-                return AdminProductResponse(
-                    id = info.product.id,
-                    refBrandId = info.product.brandId,
-                    brandName = info.brandName,
-                    name = info.product.name,
-                    price = info.product.price,
-                    stock = info.product.stock,
-                    status = info.product.status,
-                    likeCount = info.product.likeCount,
-                    deletedAt = info.product.deletedAt,
-                )
-            }
+            fun from(info: ProductInfo): AdminProductResponse = AdminProductResponse(
+                id = info.id,
+                refBrandId = info.brandId,
+                name = info.name,
+                price = info.price,
+                stock = info.stock,
+                status = info.status,
+                likeCount = info.likeCount,
+                deletedAt = info.deletedAt,
+            )
+        }
+    }
 
-            fun from(info: ProductInfo): AdminProductResponse {
-                return AdminProductResponse(
-                    id = info.id,
-                    refBrandId = info.brandId,
-                    brandName = null,
-                    name = info.name,
-                    price = info.price,
-                    stock = info.stock,
-                    status = info.status,
-                    likeCount = info.likeCount,
-                    deletedAt = info.deletedAt,
-                )
-            }
+    data class AdminProductDetailResponse(
+        val id: Long,
+        val refBrandId: Long,
+        val brandName: String,
+        val name: String,
+        val price: BigDecimal,
+        val stock: Int,
+        val status: String,
+        val likeCount: Int,
+        val deletedAt: ZonedDateTime?,
+    ) {
+        companion object {
+            fun from(info: CatalogInfo): AdminProductDetailResponse = AdminProductDetailResponse(
+                id = info.product.id,
+                refBrandId = info.product.brandId,
+                brandName = info.brandName,
+                name = info.product.name,
+                price = info.product.price,
+                stock = info.product.stock,
+                status = info.product.status,
+                likeCount = info.product.likeCount,
+                deletedAt = info.product.deletedAt,
+            )
         }
     }
 }

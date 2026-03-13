@@ -103,6 +103,9 @@ subprojects {
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
         jvmArgs("-Xshare:off")
+        testLogging {
+            showStandardStreams = true
+        }
     }
 
     tasks.withType<JacocoReport> {

@@ -48,9 +48,9 @@ class ProductAdminV1Controller(
     @GetMapping("/{productId}")
     override fun getProduct(
         @PathVariable productId: Long,
-    ): ApiResponse<ProductAdminV1Dto.AdminProductResponse> {
+    ): ApiResponse<ProductAdminV1Dto.AdminProductDetailResponse> {
         return getProductAdminUseCase.execute(productId)
-            .let { ProductAdminV1Dto.AdminProductResponse.from(it) }
+            .let { ProductAdminV1Dto.AdminProductDetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 

@@ -5,6 +5,8 @@ import com.loopers.domain.common.vo.BrandId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import java.time.ZonedDateTime
 
 class Product(
@@ -37,7 +39,7 @@ class Product(
         private set
 
     init {
-        require(likeCount >= 0) { "likeCount는 0 이상이어야 합니다." }
+        if (likeCount < 0) throw CoreException(ErrorType.BAD_REQUEST, "likeCount는 0 이상이어야 합니다.")
     }
 
     enum class ProductStatus {
