@@ -11,9 +11,83 @@
 
 로컬 캐시 도입 시 핵심 과제는 **cache stampede 방지**와 **아키텍처 일관성(DIP)** 두 가지였다.
 
-## 의사결정 1: Cache Stampede 방지 전략
+## Redis 캐시 데이터 최신화 전략
 
-로컬 캐시의 TTL이 만료되는 시점에 동시 요청이 Redis로 몰리는 cache stampede 문제를 해결할 방법을 검토했다.
+로컬 캐시를 추가하기 전에, 기반이 되는 Redis 캐시의 데이터 최신화 전략을 먼저 정리한다. Redis 캐시는 공유 캐시로서 **스케줄러 기반 워밍**으로 데이터를 최신화한다.
+
+### 워밍 스케줄러 (`ProductCacheWarmingScheduler`)
+
+```
+@Scheduled(initialDelay = 0, fixedRate = 2분)
+fun warmProductListCache()
+```
+
+| 설정 | 값 | 의미 |
+|------|-----|------|
+| initialDelay | 0 | 서버 시작 직후 즉시 실행 (cold start 방지) |
+| fixedRate | 2분 | 목록 캐시 TTL(3분)보다 짧은 주기로 갱신 |
+
+### 워밍 대상
+
+```
+상위 10개 브랜드 + 전체(brandId=null)
+  × 3가지 정렬 (최신순, 가격순, 좋아요순)
+  × 3페이지 (0, 1, 2)
+= 99건 캐시 항목
+```
+
+인기 있는 조회 조건을 사전에 캐싱하여, 대부분의 요청이 Redis에서 즉시 응답할 수 있도록 한다.
+
+### 서버 시작 시 캐시 워밍 흐름
+
+```
+서버 시작
+  │
+  ▼
+@Scheduled(initialDelay = 0) 실행
+  │
+  ▼
+productCacheManager.getProducts(brandId, pageQuery) 호출
+  │
+  ├─ 로컬 캐시: miss → loader 실행
+  │     ├─ Redis 캐시: miss (서버 재시작 후 TTL 만료 or 비어있음)
+  │     │     ├─ DB 조회
+  │     │     └─ Redis에 저장
+  │     └─ 로컬에 저장
+  │
+  └─ 99건 반복 → Redis + 로컬 캐시 모두 워밍 완료
+```
+
+- **Redis 캐시**: 공유 캐시이므로 1대의 인스턴스만 워밍하면 모든 인스턴스가 혜택
+- **로컬 캐시**: 워밍 스케줄러가 실행되는 인스턴스의 로컬 캐시도 함께 적재 (cold start 방지)
+- **다른 인스턴스**: 첫 요청 시 Redis에서 로컬로 로드 (Redis hit이므로 ~1ms)
+
+### 워밍 주기와 TTL의 관계
+
+```
+Redis 목록 TTL: 3분
+워밍 주기:      2분
+
+[정상 상태] 워밍 주기 < TTL → 만료 전에 항상 갱신
+0m        2m        3m        4m        5m
+|--워밍----|--워밍----|--워밍----|--워밍----|
+     ↑          ↑
+  캐시 적재   만료(3m) 전에 갱신 → 끊김 없음
+
+[워밍 실패 시] TTL 만료 후 cache-aside로 자연 복구
+0m        2m        3m        4m
+|--워밍----|--실패----|--만료----|--워밍----|
+                      ↑         ↑
+               캐시 만료    다음 워밍에서 복구
+               (요청 시 cache-aside로 DB 조회)
+```
+
+- 워밍 주기(2분) < TTL(3분) 이므로, 정상 상태에서는 캐시가 만료되기 전에 항상 갱신된다
+- 워밍이 일시적으로 실패하더라도 TTL 만료 후 cache-aside가 동작하여 자연 복구된다
+
+## 의사결정 1: 로컬 캐시 Cache Stampede 방지 전략
+
+Redis 캐시 위에 로컬 캐시를 추가할 때, TTL 만료 시점에 동시 요청이 Redis로 몰리는 cache stampede 문제를 해결할 방법을 검토했다.
 
 ### A. 스케줄러 기반 (주기적 워밍)
 
@@ -154,6 +228,9 @@ Controller → ProductFacade → ProductCacheManager (오케스트레이션)
                   ▼               ▼
          ...Impl            ...Impl
          (Caffeine)         (Redis)
+
+ProductCacheWarmingScheduler ──→ ProductCacheManager
+  (@Scheduled: 서버 시작 즉시 + 2분 주기)
 ```
 
 ### 캐시 정책
