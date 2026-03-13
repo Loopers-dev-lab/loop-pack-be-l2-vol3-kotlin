@@ -54,7 +54,9 @@ class CacheStampedeGuard(
         }
 
         log.warn("Mutex 대기 후에도 캐시 미스: {}", cacheKey)
-        return loader()
+        val value = loader()
+        cacheWriter(value)
+        return value
     }
 
     private fun releaseLock(lockKey: String, token: String) {
