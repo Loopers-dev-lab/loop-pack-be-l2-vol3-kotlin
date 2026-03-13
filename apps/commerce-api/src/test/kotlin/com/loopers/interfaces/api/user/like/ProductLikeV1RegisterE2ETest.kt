@@ -113,23 +113,17 @@ constructor(
         @DisplayName("중복 등록 10회 시 200 OK, product_like row=1, likeCount=1이 된다")
         fun register_duplicate_returns200() {
             repeat(10) {
-                testRestTemplate.exchange(
+                val response = testRestTemplate.exchange(
                     endpoint(productId),
                     HttpMethod.POST,
                     authHeaders(),
                     object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
                 )
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
             }
 
-            val response = testRestTemplate.exchange(
-                endpoint(productId),
-                HttpMethod.POST,
-                authHeaders(),
-                object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
-            )
-
             val product = productRepository.findById(productId)!!
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(1)
             assertThat(product.likeCount).isEqualTo(1)
         }
