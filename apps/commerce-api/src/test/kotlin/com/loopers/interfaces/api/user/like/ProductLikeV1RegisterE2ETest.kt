@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.user.like
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
+import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.user.User
@@ -36,6 +37,7 @@ constructor(
     private val userRepository: UserRepository,
     private val brandRepository: BrandRepository,
     private val productRepository: ProductRepository,
+    private val productLikeRepository: ProductLikeRepository,
     private val passwordHasher: UserPasswordHasher,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -91,9 +93,8 @@ constructor(
     @DisplayName("좋아요 등록 성공 시")
     inner class WhenRegisterSuccess {
         @Test
-        @DisplayName("200 OK를 반환한다")
+        @DisplayName("200 OK를 반환하고 product_like row=1, likeCount=1이 된다")
         fun register_success_returns200() {
-            // act
             val response = testRestTemplate.exchange(
                 endpoint(productId),
                 HttpMethod.POST,
@@ -101,23 +102,25 @@ constructor(
                 object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
             )
 
-            // assert
+            val product = productRepository.findById(productId)!!
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(1)
+            assertThat(product.likeCount).isEqualTo(1)
         }
 
         @Test
-        @DisplayName("이미 등록된 좋아요를 재등록하면 200 OK를 반환한다 (멱등적)")
+        @DisplayName("중복 등록 10회 시 200 OK, product_like row=1, likeCount=1이 된다")
         fun register_duplicate_returns200() {
-            // arrange
-            testRestTemplate.exchange(
-                endpoint(productId),
-                HttpMethod.POST,
-                authHeaders(),
-                object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
-            )
+            repeat(10) {
+                testRestTemplate.exchange(
+                    endpoint(productId),
+                    HttpMethod.POST,
+                    authHeaders(),
+                    object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
+                )
+            }
 
-            // act
             val response = testRestTemplate.exchange(
                 endpoint(productId),
                 HttpMethod.POST,
@@ -125,33 +128,61 @@ constructor(
                 object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
             )
 
-            // assert
+            val product = productRepository.findById(productId)!!
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(1)
+            assertThat(product.likeCount).isEqualTo(1)
         }
     }
 
     @Nested
-    @DisplayName("좋아요 등록 실패 시")
-    inner class WhenRegisterFails {
+    @DisplayName("no-op 시나리오")
+    inner class WhenNoOp {
         @Test
-        @DisplayName("존재하지 않는 상품이면 404를 반환한다")
-        fun register_productNotFound_returns404() {
-            // act
+        @DisplayName("존재하지 않는 상품에 등록 시 200 OK를 반환하고 row가 생성되지 않는다")
+        fun register_productNotFound_returns200() {
             val response = testRestTemplate.exchange(
                 endpoint(999999L),
                 HttpMethod.POST,
                 authHeaders(),
-                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
             )
 
-            // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(productLikeRepository.countByProductId(999999L)).isEqualTo(0)
         }
 
         @Test
+        @DisplayName("비활성화 상품에 등록 시 200 OK를 반환하고 row가 생성되지 않는다")
+        fun register_inactiveProduct_returns200() {
+            val brand = brandRepository.findAll()[0]
+            val inactiveProduct = Product.register(
+                name = "비활성 상품",
+                regularPrice = Money(BigDecimal.valueOf(10000)),
+                sellingPrice = Money(BigDecimal.valueOf(10000)),
+                brandId = brand.id!!,
+            )
+            val savedInactive = productRepository.save(inactiveProduct, ADMIN) // INACTIVE by default
+            val inactiveProductId = savedInactive.id!!
+
+            val response = testRestTemplate.exchange(
+                endpoint(inactiveProductId),
+                HttpMethod.POST,
+                authHeaders(),
+                object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
+            )
+
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(productLikeRepository.countByProductId(inactiveProductId)).isEqualTo(0)
+        }
+    }
+
+    @Nested
+    @DisplayName("인증 실패 시")
+    inner class WhenAuthFails {
+        @Test
         @DisplayName("인증 실패 시 401을 반환한다")
         fun register_unauthorized_returns401() {
-            // act
             val response = testRestTemplate.exchange(
                 endpoint(productId),
                 HttpMethod.POST,
@@ -159,7 +190,6 @@ constructor(
                 object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 
-            // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
     }

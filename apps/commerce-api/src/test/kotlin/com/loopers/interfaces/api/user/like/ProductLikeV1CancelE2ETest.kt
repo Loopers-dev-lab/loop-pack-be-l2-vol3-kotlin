@@ -3,11 +3,13 @@ package com.loopers.interfaces.api.user.like
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
+import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
+import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -36,6 +38,8 @@ constructor(
     private val userRepository: UserRepository,
     private val brandRepository: BrandRepository,
     private val productRepository: ProductRepository,
+    private val productLikeRepository: ProductLikeRepository,
+    private val productJpaRepository: ProductJpaRepository,
     private val passwordHasher: UserPasswordHasher,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -100,12 +104,10 @@ constructor(
     @DisplayName("좋아요 취소 성공 시")
     inner class WhenCancelSuccess {
         @Test
-        @DisplayName("등록된 좋아요를 취소하면 200 OK를 반환한다")
+        @DisplayName("등록된 좋아요를 취소하면 200 OK, product_like row=0, likeCount 감소")
         fun cancel_success_returns200() {
-            // arrange
             registerLike(productId)
 
-            // act
             val response = testRestTemplate.exchange(
                 endpoint(productId),
                 HttpMethod.DELETE,
@@ -113,15 +115,16 @@ constructor(
                 object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
             )
 
-            // assert
+            val product = productRepository.findById(productId)!!
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0)
+            assertThat(product.likeCount).isEqualTo(0)
         }
 
         @Test
-        @DisplayName("등록하지 않은 좋아요를 취소하면 200 OK를 반환한다 (멱등적)")
+        @DisplayName("등록하지 않은 좋아요를 취소하면 200 OK, row 변화 없음")
         fun cancel_notRegistered_returns200() {
-            // act
             val response = testRestTemplate.exchange(
                 endpoint(productId),
                 HttpMethod.DELETE,
@@ -129,18 +132,80 @@ constructor(
                 object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
             )
 
-            // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("중복 취소 10회 시 200 OK, product_like row=0, likeCount=0")
+        fun cancel_duplicate_returns200() {
+            registerLike(productId)
+
+            repeat(10) {
+                testRestTemplate.exchange(
+                    endpoint(productId),
+                    HttpMethod.DELETE,
+                    authHeaders(),
+                    object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
+                )
+            }
+
+            val product = productRepository.findById(productId)!!
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0)
+            assertThat(product.likeCount).isEqualTo(0)
         }
     }
 
     @Nested
-    @DisplayName("좋아요 취소 실패 시")
-    inner class WhenCancelFails {
+    @DisplayName("상품 상태 변경 후 취소")
+    inner class WhenProductStateChanged {
+        @Test
+        @DisplayName("좋아요 후 상품 비활성화, 취소 요청 → 200 OK, row=0, likeCount 감소")
+        fun cancel_afterProductDeactivated_returns200() {
+            registerLike(productId)
+            val product = productRepository.findById(productId)!!
+            productRepository.save(product.deactivate(), ADMIN)
+
+            val response = testRestTemplate.exchange(
+                endpoint(productId),
+                HttpMethod.DELETE,
+                authHeaders(),
+                object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
+            )
+
+            val entity = productJpaRepository.findById(productId).get()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0)
+            assertThat(entity.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("좋아요 후 상품 soft-delete, 취소 요청 → 200 OK, row=0, likeCount 변화 없음")
+        fun cancel_afterProductSoftDeleted_returns200() {
+            registerLike(productId)
+            val likeCountBefore = productJpaRepository.findById(productId).get().likeCount
+            productRepository.delete(productId, ADMIN)
+
+            val response = testRestTemplate.exchange(
+                endpoint(productId),
+                HttpMethod.DELETE,
+                authHeaders(),
+                object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
+            )
+
+            val entity = productJpaRepository.findById(productId).get()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0)
+            assertThat(entity.likeCount).isEqualTo(likeCountBefore) // JPQL WHERE deletedAt IS NULL → 0건 갱신
+        }
+    }
+
+    @Nested
+    @DisplayName("인증 실패 시")
+    inner class WhenAuthFails {
         @Test
         @DisplayName("인증 실패 시 401을 반환한다")
         fun cancel_unauthorized_returns401() {
-            // act
             val response = testRestTemplate.exchange(
                 endpoint(productId),
                 HttpMethod.DELETE,
@@ -148,7 +213,6 @@ constructor(
                 object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 
-            // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
     }

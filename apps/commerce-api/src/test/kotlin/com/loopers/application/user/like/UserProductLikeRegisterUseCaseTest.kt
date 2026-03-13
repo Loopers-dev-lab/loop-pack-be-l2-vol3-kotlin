@@ -5,14 +5,11 @@ import com.loopers.domain.like.ProductLike
 import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
-import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
 import org.mockito.kotlin.check
@@ -61,7 +58,11 @@ class UserProductLikeRegisterUseCaseTest {
         fun register_success() {
             val command = UserProductLikeCommand.Register(userId = 1L, productId = 1L)
             given(productRepository.findById(eq(1L))).willReturn(activeProduct(1L))
-            given(productLikeRepository.existsByUserIdAndProductId(eq(1L), eq(1L))).willReturn(false)
+            given(
+                productLikeRepository.save(
+                    check<ProductLike> { it.userId == 1L && it.productId == 1L },
+                ),
+            ).willReturn(true)
 
             useCase.register(command)
 
@@ -71,56 +72,64 @@ class UserProductLikeRegisterUseCaseTest {
                     assertThat(it.productId).isEqualTo(1L)
                 },
             )
+            then(productRepository).should().incrementLikeCount(eq(1L))
         }
     }
 
     @Nested
-    @DisplayName("상품이 존재하지 않으면 실패한다")
+    @DisplayName("이미 좋아요가 등록되어 있으면 no-op으로 처리한다 (멱등)")
+    inner class WhenAlreadyLiked {
+        @Test
+        @DisplayName("중복 등록 시 카운트 미증가, 예외 없음")
+        fun register_alreadyExists() {
+            val command = UserProductLikeCommand.Register(userId = 1L, productId = 1L)
+            given(productRepository.findById(eq(1L))).willReturn(activeProduct(1L))
+            given(
+                productLikeRepository.save(
+                    check<ProductLike> { it.userId == 1L && it.productId == 1L },
+                ),
+            ).willReturn(false)
+
+            assertDoesNotThrow { useCase.register(command) }
+
+            then(productLikeRepository).should().save(
+                check<ProductLike> { it.userId == 1L && it.productId == 1L },
+            )
+            then(productRepository).should(never()).incrementLikeCount(eq(1L))
+        }
+    }
+
+    @Nested
+    @DisplayName("상품이 존재하지 않으면 no-op으로 처리한다")
     inner class WhenProductNotFound {
         @Test
-        @DisplayName("존재하지 않는 상품 ID → PRODUCT_NOT_FOUND")
+        @DisplayName("존재하지 않는 상품 ID → save 미호출, 예외 없음")
         fun register_productNotFound() {
             val command = UserProductLikeCommand.Register(userId = 1L, productId = 999L)
             given(productRepository.findById(eq(999L))).willReturn(null)
 
-            val exception = assertThrows<CoreException> {
-                useCase.register(command)
-            }
+            assertDoesNotThrow { useCase.register(command) }
 
-            assertThat(exception.errorType).isEqualTo(ErrorType.PRODUCT_NOT_FOUND)
+            then(productLikeRepository).should(never()).save(
+                check<ProductLike> { it.productId == 999L },
+            )
         }
     }
 
     @Nested
-    @DisplayName("상품이 INACTIVE이면 실패한다")
+    @DisplayName("상품이 INACTIVE이면 no-op으로 처리한다")
     inner class WhenProductInactive {
         @Test
-        @DisplayName("INACTIVE 상품 → PRODUCT_NOT_FOUND")
+        @DisplayName("INACTIVE 상품 → save 미호출, 예외 없음")
         fun register_productInactive() {
             val command = UserProductLikeCommand.Register(userId = 1L, productId = 1L)
             given(productRepository.findById(eq(1L))).willReturn(inactiveProduct(1L))
 
-            val exception = assertThrows<CoreException> {
-                useCase.register(command)
-            }
-
-            assertThat(exception.errorType).isEqualTo(ErrorType.PRODUCT_NOT_FOUND)
-        }
-    }
-
-    @Nested
-    @DisplayName("이미 좋아요가 등록되어 있으면 정상 반환한다 (멱등)")
-    inner class WhenAlreadyLiked {
-        @Test
-        @DisplayName("이미 존재하는 좋아요 → save 미호출, 정상 반환")
-        fun register_alreadyExists() {
-            val command = UserProductLikeCommand.Register(userId = 1L, productId = 1L)
-            given(productRepository.findById(eq(1L))).willReturn(activeProduct(1L))
-            given(productLikeRepository.existsByUserIdAndProductId(eq(1L), eq(1L))).willReturn(true)
-
             assertDoesNotThrow { useCase.register(command) }
 
-            then(productLikeRepository).should(never()).save(check<ProductLike> {})
+            then(productLikeRepository).should(never()).save(
+                check<ProductLike> { it.productId == 1L },
+            )
         }
     }
 }
