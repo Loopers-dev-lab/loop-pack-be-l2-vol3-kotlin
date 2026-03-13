@@ -24,8 +24,8 @@ export function randomPage(max = 10) {
 }
 
 export function getProductList(sort, page, size, brandId) {
-  let url = `${BASE_URL}/api/v1/products?sort=${sort}&page=${page}&size=${size || 20}`;
-  if (brandId) url += `&brandId=${brandId}`;
+  let url = `${BASE_URL}/api/v1/products?sort=${sort}&page=${page}&size=${size ?? 20}`;
+  if (brandId != null) url += `&brandId=${brandId}`;
   return http.get(url, { headers });
 }
 
@@ -51,7 +51,7 @@ export function ensureTestUser() {
   } else if (res.status === 409) {
     console.log('테스트 유저 이미 존재');
   } else {
-    console.error(`테스트 유저 생성 실패: ${res.status} ${res.body}`);
+    throw new Error(`테스트 유저 생성 실패: ${res.status} ${res.body}`);
   }
 }
 
