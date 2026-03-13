@@ -134,10 +134,16 @@ class GetProductListUseCase(
     }
 
     private fun loadAndCacheDetailsWithTx(productIds: List<Long>): Map<Long, ProductInfo> {
-        return readOnlyTx.execute { loadAndCacheDetails(productIds) } ?: emptyMap()
+        val details = readOnlyTx.execute { loadDetailsFromDb(productIds) } ?: emptyMap()
+
+        details.forEach { (id, info) ->
+            productCacheStore.putDetail(id, info)
+        }
+
+        return details
     }
 
-    private fun loadAndCacheDetails(productIds: List<Long>): Map<Long, ProductInfo> {
+    private fun loadDetailsFromDb(productIds: List<Long>): Map<Long, ProductInfo> {
         val products = productRepository.findAllActiveByIds(productIds)
         if (products.isEmpty()) return emptyMap()
 
@@ -150,9 +156,7 @@ class GetProductListUseCase(
         return products.associate { product ->
             val brandName = brandMap[product.brandId]?.name ?: ""
             val stock = stockMap[product.id]?.stock?.quantity ?: 0
-            val info = ProductInfo.from(product, brandName, stock)
-            productCacheStore.putDetail(product.id, info)
-            product.id to info
+            product.id to ProductInfo.from(product, brandName, stock)
         }
     }
 

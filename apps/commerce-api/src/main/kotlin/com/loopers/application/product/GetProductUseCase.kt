@@ -26,24 +26,30 @@ class GetProductUseCase(
         return when (val cached = productCacheStore.getDetail(productId)) {
             is ProductDetailCache.Hit -> cached.productInfo
             is ProductDetailCache.NotExist -> throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
-            is ProductDetailCache.Miss -> requireNotNull(readOnlyTx.execute { loadFromDb(productId) })
+            is ProductDetailCache.Miss -> loadAndCache(productId)
         }
     }
 
-    private fun loadFromDb(productId: Long): ProductInfo {
-        val product = productRepository.findActiveByIdOrNull(productId)
-            ?: run {
-                productCacheStore.putNullDetail(productId)
-                throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
-            }
+    private fun loadAndCache(productId: Long): ProductInfo {
+        val productInfo = readOnlyTx.execute { loadFromDb(productId) }
+
+        if (productInfo == null) {
+            productCacheStore.putNullDetail(productId)
+            throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
+        }
+
+        productCacheStore.putDetail(productId, productInfo)
+        return productInfo
+    }
+
+    private fun loadFromDb(productId: Long): ProductInfo? {
+        val product = productRepository.findActiveByIdOrNull(productId) ?: return null
 
         val brand = brandRepository.findActiveByIdOrNull(product.brandId)
         val brandName = brand?.name ?: ""
 
         val stock = productStockRepository.findByProductId(productId)?.stock?.quantity ?: 0
 
-        val productInfo = ProductInfo.from(product, brandName, stock)
-        productCacheStore.putDetail(productId, productInfo)
-        return productInfo
+        return ProductInfo.from(product, brandName, stock)
     }
 }
