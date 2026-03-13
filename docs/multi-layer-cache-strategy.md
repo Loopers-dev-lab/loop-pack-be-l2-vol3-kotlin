@@ -253,6 +253,6 @@ ProductCacheWarmingScheduler ──→ ProductCacheManager
 
 ```
 evictProduct(id)    → 로컬 캐시 invalidate + Redis 캐시 delete
-evictAllProducts()  → 로컬 목록 캐시 전체 invalidate + Redis 목록 캐시 전체 delete
+evictAllProductLists()  → 로컬 목록 캐시 전체 invalidate + Redis 목록 캐시 전체 delete
 evictAllLocalCaches() → 로컬 캐시 전체 invalidate (테스트용)
 ```

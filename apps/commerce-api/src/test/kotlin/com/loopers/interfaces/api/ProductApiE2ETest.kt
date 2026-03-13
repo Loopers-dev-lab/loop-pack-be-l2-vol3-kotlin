@@ -11,7 +11,6 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.interfaces.api.product.ProductDto
 import com.loopers.utils.DatabaseCleanUp
-import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -33,7 +32,6 @@ class ProductApiE2ETest @Autowired constructor(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
-    private val redisCleanUp: RedisCleanUp,
     private val productCacheManager: ProductCacheManager,
 ) {
     companion object {
@@ -49,8 +47,7 @@ class ProductApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
-        redisCleanUp.truncateAll()
-        productCacheManager.evictAllLocalCaches()
+        productCacheManager.evictAllCaches()
     }
 
     @DisplayName("GET /api/v1/products")

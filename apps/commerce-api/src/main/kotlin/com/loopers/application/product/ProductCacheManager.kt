@@ -31,12 +31,13 @@ class ProductCacheManager(
         productLocalCacheRepository.evictProduct(productId)
     }
 
-    fun evictAllProducts() {
-        productCacheRepository.evictAllProducts()
-        productLocalCacheRepository.evictAllProducts()
+    fun evictAllProductLists() {
+        productCacheRepository.evictAllProductLists()
+        productLocalCacheRepository.evictAllProductLists()
     }
 
-    fun evictAllLocalCaches() {
+    fun evictAllCaches() {
+        productCacheRepository.evictAll()
         productLocalCacheRepository.evictAll()
     }
 

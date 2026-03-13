@@ -12,6 +12,6 @@ interface ProductLocalCacheRepository {
     ): PageResult<ProductInfo>
 
     fun evictProduct(productId: Long)
-    fun evictAllProducts()
+    fun evictAllProductLists()
     fun evictAll()
 }

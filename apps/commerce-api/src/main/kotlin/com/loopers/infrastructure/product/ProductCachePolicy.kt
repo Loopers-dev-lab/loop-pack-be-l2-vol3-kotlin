@@ -20,5 +20,7 @@ object ProductCachePolicy {
         }
     }
 
+    fun detailKeyPattern(): String = "${DETAIL_KEY_PREFIX}*"
+
     fun listKeyPattern(): String = "${LIST_KEY_PREFIX}*"
 }

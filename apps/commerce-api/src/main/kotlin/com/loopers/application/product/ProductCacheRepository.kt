@@ -10,5 +10,6 @@ interface ProductCacheRepository {
 
     fun getProducts(brandId: Long?, pageQuery: PageQuery): PageResult<ProductInfo>?
     fun setProducts(brandId: Long?, pageQuery: PageQuery, pageResult: PageResult<ProductInfo>)
-    fun evictAllProducts()
+    fun evictAllProductLists()
+    fun evictAll()
 }

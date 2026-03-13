@@ -8,8 +8,8 @@ import com.loopers.application.product.ProductInfo
 import com.loopers.support.common.PageQuery
 import com.loopers.support.common.PageResult
 import org.slf4j.LoggerFactory
-import org.springframework.data.redis.core.ScanOptions
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.core.ScanOptions
 import org.springframework.stereotype.Component
 
 @Component
@@ -56,10 +56,19 @@ class ProductCacheRepositoryImpl(
         }.onFailure { log.warn("Redis 캐시 저장 실패: products:brand:{}", brandId, it) }
     }
 
-    override fun evictAllProducts() {
+    override fun evictAllProductLists() {
+        evictByPattern(ProductCachePolicy.listKeyPattern())
+    }
+
+    override fun evictAll() {
+        evictByPattern(ProductCachePolicy.detailKeyPattern())
+        evictByPattern(ProductCachePolicy.listKeyPattern())
+    }
+
+    private fun evictByPattern(pattern: String) {
         runCatching {
             val scanOptions = ScanOptions.scanOptions()
-                .match(ProductCachePolicy.listKeyPattern())
+                .match(pattern)
                 .count(100)
                 .build()
             redisTemplate.connectionFactory?.connection?.use { connection ->
@@ -70,7 +79,7 @@ class ProductCacheRepositoryImpl(
                     redisTemplate.delete(keys)
                 }
             }
-        }.onFailure { log.warn("Redis 캐시 전체 삭제 실패", it) }
+        }.onFailure { log.warn("Redis 캐시 삭제 실패: pattern={}", pattern, it) }
     }
 
     private inline fun <reified T> getOrDeserialize(key: String, label: String): T? {
