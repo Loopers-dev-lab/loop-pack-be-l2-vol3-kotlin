@@ -12,12 +12,7 @@ class ProductLikeService(
     private val productLikeRepository: ProductLikeRepository,
 ) {
     fun like(command: LikeProductCommand): Boolean {
-        val existing = productLikeRepository.findByUserIdAndProductId(command.userId, command.productId)
-        if (existing != null) return false
-
-        val productLike = ProductLikeModel(userId = command.userId, productId = command.productId)
-        productLikeRepository.save(productLike)
-        return true
+        return productLikeRepository.saveIfNotExists(command.userId, command.productId)
     }
 
     @Transactional
