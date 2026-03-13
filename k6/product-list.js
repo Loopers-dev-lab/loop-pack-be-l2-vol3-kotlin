@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
-import { BASE_URL, LOGIN_ID, LOGIN_PW, ensureTestUser } from './helpers.js';
+import { BASE_URL, LOGIN_ID, LOGIN_PW, ensureTestUser, randomBrandId, randomProductId, randomPage } from './helpers.js';
 
 const popularLatency = new Trend('popular_latency', true);
 const popularBrandLatency = new Trend('popular_brand_latency', true);
@@ -28,20 +28,6 @@ const headers = {
   'X-Loopers-LoginId': LOGIN_ID,
   'X-Loopers-LoginPw': LOGIN_PW,
 };
-
-const BRAND_IDS = [1, 5, 10, 20, 30, 40, 50];
-
-function randomBrandId() {
-  return BRAND_IDS[Math.floor(Math.random() * BRAND_IDS.length)];
-}
-
-function randomProductId() {
-  return Math.floor(Math.random() * 100000) + 1;
-}
-
-function randomPage() {
-  return Math.floor(Math.random() * 10);
-}
 
 export function setup() {
   ensureTestUser();
