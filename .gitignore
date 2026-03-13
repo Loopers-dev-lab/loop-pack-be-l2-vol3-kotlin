@@ -44,3 +44,6 @@ out/
 design/**
 !design/**/*.md
 !design/**/README*
+
+### Docs Directory ###
+docs/
