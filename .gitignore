@@ -38,3 +38,9 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Design Directory ###
+# Only track .md and README files in design directory
+design/**
+!design/**/*.md
+!design/**/README*
