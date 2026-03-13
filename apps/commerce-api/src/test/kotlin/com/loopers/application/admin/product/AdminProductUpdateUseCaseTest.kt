@@ -1,5 +1,6 @@
 package com.loopers.application.admin.product
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -21,9 +22,10 @@ import java.math.BigDecimal
 
 @DisplayName("AdminProductUpdateUseCase")
 class AdminProductUpdateUseCaseTest {
+    private val productQueryCache: ProductQueryCache = mock()
     private val productRepository: ProductRepository = mock()
     private val brandRepository: BrandRepository = mock()
-    private val useCase = AdminProductUpdateUseCase(productRepository, brandRepository)
+    private val useCase = AdminProductUpdateUseCase(productQueryCache, productRepository, brandRepository)
 
     private val admin = "loopers.admin"
 
@@ -83,6 +85,7 @@ class AdminProductUpdateUseCaseTest {
                 { assertThat(result.sellingPrice).isEqualByComparingTo(BigDecimal("9000")) },
                 { assertThat(result.imageUrl).isEqualTo("http://img.com/new.jpg") },
             )
+            org.mockito.BDDMockito.then(productQueryCache).should().evictDetail(eq(1L))
         }
     }
 

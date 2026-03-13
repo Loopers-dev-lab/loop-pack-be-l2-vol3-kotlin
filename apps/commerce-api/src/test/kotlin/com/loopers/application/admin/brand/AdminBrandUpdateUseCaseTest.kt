@@ -1,7 +1,9 @@
 package com.loopers.application.admin.brand
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -11,13 +13,17 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.then
 import org.mockito.kotlin.any
+import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
 
 @DisplayName("AdminBrandUpdateUseCase")
 class AdminBrandUpdateUseCaseTest {
+    private val productQueryCache: ProductQueryCache = mock()
     private val brandRepository: BrandRepository = mock()
-    private val useCase = AdminBrandUpdateUseCase(brandRepository)
+    private val productRepository: ProductRepository = mock()
+    private val useCase = AdminBrandUpdateUseCase(brandRepository, productRepository, productQueryCache)
 
     private val existingBrand = Brand.retrieve(id = 1L, name = "나이키", status = Brand.Status.INACTIVE)
 
@@ -30,6 +36,7 @@ class AdminBrandUpdateUseCaseTest {
             // arrange
             given(brandRepository.findById(1L)).willReturn(existingBrand)
             given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
+            given(productRepository.findAllByBrandId(1L)).willReturn(emptyList())
 
             // act
             val result = useCase.update(
@@ -41,6 +48,7 @@ class AdminBrandUpdateUseCaseTest {
                 { assertThat(result.name).isEqualTo("아디다스") },
                 { assertThat(result.status).isEqualTo("ACTIVE") },
             )
+            then(productQueryCache).should().evictDetails(check { it.isEmpty() })
         }
 
         @Test
@@ -49,6 +57,7 @@ class AdminBrandUpdateUseCaseTest {
             // arrange
             given(brandRepository.findById(1L)).willReturn(existingBrand)
             given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
+            given(productRepository.findAllByBrandId(1L)).willReturn(emptyList())
 
             // act
             val result = useCase.update(

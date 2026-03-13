@@ -1,5 +1,6 @@
 package com.loopers.application.admin.brand
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
@@ -13,6 +14,7 @@ class AdminBrandDeleteUseCase(
     private val brandRepository: BrandRepository,
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
+    private val productQueryCache: ProductQueryCache,
 ) {
     @Transactional
     fun delete(brandId: Long, admin: String) {
@@ -26,6 +28,7 @@ class AdminBrandDeleteUseCase(
         if (productIds.isNotEmpty()) {
             productStockRepository.deleteAllByProductIds(productIds, admin)
             productRepository.deleteAllByBrandId(brandId, admin)
+            productQueryCache.evictDetails(productIds)
         }
 
         brandRepository.delete(brandId, admin)

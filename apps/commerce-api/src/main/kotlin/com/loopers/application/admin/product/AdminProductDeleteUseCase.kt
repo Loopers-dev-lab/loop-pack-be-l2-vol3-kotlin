@@ -1,5 +1,6 @@
 package com.loopers.application.admin.product
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AdminProductDeleteUseCase(
+    private val productQueryCache: ProductQueryCache,
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
 ) {
@@ -18,5 +20,6 @@ class AdminProductDeleteUseCase(
             ?: throw CoreException(ErrorType.PRODUCT_NOT_FOUND)
         productStockRepository.deleteByProductId(productId, admin)
         productRepository.delete(productId, admin)
+        productQueryCache.evictDetail(productId)
     }
 }

@@ -1,5 +1,6 @@
 package com.loopers.application.user.product
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -16,16 +17,18 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.BDDMockito.given
 import org.mockito.kotlin.mock
 import java.math.BigDecimal
 
 @DisplayName("UserProductDetailUseCase")
 class UserProductDetailUseCaseTest {
+    private val productQueryCache: ProductQueryCache = mock()
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
     private val brandRepository: BrandRepository = mock()
-    private val useCase = UserProductDetailUseCase(productRepository, productStockRepository, brandRepository)
+    private val useCase = UserProductDetailUseCase(productQueryCache, productRepository, productStockRepository, brandRepository)
 
     private fun activeProduct(id: Long = 1L, brandId: Long = 1L): Product = Product.retrieve(
         id = id,
@@ -66,6 +69,29 @@ class UserProductDetailUseCaseTest {
     @Nested
     @DisplayName("상품이 ACTIVE이고 브랜드도 ACTIVE이면 상세 조회에 성공한다")
     inner class WhenActiveProductAndBrand {
+        @Test
+        @DisplayName("캐시 hit면 repository 조회 없이 상세를 반환한다")
+        fun getDetail_cacheHit() {
+            val cached = UserProductResult.Detail(
+                id = 1L,
+                name = "캐시 상품",
+                regularPrice = BigDecimal("10000.00"),
+                sellingPrice = BigDecimal("8000.00"),
+                brandId = 1L,
+                brandName = "캐시 브랜드",
+                imageUrl = null,
+                thumbnailUrl = null,
+                likeCount = 5,
+                stockQuantity = 10,
+            )
+            given(productQueryCache.getDetail(1L)).willReturn(cached)
+
+            val result = useCase.getDetail(1L)
+
+            assertThat(result.brandName).isEqualTo("캐시 브랜드")
+            verifyNoInteractions(productRepository, brandRepository, productStockRepository)
+        }
+
         @Test
         @DisplayName("상품, 브랜드, 재고 정보를 조합하여 반환한다")
         fun getDetail_success() {

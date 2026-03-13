@@ -1,5 +1,6 @@
 package com.loopers.application.user.order
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -30,6 +31,7 @@ import java.math.BigDecimal
 @DisplayName("OrderCreateUseCase")
 class OrderCreateUseCaseTest {
 
+    private val productQueryCache: ProductQueryCache = mock()
     private val orderRepository: OrderRepository = mock()
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
@@ -37,6 +39,7 @@ class OrderCreateUseCaseTest {
     private val couponRepository: CouponRepository = mock()
     private val issuedCouponRepository: IssuedCouponRepository = mock()
     private val useCase = OrderCreateUseCase(
+        productQueryCache = productQueryCache,
         orderRepository = orderRepository,
         productRepository = productRepository,
         productStockRepository = productStockRepository,
@@ -139,6 +142,11 @@ class OrderCreateUseCaseTest {
             assertAll(
                 { assertThat(result.orderId).isEqualTo(100L) },
                 { assertThat(result.status).isEqualTo("CREATED") },
+            )
+            then(productQueryCache).should().evictDetails(
+                check { productIds ->
+                    assertThat(productIds).containsExactly(1L)
+                },
             )
         }
 

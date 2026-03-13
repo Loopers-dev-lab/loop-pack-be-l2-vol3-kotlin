@@ -1,5 +1,6 @@
 package com.loopers.application.user.like
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.ProductRepository
 import org.junit.jupiter.api.DisplayName
@@ -14,9 +15,10 @@ import org.mockito.kotlin.never
 
 @DisplayName("상품 좋아요 취소")
 class UserProductLikeCancelUseCaseTest {
+    private val productQueryCache: ProductQueryCache = mock()
     private val productLikeRepository: ProductLikeRepository = mock()
     private val productRepository: ProductRepository = mock()
-    private val useCase = UserProductLikeCancelUseCase(productLikeRepository, productRepository)
+    private val useCase = UserProductLikeCancelUseCase(productQueryCache, productLikeRepository, productRepository)
 
     @Nested
     @DisplayName("좋아요가 존재하면 삭제에 성공한다")
@@ -31,6 +33,7 @@ class UserProductLikeCancelUseCaseTest {
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
             then(productRepository).should().decrementLikeCount(eq(1L))
+            then(productQueryCache).should().evictDetail(eq(1L))
         }
     }
 
@@ -47,6 +50,7 @@ class UserProductLikeCancelUseCaseTest {
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
             then(productRepository).should(never()).decrementLikeCount(eq(1L))
+            then(productQueryCache).should(never()).evictDetail(eq(1L))
         }
     }
 

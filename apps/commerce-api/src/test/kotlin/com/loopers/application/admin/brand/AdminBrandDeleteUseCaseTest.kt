@@ -1,5 +1,6 @@
 package com.loopers.application.admin.brand
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
@@ -17,10 +18,11 @@ import org.mockito.kotlin.mock
 
 @DisplayName("AdminBrandDeleteUseCase")
 class AdminBrandDeleteUseCaseTest {
+    private val productQueryCache: ProductQueryCache = mock()
     private val brandRepository: BrandRepository = mock()
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
-    private val useCase = AdminBrandDeleteUseCase(brandRepository, productRepository, productStockRepository)
+    private val useCase = AdminBrandDeleteUseCase(brandRepository, productRepository, productStockRepository, productQueryCache)
 
     @Nested
     @DisplayName("브랜드 삭제 시")

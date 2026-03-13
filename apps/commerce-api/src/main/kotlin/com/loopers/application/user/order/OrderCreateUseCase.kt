@@ -1,5 +1,6 @@
 package com.loopers.application.user.order
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class OrderCreateUseCase(
+    private val productQueryCache: ProductQueryCache,
     private val orderRepository: OrderRepository,
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
@@ -97,6 +99,7 @@ class OrderCreateUseCase(
 
         val savedOrder = orderRepository.save(domainResult.order)
         productStockRepository.saveAll(domainResult.decreasedStocks)
+        productQueryCache.evictDetails(domainResult.decreasedStocks.map { it.productId })
         couponResult?.usedCoupon?.let { issuedCouponRepository.use(it) }
 
         return OrderResult.Created.from(savedOrder)

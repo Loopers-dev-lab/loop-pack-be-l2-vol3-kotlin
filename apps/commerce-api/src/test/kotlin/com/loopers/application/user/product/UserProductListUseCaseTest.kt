@@ -1,5 +1,6 @@
 package com.loopers.application.user.product
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.BDDMockito.given
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -23,9 +25,10 @@ import java.math.BigDecimal
 
 @DisplayName("UserProductListUseCase")
 class UserProductListUseCaseTest {
+    private val productQueryCache: ProductQueryCache = mock()
     private val productRepository: ProductRepository = mock()
     private val brandRepository: BrandRepository = mock()
-    private val useCase = UserProductListUseCase(productRepository, brandRepository)
+    private val useCase = UserProductListUseCase(productQueryCache, productRepository, brandRepository)
 
     private fun activeBrand(id: Long, name: String = "브랜드$id"): Brand =
         Brand.retrieve(id = id, name = name, status = Brand.Status.ACTIVE)
@@ -46,6 +49,34 @@ class UserProductListUseCaseTest {
     @Nested
     @DisplayName("목록 조회 결과를 응답으로 변환할 때")
     inner class WhenMapResult {
+        @Test
+        @DisplayName("캐시 hit면 repository 조회 없이 캐시된 결과를 반환한다")
+        fun getList_cacheHit() {
+            val cached = PageResponse(
+                content = listOf(
+                    UserProductResult.Summary(
+                        id = 1L,
+                        name = "캐시상품",
+                        sellingPrice = BigDecimal("8000"),
+                        brandId = 1L,
+                        brandName = "브랜드1",
+                        thumbnailUrl = null,
+                        likeCount = 3,
+                    ),
+                ),
+                totalElements = 1L,
+                page = 0,
+                size = 20,
+            )
+            given(productQueryCache.getList(any(), isNull(), isNull())).willReturn(cached)
+
+            val result = useCase.getList(PageRequest(), null, null)
+
+            assertThat(result.content).hasSize(1)
+            assertThat(result.content[0].name).isEqualTo("캐시상품")
+            verifyNoInteractions(productRepository, brandRepository)
+        }
+
         @Test
         @DisplayName("repository에서 조회한 상품과 ACTIVE 브랜드를 매핑한다")
         fun getList_mapProductsWithBrands() {

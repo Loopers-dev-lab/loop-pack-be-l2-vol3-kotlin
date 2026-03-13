@@ -1,5 +1,6 @@
 package com.loopers.application.user.product
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class UserProductListUseCase(
+    private val productQueryCache: ProductQueryCache,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
 ) {
@@ -29,6 +31,8 @@ class UserProductListUseCase(
                 throw CoreException(ErrorType.BAD_REQUEST)
             }
         }
+        productQueryCache.getList(pageRequest, brandId, sortType)?.let { return it }
+
         val productPage = productRepository.findAllActive(pageRequest, brandId, sortType)
 
         val brandIds = productPage.content.map { it.brandId }.distinct()
@@ -44,6 +48,8 @@ class UserProductListUseCase(
             totalElements = productPage.totalElements,
             page = productPage.page,
             size = productPage.size,
-        )
+        ).also {
+            productQueryCache.putList(pageRequest, brandId, sortType, it)
+        }
     }
 }

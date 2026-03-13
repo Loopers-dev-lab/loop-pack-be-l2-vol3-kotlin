@@ -1,5 +1,6 @@
 package com.loopers.application.user.product
 
+import com.loopers.application.product.ProductQueryCache
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
@@ -12,12 +13,15 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class UserProductDetailUseCase(
+    private val productQueryCache: ProductQueryCache,
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
     private val brandRepository: BrandRepository,
 ) {
     @Transactional(readOnly = true)
     fun getDetail(productId: Long): UserProductResult.Detail {
+        productQueryCache.getDetail(productId)?.let { return it }
+
         val product = productRepository.findById(productId)
             ?: throw CoreException(ErrorType.PRODUCT_NOT_FOUND)
         if (product.status != Product.Status.ACTIVE) {
@@ -34,5 +38,6 @@ class UserProductDetailUseCase(
             ?: throw CoreException(ErrorType.PRODUCT_STOCK_NOT_FOUND)
 
         return UserProductResult.Detail.from(product, brand, stock)
+            .also { productQueryCache.putDetail(it) }
     }
 }
