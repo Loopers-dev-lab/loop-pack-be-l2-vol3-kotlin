@@ -30,4 +30,8 @@ class ProductRepositoryImpl(
     override fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductModel> {
         return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
     }
+
+    override fun findAllByIdsForUpdate(ids: List<Long>): List<ProductModel> {
+        return productJpaRepository.findAllByIdsForUpdate(ids)
+    }
 }

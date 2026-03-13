@@ -28,6 +28,11 @@ class ProductService(
     }
 
     @Transactional
+    fun findAllByIdsForUpdate(ids: List<Long>): List<ProductModel> {
+        return productRepository.findAllByIdsForUpdate(ids)
+    }
+
+    @Transactional
     fun incrementLikesCount(productId: Long) {
         val product = findById(productId)
         product.incrementLikesCount()
@@ -38,6 +43,49 @@ class ProductService(
     fun decrementLikesCount(productId: Long) {
         val product = findById(productId)
         product.decrementLikesCount()
+        productRepository.save(product)
+    }
+
+    @Transactional
+    fun create(
+        name: String,
+        price: Long,
+        brandId: Long,
+        description: String?,
+        thumbnailImageUrl: String?,
+        stockQuantity: Int,
+    ): ProductModel {
+        val product = ProductModel(
+            name = name,
+            price = price,
+            brandId = brandId,
+            description = description,
+            thumbnailImageUrl = thumbnailImageUrl,
+            stockQuantity = stockQuantity,
+        )
+        return productRepository.save(product)
+    }
+
+    @Transactional
+    fun update(
+        id: Long,
+        name: String,
+        price: Long,
+        description: String?,
+        thumbnailImageUrl: String?,
+        stockQuantity: Int,
+        saleStatus: SaleStatus,
+        displayStatus: DisplayStatus,
+    ): ProductModel {
+        val product = findById(id)
+        product.update(name, price, description, thumbnailImageUrl, stockQuantity, saleStatus, displayStatus)
+        return productRepository.save(product)
+    }
+
+    @Transactional
+    fun delete(id: Long) {
+        val product = findById(id)
+        product.delete()
         productRepository.save(product)
     }
 }
