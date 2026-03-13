@@ -81,17 +81,17 @@ class ProductServiceTest {
             )
             val pageable = PageRequest.of(0, 10)
             every {
-                productRepository.findAllByDeletedAtIsNull(null, pageable)
+                productRepository.findAllByDeletedAtIsNull(null, ProductSortType.LATEST, pageable)
             } returns PageImpl(products, pageable, 2)
 
             // act
-            val result = productService.findAll(null, pageable)
+            val result = productService.findAll(null, ProductSortType.LATEST, pageable)
 
             // assert
             assertThat(result.content).hasSize(2)
             assertThat(result.content[0].name).isEqualTo("상품A")
             assertThat(result.content[1].name).isEqualTo("상품B")
-            verify(exactly = 1) { productRepository.findAllByDeletedAtIsNull(null, pageable) }
+            verify(exactly = 1) { productRepository.findAllByDeletedAtIsNull(null, ProductSortType.LATEST, pageable) }
         }
 
         @DisplayName("브랜드별 필터링으로 조회한다")
@@ -104,16 +104,16 @@ class ProductServiceTest {
             )
             val pageable = PageRequest.of(0, 10)
             every {
-                productRepository.findAllByDeletedAtIsNull(1L, pageable)
+                productRepository.findAllByDeletedAtIsNull(1L, ProductSortType.LIKES_DESC, pageable)
             } returns PageImpl(products, pageable, 2)
 
             // act
-            val result = productService.findAll(1L, pageable)
+            val result = productService.findAll(1L, ProductSortType.LIKES_DESC, pageable)
 
             // assert
             assertThat(result.content).hasSize(2)
             assertThat(result.content).allSatisfy { assertThat(it.brandId).isEqualTo(1L) }
-            verify(exactly = 1) { productRepository.findAllByDeletedAtIsNull(1L, pageable) }
+            verify(exactly = 1) { productRepository.findAllByDeletedAtIsNull(1L, ProductSortType.LIKES_DESC, pageable) }
         }
     }
 
