@@ -8,12 +8,40 @@ import org.springframework.stereotype.Component
 
 @Component
 class ProductCacheManager(
+    private val productLocalCacheRepository: ProductLocalCacheRepository,
     private val productCacheRepository: ProductCacheRepository,
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
 
     fun getProduct(productId: Long): ProductDetailInfo {
+        return productLocalCacheRepository.getOrLoadProduct(productId) {
+            loadProductDetail(productId)
+        }
+    }
+
+    fun getProducts(brandId: Long?, pageQuery: PageQuery): PageResult<ProductInfo> {
+        return productLocalCacheRepository.getOrLoadProducts(brandId, pageQuery) {
+            loadProductList(brandId, pageQuery)
+        }
+    }
+
+    fun evictProduct(productId: Long) {
+        productLocalCacheRepository.evictProduct(productId)
+        productCacheRepository.evictProduct(productId)
+    }
+
+    fun evictAllProducts() {
+        productLocalCacheRepository.evictAllProducts()
+        productCacheRepository.evictAllProducts()
+    }
+
+    fun evictAllLocalCaches() {
+        productLocalCacheRepository.evictAll()
+    }
+
+    // Redis → DB 조회
+    private fun loadProductDetail(productId: Long): ProductDetailInfo {
         productCacheRepository.getProduct(productId)?.let { return it }
 
         val product = productService.getProduct(productId)
@@ -24,7 +52,7 @@ class ProductCacheManager(
         return productDetailInfo
     }
 
-    fun getProducts(brandId: Long?, pageQuery: PageQuery): PageResult<ProductInfo> {
+    private fun loadProductList(brandId: Long?, pageQuery: PageQuery): PageResult<ProductInfo> {
         productCacheRepository.getProducts(brandId, pageQuery)?.let { return it }
 
         val pageResult = productService.getProducts(brandId, pageQuery)
@@ -32,13 +60,5 @@ class ProductCacheManager(
 
         productCacheRepository.setProducts(brandId, pageQuery, pageResult)
         return pageResult
-    }
-
-    fun evictProduct(productId: Long) {
-        productCacheRepository.evictProduct(productId)
-    }
-
-    fun evictAllProducts() {
-        productCacheRepository.evictAllProducts()
     }
 }
