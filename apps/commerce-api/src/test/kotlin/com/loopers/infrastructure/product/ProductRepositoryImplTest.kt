@@ -31,66 +31,6 @@ class ProductRepositoryImplTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    @DisplayName("findWithPaging returns products sorted by likeCount descending")
-    @Test
-    fun findWithPaging_sortsByLikeCountDescending() {
-        // Arrange
-        val brand = createBrand()
-        val product1 = createProduct(brand, "Product 1", BigDecimal("10000"), likeCount = 50)
-        val product2 = createProduct(brand, "Product 2", BigDecimal("20000"), likeCount = 100)
-        val product3 = createProduct(brand, "Product 3", BigDecimal("15000"), likeCount = 75)
-
-        val pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("likeCount")))
-
-        // Act
-        val result = productRepository.findWithPaging(null, pageable)
-
-        // Assert
-        assertThat(result.content).hasSize(3)
-        assertThat(result.content[0].id).isEqualTo(product2.id) // 100 likes
-        assertThat(result.content[1].id).isEqualTo(product3.id) // 75 likes
-        assertThat(result.content[2].id).isEqualTo(product1.id) // 50 likes
-    }
-
-    @DisplayName("findActiveProductsWithPaging returns active products sorted by likeCount")
-    @Test
-    fun findActiveProductsWithPaging_returnsActiveProductsSortedByLikeCount() {
-        // Arrange
-        val brand = createBrand()
-        val activeProduct1 = createProduct(
-            brand,
-            "Active Product 1",
-            BigDecimal("10000"),
-            ProductStatus.ACTIVE,
-            likeCount = 30,
-        )
-        val activeProduct2 = createProduct(
-            brand,
-            "Active Product 2",
-            BigDecimal("20000"),
-            ProductStatus.ACTIVE,
-            likeCount = 60,
-        )
-        val inactiveProduct = createProduct(
-            brand,
-            "Inactive Product",
-            BigDecimal("15000"),
-            ProductStatus.INACTIVE,
-            likeCount = 90,
-        )
-
-        val pageable = PageRequest.of(0, 10, Sort.by(Sort.Order.desc("likeCount")))
-
-        // Act
-        val result = productRepository.findActiveProductsWithPaging(null, pageable)
-
-        // Assert
-        assertThat(result.content).hasSize(2)
-        assertThat(result.content[0].id).isEqualTo(activeProduct2.id) // 60 likes, ACTIVE
-        assertThat(result.content[1].id).isEqualTo(activeProduct1.id) // 30 likes, ACTIVE
-        assertThat(result.content.map { it.status }).allMatch { it == ProductStatus.ACTIVE }
-    }
-
     @DisplayName("findWithPaging supports multiple sort options")
     @Test
     fun findWithPaging_supportsMultipleSortOptions() {
@@ -148,11 +88,6 @@ class ProductRepositoryImplTest @Autowired constructor(
             price = price,
             status = status,
         )
-        // Set likeCount through reflection since it's a protected property
-        product::class.java.getDeclaredField("likeCount").apply {
-            isAccessible = true
-            setInt(product, likeCount)
-        }
         val savedProduct = productRepository.save(product)
         return savedProduct
     }

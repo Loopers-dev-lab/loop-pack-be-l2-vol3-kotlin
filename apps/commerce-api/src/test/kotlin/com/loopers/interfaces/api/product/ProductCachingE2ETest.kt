@@ -5,6 +5,7 @@ import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStatus
+import com.loopers.domain.productlike.ProductLikeCountRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -27,6 +28,7 @@ import java.math.BigDecimal
 class ProductCachingE2ETest @Autowired constructor(
     private val mockMvc: MockMvc,
     private val productRepository: ProductRepository,
+    private val productLikeCountRepository: ProductLikeCountRepository,
     private val brandRepository: BrandRepository,
     private val cacheManager: CacheManager,
     private val databaseCleanUp: DatabaseCleanUp,
@@ -251,8 +253,8 @@ class ProductCachingE2ETest @Autowired constructor(
             ),
         )
         // likeCount를 직접 설정할 수 없으므로, 상품 생성 후의 기본 값 확인
-        val savedProduct = productRepository.findById(productWithLikes.id!!)
-        assertThat(savedProduct?.likeCount).isEqualTo(0)
+        val likeCount = productLikeCountRepository.findByProductId(productWithLikes.id!!)?.likeCount ?: 0
+        assertThat(likeCount).isEqualTo(0)
 
         // When
         val response = mockMvc.get("/api/v1/products/${productWithLikes.id}")

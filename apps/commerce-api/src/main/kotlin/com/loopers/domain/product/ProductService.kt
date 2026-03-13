@@ -2,6 +2,7 @@ package com.loopers.domain.product
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.dto.ProductInfo
+import com.loopers.domain.productlike.ProductLikeCountRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.cache.annotation.CacheEvict
@@ -16,18 +17,26 @@ import java.math.BigDecimal
 class ProductService(
     private val productDomainService: ProductDomainService,
     private val productRepository: ProductRepository,
+    private val productLikeCountRepository: ProductLikeCountRepository,
 ) {
 
     fun getProductInfo(id: Long): ProductInfo {
         val findProduct = findActiveProduct(id)
-        return ProductInfo.from(findProduct)
+        val likeCount = productLikeCountRepository.findByProductId(id)?.likeCount ?: 0
+        return ProductInfo.from(findProduct, likeCount)
     }
 
     fun getProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> =
-        productRepository.findWithPaging(brandId, pageable).map { ProductInfo.from(it) }
+        productRepository.findWithPaging(brandId, pageable).map { product ->
+            val likeCount = productLikeCountRepository.findByProductId(product.id)?.likeCount ?: 0
+            ProductInfo.from(product, likeCount)
+        }
 
     fun getActiveProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> =
-        productRepository.findActiveProductsWithPaging(brandId, pageable).map { ProductInfo.from(it) }
+        productRepository.findActiveProductsWithPaging(brandId, pageable).map { product ->
+            val likeCount = productLikeCountRepository.findByProductId(product.id)?.likeCount ?: 0
+            ProductInfo.from(product, likeCount)
+        }
 
     @Transactional
     fun createProduct(

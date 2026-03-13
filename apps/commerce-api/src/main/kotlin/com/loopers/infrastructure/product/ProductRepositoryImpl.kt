@@ -40,7 +40,6 @@ class ProductRepositoryImpl(
             val path = when (order.property) {
                 "createdAt" -> qProduct.createdAt
                 "price" -> qProduct.price
-                "likeCount" -> qProduct.likeCount
                 else -> null
             }
             path?.let {
@@ -81,7 +80,6 @@ class ProductRepositoryImpl(
             val path = when (order.property) {
                 "createdAt" -> qProduct.createdAt
                 "price" -> qProduct.price
-                "likeCount" -> qProduct.likeCount
                 else -> null
             }
             path?.let {
@@ -109,12 +107,4 @@ class ProductRepositoryImpl(
     }
 
     override fun save(product: Product): Product = productJpaRepository.save(product)
-
-    override fun increaseLikeCount(productId: Long) {
-        productJpaRepository.increaseLikeCount(productId)
-    }
-
-    override fun decreaseLikeCount(productId: Long) {
-        productJpaRepository.decreaseLikeCount(productId)
-    }
 }

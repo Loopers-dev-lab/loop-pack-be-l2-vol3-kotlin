@@ -240,7 +240,6 @@ class ProductServiceCachingTest @Autowired constructor(
                 { assertThat(cachedProduct.name).isEqualTo(db.name) },
                 { assertThat(cachedProduct.price).isEqualByComparingTo(db.price) },
                 { assertThat(cachedProduct.status).isEqualTo(db.status) },
-                { assertThat(cachedProduct.likeCount).isEqualTo(db.likeCount) },
             )
         }
     }

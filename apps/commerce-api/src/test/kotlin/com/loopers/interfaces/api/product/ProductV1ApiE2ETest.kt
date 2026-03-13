@@ -435,57 +435,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("getProducts returns products sorted by likeCount DESC")
-        @Test
-        fun returnsProductsSortedByLikeCountDesc() {
-            // arrange
-            val brand = brandJpaRepository.save(Brand.create(name = "Nike", description = "설명"))
-            val product1 = productJpaRepository.save(
-                Product.create(
-                    brand = brand,
-                    name = "Product1",
-                    price = BigDecimal("100.00"),
-                ),
-            )
-            val product2 = productJpaRepository.save(
-                Product.create(
-                    brand = brand,
-                    name = "Product2",
-                    price = BigDecimal("200.00"),
-                ),
-            )
-            val product3 = productJpaRepository.save(
-                Product.create(
-                    brand = brand,
-                    name = "Product3",
-                    price = BigDecimal("150.00"),
-                ),
-            )
-
-            // Update likeCount using JdbcTemplate
-            jdbcTemplate.update("UPDATE products SET like_count = 50 WHERE id = ?", product1.id)
-            jdbcTemplate.update("UPDATE products SET like_count = 100 WHERE id = ?", product2.id)
-            jdbcTemplate.update("UPDATE products SET like_count = 75 WHERE id = ?", product3.id)
-
-            // act
-            val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
-            val response = testRestTemplate.exchange(
-                "$PRODUCTS_ENDPOINT?brandId=${brand.id}&sort=LIKE_COUNT",
-                HttpMethod.GET,
-                HttpEntity<Any>(Unit),
-                responseType,
-            )
-
-            // assert
-            assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data?.content).hasSize(3) },
-                { assertThat(response.body?.data?.content?.get(0)?.likeCount).isEqualTo(100) },
-                { assertThat(response.body?.data?.content?.get(1)?.likeCount).isEqualTo(75) },
-                { assertThat(response.body?.data?.content?.get(2)?.likeCount).isEqualTo(50) },
-            )
-        }
-
         @DisplayName("getProducts supports multiple sort options")
         @Test
         fun supportMultipleSortOptions() {
