@@ -13,6 +13,10 @@ class ProductCacheService(
 ) {
     private val cacheMode = CacheMode.valueOf(mode.uppercase())
 
+    companion object {
+        private const val MAX_CACHED_PAGE = 3
+    }
+
     fun getProductDetail(productId: Long): ProductInfo? {
         return when (cacheMode) {
             CacheMode.REDIS -> redisCacheRepository.getProductDetail(productId)
@@ -49,6 +53,7 @@ class ProductCacheService(
     }
 
     fun getProductList(brandId: Long?, sort: String, page: Int, size: Int): CachedPage<ProductInfo>? {
+        if (page >= MAX_CACHED_PAGE) return null
         return when (cacheMode) {
             CacheMode.REDIS -> redisCacheRepository.getProductList(brandId, sort, page, size)
             CacheMode.LOCAL -> localCacheRepository.getProductList(brandId, sort, page, size)
@@ -62,6 +67,7 @@ class ProductCacheService(
     }
 
     fun setProductList(brandId: Long?, sort: String, page: Int, size: Int, data: CachedPage<ProductInfo>) {
+        if (page >= MAX_CACHED_PAGE) return
         when (cacheMode) {
             CacheMode.REDIS -> redisCacheRepository.setProductList(brandId, sort, page, size, data)
             CacheMode.LOCAL -> localCacheRepository.setProductList(brandId, sort, page, size, data)

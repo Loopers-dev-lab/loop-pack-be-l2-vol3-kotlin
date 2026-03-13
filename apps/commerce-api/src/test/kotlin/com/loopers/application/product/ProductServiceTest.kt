@@ -318,6 +318,30 @@ class ProductServiceTest {
             verify(productRepository).findAll(pageable)
             verify(productCacheService).setProductList(anyOrNull(), any(), any(), any(), any())
         }
+
+        @DisplayName("캐시 대상 범위(첫 3페이지) 밖 페이지 요청 시, 캐시 miss로 DB에서 조회한다.")
+        @Test
+        fun fetchesFromDb_whenPageExceedsCacheLimit() {
+            // arrange
+            val pageable = PageRequest.of(3, 20)
+            val now = ZonedDateTime.now()
+            val product = createProduct()
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+            val productPage = PageImpl(listOf(product), pageable, 100L)
+
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productRepository.findAll(pageable)).thenReturn(productPage)
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(1) },
+                { verify(productRepository).findAll(pageable) },
+            )
+        }
     }
 
     @DisplayName("상품을 등록할 때,")
