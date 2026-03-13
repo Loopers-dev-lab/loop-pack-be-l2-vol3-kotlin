@@ -1,5 +1,7 @@
 package com.loopers.application.order
 
+import com.loopers.domain.coupon.CouponService
+import com.loopers.domain.coupon.CouponStatus
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
@@ -7,22 +9,22 @@ import com.loopers.domain.product.ProductService
 import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.transaction.Transactional
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.ZonedDateTime
 
 @Component
 class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
     private val userService: UserService,
+    private val couponService: CouponService,
 ) {
     @Transactional
-    fun createOrder(loginId: String, password: String, itemRequests: List<OrderItemRequest>): OrderInfo {
+    fun createOrder(loginId: String, password: String, itemRequests: List<OrderItemRequest>, couponId: Long? = null): OrderInfo {
         val user = getAuthenticatedUser(loginId, password)
 
         val sortedItems = itemRequests.sortedBy { it.productId }
@@ -38,7 +40,26 @@ class OrderFacade(
             )
         }
 
-        val order = Order(userId = user.id, items = orderItems)
+        val originalTotalPrice = orderItems.sumOf { it.productPrice * it.quantity }
+
+        var discountAmount = 0L
+        if (couponId != null) {
+            val issuedCoupon = couponService.getIssuedCoupon(couponId)
+            if (issuedCoupon.userId != user.id) {
+                throw CoreException(ErrorType.BAD_REQUEST, "본인의 쿠폰만 사용할 수 있습니다.")
+            }
+            val template = couponService.getCouponTemplate(issuedCoupon.couponTemplateId)
+            if (issuedCoupon.getStatus(template.expiredAt) != CouponStatus.AVAILABLE) {
+                throw CoreException(ErrorType.BAD_REQUEST, "사용할 수 없는 쿠폰입니다.")
+            }
+            if (template.minOrderAmount != null && originalTotalPrice < template.minOrderAmount!!) {
+                throw CoreException(ErrorType.BAD_REQUEST, "최소 주문 금액을 충족하지 못했습니다.")
+            }
+            discountAmount = template.calculateDiscount(originalTotalPrice)
+            issuedCoupon.use()
+        }
+
+        val order = Order(userId = user.id, items = orderItems, couponId = couponId, discountAmount = discountAmount)
         return orderService.createOrder(order)
             .let { OrderInfo.from(it) }
     }

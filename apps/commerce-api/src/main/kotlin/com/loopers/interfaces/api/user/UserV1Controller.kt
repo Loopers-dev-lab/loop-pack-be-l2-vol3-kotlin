@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/v1/users")
 class UserV1Controller(
     private val userFacade: UserFacade,
-)  : UserV1ApiSpec {
+) : UserV1ApiSpec {
     @PostMapping("/register")
     override fun registerUser(@RequestBody req: UserV1Dto.RegisterUserRequest): ApiResponse<UserV1Dto.UserResponse> {
         return userFacade.registerUser(req.loginId, req.password, req.name, req.birth, req.email)

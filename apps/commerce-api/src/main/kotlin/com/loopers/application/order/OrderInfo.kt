@@ -6,7 +6,10 @@ import com.loopers.domain.order.OrderItem
 data class OrderInfo(
     val id: Long,
     val userId: Long,
+    val originalTotalPrice: Long,
+    val discountAmount: Long,
     val totalPrice: Long,
+    val couponId: Long?,
     val items: List<OrderItemInfo>,
 ) {
     companion object {
@@ -14,7 +17,10 @@ data class OrderInfo(
             return OrderInfo(
                 id = order.id,
                 userId = order.userId,
+                originalTotalPrice = order.originalTotalPrice,
+                discountAmount = order.discountAmount,
                 totalPrice = order.totalPrice,
+                couponId = order.couponId,
                 items = order.items.map { OrderItemInfo.from(it) },
             )
         }

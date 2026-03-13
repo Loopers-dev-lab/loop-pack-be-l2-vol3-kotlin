@@ -6,7 +6,6 @@ import com.loopers.domain.product.ProductSort
 import com.loopers.domain.product.QProduct.product
 import com.querydsl.core.types.OrderSpecifier
 import com.querydsl.jpa.impl.JPAQueryFactory
-import jakarta.transaction.Transactional
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.Pageable
@@ -53,17 +52,14 @@ class ProductRepositoryImpl(
         return PageImpl(content, pageable, total)
     }
 
-    @Transactional
     override fun increaseLikeCount(productId: Long) {
         productJpaRepository.increaseLikeCount(productId)
     }
 
-    @Transactional
     override fun decreaseLikeCount(productId: Long) {
         productJpaRepository.decreaseLikeCount(productId)
     }
 
-    @Transactional
     override fun softDeleteByBrandId(brandId: Long) {
         productJpaRepository.softDeleteByBrandId(brandId)
     }

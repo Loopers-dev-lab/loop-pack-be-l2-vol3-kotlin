@@ -42,7 +42,7 @@ class UserV1ApiE2ETest @Autowired constructor(
         @DisplayName("회원 가입이 성공할 경우, 생성된 유저 정보를 응답으로 반환한다.")
         @Test
         fun returnsUserInfo_whenRegisterUser() {
-            //arrange
+            // arrange
             val req = UserV1Dto.RegisterUserRequest(
                 loginId = "testId",
                 password = "testPassword",
