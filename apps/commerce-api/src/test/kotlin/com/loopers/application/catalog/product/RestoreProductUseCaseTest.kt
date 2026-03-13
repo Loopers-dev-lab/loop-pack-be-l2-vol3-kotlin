@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class RestoreProductUseCaseTest {
@@ -23,7 +24,7 @@ class RestoreProductUseCaseTest {
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        useCase = RestoreProductUseCase(productRepository)
+        useCase = RestoreProductUseCase(productRepository, ApplicationEventPublisher { })
     }
 
     @Nested
@@ -61,6 +62,48 @@ class RestoreProductUseCaseTest {
 
             // assert
             assertThat(result.deletedAt).isNull()
+        }
+
+        @Test
+        @DisplayName("이미 활성 상태인 상품 복구 시 이벤트가 발행되지 않는다")
+        fun restoreProduct_activeProduct_doesNotPublishEvent() {
+            // arrange
+            val product = productRepository.save(
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RestoreProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(product.id.value)
+
+            // assert
+            assertThat(publishedEvents).isEmpty()
+        }
+
+        @Test
+        @DisplayName("상품 복구 후 캐시 갱신 이벤트가 발행된다")
+        fun restoreProduct_publishesCacheUpdateEvent() {
+            // arrange
+            val product = productRepository.save(
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            product.delete()
+            productRepository.save(product)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RestoreProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(product.id.value)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val updateEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(updateEvent.product.id).isEqualTo(product.id)
+            assertThat(updateEvent.product.deletedAt).isNull()
+            assertThat(updateEvent.evictList).isTrue()
         }
 
         @Test

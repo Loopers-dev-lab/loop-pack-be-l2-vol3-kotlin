@@ -3,15 +3,30 @@ package com.loopers.config.redis
 import io.lettuce.core.ReadFrom
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.cache.annotation.EnableCaching
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
+import org.springframework.data.redis.cache.RedisCacheConfiguration
+import org.springframework.data.redis.cache.RedisCacheManager
+import org.springframework.data.redis.cache.RedisCacheWriter
+import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory
 import org.springframework.data.redis.core.RedisTemplate
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.serializer.StringRedisSerializer
+import java.time.Duration
 
+@EnableCaching
 @Configuration
 @EnableConfigurationProperties(RedisProperties::class)
 class RedisConfig(
@@ -20,6 +35,8 @@ class RedisConfig(
     companion object {
         private const val CONNECTION_MASTER = "redisConnectionMaster"
         const val REDIS_TEMPLATE_MASTER = "redisTemplateMaster"
+        private val DEFAULT_TTL: Duration = Duration.ofMinutes(30)
+        private val PRODUCT_LIST_TTL: Duration = Duration.ofMinutes(5)
     }
 
     @Primary
@@ -38,6 +55,46 @@ class RedisConfig(
         return lettuceConnectionFactory(database, master, replicas) {
             readFrom(ReadFrom.MASTER)
         }
+    }
+
+    @Bean
+    fun redisCacheManager(
+        @Qualifier(CONNECTION_MASTER) redisConnectionFactory: RedisConnectionFactory,
+    ): RedisCacheManager {
+        val cacheObjectMapper = ObjectMapper().apply {
+            registerModule(KotlinModule.Builder().build())
+            registerModule(JavaTimeModule())
+            disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            activateDefaultTyping(
+                BasicPolymorphicTypeValidator.builder()
+                    .allowIfSubType("com.loopers")
+                    .allowIfSubType("java.util.")
+                    .allowIfSubType("java.time.")
+                    .allowIfSubType("java.math.")
+                    .build(),
+                ObjectMapper.DefaultTyping.EVERYTHING,
+                JsonTypeInfo.As.PROPERTY,
+            )
+        }
+        val jsonSerializer = GenericJackson2JsonRedisSerializer(cacheObjectMapper)
+        val defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+            .entryTtl(DEFAULT_TTL)
+            .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
+            .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(jsonSerializer))
+            .disableCachingNullValues()
+
+        val productListConfig = defaultConfig.entryTtl(PRODUCT_LIST_TTL)
+
+        val cacheWriter = JitteredRedisCacheWriter(
+            delegate = RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory),
+            maxJitterSeconds = 30,
+        )
+
+        return RedisCacheManager.builder(cacheWriter)
+            .cacheDefaults(defaultConfig)
+            .withCacheConfiguration("product:list", productListConfig)
+            .build()
     }
 
     @Primary

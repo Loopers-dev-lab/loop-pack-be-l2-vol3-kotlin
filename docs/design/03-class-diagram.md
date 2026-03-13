@@ -321,6 +321,13 @@ classDiagram
             <<interface>>
             +findActiveProducts()
         }
+        class ProductCacheRepository {
+            <<interface>>
+            +findProductDetail(productId) Product?
+            +saveProductDetail(product)
+            +evictProductDetail(productId)
+            +evictProductList(brandId?)
+        }
     }
 
     ProductV1Controller --> GetProductsUseCase: 목록 조회
@@ -333,6 +340,10 @@ classDiagram
     ProductAdminV1Controller --> RestoreProductUseCase
     GetProductUseCase --> ProductRepository
     GetProductUseCase --> BrandRepository: 상세 조합
+    GetProductUseCase --> ProductCacheRepository: 캐시 히트/미스
+    GetProductsUseCase --> ProductCacheRepository: @Cacheable
+    UpdateProductUseCase --> ProductCacheRepository: saveProductDetail + evictProductList
+    DeleteProductUseCase --> ProductCacheRepository: evictProductDetail
     CreateProductUseCase --> BrandRepository: 브랜드 검증
     Product ..> Stock: 재고 변경 로직 위임
 ```
@@ -390,8 +401,10 @@ classDiagram
     LikeV1Controller --> GetUserLikesUseCase
     AddLikeUseCase --> LikeRepository
     AddLikeUseCase --> ProductRepository: 상품 검증 + likeCount 증가
+    AddLikeUseCase --> ProductCacheRepository: saveProductDetail (likeCount 갱신)
     RemoveLikeUseCase --> LikeRepository
     RemoveLikeUseCase --> ProductRepository: likeCount 감소
+    RemoveLikeUseCase --> ProductCacheRepository: saveProductDetail (likeCount 갱신)
     GetUserLikesUseCase --> LikeRepository
     GetUserLikesUseCase --> ProductRepository: 활성 상품 조합
 ```

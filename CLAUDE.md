@@ -63,6 +63,24 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - **fetch join + paging 호환 불가**: N+1 해결 시 fetch join과 paging 동시 사용 금지. @BatchSize, @EntityGraph, 별도 쿼리 분리 대안 사용
 - **@Transactional 전파**: readOnly 속성의 전파 규칙, REQUIRES_NEW의 동작 방식을 정확히 이해하고 적용
 
+## 컨텍스트 관리 (필수)
+
+이 섹션의 규칙은 절대적이다. 위반 시 세션 전체가 망가진다.
+
+### 테스트 실행
+- **전체 테스트(`./gradlew test`)는 최종 검증 1회만 실행한다.** 중간 확인은 반드시 `--tests "클래스명"`으로 대상을 한정한다
+- 테스트 실패 시: 에러 메시지를 읽고 원인을 파악한다. 전체 테스트를 다시 돌리지 않는다. 해당 테스트만 재실행한다
+- 테스트 출력이 길면 XML 리포트를 뒤지지 말고, 실패 테스트를 단독 실행해서 에러를 직접 확인한다
+
+### 파일 읽기
+- **100줄 이상 파일은 전문 Read 금지.** Grep으로 필요 섹션을 찾아서 offset/limit으로 해당 부분만 읽는다
+- **`docs/design/` 하위 파일은 개발자가 명시적으로 지시하기 전까지 절대 Read하지 않는다**
+- 서브에이전트 결과물도 전문 Read하지 않는다. 핵심 변경점만 Grep/Read(offset/limit)으로 spot-check한다
+
+### compact 방지
+- 위 규칙들의 목적은 컨텍스트 소진 → compact → 맥락 유실 → 같은 파일 재탐색 악순환을 방지하는 것이다
+- 한 세션에서 변경 파일 5개를 초과하면 세션을 분할한다
+
 ## 테스트 패턴
 
 → `apps/commerce-api/src/test/CLAUDE.md` (3A 원칙, Fake Repository, TestContainers 등)
@@ -144,6 +162,7 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 - 실제 동작하지 않는 코드, 불필요한 Mock 데이터를 이용한 구현 금지
 - null-safety 하지 않게 코드 작성 금지
 - println 코드 남기지 않는다
+- `docs/design/` 하위 파일은 개발자가 명시적으로 지시하기 전까지 절대 Read하지 않는다
 
 ### Recommendation
 - 실제 API를 호출해 확인하는 E2E 테스트 코드 작성

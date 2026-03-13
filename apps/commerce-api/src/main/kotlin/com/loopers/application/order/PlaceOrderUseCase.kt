@@ -1,8 +1,6 @@
 package com.loopers.application.order
 
 import com.loopers.domain.catalog.product.repository.ProductRepository
-import com.loopers.domain.common.vo.CouponId
-import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.repository.CouponRepository
@@ -17,7 +15,6 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.math.BigDecimal
 
 @Component
 class PlaceOrderUseCase(
@@ -56,16 +53,12 @@ class PlaceOrderUseCase(
             product.decreaseStock(quantity)
             OrderProductData(product.id, product.name, product.price) to quantity
         }
-
-        val originalPrice = orderItemInputs.fold(Money(BigDecimal.ZERO)) { acc, (data, qty) ->
-            acc + (data.price * qty.value)
-        }
         productRepository.saveAll(products)
 
-        // 2. IssuedCoupon 락 + 검증 + 할인 계산 + use()
-        var discountAmount = Money(BigDecimal.ZERO)
-        var refCouponId: CouponId? = null
+        // 2. 주문 생성 (originalPrice 내부 계산)
+        val order = Order.create(UserId(userId), orderItemInputs)
 
+        // 3. IssuedCoupon 락 + 검증 + 할인 적용 + use()
         if (command.issuedCouponId != null) {
             val issuedCoupon = issuedCouponRepository.findByIdForUpdate(command.issuedCouponId)
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "존재하지 않는 발급 쿠폰입니다.")
@@ -73,16 +66,14 @@ class PlaceOrderUseCase(
             val coupon = couponRepository.findById(issuedCoupon.refCouponId)
                 ?: throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 정보를 찾을 수 없습니다.")
 
-            couponValidator.validateForOrder(issuedCoupon, coupon, UserId(userId), originalPrice)
+            couponValidator.validateForOrder(issuedCoupon, coupon, UserId(userId), order.originalPrice)
 
-            discountAmount = coupon.calculateDiscount(originalPrice)
+            order.applyDiscount(coupon.calculateDiscount(order.originalPrice), coupon.id)
             issuedCoupon.use()
             issuedCouponRepository.save(issuedCoupon)
-            refCouponId = coupon.id
         }
 
-        // 3. 주문 생성 + 저장
-        val order = Order.create(UserId(userId), orderItemInputs, discountAmount, refCouponId)
+        // 4. 저장
         val savedOrder = orderRepository.save(order)
 
         order.assignOrderIdToItems(savedOrder.id)

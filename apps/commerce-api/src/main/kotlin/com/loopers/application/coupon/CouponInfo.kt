@@ -3,7 +3,7 @@ package com.loopers.application.coupon
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.coupon.model.IssuedCoupon
 import java.math.BigDecimal
-import java.time.format.DateTimeFormatter
+import java.time.ZonedDateTime
 
 data class CouponInfo(
     val id: Long,
@@ -14,7 +14,7 @@ data class CouponInfo(
     val minOrderAmount: BigDecimal?,
     val totalQuantity: Int?,
     val issuedCount: Int,
-    val expiredAt: String,
+    val expiredAt: ZonedDateTime,
 ) {
     companion object {
         fun from(coupon: Coupon): CouponInfo = CouponInfo(
@@ -26,7 +26,7 @@ data class CouponInfo(
             minOrderAmount = coupon.minOrderAmount?.value,
             totalQuantity = coupon.totalQuantity,
             issuedCount = coupon.issuedCount,
-            expiredAt = coupon.expiredAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+            expiredAt = coupon.expiredAt,
         )
     }
 }
@@ -36,8 +36,8 @@ data class IssuedCouponInfo(
     val couponId: Long,
     val userId: Long,
     val status: String,
-    val usedAt: String?,
-    val createdAt: String,
+    val usedAt: ZonedDateTime?,
+    val createdAt: ZonedDateTime,
 ) {
     companion object {
         fun from(issuedCoupon: IssuedCoupon): IssuedCouponInfo = IssuedCouponInfo(
@@ -45,8 +45,8 @@ data class IssuedCouponInfo(
             couponId = issuedCoupon.refCouponId.value,
             userId = issuedCoupon.refUserId.value,
             status = issuedCoupon.status.name,
-            usedAt = issuedCoupon.usedAt?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-            createdAt = issuedCoupon.createdAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+            usedAt = issuedCoupon.usedAt,
+            createdAt = issuedCoupon.createdAt,
         )
     }
 }
@@ -58,9 +58,9 @@ data class MyCouponInfo(
     val couponValue: Long,
     val maxDiscount: BigDecimal?,
     val status: String,
-    val usedAt: String?,
-    val createdAt: String,
-    val expiredAt: String,
+    val usedAt: ZonedDateTime?,
+    val createdAt: ZonedDateTime,
+    val expiredAt: ZonedDateTime,
 ) {
     companion object {
         fun from(issuedCoupon: IssuedCoupon, coupon: Coupon): MyCouponInfo = MyCouponInfo(
@@ -70,9 +70,9 @@ data class MyCouponInfo(
             couponValue = coupon.value,
             maxDiscount = coupon.maxDiscount?.value,
             status = issuedCoupon.status.name,
-            usedAt = issuedCoupon.usedAt?.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-            createdAt = issuedCoupon.createdAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-            expiredAt = coupon.expiredAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+            usedAt = issuedCoupon.usedAt,
+            createdAt = issuedCoupon.createdAt,
+            expiredAt = coupon.expiredAt,
         )
     }
 }

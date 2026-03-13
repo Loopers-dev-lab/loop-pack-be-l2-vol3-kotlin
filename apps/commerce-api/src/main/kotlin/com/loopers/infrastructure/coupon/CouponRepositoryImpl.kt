@@ -5,10 +5,9 @@ import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.coupon.repository.CouponRepository
 import jakarta.persistence.LockModeType
+import com.loopers.infrastructure.support.defaultPageRequest
 import org.springframework.data.domain.Page
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
-import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
@@ -37,13 +36,13 @@ class CouponRepositoryImpl(
         couponJpaRepository.findWithLockById(id.value)?.toDomain()
 
     override fun findAll(page: Int, size: Int): PageResult<Coupon> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))
+        val pageable = defaultPageRequest(page, size)
         val result = couponJpaRepository.findAllByDeletedAtIsNull(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
 
     override fun findAllIncludeDeleted(page: Int, size: Int): PageResult<Coupon> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))
+        val pageable = defaultPageRequest(page, size)
         val result = couponJpaRepository.findAll(pageable)
         return PageResult(result.content.map { it.toDomain() }, result.totalElements, page, size)
     }
