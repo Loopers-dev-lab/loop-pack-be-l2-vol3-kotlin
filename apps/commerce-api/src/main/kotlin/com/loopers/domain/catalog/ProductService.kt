@@ -11,6 +11,7 @@ import java.math.BigDecimal
 @Service
 class ProductService(
     private val productRepository: ProductRepository,
+    private val productCache: ProductCache,
 ) {
     @Transactional
     fun register(command: RegisterProductCommand): ProductInfo {
@@ -21,14 +22,17 @@ class ProductService(
             price = command.price,
         )
         val saved = productRepository.save(product)
+        productCache.evictProductList()
         return ProductInfo.from(saved)
     }
 
     @Transactional(readOnly = true)
     fun getProduct(id: Long): ProductInfo {
-        val product = productRepository.findById(id)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        return ProductInfo.from(product)
+        return productCache.getProduct(id) {
+            val product = productRepository.findById(id)
+                ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+            ProductInfo.from(product)
+        }
     }
 
     @Transactional(readOnly = true)
@@ -42,8 +46,15 @@ class ProductService(
         brandId: Long? = null,
         sortType: ProductSortType = ProductSortType.LATEST,
     ): Slice<ProductInfo> {
-        val slice = productRepository.search(sortType, brandId, pageable)
-        return slice.map { ProductInfo.from(it) }
+        return productCache.searchProducts(
+            sortType = sortType,
+            brandId = brandId,
+            page = pageable.pageNumber,
+            size = pageable.pageSize,
+        ) {
+            val slice = productRepository.search(sortType, brandId, pageable)
+            slice.map { ProductInfo.from(it) }
+        }
     }
 
     @Transactional
@@ -55,6 +66,8 @@ class ProductService(
             newQuantity = command.newQuantity,
             newPrice = command.newPrice,
         )
+        productCache.evictProduct(id)
+        productCache.evictProductList()
     }
 
     @Transactional
@@ -62,22 +75,18 @@ class ProductService(
         val product = productRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.delete()
+        productCache.evictProduct(id)
+        productCache.evictProductList()
     }
 
     @Transactional
     fun deleteAllByBrandId(brandId: Long) {
-        productRepository.findAllByBrandId(brandId).forEach { it.delete() }
+        val products = productRepository.findAllByBrandId(brandId)
+        products.forEach { it.delete() }
+        products.forEach { productCache.evictProduct(it.id) }
+        productCache.evictProductList()
     }
 
-    @Transactional
-    fun increaseLikeCount(productId: Long) {
-        productRepository.increaseLikeCount(productId)
-    }
-
-    @Transactional
-    fun decreaseLikeCount(productId: Long): Boolean {
-        return productRepository.decreaseLikeCount(productId)
-    }
 }
 
 data class RegisterProductCommand(
