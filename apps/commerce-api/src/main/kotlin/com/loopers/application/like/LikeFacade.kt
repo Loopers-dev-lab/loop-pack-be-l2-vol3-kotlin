@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductService
 import org.springframework.orm.ObjectOptimisticLockingFailureException
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Component
 class LikeFacade(
     private val likeService: LikeService,
     private val productService: ProductService,
+    private val productCacheStore: ProductCacheStore,
 ) {
     companion object {
         private const val MAX_RETRY = 3
@@ -19,6 +21,7 @@ class LikeFacade(
         val isNewLike = likeService.like(userId, productId)
         if (isNewLike) {
             retryOnOptimisticLock { productService.incrementLikesCount(productId) }
+            invalidateProductReadCaches(productId)
         }
     }
 
@@ -26,7 +29,13 @@ class LikeFacade(
         val wasActive = likeService.unlike(userId, productId)
         if (wasActive) {
             retryOnOptimisticLock { productService.decrementLikesCount(productId) }
+            invalidateProductReadCaches(productId)
         }
+    }
+
+    private fun invalidateProductReadCaches(productId: Long) {
+        productCacheStore.evictProductDetail(productId)
+        productCacheStore.evictProductList()
     }
 
     private fun retryOnOptimisticLock(action: () -> Unit) {

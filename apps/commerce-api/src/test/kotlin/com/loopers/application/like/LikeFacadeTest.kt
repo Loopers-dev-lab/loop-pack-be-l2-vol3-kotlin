@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductService
@@ -20,7 +21,8 @@ class LikeFacadeTest {
 
     private val likeService: LikeService = mockk()
     private val productService: ProductService = mockk()
-    private val likeFacade = LikeFacade(likeService, productService)
+    private val productCacheStore: ProductCacheStore = mockk(relaxed = true)
+    private val likeFacade = LikeFacade(likeService, productService, productCacheStore)
 
     companion object {
         private const val USER_ID = 1L
@@ -53,6 +55,8 @@ class LikeFacadeTest {
             verify(exactly = 1) { productService.findById(PRODUCT_ID) }
             verify(exactly = 1) { likeService.like(USER_ID, PRODUCT_ID) }
             verify(exactly = 1) { productService.incrementLikesCount(PRODUCT_ID) }
+            verify(exactly = 1) { productCacheStore.evictProductDetail(PRODUCT_ID) }
+            verify(exactly = 1) { productCacheStore.evictProductList() }
         }
 
         @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 likesCount가 변동되지 않는다")
@@ -70,6 +74,7 @@ class LikeFacadeTest {
             verify(exactly = 1) { productService.findById(PRODUCT_ID) }
             verify(exactly = 1) { likeService.like(USER_ID, PRODUCT_ID) }
             verify(exactly = 0) { productService.incrementLikesCount(any()) }
+            verify(exactly = 0) { productCacheStore.evictProductDetail(any()) }
         }
 
         @DisplayName("존재하지 않는 상품에 좋아요하면 NOT_FOUND 예외가 발생한다")
@@ -108,6 +113,8 @@ class LikeFacadeTest {
             // assert
             verify(exactly = 1) { likeService.unlike(USER_ID, PRODUCT_ID) }
             verify(exactly = 1) { productService.decrementLikesCount(PRODUCT_ID) }
+            verify(exactly = 1) { productCacheStore.evictProductDetail(PRODUCT_ID) }
+            verify(exactly = 1) { productCacheStore.evictProductList() }
         }
 
         @DisplayName("좋아요 기록이 없거나 이미 취소된 경우 likesCount가 변동되지 않는다")
@@ -122,6 +129,7 @@ class LikeFacadeTest {
             // assert
             verify(exactly = 1) { likeService.unlike(USER_ID, PRODUCT_ID) }
             verify(exactly = 0) { productService.decrementLikesCount(any()) }
+            verify(exactly = 0) { productCacheStore.evictProductDetail(any()) }
         }
     }
 }
