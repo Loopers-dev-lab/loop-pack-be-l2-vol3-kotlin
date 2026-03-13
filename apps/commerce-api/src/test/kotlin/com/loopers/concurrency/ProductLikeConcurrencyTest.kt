@@ -24,6 +24,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @DisplayName("ProductLike 동시성 테스트")
@@ -92,12 +93,16 @@ constructor(
 
         val threadCount = 10
         val executor = Executors.newFixedThreadPool(threadCount)
-        val latch = CountDownLatch(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val doneLatch = CountDownLatch(threadCount)
         val unexpectedExceptions = AtomicInteger(0)
 
         repeat(threadCount) {
             executor.submit {
                 try {
+                    readyLatch.countDown()
+                    startLatch.await(10, TimeUnit.SECONDS)
                     registerUseCase.register(
                         UserProductLikeCommand.Register(
                             userId = userId,
@@ -107,12 +112,14 @@ constructor(
                 } catch (e: Exception) {
                     unexpectedExceptions.incrementAndGet()
                 } finally {
-                    latch.countDown()
+                    doneLatch.countDown()
                 }
             }
         }
 
-        latch.await()
+        readyLatch.await(10, TimeUnit.SECONDS)
+        startLatch.countDown()
+        doneLatch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
@@ -128,12 +135,16 @@ constructor(
 
         val threadCount = 10
         val executor = Executors.newFixedThreadPool(threadCount)
-        val latch = CountDownLatch(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val doneLatch = CountDownLatch(threadCount)
         val unexpectedExceptions = AtomicInteger(0)
 
         repeat(threadCount) {
             executor.submit {
                 try {
+                    readyLatch.countDown()
+                    startLatch.await(10, TimeUnit.SECONDS)
                     cancelUseCase.cancel(
                         UserProductLikeCommand.Cancel(
                             userId = userId,
@@ -143,12 +154,14 @@ constructor(
                 } catch (e: Exception) {
                     unexpectedExceptions.incrementAndGet()
                 } finally {
-                    latch.countDown()
+                    doneLatch.countDown()
                 }
             }
         }
 
-        latch.await()
+        readyLatch.await(10, TimeUnit.SECONDS)
+        startLatch.countDown()
+        doneLatch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
@@ -162,14 +175,19 @@ constructor(
             createUser(loginId = "liketest$idx", email = "like$idx@test.com")
         }
 
-        val executor = Executors.newFixedThreadPool(10)
-        val latch = CountDownLatch(10)
+        val threadCount = 10
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val doneLatch = CountDownLatch(threadCount)
         val successCount = AtomicInteger(0)
         val unexpectedExceptions = AtomicInteger(0)
 
         userIds.forEach { userId ->
             executor.submit {
                 try {
+                    readyLatch.countDown()
+                    startLatch.await(10, TimeUnit.SECONDS)
                     registerUseCase.register(
                         UserProductLikeCommand.Register(
                             userId = userId,
@@ -180,12 +198,14 @@ constructor(
                 } catch (e: Exception) {
                     unexpectedExceptions.incrementAndGet()
                 } finally {
-                    latch.countDown()
+                    doneLatch.countDown()
                 }
             }
         }
 
-        latch.await()
+        readyLatch.await(10, TimeUnit.SECONDS)
+        startLatch.countDown()
+        doneLatch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
@@ -224,7 +244,7 @@ constructor(
             executor.submit {
                 try {
                     readyLatch.countDown()
-                    startLatch.await()
+                    startLatch.await(10, TimeUnit.SECONDS)
                     cancelUseCase.cancel(
                         UserProductLikeCommand.Cancel(
                             userId = userId,
@@ -243,7 +263,7 @@ constructor(
             executor.submit {
                 try {
                     readyLatch.countDown()
-                    startLatch.await()
+                    startLatch.await(10, TimeUnit.SECONDS)
                     registerUseCase.register(
                         UserProductLikeCommand.Register(
                             userId = userId,
@@ -258,9 +278,9 @@ constructor(
             }
         }
 
-        readyLatch.await()
+        readyLatch.await(10, TimeUnit.SECONDS)
         startLatch.countDown()
-        doneLatch.await()
+        doneLatch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
