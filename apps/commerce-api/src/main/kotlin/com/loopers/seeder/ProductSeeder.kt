@@ -17,7 +17,7 @@ import kotlin.random.Random
 
 @Component
 @Order(3)
-@Profile("!test")
+@Profile("local")
 class ProductSeeder(
     private val entityManager: EntityManager,
 ) : CommandLineRunner {

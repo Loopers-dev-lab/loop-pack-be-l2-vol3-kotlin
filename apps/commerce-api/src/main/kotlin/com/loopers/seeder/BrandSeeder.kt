@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Component
 @Order(2)
-@Profile("!test")
+@Profile("local")
 class BrandSeeder(
     private val entityManager: EntityManager,
 ) : CommandLineRunner {
