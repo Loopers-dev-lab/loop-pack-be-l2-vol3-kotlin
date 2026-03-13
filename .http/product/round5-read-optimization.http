@@ -1,0 +1,14 @@
+### 상품 목록 - 최신순 기본 조회
+GET http://localhost:8080/api/v1/products?page=0&size=20
+
+### 상품 목록 - 브랜드 필터 + 가격 오름차순
+GET http://localhost:8080/api/v1/products?brandId=1&sort=price_asc&page=0&size=20
+
+### 상품 목록 - 브랜드 필터 + 좋아요 내림차순
+GET http://localhost:8080/api/v1/products?brandId=1&sort=likes_desc&page=0&size=20
+
+### 상품 목록 - 지원하지 않는 정렬값 (실패 케이스)
+GET http://localhost:8080/api/v1/products?brandId=1&sort=random&page=0&size=20
+
+### 상품 상세 조회
+GET http://localhost:8080/api/v1/products/1
