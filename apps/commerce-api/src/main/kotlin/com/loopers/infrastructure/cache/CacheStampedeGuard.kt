@@ -2,8 +2,10 @@ package com.loopers.infrastructure.cache
 
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Component
 import java.time.Duration
+import java.util.UUID
 
 @Component
 class CacheStampedeGuard(
@@ -11,6 +13,11 @@ class CacheStampedeGuard(
     private val cacheProperties: CacheProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    private val releaseLockScript = DefaultRedisScript<Long>(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+        Long::class.java,
+    )
 
     fun <T> executeWithMutex(
         cacheKey: String,
@@ -25,8 +32,9 @@ class CacheStampedeGuard(
         }
 
         val lockKey = "lock:$cacheKey"
+        val token = UUID.randomUUID().toString()
         val acquired = redisTemplate.opsForValue()
-            .setIfAbsent(lockKey, "1", Duration.ofSeconds(5)) ?: false
+            .setIfAbsent(lockKey, token, Duration.ofSeconds(5)) ?: false
 
         if (acquired) {
             return try {
@@ -34,7 +42,7 @@ class CacheStampedeGuard(
                 cacheWriter(value)
                 value
             } finally {
-                redisTemplate.delete(lockKey)
+                releaseLock(lockKey, token)
             }
         }
 
@@ -47,5 +55,9 @@ class CacheStampedeGuard(
 
         log.warn("Mutex 대기 후에도 캐시 미스: {}", cacheKey)
         return loader()
+    }
+
+    private fun releaseLock(lockKey: String, token: String) {
+        redisTemplate.execute(releaseLockScript, listOf(lockKey), token)
     }
 }
