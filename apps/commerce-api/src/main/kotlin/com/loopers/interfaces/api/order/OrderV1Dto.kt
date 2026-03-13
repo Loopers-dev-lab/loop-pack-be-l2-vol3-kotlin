@@ -12,6 +12,7 @@ class OrderV1Dto {
         @field:NotEmpty(message = "주문 항목은 최소 1개 이상이어야 합니다.")
         @field:Valid
         val items: List<CreateOrderItemRequest>,
+        val couponId: Long? = null,
     )
 
     data class CreateOrderItemRequest(
@@ -24,7 +25,10 @@ class OrderV1Dto {
         val orderId: Long,
         val orderNumber: String,
         val status: String,
+        val originalAmount: Long,
+        val discountAmount: Long,
         val totalAmount: Long,
+        val couponId: Long?,
         val orderedAt: ZonedDateTime,
         val items: List<OrderItemResponse>,
     ) {
@@ -34,7 +38,10 @@ class OrderV1Dto {
                     orderId = info.id,
                     orderNumber = info.orderNumber,
                     status = info.status,
+                    originalAmount = info.originalAmount,
+                    discountAmount = info.discountAmount,
                     totalAmount = info.totalAmount,
+                    couponId = info.couponId,
                     orderedAt = info.orderedAt,
                     items = info.items.map { OrderItemResponse.from(it) },
                 )

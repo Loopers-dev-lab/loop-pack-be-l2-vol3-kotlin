@@ -66,19 +66,8 @@ class LikeServiceIntegrationTest @Autowired constructor(
             assertThat(likes[0].productId).isEqualTo(productId)
         }
 
-        @DisplayName("이미 좋아요한 상태에서 다시 좋아요하면, 멱등하게 처리된다.")
-        @Test
-        fun handlesIdempotently_whenAlreadyLiked() {
-            // arrange
-            likeService.like(memberId, productId)
-
-            // act
-            likeService.like(memberId, productId)
-
-            // assert
-            val likes = productLikeJpaRepository.findAllByMemberId(memberId)
-            assertThat(likes).hasSize(1)
-        }
+        // 중복 좋아요 멱등 처리는 Facade 책임 (exists 사전 조회 + UNIQUE Constraint)
+        // E2E 테스트(LikeV1ApiE2ETest)와 동시성 테스트(ConcurrencyTest)에서 검증
     }
 
     @DisplayName("좋아요를 취소할 때,")

@@ -14,6 +14,7 @@ class LikeFacade(
     @Transactional
     fun like(memberId: Long, productId: Long) {
         productService.getProduct(productId) // ACTIVE 검증 (BR-L4)
+        if (likeService.exists(memberId, productId)) return // 이미 좋아요 → 멱등 처리 (BR-L2)
         likeService.like(memberId, productId)
     }
 

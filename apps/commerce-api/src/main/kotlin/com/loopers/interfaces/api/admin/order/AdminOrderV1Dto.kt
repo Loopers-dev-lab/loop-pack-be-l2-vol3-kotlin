@@ -10,7 +10,10 @@ class AdminOrderV1Dto {
         val orderNumber: String,
         val memberId: Long,
         val status: String,
+        val originalAmount: Long,
+        val discountAmount: Long,
         val totalAmount: Long,
+        val couponId: Long?,
         val orderedAt: ZonedDateTime,
         val items: List<OrderItemResponse>,
     ) {
@@ -21,7 +24,10 @@ class AdminOrderV1Dto {
                     orderNumber = info.orderNumber,
                     memberId = info.memberId,
                     status = info.status,
+                    originalAmount = info.originalAmount,
+                    discountAmount = info.discountAmount,
                     totalAmount = info.totalAmount,
+                    couponId = info.couponId,
                     orderedAt = info.orderedAt,
                     items = info.items.map { OrderItemResponse.from(it) },
                 )

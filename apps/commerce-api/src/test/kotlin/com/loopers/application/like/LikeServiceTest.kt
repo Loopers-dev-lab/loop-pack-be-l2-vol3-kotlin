@@ -30,18 +30,18 @@ class LikeServiceTest {
             assertThat(result).isNotNull
         }
 
-        @DisplayName("이미 좋아요한 상태에서 다시 좋아요하면, 중복 저장되지 않는다 (멱등).")
+        @DisplayName("이미 좋아요한 상태에서 다시 좋아요하면, 저장을 시도한다 (멱등 처리는 Facade 책임).")
         @Test
-        fun doesNotDuplicate_whenAlreadyLiked() {
+        fun savesAgain_whenAlreadyLiked() {
             // arrange
             likeService.like(memberId = 1L, productId = 100L)
 
-            // act
+            // act — FakeRepository는 UNIQUE 제약이 없으므로 2건 저장됨. 실 DB에서는 DIV 발생.
             likeService.like(memberId = 1L, productId = 100L)
 
-            // assert
+            // assert — Service는 save만 수행, 중복 방어는 Facade + UNIQUE Constraint 책임
             val all = fakeRepository.findAllByMemberId(1L)
-            assertThat(all).hasSize(1)
+            assertThat(all).hasSize(2)
         }
     }
 

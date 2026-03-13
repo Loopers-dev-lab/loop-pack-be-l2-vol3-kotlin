@@ -35,6 +35,14 @@ class OrderJpaModel(
     var orderedAt: ZonedDateTime = ZonedDateTime.now()
         protected set
 
+    @Column(name = "coupon_id")
+    var couponId: Long? = null
+        protected set
+
+    @Column(name = "discount_amount", nullable = false)
+    var discountAmount: Long = 0
+        protected set
+
     @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true)
     var orderItems: MutableList<OrderItemJpaModel> = mutableListOf()
         protected set
@@ -51,6 +59,8 @@ class OrderJpaModel(
         status = status,
         orderedAt = orderedAt,
         items = orderItems.map { it.toModel() },
+        couponId = couponId,
+        discountAmount = discountAmount,
         createdAt = createdAt,
         updatedAt = updatedAt,
         deletedAt = deletedAt,
@@ -62,6 +72,8 @@ class OrderJpaModel(
             jpaModel.orderNumber = model.orderNumber
             jpaModel.status = model.status
             jpaModel.orderedAt = model.orderedAt
+            jpaModel.couponId = model.couponId
+            jpaModel.discountAmount = model.discountAmount
             model.items.forEach { item ->
                 jpaModel.addItem(OrderItemJpaModel.from(item))
             }
