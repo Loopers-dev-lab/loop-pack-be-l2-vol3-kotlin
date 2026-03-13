@@ -79,6 +79,73 @@ class BrandServiceIntegrationTest @Autowired constructor(
         }
     }
 
+    @DisplayName("브랜드를 ID 목록으로 조회할 때, ")
+    @Nested
+    inner class GetBrandsByIds {
+        @DisplayName("존재하는 ID 목록을 주면, 해당 브랜드들을 반환한다.")
+        @Test
+        fun returnsBrands_whenIdsExist() {
+            // arrange
+            val brand1 = brandJpaRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val brand2 = brandJpaRepository.save(Brand(name = "아디다스", description = "독일 스포츠 브랜드"))
+            brandJpaRepository.save(Brand(name = "푸마", description = "독일 스포츠 브랜드"))
+
+            // act
+            val result = brandService.getBrandsByIds(listOf(brand1.id, brand2.id))
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(2) },
+                { assertThat(result.map { it.id }).containsExactlyInAnyOrder(brand1.id, brand2.id) },
+            )
+        }
+
+        @DisplayName("존재하지 않는 ID가 포함되면, 존재하는 브랜드만 반환한다.")
+        @Test
+        fun returnsOnlyExistingBrands_whenSomeIdsNotExist() {
+            // arrange
+            val brand = brandJpaRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+
+            // act
+            val result = brandService.getBrandsByIds(listOf(brand.id, 999L))
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(1) },
+                { assertThat(result[0].id).isEqualTo(brand.id) },
+            )
+        }
+
+        @DisplayName("빈 ID 목록을 주면, 빈 목록을 반환한다.")
+        @Test
+        fun returnsEmptyList_whenIdsEmpty() {
+            // act
+            val result = brandService.getBrandsByIds(emptyList())
+
+            // assert
+            assertThat(result).isEmpty()
+        }
+
+        @DisplayName("삭제된 브랜드는 조회 결과에 포함되지 않는다.")
+        @Test
+        fun excludesDeletedBrands() {
+            // arrange
+            val brand1 = brandJpaRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val brand2 = brandJpaRepository.save(Brand(name = "아디다스", description = "독일 스포츠 브랜드"))
+            brand2.delete()
+            brandJpaRepository.save(brand2)
+
+            // act
+            val result = brandService.getBrandsByIds(listOf(brand1.id, brand2.id))
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(1) },
+                { assertThat(result[0].id).isEqualTo(brand1.id) },
+            )
+        }
+    }
+
     @DisplayName("브랜드 목록을 조회할 때, ")
     @Nested
     inner class GetBrands {

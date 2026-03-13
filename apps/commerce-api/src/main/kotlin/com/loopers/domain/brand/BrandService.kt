@@ -2,10 +2,10 @@ package com.loopers.domain.brand
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.transaction.Transactional
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class BrandService(
@@ -16,6 +16,12 @@ class BrandService(
             ?: throw CoreException(ErrorType.NOT_FOUND)
     }
 
+    @Transactional(readOnly = true)
+    fun getBrandsByIds(ids: List<Long>): List<Brand> {
+        return brandRepository.findAllByIdInAndDeletedAtIsNull(ids)
+    }
+
+    @Transactional(readOnly = true)
     fun getBrands(pageable: Pageable): Page<Brand> {
         return brandRepository.findAllByDeletedAtIsNull(pageable)
     }

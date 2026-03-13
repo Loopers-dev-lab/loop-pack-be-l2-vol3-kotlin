@@ -6,6 +6,7 @@ import com.loopers.domain.brand.BrandService
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.user.UserService
+import com.loopers.infrastructure.cache.ProductCacheRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.transaction.Transactional
@@ -17,6 +18,7 @@ class LikeFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val userService: UserService,
+    private val productCacheRepository: ProductCacheRepository,
 ) {
     @Transactional
     fun like(loginId: String, password: String, productId: Long) {
@@ -28,6 +30,7 @@ class LikeFacade(
 
         likeService.createLike(user.id, productId)
         productService.increaseLikeCount(productId)
+        productCacheRepository.evict(productId)
     }
 
     @Transactional
@@ -39,6 +42,7 @@ class LikeFacade(
 
         likeService.deleteLike(existing)
         productService.decreaseLikeCount(productId)
+        productCacheRepository.evict(productId)
     }
 
     fun getUserLikes(loginId: String, password: String): List<LikeInfo> {
