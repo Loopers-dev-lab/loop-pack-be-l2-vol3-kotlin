@@ -38,8 +38,7 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
         WHERE p.deletedAt IS NULL
         GROUP BY p.brandId
         ORDER BY COUNT(p.id) DESC
-        LIMIT :limit
         """,
     )
-    fun findTopBrandIdsByProductCount(limit: Int): List<Long>
+    fun findTopBrandIdsByProductCount(pageable: Pageable): List<Long>
 }

@@ -6,6 +6,7 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.infrastructure.common.toPageRequest
 import com.loopers.infrastructure.common.toPageResult
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 
 @Component
@@ -56,6 +57,6 @@ class ProductRepositoryImpl(
     }
 
     override fun findTopBrandIdsByProductCount(limit: Int): List<Long> {
-        return productJpaRepository.findTopBrandIdsByProductCount(limit)
+        return productJpaRepository.findTopBrandIdsByProductCount(PageRequest.of(0, limit))
     }
 }
