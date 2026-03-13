@@ -22,5 +22,9 @@ interface UserV1ApiSpec {
         summary = "비밀번호 수정",
         description = "내 비밀번호를 수정합니다.",
     )
-    fun changePassword(loginId: String, oldPassword: String, req: UserV1Dto.ChangePasswordRequest): ApiResponse<UserV1Dto.UserResponse>
+    fun changePassword(
+        loginId: String,
+        oldPassword: String,
+        req: UserV1Dto.ChangePasswordRequest,
+    ): ApiResponse<UserV1Dto.UserResponse>
 }

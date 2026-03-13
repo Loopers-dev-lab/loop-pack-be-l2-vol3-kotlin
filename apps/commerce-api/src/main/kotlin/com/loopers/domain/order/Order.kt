@@ -16,13 +16,24 @@ class Order(
     val userId: Long,
 
     items: List<OrderItem> = emptyList(),
+
+    @Column(name = "coupon_id")
+    val couponId: Long? = null,
+
+    discountAmount: Long = 0,
 ) : BaseEntity() {
 
     @OneToMany(fetch = FetchType.EAGER, cascade = [CascadeType.ALL], orphanRemoval = true)
     @JoinColumn(name = "order_id")
     val items: MutableList<OrderItem> = items.toMutableList()
 
+    @Column(name = "original_total_price", nullable = false)
+    val originalTotalPrice: Long = items.sumOf { it.productPrice * it.quantity }
+
+    @Column(name = "discount_amount", nullable = false)
+    val discountAmount: Long = discountAmount
+
     @Column(name = "total_price", nullable = false)
-    var totalPrice: Long = items.sumOf { it.productPrice * it.quantity }
+    var totalPrice: Long = (originalTotalPrice - discountAmount).coerceAtLeast(0)
         protected set
 }

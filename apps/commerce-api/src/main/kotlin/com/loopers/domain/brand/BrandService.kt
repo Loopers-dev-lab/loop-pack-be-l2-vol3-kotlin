@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 class BrandService(
     private val brandRepository: BrandRepository,
 ) {
+    @Transactional(readOnly = true)
     fun getBrand(id: Long): Brand {
         return brandRepository.findByIdAndDeletedAtIsNull(id)
             ?: throw CoreException(ErrorType.NOT_FOUND)

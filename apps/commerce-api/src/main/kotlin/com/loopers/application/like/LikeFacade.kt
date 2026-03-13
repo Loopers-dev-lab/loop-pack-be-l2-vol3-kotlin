@@ -9,7 +9,7 @@ import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.cache.ProductCacheRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import jakarta.transaction.Transactional
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Component
 
 @Component

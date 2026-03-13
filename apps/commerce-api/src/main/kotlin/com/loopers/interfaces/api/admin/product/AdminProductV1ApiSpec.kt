@@ -17,7 +17,10 @@ interface AdminProductV1ApiSpec {
     fun createProduct(req: AdminProductV1Dto.CreateProductRequest): ApiResponse<AdminProductV1Dto.ProductResponse>
 
     @Operation(summary = "상품 수정", description = "상품 정보를 수정합니다. 브랜드는 변경할 수 없습니다.")
-    fun updateProduct(productId: Long, req: AdminProductV1Dto.UpdateProductRequest): ApiResponse<AdminProductV1Dto.ProductResponse>
+    fun updateProduct(
+        productId: Long,
+        req: AdminProductV1Dto.UpdateProductRequest,
+    ): ApiResponse<AdminProductV1Dto.ProductResponse>
 
     @Operation(summary = "상품 삭제", description = "상품을 삭제합니다.")
     fun deleteProduct(productId: Long): ApiResponse<Any>
