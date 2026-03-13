@@ -39,6 +39,18 @@ spring:
 spring:
   config:
     activate:
+      on-profile: local
+  jpa:
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:/seed/round5-data.sql
+
+---
+spring:
+  config:
+    activate:
       on-profile: dev
 
 ---
