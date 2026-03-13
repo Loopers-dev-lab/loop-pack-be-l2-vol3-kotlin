@@ -965,6 +965,166 @@ After:  쿠폰확인 → 쿠폰차감(@Version+flush) → 재고차감(FOR UPDAT
 
 ---
 
+## D37: 상품 Redis 캐시 — RedisTemplate 직접 사용
+
+**배경**: 상품 조회 성능 개선을 위해 Redis 캐시를 도입해야 했다. Spring Cache Abstraction(@Cacheable) vs RedisTemplate 직접 사용 중 선택이 필요했다.
+
+**선택지**:
+| 선택지 | 설명 |
+|--------|------|
+| A. Spring Cache Abstraction | @Cacheable/@CacheEvict 어노테이션 기반. 구현 간단 |
+| **B. RedisTemplate 직접 사용** | 캐시 키/TTL/직렬화를 직접 제어. Port 패턴 적용 |
+| C. Caffeine 로컬 캐시 | 네트워크 없음. 멀티 인스턴스 시 캐시 불일치 |
+
+**판단**: B. RedisTemplate 직접 사용 + Port 패턴 (ProductCacheStore interface)
+
+**근거**:
+- **세밀한 캐시 제어**: 상세(5분 TTL)와 목록(1분 TTL)에 서로 다른 TTL 적용. @Cacheable로는 키별 TTL 분기가 어렵다.
+- **Master/Replica 분리**: 읽기는 redisTemplate(Replica), 쓰기는 masterRedisTemplate(Master)로 분리하여 Redis 부하 분산.
+- **캐시 실패 허용**: try-catch로 Redis 장애 시에도 DB fallback. @Cacheable은 예외 시 전체 메서드 실패.
+- **DIP 준수**: ProductCacheStore(Application 포트) ← ProductCacheStoreImpl(Infrastructure 구현체). Spring Cache Abstraction은 Infrastructure 어노테이션이 Application에 노출.
+- **목록 캐시 키 조합**: brandId:sort:size:cursor 조합으로 동적 키 생성. @Cacheable의 key SpEL로도 가능하나 가독성 저하.
+
+**캐시 키 설계**:
+| 대상 | 키 패턴 | TTL | evict |
+|------|---------|-----|-------|
+| 상품 상세 | `product:detail:{productId}` | 5분 | CUD 시 즉시 |
+| 상품 목록 | `product:list:{brandId}:{sort}:{size}:{cursor}` | 1분 | TTL only (allkeys-lfu 자동 퇴출) |
+
+**트레이드오프**:
+- @Cacheable 대비 보일러플레이트 코드 증가 → Port 인터페이스로 추상화하여 관리
+- 목록 캐시 키 조합 폭발 가능 → 1분 TTL + allkeys-lfu eviction으로 메모리 관리
+
+---
+
+## D38: 상품 인덱스 최적화 — 복합 인덱스로 filesort 제거
+
+**배경**: 10만건 상품 환경에서 `WHERE brand_id=? AND status='ACTIVE' ORDER BY like_count DESC` 쿼리가 기존 단독 인덱스(`idx_product_brand_id`)로는 filesort가 발생한다.
+
+**선택지**:
+| 선택지 | 설명 |
+|--------|------|
+| A. 기존 인덱스 유지 | brand_id 단독 인덱스 + status/like_count 분리 인덱스 |
+| **B. 복합 인덱스 추가** | (brand_id, status, like_count DESC, id DESC) + (brand_id, status, price ASC, id DESC) |
+
+**판단**: B. 복합 인덱스 추가 + 기존 단독 인덱스 제거
+
+**근거**:
+- 브랜드 필터 + 상태 필터 + 정렬을 하나의 인덱스에서 커버하여 filesort 제거
+- id DESC를 tie-breaker로 포함하여 커서 페이징과 호환
+- 기존 `idx_product_brand_id`는 복합 인덱스의 leftmost prefix에 포함되므로 제거 가능
+
+**트레이드오프**:
+- 인덱스 2개 추가로 INSERT/UPDATE 시 인덱스 유지 비용 증가 → 읽기 대비 쓰기 비율이 낮으므로 수용 가능
+- 전체 상품 목록(brandId=null) 조회에는 기존 `idx_product_status_like_count` 인덱스가 여전히 사용됨
+
+---
+
+## D39: like_count 배치 집계 — commerce-batch JdbcTemplate
+
+**배경**: D12에서 결정한 like_count 배치 갱신의 구체적 구현 방식을 결정해야 했다.
+
+**선택지**:
+| 선택지 | 설명 |
+|--------|------|
+| A. Spring Batch Chunk 기반 | Reader-Processor-Writer 패턴. 페이지 단위 처리 |
+| **B. Tasklet + JdbcTemplate 직접 SQL** | UPDATE JOIN 단일 쿼리로 전체 갱신 |
+| C. commerce-api에서 @Scheduled | 배치 앱 불필요. API 앱에 배치 책임 혼재 |
+
+**판단**: B. Tasklet + JdbcTemplate 단일 쿼리
+
+**근거**:
+- **단순성**: `UPDATE product p JOIN (SELECT product_id, COUNT(*) FROM product_like GROUP BY product_id) pl` 단일 쿼리로 완료. Chunk 패턴은 과도한 추상화.
+- **commerce-batch 독립성**: commerce-api에 의존하지 않음. JdbcTemplate만 사용하므로 도메인 모듈 의존 불필요.
+- **기존 패턴 준수**: DemoJobConfig/DemoTasklet 패턴과 동일한 구조.
+- **배치 후 캐시**: 별도 앱이므로 commerce-api 캐시를 직접 evict 불가 → 목록 캐시 TTL 1분으로 자연 만료에 의존.
+
+**트레이드오프**:
+- 전체 product 테이블 UPDATE → 대규모 시 부하. 현재 10만건 수준에서는 수초 내 완료.
+- 배치 실패 시 like_count 정체 → 배치 모니터링으로 대응.
+
+---
+
+## D40: 시드 데이터 — ApplicationRunner + @Profile("local")
+
+**배경**: 10만건 상품 데이터를 로컬 개발 환경에서 자동으로 생성하는 방식을 결정해야 했다.
+
+**선택지**:
+| 선택지 | 설명 |
+|--------|------|
+| A. SQL PROCEDURE + LOOP | DB 직접 실행. 앱과 무관 |
+| **B. ApplicationRunner + JdbcTemplate** | Spring 컨테이너 시작 시 자동 실행 |
+| C. Flyway migration | 마이그레이션 스크립트로 포함 |
+
+**판단**: B. ApplicationRunner + @Profile("local") + JdbcTemplate batchUpdate
+
+**근거**:
+- **자동 실행**: 로컬 프로필로 앱 시작 시 자동으로 시드 데이터 생성. 별도 스크립트 실행 불필요.
+- **멱등성**: `SELECT COUNT(*) FROM product`로 이미 데이터가 있으면 스킵.
+- **효율성**: JdbcTemplate batchUpdate + BatchPreparedStatementSetter로 1,000건 단위 배치 INSERT. 10만건 수초 내 완료.
+- **Flyway 부적합**: 시드 데이터는 스키마 마이그레이션이 아닌 테스트 데이터이므로 Flyway에 포함하면 안 됨.
+
+**트레이드오프**:
+- 앱 시작 시간 증가 (최초 1회) → 이미 데이터 존재 시 스킵하므로 2회차부터 영향 없음.
+- local 프로필 전용 → @Profile("local")로 운영 환경 영향 없음.
+
+---
+
+## D41: 인증 캐시 Caffeine → Redis 전환
+
+**배경**: D5에서 Caffeine 로컬 캐시로 인증 결과를 캐싱했으나, JWT를 의도적으로 사용하지 않는 아키텍처에서 멀티 인스턴스 배포 시 문제가 발생한다. 각 인스턴스가 독립적으로 BCrypt를 수행하므로 N개 인스턴스 × 사용자 수만큼 BCrypt 호출이 발생한다.
+
+**선택지**:
+| 선택지 | 설명 |
+|--------|------|
+| A. Caffeine 유지 | 네트워크 없음(~0.001ms). 멀티 인스턴스 시 N×BCrypt 문제 |
+| **B. Redis 전환** | 네트워크 발생(~0.15ms). 글로벌 캐시로 인스턴스 간 공유 |
+| C. Caffeine + Redis 2-tier | 로컬 히트 시 최고 성능. 일관성 관리 복잡 |
+
+**판단**: B. Redis 전환 (AuthCacheStore 포트 패턴)
+
+**근거**:
+- **JWT 미사용 아키텍처**: 매 요청에 loginId + password가 전달됨. 로컬 캐시는 인스턴스별 독립 → 4개 인스턴스 × 10K 유저 = 40K BCrypt/5분 vs Redis = 10K BCrypt/5분
+- **포트 패턴 일관성**: ProductCacheStore와 동일한 구조. AuthCacheStore(Application 포트) ← AuthCacheStoreImpl(Infrastructure)
+- **SHA256 비교 유지**: Redis에 저장된 passwordDigest(SHA256)로 빠른 비교. BCrypt는 캐시 미스 시에만 호출
+- **CacheConfig 단순화**: Caffeine/CacheManager 의존 제거. Redis 단일 캐시 인프라로 통일
+
+**트레이드오프**:
+- 단일 인스턴스에서는 Caffeine이 ~150배 빠름 (0.001ms vs 0.15ms) → 멀티 인스턴스 BCrypt 절감이 더 큰 이득
+- Redis 장애 시 매 요청 BCrypt fallback → try-catch로 DB fallback 보장
+
+---
+
+## D42: 브랜드 Redis 캐시 도입
+
+**배경**: 상품 조회 시 브랜드명(brandName)을 항상 함께 반환해야 한다. 상품 목록 조회에서 N개 상품의 브랜드를 각각 조회하면 N+1 문제가 발생할 수 있고, 브랜드 데이터는 변경 빈도가 매우 낮다.
+
+**선택지**:
+| 선택지 | 설명 |
+|--------|------|
+| A. 캐시 없음 | 매번 DB 조회. 브랜드 20개 수준이면 부하 미미 |
+| **B. Redis 캐시** | 변경 빈도 낮은 브랜드에 긴 TTL 적용. ProductFacade에서 활용 |
+| C. ProductInfo에 brandName 비정규화 | 브랜드명 변경 시 전체 상품 업데이트 필요 |
+
+**판단**: B. Redis 캐시 (BrandCacheStore 포트 패턴, TTL 10분)
+
+**근거**:
+- **변경 빈도 극히 낮음**: 브랜드명/설명은 거의 변경되지 않음 → 긴 TTL(10분)로 높은 히트율
+- **ProductFacade 활용**: 상품 조회 시 `getCachedBrandName(brandId)`로 브랜드 DB 조회 최소화
+- **CUD evict**: AdminBrandFacade에서 수정/삭제 시 즉시 캐시 무효화
+- **포트 패턴 통일**: BrandCacheStore(Application) ← BrandCacheStoreImpl(Infrastructure). 상품/인증과 동일 구조
+
+**캐시 키 설계**:
+| 대상 | 키 패턴 | TTL | evict |
+|------|---------|-----|-------|
+| 브랜드 상세 | `brand:detail:{brandId}` | 10분 | CUD 시 즉시 |
+
+**트레이드오프**:
+- 브랜드 수가 적어(20개) DB 부하 자체는 미미 → 상품 목록 조회 시 반복 호출 방지가 주목적
+- 브랜드명 변경 후 최대 TTL(10분)까지 stale 가능 → CUD evict로 즉시 무효화하므로 실질적 영향 없음
+
+---
+
 ## 결론
 
 모든 판단의 공통 원칙:
@@ -976,3 +1136,4 @@ After:  쿠폰확인 → 쿠폰차감(@Version+flush) → 재고차감(FOR UPDAT
 5. **도메인 모델의 자기 보호**: 비즈니스 규칙(불변식, 접근 제어)은 도메인 모델 내부에서 검증
 6. **요구사항만 구현**: 현재 스코프에 없는 기능은 미리 구현하지 않음 (YAGNI)
 7. **기능 정합성 우선**: 멱등성/일관성은 기능 완성 후 별도 해결. 단, 재고 동시성 제어(비관적 락)는 정합성 핵심이므로 Phase 1에 포함
+8. **캐시는 실패 허용**: Redis 장애 시 DB fallback으로 서비스 지속. 캐시는 성능 최적화이지 필수 의존이 아님
