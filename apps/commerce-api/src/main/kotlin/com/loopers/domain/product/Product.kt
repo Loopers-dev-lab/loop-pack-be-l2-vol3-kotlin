@@ -49,6 +49,8 @@ class Product private constructor(
         thumbnailUrl = thumbnailUrl,
     )
 
+    fun isActive(): Boolean = status == Status.ACTIVE
+
     fun activate(): Product = copy(status = Status.ACTIVE)
 
     fun deactivate(): Product = copy(status = Status.INACTIVE)

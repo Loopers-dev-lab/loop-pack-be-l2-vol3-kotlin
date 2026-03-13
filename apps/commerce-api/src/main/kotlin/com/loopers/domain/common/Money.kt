@@ -42,6 +42,8 @@ class Money private constructor(val amount: BigDecimal) {
     companion object {
         private const val SCALE = 2
 
+        val ZERO: Money = Money(BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_UP))
+
         operator fun invoke(amount: BigDecimal): Money {
             if (amount < BigDecimal.ZERO) {
                 throw CoreException(ErrorType.INVALID_MONEY)

@@ -3,8 +3,11 @@ package com.loopers.infrastructure.order
 import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Repository
 import java.time.ZonedDateTime
@@ -17,8 +20,12 @@ class UserOrderRepositoryImpl(
 ) : OrderRepository {
 
     override fun save(order: Order): Order {
-        val savedEntity = orderJpaRepository.saveAndFlush(orderMapper.toEntity(order))
-        return orderMapper.toDomain(savedEntity)
+        try {
+            val savedEntity = orderJpaRepository.saveAndFlush(orderMapper.toEntity(order))
+            return orderMapper.toDomain(savedEntity)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(ErrorType.ORDER_IDEMPOTENCY_KEY_DUPLICATE)
+        }
     }
 
     override fun findById(id: Long): Order? {

@@ -35,6 +35,25 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     ORDER_INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "ORDER_INVALID_IDEMPOTENCY_KEY", "멱등성 키가 유효하지 않습니다."),
     ORDER_IDEMPOTENCY_KEY_DUPLICATE(HttpStatus.CONFLICT, "ORDER_IDEMPOTENCY_KEY_DUPLICATE", "이미 처리된 주문 요청입니다."),
 
+    /** Coupon 도메인 */
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
+    COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "COUPON_EXPIRED", "만료된 쿠폰입니다."),
+    COUPON_DELETED(HttpStatus.BAD_REQUEST, "COUPON_DELETED", "삭제된 쿠폰입니다."),
+    COUPON_INVALID_DISCOUNT_VALUE(HttpStatus.BAD_REQUEST, "COUPON_INVALID_DISCOUNT_VALUE", "할인 값이 유효 범위를 벗어났습니다."),
+    COUPON_INVALID_EXPIRATION(HttpStatus.BAD_REQUEST, "COUPON_INVALID_EXPIRATION", "만료일이 현재 이전입니다."),
+
+    /** IssuedCoupon 도메인 */
+    ISSUED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "ISSUED_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다."),
+    ISSUED_COUPON_ALREADY_USED(HttpStatus.BAD_REQUEST, "ISSUED_COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
+    ISSUED_COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "ISSUED_COUPON_EXPIRED", "만료된 쿠폰입니다."),
+    ISSUED_COUPON_NOT_OWNED(HttpStatus.FORBIDDEN, "ISSUED_COUPON_NOT_OWNED", "본인 소유가 아닌 쿠폰입니다."),
+    ISSUED_COUPON_MIN_ORDER_AMOUNT_NOT_MET(
+        HttpStatus.BAD_REQUEST,
+        "ISSUED_COUPON_MIN_ORDER_AMOUNT_NOT_MET",
+        "최소 주문 금액을 충족하지 않습니다.",
+    ),
+    ISSUED_COUPON_CONFLICT(HttpStatus.CONFLICT, "ISSUED_COUPON_CONFLICT", "쿠폰 사용 충돌이 발생했습니다."),
+
     /** User 도메인 */
     USER_DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "USER_DUPLICATE_LOGIN_ID", "이미 사용 중인 로그인 ID입니다."),
     USER_INVALID_LOGIN_ID(HttpStatus.BAD_REQUEST, "USER_INVALID_LOGIN_ID", "로그인 ID는 영문 대소문자와 숫자만 사용할 수 있습니다."),

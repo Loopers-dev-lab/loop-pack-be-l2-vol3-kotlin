@@ -5,6 +5,7 @@ interface ProductStockRepository {
     fun saveAll(stocks: List<ProductStock>): List<ProductStock>
     fun findByProductId(productId: Long): ProductStock?
     fun findAllByProductIdIn(productIds: List<Long>): List<ProductStock>
+    fun findAllByProductIdInWithLock(productIds: List<Long>): List<ProductStock>
     fun deleteByProductId(productId: Long, admin: String)
     fun deleteAllByProductIds(productIds: List<Long>, admin: String)
 }

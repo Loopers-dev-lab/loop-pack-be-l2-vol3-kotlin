@@ -301,8 +301,8 @@ PRODUCT_LIKE는 **Hard Delete** 방식을 사용하므로, `created_at`만 보�
 
 - **가격 이원화**: `regular_price`(정상가)와 `selling_price`(판매가)를 분리하여 할인/프로모션 표시를 지원한다
 - **역정규화 컬럼 `like_count`**: PRODUCT_LIKE 테이블을 COUNT하는 대신 PRODUCT에 직접 저장하여 조회 성능을 확보한다
-    - 좋아요 등록/취소 시 애플리케이션에서 `like_count`를 증감하지 않는다
-    - 일관성 유지는 스케줄러를 통한 비동기 업데이트로 보장한다 (Eventual Consistency)
+    - 좋아요 등록/취소 시 애플리케이션 트랜잭션 안에서 `product_like` row 변경 결과에 따라 `like_count`를 직접 증감한다
+    - atomic update 결과는 외부 성공 판단에 사용하지 않는다. 0건이면 `product_like` row와 `like_count`가 일시적으로 불일치할 수 있다
 - `brand_id`는 논리적 참조이며, FK 제약조건은 걸지 않는다
 
 ---
@@ -357,14 +357,14 @@ PRODUCT_LIKE는 **Hard Delete** 방식을 사용하므로, `created_at`만 보�
 **불변식 (Invariants)**:
 
 - `(user_id, product_id)` 쌍의 유일성: Customer는 동일 상품에 중복 좋아요를 등록할 수 없다
-- 존재하지 않는 상품에 대한 좋아요 등록이 불가능하다 (요구사항 4.2)
+- 좋아요 등록은 등록 가능한 상품에 대해서만 row가 생성된다. 미존재/비활성/삭제 상품 요청은 no-op으로 종료된다 (요구사항 4.2, 5.1)
 
 **설계 노트**:
 
 - **Hard Delete**: 좋아요 취소 시 물리 삭제한다
     - `updated_at`, `deleted_at` 컬럼이 없다
     - 좋아요 이력은 비즈니스적으로 불필요하다고 판단
-- `PRODUCT.like_count`는 스케줄러를 통해 주기적으로 동기화한다 (Eventual Consistency)
+- `PRODUCT.like_count`는 좋아요 등록/취소 흐름에서 갱신을 시도한다
 
 ---
 
@@ -491,13 +491,14 @@ ERD에서는 논리적 관계를 표현하되, 실제 DB에는 FK(Foreign Key) �
 
 **일관성 보장**
 
-- 스케줄러가 주기적으로 PRODUCT_LIKE 테이블을 COUNT하여 `PRODUCT.like_count`를 동기화한다
-- Eventual Consistency 방식으로, 좋아요 등록/취소 직후 일시적으로 불일치할 수 있으나 스케줄러 실행 후 최종 일관성이 보장된다
+- 좋아요 등록 시 `product_like` insert 성공 건에 한해 `PRODUCT.like_count`를 증가시킨다
+- 좋아요 취소 시 `product_like` delete 성공 건에 한해 `PRODUCT.like_count`를 감소시킨다
+- atomic update 결과는 외부 성공 판단에 사용하지 않는다. 0건이면 count 미갱신이 남을 수 있다
 
 **트레이드오프**
 
-- 장점: 상품 조회 성능 향상, 좋아요 등록/취소 트랜잭션 단순화
-- 단점: 실시간 반영 불가, 스케줄러 실행 전까지 일시적 불일치
+- 장점: 상품 조회 성능 향상, 좋아요 등록/취소 직후 조회값 즉시 반영
+- 단점: 좋아요 write 경로가 `PRODUCT_LIKE`와 `PRODUCT`를 함께 갱신해야 하므로 트랜잭션 조율이 필요
 
 ---
 

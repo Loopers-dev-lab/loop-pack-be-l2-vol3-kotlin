@@ -5,6 +5,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
+import org.springframework.http.HttpInputMessage
 import org.springframework.http.converter.HttpMessageNotReadableException
 
 @DisplayName("ApiControllerAdvice 단위 테스트")
@@ -23,7 +25,7 @@ class ApiControllerAdviceTest {
             val exception = HttpMessageNotReadableException(
                 "Could not read JSON",
                 jsonMappingException,
-                null,
+                mock<HttpInputMessage>(),
             )
 
             // act

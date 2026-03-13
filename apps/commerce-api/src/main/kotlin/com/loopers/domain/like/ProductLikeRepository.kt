@@ -4,8 +4,8 @@ import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
 
 interface ProductLikeRepository {
-    fun save(productLike: ProductLike)
-    fun deleteByUserIdAndProductId(userId: Long, productId: Long)
+    fun save(productLike: ProductLike): Boolean
+    fun deleteByUserIdAndProductId(userId: Long, productId: Long): Boolean
     fun existsByUserIdAndProductId(userId: Long, productId: Long): Boolean
     fun findAllByUserId(userId: Long, pageRequest: PageRequest): PageResponse<ProductLike>
 

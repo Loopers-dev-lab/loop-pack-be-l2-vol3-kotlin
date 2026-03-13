@@ -9,10 +9,17 @@ class UserOrderV1Response {
     data class Created(
         val orderId: Long,
         val status: String,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
     ) {
         companion object {
             fun from(result: OrderResult.Created): Created =
-                Created(orderId = result.orderId, status = result.status)
+                Created(
+                    orderId = result.orderId,
+                    status = result.status,
+                    discountAmount = result.discountAmount,
+                    finalAmount = result.finalAmount,
+                )
         }
     }
 
@@ -22,6 +29,8 @@ class UserOrderV1Response {
         val status: String,
         val items: List<OrderItemDetail>,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -32,6 +41,8 @@ class UserOrderV1Response {
                     status = result.status,
                     items = result.items.map { OrderItemDetail.from(it) },
                     totalAmount = result.totalAmount,
+                    discountAmount = result.discountAmount,
+                    finalAmount = result.finalAmount,
                     createdAt = result.createdAt,
                 )
         }
@@ -66,6 +77,8 @@ class UserOrderV1Response {
         val orderSummary: String,
         val itemCount: Int,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -76,6 +89,8 @@ class UserOrderV1Response {
                     orderSummary = result.orderSummary,
                     itemCount = result.itemCount,
                     totalAmount = result.totalAmount,
+                    discountAmount = result.discountAmount,
+                    finalAmount = result.finalAmount,
                     createdAt = result.createdAt,
                 )
         }

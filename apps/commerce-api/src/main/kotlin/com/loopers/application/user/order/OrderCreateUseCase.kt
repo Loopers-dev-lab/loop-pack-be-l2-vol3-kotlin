@@ -2,7 +2,11 @@ package com.loopers.application.user.order
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
+import com.loopers.domain.coupon.CouponRepository
+import com.loopers.domain.coupon.IssuedCoupon
+import com.loopers.domain.coupon.IssuedCouponRepository
 import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.OrderDomainService
 import com.loopers.domain.order.OrderRepository
@@ -21,6 +25,8 @@ class OrderCreateUseCase(
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
     private val brandRepository: BrandRepository,
+    private val couponRepository: CouponRepository,
+    private val issuedCouponRepository: IssuedCouponRepository,
 ) {
     @Transactional
     fun create(command: OrderCreateCommand): OrderResult.Created {
@@ -49,7 +55,8 @@ class OrderCreateUseCase(
         val brands = brandRepository.findAllByIdIn(brandIds)
         validateBrands(brandIds, brands)
 
-        val stocks = productStockRepository.findAllByProductIdIn(productIds)
+        val sortedProductIds = productIds.sorted()
+        val stocks = productStockRepository.findAllByProductIdInWithLock(sortedProductIds)
 
         val productMap = products.associateBy { it.id!! }
         val brandMap = brands.associateBy { it.id!! }
@@ -76,16 +83,64 @@ class OrderCreateUseCase(
             )
         }
 
+        val couponResult = command.issuedCouponId?.let { issuedCouponId ->
+            applyCoupon(issuedCouponId, command.userId, orderItemRequests)
+        }
+
         val domainResult = OrderDomainService.createOrder(
             userId = command.userId,
             idempotencyKey = idempotencyKey,
             orderItemRequests = orderItemRequests,
+            issuedCouponId = couponResult?.issuedCouponId,
+            discountAmount = couponResult?.discountAmount ?: Money.ZERO,
         )
 
         val savedOrder = orderRepository.save(domainResult.order)
         productStockRepository.saveAll(domainResult.decreasedStocks)
+        couponResult?.usedCoupon?.let { issuedCouponRepository.use(it) }
 
         return OrderResult.Created.from(savedOrder)
+    }
+
+    private data class CouponApplyResult(
+        val issuedCouponId: Long,
+        val discountAmount: Money,
+        val usedCoupon: IssuedCoupon,
+    )
+
+    private fun applyCoupon(
+        issuedCouponId: Long,
+        userId: Long,
+        orderItemRequests: List<OrderDomainService.OrderItemRequest>,
+    ): CouponApplyResult {
+        val issuedCoupon = issuedCouponRepository.findById(issuedCouponId)
+            ?: throw CoreException(ErrorType.ISSUED_COUPON_NOT_FOUND)
+
+        if (issuedCoupon.userId != userId) {
+            throw CoreException(ErrorType.ISSUED_COUPON_NOT_OWNED)
+        }
+
+        val coupon = couponRepository.findById(issuedCoupon.couponId)
+            ?: throw CoreException(ErrorType.COUPON_NOT_FOUND)
+
+        val totalAmount = orderItemRequests
+            .map { it.snapshot.sellingPrice.multiply(it.quantity) }
+            .reduce { acc, money -> acc + money }
+
+        coupon.minOrderAmount?.let { minAmount ->
+            if (minAmount.isGreaterThan(totalAmount)) {
+                throw CoreException(ErrorType.ISSUED_COUPON_MIN_ORDER_AMOUNT_NOT_MET)
+            }
+        }
+
+        val discountAmount = coupon.calculateDiscount(totalAmount)
+        val usedCoupon = issuedCoupon.use()
+
+        return CouponApplyResult(
+            issuedCouponId = issuedCoupon.id!!,
+            discountAmount = discountAmount,
+            usedCoupon = usedCoupon,
+        )
     }
 
     private fun validateProducts(requestedIds: List<Long>, products: List<Product>) {

@@ -12,6 +12,8 @@ class AdminOrderV1Response {
         val status: String,
         val items: List<OrderItemDetail>,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -22,6 +24,8 @@ class AdminOrderV1Response {
                     status = result.status,
                     items = result.items.map { OrderItemDetail.from(it) },
                     totalAmount = result.totalAmount,
+                    discountAmount = result.discountAmount,
+                    finalAmount = result.finalAmount,
                     createdAt = result.createdAt,
                 )
         }
@@ -57,6 +61,8 @@ class AdminOrderV1Response {
         val orderSummary: String,
         val itemCount: Int,
         val totalAmount: BigDecimal,
+        val discountAmount: BigDecimal,
+        val finalAmount: BigDecimal,
         val createdAt: ZonedDateTime,
     ) {
         companion object {
@@ -68,6 +74,8 @@ class AdminOrderV1Response {
                     orderSummary = result.orderSummary,
                     itemCount = result.itemCount,
                     totalAmount = result.totalAmount,
+                    discountAmount = result.discountAmount,
+                    finalAmount = result.finalAmount,
                     createdAt = result.createdAt,
                 )
         }

@@ -23,6 +23,7 @@ class ProductRepositoryIntegrationTest
 @Autowired
 constructor(
     private val productRepository: ProductRepository,
+    private val productJpaRepository: ProductJpaRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -58,13 +59,10 @@ constructor(
         @Test
         @DisplayName("저장 후 findById로 조회하면 동일한 상품을 반환한다")
         fun save_success() {
-            // arrange
             val brand = createBrand()
 
-            // act
             val saved = createProduct(brandId = brand.id!!)
 
-            // assert
             val found = productRepository.findById(saved.id!!)
             assertAll(
                 { assertThat(found).isNotNull },
@@ -79,7 +77,6 @@ constructor(
         @Test
         @DisplayName("수정 후 저장하면 변경된 값으로 조회된다")
         fun save_update() {
-            // arrange
             val brand = createBrand()
             val saved = createProduct(brandId = brand.id!!)
             val updated = saved.changeInfo(
@@ -90,10 +87,8 @@ constructor(
                 thumbnailUrl = null,
             )
 
-            // act
             productRepository.save(updated, admin)
 
-            // assert
             val found = productRepository.findById(saved.id!!)
             assertAll(
                 { assertThat(found!!.name).isEqualTo("변경 상품") },
@@ -110,16 +105,141 @@ constructor(
         @Test
         @DisplayName("삭제된 상품은 findById로 조회되지 않는다")
         fun delete_softDelete() {
-            // arrange
             val brand = createBrand()
             val saved = createProduct(brandId = brand.id!!)
 
-            // act
             productRepository.delete(saved.id!!, admin)
 
-            // assert
             val found = productRepository.findById(saved.id!!)
             assertThat(found).isNull()
+        }
+    }
+
+    @Nested
+    @DisplayName("incrementLikeCount 시")
+    inner class WhenIncrementLikeCount {
+        @Test
+        @DisplayName("ACTIVE 상품에 incrementLikeCount 호출 시 likeCount가 증가한다")
+        fun incrementLikeCount_activeProduct_increasesLikeCount() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+
+            productRepository.incrementLikeCount(saved.id!!)
+
+            val entity = productJpaRepository.findById(saved.id!!).get()
+            assertThat(entity.likeCount).isEqualTo(1)
+        }
+
+        @Test
+        @DisplayName("INACTIVE 상품에 incrementLikeCount 호출 시 likeCount가 변하지 않는다")
+        fun incrementLikeCount_inactiveProduct_noChange() {
+            val brand = createBrand()
+            val saved = createProduct(brandId = brand.id!!) // INACTIVE by default
+
+            productRepository.incrementLikeCount(saved.id!!)
+
+            val entity = productJpaRepository.findById(saved.id!!).get()
+            assertThat(entity.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("soft-delete된 상품에 incrementLikeCount 호출 시 likeCount가 변하지 않는다")
+        fun incrementLikeCount_deletedProduct_noChange() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+            productRepository.delete(saved.id!!, admin)
+
+            productRepository.incrementLikeCount(saved.id!!)
+
+            val entity = productJpaRepository.findById(saved.id!!).get()
+            assertThat(entity.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("incrementLikeCount 후 updatedAt이 변하지 않는다")
+        fun incrementLikeCount_auditUpdatedAt_unchanged() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+            val before = productJpaRepository.findById(saved.id!!).get()
+            val updatedAtBefore = before.updatedAt
+
+            productRepository.incrementLikeCount(saved.id!!)
+
+            val after = productJpaRepository.findById(saved.id!!).get()
+            assertThat(after.updatedAt).isEqualTo(updatedAtBefore)
+        }
+
+        @Test
+        @DisplayName("incrementLikeCount 후 updatedBy가 변하지 않는다")
+        fun incrementLikeCount_auditUpdatedBy_unchanged() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+            val before = productJpaRepository.findById(saved.id!!).get()
+            val updatedByBefore = before.updatedBy
+
+            productRepository.incrementLikeCount(saved.id!!)
+
+            val after = productJpaRepository.findById(saved.id!!).get()
+            assertThat(after.updatedBy).isEqualTo(updatedByBefore)
+        }
+    }
+
+    @Nested
+    @DisplayName("decrementLikeCount 시")
+    inner class WhenDecrementLikeCount {
+        @Test
+        @DisplayName("likeCount > 0인 상품에 decrementLikeCount 호출 시 likeCount가 감소한다")
+        fun decrementLikeCount_positive_decreases() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+            productRepository.incrementLikeCount(saved.id!!)
+
+            productRepository.decrementLikeCount(saved.id!!)
+
+            val entity = productJpaRepository.findById(saved.id!!).get()
+            assertThat(entity.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("likeCount = 0인 상품에 decrementLikeCount 호출 시 likeCount가 0으로 유지된다")
+        fun decrementLikeCount_zero_noChange() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+
+            productRepository.decrementLikeCount(saved.id!!)
+
+            val entity = productJpaRepository.findById(saved.id!!).get()
+            assertThat(entity.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("decrementLikeCount 후 updatedAt이 변하지 않는다")
+        fun decrementLikeCount_auditUpdatedAt_unchanged() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+            productRepository.incrementLikeCount(saved.id!!)
+            val before = productJpaRepository.findById(saved.id!!).get()
+            val updatedAtBefore = before.updatedAt
+
+            productRepository.decrementLikeCount(saved.id!!)
+
+            val after = productJpaRepository.findById(saved.id!!).get()
+            assertThat(after.updatedAt).isEqualTo(updatedAtBefore)
+        }
+
+        @Test
+        @DisplayName("decrementLikeCount 후 updatedBy가 변하지 않는다")
+        fun decrementLikeCount_auditUpdatedBy_unchanged() {
+            val brand = createBrand()
+            val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
+            productRepository.incrementLikeCount(saved.id!!)
+            val before = productJpaRepository.findById(saved.id!!).get()
+            val updatedByBefore = before.updatedBy
+
+            productRepository.decrementLikeCount(saved.id!!)
+
+            val after = productJpaRepository.findById(saved.id!!).get()
+            assertThat(after.updatedBy).isEqualTo(updatedByBefore)
         }
     }
 
@@ -129,17 +249,14 @@ constructor(
         @Test
         @DisplayName("ACTIVE 상태인 상품만 조회된다")
         fun findAllActive_onlyActive() {
-            // arrange
             val brand = createBrand()
             val product1 = createProduct(name = "상품1", brandId = brand.id!!)
             createProduct(name = "상품2", brandId = brand.id!!)
             val activated = product1.activate()
             productRepository.save(activated, admin)
 
-            // act
             val result = productRepository.findAllActive(PageRequest(), null, null)
 
-            // assert
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].name).isEqualTo("상품1")
         }
@@ -147,7 +264,6 @@ constructor(
         @Test
         @DisplayName("brandId로 필터링할 수 있다")
         fun findAllActive_filterByBrandId() {
-            // arrange
             val brand1 = createBrand("브랜드1")
             val brand2 = createBrand("브랜드2")
             val p1 = createProduct(name = "상품1", brandId = brand1.id!!)
@@ -155,10 +271,8 @@ constructor(
             productRepository.save(p1.activate(), admin)
             productRepository.save(p2.activate(), admin)
 
-            // act
             val result = productRepository.findAllActive(PageRequest(), brand1.id, null)
 
-            // assert
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].name).isEqualTo("상품1")
         }
@@ -166,17 +280,14 @@ constructor(
         @Test
         @DisplayName("PRICE_ASC 정렬로 조회할 수 있다")
         fun findAllActive_sortByPriceAsc() {
-            // arrange
             val brand = createBrand()
             val p1 = createProduct(name = "비싼상품", regularPrice = 20000, sellingPrice = 20000, brandId = brand.id!!)
             val p2 = createProduct(name = "싼상품", regularPrice = 5000, sellingPrice = 5000, brandId = brand.id!!)
             productRepository.save(p1.activate(), admin)
             productRepository.save(p2.activate(), admin)
 
-            // act
             val result = productRepository.findAllActive(PageRequest(), null, Product.SortType.PRICE_ASC)
 
-            // assert
             assertThat(result.content).hasSize(2)
             assertThat(result.content[0].name).isEqualTo("싼상품")
             assertThat(result.content[1].name).isEqualTo("비싼상품")
@@ -189,15 +300,12 @@ constructor(
         @Test
         @DisplayName("해당 브랜드의 모든 상품이 soft delete된다")
         fun deleteAllByBrandId_success() {
-            // arrange
             val brand = createBrand()
             createProduct(name = "상품1", brandId = brand.id!!)
             createProduct(name = "상품2", brandId = brand.id!!)
 
-            // act
             productRepository.deleteAllByBrandId(brand.id!!, admin)
 
-            // assert
             val products = productRepository.findAllByBrandId(brand.id!!)
             assertThat(products).isEmpty()
         }

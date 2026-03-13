@@ -45,6 +45,12 @@ class ProductStockRepositoryImpl(
             .map { productStockMapper.toDomain(it) }
     }
 
+    override fun findAllByProductIdInWithLock(productIds: List<Long>): List<ProductStock> {
+        if (productIds.isEmpty()) return emptyList()
+        return productStockJpaRepository.findAllByProductIdInWithLock(productIds)
+            .map { productStockMapper.toDomain(it) }
+    }
+
     override fun deleteByProductId(productId: Long, admin: String) {
         val entity = productStockJpaRepository.findByProductIdAndDeletedAtIsNull(productId) ?: return
         entity.deleteBy(admin)
