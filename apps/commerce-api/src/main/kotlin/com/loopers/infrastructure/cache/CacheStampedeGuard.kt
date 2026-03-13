@@ -19,7 +19,9 @@ class CacheStampedeGuard(
         cacheReader: () -> T?,
     ): T {
         if (cacheProperties.stampede.strategy != StampedeStrategy.MUTEX) {
-            return loader()
+            val value = loader()
+            cacheWriter(value)
+            return value
         }
 
         val lockKey = "lock:$cacheKey"
