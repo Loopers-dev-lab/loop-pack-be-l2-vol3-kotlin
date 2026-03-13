@@ -19,6 +19,8 @@ import java.time.ZonedDateTime
         Index(name = "idx_product_brand_price", columnList = "brand_id, price ASC"),
         Index(name = "idx_product_brand_created_at", columnList = "brand_id, created_at DESC"),
         Index(name = "idx_product_created_at", columnList = "created_at DESC"),
+        Index(name = "idx_product_like_count", columnList = "like_count DESC"),
+        Index(name = "idx_product_price", columnList = "price ASC"),
     ],
 )
 class Product private constructor(
