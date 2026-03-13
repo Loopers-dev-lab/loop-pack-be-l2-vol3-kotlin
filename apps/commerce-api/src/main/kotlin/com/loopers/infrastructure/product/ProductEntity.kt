@@ -16,6 +16,10 @@ import java.time.ZonedDateTime
     name = "products",
     indexes = [
         Index(name = "idx_products_brand_id_status", columnList = "brand_id, status"),
+        Index(name = "idx_products_brand_id_id_desc", columnList = "brand_id, id DESC"),
+        Index(name = "idx_products_brand_id_price_id", columnList = "brand_id, price, id DESC"),
+        Index(name = "idx_products_brand_id_like_count_id", columnList = "brand_id, like_count DESC, id DESC"),
+        Index(name = "idx_products_like_count_id", columnList = "like_count DESC, id DESC"),
         Index(name = "idx_products_status", columnList = "status"),
     ],
 )
@@ -38,6 +42,9 @@ class ProductEntity(
 
     @Column(name = "stock", nullable = false)
     var stock: Int,
+
+    @Column(name = "like_count", nullable = false)
+    var likeCount: Long = 0L,
 
     @Column(name = "status", nullable = false)
     var status: String,

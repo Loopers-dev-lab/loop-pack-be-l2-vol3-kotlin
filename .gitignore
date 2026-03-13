@@ -44,8 +44,10 @@ out/
 
 ### AI Tools ###
 .omc/
+.omx/
 .claude/
 CLAUDE.md
+brand-like-ranking-architecture-review.txt
 
 ### OS ###
 .DS_Store

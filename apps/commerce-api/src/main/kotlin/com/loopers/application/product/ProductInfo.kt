@@ -17,7 +17,7 @@ class ProductInfo {
         val likeCount: Long,
     ) {
         companion object {
-            fun from(product: Product, brand: Brand, likeCount: Long) = Detail(
+            fun from(product: Product, brand: Brand) = Detail(
                 id = requireNotNull(product.id) { "상품 저장 후 ID가 할당되지 않았습니다." },
                 brandId = product.brandId,
                 brandName = brand.name.value,
@@ -26,7 +26,7 @@ class ProductInfo {
                 description = product.description.value,
                 stock = product.stock.value,
                 status = product.status.name,
-                likeCount = likeCount,
+                likeCount = product.likeCount,
             )
         }
     }
@@ -42,7 +42,7 @@ class ProductInfo {
         val likeCount: Long,
     ) {
         companion object {
-            fun from(product: Product, brand: Brand?, likeCount: Long) = Main(
+            fun from(product: Product, brand: Brand?) = Main(
                 id = requireNotNull(product.id) { "상품 저장 후 ID가 할당되지 않았습니다." },
                 brandId = product.brandId,
                 brandName = brand?.name?.value ?: "",
@@ -50,7 +50,7 @@ class ProductInfo {
                 price = product.price.value,
                 stock = product.stock.value,
                 status = product.status.name,
-                likeCount = likeCount,
+                likeCount = product.likeCount,
             )
         }
     }

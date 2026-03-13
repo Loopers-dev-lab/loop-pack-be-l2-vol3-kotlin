@@ -25,6 +25,7 @@ class LikeRepositoryImpl(
 
     override fun delete(like: Like) {
         likeJpaRepository.deleteById(requireNotNull(like.id))
+        likeJpaRepository.flush()
     }
 
     override fun findById(id: Long): Like? {

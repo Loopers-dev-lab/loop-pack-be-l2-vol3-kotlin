@@ -17,4 +17,12 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE ProductEntity p SET p.stock = p.stock + :quantity WHERE p.id = :id")
     fun restoreStock(@Param("id") id: Long, @Param("quantity") quantity: Int): Int
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ProductEntity p SET p.likeCount = p.likeCount + 1 WHERE p.id = :id")
+    fun incrementLikeCount(@Param("id") id: Long): Int
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ProductEntity p SET p.likeCount = p.likeCount - 1 WHERE p.id = :id AND p.likeCount > 0")
+    fun decrementLikeCount(@Param("id") id: Long): Int
 }

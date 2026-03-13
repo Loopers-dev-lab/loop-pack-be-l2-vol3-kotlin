@@ -1,5 +1,6 @@
 package com.loopers.application.brand
 
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.brand.BrandChanger
 import com.loopers.domain.brand.BrandReader
 import com.loopers.domain.brand.BrandRegister
@@ -17,6 +18,7 @@ class BrandUseCase(
     private val brandChanger: BrandChanger,
     private val brandRemover: BrandRemover,
     private val productReader: ProductReader,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -39,6 +41,9 @@ class BrandUseCase(
     @Transactional
     fun changeName(id: Long, command: ChangeNameCommand): BrandInfo.Detail {
         val brand = brandChanger.changeName(id, command.name)
+        productCacheStore.evictAllDetails()
+        productCacheStore.evictList()
+        productCacheStore.evictList(id)
         return BrandInfo.Detail.from(brand)
     }
 
@@ -48,6 +53,9 @@ class BrandUseCase(
             throw CoreException(ErrorType.BRAND_HAS_ACTIVE_PRODUCTS)
         }
         brandRemover.remove(id)
+        productCacheStore.evictAllDetails()
+        productCacheStore.evictList()
+        productCacheStore.evictList(id)
     }
 
     data class RegisterCommand(val name: String)
