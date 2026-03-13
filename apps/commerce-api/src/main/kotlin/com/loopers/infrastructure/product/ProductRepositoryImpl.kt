@@ -54,4 +54,8 @@ class ProductRepositoryImpl(
     override fun decrementLikeCount(productId: Long) {
         productJpaRepository.decrementLikeCount(productId)
     }
+
+    override fun findTopBrandIdsByProductCount(limit: Int): List<Long> {
+        return productJpaRepository.findTopBrandIdsByProductCount(limit)
+    }
 }
