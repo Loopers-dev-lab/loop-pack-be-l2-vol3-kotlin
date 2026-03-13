@@ -113,6 +113,7 @@ class UserProductLikeRegisterUseCaseTest {
             then(productLikeRepository).should(never()).save(
                 check<ProductLike> { it.productId == 999L },
             )
+            then(productRepository).should(never()).incrementLikeCount(eq(999L))
         }
     }
 
@@ -130,6 +131,7 @@ class UserProductLikeRegisterUseCaseTest {
             then(productLikeRepository).should(never()).save(
                 check<ProductLike> { it.productId == 1L },
             )
+            then(productRepository).should(never()).incrementLikeCount(eq(1L))
         }
     }
 }
