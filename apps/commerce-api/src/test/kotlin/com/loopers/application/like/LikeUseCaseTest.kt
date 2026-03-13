@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.catalog.product.ProductCacheEvent
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class LikeUseCaseTest {
@@ -33,8 +35,8 @@ class LikeUseCaseTest {
         brandRepository = FakeBrandRepository()
         productRepository = FakeProductRepository()
         likeRepository = FakeLikeRepository()
-        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository)
-        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository)
+        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { })
+        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { })
         getUserLikesUseCase = GetUserLikesUseCase(likeRepository, productRepository)
     }
 
@@ -93,6 +95,23 @@ class LikeUseCaseTest {
         }
 
         @Test
+        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 캐시 이벤트가 추가로 발행되지 않는다")
+        fun addLike_duplicate_doesNotPublishAdditionalEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+            useCase.execute(1L, productId)
+            val countAfterFirst = publishedEvents.size
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            assertThat(publishedEvents).hasSize(countAfterFirst)
+        }
+
+        @Test
         @DisplayName("삭제된 상품에 좋아요하면 NOT_FOUND 예외가 발생한다")
         fun addLike_deletedProduct_throwsNotFound() {
             // arrange
@@ -126,6 +145,26 @@ class LikeUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("좋아요 등록 후 캐시 갱신 이벤트가 발행된다")
+        fun addLike_publishesCacheUpdateEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.product.id.value).isEqualTo(productId)
+            assertThat(detailEvent.evictList).isFalse()
         }
     }
 
@@ -174,6 +213,27 @@ class LikeUseCaseTest {
 
             // act & assert
             removeLikeUseCase.execute(1L, productId)
+        }
+
+        @Test
+        @DisplayName("좋아요 취소 후 캐시 갱신 이벤트가 발행된다")
+        fun removeLike_publishesCacheUpdateEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            addLikeUseCase.execute(1L, productId)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.product.id.value).isEqualTo(productId)
+            assertThat(detailEvent.evictList).isFalse()
         }
     }
 
