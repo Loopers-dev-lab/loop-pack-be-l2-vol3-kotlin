@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 class ProductCacheService(
     private val redisCacheRepository: ProductCacheRepository,
     private val localCacheRepository: ProductLocalCacheRepository,
-    @Value("\${cache.mode:redis}") private val mode: String,
+    @Value("\${cache.mode}") private val mode: String,
 ) {
     private val cacheMode = CacheMode.valueOf(mode.uppercase())
 
