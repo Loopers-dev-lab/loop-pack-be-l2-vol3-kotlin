@@ -50,11 +50,19 @@ sequenceDiagram
     actor User as 사용자
     participant C as ProductV1Controller
     participant UC as GetProductsUseCase
+    participant Cache as Redis Cache
     participant R as ProductRepository
     User ->> C: 상품 목록 조회 요청 (brandId, 정렬, 페이징)
     C ->> UC: execute(brandId, sort, page, size)
-    UC ->> R: findActiveProducts(brandId, sort, page, size) — 삭제/HIDDEN 제외
-    R -->> UC: 상품 목록 (PageResult)
+    UC ->> Cache: @Cacheable 조회 (product:list:{brandId}:{sort}:{page}:{size})
+    alt 캐시 히트
+        Cache -->> UC: PageResult<ProductInfo> (캐시)
+    else 캐시 미스
+        Cache -->> UC: null
+        UC ->> R: findActiveProducts(brandId, sort, page, size) — 삭제/HIDDEN 제외
+        R -->> UC: 상품 목록 (PageResult)
+        UC ->> Cache: 결과 저장 (TTL 30분)
+    end
     UC -->> C: PageResult<ProductInfo> 반환
     C -->> User: 200 OK
 ```
@@ -63,6 +71,8 @@ sequenceDiagram
 
 - 필터 조건: `deletedAt IS NULL AND status != 'HIDDEN'`, brandId 선택적 필터
 - 응답에 페이징 메타데이터 포함: content, totalElements, totalPages, number, size
+- 캐시 키: `(brandId ?: 'all') + ':' + sort + ':' + page + ':' + size`
+- 상품 수정/삭제 시 `evictProductList(brandId)` 호출로 관련 목록 캐시 무효화
 
 ### 1.3 상품 상세 조회
 
@@ -76,12 +86,21 @@ sequenceDiagram
     actor User as 사용자
     participant C as ProductV1Controller
     participant UC as GetProductUseCase
+    participant Cache as Redis Cache
     participant PR as ProductRepository
     participant BR as BrandRepository
     User ->> C: 상품 상세 정보 요청
     C ->> UC: execute(productId)
-    UC ->> PR: findById(productId) — 삭제/HIDDEN 제외
-    PR -->> UC: Product
+    UC ->> Cache: findProductDetail(productId)
+    alt 캐시 히트
+        Cache -->> UC: Product (캐시)
+    else 캐시 미스
+        Cache -->> UC: null
+        UC ->> PR: findById(productId) — 삭제/HIDDEN 제외
+        PR -->> UC: Product
+        UC ->> Cache: saveProductDetail(product)
+    end
+    Note right of UC: 삭제됨 또는 비활성이면 NOT_FOUND 예외
     UC ->> BR: findById(refBrandId) — 삭제된 브랜드 제외
     BR -->> UC: Brand
     UC ->> UC: ProductDetail(product, brand) 조합
@@ -91,8 +110,10 @@ sequenceDiagram
 
 #### 참고
 
-- `GetProductUseCase`는 ProductRepository와 BrandRepository를 직접 주입받아 사용한다
+- `GetProductUseCase`는 ProductRepository, BrandRepository, ProductCacheRepository를 직접 주입받아 사용한다
+- 캐시 히트 시에도 Brand는 항상 DB에서 조회한다 (브랜드 캐시 미적용)
 - 삭제된 브랜드의 상품 조회 시 NOT_FOUND 예외 발생
+- Redis 장애 시 캐시 오류를 warn 로그로 처리하고 DB 조회로 폴백
 
 ---
 
@@ -351,6 +372,7 @@ sequenceDiagram
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
     participant UC as UpdateProductUseCase
+    participant Cache as Redis Cache
     participant R as ProductRepository
     Admin ->> C: 상품 수정 요청
     C ->> UC: execute(productId, name, price, stock, status)
@@ -361,6 +383,8 @@ sequenceDiagram
     Note right of UC: 브랜드 변경 불가 규칙 검증<br/>HIDDEN 명시 시 자동 전이 미적용
     UC ->> R: save(product)
     R -->> UC: ProductInfo
+    UC ->> Cache: saveProductDetail(saved) — 상세 캐시 갱신
+    UC ->> Cache: evictProductList(brandId) — 목록 캐시 무효화
     UC -->> C: ProductInfo 반환
     C -->> Admin: 200 OK
 ```
@@ -368,6 +392,7 @@ sequenceDiagram
 #### 참고
 
 - 삭제된 상품도 수정 가능 (어드민 권한)
+- 캐시 갱신: 상세 캐시를 최신 상태로 덮어쓰고, 해당 브랜드의 목록 캐시를 무효화한다
 
 ### 2.11 상품 삭제
 
@@ -379,6 +404,7 @@ sequenceDiagram
     actor Admin as 어드민
     participant C as ProductAdminV1Controller
     participant UC as DeleteProductUseCase
+    participant Cache as Redis Cache
     participant R as ProductRepository
     Admin ->> C: 상품 삭제 요청
     C ->> UC: execute(productId)
@@ -387,6 +413,7 @@ sequenceDiagram
     R -->> UC: Product
     UC ->> UC: product.delete()
     UC ->> R: save(product)
+    UC ->> Cache: evictProductDetail(productId) — 상세 캐시 무효화
     UC -->> C: 처리 완료
     C -->> Admin: 200 OK
 ```
@@ -395,6 +422,7 @@ sequenceDiagram
 
 - BaseEntity.delete()는 이미 삭제 상태면 무시 (멱등)
 - 삭제된 상품의 like 는 추후 배치에서 제거
+- 상세 캐시만 무효화. 목록 캐시는 TTL(30분) 만료 후 자동 정리
 
 ### 2.12 상품 복구
 
@@ -440,6 +468,7 @@ sequenceDiagram
     actor User as 사용자
     participant C as LikeV1Controller
     participant UC as AddLikeUseCase
+    participant Cache as Redis Cache
     participant PR as ProductRepository
     participant LR as LikeRepository
     User ->> C: 좋아요 등록 요청
@@ -447,18 +476,18 @@ sequenceDiagram
 
     rect rgb(245, 245, 245)
         Note right of UC: @Transactional
-        UC ->> PR: findById(productId) — 삭제/HIDDEN 제외
+        UC ->> PR: findByIdForUpdate(productId) — 비관적 락
         PR -->> UC: Product
-        UC ->> LR: existsByUserIdAndProductId(userId, productId)
+        Note right of UC: 삭제됨 또는 비활성이면 NOT_FOUND 예외
+        UC ->> LR: findByUserIdAndProductIdForUpdate(userId, productId)
         alt 이미 좋아요 존재
-            LR -->> UC: true (멱등, 상태 변화 없음)
+            LR -->> UC: Like (멱등, 상태 변화 없음)
         else 새로운 좋아요
-            LR -->> UC: false
+            LR -->> UC: null
             UC ->> LR: save(Like)
-            UC ->> PR: findByIdForUpdate(productId) — 비관적 락
-            PR -->> UC: Product (locked)
-            UC ->> UC: lockedProduct.increaseLikeCount()
-            UC ->> PR: save(lockedProduct)
+            UC ->> UC: product.increaseLikeCount()
+            UC ->> PR: save(product)
+            UC ->> Cache: saveProductDetail(saved) — likeCount 반영
         end
     end
 
@@ -478,6 +507,7 @@ sequenceDiagram
     actor User as 사용자
     participant C as LikeV1Controller
     participant UC as RemoveLikeUseCase
+    participant Cache as Redis Cache
     participant LR as LikeRepository
     participant PR as ProductRepository
     User ->> C: 좋아요 취소 요청
@@ -487,18 +517,18 @@ sequenceDiagram
         Note right of UC: @Transactional
         UC ->> PR: findByIdForUpdate(productId) — 비관적 락 (선취득)
         PR -->> UC: Product or null
-        UC ->> LR: findByUserIdAndProductId(userId, productId)
+        UC ->> LR: findByUserIdAndProductIdForUpdate(userId, productId)
         alt 좋아요 없음
             LR -->> UC: null (멱등, 상태 변화 없음)
         else 좋아요 존재
             LR -->> UC: Like
             UC ->> LR: delete(like)
-            alt 상품이 존재하고 활성 상태
-                Note right of UC: Product (not deleted)
+            alt 상품이 존재하고 활성 상태 (not deleted)
                 UC ->> UC: product.decreaseLikeCount()
                 UC ->> PR: save(product)
+                UC ->> Cache: saveProductDetail(saved) — likeCount 반영
             else 상품 없음 또는 삭제된 상품
-                Note right of UC: likeCount 갱신 생략
+                Note right of UC: likeCount 갱신 생략, 캐시 갱신 생략
             end
         end
     end

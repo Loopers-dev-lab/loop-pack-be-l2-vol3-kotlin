@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository
 
 interface LikeJpaRepository : JpaRepository<LikeEntity, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findForUpdateByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): LikeEntity?
+    fun findWithLockByRefUserIdAndRefProductId(refUserId: Long, refProductId: Long): LikeEntity?
 
     fun findAllByRefUserIdOrderByIdDesc(refUserId: Long): List<LikeEntity>
 }
@@ -26,7 +26,7 @@ class LikeRepositoryImpl(
     }
 
     override fun findByUserIdAndProductIdForUpdate(userId: UserId, productId: ProductId): Like? {
-        return likeJpaRepository.findForUpdateByRefUserIdAndRefProductId(userId.value, productId.value)?.toDomain()
+        return likeJpaRepository.findWithLockByRefUserIdAndRefProductId(userId.value, productId.value)?.toDomain()
     }
 
     override fun delete(like: Like) {

@@ -1,4 +1,4 @@
-# 요구사항 명세서 v4
+# 요구사항 명세서 v5
 
 ## 1. 문제 정의
 
@@ -587,10 +587,21 @@ stateDiagram-v2
 - **쿠폰 어드민 API**: 쿠폰 CRUD + 발급 내역 조회 어드민 API
 - **Order 변경**: originalPrice, discountAmount, refCouponId 필드 추가. 주문 생성 시 쿠폰 적용 가능
 
+### 5주차 신규/변경 요약
+
+- **Redis 캐시 인프라**: `RedisCacheManager` + `@EnableCaching` 설정. JSON 직렬화, TTL 30분
+- **ProductCacheRepository** (Domain 인터페이스): `findProductDetail`, `saveProductDetail`, `evictProductDetail`, `evictProductList`
+- **상품 상세 Write-Through 캐시**: `GetProductUseCase` — 캐시 히트 시 DB 스킵, 미스 시 DB 조회 후 캐시 저장
+- **상품 목록 @Cacheable**: `GetProductsUseCase` — `product:list:{brandId}:{sort}:{page}:{size}` 키로 캐시
+- **쓰기 연동 캐시 갱신**:
+  - `UpdateProductUseCase`: save 후 `saveProductDetail` + `evictProductList`
+  - `AddLikeUseCase` / `RemoveLikeUseCase`: likeCount 변경 후 `saveProductDetail`
+  - `DeleteProductUseCase`: soft delete 후 `evictProductDetail`
+- **Redis 장애 Fallback**: `ProductCacheRepositoryImpl`에서 Redis 오류 시 warn 로그 후 DB 폴백
+
 ### 추후 확장
 
 - 동시성 해결 (Redis Lua 기반 재고 관리)
-- 좋아요/재고 캐싱 (Redis)
 - 브랜드 트리 구조 (parentId)
 - 1인당 구매 수량 제한
 
@@ -601,7 +612,7 @@ stateDiagram-v2
 | 리스크                       | 영향                                                        | 현재 대응                         | 향후 대응                                                                                  |
 |---------------------------|-----------------------------------------------------------|-------------------------------|----------------------------------------------------------------------------------------|
 | **주문 트랜잭션 비대화**           | 재고 차감 + 주문 생성 + 스냅샷이 하나의 트랜잭션 → 락 경합 증가  | 현재 스코프에서는 단일 트랜잭션으로 처리        | 이벤트 기반 분리 (재고 선점 → 주문 확정)                                                     |
-| **likeCount 정합성**         | 좋아요 등록/취소 시 Product.likeCount 동기 증감 → 동시 요청 시 정합성 깨질 수 있음 | 단일 트랜잭션 내 처리                  | Redis 캐시 또는 비동기 집계                                                                     |
+| **likeCount 정합성**         | 좋아요 등록/취소 시 Product.likeCount 동기 증감 → 동시 요청 시 정합성 깨질 수 있음 | 비관적 락(FOR UPDATE) + 단일 트랜잭션 처리. 등록/취소 후 상품 캐시 갱신(Write-Through) | 비동기 집계                                                                     |
 | **브랜드 삭제 연쇄 영향**          | 브랜드 삭제 시 대량 상품 soft delete → 트랜잭션 부하                      | 동기 처리 (상품 수가 적은 초기 단계)        | 배치/비동기 처리                                                                              |
 | **주문 목록 기간 조회 성능**        | 날짜 범위 검색은 인덱스 전략에 따라 성능 차이 큼                              | createdAt 인덱스 + 기본 1달 제한      | 복합 인덱스 최적화                                                                             |
 | **재고 동시 차감**              | 동시 주문 시 재고가 음수로 떨어질 수 있음                                  | 향후 과제로 명시 (현재는 단일 요청 기준)      | Atomic SQL UPDATE (`stock = stock - :qty WHERE stock >= :qty`), @Version, 또는 Redis Lua |

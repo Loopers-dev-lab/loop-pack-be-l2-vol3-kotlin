@@ -20,7 +20,7 @@ interface ProductAdminV1ApiSpec {
     ): ApiResponse<Page<ProductAdminV1Dto.AdminProductResponse>>
 
     @Operation(summary = "상품 상세 조회", description = "상품을 상세 조회합니다.")
-    fun getProduct(@Positive productId: Long): ApiResponse<ProductAdminV1Dto.AdminProductResponse>
+    fun getProduct(@Positive productId: Long): ApiResponse<ProductAdminV1Dto.AdminProductDetailResponse>
 
     @Operation(summary = "상품 생성", description = "상품을 생성합니다.")
     fun createProduct(@Valid request: ProductAdminV1Dto.CreateProductRequest): ApiResponse<ProductAdminV1Dto.AdminProductResponse>
