@@ -117,6 +117,33 @@ constructor(
         }
 
         @Test
+        @DisplayName("LIKES_DESC 정렬로 조회할 수 있다")
+        fun getList_sortByLikesDesc() {
+            // arrange
+            val lowLikes = createActiveProduct("낮은좋아요", 10000)
+            val highLikes = createActiveProduct("높은좋아요", 10000)
+            productRepository.incrementLikeCount(lowLikes.id!!)
+            repeat(3) {
+                productRepository.incrementLikeCount(highLikes.id!!)
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$ENDPOINT?sort=LIKES_DESC",
+                HttpMethod.GET,
+                null,
+                object : ParameterizedTypeReference<ApiResponse<PageResponse<UserProductV1Response.Summary>>>() {},
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val content = response.body?.data?.content!!
+            assertThat(content).hasSize(2)
+            assertThat(content[0].name).isEqualTo("높은좋아요")
+            assertThat(content[1].name).isEqualTo("낮은좋아요")
+        }
+
+        @Test
         @DisplayName("brandId로 필터링할 수 있다")
         fun getList_filterByBrandId() {
             // arrange
@@ -147,6 +174,37 @@ constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body?.data?.content).hasSize(1)
             assertThat(response.body?.data?.content?.first()?.name).isEqualTo("나이키 상품")
+        }
+
+        @Test
+        @DisplayName("INACTIVE 브랜드의 ACTIVE 상품은 제외되고 totalElements도 일치한다")
+        fun getList_excludeInactiveBrandProducts() {
+            // arrange
+            createActiveProduct("노출 상품", 10000)
+
+            val inactiveBrand = brandRepository.save(Brand.register(name = "비활성 브랜드"), ADMIN)
+            val hiddenProduct = Product.register(
+                name = "숨김 상품",
+                regularPrice = Money(BigDecimal.valueOf(10000)),
+                sellingPrice = Money(BigDecimal.valueOf(10000)),
+                brandId = inactiveBrand.id!!,
+            )
+            val savedHiddenProduct = productRepository.save(hiddenProduct, ADMIN)
+            productRepository.save(savedHiddenProduct.activate(), ADMIN)
+
+            // act
+            val response = testRestTemplate.exchange(
+                ENDPOINT,
+                HttpMethod.GET,
+                null,
+                object : ParameterizedTypeReference<ApiResponse<PageResponse<UserProductV1Response.Summary>>>() {},
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body?.data?.totalElements).isEqualTo(1)
+            assertThat(response.body?.data?.content).hasSize(1)
+            assertThat(response.body?.data?.content?.first()?.name).isEqualTo("노출 상품")
         }
     }
 }

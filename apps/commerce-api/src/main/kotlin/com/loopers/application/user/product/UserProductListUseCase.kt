@@ -36,12 +36,8 @@ class UserProductListUseCase(
             .filter { it.status == Brand.Status.ACTIVE }
             .associateBy { it.id!! }
 
-        // TODO: Application 레벨 필터링으로 인해 content 건수와 totalElements가 불일치할 수 있음.
-        //  Repository 레벨 Brand JOIN 필터로 개선 필요 (페이징 정합성).
-        val filteredProducts = productPage.content.filter { activeBrands.containsKey(it.brandId) }
-
         return PageResponse(
-            content = filteredProducts.map { product ->
+            content = productPage.content.map { product ->
                 val brand = activeBrands[product.brandId]!!
                 UserProductResult.Summary.from(product, brand)
             },

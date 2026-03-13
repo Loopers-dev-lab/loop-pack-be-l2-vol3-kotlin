@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product
 
+import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.page.PageRequest
@@ -73,15 +74,12 @@ class ProductRepositoryImpl(
         val springSort = toSpringSort(sort)
         val pageable = SpringPageRequest.of(pageRequest.page, pageRequest.size, springSort)
 
-        val page = if (brandId != null) {
-            productJpaRepository.findAllByStatusAndBrandIdAndDeletedAtIsNull(
-                Product.Status.ACTIVE,
-                brandId,
-                pageable,
-            )
-        } else {
-            productJpaRepository.findAllByStatusAndDeletedAtIsNull(Product.Status.ACTIVE, pageable)
-        }
+        val page = productJpaRepository.findAllByStatusAndActiveBrand(
+            productStatus = Product.Status.ACTIVE,
+            brandStatus = Brand.Status.ACTIVE,
+            brandId = brandId,
+            pageable = pageable,
+        )
 
         return PageResponse(
             content = page.content.map { productMapper.toDomain(it) },

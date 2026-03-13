@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product
 
+import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -21,6 +22,41 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     ): Page<ProductEntity>
     fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long): List<ProductEntity>
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
+
+    @Query(
+        value = """
+        SELECT p
+          FROM ProductEntity p
+         WHERE p.status = :productStatus
+           AND p.deletedAt IS NULL
+           AND p.brandId IN (
+               SELECT b.id
+                 FROM BrandEntity b
+                WHERE b.status = :brandStatus
+                  AND b.deletedAt IS NULL
+                  AND (:brandId IS NULL OR b.id = :brandId)
+           )
+        """,
+        countQuery = """
+        SELECT COUNT(p)
+          FROM ProductEntity p
+         WHERE p.status = :productStatus
+           AND p.deletedAt IS NULL
+           AND p.brandId IN (
+               SELECT b.id
+                 FROM BrandEntity b
+                WHERE b.status = :brandStatus
+                  AND b.deletedAt IS NULL
+                  AND (:brandId IS NULL OR b.id = :brandId)
+           )
+        """,
+    )
+    fun findAllByStatusAndActiveBrand(
+        @Param("productStatus") productStatus: Product.Status,
+        @Param("brandStatus") brandStatus: Brand.Status,
+        @Param("brandId") brandId: Long?,
+        pageable: Pageable,
+    ): Page<ProductEntity>
 
     @Modifying
     @Transactional
