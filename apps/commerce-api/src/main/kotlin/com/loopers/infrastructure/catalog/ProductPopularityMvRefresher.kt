@@ -17,7 +17,7 @@ class ProductPopularityMvRefresher(
     fun refresh() {
         log.debug("product_popularity_mv 갱신 시작")
 
-        entityManager.createNativeQuery("TRUNCATE TABLE product_popularity_mv").executeUpdate()
+        entityManager.createNativeQuery("DELETE FROM product_popularity_mv").executeUpdate()
 
         entityManager.createNativeQuery(
             """
