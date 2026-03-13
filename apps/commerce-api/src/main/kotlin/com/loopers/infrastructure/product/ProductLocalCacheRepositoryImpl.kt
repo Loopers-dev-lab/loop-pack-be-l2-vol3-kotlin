@@ -32,7 +32,7 @@ class ProductLocalCacheRepositoryImpl : ProductLocalCacheRepository {
         .build()
 
     override fun getOrLoadProduct(productId: Long, loader: () -> ProductDetailInfo): ProductDetailInfo {
-        return detailCache.get(productId) { loader() }!!
+        return detailCache.get(productId) { loader() }
     }
 
     override fun getOrLoadProducts(
@@ -40,14 +40,14 @@ class ProductLocalCacheRepositoryImpl : ProductLocalCacheRepository {
         pageQuery: PageQuery,
         loader: () -> PageResult<ProductInfo>,
     ): PageResult<ProductInfo> {
-        return listCache.get(ProductListCacheKey(brandId, pageQuery)) { loader() }!!
+        return listCache.get(ProductListCacheKey(brandId, pageQuery)) { loader() }
     }
 
     override fun evictProduct(productId: Long) {
         detailCache.invalidate(productId)
     }
 
-    override fun evictAllProducts() {
+    override fun evictAllProductLists() {
         listCache.invalidateAll()
     }
 
