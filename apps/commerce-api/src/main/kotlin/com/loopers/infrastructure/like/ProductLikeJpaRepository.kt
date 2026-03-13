@@ -10,11 +10,6 @@ interface ProductLikeJpaRepository : JpaRepository<ProductLikeEntity, Long> {
         productId: Long,
     ): Boolean
 
-    fun deleteByUserIdAndProductId(
-        userId: Long,
-        productId: Long,
-    )
-
     fun findAllByUserId(
         userId: Long,
         pageable: Pageable,

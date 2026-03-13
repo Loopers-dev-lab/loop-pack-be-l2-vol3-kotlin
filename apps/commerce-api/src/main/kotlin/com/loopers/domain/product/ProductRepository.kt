@@ -6,6 +6,8 @@ import com.loopers.support.page.PageResponse
 interface ProductRepository {
     fun save(product: Product, admin: String): Product
     fun delete(productId: Long, admin: String)
+    fun incrementLikeCount(productId: Long)
+    fun decrementLikeCount(productId: Long)
     fun findById(id: Long): Product?
     fun findAll(pageRequest: PageRequest, brandId: Long? = null): PageResponse<Product>
     fun findAllActive(pageRequest: PageRequest, brandId: Long?, sort: Product.SortType?): PageResponse<Product>

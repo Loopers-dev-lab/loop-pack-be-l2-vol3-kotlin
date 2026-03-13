@@ -38,6 +38,14 @@ class ProductRepositoryImpl(
         productJpaRepository.saveAndFlush(entity)
     }
 
+    override fun incrementLikeCount(productId: Long) {
+        productJpaRepository.incrementLikeCount(productId)
+    }
+
+    override fun decrementLikeCount(productId: Long) {
+        productJpaRepository.decrementLikeCount(productId)
+    }
+
     override fun findById(id: Long): Product? {
         return productJpaRepository.findByIdAndDeletedAtIsNull(id)?.let { productMapper.toDomain(it) }
     }
@@ -106,5 +114,9 @@ class ProductRepositoryImpl(
             Product.SortType.LIKES_DESC -> Sort.by(Sort.Direction.DESC, "likeCount")
             Product.SortType.LATEST, null -> Sort.by(Sort.Direction.DESC, "id")
         }
+    }
+
+    companion object {
+        private const val SYSTEM = "SYSTEM"
     }
 }
