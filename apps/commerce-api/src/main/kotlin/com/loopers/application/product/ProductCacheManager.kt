@@ -27,13 +27,13 @@ class ProductCacheManager(
     }
 
     fun evictProduct(productId: Long) {
-        productLocalCacheRepository.evictProduct(productId)
         productCacheRepository.evictProduct(productId)
+        productLocalCacheRepository.evictProduct(productId)
     }
 
     fun evictAllProducts() {
-        productLocalCacheRepository.evictAllProducts()
         productCacheRepository.evictAllProducts()
+        productLocalCacheRepository.evictAllProducts()
     }
 
     fun evictAllLocalCaches() {

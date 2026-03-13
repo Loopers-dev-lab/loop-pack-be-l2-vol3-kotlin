@@ -4,9 +4,11 @@ import com.loopers.domain.product.ProductService
 import com.loopers.support.common.PageQuery
 import com.loopers.support.common.SortOrder
 import org.slf4j.LoggerFactory
+import org.springframework.context.annotation.Profile
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
+@Profile("!test")
 @Component
 class ProductCacheWarmingScheduler(
     private val productCacheManager: ProductCacheManager,
@@ -33,17 +35,24 @@ class ProductCacheWarmingScheduler(
         val topBrandIds = productService.getTopBrandIdsByProductCount(TOP_BRAND_COUNT)
         val brandIds: List<Long?> = listOf(null) + topBrandIds
 
-        var count = 0
+        var successCount = 0
+        var failCount = 0
         for (brandId in brandIds) {
             for (sortOrder in SORT_ORDERS) {
                 for (page in 0 until WARMING_PAGE_COUNT) {
                     val pageQuery = PageQuery(page, DEFAULT_PAGE_SIZE, sortOrder)
-                    productCacheManager.getProducts(brandId, pageQuery)
-                    count++
+                    runCatching {
+                        productCacheManager.getProducts(brandId, pageQuery)
+                    }.onSuccess {
+                        successCount++
+                    }.onFailure {
+                        failCount++
+                        log.warn("상품 목록 캐시 워밍 실패: brandId={}, sort={}, page={}", brandId, sortOrder, page, it)
+                    }
                 }
             }
         }
 
-        log.info("상품 목록 캐시 워밍 완료: {}건 (전체 + 브랜드 {}개)", count, topBrandIds.size)
+        log.info("상품 목록 캐시 워밍 완료: 성공 {}건, 실패 {}건 (전체 + 브랜드 {}개)", successCount, failCount, topBrandIds.size)
     }
 }
