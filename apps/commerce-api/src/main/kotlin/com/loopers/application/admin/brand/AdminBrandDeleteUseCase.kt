@@ -8,6 +8,8 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 class AdminBrandDeleteUseCase(
@@ -28,9 +30,27 @@ class AdminBrandDeleteUseCase(
         if (productIds.isNotEmpty()) {
             productStockRepository.deleteAllByProductIds(productIds, admin)
             productRepository.deleteAllByBrandId(brandId, admin)
-            productQueryCache.evictDetails(productIds)
+            registerDetailCacheEvictionAfterCommit(productIds)
         }
 
         brandRepository.delete(brandId, admin)
+    }
+
+    private fun registerDetailCacheEvictionAfterCommit(productIds: List<Long>) {
+        if (
+            !TransactionSynchronizationManager.isSynchronizationActive() ||
+            !TransactionSynchronizationManager.isActualTransactionActive()
+        ) {
+            productQueryCache.evictDetails(productIds)
+            return
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    productQueryCache.evictDetails(productIds)
+                }
+            },
+        )
     }
 }
