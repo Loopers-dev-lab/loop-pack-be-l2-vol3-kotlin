@@ -11,9 +11,12 @@ data class CreateOrderRequest(
     @field:NotEmpty(message = "주문 항목은 최소 1개 이상이어야 합니다.")
     @field:Valid
     val items: List<OrderItemRequest>,
+
+    val couponId: Long? = null,
 ) {
     fun toCommand() = CreateOrderCommand(
         items = items.map { OrderItemCommand(productId = it.productId, quantity = it.quantity) },
+        couponId = couponId,
     )
 }
 

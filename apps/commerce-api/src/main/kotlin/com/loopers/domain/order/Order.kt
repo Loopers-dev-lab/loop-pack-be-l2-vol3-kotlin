@@ -6,7 +6,10 @@ import java.time.ZonedDateTime
 class Order private constructor(
     val persistenceId: Long?,
     val refUserId: Long,
+    val refUserCouponId: Long?,
     val status: OrderStatus,
+    val originalAmount: Money,
+    val discountAmount: Money,
     val totalAmount: Money,
     val orderedAt: ZonedDateTime,
     val items: List<OrderItem>,
@@ -22,7 +25,10 @@ class Order private constructor(
         return Order(
             persistenceId = persistenceId,
             refUserId = refUserId,
+            refUserCouponId = refUserCouponId,
             status = OrderStatus.CANCELLED,
+            originalAmount = originalAmount,
+            discountAmount = discountAmount,
             totalAmount = totalAmount,
             orderedAt = orderedAt,
             items = items,
@@ -39,7 +45,10 @@ class Order private constructor(
         return Order(
             persistenceId = persistenceId,
             refUserId = refUserId,
+            refUserCouponId = refUserCouponId,
             status = OrderStatus.COMPLETED,
+            originalAmount = originalAmount,
+            discountAmount = discountAmount,
             totalAmount = totalAmount,
             orderedAt = orderedAt,
             items = items,
@@ -60,6 +69,10 @@ class Order private constructor(
         return status == OrderStatus.PENDING
     }
 
+    fun hasCoupon(): Boolean {
+        return refUserCouponId != null
+    }
+
     companion object {
         fun create(userId: Long, items: List<OrderItem>): Order {
             require(items.isNotEmpty()) { "주문 항목은 최소 1개 이상이어야 합니다." }
@@ -69,8 +82,35 @@ class Order private constructor(
             return Order(
                 persistenceId = null,
                 refUserId = userId,
+                refUserCouponId = null,
                 status = OrderStatus.PENDING,
+                originalAmount = totalAmount,
+                discountAmount = Money(0),
                 totalAmount = totalAmount,
+                orderedAt = ZonedDateTime.now(),
+                items = items,
+            )
+        }
+
+        fun createWithCoupon(
+            userId: Long,
+            items: List<OrderItem>,
+            userCouponId: Long,
+            discountAmount: Money,
+        ): Order {
+            require(items.isNotEmpty()) { "주문 항목은 최소 1개 이상이어야 합니다." }
+            val originalAmount = items.fold(Money(0)) { acc, item ->
+                acc.add(item.getSubtotal())
+            }
+            val finalAmount = originalAmount.subtract(discountAmount)
+            return Order(
+                persistenceId = null,
+                refUserId = userId,
+                refUserCouponId = userCouponId,
+                status = OrderStatus.PENDING,
+                originalAmount = originalAmount,
+                discountAmount = discountAmount,
+                totalAmount = finalAmount,
                 orderedAt = ZonedDateTime.now(),
                 items = items,
             )
@@ -79,7 +119,10 @@ class Order private constructor(
         fun reconstitute(
             persistenceId: Long,
             refUserId: Long,
+            refUserCouponId: Long?,
             status: OrderStatus,
+            originalAmount: Money,
+            discountAmount: Money,
             totalAmount: Money,
             orderedAt: ZonedDateTime,
             items: List<OrderItem>,
@@ -87,7 +130,10 @@ class Order private constructor(
             return Order(
                 persistenceId = persistenceId,
                 refUserId = refUserId,
+                refUserCouponId = refUserCouponId,
                 status = status,
+                originalAmount = originalAmount,
+                discountAmount = discountAmount,
                 totalAmount = totalAmount,
                 orderedAt = orderedAt,
                 items = items,

@@ -15,4 +15,16 @@ data class Money(val amount: Long) {
     fun add(other: Money): Money {
         return Money(amount + other.amount)
     }
+
+    fun subtract(other: Money): Money {
+        return Money(maxOf(amount - other.amount, 0))
+    }
+
+    fun percentage(rate: Long): Money {
+        return Money(amount * rate / 100)
+    }
+
+    fun min(other: Money): Money {
+        return if (amount <= other.amount) this else other
+    }
 }

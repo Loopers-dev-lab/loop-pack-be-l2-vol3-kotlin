@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query
 interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM ProductEntity p LEFT JOIN FETCH p.images WHERE p.id = :id")
+    @Query("SELECT p FROM ProductEntity p WHERE p.id = :id")
     fun findByIdForUpdate(id: Long): ProductEntity?
 
     @Query("SELECT p FROM ProductEntity p LEFT JOIN FETCH p.images WHERE p.id = :id")

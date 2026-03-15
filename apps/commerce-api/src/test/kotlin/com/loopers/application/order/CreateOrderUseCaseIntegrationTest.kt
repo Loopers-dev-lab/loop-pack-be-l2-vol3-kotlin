@@ -2,11 +2,16 @@ package com.loopers.application.order
 
 import com.loopers.application.brand.RegisterBrandCommand
 import com.loopers.application.brand.RegisterBrandUseCase
+import com.loopers.application.coupon.IssueCouponUseCase
+import com.loopers.application.coupon.RegisterCouponCommand
+import com.loopers.application.coupon.RegisterCouponUseCase
 import com.loopers.application.product.DeleteProductUseCase
 import com.loopers.application.product.RegisterProductCommand
 import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.application.user.RegisterUserCommand
 import com.loopers.application.user.RegisterUserUseCase
+import com.loopers.domain.coupon.CouponException
+import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.product.ProductException
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -20,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.jdbc.Sql
+import java.time.ZonedDateTime
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig::class)
@@ -27,6 +33,8 @@ import org.springframework.test.context.jdbc.Sql
     statements = [
         "DELETE FROM order_item",
         "DELETE FROM orders",
+        "DELETE FROM user_coupon",
+        "DELETE FROM coupon",
         "DELETE FROM likes",
         "DELETE FROM product_image",
         "DELETE FROM product",
@@ -54,6 +62,15 @@ class CreateOrderUseCaseIntegrationTest {
 
     @Autowired
     private lateinit var productRepository: ProductRepository
+
+    @Autowired
+    private lateinit var registerCouponUseCase: RegisterCouponUseCase
+
+    @Autowired
+    private lateinit var issueCouponUseCase: IssueCouponUseCase
+
+    @Autowired
+    private lateinit var userCouponRepository: UserCouponRepository
 
     private var userId: Long = 0
     private var brandId: Long = 0
@@ -123,6 +140,67 @@ class CreateOrderUseCaseIntegrationTest {
                 assertThat(ex.errorType).isEqualTo(ErrorType.NOT_FOUND)
             }
     }
+
+    @Test
+    fun `쿠폰 적용 주문이 정상적으로 생성되어야 한다`() {
+        val couponId = registerCouponUseCase.register(createCouponCommand())
+        val userCouponId = issueCouponUseCase.issue(userId, couponId)
+        val command = CreateOrderCommand(
+            items = listOf(OrderItemCommand(productId = productId, quantity = 2)),
+            couponId = userCouponId,
+        )
+
+        val orderId = createOrderUseCase.create(userId, command)
+
+        assertThat(orderId).isPositive()
+    }
+
+    @Test
+    fun `쿠폰 적용 주문 시 UserCoupon이 USED 상태가 되어야 한다`() {
+        val couponId = registerCouponUseCase.register(createCouponCommand())
+        val userCouponId = issueCouponUseCase.issue(userId, couponId)
+        val command = CreateOrderCommand(
+            items = listOf(OrderItemCommand(productId = productId, quantity = 2)),
+            couponId = userCouponId,
+        )
+
+        createOrderUseCase.create(userId, command)
+
+        val userCoupon = userCouponRepository.findById(userCouponId)!!
+        assertThat(userCoupon.status.name).isEqualTo("USED")
+    }
+
+    @Test
+    fun `이미 사용된 쿠폰으로 주문하면 CouponException이 발생한다`() {
+        val couponId = registerCouponUseCase.register(createCouponCommand())
+        val userCouponId = issueCouponUseCase.issue(userId, couponId)
+        createOrderUseCase.create(
+            userId,
+            CreateOrderCommand(
+                items = listOf(OrderItemCommand(productId = productId, quantity = 1)),
+                couponId = userCouponId,
+            ),
+        )
+
+        assertThatThrownBy {
+            createOrderUseCase.create(
+                userId,
+                CreateOrderCommand(
+                    items = listOf(OrderItemCommand(productId = productId, quantity = 1)),
+                    couponId = userCouponId,
+                ),
+            )
+        }.isInstanceOf(CouponException::class.java)
+    }
+
+    private fun createCouponCommand() = RegisterCouponCommand(
+        name = "테스트쿠폰",
+        discountType = "FIXED",
+        discountValue = 3000L,
+        minOrderAmount = 0L,
+        maxIssueCount = 100,
+        expiredAt = ZonedDateTime.now().plusDays(30),
+    )
 
     private fun createUserCommand() = RegisterUserCommand(
         loginId = "testuser",

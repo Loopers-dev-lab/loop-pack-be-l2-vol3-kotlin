@@ -19,9 +19,18 @@ class OrderEntity(
     @Column(name = "user_id", nullable = false)
     val userId: Long,
 
+    @Column(name = "user_coupon_id")
+    val userCouponId: Long?,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     val status: OrderStatus,
+
+    @Column(name = "original_amount", nullable = false)
+    val originalAmount: Long,
+
+    @Column(name = "discount_amount", nullable = false)
+    val discountAmount: Long,
 
     @Column(name = "total_amount", nullable = false)
     val totalAmount: Long,

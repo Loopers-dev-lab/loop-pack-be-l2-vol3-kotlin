@@ -29,7 +29,10 @@ class FakeOrderRepository : OrderRepository {
         val persisted = Order.reconstitute(
             persistenceId = id,
             refUserId = order.refUserId,
+            refUserCouponId = order.refUserCouponId,
             status = order.status,
+            originalAmount = order.originalAmount,
+            discountAmount = order.discountAmount,
             totalAmount = order.totalAmount,
             orderedAt = order.orderedAt,
             items = items,

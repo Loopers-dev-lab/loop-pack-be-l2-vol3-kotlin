@@ -132,6 +132,9 @@ classDiagram
         +Money(amount)
         +multiply(quantity) Money
         +add(other) Money
+        +subtract(other) Money
+        +percentage(rate) Money
+        +min(other) Money
     }
 
     class Stock {
@@ -187,17 +190,22 @@ classDiagram
         <<Aggregate Root>>
         -Long? persistenceId
         -Long refUserId
+        -Long? refUserCouponId
         -OrderStatus status
+        -Money originalAmount
+        -Money discountAmount
         -Money totalAmount
         -ZonedDateTime orderedAt
         -List~OrderItem~ items
         +create(userId, items)$ Order
+        +createWithCoupon(userId, items, userCouponId, discountAmount)$ Order
         +reconstitute(...)$ Order
         +cancel() Order
         +complete() Order
         +isOwnedBy(userId) boolean
         +assertOwnedBy(userId) void
         +canCancel() boolean
+        +hasCoupon() boolean
     }
 
     class OrderStatus {
@@ -231,6 +239,76 @@ classDiagram
     OrderItemFactory ..> Product : uses
     OrderItemFactory ..> Brand : uses
     OrderItemFactory ..> OrderItem : creates
+
+    %% Coupon Aggregate
+    class Coupon {
+        <<Aggregate Root>>
+        -Long? persistenceId
+        -CouponName name
+        -DiscountType discountType
+        -Long discountValue
+        -Money minOrderAmount
+        -Int? maxIssueCount
+        -Int issuedCount
+        -ZonedDateTime expiredAt
+        -ZonedDateTime? deletedAt
+        +create(...)$ Coupon
+        +reconstitute(...)$ Coupon
+        +update(...) Coupon
+        +delete() Coupon
+        +isExpired() boolean
+        +canIssue() boolean
+        +assertIssuable() void
+        +isDeleted() boolean
+    }
+
+    class CouponName {
+        <<Value Object>>
+        -String value
+        +CouponName(value)
+    }
+
+    class DiscountType {
+        <<Enum>>
+        FIXED
+        RATE
+    }
+
+    Coupon *-- CouponName
+    Coupon -- DiscountType
+    Coupon *-- Money
+
+    %% UserCoupon
+    class UserCoupon {
+        <<Entity>>
+        -Long? persistenceId
+        -Long refCouponId
+        -Long refUserId
+        -CouponStatus status
+        -DiscountType discountType
+        -Long discountValue
+        -Money minOrderAmount
+        -ZonedDateTime expiredAt
+        -ZonedDateTime? usedAt
+        -ZonedDateTime issuedAt
+        +issue(coupon, userId)$ UserCoupon
+        +reconstitute(...)$ UserCoupon
+        +use() UserCoupon
+        +restore() UserCoupon
+        +assertUsableBy(userId, orderAmount) void
+        +calculateDiscount(orderAmount) Money
+    }
+
+    class CouponStatus {
+        <<Enum>>
+        AVAILABLE
+        USED
+        EXPIRED
+    }
+
+    UserCoupon -- CouponStatus
+    UserCoupon -- DiscountType
+    UserCoupon *-- Money
 ```
 
 ---
@@ -354,6 +432,9 @@ classDiagram
 |--------|------|
 | `multiply(quantity)` | 수량 곱하기 |
 | `add(other)` | 금액 더하기 |
+| `subtract(other)` | 차감 (음수 불가, 최소 0) |
+| `percentage(rate)` | 비율 계산 (rate% 반환) |
+| `min(other)` | 두 금액 중 최솟값 |
 
 ### Stock (Value Object)
 
@@ -426,8 +507,11 @@ classDiagram
 |------|------|------|
 | persistenceId | Long? | 식별자 |
 | refUserId | Long | 회원 ID |
+| refUserCouponId | Long? | 사용된 UserCoupon ID (null이면 쿠폰 미적용) |
 | status | OrderStatus | 주문 상태 |
-| totalAmount | Money | 총 주문 금액 |
+| originalAmount | Money | 쿠폰 적용 전 원래 금액 |
+| discountAmount | Money | 쿠폰 할인 금액 (0이면 쿠폰 미적용) |
+| totalAmount | Money | 최종 결제 금액 (originalAmount - discountAmount) |
 | orderedAt | ZonedDateTime | 주문 시점 |
 | items | List\<OrderItem\> | 주문 항목 목록 (최소 1개) |
 
@@ -435,7 +519,8 @@ classDiagram
 
 | 메서드 | 설명 |
 |--------|------|
-| `create(userId, items)` | 주문 생성 (PENDING, totalAmount 자동 계산, persistenceId=null) |
+| `create(userId, items)` | 주문 생성 (쿠폰 없음, discountAmount=0, persistenceId=null) |
+| `createWithCoupon(userId, items, userCouponId, discountAmount)` | 쿠폰 적용 주문 생성 |
 | `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
 
 #### 행위
@@ -447,6 +532,7 @@ classDiagram
 | `isOwnedBy(userId)` | Boolean | 본인 주문 여부 확인 (BR-O07) |
 | `assertOwnedBy(userId)` | Unit | 본인 주문 아니면 OrderException throw |
 | `canCancel()` | Boolean | 취소 가능 여부 (PENDING인지) |
+| `hasCoupon()` | Boolean | 쿠폰 적용 주문 여부 |
 
 #### 상태 전이 규칙
 
@@ -559,6 +645,22 @@ interface OrderRepository {
     fun countByUserIdAndOrderedDate(userId: Long, startAt: LocalDate, endAt: LocalDate): Long  // 페이징 total count
     fun findAll(): List<Order>                             // 어드민용
 }
+
+interface CouponRepository {
+    fun save(coupon: Coupon): Long
+    fun findById(id: Long): Coupon?
+    fun incrementIssuedCount(id: Long): Int                // 원자적 UPDATE issued_count + 1
+    fun findAll(): List<Coupon>
+}
+
+interface UserCouponRepository {
+    fun save(userCoupon: UserCoupon): Long
+    fun findById(id: Long): UserCoupon?
+    fun findByIdForUpdate(id: Long): UserCoupon?           // SELECT ... FOR UPDATE
+    fun existsByCouponIdAndUserId(couponId: Long, userId: Long): Boolean
+    fun findAllByUserId(userId: Long): List<UserCoupon>
+    fun findAllByCouponId(couponId: Long): List<UserCoupon>
+}
 ```
 
 > **ProductSortType**: `CREATED_AT`(최신순), `LIKE_COUNT`(인기순), `PRICE_ASC`(가격순)
@@ -575,6 +677,105 @@ interface OrderRepository {
 | LikeRepository | `addLike(userId, productId)` | `INSERT IGNORE INTO likes ...` | - |
 | LikeRepository | `removeLike(userId, productId)` | `DELETE WHERE user_id = ? AND product_id = ?` | - |
 | OrderRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `OrderNotFoundException` |
+
+---
+
+## 5. Coupon (쿠폰)
+
+### Aggregate Root
+
+#### 속성
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| persistenceId | Long? | 식별자 |
+| name | CouponName | 쿠폰명 |
+| discountType | DiscountType | 할인 유형 (FIXED/RATE) |
+| discountValue | Long | 할인값 (FIXED: 원, RATE: 1~100%) |
+| minOrderAmount | Money | 최소 주문 금액 |
+| maxIssueCount | Int? | 최대 발급 수 (null = 무제한) |
+| issuedCount | Int | 발급된 수 |
+| expiredAt | ZonedDateTime | 만료 시점 |
+| deletedAt | ZonedDateTime? | 삭제 시점 (soft delete) |
+
+#### 생성 메서드
+
+| 메서드 | 설명 |
+|--------|------|
+| `create(...)` | 쿠폰 생성 (issuedCount=0, persistenceId=null) |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
+
+#### 행위
+
+| 메서드 | 반환 | 설명 |
+|--------|------|------|
+| `update(...)` | Coupon | 쿠폰 정보 수정 |
+| `delete()` | Coupon | soft delete |
+| `isExpired()` | Boolean | 만료 여부 확인 |
+| `canIssue()` | Boolean | 발급 가능 여부 (만료 아님 + 수량 여유) |
+| `assertIssuable()` | Unit | 발급 불가 시 CouponException throw |
+| `isDeleted()` | Boolean | 삭제 여부 확인 |
+
+### CouponName (Value Object)
+
+| 규칙 | 설명 |
+|------|------|
+| 빈 문자열 불가 | `value.isNotBlank()` |
+| 100자 이내 | `value.length <= 100` |
+
+### DiscountType (Enum)
+
+| 값 | 설명 |
+|------|------|
+| FIXED | 정액 할인 |
+| RATE | 정률 할인 (1~100%) |
+
+---
+
+## 6. UserCoupon (사용자 쿠폰)
+
+### Entity
+
+> 사용자에게 발급된 쿠폰. 발급 시점의 쿠폰 정보를 스냅샷으로 보존한다.
+
+#### 속성
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| persistenceId | Long? | 식별자 |
+| refCouponId | Long | 쿠폰 ID (참조) |
+| refUserId | Long | 사용자 ID (소유자) |
+| status | CouponStatus | 상태 (AVAILABLE/USED/EXPIRED) |
+| discountType | DiscountType | 할인 유형 (스냅샷) |
+| discountValue | Long | 할인값 (스냅샷) |
+| minOrderAmount | Money | 최소 주문 금액 (스냅샷) |
+| expiredAt | ZonedDateTime | 만료 시점 (스냅샷) |
+| usedAt | ZonedDateTime? | 사용 시점 |
+| issuedAt | ZonedDateTime | 발급 시점 |
+
+#### 생성 메서드
+
+| 메서드 | 설명 |
+|--------|------|
+| `issue(coupon, userId)` | 팩토리 — 쿠폰 정보 스냅샷으로 UserCoupon 생성 |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
+
+#### 행위
+
+| 메서드 | 반환 | 설명 |
+|--------|------|------|
+| `use()` | UserCoupon | AVAILABLE → USED (상태 아니면 예외) |
+| `restore()` | UserCoupon | USED → AVAILABLE (주문 취소 시) |
+| `assertUsableBy(userId, orderAmount)` | Unit | 소유자, 상태, 만료, 최소금액 검증 |
+| `calculateDiscount(orderAmount)` | Money | 할인 금액 계산 |
+
+#### CouponStatus (Enum)
+
+| 값 | 의미 |
+|------|------|
+| AVAILABLE | 사용 가능 |
+| USED | 사용됨 |
+| EXPIRED | 만료됨 |
 
 ---
 
@@ -616,7 +817,15 @@ class OrderItemFactory {
 | GetMyLikesUseCase | 내 좋아요 목록 조회 (페이징) |
 | CreateOrderUseCase | 주문 생성. 재고 차감 → 스냅샷 → PENDING 저장 |
 | GetOrderUseCase | 주문 조회 (단건/목록/어드민). 권한 검증 (BR-O07), 날짜 필터 + 페이징 |
-| CancelOrderUseCase | 주문 취소. 권한/상태 검증 → cancel → 재고 복구 |
+| CancelOrderUseCase | 주문 취소. 권한/상태 검증 → cancel → 재고 복구 + 쿠폰 복원 |
+| RegisterCouponUseCase | 쿠폰 등록 (어드민) |
+| UpdateCouponUseCase | 쿠폰 수정 (어드민) |
+| DeleteCouponUseCase | 쿠폰 삭제 (어드민) |
+| GetCouponUseCase | 쿠폰 상세 조회 (어드민) |
+| GetCouponListUseCase | 쿠폰 목록 조회 (어드민) |
+| GetUserCouponListUseCase | 쿠폰별 발급 내역 조회 (어드민) |
+| IssueCouponUseCase | 쿠폰 발급. 중복/수량/만료 검증 + 스냅샷 생성 + issuedCount 증가 |
+| GetMyCouponsUseCase | 내 쿠폰 목록 조회 |
 
 ---
 

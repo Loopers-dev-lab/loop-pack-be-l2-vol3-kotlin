@@ -7,6 +7,9 @@ import java.time.ZonedDateTime
 data class GetOrderDetailResponse(
     val id: Long,
     val status: String,
+    val userCouponId: Long?,
+    val originalAmount: Long,
+    val discountAmount: Long,
     val totalAmount: Long,
     val orderedAt: ZonedDateTime,
     val items: List<OrderItemResponse>,
@@ -15,6 +18,9 @@ data class GetOrderDetailResponse(
         fun from(orderInfo: OrderInfo) = GetOrderDetailResponse(
             id = orderInfo.id,
             status = orderInfo.status,
+            userCouponId = orderInfo.userCouponId,
+            originalAmount = orderInfo.originalAmount,
+            discountAmount = orderInfo.discountAmount,
             totalAmount = orderInfo.totalAmount,
             orderedAt = orderInfo.orderedAt,
             items = orderInfo.items.map { OrderItemResponse.from(it) },

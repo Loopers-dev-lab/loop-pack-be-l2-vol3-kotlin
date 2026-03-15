@@ -606,6 +606,173 @@ sequenceDiagram
 
 ---
 
+## 7. 쿠폰 발급
+
+### 7-1. 목적
+
+쿠폰 발급은 **중복 발급 방지**와 **발급 수량 정합성**을 보장하는 것이 목적이다.
+
+- 한 사용자는 같은 쿠폰을 1회만 발급받을 수 있다
+- 최대 발급 수량을 초과하여 발급되지 않아야 한다
+- 발급 시점의 쿠폰 정보를 스냅샷으로 보존한다
+
+### 7-2. Happy Path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant 회원
+    participant API as 쿠폰 API
+    participant 흐름 as 쿠폰 흐름 관리
+    participant 도메인 as 쿠폰 도메인
+    participant 쿠폰저장소 as 쿠폰 저장소
+    participant 유저쿠폰저장소 as 유저쿠폰 저장소
+
+    회원->>API: 쿠폰 발급 요청
+
+    API->>흐름: 쿠폰 발급 위임
+
+    Note over 흐름: 트랜잭션 시작
+
+    흐름->>쿠폰저장소: 쿠폰 조회
+
+    alt 쿠폰 없음 or 삭제됨
+        쿠폰저장소-->>흐름: 조회 실패
+        흐름-->>API: 쿠폰 없음 오류
+        API-->>회원: 실패 응답
+    end
+
+    흐름->>도메인: 발급 가능 여부 검증 (만료, 수량)
+
+    alt 만료됨 or 수량 초과
+        도메인-->>흐름: 검증 실패
+        흐름-->>API: 발급 불가 오류
+        API-->>회원: 실패 응답
+    end
+
+    흐름->>유저쿠폰저장소: 중복 발급 확인
+
+    alt 이미 발급됨
+        유저쿠폰저장소-->>흐름: 이미 존재
+        흐름-->>API: 중복 오류
+        API-->>회원: 실패 응답 (409)
+    end
+
+    흐름->>도메인: UserCoupon 생성 (스냅샷)
+    도메인-->>흐름: UserCoupon (AVAILABLE)
+
+    흐름->>유저쿠폰저장소: UserCoupon 저장
+    흐름->>쿠폰저장소: issuedCount 원자적 증가
+
+    Note over 흐름: 트랜잭션 커밋
+
+    흐름-->>API: 발급 완료
+    API-->>회원: 성공 응답
+```
+
+---
+
+## 8. 쿠폰 적용 주문 생성
+
+### 8-1. 목적
+
+쿠폰 적용 주문은 기존 주문 생성에 **쿠폰 사용의 원자성**을 추가로 보장하는 것이 목적이다.
+
+- 쿠폰 사용은 1회성이므로 동시 사용 시 1건만 성공해야 한다
+- 쿠폰 할인 정보는 주문에 스냅샷으로 저장된다
+
+### 8-2. Happy Path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant 회원
+    participant API as 주문 API
+    participant 흐름 as 주문 흐름 관리
+    participant 도메인 as 주문/쿠폰 도메인
+    participant 상품저장소 as 상품 저장소
+    participant 유저쿠폰저장소 as 유저쿠폰 저장소
+    participant 주문저장소 as 주문 저장소
+
+    회원->>API: 주문 생성 요청 (쿠폰 ID 포함)
+
+    API->>흐름: 주문 생성 위임
+
+    Note over 흐름: 트랜잭션 시작
+
+    loop 각 상품 (ID 오름차순)
+        흐름->>상품저장소: 상품 조회 (FOR UPDATE) + 재고 차감
+    end
+
+    흐름->>유저쿠폰저장소: UserCoupon 조회 (FOR UPDATE)
+    흐름->>도메인: 소유자, 상태, 만료, 최소 금액 검증
+    흐름->>도메인: 할인 금액 계산
+
+    alt 검증 실패
+        Note over 흐름: 트랜잭션 롤백
+        흐름-->>API: 쿠폰 사용 불가 오류
+        API-->>회원: 실패 응답
+    end
+
+    흐름->>도메인: 쿠폰 상태 USED로 변경
+    흐름->>유저쿠폰저장소: UserCoupon 저장
+    흐름->>도메인: 주문 생성 (originalAmount, discountAmount 포함)
+    흐름->>주문저장소: 주문 저장
+
+    Note over 흐름: 트랜잭션 커밋
+
+    흐름-->>API: 주문 생성 완료
+    API-->>회원: 성공 응답
+```
+
+---
+
+## 9. 주문 취소 시 쿠폰 복원
+
+### 9-1. 목적
+
+주문 취소 시 사용된 쿠폰을 **안전하게 복원**하는 것이 목적이다.
+
+### 9-2. Happy Path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant 회원
+    participant API as 주문 API
+    participant 흐름 as 주문 흐름 관리
+    participant 도메인 as 주문/쿠폰 도메인
+    participant 주문저장소 as 주문 저장소
+    participant 상품저장소 as 상품 저장소
+    participant 유저쿠폰저장소 as 유저쿠폰 저장소
+
+    회원->>API: 주문 취소 요청
+
+    API->>흐름: 주문 취소 위임
+
+    Note over 흐름: 트랜잭션 시작
+
+    흐름->>주문저장소: 주문 조회 (FOR UPDATE)
+    흐름->>도메인: 권한 검증 + 상태 검증 + cancel()
+
+    흐름->>주문저장소: 주문 저장 (CANCELLED)
+
+    흐름->>상품저장소: 재고 복구 (각 상품)
+
+    opt 쿠폰이 적용된 주문 (refUserCouponId != null)
+        흐름->>유저쿠폰저장소: UserCoupon 조회
+        흐름->>도메인: UserCoupon 상태 AVAILABLE로 복원
+        흐름->>유저쿠폰저장소: UserCoupon 저장
+    end
+
+    Note over 흐름: 트랜잭션 커밋
+
+    흐름-->>API: 주문 취소 완료
+    API-->>회원: 성공 응답
+```
+
+---
+
 ## 요약
 
 | 유스케이스 | 보장하려는 것 | 실패 전략 | 동시성 방어 |
@@ -616,6 +783,9 @@ sequenceDiagram
 | 주문 취소 | 상태 전이 안전성 + 재고 복구 | 전체 롤백 | 비관적 락 + 상태 선변경 |
 | 브랜드 등록 | 브랜드명 유일성 | 즉시 실패 | UNIQUE 제약 (DB 최종 방어) |
 | 브랜드 삭제 | 연쇄 Soft Delete 안전성 + 데이터 보존 | 전체 롤백 | 주문 락 대기 후 순차 처리 |
+| 쿠폰 발급 | 중복 발급 방지 + 수량 정합성 | 즉시 실패 | 중복 검사 + 원자적 카운트 증가 |
+| 쿠폰 적용 주문 | 쿠폰 1회 사용 보장 | 전체 롤백 | 비관적 락 (SELECT FOR UPDATE) |
+| 주문 취소 시 쿠폰 복원 | 쿠폰 안전 복원 | 전체 롤백 | 주문 트랜잭션 내에서 처리 |
 
 ---
 

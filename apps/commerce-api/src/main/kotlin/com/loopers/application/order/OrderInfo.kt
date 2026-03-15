@@ -7,7 +7,10 @@ import java.time.ZonedDateTime
 data class OrderInfo(
     val id: Long,
     val userId: Long,
+    val userCouponId: Long?,
     val status: String,
+    val originalAmount: Long,
+    val discountAmount: Long,
     val totalAmount: Long,
     val orderedAt: ZonedDateTime,
     val items: List<OrderItemInfo>,
@@ -20,7 +23,10 @@ data class OrderInfo(
             return OrderInfo(
                 id = id,
                 userId = order.refUserId,
+                userCouponId = order.refUserCouponId,
                 status = order.status.name,
+                originalAmount = order.originalAmount.amount,
+                discountAmount = order.discountAmount.amount,
                 totalAmount = order.totalAmount.amount,
                 orderedAt = order.orderedAt,
                 items = order.items.map { OrderItemInfo.from(it) },

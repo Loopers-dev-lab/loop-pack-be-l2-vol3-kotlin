@@ -1,9 +1,11 @@
 package com.loopers.application.order
 
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItemFactory
 import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -11,7 +13,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 /**
- * 교차 집계: Order + Product(재고 차감) + Brand(스냅샷 조회)
+ * 교차 집계: Order + Product(재고 차감) + Brand(스냅샷 조회) + UserCoupon(쿠폰 사용)
  * MSA 분리 시 Product 재고 차감 → Product Service API 호출 + Saga 보상 트랜잭션 필요
  */
 @Component
@@ -19,6 +21,7 @@ class CreateOrderUseCase(
     private val orderRepository: OrderRepository,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val userCouponRepository: UserCouponRepository,
 ) {
     private val orderItemFactory = OrderItemFactory()
 
@@ -52,7 +55,38 @@ class CreateOrderUseCase(
             orderItem
         }
 
-        val order = Order.create(userId = userId, items = orderItems)
+        val order = if (command.couponId != null) {
+            createOrderWithCoupon(userId, orderItems, command.couponId)
+        } else {
+            Order.create(userId = userId, items = orderItems)
+        }
+
         return orderRepository.save(order)
+    }
+
+    private fun createOrderWithCoupon(
+        userId: Long,
+        orderItems: List<com.loopers.domain.order.OrderItem>,
+        userCouponId: Long,
+    ): Order {
+        val userCoupon = userCouponRepository.findByIdForUpdate(userCouponId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다: $userCouponId")
+
+        val originalAmount = orderItems.fold(Money(0)) { acc, item ->
+            Money(acc.amount + item.price.amount * item.quantity)
+        }
+
+        userCoupon.assertUsableBy(userId, originalAmount)
+
+        val discountAmount = userCoupon.calculateDiscount(originalAmount)
+        val usedCoupon = userCoupon.use()
+        userCouponRepository.save(usedCoupon)
+
+        return Order.createWithCoupon(
+            userId = userId,
+            items = orderItems,
+            userCouponId = userCouponId,
+            discountAmount = discountAmount,
+        )
     }
 }

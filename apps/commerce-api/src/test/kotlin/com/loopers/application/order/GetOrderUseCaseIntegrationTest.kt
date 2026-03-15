@@ -26,6 +26,8 @@ import java.time.LocalDate
     statements = [
         "DELETE FROM order_item",
         "DELETE FROM orders",
+        "DELETE FROM user_coupon",
+        "DELETE FROM coupon",
         "DELETE FROM likes",
         "DELETE FROM product_image",
         "DELETE FROM product",

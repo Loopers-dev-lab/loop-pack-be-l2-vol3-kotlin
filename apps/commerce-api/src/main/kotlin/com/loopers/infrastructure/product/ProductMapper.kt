@@ -27,6 +27,25 @@ object ProductMapper {
         )
     }
 
+    fun toDomainWithoutImages(entity: ProductEntity): Product {
+        val id = requireNotNull(entity.id) {
+            "ProductEntity.id가 null입니다. 저장된 Entity만 Domain으로 변환 가능합니다."
+        }
+        return Product.reconstitute(
+            persistenceId = id,
+            refBrandId = entity.brandId,
+            name = ProductName(entity.name),
+            description = entity.description,
+            price = Money(entity.price),
+            stock = Stock(entity.stock),
+            thumbnailUrl = entity.thumbnailUrl,
+            status = entity.status,
+            likeCount = entity.likeCount,
+            deletedAt = entity.deletedAt,
+            images = emptyList(),
+        )
+    }
+
     fun toEntity(domain: Product): ProductEntity {
         val entity = ProductEntity(
             id = domain.persistenceId,
