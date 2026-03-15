@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional
 class UpdateProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productCachePort: ProductCachePort,
 ) {
     @Transactional
     fun update(id: Long, command: UpdateProductCommand): ProductInfo {
@@ -35,6 +36,8 @@ class UpdateProductUseCase(
         )
 
         productRepository.save(updatedProduct)
+        productCachePort.evictProductDetail(id)
+
         val brand = brandRepository.findById(updatedProduct.refBrandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${updatedProduct.refBrandId}")
         return ProductInfo.from(updatedProduct, brand)

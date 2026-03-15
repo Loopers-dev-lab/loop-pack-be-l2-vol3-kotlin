@@ -25,7 +25,7 @@ class GetProductUseCaseTest {
     fun setUp() {
         productRepository = FakeProductRepository()
         brandRepository = FakeBrandRepository()
-        getProductUseCase = GetProductUseCase(productRepository, brandRepository)
+        getProductUseCase = GetProductUseCase(productRepository, brandRepository, FakeProductCachePort())
     }
 
     @Test

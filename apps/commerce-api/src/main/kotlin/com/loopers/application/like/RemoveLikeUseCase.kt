@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductCachePort
 import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
 import org.springframework.stereotype.Component
@@ -13,12 +14,14 @@ import org.springframework.transaction.annotation.Transactional
 class RemoveLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
+    private val productCachePort: ProductCachePort,
 ) {
     @Transactional
     fun remove(userId: Long, productId: Long) {
         val affected = likeRepository.removeLike(userId, productId)
         if (affected > 0) {
             productRepository.decrementLikeCount(productId)
+            productCachePort.evictProductDetail(productId)
         }
     }
 }

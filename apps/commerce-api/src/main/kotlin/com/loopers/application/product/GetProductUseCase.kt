@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productCachePort: ProductCachePort,
 ) {
     fun getById(id: Long): ProductInfo {
         val product = productRepository.findById(id)
@@ -22,6 +23,8 @@ class GetProductUseCase(
     }
 
     fun getActiveById(id: Long): ProductInfo {
+        productCachePort.getProductDetail(id)?.let { return it }
+
         val product = productRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: $id")
         if (product.isDeleted()) {
@@ -29,6 +32,8 @@ class GetProductUseCase(
         }
         val brand = brandRepository.findById(product.refBrandId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: ${product.refBrandId}")
-        return ProductInfo.from(product, brand)
+        val productInfo = ProductInfo.from(product, brand)
+        productCachePort.setProductDetail(id, productInfo)
+        return productInfo
     }
 }

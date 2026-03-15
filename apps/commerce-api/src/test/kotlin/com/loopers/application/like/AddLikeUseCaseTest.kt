@@ -23,7 +23,7 @@ class AddLikeUseCaseTest {
     fun setUp() {
         likeRepository = FakeLikeRepository()
         productRepository = FakeProductRepository()
-        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository)
+        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository, com.loopers.application.product.FakeProductCachePort())
     }
 
     @Test

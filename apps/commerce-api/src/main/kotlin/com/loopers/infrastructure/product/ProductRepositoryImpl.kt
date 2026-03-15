@@ -61,7 +61,7 @@ class ProductRepositoryImpl(
             else ->
                 jpaRepository.findAllActiveLatest()
         }
-        return entities.map { ProductMapper.toDomain(it) }
+        return entities.map { ProductMapper.toDomainWithoutImages(it) }
     }
 
     override fun findAll(brandId: Long?): List<Product> {
@@ -69,6 +69,6 @@ class ProductRepositoryImpl(
             brandId != null -> jpaRepository.findAllByBrand(brandId)
             else -> jpaRepository.findAllLatest()
         }
-        return entities.map { ProductMapper.toDomain(it) }
+        return entities.map { ProductMapper.toDomainWithoutImages(it) }
     }
 }
