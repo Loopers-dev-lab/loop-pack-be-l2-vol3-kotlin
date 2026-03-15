@@ -1,12 +1,9 @@
-package com.loopers.application.user.product
+package com.loopers.domain.product
 
 import com.loopers.domain.brand.Brand
-import com.loopers.domain.product.Product
-import com.loopers.domain.product.ProductQueryResult
-import com.loopers.domain.product.ProductStock
 import java.math.BigDecimal
 
-class UserProductResult {
+class ProductQueryResult {
     data class Detail(
         val id: Long,
         val name: String,
@@ -32,19 +29,6 @@ class UserProductResult {
                 likeCount = product.likeCount,
                 stockQuantity = stock.quantity.value,
             )
-
-            fun from(result: ProductQueryResult.Detail): Detail = Detail(
-                id = result.id,
-                name = result.name,
-                regularPrice = result.regularPrice,
-                sellingPrice = result.sellingPrice,
-                brandId = result.brandId,
-                brandName = result.brandName,
-                imageUrl = result.imageUrl,
-                thumbnailUrl = result.thumbnailUrl,
-                likeCount = result.likeCount,
-                stockQuantity = result.stockQuantity,
-            )
         }
     }
 
@@ -66,16 +50,6 @@ class UserProductResult {
                 brandName = brand.name.value,
                 thumbnailUrl = product.thumbnailUrl,
                 likeCount = product.likeCount,
-            )
-
-            fun from(result: ProductQueryResult.Summary): Summary = Summary(
-                id = result.id,
-                name = result.name,
-                sellingPrice = result.sellingPrice,
-                brandId = result.brandId,
-                brandName = result.brandName,
-                thumbnailUrl = result.thumbnailUrl,
-                likeCount = result.likeCount,
             )
         }
     }

@@ -1,6 +1,7 @@
 package com.loopers.application.user.like
 
-import com.loopers.application.product.ProductQueryCache
+import com.loopers.application.event.product.ProductQueryChangedEvent
+import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.common.Money
 import com.loopers.domain.like.ProductLike
 import com.loopers.domain.like.ProductLikeRepository
@@ -21,10 +22,14 @@ import java.math.BigDecimal
 
 @DisplayName("상품 좋아요 등록")
 class UserProductLikeRegisterUseCaseTest {
-    private val productQueryCache: ProductQueryCache = mock()
+    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher = mock()
     private val productRepository: ProductRepository = mock()
     private val productLikeRepository: ProductLikeRepository = mock()
-    private val useCase = UserProductLikeRegisterUseCase(productQueryCache, productRepository, productLikeRepository)
+    private val useCase = UserProductLikeRegisterUseCase(
+        productQueryChangedEventPublisher,
+        productRepository,
+        productLikeRepository,
+    )
 
     private fun activeProduct(id: Long, brandId: Long = 1L): Product =
         Product.retrieve(
@@ -75,7 +80,9 @@ class UserProductLikeRegisterUseCaseTest {
                 },
             )
             then(productRepository).should().incrementLikeCount(eq(1L))
-            then(productQueryCache).should().evictDetail(eq(1L))
+            then(productQueryChangedEventPublisher).should().publish(
+                eq(ProductQueryChangedEvent(productIds = listOf(1L))),
+            )
         }
     }
 
@@ -99,7 +106,7 @@ class UserProductLikeRegisterUseCaseTest {
                 check<ProductLike> { it.userId == 1L && it.productId == 1L },
             )
             then(productRepository).should(never()).incrementLikeCount(eq(1L))
-            then(productQueryCache).should(never()).evictDetail(eq(1L))
+            then(productQueryChangedEventPublisher).should(never()).publish(eq(ProductQueryChangedEvent(productIds = listOf(1L))))
         }
     }
 

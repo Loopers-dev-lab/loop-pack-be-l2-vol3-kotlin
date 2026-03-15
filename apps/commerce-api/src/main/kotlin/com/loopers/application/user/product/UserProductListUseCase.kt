@@ -1,10 +1,7 @@
 package com.loopers.application.user.product
 
-import com.loopers.application.product.ProductQueryCache
-import com.loopers.domain.brand.Brand
-import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
-import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.product.ProductQueryRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.support.page.PageRequest
@@ -14,9 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class UserProductListUseCase(
-    private val productQueryCache: ProductQueryCache,
-    private val productRepository: ProductRepository,
-    private val brandRepository: BrandRepository,
+    private val productQueryRepository: ProductQueryRepository,
 ) {
     @Transactional(readOnly = true)
     fun getList(
@@ -31,25 +26,7 @@ class UserProductListUseCase(
                 throw CoreException(ErrorType.BAD_REQUEST)
             }
         }
-        productQueryCache.getList(pageRequest, brandId, sortType)?.let { return it }
-
-        val productPage = productRepository.findAllActive(pageRequest, brandId, sortType)
-
-        val brandIds = productPage.content.map { it.brandId }.distinct()
-        val activeBrands = brandRepository.findAllByIdIn(brandIds)
-            .filter { it.status == Brand.Status.ACTIVE }
-            .associateBy { it.id!! }
-
-        return PageResponse(
-            content = productPage.content.map { product ->
-                val brand = activeBrands[product.brandId]!!
-                UserProductResult.Summary.from(product, brand)
-            },
-            totalElements = productPage.totalElements,
-            page = productPage.page,
-            size = productPage.size,
-        ).also {
-            productQueryCache.putList(pageRequest, brandId, sortType, it)
-        }
+        return productQueryRepository.getList(pageRequest, brandId, sortType)
+            .map(UserProductResult.Summary::from)
     }
 }

@@ -1,6 +1,7 @@
 package com.loopers.application.admin.product
 
-import com.loopers.application.product.ProductQueryCache
+import com.loopers.application.event.product.ProductQueryChangedEvent
+import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
@@ -20,10 +21,10 @@ import java.math.BigDecimal
 
 @DisplayName("AdminProductDeleteUseCase")
 class AdminProductDeleteUseCaseTest {
-    private val productQueryCache: ProductQueryCache = mock()
+    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher = mock()
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
-    private val useCase = AdminProductDeleteUseCase(productQueryCache, productRepository, productStockRepository)
+    private val useCase = AdminProductDeleteUseCase(productQueryChangedEventPublisher, productRepository, productStockRepository)
 
     private val admin = "loopers.admin"
 
@@ -51,7 +52,9 @@ class AdminProductDeleteUseCaseTest {
 
             then(productStockRepository).should().deleteByProductId(eq(1L), eq(admin))
             then(productRepository).should().delete(eq(1L), eq(admin))
-            then(productQueryCache).should().evictDetail(eq(1L))
+            then(productQueryChangedEventPublisher).should().publish(
+                eq(ProductQueryChangedEvent(productIds = listOf(1L), brandIds = listOf(1L))),
+            )
         }
     }
 

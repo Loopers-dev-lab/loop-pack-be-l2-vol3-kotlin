@@ -1,6 +1,7 @@
 package com.loopers.application.admin.product
 
-import com.loopers.application.product.ProductQueryCache
+import com.loopers.application.event.product.ProductQueryChangedEvent
+import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -13,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AdminProductUpdateUseCase(
-    private val productQueryCache: ProductQueryCache,
+    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
 ) {
@@ -34,7 +35,12 @@ class AdminProductUpdateUseCase(
         val statusChanged = applyStatusChange(updated, targetStatus)
 
         val saved = productRepository.save(statusChanged, command.admin)
-        productQueryCache.evictDetail(saved.id!!)
+        productQueryChangedEventPublisher.publish(
+            ProductQueryChangedEvent(
+                productIds = listOf(command.productId),
+                brandIds = listOf(product.brandId),
+            ),
+        )
         return AdminProductResult.Update.from(saved)
     }
 

@@ -6,6 +6,7 @@ import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
 import org.springframework.data.domain.PageRequest as SpringPageRequest
 
@@ -20,6 +21,7 @@ class AdminOrderRepositoryImpl(
         return orderMapper.toDomain(entity)
     }
 
+    @Transactional(readOnly = true)
     override fun findAll(
         from: ZonedDateTime?,
         to: ZonedDateTime?,

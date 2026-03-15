@@ -1,6 +1,7 @@
 package com.loopers.application.user.like
 
-import com.loopers.application.product.ProductQueryCache
+import com.loopers.application.event.product.ProductQueryChangedEvent
+import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.ProductRepository
 import org.springframework.stereotype.Service
@@ -8,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class UserProductLikeCancelUseCase(
-    private val productQueryCache: ProductQueryCache,
+    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher,
     private val productLikeRepository: ProductLikeRepository,
     private val productRepository: ProductRepository,
 ) {
@@ -17,7 +18,9 @@ class UserProductLikeCancelUseCase(
         val deleted = productLikeRepository.deleteByUserIdAndProductId(command.userId, command.productId)
         if (deleted) {
             productRepository.decrementLikeCount(command.productId)
-            productQueryCache.evictDetail(command.productId)
+            productQueryChangedEventPublisher.publish(
+                ProductQueryChangedEvent(productIds = listOf(command.productId)),
+            )
         }
     }
 }

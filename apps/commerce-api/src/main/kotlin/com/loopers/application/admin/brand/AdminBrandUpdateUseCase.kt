@@ -1,6 +1,7 @@
 package com.loopers.application.admin.brand
 
-import com.loopers.application.product.ProductQueryCache
+import com.loopers.application.event.product.ProductQueryChangedEvent
+import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
@@ -12,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional
 class AdminBrandUpdateUseCase(
     private val brandRepository: BrandRepository,
     private val productRepository: ProductRepository,
-    private val productQueryCache: ProductQueryCache,
+    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher,
 ) {
     @Transactional
     fun update(command: AdminBrandCommand.Update): AdminBrandResult.Update {
@@ -20,9 +21,14 @@ class AdminBrandUpdateUseCase(
             ?: throw CoreException(ErrorType.BRAND_NOT_FOUND)
         val updated = brand.update(command.name, command.status)
         val saved = brandRepository.save(updated, command.admin)
-        val productIds = productRepository.findAllByBrandId(saved.id!!)
+        val productIds = productRepository.findAllByBrandId(command.brandId)
             .mapNotNull { it.id }
-        productQueryCache.evictDetails(productIds)
+        productQueryChangedEventPublisher.publish(
+            ProductQueryChangedEvent(
+                productIds = productIds,
+                brandIds = listOf(command.brandId),
+            ),
+        )
         return AdminBrandResult.Update.from(saved)
     }
 }

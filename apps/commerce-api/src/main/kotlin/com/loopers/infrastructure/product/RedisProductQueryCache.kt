@@ -2,10 +2,9 @@ package com.loopers.infrastructure.product
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.loopers.application.product.ProductQueryCache
-import com.loopers.application.user.product.UserProductResult
 import com.loopers.config.redis.RedisConfig
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductQueryResult
 import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
 import org.springframework.beans.factory.annotation.Qualifier
@@ -18,37 +17,46 @@ class RedisProductQueryCache(
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val redisTemplate: RedisTemplate<String, String>,
     private val objectMapper: ObjectMapper,
-) : ProductQueryCache {
+) {
 
-    override fun getDetail(productId: Long): UserProductResult.Detail? =
+    fun getDetail(productId: Long): ProductQueryResult.Detail? =
         readValue(detailKey(productId), DETAIL_TYPE_REFERENCE)
 
-    override fun putDetail(detail: UserProductResult.Detail) {
+    fun putDetail(detail: ProductQueryResult.Detail) {
         writeValue(detailKey(detail.id), detail, DETAIL_TTL)
     }
 
-    override fun evictDetail(productId: Long) {
-        runCatching { redisTemplate.delete(detailKey(productId)) }
-    }
-
-    override fun evictDetails(productIds: Collection<Long>) {
+    fun evictDetails(productIds: Collection<Long>) {
         if (productIds.isEmpty()) return
         runCatching { redisTemplate.delete(productIds.map(::detailKey).toSet()) }
     }
 
-    override fun getList(
-        pageRequest: PageRequest,
-        brandId: Long?,
-        sort: Product.SortType?,
-    ): PageResponse<UserProductResult.Summary>? = readValue(listKey(pageRequest, brandId, sort), LIST_TYPE_REFERENCE)
+    fun getListNamespaceVersion(brandId: Long?): Long = listNamespaceVersion(listScope(brandId))
 
-    override fun putList(
+    fun invalidateListsByBrandId(brandId: Long) {
+        runCatching {
+            val valueOperations = redisTemplate.opsForValue()
+            valueOperations.increment(listNamespaceKey(listScope(brandId)))
+            valueOperations.increment(listNamespaceKey(ALL_LIST_SCOPE))
+        }
+    }
+
+    fun getList(
         pageRequest: PageRequest,
         brandId: Long?,
         sort: Product.SortType?,
-        response: PageResponse<UserProductResult.Summary>,
+        namespaceVersion: Long,
+    ): PageResponse<ProductQueryResult.Summary>? =
+        readValue(listKey(pageRequest, brandId, sort, namespaceVersion), LIST_TYPE_REFERENCE)
+
+    fun putList(
+        pageRequest: PageRequest,
+        brandId: Long?,
+        sort: Product.SortType?,
+        namespaceVersion: Long,
+        response: PageResponse<ProductQueryResult.Summary>,
     ) {
-        writeValue(listKey(pageRequest, brandId, sort), response, LIST_TTL)
+        writeValue(listKey(pageRequest, brandId, sort, namespaceVersion), response, LIST_TTL)
     }
 
     private fun <T> readValue(
@@ -78,13 +86,24 @@ class RedisProductQueryCache(
 
     private fun detailKey(productId: Long): String = "product:detail:v1:$productId"
 
+    private fun listNamespaceVersion(scope: String): Long =
+        runCatching { redisTemplate.opsForValue().get(listNamespaceKey(scope)) }
+            .getOrNull()
+            ?.toLongOrNull()
+            ?: DEFAULT_LIST_NAMESPACE_VERSION
+
+    private fun listNamespaceKey(scope: String): String = "product:list:namespace:v1:brand:$scope"
+
     private fun listKey(
         pageRequest: PageRequest,
         brandId: Long?,
         sort: Product.SortType?,
+        namespaceVersion: Long,
     ): String = buildString {
-        append("product:list:v1:brand:")
-        append(brandId ?: "all")
+        append("product:list:v2:brand:")
+        append(listScope(brandId))
+        append(":version:")
+        append(namespaceVersion)
         append(":sort:")
         append(sort?.name?.lowercase() ?: "latest")
         append(":page:")
@@ -93,10 +112,14 @@ class RedisProductQueryCache(
         append(pageRequest.size)
     }
 
+    private fun listScope(brandId: Long?): String = brandId?.toString() ?: ALL_LIST_SCOPE
+
     companion object {
+        private const val ALL_LIST_SCOPE = "all"
+        private const val DEFAULT_LIST_NAMESPACE_VERSION = 0L
         private val DETAIL_TTL: Duration = Duration.ofMinutes(10)
         private val LIST_TTL: Duration = Duration.ofMinutes(2)
-        private val DETAIL_TYPE_REFERENCE = object : TypeReference<UserProductResult.Detail>() {}
-        private val LIST_TYPE_REFERENCE = object : TypeReference<PageResponse<UserProductResult.Summary>>() {}
+        private val DETAIL_TYPE_REFERENCE = object : TypeReference<ProductQueryResult.Detail>() {}
+        private val LIST_TYPE_REFERENCE = object : TypeReference<PageResponse<ProductQueryResult.Summary>>() {}
     }
 }
