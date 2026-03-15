@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-10K TPS 목표 달성을 위한 Phase 1-2 구현 과정에서 내린 주요 기술 판단과 그 근거를 기록합니다.
+대규모 커머스 서비스 대응을 위한 Phase 1-2 구현 과정에서 내린 주요 기술 판단과 그 근거를 기록합니다.
 
 ---
 
@@ -100,7 +100,7 @@ Kotlin 환경에서 비동기 처리는 코루틴이 관용적이다. JDK 21 Vir
 ## 4. 캐시 백엔드: Caffeine 로컬 캐시 vs Redis
 
 ### 배경
-매 인증 요청마다 BCrypt 비교(`passwordEncoder.matches()`)가 수행되며, 이는 약 100ms가 소요된다. 10K TPS 달성을 위해 인증 결과를 캐싱해야 한다.
+매 인증 요청마다 BCrypt 비교(`passwordEncoder.matches()`)가 수행되며, 이는 약 100ms가 소요된다. 대규모 트래픽 처리를 위해 인증 결과를 캐싱해야 한다.
 
 ### 선택지
 | 선택지 | 설명 |
@@ -299,12 +299,12 @@ Phase 2 로드맵에는 MySQL Replica를 통한 R/W 분리와 Redis 캐싱 도�
 ## 12. 좋아요 수 집계: product 비정규화 + 배치
 
 ### 배경
-상품 조회 시 좋아요 수를 어떻게 제공할지 결정이 필요했다. 10K TPS 환경에서 런타임 COUNT는 부하 문제.
+상품 조회 시 좋아요 수를 어떻게 제공할지 결정이 필요했다. 대규모 트래픽 환경에서 런타임 COUNT는 부하 문제.
 
 ### 선택지
 | 선택지 | 설명 |
 |--------|------|
-| A. 런타임 COUNT | 매 조회마다 JOIN/서브쿼리. 10K TPS에서 부하 |
+| A. 런타임 COUNT | 매 조회마다 JOIN/서브쿼리. 대규모 트래픽에서 부하 |
 | **B. product에 like_count 비정규화** | 배치 갱신으로 write contention 해소. eventual consistency |
 | C. 별도 집계 테이블 + 배치 | 읽기/쓰기 분리되나 JOIN 필요. 테이블 관리 부담 |
 | D. Redis 카운터 | 가장 빠르지만 인프라 추가 필요 |
@@ -312,7 +312,7 @@ Phase 2 로드맵에는 MySQL Replica를 통한 R/W 분리와 Redis 캐싱 도�
 ### 판단: B. `product.like_count` 컬럼 (DEFAULT 0) + `commerce-batch` 배치 갱신 (5분 주기).
 
 ### 근거
-- 10K TPS에서 런타임 COUNT는 DB 부하 집중.
+- 대규모 트래픽에서 런타임 COUNT는 DB 부하 집중.
 - 배치 갱신이므로 인기 상품 hot row 문제 없음 (실시간 write가 아닌 배치 UPDATE).
 - 별도 집계 테이블 대비 JOIN 불필요 → 단순 컬럼 조회로 성능 우위.
 - DEFAULT 0으로 상품 등록 시 별도 초기화 불필요 (선삽입 제거).
@@ -1084,7 +1084,7 @@ After:  쿠폰확인 → 쿠폰차감(@Version+flush) → 재고차감(FOR UPDAT
 **판단**: B. Redis 전환 (AuthCacheStore 포트 패턴)
 
 **근거**:
-- **JWT 미사용 아키텍처**: 매 요청에 loginId + password가 전달됨. 로컬 캐시는 인스턴스별 독립 → 4개 인스턴스 × 10K 유저 = 40K BCrypt/5분 vs Redis = 10K BCrypt/5분
+- **JWT 미사용 아키텍처**: 매 요청에 loginId + password가 전달됨. 로컬 캐시는 인스턴스별 독립 → 인스턴스 수만큼 BCrypt 중복 발생. Redis 전환 시 인스턴스 수에 관계없이 유저당 1회만 BCrypt 수행
 - **포트 패턴 일관성**: ProductCacheStore와 동일한 구조. AuthCacheStore(Application 포트) ← AuthCacheStoreImpl(Infrastructure)
 - **SHA256 비교 유지**: Redis에 저장된 passwordDigest(SHA256)로 빠른 비교. BCrypt는 캐시 미스 시에만 호출
 - **CacheConfig 단순화**: Caffeine/CacheManager 의존 제거. Redis 단일 캐시 인프라로 통일

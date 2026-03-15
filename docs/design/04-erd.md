@@ -397,7 +397,7 @@ erDiagram
 |------|------|------|
 | FK 전략 | 물리 FK 미사용, 논리적 참조만 | 향후 서비스 분리 대비. 애플리케이션 레벨에서 참조 무결성 보장 |
 | 브랜드명 중복 | 허용 (UNIQUE 제거) | soft delete + UNIQUE 충돌 방지. 브랜드 식별은 PK 기반 (BR-B2 수정) |
-| 좋아요 수 집계 | product.like_count 컬럼 + 배치 갱신 | 10K TPS 대응. 런타임 COUNT 부하 제거. DEFAULT 0으로 별도 초기화 불필요 |
+| 좋아요 수 집계 | product.like_count 컬럼 + 배치 갱신 | 대규모 트래픽 대응. 런타임 COUNT 부하 제거. DEFAULT 0으로 별도 초기화 불필요 |
 | 주문 번호 | UUID | 내부 ID 노출 방지. 서비스 분리 시 ID 체계 독립성 |
 | 주문 soft delete | 미적용 (상태 관리) | 주문 이력 영구 보존. ORDERED/CANCELLED 상태로 관리 |
 | 상품 설명 타입 | TEXT | VARCHAR(255) 초과 가능성. 상품 설명 특성상 장문 허용 |

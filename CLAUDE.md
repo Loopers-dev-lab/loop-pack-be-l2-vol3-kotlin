@@ -4,7 +4,7 @@
 
 **프로젝트명**: Loopers Kotlin Spring Template
 **목적**: Spring Boot 기반의 멀티모듈 코틀린 커머스 템플릿 프로젝트
-**성능 목표**: 10,000 TPS (피크 기준, 단계적 달성)
+**성능 목표**: 대규모 커머스 서비스 수준의 트래픽 처리 (단계적 달성)
 
 Loopers에서 제공하는 스프링 코틀린 템플릿 프로젝트입니다. 프로젝트 안정성 및 유지보수성을 위해 pre-commit 훅을 통한 ktlint 검사를 운용하고 있습니다.
 
@@ -157,7 +157,7 @@ com.loopers
 └── infrastructure           # JpaModel(@Entity), Repository 구현체, 포트 구현체(BcryptPasswordEncryptor), CursorUtils, 인프라 빈 설정 (CacheConfig)
 ```
 
-## 10K TPS 로드맵
+## 성능 최적화 로드맵
 
 현재 → 목표까지 단계적으로 적용한다. 각 단계는 이전 단계에 의존하지 않으며 독립적으로 적용 가능하다.
 
@@ -288,7 +288,7 @@ com.loopers
 2. null-safety, thread-safety 고려
 3. 테스트 가능한 구조로 설계
 4. 기존 코드 패턴 분석 후 일관성 유지
-5. 10K TPS 성능 목표에 부합하는 구현
+5. 대규모 트래픽 성능 목표에 부합하는 구현
 
 ## agent_todo
 

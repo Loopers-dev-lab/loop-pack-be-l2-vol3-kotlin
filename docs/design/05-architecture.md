@@ -615,7 +615,7 @@ graph TB
 
     subgraph InfraLayer["Infrastructure Layer"]
         subgraph InfraConfig["인프라 설정"]
-            CC["CacheConfig<br/>Caffeine: auth-cache, TTL 5m, max 10K"]
+            CC["CacheConfig<br/>Redis: auth/product/brand cache"]
             BPE["BcryptPasswordEncryptor<br/>PasswordEncryptor 구현체"]
             PCSI2["ProductCacheStoreImpl<br/>Redis cache-aside (상세 5m, 목록 1m)"]
         end
