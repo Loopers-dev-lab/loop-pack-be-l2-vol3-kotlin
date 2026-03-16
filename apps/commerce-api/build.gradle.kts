@@ -2,6 +2,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.jpa")
 }
 
+tasks.test {
+    useJUnitPlatform {
+        excludeTags("benchmark")
+    }
+}
+
 dependencies {
     // add-ons
     implementation(project(":modules:jpa"))

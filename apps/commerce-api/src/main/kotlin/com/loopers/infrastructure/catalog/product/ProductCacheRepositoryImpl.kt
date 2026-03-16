@@ -34,7 +34,8 @@ class ProductCacheRepositoryImpl(
     }
 
     private fun detailTtl(): Duration =
-        DETAIL_BASE_TTL.plusSeconds(kotlin.random.Random.nextLong(0, DETAIL_JITTER_SECONDS + 1))
+        DETAIL_BASE_TTL.plusSeconds(kotlin.random.Random.nextLong(-DETAIL_JITTER_SECONDS, DETAIL_JITTER_SECONDS + 1))
+            .let { if (it.isNegative || it.isZero) Duration.ofSeconds(1) else it }
 
     private fun detailKey(productId: ProductId) = "$DETAIL_KEY_PREFIX${productId.value}"
 
@@ -67,6 +68,16 @@ class ProductCacheRepositoryImpl(
             redisTemplateMaster.opsForValue().set(key, json, detailTtl())
         } catch (e: Exception) {
             log.warn("Redis 캐시 저장 실패 [productId={}]: {}", product.id.value, e.message)
+        }
+    }
+
+    override fun saveProductDetailIfAbsent(product: Product) {
+        try {
+            val key = detailKey(product.id)
+            val json = objectMapper.writeValueAsString(ProductCacheDto.fromDomain(product))
+            redisTemplateMaster.opsForValue().setIfAbsent(key, json, detailTtl())
+        } catch (e: Exception) {
+            log.warn("Redis 캐시 저장(ifAbsent) 실패 [productId={}]: {}", product.id.value, e.message)
         }
     }
 

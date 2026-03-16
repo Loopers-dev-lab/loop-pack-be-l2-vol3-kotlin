@@ -8,6 +8,7 @@ import com.loopers.domain.common.vo.ProductId
 class FakeProductCacheRepository : ProductCacheRepository {
 
     private val detailCache = mutableMapOf<ProductId, Product>()
+    val evictedListBrandIds = mutableListOf<BrandId?>()
 
     override fun findProductDetail(productId: ProductId): Product? {
         return detailCache[productId]?.deepCopy()
@@ -17,12 +18,16 @@ class FakeProductCacheRepository : ProductCacheRepository {
         detailCache[product.id] = product.deepCopy()
     }
 
+    override fun saveProductDetailIfAbsent(product: Product) {
+        detailCache.putIfAbsent(product.id, product.deepCopy())
+    }
+
     override fun evictProductDetail(productId: ProductId) {
         detailCache.remove(productId)
     }
 
     override fun evictProductList(brandId: BrandId?) {
-        // Fake에서는 @Cacheable 목록 캐시와 별개이므로 no-op
+        evictedListBrandIds.add(brandId)
     }
 
     private fun Product.deepCopy(): Product = Product(
