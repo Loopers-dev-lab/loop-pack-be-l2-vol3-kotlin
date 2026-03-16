@@ -22,5 +22,6 @@ class JitteredRedisCacheWriter(
     }
 
     private fun Duration.withJitter(): Duration =
-        plusSeconds(Random.nextLong(0, maxJitterSeconds + 1))
+        plusSeconds(Random.nextLong(-maxJitterSeconds, maxJitterSeconds + 1))
+            .let { if (it.isNegative || it.isZero) Duration.ofSeconds(1) else it }
 }
