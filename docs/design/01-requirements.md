@@ -36,6 +36,22 @@
 | 비즈니스 | 주문 시점의 상품 정보가 스냅샷으로 보존되어야 한다. 상품 가격이 변경되더라도 과거 주문 내역에 영향을 주면 안 된다.                 |
 | 시스템  | 주문 시 재고 확인 및 차감이 원자적으로 보장되어야 한다. 동시 주문 상황에서 재고가 음수로 떨어지면 안 된다. (동시성 해결은 향후 과제)     |
 
+### 결제 (Payment)
+
+| 관점   | 문제                                                                                       |
+|------|------------------------------------------------------------------------------------------|
+| 사용자  | 결제 요청 후 PG 장애/지연으로 주문 상태가 불확실한 상태로 방치됨                                                  |
+| 비즈니스 | 결제 실패 시 매출 손실, 수동 복구 비용 발생. 자동 복구로 전환율 유지                                               |
+| 시스템  | 불안정한 외부 PG(40% 실패율, 100-500ms 지연)에 대해 Timeout/Retry/CB/Fallback으로 장애 전파 차단              |
+
+### Resilience 패턴
+
+| 관점   | 문제                                                                         |
+|------|----------------------------------------------------------------------------|
+| 사용자  | PG 장애 시에도 빠른 응답(대기 중 상태라도)을 받고 싶음                                          |
+| 비즈니스 | PG 장애가 전체 서비스 장애로 전파되면 안 됨                                                 |
+| 시스템  | CircuitBreaker로 장애 감지 → 빠른 실패 → Fallback으로 graceful degradation             |
+
 ---
 
 ## 2. 유비쿼터스 언어
@@ -66,6 +82,14 @@
 | 유스케이스    | UseCase         | Application 계층의 진입점. 단일 기능(기능명+UseCase)을 담당하며, 도메인 경계를 넘는 오케스트레이션을 조율한다. 예: GetProductUseCase, PlaceOrderUseCase |
 | 어드민      | Admin           | 브랜드/상품/주문을 관리하는 내부 운영자. LDAP 헤더로 식별한다.                                                      |
 | 복구       | Restore         | soft delete된 Domain Model을 다시 활성 상태로 되돌리는 어드민 작업. deletedAt을 null로 설정하며, 이미 활성인 Domain Model에 대해서는 멱등하게 동작한다. |
+| 결제       | Payment         | commerce-api 내 결제 도메인 모델                                                                                  |
+| 트랜잭션     | Transaction     | PG 시뮬레이터의 결제 거래 단위                                                                                        |
+| 트랜잭션 키   | transactionKey  | PG가 발급하는 고유 거래 식별자                                                                                        |
+| 회로 차단기   | CircuitBreaker  | PG 장애 감지 시 자동으로 요청을 차단하는 패턴                                                                               |
+| 대체 처리    | Fallback        | 주 경로 실패 시 실행되는 대안 로직                                                                                       |
+| 콜백       | Callback        | PG가 결제 처리 완료 후 commerce-api에 결과를 통보하는 메커니즘                                                                |
+| 조건부 업데이트 | Conditional UPDATE | 동시성 제어를 위한 WHERE 조건 기반 상태 변경                                                                             |
+| 카드 종류    | CardType        | 결제에 사용하는 카드사 (SAMSUNG, KB, HYUNDAI)                                                                       |
 
 ---
 
@@ -76,6 +100,8 @@
 | 사용자 (User)  | `X-Loopers-LoginId` + `X-Loopers-LoginPw` 헤더 | 상품 탐색, 좋아요 등록/취소, 본인의 주문 생성 및 조회     |
 | 비로그인 사용자    | 헤더 없음                                        | 상품 목록 및 상세 조회, 브랜드 정보 조회 (CUD 작업 불가) |
 | 어드민 (Admin) | `X-Loopers-Ldap: loopers.admin` 헤더           | 브랜드/상품의 전체 생명주기 관리, 모든 주문 내역 조회      |
+| PG 시뮬레이터   | 인증 없음 (경로 제외)                                | 비동기 결제 처리, 콜백 발송                        |
+| 스케줄러        | 시스템 내부 (@Scheduled)                          | 미확인 결제 주기적 PG 상태 조회                     |
 
 > 인증/인가 자체는 구현 범위가 아니며, 헤더 기반 식별만 수행한다.
 > 인증 실패 시 401 응답, 메시지는 "인증에 실패했습니다"로 통일한다 (정보 노출 방지).
@@ -100,6 +126,11 @@
 - 대고객 조회: 활성 Domain Model만 반환 (삭제/HIDDEN 필터링)
 - 어드민 조회: 모든 상태 반환
 - 어드민 CUD: 작업 목적에 맞는 조회 메서드 사용 (`getBrand`, `getProduct` 등)
+
+**결제 권한 경계 (Round 6 추가):**
+
+- 대고객: 결제 요청, 주문 조회 시 결제 상태 포함
+- 어드민: 개별 주문 PG 상태 재조회, 스케줄러 수동 트리거
 
 ---
 
@@ -297,6 +328,72 @@
 | LDAP 헤더 누락 또는 값 불일치 | 401 | 어드민 인증 실패 |
 | 존재하지 않는 주문 조회       | 404 |           |
 
+### 4.7 결제 요청 (사용자)
+
+**사전 조건:** 주문이 CREATED 상태, 요청 헤더에 사용자 인증 포함
+
+사용자가 orderId, cardType, cardNo를 전달하여 결제를 요청한다. commerce-api는 FeignClient + Resilience4j를 통해 PG에 결제 요청을 전달한다.
+
+**정상 흐름:**
+
+1. 사용자가 `POST /api/v1/payments` 요청 (orderId, cardType, cardNo)
+2. commerce-api가 PG 시뮬레이터에 결제 요청 (amount, callbackUrl 포함)
+3. PG가 transactionKey 반환 (status: PENDING)
+4. Payment(REQUESTED) 생성, Order 상태 → PENDING_PAYMENT
+
+**예외 흐름:**
+
+| 조건                    | 응답                                         | 설명           |
+|-----------------------|--------------------------------------------|--------------|
+| Timeout/Retry 소진      | PG orderId 조회 → 결과 반영, 실패 시 TIMEOUT Payment 생성 | Fallback A   |
+| CB OPEN               | TIMEOUT Payment 생성 + 스케줄러 위임              | Fallback B   |
+| 이미 결제된 주문             | 400 Bad Request                            | PENDING_PAYMENT 이상 상태 |
+| 존재하지 않는 주문            | 404                                        |              |
+| 인증 헤더 누락              | 401                                        |              |
+
+### 4.8 PG 콜백 수신 (PG 시뮬레이터)
+
+**사전 조건:** PG가 결제 비동기 처리 완료
+
+PG가 결제 처리 완료 후 `POST /api/v1/payments/callback`으로 결과를 통보한다.
+
+**정상 흐름:**
+
+1. PG가 콜백 페이로드 전송 (transactionKey, orderId, status, reason)
+2. 조건부 UPDATE로 Payment 상태 변경 (WHERE status IN ('REQUESTED', 'TIMEOUT'))
+3. Payment → SUCCESS/FAILED, Order → PAID/FAILED
+
+**예외 흐름:**
+
+| 조건                   | 처리             | 설명                      |
+|----------------------|----------------|-------------------------|
+| 이미 SUCCESS/FAILED 상태 | 무시 (멱등)        | 조건부 UPDATE 미적용          |
+| 존재하지 않는 transactionKey | 404          |                         |
+
+### 4.9 스케줄러 자동 복구 (시스템)
+
+**사전 조건:** REQUESTED 또는 TIMEOUT 상태의 Payment 존재
+
+@Scheduled로 주기적 실행. 미확인 결제 건을 PG에 조회하여 상태를 복구한다.
+
+**정상 흐름:**
+
+1. REQUESTED/TIMEOUT 상태 Payment 조회
+2. PG 상태 조회 API (`GET /api/v1/payments?orderId=xxx`)로 각 건 확인
+3. 결과에 따라 Payment/Order 상태 반영
+4. 조건부 UPDATE로 동시성 안전 보장
+
+### 4.10 Admin 수동 PG 조회 (관리자)
+
+**사전 조건:** 요청 헤더에 `X-Loopers-Ldap: loopers.admin` 포함
+
+어드민이 개별 주문 건의 PG 상태를 수동으로 재조회하거나 스케줄러를 수동으로 트리거할 수 있다.
+
+**정상 흐름:**
+
+1. `POST /api-admin/v1/payments/{paymentId}/sync` — 개별 주문 PG 상태 재조회 및 반영
+2. `POST /api-admin/v1/payments/scheduler/trigger` — 스케줄러 수동 트리거
+
 ---
 
 ## 5. 도메인 규칙 (Business Rules)
@@ -381,18 +478,14 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> CREATED: 주문 생성
-    CREATED --> PAID: 결제 완료 (추후 구현)
+    CREATED --> PENDING_PAYMENT: 결제 요청
+    PENDING_PAYMENT --> PAID: 결제 성공
+    PENDING_PAYMENT --> FAILED: 결제 실패
     CREATED --> CANCELLED: 사용자 취소 (추후 구현)
-    CREATED --> FAILED: 결제 실패 (추후 구현)
     PAID --> CANCELLED: 환불 처리 (추후 구현)
     CANCELLED --> [*]
     FAILED --> [*]
     PAID --> [*]
-    note right of CREATED
-        현재 시스템에서 유일하게
-        사용되는 상태
-        (결제 모듈 미구현)
-    end note
     note left of PAID
         스냅샷 데이터는
         상태와 무관하게 불변
@@ -410,7 +503,11 @@ stateDiagram-v2
 - 주문 시 각 상품의 재고를 확인하고 차감한다 (트랜잭션 내)
 - 재고가 부족하면 주문 전체가 실패한다 (all-or-nothing, 부분 주문 없음)
 - 주문 항목에는 주문 시점의 상품 스냅샷(이름, 가격)이 저장된다
-- 주문 상태: CREATED / PAID / CANCELLED / FAILED (현재는 CREATED만 사용)
+- 주문 상태: CREATED / PENDING_PAYMENT / PAID / CANCELLED / FAILED
+  - CREATED → PENDING_PAYMENT (결제 요청 시)
+  - PENDING_PAYMENT → PAID (결제 성공 확정 시)
+  - PENDING_PAYMENT → FAILED (결제 실패 확정 시)
+  - CANCELLED는 기존 유지
 - 주문의 totalPrice는 주문 생성 시 계산하여 저장한다 (반정규화)
 - 주문 목록 조회는 기간 기반 (from ~ to, 기준: createdAt)
     - from: 해당 일시 이상 (>=), to: 해당 일시 미만 (<)
@@ -426,6 +523,57 @@ stateDiagram-v2
 - **조회 정책:**
     - 대고객 API: `deletedAt IS NULL`인 데이터만 조회한다.
     - 어드민 API: `deletedAt` 여부와 관계없이 모든 데이터를 조회할 수 있다.
+
+### 5.8 Payment 도메인 규칙 (Round 6 신규)
+
+Payment는 Order와 별도의 Bounded Context이다.
+
+**PaymentStatus 상태 전이:**
+
+- REQUESTED → SUCCESS (콜백/스케줄러/Admin 확인)
+- REQUESTED → FAILED (콜백/스케줄러/Admin 확인)
+- REQUESTED → TIMEOUT (CB OPEN Fallback, Timeout Fallback)
+- TIMEOUT → SUCCESS (콜백/스케줄러/Admin 확인)
+- TIMEOUT → FAILED (콜백/스케줄러/Admin 확인)
+
+**생성 규칙:**
+
+- PG 응답 시 transactionKey와 함께 REQUESTED 상태로 생성
+- CB OPEN/Timeout Fallback 시 TIMEOUT 상태로 생성 (transactionKey 없을 수 있음)
+
+**동시성 제어:**
+
+- 콜백과 스케줄러가 동시에 같은 Payment를 변경할 수 있으므로 조건부 UPDATE 사용
+- `WHERE status IN ('REQUESTED', 'TIMEOUT')` 조건으로 원자적 처리
+
+**경계 규칙:**
+
+- Payment와 Order는 도메인 모델 간 직접 참조 금지
+- UseCase에서만 조합하여 한 트랜잭션으로 처리 (TODO: 이벤트 기반 전환)
+
+### 5.9 Resilience4j 규칙 (Round 6 신규)
+
+**데코레이터 적용 순서:** CircuitBreaker(바깥) → Retry(안쪽) → TimeLimiter
+
+**CB 인스턴스 분리:**
+
+| 인스턴스명        | 용도        | 이유                             |
+|--------------|-----------|--------------------------------|
+| pgPayment    | 결제 요청용    | 결제 실패가 상태 조회까지 차단하면 복구 불가      |
+| pgStatusQuery | 상태 조회용   | 결제 요청 CB와 독립적으로 동작해야 복구 가능     |
+
+**설정:**
+
+- Timeout: TimeLimiter로 제한
+- Retry: 최대 3회
+- CircuitBreaker: 실패율 50% 임계치
+
+**Fallback 분기 전략:**
+
+| 상황              | Fallback 동작                                  |
+|-----------------|----------------------------------------------|
+| Timeout/Retry 소진 | PG orderId 조회 즉시 시도 → 성공이면 반영, 실패이면 TIMEOUT Payment 생성 |
+| CB OPEN         | TIMEOUT Payment 생성 + 스케줄러 위임 (PG 조회 시도 없음) |
 
 ---
 
@@ -449,6 +597,8 @@ stateDiagram-v2
 | GET    | `/api/v1/orders/{orderId}`                 | O  | 주문 상세 조회 (본인만)       |
 | POST   | `/api/v1/coupons/{couponId}/issue`         | O  | 쿠폰 발급 (선착순)          |
 | GET    | `/api/v1/users/me/coupons`                 | O  | 내 쿠폰 목록 조회           |
+| POST   | `/api/v1/payments`                         | O  | 결제 요청 (orderId, cardType, cardNo) |
+| POST   | `/api/v1/payments/callback`                | 없음 | PG 결제 결과 수신 (PG 시뮬레이터 → commerce-api) |
 
 **상품 목록 조회 쿼리 파라미터:**
 
@@ -514,6 +664,8 @@ stateDiagram-v2
 | PUT    | `/api-admin/v1/coupons/{couponId}`           | 쿠폰 수정                |
 | DELETE | `/api-admin/v1/coupons/{couponId}`           | 쿠폰 삭제 (Soft Delete)   |
 | GET    | `/api-admin/v1/coupons/{couponId}/issues`    | 쿠폰 발급 내역 조회          |
+| POST   | `/api-admin/v1/payments/{paymentId}/sync`        | 개별 주문 PG 상태 재조회      |
+| POST   | `/api-admin/v1/payments/scheduler/trigger`       | 스케줄러 수동 트리거          |
 
 **어드민 조회 필터 조건:**
 
@@ -526,7 +678,7 @@ stateDiagram-v2
 ### 대고객 인증 (기존 시스템)
 
 - `X-Loopers-LoginId` + `X-Loopers-LoginPw` 헤더로 사용자를 식별한다
-- 인증이 필요한 API: 좋아요, 주문, 내 정보 조회
+- 인증이 필요한 API: 좋아요, 주문, 내 정보 조회, 결제 요청
 - 인증이 불필요한 API: 상품/브랜드 조회 (비로그인 허용)
 - 인증 실패 시: 401 응답, "인증에 실패했습니다" (유저 미존재/비밀번호 불일치 구분 안 함)
 - 인증 성공 시: 요청을 가로채 헤더를 검증한 뒤, userId를 추출하여 Controller 메서드에 주입한다
@@ -546,9 +698,12 @@ stateDiagram-v2
 | `/api/v1/products/*/likes`      | 사용자 인증 | 신규      |
 | `/api/v1/users/likes`           | 사용자 인증 | 신규      |
 | `/api/v1/orders/**`             | 사용자 인증 | 신규      |
+| `/api/v1/payments` (결제 요청)     | 사용자 인증 | Round 6  |
 | `/api-admin/**`                 | 어드민 인증 | 신규      |
+| `/api-admin/v1/payments/**`         | 어드민 인증 | Round 6  |
 | `/api/v1/brands/**`             | 없음     | 비로그인 허용 |
 | `/api/v1/products` (목록/상세)      | 없음     | 비로그인 허용 |
+| `/api/v1/payments/callback`     | 없음     | PG 시뮬레이터 직접 호출 (Round 6) |
 
 ---
 
@@ -599,11 +754,35 @@ stateDiagram-v2
   - `DeleteProductUseCase`: soft delete 후 `evictProductDetail`
 - **Redis 장애 Fallback**: `ProductCacheRepositoryImpl`에서 Redis 오류 시 warn 로그 후 DB 폴백
 
+### 6주차 신규/변경 요약 (Round 6)
+
+**기존 완료 (재사용):**
+- Order 도메인, OrderRepository, OrderEntity
+- AuthInterceptor, AdminInterceptor
+- ApiResponse, CoreException, ErrorType
+
+**신규 구현:**
+- Payment 도메인 모델 (Payment, PaymentStatus)
+- PaymentRepository (인터페이스 + JPA 구현체)
+- PgClient 인터페이스 (Domain 포트) + FeignClient 구현체 (Infrastructure 어댑터)
+- Resilience4j 설정 (Timeout, Retry, CircuitBreaker, Fallback)
+- 결제 API Controller + UseCase (`RequestPaymentUseCase`)
+- 콜백 수신 Controller + UseCase (`HandlePaymentCallbackUseCase`)
+- 스케줄러 (`@Scheduled`) — 미확인 결제 자동 복구
+- Admin API Controller + UseCase (PG 상태 재조회, 스케줄러 트리거)
+- Order 상태 PENDING_PAYMENT 추가
+- 기존 주문 조회 API(상세) 응답에 최신 결제 상태를 포함한다. UseCase에서 PaymentRepository를 조합하여 반환한다.
+
 ### 추후 확장
 
 - 동시성 해결 (Redis Lua 기반 재고 관리)
 - 브랜드 트리 구조 (parentId)
 - 1인당 구매 수량 제한
+- 이벤트 기반 Payment→Order 상태 전파 (현재: 한 트랜잭션)
+- 재고/쿠폰 보상 트랜잭션 (현재: 미구현)
+- 스케줄러 병렬 처리 (현재: 순차)
+- 재결제 API
+- 별도 결제 조회 API (현재: 주문 조회에 결제 상태 포함)
 
 ---
 
@@ -618,6 +797,10 @@ stateDiagram-v2
 | **재고 동시 차감**              | 동시 주문 시 재고가 음수로 떨어질 수 있음                                  | 향후 과제로 명시 (현재는 단일 요청 기준)      | Atomic SQL UPDATE (`stock = stock - :qty WHERE stock >= :qty`), @Version, 또는 Redis Lua |
 | **상품 복구 시 likeCount 불일치** | 삭제된 상품의 좋아요 취소 시 likeCount 미갱신 → 복구 시 실제 likes 수와 불일치     | 복구 API 존재하나 likeCount 재집계 미구현 | 복구 로직에 likeCount 재집계 추가                                                                |
 | **브랜드 복구 시 소속 상품 미복구**    | 브랜드를 복구해도 소속 상품은 삭제 상태 유지 → 어드민이 상품을 개별 복구해야 함            | 현재 연쇄 복구 미구현 (개별 복구만 가능)      | 브랜드 복구 시 소속 상품 연쇄 복구 옵션 검토                                                             |
+| **PG 장애 전파**               | PG 장애가 전체 서비스 마비로 번질 수 있음                                  | CB로 장애 격리 + Fallback          | 비동기 메시지 큐 도입                                                                           |
+| **콜백-스케줄러 Race Condition** | 콜백과 스케줄러가 동시에 같은 Payment를 변경하여 중복 상태 변경 발생                  | 조건부 UPDATE (WHERE status IN ('REQUESTED', 'TIMEOUT')) | 이벤트 소싱                                                                |
+| **결제-주문 트랜잭션 결합**          | 결제 실패 시 Payment와 Order 양쪽 롤백 발생                             | 한 트랜잭션으로 처리                   | 이벤트 기반 분리 (7주차 예정)                                                                      |
+| **TIMEOUT 결제 누적**           | 스케줄러 장애 시 TIMEOUT 상태 결제 미처리 증가                             | 스케줄러 주기적 복구                   | 알림 + 대시보드                                                                               |
 
 ---
 
@@ -720,3 +903,35 @@ Catalog 바운디드 컨텍스트 도입 및 UseCase 패턴 적용으로 기존 
 - **결정**: 상품 검증 → 재고 차감 → 주문 생성(스냅샷) 순서로 처리한다
 - **근거**: 향후 재고 선점(Stock Reservation) 도입을 고려한 배치이다. 현재는 단일 트랜잭션(all-or-nothing)으로 재고 부족 시 전체 롤백된다
 - **totalPrice 계산**: `PlaceOrderUseCase.execute()`에서 상품의 가격 × 수량을 합산하여 totalPrice를 계산하고, Order.create(userId, totalPrice)에 전달한다. PlaceOrderUseCase는 Product → OrderProductInfo 변환(cross-domain 매핑) 후 주문을 생성한다
+
+### [Round 6] Payment 별도 Bounded Context
+
+- **결정**: Payment와 Order를 도메인 모델 수준에서 분리한다. UseCase에서만 조합하여 한 트랜잭션으로 처리한다.
+- **근거**: 결제와 주문의 생명주기가 다르고, 다음 주 이벤트 기반 전환을 고려한 배치이다.
+
+### [Round 6] FeignClient 순수 HTTP + 서비스 레이어 Resilience4j
+
+- **결정**: FeignClient는 순수 HTTP 클라이언트로만 사용 (port/adapter). Resilience4j는 서비스 레이어에서 어노테이션 기반 적용한다.
+- **근거**: 관심사 분리. FeignClient에 Resilience4j를 직접 걸면 인프라 레이어가 비즈니스 정책(재시도 횟수, CB 임계치)을 알게 된다.
+
+### [Round 6] CB 인스턴스 분리
+
+- **결정**: pgPayment(결제 요청용)와 pgStatusQuery(상태 조회용) 두 개의 CB 인스턴스를 분리한다.
+- **근거**: 결제 요청 실패가 상태 조회까지 차단하면 복구 불가 상태가 된다. 인스턴스 분리로 복구 경로를 보호한다.
+
+### [Round 6] Fallback 분기 전략
+
+- **결정**:
+  - Timeout/Retry 소진: PG orderId 조회로 즉시 확인 시도 → 실패 시 TIMEOUT Payment 생성
+  - CB OPEN: 즉시 TIMEOUT Payment 생성 + 스케줄러 위임 (PG 조회 시도 없음)
+- **근거**: CB OPEN 상태에서 PG 조회 시도는 의미 없다 (이미 장애 판정). Fallback 경로가 CB를 우회하면 안 된다.
+
+### [Round 6] 동시성 제어: 조건부 UPDATE
+
+- **결정**: 콜백과 스케줄러가 동시에 같은 Payment를 변경할 수 있으므로 `WHERE status IN ('REQUESTED', 'TIMEOUT')` 조건 기반 원자적 UPDATE를 사용한다.
+- **근거**: 비관적 락 대비 DB 레벨에서 원자적이고 구현이 단순하다. 이미 SUCCESS/FAILED 상태면 조건 미충족으로 자연스럽게 멱등 처리된다.
+
+### [Round 6] 보상 트랜잭션 미구현
+
+- **결정**: 결제 실패 시 재고/쿠폰 복원은 이번 주 범위 밖으로 미룬다.
+- **근거**: 이벤트 기반 아키텍처(7주차 예정)와 함께 구현하는 것이 일관성 있다. 현재 코드에 TODO 주석으로 표시한다.

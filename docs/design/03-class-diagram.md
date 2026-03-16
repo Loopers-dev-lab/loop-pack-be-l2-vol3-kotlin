@@ -7,7 +7,7 @@
 
 ## 1. 도메인 모델 전체 관계도 (Domain Model Relationship)
 
-시스템의 뼈대가 되는 4개 도메인(Brand, Product, Like, Order)의 Domain Model 간 관계와 참조 방식을 정의한다.
+시스템의 뼈대가 되는 도메인(Brand, Product, Like, Order, Payment)의 Domain Model 간 관계와 참조 방식을 정의한다.
 
 > **Domain Model은 순수 POJO다.** BaseEntity를 상속하지 않으며 JPA 애노테이션이 없다.
 > soft delete 필드(`deletedAt`)와 `delete()`/`restore()` 메서드는 각 모델에 직접 구현된다.
@@ -106,9 +106,38 @@ classDiagram
     class OrderStatus {
         <<enumeration>>
         CREATED
+        PENDING_PAYMENT
         PAID
         CANCELLED
         FAILED
+    }
+
+    class Payment {
+        +Long id
+        -Long orderId
+        -String transactionKey
+        -PaymentStatus status
+        -Money amount
+        -CardType cardType
+        -String cardNo
+        -String? reason
+        +complete(status, reason)
+        +isRecoverable() Boolean
+    }
+
+    class PaymentStatus {
+        <<enumeration>>
+        REQUESTED
+        SUCCESS
+        FAILED
+        TIMEOUT
+    }
+
+    class CardType {
+        <<enumeration>>
+        SAMSUNG
+        KB
+        HYUNDAI
     }
 
     class User {
@@ -126,6 +155,9 @@ classDiagram
     Product --> ProductStatus
     Order --> OrderStatus
     OrderItem --> ItemStatus
+    Payment --> PaymentStatus
+    Payment --> CardType
+    Order .. Payment: orderId 값 참조 (BC 간 직접 참조 금지)
 ```
 
 > **영속성 필드 관리 분리:**
@@ -476,6 +508,9 @@ classDiagram
             +create(userId, items, discountAmount, refCouponId)$ Order
             +cancelItem(item: OrderItem)
             +assignOrderIdToItems(orderId: OrderId)
+            +startPayment()
+            +completePayment()
+            +failPayment()
             +isDeleted() Boolean
         }
         class OrderProductData {
@@ -691,6 +726,9 @@ classDiagram
     class OrderAdminV1Controller
     class CouponV1Controller
     class CouponAdminV1Controller
+    class PaymentV1Controller
+    class PaymentCallbackV1Controller
+    class PaymentAdminV1Controller
 
     class GetBrandUseCase
     class GetBrandAdminUseCase
@@ -728,6 +766,12 @@ classDiagram
     class GetCouponsAdminUseCase
     class GetCouponIssuesAdminUseCase
 
+    class RequestPaymentUseCase
+    class HandlePaymentCallbackUseCase
+    class RecoverPendingPaymentsUseCase
+    class SyncPaymentUseCase
+    class TriggerPaymentRecoveryUseCase
+
     BrandV1Controller ..> GetBrandUseCase
     BrandAdminV1Controller ..> GetBrandsUseCase
     BrandAdminV1Controller ..> GetBrandAdminUseCase
@@ -763,6 +807,11 @@ classDiagram
     CouponAdminV1Controller ..> GetCouponAdminUseCase
     CouponAdminV1Controller ..> GetCouponsAdminUseCase
     CouponAdminV1Controller ..> GetCouponIssuesAdminUseCase
+
+    PaymentV1Controller ..> RequestPaymentUseCase
+    PaymentCallbackV1Controller ..> HandlePaymentCallbackUseCase
+    PaymentAdminV1Controller ..> SyncPaymentUseCase
+    PaymentAdminV1Controller ..> TriggerPaymentRecoveryUseCase
 ```
 
 ### Controller → UseCase 직접 호출 요약
@@ -778,6 +827,9 @@ classDiagram
 | `OrderAdminV1Controller`   | `GetOrderAdminUseCase`, `GetOrdersAdminUseCase`      | 어드민 주문 조회                       |
 | `CouponV1Controller`       | `IssueCouponUseCase`, `GetMyCouponsUseCase`          | 쿠폰 발급 / 내 쿠폰 목록               |
 | `CouponAdminV1Controller`  | `CreateCouponAdminUseCase`, `UpdateCouponAdminUseCase`, `DeleteCouponAdminUseCase`, `GetCouponAdminUseCase`, `GetCouponsAdminUseCase`, `GetCouponIssuesAdminUseCase` | 쿠폰 CRUD + 발급 내역 |
+| `PaymentV1Controller`      | `RequestPaymentUseCase`                                                                        | 결제 요청 (PG 연동)                    |
+| `PaymentCallbackV1Controller` | `HandlePaymentCallbackUseCase`                                                              | PG 콜백 수신 (인증 없음)               |
+| `PaymentAdminV1Controller` | `SyncPaymentUseCase`, `TriggerPaymentRecoveryUseCase`                                          | 개별 결제 재조회 / 스케줄러 수동 트리거 |
 
 ---
 
@@ -822,6 +874,8 @@ classDiagram
 | Quantity | @JvmInline value class    | 공통 (common) | Int >= 1                                     | 주문 수량                     |
 | BrandName | @JvmInline value class   | Brand     | 빈 값 불가                                      | Brand 생성/수정 시             |
 | Stock    | @JvmInline value class    | Product   | Int >= 0, decrease 시 부족 확인                   | Product 생성/수정/재고차감 시     |
+| PaymentStatus | enum class           | Payment   | REQUESTED/SUCCESS/FAILED/TIMEOUT                | Payment 상태 전이                |
+| CardType | enum class                | Payment   | SAMSUNG/KB/HYUNDAI                              | 결제 카드 종류 식별               |
 
 > **VO 도입 기준**: Domain Model이 순수 POJO이므로 `@Converter` 부담 없이 모든 도메인 값을 VO로 표현할 수 있다. 단일 값과 도메인 메서드가 있는 경우 모두 `@JvmInline value class`로 선언한다. JPA Entity는 DB 컬럼 타입(String, BigDecimal 등)으로 저장하고, `toDomain()`에서 VO로 복원한다.
 >
@@ -865,3 +919,173 @@ classDiagram
 8. **Domain Model 순수성 (Pure POJO)**
     - **결정**: Domain Model은 BaseEntity를 상속하지 않는다. `deletedAt` 등 soft delete 필드는 각 모델에 직접 선언하고, `createdAt`/`updatedAt` 등 순수 영속성 필드는 Entity 레벨에서만 관리한다.
     - **이유**: Domain Model을 JPA 기술에서 완전히 격리하여 순수 비즈니스 로직만 담도록 한다.
+
+---
+
+## 11. Payment 도메인 상세 (Round 6 — Payment BC)
+
+PG 외부 연동을 담당하는 Payment Bounded Context. Order BC와는 `orderId` 문자열 값으로만 참조하며 직접 객체 참조는 금지한다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    namespace interfaces {
+        class PaymentV1Controller {
+            +requestPayment()
+        }
+        class PaymentCallbackV1Controller {
+            +handleCallback()
+        }
+        class PaymentAdminV1Controller {
+            +syncPayment(paymentId)
+            +triggerScheduler()
+        }
+        class PaymentRecoveryScheduler {
+            +recover()
+        }
+    }
+
+    namespace application {
+        class RequestPaymentUseCase {
+            +execute(userId, command) PaymentInfo
+        }
+        class HandlePaymentCallbackUseCase {
+            +execute(transactionKey, status, reason)
+        }
+        class RecoverPendingPaymentsUseCase {
+            +execute()
+        }
+        class SyncPaymentUseCase {
+            +execute(paymentId)
+        }
+        class TriggerPaymentRecoveryUseCase {
+            +execute()
+        }
+    }
+
+    namespace domain {
+        class Payment {
+            +Long id
+            -Long orderId
+            -String transactionKey
+            -PaymentStatus status
+            -Money amount
+            -CardType cardType
+            -String cardNo
+            -String? reason
+            +complete(status, reason)
+            +isRecoverable() Boolean
+        }
+        class PaymentStatus {
+            <<enumeration>>
+            REQUESTED
+            SUCCESS
+            FAILED
+            TIMEOUT
+        }
+        class CardType {
+            <<enumeration>>
+            SAMSUNG
+            KB
+            HYUNDAI
+        }
+        class PaymentRepository {
+            <<interface>>
+            +save(Payment) Payment
+            +findById(Long) Payment?
+            +findByOrderId(String) List~Payment~
+            +findRecoverablePayments() List~Payment~
+        }
+        class PgClient {
+            <<interface>>
+            +requestPayment(command) PgTransactionInfo
+            +getTransactionStatus(transactionKey) PgTransactionInfo
+            +getTransactionsByOrderId(orderId) List~PgTransactionInfo~
+        }
+    }
+
+    PaymentV1Controller --> RequestPaymentUseCase
+    PaymentCallbackV1Controller --> HandlePaymentCallbackUseCase
+    PaymentAdminV1Controller --> SyncPaymentUseCase
+    PaymentAdminV1Controller --> TriggerPaymentRecoveryUseCase
+    PaymentRecoveryScheduler --> RecoverPendingPaymentsUseCase
+    TriggerPaymentRecoveryUseCase --> RecoverPendingPaymentsUseCase: 위임
+    RequestPaymentUseCase --> PaymentRepository
+    RequestPaymentUseCase --> PgClient
+    HandlePaymentCallbackUseCase --> PaymentRepository
+    RecoverPendingPaymentsUseCase --> PaymentRepository
+    RecoverPendingPaymentsUseCase --> PgClient
+    SyncPaymentUseCase --> PaymentRepository
+    SyncPaymentUseCase --> PgClient
+    Payment --> PaymentStatus
+    Payment --> CardType
+```
+
+### 핵심 포인트
+
+- **Bounded Context 분리**: Payment와 Order는 `orderId`(Long) 값으로만 연결한다. UseCase 내에서만 두 BC를 조합한다.
+- **PgClient (Port) → PgClientImpl (Adapter)**: 도메인 레이어에 `PgClient` 인터페이스(port)를 선언하고, 인프라 레이어에 `PgClientImpl`이 Resilience4j 데코레이터로 구현한다. `PgFeignClient`는 순수 HTTP 호출만 담당하며 `PgClientImpl` 내부에서만 사용된다.
+- **조건부 UPDATE (동시성)**: 콜백과 스케줄러가 동시에 같은 Payment를 처리할 수 있다. `WHERE status IN ('REQUESTED', 'TIMEOUT')` 조건부 UPDATE로 중복 처리를 방지한다.
+- **Order 상태 전이**: `CREATED → PENDING_PAYMENT`(결제 요청 시) → `PAID`(성공) / `FAILED`(실패). `startPayment()`, `completePayment()`, `failPayment()` 메서드로 캡슐화한다.
+- **PaymentRecoveryScheduler**: `@Scheduled`로 주기적으로 `RecoverPendingPaymentsUseCase`를 호출. 병렬 처리는 미구현(TODO 주석 처리).
+
+---
+
+## 12. Resilience4j 의존 관계
+
+PG 호출 경로에서의 Resilience4j 패턴 적용 위치와 CB 인스턴스 구성을 나타낸다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    namespace application {
+        class RequestPaymentUseCase {
+            +execute()
+        }
+    }
+
+    namespace domain {
+        class PgClient {
+            <<interface>>
+            +requestPayment(command) PgPaymentResult
+            +getTransactionsByOrderId(orderId) List~PgTransaction~
+        }
+    }
+
+    namespace infrastructure {
+        class PgClientImpl {
+            +requestPayment() CircuitBreaker_pgPayment
+            +getTransactionsByOrderId() CircuitBreaker_pgStatusQuery
+            -requestPaymentFallback() PgPaymentResult
+        }
+        class PgFeignClient {
+            <<FeignClient>>
+            +requestPayment(command) PgTransactionInfo
+            +getTransactionStatus(transactionKey) PgTransactionInfo
+            +getTransactionsByOrderId(orderId) List~PgTransactionInfo~
+        }
+        class PaymentRepositoryImpl {
+            +save(Payment) Payment
+            +findRecoverablePayments() List~Payment~
+        }
+    }
+
+    RequestPaymentUseCase --> PgClient: port 의존 (인터페이스)
+    PgClientImpl ..|> PgClient: implements
+    PgClientImpl --> PgFeignClient: 순수 HTTP 호출
+    RequestPaymentUseCase --> PaymentRepositoryImpl
+```
+
+### Resilience4j 적용 규칙
+
+| 패턴 | 위치 | 설정 |
+|------|------|------|
+| `@CircuitBreaker` | `PgClientImpl` (결제 요청 인스턴스) | 50% 실패 임계치, OPEN 시 Fallback → TIMEOUT Payment 생성 |
+| `@CircuitBreaker` | `PgClientImpl` (상태 조회 인스턴스) | 결제 요청 CB와 인스턴스 분리 |
+| `@Retry` | `PgClientImpl` | 3회 재시도, Retry 소진 시 Fallback → PG orderId 즉시 조회 |
+| `@TimeLimiter` | `PgClientImpl` | 타임아웃 초과 시 Fallback |
+
+- **데코레이터 순서**: `CircuitBreaker(바깥) → Retry(안쪽)`. CB가 Retry 전체를 감싸므로, Retry 소진 실패도 CB 호출 실패로 집계된다.
+- **FeignClient 책임 분리**: `PgFeignClient`는 순수 HTTP 호출만 수행. Resilience4j 어노테이션은 `PgClientImpl`에만 적용한다.
