@@ -10,6 +10,7 @@ import com.loopers.support.page.PageResponse
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Component
+import org.slf4j.LoggerFactory
 import java.time.Duration
 
 @Component
@@ -28,16 +29,35 @@ class RedisProductQueryCache(
 
     fun evictDetails(productIds: Collection<Long>) {
         if (productIds.isEmpty()) return
-        runCatching { redisTemplate.delete(productIds.map(::detailKey).toSet()) }
+        val keys = productIds.map(::detailKey).toSet()
+        runCatching { redisTemplate.delete(keys) }
+            .onFailure { exception ->
+                log.warn(
+                    "Failed to evict product detail cache. productIds={}, keys={}",
+                    productIds,
+                    keys,
+                    exception,
+                )
+            }
     }
 
     fun getListNamespaceVersion(brandId: Long?): Long = listNamespaceVersion(listScope(brandId))
 
     fun invalidateListsByBrandId(brandId: Long) {
+        val brandScopeKey = listNamespaceKey(listScope(brandId))
+        val allScopeKey = listNamespaceKey(ALL_LIST_SCOPE)
         runCatching {
             val valueOperations = redisTemplate.opsForValue()
-            valueOperations.increment(listNamespaceKey(listScope(brandId)))
-            valueOperations.increment(listNamespaceKey(ALL_LIST_SCOPE))
+            valueOperations.increment(brandScopeKey)
+            valueOperations.increment(allScopeKey)
+        }.onFailure { exception ->
+            log.warn(
+                "Failed to invalidate product list namespace. brandId={}, brandScopeKey={}, allScopeKey={}",
+                brandId,
+                brandScopeKey,
+                allScopeKey,
+                exception,
+            )
         }
     }
 
@@ -81,6 +101,13 @@ class RedisProductQueryCache(
                 objectMapper.writeValueAsString(value),
                 ttl,
             )
+        }.onFailure { exception ->
+            log.warn(
+                "Failed to write product query cache. key={}, ttl={}",
+                key,
+                ttl,
+                exception,
+            )
         }
     }
 
@@ -115,6 +142,7 @@ class RedisProductQueryCache(
     private fun listScope(brandId: Long?): String = brandId?.toString() ?: ALL_LIST_SCOPE
 
     companion object {
+        private val log = LoggerFactory.getLogger(RedisProductQueryCache::class.java)
         private const val ALL_LIST_SCOPE = "all"
         private const val DEFAULT_LIST_NAMESPACE_VERSION = 0L
         private val DETAIL_TTL: Duration = Duration.ofMinutes(10)
