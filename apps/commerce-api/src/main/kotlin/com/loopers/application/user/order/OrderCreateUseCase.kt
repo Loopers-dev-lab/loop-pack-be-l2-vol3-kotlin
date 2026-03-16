@@ -1,7 +1,5 @@
 package com.loopers.application.user.order
 
-import com.loopers.application.event.product.ProductQueryChangedEvent
-import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -13,9 +11,11 @@ import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.OrderDomainService
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderSnapshot
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
@@ -23,7 +23,8 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class OrderCreateUseCase(
-    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher,
+    private val afterCommitExecutor: AfterCommitExecutor,
+    private val productQueryInvalidator: ProductQueryInvalidator,
     private val orderRepository: OrderRepository,
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
@@ -100,9 +101,9 @@ class OrderCreateUseCase(
 
         val savedOrder = orderRepository.save(domainResult.order)
         productStockRepository.saveAll(domainResult.decreasedStocks)
-        productQueryChangedEventPublisher.publish(
-            ProductQueryChangedEvent(productIds = domainResult.decreasedStocks.map { it.productId }),
-        )
+        afterCommitExecutor.execute {
+            productQueryInvalidator.invalidateDetails(domainResult.decreasedStocks.map { it.productId })
+        }
         couponResult?.usedCoupon?.let { issuedCouponRepository.use(it) }
 
         return OrderResult.Created.from(savedOrder)

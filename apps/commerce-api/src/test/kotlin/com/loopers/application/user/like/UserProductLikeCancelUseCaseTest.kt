@@ -1,9 +1,9 @@
 package com.loopers.application.user.like
 
-import com.loopers.application.event.product.ProductQueryChangedEvent
-import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.like.ProductLikeRepository
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -16,11 +16,13 @@ import org.mockito.kotlin.never
 
 @DisplayName("상품 좋아요 취소")
 class UserProductLikeCancelUseCaseTest {
-    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher = mock()
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val productLikeRepository: ProductLikeRepository = mock()
     private val productRepository: ProductRepository = mock()
     private val useCase = UserProductLikeCancelUseCase(
-        productQueryChangedEventPublisher,
+        afterCommitExecutor,
+        productQueryInvalidator,
         productLikeRepository,
         productRepository,
     )
@@ -38,9 +40,7 @@ class UserProductLikeCancelUseCaseTest {
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
             then(productRepository).should().decrementLikeCount(eq(1L))
-            then(productQueryChangedEventPublisher).should().publish(
-                eq(ProductQueryChangedEvent(productIds = listOf(1L))),
-            )
+            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
         }
     }
 
@@ -57,9 +57,7 @@ class UserProductLikeCancelUseCaseTest {
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
             then(productRepository).should(never()).decrementLikeCount(eq(1L))
-            then(productQueryChangedEventPublisher).should(never()).publish(
-                eq(ProductQueryChangedEvent(productIds = listOf(1L))),
-            )
+            then(productQueryInvalidator).should(never()).invalidateDetails(eq(listOf(1L)))
         }
     }
 
@@ -77,6 +75,7 @@ class UserProductLikeCancelUseCaseTest {
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
             then(productRepository).should().decrementLikeCount(eq(1L))
             then(productRepository).should(never()).findById(eq(1L))
+            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
         }
     }
 
@@ -94,6 +93,7 @@ class UserProductLikeCancelUseCaseTest {
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
             then(productRepository).should().decrementLikeCount(eq(1L))
             then(productRepository).should(never()).findById(eq(1L))
+            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
         }
     }
 }

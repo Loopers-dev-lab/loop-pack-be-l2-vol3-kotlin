@@ -1,11 +1,11 @@
 package com.loopers.application.admin.product
 
-import com.loopers.application.event.product.ProductQueryChangedEvent
-import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -15,16 +15,18 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import java.math.BigDecimal
 
 @DisplayName("AdminProductDeleteUseCase")
 class AdminProductDeleteUseCaseTest {
-    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher = mock()
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
-    private val useCase = AdminProductDeleteUseCase(productQueryChangedEventPublisher, productRepository, productStockRepository)
+    private val useCase = AdminProductDeleteUseCase(afterCommitExecutor, productQueryInvalidator, productRepository, productStockRepository)
 
     private val admin = "loopers.admin"
 
@@ -52,9 +54,8 @@ class AdminProductDeleteUseCaseTest {
 
             then(productStockRepository).should().deleteByProductId(eq(1L), eq(admin))
             then(productRepository).should().delete(eq(1L), eq(admin))
-            then(productQueryChangedEventPublisher).should().publish(
-                eq(ProductQueryChangedEvent(productIds = listOf(1L), brandIds = listOf(1L))),
-            )
+            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
         }
     }
 
@@ -68,6 +69,7 @@ class AdminProductDeleteUseCaseTest {
 
             val exception = assertThrows<CoreException> { useCase.delete(1L, admin) }
             assertThat(exception.errorType).isEqualTo(ErrorType.PRODUCT_NOT_FOUND)
+            verifyNoInteractions(productQueryInvalidator)
         }
     }
 }

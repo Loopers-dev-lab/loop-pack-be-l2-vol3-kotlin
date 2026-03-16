@@ -1,9 +1,9 @@
 package com.loopers.application.admin.brand
 
-import com.loopers.application.event.product.ProductQueryChangedEvent
-import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional
 class AdminBrandUpdateUseCase(
     private val brandRepository: BrandRepository,
     private val productRepository: ProductRepository,
-    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher,
+    private val afterCommitExecutor: AfterCommitExecutor,
+    private val productQueryInvalidator: ProductQueryInvalidator,
 ) {
     @Transactional
     fun update(command: AdminBrandCommand.Update): AdminBrandResult.Update {
@@ -23,12 +24,12 @@ class AdminBrandUpdateUseCase(
         val saved = brandRepository.save(updated, command.admin)
         val productIds = productRepository.findAllByBrandId(command.brandId)
             .mapNotNull { it.id }
-        productQueryChangedEventPublisher.publish(
-            ProductQueryChangedEvent(
-                productIds = productIds,
-                brandIds = listOf(command.brandId),
-            ),
-        )
+        afterCommitExecutor.execute {
+            if (productIds.isNotEmpty()) {
+                productQueryInvalidator.invalidateDetails(productIds)
+            }
+            productQueryInvalidator.invalidateListsByBrandId(command.brandId)
+        }
         return AdminBrandResult.Update.from(saved)
     }
 }

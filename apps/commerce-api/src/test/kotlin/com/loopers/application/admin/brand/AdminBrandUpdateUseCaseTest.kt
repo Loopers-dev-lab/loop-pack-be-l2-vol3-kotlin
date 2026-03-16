@@ -1,9 +1,10 @@
 package com.loopers.application.admin.brand
 
-import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -14,16 +15,18 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.any
-import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 
 @DisplayName("AdminBrandUpdateUseCase")
 class AdminBrandUpdateUseCaseTest {
-    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher = mock()
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val brandRepository: BrandRepository = mock()
     private val productRepository: ProductRepository = mock()
-    private val useCase = AdminBrandUpdateUseCase(brandRepository, productRepository, productQueryChangedEventPublisher)
+    private val useCase = AdminBrandUpdateUseCase(brandRepository, productRepository, afterCommitExecutor, productQueryInvalidator)
 
     private val existingBrand = Brand.retrieve(id = 1L, name = "나이키", status = Brand.Status.INACTIVE)
 
@@ -45,12 +48,8 @@ class AdminBrandUpdateUseCaseTest {
                 { assertThat(result.name).isEqualTo("아디다스") },
                 { assertThat(result.status).isEqualTo("ACTIVE") },
             )
-            then(productQueryChangedEventPublisher).should().publish(
-                check {
-                    assertThat(it.productIds).isEmpty()
-                    assertThat(it.brandIds).containsExactly(1L)
-                },
-            )
+            then(productQueryInvalidator).should(never()).invalidateDetails(any())
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
         }
 
         @Test
@@ -65,6 +64,8 @@ class AdminBrandUpdateUseCaseTest {
             )
 
             assertThat(result.status).isEqualTo("ACTIVE")
+            then(productQueryInvalidator).should(never()).invalidateDetails(any())
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
         }
     }
 
@@ -82,7 +83,7 @@ class AdminBrandUpdateUseCaseTest {
                 )
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BRAND_NOT_FOUND)
-            org.mockito.Mockito.verifyNoInteractions(productRepository, productQueryChangedEventPublisher)
+            verifyNoInteractions(productRepository, productQueryInvalidator)
         }
     }
 }

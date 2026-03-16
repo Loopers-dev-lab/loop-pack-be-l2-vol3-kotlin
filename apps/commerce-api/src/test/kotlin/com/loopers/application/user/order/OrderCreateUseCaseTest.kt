@@ -1,7 +1,5 @@
 package com.loopers.application.user.order
 
-import com.loopers.application.event.product.ProductQueryChangedEvent
-import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -12,9 +10,11 @@ import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -32,7 +32,8 @@ import java.math.BigDecimal
 @DisplayName("OrderCreateUseCase")
 class OrderCreateUseCaseTest {
 
-    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher = mock()
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val orderRepository: OrderRepository = mock()
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
@@ -40,7 +41,8 @@ class OrderCreateUseCaseTest {
     private val couponRepository: CouponRepository = mock()
     private val issuedCouponRepository: IssuedCouponRepository = mock()
     private val useCase = OrderCreateUseCase(
-        productQueryChangedEventPublisher = productQueryChangedEventPublisher,
+        afterCommitExecutor = afterCommitExecutor,
+        productQueryInvalidator = productQueryInvalidator,
         orderRepository = orderRepository,
         productRepository = productRepository,
         productStockRepository = productStockRepository,
@@ -144,10 +146,9 @@ class OrderCreateUseCaseTest {
                 { assertThat(result.orderId).isEqualTo(100L) },
                 { assertThat(result.status).isEqualTo("CREATED") },
             )
-            then(productQueryChangedEventPublisher).should().publish(
-                check<ProductQueryChangedEvent> { event ->
-                    assertThat(event.productIds).containsExactly(1L)
-                    assertThat(event.brandIds).isEmpty()
+            then(productQueryInvalidator).should().invalidateDetails(
+                check<Collection<Long>> { productIds ->
+                    assertThat(productIds).containsExactly(1L)
                 },
             )
         }
@@ -198,6 +199,11 @@ class OrderCreateUseCaseTest {
 
             // assert
             assertThat(result.orderId).isEqualTo(100L)
+            then(productQueryInvalidator).should().invalidateDetails(
+                check<Collection<Long>> { productIds ->
+                    assertThat(productIds).containsExactly(1L, 2L)
+                },
+            )
         }
     }
 

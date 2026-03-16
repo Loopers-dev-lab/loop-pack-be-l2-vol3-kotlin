@@ -1,13 +1,13 @@
 package com.loopers.application.admin.brand
 
-import com.loopers.application.event.product.ProductQueryChangedEvent
-import com.loopers.application.event.product.ProductQueryChangedEventPublisher
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -18,13 +18,16 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
 import org.mockito.Mockito.verifyNoInteractions
+import org.mockito.kotlin.any
+import org.mockito.kotlin.never
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import java.math.BigDecimal
 
 @DisplayName("AdminBrandDeleteUseCase")
 class AdminBrandDeleteUseCaseTest {
-    private val productQueryChangedEventPublisher: ProductQueryChangedEventPublisher = mock()
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val brandRepository: BrandRepository = mock()
     private val productRepository: ProductRepository = mock()
     private val productStockRepository: ProductStockRepository = mock()
@@ -32,7 +35,8 @@ class AdminBrandDeleteUseCaseTest {
         brandRepository,
         productRepository,
         productStockRepository,
-        productQueryChangedEventPublisher,
+        afterCommitExecutor,
+        productQueryInvalidator,
     )
 
     @Nested
@@ -49,14 +53,13 @@ class AdminBrandDeleteUseCaseTest {
             useCase.delete(1L, "loopers.admin")
 
             then(brandRepository).should().delete(1L, "loopers.admin")
-            then(productQueryChangedEventPublisher).should().publish(
-                eq(ProductQueryChangedEvent(productIds = emptyList(), brandIds = listOf(1L))),
-            )
+            then(productQueryInvalidator).should(never()).invalidateDetails(any())
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
             verifyNoInteractions(productStockRepository)
         }
 
         @Test
-        @DisplayName("연관 상품이 있으면 상품과 재고를 삭제하고 이벤트를 발행한다")
+        @DisplayName("연관 상품이 있으면 상품과 재고를 삭제하고 캐시 무효화를 예약한다")
         fun delete_withProducts() {
             given(brandRepository.findById(1L)).willReturn(
                 Brand.retrieve(id = 1L, name = "나이키", status = Brand.Status.ACTIVE),
@@ -72,9 +75,8 @@ class AdminBrandDeleteUseCaseTest {
 
             then(productStockRepository).should().deleteAllByProductIds(listOf(101L, 102L), "loopers.admin")
             then(productRepository).should().deleteAllByBrandId(1L, "loopers.admin")
-            then(productQueryChangedEventPublisher).should().publish(
-                eq(ProductQueryChangedEvent(productIds = listOf(101L, 102L), brandIds = listOf(1L))),
-            )
+            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(101L, 102L)))
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
             then(brandRepository).should().delete(1L, "loopers.admin")
         }
     }
@@ -91,7 +93,7 @@ class AdminBrandDeleteUseCaseTest {
                 useCase.delete(999L, "loopers.admin")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BRAND_NOT_FOUND)
-            verifyNoInteractions(productRepository, productStockRepository, productQueryChangedEventPublisher)
+            verifyNoInteractions(productRepository, productStockRepository, productQueryInvalidator)
         }
     }
 
