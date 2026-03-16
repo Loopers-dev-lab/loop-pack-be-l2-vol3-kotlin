@@ -27,9 +27,45 @@ class Order(
         }
     }
 
+    fun beginPayment() {
+        if (status == OrderStatus.CANCELLED) {
+            throw CoreException(ErrorType.CONFLICT, "취소된 주문은 결제를 진행할 수 없습니다.")
+        }
+        if (status == OrderStatus.PAID) {
+            throw CoreException(ErrorType.CONFLICT, "이미 결제가 완료된 주문입니다.")
+        }
+        if (status == OrderStatus.PAYMENT_PENDING) {
+            throw CoreException(ErrorType.CONFLICT, "이미 결제 처리 중인 주문입니다.")
+        }
+        this.status = OrderStatus.PAYMENT_PENDING
+    }
+
+    fun markPaid() {
+        if (status == OrderStatus.CANCELLED) {
+            throw CoreException(ErrorType.CONFLICT, "취소된 주문은 결제 완료 처리할 수 없습니다.")
+        }
+        this.status = OrderStatus.PAID
+    }
+
+    fun markPaymentFailed() {
+        if (status == OrderStatus.CANCELLED) {
+            throw CoreException(ErrorType.CONFLICT, "취소된 주문은 결제 실패 처리할 수 없습니다.")
+        }
+        if (status == OrderStatus.PAID) {
+            return
+        }
+        this.status = OrderStatus.PAYMENT_FAILED
+    }
+
     fun cancel() {
         if (status == OrderStatus.CANCELLED) {
             throw CoreException(ErrorType.ORDER_ALREADY_CANCELLED)
+        }
+        if (status == OrderStatus.PAYMENT_PENDING) {
+            throw CoreException(ErrorType.CONFLICT, "결제 처리 중인 주문은 취소할 수 없습니다.")
+        }
+        if (status == OrderStatus.PAID) {
+            throw CoreException(ErrorType.CONFLICT, "결제 완료된 주문은 취소할 수 없습니다.")
         }
         this.status = OrderStatus.CANCELLED
     }

@@ -63,4 +63,7 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     INVALID_COUPON_NAME(HttpStatus.BAD_REQUEST, "E508", "쿠폰명 형식이 올바르지 않습니다."),
     INVALID_COUPON_VALUE(HttpStatus.BAD_REQUEST, "E509", "쿠폰 할인값이 올바르지 않습니다."),
     INVALID_MIN_ORDER_AMOUNT(HttpStatus.BAD_REQUEST, "E510", "최소 주문 금액이 올바르지 않습니다."),
+
+    /** 결제 도메인 에러 */
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "E601", "결제 정보를 찾을 수 없습니다."),
 }
