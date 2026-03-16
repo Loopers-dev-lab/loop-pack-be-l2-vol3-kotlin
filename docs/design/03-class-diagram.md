@@ -602,7 +602,7 @@ com.loopers
 │   ├── order/          → OrderModel, OrderItemModel, OrderRepository, OrderCommand
 │   └── coupon/         → CouponTemplateModel, IssuedCouponModel, CouponTemplateRepository, IssuedCouponRepository, CouponType, CouponStatus, CouponTemplateStatus, ExpirationPolicy
 ├── infrastructure/
-│   ├── config/         → CacheConfig (Caffeine auth-cache), PasswordEncoderConfig
+│   ├── config/         → CacheConfig, AuthCacheStoreImpl, ProductCacheStoreImpl, BrandCacheStoreImpl, PasswordEncoderConfig
 │   ├── member/         → MemberRepositoryImpl, MemberJpaRepository
 │   ├── brand/          → BrandRepositoryImpl, BrandJpaRepository
 │   ├── product/        → ProductRepositoryImpl, ProductJpaRepository, ProductCacheStoreImpl
@@ -622,4 +622,4 @@ com.loopers
 - **좋아요 수 비정규화**: `ProductModel`의 `likeCount` 컬럼(DEFAULT 0)으로 좋아요 수를 관리한다. 별도 집계 테이블 없이 `product` 테이블에 직접 저장하며, 배치가 주기적으로 갱신한다.
 - **Value Object 패키지**: 도메인별 VO는 `domain/{domain}/vo/`에, 공통 VO는 `domain/common/vo/`에 위치한다. `RawPassword`는 VO가 아닌 검증 정책 객체이므로 `domain/member/`에 직접 위치한다.
 - **인증 컴포넌트**: `@MemberAuthenticated` 어노테이션, `AuthenticatedMember` DTO, `AuthenticatedMemberArgumentResolver`가 `interfaces/config/auth/`에 위치한다. 인증이 필요한 엔드포인트에 `@MemberAuthenticated`를 선언하면, Interceptor가 인증 후 `AuthenticatedMember`를 Controller 파라미터로 주입한다.
-- **캐시 설정**: `infrastructure/config/CacheConfig`에서 Caffeine 기반 `auth-cache`를 관리한다. BCrypt 인증 결과를 SHA256 해시 비교로 캐싱하여 CPU 부하를 절감하며, 비밀번호 변경 시 `MemberFacade`에서 해당 loginId의 캐시를 evict한다.
+- **캐시 설정**: `AuthCacheStore` 포트(Application)와 `AuthCacheStoreImpl`(Infrastructure)로 Redis 기반 인증 캐시를 관리한다. `AuthService`가 `AuthCacheStore`를 통해 BCrypt 인증 결과를 SHA256 해시 비교로 캐싱하여 CPU 부하를 절감하며, 비밀번호 변경 시 `MemberFacade`에서 해당 loginId의 캐시를 evict한다. `ProductCacheStoreImpl`, `BrandCacheStoreImpl`도 동일한 포트 패턴으로 Redis 캐시를 제공한다.

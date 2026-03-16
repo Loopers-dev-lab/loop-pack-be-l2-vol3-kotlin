@@ -161,7 +161,7 @@ erDiagram
 
 ### 2.1 member (기존)
 
-> 1주차에 구현 완료. VO 패턴 적용 (LoginId, MemberName, Email), `@MemberAuthenticated` 인증 패턴 적용, 비밀번호 변경 시 auth-cache eviction 추가.
+> 1주차에 구현 완료. VO 패턴 적용 (LoginId, MemberName, Email), `@MemberAuthenticated` 인증 패턴 적용, 비밀번호 변경 시 Redis auth-cache eviction 추가 (AuthCacheStore 포트 패턴, TTL 5분).
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|

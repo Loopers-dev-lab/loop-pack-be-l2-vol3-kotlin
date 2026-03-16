@@ -403,14 +403,14 @@ classDiagram
 
 ### 다이어그램의 목적
 
-JWT 미사용 환경에서 어노테이션 기반 인증이 어떻게 동작하는지, Caffeine 캐시를 활용한 BCrypt 최적화 흐름을 파악한다.
+JWT 미사용 환경에서 어노테이션 기반 인증이 어떻게 동작하는지, Redis 캐시(AuthCacheStore)를 활용한 BCrypt 최적화 흐름을 파악한다.
 
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant I as Interceptor
     participant AS as AuthService
-    participant Cache as Caffeine Cache
+    participant Cache as Redis Cache (AuthCacheStore)
     participant MS as MemberService
     participant AR as ArgumentResolver
     participant Ctrl as Controller
@@ -452,10 +452,10 @@ sequenceDiagram
 
 ### 캐시 전략
 
-- **백엔드**: Caffeine 로컬 캐시 (`auth-cache`)
+- **백엔드**: Redis 글로벌 캐시 (`AuthCacheStore` 포트 패턴, 키 `auth:{loginId}`)
 - **키**: loginId
 - **비교 방식**: SHA256 다이제스트로 비밀번호 비교 (BCrypt 반복 호출 방지)
-- **TTL**: 5분, 최대 10,000 엔트리
+- **TTL**: 5분 (Redis allkeys-lfu eviction 정책으로 메모리 관리)
 - **Eviction**: 비밀번호 변경 시 loginId 기반 즉시 evict
 
 ---
@@ -593,7 +593,7 @@ graph TB
 
     subgraph AppLayer["Application Layer"]
         subgraph AppAuth["인증 (Application)"]
-            AS["AuthService<br/>인증 + Caffeine 캐시 로직"]
+            AS["AuthService<br/>인증 + AuthCacheStore(Redis) 로직"]
             ARES["AuthResult<br/>인증 결과 (id, loginId)"]
             CA["CachedAuth<br/>SHA256 다이제스트 비교"]
         end
@@ -647,7 +647,7 @@ graph TB
 | Interfaces | `MemberV1Controller` | `POST /api/v1/members` 회원가입, `GET /api/v1/members/me` 내 정보 조회, `PATCH /api/v1/members/me/password` 비밀번호 변경 |
 | Interfaces | `MemberV1ApiSpec` | OpenAPI 스펙 |
 | Interfaces | `MemberV1Dto` | RegisterRequest, MemberResponse, ChangePasswordRequest |
-| Application | `MemberFacade` | 가입 · 조회 · 비밀번호 변경 오케스트레이션 + 비밀번호 변경 시 auth-cache evict (`@Transactional`) |
+| Application | `MemberFacade` | 가입 · 조회 · 비밀번호 변경 오케스트레이션 + 비밀번호 변경 시 AuthCacheStore evict (`@Transactional`) |
 | Application | `MemberService` | 단일 도메인 로직: 가입, 인증, 조회, 비밀번호 변경 (`@Transactional` 없음) |
 | Application | `MemberInfo` | 회원 정보 DTO |
 | Domain | `MemberModel` | data class: Aggregate Root, `changePassword()` |
@@ -796,7 +796,7 @@ graph TB
 | Interfaces | `ApiResponse<T>` | 통합 응답 래퍼 |
 | Interfaces | `ApiControllerAdvice` | 글로벌 예외 핸들러: ApplicationException → ApiResponse 변환 |
 | Interfaces | `PageResponse<T>` | Presentation 페이징 DTO (Domain PageResult 미노출) |
-| Application/Auth | `AuthService` | 인증 + Caffeine 캐시 로직 (Interceptor의 유일한 의존 대상) |
+| Application/Auth | `AuthService` | 인증 + AuthCacheStore(Redis) 로직 (Interceptor의 유일한 의존 대상) |
 | Application/Auth | `AuthResult` | 인증 결과 DTO (id, loginId) |
 | Application/Auth | `CachedAuth` | SHA256 다이제스트 기반 캐시 엔트리 |
 | Application/Error | `ApplicationException` | HTTP 상태 + message 래핑 (Presentation 전달용) |
@@ -830,7 +830,7 @@ graph TB
 | 멱등 좋아요 | 사전 조회 후 INSERT, 양방향 멱등 (등록/취소 모두 200 OK) | D17 |
 | 스냅샷 | OrderItemModel에 productName, productPrice, brandName 복사 | D25 |
 | 커서 페이징 | 고객 상품 목록 (Base64). Infrastructure에서 커서 파싱/인코딩, Domain은 CursorResult 반환 | D28, D30 |
-| 인증 캐싱 | Caffeine auth-cache, SHA256 다이제스트, TTL 5분. AuthService(Application)가 캐시 로직 소유 | D4, D5, D30 |
+| 인증 캐싱 | Redis 글로벌 캐시(AuthCacheStore 포트 패턴), SHA256 다이제스트, TTL 5분. AuthService(Application)가 캐시 로직 소유 | D4, D5, D30, D41 |
 | 어노테이션 기반 인증 | JWT 미사용, `@MemberAuthenticated` + `@AdminAuthenticated` + Interceptor + ArgumentResolver | D3 |
 | Unique Constraint | 사전 조회 중복체크 금지, DB Constraint + 예외 처리 | D2 |
 | Virtual Threads | `spring.threads.virtual.enabled=true`, synchronized 금지 | D1 |
