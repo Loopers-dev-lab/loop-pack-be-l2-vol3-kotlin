@@ -10,8 +10,8 @@ interface OrderRepository {
     fun findByIdAndUserId(id: Long, userId: Long): Order?
     fun findAllByUserId(
         userId: Long,
-        from: ZonedDateTime?,
-        to: ZonedDateTime?,
+        from: ZonedDateTime,
+        to: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order>
     fun findAll(pageRequest: PageRequest): PageResponse<Order>

@@ -7,8 +7,8 @@ import java.time.ZonedDateTime
 interface AdminOrderRepository {
     fun findById(id: Long): Order?
     fun findAll(
-        from: ZonedDateTime?,
-        to: ZonedDateTime?,
+        from: ZonedDateTime,
+        to: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order>
 }
