@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class DeleteProductUseCaseTest {
@@ -20,7 +21,7 @@ class DeleteProductUseCaseTest {
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        useCase = DeleteProductUseCase(productRepository)
+        useCase = DeleteProductUseCase(productRepository, ApplicationEventPublisher { })
     }
 
     @Nested
@@ -62,6 +63,28 @@ class DeleteProductUseCaseTest {
         fun deleteProduct_nonExistent_isIdempotent() {
             // act & assert — 예외 없이 정상 반환
             useCase.execute(999L)
+        }
+
+        @Test
+        @DisplayName("상품 삭제 후 캐시 evict 이벤트가 발행된다")
+        fun deleteProduct_publishesCacheEvictEvent() {
+            // arrange
+            val product = productRepository.save(
+                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = DeleteProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(product.id.value)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailEvicted::class.java)
+            val evictEvent = event as ProductCacheEvent.DetailEvicted
+            assertThat(evictEvent.productId).isEqualTo(product.id)
+            assertThat(evictEvent.brandId).isEqualTo(product.refBrandId)
         }
     }
 }

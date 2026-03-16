@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class UpdateProductUseCaseTest {
@@ -23,7 +24,7 @@ class UpdateProductUseCaseTest {
     @BeforeEach
     fun setUp() {
         productRepository = FakeProductRepository()
-        useCase = UpdateProductUseCase(productRepository)
+        useCase = UpdateProductUseCase(productRepository, ApplicationEventPublisher { })
     }
 
     private fun createProduct(
@@ -126,6 +127,46 @@ class UpdateProductUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
             assertThat(exception.message).contains("유효하지 않은 상품 상태입니다")
+        }
+
+        @Test
+        @DisplayName("상품 수정 후 캐시 갱신 이벤트가 발행된다")
+        fun updateProduct_publishesCacheUpdateEvent() {
+            // arrange
+            val product = createProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = UpdateProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(product.id.value, "에어맥스 95", null, null, null)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.product.id).isEqualTo(product.id)
+            assertThat(detailEvent.product.name).isEqualTo("에어맥스 95")
+        }
+
+        @Test
+        @DisplayName("상품 수정 후 상품 목록 캐시 무효화 이벤트가 발행된다")
+        fun updateProduct_publishesCacheEvictListEvent() {
+            // arrange
+            val product = createProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = UpdateProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(product.id.value, "에어맥스 95", null, null, null)
+
+            // assert — evictList = true 이벤트가 발행되어야 한다
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
+            val detailEvent = event as ProductCacheEvent.DetailUpdated
+            assertThat(detailEvent.evictList).isTrue()
+            assertThat(detailEvent.product.id).isEqualTo(product.id)
         }
     }
 }

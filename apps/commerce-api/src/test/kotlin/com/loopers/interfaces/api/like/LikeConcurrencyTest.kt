@@ -122,6 +122,114 @@ class LikeConcurrencyTest @Autowired constructor(
 
         @Test
         @Timeout(60)
+        @DisplayName("N명이 동시에 좋아요 취소하면 likeCount가 0이 된다 (음수 방지)")
+        fun concurrentUnlike_likeCountDoesNotGoNegative() {
+            // arrange
+            val concurrentUsers = 20
+            val productId = createBrandAndProduct()
+
+            for (i in 1..concurrentUsers) {
+                signUp("unlikeuser$i")
+            }
+
+            // 먼저 N명 순차 좋아요 등록
+            for (i in 1..concurrentUsers) {
+                val response = testRestTemplate.exchange(
+                    "/api/v1/products/$productId/likes",
+                    HttpMethod.POST,
+                    HttpEntity<Any>(authHeaders("unlikeuser$i")),
+                    ANY_TYPE,
+                )
+                assertThat(response.statusCode.is2xxSuccessful)
+                    .describedAs("좋아요 등록 API 호출이 성공해야 합니다: ${response.statusCode}")
+                    .isTrue()
+            }
+
+            // 사전 상태 검증: 동시 취소 시작 전 likeCount가 concurrentUsers와 일치해야 함
+            val preCheckResponse = testRestTemplate.exchange(
+                "/api-admin/v1/products/$productId",
+                HttpMethod.GET,
+                HttpEntity<Any>(adminHeaders()),
+                MAP_TYPE,
+            )
+            val preCheckBody = requireNotNull(preCheckResponse.body) { "사전 검증 응답 body가 null입니다" }
+            val preCheckData = requireNotNull(preCheckBody.data) { "사전 검증 응답 data가 null입니다" }
+            val preCheckLikeCount = (preCheckData["likeCount"] as Number).toInt()
+            assertThat(preCheckLikeCount)
+                .describedAs("동시 취소 시작 전 likeCount가 ${concurrentUsers}이어야 합니다")
+                .isEqualTo(concurrentUsers)
+
+            val executorService = Executors.newFixedThreadPool(concurrentUsers)
+            val readyLatch = CountDownLatch(concurrentUsers)
+            val startLatch = CountDownLatch(1)
+            val latch = CountDownLatch(concurrentUsers)
+            val successCount = AtomicInteger(0)
+            val failCount = AtomicInteger(0)
+            val firstException = AtomicReference<Exception>()
+
+            // act - N명 동시 취소
+            try {
+                for (i in 1..concurrentUsers) {
+                    executorService.submit {
+                        try {
+                            readyLatch.countDown()
+                            val started = startLatch.await(30, TimeUnit.SECONDS)
+                            if (!started) {
+                                failCount.incrementAndGet()
+                                return@submit
+                            }
+                            val response = testRestTemplate.exchange(
+                                "/api/v1/products/$productId/likes",
+                                HttpMethod.DELETE,
+                                HttpEntity<Any>(authHeaders("unlikeuser$i")),
+                                ANY_TYPE,
+                            )
+                            if (response.statusCode == HttpStatus.OK) {
+                                successCount.incrementAndGet()
+                            } else {
+                                failCount.incrementAndGet()
+                            }
+                        } catch (e: Exception) {
+                            failCount.incrementAndGet()
+                            firstException.compareAndSet(null, e)
+                        } finally {
+                            latch.countDown()
+                        }
+                    }
+                }
+
+                val allReady = readyLatch.await(30, TimeUnit.SECONDS)
+                assertThat(allReady).describedAs("모든 스레드가 준비되어야 합니다").isTrue()
+                startLatch.countDown()
+                val allDone = latch.await(30, TimeUnit.SECONDS)
+                assertThat(allDone).describedAs("모든 스레드가 완료되어야 합니다").isTrue()
+            } finally {
+                executorService.shutdownNow()
+                val terminated = executorService.awaitTermination(5, TimeUnit.SECONDS)
+                assertThat(terminated).describedAs("스레드풀이 제한 시간 내에 종료되어야 합니다").isTrue()
+            }
+
+            // assert - likeCount == 0 확인
+            val adminResponse = testRestTemplate.exchange(
+                "/api-admin/v1/products/$productId",
+                HttpMethod.GET,
+                HttpEntity<Any>(adminHeaders()),
+                MAP_TYPE,
+            )
+            val adminBody = requireNotNull(adminResponse.body) { "좋아요 조회 응답 body가 null입니다" }
+            val adminData = requireNotNull(adminBody.data) { "좋아요 조회 응답 data가 null입니다" }
+            val likeCount = (adminData["likeCount"] as Number).toInt()
+
+            assertAll(
+                { assertThat(successCount.get()).isEqualTo(concurrentUsers) },
+                { assertThat(failCount.get()).describedAs("실패 건수").isEqualTo(0) },
+                { assertThat(firstException.get()).describedAs("첫 번째 예외").isNull() },
+                { assertThat(likeCount).isEqualTo(0) },
+            )
+        }
+
+        @Test
+        @Timeout(60)
         @DisplayName("N명이 동시에 같은 상품에 좋아요하면 likeCount가 N이 된다")
         fun concurrentLike_likeCountEqualsN() {
             // arrange

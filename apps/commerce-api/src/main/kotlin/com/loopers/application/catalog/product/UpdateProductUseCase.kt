@@ -7,12 +7,16 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 
 @Component
-class UpdateProductUseCase(private val productRepository: ProductRepository) {
+class UpdateProductUseCase(
+    private val productRepository: ProductRepository,
+    private val eventPublisher: ApplicationEventPublisher,
+) {
     @Transactional
     fun execute(productId: Long, name: String?, price: BigDecimal?, stock: Int?, status: String?): ProductInfo {
         val command = CatalogCommand.UpdateProduct(
@@ -32,6 +36,7 @@ class UpdateProductUseCase(private val productRepository: ProductRepository) {
         }
         product.update(command.name, command.price?.let { Money(it) }, command.stock, domainStatus)
         val saved = productRepository.save(product)
+        eventPublisher.publishEvent(ProductCacheEvent.DetailUpdated(saved, evictList = true))
         return ProductInfo.from(saved)
     }
 }
