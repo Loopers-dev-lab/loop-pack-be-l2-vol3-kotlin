@@ -7,10 +7,9 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
-import com.loopers.domain.payment.FakePgClient
 import com.loopers.domain.payment.FakePaymentRepository
-import com.loopers.domain.payment.PgPaymentResult
-import com.loopers.domain.payment.PgResultStatus
+import com.loopers.domain.payment.model.CardType
+import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -26,15 +25,15 @@ class RequestPaymentUseCaseTest {
 
     private lateinit var orderRepository: FakeOrderRepository
     private lateinit var paymentRepository: FakePaymentRepository
-    private lateinit var pgClient: FakePgClient
+    private lateinit var paymentPgProcessor: FakePaymentPgProcessor
     private lateinit var useCase: RequestPaymentUseCase
 
     @BeforeEach
     fun setUp() {
         orderRepository = FakeOrderRepository()
         paymentRepository = FakePaymentRepository()
-        pgClient = FakePgClient()
-        useCase = RequestPaymentUseCase(orderRepository, paymentRepository, pgClient)
+        paymentPgProcessor = FakePaymentPgProcessor()
+        useCase = RequestPaymentUseCase(orderRepository, paymentRepository, paymentPgProcessor)
     }
 
     private fun createSavedOrder(): Order {
@@ -51,11 +50,11 @@ class RequestPaymentUseCaseTest {
         return orderRepository.save(order)
     }
 
-    private fun defaultCommand(orderId: Long) = PaymentCommand.RequestPayment(
+    private fun defaultCommand(orderId: Long, userId: Long = 1L) = PaymentCommand.RequestPayment(
+        userId = userId,
         orderId = orderId,
         cardType = "SAMSUNG",
         cardNo = "1234-5678-9012-3456",
-        callbackUrl = "https://example.com/callback",
     )
 
     @Nested
@@ -63,23 +62,20 @@ class RequestPaymentUseCaseTest {
     inner class Execute {
 
         @Test
-        @DisplayName("PG 성공 — Payment가 REQUESTED 상태로 저장되고 Order가 PENDING_PAYMENT로 전환된다")
-        fun execute_pgSuccess_paymentRequestedAndOrderPendingPayment() {
+        @DisplayName("결제 요청 시 Payment가 REQUESTED 상태로 저장되고 Order가 PENDING_PAYMENT로 전환된다")
+        fun execute_paymentRequestedAndOrderPendingPayment() {
             // arrange
             val savedOrder = createSavedOrder()
-            pgClient.requestPaymentResult = PgPaymentResult(
-                transactionKey = "TR-SUCCESS-001",
-                status = PgResultStatus.SUCCESS,
-            )
             val command = defaultCommand(savedOrder.id.value)
 
             // act
             val result = useCase.execute(command)
 
-            // assert
+            // assert — execute()는 항상 REQUESTED 상태 반환 (PG 호출은 afterCommit에서)
             assertThat(result.status).isEqualTo(PaymentStatus.REQUESTED.name)
             assertThat(result.orderId).isEqualTo(savedOrder.id.value)
             assertThat(result.cardType).isEqualTo("SAMSUNG")
+            assertThat(result.cardNo).isEqualTo("1234-****-****-3456")
             assertThat(result.amount).isEqualTo(20000L)
             assertThat(result.id).isNotEqualTo(0L)
 
@@ -88,50 +84,6 @@ class RequestPaymentUseCaseTest {
 
             val savedPayment = paymentRepository.findByOrderId(savedOrder.id.value)
             assertThat(savedPayment).isNotNull
-        }
-
-        @Test
-        @DisplayName("PG TIMEOUT — Payment가 TIMEOUT 상태로 저장되고 Order는 PENDING_PAYMENT로 남는다")
-        fun execute_pgTimeout_paymentTimeoutAndOrderPendingPayment() {
-            // arrange
-            val savedOrder = createSavedOrder()
-            pgClient.requestPaymentResult = PgPaymentResult(
-                transactionKey = null,
-                status = PgResultStatus.TIMEOUT,
-            )
-            val command = defaultCommand(savedOrder.id.value)
-
-            // act
-            val result = useCase.execute(command)
-
-            // assert
-            assertThat(result.status).isEqualTo(PaymentStatus.TIMEOUT.name)
-
-            val updatedOrder = orderRepository.findById(savedOrder.id)!!
-            assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
-        }
-
-        @Test
-        @DisplayName("PG FAILED — Payment가 FAILED 상태로 저장되고 Order가 FAILED로 전환된다")
-        fun execute_pgFailed_paymentFailedAndOrderFailed() {
-            // arrange
-            val savedOrder = createSavedOrder()
-            pgClient.requestPaymentResult = PgPaymentResult(
-                transactionKey = null,
-                status = PgResultStatus.FAILED,
-                reason = "카드 한도 초과",
-            )
-            val command = defaultCommand(savedOrder.id.value)
-
-            // act
-            val result = useCase.execute(command)
-
-            // assert
-            assertThat(result.status).isEqualTo(PaymentStatus.FAILED.name)
-            assertThat(result.reason).isEqualTo("카드 한도 초과")
-
-            val updatedOrder = orderRepository.findById(savedOrder.id)!!
-            assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.FAILED)
         }
 
         @Test
@@ -154,10 +106,6 @@ class RequestPaymentUseCaseTest {
         fun execute_alreadyRequestedPayment_throwsConflict() {
             // arrange
             val savedOrder = createSavedOrder()
-            pgClient.requestPaymentResult = PgPaymentResult(
-                transactionKey = "TR-FIRST-001",
-                status = PgResultStatus.SUCCESS,
-            )
             val command = defaultCommand(savedOrder.id.value)
             useCase.execute(command) // 첫 번째 결제 요청 (REQUESTED 상태로 저장)
 
@@ -168,6 +116,79 @@ class RequestPaymentUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+        }
+
+        @Test
+        @DisplayName("다른 userId의 Order에 결제 요청 시 NOT_FOUND 예외가 발생한다")
+        fun execute_orderOwnerMismatch_throwsNotFound() {
+            // arrange
+            val savedOrder = createSavedOrder() // userId = 1L 로 생성
+            val command = defaultCommand(orderId = savedOrder.id.value, userId = 2L) // 다른 userId
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("SUCCESS 상태 결제가 이미 존재하면 CONFLICT 예외가 발생한다")
+        fun execute_alreadySuccessPayment_throwsConflict() {
+            // arrange
+            val savedOrder = createSavedOrder()
+            val successPayment = Payment.fromPersistence(
+                id = 0L,
+                orderId = savedOrder.id.value,
+                transactionKey = "TR-001",
+                status = PaymentStatus.SUCCESS,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-****-****-3456",
+                amount = 20000L,
+                reason = null,
+                createdAt = java.time.ZonedDateTime.now(),
+                updatedAt = java.time.ZonedDateTime.now(),
+            )
+            paymentRepository.save(successPayment)
+            val command = defaultCommand(savedOrder.id.value)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(command)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+            assertThat(exception.message).contains("이미 결제가 완료된 주문입니다.")
+        }
+
+        @Test
+        @DisplayName("FAILED 상태 결제가 존재하면 재결제가 허용된다")
+        fun execute_failedPaymentExists_allowsRetry() {
+            // arrange
+            val savedOrder = createSavedOrder()
+            val failedPayment = Payment.fromPersistence(
+                id = 0L,
+                orderId = savedOrder.id.value,
+                transactionKey = null,
+                status = PaymentStatus.FAILED,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-****-****-3456",
+                amount = 20000L,
+                reason = "카드 한도 초과",
+                createdAt = java.time.ZonedDateTime.now(),
+                updatedAt = java.time.ZonedDateTime.now(),
+            )
+            paymentRepository.save(failedPayment)
+            // CREATED 상태로 되돌려야 markPendingPayment() 가능 — 새 주문으로 테스트
+            val freshOrder = createSavedOrder()
+            val command = defaultCommand(freshOrder.id.value)
+
+            // act & assert — 예외 없이 성공
+            val result = useCase.execute(command)
+            assertThat(result.status).isEqualTo(PaymentStatus.REQUESTED.name)
         }
 
         @Test

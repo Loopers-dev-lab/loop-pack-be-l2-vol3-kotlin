@@ -29,15 +29,19 @@ class PaymentFlowIntegrationTest {
     private lateinit var requestPaymentUseCase: RequestPaymentUseCase
     private lateinit var handlePaymentCallbackUseCase: HandlePaymentCallbackUseCase
     private lateinit var recoverPaymentUseCase: RecoverPaymentUseCase
+    private lateinit var recoverAllPaymentsUseCase: RecoverAllPaymentsUseCase
+    private lateinit var paymentPgProcessor: PaymentPgProcessorImpl
 
     @BeforeEach
     fun setUp() {
         orderRepository = FakeOrderRepository()
         paymentRepository = FakePaymentRepository()
         pgClient = FakePgClient()
-        requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, pgClient)
+        paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository)
+        requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, FakePaymentPgProcessor())
         handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository)
         recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient)
+        recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
     }
 
     private fun createSavedOrder(): Order {
@@ -55,10 +59,10 @@ class PaymentFlowIntegrationTest {
     }
 
     private fun defaultRequestCommand(orderId: Long) = PaymentCommand.RequestPayment(
+        userId = 1L,
         orderId = orderId,
         cardType = "SAMSUNG",
         cardNo = "1234-5678-9012-3456",
-        callbackUrl = "https://example.com/callback",
     )
 
     @Nested
@@ -75,8 +79,15 @@ class PaymentFlowIntegrationTest {
                 status = PgResultStatus.SUCCESS,
             )
 
-            // act — 1단계: 결제 요청
-            requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            // act — 1단계: 결제 요청 (REQUESTED 저장) + afterCommit 시뮬레이션
+            val paymentInfo = requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            paymentPgProcessor.processPayment(
+                paymentId = paymentInfo.id,
+                orderId = savedOrder.id.value,
+                amount = paymentInfo.amount,
+                cardType = "SAMSUNG",
+                cardNo = "1234-5678-9012-3456",
+            )
 
             // act — 2단계: 콜백 수신
             handlePaymentCallbackUseCase.execute(
@@ -100,7 +111,7 @@ class PaymentFlowIntegrationTest {
     inner class TimeoutRecoveryByScheduler {
 
         @Test
-        @DisplayName("결제 요청(TIMEOUT) 후 스케줄러가 PG 성공을 확인하면 Payment SUCCESS, Order PAID 상태가 된다")
+        @DisplayName("결제 요청 후 PG TIMEOUT 처리, 스케줄러가 PG 성공을 확인하면 Payment SUCCESS, Order PAID 상태가 된다")
         fun requestTimeout_schedulerRecovery_paymentSuccessOrderPaid() {
             // arrange
             val savedOrder = createSavedOrder()
@@ -109,8 +120,15 @@ class PaymentFlowIntegrationTest {
                 status = PgResultStatus.TIMEOUT,
             )
 
-            // act — 1단계: 결제 요청 (TIMEOUT 결과)
-            requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            // act — 1단계: 결제 요청 + afterCommit 시뮬레이션 (TIMEOUT 결과)
+            val paymentInfo = requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            paymentPgProcessor.processPayment(
+                paymentId = paymentInfo.id,
+                orderId = savedOrder.id.value,
+                amount = paymentInfo.amount,
+                cardType = "SAMSUNG",
+                cardNo = "1234-5678-9012-3456",
+            )
 
             val paymentAfterRequest = paymentRepository.findByOrderId(savedOrder.id.value)!!
             assertThat(paymentAfterRequest.status).isEqualTo(PaymentStatus.TIMEOUT)
@@ -123,7 +141,7 @@ class PaymentFlowIntegrationTest {
             )
 
             // act — 2단계: 스케줄러 복구
-            val recoveredCount = recoverPaymentUseCase.recoverAll()
+            val recoveredCount = recoverAllPaymentsUseCase.execute()
 
             // assert
             assertThat(recoveredCount).isEqualTo(1)
@@ -139,7 +157,7 @@ class PaymentFlowIntegrationTest {
     inner class TimeoutRecoveryByCallback {
 
         @Test
-        @DisplayName("결제 요청(TIMEOUT) 후 PG 콜백(SUCCESS)이 도착하면 Payment SUCCESS, Order PAID 상태가 된다")
+        @DisplayName("결제 요청 후 PG TIMEOUT 처리, PG 콜백(SUCCESS) 도착 시 Payment SUCCESS, Order PAID 상태가 된다")
         fun requestTimeout_callbackSuccess_paymentSuccessOrderPaid() {
             // arrange
             val savedOrder = createSavedOrder()
@@ -148,8 +166,15 @@ class PaymentFlowIntegrationTest {
                 status = PgResultStatus.TIMEOUT,
             )
 
-            // act — 1단계: 결제 요청 (TIMEOUT 결과)
-            requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            // act — 1단계: 결제 요청 + afterCommit 시뮬레이션 (TIMEOUT 결과)
+            val paymentInfo = requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            paymentPgProcessor.processPayment(
+                paymentId = paymentInfo.id,
+                orderId = savedOrder.id.value,
+                amount = paymentInfo.amount,
+                cardType = "SAMSUNG",
+                cardNo = "1234-5678-9012-3456",
+            )
 
             val paymentAfterRequest = paymentRepository.findByOrderId(savedOrder.id.value)!!
             assertThat(paymentAfterRequest.status).isEqualTo(PaymentStatus.TIMEOUT)
@@ -176,7 +201,7 @@ class PaymentFlowIntegrationTest {
     inner class FailedPaymentFlow {
 
         @Test
-        @DisplayName("결제 요청(FAILED) 시 Payment FAILED, Order FAILED 상태가 된다")
+        @DisplayName("PG FAILED 처리 시 Payment FAILED, Order FAILED 상태가 된다")
         fun requestFailed_paymentFailedOrderFailed() {
             // arrange
             val savedOrder = createSavedOrder()
@@ -186,8 +211,15 @@ class PaymentFlowIntegrationTest {
                 reason = "카드 한도 초과",
             )
 
-            // act
-            requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            // act — 결제 요청 + afterCommit 시뮬레이션 (FAILED 결과)
+            val paymentInfo = requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            paymentPgProcessor.processPayment(
+                paymentId = paymentInfo.id,
+                orderId = savedOrder.id.value,
+                amount = paymentInfo.amount,
+                cardType = "SAMSUNG",
+                cardNo = "1234-5678-9012-3456",
+            )
 
             // assert
             val finalPayment = paymentRepository.findByOrderId(savedOrder.id.value)!!

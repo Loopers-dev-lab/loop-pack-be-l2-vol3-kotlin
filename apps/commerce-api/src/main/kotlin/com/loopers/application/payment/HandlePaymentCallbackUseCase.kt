@@ -19,7 +19,7 @@ class HandlePaymentCallbackUseCase(
         val payment = paymentRepository.findByOrderIdForUpdate(command.orderId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다.")
 
-        val order = orderRepository.findById(OrderId(command.orderId))
+        val order = orderRepository.findByIdForUpdate(OrderId(command.orderId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
 
         val isProcessable = payment.status == PaymentStatus.REQUESTED || payment.status == PaymentStatus.TIMEOUT

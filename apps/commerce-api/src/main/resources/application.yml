@@ -38,8 +38,8 @@ springdoc:
 
 # PG Simulator 설정
 pg:
-  base-url: http://localhost:8082
-  callback-url: http://localhost:8080/api/v1/payments/callback
+  base-url: ${PG_BASE_URL:http://localhost:8082}
+  callback-url: ${PG_CALLBACK_URL:http://localhost:8080/api/v1/payments/callback}
 
 # Resilience4j 설정
 resilience4j:

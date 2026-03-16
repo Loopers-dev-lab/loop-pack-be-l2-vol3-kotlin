@@ -8,6 +8,6 @@ class RedisCleanUp(
     private val redisConnectionFactory: RedisConnectionFactory,
 ) {
     fun truncateAll() {
-        redisConnectionFactory.connection.use { it.serverCommands().flushAll() }
+        redisConnectionFactory.connection.use { it.serverCommands().flushDb() }
     }
 }

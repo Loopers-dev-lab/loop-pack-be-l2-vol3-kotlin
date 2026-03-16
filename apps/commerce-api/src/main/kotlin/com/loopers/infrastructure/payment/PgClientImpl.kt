@@ -5,6 +5,7 @@ import com.loopers.domain.payment.PgPaymentRequest
 import com.loopers.domain.payment.PgPaymentResult
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
+import com.loopers.interfaces.support.config.PgProperties
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component
 class PgClientImpl(
     private val pgFeignClient: PgFeignClient,
     private val pgStatusQueryClient: PgStatusQueryClient,
+    private val pgProperties: PgProperties,
 ) : PgClient {
 
     private val log = LoggerFactory.getLogger(PgClientImpl::class.java)
@@ -29,7 +31,8 @@ class PgClientImpl(
                 cardType = request.cardType.name,
                 cardNo = request.cardNo,
                 amount = request.amount,
-                callbackUrl = request.callbackUrl,
+                callbackUrl = pgProperties.callbackUrl,
+                idempotencyKey = "payment-${request.orderId}",
             ),
         )
         val data = requireNotNull(response.data) { "PG 응답 data가 null입니다." }

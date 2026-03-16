@@ -6,11 +6,14 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.infrastructure.support.defaultPageRequest
+import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
 import java.time.ZonedDateTime
+import java.util.Optional
 
 interface OrderJpaRepository : JpaRepository<OrderEntity, Long> {
     fun findAllByRefUserIdAndCreatedAtBetweenAndDeletedAtIsNull(
@@ -20,6 +23,9 @@ interface OrderJpaRepository : JpaRepository<OrderEntity, Long> {
         pageable: Pageable,
     ): Page<OrderEntity>
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<OrderEntity>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findWithLockById(id: Long): Optional<OrderEntity>
 }
 
 @Repository
@@ -33,6 +39,10 @@ class OrderRepositoryImpl(
 
     override fun findById(id: OrderId): Order? {
         return orderJpaRepository.findById(id.value).orElse(null)?.toDomain()
+    }
+
+    override fun findByIdForUpdate(id: OrderId): Order? {
+        return orderJpaRepository.findWithLockById(id.value).orElse(null)?.toDomain()
     }
 
     override fun findAllByUserId(

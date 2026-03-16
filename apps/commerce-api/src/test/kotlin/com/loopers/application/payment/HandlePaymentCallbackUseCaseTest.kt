@@ -125,11 +125,8 @@ class HandlePaymentCallbackUseCaseTest {
             val order = createPendingOrder()
             val payment = createPaymentForOrder(order.id.value)
             // Payment를 SUCCESS로 만들어 둠
-            paymentRepository.updateStatusConditionally(
-                payment.id,
-                listOf(PaymentStatus.REQUESTED),
-                PaymentStatus.SUCCESS,
-            )
+            payment.markSuccess("TR-PRE")
+            paymentRepository.save(payment)
 
             // act — SUCCESS 콜백 재시도
             useCase.execute(

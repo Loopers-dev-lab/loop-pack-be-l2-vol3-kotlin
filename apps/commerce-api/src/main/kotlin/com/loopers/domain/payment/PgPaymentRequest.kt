@@ -7,5 +7,4 @@ data class PgPaymentRequest(
     val cardType: CardType,
     val cardNo: String,
     val amount: Long,
-    val callbackUrl: String,
 )

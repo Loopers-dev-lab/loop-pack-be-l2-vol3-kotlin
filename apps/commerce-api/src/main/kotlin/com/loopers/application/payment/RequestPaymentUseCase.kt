@@ -1,80 +1,102 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.repository.OrderRepository
-import com.loopers.domain.payment.PgClient
-import com.loopers.domain.payment.PgPaymentRequest
-import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.model.CardType
 import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 class RequestPaymentUseCase(
     private val orderRepository: OrderRepository,
     private val paymentRepository: PaymentRepository,
-    private val pgClient: PgClient,
+    private val paymentPgProcessor: PaymentPgProcessor,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional
     fun execute(command: PaymentCommand.RequestPayment): PaymentInfo {
-        // 1. 기존 진행 중 결제 확인
+        // 1. 중복 결제 방지
         paymentRepository.findByOrderId(command.orderId)?.let { existingPayment ->
-            if (existingPayment.status == PaymentStatus.REQUESTED || existingPayment.status == PaymentStatus.TIMEOUT) {
-                throw CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중인 주문입니다.")
+            when (existingPayment.status) {
+                PaymentStatus.SUCCESS ->
+                    throw CoreException(ErrorType.CONFLICT, "이미 결제가 완료된 주문입니다.")
+                PaymentStatus.REQUESTED, PaymentStatus.TIMEOUT ->
+                    throw CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중인 주문입니다.")
+                PaymentStatus.FAILED -> { /* 재결제 허용 */ }
             }
         }
 
-        // 2. Order 조회 + CREATED 상태 확인 (markPendingPayment 내부에서 검증)
-        val order = orderRepository.findById(OrderId(command.orderId))
+        // 2. Order 조회 (비관적 락) + 소유자 검증
+        val order = orderRepository.findByIdForUpdate(OrderId(command.orderId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
 
-        // 3. Order → PENDING_PAYMENT (CREATED 아니면 BAD_REQUEST 발생)
+        if (order.refUserId != UserId(command.userId)) {
+            throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
+        }
+
+        // 3. Order → PENDING_PAYMENT
         order.markPendingPayment()
         orderRepository.save(order)
 
-        val cardType = CardType.valueOf(command.cardType)
-        val amount = order.totalPrice.value.toLong()
-
-        // 4. PG 결제 요청
-        val pgResult = pgClient.requestPayment(
-            PgPaymentRequest(
-                orderId = command.orderId,
-                cardType = cardType,
-                cardNo = command.cardNo,
-                amount = amount,
-                callbackUrl = command.callbackUrl,
-            ),
-        )
-
-        // 5. 결과에 따라 Payment 생성 + 상태 반영
+        // 4. Payment(REQUESTED) 먼저 저장
+        val cardType = try {
+            CardType.valueOf(command.cardType)
+        } catch (e: IllegalArgumentException) {
+            throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 카드 유형입니다: ${command.cardType}")
+        }
         val payment = Payment.create(
             orderId = command.orderId,
             cardType = cardType,
             cardNo = command.cardNo,
-            amount = amount,
+            amount = order.totalPrice.value.toLong(),
         )
+        val savedPayment = paymentRepository.save(payment)
 
-        when (pgResult.status) {
-            PgResultStatus.SUCCESS -> {
-                // REQUESTED 상태 유지 (콜백으로 SUCCESS 전환 예정)
-            }
-            PgResultStatus.FAILED -> {
-                payment.markFailed(pgResult.reason ?: "PG 결제 실패")
-                order.markFailed()
-                orderRepository.save(order)
-            }
-            PgResultStatus.TIMEOUT -> {
-                payment.markTimeout()
-                // 스케줄러가 나중에 처리 (TODO: 다음 주 이벤트 기반 전환)
-            }
+        // 5. 커밋 후 PG 호출 (트랜잭션 밖에서 외부 HTTP 호출)
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() {
+                        try {
+                            paymentPgProcessor.processPayment(
+                                paymentId = savedPayment.id,
+                                orderId = command.orderId,
+                                amount = savedPayment.amount,
+                                cardType = command.cardType,
+                                cardNo = command.cardNo,
+                            )
+                        } catch (e: Exception) {
+                            log.error(
+                                "PG 결제 요청 실패. paymentId={}, orderId={}: {}",
+                                savedPayment.id,
+                                command.orderId,
+                                e.message,
+                                e,
+                            )
+                        }
+                    }
+                },
+            )
+        } else {
+            paymentPgProcessor.processPayment(
+                paymentId = savedPayment.id,
+                orderId = command.orderId,
+                amount = savedPayment.amount,
+                cardType = command.cardType,
+                cardNo = command.cardNo,
+            )
         }
 
-        val savedPayment = paymentRepository.save(payment)
         return PaymentInfo.from(savedPayment)
     }
 }

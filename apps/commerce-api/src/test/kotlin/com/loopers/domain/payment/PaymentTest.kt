@@ -34,6 +34,21 @@ class PaymentTest {
             assertThat(payment.cardType).isEqualTo(CardType.KB)
             assertThat(payment.amount).isEqualTo(10000L)
         }
+
+        @Test
+        @DisplayName("cardNo는 마스킹되어 저장된다 — 첫 4자리와 마지막 4자리만 유지")
+        fun create_cardNo_isMasked() {
+            // act
+            val payment = Payment.create(
+                orderId = 1L,
+                cardType = CardType.KB,
+                cardNo = "1234-5678-9012-3456",
+                amount = 10000L,
+            )
+
+            // assert
+            assertThat(payment.cardNo).isEqualTo("1234-****-****-3456")
+        }
     }
 
     @Nested

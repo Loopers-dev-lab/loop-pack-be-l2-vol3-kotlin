@@ -8,6 +8,5 @@ interface PaymentRepository {
     fun findById(id: Long): Payment?
     fun findByOrderId(orderId: Long): Payment?
     fun findByOrderIdForUpdate(orderId: Long): Payment?
-    fun findByStatusIn(statuses: List<PaymentStatus>): List<Payment>
-    fun updateStatusConditionally(id: Long, expectedStatuses: List<PaymentStatus>, newStatus: PaymentStatus): Boolean
+    fun findByStatusIn(statuses: List<PaymentStatus>, limit: Int = 100): List<Payment>
 }

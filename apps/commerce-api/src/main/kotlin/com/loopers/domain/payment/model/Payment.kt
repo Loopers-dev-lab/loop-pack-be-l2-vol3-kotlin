@@ -49,6 +49,12 @@ class Payment private constructor(
     }
 
     companion object {
+        private fun maskCardNo(cardNo: String): String {
+            val parts = cardNo.split("-")
+            if (parts.size != 4) return cardNo
+            return "${parts[0]}-****-****-${parts[3]}"
+        }
+
         fun create(
             orderId: Long,
             cardType: CardType,
@@ -61,7 +67,7 @@ class Payment private constructor(
                 transactionKey = null,
                 status = PaymentStatus.REQUESTED,
                 cardType = cardType,
-                cardNo = cardNo,
+                cardNo = maskCardNo(cardNo),
                 amount = amount,
                 createdAt = now,
                 updatedAt = now,

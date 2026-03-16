@@ -7,6 +7,10 @@ class FakePgClient : PgClient {
     var transactionDetail: PgTransactionDetail? = null
     var transactionDetailException: RuntimeException? = null
 
+    // orderId별 응답 설정 (transactionDetailException보다 우선 적용)
+    val transactionDetailByOrderId: MutableMap<Long, PgTransactionDetail?> = mutableMapOf()
+    val transactionDetailExceptionByOrderId: MutableMap<Long, RuntimeException> = mutableMapOf()
+
     // 호출 기록
     val requestPaymentCalls = mutableListOf<PgPaymentRequest>()
     val getTransactionCalls = mutableListOf<Long>()
@@ -24,8 +28,13 @@ class FakePgClient : PgClient {
 
     override fun getTransactionByOrderId(orderId: Long): PgTransactionDetail? {
         getTransactionCalls.add(orderId)
+        transactionDetailExceptionByOrderId[orderId]?.let { throw it }
         transactionDetailException?.let { throw it }
-        return transactionDetail
+        return if (transactionDetailByOrderId.containsKey(orderId)) {
+            transactionDetailByOrderId[orderId]
+        } else {
+            transactionDetail
+        }
     }
 
     fun reset() {
@@ -33,6 +42,8 @@ class FakePgClient : PgClient {
         requestPaymentException = null
         transactionDetail = null
         transactionDetailException = null
+        transactionDetailByOrderId.clear()
+        transactionDetailExceptionByOrderId.clear()
         requestPaymentCalls.clear()
         getTransactionCalls.clear()
         transactionKeySequence = 1

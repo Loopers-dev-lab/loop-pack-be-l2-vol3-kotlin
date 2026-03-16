@@ -16,7 +16,7 @@ import jakarta.persistence.Table
 class PaymentEntity(
     @Column(name = "order_id", nullable = false)
     var orderId: Long,
-    @Column(name = "transaction_key")
+    @Column(name = "transaction_key", unique = true)
     var transactionKey: String?,
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

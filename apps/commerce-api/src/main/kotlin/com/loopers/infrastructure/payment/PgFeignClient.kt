@@ -42,6 +42,7 @@ data class PgFeignPaymentRequest(
     val cardNo: String,
     val amount: Long,
     val callbackUrl: String,
+    val idempotencyKey: String? = null,
 )
 
 data class PgFeignTransactionResponse(
