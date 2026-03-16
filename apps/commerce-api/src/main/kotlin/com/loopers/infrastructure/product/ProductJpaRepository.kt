@@ -61,4 +61,8 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
             "WHERE p.id = :productId AND p.likeCount > 0 AND p.deletedAt IS NULL",
     )
     fun decreaseLikeCount(@Param("productId") productId: Long): Int
+
+    @Modifying
+    @Query("UPDATE Product p SET p.likeCount = 0 WHERE p.id = :productId")
+    fun resetLikeCount(@Param("productId") productId: Long): Int
 }

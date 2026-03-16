@@ -19,8 +19,7 @@ class BrandFacade(
 ) {
 
     fun getBrand(brandId: Long): BrandResult {
-        return brandService.findById(brandId)
-            .let { BrandInfo.from(it) }
+        return brandService.getBrandInfo(brandId)
             .let { BrandResult.from(it) }
     }
 
@@ -58,6 +57,7 @@ class BrandFacade(
         val products = productService.findByBrandId(brandId)
         products.forEach { product ->
             likeService.deleteAllByProductId(product.id)
+            productService.resetLikeCount(product.id)
             productService.deleteProduct(product.id)
         }
         brandService.deleteBrand(brandId)

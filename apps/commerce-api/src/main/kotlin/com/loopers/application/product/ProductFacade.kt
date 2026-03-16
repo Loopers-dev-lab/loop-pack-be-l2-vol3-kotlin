@@ -1,6 +1,8 @@
 package com.loopers.application.product
 
 import com.loopers.domain.brand.BrandService
+import com.loopers.domain.cache.CacheNames
+import com.loopers.domain.cache.Cached
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
@@ -21,12 +23,24 @@ class ProductFacade(
 ) {
 
     fun getProduct(productId: Long): ProductResult {
-        val product = productService.findById(productId)
-        val brand = brandService.findById(product.brandId)
-        return ProductInfo.from(product)
-            .let { ProductResult.from(it, brand.name) }
+        val productInfo = productService.getProductInfo(productId)
+        val brandInfo = brandService.getBrandInfo(productInfo.brandId)
+        return ProductResult.from(productInfo, brandInfo.name)
     }
 
+    /**
+     * 상품 목록 조회 (User) — Redis 캐시 적용.
+     *
+     * 목록 캐시는 명시적 evict 없이 TTL 자연 만료에 의존한다.
+     * - 좋아요 1건 변경마다 brandId × sort × page 조합을 전부 evict하면 캐시가 있으나 마나
+     * - 목록의 좋아요 수는 UX용 참고 지표이므로, TTL(5분) 이내 반영이면 충분
+     *
+     * Spring의 PageModule이 Redis ObjectMapper에 등록되어 Page<T> 직접 직렬화 가능.
+     */
+    @Cached(
+        cacheName = CacheNames.PRODUCT_LIST,
+        key = "{pageable.pageNumber}:{pageable.pageSize}:{pageable.sort}:{brandId}",
+    )
     fun getProductsForUser(pageable: Pageable, brandId: Long?): Page<ProductResult> {
         val productPage = productService.findAllForUser(pageable, brandId)
         return toProductResults(productPage)
@@ -41,13 +55,13 @@ class ProductFacade(
         val brandIds = productPage.content.map { it.brandId }.distinct()
         val brands = brandService.findByIds(brandIds).associateBy { it.id }
         return productPage.map { product ->
-            val brand = brands[product.brandId]!!
-            ProductInfo.from(product).let { ProductResult.from(it, brand.name) }
+            val brandName = brands[product.brandId]?.name ?: "알 수 없는 브랜드"
+            ProductInfo.from(product).let { ProductResult.from(it, brandName) }
         }
     }
 
     fun createProduct(criteria: CreateProductCriteria): ProductResult {
-        val brand = brandService.findById(criteria.brandId)
+        val brandInfo = brandService.getBrandInfo(criteria.brandId)
         val command = CreateProductCommand(
             brandId = criteria.brandId,
             name = criteria.name,
@@ -59,7 +73,7 @@ class ProductFacade(
         )
         val product = productService.createProduct(command)
         return ProductInfo.from(product)
-            .let { ProductResult.from(it, brand.name) }
+            .let { ProductResult.from(it, brandInfo.name) }
     }
 
     fun updateProduct(productId: Long, criteria: UpdateProductCriteria): ProductResult {
@@ -73,14 +87,15 @@ class ProductFacade(
             imageUrl = criteria.imageUrl,
         )
         val product = productService.updateProduct(productId, command)
-        val brand = brandService.findById(product.brandId)
+        val brandInfo = brandService.getBrandInfo(product.brandId)
         return ProductInfo.from(product)
-            .let { ProductResult.from(it, brand.name) }
+            .let { ProductResult.from(it, brandInfo.name) }
     }
 
     @Transactional
     fun deleteProduct(productId: Long) {
         likeService.deleteAllByProductId(productId)
+        productService.resetLikeCount(productId)
         productService.deleteProduct(productId)
     }
 }

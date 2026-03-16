@@ -18,6 +18,9 @@ dependencies {
     // security
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // cache
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
     // querydsl
     kapt("com.querydsl:querydsl-apt::jakarta")
 

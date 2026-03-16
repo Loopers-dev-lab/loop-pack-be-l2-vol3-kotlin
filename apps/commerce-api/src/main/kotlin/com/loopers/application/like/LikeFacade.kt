@@ -5,6 +5,7 @@ import com.loopers.domain.brand.BrandService
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductInfo
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.ratelimit.RateLimit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -15,6 +16,7 @@ class LikeFacade(
     private val brandService: BrandService,
 ) {
 
+    @RateLimit(key = "like:{userId}:{productId}", ttl = 1)
     @Transactional
     fun like(userId: Long, productId: Long) {
         productService.findById(productId)
