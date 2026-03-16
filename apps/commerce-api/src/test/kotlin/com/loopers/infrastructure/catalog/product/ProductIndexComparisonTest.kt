@@ -9,8 +9,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.parallel.Execution
-import org.junit.jupiter.api.parallel.ExecutionMode
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -21,7 +19,6 @@ import kotlin.math.pow
 import kotlin.random.Random
 
 @Tag("benchmark")
-@Execution(ExecutionMode.SAME_THREAD)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class ProductIndexComparisonTest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
@@ -97,40 +94,7 @@ class ProductIndexComparisonTest @Autowired constructor(
 
     @AfterEach
     fun tearDown() {
-        createIndexIfNotExists(
-            "idx_products_active_like_count",
-            "products",
-            "CREATE INDEX idx_products_active_like_count ON products (deleted_at, like_count DESC, id DESC)",
-        )
-        createIndexIfNotExists(
-            "idx_products_active_created_at",
-            "products",
-            "CREATE INDEX idx_products_active_created_at ON products (deleted_at, created_at DESC, id DESC)",
-        )
-        createIndexIfNotExists(
-            "idx_products_active_price",
-            "products",
-            "CREATE INDEX idx_products_active_price ON products (deleted_at, price ASC, id DESC)",
-        )
         databaseCleanUp.truncateAllTables()
-    }
-
-    private fun createIndexIfNotExists(indexName: String, tableName: String, createSql: String) {
-        val exists = dataSource.connection.use { conn ->
-            conn.createStatement().executeQuery(
-                """
-                SELECT COUNT(*) FROM information_schema.STATISTICS
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = '$tableName'
-                  AND INDEX_NAME = '$indexName'
-                """.trimIndent(),
-            ).use { rs ->
-                rs.next() && rs.getInt(1) > 0
-            }
-        }
-        if (!exists) {
-            executeNativeDdl(createSql)
-        }
     }
 
     /**
