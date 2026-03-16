@@ -7,6 +7,7 @@ import com.loopers.domain.payment.PgPaymentRequest
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.model.CardType
 import com.loopers.domain.payment.model.Payment
+import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -21,18 +22,25 @@ class RequestPaymentUseCase(
 ) {
     @Transactional
     fun execute(command: PaymentCommand.RequestPayment): PaymentInfo {
-        // 1. Order 조회 + CREATED 상태 확인 (markPendingPayment 내부에서 검증)
+        // 1. 기존 진행 중 결제 확인
+        paymentRepository.findByOrderId(command.orderId)?.let { existingPayment ->
+            if (existingPayment.status == PaymentStatus.REQUESTED || existingPayment.status == PaymentStatus.TIMEOUT) {
+                throw CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중인 주문입니다.")
+            }
+        }
+
+        // 2. Order 조회 + CREATED 상태 확인 (markPendingPayment 내부에서 검증)
         val order = orderRepository.findById(OrderId(command.orderId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
 
-        // 2. Order → PENDING_PAYMENT (CREATED 아니면 BAD_REQUEST 발생)
+        // 3. Order → PENDING_PAYMENT (CREATED 아니면 BAD_REQUEST 발생)
         order.markPendingPayment()
         orderRepository.save(order)
 
         val cardType = CardType.valueOf(command.cardType)
         val amount = order.totalPrice.value.toLong()
 
-        // 3. PG 결제 요청
+        // 4. PG 결제 요청
         val pgResult = pgClient.requestPayment(
             PgPaymentRequest(
                 orderId = command.orderId,
@@ -43,7 +51,7 @@ class RequestPaymentUseCase(
             ),
         )
 
-        // 4. 결과에 따라 Payment 생성 + 상태 반영
+        // 5. 결과에 따라 Payment 생성 + 상태 반영
         val payment = Payment.create(
             orderId = command.orderId,
             cardType = cardType,

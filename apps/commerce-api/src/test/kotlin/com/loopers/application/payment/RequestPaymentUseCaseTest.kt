@@ -150,6 +150,27 @@ class RequestPaymentUseCaseTest {
         }
 
         @Test
+        @DisplayName("REQUESTED 상태 결제가 이미 존재하면 CONFLICT 예외가 발생한다")
+        fun execute_alreadyRequestedPayment_throwsConflict() {
+            // arrange
+            val savedOrder = createSavedOrder()
+            pgClient.requestPaymentResult = PgPaymentResult(
+                transactionKey = "TR-FIRST-001",
+                status = PgResultStatus.SUCCESS,
+            )
+            val command = defaultCommand(savedOrder.id.value)
+            useCase.execute(command) // 첫 번째 결제 요청 (REQUESTED 상태로 저장)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(command) // 동일 주문 재요청
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+        }
+
+        @Test
         @DisplayName("CREATED 상태가 아닌 Order — BAD_REQUEST 예외가 발생한다")
         fun execute_orderNotCreated_throwsBadRequest() {
             // arrange

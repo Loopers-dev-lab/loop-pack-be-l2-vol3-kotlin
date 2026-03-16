@@ -39,13 +39,14 @@ class PaymentDto {
         }
     }
 
+    enum class CallbackStatus { SUCCESS, FAILED }
+
     data class CallbackRequest(
         @field:Positive(message = "주문 ID는 양수여야 합니다.")
         val orderId: Long,
         @field:NotBlank(message = "트랜잭션 키는 필수입니다.")
         val transactionKey: String,
-        @field:NotBlank(message = "상태는 필수입니다.")
-        val status: String,
+        val status: CallbackStatus,
         val reason: String? = null,
     )
 

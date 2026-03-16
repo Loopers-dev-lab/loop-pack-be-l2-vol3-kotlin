@@ -23,7 +23,7 @@ class PaymentCallbackController(
         val command = PaymentCommand.HandleCallback(
             orderId = request.orderId,
             transactionKey = request.transactionKey,
-            success = request.status == "SUCCESS",
+            success = request.status == PaymentDto.CallbackStatus.SUCCESS,
             reason = request.reason,
         )
         handlePaymentCallbackUseCase.execute(command)

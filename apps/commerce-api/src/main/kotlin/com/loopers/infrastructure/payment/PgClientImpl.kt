@@ -8,6 +8,7 @@ import com.loopers.domain.payment.PgTransactionDetail
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
@@ -15,6 +16,8 @@ class PgClientImpl(
     private val pgFeignClient: PgFeignClient,
     private val pgStatusQueryClient: PgStatusQueryClient,
 ) : PgClient {
+
+    private val log = LoggerFactory.getLogger(PgClientImpl::class.java)
 
     @CircuitBreaker(name = "pgPayment", fallbackMethod = "requestPaymentFallback")
     @Retry(name = "pgRetry")
@@ -47,6 +50,7 @@ class PgClientImpl(
                 ?.let { PgPaymentResult(it.transactionKey, it.status, it.reason) }
                 ?: PgPaymentResult(transactionKey = null, status = PgResultStatus.TIMEOUT)
         } catch (e: Exception) {
+            log.warn("Fallback 상태 조회 실패. orderId={}: {}", request.orderId, e.message)
             PgPaymentResult(transactionKey = null, status = PgResultStatus.TIMEOUT)
         }
     }

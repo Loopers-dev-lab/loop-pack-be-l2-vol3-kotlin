@@ -41,6 +41,10 @@ class FakePaymentRepository : PaymentRepository {
         return payments.find { it.orderId == orderId }
     }
 
+    override fun findByOrderIdForUpdate(orderId: Long): Payment? {
+        return payments.find { it.orderId == orderId }
+    }
+
     override fun findByStatusIn(statuses: List<PaymentStatus>): List<Payment> {
         return payments.filter { it.status in statuses }
     }

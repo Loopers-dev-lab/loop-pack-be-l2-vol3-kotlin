@@ -32,7 +32,7 @@ class RecoverPaymentUseCase(
 
     @Transactional
     fun recoverByOrderId(orderId: Long): Boolean {
-        val payment = paymentRepository.findByOrderId(orderId)
+        val payment = paymentRepository.findByOrderIdForUpdate(orderId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다.")
         return recoverSingle(payment)
     }
@@ -40,20 +40,26 @@ class RecoverPaymentUseCase(
     private fun recoverSingle(payment: Payment): Boolean {
         val detail = pgClient.getTransactionByOrderId(payment.orderId) ?: return false
 
+        // 비관적 락으로 재조회하여 동시성 보호 (콜백과 동시 처리 방지)
+        val lockedPayment = paymentRepository.findByOrderIdForUpdate(payment.orderId) ?: return false
+        if (lockedPayment.status != PaymentStatus.REQUESTED && lockedPayment.status != PaymentStatus.TIMEOUT) {
+            return false // 이미 다른 프로세스에서 처리됨
+        }
+
         when (detail.status) {
             PgResultStatus.SUCCESS -> {
-                payment.markSuccess(detail.transactionKey)
-                paymentRepository.save(payment)
-                val order = orderRepository.findById(OrderId(payment.orderId)) ?: return false
+                lockedPayment.markSuccess(detail.transactionKey)
+                paymentRepository.save(lockedPayment)
+                val order = orderRepository.findById(OrderId(lockedPayment.orderId)) ?: return false
                 order.markPaid()
                 orderRepository.save(order)
                 // TODO: 다음 주 이벤트 기반 전환 (재고/쿠폰 보상 트랜잭션)
                 return true
             }
             PgResultStatus.FAILED -> {
-                payment.markFailed(detail.reason ?: "PG 결제 실패")
-                paymentRepository.save(payment)
-                val order = orderRepository.findById(OrderId(payment.orderId)) ?: return false
+                lockedPayment.markFailed(detail.reason ?: "PG 결제 실패")
+                paymentRepository.save(lockedPayment)
+                val order = orderRepository.findById(OrderId(lockedPayment.orderId)) ?: return false
                 order.markFailed()
                 orderRepository.save(order)
                 return true

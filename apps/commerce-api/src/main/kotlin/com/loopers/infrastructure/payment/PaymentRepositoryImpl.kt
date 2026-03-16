@@ -3,12 +3,17 @@ package com.loopers.infrastructure.payment
 import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
 
 interface PaymentJpaRepository : JpaRepository<PaymentEntity, Long> {
     fun findByOrderId(orderId: Long): PaymentEntity?
     fun findByStatusIn(statuses: List<PaymentStatus>): List<PaymentEntity>
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findWithLockByOrderId(orderId: Long): PaymentEntity?
 }
 
 @Repository
@@ -26,6 +31,10 @@ class PaymentRepositoryImpl(
 
     override fun findByOrderId(orderId: Long): Payment? {
         return paymentJpaRepository.findByOrderId(orderId)?.toDomain()
+    }
+
+    override fun findByOrderIdForUpdate(orderId: Long): Payment? {
+        return paymentJpaRepository.findWithLockByOrderId(orderId)?.toDomain()
     }
 
     override fun findByStatusIn(statuses: List<PaymentStatus>): List<Payment> {
