@@ -6,6 +6,7 @@ import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
+import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.model.OrderItem
@@ -25,13 +26,15 @@ class GetOrderUseCaseTest {
 
     private lateinit var orderRepository: FakeOrderRepository
     private lateinit var orderItemRepository: FakeOrderItemRepository
+    private lateinit var paymentRepository: FakePaymentRepository
     private lateinit var getOrderUseCase: GetOrderUseCase
 
     @BeforeEach
     fun setUp() {
         orderRepository = FakeOrderRepository()
         orderItemRepository = FakeOrderItemRepository()
-        getOrderUseCase = GetOrderUseCase(orderRepository, orderItemRepository)
+        paymentRepository = FakePaymentRepository()
+        getOrderUseCase = GetOrderUseCase(orderRepository, orderItemRepository, paymentRepository)
     }
 
     private fun createAndSaveOrder(userId: Long): Pair<Order, List<OrderItem>> {

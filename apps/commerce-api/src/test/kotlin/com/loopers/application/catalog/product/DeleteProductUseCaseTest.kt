@@ -94,27 +94,5 @@ class DeleteProductUseCaseTest {
             assertThat(evictEvent.productId).isEqualTo(product.id)
             assertThat(evictEvent.brandId).isEqualTo(product.refBrandId)
         }
-
-        @Test
-        @DisplayName("상품 삭제 후 캐시 evict 이벤트가 발행된다")
-        fun deleteProduct_publishesCacheEvictEvent() {
-            // arrange
-            val product = productRepository.save(
-                Product(refBrandId = BrandId(1), name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
-            )
-            val publishedEvents = mutableListOf<Any>()
-            val useCase = DeleteProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
-
-            // act
-            useCase.execute(product.id.value)
-
-            // assert
-            assertThat(publishedEvents).hasSize(1)
-            val event = publishedEvents[0]
-            assertThat(event).isInstanceOf(ProductCacheEvent.DetailEvicted::class.java)
-            val evictEvent = event as ProductCacheEvent.DetailEvicted
-            assertThat(evictEvent.productId).isEqualTo(product.id)
-            assertThat(evictEvent.brandId).isEqualTo(product.refBrandId)
-        }
     }
 }

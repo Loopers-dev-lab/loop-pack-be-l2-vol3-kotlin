@@ -21,8 +21,12 @@ class WebMvcConfig(
                 "/api/v1/products/*/likes",
                 "/api/v1/orders/**",
                 "/api/v1/coupons/**",
+                "/api/v1/payments/**",
             )
-            .excludePathPatterns("/api/v1/users/sign-up")
+            .excludePathPatterns(
+                "/api/v1/users/sign-up",
+                "/api/v1/payments/callback",
+            )
 
         registry.addInterceptor(adminInterceptor)
             .addPathPatterns("/api-admin/**")

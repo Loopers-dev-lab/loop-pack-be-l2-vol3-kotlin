@@ -12,9 +12,15 @@ data class OrderInfo(
     val totalPrice: BigDecimal,
     val couponId: Long?,
     val items: List<OrderItemInfo>,
+    val paymentStatus: String? = null,
+    val transactionKey: String? = null,
 ) {
     companion object {
-        fun from(detail: OrderDetail): OrderInfo = OrderInfo(
+        fun from(
+            detail: OrderDetail,
+            paymentStatus: String? = null,
+            transactionKey: String? = null,
+        ): OrderInfo = OrderInfo(
             id = detail.order.id.value,
             userId = detail.order.refUserId.value,
             status = detail.order.status.name,
@@ -23,6 +29,8 @@ data class OrderInfo(
             totalPrice = detail.order.totalPrice.value,
             couponId = detail.order.refCouponId?.value,
             items = detail.items.map { OrderItemInfo.from(it) },
+            paymentStatus = paymentStatus,
+            transactionKey = transactionKey,
         )
     }
 }
