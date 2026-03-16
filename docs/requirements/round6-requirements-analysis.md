@@ -59,9 +59,48 @@
 
 **실전 설정 예시**:
 
-- Http 요청 (Feign Client): `connectTimeout` / `readTimeout` 분리 설정
-- JPA (HikariCP): `connection-timeout: 3000` (커넥션 풀에서 커넥션 얻는 최대 대기 시간)
-- Redis (Lettuce): `timeout: 3000` (명령 실행 제한 시간)
+Http 요청 (Feign Client):
+
+```java
+@Configuration
+public class FeignClientTimeoutConfig {
+    @Bean
+    public Request.Options feignOptions() {
+        return new Request.Options(1000, 3000); // 연결/응답 타임아웃 (ms)
+    }
+}
+
+@FeignClient(
+    name = "pgClient",
+    url = "https://pg.example.com",
+    configuration = FeignClientTimeoutConfig.class
+)
+public interface PgClient {
+    @PostMapping("/pay")
+    PaymentResponse requestPayment(@RequestBody PaymentRequest request);
+}
+```
+
+JPA (HikariCP):
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      connection-timeout: 3000       # 커넥션 풀에서 커넥션 얻는 최대 대기 시간
+      validation-timeout: 2000       # 커넥션 유효성 검사 제한 시간
+```
+
+Redis (Lettuce 기반):
+
+```yaml
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 3000                 # 명령 실행 제한 시간
+```
 
 **실무 TIP**:
 
@@ -99,6 +138,19 @@ resilience4j:
         fail-after-max-attempts: true
 ```
 
+**Retry 적용**:
+
+```java
+@Retry(name = "pgRetry", fallbackMethod = "fallback")
+public PaymentResponse requestPayment(PaymentRequest request) {
+    return pgClient.requestPayment(request);
+}
+
+public PaymentResponse fallback(PaymentRequest request, Throwable t) {
+    return new PaymentResponse("결제 대기 상태", false);
+}
+```
+
 **실무 TIP**:
 
 - `fail-after-max-attempts`를 true로 설정하면, 재시도 실패 시 바로 fallback을 실행할 수 있다.
@@ -133,6 +185,19 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 2
         slow-call-duration-threshold: 2s
         slow-call-rate-threshold: 50
+```
+
+**CircuitBreaker 적용**:
+
+```java
+@CircuitBreaker(name = "pgCircuit", fallbackMethod = "fallback")
+public PaymentResponse requestPayment(PaymentRequest request) {
+    return pgClient.requestPayment(request);
+}
+
+public PaymentResponse fallback(PaymentRequest request, Throwable t) {
+    return new PaymentResponse("결제 대기 상태", false);
+}
 ```
 
 **실무 TIP**:
