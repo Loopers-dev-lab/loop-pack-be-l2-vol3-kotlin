@@ -1,0 +1,101 @@
+goal: PG 외부 시스템 연동 Resilience 패턴(Timeout, Retry, Circuit Breaker, Fallback) 적용 및 비동기
+  결제 API 구현
+task_type: code
+brownfield_context:
+  project_type: brownfield
+  context_references:
+  - path: docs/requirements/round6-requirements-analysis.md
+    role: primary
+    summary: Round 6 PG 연동 Resilience 과제 요구사항 및 체크리스트 8개 항목
+  - path: apps/pg-simulator
+    role: reference
+    summary: 제공된 PG Simulator 서비스 (비동기 결제 API, 콜백 발송, 상태 조회 API)
+  existing_patterns:
+  - port/adapter 패턴 (도메인에 인터페이스, 인프라에 구현체)
+  - Fake Repository 기반 단위 테스트 (Mockito 금지, 인메모리 컬렉션)
+  - '@SpringBootTest + TestContainers 통합 테스트'
+  - 비관적 락(SELECT FOR UPDATE) 동시성 제어
+  - AuthInterceptor/AdminInterceptor 인증 처리
+  - UseCase 기반 Application 레이어 구조
+  - OrderStatus enum 기반 상태 관리
+  - PlaceOrderUseCase에서 재고 차감 + 쿠폰 사용 + 주문 생성 단일 @Transactional
+  existing_dependencies:
+  - Spring Boot
+  - Spring Cloud OpenFeign (FeignClient)
+  - Resilience4j (Spring Boot 스타터, 어노테이션 기반)
+  - JPA/Hibernate
+  - TestContainers (MySQL, Redis)
+  - Kotlin
+constraints:
+- Kotlin + Spring Boot + Resilience4j 어노테이션 기반
+- FeignClient는 순수 HTTP 클라이언트로만 사용, Resilience4j는 서비스 레이어 어노테이션 방식
+- 기존 트랜잭션 구조 유지, 이벤트 기반 분리는 다음 주
+- 재고/쿠폰 복원 보상 트랜잭션 이번 주 미구현 (다음 주 이벤트 기반)
+- Mockito 금지, Fake Repository/Fake PG Client 패턴 사용
+- Payment와 Order는 별도 bounded context, 도메인 모델 간 직접 참조 금지
+- 콜백 엔드포인트 인증 없이 오픈 (AuthInterceptor 경로 제외)
+- 스케줄러 병렬 처리 미구현 (순차 + TODO 주석)
+- 재결제 API 미구현
+- 별도 결제 조회 API 미구현 (기존 주문 조회에 포함)
+- PG Simulator는 apps/pg-simulator에 제공됨 (별도 구현 불필요)
+- cutoff 등 설정값은 코드 상수
+- '데코레이터 순서: CircuitBreaker(바깥) → Retry(안쪽)'
+- 'CB 인스턴스 분리: 결제 요청용 / 상태 조회용'
+- 콜백-스케줄러 동시성은 조건부 UPDATE(WHERE status = 'REQUESTED' OR 'TIMEOUT')로 해결
+- 'Payment 변경 + Order 변경은 UseCase에서 한 트랜잭션 처리 (TODO: 다음 주 이벤트 기반 전환)'
+acceptance_criteria:
+- POST /api/v1/payments 결제 API 구현 (orderId, cardType, cardNo 클라이언트 전달)
+- PG Simulator 비동기 결제 연동 (FeignClient)
+- Resilience4j Timeout 패턴 적용
+- Resilience4j Retry 패턴 적용 (3회)
+- Resilience4j Circuit Breaker 패턴 적용 (50% threshold)
+- Resilience4j Fallback 전략 적용 (Timeout/Retry 소진 시 즉시 PG orderId 조회 후 반영 or TIMEOUT Payment 생성, CB OPEN 시 TIMEOUT Payment 생성)
+- PG 콜백 수신 엔드포인트 구현 및 Payment/Order 상태 반영
+- '@Scheduled 스케줄러로 PENDING_PAYMENT/TIMEOUT 상태 Payment 주기적 PG 상태 조회 및 자동 복구'
+- 'Admin API: 개별 주문 건 PG 상태 재조회 API'
+- 'Admin API: 스케줄러 수동 트리거 API'
+- Order 상태에 PENDING_PAYMENT 추가 (CREATED → PENDING_PAYMENT → PAID/FAILED)
+- Payment 도메인 모델 별도 생성 (REQUESTED/SUCCESS/FAILED/TIMEOUT)
+- 기존 주문 조회 API에 결제 상태 포함 (UseCase에서 PaymentRepository 조합)
+- Fake PG Client 기반 테스트 구현 (Resilience4j 동작 검증)
+evaluation_principles:
+- name: resilience_pattern_correctness
+  description: Resilience4j 4패턴이 올바른 순서(CB→Retry)와 분리된 CB 인스턴스로 적용되었는가
+  weight: 0.25
+- name: payment_flow_completeness
+  description: 결제 요청→콜백 수신→스케줄러 복구→Admin 수동 복구까지 전체 흐름이 동작하는가
+  weight: 0.25
+- name: fallback_branching
+  description: Timeout/Retry 소진 시 즉시 PG orderId 조회, CB OPEN 시 TIMEOUT Payment 생성 등 Fallback 분기가 정확한가
+  weight: 0.15
+- name: bounded_context_separation
+  description: Payment와 Order가 도메인 모델 수준에서 분리되고 UseCase에서만 조합되는가
+  weight: 0.1
+- name: concurrency_safety
+  description: 콜백과 스케줄러 동시성이 조건부 UPDATE로 안전하게 처리되는가
+  weight: 0.1
+- name: test_pattern_compliance
+  description: Fake PG Client 사용, Mockito 금지 등 기존 테스트 패턴을 준수하는가
+  weight: 0.1
+- name: architecture_consistency
+  description: port/adapter 패턴 준수 및 FeignClient가 인프라 내부 구현으로 숨겨져 있는가
+  weight: 0.05
+exit_conditions:
+- name: all_checklist_passed
+  description: 과제 체크리스트 8개 항목 전체 구현 완료
+  criteria: 결제 API, Resilience4j 4패턴, 콜백 수신, 스케줄러 자동 복구, Admin 수동 복구 API 모두 동작
+- name: payment_flow_e2e
+  description: 결제 요청→PG 연동→콜백/스케줄러 복구까지 전체 흐름이 end-to-end로 동작
+  criteria: 정상 결제, 타임아웃 후 스케줄러 복구, CB OPEN Fallback 시나리오 모두 검증
+- name: test_coverage
+  description: Fake PG Client 기반 테스트로 Resilience4j 패턴 동작 검증 완료
+  criteria: CB OPEN 전환, Retry 소진 후 Fallback, Timeout 시나리오 테스트 통과
+- name: todo_comments
+  description: 다음 주 이벤트 기반 전환 대상에 TODO 주석 표시
+  criteria: Payment→Order 상태 연동, 재고/쿠폰 보상 트랜잭션, 스케줄러 병렬 처리
+metadata:
+  seed_id: seed_fde4d8856afd
+  version: 1.0.0
+  created_at: '2026-03-16T04:06:14.392142Z'
+  ambiguity_score: 0.175
+  interview_id: interview_20260316_013954
