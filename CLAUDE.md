@@ -178,7 +178,7 @@ Kotlin + Spring Boot 3.4.4 + JDK 21 멀티모듈 프로젝트.
 
 ## 브랜치 및 PR 규칙
 
-- 브랜치: `main`에서 분기 (예: `feature/round2-design`)
+- 브랜치: `develop`에서 분기 (예: `feature/round2-design`)
 - 커밋 접두사: `feat:` | `refactor:` | `fix:` | `test:` | `docs:` | `chore:`
 - 커밋 상세 절차는 `/ship` 스킬 참고
 - 멀티 커밋이 필요하면 `/ship`에서 구조적/행위적 변경을 자동 분리하여 커밋한다
