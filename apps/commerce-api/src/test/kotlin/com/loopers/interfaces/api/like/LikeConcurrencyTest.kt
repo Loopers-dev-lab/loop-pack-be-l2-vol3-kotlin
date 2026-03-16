@@ -8,6 +8,7 @@ import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.interfaces.support.LDAP_ADMIN_VALUE
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.Timeout
 class LikeConcurrencyTest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     companion object {
@@ -45,6 +47,7 @@ class LikeConcurrencyTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun signUp(loginId: String) {
