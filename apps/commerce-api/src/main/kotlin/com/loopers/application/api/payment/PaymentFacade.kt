@@ -2,9 +2,7 @@ package com.loopers.application.api.payment
 
 import com.loopers.application.api.payment.dto.PaymentCallbackCommand
 import com.loopers.domain.order.OrderService
-import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.PaymentService
-import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.payment.dto.PaymentInfo
 import com.loopers.domain.payment.event.PaymentCompleted
 import com.loopers.infrastructure.payment.pg.PgPaymentGateway
@@ -13,7 +11,6 @@ import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -26,7 +23,7 @@ class PaymentFacade(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional
     fun completePayment(command: PaymentCallbackCommand) {
         log.info(
             "Processing payment callback: transactionId={}, orderId={}, amount={}, status={}",
@@ -37,54 +34,13 @@ class PaymentFacade(
         )
 
         try {
-            // (1) 결제 기록 조회 (행 락 취득 - 동시 요청 시 대기)
-            val payment = paymentService.getPaymentByTransactionIdForUpdate(command.transactionId)
+            // (1) PaymentService에서 결제 콜백 처리
+            paymentService.handlePaymentCallback(command)
 
-            // ✅ 멱등성: INITIATED 상태가 아니면 무시 (어떤 콜백이 와도 이미 처리됨)
-            if (payment.status != PaymentStatus.INITIATED) {
-                log.warn(
-                    "Payment is not in INITIATED state: status={}, transactionId={}",
-                    payment.status,
-                    command.transactionId,
-                )
-                return
-            }
+            // (2) OrderService에서 주문 상태 변경
+            orderService.markOrderAsPaid(command.orderId)
 
-            // (2) PG 콜백 status에 따라 분기 처리
-            when (command.status?.uppercase()) {
-                "FAILED" -> {
-                    payment.markAsFailed()
-                    paymentService.save(payment)
-                    log.info("Payment marked as failed: orderId={}, transactionId={}", command.orderId, command.transactionId)
-                    return
-                }
-                "CANCELLED" -> {
-                    payment.markAsCancelled()
-                    paymentService.save(payment)
-                    log.info("Payment marked as cancelled: orderId={}, transactionId={}", command.orderId, command.transactionId)
-                    return
-                }
-                "COMPLETED" -> {
-                    // 계속 진행
-                }
-                else -> {
-                    throw CoreException(
-                        ErrorType.BAD_REQUEST,
-                        "알 수 없는 결제 상태: ${command.status}",
-                    )
-                }
-            }
-
-            // (3) 결제 완료 처리
-            payment.markAsCompleted(command.amount)
-            paymentService.save(payment)
-
-            // (4) 주문 상태 변경
-            val order = orderService.getOrderByIdForAdmin(command.orderId)
-            order.changeStatus(OrderStatus.PAID)
-            orderService.saveOrder(order)
-
-            // (5) 도메인 이벤트 발행 (배송 준비 등 후처리용)
+            // (3) 도메인 이벤트 발행 (배송 준비 등 후처리용)
             applicationEventPublisher.publishEvent(
                 PaymentCompleted(
                     source = this,

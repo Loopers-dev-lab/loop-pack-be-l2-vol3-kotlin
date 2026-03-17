@@ -73,6 +73,13 @@ class OrderService(
     fun saveOrder(order: Order): Order =
         orderRepository.save(order)
 
+    @Transactional
+    fun markOrderAsPaid(orderId: Long) {
+        val order = getOrderByIdForAdmin(orderId)
+        order.changeStatus(OrderStatus.PAID)
+        // 더티 체킹으로 자동 저장
+    }
+
     private fun validateItems(items: List<CreateOrderItemCommand>) {
         if (items.isEmpty()) {
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목은 최소 1개 이상이어야 합니다")
