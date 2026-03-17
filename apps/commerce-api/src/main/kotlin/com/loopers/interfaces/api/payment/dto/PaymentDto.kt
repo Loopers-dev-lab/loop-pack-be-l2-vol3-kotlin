@@ -32,7 +32,7 @@ class PaymentDto {
                 transactionKey = info.transactionKey,
                 status = info.status,
                 cardType = info.cardType,
-                maskedCardNo = info.cardNo,
+                maskedCardNo = info.maskedCardNo,
                 amount = info.amount,
                 reason = info.reason,
             )

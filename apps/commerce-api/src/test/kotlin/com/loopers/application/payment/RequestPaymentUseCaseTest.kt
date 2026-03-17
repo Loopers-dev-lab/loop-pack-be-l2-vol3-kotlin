@@ -75,7 +75,7 @@ class RequestPaymentUseCaseTest {
             assertThat(result.status).isEqualTo(PaymentStatus.REQUESTED.name)
             assertThat(result.orderId).isEqualTo(savedOrder.id.value)
             assertThat(result.cardType).isEqualTo("SAMSUNG")
-            assertThat(result.cardNo).isEqualTo("1234-****-****-3456")
+            assertThat(result.maskedCardNo).isEqualTo("1234-****-****-3456")
             assertThat(result.amount).isEqualTo(20000L)
             assertThat(result.id).isNotEqualTo(0L)
 

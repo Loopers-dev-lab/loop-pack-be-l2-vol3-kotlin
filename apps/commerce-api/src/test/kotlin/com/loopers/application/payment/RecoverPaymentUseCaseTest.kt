@@ -251,7 +251,7 @@ class RecoverPaymentUseCaseTest {
 
         @Test
         @DisplayName("TIMEOUT Payment이고 PG 조회 결과가 없으면 복구 시도 건수 1을 반환하고 상태는 변경하지 않는다")
-        fun execute_timeoutPayment_pgNoResult_returnsZero() {
+        fun execute_timeoutPayment_pgNoResult_returnsAttemptCount() {
             // arrange
             val order = createPendingOrder()
             createTimeoutPaymentForOrder(order.id.value)

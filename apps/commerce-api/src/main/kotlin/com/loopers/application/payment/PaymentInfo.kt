@@ -8,7 +8,7 @@ data class PaymentInfo(
     val transactionKey: String?,
     val status: String,
     val cardType: String,
-    val cardNo: String,
+    val maskedCardNo: String,
     val amount: Long,
     val reason: String?,
 ) {
@@ -19,7 +19,7 @@ data class PaymentInfo(
             transactionKey = payment.transactionKey,
             status = payment.status.name,
             cardType = payment.cardType.name,
-            cardNo = payment.cardNo,
+            maskedCardNo = payment.cardNo,
             amount = payment.amount,
             reason = payment.reason,
         )
