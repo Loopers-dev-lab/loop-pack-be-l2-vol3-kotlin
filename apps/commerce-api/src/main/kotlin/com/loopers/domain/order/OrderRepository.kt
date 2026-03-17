@@ -11,7 +11,7 @@ interface OrderRepository {
     fun findAllByUserId(
         userId: Long,
         from: ZonedDateTime,
-        to: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order>
     fun findAll(pageRequest: PageRequest): PageResponse<Order>

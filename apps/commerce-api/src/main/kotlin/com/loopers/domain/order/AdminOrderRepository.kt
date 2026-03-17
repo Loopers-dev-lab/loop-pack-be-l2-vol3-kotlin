@@ -8,7 +8,7 @@ interface AdminOrderRepository {
     fun findById(id: Long): Order?
     fun findAll(
         from: ZonedDateTime,
-        to: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order>
 }

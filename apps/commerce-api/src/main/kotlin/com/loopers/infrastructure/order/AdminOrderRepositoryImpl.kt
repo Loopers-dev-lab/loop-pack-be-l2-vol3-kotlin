@@ -24,7 +24,7 @@ class AdminOrderRepositoryImpl(
     @Transactional(readOnly = true)
     override fun findAll(
         from: ZonedDateTime,
-        to: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order> {
         val pageable = SpringPageRequest.of(
@@ -35,9 +35,9 @@ class AdminOrderRepositoryImpl(
                 Sort.Order.desc("id"),
             ),
         )
-        val page = orderJpaRepository.findAllByCreatedAtBetweenAndDeletedAtIsNull(
+        val page = orderJpaRepository.findAllByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndDeletedAtIsNull(
             from,
-            to,
+            toExclusive,
             pageable,
         )
 

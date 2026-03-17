@@ -10,6 +10,7 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderSnapshot
 import com.loopers.support.page.PageRequest
 import com.loopers.utils.DatabaseCleanUp
+import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -18,10 +19,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
-import java.sql.Timestamp
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -32,9 +33,11 @@ class AdminOrderRepositoryIntegrationTest
 constructor(
     private val adminOrderRepository: AdminOrderRepository,
     private val orderRepository: OrderRepository,
-    private val jdbcTemplate: JdbcTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val entityManager: EntityManager,
+    platformTransactionManager: PlatformTransactionManager,
 ) {
+    private val transactionTemplate = TransactionTemplate(platformTransactionManager)
 
     @AfterEach
     fun tearDown() {
@@ -70,13 +73,21 @@ constructor(
         orderId: Long,
         createdAt: ZonedDateTime,
     ) {
-        val timestamp = Timestamp.from(createdAt.toInstant())
-        jdbcTemplate.update(
-            "UPDATE orders SET created_at = ?, updated_at = ? WHERE id = ?",
-            timestamp,
-            timestamp,
-            orderId,
-        )
+        transactionTemplate.executeWithoutResult {
+            entityManager.createQuery(
+                """
+                update OrderEntity o
+                set o.createdAt = :createdAt,
+                    o.updatedAt = :updatedAt
+                where o.id = :orderId
+                """.trimIndent(),
+            )
+                .setParameter("createdAt", createdAt)
+                .setParameter("updatedAt", createdAt)
+                .setParameter("orderId", orderId)
+                .executeUpdate()
+            entityManager.clear()
+        }
     }
 
     @Nested
@@ -128,7 +139,7 @@ constructor(
             // act
             val result = adminOrderRepository.findAll(
                 from = order1.createdAt!!.minusDays(1),
-                to = order1.createdAt!!.plusDays(1),
+                toExclusive = order1.createdAt!!.plusDays(1),
                 pageRequest = PageRequest(),
             )
 
@@ -145,7 +156,7 @@ constructor(
             // act
             val result = adminOrderRepository.findAll(
                 from = saved.createdAt!!.plusDays(1),
-                to = saved.createdAt!!.plusDays(2),
+                toExclusive = saved.createdAt!!.plusDays(2),
                 pageRequest = PageRequest(),
             )
 
@@ -167,7 +178,7 @@ constructor(
             // act
             val result = adminOrderRepository.findAll(
                 from = order1.createdAt!!.minusDays(1),
-                to = order1.createdAt!!.plusDays(1),
+                toExclusive = order1.createdAt!!.plusDays(1),
                 pageRequest = pageRequest,
             )
 
@@ -195,11 +206,30 @@ constructor(
 
             val result = adminOrderRepository.findAll(
                 from = older.minusDays(1),
-                to = latest.plusDays(1),
+                toExclusive = latest.plusDays(1),
                 pageRequest = PageRequest(),
             )
 
             assertThat(result.content.map { it.id }).containsExactly(order3.id, order2.id, order1.id)
+        }
+
+        @Test
+        @DisplayName("조회 종료 상한과 정확히 같은 시각의 주문은 제외한다")
+        fun findAll_excludesExclusiveUpperBound() {
+            val included = createOrder(userId = 1L, idempotencyKey = "key-201")
+            val excluded = createOrder(userId = 2L, idempotencyKey = "key-202")
+            val boundary = ZonedDateTime.of(2026, 3, 17, 0, 0, 0, 0, ZoneId.of("Asia/Seoul"))
+
+            updateCreatedAt(included.id!!, boundary.minusSeconds(1))
+            updateCreatedAt(excluded.id!!, boundary)
+
+            val result = adminOrderRepository.findAll(
+                from = boundary.minusDays(1),
+                toExclusive = boundary,
+                pageRequest = PageRequest(),
+            )
+
+            assertThat(result.content.map { it.id }).containsExactly(included.id)
         }
     }
 }

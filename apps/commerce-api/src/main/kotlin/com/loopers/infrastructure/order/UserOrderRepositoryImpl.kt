@@ -43,7 +43,7 @@ class UserOrderRepositoryImpl(
     override fun findAllByUserId(
         userId: Long,
         from: ZonedDateTime,
-        to: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order> {
         val pageable = SpringPageRequest.of(
@@ -54,10 +54,10 @@ class UserOrderRepositoryImpl(
                 Sort.Order.desc("id"),
             ),
         )
-        val page = orderJpaRepository.findAllByUserIdAndCreatedAtBetweenAndDeletedAtIsNull(
+        val page = orderJpaRepository.findAllByUserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndDeletedAtIsNull(
             userId,
             from,
-            to,
+            toExclusive,
             pageable,
         )
 
