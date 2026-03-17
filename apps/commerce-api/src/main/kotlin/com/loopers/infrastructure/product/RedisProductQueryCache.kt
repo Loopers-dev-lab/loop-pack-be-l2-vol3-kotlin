@@ -87,6 +87,13 @@ class RedisProductQueryCache(
             .getOrNull()
             ?: return null
         return runCatching { objectMapper.readValue(cachedValue, typeReference) }
+            .onFailure { exception ->
+                log.warn(
+                    "Failed to deserialize product query cache. key={}",
+                    key,
+                    exception,
+                )
+            }
             .getOrNull()
     }
 

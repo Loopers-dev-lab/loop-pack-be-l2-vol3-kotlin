@@ -1,5 +1,6 @@
 package com.loopers.support.transaction
 
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
@@ -19,9 +20,16 @@ class TransactionSynchronizationAfterCommitExecutor : AfterCommitExecutor {
         TransactionSynchronizationManager.registerSynchronization(
             object : TransactionSynchronization {
                 override fun afterCommit() {
-                    action()
+                    runCatching { action() }
+                        .onFailure { exception ->
+                            log.warn("After-commit action failed", exception)
+                        }
                 }
             },
         )
+    }
+
+    companion object {
+        private val log = LoggerFactory.getLogger(TransactionSynchronizationAfterCommitExecutor::class.java)
     }
 }

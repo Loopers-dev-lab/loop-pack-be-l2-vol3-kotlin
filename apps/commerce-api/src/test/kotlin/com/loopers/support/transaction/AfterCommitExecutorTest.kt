@@ -3,6 +3,7 @@ package com.loopers.support.transaction
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.transaction.PlatformTransactionManager
@@ -43,6 +44,21 @@ constructor(
 
             status.setRollbackOnly()
             assertThat(executed.get()).isFalse()
+        }
+
+        assertThat(executed.get()).isFalse()
+    }
+
+    @Test
+    @DisplayName("트랜잭션에서 예외가 발생해 rollback 되면 afterCommit 에 등록한 작업은 실행되지 않는다")
+    fun execute_afterExceptionRollback() {
+        val executed = AtomicBoolean(false)
+
+        assertThrows<IllegalStateException> {
+            transactionTemplate.executeWithoutResult {
+                afterCommitExecutor.execute { executed.set(true) }
+                throw IllegalStateException("boom")
+            }
         }
 
         assertThat(executed.get()).isFalse()

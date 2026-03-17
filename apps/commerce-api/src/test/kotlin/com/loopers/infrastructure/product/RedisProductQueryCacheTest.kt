@@ -13,6 +13,8 @@ import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.given
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.boot.test.system.CapturedOutput
 import org.springframework.boot.test.system.OutputCaptureExtension
@@ -93,5 +95,23 @@ class RedisProductQueryCacheTest {
         assertThat(output.out)
             .contains("Failed to write product query cache")
             .contains("key=product:detail:v1:1")
+    }
+
+    @Test
+    @DisplayName("cache read 역직렬화 실패 시 warning log 를 남기고 null 을 반환한다")
+    fun getDetail_logsWarningOnDeserializeFailure(output: CapturedOutput) {
+        given(valueOperations.get(eq("product:detail:v1:1"))).willReturn("{broken}")
+        given(objectMapper.readValue(eq("{broken}"), any<com.fasterxml.jackson.core.type.TypeReference<ProductQueryResult.Detail>>()))
+            .willThrow(RuntimeException("boom"))
+
+        val result = assertDoesNotThrow {
+            cache.getDetail(1L)
+        }
+
+        assertThat(result).isNull()
+        assertThat(output.out)
+            .contains("Failed to deserialize product query cache")
+            .contains("key=product:detail:v1:1")
+        verify(valueOperations, never()).set(any(), any(), any<Duration>())
     }
 }
