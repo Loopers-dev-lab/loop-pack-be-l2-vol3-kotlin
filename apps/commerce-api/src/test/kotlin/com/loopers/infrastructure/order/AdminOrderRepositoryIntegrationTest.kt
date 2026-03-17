@@ -74,7 +74,7 @@ constructor(
         createdAt: ZonedDateTime,
     ) {
         transactionTemplate.executeWithoutResult {
-            entityManager.createQuery(
+            val updatedRows = entityManager.createQuery(
                 """
                 update OrderEntity o
                 set o.createdAt = :createdAt,
@@ -86,6 +86,9 @@ constructor(
                 .setParameter("updatedAt", createdAt)
                 .setParameter("orderId", orderId)
                 .executeUpdate()
+            check(updatedRows == 1) {
+                "Expected to update exactly 1 order for id=$orderId, but updated $updatedRows rows"
+            }
             entityManager.clear()
         }
     }
