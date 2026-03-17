@@ -47,10 +47,10 @@ class PaymentPgProcessorImpl(
             }
             PgResultStatus.FAILED -> {
                 txTemplate.executeWithoutResult {
-                    val order = orderRepository.findByIdForUpdate(OrderId(orderId))
-                        ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다. orderId=$orderId")
                     val failedPayment = paymentRepository.findByOrderIdForUpdate(orderId)
                         ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=$orderId")
+                    val order = orderRepository.findByIdForUpdate(OrderId(orderId))
+                        ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다. orderId=$orderId")
                     failedPayment.markFailed(pgResult.reason ?: "PG 결제 실패")
                     paymentRepository.save(failedPayment)
                     order.markFailed()

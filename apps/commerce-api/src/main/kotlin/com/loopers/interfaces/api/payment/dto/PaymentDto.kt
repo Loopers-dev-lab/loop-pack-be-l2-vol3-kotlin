@@ -13,7 +13,10 @@ class PaymentDto {
         val cardType: String,
         @field:NotBlank(message = "카드 번호는 필수입니다.")
         val cardNo: String,
-    )
+    ) {
+        override fun toString(): String =
+            "PaymentRequest(orderId=$orderId, cardType=$cardType, cardNo=****)"
+    }
 
     data class PaymentResponse(
         val id: Long,
