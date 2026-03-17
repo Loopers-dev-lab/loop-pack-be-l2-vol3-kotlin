@@ -40,9 +40,13 @@ class PaymentFacade(
             // (1) 결제 기록 조회 (행 락 취득 - 동시 요청 시 대기)
             val payment = paymentService.getPaymentByTransactionIdForUpdate(command.transactionId)
 
-            // ✅ 멱등성: 이미 완료/실패/취소된 경우 무시
-            if (payment.status == PaymentStatus.COMPLETED) {
-                log.warn("Payment already completed: transactionId={}", command.transactionId)
+            // ✅ 멱등성: INITIATED 상태가 아니면 무시 (어떤 콜백이 와도 이미 처리됨)
+            if (payment.status != PaymentStatus.INITIATED) {
+                log.warn(
+                    "Payment is not in INITIATED state: status={}, transactionId={}",
+                    payment.status,
+                    command.transactionId,
+                )
                 return
             }
 
