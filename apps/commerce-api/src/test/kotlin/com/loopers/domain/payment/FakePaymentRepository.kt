@@ -37,7 +37,7 @@ class FakePaymentRepository : PaymentRepository {
     }
 
     override fun findByOrderId(orderId: Long): Payment? {
-        return payments.find { it.orderId == orderId }?.toCopy()
+        return payments.filter { it.orderId == orderId }.maxByOrNull { it.id }?.toCopy()
     }
 
     override fun findByIdForUpdate(id: Long): Payment? {
@@ -45,7 +45,7 @@ class FakePaymentRepository : PaymentRepository {
     }
 
     override fun findByOrderIdForUpdate(orderId: Long): Payment? {
-        return payments.find { it.orderId == orderId }?.toCopy()
+        return payments.filter { it.orderId == orderId }.maxByOrNull { it.id }?.toCopy()
     }
 
     override fun findByStatusIn(statuses: List<PaymentStatus>, limit: Int): List<Payment> {

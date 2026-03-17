@@ -109,6 +109,16 @@ class RecoverPaymentUseCaseTest {
         return saved
     }
 
+    private fun createRequestedPaymentForOrder(orderId: Long): Payment {
+        val payment = Payment.create(
+            orderId = orderId,
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9012-3456",
+            amount = 10000L,
+        )
+        return paymentRepository.save(payment)
+    }
+
     private fun createTimeoutPaymentForOrder(orderId: Long): Payment {
         val payment = Payment.create(
             orderId = orderId,
@@ -124,6 +134,29 @@ class RecoverPaymentUseCaseTest {
     @Nested
     @DisplayName("RecoverPaymentUseCase.execute 시")
     inner class Execute {
+
+        @Test
+        @DisplayName("REQUESTED Payment이고 PG 조회 결과가 SUCCESS이면 결제 성공으로 전환된다")
+        fun execute_requestedPayment_pgSuccess_recovers() {
+            // arrange
+            val order = createPendingOrder()
+            createRequestedPaymentForOrder(order.id.value)
+            pgClient.transactionDetail = PgTransactionDetail(
+                transactionKey = "TR-001",
+                orderId = order.id.value,
+                status = PgResultStatus.SUCCESS,
+            )
+
+            // act
+            val result = executeAndFlush(order.id.value)
+
+            // assert
+            assertThat(result).isTrue()
+            val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
+            val updatedOrder = orderRepository.findById(order.id)!!
+            assertThat(updatedPayment.status).isEqualTo(PaymentStatus.SUCCESS)
+            assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PAID)
+        }
 
         @Test
         @DisplayName("TIMEOUT Payment이고 PG 조회 결과가 SUCCESS이면 Payment SUCCESS, Order PAID로 전환된다")

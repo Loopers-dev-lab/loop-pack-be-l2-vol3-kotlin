@@ -204,6 +204,28 @@ class OrderTest {
         }
 
         @Test
+        @DisplayName("FAILED 상태에서 호출하면 상태가 PENDING_PAYMENT로 변경된다 (재결제 허용)")
+        fun markPendingPayment_fromFailed_statusChangedToPendingPayment() {
+            // arrange
+            val order = Order.fromPersistence(
+                id = OrderId(1L),
+                refUserId = UserId(1L),
+                status = Order.OrderStatus.FAILED,
+                originalPrice = Money(BigDecimal("10000")),
+                discountAmount = Money(BigDecimal.ZERO),
+                totalPrice = Money(BigDecimal("10000")),
+                refCouponId = null,
+                deletedAt = null,
+            )
+
+            // act
+            order.markPendingPayment()
+
+            // assert
+            assertThat(order.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
+        }
+
+        @Test
         @DisplayName("PAID 상태에서 호출하면 BAD_REQUEST 예외가 발생한다")
         fun markPendingPayment_fromPaid_throwsBadRequest() {
             // arrange

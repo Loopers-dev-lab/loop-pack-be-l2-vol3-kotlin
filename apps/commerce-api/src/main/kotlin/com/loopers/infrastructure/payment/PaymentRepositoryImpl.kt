@@ -12,14 +12,14 @@ import org.springframework.data.jpa.repository.Lock
 import org.springframework.stereotype.Repository
 
 interface PaymentJpaRepository : JpaRepository<PaymentEntity, Long> {
-    fun findByOrderId(orderId: Long): PaymentEntity?
+    fun findFirstByOrderIdOrderByIdDesc(orderId: Long): PaymentEntity?
     fun findByStatusIn(statuses: List<PaymentStatus>, pageable: Pageable): List<PaymentEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findWithLockById(id: Long): PaymentEntity?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findWithLockByOrderId(orderId: Long): PaymentEntity?
+    fun findFirstForUpdateByOrderIdOrderByIdDesc(orderId: Long): PaymentEntity?
 }
 
 @Repository
@@ -36,7 +36,7 @@ class PaymentRepositoryImpl(
     }
 
     override fun findByOrderId(orderId: Long): Payment? {
-        return paymentJpaRepository.findByOrderId(orderId)?.toDomain()
+        return paymentJpaRepository.findFirstByOrderIdOrderByIdDesc(orderId)?.toDomain()
     }
 
     override fun findByIdForUpdate(id: Long): Payment? {
@@ -44,7 +44,7 @@ class PaymentRepositoryImpl(
     }
 
     override fun findByOrderIdForUpdate(orderId: Long): Payment? {
-        return paymentJpaRepository.findWithLockByOrderId(orderId)?.toDomain()
+        return paymentJpaRepository.findFirstForUpdateByOrderIdOrderByIdDesc(orderId)?.toDomain()
     }
 
     override fun findByStatusIn(statuses: List<PaymentStatus>, limit: Int): List<Payment> {

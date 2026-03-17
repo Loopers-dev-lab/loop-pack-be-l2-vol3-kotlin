@@ -194,10 +194,13 @@ class RequestPaymentUseCaseTest {
         }
 
         @Test
-        @DisplayName("기존 결제가 없는 주문에 결제 요청이 성공한다")
-        fun execute_noExistingPayment_allowsPayment() {
-            // arrange
+        @DisplayName("FAILED 상태 결제가 존재하면 같은 주문에서 재결제가 허용된다")
+        fun execute_failedPaymentExists_allowsRetryOnSameOrder() {
+            // arrange — 주문 → 결제대기 → 실패 상태로 전이
             val savedOrder = createSavedOrder()
+            savedOrder.markPendingPayment()
+            savedOrder.markFailed()
+            orderRepository.save(savedOrder)
             val failedPayment = Payment.fromPersistence(
                 id = 0L,
                 orderId = savedOrder.id.value,
@@ -211,13 +214,15 @@ class RequestPaymentUseCaseTest {
                 updatedAt = java.time.ZonedDateTime.now(),
             )
             paymentRepository.save(failedPayment)
-            // CREATED 상태로 되돌려야 markPendingPayment() 가능 — 새 주문으로 테스트
-            val freshOrder = createSavedOrder()
-            val command = defaultCommand(freshOrder.id.value)
+            val command = defaultCommand(savedOrder.id.value)
 
-            // act & assert — 예외 없이 성공
+            // act
             val result = useCase.execute(command)
+
+            // assert — 재결제 성공, 주문이 다시 PENDING_PAYMENT로 전환
             assertThat(result.status).isEqualTo(PaymentStatus.REQUESTED.name)
+            val updatedOrder = orderRepository.findById(savedOrder.id)!!
+            assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
         }
 
         @Test
