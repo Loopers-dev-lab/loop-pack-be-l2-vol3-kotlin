@@ -38,7 +38,7 @@ class AdminBrandUpdateUseCaseTest {
         fun update_success() {
             given(brandRepository.findById(1L)).willReturn(existingBrand)
             given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
-            given(productRepository.findAllByBrandId(1L)).willReturn(emptyList())
+            given(productRepository.findIdsByBrandId(1L)).willReturn(emptyList())
 
             val result = useCase.update(
                 AdminBrandCommand.Update(brandId = 1L, name = "아디다스", status = "ACTIVE", admin = "loopers.admin"),
@@ -57,7 +57,7 @@ class AdminBrandUpdateUseCaseTest {
         fun update_statusChange() {
             given(brandRepository.findById(1L)).willReturn(existingBrand)
             given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
-            given(productRepository.findAllByBrandId(1L)).willReturn(emptyList())
+            given(productRepository.findIdsByBrandId(1L)).willReturn(emptyList())
 
             val result = useCase.update(
                 AdminBrandCommand.Update(brandId = 1L, name = "나이키", status = "ACTIVE", admin = "loopers.admin"),
@@ -65,6 +65,21 @@ class AdminBrandUpdateUseCaseTest {
 
             assertThat(result.status).isEqualTo("ACTIVE")
             then(productQueryInvalidator).should(never()).invalidateDetails(any())
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
+        }
+
+        @Test
+        @DisplayName("연관 상품이 있으면 detail cache도 함께 무효화한다")
+        fun update_withRelatedProducts() {
+            given(brandRepository.findById(1L)).willReturn(existingBrand)
+            given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
+            given(productRepository.findIdsByBrandId(1L)).willReturn(listOf(101L, 102L))
+
+            useCase.update(
+                AdminBrandCommand.Update(brandId = 1L, name = "아디다스", status = "ACTIVE", admin = "loopers.admin"),
+            )
+
+            then(productQueryInvalidator).should().invalidateDetails(listOf(101L, 102L))
             then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
         }
     }

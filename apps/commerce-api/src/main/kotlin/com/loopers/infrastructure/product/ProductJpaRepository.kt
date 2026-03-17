@@ -20,6 +20,16 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
         brandId: Long,
         pageable: Pageable,
     ): Page<ProductEntity>
+
+    @Query(
+        """
+        SELECT p.id
+          FROM ProductEntity p
+         WHERE p.brandId = :brandId
+           AND p.deletedAt IS NULL
+        """,
+    )
+    fun findIdsByBrandIdAndDeletedAtIsNull(@Param("brandId") brandId: Long): List<Long>
     fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long): List<ProductEntity>
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductEntity>
 

@@ -90,6 +90,10 @@ class ProductRepositoryImpl(
         )
     }
 
+    override fun findIdsByBrandId(brandId: Long): List<Long> {
+        return productJpaRepository.findIdsByBrandIdAndDeletedAtIsNull(brandId)
+    }
+
     override fun findAllByBrandId(brandId: Long): List<Product> {
         return productJpaRepository.findAllByBrandIdAndDeletedAtIsNull(brandId)
             .map { productMapper.toDomain(it) }

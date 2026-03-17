@@ -22,8 +22,7 @@ class AdminBrandUpdateUseCase(
             ?: throw CoreException(ErrorType.BRAND_NOT_FOUND)
         val updated = brand.update(command.name, command.status)
         val saved = brandRepository.save(updated, command.admin)
-        val productIds = productRepository.findAllByBrandId(command.brandId)
-            .mapNotNull { it.id }
+        val productIds = productRepository.findIdsByBrandId(command.brandId)
         afterCommitExecutor.execute {
             if (productIds.isNotEmpty()) {
                 productQueryInvalidator.invalidateDetails(productIds)
