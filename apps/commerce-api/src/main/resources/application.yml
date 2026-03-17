@@ -45,11 +45,11 @@ pg:
 resilience4j:
   timelimiter:
     instances:
-      pgPayment:
+      pg-payment-request:
         timeout-duration: 1s
   retry:
     instances:
-      pgRetry:
+      pg-retry:
         max-attempts: 3
         wait-duration: 1s
         retry-exceptions:
@@ -59,13 +59,13 @@ resilience4j:
         fail-after-max-attempts: true
   circuitbreaker:
     instances:
-      pgPayment:
+      pg-payment-request:
         failure-rate-threshold: 50
         sliding-window-size: 10
         minimum-number-of-calls: 5
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
-      pgStatusQuery:
+      pg-status-query:
         failure-rate-threshold: 50
         sliding-window-size: 10
         minimum-number-of-calls: 5

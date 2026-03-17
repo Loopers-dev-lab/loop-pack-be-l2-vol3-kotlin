@@ -21,8 +21,8 @@ class PgClientImpl(
 
     private val log = LoggerFactory.getLogger(PgClientImpl::class.java)
 
-    @CircuitBreaker(name = "pgPayment", fallbackMethod = "requestPaymentFallback")
-    @Retry(name = "pgRetry")
+    @CircuitBreaker(name = "pg-payment-request", fallbackMethod = "requestPaymentFallback")
+    @Retry(name = "pg-retry")
     override fun requestPayment(request: PgPaymentRequest): PgPaymentResult {
         val response = pgFeignClient.requestPayment(
             userId = "system",

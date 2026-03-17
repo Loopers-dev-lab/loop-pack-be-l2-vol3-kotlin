@@ -12,7 +12,7 @@ class PgStatusQueryClient(
 ) {
     private val log = LoggerFactory.getLogger(PgStatusQueryClient::class.java)
 
-    @CircuitBreaker(name = "pgStatusQuery")
+    @CircuitBreaker(name = "pg-status-query")
     fun getTransactionByOrderId(orderId: Long): PgTransactionDetail? {
         val response = pgFeignClient.getTransactionsByOrderId(
             userId = "system",
