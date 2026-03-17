@@ -19,6 +19,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.support.SimpleTransactionStatus
+import org.springframework.transaction.support.TransactionCallback
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 
 class PaymentPgProcessorTest {
@@ -28,12 +31,19 @@ class PaymentPgProcessorTest {
     private lateinit var pgClient: FakePgClient
     private lateinit var processor: PaymentPgProcessorImpl
 
+    // TransactionTemplate stub — PlatformTransactionManager 없이 콜백을 즉시 실행
+    private val txTemplate = object : TransactionTemplate() {
+        override fun <T> execute(action: TransactionCallback<T>): T? {
+            return action.doInTransaction(SimpleTransactionStatus())
+        }
+    }
+
     @BeforeEach
     fun setUp() {
         orderRepository = FakeOrderRepository()
         paymentRepository = FakePaymentRepository()
         pgClient = FakePgClient()
-        processor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository)
+        processor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
     }
 
     private fun createPendingOrder(): Order {

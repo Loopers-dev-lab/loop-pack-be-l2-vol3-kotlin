@@ -21,7 +21,7 @@ class PaymentDto {
         val transactionKey: String?,
         val status: String,
         val cardType: String,
-        val cardNo: String,
+        val maskedCardNo: String,
         val amount: Long,
         val reason: String?,
     ) {
@@ -32,7 +32,7 @@ class PaymentDto {
                 transactionKey = info.transactionKey,
                 status = info.status,
                 cardType = info.cardType,
-                cardNo = info.cardNo,
+                maskedCardNo = info.cardNo,
                 amount = info.amount,
                 reason = info.reason,
             )

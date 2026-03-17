@@ -10,7 +10,7 @@ import com.loopers.domain.payment.repository.PaymentRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 interface PaymentPgProcessor {
     fun processPayment(paymentId: Long, orderId: Long, amount: Long, cardType: String, cardNo: String)
@@ -21,8 +21,8 @@ class PaymentPgProcessorImpl(
     private val pgClient: PgClient,
     private val paymentRepository: PaymentRepository,
     private val orderRepository: OrderRepository,
+    private val txTemplate: TransactionTemplate,
 ) : PaymentPgProcessor {
-    @Transactional
     override fun processPayment(paymentId: Long, orderId: Long, amount: Long, cardType: String, cardNo: String) {
         val pgResult = pgClient.requestPayment(
             PgPaymentRequest(
@@ -38,20 +38,24 @@ class PaymentPgProcessorImpl(
                 // REQUESTED 상태 유지 (콜백 대기)
             }
             PgResultStatus.TIMEOUT -> {
-                val timeoutPayment = paymentRepository.findByOrderIdForUpdate(orderId)
-                    ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=$orderId")
-                timeoutPayment.markTimeout()
-                paymentRepository.save(timeoutPayment)
+                txTemplate.executeWithoutResult {
+                    val timeoutPayment = paymentRepository.findByOrderIdForUpdate(orderId)
+                        ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=$orderId")
+                    timeoutPayment.markTimeout()
+                    paymentRepository.save(timeoutPayment)
+                }
             }
             PgResultStatus.FAILED -> {
-                val order = orderRepository.findById(OrderId(orderId))
-                    ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다. orderId=$orderId")
-                val failedPayment = paymentRepository.findByOrderIdForUpdate(orderId)
-                    ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=$orderId")
-                failedPayment.markFailed(pgResult.reason ?: "PG 결제 실패")
-                paymentRepository.save(failedPayment)
-                order.markFailed()
-                orderRepository.save(order)
+                txTemplate.executeWithoutResult {
+                    val order = orderRepository.findByIdForUpdate(OrderId(orderId))
+                        ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다. orderId=$orderId")
+                    val failedPayment = paymentRepository.findByOrderIdForUpdate(orderId)
+                        ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=$orderId")
+                    failedPayment.markFailed(pgResult.reason ?: "PG 결제 실패")
+                    paymentRepository.save(failedPayment)
+                    order.markFailed()
+                    orderRepository.save(order)
+                }
             }
         }
     }

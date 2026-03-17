@@ -14,10 +14,15 @@ import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.domain.payment.model.PaymentStatus
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.support.SimpleTransactionStatus
+import org.springframework.transaction.support.TransactionCallback
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 
 @DisplayName("결제 전체 흐름 통합 테스트 (Fake 기반)")
@@ -32,16 +37,35 @@ class PaymentFlowIntegrationTest {
     private lateinit var recoverAllPaymentsUseCase: RecoverAllPaymentsUseCase
     private lateinit var paymentPgProcessor: PaymentPgProcessorImpl
 
+    private val txTemplate = object : TransactionTemplate() {
+        override fun <T> execute(action: TransactionCallback<T>): T? {
+            return action.doInTransaction(SimpleTransactionStatus())
+        }
+    }
+
     @BeforeEach
     fun setUp() {
+        TransactionSynchronizationManager.initSynchronization()
         orderRepository = FakeOrderRepository()
         paymentRepository = FakePaymentRepository()
         pgClient = FakePgClient()
-        paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository)
+        paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
         requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, FakePaymentPgProcessor())
         handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository)
-        recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient)
+        recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        TransactionSynchronizationManager.clearSynchronization()
+    }
+
+    private fun flushAfterCommit() {
+        val synchronizations = TransactionSynchronizationManager.getSynchronizations().toList()
+        TransactionSynchronizationManager.clearSynchronization()
+        TransactionSynchronizationManager.initSynchronization()
+        synchronizations.forEach { it.afterCommit() }
     }
 
     private fun createSavedOrder(): Order {
@@ -142,6 +166,7 @@ class PaymentFlowIntegrationTest {
 
             // act — 2단계: 스케줄러 복구
             val recoveredCount = recoverAllPaymentsUseCase.execute()
+            flushAfterCommit()
 
             // assert
             assertThat(recoveredCount).isEqualTo(1)

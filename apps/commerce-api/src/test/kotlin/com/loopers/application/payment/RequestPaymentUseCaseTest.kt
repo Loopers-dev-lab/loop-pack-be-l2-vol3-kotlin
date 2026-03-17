@@ -135,6 +135,35 @@ class RequestPaymentUseCaseTest {
         }
 
         @Test
+        @DisplayName("비인가 사용자가 결제가 존재하는 주문에 요청 시 NOT_FOUND 예외가 발생한다")
+        fun execute_unauthorizedUserWithExistingPayment_throwsNotFound() {
+            // arrange
+            val savedOrder = createSavedOrder() // userId = 1L 로 생성
+            val successPayment = Payment.fromPersistence(
+                id = 0L,
+                orderId = savedOrder.id.value,
+                transactionKey = "TR-001",
+                status = PaymentStatus.SUCCESS,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-****-****-3456",
+                amount = 20000L,
+                reason = null,
+                createdAt = java.time.ZonedDateTime.now(),
+                updatedAt = java.time.ZonedDateTime.now(),
+            )
+            paymentRepository.save(successPayment)
+            val command = defaultCommand(orderId = savedOrder.id.value, userId = 2L) // 다른 userId
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(command)
+            }
+
+            // assert — CONFLICT가 아닌 NOT_FOUND여야 한다 (결제 존재 여부를 비인가자에게 노출하면 안 됨)
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
         @DisplayName("SUCCESS 상태 결제가 이미 존재하면 CONFLICT 예외가 발생한다")
         fun execute_alreadySuccessPayment_throwsConflict() {
             // arrange

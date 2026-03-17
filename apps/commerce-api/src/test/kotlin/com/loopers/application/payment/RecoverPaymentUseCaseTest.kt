@@ -15,10 +15,13 @@ import com.loopers.domain.payment.model.CardType
 import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 
 class RecoverPaymentUseCaseTest {
@@ -29,13 +32,68 @@ class RecoverPaymentUseCaseTest {
     private lateinit var recoverPaymentUseCase: RecoverPaymentUseCase
     private lateinit var recoverAllPaymentsUseCase: RecoverAllPaymentsUseCase
 
+    // afterCommit 콜백 내부의 새 트랜잭션 실행을 즉시 처리하는 TransactionTemplate stub
+    private val immediateTxTemplate = TransactionTemplate().apply {
+        setTransactionManager(
+            object : org.springframework.transaction.PlatformTransactionManager {
+                override fun getTransaction(definition: org.springframework.transaction.TransactionDefinition?) =
+                    org.springframework.transaction.support.DefaultTransactionStatus(
+                        "test-tx",
+                        null,
+                        true,
+                        true,
+                        false,
+                        false,
+                        false,
+                        null,
+                    )
+
+                override fun commit(status: org.springframework.transaction.TransactionStatus) {}
+                override fun rollback(status: org.springframework.transaction.TransactionStatus) {}
+            },
+        )
+    }
+
     @BeforeEach
     fun setUp() {
         paymentRepository = FakePaymentRepository()
         orderRepository = FakeOrderRepository()
         pgClient = FakePgClient()
-        recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient)
+        // TransactionSynchronizationManager 활성화: registerSynchronization 호출 허용
+        TransactionSynchronizationManager.initSynchronization()
+        recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, immediateTxTemplate)
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        TransactionSynchronizationManager.clearSynchronization()
+    }
+
+    /**
+     * execute() 호출 후 등록된 afterCommit 콜백을 즉시 실행한다.
+     * 실제 트랜잭션 커밋 시 Spring이 호출하는 동작을 단위 테스트에서 시뮬레이션한다.
+     */
+    private fun executeAndFlush(orderId: Long): Boolean {
+        val result = recoverPaymentUseCase.execute(orderId)
+        flushAfterCommit()
+        return result
+    }
+
+    /**
+     * RecoverAllPaymentsUseCase 실행 후 등록된 모든 afterCommit 콜백을 즉시 실행한다.
+     */
+    private fun executeAllAndFlush(): Int {
+        val count = recoverAllPaymentsUseCase.execute()
+        flushAfterCommit()
+        return count
+    }
+
+    private fun flushAfterCommit() {
+        val synchronizations = TransactionSynchronizationManager.getSynchronizations().toList()
+        TransactionSynchronizationManager.clearSynchronization()
+        TransactionSynchronizationManager.initSynchronization()
+        synchronizations.forEach { it.afterCommit() }
     }
 
     private fun createPendingOrder(): Order {
@@ -80,7 +138,7 @@ class RecoverPaymentUseCaseTest {
             )
 
             // act
-            val result = recoverPaymentUseCase.execute(order.id.value)
+            val result = executeAndFlush(order.id.value)
 
             // assert
             assertThat(result).isTrue()
@@ -91,7 +149,7 @@ class RecoverPaymentUseCaseTest {
         }
 
         @Test
-        @DisplayName("TIMEOUT Payment이고 PG 조회 결과가 없으면 상태를 변경하지 않고 false를 반환한다")
+        @DisplayName("TIMEOUT Payment이고 PG 조회 결과가 없으면 상태를 변경하지 않고 true를 반환한다 (복구 시도 시작 의미)")
         fun execute_timeoutPayment_pgNoResult_returnsFalse() {
             // arrange
             val order = createPendingOrder()
@@ -99,10 +157,10 @@ class RecoverPaymentUseCaseTest {
             pgClient.transactionDetail = null
 
             // act
-            val result = recoverPaymentUseCase.execute(order.id.value)
+            val result = executeAndFlush(order.id.value)
 
-            // assert
-            assertThat(result).isFalse()
+            // assert: execute()는 복구 시도 시작 여부를 반환 → true, 상태는 미변경
+            assertThat(result).isTrue()
             val payment = paymentRepository.findByOrderId(order.id.value)!!
             assertThat(payment.status).isEqualTo(PaymentStatus.TIMEOUT)
         }
@@ -111,7 +169,7 @@ class RecoverPaymentUseCaseTest {
         @DisplayName("Payment가 없으면 false를 반환한다")
         fun execute_noPayment_returnsFalse() {
             // act
-            val result = recoverPaymentUseCase.execute(999L)
+            val result = executeAndFlush(999L)
 
             // assert
             assertThat(result).isFalse()
@@ -133,7 +191,7 @@ class RecoverPaymentUseCaseTest {
             paymentRepository.save(saved)
 
             // act
-            val result = recoverPaymentUseCase.execute(order.id.value)
+            val result = executeAndFlush(order.id.value)
 
             // assert
             assertThat(result).isFalse()
@@ -153,7 +211,7 @@ class RecoverPaymentUseCaseTest {
             )
 
             // act
-            val result = recoverPaymentUseCase.execute(order.id.value)
+            val result = executeAndFlush(order.id.value)
 
             // assert
             assertThat(result).isTrue()
@@ -181,7 +239,7 @@ class RecoverPaymentUseCaseTest {
             )
 
             // act
-            val count = recoverAllPaymentsUseCase.execute()
+            val count = executeAllAndFlush()
 
             // assert
             assertThat(count).isEqualTo(1)
@@ -192,7 +250,7 @@ class RecoverPaymentUseCaseTest {
         }
 
         @Test
-        @DisplayName("TIMEOUT Payment이고 PG 조회 결과가 없으면 복구 건수 0을 반환한다")
+        @DisplayName("TIMEOUT Payment이고 PG 조회 결과가 없으면 복구 시도 건수 1을 반환하고 상태는 변경하지 않는다")
         fun execute_timeoutPayment_pgNoResult_returnsZero() {
             // arrange
             val order = createPendingOrder()
@@ -200,10 +258,10 @@ class RecoverPaymentUseCaseTest {
             pgClient.transactionDetail = null
 
             // act
-            val count = recoverAllPaymentsUseCase.execute()
+            val count = executeAllAndFlush()
 
-            // assert
-            assertThat(count).isEqualTo(0)
+            // assert: execute()가 복구 시도 시작 여부를 반환하므로 count=1, 상태는 미변경
+            assertThat(count).isEqualTo(1)
             val payment = paymentRepository.findByOrderId(order.id.value)!!
             val orderAfter = orderRepository.findById(order.id)!!
             assertThat(payment.status).isEqualTo(PaymentStatus.TIMEOUT)
@@ -238,11 +296,12 @@ class RecoverPaymentUseCaseTest {
                 status = PgResultStatus.SUCCESS,
             )
 
-            // act — order1 예외가 전파되지 않고 order2는 정상 처리되어야 함
-            val count = recoverAllPaymentsUseCase.execute()
+            // act — order1 afterCommit 예외가 catch되고 order2는 정상 처리되어야 함
+            val count = executeAllAndFlush()
 
-            // assert — order1 실패(예외 → skip), order2 성공 → count == 1
-            assertThat(count).isEqualTo(1)
+            // assert — 두 건 모두 execute()가 true 반환(복구 시도 시작) → count == 2
+            //           order1은 afterCommit에서 PG 예외 → 상태 미변경, order2는 SUCCESS 전환
+            assertThat(count).isEqualTo(2)
             val payment2 = paymentRepository.findByOrderId(order2.id.value)!!
             assertThat(payment2.status).isEqualTo(PaymentStatus.SUCCESS)
         }

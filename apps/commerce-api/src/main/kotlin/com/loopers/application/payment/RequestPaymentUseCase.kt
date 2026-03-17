@@ -25,8 +25,16 @@ class RequestPaymentUseCase(
 
     @Transactional
     fun execute(command: PaymentCommand.RequestPayment): PaymentInfo {
-        // 1. 중복 결제 방지
-        paymentRepository.findByOrderId(command.orderId)?.let { existingPayment ->
+        // 1. Order 조회 (비관적 락) + 소유자 검증
+        val order = orderRepository.findByIdForUpdate(OrderId(command.orderId))
+            ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
+
+        if (order.refUserId != UserId(command.userId)) {
+            throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
+        }
+
+        // 2. 중복 결제 방지
+        paymentRepository.findByOrderIdForUpdate(command.orderId)?.let { existingPayment ->
             when (existingPayment.status) {
                 PaymentStatus.SUCCESS ->
                     throw CoreException(ErrorType.CONFLICT, "이미 결제가 완료된 주문입니다.")
@@ -34,14 +42,6 @@ class RequestPaymentUseCase(
                     throw CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중인 주문입니다.")
                 PaymentStatus.FAILED -> { /* 재결제 허용 */ }
             }
-        }
-
-        // 2. Order 조회 (비관적 락) + 소유자 검증
-        val order = orderRepository.findByIdForUpdate(OrderId(command.orderId))
-            ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
-
-        if (order.refUserId != UserId(command.userId)) {
-            throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
         }
 
         // 3. Order → PENDING_PAYMENT
