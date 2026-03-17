@@ -19,7 +19,6 @@ class Payment protected constructor(
     val cardType: String = "",
     val cardNo: String = "",
 ) : BaseEntity() {
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     var status: PaymentStatus = PaymentStatus.INITIATED

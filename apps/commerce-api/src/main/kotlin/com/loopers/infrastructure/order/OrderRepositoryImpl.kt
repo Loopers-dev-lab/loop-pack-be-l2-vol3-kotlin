@@ -18,9 +18,16 @@ class OrderRepositoryImpl(
     private val queryFactory: JPAQueryFactory,
 ) : OrderRepository {
 
-    override fun save(order: Order): Order = orderJpaRepository.save(order)
+    override fun save(order: Order): Order {
+        // saveAndFlush()를 사용하여 즉시 flush로 인해 SQL 실행 후 상태 정리
+        return orderJpaRepository.saveAndFlush(order)
+    }
 
     override fun findById(id: Long): Order? = orderJpaRepository.findByIdOrNull(id)
+
+    override fun findByIdForUpdate(id: Long): Order? = orderJpaRepository.findByIdForUpdate(id)
+
+    override fun findByIdForUpdateWithPending(id: Long): Order? = orderJpaRepository.findByIdForUpdateWithPending(id)
 
     override fun findByUserId(userId: Long, pageable: Pageable): Page<Order> {
         val qOrder = QOrder.order

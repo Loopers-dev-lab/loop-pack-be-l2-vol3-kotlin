@@ -55,7 +55,7 @@ class PaymentCallbackE2ETest {
     @DisplayName("결제 콜백 - 주문 상태가 PENDING에서 PAID로 변경됨")
     fun paymentCallback_changeOrderStatus() {
         // given
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 100L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
         val payment = Payment.create(
@@ -66,15 +66,17 @@ class PaymentCallbackE2ETest {
         val savedPayment = paymentRepository.save(payment)
 
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionId = savedPayment.transactionId,
-            orderId = savedOrder.id,
-            amount = savedPayment.amount,
-            signature = "valid_signature",
-            status = "completed",
+            transactionKey = savedPayment.transactionId,
+            orderId = savedOrder.id.toString(),
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9814-1451",
+            amount = savedPayment.amount.multiply(BigDecimal("100")).longValueExact(),
+            status = TransactionStatus.COMPLETED,
+            reason = null,
         )
 
         // when
-        mockMvc.post("/api/v1/payment/callback") {
+        mockMvc.post("/api/v1/payments/callback") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
@@ -93,7 +95,7 @@ class PaymentCallbackE2ETest {
     @DisplayName("결제 콜백 - 멱등성: 중복 콜백은 상태를 변경하지 않음")
     fun paymentCallback_idempotency() {
         // given
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 101L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
         val payment = Payment.create(
@@ -104,15 +106,17 @@ class PaymentCallbackE2ETest {
         val savedPayment = paymentRepository.save(payment)
 
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionId = savedPayment.transactionId,
-            orderId = savedOrder.id,
-            amount = savedPayment.amount,
-            signature = "valid_signature",
-            status = "completed",
+            transactionKey = savedPayment.transactionId,
+            orderId = savedOrder.id.toString(),
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9814-1451",
+            amount = savedPayment.amount.multiply(BigDecimal("100")).longValueExact(),
+            status = TransactionStatus.COMPLETED,
+            reason = null,
         )
 
         // when - 첫 번째 콜백
-        mockMvc.post("/api/v1/payment/callback") {
+        mockMvc.post("/api/v1/payments/callback") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
@@ -124,7 +128,7 @@ class PaymentCallbackE2ETest {
         assert(updatedPayment?.status == PaymentStatus.COMPLETED)
 
         // when - 두 번째 콜백 (중복)
-        mockMvc.post("/api/v1/payment/callback") {
+        mockMvc.post("/api/v1/payments/callback") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
@@ -137,10 +141,10 @@ class PaymentCallbackE2ETest {
     }
 
     @Test
-    @DisplayName("결제 콜백 - 잘못된 서명은 실패")
-    fun paymentCallback_invalidSignature() {
+    @DisplayName("결제 콜백 - 실패 상태")
+    fun paymentCallback_failedStatus() {
         // given
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 102L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
         val payment = Payment.create(
@@ -151,16 +155,17 @@ class PaymentCallbackE2ETest {
         val savedPayment = paymentRepository.save(payment)
 
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionId = savedPayment.transactionId,
-            orderId = savedOrder.id,
-            amount = savedPayment.amount,
-            signature = "invalid_signature",
-            status = "completed",
+            transactionKey = savedPayment.transactionId,
+            orderId = savedOrder.id.toString(),
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9814-1451",
+            amount = savedPayment.amount.multiply(BigDecimal("100")).longValueExact(),
+            status = TransactionStatus.FAILED,
+            reason = "Card declined",
         )
 
-        // when & then - Mock 구현에서는 항상 true이므로 실제 검증이 필요
-        // 실제 PG 구현에서는 여기서 실패해야 함
-        mockMvc.post("/api/v1/payment/callback") {
+        // when & then
+        mockMvc.post("/api/v1/payments/callback") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
@@ -172,7 +177,7 @@ class PaymentCallbackE2ETest {
     @DisplayName("결제 콜백 - 금액 불일치")
     fun paymentCallback_amountMismatch() {
         // given
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 103L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
         val payment = Payment.create(
@@ -182,16 +187,19 @@ class PaymentCallbackE2ETest {
         )
         val savedPayment = paymentRepository.save(payment)
 
+        // 금액 불일치
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionId = savedPayment.transactionId,
-            orderId = savedOrder.id,
-            amount = BigDecimal("9999"), // 금액 불일치
-            signature = "valid_signature",
-            status = "completed",
+            transactionKey = savedPayment.transactionId,
+            orderId = savedOrder.id.toString(),
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9814-1451",
+            amount = 9999L,
+            status = TransactionStatus.COMPLETED,
+            reason = null,
         )
 
         // when & then
-        mockMvc.post("/api/v1/payment/callback") {
+        mockMvc.post("/api/v1/payments/callback") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {

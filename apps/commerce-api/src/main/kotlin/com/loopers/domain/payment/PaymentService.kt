@@ -18,6 +18,13 @@ class PaymentService(
     fun getPaymentByOrderId(orderId: Long): Payment? =
         paymentRepository.findByOrderId(orderId)
 
+    fun getPaymentByTransactionIdForUpdate(transactionId: String): Payment =
+        paymentRepository.findByTransactionIdForUpdate(transactionId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보가 존재하지 않습니다")
+
+    fun getPaymentByOrderIdForUpdate(orderId: Long): Payment? =
+        paymentRepository.findByOrderIdForUpdate(orderId)
+
     @Transactional
     fun save(payment: Payment): Payment =
         paymentRepository.save(payment)

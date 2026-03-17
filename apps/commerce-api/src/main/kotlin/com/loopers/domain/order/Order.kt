@@ -1,6 +1,5 @@
 package com.loopers.domain.order
 
-import com.loopers.domain.BaseEntity
 import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.product.Product
 import jakarta.persistence.CascadeType
@@ -9,8 +8,11 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
+import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
+import jakarta.persistence.PrePersist
+import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -20,11 +22,26 @@ import java.time.ZonedDateTime
 class Order protected constructor(
     val userId: Long = 0L,
     val couponId: Long? = null,
-) : BaseEntity() {
+) {
+    @Id
+    var id: Long = 0L
+        protected set
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     var status: OrderStatus = OrderStatus.PENDING
+        protected set
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    lateinit var createdAt: ZonedDateTime
+        protected set
+
+    @Column(name = "updated_at", nullable = false)
+    lateinit var updatedAt: ZonedDateTime
+        protected set
+
+    @Column(name = "deleted_at")
+    var deletedAt: ZonedDateTime? = null
         protected set
 
     @OneToMany(fetch = FetchType.LAZY, cascade = [CascadeType.ALL], orphanRemoval = true)
@@ -52,16 +69,42 @@ class Order protected constructor(
         this.status = newStatus
     }
 
+    fun delete() {
+        deletedAt ?: run { deletedAt = ZonedDateTime.now() }
+    }
+
+    fun restore() {
+        deletedAt?.let { deletedAt = null }
+    }
+
+    @PrePersist
+    private fun prePersist() {
+        val now = ZonedDateTime.now()
+        createdAt = now
+        updatedAt = now
+    }
+
+    @PreUpdate
+    private fun preUpdate() {
+        updatedAt = ZonedDateTime.now()
+    }
+
     companion object {
-        fun create(userId: Long, couponId: Long? = null, status: OrderStatus = OrderStatus.PENDING): Order =
+        fun create(
+            id: Long,
+            userId: Long,
+            couponId: Long? = null,
+            status: OrderStatus = OrderStatus.PENDING,
+        ): Order =
             Order(userId = userId, couponId = couponId)
                 .apply {
+                    this.id = id
                     this.status = status
                 }
 
-        // ✅ Factory 메서드: 주문과 항목을 함께 생성 (저장 후 setOrderItemIds() 호출 필요)
-        // 내부에서만 사용 - orderId가 0인 상태이므로 저장 전에는 FK 제약 조건 위반 가능성이 있음
+        // ✅ Factory 메서드: 주문과 항목을 함께 생성
         internal fun createWithItems(
+            id: Long,
             userId: Long,
             couponId: Long? = null,
             items: List<OrderItemSpec>,
@@ -69,6 +112,7 @@ class Order protected constructor(
             require(items.isNotEmpty()) { "주문 항목은 최소 1개 이상이어야 합니다" }
 
             val order = Order(userId = userId, couponId = couponId)
+                .apply { this.id = id }
             items.forEach { spec ->
                 order.addItem(spec.product, spec.quantity, spec.price)
             }

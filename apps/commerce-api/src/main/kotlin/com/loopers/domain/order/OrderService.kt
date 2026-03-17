@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.SnowflakeIdGenerator
 import com.loopers.domain.order.dto.CreateOrderItemCommand
 import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.order.dto.OrderedInfo
@@ -15,16 +16,17 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class OrderService(
     private val orderRepository: OrderRepository,
-    // ✅ Product 조회용 추가
     private val productService: ProductService,
+    private val idGenerator: SnowflakeIdGenerator,
 ) {
 
     @Transactional
     fun createOrder(userId: Long, items: List<CreateOrderItemCommand>, couponId: Long? = null): Order {
         validateItems(items)
 
-        // Order 먼저 생성 및 저장
-        val order = Order.create(userId, couponId)
+        // Order 생성 (Snowflake ID 할당)
+        val orderId = idGenerator.nextId()
+        val order = Order.create(id = orderId, userId = userId, couponId = couponId)
         val savedOrder = orderRepository.save(order)
 
         // OrderItemSpec 준비
@@ -37,7 +39,6 @@ class OrderService(
         }
 
         // 저장된 Order에 OrderItem 추가
-        // Order.id는 이미 할당되어 있으므로, OrderItem.create()가 올바른 orderId를 복사함
         itemSpecs.forEach { spec ->
             savedOrder.addItem(spec.product, spec.quantity, spec.price)
         }
@@ -57,6 +58,20 @@ class OrderService(
     fun getOrderByIdForAdmin(orderId: Long): Order =
         orderRepository.findById(orderId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "주문이 존재하지 않습니다")
+
+    fun getOrderByIdForUpdate(userId: Long, orderId: Long): Order =
+        orderRepository.findByIdForUpdate(orderId)
+            ?.takeIf { it.userId == userId }
+            ?: throw CoreException(ErrorType.NOT_FOUND, "주문이 존재하지 않습니다")
+
+    fun getOrderByIdForUpdateWithPending(userId: Long, orderId: Long): Order =
+        orderRepository.findByIdForUpdateWithPending(orderId)
+            ?.takeIf { it.userId == userId }
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "PENDING 상태의 주문이 아니거나 존재하지 않습니다")
+
+    @Transactional
+    fun saveOrder(order: Order): Order =
+        orderRepository.save(order)
 
     private fun validateItems(items: List<CreateOrderItemCommand>) {
         if (items.isEmpty()) {
