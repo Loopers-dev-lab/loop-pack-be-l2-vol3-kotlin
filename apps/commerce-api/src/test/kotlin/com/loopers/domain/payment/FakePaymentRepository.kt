@@ -40,6 +40,10 @@ class FakePaymentRepository : PaymentRepository {
         return payments.find { it.orderId == orderId }?.toCopy()
     }
 
+    override fun findByIdForUpdate(id: Long): Payment? {
+        return payments.find { it.id == id }?.toCopy()
+    }
+
     override fun findByOrderIdForUpdate(orderId: Long): Payment? {
         return payments.find { it.orderId == orderId }?.toCopy()
     }

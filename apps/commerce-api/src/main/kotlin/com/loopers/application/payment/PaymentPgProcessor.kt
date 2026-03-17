@@ -39,16 +39,16 @@ class PaymentPgProcessorImpl(
             }
             PgResultStatus.TIMEOUT -> {
                 txTemplate.executeWithoutResult {
-                    val timeoutPayment = paymentRepository.findByOrderIdForUpdate(orderId)
-                        ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=$orderId")
+                    val timeoutPayment = paymentRepository.findByIdForUpdate(paymentId)
+                        ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. paymentId=$paymentId")
                     timeoutPayment.markTimeout()
                     paymentRepository.save(timeoutPayment)
                 }
             }
             PgResultStatus.FAILED -> {
                 txTemplate.executeWithoutResult {
-                    val failedPayment = paymentRepository.findByOrderIdForUpdate(orderId)
-                        ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. orderId=$orderId")
+                    val failedPayment = paymentRepository.findByIdForUpdate(paymentId)
+                        ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. paymentId=$paymentId")
                     val order = orderRepository.findByIdForUpdate(OrderId(orderId))
                         ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다. orderId=$orderId")
                     failedPayment.markFailed(pgResult.reason ?: "PG 결제 실패")

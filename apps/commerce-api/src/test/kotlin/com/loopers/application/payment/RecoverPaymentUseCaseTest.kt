@@ -48,8 +48,8 @@ class RecoverPaymentUseCaseTest {
                         null,
                     )
 
-                override fun commit(status: org.springframework.transaction.TransactionStatus) {}
-                override fun rollback(status: org.springframework.transaction.TransactionStatus) {}
+                override fun commit(status: org.springframework.transaction.TransactionStatus) { /* no-op: 테스트용 stub */ }
+                override fun rollback(status: org.springframework.transaction.TransactionStatus) { /* no-op: 테스트용 stub */ }
             },
         )
     }
@@ -150,7 +150,7 @@ class RecoverPaymentUseCaseTest {
 
         @Test
         @DisplayName("TIMEOUT Payment이고 PG 조회 결과가 없으면 상태를 변경하지 않고 true를 반환한다 (복구 시도 시작 의미)")
-        fun execute_timeoutPayment_pgNoResult_returnsFalse() {
+        fun execute_timeoutPayment_pgNoResult_returnsTrue() {
             // arrange
             val order = createPendingOrder()
             createTimeoutPaymentForOrder(order.id.value)
@@ -302,6 +302,10 @@ class RecoverPaymentUseCaseTest {
             // assert — 두 건 모두 execute()가 true 반환(복구 시도 시작) → count == 2
             //           order1은 afterCommit에서 PG 예외 → 상태 미변경, order2는 SUCCESS 전환
             assertThat(count).isEqualTo(2)
+            val payment1 = paymentRepository.findByOrderId(order1.id.value)!!
+            val order1After = orderRepository.findById(order1.id)!!
+            assertThat(payment1.status).isEqualTo(PaymentStatus.TIMEOUT)
+            assertThat(order1After.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
             val payment2 = paymentRepository.findByOrderId(order2.id.value)!!
             assertThat(payment2.status).isEqualTo(PaymentStatus.SUCCESS)
         }

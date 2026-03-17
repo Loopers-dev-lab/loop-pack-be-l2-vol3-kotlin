@@ -16,6 +16,9 @@ interface PaymentJpaRepository : JpaRepository<PaymentEntity, Long> {
     fun findByStatusIn(statuses: List<PaymentStatus>, pageable: Pageable): List<PaymentEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findWithLockById(id: Long): PaymentEntity?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findWithLockByOrderId(orderId: Long): PaymentEntity?
 }
 
@@ -34,6 +37,10 @@ class PaymentRepositoryImpl(
 
     override fun findByOrderId(orderId: Long): Payment? {
         return paymentJpaRepository.findByOrderId(orderId)?.toDomain()
+    }
+
+    override fun findByIdForUpdate(id: Long): Payment? {
+        return paymentJpaRepository.findWithLockById(id)?.toDomain()
     }
 
     override fun findByOrderIdForUpdate(orderId: Long): Payment? {

@@ -194,8 +194,8 @@ class RequestPaymentUseCaseTest {
         }
 
         @Test
-        @DisplayName("FAILED 상태 결제가 존재하면 재결제가 허용된다")
-        fun execute_failedPaymentExists_allowsRetry() {
+        @DisplayName("기존 결제가 없는 주문에 결제 요청이 성공한다")
+        fun execute_noExistingPayment_allowsPayment() {
             // arrange
             val savedOrder = createSavedOrder()
             val failedPayment = Payment.fromPersistence(
