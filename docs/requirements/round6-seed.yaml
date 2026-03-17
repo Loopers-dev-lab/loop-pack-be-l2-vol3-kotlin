@@ -51,7 +51,7 @@ acceptance_criteria:
 - Resilience4j Circuit Breaker 패턴 적용 (50% threshold)
 - Resilience4j Fallback 전략 적용 (Timeout/Retry 소진 시 즉시 PG orderId 조회 후 반영 or TIMEOUT Payment 생성, CB OPEN 시 TIMEOUT Payment 생성)
 - PG 콜백 수신 엔드포인트 구현 및 Payment/Order 상태 반영
-- '@Scheduled 스케줄러로 PENDING_PAYMENT/TIMEOUT 상태 Payment 주기적 PG 상태 조회 및 자동 복구'
+- '@Scheduled 스케줄러로 REQUESTED/TIMEOUT 상태 Payment 주기적 PG 상태 조회 및 자동 복구'
 - 'Admin API: 개별 주문 건 PG 상태 재조회 API'
 - 'Admin API: 스케줄러 수동 트리거 API'
 - Order 상태에 PENDING_PAYMENT 추가 (CREATED → PENDING_PAYMENT → PAID/FAILED)
