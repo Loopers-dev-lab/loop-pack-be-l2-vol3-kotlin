@@ -82,6 +82,7 @@ class PaymentFacade(
             // (4) 주문 상태 변경
             val order = orderService.getOrderByIdForAdmin(command.orderId)
             order.changeStatus(OrderStatus.PAID)
+            orderService.saveOrder(order)
 
             // (5) 도메인 이벤트 발행 (배송 준비 등 후처리용)
             applicationEventPublisher.publishEvent(
