@@ -19,7 +19,7 @@ class RequestPaymentUseCase(
 
     private fun callPgAndUpdateStatus(paymentId: Long, amount: Long, userId: Long, command: RequestPaymentCommand) {
         val pgRequest = PgPaymentRequest(
-            orderId = command.orderId.toString(),
+            orderId = command.orderId.toString().padStart(6, '0'),
             cardType = command.cardType,
             cardNo = command.cardNo,
             amount = amount,
