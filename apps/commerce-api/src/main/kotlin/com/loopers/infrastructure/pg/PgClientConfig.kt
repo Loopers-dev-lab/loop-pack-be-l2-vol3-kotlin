@@ -1,8 +1,12 @@
 package com.loopers.infrastructure.pg
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.loopers.domain.pg.PgCommunicationLogRepository
+import feign.Client
 import feign.Request
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.transaction.PlatformTransactionManager
 import java.util.concurrent.TimeUnit
 
 @Configuration
@@ -16,6 +20,20 @@ class PgClientConfig {
             3000,
             TimeUnit.MILLISECONDS,
             true,
+        )
+    }
+
+    @Bean
+    fun pgFeignClient(
+        pgCommunicationLogRepository: PgCommunicationLogRepository,
+        transactionManager: PlatformTransactionManager,
+        objectMapper: ObjectMapper,
+    ): Client {
+        return PgLoggingClient(
+            delegate = Client.Default(null, null),
+            pgCommunicationLogRepository = pgCommunicationLogRepository,
+            transactionManager = transactionManager,
+            objectMapper = objectMapper,
         )
     }
 }
