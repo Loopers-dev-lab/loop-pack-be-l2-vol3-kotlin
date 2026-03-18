@@ -6,10 +6,23 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
-@Table(name = "product")
+@Table(
+    name = "product",
+    indexes = [
+        Index(
+            name = "idx_product_brand_status_deleted_like_id",
+            columnList = "brand_id, status, deleted_at, like_count DESC, id DESC",
+        ),
+        Index(
+            name = "idx_product_brand_status_deleted_price_id",
+            columnList = "brand_id, status, deleted_at, selling_price ASC, id DESC",
+        ),
+    ],
+)
 @Entity
 class ProductEntity(
     id: Long? = null,

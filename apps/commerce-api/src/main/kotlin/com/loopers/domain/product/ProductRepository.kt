@@ -11,6 +11,7 @@ interface ProductRepository {
     fun findById(id: Long): Product?
     fun findAll(pageRequest: PageRequest, brandId: Long? = null): PageResponse<Product>
     fun findAllActive(pageRequest: PageRequest, brandId: Long?, sort: Product.SortType?): PageResponse<Product>
+    fun findIdsByBrandId(brandId: Long): List<Long>
     fun findAllByBrandId(brandId: Long): List<Product>
     fun findAllByIdIn(ids: List<Long>): List<Product>
     fun deleteAllByBrandId(brandId: Long, admin: String)

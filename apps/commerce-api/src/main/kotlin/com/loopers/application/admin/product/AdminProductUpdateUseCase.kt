@@ -4,7 +4,9 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
@@ -12,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AdminProductUpdateUseCase(
+    private val afterCommitExecutor: AfterCommitExecutor,
+    private val productQueryInvalidator: ProductQueryInvalidator,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
 ) {
@@ -32,6 +36,10 @@ class AdminProductUpdateUseCase(
         val statusChanged = applyStatusChange(updated, targetStatus)
 
         val saved = productRepository.save(statusChanged, command.admin)
+        afterCommitExecutor.execute {
+            productQueryInvalidator.invalidateDetails(listOf(command.productId))
+            productQueryInvalidator.invalidateListsByBrandId(product.brandId)
+        }
         return AdminProductResult.Update.from(saved)
     }
 

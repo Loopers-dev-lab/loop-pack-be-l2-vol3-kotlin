@@ -42,5 +42,9 @@ out/
 .taskmaster
 .serena
 
+### mac os ###
 .DS_Store
 **/.DS_Store
+
+### loopers docs ###
+docs/loopers/

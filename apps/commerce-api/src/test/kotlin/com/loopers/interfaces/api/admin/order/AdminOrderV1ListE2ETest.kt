@@ -54,6 +54,9 @@ constructor(
         private const val ENDPOINT = "/api-admin/v1/orders"
     }
 
+    private var userId: Long = 0
+    private var productId: Long = 0
+
     @BeforeEach
     fun setUp() {
         val user = User.register(
@@ -65,6 +68,7 @@ constructor(
             passwordHasher = passwordHasher,
         )
         val savedUser = userRepository.save(user)
+        userId = savedUser.id!!
 
         val brand = brandRepository.save(Brand.register(name = "나이키"), ADMIN)
         val activeBrand = brandRepository.save(brand.update("나이키", "ACTIVE"), ADMIN)
@@ -77,7 +81,7 @@ constructor(
         )
         val saved = productRepository.save(product, ADMIN)
         val activeProduct = productRepository.save(saved.activate(), ADMIN)
-        val productId = activeProduct.id!!
+        productId = activeProduct.id!!
 
         productStockRepository.save(
             ProductStock.create(productId = productId, initialQuantity = Quantity(100)),
@@ -128,6 +132,34 @@ constructor(
                 (data["content"] as List<Map<String, Any?>>)
             assertThat(content).hasSize(1)
             assertThat(content[0]["userId"]).isNotNull()
+        }
+
+        @Test
+        @DisplayName("최신 주문이 먼저 반환된다")
+        fun getList_latestOrderFirst() {
+            orderCreateUseCase.create(
+                OrderCreateCommand(
+                    userId = userId,
+                    idempotencyKey = UUID.randomUUID().toString(),
+                    items = listOf(OrderCreateCommand.Item(productId = productId, quantity = 1)),
+                ),
+            )
+
+            val response = testRestTemplate.exchange(
+                ENDPOINT,
+                HttpMethod.GET,
+                adminHeaders(),
+                object : ParameterizedTypeReference<ApiResponse<Map<String, Any?>>>() {},
+            )
+
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val data = response.body?.data!!
+            val content =
+                @Suppress("UNCHECKED_CAST")
+                (data["content"] as List<Map<String, Any?>>)
+            assertThat(content).hasSize(2)
+            assertThat((content[0]["orderId"] as Number).toLong())
+                .isGreaterThan((content[1]["orderId"] as Number).toLong())
         }
     }
 

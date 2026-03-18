@@ -9,17 +9,24 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.ForeignKey
+import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
 import jakarta.persistence.OrderBy
-import jakarta.persistence.Index
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
 @Table(
     name = "orders",
     indexes = [
-        Index(columnList = "user_id, created_at, deleted_at"),
+        Index(
+            name = "idx_orders_user_deleted_created_id",
+            columnList = "user_id, deleted_at, created_at DESC, id DESC",
+        ),
+        Index(
+            name = "idx_orders_deleted_created_id",
+            columnList = "deleted_at, created_at DESC, id DESC",
+        ),
     ],
 )
 @Entity

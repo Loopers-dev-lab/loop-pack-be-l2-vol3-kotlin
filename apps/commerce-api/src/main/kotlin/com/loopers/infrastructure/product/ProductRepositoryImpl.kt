@@ -1,9 +1,11 @@
 package com.loopers.infrastructure.product
 
+import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
+import org.springframework.data.domain.Sort.Order
 import org.springframework.data.domain.Sort
 import org.springframework.data.domain.PageRequest as SpringPageRequest
 import org.springframework.stereotype.Repository
@@ -73,15 +75,12 @@ class ProductRepositoryImpl(
         val springSort = toSpringSort(sort)
         val pageable = SpringPageRequest.of(pageRequest.page, pageRequest.size, springSort)
 
-        val page = if (brandId != null) {
-            productJpaRepository.findAllByStatusAndBrandIdAndDeletedAtIsNull(
-                Product.Status.ACTIVE,
-                brandId,
-                pageable,
-            )
-        } else {
-            productJpaRepository.findAllByStatusAndDeletedAtIsNull(Product.Status.ACTIVE, pageable)
-        }
+        val page = productJpaRepository.findAllByStatusAndActiveBrand(
+            productStatus = Product.Status.ACTIVE,
+            brandStatus = Brand.Status.ACTIVE,
+            brandId = brandId,
+            pageable = pageable,
+        )
 
         return PageResponse(
             content = page.content.map { productMapper.toDomain(it) },
@@ -89,6 +88,10 @@ class ProductRepositoryImpl(
             page = pageRequest.page,
             size = pageRequest.size,
         )
+    }
+
+    override fun findIdsByBrandId(brandId: Long): List<Long> {
+        return productJpaRepository.findIdsByBrandIdAndDeletedAtIsNull(brandId)
     }
 
     override fun findAllByBrandId(brandId: Long): List<Product> {
@@ -110,8 +113,14 @@ class ProductRepositoryImpl(
 
     private fun toSpringSort(sortType: Product.SortType?): Sort {
         return when (sortType) {
-            Product.SortType.PRICE_ASC -> Sort.by(Sort.Direction.ASC, "sellingPrice")
-            Product.SortType.LIKES_DESC -> Sort.by(Sort.Direction.DESC, "likeCount")
+            Product.SortType.PRICE_ASC -> Sort.by(
+                Order.asc("sellingPrice"),
+                Order.desc("id"),
+            )
+            Product.SortType.LIKES_DESC -> Sort.by(
+                Order.desc("likeCount"),
+                Order.desc("id"),
+            )
             Product.SortType.LATEST, null -> Sort.by(Sort.Direction.DESC, "id")
         }
     }

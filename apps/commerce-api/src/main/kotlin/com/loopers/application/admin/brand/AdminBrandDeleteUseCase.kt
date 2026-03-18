@@ -1,8 +1,10 @@
 package com.loopers.application.admin.brand
 
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
@@ -13,6 +15,8 @@ class AdminBrandDeleteUseCase(
     private val brandRepository: BrandRepository,
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
+    private val afterCommitExecutor: AfterCommitExecutor,
+    private val productQueryInvalidator: ProductQueryInvalidator,
 ) {
     @Transactional
     fun delete(brandId: Long, admin: String) {
@@ -29,5 +33,11 @@ class AdminBrandDeleteUseCase(
         }
 
         brandRepository.delete(brandId, admin)
+        afterCommitExecutor.execute {
+            if (productIds.isNotEmpty()) {
+                productQueryInvalidator.invalidateDetails(productIds)
+            }
+            productQueryInvalidator.invalidateListsByBrandId(brandId)
+        }
     }
 }

@@ -8,15 +8,15 @@ import java.time.ZonedDateTime
 interface OrderJpaRepository : JpaRepository<OrderEntity, Long> {
     fun findByIdAndDeletedAtIsNull(id: Long): OrderEntity?
     fun findByIdAndUserIdAndDeletedAtIsNull(id: Long, userId: Long): OrderEntity?
-    fun findAllByUserIdAndCreatedAtBetweenAndDeletedAtIsNull(
+    fun findAllByUserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndDeletedAtIsNull(
         userId: Long,
         from: ZonedDateTime,
-        to: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageable: Pageable,
     ): Page<OrderEntity>
-    fun findAllByCreatedAtBetweenAndDeletedAtIsNull(
+    fun findAllByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndDeletedAtIsNull(
         from: ZonedDateTime,
-        to: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageable: Pageable,
     ): Page<OrderEntity>
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<OrderEntity>

@@ -21,9 +21,9 @@ class AdminOrderListUseCase(
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now()
         val fromZdt = (from ?: today.minusMonths(1)).atStartOfDay(zone)
-        val toZdt = (to ?: today).plusDays(1).atStartOfDay(zone)
+        val toExclusive = (to ?: today).plusDays(1).atStartOfDay(zone)
 
-        return adminOrderRepository.findAll(fromZdt, toZdt, pageRequest)
+        return adminOrderRepository.findAll(fromZdt, toExclusive, pageRequest)
             .map { AdminOrderResult.ListItem.from(it) }
     }
 }

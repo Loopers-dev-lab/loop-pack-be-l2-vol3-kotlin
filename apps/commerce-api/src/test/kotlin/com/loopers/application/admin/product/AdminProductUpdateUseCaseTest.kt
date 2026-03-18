@@ -4,7 +4,9 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -14,6 +16,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.then
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -21,9 +25,11 @@ import java.math.BigDecimal
 
 @DisplayName("AdminProductUpdateUseCase")
 class AdminProductUpdateUseCaseTest {
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val productRepository: ProductRepository = mock()
     private val brandRepository: BrandRepository = mock()
-    private val useCase = AdminProductUpdateUseCase(productRepository, brandRepository)
+    private val useCase = AdminProductUpdateUseCase(afterCommitExecutor, productQueryInvalidator, productRepository, brandRepository)
 
     private val admin = "loopers.admin"
 
@@ -83,6 +89,8 @@ class AdminProductUpdateUseCaseTest {
                 { assertThat(result.sellingPrice).isEqualByComparingTo(BigDecimal("9000")) },
                 { assertThat(result.imageUrl).isEqualTo("http://img.com/new.jpg") },
             )
+            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
         }
     }
 
@@ -96,6 +104,7 @@ class AdminProductUpdateUseCaseTest {
 
             val exception = assertThrows<CoreException> { useCase.update(command()) }
             assertThat(exception.errorType).isEqualTo(ErrorType.PRODUCT_NOT_FOUND)
+            verifyNoInteractions(productQueryInvalidator)
         }
     }
 
@@ -130,6 +139,7 @@ class AdminProductUpdateUseCaseTest {
 
             val exception = assertThrows<CoreException> { useCase.update(command(status = "ACTIVE")) }
             assertThat(exception.errorType).isEqualTo(ErrorType.PRODUCT_INVALID_STATUS)
+            verifyNoInteractions(productQueryInvalidator)
         }
     }
 

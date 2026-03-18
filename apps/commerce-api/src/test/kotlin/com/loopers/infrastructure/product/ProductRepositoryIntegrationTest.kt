@@ -38,6 +38,11 @@ constructor(
         return brandRepository.save(Brand.register(name = name), admin)
     }
 
+    private fun createActiveBrand(name: String = "나이키"): Brand {
+        val brand = createBrand(name)
+        return brandRepository.save(brand.update(name, "ACTIVE"), admin)
+    }
+
     private fun createProduct(
         name: String = "테스트 상품",
         regularPrice: Long = 10000,
@@ -51,6 +56,14 @@ constructor(
             brandId = brandId,
         )
         return productRepository.save(product, admin)
+    }
+
+    private fun pageRequest(
+        page: Int,
+        size: Int,
+    ): PageRequest = PageRequest().apply {
+        this.page = page
+        this.size = size
     }
 
     @Nested
@@ -249,7 +262,7 @@ constructor(
         @Test
         @DisplayName("ACTIVE 상태인 상품만 조회된다")
         fun findAllActive_onlyActive() {
-            val brand = createBrand()
+            val brand = createActiveBrand()
             val product1 = createProduct(name = "상품1", brandId = brand.id!!)
             createProduct(name = "상품2", brandId = brand.id!!)
             val activated = product1.activate()
@@ -264,8 +277,8 @@ constructor(
         @Test
         @DisplayName("brandId로 필터링할 수 있다")
         fun findAllActive_filterByBrandId() {
-            val brand1 = createBrand("브랜드1")
-            val brand2 = createBrand("브랜드2")
+            val brand1 = createActiveBrand("브랜드1")
+            val brand2 = createActiveBrand("브랜드2")
             val p1 = createProduct(name = "상품1", brandId = brand1.id!!)
             val p2 = createProduct(name = "상품2", brandId = brand2.id!!)
             productRepository.save(p1.activate(), admin)
@@ -280,7 +293,7 @@ constructor(
         @Test
         @DisplayName("PRICE_ASC 정렬로 조회할 수 있다")
         fun findAllActive_sortByPriceAsc() {
-            val brand = createBrand()
+            val brand = createActiveBrand()
             val p1 = createProduct(name = "비싼상품", regularPrice = 20000, sellingPrice = 20000, brandId = brand.id!!)
             val p2 = createProduct(name = "싼상품", regularPrice = 5000, sellingPrice = 5000, brandId = brand.id!!)
             productRepository.save(p1.activate(), admin)
@@ -291,6 +304,120 @@ constructor(
             assertThat(result.content).hasSize(2)
             assertThat(result.content[0].name).isEqualTo("싼상품")
             assertThat(result.content[1].name).isEqualTo("비싼상품")
+        }
+
+        @Test
+        @DisplayName("PRICE_ASC 동률일 때 id DESC 로 안정적으로 페이지네이션된다")
+        fun findAllActive_sortByPriceAsc_stableAcrossPages() {
+            val brand = createActiveBrand()
+            val products = (1..11).map { index ->
+                productRepository.save(
+                    createProduct(
+                        name = "동일가격상품$index",
+                        regularPrice = 10000,
+                        sellingPrice = 10000,
+                        brandId = brand.id!!,
+                    ).activate(),
+                    admin,
+                )
+            }
+            val expectedIds = products.map { it.id!! }.sortedDescending()
+
+            val firstPage = productRepository.findAllActive(pageRequest(page = 0, size = 10), brand.id, Product.SortType.PRICE_ASC)
+            val secondPage = productRepository.findAllActive(pageRequest(page = 1, size = 10), brand.id, Product.SortType.PRICE_ASC)
+
+            assertThat(firstPage.content.map { it.id!! }).containsExactlyElementsOf(expectedIds.take(10))
+            assertThat(secondPage.content.map { it.id!! }).containsExactlyElementsOf(expectedIds.drop(10))
+        }
+
+        @Test
+        @DisplayName("INACTIVE 브랜드의 ACTIVE 상품은 조회되지 않고 totalElements도 일치한다")
+        fun findAllActive_excludesInactiveBrandProducts() {
+            val activeBrand = createActiveBrand("활성 브랜드")
+            val inactiveBrand = createBrand("비활성 브랜드")
+            val activeProduct = createProduct(name = "노출 상품", brandId = activeBrand.id!!)
+            val hiddenProduct = createProduct(name = "숨김 상품", brandId = inactiveBrand.id!!)
+            productRepository.save(activeProduct.activate(), admin)
+            productRepository.save(hiddenProduct.activate(), admin)
+
+            val result = productRepository.findAllActive(PageRequest(), null, null)
+
+            assertThat(result.content).hasSize(1)
+            assertThat(result.totalElements).isEqualTo(1)
+            assertThat(result.content[0].name).isEqualTo("노출 상품")
+        }
+
+        @Test
+        @DisplayName("LIKES_DESC 정렬로 조회할 수 있다")
+        fun findAllActive_sortByLikesDesc() {
+            val brand = createActiveBrand()
+            val lowLikes = productRepository.save(createProduct(name = "낮은좋아요", brandId = brand.id!!).activate(), admin)
+            val highLikes = productRepository.save(createProduct(name = "높은좋아요", brandId = brand.id!!).activate(), admin)
+
+            productRepository.incrementLikeCount(lowLikes.id!!)
+            repeat(3) {
+                productRepository.incrementLikeCount(highLikes.id!!)
+            }
+
+            val result = productRepository.findAllActive(PageRequest(), null, Product.SortType.LIKES_DESC)
+
+            assertThat(result.content).hasSize(2)
+            assertThat(result.content[0].name).isEqualTo("높은좋아요")
+            assertThat(result.content[1].name).isEqualTo("낮은좋아요")
+        }
+
+        @Test
+        @DisplayName("LIKES_DESC 동률일 때 id DESC 로 안정적으로 페이지네이션된다")
+        fun findAllActive_sortByLikesDesc_stableAcrossPages() {
+            val brand = createActiveBrand()
+            val products = (1..11).map { index ->
+                productRepository.save(
+                    createProduct(name = "동일좋아요상품$index", brandId = brand.id!!).activate(),
+                    admin,
+                )
+            }
+            products.forEach { product ->
+                repeat(3) {
+                    productRepository.incrementLikeCount(product.id!!)
+                }
+            }
+            val expectedIds = products.map { it.id!! }.sortedDescending()
+
+            val firstPage = productRepository.findAllActive(pageRequest(page = 0, size = 10), brand.id, Product.SortType.LIKES_DESC)
+            val secondPage = productRepository.findAllActive(pageRequest(page = 1, size = 10), brand.id, Product.SortType.LIKES_DESC)
+
+            assertThat(firstPage.content.map { it.id!! }).containsExactlyElementsOf(expectedIds.take(10))
+            assertThat(secondPage.content.map { it.id!! }).containsExactlyElementsOf(expectedIds.drop(10))
+        }
+
+        @Test
+        @DisplayName("brandId 필터가 없어도 LIKES_DESC 는 active 브랜드 전체에서 안정적으로 페이지네이션된다")
+        fun findAllActive_sortByLikesDesc_withoutBrandFilter_stableAcrossPages() {
+            val brand1 = createActiveBrand("브랜드1")
+            val brand2 = createActiveBrand("브랜드2")
+            val products = (1..6).map { index ->
+                productRepository.save(
+                    createProduct(name = "브랜드1상품$index", brandId = brand1.id!!).activate(),
+                    admin,
+                )
+            } + (1..5).map { index ->
+                productRepository.save(
+                    createProduct(name = "브랜드2상품$index", brandId = brand2.id!!).activate(),
+                    admin,
+                )
+            }
+            products.forEach { product ->
+                repeat(3) {
+                    productRepository.incrementLikeCount(product.id!!)
+                }
+            }
+            val expectedIds = products.map { it.id!! }.sortedDescending()
+
+            val firstPage = productRepository.findAllActive(pageRequest(page = 0, size = 10), null, Product.SortType.LIKES_DESC)
+            val secondPage = productRepository.findAllActive(pageRequest(page = 1, size = 10), null, Product.SortType.LIKES_DESC)
+
+            assertThat(firstPage.content.map { it.id!! }).containsExactlyElementsOf(expectedIds.take(10))
+            assertThat(secondPage.content.map { it.id!! }).containsExactlyElementsOf(expectedIds.drop(10))
         }
     }
 

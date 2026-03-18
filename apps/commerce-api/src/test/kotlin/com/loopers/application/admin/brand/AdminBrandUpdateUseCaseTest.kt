@@ -2,6 +2,9 @@ package com.loopers.application.admin.brand
 
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
+import com.loopers.domain.product.ProductQueryInvalidator
+import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -11,13 +14,19 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.then
+import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 
 @DisplayName("AdminBrandUpdateUseCase")
 class AdminBrandUpdateUseCaseTest {
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val brandRepository: BrandRepository = mock()
-    private val useCase = AdminBrandUpdateUseCase(brandRepository)
+    private val productRepository: ProductRepository = mock()
+    private val useCase = AdminBrandUpdateUseCase(brandRepository, productRepository, afterCommitExecutor, productQueryInvalidator)
 
     private val existingBrand = Brand.retrieve(id = 1L, name = "나이키", status = Brand.Status.INACTIVE)
 
@@ -27,36 +36,51 @@ class AdminBrandUpdateUseCaseTest {
         @Test
         @DisplayName("이름과 상태를 변경하고 AdminBrandResult.Update를 반환한다")
         fun update_success() {
-            // arrange
             given(brandRepository.findById(1L)).willReturn(existingBrand)
             given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
+            given(productRepository.findIdsByBrandId(1L)).willReturn(emptyList())
 
-            // act
             val result = useCase.update(
                 AdminBrandCommand.Update(brandId = 1L, name = "아디다스", status = "ACTIVE", admin = "loopers.admin"),
             )
 
-            // assert
             assertAll(
                 { assertThat(result.name).isEqualTo("아디다스") },
                 { assertThat(result.status).isEqualTo("ACTIVE") },
             )
+            then(productQueryInvalidator).should(never()).invalidateDetails(any())
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
         }
 
         @Test
         @DisplayName("INACTIVE 상태를 ACTIVE로 변경한다")
         fun update_statusChange() {
-            // arrange
             given(brandRepository.findById(1L)).willReturn(existingBrand)
             given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
+            given(productRepository.findIdsByBrandId(1L)).willReturn(emptyList())
 
-            // act
             val result = useCase.update(
                 AdminBrandCommand.Update(brandId = 1L, name = "나이키", status = "ACTIVE", admin = "loopers.admin"),
             )
 
-            // assert
             assertThat(result.status).isEqualTo("ACTIVE")
+            then(productQueryInvalidator).should(never()).invalidateDetails(any())
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
+        }
+
+        @Test
+        @DisplayName("연관 상품이 있으면 detail cache도 함께 무효화한다")
+        fun update_withRelatedProducts() {
+            given(brandRepository.findById(1L)).willReturn(existingBrand)
+            given(brandRepository.save(any(), any())).willAnswer { it.arguments[0] as Brand }
+            given(productRepository.findIdsByBrandId(1L)).willReturn(listOf(101L, 102L))
+
+            useCase.update(
+                AdminBrandCommand.Update(brandId = 1L, name = "아디다스", status = "ACTIVE", admin = "loopers.admin"),
+            )
+
+            then(productQueryInvalidator).should().invalidateDetails(listOf(101L, 102L))
+            then(productQueryInvalidator).should().invalidateListsByBrandId(1L)
         }
     }
 
@@ -66,16 +90,15 @@ class AdminBrandUpdateUseCaseTest {
         @Test
         @DisplayName("CoreException(BRAND_NOT_FOUND)을 던진다")
         fun update_notFound() {
-            // arrange
             given(brandRepository.findById(999L)).willReturn(null)
 
-            // act & assert
             val exception = assertThrows<CoreException> {
                 useCase.update(
                     AdminBrandCommand.Update(brandId = 999L, name = "아디다스", status = "ACTIVE", admin = "loopers.admin"),
                 )
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BRAND_NOT_FOUND)
+            verifyNoInteractions(productRepository, productQueryInvalidator)
         }
     }
 }

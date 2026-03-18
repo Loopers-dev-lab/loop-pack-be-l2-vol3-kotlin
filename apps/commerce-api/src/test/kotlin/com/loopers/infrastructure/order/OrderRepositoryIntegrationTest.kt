@@ -9,6 +9,7 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderSnapshot
 import com.loopers.support.page.PageRequest
 import com.loopers.utils.DatabaseCleanUp
+import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -17,8 +18,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 @DisplayName("OrderRepository 통합 테스트")
 @SpringBootTest
@@ -27,7 +32,10 @@ class OrderRepositoryIntegrationTest
 constructor(
     private val orderRepository: OrderRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val entityManager: EntityManager,
+    platformTransactionManager: PlatformTransactionManager,
 ) {
+    private val transactionTemplate = TransactionTemplate(platformTransactionManager)
 
     @AfterEach
     fun tearDown() {
@@ -58,6 +66,30 @@ constructor(
             items = items,
         )
         return orderRepository.save(order)
+    }
+
+    private fun updateCreatedAt(
+        orderId: Long,
+        createdAt: ZonedDateTime,
+    ) {
+        transactionTemplate.executeWithoutResult {
+            val updatedRows = entityManager.createQuery(
+                """
+                update OrderEntity o
+                set o.createdAt = :createdAt,
+                    o.updatedAt = :updatedAt
+                where o.id = :orderId
+                """.trimIndent(),
+            )
+                .setParameter("createdAt", createdAt)
+                .setParameter("updatedAt", createdAt)
+                .setParameter("orderId", orderId)
+                .executeUpdate()
+            check(updatedRows == 1) {
+                "Expected to update exactly 1 order for id=$orderId, but updated $updatedRows rows"
+            }
+            entityManager.clear()
+        }
     }
 
     @Nested
@@ -222,13 +254,59 @@ constructor(
             val result = orderRepository.findAllByUserId(
                 userId = 1L,
                 from = order1.createdAt!!.minusDays(1),
-                to = order1.createdAt!!.plusDays(1),
+                toExclusive = order1.createdAt!!.plusDays(1),
                 pageRequest = PageRequest(),
             )
 
             // assert
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].userId).isEqualTo(1L)
+        }
+
+        @Test
+        @DisplayName("createdAt DESC, id DESC 순으로 최신 주문부터 반환한다")
+        fun findAllByUserId_latestOrderFirst() {
+            val zone = ZoneId.of("Asia/Seoul")
+            val order1 = createOrder(userId = 1L, idempotencyKey = "key-101")
+            val order2 = createOrder(userId = 1L, idempotencyKey = "key-102")
+            val order3 = createOrder(userId = 1L, idempotencyKey = "key-103")
+
+            val older = ZonedDateTime.of(2026, 2, 10, 9, 0, 0, 0, zone)
+            val latest = ZonedDateTime.of(2026, 3, 10, 9, 0, 0, 0, zone)
+            updateCreatedAt(order1.id!!, older)
+            updateCreatedAt(order2.id!!, latest)
+            updateCreatedAt(order3.id!!, latest)
+
+            val result = orderRepository.findAllByUserId(
+                userId = 1L,
+                from = older.minusDays(1),
+                toExclusive = latest.plusDays(1),
+                pageRequest = PageRequest(),
+            )
+
+            assertThat(result.content.map { it.id }).containsExactly(order3.id, order2.id, order1.id)
+        }
+
+        @Test
+        @DisplayName("조회 종료 상한과 정확히 같은 시각의 주문은 제외한다")
+        fun findAllByUserId_excludesExclusiveUpperBound() {
+            val included = createOrder(userId = 1L, idempotencyKey = "key-201")
+            val excluded = createOrder(userId = 1L, idempotencyKey = "key-202")
+            val otherUser = createOrder(userId = 2L, idempotencyKey = "key-203")
+            val boundary = ZonedDateTime.of(2026, 3, 17, 0, 0, 0, 0, ZoneId.of("Asia/Seoul"))
+
+            updateCreatedAt(included.id!!, boundary.minusSeconds(1))
+            updateCreatedAt(excluded.id!!, boundary)
+            updateCreatedAt(otherUser.id!!, boundary.minusSeconds(1))
+
+            val result = orderRepository.findAllByUserId(
+                userId = 1L,
+                from = boundary.minusDays(1),
+                toExclusive = boundary,
+                pageRequest = PageRequest(),
+            )
+
+            assertThat(result.content.map { it.id }).containsExactly(included.id)
         }
     }
 

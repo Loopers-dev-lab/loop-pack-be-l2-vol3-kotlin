@@ -4,7 +4,9 @@ import com.loopers.domain.common.Money
 import com.loopers.domain.like.ProductLike
 import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.Product
+import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.transaction.AfterCommitExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -16,13 +18,21 @@ import org.mockito.kotlin.check
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.Mockito.verifyNoInteractions
 import java.math.BigDecimal
 
 @DisplayName("상품 좋아요 등록")
 class UserProductLikeRegisterUseCaseTest {
+    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
+    private val productQueryInvalidator: ProductQueryInvalidator = mock()
     private val productRepository: ProductRepository = mock()
     private val productLikeRepository: ProductLikeRepository = mock()
-    private val useCase = UserProductLikeRegisterUseCase(productRepository, productLikeRepository)
+    private val useCase = UserProductLikeRegisterUseCase(
+        afterCommitExecutor,
+        productQueryInvalidator,
+        productRepository,
+        productLikeRepository,
+    )
 
     private fun activeProduct(id: Long, brandId: Long = 1L): Product =
         Product.retrieve(
@@ -73,6 +83,7 @@ class UserProductLikeRegisterUseCaseTest {
                 },
             )
             then(productRepository).should().incrementLikeCount(eq(1L))
+            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
         }
     }
 
@@ -96,6 +107,7 @@ class UserProductLikeRegisterUseCaseTest {
                 check<ProductLike> { it.userId == 1L && it.productId == 1L },
             )
             then(productRepository).should(never()).incrementLikeCount(eq(1L))
+            then(productQueryInvalidator).should(never()).invalidateDetails(eq(listOf(1L)))
         }
     }
 
@@ -114,6 +126,7 @@ class UserProductLikeRegisterUseCaseTest {
                 check<ProductLike> { it.productId == 999L },
             )
             then(productRepository).should(never()).incrementLikeCount(eq(999L))
+            verifyNoInteractions(productQueryInvalidator)
         }
     }
 
@@ -132,6 +145,7 @@ class UserProductLikeRegisterUseCaseTest {
                 check<ProductLike> { it.productId == 1L },
             )
             then(productRepository).should(never()).incrementLikeCount(eq(1L))
+            verifyNoInteractions(productQueryInvalidator)
         }
     }
 }

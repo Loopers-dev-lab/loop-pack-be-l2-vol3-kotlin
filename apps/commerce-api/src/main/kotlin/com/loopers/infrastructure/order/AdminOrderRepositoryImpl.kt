@@ -6,6 +6,7 @@ import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
 import org.springframework.data.domain.PageRequest as SpringPageRequest
 
@@ -20,19 +21,23 @@ class AdminOrderRepositoryImpl(
         return orderMapper.toDomain(entity)
     }
 
+    @Transactional(readOnly = true)
     override fun findAll(
-        from: ZonedDateTime?,
-        to: ZonedDateTime?,
+        from: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order> {
         val pageable = SpringPageRequest.of(
             pageRequest.page,
             pageRequest.size,
-            Sort.by(Sort.Direction.DESC, "id"),
+            Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id"),
+            ),
         )
-        val page = orderJpaRepository.findAllByCreatedAtBetweenAndDeletedAtIsNull(
-            from!!,
-            to!!,
+        val page = orderJpaRepository.findAllByCreatedAtGreaterThanEqualAndCreatedAtLessThanAndDeletedAtIsNull(
+            from,
+            toExclusive,
             pageable,
         )
 

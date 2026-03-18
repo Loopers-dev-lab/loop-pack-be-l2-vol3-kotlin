@@ -10,6 +10,7 @@ import com.loopers.support.page.PageResponse
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
 import org.springframework.data.domain.PageRequest as SpringPageRequest
 
@@ -38,21 +39,25 @@ class UserOrderRepositoryImpl(
         return orderMapper.toDomain(entity)
     }
 
+    @Transactional(readOnly = true)
     override fun findAllByUserId(
         userId: Long,
-        from: ZonedDateTime?,
-        to: ZonedDateTime?,
+        from: ZonedDateTime,
+        toExclusive: ZonedDateTime,
         pageRequest: PageRequest,
     ): PageResponse<Order> {
         val pageable = SpringPageRequest.of(
             pageRequest.page,
             pageRequest.size,
-            Sort.by(Sort.Direction.DESC, "id"),
+            Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id"),
+            ),
         )
-        val page = orderJpaRepository.findAllByUserIdAndCreatedAtBetweenAndDeletedAtIsNull(
+        val page = orderJpaRepository.findAllByUserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndDeletedAtIsNull(
             userId,
-            from!!,
-            to!!,
+            from,
+            toExclusive,
             pageable,
         )
 
@@ -64,11 +69,15 @@ class UserOrderRepositoryImpl(
         )
     }
 
+    @Transactional(readOnly = true)
     override fun findAll(pageRequest: PageRequest): PageResponse<Order> {
         val pageable = SpringPageRequest.of(
             pageRequest.page,
             pageRequest.size,
-            Sort.by(Sort.Direction.DESC, "id"),
+            Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id"),
+            ),
         )
         val page = orderJpaRepository.findAllByDeletedAtIsNull(pageable)
 
