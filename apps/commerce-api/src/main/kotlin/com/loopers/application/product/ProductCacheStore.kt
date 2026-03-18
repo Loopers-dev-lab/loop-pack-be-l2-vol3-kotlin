@@ -20,9 +20,9 @@ interface ProductCacheStore {
 
     fun getListVersion(): Long
 
-    fun getListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int): ProductListCache?
+    fun getListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int, size: Int): ProductListCache?
 
-    fun putListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int, cache: ProductListCache)
+    fun putListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int, size: Int, cache: ProductListCache)
 
     fun evictAllLists()
 

@@ -38,6 +38,7 @@ class GetProductListUseCase(
             brandId = command.brandId,
             sort = command.sort,
             page = command.page,
+            size = command.size,
         )
 
         if (listCache != null) {
@@ -76,6 +77,7 @@ class GetProductListUseCase(
             brandId = command.brandId,
             sort = command.sort,
             page = command.page,
+            size = command.size,
             cache = ProductListCache(
                 productIds = result.content.map { it.id },
                 totalElements = result.totalElements,

@@ -99,9 +99,9 @@ class ProductRedisCacheStore(
         }
     }
 
-    override fun getListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int): ProductListCache? {
+    override fun getListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int, size: Int): ProductListCache? {
         return try {
-            val key = buildListKey(version, brandId, sort, page)
+            val key = buildListKey(version, brandId, sort, page, size)
             val json = redisTemplate.opsForValue().get(key)
             json?.let { objectMapper.readValue<ProductListCache>(it) }
         } catch (e: Exception) {
@@ -110,9 +110,9 @@ class ProductRedisCacheStore(
         }
     }
 
-    override fun putListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int, cache: ProductListCache) {
+    override fun putListIds(version: Long, brandId: Long?, sort: ProductSortType, page: Int, size: Int, cache: ProductListCache) {
         try {
-            val key = buildListKey(version, brandId, sort, page)
+            val key = buildListKey(version, brandId, sort, page, size)
             val json = objectMapper.writeValueAsString(cache)
             val ttl = LIST_BASE_TTL.plusSeconds(Random.nextLong(0, JITTER_MAX_SECONDS))
             redisTemplate.opsForValue().set(key, json, ttl)
@@ -129,8 +129,8 @@ class ProductRedisCacheStore(
         }
     }
 
-    private fun buildListKey(version: Long, brandId: Long?, sort: ProductSortType, page: Int): String {
+    private fun buildListKey(version: Long, brandId: Long?, sort: ProductSortType, page: Int, size: Int): String {
         val brandPart = brandId?.toString() ?: "all"
-        return "${LIST_KEY_PREFIX}v$version:$brandPart:${sort.name}:$page"
+        return "${LIST_KEY_PREFIX}v$version:$brandPart:${sort.name}:$page:$size"
     }
 }
