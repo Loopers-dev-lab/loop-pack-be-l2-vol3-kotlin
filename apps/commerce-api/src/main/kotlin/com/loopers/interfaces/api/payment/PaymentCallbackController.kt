@@ -22,11 +22,11 @@ class PaymentCallbackController(
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    override fun createPayment(
+    override fun requestPayment(
         @RequestAttribute("userId") userId: Long,
         @RequestBody @Valid request: PaymentV1Dto.CreatePaymentRequest,
     ): ApiResponse<PaymentV1Dto.PaymentResponse> {
-        val paymentInfo = paymentFacade.createPayment(
+        val paymentInfo = paymentFacade.requestPayment(
             userId = userId,
             orderId = request.orderId,
             cardType = request.cardType,

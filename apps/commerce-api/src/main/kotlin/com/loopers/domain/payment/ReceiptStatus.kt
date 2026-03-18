@@ -1,7 +1,8 @@
 package com.loopers.domain.payment
 
 enum class ReceiptStatus {
-    INITIATED, // 결제 대기
+    INITIATED, // 결제 시도 전
+    PENDING, // PG 요청 완료, 콜백 대기 중
     COMPLETED, // 결제 완료
     FAILED, // 결제 실패
     CANCELLED, // 결제 취소

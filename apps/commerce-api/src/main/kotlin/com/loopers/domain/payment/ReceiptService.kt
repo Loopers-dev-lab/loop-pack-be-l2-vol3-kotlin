@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.time.ZonedDateTime
 
 @Service
 @Transactional(readOnly = true)
@@ -27,6 +28,17 @@ class ReceiptService(
     @Transactional
     fun save(receipt: Receipt): Receipt =
         receiptRepository.save(receipt)
+
+    @Transactional
+    fun markAsPending(receiptId: Long) {
+        val receipt = receiptRepository.findById(receiptId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보가 존재하지 않습니다")
+        receipt.markAsPending()
+        receiptRepository.save(receipt)
+    }
+
+    fun findPendingReceiptsOlderThan(before: ZonedDateTime): List<Receipt> =
+        receiptRepository.findByStatusAndCreatedAtBefore(ReceiptStatus.PENDING, before)
 
     @Transactional
     fun initiateReceipt(

@@ -29,7 +29,7 @@ class PaymentFacadeTest {
 
     @Test
     @DisplayName("결제 초기화 - 성공")
-    fun createPayment_success() {
+    fun requestPayment_success() {
         // given
         val orderId = 100L
         val userId = 1L
@@ -40,10 +40,9 @@ class PaymentFacadeTest {
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
         every { receiptService.getReceiptByOrderId(orderId) } returns null
 
-        every { receiptService.initiateReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } answers {
-            val receipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
-            receipt
-        }
+        val testReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
+        every { receiptService.initiateReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } returns testReceipt
+        every { receiptService.markAsPending(any()) } returns Unit
         every { pgPaymentGateway.requestPayment(any(), any(), any(), any(), any(), any(), any()) } returns PgPaymentGateway.PaymentRequestResult(
             requestId = "REQ_123",
             transactionId = "TXN_123_100",
@@ -53,7 +52,7 @@ class PaymentFacadeTest {
 
         // when & then
         try {
-            val result = paymentFacade.createPayment(
+            val result = paymentFacade.requestPayment(
                 userId,
                 orderId,
                 "SAMSUNG",
@@ -64,12 +63,15 @@ class PaymentFacadeTest {
             // id가 초기화되지 않은 것은 normal (저장되지 않은 엔티티)
             // orderId만 확인
         }
-        verify { receiptService.initiateReceipt(any(), any(), any(), any(), any()) }
+        verify {
+            receiptService.initiateReceipt(any(), any(), any(), any(), any())
+            receiptService.markAsPending(any())
+        }
     }
 
     @Test
     @DisplayName("결제 초기화 - 주문이 PAID 상태면 실패")
-    fun createPayment_orderNotPending() {
+    fun requestPayment_orderNotPending() {
         // given
         val orderId = 100L
         val userId = 1L
@@ -80,7 +82,7 @@ class PaymentFacadeTest {
 
         // when & then
         assertThrows<CoreException> {
-            paymentFacade.createPayment(
+            paymentFacade.requestPayment(
                 userId,
                 orderId,
                 "SAMSUNG",
@@ -91,7 +93,7 @@ class PaymentFacadeTest {
 
     @Test
     @DisplayName("결제 초기화 - 이미 결제가 존재하면 실패")
-    fun createPayment_alreadyExists() {
+    fun requestPayment_alreadyExists() {
         // given
         val orderId = 100L
         val userId = 1L
@@ -105,7 +107,7 @@ class PaymentFacadeTest {
 
         // when & then
         assertThrows<CoreException> {
-            paymentFacade.createPayment(
+            paymentFacade.requestPayment(
                 userId,
                 orderId,
                 "SAMSUNG",

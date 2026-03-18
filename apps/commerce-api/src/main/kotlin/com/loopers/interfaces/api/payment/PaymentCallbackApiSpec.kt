@@ -13,7 +13,7 @@ interface PaymentCallbackApiSpec {
         summary = "결제 초기화",
         description = "주문에 대한 결제를 초기화합니다",
     )
-    fun createPayment(
+    fun requestPayment(
         @Parameter(description = "로그인한 사용자 ID", required = true)
         userId: Long,
         @RequestBody(description = "결제 요청 정보", required = true)

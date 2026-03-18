@@ -32,36 +32,27 @@ class PaymentFacade(
     }
 
     @Transactional
-    fun createPayment(
+    fun requestPayment(
         userId: Long,
         orderId: Long,
         cardType: String,
         cardNo: String,
     ): ReceiptInfo {
         val callbackUrl = "http://localhost:8080/api/v1/payments/callback"
-        log.info("Creating payment: userId={}, orderId={}, cardType={}", userId, orderId, cardType)
+        log.info("Requesting payment: userId={}, orderId={}, cardType={}", userId, orderId, cardType)
 
-        // (1) PENDING 상태의 주문을 행 락으로 조회 (동시 결제 요청 시 대기)
-        // - 쿼리 단계에서 상태 조건 확인으로 명확성과 안전성 향상
+        // (1) PENDING 상태의 주문을 행 락으로 조회
         val order = orderService.getOrderByIdForUpdateWithPending(userId, orderId)
 
-        // (2) 이미 결제가 존재하는지 확인 (락 상태에서 확인하므로 race condition 방지)
+        // (2) 이미 결제가 존재하는지 확인
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
             throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 존재합니다")
         }
 
-        // (4) 결제 시작
         val transactionId = generateTransactionId(orderId)
-        val receipt = receiptService.initiateReceipt(
-            orderId = orderId,
-            transactionId = transactionId,
-            amount = order.getTotalPrice(),
-            cardType = cardType,
-            cardNo = cardNo,
-        )
 
-        // (5) PG로 결제 요청
+        // (3) PG로 결제 요청 (아직 Receipt 저장하지 않음)
         try {
             val pgResult = pgPaymentGateway.requestPayment(
                 userId = userId,
@@ -78,7 +69,19 @@ class PaymentFacade(
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다")
         }
 
-        log.info("Payment created: paymentId={}, orderId={}, amount={}", receipt.id, orderId, order.getTotalPrice())
+        // (4) PG 요청 성공 후 Receipt을 INITIATED로 저장
+        val receipt = receiptService.initiateReceipt(
+            orderId = orderId,
+            transactionId = transactionId,
+            amount = order.getTotalPrice(),
+            cardType = cardType,
+            cardNo = cardNo,
+        )
+
+        // (5) Receipt 상태를 PENDING으로 변경 (콜백 대기)
+        receiptService.markAsPending(receipt.id)
+
+        log.info("Payment initiated: paymentId={}, orderId={}, amount={}", receipt.id, orderId, order.getTotalPrice())
 
         return ReceiptInfo.from(receipt)
     }

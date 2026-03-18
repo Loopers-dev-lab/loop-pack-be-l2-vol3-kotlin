@@ -24,8 +24,15 @@ class Receipt protected constructor(
     var status: ReceiptStatus = ReceiptStatus.INITIATED
         protected set
 
-    fun markAsCompleted(confirmedAmount: BigDecimal) {
+    fun markAsPending() {
         if (status != ReceiptStatus.INITIATED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
+        }
+        this.status = ReceiptStatus.PENDING
+    }
+
+    fun markAsCompleted(confirmedAmount: BigDecimal) {
+        if (status !in listOf(ReceiptStatus.INITIATED, ReceiptStatus.PENDING)) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
         }
         if (amount != confirmedAmount) {
@@ -35,14 +42,14 @@ class Receipt protected constructor(
     }
 
     fun markAsFailed() {
-        if (status != ReceiptStatus.INITIATED) {
+        if (status !in listOf(ReceiptStatus.INITIATED, ReceiptStatus.PENDING)) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
         }
         this.status = ReceiptStatus.FAILED
     }
 
     fun markAsCancelled() {
-        if (status != ReceiptStatus.INITIATED) {
+        if (status !in listOf(ReceiptStatus.INITIATED, ReceiptStatus.PENDING)) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
         }
         this.status = ReceiptStatus.CANCELLED
