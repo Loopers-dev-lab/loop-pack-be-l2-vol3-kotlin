@@ -42,7 +42,7 @@ data class PgFeignPaymentRequest(
     val cardNo: String,
     val amount: Long,
     val callbackUrl: String,
-    val idempotencyKey: String? = null,
+    val idempotencyKey: String,
 ) {
     override fun toString(): String =
         "PgFeignPaymentRequest(orderId=$orderId, cardType=$cardType, cardNo=****, amount=$amount)"

@@ -19,7 +19,7 @@ class PgStatusQueryClient(
             orderId = orderId.toString(),
         )
         val data = response.data ?: return null
-        val transaction = data.transactions.firstOrNull() ?: return null
+        val transaction = data.transactions.lastOrNull() ?: return null
 
         val status = when (transaction.status) {
             "PENDING" -> return null

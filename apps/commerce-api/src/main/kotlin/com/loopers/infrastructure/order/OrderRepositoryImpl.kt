@@ -7,10 +7,12 @@ import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.infrastructure.support.defaultPageRequest
 import jakarta.persistence.LockModeType
+import jakarta.persistence.QueryHint
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.QueryHints
 import org.springframework.stereotype.Repository
 import java.time.ZonedDateTime
 import java.util.Optional
@@ -25,6 +27,7 @@ interface OrderJpaRepository : JpaRepository<OrderEntity, Long> {
     fun findAllByDeletedAtIsNull(pageable: Pageable): Page<OrderEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
     fun findWithLockById(id: Long): Optional<OrderEntity>
 }
 

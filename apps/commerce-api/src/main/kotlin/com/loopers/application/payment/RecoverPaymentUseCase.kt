@@ -73,7 +73,7 @@ class RecoverPaymentUseCase(
                         }
                     }
                 } catch (e: Exception) {
-                    log.warn("결제 복구 afterCommit 처리 실패. orderId={}: {}", orderId, e.message)
+                    log.warn("결제 복구 afterCommit 처리 실패. orderId={}", orderId, e)
                 }
             }
         })

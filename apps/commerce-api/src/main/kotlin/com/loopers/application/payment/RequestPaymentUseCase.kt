@@ -25,7 +25,10 @@ class RequestPaymentUseCase(
 
     @Transactional
     fun execute(command: PaymentCommand.RequestPayment): PaymentInfo {
-        // 1. Order 조회 (비관적 락) + 소유자 검증
+        // 1. Payment 락 획득 — 락 순서: Payment → Order (다른 결제 플로우와 통일하여 교착 상태 방지)
+        val existingPayment = paymentRepository.findByOrderIdForUpdate(command.orderId)
+
+        // 2. Order 조회 (비관적 락) + 소유자 검증 — 결제 상태 검사 전에 수행하여 비인가자에게 결제 존재 여부 미노출
         val order = orderRepository.findByIdForUpdate(OrderId(command.orderId))
             ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
 
@@ -33,9 +36,9 @@ class RequestPaymentUseCase(
             throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
         }
 
-        // 2. 중복 결제 방지
-        paymentRepository.findByOrderIdForUpdate(command.orderId)?.let { existingPayment ->
-            when (existingPayment.status) {
+        // 3. 중복 결제 방지
+        existingPayment?.let {
+            when (it.status) {
                 PaymentStatus.SUCCESS ->
                     throw CoreException(ErrorType.CONFLICT, "이미 결제가 완료된 주문입니다.")
                 PaymentStatus.REQUESTED, PaymentStatus.TIMEOUT ->
@@ -44,11 +47,11 @@ class RequestPaymentUseCase(
             }
         }
 
-        // 3. Order → PENDING_PAYMENT
+        // 4. Order → PENDING_PAYMENT
         order.markPendingPayment()
         orderRepository.save(order)
 
-        // 4. Payment(REQUESTED) 먼저 저장
+        // 5. Payment(REQUESTED) 먼저 저장
         val cardType = try {
             CardType.valueOf(command.cardType)
         } catch (e: IllegalArgumentException) {
@@ -63,7 +66,7 @@ class RequestPaymentUseCase(
         )
         val savedPayment = paymentRepository.save(payment)
 
-        // 5. 커밋 후 PG 호출 (트랜잭션 밖에서 외부 HTTP 호출)
+        // 6. 커밋 후 PG 호출 (트랜잭션 밖에서 외부 HTTP 호출)
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                 object : TransactionSynchronization {
