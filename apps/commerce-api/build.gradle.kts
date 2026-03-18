@@ -8,6 +8,14 @@ tasks.test {
     }
 }
 
+tasks.register<Test>("benchmarkTest") {
+    description = "벤치마크 테스트 실행"
+    group = "verification"
+    useJUnitPlatform {
+        includeTags("benchmark")
+    }
+}
+
 dependencies {
     // add-ons
     implementation(project(":modules:jpa"))

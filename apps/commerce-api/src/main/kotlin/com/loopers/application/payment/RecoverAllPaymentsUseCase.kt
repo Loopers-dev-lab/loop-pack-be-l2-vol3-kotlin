@@ -29,6 +29,7 @@ class RecoverAllPaymentsUseCase(
                 log.error("결제 복구 중 예상치 못한 오류. orderId={}", payment.orderId, e)
             }
         }
+        log.info("결제 복구 배치 완료. attempted={}, recovered={}", payments.size, recoveredCount)
         return recoveredCount
     }
 }

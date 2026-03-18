@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.payment.dto
 
 import com.loopers.application.payment.PaymentInfo
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Positive
 
 class PaymentDto {
@@ -10,6 +11,7 @@ class PaymentDto {
         @field:Positive(message = "주문 ID는 양수여야 합니다.")
         val orderId: Long,
         @field:NotBlank(message = "카드 종류는 필수입니다.")
+        @field:Pattern(regexp = "^(SAMSUNG|KB|HYUNDAI)$", message = "카드 종류는 SAMSUNG, KB, HYUNDAI 중 하나여야 합니다.")
         val cardType: String,
         @field:NotBlank(message = "카드 번호는 필수입니다.")
         val cardNo: String,

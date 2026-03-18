@@ -110,6 +110,7 @@ class HandlePaymentCallbackUseCaseTest {
             val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
             val updatedOrder = orderRepository.findById(order.id)!!
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.FAILED)
+            assertThat(updatedPayment.reason).isEqualTo("잔액 부족")
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.FAILED)
         }
     }

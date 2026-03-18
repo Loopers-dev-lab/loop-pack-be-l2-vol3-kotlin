@@ -84,6 +84,10 @@ class RequestPaymentUseCaseTest {
 
             val savedPayment = paymentRepository.findByOrderId(savedOrder.id.value)
             assertThat(savedPayment).isNotNull
+
+            // 단위 테스트에서는 TransactionSynchronization 미활성 → else 분기로 PG 프로세서 직접 호출
+            assertThat(paymentPgProcessor.processPaymentCalls).hasSize(1)
+            assertThat(paymentPgProcessor.processPaymentCalls[0].orderId).isEqualTo(savedOrder.id.value)
         }
 
         @Test

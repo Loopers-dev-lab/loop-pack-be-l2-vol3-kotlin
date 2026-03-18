@@ -12,6 +12,12 @@ class FakePaymentPgProcessor : PaymentPgProcessor {
     val processPaymentCalls = mutableListOf<ProcessPaymentCall>()
 
     override fun processPayment(paymentId: Long, orderId: Long, amount: Long, cardType: String, cardNo: String) {
-        processPaymentCalls.add(ProcessPaymentCall(paymentId, orderId, amount, cardType, cardNo))
+        val maskedCardNo = maskCardNo(cardNo)
+        processPaymentCalls.add(ProcessPaymentCall(paymentId, orderId, amount, cardType, maskedCardNo))
+    }
+
+    private fun maskCardNo(cardNo: String): String {
+        val parts = cardNo.split("-")
+        return if (parts.size == 4) "${parts[0]}-****-****-${parts[3]}" else "****"
     }
 }

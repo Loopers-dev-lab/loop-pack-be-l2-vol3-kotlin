@@ -29,7 +29,7 @@ class HandlePaymentCallbackUseCase(
         if (payment.transactionKey != null && payment.transactionKey != command.transactionKey) {
             throw CoreException(
                 ErrorType.BAD_REQUEST,
-                "콜백 transactionKey 불일치. 저장=${payment.transactionKey}, 수신=${command.transactionKey}",
+                "콜백 transactionKey 불일치. orderId=${command.orderId}",
             )
         }
 

@@ -52,8 +52,8 @@ class PaymentRepositoryImpl(
     }
 
     override fun findByStatusIn(statuses: List<PaymentStatus>, limit: Int): List<Payment> {
-        return paymentJpaRepository.findByStatusIn(statuses, PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "id"))).map {
-            it.toDomain()
-        }
+        val safeLimit = limit.coerceIn(1, 500)
+        val pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.ASC, "id"))
+        return paymentJpaRepository.findByStatusIn(statuses, pageable).map { it.toDomain() }
     }
 }

@@ -10,26 +10,21 @@ class FakePaymentRepository : PaymentRepository {
     private var sequence = 1L
 
     override fun save(payment: Payment): Payment {
-        return if (payment.id != 0L) {
-            payments.removeIf { it.id == payment.id }
-            payments.add(payment)
-            payment
-        } else {
-            val saved = Payment.fromPersistence(
-                id = sequence++,
-                orderId = payment.orderId,
-                transactionKey = payment.transactionKey,
-                status = payment.status,
-                cardType = payment.cardType,
-                cardNo = payment.cardNo,
-                amount = payment.amount,
-                reason = payment.reason,
-                createdAt = payment.createdAt,
-                updatedAt = payment.updatedAt,
-            )
-            payments.add(saved)
-            saved
-        }
+        val copy = Payment.fromPersistence(
+            id = if (payment.id != 0L) payment.id else sequence++,
+            orderId = payment.orderId,
+            transactionKey = payment.transactionKey,
+            status = payment.status,
+            cardType = payment.cardType,
+            cardNo = payment.cardNo,
+            amount = payment.amount,
+            reason = payment.reason,
+            createdAt = payment.createdAt,
+            updatedAt = payment.updatedAt,
+        )
+        payments.removeIf { it.id == copy.id }
+        payments.add(copy)
+        return copy
     }
 
     override fun findById(id: Long): Payment? {

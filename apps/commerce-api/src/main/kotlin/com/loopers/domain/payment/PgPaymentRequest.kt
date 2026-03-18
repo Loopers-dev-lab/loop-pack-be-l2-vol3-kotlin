@@ -7,4 +7,7 @@ data class PgPaymentRequest(
     val cardType: CardType,
     val cardNo: String,
     val amount: Long,
-)
+) {
+    override fun toString(): String =
+        "PgPaymentRequest(orderId=$orderId, cardType=$cardType, cardNo=****, amount=$amount)"
+}

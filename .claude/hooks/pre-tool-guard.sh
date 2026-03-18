@@ -12,7 +12,7 @@ case "$INPUT" in
         GIT_DIR=$(echo "$INPUT" | sed -n 's/.*git[[:space:]]\{1,\}--git-dir[=[:space:]]\{1,\}"\{0,1\}\([^"[:space:]]\{1,\}\)"\{0,1\}.*/\1/p' 2>/dev/null || echo "")
       fi
       if [ -n "$GIT_DIR" ] && [ -d "$GIT_DIR" ]; then
-        CURRENT_BRANCH=$(git -C "$GIT_DIR" symbolic-ref --short HEAD 2>/dev/null || echo "")
+        CURRENT_BRANCH=$(git --git-dir="$GIT_DIR" symbolic-ref --short HEAD 2>/dev/null || echo "")
       fi
     fi
     if [[ "$CURRENT_BRANCH" =~ ^(develop|main|master)$ ]]; then

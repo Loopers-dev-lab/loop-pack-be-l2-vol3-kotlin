@@ -31,6 +31,7 @@ class PaymentFlowIntegrationTest {
     private lateinit var orderRepository: FakeOrderRepository
     private lateinit var paymentRepository: FakePaymentRepository
     private lateinit var pgClient: FakePgClient
+    private lateinit var fakePaymentPgProcessor: FakePaymentPgProcessor
     private lateinit var requestPaymentUseCase: RequestPaymentUseCase
     private lateinit var handlePaymentCallbackUseCase: HandlePaymentCallbackUseCase
     private lateinit var recoverPaymentUseCase: RecoverPaymentUseCase
@@ -49,8 +50,9 @@ class PaymentFlowIntegrationTest {
         orderRepository = FakeOrderRepository()
         paymentRepository = FakePaymentRepository()
         pgClient = FakePgClient()
+        fakePaymentPgProcessor = FakePaymentPgProcessor()
         paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
-        requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, FakePaymentPgProcessor())
+        requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, fakePaymentPgProcessor)
         handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository)
         recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
@@ -105,6 +107,16 @@ class PaymentFlowIntegrationTest {
 
             // act — 1단계: 결제 요청 (REQUESTED 저장) + afterCommit 시뮬레이션
             val paymentInfo = requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            flushAfterCommit()
+
+            // assert — afterCommit에서 fakePaymentPgProcessor가 호출되었는지 검증
+            assertThat(fakePaymentPgProcessor.processPaymentCalls).hasSize(1)
+            val pgCall = fakePaymentPgProcessor.processPaymentCalls[0]
+            assertThat(pgCall.paymentId).isEqualTo(paymentInfo.id)
+            assertThat(pgCall.orderId).isEqualTo(savedOrder.id.value)
+            assertThat(pgCall.cardNo).isEqualTo("1234-****-****-3456")
+
+            // act — paymentPgProcessor(impl)로 실제 PG 처리 시뮬레이션
             paymentPgProcessor.processPayment(
                 paymentId = paymentInfo.id,
                 orderId = savedOrder.id.value,
