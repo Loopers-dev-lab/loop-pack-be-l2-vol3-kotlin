@@ -51,9 +51,9 @@ class PaymentFacade(
             throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 존재합니다")
         }
 
-        // (4) 결제 생성
+        // (4) 결제 시작
         val transactionId = generateTransactionId(orderId)
-        val receipt = receiptService.createReceipt(
+        val receipt = receiptService.initiateReceipt(
             orderId = orderId,
             transactionId = transactionId,
             amount = order.getTotalPrice(),

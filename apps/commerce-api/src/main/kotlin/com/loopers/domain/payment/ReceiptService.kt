@@ -29,7 +29,7 @@ class ReceiptService(
         receiptRepository.save(receipt)
 
     @Transactional
-    fun createReceipt(
+    fun initiateReceipt(
         orderId: Long,
         transactionId: String,
         amount: BigDecimal,

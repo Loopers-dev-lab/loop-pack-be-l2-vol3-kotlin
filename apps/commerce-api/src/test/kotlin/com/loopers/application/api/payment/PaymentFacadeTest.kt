@@ -40,7 +40,7 @@ class PaymentFacadeTest {
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
         every { receiptService.getReceiptByOrderId(orderId) } returns null
 
-        every { receiptService.createReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } answers {
+        every { receiptService.initiateReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } answers {
             val receipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
             receipt
         }
@@ -64,7 +64,7 @@ class PaymentFacadeTest {
             // id가 초기화되지 않은 것은 normal (저장되지 않은 엔티티)
             // orderId만 확인
         }
-        verify { receiptService.createReceipt(any(), any(), any(), any(), any()) }
+        verify { receiptService.initiateReceipt(any(), any(), any(), any(), any()) }
     }
 
     @Test

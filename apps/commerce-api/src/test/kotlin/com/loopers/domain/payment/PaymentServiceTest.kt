@@ -72,14 +72,14 @@ class PaymentServiceTest {
     }
 
     @Test
-    @DisplayName("결제 생성")
-    fun createPayment() {
+    @DisplayName("결제 시작")
+    fun initiateReceipt() {
         // given
         val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"))
         every { receiptRepository.save(any()) } returns receipt
 
         // when
-        val result = receiptService.createReceipt(1L, "TXN001", BigDecimal("10000"))
+        val result = receiptService.initiateReceipt(1L, "TXN001", BigDecimal("10000"))
 
         // then
         assert(result.orderId == 1L)
