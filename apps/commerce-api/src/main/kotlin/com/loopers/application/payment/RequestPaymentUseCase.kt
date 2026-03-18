@@ -52,12 +52,13 @@ class RequestPaymentUseCase(
         val cardType = try {
             CardType.valueOf(command.cardType)
         } catch (e: IllegalArgumentException) {
-            throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 카드 유형입니다: ${command.cardType}")
+            throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 카드 유형입니다: ${command.cardType}").also { it.initCause(e) }
         }
         val payment = Payment.create(
             orderId = command.orderId,
             cardType = cardType,
             cardNo = command.cardNo,
+            // KRW는 소수점 단위가 없다 — 소수점 존재 시 상류 버그이므로 UNNECESSARY로 즉시 감지 (ArithmeticException)
             amount = order.totalPrice.value.setScale(0, java.math.RoundingMode.UNNECESSARY).toLong(),
         )
         val savedPayment = paymentRepository.save(payment)

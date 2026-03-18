@@ -36,7 +36,24 @@ class PgClientImpl(
                 idempotencyKey = "payment-${request.orderId}",
             ),
         )
+        if (response.meta.result != "SUCCESS") {
+            return PgPaymentResult(
+                transactionKey = null,
+                status = PgResultStatus.FAILED,
+                reason = response.meta.message ?: "PG 요청 실패: ${response.meta.result}",
+            )
+        }
+
         val data = requireNotNull(response.data) { "PG 응답 data가 null입니다." }
+
+        if (data.transactionKey.isBlank()) {
+            log.error("PG 성공 응답이지만 transactionKey가 비어있습니다. orderId={}", request.orderId)
+            return PgPaymentResult(
+                transactionKey = null,
+                status = PgResultStatus.FAILED,
+                reason = "transactionKey 누락",
+            )
+        }
 
         return PgPaymentResult(
             transactionKey = data.transactionKey,
@@ -58,7 +75,7 @@ class PgClientImpl(
                 ?.let { PgPaymentResult(it.transactionKey, it.status, it.reason) }
                 ?: PgPaymentResult(transactionKey = null, status = PgResultStatus.TIMEOUT)
         } catch (e: Exception) {
-            log.warn("Fallback 상태 조회 실패. orderId={}: {}", request.orderId, e.message)
+            log.error("Fallback 상태 조회 실패. orderId={}, exceptionType={}", request.orderId, e.javaClass.simpleName, e)
             PgPaymentResult(transactionKey = null, status = PgResultStatus.TIMEOUT)
         }
     }

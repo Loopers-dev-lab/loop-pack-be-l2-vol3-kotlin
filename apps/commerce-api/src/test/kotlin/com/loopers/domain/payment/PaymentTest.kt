@@ -49,6 +49,19 @@ class PaymentTest {
             // assert
             assertThat(payment.cardNo).isEqualTo("1234-****-****-3456")
         }
+
+        @Test
+        @DisplayName("하이픈 없는 cardNo도 마스킹된다")
+        fun create_cardNoWithoutHyphens_isMasked() {
+            val payment = Payment.create(
+                orderId = 1L,
+                cardType = CardType.KB,
+                cardNo = "1234567890123456",
+                amount = 10000L,
+            )
+
+            assertThat(payment.cardNo).isEqualTo("************3456")
+        }
     }
 
     @Nested

@@ -9,10 +9,14 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 
 @Entity
-@Table(name = "payments")
+@Table(
+    name = "payments",
+    indexes = [Index(name = "idx_payment_status_id", columnList = "status,id")],
+)
 class PaymentEntity(
     @Column(name = "order_id", nullable = false)
     var orderId: Long,
