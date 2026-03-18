@@ -15,7 +15,7 @@ class HandlePaymentCallbackUseCase(
 
     @Transactional
     fun handle(callbackInfo: PaymentCallbackInfo) {
-        val payment = paymentRepository.findByTransactionKey(callbackInfo.transactionKey)
+        val payment = paymentRepository.findByTransactionKeyForUpdate(callbackInfo.transactionKey)
         if (payment == null) {
             log.warn("콜백 수신했으나 결제를 찾을 수 없습니다. transactionKey={}", callbackInfo.transactionKey)
             return

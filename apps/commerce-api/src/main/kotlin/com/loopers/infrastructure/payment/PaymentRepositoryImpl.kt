@@ -23,8 +23,16 @@ class PaymentRepositoryImpl(
         return jpaRepository.findById(id).orElse(null)?.let { PaymentMapper.toDomain(it) }
     }
 
+    override fun findByIdForUpdate(id: Long): Payment? {
+        return jpaRepository.findByIdForUpdate(id)?.let { PaymentMapper.toDomain(it) }
+    }
+
     override fun findByTransactionKey(transactionKey: String): Payment? {
         return jpaRepository.findByTransactionKey(transactionKey)?.let { PaymentMapper.toDomain(it) }
+    }
+
+    override fun findByTransactionKeyForUpdate(transactionKey: String): Payment? {
+        return jpaRepository.findByTransactionKeyForUpdate(transactionKey)?.let { PaymentMapper.toDomain(it) }
     }
 
     override fun findByOrderId(orderId: Long): Payment? {

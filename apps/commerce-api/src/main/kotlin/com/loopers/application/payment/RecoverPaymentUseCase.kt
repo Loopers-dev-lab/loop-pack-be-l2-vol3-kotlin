@@ -33,7 +33,6 @@ class RecoverPaymentUseCase(
         }
     }
 
-    @Transactional
     fun recoverSinglePayment(paymentId: Long): PaymentInfo {
         val payment = paymentRepository.findById(paymentId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제를 찾을 수 없습니다: $paymentId")
@@ -46,6 +45,18 @@ class RecoverPaymentUseCase(
             ?: throw CoreException(ErrorType.BAD_REQUEST, "transactionKey가 없는 결제는 복구할 수 없습니다: $paymentId")
 
         val detail = paymentGatewayPort.getTransactionStatus(payment.refUserId.toString(), transactionKey)
+
+        return applyRecoveryResult(paymentId, detail)
+    }
+
+    @Transactional
+    fun applyRecoveryResult(paymentId: Long, detail: PgTransactionDetail): PaymentInfo {
+        val payment = paymentRepository.findByIdForUpdate(paymentId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "결제를 찾을 수 없습니다: $paymentId")
+
+        if (payment.isTerminal()) {
+            return PaymentInfo.from(payment)
+        }
 
         val updated = when (detail.status) {
             "SUCCESS" -> {
