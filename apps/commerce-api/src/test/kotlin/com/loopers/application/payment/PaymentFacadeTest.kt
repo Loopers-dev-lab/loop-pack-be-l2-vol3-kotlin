@@ -41,10 +41,17 @@ class PaymentFacadeTest {
 
     @org.junit.jupiter.api.BeforeEach
     fun setUp() {
+        val txManager = object : org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+            override fun doGetTransaction(): Any = Any()
+            override fun doBegin(transaction: Any, definition: org.springframework.transaction.TransactionDefinition) {}
+            override fun doCommit(status: org.springframework.transaction.support.DefaultTransactionStatus) {}
+            override fun doRollback(status: org.springframework.transaction.support.DefaultTransactionStatus) {}
+        }
         paymentFacade = PaymentFacade(
             paymentService = paymentService,
             orderService = orderService,
             pgPaymentClient = pgPaymentClient,
+            transactionManager = txManager,
             callbackUrl = "http://localhost:8080/api/v1/payments/callback",
         )
     }

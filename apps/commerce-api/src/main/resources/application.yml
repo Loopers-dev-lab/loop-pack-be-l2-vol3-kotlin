@@ -67,6 +67,19 @@ springdoc:
   api-docs:
     enabled: false
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,circuitbreakers,circuitbreakerevents
+  health:
+    circuitbreakers:
+      enabled: true
+
+logging:
+  level:
+    io.github.resilience4j: DEBUG
+
 resilience4j:
   retry:
     instances:
