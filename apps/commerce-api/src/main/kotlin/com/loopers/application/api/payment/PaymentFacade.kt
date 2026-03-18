@@ -2,8 +2,8 @@ package com.loopers.application.api.payment
 
 import com.loopers.application.api.payment.dto.PaymentCallbackCommand
 import com.loopers.domain.order.OrderService
-import com.loopers.domain.payment.PaymentService
-import com.loopers.domain.payment.dto.PaymentInfo
+import com.loopers.domain.payment.ReceiptService
+import com.loopers.domain.payment.dto.ReceiptInfo
 import com.loopers.infrastructure.payment.pg.PgPaymentGateway
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 @Transactional(readOnly = true)
 class PaymentFacade(
-    private val paymentService: PaymentService,
+    private val receiptService: ReceiptService,
     private val orderService: OrderService,
     private val pgPaymentGateway: PgPaymentGateway,
 ) {
@@ -23,7 +23,7 @@ class PaymentFacade(
     @Transactional
     fun completePayment(command: PaymentCallbackCommand) {
         // (1) 결제 상태 업데이트
-        paymentService.updatePaymentStatus(command)
+        receiptService.updateReceiptStatus(command)
 
         // (2) 주문 상태 변경
         orderService.markOrderAsPaid(command.orderId)
@@ -37,7 +37,7 @@ class PaymentFacade(
         orderId: Long,
         cardType: String,
         cardNo: String,
-    ): PaymentInfo {
+    ): ReceiptInfo {
         val callbackUrl = "http://localhost:8080/api/v1/payments/callback"
         log.info("Creating payment: userId={}, orderId={}, cardType={}", userId, orderId, cardType)
 
@@ -46,14 +46,14 @@ class PaymentFacade(
         val order = orderService.getOrderByIdForUpdateWithPending(userId, orderId)
 
         // (2) 이미 결제가 존재하는지 확인 (락 상태에서 확인하므로 race condition 방지)
-        val existingPayment = paymentService.getPaymentByOrderId(orderId)
-        if (existingPayment != null) {
+        val existingReceipt = receiptService.getReceiptByOrderId(orderId)
+        if (existingReceipt != null) {
             throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 존재합니다")
         }
 
         // (4) 결제 생성
         val transactionId = generateTransactionId(orderId)
-        val payment = paymentService.createPayment(
+        val receipt = receiptService.createReceipt(
             orderId = orderId,
             transactionId = transactionId,
             amount = order.getTotalPrice(),
@@ -78,9 +78,9 @@ class PaymentFacade(
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다")
         }
 
-        log.info("Payment created: paymentId={}, orderId={}, amount={}", payment.id, orderId, order.getTotalPrice())
+        log.info("Payment created: paymentId={}, orderId={}, amount={}", receipt.id, orderId, order.getTotalPrice())
 
-        return PaymentInfo.from(payment)
+        return ReceiptInfo.from(receipt)
     }
 
     private fun generateTransactionId(orderId: Long): String {

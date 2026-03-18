@@ -3,7 +3,7 @@ package com.loopers.application.api.payment
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.order.OrderStatus
-import com.loopers.domain.payment.PaymentService
+import com.loopers.domain.payment.ReceiptService
 import com.loopers.infrastructure.payment.pg.PgPaymentGateway
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -18,11 +18,11 @@ import java.math.BigDecimal
 @DisplayName("PaymentFacade Test")
 class PaymentFacadeTest {
 
-    private val paymentService: PaymentService = mockk()
+    private val receiptService: ReceiptService = mockk()
     private val orderService: OrderService = mockk()
     private val pgPaymentGateway: PgPaymentGateway = mockk()
     private val paymentFacade = PaymentFacade(
-        paymentService,
+        receiptService,
         orderService,
         pgPaymentGateway,
     )
@@ -38,11 +38,11 @@ class PaymentFacadeTest {
         every { order.status } returns OrderStatus.PENDING
 
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
-        every { paymentService.getPaymentByOrderId(orderId) } returns null
+        every { receiptService.getReceiptByOrderId(orderId) } returns null
 
-        every { paymentService.createPayment(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } answers {
-            val payment = com.loopers.domain.payment.Payment.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
-            payment
+        every { receiptService.createReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } answers {
+            val receipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
+            receipt
         }
         every { pgPaymentGateway.requestPayment(any(), any(), any(), any(), any(), any(), any()) } returns PgPaymentGateway.PaymentRequestResult(
             requestId = "REQ_123",
@@ -64,7 +64,7 @@ class PaymentFacadeTest {
             // id가 초기화되지 않은 것은 normal (저장되지 않은 엔티티)
             // orderId만 확인
         }
-        verify { paymentService.createPayment(any(), any(), any(), any(), any()) }
+        verify { receiptService.createReceipt(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -98,10 +98,10 @@ class PaymentFacadeTest {
         val order = mockk<Order>()
         every { order.status } returns OrderStatus.PENDING
 
-        val existingPayment = com.loopers.domain.payment.Payment.create(orderId, "TXN_OLD", BigDecimal("10000"))
+        val existingReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_OLD", BigDecimal("10000"))
 
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
-        every { paymentService.getPaymentByOrderId(orderId) } returns existingPayment
+        every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
 
         // when & then
         assertThrows<CoreException> {

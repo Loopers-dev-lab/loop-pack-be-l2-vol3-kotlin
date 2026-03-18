@@ -3,10 +3,10 @@ package com.loopers.interfaces.api.payment
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.order.OrderStatus
-import com.loopers.domain.payment.Payment
-import com.loopers.domain.payment.PaymentService
-import com.loopers.domain.payment.PaymentStatus
-import com.loopers.infrastructure.payment.PaymentJpaRepository
+import com.loopers.domain.payment.Receipt
+import com.loopers.domain.payment.ReceiptService
+import com.loopers.domain.payment.ReceiptStatus
+import com.loopers.infrastructure.payment.ReceiptJpaRepository
 import com.loopers.infrastructure.order.OrderJpaRepository
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.BeforeEach
@@ -34,20 +34,20 @@ class PaymentCallbackE2ETest {
     private lateinit var objectMapper: ObjectMapper
 
     @Autowired
-    private lateinit var paymentService: PaymentService
+    private lateinit var receiptService: ReceiptService
 
     @Autowired
     private lateinit var orderService: OrderService
 
     @Autowired
-    private lateinit var paymentRepository: PaymentJpaRepository
+    private lateinit var receiptRepository: ReceiptJpaRepository
 
     @Autowired
     private lateinit var orderRepository: OrderJpaRepository
 
     @BeforeEach
     fun setup() {
-        paymentRepository.deleteAll()
+        receiptRepository.deleteAll()
         orderRepository.deleteAll()
     }
 
@@ -58,19 +58,19 @@ class PaymentCallbackE2ETest {
         val order = Order.create(id = 100L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
-        val payment = Payment.create(
+        val receipt = Receipt.create(
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
         )
-        val savedPayment = paymentRepository.save(payment)
+        val savedReceipt = receiptRepository.save(receipt)
 
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionKey = savedPayment.transactionId,
+            transactionKey = savedReceipt.transactionId,
             orderId = savedOrder.id.toString(),
             cardType = CardType.SAMSUNG,
             cardNo = "1234-5678-9814-1451",
-            amount = savedPayment.amount.multiply(BigDecimal("100")).longValueExact(),
+            amount = savedReceipt.amount.multiply(BigDecimal("100")).longValueExact(),
             status = TransactionStatus.COMPLETED,
             reason = null,
         )
@@ -85,10 +85,10 @@ class PaymentCallbackE2ETest {
 
         // then
         val updatedOrder = orderRepository.findById(savedOrder.id).orElseThrow()
-        val updatedPayment = paymentRepository.findByTransactionId("TXN001")
+        val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
 
         assert(updatedOrder.status == OrderStatus.PAID)
-        assert(updatedPayment?.status == PaymentStatus.COMPLETED)
+        assert(updatedReceipt?.status == ReceiptStatus.COMPLETED)
     }
 
     @Test
@@ -98,19 +98,19 @@ class PaymentCallbackE2ETest {
         val order = Order.create(id = 101L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
-        val payment = Payment.create(
+        val receipt = Receipt.create(
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
         )
-        val savedPayment = paymentRepository.save(payment)
+        val savedReceipt = receiptRepository.save(receipt)
 
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionKey = savedPayment.transactionId,
+            transactionKey = savedReceipt.transactionId,
             orderId = savedOrder.id.toString(),
             cardType = CardType.SAMSUNG,
             cardNo = "1234-5678-9814-1451",
-            amount = savedPayment.amount.multiply(BigDecimal("100")).longValueExact(),
+            amount = savedReceipt.amount.multiply(BigDecimal("100")).longValueExact(),
             status = TransactionStatus.COMPLETED,
             reason = null,
         )
@@ -124,8 +124,8 @@ class PaymentCallbackE2ETest {
         }
 
         // then - 첫 번째 후 상태 확인
-        var updatedPayment = paymentRepository.findByTransactionId("TXN001")
-        assert(updatedPayment?.status == PaymentStatus.COMPLETED)
+        var updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+        assert(updatedReceipt?.status == ReceiptStatus.COMPLETED)
 
         // when - 두 번째 콜백 (중복)
         mockMvc.post("/api/v1/payments/callback") {
@@ -136,8 +136,8 @@ class PaymentCallbackE2ETest {
         }
 
         // then - 두 번째 후에도 상태 변경 없음
-        updatedPayment = paymentRepository.findByTransactionId("TXN001")
-        assert(updatedPayment?.status == PaymentStatus.COMPLETED)
+        updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+        assert(updatedReceipt?.status == ReceiptStatus.COMPLETED)
     }
 
     @Test
@@ -147,19 +147,19 @@ class PaymentCallbackE2ETest {
         val order = Order.create(id = 102L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
-        val payment = Payment.create(
+        val receipt = Receipt.create(
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
         )
-        val savedPayment = paymentRepository.save(payment)
+        val savedReceipt = receiptRepository.save(receipt)
 
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionKey = savedPayment.transactionId,
+            transactionKey = savedReceipt.transactionId,
             orderId = savedOrder.id.toString(),
             cardType = CardType.SAMSUNG,
             cardNo = "1234-5678-9814-1451",
-            amount = savedPayment.amount.multiply(BigDecimal("100")).longValueExact(),
+            amount = savedReceipt.amount.multiply(BigDecimal("100")).longValueExact(),
             status = TransactionStatus.FAILED,
             reason = "Card declined",
         )
@@ -180,16 +180,16 @@ class PaymentCallbackE2ETest {
         val order = Order.create(id = 103L, userId = 1L)
         val savedOrder = orderRepository.save(order)
 
-        val payment = Payment.create(
+        val receipt = Receipt.create(
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
         )
-        val savedPayment = paymentRepository.save(payment)
+        val savedReceipt = receiptRepository.save(receipt)
 
         // 금액 불일치
         val callbackRequest = PaymentCallbackDto.CallbackRequest(
-            transactionKey = savedPayment.transactionId,
+            transactionKey = savedReceipt.transactionId,
             orderId = savedOrder.id.toString(),
             cardType = CardType.SAMSUNG,
             cardNo = "1234-5678-9814-1451",

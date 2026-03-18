@@ -11,8 +11,8 @@ import jakarta.persistence.Table
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "payments")
-class Payment protected constructor(
+@Table(name = "receipts")
+class Receipt protected constructor(
     val orderId: Long,
     val transactionId: String,
     val amount: BigDecimal,
@@ -21,31 +21,31 @@ class Payment protected constructor(
 ) : BaseEntity() {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    var status: PaymentStatus = PaymentStatus.INITIATED
+    var status: ReceiptStatus = ReceiptStatus.INITIATED
         protected set
 
     fun markAsCompleted(confirmedAmount: BigDecimal) {
-        if (status != PaymentStatus.INITIATED) {
+        if (status != ReceiptStatus.INITIATED) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
         }
         if (amount != confirmedAmount) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 금액이 일치하지 않습니다. 예상: $amount, 확인됨: $confirmedAmount")
         }
-        this.status = PaymentStatus.COMPLETED
+        this.status = ReceiptStatus.COMPLETED
     }
 
     fun markAsFailed() {
-        if (status != PaymentStatus.INITIATED) {
+        if (status != ReceiptStatus.INITIATED) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
         }
-        this.status = PaymentStatus.FAILED
+        this.status = ReceiptStatus.FAILED
     }
 
     fun markAsCancelled() {
-        if (status != PaymentStatus.INITIATED) {
+        if (status != ReceiptStatus.INITIATED) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
         }
-        this.status = PaymentStatus.CANCELLED
+        this.status = ReceiptStatus.CANCELLED
     }
 
     companion object {
@@ -55,7 +55,7 @@ class Payment protected constructor(
             amount: BigDecimal,
             cardType: String = "",
             cardNo: String = "",
-        ): Payment =
-            Payment(orderId, transactionId, amount, cardType, cardNo)
+        ): Receipt =
+            Receipt(orderId, transactionId, amount, cardType, cardNo)
     }
 }
