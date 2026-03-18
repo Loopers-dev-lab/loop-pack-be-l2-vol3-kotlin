@@ -4,6 +4,7 @@ import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderDomainService
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderRepository
+import com.loopers.infrastructure.id.SnowflakeIdGenerator
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
@@ -16,11 +17,13 @@ import java.time.ZonedDateTime
 class OrderService(
     private val orderRepository: OrderRepository,
     private val orderDomainService: OrderDomainService,
+    private val snowflakeIdGenerator: SnowflakeIdGenerator,
 ) {
 
     @Transactional
     fun createOrder(userId: Long, items: List<OrderItemCommand>, couponId: Long? = null): Order {
-        val order = orderDomainService.buildOrder(userId, items, couponId)
+        val orderId = snowflakeIdGenerator.generate()
+        val order = orderDomainService.buildOrder(orderId, userId, items, couponId)
         return orderRepository.save(order)
     }
 

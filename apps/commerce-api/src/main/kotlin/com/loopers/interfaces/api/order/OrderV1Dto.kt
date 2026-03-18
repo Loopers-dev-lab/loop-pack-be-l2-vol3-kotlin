@@ -33,6 +33,8 @@ class OrderV1Dto {
     data class CreateOrderResponse(
         @Schema(description = "주문 ID", example = "1")
         val orderId: Long,
+        @Schema(description = "주문 상태", example = "PENDING")
+        val status: String,
         @Schema(description = "쿠폰 ID", example = "1")
         val couponId: Long?,
         @Schema(description = "원래 주문 금액", example = "258000")
@@ -48,6 +50,7 @@ class OrderV1Dto {
             fun from(info: OrderInfo): CreateOrderResponse {
                 return CreateOrderResponse(
                     orderId = info.id,
+                    status = info.status.name,
                     couponId = info.couponId,
                     originalAmount = info.originalAmount,
                     discountAmount = info.discountAmount,
@@ -64,6 +67,8 @@ class OrderV1Dto {
         val id: Long,
         @Schema(description = "유저 ID", example = "1")
         val userId: Long,
+        @Schema(description = "주문 상태", example = "PENDING")
+        val status: String,
         @Schema(description = "쿠폰 ID", example = "1")
         val couponId: Long?,
         @Schema(description = "원래 주문 금액", example = "258000")
@@ -82,6 +87,7 @@ class OrderV1Dto {
                 return OrderResponse(
                     id = info.id,
                     userId = info.userId,
+                    status = info.status.name,
                     couponId = info.couponId,
                     originalAmount = info.originalAmount,
                     discountAmount = info.discountAmount,
@@ -97,6 +103,8 @@ class OrderV1Dto {
     data class OrderSummaryResponse(
         @Schema(description = "주문 ID", example = "1")
         val id: Long,
+        @Schema(description = "주문 상태", example = "PENDING")
+        val status: String,
         @Schema(description = "총 주문 금액", example = "258000")
         val totalAmount: BigDecimal,
         @Schema(description = "주문 항목 수", example = "3")
@@ -108,6 +116,7 @@ class OrderV1Dto {
             fun from(info: OrderInfo): OrderSummaryResponse {
                 return OrderSummaryResponse(
                     id = info.id,
+                    status = info.status.name,
                     totalAmount = info.totalAmount,
                     itemCount = info.items.size,
                     createdAt = info.createdAt,

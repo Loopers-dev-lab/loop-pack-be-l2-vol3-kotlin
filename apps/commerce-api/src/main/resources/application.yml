@@ -13,6 +13,9 @@ server:
 cache:
   mode: ${CACHE_MODE:layered}
 
+snowflake:
+  machine-id: ${SNOWFLAKE_MACHINE_ID:1}
+
 spring:
   main:
     web-application-type: servlet
@@ -59,3 +62,22 @@ spring:
 springdoc:
   api-docs:
     enabled: false
+
+resilience4j:
+  retry:
+    instances:
+      pgRetry:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - feign.RetryableException
+        fail-after-max-attempts: true
+  circuitbreaker:
+    instances:
+      pgCircuit:
+        sliding-window-size: 10
+        failure-rate-threshold: 50       # 실패율이 50% 넘으면 Open
+        wait-duration-in-open-state: 10s # Open 상태 유지 시간
+        permitted-number-of-calls-in-half-open-state: 2
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 50

@@ -1,8 +1,6 @@
 package com.loopers.domain
 
 import jakarta.persistence.Column
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.MappedSuperclass
 import jakarta.persistence.PrePersist
@@ -14,14 +12,17 @@ import java.time.ZonedDateTime
  * order_items 테이블에는 created_at도 없으므로,
  * id + createdAt만 제공한다.
  *
+ * Order.id는 SnowflakeIdGenerator에서 채번하여 직접 할당한다.
+ * OrderItem.id는 @GeneratedValue를 별도로 선언한다.
+ *
  * @property id 엔티티 ID
  * @property createdAt 생성 시점
  */
 @MappedSuperclass
 abstract class OrderBaseEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long = 0
+    var id: Long = 0
+        protected set
 
     @Column(name = "created_at", nullable = false, updatable = false)
     lateinit var createdAt: ZonedDateTime
