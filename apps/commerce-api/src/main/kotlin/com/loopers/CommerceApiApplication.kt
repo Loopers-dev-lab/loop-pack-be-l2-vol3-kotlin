@@ -3,9 +3,11 @@ package com.loopers
 import jakarta.annotation.PostConstruct
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan
+import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.boot.runApplication
 import java.util.TimeZone
 
+@EnableScheduling
 @ConfigurationPropertiesScan
 @SpringBootApplication
 class CommerceApiApplication {

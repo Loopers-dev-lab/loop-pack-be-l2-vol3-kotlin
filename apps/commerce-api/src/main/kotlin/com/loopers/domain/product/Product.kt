@@ -14,7 +14,14 @@ import jakarta.persistence.Table
 @Entity
 @Table(
     name = "products",
-    indexes = [Index(name = "idx_products_brand_id", columnList = "brand_id")],
+    indexes = [
+        Index(name = "idx_products_brand_id_created_at", columnList = "brand_id, created_at"),
+        Index(name = "idx_products_brand_id_likes", columnList = "brand_id, likes"),
+        Index(name = "idx_products_brand_id_price", columnList = "brand_id, price"),
+        Index(name = "idx_products_deleted_at_created_at", columnList = "deleted_at, created_at"),
+        Index(name = "idx_products_deleted_at_likes", columnList = "deleted_at, likes"),
+        Index(name = "idx_products_deleted_at_price", columnList = "deleted_at, price"),
+    ],
 )
 class Product(
     name: String,

@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api
 
+import com.loopers.application.product.ProductCacheManager
 import com.loopers.domain.brand.Brand
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.domain.brand.BrandRepository
@@ -31,6 +32,7 @@ class ProductApiE2ETest @Autowired constructor(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val productCacheManager: ProductCacheManager,
 ) {
     companion object {
         private const val PRODUCT_LIST_ENDPOINT = "/api/v1/products"
@@ -45,6 +47,7 @@ class ProductApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        productCacheManager.evictAllCaches()
     }
 
     @DisplayName("GET /api/v1/products")

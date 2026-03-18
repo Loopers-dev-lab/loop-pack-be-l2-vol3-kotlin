@@ -31,4 +31,14 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE products SET likes = CASE WHEN likes > 0 THEN likes - 1 ELSE 0 END WHERE id = :productId", nativeQuery = true)
     fun decrementLikeCount(productId: Long)
+
+    @Query(
+        """
+        SELECT p.brandId FROM Product p
+        WHERE p.deletedAt IS NULL
+        GROUP BY p.brandId
+        ORDER BY COUNT(p.id) DESC
+        """,
+    )
+    fun findTopBrandIdsByProductCount(pageable: Pageable): List<Long>
 }

@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api
 
+import com.loopers.application.product.ProductCacheManager
 import com.loopers.domain.brand.Brand
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.domain.brand.BrandRepository
@@ -37,6 +38,7 @@ class LikeApiE2ETest @Autowired constructor(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val productCacheManager: ProductCacheManager,
 ) {
     companion object {
         private const val LIKE_ENDPOINT = "/api/v1/products/{productId}/likes"
@@ -53,6 +55,7 @@ class LikeApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        productCacheManager.evictAllCaches()
     }
 
     private fun signUp(
