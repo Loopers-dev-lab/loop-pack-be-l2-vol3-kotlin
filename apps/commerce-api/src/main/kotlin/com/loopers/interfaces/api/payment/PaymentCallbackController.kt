@@ -18,6 +18,9 @@ class PaymentCallbackController(
     private val handlePaymentCallbackUseCase: HandlePaymentCallbackUseCase,
 ) : PaymentCallbackApiSpec {
 
+    // [CR 미반영] 콜백 보안(HMAC 서명/IP 화이트리스트) 미적용:
+    // 현재 PG는 시뮬레이터이며 로컬 네트워크에서만 동작한다.
+    // 실 PG 연동 시 서명 검증 또는 IP 화이트리스트 필수.
     @PostMapping("/callback")
     override fun handleCallback(@RequestBody request: PaymentDto.CallbackRequest): ApiResponse<Unit> {
         val command = PaymentCommand.HandleCallback(

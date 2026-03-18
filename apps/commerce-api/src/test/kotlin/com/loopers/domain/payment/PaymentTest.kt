@@ -172,8 +172,8 @@ class PaymentTest {
     inner class SuccessReTransition {
 
         @Test
-        @DisplayName("SUCCESS 상태에서 markSuccess 호출 시 CoreException이 발생한다")
-        fun markSuccess_fromSuccess_throwsCoreException() {
+        @DisplayName("SUCCESS 상태에서 markSuccess 재호출 시 멱등하게 무시된다")
+        fun markSuccess_fromSuccess_isIdempotent() {
             // arrange
             val payment = Payment.create(
                 orderId = 6L,
@@ -183,10 +183,12 @@ class PaymentTest {
             )
             payment.markSuccess("txn-key-done")
 
-            // act & assert
-            assertThrows<CoreException> {
-                payment.markSuccess("txn-key-again")
-            }
+            // act
+            payment.markSuccess("txn-key-again")
+
+            // assert
+            assertThat(payment.status).isEqualTo(PaymentStatus.SUCCESS)
+            assertThat(payment.transactionKey).isEqualTo("txn-key-done")
         }
 
         @Test
@@ -249,8 +251,8 @@ class PaymentTest {
         }
 
         @Test
-        @DisplayName("FAILED 상태에서 markFailed 호출 시 CoreException이 발생한다")
-        fun markFailed_fromFailed_throwsCoreException() {
+        @DisplayName("FAILED 상태에서 markFailed 재호출 시 멱등하게 무시된다")
+        fun markFailed_fromFailed_isIdempotent() {
             // arrange
             val payment = Payment.create(
                 orderId = 10L,
@@ -260,10 +262,12 @@ class PaymentTest {
             )
             payment.markFailed("카드 오류")
 
-            // act & assert
-            assertThrows<CoreException> {
-                payment.markFailed("또 실패")
-            }
+            // act
+            payment.markFailed("또 실패")
+
+            // assert
+            assertThat(payment.status).isEqualTo(PaymentStatus.FAILED)
+            assertThat(payment.reason).isEqualTo("카드 오류")
         }
 
         @Test

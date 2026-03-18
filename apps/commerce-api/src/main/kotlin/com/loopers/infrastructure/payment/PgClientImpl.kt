@@ -6,6 +6,7 @@ import com.loopers.domain.payment.PgPaymentResult
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.interfaces.support.config.PgProperties
+import feign.FeignException
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
@@ -47,6 +48,10 @@ class PgClientImpl(
     private fun requestPaymentFallback(request: PgPaymentRequest, t: Throwable): PgPaymentResult {
         if (t is CallNotPermittedException) {
             return PgPaymentResult(transactionKey = null, status = PgResultStatus.TIMEOUT)
+        }
+        if (t is FeignException && t.status() in 400..499) {
+            log.warn("PG 클라이언트 오류 (4xx). orderId={}, status={}", request.orderId, t.status())
+            return PgPaymentResult(transactionKey = null, status = PgResultStatus.FAILED, reason = "PG 요청 오류: ${t.status()}")
         }
         return try {
             pgStatusQueryClient.getTransactionByOrderId(request.orderId)

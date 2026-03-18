@@ -7,6 +7,8 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.payment.FakePaymentRepository
+import com.loopers.domain.payment.model.CardType
+import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.model.OrderItem
@@ -117,6 +119,64 @@ class GetOrderUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("결제 완료된 주문 조회 시 결제 정보가 포함된다")
+        fun execute_withPayment_returnsPaymentInfo() {
+            // arrange
+            val (order, _) = createAndSaveOrder(1L)
+            val payment = Payment.create(
+                orderId = order.id.value,
+                cardType = CardType.KB,
+                cardNo = "1234-5678-9012-3456",
+                amount = 10000L,
+            )
+            payment.markSuccess("txn-key-123")
+            paymentRepository.save(payment)
+
+            // act
+            val result = getOrderUseCase.execute(1L, order.id.value)
+
+            // assert
+            assertThat(result.paymentStatus).isEqualTo("SUCCESS")
+            assertThat(result.transactionKey).isEqualTo("txn-key-123")
+        }
+
+        @Test
+        @DisplayName("결제 정보가 없는 주문 조회 시 결제 필드가 null이다")
+        fun execute_withoutPayment_paymentFieldsNull() {
+            // arrange
+            val (order, _) = createAndSaveOrder(1L)
+
+            // act
+            val result = getOrderUseCase.execute(1L, order.id.value)
+
+            // assert
+            assertThat(result.paymentStatus).isNull()
+            assertThat(result.transactionKey).isNull()
+        }
+
+        @Test
+        @DisplayName("결제 실패 주문 조회 시 실패 상태가 반환된다")
+        fun execute_withFailedPayment_returnsFailedStatus() {
+            // arrange
+            val (order, _) = createAndSaveOrder(1L)
+            val payment = Payment.create(
+                orderId = order.id.value,
+                cardType = CardType.SAMSUNG,
+                cardNo = "9999-8888-7777-6666",
+                amount = 10000L,
+            )
+            payment.markFailed("잔액 부족")
+            paymentRepository.save(payment)
+
+            // act
+            val result = getOrderUseCase.execute(1L, order.id.value)
+
+            // assert
+            assertThat(result.paymentStatus).isEqualTo("FAILED")
+            assertThat(result.transactionKey).isNull()
         }
     }
 }

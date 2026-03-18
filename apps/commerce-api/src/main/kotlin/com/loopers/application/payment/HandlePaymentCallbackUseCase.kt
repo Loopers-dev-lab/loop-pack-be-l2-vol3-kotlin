@@ -25,6 +25,14 @@ class HandlePaymentCallbackUseCase(
         val isProcessable = payment.status == PaymentStatus.REQUESTED || payment.status == PaymentStatus.TIMEOUT
         if (!isProcessable) return
 
+        // transactionKey가 이미 저장되어 있으면 콜백의 transactionKey와 일치하는지 검증
+        if (payment.transactionKey != null && payment.transactionKey != command.transactionKey) {
+            throw CoreException(
+                ErrorType.BAD_REQUEST,
+                "콜백 transactionKey 불일치. 저장=${payment.transactionKey}, 수신=${command.transactionKey}",
+            )
+        }
+
         if (command.success) {
             payment.markSuccess(command.transactionKey)
             paymentRepository.save(payment)

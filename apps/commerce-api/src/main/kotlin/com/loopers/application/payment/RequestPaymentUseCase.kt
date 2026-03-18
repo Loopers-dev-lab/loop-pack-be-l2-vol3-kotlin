@@ -58,7 +58,7 @@ class RequestPaymentUseCase(
             orderId = command.orderId,
             cardType = cardType,
             cardNo = command.cardNo,
-            amount = order.totalPrice.value.toLong(),
+            amount = order.totalPrice.value.setScale(0, java.math.RoundingMode.UNNECESSARY).toLong(),
         )
         val savedPayment = paymentRepository.save(payment)
 

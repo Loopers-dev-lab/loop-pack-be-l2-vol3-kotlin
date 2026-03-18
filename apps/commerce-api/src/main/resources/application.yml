@@ -28,8 +28,11 @@ spring:
       client:
         config:
           pgClient:
+            # [CR 미반영] 타임아웃 값(1s/3s)은 시뮬레이터 기반 초기값.
+            # 실 PG 연동 시 p95/p99 응답 분포를 측정하여 조정 필요.
             connect-timeout: 1000
             read-timeout: 3000
+            logger-level: none
 
 springdoc:
   use-fqn: true
@@ -42,22 +45,10 @@ pg:
   callback-url: ${PG_CALLBACK_URL:http://localhost:8080/api/v1/payments/callback}
 
 # Resilience4j 설정
+# aspect order: CircuitBreaker(1)가 Retry(2) 바깥에서 먼저 평가 → 서킷 오픈 시 즉시 fallback
 resilience4j:
-  timelimiter:
-    instances:
-      pg-payment-request:
-        timeout-duration: 1s
-  retry:
-    instances:
-      pg-retry:
-        max-attempts: 3
-        wait-duration: 1s
-        retry-exceptions:
-          - feign.RetryableException
-          - java.net.SocketTimeoutException
-          - java.io.IOException
-        fail-after-max-attempts: true
   circuitbreaker:
+    circuitBreakerAspectOrder: 1 # CB가 Retry 바깥에서 먼저 평가 → 서킷 오픈 시 즉시 fallback
     instances:
       pg-payment-request:
         failure-rate-threshold: 50
@@ -71,6 +62,20 @@ resilience4j:
         minimum-number-of-calls: 5
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
+  retry:
+    retryAspectOrder: 2
+    instances:
+      # 현재 시뮬레이터가 orderId 기반 멱등 처리를 하므로 IOException 재시도가 안전함.
+      # 실 PG 연동 시 결제 요청/상태 조회 retry 프로필을 분리하고,
+      # 결제 요청은 멱등키 보장 예외에만 제한적으로 재시도해야 함.
+      pg-retry:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - feign.RetryableException
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+        fail-after-max-attempts: true
 
 ---
 spring:

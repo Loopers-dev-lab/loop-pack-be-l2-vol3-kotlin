@@ -26,6 +26,7 @@ class Payment private constructor(
         private set
 
     fun markSuccess(transactionKey: String) {
+        if (status == PaymentStatus.SUCCESS) return
         if (status != PaymentStatus.REQUESTED && status != PaymentStatus.TIMEOUT) {
             throw CoreException(ErrorType.BAD_REQUEST, "REQUESTED 또는 TIMEOUT 상태에서만 성공 처리할 수 있습니다.")
         }
@@ -34,6 +35,7 @@ class Payment private constructor(
     }
 
     fun markFailed(reason: String) {
+        if (status == PaymentStatus.FAILED) return
         if (status != PaymentStatus.REQUESTED && status != PaymentStatus.TIMEOUT) {
             throw CoreException(ErrorType.BAD_REQUEST, "REQUESTED 또는 TIMEOUT 상태에서만 실패 처리할 수 있습니다.")
         }
@@ -42,6 +44,7 @@ class Payment private constructor(
     }
 
     fun markTimeout() {
+        if (status == PaymentStatus.TIMEOUT) return
         if (status != PaymentStatus.REQUESTED) {
             throw CoreException(ErrorType.BAD_REQUEST, "REQUESTED 상태에서만 타임아웃 처리할 수 있습니다.")
         }
@@ -50,8 +53,13 @@ class Payment private constructor(
 
     companion object {
         private fun maskCardNo(cardNo: String): String {
+            val digits = cardNo.replace("-", "")
+            if (digits.length < 4) {
+                throw CoreException(ErrorType.BAD_REQUEST, "카드번호 형식이 올바르지 않습니다.")
+            }
+            val last4 = digits.takeLast(4)
             val parts = cardNo.split("-")
-            if (parts.size != 4) return cardNo
+            if (parts.size != 4) return "${"*".repeat(digits.length - 4)}$last4"
             return "${parts[0]}-****-****-${parts[3]}"
         }
 

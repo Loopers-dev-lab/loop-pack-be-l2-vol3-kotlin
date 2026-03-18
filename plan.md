@@ -55,3 +55,64 @@
 
 - [x] ktlintCheck: PASS
 - [x] 전체 테스트: BUILD SUCCESSFUL
+
+---
+
+# PR #19 Gemini/CodeRabbit 리뷰 반영 계획
+
+> 전체 리뷰 분석: `review-summary.md` 참고
+> pg-simulator 관련 20건은 모듈 분리 후 반영 (현재 제외)
+> 트레이드오프/이견 9건은 review-summary.md C 섹션 참고
+
+## CP7. 카드번호 보안 강화 (민감정보 노출 차단) ✅
+
+- [x] `PaymentCommand.RequestPayment`: toString() override — cardNo 마스킹
+- [x] `PgFeignPaymentRequest`: toString() override — cardNo 마스킹
+- [x] `Payment.maskCardNo`: parts.size != 4 시 원문 반환 → 강제 마스킹 (마지막 4자리만 보존)
+- [x] `application.yml`: pgClient에 `logger-level: none` 명시
+
+## CP8. Resilience4j 설정 정합성 ✅
+
+- [x] `application.yml`: `circuitBreakerAspectOrder: 1`, `retryAspectOrder: 2` 추가
+- [x] `application.yml`: TimeLimiter `pg-payment-request` 설정 제거 (Feign 타임아웃으로 대체)
+- [x] `PgClientImpl.requestPaymentFallback`: FeignException 4xx → FAILED 분기 추가
+
+## CP9. 결제 금액 안전성 + PgPaymentResult 검증 ✅
+
+- [x] `RequestPaymentUseCase`: `BigDecimal.toLong()` → `setScale(0, RoundingMode.UNNECESSARY).toLong()`
+- [x] `PgPaymentResult`: init 블록에 상태별 필수값 검증 (SUCCESS → transactionKey 필수)
+
+## CP10. 콜백 안전성 (멱등성 + transactionKey 검증) ✅
+
+- [x] `HandlePaymentCallbackUseCase`: 콜백 수신 시 저장된 transactionKey와 비교 검증
+- [x] `Order.markPaid/markFailed`: 이미 목표 상태이면 early return (멱등성)
+- [x] `Payment.markSuccess/markFailed/markTimeout`: 이미 목표 상태이면 early return
+- [x] 기존 테스트 수정: 멱등성 반영 (assertThrows → 무부작용 검증)
+- 참고: `markPendingPayment`는 중복 결제 방지 관문이므로 멱등성 미적용
+
+## CP11. 복구 로직 견고화 ✅
+
+- [x] `RecoverAllPaymentsUseCase`: Exception → CoreException만 catch, 예상 밖 예외 재전파
+- [x] `RecoverAllPaymentsUseCase`: BATCH_SIZE=50 적용
+- [x] `PaymentRepositoryImpl`: 비관적 락에 `@QueryHints` 타임아웃 3초 추가
+
+## CP12. 관측성 개선 (로깅 + 주석) ✅
+
+- [x] `PaymentPgProcessor`: PG 응답 수신 시 구조화 로깅 (paymentId, orderId, status, reason)
+- [x] `application.yml` Retry 설정에 주석 추가: 시뮬레이터 멱등 전제, 실 PG 연동 시 정책 분리 필요
+
+## CP13. 테스트 보강 ✅
+
+- [x] `GetOrderUseCaseTest`: Payment 연동 시나리오 추가 (결제 완료/미존재/실패)
+
+## CP14. pg-simulator git 추적 제거 (로컬 전용) ✅
+
+- [x] `settings.gradle.kts`에서 pg-simulator include 제거
+- [x] `git rm -r --cached apps/pg-simulator/` — 추적만 끊고 로컬 파일 유지
+- [x] `.git/info/exclude`에 `apps/pg-simulator/` 추가
+- [x] `.coderabbit.yaml`에서 pg-simulator 제외 설정 제거
+
+## 최종 검증 ✅
+
+- [x] ktlintCheck: PASS
+- [x] 전체 테스트: BUILD SUCCESSFUL

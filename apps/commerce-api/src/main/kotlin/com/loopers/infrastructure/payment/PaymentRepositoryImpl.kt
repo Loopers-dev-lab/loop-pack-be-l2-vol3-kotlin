@@ -4,11 +4,13 @@ import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
 import jakarta.persistence.LockModeType
+import jakarta.persistence.QueryHint
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Pageable
 import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.QueryHints
 import org.springframework.stereotype.Repository
 
 interface PaymentJpaRepository : JpaRepository<PaymentEntity, Long> {
@@ -16,9 +18,11 @@ interface PaymentJpaRepository : JpaRepository<PaymentEntity, Long> {
     fun findByStatusIn(statuses: List<PaymentStatus>, pageable: Pageable): List<PaymentEntity>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
     fun findWithLockById(id: Long): PaymentEntity?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
     fun findFirstForUpdateByOrderIdOrderByIdDesc(orderId: Long): PaymentEntity?
 }
 

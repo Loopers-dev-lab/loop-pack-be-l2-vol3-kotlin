@@ -53,6 +53,7 @@ class Order private constructor(
     }
 
     fun markPaid() {
+        if (status == OrderStatus.PAID) return
         if (status != OrderStatus.PENDING_PAYMENT) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 대기 상태인 주문만 결제 완료 상태로 전환할 수 있습니다.")
         }
@@ -60,6 +61,7 @@ class Order private constructor(
     }
 
     fun markFailed() {
+        if (status == OrderStatus.FAILED) return
         if (status != OrderStatus.PENDING_PAYMENT) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 대기 상태인 주문만 결제 실패 상태로 전환할 수 있습니다.")
         }
