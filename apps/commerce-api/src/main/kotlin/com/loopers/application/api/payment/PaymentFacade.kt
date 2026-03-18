@@ -22,26 +22,8 @@ class PaymentFacade(
 
     @Transactional
     fun completePayment(command: PaymentCallbackCommand) {
-        // (1) 결제 조회 및 상태 전환
-        val payment = paymentService.getPaymentByTransactionIdForUpdate(command.transactionId)
-
-        // 멱등성: INITIATED 상태가 아니면 무시
-        if (payment.status != com.loopers.domain.payment.PaymentStatus.INITIATED) {
-            return
-        }
-
-        // PG 콜백 status에 따라 분기 처리
-        when (command.status?.uppercase()) {
-            "FAILED" -> payment.markAsFailed()
-            "CANCELLED" -> payment.markAsCancelled()
-            "COMPLETED" -> payment.markAsCompleted(command.amount)
-            else -> throw CoreException(
-                ErrorType.BAD_REQUEST,
-                "알 수 없는 결제 상태: ${command.status}",
-            )
-        }
-
-        paymentService.save(payment)
+        // (1) 결제 상태 업데이트
+        paymentService.updatePaymentStatus(command)
 
         // (2) 주문 상태 변경
         orderService.markOrderAsPaid(command.orderId)
