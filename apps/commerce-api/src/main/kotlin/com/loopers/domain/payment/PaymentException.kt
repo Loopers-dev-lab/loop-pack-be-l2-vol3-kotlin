@@ -11,4 +11,5 @@ enum class PaymentError {
     ALREADY_PAID,
     INVALID_STATUS,
     PG_REQUEST_FAILED,
+    NOT_OWNED,
 }

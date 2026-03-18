@@ -96,6 +96,7 @@ class ApiControllerAdvice {
             PaymentError.ALREADY_PAID -> HttpStatus.CONFLICT
             PaymentError.INVALID_STATUS -> HttpStatus.BAD_REQUEST
             PaymentError.PG_REQUEST_FAILED -> HttpStatus.BAD_GATEWAY
+            PaymentError.NOT_OWNED -> HttpStatus.FORBIDDEN
         }
         return ResponseEntity(
             ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "결제 오류"),

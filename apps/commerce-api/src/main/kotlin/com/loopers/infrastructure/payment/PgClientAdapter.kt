@@ -4,6 +4,8 @@ import com.loopers.application.payment.PaymentGatewayPort
 import com.loopers.application.payment.PgPaymentRequest
 import com.loopers.application.payment.PgPaymentResponse
 import com.loopers.application.payment.PgTransactionDetail
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.slf4j.LoggerFactory
@@ -17,8 +19,8 @@ class PgClientAdapter(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Retry(name = "pgRetry", fallbackMethod = "requestPaymentFallback")
     @CircuitBreaker(name = "pgCircuit", fallbackMethod = "requestPaymentFallback")
+    @Retry(name = "pgRetry")
     override fun requestPayment(request: PgPaymentRequest): PgPaymentResponse {
         val response = pgRestClient.post()
             .uri("/api/v1/payments")
@@ -51,6 +53,6 @@ class PgClientAdapter(
             .retrieve()
             .body(PgTransactionDetail::class.java)
 
-        return response ?: throw IllegalStateException("PG 거래 상태 조회 응답이 비어있습니다.")
+        return response ?: throw CoreException(ErrorType.INTERNAL_ERROR, "PG 거래 상태 조회 응답이 비어있습니다.")
     }
 }

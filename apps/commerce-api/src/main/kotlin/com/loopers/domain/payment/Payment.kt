@@ -74,6 +74,14 @@ class Payment private constructor(
 
     fun isTerminal(): Boolean = status == PaymentStatus.SUCCESS || status == PaymentStatus.FAILED
 
+    fun assertOwnedBy(userId: Long) {
+        if (this.refUserId != userId) {
+            throw PaymentException(PaymentError.NOT_OWNED, "타인의 결제 정보입니다.")
+        }
+    }
+
+    fun isOwnedBy(userId: Long): Boolean = this.refUserId == userId
+
     companion object {
         fun create(
             refOrderId: Long,

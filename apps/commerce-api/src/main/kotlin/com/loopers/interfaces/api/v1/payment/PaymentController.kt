@@ -48,6 +48,7 @@ class PaymentController(
         @AuthenticatedUser authUser: AuthUser,
         @PathVariable id: Long,
     ): ApiResponse<GetPaymentResponse> {
+        getPaymentUseCase.getById(authUser.id, id)
         val paymentInfo = recoverPaymentUseCase.recoverSinglePayment(id)
         return ApiResponse.success(GetPaymentResponse.from(paymentInfo))
     }

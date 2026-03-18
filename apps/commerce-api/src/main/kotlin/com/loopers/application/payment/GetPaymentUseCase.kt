@@ -16,9 +16,7 @@ class GetPaymentUseCase(
         val payment = paymentRepository.findById(paymentId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제를 찾을 수 없습니다: $paymentId")
 
-        if (payment.refUserId != userId) {
-            throw CoreException(ErrorType.FORBIDDEN, "타인의 결제 정보입니다.")
-        }
+        payment.assertOwnedBy(userId)
 
         return PaymentInfo.from(payment)
     }
