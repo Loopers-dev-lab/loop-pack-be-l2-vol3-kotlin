@@ -41,6 +41,7 @@ reviews:
     - "!**/*.jpeg"
     - "!**/*.gif"
     - "!**/*.svg"
+    - "!**/*.json"
     - "!**/*.lock"
     - "!**/generated/**"
     - "!**/build/**"
