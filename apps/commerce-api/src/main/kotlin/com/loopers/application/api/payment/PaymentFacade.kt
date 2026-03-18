@@ -33,35 +33,40 @@ class PaymentFacade(
             command.status,
         )
 
-        try {
-            // (1) PaymentService에서 결제 콜백 처리
-            paymentService.handlePaymentCallback(command)
+        // (1) 결제 조회 및 상태 전환
+        val payment = paymentService.getPaymentByTransactionIdForUpdate(command.transactionId)
 
-            // (2) OrderService에서 주문 상태 변경
-            orderService.markOrderAsPaid(command.orderId)
-
-            // (3) 도메인 이벤트 발행 (배송 준비 등 후처리용)
-            applicationEventPublisher.publishEvent(
-                PaymentCompleted(
-                    source = this,
-                    orderId = command.orderId,
-                ),
-            )
-
-            log.info("Payment completed successfully: orderId={}, transactionId={}", command.orderId, command.transactionId)
-        } catch (e: Exception) {
-            log.error(
-                "Payment callback processing failed: transactionId={}, orderId={}",
-                command.transactionId,
-                command.orderId,
-                e,
-            )
-            throw e
+        // 멱등성: INITIATED 상태가 아니면 무시
+        if (payment.status != com.loopers.domain.payment.PaymentStatus.INITIATED) {
+            return
         }
-    }
 
-    fun getPaymentByOrderId(orderId: Long): PaymentInfo? =
-        paymentService.getPaymentByOrderId(orderId)?.let { PaymentInfo.from(it) }
+        // PG 콜백 status에 따라 분기 처리
+        when (command.status?.uppercase()) {
+            "FAILED" -> payment.markAsFailed()
+            "CANCELLED" -> payment.markAsCancelled()
+            "COMPLETED" -> payment.markAsCompleted(command.amount)
+            else -> throw CoreException(
+                ErrorType.BAD_REQUEST,
+                "알 수 없는 결제 상태: ${command.status}",
+            )
+        }
+
+        paymentService.save(payment)
+
+        // (2) 주문 상태 변경
+        orderService.markOrderAsPaid(command.orderId)
+
+        // (3) 도메인 이벤트 발행 (배송 준비 등 후처리용)
+        applicationEventPublisher.publishEvent(
+            PaymentCompleted(
+                source = this,
+                orderId = command.orderId,
+            ),
+        )
+
+        log.info("Payment completed successfully: orderId={}, transactionId={}", command.orderId, command.transactionId)
+    }
 
     @Transactional
     fun createPayment(
