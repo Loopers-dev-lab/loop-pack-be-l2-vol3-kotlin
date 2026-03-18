@@ -1,0 +1,23 @@
+### ============================================================
+### 좋아요 API (인증 필요)
+### ============================================================
+
+### 좋아요 추가
+POST {{commerce-api}}/api/v1/likes
+Content-Type: application/json
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password123!
+
+{
+  "productId": 1
+}
+
+### 좋아요 취소 (path variable = productId)
+DELETE {{commerce-api}}/api/v1/likes/1
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password123!
+
+### 내가 좋아요한 상품 목록
+GET {{commerce-api}}/api/v1/likes/me?page=0&size=20
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: password123!

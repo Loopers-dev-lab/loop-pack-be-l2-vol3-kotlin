@@ -1,0 +1,46 @@
+### ============================================================
+### 상품 관리 API (Admin)
+### ============================================================
+
+### 상품 등록
+POST {{commerce-api}}/api/admin/v1/products
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "brandId": 1,
+  "name": "테스트 상품",
+  "description": "테스트 상품 설명입니다",
+  "price": 15000,
+  "stock": 100,
+  "imageUrl": "https://example.com/image.jpg"
+}
+
+### 상품 목록 (Admin)
+GET {{commerce-api}}/api/admin/v1/products?sort=LATEST&page=0&size=20
+X-Loopers-Ldap: loopers.admin
+
+### 상품 목록 - 삭제된 상품 포함 (Admin)
+GET {{commerce-api}}/api/admin/v1/products?sort=LATEST&page=0&size=20&includeDeleted=true
+X-Loopers-Ldap: loopers.admin
+
+### 상품 상세 (Admin)
+GET {{commerce-api}}/api/admin/v1/products/1
+X-Loopers-Ldap: loopers.admin
+
+### 상품 수정
+PUT {{commerce-api}}/api/admin/v1/products/1
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "name": "수정된 상품명",
+  "description": "수정된 설명",
+  "price": 20000,
+  "stock": 50,
+  "imageUrl": "https://example.com/updated.jpg"
+}
+
+### 상품 삭제
+DELETE {{commerce-api}}/api/admin/v1/products/1
+X-Loopers-Ldap: loopers.admin

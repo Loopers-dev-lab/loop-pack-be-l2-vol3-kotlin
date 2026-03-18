@@ -4,18 +4,17 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductSortType
+import com.loopers.domain.product.QProduct.product
 import com.loopers.support.PageResult
-import jakarta.persistence.criteria.CriteriaBuilder
-import jakarta.persistence.criteria.Predicate
-import jakarta.persistence.criteria.Root
-import org.springframework.data.domain.PageRequest
-import org.springframework.data.domain.Sort
-import org.springframework.data.jpa.domain.Specification
+import com.querydsl.core.types.OrderSpecifier
+import com.querydsl.core.types.dsl.BooleanExpression
+import com.querydsl.jpa.impl.JPAQueryFactory
 import org.springframework.stereotype.Repository
 
 @Repository
 class ProductRepositoryImpl(
     private val productJpaRepository: ProductJpaRepository,
+    private val queryFactory: JPAQueryFactory,
 ) : ProductRepository {
 
     override fun findByIdOrNull(id: Long): Product? {
@@ -27,17 +26,28 @@ class ProductRepositoryImpl(
     }
 
     override fun findAllByCondition(condition: ProductSearchCondition): PageResult<Product> {
-        val spec = buildSpecification(condition)
-        val sort = buildSort(condition.sort)
-        val pageable = PageRequest.of(condition.page, condition.size, sort)
+        val whereClause = buildWhere(condition)
+        val orderBy = buildOrderBy(condition.sort)
 
-        val page = productJpaRepository.findAll(spec, pageable)
+        val content = queryFactory
+            .selectFrom(product)
+            .where(*whereClause.toTypedArray())
+            .orderBy(*orderBy)
+            .offset((condition.page * condition.size).toLong())
+            .limit(condition.size.toLong())
+            .fetch()
+
+        val totalElements = queryFactory
+            .select(product.count())
+            .from(product)
+            .where(*whereClause.toTypedArray())
+            .fetchOne() ?: 0L
 
         return PageResult.of(
-            content = page.content,
+            content = content,
             page = condition.page,
             size = condition.size,
-            totalElements = page.totalElements,
+            totalElements = totalElements,
         )
     }
 
@@ -71,27 +81,26 @@ class ProductRepositoryImpl(
         return productJpaRepository.saveAll(products)
     }
 
-    private fun buildSpecification(condition: ProductSearchCondition): Specification<Product> {
-        return Specification { root: Root<Product>, _, cb: CriteriaBuilder ->
-            val predicates = mutableListOf<Predicate>()
+    private fun buildWhere(condition: ProductSearchCondition): List<BooleanExpression> {
+        val predicates = mutableListOf<BooleanExpression>()
 
-            if (!condition.includeDeleted) {
-                predicates.add(cb.isNull(root.get<Any>("deletedAt")))
-            }
-
-            condition.brandId?.let { brandId ->
-                predicates.add(cb.equal(root.get<Long>("brandId"), brandId))
-            }
-
-            cb.and(*predicates.toTypedArray())
+        if (!condition.includeDeleted) {
+            predicates.add(product.deletedAt.isNull)
         }
+
+        condition.brandId?.let {
+            predicates.add(product.brandId.eq(it))
+        }
+
+        return predicates
     }
 
-    private fun buildSort(sortType: ProductSortType): Sort {
-        return when (sortType) {
-            ProductSortType.LATEST -> Sort.by(Sort.Direction.DESC, "createdAt")
-            ProductSortType.PRICE_ASC -> Sort.by(Sort.Direction.ASC, "price.amount")
-            ProductSortType.POPULARITY -> Sort.by(Sort.Direction.DESC, "likeCount")
+    private fun buildOrderBy(sortType: ProductSortType): Array<OrderSpecifier<*>> {
+        val primary = when (sortType) {
+            ProductSortType.LATEST -> product.createdAt.desc()
+            ProductSortType.PRICE_ASC -> product.price.amount.asc()
+            ProductSortType.LIKE_COUNT -> product.likeCount.desc()
         }
+        return arrayOf(primary, product.id.desc())
     }
 }

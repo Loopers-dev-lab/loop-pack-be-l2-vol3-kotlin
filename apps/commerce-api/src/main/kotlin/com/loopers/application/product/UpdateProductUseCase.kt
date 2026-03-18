@@ -5,6 +5,7 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ProductErrorCode
+import com.loopers.support.transaction.AfterCommit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -13,6 +14,7 @@ class UpdateProductUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -33,6 +35,11 @@ class UpdateProductUseCase(
 
         val brand = brandRepository.findActiveByIdOrNull(product.brandId)
         val brandName = brand?.name ?: ""
+
+        AfterCommit.execute {
+            productCacheStore.evictDetail(command.productId)
+            productCacheStore.evictAllLists()
+        }
 
         return ProductInfo.from(product, brandName, productStock.stock.quantity)
     }

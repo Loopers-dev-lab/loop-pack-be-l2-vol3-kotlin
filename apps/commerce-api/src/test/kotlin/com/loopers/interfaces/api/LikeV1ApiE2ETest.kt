@@ -16,6 +16,7 @@ import com.loopers.support.error.ProductErrorCode
 import com.loopers.support.error.UserErrorCode
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -37,11 +38,13 @@ import org.springframework.http.HttpStatus
 class LikeV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private val testLoginId = "testuser"

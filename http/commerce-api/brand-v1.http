@@ -1,0 +1,31 @@
+### ============================================================
+### 브랜드 API
+### ============================================================
+
+### 브랜드 목록 (Public)
+GET {{commerce-api}}/api/v1/brands
+
+### 브랜드 상세 (Public)
+GET {{commerce-api}}/api/v1/brands/1
+
+### 브랜드 등록 (Admin)
+POST {{commerce-api}}/api/admin/v1/brands
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "name": "새 브랜드"
+}
+
+### 브랜드 수정 (Admin)
+PUT {{commerce-api}}/api/admin/v1/brands/1
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "name": "수정된 브랜드"
+}
+
+### 브랜드 삭제 (Admin)
+DELETE {{commerce-api}}/api/admin/v1/brands/1
+X-Loopers-Ldap: loopers.admin

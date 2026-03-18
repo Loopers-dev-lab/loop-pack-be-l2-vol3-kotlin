@@ -13,12 +13,13 @@ services:
       - MYSQL_COLLATE=utf8mb4_general_ci
     volumes:
       - mysql-8-data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
 
   redis-master:
     image: redis:7.0
     container_name: redis-master
     ports:
-      - "6379:6379"
+      - "6381:6379"
     volumes:
       - redis_master_data:/data
     command:
@@ -41,7 +42,7 @@ services:
       redis-master:
         condition: service_healthy
     ports:
-      - "6380:6379"
+      - "6382:6379"
     volumes:
       - redis_readonly_data:/data
     command:

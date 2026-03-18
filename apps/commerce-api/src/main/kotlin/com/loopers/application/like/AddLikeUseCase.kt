@@ -1,11 +1,13 @@
 package com.loopers.application.like
 
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.LikeErrorCode
 import com.loopers.support.error.ProductErrorCode
+import com.loopers.support.transaction.AfterCommit
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional
 class AddLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -33,5 +36,9 @@ class AddLikeUseCase(
         }
 
         productRepository.increaseLikeCount(product.id)
+
+        AfterCommit.execute {
+            productCacheStore.evictDetail(product.id)
+        }
     }
 }

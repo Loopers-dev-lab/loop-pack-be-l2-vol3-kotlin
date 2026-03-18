@@ -1,0 +1,31 @@
+### ============================================================
+### 상품 조회 API (성능 측정용)
+### IntelliJ 실행 후 응답 시간(ms)을 확인하세요
+### ============================================================
+
+### 전체 상품 - 최신순 (기본)
+GET {{commerce-api}}/api/v1/products?sort=LATEST&page=0&size=20
+
+### 전체 상품 - 인기순
+GET {{commerce-api}}/api/v1/products?sort=LIKE_COUNT&page=0&size=20
+
+### 전체 상품 - 가격순
+GET {{commerce-api}}/api/v1/products?sort=PRICE_ASC&page=0&size=20
+
+### 브랜드 필터 + 인기순 (대형 브랜드: 약 1만건)
+GET {{commerce-api}}/api/v1/products?brandId=1&sort=LIKE_COUNT&page=0&size=20
+
+### 브랜드 필터 + 최신순 (대형 브랜드)
+GET {{commerce-api}}/api/v1/products?brandId=1&sort=LATEST&page=0&size=20
+
+### 브랜드 필터 + 가격순 (소형 브랜드: 약 1천건)
+GET {{commerce-api}}/api/v1/products?brandId=10&sort=PRICE_ASC&page=0&size=20
+
+### 상품 상세
+GET {{commerce-api}}/api/v1/products/1
+
+### 상품 상세 (두 번째 호출 - 캐시 히트 확인)
+GET {{commerce-api}}/api/v1/products/1
+
+### 페이지네이션 2페이지
+GET {{commerce-api}}/api/v1/products?sort=LIKE_COUNT&page=1&size=20

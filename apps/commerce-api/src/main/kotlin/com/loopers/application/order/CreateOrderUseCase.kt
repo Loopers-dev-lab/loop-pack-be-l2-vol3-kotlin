@@ -11,11 +11,13 @@ import com.loopers.domain.order.OrderItemRepository
 import com.loopers.domain.order.OrderItemSnapshot
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderValidator
+import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.CouponErrorCode
+import com.loopers.support.transaction.AfterCommit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -29,6 +31,7 @@ class CreateOrderUseCase(
     private val orderValidator: OrderValidator,
     private val userCouponRepository: UserCouponRepository,
     private val couponRepository: CouponRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -94,6 +97,11 @@ class CreateOrderUseCase(
         userCoupon?.let {
             val success = userCouponRepository.markAsUsed(it.id, savedOrder.id)
             if (!success) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
+        }
+
+        // 7. 재고 변경된 상품의 캐시 무효화
+        AfterCommit.execute {
+            productIds.forEach { productCacheStore.evictDetail(it) }
         }
 
         return OrderInfo.from(savedOrder)
