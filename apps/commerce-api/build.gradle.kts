@@ -19,6 +19,10 @@ dependencies {
     // security (password encoding only)
     implementation("org.springframework.security:spring-security-crypto")
 
+    // resilience4j
+    implementation("io.github.resilience4j:resilience4j-spring-boot3")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // querydsl
     kapt("com.querydsl:querydsl-apt::jakarta")
 

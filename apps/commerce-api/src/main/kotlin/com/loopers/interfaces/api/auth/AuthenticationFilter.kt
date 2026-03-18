@@ -15,6 +15,10 @@ class AuthenticationFilter(
     private val passwordEncoder: PasswordEncoder,
 ) : OncePerRequestFilter() {
 
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+        return request.requestURI.startsWith("/api/v1/payments/callback")
+    }
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
