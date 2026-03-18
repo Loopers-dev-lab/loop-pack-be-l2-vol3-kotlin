@@ -56,8 +56,8 @@ class ReceiptService(
     fun updateReceiptStatus(command: PaymentCallbackCommand) {
         val receipt = getReceiptByTransactionIdForUpdate(command.transactionId)
 
-        // 멱등성: INITIATED 상태가 아니면 무시
-        if (receipt.status != ReceiptStatus.INITIATED) {
+        // 멱등성: INITIATED 또는 PENDING 상태만 처리
+        if (receipt.status !in listOf(ReceiptStatus.INITIATED, ReceiptStatus.PENDING)) {
             return
         }
 
@@ -71,7 +71,6 @@ class ReceiptService(
                 "알 수 없는 결제 상태: ${command.status}",
             )
         }
-
-        save(receipt)
+        // JPA의 변경 감지에 의해 자동으로 UPDATE됨
     }
 }
