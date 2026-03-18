@@ -13,7 +13,6 @@ import io.mockk.verify
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 @DisplayName("PaymentFacade Test")
@@ -21,12 +20,10 @@ class PaymentFacadeTest {
 
     private val paymentService: PaymentService = mockk()
     private val orderService: OrderService = mockk()
-    private val applicationEventPublisher: ApplicationEventPublisher = mockk()
     private val pgPaymentGateway: PgPaymentGateway = mockk()
     private val paymentFacade = PaymentFacade(
         paymentService,
         orderService,
-        applicationEventPublisher,
         pgPaymentGateway,
     )
 
@@ -53,7 +50,6 @@ class PaymentFacadeTest {
             status = "COMPLETED",
             signature = "sig_123",
         )
-        every { applicationEventPublisher.publishEvent(any()) } returns Unit
 
         // when & then
         try {

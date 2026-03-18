@@ -4,12 +4,10 @@ import com.loopers.application.api.payment.dto.PaymentCallbackCommand
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.payment.PaymentService
 import com.loopers.domain.payment.dto.PaymentInfo
-import com.loopers.domain.payment.event.PaymentCompleted
 import com.loopers.infrastructure.payment.pg.PgPaymentGateway
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,21 +16,12 @@ import org.springframework.transaction.annotation.Transactional
 class PaymentFacade(
     private val paymentService: PaymentService,
     private val orderService: OrderService,
-    private val applicationEventPublisher: ApplicationEventPublisher,
     private val pgPaymentGateway: PgPaymentGateway,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun completePayment(command: PaymentCallbackCommand) {
-        log.info(
-            "Processing payment callback: transactionId={}, orderId={}, amount={}, status={}",
-            command.transactionId,
-            command.orderId,
-            command.amount,
-            command.status,
-        )
-
         // (1) 결제 조회 및 상태 전환
         val payment = paymentService.getPaymentByTransactionIdForUpdate(command.transactionId)
 
@@ -56,14 +45,6 @@ class PaymentFacade(
 
         // (2) 주문 상태 변경
         orderService.markOrderAsPaid(command.orderId)
-
-        // (3) 도메인 이벤트 발행 (배송 준비 등 후처리용)
-        applicationEventPublisher.publishEvent(
-            PaymentCompleted(
-                source = this,
-                orderId = command.orderId,
-            ),
-        )
 
         log.info("Payment completed successfully: orderId={}, transactionId={}", command.orderId, command.transactionId)
     }
