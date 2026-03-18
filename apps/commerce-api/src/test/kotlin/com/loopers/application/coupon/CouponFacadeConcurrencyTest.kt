@@ -91,6 +91,8 @@ class CouponFacadeConcurrencyTest @Autowired constructor(
                         cmd = PlaceOrderCommand(
                             items = listOf(OrderItemCommand(productId = product.id, quantity = 1)),
                             userCouponId = userCoupon.id,
+                            cardType = com.loopers.domain.payment.CardType.SAMSUNG,
+                            cardNo = "1234-5678-9012-3456",
                         ),
                     )
                     successCount.incrementAndGet()

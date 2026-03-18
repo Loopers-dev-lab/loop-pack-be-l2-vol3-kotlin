@@ -67,7 +67,9 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
                     orderFacade.placeOrder(
                         userId = (i + 1).toLong(),
                         cmd = PlaceOrderCommand(
-                            items = listOf(OrderItemCommand(productId = product.id, quantity = 1))
+                            items = listOf(OrderItemCommand(productId = product.id, quantity = 1)),
+                            cardType = com.loopers.domain.payment.CardType.SAMSUNG,
+                            cardNo = "1234-5678-9012-3456",
                         ),
                     )
                     successCount.incrementAndGet()
