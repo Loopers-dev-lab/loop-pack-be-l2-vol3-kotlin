@@ -42,7 +42,6 @@ reviews:
     - "!**/*.gif"
     - "!**/*.svg"
     - "!**/*.lock"
-    - "!apps/pg-simulator/**"
     - "!**/generated/**"
     - "!**/build/**"
     - "!**/out/**"
