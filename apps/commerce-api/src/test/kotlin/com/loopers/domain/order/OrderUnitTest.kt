@@ -5,6 +5,7 @@ import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.time.ZonedDateTime
 
 class OrderUnitTest {
 
@@ -48,6 +49,13 @@ class OrderUnitTest {
     }
 
     @Test
+    fun `Order create() should set status to PLACED`() {
+        val items = listOf(createOrderItem())
+        val order = Order.create(userId = 1L, items = items)
+        assertThat(order.status).isEqualTo(OrderStatus.PLACED)
+    }
+
+    @Test
     fun `Order create() throws CoreException(BAD_REQUEST) when items is empty`() {
         // Act & Assert
         assertThrows<CoreException> {
@@ -85,6 +93,188 @@ class OrderUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
+
+    // ─── State transitions: valid ───
+
+    @Test
+    fun `pay() should transition PLACED to PAID and set paidAt`() {
+        val order = createPlacedOrder()
+        val now = ZonedDateTime.now()
+
+        order.pay(now)
+
+        assertThat(order.status).isEqualTo(OrderStatus.PAID)
+        assertThat(order.paidAt).isEqualTo(now)
+    }
+
+    @Test
+    fun `startPreparing() should transition PAID to PREPARING`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+
+        order.startPreparing()
+
+        assertThat(order.status).isEqualTo(OrderStatus.PREPARING)
+    }
+
+    @Test
+    fun `ship() should transition PREPARING to SHIPPING and set shippedAt`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+        order.startPreparing()
+        val now = ZonedDateTime.now()
+
+        order.ship(now)
+
+        assertThat(order.status).isEqualTo(OrderStatus.SHIPPING)
+        assertThat(order.shippedAt).isEqualTo(now)
+    }
+
+    @Test
+    fun `deliver() should transition SHIPPING to DELIVERED and set deliveredAt`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+        order.startPreparing()
+        order.ship(ZonedDateTime.now())
+        val now = ZonedDateTime.now()
+
+        order.deliver(now)
+
+        assertThat(order.status).isEqualTo(OrderStatus.DELIVERED)
+        assertThat(order.deliveredAt).isEqualTo(now)
+    }
+
+    @Test
+    fun `cancel() should transition PLACED to CANCELLED and set cancelledAt`() {
+        val order = createPlacedOrder()
+        val now = ZonedDateTime.now()
+
+        order.cancel(now)
+
+        assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
+        assertThat(order.cancelledAt).isEqualTo(now)
+    }
+
+    @Test
+    fun `cancel() should transition PAID to CANCELLED`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+
+        order.cancel(ZonedDateTime.now())
+
+        assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
+    }
+
+    @Test
+    fun `refund() should transition DELIVERED to REFUNDED and set cancelledAt`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+        order.startPreparing()
+        order.ship(ZonedDateTime.now())
+        order.deliver(ZonedDateTime.now())
+        val now = ZonedDateTime.now()
+
+        order.refund(now)
+
+        assertThat(order.status).isEqualTo(OrderStatus.REFUNDED)
+        assertThat(order.cancelledAt).isEqualTo(now)
+    }
+
+    // ─── State transitions: invalid ───
+
+    @Test
+    fun `pay() throws BAD_REQUEST when status is not PLACED`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+
+        assertThrows<CoreException> {
+            order.pay(ZonedDateTime.now())
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `startPreparing() throws BAD_REQUEST when status is not PAID`() {
+        val order = createPlacedOrder()
+
+        assertThrows<CoreException> {
+            order.startPreparing()
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `ship() throws BAD_REQUEST when status is not PREPARING`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+
+        assertThrows<CoreException> {
+            order.ship(ZonedDateTime.now())
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `deliver() throws BAD_REQUEST when status is not SHIPPING`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+        order.startPreparing()
+
+        assertThrows<CoreException> {
+            order.deliver(ZonedDateTime.now())
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `cancel() throws BAD_REQUEST when status is PREPARING`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+        order.startPreparing()
+
+        assertThrows<CoreException> {
+            order.cancel(ZonedDateTime.now())
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `cancel() throws BAD_REQUEST when status is SHIPPING`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+        order.startPreparing()
+        order.ship(ZonedDateTime.now())
+
+        assertThrows<CoreException> {
+            order.cancel(ZonedDateTime.now())
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Test
+    fun `refund() throws BAD_REQUEST when status is not DELIVERED`() {
+        val order = createPlacedOrder()
+        order.pay(ZonedDateTime.now())
+
+        assertThrows<CoreException> {
+            order.refund(ZonedDateTime.now())
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    // ─── Helpers ───
+
+    private fun createPlacedOrder(): Order = Order.create(
+        userId = 1L,
+        items = listOf(createOrderItem()),
+    )
 
     private fun createOrderItem(
         orderId: Long = 0L,

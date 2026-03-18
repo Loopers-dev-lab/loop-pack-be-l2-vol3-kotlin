@@ -3,12 +3,15 @@ package com.loopers.domain.order
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
+import io.mockk.just
+import io.mockk.Runs
 import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
 class OrderServiceUnitTest {
 
@@ -30,6 +33,7 @@ class OrderServiceUnitTest {
         // Assert
         assertThat(result.userId).isEqualTo(1L)
         assertThat(result.totalPrice).isEqualTo(20000)
+        assertThat(result.status).isEqualTo(OrderStatus.PLACED)
         verify { mockRepository.save(any()) }
     }
 
@@ -162,6 +166,84 @@ class OrderServiceUnitTest {
 
         // Assert
         assertThat(result).isEmpty()
+    }
+
+    // ─── getByStatus ───
+
+    @Test
+    fun `getByStatus() returns orders with given status`() {
+        // Arrange
+        val orders = listOf(createOrder(id = 1L, userId = 1L))
+        every { mockRepository.findByStatus(OrderStatus.PREPARING, 0, 20) } returns orders
+
+        // Act
+        val result = orderService.getByStatus(OrderStatus.PREPARING, 0, 20)
+
+        // Assert
+        assertThat(result).hasSize(1)
+    }
+
+    // ─── getByStatusAndDateRange ───
+
+    @Test
+    fun `getByStatusAndDateRange() returns orders within range`() {
+        // Arrange
+        val start = LocalDate.of(2024, 1, 1)
+        val end = LocalDate.of(2024, 1, 31)
+        val orders = listOf(createOrder(id = 1L, userId = 1L))
+        every { mockRepository.findByStatusAndDateRange(OrderStatus.DELIVERED, start, end, 0, 20) } returns orders
+
+        // Act
+        val result = orderService.getByStatusAndDateRange(OrderStatus.DELIVERED, start, end, 0, 20)
+
+        // Assert
+        assertThat(result).hasSize(1)
+    }
+
+    // ─── getDelayedOrders ───
+
+    @Test
+    fun `getDelayedOrders() returns delayed orders`() {
+        // Arrange
+        val olderThan = ZonedDateTime.now().minusDays(2)
+        val orders = listOf(createOrder(id = 1L, userId = 1L))
+        every { mockRepository.findDelayedOrders(OrderStatus.PAID, olderThan, 0, 20) } returns orders
+
+        // Act
+        val result = orderService.getDelayedOrders(OrderStatus.PAID, olderThan, 0, 20)
+
+        // Assert
+        assertThat(result).hasSize(1)
+    }
+
+    // ─── updateStatus ───
+
+    @Test
+    fun `updateStatus() applies action and persists`() {
+        // Arrange
+        val order = createOrder(id = 1L, userId = 1L)
+        every { mockRepository.findById(1L) } returns order
+        every { mockRepository.updateStatus(any()) } just Runs
+
+        // Act
+        val result = orderService.updateStatus(1L) { it.pay(ZonedDateTime.now()) }
+
+        // Assert
+        assertThat(result.status).isEqualTo(OrderStatus.PAID)
+        verify { mockRepository.updateStatus(any()) }
+    }
+
+    @Test
+    fun `updateStatus() throws NOT_FOUND when order does not exist`() {
+        // Arrange
+        every { mockRepository.findById(99L) } returns null
+
+        // Act & Assert
+        assertThrows<CoreException> {
+            orderService.updateStatus(99L) { it.pay(ZonedDateTime.now()) }
+        }.also {
+            assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
     }
 
     private fun createOrderItem(

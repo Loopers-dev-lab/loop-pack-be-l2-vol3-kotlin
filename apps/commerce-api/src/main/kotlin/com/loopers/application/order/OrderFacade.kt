@@ -1,12 +1,15 @@
 package com.loopers.application.order
 
-import com.loopers.domain.catalog.brand.BrandService
+import com.loopers.domain.catalog.brand.BrandRepository
+import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
+import com.loopers.domain.catalog.product.ProductStockRepository
 import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
+import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
@@ -16,10 +19,13 @@ import org.springframework.transaction.annotation.Transactional
 class OrderFacade(
     private val orderService: OrderService,
     private val productService: ProductService,
-    private val brandService: BrandService,
+    private val productRepository: ProductRepository,
+    private val brandRepository: BrandRepository,
     private val productStockService: ProductStockService,
+    private val productStockRepository: ProductStockRepository,
     private val userCouponService: UserCouponService,
     private val couponTemplateService: CouponTemplateService,
+    private val productCacheService: ProductCacheService,
 ) {
 
     @Transactional
@@ -28,14 +34,19 @@ class OrderFacade(
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있을 수 없습니다.")
         }
 
-        // 1. 모든 상품 및 재고 조회 (productId 오름차순 정렬 → 데드락 방지)
-        val itemWithProductsAndStocks = cmd.items
-            .sortedBy { it.productId }
-            .map { item ->
-                val product = productService.getById(item.productId)
-                val stock = productStockService.getByProductId(item.productId)
-                Triple(item, product, stock)
-            }
+        // 1. 모든 상품 및 재고 일괄 조회 (N+1 방지)
+        val sortedItems = cmd.items.sortedBy { it.productId }
+        val productIds = sortedItems.map { it.productId }
+        val productMap = productRepository.findAllByIds(productIds).associateBy { it.id }
+        val stockMap = productStockRepository.findAllByProductIds(productIds).associateBy { it.productId }
+
+        val itemWithProductsAndStocks = sortedItems.map { item ->
+            val product = productMap[item.productId]
+                ?: throw CoreException(ErrorType.NOT_FOUND, "[${item.productId}] 상품이 존재하지 않습니다.")
+            val stock = stockMap[item.productId]
+                ?: throw CoreException(ErrorType.NOT_FOUND, "[${item.productId}] 상품의 재고 정보가 존재하지 않습니다.")
+            Triple(item, product, stock)
+        }
 
         // 2. 모든 상품 주문 가능 여부 및 재고 검증 (fail-fast: 부분 처리 없이 전체 실패)
         itemWithProductsAndStocks.forEach { (item, product, stock) ->
@@ -43,17 +54,23 @@ class OrderFacade(
             stock.validate(item.quantity)
         }
 
-        // 3. 모든 재고 차감
+        // 3. 모든 재고 차감 (비관적 락 — 개별 호출 필수)
         itemWithProductsAndStocks.forEach { (item, _, _) ->
             val updatedStock = productStockService.decrementStock(item.productId, item.quantity)
             if (updatedStock.isSoldOut) {
                 productService.updateStockStatus(item.productId, 0)
             }
+            productCacheService.evictProductDetail(item.productId)
         }
+        productCacheService.evictAllProductLists()
 
-        // 4. 브랜드 조회 및 주문 항목 스냅샷 생성
+        // 4. 브랜드 일괄 조회 및 주문 항목 스냅샷 생성 (N+1 방지)
+        val brandIds = productMap.values.map { it.brandId }.distinct()
+        val brandMap = brandRepository.findAllByIds(brandIds).associateBy { it.id }
+
         val orderItems = itemWithProductsAndStocks.map { (item, product, _) ->
-            val brand = brandService.getById(product.brandId)
+            val brand = brandMap[product.brandId]
+                ?: throw CoreException(ErrorType.NOT_FOUND, "[${product.brandId}] 브랜드가 존재하지 않습니다.")
             OrderItem(
                 orderId = 0L,
                 productId = product.id,

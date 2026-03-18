@@ -18,6 +18,9 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     @Query("SELECT p FROM ProductEntity p WHERE p.deletedAt IS NULL AND p.status = :status AND (:brandId IS NULL OR p.brandId = :brandId) ORDER BY p.likeCount DESC")
     fun findAllByStatusOrderByLikeCountDesc(brandId: Long?, status: ProductStatus, pageable: Pageable): List<ProductEntity>
 
+    @Query("SELECT p FROM ProductEntity p WHERE p.id IN :ids AND p.deletedAt IS NULL")
+    fun findAllByIdIn(ids: List<Long>): List<ProductEntity>
+
     @Query("SELECT p FROM ProductEntity p WHERE p.deletedAt IS NULL AND p.brandId = :brandId")
     fun findAllByBrandId(brandId: Long): List<ProductEntity>
 
