@@ -33,7 +33,7 @@ class CouponUsageConcurrencyTest @Autowired constructor(
     }
 
     @Test
-    fun `동시에_같은_쿠폰으로_사용하면_하나만_성공한다`() {
+    fun `동시에_같은_쿠폰을_예약하면_하나만_성공한다`() {
         // arrange
         val couponEntity = couponJpaRepository.save(
             CouponEntity(
@@ -66,7 +66,7 @@ class CouponUsageConcurrencyTest @Autowired constructor(
                 try {
                     transactionTemplate.execute {
                         val issuedCoupon = issuedCouponReader.getByIdForUpdate(issuedEntity.id!!)
-                        issuedCoupon.use()
+                        issuedCoupon.reserve()
                         issuedCouponRepository.save(issuedCoupon)
                     }
                     successCount.incrementAndGet()
@@ -85,6 +85,6 @@ class CouponUsageConcurrencyTest @Autowired constructor(
         assertThat(failCount.get()).isEqualTo(9)
 
         val updatedEntity = issuedCouponJpaRepository.findById(issuedEntity.id!!).get()
-        assertThat(updatedEntity.status).isEqualTo(CouponStatus.USED.name)
+        assertThat(updatedEntity.status).isEqualTo(CouponStatus.RESERVED.name)
     }
 }

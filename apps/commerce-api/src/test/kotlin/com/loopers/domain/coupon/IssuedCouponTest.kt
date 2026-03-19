@@ -11,42 +11,73 @@ import java.time.ZonedDateTime
 class IssuedCouponTest {
 
     @Nested
-    inner class Use {
+    inner class Reserve {
         @Test
-        fun `AVAILABLE_상태에서_사용할_수_있다`() {
+        fun `AVAILABLE_상태에서_예약할_수_있다`() {
             val issuedCoupon = createIssuedCoupon()
-            issuedCoupon.use()
-            assertThat(issuedCoupon.status).isEqualTo(CouponStatus.USED)
+
+            issuedCoupon.reserve()
+
+            assertThat(issuedCoupon.status).isEqualTo(CouponStatus.RESERVED)
         }
 
         @Test
-        fun `USED_상태에서_사용하면_예외가_발생한다`() {
+        fun `USED_상태에서_예약하면_예외가_발생한다`() {
             val issuedCoupon = createIssuedCoupon(status = CouponStatus.USED)
-            val result = assertThrows<CoreException> { issuedCoupon.use() }
+
+            val result = assertThrows<CoreException> { issuedCoupon.reserve() }
+
             assertThat(result.errorType).isEqualTo(ErrorType.COUPON_NOT_AVAILABLE)
         }
 
         @Test
-        fun `EXPIRED_상태에서_사용하면_예외가_발생한다`() {
+        fun `EXPIRED_상태에서_예약하면_예외가_발생한다`() {
             val issuedCoupon = createIssuedCoupon(status = CouponStatus.EXPIRED)
-            val result = assertThrows<CoreException> { issuedCoupon.use() }
+
+            val result = assertThrows<CoreException> { issuedCoupon.reserve() }
+
             assertThat(result.errorType).isEqualTo(ErrorType.COUPON_NOT_AVAILABLE)
         }
     }
 
     @Nested
-    inner class Restore {
+    inner class ConfirmUse {
         @Test
-        fun `USED_상태에서_복원할_수_있다`() {
-            val issuedCoupon = createIssuedCoupon(status = CouponStatus.USED)
-            issuedCoupon.restore()
+        fun `RESERVED_상태에서_사용_확정할_수_있다`() {
+            val issuedCoupon = createIssuedCoupon(status = CouponStatus.RESERVED)
+
+            issuedCoupon.confirmUse()
+
+            assertThat(issuedCoupon.status).isEqualTo(CouponStatus.USED)
+        }
+
+        @Test
+        fun `AVAILABLE_상태에서_사용_확정하면_예외가_발생한다`() {
+            val issuedCoupon = createIssuedCoupon()
+
+            val result = assertThrows<CoreException> { issuedCoupon.confirmUse() }
+
+            assertThat(result.errorType).isEqualTo(ErrorType.COUPON_NOT_AVAILABLE)
+        }
+    }
+
+    @Nested
+    inner class Release {
+        @Test
+        fun `RESERVED_상태에서_예약을_해제할_수_있다`() {
+            val issuedCoupon = createIssuedCoupon(status = CouponStatus.RESERVED)
+
+            issuedCoupon.release()
+
             assertThat(issuedCoupon.status).isEqualTo(CouponStatus.AVAILABLE)
         }
 
         @Test
-        fun `AVAILABLE_상태에서_복원하면_예외가_발생한다`() {
+        fun `AVAILABLE_상태에서_예약을_해제하면_예외가_발생한다`() {
             val issuedCoupon = createIssuedCoupon()
-            val result = assertThrows<CoreException> { issuedCoupon.restore() }
+
+            val result = assertThrows<CoreException> { issuedCoupon.release() }
+
             assertThat(result.errorType).isEqualTo(ErrorType.COUPON_NOT_AVAILABLE)
         }
     }
@@ -76,8 +107,8 @@ class IssuedCouponTest {
         }
 
         @Test
-        fun `USED_상태면_예외가_발생한다`() {
-            val issuedCoupon = createIssuedCoupon(status = CouponStatus.USED)
+        fun `RESERVED_상태면_예외가_발생한다`() {
+            val issuedCoupon = createIssuedCoupon(status = CouponStatus.RESERVED)
             val result = assertThrows<CoreException> { issuedCoupon.validateUsable() }
             assertThat(result.errorType).isEqualTo(ErrorType.COUPON_NOT_AVAILABLE)
         }
