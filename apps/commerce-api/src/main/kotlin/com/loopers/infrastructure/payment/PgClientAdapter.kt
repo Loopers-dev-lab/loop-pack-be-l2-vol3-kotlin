@@ -57,12 +57,12 @@ class PgClientAdapter(
 
     @Suppress("unused")
     fun requestPaymentFallback(request: PgPaymentRequest, throwable: Throwable): PgPaymentResponse {
-        log.warn("PG 결제 요청 fallback 실행. orderId={}, error={}", request.orderId, throwable.message)
+        log.warn("PG 결제 요청 fallback 실행. orderId={}", request.orderId, throwable)
         return PgPaymentResponse(
             success = false,
             transactionKey = null,
             status = null,
-            reason = "PG 시스템 연결 실패: ${throwable.message}",
+            reason = "PG 시스템이 일시적으로 응답하지 않습니다.",
         )
     }
 
@@ -87,8 +87,8 @@ class PgClientAdapter(
 
     @Suppress("unused")
     fun getTransactionStatusFallback(userId: String, transactionKey: String, throwable: Throwable): PgTransactionDetail {
-        log.warn("PG 거래 상태 조회 fallback. transactionKey={}, error={}", transactionKey, throwable.message)
-        throw CoreException(ErrorType.INTERNAL_ERROR, "PG 거래 상태 조회 실패: ${throwable.message}")
+        log.warn("PG 거래 상태 조회 fallback. transactionKey={}", transactionKey, throwable)
+        throw CoreException(ErrorType.INTERNAL_ERROR, "PG 거래 상태 조회에 실패했습니다.")
     }
 
     @CircuitBreaker(name = "pgQuery", fallbackMethod = "getTransactionsByOrderIdFallback")
@@ -113,8 +113,8 @@ class PgClientAdapter(
 
     @Suppress("unused")
     fun getTransactionsByOrderIdFallback(userId: String, orderId: String, throwable: Throwable): List<PgTransactionDetail> {
-        log.warn("PG orderId 조회 fallback. orderId={}, error={}", orderId, throwable.message)
-        return emptyList()
+        log.warn("PG orderId 조회 fallback. orderId={}", orderId, throwable)
+        throw CoreException(ErrorType.INTERNAL_ERROR, "PG orderId 조회에 실패했습니다.")
     }
 
     companion object {

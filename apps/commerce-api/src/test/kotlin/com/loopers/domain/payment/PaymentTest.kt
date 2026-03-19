@@ -185,6 +185,29 @@ class PaymentTest {
     }
 
     @Test
+    fun `본인의 결제에 대해 assertOwnedBy는 예외를 던지지 않아야 한다`() {
+        val payment = createPayment()
+
+        payment.assertOwnedBy(USER_ID)
+    }
+
+    @Test
+    fun `타인의 결제에 대해 assertOwnedBy는 PaymentException을 던져야 한다`() {
+        val payment = createPayment()
+
+        assertThatThrownBy { payment.assertOwnedBy(OTHER_USER_ID) }
+            .isInstanceOf(PaymentException::class.java)
+    }
+
+    @Test
+    fun `isOwnedBy는 본인이면 true를 반환해야 한다`() {
+        val payment = createPayment()
+
+        assertThat(payment.isOwnedBy(USER_ID)).isTrue()
+        assertThat(payment.isOwnedBy(OTHER_USER_ID)).isFalse()
+    }
+
+    @Test
     fun `reconstitute로 생성한 Payment는 persistenceId를 가져야 한다`() {
         val payment = Payment.reconstitute(
             persistenceId = 1L,
@@ -216,5 +239,6 @@ class PaymentTest {
         private const val AMOUNT = 50000L
         private const val TRANSACTION_KEY = "tx-abc-123"
         private const val FAIL_REASON = "잔액 부족"
+        private const val OTHER_USER_ID = 999L
     }
 }
