@@ -7,11 +7,13 @@ import com.loopers.infrastructure.pg.PgPaymentResponse
 import com.loopers.infrastructure.pg.PgTransactionDetailResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import feign.RetryableException
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.net.ConnectException
 import java.net.SocketTimeoutException
 
 @Component
@@ -27,9 +29,11 @@ class PgPaymentClient(
     }
 
     fun requestPaymentFallback(userId: String, request: PgPaymentRequest, t: Throwable): PgApiResponse<PgPaymentResponse> {
-        val failureType = when (t) {
-            is CallNotPermittedException -> "CIRCUIT_OPEN"
-            is SocketTimeoutException -> "TIMEOUT_EXHAUSTED"
+        val failureType = when {
+            t is CallNotPermittedException -> "CIRCUIT_OPEN"
+            t is RetryableException && t.cause is SocketTimeoutException -> "TIMEOUT_EXHAUSTED"
+            t is RetryableException && t.cause is ConnectException -> "CONNECTION_REFUSED"
+            t is RetryableException -> "RETRYABLE_EXHAUSTED"
             else -> "UNKNOWN"
         }
         log.warn("PG 결제 요청 fallback: type=$failureType, orderId=${request.orderId}", t)

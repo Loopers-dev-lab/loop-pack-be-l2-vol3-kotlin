@@ -39,6 +39,38 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+logging:
+  level:
+    io.github.resilience4j: DEBUG
+
+resilience4j:
+  circuitbreaker:
+    circuit-breaker-aspect-order: 1
+    instances:
+      pgCircuit:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 50
+        register-health-indicator: true
+  retry:
+    retry-aspect-order: 2
+    instances:
+      pgRetry:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - feign.RetryableException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+        fail-after-max-attempts: true
+
 ---
 spring:
   config:
@@ -86,35 +118,3 @@ management:
       enabled: true
   server:
     port: 8081
-
-logging:
-  level:
-    io.github.resilience4j: DEBUG
-
-resilience4j:
-  retry:
-    instances:
-      pgRetry:
-        max-attempts: 3
-        wait-duration: 500ms
-        exponential-backoff-multiplier: 2
-        retry-exceptions:
-          - java.net.SocketTimeoutException
-          - java.net.ConnectException
-        ignore-exceptions:
-          - com.loopers.support.error.CoreException
-          - feign.FeignException
-          - feign.FeignException
-        fail-after-max-attempts: true
-  circuitbreaker:
-    instances:
-      pgCircuit:
-        sliding-window-type: COUNT_BASED
-        sliding-window-size: 10
-        minimum-number-of-calls: 5
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3
-        slow-call-duration-threshold: 3s
-        slow-call-rate-threshold: 50
-        register-health-indicator: true
