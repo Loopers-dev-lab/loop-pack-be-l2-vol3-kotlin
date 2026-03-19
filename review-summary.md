@@ -1,226 +1,116 @@
-# PR #19 CodeRabbit 2차 리뷰 검토 결과
+# PR #21 Review Summary — 결제 시스템 통합
 
-> 3f646d8 커밋(1차 리뷰 반영) 이후 CodeRabbit 재리뷰 (2026-03-18)
-> Actionable 8건 + Nitpick 3건 = 총 11건
-
-## 카테고리 범례
-
-- **D**: 수정 필요 (actionable) → `plan.md` CP15-17에 반영
-- **E**: 트레이드오프/기각 → 사유 기술
+> 분석 일시: 2026-03-19
+> 리뷰어: Gemini Code Assist, CodeRabbit
+> 총 항목: 35건 (Gemini 4 + CodeRabbit 31)
 
 ---
 
-## D. 수정 필요 (8건)
+## 집계
 
-### D1. `.gitignore` `scripts/` 제거 [Actionable]
-- **파일**: `.gitignore:49`
-- **왜 나왔나**: `scripts/` 패턴이 트리 전체에서 scripts 디렉토리를 무시한다. 소스 코드 내부의 scripts 디렉토리까지 영향.
-- **수정 방향**: 라인 제거. 루트 scripts/는 이미 프로젝트에서 분리 완료.
-
-### D2. RecoverAllPaymentsUseCase: CoreException 외 예외 누락 [Actionable]
-- **파일**: `RecoverAllPaymentsUseCase.kt:25-29`
-- **왜 나왔나**: 1차 리뷰(A9)에서 Exception 전체 catch → CoreException만 catch로 좁혔는데, 네트워크/DB 예외 등으로 배치가 중단될 수 있다.
-- **수정 방향**: CoreException catch (log.warn) 유지 + Exception catch 추가 (log.error + 스택트레이스). 배치 중단 방지.
-
-### D3. RequestPaymentUseCase: CardType.valueOf 원본 예외 유실 [Actionable]
-- **파일**: `RequestPaymentUseCase.kt:52-56`
-- **왜 나왔나**: `IllegalArgumentException`을 잡아서 `CoreException`으로 래핑하지만 원본 예외가 cause로 체이닝되지 않아 디버깅 정보가 손실.
-- **수정 방향**: `.also { it.initCause(e) }` 추가
-
-### D4. PgClientImpl: PgResultStatus.SUCCESS 하드코딩 [Actionable]
-- **파일**: `PgClientImpl.kt:41-45`
-- **왜 나왔나**: PG 응답에 `meta.result`와 `data.status` 필드가 존재하지만, 현재 코드는 HTTP 200이면 무조건 SUCCESS를 반환. PG가 HTTP 200으로 실패를 반환할 수 있다.
-- **수정 방향**: `meta.result` 검사 + `data.transactionKey` 비어있으면 에러 처리
-
-### D5. HandlePaymentCallbackUseCase: 불필요한 Order 락 점유 [Nitpick]
-- **파일**: `HandlePaymentCallbackUseCase.kt:19-26`
-- **왜 나왔나**: `isProcessable` 검사 전에 Order 락을 획득하여, 이미 처리된 중복 콜백에서도 Order 트랜잭션이 대기한다.
-- **수정 방향**: `isProcessable` 검사를 Order 락 획득 전으로 이동
-
-### D6. PaymentEntity: (status, id) 복합 인덱스 누락 [Actionable]
-- **파일**: `PaymentRepositoryImpl.kt:54-58` → `PaymentEntity.kt`
-- **왜 나왔나**: `findByStatusIn`이 status 필터 + id 정렬을 사용하지만 복합 인덱스가 없어 풀 테이블 스캔 가능.
-- **수정 방향**: `@Table(indexes = [Index(...)])` 추가
-
-### D7. PaymentTest: 비표준 카드번호 형식 테스트 누락 [Nitpick]
-- **파일**: `PaymentTest.kt:38-51`
-- **왜 나왔나**: `maskCardNo`에 하이픈 없는 카드번호 폴백 로직(`"*".repeat(n) + last4`)이 있지만 테스트가 없다.
-- **수정 방향**: 하이픈 없는 카드번호 테스트 추가
-
-### D8. PgClientImpl fallback: 로깅 부실 [Actionable]
-- **파일**: `PgClientImpl.kt:60-62`
-- **왜 나왔나**: 상태 조회 실패 시 `e.message`만 기록하고 예외 타입/스택트레이스가 없어 장애 원인 분석 어려움.
-- **수정 방향**: 예외 타입 명시 + 스택트레이스 포함 로깅 (TIMEOUT 기본값은 유지)
+| 분류 | 건수 | 비율 |
+|------|------|------|
+| AGREE (수정 필요) | 9건 | 26% |
+| TRADEOFF (판단 필요) | 13건 | 37% |
+| DISMISS (불필요/기처리) | 13건 | 37% |
 
 ---
 
-## E. 트레이드오프 / 기각 (3건)
+## AGREE — 수정 필요 (9건)
 
-### E1. `setScale(0, UNNECESSARY)` → `HALF_UP` 변경 제안 [기각]
-- **파일**: `RequestPaymentUseCase.kt:61`
-- **리뷰 요지**: `UNNECESSARY`는 소수점이 있으면 ArithmeticException을 던진다. `HALF_UP`으로 안전하게 반올림하라.
-- **프로젝트 판단**: **1차 리뷰(A1)에서 우리가 의도적으로 선택한 안전장치.** `BigDecimal.toLong()` 정밀도 손실 → `setScale(0, UNNECESSARY).toLong()`으로 수정한 것. KRW는 소수점 단위가 없으므로, totalPrice에 소수점이 있다면 상류 버그다. `HALF_UP`은 버그를 조용히 숨긴다. 코드에 의도 주석을 추가하여 향후 리뷰에서 같은 제안이 반복되지 않도록 한다.
+대부분 **테스트 보강** + **코드 품질 개선**. 리스크 낮음.
 
-### E2. RecoverAllPaymentsUseCase: BATCH_SIZE 루프 처리 제안 [부분 수용]
-- **파일**: `RecoverAllPaymentsUseCase.kt:20-22`
-- **리뷰 요지**: 고정 50건이면 대량 적체 시 처리 지연. 루프로 전부 처리하거나 설정 가능하게.
-- **프로젝트 판단**: 루프는 장시간 실행·OOM·스케줄러 스레드 블로킹 위험. 고정 배치 + 주기적 스케줄러가 더 안전한 회복탄력성 패턴. **BATCH_SIZE를 `@Value`로 설정 가능하게** 만드는 것만 수용.
-
-### E3. PgClientImpl fallback: catch-all 예외 세분화 제안 [부분 수용]
-- **파일**: `PgClientImpl.kt:56-63`
-- **리뷰 요지**: 모든 예외를 TIMEOUT으로 처리하면 4xx(FAILED)와 I/O 오류를 구분하지 못한다. 예외별 분기 필요.
-- **프로젝트 판단**: 이중 fallback(PG 호출 실패 → 상태 조회도 실패)에서 예외를 전파하면 결제가 미정의 상태에 빠진다. TIMEOUT은 "모르겠으니 recovery scheduler가 재확인"이라는 **가장 안전한 기본값.** 로깅 개선만 수용.
-
----
-
-# PR #20 CodeRabbit/Gemini 리뷰 검토 결과
-
-> PR #20 초회 리뷰 (2026-03-18)
-> CodeRabbit 32건 (Critical 5 + Major 24 + Minor 3) + Gemini 2건 = 총 34건
-
-## 카테고리 범례
-- **F**: 수정 필요 → `plan.md` CP18-22에 반영
-- **G**: 트레이드오프/기각
-- **H**: 기결정 (docs/review-decisions.md 참조)
-- **I**: 범위 밖 / .json 제외
+| # | 파일 | 요약 | 근거 |
+|---|------|------|------|
+| CR-5 | `OrderTest.kt:324-349` | CREATED→markFailed 실패 케이스 테스트 누락 | 잘못된 상태 전이 방지 회귀 감지에 필요 |
+| CR-6 | `OrderTest.kt:253-322` | markPaid/markFailed 멱등성 테스트 누락 | 멱등성 로직이 구현돼 있으나 검증 테스트 없음 |
+| CR-10 | `FakePaymentPgProcessor.kt:19-22` | Fake 마스킹이 도메인 마스킹과 불일치 | Payment.maskCardNo 변경 시 테스트 격차 유발. raw 기록 또는 도메인 유틸 호출로 통일 필요 |
+| CR-14 | `PgPaymentResult.kt:8-12` | require 이중 부정 가독성 개선 | `status != SUCCESS \|\| !isNullOrBlank` → `if (SUCCESS) require(!isNullOrBlank)` 변환으로 의도 명확화 |
+| CR-22 | `GetOrderUseCase.kt:31` | PaymentRepository 파라미터 Long→OrderId 불일치 | OrderRepository/OrderItemRepository는 OrderId 사용, PaymentRepository만 Long. 도메인 타입 일관성 확보 필요 |
+| CR-24 | `HandlePaymentCallbackUseCaseTest.kt:147-168` | Order NOT_FOUND, transactionKey 불일치 테스트 누락 | UseCase에 Order 미존재 예외 경로 있으나 테스트 없음 |
+| CR-25 | `HandlePaymentCallbackUseCaseTest.kt:122-144` | 멱등성 테스트가 비현실적 상태 조합 | Payment=SUCCESS + Order=PENDING_PAYMENT는 운영에서 발생 불가. Payment=SUCCESS + Order=PAID가 현실적 |
+| CR-28 | `RecoverPaymentUseCaseTest.kt:155-156` | `!!` → `requireNotNull`로 테스트 실패 메시지 개선 | 8곳에서 !! 사용. NPE 대신 의미 있는 실패 메시지 제공 |
+| CR-30 | `RequestPaymentUseCaseTest.kt:93-198` | 실패 시나리오에서 부작용(PG 호출, 상태 변경) 미검증 | 예외만 확인하고 PG 미호출/상태 미변경 검증 없음. 중복 과금 회귀 방지에 유효 |
 
 ---
 
-## F. 수정 필요 (19건)
+## TRADEOFF — 판단 필요 (13건)
 
-### F1. 락 순서 불일치 — 교착 상태 위험 [CodeRabbit · Critical]
-- **파일**: `RequestPaymentUseCase` vs `HandlePaymentCallbackUseCase`/`RecoverPaymentUseCase`/`PaymentPgProcessor`
-- **왜 나왔나**: RequestPaymentUseCase만 Order→Payment 순서, 나머지 3곳은 Payment→Order. 재결제+콜백 동시 발생 시 교착 가능.
-- **수정 방향**: RequestPaymentUseCase를 Payment→Order 순서로 통일
+4개 그룹으로 분류. **그룹 단위로 수용/기각 판단 권장.**
 
-### F2. OrderRepositoryImpl 비관적 락 타임아웃 없음 [CodeRabbit · Major]
-- **파일**: `OrderRepositoryImpl.kt:27-28`
-- **왜 나왔나**: PaymentJpaRepository는 3초 타임아웃 설정. OrderJpaRepository는 무제한 대기.
-- **수정 방향**: `@QueryHints` 타임아웃 3초 추가
+### 그룹 1: 카드번호 보안 방어 (CR-15, CR-18, CR-21)
 
-### F3. PgStatusQueryClient firstOrNull() [CodeRabbit · Major]
-- **파일**: `PgStatusQueryClient.kt:21-39`
-- **왜 나왔나**: 복수 transaction 응답 시 첫 번째(오래된 것)를 선택해 잘못된 복구 가능.
-- **수정 방향**: 최신(마지막) transaction 선택
+현재 직렬화 경로는 없으나, `data class copy()`나 구조적 로깅(Jackson)으로 cardNo가 노출될 이론적 가능성.
 
-### F4. 예외 메시지에 raw transactionKey [CodeRabbit · Major]
-- **파일**: `HandlePaymentCallbackUseCase.kt:29-33`
-- **왜 나왔나**: ControllerAdvice 응답/로그에 PG 식별자 노출.
-- **수정 방향**: orderId 중심 메시지로 변경, transactionKey 마스킹
+| # | 파일 | 요약 | 근거 |
+|---|------|------|------|
+| CR-15 | `PgFeignClient.kt:39-49` | data class copy()로 cardNo 노출 가능성 | 인프라 내부 DTO로 외부 직렬화 경로 없음. 방어적 프로그래밍 관점 유효하나 현재 위험 낮음 |
+| CR-18 | `PgPaymentRequest.kt:5-13` | 카드번호 @JsonIgnore 추가 | 도메인 내부 객체, HTTP 응답 경로 없음. 구조적 로깅(Jackson) 시 노출 가능성은 이론적 |
+| CR-21 | `PaymentCommand.kt:4-12` | Command 객체 cardNo Jackson 직렬화 노출 | Application 내부 커맨드, 직렬화 경로 없음. #15, #18과 동일 패턴 |
 
-### F5. afterCommit 스택 트레이스 누락 [CodeRabbit · Minor]
-- **파일**: `RecoverPaymentUseCase.kt:75-77`
-- **왜 나왔나**: catch에서 e.message만 로깅, 스택 트레이스 없어 디버깅 어려움.
-- **수정 방향**: log.warn에 예외 객체(e) 추가
+> **판단 포인트**: 현재 위험 제로 vs 미래 방어. 수용 시 3곳에 `@JsonIgnore` 또는 `@get:JsonIgnore` 추가.
+>
+> **결정**: [x] 기각 → RD-016 기록
 
-### F6. resilience4j 버전 미고정 [CodeRabbit · Major]
-- **파일**: `build.gradle.kts:24-30`
-- **왜 나왔나**: Spring BOM에 미포함, floating version 위험.
-- **수정 방향**: 명시적 버전 고정
+### 그룹 2: 로깅/모니터링 강화 (CR-1, CR-17, CR-27, G-T0)
 
-### F7. PgPaymentRequest toString 민감정보 [CodeRabbit · Major]
-- **파일**: `PgPaymentRequest.kt:5-10`
-- **왜 나왔나**: data class 기본 toString에 cardNo 원문 포함.
-- **수정 방향**: toString() override, cardNo 마스킹
+실 PG 연동 시 일괄 처리 가능한 운영 편의성 개선.
 
-### F8. PaymentDto cardType 문자열 검증 [CodeRabbit · Major]
-- **파일**: `PaymentDto.kt:9-15`
-- **왜 나왔나**: 임의 문자열이 통과, enum 변환 실패 시 500.
-- **수정 방향**: enum 직접 사용 또는 validator 추가
+| # | 파일 | 요약 | 근거 |
+|---|------|------|------|
+| CR-1 | `RedisCleanUp.kt:11-18` | catch 블록에 error 로그 추가 | testFixtures 코드라 운영 영향 없음. 테스트 인프라 디버깅 시 유용하나 우선순위 낮음 |
+| CR-17 | `application.yml:33-35` | Feign 로거 레벨 환경별 분리 | 프로필별 분리 합리적이나 시뮬레이터 환경에서 우선순위 낮음 |
+| CR-27 | `PgStatusQueryClient.kt:21-32` | 다중 null 반환 경로 구분 불가 | 경로별 로그 추가로 디버깅 개선 가능. RD-012(예외 세분화)와 같은 맥락 |
+| G-T0 | `build.gradle.kts` | Resilience4j 버전을 Version Catalogs로 중앙 관리 | 현재 project.properties로 일부 중앙화. Version Catalogs는 chore 수준 |
 
-### F9. idempotencyKey nullable [CodeRabbit · Major]
-- **파일**: `PgFeignPaymentRequest.kt:39-45`
-- **왜 나왔나**: 타입이 `String?`이라 null 전달 가능, 중복 결제 위험.
-- **수정 방향**: `String` non-null로 변경
+> **판단 포인트**: 시뮬레이터 단계에서 운영 로깅 투자 가치가 있는가?
+>
+> **결정**: [x] 기각 → RD-017 기록
 
-### F10. limit 파라미터 검증 [CodeRabbit · Major]
-- **파일**: `PaymentRepositoryImpl.kt:54-56`
-- **왜 나왔나**: 0 이하/과대값 방어 없음.
-- **수정 방향**: 범위 검증 (1~500 상한)
+### 그룹 3: 도메인 모델 일관성 (CR-7, CR-20, G-T2)
 
-### F11. pre-tool-guard.sh git -C 버그 [CodeRabbit · Major]
-- **파일**: `.claude/hooks/pre-tool-guard.sh:12-15`
-- **왜 나왔나**: `git -C <.git경로>`는 동작하지 않음. `git --git-dir`을 사용해야.
-- **수정 방향**: `git -C` → `git --git-dir` 수정
+도메인 설계 관점의 일관성/명확성 개선.
 
-### F12. FakePaymentPgProcessor 카드번호 [CodeRabbit · Major]
-- **파일**: `FakePaymentPgProcessor.kt:4-15`
-- **왜 나왔나**: 테스트 더블에 카드번호 원문 저장, 로그 노출 위험.
-- **수정 방향**: 마스킹 형태로 저장
+| # | 파일 | 요약 | 근거 |
+|---|------|------|------|
+| CR-7 | `Order.kt:48-53` | markPendingPayment 멱등성 미처리 | markPaid/markFailed는 멱등인데 markPendingPayment만 예외 발생. "PENDING 재요청은 버그 신호" vs 일관성 |
+| CR-20 | `OrderInfo.kt:15-16` | paymentStatus String?→enum 타입 안정성 | Application DTO에서 String 사용은 Interfaces 계층과의 유연한 매핑 의도. enum 전환 시 매핑 복잡도 증가 |
+| G-T2 | `RecoverAllPaymentsUseCase.kt` | recoveredCount 반환값 의미 모호 (시도 수 vs 성공 수) | 로그에서는 구분하고 있어 운영 관점 문제 없음. 호출자가 관리자 API 1곳 |
 
-### F13. recoveredCount 과대 집계 [CodeRabbit · Major]
-- **파일**: `RecoverAllPaymentsUseCase.kt:19-32`
-- **왜 나왔나**: `execute()`가 true면 상태 전이 없어도 카운트 증가.
-- **수정 방향**: attempted/recovered 분리
+> **판단 포인트**: 현재 동작에 문제 없으나 코드 의도 명확화 관점
+>
+> **결정**: [x] 수용 → CP23, CP24에 반영
 
-### F14. FakePaymentRepository 참조 공유 [CodeRabbit · Major]
-- **파일**: `FakePaymentRepository.kt:12-33`
-- **왜 나왔나**: save() 후 원본과 저장소가 같은 참조 → 거짓 양성.
-- **수정 방향**: copy-on-save 구현
+### 그룹 4: 테스트 확장 (CR-9, CR-19, CR-31)
 
-### F15. RequestPaymentUseCaseTest PG 호출 미검증 [CodeRabbit · Major]
-- **파일**: `RequestPaymentUseCaseTest.kt:64-87`
-- **왜 나왔나**: PG 프로세서 호출 여부/인자를 검증하지 않음.
-- **수정 방향**: 호출 횟수/인자 단언 추가
+현재 scope 밖이거나 추가 검토가 필요한 테스트 관련 항목.
 
-### F16. 실패 사유 전파 미검증 [CodeRabbit · Minor]
-- **파일**: `HandlePaymentCallbackUseCaseTest.kt:92-114`
-- **왜 나왔나**: reason 입력 후 저장 결과에서 상태만 확인, reason 미검증.
-- **수정 방향**: reason 단언 추가
+| # | 파일 | 요약 | 근거 |
+|---|------|------|------|
+| CR-9 | `PgStatusQueryClient.kt:15-16` | @CircuitBreaker fallbackMethod 미정의 | CallNotPermittedException 전파 경로 검토 필요. RecoverPaymentUseCase의 try-catch가 현재 보호 |
+| CR-19 | `GetOrderUseCaseTest.kt:123-180` | REQUESTED/TIMEOUT 중간 상태 테스트 추가 | 테스트 커버리지 확장은 유효하나 현재 scope 외. 복구 스케줄러 테스트에서 간접 검증됨 |
+| CR-31 | `PaymentFlowIntegrationTest.kt:112-126` | afterCommit payload를 버리고 하드코딩 값으로 재호출 | 계약 불일치를 숨길 수 있으나, 현재 통합 테스트의 의도(단계별 검증)와 Fake 구조 고려 필요 |
 
-### F17. PaymentFlowIntegrationTest after-commit 우회 [CodeRabbit · Major]
-- **파일**: `PaymentFlowIntegrationTest.kt:52-56`
-- **왜 나왔나**: afterCommit 실행 경로가 검증되지 않음.
-- **수정 방향**: after-commit 실행 검증 추가
-
-### F18. benchmarkTest 태스크 미등록 [CodeRabbit · Major]
-- **파일**: `build.gradle.kts:5-9`
-- **왜 나왔나**: @Tag("benchmark") 테스트가 제외만 되고 별도 실행 경로 없음.
-- **수정 방향**: benchmarkTest 태스크 등록
-
-### F19. RedisCleanUp flushDb 예외 [CodeRabbit · Minor]
-- **파일**: `RedisCleanUp.kt:10-12`
-- **왜 나왔나**: Redis 정리 실패 시 후속 테스트 격리 불가.
-- **수정 방향**: 예외 처리 + 로깅
+> **판단 포인트**: 현재 라운드 scope에 포함할 것인가?
+>
+> **결정**: [x] 수용 → CP27에 반영
 
 ---
 
-## G. 트레이드오프 / 기각 (4건)
+## DISMISS — 불필요/기처리 (13건)
 
-### G1. PG 호출 예외 시 상태 전이 없음 [기각 — 의도적 설계]
-- **리뷰 요지**: pgClient.requestPayment() 예외 시 Payment가 REQUESTED에 남아 미복구
-- **프로젝트 판단**: afterCommit 설계의 의도적 트레이드오프. Resilience4j fallback이 TIMEOUT을 반환하고, recovery scheduler가 REQUESTED/TIMEOUT을 주기적으로 픽업. 동기 PG 호출은 DB 트랜잭션 내 외부 I/O 유발로 더 위험.
-
-### G2. after-commit 예외 삼킴 → REQUESTED 고착 [기각 — G1과 동일]
-- **프로젝트 판단**: 사용자에게 "결제 진행 중" 응답 후 비동기 처리. recovery scheduler가 안전망.
-
-### G3. afterCommit 무한 재시도 (retryCount/backoff 없음) [기각 — 현 단계]
-- **리뷰 요지**: 60초마다 무한 재시도, PG 장시간 장애 시 플러딩
-- **프로젝트 판단**: retryCount 도입은 Payment 도메인 모델 변경(필드 추가) 필요한 scope 확대. 단일 인스턴스+시뮬레이터 환경에서 premature. 실 PG 연동 시 구현.
-
-### G4. 중복 SUCCESS 콜백 테스트 기대값 [기각 — 의도적 설계]
-- **리뷰 요지**: payment=SUCCESS + order=PENDING 불일치 상태에서 콜백이 Order를 PAID로 복구해야
-- **프로젝트 판단**: 비정상 상태의 자동 보정은 예상치 못한 상태 변경 유발. 별도 보정 API/배치로 처리하는 것이 안전.
-
----
-
-## H. 기결정 반복 (6건)
-
-| # | 항목 | 기존 결정 |
-|---|------|----------|
-| 1 | 콜백 인증 없음 (Controller) | RD-003 |
-| 2 | 콜백 무인증 (seed 문서) | RD-003 |
-| 3 | Feign 타임아웃 환경별 | RD-005 |
-| 4 | PG URL localhost 기본값 | RD-004 |
-| 5 | IOException retry | RD-009 |
-| 6 | Hook 상대경로 | RD-002 |
-
-## I. 범위 밖 (5건)
-
-| # | 항목 | 사유 |
-|---|------|------|
-| 1 | seed WHERE 조건 | 요구사항 문서, 코드는 JPA 메서드 쿼리 |
-| 2 | seed Fallback 분기 | 요구사항 문서, 이미 구현 완료 |
-| 3 | design/03 다이어그램 | docs/design/ 읽기 금지 |
-| 4 | design/04 인덱스 | docs/design/ 읽기 금지 |
-| 5 | config.json 민감 패턴 | .json 파일 CodeRabbit 리뷰 제외 |
+| # | 리뷰어 | 파일 | 요약 | 사유 |
+|---|--------|------|------|------|
+| CR-2 | CodeRabbit | `pre-tool-guard.sh:9` | sed 공백 경로 처리 | RD-002 참조 |
+| CR-3 | CodeRabbit | `.claude/config.json:29-32` | bin/out/ 패턴 추가 | 프로젝트에서 미사용 |
+| CR-4 | CodeRabbit | `.claude/config.json:33-37` | 타임아웃 키에 단위 명시 | JSON 주석은 비표준 |
+| CR-8 | CodeRabbit | `application.yml:42-45` | localhost HTTPS 강제 | RD-004 참조 |
+| CR-11 | CodeRabbit | `DeleteProductUseCaseTest.kt:56-57` | 2줄 중복 헬퍼 추출 | 과잉 추상화 (행동원칙 §4) |
+| CR-12 | CodeRabbit | `pre-tool-guard.sh:2` | set -e 미사용 | 의도적 설계 |
+| CR-13 | CodeRabbit | `.claude/config.json:24` | *secret* 패턴 명시성 | 실질적 오탐 없음 |
+| CR-16 | CodeRabbit | `PaymentStatus.kt:3-8` | 상태 전이 규칙 enum에 명시 | 도메인 모델이 이미 관리 |
+| CR-23 | CodeRabbit | `PaymentCallbackController.kt:21-34` | 콜백 HMAC/IP 보안 | RD-003 참조 |
+| CR-26 | CodeRabbit | `PaymentTest.kt:38-64` | 마스킹 엣지 케이스 | Controller 검증으로 보장 |
+| CR-29 | CodeRabbit | `round6-seed.yaml:41` | Resilience 임계값 외부화 | application.yml로 이미 완료 |
+| G-T1 | Gemini | `HandlePaymentCallbackUseCase.kt` | 락 전 사전 체크 | TOCTOU 문제로 오히려 위험 |
+| G-T3 | Gemini | `FakePaymentPgProcessor.kt` | Fake 마스킹 불일치 | 테스트 대역 목적상 불필요 |

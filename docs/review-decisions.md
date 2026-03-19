@@ -124,3 +124,19 @@
 - **최종 결정**: 기각 (의도적 설계)
 - **근거**: payment=SUCCESS + order=PENDING 비정상 상태의 자동 보정은 예상치 못한 상태 변경 유발. 별도 보정 API/배치로 처리하는 것이 안전.
 - **최종 업데이트**: 2026-03-18
+
+## RD-016. 카드번호 @JsonIgnore 방어적 직렬화 차단
+- **keywords**: `cardNo`, `@JsonIgnore`, `data class copy`, `직렬화`, `민감정보`
+- **리뷰어**: CodeRabbit (CR-15, CR-18, CR-21)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현재 위험 없음)
+- **근거**: PgFeignClient DTO, PgPaymentRequest, PaymentCommand 모두 인프라/Application 내부 객체로 HTTP 응답 직렬화 경로가 없다. data class copy()나 구조적 로깅(Jackson)으로의 노출은 이론적 가능성일 뿐 현재 코드에서 해당 경로가 존재하지 않음. 민감정보 보호는 CP20에서 마스킹으로 처리 완료.
+- **최종 업데이트**: 2026-03-19
+
+## RD-017. 로깅/모니터링 강화 및 Version Catalogs 전환
+- **keywords**: `로깅`, `Feign 로거`, `Version Catalogs`, `null 경로`, `RedisCleanUp`
+- **리뷰어**: CodeRabbit (CR-1, CR-17, CR-27), Gemini (G-T0)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (시뮬레이터 단계 과잉)
+- **근거**: RedisCleanUp은 testFixtures 코드로 운영 영향 없음. Feign 로거 환경별 분리와 PgStatusQueryClient null 경로 로깅은 실 PG 연동 시 일괄 처리가 합리적. Version Catalogs 전환은 chore 수준으로 현재 project.properties 방식에 기능적 문제 없음.
+- **최종 업데이트**: 2026-03-19

@@ -43,8 +43,8 @@ fetch → analyze → plan
 | 페이즈 | 산출물 |
 |--------|--------|
 | fetch | 리뷰 데이터 (메모리에 보관, 다음 페이즈로 전달) |
-| analyze | 사용자에게 분류 결과 보고 (AGREE / TRADEOFF / DISMISS) |
-| plan | `plan.md` 업데이트 + `review-summary.md` 작성/갱신 + `docs/review-decisions.md` 갱신 |
+| analyze | `review-summary.md` 작성/갱신 + 사용자에게 분류 결과 보고 (AGREE / TRADEOFF / DISMISS) |
+| plan | `plan.md` 업데이트 + `docs/review-decisions.md` 갱신 |
 
 ## 참조 파일
 
