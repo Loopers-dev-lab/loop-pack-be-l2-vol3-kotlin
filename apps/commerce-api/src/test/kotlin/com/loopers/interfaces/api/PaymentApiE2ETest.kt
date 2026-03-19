@@ -7,7 +7,7 @@ import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.domain.payment.PaymentGatewayTransactionDetail
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.payment.PaymentStatus
-import com.loopers.domain.user.UserRepository
+
 import com.loopers.interfaces.api.user.UserDto
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
@@ -35,7 +35,6 @@ import java.time.LocalDate
 class PaymentApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val paymentRepository: PaymentRepository,
-    private val userRepository: UserRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -100,6 +99,21 @@ class PaymentApiE2ETest @Autowired constructor(
         val cardNo: String,
         val amount: Long,
     )
+
+    private fun createPendingPayment(
+        orderId: String = "ORDER-001",
+        transactionKey: String = "txn-key-12345",
+    ): Payment {
+        val payment = Payment(
+            userId = 1L,
+            orderId = orderId,
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9012-3456",
+            amount = 50000L,
+        )
+        payment.markPending(transactionKey)
+        return paymentRepository.save(payment)
+    }
 
     @DisplayName("POST /api/v1/payments")
     @Nested
@@ -247,19 +261,11 @@ class PaymentApiE2ETest @Autowired constructor(
     @Nested
     inner class PaymentCallback {
 
-        @DisplayName("유효한 콜백 요청이면, 200 OK를 반환한다.")
+        @DisplayName("SUCCESS 콜백이면, 결제 상태가 SUCCESS로 변경된다.")
         @Test
-        fun returnsOk_whenValidCallback() {
+        fun updatesStatusToSuccess_whenSuccessCallback() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
-            payment.markPending("txn-key-12345")
-            paymentRepository.save(payment)
+            createPendingPayment()
 
             val callbackRequest = mapOf(
                 "transactionKey" to "txn-key-12345",
@@ -281,6 +287,67 @@ class PaymentApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val saved = paymentRepository.findByTransactionKey("txn-key-12345")
+            assertThat(saved?.status).isEqualTo(PaymentStatus.SUCCESS)
+        }
+
+        @DisplayName("FAILED 콜백이면, 결제 상태가 FAILED로 변경되고 사유가 저장된다.")
+        @Test
+        fun updatesStatusToFailed_whenFailedCallback() {
+            // arrange
+            createPendingPayment()
+
+            val callbackRequest = mapOf(
+                "transactionKey" to "txn-key-12345",
+                "orderId" to "ORDER-001",
+                "status" to "FAILED",
+                "reason" to "한도 초과",
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$PAYMENT_ENDPOINT/callback",
+                HttpMethod.POST,
+                HttpEntity(callbackRequest, headers),
+                PAYMENT_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val saved = paymentRepository.findByTransactionKey("txn-key-12345")
+            assertAll(
+                { assertThat(saved?.status).isEqualTo(PaymentStatus.FAILED) },
+                { assertThat(saved?.failReason).isEqualTo("한도 초과") },
+            )
+        }
+
+        @DisplayName("존재하지 않는 transactionKey이면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun returnsNotFound_whenTransactionKeyNotExists() {
+            // arrange
+            val callbackRequest = mapOf(
+                "transactionKey" to "non-existent-key",
+                "orderId" to "ORDER-001",
+                "status" to "SUCCESS",
+                "reason" to null,
+            )
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$PAYMENT_ENDPOINT/callback",
+                HttpMethod.POST,
+                HttpEntity(callbackRequest, headers),
+                PAYMENT_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         }
     }
 
@@ -293,15 +360,7 @@ class PaymentApiE2ETest @Autowired constructor(
         fun returnsUpdatedPayments_afterPgSync() {
             // arrange
             signUp()
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
-            payment.markPending("txn-key-123")
-            paymentRepository.save(payment)
+            createPendingPayment(transactionKey = "txn-key-123")
 
             whenever(paymentGateway.getTransactionStatus(any(), any())).thenReturn(
                 PaymentGatewayTransactionDetail(
@@ -325,6 +384,32 @@ class PaymentApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data).isNotNull },
             )
+        }
+
+        @DisplayName("PG가 응답하지 못하면, 현재 상태를 그대로 반환한다.")
+        @Test
+        fun returnsCurrentStatus_whenPgIsUnavailable() {
+            // arrange
+            signUp()
+            createPendingPayment(transactionKey = "txn-key-123")
+
+            whenever(paymentGateway.getTransactionStatus(any(), any())).thenReturn(null)
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$PAYMENT_ENDPOINT/ORDER-001/sync",
+                HttpMethod.GET,
+                HttpEntity<Void>(authHeaders()),
+                PAYMENT_LIST_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).isNotNull },
+            )
+            val saved = paymentRepository.findByTransactionKey("txn-key-123")
+            assertThat(saved?.status).isEqualTo(PaymentStatus.PENDING)
         }
 
         @DisplayName("로그인하지 않으면, 401 UNAUTHORIZED를 반환한다.")
