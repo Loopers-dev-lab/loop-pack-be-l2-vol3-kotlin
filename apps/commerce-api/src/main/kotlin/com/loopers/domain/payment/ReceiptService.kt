@@ -71,6 +71,5 @@ class ReceiptService(
                 "알 수 없는 결제 상태: ${command.status}",
             )
         }
-        // JPA의 변경 감지에 의해 자동으로 UPDATE됨
     }
 }

@@ -38,7 +38,7 @@ class ReceiptTimeoutHandler(
 
             pendingReceipts.forEach { receipt ->
                 try {
-                    receipt.markAsFailed()
+                    receipt.markAsTimeout()
                     receiptService.save(receipt)
                     log.warn(
                         "Receipt timeout: receiptId={}, orderId={}, transactionId={}",
@@ -48,7 +48,7 @@ class ReceiptTimeoutHandler(
                     )
                 } catch (e: Exception) {
                     log.error(
-                        "Failed to mark receipt as failed: receiptId={}, orderId={}",
+                        "Failed to mark receipt as timeout: receiptId={}, orderId={}",
                         receipt.id,
                         receipt.orderId,
                         e,

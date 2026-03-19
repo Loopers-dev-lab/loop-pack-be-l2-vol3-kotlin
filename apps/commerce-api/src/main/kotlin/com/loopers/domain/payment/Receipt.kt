@@ -55,6 +55,13 @@ class Receipt protected constructor(
         this.status = ReceiptStatus.CANCELLED
     }
 
+    fun markAsTimeout() {
+        if (status !in listOf(ReceiptStatus.INITIATED, ReceiptStatus.PENDING)) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
+        }
+        this.status = ReceiptStatus.TIMEOUT
+    }
+
     companion object {
         fun create(
             orderId: Long,

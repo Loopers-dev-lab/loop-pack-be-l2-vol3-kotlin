@@ -1,4 +1,4 @@
-package com.loopers.infrastructure.payment.pg
+package com.loopers.domain.payment
 
 import java.math.BigDecimal
 
@@ -39,9 +39,12 @@ interface PgPaymentGateway {
      * PG 결제 요청 결과
      */
     data class PaymentRequestResult(
-        val requestId: String,
-        val transactionId: String,
-        val status: String,
-        val signature: String,
+        val transactionKey: String,
+        val orderId: String,
+        val cardType: Any,
+        val cardNo: String,
+        val amount: Long,
+        val status: Any,
+        val reason: String?,
     )
 }

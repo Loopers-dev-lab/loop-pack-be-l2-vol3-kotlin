@@ -2,9 +2,10 @@ package com.loopers.application.api.payment
 
 import com.loopers.application.api.payment.dto.PaymentCallbackCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.payment.PgPaymentGateway
 import com.loopers.domain.payment.ReceiptService
+import com.loopers.domain.payment.ReceiptStatus
 import com.loopers.domain.payment.dto.ReceiptInfo
-import com.loopers.infrastructure.payment.pg.PgPaymentGateway
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
@@ -39,22 +40,28 @@ class PaymentFacade(
         cardNo: String,
     ): ReceiptInfo {
         val callbackUrl = "http://localhost:8080/api/v1/payments/callback"
-        log.info("Requesting payment: userId={}, orderId={}, cardType={}", userId, orderId, cardType)
 
-        // (1) PENDING 상태의 주문을 행 락으로 조회
         val order = orderService.getOrderByIdForUpdateWithPending(userId, orderId)
 
-        // (2) 이미 결제가 존재하는지 확인
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
-            throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 존재합니다")
+            when (existingReceipt.status) {
+                ReceiptStatus.INITIATED, ReceiptStatus.PENDING -> {
+                    throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
+                }
+                ReceiptStatus.COMPLETED -> {
+                    throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 완료되었습니다")
+                }
+                ReceiptStatus.CANCELLED -> {
+                    throw CoreException(ErrorType.CONFLICT, "이미 취소된 결제입니다")
+                }
+                ReceiptStatus.TIMEOUT, ReceiptStatus.FAILED -> {}
+            }
         }
 
         val transactionId = generateTransactionId(orderId)
-
-        // (3) PG로 결제 요청 (아직 Receipt 저장하지 않음)
-        try {
-            val pgResult = pgPaymentGateway.requestPayment(
+        val pgResult = try {
+            pgPaymentGateway.requestPayment(
                 userId = userId,
                 transactionId = transactionId,
                 orderId = orderId,
@@ -63,16 +70,14 @@ class PaymentFacade(
                 cardNo = cardNo,
                 callbackUrl = callbackUrl,
             )
-            log.info("PG payment request successful: requestId={}, status={}", pgResult.requestId, pgResult.status)
         } catch (e: Exception) {
-            log.error("PG payment request failed: transactionId={}, orderId={}", transactionId, orderId, e)
+            log.error("PG payment request failed", e)
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다")
         }
 
-        // (4) PG 요청 성공 후 Receipt을 INITIATED로 저장
         val receipt = receiptService.initiateReceipt(
             orderId = orderId,
-            transactionId = transactionId,
+            transactionId = pgResult.transactionKey,
             amount = order.getTotalPrice(),
             cardType = cardType,
             cardNo = cardNo,
@@ -80,8 +85,6 @@ class PaymentFacade(
 
         // (5) Receipt 상태를 PENDING으로 변경 (콜백 대기)
         receiptService.markAsPending(receipt.id)
-
-        log.info("Payment initiated: paymentId={}, orderId={}, amount={}", receipt.id, orderId, order.getTotalPrice())
 
         return ReceiptInfo.from(receipt)
     }

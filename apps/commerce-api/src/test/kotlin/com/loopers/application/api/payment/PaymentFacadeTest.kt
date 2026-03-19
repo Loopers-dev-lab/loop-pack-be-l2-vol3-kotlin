@@ -3,8 +3,8 @@ package com.loopers.application.api.payment
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.order.OrderStatus
+import com.loopers.domain.payment.PgPaymentGateway
 import com.loopers.domain.payment.ReceiptService
-import com.loopers.infrastructure.payment.pg.PgPaymentGateway
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -44,10 +44,13 @@ class PaymentFacadeTest {
         every { receiptService.initiateReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } returns testReceipt
         every { receiptService.markAsPending(any()) } returns Unit
         every { pgPaymentGateway.requestPayment(any(), any(), any(), any(), any(), any(), any()) } returns PgPaymentGateway.PaymentRequestResult(
-            requestId = "REQ_123",
-            transactionId = "TXN_123_100",
+            transactionKey = "TXN_123_100",
+            orderId = "100",
+            cardType = "SAMSUNG",
+            cardNo = "1234-5678-9814-1451",
+            amount = 10000L,
             status = "COMPLETED",
-            signature = "sig_123",
+            reason = null,
         )
 
         // when & then

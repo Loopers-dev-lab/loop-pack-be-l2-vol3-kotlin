@@ -38,3 +38,20 @@ management:
     key-values:
       application:
         ${spring.application.name}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      pg-payment:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+  retry:
+    instances:
+      pg-payment:
+        maxAttempts: 3
+        waitDuration: 1000
