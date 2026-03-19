@@ -1,0 +1,285 @@
+{
+  "title": "Resilience4j - Payment PG",
+  "uid": "resilience4j-pg",
+  "timezone": "Asia/Seoul",
+  "refresh": "5s",
+  "time": { "from": "now-5m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "CircuitBreaker State (pg-request)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"pg-request\", state=\"closed\"} * 0 + resilience4j_circuitbreaker_state{name=\"pg-request\", state=\"open\"} * 1 + resilience4j_circuitbreaker_state{name=\"pg-request\", state=\"half_open\"} * 2",
+          "legendFormat": "state"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "CLOSED", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "OPEN", "color": "red" } } },
+            { "type": "value", "options": { "2": { "text": "HALF_OPEN", "color": "yellow" } } }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 },
+              { "color": "yellow", "value": 2 }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 2,
+      "title": "CircuitBreaker State (pg-query)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"pg-query\", state=\"closed\"} * 0 + resilience4j_circuitbreaker_state{name=\"pg-query\", state=\"open\"} * 1 + resilience4j_circuitbreaker_state{name=\"pg-query\", state=\"half_open\"} * 2",
+          "legendFormat": "state"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "CLOSED", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "OPEN", "color": "red" } } },
+            { "type": "value", "options": { "2": { "text": "HALF_OPEN", "color": "yellow" } } }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 },
+              { "color": "yellow", "value": 2 }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 3,
+      "title": "RateLimiter Available (pg-request)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "resilience4j_ratelimiter_available_permissions{name=\"pg-request\"}",
+          "legendFormat": "available"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 3 },
+              { "color": "green", "value": 7 }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 4,
+      "title": "Failure Rate (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_failure_rate{name=\"pg-request\"}",
+          "legendFormat": "pg-request"
+        },
+        {
+          "expr": "resilience4j_circuitbreaker_failure_rate{name=\"pg-query\"}",
+          "legendFormat": "pg-query"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": -1,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 5,
+      "title": "Slow Call Rate (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_slow_call_rate{name=\"pg-request\"}",
+          "legendFormat": "pg-request"
+        },
+        {
+          "expr": "resilience4j_circuitbreaker_slow_call_rate{name=\"pg-query\"}",
+          "legendFormat": "pg-query"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": -1,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 6,
+      "title": "CircuitBreaker Calls (pg-request)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-request\", kind=\"successful\"}[1m])",
+          "legendFormat": "successful"
+        },
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-request\", kind=\"failed\"}[1m])",
+          "legendFormat": "failed"
+        },
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-request\", kind=\"not_permitted\"}[1m])",
+          "legendFormat": "not_permitted (OPEN)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "failed" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "not_permitted (OPEN)" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "successful" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 7,
+      "title": "CircuitBreaker Calls (pg-query)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-query\", kind=\"successful\"}[1m])",
+          "legendFormat": "successful"
+        },
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-query\", kind=\"failed\"}[1m])",
+          "legendFormat": "failed"
+        },
+        {
+          "expr": "rate(resilience4j_circuitbreaker_calls_seconds_count{name=\"pg-query\", kind=\"not_permitted\"}[1m])",
+          "legendFormat": "not_permitted (OPEN)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "failed" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "not_permitted (OPEN)" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "successful" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 8,
+      "title": "Buffered / Failed / NotPermitted (pg-request)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_buffered_calls{name=\"pg-request\", kind=\"successful\"}",
+          "legendFormat": "buffered_successful"
+        },
+        {
+          "expr": "resilience4j_circuitbreaker_buffered_calls{name=\"pg-request\", kind=\"failed\"}",
+          "legendFormat": "buffered_failed"
+        },
+        {
+          "expr": "resilience4j_circuitbreaker_not_permitted_calls_total{name=\"pg-request\"}",
+          "legendFormat": "not_permitted_total"
+        }
+      ],
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    },
+    {
+      "id": 9,
+      "title": "Retry Calls (pg-query)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "targets": [
+        {
+          "expr": "rate(resilience4j_retry_calls_total{name=\"pg-query\", kind=\"successful_without_retry\"}[1m])",
+          "legendFormat": "success (no retry)"
+        },
+        {
+          "expr": "rate(resilience4j_retry_calls_total{name=\"pg-query\", kind=\"successful_with_retry\"}[1m])",
+          "legendFormat": "success (with retry)"
+        },
+        {
+          "expr": "rate(resilience4j_retry_calls_total{name=\"pg-query\", kind=\"failed_with_retry\"}[1m])",
+          "legendFormat": "failed (retry exhausted)"
+        },
+        {
+          "expr": "rate(resilience4j_retry_calls_total{name=\"pg-query\", kind=\"failed_without_retry\"}[1m])",
+          "legendFormat": "failed (no retry)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        }
+      },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "schemaVersion": 39
+}
