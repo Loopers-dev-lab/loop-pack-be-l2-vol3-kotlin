@@ -23,8 +23,11 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
-      - pg.yml
-      - resilience4j.yml
+
+datasource:
+  mysql-jpa:
+    main:
+      jdbc-url: jdbc:mysql://localhost:3306/paymentgateway
 
 springdoc:
   use-fqn: true
@@ -37,12 +40,25 @@ spring:
     activate:
       on-profile: local, test
 
+server:
+  port: 8082
+
+management:
+  server:
+    port: 8083
 
 ---
 spring:
   config:
     activate:
       on-profile: dev
+
+server:
+  port: 8082
+
+management:
+  server:
+    port: 8083
 
 ---
 spring:

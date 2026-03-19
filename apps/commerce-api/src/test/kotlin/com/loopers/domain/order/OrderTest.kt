@@ -136,6 +136,100 @@ class OrderTest {
         }
     }
 
+    @Nested
+    inner class MarkConfirmed {
+
+        @Test
+        @DisplayName("ORDERED 상태에서 markConfirmed를 호출하면 CONFIRMED로 변경된다")
+        fun success() {
+            // arrange
+            val order = createOrder()
+
+            // act
+            order.markConfirmed()
+
+            // assert
+            assertThat(order.orderStatus).isEqualTo(OrderStatus.CONFIRMED)
+        }
+
+        @Test
+        @DisplayName("이미 CONFIRMED 상태에서 markConfirmed를 호출하면 무시된다 (멱등성)")
+        fun alreadyConfirmedIsIdempotent() {
+            // arrange
+            val order = createOrder()
+            order.markConfirmed()
+
+            // act (재호출)
+            order.markConfirmed()
+
+            // assert — 예외 없이 CONFIRMED 유지
+            assertThat(order.orderStatus).isEqualTo(OrderStatus.CONFIRMED)
+        }
+
+        @Test
+        @DisplayName("CANCELED 상태에서 markConfirmed를 호출하면 BAD_REQUEST 예외가 발생한다")
+        fun canceledThrowsBadRequest() {
+            // arrange
+            val order = createOrder()
+            order.markCanceled()
+
+            // act
+            val result = assertThrows<CoreException> {
+                order.markConfirmed()
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @Nested
+    inner class MarkCanceled {
+
+        @Test
+        @DisplayName("ORDERED 상태에서 markCanceled를 호출하면 CANCELED로 변경된다")
+        fun fromOrderedSuccess() {
+            // arrange
+            val order = createOrder()
+
+            // act
+            order.markCanceled()
+
+            // assert
+            assertThat(order.orderStatus).isEqualTo(OrderStatus.CANCELED)
+        }
+
+        @Test
+        @DisplayName("CONFIRMED 상태에서 markCanceled를 호출하면 CANCELED로 변경된다")
+        fun fromConfirmedSuccess() {
+            // arrange
+            val order = createOrder()
+            order.markConfirmed()
+
+            // act
+            order.markCanceled()
+
+            // assert
+            assertThat(order.orderStatus).isEqualTo(OrderStatus.CANCELED)
+        }
+
+        @Test
+        @DisplayName("이미 CANCELED 상태에서 markCanceled를 호출하면 BAD_REQUEST 예외가 발생한다")
+        fun alreadyCanceledThrowsBadRequest() {
+            // arrange
+            val order = createOrder()
+            order.markCanceled()
+
+            // act
+            val result = assertThrows<CoreException> {
+                order.markCanceled()
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
     private fun setEntityId(entity: BaseEntity, id: Long) {
         val idField = BaseEntity::class.java.getDeclaredField("id")
         idField.isAccessible = true

@@ -24,4 +24,8 @@ annotation class RateLimit(
     val key: String,
     /** TTL (초). 이 시간 동안 동일 키의 재요청을 차단 */
     val ttl: Long = 3,
+    /** true면 중복 요청 시 예외를 던짐 (결제 등), false면 조용히 무시 (좋아요 등) */
+    val throwOnDuplicate: Boolean = false,
+    /** throwOnDuplicate=true일 때 예외 메시지 */
+    val message: String = "중복 요청입니다.",
 )

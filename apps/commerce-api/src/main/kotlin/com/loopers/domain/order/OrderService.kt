@@ -22,6 +22,18 @@ class OrderService(
         return savedOrder
     }
 
+    @Transactional
+    fun markConfirmed(orderId: Long) {
+        val order = findById(orderId)
+        order.markConfirmed()
+    }
+
+    @Transactional
+    fun markCanceled(orderId: Long) {
+        val order = findById(orderId)
+        order.markCanceled()
+    }
+
     @Transactional(readOnly = true)
     fun findById(id: Long): Order {
         return orderRepository.findById(id)

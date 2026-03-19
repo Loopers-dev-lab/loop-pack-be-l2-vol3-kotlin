@@ -113,6 +113,81 @@ class OrderServiceTest {
         }
     }
 
+    @Nested
+    inner class MarkConfirmed {
+
+        @Test
+        @DisplayName("주문 상태가 CONFIRMED로 변경된다")
+        fun success() {
+            // arrange
+            val order = orderService.createOrder(createOrderCommand())
+
+            // act
+            orderService.markConfirmed(order.id)
+
+            // assert
+            val found = orderService.findById(order.id)
+            assertThat(found.orderStatus).isEqualTo(OrderStatus.CONFIRMED)
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 주문이면 NOT_FOUND 예외가 발생한다")
+        fun notFoundThrowsException() {
+            // act
+            val result = assertThrows<CoreException> {
+                orderService.markConfirmed(999L)
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @Nested
+    inner class MarkCanceled {
+
+        @Test
+        @DisplayName("ORDERED 상태에서 CANCELED로 변경된다")
+        fun fromOrderedSuccess() {
+            // arrange
+            val order = orderService.createOrder(createOrderCommand())
+
+            // act
+            orderService.markCanceled(order.id)
+
+            // assert
+            val found = orderService.findById(order.id)
+            assertThat(found.orderStatus).isEqualTo(OrderStatus.CANCELED)
+        }
+
+        @Test
+        @DisplayName("CONFIRMED 상태에서 CANCELED로 변경된다")
+        fun fromConfirmedSuccess() {
+            // arrange
+            val order = orderService.createOrder(createOrderCommand())
+            orderService.markConfirmed(order.id)
+
+            // act
+            orderService.markCanceled(order.id)
+
+            // assert
+            val found = orderService.findById(order.id)
+            assertThat(found.orderStatus).isEqualTo(OrderStatus.CANCELED)
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 주문이면 NOT_FOUND 예외가 발생한다")
+        fun notFoundThrowsException() {
+            // act
+            val result = assertThrows<CoreException> {
+                orderService.markCanceled(999L)
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
     private fun setEntityId(entity: BaseEntity, id: Long) {
         val idField = BaseEntity::class.java.getDeclaredField("id")
         idField.isAccessible = true

@@ -3,9 +3,12 @@ package com.loopers.infrastructure.ratelimit
 import com.loopers.config.redis.RedisConfig
 import com.loopers.domain.ratelimit.RateLimit
 import com.loopers.infrastructure.cache.CacheKeyResolver
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
+import org.aspectj.lang.reflect.MethodSignature
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.Ordered
@@ -34,11 +37,17 @@ class RateLimitAspect(
         private const val KEY_PREFIX = "ratelimit"
     }
 
-    @Around("@annotation(rateLimit)")
-    fun around(joinPoint: ProceedingJoinPoint, rateLimit: RateLimit): Any? {
+    @Around("@annotation(com.loopers.domain.ratelimit.RateLimit)")
+    fun around(joinPoint: ProceedingJoinPoint): Any? {
+        val signature = joinPoint.signature as MethodSignature
+        val rateLimit = signature.method.getAnnotation(RateLimit::class.java)
+
         val resolvedKey = "$KEY_PREFIX:${CacheKeyResolver.resolve(rateLimit.key, joinPoint)}"
 
         if (isDuplicate(resolvedKey, rateLimit.ttl)) {
+            if (rateLimit.throwOnDuplicate) {
+                throw CoreException(ErrorType.BAD_REQUEST, rateLimit.message)
+            }
             log.debug("중복 요청 무시 [key={}]", resolvedKey)
             return null
         }
@@ -57,5 +66,4 @@ class RateLimitAspect(
             false
         }
     }
-
 }

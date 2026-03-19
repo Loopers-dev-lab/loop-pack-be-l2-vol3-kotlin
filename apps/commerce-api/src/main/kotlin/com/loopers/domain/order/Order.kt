@@ -96,6 +96,23 @@ class Order(
         this.totalAmount = this.originalTotalAmount - this.couponDiscountAmount
     }
 
+    fun markConfirmed() {
+        if (this.orderStatus == OrderStatus.CONFIRMED) {
+            return // 멱등성: 이미 확인된 주문은 무시
+        }
+        if (this.orderStatus != OrderStatus.ORDERED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 상태 '${this.orderStatus}'에서 결제 확인으로 변경할 수 없습니다.")
+        }
+        this.orderStatus = OrderStatus.CONFIRMED
+    }
+
+    fun markCanceled() {
+        if (this.orderStatus == OrderStatus.CANCELED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 취소된 주문입니다.")
+        }
+        this.orderStatus = OrderStatus.CANCELED
+    }
+
     fun generateOrderNumber() {
         val datePart = LocalDate.now(ZoneId.of("Asia/Seoul")).let { date ->
             String.format("%02d%02d%02d", date.year % 100, date.monthValue, date.dayOfMonth)
