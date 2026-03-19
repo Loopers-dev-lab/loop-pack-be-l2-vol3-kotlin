@@ -1,5 +1,6 @@
 package com.loopers.domain.payment
 
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
@@ -31,16 +32,16 @@ class FakePaymentRepository : PaymentRepository {
         return payments.find { it.id == id }?.toCopy()
     }
 
-    override fun findByOrderId(orderId: Long): Payment? {
-        return payments.filter { it.orderId == orderId }.maxByOrNull { it.id }?.toCopy()
+    override fun findByOrderId(orderId: OrderId): Payment? {
+        return payments.filter { it.orderId == orderId.value }.maxByOrNull { it.id }?.toCopy()
     }
 
     override fun findByIdForUpdate(id: Long): Payment? {
         return payments.find { it.id == id }?.toCopy()
     }
 
-    override fun findByOrderIdForUpdate(orderId: Long): Payment? {
-        return payments.filter { it.orderId == orderId }.maxByOrNull { it.id }?.toCopy()
+    override fun findByOrderIdForUpdate(orderId: OrderId): Payment? {
+        return payments.filter { it.orderId == orderId.value }.maxByOrNull { it.id }?.toCopy()
     }
 
     override fun findByStatusIn(statuses: List<PaymentStatus>, limit: Int): List<Payment> {

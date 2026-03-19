@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.payment
 
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
@@ -39,16 +40,16 @@ class PaymentRepositoryImpl(
         return paymentJpaRepository.findById(id).orElse(null)?.toDomain()
     }
 
-    override fun findByOrderId(orderId: Long): Payment? {
-        return paymentJpaRepository.findFirstByOrderIdOrderByIdDesc(orderId)?.toDomain()
+    override fun findByOrderId(orderId: OrderId): Payment? {
+        return paymentJpaRepository.findFirstByOrderIdOrderByIdDesc(orderId.value)?.toDomain()
     }
 
     override fun findByIdForUpdate(id: Long): Payment? {
         return paymentJpaRepository.findWithLockById(id)?.toDomain()
     }
 
-    override fun findByOrderIdForUpdate(orderId: Long): Payment? {
-        return paymentJpaRepository.findFirstForUpdateByOrderIdOrderByIdDesc(orderId)?.toDomain()
+    override fun findByOrderIdForUpdate(orderId: OrderId): Payment? {
+        return paymentJpaRepository.findFirstForUpdateByOrderIdOrderByIdDesc(orderId.value)?.toDomain()
     }
 
     override fun findByStatusIn(statuses: List<PaymentStatus>, limit: Int): List<Payment> {

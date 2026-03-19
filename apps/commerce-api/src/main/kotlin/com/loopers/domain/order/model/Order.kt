@@ -46,6 +46,7 @@ class Order private constructor(
     }
 
     fun markPendingPayment() {
+        if (status == OrderStatus.PENDING_PAYMENT) return
         if (status != OrderStatus.CREATED && status != OrderStatus.FAILED) {
             throw CoreException(ErrorType.BAD_REQUEST, "생성 또는 실패 상태의 주문만 결제 대기 상태로 전환할 수 있습니다.")
         }

@@ -297,6 +297,28 @@ class OrderTest {
         }
 
         @Test
+        @DisplayName("이미 PAID 상태에서 재호출하면 예외 없이 상태가 유지된다")
+        fun markPaid_fromPaid_idempotent() {
+            // arrange
+            val order = Order.fromPersistence(
+                id = OrderId(1L),
+                refUserId = UserId(1L),
+                status = Order.OrderStatus.PAID,
+                originalPrice = Money(BigDecimal("10000")),
+                discountAmount = Money(BigDecimal.ZERO),
+                totalPrice = Money(BigDecimal("10000")),
+                refCouponId = null,
+                deletedAt = null,
+            )
+
+            // act
+            order.markPaid()
+
+            // assert
+            assertThat(order.status).isEqualTo(Order.OrderStatus.PAID)
+        }
+
+        @Test
         @DisplayName("FAILED 상태에서 호출하면 BAD_REQUEST 예외가 발생한다")
         fun markPaid_fromFailed_throwsBadRequest() {
             // arrange
@@ -333,6 +355,48 @@ class OrderTest {
                 id = OrderId(1L),
                 refUserId = UserId(1L),
                 status = Order.OrderStatus.PENDING_PAYMENT,
+                originalPrice = Money(BigDecimal("10000")),
+                discountAmount = Money(BigDecimal.ZERO),
+                totalPrice = Money(BigDecimal("10000")),
+                refCouponId = null,
+                deletedAt = null,
+            )
+
+            // act
+            order.markFailed()
+
+            // assert
+            assertThat(order.status).isEqualTo(Order.OrderStatus.FAILED)
+        }
+
+        @Test
+        @DisplayName("CREATED 상태에서 호출하면 BAD_REQUEST 예외가 발생한다")
+        fun markFailed_fromCreated_throwsBadRequest() {
+            // arrange
+            val order = Order.create(
+                UserId(1),
+                listOf(
+                    OrderProductData(id = ProductId(1), name = "상품A", price = Money(BigDecimal("10000"))) to Quantity(1),
+                ),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.markFailed()
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("이미 FAILED 상태에서 재호출하면 예외 없이 상태가 유지된다")
+        fun markFailed_fromFailed_idempotent() {
+            // arrange
+            val order = Order.fromPersistence(
+                id = OrderId(1L),
+                refUserId = UserId(1L),
+                status = Order.OrderStatus.FAILED,
                 originalPrice = Money(BigDecimal("10000")),
                 discountAmount = Money(BigDecimal.ZERO),
                 totalPrice = Money(BigDecimal("10000")),

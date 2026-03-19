@@ -9,6 +9,7 @@ import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.payment.model.CardType
 import com.loopers.domain.payment.model.Payment
+import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.model.OrderItem
@@ -139,7 +140,7 @@ class GetOrderUseCaseTest {
             val result = getOrderUseCase.execute(1L, order.id.value)
 
             // assert
-            assertThat(result.paymentStatus).isEqualTo("SUCCESS")
+            assertThat(result.paymentStatus).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(result.transactionKey).isEqualTo("txn-key-123")
         }
 
@@ -175,7 +176,50 @@ class GetOrderUseCaseTest {
             val result = getOrderUseCase.execute(1L, order.id.value)
 
             // assert
-            assertThat(result.paymentStatus).isEqualTo("FAILED")
+            assertThat(result.paymentStatus).isEqualTo(PaymentStatus.FAILED)
+            assertThat(result.transactionKey).isNull()
+        }
+
+        @Test
+        @DisplayName("결제 요청 중인 주문 조회 시 REQUESTED 상태가 반환된다")
+        fun execute_withRequestedPayment_returnsRequestedStatus() {
+            // arrange
+            val (order, _) = createAndSaveOrder(1L)
+            val payment = Payment.create(
+                orderId = order.id.value,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+                amount = 10000L,
+            )
+            paymentRepository.save(payment)
+
+            // act
+            val result = getOrderUseCase.execute(1L, order.id.value)
+
+            // assert
+            assertThat(result.paymentStatus).isEqualTo(PaymentStatus.REQUESTED)
+            assertThat(result.transactionKey).isNull()
+        }
+
+        @Test
+        @DisplayName("결제 타임아웃 주문 조회 시 TIMEOUT 상태가 반환된다")
+        fun execute_withTimeoutPayment_returnsTimeoutStatus() {
+            // arrange
+            val (order, _) = createAndSaveOrder(1L)
+            val payment = Payment.create(
+                orderId = order.id.value,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+                amount = 10000L,
+            )
+            payment.markTimeout()
+            paymentRepository.save(payment)
+
+            // act
+            val result = getOrderUseCase.execute(1L, order.id.value)
+
+            // assert
+            assertThat(result.paymentStatus).isEqualTo(PaymentStatus.TIMEOUT)
             assertThat(result.transactionKey).isNull()
         }
     }

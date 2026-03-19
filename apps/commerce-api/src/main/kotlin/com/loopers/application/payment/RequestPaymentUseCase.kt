@@ -26,7 +26,7 @@ class RequestPaymentUseCase(
     @Transactional
     fun execute(command: PaymentCommand.RequestPayment): PaymentInfo {
         // 1. Payment 락 획득 — 락 순서: Payment → Order (다른 결제 플로우와 통일하여 교착 상태 방지)
-        val existingPayment = paymentRepository.findByOrderIdForUpdate(command.orderId)
+        val existingPayment = paymentRepository.findByOrderIdForUpdate(OrderId(command.orderId))
 
         // 2. Order 조회 (비관적 락) + 소유자 검증 — 결제 상태 검사 전에 수행하여 비인가자에게 결제 존재 여부 미노출
         val order = orderRepository.findByIdForUpdate(OrderId(command.orderId))

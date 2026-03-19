@@ -78,7 +78,7 @@ class HandlePaymentCallbackUseCaseTest {
             )
 
             // assert
-            val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
+            val updatedPayment = paymentRepository.findByOrderId(order.id)!!
             val updatedOrder = orderRepository.findById(order.id)!!
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PAID)
@@ -107,7 +107,7 @@ class HandlePaymentCallbackUseCaseTest {
             )
 
             // assert
-            val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
+            val updatedPayment = paymentRepository.findByOrderId(order.id)!!
             val updatedOrder = orderRepository.findById(order.id)!!
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(updatedPayment.reason).isEqualTo("잔액 부족")
@@ -125,9 +125,11 @@ class HandlePaymentCallbackUseCaseTest {
             // arrange
             val order = createPendingOrder()
             val payment = createPaymentForOrder(order.id.value)
-            // Payment를 SUCCESS로 만들어 둠
+            // Payment=SUCCESS, Order=PAID 현실적 조합으로 구성
             payment.markSuccess("TR-PRE")
             paymentRepository.save(payment)
+            order.markPaid()
+            orderRepository.save(order)
 
             // act — SUCCESS 콜백 재시도
             useCase.execute(
@@ -138,9 +140,9 @@ class HandlePaymentCallbackUseCaseTest {
                 ),
             )
 
-            // assert — Order 상태는 여전히 PENDING_PAYMENT (변경 없음)
+            // assert — Order 상태는 여전히 PAID (변경 없음)
             val orderAfter = orderRepository.findById(order.id)!!
-            assertThat(orderAfter.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
+            assertThat(orderAfter.status).isEqualTo(Order.OrderStatus.PAID)
         }
     }
 
@@ -164,6 +166,67 @@ class HandlePaymentCallbackUseCaseTest {
                 )
             }
             assertThat(ex.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @Nested
+    @DisplayName("Payment는 존재하지만 Order가 없을 시")
+    inner class PaymentExistsButOrderNotFound {
+
+        @Test
+        @DisplayName("NOT_FOUND 예외가 발생한다")
+        fun handleCallback_paymentExistsButOrderMissing_throwsNotFound() {
+            // arrange — Payment만 존재, Order 없음
+            createPaymentForOrder(999L)
+
+            // act & assert
+            val ex = assertThrows<CoreException> {
+                useCase.execute(
+                    PaymentCommand.HandleCallback(
+                        orderId = 999L,
+                        transactionKey = "TR-001",
+                        success = true,
+                    ),
+                )
+            }
+            assertThat(ex.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @Nested
+    @DisplayName("transactionKey가 불일치할 시")
+    inner class TransactionKeyMismatch {
+
+        @Test
+        @DisplayName("BAD_REQUEST 예외가 발생한다")
+        fun handleCallback_transactionKeyMismatch_throwsBadRequest() {
+            // arrange
+            val order = createPendingOrder()
+            val payment = Payment.fromPersistence(
+                id = 0L,
+                orderId = order.id.value,
+                transactionKey = "TR-ORIGINAL",
+                status = PaymentStatus.REQUESTED,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-****-****-3456",
+                amount = 10000L,
+                reason = null,
+                createdAt = java.time.ZonedDateTime.now(),
+                updatedAt = java.time.ZonedDateTime.now(),
+            )
+            paymentRepository.save(payment)
+
+            // act & assert
+            val ex = assertThrows<CoreException> {
+                useCase.execute(
+                    PaymentCommand.HandleCallback(
+                        orderId = order.id.value,
+                        transactionKey = "TR-DIFFERENT",
+                        success = true,
+                    ),
+                )
+            }
+            assertThat(ex.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
     }
 }

@@ -83,10 +83,10 @@ class RecoverPaymentUseCaseTest {
     /**
      * RecoverAllPaymentsUseCase 실행 후 등록된 모든 afterCommit 콜백을 즉시 실행한다.
      */
-    private fun executeAllAndFlush(): Int {
-        val count = recoverAllPaymentsUseCase.execute()
+    private fun executeAllAndFlush(): RecoveryResult {
+        val result = recoverAllPaymentsUseCase.execute()
         flushAfterCommit()
-        return count
+        return result
     }
 
     private fun flushAfterCommit() {
@@ -152,8 +152,8 @@ class RecoverPaymentUseCaseTest {
 
             // assert
             assertThat(result).isTrue()
-            val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
-            val updatedOrder = orderRepository.findById(order.id)!!
+            val updatedPayment = requireNotNull(paymentRepository.findByOrderId(order.id)) { "주문(${order.id})에 대한 결제가 존재해야 합니다" }
+            val updatedOrder = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PAID)
         }
@@ -175,8 +175,8 @@ class RecoverPaymentUseCaseTest {
 
             // assert
             assertThat(result).isTrue()
-            val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
-            val updatedOrder = orderRepository.findById(order.id)!!
+            val updatedPayment = requireNotNull(paymentRepository.findByOrderId(order.id)) { "주문(${order.id})에 대한 결제가 존재해야 합니다" }
+            val updatedOrder = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PAID)
         }
@@ -194,7 +194,7 @@ class RecoverPaymentUseCaseTest {
 
             // assert: execute()는 복구 시도 시작 여부를 반환 → true, 상태는 미변경
             assertThat(result).isTrue()
-            val payment = paymentRepository.findByOrderId(order.id.value)!!
+            val payment = requireNotNull(paymentRepository.findByOrderId(order.id)) { "주문(${order.id})에 대한 결제가 존재해야 합니다" }
             assertThat(payment.status).isEqualTo(PaymentStatus.TIMEOUT)
         }
 
@@ -248,8 +248,8 @@ class RecoverPaymentUseCaseTest {
 
             // assert
             assertThat(result).isTrue()
-            val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
-            val updatedOrder = orderRepository.findById(order.id)!!
+            val updatedPayment = requireNotNull(paymentRepository.findByOrderId(order.id)) { "주문(${order.id})에 대한 결제가 존재해야 합니다" }
+            val updatedOrder = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.FAILED)
         }
@@ -272,12 +272,12 @@ class RecoverPaymentUseCaseTest {
             )
 
             // act
-            val count = executeAllAndFlush()
+            val result = executeAllAndFlush()
 
             // assert
-            assertThat(count).isEqualTo(1)
-            val updatedPayment = paymentRepository.findByOrderId(order.id.value)!!
-            val updatedOrder = orderRepository.findById(order.id)!!
+            assertThat(result.recovered).isEqualTo(1)
+            val updatedPayment = requireNotNull(paymentRepository.findByOrderId(order.id)) { "주문(${order.id})에 대한 결제가 존재해야 합니다" }
+            val updatedOrder = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PAID)
         }
@@ -291,12 +291,12 @@ class RecoverPaymentUseCaseTest {
             pgClient.transactionDetail = null
 
             // act
-            val count = executeAllAndFlush()
+            val result = executeAllAndFlush()
 
-            // assert: execute()가 복구 시도 시작 여부를 반환하므로 count=1, 상태는 미변경
-            assertThat(count).isEqualTo(1)
-            val payment = paymentRepository.findByOrderId(order.id.value)!!
-            val orderAfter = orderRepository.findById(order.id)!!
+            // assert: execute()가 복구 시도 시작 여부를 반환하므로 attempted=1, 상태는 미변경
+            assertThat(result.attempted).isEqualTo(1)
+            val payment = requireNotNull(paymentRepository.findByOrderId(order.id)) { "주문(${order.id})에 대한 결제가 존재해야 합니다" }
+            val orderAfter = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(payment.status).isEqualTo(PaymentStatus.TIMEOUT)
             assertThat(orderAfter.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
         }
@@ -330,16 +330,16 @@ class RecoverPaymentUseCaseTest {
             )
 
             // act — order1 afterCommit 예외가 catch되고 order2는 정상 처리되어야 함
-            val count = executeAllAndFlush()
+            val result = executeAllAndFlush()
 
-            // assert — 두 건 모두 execute()가 true 반환(복구 시도 시작) → count == 2
+            // assert — 두 건 모두 execute()가 true 반환(복구 시도 시작) → attempted == 2
             //           order1은 afterCommit에서 PG 예외 → 상태 미변경, order2는 SUCCESS 전환
-            assertThat(count).isEqualTo(2)
-            val payment1 = paymentRepository.findByOrderId(order1.id.value)!!
-            val order1After = orderRepository.findById(order1.id)!!
+            assertThat(result.attempted).isEqualTo(2)
+            val payment1 = requireNotNull(paymentRepository.findByOrderId(order1.id)) { "주문(${order1.id})에 대한 결제가 존재해야 합니다" }
+            val order1After = requireNotNull(orderRepository.findById(order1.id)) { "주문(${order1.id})이 존재해야 합니다" }
             assertThat(payment1.status).isEqualTo(PaymentStatus.TIMEOUT)
             assertThat(order1After.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
-            val payment2 = paymentRepository.findByOrderId(order2.id.value)!!
+            val payment2 = requireNotNull(paymentRepository.findByOrderId(order2.id)) { "주문(${order2.id})에 대한 결제가 존재해야 합니다" }
             assertThat(payment2.status).isEqualTo(PaymentStatus.SUCCESS)
         }
     }

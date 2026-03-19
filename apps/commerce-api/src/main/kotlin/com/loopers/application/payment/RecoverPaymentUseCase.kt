@@ -27,7 +27,7 @@ class RecoverPaymentUseCase(
     @Transactional
     fun execute(orderId: Long): Boolean {
         // 1단계: 트랜잭션 안에서 상태 검증 (ForUpdate 락)
-        val payment = paymentRepository.findByOrderIdForUpdate(orderId) ?: return false
+        val payment = paymentRepository.findByOrderIdForUpdate(OrderId(orderId)) ?: return false
         if (payment.status != PaymentStatus.REQUESTED && payment.status != PaymentStatus.TIMEOUT) return false
 
         // afterCommit 콜백 등록: PG 조회와 상태 반영은 트랜잭션 커밋 후 실행
@@ -43,7 +43,8 @@ class RecoverPaymentUseCase(
 
                     // 3단계: 새 트랜잭션으로 상태 반영
                     txTemplate.executeWithoutResult {
-                        val freshPayment = paymentRepository.findByOrderIdForUpdate(orderId) ?: return@executeWithoutResult
+                        val freshPayment = paymentRepository.findByOrderIdForUpdate(OrderId(orderId))
+                            ?: return@executeWithoutResult
                         // 다른 프로세스(콜백 등)가 이미 처리했는지 재검증
                         if (freshPayment.status != PaymentStatus.REQUESTED &&
                             freshPayment.status != PaymentStatus.TIMEOUT

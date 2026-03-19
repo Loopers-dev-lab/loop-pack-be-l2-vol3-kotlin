@@ -2,6 +2,7 @@ package com.loopers.infrastructure.payment
 
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -12,7 +13,7 @@ class PgStatusQueryClient(
 ) {
     private val log = LoggerFactory.getLogger(PgStatusQueryClient::class.java)
 
-    @CircuitBreaker(name = "pg-status-query")
+    @CircuitBreaker(name = "pg-status-query", fallbackMethod = "getTransactionByOrderIdFallback")
     fun getTransactionByOrderId(orderId: Long): PgTransactionDetail? {
         val response = pgFeignClient.getTransactionsByOrderId(
             userId = "system",
@@ -37,5 +38,13 @@ class PgStatusQueryClient(
             status = status,
             reason = transaction.reason,
         )
+    }
+
+    private fun getTransactionByOrderIdFallback(orderId: Long, t: Throwable): PgTransactionDetail? {
+        if (t is CallNotPermittedException) {
+            log.warn("PG 상태 조회 서킷브레이커 OPEN. orderId={}", orderId)
+            return null
+        }
+        throw t
     }
 }

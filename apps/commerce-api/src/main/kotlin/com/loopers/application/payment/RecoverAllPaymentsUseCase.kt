@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
+data class RecoveryResult(val attempted: Int, val recovered: Int)
+
 @Component
 class RecoverAllPaymentsUseCase(
     private val paymentRepository: PaymentRepository,
@@ -16,7 +18,7 @@ class RecoverAllPaymentsUseCase(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun execute(): Int {
+    fun execute(): RecoveryResult {
         val targetStatuses = listOf(PaymentStatus.REQUESTED, PaymentStatus.TIMEOUT)
         val payments = paymentRepository.findByStatusIn(targetStatuses, limit = batchSize)
         var recoveredCount = 0
@@ -30,6 +32,6 @@ class RecoverAllPaymentsUseCase(
             }
         }
         log.info("결제 복구 배치 완료. attempted={}, recovered={}", payments.size, recoveredCount)
-        return recoveredCount
+        return RecoveryResult(attempted = payments.size, recovered = recoveredCount)
     }
 }

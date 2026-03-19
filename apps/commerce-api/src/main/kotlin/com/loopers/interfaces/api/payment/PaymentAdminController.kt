@@ -27,7 +27,7 @@ class PaymentAdminController(
 
     @PostMapping("/recover-all")
     override fun recoverAllPayments(): ApiResponse<PaymentDto.RecoverResponse> {
-        val count = recoverAllPaymentsUseCase.execute()
-        return ApiResponse.success(PaymentDto.RecoverResponse(count))
+        val result = recoverAllPaymentsUseCase.execute()
+        return ApiResponse.success(PaymentDto.RecoverResponse(attempted = result.attempted, recovered = result.recovered))
     }
 }

@@ -12,6 +12,7 @@ import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.payment.PgPaymentResult
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
+import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -106,15 +107,18 @@ class PaymentFlowIntegrationTest {
             )
 
             // act — 1단계: 결제 요청 (REQUESTED 저장) + afterCommit 시뮬레이션
-            val paymentInfo = requestPaymentUseCase.execute(defaultRequestCommand(savedOrder.id.value))
+            val command = defaultRequestCommand(savedOrder.id.value)
+            val paymentInfo = requestPaymentUseCase.execute(command)
             flushAfterCommit()
 
-            // assert — afterCommit에서 fakePaymentPgProcessor가 호출되었는지 검증
+            // assert — afterCommit에서 fakePaymentPgProcessor 호출 인자 계약 검증
             assertThat(fakePaymentPgProcessor.processPaymentCalls).hasSize(1)
             val pgCall = fakePaymentPgProcessor.processPaymentCalls[0]
             assertThat(pgCall.paymentId).isEqualTo(paymentInfo.id)
-            assertThat(pgCall.orderId).isEqualTo(savedOrder.id.value)
-            assertThat(pgCall.cardNo).isEqualTo("1234-****-****-3456")
+            assertThat(pgCall.orderId).isEqualTo(command.orderId)
+            assertThat(pgCall.amount).isEqualTo(paymentInfo.amount)
+            assertThat(pgCall.cardType).isEqualTo(command.cardType)
+            assertThat(pgCall.cardNo).isEqualTo(Payment.maskCardNo(command.cardNo))
 
             // act — paymentPgProcessor(impl)로 실제 PG 처리 시뮬레이션
             paymentPgProcessor.processPayment(
@@ -135,7 +139,7 @@ class PaymentFlowIntegrationTest {
             )
 
             // assert
-            val finalPayment = paymentRepository.findByOrderId(savedOrder.id.value)!!
+            val finalPayment = paymentRepository.findByOrderId(savedOrder.id)!!
             val finalOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.PAID)
@@ -166,7 +170,7 @@ class PaymentFlowIntegrationTest {
                 cardNo = "1234-5678-9012-3456",
             )
 
-            val paymentAfterRequest = paymentRepository.findByOrderId(savedOrder.id.value)!!
+            val paymentAfterRequest = paymentRepository.findByOrderId(savedOrder.id)!!
             assertThat(paymentAfterRequest.status).isEqualTo(PaymentStatus.TIMEOUT)
 
             // arrange — PG 조회 결과를 SUCCESS로 변경 (스케줄러 복구 시점)
@@ -177,12 +181,12 @@ class PaymentFlowIntegrationTest {
             )
 
             // act — 2단계: 스케줄러 복구
-            val recoveredCount = recoverAllPaymentsUseCase.execute()
+            val result = recoverAllPaymentsUseCase.execute()
             flushAfterCommit()
 
             // assert
-            assertThat(recoveredCount).isEqualTo(1)
-            val finalPayment = paymentRepository.findByOrderId(savedOrder.id.value)!!
+            assertThat(result.recovered).isEqualTo(1)
+            val finalPayment = paymentRepository.findByOrderId(savedOrder.id)!!
             val finalOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.PAID)
@@ -213,7 +217,7 @@ class PaymentFlowIntegrationTest {
                 cardNo = "1234-5678-9012-3456",
             )
 
-            val paymentAfterRequest = paymentRepository.findByOrderId(savedOrder.id.value)!!
+            val paymentAfterRequest = paymentRepository.findByOrderId(savedOrder.id)!!
             assertThat(paymentAfterRequest.status).isEqualTo(PaymentStatus.TIMEOUT)
 
             // act — 2단계: SUCCESS 콜백 수신
@@ -226,7 +230,7 @@ class PaymentFlowIntegrationTest {
             )
 
             // assert
-            val finalPayment = paymentRepository.findByOrderId(savedOrder.id.value)!!
+            val finalPayment = paymentRepository.findByOrderId(savedOrder.id)!!
             val finalOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.PAID)
@@ -259,7 +263,7 @@ class PaymentFlowIntegrationTest {
             )
 
             // assert
-            val finalPayment = paymentRepository.findByOrderId(savedOrder.id.value)!!
+            val finalPayment = paymentRepository.findByOrderId(savedOrder.id)!!
             val finalOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(finalPayment.reason).isEqualTo("카드 한도 초과")

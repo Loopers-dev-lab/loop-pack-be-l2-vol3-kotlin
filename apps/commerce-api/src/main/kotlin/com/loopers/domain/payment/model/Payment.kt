@@ -52,7 +52,7 @@ class Payment private constructor(
     }
 
     companion object {
-        private fun maskCardNo(cardNo: String): String {
+        internal fun maskCardNo(cardNo: String): String {
             val digits = cardNo.replace("-", "")
             if (digits.length < 4) {
                 throw CoreException(ErrorType.BAD_REQUEST, "카드번호 형식이 올바르지 않습니다.")

@@ -28,10 +28,10 @@ class GetOrderUseCase(
             throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
         }
         val items = orderItemRepository.findAllByOrderId(OrderId(orderId))
-        val payment = paymentRepository.findByOrderId(orderId)
+        val payment = paymentRepository.findByOrderId(OrderId(orderId))
         return OrderInfo.from(
             detail = OrderDetail(order, items),
-            paymentStatus = payment?.status?.name,
+            paymentStatus = payment?.status,
             transactionKey = payment?.transactionKey,
         )
     }

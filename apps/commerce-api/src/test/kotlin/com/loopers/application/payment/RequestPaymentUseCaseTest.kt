@@ -82,7 +82,7 @@ class RequestPaymentUseCaseTest {
             val updatedOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
 
-            val savedPayment = paymentRepository.findByOrderId(savedOrder.id.value)
+            val savedPayment = paymentRepository.findByOrderId(savedOrder.id)
             assertThat(savedPayment).isNotNull
 
             // 단위 테스트에서는 TransactionSynchronization 미활성 → else 분기로 PG 프로세서 직접 호출
@@ -103,6 +103,7 @@ class RequestPaymentUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(paymentPgProcessor.processPaymentCalls).isEmpty()
         }
 
         @Test
@@ -120,6 +121,8 @@ class RequestPaymentUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
+            // 부작용 미발생 검증 — PG는 첫 번째 요청에서만 호출
+            assertThat(paymentPgProcessor.processPaymentCalls).hasSize(1)
         }
 
         @Test
@@ -136,6 +139,9 @@ class RequestPaymentUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(paymentPgProcessor.processPaymentCalls).isEmpty()
+            val orderAfter = orderRepository.findById(savedOrder.id)!!
+            assertThat(orderAfter.status).isEqualTo(Order.OrderStatus.CREATED)
         }
 
         @Test
@@ -165,6 +171,7 @@ class RequestPaymentUseCaseTest {
 
             // assert — CONFLICT가 아닌 NOT_FOUND여야 한다 (결제 존재 여부를 비인가자에게 노출하면 안 됨)
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+            assertThat(paymentPgProcessor.processPaymentCalls).isEmpty()
         }
 
         @Test
@@ -195,6 +202,7 @@ class RequestPaymentUseCaseTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
             assertThat(exception.message).contains("이미 결제가 완료된 주문입니다.")
+            assertThat(paymentPgProcessor.processPaymentCalls).isEmpty()
         }
 
         @Test
@@ -230,12 +238,13 @@ class RequestPaymentUseCaseTest {
         }
 
         @Test
-        @DisplayName("CREATED 상태가 아닌 Order — BAD_REQUEST 예외가 발생한다")
+        @DisplayName("결제 불가 상태(PAID)인 Order — BAD_REQUEST 예외가 발생한다")
         fun execute_orderNotCreated_throwsBadRequest() {
             // arrange
             val savedOrder = createSavedOrder()
-            // PENDING_PAYMENT 상태로 전환
+            // PAID 상태로 전환 (결제 완료 → 재결제 불가)
             savedOrder.markPendingPayment()
+            savedOrder.markPaid()
             orderRepository.save(savedOrder)
             val command = defaultCommand(savedOrder.id.value)
 
@@ -246,6 +255,9 @@ class RequestPaymentUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+            assertThat(paymentPgProcessor.processPaymentCalls).isEmpty()
+            val orderAfter = orderRepository.findById(savedOrder.id)!!
+            assertThat(orderAfter.status).isEqualTo(Order.OrderStatus.PAID)
         }
     }
 }

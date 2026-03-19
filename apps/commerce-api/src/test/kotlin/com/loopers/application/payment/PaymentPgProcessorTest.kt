@@ -98,7 +98,7 @@ class PaymentPgProcessorTest {
             callProcessPayment(savedPayment.id, order.id.value)
 
             // assert — SUCCESS 시 REQUESTED 유지 (콜백으로 SUCCESS 전환 예정)
-            val payment = paymentRepository.findByOrderId(order.id.value)!!
+            val payment = paymentRepository.findByOrderId(order.id)!!
             assertThat(payment.status).isEqualTo(PaymentStatus.REQUESTED)
             val updatedOrder = orderRepository.findById(order.id)!!
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
@@ -119,7 +119,7 @@ class PaymentPgProcessorTest {
             callProcessPayment(savedPayment.id, order.id.value)
 
             // assert
-            val payment = paymentRepository.findByOrderId(order.id.value)!!
+            val payment = paymentRepository.findByOrderId(order.id)!!
             assertThat(payment.status).isEqualTo(PaymentStatus.TIMEOUT)
             val updatedOrder = orderRepository.findById(order.id)!!
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PENDING_PAYMENT)
@@ -141,7 +141,7 @@ class PaymentPgProcessorTest {
             callProcessPayment(savedPayment.id, order.id.value)
 
             // assert
-            val payment = paymentRepository.findByOrderId(order.id.value)!!
+            val payment = paymentRepository.findByOrderId(order.id)!!
             assertThat(payment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(payment.reason).isEqualTo("카드 한도 초과")
             val updatedOrder = orderRepository.findById(order.id)!!

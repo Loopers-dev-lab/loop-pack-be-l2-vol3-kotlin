@@ -56,7 +56,8 @@ class PaymentDto {
     )
 
     data class RecoverResponse(
-        val recoveredCount: Int,
+        val attempted: Int,
+        val recovered: Int,
     )
 
     data class SingleRecoverResponse(
