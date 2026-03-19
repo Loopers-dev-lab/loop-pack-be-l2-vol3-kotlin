@@ -24,17 +24,4 @@ interface PgPaymentGateway {
         cardNo: String,
         callbackUrl: String,
     ): PaymentRequestResult
-
-    /**
-     * PG 결제 요청 결과
-     */
-    data class PaymentRequestResult(
-        val transactionKey: String,
-        val orderId: String,
-        val cardType: Any,
-        val cardNo: String,
-        val amount: Long,
-        val status: Any,
-        val reason: String?,
-    )
 }

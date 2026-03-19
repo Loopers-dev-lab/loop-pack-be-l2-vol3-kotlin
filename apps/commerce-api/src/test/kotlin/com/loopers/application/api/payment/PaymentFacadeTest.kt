@@ -3,6 +3,7 @@ package com.loopers.application.api.payment
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.order.OrderStatus
+import com.loopers.domain.payment.PaymentRequestResult
 import com.loopers.domain.payment.PgPaymentGateway
 import com.loopers.domain.payment.ReceiptService
 import com.loopers.support.error.CoreException
@@ -43,7 +44,7 @@ class PaymentFacadeTest {
         val testReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
         every { receiptService.initiateReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } returns testReceipt
         every { receiptService.markAsPending(any()) } returns Unit
-        every { pgPaymentGateway.requestPayment(any(), any(), any(), any(), any(), any(), any()) } returns PgPaymentGateway.PaymentRequestResult(
+        every { pgPaymentGateway.requestPayment(any(), any(), any(), any(), any(), any(), any()) } returns PaymentRequestResult(
             transactionKey = "TXN_123_100",
             orderId = "100",
             cardType = "SAMSUNG",

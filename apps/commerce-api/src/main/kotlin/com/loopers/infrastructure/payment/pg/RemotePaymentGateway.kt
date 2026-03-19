@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.payment.pg
 
+import com.loopers.domain.payment.PaymentRequestResult
 import com.loopers.domain.payment.PgPaymentGateway
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
@@ -43,7 +44,7 @@ class RemotePaymentGateway(
         cardType: String,
         cardNo: String,
         callbackUrl: String,
-    ): PgPaymentGateway.PaymentRequestResult {
+    ): PaymentRequestResult {
         val request = PgPaymentRequest(
             orderId = orderId.toString(),
             cardType = cardType,
@@ -63,11 +64,11 @@ class RemotePaymentGateway(
         cardNo: String,
         callbackUrl: String,
         ex: Exception,
-    ): PgPaymentGateway.PaymentRequestResult {
+    ): PaymentRequestResult {
         throw RuntimeException("PG payment service is unavailable. Please try again later.", ex)
     }
 
-    private fun performRequest(userId: Long, request: PgPaymentRequest): PgPaymentGateway.PaymentRequestResult {
+    private fun performRequest(userId: Long, request: PgPaymentRequest): PaymentRequestResult {
         val response = webClient.post()
             .uri("$baseUrl/api/v1/payments")
             .header("X-USER-ID", userId.toString())
@@ -78,7 +79,7 @@ class RemotePaymentGateway(
             .block(Duration.ofSeconds(10))
             ?: throw RuntimeException("PG payment request failed: no response")
 
-        return PgPaymentGateway.PaymentRequestResult(
+        return PaymentRequestResult(
             transactionKey = response.transactionKey,
             orderId = response.orderId,
             cardType = response.cardType,
