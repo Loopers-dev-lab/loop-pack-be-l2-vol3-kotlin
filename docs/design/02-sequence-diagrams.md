@@ -773,6 +773,263 @@ sequenceDiagram
 
 ---
 
+## 10. 결제 요청
+
+### 10-1. 목적
+
+결제 요청은 **비동기 PG 연동에서의 상태 정합성**과 **중복 결제 방지**를 보장하는 것이 목적이다.
+
+- 동일 주문에 대해 중복 결제가 생성되지 않아야 한다 (BR-PY01)
+- PG 호출은 트랜잭션 밖에서 수행하여 커넥션 점유를 최소화한다
+- PG 요청 실패 시 결제는 PENDING 상태를 유지하여 복구 스케줄러가 처리한다
+
+### 10-2. Happy Path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant 회원
+    participant API as 결제 API
+    participant 흐름 as 결제 흐름 관리
+    participant 트랜잭션서비스 as 결제 트랜잭션 서비스
+    participant 도메인 as 결제 도메인
+    participant 결제저장소 as 결제 저장소
+    participant 주문저장소 as 주문 저장소
+    participant PG as PG (외부)
+
+    회원->>API: 결제 요청 (orderId, cardType, cardNo)
+
+    API->>흐름: 결제 요청 위임
+
+    Note over 트랜잭션서비스: ═══ TX1 시작 ═══
+
+    흐름->>트랜잭션서비스: 결제 생성 위임
+
+    트랜잭션서비스->>주문저장소: 주문 조회
+
+    alt 주문 없음 or PENDING 아님
+        주문저장소-->>트랜잭션서비스: 조회 실패
+        트랜잭션서비스-->>흐름: 오류
+        흐름-->>API: 실패 응답
+        API-->>회원: 실패 응답
+    end
+
+    트랜잭션서비스->>결제저장소: 동일 주문 결제 존재 여부 확인
+
+    alt 이미 결제 존재
+        결제저장소-->>트랜잭션서비스: 이미 존재
+        트랜잭션서비스-->>흐름: 중복 오류
+        흐름-->>API: 실패 응답 (409)
+        API-->>회원: 실패 응답
+    end
+
+    트랜잭션서비스->>도메인: 결제 생성 (PENDING)
+    도메인-->>트랜잭션서비스: Payment 객체
+
+    트랜잭션서비스->>결제저장소: 결제 저장
+
+    Note over 트랜잭션서비스: ═══ TX1 커밋 ═══
+
+    Note over 흐름: 트랜잭션 밖에서 PG 호출
+
+    흐름->>PG: 결제 요청 (CircuitBreaker: pgRequest)
+
+    alt PG 요청 성공
+        PG-->>흐름: 성공 응답 (transactionKey)
+
+        Note over 트랜잭션서비스: ═══ TX2 시작 ═══
+        흐름->>트랜잭션서비스: 상태 업데이트 위임
+        트랜잭션서비스->>결제저장소: 결제 조회 (FOR UPDATE)
+        트랜잭션서비스->>도메인: 상태 REQUESTED로 변경
+        트랜잭션서비스->>결제저장소: 결제 저장
+        Note over 트랜잭션서비스: ═══ TX2 커밋 ═══
+    end
+
+    alt PG 요청 실패 (CircuitBreaker OPEN / 예외)
+        PG-->>흐름: 실패
+        Note over 흐름: 결제 PENDING 유지 (복구 스케줄러가 처리)
+    end
+
+    흐름-->>API: 결제 요청 접수 완료
+    API-->>회원: 성공 응답
+```
+
+### 10-3. 설계 검증 슬라이스
+
+| 케이스 | 처리 전략 | 왜 이렇게 설계했는가 | 영향 범위 |
+|--------|----------|---------------------|----------|
+| 주문 없음/PENDING 아님 | 즉시 실패 | PENDING 상태 주문만 결제 가능 (BR-PY02) | 요청 중단 |
+| 동일 주문 중복 결제 | 즉시 실패 (409) | 중복 결제 방지 (BR-PY01) | 요청 중단 |
+| PG 요청 실패 | PENDING 유지 | 복구 스케줄러가 후속 처리 | 자동 복구 |
+| PG 요청 중 애플리케이션 장애 | PENDING 유지 | TX1에서 저장 완료, PG 응답 누락 시 복구 처리 | 자동 복구 |
+
+### 10-4. 설계 의도
+
+**트랜잭션을 분리한 이유 (TX1 → PG 호출 → TX2)**
+- PG 호출은 외부 네트워크 I/O이므로 트랜잭션 안에서 실행하면 커넥션 점유 시간이 길어진다
+- TX1에서 PENDING 결제를 먼저 저장하면, PG 호출 중 장애가 발생해도 결제 레코드는 존재한다
+- 복구 스케줄러가 PENDING 상태 결제를 감지하여 PG 상태를 조회하고 동기화한다
+
+**CircuitBreaker를 pgRequest/pgQuery로 분리한 이유**
+- 결제 요청(pgRequest)과 결제 조회(pgQuery)는 장애 특성이 다르다
+- 결제 요청 장애 시에도 조회가 가능할 수 있으며, 복구 스케줄러는 조회만 사용한다
+
+---
+
+## 11. 결제 콜백 수신
+
+### 11-1. 목적
+
+결제 콜백은 PG로부터 **비동기 결제 결과를 수신**하여 결제와 주문 상태를 **안전하게 전이**하는 것이 목적이다.
+
+- 중복 콜백에도 상태가 꼬이지 않아야 한다 (멱등성)
+- 결제 성공 시 주문을 COMPLETED로 전이한다 (BR-PY04)
+
+### 11-2. Happy Path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant PG as PG (외부)
+    participant API as 콜백 API
+    participant 흐름 as 결제 흐름 관리
+    participant 도메인 as 결제/주문 도메인
+    participant 결제저장소 as 결제 저장소
+    participant 주문저장소 as 주문 저장소
+
+    PG->>API: 콜백 수신 (transactionKey, 성공/실패)
+
+    API->>흐름: 콜백 처리 위임
+
+    Note over 흐름: 트랜잭션 시작
+
+    흐름->>결제저장소: transactionKey로 결제 조회 (FOR UPDATE)
+
+    alt 결제 없음
+        결제저장소-->>흐름: 조회 실패
+        흐름-->>API: 결제 없음 오류
+        API-->>PG: 실패 응답
+    end
+
+    흐름->>도메인: 결제가 이미 종료 상태인지 확인 (isTerminal)
+
+    alt 이미 종료 (SUCCESS/FAILED)
+        Note over 흐름: 멱등 처리: 변경 없음
+        흐름-->>API: 성공 (멱등)
+        API-->>PG: 성공 응답
+    end
+
+    alt PG 결제 성공
+        흐름->>도메인: 결제 SUCCESS로 변경
+        흐름->>결제저장소: 결제 저장
+        흐름->>주문저장소: 주문 조회
+        흐름->>도메인: 주문 complete()
+        흐름->>주문저장소: 주문 저장 (COMPLETED)
+    end
+
+    alt PG 결제 실패
+        흐름->>도메인: 결제 FAILED로 변경 (실패 사유 기록)
+        흐름->>결제저장소: 결제 저장
+        Note over 흐름: 주문은 PENDING 유지 (BR-PY03)
+    end
+
+    Note over 흐름: 트랜잭션 커밋
+
+    흐름-->>API: 콜백 처리 완료
+    API-->>PG: 성공 응답
+```
+
+### 11-3. 설계 검증 슬라이스
+
+| 케이스 | 처리 전략 | 왜 이렇게 설계했는가 | 영향 범위 |
+|--------|----------|---------------------|----------|
+| 중복 콜백 | isTerminal() 체크 + 멱등 반환 | 이미 처리된 결제는 재처리하지 않는다 | 변경 없음 |
+| 결제 성공 | SUCCESS + 주문 COMPLETED | BR-PY04에 따라 주문 확정 | 주문 상태 전이 |
+| 결제 실패 | FAILED + 주문 PENDING 유지 | BR-PY03에 따라 재시도 가능 | 결제만 종료 |
+| 동시 콜백 | SELECT FOR UPDATE | 비관적 락으로 순차 처리, 두 번째는 멱등 | DB 락 의존 |
+
+---
+
+## 12. 결제 복구 (스케줄러)
+
+### 12-1. 목적
+
+결제 복구는 **장기 미완료 결제를 PG에 조회하여 상태를 동기화**하는 것이 목적이다.
+
+- PG 응답 누락, 콜백 유실 등으로 상태가 갱신되지 않은 결제를 처리한다
+- 복구 대상: 일정 시간 이상 PENDING 또는 REQUESTED 상태인 결제
+
+### 12-2. Happy Path
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant 스케줄러
+    participant 흐름 as 복구 흐름 관리
+    participant 결제저장소 as 결제 저장소
+    participant PG as PG (외부)
+    participant 도메인 as 결제/주문 도메인
+    participant 주문저장소 as 주문 저장소
+
+    스케줄러->>흐름: 미완료 결제 복구 실행
+
+    흐름->>결제저장소: 장기 미완료 결제 목록 조회 (PENDING/REQUESTED)
+
+    loop 각 미완료 결제
+        흐름->>PG: 결제 상태 조회 (CircuitBreaker: pgQuery + Retry)
+
+        alt PG 조회 실패
+            Note over 흐름: 해당 결제 건너뜀, 다음 스케줄 시 재시도
+        end
+
+        alt PG 응답: 성공
+            Note over 흐름: 트랜잭션 시작
+            흐름->>결제저장소: 결제 조회 (FOR UPDATE)
+            흐름->>도메인: 결제 SUCCESS로 변경
+            흐름->>결제저장소: 결제 저장
+            흐름->>주문저장소: 주문 조회
+            흐름->>도메인: 주문 complete()
+            흐름->>주문저장소: 주문 저장 (COMPLETED)
+            Note over 흐름: 트랜잭션 커밋
+        end
+
+        alt PG 응답: 실패
+            Note over 흐름: 트랜잭션 시작
+            흐름->>결제저장소: 결제 조회 (FOR UPDATE)
+            흐름->>도메인: 결제 FAILED로 변경
+            흐름->>결제저장소: 결제 저장
+            Note over 흐름: 트랜잭션 커밋
+        end
+
+        alt PG 응답: 미확정
+            Note over 흐름: 상태 유지, 다음 스케줄 시 재조회
+        end
+    end
+
+    흐름-->>스케줄러: 복구 완료
+```
+
+### 12-3. 설계 검증 슬라이스
+
+| 케이스 | 처리 전략 | 왜 이렇게 설계했는가 | 영향 범위 |
+|--------|----------|---------------------|----------|
+| PG 조회 실패 | 해당 건 건너뜀 | 한 건의 실패가 전체 복구를 중단시키지 않는다 | 다음 스케줄 시 재시도 |
+| PG 성공 | SUCCESS + 주문 COMPLETED | 콜백 유실을 보완한다 | 주문 상태 전이 |
+| PG 미확정 | 상태 유지 | 아직 PG에서 처리 중인 결제를 강제 종료하지 않는다 | 다음 스케줄 시 재조회 |
+| CircuitBreaker OPEN | 조회 중단 | PG 장애 시 불필요한 요청을 차단한다 | 전체 복구 중단 |
+
+### 12-4. 설계 의도
+
+**Retry를 조회에만 적용하는 이유**
+- 결제 요청(pgRequest)은 멱등하지 않으므로 재시도 시 중복 결제 위험이 있다
+- 결제 조회(pgQuery)는 읽기 전용이므로 재시도해도 부작용이 없다
+
+**Fallback 전략**
+- CircuitBreaker OPEN 시 PG 호출 대신 Fallback으로 "조회 불가" 응답을 반환한다
+- 복구 스케줄러는 조회 실패한 건을 건너뛰고 다음 스케줄에서 재시도한다
+
+---
+
 ## 요약
 
 | 유스케이스 | 보장하려는 것 | 실패 전략 | 동시성 방어 |
@@ -786,6 +1043,9 @@ sequenceDiagram
 | 쿠폰 발급 | 중복 발급 방지 + 수량 정합성 | 즉시 실패 | 중복 검사 + 원자적 카운트 증가 |
 | 쿠폰 적용 주문 | 쿠폰 1회 사용 보장 | 전체 롤백 | 비관적 락 (SELECT FOR UPDATE) |
 | 주문 취소 시 쿠폰 복원 | 쿠폰 안전 복원 | 전체 롤백 | 주문 트랜잭션 내에서 처리 |
+| 결제 요청 | 중복 결제 방지 + PG 연동 안전성 | PENDING 유지 (복구 스케줄러) | 트랜잭션 분리 (TX1 → PG → TX2) |
+| 결제 콜백 | 상태 전이 안전성 + 멱등성 | 멱등 반환 | 비관적 락 (SELECT FOR UPDATE) + isTerminal() |
+| 결제 복구 | 장기 미완료 결제 동기화 | 건별 건너뜀 (다음 스케줄 재시도) | CircuitBreaker + Retry (조회만) |
 
 ---
 

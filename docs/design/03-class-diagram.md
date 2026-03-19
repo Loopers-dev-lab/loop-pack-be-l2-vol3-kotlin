@@ -309,6 +309,45 @@ classDiagram
     UserCoupon -- CouponStatus
     UserCoupon -- DiscountType
     UserCoupon *-- Money
+
+    %% Payment Aggregate
+    class Payment {
+        <<Aggregate Root>>
+        -Long? persistenceId
+        -Long refOrderId
+        -Long refUserId
+        -String? transactionKey
+        -CardType cardType
+        -String cardNo
+        -Money amount
+        -PaymentStatus status
+        -String? failureReason
+        +create(orderId, userId, cardType, cardNo, amount)$ Payment
+        +reconstitute(...)$ Payment
+        +request(transactionKey) Payment
+        +succeed() Payment
+        +fail(failureReason) Payment
+        +isTerminal() boolean
+    }
+
+    class PaymentStatus {
+        <<Enum>>
+        PENDING
+        REQUESTED
+        SUCCESS
+        FAILED
+    }
+
+    class CardType {
+        <<Enum>>
+        SAMSUNG
+        KB
+        HYUNDAI
+    }
+
+    Payment *-- PaymentStatus
+    Payment -- CardType
+    Payment *-- Money
 ```
 
 ---
@@ -559,8 +598,8 @@ classDiagram
 | 전이 규칙 | 도메인 (`cancel()`, `complete()`) | 현재 상태가 PENDING인지 검증. 위반 시 예외 |
 | 전이 시점 | ApplicationService | 언제 `cancel()`/`complete()`를 호출할지 결정 |
 
-**현재**: 주문 생성 시 PENDING 상태로 저장. 사용자가 취소 가능
-**확장 시**: 결제 도입 시 별도 유스케이스(ConfirmPaymentUseCase)에서 `complete()` 호출. 도메인 코드 변경 없음
+**현재**: 주문 생성 시 PENDING 상태로 저장. 사용자가 취소 가능. 결제 성공 시 HandlePaymentCallbackUseCase 또는 RecoverPaymentUseCase에서 `complete()` 호출
+**확장 시**: 배송 도입 시 상태 추가만으로 대응 가능
 
 #### OrderStatus
 
@@ -598,6 +637,88 @@ classDiagram
 | 메서드 | 설명 |
 |--------|------|
 | `getSubtotal()` | price × quantity |
+
+---
+
+## 7. Payment (결제)
+
+### Aggregate Root
+
+#### 속성
+
+| 속성 | 타입 | 설명 |
+|------|------|------|
+| persistenceId | Long? | 식별자 (저장 전 null, 저장 후 할당) |
+| refOrderId | Long | 주문 ID (ID 참조) |
+| refUserId | Long | 사용자 ID (ID 참조) |
+| transactionKey | String? | PG 거래 고유 키 (PG 요청 성공 후 할당) |
+| cardType | CardType | 결제 카드 유형 (SAMSUNG, KB, HYUNDAI) |
+| cardNo | String | 카드 번호 |
+| amount | Money | 결제 금액 |
+| status | PaymentStatus | 결제 상태 |
+| failureReason | String? | 실패 사유 (FAILED 상태일 때) |
+
+#### 생성 메서드
+
+| 메서드 | 설명 |
+|--------|------|
+| `create(orderId, userId, cardType, cardNo, amount)` | 결제 생성 (PENDING 상태, persistenceId=null, transactionKey=null) |
+| `reconstitute(...)` | DB 복원용 (Infrastructure Mapper에서만 호출) |
+
+#### 행위
+
+| 메서드 | 반환 | 설명 |
+|--------|------|------|
+| `request(transactionKey)` | Payment | PENDING → REQUESTED (transactionKey 할당) |
+| `succeed()` | Payment | REQUESTED → SUCCESS |
+| `fail(failureReason)` | Payment | REQUESTED → FAILED (실패 사유 기록) |
+| `isTerminal()` | Boolean | 종료 상태 여부 (SUCCESS 또는 FAILED) |
+
+#### 상태 전이 규칙
+
+```
+         ┌──────────────┐
+         │   PENDING    │
+         │  (결제 대기)   │
+         └──────┬───────┘
+                │ request()
+                ▼
+         ┌──────────────┐
+         │  REQUESTED   │
+         │  (PG 요청됨)  │
+         └──────┬───────┘
+                │
+    ┌───────────┴───────────┐
+    ▼                       ▼
+┌──────────┐         ┌──────────┐
+│ SUCCESS  │         │  FAILED  │
+│ (성공)    │         │  (실패)   │
+└──────────┘         └──────────┘
+```
+
+#### 불변식
+
+- PENDING에서만 REQUESTED로 전이 가능 (request())
+- REQUESTED에서만 SUCCESS 또는 FAILED로 전이 가능
+- isTerminal() 상태(SUCCESS/FAILED)에서는 추가 상태 변경 불가
+- transactionKey는 request() 시 할당되며, 이후 변경 불가
+
+### PaymentStatus (Enum)
+
+| 값 | 의미 | 설명 |
+|------|------|------|
+| PENDING | 결제 대기 | 결제 생성 직후. PG 요청 전 |
+| REQUESTED | 요청됨 | PG에 결제 요청 완료. 콜백/복구 대기 |
+| SUCCESS | 성공 | PG 결제 성공. 주문 COMPLETED 전이 |
+| FAILED | 실패 | PG 결제 실패. 주문 PENDING 유지 |
+
+### CardType (Enum)
+
+| 값 | 설명 |
+|------|------|
+| SAMSUNG | 삼성카드 |
+| KB | KB국민카드 |
+| HYUNDAI | 현대카드 |
 
 ---
 
@@ -661,6 +782,17 @@ interface UserCouponRepository {
     fun findAllByUserId(userId: Long): List<UserCoupon>
     fun findAllByCouponId(couponId: Long): List<UserCoupon>
 }
+
+interface PaymentRepository {
+    fun save(payment: Payment): Long
+    fun findById(id: Long): Payment?
+    fun findByIdForUpdate(id: Long): Payment?              // SELECT ... FOR UPDATE
+    fun findByTransactionKey(transactionKey: String): Payment?
+    fun findByTransactionKeyForUpdate(transactionKey: String): Payment?  // SELECT ... FOR UPDATE
+    fun findByOrderId(orderId: Long): Payment?
+    fun findAllByStatusAndCreatedBefore(status: PaymentStatus, time: ZonedDateTime): List<Payment>
+    fun findAllByStatusInAndCreatedBefore(statuses: List<PaymentStatus>, time: ZonedDateTime): List<Payment>
+}
 ```
 
 > **ProductSortType**: `CREATED_AT`(최신순), `LIKE_COUNT`(인기순), `PRICE_ASC`(가격순)
@@ -677,6 +809,9 @@ interface UserCouponRepository {
 | LikeRepository | `addLike(userId, productId)` | `INSERT IGNORE INTO likes ...` | - |
 | LikeRepository | `removeLike(userId, productId)` | `DELETE WHERE user_id = ? AND product_id = ?` | - |
 | OrderRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `OrderNotFoundException` |
+| PaymentRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `PaymentNotFoundException` |
+| PaymentRepository | `findByTransactionKeyForUpdate(key)` | `SELECT ... FOR UPDATE` | `PaymentNotFoundException` |
+| PaymentRepository | `findByOrderId(orderId)` | `SELECT WHERE order_id = ?` | - |
 
 ---
 
@@ -826,6 +961,10 @@ class OrderItemFactory {
 | GetUserCouponListUseCase | 쿠폰별 발급 내역 조회 (어드민) |
 | IssueCouponUseCase | 쿠폰 발급. 중복/수량/만료 검증 + 스냅샷 생성 + issuedCount 증가 |
 | GetMyCouponsUseCase | 내 쿠폰 목록 조회 |
+| RequestPaymentUseCase | 결제 요청. TX1(PENDING 생성) → PG 호출 → TX2(REQUESTED 업데이트). CircuitBreaker(pgRequest) |
+| HandlePaymentCallbackUseCase | PG 콜백 처리. SELECT FOR UPDATE + isTerminal() 멱등 체크. 성공 시 주문 COMPLETED (BR-PY04) |
+| RecoverPaymentUseCase | 미완료 결제 복구. PG 조회(pgQuery + Retry) → 상태 동기화 |
+| GetPaymentUseCase | 결제 조회 (단건) |
 
 ---
 
@@ -840,6 +979,8 @@ class OrderItemFactory {
 | Like는 Aggregate Root 아님 | 단순 CRUD, 복잡한 규칙 없음 | 확장 시 재검토 필요 |
 | Value Object 적극 사용 | 타입 안정성, 규칙 캡슐화 | 클래스 수 증가 |
 | Immutable 도메인 객체 | 부수효과 방지, 테스트 용이 | 객체 재생성 비용 |
+| Payment 트랜잭션 분리 | 외부 PG 호출 중 DB 커넥션 점유 방지 | 트랜잭션 간 상태 불일치 가능 (복구 스케줄러로 보완) |
+| CircuitBreaker pgRequest/pgQuery 분리 | 결제 요청과 조회의 장애 특성이 다름 | CircuitBreaker 인스턴스 관리 복잡도 증가 |
 
 ---
 
