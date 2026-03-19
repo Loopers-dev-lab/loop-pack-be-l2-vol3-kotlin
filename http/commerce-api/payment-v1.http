@@ -1,0 +1,62 @@
+### 결제 요청
+POST {{commerce-api}}/api/v1/payments
+Content-Type: application/json
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451"
+}
+
+###
+
+### 결제 상태 조회
+GET {{commerce-api}}/api/v1/payments?orderId=1
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+
+###
+
+### PG 콜백 수신 (성공)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20260319:TR:abc123",
+  "orderId": "1",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451",
+  "amount": 258000,
+  "status": "SUCCESS",
+  "reason": "정상 승인되었습니다."
+}
+
+###
+
+### PG 콜백 수신 (실패 - 한도초과)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20260319:TR:abc123",
+  "orderId": "1",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9814-1451",
+  "amount": 258000,
+  "status": "FAILED",
+  "reason": "한도초과입니다. 다른 카드를 선택해주세요."
+}
+
+###
+
+### 서킷브레이커 상태 확인
+GET {{commerce-api}}/actuator/circuitbreakers
+
+###
+
+### 서킷브레이커 이벤트 이력
+GET {{commerce-api}}/actuator/circuitbreakerevents
+
+###
