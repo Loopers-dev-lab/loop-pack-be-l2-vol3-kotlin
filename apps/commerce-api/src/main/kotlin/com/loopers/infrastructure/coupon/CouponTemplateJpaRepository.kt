@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.Query
 
 interface CouponTemplateJpaRepository : JpaRepository<CouponTemplateEntity, Long> {
 
+    @Query("SELECT ct FROM CouponTemplateEntity ct WHERE ct.id IN :ids AND ct.deletedAt IS NULL")
+    fun findAllByIdIn(ids: List<Long>): List<CouponTemplateEntity>
+
     @Query("SELECT ct FROM CouponTemplateEntity ct WHERE ct.deletedAt IS NULL")
     fun findAllActive(): List<CouponTemplateEntity>
 }

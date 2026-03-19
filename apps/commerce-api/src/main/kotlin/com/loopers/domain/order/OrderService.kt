@@ -5,6 +5,7 @@ import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
 @Service
 class OrderService(
@@ -41,4 +42,33 @@ class OrderService(
 
     @Transactional(readOnly = true)
     fun findAll(page: Int, size: Int): List<Order> = orderRepository.findAll(page, size)
+
+    @Transactional(readOnly = true)
+    fun getByStatus(status: OrderStatus, page: Int, size: Int): List<Order> =
+        orderRepository.findByStatus(status, page, size)
+
+    @Transactional(readOnly = true)
+    fun getByStatusAndDateRange(
+        status: OrderStatus,
+        startAt: LocalDate,
+        endAt: LocalDate,
+        page: Int,
+        size: Int,
+    ): List<Order> = orderRepository.findByStatusAndDateRange(status, startAt, endAt, page, size)
+
+    @Transactional(readOnly = true)
+    fun getDelayedOrders(
+        status: OrderStatus,
+        olderThan: ZonedDateTime,
+        page: Int,
+        size: Int,
+    ): List<Order> = orderRepository.findDelayedOrders(status, olderThan, page, size)
+
+    @Transactional
+    fun updateStatus(id: Long, action: (Order) -> Unit): Order {
+        val order = getById(id)
+        action(order)
+        orderRepository.updateStatus(order)
+        return order
+    }
 }

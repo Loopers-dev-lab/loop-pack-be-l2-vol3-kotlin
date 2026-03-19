@@ -7,6 +7,7 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import jakarta.persistence.Version
@@ -15,6 +16,9 @@ import jakarta.persistence.Version
 @Table(
     name = "user_coupons",
     uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "coupon_template_id"])],
+    indexes = [
+        Index(name = "idx_user_coupons_user_id", columnList = "user_id"),
+    ]
 )
 class UserCouponEntity(
     userId: Long,

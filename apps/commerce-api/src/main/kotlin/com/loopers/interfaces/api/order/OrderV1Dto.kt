@@ -4,6 +4,8 @@ import com.loopers.application.order.OrderItemResult
 import com.loopers.application.order.OrderResult
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
+import com.loopers.domain.order.OrderStatus
+import java.time.ZonedDateTime
 
 class OrderV1Dto {
 
@@ -15,6 +17,10 @@ class OrderV1Dto {
     data class PlaceOrderRequest(
         val items: List<OrderItemRequest>,
         val userCouponId: Long? = null,
+    )
+
+    data class UpdateStatusRequest(
+        val action: String,
     )
 
     data class OrderItemResponse(
@@ -56,6 +62,11 @@ class OrderV1Dto {
         val discountAmount: Int,
         val totalPrice: Int,
         val userCouponId: Long?,
+        val status: OrderStatus,
+        val paidAt: ZonedDateTime?,
+        val shippedAt: ZonedDateTime?,
+        val deliveredAt: ZonedDateTime?,
+        val cancelledAt: ZonedDateTime?,
         val items: List<OrderItemResponse>,
     ) {
         companion object {
@@ -66,6 +77,11 @@ class OrderV1Dto {
                 discountAmount = result.discountAmount,
                 totalPrice = result.totalPrice,
                 userCouponId = result.userCouponId,
+                status = result.status,
+                paidAt = result.paidAt,
+                shippedAt = result.shippedAt,
+                deliveredAt = result.deliveredAt,
+                cancelledAt = result.cancelledAt,
                 items = result.items.map { OrderItemResponse.from(it) },
             )
 
@@ -76,6 +92,11 @@ class OrderV1Dto {
                 discountAmount = order.discountAmount,
                 totalPrice = order.totalPrice,
                 userCouponId = order.userCouponId,
+                status = order.status,
+                paidAt = order.paidAt,
+                shippedAt = order.shippedAt,
+                deliveredAt = order.deliveredAt,
+                cancelledAt = order.cancelledAt,
                 items = order.items.map { OrderItemResponse.from(it) },
             )
         }

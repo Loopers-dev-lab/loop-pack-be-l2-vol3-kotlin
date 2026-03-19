@@ -2,6 +2,8 @@ package com.loopers.application.order
 
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
+import com.loopers.domain.order.OrderStatus
+import java.time.ZonedDateTime
 
 data class OrderItemResult(
     val id: Long,
@@ -34,6 +36,11 @@ data class OrderResult(
     val discountAmount: Int,
     val totalPrice: Int,
     val userCouponId: Long?,
+    val status: OrderStatus,
+    val paidAt: ZonedDateTime?,
+    val shippedAt: ZonedDateTime?,
+    val deliveredAt: ZonedDateTime?,
+    val cancelledAt: ZonedDateTime?,
     val items: List<OrderItemResult>,
 ) {
     companion object {
@@ -44,6 +51,11 @@ data class OrderResult(
             discountAmount = order.discountAmount,
             totalPrice = order.totalPrice,
             userCouponId = order.userCouponId,
+            status = order.status,
+            paidAt = order.paidAt,
+            shippedAt = order.shippedAt,
+            deliveredAt = order.deliveredAt,
+            cancelledAt = order.cancelledAt,
             items = order.items.map { OrderItemResult.from(it) },
         )
     }

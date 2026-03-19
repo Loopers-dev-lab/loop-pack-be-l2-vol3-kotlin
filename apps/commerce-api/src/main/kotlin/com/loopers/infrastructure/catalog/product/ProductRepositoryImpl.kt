@@ -31,6 +31,10 @@ class ProductRepositoryImpl(
             .map { it.toDomain() }
             .orElse(null)
 
+    override fun findAllByIds(ids: List<Long>): List<Product> =
+        if (ids.isEmpty()) emptyList()
+        else productJpaRepository.findAllByIdIn(ids).map { it.toDomain() }
+
     override fun findAll(condition: ProductSearchCondition): List<Product> {
         val pageable = PageRequest.of(condition.page, condition.size)
         return when (condition.sort) {
