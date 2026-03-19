@@ -11,7 +11,7 @@ import java.math.BigDecimal
 import java.time.Duration
 
 @Component
-class RemotePaymentClient(
+class LoopPaymentClient(
     private val webClient: WebClient,
     @Value("\${pg.base-url}") private val baseUrl: String,
 ) : PaymentClient {
