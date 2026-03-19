@@ -1,0 +1,58 @@
+pg:
+  base-url: http://localhost:8083
+  timeout:
+    connect-ms: 5000
+    read-sec: 10
+    write-sec: 10
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+pg:
+  base-url: http://pg-dev.example.com
+  timeout:
+    connect-ms: 3000
+    read-sec: 5
+    write-sec: 5
+
+---
+spring:
+  config:
+    activate:
+      on-profile: qa
+
+pg:
+  base-url: http://pg-qa.example.com
+  timeout:
+    connect-ms: 4000
+    read-sec: 8
+    write-sec: 8
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prd
+
+pg:
+  base-url: http://pg-prd.example.com
+  timeout:
+    connect-ms: 5000
+    read-sec: 10
+    write-sec: 10
+
+---
+spring:
+  config:
+    activate:
+      on-profile: perf
+
+pg:
+  base-url: http://localhost:8083
+  timeout:
+    connect-ms: 5000
+    read-sec: 10
+    write-sec: 10

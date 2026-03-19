@@ -12,6 +12,7 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+      - payment-gateway.yml
   cache:
     type: redis
 
@@ -26,9 +27,6 @@ spring:
     activate:
       on-profile: local, test
 
-pg:
-  base-url: http://localhost:8083
-
 ---
 spring:
   config:
@@ -37,9 +35,6 @@ spring:
   cache:
     redis:
       time-to-live: 5m  # dev: 5분 (개발 중 빠른 갱신)
-
-pg:
-  base-url: http://pg-dev.example.com
 
 ---
 spring:
@@ -50,9 +45,6 @@ spring:
     redis:
       time-to-live: 10m  # qa: 10분 (테스트 환경)
 
-pg:
-  base-url: http://pg-qa.example.com
-
 ---
 spring:
   config:
@@ -61,9 +53,6 @@ spring:
   cache:
     redis:
       time-to-live: 30m  # prd: 30분 (안정적 캐싱)
-
-pg:
-  base-url: http://pg-prd.example.com
 
 springdoc:
   api-docs:
@@ -77,6 +66,3 @@ spring:
   cache:
     redis:
       time-to-live: 5m  # perf: 5분
-
-pg:
-  base-url: http://localhost:8083
