@@ -38,6 +38,8 @@ pg:
 spring.cloud.openfeign:
   circuitbreaker:
     enabled: true # FeignClient에 CircuitBreaker 통합 활성화
+    group:
+      enabled: true # 같은 FeignClient의 모든 메서드가 하나의 CircuitBreaker 인스턴스를 공유
   client:
     config:
       pg-simulator:
