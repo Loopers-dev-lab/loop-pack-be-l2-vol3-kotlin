@@ -137,13 +137,13 @@ class PaymentApiE2ETest @Autowired constructor(
             assertThat(payments.first().status).isEqualTo(PaymentStatus.PENDING)
         }
 
-        @DisplayName("PG 호출 실패 시, 결제가 REQUESTED 상태로 생성된다 (Fallback).")
+        @DisplayName("PG가 응답하지 못하면, 결제가 REQUESTED 상태로 생성된다 (Fallback).")
         @Test
-        fun returnsOkWithRequestedStatus_whenPgCallFails() {
+        fun returnsOkWithRequestedStatus_whenPgIsUnavailable() {
             // arrange
             signUp()
             whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
-                .thenThrow(RuntimeException("PG 장애"))
+                .thenReturn(null)
             val request = PaymentRequest(
                 orderId = "ORDER-001",
                 cardType = "SAMSUNG",

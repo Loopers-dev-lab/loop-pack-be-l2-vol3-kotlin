@@ -65,12 +65,12 @@ class PaymentFacadeIntegrationTest @Autowired constructor(
             )
         }
 
-        @DisplayName("PG 호출 실패 시, 결제가 REQUESTED 상태로 DB에 저장된다 (Fallback).")
+        @DisplayName("PG가 응답하지 못하면, 결제가 REQUESTED 상태로 DB에 저장된다 (Fallback).")
         @Test
-        fun savesPaymentAsRequested_whenPgCallFails() {
+        fun savesPaymentAsRequested_whenPgIsUnavailable() {
             // arrange
             whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
-                .thenThrow(RuntimeException("PG 연결 실패"))
+                .thenReturn(null)
 
             // act
             val result = paymentFacade.requestPayment(
@@ -131,12 +131,12 @@ class PaymentFacadeIntegrationTest @Autowired constructor(
     @Nested
     inner class CircuitBreakerBehavior {
 
-        @DisplayName("PG가 계속 실패해도 결제 요청은 REQUESTED 상태로 저장된다.")
+        @DisplayName("PG가 계속 응답하지 못해도 결제 요청은 REQUESTED 상태로 저장된다.")
         @Test
-        fun alwaysSavesAsRequested_whenPgKeepsFailing() {
+        fun alwaysSavesAsRequested_whenPgKeepsUnavailable() {
             // arrange
             whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
-                .thenThrow(RuntimeException("PG 장애"))
+                .thenReturn(null)
 
             // act
             val results = (1..5).map { i ->

@@ -79,14 +79,14 @@ class PaymentFacadeTest {
             verify(paymentService).markPending(payment.id, "txn-key-123")
         }
 
-        @DisplayName("PG 호출이 실패하면, REQUESTED 상태를 유지한다 (Fallback).")
+        @DisplayName("PG가 응답하지 못하면, REQUESTED 상태를 유지한다 (Fallback).")
         @Test
-        fun keepsRequestedStatus_whenPgCallFails() {
+        fun keepsRequestedStatus_whenPgIsUnavailable() {
             // arrange
             val payment = createPayment()
             whenever(paymentService.createPayment(any(), any(), any(), any(), any())).thenReturn(payment)
             whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
-                .thenThrow(RuntimeException("PG 연결 실패"))
+                .thenReturn(null)
 
             // act
             val result = paymentFacade.requestPayment(
@@ -181,15 +181,15 @@ class PaymentFacadeTest {
             verify(paymentService, never()).markFailed(any(), any())
         }
 
-        @DisplayName("PG 조회에 실패하면, 기존 상태를 유지한다.")
+        @DisplayName("PG가 응답하지 못하면, 기존 상태를 유지한다.")
         @Test
-        fun keepsCurrentStatus_whenPgQueryFails() {
+        fun keepsCurrentStatus_whenPgIsUnavailable() {
             // arrange
             val payment = createPayment()
             payment.markPending("txn-key-123")
             whenever(paymentService.getPaymentsByOrderId("ORDER-001")).thenReturn(listOf(payment))
             whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-123")))
-                .thenThrow(RuntimeException("PG 연결 실패"))
+                .thenReturn(null)
 
             // act
             val result = paymentFacade.syncPaymentStatus("ORDER-001")

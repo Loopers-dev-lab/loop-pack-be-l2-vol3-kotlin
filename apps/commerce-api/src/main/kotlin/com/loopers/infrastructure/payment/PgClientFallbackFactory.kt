@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component
  * PG 클라이언트 Fallback Factory
  *
  * CircuitBreaker OPEN 또는 PG 호출 실패 시 Fallback 동작을 정의한다.
- * Fallback이 호출되면 PgUnavailableException을 던져 상위 서비스에서 처리하도록 한다.
+ * Fallback이 호출되면 PgUnavailableException을 던져 PaymentGatewayImpl에서 null로 변환한다.
  */
 @Component
 class PgClientFallbackFactory : FallbackFactory<PgClient> {

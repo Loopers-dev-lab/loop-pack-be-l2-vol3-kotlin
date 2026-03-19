@@ -8,12 +8,12 @@ interface PaymentGateway {
         cardNo: String,
         amount: Long,
         callbackUrl: String,
-    ): PaymentGatewayResponse
+    ): PaymentGatewayResponse?
 
     fun getTransactionStatus(
         userId: String,
         transactionKey: String,
-    ): PaymentGatewayTransactionDetail
+    ): PaymentGatewayTransactionDetail?
 }
 
 data class PaymentGatewayResponse(
