@@ -217,6 +217,30 @@ class PaymentApiE2ETest @Autowired constructor(
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
+
+        @DisplayName("지원하지 않는 카드 유형이면, 400 BAD_REQUEST를 반환한다.")
+        @Test
+        fun returnsBadRequest_whenCardTypeIsInvalid() {
+            // arrange
+            signUp()
+            val request = PaymentRequest(
+                orderId = "ORDER-001",
+                cardType = "INVALID_CARD",
+                cardNo = "1234-5678-9012-3456",
+                amount = 50000L,
+            )
+
+            // act
+            val response = testRestTemplate.exchange(
+                PAYMENT_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity(request, authHeaders()),
+                PAYMENT_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
     }
 
     @DisplayName("POST /api/v1/payments/callback")

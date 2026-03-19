@@ -57,4 +57,8 @@ class PaymentService(
         payment.markFailed(reason)
         paymentRepository.save(payment)
     }
+
+    fun findPendingPaymentsOlderThan(minutes: Long): List<Payment> {
+        return paymentRepository.findByStatusAndOlderThan(PaymentStatus.PENDING, minutes)
+    }
 }

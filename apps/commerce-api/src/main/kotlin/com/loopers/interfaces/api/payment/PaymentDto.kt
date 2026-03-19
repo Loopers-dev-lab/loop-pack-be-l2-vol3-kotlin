@@ -1,6 +1,9 @@
 package com.loopers.interfaces.api.payment
 
 import com.loopers.application.payment.PaymentInfo
+import com.loopers.domain.payment.CardType
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 
 class PaymentDto {
 
@@ -9,7 +12,13 @@ class PaymentDto {
         val cardType: String,
         val cardNo: String,
         val amount: Long,
-    )
+    ) {
+        fun toCardType(): CardType = try {
+            CardType.valueOf(cardType)
+        } catch (e: IllegalArgumentException) {
+            throw CoreException(ErrorType.BAD_REQUEST, "지원하지 않는 카드 유형입니다: $cardType")
+        }
+    }
 
     data class CallbackRequest(
         val transactionKey: String,

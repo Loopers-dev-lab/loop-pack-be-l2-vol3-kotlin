@@ -1,7 +1,6 @@
 package com.loopers.interfaces.api.payment
 
 import com.loopers.application.payment.PaymentFacade
-import com.loopers.domain.payment.CardType
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser
 import com.loopers.support.auth.AuthenticatedUserInfo
@@ -26,7 +25,7 @@ class PaymentController(
         val info = paymentFacade.requestPayment(
             userId = userInfo.id,
             orderId = request.orderId,
-            cardType = CardType.valueOf(request.cardType),
+            cardType = request.toCardType(),
             cardNo = request.cardNo,
             amount = request.amount,
         )

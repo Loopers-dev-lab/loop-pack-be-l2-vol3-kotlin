@@ -3,8 +3,6 @@ package com.loopers.infrastructure.payment
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.domain.payment.PaymentGatewayTransactionDetail
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
-import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.stereotype.Component
 
 @Component
@@ -12,8 +10,6 @@ class PaymentGatewayImpl(
     private val pgClient: PgClient,
 ) : PaymentGateway {
 
-    @CircuitBreaker(name = "pgCircuitBreaker")
-    @Retry(name = "pgRetry")
     override fun requestPayment(
         userId: String,
         orderId: String,
@@ -22,7 +18,7 @@ class PaymentGatewayImpl(
         amount: Long,
         callbackUrl: String,
     ): PaymentGatewayResponse {
-        val response = pgClient.requestPayment(
+        val data = pgClient.requestPayment(
             userId = userId,
             request = PgPaymentRequest(
                 orderId = orderId,
@@ -31,23 +27,24 @@ class PaymentGatewayImpl(
                 amount = amount,
                 callbackUrl = callbackUrl,
             ),
-        )
+        ).requireData()
         return PaymentGatewayResponse(
-            transactionKey = response.transactionKey,
-            status = response.status,
-            reason = response.reason,
+            transactionKey = data.transactionKey,
+            status = data.status,
+            reason = data.reason,
         )
     }
 
-    @CircuitBreaker(name = "pgCircuitBreaker")
-    @Retry(name = "pgRetry")
     override fun getTransactionStatus(userId: String, transactionKey: String): PaymentGatewayTransactionDetail {
-        val response = pgClient.getTransaction(userId, transactionKey)
+        val data = pgClient.getTransaction(userId, transactionKey).requireData()
         return PaymentGatewayTransactionDetail(
-            transactionKey = response.transactionKey,
-            orderId = response.orderId,
-            status = response.status,
-            reason = response.reason,
+            transactionKey = data.transactionKey,
+            orderId = data.orderId,
+            status = data.status,
+            reason = data.reason,
         )
     }
+
+    private fun <T> PgApiResponse<T>.requireData(): T =
+        data ?: throw IllegalStateException("PG 응답 데이터가 없습니다.")
 }

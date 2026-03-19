@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam
 @FeignClient(
     name = "pg-simulator",
     url = "\${pg.base-url}",
+    fallbackFactory = PgClientFallbackFactory::class,
 )
 interface PgClient {
 
@@ -18,17 +19,17 @@ interface PgClient {
     fun requestPayment(
         @RequestHeader("X-USER-ID") userId: String,
         @RequestBody request: PgPaymentRequest,
-    ): PgPaymentResponse
+    ): PgApiResponse<PgTransactionResponse>
 
     @GetMapping("/api/v1/payments/{transactionKey}")
     fun getTransaction(
         @RequestHeader("X-USER-ID") userId: String,
-        @PathVariable transactionKey: String,
-    ): PgTransactionDetailResponse
+        @PathVariable("transactionKey") transactionKey: String,
+    ): PgApiResponse<PgTransactionDetailResponse>
 
     @GetMapping("/api/v1/payments")
     fun getTransactionsByOrderId(
         @RequestHeader("X-USER-ID") userId: String,
         @RequestParam("orderId") orderId: String,
-    ): PgOrderResponse
+    ): PgApiResponse<PgOrderResponse>
 }

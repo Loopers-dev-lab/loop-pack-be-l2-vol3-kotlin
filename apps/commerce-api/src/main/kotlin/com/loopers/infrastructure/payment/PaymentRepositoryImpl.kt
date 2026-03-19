@@ -2,7 +2,9 @@ package com.loopers.infrastructure.payment
 
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentRepository
+import com.loopers.domain.payment.PaymentStatus
 import org.springframework.stereotype.Component
+import java.time.ZonedDateTime
 
 @Component
 class PaymentRepositoryImpl(
@@ -23,5 +25,10 @@ class PaymentRepositoryImpl(
 
     override fun findByTransactionKey(transactionKey: String): Payment? {
         return paymentJpaRepository.findByTransactionKeyAndDeletedAtIsNull(transactionKey)
+    }
+
+    override fun findByStatusAndOlderThan(status: PaymentStatus, minutes: Long): List<Payment> {
+        val before = ZonedDateTime.now().minusMinutes(minutes)
+        return paymentJpaRepository.findByStatusAndCreatedAtBeforeAndDeletedAtIsNull(status, before)
     }
 }
