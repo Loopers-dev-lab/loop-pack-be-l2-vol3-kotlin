@@ -1,6 +1,7 @@
 package com.loopers.application.like
 
 import com.loopers.application.UseCase
+import com.loopers.domain.catalog.ProductCache
 import com.loopers.domain.catalog.ProductService
 import com.loopers.domain.like.LikeProductCommand
 import com.loopers.domain.like.ProductLikeService
@@ -13,6 +14,7 @@ class UserLikeProductUseCase(
     private val userService: UserService,
     private val productService: ProductService,
     private val productLikeService: ProductLikeService,
+    private val productCache: ProductCache,
 ) : UseCase<LikeProductCriteria, Unit> {
 
     @Transactional
@@ -21,7 +23,7 @@ class UserLikeProductUseCase(
         productService.getProduct(criteria.productId)
         val created = productLikeService.like(LikeProductCommand(userId = user.id, productId = criteria.productId))
         if (created) {
-            productService.increaseLikeCount(criteria.productId)
+            productCache.evictProduct(criteria.productId)
         }
     }
 }

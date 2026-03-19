@@ -5,12 +5,18 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.Version
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = [
+        Index(name = "idx_product_brand_id", columnList = "brand_id, id DESC"),
+    ],
+)
 class ProductModel(
     brandId: Long,
     name: String,
@@ -29,10 +35,6 @@ class ProductModel(
 
     @Column(precision = 10, scale = 2)
     var price: BigDecimal = price
-        protected set
-
-    @Column(name = "like_count", nullable = false)
-    var likeCount: Int = 0
         protected set
 
     @Version

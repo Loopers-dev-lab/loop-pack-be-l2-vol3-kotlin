@@ -7,5 +7,6 @@ interface ProductLikeRepository {
     fun findByUserIdAndProductId(userId: Long, productId: Long): ProductLikeModel?
     fun findAllByUserId(userId: Long, pageable: Pageable): Slice<ProductLikeModel>
     fun save(like: ProductLikeModel): ProductLikeModel
+    fun saveIfNotExists(userId: Long, productId: Long): Boolean
     fun delete(like: ProductLikeModel)
 }

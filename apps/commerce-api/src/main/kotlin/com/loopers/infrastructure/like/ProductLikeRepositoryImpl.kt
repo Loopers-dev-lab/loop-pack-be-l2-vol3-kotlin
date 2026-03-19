@@ -22,6 +22,10 @@ class ProductLikeRepositoryImpl(
         return productLikeJpaRepository.save(like)
     }
 
+    override fun saveIfNotExists(userId: Long, productId: Long): Boolean {
+        return productLikeJpaRepository.insertIgnore(userId, productId) > 0
+    }
+
     override fun delete(like: ProductLikeModel) {
         productLikeJpaRepository.delete(like)
     }

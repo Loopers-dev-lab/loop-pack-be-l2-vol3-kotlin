@@ -23,6 +23,21 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          # IDENTITY 전략에서는 INSERT 배칭 불가. UPDATE/DELETE 배칭에만 적용됨
+          batch_size: 1000
+        order_inserts: true
+cache:
+  mode: ${CACHE_MODE:layered}
+  caffeine:
+    max-size: 5000
+    refresh-seconds: 2
+    expire-seconds: 10
+  stampede:
+    strategy: ${STAMPEDE_STRATEGY:none}
 
 springdoc:
   use-fqn: true
