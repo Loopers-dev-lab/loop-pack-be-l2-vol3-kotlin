@@ -79,6 +79,14 @@ class IssuedCoupon(
         this.usedAt = ZonedDateTime.now()
     }
 
+    fun restore() {
+        if (status != IssuedCouponStatus.USED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "USED 상태에서만 복원이 가능합니다. 현재 상태: $status")
+        }
+        this.status = IssuedCouponStatus.AVAILABLE
+        this.usedAt = null
+    }
+
     fun isUsable(): Boolean = status == IssuedCouponStatus.AVAILABLE
 
     fun validateUsable() {

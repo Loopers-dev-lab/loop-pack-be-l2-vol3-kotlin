@@ -99,6 +99,13 @@ class Product(
         return true
     }
 
+    fun restoreStock(quantity: Int) {
+        if (quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "복원 수량은 1 이상이어야 합니다.")
+        }
+        this.stock += quantity
+    }
+
     fun isDeleted(): Boolean = deletedAt != null
 
     private fun validateName(name: String) {

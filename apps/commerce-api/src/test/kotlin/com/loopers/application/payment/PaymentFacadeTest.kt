@@ -37,6 +37,12 @@ class PaymentFacadeTest {
     @Mock
     private lateinit var pgPaymentClient: PgPaymentClient
 
+    @Mock
+    private lateinit var productService: com.loopers.application.product.ProductService
+
+    @Mock
+    private lateinit var couponService: com.loopers.application.coupon.CouponService
+
     private lateinit var paymentFacade: PaymentFacade
 
     @org.junit.jupiter.api.BeforeEach
@@ -50,6 +56,8 @@ class PaymentFacadeTest {
         paymentFacade = PaymentFacade(
             paymentService = paymentService,
             orderService = orderService,
+            productService = productService,
+            couponService = couponService,
             pgPaymentClient = pgPaymentClient,
             transactionManager = txManager,
             callbackUrl = "http://localhost:8080/api/v1/payments/callback",

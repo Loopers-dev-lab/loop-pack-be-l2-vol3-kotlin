@@ -38,4 +38,11 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
         nativeQuery = true,
     )
     fun decrementLikeCount(@Param("productId") productId: Long)
+
+    @Modifying(clearAutomatically = true)
+    @Query(
+        "UPDATE products SET stock = stock + :quantity WHERE id = :productId",
+        nativeQuery = true,
+    )
+    fun restoreStock(@Param("productId") productId: Long, @Param("quantity") quantity: Int)
 }

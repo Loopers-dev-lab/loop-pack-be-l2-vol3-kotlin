@@ -162,4 +162,11 @@ class ProductService(
             ReservedProduct(product.id, product.name, product.brandId, item.quantity, product.price)
         }
     }
+
+    @Transactional
+    fun restoreStock(items: List<Pair<Long, Int>>) {
+        for ((productId, quantity) in items) {
+            productRepository.restoreStock(productId, quantity)
+        }
+    }
 }
