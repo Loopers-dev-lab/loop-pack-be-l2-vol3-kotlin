@@ -14,8 +14,4 @@ interface ProductRepository {
     fun findActiveProductsWithPaging(brandId: Long?, pageable: Pageable): Page<Product>
 
     fun save(product: Product): Product
-
-    fun increaseLikeCount(productId: Long)
-
-    fun decreaseLikeCount(productId: Long)
 }

@@ -11,10 +11,10 @@ data class LikedProductInfo(
     val status: ProductStatus,
     val brandId: Long,
     val brandName: String,
-    val likeCount: Int,
+    val likeCount: Long,
 ) {
     companion object {
-        fun from(product: Product): LikedProductInfo {
+        fun from(product: Product, likeCount: Long = 0): LikedProductInfo {
             return LikedProductInfo(
                 id = product.id,
                 name = product.name,
@@ -22,7 +22,7 @@ data class LikedProductInfo(
                 status = product.status,
                 brandId = product.brand.id,
                 brandName = product.brand.name,
-                likeCount = product.likeCount,
+                likeCount = likeCount,
             )
         }
     }
