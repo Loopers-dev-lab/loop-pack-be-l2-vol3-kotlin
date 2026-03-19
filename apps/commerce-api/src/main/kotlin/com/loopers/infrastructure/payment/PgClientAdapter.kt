@@ -20,8 +20,7 @@ class PgClientAdapter(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @CircuitBreaker(name = "pgCircuit", fallbackMethod = "requestPaymentFallback")
-    @Retry(name = "pgRetry")
+    @CircuitBreaker(name = "pgRequest", fallbackMethod = "requestPaymentFallback")
     override fun requestPayment(request: PgPaymentRequest): PgPaymentResponse {
         val pgBody = PgRequestBody(
             orderId = request.orderId,
@@ -67,6 +66,8 @@ class PgClientAdapter(
         )
     }
 
+    @CircuitBreaker(name = "pgQuery", fallbackMethod = "getTransactionStatusFallback")
+    @Retry(name = "pgQueryRetry")
     override fun getTransactionStatus(userId: String, transactionKey: String): PgTransactionDetail {
         val response = pgRestClient.get()
             .uri("/api/v1/payments/{transactionKey}", transactionKey)
@@ -84,6 +85,14 @@ class PgClientAdapter(
         )
     }
 
+    @Suppress("unused")
+    fun getTransactionStatusFallback(userId: String, transactionKey: String, throwable: Throwable): PgTransactionDetail {
+        log.warn("PG 거래 상태 조회 fallback. transactionKey={}, error={}", transactionKey, throwable.message)
+        throw CoreException(ErrorType.INTERNAL_ERROR, "PG 거래 상태 조회 실패: ${throwable.message}")
+    }
+
+    @CircuitBreaker(name = "pgQuery", fallbackMethod = "getTransactionsByOrderIdFallback")
+    @Retry(name = "pgQueryRetry")
     override fun getTransactionsByOrderId(userId: String, orderId: String): List<PgTransactionDetail> {
         val response = pgRestClient.get()
             .uri("/api/v1/payments?orderId={orderId}", orderId)
@@ -100,6 +109,12 @@ class PgClientAdapter(
                 reason = it.reason,
             )
         }
+    }
+
+    @Suppress("unused")
+    fun getTransactionsByOrderIdFallback(userId: String, orderId: String, throwable: Throwable): List<PgTransactionDetail> {
+        log.warn("PG orderId 조회 fallback. orderId={}, error={}", orderId, throwable.message)
+        return emptyList()
     }
 
     companion object {

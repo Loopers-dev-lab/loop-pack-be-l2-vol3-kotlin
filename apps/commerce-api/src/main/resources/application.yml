@@ -34,7 +34,7 @@ payment:
 resilience4j:
   retry:
     instances:
-      pgRetry:
+      pgQueryRetry:
         max-attempts: 2
         wait-duration: 1s
         retry-exceptions:
@@ -42,13 +42,22 @@ resilience4j:
           - java.io.IOException
   circuitbreaker:
     instances:
-      pgCircuit:
+      pgRequest:
         sliding-window-size: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         slow-call-duration-threshold: 3s
         slow-call-rate-threshold: 50
+        automatic-transition-from-open-to-half-open-enabled: true
+      pgQuery:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 50
+        automatic-transition-from-open-to-half-open-enabled: true
 
 springdoc:
   use-fqn: true
