@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.payment
 
 import com.loopers.domain.payment.CardType
+import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PgPaymentStatus
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import org.springframework.boot.web.client.RestTemplateBuilder
@@ -18,7 +19,7 @@ import org.springframework.web.client.RestTemplate
 class PgSimulatorClient(
     restTemplateBuilder: RestTemplateBuilder,
     private val properties: PgSimulatorProperties,
-) {
+) : PaymentGateway {
     private val restTemplate: RestTemplate = restTemplateBuilder
         .rootUri(properties.baseUrl)
         .connectTimeout(properties.connectTimeout)
@@ -26,7 +27,7 @@ class PgSimulatorClient(
         .build()
 
     @CircuitBreaker(name = "pgSimulator", fallbackMethod = "requestPaymentFallback")
-    fun requestPayment(memberId: Long, request: Request): RequestResult {
+    override fun requestPayment(memberId: Long, request: PaymentGateway.Request): PaymentGateway.RequestResult {
         val headers = headers(memberId)
         val responseType = object : ParameterizedTypeReference<PgApiResponse<PgTransactionResponse>>() {}
 
@@ -34,28 +35,40 @@ class PgSimulatorClient(
             val response = restTemplate.exchange(
                 "/api/v1/payments",
                 HttpMethod.POST,
-                HttpEntity(request.toBody(), headers),
+                HttpEntity(
+                    RequestBody(
+                        orderId = request.orderId,
+                        cardType = request.cardType,
+                        cardNo = request.cardNo,
+                        amount = request.amount,
+                        callbackUrl = properties.callbackUrl,
+                    ).toBody(),
+                    headers,
+                ),
                 responseType,
             )
-            val data = response.body?.data ?: return RequestResult.RequestFailed("PG 응답 본문이 비어 있습니다.")
-            RequestResult.Accepted(
+            val data = response.body?.data ?: return PaymentGateway.RequestResult.RequestFailed("PG 응답 본문이 비어 있습니다.")
+            PaymentGateway.RequestResult.Accepted(
                 transactionKey = data.transactionKey,
                 status = data.status,
                 reason = data.reason,
             )
         } catch (e: ResourceAccessException) {
-            RequestResult.Unknown("PG 요청 타임아웃 또는 네트워크 오류가 발생했습니다.")
+            PaymentGateway.RequestResult.Unknown("PG 요청 타임아웃 또는 네트워크 오류가 발생했습니다.")
         } catch (e: HttpStatusCodeException) {
-            RequestResult.RequestFailed(extractMessage(e.responseBodyAsString) ?: "PG 요청에 실패했습니다.")
+            PaymentGateway.RequestResult.RequestFailed(extractMessage(e.responseBodyAsString) ?: "PG 요청에 실패했습니다.")
         }
     }
 
     @Suppress("unused")
-    fun requestPaymentFallback(memberId: Long, request: Request, throwable: Throwable): RequestResult =
-        RequestResult.RequestFailed("PG 요청이 차단되었습니다. 잠시 후 다시 시도해주세요.")
+    fun requestPaymentFallback(
+        memberId: Long,
+        request: PaymentGateway.Request,
+        throwable: Throwable,
+    ): PaymentGateway.RequestResult = PaymentGateway.RequestResult.RequestFailed("PG 요청이 차단되었습니다. 잠시 후 다시 시도해주세요.")
 
     @CircuitBreaker(name = "pgSimulator", fallbackMethod = "lookupFallback")
-    fun getTransaction(memberId: Long, transactionKey: String): LookupResult {
+    override fun getTransaction(memberId: Long, transactionKey: String): PaymentGateway.LookupResult {
         val headers = headers(memberId)
         val responseType = object : ParameterizedTypeReference<PgApiResponse<PgTransactionDetailResponse>>() {}
 
@@ -67,26 +80,29 @@ class PgSimulatorClient(
                 responseType,
                 transactionKey,
             )
-            val data = response.body?.data ?: return LookupResult.NotFound
-            LookupResult.Found(
+            val data = response.body?.data ?: return PaymentGateway.LookupResult.NotFound
+            PaymentGateway.LookupResult.Found(
                 transactionKey = data.transactionKey,
                 status = data.status,
                 reason = data.reason,
             )
         } catch (e: ResourceAccessException) {
-            LookupResult.Unavailable("PG 상태 조회 중 타임아웃이 발생했습니다.")
+            PaymentGateway.LookupResult.Unavailable("PG 상태 조회 중 타임아웃이 발생했습니다.")
         } catch (e: HttpStatusCodeException) {
-            if (e.statusCode.value() == 404) LookupResult.NotFound
-            else LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 상태 조회에 실패했습니다.")
+            if (e.statusCode.value() == 404) PaymentGateway.LookupResult.NotFound
+            else PaymentGateway.LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 상태 조회에 실패했습니다.")
         }
     }
 
     @Suppress("unused")
-    fun lookupFallback(memberId: Long, transactionKey: String, throwable: Throwable): LookupResult =
-        LookupResult.Unavailable("PG 상태 조회가 차단되었습니다. 잠시 후 다시 시도해주세요.")
+    fun lookupFallback(
+        memberId: Long,
+        transactionKey: String,
+        throwable: Throwable,
+    ): PaymentGateway.LookupResult = PaymentGateway.LookupResult.Unavailable("PG 상태 조회가 차단되었습니다. 잠시 후 다시 시도해주세요.")
 
     @CircuitBreaker(name = "pgSimulator", fallbackMethod = "lookupByOrderFallback")
-    fun findLatestTransactionByOrderId(memberId: Long, orderId: String): LookupResult {
+    override fun findLatestTransactionByOrderId(memberId: Long, orderId: String): PaymentGateway.LookupResult {
         val headers = headers(memberId)
         val responseType = object : ParameterizedTypeReference<PgApiResponse<PgOrderResponse>>() {}
 
@@ -98,23 +114,26 @@ class PgSimulatorClient(
                 responseType,
                 orderId,
             )
-            val latest = response.body?.data?.transactions?.lastOrNull() ?: return LookupResult.NotFound
-            LookupResult.Found(
+            val latest = response.body?.data?.transactions?.lastOrNull() ?: return PaymentGateway.LookupResult.NotFound
+            PaymentGateway.LookupResult.Found(
                 transactionKey = latest.transactionKey,
                 status = latest.status,
                 reason = latest.reason,
             )
         } catch (e: ResourceAccessException) {
-            LookupResult.Unavailable("PG 주문 기준 조회 중 타임아웃이 발생했습니다.")
+            PaymentGateway.LookupResult.Unavailable("PG 주문 기준 조회 중 타임아웃이 발생했습니다.")
         } catch (e: HttpStatusCodeException) {
-            if (e.statusCode.value() == 404) LookupResult.NotFound
-            else LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 주문 기준 조회에 실패했습니다.")
+            if (e.statusCode.value() == 404) PaymentGateway.LookupResult.NotFound
+            else PaymentGateway.LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 주문 기준 조회에 실패했습니다.")
         }
     }
 
     @Suppress("unused")
-    fun lookupByOrderFallback(memberId: Long, orderId: String, throwable: Throwable): LookupResult =
-        LookupResult.Unavailable("PG 주문 기준 조회가 차단되었습니다. 잠시 후 다시 시도해주세요.")
+    fun lookupByOrderFallback(
+        memberId: Long,
+        orderId: String,
+        throwable: Throwable,
+    ): PaymentGateway.LookupResult = PaymentGateway.LookupResult.Unavailable("PG 주문 기준 조회가 차단되었습니다. 잠시 후 다시 시도해주세요.")
 
     private fun headers(memberId: Long) = HttpHeaders().apply {
         contentType = MediaType.APPLICATION_JSON
@@ -127,7 +146,7 @@ class PgSimulatorClient(
             ?.substringBefore("\"")
             ?.takeIf { it.isNotBlank() }
 
-    data class Request(
+    private data class RequestBody(
         val orderId: String,
         val cardType: CardType,
         val cardNo: String,
@@ -141,30 +160,6 @@ class PgSimulatorClient(
             "amount" to amount,
             "callbackUrl" to callbackUrl,
         )
-    }
-
-    sealed interface RequestResult {
-        data class Accepted(
-            val transactionKey: String,
-            val status: PgPaymentStatus,
-            val reason: String?,
-        ) : RequestResult
-
-        data class RequestFailed(val reason: String) : RequestResult
-
-        data class Unknown(val reason: String) : RequestResult
-    }
-
-    sealed interface LookupResult {
-        data class Found(
-            val transactionKey: String,
-            val status: PgPaymentStatus,
-            val reason: String?,
-        ) : LookupResult
-
-        data object NotFound : LookupResult
-
-        data class Unavailable(val reason: String) : LookupResult
     }
 
     data class PgApiResponse<T>(
