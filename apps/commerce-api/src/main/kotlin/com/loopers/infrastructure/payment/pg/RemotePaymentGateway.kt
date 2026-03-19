@@ -88,8 +88,4 @@ class RemotePaymentGateway(
             reason = response.reason,
         )
     }
-
-    override fun verifySignature(transactionId: String, amount: BigDecimal, signature: String): Boolean {
-        return true
-    }
 }
