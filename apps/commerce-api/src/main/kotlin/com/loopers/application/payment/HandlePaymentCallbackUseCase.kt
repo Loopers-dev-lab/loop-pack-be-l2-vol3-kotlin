@@ -2,6 +2,8 @@ package com.loopers.application.payment
 
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.PaymentRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -32,10 +34,9 @@ class HandlePaymentCallbackUseCase(
                 paymentRepository.save(approved)
 
                 val order = orderRepository.findByIdForUpdate(payment.refOrderId)
-                if (order != null) {
-                    val completed = order.complete()
-                    orderRepository.save(completed)
-                }
+                    ?: throw CoreException(ErrorType.NOT_FOUND, "결제 승인 완료했으나 주문을 찾을 수 없습니다. orderId=${payment.refOrderId}")
+                val completed = order.complete()
+                orderRepository.save(completed)
                 log.info("결제 승인 완료. paymentId={}, orderId={}", payment.persistenceId, payment.refOrderId)
             }
             "FAILED" -> {

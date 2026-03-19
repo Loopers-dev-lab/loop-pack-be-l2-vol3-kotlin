@@ -70,7 +70,8 @@ class RecoverPaymentUseCase(
         return applyRecoveryResult(paymentId, latest)
     }
 
-    private fun markFailedAndReturn(paymentId: Long, reason: String): PaymentInfo {
+    @Transactional
+    fun markFailedAndReturn(paymentId: Long, reason: String): PaymentInfo {
         val payment = paymentRepository.findByIdForUpdate(paymentId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제를 찾을 수 없습니다: $paymentId")
 
@@ -113,10 +114,9 @@ class RecoverPaymentUseCase(
                 paymentRepository.save(approved)
 
                 val order = orderRepository.findByIdForUpdate(payment.refOrderId)
-                if (order != null) {
-                    val completed = order.complete()
-                    orderRepository.save(completed)
-                }
+                    ?: throw CoreException(ErrorType.NOT_FOUND, "결제 복구 성공했으나 주문을 찾을 수 없습니다. orderId=${payment.refOrderId}")
+                val completed = order.complete()
+                orderRepository.save(completed)
                 approved
             }
             "FAILED" -> {
