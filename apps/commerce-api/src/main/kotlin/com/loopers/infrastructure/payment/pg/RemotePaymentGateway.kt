@@ -13,7 +13,7 @@ import java.time.Duration
 @Component
 class RemotePaymentGateway(
     private val webClient: WebClient,
-    @Value("\${pg.base-url:http://localhost:8083}") private val baseUrl: String,
+    @Value("\${pg.base-url}") private val baseUrl: String,
 ) : PgPaymentGateway {
 
     data class PgPaymentRequest(
