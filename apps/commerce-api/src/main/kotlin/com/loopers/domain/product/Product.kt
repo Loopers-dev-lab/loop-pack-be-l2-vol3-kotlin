@@ -9,13 +9,24 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
+import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import java.math.BigDecimal
 
 @Entity
-@Table(name = "products")
+@Table(
+    name = "products",
+    indexes = [
+        // 복합 인덱스: brand_id 필터링 + 정렬
+        Index(name = "idx_brand_created_at", columnList = "brand_id,created_at"),
+        Index(name = "idx_brand_price", columnList = "brand_id,price"),
+        // 단일 인덱스: 정렬 전용 (brand_id 필터 없을 때)
+        Index(name = "idx_created_at", columnList = "created_at"),
+        Index(name = "idx_price", columnList = "price"),
+    ],
+)
 class Product private constructor(
     brand: Brand,
     name: String,
@@ -39,10 +50,6 @@ class Product private constructor(
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     var status: ProductStatus = status
-        protected set
-
-    @Column(nullable = false)
-    var likeCount: Int = 0
         protected set
 
     fun isDeleted(): Boolean = deletedAt != null

@@ -38,3 +38,20 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Design Directory ###
+# Only track .md and README files in design directory
+design/**
+!design/**/*.md
+!design/**/README*
+
+### Docs Directory ###
+docs/
+
+### Local Documentation & Configuration ###
+CLAUDE.md
+CONCURRENCY_TESTS.md
+data-summary.md
+DDD_ANALYSIS.md
+.claude/
+resources/db/
