@@ -12,6 +12,8 @@ class OrderDto {
     data class PlaceOrderRequest(
         val items: List<OrderItemRequest>,
         val couponId: Long? = null,
+        val cardType: String,
+        val cardNo: String,
     ) {
         data class OrderItemRequest(
             val productId: Long,

@@ -1,9 +1,13 @@
 package com.loopers.application.payment
 
+import com.loopers.domain.coupon.CouponService
+import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentService
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.product.ProductService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -12,10 +16,15 @@ import org.springframework.transaction.annotation.Transactional
 class PaymentFacade(
     private val paymentService: PaymentService,
     private val paymentGateway: PaymentGateway,
+    private val orderService: OrderService,
+    private val productService: ProductService,
+    private val couponService: CouponService,
     @Value("\${pg.callback-url:http://localhost:8080/api/v1/payments/callback}") private val callbackUrl: String,
 ) {
 
     companion object {
+        private const val PG_STATUS_SUCCESS = "SUCCESS"
+        private const val PG_STATUS_FAILED = "FAILED"
         private const val DEFAULT_FAIL_REASON = "알 수 없는 사유"
     }
 
@@ -64,9 +73,34 @@ class PaymentFacade(
         val verifiedStatus = pgDetail?.status ?: status
         val verifiedReason = pgDetail?.reason ?: reason
 
+        val orderId = payment.orderId.toLong()
+
         when (verifiedStatus) {
-            "SUCCESS" -> paymentService.markSuccess(payment.id)
-            "FAILED" -> paymentService.markFailed(payment.id, verifiedReason ?: DEFAULT_FAIL_REASON)
+            PG_STATUS_SUCCESS -> {
+                paymentService.markSuccess(payment.id)
+                orderService.changeStatus(orderId, OrderStatus.CONFIRMED)
+            }
+            PG_STATUS_FAILED -> {
+                paymentService.markFailed(payment.id, verifiedReason ?: DEFAULT_FAIL_REASON)
+                cancelOrderWithCompensation(orderId)
+            }
+        }
+    }
+
+    private fun cancelOrderWithCompensation(orderId: Long) {
+        val order = orderService.getOrderById(orderId)
+        orderService.changeStatus(orderId, OrderStatus.CANCELLED)
+
+        // 재고 복구
+        val products = productService.getProductsByIds(order.items.map { it.productId })
+        val productMap = products.associateBy { it.id }
+        order.items.forEach { item ->
+            productMap.getValue(item.productId).restoreStock(item.quantity)
+        }
+
+        // 쿠폰 복구
+        order.couponId?.let { couponId ->
+            couponService.restoreIssuedCoupon(couponId, order.userId)
         }
     }
 
@@ -86,8 +120,8 @@ class PaymentFacade(
                 ?: return@map PaymentInfo.from(payment)
 
             when (pgDetail.status) {
-                "SUCCESS" -> paymentService.markSuccess(payment.id)
-                "FAILED" -> paymentService.markFailed(payment.id, pgDetail.reason ?: DEFAULT_FAIL_REASON)
+                PG_STATUS_SUCCESS -> paymentService.markSuccess(payment.id)
+                PG_STATUS_FAILED -> paymentService.markFailed(payment.id, pgDetail.reason ?: DEFAULT_FAIL_REASON)
                 else -> return@map PaymentInfo.from(payment)
             }
             PaymentInfo.from(paymentService.getPayment(payment.id))

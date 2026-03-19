@@ -1,5 +1,8 @@
 package com.loopers.application.payment
 
+import com.loopers.domain.coupon.CouponService
+import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentGateway
@@ -7,6 +10,7 @@ import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.domain.payment.PaymentGatewayTransactionDetail
 import com.loopers.domain.payment.PaymentService
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.product.ProductService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -32,17 +36,29 @@ class PaymentFacadeTest {
     @Mock
     private lateinit var paymentGateway: PaymentGateway
 
+    @Mock
+    private lateinit var orderService: OrderService
+
+    @Mock
+    private lateinit var productService: ProductService
+
+    @Mock
+    private lateinit var couponService: CouponService
+
     private lateinit var paymentFacade: PaymentFacade
 
     @BeforeEach
     fun setUp() {
-        paymentFacade = PaymentFacade(paymentService, paymentGateway, "http://localhost:8080/api/v1/payments/callback")
+        paymentFacade = PaymentFacade(
+            paymentService, paymentGateway, orderService, productService, couponService,
+            "http://localhost:8080/api/v1/payments/callback",
+        )
     }
 
-    private fun createPayment(id: Long = 1L): Payment {
+    private fun createPayment(id: Long = 1L, orderId: String = "100"): Payment {
         val payment = Payment(
             userId = 1L,
-            orderId = "ORDER-001",
+            orderId = orderId,
             cardType = CardType.SAMSUNG,
             cardNo = "1234-5678-9012-3456",
             amount = 50000L,
@@ -146,11 +162,15 @@ class PaymentFacadeTest {
             whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-123"))).thenReturn(
                 PaymentGatewayTransactionDetail(
                     transactionKey = "txn-key-123",
-                    orderId = "ORDER-001",
+                    orderId = "100",
                     status = "FAILED",
                     reason = "한도 초과",
                 ),
             )
+            // 보상 트랜잭션을 위한 주문 조회
+            val order = com.loopers.domain.order.Order(userId = 1L)
+            ReflectionTestUtils.setField(order, "id", 100L)
+            whenever(orderService.getOrderById(100L)).thenReturn(order)
 
             // act — 콜백은 SUCCESS로 전달
             paymentFacade.handleCallback("txn-key-123", "SUCCESS", null)
@@ -158,6 +178,29 @@ class PaymentFacadeTest {
             // assert — PG 조회 결과(FAILED)를 따름
             verify(paymentService).markFailed(payment.id, "한도 초과")
             verify(paymentService, never()).markSuccess(any())
+        }
+
+        @DisplayName("SUCCESS 콜백이면, 주문 상태를 CONFIRMED로 변경한다.")
+        @Test
+        fun confirmsOrder_whenPaymentSucceeds() {
+            // arrange
+            val payment = createPayment()
+            payment.markPending("txn-key-123")
+            whenever(paymentService.getPaymentByTransactionKey("txn-key-123")).thenReturn(payment)
+            whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-123"))).thenReturn(
+                PaymentGatewayTransactionDetail(
+                    transactionKey = "txn-key-123",
+                    orderId = "100",
+                    status = "SUCCESS",
+                    reason = null,
+                ),
+            )
+
+            // act
+            paymentFacade.handleCallback("txn-key-123", "SUCCESS", null)
+
+            // assert
+            verify(orderService).changeStatus(100L, OrderStatus.CONFIRMED)
         }
     }
 

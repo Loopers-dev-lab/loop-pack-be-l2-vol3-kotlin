@@ -1,5 +1,8 @@
 package com.loopers.interfaces.api
 
+import com.loopers.domain.order.Order
+import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentGateway
@@ -36,6 +39,7 @@ import java.time.LocalDate
 class PaymentApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val paymentRepository: PaymentRepository,
+    private val orderRepository: OrderRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -101,13 +105,13 @@ class PaymentApiE2ETest @Autowired constructor(
         val amount: Long,
     )
 
-    private fun createPendingPayment(
-        orderId: String = "ORDER-001",
+    private fun createOrderWithPendingPayment(
         transactionKey: String = "txn-key-12345",
     ): Payment {
+        val order = orderRepository.save(Order(userId = 1L))
         val payment = Payment(
             userId = 1L,
-            orderId = orderId,
+            orderId = order.id.toString(),
             cardType = CardType.SAMSUNG,
             cardNo = "1234-5678-9012-3456",
             amount = 50000L,
@@ -308,15 +312,15 @@ class PaymentApiE2ETest @Autowired constructor(
     @Nested
     inner class PaymentCallback {
 
-        @DisplayName("SUCCESS 콜백이면, 결제 상태가 SUCCESS로 변경된다.")
+        @DisplayName("SUCCESS 콜백이면, 결제는 SUCCESS, 주문은 CONFIRMED로 변경된다.")
         @Test
-        fun updatesStatusToSuccess_whenSuccessCallback() {
+        fun updatesPaymentAndOrderStatus_whenSuccessCallback() {
             // arrange
-            createPendingPayment()
+            val payment = createOrderWithPendingPayment()
 
             val callbackRequest = mapOf(
                 "transactionKey" to "txn-key-12345",
-                "orderId" to "ORDER-001",
+                "orderId" to payment.orderId,
                 "status" to "SUCCESS",
                 "reason" to null,
             )
@@ -334,19 +338,23 @@ class PaymentApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val saved = paymentRepository.findByTransactionKey("txn-key-12345")
-            assertThat(saved?.status).isEqualTo(PaymentStatus.SUCCESS)
+            val savedPayment = paymentRepository.findByTransactionKey("txn-key-12345")
+            val savedOrder = orderRepository.findById(payment.orderId.toLong())
+            assertAll(
+                { assertThat(savedPayment?.status).isEqualTo(PaymentStatus.SUCCESS) },
+                { assertThat(savedOrder?.status).isEqualTo(OrderStatus.CONFIRMED) },
+            )
         }
 
-        @DisplayName("FAILED 콜백이면, 결제 상태가 FAILED로 변경되고 사유가 저장된다.")
+        @DisplayName("FAILED 콜백이면, 결제는 FAILED, 주문은 CANCELLED로 변경된다.")
         @Test
-        fun updatesStatusToFailed_whenFailedCallback() {
+        fun updatesPaymentAndOrderStatus_whenFailedCallback() {
             // arrange
-            createPendingPayment()
+            val payment = createOrderWithPendingPayment()
 
             val callbackRequest = mapOf(
                 "transactionKey" to "txn-key-12345",
-                "orderId" to "ORDER-001",
+                "orderId" to payment.orderId,
                 "status" to "FAILED",
                 "reason" to "한도 초과",
             )
@@ -364,10 +372,12 @@ class PaymentApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val saved = paymentRepository.findByTransactionKey("txn-key-12345")
+            val savedPayment = paymentRepository.findByTransactionKey("txn-key-12345")
+            val savedOrder = orderRepository.findById(payment.orderId.toLong())
             assertAll(
-                { assertThat(saved?.status).isEqualTo(PaymentStatus.FAILED) },
-                { assertThat(saved?.failReason).isEqualTo("한도 초과") },
+                { assertThat(savedPayment?.status).isEqualTo(PaymentStatus.FAILED) },
+                { assertThat(savedPayment?.failReason).isEqualTo("한도 초과") },
+                { assertThat(savedOrder?.status).isEqualTo(OrderStatus.CANCELLED) },
             )
         }
 
@@ -375,7 +385,7 @@ class PaymentApiE2ETest @Autowired constructor(
         @Test
         fun followsPgStatus_whenCallbackAndPgStatusDiffer() {
             // arrange
-            createPendingPayment()
+            createOrderWithPendingPayment()
 
             // PG 실제 상태는 FAILED
             whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-12345"))).thenReturn(
@@ -451,7 +461,7 @@ class PaymentApiE2ETest @Autowired constructor(
         fun returnsUpdatedPayments_afterPgSync() {
             // arrange
             signUp()
-            createPendingPayment(transactionKey = "txn-key-123")
+            createOrderWithPendingPayment(transactionKey = "txn-key-123")
 
             whenever(paymentGateway.getTransactionStatus(any(), any())).thenReturn(
                 PaymentGatewayTransactionDetail(
@@ -482,7 +492,7 @@ class PaymentApiE2ETest @Autowired constructor(
         fun returnsCurrentStatus_whenPgIsUnavailable() {
             // arrange
             signUp()
-            createPendingPayment(transactionKey = "txn-key-123")
+            createOrderWithPendingPayment(transactionKey = "txn-key-123")
 
             whenever(paymentGateway.getTransactionStatus(any(), any())).thenReturn(null)
 

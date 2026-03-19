@@ -1,11 +1,14 @@
 package com.loopers.application.order
 
+import com.loopers.application.payment.PaymentFacade
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.coupon.Discount
 import com.loopers.domain.coupon.IssuedCoupon
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.payment.CardType
+import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.StockDeductionRequest
 import com.loopers.support.error.CoreException
@@ -20,6 +23,7 @@ class OrderFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val couponService: CouponService,
+    private val paymentFacade: PaymentFacade,
 ) {
 
     @Transactional(readOnly = true)
@@ -38,7 +42,14 @@ class OrderFacade(
     }
 
     @Transactional
-    fun placeOrder(userId: Long, items: List<OrderPlaceCommand>, couponId: Long? = null, idempotencyKey: String? = null) {
+    fun placeOrder(
+        userId: Long,
+        items: List<OrderPlaceCommand>,
+        couponId: Long? = null,
+        idempotencyKey: String? = null,
+        cardType: CardType,
+        cardNo: String,
+    ) {
         // 멱등성 키 중복 체크
         if (idempotencyKey != null && orderService.findByIdempotencyKey(idempotencyKey) != null) {
             return
@@ -85,6 +96,19 @@ class OrderFacade(
             val discountAmount = it.discount.calculateDiscountAmount(order.totalAmount)
             order.applyCouponDiscount(it.couponId, discountAmount)
             it.issuedCoupon.use()
+        }
+
+        // 결제 요청 — FAILED면 예외 → 트랜잭션 롤백 (재고/쿠폰 자동 복원)
+        val paymentInfo = paymentFacade.requestPayment(
+            userId = userId,
+            orderId = order.id.toString(),
+            cardType = cardType,
+            cardNo = cardNo,
+            amount = order.paymentAmount.value,
+        )
+
+        if (paymentInfo.status == PaymentStatus.FAILED) {
+            throw CoreException(ErrorType.INTERNAL_ERROR, paymentInfo.failReason ?: "결제에 실패했습니다.")
         }
     }
 

@@ -80,6 +80,11 @@ class CouponService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다.")
     }
 
+    fun restoreIssuedCoupon(couponId: Long, userId: Long) {
+        val issuedCoupon = findIssuedCouponByCouponIdAndUserId(couponId, userId)
+        issuedCoupon.unuse()
+    }
+
     fun findIssuedCouponsByCouponId(couponId: Long, pageQuery: PageQuery): PageResult<IssuedCoupon> {
         findCouponById(couponId)
         return issuedCouponRepository.findByCouponId(couponId, pageQuery)
