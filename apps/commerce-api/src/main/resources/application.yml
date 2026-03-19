@@ -12,7 +12,7 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
-      - payment-gateway.yml
+      - payment-client.yml
   cache:
     type: redis
 

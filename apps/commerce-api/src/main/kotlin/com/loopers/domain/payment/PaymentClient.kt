@@ -2,7 +2,7 @@ package com.loopers.domain.payment
 
 import java.math.BigDecimal
 
-interface PgPaymentGateway {
+interface PaymentClient {
     /**
      * PG로 결제를 요청합니다.
      *

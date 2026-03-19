@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.payment.pg
 
+import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.PaymentRequestResult
-import com.loopers.domain.payment.PgPaymentGateway
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.beans.factory.annotation.Value
@@ -11,10 +11,10 @@ import java.math.BigDecimal
 import java.time.Duration
 
 @Component
-class RemotePaymentGateway(
+class RemotePaymentClient(
     private val webClient: WebClient,
     @Value("\${pg.base-url}") private val baseUrl: String,
-) : PgPaymentGateway {
+) : PaymentClient {
 
     @CircuitBreaker(name = "pg-payment", fallbackMethod = "paymentFallback")
     @Retry(name = "pg-payment")

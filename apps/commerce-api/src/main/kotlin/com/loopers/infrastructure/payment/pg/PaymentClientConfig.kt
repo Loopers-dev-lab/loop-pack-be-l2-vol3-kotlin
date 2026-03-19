@@ -13,7 +13,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 @Configuration
-class PaymentGatewayConfig {
+class PaymentClientConfig {
 
     @Bean
     fun webClient(

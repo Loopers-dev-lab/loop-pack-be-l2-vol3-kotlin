@@ -2,7 +2,7 @@ package com.loopers.application.api.payment
 
 import com.loopers.application.api.payment.dto.PaymentCallbackCommand
 import com.loopers.domain.order.OrderService
-import com.loopers.domain.payment.PgPaymentGateway
+import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.ReceiptService
 import com.loopers.domain.payment.ReceiptStatus
 import com.loopers.domain.payment.dto.ReceiptInfo
@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional
 class PaymentFacade(
     private val receiptService: ReceiptService,
     private val orderService: OrderService,
-    private val pgPaymentGateway: PgPaymentGateway,
+    private val paymentClient: PaymentClient,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -61,7 +61,7 @@ class PaymentFacade(
 
         val transactionId = generateTransactionId(orderId)
         val pgResult = try {
-            pgPaymentGateway.requestPayment(
+            paymentClient.requestPayment(
                 userId = userId,
                 transactionId = transactionId,
                 orderId = orderId,
