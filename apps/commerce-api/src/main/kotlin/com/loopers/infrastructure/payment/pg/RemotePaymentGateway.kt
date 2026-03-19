@@ -16,24 +16,6 @@ class RemotePaymentGateway(
     @Value("\${pg.base-url}") private val baseUrl: String,
 ) : PgPaymentGateway {
 
-    data class PgPaymentRequest(
-        val orderId: String,
-        val cardType: String,
-        val cardNo: String,
-        val amount: String,
-        val callbackUrl: String,
-    )
-
-    data class PgPaymentResponse(
-        val transactionKey: String,
-        val orderId: String,
-        val cardType: Any,
-        val cardNo: String,
-        val amount: Long,
-        val status: Any,
-        val reason: String?,
-    )
-
     @CircuitBreaker(name = "pg-payment", fallbackMethod = "paymentFallback")
     @Retry(name = "pg-payment")
     override fun requestPayment(
