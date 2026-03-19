@@ -287,6 +287,92 @@ sequenceDiagram
 - **결정**: PG 호출 실패 시 UNKNOWN 상태로 저장
 - **이유**: PG에 요청은 도달했을 수 있으나 응답을 받지 못한 경우 → Recovery에서 PG 폴링으로 최종 상태 확인
 
+## 📊 k6 PG Simulator 벤치마크
+
+### 테스트 시나리오
+
+PG 시뮬레이터의 성능 특성과 장애 패턴을 파악하기 위해 k6 부하 테스트를 수행했다.
+
+| Phase | 시나리오 | 설정 |
+|-------|----------|------|
+| 1 | 결제 요청 부하 | ramping-vus: 1→10→30→50 VUs, 100초간 |
+| 2 | 상태 조회 부하 | constant-vus: 10 VUs, 30초간 (Phase 1 종료 후) |
+
+### 벤치마크 결과 RAW
+
+```
+============================================================
+PG Simulator Benchmark — 2026-03-18T13:17:21.673Z
+============================================================
+
+총 요청 수:    6,811건 (49.5 req/s)
+총 반복 수:    6,731건 (48.9 iter/s)
+최대 동시 VU:  50
+
+     ✗ status is 200
+      ↳  60% — ✓ 3998 / ✗ 2587
+     ✗ has transactionKey
+      ↳  60% — ✓ 3998 / ✗ 2587
+     ✓ status check 200
+
+     checks.........................: 60.95% ✓ 8076      ✗ 5174
+     data_received..................: 1.7 MB 12 kB/s
+     data_sent......................: 2.1 MB 16 kB/s
+     http_req_blocked...............: avg=115.24µs min=1µs      med=6µs      max=5.2ms    p(90)=312µs    p(95)=363µs
+     http_req_connecting............: avg=86.61µs  min=0s       med=0s       max=5.14ms   p(90)=244µs    p(95)=280µs
+   ✓ http_req_duration..............: avg=306.49ms min=3.23ms   med=306.11ms max=518.16ms p(90)=469.02ms p(95)=487.86ms
+       { expected_response:true }...: avg=307.32ms min=3.23ms   med=309.05ms max=518.16ms p(90)=469.62ms p(95)=489.03ms
+   ✓ http_req_failed................: 38.95% ✓ 2653      ✗ 4158
+     http_req_receiving.............: avg=99.65µs  min=6µs      med=80µs     max=6.21ms   p(90)=168µs    p(95)=212.49µs
+     http_req_sending...............: avg=30.57µs  min=4µs      med=25µs     max=1.67ms   p(90)=50µs     p(95)=63µs
+     http_req_tls_handshaking.......: avg=0s       min=0s       med=0s       max=0s       p(90)=0s       p(95)=0s
+     http_req_waiting...............: avg=306.36ms min=3.11ms   med=306.04ms max=518.01ms p(90)=468.92ms p(95)=487.69ms
+     http_reqs......................: 6811   49.482891/s
+     iteration_duration.............: avg=448.28ms min=203.53ms med=415.1ms  max=3.01s    p(90)=578.1ms  p(95)=597.23ms
+     iterations.....................: 6731   48.90168/s
+     payment_fail...................: 2587   18.794926/s
+     payment_success................: 3998   29.046043/s
+     status_check_duration..........: avg=7.0625   min=4        med=7        max=26       p(90)=9        p(95)=9.05
+     status_pending.................: 80     0.581211/s
+     vus............................: 2      min=0       max=50
+     vus_max........................: 60     min=60      max=60
+```
+
+### 핵심 분석
+
+#### 성공률/실패율
+
+| 메트릭 | 값 |
+|--------|-----|
+| 결제 성공 (payment_success) | 3,998건 (60.7%) |
+| 결제 실패 (payment_fail) | 2,587건 (39.3%) |
+| 상태 조회 시 PENDING | 80건 |
+
+> PG 기본 성공률 60%와 일치 → Retry 없이 단일 호출 기준 결과.
+> Retry 3회 적용 시 P(성공) = 1 - 0.4³ = 93.6%로 개선 기대.
+
+#### 응답 시간 분포
+
+| 메트릭 | avg | med | p(90) | p(95) | max |
+|--------|-----|-----|-------|-------|-----|
+| http_req_duration | 306ms | 306ms | 469ms | 488ms | 518ms |
+| iteration_duration | 448ms | 415ms | 578ms | 597ms | 3,010ms |
+| status_check_duration | 7ms | 7ms | 9ms | 9ms | 26ms |
+
+> - PG 결제 요청: p(95) = 488ms. PG 내부 처리 지연(1~5초)은 콜백 방식이므로 응답에 미포함.
+> - 상태 조회: avg 7ms로 매우 빠름. Recovery 스케줄러 폴링에 적합.
+
+### 벤치마크 결론 — Resilience4j 설정 근거
+
+| 항목 | PG 특성 | 설정 근거 |
+|------|---------|-----------|
+| 실패율 | 40% | CB threshold 70% > 40% → 정상 운영 시 CB 미작동 |
+| 응답 시간 p(95) | 488ms | readTimeout 2,000ms → p(99+) 커버. Retry waitDuration 200ms |
+| 초당 처리량 | 49.5 req/s | 50 VU에서 안정적 처리 |
+| 상태 조회 시간 | avg 7ms | Recovery 폴링(30초 간격)에 충분 |
+
+---
+
 ## 🧪 Test Coverage
 
 ### Unit Tests
