@@ -14,13 +14,20 @@ class IssuedCoupon(
     var status: CouponStatus = status
         private set
 
-    fun use() {
+    fun reserve() {
         validateUsable()
+        this.status = CouponStatus.RESERVED
+    }
+
+    fun confirmUse() {
+        if (status != CouponStatus.RESERVED) {
+            throw CoreException(ErrorType.COUPON_NOT_AVAILABLE)
+        }
         this.status = CouponStatus.USED
     }
 
-    fun restore() {
-        if (status != CouponStatus.USED) {
+    fun release() {
+        if (status != CouponStatus.RESERVED) {
             throw CoreException(ErrorType.COUPON_NOT_AVAILABLE)
         }
         this.status = CouponStatus.AVAILABLE
