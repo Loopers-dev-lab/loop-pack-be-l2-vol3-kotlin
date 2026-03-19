@@ -1,12 +1,11 @@
 package com.loopers.application.order
 
-import com.loopers.domain.coupon.CouponReader
-import com.loopers.domain.coupon.IssuedCouponReader
-import com.loopers.domain.coupon.IssuedCouponRepository
+import com.loopers.domain.coupon.IssuedCouponProcessor
 import com.loopers.domain.order.OrderCanceller
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderReader
 import com.loopers.domain.order.OrderRegister
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.ProductStockDeductor
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -17,9 +16,7 @@ class OrderUseCase(
     private val orderReader: OrderReader,
     private val orderCanceller: OrderCanceller,
     private val productStockDeductor: ProductStockDeductor,
-    private val couponReader: CouponReader,
-    private val issuedCouponReader: IssuedCouponReader,
-    private val issuedCouponRepository: IssuedCouponRepository,
+    private val issuedCouponProcessor: IssuedCouponProcessor,
 ) {
 
     @Transactional
@@ -33,14 +30,9 @@ class OrderUseCase(
         var discountAmount = 0L
         var usedCouponId: Long? = null
         if (command.couponId != null) {
-            val issuedCoupon = issuedCouponReader.getByIdForUpdate(command.couponId)
-            issuedCoupon.validateOwner(memberId)
-            val coupon = couponReader.getById(issuedCoupon.couponId)
-            coupon.validateApplicable(totalPrice)
-            discountAmount = coupon.calculateDiscount(totalPrice)
-            issuedCoupon.use()
-            issuedCouponRepository.save(issuedCoupon)
-            usedCouponId = issuedCoupon.id
+            val reservation = issuedCouponProcessor.reserve(command.couponId, memberId, totalPrice)
+            discountAmount = reservation.discountAmount
+            usedCouponId = reservation.issuedCouponId
         }
 
         val order = orderRegister.register(memberId, orderItems, totalPrice, discountAmount, usedCouponId)
@@ -61,14 +53,18 @@ class OrderUseCase(
 
     @Transactional
     fun cancel(orderId: Long, memberId: Long) {
+        val orderBeforeCancel = orderReader.getById(orderId)
+        orderBeforeCancel.validateOwner(memberId)
+        val shouldRestoreStock = orderBeforeCancel.status != OrderStatus.PAYMENT_FAILED
+
         val order = orderCanceller.cancel(orderId, memberId)
-        order.orderItems.forEach { item ->
-            productStockDeductor.restoreStock(item.productId, item.quantity)
+        if (shouldRestoreStock) {
+            order.orderItems.forEach { item ->
+                productStockDeductor.restoreStock(item.productId, item.quantity)
+            }
         }
         if (order.couponId != null) {
-            val issuedCoupon = issuedCouponReader.getById(order.couponId)
-            issuedCoupon.restore()
-            issuedCouponRepository.save(issuedCoupon)
+            issuedCouponProcessor.releaseIfReserved(order.couponId)
         }
     }
 
