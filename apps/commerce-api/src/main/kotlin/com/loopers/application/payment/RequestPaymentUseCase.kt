@@ -33,10 +33,14 @@ class RequestPaymentUseCase(
             if (pgResponse.success && pgResponse.transactionKey != null) {
                 paymentTransactionService.markRequested(paymentId, pgResponse.transactionKey)
             } else {
-                paymentTransactionService.markFailed(paymentId, pgResponse.reason ?: "PG 결제 요청 실패")
+                log.warn(
+                    "PG 결제 요청 실패. paymentId={}, reason={}, PENDING 유지하고 복구 스케줄러에 위임합니다.",
+                    paymentId,
+                    pgResponse.reason,
+                )
             }
         } catch (e: Exception) {
-            log.warn("PG 결제 요청 중 예외 발생. paymentId={}, 콜백 또는 복구로 처리 예정", paymentId, e)
+            log.warn("PG 결제 요청 중 예외 발생. paymentId={}, PENDING 유지하고 복구 스케줄러에 위임합니다.", paymentId, e)
         }
     }
 }

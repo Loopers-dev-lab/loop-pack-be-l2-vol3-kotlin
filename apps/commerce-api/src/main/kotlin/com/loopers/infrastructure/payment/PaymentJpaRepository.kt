@@ -21,4 +21,5 @@ interface PaymentJpaRepository : JpaRepository<PaymentEntity, Long> {
     fun findByOrderId(orderId: Long): PaymentEntity?
 
     fun findAllByStatusAndCreatedAtBefore(status: PaymentStatus, createdAt: ZonedDateTime): List<PaymentEntity>
+    fun findAllByStatusInAndCreatedAtBefore(statuses: List<PaymentStatus>, createdAt: ZonedDateTime): List<PaymentEntity>
 }

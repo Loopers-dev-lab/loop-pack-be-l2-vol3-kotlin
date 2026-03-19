@@ -43,4 +43,9 @@ class PaymentRepositoryImpl(
         return jpaRepository.findAllByStatusAndCreatedAtBefore(status, before)
             .map { PaymentMapper.toDomain(it) }
     }
+
+    override fun findAllByStatusInAndCreatedBefore(statuses: List<PaymentStatus>, before: ZonedDateTime): List<Payment> {
+        return jpaRepository.findAllByStatusInAndCreatedAtBefore(statuses, before)
+            .map { PaymentMapper.toDomain(it) }
+    }
 }

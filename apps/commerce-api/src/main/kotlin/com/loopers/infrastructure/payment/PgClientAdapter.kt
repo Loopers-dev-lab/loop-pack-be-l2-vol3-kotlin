@@ -84,6 +84,24 @@ class PgClientAdapter(
         )
     }
 
+    override fun getTransactionsByOrderId(userId: String, orderId: String): List<PgTransactionDetail> {
+        val response = pgRestClient.get()
+            .uri("/api/v1/payments?orderId={orderId}", orderId)
+            .header(HEADER_USER_ID, userId)
+            .retrieve()
+            .body(object : ParameterizedTypeReference<PgApiResponse<PgOrderResponse>>() {})
+
+        val transactions = response?.data?.transactions ?: return emptyList()
+
+        return transactions.map {
+            PgTransactionDetail(
+                transactionKey = it.transactionKey,
+                status = it.status ?: "PENDING",
+                reason = it.reason,
+            )
+        }
+    }
+
     companion object {
         private const val HEADER_USER_ID = "X-USER-ID"
     }
@@ -112,6 +130,11 @@ data class PgTransactionResponse(
     val transactionKey: String,
     val status: String?,
     val reason: String?,
+)
+
+data class PgOrderResponse(
+    val orderId: String?,
+    val transactions: List<PgTransactionResponse>?,
 )
 
 data class PgTransactionDetailResponse(

@@ -10,4 +10,5 @@ interface PaymentRepository {
     fun findByTransactionKeyForUpdate(transactionKey: String): Payment?
     fun findByOrderId(orderId: Long): Payment?
     fun findAllByStatusAndCreatedBefore(status: PaymentStatus, before: ZonedDateTime): List<Payment>
+    fun findAllByStatusInAndCreatedBefore(statuses: List<PaymentStatus>, before: ZonedDateTime): List<Payment>
 }

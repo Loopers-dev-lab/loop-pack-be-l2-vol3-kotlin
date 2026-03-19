@@ -106,7 +106,7 @@ class RequestPaymentUseCaseIntegrationTest {
     }
 
     @Test
-    fun `PG 요청 실패 시 결제 상태가 FAILED여야 한다`() {
+    fun `PG 요청 실패 시 결제 상태가 PENDING으로 유지되어야 한다`() {
         org.mockito.Mockito.`when`(paymentGatewayPort.requestPayment(org.mockito.kotlin.any()))
             .thenReturn(
                 PgPaymentResponse(
@@ -121,7 +121,7 @@ class RequestPaymentUseCaseIntegrationTest {
 
         val payment = paymentRepository.findById(paymentId)
         assertThat(payment).isNotNull
-        assertThat(payment!!.status).isEqualTo(PaymentStatus.FAILED)
+        assertThat(payment!!.status).isEqualTo(PaymentStatus.PENDING)
     }
 
     @Test
