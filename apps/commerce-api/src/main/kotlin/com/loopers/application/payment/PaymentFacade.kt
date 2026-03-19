@@ -49,37 +49,35 @@ class PaymentFacade(
             PaymentInfo.from(payment)
         }!!
 
+        val pgResult = try {
+            pgPaymentClient.requestPayment(
+                userId.toString(),
+                PgPaymentRequest(
+                orderId = paymentInfo.orderId.toString(),
+                cardType = criteria.cardType,
+                cardNo = criteria.cardNo,
+                amount = paymentInfo.amount.toLong(),
+                callbackUrl = callbackUrl,
+            ),
+            )
+        } catch (e: Exception) {
+            log.warn("PG 결제 요청 실패: orderId=${paymentInfo.orderId}", e)
+            null
+        }
+
         return transactionTemplate.execute {
             val payment = paymentService.getPayment(paymentInfo.id)
 
-            val pgRequest = PgPaymentRequest(
-                orderId = payment.orderId.toString(),
-                cardType = criteria.cardType,
-                cardNo = criteria.cardNo,
-                amount = payment.amount.toLong(),
-                callbackUrl = callbackUrl,
-            )
-
-            try {
-                val pgResponse = pgPaymentClient.requestPayment(userId.toString(), pgRequest)
-
-                if (!pgResponse.isSuccess() || pgResponse.data == null) {
-                    payment.markFailed("PG 결제 요청 실패")
-                    val order = orderService.getOrder(payment.orderId)
-                    order.markFailed()
-                    compensateOrder(order)
-                    return@execute PaymentInfo.from(payment)
-                }
-
-                payment.markRequested(pgResponse.data.transactionKey)
-            } catch (e: CoreException) {
-                payment.markFailed(e.message)
+            if (pgResult == null || !pgResult.isSuccess() || pgResult.data == null) {
+                val reason = if (pgResult == null) "PG 시스템 장애" else "PG 결제 요청 실패"
+                payment.markFailed(reason)
                 val order = orderService.getOrder(payment.orderId)
                 order.markFailed()
                 compensateOrder(order)
-                throw e
+                return@execute PaymentInfo.from(payment)
             }
 
+            payment.markRequested(pgResult.data.transactionKey)
             PaymentInfo.from(payment)
         }!!
     }

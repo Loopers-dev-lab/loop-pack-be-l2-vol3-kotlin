@@ -45,6 +45,15 @@ spring:
     activate:
       on-profile: local, test
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,circuitbreakers,circuitbreakerevents
+  health:
+    circuitbreakers:
+      enabled: true
+
 ---
 spring:
   config:
@@ -71,10 +80,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,circuitbreakers,circuitbreakerevents
+        include: health,prometheus,circuitbreakers,circuitbreakerevents
   health:
     circuitbreakers:
       enabled: true
+  server:
+    port: 8081
 
 logging:
   level:
@@ -92,6 +103,7 @@ resilience4j:
           - java.net.ConnectException
         ignore-exceptions:
           - com.loopers.support.error.CoreException
+          - feign.FeignException
           - feign.FeignException
         fail-after-max-attempts: true
   circuitbreaker:
