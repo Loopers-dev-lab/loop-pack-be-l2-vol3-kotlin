@@ -2,8 +2,8 @@ package com.loopers.infrastructure.cache
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.github.benmanes.caffeine.cache.LoadingCache
 import com.loopers.domain.catalog.ProductCache
 import com.loopers.domain.catalog.ProductInfo
 import com.loopers.domain.catalog.ProductSortType
@@ -26,17 +26,31 @@ class ProductCacheManager(
 ) : ProductCache {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val detailCaffeine: LoadingCache<Long, String> = Caffeine.newBuilder()
-        .maximumSize(cacheProperties.caffeine.maxSize)
-        .expireAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.expireSeconds))
-        .refreshAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.refreshSeconds))
-        .build { key -> loadDetailFromRedis(key) }
+    private val detailCaffeine: Cache<Long, String> = run {
+        val builder = Caffeine.newBuilder()
+            .maximumSize(cacheProperties.caffeine.maxSize)
+            .expireAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.expireSeconds))
 
-    private val listCaffeine: LoadingCache<String, String> = Caffeine.newBuilder()
-        .maximumSize(cacheProperties.caffeine.maxSize)
-        .expireAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.expireSeconds))
-        .refreshAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.refreshSeconds))
-        .build { key -> loadListFromRedis(key) }
+        if (cacheProperties.mode == CacheMode.LAYERED) {
+            builder.refreshAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.refreshSeconds))
+                .build { key -> loadDetailFromRedis(key) }
+        } else {
+            builder.build()
+        }
+    }
+
+    private val listCaffeine: Cache<String, String> = run {
+        val builder = Caffeine.newBuilder()
+            .maximumSize(cacheProperties.caffeine.maxSize)
+            .expireAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.expireSeconds))
+
+        if (cacheProperties.mode == CacheMode.LAYERED) {
+            builder.refreshAfterWrite(Duration.ofSeconds(cacheProperties.caffeine.refreshSeconds))
+                .build { key -> loadListFromRedis(key) }
+        } else {
+            builder.build()
+        }
+    }
 
     override fun getProduct(id: Long, loader: () -> ProductInfo): ProductInfo {
         if (cacheProperties.mode == CacheMode.DB_ONLY) {
@@ -73,20 +87,28 @@ class ProductCacheManager(
     }
 
     override fun evictProduct(productId: Long) {
-        val detailKey = detailCacheKey(productId)
         detailCaffeine.invalidate(productId)
-        redisTemplate.delete(detailKey)
+        if (requiresRedis()) {
+            redisTemplate.delete(detailCacheKey(productId))
+        }
     }
 
     override fun evictProductList() {
         listCaffeine.invalidateAll()
-        deleteRedisKeysByPattern("product:list:*")
+        if (requiresRedis()) {
+            deleteRedisKeysByPattern("product:list:*")
+        }
     }
 
     override fun evictPopularList() {
         listCaffeine.invalidateAll()
-        deleteRedisKeysByPattern("product:list:POPULAR:*")
+        if (requiresRedis()) {
+            deleteRedisKeysByPattern("product:list:POPULAR:*")
+        }
     }
+
+    private fun requiresRedis(): Boolean =
+        cacheProperties.mode == CacheMode.REDIS_ONLY || cacheProperties.mode == CacheMode.LAYERED
 
     // ── L1: Caffeine Only ──
 
