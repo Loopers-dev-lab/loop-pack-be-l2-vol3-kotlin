@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.pg.PgCommunicationLogRepository
 import feign.Client
 import feign.Request
+import feign.Retryer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
@@ -21,6 +22,11 @@ class PgClientConfig {
             TimeUnit.MILLISECONDS,
             true,
         )
+    }
+
+    @Bean
+    fun feignRetryer(): Retryer {
+        return Retryer.NEVER_RETRY
     }
 
     @Bean

@@ -39,10 +39,12 @@ class PgLoggingClient(
 
             val transactionKey = extractTransactionKey(responseBody)
 
+            val isSuccess = bufferedResponse.status() in 200..299
+
             saveLog(
                 httpMethod, requestUrl, orderId, transactionKey,
                 requestBody, responseBody, bufferedResponse.status(),
-                true, null, elapsed,
+                isSuccess, null, elapsed,
             )
 
             bufferedResponse
