@@ -11,6 +11,20 @@ import org.junit.jupiter.api.assertThrows
 
 class PaymentTest {
 
+    private fun createPayment(
+        userId: Long = 1L,
+        orderId: String = "ORDER-001",
+        cardType: CardType = CardType.SAMSUNG,
+        cardNo: String = "1234-5678-9012-3456",
+        amount: Long = 50000L,
+    ): Payment = Payment(
+        userId = userId,
+        orderId = orderId,
+        cardType = cardType,
+        cardNo = cardNo,
+        amount = amount,
+    )
+
     @DisplayName("결제를 생성할 때,")
     @Nested
     inner class Create {
@@ -19,13 +33,7 @@ class PaymentTest {
         @Test
         fun createsPayment_whenValidValuesProvided() {
             // arrange & act
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
 
             // assert
             assertAll(
@@ -44,13 +52,7 @@ class PaymentTest {
         fun throwsBadRequest_whenAmountIsZeroOrNegative() {
             // act
             val exception = assertThrows<CoreException> {
-                Payment(
-                    userId = 1L,
-                    orderId = "ORDER-001",
-                    cardType = CardType.SAMSUNG,
-                    cardNo = "1234-5678-9012-3456",
-                    amount = 0L,
-                )
+                createPayment(amount = 0L)
             }
 
             // assert
@@ -62,13 +64,7 @@ class PaymentTest {
         fun throwsBadRequest_whenOrderIdIsBlank() {
             // act
             val exception = assertThrows<CoreException> {
-                Payment(
-                    userId = 1L,
-                    orderId = "",
-                    cardType = CardType.SAMSUNG,
-                    cardNo = "1234-5678-9012-3456",
-                    amount = 50000L,
-                )
+                createPayment(orderId = "")
             }
 
             // assert
@@ -80,13 +76,7 @@ class PaymentTest {
         fun throwsBadRequest_whenCardNoIsBlank() {
             // act
             val exception = assertThrows<CoreException> {
-                Payment(
-                    userId = 1L,
-                    orderId = "ORDER-001",
-                    cardType = CardType.SAMSUNG,
-                    cardNo = "",
-                    amount = 50000L,
-                )
+                createPayment(cardNo = "")
             }
 
             // assert
@@ -102,13 +92,7 @@ class PaymentTest {
         @Test
         fun setsTransactionKeyAndChangeStatusToPending() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
 
             // act
             payment.markPending("txn-key-12345")
@@ -124,13 +108,7 @@ class PaymentTest {
         @Test
         fun throwsBadRequest_whenAlreadyPending() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
             payment.markPending("txn-key-12345")
 
             // act
@@ -151,13 +129,7 @@ class PaymentTest {
         @Test
         fun changesStatusToSuccess_whenPending() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
             payment.markPending("txn-key-12345")
 
             // act
@@ -171,13 +143,7 @@ class PaymentTest {
         @Test
         fun throwsBadRequest_whenRequested() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
 
             // act
             val exception = assertThrows<CoreException> {
@@ -197,13 +163,7 @@ class PaymentTest {
         @Test
         fun changesStatusToFailed_whenPending() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
             payment.markPending("txn-key-12345")
 
             // act
@@ -220,13 +180,7 @@ class PaymentTest {
         @Test
         fun changesStatusToFailed_whenRequested() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
 
             // act
             payment.markFailed("PG 연결 실패")
@@ -242,13 +196,7 @@ class PaymentTest {
         @Test
         fun throwsBadRequest_whenAlreadySuccess() {
             // arrange
-            val payment = Payment(
-                userId = 1L,
-                orderId = "ORDER-001",
-                cardType = CardType.SAMSUNG,
-                cardNo = "1234-5678-9012-3456",
-                amount = 50000L,
-            )
+            val payment = createPayment()
             payment.markPending("txn-key-12345")
             payment.markSuccess()
 
