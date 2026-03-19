@@ -79,17 +79,20 @@ class PaymentFacadeTest {
             verify(paymentService).markPending(payment.id, "txn-key-123")
         }
 
-        @DisplayName("PG가 응답하지 못하면, REQUESTED 상태를 유지한다 (Fallback).")
+        @DisplayName("PG 호출 실패 + PG에도 결제가 없으면, FAILED 상태로 변경한다.")
         @Test
-        fun keepsRequestedStatus_whenPgIsUnavailable() {
+        fun marksFailed_whenPgRequestFailedAndNoTransactionInPg() {
             // arrange
             val payment = createPayment()
             whenever(paymentService.createPayment(any(), any(), any(), any(), any())).thenReturn(payment)
             whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null)
+            whenever(paymentGateway.getTransactionsByOrderId(any(), any()))
+                .thenReturn(emptyList())
+            whenever(paymentService.getPayment(1L)).thenReturn(payment)
 
             // act
-            val result = paymentFacade.requestPayment(
+            paymentFacade.requestPayment(
                 userId = 1L,
                 orderId = "ORDER-001",
                 cardType = CardType.SAMSUNG,
@@ -98,10 +101,63 @@ class PaymentFacadeTest {
             )
 
             // assert
-            assertAll(
-                { assertThat(result.status).isEqualTo(PaymentStatus.REQUESTED) },
-                { verify(paymentService, never()).markPending(any(), any()) },
+            verify(paymentService).markFailed(eq(payment.id), any())
+        }
+
+        @DisplayName("PG 호출이 실패해도 PG에 결제가 생성되었으면, PENDING으로 전환한다.")
+        @Test
+        fun marksPending_whenPgRequestFailedButTransactionExistsInPg() {
+            // arrange
+            val payment = createPayment()
+            whenever(paymentService.createPayment(any(), any(), any(), any(), any())).thenReturn(payment)
+            whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
+                .thenReturn(null)
+            whenever(paymentGateway.getTransactionsByOrderId(any(), eq("ORDER-001")))
+                .thenReturn(listOf(PaymentGatewayResponse(transactionKey = "txn-key-123", status = "PENDING", reason = null)))
+            whenever(paymentService.getPayment(1L)).thenReturn(payment)
+
+            // act
+            paymentFacade.requestPayment(
+                userId = 1L,
+                orderId = "ORDER-001",
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+                amount = 50000L,
             )
+
+            // assert
+            verify(paymentService).markPending(payment.id, "txn-key-123")
+        }
+    }
+
+    @DisplayName("콜백을 처리할 때,")
+    @Nested
+    inner class HandleCallback {
+
+        @DisplayName("콜백 상태를 그대로 신뢰하지 않고, PG 조회로 실제 상태를 확인한다.")
+        @Test
+        fun verifiesCallbackStatusWithPg() {
+            // arrange
+            val payment = createPayment()
+            payment.markPending("txn-key-123")
+            whenever(paymentService.getPaymentByTransactionKey("txn-key-123")).thenReturn(payment)
+
+            // 콜백은 SUCCESS라고 하지만, PG 실제 상태는 FAILED
+            whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-123"))).thenReturn(
+                PaymentGatewayTransactionDetail(
+                    transactionKey = "txn-key-123",
+                    orderId = "ORDER-001",
+                    status = "FAILED",
+                    reason = "한도 초과",
+                ),
+            )
+
+            // act — 콜백은 SUCCESS로 전달
+            paymentFacade.handleCallback("txn-key-123", "SUCCESS", null)
+
+            // assert — PG 조회 결과(FAILED)를 따름
+            verify(paymentService).markFailed(payment.id, "한도 초과")
+            verify(paymentService, never()).markSuccess(any())
         }
     }
 

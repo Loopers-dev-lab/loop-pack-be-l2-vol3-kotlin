@@ -64,16 +64,21 @@ resilience4j:
   retry:
     configs:
       default:
-        max-attempts: 3                    # 최대 3회 시도 (원본 포함)
-        wait-duration: 500ms               # 재시도 대기 시간
-        exponential-backoff-multiplier: 2  # 지수 백오프 배수
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2
         enable-exponential-backoff: true
         retry-exceptions:
           - java.io.IOException
           - feign.RetryableException
     instances:
-      pg-simulator:
+      pg-query:
         base-config: default
+  bulkhead:
+    instances:
+      pg-simulator:
+        max-concurrent-calls: 25   # PG 동시 요청 최대 25개 (Tomcat 200 스레드 중 일부만 허용)
+        max-wait-duration: 0       # 대기 없이 즉시 실패
 
 ---
 spring:

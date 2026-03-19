@@ -3,6 +3,8 @@ package com.loopers.infrastructure.payment
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.domain.payment.PaymentGatewayTransactionDetail
+import io.github.resilience4j.bulkhead.annotation.Bulkhead
+import io.github.resilience4j.retry.annotation.Retry
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -13,6 +15,7 @@ class PaymentGatewayImpl(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Bulkhead(name = "pg-simulator")
     override fun requestPayment(
         userId: String,
         orderId: String,
@@ -43,6 +46,26 @@ class PaymentGatewayImpl(
         }
     }
 
+    @Bulkhead(name = "pg-simulator")
+    @Retry(name = "pg-query")
+    override fun getTransactionsByOrderId(userId: String, orderId: String): List<PaymentGatewayResponse> {
+        return try {
+            val data = pgClient.getTransactionsByOrderId(userId, orderId).data ?: return emptyList()
+            data.transactions.map {
+                PaymentGatewayResponse(
+                    transactionKey = it.transactionKey,
+                    status = it.status,
+                    reason = it.reason,
+                )
+            }
+        } catch (e: Exception) {
+            log.warn("PG 주문 조회 실패 (orderId={}): {}", orderId, e.message)
+            emptyList()
+        }
+    }
+
+    @Bulkhead(name = "pg-simulator")
+    @Retry(name = "pg-query")
     override fun getTransactionStatus(userId: String, transactionKey: String): PaymentGatewayTransactionDetail? {
         return try {
             val data = pgClient.getTransaction(userId, transactionKey).data ?: return null

@@ -14,6 +14,11 @@ interface PaymentGateway {
         userId: String,
         transactionKey: String,
     ): PaymentGatewayTransactionDetail?
+
+    fun getTransactionsByOrderId(
+        userId: String,
+        orderId: String,
+    ): List<PaymentGatewayResponse>
 }
 
 data class PaymentGatewayResponse(

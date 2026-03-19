@@ -65,12 +65,14 @@ class PaymentFacadeIntegrationTest @Autowired constructor(
             )
         }
 
-        @DisplayName("PG가 응답하지 못하면, 결제가 REQUESTED 상태로 DB에 저장된다 (Fallback).")
+        @DisplayName("PG 호출 실패 + PG에도 결제가 없으면, FAILED 상태로 DB에 저장된다.")
         @Test
-        fun savesPaymentAsRequested_whenPgIsUnavailable() {
+        fun savesPaymentAsFailed_whenPgIsUnavailableAndNoTransactionInPg() {
             // arrange
             whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null)
+            whenever(paymentGateway.getTransactionsByOrderId(any(), any()))
+                .thenReturn(emptyList())
 
             // act
             val result = paymentFacade.requestPayment(
@@ -84,9 +86,9 @@ class PaymentFacadeIntegrationTest @Autowired constructor(
             // assert
             val saved = paymentService.getPayment(result.paymentId)
             assertAll(
-                { assertThat(saved.status).isEqualTo(PaymentStatus.REQUESTED) },
+                { assertThat(saved.status).isEqualTo(PaymentStatus.FAILED) },
                 { assertThat(saved.transactionKey).isNull() },
-                { assertThat(result.status).isEqualTo(PaymentStatus.REQUESTED) },
+                { assertThat(result.status).isEqualTo(PaymentStatus.FAILED) },
             )
         }
     }
@@ -131,12 +133,14 @@ class PaymentFacadeIntegrationTest @Autowired constructor(
     @Nested
     inner class CircuitBreakerBehavior {
 
-        @DisplayName("PG가 계속 응답하지 못해도 결제 요청은 REQUESTED 상태로 저장된다.")
+        @DisplayName("PG가 계속 응답하지 못해도 결제 요청은 FAILED 상태로 저장된다.")
         @Test
-        fun alwaysSavesAsRequested_whenPgKeepsUnavailable() {
+        fun alwaysSavesAsFailed_whenPgKeepsUnavailable() {
             // arrange
             whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
                 .thenReturn(null)
+            whenever(paymentGateway.getTransactionsByOrderId(any(), any()))
+                .thenReturn(emptyList())
 
             // act
             val results = (1..5).map { i ->
@@ -149,8 +153,8 @@ class PaymentFacadeIntegrationTest @Autowired constructor(
                 )
             }
 
-            // assert - 모든 결제가 REQUESTED 상태 (Fallback)
-            assertThat(results).allMatch { it.status == PaymentStatus.REQUESTED }
+            // assert - 모든 결제가 FAILED 상태
+            assertThat(results).allMatch { it.status == PaymentStatus.FAILED }
         }
     }
 }
