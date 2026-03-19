@@ -1,0 +1,6 @@
+# PG 연동 설정
+pg:
+  base-url: http://localhost:8082
+  callback-url: http://localhost:8080/api/v1/payments/callback
+  connect-timeout: 500
+  read-timeout: 1000
