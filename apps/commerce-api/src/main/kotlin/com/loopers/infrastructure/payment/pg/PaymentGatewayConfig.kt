@@ -3,7 +3,6 @@ package com.loopers.infrastructure.payment.pg
 import io.netty.channel.ChannelOption
 import io.netty.handler.timeout.ReadTimeoutHandler
 import io.netty.handler.timeout.WriteTimeoutHandler
-import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.reactive.ReactorClientHttpConnector
@@ -14,7 +13,6 @@ import java.util.concurrent.TimeUnit
 
 @Configuration
 class PaymentGatewayConfig {
-    private val log = LoggerFactory.getLogger(javaClass)
 
     @Bean
     fun webClient(builder: WebClient.Builder): WebClient {

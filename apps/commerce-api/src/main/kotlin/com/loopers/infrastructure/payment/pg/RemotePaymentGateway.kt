@@ -3,20 +3,17 @@ package com.loopers.infrastructure.payment.pg
 import com.loopers.domain.payment.PgPaymentGateway
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
-import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import java.math.BigDecimal
 import java.time.Duration
-
-import org.springframework.beans.factory.annotation.Value
 
 @Component
 class RemotePaymentGateway(
     private val webClient: WebClient,
     @Value("\${pg.base-url:http://localhost:8083}") private val baseUrl: String,
 ) : PgPaymentGateway {
-    private val log = LoggerFactory.getLogger(javaClass)
 
     data class PgPaymentRequest(
         val orderId: String,
@@ -54,14 +51,6 @@ class RemotePaymentGateway(
             amount = amount.toPlainString(),
             callbackUrl = callbackUrl,
         )
-
-        log.info(
-            "Requesting PG payment: orderId={}, transactionId={}, amount={}",
-            orderId,
-            transactionId,
-            amount,
-        )
-
         return performRequest(userId, request)
     }
 
@@ -75,7 +64,6 @@ class RemotePaymentGateway(
         callbackUrl: String,
         ex: Exception,
     ): PgPaymentGateway.PaymentRequestResult {
-        log.error("Circuit breaker activated for PG payment: orderId={}, transactionId={}", orderId, transactionId, ex)
         throw RuntimeException("PG payment service is unavailable. Please try again later.", ex)
     }
 
@@ -90,13 +78,6 @@ class RemotePaymentGateway(
             .block(Duration.ofSeconds(10))
             ?: throw RuntimeException("PG payment request failed: no response")
 
-        log.info(
-            "Payment response: transactionKey={}, orderId={}, status={}",
-            response.transactionKey,
-            response.orderId,
-            response.status,
-        )
-
         return PgPaymentGateway.PaymentRequestResult(
             transactionKey = response.transactionKey,
             orderId = response.orderId,
@@ -109,7 +90,6 @@ class RemotePaymentGateway(
     }
 
     override fun verifySignature(transactionId: String, amount: BigDecimal, signature: String): Boolean {
-        log.debug("Verifying signature for transactionId={}", transactionId)
         return true
     }
 }
