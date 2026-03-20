@@ -130,6 +130,33 @@ class PaymentServiceTest {
         }
     }
 
+    @DisplayName("findByOrderId")
+    @Nested
+    inner class FindByOrderId {
+        @DisplayName("존재하는 주문 ID로 조회하면 결제를 반환한다")
+        @Test
+        fun returnsPayment_whenPaymentExistsForOrder() {
+            val payment = createPayment(orderId = ORDER_ID)
+            every { paymentRepository.findByOrderIdAndDeletedAtIsNull(ORDER_ID) } returns payment
+
+            val result = paymentService.findByOrderId(ORDER_ID)
+
+            assertThat(result).isSameAs(payment)
+        }
+
+        @DisplayName("존재하지 않는 주문 ID로 조회하면 NOT_FOUND 예외가 발생한다")
+        @Test
+        fun throwsNotFound_whenPaymentDoesNotExistForOrder() {
+            every { paymentRepository.findByOrderIdAndDeletedAtIsNull(ORDER_ID) } returns null
+
+            assertThatThrownBy {
+                paymentService.findByOrderId(ORDER_ID)
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND)
+        }
+    }
+
     @DisplayName("markSucceeded")
     @Nested
     inner class MarkSucceeded {
@@ -180,6 +207,27 @@ class PaymentServiceTest {
 
             assertThat(result.status).isEqualTo(PaymentStatus.EXPIRED)
             verify(exactly = 1) { paymentRepository.save(payment) }
+        }
+    }
+
+    @DisplayName("expirePendingPayments")
+    @Nested
+    inner class ExpirePendingPayments {
+        @DisplayName("만료 시각이 지난 PENDING 결제만 EXPIRED로 바꾸고 저장한다")
+        @Test
+        fun expiresOnlyOverduePendingPayments() {
+            val overduePayment = createPayment(id = 1L, expiresAt = ZonedDateTime.now().minusMinutes(1))
+            val futurePayment = createPayment(id = 2L, expiresAt = ZonedDateTime.now().plusMinutes(10))
+
+            every { paymentRepository.findAllByStatusAndExpiresAtBeforeAndDeletedAtIsNull(eq(PaymentStatus.PENDING), any()) } returns listOf(overduePayment)
+            every { paymentRepository.save(overduePayment) } returns overduePayment
+
+            val expiredCount = paymentService.expirePendingPayments(ZonedDateTime.now())
+
+            assertThat(expiredCount).isEqualTo(1)
+            assertThat(overduePayment.status).isEqualTo(PaymentStatus.EXPIRED)
+            assertThat(futurePayment.status).isEqualTo(PaymentStatus.PENDING)
+            verify(exactly = 1) { paymentRepository.save(overduePayment) }
         }
     }
 }

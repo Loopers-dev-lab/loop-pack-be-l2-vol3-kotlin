@@ -155,4 +155,80 @@ class PaymentFacadeTest {
             verify(exactly = 0) { paymentService.markFailed(any(), any()) }
         }
     }
+
+    @DisplayName("handleCallback")
+    @Nested
+    inner class HandleCallback {
+        @DisplayName("승인 콜백이 오면 PENDING 결제를 성공 처리한다")
+        @Test
+        fun marksSucceeded_whenApprovedCallbackArrives() {
+            val payment = createPayment()
+            every { paymentService.findByOrderId(ORDER_ID) } returns payment
+            every { paymentService.markSucceeded(PAYMENT_ID, "pg-100") } returns payment
+
+            paymentFacade.handleCallback(
+                PaymentCallbackCommand(
+                    orderId = ORDER_ID,
+                    transactionId = "pg-100",
+                    status = PaymentCallbackStatus.APPROVED,
+                    failureReason = null,
+                ),
+            )
+
+            verify(exactly = 1) { paymentService.markSucceeded(PAYMENT_ID, "pg-100") }
+        }
+
+        @DisplayName("이미 성공한 결제에 같은 승인 콜백이 다시 와도 무시한다")
+        @Test
+        fun ignoresDuplicateApprovedCallback_whenPaymentAlreadySucceeded() {
+            val payment = createPayment().apply { markSucceeded("pg-100") }
+            every { paymentService.findByOrderId(ORDER_ID) } returns payment
+
+            paymentFacade.handleCallback(
+                PaymentCallbackCommand(
+                    orderId = ORDER_ID,
+                    transactionId = "pg-100",
+                    status = PaymentCallbackStatus.APPROVED,
+                    failureReason = null,
+                ),
+            )
+
+            verify(exactly = 0) { paymentService.markSucceeded(any(), any()) }
+            verify(exactly = 0) { paymentService.markFailed(any(), any()) }
+        }
+
+        @DisplayName("실패 콜백이 오면 PENDING 결제를 실패 처리한다")
+        @Test
+        fun marksFailed_whenFailedCallbackArrives() {
+            val payment = createPayment()
+            every { paymentService.findByOrderId(ORDER_ID) } returns payment
+            every { paymentService.markFailed(PAYMENT_ID, "잔액이 부족합니다.") } returns payment
+
+            paymentFacade.handleCallback(
+                PaymentCallbackCommand(
+                    orderId = ORDER_ID,
+                    transactionId = null,
+                    status = PaymentCallbackStatus.FAILED,
+                    failureReason = "잔액이 부족합니다.",
+                ),
+            )
+
+            verify(exactly = 1) { paymentService.markFailed(PAYMENT_ID, "잔액이 부족합니다.") }
+        }
+    }
+
+    @DisplayName("expirePendingPayments")
+    @Nested
+    inner class ExpirePendingPayments {
+        @DisplayName("현재 시각 기준으로 만료 대상 PENDING 결제를 일괄 만료 처리한다")
+        @Test
+        fun expiresPendingPayments() {
+            every { paymentService.expirePendingPayments(any()) } returns 2
+
+            val expiredCount = paymentFacade.expirePendingPayments(ZonedDateTime.now())
+
+            org.assertj.core.api.Assertions.assertThat(expiredCount).isEqualTo(2)
+            verify(exactly = 1) { paymentService.expirePendingPayments(any()) }
+        }
+    }
 }

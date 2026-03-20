@@ -35,6 +35,12 @@ class PaymentService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다: $id")
     }
 
+    @Transactional(readOnly = true)
+    fun findByOrderId(orderId: Long): PaymentModel {
+        return paymentRepository.findByOrderIdAndDeletedAtIsNull(orderId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다: $orderId")
+    }
+
     @Transactional
     fun markSucceeded(id: Long, externalTransactionId: String): PaymentModel {
         val payment = findById(id)
@@ -54,5 +60,15 @@ class PaymentService(
         val payment = findById(id)
         payment.markExpired()
         return paymentRepository.save(payment)
+    }
+
+    @Transactional
+    fun expirePendingPayments(now: ZonedDateTime): Int {
+        val pendingPayments = paymentRepository.findAllByStatusAndExpiresAtBeforeAndDeletedAtIsNull(PaymentStatus.PENDING, now)
+        pendingPayments.forEach { payment ->
+            payment.markExpired()
+            paymentRepository.save(payment)
+        }
+        return pendingPayments.size
     }
 }

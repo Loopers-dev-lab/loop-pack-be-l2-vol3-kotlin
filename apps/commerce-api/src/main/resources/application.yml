@@ -42,6 +42,8 @@ payment:
     circuit-breaker-failure-rate-threshold: 50
     circuit-breaker-wait-duration-in-open-state: 30s
     circuit-breaker-permitted-number-of-calls-in-half-open-state: 2
+  callback:
+    secret: ${PAYMENT_CALLBACK_SECRET:payment-callback-secret}
 
 ---
 spring:
