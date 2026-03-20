@@ -15,6 +15,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.ZonedDateTime
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
@@ -77,8 +78,12 @@ class CouponUsageConcurrencyTest @Autowired constructor(
                 }
             }
         }
-        latch.await()
-        executorService.shutdown()
+        try {
+            assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue()
+        } finally {
+            executorService.shutdownNow()
+            assertThat(executorService.awaitTermination(5, TimeUnit.SECONDS)).isTrue()
+        }
 
         // assert
         assertThat(successCount.get()).isEqualTo(1)

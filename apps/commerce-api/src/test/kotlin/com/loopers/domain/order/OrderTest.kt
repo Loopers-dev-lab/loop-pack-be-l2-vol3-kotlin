@@ -102,6 +102,15 @@ class OrderTest {
         }
 
         @Test
+        fun `결제_대기_상태가_아니면_결제_완료_처리할_수_없다`() {
+            val order = createOrder()
+
+            val result = assertThrows<CoreException> { order.markPaid() }
+
+            assertThat(result.errorType).isEqualTo(ErrorType.CONFLICT)
+        }
+
+        @Test
         fun `결제가_실패하면_PAYMENT_FAILED_상태가_된다`() {
             val order = createOrder()
             order.beginPayment()

@@ -200,6 +200,8 @@ class OrderUseCaseTest {
 
         override fun findById(id: Long): Order? = orders[id]
 
+        override fun findByIdForUpdate(id: Long): Order? = findById(id)
+
         override fun findAllByMemberId(memberId: Long): List<Order> =
             orders.values.filter { it.memberId == memberId }
     }

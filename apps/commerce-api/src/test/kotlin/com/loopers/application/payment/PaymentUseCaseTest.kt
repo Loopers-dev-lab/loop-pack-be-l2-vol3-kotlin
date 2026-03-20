@@ -77,6 +77,7 @@ class PaymentUseCaseTest {
             assertThat(result.orderStatus).isEqualTo(OrderStatus.PAYMENT_PENDING.name)
             assertThat(result.paymentStatus).isEqualTo(PaymentStatus.PENDING.name)
             assertThat(result.transactionKey).isEqualTo("20250816:TR:9577c5")
+            assertThat(result.cardNo).isEqualTo("****-****-****-5678")
         }
 
         @Test
@@ -263,6 +264,8 @@ class PaymentUseCaseTest {
         }
 
         override fun findById(id: Long): Order? = if (order.id == id) order else null
+
+        override fun findByIdForUpdate(id: Long): Order? = findById(id)
 
         override fun findAllByMemberId(memberId: Long): List<Order> =
             if (order.memberId == memberId) listOf(order) else emptyList()
