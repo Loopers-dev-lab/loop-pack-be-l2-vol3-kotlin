@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient
 import java.time.Duration
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
 
 @Configuration
 class PgClientConfig(
@@ -30,5 +31,10 @@ class PgClientConfig(
     @Bean
     fun pgOutboundExecutor(): ExecutorService {
         return Executors.newFixedThreadPool(10)
+    }
+
+    @Bean
+    fun recoveryScheduler(): ScheduledExecutorService {
+        return Executors.newScheduledThreadPool(2)
     }
 }

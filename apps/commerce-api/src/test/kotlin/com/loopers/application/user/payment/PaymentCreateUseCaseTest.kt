@@ -41,6 +41,7 @@ class PaymentCreateUseCaseTest {
     private val orderRepository: OrderRepository = mock()
     private val paymentRepository: PaymentRepository = mock()
     private val pgPaymentPort: PgPaymentPort = mock()
+    private val paymentRecoveryService: PaymentRecoveryService = mock()
     private val transactionTemplate = object : TransactionTemplate() {
         override fun <T> execute(action: TransactionCallback<T>): T? {
             return action.doInTransaction(mock<TransactionStatus>())
@@ -51,6 +52,7 @@ class PaymentCreateUseCaseTest {
         orderRepository,
         paymentRepository,
         pgPaymentPort,
+        paymentRecoveryService,
         transactionTemplate,
         callbackBaseUrl,
     )

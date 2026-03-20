@@ -21,6 +21,7 @@ class PaymentCreateUseCase(
     private val orderRepository: OrderRepository,
     private val paymentRepository: PaymentRepository,
     private val pgPaymentPort: PgPaymentPort,
+    private val paymentRecoveryService: PaymentRecoveryService,
     private val transactionTemplate: TransactionTemplate,
     @Value("\${pg.callback-base-url}") private val callbackBaseUrl: String,
 ) {
@@ -67,6 +68,10 @@ class PaymentCreateUseCase(
 
         if (updatedPayment !== payment) {
             paymentRepository.save(updatedPayment)
+        }
+
+        if (!updatedPayment.isTerminal) {
+            paymentRecoveryService.scheduleEagerRetry(updatedPayment.id!!)
         }
 
         return PaymentCreateResult.NewlyCreated(
