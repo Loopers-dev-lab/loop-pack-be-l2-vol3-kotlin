@@ -12,7 +12,6 @@ interface PaymentClient {
      * @param amount 거래 금액
      * @param cardType 카드 유형
      * @param cardNo 카드 번호
-     * @param callbackUrl 콜백 URL
      * @return 결제 요청 결과 (requestId, signature 등)
      */
     fun requestPayment(
@@ -22,6 +21,5 @@ interface PaymentClient {
         amount: BigDecimal,
         cardType: String,
         cardNo: String,
-        callbackUrl: String,
     ): PaymentRequestResult
 }

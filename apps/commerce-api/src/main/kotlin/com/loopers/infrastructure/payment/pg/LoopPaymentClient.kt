@@ -14,6 +14,7 @@ import java.time.Duration
 class LoopPaymentClient(
     private val webClient: WebClient,
     @Value("\${pg.base-url}") private val baseUrl: String,
+    @Value("\${pg.loop.callback-url}") private val callbackUrl: String,
 ) : PaymentClient {
 
     @CircuitBreaker(name = "pg-payment", fallbackMethod = "paymentFallback")
@@ -25,7 +26,6 @@ class LoopPaymentClient(
         amount: BigDecimal,
         cardType: String,
         cardNo: String,
-        callbackUrl: String,
     ): PaymentRequestResult {
         val request = PgPaymentRequest(
             orderId = orderId.toString(),
@@ -44,7 +44,6 @@ class LoopPaymentClient(
         amount: BigDecimal,
         cardType: String,
         cardNo: String,
-        callbackUrl: String,
         ex: Exception,
     ): PaymentRequestResult {
         throw RuntimeException("PG payment service is unavailable. Please try again later.", ex)

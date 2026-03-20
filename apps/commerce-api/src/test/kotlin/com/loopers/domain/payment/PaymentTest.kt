@@ -94,7 +94,7 @@ class PaymentTest {
     }
 
     @Test
-    @DisplayName("결제 생성 시 초기 상태는 INITIATED")
+    @DisplayName("결제 생성 시 초기 상태는 PENDING")
     fun creation_initialStatus() {
         // given & when
         val receipt = Receipt.create(
@@ -104,7 +104,7 @@ class PaymentTest {
         )
 
         // then
-        assert(receipt.status == ReceiptStatus.INITIATED)
+        assert(receipt.status == ReceiptStatus.PENDING)
         assert(receipt.orderId == 1L)
         assert(receipt.transactionId == "TXN001")
         assert(receipt.amount == BigDecimal("10000"))

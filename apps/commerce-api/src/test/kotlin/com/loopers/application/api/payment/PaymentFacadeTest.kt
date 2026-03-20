@@ -37,14 +37,14 @@ class PaymentFacadeTest {
         val order = mockk<Order>()
         every { order.getTotalPrice() } returns BigDecimal("10000")
         every { order.status } returns OrderStatus.PENDING
+        every { order.markAsPaymentRequested() } returns Unit
 
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
         every { receiptService.getReceiptByOrderId(orderId) } returns null
 
         val testReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
         every { receiptService.initiateReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } returns testReceipt
-        every { receiptService.markAsPending(any()) } returns Unit
-        every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any(), any()) } returns PaymentRequestResult(
+        every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns PaymentRequestResult(
             transactionKey = "TXN_123_100",
             orderId = "100",
             cardType = "SAMSUNG",
@@ -68,8 +68,8 @@ class PaymentFacadeTest {
             // orderId만 확인
         }
         verify {
+            order.markAsPaymentRequested()
             receiptService.initiateReceipt(any(), any(), any(), any(), any())
-            receiptService.markAsPending(any())
         }
     }
 

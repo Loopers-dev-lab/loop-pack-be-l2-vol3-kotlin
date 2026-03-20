@@ -39,14 +39,12 @@ class PaymentFacade(
         cardType: String,
         cardNo: String,
     ): ReceiptInfo {
-        val callbackUrl = "http://localhost:8080/api/v1/payments/callback"
-
         val order = orderService.getOrderByIdForUpdateWithPending(userId, orderId)
 
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
             when (existingReceipt.status) {
-                ReceiptStatus.INITIATED, ReceiptStatus.PENDING -> {
+                ReceiptStatus.PENDING -> {
                     throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
                 }
                 ReceiptStatus.COMPLETED -> {
@@ -59,6 +57,9 @@ class PaymentFacade(
             }
         }
 
+        // (1) Order 상태를 PAYMENT_REQUESTED로 변경
+        order.markAsPaymentRequested()
+
         val transactionId = generateTransactionId(orderId)
         val pgResult = try {
             paymentClient.requestPayment(
@@ -68,13 +69,12 @@ class PaymentFacade(
                 amount = order.getTotalPrice(),
                 cardType = cardType,
                 cardNo = cardNo,
-                callbackUrl = callbackUrl,
             )
         } catch (e: Exception) {
-            log.error("PG payment request failed", e)
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다")
         }
 
+        // (2) Receipt 생성 (PENDING으로 바로 생성)
         val receipt = receiptService.initiateReceipt(
             orderId = orderId,
             transactionId = pgResult.transactionKey,
@@ -82,9 +82,6 @@ class PaymentFacade(
             cardType = cardType,
             cardNo = cardNo,
         )
-
-        // (5) Receipt 상태를 PENDING으로 변경 (콜백 대기)
-        receiptService.markAsPending(receipt.id)
 
         return ReceiptInfo.from(receipt)
     }

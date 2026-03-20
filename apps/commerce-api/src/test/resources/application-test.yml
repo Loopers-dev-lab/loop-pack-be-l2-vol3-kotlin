@@ -16,6 +16,10 @@ spring:
   cache:
     type: simple  # Unit test 기본값
 
+pg:
+  loop:
+    callback-url: http://localhost:8080/api/v1/payments/callback
+
 datasource:
   mysql-jpa:
     main:

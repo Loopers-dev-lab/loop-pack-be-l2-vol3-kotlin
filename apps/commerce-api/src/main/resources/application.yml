@@ -16,6 +16,10 @@ spring:
   cache:
     type: redis
 
+pg:
+  loop:
+    callback-url: http://localhost:8080/api/v1/payments/callback
+
 springdoc:
   use-fqn: true
   swagger-ui:
@@ -36,6 +40,10 @@ spring:
     redis:
       time-to-live: 5m  # dev: 5분 (개발 중 빠른 갱신)
 
+pg:
+  loop:
+    callback-url: https://dev.api.example.com/api/v1/payments/callback
+
 ---
 spring:
   config:
@@ -45,6 +53,10 @@ spring:
     redis:
       time-to-live: 10m  # qa: 10분 (테스트 환경)
 
+pg:
+  loop:
+    callback-url: https://qa.api.example.com/api/v1/payments/callback
+
 ---
 spring:
   config:
@@ -53,6 +65,10 @@ spring:
   cache:
     redis:
       time-to-live: 30m  # prd: 30분 (안정적 캐싱)
+
+pg:
+  loop:
+    callback-url: https://api.example.com/api/v1/payments/callback
 
 springdoc:
   api-docs:

@@ -2,6 +2,8 @@ package com.loopers.domain.order
 
 import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.product.Product
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -67,6 +69,13 @@ class Order protected constructor(
 
     fun changeStatus(newStatus: OrderStatus) {
         this.status = newStatus
+    }
+
+    fun markAsPaymentRequested() {
+        if (status != OrderStatus.PENDING) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 요청은 PENDING 상태에서만 가능합니다. 현재 상태: $status")
+        }
+        this.status = OrderStatus.PAYMENT_REQUESTED
     }
 
     fun delete() {

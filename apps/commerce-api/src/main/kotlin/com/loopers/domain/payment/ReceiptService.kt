@@ -29,14 +29,6 @@ class ReceiptService(
     fun save(receipt: Receipt): Receipt =
         receiptRepository.save(receipt)
 
-    @Transactional
-    fun markAsPending(receiptId: Long) {
-        val receipt = receiptRepository.findById(receiptId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보가 존재하지 않습니다")
-        receipt.markAsPending()
-        receiptRepository.save(receipt)
-    }
-
     fun findPendingReceiptsOlderThan(before: ZonedDateTime): List<Receipt> =
         receiptRepository.findByStatusAndCreatedAtBefore(ReceiptStatus.PENDING, before)
 
@@ -56,8 +48,8 @@ class ReceiptService(
     fun updateReceiptStatus(command: PaymentCallbackCommand) {
         val receipt = getReceiptByTransactionIdForUpdate(command.transactionId)
 
-        // 멱등성: INITIATED 또는 PENDING 상태만 처리
-        if (receipt.status !in listOf(ReceiptStatus.INITIATED, ReceiptStatus.PENDING)) {
+        // 멱등성: PENDING 상태만 처리
+        if (receipt.status != ReceiptStatus.PENDING) {
             return
         }
 
