@@ -130,6 +130,7 @@ class PaymentFacadeTest {
                 .thenReturn(null)
             whenever(paymentGateway.getTransactionsByOrderId(any(), eq("ORDER-001")))
                 .thenReturn(listOf(PaymentGatewayResponse(transactionKey = "txn-key-123", status = "PENDING", reason = null)))
+            whenever(paymentService.getPaymentsByOrderId("ORDER-001")).thenReturn(listOf(payment))
             whenever(paymentService.getPayment(1L)).thenReturn(payment)
 
             // act
@@ -143,6 +144,73 @@ class PaymentFacadeTest {
 
             // assert
             verify(paymentService).markPending(payment.id, "txn-key-123")
+        }
+
+        @DisplayName("PG가 즉시 FAILED를 반환하면, 복구 조회 없이 즉시 FAILED 처리한다.")
+        @Test
+        fun marksFailed_whenPgReturnsImmediateFailure() {
+            // arrange
+            val payment = createPayment()
+            whenever(paymentService.createPayment(any(), any(), any(), any(), any())).thenReturn(payment)
+            whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
+                .thenReturn(PaymentGatewayResponse(transactionKey = "txn-fail-001", status = "FAILED", reason = "카드 한도 초과"))
+            whenever(paymentService.getPayment(1L)).thenReturn(payment)
+
+            // act
+            val result = paymentFacade.requestPayment(
+                userId = 1L,
+                orderId = "ORDER-001",
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+                amount = 50000L,
+            )
+
+            // assert
+            assertAll(
+                { verify(paymentService).markFailed(payment.id, "카드 한도 초과") },
+                { verify(paymentService, never()).markPending(any(), any()) },
+                { verify(paymentGateway, never()).getTransactionsByOrderId(any(), any()) },
+            )
+        }
+
+        @DisplayName("PG 복구 조회 시, 같은 orderId의 과거 거래는 제외하고 현재 요청에 해당하는 거래만 선택한다.")
+        @Test
+        fun recoversOnlyCurrentTransaction_excludingPastTransactions() {
+            // arrange
+            val currentPayment = createPayment(id = 3L, orderId = "ORDER-001")
+            val pastPayment1 = createPayment(id = 1L, orderId = "ORDER-001").apply {
+                markPending("txn-old-001")
+            }
+            val pastPayment2 = createPayment(id = 2L, orderId = "ORDER-001").apply {
+                markPending("txn-old-002")
+            }
+
+            whenever(paymentService.createPayment(any(), any(), any(), any(), any())).thenReturn(currentPayment)
+            whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any()))
+                .thenReturn(null)
+            whenever(paymentGateway.getTransactionsByOrderId(any(), eq("ORDER-001")))
+                .thenReturn(
+                    listOf(
+                        PaymentGatewayResponse(transactionKey = "txn-old-001", status = "FAILED", reason = null),
+                        PaymentGatewayResponse(transactionKey = "txn-old-002", status = "FAILED", reason = null),
+                        PaymentGatewayResponse(transactionKey = "txn-new-003", status = "PENDING", reason = null),
+                    ),
+                )
+            whenever(paymentService.getPaymentsByOrderId("ORDER-001"))
+                .thenReturn(listOf(pastPayment1, pastPayment2, currentPayment))
+            whenever(paymentService.getPayment(3L)).thenReturn(currentPayment)
+
+            // act
+            paymentFacade.requestPayment(
+                userId = 1L,
+                orderId = "ORDER-001",
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+                amount = 50000L,
+            )
+
+            // assert — 과거 거래(txn-old-001, txn-old-002)를 건너뛰고 txn-new-003을 선택
+            verify(paymentService).markPending(currentPayment.id, "txn-new-003")
         }
     }
 

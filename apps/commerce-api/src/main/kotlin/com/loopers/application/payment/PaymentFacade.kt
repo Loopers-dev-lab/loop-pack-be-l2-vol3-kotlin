@@ -50,10 +50,15 @@ class PaymentFacade(
             callbackUrl = callbackUrl,
         )
 
-        // 3. PG 응답 또는 조회를 통해 transactionKey 확보
+        // 3. PG 즉시 FAILED 응답 처리 (카드 한도초과 등)
+        if (pgResponse?.status == PG_STATUS_FAILED) {
+            paymentService.markFailed(payment.id, pgResponse.reason ?: DEFAULT_FAIL_REASON)
+            return PaymentInfo.from(paymentService.getPayment(payment.id))
+        }
+
+        // 4. PG 응답 또는 복구 조회를 통해 transactionKey 확보
         val transactionKey = pgResponse?.transactionKey
-            ?: paymentGateway.getTransactionsByOrderId(userId.toString(), orderId)
-                .firstOrNull()?.transactionKey
+            ?: recoverTransactionKey(userId.toString(), orderId, payment.id)
 
         if (transactionKey != null) {
             paymentService.markPending(payment.id, transactionKey)
@@ -86,6 +91,24 @@ class PaymentFacade(
                 cancelOrderWithCompensation(orderId)
             }
         }
+    }
+
+    /**
+     * PG 호출 실패 시 복구 조회: 같은 orderId의 과거 거래를 제외하고 현재 요청에 해당하는 거래만 선택
+     */
+    private fun recoverTransactionKey(userId: String, orderId: String, currentPaymentId: Long): String? {
+        val pgTransactions = paymentGateway.getTransactionsByOrderId(userId, orderId)
+        if (pgTransactions.isEmpty()) return null
+
+        // DB에 이미 매핑된 transactionKey를 제외하여 과거 거래 재사용 방지
+        val existingKeys = paymentService.getPaymentsByOrderId(orderId)
+            .filter { it.id != currentPaymentId }
+            .mapNotNull { it.transactionKey }
+            .toSet()
+
+        return pgTransactions
+            .filter { it.transactionKey !in existingKeys }
+            .firstOrNull()?.transactionKey
     }
 
     private fun cancelOrderWithCompensation(orderId: Long) {
