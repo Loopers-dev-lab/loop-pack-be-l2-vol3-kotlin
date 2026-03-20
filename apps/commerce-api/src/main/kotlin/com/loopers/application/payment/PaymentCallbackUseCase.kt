@@ -8,6 +8,8 @@ import com.loopers.domain.payment.FailPaymentCommand
 import com.loopers.domain.payment.PaymentService
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.order.CancelOrderCommand
+import com.loopers.domain.order.OrderStatus
+import com.loopers.support.error.CoreException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -39,18 +41,19 @@ class PaymentCallbackUseCase(
                 restoreOrderResources(payment.orderId, payment.userId)
                 log.info("결제 실패 처리: transactionKey={}, reason={}", criteria.transactionKey, criteria.reason)
             }
-            else -> {
-                log.warn("알 수 없는 콜백 상태: status={}", criteria.status)
-            }
         }
     }
 
     private fun restoreOrderResources(orderId: Long, userId: Long) {
         try {
             val order = orderService.getOrder(orderId, userId)
-            orderService.cancelOrder(CancelOrderCommand(orderId = orderId, userId = userId))
-            order.issuedCouponId?.let { couponService.restoreUsedCoupon(it) }
-        } catch (e: Exception) {
+            if (order.status != OrderStatus.ORDERED) {
+                log.info("이미 취소된 주문, 리소스 복구 생략: orderId={}, status={}", orderId, order.status)
+                return
+            }
+            val cancelledOrder = orderService.cancelOrder(CancelOrderCommand(orderId = orderId, userId = userId))
+            cancelledOrder.issuedCouponId?.let { couponService.restoreUsedCoupon(it) }
+        } catch (e: CoreException) {
             log.error("주문 리소스 복구 실패: orderId={}, error={}", orderId, e.message)
         }
     }
