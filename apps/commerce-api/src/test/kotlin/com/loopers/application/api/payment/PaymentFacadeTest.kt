@@ -1,8 +1,6 @@
 package com.loopers.application.api.payment
 
-import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
-import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.PaymentRequestResult
 import com.loopers.domain.payment.ReceiptService
@@ -34,11 +32,9 @@ class PaymentFacadeTest {
         // given
         val orderId = 100L
         val userId = 1L
-        val order = mockk<Order>()
-        every { order.getTotalPrice() } returns BigDecimal("10000")
-        every { order.status } returns OrderStatus.PENDING
 
-        every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
+        val orderInfo = com.loopers.domain.order.dto.OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+        every { orderService.getOrderInfoForPayment(userId, orderId) } returns orderInfo
         every { orderService.markOrderAsPaymentRequested(userId, orderId) } returns Unit
         every { receiptService.getReceiptByOrderId(orderId) } returns null
 
@@ -79,10 +75,8 @@ class PaymentFacadeTest {
         // given
         val orderId = 100L
         val userId = 1L
-        val order = mockk<Order>()
-        every { order.status } returns OrderStatus.PAID
 
-        every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } throws CoreException(ErrorType.BAD_REQUEST, "PENDING 상태의 주문이 아닙니다")
+        every { orderService.getOrderInfoForPayment(userId, orderId) } throws CoreException(ErrorType.BAD_REQUEST, "PENDING 상태의 주문이 아닙니다")
 
         // when & then
         assertThrows<CoreException> {
@@ -101,13 +95,11 @@ class PaymentFacadeTest {
         // given
         val orderId = 100L
         val userId = 1L
-        val order = mockk<Order>()
-        every { order.status } returns OrderStatus.PENDING
-        every { order.getTotalPrice() } returns BigDecimal("10000")
 
+        val orderInfo = com.loopers.domain.order.dto.OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
         val existingReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_OLD", BigDecimal("10000"))
 
-        every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
+        every { orderService.getOrderInfoForPayment(userId, orderId) } returns orderInfo
         every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
         every { receiptService.validateReceiptForNewPayment(any()) } throws CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
         every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns PaymentRequestResult(

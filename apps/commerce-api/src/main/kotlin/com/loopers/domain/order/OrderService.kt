@@ -2,6 +2,7 @@ package com.loopers.domain.order
 
 import com.loopers.domain.SnowflakeIdGenerator
 import com.loopers.domain.order.dto.CreateOrderItemCommand
+import com.loopers.domain.order.dto.OrderInfo
 import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.order.dto.OrderedInfo
 import com.loopers.domain.product.ProductService
@@ -68,6 +69,14 @@ class OrderService(
         orderRepository.findByIdForUpdateWithPending(orderId)
             ?.takeIf { it.userId == userId }
             ?: throw CoreException(ErrorType.BAD_REQUEST, "PENDING 상태의 주문이 아니거나 존재하지 않습니다")
+
+    fun getOrderInfoForPayment(userId: Long, orderId: Long): OrderInfo {
+        val order = getOrderByIdForUpdateWithPending(userId, orderId)
+        return OrderInfo(
+            orderId = order.id,
+            amount = order.getTotalPrice(),
+        )
+    }
 
     @Transactional
     fun saveOrder(order: Order): Order =

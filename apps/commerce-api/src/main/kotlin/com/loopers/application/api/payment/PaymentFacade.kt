@@ -38,8 +38,7 @@ class PaymentFacade(
         cardType: String,
         cardNo: String,
     ): ReceiptInfo {
-        val order = orderService.getOrderByIdForUpdateWithPending(userId, orderId)
-        val amount = order.getTotalPrice()
+        val orderInfo = orderService.getOrderInfoForPayment(userId, orderId)
 
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
@@ -52,7 +51,7 @@ class PaymentFacade(
                 userId = userId,
                 transactionId = transactionId,
                 orderId = orderId,
-                amount = amount,
+                amount = orderInfo.amount,
                 cardType = cardType,
                 cardNo = cardNo,
             )
@@ -67,7 +66,7 @@ class PaymentFacade(
         val receipt = receiptService.initiateReceipt(
             orderId = orderId,
             transactionId = pgResult.transactionKey,
-            amount = amount,
+            amount = orderInfo.amount,
             cardType = cardType,
             cardNo = cardNo,
         )
