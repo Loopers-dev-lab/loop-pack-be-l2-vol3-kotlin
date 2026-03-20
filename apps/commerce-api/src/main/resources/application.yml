@@ -17,8 +17,32 @@ spring:
     type: redis
 
 pg:
+  base-url: http://localhost:8083
   loop:
     callback-url: http://localhost:8080/api/v1/payments/callback
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      loop-pg-payment:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        slowCallRateThreshold: 100
+        slowCallDurationThreshold: 5s
+        recordExceptions:
+          - java.lang.Exception
+  retry:
+    instances:
+      loop-pg-payment:
+        maxAttempts: 3
+        waitDuration: 500ms
+        retryExceptions:
+          - java.lang.Exception
 
 springdoc:
   use-fqn: true
