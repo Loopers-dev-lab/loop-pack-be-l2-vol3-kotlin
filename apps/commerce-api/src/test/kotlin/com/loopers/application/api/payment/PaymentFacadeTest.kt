@@ -108,6 +108,7 @@ class PaymentFacadeTest {
 
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
         every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
+        every { receiptService.validateReceiptForNewPayment(any()) } throws CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
 
         // when & then
         assertThrows<CoreException> {

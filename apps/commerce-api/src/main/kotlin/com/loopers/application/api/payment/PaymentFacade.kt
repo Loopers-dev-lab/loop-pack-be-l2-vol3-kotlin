@@ -4,7 +4,6 @@ import com.loopers.application.api.payment.dto.PaymentCallbackCommand
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.ReceiptService
-import com.loopers.domain.payment.ReceiptStatus
 import com.loopers.domain.payment.dto.ReceiptInfo
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -43,18 +42,7 @@ class PaymentFacade(
 
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
-            when (existingReceipt.status) {
-                ReceiptStatus.PENDING -> {
-                    throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
-                }
-                ReceiptStatus.COMPLETED -> {
-                    throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 완료되었습니다")
-                }
-                ReceiptStatus.CANCELLED -> {
-                    throw CoreException(ErrorType.CONFLICT, "이미 취소된 결제입니다")
-                }
-                ReceiptStatus.TIMEOUT, ReceiptStatus.FAILED -> {}
-            }
+            receiptService.validateReceiptForNewPayment(existingReceipt)
         }
 
         // (1) Order 상태를 PAYMENT_REQUESTED로 변경

@@ -21,6 +21,23 @@ class ReceiptService(
     fun getReceiptByOrderId(orderId: Long): Receipt? =
         receiptRepository.findByOrderId(orderId)
 
+    fun validateReceiptForNewPayment(receipt: Receipt) {
+        when (receipt.status) {
+            ReceiptStatus.PENDING -> {
+                throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
+            }
+            ReceiptStatus.COMPLETED -> {
+                throw CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 완료되었습니다")
+            }
+            ReceiptStatus.CANCELLED -> {
+                throw CoreException(ErrorType.CONFLICT, "이미 취소된 결제입니다")
+            }
+            ReceiptStatus.TIMEOUT, ReceiptStatus.FAILED -> {
+                // 재시도 가능
+            }
+        }
+    }
+
     fun getReceiptByTransactionIdForUpdate(transactionId: String): Receipt =
         receiptRepository.findByTransactionIdForUpdate(transactionId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보가 존재하지 않습니다")
