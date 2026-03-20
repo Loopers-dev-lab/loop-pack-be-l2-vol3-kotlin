@@ -34,7 +34,7 @@ class PaymentRecoveryService(
     }
 
     /**
-     * PENDING 상태의 실패한 결제를 복구합니다.
+     * PENDING/TIMEOUT 상태의 실패한 결제를 복구합니다.
      *
      * @return 복구된 Receipt 개수
      */

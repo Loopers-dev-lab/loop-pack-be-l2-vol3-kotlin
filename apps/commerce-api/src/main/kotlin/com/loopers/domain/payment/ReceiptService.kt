@@ -142,4 +142,20 @@ class ReceiptService(
 
         lockedReceipt.markAsCancelled()
     }
+
+    /**
+     * Receipt을 타임아웃 상태로 표시합니다. (네트워크 타임아웃용)
+     */
+    @Transactional
+    fun markAsTimeout(receipt: Receipt) {
+        val lockedReceipt = receiptRepository.findByIdForUpdate(receipt.id!!)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "Receipt not found")
+
+        // 멱등성: PENDING 상태만 처리
+        if (lockedReceipt.status != ReceiptStatus.PENDING) {
+            return
+        }
+
+        lockedReceipt.markAsTimeout()
+    }
 }
