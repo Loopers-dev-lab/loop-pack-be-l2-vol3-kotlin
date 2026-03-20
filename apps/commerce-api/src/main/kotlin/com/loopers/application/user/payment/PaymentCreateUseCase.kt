@@ -28,6 +28,10 @@ class PaymentCreateUseCase(
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun create(command: PaymentCreateCommand): PaymentCreateResult {
+        if (!pgPaymentPort.isAvailable()) {
+            throw CoreException(ErrorType.PG_CIRCUIT_OPEN)
+        }
+
         val idempotencyKey = PaymentIdempotencyKey(command.idempotencyKey)
         val fingerprint = computeFingerprint(command.orderId, command.cardType, command.cardNo)
 

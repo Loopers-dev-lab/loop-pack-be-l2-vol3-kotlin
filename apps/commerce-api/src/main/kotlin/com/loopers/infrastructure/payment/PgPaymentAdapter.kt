@@ -5,19 +5,32 @@ import com.loopers.domain.payment.PgPaymentPort
 import com.loopers.domain.payment.PgPaymentRequest
 import com.loopers.domain.payment.PgPaymentResponse
 import com.loopers.domain.payment.PgPaymentStatusResponse
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException
+import io.github.resilience4j.circuitbreaker.CircuitBreaker
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
-import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
-import org.springframework.web.client.RestClientResponseException
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 @Component
 class PgPaymentAdapter(
     private val pgRestClient: RestClient,
+    private val pgOutboundExecutor: ExecutorService,
+    private val circuitBreakerRegistry: CircuitBreakerRegistry,
+    @Value("\${pg.timeout.overall-ms:600}") private val overallTimeoutMs: Long,
 ) : PgPaymentPort {
 
     private val log = LoggerFactory.getLogger(javaClass)
+    private val circuitBreaker: CircuitBreaker by lazy {
+        circuitBreakerRegistry.circuitBreaker("pgPayment")
+    }
 
     override fun requestPayment(request: PgPaymentRequest): PgPaymentResponse {
         val pgRequest = PgApiRequest.Payment(
@@ -29,20 +42,39 @@ class PgPaymentAdapter(
         )
 
         return try {
-            val response = pgRestClient.post()
-                .uri("/api/v1/payments")
-                .header("X-USER-ID", request.userId.toString())
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(pgRequest)
-                .retrieve()
-                .body(PgApiResponse.Payment::class.java)!!
+            circuitBreaker.executeCallable {
+                val future = CompletableFuture.supplyAsync(
+                    {
+                        pgRestClient.post()
+                            .uri("/api/v1/payments")
+                            .header("X-USER-ID", request.userId.toString())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .body(pgRequest)
+                            .retrieve()
+                            .body(PgApiResponse.Payment::class.java)!!
+                    },
+                    pgOutboundExecutor,
+                ).orTimeout(overallTimeoutMs, TimeUnit.MILLISECONDS)
 
-            PgPaymentResponse.Accepted(response.data!!.transactionKey)
-        } catch (e: RestClientResponseException) {
-            log.warn("PG 결제 요청 실패: status={}, body={}", e.statusCode, e.responseBodyAsString)
-            PgPaymentResponse.ImmediateFailure(PaymentReasonCode.PG_INTERNAL_ERROR)
-        } catch (e: ResourceAccessException) {
-            log.warn("PG 연결 실패: {}", e.message)
+                val response = future.join()
+                PgPaymentResponse.Accepted(response.data!!.transactionKey)
+            }
+        } catch (e: CallNotPermittedException) {
+            log.warn("PG circuit breaker OPEN: {}", e.message)
+            PgPaymentResponse.CircuitOpen
+        } catch (e: CompletionException) {
+            when (e.cause) {
+                is TimeoutException -> {
+                    log.warn("PG 결제 요청 timeout ({}ms)", overallTimeoutMs)
+                    PgPaymentResponse.Timeout
+                }
+                else -> {
+                    log.warn("PG 결제 요청 실패: {}", e.cause?.message)
+                    PgPaymentResponse.ImmediateFailure(PaymentReasonCode.PG_INTERNAL_ERROR)
+                }
+            }
+        } catch (e: Exception) {
+            log.warn("PG 결제 요청 실패: {}", e.message)
             PgPaymentResponse.ImmediateFailure(PaymentReasonCode.PG_INTERNAL_ERROR)
         }
     }
@@ -62,7 +94,9 @@ class PgPaymentAdapter(
         )
     }
 
-    override fun isAvailable(): Boolean = true
+    override fun isAvailable(): Boolean {
+        return circuitBreaker.state != CircuitBreaker.State.OPEN
+    }
 
     fun mapReasonCode(reason: String?): PaymentReasonCode {
         return when {

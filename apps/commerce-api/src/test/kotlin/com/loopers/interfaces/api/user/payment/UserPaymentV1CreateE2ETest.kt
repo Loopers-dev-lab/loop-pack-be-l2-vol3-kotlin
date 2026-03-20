@@ -258,6 +258,30 @@ constructor(
     }
 
     @Nested
+    @DisplayName("Circuit Breaker OPEN 상태에서")
+    inner class WhenCircuitOpen {
+
+        @Test
+        @DisplayName("503 Service Unavailable을 반환한다")
+        fun create_circuitOpen_returns503() {
+            // arrange
+            given(pgPaymentPort.isAvailable()).willReturn(false)
+
+            // act
+            val response = testRestTemplate.exchange(
+                ENDPOINT,
+                HttpMethod.POST,
+                createRequest(),
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+            assertThat(response.body?.meta?.errorCode).isEqualTo("CIRCUIT_OPEN")
+        }
+    }
+
+    @Nested
     @DisplayName("존재하지 않는 주문으로 결제 시")
     inner class WhenOrderNotFound {
 

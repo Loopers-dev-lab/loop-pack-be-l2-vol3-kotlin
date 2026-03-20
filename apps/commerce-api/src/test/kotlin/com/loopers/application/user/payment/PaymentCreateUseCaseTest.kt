@@ -17,6 +17,7 @@ import com.loopers.domain.payment.PgPaymentResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -55,6 +56,11 @@ class PaymentCreateUseCaseTest {
     )
 
     private val now = ZonedDateTime.of(2026, 3, 20, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
+
+    @BeforeEach
+    fun commonSetUp() {
+        given(pgPaymentPort.isAvailable()).willReturn(true)
+    }
 
     private fun command(
         userId: Long = 1L,
@@ -180,7 +186,7 @@ class PaymentCreateUseCaseTest {
     inner class WhenPgAccepted {
 
         @Test
-        @DisplayName("PG Accepted → Payment에 transactionKey 저장, PENDING 유지")
+        @DisplayName("PG Accepted -> Payment에 transactionKey 저장, PENDING 유지")
         fun create_pgAccepted() {
             // arrange
             stubCommonLookups()
@@ -214,7 +220,7 @@ class PaymentCreateUseCaseTest {
     inner class WhenPgImmediateFailure {
 
         @Test
-        @DisplayName("PG ImmediateFailure → Payment=FAILED, reasonCode=PG_INTERNAL_ERROR")
+        @DisplayName("PG ImmediateFailure -> Payment=FAILED, reasonCode=PG_INTERNAL_ERROR")
         fun create_pgImmediateFailure() {
             // arrange
             stubCommonLookups()
@@ -241,11 +247,65 @@ class PaymentCreateUseCaseTest {
     }
 
     @Nested
+    @DisplayName("PG timeout 시 Payment가 PENDING으로 유지되고 reasonCode=TIMEOUT_UNCERTAIN이 설정된다")
+    inner class WhenPgTimeout {
+
+        @Test
+        @DisplayName("Timeout -> Payment=PENDING, reasonCode=TIMEOUT_UNCERTAIN, transactionKey=null")
+        fun create_pgTimeout() {
+            // arrange
+            stubCommonLookups()
+            stubSaveReturnsWithId()
+            given(
+                pgPaymentPort.requestPayment(
+                    check<PgPaymentRequest> { req ->
+                        assertThat(req.orderId).isEqualTo(100L)
+                    },
+                ),
+            ).willReturn(PgPaymentResponse.Timeout)
+
+            // act
+            val result = useCase.create(command())
+
+            // assert
+            assertThat(result).isInstanceOf(PaymentCreateResult.NewlyCreated::class.java)
+            assertAll(
+                { assertThat(result.result.status).isEqualTo("PENDING") },
+                { assertThat(result.result.reasonCode).isEqualTo("TIMEOUT_UNCERTAIN") },
+                { assertThat(result.result.transactionKey).isNull() },
+                { assertThat(result.result.displayStatus).isEqualTo("AWAITING_PAYMENT_RESULT") },
+            )
+        }
+    }
+
+    @Nested
+    @DisplayName("Circuit Breaker가 OPEN이면 PG_CIRCUIT_OPEN 예외를 던지고 Payment를 생성하지 않는다")
+    inner class WhenCircuitOpen {
+
+        @Test
+        @DisplayName("isAvailable=false -> 503, Payment/Order 미생성")
+        fun create_circuitOpen() {
+            // arrange
+            given(pgPaymentPort.isAvailable()).willReturn(false)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.create(command())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.PG_CIRCUIT_OPEN)
+            verify(paymentRepository, never()).save(check<Payment> { })
+            verify(pgPaymentPort, never()).requestPayment(check<PgPaymentRequest> { })
+        }
+    }
+
+    @Nested
     @DisplayName("동일 멱등키 + 동일 요청 시 IdempotentReplay를 반환한다")
     inner class WhenIdempotentReplay {
 
         @Test
-        @DisplayName("동일 fingerprint → IdempotentReplay(기존 Payment), PG 호출 없음")
+        @DisplayName("동일 fingerprint -> IdempotentReplay(기존 Payment), PG 호출 없음")
         fun create_idempotentReplay() {
             // arrange
             given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
@@ -269,7 +329,7 @@ class PaymentCreateUseCaseTest {
     inner class WhenIdempotencyConflict {
 
         @Test
-        @DisplayName("다른 fingerprint → 409 Conflict")
+        @DisplayName("다른 fingerprint -> 409 Conflict")
         fun create_conflict() {
             // arrange
             val differentFingerprint = PaymentCreateUseCase.computeFingerprint(999L, "MASTER", "9999")
@@ -291,7 +351,7 @@ class PaymentCreateUseCaseTest {
     inner class WhenOrderNotFound {
 
         @Test
-        @DisplayName("Order 조회 null → 예외")
+        @DisplayName("Order 조회 null -> 예외")
         fun create_orderNotFound() {
             // arrange
             given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
@@ -313,7 +373,7 @@ class PaymentCreateUseCaseTest {
     inner class WhenOrderNotPending {
 
         @Test
-        @DisplayName("Order=CREATED → 예외")
+        @DisplayName("Order=CREATED -> 예외")
         fun create_orderAlreadyCreated() {
             // arrange
             given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
@@ -335,7 +395,7 @@ class PaymentCreateUseCaseTest {
     inner class WhenActivePendingExists {
 
         @Test
-        @DisplayName("같은 orderId에 PENDING Payment 존재 → 예외")
+        @DisplayName("같은 orderId에 PENDING Payment 존재 -> 예외")
         fun create_activePendingExists() {
             // arrange
             given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
@@ -358,13 +418,13 @@ class PaymentCreateUseCaseTest {
     inner class WhenMaskCardNo {
 
         @Test
-        @DisplayName("16자리 카드번호 → 앞 12자리 마스킹, 뒤 4자리 유지")
+        @DisplayName("16자리 카드번호 -> 앞 12자리 마스킹, 뒤 4자리 유지")
         fun maskCardNo_standard() {
             assertThat(PaymentCreateUseCase.maskCardNo("4111111111111234")).isEqualTo("************1234")
         }
 
         @Test
-        @DisplayName("4자리 이하 → 전체 마스킹")
+        @DisplayName("4자리 이하 -> 전체 마스킹")
         fun maskCardNo_short() {
             assertThat(PaymentCreateUseCase.maskCardNo("1234")).isEqualTo("****")
         }
