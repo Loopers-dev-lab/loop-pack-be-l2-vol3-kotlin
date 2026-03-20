@@ -88,6 +88,29 @@ class PaymentFacadeTest {
             verify(exactly = 1) { paymentService.markFailed(PAYMENT_ID, "카드 승인에 실패했습니다.") }
         }
 
+        @DisplayName("PG 요청이 일반 예외로 실패하면 결제를 실패 처리하고 INTERNAL_ERROR로 변환한다")
+        @Test
+        fun marksPaymentFailedAndWraps_whenPgThrowsUnexpectedException() {
+            val payment = createPayment()
+            every { paymentService.createPayment(eq(ORDER_ID), eq(PAYMENT_AMOUNT), any()) } returns payment
+            every {
+                pgClient.requestPayment(PgPaymentRequest(orderId = ORDER_ID, amount = PAYMENT_AMOUNT))
+            } throws IllegalStateException("PG 연동 중 알 수 없는 오류가 발생했습니다.")
+            every { paymentService.markFailed(PAYMENT_ID, "PG 연동 중 알 수 없는 오류가 발생했습니다.") } answers {
+                payment.markFailed(secondArg())
+                payment
+            }
+
+            assertThatThrownBy {
+                paymentFacade.requestPayment(orderId = ORDER_ID, amount = PAYMENT_AMOUNT)
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.INTERNAL_ERROR)
+                .hasMessageContaining("PG 연동 중 알 수 없는 오류가 발생했습니다.")
+
+            verify(exactly = 1) { paymentService.markFailed(PAYMENT_ID, "PG 연동 중 알 수 없는 오류가 발생했습니다.") }
+        }
+
         @DisplayName("PG 승인 후 내부 성공 처리에 실패하면 실패 결제로 덮어쓰지 않고 예외를 전파한다")
         @Test
         fun rethrowsWithoutMarkingFailed_whenMarkSucceededFailsAfterApproval() {

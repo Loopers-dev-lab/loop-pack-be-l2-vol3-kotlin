@@ -3,6 +3,8 @@ package com.loopers.application.payment
 import com.loopers.domain.payment.PaymentService
 import com.loopers.infrastructure.payment.PgClient
 import com.loopers.infrastructure.payment.PgPaymentRequest
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import java.time.ZonedDateTime
 
@@ -28,7 +30,10 @@ class PaymentFacade(
         } catch (e: Exception) {
             val reason = e.message ?: "결제 요청에 실패했습니다."
             paymentService.markFailed(payment.id, reason)
-            throw e
+            throw when (e) {
+                is CoreException -> e
+                else -> CoreException(ErrorType.INTERNAL_ERROR, reason)
+            }
         }
 
         paymentService.markSucceeded(payment.id, response.transactionId)

@@ -31,14 +31,14 @@ class OrderV1Controller(
     fun createOrder(
         @RequestBody request: OrderV1Dto.CreateRequest,
         httpRequest: HttpServletRequest,
-    ): ApiResponse<OrderInfo> {
+    ): ApiResponse<OrderV1Dto.OrderResponse> {
         val member = httpRequest.getAttribute(
             JwtAuthenticationFilter.AUTHENTICATED_MEMBER_ATTRIBUTE,
         ) as AuthenticatedMember
 
         val items = request.items.map { OrderItemRequest(it.productId, it.quantity) }
         val result = orderFacade.createOrder(member.memberId, items, request.couponIssueId)
-        return ApiResponse.success(result)
+        return ApiResponse.success(OrderV1Dto.OrderResponse.from(result))
     }
 
     @GetMapping
@@ -47,37 +47,25 @@ class OrderV1Controller(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) startAt: LocalDate,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) endAt: LocalDate,
         @PageableDefault(size = 20) pageable: Pageable,
-    ): ApiResponse<Page<OrderInfo>> {
+    ): ApiResponse<Page<OrderV1Dto.OrderResponse>> {
         val member = httpRequest.getAttribute(
             JwtAuthenticationFilter.AUTHENTICATED_MEMBER_ATTRIBUTE,
         ) as AuthenticatedMember
 
         val result = orderService.findByUserIdAndDateRange(member.memberId, startAt, endAt, pageable)
-        return ApiResponse.success(result.map { OrderInfo.from(it) })
+        return ApiResponse.success(result.map { OrderV1Dto.OrderResponse.from(OrderInfo.from(it)) })
     }
 
     @GetMapping("/{orderId}")
     fun findById(
         @PathVariable orderId: Long,
         httpRequest: HttpServletRequest,
-    ): ApiResponse<OrderInfo> {
+    ): ApiResponse<OrderV1Dto.OrderResponse> {
         val member = httpRequest.getAttribute(
             JwtAuthenticationFilter.AUTHENTICATED_MEMBER_ATTRIBUTE,
         ) as AuthenticatedMember
 
         val order = orderService.findByIdAndUserId(orderId, member.memberId)
-        return ApiResponse.success(OrderInfo.from(order))
+        return ApiResponse.success(OrderV1Dto.OrderResponse.from(OrderInfo.from(order)))
     }
-}
-
-class OrderV1Dto {
-    data class CreateRequest(
-        val items: List<OrderItemDto>,
-        val couponIssueId: Long? = null,
-    )
-
-    data class OrderItemDto(
-        val productId: Long,
-        val quantity: Int,
-    )
 }
