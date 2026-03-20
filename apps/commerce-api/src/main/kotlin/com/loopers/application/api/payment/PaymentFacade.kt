@@ -38,6 +38,7 @@ class PaymentFacade(
     ): ReceiptInfo {
         val orderInfo = orderService.getOrderInfoForPayment(userId, orderId)
 
+        // 1단계: 주문 상태 확인 (PENDING만 결제 요청 가능)
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
             receiptService.validateReceiptForNewPayment(existingReceipt)
@@ -45,7 +46,7 @@ class PaymentFacade(
 
         val transactionId = generateTransactionId(orderId)
 
-        // ✅ Receipt를 PG 요청 전에 먼저 생성 (PENDING 상태)
+        // 2단계: Receipt 생성 (PENDING 상태)
         val receipt = receiptService.initiateReceipt(
             orderId = orderId,
             transactionId = transactionId,
@@ -55,7 +56,7 @@ class PaymentFacade(
         )
 
         try {
-            // PG 요청 (타임아웃 가능)
+            // 3단계: PG 요청
             val pgResult = paymentClient.requestPayment(
                 userId = userId,
                 transactionId = transactionId,
@@ -65,22 +66,22 @@ class PaymentFacade(
                 cardNo = cardNo,
             )
 
-            // PG 응답 상태에 따라 Receipt 상태 결정
+            // 4단계: PG 응답 상태에 따라 처리
             when (pgResult.status.toString().uppercase()) {
                 "COMPLETED" -> {
-                    // 결제 성공 - Order 상태 변경
+                    // 결제 완료: Receipt → COMPLETED, Order → PAYMENT_REQUESTED
+                    receiptService.markAsCompleted(receipt)
                     orderService.markOrderAsPaymentRequested(userId, orderId)
                     log.info("Payment completed: transactionId=$transactionId, orderId=$orderId")
                 }
                 "FAILED", "CANCELLED" -> {
-                    // 결제 실패/취소 - Receipt 바로 FAILED로 변경
+                    // 결제 실패: Receipt → FAILED, Order 변경 없음
                     receiptService.markAsFailed(receipt, pgResult.reason)
                     log.warn("Payment failed: transactionId=$transactionId, reason=${pgResult.reason}")
                     throw CoreException(ErrorType.BAD_REQUEST, "결제가 실패하였습니다: ${pgResult.reason}")
                 }
                 "PENDING" -> {
-                    // PG에서 아직 처리 중 - Receipt PENDING 유지, Order 상태 변경
-                    orderService.markOrderAsPaymentRequested(userId, orderId)
+                    // PG 처리 중: Receipt PENDING 유지, Order 변경 없음
                     log.info("Payment pending on PG side: transactionId=$transactionId")
                 }
                 else -> {
@@ -89,9 +90,12 @@ class PaymentFacade(
                     throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 응답이 올바르지 않습니다")
                 }
             }
+        } catch (e: CoreException) {
+            // CoreException: 이미 처리됨 (markAsCompleted, markAsFailed 등)
+            throw e
         } catch (e: Exception) {
             // 네트워크 타임아웃 또는 PG 서비스 오류
-            // Receipt을 TIMEOUT 상태로 변경 → PaymentRecoveryService가 자동으로 복구 시도
+            // Receipt → TIMEOUT, Order 변경 없음
             log.warn(
                 "PG payment request failed (network timeout/error) for orderId=$orderId, transactionId=$transactionId. " +
                     "Receipt marked as TIMEOUT for automatic recovery. Cause: ${e.message}",

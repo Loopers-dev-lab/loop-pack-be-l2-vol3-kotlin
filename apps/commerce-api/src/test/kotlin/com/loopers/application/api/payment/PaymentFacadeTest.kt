@@ -1,125 +1,197 @@
 package com.loopers.application.api.payment
 
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.dto.OrderInfo
 import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.PaymentRequestResult
+import com.loopers.domain.payment.Receipt
 import com.loopers.domain.payment.ReceiptService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.verify
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
 
-@DisplayName("PaymentFacade Test")
+@DisplayName("PaymentFacade.requestPayment")
 class PaymentFacadeTest {
 
     private val receiptService: ReceiptService = mockk()
     private val orderService: OrderService = mockk()
     private val paymentClient: PaymentClient = mockk()
-    private val paymentFacade = PaymentFacade(
-        receiptService,
-        orderService,
-        paymentClient,
-    )
+    private val facade = PaymentFacade(receiptService, orderService, paymentClient)
 
-    @Test
-    @DisplayName("결제 초기화 - 성공")
-    fun requestPayment_success() {
-        // given
-        val orderId = 100L
-        val userId = 1L
+    @Nested
+    @DisplayName("PG 결제 완료 응답 (COMPLETED)")
+    inner class PgCompletedResponse {
 
-        val orderInfo = com.loopers.domain.order.dto.OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-        every { orderService.getOrderInfoForPayment(userId, orderId) } returns orderInfo
-        every { orderService.markOrderAsPaymentRequested(userId, orderId) } returns Unit
-        every { receiptService.getReceiptByOrderId(orderId) } returns null
+        @Test
+        @DisplayName("Receipt COMPLETED, Order PAYMENT_REQUESTED로 변경")
+        fun success() {
+            // given
+            val userId = 1L
+            val orderId = 100L
+            val receipt = mockk<Receipt>(relaxed = true)
 
-        val testReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
-        every { receiptService.initiateReceipt(eq(orderId), any(), eq(BigDecimal("10000")), eq("SAMSUNG"), eq("1234-5678-9814-1451")) } returns testReceipt
-        every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns PaymentRequestResult(
-            transactionKey = "TXN_123_100",
-            orderId = "100",
-            cardType = "SAMSUNG",
-            cardNo = "1234-5678-9814-1451",
-            amount = 10000L,
-            status = "COMPLETED",
-            reason = null,
-        )
+            every { orderService.getOrderInfoForPayment(userId, orderId) } returns
+                OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
+            every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
+                PaymentRequestResult("TXN_001", "100", "SAMSUNG", "1234", 10000L, "COMPLETED", null)
+            every { receiptService.markAsCompleted(any()) } just runs
+            every { orderService.markOrderAsPaymentRequested(any(), any()) } just runs
 
-        // when & then
-        try {
-            val result = paymentFacade.requestPayment(
-                userId,
-                orderId,
-                "SAMSUNG",
-                "1234-5678-9814-1451",
-            )
-            assert(result.orderId == orderId)
-        } catch (e: UninitializedPropertyAccessException) {
-            // id가 초기화되지 않은 것은 normal (저장되지 않은 엔티티)
-            // orderId만 확인
-        }
-        verify {
-            orderService.markOrderAsPaymentRequested(userId, orderId)
-            receiptService.initiateReceipt(any(), any(), any(), any(), any())
+            // when
+            facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
+
+            // then
+            verify(exactly = 1) { receiptService.markAsCompleted(any()) }
+            verify(exactly = 1) { orderService.markOrderAsPaymentRequested(userId, orderId) }
         }
     }
 
-    @Test
-    @DisplayName("결제 초기화 - 주문이 PENDING 상태가 아니면 실패")
-    fun requestPayment_orderNotPending() {
-        // given
-        val orderId = 100L
-        val userId = 1L
+    @Nested
+    @DisplayName("PG 결제 대기 응답 (PENDING)")
+    inner class PgPendingResponse {
 
-        every { orderService.getOrderInfoForPayment(userId, orderId) } throws CoreException(ErrorType.BAD_REQUEST, "PENDING 상태의 주문이 아닙니다")
+        @Test
+        @DisplayName("Receipt PENDING 유지, Order 상태 변경 안 함")
+        fun pending() {
+            // given
+            val userId = 1L
+            val orderId = 100L
+            val receipt = mockk<Receipt>(relaxed = true)
 
-        // when & then
-        assertThrows<CoreException> {
-            paymentFacade.requestPayment(
-                userId,
-                orderId,
-                "SAMSUNG",
-                "1234-5678-9814-1451",
-            )
+            every { orderService.getOrderInfoForPayment(userId, orderId) } returns
+                OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
+            every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
+                PaymentRequestResult("TXN_002", "100", "SAMSUNG", "1234", 10000L, "PENDING", null)
+
+            // when
+            facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
+
+            // then
+            verify(exactly = 0) { receiptService.markAsCompleted(any()) }
+            verify(exactly = 0) { orderService.markOrderAsPaymentRequested(any(), any()) }
+            verify(exactly = 0) { receiptService.markAsFailed(any(), any()) }
         }
     }
 
-    @Test
-    @DisplayName("결제 초기화 - 이미 결제가 존재하면 실패")
-    fun requestPayment_alreadyExists() {
-        // given
-        val orderId = 100L
-        val userId = 1L
+    @Nested
+    @DisplayName("PG 결제 실패 응답 (FAILED)")
+    inner class PgFailedResponse {
 
-        val orderInfo = com.loopers.domain.order.dto.OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-        val existingReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_OLD", BigDecimal("10000"), "", "")
+        @Test
+        @DisplayName("Receipt FAILED, Exception 발생")
+        fun failed() {
+            // given
+            val userId = 1L
+            val orderId = 100L
+            val receipt = mockk<Receipt>()
 
-        every { orderService.getOrderInfoForPayment(userId, orderId) } returns orderInfo
-        every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
-        every { receiptService.validateReceiptForNewPayment(any()) } throws CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
-        every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns PaymentRequestResult(
-            transactionKey = "TXN_OLD",
-            orderId = "100",
-            cardType = "SAMSUNG",
-            cardNo = "1234-5678-9814-1451",
-            amount = 10000L,
-            status = "PENDING",
-            reason = null,
-        )
+            every { orderService.getOrderInfoForPayment(userId, orderId) } returns
+                OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
+            every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
+                PaymentRequestResult("TXN_003", "100", "SAMSUNG", "1234", 10000L, "FAILED", "Card declined")
+            every { receiptService.markAsFailed(any(), any()) } just runs
 
-        // when & then
-        assertThrows<CoreException> {
-            paymentFacade.requestPayment(
-                userId,
-                orderId,
-                "SAMSUNG",
-                "1234-5678-9814-1451",
-            )
+            // when & then
+            assertThrows<CoreException> {
+                facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
+            }
+            verify(exactly = 1) { receiptService.markAsFailed(any(), "Card declined") }
+        }
+    }
+
+    @Nested
+    @DisplayName("PG 취소 응답 (CANCELLED)")
+    inner class PgCancelledResponse {
+
+        @Test
+        @DisplayName("Receipt FAILED, Exception 발생")
+        fun cancelled() {
+            // given
+            val userId = 1L
+            val orderId = 100L
+            val receipt = mockk<Receipt>()
+
+            every { orderService.getOrderInfoForPayment(userId, orderId) } returns
+                OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
+            every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
+                PaymentRequestResult("TXN_004", "100", "SAMSUNG", "1234", 10000L, "CANCELLED", "User cancelled")
+            every { receiptService.markAsFailed(any(), any()) } just runs
+
+            // when & then
+            assertThrows<CoreException> {
+                facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
+            }
+            verify(exactly = 1) { receiptService.markAsFailed(any(), "User cancelled") }
+        }
+    }
+
+    @Nested
+    @DisplayName("네트워크 타임아웃")
+    inner class NetworkTimeout {
+
+        @Test
+        @DisplayName("Receipt TIMEOUT, Exception 발생")
+        fun timeout() {
+            // given
+            val userId = 1L
+            val orderId = 100L
+            val receipt = mockk<Receipt>()
+
+            every { orderService.getOrderInfoForPayment(userId, orderId) } returns
+                OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
+            every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } throws
+                RuntimeException("Connection timeout")
+            every { receiptService.markAsTimeout(any()) } just runs
+
+            // when & then
+            assertThrows<CoreException> {
+                facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
+            }
+            verify(exactly = 1) { receiptService.markAsTimeout(any()) }
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 검증")
+    inner class OrderValidation {
+
+        @Test
+        @DisplayName("이미 결제가 존재하면 Exception 발생")
+        fun alreadyExists() {
+            // given
+            val userId = 1L
+            val orderId = 100L
+            val existingReceipt = mockk<Receipt>()
+
+            every { orderService.getOrderInfoForPayment(userId, orderId) } returns
+                OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+            every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
+            every { receiptService.validateReceiptForNewPayment(existingReceipt) } throws
+                CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
+
+            // when & then
+            assertThrows<CoreException> {
+                facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
+            }
         }
     }
 }
