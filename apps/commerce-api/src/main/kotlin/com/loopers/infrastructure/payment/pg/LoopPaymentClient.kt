@@ -2,6 +2,8 @@ package com.loopers.infrastructure.payment.pg
 
 import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.PaymentRequestResult
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.beans.factory.annotation.Value
@@ -17,8 +19,8 @@ class LoopPaymentClient(
     @Value("\${pg.loop.callback-url}") private val callbackUrl: String,
 ) : PaymentClient {
 
-    @CircuitBreaker(name = "pg-payment", fallbackMethod = "paymentFallback")
-    @Retry(name = "pg-payment")
+    @CircuitBreaker(name = "loop-pg-payment", fallbackMethod = "paymentFallback")
+    @Retry(name = "loop-pg-payment")
     override fun requestPayment(
         userId: Long,
         transactionId: String,
@@ -46,7 +48,7 @@ class LoopPaymentClient(
         cardNo: String,
         ex: Exception,
     ): PaymentRequestResult {
-        throw RuntimeException("PG payment service is unavailable. Please try again later.", ex)
+        throw CoreException(ErrorType.INTERNAL_ERROR, "PG payment service is unavailable. Please try again later.")
     }
 
     private fun performRequest(userId: Long, request: PgPaymentRequest): PaymentRequestResult {
@@ -58,7 +60,7 @@ class LoopPaymentClient(
             .retrieve()
             .bodyToMono(PgPaymentResponse::class.java)
             .block(Duration.ofSeconds(10))
-            ?: throw RuntimeException("PG payment request failed: no response")
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "PG payment request failed")
 
         return PaymentRequestResult(
             transactionKey = response.transactionKey,

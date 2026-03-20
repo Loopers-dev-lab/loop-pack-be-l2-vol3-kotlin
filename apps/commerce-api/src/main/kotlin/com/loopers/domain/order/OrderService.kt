@@ -74,6 +74,12 @@ class OrderService(
         orderRepository.save(order)
 
     @Transactional
+    fun markOrderAsPaymentRequested(userId: Long, orderId: Long) {
+        val order = getOrderByIdForUpdateWithPending(userId, orderId)
+        order.markAsPaymentRequested()
+    }
+
+    @Transactional
     fun markOrderAsPaid(orderId: Long) {
         val order = getOrderByIdForAdmin(orderId)
         order.changeStatus(OrderStatus.PAID)

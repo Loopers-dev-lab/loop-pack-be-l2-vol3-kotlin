@@ -37,9 +37,9 @@ class PaymentFacadeTest {
         val order = mockk<Order>()
         every { order.getTotalPrice() } returns BigDecimal("10000")
         every { order.status } returns OrderStatus.PENDING
-        every { order.markAsPaymentRequested() } returns Unit
 
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
+        every { orderService.markOrderAsPaymentRequested(userId, orderId) } returns Unit
         every { receiptService.getReceiptByOrderId(orderId) } returns null
 
         val testReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_123_100", BigDecimal("10000"), "SAMSUNG", "1234-5678-9814-1451")
@@ -68,13 +68,13 @@ class PaymentFacadeTest {
             // orderId만 확인
         }
         verify {
-            order.markAsPaymentRequested()
+            orderService.markOrderAsPaymentRequested(userId, orderId)
             receiptService.initiateReceipt(any(), any(), any(), any(), any())
         }
     }
 
     @Test
-    @DisplayName("결제 초기화 - 주문이 PAID 상태면 실패")
+    @DisplayName("결제 초기화 - 주문이 PENDING 상태가 아니면 실패")
     fun requestPayment_orderNotPending() {
         // given
         val orderId = 100L
@@ -103,12 +103,22 @@ class PaymentFacadeTest {
         val userId = 1L
         val order = mockk<Order>()
         every { order.status } returns OrderStatus.PENDING
+        every { order.getTotalPrice() } returns BigDecimal("10000")
 
         val existingReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_OLD", BigDecimal("10000"))
 
         every { orderService.getOrderByIdForUpdateWithPending(userId, orderId) } returns order
         every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
         every { receiptService.validateReceiptForNewPayment(any()) } throws CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
+        every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns PaymentRequestResult(
+            transactionKey = "TXN_OLD",
+            orderId = "100",
+            cardType = "SAMSUNG",
+            cardNo = "1234-5678-9814-1451",
+            amount = 10000L,
+            status = "PENDING",
+            reason = null,
+        )
 
         // when & then
         assertThrows<CoreException> {

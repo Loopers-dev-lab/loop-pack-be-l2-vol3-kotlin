@@ -39,14 +39,12 @@ class PaymentFacade(
         cardNo: String,
     ): ReceiptInfo {
         val order = orderService.getOrderByIdForUpdateWithPending(userId, orderId)
+        val amount = order.getTotalPrice()
 
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
             receiptService.validateReceiptForNewPayment(existingReceipt)
         }
-
-        // (1) Order 상태를 PAYMENT_REQUESTED로 변경
-        order.markAsPaymentRequested()
 
         val transactionId = generateTransactionId(orderId)
         val pgResult = try {
@@ -54,7 +52,7 @@ class PaymentFacade(
                 userId = userId,
                 transactionId = transactionId,
                 orderId = orderId,
-                amount = order.getTotalPrice(),
+                amount = amount,
                 cardType = cardType,
                 cardNo = cardNo,
             )
@@ -62,11 +60,14 @@ class PaymentFacade(
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다")
         }
 
-        // (2) Receipt 생성 (PENDING으로 바로 생성)
+        // Order 상태를 PAYMENT_REQUESTED로 변경
+        orderService.markOrderAsPaymentRequested(userId, orderId)
+
+        // Receipt 생성 (PENDING 상태)
         val receipt = receiptService.initiateReceipt(
             orderId = orderId,
             transactionId = pgResult.transactionKey,
-            amount = order.getTotalPrice(),
+            amount = amount,
             cardType = cardType,
             cardNo = cardNo,
         )
