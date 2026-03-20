@@ -17,16 +17,12 @@ class OrderRepositoryImpl(
             return orderJpaRepository.save(OrderJpaModel.from(order)).toModel()
         }
         val existing = orderJpaRepository.findById(order.id).orElseThrow()
-        existing.updateStatus(order.status)
+        // Order is immutable after creation, just return existing
         return existing.toModel()
     }
 
     override fun findById(id: Long): OrderModel? {
         return orderJpaRepository.findById(id).orElse(null)?.toModel()
-    }
-
-    override fun findByIdWithLock(id: Long): OrderModel? {
-        return orderJpaRepository.findByIdWithLock(id)?.toModel()
     }
 
     override fun findAllByMemberIdAndOrderedAtBetween(

@@ -106,46 +106,12 @@ classDiagram
         +calculateAmount() Long
     }
 
-    class CouponTemplateModel {
-        -String name
-        -CouponType type
-        -Long value
-        -Long minOrderAmount
-        -Long maxDiscountAmount
-        -ExpirationPolicy expirationPolicy
-        -LocalDateTime expiredAt
-        -Int validDays
-        -CouponTemplateStatus status
-        +calculateDiscount(orderAmount) Long
-        +validateMinOrderAmount(orderAmount)
-        +calculateExpiredAt() LocalDateTime
-        +isExpired() Boolean
-        +isIssuable() Boolean
-        +update(name, value, minOrderAmount, maxDiscountAmount)
-        +delete()
-        +isDeleted() Boolean
-    }
-
-    class IssuedCouponModel {
-        -Long couponTemplateId
-        -Long memberId
-        -CouponStatus status
-        -LocalDateTime expiredAt
-        -LocalDateTime usedAt
-        -Long version
-        +use()
-        +isExpired() Boolean
-        +isAvailable() Boolean
-    }
-
     BrandModel "1" --> "*" ProductModel : has
     ProductModel "1" --> "*" ProductLikeModel : has
     MemberModel "1" --> "*" ProductLikeModel : likes
     MemberModel "1" --> "*" OrderModel : places
     OrderModel "1" *-- "*" OrderItemModel : contains
     ProductModel "1" ..> "*" OrderItemModel : snapshot
-    MemberModel "1" --> "*" IssuedCouponModel : issues
-    CouponTemplateModel "1" --> "*" IssuedCouponModel : issued from
 
     BaseEntity <|-- MemberModel
     BaseEntity <|-- BrandModel
@@ -153,8 +119,6 @@ classDiagram
     BaseEntity <|-- ProductLikeModel
     BaseEntity <|-- OrderModel
     BaseEntity <|-- OrderItemModel
-    BaseEntity <|-- CouponTemplateModel
-    BaseEntity <|-- IssuedCouponModel
 ```
 
 ### 해석
@@ -163,7 +127,7 @@ classDiagram
 - **BaseEntity 상속**: 모든 엔티티는 `BaseEntity`를 상속하여 `id`, `createdAt`, `updatedAt`, `deletedAt`, `delete()`를 공유한다. `guard()`는 삭제된 엔티티에 대한 연산을 차단하는 보호 메서드로, 서비스에서 고객 조회 시 DELETED 리소스 접근을 방지한다 (Decision 21). 다이어그램에서 개별 모델은 BaseEntity에서 상속받는 필드를 생략하고 도메인 고유 필드만 표시한다.
 - **관계 유형**: 실선 화살표(`-->`)는 연관(association)으로 ID 참조 기반 관계를 나타낸다. `OrderModel *-- OrderItemModel`은 합성(composition)으로 주문 아이템이 주문 없이 독립 존재할 수 없음을 의미한다. 점선 화살표(`..>`)는 의존(dependency)으로 스냅샷, VO 생성자 파라미터 등 약한 참조를 나타낸다.
 - **스냅샷 관계 (점선)**: `OrderItemModel`은 `ProductModel`의 스냅샷이다. 주문 시점의 상품 정보를 복사하여 저장하므로, 상품 변경이 주문 이력에 영향을 주지 않는다.
-- **상태 Enum 참조**: 각 모델의 `status` 필드는 섹션 3에서 정의하는 Enum 타입(`BrandStatus`, `ProductStatus`, `OrderStatus`, `CouponTemplateStatus`, `CouponStatus`, `CouponType`, `ExpirationPolicy`)을 사용한다.
+- **상태 Enum 참조**: 각 모델의 `status` 필드는 섹션 3에서 정의하는 Enum 타입(`BrandStatus`, `ProductStatus`, `OrderStatus`)을 사용한다.
 
   **OrderItemModel 필드 역할 분류:**
 
@@ -235,18 +199,6 @@ classDiagram
             +getOrders(page, size) ApiResponse
             +getOrder(orderId) ApiResponse
         }
-        class CouponV1Controller {
-            +issueCoupon(member, templateId) ApiResponse
-            +getMyIssuedCoupons(member) ApiResponse
-        }
-        class AdminCouponV1Controller {
-            +createTemplate(request) ApiResponse
-            +getTemplates(page, size) ApiResponse
-            +getTemplate(couponId) ApiResponse
-            +updateTemplate(couponId, request) ApiResponse
-            +deleteTemplate(couponId) ApiResponse
-            +getIssuedCouponsByTemplate(couponId, page, size) ApiResponse
-        }
     }
 
     namespace application {
@@ -266,7 +218,7 @@ classDiagram
             +deleteBrand(brandId)
         }
         class ProductFacade {
-            +getProducts(brandId, sort, size, cursor) ProductListResult
+            +getProducts(condition) CursorResult~ProductInfo~
             +getProduct(productId) ProductInfo
         }
         class AdminProductFacade {
@@ -275,14 +227,6 @@ classDiagram
             +createProduct(command) ProductInfo
             +updateProduct(productId, command) ProductInfo
             +deleteProduct(productId)
-        }
-        class ProductCacheStore {
-            <<interface>>
-            +getProduct(productId) ProductInfo?
-            +putProduct(productId, info)
-            +evictProduct(productId)
-            +getProductList(cacheKey) ProductListResult?
-            +putProductList(cacheKey, result)
         }
         class LikeFacade {
             +like(memberId, productId)
@@ -297,18 +241,6 @@ classDiagram
         class AdminOrderFacade {
             +getOrders(page, size) Page~OrderInfo~
             +getOrder(orderId) OrderInfo
-        }
-        class CouponFacade {
-            +issueCoupon(memberId, templateId) CouponInfo
-            +getMyIssuedCoupons(memberId) List~IssuedCouponInfo~
-        }
-        class AdminCouponFacade {
-            +createTemplate(command) CouponInfo
-            +getTemplate(templateId) CouponInfo
-            +getTemplates(page, size) Page~CouponInfo~
-            +updateTemplate(templateId, command) CouponInfo
-            +deleteTemplate(templateId)
-            +getIssuedCouponsByTemplate(templateId, page, size) Page~IssuedCouponInfo~
         }
     }
 
@@ -387,31 +319,6 @@ classDiagram
             +findByOrderId(orderId) List~OrderItemModel~
             +findByOrderIds(orderIds) List~OrderItemModel~
         }
-        class CouponService {
-            +createTemplate(command) CouponTemplateModel
-            +getTemplate(id) CouponTemplateModel
-            +getTemplates(page, size) Page~CouponTemplateModel~
-            +updateTemplate(id, command) CouponTemplateModel
-            +deleteTemplate(id)
-            +issueCoupon(memberId, templateId) IssuedCouponModel
-            +getIssuedCoupons(memberId) List~IssuedCouponModel~
-            +getIssuedCouponsByTemplate(templateId, page, size) Page~IssuedCouponModel~
-            +getIssuedCouponById(id) IssuedCouponModel
-            +saveIssuedCoupon(issuedCoupon) IssuedCouponModel
-        }
-        class CouponTemplateRepository {
-            <<interface>>
-            +save(template) CouponTemplateModel
-            +findById(id) CouponTemplateModel?
-            +findAll(pageable) Page~CouponTemplateModel~
-        }
-        class IssuedCouponRepository {
-            <<interface>>
-            +save(issuedCoupon) IssuedCouponModel
-            +findById(id) IssuedCouponModel?
-            +findAllByMemberId(memberId) List~IssuedCouponModel~
-            +findAllByTemplateId(templateId, pageable) Page~IssuedCouponModel~
-        }
     }
 
     namespace infrastructure {
@@ -421,9 +328,6 @@ classDiagram
         class ProductLikeRepositoryImpl
         class OrderRepositoryImpl
         class OrderItemRepositoryImpl
-        class ProductCacheStoreImpl
-        class CouponTemplateRepositoryImpl
-        class IssuedCouponRepositoryImpl
     }
 
     MemberV1Controller --> MemberFacade
@@ -463,22 +367,6 @@ classDiagram
     ProductLikeRepositoryImpl ..|> ProductLikeRepository
     OrderRepositoryImpl ..|> OrderRepository
     OrderItemRepositoryImpl ..|> OrderItemRepository
-
-    ProductFacade --> ProductCacheStore
-    AdminProductFacade --> ProductCacheStore
-    ProductCacheStoreImpl ..|> ProductCacheStore
-
-    CouponV1Controller --> CouponFacade
-    AdminCouponV1Controller --> AdminCouponFacade
-
-    CouponFacade --> CouponService
-    AdminCouponFacade --> CouponService
-
-    CouponService --> CouponTemplateRepository
-    CouponService --> IssuedCouponRepository
-
-    CouponTemplateRepositoryImpl ..|> CouponTemplateRepository
-    IssuedCouponRepositoryImpl ..|> IssuedCouponRepository
 ```
 
 ### 해석
@@ -487,7 +375,7 @@ classDiagram
 - **의존 역전 원칙 (DIP)**: Service는 domain 네임스페이스의 Repository 인터페이스에 의존하고, infrastructure 네임스페이스의 RepositoryImpl이 이를 구현한다. 이를 통해 도메인 계층이 인프라 구현에 독립적으로 유지된다. Repository 인터페이스는 도메인 관점의 영속성 계약(save, 도메인별 조회 쿼리)을 정의하며, 구현체에서 JPA/QueryDSL로 실현한다.
 - **고객/어드민 Facade 분리**: 고객용 Facade(`BrandFacade`, `ProductFacade`, `OrderFacade`)와 어드민용 Facade(`AdminBrandFacade`, `AdminProductFacade`, `AdminOrderFacade`)가 분리된다. Service는 공유하여 비즈니스 로직 중복을 방지한다.
 - **분리의 이유**: 어드민에 통계 조회, 참조 테이블 조인 등 고객과 다른 유스케이스가 추가될 때 독립적으로 진화 가능하다. 현재 로직이 유사하더라도 확장성을 위해 일관되게 분리한다.
-- **Facade의 역할**: 여러 Service를 조합하는 유스케이스 계층이다. `OrderFacade`는 `ProductService`(재고 차감)와 `OrderService`(주문 생성)를 조합한다. `AdminBrandFacade`는 브랜드 삭제 시 `ProductService`를 호출하여 하위 상품을 함께 삭제한다. `ProductFacade`는 `ProductCacheStore`를 통해 cache-aside 패턴을 적용하며, `AdminProductFacade`는 CUD 시 캐시를 evict한다.
+- **Facade의 역할**: 여러 Service를 조합하는 유스케이스 계층이다. `OrderFacade`는 `ProductService`(재고 차감)와 `OrderService`(주문 생성)를 조합한다. `AdminBrandFacade`는 브랜드 삭제 시 `ProductService`를 호출하여 하위 상품을 함께 삭제한다.
 - **Cross-domain 접근**: `LikeFacade`가 `ProductService`(상품 존재 확인, 좋아요 상품 정보)와 `BrandService`(브랜드명 조회)를 사용한다. `ProductFacade`도 `BrandService`를 사용하여 고객 응답에 brandName을 포함한다. 도메인 간 직접 참조가 아닌 Facade 레벨에서 조합한다.
 - **Service 메서드 분리**: `OrderService`에 고객용 `getOrder(orderId, memberId)` (validateOwner 수행)과 어드민용 `getOrderById(orderId)` (검증 없음)이 분리되어 있다. 동일 패턴으로 `BrandService`, `ProductService`도 고객/어드민 조회 메서드를 분리한다 (고객: ACTIVE만, 어드민: 상태 무관).
 
@@ -516,30 +404,6 @@ classDiagram
     }
 
     note for OrderStatus "결제 기능 추가 시 확장\nPAID, DELIVERING,\nDELIVERED, COMPLETED"
-
-    class CouponTemplateStatus {
-        <<enumeration>>
-        ACTIVE
-        DELETED
-    }
-
-    class CouponStatus {
-        <<enumeration>>
-        AVAILABLE
-        USED
-    }
-
-    class CouponType {
-        <<enumeration>>
-        FIXED
-        RATE
-    }
-
-    class ExpirationPolicy {
-        <<enumeration>>
-        FIXED_DATE
-        DAYS_FROM_ISSUE
-    }
 ```
 
 ### 설계 판단
@@ -549,10 +413,6 @@ classDiagram
 - **BrandStatus/ProductStatus 일관**: 둘 다 `ACTIVE / DELETED`만 정의한다. `SOLD_OUT` 상태는 제거 — `stockQuantity == 0`이 품절을 표현하며, 고객 응답에 `soldOut: Boolean` 파생 필드로 전달한다.
 - **OrderStatus 최소화**: 결제 미구현 상태에서는 `ORDERED`와 `CANCELLED`만 정의한다. 현재 주문 취소 API는 스코프 밖이며, 결제 기능 추가 시 상태를 확장한다.
 - **INACTIVE/SUSPENDED 미포함**: 현재 요구사항에 비활성화 시나리오가 없으므로 포함하지 않는다. 요구사항에 없는 기능을 미리 구현하지 않는다 (YAGNI).
-- **CouponTemplateStatus**: 쿠폰 템플릿의 `ACTIVE / DELETED` 상태. 삭제된 템플릿은 신규 발급 불가하나, 이미 발급된 쿠폰은 만료일까지 사용 가능하다.
-- **CouponStatus**: 발급된 쿠폰의 `AVAILABLE / USED` 상태. `EXPIRED`는 DB에 저장하지 않고 `expiredAt` 컬럼 기반으로 조회 시 계산한다.
-- **CouponType**: 할인 방식 — `FIXED`(정액 할인), `RATE`(정률 할인). `RATE` 타입에서는 `maxDiscountAmount`로 최대 할인 금액을 제한한다.
-- **ExpirationPolicy**: 만료 정책 — `FIXED_DATE`(특정 일시 만료), `DAYS_FROM_ISSUE`(발급일로부터 N일 만료). 두 정책을 동시에 지원하여 다양한 쿠폰 운영 시나리오를 수용한다.
 
 ---
 
@@ -569,12 +429,10 @@ com.loopers
 │   │   ├── product/        → ProductV1Controller, ProductV1ApiSpec, ProductV1Dto
 │   │   ├── like/           → LikeV1Controller, LikeV1ApiSpec, LikeV1Dto
 │   │   ├── order/          → OrderV1Controller, OrderV1ApiSpec, OrderV1Dto
-│   │   ├── coupon/         → CouponV1Controller, CouponV1ApiSpec, CouponV1Dto
 │   │   └── admin/
 │   │       ├── brand/      → AdminBrandV1Controller, AdminBrandV1ApiSpec, AdminBrandV1Dto
 │   │       ├── product/    → AdminProductV1Controller, AdminProductV1ApiSpec, AdminProductV1Dto
-│   │       ├── order/      → AdminOrderV1Controller, AdminOrderV1ApiSpec, AdminOrderV1Dto
-│   │       └── coupon/     → AdminCouponV1Controller, AdminCouponV1ApiSpec, AdminCouponV1Dto
+│   │       └── order/      → AdminOrderV1Controller, AdminOrderV1ApiSpec, AdminOrderV1Dto
 │   └── config/
 │       ├── auth/
 │       │   ├── MemberAuthenticated                (대고객 인증 필요 어노테이션)
@@ -588,10 +446,9 @@ com.loopers
 ├── application/
 │   ├── member/         → MemberFacade, MemberService, MemberInfo
 │   ├── brand/          → BrandFacade, AdminBrandFacade, BrandService, BrandInfo
-│   ├── product/        → ProductFacade, AdminProductFacade, ProductService, ProductInfo, ProductCacheStore
+│   ├── product/        → ProductFacade, AdminProductFacade, ProductService, ProductInfo
 │   ├── like/           → LikeFacade, LikeService
-│   ├── order/          → OrderFacade, AdminOrderFacade, OrderService, OrderInfo
-│   └── coupon/         → CouponFacade, AdminCouponFacade, CouponService, CouponCommand, CouponInfo
+│   └── order/          → OrderFacade, AdminOrderFacade, OrderService, OrderInfo
 ├── domain/
 │   ├── common/vo/      → Email (공통 VO)
 │   ├── member/         → MemberModel, MemberRepository, RawPassword
@@ -599,16 +456,14 @@ com.loopers
 │   ├── brand/          → BrandModel, BrandRepository, BrandCommand
 │   ├── product/        → ProductModel, ProductRepository, ProductCommand
 │   ├── like/           → ProductLikeModel, ProductLikeRepository
-│   ├── order/          → OrderModel, OrderItemModel, OrderRepository, OrderCommand
-│   └── coupon/         → CouponTemplateModel, IssuedCouponModel, CouponTemplateRepository, IssuedCouponRepository, CouponType, CouponStatus, CouponTemplateStatus, ExpirationPolicy
+│   └── order/          → OrderModel, OrderItemModel, OrderRepository, OrderCommand
 ├── infrastructure/
-│   ├── config/         → CacheConfig, AuthCacheStoreImpl, ProductCacheStoreImpl, BrandCacheStoreImpl, PasswordEncoderConfig
+│   ├── config/         → CacheConfig (Caffeine auth-cache), PasswordEncoderConfig
 │   ├── member/         → MemberRepositoryImpl, MemberJpaRepository
 │   ├── brand/          → BrandRepositoryImpl, BrandJpaRepository
-│   ├── product/        → ProductRepositoryImpl, ProductJpaRepository, ProductCacheStoreImpl
+│   ├── product/        → ProductRepositoryImpl, ProductJpaRepository
 │   ├── like/           → ProductLikeRepositoryImpl, ProductLikeJpaRepository
-│   ├── order/          → OrderRepositoryImpl, OrderJpaRepository, OrderItemJpaRepository
-│   └── coupon/         → CouponTemplateJpaModel, IssuedCouponJpaModel, CouponTemplateRepositoryImpl, IssuedCouponRepositoryImpl, CouponTemplateJpaRepository, IssuedCouponJpaRepository
+│   └── order/          → OrderRepositoryImpl, OrderJpaRepository, OrderItemJpaRepository
 └── support/
     ├── error/          → CoreException, ErrorType
     └── cursor/         → CursorUtils
@@ -616,10 +471,10 @@ com.loopers
 
 ### 해석
 
-- **고객/어드민 Facade 분리**: `application/brand/`에 `BrandFacade`(고객)와 `AdminBrandFacade`(어드민)가 공존한다. coupon 도메인도 동일하게 `CouponFacade`(고객)와 `AdminCouponFacade`(어드민)로 분리된다. 전체 도메인에 일관되게 적용.
+- **고객/어드민 Facade 분리**: `application/brand/`에 `BrandFacade`(고객)와 `AdminBrandFacade`(어드민)가 공존한다. 전체 도메인에 일관되게 적용.
 - **고객/어드민 DTO 분리**: Controller 레벨에서 `BrandV1Dto`(고객용)와 `AdminBrandV1Dto`(어드민용)로 노출 필드를 분리한다. Facade는 동일한 Info 객체를 반환.
 - **인증 전략 통일**: 대고객 인증은 `@MemberAuthenticated` 어노테이션 기반으로 선택적 적용 (비인증 API와 인증 API 혼재). 어드민 인증은 `@AdminAuthenticated` 어노테이션으로 클래스 레벨 일괄 적용 (전 엔드포인트 LDAP 인증 필수).
 - **좋아요 수 비정규화**: `ProductModel`의 `likeCount` 컬럼(DEFAULT 0)으로 좋아요 수를 관리한다. 별도 집계 테이블 없이 `product` 테이블에 직접 저장하며, 배치가 주기적으로 갱신한다.
 - **Value Object 패키지**: 도메인별 VO는 `domain/{domain}/vo/`에, 공통 VO는 `domain/common/vo/`에 위치한다. `RawPassword`는 VO가 아닌 검증 정책 객체이므로 `domain/member/`에 직접 위치한다.
 - **인증 컴포넌트**: `@MemberAuthenticated` 어노테이션, `AuthenticatedMember` DTO, `AuthenticatedMemberArgumentResolver`가 `interfaces/config/auth/`에 위치한다. 인증이 필요한 엔드포인트에 `@MemberAuthenticated`를 선언하면, Interceptor가 인증 후 `AuthenticatedMember`를 Controller 파라미터로 주입한다.
-- **캐시 설정**: `AuthCacheStore` 포트(Application)와 `AuthCacheStoreImpl`(Infrastructure)로 Redis 기반 인증 캐시를 관리한다. `AuthService`가 `AuthCacheStore`를 통해 BCrypt 인증 결과를 SHA256 해시 비교로 캐싱하여 CPU 부하를 절감하며, 비밀번호 변경 시 `MemberFacade`에서 해당 loginId의 캐시를 evict한다. `ProductCacheStoreImpl`, `BrandCacheStoreImpl`도 동일한 포트 패턴으로 Redis 캐시를 제공한다.
+- **캐시 설정**: `infrastructure/config/CacheConfig`에서 Caffeine 기반 `auth-cache`를 관리한다. BCrypt 인증 결과를 SHA256 해시 비교로 캐싱하여 CPU 부하를 절감하며, 비밀번호 변경 시 `MemberFacade`에서 해당 loginId의 캐시를 evict한다.

@@ -3,15 +3,21 @@ package com.loopers.application.auth
 import com.loopers.application.error.ApplicationException
 import com.loopers.application.member.MemberService
 import com.loopers.domain.error.CoreException
+import org.springframework.cache.CacheManager
 import org.springframework.stereotype.Component
 
 @Component
 class AuthService(
     private val memberService: MemberService,
-    private val authCacheStore: AuthCacheStore,
+    private val cacheManager: CacheManager,
 ) {
+    companion object {
+        const val AUTH_CACHE = "auth-cache"
+    }
+
     fun authenticate(loginId: String, password: String): AuthResult {
-        val cachedAuth = authCacheStore.getAuth(loginId)
+        val cache = cacheManager.getCache(AUTH_CACHE)
+        val cachedAuth = cache?.get(loginId, CachedAuth::class.java)
 
         if (cachedAuth != null && cachedAuth.matchesPassword(password)) {
             return cachedAuth.toAuthResult()
@@ -24,12 +30,12 @@ class AuthService(
         }
 
         val authResult = AuthResult(id = member.id, loginId = member.loginId)
-        authCacheStore.putAuth(loginId, CachedAuth.of(authResult, password))
+        cache?.put(loginId, CachedAuth.of(authResult, password))
 
         return authResult
     }
 
     fun evictAuthCache(loginId: String) {
-        authCacheStore.evictAuth(loginId)
+        cacheManager.getCache(AUTH_CACHE)?.evict(loginId)
     }
 }

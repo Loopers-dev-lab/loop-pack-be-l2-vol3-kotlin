@@ -25,10 +25,6 @@ class FakeOrderRepository : OrderRepository {
         return store[id]
     }
 
-    override fun findByIdWithLock(id: Long): OrderModel? {
-        return store[id]
-    }
-
     override fun findAllByMemberIdAndOrderedAtBetween(
         memberId: Long,
         startAt: ZonedDateTime,

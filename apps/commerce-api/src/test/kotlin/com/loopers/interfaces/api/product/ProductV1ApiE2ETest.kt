@@ -4,7 +4,6 @@ import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.admin.brand.AdminBrandV1Dto
 import com.loopers.interfaces.api.admin.product.AdminProductV1Dto
 import com.loopers.utils.DatabaseCleanUp
-import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -25,7 +24,6 @@ import org.springframework.http.HttpStatus
 class ProductV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
-    private val redisCleanUp: RedisCleanUp,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/products"
@@ -56,7 +54,6 @@ class ProductV1ApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
-        redisCleanUp.truncateAll()
     }
 
     private fun adminHeaders(): HttpHeaders {

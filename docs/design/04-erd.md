@@ -60,43 +60,12 @@ erDiagram
     orders {
         bigint id PK "AUTO_INCREMENT"
         bigint member_id FK "NOT NULL"
-        bigint coupon_id "NULL"
         varchar order_number UK "NOT NULL, UUID"
         varchar status "NOT NULL, DEFAULT 'ORDERED'"
-        bigint discount_amount "NOT NULL, DEFAULT 0"
         datetime ordered_at "NOT NULL"
         datetime created_at "NOT NULL"
         datetime updated_at "NOT NULL"
         datetime deleted_at "NULL, 미사용"
-    }
-
-    coupon_template {
-        bigint id PK "AUTO_INCREMENT"
-        varchar name "NOT NULL"
-        varchar type "NOT NULL"
-        bigint value "NOT NULL"
-        bigint min_order_amount "NOT NULL"
-        bigint max_discount_amount "NULL"
-        varchar expiration_policy "NOT NULL"
-        datetime expired_at "NULL"
-        int valid_days "NULL"
-        varchar status "NOT NULL, DEFAULT 'ACTIVE'"
-        datetime created_at "NOT NULL"
-        datetime updated_at "NOT NULL"
-        datetime deleted_at "NULL"
-    }
-
-    issued_coupon {
-        bigint id PK "AUTO_INCREMENT"
-        bigint coupon_template_id FK "NOT NULL"
-        bigint member_id FK "NOT NULL"
-        varchar status "NOT NULL, DEFAULT 'AVAILABLE'"
-        datetime expired_at "NOT NULL"
-        datetime used_at "NULL"
-        bigint version "NOT NULL, DEFAULT 0"
-        datetime created_at "NOT NULL"
-        datetime updated_at "NOT NULL"
-        datetime deleted_at "NULL"
     }
 
     order_item {
@@ -119,9 +88,6 @@ erDiagram
     member ||--o{ orders : "places"
     orders ||--o{ order_item : "contains"
     product ||..o{ order_item : "snapshot"
-    member ||--o{ issued_coupon : "receives"
-    coupon_template ||--o{ issued_coupon : "issues"
-    orders ||..o| issued_coupon : "uses (optional)"
 ```
 
 ### 관계 해석
@@ -134,9 +100,6 @@ erDiagram
 | member → orders | 1:N | 회원 한 명이 여러 주문 |
 | orders → order_item | 1:N | 주문 하나에 여러 상품 |
 | product ··· order_item | 스냅샷 (비식별, 점선) | 주문 시점의 상품 정보를 복사. product_id는 FK가 아닌 추적용 참조. 비식별 관계(dotted line)로 표현 |
-| member → issued_coupon | 1:N | 회원 한 명이 여러 쿠폰을 발급받음 |
-| coupon_template → issued_coupon | 1:N | 쿠폰 템플릿 하나에서 여러 쿠폰 발급 |
-| orders ··· issued_coupon | 선택적 (비식별, 점선) | 주문에 쿠폰 적용은 선택적. coupon_id는 NULL 허용, 물리 FK 미사용 |
 
 ### BaseEntity 상속 전략
 
@@ -150,8 +113,6 @@ erDiagram
 | product_like | 미사용 | 미사용 | 생성/물리삭제만 수행. BaseEntity 상속으로 컬럼 존재하나 비활용 |
 | orders | 사용 | 미사용 | 상태 변경(ORDERED→CANCELLED) 시 갱신. 주문 이력 영구 보존 |
 | order_item | 미사용 | 미사용 | 생성 후 불변. 주문 스냅샷 영구 보존 |
-| coupon_template | 사용 | 사용 | 수정 API 존재. soft delete 적용 |
-| issued_coupon | 사용 | 미사용 | 사용(use()) 시 갱신. version 기반 낙관적 락 적용. 발급 이력 영구 보존 |
 
 > `BaseEntity`를 상속하면 JPA가 `updated_at`, `deleted_at` 컬럼을 자동 생성한다. 일부 테이블에서 이 컬럼을 사용하지 않지만, 상속 구조 일관성과 구현 단순성을 위해 유지한다.
 
@@ -161,7 +122,7 @@ erDiagram
 
 ### 2.1 member (기존)
 
-> 1주차에 구현 완료. VO 패턴 적용 (LoginId, MemberName, Email), `@MemberAuthenticated` 인증 패턴 적용, 비밀번호 변경 시 Redis auth-cache eviction 추가 (AuthCacheStore 포트 패턴, TTL 5분).
+> 1주차에 구현 완료. VO 패턴 적용 (LoginId, MemberName, Email), `@MemberAuthenticated` 인증 패턴 적용, 비밀번호 변경 시 auth-cache eviction 추가.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
@@ -246,10 +207,8 @@ erDiagram
 |------|------|------|------|
 | id | BIGINT | PK, AUTO_INCREMENT | 주문 고유 ID |
 | member_id | BIGINT | NOT NULL | 회원 ID (논리적 FK) |
-| coupon_id | BIGINT | NULL | 쿠폰 ID (논리적 FK, 선택적) |
 | order_number | VARCHAR(36) | NOT NULL, UNIQUE | 주문 번호 (UUID) |
 | status | VARCHAR(20) | NOT NULL, DEFAULT 'ORDERED' | ORDERED / CANCELLED |
-| discount_amount | BIGINT | NOT NULL, DEFAULT 0 | 할인 금액 (쿠폰 미사용 시 0) |
 | ordered_at | DATETIME | NOT NULL | 주문 일시 |
 | created_at | DATETIME | NOT NULL | 생성 일시 |
 | updated_at | DATETIME | NOT NULL | 수정 일시 |
@@ -301,55 +260,6 @@ erDiagram
 
 ---
 
-### 2.7 coupon_template
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 쿠폰 템플릿 고유 ID |
-| name | VARCHAR(255) | NOT NULL | 쿠폰명 |
-| type | VARCHAR(20) | NOT NULL | 할인 유형 (FIXED / RATE) |
-| value | BIGINT | NOT NULL | 할인 값 (정액: 원 단위, 정률: %) |
-| min_order_amount | BIGINT | NOT NULL | 최소 주문 금액 |
-| max_discount_amount | BIGINT | NULL | 최대 할인 금액 (RATE 타입에서 상한선, FIXED는 NULL) |
-| expiration_policy | VARCHAR(20) | NOT NULL | 만료 정책 (FIXED_DATE / DAYS_FROM_ISSUE) |
-| expired_at | DATETIME | NULL | 만료 일시 (FIXED_DATE 정책에서 사용) |
-| valid_days | INT | NULL | 유효 일수 (DAYS_FROM_ISSUE 정책에서 사용) |
-| status | VARCHAR(20) | NOT NULL, DEFAULT 'ACTIVE' | ACTIVE / DELETED |
-| created_at | DATETIME | NOT NULL | 생성 일시 |
-| updated_at | DATETIME | NOT NULL | 수정 일시 |
-| deleted_at | DATETIME | NULL | 삭제 일시 (soft delete) |
-
-**설계 근거**:
-- `expired_at`과 `valid_days`는 `expiration_policy`에 따라 둘 중 하나만 사용한다. `FIXED_DATE`이면 `expired_at`에 만료 일시를 저장하고, `DAYS_FROM_ISSUE`이면 `valid_days`에 유효 일수를 저장한다. 두 컬럼을 함께 두어 정책 전환 시 마이그레이션 없이 대응 가능하다.
-- `max_discount_amount`는 `RATE` 타입에서 최대 할인 금액 상한선으로 사용한다. `FIXED` 타입은 할인 금액이 고정이므로 NULL을 허용한다.
-- soft delete 적용. 삭제된 템플릿은 `isIssuable()` 검사로 신규 발급을 차단하되, 이미 발급된 쿠폰은 `issued_coupon.expired_at`까지 사용 가능하다.
-- `value`는 BIGINT. 정액 할인은 원 단위, 정률 할인은 정수 퍼센트로 저장하여 소수점 연산 오류를 방지한다.
-
----
-
-### 2.8 issued_coupon
-
-| 컬럼 | 타입 | 제약 | 설명 |
-|------|------|------|------|
-| id | BIGINT | PK, AUTO_INCREMENT | 발급 쿠폰 고유 ID |
-| coupon_template_id | BIGINT | NOT NULL | 쿠폰 템플릿 ID (논리적 FK) |
-| member_id | BIGINT | NOT NULL | 회원 ID (논리적 FK) |
-| status | VARCHAR(20) | NOT NULL, DEFAULT 'AVAILABLE' | AVAILABLE / USED |
-| expired_at | DATETIME | NOT NULL | 만료 일시 (발급 시 템플릿 정책으로 계산) |
-| used_at | DATETIME | NULL | 사용 일시 (사용 전 NULL) |
-| version | BIGINT | NOT NULL, DEFAULT 0 | 낙관적 락용 버전 (@Version) |
-| created_at | DATETIME | NOT NULL | 생성 일시 |
-| updated_at | DATETIME | NOT NULL | 수정 일시 |
-| deleted_at | DATETIME | NULL | 미사용 (BaseEntity 상속으로 존재) |
-
-**설계 근거**:
-- `EXPIRED` 상태는 DB에 저장하지 않는다. `expired_at < NOW()`로 조회 시 계산하여 상태 전이 배치 없이도 만료 여부를 판단한다.
-- `version` 컬럼으로 낙관적 락(`@Version`)을 적용한다. 동일 쿠폰 동시 사용 시도 시 첫 번째 커밋만 성공하고 이후는 `OptimisticLockException`(409 CONFLICT)으로 처리한다.
-- soft delete 미적용. `deleted_at` 컬럼은 BaseEntity 상속으로 존재하나 비활용. 발급 이력은 영구 보존한다.
-- `expired_at`은 발급 시점에 템플릿의 `ExpirationPolicy`를 기반으로 계산하여 저장한다. 이후 템플릿이 수정되어도 기발급 쿠폰의 만료 일시는 불변이다.
-
----
-
 ## 3. 인덱스 전략
 
 ### 3.1 인덱스 목록
@@ -369,8 +279,6 @@ erDiagram
 | orders | `uk_orders_order_number` | UNIQUE | 주문 번호 조회 |
 | orders | `idx_orders_member_ordered_at` | INDEX | 회원별 기간 주문 조회 |
 | order_item | `idx_order_item_order_id` | INDEX | 주문별 상품 목록 조회 |
-| issued_coupon | `idx_issued_coupon_member_id` | INDEX | 회원별 보유 쿠폰 조회 |
-| issued_coupon | `idx_issued_coupon_coupon_template_id` | INDEX | 템플릿별 발급 쿠폰 조회 (어드민) |
 
 ### 3.2 인덱스 설계 근거
 
@@ -397,7 +305,7 @@ erDiagram
 |------|------|------|
 | FK 전략 | 물리 FK 미사용, 논리적 참조만 | 향후 서비스 분리 대비. 애플리케이션 레벨에서 참조 무결성 보장 |
 | 브랜드명 중복 | 허용 (UNIQUE 제거) | soft delete + UNIQUE 충돌 방지. 브랜드 식별은 PK 기반 (BR-B2 수정) |
-| 좋아요 수 집계 | product.like_count 컬럼 + 배치 갱신 | 대규모 트래픽 대응. 런타임 COUNT 부하 제거. DEFAULT 0으로 별도 초기화 불필요 |
+| 좋아요 수 집계 | product.like_count 컬럼 + 배치 갱신 | 10K TPS 대응. 런타임 COUNT 부하 제거. DEFAULT 0으로 별도 초기화 불필요 |
 | 주문 번호 | UUID | 내부 ID 노출 방지. 서비스 분리 시 ID 체계 독립성 |
 | 주문 soft delete | 미적용 (상태 관리) | 주문 이력 영구 보존. ORDERED/CANCELLED 상태로 관리 |
 | 상품 설명 타입 | TEXT | VARCHAR(255) 초과 가능성. 상품 설명 특성상 장문 허용 |
@@ -405,6 +313,3 @@ erDiagram
 | 스냅샷 저장 | order_item에 비정규화 | 상품/브랜드 변경이 주문 이력에 영향 없도록 보장 (BR-O2) |
 | 주문 총액 | orders에 비정규화 안 함 | SUM(order_item.amount)로 계산. 아이템 소량으로 비용 미비, 데이터 불일치 방지 |
 | 랭킹 확장 | 별도 일별 통계 테이블 예정 | 확장 시 `product_like_daily_stats(product_id, stat_date, count)` 추가 |
-| 쿠폰 동시 사용 방지 | 낙관적 락 (@Version on issued_coupon.version) | 쿠폰 사용은 빈번하지 않고 충돌 확률이 낮음. 비관적 락 대비 성능 우위. 충돌 시 409 CONFLICT 반환 |
-| 쿠폰 만료 정책 | FIXED_DATE + DAYS_FROM_ISSUE 이중 지원 | 특정 기간 한정 쿠폰(FIXED_DATE)과 발급 후 N일 유효 쿠폰(DAYS_FROM_ISSUE)을 단일 테이블에서 관리 |
-| 쿠폰 상태 EXPIRED | DB에 저장 안 함, 조회 시 계산 | expired_at < NOW() 조건으로 판단. 상태 전이 배치 불필요. AVAILABLE/USED만 DB에 저장 |

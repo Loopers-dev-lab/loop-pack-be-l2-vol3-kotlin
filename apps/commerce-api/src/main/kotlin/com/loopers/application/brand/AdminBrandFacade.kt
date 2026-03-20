@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional
 class AdminBrandFacade(
     private val brandService: BrandService,
     private val productService: ProductService,
-    private val brandCacheStore: BrandCacheStore,
 ) {
     @Transactional
     fun createBrand(command: BrandCommand.Create): BrandInfo {
@@ -36,7 +35,6 @@ class AdminBrandFacade(
     @Transactional
     fun updateBrand(id: Long, command: BrandCommand.Update): BrandInfo {
         val brand = brandService.updateBrand(id, command)
-        brandCacheStore.evictBrand(id)
         return BrandInfo.from(brand)
     }
 
@@ -44,6 +42,5 @@ class AdminBrandFacade(
     fun deleteBrand(id: Long) {
         productService.deleteProductsByBrandId(id)
         brandService.deleteBrand(id)
-        brandCacheStore.evictBrand(id)
     }
 }

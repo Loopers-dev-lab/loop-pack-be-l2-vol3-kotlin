@@ -52,10 +52,6 @@ class OrderJpaModel(
         orderItem.order = this
     }
 
-    fun updateStatus(status: OrderStatus) {
-        this.status = status
-    }
-
     fun toModel(): OrderModel = OrderModel(
         id = id,
         memberId = memberId,

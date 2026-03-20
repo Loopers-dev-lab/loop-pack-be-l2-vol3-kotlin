@@ -90,11 +90,4 @@ class ProductService(
         val deducted = product.deductStock(quantity)
         productRepository.save(deducted)
     }
-
-    fun restoreStock(productId: Long, quantity: Int) {
-        val product = productRepository.findByIdWithLock(productId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다.")
-        val restored = product.restoreStock(quantity)
-        productRepository.save(restored)
-    }
 }

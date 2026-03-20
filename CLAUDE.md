@@ -4,7 +4,7 @@
 
 **프로젝트명**: Loopers Kotlin Spring Template
 **목적**: Spring Boot 기반의 멀티모듈 코틀린 커머스 템플릿 프로젝트
-**성능 목표**: 대규모 커머스 서비스 수준의 트래픽 처리 (단계적 달성)
+**성능 목표**: 10,000 TPS (피크 기준, 단계적 달성)
 
 Loopers에서 제공하는 스프링 코틀린 템플릿 프로젝트입니다. 프로젝트 안정성 및 유지보수성을 위해 pre-commit 훅을 통한 ktlint 검사를 운용하고 있습니다.
 
@@ -157,7 +157,7 @@ com.loopers
 └── infrastructure           # JpaModel(@Entity), Repository 구현체, 포트 구현체(BcryptPasswordEncryptor), CursorUtils, 인프라 빈 설정 (CacheConfig)
 ```
 
-## 성능 최적화 로드맵
+## 10K TPS 로드맵
 
 현재 → 목표까지 단계적으로 적용한다. 각 단계는 이전 단계에 의존하지 않으며 독립적으로 적용 가능하다.
 
@@ -173,13 +173,10 @@ com.loopers
 ### Phase 2: 캐싱 및 인프라 확장
 | 항목 | 현재 | 목표 | 상태 |
 |------|------|------|------|
-| 인증 BCrypt 캐싱 | 매 요청 BCrypt 호출 | Redis 글로벌 캐시 (auth:{loginId}, TTL 5분) + SHA256 비교. 멀티 인스턴스 N×BCrypt 해소 | DONE |
+| 인증 BCrypt 캐싱 | 매 요청 BCrypt 호출 | Caffeine 로컬 캐시 (auth-cache, TTL 5분, max 10K) + SHA256 비교 | DONE |
 | 비밀번호 변경 시 캐시 eviction | 미적용 | MemberFacade에서 loginId 기반 evict | DONE |
-| 상품 Redis 캐시 | 미사용 | RedisTemplate 직접 사용 + ProductCacheStore 포트 패턴 (상세 5분/목록 1분 TTL) | DONE |
-| 브랜드 Redis 캐시 | 미사용 | BrandCacheStore 포트 패턴 (TTL 10분, CUD evict). ProductFacade 활용 | DONE |
-| 상품 인덱스 최적화 | brand_id 단독 인덱스 | 복합 인덱스 (brand_id, status, like_count DESC, id DESC) | DONE |
-| like_count 배치 집계 | like_count 미갱신 | commerce-batch Tasklet + JdbcTemplate UPDATE JOIN | DONE |
 | DB Read/Write 분리 | 단일 DB | AbstractRoutingDataSource + Replica | TODO (보류) |
+| Redis 캐싱 도입 | 미사용 | Spring Cache Abstraction으로 향후 전환 가능 | TODO (보류) |
 | Lettuce 커넥션 풀링 | 단일 커넥션 멀티플렉싱 | LettucePoolingClientConfiguration | TODO (보류) |
 
 ### Phase 3: 안정성 강화
@@ -288,7 +285,7 @@ com.loopers
 2. null-safety, thread-safety 고려
 3. 테스트 가능한 구조로 설계
 4. 기존 코드 패턴 분석 후 일관성 유지
-5. 대규모 트래픽 성능 목표에 부합하는 구현
+5. 10K TPS 성능 목표에 부합하는 구현
 
 ## agent_todo
 
