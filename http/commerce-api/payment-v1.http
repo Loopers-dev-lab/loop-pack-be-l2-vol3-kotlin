@@ -1,7 +1,7 @@
 ### 결제 요청
 POST {{commerce-api}}/api/v1/payments
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: password1234
+X-Loopers-LoginId: {{login-id}}
+X-Loopers-LoginPw: {{login-pw}}
 Content-Type: application/json
 
 {
@@ -12,13 +12,13 @@ Content-Type: application/json
 
 ### 결제 상세 조회
 GET {{commerce-api}}/api/v1/payments/1
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: password1234
+X-Loopers-LoginId: {{login-id}}
+X-Loopers-LoginPw: {{login-pw}}
 
 ### 결제 상태 동기화 (수동)
 POST {{commerce-api}}/api/v1/payments/1/sync
-X-Loopers-LoginId: testuser
-X-Loopers-LoginPw: password1234
+X-Loopers-LoginId: {{login-id}}
+X-Loopers-LoginPw: {{login-pw}}
 
 ### PG 콜백 - 결제 성공
 POST {{commerce-api}}/internal/v1/payments/callback

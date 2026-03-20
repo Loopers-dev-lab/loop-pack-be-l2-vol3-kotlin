@@ -55,12 +55,22 @@ class PaymentModelTest {
             )
         }
 
-        @DisplayName("금액이 0 이하이면, BAD_REQUEST 예외가 발생한다.")
+        @DisplayName("금액이 0이면, BAD_REQUEST 예외가 발생한다.")
         @Test
-        fun throwsBadRequestExceptionWhenAmountIsZeroOrNegative() {
+        fun throwsBadRequestExceptionWhenAmountIsZero() {
             // act & assert
             val result = assertThrows<CoreException> {
                 createPaymentModel(amount = BigDecimal.ZERO)
+            }
+            assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("금액이 음수이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsBadRequestExceptionWhenAmountIsNegative() {
+            // act & assert
+            val result = assertThrows<CoreException> {
+                createPaymentModel(amount = BigDecimal("-1"))
             }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
