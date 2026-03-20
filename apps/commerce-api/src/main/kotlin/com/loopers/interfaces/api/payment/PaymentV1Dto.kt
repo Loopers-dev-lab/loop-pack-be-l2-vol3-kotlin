@@ -60,11 +60,16 @@ class PaymentV1Dto {
                     amount = result.amount,
                     status = result.status,
                     cardType = result.cardType,
-                    cardNo = result.cardNo,
+                    cardNo = maskCardNo(result.cardNo),
                     transactionKey = result.transactionKey,
                     failReason = result.failReason,
                     createdAt = result.createdAt,
                 )
+            }
+
+            private fun maskCardNo(cardNo: String): String {
+                if (cardNo.length < 4) return cardNo
+                return "*".repeat(cardNo.length - 4) + cardNo.takeLast(4)
             }
         }
     }

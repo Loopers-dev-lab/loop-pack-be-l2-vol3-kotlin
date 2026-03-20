@@ -237,6 +237,7 @@ class PaymentV1ApiE2ETest @Autowired constructor(
                 .andExpect(jsonPath("$.data.orderId").value(order.id))
                 .andExpect(jsonPath("$.data.status").value("PENDING"))
                 .andExpect(jsonPath("$.data.cardType").value(DEFAULT_CARD_TYPE))
+                .andExpect(jsonPath("$.data.cardNo").value("************1111"))
         }
 
         @DisplayName("다른 사용자의 결제를 조회하면, 401 UNAUTHORIZED를 반환한다.")
