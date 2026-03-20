@@ -4,7 +4,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 
-@Component
+@Component("delegatePgClient")
 class PgClientSimulator(
     private val scenario: Scenario = Scenario.SUCCESS,
 ) : PgClient {

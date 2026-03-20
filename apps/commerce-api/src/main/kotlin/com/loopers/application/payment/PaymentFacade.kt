@@ -7,6 +7,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import java.time.ZonedDateTime
+import com.loopers.infrastructure.payment.PgPaymentStatus
 
 @Component
 class PaymentFacade(
@@ -36,6 +37,9 @@ class PaymentFacade(
             }
         }
 
-        paymentService.markSucceeded(payment.id, response.transactionId)
+        when (response.status) {
+            PgPaymentStatus.APPROVED -> paymentService.markSucceeded(payment.id, response.transactionId)
+            PgPaymentStatus.DEFERRED -> return
+        }
     }
 }

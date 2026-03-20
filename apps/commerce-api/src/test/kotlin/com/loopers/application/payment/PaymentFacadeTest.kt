@@ -111,6 +111,26 @@ class PaymentFacadeTest {
             verify(exactly = 1) { paymentService.markFailed(PAYMENT_ID, "PG 연동 중 알 수 없는 오류가 발생했습니다.") }
         }
 
+        @DisplayName("fallback 응답이면 결제를 성공이나 실패로 바꾸지 않고 대기 상태로 둔다")
+        @Test
+        fun keepsPaymentPending_whenPgReturnsDeferredFallback() {
+            val payment = createPayment()
+            every { paymentService.createPayment(eq(ORDER_ID), eq(PAYMENT_AMOUNT), any()) } returns payment
+            every {
+                pgClient.requestPayment(PgPaymentRequest(orderId = ORDER_ID, amount = PAYMENT_AMOUNT))
+            } returns PgPaymentResponse(
+                orderId = ORDER_ID,
+                amount = PAYMENT_AMOUNT,
+                transactionId = "deferred",
+                status = PgPaymentStatus.DEFERRED,
+            )
+
+            paymentFacade.requestPayment(orderId = ORDER_ID, amount = PAYMENT_AMOUNT)
+
+            verify(exactly = 0) { paymentService.markSucceeded(any(), any()) }
+            verify(exactly = 0) { paymentService.markFailed(any(), any()) }
+        }
+
         @DisplayName("PG 승인 후 내부 성공 처리에 실패하면 실패 결제로 덮어쓰지 않고 예외를 전파한다")
         @Test
         fun rethrowsWithoutMarkingFailed_whenMarkSucceededFailsAfterApproval() {

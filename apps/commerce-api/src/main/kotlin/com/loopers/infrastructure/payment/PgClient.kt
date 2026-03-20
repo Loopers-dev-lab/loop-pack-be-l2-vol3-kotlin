@@ -18,4 +18,5 @@ data class PgPaymentResponse(
 
 enum class PgPaymentStatus {
     APPROVED,
+    DEFERRED,
 }
