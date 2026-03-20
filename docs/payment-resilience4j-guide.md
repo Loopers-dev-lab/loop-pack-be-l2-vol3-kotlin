@@ -6,16 +6,83 @@
 
 ## 아키텍처
 
+### 데코레이터 순서 (중요!)
+
 ```
-결제 요청 (requestPayment)
+requestPayment() 호출
     ↓
-[Retry Interceptor] ← 최대 재시도 횟수만큼 반복
+[CircuitBreaker] ← 먼저 체크! (바깥쪽)
+    ├─ OPEN? → 즉시 Fallback (Retry 스킵) ❌
+    └─ CLOSED/HALF_OPEN? → 다음 단계로
     ↓
-[CircuitBreaker] ← 연속 실패 시 차단
-    ↓
+[Retry Interceptor] ← CB 통과 후 실행 (안쪽)
+    ↓ (최대 3회 재시도)
 [PG Service HTTP Call]
     ↓
-[성공/실패]
+[성공/실패] → CircuitBreaker에 결과 기록
+```
+
+**⚠️ 핵심**: CircuitBreaker는 Retry를 포함하지 않음
+- CB OPEN 상태 → Retry 실행 안 함 (빠른 실패)
+- CB CLOSED 상태 → Retry 실행 (최대 3회 시도)
+
+---
+
+## Retry vs CircuitBreaker - 차이점
+
+### 역할이 다릅니다!
+
+| 항목 | Retry | CircuitBreaker |
+|------|-------|-----------------|
+| **역할** | 일시적 실패 극복 | 지속적 장애 방지 |
+| **범위** | 1회 호출 내 | 여러 호출 패턴 |
+| **대기** | 500ms 간격 | 30초 (상태 유지) |
+| **반복** | 최대 3회 | 상태 판단 후 차단 |
+| **응답** | 최대 1.3초 | 1ms (즉시 실패) |
+
+### 예제: 뭔가 일시적으로 느린 상황
+
+```
+PG 서비스가 약간 느린 경우:
+
+[요청 1] Retry 시도 1 (100ms)
+         Retry 시도 2 (100ms)
+         Retry 시도 3 (100ms)
+         ✅ 성공 (300ms)
+         → CB는 성공으로 기록
+
+[요청 2] ✅ 성공 (100ms)
+[요청 3] ✅ 성공 (100ms)
+
+💡 Retry가 없었으면 모두 실패했을텐데,
+   Retry 덕분에 모두 성공!
+   CB 상태: CLOSED (변화 없음)
+```
+
+### 예제: PG 서비스가 완전히 다운된 경우
+
+```
+[요청 1] Retry 1, 2, 3 모두 실패 (1.5초 소요)
+         → CB에 실패 기록
+
+[요청 2] Retry 1, 2, 3 모두 실패 (1.5초 소요)
+         → CB에 실패 기록
+
+[요청 3] Retry 1, 2, 3 모두 실패 (1.5초 소요)
+         → CB에 실패 기록
+
+[요청 4] Retry 1, 2, 3 모두 실패 (1.5초 소요)
+         → CB에 실패 기록
+
+[요청 5] Retry 1, 2, 3 모두 실패 (1.5초 소요)
+         → CB에 실패 기록 (5개 연속 실패!)
+         → CB OPEN 전환! 🚨
+
+[요청 6] CB가 OPEN → Retry 스킵 → 즉시 Fallback (1ms!)
+         ❌ 빠른 실패
+
+💡 CB 덕분에 응답 시간이 1.5초 → 1ms로 단축!
+   사용자가 더 빨리 에러를 받음
 ```
 
 ---
