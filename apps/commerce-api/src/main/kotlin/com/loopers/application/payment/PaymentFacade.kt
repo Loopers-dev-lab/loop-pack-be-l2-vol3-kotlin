@@ -26,6 +26,7 @@ class PaymentFacade(
         private const val PG_STATUS_SUCCESS = "SUCCESS"
         private const val PG_STATUS_FAILED = "FAILED"
         private const val DEFAULT_FAIL_REASON = "알 수 없는 사유"
+        private val SYNCABLE_STATUSES = setOf(PaymentStatus.PENDING, PaymentStatus.REQUESTED)
     }
 
     @Transactional
@@ -109,8 +110,7 @@ class PaymentFacade(
         val payments = paymentService.getPaymentsByOrderId(orderId)
 
         return payments.map { payment ->
-            val syncableStatuses = setOf(PaymentStatus.PENDING, PaymentStatus.REQUESTED)
-            if (payment.status !in syncableStatuses) {
+            if (payment.status !in SYNCABLE_STATUSES) {
                 return@map PaymentInfo.from(payment)
             }
 
