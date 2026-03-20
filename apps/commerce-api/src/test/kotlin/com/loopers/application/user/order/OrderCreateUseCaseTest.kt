@@ -111,7 +111,7 @@ class OrderCreateUseCaseTest {
         given(
             orderRepository.save(
                 check { order ->
-                    assertThat(order.status).isEqualTo(Order.Status.CREATED)
+                    assertThat(order.status).isEqualTo(Order.Status.PENDING)
                     assertThat(order.userId).isEqualTo(1L)
                 },
             ),
@@ -144,7 +144,7 @@ class OrderCreateUseCaseTest {
             // assert
             assertAll(
                 { assertThat(result.orderId).isEqualTo(100L) },
-                { assertThat(result.status).isEqualTo("CREATED") },
+                { assertThat(result.status).isEqualTo("PENDING") },
             )
             then(productQueryInvalidator).should().invalidateDetails(
                 check<Collection<Long>> { productIds ->
@@ -171,7 +171,7 @@ class OrderCreateUseCaseTest {
             given(
                 orderRepository.save(
                     check { order ->
-                        assertThat(order.status).isEqualTo(Order.Status.CREATED)
+                        assertThat(order.status).isEqualTo(Order.Status.PENDING)
                         assertThat(order.items).hasSize(2)
                     },
                 ),
@@ -466,7 +466,7 @@ class OrderCreateUseCaseTest {
                 check { order ->
                     assertAll(
                         { assertThat(order.userId).isEqualTo(1L) },
-                        { assertThat(order.status).isEqualTo(Order.Status.CREATED) },
+                        { assertThat(order.status).isEqualTo(Order.Status.PENDING) },
                         { assertThat(order.items).hasSize(1) },
                     )
                 },

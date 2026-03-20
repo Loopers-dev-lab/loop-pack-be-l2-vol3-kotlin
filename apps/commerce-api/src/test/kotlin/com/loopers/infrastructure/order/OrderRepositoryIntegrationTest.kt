@@ -107,7 +107,7 @@ constructor(
                 { assertThat(saved.id).isNotNull() },
                 { assertThat(saved.userId).isEqualTo(1L) },
                 { assertThat(saved.idempotencyKey.value).isEqualTo("key-001") },
-                { assertThat(saved.status).isEqualTo(Order.Status.CREATED) },
+                { assertThat(saved.status).isEqualTo(Order.Status.PENDING) },
                 { assertThat(saved.items).hasSize(1) },
                 { assertThat(saved.items[0].id).isNotNull() },
                 { assertThat(saved.createdAt).isNotNull() },

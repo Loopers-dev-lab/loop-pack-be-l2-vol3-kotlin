@@ -44,7 +44,7 @@ class OrderTest {
     inner class Create {
 
         @Test
-        @DisplayName("유효한 값으로 생성 성공 — status는 CREATED")
+        @DisplayName("유효한 값으로 생성 성공 — status는 PENDING")
         fun create_success() {
             // act
             val order = Order.create(
@@ -58,7 +58,7 @@ class OrderTest {
                 { assertThat(order.id).isNull() },
                 { assertThat(order.userId).isEqualTo(1L) },
                 { assertThat(order.idempotencyKey.value).isEqualTo("order-key-123") },
-                { assertThat(order.status).isEqualTo(Order.Status.CREATED) },
+                { assertThat(order.status).isEqualTo(Order.Status.PENDING) },
                 { assertThat(order.items).hasSize(1) },
             )
         }
@@ -99,6 +99,44 @@ class OrderTest {
                 )
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.ORDER_INVALID_ITEMS)
+        }
+    }
+
+    @Nested
+    @DisplayName("confirm — PENDING → CREATED 전이")
+    inner class Confirm {
+
+        @Test
+        @DisplayName("PENDING 상태에서 confirm → CREATED")
+        fun confirm_success() {
+            val order = Order.create(
+                userId = 1L,
+                idempotencyKey = IdempotencyKey("confirm-key"),
+                items = listOf(createOrderItem()),
+            )
+
+            val confirmed = order.confirm()
+
+            assertThat(confirmed.status).isEqualTo(Order.Status.CREATED)
+        }
+
+        @Test
+        @DisplayName("CREATED 상태에서 confirm → 예외")
+        fun confirm_alreadyCreated() {
+            val now = ZonedDateTime.of(2026, 3, 5, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
+            val order = Order.retrieve(
+                id = 100L,
+                userId = 1L,
+                idempotencyKey = IdempotencyKey("confirm-key-2"),
+                status = Order.Status.CREATED,
+                items = listOf(createOrderItem()),
+                createdAt = now,
+            )
+
+            val exception = assertThrows<CoreException> {
+                order.confirm()
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.ORDER_INVALID_STATUS_TRANSITION)
         }
     }
 

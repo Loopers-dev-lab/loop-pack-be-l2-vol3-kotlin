@@ -34,6 +34,16 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     ORDER_INVALID_ITEMS(HttpStatus.BAD_REQUEST, "ORDER_INVALID_ITEMS", "주문 항목이 비어있습니다."),
     ORDER_INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "ORDER_INVALID_IDEMPOTENCY_KEY", "멱등성 키가 유효하지 않습니다."),
     ORDER_IDEMPOTENCY_KEY_DUPLICATE(HttpStatus.CONFLICT, "ORDER_IDEMPOTENCY_KEY_DUPLICATE", "이미 처리된 주문 요청입니다."),
+    ORDER_INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "ORDER_INVALID_STATUS_TRANSITION", "주문 상태 전이가 유효하지 않습니다."),
+
+    /** Payment 도메인 */
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다."),
+    PAYMENT_IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "PAYMENT_IDEMPOTENCY_CONFLICT", "동일한 멱등성 키로 다른 요청이 존재합니다."),
+    PAYMENT_ACTIVE_PENDING_EXISTS(HttpStatus.CONFLICT, "PAYMENT_ACTIVE_PENDING_EXISTS", "진행 중인 결제가 존재합니다."),
+    PAYMENT_ORDER_NOT_PENDING(HttpStatus.BAD_REQUEST, "PAYMENT_ORDER_NOT_PENDING", "결제할 수 없는 주문 상태입니다."),
+    PAYMENT_INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "PAYMENT_INVALID_IDEMPOTENCY_KEY", "결제 멱등성 키가 유효하지 않습니다."),
+    PAYMENT_INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "PAYMENT_INVALID_STATUS_TRANSITION", "결제 상태 전이가 유효하지 않습니다."),
+    PG_CIRCUIT_OPEN(HttpStatus.SERVICE_UNAVAILABLE, "CIRCUIT_OPEN", "결제 서비스를 일시적으로 이용할 수 없습니다."),
 
     /** Coupon 도메인 */
     COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),

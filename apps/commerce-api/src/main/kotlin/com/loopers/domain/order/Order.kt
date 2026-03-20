@@ -31,7 +31,24 @@ class Order private constructor(
         return if (discountAmount.isGreaterThanOrEqual(total)) Money.ZERO else total - discountAmount
     }
 
+    fun confirm(): Order {
+        if (status != Status.PENDING) {
+            throw CoreException(ErrorType.ORDER_INVALID_STATUS_TRANSITION)
+        }
+        return Order(
+            id = id,
+            userId = userId,
+            idempotencyKey = idempotencyKey,
+            status = Status.CREATED,
+            items = items,
+            issuedCouponId = issuedCouponId,
+            discountAmount = discountAmount,
+            createdAt = createdAt,
+        )
+    }
+
     enum class Status {
+        PENDING,
         CREATED,
     }
 
@@ -46,7 +63,7 @@ class Order private constructor(
             id = null,
             userId = userId,
             idempotencyKey = idempotencyKey,
-            status = Status.CREATED,
+            status = Status.PENDING,
             items = items,
             issuedCouponId = issuedCouponId,
             discountAmount = discountAmount,

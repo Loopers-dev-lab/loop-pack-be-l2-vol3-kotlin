@@ -65,7 +65,7 @@ class OrderDomainServiceTest {
             // assert
             assertAll(
                 { assertThat(result.order.userId).isEqualTo(1L) },
-                { assertThat(result.order.status).isEqualTo(Order.Status.CREATED) },
+                { assertThat(result.order.status).isEqualTo(Order.Status.PENDING) },
                 { assertThat(result.order.items).hasSize(1) },
                 { assertThat(result.order.items[0].quantity.value).isEqualTo(3) },
             )

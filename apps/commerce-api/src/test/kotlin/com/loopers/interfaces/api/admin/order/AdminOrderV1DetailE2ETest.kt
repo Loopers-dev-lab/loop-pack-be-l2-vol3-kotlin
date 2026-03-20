@@ -128,7 +128,7 @@ constructor(
             assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
             val data = response.body?.data!!
             assertThat(data["orderId"]).isNotNull()
-            assertThat(data["status"]).isEqualTo("CREATED")
+            assertThat(data["status"]).isEqualTo("PENDING")
             @Suppress("UNCHECKED_CAST")
             val items = data["items"] as List<Map<String, Any?>>
             assertThat(items).hasSize(1)

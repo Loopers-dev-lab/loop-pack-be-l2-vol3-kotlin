@@ -128,7 +128,7 @@ constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED)
             assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
             assertThat(response.body?.data?.orderId).isNotNull()
-            assertThat(response.body?.data?.status).isEqualTo("CREATED")
+            assertThat(response.body?.data?.status).isEqualTo("PENDING")
         }
     }
 
