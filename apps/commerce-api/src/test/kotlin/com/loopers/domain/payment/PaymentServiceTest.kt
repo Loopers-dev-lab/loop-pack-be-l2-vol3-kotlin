@@ -11,6 +11,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.dao.DataIntegrityViolationException
 import java.time.ZonedDateTime
 
 @DisplayName("PaymentService")
@@ -48,6 +49,7 @@ class PaymentServiceTest {
         @Test
         fun savesAndReturnsPayment_whenCreatePaymentIsCalled() {
             val expiresAt = ZonedDateTime.now().plusMinutes(30)
+            every { paymentRepository.findByOrderIdAndDeletedAtIsNull(ORDER_ID) } returns null
             every { paymentRepository.save(any()) } answers { firstArg() }
 
             val result = paymentService.createPayment(
@@ -61,6 +63,42 @@ class PaymentServiceTest {
             assertThat(result.status).isEqualTo(PaymentStatus.PENDING)
             assertThat(result.expiresAt).isEqualTo(expiresAt)
             verify(exactly = 1) { paymentRepository.save(any()) }
+        }
+
+        @DisplayName("같은 주문에 이미 결제가 있으면 CONFLICT 예외가 발생한다")
+        @Test
+        fun throwsConflict_whenPaymentAlreadyExistsForOrder() {
+            val payment = createPayment(orderId = ORDER_ID)
+            every { paymentRepository.findByOrderIdAndDeletedAtIsNull(ORDER_ID) } returns payment
+
+            assertThatThrownBy {
+                paymentService.createPayment(
+                    orderId = ORDER_ID,
+                    amount = PAYMENT_AMOUNT,
+                    expiresAt = ZonedDateTime.now().plusMinutes(30),
+                )
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.CONFLICT)
+                .hasMessageContaining("이미 결제가 진행 중인 주문입니다")
+        }
+
+        @DisplayName("동시 요청으로 저장 시점 중복이 발생해도 CONFLICT 예외로 변환한다")
+        @Test
+        fun throwsConflict_whenDuplicateIsDetectedDuringSave() {
+            every { paymentRepository.findByOrderIdAndDeletedAtIsNull(ORDER_ID) } returns null
+            every { paymentRepository.save(any()) } throws DataIntegrityViolationException("duplicate key")
+
+            assertThatThrownBy {
+                paymentService.createPayment(
+                    orderId = ORDER_ID,
+                    amount = PAYMENT_AMOUNT,
+                    expiresAt = ZonedDateTime.now().plusMinutes(30),
+                )
+            }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.CONFLICT)
+                .hasMessageContaining("이미 결제가 진행 중인 주문입니다")
         }
     }
 

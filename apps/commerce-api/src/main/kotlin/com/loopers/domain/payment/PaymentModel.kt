@@ -8,10 +8,16 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.ZonedDateTime
 
 @Entity
-@Table(name = "payments")
+@Table(
+    name = "payments",
+    uniqueConstraints = [
+        UniqueConstraint(name = "uk_payments_order_id", columnNames = ["order_id"]),
+    ],
+)
 class PaymentModel(
     orderId: Long,
     amount: Long,
