@@ -71,7 +71,17 @@ class OrderService(
             ?: throw CoreException(ErrorType.BAD_REQUEST, "PENDING 상태의 주문이 아니거나 존재하지 않습니다")
 
     fun getOrderInfoForPayment(userId: Long, orderId: Long): OrderInfo {
-        val order = getOrderByIdForUpdateWithPending(userId, orderId)
+        val order = getOrderByIdForUpdate(userId, orderId)
+
+        // 상태 검증: PENDING이 아니면 이미 결제가 진행 중 또는 완료됨
+        when (order.status) {
+            OrderStatus.PAYMENT_REQUESTED ->
+                throw CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중입니다")
+            OrderStatus.PENDING -> { /* 진행 */ }
+            else ->
+                throw CoreException(ErrorType.CONFLICT, "이미 완료된 주문입니다")
+        }
+
         return OrderInfo(
             orderId = order.id,
             amount = order.getTotalPrice(),

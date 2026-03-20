@@ -193,5 +193,28 @@ class PaymentFacadeTest {
                 facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
             }
         }
+
+        @Test
+        @DisplayName("PENDING 상태 Receipt 존재 시 즉시 실패")
+        fun pendingReceiptExists() {
+            // given
+            val userId = 1L
+            val orderId = 100L
+            val pendingReceipt = mockk<Receipt>()
+
+            every { orderService.getOrderInfoForPayment(userId, orderId) } returns
+                OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
+            every { receiptService.getReceiptByOrderIdForUpdate(orderId) } returns pendingReceipt
+            every { receiptService.validateReceiptForNewPayment(pendingReceipt) } throws
+                CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
+
+            // when & then
+            assertThrows<CoreException> {
+                facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
+            }
+
+            // PG 요청이 발생하지 않았는지 확인
+            verify(exactly = 0) { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) }
+        }
     }
 }
