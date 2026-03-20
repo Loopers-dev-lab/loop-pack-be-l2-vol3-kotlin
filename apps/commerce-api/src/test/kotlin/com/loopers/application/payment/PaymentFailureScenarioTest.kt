@@ -7,6 +7,7 @@ import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderItemSnapshot
 import com.loopers.domain.order.Quantity
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentHistoryRepository
 import com.loopers.domain.product.Money
@@ -114,7 +115,7 @@ class PaymentFailureScenarioTest @Autowired constructor(
             assertThat(result.status).isEqualTo(PaymentStatus.APPROVED)
         }
 
-        @DisplayName("실패 콜백 후 성공 콜백이 오면, 첫 번째 결과(FAILED)만 반영된다.")
+        @DisplayName("실패 콜백 후 성공 콜백이 오면, 첫 번째 결과(FAILED)만 반영되고 주문은 취소된다.")
         @Test
         fun failThenSuccessCallback() {
             // arrange
@@ -131,6 +132,8 @@ class PaymentFailureScenarioTest @Autowired constructor(
 
             // assert
             assertThat(result.status).isEqualTo(PaymentStatus.FAILED)
+            val updatedOrder = orderRepository.findByIdOrNull(order.id)!!
+            assertThat(updatedOrder.status).isEqualTo(OrderStatus.CANCELLED)
         }
     }
 
@@ -280,7 +283,7 @@ class PaymentFailureScenarioTest @Autowired constructor(
             assertThat(result.status).isEqualTo(PaymentStatus.REQUEST_FAILED)
         }
 
-        @DisplayName("PG 요청 성공 후 콜백 미수신 상태에서 recover로 APPROVED 상태로 복구한다.")
+        @DisplayName("PG 요청 성공 후 콜백 미수신 상태에서 recover로 APPROVED 상태로 복구하고, 주문은 유지된다.")
         @Test
         fun recoverWhenCallbackMissed() {
             // arrange - PG 요청 성공했지만 콜백 미수신 (REQUESTED + transactionId 있음)
@@ -301,6 +304,8 @@ class PaymentFailureScenarioTest @Autowired constructor(
 
             // assert
             assertThat(result.status).isEqualTo(PaymentStatus.APPROVED)
+            val updatedOrder = orderRepository.findByIdOrNull(order.id)!!
+            assertThat(updatedOrder.status).isEqualTo(OrderStatus.ORDERED)
         }
     }
 

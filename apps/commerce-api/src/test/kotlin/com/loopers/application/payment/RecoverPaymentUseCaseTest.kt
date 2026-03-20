@@ -7,6 +7,7 @@ import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderItemSnapshot
 import com.loopers.domain.order.Quantity
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.Money
@@ -39,6 +40,8 @@ class RecoverPaymentUseCaseTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
+    private var savedOrderId: Long = 0L
+
     private fun createPaymentWithTransaction(): PaymentInfo {
         val order = orderRepository.save(
             Order.create(
@@ -55,6 +58,7 @@ class RecoverPaymentUseCaseTest @Autowired constructor(
                 ),
             ),
         )
+        savedOrderId = order.id
         every { pgPaymentClient.requestPayment(any()) } returns PgPaymentResponse(
             transactionId = "txn_recover_test",
             orderId = "test",
@@ -75,7 +79,7 @@ class RecoverPaymentUseCaseTest @Autowired constructor(
     @Nested
     inner class Execute {
 
-        @DisplayName("PG에서 성공 확인되면 APPROVED 상태가 된다.")
+        @DisplayName("PG에서 성공 확인되면 APPROVED 상태가 되고, 주문은 ORDERED를 유지한다.")
         @Test
         fun recoverToApproved() {
             // arrange
@@ -93,6 +97,8 @@ class RecoverPaymentUseCaseTest @Autowired constructor(
 
             // assert
             assertThat(result.status).isEqualTo(PaymentStatus.APPROVED)
+            val order = orderRepository.findByIdOrNull(savedOrderId)!!
+            assertThat(order.status).isEqualTo(OrderStatus.ORDERED)
         }
 
         @DisplayName("PG에서 아직 처리 중이면 REQUESTED 상태를 유지한다.")
@@ -113,6 +119,28 @@ class RecoverPaymentUseCaseTest @Autowired constructor(
 
             // assert
             assertThat(result.status).isEqualTo(PaymentStatus.REQUESTED)
+        }
+
+        @DisplayName("PG에서 실패 확인되면 FAILED 상태가 되고, 주문이 취소된다.")
+        @Test
+        fun recoverToFailedAndCancelOrder() {
+            // arrange
+            val paymentInfo = createPaymentWithTransaction()
+            every { pgPaymentClient.getPaymentByTransactionId(any(), any()) } returns PgPaymentStatusResponse(
+                transactionId = "txn_recover_test",
+                orderId = paymentInfo.pgOrderId,
+                status = "FAILED",
+                amount = "50000",
+                reason = "한도 초과",
+            )
+
+            // act
+            val result = recoverPaymentUseCase.execute(paymentInfo.id)
+
+            // assert
+            assertThat(result.status).isEqualTo(PaymentStatus.FAILED)
+            val order = orderRepository.findByIdOrNull(savedOrderId)!!
+            assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
         }
 
         @DisplayName("PG 상태 확인 실패 시 현재 상태를 유지한다.")

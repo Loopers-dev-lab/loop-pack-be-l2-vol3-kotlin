@@ -1,5 +1,6 @@
 package com.loopers.application.payment
 
+import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.support.error.PaymentException
 import org.slf4j.LoggerFactory
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class HandlePaymentCallbackUseCase(
     private val paymentRepository: PaymentRepository,
+    private val orderRepository: OrderRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -42,8 +44,18 @@ class HandlePaymentCallbackUseCase(
             )
         }
 
+        if (updatedCount > 0 && command.status != PG_STATUS_SUCCESS) {
+            cancelOrder(payment.orderId)
+        }
+
         val updated = paymentRepository.findByIdOrNull(payment.id)
             ?: throw PaymentException.notFound()
         return PaymentInfo.from(updated)
+    }
+
+    private fun cancelOrder(orderId: Long) {
+        val order = orderRepository.findByIdOrNull(orderId) ?: return
+        order.cancel()
+        log.info("결제 실패로 주문 취소 [orderId={}]", orderId)
     }
 }

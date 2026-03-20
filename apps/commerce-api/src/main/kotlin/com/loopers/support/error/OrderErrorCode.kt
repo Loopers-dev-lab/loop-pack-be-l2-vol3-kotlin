@@ -16,4 +16,5 @@ enum class OrderErrorCode(
     EXCEED_MAX_ORDER_QUANTITY(HttpStatus.BAD_REQUEST, "ORDER_007", "상품당 최대 주문 수량은 99개입니다."),
     INVALID_ORDER_PERIOD(HttpStatus.BAD_REQUEST, "ORDER_008", "조회 기간이 올바르지 않습니다. 기간을 지정해주세요. (최대 365일)"),
     INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "ORDER_009", "주문 수량은 1 이상이어야 합니다."),
+    INVALID_ORDER_STATUS(HttpStatus.BAD_REQUEST, "ORDER_010", "주문 상태가 올바르지 않습니다."),
 }

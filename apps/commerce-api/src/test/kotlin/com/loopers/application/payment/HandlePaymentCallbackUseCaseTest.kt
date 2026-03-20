@@ -8,6 +8,7 @@ import com.loopers.domain.order.OrderItemSnapshot
 import com.loopers.domain.order.Quantity
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentRepository
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.Money
 import com.loopers.testcontainers.MySqlTestContainersConfig
@@ -42,6 +43,8 @@ class HandlePaymentCallbackUseCaseTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
+    private var savedOrderId: Long = 0L
+
     private fun createPaymentWithTransaction(): PaymentInfo {
         val order = orderRepository.save(
             Order.create(
@@ -58,6 +61,7 @@ class HandlePaymentCallbackUseCaseTest @Autowired constructor(
                 ),
             ),
         )
+        savedOrderId = order.id
         every { pgPaymentClient.requestPayment(any()) } returns PgPaymentResponse(
             transactionId = "txn_callback_test",
             orderId = "test",
@@ -78,7 +82,7 @@ class HandlePaymentCallbackUseCaseTest @Autowired constructor(
     @Nested
     inner class Execute {
 
-        @DisplayName("성공 콜백이면 APPROVED 상태가 된다.")
+        @DisplayName("성공 콜백이면 APPROVED 상태가 되고, 주문은 ORDERED를 유지한다.")
         @Test
         fun successCallback() {
             // arrange
@@ -95,9 +99,11 @@ class HandlePaymentCallbackUseCaseTest @Autowired constructor(
 
             // assert
             assertThat(result.status).isEqualTo(PaymentStatus.APPROVED)
+            val order = orderRepository.findByIdOrNull(savedOrderId)!!
+            assertThat(order.status).isEqualTo(OrderStatus.ORDERED)
         }
 
-        @DisplayName("실패 콜백이면 FAILED 상태가 된다.")
+        @DisplayName("실패 콜백이면 FAILED 상태가 되고, 주문이 취소된다.")
         @Test
         fun failCallback() {
             // arrange
@@ -114,6 +120,8 @@ class HandlePaymentCallbackUseCaseTest @Autowired constructor(
 
             // assert
             assertThat(result.status).isEqualTo(PaymentStatus.FAILED)
+            val order = orderRepository.findByIdOrNull(savedOrderId)!!
+            assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
         }
 
         @DisplayName("이미 APPROVED인 결제에 콜백이 오면 무시한다 (멱등성).")

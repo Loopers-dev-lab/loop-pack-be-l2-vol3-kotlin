@@ -1,8 +1,10 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.Money
 import com.loopers.domain.payment.Payment
+import org.slf4j.LoggerFactory
 import com.loopers.domain.payment.PaymentHistory
 import com.loopers.domain.payment.PaymentHistoryRepository
 import com.loopers.domain.payment.PaymentRepository
@@ -17,6 +19,7 @@ class PaymentTransactionManager(
     private val paymentHistoryRepository: PaymentHistoryRepository,
     private val orderRepository: OrderRepository,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
     @Transactional
     fun saveOrResetPayment(command: PaymentCommand.Request): Payment {
         val order = orderRepository.findByIdOrNull(command.orderId)
@@ -32,6 +35,10 @@ class PaymentTransactionManager(
                 PaymentStatus.REQUEST_FAILED -> {
                     paymentHistoryRepository.save(PaymentHistory.from(existing))
                     existing.resetForRetry()
+                    if (order.status == OrderStatus.CANCELLED) {
+                        order.reorder()
+                        log.info("결제 재시도로 주문 복원 [orderId={}]", order.id)
+                    }
                     existing
                 }
             }
@@ -72,12 +79,24 @@ class PaymentTransactionManager(
         when (pgStatus) {
             PG_STATUS_SUCCESS -> paymentRepository.approveIfNotTerminal(paymentId)
             PG_STATUS_PENDING, PG_STATUS_REQUESTED -> { }
-            else -> paymentRepository.failIfNotTerminal(paymentId, reason ?: "PG 결제 실패")
+            else -> {
+                val updatedCount = paymentRepository.failIfNotTerminal(paymentId, reason ?: "PG 결제 실패")
+                if (updatedCount > 0) {
+                    cancelOrder(paymentId)
+                }
+            }
         }
 
         val payment = paymentRepository.findByIdOrNull(paymentId)
             ?: throw PaymentException.notFound()
         return PaymentInfo.from(payment)
+    }
+
+    private fun cancelOrder(paymentId: Long) {
+        val payment = paymentRepository.findByIdOrNull(paymentId) ?: return
+        val order = orderRepository.findByIdOrNull(payment.orderId) ?: return
+        order.cancel()
+        log.info("결제 실패로 주문 취소 [paymentId={}, orderId={}]", paymentId, payment.orderId)
     }
 
     companion object {

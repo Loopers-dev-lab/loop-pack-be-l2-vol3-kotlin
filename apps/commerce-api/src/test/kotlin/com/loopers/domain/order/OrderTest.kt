@@ -98,4 +98,68 @@ class OrderTest {
             assertThat(exception.errorCode).isEqualTo(OrderErrorCode.EMPTY_ORDER_ITEMS)
         }
     }
+
+    @DisplayName("주문 취소")
+    @Nested
+    inner class Cancel {
+
+        @DisplayName("ORDERED 상태에서 CANCELLED로 전환된다.")
+        @Test
+        fun success() {
+            // arrange
+            val order = Order.create(userId = 1L, items = listOf(createSnapshot()))
+
+            // act
+            order.cancel()
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
+        }
+
+        @DisplayName("이미 CANCELLED 상태이면 INVALID_ORDER_STATUS 예외가 발생한다.")
+        @Test
+        fun failWhenAlreadyCancelled() {
+            // arrange
+            val order = Order.create(userId = 1L, items = listOf(createSnapshot()))
+            order.cancel()
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                order.cancel()
+            }
+            assertThat(exception.errorCode).isEqualTo(OrderErrorCode.INVALID_ORDER_STATUS)
+        }
+    }
+
+    @DisplayName("주문 재주문")
+    @Nested
+    inner class Reorder {
+
+        @DisplayName("CANCELLED 상태에서 ORDERED로 복원된다.")
+        @Test
+        fun success() {
+            // arrange
+            val order = Order.create(userId = 1L, items = listOf(createSnapshot()))
+            order.cancel()
+
+            // act
+            order.reorder()
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.ORDERED)
+        }
+
+        @DisplayName("ORDERED 상태에서 reorder하면 INVALID_ORDER_STATUS 예외가 발생한다.")
+        @Test
+        fun failWhenAlreadyOrdered() {
+            // arrange
+            val order = Order.create(userId = 1L, items = listOf(createSnapshot()))
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                order.reorder()
+            }
+            assertThat(exception.errorCode).isEqualTo(OrderErrorCode.INVALID_ORDER_STATUS)
+        }
+    }
 }

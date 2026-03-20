@@ -52,6 +52,20 @@ class Order private constructor(
     @Column(name = "ordered_at", nullable = false)
     val orderedAt: ZonedDateTime = orderedAt
 
+    fun cancel() {
+        if (status != OrderStatus.ORDERED) {
+            throw CoreException(OrderErrorCode.INVALID_ORDER_STATUS)
+        }
+        this.status = OrderStatus.CANCELLED
+    }
+
+    fun reorder() {
+        if (status != OrderStatus.CANCELLED) {
+            throw CoreException(OrderErrorCode.INVALID_ORDER_STATUS)
+        }
+        this.status = OrderStatus.ORDERED
+    }
+
     companion object {
         fun create(
             userId: Long,
