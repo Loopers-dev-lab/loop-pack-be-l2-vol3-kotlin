@@ -8,15 +8,22 @@ import com.loopers.domain.common.Quantity
 import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.payment.CardType
+import com.loopers.domain.payment.PaymentGateway
+import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -29,6 +36,17 @@ class StockConcurrencyTest @Autowired constructor(
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
+
+    @MockitoBean
+    private lateinit var paymentGateway: PaymentGateway
+
+    @BeforeEach
+    fun setUpPaymentGateway() {
+        whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any())).thenReturn(
+            PaymentGatewayResponse(transactionKey = "txn-test", status = "PENDING", reason = null),
+        )
+        whenever(paymentGateway.getTransactionsByOrderId(any(), any())).thenReturn(emptyList())
+    }
 
     @AfterEach
     fun tearDown() {
@@ -133,6 +151,8 @@ class StockConcurrencyTest @Autowired constructor(
                         orderFacade.placeOrder(
                             userId = i.toLong() + 1,
                             items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1))),
+                            cardType = CardType.SAMSUNG,
+                            cardNo = "1234-5678-9012-3456",
                         )
                         successCount.incrementAndGet()
                     } catch (_: Exception) {
@@ -170,6 +190,8 @@ class StockConcurrencyTest @Autowired constructor(
                         orderFacade.placeOrder(
                             userId = i.toLong() + 1,
                             items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1))),
+                            cardType = CardType.SAMSUNG,
+                            cardNo = "1234-5678-9012-3456",
                         )
                         successCount.incrementAndGet()
                     } catch (_: Exception) {

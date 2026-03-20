@@ -17,16 +17,22 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.UserRepository
 import com.loopers.interfaces.api.user.UserDto
+import com.loopers.domain.payment.PaymentGateway
+import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -54,6 +60,17 @@ class OrderApiE2ETest @Autowired constructor(
     private val userRepository: UserRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
+
+    @MockitoBean
+    private lateinit var paymentGateway: PaymentGateway
+
+    @BeforeEach
+    fun setUpPaymentGateway() {
+        whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any())).thenReturn(
+            PaymentGatewayResponse(transactionKey = "txn-test", status = "PENDING", reason = null),
+        )
+        whenever(paymentGateway.getTransactionsByOrderId(any(), any())).thenReturn(emptyList())
+    }
 
     companion object {
         private const val ORDER_ENDPOINT = "/api/v1/orders"
@@ -128,6 +145,8 @@ class OrderApiE2ETest @Autowired constructor(
     private data class PlaceOrderRequest(
         val items: List<OrderItemRequest>,
         val couponId: Long? = null,
+        val cardType: String = "SAMSUNG",
+        val cardNo: String = "1234-5678-9012-3456",
     )
 
     private data class OrderItemRequest(

@@ -29,6 +29,57 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+# PG 시뮬레이터 설정
+pg:
+  base-url: ${PG_BASE_URL:http://localhost:8082}
+  callback-url: ${PG_CALLBACK_URL:http://localhost:8080/api/v1/payments/callback}
+
+# FeignClient + CircuitBreaker 통합
+spring.cloud.openfeign:
+  circuitbreaker:
+    enabled: true # FeignClient에 CircuitBreaker 통합 활성화
+    group:
+      enabled: true # 같은 FeignClient의 모든 메서드가 하나의 CircuitBreaker 인스턴스를 공유
+  client:
+    config:
+      pg-simulator:
+        connect-timeout: 1000  # 연결 타임아웃 1초
+        read-timeout: 2000     # 읽기 타임아웃 2초 (PG 응답 최대 500ms + 여유)
+
+# Resilience4j 설정
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10            # 최근 10건 기준
+        failure-rate-threshold: 50         # 실패율 50% 이상 → OPEN
+        wait-duration-in-open-state: 10s   # OPEN 상태 유지 시간
+        permitted-number-of-calls-in-half-open-state: 3  # HALF_OPEN에서 허용 호출 수
+        register-health-indicator: true
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      pg-simulator:
+        base-config: default
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2
+        enable-exponential-backoff: true
+        retry-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+    instances:
+      pg-query:
+        base-config: default
+  bulkhead:
+    instances:
+      pg-simulator:
+        max-concurrent-calls: 25   # PG 동시 요청 최대 25개 (Tomcat 200 스레드 중 일부만 허용)
+        max-wait-duration: 0       # 대기 없이 즉시 실패
+
 ---
 spring:
   config:
