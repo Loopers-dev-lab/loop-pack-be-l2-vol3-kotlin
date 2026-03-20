@@ -97,4 +97,10 @@ class CouponService(
     fun saveIssuedCoupon(model: IssuedCouponModel): IssuedCouponModel {
         return issuedCouponRepository.save(model)
     }
+
+    fun restoreCoupon(couponId: Long) {
+        val issuedCoupon = getIssuedCouponById(couponId)
+        val restored = issuedCoupon.restore()
+        issuedCouponRepository.save(restored)
+    }
 }
