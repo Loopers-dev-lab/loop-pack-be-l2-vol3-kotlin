@@ -4,6 +4,7 @@ import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PgPaymentStatus
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.boot.web.client.RestTemplateBuilder
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
@@ -67,6 +68,7 @@ class PgSimulatorClient(
         throwable: Throwable,
     ): PaymentGateway.RequestResult = PaymentGateway.RequestResult.RequestFailed("PG 요청이 차단되었습니다. 잠시 후 다시 시도해주세요.")
 
+    @Retry(name = "pgSimulatorLookup", fallbackMethod = "lookupFallback")
     @CircuitBreaker(name = "pgSimulator", fallbackMethod = "lookupFallback")
     override fun getTransaction(memberId: Long, transactionKey: String): PaymentGateway.LookupResult {
         val headers = headers(memberId)
@@ -89,8 +91,11 @@ class PgSimulatorClient(
         } catch (e: ResourceAccessException) {
             PaymentGateway.LookupResult.Unavailable("PG 상태 조회 중 타임아웃이 발생했습니다.")
         } catch (e: HttpStatusCodeException) {
-            if (e.statusCode.value() == 404) PaymentGateway.LookupResult.NotFound
-            else PaymentGateway.LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 상태 조회에 실패했습니다.")
+            if (e.statusCode.value() == 404) {
+                PaymentGateway.LookupResult.NotFound
+            } else {
+                PaymentGateway.LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 상태 조회에 실패했습니다.")
+            }
         }
     }
 
@@ -101,6 +106,7 @@ class PgSimulatorClient(
         throwable: Throwable,
     ): PaymentGateway.LookupResult = PaymentGateway.LookupResult.Unavailable("PG 상태 조회가 차단되었습니다. 잠시 후 다시 시도해주세요.")
 
+    @Retry(name = "pgSimulatorLookup", fallbackMethod = "lookupByOrderFallback")
     @CircuitBreaker(name = "pgSimulator", fallbackMethod = "lookupByOrderFallback")
     override fun findLatestTransactionByOrderId(memberId: Long, orderId: String): PaymentGateway.LookupResult {
         val headers = headers(memberId)
@@ -123,8 +129,11 @@ class PgSimulatorClient(
         } catch (e: ResourceAccessException) {
             PaymentGateway.LookupResult.Unavailable("PG 주문 기준 조회 중 타임아웃이 발생했습니다.")
         } catch (e: HttpStatusCodeException) {
-            if (e.statusCode.value() == 404) PaymentGateway.LookupResult.NotFound
-            else PaymentGateway.LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 주문 기준 조회에 실패했습니다.")
+            if (e.statusCode.value() == 404) {
+                PaymentGateway.LookupResult.NotFound
+            } else {
+                PaymentGateway.LookupResult.Unavailable(extractMessage(e.responseBodyAsString) ?: "PG 주문 기준 조회에 실패했습니다.")
+            }
         }
     }
 

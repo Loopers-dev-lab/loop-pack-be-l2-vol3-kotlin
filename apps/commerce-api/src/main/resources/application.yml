@@ -30,8 +30,8 @@ springdoc:
     path: /swagger-ui.html
 
 pg-simulator:
-  base-url: http://localhost:8082
-  callback-url: http://localhost:8080/api/v1/payments/callback
+  base-url: ${PG_SIMULATOR_BASE_URL:}
+  callback-url: ${PG_SIMULATOR_CALLBACK_URL:}
   connect-timeout: 200ms
   read-timeout: 700ms
 
@@ -47,12 +47,22 @@ resilience4j:
         wait-duration-in-open-state: 10s
         record-exceptions:
           - org.springframework.web.client.RestClientException
+  retry:
+    instances:
+      pgSimulatorLookup:
+        max-attempts: 2
+        wait-duration: 100ms
+        result-predicate: com.loopers.infrastructure.payment.PgLookupRetryOnUnavailablePredicate
 
 ---
 spring:
   config:
     activate:
       on-profile: local, test
+
+pg-simulator:
+  base-url: ${PG_SIMULATOR_BASE_URL:http://localhost:8082}
+  callback-url: ${PG_SIMULATOR_CALLBACK_URL:http://localhost:8080/api/v1/payments/callback}
 
 ---
 spring:
