@@ -4,6 +4,8 @@ import com.loopers.application.brand.BrandInfo
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.ProductSort
+import com.loopers.infrastructure.cache.ProductCacheDto
+import com.loopers.infrastructure.cache.ProductCacheRepository
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -12,17 +14,26 @@ import org.springframework.stereotype.Component
 class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
+    private val productCacheRepository: ProductCacheRepository,
 ) {
     fun getProduct(id: Long): ProductInfo {
+        val cached = productCacheRepository.get(id)
+        if (cached != null) {
+            return cached.toProductInfo()
+        }
+
         val product = productService.getProduct(id)
         val brandInfo = BrandInfo.from(brandService.getBrand(product.brandId))
-        return ProductInfo.from(product, brandInfo)
+        val productInfo = ProductInfo.from(product, brandInfo)
+
+        productCacheRepository.put(id, ProductCacheDto.from(productInfo))
+        return productInfo
     }
 
     fun getProducts(brandId: Long?, sort: ProductSort, pageable: Pageable): Page<ProductInfo> {
         val products = productService.getProducts(brandId, sort, pageable)
         val brandIds = products.content.map { it.brandId }.distinct()
-        val brandMap = brandIds.associateWith { BrandInfo.from(brandService.getBrand(it)) }
+        val brandMap = brandService.getBrandsByIds(brandIds).associate { it.id to BrandInfo.from(it) }
 
         return products.map { product ->
             ProductInfo.from(product, brandMap[product.brandId]!!)
@@ -38,10 +49,14 @@ class ProductFacade(
     fun updateProduct(id: Long, name: String, description: String, price: Long, stockQuantity: Int): ProductInfo {
         val product = productService.updateProduct(id, name, description, price, stockQuantity)
         val brandInfo = BrandInfo.from(brandService.getBrand(product.brandId))
-        return ProductInfo.from(product, brandInfo)
+        val productInfo = ProductInfo.from(product, brandInfo)
+
+        productCacheRepository.evict(id)
+        return productInfo
     }
 
     fun deleteProduct(id: Long) {
         productService.deleteProduct(id)
+        productCacheRepository.evict(id)
     }
 }
