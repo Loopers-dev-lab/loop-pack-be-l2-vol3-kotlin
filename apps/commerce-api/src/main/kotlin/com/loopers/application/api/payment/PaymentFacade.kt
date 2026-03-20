@@ -44,7 +44,19 @@ class PaymentFacade(
         }
 
         val transactionId = generateTransactionId(orderId)
-        val pgResult = try {
+
+        // ✅ Receipt를 PG 요청 전에 먼저 생성 (PENDING 상태)
+        // → PG 요청 실패해도 Receipt는 DB에 존재하여 복구 가능
+        val receipt = receiptService.initiateReceipt(
+            orderId = orderId,
+            transactionId = transactionId,
+            amount = orderInfo.amount,
+            cardType = cardType,
+            cardNo = cardNo,
+        )
+
+        try {
+            // PG 요청 (타임아웃 가능)
             paymentClient.requestPayment(
                 userId = userId,
                 transactionId = transactionId,
@@ -54,20 +66,18 @@ class PaymentFacade(
                 cardNo = cardNo,
             )
         } catch (e: Exception) {
+            // PG 요청 실패 시에도 Receipt는 PENDING 상태로 유지
+            // → PaymentRecoveryService가 자동으로 복구 시도
+            log.warn(
+                "PG payment request failed for orderId=$orderId, transactionId=$transactionId. " +
+                    "Receipt left in PENDING state for automatic recovery. Cause: ${e.message}",
+                e,
+            )
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다")
         }
 
         // Order 상태를 PAYMENT_REQUESTED로 변경
         orderService.markOrderAsPaymentRequested(userId, orderId)
-
-        // Receipt 생성 (PENDING 상태)
-        val receipt = receiptService.initiateReceipt(
-            orderId = orderId,
-            transactionId = pgResult.transactionKey,
-            amount = orderInfo.amount,
-            cardType = cardType,
-            cardNo = cardNo,
-        )
 
         return ReceiptInfo.from(receipt)
     }

@@ -1,5 +1,8 @@
 package com.loopers.domain.payment
 
+import java.time.LocalDateTime
+import java.time.ZonedDateTime
+
 interface ReceiptRepository {
     fun findById(id: Long): Receipt?
 
@@ -11,7 +14,11 @@ interface ReceiptRepository {
 
     fun findByOrderIdForUpdate(orderId: Long): Receipt?
 
-    fun findByStatusAndCreatedAtBefore(status: ReceiptStatus, before: java.time.ZonedDateTime): List<Receipt>
+    fun findByIdForUpdate(id: Long): Receipt?
+
+    fun findByStatusAndCreatedAtBefore(status: ReceiptStatus, before: ZonedDateTime): List<Receipt>
+
+    fun findPendingReceiptsCreatedBefore(before: LocalDateTime): List<Receipt>
 
     fun save(receipt: Receipt): Receipt
 }

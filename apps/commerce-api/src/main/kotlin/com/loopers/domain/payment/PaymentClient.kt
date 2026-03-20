@@ -22,4 +22,13 @@ interface PaymentClient {
         cardType: String,
         cardNo: String,
     ): PaymentRequestResult
+
+    /**
+     * PG에서 결제 상태를 조회합니다.
+     * (타임아웃 등으로 실패한 결제의 복구용)
+     *
+     * @param transactionId 거래 ID
+     * @return 결제 상태 조회 결과
+     */
+    fun checkPaymentStatus(transactionId: String): PaymentStatusCheckResult
 }

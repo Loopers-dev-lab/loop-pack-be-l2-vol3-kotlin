@@ -6,6 +6,7 @@ import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.time.LocalDateTime
 import java.time.ZonedDateTime
 
 @Service
@@ -80,5 +81,65 @@ class ReceiptService(
                 "알 수 없는 결제 상태: ${command.status}",
             )
         }
+    }
+
+    /**
+     * 복구 대상인 PENDING Receipt을 조회합니다.
+     * (생성 후 지정된 시간 이상 경과한 것만)
+     *
+     * @param delayMinutes 최소 경과 시간 (분)
+     * @return 복구 대상 Receipt 목록
+     */
+    fun getPendingReceiptsForRecovery(delayMinutes: Long): List<Receipt> {
+        val threshold = LocalDateTime.now().minusMinutes(delayMinutes)
+        return receiptRepository.findPendingReceiptsCreatedBefore(threshold)
+    }
+
+    /**
+     * Receipt을 완료 상태로 표시합니다. (복구용)
+     */
+    @Transactional
+    fun markAsCompleted(receipt: Receipt) {
+        val lockedReceipt = receiptRepository.findByIdForUpdate(receipt.id!!)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "Receipt not found")
+
+        // 멱등성: PENDING 상태만 처리
+        if (lockedReceipt.status != ReceiptStatus.PENDING) {
+            return
+        }
+
+        lockedReceipt.markAsCompleted(receipt.amount)
+    }
+
+    /**
+     * Receipt을 실패 상태로 표시합니다. (복구용)
+     */
+    @Transactional
+    fun markAsFailed(receipt: Receipt, reason: String?) {
+        val lockedReceipt = receiptRepository.findByIdForUpdate(receipt.id!!)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "Receipt not found")
+
+        // 멱등성: PENDING 상태만 처리
+        if (lockedReceipt.status != ReceiptStatus.PENDING) {
+            return
+        }
+
+        lockedReceipt.markAsFailed()
+    }
+
+    /**
+     * Receipt을 취소 상태로 표시합니다. (복구용)
+     */
+    @Transactional
+    fun markAsCancelled(receipt: Receipt, reason: String?) {
+        val lockedReceipt = receiptRepository.findByIdForUpdate(receipt.id!!)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "Receipt not found")
+
+        // 멱등성: PENDING 상태만 처리
+        if (lockedReceipt.status != ReceiptStatus.PENDING) {
+            return
+        }
+
+        lockedReceipt.markAsCancelled()
     }
 }

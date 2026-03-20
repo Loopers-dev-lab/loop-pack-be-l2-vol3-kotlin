@@ -2,6 +2,7 @@ package com.loopers.infrastructure.payment.pg
 
 import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.PaymentRequestResult
+import com.loopers.domain.payment.PaymentStatusCheckResult
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
@@ -49,6 +50,25 @@ class LoopPaymentClient(
         ex: Exception,
     ): PaymentRequestResult {
         throw CoreException(ErrorType.INTERNAL_ERROR, "PG payment service is unavailable. Please try again later.")
+    }
+
+    /**
+     * PG에서 결제 상태를 조회합니다. (복구용)
+     */
+    override fun checkPaymentStatus(transactionId: String): PaymentStatusCheckResult {
+        val response = webClient.get()
+            .uri("$baseUrl/api/v1/payments/$transactionId")
+            .retrieve()
+            .bodyToMono(PgPaymentStatusResponse::class.java)
+            .block(Duration.ofSeconds(10))
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "Payment status check failed")
+
+        return PaymentStatusCheckResult(
+            transactionId = response.transactionId,
+            status = response.status,
+            amount = response.amount,
+            reason = response.reason,
+        )
     }
 
     private fun performRequest(userId: Long, request: PgPaymentRequest): PaymentRequestResult {

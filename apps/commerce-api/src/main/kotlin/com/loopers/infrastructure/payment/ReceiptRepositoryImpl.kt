@@ -4,6 +4,7 @@ import com.loopers.domain.payment.Receipt
 import com.loopers.domain.payment.ReceiptRepository
 import com.loopers.domain.payment.ReceiptStatus
 import org.springframework.stereotype.Repository
+import java.time.LocalDateTime
 import java.time.ZonedDateTime
 
 @Repository
@@ -26,8 +27,14 @@ class ReceiptRepositoryImpl(
     override fun findByOrderIdForUpdate(orderId: Long): Receipt? =
         receiptJpaRepository.findByOrderIdForUpdate(orderId)
 
+    override fun findByIdForUpdate(id: Long): Receipt? =
+        receiptJpaRepository.findByIdForUpdate(id)
+
     override fun findByStatusAndCreatedAtBefore(status: ReceiptStatus, before: ZonedDateTime): List<Receipt> =
         receiptJpaRepository.findByStatusAndCreatedAtBefore(status, before)
+
+    override fun findPendingReceiptsCreatedBefore(before: LocalDateTime): List<Receipt> =
+        receiptJpaRepository.findPendingReceiptsCreatedBefore(before)
 
     override fun save(receipt: Receipt): Receipt =
         receiptJpaRepository.save(receipt)
