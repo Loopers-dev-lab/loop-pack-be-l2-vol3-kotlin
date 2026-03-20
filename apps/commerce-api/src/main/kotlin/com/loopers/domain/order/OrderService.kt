@@ -95,6 +95,15 @@ class OrderService(
         // 더티 체킹으로 자동 저장
     }
 
+    @Transactional
+    fun restoreOrderToPending(orderId: Long) {
+        val order = getOrderByIdForAdmin(orderId)
+        if (order.status == OrderStatus.PAYMENT_REQUESTED) {
+            order.restoreToPending()
+        }
+        // 이미 PENDING이면 no-op (멱등성)
+    }
+
     private fun validateItems(items: List<CreateOrderItemCommand>) {
         if (items.isEmpty()) {
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목은 최소 1개 이상이어야 합니다")

@@ -38,7 +38,6 @@ class PaymentFacade(
     ): ReceiptInfo {
         val orderInfo = orderService.getOrderInfoForPayment(userId, orderId)
 
-        // 1단계: 주문 상태 확인 (PENDING만 결제 요청 가능)
         val existingReceipt = receiptService.getReceiptByOrderId(orderId)
         if (existingReceipt != null) {
             receiptService.validateReceiptForNewPayment(existingReceipt)
@@ -46,7 +45,6 @@ class PaymentFacade(
 
         val transactionId = generateTransactionId(orderId)
 
-        // 2단계: Receipt 생성 (PENDING 상태)
         val receipt = receiptService.initiateReceipt(
             orderId = orderId,
             transactionId = transactionId,
@@ -56,7 +54,6 @@ class PaymentFacade(
         )
 
         try {
-            // 3단계: PG 요청
             val pgResult = paymentClient.requestPayment(
                 userId = userId,
                 transactionId = transactionId,
@@ -66,11 +63,9 @@ class PaymentFacade(
                 cardNo = cardNo,
             )
 
-            // 4단계: PG 응답 상태에 따라 처리
-            handlePgResponse(pgResult, receipt, userId, orderId, transactionId)
+            handlePgResponse(pgResult, receipt, userId, orderId)
         } catch (e: Exception) {
             if (e is CoreException) throw e
-
             receiptService.markAsTimeout(receipt)
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요")
         }
@@ -83,7 +78,6 @@ class PaymentFacade(
         receipt: Receipt,
         userId: Long,
         orderId: Long,
-        transactionId: String,
     ) {
         when (pgResult.status.toString().uppercase()) {
             "COMPLETED" -> {

@@ -25,10 +25,12 @@ class Receipt protected constructor(
         protected set
 
     fun markAsCompleted(confirmedAmount: BigDecimal) {
-        if (status != ReceiptStatus.PENDING) {
-            throw CoreException(ErrorType.BAD_REQUEST, "결제 상태가 올바르지 않습니다. 현재 상태: $status")
+        val allowedStatuses = listOf(ReceiptStatus.PENDING, ReceiptStatus.FAILED, ReceiptStatus.TIMEOUT)
+        if (status !in allowedStatuses) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 완료는 PENDING, FAILED, TIMEOUT 상태에서만 가능합니다. 현재 상태: $status")
         }
-        if (amount != confirmedAmount) {
+        // PENDING인 경우에만 금액 검증 (FAILED/TIMEOUT은 PG 확인 결과이므로 신뢰)
+        if (status == ReceiptStatus.PENDING && amount != confirmedAmount) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 금액이 일치하지 않습니다. 예상: $amount, 확인됨: $confirmedAmount")
         }
         this.status = ReceiptStatus.COMPLETED

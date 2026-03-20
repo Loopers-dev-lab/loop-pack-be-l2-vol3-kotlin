@@ -33,7 +33,7 @@ class PaymentRecoveryServiceTest {
             val receipt1 = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
             val receipt2 = Receipt.create(200L, "TXN_002", BigDecimal("20000"), "HYUNDAI", "5678")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt1, receipt2)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt1, receipt2)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "COMPLETED", BigDecimal("10000"), null)
             every { paymentClient.checkPaymentStatus(200L) } returns
@@ -54,7 +54,7 @@ class PaymentRecoveryServiceTest {
         @DisplayName("PENDING 상태 없으면 0 반환")
         fun noRecoveryWhenNoPendingReceipts() {
             // given
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns emptyList()
+            every { receiptService.getReceiptsForRecovery(any()) } returns emptyList()
 
             // when
             val result = service.recoverFailedPayments()
@@ -71,7 +71,7 @@ class PaymentRecoveryServiceTest {
             val receipt1 = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
             val receipt2 = Receipt.create(200L, "TXN_002", BigDecimal("20000"), "HYUNDAI", "5678")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt1, receipt2)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt1, receipt2)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "COMPLETED", BigDecimal("10000"), null)
             every { paymentClient.checkPaymentStatus(200L) } throws
@@ -99,7 +99,7 @@ class PaymentRecoveryServiceTest {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "COMPLETED", BigDecimal("10000"), null)
             every { receiptService.markAsCompleted(any()) } just runs
@@ -121,15 +121,16 @@ class PaymentRecoveryServiceTest {
     inner class AttemptRecoveryFailed {
 
         @Test
-        @DisplayName("PG 상태 FAILED → Receipt FAILED로 변경")
-        fun pgFailedStatus_marksReceiptAsFailed() {
+        @DisplayName("PG 상태 FAILED → Receipt FAILED로 변경, Order PENDING으로 복원")
+        fun pgFailedStatus_marksReceiptAsFailedAndRestoresOrder() {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "FAILED", BigDecimal("10000"), "Card declined")
             every { receiptService.markAsFailed(any(), any()) } just runs
+            every { orderService.restoreOrderToPending(any()) } just runs
 
             // when
             val result = service.recoverFailedPayments()
@@ -137,6 +138,7 @@ class PaymentRecoveryServiceTest {
             // then
             assert(result == 1)
             verify(exactly = 1) { receiptService.markAsFailed(any(), "Card declined") }
+            verify(exactly = 1) { orderService.restoreOrderToPending(100L) }
         }
     }
 
@@ -145,15 +147,16 @@ class PaymentRecoveryServiceTest {
     inner class AttemptRecoveryCancelled {
 
         @Test
-        @DisplayName("PG 상태 CANCELLED → Receipt CANCELLED로 변경")
-        fun pgCancelledStatus_marksReceiptAsCancelled() {
+        @DisplayName("PG 상태 CANCELLED → Receipt CANCELLED로 변경, Order PENDING으로 복원")
+        fun pgCancelledStatus_marksReceiptAsCancelledAndRestoresOrder() {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "CANCELLED", BigDecimal("10000"), "User cancelled")
             every { receiptService.markAsCancelled(any(), any()) } just runs
+            every { orderService.restoreOrderToPending(any()) } just runs
 
             // when
             val result = service.recoverFailedPayments()
@@ -161,6 +164,7 @@ class PaymentRecoveryServiceTest {
             // then
             assert(result == 1)
             verify(exactly = 1) { receiptService.markAsCancelled(any(), "User cancelled") }
+            verify(exactly = 1) { orderService.restoreOrderToPending(100L) }
         }
     }
 
@@ -169,14 +173,15 @@ class PaymentRecoveryServiceTest {
     inner class AttemptRecoveryPendingTimeout {
 
         @Test
-        @DisplayName("PG 상태 PENDING → 복구 불가, 다음 주기 재시도")
-        fun pgPendingStatus_returnsFailure() {
+        @DisplayName("PG 상태 PENDING → 복구 불가, Order PENDING으로 복원")
+        fun pgPendingStatus_restoresOrderAndReturnsFailure() {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "PENDING", BigDecimal("10000"), null)
+            every { orderService.restoreOrderToPending(any()) } just runs
 
             // when
             val result = service.recoverFailedPayments()
@@ -185,23 +190,26 @@ class PaymentRecoveryServiceTest {
             assert(result == 0)
             verify(exactly = 0) { receiptService.markAsCompleted(any()) }
             verify(exactly = 0) { receiptService.markAsFailed(any(), any()) }
+            verify(exactly = 1) { orderService.restoreOrderToPending(100L) }
         }
 
         @Test
-        @DisplayName("PG 상태 TIMEOUT → 복구 불가, 다음 주기 재시도")
-        fun pgTimeoutStatus_returnsFailure() {
+        @DisplayName("PG 상태 TIMEOUT → 복구 불가, Order PENDING으로 복원")
+        fun pgTimeoutStatus_restoresOrderAndReturnsFailure() {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "TIMEOUT", BigDecimal("10000"), null)
+            every { orderService.restoreOrderToPending(any()) } just runs
 
             // when
             val result = service.recoverFailedPayments()
 
             // then
             assert(result == 0)
+            verify(exactly = 1) { orderService.restoreOrderToPending(100L) }
         }
     }
 
@@ -215,7 +223,7 @@ class PaymentRecoveryServiceTest {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } throws
                 CoreException(ErrorType.INTERNAL_ERROR, "PG service error")
 
@@ -233,7 +241,7 @@ class PaymentRecoveryServiceTest {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
 
-            every { receiptService.getPendingReceiptsForRecovery(any()) } returns listOf(receipt)
+            every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "UNKNOWN_STATUS", BigDecimal("10000"), null)
 

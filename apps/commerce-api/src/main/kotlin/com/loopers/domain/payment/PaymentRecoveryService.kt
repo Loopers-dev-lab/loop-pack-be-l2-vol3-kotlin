@@ -9,15 +9,16 @@ import org.springframework.transaction.annotation.Transactional
 /**
  * 타임아웃 등으로 실패한 결제를 복구하는 서비스
  *
- * PENDING 상태의 Receipt에 대해 PG에서 실제 결제 여부를 조회하여 상태를 업데이트합니다.
+ * PENDING, FAILED, TIMEOUT 상태의 Receipt에 대해 PG에서 실제 결제 여부를 조회하여 상태를 업데이트합니다.
  *
  * 동작:
- * 1. PENDING 상태인 Receipt 중 생성 후 1분 이상 경과한 것을 조회
+ * 1. PENDING, FAILED, TIMEOUT 상태인 Receipt 중 생성 후 1분 이상 경과한 것을 조회
  * 2. PG에 checkPaymentStatus() 호출
- * 3. 결과에 따라 Receipt 상태 업데이트:
+ * 3. 결과에 따라 Receipt 상태 업데이트 및 Order 복원:
  *    - PG COMPLETED → Receipt COMPLETED (+ Order PAID)
- *    - PG FAILED → Receipt FAILED
- *    - PG PENDING → PENDING 유지 (다음 주기 재시도)
+ *    - PG FAILED → Receipt FAILED (+ Order PENDING 복원)
+ *    - PG CANCELLED → Receipt CANCELLED (+ Order PENDING 복원)
+ *    - PG PENDING/TIMEOUT → Order PENDING 복원 (다음 주기 재시도)
  */
 @Service
 @Transactional
@@ -34,16 +35,16 @@ class PaymentRecoveryService(
     }
 
     /**
-     * PENDING/TIMEOUT 상태의 실패한 결제를 복구합니다.
+     * PENDING, FAILED, TIMEOUT 상태의 실패한 결제를 복구합니다.
      *
      * @return 복구된 Receipt 개수
      */
     fun recoverFailedPayments(): Int {
-        val pendingReceipts = receiptService.getPendingReceiptsForRecovery(RECOVERY_DELAY_MINUTES)
-        log.info("Found ${pendingReceipts.size} pending receipts for recovery")
+        val receipts = receiptService.getReceiptsForRecovery(RECOVERY_DELAY_MINUTES)
+        log.info("Found ${receipts.size} receipts for recovery")
 
         var recoveredCount = 0
-        for (receipt in pendingReceipts) {
+        for (receipt in receipts) {
             try {
                 val recovered = attemptRecovery(receipt)
                 if (recovered) {
@@ -58,7 +59,7 @@ class PaymentRecoveryService(
             }
         }
 
-        log.info("Payment recovery completed: $recoveredCount out of ${pendingReceipts.size} recovered")
+        log.info("Payment recovery completed: $recoveredCount out of ${receipts.size} recovered")
         return recoveredCount
     }
 
@@ -87,22 +88,25 @@ class PaymentRecoveryService(
                 }
 
                 "FAILED" -> {
-                    // 결제 실패
+                    // 결제 실패 - Receipt 실패 처리, Order 복원하여 재결제 가능
                     receiptService.markAsFailed(receipt, pgStatus.reason)
-                    log.info("Payment marked as failed: transactionId=$transactionId, reason=${pgStatus.reason}")
+                    orderService.restoreOrderToPending(receipt.orderId)
+                    log.info("Payment failed and order restored: transactionId=$transactionId")
                     true
                 }
 
                 "CANCELLED" -> {
-                    // 결제 취소
+                    // 결제 취소 - Receipt 취소 처리, Order 복원하여 재결제 가능
                     receiptService.markAsCancelled(receipt, pgStatus.reason)
-                    log.info("Payment marked as cancelled: transactionId=$transactionId")
+                    orderService.restoreOrderToPending(receipt.orderId)
+                    log.info("Payment marked as cancelled and order restored to pending: transactionId=$transactionId")
                     true
                 }
 
                 "PENDING", "TIMEOUT" -> {
-                    // 아직 PG에서 처리 중이거나 타임아웃 - 다음 주기에 재시도
-                    log.debug("Payment still pending on PG side: transactionId=$transactionId, status=${pgStatus.status}")
+                    // 아직 PG에서 처리 중이거나 타임아웃 - Order 복원하여 재결제 가능하게
+                    orderService.restoreOrderToPending(receipt.orderId)
+                    log.debug("Payment pending on PG, order restored: transactionId=$transactionId, status=${pgStatus.status}")
                     false
                 }
 

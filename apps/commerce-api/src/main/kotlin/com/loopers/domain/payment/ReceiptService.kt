@@ -96,6 +96,19 @@ class ReceiptService(
     }
 
     /**
+     * 복구 대상인 Receipt (PENDING, FAILED, TIMEOUT)을 조회합니다.
+     * (생성 후 지정된 시간 이상 경과한 것만)
+     *
+     * @param delayMinutes 최소 경과 시간 (분)
+     * @return 복구 대상 Receipt 목록
+     */
+    fun getReceiptsForRecovery(delayMinutes: Long): List<Receipt> {
+        val threshold = LocalDateTime.now().minusMinutes(delayMinutes)
+        val statuses = listOf(ReceiptStatus.PENDING, ReceiptStatus.FAILED, ReceiptStatus.TIMEOUT)
+        return receiptRepository.findReceiptsForRecovery(statuses, threshold)
+    }
+
+    /**
      * Receipt을 완료 상태로 표시합니다. (복구용)
      */
     @Transactional

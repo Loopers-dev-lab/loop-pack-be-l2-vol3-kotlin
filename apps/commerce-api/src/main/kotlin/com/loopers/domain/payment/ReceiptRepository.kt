@@ -20,5 +20,7 @@ interface ReceiptRepository {
 
     fun findPendingReceiptsCreatedBefore(before: LocalDateTime): List<Receipt>
 
+    fun findReceiptsForRecovery(statuses: List<ReceiptStatus>, before: LocalDateTime): List<Receipt>
+
     fun save(receipt: Receipt): Receipt
 }

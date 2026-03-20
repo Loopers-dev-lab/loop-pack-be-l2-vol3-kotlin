@@ -36,6 +36,9 @@ class ReceiptRepositoryImpl(
     override fun findPendingReceiptsCreatedBefore(before: LocalDateTime): List<Receipt> =
         receiptJpaRepository.findPendingReceiptsCreatedBefore(before)
 
+    override fun findReceiptsForRecovery(statuses: List<ReceiptStatus>, before: LocalDateTime): List<Receipt> =
+        receiptJpaRepository.findReceiptsForRecovery(statuses, before)
+
     override fun save(receipt: Receipt): Receipt =
         receiptJpaRepository.save(receipt)
 }

@@ -78,6 +78,13 @@ class Order protected constructor(
         this.status = OrderStatus.PAYMENT_REQUESTED
     }
 
+    fun restoreToPending() {
+        if (status != OrderStatus.PAYMENT_REQUESTED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "PENDING 복원은 PAYMENT_REQUESTED 상태에서만 가능합니다. 현재 상태: $status")
+        }
+        this.status = OrderStatus.PENDING
+    }
+
     fun delete() {
         deletedAt ?: run { deletedAt = ZonedDateTime.now() }
     }

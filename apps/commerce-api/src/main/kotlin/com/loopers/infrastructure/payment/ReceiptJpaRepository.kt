@@ -31,4 +31,7 @@ interface ReceiptJpaRepository : JpaRepository<Receipt, Long> {
 
     @Query("SELECT r FROM Receipt r WHERE r.status = 'PENDING' AND r.createdAt < :before")
     fun findPendingReceiptsCreatedBefore(before: LocalDateTime): List<Receipt>
+
+    @Query("SELECT r FROM Receipt r WHERE r.status IN :statuses AND r.createdAt < :before")
+    fun findReceiptsForRecovery(statuses: List<ReceiptStatus>, before: LocalDateTime): List<Receipt>
 }
