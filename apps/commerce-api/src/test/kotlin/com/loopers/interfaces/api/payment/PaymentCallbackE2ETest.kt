@@ -56,6 +56,7 @@ class PaymentCallbackE2ETest {
     fun paymentCallback_changeOrderStatus() {
         // given
         val order = Order.create(id = 100L, userId = 1L)
+        order.markAsPaymentRequested() // ✅ Order 상태: PENDING → PAYMENT_REQUESTED
         val savedOrder = orderRepository.save(order)
 
         val receipt = Receipt.create(
@@ -98,6 +99,7 @@ class PaymentCallbackE2ETest {
     fun paymentCallback_idempotency() {
         // given
         val order = Order.create(id = 101L, userId = 1L)
+        order.markAsPaymentRequested() // ✅ Order 상태: PENDING → PAYMENT_REQUESTED
         val savedOrder = orderRepository.save(order)
 
         val receipt = Receipt.create(
@@ -141,7 +143,9 @@ class PaymentCallbackE2ETest {
 
         // then - 두 번째 후에도 상태 변경 없음
         updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+        val finalOrder = orderRepository.findById(savedOrder.id).orElseThrow()
         assert(updatedReceipt?.status == ReceiptStatus.COMPLETED)
+        assert(finalOrder.status == OrderStatus.PAID) // Order 상태도 여전히 PAID
     }
 
     @Test
@@ -149,6 +153,7 @@ class PaymentCallbackE2ETest {
     fun paymentCallback_failedStatus() {
         // given
         val order = Order.create(id = 102L, userId = 1L)
+        order.markAsPaymentRequested() // ✅ Order 상태: PENDING → PAYMENT_REQUESTED
         val savedOrder = orderRepository.save(order)
 
         val receipt = Receipt.create(
@@ -212,6 +217,79 @@ class PaymentCallbackE2ETest {
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
             status { isBadRequest() }
+        }
+    }
+
+    @Test
+    @DisplayName("결제 콜백 - orderId 불일치 시 BadRequest")
+    fun paymentCallback_orderIdMismatch() {
+        // given
+        val order = Order.create(id = 104L, userId = 1L)
+        val savedOrder = orderRepository.save(order)
+
+        val receipt = Receipt.create(
+            orderId = savedOrder.id,
+            transactionId = "TXN001",
+            amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
+        )
+        val savedReceipt = receiptRepository.save(receipt)
+
+        // 잘못된 orderId로 콜백 전송 (Receipt의 orderId=104, 콜백의 orderId=999)
+        val callbackRequest = PaymentCallbackDto.CallbackRequest(
+            transactionKey = savedReceipt.transactionId,
+            // ❌ 다른 orderId
+            orderId = "999",
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9814-1451",
+            amount = savedReceipt.amount.multiply(BigDecimal("100")).longValueExact(),
+            status = TransactionStatus.COMPLETED,
+            reason = null,
+        )
+
+        // when & then
+        mockMvc.post("/api/v1/payments/callback") {
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(callbackRequest)
+        }.andExpect {
+            status { isBadRequest() } // ✅ orderId 불일치로 BadRequest
+        }
+    }
+
+    @Test
+    @DisplayName("결제 콜백 - Order 상태가 PAYMENT_REQUESTED가 아니면 실패")
+    fun paymentCallback_invalidOrderStatus() {
+        // given - Order를 PENDING으로 놔둠 (PAYMENT_REQUESTED로 안 함)
+        val order = Order.create(id = 105L, userId = 1L)
+        val savedOrder = orderRepository.save(order)
+        // Order 상태: PENDING (markAsPaymentRequested() 호출 안 함)
+
+        val receipt = Receipt.create(
+            orderId = savedOrder.id,
+            transactionId = "TXN001",
+            amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
+        )
+        val savedReceipt = receiptRepository.save(receipt)
+
+        val callbackRequest = PaymentCallbackDto.CallbackRequest(
+            transactionKey = savedReceipt.transactionId,
+            orderId = savedOrder.id.toString(),
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9814-1451",
+            amount = savedReceipt.amount.multiply(BigDecimal("100")).longValueExact(),
+            status = TransactionStatus.COMPLETED,
+            reason = null,
+        )
+
+        // when & then
+        mockMvc.post("/api/v1/payments/callback") {
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(callbackRequest)
+        }.andExpect {
+            status { isBadRequest() } // ✅ Order 상태 오류로 BadRequest
         }
     }
 }

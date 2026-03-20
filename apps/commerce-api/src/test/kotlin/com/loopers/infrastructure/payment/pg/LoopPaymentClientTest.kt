@@ -17,6 +17,8 @@ class LoopPaymentClientTest {
         webClient,
         "http://localhost:8083",
         "http://localhost:8080/api/v1/payments/callback",
+        // readTimeoutSec
+        1L,
     )
 
     @Test
