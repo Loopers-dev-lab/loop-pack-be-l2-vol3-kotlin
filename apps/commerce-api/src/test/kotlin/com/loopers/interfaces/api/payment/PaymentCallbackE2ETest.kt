@@ -62,6 +62,8 @@ class PaymentCallbackE2ETest {
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
         val savedReceipt = receiptRepository.save(receipt)
 
@@ -102,6 +104,8 @@ class PaymentCallbackE2ETest {
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
         val savedReceipt = receiptRepository.save(receipt)
 
@@ -151,6 +155,8 @@ class PaymentCallbackE2ETest {
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
         val savedReceipt = receiptRepository.save(receipt)
 
@@ -184,6 +190,8 @@ class PaymentCallbackE2ETest {
             orderId = savedOrder.id,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
         val savedReceipt = receiptRepository.save(receipt)
 

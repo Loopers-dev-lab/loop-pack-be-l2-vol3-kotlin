@@ -27,8 +27,6 @@ class PaymentFacade(
 
         // (2) 주문 상태 변경
         orderService.markOrderAsPaid(command.orderId)
-
-        log.info("Payment completed successfully: orderId={}, transactionId={}", command.orderId, command.transactionId)
     }
 
     @Transactional

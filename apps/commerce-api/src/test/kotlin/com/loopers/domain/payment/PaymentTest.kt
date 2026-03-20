@@ -17,6 +17,8 @@ class PaymentTest {
             orderId = 1L,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
 
         // when
@@ -34,6 +36,8 @@ class PaymentTest {
             orderId = 1L,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
 
         // when & then
@@ -50,6 +54,8 @@ class PaymentTest {
             orderId = 1L,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
         receipt.markAsCompleted(BigDecimal("10000"))
 
@@ -67,6 +73,8 @@ class PaymentTest {
             orderId = 1L,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
 
         // when
@@ -84,6 +92,8 @@ class PaymentTest {
             orderId = 1L,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
 
         // when
@@ -101,6 +111,8 @@ class PaymentTest {
             orderId = 1L,
             transactionId = "TXN001",
             amount = BigDecimal("10000"),
+            cardType = "",
+            cardNo = "",
         )
 
         // then

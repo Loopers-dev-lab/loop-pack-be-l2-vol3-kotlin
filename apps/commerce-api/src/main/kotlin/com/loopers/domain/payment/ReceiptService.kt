@@ -54,8 +54,8 @@ class ReceiptService(
         orderId: Long,
         transactionId: String,
         amount: BigDecimal,
-        cardType: String = "",
-        cardNo: String = "",
+        cardType: String,
+        cardNo: String,
     ): Receipt {
         val receipt = Receipt.create(orderId, transactionId, amount, cardType, cardNo)
         return receiptRepository.save(receipt)

@@ -19,7 +19,7 @@ class PaymentServiceTest {
     @DisplayName("결제를 거래 ID로 조회")
     fun getPaymentByTransactionId_success() {
         // given
-        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"))
+        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"), "", "")
         every { receiptRepository.findByTransactionId("TXN001") } returns receipt
 
         // when
@@ -46,7 +46,7 @@ class PaymentServiceTest {
     @DisplayName("주문 ID로 결제 조회")
     fun getPaymentByOrderId() {
         // given
-        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"))
+        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"), "", "")
         every { receiptRepository.findByOrderId(1L) } returns receipt
 
         // when
@@ -60,7 +60,7 @@ class PaymentServiceTest {
     @DisplayName("결제 저장")
     fun save() {
         // given
-        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"))
+        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"), "", "")
         every { receiptRepository.save(receipt) } returns receipt
 
         // when
@@ -75,11 +75,11 @@ class PaymentServiceTest {
     @DisplayName("결제 시작")
     fun initiateReceipt() {
         // given
-        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"))
+        val receipt = Receipt.create(1L, "TXN001", BigDecimal("10000"), "", "")
         every { receiptRepository.save(any()) } returns receipt
 
         // when
-        val result = receiptService.initiateReceipt(1L, "TXN001", BigDecimal("10000"))
+        val result = receiptService.initiateReceipt(1L, "TXN001", BigDecimal("10000"), "", "")
 
         // then
         assert(result.orderId == 1L)

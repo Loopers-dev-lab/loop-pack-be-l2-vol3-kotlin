@@ -60,8 +60,8 @@ class Receipt protected constructor(
             orderId: Long,
             transactionId: String,
             amount: BigDecimal,
-            cardType: String = "",
-            cardNo: String = "",
+            cardType: String,
+            cardNo: String,
         ): Receipt =
             Receipt(orderId, transactionId, amount, cardType, cardNo)
     }

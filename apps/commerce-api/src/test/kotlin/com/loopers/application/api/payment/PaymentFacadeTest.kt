@@ -97,7 +97,7 @@ class PaymentFacadeTest {
         val userId = 1L
 
         val orderInfo = com.loopers.domain.order.dto.OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-        val existingReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_OLD", BigDecimal("10000"))
+        val existingReceipt = com.loopers.domain.payment.Receipt.create(orderId, "TXN_OLD", BigDecimal("10000"), "", "")
 
         every { orderService.getOrderInfoForPayment(userId, orderId) } returns orderInfo
         every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
