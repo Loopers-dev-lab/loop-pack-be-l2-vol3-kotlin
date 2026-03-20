@@ -6,8 +6,11 @@ import org.springframework.stereotype.Component
 
 @Component("delegatePgClient")
 class PgClientSimulator(
-    private val scenario: Scenario = Scenario.SUCCESS,
+    scenario: Scenario = Scenario.SUCCESS,
 ) : PgClient {
+    @Volatile
+    private var scenario: Scenario = scenario
+
     override fun requestPayment(request: PgPaymentRequest): PgPaymentResponse {
         return when (scenario) {
             Scenario.SUCCESS -> mapSuccess(
@@ -31,6 +34,14 @@ class PgClientSimulator(
                 ),
             )
         }
+    }
+
+    fun setScenario(scenario: Scenario) {
+        this.scenario = scenario
+    }
+
+    fun resetScenario() {
+        this.scenario = Scenario.SUCCESS
     }
 
     private fun mapSuccess(

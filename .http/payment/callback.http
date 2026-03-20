@@ -1,0 +1,23 @@
+### PG approved callback
+POST {{host}}/api/v1/payments/callbacks/pg
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "transactionId": "pg-1",
+  "status": "APPROVED",
+  "failureReason": null,
+  "signature": "replace-with-hmac-signature"
+}
+
+### PG failed callback
+POST {{host}}/api/v1/payments/callbacks/pg
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "transactionId": null,
+  "status": "FAILED",
+  "failureReason": "카드 승인에 실패했습니다.",
+  "signature": "replace-with-hmac-signature"
+}
