@@ -13,6 +13,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.math.RoundingMode
 
 @Component
 class UserRequestPaymentUseCase(
@@ -47,7 +48,7 @@ class UserRequestPaymentUseCase(
                 PgPaymentRequest(
                     orderId = order.id.toString(),
                     userId = user.id,
-                    amount = order.totalPrice.toLong(),
+                    amount = order.totalPrice.setScale(0, RoundingMode.HALF_UP).toLong(),
                     callbackUrl = pgProperties.callbackUrl,
                     cardType = criteria.cardType,
                     cardNo = criteria.cardNo,
