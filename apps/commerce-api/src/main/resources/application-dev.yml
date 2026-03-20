@@ -27,7 +27,7 @@ pg:
 resilience4j:
   circuitbreaker:
     instances:
-      pg-payment:
+      loop-pg-payment:
         registerHealthIndicator: true
         slidingWindowSize: 10
         minimumNumberOfCalls: 5
@@ -41,7 +41,7 @@ resilience4j:
           - java.lang.Exception
   retry:
     instances:
-      pg-payment:
+      loop-pg-payment:
         maxAttempts: 3
         waitDuration: 500ms
         retryExceptions:

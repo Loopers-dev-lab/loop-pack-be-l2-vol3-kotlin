@@ -19,6 +19,7 @@ spring:
 pg:
   loop:
     callback-url: http://localhost:8080/api/v1/payments/callback
+  base-url: http://localhost:8083
 
 datasource:
   mysql-jpa:
@@ -26,6 +27,25 @@ datasource:
       jdbc-url: jdbc:mysql://localhost:3306/loopers
       username: application
       password: application
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      loop-pg-payment:
+        slidingWindowSize: 2
+        minimumNumberOfCalls: 2
+        failureRateThreshold: 50
+        waitDurationInOpenState: 1s
+        automaticTransitionFromOpenToHalfOpenEnabled: false
+        recordExceptions:
+          - java.lang.Exception
+  retry:
+    instances:
+      loop-pg-payment:
+        maxAttempts: 1
+        waitDuration: 0ms
+        retryExceptions:
+          - java.lang.Exception
 
 logging:
   level:
