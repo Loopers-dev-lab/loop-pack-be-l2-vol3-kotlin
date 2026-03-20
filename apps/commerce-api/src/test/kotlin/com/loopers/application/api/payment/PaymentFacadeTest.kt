@@ -41,7 +41,7 @@ class PaymentFacadeTest {
 
             every { orderService.getOrderInfoForPayment(userId, orderId) } returns
                 OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.getReceiptByOrderIdForUpdate(orderId) } returns null
             every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
                 PaymentRequestResult("TXN_001", "100", "SAMSUNG", "1234", 10000L, "COMPLETED", null)
@@ -71,7 +71,7 @@ class PaymentFacadeTest {
 
             every { orderService.getOrderInfoForPayment(userId, orderId) } returns
                 OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.getReceiptByOrderIdForUpdate(orderId) } returns null
             every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
                 PaymentRequestResult("TXN_002", "100", "SAMSUNG", "1234", 10000L, "PENDING", null)
@@ -100,7 +100,7 @@ class PaymentFacadeTest {
 
             every { orderService.getOrderInfoForPayment(userId, orderId) } returns
                 OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.getReceiptByOrderIdForUpdate(orderId) } returns null
             every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
                 PaymentRequestResult("TXN_003", "100", "SAMSUNG", "1234", 10000L, "FAILED", "Card declined")
@@ -128,7 +128,7 @@ class PaymentFacadeTest {
 
             every { orderService.getOrderInfoForPayment(userId, orderId) } returns
                 OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.getReceiptByOrderIdForUpdate(orderId) } returns null
             every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
                 PaymentRequestResult("TXN_004", "100", "SAMSUNG", "1234", 10000L, "CANCELLED", "User cancelled")
@@ -156,7 +156,7 @@ class PaymentFacadeTest {
 
             every { orderService.getOrderInfoForPayment(userId, orderId) } returns
                 OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-            every { receiptService.getReceiptByOrderId(orderId) } returns null
+            every { receiptService.getReceiptByOrderIdForUpdate(orderId) } returns null
             every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } throws
                 RuntimeException("Connection timeout")
@@ -184,7 +184,7 @@ class PaymentFacadeTest {
 
             every { orderService.getOrderInfoForPayment(userId, orderId) } returns
                 OrderInfo(orderId = orderId, amount = BigDecimal("10000"))
-            every { receiptService.getReceiptByOrderId(orderId) } returns existingReceipt
+            every { receiptService.getReceiptByOrderIdForUpdate(orderId) } returns existingReceipt
             every { receiptService.validateReceiptForNewPayment(existingReceipt) } throws
                 CoreException(ErrorType.CONFLICT, "이미 이 주문에 대한 결제가 진행 중입니다")
 

@@ -18,6 +18,9 @@ class ReceiptService(
     fun getReceiptByOrderId(orderId: Long): Receipt? =
         receiptRepository.findByOrderId(orderId)
 
+    fun getReceiptByOrderIdForUpdate(orderId: Long): Receipt? =
+        receiptRepository.findByOrderIdForUpdate(orderId)
+
     fun validateReceiptForNewPayment(receipt: Receipt) {
         when (receipt.status) {
             ReceiptStatus.PENDING -> {

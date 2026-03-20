@@ -1,0 +1,1140 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: load-tests/k6/payment-request.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 50 max VUs, 1m15s max duration (incl. graceful stop):
+              * normal: Up to 50 looping VUs for 1m10s over 4 stages (gracefulRampDown: 5s, gracefulStop: 30s)
+
+
+running (0m01.0s), 00/50 VUs, 0 complete and 0 interrupted iterations
+normal   [   1% ] 00/50 VUs  0m01.0s/1m10.0s
+time="2026-03-20T15:56:37+09:00" level=info msg="Payment Request - Status: 500, Duration: 15ms, User: 324, Order: 99287" source=console
+time="2026-03-20T15:56:38+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 235, Order: 38723" source=console
+
+running (0m02.0s), 01/50 VUs, 1 complete and 0 interrupted iterations
+normal   [   3% ] 01/50 VUs  0m02.0s/1m10.0s
+time="2026-03-20T15:56:38+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 596, Order: 87325" source=console
+time="2026-03-20T15:56:39+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 35, Order: 89392" source=console
+
+running (0m03.0s), 02/50 VUs, 2 complete and 0 interrupted iterations
+normal   [   4% ] 02/50 VUs  0m03.0s/1m10.0s
+time="2026-03-20T15:56:39+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 676, Order: 87901" source=console
+time="2026-03-20T15:56:40+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 998, Order: 48203" source=console
+
+running (0m04.0s), 03/50 VUs, 3 complete and 0 interrupted iterations
+normal   [   6% ] 03/50 VUs  0m04.0s/1m10.0s
+time="2026-03-20T15:56:40+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 273, Order: 24778" source=console
+time="2026-03-20T15:56:41+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 850, Order: 53761" source=console
+time="2026-03-20T15:56:41+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 999, Order: 16426" source=console
+time="2026-03-20T15:56:41+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 39, Order: 93742" source=console
+time="2026-03-20T15:56:41+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 414, Order: 25441" source=console
+
+running (0m05.0s), 04/50 VUs, 7 complete and 0 interrupted iterations
+normal   [   7% ] 04/50 VUs  0m05.0s/1m10.0s
+time="2026-03-20T15:56:41+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 521, Order: 63173" source=console
+time="2026-03-20T15:56:41+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 123, Order: 67343" source=console
+time="2026-03-20T15:56:42+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 514, Order: 87678" source=console
+
+running (0m06.0s), 05/50 VUs, 9 complete and 0 interrupted iterations
+normal   [   9% ] 05/50 VUs  0m06.0s/1m10.0s
+time="2026-03-20T15:56:42+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 550, Order: 79869" source=console
+time="2026-03-20T15:56:43+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 684, Order: 92284" source=console
+time="2026-03-20T15:56:43+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 635, Order: 54841" source=console
+time="2026-03-20T15:56:43+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 52, Order: 65558" source=console
+time="2026-03-20T15:56:43+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 762, Order: 91515" source=console
+
+running (0m07.0s), 06/50 VUs, 13 complete and 0 interrupted iterations
+normal   [  10% ] 06/50 VUs  0m07.0s/1m10.0s
+time="2026-03-20T15:56:43+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 538, Order: 79564" source=console
+time="2026-03-20T15:56:44+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 58, Order: 66495" source=console
+time="2026-03-20T15:56:44+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 994, Order: 7466" source=console
+time="2026-03-20T15:56:44+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 705, Order: 46063" source=console
+time="2026-03-20T15:56:44+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 980, Order: 72932" source=console
+time="2026-03-20T15:56:44+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 511, Order: 61566" source=console
+
+running (0m08.0s), 07/50 VUs, 18 complete and 0 interrupted iterations
+normal   [  11% ] 07/50 VUs  0m08.0s/1m10.0s
+time="2026-03-20T15:56:44+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 577, Order: 20528" source=console
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 256, Order: 1873" source=console
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 221, Order: 25875" source=console
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 34, Order: 21307" source=console
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 598, Order: 28503" source=console
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 97, Order: 75374" source=console
+
+running (0m09.0s), 08/50 VUs, 23 complete and 0 interrupted iterations
+normal   [  13% ] 08/50 VUs  0m09.0s/1m10.0s
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 298, Order: 76948" source=console
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 165, Order: 2847" source=console
+time="2026-03-20T15:56:45+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 252, Order: 30642" source=console
+time="2026-03-20T15:56:46+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 82, Order: 63801" source=console
+time="2026-03-20T15:56:46+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 122, Order: 60084" source=console
+time="2026-03-20T15:56:46+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 804, Order: 85926" source=console
+time="2026-03-20T15:56:46+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 45, Order: 29218" source=console
+time="2026-03-20T15:56:46+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 891, Order: 6954" source=console
+
+running (0m10.0s), 09/50 VUs, 30 complete and 0 interrupted iterations
+normal   [  14% ] 09/50 VUs  0m10.0s/1m10.0s
+time="2026-03-20T15:56:46+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 796, Order: 11605" source=console
+time="2026-03-20T15:56:46+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 470, Order: 80898" source=console
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 572, Order: 80121" source=console
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 285, Order: 88167" source=console
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 408, Order: 31870" source=console
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 763, Order: 49686" source=console
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 434, Order: 37799" source=console
+
+running (0m11.0s), 11/50 VUs, 35 complete and 0 interrupted iterations
+normal   [  16% ] 11/50 VUs  0m11.0s/1m10.0s
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 692, Order: 92142" source=console
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 698, Order: 8872" source=console
+time="2026-03-20T15:56:47+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 805, Order: 69882" source=console
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 785, Order: 87200" source=console
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 822, Order: 30859" source=console
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 487, Order: 39131" source=console
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 466, Order: 1927" source=console
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 686, Order: 983" source=console
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 616, Order: 58782" source=console
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 431, Order: 67249" source=console
+
+running (0m12.0s), 12/50 VUs, 44 complete and 0 interrupted iterations
+normal   [  17% ] 12/50 VUs  0m12.0s/1m10.0s
+time="2026-03-20T15:56:48+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 6, Order: 89180" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 941, Order: 88855" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 589, Order: 17957" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 170, Order: 10812" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 634, Order: 63452" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 901, Order: 67083" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 397, Order: 829" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 309, Order: 59901" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 827, Order: 29452" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 262, Order: 51829" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 195, Order: 61817" source=console
+
+running (0m13.0s), 13/50 VUs, 54 complete and 0 interrupted iterations
+normal   [  19% ] 13/50 VUs  0m13.0s/1m10.0s
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 70, Order: 42274" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 678, Order: 56076" source=console
+time="2026-03-20T15:56:49+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 261, Order: 1010" source=console
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 949, Order: 52792" source=console
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 279, Order: 5818" source=console
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 627, Order: 42298" source=console
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 841, Order: 35132" source=console
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 522, Order: 6524" source=console
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 275, Order: 6148" source=console
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 98, Order: 94793" source=console
+
+running (0m14.0s), 15/50 VUs, 62 complete and 0 interrupted iterations
+normal   [  20% ] 15/50 VUs  0m14.0s/1m10.0s
+time="2026-03-20T15:56:50+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 152, Order: 8739" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 12ms, User: 731, Order: 52270" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 734, Order: 63124" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 69, Order: 75507" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 555, Order: 63415" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 136, Order: 48726" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 695, Order: 32443" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 32, Order: 1760" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 253, Order: 57519" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 379, Order: 10210" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 297, Order: 78323" source=console
+
+running (0m15.0s), 16/50 VUs, 72 complete and 0 interrupted iterations
+normal   [  21% ] 16/50 VUs  0m15.0s/1m10.0s
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 25, Order: 17876" source=console
+time="2026-03-20T15:56:51+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 671, Order: 11714" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 906, Order: 63321" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 730, Order: 91258" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 753, Order: 79794" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 46, Order: 36610" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 564, Order: 30163" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 176, Order: 67045" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 651, Order: 35753" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 228, Order: 69494" source=console
+
+running (0m16.0s), 17/50 VUs, 81 complete and 0 interrupted iterations
+normal   [  23% ] 17/50 VUs  0m16.0s/1m10.0s
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 905, Order: 61656" source=console
+time="2026-03-20T15:56:52+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 817, Order: 61527" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 8ms, User: 296, Order: 43236" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 206, Order: 5317" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 961, Order: 32018" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 333, Order: 83799" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 734, Order: 72353" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 663, Order: 96880" source=console
+
+running (0m17.0s), 19/50 VUs, 88 complete and 0 interrupted iterations
+normal   [  24% ] 19/50 VUs  0m17.0s/1m10.0s
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 497, Order: 21791" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 359, Order: 85768" source=console
+time="2026-03-20T15:56:53+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 517, Order: 54403" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 42, Order: 76503" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 598, Order: 45577" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 72, Order: 55708" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 751, Order: 52965" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 397, Order: 81282" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 299, Order: 49944" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 374, Order: 19144" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 929, Order: 3886" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 7ms, User: 778, Order: 1844" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 878, Order: 26841" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 871, Order: 10675" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 123, Order: 76157" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 422, Order: 20282" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 149, Order: 6862" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 795, Order: 52195" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 268, Order: 59744" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 932, Order: 29615" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 792, Order: 38147" source=console
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 688, Order: 75916" source=console
+
+running (0m18.0s), 20/50 VUs, 108 complete and 0 interrupted iterations
+normal   [  26% ] 20/50 VUs  0m18.0s/1m10.0s
+time="2026-03-20T15:56:54+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 208, Order: 12032" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 383, Order: 98892" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 583, Order: 78357" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 659, Order: 79811" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 847, Order: 75288" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 252, Order: 93292" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 898, Order: 60994" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 454, Order: 56044" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 560, Order: 60113" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 182, Order: 49232" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 61, Order: 67168" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 679, Order: 83494" source=console
+
+running (0m19.0s), 21/50 VUs, 119 complete and 0 interrupted iterations
+normal   [  27% ] 21/50 VUs  0m19.0s/1m10.0s
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 226, Order: 77599" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 723, Order: 37863" source=console
+time="2026-03-20T15:56:55+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 307, Order: 49569" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 486, Order: 25347" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 331, Order: 3143" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 321, Order: 26415" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 270, Order: 53302" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 998, Order: 30828" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 900, Order: 94059" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 949, Order: 73048" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 728, Order: 22483" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 371, Order: 42509" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 438, Order: 10987" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 801, Order: 63540" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 505, Order: 87742" source=console
+
+running (0m20.0s), 23/50 VUs, 132 complete and 0 interrupted iterations
+normal   [  29% ] 23/50 VUs  0m20.0s/1m10.0s
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 48, Order: 98347" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 557, Order: 89691" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 995, Order: 61904" source=console
+time="2026-03-20T15:56:56+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 146, Order: 71966" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 234, Order: 5787" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 967, Order: 54944" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 704, Order: 99240" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 613, Order: 64520" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 959, Order: 68773" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 848, Order: 11426" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 390, Order: 35878" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 928, Order: 19969" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 612, Order: 7913" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 407, Order: 60606" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 37, Order: 85247" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 263, Order: 2731" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 909, Order: 36538" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 690, Order: 56037" source=console
+
+running (0m21.0s), 24/50 VUs, 150 complete and 0 interrupted iterations
+normal   [  30% ] 24/50 VUs  0m21.0s/1m10.0s
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 263, Order: 39255" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 656, Order: 92469" source=console
+time="2026-03-20T15:56:57+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 61, Order: 69391" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 891, Order: 39816" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 994, Order: 62030" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 950, Order: 88362" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 448, Order: 83381" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 718, Order: 17685" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 104, Order: 41118" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 193, Order: 36182" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 819, Order: 7483" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 400, Order: 20073" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 84, Order: 77861" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 569, Order: 19415" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 665, Order: 75698" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 675, Order: 82724" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 445, Order: 22407" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 913, Order: 28615" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 887, Order: 14565" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 769, Order: 90674" source=console
+
+running (0m22.0s), 25/50 VUs, 168 complete and 0 interrupted iterations
+normal   [  31% ] 25/50 VUs  0m22.0s/1m10.0s
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 875, Order: 70554" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 619, Order: 69025" source=console
+time="2026-03-20T15:56:58+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 516, Order: 60531" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 66, Order: 40538" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 255, Order: 34185" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 38, Order: 62377" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 487, Order: 53667" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 987, Order: 5028" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 442, Order: 66369" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 221, Order: 63442" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 832, Order: 5209" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 305, Order: 35731" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 951, Order: 58513" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 190, Order: 5156" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 684, Order: 85335" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 293, Order: 9606" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 754, Order: 8989" source=console
+
+running (0m23.0s), 27/50 VUs, 184 complete and 0 interrupted iterations
+normal   [  33% ] 27/50 VUs  0m23.0s/1m10.0s
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 48, Order: 26863" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 448, Order: 68879" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 9, Order: 80505" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 782, Order: 22025" source=console
+time="2026-03-20T15:56:59+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 226, Order: 36904" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 272, Order: 13600" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 38, Order: 98786" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 830, Order: 80212" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 797, Order: 30514" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 72, Order: 60819" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 227, Order: 92068" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 430, Order: 50760" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 917, Order: 22634" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 930, Order: 2842" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 974, Order: 90201" source=console
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 489, Order: 40815" source=console
+
+running (0m24.0s), 28/50 VUs, 198 complete and 0 interrupted iterations
+normal   [  34% ] 28/50 VUs  0m24.0s/1m10.0s
+time="2026-03-20T15:57:00+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 895, Order: 14803" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 104, Order: 7779" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 480, Order: 77290" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 522, Order: 63165" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 833, Order: 26568" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 477, Order: 8044" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 632, Order: 476" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 854, Order: 24296" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 123, Order: 21959" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 712, Order: 29283" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 338, Order: 15560" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 715, Order: 90778" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 881, Order: 94496" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 166, Order: 44118" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 193, Order: 67293" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 762, Order: 72475" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 988, Order: 29414" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 35, Order: 11562" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 651, Order: 49809" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 278, Order: 78461" source=console
+
+running (0m25.0s), 29/50 VUs, 217 complete and 0 interrupted iterations
+normal   [  36% ] 29/50 VUs  0m25.0s/1m10.0s
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 475, Order: 70674" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 744, Order: 20619" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 48, Order: 71033" source=console
+time="2026-03-20T15:57:01+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 745, Order: 5040" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 460, Order: 31179" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 762, Order: 21685" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 201, Order: 38586" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 829, Order: 186" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 371, Order: 82268" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 534, Order: 72819" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 163, Order: 20890" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 211, Order: 56118" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 242, Order: 57178" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 871, Order: 25114" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 849, Order: 95482" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 572, Order: 17287" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 578, Order: 87045" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 987, Order: 40959" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 285, Order: 36111" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 361, Order: 94442" source=console
+
+running (0m26.0s), 31/50 VUs, 235 complete and 0 interrupted iterations
+normal   [  37% ] 31/50 VUs  0m26.0s/1m10.0s
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 771, Order: 75313" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 150, Order: 63284" source=console
+time="2026-03-20T15:57:02+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 516, Order: 54617" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 529, Order: 62690" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 833, Order: 62930" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 214, Order: 46451" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 999, Order: 69523" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 350, Order: 12223" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 472, Order: 97015" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 59, Order: 17829" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 9ms, User: 955, Order: 47123" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 722, Order: 81460" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 112, Order: 66338" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 262, Order: 67618" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 880, Order: 62471" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 436, Order: 71353" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 384, Order: 82724" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 862, Order: 85382" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 209, Order: 89796" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 368, Order: 94864" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 930, Order: 7135" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 895, Order: 23663" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 539, Order: 21666" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 272, Order: 92040" source=console
+
+running (0m27.0s), 32/50 VUs, 258 complete and 0 interrupted iterations
+normal   [  39% ] 32/50 VUs  0m27.0s/1m10.0s
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 151, Order: 27493" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 638, Order: 81894" source=console
+time="2026-03-20T15:57:03+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 454, Order: 34197" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 128, Order: 98935" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 492, Order: 19588" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 394, Order: 12122" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 246, Order: 22154" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 739, Order: 63288" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 615, Order: 32390" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 337, Order: 60568" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 579, Order: 3425" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 899, Order: 43214" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 114, Order: 58538" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 22, Order: 5396" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 527, Order: 33022" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 773, Order: 18425" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 722, Order: 24196" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 77, Order: 7356" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 358, Order: 51232" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 330, Order: 78459" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 373, Order: 38463" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 465, Order: 17458" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 460, Order: 2081" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 628, Order: 91107" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 468, Order: 57631" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 286, Order: 43411" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 8, Order: 67866" source=console
+
+running (0m28.0s), 33/50 VUs, 284 complete and 0 interrupted iterations
+normal   [  40% ] 33/50 VUs  0m28.0s/1m10.0s
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 837, Order: 54175" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 615, Order: 92475" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 826, Order: 153" source=console
+time="2026-03-20T15:57:04+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 911, Order: 43761" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 255, Order: 42294" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 91, Order: 48632" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 999, Order: 80855" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 773, Order: 94884" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 563, Order: 50481" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 62, Order: 22172" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 354, Order: 17793" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 409, Order: 68102" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 669, Order: 62785" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 87, Order: 36716" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 778, Order: 71493" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 756, Order: 60886" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 292, Order: 83218" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 704, Order: 30079" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 40, Order: 68305" source=console
+
+running (0m29.0s), 35/50 VUs, 301 complete and 0 interrupted iterations
+normal   [  41% ] 35/50 VUs  0m29.0s/1m10.0s
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 420, Order: 38199" source=console
+time="2026-03-20T15:57:05+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 114, Order: 19359" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 676, Order: 41827" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 234, Order: 27989" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 457, Order: 77287" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 309, Order: 36422" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 462, Order: 50993" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 333, Order: 70451" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 42, Order: 82721" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 673, Order: 43618" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 993, Order: 92849" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 383, Order: 27191" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 248, Order: 86503" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 220, Order: 81663" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 545, Order: 41163" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 89, Order: 97276" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 778, Order: 57932" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 335, Order: 81032" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 472, Order: 91822" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 373, Order: 92894" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 341, Order: 42208" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 952, Order: 7561" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 181, Order: 683" source=console
+
+running (0m30.0s), 36/50 VUs, 323 complete and 0 interrupted iterations
+normal   [  43% ] 36/50 VUs  0m30.0s/1m10.0s
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 491, Order: 65219" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 758, Order: 58467" source=console
+time="2026-03-20T15:57:06+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 99, Order: 29924" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 557, Order: 56044" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 907, Order: 71805" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 492, Order: 55445" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 534, Order: 6152" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 675, Order: 22047" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 640, Order: 83290" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 20, Order: 17212" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 933, Order: 71147" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 593, Order: 30898" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 310, Order: 25058" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 814, Order: 85326" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 714, Order: 31364" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 843, Order: 81374" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 351, Order: 90501" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 408, Order: 82923" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 803, Order: 96100" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 367, Order: 20110" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 730, Order: 40957" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 471, Order: 82757" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 776, Order: 10075" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 158, Order: 28893" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 92, Order: 73744" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 182, Order: 47775" source=console
+
+running (0m31.0s), 37/50 VUs, 348 complete and 0 interrupted iterations
+normal   [  44% ] 37/50 VUs  0m31.0s/1m10.0s
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 604, Order: 77646" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 749, Order: 13837" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 452, Order: 42507" source=console
+time="2026-03-20T15:57:07+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 894, Order: 71303" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 488, Order: 40173" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 289, Order: 42113" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 58, Order: 54308" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 792, Order: 23419" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 82, Order: 69661" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 946, Order: 82847" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 605, Order: 1494" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 989, Order: 80519" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 517, Order: 81991" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 488, Order: 66984" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 403, Order: 437" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 768, Order: 4083" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 470, Order: 84081" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 102, Order: 23303" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 735, Order: 70717" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 172, Order: 30153" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 111, Order: 71419" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 102, Order: 56902" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 710, Order: 79317" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 257, Order: 6991" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 946, Order: 56028" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 368, Order: 78274" source=console
+
+running (0m32.0s), 39/50 VUs, 373 complete and 0 interrupted iterations
+normal   [  46% ] 39/50 VUs  0m32.0s/1m10.0s
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 942, Order: 62926" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 362, Order: 84252" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 622, Order: 44398" source=console
+time="2026-03-20T15:57:08+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 203, Order: 14020" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 50, Order: 6198" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 358, Order: 60821" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 491, Order: 79289" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 51, Order: 90331" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 805, Order: 7404" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 600, Order: 37506" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 81, Order: 60194" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 69, Order: 62472" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 510, Order: 69578" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 636, Order: 65108" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 947, Order: 40547" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 950, Order: 62788" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 490, Order: 50548" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 804, Order: 8045" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 784, Order: 69863" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 436, Order: 97364" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 776, Order: 73737" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 542, Order: 16160" source=console
+
+running (0m33.0s), 40/50 VUs, 393 complete and 0 interrupted iterations
+normal   [  47% ] 40/50 VUs  0m33.0s/1m10.0s
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 673, Order: 57600" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 136, Order: 14465" source=console
+time="2026-03-20T15:57:09+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 718, Order: 48450" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 551, Order: 36388" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 87, Order: 52169" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 728, Order: 85500" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 366, Order: 67401" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 42, Order: 33241" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 906, Order: 73708" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 205, Order: 7341" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 594, Order: 6884" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 382, Order: 97218" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 111, Order: 97821" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 458, Order: 68229" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 940, Order: 36852" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 605, Order: 82690" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 324, Order: 9753" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 418, Order: 14442" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 254, Order: 78864" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 436, Order: 63478" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 331, Order: 31568" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 718, Order: 59553" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 814, Order: 4450" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 555, Order: 67015" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 616, Order: 3776" source=console
+
+running (0m34.0s), 41/50 VUs, 417 complete and 0 interrupted iterations
+normal   [  49% ] 41/50 VUs  0m34.0s/1m10.0s
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 970, Order: 99829" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 234, Order: 8879" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 118, Order: 17077" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 750, Order: 40997" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 141, Order: 98306" source=console
+time="2026-03-20T15:57:10+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 135, Order: 28910" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 516, Order: 70897" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 461, Order: 58319" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 502, Order: 98959" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 361, Order: 16042" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 545, Order: 27828" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 631, Order: 4194" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 7ms, User: 851, Order: 14833" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 973, Order: 10501" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 330, Order: 51675" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 846, Order: 57427" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 388, Order: 73124" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 453, Order: 60330" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 933, Order: 54399" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 288, Order: 80546" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 431, Order: 36108" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 372, Order: 40332" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 208, Order: 6026" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 349, Order: 78691" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 858, Order: 79889" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 169, Order: 22378" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 464, Order: 98568" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 282, Order: 88903" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 346, Order: 71458" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 825, Order: 41984" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 952, Order: 57740" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 769, Order: 28496" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 437, Order: 24589" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 15, Order: 24893" source=console
+
+running (0m35.0s), 43/50 VUs, 449 complete and 0 interrupted iterations
+normal   [  50% ] 43/50 VUs  0m35.0s/1m10.0s
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 26, Order: 98570" source=console
+time="2026-03-20T15:57:11+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 545, Order: 47510" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 999, Order: 74324" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 575, Order: 75159" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 700, Order: 47676" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 912, Order: 36164" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 512, Order: 4365" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 361, Order: 24707" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 1000, Order: 45373" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 449, Order: 99622" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 172, Order: 33181" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 838, Order: 94765" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 561, Order: 18427" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 378, Order: 82243" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 500, Order: 78690" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 954, Order: 14024" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 626, Order: 83725" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 614, Order: 27217" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 115, Order: 91082" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 193, Order: 46445" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 55, Order: 78743" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 642, Order: 66337" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 379, Order: 83170" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 593, Order: 16580" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 571, Order: 37290" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 790, Order: 93452" source=console
+
+running (0m36.0s), 44/50 VUs, 474 complete and 0 interrupted iterations
+normal   [  51% ] 44/50 VUs  0m36.0s/1m10.0s
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 616, Order: 1620" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 825, Order: 78094" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 892, Order: 51658" source=console
+time="2026-03-20T15:57:12+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 954, Order: 54933" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 638, Order: 82705" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 952, Order: 50816" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 477, Order: 23690" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 221, Order: 58956" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 918, Order: 84810" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 819, Order: 49669" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 776, Order: 38661" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 985, Order: 77248" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 432, Order: 844" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 838, Order: 97530" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 314, Order: 43591" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 259, Order: 80279" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 393, Order: 67422" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 976, Order: 83547" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 60, Order: 66270" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 3, Order: 52211" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 155, Order: 12689" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 684, Order: 21682" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 243, Order: 17103" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 250, Order: 68146" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 448, Order: 53495" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 237, Order: 81882" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 783, Order: 96290" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 150, Order: 76943" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 987, Order: 7060" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 285, Order: 30287" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 370, Order: 20677" source=console
+
+running (0m37.0s), 45/50 VUs, 504 complete and 0 interrupted iterations
+normal   [  53% ] 45/50 VUs  0m37.0s/1m10.0s
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 471, Order: 32501" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 366, Order: 93239" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 660, Order: 57510" source=console
+time="2026-03-20T15:57:13+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 185, Order: 58404" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 926, Order: 43136" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 550, Order: 18110" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 736, Order: 47459" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 764, Order: 14169" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 957, Order: 2558" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 295, Order: 94503" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 981, Order: 19082" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 392, Order: 82113" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 633, Order: 54399" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 308, Order: 43250" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 119, Order: 89166" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 742, Order: 69050" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 817, Order: 31426" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 760, Order: 62497" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 318, Order: 3756" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 901, Order: 61033" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 649, Order: 16169" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 797, Order: 92652" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 210, Order: 21834" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 915, Order: 32659" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 889, Order: 72868" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 222, Order: 29738" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 369, Order: 62119" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 102, Order: 43486" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 671, Order: 44521" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 223, Order: 79812" source=console
+
+running (0m38.0s), 47/50 VUs, 533 complete and 0 interrupted iterations
+normal   [  54% ] 47/50 VUs  0m38.0s/1m10.0s
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 886, Order: 97533" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 596, Order: 42540" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 405, Order: 7191" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 32, Order: 99267" source=console
+time="2026-03-20T15:57:14+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 890, Order: 82618" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 284, Order: 29345" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 922, Order: 1117" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 976, Order: 49967" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 617, Order: 20934" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 341, Order: 59148" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 556, Order: 61922" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 355, Order: 4355" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 838, Order: 65654" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 259, Order: 29747" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 730, Order: 98800" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 16, Order: 71151" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 579, Order: 1655" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 859, Order: 30582" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 981, Order: 46523" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 377, Order: 14124" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 781, Order: 86805" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 909, Order: 59409" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 558, Order: 85829" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 263, Order: 93560" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 440, Order: 69592" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 396, Order: 25005" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 195, Order: 64174" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 624, Order: 89589" source=console
+
+running (0m39.0s), 48/50 VUs, 559 complete and 0 interrupted iterations
+normal   [  56% ] 48/50 VUs  0m39.0s/1m10.0s
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 47, Order: 43274" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 938, Order: 18772" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 323, Order: 84824" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 587, Order: 33949" source=console
+time="2026-03-20T15:57:15+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 241, Order: 76539" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 822, Order: 96064" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 292, Order: 16437" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 412, Order: 91568" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 231, Order: 90624" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 944, Order: 70073" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 873, Order: 96440" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 212, Order: 49605" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 803, Order: 19070" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 717, Order: 75951" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 134, Order: 82253" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 761, Order: 7068" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 91, Order: 47080" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 571, Order: 84284" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 543, Order: 57210" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 164, Order: 20457" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 993, Order: 80769" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 423, Order: 63393" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 994, Order: 26173" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 968, Order: 98523" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 163, Order: 89320" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 947, Order: 27913" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 603, Order: 82566" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 165, Order: 24570" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 272, Order: 53806" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 462, Order: 28153" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 813, Order: 73147" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 442, Order: 58054" source=console
+
+running (0m40.0s), 49/50 VUs, 590 complete and 0 interrupted iterations
+normal   [  57% ] 49/50 VUs  0m40.0s/1m10.0s
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 433, Order: 1820" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 64, Order: 90178" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 980, Order: 88302" source=console
+time="2026-03-20T15:57:16+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 268, Order: 68538" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 836, Order: 41527" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 25ms, User: 148, Order: 68661" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 11ms, User: 311, Order: 73627" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 363, Order: 63351" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 388, Order: 68433" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 103, Order: 28226" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 99, Order: 64230" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 0ms, User: 992, Order: 16843" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 231, Order: 19317" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 859, Order: 1749" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 706, Order: 53167" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 312, Order: 70202" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 891, Order: 2962" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 351, Order: 85529" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 793, Order: 82985" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 34, Order: 91869" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 130, Order: 88640" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 632, Order: 42415" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 954, Order: 11409" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 873, Order: 5210" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 26, Order: 45336" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 332, Order: 88209" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 690, Order: 14025" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 750, Order: 76709" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 878, Order: 932" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 648, Order: 69671" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 768, Order: 15026" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 998, Order: 60239" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 414, Order: 45220" source=console
+
+running (0m41.0s), 50/50 VUs, 622 complete and 0 interrupted iterations
+normal   [  59% ] 50/50 VUs  0m41.0s/1m10.0s
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 77, Order: 82307" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 971, Order: 2465" source=console
+time="2026-03-20T15:57:17+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 821, Order: 60635" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 805, Order: 49003" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 214, Order: 81903" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 485, Order: 47669" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 733, Order: 78243" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 724, Order: 43264" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 794, Order: 96346" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 119, Order: 67290" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 666, Order: 13104" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 659, Order: 5891" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 395, Order: 36623" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 368, Order: 56799" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 868, Order: 94326" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 787, Order: 70784" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 730, Order: 84177" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 788, Order: 46437" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 396, Order: 68876" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 818, Order: 35513" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 402, Order: 52299" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 496, Order: 48952" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 599, Order: 22798" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 99, Order: 97153" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 279, Order: 69004" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 651, Order: 61957" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 633, Order: 51543" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 557, Order: 2877" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 140, Order: 63826" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 641, Order: 70177" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 836, Order: 8953" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 73, Order: 30252" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 341, Order: 66993" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 503, Order: 34766" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 30, Order: 46824" source=console
+
+running (0m42.0s), 48/50 VUs, 659 complete and 0 interrupted iterations
+normal   [  60% ] 48/50 VUs  0m42.0s/1m10.0s
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 649, Order: 50708" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 98, Order: 48050" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 443, Order: 60518" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 78, Order: 16729" source=console
+time="2026-03-20T15:57:18+09:00" level=info msg="Payment Request - Status: 500, Duration: 9ms, User: 256, Order: 20898" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 929, Order: 23270" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 72, Order: 61795" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 902, Order: 37973" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 367, Order: 43230" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 922, Order: 83172" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 928, Order: 66067" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 977, Order: 95614" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 421, Order: 72491" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 957, Order: 98064" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 804, Order: 12482" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 531, Order: 19938" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 897, Order: 26941" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 429, Order: 55249" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 819, Order: 90993" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 776, Order: 23300" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 965, Order: 81354" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 589, Order: 18639" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 980, Order: 69239" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 495, Order: 40590" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 404, Order: 6705" source=console
+
+running (0m43.0s), 47/50 VUs, 685 complete and 0 interrupted iterations
+normal   [  61% ] 47/50 VUs  0m43.0s/1m10.0s
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 307, Order: 20336" source=console
+time="2026-03-20T15:57:19+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 486, Order: 347" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 991, Order: 63992" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 321, Order: 94471" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 356, Order: 63545" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 467, Order: 71240" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 397, Order: 47006" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 576, Order: 97085" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 999, Order: 68471" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 810, Order: 172" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 978, Order: 454" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 464, Order: 78735" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 841, Order: 24730" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 457, Order: 25503" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 336, Order: 40918" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 705, Order: 83296" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 106, Order: 95671" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 136, Order: 45790" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 922, Order: 80771" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 412, Order: 71197" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 208, Order: 47454" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 96, Order: 95674" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 41, Order: 16737" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 5, Order: 98310" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 20, Order: 6252" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 308, Order: 910" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 48, Order: 99925" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 681, Order: 90470" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 810, Order: 46340" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 346, Order: 60762" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 516, Order: 76248" source=console
+time="2026-03-20T15:57:20+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 251, Order: 4863" source=console
+
+running (0m44.0s), 43/50 VUs, 721 complete and 0 interrupted iterations
+normal   [  63% ] 43/50 VUs  0m44.0s/1m10.0s
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 111, Order: 24317" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 364, Order: 75439" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 364, Order: 58087" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 658, Order: 25200" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 405, Order: 50437" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 7, Order: 32271" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 594, Order: 4434" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 910, Order: 56674" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 820, Order: 20000" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 682, Order: 78705" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 155, Order: 65010" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 716, Order: 28513" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 358, Order: 30169" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 948, Order: 45587" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 405, Order: 31743" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 414, Order: 36868" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 471, Order: 85329" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 549, Order: 96090" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 473, Order: 77454" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 861, Order: 35361" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 48, Order: 22654" source=console
+
+running (0m45.0s), 43/50 VUs, 743 complete and 0 interrupted iterations
+normal   [  64% ] 43/50 VUs  0m45.0s/1m10.0s
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 110, Order: 55437" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 829, Order: 94079" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 667, Order: 15767" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 275, Order: 71744" source=console
+time="2026-03-20T15:57:21+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 388, Order: 73636" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 852, Order: 37657" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 452, Order: 24079" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 617, Order: 91896" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 254, Order: 11916" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 102, Order: 98216" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 248, Order: 96093" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 100, Order: 34267" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 849, Order: 4675" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 967, Order: 69567" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 383, Order: 65015" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 75, Order: 32949" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 73, Order: 67781" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 417, Order: 84010" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 464, Order: 88331" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 521, Order: 19732" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 75, Order: 76048" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 535, Order: 47216" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 958, Order: 71185" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 601, Order: 19895" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 344, Order: 62808" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 254, Order: 54077" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 909, Order: 15340" source=console
+
+running (0m46.0s), 41/50 VUs, 771 complete and 0 interrupted iterations
+normal   [  66% ] 41/50 VUs  0m46.0s/1m10.0s
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 930, Order: 56486" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 285, Order: 54234" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 546, Order: 96340" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 634, Order: 63904" source=console
+time="2026-03-20T15:57:22+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 888, Order: 59963" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 662, Order: 36407" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 508, Order: 15737" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 550, Order: 72880" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 10ms, User: 783, Order: 92717" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 196, Order: 92479" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 762, Order: 20442" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 877, Order: 57411" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 972, Order: 12875" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 159, Order: 91352" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 949, Order: 99846" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 706, Order: 48964" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 383, Order: 10844" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 228, Order: 58953" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 863, Order: 54944" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 944, Order: 33545" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 743, Order: 98303" source=console
+
+running (0m47.0s), 38/50 VUs, 795 complete and 0 interrupted iterations
+normal   [  67% ] 38/50 VUs  0m47.0s/1m10.0s
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 599, Order: 74339" source=console
+time="2026-03-20T15:57:23+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 418, Order: 77527" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 1000, Order: 72342" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 469, Order: 10660" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 334, Order: 59871" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 467, Order: 83976" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 296, Order: 30386" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 604, Order: 93423" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 837, Order: 6377" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 46, Order: 3172" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 863, Order: 62846" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 227, Order: 34962" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 323, Order: 46993" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 317, Order: 93604" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 943, Order: 82143" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 99, Order: 57622" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 529, Order: 54700" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 412, Order: 44780" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 574, Order: 98602" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 472, Order: 64138" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 32, Order: 93504" source=console
+
+running (0m48.0s), 37/50 VUs, 817 complete and 0 interrupted iterations
+normal   [  69% ] 37/50 VUs  0m48.0s/1m10.0s
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 144, Order: 90850" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 239, Order: 51947" source=console
+time="2026-03-20T15:57:24+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 611, Order: 56329" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 253, Order: 34477" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 749, Order: 44565" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 873, Order: 63011" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 893, Order: 4630" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 845, Order: 8086" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 297, Order: 61543" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 175, Order: 41300" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 306, Order: 83270" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 7ms, User: 164, Order: 15715" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 326, Order: 24679" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 239, Order: 38593" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 935, Order: 80896" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 857, Order: 514" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 716, Order: 12390" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 463, Order: 15055" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 287, Order: 23054" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 754, Order: 22259" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 893, Order: 5704" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 952, Order: 92451" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 138, Order: 43613" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 290, Order: 8739" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 149, Order: 80848" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 769, Order: 23382" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 782, Order: 77136" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 161, Order: 38975" source=console
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 513, Order: 18257" source=console
+
+running (0m49.0s), 34/50 VUs, 849 complete and 0 interrupted iterations
+normal   [  70% ] 34/50 VUs  0m49.0s/1m10.0s
+time="2026-03-20T15:57:25+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 665, Order: 4228" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 282, Order: 20521" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 373, Order: 56152" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 903, Order: 69958" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 801, Order: 26225" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 798, Order: 5681" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 881, Order: 23278" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 996, Order: 37439" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 701, Order: 28629" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 180, Order: 70104" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 639, Order: 66263" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 73, Order: 26216" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 136, Order: 34241" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 695, Order: 63316" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 675, Order: 86303" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 206, Order: 44733" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 110, Order: 18648" source=console
+time="2026-03-20T15:57:26+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 559, Order: 2216" source=console
+
+running (0m50.0s), 32/50 VUs, 869 complete and 0 interrupted iterations
+normal   [  71% ] 32/50 VUs  0m50.0s/1m10.0s
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 712, Order: 10538" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 943, Order: 95786" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 269, Order: 28387" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 757, Order: 96273" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 6ms, User: 437, Order: 83506" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 293, Order: 14123" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 874, Order: 46339" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 120, Order: 84813" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 99, Order: 55923" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 420, Order: 34781" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 863, Order: 18797" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 379, Order: 69908" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 591, Order: 63639" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 935, Order: 34735" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 401, Order: 14943" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 7, Order: 24019" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 309, Order: 43902" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 133, Order: 42555" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 499, Order: 62010" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 707, Order: 50998" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 844, Order: 72687" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 580, Order: 56234" source=console
+
+running (0m51.0s), 29/50 VUs, 894 complete and 0 interrupted iterations
+normal   [  73% ] 29/50 VUs  0m51.0s/1m10.0s
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 286, Order: 29554" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 646, Order: 70640" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 523, Order: 47144" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 809, Order: 27311" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 793, Order: 74071" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 611, Order: 34264" source=console
+time="2026-03-20T15:57:27+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 619, Order: 71374" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 801, Order: 13679" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 4ms, User: 312, Order: 51889" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 942, Order: 6069" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 874, Order: 77865" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 230, Order: 44960" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 99, Order: 30135" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 225, Order: 12753" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 87, Order: 24602" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 239, Order: 5780" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 440, Order: 25005" source=console
+
+running (0m52.0s), 28/50 VUs, 912 complete and 0 interrupted iterations
+normal   [  74% ] 28/50 VUs  0m52.0s/1m10.0s
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 203, Order: 50226" source=console
+time="2026-03-20T15:57:28+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 403, Order: 36405" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 248, Order: 42152" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 229, Order: 74269" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 226, Order: 35187" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 685, Order: 27640" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 734, Order: 17916" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 849, Order: 45071" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 859, Order: 21840" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 215, Order: 81807" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 13, Order: 30696" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 3ms, User: 374, Order: 63613" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 5ms, User: 414, Order: 61782" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 317, Order: 42601" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 454, Order: 26300" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 979, Order: 38777" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 14, Order: 21514" source=console
+
+running (0m53.0s), 26/50 VUs, 931 complete and 0 interrupted iterations
+normal   [  76% ] 26/50 VUs  0m53.0s/1m10.0s
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 802, Order: 99358" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 273, Order: 77365" source=console
+time="2026-03-20T15:57:29+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 780, Order: 2742" source=console
+time="2026-03-20T15:57:30+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 232, Order: 5708" source=console
+time="2026-03-20T15:57:30+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 238, Order: 29113" source=console
+time="2026-03-20T15:57:30+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 613, Order: 54728" source=console
+time="2026-03-20T15:57:30+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 557, Order: 1893" source=console
+time="2026-03-20T15:57:30+09:00" level=info msg="Payment Request - Status: 500, Duration: 1ms, User: 198, Order: 34619" source=console
+time="2026-03-20T15:57:30+09:00" level=info msg="Payment Request - Status: 500, Duration: 2ms, User: 668, Order: 83255" source=console

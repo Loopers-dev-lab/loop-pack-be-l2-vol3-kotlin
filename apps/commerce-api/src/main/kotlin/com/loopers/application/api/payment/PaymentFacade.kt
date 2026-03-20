@@ -36,9 +36,11 @@ class PaymentFacade(
         cardType: String,
         cardNo: String,
     ): ReceiptInfo {
+        // ✅ Pessimistic Lock: Order 행 잠금
         val orderInfo = orderService.getOrderInfoForPayment(userId, orderId)
 
-        val existingReceipt = receiptService.getReceiptByOrderId(orderId)
+        // ✅ Pessimistic Lock: Receipt 행 잠금 (동시 결제 요청 방지)
+        val existingReceipt = receiptService.getReceiptByOrderIdForUpdate(orderId)
         if (existingReceipt != null) {
             receiptService.validateReceiptForNewPayment(existingReceipt)
         }
