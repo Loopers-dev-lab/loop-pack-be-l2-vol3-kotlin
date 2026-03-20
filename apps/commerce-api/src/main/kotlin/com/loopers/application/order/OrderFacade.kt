@@ -10,6 +10,8 @@ import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.transaction.annotation.Transactional
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -23,6 +25,8 @@ class OrderFacade(
     private val userService: UserService,
     private val couponService: CouponService,
 ) {
+    @Retry(name = "dbWrite")
+    @CircuitBreaker(name = "database")
     @Transactional
     fun createOrder(loginId: String, password: String, itemRequests: List<OrderItemRequest>, couponId: Long? = null): OrderInfo {
         val user = getAuthenticatedUser(loginId, password)

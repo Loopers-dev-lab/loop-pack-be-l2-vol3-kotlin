@@ -18,6 +18,9 @@ dependencies {
     // feign
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
 
+    // resilience4j
+    implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
+
     // querydsl
     kapt("com.querydsl:querydsl-apt::jakarta")
 

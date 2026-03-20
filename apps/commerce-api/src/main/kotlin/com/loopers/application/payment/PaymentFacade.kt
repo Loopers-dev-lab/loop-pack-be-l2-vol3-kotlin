@@ -11,6 +11,8 @@ import com.loopers.domain.payment.PgPaymentRequest
 import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -73,6 +75,8 @@ class PaymentFacade(
         return PaymentInfo.from(paymentService.getPayment(payment.id))
     }
 
+    @Retry(name = "dbWrite")
+    @CircuitBreaker(name = "database")
     @Transactional
     fun handleCallback(
         transactionKey: String,

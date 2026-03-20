@@ -6,12 +6,17 @@ import com.loopers.domain.payment.PgPaymentRequest
 import com.loopers.domain.payment.PgPaymentResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.stereotype.Component
 
 @Component
 class PgClientAdapter(
     private val pgFeignClient: PgFeignClient,
 ) : PgClient {
+    @Retry(name = "pgRequestPayment")
+    @CircuitBreaker(name = "pgPayment")
     override fun requestPayment(request: PgPaymentRequest): PgPaymentResponse {
         try {
             val response = pgFeignClient.requestPayment(
@@ -33,11 +38,15 @@ class PgClientAdapter(
             )
         } catch (e: CoreException) {
             throw e
+        } catch (e: CallNotPermittedException) {
+            throw CoreException(ErrorType.INTERNAL_ERROR, "PG 시스템이 일시적으로 사용 불가합니다.")
         } catch (e: Exception) {
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 연동 오류: ${e.message}")
         }
     }
 
+    @Retry(name = "pgGetPaymentDetail")
+    @CircuitBreaker(name = "pgPayment")
     override fun getPaymentDetail(transactionKey: String, userId: Long): PgPaymentDetailResponse {
         try {
             val response = pgFeignClient.getPayment(
@@ -57,6 +66,8 @@ class PgClientAdapter(
             )
         } catch (e: CoreException) {
             throw e
+        } catch (e: CallNotPermittedException) {
+            throw CoreException(ErrorType.INTERNAL_ERROR, "PG 시스템이 일시적으로 사용 불가합니다.")
         } catch (e: Exception) {
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 연동 오류: ${e.message}")
         }

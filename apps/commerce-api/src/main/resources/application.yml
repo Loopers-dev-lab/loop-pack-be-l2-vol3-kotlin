@@ -24,9 +24,81 @@ spring:
       - logging.yml
       - monitoring.yml
 
+spring.cloud:
+  openfeign:
+    client:
+      config:
+        pg-simulator:
+          connect-timeout: 1000
+          read-timeout: 2000
+
 pg:
   base-url: http://localhost:8082
   callback-url: http://localhost:8080/api/v1/payments/callback
+
+resilience4j:
+  retry:
+    instances:
+      pgRequestPayment:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - feign.RetryableException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+      pgGetPaymentDetail:
+        max-attempts: 2
+        wait-duration: 300ms
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - feign.RetryableException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+      dbWrite:
+        max-attempts: 2
+        wait-duration: 300ms
+        retry-exceptions:
+          - org.springframework.dao.CannotAcquireLockException
+          - org.springframework.dao.PessimisticLockingFailureException
+          - org.springframework.dao.DataAccessResourceFailureException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+  circuitbreaker:
+    instances:
+      pgPayment:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - feign.RetryableException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+      database:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        minimum-number-of-calls: 5
+        record-exceptions:
+          - org.springframework.dao.CannotAcquireLockException
+          - org.springframework.dao.PessimisticLockingFailureException
+          - org.springframework.dao.DataAccessResourceFailureException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
 
 springdoc:
   use-fqn: true
