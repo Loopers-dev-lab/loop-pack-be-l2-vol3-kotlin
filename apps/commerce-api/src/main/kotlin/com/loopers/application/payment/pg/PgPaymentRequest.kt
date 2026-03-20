@@ -1,4 +1,4 @@
-package com.loopers.application.payment.port
+package com.loopers.application.payment.pg
 
 data class PgPaymentRequest(
     val orderId: String,

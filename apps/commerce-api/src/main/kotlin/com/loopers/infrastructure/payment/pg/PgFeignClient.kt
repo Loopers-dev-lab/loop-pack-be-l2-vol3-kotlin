@@ -1,8 +1,8 @@
 package com.loopers.infrastructure.payment.pg
 
-import com.loopers.application.payment.port.PgPaymentRequest
-import com.loopers.application.payment.port.PgPaymentResponse
-import com.loopers.application.payment.port.PgPaymentStatusResponse
+import com.loopers.application.payment.pg.PgPaymentRequest
+import com.loopers.application.payment.pg.PgPaymentResponse
+import com.loopers.application.payment.pg.PgPaymentStatusResponse
 import org.springframework.cloud.openfeign.FeignClient
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable

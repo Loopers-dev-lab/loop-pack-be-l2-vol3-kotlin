@@ -1,7 +1,7 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.order.OrderRepository
-import com.loopers.domain.payment.Money
+import com.loopers.domain.product.Money
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentHistory
 import com.loopers.domain.payment.PaymentHistoryRepository

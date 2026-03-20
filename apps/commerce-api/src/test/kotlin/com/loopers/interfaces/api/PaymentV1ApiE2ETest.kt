@@ -1,12 +1,14 @@
 package com.loopers.interfaces.api
 
-import com.loopers.application.payment.port.PgPaymentClient
-import com.loopers.application.payment.port.PgPaymentResponse
+import com.loopers.application.payment.pg.PgPaymentClient
+import com.loopers.application.payment.pg.PgPaymentResponse
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.order.OrderItemSnapshot
+import com.loopers.domain.order.Quantity
 import com.loopers.domain.payment.CardType
-import com.loopers.domain.payment.Money
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.product.Money
 import com.loopers.infrastructure.payment.PaymentJpaRepository
 import com.loopers.interfaces.api.payment.PaymentCallbackRequest
 import com.loopers.interfaces.api.payment.PaymentRequest
@@ -79,7 +81,21 @@ class PaymentV1ApiE2ETest @Autowired constructor(
     }
 
     private fun createOrder(): Order {
-        return orderRepository.save(Order.create(userId = 1L, totalAmount = Money(50000)))
+        return orderRepository.save(
+            Order.create(
+                userId = 1L,
+                items = listOf(
+                    OrderItemSnapshot(
+                        productId = 1L,
+                        productName = "테스트 상품",
+                        productPrice = Money(50000),
+                        brandName = "테스트 브랜드",
+                        imageUrl = "https://example.com/image.jpg",
+                        quantity = Quantity(1),
+                    ),
+                ),
+            ),
+        )
     }
 
     @DisplayName("POST /api/v1/payments - 결제 요청")

@@ -1,8 +1,8 @@
 package com.loopers.infrastructure.payment.pg
 
-import com.loopers.application.payment.port.PgPaymentClient
-import com.loopers.application.payment.port.PgPaymentRequest
-import com.loopers.application.payment.port.PgPaymentResponse
+import com.loopers.application.payment.pg.PgPaymentClient
+import com.loopers.application.payment.pg.PgPaymentRequest
+import com.loopers.application.payment.pg.PgPaymentResponse
 import com.loopers.support.error.PaymentErrorCode
 import com.loopers.support.error.PaymentException
 import com.loopers.testcontainers.MySqlTestContainersConfig

@@ -1,7 +1,7 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.payment.CardType
-import com.loopers.domain.payment.Money
+import com.loopers.domain.product.Money
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.payment.PaymentStatus

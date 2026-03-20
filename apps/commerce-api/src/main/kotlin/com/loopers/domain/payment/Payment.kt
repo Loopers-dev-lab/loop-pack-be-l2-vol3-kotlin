@@ -1,6 +1,7 @@
 package com.loopers.domain.payment
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.product.Money
 import com.loopers.support.error.PaymentException
 import jakarta.persistence.AttributeOverride
 import jakarta.persistence.Column

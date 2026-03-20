@@ -1,6 +1,6 @@
 package com.loopers.application.payment
 
-import com.loopers.application.payment.port.PgPaymentClient
+import com.loopers.application.payment.pg.PgPaymentClient
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.support.error.PaymentException

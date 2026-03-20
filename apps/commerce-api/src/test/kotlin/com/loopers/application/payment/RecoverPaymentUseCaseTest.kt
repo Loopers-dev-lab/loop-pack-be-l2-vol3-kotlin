@@ -1,13 +1,15 @@
 package com.loopers.application.payment
 
-import com.loopers.application.payment.port.PgPaymentClient
-import com.loopers.application.payment.port.PgPaymentResponse
-import com.loopers.application.payment.port.PgPaymentStatusResponse
+import com.loopers.application.payment.pg.PgPaymentClient
+import com.loopers.application.payment.pg.PgPaymentResponse
+import com.loopers.application.payment.pg.PgPaymentStatusResponse
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.order.OrderItemSnapshot
+import com.loopers.domain.order.Quantity
 import com.loopers.domain.payment.CardType
-import com.loopers.domain.payment.Money
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.product.Money
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
 import com.ninjasquad.springmockk.MockkBean
@@ -38,7 +40,21 @@ class RecoverPaymentUseCaseTest @Autowired constructor(
     }
 
     private fun createPaymentWithTransaction(): PaymentInfo {
-        val order = orderRepository.save(Order.create(userId = 1L, totalAmount = Money(50000)))
+        val order = orderRepository.save(
+            Order.create(
+                userId = 1L,
+                items = listOf(
+                    OrderItemSnapshot(
+                        productId = 1L,
+                        productName = "테스트 상품",
+                        productPrice = Money(50000),
+                        brandName = "테스트 브랜드",
+                        imageUrl = "https://example.com/image.jpg",
+                        quantity = Quantity(1),
+                    ),
+                ),
+            ),
+        )
         every { pgPaymentClient.requestPayment(any()) } returns PgPaymentResponse(
             transactionId = "txn_recover_test",
             orderId = "test",

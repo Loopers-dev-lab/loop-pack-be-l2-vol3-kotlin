@@ -1,9 +1,9 @@
 package com.loopers.infrastructure.payment.pg
 
-import com.loopers.application.payment.port.PgPaymentClient
-import com.loopers.application.payment.port.PgPaymentRequest
-import com.loopers.application.payment.port.PgPaymentResponse
-import com.loopers.application.payment.port.PgPaymentStatusResponse
+import com.loopers.application.payment.pg.PgPaymentClient
+import com.loopers.application.payment.pg.PgPaymentRequest
+import com.loopers.application.payment.pg.PgPaymentResponse
+import com.loopers.application.payment.pg.PgPaymentStatusResponse
 import com.loopers.support.error.PaymentException
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
-class PgPaymentClientAdapter(
+class PgPaymentClientImpl(
     private val pgFeignClient: PgFeignClient,
 ) : PgPaymentClient {
 

@@ -1,7 +1,10 @@
 package com.loopers.domain.payment
 
+import com.loopers.domain.product.Money
+import com.loopers.support.error.CoreException
 import com.loopers.support.error.PaymentErrorCode
 import com.loopers.support.error.PaymentException
+import com.loopers.support.error.ProductErrorCode
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -60,14 +63,14 @@ class PaymentTest {
             assertThat(payment.pgOrderId).matches("\\d{8}:[a-f0-9]{8}")
         }
 
-        @DisplayName("금액이 음수이면 INVALID_AMOUNT 예외가 발생한다.")
+        @DisplayName("금액이 음수이면 INVALID_PRICE 예외가 발생한다.")
         @Test
         fun failWhenAmountIsNegative() {
             // act & assert
-            val exception = assertThrows<PaymentException> {
+            val exception = assertThrows<CoreException> {
                 createPayment(amount = Money(-1))
             }
-            assertThat(exception.errorCode).isEqualTo(PaymentErrorCode.INVALID_AMOUNT)
+            assertThat(exception.errorCode).isEqualTo(ProductErrorCode.INVALID_PRICE)
         }
     }
 

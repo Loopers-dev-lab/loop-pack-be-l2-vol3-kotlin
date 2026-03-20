@@ -1,13 +1,15 @@
 package com.loopers.application.payment
 
-import com.loopers.application.payment.port.PgPaymentClient
-import com.loopers.application.payment.port.PgPaymentResponse
+import com.loopers.application.payment.pg.PgPaymentClient
+import com.loopers.application.payment.pg.PgPaymentResponse
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.CardType
-import com.loopers.domain.payment.Money
+import com.loopers.domain.order.OrderItemSnapshot
+import com.loopers.domain.order.Quantity
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.product.Money
 import com.loopers.support.error.PaymentErrorCode
 import com.loopers.support.error.PaymentException
 import com.loopers.testcontainers.MySqlTestContainersConfig
@@ -43,7 +45,19 @@ class RequestPaymentUseCaseTest @Autowired constructor(
 
     private fun createOrder(userId: Long = 1L, amount: Long = 50000): Order {
         return orderRepository.save(
-            Order.create(userId = userId, totalAmount = Money(amount)),
+            Order.create(
+                userId = userId,
+                items = listOf(
+                    OrderItemSnapshot(
+                        productId = 1L,
+                        productName = "테스트 상품",
+                        productPrice = Money(amount),
+                        brandName = "테스트 브랜드",
+                        imageUrl = "https://example.com/image.jpg",
+                        quantity = Quantity(1),
+                    ),
+                ),
+            ),
         )
     }
 
