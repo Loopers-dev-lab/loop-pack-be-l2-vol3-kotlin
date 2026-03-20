@@ -2,7 +2,9 @@ package com.loopers.infrastructure.payment
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.stereotype.Component
 
+@Component
 class PgClientSimulator(
     private val scenario: Scenario = Scenario.SUCCESS,
 ) : PgClient {
