@@ -8,11 +8,20 @@ class OrderCanceller(
     private val orderRepository: OrderRepository,
 ) {
 
-    fun cancel(orderId: Long, memberId: Long): Order {
-        val order = orderReader.getById(orderId)
+    fun cancel(orderId: Long, memberId: Long): CancelResult {
+        val order = orderReader.getByIdForUpdate(orderId)
         order.validateOwner(memberId)
+        val shouldRestoreStock = order.status != OrderStatus.PAYMENT_FAILED
         order.cancel()
-        orderRepository.save(order)
-        return order
+        val cancelledOrder = orderRepository.save(order)
+        return CancelResult(
+            order = cancelledOrder,
+            shouldRestoreStock = shouldRestoreStock,
+        )
     }
+
+    data class CancelResult(
+        val order: Order,
+        val shouldRestoreStock: Boolean,
+    )
 }

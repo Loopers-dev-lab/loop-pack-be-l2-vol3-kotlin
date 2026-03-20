@@ -44,6 +44,9 @@ class Order(
         if (status == OrderStatus.CANCELLED) {
             throw CoreException(ErrorType.CONFLICT, "취소된 주문은 결제 완료 처리할 수 없습니다.")
         }
+        if (status != OrderStatus.PAYMENT_PENDING) {
+            throw CoreException(ErrorType.CONFLICT, "결제 대기 중인 주문만 결제 완료 처리할 수 있습니다.")
+        }
         this.status = OrderStatus.PAID
     }
 

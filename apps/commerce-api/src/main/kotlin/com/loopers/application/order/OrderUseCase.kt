@@ -5,7 +5,6 @@ import com.loopers.domain.order.OrderCanceller
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderReader
 import com.loopers.domain.order.OrderRegister
-import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.ProductStockDeductor
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -53,18 +52,14 @@ class OrderUseCase(
 
     @Transactional
     fun cancel(orderId: Long, memberId: Long) {
-        val orderBeforeCancel = orderReader.getById(orderId)
-        orderBeforeCancel.validateOwner(memberId)
-        val shouldRestoreStock = orderBeforeCancel.status != OrderStatus.PAYMENT_FAILED
-
-        val order = orderCanceller.cancel(orderId, memberId)
-        if (shouldRestoreStock) {
-            order.orderItems.forEach { item ->
+        val result = orderCanceller.cancel(orderId, memberId)
+        if (result.shouldRestoreStock) {
+            result.order.orderItems.forEach { item ->
                 productStockDeductor.restoreStock(item.productId, item.quantity)
             }
         }
-        if (order.couponId != null) {
-            issuedCouponProcessor.releaseIfReserved(order.couponId)
+        if (result.order.couponId != null) {
+            issuedCouponProcessor.releaseIfReserved(result.order.couponId)
         }
     }
 

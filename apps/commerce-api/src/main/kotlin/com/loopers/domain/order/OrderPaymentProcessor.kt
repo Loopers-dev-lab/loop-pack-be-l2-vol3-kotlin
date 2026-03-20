@@ -12,20 +12,20 @@ class OrderPaymentProcessor(
 ) {
 
     fun beginPayment(orderId: Long, memberId: Long): Order {
-        val order = orderReader.getById(orderId)
+        val order = orderReader.getByIdForUpdate(orderId)
         order.validateOwner(memberId)
         order.beginPayment()
         return orderRepository.save(order)
     }
 
     fun applyPaymentResult(orderId: Long, memberId: Long, paymentStatus: PaymentStatus): Order {
-        val order = orderReader.getById(orderId)
+        val order = orderReader.getByIdForUpdate(orderId)
         order.validateOwner(memberId)
         return applyPaymentResult(order, paymentStatus)
     }
 
     fun applyPaymentResult(orderId: Long, paymentStatus: PaymentStatus): Order {
-        val order = orderReader.getById(orderId)
+        val order = orderReader.getByIdForUpdate(orderId)
         return applyPaymentResult(order, paymentStatus)
     }
 
