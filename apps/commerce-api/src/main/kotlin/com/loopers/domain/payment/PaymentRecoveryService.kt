@@ -74,7 +74,7 @@ class PaymentRecoveryService(
             }
 
         return try {
-            val pgStatus = paymentClient.checkPaymentStatus(transactionId)
+            val pgStatus = paymentClient.checkPaymentStatus(receipt.orderId)
             log.debug("PG status for $transactionId: ${pgStatus.status}")
 
             when (pgStatus.status.uppercase()) {

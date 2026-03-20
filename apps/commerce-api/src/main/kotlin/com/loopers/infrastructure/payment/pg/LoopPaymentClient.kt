@@ -55,9 +55,9 @@ class LoopPaymentClient(
     /**
      * PG에서 결제 상태를 조회합니다. (복구용)
      */
-    override fun checkPaymentStatus(transactionId: String): PaymentStatusCheckResult {
+    override fun checkPaymentStatus(orderId: Long): PaymentStatusCheckResult {
         val response = webClient.get()
-            .uri("$baseUrl/api/v1/payments/$transactionId")
+            .uri("$baseUrl/api/v1/payments?orderId=$orderId")
             .retrieve()
             .bodyToMono(PgPaymentStatusResponse::class.java)
             .block(Duration.ofSeconds(10))
