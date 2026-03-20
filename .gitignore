@@ -45,3 +45,6 @@ out/
 ### Claude Code ###
 .omc/
 .claude/
+
+### PG Simulator ###
+apps/pg-simulator/

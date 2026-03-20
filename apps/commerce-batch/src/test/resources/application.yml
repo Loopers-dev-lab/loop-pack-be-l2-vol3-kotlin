@@ -1,0 +1,20 @@
+spring:
+  main:
+    web-application-type: none
+  application:
+    name: commerce-batch
+  config:
+    import:
+      - jpa.yml
+      - redis.yml
+      - logging.yml
+      - monitoring.yml
+  batch:
+    job:
+      name: ${job.name:NONE}
+    jdbc:
+      initialize-schema: always
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql

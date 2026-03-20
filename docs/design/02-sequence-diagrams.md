@@ -20,27 +20,40 @@ sequenceDiagram
     participant Interceptor as AuthInterceptor
     participant Controller as ProductController / LikeController
     participant Facade as ProductFacade / LikeFacade
+    participant Cache as ProductCacheStore
     participant ProductSvc as ProductService
     participant LikeSvc as LikeService
     participant DB as Database
 
-    Note over User, DB: 1. 상품 목록 조회 (비인증)
+    Note over User, DB: 1. 상품 목록 조회 (비인증, cache-aside)
     User->>Controller: GET /api/v1/products?brandId=1&sort=latest&size=20
     Controller->>Facade: getProducts(brandId, sort, size, cursor)
-    Facade->>ProductSvc: getProducts(condition)
-    ProductSvc->>DB: SELECT products (+ brand join)
-    DB-->>ProductSvc: Product list
-    ProductSvc-->>Facade: Product list
+    Facade->>Cache: getProductList(cacheKey)
+    alt Cache HIT
+        Cache-->>Facade: ProductListResult
+    else Cache MISS
+        Facade->>ProductSvc: getProducts(condition)
+        ProductSvc->>DB: SELECT products (+ brand join)
+        DB-->>ProductSvc: Product list
+        ProductSvc-->>Facade: Product list
+        Facade->>Cache: putProductList(cacheKey, result)
+    end
     Facade-->>Controller: ProductInfo list
     Controller-->>User: 200 OK (상품 목록)
 
-    Note over User, DB: 2. 상품 상세 조회 (비인증)
+    Note over User, DB: 2. 상품 상세 조회 (비인증, cache-aside)
     User->>Controller: GET /api/v1/products/{productId}
     Controller->>Facade: getProduct(productId)
-    Facade->>ProductSvc: getProduct(productId)
-    ProductSvc->>DB: SELECT product (+ brand)
-    DB-->>ProductSvc: Product
-    ProductSvc-->>Facade: Product
+    Facade->>Cache: getProduct(productId)
+    alt Cache HIT
+        Cache-->>Facade: ProductInfo
+    else Cache MISS
+        Facade->>ProductSvc: getProduct(productId)
+        ProductSvc->>DB: SELECT product (+ brand)
+        DB-->>ProductSvc: Product
+        ProductSvc-->>Facade: Product
+        Facade->>Cache: putProduct(productId, info)
+    end
     Facade-->>Controller: ProductInfo
     Controller-->>User: 200 OK (상품 상세)
 
@@ -107,6 +120,7 @@ sequenceDiagram
 ### 해석
 
 - **비인증/인증 경로 분리**: 대고객 API는 `@MemberAuthenticated` 어노테이션으로 선택적 인증을 적용한다. 상품 조회는 어노테이션 없이 Controller로 직행하고, 좋아요는 어노테이션이 있어 Interceptor에서 인증 후 `AuthenticatedMember`가 주입된다.
+- **상품 조회 캐시 (cache-aside)**: `ProductFacade`가 `ProductCacheStore`를 통해 cache-aside 패턴을 적용한다. 캐시 히트 시 DB 조회를 건너뛰고, 캐시 미스 시 DB 조회 후 캐시에 저장한다. 상품 상세는 TTL 5분, 목록은 TTL 1분으로 운영한다. 어드민 CUD 시 상세 캐시를 즉시 evict한다.
 - **상품 존재 확인은 Facade에서**: `LikeFacade`가 `ProductService.getProduct()`를 호출하여 상품 존재를 확인한다 (BR-L4). cross-domain 접근은 Facade 레벨에서 조합하는 원칙을 따른다.
 - **좋아요/취소 멱등 처리**: 좋아요 등록 시 존재 여부를 먼저 확인하고, 이미 존재하면 즉시 반환(멱등). UNIQUE Constraint는 최종 방어선으로 유지한다. 좋아요 취소 시 대상이 없어도(affected rows = 0) 200 OK를 반환한다. 결과 상태("좋아요 있음/없음")가 요청 의도와 일치하면 성공이다.
 - **내 좋아요 목록 조회**: `GET /api/v1/likes`로 인증된 본인의 좋아요만 조회한다. `LikeFacade`가 `LikeService`에서 productId 목록을 조회한 뒤, `ProductService`로 ACTIVE 상품 정보를, `BrandService`로 브랜드명을 배치 조회하여 조합한다. userId 경로 변수와 FORBIDDEN 검증은 제거되었다 (Decision 27).
@@ -351,3 +365,161 @@ sequenceDiagram
 - **어드민 주문 조회**: `AdminOrderFacade`는 `OrderService.getOrderById(orderId)`를 호출하며, `validateOwner`를 수행하지 않는다. 어드민은 모든 주문을 조회할 수 있다.
 - **스냅샷 반환**: OrderItem에 저장된 스냅샷(상품명, 가격, 브랜드명)을 그대로 반환한다. 현재 상품 정보와 무관하게 주문 당시의 정보를 보여준다.
 - **기간 필터**: 대고객 주문 목록에서 `startAt`, `endAt` 파라미터로 `ordered_at` 기준 범위 검색을 수행한다.
+
+---
+
+## 5. 쿠폰 발급 + 사용 흐름
+
+### 다이어그램의 목적
+
+쿠폰 발급과 주문 시 쿠폰 적용 흐름에서 **템플릿 유효성 검증**, **낙관적 락을 통한 동시 사용 방지**, **주문 흐름 내 쿠폰 차감 시점**을 검증한다.
+
+### 검증 포인트
+- 쿠폰 발급 시 템플릿 존재 및 발급 가능 상태 검증
+- 주문 시 쿠폰 차감이 재고 락 획득 전에 수행되는지 (D34)
+- 낙관적 락 충돌 시 409 CONFLICT 처리
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Interceptor as AuthInterceptor
+    participant Controller as CouponV1Controller
+    participant Facade as CouponFacade
+    participant Service as CouponService
+    participant DB as Database
+
+    Note over User, DB: 1. 쿠폰 발급 (인증 필요)
+    User->>Interceptor: POST /api/v1/coupons/templates/{templateId}/issue
+    Interceptor->>Interceptor: 헤더 검증 + 캐시 or authenticate()
+    break 인증 실패
+        Interceptor-->>User: 401 Unauthorized
+    end
+    Interceptor->>Controller: AuthenticatedMember 주입
+    Controller->>Facade: issueCoupon(memberId, templateId)
+    Facade->>Service: getTemplate(templateId)
+    Service->>DB: SELECT coupon_template WHERE id = templateId
+    break 템플릿 미존재
+        Service-->>Facade: CoreException(NOT_FOUND)
+        Facade-->>Controller: 404 Not Found
+        Controller-->>User: 404 Not Found
+    end
+    DB-->>Service: CouponTemplateModel
+    Service-->>Facade: CouponTemplateModel
+    Note right of Facade: template.isIssuable() 검증<br/>(ACTIVE 상태 + 만료 여부)
+    break 발급 불가 (INACTIVE or 만료됨)
+        Facade-->>Controller: CoreException(BAD_REQUEST)
+        Controller-->>User: 400 Bad Request
+    end
+    Note right of Facade: calculateExpiredAt(policy)<br/>FIXED_DATE: 템플릿 expiredAt 복사<br/>DAYS_FROM_ISSUE: 발급 시점 + validDays
+    Facade->>Service: saveIssuedCoupon(memberId, templateId, expiredAt)
+    Service->>DB: INSERT issued_coupon
+    DB-->>Service: IssuedCouponModel
+    Service-->>Facade: IssuedCouponModel
+    Facade-->>Controller: IssuedCouponInfo
+    Controller-->>User: 200 OK (발급된 쿠폰 정보)
+```
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Interceptor as AuthInterceptor
+    participant Controller as CouponV1Controller
+    participant Facade as CouponFacade
+    participant Service as CouponService
+    participant DB as Database
+
+    Note over User, DB: 2. 내 쿠폰 목록 조회 (인증 필요)
+    User->>Interceptor: GET /api/v1/members/me/coupons
+    Interceptor->>Interceptor: 헤더 검증 + 캐시 or authenticate()
+    break 인증 실패
+        Interceptor-->>User: 401 Unauthorized
+    end
+    Interceptor->>Controller: AuthenticatedMember 주입
+    Controller->>Facade: getMyIssuedCoupons(memberId)
+    Facade->>Service: getIssuedCoupons(memberId)
+    Service->>DB: SELECT issued_coupon WHERE member_id = ?
+    DB-->>Service: IssuedCoupon list
+    Service-->>Facade: IssuedCoupon list
+    Note right of Facade: IssuedCouponInfo.effectiveStatus 계산<br/>USED > EXPIRED > AVAILABLE 우선순위
+    Facade-->>Controller: IssuedCouponInfo list
+    Controller-->>User: 200 OK (내 쿠폰 목록)
+```
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Interceptor as AuthInterceptor
+    participant Controller as OrderV1Controller
+    participant Facade as OrderFacade
+    participant CouponSvc as CouponService
+    participant ProductSvc as ProductService
+    participant OrderSvc as OrderService
+    participant DB as Database
+
+    Note over User, DB: 3. 주문 시 쿠폰 적용 (기존 주문 흐름 확장)
+    User->>Interceptor: POST /api/v1/orders (items + couponId)
+    Interceptor->>Controller: AuthenticatedMember 주입
+    Controller->>Facade: createOrder(memberId, items, couponId)
+
+    Note over Facade, DB: @Transactional 시작
+    activate Facade
+
+    Note right of Facade: 쿠폰 차감은 재고 락 획득 전에 수행 (D34)
+
+    Facade->>CouponSvc: getIssuedCouponById(couponId)
+    CouponSvc->>DB: SELECT issued_coupon WHERE id = ?
+    DB-->>CouponSvc: IssuedCouponModel
+    CouponSvc-->>Facade: IssuedCouponModel
+
+    Note right of Facade: validateOwner(memberId) → 본인 쿠폰 확인
+    break 타인 쿠폰
+        Facade-->>Controller: CoreException(FORBIDDEN)
+        Controller-->>User: 403 Forbidden
+    end
+    Note right of Facade: status = AVAILABLE 확인
+    break 이미 사용됨 or 만료됨
+        Facade-->>Controller: CoreException(BAD_REQUEST)
+        Controller-->>User: 400 Bad Request
+    end
+    Note right of Facade: expiredAt > now() 확인
+    Note right of Facade: totalAmount >= minOrderAmount 확인
+    Note right of Facade: 할인 금액 계산
+
+    Facade->>CouponSvc: saveIssuedCoupon(coupon.use())
+    Note right of CouponSvc: @Version 낙관적 락으로 UPDATE
+    CouponSvc->>DB: UPDATE issued_coupon SET status=USED, version=version+1
+    break 버전 충돌 (낙관적 락 실패)
+        DB-->>CouponSvc: OptimisticLockingFailureException
+        CouponSvc-->>Facade: 409 Conflict
+        Facade-->>Controller: 409 Conflict
+        Controller-->>User: 409 Conflict (전체 롤백)
+    end
+    DB-->>CouponSvc: OK
+
+    loop 각 주문 항목 (productId 오름차순)
+        Facade->>ProductSvc: getProductWithLock(productId)
+        ProductSvc->>DB: SELECT ... FOR UPDATE (비관적 락)
+        DB-->>ProductSvc: ProductModel
+        Facade->>ProductSvc: deductStock(productId, quantity)
+        ProductSvc->>DB: UPDATE stock_quantity
+    end
+
+    Facade->>OrderSvc: createOrder(memberId, items, discountAmount)
+    OrderSvc->>DB: INSERT order + order_items
+    DB-->>OrderSvc: OrderModel
+    OrderSvc-->>Facade: OrderModel
+
+    deactivate Facade
+    Note over Facade, DB: @Transactional 커밋
+
+    Facade-->>Controller: OrderInfo (할인 적용 금액 포함)
+    Controller-->>User: 201 Created (주문 정보)
+```
+
+### 해석
+
+- **템플릿 유효성**: `isIssuable()`이 ACTIVE 상태와 만료 여부를 동시 검증한다. 두 조건을 하나의 도메인 메서드로 캡슐화하여 Facade가 판단 로직을 갖지 않는다.
+- **만료 정책 이중 지원**: `FIXED_DATE`는 템플릿의 `expiredAt`을 그대로 복사하고, `DAYS_FROM_ISSUE`는 발급 시점 + `validDays`로 계산한다. 발급 시점에 만료일이 확정되므로 이후 템플릿 변경에 영향받지 않는다.
+- **삭제된 템플릿**: 신규 발급은 차단하되, 기발급 쿠폰은 `expiredAt`까지 사용 가능하다. 삭제 여부는 IssuedCoupon에 저장된 만료일과 무관하다.
+- **낙관적 락**: IssuedCoupon은 1인 소유 자원이므로 동시 사용 충돌 빈도가 낮다. 비관적 락은 과도하며, `@Version` 낙관적 락으로 충분하다 (D31). 충돌 시 409 CONFLICT를 반환하고 전체 트랜잭션을 롤백한다.
+- **주문 내 쿠폰 차감 시점**: 재고 비관적 락 획득 전에 쿠폰을 먼저 검증/차감한다 (D34). 쿠폰 실패 시 재고 락 대기 없이 즉시 실패하므로 불필요한 락 경쟁을 방지한다.
