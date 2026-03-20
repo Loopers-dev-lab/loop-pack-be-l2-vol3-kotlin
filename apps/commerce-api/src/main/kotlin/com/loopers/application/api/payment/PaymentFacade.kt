@@ -68,10 +68,9 @@ class PaymentFacade(
 
             // 4단계: PG 응답 상태에 따라 처리
             handlePgResponse(pgResult, receipt, userId, orderId, transactionId)
-        } catch (e: CoreException) {
-            // CoreException: 이미 처리됨 (markAsCompleted, markAsFailed 등)
-            throw e
         } catch (e: Exception) {
+            if (e is CoreException) throw e
+
             receiptService.markAsTimeout(receipt)
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요")
         }
@@ -95,9 +94,7 @@ class PaymentFacade(
                 receiptService.markAsFailed(receipt, pgResult.reason)
                 throw CoreException(ErrorType.BAD_REQUEST, "결제가 실패하였습니다: ${pgResult.reason}")
             }
-            "PENDING" -> {
-                // PG 처리 중
-            }
+            "PENDING" -> {}
             else -> {
                 throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 응답이 올바르지 않습니다")
             }
