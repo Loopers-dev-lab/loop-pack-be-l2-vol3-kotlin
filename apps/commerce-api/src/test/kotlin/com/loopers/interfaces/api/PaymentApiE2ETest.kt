@@ -318,6 +318,16 @@ class PaymentApiE2ETest @Autowired constructor(
             // arrange
             val payment = createOrderWithPendingPayment()
 
+            // PG 재조회로 상태 검증
+            whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-12345"))).thenReturn(
+                PaymentGatewayTransactionDetail(
+                    transactionKey = "txn-key-12345",
+                    orderId = payment.orderId,
+                    status = "SUCCESS",
+                    reason = null,
+                ),
+            )
+
             val callbackRequest = mapOf(
                 "transactionKey" to "txn-key-12345",
                 "orderId" to payment.orderId,
@@ -351,6 +361,16 @@ class PaymentApiE2ETest @Autowired constructor(
         fun updatesPaymentAndOrderStatus_whenFailedCallback() {
             // arrange
             val payment = createOrderWithPendingPayment()
+
+            // PG 재조회로 상태 검증
+            whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-12345"))).thenReturn(
+                PaymentGatewayTransactionDetail(
+                    transactionKey = "txn-key-12345",
+                    orderId = payment.orderId,
+                    status = "FAILED",
+                    reason = "한도 초과",
+                ),
+            )
 
             val callbackRequest = mapOf(
                 "transactionKey" to "txn-key-12345",

@@ -76,18 +76,18 @@ class PaymentFacade(
         // 콜백 데이터를 그대로 신뢰하지 않고, PG에 실제 상태를 조회하여 확인
         val pgDetail = paymentGateway.getTransactionStatus(payment.userId.toString(), transactionKey)
 
-        val verifiedStatus = pgDetail?.status ?: status
-        val verifiedReason = pgDetail?.reason ?: reason
+        // PG 재조회 실패 시 검증 불가 — 상태를 변경하지 않고 PENDING 유지 (sync API로 복구)
+        if (pgDetail == null) return
 
         val orderId = payment.orderId.toLong()
 
-        when (verifiedStatus) {
+        when (pgDetail.status) {
             PG_STATUS_SUCCESS -> {
                 paymentService.markSuccess(payment.id)
                 orderService.changeStatus(orderId, OrderStatus.CONFIRMED)
             }
             PG_STATUS_FAILED -> {
-                paymentService.markFailed(payment.id, verifiedReason ?: DEFAULT_FAIL_REASON)
+                paymentService.markFailed(payment.id, pgDetail.reason ?: DEFAULT_FAIL_REASON)
                 cancelOrderWithCompensation(orderId)
             }
         }

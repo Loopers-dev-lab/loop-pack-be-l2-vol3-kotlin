@@ -270,6 +270,29 @@ class PaymentFacadeTest {
             // assert
             verify(orderService).changeStatus(100L, OrderStatus.CONFIRMED)
         }
+
+        @DisplayName("PG 재조회 실패 시, 검증되지 않은 콜백으로 상태를 변경하지 않고 PENDING을 유지한다.")
+        @Test
+        fun keepsPending_whenPgVerificationFails() {
+            // arrange
+            val payment = createPayment()
+            payment.markPending("txn-key-123")
+            whenever(paymentService.getPaymentByTransactionKey("txn-key-123")).thenReturn(payment)
+
+            // PG 재조회 실패 (null 반환)
+            whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-123")))
+                .thenReturn(null)
+
+            // act — 콜백은 SUCCESS로 전달되지만 PG 검증 불가
+            paymentFacade.handleCallback("txn-key-123", "SUCCESS", null)
+
+            // assert — 결제/주문 상태를 변경하지 않음
+            assertAll(
+                { verify(paymentService, never()).markSuccess(any()) },
+                { verify(paymentService, never()).markFailed(any(), any()) },
+                { verify(orderService, never()).changeStatus(any(), any()) },
+            )
+        }
     }
 
     @DisplayName("결제 상태를 동기화할 때,")
