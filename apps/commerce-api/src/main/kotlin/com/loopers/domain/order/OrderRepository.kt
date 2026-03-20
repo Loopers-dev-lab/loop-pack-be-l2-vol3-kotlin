@@ -9,8 +9,6 @@ interface OrderRepository {
 
     fun findById(id: Long): OrderModel?
 
-    fun findByIdWithLock(id: Long): OrderModel?
-
     fun findAllByMemberIdAndOrderedAtBetween(
         memberId: Long,
         startAt: ZonedDateTime,

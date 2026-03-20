@@ -22,9 +22,6 @@ dependencies {
     // security
     implementation("org.springframework.security:spring-security-crypto")
 
-    // circuit breaker
-    implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
-
     // querydsl
     kapt("com.querydsl:querydsl-apt::jakarta")
 

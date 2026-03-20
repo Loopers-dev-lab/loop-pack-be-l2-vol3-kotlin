@@ -49,12 +49,5 @@ data class ProductModel(
     fun delete(): ProductModel =
         copy(status = ProductStatus.DELETED, deletedAt = deletedAt ?: ZonedDateTime.now())
 
-    fun restoreStock(quantity: Int): ProductModel {
-        if (quantity <= 0) {
-            throw CoreException(ErrorType.BAD_REQUEST, "복원 수량은 1 이상이어야 합니다.")
-        }
-        return copy(stockQuantity = stockQuantity + quantity)
-    }
-
     fun isDeleted(): Boolean = status == ProductStatus.DELETED
 }

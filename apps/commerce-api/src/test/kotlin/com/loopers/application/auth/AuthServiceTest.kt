@@ -14,13 +14,14 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager
 import java.time.LocalDate
 
 class AuthServiceTest {
 
     private lateinit var authService: AuthService
     private lateinit var memberService: MemberService
-    private lateinit var authCacheStore: FakeAuthCacheStore
+    private lateinit var cacheManager: ConcurrentMapCacheManager
 
     private val testMember = MemberModel(
         id = 1L,
@@ -34,8 +35,8 @@ class AuthServiceTest {
     @BeforeEach
     fun setUp() {
         memberService = mockk()
-        authCacheStore = FakeAuthCacheStore()
-        authService = AuthService(memberService, authCacheStore)
+        cacheManager = ConcurrentMapCacheManager(AuthService.AUTH_CACHE)
+        authService = AuthService(memberService, cacheManager)
     }
 
     @DisplayName("인증 및 캐싱 동작 검증")
@@ -55,7 +56,7 @@ class AuthServiceTest {
             verify(exactly = 1) { memberService.authenticate("testuser01", "TestPass123!") }
             assertThat(result.id).isEqualTo(1L)
             assertThat(result.loginId).isEqualTo("testuser01")
-            val cached = authCacheStore.getAuth("testuser01")
+            val cached = cacheManager.getCache(AuthService.AUTH_CACHE)?.get("testuser01", CachedAuth::class.java)
             assertThat(cached).isNotNull
         }
 

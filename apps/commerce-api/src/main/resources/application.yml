@@ -27,25 +27,6 @@ spring:
       - logging.yml
       - monitoring.yml
 
-pg:
-  base-url: http://localhost:8082
-  connect-timeout: 2000
-  read-timeout: 3000
-  callback-url: http://localhost:8080/api/v1/payments/callback
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      pgPayment:
-        sliding-window-type: COUNT_BASED
-        sliding-window-size: 10
-        failure-rate-threshold: 60
-        wait-duration-in-open-state: 10s
-        permitted-number-of-calls-in-half-open-state: 3
-        minimum-number-of-calls: 5
-        slow-call-duration-threshold: 2s
-        slow-call-rate-threshold: 80
-
 springdoc:
   use-fqn: true
   swagger-ui:

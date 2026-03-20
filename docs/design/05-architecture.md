@@ -72,13 +72,11 @@ graph TB
             PC["ProductV1Controller"]
             LC["LikeV1Controller"]
             OC["OrderV1Controller"]
-            CC["CouponV1Controller"]
         end
         subgraph AdminAPI["Admin API (/api-admin/v1)"]
             ABC["AdminBrandV1Controller"]
             APC["AdminProductV1Controller"]
             AOC["AdminOrderV1Controller"]
-            ACC["AdminCouponV1Controller"]
         end
     end
 
@@ -92,8 +90,6 @@ graph TB
             ABF["AdminBrandFacade"]
             APF["AdminProductFacade"]
             AOF["AdminOrderFacade"]
-            CF["CouponFacade"]
-            ACF["AdminCouponFacade"]
         end
         subgraph Services["Services (단일 도메인 로직, @Transactional 없음)"]
             MS["MemberService"]
@@ -101,13 +97,9 @@ graph TB
             PS["ProductService"]
             LS["LikeService"]
             OS["OrderService"]
-            CS["CouponService"]
         end
         subgraph AuthSvc["인증 (Interceptor 의존 대상)"]
             AS["AuthService"]
-        end
-        subgraph CachePorts["캐시 포트"]
-            PCS["ProductCacheStore"]
         end
     end
 
@@ -116,7 +108,7 @@ graph TB
         OM["OrderModel · OrderItemModel · ProductLikeModel"]
         VO["VO: LoginId · MemberName · Email · ProductName · StockQuantity · BrandName"]
         VD["Validator: RawPassword"]
-        RI["Repository«IF»: Member · Brand · Product · Like · Order · Coupon"]
+        RI["Repository«IF»: Member · Brand · Product · Like · Order"]
         PE["PasswordEncryptor«IF»"]
     end
 
@@ -127,7 +119,6 @@ graph TB
         LRI["ProductLikeRepositoryImpl"]
         ORI["OrderRepositoryImpl · OrderItemRepositoryImpl"]
         BPE["BcryptPasswordEncryptor"]
-        PCSI["ProductCacheStoreImpl"]
     end
 
     MC --> MF
@@ -138,8 +129,6 @@ graph TB
     ABC --> ABF
     APC --> APF
     AOC --> AOF
-    CC --> CF
-    ACC --> ACF
 
     MF --> MS
     BF --> BS
@@ -153,12 +142,6 @@ graph TB
     APF --> PS
     APF --> BS
     AOF --> OS
-    CF --> CS
-    ACF --> CS
-
-    PF --> PCS
-    APF --> PCS
-    PCSI -.-> PCS
 
     AS --> MS
 
@@ -176,7 +159,7 @@ graph TB
 | Interfaces | `interfaces/api/`, `interfaces/config/` | REST 엔드포인트 정의, 요청 DTO 값 유효성 검증, 응답 DTO (PageResponse 등), 인증 어노테이션/Interceptor/ArgumentResolver, WebMvcConfig |
 | Application | `application/` | **Facade(`@Transactional`): 유일한 트랜잭션 주체. 모든 Controller의 진입점.** Service: 단일 도메인 로직 (`@Transactional` 없음). AuthService (인증+캐시). Command, Info DTO. ApplicationException, DomainExceptionTranslator(@Aspect) |
 | Domain | `domain/` | Model(data class): 순수 불변 도메인 모델. Repository 인터페이스. 포트 인터페이스 (PasswordEncryptor). VO: 값 검증. Validator. CoreException, ErrorType. PageQuery/PageResult/CursorResult |
-| Infrastructure | `infrastructure/`, `infrastructure/config/` | JpaModel(@Entity): DB 매핑. Repository 구현체. 포트 구현체 (BcryptPasswordEncryptor, ProductCacheStoreImpl). CursorUtils. BaseEntity. 인프라 빈 설정 (CacheConfig). Redis 캐시 구현체 |
+| Infrastructure | `infrastructure/`, `infrastructure/config/` | JpaModel(@Entity): DB 매핑. Repository 구현체. 포트 구현체 (BcryptPasswordEncryptor). CursorUtils. BaseEntity. 인프라 빈 설정 (CacheConfig) |
 
 ### 핵심 설계 원칙
 
@@ -403,14 +386,14 @@ classDiagram
 
 ### 다이어그램의 목적
 
-JWT 미사용 환경에서 어노테이션 기반 인증이 어떻게 동작하는지, Redis 캐시(AuthCacheStore)를 활용한 BCrypt 최적화 흐름을 파악한다.
+JWT 미사용 환경에서 어노테이션 기반 인증이 어떻게 동작하는지, Caffeine 캐시를 활용한 BCrypt 최적화 흐름을 파악한다.
 
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant I as Interceptor
     participant AS as AuthService
-    participant Cache as Redis Cache (AuthCacheStore)
+    participant Cache as Caffeine Cache
     participant MS as MemberService
     participant AR as ArgumentResolver
     participant Ctrl as Controller
@@ -452,10 +435,10 @@ sequenceDiagram
 
 ### 캐시 전략
 
-- **백엔드**: Redis 글로벌 캐시 (`AuthCacheStore` 포트 패턴, 키 `auth:{loginId}`)
+- **백엔드**: Caffeine 로컬 캐시 (`auth-cache`)
 - **키**: loginId
 - **비교 방식**: SHA256 다이제스트로 비밀번호 비교 (BCrypt 반복 호출 방지)
-- **TTL**: 5분 (Redis allkeys-lfu eviction 정책으로 메모리 관리)
+- **TTL**: 5분, 최대 10,000 엔트리
 - **Eviction**: 비밀번호 변경 시 loginId 기반 즉시 evict
 
 ---
@@ -518,8 +501,6 @@ graph LR
         OF["OrderFacade"]
         LF["LikeFacade"]
         ABF["AdminBrandFacade"]
-        CF["CouponFacade"]
-        ACF["AdminCouponFacade"]
     end
 
     subgraph Services
@@ -528,31 +509,25 @@ graph LR
         PS["ProductService"]
         LS["LikeService"]
         OS["OrderService"]
-        CS["CouponService"]
     end
 
     OF -->|상품 조회 + 재고 차감| PS
     OF -->|주문 생성| OS
-    OF -->|쿠폰 검증 + 차감| CS
     LF -->|좋아요 토글| LS
     LF -->|상품 조회| PS
     ABF -->|브랜드 삭제 시 캐스케이드| BS
     ABF -->|하위 상품 삭제| PS
-    CF -->|쿠폰 발급 · 조회| CS
-    ACF -->|템플릿 CRUD · 발급 내역 조회| CS
 
     MS ~~~ BS
     BS ~~~ PS
     PS ~~~ LS
     LS ~~~ OS
-    OS ~~~ CS
 
     style MS fill:#e1f5fe
     style BS fill:#f3e5f5
     style PS fill:#e8f5e9
     style LS fill:#fff3e0
     style OS fill:#fce4ec
-    style CS fill:#f9fbe7
 ```
 
 ### 의존 규칙
@@ -560,7 +535,6 @@ graph LR
 - **Service 간 직접 참조 금지**: cross-domain 접근은 Facade에서만 조합
 - **물리 FK 미사용**: 도메인 간 ID 참조만 (향후 서비스 분리 대비)
 - **Soft Delete 캐스케이드**: 브랜드 삭제 시 AdminBrandFacade가 ProductService를 호출하여 하위 상품 삭제
-- **쿠폰 cross-domain 접근**: 주문 생성 시 OrderFacade가 CouponService를 직접 호출하여 쿠폰 검증 및 차감을 수행한다. 재고 비관적 락 획득 전에 쿠폰 차감을 먼저 처리한다 (D34)
 
 ---
 
@@ -593,7 +567,7 @@ graph TB
 
     subgraph AppLayer["Application Layer"]
         subgraph AppAuth["인증 (Application)"]
-            AS["AuthService<br/>인증 + AuthCacheStore(Redis) 로직"]
+            AS["AuthService<br/>인증 + Caffeine 캐시 로직"]
             ARES["AuthResult<br/>인증 결과 (id, loginId)"]
             CA["CachedAuth<br/>SHA256 다이제스트 비교"]
         end
@@ -615,9 +589,8 @@ graph TB
 
     subgraph InfraLayer["Infrastructure Layer"]
         subgraph InfraConfig["인프라 설정"]
-            CC["CacheConfig<br/>Redis: auth/product/brand cache"]
+            CC["CacheConfig<br/>Caffeine: auth-cache, TTL 5m, max 10K"]
             BPE["BcryptPasswordEncryptor<br/>PasswordEncryptor 구현체"]
-            PCSI2["ProductCacheStoreImpl<br/>Redis cache-aside (상세 5m, 목록 1m)"]
         end
         subgraph InfraSupport["인프라 유틸리티"]
             CU["CursorUtils<br/>커서 인코딩/디코딩 (Base64+JSON)"]
@@ -647,7 +620,7 @@ graph TB
 | Interfaces | `MemberV1Controller` | `POST /api/v1/members` 회원가입, `GET /api/v1/members/me` 내 정보 조회, `PATCH /api/v1/members/me/password` 비밀번호 변경 |
 | Interfaces | `MemberV1ApiSpec` | OpenAPI 스펙 |
 | Interfaces | `MemberV1Dto` | RegisterRequest, MemberResponse, ChangePasswordRequest |
-| Application | `MemberFacade` | 가입 · 조회 · 비밀번호 변경 오케스트레이션 + 비밀번호 변경 시 AuthCacheStore evict (`@Transactional`) |
+| Application | `MemberFacade` | 가입 · 조회 · 비밀번호 변경 오케스트레이션 + 비밀번호 변경 시 auth-cache evict (`@Transactional`) |
 | Application | `MemberService` | 단일 도메인 로직: 가입, 인증, 조회, 비밀번호 변경 (`@Transactional` 없음) |
 | Application | `MemberInfo` | 회원 정보 DTO |
 | Domain | `MemberModel` | data class: Aggregate Root, `changePassword()` |
@@ -694,9 +667,8 @@ graph TB
 | Interfaces (Admin) | `AdminProductV1Controller` | `POST/GET/PUT/DELETE /api-admin/v1/products` (offset) |
 | Interfaces (Admin) | `AdminProductV1ApiSpec` | 어드민 상품 CRUD 스펙 |
 | Interfaces (Admin) | `AdminProductV1Dto` | CreateRequest, UpdateRequest, AdminProductResponse |
-| Application | `ProductFacade` | 고객용 조회 + cache-aside 패턴 (`@Transactional`) |
-| Application | `AdminProductFacade` | 어드민 CRUD + 브랜드 존재 검증 + CUD 시 캐시 evict (`@Transactional`) |
-| Application | `ProductCacheStore` | 캐시 포트 인터페이스: 상품 상세/목록 캐시 조회·저장·삭제 |
+| Application | `ProductFacade` | 고객용 조회 + 재고 차감 (`@Transactional`) |
+| Application | `AdminProductFacade` | 어드민 CRUD + 브랜드 존재 검증 (`@Transactional`) |
 | Application | `ProductService` | 단일 도메인 로직: CRUD + findByIdWithLock (비관적 락) (`@Transactional` 없음) |
 | Application | `ProductCommand` | Create, Update 커맨드 |
 | Application | `ProductInfo` | 상품 정보 DTO |
@@ -713,7 +685,6 @@ graph TB
 | Infrastructure | `ProductRepositoryImpl` | Repository 구현체 (SELECT FOR UPDATE, 커서 파싱/인코딩 포함) |
 | Infrastructure | `ProductJpaRepository` | Spring Data JPA |
 | Infrastructure | `ProductCursor` | sealed interface: Latest, PriceAsc, LikesDesc (내부 구현, 커서 타입 안전성) |
-| Infrastructure | `ProductCacheStoreImpl` | Redis 캐시 구현체: RedisTemplate (Master/Replica 분리), TTL 5분(상세)/1분(목록) |
 
 ### Like (좋아요)
 
@@ -759,36 +730,6 @@ graph TB
 | Infrastructure | `OrderItemRepositoryImpl` | Repository 구현체 |
 | Infrastructure | `OrderItemJpaRepository` | Spring Data JPA |
 
-### Coupon (쿠폰)
-
-| 레이어 | 클래스 | 책임 |
-|--------|--------|------|
-| Interfaces | `CouponV1Controller` | `POST /api/v1/coupons/templates/{templateId}/issue` 쿠폰 발급, `GET /api/v1/members/me/coupons` 내 쿠폰 목록 조회 |
-| Interfaces | `CouponV1ApiSpec` | OpenAPI 스펙 |
-| Interfaces | `CouponV1Dto` | IssueCouponResponse, IssuedCouponResponse |
-| Interfaces (Admin) | `AdminCouponV1Controller` | `POST/GET/PUT/DELETE /api-admin/v1/coupons` 템플릿 CRUD, `GET /api-admin/v1/coupons/{couponId}/issues` 발급 내역 조회 |
-| Interfaces (Admin) | `AdminCouponV1ApiSpec` | 어드민 쿠폰 CRUD 스펙 |
-| Interfaces (Admin) | `AdminCouponV1Dto` | CreateTemplateRequest, UpdateTemplateRequest, AdminCouponTemplateResponse, AdminIssuedCouponResponse |
-| Application | `CouponFacade` | 쿠폰 발급 (템플릿 유효성 검증 + 만료일 계산) + 내 쿠폰 목록 조회 (`@Transactional`) |
-| Application | `AdminCouponFacade` | 어드민 템플릿 CRUD + 발급 내역 조회 (`@Transactional`) |
-| Application | `CouponService` | 단일 도메인 로직: createTemplate, getTemplate, getTemplates, updateTemplate, deleteTemplate, issueCoupon, getIssuedCoupons, getIssuedCouponsByTemplate, getIssuedCouponById, saveIssuedCoupon (`@Transactional` 없음) |
-| Application | `CouponCommand` | CreateTemplate, UpdateTemplate, IssueCoupon 커맨드 |
-| Application | `CouponInfo` | `CouponTemplateInfo`: 템플릿 정보 DTO. `IssuedCouponInfo`: 발급 쿠폰 정보 DTO (effectiveStatus 계산: USED > EXPIRED > AVAILABLE) |
-| Domain | `CouponTemplateModel` | data class: 쿠폰 템플릿 Aggregate Root, `isIssuable()`, `update()`, `delete()` |
-| Domain | `IssuedCouponModel` | data class: 발급 쿠폰, `validateOwner()`, `use()`, `version` (낙관적 락) |
-| Domain | `CouponTemplateRepository` | Interface: save, findById, findAll |
-| Domain | `IssuedCouponRepository` | Interface: save, findById, findByMemberId, findByTemplateId |
-| Domain | `CouponType` | Enum: FIXED_AMOUNT, PERCENTAGE |
-| Domain | `CouponStatus` | Enum: AVAILABLE, USED, EXPIRED |
-| Domain | `CouponTemplateStatus` | Enum: ACTIVE, INACTIVE, DELETED |
-| Domain | `ExpirationPolicy` | Enum/Sealed: FIXED_DATE(expiredAt), DAYS_FROM_ISSUE(validDays) |
-| Infrastructure | `CouponTemplateJpaModel` | `@Entity`: DB 매핑, `BaseEntity` 상속 |
-| Infrastructure | `IssuedCouponJpaModel` | `@Entity`: DB 매핑, `BaseEntity` 상속, `@Version` 낙관적 락 |
-| Infrastructure | `CouponTemplateRepositoryImpl` | Repository 구현체 |
-| Infrastructure | `IssuedCouponRepositoryImpl` | Repository 구현체 |
-| Infrastructure | `CouponTemplateJpaRepository` | Spring Data JPA |
-| Infrastructure | `IssuedCouponJpaRepository` | Spring Data JPA |
-
 ### 공통
 
 | 레이어 | 클래스 | 책임 |
@@ -796,7 +737,7 @@ graph TB
 | Interfaces | `ApiResponse<T>` | 통합 응답 래퍼 |
 | Interfaces | `ApiControllerAdvice` | 글로벌 예외 핸들러: ApplicationException → ApiResponse 변환 |
 | Interfaces | `PageResponse<T>` | Presentation 페이징 DTO (Domain PageResult 미노출) |
-| Application/Auth | `AuthService` | 인증 + AuthCacheStore(Redis) 로직 (Interceptor의 유일한 의존 대상) |
+| Application/Auth | `AuthService` | 인증 + Caffeine 캐시 로직 (Interceptor의 유일한 의존 대상) |
 | Application/Auth | `AuthResult` | 인증 결과 DTO (id, loginId) |
 | Application/Auth | `CachedAuth` | SHA256 다이제스트 기반 캐시 엔트리 |
 | Application/Error | `ApplicationException` | HTTP 상태 + message 래핑 (Presentation 전달용) |
@@ -830,9 +771,7 @@ graph TB
 | 멱등 좋아요 | 사전 조회 후 INSERT, 양방향 멱등 (등록/취소 모두 200 OK) | D17 |
 | 스냅샷 | OrderItemModel에 productName, productPrice, brandName 복사 | D25 |
 | 커서 페이징 | 고객 상품 목록 (Base64). Infrastructure에서 커서 파싱/인코딩, Domain은 CursorResult 반환 | D28, D30 |
-| 인증 캐싱 | Redis 글로벌 캐시(AuthCacheStore 포트 패턴), SHA256 다이제스트, TTL 5분. AuthService(Application)가 캐시 로직 소유 | D4, D5, D30, D41 |
+| 인증 캐싱 | Caffeine auth-cache, SHA256 다이제스트, TTL 5분. AuthService(Application)가 캐시 로직 소유 | D4, D5, D30 |
 | 어노테이션 기반 인증 | JWT 미사용, `@MemberAuthenticated` + `@AdminAuthenticated` + Interceptor + ArgumentResolver | D3 |
 | Unique Constraint | 사전 조회 중복체크 금지, DB Constraint + 예외 처리 | D2 |
 | Virtual Threads | `spring.threads.virtual.enabled=true`, synchronized 금지 | D1 |
-| Redis 캐시 (cache-aside) | ProductCacheStore(Application 포트) ← ProductCacheStoreImpl(Infrastructure). 상세 5분/목록 1분 TTL. CUD evict | D37 |
-| 낙관적 락 (쿠폰) | `IssuedCouponModel.version` + `@Version` → 동시 사용 방지 (409 CONFLICT) | D31 |

@@ -28,11 +28,4 @@ data class IssuedCouponModel(
     fun isExpired(): Boolean = expiredAt.isBefore(ZonedDateTime.now())
 
     fun isAvailable(): Boolean = status == CouponStatus.AVAILABLE && !isExpired()
-
-    fun restore(): IssuedCouponModel {
-        if (status != CouponStatus.USED) {
-            throw CoreException(ErrorType.BAD_REQUEST, "사용된 쿠폰만 복원할 수 있습니다.")
-        }
-        return copy(status = CouponStatus.AVAILABLE, usedAt = null)
-    }
 }

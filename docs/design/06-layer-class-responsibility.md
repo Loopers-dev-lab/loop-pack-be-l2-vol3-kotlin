@@ -22,7 +22,6 @@ graph LR
         A_ERR["ApplicationException\nApplicationErrorType"]
         A_ASPECT["DomainExceptionTranslator\n(@Aspect)"]
         A_AUTH_SVC["AuthService"]
-        A_CACHE["ProductCacheStore\n(interface)"]
     end
 
     subgraph Domain["Domain Layer"]
@@ -44,7 +43,6 @@ graph LR
         I_REPO_IMPL["RepositoryImpl"]
         I_DS_IMPL["BcryptPasswordEncryptor"]
         I_CONFIG["Config\n(CacheConfig 등)"]
-        I_CACHE_IMPL["ProductCacheStoreImpl"]
     end
 
     Presentation -->|"depends on"| Application
@@ -92,7 +90,6 @@ graph TD
         JPA_REPO["<b>JpaRepository</b>\nSpring Data JPA interface\nJpaModel 대상"]
         REPO_IMPL["<b>RepositoryImpl</b>\nRepository 구현체\nModel ↔ JpaModel 변환\nPageQuery ↔ Pageable 변환"]
         DS_IMPL["<b>Domain Service Impl</b>\nDomain Service 구현체\n(예: BcryptPasswordEncoder)"]
-        CACHE_IMPL["<b>CacheStoreImpl</b>\nProductCacheStore 구현체\nRedisTemplate 기반\ncache-aside 패턴"]
     end
 
     Presentation -->|"depends on"| Application
@@ -199,5 +196,3 @@ graph LR
 | JpaModel | Infrastructure | Domain (Model), JPA (BaseEntity) |
 | JpaRepository | Infrastructure | Infrastructure (JpaModel), Spring Data |
 | RepositoryImpl | Infrastructure | Domain (Repository, Model), Infrastructure (JpaModel, JpaRepository) |
-| CacheStore (interface) | Application | Domain (Info DTO) |
-| CacheStoreImpl | Infrastructure | Application (CacheStore interface), Redis |

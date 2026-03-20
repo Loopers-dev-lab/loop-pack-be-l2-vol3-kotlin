@@ -12,7 +12,7 @@
 1. 사용자가 **회원가입**을 한다.
 2. 여러 **브랜드의 상품**을 둘러보고, 마음에 드는 상품엔 **좋아요**를 누른다.
 3. 여러 상품을 **한 번에 주문**한다.
-4. 회원의 행동은 모두 기록되고, 이후 다양한 기능(랭킹, 추천, 결제)으로 확장된다.
+4. 회원의 행동은 모두 기록되고, 이후 다양한 기능(랭킹, 추천, 쿠폰, 결제)으로 확장된다.
 
 ### API 접근 체계
 
@@ -38,8 +38,6 @@
 | 스냅샷 | Snapshot | 주문 시점의 상품 정보 복사본 |
 | 품절 | Sold Out | 재고가 0인 상태 |
 | 소프트 삭제 | Soft Delete | 물리 삭제 대신 상태를 DELETED로 변경 |
-| 쿠폰 템플릿 | Coupon Template | 어드민이 정의하는 쿠폰 유형 (할인 조건, 만료 정책 포함) |
-| 발급 쿠폰 | Issued Coupon | 회원에게 발급된 개별 쿠폰 인스턴스 |
 
 ### 상태값 정의
 
@@ -51,11 +49,6 @@
 | 상품 | DELETED | 삭제됨 (고객 미노출) |
 | 주문 | ORDERED | 주문 완료 |
 | 주문 | CANCELLED | 주문 취소 |
-| 쿠폰 템플릿 | ACTIVE | 활성 (발급 가능) |
-| 쿠폰 템플릿 | DELETED | 삭제됨 (신규 발급 불가, 기발급 쿠폰은 만료일까지 유효) |
-| 발급 쿠폰 | AVAILABLE | 사용 가능 |
-| 발급 쿠폰 | USED | 사용 완료 |
-| 발급 쿠폰 | EXPIRED | 만료됨 (DB 미저장, 조회 시 계산) |
 
 ---
 
@@ -535,166 +528,6 @@ E1. 존재하지 않는 주문인 경우 → 404 Not Found
 
 ---
 
-### 3.6 쿠폰 (Coupons)
-
-#### 유저 시나리오
-
-> "어드민은 쿠폰 템플릿을 등록하고 발급 내역을 관리한다. 사용자는 쿠폰을 발급받아 주문 시 할인에 사용한다."
-
-#### 대고객 API
-
-| METHOD | URI | 인증 | 설명 |
-|--------|-----|------|------|
-| POST | `/api/v1/coupons/templates/{templateId}/issue` | O | 쿠폰 발급 |
-| GET | `/api/v1/members/me/coupons` | O | 내 쿠폰 목록 조회 |
-
-#### 어드민 API
-
-| METHOD | URI | 인증 | 설명 |
-|--------|-----|------|------|
-| POST | `/api-admin/v1/coupons` | LDAP | 쿠폰 템플릿 등록 |
-| GET | `/api-admin/v1/coupons?page=0&size=20` | LDAP | 템플릿 목록 조회 (페이징) |
-| GET | `/api-admin/v1/coupons/{couponId}` | LDAP | 템플릿 상세 조회 |
-| PUT | `/api-admin/v1/coupons/{couponId}` | LDAP | 템플릿 수정 |
-| DELETE | `/api-admin/v1/coupons/{couponId}` | LDAP | 템플릿 삭제 (소프트 삭제) |
-| GET | `/api-admin/v1/coupons/{couponId}/issues` | LDAP | 발급 내역 조회 |
-
-#### 비즈니스 규칙
-
-- **BR-C1**: 쿠폰 타입은 FIXED(정액)와 RATE(정률) 두 가지이다.
-- **BR-C2**: RATE 쿠폰은 maxDiscountAmount로 할인 상한을 제한한다.
-- **BR-C3**: 만료 정책은 FIXED_DATE(특정일)와 DAYS_FROM_ISSUE(발급일+N일) 두 가지이다.
-- **BR-C4**: 중복 발급을 허용한다. (동일 회원이 같은 템플릿에서 여러 장 발급 가능)
-- **BR-C5**: 삭제된 템플릿에서는 신규 발급이 불가하며, 이미 발급된 쿠폰은 만료일까지 사용 가능하다.
-- **BR-C6**: 쿠폰 상태는 DB에 AVAILABLE/USED만 저장하며, EXPIRED는 조회 시 만료일 기준으로 계산한다.
-- **BR-C7**: 쿠폰 사용 시 낙관적 락(@Version)으로 동시 사용을 방지한다. 동시 충돌 시 409 CONFLICT를 반환한다.
-- **BR-C8**: 최소 주문 금액(minOrderAmount) 미달 시 쿠폰 적용이 불가하다.
-- **BR-C9**: 할인 적용 순서: 소유자 확인 → 상태 확인 → 만료 확인 → 최소 금액 확인 → 할인 계산.
-- **BR-C10**: 쿠폰 적용 실패 시 전체 트랜잭션이 롤백된다. (재고 복원)
-- **BR-C11**: 주문 시 쿠폰 차감은 재고 락 획득 전에 수행한다.
-
-#### 입력값 검증
-
-| 필드 | 제약 | 필수 |
-|------|------|------|
-| name | 1~255자 | O |
-| type | FIXED / RATE | O |
-| value | 1 이상 | O |
-| minOrderAmount | 0 이상 | O |
-| maxDiscountAmount | null 가능 (RATE일 때 유효) | X |
-| expirationPolicy | FIXED_DATE / DAYS_FROM_ISSUE | O |
-| expiredAt | FIXED_DATE일 때 필수 | 조건부 |
-| validDays | DAYS_FROM_ISSUE일 때 필수, 1 이상 | 조건부 |
-
-#### 고객/어드민 정보 분리
-
-| 필드 | 고객 노출 (발급 쿠폰) | 어드민 노출 (템플릿) |
-|------|----------------------|---------------------|
-| id | O | O |
-| name / templateName | O | O |
-| type | O | O |
-| value | O | O |
-| minOrderAmount | O | O |
-| maxDiscountAmount | O | O |
-| expirationPolicy | X | O |
-| expiredAt | O | O |
-| validDays | X | O |
-| status | O (AVAILABLE/USED/EXPIRED 계산값) | O (ACTIVE/DELETED) |
-| usedAt | O | X |
-| createdAt | O | O |
-| updatedAt | X | O |
-
-> 고객에게는 발급된 쿠폰 인스턴스의 상태와 만료일을 노출한다. 어드민은 템플릿의 전체 정보(만료 정책, 발급 내역 포함)를 조회할 수 있다.
-
-#### 응답 형식
-
-**어드민 쿠폰 템플릿 조회 응답**
-```json
-{
-  "id": 1,
-  "name": "신규 가입 쿠폰",
-  "type": "FIXED",
-  "value": 5000,
-  "minOrderAmount": 30000,
-  "maxDiscountAmount": null,
-  "expirationPolicy": "DAYS_FROM_ISSUE",
-  "expiredAt": null,
-  "validDays": 30,
-  "status": "ACTIVE",
-  "createdAt": "2026-01-01T00:00:00+09:00",
-  "updatedAt": "2026-01-15T12:00:00+09:00"
-}
-```
-
-**고객 발급 쿠폰 목록 응답**
-```json
-[
-  {
-    "id": 1,
-    "templateName": "신규 가입 쿠폰",
-    "type": "FIXED",
-    "value": 5000,
-    "minOrderAmount": 30000,
-    "maxDiscountAmount": null,
-    "status": "AVAILABLE",
-    "expiredAt": "2026-02-01T23:59:59+09:00",
-    "usedAt": null,
-    "createdAt": "2026-01-02T10:00:00+09:00"
-  }
-]
-```
-
-#### 유스케이스 흐름
-
-**쿠폰 발급**
-
-```
-[Main Flow]
-1. 회원이 특정 쿠폰 템플릿으로 쿠폰 발급을 요청한다.
-2. 템플릿 존재 여부 및 활성 상태를 확인한다. (BR-C5)
-3. 만료 정책에 따라 만료일을 계산한다. (BR-C3)
-4. 쿠폰이 발급된다. (중복 발급 허용, BR-C4)
-5. 201 Created를 반환한다.
-
-[Exception Flow]
-E1. 로그인하지 않은 경우 → 401 Unauthorized
-E2. 존재하지 않는 템플릿인 경우 → 404 Not Found
-E3. 삭제된 템플릿인 경우 → 400 Bad Request (BR-C5)
-```
-
-**내 쿠폰 목록 조회**
-
-```
-[Main Flow]
-1. 회원이 자신의 쿠폰 목록을 요청한다.
-2. 발급된 쿠폰 목록을 반환한다.
-3. 만료 여부는 만료일 기준으로 계산하여 status에 반영한다. (BR-C6)
-
-[Exception Flow]
-E1. 로그인하지 않은 경우 → 401 Unauthorized
-```
-
-**주문 시 쿠폰 적용**
-
-```
-[Main Flow]
-1. 회원이 쿠폰을 포함하여 주문을 요청한다.
-2. 쿠폰 소유자 확인 → 상태 확인 → 만료 확인 → 최소 금액 확인 순서로 검증한다. (BR-C9)
-3. 쿠폰 차감 처리를 수행한다. (재고 락 획득 전, BR-C11)
-4. 재고를 차감한다.
-5. 할인이 적용된 주문이 생성된다.
-
-[Exception Flow]
-E1. 본인 쿠폰이 아닌 경우 → 403 Forbidden
-E2. 이미 사용된 쿠폰인 경우 → 400 Bad Request
-E3. 만료된 쿠폰인 경우 → 400 Bad Request
-E4. 최소 주문 금액 미달인 경우 → 400 Bad Request (BR-C8)
-E5. 동시 사용 충돌인 경우 → 409 Conflict (BR-C7)
-E6. 쿠폰 적용 실패 시 전체 주문 롤백 (BR-C10)
-```
-
----
-
 ## 4. 공통 제약사항
 
 | 제약 | 설명 |
@@ -727,7 +560,7 @@ E6. 쿠폰 적용 실패 시 전체 주문 롤백 (BR-C10)
 
 | 구분 | 요구사항 | 비고 |
 |------|---------|------|
-| 성능 | Phase 1: 기능 정합성 우선. Phase 2: 동시성/멱등성. Phase 3: 대규모 트래픽 대응 | 상세: REQUIREMENTS.md 참조 |
+| 성능 | Phase 1: 기능 정합성 우선. Phase 2: 동시성/멱등성. Phase 3: 10,000 TPS (피크 기준) | 상세: REQUIREMENTS.md 참조 |
 | 보안 | 비밀번호: 8~16자, 대소문자+숫자+특수문자 포함. 평문 저장 금지 (BCrypt) | |
 | 데이터 정합성 | 주문 시 재고 차감은 원자적으로 수행. 좋아요 수는 배치 기반 eventual consistency 허용 | |
 | 응답 시간 | 목표 미확정 (Phase 3에서 설정) | |
@@ -739,6 +572,7 @@ E6. 쿠폰 적용 실패 시 전체 주문 롤백 (BR-C10)
 | 기능 | 설명 | 연관 도메인 |
 |------|------|-------------|
 | 결제 | 주문에 대한 결제 처리 | Order |
+| 쿠폰 | 쿠폰 발급, 적용, 할인 | Order, Product |
 | 랭킹 | 좋아요/주문 기반 인기 상품 | Product, Like, Order |
 | 추천 | 유저 행동 기반 상품 추천 | Like, Order |
 | 장바구니 | 주문 전 상품 담기 | Product |
