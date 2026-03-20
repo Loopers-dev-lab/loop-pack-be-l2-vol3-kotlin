@@ -44,6 +44,7 @@ resilience4j:
     instances:
       pgRequest:
         sliding-window-size: 10
+        minimum-number-of-calls: 10
         failure-rate-threshold: 70
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
@@ -52,6 +53,7 @@ resilience4j:
         automatic-transition-from-open-to-half-open-enabled: true
       pgQuery:
         sliding-window-size: 10
+        minimum-number-of-calls: 10
         failure-rate-threshold: 70
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
