@@ -2,6 +2,7 @@ package com.loopers.application.order
 
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
+import com.loopers.domain.order.OrderStatus
 
 data class OrderInfo(
     val id: Long,
@@ -10,6 +11,7 @@ data class OrderInfo(
     val discountAmount: Long,
     val totalPrice: Long,
     val couponId: Long?,
+    val status: OrderStatus,
     val items: List<OrderItemInfo>,
 ) {
     companion object {
@@ -21,6 +23,7 @@ data class OrderInfo(
                 discountAmount = order.discountAmount,
                 totalPrice = order.totalPrice,
                 couponId = order.couponId,
+                status = order.status,
                 items = order.items.map { OrderItemInfo.from(it) },
             )
         }

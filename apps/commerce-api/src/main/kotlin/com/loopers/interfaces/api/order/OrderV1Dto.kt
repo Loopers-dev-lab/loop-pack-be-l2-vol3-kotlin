@@ -20,6 +20,7 @@ class OrderV1Dto {
         val discountAmount: Long,
         val totalPrice: Long,
         val couponId: Long?,
+        val status: String,
         val items: List<OrderItemResponse>,
     ) {
         companion object {
@@ -30,6 +31,7 @@ class OrderV1Dto {
                     discountAmount = orderInfo.discountAmount,
                     totalPrice = orderInfo.totalPrice,
                     couponId = orderInfo.couponId,
+                    status = orderInfo.status.name,
                     items = orderInfo.items.map { OrderItemResponse.from(it) },
                 )
             }
