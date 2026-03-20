@@ -3,6 +3,7 @@ package com.loopers.application.product
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductModel
+import com.loopers.domain.product.ProductSortType
 import com.loopers.domain.product.ProductService
 import io.mockk.every
 import io.mockk.mockk
@@ -21,7 +22,8 @@ class ProductFacadeTest {
 
     private val productService: ProductService = mockk()
     private val brandService: BrandService = mockk()
-    private val productFacade = ProductFacade(productService, brandService)
+    private val productCacheStore: ProductCacheStore = mockk(relaxed = true)
+    private val productFacade = ProductFacade(productService, brandService, productCacheStore)
 
     companion object {
         private const val PRODUCT_ID = 1L
@@ -69,6 +71,7 @@ class ProductFacadeTest {
             // arrange
             val product = createProduct()
             val brand = createBrand()
+            every { productCacheStore.getProductDetail(PRODUCT_ID) } returns null
             every { productService.findById(PRODUCT_ID) } returns product
             every { brandService.findById(BRAND_ID) } returns brand
 
@@ -81,6 +84,37 @@ class ProductFacadeTest {
             assertThat(result.brandName).isEqualTo(BRAND_NAME)
             assertThat(result.likesCount).isEqualTo(5L)
             verify(exactly = 1) { productService.findById(PRODUCT_ID) }
+            verify(exactly = 1) { brandService.findById(BRAND_ID) }
+            verify(exactly = 1) { productCacheStore.putProductDetail(any()) }
+        }
+
+        @DisplayName("캐시된 상품 상세가 있으면 DB 조회 없이 반환한다")
+        @Test
+        fun returnsCachedProductDetail_whenCacheHit() {
+            // arrange
+            val brand = createBrand()
+            val cached = ProductCacheSnapshot(
+                id = PRODUCT_ID,
+                name = PRODUCT_NAME,
+                price = PRODUCT_PRICE,
+                brandId = BRAND_ID,
+                description = null,
+                thumbnailImageUrl = null,
+                stockQuantity = 10,
+                likesCount = 5L,
+                saleStatus = com.loopers.domain.product.SaleStatus.SELLING,
+                displayStatus = com.loopers.domain.product.DisplayStatus.VISIBLE,
+                createdAt = ZonedDateTime.now(),
+            )
+            every { productCacheStore.getProductDetail(PRODUCT_ID) } returns cached
+            every { brandService.findById(BRAND_ID) } returns brand
+
+            // act
+            val result = productFacade.getProductDetail(PRODUCT_ID)
+
+            // assert
+            assertThat(result.brandName).isEqualTo(BRAND_NAME)
+            verify(exactly = 0) { productService.findById(any()) }
             verify(exactly = 1) { brandService.findById(BRAND_ID) }
         }
     }
@@ -99,11 +133,12 @@ class ProductFacadeTest {
             val pageable = PageRequest.of(0, 10)
             val productPage = PageImpl(listOf(product1, product2), pageable, 2)
 
-            every { productService.findAll(null, pageable) } returns productPage
+            every { productCacheStore.getProductList(null, ProductSortType.LATEST, pageable) } returns null
+            every { productService.findAll(null, ProductSortType.LATEST, pageable) } returns productPage
             every { brandService.findAllByIds(listOf(1L, 2L)) } returns listOf(brand1, brand2)
 
             // act
-            val result = productFacade.getProductList(null, pageable)
+            val result = productFacade.getProductList(null, ProductSortType.LATEST, pageable)
 
             // assert
             assertThat(result.content).hasSize(2)
@@ -111,8 +146,9 @@ class ProductFacadeTest {
             assertThat(result.content[0].brandName).isEqualTo("브랜드A")
             assertThat(result.content[1].name).isEqualTo("상품B")
             assertThat(result.content[1].brandName).isEqualTo("브랜드B")
-            verify(exactly = 1) { productService.findAll(null, pageable) }
+            verify(exactly = 1) { productService.findAll(null, ProductSortType.LATEST, pageable) }
             verify(exactly = 1) { brandService.findAllByIds(any()) }
+            verify(exactly = 1) { productCacheStore.putProductList(null, ProductSortType.LATEST, pageable, any()) }
         }
 
         @DisplayName("브랜드별 필터링 조회 시에도 브랜드를 일괄 조회한다")
@@ -125,16 +161,55 @@ class ProductFacadeTest {
             val pageable = PageRequest.of(0, 10)
             val productPage = PageImpl(listOf(product1, product2), pageable, 2)
 
-            every { productService.findAll(BRAND_ID, pageable) } returns productPage
+            every { productCacheStore.getProductList(BRAND_ID, ProductSortType.LIKES_DESC, pageable) } returns null
+            every { productService.findAll(BRAND_ID, ProductSortType.LIKES_DESC, pageable) } returns productPage
             every { brandService.findAllByIds(listOf(BRAND_ID)) } returns listOf(brand)
 
             // act
-            val result = productFacade.getProductList(BRAND_ID, pageable)
+            val result = productFacade.getProductList(BRAND_ID, ProductSortType.LIKES_DESC, pageable)
 
             // assert
             assertThat(result.content).hasSize(2)
             assertThat(result.content).allSatisfy { assertThat(it.brandName).isEqualTo(BRAND_NAME) }
-            verify(exactly = 1) { productService.findAll(BRAND_ID, pageable) }
+            verify(exactly = 1) { productService.findAll(BRAND_ID, ProductSortType.LIKES_DESC, pageable) }
+            verify(exactly = 1) { brandService.findAllByIds(listOf(BRAND_ID)) }
+        }
+
+        @DisplayName("캐시된 상품 목록이 있으면 브랜드 일괄 조회 없이 반환한다")
+        @Test
+        fun returnsCachedProductList_whenCacheHit() {
+            // arrange
+            val pageable = PageRequest.of(0, 10)
+            val brand = createBrand()
+            val cachedPage = PageImpl(
+                listOf(
+                    ProductCacheSnapshot(
+                        id = 1L,
+                        name = "상품A",
+                        price = 10000L,
+                        brandId = BRAND_ID,
+                        description = null,
+                        thumbnailImageUrl = null,
+                        stockQuantity = 10,
+                        likesCount = 3L,
+                        saleStatus = com.loopers.domain.product.SaleStatus.SELLING,
+                        displayStatus = com.loopers.domain.product.DisplayStatus.VISIBLE,
+                        createdAt = ZonedDateTime.now(),
+                    ),
+                ),
+                pageable,
+                1,
+            )
+            every { productCacheStore.getProductList(BRAND_ID, ProductSortType.PRICE_ASC, pageable) } returns cachedPage
+            every { brandService.findAllByIds(listOf(BRAND_ID)) } returns listOf(brand)
+
+            // act
+            val result = productFacade.getProductList(BRAND_ID, ProductSortType.PRICE_ASC, pageable)
+
+            // assert
+            assertThat(result.content).hasSize(1)
+            assertThat(result.content[0].brandName).isEqualTo(BRAND_NAME)
+            verify(exactly = 0) { productService.findAll(any(), any(), any()) }
             verify(exactly = 1) { brandService.findAllByIds(listOf(BRAND_ID)) }
         }
     }

@@ -8,29 +8,23 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class ProductService(
-    private val productRepository: ProductRepository,
-) {
+class ProductService(private val productRepository: ProductRepository) {
     @Transactional(readOnly = true)
-    fun findById(id: Long): ProductModel {
-        return productRepository.findByIdAndDeletedAtIsNull(id)
+    fun findById(id: Long): ProductModel = productRepository.findByIdAndDeletedAtIsNull(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: $id")
-    }
 
     @Transactional(readOnly = true)
-    fun findAll(brandId: Long?, pageable: Pageable): Page<ProductModel> {
-        return productRepository.findAllByDeletedAtIsNull(brandId, pageable)
-    }
+    fun findAll(
+        brandId: Long?,
+        sortType: ProductSortType,
+        pageable: Pageable,
+    ): Page<ProductModel> = productRepository.findAllByDeletedAtIsNull(brandId, sortType, pageable)
 
     @Transactional(readOnly = true)
-    fun findAllByIds(ids: List<Long>): List<ProductModel> {
-        return productRepository.findAllByIdInAndDeletedAtIsNull(ids)
-    }
+    fun findAllByIds(ids: List<Long>): List<ProductModel> = productRepository.findAllByIdInAndDeletedAtIsNull(ids)
 
     @Transactional
-    fun findAllByIdsForUpdate(ids: List<Long>): List<ProductModel> {
-        return productRepository.findAllByIdsForUpdate(ids)
-    }
+    fun findAllByIdsForUpdate(ids: List<Long>): List<ProductModel> = productRepository.findAllByIdsForUpdate(ids)
 
     @Transactional
     fun incrementLikesCount(productId: Long) {

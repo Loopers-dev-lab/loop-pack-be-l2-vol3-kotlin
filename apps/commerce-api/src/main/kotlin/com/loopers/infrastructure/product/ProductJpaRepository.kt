@@ -11,8 +11,12 @@ import org.springframework.data.repository.query.Param
 
 interface ProductJpaRepository : JpaRepository<ProductModel, Long> {
     fun findByIdAndDeletedAtIsNull(id: Long): ProductModel?
-    fun findAllByDeletedAtIsNull(pageable: Pageable): Page<ProductModel>
-    fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long, pageable: Pageable): Page<ProductModel>
+    fun findAllByDeletedAtIsNullOrderByCreatedAtDescIdDesc(pageable: Pageable): Page<ProductModel>
+    fun findAllByDeletedAtIsNullOrderByPriceAscIdDesc(pageable: Pageable): Page<ProductModel>
+    fun findAllByDeletedAtIsNullOrderByLikesCountDescIdDesc(pageable: Pageable): Page<ProductModel>
+    fun findAllByBrandIdAndDeletedAtIsNullOrderByCreatedAtDescIdDesc(brandId: Long, pageable: Pageable): Page<ProductModel>
+    fun findAllByBrandIdAndDeletedAtIsNullOrderByPriceAscIdDesc(brandId: Long, pageable: Pageable): Page<ProductModel>
+    fun findAllByBrandIdAndDeletedAtIsNullOrderByLikesCountDescIdDesc(brandId: Long, pageable: Pageable): Page<ProductModel>
     fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductModel>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
