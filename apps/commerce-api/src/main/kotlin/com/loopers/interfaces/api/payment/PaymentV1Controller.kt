@@ -44,7 +44,7 @@ class PaymentV1Controller(
 
     @PostMapping("/callback")
     fun handleCallback(
-        @RequestBody request: PaymentV1Dto.CallbackRequest,
+        @Valid @RequestBody request: PaymentV1Dto.CallbackRequest,
     ): ApiResponse<Any> {
         paymentUseCase.handleCallback(request.toCommand())
         return ApiResponse.success()

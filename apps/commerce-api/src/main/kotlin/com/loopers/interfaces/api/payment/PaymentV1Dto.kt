@@ -48,17 +48,17 @@ class PaymentV1Dto {
     }
 
     data class CallbackRequest(
-        val transactionKey: String,
-        val orderId: String,
-        val cardType: CardType,
-        val cardNo: String,
-        val amount: Long,
-        val status: PgPaymentStatus,
+        @field:NotBlank val transactionKey: String,
+        @field:NotBlank val orderId: String,
+        @field:NotNull val cardType: CardType?,
+        @field:NotBlank val cardNo: String,
+        @field:NotNull val amount: Long?,
+        @field:NotNull val status: PgPaymentStatus?,
         val reason: String?,
     ) {
         fun toCommand() = PaymentUseCase.CallbackCommand(
             transactionKey = transactionKey,
-            status = status,
+            status = requireNotNull(status),
             reason = reason,
         )
     }

@@ -25,10 +25,18 @@ class PaymentInfo {
                 paymentStatus = payment.status.name,
                 amount = payment.amount,
                 cardType = payment.cardType,
-                cardNo = payment.cardNo,
+                cardNo = maskCardNo(payment.cardNo),
                 transactionKey = payment.pgTransactionKey,
                 reason = payment.reason,
             )
+
+            private fun maskCardNo(cardNo: String): String {
+                val digits = cardNo.filter(Char::isDigit)
+                if (digits.isEmpty()) {
+                    return "****"
+                }
+                return "****-****-****-${digits.takeLast(4)}"
+            }
         }
     }
 }
