@@ -3,10 +3,13 @@ package com.loopers.interfaces.api.user.payment
 import com.loopers.application.user.auth.UserAuthenticateUseCase
 import com.loopers.application.user.payment.PaymentCreateResult
 import com.loopers.application.user.payment.PaymentCreateUseCase
+import com.loopers.application.user.payment.PaymentDetailUseCase
 import com.loopers.interfaces.api.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 class UserPaymentV1Controller(
     private val userAuthenticateUseCase: UserAuthenticateUseCase,
     private val paymentCreateUseCase: PaymentCreateUseCase,
+    private val paymentDetailUseCase: PaymentDetailUseCase,
 ) : UserPaymentV1ApiSpec {
 
     @PostMapping
@@ -37,5 +41,17 @@ class UserPaymentV1Controller(
         }
 
         return ResponseEntity.status(status).body(ApiResponse.success(response))
+    }
+
+    @GetMapping("/{paymentId}")
+    override fun detail(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") password: String,
+        @PathVariable paymentId: Long,
+    ): ResponseEntity<ApiResponse<UserPaymentV1Response.Detail>> {
+        val userId = userAuthenticateUseCase.authenticateAndGetId(loginId, password)
+        val result = paymentDetailUseCase.detail(paymentId, userId)
+        val response = UserPaymentV1Response.Detail.from(result)
+        return ResponseEntity.ok(ApiResponse.success(response))
     }
 }

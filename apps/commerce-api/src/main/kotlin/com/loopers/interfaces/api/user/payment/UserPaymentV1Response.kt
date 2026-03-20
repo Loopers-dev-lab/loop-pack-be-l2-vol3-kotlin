@@ -26,4 +26,30 @@ class UserPaymentV1Response {
             )
         }
     }
+
+    data class Detail(
+        val paymentId: Long,
+        val orderId: Long,
+        val status: String,
+        val transactionKey: String?,
+        val displayStatus: String,
+        val reasonCode: String?,
+        val amount: BigDecimal,
+        val cardType: String,
+        val maskedCardNo: String,
+    ) {
+        companion object {
+            fun from(result: PaymentResult.Detail): Detail = Detail(
+                paymentId = result.paymentId,
+                orderId = result.orderId,
+                status = result.status,
+                transactionKey = result.transactionKey,
+                displayStatus = result.displayStatus,
+                reasonCode = result.reasonCode,
+                amount = result.amount,
+                cardType = result.cardType,
+                maskedCardNo = result.maskedCardNo,
+            )
+        }
+    }
 }

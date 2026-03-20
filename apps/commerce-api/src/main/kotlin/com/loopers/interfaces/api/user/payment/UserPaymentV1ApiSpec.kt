@@ -15,4 +15,11 @@ interface UserPaymentV1ApiSpec {
         idempotencyKey: String,
         request: UserPaymentV1Request.Create,
     ): ResponseEntity<ApiResponse<UserPaymentV1Response.Created>>
+
+    @Operation(summary = "결제 상세 조회", description = "결제 상세 정보를 조회합니다. PENDING 상태이면 PG 상태를 재조회(read-repair)합니다.")
+    fun detail(
+        loginId: String,
+        password: String,
+        paymentId: Long,
+    ): ResponseEntity<ApiResponse<UserPaymentV1Response.Detail>>
 }
