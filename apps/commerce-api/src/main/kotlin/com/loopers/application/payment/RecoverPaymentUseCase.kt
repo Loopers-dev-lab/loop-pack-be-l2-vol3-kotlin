@@ -54,9 +54,9 @@ class RecoverPaymentUseCase(
     }
 
     private fun recoverByOrderId(paymentId: Long, userId: Long, orderId: Long): PaymentInfo {
-        val paddedOrderId = orderId.toString().padStart(6, '0')
+        val pgOrderId = RequestPaymentUseCase.buildPgOrderId(orderId, paymentId)
         val transactions = try {
-            paymentGatewayPort.getTransactionsByOrderId(userId.toString(), paddedOrderId)
+            paymentGatewayPort.getTransactionsByOrderId(userId.toString(), pgOrderId)
         } catch (e: Exception) {
             log.warn("PG orderId 조회 실패. paymentId={}, orderId={}", paymentId, orderId, e)
             return markFailedAndReturn(paymentId, "PG 조회 실패로 결제를 종료합니다.")
