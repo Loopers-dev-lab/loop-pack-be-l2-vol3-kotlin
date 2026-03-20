@@ -9,8 +9,8 @@ class PgFeignConfig {
     @Bean
     fun requestOptions(): Request.Options {
         return Request.Options(
-            1L, TimeUnit.SECONDS,   // connectTimeout: 네트워크 연결은 1초 안에
-            5L, TimeUnit.SECONDS,   // readTimeout: PG 처리 지연 100~500ms + 여유
+            1L, TimeUnit.SECONDS,   // connectTimeout: TCP 핸드셰이크 기준, 1초 안에 연결 안 되면 PG 네트워크 문제
+            5L, TimeUnit.SECONDS,   // readTimeout: PG 카드사 통신(2~3s) + 네트워크 지연 여유. Retry 3회 감안해 최대 16s 이내 응답
             true,                   // followRedirects
         )
     }

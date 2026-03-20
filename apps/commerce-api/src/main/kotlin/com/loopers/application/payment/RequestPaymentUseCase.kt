@@ -1,7 +1,7 @@
 package com.loopers.application.payment
 
-import com.loopers.application.payment.port.PgPaymentClient
-import com.loopers.application.payment.port.PgPaymentRequest
+import com.loopers.application.payment.pg.PgPaymentClient
+import com.loopers.application.payment.pg.PgPaymentRequest
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -29,8 +29,9 @@ class RequestPaymentUseCase(
             )
             return paymentTransactionManager.updateTransactionId(payment.id, pgResponse.transactionId)
         } catch (e: Exception) {
-            log.warn("PG 결제 요청 실패 [pgOrderId={}]: {}", payment.pgOrderId, e.message)
-            return paymentTransactionManager.markRequestFailed(payment.id, e.message)
+            val rootCause = e.cause?.message ?: e.message
+            log.warn("PG 결제 요청 실패 [pgOrderId={}]: {}", payment.pgOrderId, rootCause)
+            return paymentTransactionManager.markRequestFailed(payment.id, rootCause)
         }
     }
 }
