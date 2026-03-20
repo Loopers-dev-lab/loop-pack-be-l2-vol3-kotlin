@@ -26,6 +26,16 @@ class PaymentService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다.")
     }
 
+    fun getPaymentByTransactionKeyWithLock(transactionKey: String): PaymentModel {
+        return paymentRepository.findByTransactionKeyWithLock(transactionKey)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다.")
+    }
+
+    fun getPaymentWithLock(id: Long): PaymentModel {
+        return paymentRepository.findByIdWithLock(id)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 결제입니다.")
+    }
+
     fun getPaymentsByOrderId(orderId: Long): List<PaymentModel> {
         return paymentRepository.findByOrderId(orderId)
     }

@@ -9,6 +9,10 @@ interface PaymentRepository {
 
     fun findByTransactionKey(transactionKey: String): PaymentModel?
 
+    fun findByTransactionKeyWithLock(transactionKey: String): PaymentModel?
+
+    fun findByIdWithLock(id: Long): PaymentModel?
+
     fun findByOrderId(orderId: Long): List<PaymentModel>
 
     fun findAllByStatusAndRequestedAtBefore(status: PaymentStatus, before: ZonedDateTime): List<PaymentModel>

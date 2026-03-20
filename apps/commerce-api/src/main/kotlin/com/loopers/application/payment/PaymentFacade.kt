@@ -38,6 +38,10 @@ class PaymentFacade(
             throw CoreException(ErrorType.BAD_REQUEST, "결제 요청은 ORDERED 상태에서만 가능합니다.")
         }
 
+        if (command.amount != order.getTotalAmount()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 금액이 주문 총액과 일치하지 않습니다.")
+        }
+
         if (paymentService.hasActivePayment(command.orderId)) {
             throw CoreException(ErrorType.CONFLICT, "이미 진행 중인 결제가 있습니다.")
         }
@@ -98,7 +102,7 @@ class PaymentFacade(
 
     @Transactional
     fun handleCallback(transactionKey: String, status: String, reason: String?) {
-        val payment = paymentService.getPaymentByTransactionKey(transactionKey)
+        val payment = paymentService.getPaymentByTransactionKeyWithLock(transactionKey)
 
         if (payment.isTerminal()) {
             logger.info("이미 처리된 결제 콜백 무시: transactionKey={}, status={}", transactionKey, payment.status)
@@ -123,6 +127,29 @@ class PaymentFacade(
         paymentService.savePayment(failed)
 
         compensate(payment.orderId)
+    }
+
+    @Transactional
+    fun handlePolledRequestedPayment(paymentId: Long, transactionKey: String, status: String, reason: String?) {
+        val payment = paymentService.getPaymentWithLock(paymentId)
+
+        if (payment.isTerminal()) {
+            logger.info("이미 처리된 결제 무시: paymentId={}, status={}", paymentId, payment.status)
+            return
+        }
+
+        val withKey = if (payment.transactionKey == null) {
+            val assigned = payment.assignTransactionKey(transactionKey)
+            paymentService.savePayment(assigned)
+        } else {
+            payment
+        }
+
+        when (status) {
+            "SUCCESS" -> handlePaymentSuccess(withKey)
+            "FAILED" -> handlePaymentFailure(withKey, reason)
+            else -> logger.warn("알 수 없는 결제 상태: paymentId={}, status={}", paymentId, status)
+        }
     }
 
     private fun compensate(orderId: Long) {
