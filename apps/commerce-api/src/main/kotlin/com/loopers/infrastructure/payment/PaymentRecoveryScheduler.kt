@@ -18,11 +18,12 @@ class PaymentRecoveryScheduler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     /**
-     * 1분마다 실패한 결제를 복구합니다.
+     * 매 1분마다 실패한 결제를 복구합니다.
      *
-     * 스케줄: 매분 30초마다 실행 (00:30, 01:30, 02:30, ...)
+     * 스케줄: 매 1분마다 실행
+     * 지연 대기: 결제 실패 후 평균 1-2분 내 복구 시도
      */
-    @Scheduled(cron = "30 * * * * *")
+    @Scheduled(fixedRate = 60000)
     fun recoverFailedPayments() {
         try {
             log.debug("Starting payment recovery job...")

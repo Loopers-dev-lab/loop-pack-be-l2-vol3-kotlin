@@ -91,8 +91,11 @@ class OrderService(
     @Transactional
     fun markOrderAsPaid(orderId: Long) {
         val order = getOrderByIdForAdmin(orderId)
-        order.changeStatus(OrderStatus.PAID)
-        // 더티 체킹으로 자동 저장
+        // ✅ 멱등성: 이미 PAID이면 무시
+        if (order.status == OrderStatus.PAID) {
+            return
+        }
+        order.markAsPaid() // ✅ 상태 검증 포함 (PAYMENT_REQUESTED만 가능)
     }
 
     @Transactional

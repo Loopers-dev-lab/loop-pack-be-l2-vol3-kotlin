@@ -18,6 +18,7 @@ class LoopPaymentClient(
     private val webClient: WebClient,
     @Value("\${pg.base-url}") private val baseUrl: String,
     @Value("\${pg.loop.callback-url}") private val callbackUrl: String,
+    @Value("\${pg.timeout.read-sec}") private val readTimeoutSec: Long,
 ) : PaymentClient {
 
     @CircuitBreaker(name = "loop-pg-payment", fallbackMethod = "paymentFallback")
@@ -60,7 +61,7 @@ class LoopPaymentClient(
             .uri("$baseUrl/api/v1/payments?orderId=$orderId")
             .retrieve()
             .bodyToMono(PgPaymentStatusResponse::class.java)
-            .block(Duration.ofSeconds(10))
+            .block(Duration.ofSeconds(readTimeoutSec))
             ?: throw CoreException(ErrorType.INTERNAL_ERROR, "Payment status check failed")
 
         return PaymentStatusCheckResult(
@@ -79,7 +80,7 @@ class LoopPaymentClient(
             .bodyValue(request)
             .retrieve()
             .bodyToMono(PgPaymentResponse::class.java)
-            .block(Duration.ofSeconds(10))
+            .block(Duration.ofSeconds(readTimeoutSec))
             ?: throw CoreException(ErrorType.INTERNAL_ERROR, "PG payment request failed")
 
         return PaymentRequestResult(

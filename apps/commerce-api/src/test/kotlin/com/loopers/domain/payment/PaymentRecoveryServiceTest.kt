@@ -1,6 +1,8 @@
 package com.loopers.domain.payment
 
+import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.OrderStatus
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -33,12 +35,17 @@ class PaymentRecoveryServiceTest {
             val receipt1 = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
             val receipt2 = Receipt.create(200L, "TXN_002", BigDecimal("20000"), "HYUNDAI", "5678")
 
+            val order1 = mockk<Order> { every { status } returns OrderStatus.PAYMENT_REQUESTED }
+            val order2 = mockk<Order> { every { status } returns OrderStatus.PAYMENT_REQUESTED }
+
             every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt1, receipt2)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "COMPLETED", BigDecimal("10000"), null)
             every { paymentClient.checkPaymentStatus(200L) } returns
                 PaymentStatusCheckResult("TXN_002", "COMPLETED", BigDecimal("20000"), null)
             every { receiptService.markAsCompleted(any()) } just runs
+            every { orderService.getOrderByIdForAdmin(100L) } returns order1
+            every { orderService.getOrderByIdForAdmin(200L) } returns order2
             every { orderService.markOrderAsPaid(any()) } just runs
 
             // when
@@ -71,12 +78,15 @@ class PaymentRecoveryServiceTest {
             val receipt1 = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
             val receipt2 = Receipt.create(200L, "TXN_002", BigDecimal("20000"), "HYUNDAI", "5678")
 
+            val order1 = mockk<Order> { every { status } returns OrderStatus.PAYMENT_REQUESTED }
+
             every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt1, receipt2)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "COMPLETED", BigDecimal("10000"), null)
             every { paymentClient.checkPaymentStatus(200L) } throws
                 CoreException(ErrorType.INTERNAL_ERROR, "PG connection failed")
             every { receiptService.markAsCompleted(any()) } just runs
+            every { orderService.getOrderByIdForAdmin(100L) } returns order1
             every { orderService.markOrderAsPaid(any()) } just runs
 
             // when
@@ -98,11 +108,13 @@ class PaymentRecoveryServiceTest {
         fun pgCompletedStatus_updatesReceiptAndOrder() {
             // given
             val receipt = Receipt.create(100L, "TXN_001", BigDecimal("10000"), "SAMSUNG", "1234")
+            val order = mockk<Order> { every { status } returns OrderStatus.PAYMENT_REQUESTED }
 
             every { receiptService.getReceiptsForRecovery(any()) } returns listOf(receipt)
             every { paymentClient.checkPaymentStatus(100L) } returns
                 PaymentStatusCheckResult("TXN_001", "COMPLETED", BigDecimal("10000"), null)
             every { receiptService.markAsCompleted(any()) } just runs
+            every { orderService.getOrderByIdForAdmin(100L) } returns order
             every { orderService.markOrderAsPaid(any()) } just runs
 
             // when

@@ -1,6 +1,7 @@
 package com.loopers.domain.payment
 
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.OrderStatus
 import com.loopers.support.error.CoreException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -82,8 +83,18 @@ class PaymentRecoveryService(
                 "COMPLETED" -> {
                     // 결제 성공 - Receipt와 Order 업데이트
                     receiptService.markAsCompleted(receipt)
-                    orderService.markOrderAsPaid(receipt.orderId)
-                    log.info("Payment recovered: transactionId=$transactionId, orderId=${receipt.orderId}")
+
+                    // ✅ Order 상태 확인 후 업데이트 (PAYMENT_REQUESTED만 가능)
+                    val order = orderService.getOrderByIdForAdmin(receipt.orderId)
+                    if (order.status == OrderStatus.PAYMENT_REQUESTED) {
+                        orderService.markOrderAsPaid(receipt.orderId)
+                        log.info("Payment recovered: transactionId=$transactionId, orderId=${receipt.orderId}")
+                    } else {
+                        log.warn(
+                            "Payment recovered but order status is not PAYMENT_REQUESTED. " +
+                                "transactionId=$transactionId, orderId=${receipt.orderId}, orderStatus=${order.status}",
+                        )
+                    }
                     true
                 }
 

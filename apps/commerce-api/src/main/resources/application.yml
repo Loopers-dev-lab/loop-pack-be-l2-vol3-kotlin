@@ -32,15 +32,17 @@ resilience4j:
         automaticTransitionFromOpenToHalfOpenEnabled: true
         waitDurationInOpenState: 30s
         failureRateThreshold: 50
-        slowCallRateThreshold: 100
-        slowCallDurationThreshold: 5s
+        # 성능 분석 기반 조정: p99(510ms) + 90ms 버퍼 = 600ms
+        # 목표: 500ms 이상 지연을 감지하여 circuit breaker 동작
+        slowCallDurationThreshold: 600ms
+        slowCallRateThreshold: 50
         recordExceptions:
           - java.lang.Exception
   retry:
     instances:
       loop-pg-payment:
-        maxAttempts: 3
-        waitDuration: 500ms
+        maxAttempts: 2
+        waitDuration: 200ms
         retryExceptions:
           - java.lang.Exception
 
