@@ -5,8 +5,10 @@ import com.loopers.application.order.OrderService
 import com.loopers.application.product.ProductService
 import com.loopers.domain.order.Order
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.infrastructure.pg.PgApiResponse
 import com.loopers.infrastructure.pg.PgCallbackRequest
 import com.loopers.infrastructure.pg.PgPaymentRequest
+import com.loopers.infrastructure.pg.PgPaymentResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
@@ -30,7 +32,13 @@ class PaymentFacade(
     private val transactionTemplate = TransactionTemplate(transactionManager)
 
     fun requestPayment(userId: Long, criteria: PaymentCriteria): PaymentInfo {
-        val paymentInfo = transactionTemplate.execute {
+        val paymentInfo = createPaymentInTransaction(userId, criteria)
+        val pgResult = callPgSafely(userId, paymentInfo, criteria)
+        return applyPgResultInTransaction(paymentInfo, pgResult)
+    }
+
+    private fun createPaymentInTransaction(userId: Long, criteria: PaymentCriteria): PaymentInfo {
+        return transactionTemplate.execute {
             val order = orderService.getOrder(criteria.orderId)
             order.validateOwner(userId)
             order.validatePayable()
@@ -47,24 +55,32 @@ class PaymentFacade(
                 criteria.cardNo,
             )
             PaymentInfo.from(payment)
-        }!!
+        } ?: throw CoreException(ErrorType.INTERNAL_ERROR, "결제 생성 중 오류가 발생했습니다.")
+    }
 
-        val pgResult = try {
+    private fun callPgSafely(
+        userId: Long,
+        paymentInfo: PaymentInfo,
+        criteria: PaymentCriteria,
+    ): PgApiResponse<PgPaymentResponse>? {
+        return try {
             pgPaymentClient.requestPayment(
                 userId.toString(),
                 PgPaymentRequest(
-                orderId = paymentInfo.orderId.toString(),
-                cardType = criteria.cardType,
-                cardNo = criteria.cardNo,
-                amount = paymentInfo.amount.toLong(),
-                callbackUrl = callbackUrl,
-            ),
+                    orderId = paymentInfo.orderId.toString(),
+                    cardType = criteria.cardType,
+                    cardNo = criteria.cardNo,
+                    amount = paymentInfo.amount.toLong(),
+                    callbackUrl = callbackUrl,
+                ),
             )
-        } catch (e: Exception) {
+        } catch (e: CoreException) {
             log.warn("PG 결제 요청 실패: orderId=${paymentInfo.orderId}", e)
             null
         }
+    }
 
+    private fun applyPgResultInTransaction(paymentInfo: PaymentInfo, pgResult: PgApiResponse<PgPaymentResponse>?): PaymentInfo {
         return transactionTemplate.execute {
             val payment = paymentService.getPayment(paymentInfo.id)
 
@@ -79,7 +95,7 @@ class PaymentFacade(
 
             payment.markRequested(pgResult.data.transactionKey)
             PaymentInfo.from(payment)
-        }!!
+        } ?: throw CoreException(ErrorType.INTERNAL_ERROR, "결제 처리 중 오류가 발생했습니다.")
     }
 
     @Transactional

@@ -23,7 +23,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
@@ -40,10 +40,10 @@ class PaymentV1ApiE2ETest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
-    @MockBean
+    @MockitoBean
     private lateinit var pgPaymentClient: PgPaymentClient
 
-    @MockBean
+    @MockitoBean
     private lateinit var pgClient: PgClient
 
     companion object {
@@ -173,7 +173,6 @@ class PaymentV1ApiE2ETest @Autowired constructor(
             )
 
             // assert
-            println("=== Payment Response: status=${response.statusCode}, body=${response.body} ===")
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.get("status")).isEqualTo("REQUESTED") },

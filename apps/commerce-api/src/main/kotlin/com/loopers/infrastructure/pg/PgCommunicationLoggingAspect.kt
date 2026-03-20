@@ -7,6 +7,7 @@ import org.aspectj.lang.ProceedingJoinPoint
 import org.aspectj.lang.annotation.Around
 import org.aspectj.lang.annotation.Aspect
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
@@ -18,10 +19,17 @@ class PgCommunicationLoggingAspect(
     private val pgCommunicationLogRepository: PgCommunicationLogRepository,
     private val transactionManager: PlatformTransactionManager,
     private val objectMapper: ObjectMapper,
+    @Value("\${pg.base-url}") private val pgBaseUrl: String,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val requiresNewTxTemplate = TransactionTemplate(transactionManager).apply {
+        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
+    }
 
-    @Around("execution(* com.loopers.application.payment.PgPaymentClient.*(..))")
+    @Around(
+        "execution(* com.loopers.application.payment.PgPaymentClient.requestPayment(..))" +
+            " || execution(* com.loopers.application.payment.PgPaymentClient.getPaymentStatus(..))",
+    )
     fun logPgCommunication(joinPoint: ProceedingJoinPoint): Any? {
         val methodName = joinPoint.signature.name
         val args = joinPoint.args
@@ -35,8 +43,9 @@ class PgCommunicationLoggingAspect(
 
             val responseBody = toJson(result)
             val transactionKey = extractTransactionKey(responseBody)
+            val success = (result as? PgApiResponse<*>)?.isSuccess() ?: true
 
-            saveLog(method, orderId, transactionKey, requestBody, responseBody, true, null, elapsed)
+            saveLog(method, orderId, transactionKey, requestBody, responseBody, success, null, elapsed)
             result
         } catch (e: Exception) {
             val elapsed = System.currentTimeMillis() - startTime
@@ -91,14 +100,11 @@ class PgCommunicationLoggingAspect(
         elapsed: Long,
     ) {
         try {
-            val txTemplate = TransactionTemplate(transactionManager).apply {
-                propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
-            }
-            txTemplate.execute {
+            requiresNewTxTemplate.execute {
                 pgCommunicationLogRepository.save(
                     PgCommunicationLog(
                         method = method,
-                        url = "",
+                        url = pgBaseUrl,
                         orderId = orderId,
                         transactionKey = transactionKey,
                         requestBody = requestBody,

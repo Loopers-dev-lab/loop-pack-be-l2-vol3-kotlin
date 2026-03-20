@@ -52,7 +52,7 @@ class PgPaymentClient(
     ): PgApiResponse<PgTransactionDetailResponse> {
         log.warn("PG 상태 조회 fallback: transactionKey=$transactionKey", t)
         return PgApiResponse(
-            meta = PgApiResponse.PgMeta(result = "SUCCESS", errorCode = null, message = null),
+            meta = PgApiResponse.PgMeta(result = "FALLBACK", errorCode = null, message = "CB OPEN으로 인한 대체 응답"),
             data = PgTransactionDetailResponse(
                 transactionKey = transactionKey,
                 orderId = "",

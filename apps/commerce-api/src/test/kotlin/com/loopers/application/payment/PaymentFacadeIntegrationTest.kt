@@ -129,7 +129,7 @@ class PaymentFacadeIntegrationTest @Autowired constructor(
 
     private fun mockPgFailure() {
         whenever(pgPaymentClient.requestPayment(any(), any()))
-            .thenThrow(RuntimeException("PG 시스템 장애"))
+            .thenThrow(CoreException(ErrorType.SERVICE_UNAVAILABLE, "PG 시스템 장애"))
     }
 
     @DisplayName("결제 요청 시,")

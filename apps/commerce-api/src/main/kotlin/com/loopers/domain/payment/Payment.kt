@@ -71,7 +71,7 @@ class Payment(
     }
 
     fun markFailed(reason: String?) {
-        if (status !in listOf(PaymentStatus.INITIATED, PaymentStatus.REQUESTED)) {
+        if (status !in FAILABLE_STATUSES) {
             throw CoreException(ErrorType.BAD_REQUEST, "INITIATED 또는 REQUESTED 상태에서만 실패 처리가 가능합니다.")
         }
         status = PaymentStatus.FAILED
@@ -79,6 +79,8 @@ class Payment(
     }
 
     companion object {
+        private val FAILABLE_STATUSES = setOf(PaymentStatus.INITIATED, PaymentStatus.REQUESTED)
+
         fun maskCardNo(cardNo: String): String {
             val parts = cardNo.split("-")
             return if (parts.size == 4) "****-****-****-${parts.last()}" else "****${cardNo.takeLast(4)}"
