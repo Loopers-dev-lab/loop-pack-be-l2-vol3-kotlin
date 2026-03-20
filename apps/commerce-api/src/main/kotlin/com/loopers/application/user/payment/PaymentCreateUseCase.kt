@@ -5,23 +5,76 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentIdempotencyKey
 import com.loopers.domain.payment.PaymentRepository
+import com.loopers.domain.payment.PgPaymentPort
+import com.loopers.domain.payment.PgPaymentRequest
+import com.loopers.domain.payment.PgPaymentResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.security.MessageDigest
 
 @Service
 class PaymentCreateUseCase(
     private val orderRepository: OrderRepository,
     private val paymentRepository: PaymentRepository,
+    private val pgPaymentPort: PgPaymentPort,
+    private val transactionTemplate: TransactionTemplate,
+    @Value("\${pg.callback-base-url}") private val callbackBaseUrl: String,
 ) {
 
-    @Transactional
+    private val log = LoggerFactory.getLogger(javaClass)
+
     fun create(command: PaymentCreateCommand): PaymentCreateResult {
         val idempotencyKey = PaymentIdempotencyKey(command.idempotencyKey)
         val fingerprint = computeFingerprint(command.orderId, command.cardType, command.cardNo)
 
+        val txResult = transactionTemplate.execute {
+            createPaymentInTransaction(command, idempotencyKey, fingerprint)
+        }!!
+
+        if (txResult is TransactionResult.IdempotentReplay) {
+            return PaymentCreateResult.IdempotentReplay(txResult.result)
+        }
+
+        val created = (txResult as TransactionResult.Created)
+        val payment = created.payment
+        val order = created.order
+
+        val pgRequest = PgPaymentRequest(
+            userId = command.userId,
+            orderId = command.orderId,
+            cardType = command.cardType,
+            cardNo = command.cardNo,
+            amount = payment.amount.amount,
+            callbackUrl = "$callbackBaseUrl/webhook/v1/payments/${payment.id}",
+        )
+
+        val pgResponse = pgPaymentPort.requestPayment(pgRequest)
+
+        val updatedPayment = when (pgResponse) {
+            is PgPaymentResponse.Accepted -> payment.updateTransactionKey(pgResponse.transactionKey)
+            is PgPaymentResponse.ImmediateFailure -> payment.fail(pgResponse.reasonCode)
+            is PgPaymentResponse.Timeout -> payment.applyTimeoutFallback()
+            is PgPaymentResponse.CircuitOpen -> payment
+        }
+
+        if (updatedPayment !== payment) {
+            paymentRepository.save(updatedPayment)
+        }
+
+        return PaymentCreateResult.NewlyCreated(
+            PaymentResult.Created.from(updatedPayment, order.status),
+        )
+    }
+
+    private fun createPaymentInTransaction(
+        command: PaymentCreateCommand,
+        idempotencyKey: PaymentIdempotencyKey,
+        fingerprint: String,
+    ): TransactionResult {
         val existing = paymentRepository.findByIdempotencyKey(idempotencyKey)
         if (existing != null) {
             return handleIdempotentRequest(existing, fingerprint)
@@ -50,23 +103,25 @@ class PaymentCreateUseCase(
         )
 
         val saved = paymentRepository.save(payment)
-
-        return PaymentCreateResult.NewlyCreated(
-            PaymentResult.Created.from(saved, order.status),
-        )
+        return TransactionResult.Created(saved, order)
     }
 
     private fun handleIdempotentRequest(
         existing: Payment,
         fingerprint: String,
-    ): PaymentCreateResult {
+    ): TransactionResult {
         if (existing.requestFingerprint == fingerprint) {
             val order = orderRepository.findById(existing.orderId)!!
-            return PaymentCreateResult.IdempotentReplay(
+            return TransactionResult.IdempotentReplay(
                 PaymentResult.Created.from(existing, order.status),
             )
         }
         throw CoreException(ErrorType.PAYMENT_IDEMPOTENCY_CONFLICT)
+    }
+
+    private sealed interface TransactionResult {
+        data class Created(val payment: Payment, val order: Order) : TransactionResult
+        data class IdempotentReplay(val result: PaymentResult.Created) : TransactionResult
     }
 
     companion object {

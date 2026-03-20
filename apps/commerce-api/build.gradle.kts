@@ -23,4 +23,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // wiremock
+    testImplementation("org.wiremock:wiremock-standalone:3.12.1")
 }

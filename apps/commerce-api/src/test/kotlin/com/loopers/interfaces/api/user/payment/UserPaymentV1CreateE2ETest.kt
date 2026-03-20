@@ -13,6 +13,8 @@ import com.loopers.domain.product.ProductStockRepository
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
+import com.loopers.domain.payment.PgPaymentPort
+import com.loopers.domain.payment.PgPaymentResponse
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -21,6 +23,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.mockito.BDDMockito.given
+import org.mockito.kotlin.check
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
@@ -30,6 +34,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
@@ -48,6 +53,8 @@ constructor(
     private val passwordHasher: UserPasswordHasher,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
+    @MockitoBean
+    private lateinit var pgPaymentPort: PgPaymentPort
     companion object {
         private const val ADMIN = "loopers.admin"
         private const val LOGIN_ID = "testuser1"
@@ -59,6 +66,13 @@ constructor(
 
     @BeforeEach
     fun setUp() {
+        given(
+            pgPaymentPort.requestPayment(
+                check { },
+            ),
+        ).willReturn(PgPaymentResponse.Accepted("txn-e2e-test"))
+        given(pgPaymentPort.isAvailable()).willReturn(true)
+
         val user = User.register(
             loginId = LOGIN_ID,
             rawPassword = PASSWORD,
@@ -147,7 +161,7 @@ constructor(
             assertThat(data["paymentId"]).isNotNull()
             assertThat(data["status"]).isEqualTo("PENDING")
             assertThat(data["displayStatus"]).isEqualTo("AWAITING_PAYMENT_RESULT")
-            assertThat(data["transactionKey"]).isNull()
+            assertThat(data["transactionKey"]).isEqualTo("txn-e2e-test")
         }
     }
 

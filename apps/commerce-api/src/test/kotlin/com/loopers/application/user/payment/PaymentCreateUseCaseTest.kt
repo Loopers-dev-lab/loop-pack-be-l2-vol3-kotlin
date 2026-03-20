@@ -9,7 +9,11 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderSnapshot
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentIdempotencyKey
+import com.loopers.domain.payment.PaymentReasonCode
 import com.loopers.domain.payment.PaymentRepository
+import com.loopers.domain.payment.PgPaymentPort
+import com.loopers.domain.payment.PgPaymentRequest
+import com.loopers.domain.payment.PgPaymentResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -21,6 +25,11 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
 import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.springframework.transaction.TransactionStatus
+import org.springframework.transaction.support.TransactionCallback
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -30,7 +39,20 @@ class PaymentCreateUseCaseTest {
 
     private val orderRepository: OrderRepository = mock()
     private val paymentRepository: PaymentRepository = mock()
-    private val useCase = PaymentCreateUseCase(orderRepository, paymentRepository)
+    private val pgPaymentPort: PgPaymentPort = mock()
+    private val transactionTemplate = object : TransactionTemplate() {
+        override fun <T> execute(action: TransactionCallback<T>): T? {
+            return action.doInTransaction(mock<TransactionStatus>())
+        }
+    }
+    private val callbackBaseUrl = "http://localhost:8080"
+    private val useCase = PaymentCreateUseCase(
+        orderRepository,
+        paymentRepository,
+        pgPaymentPort,
+        transactionTemplate,
+        callbackBaseUrl,
+    )
 
     private val now = ZonedDateTime.of(2026, 3, 20, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
 
@@ -116,41 +138,61 @@ class PaymentCreateUseCaseTest {
         createdAt = now,
     )
 
-    private fun savedPayment(payment: Payment): Payment = Payment.retrieve(
-        id = 200L,
-        orderId = payment.orderId,
-        userId = payment.userId,
-        idempotencyKey = payment.idempotencyKey,
-        status = payment.status,
-        cardType = payment.cardType,
-        maskedCardNo = payment.maskedCardNo,
-        amount = payment.amount,
-        transactionKey = payment.transactionKey,
-        reasonCode = payment.reasonCode,
-        requestFingerprint = payment.requestFingerprint,
-        createdAt = now,
-    )
+    private fun stubCommonLookups() {
+        given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
+            .willReturn(null)
+        given(orderRepository.findById(100L)).willReturn(pendingOrder())
+        given(paymentRepository.findActiveByOrderId(100L)).willReturn(null)
+    }
+
+    private fun stubSaveReturnsWithId() {
+        given(
+            paymentRepository.save(
+                check { payment ->
+                    assertThat(payment.orderId).isEqualTo(100L)
+                },
+            ),
+        ).willAnswer {
+            val payment = it.arguments[0] as Payment
+            if (payment.id == null) {
+                Payment.retrieve(
+                    id = 200L,
+                    orderId = payment.orderId,
+                    userId = payment.userId,
+                    idempotencyKey = payment.idempotencyKey,
+                    status = payment.status,
+                    cardType = payment.cardType,
+                    maskedCardNo = payment.maskedCardNo,
+                    amount = payment.amount,
+                    transactionKey = payment.transactionKey,
+                    reasonCode = payment.reasonCode,
+                    requestFingerprint = payment.requestFingerprint,
+                    createdAt = now,
+                )
+            } else {
+                payment
+            }
+        }
+    }
 
     @Nested
-    @DisplayName("정상 결제 요청 시 NewlyCreated를 반환한다")
-    inner class WhenNormalRequest {
+    @DisplayName("PG 결제 요청 성공 시 transactionKey가 반영된다")
+    inner class WhenPgAccepted {
 
         @Test
-        @DisplayName("Payment 생성 → NewlyCreated(paymentId, PENDING, displayStatus=AWAITING_PAYMENT_RESULT)")
-        fun create_newPayment() {
+        @DisplayName("PG Accepted → Payment에 transactionKey 저장, PENDING 유지")
+        fun create_pgAccepted() {
             // arrange
-            given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
-                .willReturn(null)
-            given(orderRepository.findById(100L)).willReturn(pendingOrder())
-            given(paymentRepository.findActiveByOrderId(100L)).willReturn(null)
+            stubCommonLookups()
+            stubSaveReturnsWithId()
             given(
-                paymentRepository.save(
-                    check { payment ->
-                        assertThat(payment.status).isEqualTo(Payment.Status.PENDING)
-                        assertThat(payment.orderId).isEqualTo(100L)
+                pgPaymentPort.requestPayment(
+                    check<PgPaymentRequest> { req ->
+                        assertThat(req.orderId).isEqualTo(100L)
+                        assertThat(req.callbackUrl).isEqualTo("http://localhost:8080/webhook/v1/payments/200")
                     },
                 ),
-            ).willAnswer { savedPayment(it.arguments[0] as Payment) }
+            ).willReturn(PgPaymentResponse.Accepted("txn-abc-123"))
 
             // act
             val result = useCase.create(command())
@@ -160,9 +202,40 @@ class PaymentCreateUseCaseTest {
             assertAll(
                 { assertThat(result.result.paymentId).isEqualTo(200L) },
                 { assertThat(result.result.status).isEqualTo("PENDING") },
+                { assertThat(result.result.transactionKey).isEqualTo("txn-abc-123") },
                 { assertThat(result.result.displayStatus).isEqualTo("AWAITING_PAYMENT_RESULT") },
-                { assertThat(result.result.transactionKey).isNull() },
                 { assertThat(result.result.reasonCode).isNull() },
+            )
+        }
+    }
+
+    @Nested
+    @DisplayName("PG 즉시 실패 시 Payment가 FAILED로 전이된다")
+    inner class WhenPgImmediateFailure {
+
+        @Test
+        @DisplayName("PG ImmediateFailure → Payment=FAILED, reasonCode=PG_INTERNAL_ERROR")
+        fun create_pgImmediateFailure() {
+            // arrange
+            stubCommonLookups()
+            stubSaveReturnsWithId()
+            given(
+                pgPaymentPort.requestPayment(
+                    check<PgPaymentRequest> { req ->
+                        assertThat(req.orderId).isEqualTo(100L)
+                    },
+                ),
+            ).willReturn(PgPaymentResponse.ImmediateFailure(PaymentReasonCode.PG_INTERNAL_ERROR))
+
+            // act
+            val result = useCase.create(command())
+
+            // assert
+            assertThat(result).isInstanceOf(PaymentCreateResult.NewlyCreated::class.java)
+            assertAll(
+                { assertThat(result.result.status).isEqualTo("FAILED") },
+                { assertThat(result.result.reasonCode).isEqualTo("PG_INTERNAL_ERROR") },
+                { assertThat(result.result.transactionKey).isNull() },
             )
         }
     }
@@ -172,7 +245,7 @@ class PaymentCreateUseCaseTest {
     inner class WhenIdempotentReplay {
 
         @Test
-        @DisplayName("동일 fingerprint → IdempotentReplay(기존 Payment)")
+        @DisplayName("동일 fingerprint → IdempotentReplay(기존 Payment), PG 호출 없음")
         fun create_idempotentReplay() {
             // arrange
             given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
@@ -185,6 +258,9 @@ class PaymentCreateUseCaseTest {
             // assert
             assertThat(result).isInstanceOf(PaymentCreateResult.IdempotentReplay::class.java)
             assertThat(result.result.paymentId).isEqualTo(200L)
+            verify(pgPaymentPort, never()).requestPayment(
+                check<PgPaymentRequest> { },
+            )
         }
     }
 
