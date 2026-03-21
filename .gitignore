@@ -50,5 +50,8 @@ docs/
 
 ### Local Documentation & Configuration ###
 CLAUDE.md
+CONCURRENCY_TESTS.md
+data-summary.md
+DDD_ANALYSIS.md
 .claude/
 resources/db/
