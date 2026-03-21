@@ -21,8 +21,20 @@
     "*.key",
     "*.pem",
     "credentials*",
-    "application-local.yml"
+    "*secret*",
+    "application-local.yml",
+    "application-prd.yml",
+    "application-qa.yml"
   ],
+  "buildArtifactPatterns": [
+    "build/",
+    ".gradle/"
+  ],
+  "timeouts": {
+    "build": 300000,
+    "test": 300000,
+    "lint": 120000
+  },
   "architecture": {
     "layers": ["interfaces", "application", "domain", "infrastructure"],
     "dependencyDirection": "interfaces → application → domain ← infrastructure"

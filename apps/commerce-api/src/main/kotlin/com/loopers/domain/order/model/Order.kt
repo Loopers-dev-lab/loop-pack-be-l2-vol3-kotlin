@@ -39,9 +39,34 @@ class Order private constructor(
 
     enum class OrderStatus {
         CREATED,
+        PENDING_PAYMENT,
         PAID,
         CANCELLED,
         FAILED,
+    }
+
+    fun markPendingPayment() {
+        if (status == OrderStatus.PENDING_PAYMENT) return
+        if (status != OrderStatus.CREATED && status != OrderStatus.FAILED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "생성 또는 실패 상태의 주문만 결제 대기 상태로 전환할 수 있습니다.")
+        }
+        status = OrderStatus.PENDING_PAYMENT
+    }
+
+    fun markPaid() {
+        if (status == OrderStatus.PAID) return
+        if (status != OrderStatus.PENDING_PAYMENT) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 대기 상태인 주문만 결제 완료 상태로 전환할 수 있습니다.")
+        }
+        status = OrderStatus.PAID
+    }
+
+    fun markFailed() {
+        if (status == OrderStatus.FAILED) return
+        if (status != OrderStatus.PENDING_PAYMENT) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 대기 상태인 주문만 결제 실패 상태로 전환할 수 있습니다.")
+        }
+        status = OrderStatus.FAILED
     }
 
     fun applyDiscount(discountAmount: Money, refCouponId: CouponId) {

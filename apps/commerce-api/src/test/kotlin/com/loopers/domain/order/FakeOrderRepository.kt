@@ -30,6 +30,10 @@ class FakeOrderRepository : OrderRepository {
         return orders.find { it.id == id }
     }
 
+    override fun findByIdForUpdate(id: OrderId): Order? {
+        return orders.find { it.id == id }
+    }
+
     override fun findAllByUserId(
         userId: UserId,
         from: ZonedDateTime,

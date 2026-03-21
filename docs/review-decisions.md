@@ -1,0 +1,142 @@
+# AI 리뷰 트레이드오프 결정 기록
+
+이 문서는 AI 리뷰어(CodeRabbit, Gemini)가 반복 지적하지만, 프로젝트에서 의도적으로 다른 방향을 선택한 사안을 기록한다.
+`/review-pr` 스킬의 analyze 페이즈에서 자동 참조하여 이미 결정된 사안의 반복 검토를 방지한다.
+
+---
+
+## RD-001. JPA Entity equals/hashCode 미구현
+- **keywords**: `equals`, `hashCode`, `BaseEntity`, `identity`, `JPA proxy`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: 도메인 모델에서 VO로 identity를 관리하고, JPA Entity는 인프라 구현체. 컬렉션에 엔티티를 직접 넣는 패턴 미사용. auto-generated ID 기반 equals/hashCode는 `id = 0`인 새 엔티티 간 동등성 문제를 오히려 유발.
+- **최종 업데이트**: 2026-03-17
+
+## RD-002. Hook 상대경로 보안
+- **keywords**: `hook`, `settings.json`, `상대경로`, `relative path`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: Claude Code는 항상 프로젝트 루트에서 실행. 비이슈.
+- **최종 업데이트**: 2026-03-17
+
+## RD-003. 콜백 엔드포인트 서명/IP 검증
+- **keywords**: `callback`, `signature`, `HMAC`, `IP whitelist`, `콜백 보안`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: PG 시뮬레이터 + 로컬 네트워크. 실제 PG 연동 시 HMAC 서명 검증 필수이나 시뮬레이터 단계에서는 오버엔지니어링. TODO 기록.
+- **최종 업데이트**: 2026-03-17
+
+## RD-004. PG URL localhost 기본값
+- **keywords**: `localhost`, `PG URL`, `기본값`, `환경변수`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: 학습 프로젝트, Docker Compose 기반 로컬 개발이 주 환경. 기본값 제거 시 불편. 실 배포는 환경별 프로필로 분리.
+- **최종 업데이트**: 2026-03-17
+
+## RD-005. Feign 타임아웃 p95/p99 근거
+- **keywords**: `timeout`, `Feign`, `p95`, `p99`, `지연`, `latency`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: 시뮬레이터 기반이라 실제 PG 응답 분포 데이터 없음. 현재 1s/3s는 합리적 초기값. 실 PG 연동 시 측정 후 조정.
+- **최종 업데이트**: 2026-03-17
+
+## RD-006. 스케줄러 분산 락 (ShedLock)
+- **keywords**: `scheduler`, `distributed lock`, `ShedLock`, `분산 락`, `다중 인스턴스`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: 단일 인스턴스 배포. RecoverPaymentUseCase가 비관적 락으로 중복 방지. 스케일아웃 시 도입 필요하나 premature.
+- **최종 업데이트**: 2026-03-17
+
+## RD-007. TIMEOUT 시 Order 상태 미갱신 (비대칭)
+- **keywords**: `TIMEOUT`, `Order`, `markFailed`, `비대칭`, `상태 미갱신`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (의도적 설계)
+- **근거**: TIMEOUT은 "PG 응답 불명확 → 복구 스케줄러가 재확인" 상태. Order를 PENDING_PAYMENT로 유지해야 복구 흐름 정상 동작. FAILED 전환 시 복구 대상에서 빠짐.
+- **최종 업데이트**: 2026-03-17
+
+## RD-008. Payment.updatedAt 상태 전환 시 도메인 모델 미갱신
+- **keywords**: `updatedAt`, `상태 전환`, `도메인 모델`, `@PreUpdate`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: BaseEntity의 `@PreUpdate`가 JPA save 시 자동 갱신. 도메인 모델의 updatedAt은 읽기 전용 필드.
+- **최종 업데이트**: 2026-03-17
+
+## RD-009. Retry 정책 범위 (IOException 포함)
+- **keywords**: `retry`, `IOException`, `중복 승인`, `멱등`, `idempotency`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 유지 (현 단계)
+- **근거**: 시뮬레이터는 멱등 처리(동일 orderId 중복 요청 시 기존 결제 반환). 실 PG 연동 시 멱등키 기반 정책으로 전환 필요.
+- **최종 업데이트**: 2026-03-17
+
+## RD-010. setScale UNNECESSARY vs HALF_UP
+- **keywords**: `setScale`, `UNNECESSARY`, `HALF_UP`, `RoundingMode`, `BigDecimal`, `KRW`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 2
+- **최종 결정**: 기각
+- **근거**: 1차 리뷰에서 `BigDecimal.toLong()` 정밀도 손실을 `setScale(0, UNNECESSARY)`로 수정한 의도적 안전장치. KRW는 소수점 단위가 없으므로 소수점 존재 시 상류 버그. HALF_UP은 버그를 숨김.
+- **최종 업데이트**: 2026-03-18
+
+## RD-011. RecoverAllPaymentsUseCase 배치 루프 처리
+- **keywords**: `BATCH_SIZE`, `루프`, `loop`, `페이지네이션`, `배치 복구`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 2
+- **최종 결정**: 부분 수용 (BATCH_SIZE @Value 전환만)
+- **근거**: 루프는 장시간 실행·OOM·스케줄러 스레드 블로킹 위험. 고정 배치 + 주기적 스케줄러가 안전한 회복탄력성 패턴.
+- **최종 업데이트**: 2026-03-18
+
+## RD-012. PgClientImpl fallback catch-all 예외 세분화
+- **keywords**: `fallback`, `catch-all`, `TIMEOUT`, `예외 세분화`, `상태 조회`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 2
+- **최종 결정**: 부분 수용 (로깅 개선만)
+- **근거**: 이중 fallback에서 예외 전파 시 결제가 미정의 상태에 빠짐. TIMEOUT은 "모르겠으니 recovery scheduler가 재확인"이라는 가장 안전한 기본값.
+- **최종 업데이트**: 2026-03-18
+
+## RD-013. afterCommit PG 호출 예외 시 REQUESTED 잔류
+- **keywords**: `afterCommit`, `REQUESTED`, `상태 전이`, `PG 예외`, `고착`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (의도적 설계)
+- **근거**: afterCommit 패턴의 의도적 트레이드오프. Resilience4j fallback이 TIMEOUT 반환, recovery scheduler가 REQUESTED/TIMEOUT 주기적 픽업. 동기 PG 호출은 DB 트랜잭션 내 외부 I/O로 더 위험.
+- **최종 업데이트**: 2026-03-18
+
+## RD-014. afterCommit 무한 재시도 (retryCount/backoff 부재)
+- **keywords**: `afterCommit`, `무한 재시도`, `retryCount`, `backoff`, `플러딩`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: retryCount 도입은 Payment 도메인 모델 변경(필드 추가) 필요. 단일 인스턴스+시뮬레이터 환경에서 premature. 실 PG 연동 시 구현.
+- **최종 업데이트**: 2026-03-18
+
+## RD-015. 중복 SUCCESS 콜백 시 Order 자동 보정
+- **keywords**: `중복 콜백`, `SUCCESS`, `PENDING_PAYMENT`, `자동 보정`, `불일치`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (의도적 설계)
+- **근거**: payment=SUCCESS + order=PENDING 비정상 상태의 자동 보정은 예상치 못한 상태 변경 유발. 별도 보정 API/배치로 처리하는 것이 안전.
+- **최종 업데이트**: 2026-03-18
+
+## RD-016. 카드번호 @JsonIgnore 방어적 직렬화 차단
+- **keywords**: `cardNo`, `@JsonIgnore`, `data class copy`, `직렬화`, `민감정보`
+- **리뷰어**: CodeRabbit (CR-15, CR-18, CR-21)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현재 위험 없음)
+- **근거**: PgFeignClient DTO, PgPaymentRequest, PaymentCommand 모두 인프라/Application 내부 객체로 HTTP 응답 직렬화 경로가 없다. data class copy()나 구조적 로깅(Jackson)으로의 노출은 이론적 가능성일 뿐 현재 코드에서 해당 경로가 존재하지 않음. 민감정보 보호는 CP20에서 마스킹으로 처리 완료.
+- **최종 업데이트**: 2026-03-19
+
+## RD-017. 로깅/모니터링 강화 및 Version Catalogs 전환
+- **keywords**: `로깅`, `Feign 로거`, `Version Catalogs`, `null 경로`, `RedisCleanUp`
+- **리뷰어**: CodeRabbit (CR-1, CR-17, CR-27), Gemini (G-T0)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (시뮬레이터 단계 과잉)
+- **근거**: RedisCleanUp은 testFixtures 코드로 운영 영향 없음. Feign 로거 환경별 분리와 PgStatusQueryClient null 경로 로깅은 실 PG 연동 시 일괄 처리가 합리적. Version Catalogs 전환은 chore 수준으로 현재 project.properties 방식에 기능적 문제 없음.
+- **최종 업데이트**: 2026-03-19

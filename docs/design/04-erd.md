@@ -17,6 +17,10 @@
 3. **반정규화 (Denormalization)**
     * 조회 성능 최적화를 위해 `orders.total_price`, `products.like_count` 등 집계 데이터를 컬럼으로 관리한다.
     * 데이터 정합성은 트랜잭션 범위 내 동기화로 보장한다.
+4. **결제-주문 BC 분리 (Separate Bounded Context)**
+    * `payments`와 `orders`는 별도 Bounded Context로 분리한다. 물리 FK 없이 `order_id`로 논리 참조한다.
+    * `transaction_key`는 PG 응답 전 NULL 가능하다 (Circuit Breaker OPEN Fallback으로 TIMEOUT Payment 생성 시).
+    * 인덱스 후보: `(order_id)` — 주문별 결제 이력 조회, `(status)` — REQUESTED/TIMEOUT 조건 재처리 조회 최적화.
 
 ### 1.2 Mermaid ERD
 
@@ -64,7 +68,7 @@ erDiagram
     orders {
         bigint id PK
         bigint ref_user_id "Logical FK -> users.id"
-        varchar status "CREATED | PAID | CANCELLED | FAILED"
+        varchar status "CREATED | PENDING_PAYMENT | PAID | CANCELLED | FAILED"
         decimal(10_2) original_price "쿠폰 적용 전 원래 금액"
         decimal(10_2) discount_amount "쿠폰 할인 금액 (0이면 미적용)"
         decimal(10_2) total_price "Denormalized (original_price - discount_amount)"
@@ -113,6 +117,20 @@ erDiagram
         datetime deleted_at
     }
 
+    payments {
+        bigint id PK "AUTO_INCREMENT"
+        bigint order_id "Logical FK -> orders.id, NOT NULL"
+        varchar transaction_key "PG 발급 거래 키, UNIQUE, NULL 가능 (CB OPEN Fallback)"
+        varchar status "REQUESTED | SUCCESS | FAILED | TIMEOUT, NOT NULL"
+        bigint amount "NOT NULL"
+        varchar card_type "SAMSUNG | KB | HYUNDAI, NOT NULL"
+        varchar card_no "NOT NULL"
+        varchar reason "실패/타임아웃 사유, NULL 가능"
+        datetime created_at "NOT NULL"
+        datetime updated_at "NOT NULL"
+        datetime deleted_at "NULL"
+    }
+
     brands ||--o{ products: "Brand owns Products"
     products ||--o{ likes: "Product has Likes"
     users ||--o{ likes: "User likes Products"
@@ -121,6 +139,7 @@ erDiagram
     coupons ||--o{ issued_coupons: "Coupon is issued to Users"
     users ||--o{ issued_coupons: "User holds IssuedCoupons"
     coupons ||--o{ orders: "Coupon applied to Order (optional)"
+    orders ||--o{ payments: "Order has Payments (Logical FK, no constraint)"
 ```
 
 ---
@@ -147,7 +166,7 @@ erDiagram
 |-----------------|-----------------|---------------|--------------|--------------------------------------------|
 | **orders**      | id              | BIGINT        | PK, Auto Inc |                                            |
 |                 | ref_user_id     | BIGINT        | NOT NULL     | [논리FK] User 참조                             |
-|                 | status          | VARCHAR       | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) |
+|                 | status          | VARCHAR       | NOT NULL     | 주문 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) `CREATED | PENDING_PAYMENT | PAID | CANCELLED | FAILED` |
 |                 | original_price  | DECIMAL(10,2) | NOT NULL     | 쿠폰 적용 전 원래 금액                              |
 |                 | discount_amount | DECIMAL(10,2) | NOT NULL     | 쿠폰 할인 금액 (미적용 시 0)                         |
 |                 | total_price     | DECIMAL(10,2) | NOT NULL     | [반정규화] 주문 총액 (original_price - discount_amount) |
@@ -182,6 +201,22 @@ erDiagram
 |                    | deleted_at       | DATETIME      | NULL 허용      | BaseEntity 상속으로 존재하나 soft delete 미적용            |
 |                    | (UK)             |               | UNIQUE       | `(ref_coupon_id, ref_user_id)` 중복 발급 방지         |
 
+### 2.4 Payment Domain
+
+| 테이블           | 컬럼              | 타입          | 제약조건              | 설명                                                        |
+|---------------|-----------------|-------------|-------------------|------------------------------------------------------------|
+| **payments**  | id              | BIGINT      | PK, Auto Inc      |                                                            |
+|               | order_id        | BIGINT      | NOT NULL          | [논리FK] Order 참조 (`orders.id`)                             |
+|               | transaction_key | VARCHAR(255) | NULL 허용, UNIQUE  | PG 발급 거래 키. CB OPEN Fallback(TIMEOUT) 생성 시 null 가능        |
+|               | status          | VARCHAR(20) | NOT NULL          | 결제 상태 (`@Enumerated(STRING)` → VARCHAR 매핑) `REQUESTED \| SUCCESS \| FAILED \| TIMEOUT` |
+|               | amount          | BIGINT      | NOT NULL          | 결제 요청 금액 (원)                                              |
+|               | card_type       | VARCHAR(20) | NOT NULL          | 카드 종류 `SAMSUNG \| KB \| HYUNDAI`                           |
+|               | card_no         | VARCHAR(50) | NOT NULL          | 카드 번호                                                     |
+|               | reason          | VARCHAR(255) | NULL 허용          | 실패/타임아웃 사유 (SUCCESS 시 null)                               |
+|               | created_at      | DATETIME    | NOT NULL          |                                                            |
+|               | updated_at      | DATETIME    | NOT NULL          |                                                            |
+|               | deleted_at      | DATETIME    | NULL 허용           | Soft Delete                                                |
+
 ### 2.3 User Interaction
 
 | 테이블       | 컬럼             | 타입     | 제약조건         | 설명                                    |
@@ -213,6 +248,9 @@ erDiagram
 | **coupons**         | `(expired_at, deleted_at)`              | Composite | 유효한 쿠폰 조회                       |
 | **issued_coupons**  | `(ref_coupon_id, ref_user_id)`          | UNIQUE    | 중복 발급 방지 및 쿠폰별 발급 내역 조회        |
 | **issued_coupons**  | `(ref_user_id)`                         | Normal    | 사용자별 보유 쿠폰 목록 조회               |
+| **payments**        | `(order_id)`                            | Normal    | 주문별 결제 이력 조회                    |
+| **payments**        | `(status)`                              | Normal    | REQUESTED/TIMEOUT 상태 결제 재처리 조회  |
+| **payments**        | `(transaction_key)`                     | UNIQUE    | PG 거래 키 중복 방지 (NULL 허용)         |
 
 > `likes(ref_user_id, ref_product_id)` UNIQUE 인덱스가 `ref_user_id` 단독 조회도 커버하므로, 별도 ref_user_id 인덱스는 불필요하다. \
 > likes 테이블에 created_at은 두지 않는다. 최신순 정렬이 필요하면 id 역순으로 대체한다. \
@@ -255,4 +293,7 @@ erDiagram
 | **쿼리 복잡도**    | 모든 조회에 `deleted_at IS NULL` 조건 필요                                                                                        | Repository 메서드마다 조건 명시. 필요 시 Hibernate `@Filter` 또는 `@SoftDelete` 검토                               |
 | **복구 정합성**    | 상품 복구 시 likeCount와 실제 likes 수 불일치 가능                                                                                     | 어드민 전용 복구 API 제공. `deleted_at`을 `null`로 설정하여 복구하며, 멱등하게 동작한다. Brand와 Product에 대해 개별 복구 API를 제공한다.  |
 | **인덱스 커버리지**  | `refBrandId` 필터 + 정렬 조합 시 기존 복합 인덱스 미활용 (`(ref_brand_id)` 단독 → filesort, `(deleted_at, status, ...)` → ref_brand_id 후필터) | 현재 데이터 규모에서 무시 가능. 데이터 증가 시 `(ref_brand_id, deleted_at, status, created_at)` 등 브랜드 기반 복합 인덱스 추가 검토 |
+| **결제 중복 처리**  | 네트워크 재시도로 동일 주문에 REQUESTED 결제가 중복 생성될 수 있음                                                                                   | 애플리케이션 레벨에서 REQUESTED 상태 중복 체크. `transaction_key` UNIQUE 인덱스로 PG 응답 후 중복 방지                              |
+| **결제-주문 정합성** | payments.order_id 참조 대상 주문이 삭제/취소되어도 물리 FK 없어 DB에서 감지 불가                                                                      | 애플리케이션 레벨에서 주문 상태 검증 후 결제 요청. 결제 완료 후 주문 상태를 PAID로 동기 전환하여 정합성 유지                                      |
+| **CB OPEN 고아 결제** | Circuit Breaker OPEN 시 TIMEOUT Payment가 생성되나 PG 실제 결제 여부 불명                                                                   | 재처리 배치로 REQUESTED/TIMEOUT Payment를 주기적으로 PG 조회하여 최종 상태 확정                                               |
 | **UK 충돌**     | Soft Delete 된 login_id, brand name 재사용 시 UK 중복 에러                                                                        | 탈퇴/삭제 시 식별자 변조 (예: `name_deleted_{timestamp}`) 또는 정책 결정 필요. MySQL은 Partial Unique Index 미지원        |

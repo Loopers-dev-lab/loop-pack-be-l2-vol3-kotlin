@@ -53,16 +53,24 @@ class DeleteProductUseCaseTest {
             )
             product.delete()
             productRepository.save(product)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = DeleteProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
 
-            // act & assert — 예외 없이 정상 반환
+            // act & assert — 예외 없이 정상 반환, 이벤트 미발행
             useCase.execute(product.id.value)
+            assertThat(publishedEvents).isEmpty()
         }
 
         @Test
         @DisplayName("존재하지 않는 상품을 삭제해도 예외가 발생하지 않는다 (멱등)")
         fun deleteProduct_nonExistent_isIdempotent() {
-            // act & assert — 예외 없이 정상 반환
+            // arrange
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = DeleteProductUseCase(productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act & assert — 예외 없이 정상 반환, 이벤트 미발행
             useCase.execute(999L)
+            assertThat(publishedEvents).isEmpty()
         }
 
         @Test
