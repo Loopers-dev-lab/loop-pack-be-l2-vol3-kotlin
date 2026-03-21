@@ -3,7 +3,6 @@
 영속성 구조를 Mermaid ERD로 작성한다.
 완료 후 `docs/design/04-erd.md`에 저장한다.
 
----
 
 ## 사전 준비
 
@@ -11,7 +10,6 @@
 1. `docs/design/03-class-diagram.md` — Entity/VO 관계 (정합성 확인 기준)
 2. `docs/design/01-requirements.md` — 도메인 규칙, 데이터 요구사항
 
----
 
 ## 검증 목적
 
@@ -22,7 +20,6 @@
 
 **핵심 원칙: ERD는 생략 없이 상세하게 작성한다.** 시퀀스/클래스 다이어그램과 달리, ERD는 실제 DB 스키마와 1:1 대응해야 하므로 모든 컬럼, 제약조건, 주석을 포함한다.
 
----
 
 ## Step 1: 작성 전 설명
 
@@ -33,7 +30,6 @@
   - VO → 테이블로 분리하지 않고 Entity의 컬럼으로 표현
   - 관계 → FK로 표현 (논리적 FK vs 물리적 FK 결정 필요)
 
----
 
 ## Step 2: 설계 원칙 결정
 
@@ -43,7 +39,6 @@ ERD 작성 전에 다음 설계 원칙을 결정하고 문서에 기록한다:
 2. **스냅샷 정책**: 주문-상품처럼 원본 변경과 무관하게 시점 데이터를 보존할 컬럼이 있는가
 3. **반정규화**: 조회 성능을 위해 집계 필드를 비정규화할 것인가 (예: like_count)
 
----
 
 ## Step 3: ERD 작성
 
@@ -67,13 +62,9 @@ ERD 작성 전에 다음 설계 원칙을 결정하고 문서에 기록한다:
 
 ### 작성 규칙
 
-- 테이블명은 복수형 (products, orders, users)
-- soft delete: `deleted_at` nullable datetime
-- enum은 VARCHAR로 저장 — 값 목록을 주석으로 명시
 - N:M은 반드시 조인 테이블로 풀어서 표현
 - VO는 테이블로 분리하지 않음 — Entity의 컬럼으로 표현
-- 모든 컬럼에 타입과 제약조건(PK, FK, NOT NULL, UNIQUE) 명시
-- BaseEntity 공통 컬럼 포함 (id, created_at, updated_at, deleted_at)
+- 테이블명, soft delete 정책, enum 저장 방식, 공통 컬럼은 프로젝트 컨벤션을 따른다
 
 ### Mermaid 형식 예시
 
@@ -113,7 +104,6 @@ erDiagram
 
 불일치가 있으면 사용자에게 보고한다.
 
----
 
 ## Step 5: 산출물 작성 및 저장
 
@@ -177,7 +167,6 @@ erDiagram
 |------|----------|---------|
 ```
 
----
 
 ## Phase 완료 보고
 
@@ -201,3 +190,23 @@ current-phase: review
 phases:
   erd: completed
 ```
+
+---
+
+## 이 프로젝트의 컨벤션
+
+### 테이블 명명
+- 테이블명은 복수형 (products, orders, users)
+
+### 공통 컬럼 (BaseEntity)
+- id (bigint PK), created_at (datetime), updated_at (datetime), deleted_at (datetime nullable)
+
+### 삭제 정책
+- soft delete: `deleted_at` nullable datetime
+
+### Enum 저장
+- VARCHAR로 저장 — 값 목록을 주석으로 명시
+
+### Gotchas
+- `@Query` 어노테이션 사용 금지 → QueryDSL 또는 Spring Data JPA 메서드명 쿼리 사용
+- fetch join + paging 동시 사용 금지 — `@BatchSize`, `@EntityGraph` 대안 사용

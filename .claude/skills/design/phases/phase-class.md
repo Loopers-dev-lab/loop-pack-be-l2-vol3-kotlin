@@ -3,7 +3,7 @@
 도메인 객체를 Mermaid 클래스 다이어그램으로 작성한다.
 완료 후 `docs/design/03-class-diagram.md`에 저장한다.
 
----
+
 
 ## 사전 준비
 
@@ -11,7 +11,7 @@
 1. `docs/design/01-requirements.md` — 도메인 규칙, 액터, 유비쿼터스 언어
 2. `docs/design/02-sequence-diagrams.md` — 시퀀스 참여자 (정합성 확인용)
 
----
+
 
 ## 검증 목적
 
@@ -20,7 +20,7 @@
 - **의존 방향**: 레이어 간 의존이 단방향(interfaces → application → domain)을 따르는가
 - **응집도**: 한 객체에 책임이 과도하게 몰리지 않았는가
 
----
+
 
 ## Step 1: 작성 전 설명
 
@@ -31,7 +31,7 @@
   - **Entity**: id가 있고, 생명주기를 가짐
   - **Value Object**: 값으로 비교, 자가 검증. `<<ValueObject>>` 스테레오타입 사용
 
----
+
 
 ## Step 2: 다이어그램 작성
 
@@ -90,7 +90,7 @@ classDiagram
     BaseEntity <|-- Product
 ```
 
----
+
 
 ## Step 3: 핵심 포인트 작성
 
@@ -99,7 +99,7 @@ classDiagram
 - Trade-off
 - 특히 봐야 할 포인트
 
----
+
 
 ## Step 4: 정합성 확인
 
@@ -107,7 +107,7 @@ classDiagram
 - `docs/design/04-erd.md`가 있으면 클래스 간 관계가 ERD에 반영되었는지 확인
 - 불일치가 있으면 사용자에게 보고한다
 
----
+
 
 ## Step 5: 산출물 작성 및 저장
 
@@ -119,13 +119,13 @@ classDiagram
 도메인 객체의 책임, 의존 방향, Entity/VO 구분을 Mermaid 클래스 다이어그램으로 정리한다.
 **단순 Getter/Setter와 모든 필드 나열은 생략**하고, 핵심 비즈니스 로직과 아키텍처 구조 위주로 기술한다.
 
----
+
 
 ## 1. 도메인 모델 전체 관계도 (Entity Relationship)
 
 (direction TB, BaseEntity 상속, Entity 간 관계, enum, Composition)
 
----
+
 
 ## 2~N. [도메인명] 도메인
 
@@ -134,15 +134,15 @@ classDiagram
 ### 핵심 포인트
 - (설계 결정 사유, Trade-off)
 
----
+
 
 ## N+1. Facade 레이어의 의존 관계 (Architecture View)
 
----
+
 
 ## N+2. 인증 레이어 구조 (있는 경우)
 
----
+
 
 ## N+3. Value Object 정리
 
@@ -151,7 +151,7 @@ classDiagram
 
 > VO는 Entity 필드로 저장되지 않는다. Entity 필드는 기본 타입을 유지하되, 생성/변경 시점에 VO를 통해 검증한다.
 
----
+
 
 ## N+4. 설계 원칙 및 결정 사유 (Design Principles)
 
@@ -160,7 +160,7 @@ classDiagram
     - **이유**: ... (Trade-off 포함)
 ```
 
----
+
 
 ## Phase 완료 보고
 

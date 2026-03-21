@@ -1,8 +1,10 @@
 ---
 name: design
 version: 1.0.0
-description: "요구사항 분석부터 설계 리뷰까지 전체 설계 사이클을 단계별로 실행한다."
-argument-hint: "[요구사항 또는 PRD 경로] [--phase requirements|sequence|class|erd|review] [--status] [--resume] [--quick]"
+description: |
+  요구사항 분석부터 설계 리뷰까지 전체 설계 사이클을 단계별로 실행한다.
+  '설계해줘', 'ERD 만들어줘', '시퀀스 다이어그램', '요구사항 분석해줘' 같은 요청에 반드시 트리거한다.
+argument-hint: "[요구사항 또는 PRD 경로] [--phase requirements|sequence|class|erd|review|verify-docs] [--status] [--resume] [--quick]"
 allowed-tools:
   - Read
   - Write
@@ -27,6 +29,13 @@ Phase 진입 시 반드시 해당 Phase 파일을 Read한 후 실행한다:
 Read(`<프로젝트 루트>/.claude/skills/design/phases/phase-{name}.md`)
 ```
 
+## 전제 조건
+
+- 분석할 요구사항 또는 PRD가 있어야 한다
+- `--phase sequence` 이후: `docs/design/01-requirements.md` 존재 권장
+- `--resume`: `.design/state.md`가 존재해야 한다
+
+
 ## 인자
 
 - `ARGS[0]` (선택): 요구사항 설명 또는 PRD 문서 경로
@@ -47,6 +56,7 @@ ARGS[0]이 없고 `--status`도 `--resume`도 없으면 다음을 응답:
 | class | phase-class.md | `docs/design/03-class-diagram.md` | 저장 후 확인 |
 | erd | phase-erd.md | `docs/design/04-erd.md` | 저장 후 확인 |
 | review | phase-review.md | 리뷰 보고서 (인라인) | 최종 보고 |
+| verify-docs | phase-verify-docs.md | 정합성 보고서 (인라인) | `--phase`로만 실행 |
 
 ### --quick 경로
 
@@ -65,8 +75,9 @@ quick: requirements → review
 - `--phase class`: `docs/design/02-sequence-diagrams.md`가 있으면 참고. class 실행.
 - `--phase erd`: `docs/design/03-class-diagram.md`가 있으면 참고. erd 실행.
 - `--phase review`: 존재하는 모든 설계 문서를 대상으로 review 실행.
+- `--phase verify-docs`: 구현 완료 후 설계 문서와 코드의 정합성을 검증. **자동 파이프라인에 포함되지 않음.**
 
-`--phase` 없이 실행하면 requirements부터 순차적으로 모든 Phase를 실행한다.
+`--phase` 없이 실행하면 requirements부터 순차적으로 모든 Phase를 실행한다 (verify-docs 제외).
 각 Phase 완료 후 사용자에게 "다음 Phase(XXX)로 진행할까요?" 확인 후 계속한다.
 
 ## --status 동작
@@ -145,6 +156,10 @@ artifacts:
 4. 사용자가 수정을 요청하면 현재 Phase를 재실행한다.
 5. 에러 발생 시 조용히 무시하지 않고 사용자에게 보고한다.
 
+## HARD GATE
+
+설계 완료 전까지 코드를 작성하지 않는다. 설계가 승인되면 `/plan`으로 구현 계획을 수립한다.
+
 ## 보고 포맷
 
 각 Phase 완료 시 다음 형식으로 보고한다:
@@ -171,3 +186,9 @@ artifacts:
 
 **다음 단계**: 설계 리뷰 결과를 바탕으로 구현을 시작하거나, `/verify-docs`로 코드와 문서 정합성을 확인할 수 있습니다.
 ```
+
+## Gotchas
+
+- `docs/design/` 파일은 CLAUDE.md에서 "명시적 지시 전까지 Read 금지"로 지정됨. 설계 스킬 실행 중에만 읽는다
+- `.design/state.md`는 로컬 전용 파일이다. git에 커밋하지 않는다
+- 이전 라운드 설계가 있으면 append한다 (덮어쓰기 아님)

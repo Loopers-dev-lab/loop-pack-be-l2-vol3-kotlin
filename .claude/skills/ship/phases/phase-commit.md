@@ -15,15 +15,15 @@
 ## 절차
 
 1. **린트 + 테스트 검증 및 보고**:
-   - `./gradlew :apps:commerce-api:ktlintCheck` 실행
-   - `./gradlew :apps:commerce-api:test` 실행
+   - 프로젝트의 린트 도구 실행 (이 프로젝트의 명령은 아래 "이 프로젝트의 컨벤션" 참고)
+   - 프로젝트의 테스트 스위트 실행 (이 프로젝트의 명령은 아래 "이 프로젝트의 컨벤션" 참고)
    - `git status`로 변경 파일 확인
    - 아래 형식으로 검증 결과 보고:
 
    ```
    ## 검증 결과
 
-   ### 린트 (ktlintCheck)
+   ### 린트
    - 상태: 통과 / 실패
    - 실패 시: 파일명, 위치, 위반 규칙
 
@@ -38,7 +38,7 @@
    - 커밋 가능 / 수정 필요
    ```
 
-   - 통과하지 않으면 커밋 중단, 린트 실패 시 `ktlintFormat` 안내
+   - 통과하지 않으면 커밋 중단, 린트 실패 시 자동 수정 도구 안내
 2. **변경 파악**: `git diff`로 변경 내용 분석
 3. **커밋 이력 확인**: `git log --oneline -10`으로 최근 커밋 스타일 확인
 4. **변경 유형 분류**:
@@ -76,12 +76,36 @@ type: 변경 요약
 - 한국어로 간결하게 (50자 이내)
 - **구조적 변경과 행위적 변경이 섞여 있으면 분리를 제안**
 - `.env`, 시크릿 파일은 커밋에서 제외
-- **로컬 전용 문서 제외**: `plan.md`, `review-plan.md`, 개인 메모, `.omc/` 하위 파일
 - 모든 테스트가 통과해야만 커밋 가능
 - 커밋 실행 전 반드시 사용자 확인
-- **금지**: `Co-Authored-By` 라인을 절대 추가하지 말 것
-- **금지**: `🤖 Generated with Claude Code` 라인을 절대 추가하지 말 것
 
 ## 다음 페이즈
 
 커밋 완료 후 `--phase pr`이면 `pr` 페이즈로 진행한다.
+
+---
+
+## 이 프로젝트의 컨벤션
+
+### 검증 명령
+
+- 린트: `./gradlew :apps:commerce-api:ktlintCheck`
+- 테스트: `./gradlew :apps:commerce-api:test`
+- 린트 자동 수정: `./gradlew :apps:commerce-api:ktlintFormat`
+
+### 로컬 전용 파일 (staging 제외)
+
+- `plan.md`, `review-plan.md`, `review-summary.md`
+- `.omc/` 하위 파일
+- `.design/` 하위 파일
+- `.coderabbit.yaml`
+
+### 금지 사항
+
+- `Co-Authored-By` 라인 추가 금지
+- `🤖 Generated with Claude Code` 라인 추가 금지
+
+### Gotchas
+
+- kapt + ktlint 충돌: `ktlintCheck`와 `test`를 반드시 `&&`로 분리 실행
+- 구조적 변경과 행위적 변경이 섞여 있으면 분리 커밋 제안

@@ -1,7 +1,9 @@
 ---
 name: tdd
-description: Red → Green → Refactor TDD 사이클을 오케스트레이션한다. 각 Phase를 순서대로 진행하며, 사이클을 반복할 수 있다.
-argument-hint: "[요구사항 설명] [--phase red|green|refactor|e2e|http] [--cycle N] [--fix] [--go]"
+description: |
+  Red → Green → Refactor TDD 사이클을 오케스트레이션한다. 각 Phase를 순서대로 진행하며, 사이클을 반복할 수 있다.
+  'TDD로 구현해줘', '테스트 먼저 작성', 'Red-Green-Refactor', 'TDD 사이클' 같은 요청에 반드시 트리거한다.
+argument-hint: "[요구사항 설명] [--phase red|green|refactor] [--cycle N] [--fix]"
 allowed-tools:
   - Read
   - Write
@@ -26,11 +28,14 @@ allowed-tools:
 - `--phase red|green|refactor` — 특정 Phase만 단독 실행
 - `--cycle N` — N번째 사이클부터 시작 (기본값: 1)
 - `--fix` — 버그 수정 모드: 재현 테스트(Red) → 최소 수정(Green), Refactor 생략
-- `--go` — plan.md 기반 자동 실행. 다음 checkpoint까지 Red → Green 사이클을 연속 수행
-- `--phase e2e` — E2E 테스트 작성 (구현 완료 후)
-- `--phase http` — IntelliJ HTTP Client 파일 작성 (구현 완료 후)
 
 플래그가 없으면 전체 사이클(Red → Green → Refactor)을 실행한다.
+
+## 전제 조건
+
+- 구현 대상이 명확해야 한다 (요구사항 또는 plan.md 항목)
+- `--phase green`: Red Phase에서 작성한 실패 테스트가 있어야 한다
+- `--phase refactor`: 모든 테스트가 통과 상태여야 한다
 
 ## 스킬 참조 경로
 
@@ -41,9 +46,6 @@ Phase 진입 시 항상 절대 경로로 Read한다:
 /home/user/dev/.claude/skills/tdd/phases/phase-red.md
 /home/user/dev/.claude/skills/tdd/phases/phase-green.md
 /home/user/dev/.claude/skills/tdd/phases/phase-refactor.md
-/home/user/dev/.claude/skills/tdd/phases/phase-e2e.md
-/home/user/dev/.claude/skills/tdd/phases/phase-http.md
-/home/user/dev/.claude/skills/tdd/phases/phase-go.md
 ```
 
 ## 실행 흐름
@@ -72,19 +74,6 @@ Read(phase-green.md) → 절차 실행 → Green Phase 완료 보고 후 종료.
 
 모든 테스트 통과 상태를 먼저 확인한다.
 Read(phase-refactor.md) → 절차 실행 → Refactor Phase 완료 보고 후 종료.
-
-### `--go` 자동 실행
-
-plan.md를 기반으로 다음 checkpoint까지 Red → Green 사이클을 연속 수행한다.
-Read(phase-go.md) → 절차 실행 → Checkpoint 보고 후 종료.
-
-### `--phase e2e` 단독
-
-Read(phase-e2e.md) → E2E 테스트 작성 → 결과 보고 후 종료.
-
-### `--phase http` 단독
-
-Read(phase-http.md) → HTTP 파일 작성 → 결과 보고 후 종료.
 
 ### `--fix` 버그 수정 모드
 
@@ -133,5 +122,17 @@ Read(phase-http.md) → HTTP 파일 작성 → 결과 보고 후 종료.
 - `/tdd`는 전체 사이클 오케스트레이터다. `--phase red|green|refactor`로 개별 Phase도 단독 실행할 수 있다.
 - 구조적 변경(Refactor)과 행위적 변경(Red+Green)을 절대 같은 단계에 섞지 않는다 (Tidy First).
 - 각 Phase는 반드시 해당 Phase 파일을 Read한 후 실행한다. 기억에 의존하지 않는다.
-- 테스트 검증 명령: `./gradlew :apps:commerce-api:test --tests "패키지.클래스명"`
-- 전체 테스트: `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`
+
+---
+
+## 이 프로젝트의 컨벤션
+
+### 검증 명령
+- 단일 테스트: `./gradlew :apps:commerce-api:test --tests "패키지.클래스명"`
+- 전체 검증: `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`
+
+### Gotchas
+- **kapt + ktlint 충돌**: `ktlintCheck`와 `test`를 `&&`로 분리 실행해야 한다. 한 번에 실행하면 kapt 태스크 충돌로 실패
+- **fetch join + paging 금지**: N+1 해결 시 fetch join과 paging을 동시 사용하면 메모리 에러. `@BatchSize`/`@EntityGraph` 사용
+- **allOpen 미적용**: `@Entity` 클래스는 final이다. `plugin.jpa`는 no-arg 생성자만 생성. 상속 기반 설계 불가
+- **@AggregateRootOnly**: 자식 Entity의 상태 변경 메서드는 Aggregate Root를 통해서만 호출
