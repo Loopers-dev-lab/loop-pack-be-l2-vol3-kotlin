@@ -37,6 +37,7 @@ import java.time.ZonedDateTime
 
 @DisplayName("PaymentCreateUseCase")
 class PaymentCreateUseCaseTest {
+    private val paymentKey = "11111111-1111-1111-1111-111111111111"
 
     private val orderRepository: OrderRepository = mock()
     private val paymentRepository: PaymentRepository = mock()
@@ -67,7 +68,7 @@ class PaymentCreateUseCaseTest {
     private fun command(
         userId: Long = 1L,
         orderId: Long = 100L,
-        idempotencyKey: String = "pay-key-001",
+        idempotencyKey: String = paymentKey,
         cardType: String = "VISA",
         cardNo: String = "4111111111111234",
     ): PaymentCreateCommand = PaymentCreateCommand(
@@ -130,12 +131,13 @@ class PaymentCreateUseCaseTest {
     private fun existingPayment(
         id: Long = 200L,
         orderId: Long = 100L,
+        userId: Long = 1L,
         fingerprint: String = PaymentCreateUseCase.computeFingerprint(100L, "VISA", "4111111111111234"),
     ): Payment = Payment.retrieve(
         id = id,
         orderId = orderId,
-        userId = 1L,
-        idempotencyKey = PaymentIdempotencyKey("pay-key-001"),
+        userId = userId,
+        idempotencyKey = PaymentIdempotencyKey(paymentKey),
         status = Payment.Status.PENDING,
         cardType = "VISA",
         maskedCardNo = "************1234",
@@ -146,11 +148,11 @@ class PaymentCreateUseCaseTest {
         createdAt = now,
     )
 
-    private fun stubCommonLookups() {
-        given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
+    private fun stubNewPaymentFlow() {
+        given(orderRepository.findByIdAndUserIdForUpdate(100L, 1L)).willReturn(pendingOrder())
+        given(paymentRepository.findByIdempotencyKeyForUpdate(PaymentIdempotencyKey(paymentKey)))
             .willReturn(null)
-        given(orderRepository.findById(100L)).willReturn(pendingOrder())
-        given(paymentRepository.findActiveByOrderId(100L)).willReturn(null)
+        given(paymentRepository.findActiveByOrderIdForUpdate(100L)).willReturn(null)
     }
 
     private fun stubSaveReturnsWithId() {
@@ -191,7 +193,7 @@ class PaymentCreateUseCaseTest {
         @DisplayName("PG Accepted -> Payment에 transactionKey 저장, PENDING 유지")
         fun create_pgAccepted() {
             // arrange
-            stubCommonLookups()
+            stubNewPaymentFlow()
             stubSaveReturnsWithId()
             given(
                 pgPaymentPort.requestPayment(
@@ -225,7 +227,7 @@ class PaymentCreateUseCaseTest {
         @DisplayName("PG ImmediateFailure -> Payment=FAILED, reasonCode=PG_INTERNAL_ERROR")
         fun create_pgImmediateFailure() {
             // arrange
-            stubCommonLookups()
+            stubNewPaymentFlow()
             stubSaveReturnsWithId()
             given(
                 pgPaymentPort.requestPayment(
@@ -256,7 +258,7 @@ class PaymentCreateUseCaseTest {
         @DisplayName("Timeout -> Payment=PENDING, reasonCode=TIMEOUT_UNCERTAIN, transactionKey=null")
         fun create_pgTimeout() {
             // arrange
-            stubCommonLookups()
+            stubNewPaymentFlow()
             stubSaveReturnsWithId()
             given(
                 pgPaymentPort.requestPayment(
@@ -300,6 +302,26 @@ class PaymentCreateUseCaseTest {
             verify(paymentRepository, never()).save(check<Payment> { })
             verify(pgPaymentPort, never()).requestPayment(check<PgPaymentRequest> { })
         }
+
+        @Test
+        @DisplayName("isAvailable=true지만 request 시 CircuitOpen -> Payment 보상 삭제 후 503")
+        fun create_lateCircuitOpen() {
+            // arrange
+            stubNewPaymentFlow()
+            stubSaveReturnsWithId()
+            given(pgPaymentPort.requestPayment(check<PgPaymentRequest> { }))
+                .willReturn(PgPaymentResponse.CircuitOpen)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.create(command())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.PG_CIRCUIT_OPEN)
+            verify(paymentRepository).hardDelete(200L)
+            verify(paymentRecoveryService, never()).scheduleEagerRetry(200L)
+        }
     }
 
     @Nested
@@ -310,9 +332,9 @@ class PaymentCreateUseCaseTest {
         @DisplayName("동일 fingerprint -> IdempotentReplay(기존 Payment), PG 호출 없음")
         fun create_idempotentReplay() {
             // arrange
-            given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
+            given(orderRepository.findByIdAndUserIdForUpdate(100L, 1L)).willReturn(pendingOrder())
+            given(paymentRepository.findByIdempotencyKeyForUpdate(PaymentIdempotencyKey(paymentKey)))
                 .willReturn(existingPayment())
-            given(orderRepository.findById(100L)).willReturn(pendingOrder())
 
             // act
             val result = useCase.create(command())
@@ -335,7 +357,8 @@ class PaymentCreateUseCaseTest {
         fun create_conflict() {
             // arrange
             val differentFingerprint = PaymentCreateUseCase.computeFingerprint(999L, "MASTER", "9999")
-            given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
+            given(orderRepository.findByIdAndUserIdForUpdate(100L, 1L)).willReturn(pendingOrder())
+            given(paymentRepository.findByIdempotencyKeyForUpdate(PaymentIdempotencyKey(paymentKey)))
                 .willReturn(existingPayment(fingerprint = differentFingerprint))
 
             // act
@@ -356,13 +379,26 @@ class PaymentCreateUseCaseTest {
         @DisplayName("Order 조회 null -> 예외")
         fun create_orderNotFound() {
             // arrange
-            given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
-                .willReturn(null)
-            given(orderRepository.findById(100L)).willReturn(null)
+            given(orderRepository.findByIdAndUserIdForUpdate(100L, 1L)).willReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
                 useCase.create(command())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.ORDER_NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("타인 주문 조회 null -> ORDER_NOT_FOUND")
+        fun create_orderNotOwned() {
+            // arrange
+            given(orderRepository.findByIdAndUserIdForUpdate(100L, 2L)).willReturn(null)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.create(command(userId = 2L))
             }
 
             // assert
@@ -378,9 +414,7 @@ class PaymentCreateUseCaseTest {
         @DisplayName("Order=CREATED -> 예외")
         fun create_orderAlreadyCreated() {
             // arrange
-            given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
-                .willReturn(null)
-            given(orderRepository.findById(100L)).willReturn(createdOrder())
+            given(orderRepository.findByIdAndUserIdForUpdate(100L, 1L)).willReturn(createdOrder())
 
             // act
             val exception = assertThrows<CoreException> {
@@ -400,10 +434,10 @@ class PaymentCreateUseCaseTest {
         @DisplayName("같은 orderId에 PENDING Payment 존재 -> 예외")
         fun create_activePendingExists() {
             // arrange
-            given(paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("pay-key-001")))
+            given(orderRepository.findByIdAndUserIdForUpdate(100L, 1L)).willReturn(pendingOrder())
+            given(paymentRepository.findByIdempotencyKeyForUpdate(PaymentIdempotencyKey(paymentKey)))
                 .willReturn(null)
-            given(orderRepository.findById(100L)).willReturn(pendingOrder())
-            given(paymentRepository.findActiveByOrderId(100L)).willReturn(existingPayment())
+            given(paymentRepository.findActiveByOrderIdForUpdate(100L)).willReturn(existingPayment())
 
             // act
             val exception = assertThrows<CoreException> {
@@ -412,6 +446,45 @@ class PaymentCreateUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.PAYMENT_ACTIVE_PENDING_EXISTS)
+        }
+    }
+
+    @Nested
+    @DisplayName("멱등키 소유자가 다르면 PAYMENT_IDEMPOTENCY_CONFLICT 예외를 던진다")
+    inner class WhenForeignUserIdempotencyKey {
+
+        @Test
+        @DisplayName("기존 Payment userId != 요청 userId -> 409 Conflict")
+        fun create_foreignUserIdempotencyKey() {
+            // arrange
+            given(orderRepository.findByIdAndUserIdForUpdate(100L, 1L)).willReturn(pendingOrder())
+            given(paymentRepository.findByIdempotencyKeyForUpdate(PaymentIdempotencyKey(paymentKey)))
+                .willReturn(existingPayment(userId = 999L))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.create(command())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.PAYMENT_IDEMPOTENCY_CONFLICT)
+        }
+    }
+
+    @Nested
+    @DisplayName("UUID 형식이 아닌 멱등키는 PAYMENT_INVALID_IDEMPOTENCY_KEY 예외를 던진다")
+    inner class WhenInvalidIdempotencyKey {
+
+        @Test
+        @DisplayName("invalid uuid -> 400 Bad Request")
+        fun create_invalidIdempotencyKey() {
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.create(command(idempotencyKey = "not-a-uuid"))
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.PAYMENT_INVALID_IDEMPOTENCY_KEY)
         }
     }
 

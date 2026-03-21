@@ -12,8 +12,6 @@ import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentIdempotencyKey
 import com.loopers.domain.payment.PaymentReasonCode
 import com.loopers.domain.payment.PaymentRepository
-import com.loopers.domain.payment.PgPaymentPort
-import com.loopers.domain.payment.PgPaymentStatusResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -23,7 +21,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
-import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -33,11 +30,12 @@ import java.time.ZonedDateTime
 
 @DisplayName("PaymentDetailUseCase")
 class PaymentDetailUseCaseTest {
+    private val paymentKey = "11111111-1111-1111-1111-111111111111"
 
     private val paymentRepository: PaymentRepository = mock()
     private val orderRepository: OrderRepository = mock()
-    private val pgPaymentPort: PgPaymentPort = mock()
-    private val useCase = PaymentDetailUseCase(paymentRepository, orderRepository, pgPaymentPort)
+    private val paymentReadRepairService: PaymentReadRepairService = mock()
+    private val useCase = PaymentDetailUseCase(paymentRepository, orderRepository, paymentReadRepairService)
 
     private val now = ZonedDateTime.of(2026, 3, 20, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
     private val userId = 1L
@@ -48,7 +46,7 @@ class PaymentDetailUseCaseTest {
         id = paymentId,
         orderId = orderId,
         userId = userId,
-        idempotencyKey = PaymentIdempotencyKey("pay-key-001"),
+        idempotencyKey = PaymentIdempotencyKey(paymentKey),
         status = Payment.Status.PENDING,
         cardType = "VISA",
         maskedCardNo = "************1234",
@@ -63,7 +61,7 @@ class PaymentDetailUseCaseTest {
         id = paymentId,
         orderId = orderId,
         userId = userId,
-        idempotencyKey = PaymentIdempotencyKey("pay-key-001"),
+        idempotencyKey = PaymentIdempotencyKey(paymentKey),
         status = Payment.Status.SUCCESS,
         cardType = "VISA",
         maskedCardNo = "************1234",
@@ -140,10 +138,7 @@ class PaymentDetailUseCaseTest {
                 { assertThat(result.cardType).isEqualTo("VISA") },
                 { assertThat(result.maskedCardNo).isEqualTo("************1234") },
             )
-            verify(pgPaymentPort, never()).queryPaymentStatus(
-                org.mockito.kotlin.any(),
-                org.mockito.kotlin.any(),
-            )
+            verify(paymentReadRepairService, never()).repair(org.mockito.kotlin.any())
         }
     }
 
@@ -152,19 +147,13 @@ class PaymentDetailUseCaseTest {
     inner class ReadRepairWithTransactionKey {
 
         @Test
-        @DisplayName("PG 조회 결과 SUCCESS -> Payment.succeed + Order.confirm 후 반환")
+        @DisplayName("read-repair 결과 SUCCESS -> 성공 상태 반환")
         fun detail_readRepairSuccess() {
             val payment = pendingPayment(transactionKey = "txn-abc-123")
+            val reconciledPayment = successPayment()
             given(paymentRepository.findById(paymentId)).willReturn(payment)
-            given(pgPaymentPort.queryPaymentStatus("txn-abc-123", userId))
-                .willReturn(PgPaymentStatusResponse("txn-abc-123", "SUCCESS", null))
-            given(paymentRepository.save(check<Payment> { assertThat(it.status).isEqualTo(Payment.Status.SUCCESS) }))
-                .willAnswer { it.arguments[0] as Payment }
-            given(orderRepository.findById(orderId))
-                .willReturn(pendingOrder())
-                .willReturn(confirmedOrder())
-            given(orderRepository.save(check<Order> { assertThat(it.status).isEqualTo(Order.Status.CREATED) }))
-                .willAnswer { it.arguments[0] as Order }
+            given(paymentReadRepairService.repair(payment)).willReturn(reconciledPayment)
+            given(orderRepository.findById(orderId)).willReturn(confirmedOrder())
 
             val result = useCase.detail(paymentId, userId)
 
@@ -172,17 +161,16 @@ class PaymentDetailUseCaseTest {
                 { assertThat(result.status).isEqualTo("SUCCESS") },
                 { assertThat(result.displayStatus).isEqualTo(DisplayStatus.ORDER_CONFIRMED.name) },
             )
+            verify(paymentReadRepairService).repair(payment)
         }
 
         @Test
-        @DisplayName("PG 조회 결과 FAILED -> Payment.fail 후 반환")
+        @DisplayName("read-repair 결과 FAILED -> 실패 상태 반환")
         fun detail_readRepairFailed() {
             val payment = pendingPayment(transactionKey = "txn-abc-123")
+            val reconciledPayment = payment.fail(PaymentReasonCode.LIMIT_EXCEEDED)
             given(paymentRepository.findById(paymentId)).willReturn(payment)
-            given(pgPaymentPort.queryPaymentStatus("txn-abc-123", userId))
-                .willReturn(PgPaymentStatusResponse("txn-abc-123", "FAILED", "한도초과"))
-            given(paymentRepository.save(check<Payment> { assertThat(it.status).isEqualTo(Payment.Status.FAILED) }))
-                .willAnswer { it.arguments[0] as Payment }
+            given(paymentReadRepairService.repair(payment)).willReturn(reconciledPayment)
             given(orderRepository.findById(orderId)).willReturn(pendingOrder())
 
             val result = useCase.detail(paymentId, userId)
@@ -190,17 +178,17 @@ class PaymentDetailUseCaseTest {
             assertAll(
                 { assertThat(result.status).isEqualTo("FAILED") },
                 { assertThat(result.displayStatus).isEqualTo(DisplayStatus.REQUIRES_REPAYMENT.name) },
-                { assertThat(result.reasonCode).isEqualTo(PaymentReasonCode.LIMIT_EXCEEDED.name) },
+                { assertThat(result.reasonCode).isEqualTo(reconciledPayment.reasonCode?.name) },
             )
+            verify(paymentReadRepairService).repair(payment)
         }
 
         @Test
-        @DisplayName("PG 조회 결과 여전히 PENDING -> 변경 없이 로컬 상태 반환")
+        @DisplayName("read-repair 결과가 기존 PENDING이면 그대로 반환")
         fun detail_readRepairStillPending() {
             val payment = pendingPayment(transactionKey = "txn-abc-123")
             given(paymentRepository.findById(paymentId)).willReturn(payment)
-            given(pgPaymentPort.queryPaymentStatus("txn-abc-123", userId))
-                .willReturn(PgPaymentStatusResponse("txn-abc-123", "PENDING", null))
+            given(paymentReadRepairService.repair(payment)).willReturn(payment)
             given(orderRepository.findById(orderId)).willReturn(pendingOrder())
 
             val result = useCase.detail(paymentId, userId)
@@ -209,16 +197,15 @@ class PaymentDetailUseCaseTest {
                 { assertThat(result.status).isEqualTo("PENDING") },
                 { assertThat(result.displayStatus).isEqualTo(DisplayStatus.AWAITING_PAYMENT_RESULT.name) },
             )
-            verify(paymentRepository, never()).save(org.mockito.kotlin.any())
+            verify(paymentReadRepairService).repair(payment)
         }
 
         @Test
-        @DisplayName("PG 상태 조회 실패 시 로컬 상태 그대로 반환")
+        @DisplayName("read-repair 서비스가 로컬 상태를 반환하면 그대로 응답한다")
         fun detail_readRepairPgQueryFails() {
             val payment = pendingPayment(transactionKey = "txn-abc-123")
             given(paymentRepository.findById(paymentId)).willReturn(payment)
-            given(pgPaymentPort.queryPaymentStatus("txn-abc-123", userId))
-                .willThrow(RuntimeException("PG 연결 실패"))
+            given(paymentReadRepairService.repair(payment)).willReturn(payment)
             given(orderRepository.findById(orderId)).willReturn(pendingOrder())
 
             val result = useCase.detail(paymentId, userId)
@@ -227,6 +214,7 @@ class PaymentDetailUseCaseTest {
                 { assertThat(result.status).isEqualTo("PENDING") },
                 { assertThat(result.displayStatus).isEqualTo(DisplayStatus.AWAITING_PAYMENT_RESULT.name) },
             )
+            verify(paymentReadRepairService).repair(payment)
         }
     }
 
@@ -248,10 +236,7 @@ class PaymentDetailUseCaseTest {
                 { assertThat(result.transactionKey).isNull() },
                 { assertThat(result.displayStatus).isEqualTo(DisplayStatus.AWAITING_PAYMENT_RESULT.name) },
             )
-            verify(pgPaymentPort, never()).queryPaymentStatus(
-                org.mockito.kotlin.any(),
-                org.mockito.kotlin.any(),
-            )
+            verify(paymentReadRepairService, never()).repair(org.mockito.kotlin.any())
         }
     }
 

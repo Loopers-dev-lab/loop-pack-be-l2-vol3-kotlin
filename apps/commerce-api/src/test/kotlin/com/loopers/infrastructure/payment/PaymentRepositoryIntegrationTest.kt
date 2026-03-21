@@ -24,6 +24,7 @@ constructor(
     private val paymentRepository: PaymentRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
+    private fun paymentKey(suffix: Int): String = "11111111-1111-1111-1111-${suffix.toString().padStart(12, '0')}"
 
     @AfterEach
     fun tearDown() {
@@ -33,7 +34,7 @@ constructor(
     private fun createPayment(
         orderId: Long = 1L,
         userId: Long = 1L,
-        idempotencyKey: String = "pay-key-001",
+        idempotencyKey: String = paymentKey(1),
         requestFingerprint: String = "fp-001",
     ): Payment = Payment.create(
         orderId = orderId,
@@ -74,18 +75,18 @@ constructor(
         @Test
         @DisplayName("존재하는 멱등키로 조회 성공")
         fun findByIdempotencyKey_found() {
-            paymentRepository.save(createPayment(idempotencyKey = "unique-key"))
+            paymentRepository.save(createPayment(idempotencyKey = paymentKey(2)))
 
-            val found = paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("unique-key"))
+            val found = paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey(paymentKey(2)))
 
             assertThat(found).isNotNull
-            assertThat(found!!.idempotencyKey.value).isEqualTo("unique-key")
+            assertThat(found!!.idempotencyKey.value).isEqualTo(paymentKey(2))
         }
 
         @Test
         @DisplayName("존재하지 않는 멱등키는 null")
         fun findByIdempotencyKey_notFound() {
-            val found = paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey("not-exist"))
+            val found = paymentRepository.findByIdempotencyKey(PaymentIdempotencyKey(paymentKey(999)))
 
             assertThat(found).isNull()
         }
@@ -98,7 +99,7 @@ constructor(
         @Test
         @DisplayName("PENDING 상태의 Payment만 조회된다")
         fun findActiveByOrderId_pendingOnly() {
-            paymentRepository.save(createPayment(orderId = 1L, idempotencyKey = "key-1"))
+            paymentRepository.save(createPayment(orderId = 1L, idempotencyKey = paymentKey(3)))
 
             val found = paymentRepository.findActiveByOrderId(1L)
 
@@ -109,7 +110,7 @@ constructor(
         @Test
         @DisplayName("FAILED Payment만 있으면 null")
         fun findActiveByOrderId_failedOnly() {
-            val saved = paymentRepository.save(createPayment(orderId = 2L, idempotencyKey = "key-2"))
+            val saved = paymentRepository.save(createPayment(orderId = 2L, idempotencyKey = paymentKey(4)))
             val failed = saved.fail(PaymentReasonCode.PG_INTERNAL_ERROR)
             paymentRepository.save(failed)
 
@@ -126,7 +127,7 @@ constructor(
         @Test
         @DisplayName("PENDING → SUCCESS 업데이트")
         fun save_updateToSuccess() {
-            val saved = paymentRepository.save(createPayment(idempotencyKey = "update-key"))
+            val saved = paymentRepository.save(createPayment(idempotencyKey = paymentKey(5)))
             val succeeded = saved.succeed("txn-key-001")
 
             val updated = paymentRepository.save(succeeded)
@@ -146,7 +147,7 @@ constructor(
         @Test
         @DisplayName("threshold 이전에 생성된 PENDING Payment만 조회된다")
         fun findPendingOlderThan_found() {
-            paymentRepository.save(createPayment(idempotencyKey = "old-key"))
+            paymentRepository.save(createPayment(idempotencyKey = paymentKey(6)))
 
             val results = paymentRepository.findPendingOlderThan(
                 java.time.ZonedDateTime.now().plusMinutes(1),
@@ -158,7 +159,7 @@ constructor(
         @Test
         @DisplayName("threshold 이후에 생성된 Payment는 조회되지 않는다")
         fun findPendingOlderThan_notFound() {
-            paymentRepository.save(createPayment(idempotencyKey = "new-key"))
+            paymentRepository.save(createPayment(idempotencyKey = paymentKey(7)))
 
             val results = paymentRepository.findPendingOlderThan(
                 java.time.ZonedDateTime.now().minusMinutes(10),

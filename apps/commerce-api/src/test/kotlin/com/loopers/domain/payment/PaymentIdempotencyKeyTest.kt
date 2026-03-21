@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.util.UUID
 
 @DisplayName("PaymentIdempotencyKey")
 class PaymentIdempotencyKeyTest {
@@ -18,15 +19,9 @@ class PaymentIdempotencyKeyTest {
         @Test
         @DisplayName("정상 값 → 생성 성공")
         fun create_normalValue() {
-            val key = PaymentIdempotencyKey("valid-key-123")
-            assertThat(key.value).isEqualTo("valid-key-123")
-        }
-
-        @Test
-        @DisplayName("64자 → 생성 성공 (경계값)")
-        fun create_maxLength() {
-            val key = PaymentIdempotencyKey("a".repeat(64))
-            assertThat(key.value).hasSize(64)
+            val value = UUID.randomUUID().toString()
+            val key = PaymentIdempotencyKey(value)
+            assertThat(key.value).isEqualTo(value)
         }
     }
 
@@ -53,10 +48,10 @@ class PaymentIdempotencyKeyTest {
         }
 
         @Test
-        @DisplayName("65자 초과 → 예외")
-        fun create_tooLong() {
+        @DisplayName("UUID 형식이 아니면 예외")
+        fun create_invalidFormat() {
             val exception = assertThrows<CoreException> {
-                PaymentIdempotencyKey("a".repeat(65))
+                PaymentIdempotencyKey("not-a-uuid")
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.PAYMENT_INVALID_IDEMPOTENCY_KEY)
         }

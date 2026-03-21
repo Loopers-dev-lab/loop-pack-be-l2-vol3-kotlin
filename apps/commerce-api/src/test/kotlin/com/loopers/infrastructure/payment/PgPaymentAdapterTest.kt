@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.payment
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.equalTo
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.springframework.boot.web.client.ClientHttpRequestFactories
 import org.springframework.boot.web.client.ClientHttpRequestFactorySettings
 import org.springframework.http.HttpHeaders
@@ -53,7 +55,7 @@ class PgPaymentAdapterTest {
                 .build()
             executor = Executors.newFixedThreadPool(2)
             circuitBreakerRegistry = CircuitBreakerRegistry.ofDefaults()
-            adapter = PgPaymentAdapter(restClient, executor, circuitBreakerRegistry, 600L)
+            adapter = PgPaymentAdapter(restClient, executor, circuitBreakerRegistry, jacksonObjectMapper(), 600L)
         }
 
         @JvmStatic
@@ -158,6 +160,73 @@ class PgPaymentAdapterTest {
                 assertThat(response).isInstanceOf(PgPaymentResponse.ImmediateFailure::class.java)
                 assertThat((response as PgPaymentResponse.ImmediateFailure).reasonCode)
                     .isEqualTo(PaymentReasonCode.PG_INTERNAL_ERROR)
+            }
+        }
+
+        @Nested
+        @DisplayName("PG 실패 본문에 사유가 있으면 내부 reason code로 매핑한다")
+        inner class WhenPgFailureReasonMapped {
+
+            @Test
+            @DisplayName("실패 message가 한도초과면 LIMIT_EXCEEDED")
+            fun requestPayment_limitExceeded() {
+                // arrange
+                wireMockServer.stubFor(
+                    post(urlPathEqualTo("/api/v1/payments"))
+                        .withHeader("X-USER-ID", equalTo("1"))
+                        .willReturn(
+                            aResponse()
+                                .withStatus(400)
+                                .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                                .withBody(
+                                    """
+                                    {
+                                        "meta": {"result": "FAIL", "errorCode": "LIMIT_EXCEEDED", "message": "한도초과입니다. 다른 카드를 선택해주세요."},
+                                        "data": null
+                                    }
+                                    """.trimIndent(),
+                                ),
+                        ),
+                )
+
+                // act
+                val response = adapter.requestPayment(pgRequest())
+
+                // assert
+                assertThat(response).isInstanceOf(PgPaymentResponse.ImmediateFailure::class.java)
+                assertThat((response as PgPaymentResponse.ImmediateFailure).reasonCode)
+                    .isEqualTo(PaymentReasonCode.LIMIT_EXCEEDED)
+            }
+
+            @Test
+            @DisplayName("실패 message가 잘못된 카드면 INVALID_CARD")
+            fun requestPayment_invalidCard() {
+                // arrange
+                wireMockServer.stubFor(
+                    post(urlPathEqualTo("/api/v1/payments"))
+                        .withHeader("X-USER-ID", equalTo("1"))
+                        .willReturn(
+                            aResponse()
+                                .withStatus(400)
+                                .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                                .withBody(
+                                    """
+                                    {
+                                        "meta": {"result": "FAIL", "errorCode": "INVALID_CARD", "message": "잘못된 카드입니다. 다른 카드를 선택해주세요."},
+                                        "data": null
+                                    }
+                                    """.trimIndent(),
+                                ),
+                        ),
+                )
+
+                // act
+                val response = adapter.requestPayment(pgRequest())
+
+                // assert
+                assertThat(response).isInstanceOf(PgPaymentResponse.ImmediateFailure::class.java)
+                assertThat((response as PgPaymentResponse.ImmediateFailure).reasonCode)
+                    .isEqualTo(PaymentReasonCode.INVALID_CARD)
             }
         }
 
@@ -290,6 +359,67 @@ class PgPaymentAdapterTest {
                     { assertThat(response.status).isEqualTo("SUCCESS") },
                     { assertThat(response.reason).isEqualTo("정상 승인되었습니다.") },
                 )
+            }
+        }
+
+        @Nested
+        @DisplayName("PG 상태 조회도 timeout/circuit breaker 보호를 받는다")
+        inner class WhenQueryProtected {
+
+            @Test
+            @DisplayName("fixedDelay 1000ms > overall timeout 600ms -> RuntimeException")
+            fun queryPaymentStatus_timeout() {
+                // arrange
+                wireMockServer.stubFor(
+                    get(urlEqualTo("/api/v1/payments/txn-slow"))
+                        .withHeader("X-USER-ID", equalTo("1"))
+                        .willReturn(
+                            aResponse()
+                                .withFixedDelay(1000)
+                                .withStatus(200)
+                                .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                                .withBody(
+                                    """
+                                    {
+                                        "meta": {"result": "SUCCESS", "errorCode": null, "message": null},
+                                        "data": {
+                                            "transactionKey": "txn-slow",
+                                            "orderId": "100",
+                                            "cardType": "SAMSUNG",
+                                            "cardNo": "1234-5678-9012-3456",
+                                            "amount": 16000,
+                                            "status": "PENDING",
+                                            "reason": null
+                                        }
+                                    }
+                                    """.trimIndent(),
+                                ),
+                        ),
+                )
+
+                // act
+                val exception = assertThrows<RuntimeException> {
+                    adapter.queryPaymentStatus("txn-slow", 1L)
+                }
+
+                // assert
+                assertThat(exception.message).isEqualTo("PG status query timeout")
+            }
+
+            @Test
+            @DisplayName("Circuit OPEN -> RuntimeException, PG 호출 없음")
+            fun queryPaymentStatus_circuitOpen() {
+                // arrange
+                circuitBreakerRegistry.circuitBreaker("pgPayment").transitionToOpenState()
+
+                // act
+                val exception = assertThrows<RuntimeException> {
+                    adapter.queryPaymentStatus("txn-abc-123", 1L)
+                }
+
+                // assert
+                assertThat(exception.message).isEqualTo("PG status query circuit open")
+                assertThat(wireMockServer.allServeEvents).isEmpty()
             }
         }
     }

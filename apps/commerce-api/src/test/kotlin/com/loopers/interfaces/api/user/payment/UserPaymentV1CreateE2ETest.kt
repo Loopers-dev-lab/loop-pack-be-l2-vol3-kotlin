@@ -59,6 +59,8 @@ constructor(
         private const val ADMIN = "loopers.admin"
         private const val LOGIN_ID = "testuser1"
         private const val PASSWORD = "Password1!"
+        private const val OTHER_LOGIN_ID = "testuser2"
+        private const val OTHER_PASSWORD = "Password2!"
         private const val ENDPOINT = "/api/v1/payments"
     }
 
@@ -82,6 +84,15 @@ constructor(
             passwordHasher = passwordHasher,
         )
         userRepository.save(user)
+        val otherUser = User.register(
+            loginId = OTHER_LOGIN_ID,
+            rawPassword = OTHER_PASSWORD,
+            name = "김철수",
+            birthDate = LocalDate.of(1991, 2, 2),
+            email = "other@example.com",
+            passwordHasher = passwordHasher,
+        )
+        userRepository.save(otherUser)
 
         val brand = brandRepository.save(Brand.register(name = "나이키"), ADMIN)
         val activeBrand = brandRepository.save(brand.update("나이키", "ACTIVE"), ADMIN)
@@ -117,12 +128,14 @@ constructor(
     }
 
     private fun createRequest(
+        loginId: String = LOGIN_ID,
+        password: String = PASSWORD,
         idempotencyKey: String = UUID.randomUUID().toString(),
         body: UserPaymentV1Request.Create = createBody(),
     ): HttpEntity<UserPaymentV1Request.Create> {
         val headers = HttpHeaders().apply {
-            set("X-Loopers-LoginId", LOGIN_ID)
-            set("X-Loopers-LoginPw", PASSWORD)
+            set("X-Loopers-LoginId", loginId)
+            set("X-Loopers-LoginPw", password)
             set("X-Payment-Idempotency-Key", idempotencyKey)
             contentType = MediaType.APPLICATION_JSON
         }
@@ -258,6 +271,27 @@ constructor(
     }
 
     @Nested
+    @DisplayName("UUID 형식이 아닌 멱등성 키로 결제 시")
+    inner class WhenInvalidIdempotencyKey {
+
+        @Test
+        @DisplayName("400을 반환한다")
+        fun create_invalidKey_returns400() {
+            // act
+            val response = testRestTemplate.exchange(
+                ENDPOINT,
+                HttpMethod.POST,
+                createRequest(idempotencyKey = "not-a-uuid"),
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.body?.meta?.errorCode).isEqualTo("PAYMENT_INVALID_IDEMPOTENCY_KEY")
+        }
+    }
+
+    @Nested
     @DisplayName("Circuit Breaker OPEN 상태에서")
     inner class WhenCircuitOpen {
 
@@ -293,6 +327,31 @@ constructor(
                 ENDPOINT,
                 HttpMethod.POST,
                 createRequest(body = createBody(orderId = 999999L)),
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            assertThat(response.body?.meta?.errorCode).isEqualTo("ORDER_NOT_FOUND")
+        }
+    }
+
+    @Nested
+    @DisplayName("타인 주문으로 결제 시")
+    inner class WhenOrderNotOwned {
+
+        @Test
+        @DisplayName("404를 반환한다")
+        fun create_orderNotOwned_returns404() {
+            // act
+            val response = testRestTemplate.exchange(
+                ENDPOINT,
+                HttpMethod.POST,
+                createRequest(
+                    loginId = OTHER_LOGIN_ID,
+                    password = OTHER_PASSWORD,
+                    body = createBody(orderId = orderId),
+                ),
                 object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
             )
 

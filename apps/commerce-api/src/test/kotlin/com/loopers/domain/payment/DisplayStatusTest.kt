@@ -5,6 +5,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 @DisplayName("DisplayStatus")
 class DisplayStatusTest {
@@ -46,14 +47,15 @@ class DisplayStatusTest {
     }
 
     @Nested
-    @DisplayName("정의되지 않은 조합은 AWAITING_PAYMENT_RESULT를 반환한다")
-    inner class FallbackCase {
+    @DisplayName("정의되지 않은 조합은 예외다")
+    inner class InvalidCombination {
 
         @Test
-        @DisplayName("Order=CREATED + Payment=PENDING -> AWAITING_PAYMENT_RESULT (fallback)")
+        @DisplayName("Order=CREATED + Payment=PENDING -> 예외")
         fun of_unmappedCombination() {
-            val result = DisplayStatus.of(Order.Status.CREATED, Payment.Status.PENDING)
-            assertThat(result).isEqualTo(DisplayStatus.AWAITING_PAYMENT_RESULT)
+            assertThrows<IllegalStateException> {
+                DisplayStatus.of(Order.Status.CREATED, Payment.Status.PENDING)
+            }
         }
     }
 }

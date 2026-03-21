@@ -26,6 +26,7 @@ import java.time.ZonedDateTime
 
 @DisplayName("PaymentCallbackUseCase")
 class PaymentCallbackUseCaseTest {
+    private val paymentKey = "11111111-1111-1111-1111-111111111111"
 
     private val paymentRepository: PaymentRepository = mock()
     private val orderRepository: OrderRepository = mock()
@@ -41,7 +42,7 @@ class PaymentCallbackUseCaseTest {
         id = id,
         orderId = orderId,
         userId = 1L,
-        idempotencyKey = PaymentIdempotencyKey("pay-key-001"),
+        idempotencyKey = PaymentIdempotencyKey(paymentKey),
         status = Payment.Status.PENDING,
         cardType = "VISA",
         maskedCardNo = "************1234",
@@ -56,7 +57,7 @@ class PaymentCallbackUseCaseTest {
         id = id,
         orderId = 100L,
         userId = 1L,
-        idempotencyKey = PaymentIdempotencyKey("pay-key-001"),
+        idempotencyKey = PaymentIdempotencyKey(paymentKey),
         status = Payment.Status.SUCCESS,
         cardType = "VISA",
         maskedCardNo = "************1234",
@@ -114,14 +115,14 @@ class PaymentCallbackUseCaseTest {
             // arrange
             given(paymentRepository.findById(200L)).willReturn(pendingPayment())
             given(orderRepository.findById(100L)).willReturn(pendingOrder())
-            given(paymentRepository.save(check<Payment> { })).willAnswer { it.arguments[0] as Payment }
+            given(paymentRepository.saveIfPending(check<Payment> { })).willReturn(true)
             given(orderRepository.save(check<Order> { })).willAnswer { it.arguments[0] as Order }
 
             // act
             useCase.handleCallback(successCommand())
 
             // assert
-            verify(paymentRepository).save(
+            verify(paymentRepository).saveIfPending(
                 check { payment ->
                     assertThat(payment.status).isEqualTo(Payment.Status.SUCCESS)
                     assertThat(payment.transactionKey).isEqualTo("txn-abc-123")
@@ -144,15 +145,16 @@ class PaymentCallbackUseCaseTest {
         fun handleCallback_failed() {
             // arrange
             given(paymentRepository.findById(200L)).willReturn(pendingPayment())
-            given(paymentRepository.save(check<Payment> { })).willAnswer { it.arguments[0] as Payment }
+            given(paymentRepository.saveIfPending(check<Payment> { })).willReturn(true)
 
             // act
             useCase.handleCallback(failedCommand())
 
             // assert
-            verify(paymentRepository).save(
+            verify(paymentRepository).saveIfPending(
                 check { payment ->
                     assertThat(payment.status).isEqualTo(Payment.Status.FAILED)
+                    assertThat(payment.transactionKey).isEqualTo("txn-abc-123")
                     assertThat(payment.reasonCode).isEqualTo(PaymentReasonCode.LIMIT_EXCEEDED)
                 },
             )
@@ -174,7 +176,7 @@ class PaymentCallbackUseCaseTest {
             useCase.handleCallback(successCommand())
 
             // assert
-            verify(paymentRepository, never()).save(check<Payment> { })
+            verify(paymentRepository, never()).saveIfPending(check<Payment> { })
             verify(orderRepository, never()).save(check<Order> { })
         }
     }
@@ -193,7 +195,61 @@ class PaymentCallbackUseCaseTest {
             useCase.handleCallback(successCommand(paymentId = 999L))
 
             // assert
-            verify(paymentRepository, never()).save(check<Payment> { })
+            verify(paymentRepository, never()).saveIfPending(check<Payment> { })
+        }
+    }
+
+    @Nested
+    @DisplayName("callback transactionKey가 기존 값과 다르면 warn + no-op")
+    inner class WhenTransactionKeyMismatch {
+
+        @Test
+        @DisplayName("기존 transactionKey와 다른 callback -> 상태 변경 없음")
+        fun handleCallback_transactionKeyMismatch() {
+            // arrange
+            given(paymentRepository.findById(200L)).willReturn(
+                pendingPayment(transactionKey = "txn-existing-123"),
+            )
+
+            // act
+            useCase.handleCallback(successCommand())
+
+            // assert
+            verify(paymentRepository, never()).saveIfPending(check<Payment> { })
+            verify(orderRepository, never()).save(check<Order> { })
+        }
+    }
+
+    @Nested
+    @DisplayName("callback과 다른 경로가 먼저 terminal 반영하면 no-op 처리한다")
+    inner class WhenAlreadyReconciledByAnotherFlow {
+
+        @Test
+        @DisplayName("SUCCESS callback 조건부 update 영향 행 0 -> Order save 없이 종료")
+        fun handleCallback_successAlreadyReconciled() {
+            // arrange
+            given(paymentRepository.findById(200L)).willReturn(pendingPayment())
+            given(paymentRepository.saveIfPending(check<Payment> { })).willReturn(false)
+
+            // act
+            useCase.handleCallback(successCommand())
+
+            // assert
+            verify(orderRepository, never()).save(check<Order> { })
+        }
+
+        @Test
+        @DisplayName("FAILED callback 조건부 update 영향 행 0 -> no-op")
+        fun handleCallback_failedAlreadyReconciled() {
+            // arrange
+            given(paymentRepository.findById(200L)).willReturn(pendingPayment())
+            given(paymentRepository.saveIfPending(check<Payment> { })).willReturn(false)
+
+            // act
+            useCase.handleCallback(failedCommand())
+
+            // assert
+            verify(orderRepository, never()).save(check<Order> { })
         }
     }
 }

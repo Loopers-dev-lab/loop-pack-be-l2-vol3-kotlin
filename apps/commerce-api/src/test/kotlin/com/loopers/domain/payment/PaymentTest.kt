@@ -15,6 +15,7 @@ import java.time.ZonedDateTime
 
 @DisplayName("Payment 도메인")
 class PaymentTest {
+    private val paymentKey = "11111111-1111-1111-1111-111111111111"
 
     private val now = ZonedDateTime.of(2026, 3, 20, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
 
@@ -26,7 +27,7 @@ class PaymentTest {
         Payment.create(
             orderId = 1L,
             userId = 1L,
-            idempotencyKey = PaymentIdempotencyKey("pay-key-001"),
+            idempotencyKey = PaymentIdempotencyKey(paymentKey),
             cardType = "VISA",
             maskedCardNo = "****1234",
             amount = Money(BigDecimal("10000")),
@@ -37,7 +38,7 @@ class PaymentTest {
             id = 100L,
             orderId = 1L,
             userId = 1L,
-            idempotencyKey = PaymentIdempotencyKey("pay-key-001"),
+            idempotencyKey = PaymentIdempotencyKey(paymentKey),
             status = status,
             cardType = "VISA",
             maskedCardNo = "****1234",
@@ -188,6 +189,31 @@ class PaymentTest {
                     reasonCode = PaymentReasonCode.PG_INTERNAL_ERROR,
                 ).isTerminal,
             ).isTrue()
+        }
+    }
+
+    @Nested
+    @DisplayName("retrieve invariant")
+    inner class RetrieveInvariant {
+
+        @Test
+        @DisplayName("SUCCESS인데 transactionKey가 없으면 예외")
+        fun retrieve_successWithoutTransactionKey() {
+            val exception = assertThrows<CoreException> {
+                createPayment(status = Payment.Status.SUCCESS)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.PAYMENT_INVALID_STATUS_TRANSITION)
+        }
+
+        @Test
+        @DisplayName("FAILED인데 reasonCode가 없으면 예외")
+        fun retrieve_failedWithoutReasonCode() {
+            val exception = assertThrows<CoreException> {
+                createPayment(status = Payment.Status.FAILED)
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.PAYMENT_INVALID_STATUS_TRANSITION)
         }
     }
 }

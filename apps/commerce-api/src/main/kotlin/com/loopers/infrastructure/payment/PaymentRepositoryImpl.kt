@@ -26,6 +26,22 @@ class PaymentRepositoryImpl(
         return paymentMapper.toDomain(entity)
     }
 
+    override fun saveIfPending(payment: Payment): Boolean {
+        return paymentJpaRepository.updateIfPending(
+            id = payment.id!!,
+            status = payment.status,
+            transactionKey = payment.transactionKey,
+            reasonCode = payment.reasonCode,
+            updatedAt = ZonedDateTime.now(),
+        ) > 0
+    }
+
+    override fun hardDelete(id: Long) {
+        val entity = paymentJpaRepository.findByIdAndDeletedAtIsNull(id) ?: return
+        paymentJpaRepository.delete(entity)
+        paymentJpaRepository.flush()
+    }
+
     override fun findById(id: Long): Payment? {
         return paymentJpaRepository.findByIdAndDeletedAtIsNull(id)?.let { paymentMapper.toDomain(it) }
     }
@@ -35,8 +51,18 @@ class PaymentRepositoryImpl(
             ?.let { paymentMapper.toDomain(it) }
     }
 
+    override fun findByIdempotencyKeyForUpdate(idempotencyKey: PaymentIdempotencyKey): Payment? {
+        return paymentJpaRepository.findByIdempotencyKeyForUpdate(idempotencyKey.value)
+            ?.let { paymentMapper.toDomain(it) }
+    }
+
     override fun findActiveByOrderId(orderId: Long): Payment? {
         return paymentJpaRepository.findByOrderIdAndStatusAndDeletedAtIsNull(orderId, Payment.Status.PENDING)
+            ?.let { paymentMapper.toDomain(it) }
+    }
+
+    override fun findActiveByOrderIdForUpdate(orderId: Long): Payment? {
+        return paymentJpaRepository.findByOrderIdAndStatusForUpdate(orderId, Payment.Status.PENDING)
             ?.let { paymentMapper.toDomain(it) }
     }
 

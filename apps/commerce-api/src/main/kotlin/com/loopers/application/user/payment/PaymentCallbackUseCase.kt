@@ -28,10 +28,23 @@ class PaymentCallbackUseCase(
             return
         }
 
+        if (payment.transactionKey != null && payment.transactionKey != command.transactionKey) {
+            log.warn(
+                "Callback 수신: transactionKey 불일치. paymentId={}, existing={}, incoming={}",
+                payment.id,
+                payment.transactionKey,
+                command.transactionKey,
+            )
+            return
+        }
+
         when (command.status.uppercase()) {
             "SUCCESS" -> {
                 val succeeded = payment.succeed(command.transactionKey)
-                paymentRepository.save(succeeded)
+                if (!paymentRepository.saveIfPending(succeeded)) {
+                    log.info("Callback 수신: 이미 terminal로 반영됨. paymentId={}, status=SUCCESS", payment.id)
+                    return
+                }
 
                 val order = orderRepository.findById(payment.orderId)!!
                 val confirmed = order.confirm()
@@ -41,8 +54,16 @@ class PaymentCallbackUseCase(
             }
             "FAILED" -> {
                 val reasonCode = PaymentReasonCode.fromPgReason(command.reason)
-                val failed = payment.fail(reasonCode)
-                paymentRepository.save(failed)
+                val paymentWithTransactionKey = if (payment.transactionKey == null) {
+                    payment.updateTransactionKey(command.transactionKey)
+                } else {
+                    payment
+                }
+                val failed = paymentWithTransactionKey.fail(reasonCode)
+                if (!paymentRepository.saveIfPending(failed)) {
+                    log.info("Callback 수신: 이미 terminal로 반영됨. paymentId={}, status=FAILED", payment.id)
+                    return
+                }
 
                 log.info("Callback 처리 완료: paymentId={}, status=FAILED, reason={}", payment.id, command.reason)
             }

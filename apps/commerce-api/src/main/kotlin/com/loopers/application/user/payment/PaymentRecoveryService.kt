@@ -58,7 +58,10 @@ class PaymentRecoveryService(
             when (pgStatus.status.uppercase()) {
                 "SUCCESS" -> {
                     val succeeded = payment.succeed(pgStatus.transactionKey)
-                    paymentRepository.save(succeeded)
+                    if (!paymentRepository.saveIfPending(succeeded)) {
+                        log.info("Recovery: 이미 terminal로 반영됨. paymentId={}, PG status=SUCCESS", paymentId)
+                        return
+                    }
 
                     val order = orderRepository.findById(payment.orderId)!!
                     val confirmed = order.confirm()
@@ -69,7 +72,10 @@ class PaymentRecoveryService(
                 "FAILED" -> {
                     val reasonCode = PaymentReasonCode.fromPgReason(pgStatus.reason)
                     val failed = payment.fail(reasonCode)
-                    paymentRepository.save(failed)
+                    if (!paymentRepository.saveIfPending(failed)) {
+                        log.info("Recovery: 이미 terminal로 반영됨. paymentId={}, PG status=FAILED", paymentId)
+                        return
+                    }
 
                     log.info("Recovery 완료: paymentId={}, PG status=FAILED", paymentId)
                 }

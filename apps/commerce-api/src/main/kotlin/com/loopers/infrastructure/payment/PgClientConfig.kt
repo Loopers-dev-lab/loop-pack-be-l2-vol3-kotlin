@@ -7,9 +7,12 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.client.RestClient
 import java.time.Duration
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 @Configuration
 class PgClientConfig(
@@ -30,7 +33,14 @@ class PgClientConfig(
 
     @Bean
     fun pgOutboundExecutor(): ExecutorService {
-        return Executors.newFixedThreadPool(10)
+        return ThreadPoolExecutor(
+            10,
+            10,
+            0L,
+            TimeUnit.MILLISECONDS,
+            ArrayBlockingQueue(100),
+            ThreadPoolExecutor.AbortPolicy(),
+        )
     }
 
     @Bean

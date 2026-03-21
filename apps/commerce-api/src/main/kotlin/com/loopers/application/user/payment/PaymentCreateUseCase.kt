@@ -58,12 +58,18 @@ class PaymentCreateUseCase(
         )
 
         val pgResponse = pgPaymentPort.requestPayment(pgRequest)
+        if (pgResponse is PgPaymentResponse.CircuitOpen) {
+            paymentRepository.hardDelete(payment.id!!)
+            throw CoreException(ErrorType.PG_CIRCUIT_OPEN)
+        }
 
         val updatedPayment = when (pgResponse) {
             is PgPaymentResponse.Accepted -> payment.updateTransactionKey(pgResponse.transactionKey)
             is PgPaymentResponse.ImmediateFailure -> payment.fail(pgResponse.reasonCode)
             is PgPaymentResponse.Timeout -> payment.applyTimeoutFallback()
-            is PgPaymentResponse.CircuitOpen -> payment
+            is PgPaymentResponse.CircuitOpen -> throw IllegalStateException(
+                "CircuitOpen should be handled before state transition",
+            )
         }
 
         if (updatedPayment !== payment) {
@@ -84,19 +90,19 @@ class PaymentCreateUseCase(
         idempotencyKey: PaymentIdempotencyKey,
         fingerprint: String,
     ): TransactionResult {
-        val existing = paymentRepository.findByIdempotencyKey(idempotencyKey)
-        if (existing != null) {
-            return handleIdempotentRequest(existing, fingerprint)
-        }
-
-        val order = orderRepository.findById(command.orderId)
+        val order = orderRepository.findByIdAndUserIdForUpdate(command.orderId, command.userId)
             ?: throw CoreException(ErrorType.ORDER_NOT_FOUND)
 
         if (order.status != Order.Status.PENDING) {
             throw CoreException(ErrorType.PAYMENT_ORDER_NOT_PENDING)
         }
 
-        val activePending = paymentRepository.findActiveByOrderId(command.orderId)
+        val existing = paymentRepository.findByIdempotencyKeyForUpdate(idempotencyKey)
+        if (existing != null) {
+            return handleIdempotentRequest(existing, fingerprint, order, command.userId)
+        }
+
+        val activePending = paymentRepository.findActiveByOrderIdForUpdate(command.orderId)
         if (activePending != null) {
             throw CoreException(ErrorType.PAYMENT_ACTIVE_PENDING_EXISTS)
         }
@@ -118,9 +124,13 @@ class PaymentCreateUseCase(
     private fun handleIdempotentRequest(
         existing: Payment,
         fingerprint: String,
+        order: Order,
+        currentUserId: Long,
     ): TransactionResult {
+        if (existing.userId != currentUserId) {
+            throw CoreException(ErrorType.PAYMENT_IDEMPOTENCY_CONFLICT)
+        }
         if (existing.requestFingerprint == fingerprint) {
-            val order = orderRepository.findById(existing.orderId)!!
             return TransactionResult.IdempotentReplay(
                 PaymentResult.Created.from(existing, order.status),
             )

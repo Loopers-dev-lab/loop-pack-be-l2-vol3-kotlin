@@ -34,6 +34,16 @@ class UserOrderRepositoryImpl(
         return orderMapper.toDomain(entity)
     }
 
+    override fun findByIdForUpdate(id: Long): Order? {
+        val entity = orderJpaRepository.findByIdForUpdate(id) ?: return null
+        return orderMapper.toDomain(entity)
+    }
+
+    override fun findByIdAndUserIdForUpdate(id: Long, userId: Long): Order? {
+        val entity = orderJpaRepository.findByIdAndUserIdForUpdate(id, userId) ?: return null
+        return orderMapper.toDomain(entity)
+    }
+
     override fun findByIdAndUserId(id: Long, userId: Long): Order? {
         val entity = orderJpaRepository.findByIdAndUserIdAndDeletedAtIsNull(id, userId) ?: return null
         return orderMapper.toDomain(entity)

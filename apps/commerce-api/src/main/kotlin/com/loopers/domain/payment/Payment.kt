@@ -19,6 +19,21 @@ class Payment private constructor(
     val requestFingerprint: String,
     val createdAt: ZonedDateTime?,
 ) {
+    init {
+        when (status) {
+            Status.SUCCESS -> {
+                if (transactionKey.isNullOrBlank()) {
+                    throw CoreException(ErrorType.PAYMENT_INVALID_STATUS_TRANSITION)
+                }
+            }
+            Status.FAILED -> {
+                if (reasonCode == null) {
+                    throw CoreException(ErrorType.PAYMENT_INVALID_STATUS_TRANSITION)
+                }
+            }
+            Status.PENDING -> Unit
+        }
+    }
 
     fun succeed(transactionKey: String): Payment {
         if (status != Status.PENDING) {
