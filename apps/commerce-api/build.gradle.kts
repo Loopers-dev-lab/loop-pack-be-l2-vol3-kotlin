@@ -4,7 +4,15 @@ plugins {
 
 tasks.test {
     useJUnitPlatform {
-        excludeTags("benchmark")
+        excludeTags("benchmark", "slow")
+    }
+}
+
+tasks.register<Test>("slowTest") {
+    description = "느린 테스트 실행 (동시성 등)"
+    group = "verification"
+    useJUnitPlatform {
+        includeTags("slow")
     }
 }
 
@@ -20,6 +28,7 @@ dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
+    implementation(project(":modules:kafka"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
