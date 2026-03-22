@@ -632,12 +632,13 @@ class PaymentApiE2ETest @Autowired constructor(
         fun returnsUpdatedPayments_afterPgSync() {
             // arrange
             signUp()
-            createOrderWithPendingPayment(transactionKey = "txn-key-123")
+            val payment = createOrderWithPendingPayment(transactionKey = "txn-key-123")
+            val orderId = payment.orderId
 
             whenever(paymentGateway.getTransactionStatus(any(), any())).thenReturn(
                 PaymentGatewayTransactionDetail(
                     transactionKey = "txn-key-123",
-                    orderId = "ORDER-001",
+                    orderId = orderId,
                     status = "SUCCESS",
                     reason = null,
                 ),
@@ -645,7 +646,7 @@ class PaymentApiE2ETest @Autowired constructor(
 
             // act
             val response = testRestTemplate.exchange(
-                "$PAYMENT_ENDPOINT/ORDER-001/sync",
+                "$PAYMENT_ENDPOINT/$orderId/sync",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
                 PAYMENT_LIST_RESPONSE_TYPE,
@@ -655,7 +656,10 @@ class PaymentApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data).isNotNull },
+                { assertThat(response.body?.data).isNotEmpty() },
             )
+            val saved = paymentRepository.findByTransactionKey("txn-key-123")
+            assertThat(saved?.status).isEqualTo(PaymentStatus.SUCCESS)
         }
 
         @DisplayName("PG가 응답하지 못하면, 현재 상태를 그대로 반환한다.")
@@ -663,13 +667,14 @@ class PaymentApiE2ETest @Autowired constructor(
         fun returnsCurrentStatus_whenPgIsUnavailable() {
             // arrange
             signUp()
-            createOrderWithPendingPayment(transactionKey = "txn-key-123")
+            val payment = createOrderWithPendingPayment(transactionKey = "txn-key-123")
+            val orderId = payment.orderId
 
             whenever(paymentGateway.getTransactionStatus(any(), any())).thenReturn(null)
 
             // act
             val response = testRestTemplate.exchange(
-                "$PAYMENT_ENDPOINT/ORDER-001/sync",
+                "$PAYMENT_ENDPOINT/$orderId/sync",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
                 PAYMENT_LIST_RESPONSE_TYPE,
@@ -679,6 +684,7 @@ class PaymentApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data).isNotNull },
+                { assertThat(response.body?.data).isNotEmpty() },
             )
             val saved = paymentRepository.findByTransactionKey("txn-key-123")
             assertThat(saved?.status).isEqualTo(PaymentStatus.PENDING)
