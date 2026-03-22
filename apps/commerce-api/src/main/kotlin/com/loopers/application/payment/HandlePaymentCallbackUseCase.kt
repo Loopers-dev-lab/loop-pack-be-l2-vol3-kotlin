@@ -1,11 +1,13 @@
 package com.loopers.application.payment
 
+import com.loopers.application.event.PaymentEvent
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 class HandlePaymentCallbackUseCase(
     private val paymentRepository: PaymentRepository,
     private val orderRepository: OrderRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun execute(command: PaymentCommand.HandleCallback) {
@@ -38,11 +41,26 @@ class HandlePaymentCallbackUseCase(
             paymentRepository.save(payment)
             order.markPaid()
             orderRepository.save(order)
+            eventPublisher.publishEvent(
+                PaymentEvent.Completed(
+                    orderId = command.orderId,
+                    userId = order.refUserId.value,
+                    totalAmount = payment.amount,
+                ),
+            )
         } else {
-            payment.markFailed(command.reason ?: "PG 콜백 실패")
+            val reason = command.reason ?: "PG 콜백 실패"
+            payment.markFailed(reason)
             paymentRepository.save(payment)
             order.markFailed()
             orderRepository.save(order)
+            eventPublisher.publishEvent(
+                PaymentEvent.Failed(
+                    orderId = command.orderId,
+                    userId = order.refUserId.value,
+                    reason = reason,
+                ),
+            )
         }
     }
 }

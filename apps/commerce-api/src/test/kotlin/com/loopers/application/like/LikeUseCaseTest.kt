@@ -1,6 +1,7 @@
 package com.loopers.application.like
 
 import com.loopers.application.catalog.product.ProductCacheEvent
+import com.loopers.application.event.CatalogEvent
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
@@ -148,6 +149,42 @@ class LikeUseCaseTest {
         }
 
         @Test
+        @DisplayName("좋아요 등록 후 CatalogEvent.LikeAdded 이벤트가 발행된다")
+        fun addLike_publishesLikeAddedEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            val catalogEvents = publishedEvents.filterIsInstance<CatalogEvent.LikeAdded>()
+            assertThat(catalogEvents).hasSize(1)
+            assertThat(catalogEvents[0].productId).isEqualTo(productId)
+            assertThat(catalogEvents[0].userId).isEqualTo(1L)
+        }
+
+        @Test
+        @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 CatalogEvent.LikeAdded가 발행되지 않는다")
+        fun addLike_duplicate_doesNotPublishLikeAddedEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+            useCase.execute(1L, productId)
+            publishedEvents.clear()
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            val catalogEvents = publishedEvents.filterIsInstance<CatalogEvent.LikeAdded>()
+            assertThat(catalogEvents).isEmpty()
+        }
+
+        @Test
         @DisplayName("좋아요 등록 후 캐시 갱신 이벤트가 발행된다")
         fun addLike_publishesCacheUpdateEvent() {
             // arrange
@@ -159,12 +196,10 @@ class LikeUseCaseTest {
             useCase.execute(1L, productId)
 
             // assert
-            assertThat(publishedEvents).hasSize(1)
-            val event = publishedEvents[0]
-            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
-            val detailEvent = event as ProductCacheEvent.DetailUpdated
-            assertThat(detailEvent.product.id.value).isEqualTo(productId)
-            assertThat(detailEvent.evictList).isFalse()
+            val cacheEvents = publishedEvents.filterIsInstance<ProductCacheEvent.DetailUpdated>()
+            assertThat(cacheEvents).hasSize(1)
+            assertThat(cacheEvents[0].product.id.value).isEqualTo(productId)
+            assertThat(cacheEvents[0].evictList).isFalse()
         }
     }
 
@@ -216,6 +251,41 @@ class LikeUseCaseTest {
         }
 
         @Test
+        @DisplayName("좋아요 취소 후 CatalogEvent.LikeRemoved 이벤트가 발행된다")
+        fun removeLike_publishesLikeRemovedEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            addLikeUseCase.execute(1L, productId)
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            val catalogEvents = publishedEvents.filterIsInstance<CatalogEvent.LikeRemoved>()
+            assertThat(catalogEvents).hasSize(1)
+            assertThat(catalogEvents[0].productId).isEqualTo(productId)
+            assertThat(catalogEvents[0].userId).isEqualTo(1L)
+        }
+
+        @Test
+        @DisplayName("좋아요가 없는 상태에서 취소해도 CatalogEvent.LikeRemoved가 발행되지 않는다")
+        fun removeLike_noLike_doesNotPublishLikeRemovedEvent() {
+            // arrange
+            val (_, productId) = createBrandAndProduct()
+            val publishedEvents = mutableListOf<Any>()
+            val useCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) })
+
+            // act
+            useCase.execute(1L, productId)
+
+            // assert
+            val catalogEvents = publishedEvents.filterIsInstance<CatalogEvent.LikeRemoved>()
+            assertThat(catalogEvents).isEmpty()
+        }
+
+        @Test
         @DisplayName("좋아요 취소 후 캐시 갱신 이벤트가 발행된다")
         fun removeLike_publishesCacheUpdateEvent() {
             // arrange
@@ -228,12 +298,10 @@ class LikeUseCaseTest {
             useCase.execute(1L, productId)
 
             // assert
-            assertThat(publishedEvents).hasSize(1)
-            val event = publishedEvents[0]
-            assertThat(event).isInstanceOf(ProductCacheEvent.DetailUpdated::class.java)
-            val detailEvent = event as ProductCacheEvent.DetailUpdated
-            assertThat(detailEvent.product.id.value).isEqualTo(productId)
-            assertThat(detailEvent.evictList).isFalse()
+            val cacheEvents = publishedEvents.filterIsInstance<ProductCacheEvent.DetailUpdated>()
+            assertThat(cacheEvents).hasSize(1)
+            assertThat(cacheEvents[0].product.id.value).isEqualTo(productId)
+            assertThat(cacheEvents[0].evictList).isFalse()
         }
     }
 

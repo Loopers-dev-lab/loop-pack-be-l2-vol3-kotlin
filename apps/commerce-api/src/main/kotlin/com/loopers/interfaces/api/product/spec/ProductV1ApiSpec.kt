@@ -2,7 +2,9 @@ package com.loopers.interfaces.api.product.spec
 
 import com.loopers.interfaces.api.product.dto.ProductV1Dto
 import com.loopers.interfaces.support.ApiResponse
+import com.loopers.interfaces.support.auth.AuthUser
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Pattern
@@ -15,6 +17,7 @@ interface ProductV1ApiSpec {
 
     @Operation(summary = "상품 목록 조회", description = "상품 목록을 조회합니다.")
     fun getProducts(
+        @Parameter(hidden = true) @AuthUser userId: Long?,
         brandId: Long?,
         @Pattern(
             regexp = "LATEST|PRICE_ASC|LIKES_DESC",
@@ -26,5 +29,8 @@ interface ProductV1ApiSpec {
     ): ApiResponse<Page<ProductV1Dto.CustomerProductResponse>>
 
     @Operation(summary = "상품 상세 조회", description = "상품을 상세 조회합니다.")
-    fun getProduct(@Positive productId: Long): ApiResponse<ProductV1Dto.ProductDetailResponse>
+    fun getProduct(
+        @Parameter(hidden = true) @AuthUser userId: Long?,
+        @Positive productId: Long,
+    ): ApiResponse<ProductV1Dto.ProductDetailResponse>
 }

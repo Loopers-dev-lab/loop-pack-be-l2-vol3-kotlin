@@ -15,6 +15,7 @@ import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import org.assertj.core.api.Assertions.assertThat
+import org.springframework.context.ApplicationEventPublisher
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -54,7 +55,7 @@ class PaymentFlowIntegrationTest {
         fakePaymentPgProcessor = FakePaymentPgProcessor()
         paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
         requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, fakePaymentPgProcessor)
-        handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository)
+        handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository, ApplicationEventPublisher { })
         recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
     }

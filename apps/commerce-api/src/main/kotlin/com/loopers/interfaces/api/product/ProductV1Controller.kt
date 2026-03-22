@@ -5,6 +5,7 @@ import com.loopers.application.catalog.product.GetProductsUseCase
 import com.loopers.interfaces.api.product.dto.ProductV1Dto
 import com.loopers.interfaces.api.product.spec.ProductV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
+import com.loopers.interfaces.support.auth.AuthUser
 import com.loopers.interfaces.support.toSpringPage
 import org.springframework.data.domain.Page
 import org.springframework.validation.annotation.Validated
@@ -24,6 +25,7 @@ class ProductV1Controller(
 
     @GetMapping
     override fun getProducts(
+        @AuthUser userId: Long?,
         @RequestParam(required = false) brandId: Long?,
         @RequestParam(defaultValue = "LATEST") sort: String,
         @RequestParam(defaultValue = "0") page: Int,
@@ -37,9 +39,10 @@ class ProductV1Controller(
 
     @GetMapping("/{productId}")
     override fun getProduct(
+        @AuthUser userId: Long?,
         @PathVariable productId: Long,
     ): ApiResponse<ProductV1Dto.ProductDetailResponse> {
-        return getProductUseCase.execute(productId)
+        return getProductUseCase.execute(productId, userId = userId)
             .let { ProductV1Dto.ProductDetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
