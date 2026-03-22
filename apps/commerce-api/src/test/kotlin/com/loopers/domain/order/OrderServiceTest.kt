@@ -19,9 +19,11 @@ import java.math.BigDecimal
 class OrderServiceTest {
     private val orderRepository: OrderRepository = mockk()
     private val productService: ProductService = mockk()
+    private val idGenerator: com.loopers.domain.SnowflakeIdGenerator = mockk()
     private val orderService = OrderService(
         orderRepository = orderRepository,
         productService = productService,
+        idGenerator = idGenerator,
     )
 
     private fun setupProductMock(productId: Long) {
@@ -40,6 +42,7 @@ class OrderServiceTest {
         val orderId = 100L
         val productId = 1L
 
+        every { idGenerator.nextId() } returns orderId
         setupProductMock(productId)
 
         val createOrderItemCommand = CreateOrderItemCommand(
@@ -52,9 +55,9 @@ class OrderServiceTest {
         val orderSlot = slot<Order>()
         every { orderRepository.save(capture(orderSlot)) } answers {
             orderSlot.captured.apply {
-                val idField = Order::class.java.superclass?.getDeclaredField("id")
-                idField?.isAccessible = true
-                idField?.set(this, orderId)
+                val idField = Order::class.java.getDeclaredField("id")
+                idField.isAccessible = true
+                idField.set(this, orderId)
             }
         }
 
@@ -149,6 +152,7 @@ class OrderServiceTest {
         val orderId = 100L
         val productId = 1L
 
+        every { idGenerator.nextId() } returns orderId
         setupProductMock(productId)
 
         val createOrderItemCommand = CreateOrderItemCommand(
@@ -161,9 +165,9 @@ class OrderServiceTest {
         val orderSlot = slot<Order>()
         every { orderRepository.save(capture(orderSlot)) } answers {
             orderSlot.captured.apply {
-                val idField = Order::class.java.superclass?.getDeclaredField("id")
-                idField?.isAccessible = true
-                idField?.set(this, orderId)
+                val idField = Order::class.java.getDeclaredField("id")
+                idField.isAccessible = true
+                idField.set(this, orderId)
             }
         }
 
