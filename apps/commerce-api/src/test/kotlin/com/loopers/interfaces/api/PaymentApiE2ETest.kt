@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderStatus
@@ -10,9 +11,9 @@ import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.domain.payment.PaymentGatewayTransactionDetail
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.payment.PaymentStatus
-
 import com.loopers.interfaces.api.user.UserDto
 import com.loopers.interfaces.common.ApiResponse
+import com.loopers.support.auth.PgCallbackSignatureFilter
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -22,8 +23,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
@@ -33,7 +37,10 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.context.bean.override.mockito.MockitoBean
+import java.time.Instant
 import java.time.LocalDate
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class PaymentApiE2ETest @Autowired constructor(
@@ -41,6 +48,8 @@ class PaymentApiE2ETest @Autowired constructor(
     private val paymentRepository: PaymentRepository,
     private val orderRepository: OrderRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val objectMapper: ObjectMapper,
+    @Value("\${pg.callback-secret-key}") private val callbackSecretKey: String,
 ) {
 
     @MockitoBean
@@ -51,6 +60,7 @@ class PaymentApiE2ETest @Autowired constructor(
         private const val SIGNUP_ENDPOINT = "/api/v1/users/signup"
         private const val LOGIN_ID_HEADER = "X-Loopers-LoginId"
         private const val LOGIN_PW_HEADER = "X-Loopers-LoginPw"
+        private const val HMAC_ALGORITHM = "HmacSHA256"
         private val PAYMENT_RESPONSE_TYPE =
             object : ParameterizedTypeReference<ApiResponse<Any>>() {}
         private val PAYMENT_LIST_RESPONSE_TYPE =
@@ -118,6 +128,31 @@ class PaymentApiE2ETest @Autowired constructor(
         )
         payment.markPending(transactionKey)
         return paymentRepository.save(payment)
+    }
+
+    private fun computeSignature(bodyBytes: ByteArray, timestamp: String): String {
+        val mac = Mac.getInstance(HMAC_ALGORITHM)
+        mac.init(SecretKeySpec(callbackSecretKey.toByteArray(), HMAC_ALGORITHM))
+        val payload = "$timestamp.".toByteArray() + bodyBytes
+        return mac.doFinal(payload).joinToString("") { "%02x".format(it) }
+    }
+
+    private fun signedCallbackHeaders(bodyBytes: ByteArray, timestamp: String = Instant.now().epochSecond.toString()): HttpHeaders {
+        return HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_JSON
+            set(PgCallbackSignatureFilter.SIGNATURE_HEADER, computeSignature(bodyBytes, timestamp))
+            set(PgCallbackSignatureFilter.TIMESTAMP_HEADER, timestamp)
+        }
+    }
+
+    private fun sendCallback(body: Any): org.springframework.http.ResponseEntity<ApiResponse<Any>> {
+        val bodyBytes = objectMapper.writeValueAsBytes(body)
+        return testRestTemplate.exchange(
+            "$PAYMENT_ENDPOINT/callback",
+            HttpMethod.POST,
+            HttpEntity(String(bodyBytes, Charsets.UTF_8), signedCallbackHeaders(bodyBytes)),
+            PAYMENT_RESPONSE_TYPE,
+        )
     }
 
     @DisplayName("POST /api/v1/payments")
@@ -318,7 +353,6 @@ class PaymentApiE2ETest @Autowired constructor(
             // arrange
             val payment = createOrderWithPendingPayment()
 
-            // PG 재조회로 상태 검증
             whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-12345"))).thenReturn(
                 PaymentGatewayTransactionDetail(
                     transactionKey = "txn-key-12345",
@@ -334,17 +368,9 @@ class PaymentApiE2ETest @Autowired constructor(
                 "status" to "SUCCESS",
                 "reason" to null,
             )
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.APPLICATION_JSON
-            }
 
             // act
-            val response = testRestTemplate.exchange(
-                "$PAYMENT_ENDPOINT/callback",
-                HttpMethod.POST,
-                HttpEntity(callbackRequest, headers),
-                PAYMENT_RESPONSE_TYPE,
-            )
+            val response = sendCallback(callbackRequest)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -362,7 +388,6 @@ class PaymentApiE2ETest @Autowired constructor(
             // arrange
             val payment = createOrderWithPendingPayment()
 
-            // PG 재조회로 상태 검증
             whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-12345"))).thenReturn(
                 PaymentGatewayTransactionDetail(
                     transactionKey = "txn-key-12345",
@@ -378,17 +403,9 @@ class PaymentApiE2ETest @Autowired constructor(
                 "status" to "FAILED",
                 "reason" to "한도 초과",
             )
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.APPLICATION_JSON
-            }
 
             // act
-            val response = testRestTemplate.exchange(
-                "$PAYMENT_ENDPOINT/callback",
-                HttpMethod.POST,
-                HttpEntity(callbackRequest, headers),
-                PAYMENT_RESPONSE_TYPE,
-            )
+            val response = sendCallback(callbackRequest)
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -407,7 +424,6 @@ class PaymentApiE2ETest @Autowired constructor(
             // arrange
             createOrderWithPendingPayment()
 
-            // PG 실제 상태는 FAILED
             whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-12345"))).thenReturn(
                 PaymentGatewayTransactionDetail(
                     transactionKey = "txn-key-12345",
@@ -417,24 +433,15 @@ class PaymentApiE2ETest @Autowired constructor(
                 ),
             )
 
-            // 콜백은 SUCCESS로 전달
             val callbackRequest = mapOf(
                 "transactionKey" to "txn-key-12345",
                 "orderId" to "ORDER-001",
                 "status" to "SUCCESS",
                 "reason" to null,
             )
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.APPLICATION_JSON
-            }
 
             // act
-            val response = testRestTemplate.exchange(
-                "$PAYMENT_ENDPOINT/callback",
-                HttpMethod.POST,
-                HttpEntity(callbackRequest, headers),
-                PAYMENT_RESPONSE_TYPE,
-            )
+            val response = sendCallback(callbackRequest)
 
             // assert — PG 실제 상태(FAILED)를 따름
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -455,20 +462,164 @@ class PaymentApiE2ETest @Autowired constructor(
                 "status" to "SUCCESS",
                 "reason" to null,
             )
+
+            // act
+            val response = sendCallback(callbackRequest)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("POST /api/v1/payments/callback - 서명 검증")
+    @Nested
+    inner class CallbackSignatureVerification {
+
+        @DisplayName("서명 헤더가 없으면, 401 UNAUTHORIZED를 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenSignatureHeaderMissing() {
+            // arrange
+            val callbackRequest = mapOf(
+                "transactionKey" to "txn-key-12345",
+                "orderId" to "ORDER-001",
+                "status" to "SUCCESS",
+                "reason" to null,
+            )
+            val bodyBytes = objectMapper.writeValueAsBytes(callbackRequest)
             val headers = HttpHeaders().apply {
                 contentType = MediaType.APPLICATION_JSON
+                set(PgCallbackSignatureFilter.TIMESTAMP_HEADER, Instant.now().epochSecond.toString())
             }
 
             // act
             val response = testRestTemplate.exchange(
                 "$PAYMENT_ENDPOINT/callback",
                 HttpMethod.POST,
-                HttpEntity(callbackRequest, headers),
+                HttpEntity(String(bodyBytes, Charsets.UTF_8), headers),
                 PAYMENT_RESPONSE_TYPE,
             )
 
             // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+
+        @DisplayName("타임스탬프 헤더가 없으면, 401 UNAUTHORIZED를 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenTimestampHeaderMissing() {
+            // arrange
+            val callbackRequest = mapOf(
+                "transactionKey" to "txn-key-12345",
+                "orderId" to "ORDER-001",
+                "status" to "SUCCESS",
+                "reason" to null,
+            )
+            val bodyBytes = objectMapper.writeValueAsBytes(callbackRequest)
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(PgCallbackSignatureFilter.SIGNATURE_HEADER, "fake-signature")
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$PAYMENT_ENDPOINT/callback",
+                HttpMethod.POST,
+                HttpEntity(String(bodyBytes, Charsets.UTF_8), headers),
+                PAYMENT_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+
+        @DisplayName("위조된 서명이면, 401 UNAUTHORIZED를 반환하고 결제 상태는 변경되지 않는다.")
+        @Test
+        fun returnsUnauthorized_whenSignatureIsForged() {
+            // arrange
+            val payment = createOrderWithPendingPayment()
+            val callbackRequest = mapOf(
+                "transactionKey" to "txn-key-12345",
+                "orderId" to payment.orderId,
+                "status" to "SUCCESS",
+                "reason" to null,
+            )
+            val bodyBytes = objectMapper.writeValueAsBytes(callbackRequest)
+            val timestamp = Instant.now().epochSecond.toString()
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                set(PgCallbackSignatureFilter.SIGNATURE_HEADER, "a".repeat(64))
+                set(PgCallbackSignatureFilter.TIMESTAMP_HEADER, timestamp)
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$PAYMENT_ENDPOINT/callback",
+                HttpMethod.POST,
+                HttpEntity(String(bodyBytes, Charsets.UTF_8), headers),
+                PAYMENT_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+            val savedPayment = paymentRepository.findByTransactionKey("txn-key-12345")
+            assertThat(savedPayment?.status).isEqualTo(PaymentStatus.PENDING)
+            verify(paymentGateway, never()).getTransactionStatus(any(), any())
+        }
+
+        @DisplayName("만료된 타임스탬프이면, 401 UNAUTHORIZED를 반환한다.")
+        @Test
+        fun returnsUnauthorized_whenTimestampExpired() {
+            // arrange
+            val callbackRequest = mapOf(
+                "transactionKey" to "txn-key-12345",
+                "orderId" to "ORDER-001",
+                "status" to "SUCCESS",
+                "reason" to null,
+            )
+            val bodyBytes = objectMapper.writeValueAsBytes(callbackRequest)
+            val expiredTimestamp = (Instant.now().epochSecond - 600).toString()
+            val headers = signedCallbackHeaders(bodyBytes, expiredTimestamp)
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$PAYMENT_ENDPOINT/callback",
+                HttpMethod.POST,
+                HttpEntity(String(bodyBytes, Charsets.UTF_8), headers),
+                PAYMENT_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+
+        @DisplayName("정상 서명이면, 콜백이 처리되어 결제 상태가 변경된다.")
+        @Test
+        fun processesCallback_whenSignatureIsValid() {
+            // arrange
+            val payment = createOrderWithPendingPayment()
+
+            whenever(paymentGateway.getTransactionStatus(any(), eq("txn-key-12345"))).thenReturn(
+                PaymentGatewayTransactionDetail(
+                    transactionKey = "txn-key-12345",
+                    orderId = payment.orderId,
+                    status = "SUCCESS",
+                    reason = null,
+                ),
+            )
+
+            val callbackRequest = mapOf(
+                "transactionKey" to "txn-key-12345",
+                "orderId" to payment.orderId,
+                "status" to "SUCCESS",
+                "reason" to null,
+            )
+
+            // act
+            val response = sendCallback(callbackRequest)
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val savedPayment = paymentRepository.findByTransactionKey("txn-key-12345")
+            assertThat(savedPayment?.status).isEqualTo(PaymentStatus.SUCCESS)
         }
     }
 
