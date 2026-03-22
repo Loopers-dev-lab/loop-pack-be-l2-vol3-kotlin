@@ -1,11 +1,19 @@
 package com.loopers.interfaces.api.product
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStatus
 import com.loopers.domain.productlike.ProductLikeCountRepository
+import com.loopers.domain.user.User
+import com.loopers.domain.user.UserRepository
+import com.loopers.domain.user.vo.BirthDate
+import com.loopers.domain.user.vo.Email
+import com.loopers.domain.user.vo.LoginId
+import com.loopers.domain.user.vo.Name
+import com.loopers.domain.user.vo.Password
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -16,9 +24,12 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.cache.CacheManager
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import java.math.BigDecimal
 
 @SpringBootTest
@@ -27,12 +38,19 @@ import java.math.BigDecimal
 @DisplayName("Product 캐싱 E2E 테스트")
 class ProductCachingE2ETest @Autowired constructor(
     private val mockMvc: MockMvc,
+    private val objectMapper: ObjectMapper,
     private val productRepository: ProductRepository,
     private val productLikeCountRepository: ProductLikeCountRepository,
+    private val userRepository: UserRepository,
     private val brandRepository: BrandRepository,
     private val cacheManager: CacheManager,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val passwordEncoder: PasswordEncoder,
 ) {
+    companion object {
+        private const val TEST_PASSWORD = "password123"
+    }
+
     private lateinit var testBrand: Brand
     private lateinit var testProduct: Product
 
@@ -265,5 +283,99 @@ class ProductCachingE2ETest @Autowired constructor(
         // Then
         val responseBody = response.contentAsString
         assertThat(responseBody).contains("\"likeCount\":0")
+    }
+
+    @Test
+    @DisplayName("캐시 워밍 후 좋아요하면 상품 상세 likeCount는 최신 값을 반영해야 한다")
+    fun testProductDetailLikeCountRefreshesAfterLikeWhenCacheWarmed() {
+        // Given
+        val loginId = nextLoginId("clu")
+        createUser(loginId)
+
+        val warmedDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
+            .andExpect { status { isOk() } }
+            .andReturn()
+            .response
+        assertThat(extractLikeCount(warmedDetailResponse.contentAsString)).isEqualTo(0)
+
+        // When
+        mockMvc.post("/api/v1/products/${testProduct.id}/likes") {
+            header("X-Loopers-LoginId", loginId)
+            header("X-Loopers-LoginPw", TEST_PASSWORD)
+        }.andExpect {
+            status { isOk() }
+        }
+
+        // Then
+        val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
+        assertThat(projectionLikeCount).isEqualTo(1)
+
+        val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
+            .andExpect { status { isOk() } }
+            .andReturn()
+            .response
+        assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(1)
+    }
+
+    @Test
+    @DisplayName("캐시 워밍 후 좋아요 취소하면 상품 상세 likeCount는 최신 값을 반영해야 한다")
+    fun testProductDetailLikeCountRefreshesAfterUnlikeWhenCacheWarmed() {
+        // Given
+        val loginId = nextLoginId("cul")
+        createUser(loginId)
+
+        mockMvc.post("/api/v1/products/${testProduct.id}/likes") {
+            header("X-Loopers-LoginId", loginId)
+            header("X-Loopers-LoginPw", TEST_PASSWORD)
+        }.andExpect {
+            status { isOk() }
+        }
+
+        val warmedDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
+            .andExpect { status { isOk() } }
+            .andReturn()
+            .response
+        assertThat(extractLikeCount(warmedDetailResponse.contentAsString)).isEqualTo(1)
+
+        // When
+        mockMvc.delete("/api/v1/products/${testProduct.id}/likes") {
+            header("X-Loopers-LoginId", loginId)
+            header("X-Loopers-LoginPw", TEST_PASSWORD)
+        }.andExpect {
+            status { isOk() }
+        }
+
+        // Then
+        val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
+        assertThat(projectionLikeCount).isEqualTo(0)
+
+        val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
+            .andExpect { status { isOk() } }
+            .andReturn()
+            .response
+        assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(0)
+    }
+
+    private fun createUser(loginId: String): User {
+        val user = User.create(
+            loginId = LoginId.of(loginId),
+            password = Password.ofEncrypted(passwordEncoder.encode(TEST_PASSWORD)),
+            name = Name.of("Cache Test User"),
+            birthDate = BirthDate.of("20000101"),
+            email = Email.of("$loginId@test.com"),
+        )
+
+        return userRepository.save(user)
+    }
+
+    private fun extractLikeCount(responseBody: String): Int {
+        return objectMapper.readTree(responseBody)
+            .path("data")
+            .path("likeCount")
+            .asInt()
+    }
+
+    private fun nextLoginId(prefix: String): String {
+        return (prefix + System.nanoTime().toString().takeLast(12)).take(20)
     }
 }
