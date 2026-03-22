@@ -202,7 +202,7 @@ class OrderItemTest {
         // Arrange
         val brand = createBrand()
         val product = createProduct(brand)
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 100L, userId = 1L)
 
         // Act & Assert
         val exception = assertThrows<CoreException> {
@@ -217,7 +217,7 @@ class OrderItemTest {
         // Arrange
         val brand = createBrand()
         val product = createProduct(brand)
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 101L, userId = 1L)
 
         // Act & Assert
         val exception = assertThrows<CoreException> {
@@ -232,7 +232,7 @@ class OrderItemTest {
         // Arrange
         val brand = createBrand()
         val product = createProduct(brand)
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 102L, userId = 1L)
 
         // Act & Assert
         val exception = assertThrows<CoreException> {
@@ -247,7 +247,7 @@ class OrderItemTest {
         // Arrange
         val brand = createBrand()
         val product = createProduct(brand)
-        val order = Order.create(userId = 1L)
+        val order = Order.create(id = 103L, userId = 1L)
 
         // Act & Assert
         val exception = assertThrows<CoreException> {

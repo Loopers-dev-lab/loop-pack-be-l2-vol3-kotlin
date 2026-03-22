@@ -1,0 +1,69 @@
+pg:
+  base-url: http://localhost:8083
+  timeout:
+    # Local: 빠른 응답 기대 (개발 환경)
+    # p99: 510ms + 버퍼 = 1초
+    connect-ms: 1000
+    read-sec: 1
+    write-sec: 1
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+pg:
+  base-url: http://pg-dev.example.com
+  timeout:
+    # Dev: 개발 환경, 약간의 여유 (재시도 포함 ~2-3초)
+    # p99: 510ms, timeout: 2초 (최대 3회 시도 시 ~6초)
+    connect-ms: 2000
+    read-sec: 2
+    write-sec: 2
+
+---
+spring:
+  config:
+    activate:
+      on-profile: qa
+
+pg:
+  base-url: http://pg-qa.example.com
+  timeout:
+    # QA: 테스트 환경, 적절한 여유 (재시도 포함 ~2-3초)
+    # p99: 510ms, timeout: 2초 (p99의 4배)
+    connect-ms: 3000
+    read-sec: 2
+    write-sec: 2
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prd
+
+pg:
+  base-url: http://pg-prd.example.com
+  timeout:
+    # Prd: 프로덕션, 빠른 응답 (Fast-fail, 재시도로 복구)
+    # p99: 510ms, timeout: 1초 (p99의 2배)
+    # 성능 분석: 94% 응답 시간 개선 (10초 → 1초)
+    connect-ms: 1500
+    read-sec: 1
+    write-sec: 1
+
+---
+spring:
+  config:
+    activate:
+      on-profile: perf
+
+pg:
+  base-url: http://localhost:8083
+  timeout:
+    # Perf: 부하 테스트, 정확한 측정
+    # p99: 510ms, timeout: 1초 (정확한 지표 수집)
+    connect-ms: 1000
+    read-sec: 1
+    write-sec: 1

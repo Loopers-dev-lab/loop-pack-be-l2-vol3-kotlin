@@ -43,7 +43,7 @@ class OrderTest {
         )
 
         // Act
-        val order = Order.createWithItems(userId, null, itemSpecs)
+        val order = Order.createWithItems(id = 100L, userId = userId, couponId = null, items = itemSpecs)
 
         // Assert
         assertEquals(userId, order.userId)
@@ -61,7 +61,7 @@ class OrderTest {
     fun `Order createWithItems - 빈 items 리스트면 실패`() {
         // Act & Assert
         assertThrows<IllegalArgumentException> {
-            Order.createWithItems(1L, null, emptyList())
+            Order.createWithItems(id = 100L, userId = 1L, couponId = null, items = emptyList())
         }
     }
 }
