@@ -1,9 +1,12 @@
 package com.loopers.application.like
 
 import com.loopers.domain.like.LikeService
+import com.loopers.domain.like.event.ProductLikedEvent
+import com.loopers.domain.like.event.ProductUnlikedEvent
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -11,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class LikeFacade(
     private val likeService: LikeService,
     private val productService: ProductService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional(readOnly = true)
@@ -26,10 +30,11 @@ class LikeFacade(
 
     @Transactional
     fun like(userId: Long, productId: Long) {
+        // 비관적 락: 같은 상품에 대한 동시 like INSERT의 TOCTOU 방지
         productService.getProductWithLock(productId)
         val isNewLike = likeService.like(userId, productId)
         if (isNewLike) {
-            productService.incrementLikeCount(productId)
+            eventPublisher.publishEvent(ProductLikedEvent(userId, productId))
         }
     }
 
@@ -38,7 +43,7 @@ class LikeFacade(
         productService.getProductWithLock(productId)
         val isDeleted = likeService.unlike(userId, productId)
         if (isDeleted) {
-            productService.decrementLikeCount(productId)
+            eventPublisher.publishEvent(ProductUnlikedEvent(userId, productId))
         }
     }
 }
