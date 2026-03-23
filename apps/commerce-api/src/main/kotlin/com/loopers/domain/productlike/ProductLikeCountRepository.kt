@@ -9,4 +9,11 @@ interface ProductLikeCountRepository {
     fun decrement(productId: Long)
 
     fun save(productLikeCount: ProductLikeCount): ProductLikeCount
+
+    /**
+     * 좋아요 개수를 정확한 값으로 업데이트 (배치 용도)
+     * @param productId 상품 ID
+     * @param count 정확한 좋아요 개수
+     */
+    fun updateCount(productId: Long, count: Long)
 }
