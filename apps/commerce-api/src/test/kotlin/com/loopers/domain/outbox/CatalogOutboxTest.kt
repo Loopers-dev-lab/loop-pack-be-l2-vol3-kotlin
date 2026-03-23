@@ -55,6 +55,20 @@ class CatalogOutboxTest {
                 CatalogOutbox(eventType = "LIKE_ADDED", productId = 0L, userId = 1L)
             }.isInstanceOf(CoreException::class.java)
         }
+
+        @Test
+        fun `userId가 0이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = 0L)
+            }.isInstanceOf(CoreException::class.java)
+        }
+
+        @Test
+        fun `userId가 음수이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = -1L)
+            }.isInstanceOf(CoreException::class.java)
+        }
     }
 
     @Nested

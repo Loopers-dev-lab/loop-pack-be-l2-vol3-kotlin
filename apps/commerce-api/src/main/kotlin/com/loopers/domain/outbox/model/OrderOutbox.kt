@@ -14,8 +14,11 @@ class OrderOutbox(
     val reason: String? = null,
     val productId: Long? = null,
     val quantity: Int? = null,
-    var published: Boolean = false,
+    published: Boolean = false,
 ) {
+
+    var published: Boolean = published
+        private set
 
     init {
         if (eventType.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "eventType은 필수입니다.")

@@ -5,7 +5,6 @@ import com.loopers.config.kafka.KafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
-import org.springframework.kafka.support.Acknowledgment
 import org.springframework.stereotype.Component
 
 @Component
@@ -17,28 +16,22 @@ class CatalogEventConsumer(
 
     @KafkaListener(
         topics = [TOPIC],
-        containerFactory = KafkaConfig.BATCH_LISTENER,
+        containerFactory = KafkaConfig.RECORD_LISTENER,
     )
-    fun consume(
-        messages: List<ConsumerRecord<Any, Any>>,
-        acknowledgment: Acknowledgment,
-    ) {
-        for (message in messages) {
-            try {
-                val payload = message.value() as? Map<*, *> ?: continue
-                val eventId = payload["eventId"] as? String ?: continue
-                val eventType = payload["eventType"] as? String ?: continue
-                val productId = (payload["productId"] as? Number)?.toLong() ?: continue
-                updateProductMetricsUseCase.handleCatalogEvent(
-                    eventId = eventId,
-                    eventType = eventType,
-                    productId = productId,
-                )
-            } catch (ex: Exception) {
-                log.error("catalog-events 처리 실패: offset={}", message.offset(), ex)
-            }
-        }
-        acknowledgment.acknowledge()
+    fun consume(message: ConsumerRecord<Any, Any>) {
+        val payload = message.value() as? Map<*, *>
+            ?: throw IllegalArgumentException("페이로드 파싱 실패: offset=${message.offset()}")
+        val eventId = payload["eventId"] as? String
+            ?: throw IllegalArgumentException("eventId 누락: offset=${message.offset()}")
+        val eventType = payload["eventType"] as? String
+            ?: throw IllegalArgumentException("eventType 누락: offset=${message.offset()}")
+        val productId = (payload["productId"] as? Number)?.toLong()
+            ?: throw IllegalArgumentException("productId 누락: offset=${message.offset()}")
+        updateProductMetricsUseCase.handleCatalogEvent(
+            eventId = eventId,
+            eventType = eventType,
+            productId = productId,
+        )
     }
 
     companion object {

@@ -51,6 +51,20 @@ class CouponOutboxTest {
                 CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 0L)
             }.isInstanceOf(CoreException::class.java)
         }
+
+        @Test
+        fun `eventId가 blank이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CouponOutbox(eventId = "   ", eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 1L)
+            }.isInstanceOf(CoreException::class.java)
+        }
+
+        @Test
+        fun `eventId가 빈 문자열이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CouponOutbox(eventId = "", eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 1L)
+            }.isInstanceOf(CoreException::class.java)
+        }
     }
 
     @Nested

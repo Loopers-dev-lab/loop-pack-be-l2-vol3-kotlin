@@ -15,6 +15,7 @@ import jakarta.persistence.UniqueConstraint
     name = "coupon_issue_requests",
     uniqueConstraints = [
         UniqueConstraint(name = "uk_coupon_issue_requests_request_id", columnNames = ["request_id"]),
+        UniqueConstraint(name = "uk_coupon_issue_requests_coupon_user", columnNames = ["coupon_id", "user_id"]),
     ],
 )
 class CouponIssueRequestEntity(

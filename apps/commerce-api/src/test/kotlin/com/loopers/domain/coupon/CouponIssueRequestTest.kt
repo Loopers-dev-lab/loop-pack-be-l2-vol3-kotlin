@@ -28,6 +28,20 @@ class CouponIssueRequestTest {
             assertThat(request.userId).isEqualTo(1L)
             assertThat(request.status).isEqualTo(CouponIssueStatus.PENDING)
         }
+
+        @Test
+        fun `requestId가 blank이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CouponIssueRequest(requestId = "   ", couponId = 1L, userId = 1L)
+            }.isInstanceOf(CoreException::class.java)
+        }
+
+        @Test
+        fun `requestId가 빈 문자열이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CouponIssueRequest(requestId = "", couponId = 1L, userId = 1L)
+            }.isInstanceOf(CoreException::class.java)
+        }
     }
 
     @Nested

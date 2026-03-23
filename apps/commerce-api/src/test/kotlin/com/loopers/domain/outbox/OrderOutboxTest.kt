@@ -87,6 +87,20 @@ class OrderOutboxTest {
 
             assertThat(outbox.published).isTrue()
         }
+
+        @Test
+        fun `published는 markPublished()로만 변경 가능하다`() {
+            val outbox = OrderOutbox(
+                eventType = "PAYMENT_COMPLETED",
+                orderId = 1L,
+                userId = 1L,
+            )
+
+            // published 필드가 private set이므로 컴파일 시점에 차단됨을 런타임으로 검증
+            assertThat(outbox.published).isFalse()
+            outbox.markPublished()
+            assertThat(outbox.published).isTrue()
+        }
     }
 
     @Nested

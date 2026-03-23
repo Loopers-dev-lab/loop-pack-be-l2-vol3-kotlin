@@ -5,7 +5,6 @@ import com.loopers.config.kafka.KafkaConfig
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
-import org.springframework.kafka.support.Acknowledgment
 import org.springframework.stereotype.Component
 
 @Component
@@ -17,69 +16,30 @@ class CouponIssueConsumer(
 
     @KafkaListener(
         topics = [TOPIC],
-        containerFactory = KafkaConfig.BATCH_LISTENER,
+        containerFactory = KafkaConfig.RECORD_LISTENER,
     )
-    fun consume(
-        messages: List<ConsumerRecord<Any, Any>>,
-        acknowledgment: Acknowledgment,
-    ) {
-        var failCount = 0
-        var lastException: Exception? = null
-        for (message in messages) {
-            var eventId: String? = null
-            try {
-                val payload = message.value() as? Map<*, *>
-                if (payload == null) {
-                    failCount++
-                    log.warn("페이로드 파싱 실패: offset={}", message.offset())
-                    continue
-                }
+    fun consume(message: ConsumerRecord<Any, Any>) {
+        val payload = message.value() as? Map<*, *>
+            ?: throw IllegalArgumentException("페이로드 파싱 실패: offset=${message.offset()}")
+        val eventId = payload["eventId"] as? String
+            ?: throw IllegalArgumentException("eventId 누락: offset=${message.offset()}")
+        val eventType = payload["eventType"] as? String
+            ?: throw IllegalArgumentException("eventType 누락: offset=${message.offset()}")
+        val couponId = (payload["couponId"] as? Number)?.toLong()
+            ?: throw IllegalArgumentException("couponId 누락: offset=${message.offset()}")
+        val userId = (payload["userId"] as? Number)?.toLong()
+            ?: throw IllegalArgumentException("userId 누락: offset=${message.offset()}")
 
-                eventId = payload["eventId"] as? String
-                val eventType = payload["eventType"] as? String
-                val couponId = (payload["couponId"] as? Number)?.toLong()
-                val userId = (payload["userId"] as? Number)?.toLong()
-
-                if (eventId == null || eventType == null || couponId == null || userId == null) {
-                    failCount++
-                    log.warn(
-                        "필수 필드 누락: offset={}, eventId={}, eventType={}, couponId={}, userId={}",
-                        message.offset(),
-                        eventId,
-                        eventType,
-                        couponId,
-                        userId,
-                    )
-                    continue
-                }
-
-                if (eventType != COUPON_ISSUE_REQUESTED) {
-                    failCount++
-                    log.warn("알 수 없는 coupon 이벤트 타입: eventType={}", eventType)
-                    continue
-                }
-
-                processCouponIssueUseCase.execute(
-                    eventId = eventId,
-                    couponId = couponId,
-                    userId = userId,
-                )
-            } catch (ex: Exception) {
-                failCount++
-                lastException = ex
-                log.error(
-                    "coupon-issue-requests 처리 실패: offset={}, eventId={}",
-                    message.offset(),
-                    eventId,
-                    ex,
-                )
-            }
+        if (eventType != COUPON_ISSUE_REQUESTED) {
+            log.warn("알 수 없는 coupon 이벤트 타입: eventType={}", eventType)
+            return
         }
-        if (failCount > 0) {
-            log.warn("배치 처리 완료: 총 {}건 중 {}건 실패", messages.size, failCount)
-            throw RuntimeException("배치 처리 중 ${failCount}건 실패", lastException)
-        }
-        acknowledgment.acknowledge()
+
+        processCouponIssueUseCase.execute(
+            eventId = eventId,
+            couponId = couponId,
+            userId = userId,
+        )
     }
 
     companion object {

@@ -66,7 +66,7 @@ class ProductMetricsTest {
 
         @Test
         fun `decrementLikeCount로 1 감소한다`() {
-            val metrics = ProductMetrics(productId = 1L, likeCount = 5)
+            val metrics = ProductMetrics(productId = 1L, likeCount = 5L)
 
             metrics.decrementLikeCount()
 
@@ -75,7 +75,7 @@ class ProductMetricsTest {
 
         @Test
         fun `likeCount가 0이면 더 이상 감소하지 않는다`() {
-            val metrics = ProductMetrics(productId = 1L, likeCount = 0)
+            val metrics = ProductMetrics(productId = 1L, likeCount = 0L)
 
             metrics.decrementLikeCount()
 
@@ -100,7 +100,7 @@ class ProductMetricsTest {
         fun `지정 수량만큼 증가한다`() {
             val metrics = ProductMetrics(productId = 1L)
 
-            metrics.incrementSalesCount(3)
+            metrics.incrementSalesCount(3L)
 
             assertThat(metrics.salesCount).isEqualTo(3)
         }

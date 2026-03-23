@@ -10,10 +10,14 @@ class CouponOutbox(
     val eventType: String,
     val couponId: Long,
     val userId: Long,
-    var published: Boolean = false,
+    published: Boolean = false,
 ) {
 
+    var published: Boolean = published
+        private set
+
     init {
+        if (eventId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "eventId는 필수입니다.")
         if (eventType.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "eventType은 필수입니다.")
         if (couponId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "couponId는 양수여야 합니다.")
         if (userId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")

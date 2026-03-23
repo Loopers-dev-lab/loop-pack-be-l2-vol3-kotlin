@@ -10,12 +10,16 @@ class CatalogOutbox(
     val eventType: String,
     val productId: Long,
     val userId: Long?,
-    var published: Boolean = false,
+    published: Boolean = false,
 ) {
+
+    var published: Boolean = published
+        private set
 
     init {
         if (eventType.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "eventType은 필수입니다.")
         if (productId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "productId는 양수여야 합니다.")
+        if (userId != null && userId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
     }
 
     fun markPublished() {

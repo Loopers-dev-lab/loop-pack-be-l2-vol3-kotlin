@@ -11,6 +11,10 @@ class CouponIssueRequest(
     status: CouponIssueStatus = CouponIssueStatus.PENDING,
 ) {
 
+    init {
+        if (requestId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "requestId는 필수입니다.")
+    }
+
     var status: CouponIssueStatus = status
         private set
 
