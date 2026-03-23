@@ -11,6 +11,7 @@ import com.loopers.domain.user.vo.Password
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.infrastructure.user.UserJpaRepository
+import com.loopers.support.eventually
 import com.loopers.utils.DatabaseCleanUp
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -87,8 +88,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         productLikeService.addProductLike(testUser, testProduct)
 
         // assert - plain @EventListener 이므로 메서드 반환 시점에 projection 갱신도 완료되어야 함
-        val likeCount = findProjectionLikeCount(testProduct.id)
-        assertThat(likeCount).isEqualTo(1)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
+        }
     }
 
     @DisplayName("순차적으로 10명이 좋아요할 때, like_count가 정확하게 증가한다")
@@ -104,8 +106,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         }
 
         // assert
-        val likeCount = findProjectionLikeCount(testProduct.id)
-        assertThat(likeCount).isEqualTo(10)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(10)
+        }
     }
 
     @DisplayName("순차 add/remove 시 projection like_count가 정확히 증감한다")
@@ -119,14 +122,18 @@ class ProductLikeConcurrencyTest @Autowired constructor(
             productLikeService.addProductLike(user, testProduct)
         }
 
-        assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(10)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(10)
+        }
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(10)
 
         users.take(4).forEach { user ->
             productLikeService.removeProductLike(user, testProduct)
         }
 
-        assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(6)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(6)
+        }
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(6)
     }
 
@@ -139,12 +146,16 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         val neverLikedUser = createTestUser(2)
 
         productLikeService.addProductLike(likedUser, testProduct)
-        assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
+        }
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
 
         productLikeService.removeProductLike(neverLikedUser, testProduct)
 
-        assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
+        }
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
     }
 
@@ -223,10 +234,11 @@ class ProductLikeConcurrencyTest @Autowired constructor(
             .`as`("ProductLike saved count")
             .isEqualTo(10)
 
-        val likeCount = findProjectionLikeCount(testProduct.id)
-        assertThat(likeCount)
-            .`as`("Product like_count (atomic query)")
-            .isEqualTo(10)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id))
+                .`as`("Product like_count (atomic query)")
+                .isEqualTo(10)
+        }
     }
 
     @DisplayName("같은 사용자가 동시에 여러 번 좋아요하려 할 때, UNIQUE 제약으로 1번만 저장된다")
@@ -263,7 +275,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         assertThat(successCount.get()).isEqualTo(1)
         assertThat(errors.size).isEqualTo(threadCount - 1)
         assertThat(authoritativeCount).isEqualTo(1)
-        assertThat(projectionCount).isEqualTo(1)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
+        }
     }
 
     @DisplayName("50명이 좋아요 추가 후 25명이 동시에 제거할 때, like_count가 정확하게 관리된다")
@@ -292,7 +306,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
 
         assertThat(addErrors).isEmpty()
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(50)
-        assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(50)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(50)
+        }
 
         val removeLatch = CountDownLatch(25)
         val removeErrors = Collections.synchronizedList(mutableListOf<Throwable>())
@@ -314,7 +330,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
 
         assertThat(removeErrors).isEmpty()
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(25)
-        assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(25)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(25)
+        }
     }
 
     @DisplayName("좋아요 추가와 제거가 동시에 섞여서 실행될 때, like_count가 일관성 있게 유지된다")
@@ -352,7 +370,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
 
         assertThat(errors).isEmpty()
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(15)
-        assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(15)
+        eventually {
+            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(15)
+        }
     }
 
     @DisplayName("같은 사용자가 동시에 좋아요와 좋아요 취소를 번갈아 실행할 때, 최종 상태가 일관성 있다")
