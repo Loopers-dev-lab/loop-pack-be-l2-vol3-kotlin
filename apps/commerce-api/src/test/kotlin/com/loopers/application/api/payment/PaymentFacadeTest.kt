@@ -6,6 +6,7 @@ import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.PaymentRequestResult
 import com.loopers.domain.payment.Receipt
 import com.loopers.domain.payment.ReceiptService
+import com.loopers.domain.payment.event.PaymentRequestedEvent
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 @DisplayName("PaymentFacade.requestPayment")
@@ -25,14 +27,15 @@ class PaymentFacadeTest {
     private val receiptService: ReceiptService = mockk()
     private val orderService: OrderService = mockk()
     private val paymentClient: PaymentClient = mockk()
-    private val facade = PaymentFacade(receiptService, orderService, paymentClient)
+    private val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
+    private val facade = PaymentFacade(receiptService, orderService, paymentClient, eventPublisher)
 
     @Nested
     @DisplayName("PG 결제 완료 응답 (COMPLETED)")
     inner class PgCompletedResponse {
 
         @Test
-        @DisplayName("Receipt COMPLETED, Order PAYMENT_REQUESTED로 변경")
+        @DisplayName("Receipt COMPLETED, PaymentRequestedEvent 발행")
         fun success() {
             // given
             val userId = 1L
@@ -46,14 +49,13 @@ class PaymentFacadeTest {
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
                 PaymentRequestResult("TXN_001", "100", "SAMSUNG", "1234", 10000L, "COMPLETED", null)
             every { receiptService.markAsCompleted(any()) } just runs
-            every { orderService.markOrderAsPaymentRequested(any(), any()) } just runs
 
             // when
             facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
 
             // then
             verify(exactly = 1) { receiptService.markAsCompleted(any()) }
-            verify(exactly = 1) { orderService.markOrderAsPaymentRequested(userId, orderId) }
+            verify(exactly = 1) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
         }
     }
 
@@ -81,7 +83,7 @@ class PaymentFacadeTest {
 
             // then
             verify(exactly = 0) { receiptService.markAsCompleted(any()) }
-            verify(exactly = 0) { orderService.markOrderAsPaymentRequested(any(), any()) }
+            verify(exactly = 0) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
             verify(exactly = 0) { receiptService.markAsFailed(any(), any()) }
         }
     }

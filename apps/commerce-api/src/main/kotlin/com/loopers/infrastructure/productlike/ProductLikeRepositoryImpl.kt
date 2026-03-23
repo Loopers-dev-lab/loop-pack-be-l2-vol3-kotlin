@@ -55,4 +55,7 @@ class ProductLikeRepositoryImpl(
 
     override fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int =
         productLikeJpaRepository.deleteByUserIdAndProductId(userId, productId)
+
+    override fun countByProductId(): List<Pair<Long, Long>> =
+        productLikeJpaRepository.countByProductId()
 }

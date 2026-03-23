@@ -7,8 +7,11 @@ import com.loopers.domain.payment.PaymentRequestResult
 import com.loopers.domain.payment.Receipt
 import com.loopers.domain.payment.ReceiptService
 import com.loopers.domain.payment.dto.ReceiptInfo
+import com.loopers.domain.payment.event.PaymentCallbackProcessedEvent
+import com.loopers.domain.payment.event.PaymentRequestedEvent
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,6 +21,7 @@ class PaymentFacade(
     private val receiptService: ReceiptService,
     private val orderService: OrderService,
     private val paymentClient: PaymentClient,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -25,8 +29,13 @@ class PaymentFacade(
         // (1) 결제 상태 업데이트
         receiptService.updateReceiptStatus(command)
 
-        // (2) 주문 상태 변경
-        orderService.markOrderAsPaid(command.orderId)
+        // (2) 주문 상태 변경 (이벤트로 분리)
+        eventPublisher.publishEvent(
+            PaymentCallbackProcessedEvent(
+                orderId = command.orderId,
+                status = command.status?.uppercase() ?: "UNKNOWN",
+            ),
+        )
     }
 
     @Transactional
@@ -84,7 +93,10 @@ class PaymentFacade(
         when (pgResult.status.toString().uppercase()) {
             "COMPLETED" -> {
                 receiptService.markAsCompleted(receipt)
-                orderService.markOrderAsPaymentRequested(userId, orderId)
+                // 주문 상태 변경 (이벤트로 분리)
+                eventPublisher.publishEvent(
+                    PaymentRequestedEvent(userId = userId, orderId = orderId),
+                )
             }
             "FAILED", "CANCELLED" -> {
                 receiptService.markAsFailed(receipt, pgResult.reason)

@@ -12,4 +12,7 @@ interface ProductLikeJpaRepository : JpaRepository<ProductLike, Long> {
     @Modifying
     @Query("DELETE FROM ProductLike pl WHERE pl.user.id = :userId AND pl.product.id = :productId")
     fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int
+
+    @Query("SELECT pl.product.id, COUNT(pl) FROM ProductLike pl GROUP BY pl.product.id")
+    fun countByProductId(): List<Pair<Long, Long>>
 }
