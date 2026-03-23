@@ -12,6 +12,7 @@ import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
+import com.loopers.infrastructure.productlike.ProductLikeCountJpaRepository
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.PageResponse
@@ -40,6 +41,7 @@ class ProductLikeV1ControllerE2ETest @Autowired constructor(
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
     private val userJpaRepository: UserJpaRepository,
+    private val productLikeCountJpaRepository: ProductLikeCountJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
     private val passwordEncoder: PasswordEncoder,
 ) {
