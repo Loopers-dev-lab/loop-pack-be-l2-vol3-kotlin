@@ -1,0 +1,72 @@
+# ============================================================
+# Resilience4j 설정
+#
+# 적용 순서 (바깥 → 안쪽):
+#   RateLimiter → CircuitBreaker → Retry → 실제 PG 호출
+#
+# 인스턴스 분리:
+#   pg-request: 결제 요청 (POST) — Retry 없음 (멱등하지 않아서)
+#   pg-query:   결제 조회 (GET)  — Retry 있음 (부작용 없으므로)
+# ============================================================
+
+resilience4j:
+
+  # ── 서킷브레이커 ──
+  # 최근 N건의 호출 결과를 기반으로 장애 여부를 판단하여
+  # CLOSED → OPEN → HALF_OPEN → CLOSED/OPEN 상태를 전이한다.
+  circuitbreaker:
+    instances:
+      # 결제 요청용 서킷 (POST /api/v1/payments)
+      pg-request:
+        sliding-window-type: COUNT_BASED        # 개수 기반 윈도우 (시간 기반: TIME_BASED)
+        sliding-window-size: 20                 # [기본] 최근 20건까지 기억 (윈도우 크기)
+#        sliding-window-size: 5                 # [검증용] 빠른 상태 전이 확인용
+        minimum-number-of-calls: 3              # 최소 3건 호출 후부터 failureRate 계산 시작
+        failure-rate-threshold: 15              # [기본] 실패율 15% 이상이면 OPEN
+#        failure-rate-threshold: 50             # [검증용] 실패율 50% 이상이면 OPEN
+        slow-call-duration-threshold: 800ms     # [기본] 800ms 이상이면 slowCall로 카운트 (readTimeout 1000ms 미만)
+#        slow-call-duration-threshold: 300ms    # [검증용] 시뮬레이터 지연(100~500ms) 구간 테스트
+        slow-call-rate-threshold: 50            # slowCall 비율 50% 이상이면 OPEN
+        wait-duration-in-open-state: 10s        # OPEN 후 10초 뒤 HALF_OPEN 전이
+#        wait-duration-in-open-state: 30s       # [검증용] 눈으로 OPEN 상태를 확인하기 위해 길게
+        permitted-number-of-calls-in-half-open-state: 5  # HALF_OPEN에서 최대 5건 시험 허용 (minimum 충족 후 조기 차단 가능)
+        automatic-transition-from-open-to-half-open-enabled: true  # 시간 경과 시 자동 HALF_OPEN 전이 (요청 없이도)
+        register-health-indicator: true         # actuator health에 서킷 상태 노출
+
+      # 결제 조회용 서킷 (GET — Admin 동기화, 복구 스케줄러에서 사용)
+      pg-query:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20                 # [기본] 최근 20건까지 기억 (윈도우 크기)
+#        sliding-window-size: 5                 # [검증용]
+        minimum-number-of-calls: 3              # 최소 3건 호출 후부터 failureRate 계산 시작
+        failure-rate-threshold: 20              # [기본] 조회는 결제보다 관대하게 20%
+#        failure-rate-threshold: 50             # [검증용]
+        slow-call-duration-threshold: 800ms     # 800ms 이상이면 slowCall로 카운트
+        slow-call-rate-threshold: 50            # slowCall 비율 50% 이상이면 OPEN
+        wait-duration-in-open-state: 30s        # OPEN 후 30초 뒤 HALF_OPEN 전이
+        permitted-number-of-calls-in-half-open-state: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+
+  # ── 리트라이 ──
+  # 조회(GET)에만 적용. 결제 요청(POST)은 멱등하지 않아 Retry 제외.
+  # Retry 실패가 소진되면 최종 결과만 CircuitBreaker에 1건으로 카운트됨.
+  retry:
+    instances:
+      pg-query:
+        max-attempts: 2                         # 총 2회 시도 (1회 원본 + 1회 재시도)
+        wait-duration: 500ms                    # 재시도 전 500ms 대기
+        retry-exceptions:                       # 이 예외들만 재시도 대상
+          - org.springframework.web.client.RestClientException
+          - java.util.concurrent.TimeoutException
+
+  # ── 요청 제한 (Rate Limiter) ──
+  # PG로 나가는 결제 요청 수를 제한하여 PG 과부하 방지.
+  # 초과 시 429 (Too Many Requests) 즉시 반환.
+  ratelimiter:
+    instances:
+      pg-request:
+        limit-for-period: 10                    # 1주기당 최대 10건 허용
+        limit-refresh-period: 1s                # 1초마다 카운트 리셋
+        timeout-duration: 0s                    # 대기 없이 즉시 거부 (0이면 RequestNotPermitted 발생)
+        register-health-indicator: true

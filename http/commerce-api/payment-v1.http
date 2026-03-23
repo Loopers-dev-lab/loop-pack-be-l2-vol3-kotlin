@@ -1,0 +1,169 @@
+## ============================================================
+## 결제 E2E 테스트
+## 사전 조건:
+##   1. commerce-api (8080) + pg-simulator (8082) 실행
+##   2. seed SQL 실행: Get-Content http/seed-circuit-breaker-test.sql -Encoding UTF8 | docker exec -i docker-mysql-1 mysql -u application -papplication loopers
+##   3. 0-1 회원가입 실행 (재시작 시마다)
+## ============================================================
+
+## ============================================================
+## 0. 사전 데이터 준비
+## ============================================================
+
+### 0-1. 회원가입 (재시작 시마다 실행 필요 — seed SQL에 유저 미포함)
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "testuser123",
+  "password": "Test1234!",
+  "name": "홍길동",
+  "birthday": "1990-01-15",
+  "email": "test@example.com"
+}
+
+## ============================================================
+## 1. 결제 요청 (POST /api/v1/payments)
+## ============================================================
+
+### 1-1. 결제 요청 — 정상 (orderId 1~20 사용 가능, seed SQL로 주문 20건 생성됨)
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 9,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+### 1-2. 결제 요청 — 같은 주문 재결제 (실패 후 재시도 케이스)
+# 콜백에서 FAILED 받은 주문에 대해 다시 결제 요청
+# Order 상태가 ORDERED로 유지되므로 재결제 가능
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 12,
+  "cardType": "HYUNDAI",
+  "cardNo": "9876-5432-1098-7654"
+}
+
+### 1-3. 결제 요청 — 이미 결제 완료된 주문 (CONFIRMED 상태 → 400 예상)
+# 콜백에서 SUCCESS 받아 CONFIRMED된 주문에 대해 결제 시도
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+### 1-4. 결제 요청 — 진행 중인 결제 있을 때 중복 요청 (400 예상)
+# 결제 요청 후 콜백 오기 전에 같은 주문으로 재요청
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 2,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+### 1-5. 결제 요청 — 존재하지 않는 주문 (404 예상)
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 9999,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+## ============================================================
+## 2. 결제 조회 (GET /api/v1/payments)
+## ============================================================
+
+### 2-1. 결제 단건 조회 — 정상
+GET {{commerce-api}}/api/v1/payments/1
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+
+### 2-2. 주문별 결제 목록 조회 — 재결제 이력까지 보임 (Order:Payment = 1:N)
+GET {{commerce-api}}/api/v1/payments?orderId=1
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+
+### 2-3. 존재하지 않는 결제 조회 (404 예상)
+GET {{commerce-api}}/api/v1/payments/9999
+X-Loopers-LoginId: testuser123
+X-Loopers-LoginPw: Test1234!
+
+## ============================================================
+## 3. Admin — 결제 동기화 (POST /api-admin/v1/payments/{paymentId}/sync)
+## ============================================================
+
+### 3-1. 결제 상태 PG 동기화 — 정상
+POST {{commerce-api}}/api-admin/v1/payments/1/sync
+X-Loopers-Ldap: loopers.admin
+
+### 3-2. 존재하지 않는 결제 동기화 (404 예상)
+POST {{commerce-api}}/api-admin/v1/payments/9999/sync
+X-Loopers-Ldap: loopers.admin
+
+## ============================================================
+## 4. 서킷브레이커 테스트 시나리오
+## ============================================================
+
+### 4-1. 서킷브레이커 상태 확인 (매 호출 사이에 확인)
+GET {{actuator}}/actuator/circuitbreakers
+
+### 4-2. 리트라이 상태 확인
+GET {{actuator}}/actuator/retries
+
+### 4-3. RateLimiter 상태 확인
+GET {{actuator}}/actuator/ratelimiters
+
+### 4-4. Health 체크
+GET {{actuator}}/actuator/health
+
+## ============================================================
+## 서킷브레이커 테스트 순서 (수동)
+## ============================================================
+##
+## [테스트 1: 실패율 → OPEN]
+## 1. PG 시뮬레이터 끄기
+## 2. 1-1 결제 요청 반복 (orderId 바꿔가며) → failedCalls 쌓임
+## 3. 4-1로 상태 확인 → minimum 3건 이후 failureRate 50% 넘으면 OPEN
+## 4. OPEN 상태에서 1-1 요청 → 503 (PG_CIRCUIT_OPEN) 확인
+##
+## [테스트 2: OPEN → HALF_OPEN → CLOSED]
+## 1. OPEN 후 30초 대기
+## 2. 1-1 요청 → HALF_OPEN 전이 + 시험 호출
+## 3. PG 시뮬레이터 켜고 시험 호출 성공 → CLOSED 복구
+##
+## [테스트 3: slowCall → OPEN]
+## 1. slow-call-duration-threshold: 300ms 설정 확인
+## 2. PG 시뮬레이터 켜고 결제 요청 반복
+## 3. 300ms~500ms 응답이 slowCall로 카운트
+## 4. slowCallRate 50% 넘으면 OPEN
+##
+## [테스트 4: Retry 확인]
+## 1. PG 시뮬레이터 끄기
+## 2. 3-1 Admin 동기화 호출 (pg-query 서킷 사용)
+## 3. 로그에서 Elapsed time ≈ 500ms 확인 (wait-duration)
+##
+## [테스트 5: pg-request / pg-query 독립 동작]
+## 1. 결제 요청 반복 → pg-request OPEN
+## 2. 4-1로 확인: pg-request=OPEN, pg-query=CLOSED
+## 3. 3-1 Admin 동기화 호출 → pg-query는 정상 동작
