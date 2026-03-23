@@ -5,6 +5,7 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
@@ -27,13 +28,17 @@ class HandlePaymentCallbackUseCaseTest {
 
     private lateinit var paymentRepository: FakePaymentRepository
     private lateinit var orderRepository: FakeOrderRepository
+    private lateinit var orderItemRepository: FakeOrderItemRepository
     private lateinit var useCase: HandlePaymentCallbackUseCase
 
     @BeforeEach
     fun setUp() {
         paymentRepository = FakePaymentRepository()
         orderRepository = FakeOrderRepository()
-        useCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository, ApplicationEventPublisher { })
+        orderItemRepository = FakeOrderItemRepository()
+        useCase = HandlePaymentCallbackUseCase(
+            paymentRepository, orderRepository, orderItemRepository, ApplicationEventPublisher { },
+        )
     }
 
     private fun createPendingOrder(): Order {
@@ -44,6 +49,8 @@ class HandlePaymentCallbackUseCaseTest {
             ),
         )
         val saved = orderRepository.save(order)
+        saved.assignOrderIdToItems(saved.id)
+        orderItemRepository.saveAll(saved.items)
         saved.markPendingPayment()
         orderRepository.save(saved)
         return saved
@@ -96,6 +103,7 @@ class HandlePaymentCallbackUseCaseTest {
             val trackingUseCase = HandlePaymentCallbackUseCase(
                 paymentRepository,
                 orderRepository,
+                orderItemRepository,
                 ApplicationEventPublisher { publishedEvents.add(it) },
             )
 
@@ -114,6 +122,9 @@ class HandlePaymentCallbackUseCaseTest {
             assertThat(completedEvents[0].orderId).isEqualTo(order.id.value)
             assertThat(completedEvents[0].userId).isEqualTo(order.refUserId.value)
             assertThat(completedEvents[0].totalAmount).isEqualTo(10000L)
+            assertThat(completedEvents[0].items).hasSize(1)
+            assertThat(completedEvents[0].items[0].productId).isEqualTo(1L)
+            assertThat(completedEvents[0].items[0].quantity).isEqualTo(1)
         }
     }
 
@@ -156,6 +167,7 @@ class HandlePaymentCallbackUseCaseTest {
             val trackingUseCase = HandlePaymentCallbackUseCase(
                 paymentRepository,
                 orderRepository,
+                orderItemRepository,
                 ApplicationEventPublisher { publishedEvents.add(it) },
             )
 

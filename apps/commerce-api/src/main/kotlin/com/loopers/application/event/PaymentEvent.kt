@@ -6,7 +6,13 @@ sealed interface PaymentEvent {
         val orderId: Long,
         val userId: Long,
         val totalAmount: Long,
-    ) : PaymentEvent
+        val items: List<OrderedProduct>,
+    ) : PaymentEvent {
+        data class OrderedProduct(
+            val productId: Long,
+            val quantity: Int,
+        )
+    }
 
     data class Failed(
         val orderId: Long,

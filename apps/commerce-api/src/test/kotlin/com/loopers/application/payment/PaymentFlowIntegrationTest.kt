@@ -4,6 +4,7 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
@@ -55,7 +56,9 @@ class PaymentFlowIntegrationTest {
         fakePaymentPgProcessor = FakePaymentPgProcessor()
         paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
         requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, fakePaymentPgProcessor)
-        handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository, ApplicationEventPublisher { })
+        handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(
+            paymentRepository, orderRepository, FakeOrderItemRepository(), ApplicationEventPublisher { },
+        )
         recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
     }

@@ -12,6 +12,8 @@ class OrderOutbox(
     val userId: Long,
     val totalAmount: Long? = null,
     val reason: String? = null,
+    val productId: Long? = null,
+    val quantity: Int? = null,
     var published: Boolean = false,
 ) {
 

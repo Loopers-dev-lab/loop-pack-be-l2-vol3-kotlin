@@ -19,14 +19,18 @@ class PaymentEventListener(
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun handleCompleted(event: PaymentEvent.Completed) {
-        val outbox = OrderOutbox(
-            eventType = "PAYMENT_COMPLETED",
-            orderId = event.orderId,
-            userId = event.userId,
-            totalAmount = event.totalAmount,
-        )
-        orderOutboxRepository.save(outbox)
-        log.info("OrderOutbox 기록: eventType=PAYMENT_COMPLETED, orderId={}", event.orderId)
+        for (item in event.items) {
+            val outbox = OrderOutbox(
+                eventType = "PAYMENT_COMPLETED",
+                orderId = event.orderId,
+                userId = event.userId,
+                totalAmount = event.totalAmount,
+                productId = item.productId,
+                quantity = item.quantity,
+            )
+            orderOutboxRepository.save(outbox)
+        }
+        log.info("OrderOutbox 기록: eventType=PAYMENT_COMPLETED, orderId={}, items={}", event.orderId, event.items.size)
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

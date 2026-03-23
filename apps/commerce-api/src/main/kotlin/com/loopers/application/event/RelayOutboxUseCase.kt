@@ -60,6 +60,8 @@ class RelayOutboxUseCase(
                         "userId" to outbox.userId,
                         "totalAmount" to outbox.totalAmount,
                         "reason" to outbox.reason,
+                        "productId" to outbox.productId,
+                        "quantity" to outbox.quantity,
                     ),
                 )
                 outbox.markPublished()

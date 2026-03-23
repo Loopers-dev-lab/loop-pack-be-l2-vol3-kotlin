@@ -15,16 +15,24 @@ class PaymentEventTest {
         @DisplayName("orderId, userId, totalAmount 필드를 포함한다")
         fun completed_hasRequiredFields() {
             // arrange & act
+            val items = listOf(
+                PaymentEvent.Completed.OrderedProduct(productId = 1L, quantity = 2),
+                PaymentEvent.Completed.OrderedProduct(productId = 2L, quantity = 1),
+            )
             val event = PaymentEvent.Completed(
                 orderId = 1L,
                 userId = 100L,
                 totalAmount = 50000L,
+                items = items,
             )
 
             // assert
             assertThat(event.orderId).isEqualTo(1L)
             assertThat(event.userId).isEqualTo(100L)
             assertThat(event.totalAmount).isEqualTo(50000L)
+            assertThat(event.items).hasSize(2)
+            assertThat(event.items[0].productId).isEqualTo(1L)
+            assertThat(event.items[0].quantity).isEqualTo(2)
         }
     }
 

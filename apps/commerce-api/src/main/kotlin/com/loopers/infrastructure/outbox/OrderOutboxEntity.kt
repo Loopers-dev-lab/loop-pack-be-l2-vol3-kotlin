@@ -26,6 +26,10 @@ class OrderOutboxEntity(
     val totalAmount: Long?,
     @Column(name = "reason")
     val reason: String?,
+    @Column(name = "product_id")
+    val productId: Long?,
+    @Column(name = "quantity")
+    val quantity: Int?,
     @Column(name = "published", nullable = false)
     var published: Boolean = false,
 ) : BaseEntity() {
@@ -39,6 +43,8 @@ class OrderOutboxEntity(
                 userId = outbox.userId,
                 totalAmount = outbox.totalAmount,
                 reason = outbox.reason,
+                productId = outbox.productId,
+                quantity = outbox.quantity,
                 published = outbox.published,
             ).withBaseFields(id = outbox.id)
         }
@@ -52,6 +58,8 @@ class OrderOutboxEntity(
         userId = userId,
         totalAmount = totalAmount,
         reason = reason,
+        productId = productId,
+        quantity = quantity,
         published = published,
     )
 }

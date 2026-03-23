@@ -30,16 +30,22 @@ class PaymentEventListenerTest {
                 orderId = 1L,
                 userId = 100L,
                 totalAmount = 50000L,
+                items = listOf(
+                    PaymentEvent.Completed.OrderedProduct(productId = 10L, quantity = 2),
+                    PaymentEvent.Completed.OrderedProduct(productId = 20L, quantity = 1),
+                ),
             )
 
             listener.handleCompleted(event)
 
             val outboxList = orderOutboxRepository.findAllUnpublished()
-            assertThat(outboxList).hasSize(1)
+            assertThat(outboxList).hasSize(2)
             assertThat(outboxList[0].eventType).isEqualTo("PAYMENT_COMPLETED")
             assertThat(outboxList[0].orderId).isEqualTo(1L)
-            assertThat(outboxList[0].userId).isEqualTo(100L)
-            assertThat(outboxList[0].totalAmount).isEqualTo(50000L)
+            assertThat(outboxList[0].productId).isEqualTo(10L)
+            assertThat(outboxList[0].quantity).isEqualTo(2)
+            assertThat(outboxList[1].productId).isEqualTo(20L)
+            assertThat(outboxList[1].quantity).isEqualTo(1)
         }
     }
 
