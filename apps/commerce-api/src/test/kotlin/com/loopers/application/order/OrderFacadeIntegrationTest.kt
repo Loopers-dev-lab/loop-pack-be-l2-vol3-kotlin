@@ -19,16 +19,23 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import com.loopers.domain.payment.CardType
+import com.loopers.domain.payment.PaymentGateway
+import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
 import java.util.concurrent.CountDownLatch
@@ -44,6 +51,22 @@ class OrderFacadeIntegrationTest @Autowired constructor(
     private val issuedCouponRepository: IssuedCouponRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
+
+    @MockitoBean
+    private lateinit var paymentGateway: PaymentGateway
+
+    @BeforeEach
+    fun setUpPaymentGateway() {
+        whenever(paymentGateway.requestPayment(any(), any(), any(), any(), any(), any())).thenReturn(
+            PaymentGatewayResponse(transactionKey = "txn-test", status = "PENDING", reason = null),
+        )
+        whenever(paymentGateway.getTransactionsByOrderId(any(), any())).thenReturn(emptyList())
+    }
+
+    companion object {
+        private val TEST_CARD_TYPE = CardType.SAMSUNG
+        private const val TEST_CARD_NO = "1234-5678-9012-3456"
+    }
 
     @AfterEach
     fun tearDown() {
@@ -98,7 +121,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(2)))
 
             // act
-            orderFacade.placeOrder(userId, items, coupon.id)
+            orderFacade.placeOrder(userId, items, coupon.id, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
 
             // assert
             val orders = orderService.getOrders(userId, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))
@@ -124,7 +147,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(2)))
 
             // act
-            orderFacade.placeOrder(userId, items, coupon.id)
+            orderFacade.placeOrder(userId, items, coupon.id, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
 
             // assert
             val orders = orderService.getOrders(userId, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))
@@ -146,7 +169,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(2)))
 
             // act
-            orderFacade.placeOrder(userId, items, null)
+            orderFacade.placeOrder(userId, items, null, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
 
             // assert
             val orders = orderService.getOrders(userId, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))
@@ -171,7 +194,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1)))
 
             // act
-            orderFacade.placeOrder(userId, items, coupon.id)
+            orderFacade.placeOrder(userId, items, coupon.id, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
 
             // assert
             val issuedCoupons = issuedCouponRepository.findByUserId(userId)
@@ -190,7 +213,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                orderFacade.placeOrder(userId, items, 999L)
+                orderFacade.placeOrder(userId, items, 999L, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
             }
 
             // assert
@@ -212,7 +235,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                orderFacade.placeOrder(userId, items, coupon.id)
+                orderFacade.placeOrder(userId, items, coupon.id, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
             }
 
             // assert
@@ -235,7 +258,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                orderFacade.placeOrder(userId, items, coupon.id)
+                orderFacade.placeOrder(userId, items, coupon.id, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
             }
 
             // assert
@@ -256,7 +279,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
 
             // act
             val exception = assertThrows<CoreException> {
-                orderFacade.placeOrder(userId, items, coupon.id)
+                orderFacade.placeOrder(userId, items, coupon.id, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO)
             }
 
             // assert
@@ -284,7 +307,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             repeat(threadCount) {
                 executor.submit {
                     try {
-                        val result = runCatching { orderFacade.placeOrder(userId, items, coupon.id) }
+                        val result = runCatching { orderFacade.placeOrder(userId, items, coupon.id, cardType = TEST_CARD_TYPE, cardNo = TEST_CARD_NO) }
                         synchronized(results) { results.add(result) }
                     } finally {
                         latch.countDown()
@@ -319,8 +342,8 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val idempotencyKey = "test-idempotency-key-123"
 
             // act
-            orderFacade.placeOrder(userId, items, null, idempotencyKey)
-            orderFacade.placeOrder(userId, items, null, idempotencyKey)
+            orderFacade.placeOrder(userId, items, null, idempotencyKey, TEST_CARD_TYPE, TEST_CARD_NO)
+            orderFacade.placeOrder(userId, items, null, idempotencyKey, TEST_CARD_TYPE, TEST_CARD_NO)
 
             // assert
             val orders = orderService.getOrders(userId, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))
@@ -337,8 +360,8 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1)))
 
             // act
-            orderFacade.placeOrder(userId, items, null, "key-1")
-            orderFacade.placeOrder(userId, items, null, "key-2")
+            orderFacade.placeOrder(userId, items, null, "key-1", TEST_CARD_TYPE, TEST_CARD_NO)
+            orderFacade.placeOrder(userId, items, null, "key-2", TEST_CARD_TYPE, TEST_CARD_NO)
 
             // assert
             val orders = orderService.getOrders(userId, LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))

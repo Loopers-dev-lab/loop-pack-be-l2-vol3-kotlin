@@ -40,6 +40,10 @@ class IssuedCoupon(
         usedAt = ZonedDateTime.now()
     }
 
+    fun unuse() {
+        usedAt = null
+    }
+
     fun validateUsable(couponExpiresAt: ZonedDateTime) {
         when (status(couponExpiresAt)) {
             IssuedCouponStatus.USED -> throw CoreException(ErrorType.BAD_REQUEST, "이미 사용된 쿠폰입니다.")

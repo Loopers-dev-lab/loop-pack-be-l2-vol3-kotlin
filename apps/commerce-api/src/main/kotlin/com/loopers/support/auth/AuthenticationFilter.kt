@@ -1,7 +1,6 @@
 package com.loopers.support.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.Filter
@@ -11,7 +10,6 @@ import jakarta.servlet.ServletResponse
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.core.annotation.Order
-import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 
 @Component
@@ -30,6 +28,7 @@ class AuthenticationFilter(
             "/api/v1/users/signup",
             "/api/v1/brands",
             "/api/v1/products",
+            "/api/v1/payments/callback",
             "/api/v1/examples",
             "/api-admin/",
             "/actuator",
@@ -52,7 +51,7 @@ class AuthenticationFilter(
                 val password = httpRequest.getHeader(LOGIN_PW_HEADER)
 
                 if (loginId.isNullOrBlank() || password.isNullOrBlank()) {
-                    writeErrorResponse(httpResponse, ErrorType.UNAUTHORIZED, "인증 헤더가 필요합니다.")
+                    httpResponse.writeFilterErrorResponse(objectMapper, ErrorType.UNAUTHORIZED, "인증 헤더가 필요합니다.")
                     return
                 }
 
@@ -62,7 +61,7 @@ class AuthenticationFilter(
 
             chain.doFilter(request, response)
         } catch (e: CoreException) {
-            writeErrorResponse(httpResponse, e.errorType, e.message ?: e.errorType.message)
+            httpResponse.writeFilterErrorResponse(objectMapper, e.errorType, e.message ?: e.errorType.message)
         }
     }
 
@@ -72,14 +71,5 @@ class AuthenticationFilter(
             return true
         }
         return AUTH_EXCLUDE_PATHS.none { path.startsWith(it) }
-    }
-
-    private fun writeErrorResponse(response: HttpServletResponse, errorType: ErrorType, message: String) {
-        response.status = errorType.status.value()
-        response.contentType = MediaType.APPLICATION_JSON_VALUE
-        response.characterEncoding = "UTF-8"
-
-        val errorResponse = ApiResponse.fail(errorType.code, message)
-        response.writer.write(objectMapper.writeValueAsString(errorResponse))
     }
 }

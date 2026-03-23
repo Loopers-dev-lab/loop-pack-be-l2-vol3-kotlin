@@ -13,6 +13,10 @@ class StockQuantity private constructor(
 
     override fun toString(): String = value.toString()
 
+    operator fun plus(other: Quantity): StockQuantity {
+        return StockQuantity(value + other.value)
+    }
+
     operator fun minus(other: Quantity): StockQuantity {
         val result = value - other.value
         if (result < 0) {

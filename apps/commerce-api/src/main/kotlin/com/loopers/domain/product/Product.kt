@@ -86,6 +86,10 @@ class Product(
         this.stockQuantity = this.stockQuantity - quantity
     }
 
+    fun restoreStock(quantity: Quantity) {
+        this.stockQuantity = this.stockQuantity + quantity
+    }
+
     companion object {
         fun create(
             name: String,

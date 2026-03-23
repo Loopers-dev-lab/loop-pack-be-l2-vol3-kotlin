@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderFacade
+import com.loopers.domain.payment.CardType
 import com.loopers.support.auth.AuthenticatedUserInfo
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.auth.AuthenticatedUser
@@ -46,7 +47,14 @@ class OrderController(
         @RequestHeader("Idempotency-Key") idempotencyKey: String,
         @RequestBody request: OrderDto.PlaceOrderRequest,
     ): ApiResponse<Unit> {
-        orderFacade.placeOrder(userInfo.id, request.toCommands(), request.couponId, idempotencyKey)
+        orderFacade.placeOrder(
+            userId = userInfo.id,
+            items = request.toCommands(),
+            couponId = request.couponId,
+            idempotencyKey = idempotencyKey,
+            cardType = CardType.valueOf(request.cardType),
+            cardNo = request.cardNo,
+        )
         return ApiResponse.success(Unit)
     }
 }
