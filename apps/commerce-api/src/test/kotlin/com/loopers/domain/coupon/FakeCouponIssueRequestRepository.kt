@@ -23,6 +23,10 @@ class FakeCouponIssueRequestRepository : CouponIssueRequestRepository {
         return store.find { it.requestId == requestId }
     }
 
+    override fun findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest? {
+        return store.find { it.requestId == requestId && it.userId == userId }
+    }
+
     private fun setId(entity: CouponIssueRequest, id: Long) {
         CouponIssueRequest::class.java.getDeclaredField("id").apply {
             isAccessible = true

@@ -5,4 +5,5 @@ import com.loopers.domain.coupon.model.CouponIssueRequest
 interface CouponIssueRequestRepository {
     fun save(request: CouponIssueRequest): CouponIssueRequest
     fun findByRequestId(requestId: String): CouponIssueRequest?
+    fun findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest?
 }

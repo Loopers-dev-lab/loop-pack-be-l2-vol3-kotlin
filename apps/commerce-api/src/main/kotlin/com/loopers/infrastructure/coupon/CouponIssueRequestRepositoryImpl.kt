@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository
 
 interface CouponIssueRequestJpaRepository : JpaRepository<CouponIssueRequestEntity, Long> {
     fun findByRequestId(requestId: String): CouponIssueRequestEntity?
+    fun findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequestEntity?
 }
 
 @Repository
@@ -19,4 +20,7 @@ class CouponIssueRequestRepositoryImpl(
 
     override fun findByRequestId(requestId: String): CouponIssueRequest? =
         couponIssueRequestJpaRepository.findByRequestId(requestId)?.toDomain()
+
+    override fun findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest? =
+        couponIssueRequestJpaRepository.findByRequestIdAndUserId(requestId, userId)?.toDomain()
 }

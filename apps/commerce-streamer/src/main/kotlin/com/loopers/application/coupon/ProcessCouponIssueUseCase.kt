@@ -50,10 +50,15 @@ class ProcessCouponIssueUseCase(
         }
 
         if (!coupon.canIssue()) {
-            request.markSoldOut()
+            if (coupon.isSoldOut()) {
+                request.markSoldOut()
+                log.info("쿠폰 소진: couponId={}", couponId)
+            } else {
+                request.markFailed()
+                log.warn("쿠폰 발급 불가(삭제/만료): couponId={}", couponId)
+            }
             couponIssueRequestRepository.save(request)
             eventHandledRepository.save(EventHandled(eventId = eventId))
-            log.info("쿠폰 소진: couponId={}", couponId)
             return
         }
 

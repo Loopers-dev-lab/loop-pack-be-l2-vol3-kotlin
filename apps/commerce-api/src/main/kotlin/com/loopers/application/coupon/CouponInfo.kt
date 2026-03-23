@@ -80,13 +80,7 @@ data class MyCouponInfo(
 
 data class CouponIssueRequestInfo(
     val requestId: String,
-) {
-    companion object {
-        fun from(request: CouponIssueRequest): CouponIssueRequestInfo = CouponIssueRequestInfo(
-            requestId = request.requestId,
-        )
-    }
-}
+)
 
 data class CouponIssueStatusInfo(
     val requestId: String,

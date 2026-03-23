@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.util.UUID
 
 class CouponIssueRequestTest {
 
@@ -18,27 +19,14 @@ class CouponIssueRequestTest {
     inner class Create {
 
         @Test
-        fun `유효한 필드로 생성하면 requestId가 자동 생성되고 상태는 PENDING이다`() {
-            val request = CouponIssueRequest(couponId = 1L, userId = 1L)
+        fun `유효한 필드로 생성하면 상태는 PENDING이다`() {
+            val requestId = UUID.randomUUID().toString()
+            val request = CouponIssueRequest(requestId = requestId, couponId = 1L, userId = 1L)
 
-            assertThat(request.requestId).isNotBlank()
+            assertThat(request.requestId).isEqualTo(requestId)
             assertThat(request.couponId).isEqualTo(1L)
             assertThat(request.userId).isEqualTo(1L)
             assertThat(request.status).isEqualTo(CouponIssueStatus.PENDING)
-        }
-
-        @Test
-        fun `couponId가 0 이하이면 예외가 발생한다`() {
-            assertThatThrownBy {
-                CouponIssueRequest(couponId = 0L, userId = 1L)
-            }.isInstanceOf(CoreException::class.java)
-        }
-
-        @Test
-        fun `userId가 0 이하이면 예외가 발생한다`() {
-            assertThatThrownBy {
-                CouponIssueRequest(couponId = 1L, userId = 0L)
-            }.isInstanceOf(CoreException::class.java)
         }
     }
 
@@ -48,28 +36,28 @@ class CouponIssueRequestTest {
 
         @Test
         fun `PENDING 상태에서 SUCCESS로 변경된다`() {
-            val request = CouponIssueRequest(couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
             request.markSuccess()
             assertThat(request.status).isEqualTo(CouponIssueStatus.SUCCESS)
         }
 
         @Test
         fun `PENDING 상태에서 SOLD_OUT으로 변경된다`() {
-            val request = CouponIssueRequest(couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
             request.markSoldOut()
             assertThat(request.status).isEqualTo(CouponIssueStatus.SOLD_OUT)
         }
 
         @Test
         fun `PENDING 상태에서 DUPLICATE로 변경된다`() {
-            val request = CouponIssueRequest(couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
             request.markDuplicate()
             assertThat(request.status).isEqualTo(CouponIssueStatus.DUPLICATE)
         }
 
         @Test
         fun `PENDING이 아닌 상태에서 변경하면 예외가 발생한다`() {
-            val request = CouponIssueRequest(couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
             request.markSuccess()
 
             assertThatThrownBy { request.markSoldOut() }
@@ -90,7 +78,7 @@ class CouponIssueRequestTest {
 
         @Test
         fun `저장 후 requestId로 조회된다`() {
-            val request = repository.save(CouponIssueRequest(couponId = 1L, userId = 1L))
+            val request = repository.save(CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L))
 
             val found = repository.findByRequestId(request.requestId)
 

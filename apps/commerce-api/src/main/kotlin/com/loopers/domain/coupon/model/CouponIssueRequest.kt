@@ -2,11 +2,10 @@ package com.loopers.domain.coupon.model
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import java.util.UUID
 
 class CouponIssueRequest(
     val id: Long = 0,
-    val requestId: String = UUID.randomUUID().toString(),
+    val requestId: String,
     val couponId: Long,
     val userId: Long,
     status: CouponIssueStatus = CouponIssueStatus.PENDING,
@@ -14,11 +13,6 @@ class CouponIssueRequest(
 
     var status: CouponIssueStatus = status
         private set
-
-    init {
-        if (couponId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "couponId는 양수여야 합니다.")
-        if (userId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
-    }
 
     enum class CouponIssueStatus {
         PENDING,

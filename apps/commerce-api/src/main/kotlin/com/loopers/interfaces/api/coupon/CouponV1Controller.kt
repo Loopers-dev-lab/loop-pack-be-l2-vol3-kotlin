@@ -49,7 +49,7 @@ class CouponV1Controller(
         @AuthUser userId: Long,
         @PathVariable requestId: String,
     ): ApiResponse<CouponV1Dto.IssueStatusResponse> {
-        return getCouponIssueStatusUseCase.execute(requestId)
+        return getCouponIssueStatusUseCase.execute(requestId, userId)
             .let { ApiResponse.success(CouponV1Dto.IssueStatusResponse.from(it)) }
     }
 
