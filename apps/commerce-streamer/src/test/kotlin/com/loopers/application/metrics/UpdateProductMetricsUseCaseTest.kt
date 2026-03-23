@@ -31,7 +31,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `ProductViewed 이벤트를 처리하면 viewCount가 증가한다`() {
             useCase.handleCatalogEvent(
                 eventId = "evt-1",
-                eventType = "ProductViewed",
+                eventType = UpdateProductMetricsUseCase.PRODUCT_VIEWED,
                 productId = 1L,
             )
 
@@ -43,7 +43,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `LikeAdded 이벤트를 처리하면 likeCount가 증가한다`() {
             useCase.handleCatalogEvent(
                 eventId = "evt-1",
-                eventType = "LikeAdded",
+                eventType = UpdateProductMetricsUseCase.LIKE_ADDED,
                 productId = 1L,
             )
 
@@ -57,7 +57,7 @@ class UpdateProductMetricsUseCaseTest {
 
             useCase.handleCatalogEvent(
                 eventId = "evt-1",
-                eventType = "LikeRemoved",
+                eventType = UpdateProductMetricsUseCase.LIKE_REMOVED,
                 productId = 1L,
             )
 
@@ -67,9 +67,9 @@ class UpdateProductMetricsUseCaseTest {
 
         @Test
         fun `같은 상품에 여러 이벤트를 누적 처리한다`() {
-            useCase.handleCatalogEvent("evt-1", "ProductViewed", 1L)
-            useCase.handleCatalogEvent("evt-2", "ProductViewed", 1L)
-            useCase.handleCatalogEvent("evt-3", "LikeAdded", 1L)
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+            useCase.handleCatalogEvent("evt-2", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+            useCase.handleCatalogEvent("evt-3", UpdateProductMetricsUseCase.LIKE_ADDED, 1L)
 
             val metrics = productMetricsRepository.findByProductId(1L)
             assertThat(metrics?.viewCount).isEqualTo(2)
@@ -82,7 +82,7 @@ class UpdateProductMetricsUseCaseTest {
 
             useCase.handleCatalogEvent(
                 eventId = "evt-1",
-                eventType = "ProductViewed",
+                eventType = UpdateProductMetricsUseCase.PRODUCT_VIEWED,
                 productId = 1L,
             )
 
@@ -104,7 +104,7 @@ class UpdateProductMetricsUseCaseTest {
 
         @Test
         fun `처리 후 EventHandled가 저장된다`() {
-            useCase.handleCatalogEvent("evt-1", "ProductViewed", 1L)
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
 
             assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue()
         }
@@ -118,7 +118,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `PaymentCompleted 이벤트를 처리하면 salesCount가 증가한다`() {
             useCase.handleOrderEvent(
                 eventId = "evt-1",
-                eventType = "PaymentCompleted",
+                eventType = UpdateProductMetricsUseCase.PAYMENT_COMPLETED,
                 productId = 1L,
                 quantity = 2,
             )
@@ -131,7 +131,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `이미 처리된 eventId는 무시한다`() {
             eventHandledRepository.save(EventHandled(eventId = "evt-1"))
 
-            useCase.handleOrderEvent("evt-1", "PaymentCompleted", 1L, 1)
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 1)
 
             val metrics = productMetricsRepository.findByProductId(1L)
             assertThat(metrics).isNull()
@@ -147,7 +147,7 @@ class UpdateProductMetricsUseCaseTest {
 
         @Test
         fun `처리 후 EventHandled가 저장된다`() {
-            useCase.handleOrderEvent("evt-1", "PaymentCompleted", 1L, 1)
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 1)
 
             assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue()
         }

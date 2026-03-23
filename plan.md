@@ -54,52 +54,60 @@ Outbox + Kafka 파이프라인으로 시스템 간 이벤트 전파를 구현한
 
 #### A. Event 클래스 (Application Layer)
 
-- [ ] [P-A] A-1: [RED] PaymentEvent.Completed가 orderId, userId, totalAmount를 포함한다 → [GREEN] PaymentEvent sealed interface (Completed, Failed)
-- [ ] [P-B] A-2: [RED] CatalogEvent가 productId, userId를 포함한다 → [GREEN] CatalogEvent sealed interface (LikeAdded, LikeRemoved, ProductViewed)
+- [x] [P-A] A-1: [RED] PaymentEvent.Completed가 orderId, userId, totalAmount를 포함한다 → [GREEN] PaymentEvent sealed interface (Completed, Failed)
+- [x] [P-B] A-2: [RED] CatalogEvent가 productId, userId를 포함한다 → [GREEN] CatalogEvent sealed interface (LikeAdded, LikeRemoved, ProductViewed)
 
 #### B. EventListener
 
-- [ ] [P-A] B-1: [RED] PaymentEvent.Completed 발행 시 메트릭스 집계(판매량) 핸들러가 호출된다 → [GREEN] PaymentEventListener (@TransactionalEventListener AFTER_COMMIT)
-- [ ] [P-B] B-2: [RED] CatalogEvent 발행 시 메트릭스 핸들러가 호출된다 → [GREEN] CatalogMetricsEventListener (@TransactionalEventListener AFTER_COMMIT)
+- [x] [P-A] B-1: [RED] PaymentEvent.Completed 발행 시 메트릭스 집계(판매량) 핸들러가 호출된다 → [GREEN] PaymentEventListener (@TransactionalEventListener AFTER_COMMIT)
+- [x] [P-B] B-2: [RED] CatalogEvent 발행 시 메트릭스 핸들러가 호출된다 → [GREEN] CatalogMetricsEventListener (@TransactionalEventListener AFTER_COMMIT)
 
 #### C. 기존 UseCase 수정 (이벤트 발행 추가)
 
-- [ ] [P-A] C-1: [RED] 결제 성공 콜백 시 PaymentEvent.Completed가 발행된다 → [GREEN] HandlePaymentCallbackUseCase에 eventPublisher 주입 + 발행
-- [ ] [P-B] C-2: [RED] 좋아요 추가 시 CatalogEvent.LikeAdded가 발행된다 → [GREEN] AddLikeUseCase에 이벤트 발행 추가
-- [ ] [P-B] C-3: [RED] 좋아요 삭제 시 CatalogEvent.LikeRemoved가 발행된다 → [GREEN] RemoveLikeUseCase에 이벤트 발행 추가
-- [ ] [P-C] C-4: [RED] 상품 상세 조회 시 CatalogEvent.ProductViewed가 발행된다 → [GREEN] GetProductUseCase에 eventPublisher 주입 + 발행
+- [x] [P-A] C-1: [RED] 결제 성공 콜백 시 PaymentEvent.Completed가 발행된다 → [GREEN] HandlePaymentCallbackUseCase에 eventPublisher 주입 + 발행
+- [x] [P-B] C-2: [RED] 좋아요 추가 시 CatalogEvent.LikeAdded가 발행된다 → [GREEN] AddLikeUseCase에 이벤트 발행 추가
+- [x] [P-B] C-3: [RED] 좋아요 삭제 시 CatalogEvent.LikeRemoved가 발행된다 → [GREEN] RemoveLikeUseCase에 이벤트 발행 추가
+- [x] [P-C] C-4: [RED] 상품 상세 조회 시 CatalogEvent.ProductViewed가 발행된다 → [GREEN] GetProductUseCase에 eventPublisher 주입 + 발행
 
 --- checkpoint: Step 1 lint + test ---
+
+#### QA 리뷰 반영
+
+- [x] W1: OptionalAuthInterceptor 신규 생성 — 상품 목록/상세 조회 경로에 선택적 인증 지원. AuthUserArgumentResolver에 nullable 파라미터 지원 추가. ProductV1ApiSpec/Controller에 `@AuthUser userId: Long?` 추가
+- [x] W2: RemoveLikeUseCase — CatalogEvent.LikeRemoved 발행 위치를 메서드 마지막으로 이동 (AddLikeUseCase와 일관성 확보)
+- [x] W4: HandlePaymentCallbackUseCaseTest — PaymentEvent.Completed/Failed 발행 검증 테스트 추가
+
+--- checkpoint: Step 1 QA 리뷰 반영 + lint + test ---
 
 ### Step 2 — Outbox + Kafka (commerce-api 측)
 
 #### D. Domain Model — Outbox
 
-- [ ] [P-A] D-1: [RED] CatalogOutbox 생성 시 필수 필드(eventType, productId, userId)가 검증된다 → [GREEN] CatalogOutbox 도메인 모델
-- [ ] [P-B] D-2: [RED] OrderOutbox 생성 시 필수 필드(eventType, orderId, userId)가 검증된다 → [GREEN] OrderOutbox 도메인 모델
-- [ ] [P-C] D-3: [RED] CouponOutbox 생성 시 필수 필드(eventType, couponId, userId)가 검증된다 → [GREEN] CouponOutbox 도메인 모델
+- [x] [P-A] D-1: [RED] CatalogOutbox 생성 시 필수 필드(eventType, productId, userId)가 검증된다 → [GREEN] CatalogOutbox 도메인 모델
+- [x] [P-B] D-2: [RED] OrderOutbox 생성 시 필수 필드(eventType, orderId, userId)가 검증된다 → [GREEN] OrderOutbox 도메인 모델
+- [x] [P-C] D-3: [RED] CouponOutbox 생성 시 필수 필드(eventType, couponId, userId)가 검증된다 → [GREEN] CouponOutbox 도메인 모델
 
 #### E. Repository 인터페이스 + Fake
 
-- [ ] [P-A] E-1: [RED] CatalogOutboxRepository에서 미발행 메시지를 조회하고 발행 완료로 마킹한다 → [GREEN] 인터페이스 + FakeCatalogOutboxRepository
-- [ ] [P-B] E-2: [RED] OrderOutboxRepository에서 미발행 메시지를 조회하고 발행 완료로 마킹한다 → [GREEN] 인터페이스 + FakeOrderOutboxRepository
-- [ ] [P-C] E-3: [RED] CouponOutboxRepository에서 미발행 메시지를 조회하고 발행 완료로 마킹한다 → [GREEN] 인터페이스 + FakeCouponOutboxRepository
+- [x] [P-A] E-1: [RED] CatalogOutboxRepository에서 미발행 메시지를 조회하고 발행 완료로 마킹한다 → [GREEN] 인터페이스 + FakeCatalogOutboxRepository
+- [x] [P-B] E-2: [RED] OrderOutboxRepository에서 미발행 메시지를 조회하고 발행 완료로 마킹한다 → [GREEN] 인터페이스 + FakeOrderOutboxRepository
+- [x] [P-C] E-3: [RED] CouponOutboxRepository에서 미발행 메시지를 조회하고 발행 완료로 마킹한다 → [GREEN] 인터페이스 + FakeCouponOutboxRepository
 
 #### F. Infrastructure — Outbox (Entity + Impl)
 
-- [ ] [P-A] F-1: [RED] CatalogOutbox를 DB에 저장하고 미발행 목록을 조회한다 → [GREEN] CatalogOutboxEntity + CatalogOutboxRepositoryImpl
-- [ ] [P-B] F-2: [RED] OrderOutbox를 DB에 저장하고 미발행 목록을 조회한다 → [GREEN] OrderOutboxEntity + OrderOutboxRepositoryImpl
-- [ ] [P-C] F-3: [RED] CouponOutbox를 DB에 저장하고 미발행 목록을 조회한다 → [GREEN] CouponOutboxEntity + CouponOutboxRepositoryImpl
+- [x] [P-A] F-1: [RED] CatalogOutbox를 DB에 저장하고 미발행 목록을 조회한다 → [GREEN] CatalogOutboxEntity + CatalogOutboxRepositoryImpl
+- [x] [P-B] F-2: [RED] OrderOutbox를 DB에 저장하고 미발행 목록을 조회한다 → [GREEN] OrderOutboxEntity + OrderOutboxRepositoryImpl
+- [x] [P-C] F-3: [RED] CouponOutbox를 DB에 저장하고 미발행 목록을 조회한다 → [GREEN] CouponOutboxEntity + CouponOutboxRepositoryImpl
 
 #### G. EventListener → Outbox 전환
 
-- [ ] G-1: [RED] CatalogEvent 발행 시 CatalogOutbox에 기록된다 → [GREEN] CatalogMetricsEventListener가 Outbox 기록으로 전환
-- [ ] G-2: [RED] PaymentEvent.Completed 발행 시 OrderOutbox에 기록된다 → [GREEN] PaymentEventListener가 Outbox 기록으로 전환
+- [x] G-1: [RED] CatalogEvent 발행 시 CatalogOutbox에 기록된다 → [GREEN] CatalogMetricsEventListener가 Outbox 기록으로 전환
+- [x] G-2: [RED] PaymentEvent.Completed 발행 시 OrderOutbox에 기록된다 → [GREEN] PaymentEventListener가 Outbox 기록으로 전환
 
 #### H. Outbox Relay + Kafka Producer
 
-- [ ] H-1: [RED] Relay 실행 시 미발행 Outbox 메시지가 Kafka로 발행되고 published=true로 마킹된다 → [GREEN] OutboxRelayScheduler
-- [ ] H-2: Kafka Producer 설정 (acks=all, idempotence=true, partitionKey=aggregateId)
+- [x] H-1: [RED] Relay 실행 시 미발행 Outbox 메시지가 Kafka로 발행되고 published=true로 마킹된다 → [GREEN] OutboxRelayScheduler
+- [x] H-2: Kafka Producer 설정 (acks=all, idempotence=true, partitionKey=aggregateId)
 
 --- checkpoint: Step 2 commerce-api lint + test ---
 
@@ -107,19 +115,29 @@ Outbox + Kafka 파이프라인으로 시스템 간 이벤트 전파를 구현한
 
 #### I. Domain Model
 
-- [ ] [P-A] I-1: [RED] ProductMetrics 생성 시 productId가 필수이다 → [GREEN] ProductMetrics 모델 (productId, viewCount, likeCount, salesCount)
-- [ ] [P-B] I-2: [RED] EventHandled에 eventId 존재 여부를 확인한다 → [GREEN] EventHandled 모델 (eventId PK, handledAt)
+- [x] [P-A] I-1: [RED] ProductMetrics 생성 시 productId가 필수이다 → [GREEN] ProductMetrics 모델 (productId, viewCount, likeCount, salesCount)
+- [x] [P-B] I-2: [RED] EventHandled에 eventId 존재 여부를 확인한다 → [GREEN] EventHandled 모델 (eventId PK, handledAt)
 
 #### J. Repository + Infrastructure
 
-- [ ] [P-A] J-1: [RED] ProductMetrics를 productId로 조회하고 upsert 한다 → [GREEN] Repository 인터페이스 + Fake + Entity + Impl
-- [ ] [P-B] J-2: [RED] EventHandled를 eventId로 존재 여부 확인 + 저장한다 → [GREEN] Repository 인터페이스 + Fake + Entity + Impl
+- [x] [P-A] J-1: [RED] ProductMetrics를 productId로 조회하고 upsert 한다 → [GREEN] Repository 인터페이스 + Fake + Entity + Impl
+- [x] [P-B] J-2: [RED] EventHandled를 eventId로 존재 여부 확인 + 저장한다 → [GREEN] Repository 인터페이스 + Fake + Entity + Impl
 
 #### K. Consumer
 
-- [ ] K-1: [RED] catalog-events 메시지 소비 시 ProductMetrics 조회수/좋아요가 갱신된다 → [GREEN] CatalogEventConsumer (멱등 처리 포함)
-- [ ] K-2: [RED] order-events 메시지 소비 시 ProductMetrics 판매량이 갱신된다 → [GREEN] OrderEventConsumer (멱등 처리 포함)
-- [ ] K-3: [RED] 이미 처리된 eventId의 메시지는 skip된다 → [GREEN] EventHandled 기반 중복 검사
+- [x] K-1: [RED] catalog-events 메시지 소비 시 ProductMetrics 조회수/좋아요가 갱신된다 → [GREEN] CatalogEventConsumer (멱등 처리 포함)
+- [x] K-2: [RED] order-events 메시지 소비 시 ProductMetrics 판매량이 갱신된다 → [GREEN] OrderEventConsumer (멱등 처리 포함) ※ commerce-api OrderOutbox에 productId/quantity 추가 필요
+- [x] K-3: [RED] 이미 처리된 eventId의 메시지는 skip된다 → [GREEN] EventHandled 기반 중복 검사
+
+#### K-2 보완. OrderOutbox에 상품 정보 추가 (commerce-api 측)
+
+주문 1건에 상품이 여러 개이므로, 주문 상품별 OrderOutbox N건을 생성하여 productId/quantity를 포함한다.
+
+- [x] K2-1: OrderOutbox 도메인 모델에 productId, quantity 필드 추가 + 테스트 수정
+- [x] K2-2: OrderOutboxEntity에 product_id, quantity 컬럼 추가
+- [x] K2-3: PaymentEvent.Completed에 items(productId, quantity) 정보 추가 + 테스트 수정
+- [x] K2-4: PaymentEventListener에서 주문 항목별 OrderOutbox N건 생성 + 테스트 수정
+- [x] K2-5: RelayOutboxUseCase 페이로드에 productId, quantity 포함
 
 --- checkpoint: Step 2 전체 lint + test ---
 

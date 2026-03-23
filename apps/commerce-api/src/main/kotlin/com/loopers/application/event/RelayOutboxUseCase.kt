@@ -53,16 +53,16 @@ class RelayOutboxUseCase(
                 outboxEventPublisher.publish(
                     topic = TOPIC_ORDER_EVENTS,
                     key = outbox.orderId.toString(),
-                    payload = mapOf(
-                        "eventId" to outbox.eventId,
-                        "eventType" to outbox.eventType,
-                        "orderId" to outbox.orderId,
-                        "userId" to outbox.userId,
-                        "totalAmount" to outbox.totalAmount,
-                        "reason" to outbox.reason,
-                        "productId" to outbox.productId,
-                        "quantity" to outbox.quantity,
-                    ),
+                    payload = buildMap {
+                        put("eventId", outbox.eventId)
+                        put("eventType", outbox.eventType)
+                        put("orderId", outbox.orderId)
+                        put("userId", outbox.userId)
+                        put("totalAmount", outbox.totalAmount)
+                        outbox.reason?.let { put("reason", it) }
+                        outbox.productId?.let { put("productId", it) }
+                        outbox.quantity?.let { put("quantity", it) }
+                    },
                 )
                 outbox.markPublished()
                 orderOutboxRepository.save(outbox)

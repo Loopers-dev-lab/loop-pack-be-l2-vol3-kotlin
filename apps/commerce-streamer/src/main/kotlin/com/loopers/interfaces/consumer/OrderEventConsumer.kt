@@ -25,13 +25,15 @@ class OrderEventConsumer(
     ) {
         for (message in messages) {
             try {
-                val payload = message.value() as Map<*, *>
+                val payload = message.value() as? Map<*, *> ?: continue
+                val eventId = payload["eventId"] as? String ?: continue
+                val eventType = payload["eventType"] as? String ?: continue
                 val productId = (payload["productId"] as? Number)?.toLong() ?: continue
                 val quantity = (payload["quantity"] as? Number)?.toLong() ?: 1L
 
                 updateProductMetricsUseCase.handleOrderEvent(
-                    eventId = payload["eventId"] as String,
-                    eventType = payload["eventType"] as String,
+                    eventId = eventId,
+                    eventType = eventType,
                     productId = productId,
                     quantity = quantity,
                 )

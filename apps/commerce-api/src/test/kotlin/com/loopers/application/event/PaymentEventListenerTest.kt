@@ -44,6 +44,8 @@ class PaymentEventListenerTest {
             assertThat(outboxList[0].orderId).isEqualTo(1L)
             assertThat(outboxList[0].productId).isEqualTo(10L)
             assertThat(outboxList[0].quantity).isEqualTo(2)
+            assertThat(outboxList[1].eventType).isEqualTo("PAYMENT_COMPLETED")
+            assertThat(outboxList[1].orderId).isEqualTo(1L)
             assertThat(outboxList[1].productId).isEqualTo(20L)
             assertThat(outboxList[1].quantity).isEqualTo(1)
         }
