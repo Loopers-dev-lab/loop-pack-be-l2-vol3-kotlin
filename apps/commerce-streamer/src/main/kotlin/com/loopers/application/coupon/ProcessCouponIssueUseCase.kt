@@ -40,7 +40,7 @@ class ProcessCouponIssueUseCase(
             return
         }
 
-        val coupon = couponRepository.findById(couponId)
+        val coupon = couponRepository.findByIdForUpdate(couponId)
         if (coupon == null) {
             request.markFailed()
             couponIssueRequestRepository.save(request)

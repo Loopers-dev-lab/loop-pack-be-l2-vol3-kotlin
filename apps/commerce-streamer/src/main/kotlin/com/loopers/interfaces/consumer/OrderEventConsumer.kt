@@ -29,7 +29,11 @@ class OrderEventConsumer(
                 val eventId = payload["eventId"] as? String ?: continue
                 val eventType = payload["eventType"] as? String ?: continue
                 val productId = (payload["productId"] as? Number)?.toLong() ?: continue
-                val quantity = (payload["quantity"] as? Number)?.toLong() ?: 1L
+                val quantityRaw = (payload["quantity"] as? Number)?.toLong()
+                if (quantityRaw == null) {
+                    log.warn("quantity 필드 누락, 기본값 1L 사용: eventId={}", eventId)
+                }
+                val quantity = quantityRaw ?: 1L
 
                 updateProductMetricsUseCase.handleOrderEvent(
                     eventId = eventId,

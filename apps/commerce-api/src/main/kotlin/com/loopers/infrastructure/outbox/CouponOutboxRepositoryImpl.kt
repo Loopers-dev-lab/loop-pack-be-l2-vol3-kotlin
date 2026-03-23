@@ -19,9 +19,9 @@ class CouponOutboxRepositoryImpl(
         return couponOutboxJpaRepository.save(CouponOutboxEntity.fromDomain(outbox)).toDomain()
     }
 
-    override fun findAllUnpublished(): List<CouponOutbox> {
+    override fun findAllUnpublished(limit: Int): List<CouponOutbox> {
         return couponOutboxJpaRepository
-            .findAllByPublishedFalseOrderByIdAsc(Limit.of(100))
+            .findAllByPublishedFalseOrderByIdAsc(Limit.of(limit))
             .map { it.toDomain() }
     }
 }

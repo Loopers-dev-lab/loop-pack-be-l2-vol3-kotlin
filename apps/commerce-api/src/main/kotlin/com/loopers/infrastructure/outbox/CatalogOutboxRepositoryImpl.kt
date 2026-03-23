@@ -19,9 +19,9 @@ class CatalogOutboxRepositoryImpl(
         return catalogOutboxJpaRepository.save(CatalogOutboxEntity.fromDomain(outbox)).toDomain()
     }
 
-    override fun findAllUnpublished(): List<CatalogOutbox> {
+    override fun findAllUnpublished(limit: Int): List<CatalogOutbox> {
         return catalogOutboxJpaRepository
-            .findAllByPublishedFalseOrderByIdAsc(Limit.of(100))
+            .findAllByPublishedFalseOrderByIdAsc(Limit.of(limit))
             .map { it.toDomain() }
     }
 }

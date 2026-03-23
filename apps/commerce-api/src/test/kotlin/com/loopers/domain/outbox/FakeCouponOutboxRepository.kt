@@ -19,8 +19,8 @@ class FakeCouponOutboxRepository : CouponOutboxRepository {
         return outbox
     }
 
-    override fun findAllUnpublished(): List<CouponOutbox> {
-        return store.filter { !it.published }
+    override fun findAllUnpublished(limit: Int): List<CouponOutbox> {
+        return store.filter { !it.published }.take(limit)
     }
 
     private fun setId(entity: CouponOutbox, id: Long) {

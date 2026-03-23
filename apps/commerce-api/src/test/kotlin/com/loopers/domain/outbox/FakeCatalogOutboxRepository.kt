@@ -19,8 +19,8 @@ class FakeCatalogOutboxRepository : CatalogOutboxRepository {
         return outbox
     }
 
-    override fun findAllUnpublished(): List<CatalogOutbox> {
-        return store.filter { !it.published }
+    override fun findAllUnpublished(limit: Int): List<CatalogOutbox> {
+        return store.filter { !it.published }.take(limit)
     }
 
     private fun setId(entity: CatalogOutbox, id: Long) {

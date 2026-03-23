@@ -140,3 +140,27 @@
 - **최종 결정**: 기각 (시뮬레이터 단계 과잉)
 - **근거**: RedisCleanUp은 testFixtures 코드로 운영 영향 없음. Feign 로거 환경별 분리와 PgStatusQueryClient null 경로 로깅은 실 PG 연동 시 일괄 처리가 합리적. Version Catalogs 전환은 chore 수준으로 현재 project.properties 방식에 기능적 문제 없음.
 - **최종 업데이트**: 2026-03-19
+
+## RD-018. 빈 문자열 인증 헤더 방어 (OptionalAuthInterceptor)
+- **keywords**: `빈 문자열`, `blank`, `헤더`, `OptionalAuthInterceptor`, `takeIf`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: HTTP 클라이언트(브라우저, Feign 등)가 빈 문자열 헤더를 보내는 실 발생 경로 없음. YAGNI.
+- **최종 업데이트**: 2026-03-23
+
+## RD-019. check-then-act 안티패턴 (IssuedCouponRepository)
+- **keywords**: `check-then-act`, `exists`, `save`, `saveIfAbsent`, `원자적`, `unique constraint`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: DB unique constraint가 실질적 보호 역할. `saveIfAbsent` 원자 연산 도입 시 중복 판단 로직이 도메인에서 인프라로 이동하여 설계 철학과 충돌. ProcessCouponIssueUseCase에 비관적 락(#11) 적용으로 check-then-act 경합 자체가 해소됨.
+- **최종 업데이트**: 2026-03-23
+
+## RD-020. ProductMetrics counter 음수 초기값 검증
+- **keywords**: `ProductMetrics`, `viewCount`, `likeCount`, `salesCount`, `음수`, `검증`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: counter 필드는 0 초기값에서 `++`/`--`로만 변경되며 생성자에 음수가 전달될 경로 없음. DB 복원 시에도 음수 데이터 자체가 상위 버그. commerce-streamer는 집계 처리기로 VO 도입 대비 과잉.
+- **최종 업데이트**: 2026-03-23

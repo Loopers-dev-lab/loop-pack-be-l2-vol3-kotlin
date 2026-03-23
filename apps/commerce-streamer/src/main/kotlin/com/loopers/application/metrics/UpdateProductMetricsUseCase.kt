@@ -31,6 +31,7 @@ class UpdateProductMetricsUseCase(
             LIKE_REMOVED -> metrics.decrementLikeCount()
             else -> {
                 log.warn("알 수 없는 catalog 이벤트 타입: eventType={}", eventType)
+                eventHandledRepository.save(EventHandled(eventId = eventId))
                 return
             }
         }
@@ -46,7 +47,11 @@ class UpdateProductMetricsUseCase(
             return
         }
 
-        if (eventType != PAYMENT_COMPLETED) return
+        if (eventType != PAYMENT_COMPLETED) {
+            log.warn("알 수 없는 order 이벤트 타입: eventType={}", eventType)
+            eventHandledRepository.save(EventHandled(eventId = eventId))
+            return
+        }
 
         val metrics = findOrCreate(productId)
         metrics.incrementSalesCount(quantity)

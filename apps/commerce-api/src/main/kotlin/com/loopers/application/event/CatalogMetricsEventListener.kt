@@ -4,8 +4,6 @@ import com.loopers.domain.outbox.model.CatalogOutbox
 import com.loopers.domain.outbox.repository.CatalogOutboxRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Propagation
-import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
@@ -16,8 +14,7 @@ class CatalogMetricsEventListener(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     fun handleCatalogEvent(event: CatalogEvent) {
         val outbox = when (event) {
             is CatalogEvent.LikeAdded -> CatalogOutbox(

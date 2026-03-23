@@ -4,5 +4,5 @@ import com.loopers.domain.outbox.model.CouponOutbox
 
 interface CouponOutboxRepository {
     fun save(outbox: CouponOutbox): CouponOutbox
-    fun findAllUnpublished(): List<CouponOutbox>
+    fun findAllUnpublished(limit: Int = 100): List<CouponOutbox>
 }

@@ -12,6 +12,10 @@ class FakeCouponRepository : CouponRepository {
         return store.find { it.id == id }
     }
 
+    override fun findByIdForUpdate(id: Long): Coupon? {
+        return store.find { it.id == id }
+    }
+
     override fun save(coupon: Coupon): Coupon {
         if (coupon.id != 0L) {
             store.removeIf { it.id == coupon.id }

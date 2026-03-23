@@ -5,7 +5,7 @@ import com.loopers.domain.outbox.repository.CouponOutboxRepository
 import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Component
 class RelayOutboxUseCase(
@@ -13,11 +13,11 @@ class RelayOutboxUseCase(
     private val orderOutboxRepository: OrderOutboxRepository,
     private val couponOutboxRepository: CouponOutboxRepository,
     private val outboxEventPublisher: OutboxEventPublisher,
+    private val transactionTemplate: TransactionTemplate,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional
     fun execute() {
         relayCatalogEvents()
         relayOrderEvents()
@@ -38,8 +38,10 @@ class RelayOutboxUseCase(
                         "userId" to outbox.userId,
                     ),
                 )
-                outbox.markPublished()
-                catalogOutboxRepository.save(outbox)
+                transactionTemplate.execute {
+                    outbox.markPublished()
+                    catalogOutboxRepository.save(outbox)
+                }
             } catch (ex: Exception) {
                 log.error("CatalogOutbox 발행 실패: id={}", outbox.id, ex)
             }
@@ -64,8 +66,10 @@ class RelayOutboxUseCase(
                         outbox.quantity?.let { put("quantity", it) }
                     },
                 )
-                outbox.markPublished()
-                orderOutboxRepository.save(outbox)
+                transactionTemplate.execute {
+                    outbox.markPublished()
+                    orderOutboxRepository.save(outbox)
+                }
             } catch (ex: Exception) {
                 log.error("OrderOutbox 발행 실패: id={}", outbox.id, ex)
             }
@@ -87,8 +91,10 @@ class RelayOutboxUseCase(
                         "userId" to outbox.userId,
                     ),
                 )
-                outbox.markPublished()
-                couponOutboxRepository.save(outbox)
+                transactionTemplate.execute {
+                    outbox.markPublished()
+                    couponOutboxRepository.save(outbox)
+                }
             } catch (ex: Exception) {
                 log.error("CouponOutbox 발행 실패: id={}", outbox.id, ex)
             }

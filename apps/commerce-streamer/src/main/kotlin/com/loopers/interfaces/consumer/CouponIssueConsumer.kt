@@ -24,6 +24,7 @@ class CouponIssueConsumer(
         acknowledgment: Acknowledgment,
     ) {
         var failCount = 0
+        var lastException: Exception? = null
         for (message in messages) {
             var eventId: String? = null
             try {
@@ -65,6 +66,7 @@ class CouponIssueConsumer(
                 )
             } catch (ex: Exception) {
                 failCount++
+                lastException = ex
                 log.error(
                     "coupon-issue-requests 처리 실패: offset={}, eventId={}",
                     message.offset(),
@@ -75,6 +77,7 @@ class CouponIssueConsumer(
         }
         if (failCount > 0) {
             log.warn("배치 처리 완료: 총 {}건 중 {}건 실패", messages.size, failCount)
+            throw RuntimeException("배치 처리 중 ${failCount}건 실패", lastException)
         }
         acknowledgment.acknowledge()
     }

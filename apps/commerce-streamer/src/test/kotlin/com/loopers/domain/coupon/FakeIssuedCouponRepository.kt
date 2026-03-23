@@ -13,6 +13,9 @@ class FakeIssuedCouponRepository : IssuedCouponRepository {
     }
 
     override fun save(refCouponId: Long, refUserId: Long) {
+        check(store.none { it.refCouponId == refCouponId && it.refUserId == refUserId }) {
+            "Duplicate issued coupon: couponId=$refCouponId, userId=$refUserId"
+        }
         store.add(Entry(refCouponId, refUserId))
     }
 

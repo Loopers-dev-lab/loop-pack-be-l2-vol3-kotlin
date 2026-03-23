@@ -12,7 +12,7 @@ import java.util.Optional
 
 interface CouponJpaRepository : JpaRepository<CouponEntity, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    override fun findById(id: Long): Optional<CouponEntity>
+    fun findWithLockById(id: Long): Optional<CouponEntity>
 }
 
 @Repository
@@ -22,6 +22,9 @@ class CouponRepositoryImpl(
 
     override fun findById(id: Long): Coupon? =
         couponJpaRepository.findById(id).orElse(null)?.toDomain()
+
+    override fun findByIdForUpdate(id: Long): Coupon? =
+        couponJpaRepository.findWithLockById(id).orElse(null)?.toDomain()
 
     override fun save(coupon: Coupon): Coupon {
         val entity = couponJpaRepository.findById(coupon.id)

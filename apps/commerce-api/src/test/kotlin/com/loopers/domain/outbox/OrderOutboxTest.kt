@@ -36,7 +36,7 @@ class OrderOutboxTest {
         }
 
         @Test
-        fun `totalAmount와 reason을 모두 포함하여 생성에 성공한다`() {
+        fun `reason만 포함하고 totalAmount 없이도 생성에 성공한다`() {
             val outbox = OrderOutbox(
                 eventType = "PAYMENT_FAILED",
                 orderId = 1L,

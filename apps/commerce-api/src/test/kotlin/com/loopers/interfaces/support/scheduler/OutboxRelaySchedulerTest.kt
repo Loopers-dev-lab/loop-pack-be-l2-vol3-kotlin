@@ -16,6 +16,11 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.TransactionStatus
+import org.springframework.transaction.support.SimpleTransactionStatus
+import org.springframework.transaction.support.TransactionTemplate
 
 class OutboxRelaySchedulerTest {
 
@@ -31,11 +36,17 @@ class OutboxRelaySchedulerTest {
         orderOutboxRepository = FakeOrderOutboxRepository()
         couponOutboxRepository = FakeCouponOutboxRepository()
         eventPublisher = FakeOutboxEventPublisher()
+        val noOpTransactionManager = object : PlatformTransactionManager {
+            override fun getTransaction(definition: TransactionDefinition?): TransactionStatus = SimpleTransactionStatus()
+            override fun commit(status: TransactionStatus) {}
+            override fun rollback(status: TransactionStatus) {}
+        }
         val useCase = RelayOutboxUseCase(
             catalogOutboxRepository = catalogOutboxRepository,
             orderOutboxRepository = orderOutboxRepository,
             couponOutboxRepository = couponOutboxRepository,
             outboxEventPublisher = eventPublisher,
+            transactionTemplate = TransactionTemplate(noOpTransactionManager),
         )
         scheduler = OutboxRelayScheduler(useCase)
     }

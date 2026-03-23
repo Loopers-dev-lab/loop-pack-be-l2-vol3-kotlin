@@ -16,17 +16,16 @@ class FakeProductMetricsRepository : ProductMetricsRepository {
         if (metrics.id != 0L) {
             store.removeIf { it.id == metrics.id }
             store.add(metrics)
-        } else {
-            setId(metrics, sequence++)
-            store.add(metrics)
+            return metrics
         }
-        return metrics
-    }
-
-    private fun setId(entity: ProductMetrics, id: Long) {
-        ProductMetrics::class.java.getDeclaredField("id").apply {
-            isAccessible = true
-            set(entity, id)
-        }
+        val persisted = ProductMetrics(
+            id = sequence++,
+            productId = metrics.productId,
+            viewCount = metrics.viewCount,
+            likeCount = metrics.likeCount,
+            salesCount = metrics.salesCount,
+        )
+        store.add(persisted)
+        return persisted
     }
 }
