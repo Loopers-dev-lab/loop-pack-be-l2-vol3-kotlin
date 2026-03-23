@@ -24,30 +24,25 @@ class LikeCountEventListener(
      */
     @EventListener(LikeCountEvent::class)
     @Async("eventListenerExecutor")
+    @Transactional
     fun handleLikeCountEvent(event: LikeCountEvent) {
         try {
-            updateLikeCountAndInvalidateCache(event)
+            when (event.type) {
+                LikeCountEventType.INCREMENT -> productLikeCountRepository.increment(event.productId)
+                LikeCountEventType.DECREMENT -> productLikeCountRepository.decrement(event.productId)
+            }
+
+            try {
+                cacheManager.getCache("product-info")?.evict(event.productId)
+                log.debug("상품 정보 캐시 무효화: productId=${event.productId}")
+            } catch (e: Exception) {
+                log.warn("상품 정보 캐시 무효화 실패: productId=${event.productId}", e)
+            }
+
             log.info("좋아요 집계 업데이트 완료: productId=${event.productId}, type=${event.type}")
         } catch (e: Exception) {
             log.error("좋아요 집계 업데이트 실패: productId=${event.productId}, type=${event.type}", e)
             // 모니터링 알람 트리거 지점 (필요시 별도 구현)
-        }
-    }
-
-    @Transactional
-    private fun updateLikeCountAndInvalidateCache(event: LikeCountEvent) {
-        // 집계 업데이트
-        when (event.type) {
-            LikeCountEventType.INCREMENT -> productLikeCountRepository.increment(event.productId)
-            LikeCountEventType.DECREMENT -> productLikeCountRepository.decrement(event.productId)
-        }
-
-        // 캐시 무효화
-        try {
-            cacheManager.getCache("product-info")?.evict(event.productId)
-            log.debug("상품 정보 캐시 무효화: productId=${event.productId}")
-        } catch (e: Exception) {
-            log.warn("상품 정보 캐시 무효화 실패: productId=${event.productId}", e)
         }
     }
 }

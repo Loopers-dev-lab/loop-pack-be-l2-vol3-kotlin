@@ -14,6 +14,7 @@ import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
+import com.loopers.support.eventually
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -307,14 +308,18 @@ class ProductCachingE2ETest @Autowired constructor(
         }
 
         // Then
-        val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
-        assertThat(projectionLikeCount).isEqualTo(1)
+        eventually {
+            val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
+            assertThat(projectionLikeCount).isEqualTo(1)
+        }
 
-        val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
-            .andExpect { status { isOk() } }
-            .andReturn()
-            .response
-        assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(1)
+        eventually {
+            val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
+                .andExpect { status { isOk() } }
+                .andReturn()
+                .response
+            assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(1)
+        }
     }
 
     @Test
@@ -346,14 +351,18 @@ class ProductCachingE2ETest @Autowired constructor(
         }
 
         // Then
-        val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
-        assertThat(projectionLikeCount).isEqualTo(0)
+        eventually {
+            val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
+            assertThat(projectionLikeCount).isEqualTo(0)
+        }
 
-        val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
-            .andExpect { status { isOk() } }
-            .andReturn()
-            .response
-        assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(0)
+        eventually {
+            val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
+                .andExpect { status { isOk() } }
+                .andReturn()
+                .response
+            assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(0)
+        }
     }
 
     private fun createUser(loginId: String): User {

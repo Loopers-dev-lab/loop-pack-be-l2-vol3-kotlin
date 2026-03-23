@@ -19,8 +19,11 @@ class OrderPaymentEventListener(
     fun onPaymentCallbackProcessed(event: PaymentCallbackProcessedEvent) {
         when (event.status.uppercase()) {
             "COMPLETED" -> orderService.markOrderAsPaid(event.orderId)
-            // FAILED, CANCELLED, TIMEOUT는 Order 상태 변경 불필요
-            // (PAYMENT_REQUESTED 상태로 유지되며, 사용자가 재시도 가능)
+            "FAILED", "CANCELLED" -> {
+                // 결제 실패/취소 시 Order를 PENDING으로 복구 (재시도 가능)
+                orderService.restoreOrderToPending(event.orderId)
+            }
+            // TIMEOUT은 배치 복구 서비스에서 별도 처리
         }
     }
 }
