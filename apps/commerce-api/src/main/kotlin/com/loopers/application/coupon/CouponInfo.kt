@@ -1,6 +1,7 @@
 package com.loopers.application.coupon
 
 import com.loopers.domain.coupon.model.Coupon
+import com.loopers.domain.coupon.model.CouponIssueRequest
 import com.loopers.domain.coupon.model.IssuedCoupon
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -73,6 +74,28 @@ data class MyCouponInfo(
             usedAt = issuedCoupon.usedAt,
             createdAt = issuedCoupon.createdAt,
             expiredAt = coupon.expiredAt,
+        )
+    }
+}
+
+data class CouponIssueRequestInfo(
+    val requestId: String,
+) {
+    companion object {
+        fun from(request: CouponIssueRequest): CouponIssueRequestInfo = CouponIssueRequestInfo(
+            requestId = request.requestId,
+        )
+    }
+}
+
+data class CouponIssueStatusInfo(
+    val requestId: String,
+    val status: String,
+) {
+    companion object {
+        fun from(request: CouponIssueRequest): CouponIssueStatusInfo = CouponIssueStatusInfo(
+            requestId = request.requestId,
+            status = request.status.name,
         )
     }
 }

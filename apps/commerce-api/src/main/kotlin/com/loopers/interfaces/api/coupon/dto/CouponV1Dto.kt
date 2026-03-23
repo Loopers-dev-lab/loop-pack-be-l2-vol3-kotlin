@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.coupon.dto
 
+import com.loopers.application.coupon.CouponIssueRequestInfo
+import com.loopers.application.coupon.CouponIssueStatusInfo
 import com.loopers.application.coupon.IssuedCouponInfo
 import com.loopers.application.coupon.MyCouponInfo
 import java.math.BigDecimal
@@ -54,6 +56,28 @@ class CouponV1Dto {
                     expiredAt = info.expiredAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                 )
             }
+        }
+    }
+
+    data class IssueAsyncResponse(
+        val requestId: String,
+    ) {
+        companion object {
+            fun from(info: CouponIssueRequestInfo): IssueAsyncResponse = IssueAsyncResponse(
+                requestId = info.requestId,
+            )
+        }
+    }
+
+    data class IssueStatusResponse(
+        val requestId: String,
+        val status: String,
+    ) {
+        companion object {
+            fun from(info: CouponIssueStatusInfo): IssueStatusResponse = IssueStatusResponse(
+                requestId = info.requestId,
+                status = info.status,
+            )
         }
     }
 }
