@@ -14,9 +14,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import java.time.ZonedDateTime
 
 @SpringBootTest
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 class ProductRedisCacheStoreTest @Autowired constructor(
     private val productRedisCacheStore: ProductRedisCacheStore,
     private val redisCleanUp: RedisCleanUp,

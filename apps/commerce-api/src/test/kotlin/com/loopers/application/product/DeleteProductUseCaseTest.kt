@@ -14,8 +14,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 
 @SpringBootTest
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 class DeleteProductUseCaseTest @Autowired constructor(
     private val registerProductUseCase: RegisterProductUseCase,
     private val deleteProductUseCase: DeleteProductUseCase,
