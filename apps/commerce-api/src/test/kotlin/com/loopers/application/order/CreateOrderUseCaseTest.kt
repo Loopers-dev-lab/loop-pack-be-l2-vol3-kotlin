@@ -109,7 +109,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
     @Nested
     inner class Execute {
 
-        @DisplayName("정상 주문 시 성공하고 재고가 차감된다")
+        @DisplayName("정상 주문 시 성공하고 재고는 유지된다 (결제 성공 시 차감)")
         @Test
         fun success() {
             // arrange
@@ -136,7 +136,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
             )
 
             val productStock = productStockRepository.findByProductId(productId)
-            assertThat(productStock?.stock?.quantity).isEqualTo(47)
+            assertThat(productStock?.stock?.quantity).isEqualTo(50)
         }
 
         @DisplayName("정액 쿠폰 적용 시 할인이 반영된다")

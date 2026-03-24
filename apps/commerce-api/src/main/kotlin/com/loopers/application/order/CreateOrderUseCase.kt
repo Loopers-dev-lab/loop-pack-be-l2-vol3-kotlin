@@ -11,13 +11,11 @@ import com.loopers.domain.order.OrderItemRepository
 import com.loopers.domain.order.OrderItemSnapshot
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderValidator
-import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.CouponErrorCode
-import com.loopers.support.transaction.AfterCommit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -31,7 +29,6 @@ class CreateOrderUseCase(
     private val orderValidator: OrderValidator,
     private val userCouponRepository: UserCouponRepository,
     private val couponRepository: CouponRepository,
-    private val productCacheStore: ProductCacheStore,
 ) {
 
     @Transactional
@@ -46,11 +43,9 @@ class CreateOrderUseCase(
         val products = productRepository.findAllByIds(productIds)
         val productMap = products.associateBy { it.id }
 
-        // 3. 데드락 방지를 위해 productId 오름차순으로 재고 비관적 락 획득
-        val sortedProductIds = productIds.sorted()
-        val productStockMap = sortedProductIds.mapNotNull { productId ->
-            productStockRepository.findByProductIdForUpdate(productId)
-        }.associateBy { it.productId }
+        // 3. 재고 조회 (재고 차감은 결제 성공 시 수행)
+        val productStockMap = productStockRepository.findAllByProductIds(productIds)
+            .associateBy { it.productId }
 
         orderValidator.validate(orderLines, productMap, productStockMap)
 
@@ -74,7 +69,7 @@ class CreateOrderUseCase(
         val originalAmount = Money(snapshots.sumOf { it.productPrice.amount * it.quantity.value })
         val discountAmount = calculateDiscount(coupon, originalAmount)
 
-        // 5. 주문 생성 + 재고 차감
+        // 5. 주문 생성
         val order = Order.create(
             userId = command.userId,
             items = snapshots,
@@ -88,20 +83,10 @@ class CreateOrderUseCase(
         }
         orderItemRepository.saveAll(orderItems)
 
-        orderLines.forEach { line ->
-            val productStock = productStockMap.getValue(line.productId)
-            productStock.decreaseStock(line.quantity.value)
-        }
-
         // 6. 쿠폰 Conditional Update
         userCoupon?.let {
             val success = userCouponRepository.markAsUsed(it.id, savedOrder.id)
             if (!success) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
-        }
-
-        // 7. 재고 변경된 상품의 캐시 무효화
-        AfterCommit.execute {
-            productIds.forEach { productCacheStore.evictDetail(it) }
         }
 
         return OrderInfo.from(savedOrder)

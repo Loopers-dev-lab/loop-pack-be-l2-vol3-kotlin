@@ -1,5 +1,8 @@
 package com.loopers.application.payment
 
+import com.loopers.application.product.ProductCacheStore
+import com.loopers.domain.coupon.UserCouponRepository
+import com.loopers.domain.order.OrderItemRepository
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.Money
@@ -9,7 +12,9 @@ import com.loopers.domain.payment.PaymentHistory
 import com.loopers.domain.payment.PaymentHistoryRepository
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.PaymentException
+import com.loopers.support.transaction.AfterCommit
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,8 +23,13 @@ class PaymentTransactionManager(
     private val paymentRepository: PaymentRepository,
     private val paymentHistoryRepository: PaymentHistoryRepository,
     private val orderRepository: OrderRepository,
+    private val orderItemRepository: OrderItemRepository,
+    private val productStockRepository: ProductStockRepository,
+    private val userCouponRepository: UserCouponRepository,
+    private val productCacheStore: ProductCacheStore,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional
     fun saveOrResetPayment(command: PaymentCommand.Request): Payment {
         val order = orderRepository.findByIdOrNull(command.orderId)
@@ -32,12 +42,19 @@ class PaymentTransactionManager(
                 PaymentStatus.APPROVED -> throw PaymentException.alreadyPaid()
                 PaymentStatus.REQUESTED -> throw PaymentException.alreadyInProgress()
                 PaymentStatus.FAILED,
-                PaymentStatus.REQUEST_FAILED -> {
+                PaymentStatus.REQUEST_FAILED,
+                -> {
                     paymentHistoryRepository.save(PaymentHistory.from(existing))
                     existing.resetForRetry()
                     if (order.status == OrderStatus.CANCELLED) {
                         order.reorder()
                         log.info("결제 재시도로 주문 복원 [orderId={}]", order.id)
+                    }
+                    order.userCouponId?.let { userCouponId ->
+                        val reused = userCouponRepository.markAsUsed(userCouponId, order.id)
+                        if (reused) {
+                            log.info("결제 재시도로 쿠폰 재사용 [userCouponId={}, orderId={}]", userCouponId, order.id)
+                        }
                     }
                     existing
                 }
@@ -77,12 +94,17 @@ class PaymentTransactionManager(
         }
 
         when (pgStatus) {
-            PG_STATUS_SUCCESS -> paymentRepository.approveIfNotTerminal(paymentId)
+            PG_STATUS_SUCCESS -> {
+                val updatedCount = paymentRepository.approveIfNotTerminal(paymentId)
+                if (updatedCount > 0) {
+                    deductStock(paymentId)
+                }
+            }
             PG_STATUS_PENDING, PG_STATUS_REQUESTED -> { }
             else -> {
                 val updatedCount = paymentRepository.failIfNotTerminal(paymentId, reason ?: "PG 결제 실패")
                 if (updatedCount > 0) {
-                    cancelOrder(paymentId)
+                    cancelOrderAndRestoreCoupon(paymentId)
                 }
             }
         }
@@ -92,11 +114,36 @@ class PaymentTransactionManager(
         return PaymentInfo.from(payment)
     }
 
-    private fun cancelOrder(paymentId: Long) {
+    private fun deductStock(paymentId: Long) {
+        val payment = paymentRepository.findByIdOrNull(paymentId) ?: return
+        val orderItems = orderItemRepository.findByOrderId(payment.orderId)
+
+        val productIds = orderItems.map { it.productId }.distinct().sorted()
+        productIds.forEach { productId ->
+            val productStock = productStockRepository.findByProductIdForUpdate(productId) ?: return@forEach
+            val totalQuantity = orderItems.filter { it.productId == productId }.sumOf { it.quantity.value }
+            productStock.decreaseStock(totalQuantity)
+        }
+
+        log.info("결제 승인으로 재고 차감 [paymentId={}, orderId={}]", paymentId, payment.orderId)
+
+        AfterCommit.execute {
+            productIds.forEach { productCacheStore.evictDetail(it) }
+        }
+    }
+
+    private fun cancelOrderAndRestoreCoupon(paymentId: Long) {
         val payment = paymentRepository.findByIdOrNull(paymentId) ?: return
         val order = orderRepository.findByIdOrNull(payment.orderId) ?: return
         order.cancel()
         log.info("결제 실패로 주문 취소 [paymentId={}, orderId={}]", paymentId, payment.orderId)
+
+        order.userCouponId?.let { userCouponId ->
+            val restored = userCouponRepository.restoreIfUsed(userCouponId)
+            if (restored) {
+                log.info("결제 실패로 쿠폰 반환 [userCouponId={}, orderId={}]", userCouponId, order.id)
+            }
+        }
     }
 
     companion object {
