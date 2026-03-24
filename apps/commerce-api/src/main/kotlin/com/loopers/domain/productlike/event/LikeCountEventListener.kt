@@ -2,10 +2,12 @@ package com.loopers.domain.productlike.event
 
 import com.loopers.domain.productlike.ProductLikeCountRepository
 import org.springframework.cache.CacheManager
-import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.event.TransactionPhase
+import org.springframework.transaction.event.TransactionalEventListener
 import org.slf4j.LoggerFactory
 
 @Component
@@ -17,14 +19,9 @@ class LikeCountEventListener(
         private val log = LoggerFactory.getLogger(LikeCountEventListener::class.java)
     }
 
-    /**
-     * 좋아요 카운트 projection 갱신 이벤트 처리 (비동기).
-     * 별도 스레드에서 실행되어 좋아요 저장과 독립적이다.
-     * 실패 시 로깅하고 모니터링 알람을 트리거한다.
-     */
-    @EventListener(LikeCountEvent::class)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async("eventListenerExecutor")
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun handleLikeCountEvent(event: LikeCountEvent) {
         try {
             when (event.type) {

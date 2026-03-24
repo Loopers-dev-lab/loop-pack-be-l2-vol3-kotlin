@@ -49,12 +49,14 @@ class PaymentFacadeTest {
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
                 PaymentRequestResult("TXN_001", "100", "SAMSUNG", "1234", 10000L, "COMPLETED", null)
             every { receiptService.markAsCompleted(any()) } just runs
+            every { orderService.markOrderAsPaymentRequested(userId, orderId) } just runs
 
             // when
             facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
 
             // then
             verify(exactly = 1) { receiptService.markAsCompleted(any()) }
+            verify(exactly = 1) { orderService.markOrderAsPaymentRequested(userId, orderId) }
             verify(exactly = 1) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
         }
     }
@@ -64,7 +66,7 @@ class PaymentFacadeTest {
     inner class PgPendingResponse {
 
         @Test
-        @DisplayName("Receipt PENDING 유지, Order 상태 변경 안 함")
+        @DisplayName("Receipt PENDING 유지, PaymentRequestedEvent 발행")
         fun pending() {
             // given
             val userId = 1L
@@ -77,13 +79,15 @@ class PaymentFacadeTest {
             every { receiptService.initiateReceipt(any(), any(), any(), any(), any()) } returns receipt
             every { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) } returns
                 PaymentRequestResult("TXN_002", "100", "SAMSUNG", "1234", 10000L, "PENDING", null)
+            every { orderService.markOrderAsPaymentRequested(userId, orderId) } just runs
 
             // when
             facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
 
             // then
             verify(exactly = 0) { receiptService.markAsCompleted(any()) }
-            verify(exactly = 0) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
+            verify(exactly = 1) { orderService.markOrderAsPaymentRequested(userId, orderId) }
+            verify(exactly = 1) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
             verify(exactly = 0) { receiptService.markAsFailed(any(), any()) }
         }
     }
@@ -113,6 +117,8 @@ class PaymentFacadeTest {
                 facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
             }
             verify(exactly = 1) { receiptService.markAsFailed(any(), "Card declined") }
+            verify(exactly = 0) { orderService.markOrderAsPaymentRequested(any(), any()) }
+            verify(exactly = 0) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
         }
     }
 
@@ -141,6 +147,8 @@ class PaymentFacadeTest {
                 facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
             }
             verify(exactly = 1) { receiptService.markAsFailed(any(), "User cancelled") }
+            verify(exactly = 0) { orderService.markOrderAsPaymentRequested(any(), any()) }
+            verify(exactly = 0) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
         }
     }
 
@@ -169,6 +177,8 @@ class PaymentFacadeTest {
                 facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
             }
             verify(exactly = 1) { receiptService.markAsTimeout(any()) }
+            verify(exactly = 0) { orderService.markOrderAsPaymentRequested(any(), any()) }
+            verify(exactly = 0) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
         }
     }
 
@@ -194,6 +204,8 @@ class PaymentFacadeTest {
             assertThrows<CoreException> {
                 facade.requestPayment(userId, orderId, "SAMSUNG", "1234")
             }
+            verify(exactly = 0) { orderService.markOrderAsPaymentRequested(any(), any()) }
+            verify(exactly = 0) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
         }
 
         @Test
@@ -217,6 +229,8 @@ class PaymentFacadeTest {
 
             // PG 요청이 발생하지 않았는지 확인
             verify(exactly = 0) { paymentClient.requestPayment(any(), any(), any(), any(), any(), any()) }
+            verify(exactly = 0) { orderService.markOrderAsPaymentRequested(any(), any()) }
+            verify(exactly = 0) { eventPublisher.publishEvent(any<PaymentRequestedEvent>()) }
         }
     }
 }

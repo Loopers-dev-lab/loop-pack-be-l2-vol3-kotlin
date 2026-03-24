@@ -87,7 +87,6 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         // act
         productLikeService.addProductLike(testUser, testProduct)
 
-        // assert - plain @EventListener 이므로 메서드 반환 시점에 projection 갱신도 완료되어야 함
         eventually {
             assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
         }

@@ -27,7 +27,8 @@ class ProductV1Controller(
     @GetMapping("/{productId}")
     override fun getProductInfo(
         @PathVariable productId: Long,
-    ): ApiResponse<ProductInfo> = ApiResponse.success(data = productFacade.getProductInfo(productId))
+        @RequestAttribute(required = false) userId: Long?,
+    ): ApiResponse<ProductInfo> = ApiResponse.success(data = productFacade.getProductInfo(productId, userId))
 
     @GetMapping
     override fun getProducts(

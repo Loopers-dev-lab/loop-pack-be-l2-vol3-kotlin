@@ -1,11 +1,16 @@
 package com.loopers.domain.payment.event
 
-import org.springframework.context.ApplicationEvent
-import java.time.ZonedDateTime
-
-class PaymentRequestedEvent(
-    source: Any = object : Any() {},
+data class PaymentRequestedEvent(
     val userId: Long,
     val orderId: Long,
-    val requestedAt: ZonedDateTime = ZonedDateTime.now(),
-) : ApplicationEvent(source)
+    val receiptId: Long? = null,
+    val transactionId: String? = null,
+    val amount: Long? = null,
+    val receiptStatus: String? = null,
+    val dedupeKey: String =
+        if (transactionId.isNullOrBlank()) {
+            "payment.requested:$userId:$orderId"
+        } else {
+            "payment.requested:$userId:$transactionId"
+        },
+)
