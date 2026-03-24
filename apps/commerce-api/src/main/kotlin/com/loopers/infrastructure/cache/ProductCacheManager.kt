@@ -195,7 +195,7 @@ class ProductCacheManager(
         cacheMetrics.recordDetailMiss("redis")
 
         // L3: DB (with stampede guard)
-        val info = stampedeGuard.executeWithMutex(
+        val info = stampedeGuard.execute(
             cacheKey = redisKey,
             loader = loader,
             cacheWriter = { value ->
@@ -240,7 +240,7 @@ class ProductCacheManager(
         cacheMetrics.recordListMiss("redis")
 
         // L3: DB (with stampede guard)
-        val slice = stampedeGuard.executeWithMutex(
+        val slice = stampedeGuard.execute(
             cacheKey = cacheKey,
             loader = loader,
             cacheWriter = { value ->
