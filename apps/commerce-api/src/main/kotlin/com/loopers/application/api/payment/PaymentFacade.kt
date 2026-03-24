@@ -5,6 +5,7 @@ import com.loopers.domain.order.OrderService
 import com.loopers.domain.payment.PaymentClient
 import com.loopers.domain.payment.PaymentRequestResult
 import com.loopers.domain.payment.Receipt
+import com.loopers.domain.payment.ReceiptStatus
 import com.loopers.domain.payment.ReceiptService
 import com.loopers.domain.payment.dto.ReceiptInfo
 import com.loopers.domain.payment.event.PaymentCallbackProcessedEvent
@@ -26,14 +27,24 @@ class PaymentFacade(
 
     @Transactional
     fun completePayment(command: PaymentCallbackCommand) {
+        val receipt = receiptService.getReceiptByTransactionIdForUpdate(command.transactionId)
+
         // (1) 결제 상태 업데이트
         receiptService.updateReceiptStatus(command)
 
-        // (2) 주문 상태 변경 (이벤트로 분리)
+        when (receipt.status) {
+            ReceiptStatus.COMPLETED -> orderService.markOrderAsPaid(command.orderId)
+            ReceiptStatus.FAILED, ReceiptStatus.CANCELLED -> orderService.restoreOrderToPending(command.orderId)
+            else -> {}
+        }
+
         eventPublisher.publishEvent(
             PaymentCallbackProcessedEvent(
+                transactionId = command.transactionId,
                 orderId = command.orderId,
-                status = command.status?.uppercase() ?: "UNKNOWN",
+                amount = receipt.amount.toLong(),
+                status = receipt.status.name,
+                reason = command.reason,
             ),
         )
     }
@@ -74,12 +85,24 @@ class PaymentFacade(
                 cardNo = cardNo,
             )
 
-            handlePgResponse(pgResult, receipt, userId, orderId)
+            handlePgResponse(pgResult, receipt)
         } catch (e: Exception) {
             if (e is CoreException) throw e
             receiptService.markAsTimeout(receipt)
             throw CoreException(ErrorType.INTERNAL_ERROR, "PG 결제 요청에 실패했습니다. 잠시 후 다시 시도해주세요")
         }
+
+        orderService.markOrderAsPaymentRequested(userId, orderId)
+        eventPublisher.publishEvent(
+            PaymentRequestedEvent(
+                userId = userId,
+                orderId = orderId,
+                receiptId = receipt.id,
+                transactionId = receipt.transactionId,
+                amount = receipt.amount.toLong(),
+                receiptStatus = receipt.status.name,
+            ),
+        )
 
         return ReceiptInfo.from(receipt)
     }
@@ -87,16 +110,10 @@ class PaymentFacade(
     private fun handlePgResponse(
         pgResult: PaymentRequestResult,
         receipt: Receipt,
-        userId: Long,
-        orderId: Long,
     ) {
         when (pgResult.status.toString().uppercase()) {
             "COMPLETED" -> {
                 receiptService.markAsCompleted(receipt)
-                // 주문 상태 변경 (이벤트로 분리)
-                eventPublisher.publishEvent(
-                    PaymentRequestedEvent(userId = userId, orderId = orderId),
-                )
             }
             "FAILED", "CANCELLED" -> {
                 receiptService.markAsFailed(receipt, pgResult.reason)

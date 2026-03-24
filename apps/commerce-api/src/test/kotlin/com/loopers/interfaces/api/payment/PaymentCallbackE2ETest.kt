@@ -93,7 +93,7 @@ class PaymentCallbackE2ETest {
             val updatedOrder = orderRepository.findById(savedOrder.id).orElseThrow()
             val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
 
-            assertThat(updatedOrder.status).isEqualTo(OrderStatus.PAYMENT_REQUESTED)
+            assertThat(updatedOrder.status).isEqualTo(OrderStatus.PAID)
             assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.COMPLETED)
         }
     }
@@ -152,7 +152,7 @@ class PaymentCallbackE2ETest {
             val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
             val finalOrder = orderRepository.findById(savedOrder.id).orElseThrow()
             assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.COMPLETED)
-            assertThat(finalOrder.status).isEqualTo(OrderStatus.PAYMENT_REQUESTED)
+            assertThat(finalOrder.status).isEqualTo(OrderStatus.PAID)
         }
     }
 
@@ -189,6 +189,14 @@ class PaymentCallbackE2ETest {
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
             status { isOk() }
+        }
+
+        eventually {
+            val updatedOrder = orderRepository.findById(savedOrder.id).orElseThrow()
+            val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+
+            assertThat(updatedOrder.status).isEqualTo(OrderStatus.PENDING)
+            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.FAILED)
         }
     }
 
@@ -297,7 +305,7 @@ class PaymentCallbackE2ETest {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
-            status { isOk() }
+            status { isBadRequest() }
         }
 
         eventually {
@@ -305,7 +313,7 @@ class PaymentCallbackE2ETest {
             val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
 
             assertThat(updatedOrder.status).isEqualTo(OrderStatus.PENDING)
-            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.COMPLETED)
+            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.PENDING)
         }
     }
 }

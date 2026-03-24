@@ -24,6 +24,11 @@ interface ProductV1ApiSpec {
             required = true,
         )
         productId: Long,
+        @Parameter(
+            description = "사용자 ID (선택사항)",
+            required = false,
+        )
+        userId: Long?,
     ): ApiResponse<ProductInfo>
 
     @Operation(
