@@ -40,11 +40,6 @@ class ProductService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
     }
 
-    fun getProductWithLock(productId: Long): Product {
-        return productRepository.findByIdWithLock(productId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-    }
-
     fun updateProduct(
         product: Product,
         name: String,

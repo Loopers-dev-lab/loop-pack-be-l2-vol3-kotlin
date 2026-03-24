@@ -10,12 +10,16 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductService
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -41,11 +45,22 @@ class LikeFacadeIntegrationTest @Autowired constructor(
         )
     }
 
+    /**
+     * likeCount는 비동기 이벤트(Eventual Consistency)로 업데이트되므로
+     * Awaitility를 사용하여 최종 일관성이 달성될 때까지 폴링한다.
+     */
+    private fun awaitLikeCount(productId: Long, expected: LikeCount) {
+        await atMost Duration.ofSeconds(5) untilAsserted {
+            val updated = productService.getProduct(productId)
+            assertThat(updated.likes).isEqualTo(expected)
+        }
+    }
+
     @DisplayName("좋아요를 등록할 때,")
     @Nested
     inner class Like {
 
-        @DisplayName("좋아요하면, 상품의 좋아요 수가 1 증가한다.")
+        @DisplayName("좋아요하면, 상품의 좋아요 수가 1 증가한다. (Eventual Consistency)")
         @Test
         fun incrementsLikeCount() {
             // arrange
@@ -54,9 +69,8 @@ class LikeFacadeIntegrationTest @Autowired constructor(
             // act
             likeFacade.like(userId = 1L, productId = product.id)
 
-            // assert
-            val updated = productService.getProduct(product.id)
-            assertThat(updated.likes).isEqualTo(LikeCount.of(6))
+            // assert — 비동기 이벤트이므로 최종 일관성 대기
+            awaitLikeCount(product.id, LikeCount.of(6))
         }
 
         @DisplayName("같은 사용자가 동시에 좋아요하면, 예외 없이 좋아요 수가 1만 증가한다. (TOCTOU 처리)")
@@ -85,9 +99,8 @@ class LikeFacadeIntegrationTest @Autowired constructor(
             executor.shutdown()
 
             // assert
-            val updated = productService.getProduct(product.id)
             assertThat(exceptionCount.get()).isZero()
-            assertThat(updated.likes).isEqualTo(LikeCount.of(1))
+            awaitLikeCount(product.id, LikeCount.of(1))
         }
 
         @DisplayName("서로 다른 사용자 10명이 동시에 좋아요하면, 좋아요 수가 정확히 10 증가한다.")
@@ -113,8 +126,7 @@ class LikeFacadeIntegrationTest @Autowired constructor(
             executor.shutdown()
 
             // assert
-            val updated = productService.getProduct(product.id)
-            assertThat(updated.likes).isEqualTo(LikeCount.of(threadCount))
+            awaitLikeCount(product.id, LikeCount.of(threadCount))
         }
     }
 
@@ -122,19 +134,19 @@ class LikeFacadeIntegrationTest @Autowired constructor(
     @Nested
     inner class Unlike {
 
-        @DisplayName("좋아요 취소하면, 상품의 좋아요 수가 1 감소한다.")
+        @DisplayName("좋아요 취소하면, 상품의 좋아요 수가 1 감소한다. (Eventual Consistency)")
         @Test
         fun decrementsLikeCount() {
             // arrange
             val product = createProduct(likes = LikeCount.of(5))
             likeFacade.like(userId = 1L, productId = product.id)
+            awaitLikeCount(product.id, LikeCount.of(6))
 
             // act
             likeFacade.unlike(userId = 1L, productId = product.id)
 
             // assert
-            val updated = productService.getProduct(product.id)
-            assertThat(updated.likes).isEqualTo(LikeCount.of(5))
+            awaitLikeCount(product.id, LikeCount.of(5))
         }
     }
 }
