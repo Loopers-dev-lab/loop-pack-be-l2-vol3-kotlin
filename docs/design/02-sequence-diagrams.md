@@ -1195,11 +1195,11 @@ sequenceDiagram
 
 ---
 
-## 7. Step 1 — ApplicationEvent로 경계 나누기
+## 10. Step 1 — ApplicationEvent로 경계 나누기
 
-### 7.1 주문 생성 + 이벤트 발행
+### 10.1 주문 생성 + 이벤트 발행
 
-**API:** `POST /orders` — 인증 필수
+**API:** `POST /api/v1/orders` — 인증 필수
 
 ```mermaid
 sequenceDiagram
@@ -1212,7 +1212,7 @@ sequenceDiagram
     participant EP as EventPublisher
     participant EL as OrderEventListener
 
-    User ->> C: POST /orders (items, issuedCouponId?)
+    User ->> C: POST /api/v1/orders (items, issuedCouponId?)
     C ->> UC: execute(userId, command)
 
     rect rgb(245, 245, 245)
@@ -1241,7 +1241,7 @@ sequenceDiagram
 
 ---
 
-### 7.2 결제 콜백 + 후속 이벤트
+### 10.2 결제 콜백 + 후속 이벤트
 
 **API:** 내부 콜백 (PG → HandlePaymentCallbackUseCase)
 
@@ -1256,7 +1256,7 @@ sequenceDiagram
     participant EP as EventPublisher
     participant EL as PaymentEventListener
 
-    PG ->> C: POST /payments/callback (결제 결과)
+    PG ->> C: POST /api/v1/payments/callback (결제 결과)
     C ->> UC: execute(callbackCommand)
 
     rect rgb(245, 245, 245)
@@ -1285,9 +1285,9 @@ sequenceDiagram
 
 ---
 
-### 7.3 좋아요 추가 + 비동기 집계
+### 10.3 좋아요 추가 + 비동기 집계
 
-**API:** `POST /products/{productId}/likes` — 인증 필수
+**API:** `POST /api/v1/products/{productId}/likes` — 인증 필수
 
 ```mermaid
 sequenceDiagram
@@ -1300,7 +1300,7 @@ sequenceDiagram
     participant EP as EventPublisher
     participant EL as CacheEventListener
 
-    User ->> C: POST /products/{id}/likes
+    User ->> C: POST /api/v1/products/{id}/likes
     C ->> UC: execute(userId, productId)
 
     rect rgb(245, 245, 245)
@@ -1330,9 +1330,9 @@ sequenceDiagram
 
 ---
 
-### 7.4 상품 조회 + 조회 이벤트
+### 10.4 상품 조회 + 조회 이벤트
 
-**API:** `GET /products/{productId}` — 인증 선택
+**API:** `GET /api/v1/products/{productId}` — 인증 선택
 
 ```mermaid
 sequenceDiagram
@@ -1344,7 +1344,7 @@ sequenceDiagram
     participant EP as EventPublisher
     participant EL as ActivityEventListener
 
-    User ->> C: GET /products/{id}
+    User ->> C: GET /api/v1/products/{id}
     C ->> UC: execute(productId)
 
     UC ->> R: findById(productId)
@@ -1366,9 +1366,9 @@ sequenceDiagram
 
 ---
 
-## 8. Step 2 — Kafka 이벤트 파이프라인
+## 11. Step 2 — Kafka 이벤트 파이프라인
 
-### 8.1 Outbox Relay → Kafka 발행
+### 11.1 Outbox Relay → Kafka 발행
 
 ```mermaid
 sequenceDiagram
@@ -1379,7 +1379,7 @@ sequenceDiagram
     participant K as Kafka Broker
 
     loop 주기적 폴링
-        S ->> OR: 미발행 Outbox 조회 (status = PENDING)
+        S ->> OR: 미발행 Outbox 조회 (published = false)
         OR -->> S: pendingEvents
 
         alt 미발행 이벤트 존재
@@ -1388,7 +1388,7 @@ sequenceDiagram
                 KP ->> K: produce (acks=all)
                 K -->> KP: ack
                 KP -->> S: 발행 성공
-                S ->> OR: status = PUBLISHED 업데이트
+                S ->> OR: published = true 업데이트
             end
         end
     end
@@ -1402,7 +1402,7 @@ sequenceDiagram
 
 ---
 
-### 8.2 commerce-streamer: 메트릭스 집계
+### 11.2 commerce-streamer: 메트릭스 집계
 
 ```mermaid
 sequenceDiagram
@@ -1443,11 +1443,11 @@ sequenceDiagram
 
 ---
 
-## 9. Step 3 — 선착순 쿠폰 발급
+## 12. Step 3 — 선착순 쿠폰 발급
 
-### 9.1 쿠폰 발급 요청 (API → Kafka)
+### 12.1 쿠폰 발급 요청 (API → Kafka)
 
-**API:** `POST /coupons/issue` — 인증 필수
+**API:** `POST /api/v1/coupons/{couponId}/issue-async` — 인증 필수
 
 ```mermaid
 sequenceDiagram
@@ -1458,7 +1458,7 @@ sequenceDiagram
     participant R as Repository
     participant OR as OutboxRepository
 
-    User ->> C: POST /coupons/issue (couponId)
+    User ->> C: POST /api/v1/coupons/{couponId}/issue-async
     C ->> UC: execute(userId, couponId)
 
     UC ->> R: 쿠폰 존재·활성 여부 확인
@@ -1483,7 +1483,7 @@ sequenceDiagram
 
 ---
 
-### 9.2 쿠폰 발급 Consumer 처리
+### 12.2 쿠폰 발급 Consumer 처리
 
 ```mermaid
 sequenceDiagram

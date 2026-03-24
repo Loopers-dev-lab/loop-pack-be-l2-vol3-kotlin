@@ -164,3 +164,27 @@
 - **최종 결정**: 기각
 - **근거**: counter 필드는 0 초기값에서 `++`/`--`로만 변경되며 생성자에 음수가 전달될 경로 없음. DB 복원 시에도 음수 데이터 자체가 상위 버그. commerce-streamer는 집계 처리기로 VO 도입 대비 과잉.
 - **최종 업데이트**: 2026-03-23
+
+## RD-021. Outbox Relay 중복 배달 가능성 (at-least-once)
+- **keywords**: `RelayOutboxUseCase`, `중복 배달`, `at-least-once`, `Kafka publish`, `transaction commit`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (의도적 설계)
+- **근거**: at-least-once delivery는 Outbox 패턴의 의도된 보장 수준. consumer가 `eventHandled` 테이블로 멱등 처리하므로 중복 배달에 안전. afterCommit publish → DB markPublished 순서가 최소 1회 보장의 표준 패턴.
+- **최종 업데이트**: 2026-03-24
+
+## RD-022. Consumer malformed message DLT 처리 (이미 구현)
+- **keywords**: `CouponIssueConsumer`, `malformed`, `DLT`, `dead-letter`, `IllegalArgumentException`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (이미 구현)
+- **근거**: RECORD_LISTENER_DLT 컨테이너 팩토리의 DefaultErrorHandler(FixedBackOff(1000L, 2))가 IllegalArgumentException 포함 모든 예외를 catch하여 3회 시도 후 DLT 발행. PR #25 리뷰 반영에서 구현 완료.
+- **최종 업데이트**: 2026-03-24
+
+## RD-023. request not found 시 eventHandled 미기록
+- **keywords**: `ProcessCouponIssueUseCase`, `findByRequestId`, `eventHandled`, `무한 재처리`, `offset commit`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: Record listener가 정상 반환 시 offset 자동 커밋 → 재배달 없음. eventHandled는 비즈니스 멱등성 보호용이며, 실제 처리된 적 없는 이벤트를 "처리됨"으로 기록하면 의미 왜곡. request 미존재는 데이터 정합성 이슈로 별도 모니터링 대상.
+- **최종 업데이트**: 2026-03-24

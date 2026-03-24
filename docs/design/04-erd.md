@@ -332,32 +332,29 @@ erDiagram
     %% Outbox 테이블
     order_outbox {
         bigint id PK
-        bigint ref_order_id "Logical FK -> orders.id"
+        varchar event_id "UUID, UNIQUE"
         varchar event_type "ORDER_CREATED | PAYMENT_COMPLETED"
-        varchar status "PENDING | PUBLISHED | FAILED"
-        text payload "Kafka 메시지 본문 (JSON)"
+        bigint ref_order_id "Logical FK -> orders.id"
+        boolean published "false = 미발행, true = 발행 완료"
         datetime created_at
-        datetime published_at "발행 완료 시각 (nullable)"
     }
 
     catalog_outbox {
         bigint id PK
-        bigint ref_product_id "Logical FK -> products.id"
+        varchar event_id "UUID, UNIQUE"
         varchar event_type "PRODUCT_VIEWED | PRODUCT_LIKED | PRODUCT_UNLIKED"
-        varchar status "PENDING | PUBLISHED | FAILED"
-        text payload "Kafka 메시지 본문 (JSON)"
+        bigint ref_product_id "Logical FK -> products.id"
+        boolean published "false = 미발행, true = 발행 완료"
         datetime created_at
-        datetime published_at "발행 완료 시각 (nullable)"
     }
 
     coupon_outbox {
         bigint id PK
-        bigint ref_coupon_id "Logical FK -> coupons.id"
+        varchar event_id "UUID, UNIQUE"
         varchar event_type "COUPON_ISSUED"
-        varchar status "PENDING | PUBLISHED | FAILED"
-        text payload "Kafka 메시지 본문 (JSON)"
+        bigint ref_coupon_id "Logical FK -> coupons.id"
+        boolean published "false = 미발행, true = 발행 완료"
         datetime created_at
-        datetime published_at "발행 완료 시각 (nullable)"
     }
 
     %% 선착순 쿠폰 발급 요청
@@ -373,7 +370,8 @@ erDiagram
 
     %% 메트릭스 읽기 모델 (commerce-streamer)
     product_metrics {
-        bigint product_id PK "Logical FK -> products.id"
+        bigint id PK AUTO_INCREMENT
+        bigint product_id "UNIQUE, Logical FK -> products.id"
         bigint view_count "상세 페이지 조회 수"
         bigint like_count "좋아요 수"
         bigint sales_count "판매량"
@@ -408,26 +406,23 @@ erDiagram
 | 테이블 | 컬럼 | 타입 | 제약조건 | 설명 |
 |-------|------|------|---------|------|
 | **order_outbox** | id | BIGINT | PK, AUTO_INCREMENT | |
-| | ref_order_id | BIGINT | NOT NULL | 주문 ID (Logical FK → orders.id) |
+| | event_id | VARCHAR(36) | NOT NULL, UNIQUE | 이벤트 UUID |
 | | event_type | VARCHAR(50) | NOT NULL | ORDER_CREATED, PAYMENT_COMPLETED |
-| | status | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | PENDING → PUBLISHED / FAILED |
-| | payload | TEXT | NOT NULL | Kafka 메시지 본문 (JSON) |
+| | ref_order_id | BIGINT | NOT NULL | 주문 ID (Logical FK → orders.id) |
+| | published | BOOLEAN | NOT NULL, DEFAULT false | false = 미발행, true = 발행 완료 |
 | | created_at | DATETIME | NOT NULL | 이벤트 생성 시각 |
-| | published_at | DATETIME | NULL | Kafka 발행 완료 시각 |
 | **catalog_outbox** | id | BIGINT | PK, AUTO_INCREMENT | |
-| | ref_product_id | BIGINT | NOT NULL | 상품 ID (Logical FK → products.id) |
+| | event_id | VARCHAR(36) | NOT NULL, UNIQUE | 이벤트 UUID |
 | | event_type | VARCHAR(50) | NOT NULL | PRODUCT_VIEWED, PRODUCT_LIKED, PRODUCT_UNLIKED |
-| | status | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | PENDING → PUBLISHED / FAILED |
-| | payload | TEXT | NOT NULL | Kafka 메시지 본문 (JSON) |
+| | ref_product_id | BIGINT | NOT NULL | 상품 ID (Logical FK → products.id) |
+| | published | BOOLEAN | NOT NULL, DEFAULT false | false = 미발행, true = 발행 완료 |
 | | created_at | DATETIME | NOT NULL | |
-| | published_at | DATETIME | NULL | |
 | **coupon_outbox** | id | BIGINT | PK, AUTO_INCREMENT | |
-| | ref_coupon_id | BIGINT | NOT NULL | 쿠폰 ID (Logical FK → coupons.id) |
+| | event_id | VARCHAR(36) | NOT NULL, UNIQUE | 이벤트 UUID |
 | | event_type | VARCHAR(50) | NOT NULL | COUPON_ISSUED |
-| | status | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | PENDING → PUBLISHED / FAILED |
-| | payload | TEXT | NOT NULL | Kafka 메시지 본문 (JSON) |
+| | ref_coupon_id | BIGINT | NOT NULL | 쿠폰 ID (Logical FK → coupons.id) |
+| | published | BOOLEAN | NOT NULL, DEFAULT false | false = 미발행, true = 발행 완료 |
 | | created_at | DATETIME | NOT NULL | |
-| | published_at | DATETIME | NULL | |
 
 ### 8.2 선착순 쿠폰 발급 요청
 
@@ -445,7 +440,8 @@ erDiagram
 
 | 테이블 | 컬럼 | 타입 | 제약조건 | 설명 |
 |-------|------|------|---------|------|
-| **product_metrics** | product_id | BIGINT | PK | 상품 ID (Logical FK → products.id), AUTO_INCREMENT 아님 |
+| **product_metrics** | id | BIGINT | PK, AUTO_INCREMENT | |
+| | product_id | BIGINT | NOT NULL, UNIQUE | 상품 ID (Logical FK → products.id) |
 | | view_count | BIGINT | NOT NULL, DEFAULT 0 | 상세 페이지 조회 수 |
 | | like_count | BIGINT | NOT NULL, DEFAULT 0 | 좋아요 수 (비동기 집계) |
 | | sales_count | BIGINT | NOT NULL, DEFAULT 0 | 판매량 |
@@ -465,9 +461,9 @@ erDiagram
 
 | 대상 테이블 | 인덱스 컬럼 | 타입 | 목적 |
 |-----------|----------|------|------|
-| **order_outbox** | `(status, created_at)` | INDEX | Relay 폴링: PENDING 이벤트를 생성순으로 조회 |
-| **catalog_outbox** | `(status, created_at)` | INDEX | Relay 폴링 |
-| **coupon_outbox** | `(status, created_at)` | INDEX | Relay 폴링 |
+| **order_outbox** | `(published, id)` | INDEX | Relay 폴링: 미발행(published=false) 이벤트를 id 순으로 조회 |
+| **catalog_outbox** | `(published, id)` | INDEX | Relay 폴링 |
+| **coupon_outbox** | `(published, id)` | INDEX | Relay 폴링 |
 | **order_outbox** | `(ref_order_id)` | INDEX | 주문별 이벤트 이력 조회 |
 | **catalog_outbox** | `(ref_product_id)` | INDEX | 상품별 이벤트 이력 조회 |
 | **coupon_outbox** | `(ref_coupon_id)` | INDEX | 쿠폰별 이벤트 이력 조회 |
@@ -492,7 +488,7 @@ erDiagram
 
 | 구분 | 잠재 리스크 | 대응 전략 |
 |------|----------|---------|
-| **Outbox 테이블 증가** | 발행 완료 레코드가 계속 쌓임 → 디스크·쿼리 성능 영향 | 발행 완료(PUBLISHED) 레코드를 주기적으로 정리하는 배치 작업 (보존 기간 7일) |
+| **Outbox 테이블 증가** | 발행 완료 레코드가 계속 쌓임 → 디스크·쿼리 성능 영향 | 발행 완료(published=true) 레코드를 주기적으로 정리하는 배치 작업 (보존 기간 7일) |
 | **product_metrics 불일치** | products.like_count와 product_metrics.like_count 간 일시적 불일치 | Eventual consistency 허용 (동기 UX vs 비동기 통계, 용도가 다름) |
 | **coupon_issue_requests 중복** | 같은 사용자가 같은 쿠폰에 여러 번 요청 | UNIQUE 인덱스 (ref_coupon_id, ref_user_id)로 DB 레벨 방지 |
 | **event_handled 증가** | 처리 완료 이벤트 ID가 무한 증가 | 오래된 레코드 주기적 정리 (Kafka 메시지 보존 기간과 동기화) |

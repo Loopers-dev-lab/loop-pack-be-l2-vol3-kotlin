@@ -12,7 +12,7 @@ description: |
 
 ## 사용법
 
-```
+```bash
 /sync-config
 ```
 
@@ -73,10 +73,10 @@ config repo 경로는 `.claude/config.json`의 `configRepo` 필드에서 읽는�
 각 동기화 대상에 대해:
 
 1. **Full Sync 대상**: 현재 프로젝트 파일과 config repo 파일을 `diff`로 비교
-2. **Partial Sync 대상 (behavior.md)**:
-   - 현재 프로젝트의 behavior.md에서 `---` 구분선 위쪽만 추출
-   - config repo의 behavior.md에서 `---` 구분선 위쪽만 추출
-   - 두 부분을 비교
+2. **Partial Sync 대상 (`---` 포함 파일)**:
+   - 대상: `rules/behavior.md`, `skills/**/*.md` (`---` 포함 시), `agents/*.md` (`---` 포함 시)
+   - 각 파일에서 `---` 구분선 위쪽만 추출
+   - config repo 대응 파일의 `---` 위쪽과 비교
 
 변경이 없으면 "변경사항이 없습니다." 출력 후 종료.
 
@@ -84,7 +84,7 @@ config repo 경로는 `.claude/config.json`의 `configRepo` 필드에서 읽는�
 
 변경된 파일 목록을 보여준다:
 
-```
+```markdown
 ## 변경 감지
 
 ### Full Sync
@@ -108,16 +108,16 @@ config repo 경로는 `.claude/config.json`의 `configRepo` 필드에서 읽는�
 ### 5단계: 반영
 
 1. **Full Sync**: 파일을 config repo의 `project/` 디렉토리에 복사
-2. **Partial Sync (behavior.md)**:
-   - 현재 프로젝트의 `---` 위쪽 내용을 추출
-   - config repo의 behavior.md에서 `---` 위쪽을 교체하고, 아래쪽(빈 템플릿 테이블)은 유지
+2. **Partial Sync (`---` 포함 파일)**:
+   - 각 대상 파일에서 `---` 위쪽 내용을 추출
+   - config repo 대응 파일의 `---` 위쪽을 교체하고, 아래쪽(프로젝트 고유 영역)은 유지
 3. config repo에서 `git add -A && git status`로 변경사항 확인
 4. 커밋 메시지를 자동 생성 (변경 파일 목록 기반)
 5. 사용자 확인 후 커밋
 
 ### 6단계: 결과 보고
 
-```
+```markdown
 ## 반영 완료
 
 - 반영: N개 파일

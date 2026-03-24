@@ -3,6 +3,7 @@ package com.loopers.domain.outbox
 import com.loopers.domain.outbox.model.CouponOutbox
 import com.loopers.domain.outbox.repository.CouponOutboxRepository
 import com.loopers.support.error.CoreException
+import java.util.UUID
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -19,6 +20,7 @@ class CouponOutboxTest {
         @Test
         fun `유효한 필드로 생성된다`() {
             val outbox = CouponOutbox(
+                eventId = UUID.randomUUID().toString(),
                 eventType = "COUPON_ISSUE_REQUESTED",
                 couponId = 1L,
                 userId = 1L,
@@ -34,21 +36,21 @@ class CouponOutboxTest {
         @Test
         fun `eventType이 비어있으면 예외가 발생한다`() {
             assertThatThrownBy {
-                CouponOutbox(eventType = "", couponId = 1L, userId = 1L)
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "", couponId = 1L, userId = 1L)
             }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `couponId가 0 이하이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 0L, userId = 1L)
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 0L, userId = 1L)
             }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `userId가 0 이하이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 0L)
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 0L)
             }.isInstanceOf(CoreException::class.java)
         }
 
@@ -74,6 +76,7 @@ class CouponOutboxTest {
         @Test
         fun `발행 완료로 상태가 변경된다`() {
             val outbox = CouponOutbox(
+                eventId = UUID.randomUUID().toString(),
                 eventType = "COUPON_ISSUE_REQUESTED",
                 couponId = 1L,
                 userId = 1L,
@@ -99,10 +102,10 @@ class CouponOutboxTest {
         @Test
         fun `미발행 메시지만 조회된다`() {
             val unpublished = repository.save(
-                CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 1L),
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 1L),
             )
             val published = repository.save(
-                CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 2L, userId = 2L),
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 2L, userId = 2L),
             )
             published.markPublished()
             repository.save(published)
@@ -116,7 +119,7 @@ class CouponOutboxTest {
         @Test
         fun `발행 완료 마킹 후 미발행 목록에서 제외된다`() {
             val outbox = repository.save(
-                CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 1L),
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 1L, userId = 1L),
             )
 
             outbox.markPublished()

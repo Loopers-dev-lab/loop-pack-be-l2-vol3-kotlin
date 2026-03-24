@@ -2,11 +2,10 @@ package com.loopers.domain.outbox.model
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import java.util.UUID
 
 class CouponOutbox(
     val id: Long = 0,
-    val eventId: String = UUID.randomUUID().toString(),
+    val eventId: String,
     val eventType: String,
     val couponId: Long,
     val userId: Long,

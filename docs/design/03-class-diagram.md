@@ -1404,8 +1404,8 @@ classDiagram
         }
     }
 
-    IssueCouponUseCase_R7 --> KafkaBroker : produce (coupon-issue-requests)
-    OutboxRelay --> KafkaBroker : produce (catalog/order events)
+    IssueCouponUseCase_R7 --> CouponOutbox : save (coupon-issue-requests)
+    OutboxRelay --> KafkaBroker : produce (catalog/order/coupon events)
     KafkaBroker --> MetricsEventHandler : consume (catalog/order events)
     KafkaBroker --> CouponIssueHandler : consume (coupon-issue-requests)
 ```

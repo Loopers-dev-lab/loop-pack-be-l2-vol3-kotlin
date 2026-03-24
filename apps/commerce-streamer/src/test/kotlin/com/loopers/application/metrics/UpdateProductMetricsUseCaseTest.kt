@@ -120,7 +120,7 @@ class UpdateProductMetricsUseCaseTest {
                 eventId = "evt-1",
                 eventType = UpdateProductMetricsUseCase.PAYMENT_COMPLETED,
                 productId = 1L,
-                quantity = 2,
+                quantity = 2L,
             )
 
             val metrics = productMetricsRepository.findByProductId(1L)
@@ -131,7 +131,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `이미 처리된 eventId는 무시한다`() {
             eventHandledRepository.save(EventHandled(eventId = "evt-1"))
 
-            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 1)
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 1L)
 
             val metrics = productMetricsRepository.findByProductId(1L)
             assertThat(metrics).isNull()
@@ -139,7 +139,7 @@ class UpdateProductMetricsUseCaseTest {
 
         @Test
         fun `PaymentCompleted가 아닌 eventType은 무시한다`() {
-            useCase.handleOrderEvent("evt-1", "PaymentFailed", 1L, 1)
+            useCase.handleOrderEvent("evt-1", "PaymentFailed", 1L, 1L)
 
             val metrics = productMetricsRepository.findByProductId(1L)
             assertThat(metrics).isNull()
@@ -147,7 +147,7 @@ class UpdateProductMetricsUseCaseTest {
 
         @Test
         fun `처리 후 EventHandled가 저장된다`() {
-            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 1)
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 1L)
 
             assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue()
         }

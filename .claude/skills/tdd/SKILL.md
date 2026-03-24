@@ -129,7 +129,8 @@ Read(phase-refactor.md) → 절차 실행 → Refactor Phase 완료 보고 후 �
 
 ### 검증 명령
 - 단일 테스트: `./gradlew :apps:commerce-api:test --tests "패키지.클래스명"`
-- 전체 검증: `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`
+- 전체 검증 (commerce-api): `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`
+- 전체 검증 (commerce-streamer): `./gradlew :apps:commerce-streamer:ktlintCheck && ./gradlew :apps:commerce-streamer:test`
 
 ### Gotchas
 - **kapt + ktlint 충돌**: `ktlintCheck`와 `test`를 `&&`로 분리 실행해야 한다. 한 번에 실행하면 kapt 태스크 충돌로 실패

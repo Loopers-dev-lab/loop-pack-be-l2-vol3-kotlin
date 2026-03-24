@@ -27,11 +27,16 @@ class OrderEventConsumer(
             ?: throw IllegalArgumentException("eventType 누락: offset=${message.offset()}")
         val productId = (payload["productId"] as? Number)?.toLong()
             ?: throw IllegalArgumentException("productId 누락: offset=${message.offset()}")
-        val quantityRaw = (payload["quantity"] as? Number)?.toLong()
-        if (quantityRaw == null) {
+        val quantity = if (!payload.containsKey("quantity")) {
             log.warn("quantity 필드 누락, 기본값 1L 사용: eventId={}", eventId)
+            1L
+        } else {
+            val raw = payload["quantity"]
+            require(raw is Number) { "quantity 타입 오류: eventId=$eventId, value=$raw" }
+            val q = raw.toLong()
+            require(q > 0) { "quantity는 양수여야 합니다: eventId=$eventId, quantity=$q" }
+            q
         }
-        val quantity = quantityRaw ?: 1L
         updateProductMetricsUseCase.handleOrderEvent(
             eventId = eventId,
             eventType = eventType,

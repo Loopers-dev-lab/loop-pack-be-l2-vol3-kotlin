@@ -13,6 +13,7 @@ import com.loopers.domain.outbox.repository.CouponOutboxRepository
 import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
+import java.util.UUID
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -94,7 +95,7 @@ class OutboxRelaySchedulerTest {
         @DisplayName("미발행 CouponOutbox 메시지가 Kafka로 발행되고 published로 마킹된다")
         fun relayCouponEvents() {
             couponOutboxRepository.save(
-                CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 5L, userId = 100L),
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 5L, userId = 100L),
             )
 
             scheduler.relay()
@@ -129,7 +130,7 @@ class OutboxRelaySchedulerTest {
                 OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 2L, userId = 100L, totalAmount = 30000L),
             )
             couponOutboxRepository.save(
-                CouponOutbox(eventType = "COUPON_ISSUE_REQUESTED", couponId = 3L, userId = 100L),
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 3L, userId = 100L),
             )
 
             scheduler.relay()

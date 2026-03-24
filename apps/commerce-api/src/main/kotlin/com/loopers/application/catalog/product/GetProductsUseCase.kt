@@ -11,24 +11,27 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
-class GetProductsUseCase(private val productRepository: ProductRepository) {
+class GetProductsUseCase(
+    private val productRepository: ProductRepository,
+) {
     @Cacheable(
         cacheNames = ["product:list"],
         key = "(#brandId ?: 'all') + ':' + #sort.toUpperCase(T(java.util.Locale).ROOT) + ':' + #page + ':' + #size",
         sync = true,
     )
     @Transactional(readOnly = true)
-    fun execute(brandId: Long?, sort: String, page: Int, size: Int): PageResult<ProductInfo> {
+    fun execute(brandId: Long?, sort: String, page: Int, size: Int, userId: Long? = null): PageResult<ProductInfo> {
         val domainSort = ProductSort.entries.find { it.name == sort.uppercase() }
             ?: throw CoreException(
                 ErrorType.BAD_REQUEST,
                 "잘못된 정렬 기준입니다. 사용 가능한 값: ${ProductSort.entries.joinToString(", ")}",
             )
-        return productRepository.findActiveProducts(
+        val result = productRepository.findActiveProducts(
             brandId?.let { BrandId(it) },
             domainSort,
             page,
             size,
         ).map { ProductInfo.from(it) }
+        return result
     }
 }
