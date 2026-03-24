@@ -1,11 +1,15 @@
 package com.loopers.domain.payment.event
 
-import org.springframework.context.ApplicationEvent
-import java.time.ZonedDateTime
-
-class PaymentCallbackProcessedEvent(
-    source: Any = object : Any() {},
+data class PaymentCallbackProcessedEvent(
     val orderId: Long,
     val status: String,
-    val processedAt: ZonedDateTime = ZonedDateTime.now(),
-) : ApplicationEvent(source)
+    val transactionId: String? = null,
+    val amount: Long? = null,
+    val reason: String? = null,
+    val dedupeKey: String =
+        if (transactionId.isNullOrBlank()) {
+            "payment.callback.processed:$orderId:$status"
+        } else {
+            "payment.callback.processed:$transactionId:$status"
+        },
+)
