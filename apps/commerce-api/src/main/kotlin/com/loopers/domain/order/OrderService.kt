@@ -3,7 +3,6 @@ package com.loopers.domain.order
 import com.loopers.domain.catalog.ProductRepository
 import com.loopers.domain.coupon.CouponDiscountInfo
 import com.loopers.domain.coupon.DiscountType
-import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Pageable
@@ -16,15 +15,12 @@ import java.time.ZonedDateTime
 
 @Service
 class OrderService(
-    private val userService: UserService,
     private val productRepository: ProductRepository,
     private val orderRepository: OrderRepository,
     private val orderItemRepository: OrderItemRepository,
 ) {
     @Transactional
     fun createOrder(command: CreateOrderCommand): OrderInfo {
-        val user = userService.getUser(command.loginId)
-
         val products = command.items.map { item ->
             val product = productRepository.findByIdWithLock(item.productId)
                 ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다. (id: ${item.productId})")
@@ -47,7 +43,7 @@ class OrderService(
 
         val order = orderRepository.save(
             OrderModel(
-                userId = user.id,
+                userId = command.userId,
                 originalPrice = originalPrice,
                 discountAmount = discountAmount,
                 totalPrice = totalPrice,
@@ -123,7 +119,8 @@ class OrderService(
 }
 
 data class CreateOrderCommand(
-    val loginId: String,
+    val userId: Long,
+    val userName: String,
     val items: List<CreateOrderItemCommand>,
     val couponDiscount: CouponDiscountInfo? = null,
     val issuedCouponId: Long? = null,

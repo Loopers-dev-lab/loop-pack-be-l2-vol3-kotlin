@@ -18,13 +18,14 @@ class UserCreateOrderUseCase(
 
     @Transactional
     override fun execute(criteria: CreateOrderCriteria): CreateOrderResult {
+        val user = userService.getUser(criteria.loginId)
         val couponDiscount = criteria.couponId?.let { issuedCouponId ->
-            val user = userService.getUser(criteria.loginId)
             couponService.validateAndUseForOrder(issuedCouponId, user.id)
         }
 
         val command = CreateOrderCommand(
-            loginId = criteria.loginId,
+            userId = user.id,
+            userName = criteria.loginId,
             items = criteria.items.map {
                 CreateOrderItemCommand(productId = it.productId, quantity = it.quantity)
             },
