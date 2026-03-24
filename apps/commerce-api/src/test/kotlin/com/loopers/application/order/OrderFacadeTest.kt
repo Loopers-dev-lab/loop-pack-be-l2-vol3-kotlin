@@ -6,6 +6,7 @@ import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.event.OrderCompletedEvent
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.ProductService
@@ -21,9 +22,12 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.test.util.ReflectionTestUtils
 import java.time.LocalDateTime
 import java.time.ZonedDateTime
@@ -46,11 +50,14 @@ class OrderFacadeTest {
     @Mock
     private lateinit var paymentFacade: PaymentFacade
 
+    @Mock
+    private lateinit var eventPublisher: ApplicationEventPublisher
+
     private lateinit var orderFacade: OrderFacade
 
     @BeforeEach
     fun setUp() {
-        orderFacade = OrderFacade(orderService, productService, brandService, couponService, paymentFacade)
+        orderFacade = OrderFacade(orderService, productService, brandService, couponService, paymentFacade, eventPublisher)
     }
 
     @DisplayName("주문 목록을 조회할 때,")
@@ -132,6 +139,83 @@ class OrderFacadeTest {
             )
 
             verify(paymentFacade).requestPayment(eq(1L), any(), eq(CardType.SAMSUNG), eq("1234-5678-9012-3456"), any())
+        }
+
+        @DisplayName("결제가 성공하면, OrderCompletedEvent를 발행한다.")
+        @Test
+        fun publishesOrderCompletedEvent_whenPaymentSucceeds() {
+            // arrange
+            val order = Order(userId = 1L)
+            ReflectionTestUtils.setField(order, "id", 100L)
+            whenever(orderService.findByIdempotencyKey(any())).thenReturn(null)
+            whenever(productService.getProductsForOrderWithLock(any())).thenReturn(emptyList())
+            whenever(brandService.getBrandsByIds(any())).thenReturn(emptyList())
+            whenever(orderService.createOrder(any(), any(), any())).thenReturn(order)
+            whenever(paymentFacade.requestPayment(any(), any(), any(), any(), any())).thenReturn(
+                PaymentInfo(
+                    paymentId = 1L,
+                    orderId = "100",
+                    cardType = "SAMSUNG",
+                    cardNo = "1234-5678-9012-3456",
+                    amount = 0L,
+                    status = PaymentStatus.PENDING,
+                    transactionKey = "txn-key-123",
+                    failReason = null,
+                ),
+            )
+
+            // act
+            orderFacade.placeOrder(
+                userId = 1L,
+                items = emptyList(),
+                idempotencyKey = "idem-001",
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+            )
+
+            // assert
+            val captor = argumentCaptor<OrderCompletedEvent>()
+            verify(eventPublisher).publishEvent(captor.capture())
+            val event = captor.firstValue
+            assertThat(event.orderId).isEqualTo(100L)
+            assertThat(event.userId).isEqualTo(1L)
+        }
+
+        @DisplayName("결제가 즉시 FAILED이면, OrderCompletedEvent를 발행하지 않는다.")
+        @Test
+        fun doesNotPublishEvent_whenPaymentFails() {
+            // arrange
+            val order = Order(userId = 1L)
+            ReflectionTestUtils.setField(order, "id", 1L)
+            whenever(orderService.findByIdempotencyKey(any())).thenReturn(null)
+            whenever(productService.getProductsForOrderWithLock(any())).thenReturn(emptyList())
+            whenever(brandService.getBrandsByIds(any())).thenReturn(emptyList())
+            whenever(orderService.createOrder(any(), any(), any())).thenReturn(order)
+            whenever(paymentFacade.requestPayment(any(), any(), any(), any(), any())).thenReturn(
+                PaymentInfo(
+                    paymentId = 1L,
+                    orderId = "1",
+                    cardType = "SAMSUNG",
+                    cardNo = "1234-5678-9012-3456",
+                    amount = 0L,
+                    status = PaymentStatus.FAILED,
+                    transactionKey = null,
+                    failReason = "PG 결제 요청에 실패했습니다.",
+                ),
+            )
+
+            // act & assert
+            assertThrows<CoreException> {
+                orderFacade.placeOrder(
+                    userId = 1L,
+                    items = emptyList(),
+                    idempotencyKey = "idem-001",
+                    cardType = CardType.SAMSUNG,
+                    cardNo = "1234-5678-9012-3456",
+                )
+            }
+
+            verify(eventPublisher, never()).publishEvent(any<OrderCompletedEvent>())
         }
 
         @DisplayName("결제가 즉시 FAILED이면, 예외를 던져 주문을 롤백한다.")
