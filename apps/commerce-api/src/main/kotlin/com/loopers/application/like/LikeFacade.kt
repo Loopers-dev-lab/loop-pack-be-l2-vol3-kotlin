@@ -30,8 +30,7 @@ class LikeFacade(
 
     @Transactional
     fun like(userId: Long, productId: Long) {
-        // 비관적 락: 같은 상품에 대한 동시 like INSERT의 TOCTOU 방지
-        productService.getProductWithLock(productId)
+        productService.getProduct(productId)
         val isNewLike = likeService.like(userId, productId)
         if (isNewLike) {
             eventPublisher.publishEvent(ProductLikedEvent(userId, productId))
@@ -40,7 +39,7 @@ class LikeFacade(
 
     @Transactional
     fun unlike(userId: Long, productId: Long) {
-        productService.getProductWithLock(productId)
+        productService.getProduct(productId)
         val isDeleted = likeService.unlike(userId, productId)
         if (isDeleted) {
             eventPublisher.publishEvent(ProductUnlikedEvent(userId, productId))

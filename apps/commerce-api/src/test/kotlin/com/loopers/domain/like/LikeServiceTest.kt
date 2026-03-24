@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
-import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -38,14 +37,14 @@ class LikeServiceTest {
             val productId = 1L
 
             whenever(likeRepository.existsByUserIdAndProductId(userId, productId)).thenReturn(false)
-            whenever(likeRepository.save(any())).thenReturn(Like(userId = userId, productId = productId))
+            whenever(likeRepository.save(userId, productId)).thenReturn(true)
 
             // act
             val result = likeService.like(userId, productId)
 
             // assert
             assertThat(result).isTrue()
-            verify(likeRepository).save(any())
+            verify(likeRepository).save(userId, productId)
         }
 
         @DisplayName("이미 좋아요가 존재하면, false를 반환하고 저장하지 않는다.")
@@ -62,7 +61,7 @@ class LikeServiceTest {
 
             // assert
             assertThat(result).isFalse()
-            verify(likeRepository, never()).save(any())
+            verify(likeRepository, never()).save(userId, productId)
         }
     }
 
