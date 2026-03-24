@@ -7,12 +7,17 @@ import com.loopers.domain.coupon.Discount
 import com.loopers.domain.coupon.IssuedCoupon
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.event.OrderCompletedEvent
+import com.loopers.domain.order.event.OrderCompletedItem
 import com.loopers.domain.payment.CardType
+import com.loopers.domain.user.event.ActionType
+import com.loopers.domain.user.event.UserActionEvent
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.StockDeductionRequest
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -24,6 +29,7 @@ class OrderFacade(
     private val brandService: BrandService,
     private val couponService: CouponService,
     private val paymentFacade: PaymentFacade,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional(readOnly = true)
@@ -110,6 +116,18 @@ class OrderFacade(
         if (paymentInfo.status == PaymentStatus.FAILED) {
             throw CoreException(ErrorType.INTERNAL_ERROR, paymentInfo.failReason ?: "결제에 실패했습니다.")
         }
+
+        // 부가 로직 이벤트 발행 (AFTER_COMMIT에서 비동기 처리)
+        eventPublisher.publishEvent(
+            OrderCompletedEvent(
+                orderId = order.id,
+                userId = userId,
+                items = items.map { OrderCompletedItem(it.productId, it.quantity.value, productMap[it.productId]?.name ?: "") },
+            ),
+        )
+        eventPublisher.publishEvent(
+            UserActionEvent(userId = userId, actionType = ActionType.ORDER_PLACED, targetId = order.id),
+        )
     }
 
     private data class CouponApplyInfo(

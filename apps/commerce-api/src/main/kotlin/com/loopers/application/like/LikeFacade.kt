@@ -4,6 +4,8 @@ import com.loopers.domain.like.LikeService
 import com.loopers.domain.like.event.ProductLikedEvent
 import com.loopers.domain.like.event.ProductUnlikedEvent
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.user.event.ActionType
+import com.loopers.domain.user.event.UserActionEvent
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.context.ApplicationEventPublisher
@@ -34,6 +36,9 @@ class LikeFacade(
         val isNewLike = likeService.like(userId, productId)
         if (isNewLike) {
             eventPublisher.publishEvent(ProductLikedEvent(userId, productId))
+            eventPublisher.publishEvent(
+                UserActionEvent(userId = userId, actionType = ActionType.PRODUCT_LIKED, targetId = productId),
+            )
         }
     }
 
@@ -43,6 +48,9 @@ class LikeFacade(
         val isDeleted = likeService.unlike(userId, productId)
         if (isDeleted) {
             eventPublisher.publishEvent(ProductUnlikedEvent(userId, productId))
+            eventPublisher.publishEvent(
+                UserActionEvent(userId = userId, actionType = ActionType.PRODUCT_UNLIKED, targetId = productId),
+            )
         }
     }
 }
