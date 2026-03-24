@@ -52,4 +52,32 @@ class UserPaymentV1Response {
             )
         }
     }
+
+    data class Reconciled(
+        val paymentId: Long,
+        val orderId: Long,
+        val status: String,
+        val transactionKey: String?,
+        val displayStatus: String,
+        val reasonCode: String?,
+        val amount: BigDecimal,
+        val cardType: String,
+        val maskedCardNo: String,
+        val reconcileStatus: String,
+    ) {
+        companion object {
+            fun from(result: PaymentResult.Reconciled): Reconciled = Reconciled(
+                paymentId = result.paymentId,
+                orderId = result.orderId,
+                status = result.status,
+                transactionKey = result.transactionKey,
+                displayStatus = result.displayStatus,
+                reasonCode = result.reasonCode,
+                amount = result.amount,
+                cardType = result.cardType,
+                maskedCardNo = result.maskedCardNo,
+                reconcileStatus = result.reconcileStatus,
+            )
+        }
+    }
 }

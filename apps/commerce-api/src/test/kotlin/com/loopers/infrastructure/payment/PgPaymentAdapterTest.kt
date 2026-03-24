@@ -22,13 +22,11 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
-import org.springframework.boot.web.client.ClientHttpRequestFactories
-import org.springframework.boot.web.client.ClientHttpRequestFactorySettings
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.web.client.RestClient
 import java.math.BigDecimal
-import java.time.Duration
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -47,11 +45,12 @@ class PgPaymentAdapterTest {
             wireMockServer = WireMockServer(wireMockConfig().dynamicPort())
             wireMockServer.start()
 
-            val settings = ClientHttpRequestFactorySettings.DEFAULTS
-                .withConnectTimeout(Duration.ofMillis(200))
+            val requestFactory = SimpleClientHttpRequestFactory().apply {
+                setConnectTimeout(200)
+            }
             val restClient = RestClient.builder()
                 .baseUrl("http://localhost:${wireMockServer.port()}")
-                .requestFactory(ClientHttpRequestFactories.get(settings))
+                .requestFactory(requestFactory)
                 .build()
             executor = Executors.newFixedThreadPool(2)
             circuitBreakerRegistry = CircuitBreakerRegistry.ofDefaults()
@@ -421,6 +420,99 @@ class PgPaymentAdapterTest {
                 assertThat(exception.message).isEqualTo("PG status query circuit open")
                 assertThat(wireMockServer.allServeEvents).isEmpty()
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 기준 결제 조회")
+    inner class QueryPaymentsByOrderId {
+
+        @Test
+        @DisplayName("PG에서 주문별 transaction 목록을 정상 반환하면 매핑한다")
+        fun queryPaymentsByOrderId_success() {
+            wireMockServer.stubFor(
+                get(urlPathEqualTo("/api/v1/payments"))
+                    .withHeader("X-USER-ID", equalTo("1"))
+                    .withQueryParam("orderId", equalTo("100"))
+                    .willReturn(
+                        aResponse()
+                            .withStatus(200)
+                            .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                            .withBody(
+                                """
+                                {
+                                    "meta": {"result": "SUCCESS", "errorCode": null, "message": null},
+                                    "data": {
+                                        "orderId": "100",
+                                        "transactions": [
+                                            {
+                                                "transactionKey": "txn-abc-123",
+                                                "orderId": "100",
+                                                "cardType": "VISA",
+                                                "cardNo": "4111111111111234",
+                                                "amount": 16000,
+                                                "status": "SUCCESS",
+                                                "reason": null
+                                            }
+                                        ]
+                                    }
+                                }
+                                """.trimIndent(),
+                            ),
+                    ),
+            )
+
+            val response = adapter.queryPaymentsByOrderId(100L, 1L)
+
+            assertAll(
+                { assertThat(response.orderId).isEqualTo("100") },
+                { assertThat(response.transactions).hasSize(1) },
+                { assertThat(response.transactions.single().transactionKey).isEqualTo("txn-abc-123") },
+                { assertThat(response.transactions.single().status).isEqualTo("SUCCESS") },
+            )
+        }
+
+        @Test
+        @DisplayName("주문 조회 timeout이면 RuntimeException")
+        fun queryPaymentsByOrderId_timeout() {
+            wireMockServer.stubFor(
+                get(urlPathEqualTo("/api/v1/payments"))
+                    .withHeader("X-USER-ID", equalTo("1"))
+                    .withQueryParam("orderId", equalTo("100"))
+                    .willReturn(
+                        aResponse()
+                            .withFixedDelay(1000)
+                            .withStatus(200)
+                            .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                            .withBody(
+                                """
+                                {
+                                    "meta": {"result": "SUCCESS", "errorCode": null, "message": null},
+                                    "data": {"orderId": "100", "transactions": []}
+                                }
+                                """.trimIndent(),
+                            ),
+                    ),
+            )
+
+            val exception = assertThrows<RuntimeException> {
+                adapter.queryPaymentsByOrderId(100L, 1L)
+            }
+
+            assertThat(exception.message).isEqualTo("PG order query timeout")
+        }
+
+        @Test
+        @DisplayName("Circuit OPEN이면 RuntimeException, PG 호출 없음")
+        fun queryPaymentsByOrderId_circuitOpen() {
+            circuitBreakerRegistry.circuitBreaker("pgPayment").transitionToOpenState()
+
+            val exception = assertThrows<RuntimeException> {
+                adapter.queryPaymentsByOrderId(100L, 1L)
+            }
+
+            assertThat(exception.message).isEqualTo("PG order query circuit open")
+            assertThat(wireMockServer.allServeEvents).isEmpty()
         }
     }
 

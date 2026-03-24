@@ -2,6 +2,7 @@ package com.loopers.infrastructure.payment
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.payment.PaymentReasonCode
+import com.loopers.domain.payment.PgPaymentOrderResponse
 import com.loopers.domain.payment.PgPaymentPort
 import com.loopers.domain.payment.PgPaymentRequest
 import com.loopers.domain.payment.PgPaymentResponse
@@ -120,6 +121,55 @@ class PgPaymentAdapter(
         }
     }
 
+    override fun queryPaymentsByOrderId(orderId: Long, userId: Long): PgPaymentOrderResponse {
+        return try {
+            val response = executeProtected {
+                pgRestClient.get()
+                    .uri { builder ->
+                        builder.path("/api/v1/payments")
+                            .queryParam("orderId", orderId)
+                            .build()
+                    }
+                    .header("X-USER-ID", userId.toString())
+                    .retrieve()
+                    .body(PgApiResponse.Order::class.java)!!
+            }
+
+            val data = response.data!!
+            PgPaymentOrderResponse(
+                orderId = data.orderId,
+                transactions = data.transactions.map {
+                    PgPaymentOrderResponse.Transaction(
+                        transactionKey = it.transactionKey,
+                        orderId = it.orderId,
+                        cardType = it.cardType,
+                        cardNo = it.cardNo,
+                        amount = it.amount,
+                        status = it.status,
+                        reason = it.reason,
+                    )
+                },
+            )
+        } catch (e: CallNotPermittedException) {
+            log.warn("PG 주문 조회 circuit breaker OPEN: {}", e.message)
+            throw RuntimeException("PG order query circuit open", e)
+        } catch (e: RejectedExecutionException) {
+            log.warn("PG 주문 조회 executor saturated")
+            throw RuntimeException("PG order query executor saturated", e)
+        } catch (e: CompletionException) {
+            when (val cause = e.cause) {
+                is TimeoutException -> {
+                    log.warn("PG 주문 조회 timeout ({}ms)", overallTimeoutMs)
+                    throw RuntimeException("PG order query timeout", cause)
+                }
+                else -> {
+                    log.warn("PG 주문 조회 실패: {}", cause?.message)
+                    throw RuntimeException("PG order query failed", cause ?: e)
+                }
+            }
+        }
+    }
+
     override fun isAvailable(): Boolean {
         return circuitBreaker.state != CircuitBreaker.State.OPEN
     }
@@ -166,6 +216,11 @@ object PgApiResponse {
         val data: PaymentDetailData?,
     )
 
+    data class Order(
+        val meta: Meta,
+        val data: OrderData?,
+    )
+
     data class Meta(
         val result: String,
         val errorCode: String?,
@@ -186,5 +241,10 @@ object PgApiResponse {
         val amount: Long,
         val status: String,
         val reason: String?,
+    )
+
+    data class OrderData(
+        val orderId: String,
+        val transactions: List<PaymentDetailData>,
     )
 }

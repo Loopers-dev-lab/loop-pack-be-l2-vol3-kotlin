@@ -92,6 +92,26 @@ class Payment private constructor(
         )
     }
 
+    fun attachTransactionKey(transactionKey: String): Payment {
+        if (status != Status.PENDING) {
+            throw CoreException(ErrorType.PAYMENT_INVALID_STATUS_TRANSITION)
+        }
+        return Payment(
+            id = id,
+            orderId = orderId,
+            userId = userId,
+            idempotencyKey = idempotencyKey,
+            status = status,
+            cardType = cardType,
+            maskedCardNo = maskedCardNo,
+            amount = amount,
+            transactionKey = transactionKey,
+            reasonCode = null,
+            requestFingerprint = requestFingerprint,
+            createdAt = createdAt,
+        )
+    }
+
     fun applyTimeoutFallback(): Payment {
         return Payment(
             id = id,

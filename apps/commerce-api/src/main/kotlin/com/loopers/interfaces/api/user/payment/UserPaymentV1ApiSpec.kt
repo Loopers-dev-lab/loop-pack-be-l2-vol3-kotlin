@@ -22,4 +22,11 @@ interface UserPaymentV1ApiSpec {
         password: String,
         paymentId: Long,
     ): ResponseEntity<ApiResponse<UserPaymentV1Response.Detail>>
+
+    @Operation(summary = "결제 수동 복구", description = "timeout fallback 상태의 결제를 PG orderId 조회로 수동 복구합니다.")
+    fun reconcile(
+        loginId: String,
+        password: String,
+        paymentId: Long,
+    ): ResponseEntity<ApiResponse<UserPaymentV1Response.Reconciled>>
 }
