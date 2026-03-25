@@ -1096,7 +1096,7 @@ classDiagram
 
 ---
 
-## 8. 이벤트 도메인
+## 13. 이벤트 도메인 (Round 7)
 
 ApplicationEvent로 발행되는 도메인 이벤트 클래스. JVM 내부에서만 사용되며, Kafka 발행은 Outbox를 통해 처리한다.
 
@@ -1161,7 +1161,7 @@ classDiagram
 
 ---
 
-## 9. Outbox 도메인
+## 14. Outbox 도메인 (Round 7)
 
 Transactional Outbox Pattern. 도메인 변경과 동일 트랜잭션에서 Outbox에 기록하고, Relay가 Kafka로 발행한다.
 
@@ -1245,7 +1245,7 @@ classDiagram
 
 ---
 
-## 10. 선착순 쿠폰 발급 도메인
+## 15. 선착순 쿠폰 발급 도메인 (Round 7)
 
 기존 동기 발급(IssueCouponUseCase)을 Kafka 기반 비동기 발급으로 교체.
 
@@ -1313,7 +1313,7 @@ classDiagram
 
 ---
 
-## 11. 메트릭스 도메인 (commerce-streamer)
+## 16. 메트릭스 도메인 — commerce-streamer (Round 7)
 
 Kafka 이벤트를 소비하여 상품 메트릭스를 집계하는 읽기 모델.
 
@@ -1359,7 +1359,7 @@ classDiagram
 
 ---
 
-## 12. 아키텍처 뷰 — 시스템 간 의존 관계
+## 17. 아키텍처 뷰 — 시스템 간 의존 관계 (Round 7)
 
 ```mermaid
 classDiagram

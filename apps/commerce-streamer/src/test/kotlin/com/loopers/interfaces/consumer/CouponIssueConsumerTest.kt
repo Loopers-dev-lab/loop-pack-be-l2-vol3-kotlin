@@ -1,6 +1,7 @@
 package com.loopers.interfaces.consumer
 
 import com.loopers.application.coupon.ProcessCouponIssueUseCase
+import com.loopers.support.error.CoreException
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -79,18 +80,18 @@ class CouponIssueConsumerTest {
     inner class ErrorCase {
 
         @Test
-        fun `payload가 null이면 IllegalArgumentException을 던진다`() {
+        fun `payload가 null이면 CoreException을 던진다`() {
             // Arrange
             val record = createRecord(null)
 
             // Act & Assert
             assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(IllegalArgumentException::class.java)
+                .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(processCouponIssueUseCase)
         }
 
         @Test
-        fun `eventId가 누락되면 IllegalArgumentException을 던진다`() {
+        fun `eventId가 누락되면 CoreException을 던진다`() {
             // Arrange
             val payload = mapOf(
                 "eventType" to CouponIssueConsumer.COUPON_ISSUE_REQUESTED,
@@ -101,12 +102,12 @@ class CouponIssueConsumerTest {
 
             // Act & Assert
             assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(IllegalArgumentException::class.java)
+                .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(processCouponIssueUseCase)
         }
 
         @Test
-        fun `couponId가 누락되면 IllegalArgumentException을 던진다`() {
+        fun `couponId가 누락되면 CoreException을 던진다`() {
             // Arrange
             val payload = mapOf(
                 "eventId" to "evt-1",
@@ -117,12 +118,12 @@ class CouponIssueConsumerTest {
 
             // Act & Assert
             assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(IllegalArgumentException::class.java)
+                .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(processCouponIssueUseCase)
         }
 
         @Test
-        fun `userId가 누락되면 IllegalArgumentException을 던진다`() {
+        fun `userId가 누락되면 CoreException을 던진다`() {
             // Arrange
             val payload = mapOf(
                 "eventId" to "evt-1",
@@ -133,7 +134,7 @@ class CouponIssueConsumerTest {
 
             // Act & Assert
             assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(IllegalArgumentException::class.java)
+                .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(processCouponIssueUseCase)
         }
     }

@@ -111,7 +111,7 @@ config repo 경로는 `.claude/config.json`의 `configRepo` 필드에서 읽는�
 2. **Partial Sync (`---` 포함 파일)**:
    - 각 대상 파일에서 `---` 위쪽 내용을 추출
    - config repo 대응 파일의 `---` 위쪽을 교체하고, 아래쪽(프로젝트 고유 영역)은 유지
-3. config repo에서 `git add -A && git status`로 변경사항 확인
+3. 동기화 대상으로 계산된 파일만 `git add -- <동기화_대상_파일들>`로 스테이징하고 `git status`로 확인
 4. 커밋 메시지를 자동 생성 (변경 파일 목록 기반)
 5. 사용자 확인 후 커밋
 

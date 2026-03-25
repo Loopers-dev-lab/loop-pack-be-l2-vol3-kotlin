@@ -1,6 +1,7 @@
 package com.loopers.interfaces.consumer
 
 import com.loopers.application.metrics.UpdateProductMetricsUseCase
+import com.loopers.support.error.CoreException
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -82,18 +83,18 @@ class OrderEventConsumerTest {
     inner class ErrorCase {
 
         @Test
-        fun `payload가 null이면 IllegalArgumentException을 던진다`() {
+        fun `payload가 null이면 CoreException을 던진다`() {
             // Arrange
             val record = createRecord(null)
 
             // Act & Assert
             assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(IllegalArgumentException::class.java)
+                .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(updateProductMetricsUseCase)
         }
 
         @Test
-        fun `eventId가 누락되면 IllegalArgumentException을 던진다`() {
+        fun `eventId가 누락되면 CoreException을 던진다`() {
             // Arrange
             val payload = mapOf(
                 "eventType" to "PAYMENT_COMPLETED",
@@ -103,12 +104,12 @@ class OrderEventConsumerTest {
 
             // Act & Assert
             assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(IllegalArgumentException::class.java)
+                .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(updateProductMetricsUseCase)
         }
 
         @Test
-        fun `productId가 누락되면 IllegalArgumentException을 던진다`() {
+        fun `productId가 누락되면 CoreException을 던진다`() {
             // Arrange
             val payload = mapOf(
                 "eventId" to "evt-1",
@@ -118,7 +119,7 @@ class OrderEventConsumerTest {
 
             // Act & Assert
             assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(IllegalArgumentException::class.java)
+                .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(updateProductMetricsUseCase)
         }
     }

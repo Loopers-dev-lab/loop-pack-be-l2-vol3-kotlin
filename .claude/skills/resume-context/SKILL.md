@@ -12,7 +12,7 @@ description: |
 
 ## 사용법
 
-```
+```bash
 /resume-context
 ```
 
@@ -41,7 +41,7 @@ description: |
 
 아래 형식으로 간결하게 보고한다:
 
-```
+```markdown
 ## 이전 세션 요약
 - **완료**: [handoff에서 추출]
 - **미완료**: [handoff에서 추출]

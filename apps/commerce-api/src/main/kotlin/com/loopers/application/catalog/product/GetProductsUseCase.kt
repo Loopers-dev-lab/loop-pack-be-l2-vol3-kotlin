@@ -20,7 +20,7 @@ class GetProductsUseCase(
         sync = true,
     )
     @Transactional(readOnly = true)
-    fun execute(brandId: Long?, sort: String, page: Int, size: Int, userId: Long? = null): PageResult<ProductInfo> {
+    fun execute(brandId: Long?, sort: String, page: Int, size: Int): PageResult<ProductInfo> {
         val domainSort = ProductSort.entries.find { it.name == sort.uppercase() }
             ?: throw CoreException(
                 ErrorType.BAD_REQUEST,

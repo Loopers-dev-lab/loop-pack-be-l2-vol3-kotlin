@@ -2,6 +2,8 @@ package com.loopers.interfaces.consumer
 
 import com.loopers.application.coupon.ProcessCouponIssueUseCase
 import com.loopers.config.kafka.KafkaConfig
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -20,15 +22,15 @@ class CouponIssueConsumer(
     )
     fun consume(message: ConsumerRecord<Any, Any>) {
         val payload = message.value() as? Map<*, *>
-            ?: throw IllegalArgumentException("페이로드 파싱 실패: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "페이로드 파싱 실패: offset=${message.offset()}")
         val eventId = payload["eventId"] as? String
-            ?: throw IllegalArgumentException("eventId 누락: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "eventId 누락: offset=${message.offset()}")
         val eventType = payload["eventType"] as? String
-            ?: throw IllegalArgumentException("eventType 누락: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "eventType 누락: offset=${message.offset()}")
         val couponId = (payload["couponId"] as? Number)?.toLong()
-            ?: throw IllegalArgumentException("couponId 누락: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "couponId 누락: offset=${message.offset()}")
         val userId = (payload["userId"] as? Number)?.toLong()
-            ?: throw IllegalArgumentException("userId 누락: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "userId 누락: offset=${message.offset()}")
 
         if (eventType != COUPON_ISSUE_REQUESTED) {
             log.warn("알 수 없는 coupon 이벤트 타입: eventType={}", eventType)

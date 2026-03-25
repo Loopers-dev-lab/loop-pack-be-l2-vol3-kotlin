@@ -55,10 +55,10 @@ TDD Red Phase. 요구사항에 대한 실패하는 테스트를 하나 작성한
 ### 테스트 스타일
 ```kotlin
 @Nested
-@DisplayName("한국어로 상황 설명")
+@DisplayName("상황 설명")
 inner class ContextName {
     @Test
-    fun `동작을 한국어로 설명한다`() {
+    fun `동작을 설명한다`() {
         // Arrange
         // Act
         // Assert

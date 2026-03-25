@@ -2,6 +2,8 @@ package com.loopers.interfaces.consumer
 
 import com.loopers.application.metrics.UpdateProductMetricsUseCase
 import com.loopers.config.kafka.KafkaConfig
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -20,13 +22,13 @@ class CatalogEventConsumer(
     )
     fun consume(message: ConsumerRecord<Any, Any>) {
         val payload = message.value() as? Map<*, *>
-            ?: throw IllegalArgumentException("페이로드 파싱 실패: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "페이로드 파싱 실패: offset=${message.offset()}")
         val eventId = payload["eventId"] as? String
-            ?: throw IllegalArgumentException("eventId 누락: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "eventId 누락: offset=${message.offset()}")
         val eventType = payload["eventType"] as? String
-            ?: throw IllegalArgumentException("eventType 누락: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "eventType 누락: offset=${message.offset()}")
         val productId = (payload["productId"] as? Number)?.toLong()
-            ?: throw IllegalArgumentException("productId 누락: offset=${message.offset()}")
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "productId 누락: offset=${message.offset()}")
         updateProductMetricsUseCase.handleCatalogEvent(
             eventId = eventId,
             eventType = eventType,

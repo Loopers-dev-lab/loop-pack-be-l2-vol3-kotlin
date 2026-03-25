@@ -152,7 +152,7 @@
 ## RD-019. check-then-act 안티패턴 (IssuedCouponRepository)
 - **keywords**: `check-then-act`, `exists`, `save`, `saveIfAbsent`, `원자적`, `unique constraint`
 - **리뷰어**: CodeRabbit
-- **repeat_count**: 1
+- **repeat_count**: 2
 - **최종 결정**: 기각
 - **근거**: DB unique constraint가 실질적 보호 역할. `saveIfAbsent` 원자 연산 도입 시 중복 판단 로직이 도메인에서 인프라로 이동하여 설계 철학과 충돌. ProcessCouponIssueUseCase에 비관적 락(#11) 적용으로 check-then-act 경합 자체가 해소됨.
 - **최종 업데이트**: 2026-03-23
@@ -184,7 +184,7 @@
 ## RD-023. request not found 시 eventHandled 미기록
 - **keywords**: `ProcessCouponIssueUseCase`, `findByRequestId`, `eventHandled`, `무한 재처리`, `offset commit`
 - **리뷰어**: CodeRabbit
-- **repeat_count**: 1
+- **repeat_count**: 2
 - **최종 결정**: 기각
 - **근거**: Record listener가 정상 반환 시 offset 자동 커밋 → 재배달 없음. eventHandled는 비즈니스 멱등성 보호용이며, 실제 처리된 적 없는 이벤트를 "처리됨"으로 기록하면 의미 왜곡. request 미존재는 데이터 정합성 이슈로 별도 모니터링 대상.
 - **최종 업데이트**: 2026-03-24

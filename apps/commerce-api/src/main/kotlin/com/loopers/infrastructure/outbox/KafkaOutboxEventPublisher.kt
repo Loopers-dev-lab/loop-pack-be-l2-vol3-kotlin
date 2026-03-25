@@ -4,7 +4,9 @@ import com.loopers.application.event.OutboxEventPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 @Component
 class KafkaOutboxEventPublisher(
@@ -19,6 +21,10 @@ class KafkaOutboxEventPublisher(
         } catch (ex: InterruptedException) {
             Thread.currentThread().interrupt()
             throw ex
+        } catch (ex: ExecutionException) {
+            throw ex.cause ?: ex
+        } catch (ex: TimeoutException) {
+            throw RuntimeException("Kafka 발행 타임아웃: topic=$topic, key=$key", ex)
         }
         log.debug("Kafka 발행 완료: topic={}, key={}", topic, key)
     }

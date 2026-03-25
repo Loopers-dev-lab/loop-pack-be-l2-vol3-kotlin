@@ -492,4 +492,4 @@ erDiagram
 | **product_metrics 불일치** | products.like_count와 product_metrics.like_count 간 일시적 불일치 | Eventual consistency 허용 (동기 UX vs 비동기 통계, 용도가 다름) |
 | **coupon_issue_requests 중복** | 같은 사용자가 같은 쿠폰에 여러 번 요청 | UNIQUE 인덱스 (ref_coupon_id, ref_user_id)로 DB 레벨 방지 |
 | **event_handled 증가** | 처리 완료 이벤트 ID가 무한 증가 | 오래된 레코드 주기적 정리 (Kafka 메시지 보존 기간과 동기화) |
-| **Relay 폴링 부하** | 주기적 폴링이 DB에 부하 유발 | (status, created_at) 인덱스로 최적화 |
+| **Relay 폴링 부하** | 주기적 폴링이 DB에 부하 유발 | (published, id) 인덱스로 최적화 |

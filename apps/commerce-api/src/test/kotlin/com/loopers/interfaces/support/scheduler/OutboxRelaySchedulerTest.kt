@@ -39,8 +39,8 @@ class OutboxRelaySchedulerTest {
         eventPublisher = FakeOutboxEventPublisher()
         val noOpTransactionManager = object : PlatformTransactionManager {
             override fun getTransaction(definition: TransactionDefinition?): TransactionStatus = SimpleTransactionStatus()
-            override fun commit(status: TransactionStatus) {}
-            override fun rollback(status: TransactionStatus) {}
+            override fun commit(status: TransactionStatus) = Unit
+            override fun rollback(status: TransactionStatus) = Unit
         }
         val useCase = RelayOutboxUseCase(
             catalogOutboxRepository = catalogOutboxRepository,

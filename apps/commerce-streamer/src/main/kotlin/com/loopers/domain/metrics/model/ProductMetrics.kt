@@ -35,7 +35,7 @@ class ProductMetrics(
     }
 
     fun incrementSalesCount(quantity: Long = 1) {
-        require(quantity > 0) { "quantity는 양수여야 합니다." }
+        if (quantity <= 0) throw CoreException(ErrorType.BAD_REQUEST, "quantity는 양수여야 합니다.")
         salesCount += quantity
     }
 }

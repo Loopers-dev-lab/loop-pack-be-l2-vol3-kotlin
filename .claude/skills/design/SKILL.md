@@ -39,7 +39,7 @@ Read(`<프로젝트 루트>/.claude/skills/design/phases/phase-{name}.md`)
 ## 인자
 
 - `ARGS[0]` (선택): 요구사항 설명 또는 PRD 문서 경로
-- `--phase requirements|sequence|class|erd|review`: 특정 Phase만 실행
+- `--phase requirements|sequence|class|erd|review|verify-docs`: 특정 Phase만 실행
 - `--status`: 현재 진행 상황 조회. 다른 플래그와 함께 사용 불가.
 - `--resume`: 중단된 작업 재개. state.md의 current-phase에서 재시작.
 - `--quick`: requirements → review만 실행 (sequence/class/erd 다이어그램 생략)
@@ -184,7 +184,7 @@ artifacts:
 | erd | 04-erd.md | 완료 |
 | review | (인라인 보고) | 완료 |
 
-**다음 단계**: 설계 리뷰 결과를 바탕으로 구현을 시작하거나, `/verify-docs`로 코드와 문서 정합성을 확인할 수 있습니다.
+**다음 단계**: 설계 리뷰 결과를 바탕으로 구현을 시작하거나, `/design --phase verify-docs`로 코드와 문서 정합성을 확인할 수 있습니다.
 ```
 
 ## Gotchas

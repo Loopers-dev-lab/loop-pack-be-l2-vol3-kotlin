@@ -31,7 +31,7 @@ class ProductV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<Page<ProductV1Dto.CustomerProductResponse>> {
-        return getProductsUseCase.execute(brandId, sort, page, size, userId)
+        return getProductsUseCase.execute(brandId, sort, page, size)
             .map { ProductV1Dto.CustomerProductResponse.from(it) }
             .toSpringPage()
             .let { ApiResponse.success(it) }

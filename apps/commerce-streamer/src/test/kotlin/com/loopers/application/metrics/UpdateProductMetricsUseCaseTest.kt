@@ -100,6 +100,7 @@ class UpdateProductMetricsUseCaseTest {
 
             val metrics = productMetricsRepository.findByProductId(1L)
             assertThat(metrics).isNull()
+            assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue()
         }
 
         @Test
@@ -143,6 +144,7 @@ class UpdateProductMetricsUseCaseTest {
 
             val metrics = productMetricsRepository.findByProductId(1L)
             assertThat(metrics).isNull()
+            assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue()
         }
 
         @Test
