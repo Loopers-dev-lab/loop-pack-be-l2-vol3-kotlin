@@ -954,4 +954,237 @@ sequenceDiagram
 #### 참고
 
 - `RegisterUserUseCase`는 UserRepository를 직접 주입받아 사용한다
+
+---
+
+## 9. 결제 (Round 6 — PG 연동 + Resilience)
+
+> PG Simulator는 별도 Spring Boot 앱(`apps/pg-simulator`)으로 동작한다.
+> Resilience4j 적용 순서: CircuitBreaker(바깥) → Retry(안쪽) → TimeLimiter.
+> PG 시뮬레이터 특성: 요청 성공률 60%, 응답 지연 100ms~500ms, 처리 지연 1s~5s.
+
+### 9.1 결제 요청
+
+**API:** `POST /api/v1/payments` — 사용자 인증 필요
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as PaymentController
+    participant UC as RequestPaymentUseCase
+    participant PG as PgClient (port)
+    participant SIM as PG Simulator (FeignClient)
+    participant PR as PaymentRepository
+    participant OR as OrderRepository
+
+    User ->> C: 결제 요청 (orderId, cardType, cardNo)
+    C ->> UC: execute(orderId, cardType, cardNo, userId)
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        UC ->> UC: Order 조회 및 결제 가능 상태 검증
+
+        Note over PG, SIM: CircuitBreaker(pgPayment) → Retry(pgRetry) → TimeLimiter
+        UC ->> PG: requestPayment(orderId, cardType, cardNo, amount, callbackUrl)
+        PG ->> SIM: POST /api/v1/payments
+
+        alt PG 정상 응답 (60% 확률, 100ms~500ms)
+            SIM -->> PG: { transactionKey, status: PENDING }
+            PG -->> UC: PgResponse(transactionKey, PENDING)
+            UC ->> PR: save(Payment(status=REQUESTED, transactionKey))
+            UC ->> OR: updateStatus(orderId, PENDING_PAYMENT)
+            PR -->> UC: Payment
+            UC -->> C: PaymentInfo
+            C -->> User: 200 OK (paymentId, status=REQUESTED)
+
+        else Timeout / Retry 소진 (TimeLimiter 초과 또는 Retry 횟수 소진)
+            SIM -->> PG: 응답 없음 / 지연
+            PG -->> UC: fallback 호출
+            UC ->> PG: queryByOrderId(orderId) — PG 상태 조회 시도
+            PG ->> SIM: GET /api/v1/payments?orderId={orderId}
+
+            alt PG에 결제 기록 존재
+                SIM -->> PG: 트랜잭션 목록
+                PG -->> UC: PgResponse(transactionKey, PENDING)
+                UC ->> PR: save(Payment(status=REQUESTED, transactionKey))
+            else PG에 기록 없음
+                UC ->> PR: save(Payment(status=TIMEOUT, transactionKey=null))
+            end
+
+            UC ->> OR: updateStatus(orderId, PENDING_PAYMENT)
+            UC -->> C: PaymentInfo
+            C -->> User: 200 OK (paymentId, status=REQUESTED or TIMEOUT)
+
+        else CircuitBreaker OPEN (PG 장애 누적으로 회로 차단)
+            PG -->> UC: fallback 즉시 호출 (CallNotPermittedException)
+            UC ->> PR: save(Payment(status=TIMEOUT, transactionKey=null))
+            UC ->> OR: updateStatus(orderId, PENDING_PAYMENT)
+            Note right of UC: 스케줄러가 주기적으로 복구 시도
+            UC -->> C: PaymentInfo
+            C -->> User: 200 OK (paymentId, status=TIMEOUT)
+        end
+    end
+```
+
+### 9.2 PG 콜백 수신
+
+**API:** `POST /api/v1/payments/callback` — 인증 불필요 (PG Simulator 발신)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SIM as PG Simulator
+    participant C as PaymentCallbackController
+    participant UC as HandlePaymentCallbackUseCase
+    participant PR as PaymentRepository
+    participant OR as OrderRepository
+
+    SIM ->> C: POST /api/v1/payments/callback<br/>{ transactionKey, orderId, status, reason }
+    C ->> UC: execute(transactionKey, status, reason)
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        UC ->> PR: findByTransactionKey(transactionKey)
+        PR -->> UC: Payment (status=REQUESTED or TIMEOUT)
+
+        Note over UC: 조건부 UPDATE<br/>WHERE status IN ('REQUESTED', 'TIMEOUT')
+
+        alt status = SUCCESS
+            UC ->> PR: updateStatus(paymentId, SUCCESS)
+            UC ->> OR: updateStatus(orderId, PAID)
+        else status = FAILED
+            UC ->> PR: updateStatus(paymentId, FAILED)
+            UC ->> OR: updateStatus(orderId, FAILED)
+        end
+
+        PR -->> UC: 처리 완료
+        OR -->> UC: 처리 완료
+    end
+
+    UC -->> C: 처리 완료
+    C -->> SIM: 200 OK
+```
+
+### 9.3 스케줄러 자동 복구
+
+**트리거:** `@Scheduled` — 시스템 자동 실행 (주기적)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SCH as PaymentRecoveryScheduler
+    participant UC as RecoverPendingPaymentsUseCase
+    participant PR as PaymentRepository
+    participant PG as PgClient (port)
+    participant SIM as PG Simulator (FeignClient)
+    participant OR as OrderRepository
+
+    SCH ->> UC: execute()
+    UC ->> PR: findAllByStatusIn([REQUESTED, TIMEOUT])
+    PR -->> UC: List<Payment>
+
+    loop 각 미완료 Payment
+        Note over PG, SIM: CircuitBreaker(pgStatusQuery) 적용
+        UC ->> PG: queryByOrderId(payment.orderId)
+        PG ->> SIM: GET /api/v1/payments?orderId={orderId}
+
+        alt PG 응답 정상
+            SIM -->> PG: 트랜잭션 목록 (status: SUCCESS / FAILED / PENDING)
+
+            alt PG status = SUCCESS
+                rect rgb(245, 245, 245)
+                    Note right of UC: @Transactional
+                    UC ->> PR: updateStatus(paymentId, SUCCESS) — 조건부 UPDATE
+                    UC ->> OR: updateStatus(orderId, PAID)
+                end
+            else PG status = FAILED
+                rect rgb(245, 245, 245)
+                    Note right of UC: @Transactional
+                    UC ->> PR: updateStatus(paymentId, FAILED) — 조건부 UPDATE
+                    UC ->> OR: updateStatus(orderId, FAILED)
+                end
+            else PG status = PENDING
+                Note right of UC: 아직 처리 중 — 다음 스케줄 주기에 재시도
+            end
+        else PG 응답 실패 / CB OPEN
+            Note right of UC: 해당 건 스킵, 다음 주기에 재시도
+        end
+    end
+
+    UC -->> SCH: 복구 완료
+```
+
+### 9.4 Admin 수동 PG 상태 동기화
+
+**API:** `POST /api-admin/v1/payments/{paymentId}/sync` — 관리자 인증 필요
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 관리자
+    participant C as PaymentAdminController
+    participant UC as SyncPaymentUseCase
+    participant PR as PaymentRepository
+    participant PG as PgClient (port)
+    participant SIM as PG Simulator (FeignClient)
+    participant OR as OrderRepository
+
+    Admin ->> C: POST /api-admin/v1/payments/{paymentId}/sync
+    C ->> UC: execute(paymentId)
+
+    UC ->> PR: findById(paymentId)
+    PR -->> UC: Payment
+
+    Note over PG, SIM: CircuitBreaker(pgStatusQuery) 적용
+    UC ->> PG: queryByOrderId(payment.orderId)
+    PG ->> SIM: GET /api/v1/payments?orderId={orderId}
+    SIM -->> PG: 트랜잭션 목록
+    PG -->> UC: PgResponse
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        Note over UC: 조건부 UPDATE<br/>WHERE status IN ('REQUESTED', 'TIMEOUT')
+
+        alt PG status = SUCCESS
+            UC ->> PR: updateStatus(paymentId, SUCCESS)
+            UC ->> OR: updateStatus(orderId, PAID)
+        else PG status = FAILED
+            UC ->> PR: updateStatus(paymentId, FAILED)
+            UC ->> OR: updateStatus(orderId, FAILED)
+        else PG status = PENDING
+            Note right of UC: 상태 변경 없음
+        end
+    end
+
+    UC -->> C: SyncResult
+    C -->> Admin: 200 OK
+```
+
+### 9.5 Admin 스케줄러 수동 트리거
+
+**API:** `POST /api-admin/v1/payments/scheduler/trigger` — 관리자 인증 필요
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as 관리자
+    participant C as PaymentAdminController
+    participant UC as TriggerPaymentRecoveryUseCase
+    participant RUC as RecoverPendingPaymentsUseCase
+
+    Admin ->> C: POST /api-admin/v1/payments/scheduler/trigger
+    C ->> UC: execute()
+    UC ->> RUC: execute()
+    Note right of RUC: 9.3 스케줄러 자동 복구와 동일한 로직 수행
+    RUC -->> UC: 처리 완료
+    UC -->> C: TriggerResult
+    C -->> Admin: 200 OK
+```
+
+#### 참고
+
+- PG Simulator 콜백 발신: `PaymentEventListener`가 트랜잭션 커밋 후 비동기(`@Async`)로 1s~5s 지연 후 `callbackUrl`로 POST 요청
+- `pgPayment` CB 인스턴스: 결제 요청용 / `pgStatusQuery` CB 인스턴스: 상태 조회용 (별도 설정 권장)
+- 조건부 UPDATE(`WHERE status IN (...)`)는 중복 콜백/스케줄러 동시 실행에 의한 상태 덮어쓰기를 방지
 - **@Transactional은 UseCase 레벨에서 설정**하여 User 생성의 원자성을 보장한다

@@ -8,6 +8,14 @@ tasks.test {
     }
 }
 
+tasks.register<Test>("benchmarkTest") {
+    description = "벤치마크 테스트 실행"
+    group = "verification"
+    useJUnitPlatform {
+        includeTags("benchmark")
+    }
+}
+
 dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
@@ -20,6 +28,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${project.properties["springDocOpenApiVersion"]}")
+
+    // PG 연동
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+
+    // Resilience4j
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // querydsl
     kapt("com.querydsl:querydsl-apt::jakarta")

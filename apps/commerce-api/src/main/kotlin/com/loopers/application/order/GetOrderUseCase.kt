@@ -4,6 +4,7 @@ import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
+import com.loopers.domain.payment.repository.PaymentRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetOrderUseCase(
     private val orderRepository: OrderRepository,
     private val orderItemRepository: OrderItemRepository,
+    private val paymentRepository: PaymentRepository,
 ) {
 
     @Transactional(readOnly = true)
@@ -26,6 +28,11 @@ class GetOrderUseCase(
             throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
         }
         val items = orderItemRepository.findAllByOrderId(OrderId(orderId))
-        return OrderInfo.from(OrderDetail(order, items))
+        val payment = paymentRepository.findByOrderId(OrderId(orderId))
+        return OrderInfo.from(
+            detail = OrderDetail(order, items),
+            paymentStatus = payment?.status,
+            transactionKey = payment?.transactionKey,
+        )
     }
 }
