@@ -188,3 +188,19 @@
 - **최종 결정**: 기각
 - **근거**: Record listener가 정상 반환 시 offset 자동 커밋 → 재배달 없음. eventHandled는 비즈니스 멱등성 보호용이며, 실제 처리된 적 없는 이벤트를 "처리됨"으로 기록하면 의미 왜곡. request 미존재는 데이터 정합성 이슈로 별도 모니터링 대상.
 - **최종 업데이트**: 2026-03-24
+
+## RD-024. AFTER_COMMIT 핸들러 통합 테스트
+- **keywords**: `AFTER_COMMIT`, `TransactionalEventListener`, `통합 테스트`, `ApplicationEventPublisher`, `phase`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: TestContainers + 실제 트랜잭션 인프라 필요. phase 설정은 어노테이션이므로 코드 리뷰로 충분히 검증 가능. 단위 테스트에서 핸들러 로직 자체를 검증하고 있으며, 통합 테스트 추가는 현 단계에서 과잉.
+- **최종 업데이트**: 2026-03-25
+
+## RD-025. AFTER_COMMIT 핸들러에 @Transactional(REQUIRES_NEW) 명시
+- **keywords**: `AFTER_COMMIT`, `@Transactional`, `REQUIRES_NEW`, `SimpleJpaRepository`, `트랜잭션 경계`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: AFTER_COMMIT 이후 `catalogOutboxRepository.save()` 호출 시 Spring Data JPA의 `SimpleJpaRepository.save()`에 선언된 `@Transactional`이 자동으로 새 트랜잭션을 생성한다. 핸들러에 별도로 `@Transactional(propagation = REQUIRES_NEW)`를 명시하면 중복 어노테이션이 되며, 프레임워크 동작에 대한 불필요한 의존 표현.
+- **최종 업데이트**: 2026-03-25

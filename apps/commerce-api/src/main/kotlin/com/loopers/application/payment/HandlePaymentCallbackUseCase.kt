@@ -44,8 +44,8 @@ class HandlePaymentCallbackUseCase(
             order.markPaid()
             orderRepository.save(order)
             val orderItems = orderItemRepository.findAllByOrderId(OrderId(command.orderId))
-            for (item in orderItems) {
-                orderOutboxRepository.save(
+            orderOutboxRepository.saveAll(
+                orderItems.map { item ->
                     OrderOutbox(
                         eventType = "PAYMENT_COMPLETED",
                         orderId = command.orderId,
@@ -53,9 +53,9 @@ class HandlePaymentCallbackUseCase(
                         totalAmount = payment.amount,
                         productId = item.refProductId.value,
                         quantity = item.quantity.value,
-                    ),
-                )
-            }
+                    )
+                },
+            )
         } else {
             val reason = command.reason ?: "PG 콜백 실패"
             payment.markFailed(reason)

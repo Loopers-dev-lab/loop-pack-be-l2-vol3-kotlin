@@ -32,7 +32,9 @@ import java.math.BigDecimal
 class PaymentFlowIntegrationTest {
 
     private lateinit var orderRepository: FakeOrderRepository
+    private lateinit var orderItemRepository: FakeOrderItemRepository
     private lateinit var paymentRepository: FakePaymentRepository
+    private lateinit var orderOutboxRepository: FakeOrderOutboxRepository
     private lateinit var pgClient: FakePgClient
     private lateinit var fakePaymentPgProcessor: FakePaymentPgProcessor
     private lateinit var requestPaymentUseCase: RequestPaymentUseCase
@@ -51,13 +53,15 @@ class PaymentFlowIntegrationTest {
     fun setUp() {
         TransactionSynchronizationManager.initSynchronization()
         orderRepository = FakeOrderRepository()
+        orderItemRepository = FakeOrderItemRepository()
         paymentRepository = FakePaymentRepository()
+        orderOutboxRepository = FakeOrderOutboxRepository()
         pgClient = FakePgClient()
         fakePaymentPgProcessor = FakePaymentPgProcessor()
         paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
         requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, fakePaymentPgProcessor)
         handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(
-            paymentRepository, orderRepository, FakeOrderItemRepository(), FakeOrderOutboxRepository(),
+            paymentRepository, orderRepository, orderItemRepository, orderOutboxRepository,
         )
         recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
@@ -86,7 +90,10 @@ class PaymentFlowIntegrationTest {
                 ) to Quantity(1),
             ),
         )
-        return orderRepository.save(order)
+        val saved = orderRepository.save(order)
+        saved.assignOrderIdToItems(saved.id)
+        orderItemRepository.saveAll(saved.items)
+        return saved
     }
 
     private fun defaultRequestCommand(orderId: Long) = PaymentCommand.RequestPayment(
@@ -147,6 +154,7 @@ class PaymentFlowIntegrationTest {
             val finalOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.PAID)
+            assertThat(orderOutboxRepository.findAllUnpublished()).hasSize(1)
         }
     }
 
@@ -272,6 +280,7 @@ class PaymentFlowIntegrationTest {
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(finalPayment.reason).isEqualTo("카드 한도 초과")
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.FAILED)
+            assertThat(orderOutboxRepository.findAllUnpublished()).hasSize(0)
         }
     }
 }

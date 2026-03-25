@@ -19,6 +19,10 @@ class OrderOutboxRepositoryImpl(
         return orderOutboxJpaRepository.save(OrderOutboxEntity.fromDomain(outbox)).toDomain()
     }
 
+    override fun saveAll(outboxes: List<OrderOutbox>): List<OrderOutbox> {
+        return orderOutboxJpaRepository.saveAll(outboxes.map { OrderOutboxEntity.fromDomain(it) }).map { it.toDomain() }
+    }
+
     override fun findAllUnpublished(limit: Int): List<OrderOutbox> {
         return orderOutboxJpaRepository
             .findAllByPublishedFalseOrderByIdAsc(Limit.of(limit))

@@ -22,6 +22,6 @@ class CatalogMetricsEventListener(
             userId = event.userId,
         )
         catalogOutboxRepository.save(outbox)
-        log.info("CatalogOutbox 기록: eventType={}, productId={}", outbox.eventType, outbox.productId)
+        log.debug("CatalogOutbox 기록: eventType={}, productId={}", outbox.eventType, outbox.productId)
     }
 }
