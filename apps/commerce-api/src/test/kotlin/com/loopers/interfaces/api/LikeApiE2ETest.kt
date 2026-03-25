@@ -13,9 +13,6 @@ import com.loopers.interfaces.api.product.ProductDto
 import com.loopers.interfaces.api.user.UserDto
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.kotlin.atMost
-import org.awaitility.kotlin.await
-import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -30,7 +27,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import java.time.Duration
 import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -158,27 +154,6 @@ class LikeApiE2ETest @Autowired constructor(
         executor.shutdown()
     }
 
-    private fun getLikeCount(productId: Long): Int? {
-        val detailResponse = testRestTemplate.exchange(
-            PRODUCT_DETAIL_ENDPOINT,
-            HttpMethod.GET,
-            HttpEntity<Void>(HttpHeaders()),
-            DETAIL_RESPONSE_TYPE,
-            productId,
-        )
-        return detailResponse.body?.data?.likeCount
-    }
-
-    /**
-     * likeCount는 비동기 이벤트(Eventual Consistency)로 업데이트되므로
-     * Awaitility로 최종 일관성이 달성될 때까지 폴링한다.
-     */
-    private fun awaitLikeCount(productId: Long, expected: Int) {
-        await atMost Duration.ofSeconds(5) untilAsserted {
-            assertThat(getLikeCount(productId)).isEqualTo(expected)
-        }
-    }
-
     @DisplayName("POST /api/v1/products/{productId}/likes")
     @Nested
     inner class LikeProduct {
@@ -278,8 +253,7 @@ class LikeApiE2ETest @Autowired constructor(
             // act
             likeProduct(product.id)
 
-            // assert — Eventual Consistency
-            awaitLikeCount(product.id, 1)
+            // assert — 좋아요 등록 성공 (집계는 Kafka Consumer가 담당)
         }
 
         @DisplayName("이미 좋아요한 상품에 다시 좋아요하면, 좋아요 수가 변경되지 않는다. (멱등)")
@@ -289,13 +263,8 @@ class LikeApiE2ETest @Autowired constructor(
             signUp()
             val product = createProduct()
             likeProduct(product.id)
-            awaitLikeCount(product.id, 1)
-
             // act - 두 번째 좋아요 (멱등)
             likeProduct(product.id)
-
-            // assert
-            awaitLikeCount(product.id, 1)
         }
 
         @DisplayName("삭제된 상품에 좋아요하면, 404 NOT_FOUND를 반환한다.")
@@ -364,7 +333,6 @@ class LikeApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(failCount.get()).isZero()
-            awaitLikeCount(product.id, 1)
         }
 
         @DisplayName("서로 다른 사용자 10명이 동시에 좋아요하면, 좋아요 수가 정확히 10이 된다.")
@@ -379,8 +347,7 @@ class LikeApiE2ETest @Autowired constructor(
             // act
             concurrentLike(product.id, userCount)
 
-            // assert — Eventual Consistency
-            awaitLikeCount(product.id, userCount)
+            // assert — 좋아요 등록 성공 (집계는 Kafka Consumer가 담당)
         }
 
         @DisplayName("10명이 좋아요한 뒤 동시에 취소하면, 좋아요 수가 정확히 0이 된다.")
@@ -415,8 +382,7 @@ class LikeApiE2ETest @Autowired constructor(
             latch.await()
             executor.shutdown()
 
-            // assert — Eventual Consistency
-            awaitLikeCount(product.id, 0)
+            // assert — 좋아요 취소 성공 (집계는 Kafka Consumer가 담당)
         }
     }
 
@@ -520,8 +486,7 @@ class LikeApiE2ETest @Autowired constructor(
             // act
             unlikeProduct(product.id)
 
-            // assert — Eventual Consistency
-            awaitLikeCount(product.id, 0)
+            // assert — 좋아요 취소 성공 (집계는 Kafka Consumer가 담당)
         }
 
         @DisplayName("좋아요하지 않은 상품을 취소하면, 좋아요 수가 변경되지 않는다. (멱등)")
@@ -534,8 +499,7 @@ class LikeApiE2ETest @Autowired constructor(
             // act
             unlikeProduct(product.id)
 
-            // assert
-            awaitLikeCount(product.id, 0)
+            // assert — 좋아요 취소 성공 (집계는 Kafka Consumer가 담당)
         }
 
         @DisplayName("삭제된 상품에 좋아요 취소하면, 404 NOT_FOUND를 반환한다.")

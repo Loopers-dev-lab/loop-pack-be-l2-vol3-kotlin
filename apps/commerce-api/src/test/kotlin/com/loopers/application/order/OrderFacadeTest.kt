@@ -6,7 +6,6 @@ import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
-import com.loopers.domain.order.event.OrderCompletedEvent
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.ProductService
@@ -22,7 +21,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
-import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -53,11 +51,14 @@ class OrderFacadeTest {
     @Mock
     private lateinit var eventPublisher: ApplicationEventPublisher
 
+    @Mock
+    private lateinit var outboxPublisher: com.loopers.application.outbox.OutboxPublisher
+
     private lateinit var orderFacade: OrderFacade
 
     @BeforeEach
     fun setUp() {
-        orderFacade = OrderFacade(orderService, productService, brandService, couponService, paymentFacade, eventPublisher)
+        orderFacade = OrderFacade(orderService, productService, brandService, couponService, paymentFacade, eventPublisher, outboxPublisher)
     }
 
     @DisplayName("주문 목록을 조회할 때,")
@@ -141,9 +142,9 @@ class OrderFacadeTest {
             verify(paymentFacade).requestPayment(eq(1L), any(), eq(CardType.SAMSUNG), eq("1234-5678-9012-3456"), any())
         }
 
-        @DisplayName("결제가 성공하면, OrderCompletedEvent를 발행한다.")
+        @DisplayName("결제가 성공하면, Outbox에 ORDER_COMPLETED 이벤트를 발행한다.")
         @Test
-        fun publishesOrderCompletedEvent_whenPaymentSucceeds() {
+        fun publishesOutboxEvent_whenPaymentSucceeds() {
             // arrange
             val order = Order(userId = 1L)
             ReflectionTestUtils.setField(order, "id", 100L)
@@ -174,16 +175,18 @@ class OrderFacadeTest {
             )
 
             // assert
-            val captor = argumentCaptor<OrderCompletedEvent>()
-            verify(eventPublisher).publishEvent(captor.capture())
-            val event = captor.firstValue
-            assertThat(event.orderId).isEqualTo(100L)
-            assertThat(event.userId).isEqualTo(1L)
+            verify(outboxPublisher).publish(
+                eq("ORDER"),
+                eq("100"),
+                eq("ORDER_COMPLETED"),
+                any(),
+                any(),
+            )
         }
 
-        @DisplayName("결제가 즉시 FAILED이면, OrderCompletedEvent를 발행하지 않는다.")
+        @DisplayName("결제가 즉시 FAILED이면, Outbox 이벤트를 발행하지 않는다.")
         @Test
-        fun doesNotPublishEvent_whenPaymentFails() {
+        fun doesNotPublishOutboxEvent_whenPaymentFails() {
             // arrange
             val order = Order(userId = 1L)
             ReflectionTestUtils.setField(order, "id", 1L)
@@ -215,7 +218,7 @@ class OrderFacadeTest {
                 )
             }
 
-            verify(eventPublisher, never()).publishEvent(any<OrderCompletedEvent>())
+            verify(outboxPublisher, never()).publish(any(), any(), any(), any(), any())
         }
 
         @DisplayName("결제가 즉시 FAILED이면, 예외를 던져 주문을 롤백한다.")
