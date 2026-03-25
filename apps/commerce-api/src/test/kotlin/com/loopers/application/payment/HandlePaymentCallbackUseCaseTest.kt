@@ -1,6 +1,5 @@
 package com.loopers.application.payment
 
-import com.loopers.application.event.PaymentEvent
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
@@ -9,6 +8,7 @@ import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
+import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.payment.model.CardType
 import com.loopers.domain.payment.model.Payment
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class HandlePaymentCallbackUseCaseTest {
@@ -29,6 +28,7 @@ class HandlePaymentCallbackUseCaseTest {
     private lateinit var paymentRepository: FakePaymentRepository
     private lateinit var orderRepository: FakeOrderRepository
     private lateinit var orderItemRepository: FakeOrderItemRepository
+    private lateinit var orderOutboxRepository: FakeOrderOutboxRepository
     private lateinit var useCase: HandlePaymentCallbackUseCase
 
     @BeforeEach
@@ -36,8 +36,9 @@ class HandlePaymentCallbackUseCaseTest {
         paymentRepository = FakePaymentRepository()
         orderRepository = FakeOrderRepository()
         orderItemRepository = FakeOrderItemRepository()
+        orderOutboxRepository = FakeOrderOutboxRepository()
         useCase = HandlePaymentCallbackUseCase(
-            paymentRepository, orderRepository, orderItemRepository, ApplicationEventPublisher { },
+            paymentRepository, orderRepository, orderItemRepository, orderOutboxRepository,
         )
     }
 
@@ -94,21 +95,14 @@ class HandlePaymentCallbackUseCaseTest {
         }
 
         @Test
-        @DisplayName("PaymentEvent.Completed 이벤트가 발행된다")
-        fun handleCallback_success_publishesCompletedEvent() {
+        @DisplayName("OrderOutbox에 PAYMENT_COMPLETED 이벤트가 저장된다")
+        fun handleCallback_success_savesCompletedOutbox() {
             // arrange
             val order = createPendingOrder()
             createPaymentForOrder(order.id.value)
-            val publishedEvents = mutableListOf<Any>()
-            val trackingUseCase = HandlePaymentCallbackUseCase(
-                paymentRepository,
-                orderRepository,
-                orderItemRepository,
-                ApplicationEventPublisher { publishedEvents.add(it) },
-            )
 
             // act
-            trackingUseCase.execute(
+            useCase.execute(
                 PaymentCommand.HandleCallback(
                     orderId = order.id.value,
                     transactionKey = "TR-001",
@@ -117,14 +111,14 @@ class HandlePaymentCallbackUseCaseTest {
             )
 
             // assert
-            val completedEvents = publishedEvents.filterIsInstance<PaymentEvent.Completed>()
-            assertThat(completedEvents).hasSize(1)
-            assertThat(completedEvents[0].orderId).isEqualTo(order.id.value)
-            assertThat(completedEvents[0].userId).isEqualTo(order.refUserId.value)
-            assertThat(completedEvents[0].totalAmount).isEqualTo(10000L)
-            assertThat(completedEvents[0].items).hasSize(1)
-            assertThat(completedEvents[0].items[0].productId).isEqualTo(1L)
-            assertThat(completedEvents[0].items[0].quantity).isEqualTo(1)
+            val outboxList = orderOutboxRepository.findAllUnpublished()
+            assertThat(outboxList).hasSize(1)
+            assertThat(outboxList[0].eventType).isEqualTo("PAYMENT_COMPLETED")
+            assertThat(outboxList[0].orderId).isEqualTo(order.id.value)
+            assertThat(outboxList[0].userId).isEqualTo(order.refUserId.value)
+            assertThat(outboxList[0].totalAmount).isEqualTo(10000L)
+            assertThat(outboxList[0].productId).isEqualTo(1L)
+            assertThat(outboxList[0].quantity).isEqualTo(1)
         }
     }
 
@@ -158,21 +152,14 @@ class HandlePaymentCallbackUseCaseTest {
         }
 
         @Test
-        @DisplayName("PaymentEvent.Failed 이벤트가 발행된다")
-        fun handleCallback_failed_publishesFailedEvent() {
+        @DisplayName("OrderOutbox에 PAYMENT_FAILED 이벤트가 저장된다")
+        fun handleCallback_failed_savesFailedOutbox() {
             // arrange
             val order = createPendingOrder()
             createPaymentForOrder(order.id.value)
-            val publishedEvents = mutableListOf<Any>()
-            val trackingUseCase = HandlePaymentCallbackUseCase(
-                paymentRepository,
-                orderRepository,
-                orderItemRepository,
-                ApplicationEventPublisher { publishedEvents.add(it) },
-            )
 
             // act
-            trackingUseCase.execute(
+            useCase.execute(
                 PaymentCommand.HandleCallback(
                     orderId = order.id.value,
                     transactionKey = "TR-001",
@@ -182,11 +169,12 @@ class HandlePaymentCallbackUseCaseTest {
             )
 
             // assert
-            val failedEvents = publishedEvents.filterIsInstance<PaymentEvent.Failed>()
-            assertThat(failedEvents).hasSize(1)
-            assertThat(failedEvents[0].orderId).isEqualTo(order.id.value)
-            assertThat(failedEvents[0].userId).isEqualTo(order.refUserId.value)
-            assertThat(failedEvents[0].reason).isEqualTo("잔액 부족")
+            val outboxList = orderOutboxRepository.findAllUnpublished()
+            assertThat(outboxList).hasSize(1)
+            assertThat(outboxList[0].eventType).isEqualTo("PAYMENT_FAILED")
+            assertThat(outboxList[0].orderId).isEqualTo(order.id.value)
+            assertThat(outboxList[0].userId).isEqualTo(order.refUserId.value)
+            assertThat(outboxList[0].reason).isEqualTo("잔액 부족")
         }
     }
 

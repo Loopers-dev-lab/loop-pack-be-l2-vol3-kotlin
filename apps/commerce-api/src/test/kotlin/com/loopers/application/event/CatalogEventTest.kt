@@ -8,34 +8,6 @@ import org.junit.jupiter.api.Test
 class CatalogEventTest {
 
     @Nested
-    @DisplayName("LikeAdded 이벤트")
-    inner class LikeAddedTest {
-        @Test
-        @DisplayName("productId와 userId를 포함한다")
-        fun likeAdded_hasRequiredFields() {
-            val event = CatalogEvent.LikeAdded(productId = 1L, userId = 2L)
-
-            assertThat(event.productId).isEqualTo(1L)
-            assertThat(event.userId).isEqualTo(2L)
-            assertThat(event).isInstanceOf(CatalogEvent::class.java)
-        }
-    }
-
-    @Nested
-    @DisplayName("LikeRemoved 이벤트")
-    inner class LikeRemovedTest {
-        @Test
-        @DisplayName("productId와 userId를 포함한다")
-        fun likeRemoved_hasRequiredFields() {
-            val event = CatalogEvent.LikeRemoved(productId = 1L, userId = 2L)
-
-            assertThat(event.productId).isEqualTo(1L)
-            assertThat(event.userId).isEqualTo(2L)
-            assertThat(event).isInstanceOf(CatalogEvent::class.java)
-        }
-    }
-
-    @Nested
     @DisplayName("ProductViewed 이벤트")
     inner class ProductViewedTest {
         @Test

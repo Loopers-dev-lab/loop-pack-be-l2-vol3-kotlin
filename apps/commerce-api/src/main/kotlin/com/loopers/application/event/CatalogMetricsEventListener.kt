@@ -14,25 +14,13 @@ class CatalogMetricsEventListener(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
-    fun handleCatalogEvent(event: CatalogEvent) {
-        val outbox = when (event) {
-            is CatalogEvent.LikeAdded -> CatalogOutbox(
-                eventType = "LIKE_ADDED",
-                productId = event.productId,
-                userId = event.userId,
-            )
-            is CatalogEvent.LikeRemoved -> CatalogOutbox(
-                eventType = "LIKE_REMOVED",
-                productId = event.productId,
-                userId = event.userId,
-            )
-            is CatalogEvent.ProductViewed -> CatalogOutbox(
-                eventType = "PRODUCT_VIEWED",
-                productId = event.productId,
-                userId = event.userId,
-            )
-        }
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun handleProductViewed(event: CatalogEvent.ProductViewed) {
+        val outbox = CatalogOutbox(
+            eventType = "PRODUCT_VIEWED",
+            productId = event.productId,
+            userId = event.userId,
+        )
         catalogOutboxRepository.save(outbox)
         log.info("CatalogOutbox 기록: eventType={}, productId={}", outbox.eventType, outbox.productId)
     }
