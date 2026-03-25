@@ -1188,3 +1188,374 @@ sequenceDiagram
 - `pgPayment` CB 인스턴스: 결제 요청용 / `pgStatusQuery` CB 인스턴스: 상태 조회용 (별도 설정 권장)
 - 조건부 UPDATE(`WHERE status IN (...)`)는 중복 콜백/스케줄러 동시 실행에 의한 상태 덮어쓰기를 방지
 - **@Transactional은 UseCase 레벨에서 설정**하여 User 생성의 원자성을 보장한다
+
+---
+
+# Round 7 — 이벤트 기반 아키텍처 & Kafka 파이프라인
+
+---
+
+## 10. Step 1 — ApplicationEvent로 경계 나누기
+
+### 10.1 주문 생성 + 이벤트 발행
+
+**API:** `POST /api/v1/orders` — 인증 필수
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as OrderController
+    participant UC as PlaceOrderUseCase
+    participant R as Repository
+    participant OR as OutboxRepository
+    participant EP as EventPublisher
+    participant EL as OrderEventListener
+
+    User ->> C: POST /api/v1/orders (items, issuedCouponId?)
+    C ->> UC: execute(userId, command)
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        UC ->> R: findAllByIdsForUpdate(productIds)
+        R -->> UC: products
+        UC ->> UC: 재고 차감, 쿠폰 검증·할인 적용
+        UC ->> R: 주문 저장 (order + orderItems)
+        R -->> UC: savedOrder
+        UC ->> OR: OrderOutbox 기록 (같은 트랜잭션)
+        UC ->> EP: OrderCreatedEvent 발행
+    end
+
+    UC -->> C: OrderInfo
+    C -->> User: 201 Created
+
+    Note over EP, EL: AFTER_COMMIT (비동기)
+    EP ->> EL: OrderCreatedEvent
+    EL ->> EL: 유저 행동 로깅 (주문 완료)
+```
+
+#### 참고
+- 재고 차감, 쿠폰 적용은 핵심 트랜잭션에 포함 (기존과 동일)
+- Outbox 기록이 동일 트랜잭션에 포함되어 이벤트 유실 방지
+- 유저 행동 로깅은 AFTER_COMMIT + @Async로 비동기 처리
+
+---
+
+### 10.2 결제 콜백 + 후속 이벤트
+
+**API:** 내부 콜백 (PG → HandlePaymentCallbackUseCase)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant PG as PG 서버
+    participant C as PaymentCallbackController
+    participant UC as HandlePaymentCallbackUseCase
+    participant R as Repository
+    participant OR as OutboxRepository
+    participant EP as EventPublisher
+    participant EL as PaymentEventListener
+
+    PG ->> C: POST /api/v1/payments/callback (결제 결과)
+    C ->> UC: execute(callbackCommand)
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        UC ->> R: findByOrderIdForUpdate(orderId)
+        R -->> UC: payment
+        UC ->> UC: 결제 상태 업데이트 (SUCCESS/FAILED)
+        UC ->> R: payment 저장
+        UC ->> R: order 상태 업데이트 (PAID)
+        UC ->> OR: OrderOutbox 기록 (결제 완료)
+        UC ->> EP: PaymentCompletedEvent 발행
+    end
+
+    UC -->> C: 200 OK
+
+    Note over EP, EL: AFTER_COMMIT (비동기)
+    EP ->> EL: PaymentCompletedEvent
+    EL ->> EL: 포인트 적립 기록
+    EL ->> EL: 알림 처리
+```
+
+#### 참고
+- PaymentCompletedEvent는 RequestPaymentUseCase가 아닌 **HandlePaymentCallbackUseCase**에서 발행
+- PG 콜백으로 결제가 확정된 후 포인트 적립·알림 등 후속 처리를 이벤트로 분리
+- 결제 실패 시 PaymentFailedEvent를 별도 발행하여 보상 처리 가능
+
+---
+
+### 10.3 좋아요 추가 + 비동기 집계
+
+**API:** `POST /api/v1/products/{productId}/likes` — 인증 필수
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as LikeController
+    participant UC as AddLikeUseCase
+    participant R as Repository
+    participant OR as OutboxRepository
+    participant EP as EventPublisher
+    participant EL as CacheEventListener
+
+    User ->> C: POST /api/v1/products/{id}/likes
+    C ->> UC: execute(userId, productId)
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        UC ->> R: findByIdForUpdate(productId)
+        R -->> UC: product
+        UC ->> R: 중복 좋아요 확인
+        UC ->> R: Like 저장
+        UC ->> UC: product.increaseLikeCount() (동기)
+        UC ->> R: product 저장
+        R -->> UC: savedProduct
+        UC ->> OR: CatalogOutbox 기록 (좋아요 이벤트)
+        UC ->> EP: ProductLikedEvent 발행
+    end
+
+    UC -->> C: void
+    C -->> User: 200 OK
+
+    Note over EP, EL: AFTER_COMMIT
+    EP ->> EL: ProductCacheEvent.DetailUpdated (캐시 무효화)
+```
+
+#### 참고
+- `Product.likeCount`는 동기적으로 즉시 반영 (사용자에게 즉시 보임)
+- `CatalogOutbox`에 좋아요 이벤트 기록 → Relay → Kafka → `commerce-streamer`에서 `product_metrics` 비동기 집계
+- 캐시 무효화는 기존 `ProductCacheEvent` 패턴 유지
+
+---
+
+### 10.4 상품 조회 + 조회 이벤트
+
+**API:** `GET /api/v1/products/{productId}` — 인증 선택
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as ProductController
+    participant UC as GetProductUseCase
+    participant R as Repository
+    participant EP as EventPublisher
+    participant EL as ActivityEventListener
+
+    User ->> C: GET /api/v1/products/{id}
+    C ->> UC: execute(productId)
+
+    UC ->> R: findById(productId)
+    R -->> UC: product
+
+    UC ->> EP: ProductViewedEvent 발행
+
+    UC -->> C: ProductInfo
+    C -->> User: 200 OK
+
+    Note over EP, EL: 비동기
+    EP ->> EL: ProductViewedEvent
+    EL ->> EL: Outbox 기록 (조회 이벤트, 별도 트랜잭션)
+```
+
+#### 참고
+- 조회는 읽기 전용이므로 Outbox 기록은 EventListener 내 별도 트랜잭션
+- 조회 실패가 이벤트 기록 실패에 영향받지 않도록 분리
+
+---
+
+## 11. Step 2 — Kafka 이벤트 파이프라인
+
+### 11.1 Outbox Relay → Kafka 발행
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as Scheduler (Relay)
+    participant OR as OutboxRepository
+    participant KP as KafkaProducer
+    participant K as Kafka Broker
+
+    loop 주기적 폴링
+        S ->> OR: 미발행 Outbox 조회 (published = false)
+        OR -->> S: pendingEvents
+
+        alt 미발행 이벤트 존재
+            loop 각 이벤트
+                S ->> KP: send(topic, key, payload)
+                KP ->> K: produce (acks=all)
+                K -->> KP: ack
+                KP -->> S: 발행 성공
+                S ->> OR: published = true 업데이트
+            end
+        end
+    end
+```
+
+#### 참고
+- Relay는 `@Scheduled`로 주기적 폴링
+- 도메인별 Outbox 테이블(catalog_outbox, order_outbox, coupon_outbox) 각각 폴링
+- Partition Key: aggregateId(productId, orderId 등)로 순서 보장
+- 발행 실패 시 다음 폴링에서 재시도 → At Least Once 보장
+
+---
+
+### 11.2 commerce-streamer: 메트릭스 집계
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant K as Kafka Broker
+    participant KC as KafkaConsumer
+    participant EH as MetricsEventHandler
+    participant EHR as EventHandledRepository
+    participant MR as ProductMetricsRepository
+
+    K ->> KC: poll (catalog-events, order-events)
+    KC ->> EH: handle(event)
+
+    rect rgb(245, 245, 245)
+        Note right of EH: @Transactional
+        EH ->> EHR: findById(eventId)
+        EHR -->> EH: null (미처리)
+
+        alt 좋아요 이벤트
+            EH ->> MR: upsert likeCount
+        else 주문 완료 이벤트
+            EH ->> MR: upsert salesCount
+        else 조회 이벤트
+            EH ->> MR: upsert viewCount
+        end
+
+        EH ->> EHR: save(eventId) — 멱등 처리 기록
+    end
+
+    EH ->> KC: manual Ack (offset commit)
+```
+
+#### 참고
+- `event_handled` 테이블로 중복 소비 방지 (멱등 처리)
+- `product_metrics`는 upsert로 집계 — INSERT ON CONFLICT UPDATE 패턴
+- `version`/`updated_at` 비교로 오래된 이벤트는 무시
+- manual Ack: 처리 완료 후에만 offset commit → 실패 시 재소비
+
+---
+
+## 12. Step 3 — 선착순 쿠폰 발급
+
+### 12.1 쿠폰 발급 요청 (API → Kafka)
+
+**API:** `POST /api/v1/coupons/{couponId}/issue-async` — 인증 필수
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as CouponController
+    participant UC as IssueCouponUseCase
+    participant R as Repository
+    participant OR as OutboxRepository
+
+    User ->> C: POST /api/v1/coupons/{couponId}/issue-async
+    C ->> UC: execute(userId, couponId)
+
+    UC ->> R: 쿠폰 존재·활성 여부 확인
+    R -->> UC: coupon
+
+    rect rgb(245, 245, 245)
+        Note right of UC: @Transactional
+        UC ->> R: 발급 요청 저장 (requestId, status=PENDING)
+        R -->> UC: savedRequest
+        UC ->> OR: CouponOutbox 기록 (같은 트랜잭션)
+    end
+
+    UC -->> C: IssueRequestInfo (requestId)
+    C -->> User: 202 Accepted (requestId)
+```
+
+#### 참고
+- 발급 요청 저장 + Outbox 기록이 **동일 트랜잭션** → Kafka 발행 실패에도 요청 유실 없음
+- Relay가 CouponOutbox를 폴링하여 Kafka `coupon-issue-requests`에 발행
+- 실제 수량 확인·발급은 Consumer가 순차 처리
+- Partition Key = couponId → 같은 쿠폰의 발급 요청은 동일 파티션에서 순차 처리
+
+---
+
+### 12.2 쿠폰 발급 Consumer 처리
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant K as Kafka Broker
+    participant KC as KafkaConsumer
+    participant EH as CouponIssueHandler
+    participant R as Repository
+
+    K ->> KC: poll (coupon-issue-requests)
+    KC ->> EH: handle(issueRequest)
+
+    rect rgb(245, 245, 245)
+        Note right of EH: @Transactional
+        EH ->> R: findByIdForUpdate(couponId)
+        R -->> EH: coupon
+
+        alt 수량 소진
+            EH ->> R: 발급 요청 상태 → SOLD_OUT
+        else 중복 발급 (userId 기반)
+            EH ->> R: 발급 요청 상태 → DUPLICATE
+        else 발급 가능
+            EH ->> R: coupon.issue() → save
+            EH ->> R: IssuedCoupon 생성·저장
+            EH ->> R: 발급 요청 상태 → SUCCESS
+        end
+    end
+
+    EH ->> KC: manual Ack
+```
+
+#### 참고
+- Consumer가 순차 처리하므로 동일 couponId 파티션 내 동시성 충돌 없음
+- `coupon.issue()`에서 잔여 수량 차감 + 발급 불가 시 예외
+- 발급 결과(SUCCESS/SOLD_OUT/DUPLICATE)를 발급 요청 테이블에 저장
+- 중복 발급 방지: userId + couponId 조합으로 기존 발급 여부 확인
+
+---
+
+### 9.3 쿠폰 발급 결과 조회
+
+**API:** `GET /coupons/issue/{requestId}` — 인증 필수
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant C as CouponController
+    participant UC as GetCouponIssueResultUseCase
+    participant R as Repository
+
+    User ->> C: GET /coupons/issue/{requestId}
+    C ->> UC: execute(userId, requestId)
+
+    UC ->> R: findById(requestId)
+    R -->> UC: issueRequest
+
+    UC ->> UC: 소유자 검증 (userId)
+
+    alt status = PENDING
+        UC -->> C: IssueResultInfo (PENDING)
+        C -->> User: 200 OK (처리 중)
+    else status = SUCCESS
+        UC -->> C: IssueResultInfo (SUCCESS, issuedCouponId)
+        C -->> User: 200 OK (발급 완료)
+    else status = SOLD_OUT / DUPLICATE
+        UC -->> C: IssueResultInfo (실패 사유)
+        C -->> User: 200 OK (발급 실패)
+    end
+```
+
+#### 참고
+- 클라이언트가 주기적으로 Polling하여 발급 결과 확인
+- 본인 요청만 조회 가능 (userId 검증)
+- 발급 처리 전이면 PENDING, 완료되면 SUCCESS/SOLD_OUT/DUPLICATE 반환

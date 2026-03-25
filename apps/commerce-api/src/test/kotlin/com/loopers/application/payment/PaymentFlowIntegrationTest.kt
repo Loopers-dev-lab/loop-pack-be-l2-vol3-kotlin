@@ -4,6 +4,7 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
@@ -15,6 +16,7 @@ import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.domain.payment.model.Payment
 import com.loopers.domain.payment.model.PaymentStatus
 import org.assertj.core.api.Assertions.assertThat
+import org.springframework.context.ApplicationEventPublisher
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -54,7 +56,9 @@ class PaymentFlowIntegrationTest {
         fakePaymentPgProcessor = FakePaymentPgProcessor()
         paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
         requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, fakePaymentPgProcessor)
-        handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(paymentRepository, orderRepository)
+        handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(
+            paymentRepository, orderRepository, FakeOrderItemRepository(), ApplicationEventPublisher { },
+        )
         recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
     }

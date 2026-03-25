@@ -13,14 +13,18 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.listener.ContainerProperties
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer
+import org.springframework.kafka.listener.DefaultErrorHandler
 import org.springframework.kafka.support.converter.BatchMessagingMessageConverter
 import org.springframework.kafka.support.converter.ByteArrayJsonMessageConverter
+import org.springframework.util.backoff.FixedBackOff
 
 @EnableKafka
 @Configuration
 class KafkaConfig {
     companion object {
         const val BATCH_LISTENER = "BATCH_LISTENER_DEFAULT"
+        const val RECORD_LISTENER = "RECORD_LISTENER_DLT"
 
         private const val MAX_POLLING_SIZE = 3000 // read 3000 msg
         private const val FETCH_MIN_BYTES = (1024 * 1024) // 1mb
@@ -54,6 +58,33 @@ class KafkaConfig {
     @Bean
     fun jsonMessageConverter(objectMapper: ObjectMapper): ByteArrayJsonMessageConverter {
         return ByteArrayJsonMessageConverter(objectMapper)
+    }
+
+    @Bean(RECORD_LISTENER)
+    fun recordListenerContainerFactory(
+        kafkaProperties: KafkaProperties,
+        converter: ByteArrayJsonMessageConverter,
+        kafkaTemplate: KafkaTemplate<Any, Any>,
+    ): ConcurrentKafkaListenerContainerFactory<*, *> {
+        val recoverer = DeadLetterPublishingRecoverer(kafkaTemplate)
+        val errorHandler = DefaultErrorHandler(recoverer, FixedBackOff(1000L, 2))
+
+        val consumerConfig = HashMap(kafkaProperties.buildConsumerProperties())
+            .apply {
+                put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE)
+                put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, FETCH_MIN_BYTES)
+                put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, FETCH_MAX_WAIT_MS)
+                put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SESSION_TIMEOUT_MS)
+                put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, HEARTBEAT_INTERVAL_MS)
+                put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, MAX_POLL_INTERVAL_MS)
+            }
+
+        return ConcurrentKafkaListenerContainerFactory<Any, Any>().apply {
+            consumerFactory = DefaultKafkaConsumerFactory(consumerConfig)
+            setCommonErrorHandler(errorHandler)
+            setRecordMessageConverter(converter)
+            setConcurrency(3)
+        }
     }
 
     @Bean(BATCH_LISTENER)

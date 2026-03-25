@@ -1,5 +1,6 @@
 package com.loopers.application.catalog.product
 
+import com.loopers.application.event.CatalogEvent
 import com.loopers.domain.catalog.brand.FakeBrandRepository
 import com.loopers.domain.catalog.brand.model.Brand
 import com.loopers.domain.catalog.brand.vo.BrandName
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class GetProductUseCaseTest {
@@ -30,7 +32,7 @@ class GetProductUseCaseTest {
         brandRepository = FakeBrandRepository()
         productRepository = FakeProductRepository()
         cacheRepository = FakeProductCacheRepository()
-        useCase = GetProductUseCase(productRepository, brandRepository, cacheRepository)
+        useCase = GetProductUseCase(productRepository, brandRepository, cacheRepository, ApplicationEventPublisher { })
     }
 
     @Nested
@@ -222,6 +224,60 @@ class GetProductUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("상품 조회 시 ProductViewed 이벤트가 발행된다")
+        fun getProduct_publishesProductViewedEvent() {
+            // arrange
+            val publishedEvents = mutableListOf<Any>()
+            val trackingUseCase = GetProductUseCase(
+                productRepository,
+                brandRepository,
+                cacheRepository,
+                ApplicationEventPublisher { publishedEvents.add(it) },
+            )
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+
+            // act
+            trackingUseCase.execute(product.id.value, userId = 42L)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0]
+            assertThat(event).isInstanceOf(CatalogEvent.ProductViewed::class.java)
+            val viewedEvent = event as CatalogEvent.ProductViewed
+            assertThat(viewedEvent.productId).isEqualTo(product.id.value)
+            assertThat(viewedEvent.userId).isEqualTo(42L)
+        }
+
+        @Test
+        @DisplayName("비로그인 사용자의 상품 조회 시 userId가 null인 ProductViewed 이벤트가 발행된다")
+        fun getProduct_anonymousUser_publishesEventWithNullUserId() {
+            // arrange
+            val publishedEvents = mutableListOf<Any>()
+            val trackingUseCase = GetProductUseCase(
+                productRepository,
+                brandRepository,
+                cacheRepository,
+                ApplicationEventPublisher { publishedEvents.add(it) },
+            )
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+
+            // act
+            trackingUseCase.execute(product.id.value)
+
+            // assert
+            assertThat(publishedEvents).hasSize(1)
+            val event = publishedEvents[0] as CatalogEvent.ProductViewed
+            assertThat(event.productId).isEqualTo(product.id.value)
+            assertThat(event.userId).isNull()
         }
     }
 }

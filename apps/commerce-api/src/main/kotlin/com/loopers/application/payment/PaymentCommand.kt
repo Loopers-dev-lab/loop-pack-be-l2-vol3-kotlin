@@ -1,6 +1,6 @@
 package com.loopers.application.payment
 
-object PaymentCommand {
+class PaymentCommand {
     data class RequestPayment(
         val userId: Long,
         val orderId: Long,

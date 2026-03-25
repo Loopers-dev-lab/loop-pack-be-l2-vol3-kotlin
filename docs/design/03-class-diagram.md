@@ -1089,3 +1089,353 @@ classDiagram
 
 - **데코레이터 순서**: `CircuitBreaker(바깥) → Retry(안쪽)`. CB가 Retry 전체를 감싸므로, Retry 소진 실패도 CB 호출 실패로 집계된다.
 - **FeignClient 책임 분리**: `PgFeignClient`는 순수 HTTP 호출만 수행. Resilience4j 어노테이션은 `PgClientImpl`에만 적용한다.
+
+---
+
+# Round 7 — 이벤트 기반 아키텍처 & Kafka 파이프라인 신규 클래스
+
+---
+
+## 13. 이벤트 도메인 (Round 7)
+
+ApplicationEvent로 발행되는 도메인 이벤트 클래스. JVM 내부에서만 사용되며, Kafka 발행은 Outbox를 통해 처리한다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    namespace domain_event {
+        class OrderCreatedEvent {
+            <<Event>>
+            -Long orderId
+            -Long userId
+            -BigDecimal totalPrice
+            -ZonedDateTime createdAt
+        }
+        class PaymentCompletedEvent {
+            <<Event>>
+            -Long paymentId
+            -Long orderId
+            -String status
+        }
+        class ProductLikedEvent {
+            <<Event>>
+            -Long productId
+            -Long userId
+        }
+        class ProductUnlikedEvent {
+            <<Event>>
+            -Long productId
+            -Long userId
+        }
+        class ProductViewedEvent {
+            <<Event>>
+            -Long productId
+            -Long userId
+        }
+    }
+
+    namespace application_listener {
+        class OrderEventListener {
+            +handleOrderCreated(event)
+        }
+        class PaymentEventListener {
+            +handlePaymentCompleted(event)
+        }
+        class ActivityEventListener {
+            +handleProductViewed(event)
+            +handleProductLiked(event)
+        }
+    }
+
+    OrderCreatedEvent ..> OrderEventListener : AFTER_COMMIT
+    PaymentCompletedEvent ..> PaymentEventListener : AFTER_COMMIT, @Async
+    ProductLikedEvent ..> ActivityEventListener : AFTER_COMMIT
+    ProductViewedEvent ..> ActivityEventListener : @Async
+```
+
+### 핵심 포인트
+- 이벤트 클래스는 **불변 data class**로 설계. 도메인 객체 자체가 아닌 필요한 식별자·값만 포함.
+- `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 핵심 트랜잭션 커밋 후 실행 보장.
+- 비동기 처리가 필요한 리스너에만 `@Async` 부착 (포인트 적립, 알림 등).
+
+---
+
+## 14. Outbox 도메인 (Round 7)
+
+Transactional Outbox Pattern. 도메인 변경과 동일 트랜잭션에서 Outbox에 기록하고, Relay가 Kafka로 발행한다.
+
+```mermaid
+classDiagram
+    direction LR
+
+    namespace domain_outbox {
+        class OrderOutbox {
+            +Long id
+            -OrderId refOrderId
+            -OutboxEventType eventType
+            -OutboxStatus status
+            -String payload
+            -ZonedDateTime createdAt
+            -ZonedDateTime? publishedAt
+            +markPublished()
+            +markFailed()
+            +isPending() Boolean
+        }
+        class CatalogOutbox {
+            +Long id
+            -ProductId refProductId
+            -OutboxEventType eventType
+            -OutboxStatus status
+            -String payload
+            -ZonedDateTime createdAt
+            -ZonedDateTime? publishedAt
+            +markPublished()
+            +markFailed()
+            +isPending() Boolean
+        }
+        class CouponOutbox {
+            +Long id
+            -CouponId refCouponId
+            -OutboxEventType eventType
+            -OutboxStatus status
+            -String payload
+            -ZonedDateTime createdAt
+            -ZonedDateTime? publishedAt
+            +markPublished()
+            +markFailed()
+            +isPending() Boolean
+        }
+        class OutboxStatus {
+            <<enumeration>>
+            PENDING
+            PUBLISHED
+            FAILED
+        }
+        class OutboxEventType {
+            <<enumeration>>
+            ORDER_CREATED
+            PAYMENT_COMPLETED
+            PRODUCT_VIEWED
+            PRODUCT_LIKED
+            PRODUCT_UNLIKED
+        }
+    }
+
+    namespace application_relay {
+        class OutboxRelay {
+            +relayOrderEvents()
+            +relayCatalogEvents()
+            +relayCouponEvents()
+        }
+    }
+
+    OrderOutbox --> OutboxStatus
+    CatalogOutbox --> OutboxStatus
+    CouponOutbox --> OutboxStatus
+    OutboxRelay --> OrderOutbox
+    OutboxRelay --> CatalogOutbox
+    OutboxRelay --> CouponOutbox
+```
+
+### 핵심 포인트
+- **도메인별 Outbox 테이블**: JSON payload 대신 각 도메인에 맞는 컬럼 + 인덱스 적용 가능.
+- **OutboxRelay**: `@Scheduled`로 주기적 폴링. 각 도메인 Outbox를 순회하며 미발행 이벤트를 Kafka로 발행.
+- Trade-off: 테이블 3개 관리 vs 범용 테이블 1개 — 현재 토픽 3개이므로 관리 가능.
+
+---
+
+## 15. 선착순 쿠폰 발급 도메인 (Round 7)
+
+기존 동기 발급(IssueCouponUseCase)을 Kafka 기반 비동기 발급으로 교체.
+
+```mermaid
+classDiagram
+    direction LR
+
+    namespace domain_coupon_r7 {
+        class CouponIssueRequest {
+            +Long id
+            -CouponId refCouponId
+            -UserId refUserId
+            -IssueRequestStatus status
+            -Long? issuedCouponId
+            -ZonedDateTime createdAt
+            -ZonedDateTime? processedAt
+            +markSuccess(issuedCouponId: Long)
+            +markSoldOut()
+            +markDuplicate()
+            +isPending() Boolean
+        }
+        class IssueRequestStatus {
+            <<enumeration>>
+            PENDING
+            SUCCESS
+            SOLD_OUT
+            DUPLICATE
+        }
+    }
+
+    namespace application_coupon_r7 {
+        class IssueCouponUseCase {
+            <<modified>>
+            -CouponRepository couponRepository
+            -CouponIssueRequestRepository requestRepository
+            -CouponOutboxRepository outboxRepository
+            +execute(userId, couponId) IssueRequestInfo
+        }
+        class GetCouponIssueResultUseCase {
+            <<new>>
+            -CouponIssueRequestRepository requestRepository
+            +execute(userId, requestId) IssueResultInfo
+        }
+    }
+
+    namespace streamer_consumer {
+        class CouponIssueHandler {
+            -CouponRepository couponRepository
+            -IssuedCouponRepository issuedCouponRepository
+            -CouponIssueRequestRepository requestRepository
+            +handle(issueRequest)
+        }
+    }
+
+    CouponIssueRequest --> IssueRequestStatus
+    IssueCouponUseCase --> CouponIssueRequest
+    GetCouponIssueResultUseCase --> CouponIssueRequest
+    CouponIssueHandler --> CouponIssueRequest
+```
+
+### 핵심 포인트
+- **CouponIssueRequest**: 발급 요청의 상태를 추적하는 신규 도메인 모델. Polling 조회의 대상.
+- **IssueCouponUseCase 교체**: 기존 동기 발급 → Kafka 발행 + requestId 반환.
+- **CouponIssueHandler (commerce-streamer)**: Consumer가 순차 처리. `coupon.issue()`로 수량 차감, 중복 발급 방지.
+
+---
+
+## 16. 메트릭스 도메인 — commerce-streamer (Round 7)
+
+Kafka 이벤트를 소비하여 상품 메트릭스를 집계하는 읽기 모델.
+
+```mermaid
+classDiagram
+    direction LR
+
+    namespace domain_metrics {
+        class ProductMetrics {
+            +ProductId productId
+            -Long viewCount
+            -Long likeCount
+            -Long salesCount
+            -Long version
+            -ZonedDateTime updatedAt
+            +incrementViewCount()
+            +incrementLikeCount()
+            +decrementLikeCount()
+            +incrementSalesCount()
+        }
+        class EventHandled {
+            +String eventId
+            -ZonedDateTime handledAt
+        }
+    }
+
+    namespace streamer_handler {
+        class MetricsEventHandler {
+            -ProductMetricsRepository metricsRepository
+            -EventHandledRepository handledRepository
+            +handle(event)
+        }
+    }
+
+    MetricsEventHandler --> ProductMetrics
+    MetricsEventHandler --> EventHandled
+```
+
+### 핵심 포인트
+- **ProductMetrics**: Product.likeCount와 별도의 읽기 전용 모델. CQRS의 Read 측.
+- **EventHandled**: 멱등 처리를 위한 처리 완료 기록. eventId(PK)로 중복 소비 방지.
+- **version 필드**: 낙관적 동시성 제어. 오래된 이벤트가 최신 값을 덮어쓰지 않도록 보호.
+
+---
+
+## 17. 아키텍처 뷰 — 시스템 간 의존 관계 (Round 7)
+
+```mermaid
+classDiagram
+    direction TB
+
+    namespace commerce_api {
+        class PlaceOrderUseCase {
+            +execute() OrderInfo
+        }
+        class HandlePaymentCallbackUseCase {
+            +execute() PaymentInfo
+        }
+        class AddLikeUseCase {
+            +execute()
+        }
+        class IssueCouponUseCase_R7 {
+            <<modified>>
+            +execute() IssueRequestInfo
+        }
+        class OutboxRelay {
+            +relayOrderEvents()
+            +relayCatalogEvents()
+            +relayCouponEvents()
+        }
+    }
+
+    namespace kafka {
+        class KafkaBroker {
+            <<external>>
+            catalog-events
+            order-events
+            coupon-issue-requests
+        }
+    }
+
+    namespace commerce_streamer {
+        class MetricsEventHandler {
+            +handle(event)
+        }
+        class CouponIssueHandler {
+            +handle(request)
+        }
+    }
+
+    IssueCouponUseCase_R7 --> CouponOutbox : save (coupon-issue-requests)
+    OutboxRelay --> KafkaBroker : produce (catalog/order/coupon events)
+    KafkaBroker --> MetricsEventHandler : consume (catalog/order events)
+    KafkaBroker --> CouponIssueHandler : consume (coupon-issue-requests)
+```
+
+### 핵심 포인트
+- **이벤트 흐름 2가지 경로**: JVM 내부(ApplicationEvent) + 시스템 간(Outbox → Kafka).
+- **모든 Kafka 발행은 Outbox 경유**: 선착순 쿠폰 포함, Outbox 패턴으로 발행 보장.
+
+---
+
+## Round 7 Value Object 추가
+
+| VO | 소속 도메인 | 검증 규칙 | 사용 시점 |
+|----|----------|---------|---------|
+| OutboxEventType | Outbox | 정의된 이벤트 타입만 허용 | Outbox 생성 시 |
+| OutboxStatus | Outbox | PENDING → PUBLISHED/FAILED 전이만 허용 | Outbox 상태 변경 시 |
+| IssueRequestStatus | Coupon | PENDING → SUCCESS/SOLD_OUT/DUPLICATE 전이만 허용 | 발급 요청 처리 시 |
+
+---
+
+## Round 7 설계 원칙 추가
+
+1. **Outbox를 도메인 레이어에 배치**
+    - **결정**: Outbox 모델을 domain 레이어에 정의
+    - **이유**: "이벤트 발행 보장"이라는 비즈니스 요구사항의 일부. Infrastructure 세부사항(Kafka)에 의존하지 않음.
+
+2. **선착순 쿠폰도 Outbox 경유**
+    - **결정**: IssueCouponUseCase에서 CouponOutbox에 기록, Relay가 Kafka로 발행
+    - **이유**: 직접 Kafka 발행 시 실패하면 PENDING 고아 레코드 발생. Outbox 패턴으로 At Least Once 발행 보장. Relay 폴링 주기를 짧게 설정하여 지연 최소화.
+
+3. **Event 클래스는 원시 타입만 사용**
+    - **결정**: Domain VO 대신 Long, String 등 원시 타입 필드 사용
+    - **이유**: 이벤트는 시스템 경계를 넘을 수 있으므로 직렬화 친화적이어야 함.
