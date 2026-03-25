@@ -43,6 +43,9 @@ class ProductServiceTest {
     @Mock
     private lateinit var productCacheService: ProductCacheService
 
+    @Mock
+    private lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
+
     @InjectMocks
     private lateinit var productService: ProductService
 
