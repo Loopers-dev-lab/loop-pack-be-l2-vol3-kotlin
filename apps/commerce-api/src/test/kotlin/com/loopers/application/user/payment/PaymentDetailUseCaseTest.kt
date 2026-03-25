@@ -1,12 +1,8 @@
 package com.loopers.application.user.payment
 
 import com.loopers.domain.common.Money
-import com.loopers.domain.common.Quantity
-import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.Order
-import com.loopers.domain.order.OrderItem
-import com.loopers.domain.order.OrderRepository
-import com.loopers.domain.order.OrderSnapshot
+import com.loopers.domain.order.OrderStatusQueryRepository
 import com.loopers.domain.payment.DisplayStatus
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentIdempotencyKey
@@ -33,9 +29,9 @@ class PaymentDetailUseCaseTest {
     private val paymentKey = "11111111-1111-1111-1111-111111111111"
 
     private val paymentRepository: PaymentRepository = mock()
-    private val orderRepository: OrderRepository = mock()
+    private val orderStatusQueryRepository: OrderStatusQueryRepository = mock()
     private val paymentReadRepairService: PaymentReadRepairService = mock()
-    private val useCase = PaymentDetailUseCase(paymentRepository, orderRepository, paymentReadRepairService)
+    private val useCase = PaymentDetailUseCase(paymentRepository, orderStatusQueryRepository, paymentReadRepairService)
 
     private val now = ZonedDateTime.of(2026, 3, 20, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
     private val userId = 1L
@@ -72,52 +68,6 @@ class PaymentDetailUseCaseTest {
         createdAt = now,
     )
 
-    private fun pendingOrder(): Order = Order.retrieve(
-        id = orderId,
-        userId = userId,
-        idempotencyKey = IdempotencyKey("order-key-001"),
-        status = Order.Status.PENDING,
-        items = listOf(
-            OrderItem.retrieve(
-                id = 1L,
-                snapshot = OrderSnapshot(
-                    productId = 10L,
-                    productName = "테스트 상품",
-                    brandId = 1L,
-                    brandName = "테스트 브랜드",
-                    regularPrice = Money(BigDecimal("16000")),
-                    sellingPrice = Money(BigDecimal("16000")),
-                    thumbnailUrl = null,
-                ),
-                quantity = Quantity(1),
-            ),
-        ),
-        createdAt = now,
-    )
-
-    private fun confirmedOrder(): Order = Order.retrieve(
-        id = orderId,
-        userId = userId,
-        idempotencyKey = IdempotencyKey("order-key-001"),
-        status = Order.Status.CREATED,
-        items = listOf(
-            OrderItem.retrieve(
-                id = 1L,
-                snapshot = OrderSnapshot(
-                    productId = 10L,
-                    productName = "테스트 상품",
-                    brandId = 1L,
-                    brandName = "테스트 브랜드",
-                    regularPrice = Money(BigDecimal("16000")),
-                    sellingPrice = Money(BigDecimal("16000")),
-                    thumbnailUrl = null,
-                ),
-                quantity = Quantity(1),
-            ),
-        ),
-        createdAt = now,
-    )
-
     @Nested
     @DisplayName("이미 terminal 상태인 결제는 PG 조회 없이 바로 반환한다")
     inner class TerminalPayment {
@@ -127,7 +77,7 @@ class PaymentDetailUseCaseTest {
         fun detail_successPayment() {
             val payment = successPayment()
             given(paymentRepository.findById(paymentId)).willReturn(payment)
-            given(orderRepository.findById(orderId)).willReturn(confirmedOrder())
+            given(orderStatusQueryRepository.findStatusById(orderId)).willReturn(Order.Status.CREATED)
 
             val result = useCase.detail(paymentId, userId)
 
@@ -153,7 +103,7 @@ class PaymentDetailUseCaseTest {
             val reconciledPayment = successPayment()
             given(paymentRepository.findById(paymentId)).willReturn(payment)
             given(paymentReadRepairService.repair(payment)).willReturn(reconciledPayment)
-            given(orderRepository.findById(orderId)).willReturn(confirmedOrder())
+            given(orderStatusQueryRepository.findStatusById(orderId)).willReturn(Order.Status.CREATED)
 
             val result = useCase.detail(paymentId, userId)
 
@@ -171,7 +121,7 @@ class PaymentDetailUseCaseTest {
             val reconciledPayment = payment.fail(PaymentReasonCode.LIMIT_EXCEEDED)
             given(paymentRepository.findById(paymentId)).willReturn(payment)
             given(paymentReadRepairService.repair(payment)).willReturn(reconciledPayment)
-            given(orderRepository.findById(orderId)).willReturn(pendingOrder())
+            given(orderStatusQueryRepository.findStatusById(orderId)).willReturn(Order.Status.PENDING)
 
             val result = useCase.detail(paymentId, userId)
 
@@ -189,7 +139,7 @@ class PaymentDetailUseCaseTest {
             val payment = pendingPayment(transactionKey = "txn-abc-123")
             given(paymentRepository.findById(paymentId)).willReturn(payment)
             given(paymentReadRepairService.repair(payment)).willReturn(payment)
-            given(orderRepository.findById(orderId)).willReturn(pendingOrder())
+            given(orderStatusQueryRepository.findStatusById(orderId)).willReturn(Order.Status.PENDING)
 
             val result = useCase.detail(paymentId, userId)
 
@@ -206,7 +156,7 @@ class PaymentDetailUseCaseTest {
             val payment = pendingPayment(transactionKey = "txn-abc-123")
             given(paymentRepository.findById(paymentId)).willReturn(payment)
             given(paymentReadRepairService.repair(payment)).willReturn(payment)
-            given(orderRepository.findById(orderId)).willReturn(pendingOrder())
+            given(orderStatusQueryRepository.findStatusById(orderId)).willReturn(Order.Status.PENDING)
 
             val result = useCase.detail(paymentId, userId)
 
@@ -227,7 +177,7 @@ class PaymentDetailUseCaseTest {
         fun detail_noTransactionKeySkipsPgQuery() {
             val payment = pendingPayment(transactionKey = null)
             given(paymentRepository.findById(paymentId)).willReturn(payment)
-            given(orderRepository.findById(orderId)).willReturn(pendingOrder())
+            given(orderStatusQueryRepository.findStatusById(orderId)).willReturn(Order.Status.PENDING)
 
             val result = useCase.detail(paymentId, userId)
 
@@ -266,6 +216,22 @@ class PaymentDetailUseCaseTest {
 
             val exception = assertThrows<CoreException> { useCase.detail(paymentId, 999L) }
             assertThat(exception.errorType).isEqualTo(ErrorType.PAYMENT_NOT_FOUND)
+        }
+    }
+
+    @Nested
+    @DisplayName("주문이 존재하지 않으면 ORDER_NOT_FOUND")
+    inner class OrderNotFound {
+
+        @Test
+        @DisplayName("order status 조회 결과가 없으면 ORDER_NOT_FOUND")
+        fun detail_orderNotFound() {
+            given(paymentRepository.findById(paymentId)).willReturn(successPayment())
+            given(orderStatusQueryRepository.findStatusById(orderId)).willReturn(null)
+
+            val exception = assertThrows<CoreException> { useCase.detail(paymentId, userId) }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.ORDER_NOT_FOUND)
         }
     }
 }

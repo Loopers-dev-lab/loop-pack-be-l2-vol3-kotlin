@@ -40,9 +40,9 @@ class OrderMapper {
         )
     }
 
-    fun toEntity(order: Order): OrderEntity {
+    fun toNewEntity(order: Order): OrderEntity {
         val entity = OrderEntity(
-            id = order.id,
+            id = null,
             userId = order.userId,
             idempotencyKey = order.idempotencyKey.value,
             status = order.status,

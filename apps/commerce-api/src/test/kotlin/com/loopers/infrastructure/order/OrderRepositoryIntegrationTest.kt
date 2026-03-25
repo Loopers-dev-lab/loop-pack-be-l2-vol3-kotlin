@@ -170,6 +170,26 @@ constructor(
             // assert
             assertThat(saved.items).hasSize(2)
         }
+
+        @Test
+        @DisplayName("기존 주문 저장 시 상태를 갱신하고 createdAt을 유지한다")
+        fun save_existingOrder_updatesStatus() {
+            // arrange
+            val saved = createOrder()
+
+            // act
+            val updated = orderRepository.save(saved.confirm())
+            val found = transactionTemplate.execute { orderRepository.findById(updated.id!!) }
+
+            // assert
+            assertAll(
+                { assertThat(updated.status).isEqualTo(Order.Status.CREATED) },
+                { assertThat(updated.createdAt).isEqualTo(saved.createdAt) },
+                { assertThat(found).isNotNull },
+                { assertThat(found!!.status).isEqualTo(Order.Status.CREATED) },
+                { assertThat(found!!.createdAt).isEqualTo(saved.createdAt) },
+            )
+        }
     }
 
     @Nested

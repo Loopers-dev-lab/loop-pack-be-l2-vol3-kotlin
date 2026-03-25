@@ -22,7 +22,15 @@ class UserOrderRepositoryImpl(
 
     override fun save(order: Order): Order {
         try {
-            val savedEntity = orderJpaRepository.saveAndFlush(orderMapper.toEntity(order))
+            val savedEntity = if (order.id == null) {
+                orderJpaRepository.saveAndFlush(orderMapper.toNewEntity(order))
+            } else {
+                val existingEntity = orderJpaRepository.findByIdAndDeletedAtIsNull(order.id)
+                    ?: throw CoreException(ErrorType.ORDER_NOT_FOUND)
+                existingEntity.changeStatus(order.status)
+                orderJpaRepository.saveAndFlush(existingEntity)
+            }
+
             return orderMapper.toDomain(savedEntity)
         } catch (e: DataIntegrityViolationException) {
             throw CoreException(ErrorType.ORDER_IDEMPOTENCY_KEY_DUPLICATE)
