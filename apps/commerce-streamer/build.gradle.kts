@@ -3,6 +3,9 @@ plugins {
 }
 
 dependencies {
+    // apps
+    implementation(project(":apps:commerce-api"))
+
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
