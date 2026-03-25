@@ -27,6 +27,7 @@ class ProductMetricsConsumer(
         acknowledgment: Acknowledgment,
     ) {
         try {
+            var hasError = false
             for (message in messages) {
                 try {
                     val payload = message.value() as String
@@ -44,10 +45,14 @@ class ProductMetricsConsumer(
                     }
                 } catch (e: Exception) {
                     logger.error("Failed to process message: ${message.value()}", e)
+                    hasError = true
                     // Do not acknowledge - let Kafka retry
                 }
             }
-            acknowledgment.acknowledge()
+            // Only acknowledge if all messages were processed successfully
+            if (!hasError) {
+                acknowledgment.acknowledge()
+            }
         } catch (e: Exception) {
             logger.error("Batch processing failed", e)
             // Do not acknowledge - let Kafka retry
