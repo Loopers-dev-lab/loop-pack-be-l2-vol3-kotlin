@@ -28,15 +28,20 @@ class CatalogEventProcessor(
         }
 
         // 2. 최신성 체크
-        val currentVersion = productMetricsRepository.getVersion(envelope.aggregateId.toLong())
+        val productId = envelope.aggregateId.toLong()
+        val currentVersion = productMetricsRepository.getVersion(productId)
         if (currentVersion != null && currentVersion >= envelope.version) {
-            log.debug("[Catalog] 구버전 이벤트 스킵: eventId={}, current={}, received={}", envelope.eventId, currentVersion, envelope.version)
+            log.debug(
+                "[Catalog] 구버전 이벤트 스킵: eventId={}, current={}, received={}",
+                envelope.eventId,
+                currentVersion,
+                envelope.version,
+            )
             eventHandledRepository.save(EventHandled(envelope.eventId))
             return
         }
 
         // 3. 비즈니스 처리
-        val productId = envelope.aggregateId.toLong()
         when (envelope.eventType) {
             "LIKED" -> productMetricsRepository.incrementLikeCount(productId, envelope.version)
             "UNLIKED" -> productMetricsRepository.decrementLikeCount(productId, envelope.version)

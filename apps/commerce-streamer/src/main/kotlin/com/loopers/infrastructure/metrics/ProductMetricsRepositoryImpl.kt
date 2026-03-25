@@ -30,6 +30,6 @@ class ProductMetricsRepositoryImpl(
     }
 
     override fun getVersion(productId: Long): Long? {
-        return productMetricsJpaRepository.getVersion(productId)
+        return productMetricsJpaRepository.findById(productId).orElse(null)?.version
     }
 }

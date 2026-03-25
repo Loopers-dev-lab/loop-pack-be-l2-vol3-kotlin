@@ -21,4 +21,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // kafka test
+    testImplementation("org.springframework.kafka:spring-kafka-test")
 }

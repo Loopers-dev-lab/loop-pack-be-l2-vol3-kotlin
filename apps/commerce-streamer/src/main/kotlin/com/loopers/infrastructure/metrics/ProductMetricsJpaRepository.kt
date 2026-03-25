@@ -63,6 +63,4 @@ interface ProductMetricsJpaRepository : JpaRepository<ProductMetrics, Long> {
     )
     fun incrementViewCount(productId: Long, version: Long)
 
-    @Query("SELECT pm.version FROM ProductMetrics pm WHERE pm.productId = :productId")
-    fun getVersion(productId: Long): Long?
 }

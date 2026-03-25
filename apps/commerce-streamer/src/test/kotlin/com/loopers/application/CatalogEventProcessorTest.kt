@@ -1,6 +1,5 @@
 package com.loopers.application
 
-import com.loopers.domain.event.EventHandled
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.EventEnvelope
 import com.loopers.infrastructure.event.EventHandledJpaRepository
