@@ -26,8 +26,12 @@ class ProductMetrics(
         viewCount++
     }
 
-    fun setLikeCount(count: Long) {
-        likeCount = count
+    fun incrementLikeCount() {
+        likeCount++
+    }
+
+    fun decrementLikeCount() {
+        likeCount--
     }
 
     companion object {

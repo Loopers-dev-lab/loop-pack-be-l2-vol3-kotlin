@@ -1,6 +1,12 @@
+import org.springframework.boot.gradle.tasks.bundling.BootJar
+
 plugins {
     id("org.jetbrains.kotlin.plugin.jpa")
 }
+
+// Generate both plain jar and boot jar
+tasks.withType(Jar::class) { enabled = true }
+tasks.withType(BootJar::class) { enabled = true }
 
 dependencies {
     // add-ons
