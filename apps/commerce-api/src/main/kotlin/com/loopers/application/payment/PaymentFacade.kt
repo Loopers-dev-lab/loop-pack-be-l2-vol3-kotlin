@@ -13,6 +13,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
@@ -25,6 +26,7 @@ class PaymentFacade(
     private val productService: ProductService,
     private val couponService: CouponService,
     private val pgPaymentClient: PgPaymentClient,
+    private val eventPublisher: ApplicationEventPublisher,
     transactionManager: PlatformTransactionManager,
     @Value("\${pg.callback-url}") private val callbackUrl: String,
 ) {
@@ -111,10 +113,26 @@ class PaymentFacade(
         if (isSuccess) {
             payment.markPaid()
             order.markPaid()
+            eventPublisher.publishEvent(
+                com.loopers.application.event.PaymentCompletedEvent(
+                    paymentId = payment.id,
+                    orderId = payment.orderId,
+                    userId = order.userId,
+                    amount = payment.amount,
+                ),
+            )
         } else {
             payment.markFailed(callbackRequest.reason)
             order.markFailed()
             compensateOrder(order)
+            eventPublisher.publishEvent(
+                com.loopers.application.event.PaymentFailedEvent(
+                    paymentId = payment.id,
+                    orderId = payment.orderId,
+                    userId = order.userId,
+                    reason = callbackRequest.reason,
+                ),
+            )
         }
     }
 

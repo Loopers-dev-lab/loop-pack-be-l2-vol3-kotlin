@@ -1,8 +1,10 @@
 package com.loopers.application.like
 
+import com.loopers.application.event.LikeToggledEvent
 import com.loopers.application.product.ProductService
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -10,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class LikeService(
     private val likeRepository: LikeRepository,
     private val productService: ProductService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -22,14 +25,14 @@ class LikeService(
             if (existingLike.isDeleted()) {
                 existingLike.restore()
                 val saved = likeRepository.save(existingLike)
-                productService.incrementLikeCount(productId)
+                eventPublisher.publishEvent(LikeToggledEvent(userId = userId, productId = productId, liked = true))
                 return LikeInfo.from(saved)
             }
             return LikeInfo.from(existingLike)
         }
 
         val saved = likeRepository.save(Like(userId = userId, productId = productId))
-        productService.incrementLikeCount(productId)
+        eventPublisher.publishEvent(LikeToggledEvent(userId = userId, productId = productId, liked = true))
         return LikeInfo.from(saved)
     }
 
@@ -39,7 +42,7 @@ class LikeService(
 
         like.delete()
         likeRepository.save(like)
-        productService.decrementLikeCount(productId)
+        eventPublisher.publishEvent(LikeToggledEvent(userId = userId, productId = productId, liked = false))
     }
 
     @Transactional(readOnly = true)
