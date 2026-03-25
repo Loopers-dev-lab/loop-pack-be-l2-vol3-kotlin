@@ -1,109 +1,87 @@
-# Step 3 QA 피드백 수정
+# PR #27 CodeRabbit 리뷰 반영
 
 ## 개요
 
-`step3-qa-review.md` 기반 코드 품질 수정.
-CRITICAL 4건, WARNING 5건, CUT 1건, 누락 테스트 1건 = 총 11건.
+PR #27 CodeRabbit 리뷰 분석 결과 AGREE 18건, DISMISS 4건 = 총 22건 (인라인 5 Major + outside-diff 1 + Minor 16).
+DISMISS 4건 중 2건은 이전 PR #26에서 기각된 반복 지적 (RD-019, RD-023).
+AGREE 18건을 4개 그룹으로 분류하여 수정.
 
-## 병렬 실행 전략
+## TRADEOFF — 결정 완료
 
-두 모듈은 파일 겹침이 없으므로 완전 병렬 가능.
-
-```
-Lane A (streamer): Step 1 → Step 2
-Lane B (api):      Step 3 → Step 4 → Step 5
-                   ↑ 병렬 실행 ↑
-```
-
-cmux 패널 2개로 동시 진행. 각 Lane 완료 후 독립 checkpoint.
+- [x] **[CR-9] .coderabbit.yaml path_filters**: 무시 (현행 유지). develop에 .coderabbit.yaml 머지 후 자동 해소
+- [x] **[CR-16, CR-21] docs/design 수정**: 개발자 지시에 따라 수정 진행
 
 ## 영향 범위
 
-### commerce-streamer 수정 파일
-
-- `infrastructure/coupon/CouponIssueRequestRepositoryImpl.kt` — Entity 분리 (C1)
-- **NEW**: `infrastructure/coupon/CouponIssueRequestEntity.kt` (C1)
-- `infrastructure/coupon/CouponRepositoryImpl.kt` — Entity 분리 + orElseThrow (C1, W5)
-- **NEW**: `infrastructure/coupon/CouponEntity.kt` (C1)
-- `infrastructure/coupon/IssuedCouponRepositoryImpl.kt` — 상수 추출 (C3)
-- `interfaces/consumer/CouponIssueConsumer.kt` — 로깅 강화 (W3, W4)
-- `test/.../ProcessCouponIssueUseCaseTest.kt` — markFailed 테스트 추가
-
-### commerce-api 수정 파일
-
-- `domain/coupon/model/CouponIssueRequest.kt` — UUID 기본값 제거 + init 제거 (C4, CUT-3)
-- `domain/coupon/repository/CouponIssueRequestRepository.kt` — findByRequestIdAndUserId (W1)
-- `application/coupon/CouponInfo.kt` — from() 팩토리 제거 (W2)
-- `application/coupon/GetCouponIssueStatusUseCase.kt` — userId 추가 (W1)
-- `infrastructure/coupon/CouponIssueRequestRepositoryImpl.kt` — JPA 메서드 추가 (W1)
-- `interfaces/api/coupon/CouponV1Controller.kt` — userId 전달 (W1)
-- `test/.../CouponIssueRequestTest.kt` — init 제거 반영
-- `test/.../FakeCouponIssueRequestRepository.kt` — findByRequestIdAndUserId 구현
-- `test/.../GetCouponIssueStatusUseCaseTest.kt` — userId 테스트
-- `test/.../CouponIssueE2ETest.kt` — 확인/수정
+```text
+Group A (production): CatalogOutbox, OrderEventConsumer, CouponIssueRequest,
+                      KafkaOutboxEventPublisher, GetProductsUseCase, OutboxRelaySchedulerTest
+Group B (test):       UpdateProductMetricsUseCaseTest
+Group C (skills/docs): sync-config, design, resume-context, plan, tdd, ship SKILL.md
+Group D (design):     04-erd.md, 03-class-diagram.md
+```
 
 ---
 
-## 구현 계획
+## Group A: Production 코드 변경 (6건)
 
-### Step 1 — commerce-streamer: Entity 파일 분리 + Infrastructure 코드 품질
+### A-1. CatalogOutbox eventId 빈 값 검증 [CR-2]
+- [x] `apps/commerce-api/.../domain/outbox/model/CatalogOutbox.kt` — init 블록에 `eventId.isBlank()` 검증 추가
 
-순수 리팩토링. 행위 변경 없이 파일 구조만 정리.
+### A-2. OrderEventConsumer 빈 값/비양수 검증 강화 [CR-5]
+- [x] `apps/commerce-streamer/.../interfaces/consumer/OrderEventConsumer.kt` — eventId/eventType `require(isNotBlank())`, productId `require(> 0)` 추가
 
-- [ ] A-1: `CouponIssueRequestRepositoryImpl.kt`에서 `CouponIssueRequestEntity` 클래스를 `CouponIssueRequestEntity.kt`로 분리. RepositoryImpl에는 JpaRepository + Impl만 남김
-- [ ] A-2: `CouponRepositoryImpl.kt`에서 `CouponEntity` 클래스를 `CouponEntity.kt`로 분리. RepositoryImpl에는 JpaRepository + Impl만 남김
-- [ ] A-3: `CouponRepositoryImpl.save()` — `orElseThrow()` → 의미 있는 예외 메시지 추가
-- [ ] A-4: `IssuedCouponRepositoryImpl.kt` — `"AVAILABLE"` 매직 스트링을 companion object 상수로 추출
+### A-3. CouponIssueRequest requestId 검증 [CR-15]
+- [x] `apps/commerce-streamer/.../domain/coupon/model/CouponIssueRequest.kt` — init 블록에 `require(requestId.isNotBlank())` 검증 추가
 
-파일 수: 3 수정 + 2 신규 = 5
+### A-4. KafkaOutboxEventPublisher 예외 처리 보강 [CR-17]
+- [x] `apps/commerce-api/.../infrastructure/outbox/KafkaOutboxEventPublisher.kt` — ExecutionException(cause unwrap), TimeoutException(명시적 래핑) catch 추가
 
---- checkpoint: streamer ktlintCheck + test (기존 테스트 전부 통과 확인) ---
+### A-5. GetProductsUseCase 미사용 userId 제거 [CR-18]
+- [x] `apps/commerce-api/.../application/catalog/product/GetProductsUseCase.kt` — userId 파라미터 제거
+- [x] `apps/commerce-api/.../interfaces/api/product/ProductV1Controller.kt` — userId 전달 제거
+- [x] ApiSpec 인터페이스의 userId 파라미터는 유지 (인증 목적)
+- [x] 테스트 이미 userId 미사용 — 수정 불필요
 
-### Step 2 — commerce-streamer: Consumer 로깅 + 누락 테스트
+### A-6. OutboxRelaySchedulerTest 빈 함수 블록 [CR-19]
+- [x] `apps/commerce-api/.../test/.../OutboxRelaySchedulerTest.kt` — `{}` → `= Unit`
 
-- [ ] B-1: `CouponIssueConsumer` — 페이로드 파싱 실패 시 `log.warn` 추가 (W4)
-- [ ] B-2: `CouponIssueConsumer` — 메시지 처리 실패 시 로그에 eventId 등 식별 정보 포함 + 실패 건수 로깅 (W3)
-- [ ] B-3: [RED] 쿠폰이 존재하지 않을 때 `markFailed`로 상태 전이된다 → [GREEN] `ProcessCouponIssueUseCaseTest`에 FAILED 경로 테스트 추가
+---
 
-파일 수: 2 (Consumer 1 + Test 1)
+## Group B: 테스트 코드 변경 (1건)
 
---- checkpoint: streamer ktlintCheck + test ---
+### B-1. UpdateProductMetricsUseCaseTest EventHandled 검증 [CR-20]
+- [x] `apps/commerce-streamer/.../test/.../UpdateProductMetricsUseCaseTest.kt` — 알 수 없는 이벤트 처리 시 EventHandled 저장 assertion 추가 (catalog + order 모두)
 
-### Step 3 — commerce-api: Domain/Application 정리
+---
 
-- [ ] C-1: `CouponIssueRequest.kt` — `requestId` 기본값 `UUID.randomUUID()` 제거, 필수 파라미터로 변경 (C4)
-- [ ] C-2: `CouponIssueRequest.kt` — `init` 블록(couponId/userId 양수 검증) 제거 + CoreException/ErrorType import 제거 (CUT-3)
-- [ ] C-3: `CouponInfo.kt` — `CouponIssueRequestInfo.from()` companion object 제거 + CouponIssueRequest import 제거 (W2)
-- [ ] C-4: `CouponIssueRequestTest.kt` — C-1, C-2 변경에 따른 테스트 수정 (requestId 명시 전달, init 검증 테스트 제거)
+## Group C: 스킬/설정 문서 변경 (9건)
 
-파일 수: 3 (production 2 + test 1)
+### C-1. sync-config SKILL.md `git add -A` 안전성 [CR-1]
+- [x] `.claude/skills/sync-config/SKILL.md:114` — `git add -A` → 동기화 대상 파일만 명시적 staging
 
---- checkpoint: api ktlintCheck + 대상 테스트 ---
+### C-2. design SKILL.md `--phase` 인자 목록 [CR-6]
+- [x] `.claude/skills/design/SKILL.md:42` — `|verify-docs` 추가
 
-### Step 4 — commerce-api: userId 소유자 검증 (W1)
+### C-3. design SKILL.md 호출 커맨드 통일 [CR-13]
+- [x] `.claude/skills/design/SKILL.md:187` — `/verify-docs` → `/design --phase verify-docs`
 
-- [ ] D-1: `CouponIssueRequestRepository` (domain) — `findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest?` 메서드 추가
-- [ ] D-2: `FakeCouponIssueRequestRepository` — `findByRequestIdAndUserId` 구현
-- [ ] D-3: [RED] requestId + userId 불일치 시 NOT_FOUND 예외가 발생한다 → [GREEN] `GetCouponIssueStatusUseCase.execute(requestId, userId)` 시그니처 변경 + userId 검증
-- [ ] D-4: `CouponIssueRequestRepositoryImpl` — JPA 메서드 `findByRequestIdAndUserId` 추가
-- [ ] D-5: `CouponV1Controller.getIssueStatus()` — `@AuthUser userId`를 UseCase에 전달
+### C-4. phase-red.md 테스트 이름 규칙 통일 [CR-11]
+- [x] `.claude/skills/tdd/phases/phase-red.md:58-61` — `동작을 한국어로 설명한다` → `동작을 설명한다`
 
-파일 수: 5 (production 4 + test-fake 1)
+### C-5. MD040 코드 블록 언어 태그 일괄 수정 [CR-7, CR-8, CR-10, CR-12, CR-14]
+- [x] `.claude/skills/resume-context/SKILL.md:15,44` — `bash`, `markdown`
+- [x] `plan.md:17` — `text` (이미 수정됨)
+- [x] `.claude/skills/design/phases/phase-verify-docs.md:40,62` — `markdown`
+- [x] `.claude/skills/ship/phases/phase-commit.md:23` — `markdown`
+- [x] `.claude/skills/plan/SKILL.md:109` — `markdown`
 
---- checkpoint: api ktlintCheck + 대상 테스트 ---
+---
 
-### Step 5 — commerce-api: W1 테스트 수정
+## Group D: 설계 문서 변경 (2건)
 
-- [ ] E-1: `GetCouponIssueStatusUseCaseTest` — userId 포함 시그니처로 테스트 수정 + userId 불일치 시 예외 테스트 추가
-- [ ] E-2: `CouponIssueE2ETest` — getIssueStatus 테스트가 기존대로 통과하는지 확인/수정
+### D-1. ERD 인덱스 문서 불일치 [CR-16]
+- [x] `docs/design/04-erd.md:495` — `(status, created_at)` → `(published, id)` 통일
 
-파일 수: 2 (test 2)
-
---- checkpoint: api 전체 ktlintCheck + test ---
-
-## 고려사항
-
-- Step 1은 순수 리팩토링(파일 분리)이므로 기존 테스트가 그대로 통과해야 함
-- Step 3에서 requestId 기본값 제거 시, 테스트에서 requestId를 생략하는 코드가 있으면 컴파일 에러 → 테스트도 함께 수정
-- Step 4의 D-3에서 NOT_FOUND 예외는 "requestId가 없는 경우"와 "userId 불일치" 모두 동일하게 NOT_FOUND 반환 (보안상 존재 여부 노출 방지)
-- I1(canIssue 가독성), I2(var→val), I3(미사용 인덱스)은 이번 수정 범위에서 제외 (INFO 등급)
+### D-2. class-diagram 섹션 번호 충돌 [CR-21]
+- [x] `docs/design/03-class-diagram.md:1099+` — Round 7 섹션 8-12 → 13-17로 변경, `(Round 7)` 접미사 추가
