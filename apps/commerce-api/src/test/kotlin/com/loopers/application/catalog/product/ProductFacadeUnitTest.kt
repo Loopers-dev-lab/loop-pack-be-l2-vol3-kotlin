@@ -19,6 +19,7 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 
 class ProductFacadeUnitTest {
 
@@ -30,8 +31,9 @@ class ProductFacadeUnitTest {
         every { getProductDetail(any()) } returns null
         every { getProductList(any()) } returns null
     }
+    private val mockEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService, mockEventPublisher)
 
     // ─── createProduct ───
 

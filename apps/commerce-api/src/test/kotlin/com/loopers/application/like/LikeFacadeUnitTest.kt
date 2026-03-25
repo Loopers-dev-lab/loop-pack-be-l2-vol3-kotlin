@@ -7,7 +7,6 @@ import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeService
-import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -19,6 +18,7 @@ import io.mockk.verifyOrder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 
 class LikeFacadeUnitTest {
 
@@ -26,19 +26,18 @@ class LikeFacadeUnitTest {
     private val mockProductService = mockk<ProductService>()
     private val mockProductRepository = mockk<ProductRepository>()
     private val mockBrandRepository = mockk<BrandRepository>()
-    private val mockProductCacheService = mockk<ProductCacheService>(relaxed = true)
+    private val mockEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
-    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockProductRepository, mockBrandRepository, mockProductCacheService)
+    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockProductRepository, mockBrandRepository, mockEventPublisher)
 
     // ─── addLike ───
 
     @Test
-    fun `addLike() should call productService then likeService then incrementLikeCount in order`() {
+    fun `addLike() should verify product exists, create like, and publish event`() {
         // Arrange
         val product = createProduct(id = 10L)
         every { mockProductService.getById(10L) } returns product
         every { mockLikeService.addLike(1L, 10L) } returns createLike(userId = 1L, productId = 10L)
-        every { mockProductService.incrementLikeCount(10L) } just Runs
 
         // Act
         likeFacade.addLike(userId = 1L, productId = 10L)
@@ -47,8 +46,8 @@ class LikeFacadeUnitTest {
         verifyOrder {
             mockProductService.getById(10L)
             mockLikeService.addLike(1L, 10L)
-            mockProductService.incrementLikeCount(10L)
         }
+        verify { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductLikedEvent>()) }
     }
 
     @Test
@@ -64,25 +63,22 @@ class LikeFacadeUnitTest {
         }
 
         verify(exactly = 0) { mockLikeService.addLike(any(), any()) }
-        verify(exactly = 0) { mockProductService.incrementLikeCount(any()) }
+        verify(exactly = 0) { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductLikedEvent>()) }
     }
 
     // ─── removeLike ───
 
     @Test
-    fun `removeLike() should call likeService then decrementLikeCount in order`() {
+    fun `removeLike() should delete like and publish event`() {
         // Arrange
         every { mockLikeService.removeLike(1L, 10L) } returns Unit
-        every { mockProductService.decrementLikeCount(10L) } just Runs
 
         // Act
         likeFacade.removeLike(userId = 1L, productId = 10L)
 
         // Assert
-        verifyOrder {
-            mockLikeService.removeLike(1L, 10L)
-            mockProductService.decrementLikeCount(10L)
-        }
+        verify { mockLikeService.removeLike(1L, 10L) }
+        verify { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductUnlikedEvent>()) }
     }
 
     @Test
@@ -97,7 +93,7 @@ class LikeFacadeUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
-        verify(exactly = 0) { mockProductService.decrementLikeCount(any()) }
+        verify(exactly = 0) { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductUnlikedEvent>()) }
     }
 
     // ─── getLikedProducts ───

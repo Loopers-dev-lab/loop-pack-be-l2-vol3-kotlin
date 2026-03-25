@@ -1,8 +1,10 @@
 package com.loopers.application.payment
 
-import com.loopers.domain.order.OrderService
+import com.loopers.application.payment.event.PaymentConfirmedEvent
+import com.loopers.application.payment.event.PaymentFailedEvent
 import com.loopers.domain.payment.PaymentService
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
@@ -10,7 +12,7 @@ import java.time.ZonedDateTime
 @Service
 class PaymentCallbackFacade(
     private val paymentService: PaymentService,
-    private val orderService: OrderService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -34,14 +36,28 @@ class PaymentCallbackFacade(
             payment.confirmPaid(now)
             paymentService.updatePaymentStatus(payment)
 
-            // 주문 상태도 PAID로 변경
-            orderService.updateStatus(payment.orderId) { order ->
-                order.pay(now)
-            }
+            // 이벤트 발행 (AFTER_COMMIT: 주문 상태 변경, 행동 로깅)
+            eventPublisher.publishEvent(
+                PaymentConfirmedEvent(
+                    paymentId = payment.id,
+                    orderId = payment.orderId,
+                    transactionKey = cmd.transactionKey,
+                    amount = payment.amount,
+                    paidAt = now,
+                ),
+            )
             log.info("[Callback] 결제 성공: orderId=${payment.orderId}, transactionKey=${cmd.transactionKey}")
         } else {
             payment.confirmFailed(cmd.reason, now)
             paymentService.updatePaymentStatus(payment)
+
+            eventPublisher.publishEvent(
+                PaymentFailedEvent(
+                    paymentId = payment.id,
+                    orderId = payment.orderId,
+                    reason = cmd.reason,
+                ),
+            )
             log.info("[Callback] 결제 실패: orderId=${payment.orderId}, reason=${cmd.reason}")
         }
 

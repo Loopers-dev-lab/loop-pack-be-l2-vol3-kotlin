@@ -1,5 +1,7 @@
 package com.loopers.application.order
 
+import com.loopers.application.order.event.OrderItemSnapshot
+import com.loopers.application.order.event.OrderPlacedEvent
 import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
@@ -9,9 +11,9 @@ import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
-import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -25,7 +27,7 @@ class OrderFacade(
     private val productStockRepository: ProductStockRepository,
     private val userCouponService: UserCouponService,
     private val couponTemplateService: CouponTemplateService,
-    private val productCacheService: ProductCacheService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -60,9 +62,7 @@ class OrderFacade(
             if (updatedStock.isSoldOut) {
                 productService.updateStockStatus(item.productId, 0)
             }
-            productCacheService.evictProductDetail(item.productId)
         }
-        productCacheService.evictAllProductLists()
 
         // 4. 브랜드 일괄 조회 및 주문 항목 스냅샷 생성 (N+1 방지)
         val brandIds = productMap.values.map { it.brandId }.distinct()
@@ -116,6 +116,21 @@ class OrderFacade(
         if (cmd.userCouponId != null) {
             userCouponService.useForOrder(cmd.userCouponId, order.id)
         }
+
+        // 8. 이벤트 발행 (AFTER_COMMIT: 결제 요청, 캐시 무효화, 행동 로깅)
+        eventPublisher.publishEvent(
+            OrderPlacedEvent(
+                orderId = order.id,
+                userId = userId,
+                items = orderItems.map { OrderItemSnapshot(it.productId, it.quantity, it.price) },
+                originalTotalPrice = originalTotalPrice,
+                discountAmount = discountAmount,
+                totalPrice = order.totalPrice,
+                userCouponId = cmd.userCouponId,
+                cardType = cmd.cardType,
+                cardNo = cmd.cardNo,
+            ),
+        )
 
         return OrderResult.from(order)
     }

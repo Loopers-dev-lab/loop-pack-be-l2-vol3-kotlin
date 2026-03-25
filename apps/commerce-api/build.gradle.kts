@@ -26,4 +26,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // async test support
+    testImplementation("org.awaitility:awaitility-kotlin:4.2.1")
 }

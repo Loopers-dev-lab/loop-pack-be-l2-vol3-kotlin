@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.domain.catalog.product.ProductStatus
 import com.loopers.infrastructure.catalog.brand.BrandEntity
 import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductEntity
@@ -8,16 +9,18 @@ import com.loopers.infrastructure.like.LikeJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import com.loopers.domain.catalog.product.ProductStatus
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -69,9 +72,11 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
         latch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
-        // Assert
-        val finalProduct = productJpaRepository.findById(product.id).get()
-        assertThat(finalProduct.likeCount).isEqualTo(50)
+        // Assert: likeCount는 AFTER_COMMIT + @Async로 비동기 증가하므로 Awaitility로 검증
+        await.atMost(Duration.ofSeconds(10)).untilAsserted {
+            val finalProduct = productJpaRepository.findById(product.id).get()
+            assertThat(finalProduct.likeCount).isEqualTo(50)
+        }
     }
 
     @Test
@@ -110,13 +115,17 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
         latch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
-        // Assert: only 1 should succeed, likeCount must be exactly 1
-        val finalProduct = productJpaRepository.findById(product.id).get()
-        val likeRows = likeJpaRepository.findAllByProductId(product.id)
-
+        // Assert: only 1 should succeed
         assertThat(successCount.get()).isEqualTo(1)
         assertThat(failCount.get()).isEqualTo(9)
-        assertThat(finalProduct.likeCount).isEqualTo(1)
+
+        val likeRows = likeJpaRepository.findAllByProductId(product.id)
         assertThat(likeRows).hasSize(1)
+
+        // likeCount는 AFTER_COMMIT + @Async로 비동기 증가하므로 Awaitility로 검증
+        await.atMost(Duration.ofSeconds(10)).untilAsserted {
+            val finalProduct = productJpaRepository.findById(product.id).get()
+            assertThat(finalProduct.likeCount).isEqualTo(1)
+        }
     }
 }

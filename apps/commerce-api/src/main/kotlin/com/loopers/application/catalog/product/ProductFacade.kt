@@ -1,6 +1,7 @@
 package com.loopers.application.catalog.product
 
 import com.loopers.application.catalog.brand.BrandResult
+import com.loopers.application.catalog.event.ProductViewedEvent
 import com.loopers.config.redis.CacheException
 import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.brand.BrandService
@@ -8,6 +9,7 @@ import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.infrastructure.catalog.product.ProductCacheService
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,6 +20,7 @@ class ProductFacade(
     private val brandRepository: BrandRepository,
     private val productStockService: ProductStockService,
     private val productCacheService: ProductCacheService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -42,7 +45,10 @@ class ProductFacade(
         )
     }
 
-    fun getProductDetail(productId: Long): ProductDetailResult {
+    fun getProductDetail(productId: Long, userId: Long? = null): ProductDetailResult {
+        // 조회수 로깅 이벤트 (fire-and-forget, @Async)
+        eventPublisher.publishEvent(ProductViewedEvent(userId = userId, productId = productId))
+
         productCacheService.getProductDetail(productId)?.let { return it }
 
         val locked = productCacheService.tryLock(productId)

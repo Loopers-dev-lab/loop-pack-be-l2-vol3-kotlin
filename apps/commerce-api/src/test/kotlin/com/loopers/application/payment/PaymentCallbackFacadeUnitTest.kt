@@ -1,9 +1,7 @@
 package com.loopers.application.payment
 
-import com.loopers.domain.order.Order
-import com.loopers.domain.order.OrderItem
-import com.loopers.domain.order.OrderService
-import com.loopers.domain.order.OrderStatus
+import com.loopers.application.payment.event.PaymentConfirmedEvent
+import com.loopers.application.payment.event.PaymentFailedEvent
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentService
@@ -15,43 +13,37 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationEventPublisher
 
 class PaymentCallbackFacadeUnitTest {
 
     private val mockPaymentService = mockk<PaymentService>()
-    private val mockOrderService = mockk<OrderService>()
+    private val mockEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
 
-    private val callbackFacade = PaymentCallbackFacade(mockPaymentService, mockOrderService)
+    private val callbackFacade = PaymentCallbackFacade(mockPaymentService, mockEventPublisher)
 
     // ─── handleCallback SUCCESS ───
 
     @Test
-    fun `handleCallback() should confirm paid and update order on SUCCESS`() {
+    fun `handleCallback() should confirm paid and publish PaymentConfirmedEvent on SUCCESS`() {
         val payment = createPayment(transactionKey = "txn-123", status = PaymentStatus.PENDING)
-        val order = createOrder()
 
         every { mockPaymentService.getByTransactionKey("txn-123") } returns payment
         every { mockPaymentService.updatePaymentStatus(any()) } just Runs
-        every { mockOrderService.updateStatus(eq(1L), any()) } answers {
-            val action = secondArg<(Order) -> Unit>()
-            action(order)
-            order
-        }
 
         val result = callbackFacade.handleCallback(
             PaymentCallbackCommand(transactionKey = "txn-123", status = "SUCCESS", reason = null),
         )
 
         assertThat(result.status).isEqualTo(PaymentStatus.PAID)
-        assertThat(order.status).isEqualTo(OrderStatus.PAID)
         verify { mockPaymentService.updatePaymentStatus(any()) }
-        verify { mockOrderService.updateStatus(eq(1L), any()) }
+        verify { mockEventPublisher.publishEvent(any<PaymentConfirmedEvent>()) }
     }
 
     // ─── handleCallback FAILED ───
 
     @Test
-    fun `handleCallback() should confirm failed and NOT update order on FAILED`() {
+    fun `handleCallback() should confirm failed and publish PaymentFailedEvent on FAILED`() {
         val payment = createPayment(transactionKey = "txn-456", status = PaymentStatus.PENDING)
 
         every { mockPaymentService.getByTransactionKey("txn-456") } returns payment
@@ -64,7 +56,7 @@ class PaymentCallbackFacadeUnitTest {
         assertThat(result.status).isEqualTo(PaymentStatus.FAILED)
         assertThat(result.reason).isEqualTo("insufficient funds")
         verify { mockPaymentService.updatePaymentStatus(any()) }
-        verify(exactly = 0) { mockOrderService.updateStatus(any(), any()) }
+        verify { mockEventPublisher.publishEvent(any<PaymentFailedEvent>()) }
     }
 
     // ─── handleCallback idempotency ───
@@ -81,7 +73,7 @@ class PaymentCallbackFacadeUnitTest {
 
         assertThat(result.status).isEqualTo(PaymentStatus.PAID)
         verify(exactly = 0) { mockPaymentService.updatePaymentStatus(any()) }
-        verify(exactly = 0) { mockOrderService.updateStatus(any(), any()) }
+        verify(exactly = 0) { mockEventPublisher.publishEvent(any<PaymentConfirmedEvent>()) }
     }
 
     @Test
@@ -120,18 +112,4 @@ class PaymentCallbackFacadeUnitTest {
         return payment
     }
 
-    private fun createOrder(): Order = Order.create(
-        userId = 1L,
-        items = listOf(
-            OrderItem(
-                orderId = 0L,
-                productId = 1L,
-                productName = "Test Product",
-                brandId = 1L,
-                brandName = "Test Brand",
-                price = 10000,
-                quantity = 1,
-            ),
-        ),
-    )
 }
