@@ -20,12 +20,16 @@ class OrderPaymentUserActionLogEventListener(
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = false)
     fun onOrderCreated(event: OrderCreatedEvent) {
+        // Log the order creation with line items
+        val payload = event.lineItems.joinToString(";") { item ->
+            "productId=${item.productId},quantity=${item.quantity}"
+        }
         appendSafely(
             UserActionLogAppendCommand(
                 actionType = "order.created",
-                actorUserId = event.userId,
+                actorUserId = SYSTEM_ACTOR_USER_ID,
                 targetId = event.orderId.toString(),
-                payload = "itemCount=${event.itemCount},couponId=${event.couponId}",
+                payload = payload,
                 dedupeKey = event.dedupeKey,
                 partitionDate = LocalDate.now(),
             ),

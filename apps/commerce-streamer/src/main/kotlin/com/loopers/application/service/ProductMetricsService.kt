@@ -2,7 +2,7 @@ package com.loopers.application.service
 
 import com.loopers.domain.eventhandled.EventHandled
 import com.loopers.domain.eventhandled.EventHandledRepository
-import com.loopers.domain.productmetrics.ProductMetricsRepository
+import com.loopers.infrastructure.productmetrics.ProductMetricsRepository
 import com.loopers.interfaces.consumer.EventHandler
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
