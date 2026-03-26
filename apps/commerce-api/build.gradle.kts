@@ -31,4 +31,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // awaitility (비동기 이벤트 테스트)
+    testImplementation("org.awaitility:awaitility-kotlin:4.2.2")
 }

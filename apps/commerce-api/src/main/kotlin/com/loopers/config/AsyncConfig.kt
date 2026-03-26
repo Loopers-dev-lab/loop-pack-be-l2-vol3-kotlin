@@ -25,7 +25,6 @@ class AsyncConfig : AsyncConfigurer {
             setThreadNamePrefix("event-")
             setWaitForTasksToCompleteOnShutdown(true)
             setAwaitTerminationSeconds(30)
-            initialize()
         }
 
     override fun getAsyncExecutor(): Executor = eventExecutor()

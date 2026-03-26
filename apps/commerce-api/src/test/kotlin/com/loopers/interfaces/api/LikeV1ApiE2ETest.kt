@@ -18,6 +18,9 @@ import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -32,6 +35,7 @@ import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import java.time.Duration
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(MySqlTestContainersConfig::class)
@@ -141,15 +145,17 @@ class LikeV1ApiE2ETest @Autowired constructor(
             // assert - 좋아요 성공
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 
-            // likeCount 반영 확인
+            // likeCount 반영 확인 — AFTER_COMMIT + @Async로 비동기 반영
             val productResponseType = object : ParameterizedTypeReference<ApiResponse<ProductDetailResponse>>() {}
-            val productResponse = testRestTemplate.exchange(
-                "${ApiPaths.Products.BASE}/${product.id}",
-                HttpMethod.GET,
-                null,
-                productResponseType,
-            )
-            assertThat(productResponse.body?.data?.likeCount).isEqualTo(1)
+            await atMost Duration.ofSeconds(3) untilAsserted {
+                val productResponse = testRestTemplate.exchange(
+                    "${ApiPaths.Products.BASE}/${product.id}",
+                    HttpMethod.GET,
+                    null,
+                    productResponseType,
+                )
+                assertThat(productResponse.body?.data?.likeCount).isEqualTo(1)
+            }
         }
 
         @DisplayName("중복 좋아요하면 409 CONFLICT를 반환한다")

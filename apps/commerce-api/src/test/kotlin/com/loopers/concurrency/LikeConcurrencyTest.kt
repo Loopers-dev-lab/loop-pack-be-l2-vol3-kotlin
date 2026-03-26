@@ -13,6 +13,9 @@ import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import java.time.Duration
 import java.time.LocalDate
 
 @SpringBootTest
@@ -86,12 +90,12 @@ class LikeConcurrencyTest @Autowired constructor(
 
         val successes = results.filter { it.isSuccess }
 
-        // assert
-        val product = productRepository.findByIdOrNull(productId)!!
+        // assert — likeCount는 AFTER_COMMIT + @Async로 비동기 반영
+        assertThat(successes).`as`("모든 좋아요가 성공해야 한다").hasSize(threadCount)
 
-        assertAll(
-            { assertThat(successes).`as`("모든 좋아요가 성공해야 한다").hasSize(threadCount) },
-            { assertThat(product.likeCount).`as`("likeCount가 정확히 일치해야 한다").isEqualTo(threadCount.toLong()) },
-        )
+        await atMost Duration.ofSeconds(5) untilAsserted {
+            val product = productRepository.findByIdOrNull(productId)!!
+            assertThat(product.likeCount).`as`("likeCount가 정확히 일치해야 한다").isEqualTo(threadCount.toLong())
+        }
     }
 }

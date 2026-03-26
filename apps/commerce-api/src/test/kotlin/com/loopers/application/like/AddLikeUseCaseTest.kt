@@ -14,6 +14,9 @@ import com.loopers.support.error.ProductErrorCode
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -24,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.testcontainers.RedisTestContainersConfig
+import java.time.Duration
 import java.time.LocalDate
 
 @SpringBootTest
@@ -76,7 +80,7 @@ class AddLikeUseCaseTest @Autowired constructor(
     @Nested
     inner class Execute {
 
-        @DisplayName("활성 상품에 좋아요를 등록하면 likeCount가 1 증가한다")
+        @DisplayName("활성 상품에 좋아요를 등록하면 likeCount가 비동기로 1 증가한다")
         @Test
         fun success() {
             // arrange
@@ -86,9 +90,11 @@ class AddLikeUseCaseTest @Autowired constructor(
             // act
             addLikeUseCase.execute(LikeCommand.Create(userId = userId, productId = productId))
 
-            // assert
-            val product = productRepository.findByIdOrNull(productId)
-            assertThat(product?.likeCount).isEqualTo(1)
+            // assert — likeCount는 AFTER_COMMIT + @Async로 비동기 반영
+            await atMost Duration.ofSeconds(3) untilAsserted {
+                val product = productRepository.findByIdOrNull(productId)
+                assertThat(product?.likeCount).isEqualTo(1)
+            }
         }
 
         @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 ALREADY_LIKED 예외가 발생한다")
