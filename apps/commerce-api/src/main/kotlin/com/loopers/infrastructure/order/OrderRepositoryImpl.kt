@@ -22,6 +22,11 @@ class OrderRepositoryImpl(
             .orElse(null)
     }
 
+    override fun findByIdForUpdate(id: Long): Order? {
+        return orderJpaRepository.findByIdForUpdate(id)
+            ?.let { orderMapper.toDomain(it) }
+    }
+
     override fun findAllByMemberId(memberId: Long): List<Order> {
         return orderJpaRepository.findAllByMemberId(memberId).map { orderMapper.toDomain(it) }
     }

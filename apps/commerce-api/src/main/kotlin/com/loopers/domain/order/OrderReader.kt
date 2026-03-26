@@ -14,6 +14,11 @@ class OrderReader(
             ?: throw CoreException(ErrorType.ORDER_NOT_FOUND)
     }
 
+    fun getByIdForUpdate(id: Long): Order {
+        return orderRepository.findByIdForUpdate(id)
+            ?: throw CoreException(ErrorType.ORDER_NOT_FOUND)
+    }
+
     fun getAllByMemberId(memberId: Long): List<Order> {
         return orderRepository.findAllByMemberId(memberId)
     }

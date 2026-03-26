@@ -68,6 +68,57 @@ class OrderTest {
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.ORDER_ALREADY_CANCELLED)
         }
+
+        @Test
+        fun `결제_처리_중인_주문은_취소할_수_없다`() {
+            val order = createOrder()
+            order.beginPayment()
+
+            val result = assertThrows<CoreException> { order.cancel() }
+
+            assertThat(result.errorType).isEqualTo(ErrorType.CONFLICT)
+        }
+    }
+
+    @Nested
+    inner class Payment {
+        @Test
+        fun `주문을_결제_대기_상태로_변경할_수_있다`() {
+            val order = createOrder()
+
+            order.beginPayment()
+
+            assertThat(order.status).isEqualTo(OrderStatus.PAYMENT_PENDING)
+        }
+
+        @Test
+        fun `결제가_성공하면_PAID_상태가_된다`() {
+            val order = createOrder()
+            order.beginPayment()
+
+            order.markPaid()
+
+            assertThat(order.status).isEqualTo(OrderStatus.PAID)
+        }
+
+        @Test
+        fun `결제_대기_상태가_아니면_결제_완료_처리할_수_없다`() {
+            val order = createOrder()
+
+            val result = assertThrows<CoreException> { order.markPaid() }
+
+            assertThat(result.errorType).isEqualTo(ErrorType.CONFLICT)
+        }
+
+        @Test
+        fun `결제가_실패하면_PAYMENT_FAILED_상태가_된다`() {
+            val order = createOrder()
+            order.beginPayment()
+
+            order.markPaymentFailed()
+
+            assertThat(order.status).isEqualTo(OrderStatus.PAYMENT_FAILED)
+        }
     }
 
     @Nested
