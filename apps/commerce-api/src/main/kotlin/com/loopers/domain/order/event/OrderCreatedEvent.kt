@@ -12,5 +12,5 @@ class OrderCreatedEvent(
     source: Any,
     val orderId: Long,
     val lineItems: List<OrderLineItem>,
-    val dedupeKey: String = "order:$orderId:${UUID.randomUUID()}"
+    val dedupeKey: String = "order:$orderId:${UUID.randomUUID()}",
 ) : ApplicationEvent(source)

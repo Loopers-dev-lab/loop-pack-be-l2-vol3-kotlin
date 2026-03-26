@@ -3,7 +3,7 @@ package com.loopers.application.service
 import com.loopers.domain.eventhandled.EventHandled
 import com.loopers.domain.eventhandled.EventHandledRepository
 import com.loopers.domain.product.event.ProductViewedEvent
-import com.loopers.domain.productmetrics.ProductMetricsRepository
+import com.loopers.infrastructure.productmetrics.ProductMetricsRepository
 import com.loopers.interfaces.consumer.EventHandler
 import io.mockk.every
 import io.mockk.mockk
@@ -35,12 +35,12 @@ class ProductMetricsServiceTest {
     fun shouldIgnoreDuplicateEvents() {
         // Given
         val dedupeKey = "test-key-123"
-        val event = ProductViewedEvent(productId = 1L, userId = 1L, dedupeKey = dedupeKey)
+        val event = ProductViewedEvent(source = this, productId = 1L, userId = 1L, dedupeKey = dedupeKey)
 
         every { eventHandledRepository.existsByDedupeKey(dedupeKey) } returns true
 
         // When
-        service.processMetricsEvent(event, dedupeKey)
+        service.processMetricsEvent(event)
 
         // Then
         verify(exactly = 0) { handlers["ProductViewedEvent"]?.handle(any()) }
@@ -52,7 +52,7 @@ class ProductMetricsServiceTest {
     fun shouldProcessNewEvents() {
         // Given
         val dedupeKey = "test-key-123"
-        val event = ProductViewedEvent(productId = 1L, userId = 1L, dedupeKey = dedupeKey)
+        val event = ProductViewedEvent(source = this, productId = 1L, userId = 1L, dedupeKey = dedupeKey)
         val handler = mockk<EventHandler>()
 
         every { eventHandledRepository.existsByDedupeKey(dedupeKey) } returns false
@@ -66,7 +66,7 @@ class ProductMetricsServiceTest {
         )
 
         // When
-        serviceWithHandler.processMetricsEvent(event, dedupeKey)
+        serviceWithHandler.processMetricsEvent(event)
 
         // Then
         verify { handler.handle(event) }
