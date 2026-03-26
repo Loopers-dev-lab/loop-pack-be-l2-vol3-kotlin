@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.application.event.DirectEventPublisher
 import com.loopers.domain.user.event.ActionType
 import com.loopers.domain.user.event.UserActionEvent
 import org.assertj.core.api.Assertions.assertThat
@@ -10,7 +11,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.context.ApplicationEventPublisher
@@ -23,33 +26,55 @@ class ProductFacadeTest {
     private lateinit var productCacheManager: ProductCacheManager
 
     @Mock
+    private lateinit var directEventPublisher: DirectEventPublisher
+
+    @Mock
     private lateinit var eventPublisher: ApplicationEventPublisher
 
     private lateinit var productFacade: ProductFacade
 
     @BeforeEach
     fun setUp() {
-        productFacade = ProductFacade(productCacheManager, eventPublisher)
+        productFacade = ProductFacade(productCacheManager, directEventPublisher, eventPublisher)
     }
 
     @DisplayName("상품 상세 조회 시,")
     @Nested
     inner class GetProduct {
 
-        @DisplayName("PRODUCT_VIEWED 이벤트를 발행한다.")
+        private val productId = 100L
+        private val detailInfo = ProductDetailInfo(
+            id = productId,
+            name = "에어맥스",
+            description = "러닝화",
+            price = 159000L,
+            likeCount = 10,
+            brandId = 1L,
+            brandName = "나이키",
+        )
+
+        @DisplayName("VIEWED 이벤트를 Kafka에 직접 발행한다.")
+        @Test
+        fun publishesViewedEventToKafka() {
+            // arrange
+            whenever(productCacheManager.getProduct(productId)).thenReturn(detailInfo)
+
+            // act
+            productFacade.getProduct(productId)
+
+            // assert
+            verify(directEventPublisher).publish(
+                eq("catalog-events"),
+                eq(productId.toString()),
+                eq("VIEWED"),
+                any(),
+            )
+        }
+
+        @DisplayName("PRODUCT_VIEWED 유저 행동 이벤트를 발행한다.")
         @Test
         fun publishesProductViewedEvent() {
             // arrange
-            val productId = 100L
-            val detailInfo = ProductDetailInfo(
-                id = productId,
-                name = "에어맥스",
-                description = "러닝화",
-                price = 159000L,
-                likeCount = 10,
-                brandId = 1L,
-                brandName = "나이키",
-            )
             whenever(productCacheManager.getProduct(productId)).thenReturn(detailInfo)
 
             // act
