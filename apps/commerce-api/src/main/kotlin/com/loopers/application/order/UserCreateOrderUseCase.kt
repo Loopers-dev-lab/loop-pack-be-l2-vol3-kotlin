@@ -1,11 +1,13 @@
 package com.loopers.application.order
 
 import com.loopers.application.UseCase
+import com.loopers.domain.common.event.OrderCreatedEvent
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.order.CreateOrderCommand
 import com.loopers.domain.order.CreateOrderItemCommand
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.user.UserService
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,6 +16,7 @@ class UserCreateOrderUseCase(
     private val orderService: OrderService,
     private val couponService: CouponService,
     private val userService: UserService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) : UseCase<CreateOrderCriteria, CreateOrderResult> {
 
     @Transactional
@@ -33,6 +36,16 @@ class UserCreateOrderUseCase(
             issuedCouponId = criteria.couponId,
         )
         val info = orderService.createOrder(command)
+
+        eventPublisher.publishEvent(
+            OrderCreatedEvent(
+                orderId = info.id,
+                userId = user.id,
+                loginId = criteria.loginId,
+                totalPrice = info.totalPrice,
+            ),
+        )
+
         return CreateOrderResult.from(info)
     }
 }

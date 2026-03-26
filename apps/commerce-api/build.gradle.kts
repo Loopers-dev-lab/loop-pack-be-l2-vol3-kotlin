@@ -33,4 +33,7 @@ dependencies {
     // resilience
     implementation("io.github.resilience4j:resilience4j-spring-boot3:${project.properties["resilience4jVersion"]}")
     implementation("org.springframework.boot:spring-boot-starter-aop")
+
+    // test - async event verification
+    testImplementation("org.awaitility:awaitility-kotlin")
 }
