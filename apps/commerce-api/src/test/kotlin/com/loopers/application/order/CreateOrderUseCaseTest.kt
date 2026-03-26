@@ -20,10 +20,12 @@ import com.loopers.domain.product.Stock
 import com.loopers.domain.product.fixture.FakeProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationEventPublisher
 import java.time.ZonedDateTime
 
 class CreateOrderUseCaseTest {
@@ -34,6 +36,7 @@ class CreateOrderUseCaseTest {
     private lateinit var couponRepository: FakeCouponRepository
     private lateinit var userCouponRepository: FakeUserCouponRepository
     private lateinit var createOrderUseCase: CreateOrderUseCase
+    private val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
 
     @BeforeEach
     fun setUp() {
@@ -43,7 +46,7 @@ class CreateOrderUseCaseTest {
         couponRepository = FakeCouponRepository()
         userCouponRepository = FakeUserCouponRepository()
         createOrderUseCase = CreateOrderUseCase(
-            orderRepository, productRepository, brandRepository, userCouponRepository,
+            orderRepository, productRepository, brandRepository, userCouponRepository, eventPublisher,
         )
     }
 

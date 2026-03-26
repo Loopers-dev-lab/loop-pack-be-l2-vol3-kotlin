@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.v1.coupon
 
+import com.loopers.application.coupon.GetCouponIssueRequestUseCase
 import com.loopers.application.coupon.GetMyCouponsUseCase
 import com.loopers.application.coupon.IssueCouponUseCase
+import com.loopers.application.coupon.RequestCouponIssueAsyncUseCase
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.auth.AuthUser
 import com.loopers.interfaces.api.auth.AuthenticatedUser
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController
 class CouponController(
     private val issueCouponUseCase: IssueCouponUseCase,
     private val getMyCouponsUseCase: GetMyCouponsUseCase,
+    private val requestCouponIssueAsyncUseCase: RequestCouponIssueAsyncUseCase,
+    private val getCouponIssueRequestUseCase: GetCouponIssueRequestUseCase,
 ) {
     @PostMapping("/{couponId}/issue")
     @ResponseStatus(HttpStatus.CREATED)
@@ -35,5 +39,23 @@ class CouponController(
     ): ApiResponse<List<GetMyCouponResponse>> {
         val coupons = getMyCouponsUseCase.getMyAll(authUser.id)
         return ApiResponse.success(coupons.map { GetMyCouponResponse.from(it) })
+    }
+
+    @PostMapping("/{couponId}/issue-async")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    fun issueAsync(
+        @AuthenticatedUser authUser: AuthUser,
+        @PathVariable couponId: Long,
+    ): ApiResponse<CouponIssueAsyncResponse> {
+        val requestId = requestCouponIssueAsyncUseCase.request(authUser.id, couponId)
+        return ApiResponse.success(CouponIssueAsyncResponse(requestId))
+    }
+
+    @GetMapping("/issue-requests/{requestId}")
+    fun getIssueRequest(
+        @PathVariable requestId: String,
+    ): ApiResponse<CouponIssueRequestResponse> {
+        val request = getCouponIssueRequestUseCase.getByRequestId(requestId)
+        return ApiResponse.success(CouponIssueRequestResponse.from(request))
     }
 }

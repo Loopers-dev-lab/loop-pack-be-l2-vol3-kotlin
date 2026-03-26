@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.event.ProductUnlikedEvent
 import com.loopers.application.product.ProductCacheEvictEvent
 import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
@@ -23,6 +24,7 @@ class RemoveLikeUseCase(
         if (affected > 0) {
             productRepository.decrementLikeCount(productId)
             eventPublisher.publishEvent(ProductCacheEvictEvent(productId))
+            eventPublisher.publishEvent(ProductUnlikedEvent(productId = productId, userId = userId))
         }
     }
 }
