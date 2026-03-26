@@ -29,5 +29,6 @@ enum class CacheMode {
 enum class StampedeStrategy {
     NONE,
     MUTEX,
+    SINGLE_FLIGHT,
     WARMUP,
 }
