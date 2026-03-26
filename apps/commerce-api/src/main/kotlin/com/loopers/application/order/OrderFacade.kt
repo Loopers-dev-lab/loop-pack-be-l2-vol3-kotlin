@@ -3,9 +3,11 @@ package com.loopers.application.order
 import com.loopers.application.brand.BrandService
 import com.loopers.application.coupon.CouponService
 import com.loopers.application.event.OrderCreatedEvent
+import com.loopers.application.outbox.OutboxService
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
 import com.loopers.domain.order.OrderItemCommand
+import com.loopers.event.KafkaTopics
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -17,6 +19,7 @@ class OrderFacade(
     private val brandService: BrandService,
     private val couponService: CouponService,
     private val eventPublisher: ApplicationEventPublisher,
+    private val outboxService: OutboxService,
 ) {
 
     @Transactional
@@ -49,15 +52,22 @@ class OrderFacade(
             OrderInfo.from(order)
         }
 
-        eventPublisher.publishEvent(
-            OrderCreatedEvent(
-                orderId = orderInfo.id,
-                userId = userId,
-                productIds = productIds,
-                totalAmount = orderInfo.totalAmount,
-                couponId = couponId,
-            ),
+        val event = OrderCreatedEvent(
+            orderId = orderInfo.id,
+            userId = userId,
+            productIds = productIds,
+            totalAmount = orderInfo.totalAmount,
+            couponId = couponId,
         )
+        outboxService.save(
+            aggregateType = "ORDER",
+            aggregateId = orderInfo.id.toString(),
+            eventType = "ORDER_CREATED",
+            topic = KafkaTopics.ORDER_EVENTS,
+            partitionKey = orderInfo.id.toString(),
+            payload = event,
+        )
+        eventPublisher.publishEvent(event)
 
         return orderInfo
     }
