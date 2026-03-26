@@ -45,9 +45,13 @@ out/
 ### AI Tools ###
 .omc/
 .omx/
+.codex/
 .claude/
 CLAUDE.md
 brand-like-ranking-architecture-review.txt
 
+### Local Artifacts ###
+.gradle-local/
+.docs/notes/
 ### OS ###
 .DS_Store

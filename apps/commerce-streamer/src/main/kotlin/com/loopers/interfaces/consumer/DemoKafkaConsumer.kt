@@ -13,7 +13,7 @@ class DemoKafkaConsumer {
         containerFactory = KafkaConfig.BATCH_LISTENER,
     )
     fun demoListener(
-        messages: List<ConsumerRecord<Any, Any>>,
+        messages: List<ConsumerRecord<String, String>>,
         acknowledgment: Acknowledgment,
     ) {
         println(messages)
