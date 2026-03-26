@@ -29,6 +29,7 @@ class CouponAdminUseCase(
             discountValue = command.discountValue,
             minOrderAmount = command.minOrderAmount,
             expiredAt = command.expiredAt,
+            issueLimit = command.issueLimit,
         )
         return CouponInfo.Detail.from(coupon)
     }
@@ -53,6 +54,7 @@ class CouponAdminUseCase(
             discountValue = command.discountValue,
             minOrderAmount = command.minOrderAmount,
             expiredAt = command.expiredAt,
+            issueLimit = command.issueLimit,
         )
         return CouponInfo.Detail.from(coupon)
     }
@@ -74,6 +76,7 @@ class CouponAdminUseCase(
         val discountValue: Long,
         val minOrderAmount: Long?,
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long?,
     )
 
     data class UpdateCommand(
@@ -82,5 +85,6 @@ class CouponAdminUseCase(
         val discountValue: Long,
         val minOrderAmount: Long?,
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long?,
     )
 }

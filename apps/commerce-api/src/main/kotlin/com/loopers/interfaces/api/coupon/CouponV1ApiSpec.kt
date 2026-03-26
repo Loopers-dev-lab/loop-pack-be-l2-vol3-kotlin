@@ -13,7 +13,14 @@ interface CouponV1ApiSpec {
         @Parameter(hidden = true) loginId: String,
         @Parameter(hidden = true) password: String,
         couponId: Long,
-    ): ApiResponse<CouponV1Dto.IssuedDetailResponse>
+    ): ApiResponse<CouponV1Dto.IssueRequestResponse>
+
+    @Operation(summary = "쿠폰 발급 요청 조회", description = "쿠폰 발급 요청 상태를 조회합니다.")
+    fun getIssueRequest(
+        @Parameter(hidden = true) loginId: String,
+        @Parameter(hidden = true) password: String,
+        requestId: Long,
+    ): ApiResponse<CouponV1Dto.IssueRequestResponse>
 
     @Operation(summary = "내 쿠폰 목록 조회", description = "내가 발급받은 쿠폰 목록을 조회합니다.")
     fun getMyCoupons(

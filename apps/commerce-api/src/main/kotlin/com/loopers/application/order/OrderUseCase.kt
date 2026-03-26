@@ -1,11 +1,14 @@
 package com.loopers.application.order
 
+import com.loopers.application.event.UserActionLogEvent
+import com.loopers.application.event.UserActionType
 import com.loopers.domain.coupon.IssuedCouponProcessor
 import com.loopers.domain.order.OrderCanceller
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderReader
 import com.loopers.domain.order.OrderRegister
 import com.loopers.domain.product.ProductStockDeductor
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,6 +19,7 @@ class OrderUseCase(
     private val orderCanceller: OrderCanceller,
     private val productStockDeductor: ProductStockDeductor,
     private val issuedCouponProcessor: IssuedCouponProcessor,
+    private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -35,6 +39,18 @@ class OrderUseCase(
         }
 
         val order = orderRegister.register(memberId, orderItems, totalPrice, discountAmount, usedCouponId)
+        applicationEventPublisher.publishEvent(
+            UserActionLogEvent(
+                actionType = UserActionType.ORDER_CREATED,
+                memberId = memberId,
+                targetType = "order",
+                targetId = requireNotNull(order.id).toString(),
+                details = mapOf(
+                    "itemCount" to order.orderItems.size,
+                    "finalPrice" to order.finalPrice,
+                ),
+            ),
+        )
         return OrderInfo.Detail.from(order)
     }
 

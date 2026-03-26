@@ -12,6 +12,8 @@ class CouponInfo {
         val discountValue: Long,
         val minOrderAmount: Long?,
         val expiredAt: String,
+        val issueLimit: Long?,
+        val issuedCount: Long,
     ) {
         companion object {
             fun from(coupon: Coupon) = Detail(
@@ -21,6 +23,8 @@ class CouponInfo {
                 discountValue = coupon.discountValue.value,
                 minOrderAmount = coupon.minOrderAmount.value,
                 expiredAt = coupon.expiredAt.toString(),
+                issueLimit = coupon.issueLimit.value,
+                issuedCount = coupon.issuedCount,
             )
         }
     }
@@ -31,6 +35,8 @@ class CouponInfo {
         val type: String,
         val discountValue: Long,
         val expiredAt: String,
+        val issueLimit: Long?,
+        val issuedCount: Long,
     ) {
         companion object {
             fun from(coupon: Coupon) = Main(
@@ -39,6 +45,8 @@ class CouponInfo {
                 type = coupon.type.name,
                 discountValue = coupon.discountValue.value,
                 expiredAt = coupon.expiredAt.toString(),
+                issueLimit = coupon.issueLimit.value,
+                issuedCount = coupon.issuedCount,
             )
         }
     }
@@ -79,6 +87,28 @@ class CouponInfo {
                 memberId = issuedCoupon.memberId,
                 status = issuedCoupon.status.name,
                 issuedAt = issuedCoupon.issuedAt.toString(),
+            )
+        }
+    }
+
+    data class IssueRequestDetail(
+        val requestId: Long,
+        val couponId: Long,
+        val memberId: Long,
+        val status: String,
+        val issuedCouponId: Long?,
+        val failureReason: String?,
+        val requestedAt: String,
+    ) {
+        companion object {
+            fun from(request: com.loopers.domain.coupon.CouponIssueRequest) = IssueRequestDetail(
+                requestId = requireNotNull(request.id) { "쿠폰 발급 요청 저장 후 ID가 할당되지 않았습니다." },
+                couponId = request.couponId,
+                memberId = request.memberId,
+                status = request.status.name,
+                issuedCouponId = request.issuedCouponId,
+                failureReason = request.failureReason,
+                requestedAt = request.requestedAt.toString(),
             )
         }
     }
