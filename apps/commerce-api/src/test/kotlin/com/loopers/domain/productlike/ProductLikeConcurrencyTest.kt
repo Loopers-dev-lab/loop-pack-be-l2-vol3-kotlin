@@ -20,6 +20,8 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.math.BigDecimal
 import java.util.Collections
@@ -41,6 +43,8 @@ class ProductLikeConcurrencyTest @Autowired constructor(
     private val passwordEncoder: PasswordEncoder,
     private val entityManager: EntityManager,
 ) {
+    @MockBean
+    private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
 
     private fun findProjectionLikeCount(productId: Long): Long =
         productLikeCountRepository.findByProductId(productId)?.likeCount ?: 0L
