@@ -5,6 +5,7 @@ import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponRepository
 import com.loopers.domain.coupon.UserCoupon
 import com.loopers.domain.coupon.UserCouponRepository
+import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderItemRepository
@@ -16,6 +17,7 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.CouponErrorCode
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -29,6 +31,7 @@ class CreateOrderUseCase(
     private val orderValidator: OrderValidator,
     private val userCouponRepository: UserCouponRepository,
     private val couponRepository: CouponRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -88,6 +91,15 @@ class CreateOrderUseCase(
             val success = userCouponRepository.markAsUsed(it.id, savedOrder.id)
             if (!success) throw CoreException(CouponErrorCode.COUPON_ALREADY_USED)
         }
+
+        eventPublisher.publishEvent(
+            OrderCreatedEvent(
+                orderId = savedOrder.id,
+                userId = command.userId,
+                productIds = productIds,
+                totalAmount = savedOrder.totalAmount.amount,
+            ),
+        )
 
         return OrderInfo.from(savedOrder)
     }
