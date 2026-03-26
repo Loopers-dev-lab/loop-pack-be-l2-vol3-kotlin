@@ -7,6 +7,7 @@ class LikeCountEvent(
     source: Any,
     val productId: Long,
     val type: LikeCountEventType,
+    val userId: Long? = null,
     val dedupeKey: String = "like.count:$productId:${type.name}:${UUID.randomUUID()}",
 ) : ApplicationEvent(source)
 
