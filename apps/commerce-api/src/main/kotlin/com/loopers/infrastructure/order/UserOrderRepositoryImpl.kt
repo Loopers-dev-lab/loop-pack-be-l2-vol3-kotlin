@@ -22,7 +22,15 @@ class UserOrderRepositoryImpl(
 
     override fun save(order: Order): Order {
         try {
-            val savedEntity = orderJpaRepository.saveAndFlush(orderMapper.toEntity(order))
+            val savedEntity = if (order.id == null) {
+                orderJpaRepository.saveAndFlush(orderMapper.toNewEntity(order))
+            } else {
+                val existingEntity = orderJpaRepository.findByIdAndDeletedAtIsNull(order.id)
+                    ?: throw CoreException(ErrorType.ORDER_NOT_FOUND)
+                existingEntity.changeStatus(order.status)
+                orderJpaRepository.saveAndFlush(existingEntity)
+            }
+
             return orderMapper.toDomain(savedEntity)
         } catch (e: DataIntegrityViolationException) {
             throw CoreException(ErrorType.ORDER_IDEMPOTENCY_KEY_DUPLICATE)
@@ -31,6 +39,16 @@ class UserOrderRepositoryImpl(
 
     override fun findById(id: Long): Order? {
         val entity = orderJpaRepository.findByIdAndDeletedAtIsNull(id) ?: return null
+        return orderMapper.toDomain(entity)
+    }
+
+    override fun findByIdForUpdate(id: Long): Order? {
+        val entity = orderJpaRepository.findByIdForUpdate(id) ?: return null
+        return orderMapper.toDomain(entity)
+    }
+
+    override fun findByIdAndUserIdForUpdate(id: Long, userId: Long): Order? {
+        val entity = orderJpaRepository.findByIdAndUserIdForUpdate(id, userId) ?: return null
         return orderMapper.toDomain(entity)
     }
 

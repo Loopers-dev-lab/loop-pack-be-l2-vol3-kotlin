@@ -38,7 +38,7 @@ class OrderEntity(
     val idempotencyKey: String,
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val status: Order.Status,
+    var status: Order.Status,
     @Column(name = "issued_coupon_id")
     val issuedCouponId: Long? = null,
     @Column(name = "discount_amount", nullable = false)
@@ -56,5 +56,9 @@ class OrderEntity(
 
     init {
         this.id = id
+    }
+
+    fun changeStatus(status: Order.Status) {
+        this.status = status
     }
 }
