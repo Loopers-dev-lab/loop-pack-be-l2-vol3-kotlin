@@ -74,13 +74,14 @@ class CouponIssueConsumer(
             return
         }
 
-        if (coupon.maxIssueCount != null && coupon.issuedCount >= coupon.maxIssueCount) {
-            updateRequestFailed(issueRequest, "선착순 수량이 소진되었습니다.")
+        if (userCouponJpaRepository.existsByCouponIdAndUserId(couponId, userId)) {
+            updateRequestFailed(issueRequest, "이미 발급받은 쿠폰입니다.")
             return
         }
 
-        if (userCouponJpaRepository.existsByCouponIdAndUserId(couponId, userId)) {
-            updateRequestFailed(issueRequest, "이미 발급받은 쿠폰입니다.")
+        val affected = couponJpaRepository.incrementIssuedCount(couponId)
+        if (affected == 0) {
+            updateRequestFailed(issueRequest, "선착순 수량이 소진되었습니다.")
             return
         }
 
@@ -97,8 +98,6 @@ class CouponIssueConsumer(
             issuedAt = ZonedDateTime.now(),
         )
         userCouponJpaRepository.save(userCouponEntity)
-
-        couponJpaRepository.incrementIssuedCount(couponId)
 
         updateRequestSuccess(issueRequest)
 

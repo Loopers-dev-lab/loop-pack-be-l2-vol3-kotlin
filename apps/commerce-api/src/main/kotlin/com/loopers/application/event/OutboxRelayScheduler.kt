@@ -8,6 +8,7 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.util.concurrent.TimeUnit
 
 @Component
 class OutboxRelayScheduler(
@@ -28,11 +29,7 @@ class OutboxRelayScheduler(
                 val payloadMap = objectMapper.readValue(event.payload, Map::class.java).toMutableMap()
                 payloadMap["eventType"] = event.eventType
                 kafkaTemplate.send(event.topic, event.partitionKey, payloadMap)
-                    .whenComplete { _, ex ->
-                        if (ex != null) {
-                            log.error("Kafka 발행 실패. eventId={}, topic={}", event.eventId, event.topic, ex)
-                        }
-                    }
+                    .get(5, TimeUnit.SECONDS)
                 outboxEventRepository.updateStatus(
                     requireNotNull(event.persistenceId),
                     OutboxEventStatus.PUBLISHED,
