@@ -21,4 +21,8 @@ class OutboxEventRepositoryImpl(
             PageRequest.of(0, limit),
         )
     }
+
+    override fun deleteSentBefore(threshold: java.time.ZonedDateTime): Int {
+        return outboxEventJpaRepository.deleteSentBefore(threshold)
+    }
 }
