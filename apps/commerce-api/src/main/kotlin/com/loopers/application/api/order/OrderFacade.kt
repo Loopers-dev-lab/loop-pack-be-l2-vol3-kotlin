@@ -4,7 +4,6 @@ import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.order.DiscountDistributer
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
-import com.loopers.domain.order.event.OrderCreatedEvent
 import com.loopers.domain.order.dto.CreateOrderItemCommand
 import com.loopers.domain.order.dto.OrderedInfo
 import com.loopers.domain.product.ProductService
@@ -12,7 +11,6 @@ import com.loopers.domain.stock.StockDecreaseCommand
 import com.loopers.domain.stock.StockIncreaseCommand
 import com.loopers.domain.stock.StockService
 import com.loopers.interfaces.api.order.OrderV1Dto
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
@@ -26,7 +24,6 @@ class OrderFacade(
     private val productService: ProductService,
     private val stockService: StockService,
     private val couponService: CouponService,
-    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -43,15 +40,8 @@ class OrderFacade(
                 applyDiscount(order, discountAmount, createOrderItems)
             }
 
-            eventPublisher.publishEvent(
-                OrderCreatedEvent(
-                    orderId = order.id,
-                    userId = userId,
-                    itemCount = createOrderItems.size,
-                    couponId = orderRequest.couponId,
-                    dedupeKey = "order.created:${order.id}",
-                ),
-            )
+            // OrderCreatedEvent is now published by OrderService.createOrder()
+            // with Outbox integration for reliability
 
             return order.id
         } catch (e: Exception) {
