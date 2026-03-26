@@ -7,6 +7,7 @@ import com.loopers.domain.error.ErrorType
 import com.loopers.domain.order.OrderItemModel
 import com.loopers.domain.order.OrderModel
 import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.product.ProductModel
 import org.springframework.stereotype.Component
 import java.time.ZonedDateTime
@@ -65,5 +66,21 @@ class OrderService(
 
     fun getOrders(page: Int, size: Int): PageResult<OrderModel> {
         return orderRepository.findAll(PageQuery(page, size))
+    }
+
+    fun getOrderByIdWithLock(orderId: Long): OrderModel {
+        return orderRepository.findByIdWithLock(orderId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다.")
+    }
+
+    fun updateOrderStatus(orderId: Long, status: OrderStatus): OrderModel {
+        val order = getOrderById(orderId)
+        val updated = when (status) {
+            OrderStatus.PAYMENT_PENDING -> order.requestPayment()
+            OrderStatus.PAID -> order.completePayment()
+            OrderStatus.CANCELLED -> order.cancelByPaymentFailure()
+            OrderStatus.ORDERED -> order.revertToOrdered()
+        }
+        return orderRepository.save(updated)
     }
 }
