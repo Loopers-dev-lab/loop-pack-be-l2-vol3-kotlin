@@ -29,4 +29,8 @@ dependencies {
 
     // cache
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
+
+    // resilience
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:${project.properties["resilience4jVersion"]}")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 }
