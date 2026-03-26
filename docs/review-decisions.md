@@ -204,3 +204,11 @@
 - **최종 결정**: 기각
 - **근거**: AFTER_COMMIT 이후 `catalogOutboxRepository.save()` 호출 시 Spring Data JPA의 `SimpleJpaRepository.save()`에 선언된 `@Transactional`이 자동으로 새 트랜잭션을 생성한다. 핸들러에 별도로 `@Transactional(propagation = REQUIRES_NEW)`를 명시하면 중복 어노테이션이 되며, 프레임워크 동작에 대한 불필요한 의존 표현.
 - **최종 업데이트**: 2026-03-25
+
+## RD-026. JDBC batch_size 미설정으로 saveAll 배치 미동작
+- **keywords**: `batch_size`, `order_inserts`, `saveAll`, `JDBC 배치`, `IDENTITY`, `jpa.yml`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: ① jpa.yml은 전체 엔티티에 영향주는 공유 설정 ② `@GeneratedValue(IDENTITY)` 전략 사용 시 Hibernate INSERT 배치 자체가 비활성화됨 ③ 현재 건수(1~5건/결제)에서 실질 효과 미미. 스케일 확대 시 SEQUENCE 전략 전환과 함께 검토.
+- **최종 업데이트**: 2026-03-26

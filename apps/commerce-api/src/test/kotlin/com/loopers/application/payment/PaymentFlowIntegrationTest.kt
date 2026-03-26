@@ -58,12 +58,14 @@ class PaymentFlowIntegrationTest {
         orderOutboxRepository = FakeOrderOutboxRepository()
         pgClient = FakePgClient()
         fakePaymentPgProcessor = FakePaymentPgProcessor()
-        paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
+        paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate, orderOutboxRepository)
         requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, fakePaymentPgProcessor)
         handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(
             paymentRepository, orderRepository, orderItemRepository, orderOutboxRepository,
         )
-        recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
+        recoverPaymentUseCase = RecoverPaymentUseCase(
+            paymentRepository, orderRepository, orderItemRepository, orderOutboxRepository, pgClient, txTemplate,
+        )
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
     }
 
@@ -280,7 +282,14 @@ class PaymentFlowIntegrationTest {
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(finalPayment.reason).isEqualTo("카드 한도 초과")
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.FAILED)
-            assertThat(orderOutboxRepository.findAllUnpublished()).hasSize(0)
+
+            // PG 즉시 실패 시에도 PAYMENT_FAILED outbox가 생성되어야 한다
+            val outboxes = orderOutboxRepository.findAllUnpublished()
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_FAILED")
+            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
+            assertThat(outbox.reason).isEqualTo("카드 한도 초과")
         }
     }
 }

@@ -2,6 +2,8 @@ package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.order.repository.OrderRepository
+import com.loopers.domain.outbox.model.OrderOutbox
+import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import com.loopers.domain.payment.PgClient
 import com.loopers.domain.payment.PgPaymentRequest
 import com.loopers.domain.payment.PgResultStatus
@@ -23,6 +25,7 @@ class PaymentPgProcessorImpl(
     private val paymentRepository: PaymentRepository,
     private val orderRepository: OrderRepository,
     private val txTemplate: TransactionTemplate,
+    private val orderOutboxRepository: OrderOutboxRepository,
 ) : PaymentPgProcessor {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -60,10 +63,19 @@ class PaymentPgProcessorImpl(
                         ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다. paymentId=$paymentId")
                     val order = orderRepository.findByIdForUpdate(OrderId(orderId))
                         ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다. orderId=$orderId")
-                    failedPayment.markFailed(pgResult.reason ?: "PG 결제 실패")
+                    val reason = pgResult.reason ?: "PG 결제 실패"
+                    failedPayment.markFailed(reason)
                     paymentRepository.save(failedPayment)
                     order.markFailed()
                     orderRepository.save(order)
+                    orderOutboxRepository.save(
+                        OrderOutbox(
+                            eventType = "PAYMENT_FAILED",
+                            orderId = orderId,
+                            userId = order.refUserId.value,
+                            reason = reason,
+                        ),
+                    )
                 }
             }
         }

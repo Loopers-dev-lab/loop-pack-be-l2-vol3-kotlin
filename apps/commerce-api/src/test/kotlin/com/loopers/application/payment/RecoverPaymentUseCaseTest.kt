@@ -4,9 +4,11 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
+import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.payment.FakePgClient
 import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.payment.PgResultStatus
@@ -28,6 +30,8 @@ class RecoverPaymentUseCaseTest {
 
     private lateinit var paymentRepository: FakePaymentRepository
     private lateinit var orderRepository: FakeOrderRepository
+    private lateinit var orderItemRepository: FakeOrderItemRepository
+    private lateinit var orderOutboxRepository: FakeOrderOutboxRepository
     private lateinit var pgClient: FakePgClient
     private lateinit var recoverPaymentUseCase: RecoverPaymentUseCase
     private lateinit var recoverAllPaymentsUseCase: RecoverAllPaymentsUseCase
@@ -58,10 +62,14 @@ class RecoverPaymentUseCaseTest {
     fun setUp() {
         paymentRepository = FakePaymentRepository()
         orderRepository = FakeOrderRepository()
+        orderItemRepository = FakeOrderItemRepository()
+        orderOutboxRepository = FakeOrderOutboxRepository()
         pgClient = FakePgClient()
         // TransactionSynchronizationManager 활성화: registerSynchronization 호출 허용
         TransactionSynchronizationManager.initSynchronization()
-        recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, immediateTxTemplate)
+        recoverPaymentUseCase = RecoverPaymentUseCase(
+            paymentRepository, orderRepository, orderItemRepository, orderOutboxRepository, pgClient, immediateTxTemplate,
+        )
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
     }
 
@@ -104,6 +112,8 @@ class RecoverPaymentUseCaseTest {
             ),
         )
         val saved = orderRepository.save(order)
+        saved.assignOrderIdToItems(saved.id)
+        orderItemRepository.saveAll(saved.items)
         saved.markPendingPayment()
         orderRepository.save(saved)
         return saved
@@ -156,6 +166,14 @@ class RecoverPaymentUseCaseTest {
             val updatedOrder = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PAID)
+
+            // outbox 검증
+            val outboxes = orderOutboxRepository.findAllUnpublished(100)
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
+            assertThat(outbox.orderId).isEqualTo(order.id.value)
+            assertThat(outbox.userId).isEqualTo(1L)
         }
 
         @Test
@@ -179,6 +197,13 @@ class RecoverPaymentUseCaseTest {
             val updatedOrder = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.PAID)
+
+            // outbox 검증
+            val outboxes = orderOutboxRepository.findAllUnpublished(100)
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
+            assertThat(outbox.orderId).isEqualTo(order.id.value)
         }
 
         @Test
@@ -252,6 +277,15 @@ class RecoverPaymentUseCaseTest {
             val updatedOrder = requireNotNull(orderRepository.findById(order.id)) { "주문(${order.id})이 존재해야 합니다" }
             assertThat(updatedPayment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.FAILED)
+
+            // outbox 검증
+            val outboxes = orderOutboxRepository.findAllUnpublished(100)
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_FAILED")
+            assertThat(outbox.orderId).isEqualTo(order.id.value)
+            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.reason).isEqualTo("카드 한도 초과")
         }
     }
 
@@ -315,6 +349,8 @@ class RecoverPaymentUseCaseTest {
                 ),
             ).let { o ->
                 val saved = orderRepository.save(o)
+                saved.assignOrderIdToItems(saved.id)
+                orderItemRepository.saveAll(saved.items)
                 saved.markPendingPayment()
                 orderRepository.save(saved)
                 saved
