@@ -19,7 +19,7 @@ class ProductLikeCountBatchService(
      * 비동기 이벤트 처리 실패나 서버 크래시로 인한 집계 불일치를 자동으로 복구한다.
      * 매일 새벽 2시에 실행된다.
      */
-    @Scheduled(cron = "0 2 * * *")
+    @Scheduled(cron = "0 0 2 * * *")
     @Transactional
     fun reconcileProductLikeCount() {
         log.info("좋아요 집계 일일 재계산 배치 시작")
