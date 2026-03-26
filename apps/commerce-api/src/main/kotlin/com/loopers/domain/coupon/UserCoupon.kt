@@ -69,6 +69,15 @@ class UserCoupon private constructor(
         this.usedOrderId = orderId
     }
 
+    fun restore() {
+        if (this.status != UserCouponStatus.USED) {
+            throw CoreException(CouponErrorCode.COUPON_NOT_USED)
+        }
+        this.status = UserCouponStatus.AVAILABLE
+        this.usedAt = null
+        this.usedOrderId = null
+    }
+
     @PrePersist
     private fun prePersist() {
         createdAt = ZonedDateTime.now()

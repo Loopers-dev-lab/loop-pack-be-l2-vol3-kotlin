@@ -18,6 +18,13 @@ interface UserCouponJpaRepository : JpaRepository<UserCoupon, Long> {
     )
     fun useIfAvailable(@Param("id") id: Long, @Param("orderId") orderId: Long): Int
 
+    @Modifying
+    @Query(
+        "UPDATE UserCoupon uc SET uc.status = 'AVAILABLE', uc.usedOrderId = NULL, uc.usedAt = NULL" +
+            " WHERE uc.id = :id AND uc.status = 'USED'",
+    )
+    fun restoreIfUsed(@Param("id") id: Long): Int
+
     @Query("SELECT uc FROM UserCoupon uc WHERE uc.userId = :userId AND uc.couponId = :couponId")
     fun findByUserIdAndCouponId(@Param("userId") userId: Long, @Param("couponId") couponId: Long): UserCoupon?
 

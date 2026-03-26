@@ -10,7 +10,6 @@ import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.application.user.UserCommand
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.infrastructure.user.UserJpaRepository
-import com.loopers.support.error.CoreException
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -70,9 +69,9 @@ class StockConcurrencyTest @Autowired constructor(
         ).id
     }
 
-    @DisplayName("재고보다 많은 주문이 동시에 들어오면 재고만큼만 성공하고 나머지는 실패해야 한다")
+    @DisplayName("동시 주문이 들어와도 모두 성공하고 재고는 차감되지 않는다 (결제 성공 시 차감)")
     @Test
-    fun onlyStockAmountOrdersShouldSucceedUnderConcurrency() {
+    fun allOrdersSucceedWithoutStockDeduction() {
         // arrange
         val threadCount = 20
         val initialStock = 10
@@ -96,21 +95,13 @@ class StockConcurrencyTest @Autowired constructor(
         val results = ConcurrencyTestHelper.executeConcurrently(actions)
 
         val successes = results.filter { it.isSuccess }
-        val failures = results.filter { it.isFailure }
 
         // assert
         val productStock = productStockRepository.findByProductId(productId)!!
 
         assertAll(
-            { assertThat(successes).`as`("재고 수만큼만 성공해야 한다").hasSize(initialStock) },
-            { assertThat(failures).`as`("초과 주문은 실패해야 한다").hasSize(threadCount - initialStock) },
-            { assertThat(productStock.stock.quantity).`as`("재고가 정확히 0이어야 한다").isEqualTo(0) },
-            {
-                assertThat(failures).`as`("실패는 모두 CoreException이어야 한다")
-                    .allSatisfy { result ->
-                        assertThat(result.exceptionOrNull()).isInstanceOf(CoreException::class.java)
-                    }
-            },
+            { assertThat(successes).`as`("주문은 모두 성공해야 한다").hasSize(threadCount) },
+            { assertThat(productStock.stock.quantity).`as`("재고는 변하지 않아야 한다").isEqualTo(initialStock) },
         )
     }
 }

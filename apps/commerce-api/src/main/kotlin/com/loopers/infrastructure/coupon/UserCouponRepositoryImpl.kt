@@ -53,4 +53,8 @@ class UserCouponRepositoryImpl(
     override fun markAsUsed(id: Long, orderId: Long): Boolean {
         return userCouponJpaRepository.useIfAvailable(id, orderId) > 0
     }
+
+    override fun restoreIfUsed(id: Long): Boolean {
+        return userCouponJpaRepository.restoreIfUsed(id) > 0
+    }
 }

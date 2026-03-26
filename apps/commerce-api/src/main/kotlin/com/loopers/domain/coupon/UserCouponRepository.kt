@@ -10,4 +10,5 @@ interface UserCouponRepository {
     fun findAllByCouponId(couponId: Long, page: Int, size: Int): PageResult<UserCoupon>
     fun save(userCoupon: UserCoupon): UserCoupon
     fun markAsUsed(id: Long, orderId: Long): Boolean
+    fun restoreIfUsed(id: Long): Boolean
 }

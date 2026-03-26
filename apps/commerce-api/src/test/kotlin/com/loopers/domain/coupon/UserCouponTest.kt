@@ -102,4 +102,35 @@ class UserCouponTest {
             )
         }
     }
+
+    @DisplayName("쿠폰 복원")
+    @Nested
+    inner class Restore {
+
+        @DisplayName("사용된 쿠폰을 복원하면 AVAILABLE 상태로 돌아간다")
+        @Test
+        fun success() {
+            val userCoupon = UserCoupon.create(couponId = 1L, userId = 1L, expiredAt = validExpiredAt)
+            userCoupon.use(orderId = 100L)
+
+            userCoupon.restore()
+
+            assertAll(
+                { assertThat(userCoupon.status).isEqualTo(UserCouponStatus.AVAILABLE) },
+                { assertThat(userCoupon.usedAt).isNull() },
+                { assertThat(userCoupon.usedOrderId).isNull() },
+            )
+        }
+
+        @DisplayName("사용되지 않은 쿠폰을 복원하면 COUPON_NOT_USED 에러가 발생한다")
+        @Test
+        fun failWhenNotUsed() {
+            val userCoupon = UserCoupon.create(couponId = 1L, userId = 1L, expiredAt = validExpiredAt)
+
+            val exception = assertThrows<CoreException> {
+                userCoupon.restore()
+            }
+            assertThat(exception.errorCode).isEqualTo(CouponErrorCode.COUPON_NOT_USED)
+        }
+    }
 }
