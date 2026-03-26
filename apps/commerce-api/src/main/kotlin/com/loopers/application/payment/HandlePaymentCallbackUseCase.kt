@@ -1,14 +1,15 @@
 package com.loopers.application.payment
 
-import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.coupon.UserCouponRepository
+import com.loopers.domain.event.PaymentApprovedEvent
+import com.loopers.domain.event.PaymentFailedEvent
 import com.loopers.domain.order.OrderItemRepository
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.PaymentException
-import com.loopers.support.transaction.AfterCommit
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -19,7 +20,7 @@ class HandlePaymentCallbackUseCase(
     private val orderItemRepository: OrderItemRepository,
     private val productStockRepository: ProductStockRepository,
     private val userCouponRepository: UserCouponRepository,
-    private val productCacheStore: ProductCacheStore,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -56,11 +57,28 @@ class HandlePaymentCallbackUseCase(
         }
 
         if (updatedCount > 0 && command.status == PG_STATUS_SUCCESS) {
-            deductStock(payment.orderId)
+            val productIds = deductStock(payment.orderId)
+            eventPublisher.publishEvent(
+                PaymentApprovedEvent(
+                    paymentId = payment.id,
+                    orderId = payment.orderId,
+                    userId = payment.userId,
+                    amount = payment.amount.amount,
+                    productIds = productIds,
+                ),
+            )
         }
 
         if (updatedCount > 0 && command.status != PG_STATUS_SUCCESS) {
             cancelOrderAndRestoreCoupon(payment.orderId)
+            eventPublisher.publishEvent(
+                PaymentFailedEvent(
+                    paymentId = payment.id,
+                    orderId = payment.orderId,
+                    userId = payment.userId,
+                    reason = command.reason ?: "PG 결제 실패",
+                ),
+            )
         }
 
         val updated = paymentRepository.findByIdOrNull(payment.id)
@@ -68,7 +86,7 @@ class HandlePaymentCallbackUseCase(
         return PaymentInfo.from(updated)
     }
 
-    private fun deductStock(orderId: Long) {
+    private fun deductStock(orderId: Long): List<Long> {
         val orderItems = orderItemRepository.findByOrderId(orderId)
 
         val productIds = orderItems.map { it.productId }.distinct().sorted()
@@ -79,10 +97,7 @@ class HandlePaymentCallbackUseCase(
         }
 
         log.info("결제 승인으로 재고 차감 [orderId={}]", orderId)
-
-        AfterCommit.execute {
-            productIds.forEach { productCacheStore.evictDetail(it) }
-        }
+        return productIds
     }
 
     private fun cancelOrderAndRestoreCoupon(orderId: Long) {
