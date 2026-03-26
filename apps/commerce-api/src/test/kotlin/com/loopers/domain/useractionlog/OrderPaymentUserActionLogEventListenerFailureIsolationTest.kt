@@ -24,10 +24,11 @@ class OrderPaymentUserActionLogEventListenerFailureIsolationTest {
         assertThatCode {
             listener.onOrderCreated(
                 OrderCreatedEvent(
+                    source = this,
                     orderId = 200L,
-                    userId = 21L,
-                    itemCount = 1,
-                    couponId = null,
+                    lineItems = listOf(
+                        com.loopers.domain.order.event.OrderLineItem(productId = 1L, quantity = 1),
+                    ),
                     dedupeKey = "order.created:200",
                 ),
             )
