@@ -62,5 +62,4 @@ interface ProductMetricsJpaRepository : JpaRepository<ProductMetrics, Long> {
         nativeQuery = true,
     )
     fun incrementViewCount(productId: Long, version: Long)
-
 }

@@ -11,6 +11,8 @@ import java.time.ZonedDateTime
 class CouponService(
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
+    private val couponIssueRepository: CouponIssueRepository,
+    private val couponIssueRequestRepository: CouponIssueRequestRepository,
 ) {
 
     fun create(
@@ -88,5 +90,27 @@ class CouponService(
     fun findIssuedCouponsByCouponId(couponId: Long, pageQuery: PageQuery): PageResult<IssuedCoupon> {
         findCouponById(couponId)
         return issuedCouponRepository.findByCouponId(couponId, pageQuery)
+    }
+
+    fun reserveAsyncIssue(couponId: Long, userId: Long) {
+        val coupon = findCouponById(couponId)
+        coupon.validateNotExpired()
+
+        val redisResult = couponIssueRepository.tryIssue(couponId, userId, coupon.quantity.total)
+        when (redisResult) {
+            CouponIssueRepository.ISSUE_DUPLICATE -> throw CoreException(ErrorType.CONFLICT, "이미 발급 요청한 쿠폰입니다.")
+            CouponIssueRepository.ISSUE_EXHAUSTED -> throw CoreException(ErrorType.BAD_REQUEST, "수량이 소진되었습니다.")
+        }
+    }
+
+    fun saveIssueRequest(requestId: String, couponId: Long, userId: Long): CouponIssueRequest {
+        return couponIssueRequestRepository.save(
+            CouponIssueRequest(requestId = requestId, couponId = couponId, userId = userId),
+        )
+    }
+
+    fun findIssueRequestByRequestId(requestId: String): CouponIssueRequest {
+        return couponIssueRequestRepository.findByRequestId(requestId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "발급 요청을 찾을 수 없습니다.")
     }
 }

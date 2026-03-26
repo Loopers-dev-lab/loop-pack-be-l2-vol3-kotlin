@@ -20,6 +20,7 @@ class KafkaErrorHandlerConfig {
     companion object {
         const val CATALOG_RETRY_COUNT = 3L
         const val ORDER_RETRY_COUNT = 5L
+        const val COUPON_ISSUE_RETRY_COUNT = 3L
         private const val RETRY_INTERVAL_MS = 1000L
 
         fun resolveDlqDestination(record: ConsumerRecord<*, *>): TopicPartition {
@@ -34,6 +35,15 @@ class KafkaErrorHandlerConfig {
         objectMapper: ObjectMapper,
     ): ConcurrentKafkaListenerContainerFactory<Any, Any> {
         return createFactory(consumerFactory, kafkaTemplate, objectMapper, CATALOG_RETRY_COUNT)
+    }
+
+    @Bean("couponIssueListenerContainerFactory")
+    fun couponIssueListenerContainerFactory(
+        consumerFactory: ConsumerFactory<Any, Any>,
+        kafkaTemplate: KafkaTemplate<Any, Any>,
+        objectMapper: ObjectMapper,
+    ): ConcurrentKafkaListenerContainerFactory<Any, Any> {
+        return createFactory(consumerFactory, kafkaTemplate, objectMapper, COUPON_ISSUE_RETRY_COUNT)
     }
 
     @Bean("orderListenerContainerFactory")
