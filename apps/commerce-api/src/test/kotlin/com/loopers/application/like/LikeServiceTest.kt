@@ -39,6 +39,9 @@ class LikeServiceTest {
     @Mock
     private lateinit var eventPublisher: ApplicationEventPublisher
 
+    @Mock
+    private lateinit var outboxService: com.loopers.application.outbox.OutboxService
+
     @InjectMocks
     private lateinit var likeService: LikeService
 
