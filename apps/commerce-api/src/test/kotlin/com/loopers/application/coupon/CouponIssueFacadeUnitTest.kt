@@ -1,12 +1,13 @@
 package com.loopers.application.coupon
 
 import com.loopers.domain.coupon.CouponIssueRequest
-import com.loopers.domain.coupon.CouponIssueRequestRepository
+import com.loopers.domain.coupon.CouponIssueRequestService
 import com.loopers.domain.coupon.CouponIssueStatus
 import com.loopers.domain.coupon.CouponTemplate
-import com.loopers.domain.coupon.CouponTemplateRepository
+import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.CouponType
-import com.loopers.domain.coupon.UserCouponRepository
+import com.loopers.domain.coupon.UserCoupon
+import com.loopers.domain.coupon.UserCouponService
 import com.loopers.infrastructure.outbox.OutboxEventService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -20,13 +21,13 @@ import java.time.LocalDate
 
 class CouponIssueFacadeUnitTest {
 
-    private val mockIssueRequestRepo = mockk<CouponIssueRequestRepository>(relaxed = true)
-    private val mockTemplateRepo = mockk<CouponTemplateRepository>(relaxed = true)
-    private val mockUserCouponRepo = mockk<UserCouponRepository>(relaxed = true)
+    private val mockIssueRequestService = mockk<CouponIssueRequestService>(relaxed = true)
+    private val mockTemplateService = mockk<CouponTemplateService>(relaxed = true)
+    private val mockUserCouponService = mockk<UserCouponService>(relaxed = true)
     private val mockOutboxEventService = mockk<OutboxEventService>(relaxed = true)
 
     private val facade = CouponIssueFacade(
-        mockIssueRequestRepo, mockTemplateRepo, mockUserCouponRepo, mockOutboxEventService,
+        mockIssueRequestService, mockTemplateService, mockUserCouponService, mockOutboxEventService,
     )
 
     // ─── requestIssue ───
@@ -34,18 +35,16 @@ class CouponIssueFacadeUnitTest {
     @Test
     fun `requestIssue() should save request and outbox`() {
         val template = createTemplate(id = 1L)
-        every { mockIssueRequestRepo.findByUserIdAndCouponTemplateId(1L, 1L) } returns null
-        every { mockTemplateRepo.findById(1L) } returns template
-        every { mockIssueRequestRepo.save(any()) } answers {
-            val req = firstArg<CouponIssueRequest>()
-            CouponIssueRequest(
-                id = 100L, userId = req.userId, couponTemplateId = req.couponTemplateId,
-            )
-        }
+        val savedRequest = CouponIssueRequest(id = 100L, userId = 1L, couponTemplateId = 1L)
+
+        every { mockIssueRequestService.findByUserIdAndCouponTemplateId(1L, 1L) } returns null
+        every { mockTemplateService.getById(1L) } returns template
+        every { mockIssueRequestService.create(1L, 1L) } returns savedRequest
 
         val result = facade.requestIssue(userId = 1L, couponTemplateId = 1L)
 
         assertThat(result.status).isEqualTo(CouponIssueStatus.REQUESTED)
+        assertThat(result.id).isEqualTo(100L)
         verify { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
@@ -54,7 +53,7 @@ class CouponIssueFacadeUnitTest {
         val existing = CouponIssueRequest(
             id = 100L, userId = 1L, couponTemplateId = 1L, status = CouponIssueStatus.ISSUED,
         )
-        every { mockIssueRequestRepo.findByUserIdAndCouponTemplateId(1L, 1L) } returns existing
+        every { mockIssueRequestService.findByUserIdAndCouponTemplateId(1L, 1L) } returns existing
 
         val result = facade.requestIssue(userId = 1L, couponTemplateId = 1L)
 
@@ -64,8 +63,8 @@ class CouponIssueFacadeUnitTest {
 
     @Test
     fun `requestIssue() should throw NOT_FOUND when template does not exist`() {
-        every { mockIssueRequestRepo.findByUserIdAndCouponTemplateId(1L, 99L) } returns null
-        every { mockTemplateRepo.findById(99L) } returns null
+        every { mockIssueRequestService.findByUserIdAndCouponTemplateId(1L, 99L) } returns null
+        every { mockTemplateService.getById(99L) } throws CoreException(ErrorType.NOT_FOUND, "not found")
 
         assertThrows<CoreException> {
             facade.requestIssue(userId = 1L, couponTemplateId = 99L)
@@ -79,49 +78,46 @@ class CouponIssueFacadeUnitTest {
     @Test
     fun `processIssue() should issue coupon and mark request as ISSUED`() {
         val request = CouponIssueRequest(id = 100L, userId = 1L, couponTemplateId = 1L)
-        val template = createTemplate(id = 1L, maxIssuance = 100, issuedCount = 0)
+        val userCoupon = UserCoupon(id = 1L, userId = 1L, couponTemplateId = 1L)
 
-        every { mockIssueRequestRepo.findById(100L) } returns request
-        every { mockTemplateRepo.findByIdWithLock(1L) } returns template
-        every { mockUserCouponRepo.existsByUserIdAndCouponTemplateId(1L, 1L) } returns false
+        every { mockIssueRequestService.findById(100L) } returns request
+        every { mockUserCouponService.issueWithLock(1L, 1L) } returns userCoupon
 
         facade.processIssue(requestId = 100L, userId = 1L, couponTemplateId = 1L)
 
         assertThat(request.status).isEqualTo(CouponIssueStatus.ISSUED)
-        assertThat(template.issuedCount).isEqualTo(1)
-        verify { mockUserCouponRepo.save(any()) }
-        verify { mockTemplateRepo.save(template) }
+        verify { mockUserCouponService.issueWithLock(1L, 1L) }
+        verify { mockIssueRequestService.save(request) }
     }
 
     @Test
     fun `processIssue() should mark FAILED when quantity exceeded`() {
         val request = CouponIssueRequest(id = 100L, userId = 1L, couponTemplateId = 1L)
-        val template = createTemplate(id = 1L, maxIssuance = 10, issuedCount = 10) // full
 
-        every { mockIssueRequestRepo.findById(100L) } returns request
-        every { mockTemplateRepo.findByIdWithLock(1L) } returns template
+        every { mockIssueRequestService.findById(100L) } returns request
+        every { mockUserCouponService.issueWithLock(1L, 1L) } throws
+            CoreException(ErrorType.BAD_REQUEST, "발급 가능 수량을 초과했습니다.")
 
         facade.processIssue(requestId = 100L, userId = 1L, couponTemplateId = 1L)
 
         assertThat(request.status).isEqualTo(CouponIssueStatus.FAILED)
         assertThat(request.failReason).contains("수량")
-        verify(exactly = 0) { mockUserCouponRepo.save(any()) }
+        verify { mockIssueRequestService.save(request) }
     }
 
     @Test
     fun `processIssue() should mark FAILED when user already has coupon`() {
         val request = CouponIssueRequest(id = 100L, userId = 1L, couponTemplateId = 1L)
-        val template = createTemplate(id = 1L, maxIssuance = 100, issuedCount = 0)
 
-        every { mockIssueRequestRepo.findById(100L) } returns request
-        every { mockTemplateRepo.findByIdWithLock(1L) } returns template
-        every { mockUserCouponRepo.existsByUserIdAndCouponTemplateId(1L, 1L) } returns true
+        every { mockIssueRequestService.findById(100L) } returns request
+        every { mockUserCouponService.issueWithLock(1L, 1L) } throws
+            CoreException(ErrorType.CONFLICT, "이미 발급받은 쿠폰입니다.")
 
         facade.processIssue(requestId = 100L, userId = 1L, couponTemplateId = 1L)
 
         assertThat(request.status).isEqualTo(CouponIssueStatus.FAILED)
         assertThat(request.failReason).contains("이미")
-        verify(exactly = 0) { mockUserCouponRepo.save(any()) }
+        verify { mockIssueRequestService.save(request) }
     }
 
     @Test
@@ -130,12 +126,12 @@ class CouponIssueFacadeUnitTest {
             id = 100L, userId = 1L, couponTemplateId = 1L, status = CouponIssueStatus.ISSUED,
         )
 
-        every { mockIssueRequestRepo.findById(100L) } returns request
+        every { mockIssueRequestService.findById(100L) } returns request
 
         facade.processIssue(requestId = 100L, userId = 1L, couponTemplateId = 1L)
 
-        verify(exactly = 0) { mockTemplateRepo.findByIdWithLock(any()) }
-        verify(exactly = 0) { mockUserCouponRepo.save(any()) }
+        verify(exactly = 0) { mockUserCouponService.issueWithLock(any(), any()) }
+        verify(exactly = 0) { mockIssueRequestService.save(any()) }
     }
 
     // ─── Helpers ───

@@ -20,6 +20,10 @@ class CouponTemplateService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "[$id] 해당 ID에 해당하는 쿠폰 템플릿이 존재하지 않습니다.")
 
     @Transactional(readOnly = true)
+    fun findAllByIds(ids: List<Long>): List<CouponTemplate> =
+        couponTemplateRepository.findAllByIds(ids)
+
+    @Transactional(readOnly = true)
     fun findAll(): List<CouponTemplate> =
         couponTemplateRepository.findAll()
 
