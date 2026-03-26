@@ -1,12 +1,16 @@
 package com.loopers.domain.order.event
 
 import org.springframework.context.ApplicationEvent
+import java.util.UUID
+
+data class OrderLineItem(
+    val productId: Long,
+    val quantity: Int,
+)
 
 class OrderCreatedEvent(
     source: Any,
     val orderId: Long,
-    val userId: Long,
-    val itemCount: Int,
-    val couponId: Long?,
-    val dedupeKey: String,
+    val lineItems: List<OrderLineItem>,
+    val dedupeKey: String = "order:$orderId:${UUID.randomUUID()}"
 ) : ApplicationEvent(source)
