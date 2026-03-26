@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.outbox
 
 import com.loopers.domain.outbox.OutboxEventRepository
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled
@@ -30,7 +31,10 @@ class OutboxEventRelay(
 
         events.forEach { event ->
             try {
-                kafkaTemplate.send(event.topic, event.partitionKey, event.payload).get()
+                val record = ProducerRecord<Any, Any>(event.topic, event.partitionKey, event.payload)
+                record.headers().add("eventId", event.eventId.toByteArray())
+                record.headers().add("eventType", event.eventType.toByteArray())
+                kafkaTemplate.send(record).get()
 
                 transactionTemplate.executeWithoutResult {
                     event.markPublished()
