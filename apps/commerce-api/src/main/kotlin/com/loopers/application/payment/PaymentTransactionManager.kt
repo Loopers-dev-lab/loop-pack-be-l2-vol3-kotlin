@@ -1,11 +1,13 @@
 package com.loopers.application.payment
 
+import com.loopers.application.outbox.OutboxEventWriter
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.event.PaymentApprovedEvent
 import com.loopers.domain.event.PaymentFailedEvent
 import com.loopers.domain.order.OrderItemRepository
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderStatus
+import com.loopers.domain.outbox.OutboxEventType
 import com.loopers.domain.product.Money
 import com.loopers.domain.payment.Payment
 import org.slf4j.LoggerFactory
@@ -28,6 +30,7 @@ class PaymentTransactionManager(
     private val productStockRepository: ProductStockRepository,
     private val userCouponRepository: UserCouponRepository,
     private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventWriter: OutboxEventWriter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -100,14 +103,18 @@ class PaymentTransactionManager(
                 if (updatedCount > 0) {
                     val productIds = deductStock(paymentId)
                     val payment = paymentRepository.findByIdOrNull(paymentId)!!
-                    eventPublisher.publishEvent(
-                        PaymentApprovedEvent(
-                            paymentId = paymentId,
-                            orderId = payment.orderId,
-                            userId = payment.userId,
-                            amount = payment.amount.amount,
-                            productIds = productIds,
-                        ),
+                    val event = PaymentApprovedEvent(
+                        paymentId = paymentId,
+                        orderId = payment.orderId,
+                        userId = payment.userId,
+                        amount = payment.amount.amount,
+                        productIds = productIds,
+                    )
+                    eventPublisher.publishEvent(event)
+                    outboxEventWriter.write(
+                        eventType = OutboxEventType.PAYMENT_APPROVED,
+                        partitionKey = payment.orderId.toString(),
+                        payload = event,
                     )
                 }
             }
@@ -117,13 +124,17 @@ class PaymentTransactionManager(
                 if (updatedCount > 0) {
                     cancelOrderAndRestoreCoupon(paymentId)
                     val payment = paymentRepository.findByIdOrNull(paymentId)!!
-                    eventPublisher.publishEvent(
-                        PaymentFailedEvent(
-                            paymentId = paymentId,
-                            orderId = payment.orderId,
-                            userId = payment.userId,
-                            reason = reason ?: "PG 결제 실패",
-                        ),
+                    val event = PaymentFailedEvent(
+                        paymentId = paymentId,
+                        orderId = payment.orderId,
+                        userId = payment.userId,
+                        reason = reason ?: "PG 결제 실패",
+                    )
+                    eventPublisher.publishEvent(event)
+                    outboxEventWriter.write(
+                        eventType = OutboxEventType.PAYMENT_FAILED,
+                        partitionKey = payment.orderId.toString(),
+                        payload = event,
                     )
                 }
             }

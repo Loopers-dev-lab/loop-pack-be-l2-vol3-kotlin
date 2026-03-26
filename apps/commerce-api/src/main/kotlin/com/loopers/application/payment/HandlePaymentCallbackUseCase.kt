@@ -1,10 +1,12 @@
 package com.loopers.application.payment
 
+import com.loopers.application.outbox.OutboxEventWriter
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.event.PaymentApprovedEvent
 import com.loopers.domain.event.PaymentFailedEvent
 import com.loopers.domain.order.OrderItemRepository
 import com.loopers.domain.order.OrderRepository
+import com.loopers.domain.outbox.OutboxEventType
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.support.error.PaymentException
@@ -21,6 +23,7 @@ class HandlePaymentCallbackUseCase(
     private val productStockRepository: ProductStockRepository,
     private val userCouponRepository: UserCouponRepository,
     private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventWriter: OutboxEventWriter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -58,26 +61,34 @@ class HandlePaymentCallbackUseCase(
 
         if (updatedCount > 0 && command.status == PG_STATUS_SUCCESS) {
             val productIds = deductStock(payment.orderId)
-            eventPublisher.publishEvent(
-                PaymentApprovedEvent(
-                    paymentId = payment.id,
-                    orderId = payment.orderId,
-                    userId = payment.userId,
-                    amount = payment.amount.amount,
-                    productIds = productIds,
-                ),
+            val event = PaymentApprovedEvent(
+                paymentId = payment.id,
+                orderId = payment.orderId,
+                userId = payment.userId,
+                amount = payment.amount.amount,
+                productIds = productIds,
+            )
+            eventPublisher.publishEvent(event)
+            outboxEventWriter.write(
+                eventType = OutboxEventType.PAYMENT_APPROVED,
+                partitionKey = payment.orderId.toString(),
+                payload = event,
             )
         }
 
         if (updatedCount > 0 && command.status != PG_STATUS_SUCCESS) {
             cancelOrderAndRestoreCoupon(payment.orderId)
-            eventPublisher.publishEvent(
-                PaymentFailedEvent(
-                    paymentId = payment.id,
-                    orderId = payment.orderId,
-                    userId = payment.userId,
-                    reason = command.reason ?: "PG 결제 실패",
-                ),
+            val event = PaymentFailedEvent(
+                paymentId = payment.id,
+                orderId = payment.orderId,
+                userId = payment.userId,
+                reason = command.reason ?: "PG 결제 실패",
+            )
+            eventPublisher.publishEvent(event)
+            outboxEventWriter.write(
+                eventType = OutboxEventType.PAYMENT_FAILED,
+                partitionKey = payment.orderId.toString(),
+                payload = event,
             )
         }
 

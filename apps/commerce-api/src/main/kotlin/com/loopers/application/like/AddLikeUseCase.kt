@@ -1,8 +1,10 @@
 package com.loopers.application.like
 
+import com.loopers.application.outbox.OutboxEventWriter
 import com.loopers.domain.event.LikeCreatedEvent
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeRepository
+import com.loopers.domain.outbox.OutboxEventType
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.LikeErrorCode
@@ -17,6 +19,7 @@ class AddLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
     private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventWriter: OutboxEventWriter,
 ) {
 
     @Transactional
@@ -35,6 +38,12 @@ class AddLikeUseCase(
             throw CoreException(LikeErrorCode.ALREADY_LIKED)
         }
 
-        eventPublisher.publishEvent(LikeCreatedEvent(userId = command.userId, productId = product.id))
+        val event = LikeCreatedEvent(userId = command.userId, productId = product.id)
+        eventPublisher.publishEvent(event)
+        outboxEventWriter.write(
+            eventType = OutboxEventType.LIKE_CREATED,
+            partitionKey = product.id.toString(),
+            payload = event,
+        )
     }
 }
