@@ -1,16 +1,20 @@
 package com.loopers.domain.product
 
 import com.loopers.domain.brand.Brand
+import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.dto.ProductInfo
+import com.loopers.domain.product.event.ProductViewedEvent
 import com.loopers.domain.productlike.ProductLikeCountRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.cache.annotation.CacheEvict
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.util.UUID
 
 @Service
 @Transactional(readOnly = true)
@@ -18,6 +22,8 @@ class ProductService(
     private val productDomainService: ProductDomainService,
     private val productRepository: ProductRepository,
     private val productLikeCountRepository: ProductLikeCountRepository,
+    private val outboxPublisher: OutboxPublisher,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     fun getProductInfo(id: Long): ProductInfo {
@@ -81,6 +87,24 @@ class ProductService(
     }
 
     fun getProduct(productId: Long): Product = findActiveProduct(productId)
+
+    @Transactional
+    fun recordProductView(productId: Long, userId: Long) {
+        val product = findActiveProduct(productId)
+
+        val event = ProductViewedEvent(
+            source = this,
+            productId = productId,
+            userId = userId,
+            dedupeKey = "view:$productId:$userId:${UUID.randomUUID()}",
+        )
+
+        // Save to Outbox (same transaction)
+        outboxPublisher.publish(event, productId)
+
+        // Publish ApplicationEvent for local listeners
+        eventPublisher.publishEvent(event)
+    }
 
     private fun findActiveProduct(id: Long) =
         productRepository.findById(id)
