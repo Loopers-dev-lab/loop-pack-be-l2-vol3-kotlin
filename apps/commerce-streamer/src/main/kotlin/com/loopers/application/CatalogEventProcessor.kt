@@ -2,6 +2,7 @@ package com.loopers.application
 
 import com.loopers.domain.event.EventHandled
 import com.loopers.domain.event.EventLog
+import com.loopers.domain.event.EventLogStatus
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.EventEnvelope
 import com.loopers.infrastructure.event.EventHandledJpaRepository
@@ -57,7 +58,7 @@ class CatalogEventProcessor(
                 aggregateType = "CATALOG",
                 aggregateId = envelope.aggregateId,
                 payload = envelope.payload,
-                status = "SUCCESS",
+                status = EventLogStatus.SUCCESS,
             ),
         )
         eventHandledRepository.save(EventHandled(envelope.eventId))

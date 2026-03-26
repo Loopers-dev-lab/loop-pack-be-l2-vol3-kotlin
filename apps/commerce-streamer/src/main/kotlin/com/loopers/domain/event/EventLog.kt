@@ -2,6 +2,8 @@ package com.loopers.domain.event
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -34,8 +36,9 @@ class EventLog(
     @Column(columnDefinition = "TEXT", nullable = false)
     val payload: String,
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val status: String,
+    val status: EventLogStatus,
 
     val failReason: String? = null,
 

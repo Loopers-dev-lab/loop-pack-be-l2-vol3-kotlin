@@ -8,9 +8,6 @@ class LikeService(
 ) {
 
     fun like(userId: Long, productId: Long): Boolean {
-        if (likeRepository.existsByUserIdAndProductId(userId, productId)) {
-            return false
-        }
         return likeRepository.save(userId, productId)
     }
 

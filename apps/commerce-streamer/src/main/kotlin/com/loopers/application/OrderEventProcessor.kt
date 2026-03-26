@@ -3,6 +3,7 @@ package com.loopers.application
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.event.EventHandled
 import com.loopers.domain.event.EventLog
+import com.loopers.domain.event.EventLogStatus
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.EventEnvelope
 import com.loopers.event.payload.OrderCompletedPayload
@@ -49,7 +50,7 @@ class OrderEventProcessor(
                 aggregateType = "ORDER",
                 aggregateId = envelope.aggregateId,
                 payload = envelope.payload,
-                status = "SUCCESS",
+                status = EventLogStatus.SUCCESS,
             ),
         )
         eventHandledRepository.save(EventHandled(envelope.eventId))
