@@ -9,14 +9,11 @@ import com.loopers.infrastructure.like.LikeJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
-import org.awaitility.kotlin.await
-import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.ActiveProfiles
-import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -40,7 +37,7 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
     }
 
     @Test
-    fun `addLike() - 동시에 50명이 좋아요를 눌러도 likeCount가 정확히 50이어야 한다`() {
+    fun `addLike() - 동시에 50명이 좋아요를 눌러도 like 레코드가 정확히 50개여야 한다`() {
         // Arrange
         val brand = brandJpaRepository.save(BrandEntity(name = "TestBrand", description = "desc"))
         val product = productJpaRepository.save(
@@ -72,15 +69,16 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
         latch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
-        // Assert: likeCount는 AFTER_COMMIT + @Async로 비동기 증가하므로 Awaitility로 검증
-        await.atMost(Duration.ofSeconds(10)).untilAsserted {
-            val finalProduct = productJpaRepository.findById(product.id).get()
-            assertThat(finalProduct.likeCount).isEqualTo(50)
-        }
+        // Assert: 좋아요 레코드 50개 (핵심 로직)
+        val likeRows = likeJpaRepository.findAllByProductId(product.id)
+        assertThat(likeRows).hasSize(50)
+
+        // Note: likeCount는 Kafka Consumer를 통해 비동기 증가 (eventual consistency)
+        // 통합 테스트에서는 Kafka 없이 핵심 로직(like 저장)만 검증
     }
 
     @Test
-    fun `addLike() - 동시에 같은 사용자가 같은 상품에 좋아요를 눌러도 likeCount는 1이어야 한다`() {
+    fun `addLike() - 동시에 같은 사용자가 같은 상품에 좋아요를 눌러도 like 레코드는 1개여야 한다`() {
         // Arrange
         val brand = brandJpaRepository.save(BrandEntity(name = "TestBrand", description = "desc"))
         val product = productJpaRepository.save(
@@ -122,10 +120,6 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
         val likeRows = likeJpaRepository.findAllByProductId(product.id)
         assertThat(likeRows).hasSize(1)
 
-        // likeCount는 AFTER_COMMIT + @Async로 비동기 증가하므로 Awaitility로 검증
-        await.atMost(Duration.ofSeconds(10)).untilAsserted {
-            val finalProduct = productJpaRepository.findById(product.id).get()
-            assertThat(finalProduct.likeCount).isEqualTo(1)
-        }
+        // Note: likeCount는 Kafka Consumer를 통해 비동기 증가 (eventual consistency)
     }
 }
