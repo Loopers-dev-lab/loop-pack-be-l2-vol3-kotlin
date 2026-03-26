@@ -5,9 +5,11 @@ import com.loopers.domain.productlike.dto.LikedProductInfo
 import com.loopers.domain.productlike.event.LikeCountEvent
 import com.loopers.domain.productlike.event.LikeCountEventType
 import com.loopers.domain.user.User
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
+import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -17,13 +19,17 @@ class ProductLikeService(
     private val productLikeRepository: ProductLikeRepository,
     private val productLikeCountRepository: ProductLikeCountRepository,
     private val eventPublisher: ApplicationEventPublisher,
+    private val kafkaTemplate: KafkaTemplate<String, Any>,
+    private val objectMapper: ObjectMapper,
 ) {
 
     @Transactional
     fun addProductLike(user: User, product: Product) {
         val productLike = ProductLike.create(user, product)
         productLikeRepository.save(productLike)
-        eventPublisher.publishEvent(LikeCountEvent(this, product.id, LikeCountEventType.INCREMENT))
+        val likeCountEvent = LikeCountEvent(this, product.id, LikeCountEventType.INCREMENT, userId = user.id)
+        eventPublisher.publishEvent(likeCountEvent)
+        kafkaTemplate.send("like.count", objectMapper.writeValueAsString(likeCountEvent))
     }
 
     @Transactional
@@ -33,7 +39,9 @@ class ProductLikeService(
 
         // 실제로 삭제된 경우(deletedCount > 0)에만 like_count 감소
         if (deletedCount > 0) {
-            eventPublisher.publishEvent(LikeCountEvent(this, product.id, LikeCountEventType.DECREMENT))
+            val likeCountEvent = LikeCountEvent(this, product.id, LikeCountEventType.DECREMENT, userId = user.id)
+            eventPublisher.publishEvent(likeCountEvent)
+            kafkaTemplate.send("like.count", objectMapper.writeValueAsString(likeCountEvent))
         }
 
         return deletedCount

@@ -33,6 +33,9 @@ dependencies {
     implementation("io.github.resilience4j:resilience4j-circuitbreaker:${project.properties["resilience4jVersion"]}")
     implementation("io.github.resilience4j:resilience4j-timelimiter:${project.properties["resilience4jVersion"]}")
 
+    // kafka
+    implementation("org.springframework.kafka:spring-kafka")
+
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
