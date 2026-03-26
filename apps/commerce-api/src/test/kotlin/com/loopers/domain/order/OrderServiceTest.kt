@@ -22,8 +22,8 @@ class OrderServiceTest {
     private val orderRepository: OrderRepository = mockk()
     private val productService: ProductService = mockk()
     private val idGenerator: com.loopers.domain.SnowflakeIdGenerator = mockk()
-    private val outboxPublisher: OutboxPublisher = mockk()
-    private val eventPublisher: ApplicationEventPublisher = mockk()
+    private val outboxPublisher: OutboxPublisher = mockk(relaxed = true)
+    private val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
     private val orderService = OrderService(
         orderRepository = orderRepository,
         productService = productService,
