@@ -37,10 +37,11 @@ class OrderPaymentUserActionLogEventListenerTest @Autowired constructor(
         transactionTemplate.executeWithoutResult {
             eventPublisher.publishEvent(
                 OrderCreatedEvent(
+                    source = this,
                     orderId = 101L,
-                    userId = 10L,
-                    itemCount = 2,
-                    couponId = null,
+                    lineItems = listOf(
+                        com.loopers.domain.order.event.OrderLineItem(productId = 1L, quantity = 2),
+                    ),
                     dedupeKey = dedupeKey,
                 ),
             )
@@ -102,10 +103,11 @@ class OrderPaymentUserActionLogEventListenerTest @Autowired constructor(
         transactionTemplate.executeWithoutResult { status ->
             eventPublisher.publishEvent(
                 OrderCreatedEvent(
+                    source = this,
                     orderId = 104L,
-                    userId = 12L,
-                    itemCount = 1,
-                    couponId = null,
+                    lineItems = listOf(
+                        com.loopers.domain.order.event.OrderLineItem(productId = 1L, quantity = 1),
+                    ),
                     dedupeKey = dedupeKey,
                 ),
             )

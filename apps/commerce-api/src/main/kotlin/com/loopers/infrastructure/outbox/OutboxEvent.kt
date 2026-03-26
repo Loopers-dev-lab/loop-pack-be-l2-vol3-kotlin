@@ -15,9 +15,9 @@ class OutboxEvent(
     val id: Long? = null,
 
     val aggregateId: Long,
-    val eventType: String,  // "ProductViewedEvent", "OrderCreatedEvent"
+    val eventType: String,
     @Column(columnDefinition = "JSON")
-    val payload: String,    // JSON serialized event
+    val payload: String,
     val topic: String = "metrics-events",
 
     var published: Boolean = false,
