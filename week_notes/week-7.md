@@ -3,25 +3,28 @@
 ## ✅ Requirements Checklist
 
 ### Step 1 — ApplicationEvent로 경계 나누기
-- [ ] 주문–결제 플로우에서 부가 로직을 이벤트 기반으로 분리
-- [ ] 좋아요 처리와 집계를 이벤트 기반으로 분리 (집계 실패와 무관하게 좋아요는 성공)
-- [ ] 유저 행동(조회, 좋아요, 주문 등)에 대한 서버 레벨 로깅을 이벤트로 처리
-- [ ] 동작의 주체를 적절하게 분리하고, 트랜잭션 간의 연관관계를 고민
+- [x] 주문–결제 플로우에서 부가 로직을 이벤트 기반으로 분리
+- [x] 좋아요 처리와 집계를 이벤트 기반으로 분리 (집계 실패와 무관하게 좋아요는 성공)
+- [x] 유저 행동(조회, 좋아요, 주문 등)에 대한 서버 레벨 로깅을 이벤트로 처리
+- [x] 동작의 주체를 적절하게 분리하고, 트랜잭션 간의 연관관계를 고민
 
 ### Step 2 — Kafka Producer / Consumer
-- [ ] ApplicationEvent 중 시스템 간 전파가 필요한 이벤트를 Kafka로 발행
-- [ ] `acks=all`, `idempotence=true` 설정
-- [ ] Transactional Outbox Pattern 구현
-- [ ] PartitionKey 기반 이벤트 순서 보장
-- [ ] Consumer가 Metrics 집계 처리 (product_metrics upsert)
-- [ ] `event_handled` 테이블을 통한 멱등 처리 구현
-- [ ] manual Ack + `version`/`updated_at` 기준 최신 이벤트만 반영
+- [x] ApplicationEvent 중 시스템 간 전파가 필요한 이벤트를 Kafka로 발행
+- [x] `acks=all`, `idempotence=true` 설정
+- [x] Transactional Outbox Pattern 구현
+- [x] PartitionKey 기반 이벤트 순서 보장
+- [x] Consumer가 Metrics 집계 처리 (product_metrics upsert)
+- [x] `event_handled` 테이블을 통한 멱등 처리 구현
+- [x] manual Ack + `version`/`updated_at` 기준 최신 이벤트만 반영
 
 ### Step 3 — 선착순 쿠폰 발급
-- [ ] 쿠폰 발급 요청 API → Kafka 발행 (비동기 처리)
-- [ ] Consumer에서 선착순 수량 제한 + 중복 발급 방지 구현
-- [ ] 발급 완료/실패 결과를 유저가 확인할 수 있는 구조 설계
-- [ ] 동시성 테스트 — 수량 초과 발급이 발생하지 않는지 검증
+- [x] 쿠폰 발급 요청 API → Kafka 발행 (비동기 처리)
+- [x] Consumer에서 선착순 수량 제한 + 중복 발급 방지 구현
+- [x] 발급 완료/실패 결과를 유저가 확인할 수 있는 구조 설계
+- [x] 동시성 테스트 — 수량 초과 발급이 발생하지 않는지 검증
+
+### Refactoring
+- [x] 쿠폰 Application Layer → Domain Service 의존으로 전환 (DIP 적용)
 
 ---
 
@@ -520,5 +523,192 @@ flowchart LR
 
 ---
 
+## 🏗️ Step 3 — 선착순 쿠폰 발급 Class Diagram
+
+```mermaid
+classDiagram
+    namespace Interfaces_API_Coupon {
+        class CouponV1Controller {
+            +issueCoupon() 202 ACCEPTED
+            +getIssueStatus()
+        }
+        class CouponV1ApiSpec
+        class CouponIssueResponse
+    }
+
+    namespace Interfaces_Consumer_Coupon {
+        class CouponIssueConsumer {
+            +consume(records)
+        }
+    }
+
+    namespace Application_Coupon {
+        class CouponIssueFacade {
+            +requestIssue(userId, templateId)
+            +processIssue(requestId, userId, templateId)
+            +getIssueStatus(userId, templateId)
+        }
+        class CouponIssueRequestResult
+        class CouponIssueRequestedEvent
+    }
+
+    namespace Domain_Coupon {
+        class CouponIssueRequest {
+            +markIssued()
+            +markFailed(reason)
+        }
+        class CouponIssueRequestService {
+            +create(userId, templateId)
+            +findById(id)
+            +findByUserIdAndCouponTemplateId()
+            +save(request)
+        }
+        class CouponIssueRequestRepository {
+            <<interface>>
+        }
+        class UserCouponService {
+            +issue(userId, templateId)
+            +issueWithLock(userId, templateId)
+        }
+        class CouponTemplateService {
+            +getById(id)
+            +findAllByIds(ids)
+        }
+        class CouponIssueStatus {
+            <<enum>>
+            REQUESTED
+            ISSUED
+            FAILED
+        }
+    }
+
+    namespace Infrastructure_Coupon {
+        class CouponIssueRequestEntity
+        class CouponIssueRequestJpaRepository
+        class CouponIssueRequestRepositoryImpl
+        class CouponTemplateJpaRepository {
+            +findByIdWithLock() @Lock PESSIMISTIC_WRITE
+        }
+    }
+
+    CouponV1Controller ..|> CouponV1ApiSpec
+    CouponV1Controller --> CouponIssueFacade
+
+    CouponIssueConsumer --> CouponIssueFacade
+
+    CouponIssueFacade --> CouponIssueRequestService
+    CouponIssueFacade --> CouponTemplateService
+    CouponIssueFacade --> UserCouponService
+    CouponIssueFacade --> OutboxEventService
+
+    CouponIssueRequestService --> CouponIssueRequestRepository
+    CouponIssueRequestRepositoryImpl ..|> CouponIssueRequestRepository
+
+    UserCouponService --> CouponTemplateRepository
+    CouponTemplateJpaRepository ..> CouponTemplateRepository : implements via Impl
+```
+
+## 🔁 Step 3 — 선착순 쿠폰 발급 Sequence Diagram
+
+### 발급 요청 → Kafka → 처리 → 상태 조회
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Controller as CouponV1Controller
+    participant IssueFacade as CouponIssueFacade
+    participant ReqService as CouponIssueRequestService
+    participant TemplateService as CouponTemplateService
+    participant OutboxService as OutboxEventService
+    participant Relay as OutboxRelay
+    participant Kafka
+    participant Consumer as CouponIssueConsumer
+    participant UserCouponSvc as UserCouponService
+    participant DB
+
+    %% 1. 발급 요청
+    Client->>Controller: POST /api/v1/coupons/issue
+    Controller->>IssueFacade: requestIssue(userId, templateId)
+
+    alt 이미 요청한 적 있음 (멱등성)
+        IssueFacade->>ReqService: findByUserIdAndCouponTemplateId()
+        ReqService-->>IssueFacade: existing request
+        IssueFacade-->>Controller: CouponIssueRequestResult (기존 상태)
+    else 신규 요청
+        IssueFacade->>ReqService: findByUserIdAndCouponTemplateId()
+        ReqService-->>IssueFacade: null
+        IssueFacade->>TemplateService: getById(templateId) — 빠른 실패
+        IssueFacade->>ReqService: create(userId, templateId)
+        ReqService->>DB: INSERT coupon_issue_request (REQUESTED)
+        IssueFacade->>OutboxService: save(COUPON_ISSUE_REQUESTED)
+        OutboxService->>DB: INSERT outbox_event (같은 TX)
+        Note over DB: TX 커밋
+        IssueFacade-->>Controller: CouponIssueRequestResult (REQUESTED)
+    end
+    Controller-->>Client: 202 ACCEPTED
+
+    %% 2. Outbox Relay → Kafka
+    Relay->>DB: poll PENDING outbox events
+    Relay->>Kafka: publish to coupon-issue-requests
+    Relay->>DB: markPublished()
+
+    %% 3. Consumer 처리
+    Kafka->>Consumer: COUPON_ISSUE_REQUESTED
+    Consumer->>IssueFacade: processIssue(requestId, userId, templateId)
+    IssueFacade->>ReqService: findById(requestId)
+
+    alt 정상 발급
+        IssueFacade->>UserCouponSvc: issueWithLock(userId, templateId)
+        UserCouponSvc->>DB: SELECT FOR UPDATE coupon_template
+        UserCouponSvc->>DB: 중복 체크 + issuedCount 증가 + UserCoupon 저장
+        UserCouponSvc-->>IssueFacade: UserCoupon
+        IssueFacade->>ReqService: save(request.markIssued())
+    else 실패 (수량 초과 / 중복 발급)
+        UserCouponSvc-->>IssueFacade: throw CoreException
+        IssueFacade->>ReqService: save(request.markFailed(reason))
+    end
+
+    %% 4. 상태 조회 (polling)
+    Client->>Controller: GET /api/v1/coupons/issue/status?templateId=1
+    Controller->>IssueFacade: getIssueStatus(userId, templateId)
+    IssueFacade->>ReqService: getByUserIdAndCouponTemplateId()
+    IssueFacade-->>Controller: CouponIssueRequestResult (ISSUED/FAILED)
+    Controller-->>Client: 200 OK
+```
+
+## 🎯 Step 3 Design Decisions
+
+### 1. 비동기 발급 (API → Outbox → Kafka → Consumer)
+- **결정**: 동기 발급 대신 비동기 Kafka 파이프라인을 통한 발급
+- **이유**: 선착순 쿠폰은 트래픽 스파이크가 발생하므로, DB 부하를 Kafka Consumer로 분산. PartitionKey(couponTemplateId) 기반으로 같은 쿠폰 템플릿에 대한 요청을 순서대로 처리
+- **트레이드오프**: 즉시 발급 결과를 알 수 없어 polling API 필요
+
+### 2. 비관적 락 (SELECT FOR UPDATE)
+- **결정**: CouponTemplate에 PESSIMISTIC_WRITE 락으로 동시성 제어
+- **이유**: Kafka Consumer가 단일 파티션을 순서대로 처리하지만, 여러 파티션이나 consumer 재시작 시 동시 처리 가능. DB 레벨에서 최종 방어선 필요
+- **트레이드오프**: 락 경합으로 처리량 제한되지만, 쿠폰 수량 정합성이 더 중요
+
+### 3. CouponIssueRequest 상태 추적
+- **결정**: 별도 도메인 모델로 요청 상태(REQUESTED → ISSUED/FAILED) 관리
+- **이유**: 비동기 처리이므로 클라이언트가 결과를 조회할 수 있어야 함. (userId, couponTemplateId) unique constraint로 멱등성 보장
+
+### 4. Application Layer → Domain Service 의존 (DIP 리팩터링)
+- **결정**: CouponIssueFacade/CouponFacade가 Repository를 직접 참조하지 않고 Domain Service를 통해 접근
+- **이유**: 도메인 로직(발급 검증, 수량 체크, 중복 방지)이 서비스 계층에 응집되어야 함. Facade는 오케스트레이션만 담당
+- **적용 범위**: 쿠폰 도메인에만 적용 (다른 도메인은 현상 유지)
+
 ## 🧪 Test Coverage
-_(구현 후 업데이트)_
+
+### Unit Tests
+- `CouponIssueFacadeUnitTest` (7 cases)
+  - requestIssue: 정상 저장 + outbox 발행, 멱등성 (이미 요청), 템플릿 미존재 NOT_FOUND
+  - processIssue: 정상 발급 → ISSUED, 수량 초과 → FAILED, 중복 발급 → FAILED, 이미 처리된 요청 스킵 (멱등성)
+- `OrderFacadeUnitTest` — outboxEventService mock으로 전환
+- `LikeFacadeUnitTest` — outboxEventService mock으로 전환
+- `PaymentCallbackFacadeUnitTest` — outboxEventService mock으로 전환
+- `ProductFacadeUnitTest` — outboxEventService mock으로 전환
+
+### Integration / E2E Tests
+- `CouponV1ApiE2ETest` — 비동기 발급 flow (202 ACCEPTED + REQUESTED), 멱등성, 상태 조회
+- `LikeFacadeConcurrencyTest` — Kafka 전환에 따라 likeCount 동시성 검증 제거 (좋아요 레코드만 검증)
