@@ -42,6 +42,10 @@ class Coupon(
     var expiredAt: ZonedDateTime = expiredAt
         private set
 
+    @Column(name = "max_issue_count")
+    var maxIssueCount: Int? = null
+        private set
+
     init {
         validateValue(value, type)
     }
