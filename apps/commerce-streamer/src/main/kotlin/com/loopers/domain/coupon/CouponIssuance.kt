@@ -2,8 +2,6 @@ package com.loopers.domain.coupon
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -34,7 +32,6 @@ class CouponIssuance(
     @Column(name = "user_id", nullable = false)
     val userId: Long = userId
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     val status: String = "AVAILABLE"
 
