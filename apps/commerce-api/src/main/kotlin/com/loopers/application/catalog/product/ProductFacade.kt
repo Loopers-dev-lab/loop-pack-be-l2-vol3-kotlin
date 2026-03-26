@@ -103,6 +103,7 @@ class ProductFacade(
         )
     }
 
+    @Transactional(readOnly = true)
     fun findProducts(condition: ProductSearchCondition): List<ProductSummaryResult> {
         try {
             productCacheService.getProductList(condition)?.let { return it }
@@ -114,7 +115,6 @@ class ProductFacade(
         return results
     }
 
-    @Transactional(readOnly = true)
     private fun loadProductDetailFromDb(productId: Long): ProductDetailResult {
         val product = productService.getActiveById(productId)
         val brand = brandService.getById(product.brandId)
@@ -130,7 +130,6 @@ class ProductFacade(
         )
     }
 
-    @Transactional(readOnly = true)
     private fun loadProductListFromDb(condition: ProductSearchCondition): List<ProductSummaryResult> {
         val products = productService.findAll(condition)
         val brandIds = products.map { it.brandId }.distinct()
