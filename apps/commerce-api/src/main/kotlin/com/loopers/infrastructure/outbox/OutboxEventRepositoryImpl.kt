@@ -12,6 +12,10 @@ class OutboxEventRepositoryImpl(
         return outboxJpaRepository.save(event)
     }
 
+    override fun saveAll(events: List<OutboxEvent>) {
+        outboxJpaRepository.saveAll(events)
+    }
+
     override fun findByPublishedAtIsNull(limit: Int): List<OutboxEvent> {
         return outboxJpaRepository.findByPublishedAtIsNull(PageRequest.of(0, limit))
     }

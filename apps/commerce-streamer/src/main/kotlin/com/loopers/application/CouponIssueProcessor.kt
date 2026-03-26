@@ -35,6 +35,7 @@ class CouponIssueProcessor(
 
         val payload = objectMapper.readValue(envelope.payload, CouponIssueRequestPayload::class.java)
         val issueRequest = couponIssueRequestJpaRepository.findByRequestId(payload.requestId)
+            ?: throw IllegalStateException("발급 요청을 찾을 수 없습니다. requestId=${payload.requestId}")
 
         try {
             if (issuedCouponJpaRepository.existsByCouponIdAndUserId(payload.couponId, payload.userId)) {
@@ -46,10 +47,10 @@ class CouponIssueProcessor(
             coupon.issue()
 
             issuedCouponJpaRepository.save(IssuedCoupon(couponId = payload.couponId, userId = payload.userId))
-            issueRequest?.markIssued()
+            issueRequest.markIssued()
         } catch (e: Exception) {
             log.warn("[CouponIssue] 발급 실패: eventId={}, reason={}", envelope.eventId, e.message)
-            issueRequest?.markFailed(e.message ?: "알 수 없는 오류")
+            issueRequest.markFailed(e.message ?: "알 수 없는 오류")
             couponIssueRedisRepository.restore(payload.couponId, payload.userId)
         }
 

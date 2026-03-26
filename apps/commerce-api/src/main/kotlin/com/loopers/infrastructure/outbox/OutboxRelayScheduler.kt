@@ -7,7 +7,6 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Instant
-import java.util.UUID
 
 /**
  * Outbox Relay.
@@ -27,6 +26,7 @@ class OutboxRelayScheduler(
     @Scheduled(fixedRate = 1000)
     fun publishPendingEvents() {
         val events = outboxEventRepository.findByPublishedAtIsNull(limit = 100)
+        val publishedEvents = mutableListOf<OutboxEvent>()
         events.forEach { event ->
             try {
                 kafkaTemplate.send(
@@ -35,10 +35,13 @@ class OutboxRelayScheduler(
                     toEventEnvelope(event),
                 )
                 event.publishedAt = Instant.now()
-                outboxEventRepository.save(event)
+                publishedEvents.add(event)
             } catch (e: Exception) {
                 log.error("[Outbox Relay] 발행 실패: eventId={}, error={}", event.id, e.message)
             }
+        }
+        if (publishedEvents.isNotEmpty()) {
+            outboxEventRepository.saveAll(publishedEvents)
         }
     }
 
@@ -46,6 +49,7 @@ class OutboxRelayScheduler(
         private val TOPIC_MAP = mapOf(
             "CATALOG" to "catalog-events",
             "ORDER" to "order-events",
+            "COUPON" to "coupon-issue-requests",
         )
 
         fun topicFor(aggregateType: String): String {
@@ -55,7 +59,7 @@ class OutboxRelayScheduler(
 
         fun toEventEnvelope(event: OutboxEvent): EventEnvelope {
             return EventEnvelope(
-                eventId = UUID.randomUUID().toString(),
+                eventId = event.id.toString(),
                 eventType = event.eventType,
                 aggregateId = event.aggregateId,
                 version = event.version,

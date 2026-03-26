@@ -32,6 +32,16 @@ class OutboxRelaySchedulerTest {
             // assert
             assertThat(topic).isEqualTo("order-events")
         }
+
+        @DisplayName("COUPON aggregateType은 coupon-issue-requests 토픽으로 매핑된다.")
+        @Test
+        fun mapsCouponToCouponIssueRequests() {
+            // act
+            val topic = OutboxRelayScheduler.topicFor("COUPON")
+
+            // assert
+            assertThat(topic).isEqualTo("coupon-issue-requests")
+        }
     }
 
     @DisplayName("EventEnvelope 변환 시,")
@@ -56,11 +66,11 @@ class OutboxRelaySchedulerTest {
             val envelope = OutboxRelayScheduler.toEventEnvelope(outboxEvent)
 
             // assert
+            assertThat(envelope.eventId).isEqualTo("1")
             assertThat(envelope.eventType).isEqualTo("LIKED")
             assertThat(envelope.aggregateId).isEqualTo("100")
             assertThat(envelope.version).isEqualTo(12345L)
             assertThat(envelope.payload).isEqualTo("""{"userId":1,"productId":100}""")
-            assertThat(envelope.eventId).isNotBlank()
         }
     }
 }
