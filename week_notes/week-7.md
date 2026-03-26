@@ -367,18 +367,156 @@ sequenceDiagram
 
 ---
 
-## 🔮 Step 2 — Kafka 확장 방향 (Preview)
+## 🔀 ApplicationEvent / Kafka / Outbox Pattern — 진화 과정
 
-ApplicationEvent로 분리한 이벤트 중, **시스템 간 전파가 필요한 것**을 Kafka로 발행:
+### 핵심 전제: ApplicationEvent와 Kafka는 다른 것이다
 
-| Topic | Key | 이벤트 | Consumer 처리 |
-|-------|-----|--------|---------------|
-| `order-events` | orderId | OrderPlaced, OrderPaid | 판매량 집계 → product_metrics |
-| `catalog-events` | productId | ProductLiked, ProductUnliked, ProductViewed | 좋아요수/조회수 집계 → product_metrics |
-| `coupon-issue-requests` | couponTemplateId | CouponIssueRequested | 선착순 쿠폰 발급 처리 |
+멘토링에서 강조된 포인트:
+- **ApplicationEvent** = JVM 내부의 코드 디커플링 도구. 관심사 분리 목적.
+- **Kafka** = 시스템 간 이벤트 전파 + 영속성 + 재처리가 가능한 글로벌 이벤트 인프라.
+- 둘은 "교체"가 아니라 **역할이 다르다.** 함께 쓸 수 있다.
 
-**Producer**: Transactional Outbox Pattern으로 At Least Once 보장
-**Consumer**: `event_handled` 테이블로 멱등 처리, manual Ack
+---
+
+### V1 — ApplicationEvent 단독 (이전 버전)
+
+```
+OrderFacade [@Transactional]
+  ├─ 핵심: 재고 차감 + 쿠폰 사용 + 주문 저장
+  └─ applicationEventPublisher.publish(OrderPlacedEvent)
+       ↓
+  @TransactionalEventListener(AFTER_COMMIT) + @Async
+  OrderPlacedEventHandler
+       ├─ 결제 요청 (PG)
+       ├─ 캐시 무효화
+       └─ 행동 로깅
+```
+
+**장점:**
+- Facade가 부가 로직을 모른다 (관심사 분리)
+- 핵심 TX에 부가 로직 실패가 영향을 주지 않음
+
+**한계:**
+- 서버가 죽으면 이벤트 유실 (JVM 메모리 기반)
+- 재처리 불가 — 실패한 이벤트를 다시 돌릴 방법이 없음
+- 다른 서비스(commerce-streamer)로 이벤트를 전달할 수 없음
+
+---
+
+### V2 — Outbox + Kafka 직접 호출 (현재 구현)
+
+```
+OrderFacade [@Transactional]
+  ├─ 핵심: 재고 차감 + 쿠폰 사용 + 주문 저장
+  └─ outboxEventService.save(                   ← Facade가 outbox를 직접 호출
+       topic = "order-events",
+       partitionKey = orderId,
+       payload = OrderPlacedEvent(...)
+     )
+       ↓ [TX 커밋 — Outbox에 PENDING 상태로 저장]
+OutboxRelay (@Scheduled 5초)
+  └─ Kafka publish → markPublished()
+       ↓
+OrderEventConsumer (commerce-api)     → 결제 요청, 캐시 무효화
+OrderEventConsumer (commerce-streamer) → 판매량 집계 (product_metrics)
+```
+
+**장점:**
+- At-Least-Once 보장 — DB에 저장되므로 서버가 죽어도 이벤트 유실 없음
+- Kafka를 통해 commerce-streamer로 글로벌 이벤트 전파 가능
+- consumer에서 `event_handled` 테이블로 멱등 처리 구현
+
+**한계:**
+- Facade가 `outboxEventService`, `KafkaTopics`, `partitionKey`를 직접 알고 있음
+- 인프라 관심사(topic, partitionKey)가 application 레이어에 침투
+- 로컬에서만 처리하면 되는 이벤트(캐시 무효화)도 Kafka를 경유함
+
+---
+
+### V3 — ApplicationEvent + Outbox + Kafka 하이브리드 (개선 방향)
+
+```
+OrderFacade [@Transactional]
+  ├─ 핵심: 재고 차감 + 쿠폰 사용 + 주문 저장
+  └─ applicationEventPublisher.publish(OrderPlacedEvent)   ← 도메인 이벤트만 발행
+       ↓
+
+  ┌─ [로컬 리스너] ──────────────────────────────────────────┐
+  │ @TransactionalEventListener(AFTER_COMMIT)             │
+  │ LocalSideEffectHandler                                │
+  │   ├─ 캐시 무효화 (Kafka 불필요)                            │
+  │   └─ 기타 JVM 내부 처리                                   │
+  └───────────────────────────────────────────────────────┘
+
+  ┌─ [글로벌 리스너] ────────────────────────────────────────┐
+  │ @TransactionalEventListener(BEFORE_COMMIT)            │
+  │ OutboxEventSaver                                      │
+  │   └─ outboxEventService.save(...)  ← 같은 TX에 포함      │
+  └───────────────────────────────────────────────────────┘
+       ↓ [TX 커밋 — Outbox PENDING + 핵심 데이터 원자적 저장]
+OutboxRelay (@Scheduled)
+  └─ Kafka publish
+       ↓
+OrderEventConsumer (commerce-api)     → 결제 요청
+OrderEventConsumer (commerce-streamer) → 판매량 집계
+```
+
+**각 레이어의 책임:**
+
+| 레이어 | 역할 | 알아야 하는 것 |
+|--------|------|---------------|
+| **Facade** | 도메인 로직 + 이벤트 발행 | `OrderPlacedEvent` (도메인 이벤트) |
+| **LocalSideEffectHandler** | JVM 내부 부가 처리 | 캐시, 로깅 등 |
+| **OutboxEventSaver** | 글로벌 이벤트 영속화 | Outbox, topic, partitionKey |
+| **OutboxRelay** | Kafka 발행 | KafkaTemplate |
+| **Consumer** | 이벤트 소비 + 멱등 처리 | event_handled 테이블 |
+
+**V2 대비 개선점:**
+- Facade가 인프라(outbox, topic, partitionKey)를 모른다 → DIP 준수
+- 로컬 처리(캐시 무효화)는 Kafka를 경유하지 않아 지연 없음
+- 같은 이벤트를 로컬/글로벌 리스너가 **독립적으로** 처리 가능
+- Kafka → SQS 전환 시 `OutboxEventSaver`만 수정, Facade는 변경 없음
+
+**BEFORE_COMMIT을 쓰는 이유:**
+- Outbox 저장이 핵심 TX와 같은 커밋에 포함되어야 At-Least-Once 보장
+- AFTER_COMMIT이면 커밋 후 Outbox 저장 실패 → 이벤트 유실 가능
+
+---
+
+### 진화 요약
+
+```mermaid
+flowchart LR
+    V1["V1: ApplicationEvent\n관심사 분리\n⚠️ 유실 가능"]
+    V2["V2: Outbox + Kafka 직접\nAt-Least-Once 보장\n⚠️ 인프라 침투"]
+    V3["V3: Hybrid\nApplicationEvent + Outbox + Kafka\n✅ 분리 + 보장"]
+
+    V1 -->|"서버 죽으면 유실"| V2
+    V2 -->|"Facade에 인프라 노출"| V3
+```
+
+| | V1 (ApplicationEvent) | V2 (Outbox 직접) | V3 (Hybrid) |
+|---|---|---|---|
+| **코드 디커플링** | ✅ Facade가 리스너 모름 | ❌ Facade가 outbox 직접 호출 | ✅ Facade가 도메인 이벤트만 발행 |
+| **이벤트 유실 방지** | ❌ JVM 메모리 기반 | ✅ DB 영속화 | ✅ DB 영속화 (BEFORE_COMMIT) |
+| **글로벌 전파** | ❌ JVM 내부만 | ✅ Kafka | ✅ Kafka |
+| **로컬 처리 지연** | ✅ 즉시 | ❌ Kafka 경유 (5초 relay) | ✅ 즉시 (로컬 리스너) |
+| **인프라 교체 용이성** | - | ❌ Facade 수정 필요 | ✅ 리스너만 수정 |
+
+---
+
+## 📁 Kafka 토픽 설계
+
+| Topic | Partition Key | 이벤트 | Consumer Group | 처리 |
+|-------|--------------|--------|----------------|------|
+| `order-events` | orderId | ORDER_PLACED, PAYMENT_CONFIRMED, PAYMENT_FAILED | commerce-api-order | 결제 요청, 주문 상태 변경 |
+| `order-events` | orderId | ORDER_PLACED | commerce-streamer-order | 판매량 집계 → product_metrics |
+| `catalog-events` | productId | PRODUCT_LIKED, PRODUCT_UNLIKED, PRODUCT_VIEWED | commerce-api-catalog | likeCount 증감, 캐시 무효화 |
+| `catalog-events` | productId | PRODUCT_LIKED, PRODUCT_UNLIKED, PRODUCT_VIEWED | commerce-streamer-catalog | 좋아요수/조회수 집계 → product_metrics |
+| `coupon-issue-requests` | couponTemplateId | COUPON_ISSUE_REQUESTED | commerce-api-coupon | 선착순 수량 제한 + 중복 발급 방지 |
+
+**Producer**: Transactional Outbox Pattern으로 At-Least-Once 보장
+**Consumer**: `event_handled` 테이블로 멱등 처리 + manual Ack
 
 ---
 
