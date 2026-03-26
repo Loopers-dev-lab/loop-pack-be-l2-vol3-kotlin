@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.catalog
 import com.loopers.application.catalog.UserGetProductUseCase
 import com.loopers.application.catalog.UserGetProductsUseCase
 import com.loopers.application.catalog.UserListProductsCriteria
+import com.loopers.application.catalog.ViewProductCriteria
 import com.loopers.domain.catalog.ProductSortType
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
@@ -45,7 +46,8 @@ class ProductV1Controller(
         @RequestHeader(value = "X-Loopers-LoginPw") loginPw: String,
         @PathVariable productId: Long,
     ): ApiResponse<ProductV1Dto.ProductDetailResponse> {
-        return userGetProductUseCase.execute(productId)
+        val criteria = ViewProductCriteria(loginId = loginId, productId = productId)
+        return userGetProductUseCase.execute(criteria)
             .let { ProductV1Dto.ProductDetailResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

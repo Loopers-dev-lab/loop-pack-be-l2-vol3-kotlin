@@ -2,23 +2,25 @@ package com.loopers.domain.like
 
 import com.loopers.application.catalog.AdminRegisterProductUseCase
 import com.loopers.application.catalog.RegisterProductCriteria
-import com.loopers.domain.catalog.BrandService
-import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.application.like.GetLikedProductsCriteria
 import com.loopers.application.like.LikeProductCriteria
 import com.loopers.application.like.UnlikeProductCriteria
 import com.loopers.application.like.UserGetLikedProductsUseCase
 import com.loopers.application.like.UserLikeProductUseCase
 import com.loopers.application.like.UserUnlikeProductUseCase
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
+import com.loopers.domain.common.event.ActivityType
 import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserService
+import com.loopers.infrastructure.common.UserActivityLogJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
-import java.math.BigDecimal
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -27,6 +29,10 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.math.BigDecimal
+import java.time.Duration
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 @SpringBootTest
 class UserLikeUseCaseIntegrationTest @Autowired constructor(
@@ -36,6 +42,7 @@ class UserLikeUseCaseIntegrationTest @Autowired constructor(
     private val brandService: BrandService,
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val userService: UserService,
+    private val userActivityLogJpaRepository: UserActivityLogJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -146,6 +153,25 @@ class UserLikeUseCaseIntegrationTest @Autowired constructor(
             )
             assertThat(result.content).hasSize(1)
         }
+
+        @DisplayName("좋아요 등록 시, 활동 로그가 비동기로 기록된다.")
+        @Test
+        fun savesActivityLogAsyncWhenProductIsLiked() {
+            // arrange
+            registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId)
+            val criteria = LikeProductCriteria(loginId = DEFAULT_USERNAME, productId = productId)
+
+            // act
+            userLikeProductUseCase.execute(criteria)
+
+            // assert
+            await atMost Duration.ofSeconds(5) untilAsserted {
+                val logs = userActivityLogJpaRepository.findAll()
+                assertThat(logs).anyMatch { it.activityType == ActivityType.PRODUCT_LIKE }
+            }
+        }
     }
 
     @DisplayName("좋아요 취소")
@@ -186,6 +212,26 @@ class UserLikeUseCaseIntegrationTest @Autowired constructor(
 
             // assert
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("좋아요 취소 시, 활동 로그가 비동기로 기록된다.")
+        @Test
+        fun savesActivityLogAsyncWhenProductIsUnliked() {
+            // arrange
+            registerUser()
+            val brandId = registerBrand()
+            val productId = registerProduct(brandId)
+            userLikeProductUseCase.execute(LikeProductCriteria(loginId = DEFAULT_USERNAME, productId = productId))
+            val criteria = UnlikeProductCriteria(loginId = DEFAULT_USERNAME, productId = productId)
+
+            // act
+            userUnlikeProductUseCase.execute(criteria)
+
+            // assert
+            await atMost Duration.ofSeconds(5) untilAsserted {
+                val logs = userActivityLogJpaRepository.findAll()
+                assertThat(logs).anyMatch { it.activityType == ActivityType.PRODUCT_UNLIKE }
+            }
         }
     }
 

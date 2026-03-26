@@ -3,8 +3,6 @@ package com.loopers.domain.order
 import com.loopers.application.catalog.AdminRegisterProductUseCase
 import com.loopers.application.catalog.RegisterProductCriteria
 import com.loopers.application.catalog.RegisterProductResult
-import com.loopers.domain.catalog.BrandService
-import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.application.order.CreateOrderCriteria
 import com.loopers.application.order.CreateOrderItemCriteria
 import com.loopers.application.order.GetOrderCriteria
@@ -12,13 +10,20 @@ import com.loopers.application.order.GetOrdersCriteria
 import com.loopers.application.order.UserCreateOrderUseCase
 import com.loopers.application.order.UserGetOrderUseCase
 import com.loopers.application.order.UserGetOrdersUseCase
+import com.loopers.domain.catalog.BrandService
+import com.loopers.domain.catalog.RegisterBrandCommand
+import com.loopers.domain.common.event.ActivityType
 import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductJpaRepository
+import com.loopers.infrastructure.common.UserActivityLogJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -28,6 +33,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.math.BigDecimal
+import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -41,6 +47,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val userService: UserService,
     private val productJpaRepository: ProductJpaRepository,
+    private val userActivityLogJpaRepository: UserActivityLogJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -197,6 +204,27 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
                 userCreateOrderUseCase.execute(criteria)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("주문 생성 시, 활동 로그가 비동기로 기록된다.")
+        @Test
+        fun savesActivityLogAsyncWhenOrderIsCreated() {
+            // arrange
+            registerUser()
+            val brandId = registerBrand()
+            val product = registerProduct(brandId = brandId, quantity = 10)
+            val criteria = createOrderCriteria(
+                items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1)),
+            )
+
+            // act
+            userCreateOrderUseCase.execute(criteria)
+
+            // assert
+            await atMost Duration.ofSeconds(5) untilAsserted {
+                val logs = userActivityLogJpaRepository.findAll()
+                assertThat(logs).anyMatch { it.activityType == ActivityType.ORDER_CREATE }
+            }
         }
     }
 
