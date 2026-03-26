@@ -3,8 +3,9 @@ package com.loopers.application.payment
 import com.loopers.application.payment.event.PaymentConfirmedEvent
 import com.loopers.application.payment.event.PaymentFailedEvent
 import com.loopers.domain.payment.PaymentService
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
@@ -12,7 +13,7 @@ import java.time.ZonedDateTime
 @Service
 class PaymentCallbackFacade(
     private val paymentService: PaymentService,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventService: OutboxEventService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -36,27 +37,37 @@ class PaymentCallbackFacade(
             payment.confirmPaid(now)
             paymentService.updatePaymentStatus(payment)
 
-            // 이벤트 발행 (AFTER_COMMIT: 주문 상태 변경, 행동 로깅)
-            eventPublisher.publishEvent(
-                PaymentConfirmedEvent(
+            // Outbox 저장 (같은 TX — At Least Once 보장)
+            outboxEventService.save(
+                aggregateType = "ORDER",
+                aggregateId = payment.orderId.toString(),
+                eventType = "PAYMENT_CONFIRMED",
+                payload = PaymentConfirmedEvent(
                     paymentId = payment.id,
                     orderId = payment.orderId,
                     transactionKey = cmd.transactionKey,
                     amount = payment.amount,
                     paidAt = now,
                 ),
+                topic = KafkaTopics.ORDER_EVENTS,
+                partitionKey = payment.orderId.toString(),
             )
             log.info("[Callback] 결제 성공: orderId=${payment.orderId}, transactionKey=${cmd.transactionKey}")
         } else {
             payment.confirmFailed(cmd.reason, now)
             paymentService.updatePaymentStatus(payment)
 
-            eventPublisher.publishEvent(
-                PaymentFailedEvent(
+            outboxEventService.save(
+                aggregateType = "ORDER",
+                aggregateId = payment.orderId.toString(),
+                eventType = "PAYMENT_FAILED",
+                payload = PaymentFailedEvent(
                     paymentId = payment.id,
                     orderId = payment.orderId,
                     reason = cmd.reason,
                 ),
+                topic = KafkaTopics.ORDER_EVENTS,
+                partitionKey = payment.orderId.toString(),
             )
             log.info("[Callback] 결제 실패: orderId=${payment.orderId}, reason=${cmd.reason}")
         }

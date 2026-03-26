@@ -5,11 +5,16 @@ import com.loopers.application.payment.event.PaymentFailedEvent
 import com.loopers.domain.order.OrderService
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
-import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
-@Component
+/**
+ * @deprecated Kafka 기반 이벤트 처리로 대체됨.
+ * Outbox → OutboxRelay → Kafka → OrderEventConsumer (commerce-api) 흐름으로 처리.
+ * @see com.loopers.interfaces.consumer.OrderEventConsumer
+ */
+@Deprecated("Replaced by Kafka consumer: OrderEventConsumer")
+// @Component — 비활성화: Kafka consumer로 대체
 class PaymentConfirmedEventHandler(
     private val orderService: OrderService,
 ) {

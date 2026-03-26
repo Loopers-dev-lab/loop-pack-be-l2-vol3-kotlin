@@ -4,16 +4,24 @@ import com.loopers.application.order.event.OrderPlacedEvent
 import com.loopers.application.payment.PaymentFacade
 import com.loopers.application.payment.RequestPaymentCommand
 import com.loopers.infrastructure.catalog.product.ProductCacheService
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
-import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
-@Component
+/**
+ * @deprecated Kafka 기반 이벤트 처리로 대체됨.
+ * Outbox → OutboxRelay → Kafka → OrderEventConsumer (commerce-api) 흐름으로 처리.
+ * @see com.loopers.interfaces.consumer.OrderEventConsumer
+ */
+@Deprecated("Replaced by Kafka consumer: OrderEventConsumer")
+// @Component — 비활성화: Kafka consumer로 대체
 class OrderPlacedEventHandler(
     private val paymentFacade: PaymentFacade,
     private val productCacheService: ProductCacheService,
+    private val outboxEventService: OutboxEventService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -44,7 +52,18 @@ class OrderPlacedEventHandler(
             log.error("[Event] 캐시 무효화 실패: orderId=${event.orderId}, error=${ex.message}", ex)
         }
 
-        // 3. 유저 행동 로깅 (TODO: Kafka 발행으로 전환 예정)
-        log.info("[UserAction] ORDER_PLACED: userId=${event.userId}, orderId=${event.orderId}, totalPrice=${event.totalPrice}")
+        // 3. Kafka Outbox 저장 (At Least Once 보장)
+        try {
+            outboxEventService.save(
+                aggregateType = "ORDER",
+                aggregateId = event.orderId.toString(),
+                eventType = "ORDER_PLACED",
+                payload = event,
+                topic = KafkaTopics.ORDER_EVENTS,
+                partitionKey = event.orderId.toString(),
+            )
+        } catch (ex: Exception) {
+            log.error("[Event] Outbox 저장 실패: orderId=${event.orderId}, error=${ex.message}", ex)
+        }
     }
 }

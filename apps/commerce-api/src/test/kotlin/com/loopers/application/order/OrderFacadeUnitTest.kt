@@ -15,6 +15,7 @@ import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.payment.CardType
+import com.loopers.infrastructure.outbox.OutboxEventService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -25,7 +26,6 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.springframework.context.ApplicationEventPublisher
 
 class OrderFacadeUnitTest {
 
@@ -37,12 +37,12 @@ class OrderFacadeUnitTest {
     private val mockProductStockRepository = mockk<ProductStockRepository>()
     private val mockUserCouponService = mockk<UserCouponService>()
     private val mockCouponTemplateService = mockk<CouponTemplateService>()
-    private val mockEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+    private val mockOutboxEventService = mockk<OutboxEventService>(relaxed = true)
 
     private val orderFacade = OrderFacade(
         mockOrderService, mockProductService, mockProductRepository, mockBrandRepository,
         mockProductStockService, mockProductStockRepository, mockUserCouponService, mockCouponTemplateService,
-        mockEventPublisher,
+        mockOutboxEventService,
     )
 
     // ─── placeOrder ───

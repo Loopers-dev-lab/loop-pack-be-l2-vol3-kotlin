@@ -11,9 +11,10 @@ import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -27,7 +28,7 @@ class OrderFacade(
     private val productStockRepository: ProductStockRepository,
     private val userCouponService: UserCouponService,
     private val couponTemplateService: CouponTemplateService,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventService: OutboxEventService,
 ) {
 
     @Transactional
@@ -117,9 +118,12 @@ class OrderFacade(
             userCouponService.useForOrder(cmd.userCouponId, order.id)
         }
 
-        // 8. 이벤트 발행 (AFTER_COMMIT: 결제 요청, 캐시 무효화, 행동 로깅)
-        eventPublisher.publishEvent(
-            OrderPlacedEvent(
+        // 8. Outbox 저장 (같은 TX — At Least Once 보장)
+        outboxEventService.save(
+            aggregateType = "ORDER",
+            aggregateId = order.id.toString(),
+            eventType = "ORDER_PLACED",
+            payload = OrderPlacedEvent(
                 orderId = order.id,
                 userId = userId,
                 items = orderItems.map { OrderItemSnapshot(it.productId, it.quantity, it.price) },
@@ -130,6 +134,8 @@ class OrderFacade(
                 cardType = cmd.cardType,
                 cardNo = cmd.cardNo,
             ),
+            topic = KafkaTopics.ORDER_EVENTS,
+            partitionKey = order.id.toString(),
         )
 
         return OrderResult.from(order)

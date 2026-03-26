@@ -1,11 +1,10 @@
 package com.loopers.application.payment
 
-import com.loopers.application.payment.event.PaymentConfirmedEvent
-import com.loopers.application.payment.event.PaymentFailedEvent
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentService
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.infrastructure.outbox.OutboxEventService
 import io.mockk.every
 import io.mockk.just
 import io.mockk.Runs
@@ -13,14 +12,13 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.springframework.context.ApplicationEventPublisher
 
 class PaymentCallbackFacadeUnitTest {
 
     private val mockPaymentService = mockk<PaymentService>()
-    private val mockEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+    private val mockOutboxEventService = mockk<OutboxEventService>(relaxed = true)
 
-    private val callbackFacade = PaymentCallbackFacade(mockPaymentService, mockEventPublisher)
+    private val callbackFacade = PaymentCallbackFacade(mockPaymentService, mockOutboxEventService)
 
     // ─── handleCallback SUCCESS ───
 
@@ -37,7 +35,7 @@ class PaymentCallbackFacadeUnitTest {
 
         assertThat(result.status).isEqualTo(PaymentStatus.PAID)
         verify { mockPaymentService.updatePaymentStatus(any()) }
-        verify { mockEventPublisher.publishEvent(any<PaymentConfirmedEvent>()) }
+        verify { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
     // ─── handleCallback FAILED ───
@@ -56,7 +54,7 @@ class PaymentCallbackFacadeUnitTest {
         assertThat(result.status).isEqualTo(PaymentStatus.FAILED)
         assertThat(result.reason).isEqualTo("insufficient funds")
         verify { mockPaymentService.updatePaymentStatus(any()) }
-        verify { mockEventPublisher.publishEvent(any<PaymentFailedEvent>()) }
+        verify { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
     // ─── handleCallback idempotency ───
@@ -73,7 +71,7 @@ class PaymentCallbackFacadeUnitTest {
 
         assertThat(result.status).isEqualTo(PaymentStatus.PAID)
         verify(exactly = 0) { mockPaymentService.updatePaymentStatus(any()) }
-        verify(exactly = 0) { mockEventPublisher.publishEvent(any<PaymentConfirmedEvent>()) }
+        verify(exactly = 0) { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test

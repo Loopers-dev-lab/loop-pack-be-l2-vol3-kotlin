@@ -9,6 +9,7 @@ import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStock
 import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.infrastructure.catalog.product.ProductCacheService
+import com.loopers.infrastructure.outbox.OutboxEventService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -19,7 +20,6 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.springframework.context.ApplicationEventPublisher
 
 class ProductFacadeUnitTest {
 
@@ -31,9 +31,9 @@ class ProductFacadeUnitTest {
         every { getProductDetail(any()) } returns null
         every { getProductList(any()) } returns null
     }
-    private val mockEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+    private val mockOutboxEventService = mockk<OutboxEventService>(relaxed = true)
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService, mockEventPublisher)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService, mockOutboxEventService)
 
     // ─── createProduct ───
 

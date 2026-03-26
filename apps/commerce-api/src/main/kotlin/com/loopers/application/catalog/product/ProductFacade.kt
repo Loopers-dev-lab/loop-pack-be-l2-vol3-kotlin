@@ -9,7 +9,9 @@ import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.infrastructure.catalog.product.ProductCacheService
-import org.springframework.context.ApplicationEventPublisher
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,8 +22,9 @@ class ProductFacade(
     private val brandRepository: BrandRepository,
     private val productStockService: ProductStockService,
     private val productCacheService: ProductCacheService,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventService: OutboxEventService,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun createProduct(cmd: CreateProductCommand): ProductDetailResult {
@@ -46,8 +49,19 @@ class ProductFacade(
     }
 
     fun getProductDetail(productId: Long, userId: Long? = null): ProductDetailResult {
-        // 조회수 로깅 이벤트 (fire-and-forget, @Async)
-        eventPublisher.publishEvent(ProductViewedEvent(userId = userId, productId = productId))
+        // Outbox 저장 (조회수 로깅 — 별도 TX, fire-and-forget)
+        try {
+            outboxEventService.save(
+                aggregateType = "PRODUCT",
+                aggregateId = productId.toString(),
+                eventType = "PRODUCT_VIEWED",
+                payload = ProductViewedEvent(userId = userId, productId = productId),
+                topic = KafkaTopics.CATALOG_EVENTS,
+                partitionKey = productId.toString(),
+            )
+        } catch (ex: Exception) {
+            log.warn("[ProductFacade] 조회 이벤트 Outbox 저장 실패: productId=$productId", ex)
+        }
 
         productCacheService.getProductDetail(productId)?.let { return it }
 

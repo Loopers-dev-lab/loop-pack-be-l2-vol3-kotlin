@@ -6,7 +6,8 @@ import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.LikeService
-import org.springframework.context.ApplicationEventPublisher
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,7 +17,7 @@ class LikeFacade(
     private val productService: ProductService,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventService: OutboxEventService,
 ) {
 
     @Transactional
@@ -24,16 +25,30 @@ class LikeFacade(
         productService.getById(productId) // 상품 존재 확인
         likeService.addLike(userId, productId)
 
-        // 이벤트 발행 (AFTER_COMMIT: likeCount 증가, 캐시 무효화, 행동 로깅)
-        eventPublisher.publishEvent(ProductLikedEvent(userId = userId, productId = productId))
+        // Outbox 저장 (같은 TX — At Least Once 보장)
+        outboxEventService.save(
+            aggregateType = "PRODUCT",
+            aggregateId = productId.toString(),
+            eventType = "PRODUCT_LIKED",
+            payload = ProductLikedEvent(userId = userId, productId = productId),
+            topic = KafkaTopics.CATALOG_EVENTS,
+            partitionKey = productId.toString(),
+        )
     }
 
     @Transactional
     fun removeLike(userId: Long, productId: Long) {
         likeService.removeLike(userId, productId)
 
-        // 이벤트 발행 (AFTER_COMMIT: likeCount 감소, 캐시 무효화)
-        eventPublisher.publishEvent(ProductUnlikedEvent(userId = userId, productId = productId))
+        // Outbox 저장 (같은 TX — At Least Once 보장)
+        outboxEventService.save(
+            aggregateType = "PRODUCT",
+            aggregateId = productId.toString(),
+            eventType = "PRODUCT_UNLIKED",
+            payload = ProductUnlikedEvent(userId = userId, productId = productId),
+            topic = KafkaTopics.CATALOG_EVENTS,
+            partitionKey = productId.toString(),
+        )
     }
 
     @Transactional(readOnly = true)

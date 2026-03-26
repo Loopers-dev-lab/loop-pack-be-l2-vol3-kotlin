@@ -7,6 +7,7 @@ import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeService
+import com.loopers.infrastructure.outbox.OutboxEventService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -18,7 +19,6 @@ import io.mockk.verifyOrder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.springframework.context.ApplicationEventPublisher
 
 class LikeFacadeUnitTest {
 
@@ -26,9 +26,9 @@ class LikeFacadeUnitTest {
     private val mockProductService = mockk<ProductService>()
     private val mockProductRepository = mockk<ProductRepository>()
     private val mockBrandRepository = mockk<BrandRepository>()
-    private val mockEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+    private val mockOutboxEventService = mockk<OutboxEventService>(relaxed = true)
 
-    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockProductRepository, mockBrandRepository, mockEventPublisher)
+    private val likeFacade = LikeFacade(mockLikeService, mockProductService, mockProductRepository, mockBrandRepository, mockOutboxEventService)
 
     // ─── addLike ───
 
@@ -47,7 +47,7 @@ class LikeFacadeUnitTest {
             mockProductService.getById(10L)
             mockLikeService.addLike(1L, 10L)
         }
-        verify { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductLikedEvent>()) }
+        verify { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -63,7 +63,7 @@ class LikeFacadeUnitTest {
         }
 
         verify(exactly = 0) { mockLikeService.addLike(any(), any()) }
-        verify(exactly = 0) { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductLikedEvent>()) }
+        verify(exactly = 0) { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
     // ─── removeLike ───
@@ -78,7 +78,7 @@ class LikeFacadeUnitTest {
 
         // Assert
         verify { mockLikeService.removeLike(1L, 10L) }
-        verify { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductUnlikedEvent>()) }
+        verify { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -93,7 +93,7 @@ class LikeFacadeUnitTest {
             assertThat(it.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
-        verify(exactly = 0) { mockEventPublisher.publishEvent(any<com.loopers.application.like.event.ProductUnlikedEvent>()) }
+        verify(exactly = 0) { mockOutboxEventService.save(any(), any(), any(), any(), any(), any()) }
     }
 
     // ─── getLikedProducts ───
