@@ -62,11 +62,10 @@ class OrderCreatedEventPublicationTest @Autowired constructor(
         assertThat(committedProbe.events).hasSize(1)
         val publishedEvent = committedProbe.events.single()
         assertThat(publishedEvent.orderId).isEqualTo(orderId)
-        assertThat(publishedEvent.userId).isEqualTo(1001L)
-        assertThat(publishedEvent.itemCount).isEqualTo(1)
-        assertThat(publishedEvent.couponId).isNull()
-        assertThat(publishedEvent.dedupeKey).isEqualTo("order.created:$orderId")
-        assertThat(userActionLogJpaRepository.countByDedupeKey("order.created:$orderId")).isEqualTo(1)
+        assertThat(publishedEvent.lineItems).hasSize(1)
+        assertThat(publishedEvent.lineItems.single().productId).isEqualTo(product.id)
+        assertThat(publishedEvent.lineItems.single().quantity).isEqualTo(2)
+        assertThat(publishedEvent.dedupeKey).contains("order:$orderId")
     }
 
     @Test

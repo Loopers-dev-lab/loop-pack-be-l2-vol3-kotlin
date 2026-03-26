@@ -6,6 +6,7 @@ import com.loopers.domain.order.dto.OrderInfo
 import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.order.dto.OrderedInfo
 import com.loopers.domain.order.event.OrderCreatedEvent
+import com.loopers.domain.order.event.OrderLineItem
 import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
@@ -51,13 +52,16 @@ class OrderService(
         }
 
         // Publish OrderCreatedEvent to Outbox (same transaction)
+        val lineItems = itemSpecs.map { spec ->
+            OrderLineItem(
+                productId = spec.product.id,
+                quantity = spec.quantity,
+            )
+        }
         val event = OrderCreatedEvent(
             source = this,
             orderId = savedOrder.id,
-            userId = userId,
-            itemCount = itemSpecs.size,
-            couponId = couponId,
-            dedupeKey = "order:${savedOrder.id}:${UUID.randomUUID()}",
+            lineItems = lineItems,
         )
         outboxPublisher.publish(event, savedOrder.id)
 
