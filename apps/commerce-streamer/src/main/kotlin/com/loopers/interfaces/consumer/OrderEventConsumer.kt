@@ -6,6 +6,7 @@ import com.loopers.config.kafka.KafkaConfig
 import com.loopers.event.KafkaEventMessage
 import com.loopers.event.KafkaTopics
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.kafka.support.Acknowledgment
@@ -22,33 +23,35 @@ class OrderEventConsumer(
     @KafkaListener(
         topics = [KafkaTopics.ORDER_EVENTS],
         groupId = "metrics-consumer",
-        containerFactory = KafkaConfig.RECORD_LISTENER,
+        containerFactory = KafkaConfig.BATCH_LISTENER,
     )
-    fun consume(message: KafkaEventMessage, acknowledgment: Acknowledgment) {
-        try {
-            if (idempotencyService.isAlreadyHandled(message.eventId)) {
-                acknowledgment.acknowledge()
-                return
+    fun consume(messages: List<ConsumerRecord<Any, Any>>, acknowledgment: Acknowledgment) {
+        for (record in messages) {
+            try {
+                val message = objectMapper.convertValue(record.value(), KafkaEventMessage::class.java)
+
+                if (idempotencyService.isAlreadyHandled(message.eventId)) {
+                    continue
+                }
+
+                when (message.eventType) {
+                    "ORDER_CREATED" -> handleOrderCreated(message)
+                    "PAYMENT_COMPLETED" -> log.info("결제 완료 이벤트 수신: orderId=${message.aggregateId}")
+                    "PAYMENT_FAILED" -> log.info("결제 실패 이벤트 수신: orderId=${message.aggregateId}")
+                    else -> log.warn("알 수 없는 order 이벤트 타입: ${message.eventType}")
+                }
+
+                idempotencyService.markHandled(
+                    eventId = message.eventId,
+                    aggregateType = message.aggregateType,
+                    aggregateId = message.aggregateId,
+                    eventType = message.eventType,
+                )
+            } catch (e: Exception) {
+                log.error("order 이벤트 처리 실패: record offset=${record.offset()}", e)
             }
-
-            when (message.eventType) {
-                "ORDER_CREATED" -> handleOrderCreated(message)
-                "PAYMENT_COMPLETED" -> log.info("결제 완료 이벤트 수신: orderId=${message.aggregateId}")
-                "PAYMENT_FAILED" -> log.info("결제 실패 이벤트 수신: orderId=${message.aggregateId}")
-                else -> log.warn("알 수 없는 order 이벤트 타입: ${message.eventType}")
-            }
-
-            idempotencyService.markHandled(
-                eventId = message.eventId,
-                aggregateType = message.aggregateType,
-                aggregateId = message.aggregateId,
-                eventType = message.eventType,
-            )
-
-            acknowledgment.acknowledge()
-        } catch (e: Exception) {
-            log.error("order 이벤트 처리 실패: eventId=${message.eventId}", e)
         }
+        acknowledgment.acknowledge()
     }
 
     private fun handleOrderCreated(message: KafkaEventMessage) {
