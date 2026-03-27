@@ -27,4 +27,8 @@ class CouponRepositoryImpl(
     override fun findAll(pageable: Pageable): Page<Coupon> {
         return couponJpaRepository.findAllByDeletedAtIsNull(pageable)
     }
+
+    override fun incrementIssuedCount(couponId: Long): Int {
+        return couponJpaRepository.incrementIssuedCount(couponId)
+    }
 }
