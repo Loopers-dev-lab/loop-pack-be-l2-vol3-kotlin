@@ -14,7 +14,7 @@ spring:
   main:
     web-application-type: servlet
   application:
-    name: commerce-api
+    name: commerce-streamer
   profiles:
     active: local
   config:
@@ -25,15 +25,30 @@ spring:
       - logging.yml
       - monitoring.yml
 
-demo-kafka:
-  test:
-    topic-name: demo.internal.topic-v1
+step2:
+  kafka:
+    catalog-topic: catalog-events
+    catalog-consumer-group: commerce-streamer-catalog-metrics-v1
+
+step3:
+  kafka:
+    coupon-issue-request-topic: coupon-issue-requests
+    coupon-issue-consumer-group: commerce-streamer-coupon-issue-v1
 
 ---
 spring:
   config:
     activate:
       on-profile: local, test
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  kafka:
+    listener:
+      auto-startup: false
 
 ---
 spring:

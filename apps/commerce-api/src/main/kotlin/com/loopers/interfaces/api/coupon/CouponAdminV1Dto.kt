@@ -10,6 +10,7 @@ class CouponAdminV1Dto {
         val value: Long,
         val minOrderAmount: Long? = null,
         val expiredAt: ZonedDateTime,
+        val quantity: Long? = null,
     )
 
     data class UpdateRequest(
@@ -18,5 +19,6 @@ class CouponAdminV1Dto {
         val value: Long,
         val minOrderAmount: Long? = null,
         val expiredAt: ZonedDateTime,
+        val quantity: Long? = null,
     )
 }

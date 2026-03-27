@@ -18,4 +18,6 @@ interface CouponIssueJpaRepository : JpaRepository<CouponIssueModel, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT ci FROM CouponIssueModel ci WHERE ci.id = :id AND ci.deletedAt IS NULL")
     fun findByIdForUpdate(@Param("id") id: Long): CouponIssueModel?
+
+    fun countByCouponIdAndDeletedAtIsNull(couponId: Long): Long
 }

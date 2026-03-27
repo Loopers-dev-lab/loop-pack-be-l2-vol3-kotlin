@@ -10,4 +10,5 @@ interface CouponIssueRepository {
     fun findAllByUserIdAndDeletedAtIsNull(userId: Long, pageable: Pageable): Page<CouponIssueModel>
     fun findAllByCouponIdAndDeletedAtIsNull(couponId: Long, pageable: Pageable): Page<CouponIssueModel>
     fun findByIdForUpdate(id: Long): CouponIssueModel?
+    fun countByCouponIdAndDeletedAtIsNull(couponId: Long): Long
 }

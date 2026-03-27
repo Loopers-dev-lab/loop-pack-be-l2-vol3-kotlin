@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.coupon
 
 import com.loopers.application.coupon.CouponFacade
 import com.loopers.application.coupon.CouponIssueInfo
+import com.loopers.application.coupon.CouponIssueRequestInfo
 import com.loopers.domain.auth.AuthenticatedMember
 import com.loopers.infrastructure.auth.JwtAuthenticationFilter
 import com.loopers.interfaces.api.ApiResponse
@@ -22,12 +23,24 @@ class CouponV1Controller(
     fun issue(
         @PathVariable couponId: Long,
         request: HttpServletRequest,
-    ): ApiResponse<CouponIssueInfo> {
+    ): ApiResponse<CouponIssueRequestInfo> {
         val member = request.getAttribute(
             JwtAuthenticationFilter.AUTHENTICATED_MEMBER_ATTRIBUTE,
         ) as AuthenticatedMember
 
         return ApiResponse.success(couponFacade.issue(couponId, member.memberId))
+    }
+
+    @GetMapping("/api/v1/coupons/issue-requests/{requestId}")
+    fun findIssueRequest(
+        @PathVariable requestId: Long,
+        request: HttpServletRequest,
+    ): ApiResponse<CouponIssueRequestInfo> {
+        val member = request.getAttribute(
+            JwtAuthenticationFilter.AUTHENTICATED_MEMBER_ATTRIBUTE,
+        ) as AuthenticatedMember
+
+        return ApiResponse.success(couponFacade.findIssueRequest(requestId, member.memberId))
     }
 
     @GetMapping("/api/v1/users/me/coupons")

@@ -16,6 +16,7 @@ class CouponModelTest {
         private const val VALID_NAME = "신규가입 10% 할인"
         private const val VALID_VALUE = 10L
         private const val VALID_MIN_ORDER_AMOUNT = 10000L
+        private const val VALID_QUANTITY = 100L
         private val VALID_EXPIRED_AT: ZonedDateTime = ZonedDateTime.now().plusDays(30)
     }
 
@@ -25,12 +26,14 @@ class CouponModelTest {
         value: Long = VALID_VALUE,
         minOrderAmount: Long? = VALID_MIN_ORDER_AMOUNT,
         expiredAt: ZonedDateTime = VALID_EXPIRED_AT,
+        quantity: Long? = VALID_QUANTITY,
     ): CouponModel = CouponModel(
         name = name,
         type = type,
         value = value,
         minOrderAmount = minOrderAmount,
         expiredAt = expiredAt,
+        quantity = quantity,
     )
 
     @DisplayName("정상 생성")
@@ -47,6 +50,7 @@ class CouponModelTest {
             assertThat(coupon.type).isEqualTo(CouponType.RATE)
             assertThat(coupon.value).isEqualTo(VALID_VALUE)
             assertThat(coupon.minOrderAmount).isEqualTo(VALID_MIN_ORDER_AMOUNT)
+            assertThat(coupon.quantity).isEqualTo(VALID_QUANTITY)
         }
 
         @DisplayName("최소 주문 금액이 null이어도 정상 생성된다")
@@ -57,6 +61,25 @@ class CouponModelTest {
 
             // assert
             assertThat(coupon.minOrderAmount).isNull()
+        }
+
+        @DisplayName("수량이 null이어도 정상 생성된다")
+        @Test
+        fun createsCoupon_whenQuantityIsNull() {
+            val coupon = createCoupon(quantity = null)
+            assertThat(coupon.quantity).isNull()
+        }
+    }
+
+    @DisplayName("수량 검증")
+    @Nested
+    inner class QuantityValidation {
+        @DisplayName("수량이 0 이하이면 예외가 발생한다")
+        @Test
+        fun throwsException_whenQuantityIsZeroOrNegative() {
+            assertThatThrownBy { createCoupon(quantity = 0L) }
+                .isInstanceOf(CoreException::class.java)
+                .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
         }
     }
 

@@ -19,6 +19,10 @@ class CouponRepositoryImpl(
         return couponJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
+    override fun findByIdForUpdate(id: Long): CouponModel? {
+        return couponJpaRepository.findByIdForUpdate(id)
+    }
+
     override fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<CouponModel> {
         return couponJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
     }

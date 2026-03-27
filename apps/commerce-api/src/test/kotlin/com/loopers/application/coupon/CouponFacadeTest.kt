@@ -1,14 +1,20 @@
 package com.loopers.application.coupon
 
+import com.loopers.application.event.CouponIssueRequestOutboxAppender
 import com.loopers.domain.coupon.CouponIssueModel
+import com.loopers.domain.coupon.CouponIssueRequestModel
+import com.loopers.domain.coupon.CouponIssueRequestService
+import com.loopers.domain.coupon.CouponIssueRequestStatus
 import com.loopers.domain.coupon.CouponIssueService
 import com.loopers.domain.coupon.CouponIssueStatus
 import com.loopers.domain.coupon.CouponModel
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.coupon.CouponType
 import io.mockk.every
+import io.mockk.verify
 import io.mockk.mockk
 import io.mockk.spyk
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -16,13 +22,21 @@ import org.junit.jupiter.api.Test
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import java.time.ZonedDateTime
+import com.loopers.support.error.CoreException
 
 @DisplayName("CouponFacade")
 class CouponFacadeTest {
 
     private val couponService: CouponService = mockk()
     private val couponIssueService: CouponIssueService = mockk()
-    private val facade = CouponFacade(couponService, couponIssueService)
+    private val couponIssueRequestService: CouponIssueRequestService = mockk()
+    private val couponIssueRequestOutboxAppender: CouponIssueRequestOutboxAppender = mockk(relaxed = true)
+    private val facade = CouponFacade(
+        couponService,
+        couponIssueService,
+        couponIssueRequestService,
+        couponIssueRequestOutboxAppender,
+    )
 
     companion object {
         private const val USER_ID = 1L
@@ -47,22 +61,26 @@ class CouponFacadeTest {
     @DisplayName("issue")
     @Nested
     inner class Issue {
-        @DisplayName("쿠폰을 발급하고 CouponIssueInfo를 반환한다")
+        @DisplayName("쿠폰 발급 요청을 저장하고 ACCEPTED 상태를 반환한다")
         @Test
-        fun issuesCoupon() {
+        fun acceptsIssueRequest() {
             // arrange
             val coupon = createCoupon()
-            val issue = CouponIssueModel(couponId = COUPON_ID, userId = USER_ID)
-            every { couponIssueService.issue(COUPON_ID, USER_ID) } returns issue
+            val request = spyk(CouponIssueRequestModel(couponId = COUPON_ID, userId = USER_ID))
+            every { request.id } returns 99L
             every { couponService.findById(COUPON_ID) } returns coupon
+            every { couponIssueRequestService.create(COUPON_ID, USER_ID) } returns request
 
             // act
             val result = facade.issue(COUPON_ID, USER_ID)
 
             // assert
+            assertThat(result.requestId).isEqualTo(99L)
             assertThat(result.couponId).isEqualTo(COUPON_ID)
-            assertThat(result.status).isEqualTo(CouponIssueStatus.AVAILABLE)
-            assertThat(result.couponName).isEqualTo("테스트 쿠폰")
+            assertThat(result.userId).isEqualTo(USER_ID)
+            assertThat(result.status).isEqualTo(CouponIssueRequestStatus.ACCEPTED)
+            verify(exactly = 1) { couponIssueRequestOutboxAppender.append(request) }
+            verify(exactly = 0) { couponIssueService.issue(any(), any()) }
         }
     }
 
@@ -102,6 +120,37 @@ class CouponFacadeTest {
 
             // assert
             assertThat(result.content[0].status).isEqualTo(CouponIssueStatus.EXPIRED)
+        }
+    }
+
+    @DisplayName("findIssueRequest")
+    @Nested
+    inner class FindIssueRequest {
+        @DisplayName("요청 소유자가 조회하면 상태 정보를 반환한다")
+        @Test
+        fun returnsIssueRequest() {
+            // arrange
+            val request = spyk(CouponIssueRequestModel(couponId = COUPON_ID, userId = USER_ID))
+            every { request.id } returns 55L
+            every { couponIssueRequestService.findById(55L) } returns request
+
+            // act
+            val result = facade.findIssueRequest(55L, USER_ID)
+
+            // assert
+            assertThat(result.requestId).isEqualTo(55L)
+            assertThat(result.status).isEqualTo(CouponIssueRequestStatus.ACCEPTED)
+        }
+
+        @DisplayName("요청 소유자가 아니면 NOT_FOUND 예외가 발생한다")
+        @Test
+        fun throwsExceptionWhenNotOwner() {
+            // arrange
+            val request = CouponIssueRequestModel(couponId = COUPON_ID, userId = USER_ID)
+            every { couponIssueRequestService.findById(99L) } returns request
+
+            assertThatThrownBy { facade.findIssueRequest(99L, USER_ID + 1) }
+                .isInstanceOf(CoreException::class.java)
         }
     }
 }

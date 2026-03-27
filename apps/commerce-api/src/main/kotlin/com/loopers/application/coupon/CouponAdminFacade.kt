@@ -20,6 +20,7 @@ class CouponAdminFacade(
         value: Long,
         minOrderAmount: Long?,
         expiredAt: ZonedDateTime,
+        quantity: Long?,
     ): CouponAdminInfo {
         val coupon = CouponModel(
             name = name,
@@ -27,6 +28,7 @@ class CouponAdminFacade(
             value = value,
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
+            quantity = quantity,
         )
         return CouponAdminInfo.from(couponService.create(coupon))
     }
@@ -46,9 +48,10 @@ class CouponAdminFacade(
         value: Long,
         minOrderAmount: Long?,
         expiredAt: ZonedDateTime,
+        quantity: Long?,
     ): CouponAdminInfo {
         val coupon = couponService.findById(id)
-        coupon.update(name, type, value, minOrderAmount, expiredAt)
+        coupon.update(name, type, value, minOrderAmount, expiredAt, quantity)
         return CouponAdminInfo.from(couponService.create(coupon))
     }
 

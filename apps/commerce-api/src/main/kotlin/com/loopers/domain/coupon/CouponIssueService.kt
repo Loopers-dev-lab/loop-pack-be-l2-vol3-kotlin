@@ -56,4 +56,43 @@ class CouponIssueService(
     fun findAllByCouponId(couponId: Long, pageable: Pageable): Page<CouponIssueModel> {
         return couponIssueRepository.findAllByCouponIdAndDeletedAtIsNull(couponId, pageable)
     }
+
+    @Transactional
+    fun issueFromRequest(couponId: Long, userId: Long): CouponIssueProcessResult {
+        val coupon = couponRepository.findByIdForUpdate(couponId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다: $couponId")
+
+        val existingIssue = couponIssueRepository.findByCouponIdAndUserIdAndDeletedAtIsNull(couponId, userId)
+        if (existingIssue != null) {
+            return CouponIssueProcessResult.Duplicate
+        }
+
+        if (coupon.isExpired()) {
+            return CouponIssueProcessResult.Expired
+        }
+
+        if (!coupon.hasRemainingQuantity()) {
+            return CouponIssueProcessResult.SoldOut
+        }
+
+        val couponIssue = CouponIssueModel(couponId = couponId, userId = userId)
+        return try {
+            val savedIssue = couponIssueRepository.save(couponIssue)
+            coupon.increaseIssuedQuantity()
+            couponRepository.save(coupon)
+            CouponIssueProcessResult.Completed(savedIssue.id)
+        } catch (_: DataIntegrityViolationException) {
+            CouponIssueProcessResult.Duplicate
+        }
+    }
+}
+
+sealed interface CouponIssueProcessResult {
+    data class Completed(val couponIssueId: Long) : CouponIssueProcessResult
+
+    data object Duplicate : CouponIssueProcessResult
+
+    data object SoldOut : CouponIssueProcessResult
+
+    data object Expired : CouponIssueProcessResult
 }
