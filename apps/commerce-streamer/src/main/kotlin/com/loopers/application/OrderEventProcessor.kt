@@ -3,9 +3,10 @@ package com.loopers.application
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.event.EventHandled
 import com.loopers.domain.event.EventLog
-import com.loopers.domain.event.EventLogStatus
 import com.loopers.domain.metrics.ProductMetricsRepository
+import com.loopers.event.AggregateTypes
 import com.loopers.event.EventEnvelope
+import com.loopers.event.EventTypes
 import com.loopers.event.payload.OrderCompletedPayload
 import com.loopers.infrastructure.event.EventHandledJpaRepository
 import com.loopers.infrastructure.event.EventLogJpaRepository
@@ -33,7 +34,7 @@ class OrderEventProcessor(
 
         // 2. 비즈니스 처리
         when (envelope.eventType) {
-            "ORDER_COMPLETED" -> {
+            EventTypes.ORDER_COMPLETED -> {
                 val payload = objectMapper.readValue(envelope.payload, OrderCompletedPayload::class.java)
                 payload.items.forEach { item ->
                     productMetricsRepository.incrementSalesCount(item.productId, item.quantity, envelope.version)
@@ -43,16 +44,7 @@ class OrderEventProcessor(
         }
 
         // 3. 처리 완료 기록
-        eventLogRepository.save(
-            EventLog(
-                eventId = envelope.eventId,
-                eventType = envelope.eventType,
-                aggregateType = "ORDER",
-                aggregateId = envelope.aggregateId,
-                payload = envelope.payload,
-                status = EventLogStatus.SUCCESS,
-            ),
-        )
+        eventLogRepository.save(EventLog.success(envelope, AggregateTypes.ORDER))
         eventHandledRepository.save(EventHandled(envelope.eventId))
     }
 }

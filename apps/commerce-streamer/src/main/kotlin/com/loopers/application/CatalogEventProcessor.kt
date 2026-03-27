@@ -2,9 +2,10 @@ package com.loopers.application
 
 import com.loopers.domain.event.EventHandled
 import com.loopers.domain.event.EventLog
-import com.loopers.domain.event.EventLogStatus
 import com.loopers.domain.metrics.ProductMetricsRepository
+import com.loopers.event.AggregateTypes
 import com.loopers.event.EventEnvelope
+import com.loopers.event.EventTypes
 import com.loopers.infrastructure.event.EventHandledJpaRepository
 import com.loopers.infrastructure.event.EventLogJpaRepository
 import org.slf4j.LoggerFactory
@@ -44,23 +45,14 @@ class CatalogEventProcessor(
 
         // 3. 비즈니스 처리
         when (envelope.eventType) {
-            "LIKED" -> productMetricsRepository.incrementLikeCount(productId, envelope.version)
-            "UNLIKED" -> productMetricsRepository.decrementLikeCount(productId, envelope.version)
-            "VIEWED" -> productMetricsRepository.incrementViewCount(productId, envelope.version)
+            EventTypes.LIKED -> productMetricsRepository.incrementLikeCount(productId, envelope.version)
+            EventTypes.UNLIKED -> productMetricsRepository.decrementLikeCount(productId, envelope.version)
+            EventTypes.VIEWED -> productMetricsRepository.incrementViewCount(productId, envelope.version)
             else -> log.warn("[Catalog] 알 수 없는 이벤트 타입: {}", envelope.eventType)
         }
 
         // 4. 처리 완료 기록
-        eventLogRepository.save(
-            EventLog(
-                eventId = envelope.eventId,
-                eventType = envelope.eventType,
-                aggregateType = "CATALOG",
-                aggregateId = envelope.aggregateId,
-                payload = envelope.payload,
-                status = EventLogStatus.SUCCESS,
-            ),
-        )
+        eventLogRepository.save(EventLog.success(envelope, AggregateTypes.CATALOG))
         eventHandledRepository.save(EventHandled(envelope.eventId))
     }
 }

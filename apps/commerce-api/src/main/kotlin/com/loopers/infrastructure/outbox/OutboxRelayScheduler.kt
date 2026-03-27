@@ -1,6 +1,8 @@
 package com.loopers.infrastructure.outbox
 
+import com.loopers.event.AggregateTypes
 import com.loopers.event.EventEnvelope
+import com.loopers.event.Topics
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.kafka.core.KafkaTemplate
@@ -47,9 +49,9 @@ class OutboxRelayScheduler(
 
     companion object {
         private val TOPIC_MAP = mapOf(
-            "CATALOG" to "catalog-events",
-            "ORDER" to "order-events",
-            "COUPON" to "coupon-issue-requests",
+            AggregateTypes.CATALOG to Topics.CATALOG,
+            AggregateTypes.ORDER to Topics.ORDER,
+            AggregateTypes.COUPON to Topics.COUPON_ISSUE,
         )
 
         fun topicFor(aggregateType: String): String {

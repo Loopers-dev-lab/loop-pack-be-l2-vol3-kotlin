@@ -2,6 +2,7 @@ package com.loopers.interfaces.consumer
 
 import com.loopers.application.OrderEventProcessor
 import com.loopers.event.EventEnvelope
+import com.loopers.event.Topics
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.kafka.support.Acknowledgment
 import org.springframework.messaging.handler.annotation.Payload
@@ -13,7 +14,7 @@ class OrderEventConsumer(
 ) {
 
     @KafkaListener(
-        topics = ["order-events"],
+        topics = [Topics.ORDER],
         groupId = "order-collector",
         containerFactory = "orderListenerContainerFactory",
     )

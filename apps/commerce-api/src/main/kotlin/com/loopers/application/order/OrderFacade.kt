@@ -14,6 +14,8 @@ import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.StockDeductionRequest
 import com.loopers.domain.user.event.ActionType
 import com.loopers.domain.user.event.UserActionEvent
+import com.loopers.event.AggregateTypes
+import com.loopers.event.EventTypes
 import com.loopers.event.payload.OrderCompletedPayload
 import com.loopers.event.payload.OrderItemPayload
 import com.loopers.support.error.CoreException
@@ -121,9 +123,9 @@ class OrderFacade(
 
         // Outbox INSERT (Kafka 발행용)
         outboxPublisher.publish(
-            aggregateType = "ORDER",
+            aggregateType = AggregateTypes.ORDER,
             aggregateId = order.id.toString(),
-            eventType = "ORDER_COMPLETED",
+            eventType = EventTypes.ORDER_COMPLETED,
             version = System.currentTimeMillis(),
             payload = OrderCompletedPayload(
                 orderId = order.id,

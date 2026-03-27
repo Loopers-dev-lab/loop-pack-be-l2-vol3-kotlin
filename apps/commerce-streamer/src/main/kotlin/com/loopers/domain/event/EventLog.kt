@@ -1,5 +1,6 @@
 package com.loopers.domain.event
 
+import com.loopers.event.EventEnvelope
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -44,4 +45,15 @@ class EventLog(
 
     @Column(nullable = false)
     val processedAt: Instant = Instant.now(),
-)
+) {
+    companion object {
+        fun success(envelope: EventEnvelope, aggregateType: String): EventLog = EventLog(
+            eventId = envelope.eventId,
+            eventType = envelope.eventType,
+            aggregateType = aggregateType,
+            aggregateId = envelope.aggregateId,
+            payload = envelope.payload,
+            status = EventLogStatus.SUCCESS,
+        )
+    }
+}

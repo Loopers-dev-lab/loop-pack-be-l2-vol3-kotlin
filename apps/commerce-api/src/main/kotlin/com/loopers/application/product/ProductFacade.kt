@@ -3,6 +3,8 @@ package com.loopers.application.product
 import com.loopers.application.event.DirectEventPublisher
 import com.loopers.domain.user.event.ActionType
 import com.loopers.domain.user.event.UserActionEvent
+import com.loopers.event.EventTypes
+import com.loopers.event.Topics
 import com.loopers.event.payload.ProductViewedPayload
 import com.loopers.support.common.PageQuery
 import com.loopers.support.common.PageResult
@@ -23,9 +25,9 @@ class ProductFacade(
     fun getProduct(productId: Long): ProductDetailInfo {
         val product = productCacheManager.getProduct(productId)
         directEventPublisher.publish(
-            topic = "catalog-events",
+            topic = Topics.CATALOG,
             key = productId.toString(),
-            eventType = "VIEWED",
+            eventType = EventTypes.VIEWED,
             payload = ProductViewedPayload(productId),
         )
         eventPublisher.publishEvent(

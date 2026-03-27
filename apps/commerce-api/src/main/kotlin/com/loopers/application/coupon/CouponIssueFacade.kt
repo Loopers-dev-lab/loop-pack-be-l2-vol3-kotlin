@@ -3,6 +3,8 @@ package com.loopers.application.coupon
 import com.loopers.application.outbox.OutboxPublisher
 import com.loopers.domain.coupon.CouponIssueRepository
 import com.loopers.domain.coupon.CouponService
+import com.loopers.event.AggregateTypes
+import com.loopers.event.EventTypes
 import com.loopers.event.payload.CouponIssueRequestPayload
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -24,9 +26,9 @@ class CouponIssueFacade(
             couponService.saveIssueRequest(requestId, couponId, userId)
 
             outboxPublisher.publish(
-                aggregateType = "COUPON",
+                aggregateType = AggregateTypes.COUPON,
                 aggregateId = couponId.toString(),
-                eventType = "COUPON_ISSUE_REQUESTED",
+                eventType = EventTypes.COUPON_ISSUE_REQUESTED,
                 version = System.currentTimeMillis(),
                 payload = CouponIssueRequestPayload(
                     couponId = couponId,
