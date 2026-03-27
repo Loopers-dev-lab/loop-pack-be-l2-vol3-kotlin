@@ -1,6 +1,5 @@
 package com.loopers.application.fcfscoupon
 
-import com.loopers.application.outbox.OutboxEventPublisher
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import org.springframework.stereotype.Component
@@ -9,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class FcfsCouponFacade(
     private val fcfsCouponService: FcfsCouponService,
-    private val outboxEventPublisher: OutboxEventPublisher,
+    private val fcfsCouponIssueRequestPublisher: FcfsCouponIssueRequestPublisher,
 ) {
     @Transactional
     fun requestIssue(memberId: Long, templateId: Long): FcfsCouponIssueRequestInfo {
@@ -27,17 +26,10 @@ class FcfsCouponFacade(
 
         val request = fcfsCouponService.createIssueRequest(templateId, memberId)
 
-        outboxEventPublisher.publish(
-            aggregateType = "FCFS_COUPON",
-            aggregateId = request.id.toString(),
-            eventType = "FcfsCouponIssueRequested",
-            payload = mapOf(
-                "requestId" to request.id,
-                "templateId" to templateId,
-                "memberId" to memberId,
-            ),
-            partitionKey = templateId.toString(),
-            topic = COUPON_ISSUE_REQUEST_TOPIC,
+        fcfsCouponIssueRequestPublisher.publish(
+            requestId = request.id,
+            templateId = templateId,
+            memberId = memberId,
         )
 
         return FcfsCouponIssueRequestInfo.from(request)
@@ -50,9 +42,5 @@ class FcfsCouponFacade(
             throw CoreException(ErrorType.FORBIDDEN, "본인의 발급 요청만 조회할 수 있습니다.")
         }
         return FcfsCouponIssueRequestInfo.from(request)
-    }
-
-    companion object {
-        const val COUPON_ISSUE_REQUEST_TOPIC = "coupon.issue.request"
     }
 }

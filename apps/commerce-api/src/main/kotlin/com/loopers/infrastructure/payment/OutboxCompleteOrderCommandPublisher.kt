@@ -13,17 +13,19 @@ class OutboxCompleteOrderCommandPublisher(
 
     override fun publish(orderId: Long) {
         outboxEventPublisher.publish(
-            aggregateType = "ORDER",
+            aggregateType = AGGREGATE_TYPE,
             aggregateId = orderId.toString(),
-            eventType = "PaymentSucceeded",
+            eventType = EVENT_TYPE,
             payload = mapOf("orderId" to orderId),
             partitionKey = orderId.toString(),
-            topic = PAYMENT_SUCCEEDED_TOPIC,
+            topic = TOPIC,
         )
         log.info("Outbox 주문 완료 커맨드 발행: orderId={}", orderId)
     }
 
     companion object {
-        const val PAYMENT_SUCCEEDED_TOPIC = "payment.succeeded"
+        const val AGGREGATE_TYPE = "ORDER"
+        const val EVENT_TYPE = "PaymentSucceeded"
+        const val TOPIC = "payment.succeeded"
     }
 }

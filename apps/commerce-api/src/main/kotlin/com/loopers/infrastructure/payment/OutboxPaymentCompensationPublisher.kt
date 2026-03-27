@@ -13,17 +13,19 @@ class OutboxPaymentCompensationPublisher(
 
     override fun publish(orderId: Long, paymentId: Long) {
         outboxEventPublisher.publish(
-            aggregateType = "ORDER",
+            aggregateType = AGGREGATE_TYPE,
             aggregateId = orderId.toString(),
-            eventType = "PaymentFailed",
+            eventType = EVENT_TYPE,
             payload = mapOf("orderId" to orderId, "paymentId" to paymentId),
             partitionKey = orderId.toString(),
-            topic = PAYMENT_FAILED_TOPIC,
+            topic = TOPIC,
         )
         log.info("Outbox 결제 실패 보상 커맨드 발행: orderId={}, paymentId={}", orderId, paymentId)
     }
 
     companion object {
-        const val PAYMENT_FAILED_TOPIC = "payment.failed"
+        const val AGGREGATE_TYPE = "ORDER"
+        const val EVENT_TYPE = "PaymentFailed"
+        const val TOPIC = "payment.failed"
     }
 }

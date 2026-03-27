@@ -10,7 +10,7 @@ class PublishProductMetricsCommandHandler(
 ) {
     fun handle(command: PublishProductMetricsCommand) {
         outboxEventPublisher.publish(
-            aggregateType = "PRODUCT",
+            aggregateType = AGGREGATE_TYPE,
             aggregateId = command.targetId.toString(),
             eventType = "UserAction.${command.actionType}",
             payload = mapOf(
@@ -20,11 +20,12 @@ class PublishProductMetricsCommandHandler(
                 "targetId" to command.targetId,
             ),
             partitionKey = command.targetId.toString(),
-            topic = PRODUCT_ACTION_TOPIC,
+            topic = TOPIC,
         )
     }
 
     companion object {
-        const val PRODUCT_ACTION_TOPIC = "product.action"
+        const val AGGREGATE_TYPE = "PRODUCT"
+        const val TOPIC = "product.action"
     }
 }

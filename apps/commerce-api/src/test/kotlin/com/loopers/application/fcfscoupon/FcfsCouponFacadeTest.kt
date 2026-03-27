@@ -3,6 +3,7 @@ package com.loopers.application.fcfscoupon
 import com.loopers.application.outbox.FakeOutboxEventRepository
 import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.error.CoreException
+import com.loopers.infrastructure.fcfscoupon.OutboxFcfsCouponIssueRequestPublisher
 import com.loopers.infrastructure.outbox.OutboxEventPublisherImpl
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.assertj.core.api.Assertions.assertThat
@@ -28,7 +29,10 @@ class FcfsCouponFacadeTest {
         requestRepository = FakeFcfsCouponIssueRequestRepository()
         outboxRepository = FakeOutboxEventRepository()
         service = FcfsCouponService(templateRepository, requestRepository)
-        facade = FcfsCouponFacade(service, OutboxEventPublisherImpl(outboxRepository, ObjectMapper()))
+        facade = FcfsCouponFacade(
+            service,
+            OutboxFcfsCouponIssueRequestPublisher(OutboxEventPublisherImpl(outboxRepository, ObjectMapper())),
+        )
     }
 
     private fun createActiveTemplate(totalQuantity: Int = 100): FcfsCouponTemplateInfo {
