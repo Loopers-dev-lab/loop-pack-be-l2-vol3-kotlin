@@ -38,7 +38,16 @@ class CouponIssueConsumer(
             acknowledgment.acknowledge()
             return
         }
-        val requestId = generic["requestId"]?.toString() ?: return
+        val requestId = generic["requestId"]?.toString()
+        if (requestId == null) {
+            log.error(
+                "requestId가 없는 메시지. topic={}, offset={}",
+                record.topic(),
+                record.offset(),
+            )
+            acknowledgment.acknowledge()
+            return
+        }
         val eventType = generic["eventType"]?.toString() ?: "COUPON_ISSUE_REQUESTED"
 
         if (!idempotencyService.tryMarkHandled(requestId, eventType)) {
