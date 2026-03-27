@@ -9,6 +9,15 @@
     {"name": "userId", "type": "long"},
     {"name": "totalAmount", "type": ["null", "long"], "default": null},
     {"name": "itemCount", "type": ["null", "int"], "default": null},
+    {"name": "items", "type": ["null", {"type": "array", "items": {
+      "type": "record",
+      "name": "OrderEventItem",
+      "fields": [
+        {"name": "productId", "type": "long"},
+        {"name": "quantity", "type": "int"},
+        {"name": "salesAmount", "type": "long"}
+      ]
+    }}], "default": null},
     {"name": "occurredAt", "type": "string"}
   ]
 }

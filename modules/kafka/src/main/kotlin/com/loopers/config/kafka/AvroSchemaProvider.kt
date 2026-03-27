@@ -26,6 +26,7 @@ class AvroSchemaProvider {
         return record
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun convertValue(value: Any?, schema: Schema): Any? {
         if (value == null) return null
         return when (schema.type) {
@@ -36,6 +37,19 @@ class AvroSchemaProvider {
             Schema.Type.LONG -> (value as Number).toLong()
             Schema.Type.INT -> (value as Number).toInt()
             Schema.Type.STRING -> value.toString()
+            Schema.Type.ARRAY -> {
+                val itemSchema = schema.elementType
+                val list = value as List<Any?>
+                GenericData.Array(schema, list.map { convertValue(it, itemSchema) })
+            }
+            Schema.Type.RECORD -> {
+                val map = value as Map<String, Any?>
+                val record = GenericData.Record(schema)
+                for (field in schema.fields) {
+                    record.put(field.name(), convertValue(map[field.name()], field.schema()))
+                }
+                record
+            }
             else -> value
         }
     }

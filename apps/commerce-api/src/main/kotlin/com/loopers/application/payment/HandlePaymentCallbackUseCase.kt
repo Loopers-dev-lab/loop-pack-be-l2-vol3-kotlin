@@ -1,6 +1,7 @@
 package com.loopers.application.payment
 
 import com.loopers.application.event.OrderCompletedEvent
+import com.loopers.application.event.OrderCompletedItem
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.support.error.CoreException
@@ -44,6 +45,13 @@ class HandlePaymentCallbackUseCase(
                     OrderCompletedEvent(
                         orderId = payment.refOrderId,
                         userId = payment.refUserId,
+                        items = completed.items.map { item ->
+                            OrderCompletedItem(
+                                productId = item.refProductId,
+                                quantity = item.quantity,
+                                salesAmount = item.getSubtotal().amount,
+                            )
+                        },
                     ),
                 )
                 log.info("결제 승인 완료. paymentId={}, orderId={}", payment.persistenceId, payment.refOrderId)

@@ -16,7 +16,14 @@ data class OrderCompletedEvent(
     val eventId: String = UUID.randomUUID().toString(),
     val orderId: Long,
     val userId: Long,
+    val items: List<OrderCompletedItem>,
     val occurredAt: ZonedDateTime = ZonedDateTime.now(),
+)
+
+data class OrderCompletedItem(
+    val productId: Long,
+    val quantity: Int,
+    val salesAmount: Long,
 )
 
 data class ProductLikedEvent(

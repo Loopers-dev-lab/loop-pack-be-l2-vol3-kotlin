@@ -4,15 +4,20 @@ import com.loopers.infrastructure.event.EventHandledEntity
 import com.loopers.infrastructure.event.EventHandledJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
+import java.time.ZonedDateTime
 
-// [TODO-운영] event_handled 테이블은 Kafka retention(7일) 이후 데이터가 불필요.
-// handledAt 기준 7일 초과 레코드를 batch delete하는 스케줄러 필요.
 @Component
 class IdempotencyService(
     private val eventHandledJpaRepository: EventHandledJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    companion object {
+        private const val RETENTION_DAYS = 7L
+    }
 
     /**
      * 이벤트 처리 선점을 시도한다.
@@ -26,6 +31,20 @@ class IdempotencyService(
         } catch (e: DataIntegrityViolationException) {
             log.debug("이미 처리된 이벤트입니다. eventId={}", eventId)
             false
+        }
+    }
+
+    /**
+     * Kafka retention(7일) 이후에는 재전달이 발생하지 않으므로,
+     * handledAt 기준 7일 초과 레코드를 정리한다.
+     */
+    @Scheduled(cron = "0 30 * * * *")
+    @Transactional
+    fun cleanupExpiredRecords() {
+        val cutoff = ZonedDateTime.now().minusDays(RETENTION_DAYS)
+        val deleted = eventHandledJpaRepository.deleteByHandledAtBefore(cutoff)
+        if (deleted > 0) {
+            log.info("event_handled 정리 완료. deleted={}", deleted)
         }
     }
 }

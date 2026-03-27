@@ -3,6 +3,7 @@ package com.loopers.interfaces.consumer
 import com.loopers.application.event.IdempotencyService
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.config.kafka.KafkaTopics
+import com.loopers.infrastructure.metrics.ProductMetricsJpaRepository
 import org.apache.avro.generic.GenericRecord
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component
 @Component
 class OrderEventConsumer(
     private val idempotencyService: IdempotencyService,
+    private val productMetricsJpaRepository: ProductMetricsJpaRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -35,6 +37,7 @@ class OrderEventConsumer(
         acknowledgment.acknowledge()
     }
 
+    @Suppress("UNCHECKED_CAST")
     private fun processRecord(record: ConsumerRecord<Any, Any>) {
         val generic = record.value() as? GenericRecord
         if (generic == null) {
@@ -54,13 +57,31 @@ class OrderEventConsumer(
             return
         }
 
-        // [TODO] 향후 order metrics 집계(판매량, 매출액) 추가 예정. 현재는 파이프라인 연결 검증용.
+        // [설계 결정] catalog-events와 동일하게 additive 연산이므로 version/updated_at 체크 불필요.
         when (eventType) {
             "ORDER_CREATED" -> {
                 log.info("주문 생성 이벤트 수신. orderId={}", generic["orderId"])
             }
             "ORDER_COMPLETED" -> {
-                log.info("주문 완료 이벤트 수신. orderId={}", generic["orderId"])
+                val orderId = generic["orderId"]
+                val items = generic["items"] as? List<GenericRecord>
+                if (items.isNullOrEmpty()) {
+                    log.info("주문 완료 이벤트 수신 (아이템 없음). orderId={}", orderId)
+                    return
+                }
+                for (item in items) {
+                    val productId = (item["productId"] as Number).toLong()
+                    val quantity = (item["quantity"] as Number).toInt()
+                    val salesAmount = (item["salesAmount"] as Number).toLong()
+                    productMetricsJpaRepository.upsertMetrics(
+                        productId = productId,
+                        viewCount = 0,
+                        likeCount = 0,
+                        orderCount = quantity.toLong(),
+                        salesAmount = salesAmount,
+                    )
+                }
+                log.info("주문 완료 metrics 반영. orderId={}, itemCount={}", orderId, items.size)
             }
         }
     }
