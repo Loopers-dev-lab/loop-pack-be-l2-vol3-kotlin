@@ -20,6 +20,22 @@ spring:
   sql:
     init:
       mode: always
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: all
+      retries: 3
+      compression-type: snappy
+      properties:
+        enable.idempotence: true
+        linger.ms: 10
+        batch.size: 16384
+    consumer:
+      group-id: commerce-api-consumer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
 
 pg:
   base-url: http://localhost:8083

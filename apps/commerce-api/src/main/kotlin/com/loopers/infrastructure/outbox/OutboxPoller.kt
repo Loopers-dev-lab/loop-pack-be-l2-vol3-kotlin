@@ -18,9 +18,13 @@ class OutboxPoller(
 
         for (outbox in unpublished) {
             try {
+                // Kafka partition key: partitionKey 우선 사용, 없으면 aggregateId
+                // 쿠폰의 경우 "userId:templateId" 형식 → 같은 사용자의 같은 템플릿 요청은 같은 파티션으로
+                val partitionKey = outbox.partitionKey ?: outbox.aggregateId.toString()
+
                 kafkaTemplate.send(
                     outbox.topic,
-                    outbox.aggregateId.toString(),
+                    partitionKey,
                     outbox.payload,
                 ).get()
 
@@ -28,7 +32,12 @@ class OutboxPoller(
                 outbox.publishedAt = java.time.LocalDateTime.now()
                 outboxRepository.save(outbox)
 
-                logger.debug("Published outbox event: id={}, eventType={}", outbox.id, outbox.eventType)
+                logger.debug(
+                    "Published outbox event: id={}, eventType={}, partitionKey={}",
+                    outbox.id,
+                    outbox.eventType,
+                    partitionKey,
+                )
             } catch (e: Exception) {
                 logger.error("Failed to publish outbox event: id=${outbox.id}, eventType=${outbox.eventType}", e)
             }

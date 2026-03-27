@@ -5,10 +5,16 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.ZonedDateTime
 
 @Entity
-@Table(name = "event_handled")
+@Table(
+    name = "event_handled",
+    uniqueConstraints = [
+        UniqueConstraint(columnNames = ["dedupeKey"], name = "uk_event_handled_dedupe_key"),
+    ],
+)
 class EventHandled(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

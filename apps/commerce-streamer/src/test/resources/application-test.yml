@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: commerce-streamer
+  profiles:
+    active: test
+  boot:
+    testcontainers:
+      autodiscover: false
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:testdb;MODE=MySQL
+    username: sa
+    password:
+  cache:
+    type: simple
+  kafka:
+    bootstrap-servers: localhost:9999
+    listener:
+      startup-failure-fatal: false
+    auto-startup: false
+
+pg:
+  base-url: http://localhost:8083
+  timeout:
+    connect-ms: 1000
+    read-sec: 1
+    write-sec: 1
+  loop:
+    callback-url: http://localhost:8080/api/v1/payments/callback

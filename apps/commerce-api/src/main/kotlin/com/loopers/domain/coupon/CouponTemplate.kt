@@ -42,6 +42,20 @@ class CouponTemplate private constructor(
     var expiredAt: ZonedDateTime = expiredAt
         protected set
 
+    @Column(nullable = true)
+    var totalCount: Int? = null
+        protected set
+
+    @Column(nullable = false)
+    var issuedCount: Int = 0
+        protected set
+
+    fun isSoldOut(): Boolean = totalCount != null && issuedCount >= totalCount!!
+
+    fun incrementIssuedCount() {
+        issuedCount++
+    }
+
     fun isApplicable(orderAmount: BigDecimal): Boolean {
         return orderAmount >= minOrderAmount && !isExpired()
     }
@@ -125,9 +139,14 @@ class CouponTemplate private constructor(
             value: BigDecimal,
             minOrderAmount: BigDecimal,
             expiredAt: ZonedDateTime,
+            totalCount: Int? = null,
         ): CouponTemplate {
             // ✅ write-side input validation (expiredAt 미래값 검증)
             validateInput(name, type, value, minOrderAmount, expiredAt)
+
+            if (totalCount != null && totalCount <= 0) {
+                throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 발행 가능 수량은 1 이상이어야 합니다.")
+            }
 
             val template = CouponTemplate(
                 name = name,
@@ -136,6 +155,7 @@ class CouponTemplate private constructor(
                 minOrderAmount = minOrderAmount,
                 expiredAt = expiredAt,
             )
+            template.totalCount = totalCount
             // ✅ time-independent invariants 검증
             template.guard()
             return template
@@ -177,6 +197,7 @@ class CouponTemplate private constructor(
             value: BigDecimal,
             minOrderAmount: BigDecimal,
             expiredAt: ZonedDateTime,
+            totalCount: Int? = null,
         ): CouponTemplate {
             return CouponTemplate(
                 name = name,
@@ -184,7 +205,9 @@ class CouponTemplate private constructor(
                 value = value,
                 minOrderAmount = minOrderAmount,
                 expiredAt = expiredAt,
-            )
+            ).apply {
+                this.totalCount = totalCount
+            }
         }
     }
 }

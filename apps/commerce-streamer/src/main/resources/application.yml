@@ -14,16 +14,26 @@ spring:
   main:
     web-application-type: servlet
   application:
-    name: commerce-api
+    name: commerce-streamer
   profiles:
     active: local
-  config:
-    import:
-      - jpa.yml
-      - redis.yml
-      - kafka.yml
-      - logging.yml
-      - monitoring.yml
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: all
+      retries: 3
+      compression-type: snappy
+      properties:
+        enable.idempotence: true
+        linger.ms: 10
+        batch.size: 16384
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: commerce-streamer-consumer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
 
 demo-kafka:
   test:

@@ -20,6 +20,12 @@ class OutboxEvent(
     val payload: String,
     val topic: String = "metrics-events",
 
+    // Kafka 파티션 키 (동시성 제어용, nullable)
+    // - null: aggregateId를 key로 사용
+    // - "userId:templateId": 같은 사용자의 같은 템플릿 요청은 같은 파티션으로 라우팅
+    @Column(nullable = true)
+    val partitionKey: String? = null,
+
     var published: Boolean = false,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     var publishedAt: LocalDateTime? = null,

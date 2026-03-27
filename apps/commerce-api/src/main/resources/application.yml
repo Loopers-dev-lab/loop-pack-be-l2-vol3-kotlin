@@ -8,16 +8,33 @@ spring:
     active: local
   config:
     import:
-      - jpa.yml
-      - redis.yml
-      - logging.yml
-      - monitoring.yml
-      - payment-client.yml
+      - optional:classpath:jpa.yml
+      - optional:classpath:redis.yml
+      - optional:classpath:logging.yml
+      - optional:classpath:monitoring.yml
+      - optional:classpath:payment-client.yml
   cache:
     type: redis
   task:
     scheduling:
       enabled: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      acks: all
+      retries: 3
+      compression-type: snappy
+      properties:
+        enable.idempotence: true
+        linger.ms: 10
+        batch.size: 16384
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: commerce-api-consumer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
 
 pg:
   base-url: http://localhost:8083

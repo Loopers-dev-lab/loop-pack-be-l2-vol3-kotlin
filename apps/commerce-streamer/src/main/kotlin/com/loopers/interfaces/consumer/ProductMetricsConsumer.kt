@@ -1,10 +1,12 @@
 package com.loopers.interfaces.consumer
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.loopers.application.service.DlqHandler
 import com.loopers.application.service.ProductMetricsService
-import com.loopers.domain.order.event.OrderCreatedEvent
-import com.loopers.domain.product.event.ProductViewedEvent
-import com.loopers.domain.productlike.event.LikeCountEvent
+import com.loopers.config.kafka.KafkaConfig
+import com.loopers.domain.event.OrderCreatedEvent
+import com.loopers.domain.event.ProductViewedEvent
+import com.loopers.domain.event.LikeCountEvent
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -14,13 +16,14 @@ import org.springframework.stereotype.Component
 @Component
 class ProductMetricsConsumer(
     private val productMetricsService: ProductMetricsService,
+    private val dlqHandler: DlqHandler,
     private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(
         topics = ["metrics-events"],
-        containerFactory = "kafkaListenerContainerFactory",
+        containerFactory = KafkaConfig.METRICS_LISTENER,
     )
     fun handleMetricsEvents(
         messages: List<ConsumerRecord<Any, Any>>,
@@ -50,6 +53,20 @@ class ProductMetricsConsumer(
                     }
                 } catch (e: Exception) {
                     logger.error("Failed to process message: ${message.value()}", e)
+                    // ✅ DLQ로 이동
+                    val payload = message.value() as? String ?: ""
+                    val eventType = try {
+                        detectEventType(payload)
+                    } catch (ex: Exception) {
+                        "Unknown"
+                    }
+                    dlqHandler.saveToDlq(
+                        originalTopic = "metrics-events",
+                        messagePayload = payload,
+                        consumerGroup = "commerce-streamer-metrics",
+                        eventType = eventType,
+                        exception = e,
+                    )
                     hasError = true
                 }
             }
