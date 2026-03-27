@@ -9,6 +9,7 @@ data class CouponInfo(
     val type: String,
     val value: Long,
     val minOrderAmount: Long?,
+    val maxQuantity: Int?,
     val expiredAt: ZonedDateTime,
     val createdAt: ZonedDateTime,
 ) {
@@ -20,6 +21,7 @@ data class CouponInfo(
                 type = coupon.type.name,
                 value = coupon.value,
                 minOrderAmount = coupon.minOrderAmount,
+                maxQuantity = coupon.maxQuantity,
                 expiredAt = coupon.expiredAt,
                 createdAt = coupon.createdAt,
             )

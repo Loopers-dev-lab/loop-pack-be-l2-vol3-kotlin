@@ -17,6 +17,7 @@ class RegisterCouponUseCase(
             type = command.type,
             value = command.value,
             minOrderAmount = command.minOrderAmount,
+            maxQuantity = command.maxQuantity,
             expiredAt = command.expiredAt,
         )
         val saved = couponRepository.save(coupon)

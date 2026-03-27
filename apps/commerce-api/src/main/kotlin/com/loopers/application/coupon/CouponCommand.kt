@@ -10,6 +10,7 @@ class CouponCommand {
         val type: CouponType,
         val value: Long,
         val minOrderAmount: Long?,
+        val maxQuantity: Int?,
         val expiredAt: ZonedDateTime,
     )
 
@@ -22,6 +23,11 @@ class CouponCommand {
     )
 
     data class Issue(
+        val couponId: Long,
+        val userId: Long,
+    )
+
+    data class IssueAsync(
         val couponId: Long,
         val userId: Long,
     )

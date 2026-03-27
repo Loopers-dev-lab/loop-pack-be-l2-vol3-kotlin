@@ -22,6 +22,8 @@ data class AdminCouponRegisterRequest(
 
     val minOrderAmount: Long?,
 
+    val maxQuantity: Int?,
+
     @field:NotNull(message = "만료일은 필수입니다.")
     val expiredAt: ZonedDateTime?,
 ) {
@@ -31,6 +33,7 @@ data class AdminCouponRegisterRequest(
             type = requireNotNull(type),
             value = requireNotNull(value),
             minOrderAmount = minOrderAmount,
+            maxQuantity = maxQuantity,
             expiredAt = requireNotNull(expiredAt),
         )
     }

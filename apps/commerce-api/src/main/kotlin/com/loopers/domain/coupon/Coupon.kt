@@ -19,6 +19,7 @@ class Coupon private constructor(
     type: CouponType,
     value: Long,
     minOrderAmount: Long?,
+    maxQuantity: Int?,
     expiredAt: ZonedDateTime,
     deletedAt: ZonedDateTime? = null,
 ) : BaseEntity() {
@@ -39,6 +40,10 @@ class Coupon private constructor(
     var minOrderAmount: Long? = minOrderAmount
         protected set
 
+    @Column(name = "max_quantity")
+    var maxQuantity: Int? = maxQuantity
+        protected set
+
     @Column(name = "expired_at", nullable = false)
     var expiredAt: ZonedDateTime = expiredAt
         protected set
@@ -50,6 +55,8 @@ class Coupon private constructor(
     fun isDeleted(): Boolean = deletedAt != null
 
     fun isExpired(): Boolean = ZonedDateTime.now().isAfter(expiredAt)
+
+    fun isLimited(): Boolean = maxQuantity != null
 
     fun delete() {
         this.deletedAt = ZonedDateTime.now()
@@ -96,16 +103,19 @@ class Coupon private constructor(
             type: CouponType,
             value: Long,
             minOrderAmount: Long?,
+            maxQuantity: Int?,
             expiredAt: ZonedDateTime,
         ): Coupon {
             validateName(name)
             validateValue(type, value)
             minOrderAmount?.let { validateMinOrderAmount(it) }
+            maxQuantity?.let { validateMaxQuantity(it) }
             return Coupon(
                 name = name.trim(),
                 type = type,
                 value = value,
                 minOrderAmount = minOrderAmount,
+                maxQuantity = maxQuantity,
                 expiredAt = expiredAt,
             )
         }
@@ -126,6 +136,10 @@ class Coupon private constructor(
 
         private fun validateMinOrderAmount(amount: Long) {
             if (amount < 0) throw CoreException(CouponErrorCode.INVALID_MIN_ORDER_AMOUNT)
+        }
+
+        private fun validateMaxQuantity(quantity: Int) {
+            if (quantity <= 0) throw CoreException(CouponErrorCode.INVALID_MAX_QUANTITY)
         }
     }
 }

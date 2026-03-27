@@ -19,4 +19,7 @@ enum class CouponErrorCode(
     MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_010", "최소 주문 금액 조건을 충족하지 않습니다."),
     INVALID_RATE_VALUE(HttpStatus.BAD_REQUEST, "COUPON_011", "정률 할인은 1~100 사이여야 합니다."),
     COUPON_NOT_USED(HttpStatus.BAD_REQUEST, "COUPON_012", "사용되지 않은 쿠폰은 복원할 수 없습니다."),
+    INVALID_MAX_QUANTITY(HttpStatus.BAD_REQUEST, "COUPON_013", "최대 발급 수량은 1 이상이어야 합니다."),
+    COUPON_SOLD_OUT(HttpStatus.CONFLICT, "COUPON_014", "쿠폰이 모두 소진되었습니다."),
+    COUPON_ISSUE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_015", "쿠폰 발급 요청을 찾을 수 없습니다."),
 }

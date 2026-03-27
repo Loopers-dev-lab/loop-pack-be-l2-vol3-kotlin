@@ -135,6 +135,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             type = type,
             value = value,
             minOrderAmount = minOrderAmount,
+            maxQuantity = null,
             expiredAt = ZonedDateTime.now().plusDays(30),
         )
         val responseType = object : ParameterizedTypeReference<ApiResponse<AdminCouponResponse>>() {}

@@ -36,6 +36,7 @@ class RegisterCouponUseCaseTest @Autowired constructor(
                     type = CouponType.FIXED,
                     value = 1000,
                     minOrderAmount = 10000,
+                    maxQuantity = null,
                     expiredAt = ZonedDateTime.now().plusDays(30),
                 ),
             )
@@ -58,6 +59,7 @@ class RegisterCouponUseCaseTest @Autowired constructor(
                     type = CouponType.RATE,
                     value = 10,
                     minOrderAmount = null,
+                    maxQuantity = null,
                     expiredAt = ZonedDateTime.now().plusDays(30),
                 ),
             )
