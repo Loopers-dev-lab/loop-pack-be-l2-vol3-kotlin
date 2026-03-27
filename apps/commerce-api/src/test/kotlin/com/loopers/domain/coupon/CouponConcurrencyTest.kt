@@ -156,6 +156,74 @@ class CouponConcurrencyTest @Autowired constructor(
         assertThat(finalCoupon?.status).isEqualTo(CouponStatus.USED)
     }
 
+    @Test
+    @DisplayName("totalCount=10인 쿠폰에 20명이 동시 발급 시 정확히 10개만 발급된다")
+    fun testConcurrentIssuance_soldOutAfter10() {
+        // Arrange: totalCount=10 쿠폰 생성
+        val totalCount = 10
+        val totalRequests = 20
+        val template = CouponTemplate.create(
+            name = "선착순 100장",
+            type = CouponType.FIXED,
+            value = BigDecimal("1000"),
+            minOrderAmount = BigDecimal("5000"),
+            expiredAt = ZonedDateTime.now().plusDays(30),
+            totalCount = totalCount,
+        )
+        val savedTemplate = couponTemplateRepository.save(template)
+
+        // Act: 200개 스레드 동시 발급 요청 (서로 다른 userId)
+        val latch = CountDownLatch(totalRequests)
+        val executor = Executors.newFixedThreadPool(totalRequests)
+        val results = Collections.synchronizedList(mutableListOf<Result<Coupon>>())
+
+        val futures = (1..totalRequests).map { userId ->
+            executor.submit<Unit> {
+                latch.countDown()
+                latch.await()
+                results.add(runCatching { couponService.issueCoupon(userId.toLong(), savedTemplate.id) })
+            }
+        }
+        futures.forEach { it.get(30, TimeUnit.SECONDS) }
+        executor.shutdown()
+        if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+            executor.shutdownNow()
+            throw AssertionError("Executor did not terminate within 30 seconds")
+        }
+
+        // Assert: 발급 결과 검증
+        val successCount = results.count { it.isSuccess }
+        val failureCount = results.count { it.isFailure }
+        val soldOutCount = results.count {
+            it.isFailure && it.exceptionOrNull()?.message?.contains("소진") == true
+        }
+
+        println("Success: $successCount, Failure: $failureCount, SoldOut: $soldOutCount")
+        results.filter { it.isFailure }.take(5).forEach {
+            println("Error: ${it.exceptionOrNull()?.message}")
+        }
+
+        // 정확히 100개만 성공
+        assertThat(successCount)
+            .withFailMessage("Expected 100 successful issuances, but got $successCount")
+            .isEqualTo(totalCount)
+        // 100개 실패
+        assertThat(failureCount).isEqualTo(totalRequests - totalCount)
+        // 모두 "소진" 예외
+        assertThat(soldOutCount).isEqualTo(totalRequests - totalCount)
+
+        // DB 검증: 정확히 100개의 쿠폰만 존재
+        val issuedCoupons = couponRepository.findByTemplateId(
+            savedTemplate.id,
+            org.springframework.data.domain.PageRequest.of(0, 500),
+        )
+        assertThat(issuedCoupons.totalElements).isEqualTo(totalCount.toLong())
+
+        // 템플릿의 issuedCount도 100으로 업데이트되어야 함
+        val updatedTemplate = couponTemplateRepository.findById(savedTemplate.id)
+        assertThat(updatedTemplate?.issuedCount).isEqualTo(totalCount)
+    }
+
     sealed class CouponIssuanceResult {
         data class Success(val couponId: Long) : CouponIssuanceResult()
         data class DuplicateError(val errorType: ErrorType, val message: String?) : CouponIssuanceResult()
