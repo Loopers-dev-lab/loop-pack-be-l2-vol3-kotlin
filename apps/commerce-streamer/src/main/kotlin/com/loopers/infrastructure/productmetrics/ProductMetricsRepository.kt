@@ -9,11 +9,21 @@ import org.springframework.data.repository.query.Param
 interface ProductMetricsRepository : JpaRepository<ProductMetrics, Long> {
     fun findByProductId(productId: Long): ProductMetrics?
 
-    @Modifying
-    @Query("UPDATE ProductMetrics pm SET pm.viewCount = pm.viewCount + 1 WHERE pm.productId = :productId")
+    @Modifying(flushAutomatically = true)
+    @Query(
+        value = "INSERT INTO product_metrics (product_id, view_count, sales_count, updated_at) " +
+            "VALUES (:productId, 1, 0, NOW(6)) " +
+            "ON DUPLICATE KEY UPDATE view_count = view_count + 1, updated_at = NOW(6)",
+        nativeQuery = true,
+    )
     fun incrementViewCount(@Param("productId") productId: Long)
 
-    @Modifying
-    @Query("UPDATE ProductMetrics pm SET pm.salesCount = pm.salesCount + :quantity WHERE pm.productId = :productId")
+    @Modifying(flushAutomatically = true)
+    @Query(
+        value = "INSERT INTO product_metrics (product_id, view_count, sales_count, updated_at) " +
+            "VALUES (:productId, 0, :quantity, NOW(6)) " +
+            "ON DUPLICATE KEY UPDATE sales_count = sales_count + :quantity, updated_at = NOW(6)",
+        nativeQuery = true,
+    )
     fun incrementSalesCount(@Param("productId") productId: Long, @Param("quantity") quantity: Int)
 }
