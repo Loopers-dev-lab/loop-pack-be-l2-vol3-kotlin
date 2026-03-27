@@ -336,6 +336,11 @@ Q: 왜 상태 변경이 재고 복구보다 먼저인가?
 | CouponRepository | `incrementIssuedCount(id)` | `UPDATE SET issued_count = issued_count + 1` | - |
 | UserCouponRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `CouponException` |
 | UserCouponRepository | `existsByCouponIdAndUserId(couponId, userId)` | `SELECT EXISTS(...)` | - |
+| PaymentRepository | `findByIdForUpdate(id)` | `SELECT ... FOR UPDATE` | `PaymentNotFoundException` |
+| PaymentRepository | `findByTransactionKeyForUpdate(key)` | `SELECT ... FOR UPDATE` | `PaymentNotFoundException` |
+| PaymentRepository | `findByOrderId(orderId)` | `SELECT ... WHERE order_id = ?` | - |
+| PaymentRepository | `findAllByStatusAndCreatedBefore(status, time)` | `SELECT ... WHERE status = ? AND created_at < ?` | - |
+| PaymentRepository | `findAllByStatusInAndCreatedBefore(statuses, time)` | `SELECT ... WHERE status IN (?) AND created_at < ?` | - |
 
 ---
 
@@ -403,6 +408,182 @@ sequenceDiagram
 
 ---
 
+## 6. 결제 - 동시성 및 트랜잭션 상세
+
+### 검증 포인트
+
+- [ ] 콜백 중복 방지
+- [ ] 트랜잭션 분리 (DB 커넥션 점유 최소화)
+- [ ] PG 장애 시 Resilience
+
+### 결제 요청 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as RequestPaymentUseCase
+    participant TxService as PaymentTransactionService
+    participant PayRepo as PaymentRepository
+    participant OrdRepo as OrderRepository
+    participant PG as PG (외부)
+    participant DB as Database
+
+    App->>TxService: createPayment(orderId, cardType, cardNo)
+
+    Note over TxService: ═══ TX1 @Transactional 시작 ═══
+
+    TxService->>OrdRepo: findById(orderId)
+    OrdRepo->>DB: SELECT * FROM orders WHERE id = ?
+    DB-->>OrdRepo: Order
+
+    alt 주문 없음 or PENDING 아님
+        Note over TxService: ═══ 롤백 ═══
+        TxService-->>App: OrderException
+    end
+
+    TxService->>PayRepo: findByOrderId(orderId)
+    PayRepo->>DB: SELECT * FROM payments WHERE order_id = ?
+
+    alt 이미 결제 존재
+        Note over TxService: ═══ 롤백 ═══
+        TxService-->>App: PaymentAlreadyExistsException
+    end
+
+    TxService->>TxService: Payment.create(orderId, userId, cardType, cardNo)
+    TxService->>PayRepo: save(payment)
+    PayRepo->>DB: INSERT payments (status = 'PENDING')
+
+    Note over TxService: ═══ TX1 커밋 ═══
+
+    TxService-->>App: Payment (with paymentId)
+
+    Note over App: ═══ 트랜잭션 밖 ═══
+
+    App->>PG: 결제 요청 (CircuitBreaker: pgRequest)
+
+    alt PG 성공
+        PG-->>App: transactionKey
+
+        App->>TxService: updateToRequested(paymentId, transactionKey)
+        Note over TxService: ═══ TX2 @Transactional 시작 ═══
+        TxService->>PayRepo: findByIdForUpdate(paymentId)
+        PayRepo->>DB: SELECT * FROM payments WHERE id = ? FOR UPDATE
+        TxService->>TxService: payment.request(transactionKey)
+        TxService->>PayRepo: save(payment)
+        PayRepo->>DB: UPDATE payments SET status = 'REQUESTED', transaction_key = ?
+        Note over TxService: ═══ TX2 커밋 ═══
+    end
+
+    alt PG 실패 (CircuitBreaker OPEN / 예외)
+        PG-->>App: 실패
+        Note over App: 결제 PENDING 유지 → 복구 스케줄러가 처리
+    end
+```
+
+### 콜백 처리 다이어그램
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as HandlePaymentCallbackUseCase
+    participant PayRepo as PaymentRepository
+    participant OrdRepo as OrderRepository
+    participant DB as Database
+
+    Note over App: ═══ @Transactional 시작 ═══
+
+    App->>PayRepo: findByTransactionKeyForUpdate(transactionKey)
+    PayRepo->>DB: SELECT * FROM payments WHERE transaction_key = ? FOR UPDATE
+    DB-->>PayRepo: Payment (row locked)
+
+    alt 결제 없음
+        Note over App: ═══ 롤백 ═══
+        App-->>App: PaymentNotFoundException
+    end
+
+    App->>App: payment.isTerminal()
+
+    alt 이미 종료 (SUCCESS/FAILED)
+        Note over App: ✓ 멱등성: 변경 없음
+        Note over App: ═══ 커밋 ═══
+    end
+
+    alt PG 결제 성공
+        App->>App: payment.succeed()
+        App->>PayRepo: save(payment)
+        PayRepo->>DB: UPDATE payments SET status = 'SUCCESS'
+
+        App->>OrdRepo: findById(orderId)
+        App->>App: order.complete()
+        App->>OrdRepo: save(order)
+        OrdRepo->>DB: UPDATE orders SET status = 'COMPLETED'
+    end
+
+    alt PG 결제 실패
+        App->>App: payment.fail(failureReason)
+        App->>PayRepo: save(payment)
+        PayRepo->>DB: UPDATE payments SET status = 'FAILED', failure_reason = ?
+        Note over App: 주문 PENDING 유지 (BR-PY03)
+    end
+
+    Note over App: ═══ 커밋 ═══
+```
+
+### 동시성 전략
+
+| 전략 | 구현 | 목적 |
+|------|------|------|
+| 비관적 락 | `SELECT ... FOR UPDATE` on payments (transactionKey 기준) | 콜백 중복 처리 방지 |
+| isTerminal() 체크 | SUCCESS/FAILED 상태이면 즉시 반환 | 멱등성 보장 |
+| 트랜잭션 분리 | TX1(PENDING 생성) → PG 호출 → TX2(REQUESTED 업데이트) | 외부 I/O 중 DB 커넥션 점유 방지 |
+
+### Resilience 전략
+
+| 전략 | 대상 | 설정 | 목적 |
+|------|------|------|------|
+| CircuitBreaker (pgRequest) | 결제 요청 | 실패율 기반 OPEN | PG 결제 요청 장애 격리 |
+| CircuitBreaker (pgQuery) | 결제 조회 | 실패율 기반 OPEN | PG 조회 장애 격리 (복구 스케줄러용) |
+| Retry | 결제 조회만 | 최대 N회, 지수 백오프 | 일시적 조회 실패 재시도 |
+| Fallback | 양쪽 | CircuitBreaker OPEN 시 | 장애 시 안전한 기본 응답 반환 |
+
+**pgRequest와 pgQuery를 분리한 이유:**
+- 결제 요청은 멱등하지 않으므로 Retry하면 중복 결제 위험이 있다
+- 결제 조회는 읽기 전용이므로 Retry가 안전하다
+- 결제 요청 장애 시에도 조회는 가능할 수 있으므로 CircuitBreaker를 분리한다
+
+### 동시 콜백 시나리오
+
+```
+[콜백A] SELECT FOR UPDATE → status=REQUESTED (락)
+[콜백B] SELECT FOR UPDATE → 대기 (락 획득 불가)
+[콜백A] UPDATE status=SUCCESS → 커밋 → 락 해제
+[콜백B] SELECT FOR UPDATE → status=SUCCESS → isTerminal()=true → 멱등 반환
+```
+
+### 트랜잭션 분리 시나리오
+
+```
+[TX1] INSERT payment (PENDING) → 커밋
+[PG 호출] 결제 요청 → 성공 (transactionKey 발급)
+[TX2] SELECT FOR UPDATE → UPDATE status=REQUESTED → 커밋
+
+PG 호출 중 장애 발생 시:
+[TX1] INSERT payment (PENDING) → 커밋
+[PG 호출] 실패 또는 응답 없음
+→ 결제는 PENDING 상태로 존재
+→ 복구 스케줄러가 PENDING 결제를 감지하여 PG에 상태 조회 → 동기화
+```
+
+### 잠재 리스크
+
+| 리스크 | 현재 대응 | 확장 전략 |
+|--------|----------|----------|
+| PG 응답 누락 (결제됐으나 응답 유실) | 복구 스케줄러가 PG 조회로 동기화 | 스케줄 주기 최적화 |
+| 콜백과 복구 스케줄러 동시 처리 | SELECT FOR UPDATE + isTerminal() | 두 번째 처리는 멱등 반환 |
+| PG 장기 장애 | CircuitBreaker OPEN → Fallback | 수동 복구 도구 필요 |
+
+---
+
 ## 트랜잭션 경계 요약
 
 | 흐름 | 시작 | 커밋 | 롤백 조건 |
@@ -413,6 +594,10 @@ sequenceDiagram
 | 주문 취소 | AppService 진입 | 재고 복구 + 쿠폰 복원 후 | 주문 없음, 권한 없음, 상태 불가 |
 | 쿠폰 발급 | AppService 진입 | UserCoupon 저장 + issuedCount 증가 후 | 쿠폰 없음, 만료, 중복, 수량 초과 |
 | 쿠폰 적용 주문 | AppService 진입 | 주문 저장 + 쿠폰 USED 후 | 쿠폰 없음, 상태 불가, 만료, 금액 미달 |
+| 결제 요청 (TX1) | TxService 진입 | Payment 저장 후 | 주문 없음, PENDING 아님, 중복 결제 |
+| 결제 요청 (TX2) | TxService 진입 | REQUESTED 업데이트 후 | - |
+| 결제 콜백 | AppService 진입 | 결제/주문 상태 전이 후 | 결제 없음 |
+| 결제 복구 | 건별 TxService 진입 | 결제/주문 상태 전이 후 | PG 조회 실패 (건별 건너뜀) |
 
 ---
 
@@ -425,3 +610,6 @@ sequenceDiagram
 | 좋아요 취소 | affected count | `DELETE` 후 count 확인 | 락 없이 멱등 보장 |
 | 주문 취소 | 비관적 락 | `FOR UPDATE` (Order만) | Product 락 불필요 (증가 연산) |
 | 쿠폰 사용 | 비관적 락 | `FOR UPDATE` (UserCoupon) | 1회성 → 상태 전이 보호 필수 |
+| 결제 요청 | 트랜잭션 분리 | TX1(생성) → PG 호출 → TX2(REQUESTED) | 외부 I/O 중 커넥션 점유 방지 |
+| 결제 콜백 | 비관적 락 + 멱등성 | `FOR UPDATE` (Payment) + isTerminal() | 중복 콜백 방어 |
+| 결제 복구 | CircuitBreaker + Retry | pgQuery 분리 + 조회만 재시도 | PG 장애 격리 + 안전한 재시도 |

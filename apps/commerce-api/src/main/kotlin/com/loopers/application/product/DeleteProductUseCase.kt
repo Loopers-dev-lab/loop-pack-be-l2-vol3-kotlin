@@ -3,13 +3,14 @@ package com.loopers.application.product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class DeleteProductUseCase(
     private val productRepository: ProductRepository,
-    private val productCachePort: ProductCachePort,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun delete(id: Long) {
@@ -22,6 +23,6 @@ class DeleteProductUseCase(
 
         val deletedProduct = product.delete()
         productRepository.save(deletedProduct)
-        productCachePort.evictProductDetail(id)
+        eventPublisher.publishEvent(ProductCacheEvictEvent(id))
     }
 }

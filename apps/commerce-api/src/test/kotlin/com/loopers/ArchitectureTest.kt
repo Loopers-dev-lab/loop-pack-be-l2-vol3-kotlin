@@ -12,6 +12,9 @@ import com.loopers.domain.like.Like
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderStatus
+import com.loopers.domain.payment.CardType
+import com.loopers.domain.payment.Payment
+import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.Money
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductImage
@@ -215,6 +218,28 @@ class ArchitectureTest {
                 ZonedDateTime::class.java,
                 ZonedDateTime::class.java,
                 ZonedDateTime::class.java,
+            )
+            .because("reconstitute는 DB 복원 전용이며, infrastructure 레이어에서만 호출해야 한다")
+            .check(classes)
+    }
+
+    @Test
+    @DisplayName("interfaces, application 레이어에서 Payment.reconstitute 호출 금지")
+    fun `Payment reconstitute는 infrastructure에서만 호출 가능하다`() {
+        noClasses()
+            .that().resideInAnyPackage("..interfaces..", "..application..")
+            .should().callMethod(
+                Payment.Companion::class.java,
+                "reconstitute",
+                Long::class.java,
+                Long::class.java,
+                Long::class.java,
+                String::class.javaObjectType,
+                CardType::class.java,
+                String::class.java,
+                Long::class.java,
+                PaymentStatus::class.java,
+                String::class.javaObjectType,
             )
             .because("reconstitute는 DB 복원 전용이며, infrastructure 레이어에서만 호출해야 한다")
             .check(classes)

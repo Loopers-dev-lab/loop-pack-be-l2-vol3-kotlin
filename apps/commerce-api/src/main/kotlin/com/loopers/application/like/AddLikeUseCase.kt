@@ -1,10 +1,11 @@
 package com.loopers.application.like
 
-import com.loopers.application.product.ProductCachePort
+import com.loopers.application.product.ProductCacheEvictEvent
 import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -16,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional
 class AddLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
-    private val productCachePort: ProductCachePort,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun add(userId: Long, productId: Long) {
@@ -30,7 +31,7 @@ class AddLikeUseCase(
         val inserted = likeRepository.addLike(userId, productId)
         if (inserted) {
             productRepository.incrementLikeCount(productId)
-            productCachePort.evictProductDetail(productId)
+            eventPublisher.publishEvent(ProductCacheEvictEvent(productId))
         }
     }
 }

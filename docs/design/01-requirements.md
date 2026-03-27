@@ -48,6 +48,14 @@
 | 비즈니스 | 다양한 할인 정책(정액/정률)을 쿠폰으로 관리하고, 발급 수량을 통제해야 한다 |
 | 시스템 | 동시 주문에도 쿠폰이 중복 사용되지 않아야 한다 |
 
+### 결제
+
+| 관점 | 문제 |
+|------|------|
+| 사용자 | 주문한 상품에 대해 결제를 완료하고, 결제 상태를 확인하고 싶다 |
+| 비즈니스 | 결제 성공 시 주문을 확정하고, 실패 시 안전하게 복구해야 한다 |
+| 시스템 | 비동기 PG 연동에서 결제 상태 정합성을 보장해야 한다 |
+
 ---
 
 ## 2. 도메인 용어 정리
@@ -66,6 +74,10 @@
 | 사용자 쿠폰 | UserCoupon | 사용자에게 발급된 쿠폰 (스냅샷 포함) |
 | 할인 유형 | DiscountType | 정액(FIXED) 또는 정률(RATE) 할인 |
 | 쿠폰 상태 | CouponStatus | AVAILABLE(사용 가능), USED(사용됨), EXPIRED(만료됨) |
+| 결제 | Payment | 주문에 대한 결제 처리 단위 |
+| 결제 상태 | PaymentStatus | PENDING(대기), REQUESTED(요청됨), SUCCESS(성공), FAILED(실패) |
+| 트랜잭션 키 | TransactionKey | PG 연동 시 사용하는 고유 거래 식별자 |
+| 카드 유형 | CardType | SAMSUNG, KB, HYUNDAI 등 결제 카드 종류 |
 | 활성 | ACTIVE | 고객에게 노출되는 상태 |
 | 비활성 | INACTIVE | 운영자가 숨긴 상태 |
 | 논리 삭제 | Soft Delete | 데이터를 물리 삭제하지 않고 삭제 표시만 하는 방식 |
@@ -122,6 +134,15 @@
 | 쿠폰 삭제 | 어드민 | 쿠폰을 삭제한다 |
 | 쿠폰 조회 | 어드민 | 쿠폰 목록/상세를 조회한다 |
 | 쿠폰 발급 내역 조회 | 어드민 | 쿠폰별 발급 내역을 조회한다 |
+
+### 결제
+
+| 기능 | 액터 | 설명 |
+|------|------|------|
+| 결제 요청 | 회원 | 주문에 대한 결제를 요청한다 (비동기 PG 연동) |
+| 결제 조회 | 회원 | 결제 상태를 조회한다 |
+| 결제 콜백 수신 | 시스템(PG) | PG로부터 결제 결과 콜백을 수신한다 |
+| 결제 복구 | 시스템(스케줄러) | 장기 미완료 결제를 PG에 조회하여 상태를 동기화한다 |
 
 ---
 
@@ -192,6 +213,15 @@
 | BR-CP06 | 만료된 쿠폰은 발급/사용할 수 없다 |
 | BR-CP07 | 쿠폰 사용은 1회성이다. 동시 사용 시 1건만 성공해야 한다 |
 
+### 결제
+
+| 규칙 | 설명 |
+|------|------|
+| BR-PY01 | 동일 주문에 대해 중복 결제를 방지한다 |
+| BR-PY02 | PENDING 상태의 주문만 결제할 수 있다 |
+| BR-PY03 | 결제 실패 시 주문은 PENDING 상태를 유지한다 (재시도 가능) |
+| BR-PY04 | 결제 성공 시 주문 상태를 COMPLETED로 전이한다 |
+
 ---
 
 ## 5. 상태 정의
@@ -214,17 +244,35 @@
 ```
 현재:
   PENDING → CANCELLED (사용자 취소)
-          → COMPLETED (결제 도입 시)
+          → COMPLETED (결제 성공 시)
 
-확장 시 (결제 도입):
+확장 시 (배송 도입):
   PENDING_PAYMENT → PAID → SHIPPING → COMPLETED
                                     → CANCEL_REQUESTED → CANCELLED → REFUNDED
 ```
 
-현재는 결제 기능이 구현되지 않았으므로, 주문은 PENDING 상태로 유지된다. 사용자는 PENDING 상태에서 취소할 수 있다.
-결제 도입 시 별도 유스케이스(ConfirmPaymentUseCase)에서 `complete()`를 호출하여 COMPLETED로 전이한다.
+주문은 PENDING 상태로 생성된다. 사용자는 PENDING 상태에서 취소할 수 있다.
+결제 성공 시 HandlePaymentCallbackUseCase 또는 RecoverPaymentUseCase에서 `complete()`를 호출하여 COMPLETED로 전이한다 (BR-PY04).
+결제 실패 시 주문은 PENDING 상태를 유지하여 재시도가 가능하다 (BR-PY03).
 상태 전이 규칙은 도메인이 보호하고, 전이 시점은 ApplicationService가 결정한다.
 확장 시 상태 추가만으로 대응 가능한 구조를 전제한다.
+
+### 결제 상태
+
+| 상태 | 의미 | 설명 |
+|------|------|------|
+| PENDING | 결제 대기 | 결제가 생성되었으나 PG에 아직 요청되지 않은 상태 |
+| REQUESTED | 요청됨 | PG에 결제 요청이 전송된 상태. 콜백 또는 복구를 통해 최종 상태로 전이 |
+| SUCCESS | 성공 | PG 결제가 성공하여 주문이 COMPLETED로 전이된 상태 |
+| FAILED | 실패 | PG 결제가 실패한 상태. 주문은 PENDING 유지 (재시도 가능) |
+
+```
+현재:
+  PENDING → REQUESTED (PG 요청 성공 시)
+         → PENDING (PG 요청 실패 시, 상태 유지)
+  REQUESTED → SUCCESS (콜백/복구: PG 결제 성공)
+            → FAILED (콜백/복구: PG 결제 실패)
+```
 
 ### 쿠폰 상태
 
@@ -367,6 +415,49 @@
 - A1: 상품이 존재하지 않거나 삭제됨 → 404 (BR-L04)
 - A2: 이미 좋아요한 상품 → 변경 없이 성공 반환 (BR-L02, 멱등)
 
+### 결제 요청
+
+**Main Flow**
+1. 회원은 주문에 대한 결제를 요청한다 (카드 유형, 카드 번호 포함)
+2. 시스템은 주문을 조회하고 PENDING 상태인지 검증한다 (BR-PY02)
+3. 시스템은 동일 주문에 대한 기존 결제가 없는지 확인한다 (BR-PY01)
+4. 시스템은 결제(Payment)를 PENDING 상태로 생성하고 저장한다 (TX1)
+5. 시스템은 트랜잭션 밖에서 PG에 결제를 요청한다
+6. PG 요청 성공 시, 시스템은 결제 상태를 REQUESTED로 업데이트한다 (TX2)
+7. PG 요청 실패 시, 결제는 PENDING 상태를 유지한다 (복구 스케줄러가 처리)
+8. 회원에게 결제 요청 접수를 응답한다
+
+**Alternate Flow**
+- A1: 주문이 존재하지 않음 → 404
+- A2: 주문이 PENDING이 아님 → 400 (BR-PY02)
+- A3: 동일 주문에 이미 결제가 존재함 → 409 (BR-PY01)
+- A4: PG 요청 실패 (CircuitBreaker OPEN 등) → 결제 PENDING 유지, Fallback 응답
+
+### 결제 콜백 수신
+
+**Main Flow**
+1. PG가 결제 결과 콜백을 전송한다
+2. 시스템은 transactionKey로 결제를 조회한다 (SELECT FOR UPDATE)
+3. 시스템은 결제가 이미 종료 상태(SUCCESS/FAILED)인지 확인한다
+4. PG 결제 성공 시, 시스템은 결제를 SUCCESS로 변경하고 주문을 COMPLETED로 전이한다 (BR-PY04)
+5. PG 결제 실패 시, 시스템은 결제를 FAILED로 변경하고 실패 사유를 기록한다 (BR-PY03)
+
+**Alternate Flow**
+- A1: transactionKey로 결제를 찾을 수 없음 → 404
+- A2: 이미 종료 상태 → 변경 없이 성공 반환 (멱등)
+
+### 결제 복구
+
+**Main Flow**
+1. 스케줄러가 장기 미완료(PENDING/REQUESTED) 결제를 조회한다
+2. 시스템은 각 결제에 대해 PG에 결제 상태를 조회한다
+3. PG 응답에 따라 결제를 SUCCESS 또는 FAILED로 전이한다
+4. SUCCESS인 경우 주문을 COMPLETED로 전이한다 (BR-PY04)
+
+**Alternate Flow**
+- A1: PG 조회 실패 (CircuitBreaker OPEN 등) → 해당 결제는 건너뛰고 다음 스케줄 시 재시도
+- A2: PG 응답이 아직 미확정 → 결제 상태 유지, 다음 스케줄 시 재조회
+
 ### 좋아요 취소
 
 **Main Flow**
@@ -398,6 +489,10 @@
 | 발급 수량 초과 | 409 CONFLICT | BR-CP04 |
 | 사용된 쿠폰으로 주문 | 400 BAD_REQUEST | BR-CP07 |
 | 최소 주문 금액 미달 | 400 BAD_REQUEST | BR-CP03 |
+| PENDING이 아닌 주문에 결제 요청 | 400 BAD_REQUEST | BR-PY02 |
+| 동일 주문 중복 결제 요청 | 409 CONFLICT | BR-PY01 |
+| PG 요청 실패 (CircuitBreaker) | 결제 PENDING 유지, Fallback 응답 | - |
+| 존재하지 않는 transactionKey 콜백 | 404 NOT_FOUND | - |
 
 ---
 
@@ -440,18 +535,18 @@
 ### 주문 생성 책임 경계와 결제 분리
 
 주문 생성은 "결제 요청 가능한 주문을 만드는 것"까지 책임진다.
-결제 승인/실패는 별도 유스케이스로 분리한다.
+결제 승인/실패는 별도 유스케이스(Payment 도메인)로 분리되어 구현되었다.
 
-- **현재 구조**: 주문 생성(중복 검증 + 재고 차감 + 스냅샷 + PENDING 저장). 결제 미구현이므로 PENDING 상태 유지. 사용자가 취소 가능
-- **확장 시**: 주문 생성은 PENDING까지만 책임. 결제 성공 시 별도 유스케이스(ConfirmPaymentUseCase)에서 `complete()` 호출
+- **현재 구조**: 주문 생성(중복 검증 + 재고 차감 + 스냅샷 + PENDING 저장). 결제 요청 시 Payment Aggregate가 비동기 PG 연동을 처리
+- **결제 흐름**: 결제 성공 시 HandlePaymentCallbackUseCase 또는 RecoverPaymentUseCase에서 `complete()` 호출
 - **경계**: 상태 전이 규칙은 도메인이 보호한다. "언제 전이할 것인가"는 ApplicationService가 결정한다. 도메인 코드(`complete()` 검증 규칙)는 변경 없이 확장된다
 
 ### 주문 상태 확장
 
 현재 주문 상태는 3개(PENDING, COMPLETED, CANCELLED)로 단순하다.
-결제/배송 도입 시 상태가 확장되며, 이때 상태 전이를 도메인 레벨에서 관리하는 구조가 필요하다.
+배송 도입 시 상태가 확장되며, 이때 상태 전이를 도메인 레벨에서 관리하는 구조가 필요하다.
 
-- **현재 구조**: 도메인 객체가 상태 전이 규칙을 검증 (ex. PENDING에서만 취소 가능)
+- **현재 구조**: 도메인 객체가 상태 전이 규칙을 검증 (ex. PENDING에서만 취소 가능). 결제 도메인이 PENDING → COMPLETED 전이를 담당
 - **확장 시**: 상태 전이 정책을 추가하는 것만으로 새로운 흐름 지원 가능
 - **경계**: 상태 전이 규칙이 도메인 외부(서비스, 컨트롤러)에 흩어지지 않아야 한다
 
@@ -484,6 +579,10 @@
 | DELETE | `/orders/{id}` | O |
 | POST | `/coupons/{couponId}/issue` | O |
 | GET | `/users/me/coupons` | O |
+| POST | `/payments` | O |
+| GET | `/payments/{id}` | O |
+| POST | `/payments/callback` | X |
+| POST | `/payments/{id}/recover` | O |
 
 ### 어드민 API (`/api-admin/v1`)
 

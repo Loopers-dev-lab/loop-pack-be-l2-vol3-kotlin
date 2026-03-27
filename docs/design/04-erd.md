@@ -19,6 +19,7 @@
 ```mermaid
 erDiagram
     USERS ||--o{ ORDERS : "주문"
+    USERS ||--o{ PAYMENTS : "결제"
     USERS ||--o{ LIKES : "좋아요"
     BRAND ||--o{ PRODUCT : "보유"
     PRODUCT ||--o{ PRODUCT_IMAGE : "이미지"
@@ -27,6 +28,7 @@ erDiagram
     COUPON ||--o{ USER_COUPON : "발급"
     USERS ||--o{ USER_COUPON : "보유"
     USER_COUPON ||--o| ORDERS : "적용"
+    ORDERS ||--o| PAYMENTS : "결제"
 
     USERS {
         bigint id PK "AUTO INCREMENT"
@@ -109,6 +111,20 @@ erDiagram
         timestamp expired_at "만료 시점 (스냅샷)"
         timestamp used_at "사용 시점 (nullable)"
         timestamp issued_at "발급 시점"
+        timestamp created_at "생성 시점"
+        timestamp updated_at "수정 시점"
+    }
+
+    PAYMENTS {
+        bigint id PK "AUTO INCREMENT"
+        bigint order_id FK "주문 ID"
+        bigint user_id FK "회원 ID"
+        varchar_200 transaction_key "PG 거래 키 (nullable, UNIQUE)"
+        varchar_20 card_type "SAMSUNG / KB / HYUNDAI"
+        varchar_20 card_no "카드 번호"
+        bigint amount "결제 금액"
+        varchar_20 status "PENDING / REQUESTED / SUCCESS / FAILED"
+        varchar_500 failure_reason "실패 사유 (nullable)"
         timestamp created_at "생성 시점"
         timestamp updated_at "수정 시점"
     }
@@ -255,6 +271,29 @@ erDiagram
 > **UNIQUE(coupon_id, user_id)** — BR-CP05 보장 (중복 발급 방지)
 > Soft Delete 없음. user_coupon은 상태(AVAILABLE/USED/EXPIRED)로 관리한다.
 
+### payments
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|------|------|---------|------|
+| id | BIGINT | PK, AUTO INCREMENT | |
+| order_id | BIGINT | NOT NULL, FK → orders.id | 주문 참조 (BR-PY01: 중복 결제 방지) |
+| user_id | BIGINT | NOT NULL, FK → users.id | 회원 ID |
+| transaction_key | VARCHAR(200) | NULLABLE, UNIQUE | PG 거래 고유 키 (REQUESTED 이후 할당) |
+| card_type | VARCHAR(20) | NOT NULL | SAMSUNG / KB / HYUNDAI |
+| card_no | VARCHAR(20) | NOT NULL | 카드 번호 |
+| amount | BIGINT | NOT NULL, CHECK >= 0 | 결제 금액 (원) |
+| status | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | PENDING / REQUESTED / SUCCESS / FAILED |
+| failure_reason | VARCHAR(500) | NULLABLE | 결제 실패 사유 (FAILED 상태일 때) |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
+
+> Soft Delete 없음. 결제 상태(PENDING/REQUESTED/SUCCESS/FAILED)로 관리한다.
+>
+> **transaction_key:** PG에 결제 요청 성공 시 발급되는 고유 거래 키. PENDING 상태에서는 null이며, REQUESTED 전이 시 할당된다.
+> UNIQUE 제약으로 동일 거래 키의 중복을 방지한다.
+>
+> **order_id와 중복 결제 방지:** 동일 주문에 대한 결제는 Application Service에서 `findByOrderId()`로 사전 검증한다 (BR-PY01).
+
 ### orders
 
 | 컬럼 | 타입 | 제약조건 | 설명 |
@@ -321,6 +360,9 @@ erDiagram
 | user_coupon | `uk_user_coupon_coupon_user` | UNIQUE | (coupon_id, user_id) | 중복 발급 방지 (BR-CP05) |
 | user_coupon | `idx_user_coupon_user_id` | INDEX | user_id | 내 쿠폰 목록 조회 |
 | user_coupon | `idx_user_coupon_coupon_id` | INDEX | coupon_id | 쿠폰별 발급 내역 조회 |
+| payments | `uk_payments_transaction_key` | UNIQUE | transaction_key | PG 거래 키 유일성 보장 + 콜백 조회 |
+| payments | `idx_payments_order_id` | INDEX | order_id | 주문별 결제 조회 (BR-PY01 중복 검증) |
+| payments | `idx_payments_status_created` | INDEX | (status, created_at) | 미완료 결제 복구 스케줄러 조회 |
 
 ---
 
@@ -336,6 +378,7 @@ erDiagram
 | OrderItem | order_item | X | 스냅샷, 불변 |
 | Coupon | coupon | O | `deleted_at` |
 | UserCoupon | user_coupon | X | 상태(AVAILABLE/USED/EXPIRED)로 관리 |
+| Payment | payments | X | 상태(PENDING/REQUESTED/SUCCESS/FAILED)로 관리 |
 
 ---
 
@@ -354,6 +397,9 @@ erDiagram
 | likes에 FK 적용 | Soft Delete로 물리 행이 유지되므로 FK 무결성이 깨지지 않는다 |
 | `ordered_at`과 `created_at` 분리 | 비즈니스 시점과 기술 시점을 명시적으로 구분. 확장 시 분리가 필요해진다 |
 | `total_amount`는 도메인이 계산 | DB CHECK로 강제 불가. 도메인 불변식으로 보장하고 생성 이후 변경하지 않는다 |
+| payments에 Soft Delete 없음 | 결제 상태(PENDING/REQUESTED/SUCCESS/FAILED)가 생명주기를 표현한다 |
+| `transaction_key` UNIQUE + NULLABLE | PG 요청 전(PENDING)에는 null, 요청 후 할당. UNIQUE로 콜백 조회 시 유일성 보장 |
+| payments.order_id FK | 주문과 결제의 참조 무결성 보장. 주문은 상태로 관리(물리 삭제 없음)하므로 FK 충돌 없음 |
 
 ---
 
@@ -361,6 +407,6 @@ erDiagram
 
 | 확장 포인트 | 현재 구조 | 확장 시 |
 |------------|----------|--------|
-| 결제/배송 도입 | orders에 status/total_amount만 존재 | Payment Aggregate(payment 테이블) 분리. orders는 주문 사실만, payment는 결제 상태/금액/환불 관리. 현재 COMPLETED는 "주문 확정" 의미이며, 배송 도입 시 PAID → SHIPPING → DELIVERED 등으로 상태 세분화가 필요하다 |
+| 결제 → 배송 도입 | Payment Aggregate(payments 테이블)가 구현됨. orders는 주문 사실만, payments는 결제 상태/금액 관리 | 배송 도입 시 PAID → SHIPPING → DELIVERED 등으로 주문 상태 세분화가 필요하다 |
 | 재고 분리 | stock이 product에 직접 보관 | stock 전용 테이블 분리 → 상품 메타와 재고 경합 분리 |
-| 환불 | order_item.price 기준 (스냅샷) | payment 테이블에 paid_amount, refund_amount 관리 |
+| 환불 | order_item.price 기준 (스냅샷) | payments 테이블에 paid_amount, refund_amount 컬럼 추가 |

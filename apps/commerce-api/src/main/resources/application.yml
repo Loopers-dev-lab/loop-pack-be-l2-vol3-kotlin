@@ -24,6 +24,43 @@ spring:
       - logging.yml
       - monitoring.yml
 
+payment:
+  pg:
+    base-url: http://localhost:8082
+    callback-url: http://localhost:8080/api/v1/payments/callback
+    connect-timeout: 1000
+    read-timeout: 3000
+
+resilience4j:
+  retry:
+    instances:
+      pgQueryRetry:
+        max-attempts: 2
+        wait-duration: 1s
+        retry-exceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.io.IOException
+  circuitbreaker:
+    instances:
+      pgRequest:
+        sliding-window-size: 10
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 60
+        automatic-transition-from-open-to-half-open-enabled: true
+      pgQuery:
+        sliding-window-size: 10
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        slow-call-duration-threshold: 3s
+        slow-call-rate-threshold: 60
+        automatic-transition-from-open-to-half-open-enabled: true
+
 springdoc:
   use-fqn: true
   swagger-ui:
