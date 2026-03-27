@@ -8,4 +8,5 @@ interface OutboxEventRepository {
     fun updateStatus(id: Long, status: OutboxEventStatus)
     fun updateStatusAndRetryCount(id: Long, status: OutboxEventStatus, retryCount: Int)
     fun deletePublishedBefore(hours: Int): Int
+    fun recoverStuckSending(minutes: Int): Int
 }

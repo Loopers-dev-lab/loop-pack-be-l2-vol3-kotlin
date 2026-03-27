@@ -40,4 +40,14 @@ interface OutboxEventJpaRepository : JpaRepository<OutboxEventEntity, Long> {
         nativeQuery = true,
     )
     fun deletePublishedBefore(hours: Int): Int
+
+    @Modifying
+    @Query(
+        value = """
+            UPDATE outbox_event SET status = 'PENDING'
+            WHERE status = 'SENDING' AND updated_at < DATE_SUB(NOW(), INTERVAL :minutes MINUTE)
+        """,
+        nativeQuery = true,
+    )
+    fun recoverStuckSending(minutes: Int): Int
 }

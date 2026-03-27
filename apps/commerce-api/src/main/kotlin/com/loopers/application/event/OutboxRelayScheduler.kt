@@ -25,6 +25,7 @@ class OutboxRelayScheduler(
     companion object {
         private const val MAX_RETRY = 5
         private const val SEND_TIMEOUT_SECONDS = 10L
+        private const val STUCK_SENDING_THRESHOLD_MINUTES = 5
     }
 
     // [설계 결정] 다중 인스턴스 환경에서 ShedLock 대신 FOR UPDATE SKIP LOCKED 사용.
@@ -46,6 +47,19 @@ class OutboxRelayScheduler(
 
         relayEvents(events)
         log.debug("Outbox retry 완료. count={}", events.size)
+    }
+
+    /**
+     * SENDING 상태로 마킹 후 서버가 죽으면 해당 이벤트가 PENDING으로도 FAILED로도 돌아가지 않는다.
+     * 5분 이상 SENDING에 머물러 있는 이벤트를 PENDING으로 되돌려서 다음 relay 주기에 재시도한다.
+     */
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
+    fun recoverStuckSending() {
+        val recovered = outboxEventRepository.recoverStuckSending(STUCK_SENDING_THRESHOLD_MINUTES)
+        if (recovered > 0) {
+            log.warn("SENDING 상태 복구 완료. recovered={}", recovered)
+        }
     }
 
     @Scheduled(cron = "0 0 * * * *")

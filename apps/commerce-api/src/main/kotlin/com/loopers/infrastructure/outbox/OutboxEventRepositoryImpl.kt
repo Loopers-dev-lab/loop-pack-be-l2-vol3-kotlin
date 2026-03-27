@@ -40,4 +40,8 @@ class OutboxEventRepositoryImpl(
     override fun deletePublishedBefore(hours: Int): Int {
         return jpaRepository.deletePublishedBefore(hours)
     }
+
+    override fun recoverStuckSending(minutes: Int): Int {
+        return jpaRepository.recoverStuckSending(minutes)
+    }
 }
