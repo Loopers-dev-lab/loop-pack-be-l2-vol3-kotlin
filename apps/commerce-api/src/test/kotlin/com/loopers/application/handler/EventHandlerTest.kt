@@ -11,10 +11,7 @@ import com.loopers.application.handler.like.ProductDeletedLikeEventHandler
 import com.loopers.application.handler.product.DeductStockCommandHandler
 import com.loopers.application.handler.product.RestoreStockCommandHandler
 import com.loopers.application.auth.FakeAuthCacheStore
-import com.loopers.application.brand.BrandCommand
-import com.loopers.application.brand.BrandService
 import com.loopers.application.brand.FakeBrandCacheStore
-import com.loopers.application.brand.FakeBrandRepository
 import com.loopers.application.like.FakeProductLikeRepository
 import com.loopers.application.like.LikeService
 import com.loopers.application.product.FakeProductCacheStore
