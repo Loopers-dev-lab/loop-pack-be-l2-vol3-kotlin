@@ -31,7 +31,7 @@ class ProductLikeService(
             type = LikeCountEventType.INCREMENT,
             userId = user.id,
         )
-        outboxPublisher.publish(likeCountEvent, product.id, topic = "metrics-events")
+        outboxPublisher.publish(likeCountEvent, product.id, topic = "like-events")
     }
 
     @Transactional
@@ -47,7 +47,7 @@ class ProductLikeService(
                 type = LikeCountEventType.DECREMENT,
                 userId = user.id,
             )
-            outboxPublisher.publish(likeCountEvent, product.id, topic = "metrics-events")
+            outboxPublisher.publish(likeCountEvent, product.id, topic = "like-events")
         }
 
         return deletedCount

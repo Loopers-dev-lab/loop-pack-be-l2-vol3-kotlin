@@ -6,7 +6,6 @@ import com.loopers.application.service.ProductMetricsService
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.event.ProductViewedEvent
-import com.loopers.domain.event.LikeCountEvent
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -43,10 +42,6 @@ class ProductMetricsConsumer(
                         }
                         "OrderCreatedEvent" -> {
                             val event = objectMapper.readValue(payload, OrderCreatedEvent::class.java)
-                            productMetricsService.processMetricsEvent(event)
-                        }
-                        "LikeCountEvent" -> {
-                            val event = objectMapper.readValue(payload, LikeCountEvent::class.java)
                             productMetricsService.processMetricsEvent(event)
                         }
                         else -> logger.warn("Unknown event type: $eventType")
