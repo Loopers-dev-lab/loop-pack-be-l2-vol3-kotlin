@@ -1,6 +1,7 @@
 package com.loopers.config.kafka
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties
 import org.springframework.context.annotation.Bean
@@ -23,6 +24,8 @@ class KafkaConfig {
     companion object {
         const val BATCH_LISTENER = "BATCH_LISTENER_DEFAULT"
 
+        private const val PRODUCER_ACKS_ALL = "all"
+
         private const val MAX_POLLING_SIZE = 3000 // read 3000 msg
         private const val FETCH_MIN_BYTES = (1024 * 1024) // 1mb
         private const val FETCH_MAX_WAIT_MS = 5 * 1000 // broker waiting time = 5s
@@ -35,7 +38,10 @@ class KafkaConfig {
     fun producerFactory(
         kafkaProperties: KafkaProperties,
     ): ProducerFactory<Any, Any> {
-        val props: Map<String, Any> = HashMap(kafkaProperties.buildProducerProperties())
+        val props: Map<String, Any> = HashMap(kafkaProperties.buildProducerProperties()).apply {
+            put(ProducerConfig.ACKS_CONFIG, PRODUCER_ACKS_ALL)
+            put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true)
+        }
         return DefaultKafkaProducerFactory(props)
     }
 

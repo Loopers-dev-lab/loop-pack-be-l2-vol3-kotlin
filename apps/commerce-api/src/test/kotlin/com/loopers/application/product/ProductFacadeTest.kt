@@ -1,5 +1,7 @@
 package com.loopers.application.product
 
+import com.loopers.application.event.ProductViewActionType
+import com.loopers.application.event.ProductViewedEvent
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductModel
@@ -13,6 +15,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import java.time.ZonedDateTime
@@ -23,7 +26,8 @@ class ProductFacadeTest {
     private val productService: ProductService = mockk()
     private val brandService: BrandService = mockk()
     private val productCacheStore: ProductCacheStore = mockk(relaxed = true)
-    private val productFacade = ProductFacade(productService, brandService, productCacheStore)
+    private val applicationEventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
+    private val productFacade = ProductFacade(productService, brandService, productCacheStore, applicationEventPublisher)
 
     companion object {
         private const val PRODUCT_ID = 1L
@@ -86,6 +90,14 @@ class ProductFacadeTest {
             verify(exactly = 1) { productService.findById(PRODUCT_ID) }
             verify(exactly = 1) { brandService.findById(BRAND_ID) }
             verify(exactly = 1) { productCacheStore.putProductDetail(any()) }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<ProductViewedEvent> {
+                        it.productId == PRODUCT_ID &&
+                            it.actionType == ProductViewActionType.PRODUCT_DETAIL_VIEWED
+                    },
+                )
+            }
         }
 
         @DisplayName("캐시된 상품 상세가 있으면 DB 조회 없이 반환한다")
@@ -116,6 +128,14 @@ class ProductFacadeTest {
             assertThat(result.brandName).isEqualTo(BRAND_NAME)
             verify(exactly = 0) { productService.findById(any()) }
             verify(exactly = 1) { brandService.findById(BRAND_ID) }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<ProductViewedEvent> {
+                        it.productId == PRODUCT_ID &&
+                            it.actionType == ProductViewActionType.PRODUCT_DETAIL_VIEWED
+                    },
+                )
+            }
         }
     }
 
@@ -149,6 +169,14 @@ class ProductFacadeTest {
             verify(exactly = 1) { productService.findAll(null, ProductSortType.LATEST, pageable) }
             verify(exactly = 1) { brandService.findAllByIds(any()) }
             verify(exactly = 1) { productCacheStore.putProductList(null, ProductSortType.LATEST, pageable, any()) }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<ProductViewedEvent> {
+                        it.productId == null &&
+                            it.actionType == ProductViewActionType.PRODUCT_LIST_VIEWED
+                    },
+                )
+            }
         }
 
         @DisplayName("브랜드별 필터링 조회 시에도 브랜드를 일괄 조회한다")
@@ -173,6 +201,14 @@ class ProductFacadeTest {
             assertThat(result.content).allSatisfy { assertThat(it.brandName).isEqualTo(BRAND_NAME) }
             verify(exactly = 1) { productService.findAll(BRAND_ID, ProductSortType.LIKES_DESC, pageable) }
             verify(exactly = 1) { brandService.findAllByIds(listOf(BRAND_ID)) }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<ProductViewedEvent> {
+                        it.productId == null &&
+                            it.actionType == ProductViewActionType.PRODUCT_LIST_VIEWED
+                    },
+                )
+            }
         }
 
         @DisplayName("캐시된 상품 목록이 있으면 브랜드 일괄 조회 없이 반환한다")
@@ -211,6 +247,14 @@ class ProductFacadeTest {
             assertThat(result.content[0].brandName).isEqualTo(BRAND_NAME)
             verify(exactly = 0) { productService.findAll(any(), any(), any()) }
             verify(exactly = 1) { brandService.findAllByIds(listOf(BRAND_ID)) }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<ProductViewedEvent> {
+                        it.productId == null &&
+                            it.actionType == ProductViewActionType.PRODUCT_LIST_VIEWED
+                    },
+                )
+            }
         }
     }
 }

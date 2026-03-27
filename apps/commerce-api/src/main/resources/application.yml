@@ -21,8 +21,16 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
+
+step2:
+  kafka:
+    catalog-topic: catalog-events
+  outbox-relay:
+    enabled: true
+    fixed-delay-ms: 1000
 
 jwt:
   secret: ${JWT_SECRET:your-256-bit-secret-key-here-for-hs256-algorithm}
@@ -50,6 +58,10 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+step2:
+  outbox-relay:
+    enabled: false
 
 ---
 spring:

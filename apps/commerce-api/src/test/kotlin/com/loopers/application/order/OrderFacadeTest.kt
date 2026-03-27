@@ -1,5 +1,6 @@
 package com.loopers.application.order
 
+import com.loopers.application.event.OrderCompletedEvent
 import com.loopers.application.payment.PaymentFacade
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.brand.BrandService
@@ -21,6 +22,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import io.mockk.verify
+import org.springframework.context.ApplicationEventPublisher
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
@@ -38,6 +40,7 @@ class OrderFacadeTest {
     private val couponService: CouponService = mockk()
     private val orderTransactionRunner: OrderTransactionRunner = mockk()
     private val paymentFacade: PaymentFacade = mockk(relaxed = true)
+    private val applicationEventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
     private val orderFacade = OrderFacade(
         orderTransactionRunner,
         paymentFacade,
@@ -46,6 +49,7 @@ class OrderFacadeTest {
         brandService,
         couponIssueService,
         couponService,
+        applicationEventPublisher,
     )
 
     init {
@@ -176,6 +180,15 @@ class OrderFacadeTest {
             assertThat(result.totalAmount).isEqualTo(25000L * 3)
             assertThat(result.couponIssueId).isNull()
             verify(exactly = 1) { paymentFacade.requestPayment(result.id, result.totalAmount) }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<OrderCompletedEvent> {
+                        it.orderId == result.id &&
+                            it.userId == USER_ID &&
+                            it.totalAmount == result.totalAmount
+                    },
+                )
+            }
         }
 
         @DisplayName("다중 상품 주문이 정상적으로 생성되고 총 금액이 정확하다")

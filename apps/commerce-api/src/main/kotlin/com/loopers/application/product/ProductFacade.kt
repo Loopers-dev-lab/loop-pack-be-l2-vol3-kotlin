@@ -1,10 +1,13 @@
 package com.loopers.application.product
 
+import com.loopers.application.event.ProductViewActionType
+import com.loopers.application.event.ProductViewedEvent
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductSortType
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -15,24 +18,47 @@ class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val productCacheStore: ProductCacheStore,
+    private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional(readOnly = true)
     fun getProductDetail(productId: Long): ProductInfo {
         productCacheStore.getProductDetail(productId)?.let { snapshot ->
             val brand = brandService.findById(snapshot.brandId)
-            return snapshot.toProductInfo(brand)
+            return snapshot.toProductInfo(brand).also {
+                applicationEventPublisher.publishEvent(
+                    ProductViewedEvent(
+                        productId = productId,
+                        actionType = ProductViewActionType.PRODUCT_DETAIL_VIEWED,
+                    ),
+                )
+            }
         }
 
         val product = productService.findById(productId)
         val brand = brandService.findById(product.brandId)
         return ProductInfo.of(product, brand)
-            .also { productCacheStore.putProductDetail(ProductCacheSnapshot.from(product)) }
+            .also {
+                productCacheStore.putProductDetail(ProductCacheSnapshot.from(product))
+                applicationEventPublisher.publishEvent(
+                    ProductViewedEvent(
+                        productId = productId,
+                        actionType = ProductViewActionType.PRODUCT_DETAIL_VIEWED,
+                    ),
+                )
+            }
     }
 
     @Transactional(readOnly = true)
     fun getProductList(brandId: Long?, sortType: ProductSortType, pageable: Pageable): Page<ProductInfo> {
         productCacheStore.getProductList(brandId, sortType, pageable)?.let { snapshots ->
-            return snapshots.toProductInfoPage()
+            return snapshots.toProductInfoPage().also {
+                applicationEventPublisher.publishEvent(
+                    ProductViewedEvent(
+                        productId = null,
+                        actionType = ProductViewActionType.PRODUCT_LIST_VIEWED,
+                    ),
+                )
+            }
         }
 
         val products = productService.findAll(brandId, sortType, pageable)
@@ -42,7 +68,15 @@ class ProductFacade(
             val brand = brandMap[product.brandId]
                 ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다: ${product.brandId}")
             ProductInfo.of(product, brand)
-        }.also { productCacheStore.putProductList(brandId, sortType, pageable, snapshots) }
+        }.also {
+            productCacheStore.putProductList(brandId, sortType, pageable, snapshots)
+            applicationEventPublisher.publishEvent(
+                ProductViewedEvent(
+                    productId = null,
+                    actionType = ProductViewActionType.PRODUCT_LIST_VIEWED,
+                ),
+            )
+        }
     }
 
     private fun Page<ProductCacheSnapshot>.toProductInfoPage(): Page<ProductInfo> {
