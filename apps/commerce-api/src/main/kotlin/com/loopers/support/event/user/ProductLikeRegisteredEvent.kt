@@ -1,8 +1,8 @@
-package com.loopers.application.user.like
+package com.loopers.support.event.user
 
 import org.springframework.context.ApplicationEvent
 
-class ProductLikeCanceledEvent(
+class ProductLikeRegisteredEvent(
     val userId: Long,
     val productId: Long,
 ) : ApplicationEvent(productId)

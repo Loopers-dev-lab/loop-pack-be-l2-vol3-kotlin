@@ -1,11 +1,10 @@
-package com.loopers.application.user.payment
+package com.loopers.support.event.user
 
-import com.loopers.domain.payment.PaymentReasonCode
 import org.springframework.context.ApplicationEvent
 
 class PaymentFailedEvent(
     val paymentId: Long,
     val orderId: Long,
     val userId: Long,
-    val reasonCode: PaymentReasonCode,
+    val reasonCode: String,
 ) : ApplicationEvent(paymentId)

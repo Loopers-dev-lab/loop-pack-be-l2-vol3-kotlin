@@ -1,7 +1,5 @@
 package com.loopers.infrastructure.like
 
-import com.loopers.application.user.like.ProductLikeCanceledEvent
-import com.loopers.application.user.like.ProductLikeRegisteredEvent
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -12,19 +10,17 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.infrastructure.product.RedisProductQueryCache
+import com.loopers.support.event.user.ProductLikeCanceledEvent
+import com.loopers.support.event.user.ProductLikeRegisteredEvent
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertDoesNotThrow
-import org.junit.jupiter.api.assertThrows
-import org.mockito.kotlin.doThrow
-import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.mock.mockito.SpyBean
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -40,15 +36,20 @@ constructor(
     private val productStockRepository: ProductStockRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
     platformTransactionManager: PlatformTransactionManager,
 ) {
-    @SpyBean
-    private lateinit var redisProductQueryCache: RedisProductQueryCache
-
     private val transactionTemplate = TransactionTemplate(platformTransactionManager)
 
     private var productId: Long = 0
     private lateinit var activeBrand: Brand
+
+    private lateinit var redisProductQueryCache: RedisProductQueryCache
+
+    @Autowired
+    fun setRedisProductQueryCache(cache: RedisProductQueryCache) {
+        redisProductQueryCache = cache
+    }
 
     @BeforeEach
     fun setUp() {
@@ -59,13 +60,16 @@ constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     @Test
-    @DisplayName("like registered event is handled after commit to increment likeCount and evict detail cache")
-    fun handle_productLikeRegistered_afterCommit() {
-        productId = createActiveProduct(likeCount = 0)
+    @DisplayName("like registered event는 커밋 후 detail/list cache를 유지한다")
+    fun handle_productLikeRegistered_afterCommit_keepsCaches() {
+        productId = createActiveProduct()
         putDetailCache(productId, likeCount = 0)
+        val listNamespaceBefore = redisProductQueryCache.getListNamespaceVersion(activeBrand.id!!)
+        val allListNamespaceBefore = redisProductQueryCache.getListNamespaceVersion(null)
 
         transactionTemplate.executeWithoutResult {
             applicationEventPublisher.publishEvent(
@@ -74,66 +78,20 @@ constructor(
                     productId = productId,
                 ),
             )
-
-            assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(0)
-            assertThat(redisProductQueryCache.getDetail(productId)).isNotNull()
         }
 
-        assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(1)
-        assertThat(redisProductQueryCache.getDetail(productId)).isNull()
+        assertThat(redisProductQueryCache.getDetail(productId)).isNotNull
+        assertThat(redisProductQueryCache.getListNamespaceVersion(activeBrand.id!!)).isEqualTo(listNamespaceBefore)
+        assertThat(redisProductQueryCache.getListNamespaceVersion(null)).isEqualTo(allListNamespaceBefore)
     }
 
     @Test
-    @DisplayName("like registered event keeps likeCount when detail cache eviction fails")
-    fun handle_productLikeRegistered_preservesLikeCount_whenCacheEvictionFails() {
-        productId = createActiveProduct(likeCount = 0)
-        putDetailCache(productId, likeCount = 0)
-        doThrow(RuntimeException("boom"))
-            .whenever(redisProductQueryCache)
-            .evictDetails(listOf(productId))
-
-        assertDoesNotThrow {
-            transactionTemplate.executeWithoutResult {
-                applicationEventPublisher.publishEvent(
-                    ProductLikeRegisteredEvent(
-                        userId = USER_ID,
-                        productId = productId,
-                    ),
-                )
-            }
-        }
-
-        assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(1)
-        assertThat(redisProductQueryCache.getDetail(productId)).isNotNull()
-    }
-
-    @Test
-    @DisplayName("like registered event is not handled when transaction rolls back")
-    fun handle_productLikeRegistered_notHandled_onRollback() {
-        productId = createActiveProduct(likeCount = 0)
-        putDetailCache(productId, likeCount = 0)
-
-        assertThrows<RuntimeException> {
-            transactionTemplate.executeWithoutResult {
-                applicationEventPublisher.publishEvent(
-                    ProductLikeRegisteredEvent(
-                        userId = USER_ID,
-                        productId = productId,
-                    ),
-                )
-                throw RuntimeException("rollback")
-            }
-        }
-
-        assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(0)
-        assertThat(redisProductQueryCache.getDetail(productId)).isNotNull()
-    }
-
-    @Test
-    @DisplayName("like canceled event is handled after commit to decrement likeCount and evict detail cache")
-    fun handle_productLikeCanceled_afterCommit() {
-        productId = createActiveProduct(likeCount = 1)
+    @DisplayName("like canceled event는 커밋 후 detail/list cache를 유지한다")
+    fun handle_productLikeCanceled_afterCommit_keepsCaches() {
+        productId = createActiveProduct()
         putDetailCache(productId, likeCount = 1)
+        val listNamespaceBefore = redisProductQueryCache.getListNamespaceVersion(activeBrand.id!!)
+        val allListNamespaceBefore = redisProductQueryCache.getListNamespaceVersion(null)
 
         transactionTemplate.executeWithoutResult {
             applicationEventPublisher.publishEvent(
@@ -142,62 +100,14 @@ constructor(
                     productId = productId,
                 ),
             )
-
-            assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(1)
-            assertThat(redisProductQueryCache.getDetail(productId)).isNotNull()
         }
 
-        assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(0)
-        assertThat(redisProductQueryCache.getDetail(productId)).isNull()
+        assertThat(redisProductQueryCache.getDetail(productId)).isNotNull
+        assertThat(redisProductQueryCache.getListNamespaceVersion(activeBrand.id!!)).isEqualTo(listNamespaceBefore)
+        assertThat(redisProductQueryCache.getListNamespaceVersion(null)).isEqualTo(allListNamespaceBefore)
     }
 
-    @Test
-    @DisplayName("like canceled event is not handled when transaction rolls back")
-    fun handle_productLikeCanceled_notHandled_onRollback() {
-        productId = createActiveProduct(likeCount = 1)
-        putDetailCache(productId, likeCount = 1)
-
-        assertThrows<RuntimeException> {
-            transactionTemplate.executeWithoutResult {
-                applicationEventPublisher.publishEvent(
-                    ProductLikeCanceledEvent(
-                        userId = USER_ID,
-                        productId = productId,
-                    ),
-                )
-                throw RuntimeException("rollback")
-            }
-        }
-
-        assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(1)
-        assertThat(redisProductQueryCache.getDetail(productId)).isNotNull()
-    }
-
-    @Test
-    @DisplayName("like canceled event keeps likeCount when detail cache eviction fails")
-    fun handle_productLikeCanceled_preservesLikeCount_whenCacheEvictionFails() {
-        productId = createActiveProduct(likeCount = 1)
-        putDetailCache(productId, likeCount = 1)
-        doThrow(RuntimeException("boom"))
-            .whenever(redisProductQueryCache)
-            .evictDetails(listOf(productId))
-
-        assertDoesNotThrow {
-            transactionTemplate.executeWithoutResult {
-                applicationEventPublisher.publishEvent(
-                    ProductLikeCanceledEvent(
-                        userId = USER_ID,
-                        productId = productId,
-                    ),
-                )
-            }
-        }
-
-        assertThat(productRepository.findById(productId)!!.likeCount).isEqualTo(0)
-        assertThat(redisProductQueryCache.getDetail(productId)).isNotNull()
-    }
-
-    private fun createActiveProduct(likeCount: Int): Long {
+    private fun createActiveProduct(): Long {
         val registered = Product.register(
             name = "Listener Product",
             regularPrice = Money(BigDecimal("10000")),
@@ -214,7 +124,7 @@ constructor(
             brandId = savedActive.brandId,
             imageUrl = savedActive.imageUrl,
             thumbnailUrl = savedActive.thumbnailUrl,
-            likeCount = likeCount,
+            likeCount = 0,
             status = savedActive.status,
         )
         val product = productRepository.save(savedWithLikeCount, ADMIN)

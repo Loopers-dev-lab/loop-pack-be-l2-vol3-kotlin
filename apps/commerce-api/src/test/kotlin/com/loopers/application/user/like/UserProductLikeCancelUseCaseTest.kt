@@ -1,6 +1,7 @@
 package com.loopers.application.user.like
 
 import com.loopers.domain.like.ProductLikeRepository
+import com.loopers.support.event.user.ProductLikeCanceledEvent
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test

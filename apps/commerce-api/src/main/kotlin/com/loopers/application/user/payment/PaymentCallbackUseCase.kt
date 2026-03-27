@@ -3,6 +3,8 @@ package com.loopers.application.user.payment
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.PaymentReasonCode
 import com.loopers.domain.payment.PaymentRepository
+import com.loopers.support.event.user.PaymentFailedEvent
+import com.loopers.support.event.user.PaymentSucceededEvent
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
@@ -78,7 +80,7 @@ class PaymentCallbackUseCase(
                         paymentId = payment.id!!,
                         orderId = payment.orderId,
                         userId = payment.userId,
-                        reasonCode = reasonCode,
+                        reasonCode = reasonCode.name,
                     ),
                 )
 

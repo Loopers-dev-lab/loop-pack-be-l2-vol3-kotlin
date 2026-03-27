@@ -1,0 +1,5 @@
+datasource:
+  mysql-jpa:
+    main:
+      maximum-pool-size: 100
+      minimum-idle: 10

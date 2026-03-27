@@ -26,9 +26,9 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 
-@DisplayName("GET /api/v1/products/{productId} - 상품 상세 조회 E2E")
+@DisplayName("GET /api/v1/products/{productId} - 상품 상세 조회 integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class UserProductV1DetailE2ETest
+class UserProductV1DetailApiIntegrationTest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,

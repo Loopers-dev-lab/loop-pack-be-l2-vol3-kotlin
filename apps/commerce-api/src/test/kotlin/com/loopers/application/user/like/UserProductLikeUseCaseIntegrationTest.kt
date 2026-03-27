@@ -7,6 +7,8 @@ import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.support.event.user.ProductLikeCanceledEvent
+import com.loopers.support.event.user.ProductLikeRegisteredEvent
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach

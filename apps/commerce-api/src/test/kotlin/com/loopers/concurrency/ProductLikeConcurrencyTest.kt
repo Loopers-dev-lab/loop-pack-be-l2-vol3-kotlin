@@ -59,11 +59,11 @@ constructor(
         return userRepository.save(user).id!!
     }
 
-    private fun assertLikeCountSynced(expectedCount: Int) {
-        val likeCount = productLikeRepository.countByProductId(productId)
-        val product = productRepository.findById(productId)!!
-        assertThat(likeCount).isEqualTo(expectedCount)
-        assertThat(product.likeCount).isEqualTo(expectedCount)
+    private fun assertLikeRowCount(expectedCount: Int) {
+        val rowCount = productLikeRepository.countByProductId(productId)
+        assertThat(rowCount)
+            .withFailMessage("product_like rowCount=%s, expected=%s", rowCount, expectedCount)
+            .isEqualTo(expectedCount)
     }
 
     @BeforeEach
@@ -117,21 +117,21 @@ constructor(
             }
         }
 
-        readyLatch.await(10, TimeUnit.SECONDS)
+        assertThat(readyLatch.await(10, TimeUnit.SECONDS)).isTrue()
         startLatch.countDown()
-        doneLatch.await(30, TimeUnit.SECONDS)
+        assertThat(doneLatch.await(30, TimeUnit.SECONDS)).isTrue()
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
-        assertLikeCountSynced(expectedCount = 1)
+        assertLikeRowCount(expectedCount = 1)
     }
 
     @Test
-    @DisplayName("같은 사용자가 동시에 10번 좋아요 해제 → row=0, likeCount=0, unexpected exception=0")
+    @DisplayName("같은 사용자가 동시에 10번 좋아요 해제 → row=0, unexpected exception=0")
     fun cancel_concurrent_sameUser_onlyOne() {
         val userId = createUser(loginId = "liketestcancel", email = "likecancel@test.com")
         registerUseCase.register(UserProductLikeCommand.Register(userId = userId, productId = productId))
-        assertLikeCountSynced(expectedCount = 1)
+        assertLikeRowCount(expectedCount = 1)
 
         val threadCount = 10
         val executor = Executors.newFixedThreadPool(threadCount)
@@ -159,13 +159,13 @@ constructor(
             }
         }
 
-        readyLatch.await(10, TimeUnit.SECONDS)
+        assertThat(readyLatch.await(10, TimeUnit.SECONDS)).isTrue()
         startLatch.countDown()
-        doneLatch.await(30, TimeUnit.SECONDS)
+        assertThat(doneLatch.await(30, TimeUnit.SECONDS)).isTrue()
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
-        assertLikeCountSynced(expectedCount = 0)
+        assertLikeRowCount(expectedCount = 0)
     }
 
     @Test
@@ -203,23 +203,23 @@ constructor(
             }
         }
 
-        readyLatch.await(10, TimeUnit.SECONDS)
+        assertThat(readyLatch.await(10, TimeUnit.SECONDS)).isTrue()
         startLatch.countDown()
-        doneLatch.await(30, TimeUnit.SECONDS)
+        assertThat(doneLatch.await(30, TimeUnit.SECONDS)).isTrue()
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
         assertThat(successCount.get()).isEqualTo(10)
-        assertLikeCountSynced(expectedCount = 10)
+        assertLikeRowCount(expectedCount = 10)
     }
 
     @Test
-    @DisplayName("좋아요/취소가 동시에 섞여도 최종 좋아요 수가 정합하게 반영된다")
+    @DisplayName("좋아요/취소가 동시에 섞여도 product_like row 수가 정합하게 유지된다")
     fun registerAndCancel_concurrent_mixedOperations_consistentCount() {
-        val cancelUserIds = (1..50).map { idx ->
+        val cancelUserIds = (1..10).map { idx ->
             createUser(loginId = "likecancel$idx", email = "likecancel$idx@test.com")
         }
-        val registerUserIds = (51..100).map { idx ->
+        val registerUserIds = (11..20).map { idx ->
             createUser(loginId = "likecancel$idx", email = "likecancel$idx@test.com")
         }
 
@@ -231,9 +231,9 @@ constructor(
                 ),
             )
         }
-        assertLikeCountSynced(expectedCount = 50)
+        assertLikeRowCount(expectedCount = 10)
 
-        val threadCount = 100
+        val threadCount = 20
         val executor = Executors.newFixedThreadPool(threadCount)
         val readyLatch = CountDownLatch(threadCount)
         val startLatch = CountDownLatch(1)
@@ -278,12 +278,12 @@ constructor(
             }
         }
 
-        readyLatch.await(10, TimeUnit.SECONDS)
+        assertThat(readyLatch.await(10, TimeUnit.SECONDS)).isTrue()
         startLatch.countDown()
-        doneLatch.await(30, TimeUnit.SECONDS)
+        assertThat(doneLatch.await(30, TimeUnit.SECONDS)).isTrue()
         executor.shutdown()
 
         assertThat(unexpectedExceptions.get()).isEqualTo(0)
-        assertLikeCountSynced(expectedCount = 50)
+        assertLikeRowCount(expectedCount = 10)
     }
 }

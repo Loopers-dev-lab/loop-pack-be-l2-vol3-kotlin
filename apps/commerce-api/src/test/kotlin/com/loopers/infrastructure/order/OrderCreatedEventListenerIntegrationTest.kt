@@ -1,6 +1,5 @@
 package com.loopers.infrastructure.order
 
-import com.loopers.application.user.order.OrderCreatedEvent
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.Money
@@ -11,6 +10,7 @@ import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.infrastructure.product.RedisProductQueryCache
+import com.loopers.support.event.user.OrderCreatedEvent
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach

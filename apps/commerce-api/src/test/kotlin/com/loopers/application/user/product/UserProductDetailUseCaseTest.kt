@@ -2,6 +2,7 @@ package com.loopers.application.user.product
 
 import com.loopers.domain.product.ProductQueryRepository
 import com.loopers.domain.product.ProductQueryResult
+import com.loopers.support.event.user.ProductDetailViewedEvent
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested

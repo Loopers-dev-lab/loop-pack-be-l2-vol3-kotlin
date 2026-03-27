@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.order
 
-import com.loopers.application.user.order.OrderCreatedEvent
 import com.loopers.domain.product.ProductQueryInvalidator
+import com.loopers.support.event.user.OrderCreatedEvent
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener

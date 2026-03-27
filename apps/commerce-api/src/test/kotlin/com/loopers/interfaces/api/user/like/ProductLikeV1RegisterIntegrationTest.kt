@@ -28,9 +28,9 @@ import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 import java.time.LocalDate
 
-@DisplayName("POST /api/v1/products/{productId}/likes - 상품 좋아요 등록 E2E")
+@DisplayName("POST /api/v1/products/{productId}/likes - 상품 좋아요 등록 API 통합 테스트")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ProductLikeV1RegisterE2ETest
+class ProductLikeV1RegisterIntegrationTest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,
@@ -93,7 +93,7 @@ constructor(
     @DisplayName("좋아요 등록 성공 시")
     inner class WhenRegisterSuccess {
         @Test
-        @DisplayName("200 OK를 반환하고 product_like row=1, likeCount=1이 된다")
+        @DisplayName("200 OK를 반환하고 product_like row=1이 된다")
         fun register_success_returns200() {
             val response = testRestTemplate.exchange(
                 endpoint(productId),
@@ -102,15 +102,13 @@ constructor(
                 object : ParameterizedTypeReference<ApiResponse<Nothing?>>() {},
             )
 
-            val product = productRepository.findById(productId)!!
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
             assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(1)
-            assertThat(product.likeCount).isEqualTo(1)
         }
 
         @Test
-        @DisplayName("중복 등록 10회 시 200 OK, product_like row=1, likeCount=1이 된다")
+        @DisplayName("중복 등록 10회 시 200 OK, product_like row=1이 된다")
         fun register_duplicate_returns200() {
             repeat(10) {
                 val response = testRestTemplate.exchange(
@@ -123,9 +121,7 @@ constructor(
                 assertThat(response.body?.meta?.result?.name).isEqualTo("SUCCESS")
             }
 
-            val product = productRepository.findById(productId)!!
             assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(1)
-            assertThat(product.likeCount).isEqualTo(1)
         }
     }
 

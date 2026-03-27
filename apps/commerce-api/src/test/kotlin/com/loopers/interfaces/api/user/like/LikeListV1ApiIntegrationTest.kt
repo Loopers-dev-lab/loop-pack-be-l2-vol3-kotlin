@@ -28,9 +28,9 @@ import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 import java.time.LocalDate
 
-@DisplayName("GET /api/v1/users/me/likes - 내 좋아요 목록 조회 E2E")
+@DisplayName("GET /api/v1/users/me/likes - 내 좋아요 목록 조회 integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class LikeListV1E2ETest
+class LikeListV1ApiIntegrationTest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,
@@ -153,7 +153,7 @@ constructor(
                 ENDPOINT,
                 HttpMethod.GET,
                 authHeaders(password = "WrongPassword1!"),
-                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Unit>>() {},
             )
 
             // assert

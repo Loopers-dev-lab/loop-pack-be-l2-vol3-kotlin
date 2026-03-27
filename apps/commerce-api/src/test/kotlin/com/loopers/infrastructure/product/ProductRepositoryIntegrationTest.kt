@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
 
 @DisplayName("ProductRepository 통합 테스트")
@@ -26,8 +28,10 @@ constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val brandRepository: BrandRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    platformTransactionManager: PlatformTransactionManager,
 ) {
     private val admin = "loopers.admin"
+    private val transactionTemplate = TransactionTemplate(platformTransactionManager)
 
     @AfterEach
     fun tearDown() {
@@ -64,6 +68,18 @@ constructor(
     ): PageRequest = PageRequest().apply {
         this.page = page
         this.size = size
+    }
+
+    private fun incrementLikeCount(productId: Long) {
+        transactionTemplate.executeWithoutResult {
+            productRepository.incrementLikeCount(productId)
+        }
+    }
+
+    private fun decrementLikeCount(productId: Long) {
+        transactionTemplate.executeWithoutResult {
+            productRepository.decrementLikeCount(productId)
+        }
     }
 
     @Nested
@@ -137,7 +153,7 @@ constructor(
             val brand = createBrand()
             val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
 
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
 
             val entity = productJpaRepository.findById(saved.id!!).get()
             assertThat(entity.likeCount).isEqualTo(1)
@@ -149,7 +165,7 @@ constructor(
             val brand = createBrand()
             val saved = createProduct(brandId = brand.id!!) // INACTIVE by default
 
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
 
             val entity = productJpaRepository.findById(saved.id!!).get()
             assertThat(entity.likeCount).isEqualTo(0)
@@ -162,7 +178,7 @@ constructor(
             val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
             productRepository.delete(saved.id!!, admin)
 
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
 
             val entity = productJpaRepository.findById(saved.id!!).get()
             assertThat(entity.likeCount).isEqualTo(0)
@@ -176,7 +192,7 @@ constructor(
             val before = productJpaRepository.findById(saved.id!!).get()
             val updatedAtBefore = before.updatedAt
 
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
 
             val after = productJpaRepository.findById(saved.id!!).get()
             assertThat(after.updatedAt).isEqualTo(updatedAtBefore)
@@ -190,7 +206,7 @@ constructor(
             val before = productJpaRepository.findById(saved.id!!).get()
             val updatedByBefore = before.updatedBy
 
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
 
             val after = productJpaRepository.findById(saved.id!!).get()
             assertThat(after.updatedBy).isEqualTo(updatedByBefore)
@@ -205,9 +221,9 @@ constructor(
         fun decrementLikeCount_positive_decreases() {
             val brand = createBrand()
             val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
 
-            productRepository.decrementLikeCount(saved.id!!)
+            decrementLikeCount(saved.id!!)
 
             val entity = productJpaRepository.findById(saved.id!!).get()
             assertThat(entity.likeCount).isEqualTo(0)
@@ -218,8 +234,7 @@ constructor(
         fun decrementLikeCount_zero_noChange() {
             val brand = createBrand()
             val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
-
-            productRepository.decrementLikeCount(saved.id!!)
+            decrementLikeCount(saved.id!!)
 
             val entity = productJpaRepository.findById(saved.id!!).get()
             assertThat(entity.likeCount).isEqualTo(0)
@@ -230,11 +245,11 @@ constructor(
         fun decrementLikeCount_auditUpdatedAt_unchanged() {
             val brand = createBrand()
             val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
             val before = productJpaRepository.findById(saved.id!!).get()
             val updatedAtBefore = before.updatedAt
 
-            productRepository.decrementLikeCount(saved.id!!)
+            decrementLikeCount(saved.id!!)
 
             val after = productJpaRepository.findById(saved.id!!).get()
             assertThat(after.updatedAt).isEqualTo(updatedAtBefore)
@@ -245,11 +260,11 @@ constructor(
         fun decrementLikeCount_auditUpdatedBy_unchanged() {
             val brand = createBrand()
             val saved = productRepository.save(createProduct(brandId = brand.id!!).activate(), admin)
-            productRepository.incrementLikeCount(saved.id!!)
+            incrementLikeCount(saved.id!!)
             val before = productJpaRepository.findById(saved.id!!).get()
             val updatedByBefore = before.updatedBy
 
-            productRepository.decrementLikeCount(saved.id!!)
+            decrementLikeCount(saved.id!!)
 
             val after = productJpaRepository.findById(saved.id!!).get()
             assertThat(after.updatedBy).isEqualTo(updatedByBefore)
@@ -354,9 +369,9 @@ constructor(
             val lowLikes = productRepository.save(createProduct(name = "낮은좋아요", brandId = brand.id!!).activate(), admin)
             val highLikes = productRepository.save(createProduct(name = "높은좋아요", brandId = brand.id!!).activate(), admin)
 
-            productRepository.incrementLikeCount(lowLikes.id!!)
+            incrementLikeCount(lowLikes.id!!)
             repeat(3) {
-                productRepository.incrementLikeCount(highLikes.id!!)
+                incrementLikeCount(highLikes.id!!)
             }
 
             val result = productRepository.findAllActive(PageRequest(), null, Product.SortType.LIKES_DESC)
@@ -378,7 +393,7 @@ constructor(
             }
             products.forEach { product ->
                 repeat(3) {
-                    productRepository.incrementLikeCount(product.id!!)
+                    incrementLikeCount(product.id!!)
                 }
             }
             val expectedIds = products.map { it.id!! }.sortedDescending()
@@ -408,7 +423,7 @@ constructor(
             }
             products.forEach { product ->
                 repeat(3) {
-                    productRepository.incrementLikeCount(product.id!!)
+                    incrementLikeCount(product.id!!)
                 }
             }
             val expectedIds = products.map { it.id!! }.sortedDescending()

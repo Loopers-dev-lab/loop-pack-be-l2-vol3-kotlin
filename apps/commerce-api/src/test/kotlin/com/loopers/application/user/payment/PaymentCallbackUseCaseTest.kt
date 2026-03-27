@@ -11,6 +11,8 @@ import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentIdempotencyKey
 import com.loopers.domain.payment.PaymentReasonCode
 import com.loopers.domain.payment.PaymentRepository
+import com.loopers.support.event.user.PaymentFailedEvent
+import com.loopers.support.event.user.PaymentSucceededEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -173,7 +175,7 @@ class PaymentCallbackUseCaseTest {
                     assertThat(event.paymentId).isEqualTo(200L)
                     assertThat(event.orderId).isEqualTo(100L)
                     assertThat(event.userId).isEqualTo(1L)
-                    assertThat(event.reasonCode).isEqualTo(PaymentReasonCode.LIMIT_EXCEEDED)
+                    assertThat(event.reasonCode).isEqualTo(PaymentReasonCode.LIMIT_EXCEEDED.name)
                 },
             )
         }

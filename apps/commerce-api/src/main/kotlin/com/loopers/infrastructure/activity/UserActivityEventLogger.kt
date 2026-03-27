@@ -1,11 +1,11 @@
 package com.loopers.infrastructure.activity
 
-import com.loopers.application.user.like.ProductLikeCanceledEvent
-import com.loopers.application.user.like.ProductLikeRegisteredEvent
-import com.loopers.application.user.order.OrderCreatedEvent
-import com.loopers.application.user.payment.PaymentFailedEvent
-import com.loopers.application.user.payment.PaymentSucceededEvent
-import com.loopers.application.user.product.ProductDetailViewedEvent
+import com.loopers.support.event.user.OrderCreatedEvent
+import com.loopers.support.event.user.PaymentFailedEvent
+import com.loopers.support.event.user.PaymentSucceededEvent
+import com.loopers.support.event.user.ProductDetailViewedEvent
+import com.loopers.support.event.user.ProductLikeCanceledEvent
+import com.loopers.support.event.user.ProductLikeRegisteredEvent
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component

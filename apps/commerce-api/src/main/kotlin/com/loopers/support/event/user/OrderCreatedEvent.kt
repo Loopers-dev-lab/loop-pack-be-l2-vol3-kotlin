@@ -1,4 +1,4 @@
-package com.loopers.application.user.order
+package com.loopers.support.event.user
 
 import org.springframework.context.ApplicationEvent
 

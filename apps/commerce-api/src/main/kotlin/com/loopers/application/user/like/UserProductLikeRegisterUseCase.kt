@@ -3,6 +3,7 @@ package com.loopers.application.user.like
 import com.loopers.domain.like.ProductLike
 import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.event.user.ProductLikeRegisteredEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

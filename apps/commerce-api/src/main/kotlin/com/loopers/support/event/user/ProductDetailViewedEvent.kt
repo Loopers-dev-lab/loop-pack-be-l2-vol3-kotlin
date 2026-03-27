@@ -1,8 +1,7 @@
-package com.loopers.application.user.like
+package com.loopers.support.event.user
 
 import org.springframework.context.ApplicationEvent
 
-class ProductLikeRegisteredEvent(
-    val userId: Long,
+class ProductDetailViewedEvent(
     val productId: Long,
 ) : ApplicationEvent(productId)

@@ -29,9 +29,9 @@ import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 import java.time.LocalDate
 
-@DisplayName("DELETE /api/v1/products/{productId}/likes - 상품 좋아요 취소 E2E")
+@DisplayName("DELETE /api/v1/products/{productId}/likes - 상품 좋아요 취소 API 통합 테스트")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ProductLikeV1CancelE2ETest
+class ProductLikeV1CancelIntegrationTest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,
@@ -104,7 +104,7 @@ constructor(
     @DisplayName("좋아요 취소 성공 시")
     inner class WhenCancelSuccess {
         @Test
-        @DisplayName("등록된 좋아요를 취소하면 200 OK, product_like row=0, likeCount 감소")
+        @DisplayName("등록된 좋아요를 취소하면 200 OK, product_like row=0이 된다")
         fun cancel_success_returns200() {
             registerLike(productId)
 
@@ -137,7 +137,7 @@ constructor(
         }
 
         @Test
-        @DisplayName("중복 취소 10회 시 200 OK, product_like row=0, likeCount=0")
+        @DisplayName("중복 취소 10회 시 200 OK, product_like row=0이 된다")
         fun cancel_duplicate_returns200() {
             registerLike(productId)
 
@@ -160,7 +160,7 @@ constructor(
     @DisplayName("상품 상태 변경 후 취소")
     inner class WhenProductStateChanged {
         @Test
-        @DisplayName("좋아요 후 상품 비활성화, 취소 요청 → 200 OK, row=0, likeCount 감소")
+        @DisplayName("좋아요 후 상품 비활성화, 취소 요청 → 200 OK, row=0이 된다")
         fun cancel_afterProductDeactivated_returns200() {
             registerLike(productId)
             val product = productRepository.findById(productId)!!

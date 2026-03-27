@@ -1,4 +1,4 @@
-package com.loopers.application.user.payment
+package com.loopers.support.event.user
 
 import org.springframework.context.ApplicationEvent
 

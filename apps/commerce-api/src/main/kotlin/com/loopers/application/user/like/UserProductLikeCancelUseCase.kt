@@ -1,6 +1,7 @@
 package com.loopers.application.user.like
 
 import com.loopers.domain.like.ProductLikeRepository
+import com.loopers.support.event.user.ProductLikeCanceledEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

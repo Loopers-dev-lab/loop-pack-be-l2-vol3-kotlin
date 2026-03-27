@@ -1,6 +1,7 @@
 package com.loopers.application.user.product
 
 import com.loopers.domain.product.ProductQueryRepository
+import com.loopers.support.event.user.ProductDetailViewedEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
