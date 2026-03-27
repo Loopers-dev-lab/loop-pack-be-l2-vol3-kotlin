@@ -25,30 +25,30 @@ class CouponIssueConsumer(
         record: ConsumerRecord<Any, Any>,
         acknowledgment: Acknowledgment,
     ) {
+        // poison pill은 예외를 던져서 DefaultErrorHandler → DLT 경로를 타도록 한다.
+        // ack로 폐기하면 운영자가 장애를 인지할 수 없고 재처리도 불가능하다.
         val generic = record.value() as? GenericRecord
-        if (generic == null) {
-            log.error(
-                "예상과 다른 메시지 타입. topic={}, offset={}, valueType={}",
-                record.topic(),
-                record.offset(),
-                record.value()?.javaClass?.name,
+            ?: throw IllegalArgumentException(
+                "예상과 다른 메시지 타입. topic=${record.topic()}, offset=${record.offset()}, " +
+                    "valueType=${record.value()?.javaClass?.name}",
             )
-            acknowledgment.acknowledge()
-            return
-        }
+
         val requestId = generic["requestId"]?.toString()
-        if (requestId == null) {
-            log.error(
-                "requestId가 없는 메시지. topic={}, offset={}",
-                record.topic(),
-                record.offset(),
+            ?: throw IllegalArgumentException(
+                "requestId가 없는 메시지. topic=${record.topic()}, offset=${record.offset()}",
             )
-            acknowledgment.acknowledge()
-            return
-        }
+
         val eventType = generic["eventType"]?.toString() ?: "COUPON_ISSUE_REQUESTED"
-        val couponId = (generic["couponId"] as Number).toLong()
-        val userId = (generic["userId"] as Number).toLong()
+
+        val couponId = (generic["couponId"] as? Number)?.toLong()
+            ?: throw IllegalArgumentException(
+                "couponId가 유효하지 않습니다. topic=${record.topic()}, offset=${record.offset()}",
+            )
+
+        val userId = (generic["userId"] as? Number)?.toLong()
+            ?: throw IllegalArgumentException(
+                "userId가 유효하지 않습니다. topic=${record.topic()}, offset=${record.offset()}",
+            )
 
         issueCouponFromQueueUseCase.execute(requestId, eventType, couponId, userId)
         acknowledgment.acknowledge()
