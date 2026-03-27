@@ -48,7 +48,7 @@ design/**
 ### Docs, Blog & Specs Directory ###
 blog/
 docs/
-docs/superpowers/specs/
+docs/superpowers/
 
 ### Local Documentation & Configuration ###
 CLAUDE.md
