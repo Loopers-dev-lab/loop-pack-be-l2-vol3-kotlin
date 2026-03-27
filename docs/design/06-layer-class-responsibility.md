@@ -23,6 +23,8 @@ graph LR
         A_ASPECT["DomainExceptionTranslator\n(@Aspect)"]
         A_AUTH_SVC["AuthService"]
         A_CACHE["ProductCacheStore\n(interface)"]
+        A_EH["EventHandler\n(@TransactionalEventListener)"]
+        A_CH["CommandHandler\n(REQUIRES_NEW / Kafka / TX 없음)"]
     end
 
     subgraph Domain["Domain Layer"]
@@ -68,10 +70,12 @@ graph TD
     subgraph Application["Application Layer"]
         direction LR
         FACADE["<b>Facade</b>\n@Transactional 유일한 소유자\nService 호출 조합\nModel → Info 변환"]
-        SVC["<b>Service</b>\n비즈니스 로직 조합\nRepository 호출\n@Transactional 없음"]
+        SVC["<b>Service</b>\n비즈니스 로직 조합\nRepository 호출\n@Transactional 없음\nApplicationEventPublisher로 이벤트 발행"]
         CMD["<b>Command</b>\nFacade/Service 입력\ndata class"]
         INFO["<b>Info</b>\nFacade 출력 → Controller에 전달\nDomain 타입 노출 안 함\n(primitive/String 변환)"]
         APP_EX["<b>ApplicationException</b>\nPresentation이 받는 유일한 예외"]
+        EH["<b>EventHandler</b>\n@TransactionalEventListener(AFTER_COMMIT)\n이벤트 수신 → Command 발행 오케스트레이션\nService 간 결합 제거"]
+        CH["<b>CommandHandler</b>\nCommand 수신 → 단일 실행 단위\nTX 전략 차등: REQUIRES_NEW / Kafka / TX 없음"]
     end
 
     subgraph Domain["Domain Layer"]
@@ -189,9 +193,12 @@ graph LR
 | ApiSpec | Presentation | Application (Info) |
 | Interceptor | Presentation | Application (AuthService) |
 | Facade | Application | Domain (Model, Repository, VO, Enum, CoreException) |
-| Service | Application | Domain (Model, Repository, VO, Enum, CoreException) |
+| Service | Application | Domain (Model, Repository, VO, Enum, CoreException), Spring ApplicationEventPublisher |
 | Command | Application | primitive only (Domain 타입 참조 안 함) |
 | Info | Application | primitive only (Domain 타입 노출 안 함) |
+| Event | Domain/Common | primitive only (발행 시점의 컨텍스트만 포함) |
+| EventHandler | Application | Domain (Command), Application (CommandHandler, Service) |
+| CommandHandler | Application | Domain (Repository, Model), Application (Service, CacheStore) |
 | Model | Domain | Domain 내부만 (VO, Enum, CoreException) |
 | VO | Domain | 없음 |
 | Repository (interface) | Domain | Domain (Model, PageQuery, PageResult, Enum) |

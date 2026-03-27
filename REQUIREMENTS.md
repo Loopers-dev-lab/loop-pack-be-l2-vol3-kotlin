@@ -171,14 +171,76 @@
 | Soft Delete | 템플릿: status=DELETED + deleted_at |
 | DDL | `docs/ddl/V4A__create_coupon.sql`, `docs/ddl/V4B__alter_orders_add_coupon.sql` |
 
-### 결제 — TODO
+### 결제 — DONE
 
-#### FEAT-9: 결제 (예정)
+#### FEAT-9: 결제
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | TODO |
-| 예상 기능 | 주문에 대한 결제 처리 |
+| 상태 | DONE |
+| 배경 | 주문 생성 후 외부 PG를 통한 비동기 결제 처리 필요 |
+| 기능 범위 | 결제 요청, PG 콜백 수신, 폴링 기반 미완료 건 처리, 결제 실패 보상 트랜잭션 |
+| 수용 기준 | 결제 요청 API, 콜백 수신, 30초 주기 폴링(60초 이상 PENDING 건), 실패 시 재고+쿠폰 복원 |
+| 제약사항 | PG 호출은 트랜잭션 밖에서 수행 (D46). 보상 트랜잭션 시 재고복원 productId 오름차순 (D49) |
+| 관련 결정 | D43 (PgClient 포트), D44 (콜백+폴링 이중화), D45 (결제 상태 머신), D46 (트랜잭션 경계), D47 (PG 실패 유형), D48 (서킷브레이커), D49 (보상 트랜잭션), D50 (주문 상태 확장), D51 (CardNo VO), D52 (Event-Command-Handler) |
+
+### 선착순 쿠폰 — DONE
+
+#### FEAT-11: 선착순 쿠폰 발급
+
+**배경**: 한정 수량 쿠폰을 선착순으로 발급해야 한다. 동시 요청 시 수량 초과 발급을 방지해야 한다.
+
+**수용 기준**:
+- 쿠폰 발급 요청 API → Kafka 발행 (비동기 처리, 202 Accepted)
+- Consumer에서 선착순 수량 제한 + 중복 발급 방지
+- 발급 완료/실패 결과를 폴링 API로 확인 가능
+- 동시 요청 시 수량 초과 발급 불가
+
+**제약사항**: 기존 쿠폰 시스템(CouponTemplate)과 별도 도메인(FcfsCouponTemplate)으로 구현
+
+**관련 결정**: D55
+
+**상태**: DONE
+
+### 이벤트 아키텍처 — DONE
+
+#### ARCH-1: Event-Command-Handler 도메인 디커플링
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 배경 | Facade가 다른 도메인 Service를 직접 호출하여 강한 결합 존재. MSA 전환 대비 논리적 분리 필요 |
+| 기능 범위 | 7개 도메인 이벤트 발행(22개), Command 정의(11개), EventHandler/CommandHandler, Kafka 프로듀서/컨슈머, Polling 보정 배치 |
+| 수용 기준 | 도메인 간 직접 Service 호출 제거, 이벤트 발행/수신 단위 테스트 통과, 전체 컴파일 성공 |
+| 제약사항 | DIP 유지 (Service에서 ApplicationEventPublisher 사용), EventHandler는 모두 AFTER_COMMIT, 결제 보상은 1차(Kafka)만 구현 |
+| 관련 결정 | D52 (Event-Command-Handler 아키텍처) |
+
+#### ARCH-2: Transactional Outbox Pattern
+
+**배경**: ApplicationEvent 기반 이벤트는 프로세스 내부 전파만 가능. Kafka 전파 시 유실 방지 필요.
+
+**수용 기준**:
+- outbox_event 테이블에 비즈니스 TX와 함께 INSERT
+- OutboxPoller(commerce-streamer)가 1초 주기로 poll → Kafka 발행
+- kafka_consumed_event 테이블로 Consumer 멱등 처리
+- 기존 LocalPublisher → OutboxPublisher 교체
+
+**관련 결정**: D54
+
+**상태**: DONE
+
+#### ARCH-3: 유저 행동 로깅
+
+**배경**: 유저 행동(조회, 좋아요, 주문)에 대한 서버 레벨 로깅 필요.
+
+**수용 기준**:
+- AOP(@LogUserAction)로 Facade 메서드에 어노테이션
+- user_action_log 테이블에 행동 로그 저장
+- Outbox → Kafka → product_metrics 집계 파이프라인
+
+**관련 결정**: D53
+
+**상태**: DONE
 
 ### 랭킹/추천 — TODO
 
@@ -382,9 +444,10 @@
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | TODO |
+| 상태 | PARTIAL |
 | 요구사항 | Resilience4j 기반 Circuit Breaker 적용 |
 | 목적 | 외부 의존성 장애 시 빠른 실패 및 복구 |
+| 진행 현황 | FEAT-9 결제 구현 중 PgClient에 @CircuitBreaker 적용 (D48). 전체 API 레벨 적용은 미착수 |
 
 ### REQ-3.2: Rate Limiting
 
@@ -604,23 +667,27 @@
 
 ### 기능 요구사항
 
-| 도메인 | 전체 | 완료 | 설계완료 | 미착수 |
-|--------|------|------|----------|--------|
+| 도메인 | 전체 | 완료 | 구현중 | 미착수 |
+|--------|------|------|--------|--------|
 | 회원 관리 | 3 | 3 | 0 | 0 |
 | 브랜드 | 1 | 1 | 0 | 0 |
 | 상품 | 1 | 1 | 0 | 0 |
 | 좋아요 | 1 | 1 | 0 | 0 |
 | 주문 | 1 | 1 | 0 | 0 |
 | 쿠폰 | 1 | 1 | 0 | 0 |
-| 결제 | 1 | 0 | 0 | 1 |
+| 결제 | 1 | 1 | 0 | 0 |
+| 선착순 쿠폰 | 1 | 1 | 0 | 0 |
 | 랭킹/추천 | 1 | 0 | 0 | 1 |
-| **합계** | **10** | **8** | **0** | **2** |
+| **합계** | **11** | **10** | **0** | **1** |
 
 ### 아키텍처 요구사항
 
 | 항목 | 전체 | 완료 | 미착수 |
 |------|------|------|--------|
 | 3주차 리팩토링 (REQ-A1~A4) | 4 | 4 | 0 |
+| Event-Command-Handler (ARCH-1) | 1 | 1 | 0 |
+| Transactional Outbox Pattern (ARCH-2) | 1 | 1 | 0 |
+| 유저 행동 로깅 AOP (ARCH-3) | 1 | 1 | 0 |
 
 ### 성능 요구사항
 
