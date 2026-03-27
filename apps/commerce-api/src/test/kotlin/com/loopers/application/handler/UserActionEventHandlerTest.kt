@@ -1,5 +1,6 @@
 package com.loopers.application.handler
 
+import com.loopers.application.handler.useraction.PublishProductMetricsCommandHandler
 import com.loopers.application.handler.useraction.UserActionEventHandler
 import com.loopers.application.outbox.FakeOutboxEventRepository
 import com.loopers.application.useraction.FakeUserActionLogRepository
@@ -25,9 +26,10 @@ class UserActionEventHandlerTest {
     fun setUp() {
         repository = FakeUserActionLogRepository()
         outboxRepository = FakeOutboxEventRepository()
+        val outboxPublisher = OutboxEventPublisherImpl(outboxRepository, ObjectMapper())
         handler = UserActionEventHandler(
             repository,
-            OutboxEventPublisherImpl(outboxRepository, ObjectMapper()),
+            PublishProductMetricsCommandHandler(outboxPublisher),
         )
     }
 

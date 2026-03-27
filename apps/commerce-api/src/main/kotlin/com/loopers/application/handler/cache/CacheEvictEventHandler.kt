@@ -1,8 +1,5 @@
 package com.loopers.application.handler.cache
 
-import com.loopers.application.auth.AuthCacheStore
-import com.loopers.application.brand.BrandCacheStore
-import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.common.command.EvictAuthCacheCommand
 import com.loopers.domain.common.command.EvictBrandCacheCommand
 import com.loopers.domain.common.command.EvictProductCacheCommand
@@ -44,32 +41,5 @@ class CacheEvictEventHandler(
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onProductDeleted(event: ProductDeletedEvent) {
         productCacheCommandHandler.handle(EvictProductCacheCommand(productId = event.productId))
-    }
-}
-
-@Component
-class AuthCacheCommandHandler(
-    private val authCacheStore: AuthCacheStore,
-) {
-    fun handle(command: EvictAuthCacheCommand) {
-        authCacheStore.evictAuth(command.loginId)
-    }
-}
-
-@Component
-class BrandCacheCommandHandler(
-    private val brandCacheStore: BrandCacheStore,
-) {
-    fun handle(command: EvictBrandCacheCommand) {
-        brandCacheStore.evictBrand(command.brandId)
-    }
-}
-
-@Component
-class ProductCacheCommandHandler(
-    private val productCacheStore: ProductCacheStore,
-) {
-    fun handle(command: EvictProductCacheCommand) {
-        productCacheStore.evictProduct(command.productId)
     }
 }
