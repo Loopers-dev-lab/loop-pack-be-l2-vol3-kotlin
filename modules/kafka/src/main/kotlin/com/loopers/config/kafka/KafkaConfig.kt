@@ -1,6 +1,7 @@
 package com.loopers.config.kafka
 
 import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -14,6 +15,7 @@ import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.listener.ContainerProperties
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer
 import org.springframework.kafka.listener.DefaultErrorHandler
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 import org.springframework.util.backoff.FixedBackOff
 
 @EnableKafka
@@ -81,13 +83,22 @@ class KafkaConfig {
     fun defaultBatchListenerContainerFactory(
         kafkaProperties: KafkaProperties,
     ): ConcurrentKafkaListenerContainerFactory<*, *> {
-        val consumerConfig = HashMap(kafkaProperties.buildConsumerProperties()).apply {
+        val originalConfig = HashMap(kafkaProperties.buildConsumerProperties())
+        val originalValueDeserializer = originalConfig[ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG]
+
+        val consumerConfig = originalConfig.apply {
             put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE)
             put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, FETCH_MIN_BYTES)
             put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, FETCH_MAX_WAIT_MS)
             put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SESSION_TIMEOUT_MS)
             put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, HEARTBEAT_INTERVAL_MS)
             put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, MAX_POLL_INTERVAL_MS)
+            // [설계 결정] deserialization 실패 시 무한 재시도를 방지한다.
+            // ErrorHandlingDeserializer가 실패한 레코드를 null로 전달하여 offset이 전진할 수 있게 한다.
+            put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer::class.java)
+            put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer::class.java)
+            put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer::class.java)
+            put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, originalValueDeserializer)
         }
 
         return ConcurrentKafkaListenerContainerFactory<Any, Any>().apply {
@@ -99,7 +110,7 @@ class KafkaConfig {
             // [설계 결정] batch factory에는 DefaultErrorHandler를 적용하지 않는다.
             // DefaultErrorHandler는 record-level handler라 batch 전체가 DLT 대상이 된다.
             // 대신 consumer 내부 for-loop + try-catch로 건별 에러를 처리하고,
-            // deserialization 실패 등 framework-level 에러는 로그로 남긴다.
+            // deserialization 실패는 ErrorHandlingDeserializer가 null로 전달하여 처리한다.
             isBatchListener = true
         }
     }

@@ -44,4 +44,8 @@ class OutboxEventRepositoryImpl(
     override fun recoverStuckSending(minutes: Int): Int {
         return jpaRepository.recoverStuckSending(minutes)
     }
+
+    override fun batchUpdateStatus(ids: List<Long>, status: OutboxEventStatus) {
+        jpaRepository.batchUpdateStatus(ids, status)
+    }
 }

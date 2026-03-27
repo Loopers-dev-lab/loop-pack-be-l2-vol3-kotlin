@@ -50,4 +50,8 @@ interface OutboxEventJpaRepository : JpaRepository<OutboxEventEntity, Long> {
         nativeQuery = true,
     )
     fun recoverStuckSending(minutes: Int): Int
+
+    @Modifying
+    @Query("UPDATE OutboxEventEntity e SET e.status = :status WHERE e.id IN :ids")
+    fun batchUpdateStatus(ids: List<Long>, status: OutboxEventStatus)
 }

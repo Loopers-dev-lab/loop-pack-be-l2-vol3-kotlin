@@ -13,7 +13,7 @@ interface ProductMetricsJpaRepository : JpaRepository<ProductMetricsEntity, Long
             VALUES (:productId, :viewCount, :likeCount, :orderCount, :salesAmount, NOW(), NOW())
             ON DUPLICATE KEY UPDATE
                 view_count = view_count + :viewCount,
-                like_count = like_count + :likeCount,
+                like_count = GREATEST(like_count + :likeCount, 0),
                 order_count = order_count + :orderCount,
                 sales_amount = sales_amount + :salesAmount,
                 updated_at = NOW()

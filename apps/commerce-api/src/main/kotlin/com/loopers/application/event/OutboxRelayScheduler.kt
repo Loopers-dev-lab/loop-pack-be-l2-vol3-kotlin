@@ -73,32 +73,60 @@ class OutboxRelayScheduler(
     }
 
     /**
-     * 트랜잭션 밖에서 Kafka 전송 후, 결과에 따라 개별 트랜잭션으로 상태 업데이트.
-     * Kafka send 대기 동안 DB 커넥션/잠금을 점유하지 않는다.
+     * 트랜잭션 밖에서 Kafka 전송 후, 결과에 따라 batch UPDATE로 상태 업데이트.
+     * 1. 모든 future를 병렬 발행 후 allOf로 한 번에 대기 (순차 get 대비 Kafka RTT 1회로 감소)
+     * 2. 성공/실패 ID를 모아서 batch UPDATE (건별 트랜잭션 N+1 → 2~3회로 감소)
      */
     private fun relayEvents(events: List<OutboxEvent>) {
         val futures = events.map { event -> sendAsync(event) }
 
+        // 모든 future 병렬 대기 (개별 타임아웃은 Kafka의 delivery.timeout.ms가 담당)
+        try {
+            CompletableFuture.allOf(*futures.toTypedArray())
+                .get(SEND_TIMEOUT_SECONDS * 2, TimeUnit.SECONDS)
+        } catch (_: Exception) {
+            // 개별 결과는 아래에서 처리
+        }
+
+        val publishedIds = mutableListOf<Long>()
+        val failedUpdates = mutableListOf<Pair<Long, Int>>() // id, retryCount
+        val deadUpdates = mutableListOf<Pair<Long, Int>>()
+
         for ((index, event) in events.withIndex()) {
-            try {
-                futures[index].get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                updateEventStatus(requireNotNull(event.persistenceId), OutboxEventStatus.PUBLISHED, event.retryCount)
-            } catch (e: Exception) {
+            val id = requireNotNull(event.persistenceId)
+            val future = futures[index]
+            if (future.isDone && !future.isCompletedExceptionally) {
+                publishedIds.add(id)
+            } else {
                 val failed = event.markFailed()
                 if (failed.isRetryExhausted(MAX_RETRY)) {
-                    updateEventStatus(requireNotNull(event.persistenceId), OutboxEventStatus.DEAD, failed.retryCount)
+                    deadUpdates.add(id to failed.retryCount)
                     log.error("Outbox 이벤트 DEAD 전환. eventId={}, retryCount={}", event.eventId, failed.retryCount)
                 } else {
-                    updateEventStatus(requireNotNull(event.persistenceId), OutboxEventStatus.FAILED, failed.retryCount)
-                    log.warn("Outbox relay 실패. eventId={}, retryCount={}", event.eventId, failed.retryCount, e)
+                    failedUpdates.add(id to failed.retryCount)
+                    log.warn("Outbox relay 실패. eventId={}, retryCount={}", event.eventId, failed.retryCount)
                 }
             }
         }
+
+        batchUpdateResults(publishedIds, failedUpdates, deadUpdates)
     }
 
     @Transactional
-    fun updateEventStatus(id: Long, status: OutboxEventStatus, retryCount: Int) {
-        outboxEventRepository.updateStatusAndRetryCount(id, status, retryCount)
+    fun batchUpdateResults(
+        publishedIds: List<Long>,
+        failedUpdates: List<Pair<Long, Int>>,
+        deadUpdates: List<Pair<Long, Int>>,
+    ) {
+        if (publishedIds.isNotEmpty()) {
+            outboxEventRepository.batchUpdateStatus(publishedIds, OutboxEventStatus.PUBLISHED)
+        }
+        for ((id, retryCount) in failedUpdates) {
+            outboxEventRepository.updateStatusAndRetryCount(id, OutboxEventStatus.FAILED, retryCount)
+        }
+        for ((id, retryCount) in deadUpdates) {
+            outboxEventRepository.updateStatusAndRetryCount(id, OutboxEventStatus.DEAD, retryCount)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
