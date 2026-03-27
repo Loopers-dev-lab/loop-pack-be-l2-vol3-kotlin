@@ -204,6 +204,7 @@ class RecoverPaymentUseCaseTest {
             val outbox = outboxes.single()
             assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
             assertThat(outbox.orderId).isEqualTo(order.id.value)
+            assertThat(outbox.userId).isEqualTo(1L)
         }
 
         @Test

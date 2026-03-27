@@ -1,6 +1,7 @@
 package com.loopers.application.event
 
 import com.loopers.domain.outbox.model.CatalogOutbox
+import com.loopers.domain.outbox.model.CatalogOutboxEventType
 import com.loopers.domain.outbox.repository.CatalogOutboxRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -17,7 +18,7 @@ class CatalogMetricsEventListener(
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun handleProductViewed(event: CatalogEvent.ProductViewed) {
         val outbox = CatalogOutbox(
-            eventType = "PRODUCT_VIEWED",
+            eventType = CatalogOutboxEventType.PRODUCT_VIEWED.name,
             productId = event.productId,
             userId = event.userId,
         )

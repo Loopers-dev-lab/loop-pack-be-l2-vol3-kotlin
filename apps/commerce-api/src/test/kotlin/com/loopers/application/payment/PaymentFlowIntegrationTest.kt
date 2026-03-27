@@ -156,7 +156,11 @@ class PaymentFlowIntegrationTest {
             val finalOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.PAID)
-            assertThat(orderOutboxRepository.findAllUnpublished()).hasSize(1)
+            val outboxes = orderOutboxRepository.findAllUnpublished()
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
+            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
         }
     }
 

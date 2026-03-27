@@ -4,6 +4,7 @@ import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.outbox.model.OrderOutbox
+import com.loopers.domain.outbox.model.OrderOutboxEventType
 import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import com.loopers.domain.payment.PgClient
 import com.loopers.domain.payment.PgResultStatus
@@ -67,10 +68,13 @@ class RecoverPaymentUseCase(
                                 order.markPaid()
                                 orderRepository.save(order)
                                 val orderItems = orderItemRepository.findAllByOrderId(OrderId(orderId))
+                                if (orderItems.isEmpty()) {
+                                    log.warn("결제 복구 성공했으나 주문 항목이 없음. orderId={}", orderId)
+                                }
                                 orderOutboxRepository.saveAll(
                                     orderItems.map { item ->
                                         OrderOutbox(
-                                            eventType = "PAYMENT_COMPLETED",
+                                            eventType = OrderOutboxEventType.PAYMENT_COMPLETED.name,
                                             orderId = orderId,
                                             userId = order.refUserId.value,
                                             totalAmount = freshPayment.amount,
@@ -88,7 +92,7 @@ class RecoverPaymentUseCase(
                                 orderRepository.save(order)
                                 orderOutboxRepository.save(
                                     OrderOutbox(
-                                        eventType = "PAYMENT_FAILED",
+                                        eventType = OrderOutboxEventType.PAYMENT_FAILED.name,
                                         orderId = orderId,
                                         userId = order.refUserId.value,
                                         reason = reason,
