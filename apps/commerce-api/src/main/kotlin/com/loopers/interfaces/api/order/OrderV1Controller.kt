@@ -32,7 +32,7 @@ class OrderV1Controller(
     ): ApiResponse<Unit> {
         val command = OrderCommand.Create(
             items = request.items.map {
-                OrderCommand.CreateOrderItem(
+                OrderCommand.CreateItem(
                     productId = it.productId,
                     quantity = it.quantity,
                 )

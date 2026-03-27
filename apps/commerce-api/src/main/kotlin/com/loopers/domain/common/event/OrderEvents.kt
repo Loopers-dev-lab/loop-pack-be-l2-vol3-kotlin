@@ -4,10 +4,17 @@ data class OrderRequestedEvent(
     val memberId: Long,
     val items: List<OrderRequestedItem>,
     val couponId: Long?,
+    val discountAmount: Long,
+    val orderAmount: Long,
+    val finalAmount: Long,
 ) {
     data class OrderRequestedItem(
         val productId: Long,
         val quantity: Int,
+        val productName: String,
+        val productPrice: Long,
+        val brandId: Long,
+        val brandName: String,
     )
 }
 

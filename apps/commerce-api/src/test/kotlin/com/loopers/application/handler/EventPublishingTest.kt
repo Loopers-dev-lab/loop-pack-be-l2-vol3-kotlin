@@ -24,7 +24,6 @@ import com.loopers.domain.common.event.ProductUpdatedEvent
 import com.loopers.domain.common.event.StockDeductedEvent
 import com.loopers.domain.common.event.StockRestoredEvent
 import com.loopers.domain.order.OrderStatus
-import com.loopers.domain.product.ProductModel
 import com.loopers.utils.FakeEventPublisher
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -241,23 +240,18 @@ class EventPublishingTest {
 
         @Test
         fun `주문 생성 시 OrderCreatedEvent가 발행된다`() {
-            // arrange
-            val product = ProductModel(
-                id = 1L,
-                brandId = 10L,
-                name = "상품",
-                description = "설명",
-                price = 10000,
-                stockQuantity = 100,
-                imageUrl = "https://img.com/p.jpg",
-            )
-
             // act
             val order = orderService.createOrder(
                 memberId = 1L,
-                products = mapOf(1L to product),
-                brandNames = mapOf(10L to "브랜드"),
-                items = listOf(OrderCommand.CreateOrderItem(productId = 1L, quantity = 2)),
+                items = listOf(
+                    OrderCommand.CreateOrderItem(
+                        productId = 1L,
+                        quantity = 2,
+                        productName = "상품",
+                        productPrice = 10000,
+                        brandName = "브랜드",
+                    ),
+                ),
             )
 
             // assert
@@ -270,20 +264,17 @@ class EventPublishingTest {
         @Test
         fun `주문 상태를 PAID로 변경하면 OrderPaidEvent가 발행된다`() {
             // arrange
-            val product = ProductModel(
-                id = 1L,
-                brandId = 10L,
-                name = "상품",
-                description = "설명",
-                price = 10000,
-                stockQuantity = 100,
-                imageUrl = "https://img.com/p.jpg",
-            )
             val order = orderService.createOrder(
                 memberId = 1L,
-                products = mapOf(1L to product),
-                brandNames = mapOf(10L to "브랜드"),
-                items = listOf(OrderCommand.CreateOrderItem(productId = 1L, quantity = 2)),
+                items = listOf(
+                    OrderCommand.CreateOrderItem(
+                        productId = 1L,
+                        quantity = 2,
+                        productName = "상품",
+                        productPrice = 10000,
+                        brandName = "브랜드",
+                    ),
+                ),
             )
             orderService.updateOrderStatus(order.id, OrderStatus.PAYMENT_PENDING)
             eventPublisher.clear()

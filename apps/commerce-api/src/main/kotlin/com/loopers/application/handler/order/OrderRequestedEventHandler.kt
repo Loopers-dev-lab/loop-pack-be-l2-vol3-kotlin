@@ -36,7 +36,7 @@ class OrderRequestedEventHandler(
                 )
             }
 
-            // 3. 주문 생성
+            // 3. 주문 생성 (스냅샷은 이미 이벤트에 확정되어 있음)
             createOrderCommandHandler.handle(
                 CreateOrderCommand(
                     memberId = event.memberId,
@@ -44,9 +44,15 @@ class OrderRequestedEventHandler(
                         CreateOrderCommand.CreateOrderItem(
                             productId = item.productId,
                             quantity = item.quantity,
+                            productName = item.productName,
+                            productPrice = item.productPrice,
+                            brandName = item.brandName,
                         )
                     },
                     couponId = event.couponId,
+                    discountAmount = event.discountAmount,
+                    orderAmount = event.orderAmount,
+                    finalAmount = event.finalAmount,
                 ),
             )
         } catch (e: Exception) {

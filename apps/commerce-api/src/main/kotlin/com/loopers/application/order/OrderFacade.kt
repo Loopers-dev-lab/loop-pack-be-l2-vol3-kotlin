@@ -1,7 +1,6 @@
 package com.loopers.application.order
 
 import com.loopers.application.useraction.LogUserAction
-import com.loopers.domain.common.event.OrderRequestedEvent
 import com.loopers.domain.useraction.UserActionTargetType
 import com.loopers.domain.useraction.UserActionType
 import org.springframework.context.ApplicationEventPublisher
@@ -12,21 +11,13 @@ import java.time.ZonedDateTime
 @Component
 class OrderFacade(
     private val orderService: OrderService,
+    private val orderPreparationService: OrderPreparationService,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     @LogUserAction(action = UserActionType.ORDER, targetType = UserActionTargetType.PRODUCT)
     @Transactional
     fun createOrder(memberId: Long, command: OrderCommand.Create) {
-        val event = OrderRequestedEvent(
-            memberId = memberId,
-            items = command.items.map {
-                OrderRequestedEvent.OrderRequestedItem(
-                    productId = it.productId,
-                    quantity = it.quantity,
-                )
-            },
-            couponId = command.couponId,
-        )
+        val event = orderPreparationService.prepare(memberId, command)
         eventPublisher.publishEvent(event)
     }
 
