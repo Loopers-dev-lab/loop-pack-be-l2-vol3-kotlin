@@ -1,6 +1,7 @@
 package com.loopers.domain.useractionlog
 
-import com.loopers.domain.order.event.OrderCreatedEvent
+import com.loopers.domain.event.OrderCreatedEvent
+import com.loopers.domain.event.OrderLineItem
 import com.loopers.domain.payment.event.PaymentCallbackProcessedEvent
 import com.loopers.domain.payment.event.PaymentRequestedEvent
 import io.mockk.every
@@ -24,10 +25,9 @@ class OrderPaymentUserActionLogEventListenerFailureIsolationTest {
         assertThatCode {
             listener.onOrderCreated(
                 OrderCreatedEvent(
-                    source = this,
                     orderId = 200L,
                     lineItems = listOf(
-                        com.loopers.domain.order.event.OrderLineItem(productId = 1L, quantity = 1),
+                        OrderLineItem(productId = 1L, quantity = 1),
                     ),
                     dedupeKey = "order.created:200",
                 ),

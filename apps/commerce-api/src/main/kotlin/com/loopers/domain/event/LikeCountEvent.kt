@@ -8,3 +8,8 @@ data class LikeCountEvent(
     val userId: Long? = null,
     val dedupeKey: String = "like.count:$productId:${type.name}:${UUID.randomUUID()}",
 )
+
+enum class LikeCountEventType {
+    INCREMENT,
+    DECREMENT,
+}

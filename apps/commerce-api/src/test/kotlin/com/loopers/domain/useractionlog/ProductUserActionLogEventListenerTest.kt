@@ -1,6 +1,6 @@
 package com.loopers.domain.useractionlog
 
-import com.loopers.domain.product.event.ProductViewedEvent
+import com.loopers.domain.event.ProductViewedEvent
 import com.loopers.domain.productlike.event.ProductLikedEvent
 import com.loopers.domain.productlike.event.ProductUnlikedEvent
 import io.mockk.mockk
@@ -20,7 +20,6 @@ class ProductUserActionLogEventListenerTest {
     fun `ProductViewedEvent 발행 시 appendSafely를 호출한다`() {
         // Given
         val event = ProductViewedEvent(
-            source = this,
             productId = 123L,
             userId = 456L,
             dedupeKey = "product.viewed:456:123:abc",
