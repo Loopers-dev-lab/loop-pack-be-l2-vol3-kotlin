@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
-import org.springframework.transaction.annotation.Transactional
 
 interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     fun findByIdAndDeletedAtIsNull(id: Long): ProductEntity?
@@ -69,7 +68,6 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     ): Page<ProductEntity>
 
     @Modifying
-    @Transactional
     @Query(
         """
         UPDATE ProductEntity p
@@ -82,7 +80,6 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
     fun incrementLikeCount(@Param("productId") productId: Long): Int
 
     @Modifying
-    @Transactional
     @Query(
         """
         UPDATE ProductEntity p

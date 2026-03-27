@@ -4,6 +4,7 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.payment.PaymentReasonCode
 import com.loopers.domain.payment.PaymentRepository
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class PaymentCallbackUseCase(
     private val paymentRepository: PaymentRepository,
     private val orderRepository: OrderRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -49,6 +51,13 @@ class PaymentCallbackUseCase(
                 val order = orderRepository.findById(payment.orderId)!!
                 val confirmed = order.confirm()
                 orderRepository.save(confirmed)
+                eventPublisher.publishEvent(
+                    PaymentSucceededEvent(
+                        paymentId = payment.id!!,
+                        orderId = payment.orderId,
+                        userId = payment.userId,
+                    ),
+                )
 
                 log.info("Callback 처리 완료: paymentId={}, status=SUCCESS", payment.id)
             }
@@ -64,6 +73,14 @@ class PaymentCallbackUseCase(
                     log.info("Callback 수신: 이미 terminal로 반영됨. paymentId={}, status=FAILED", payment.id)
                     return
                 }
+                eventPublisher.publishEvent(
+                    PaymentFailedEvent(
+                        paymentId = payment.id!!,
+                        orderId = payment.orderId,
+                        userId = payment.userId,
+                        reasonCode = reasonCode,
+                    ),
+                )
 
                 log.info("Callback 처리 완료: paymentId={}, status=FAILED, reason={}", payment.id, command.reason)
             }

@@ -1,30 +1,25 @@
 package com.loopers.application.user.like
 
 import com.loopers.domain.like.ProductLikeRepository
-import com.loopers.domain.product.ProductQueryInvalidator
-import com.loopers.domain.product.ProductRepository
-import com.loopers.support.transaction.AfterCommitExecutor
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
+import org.springframework.context.ApplicationEventPublisher
+import org.mockito.kotlin.check
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 
 @DisplayName("상품 좋아요 취소")
 class UserProductLikeCancelUseCaseTest {
-    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
-    private val productQueryInvalidator: ProductQueryInvalidator = mock()
+    private val eventPublisher: ApplicationEventPublisher = mock()
     private val productLikeRepository: ProductLikeRepository = mock()
-    private val productRepository: ProductRepository = mock()
     private val useCase = UserProductLikeCancelUseCase(
-        afterCommitExecutor,
-        productQueryInvalidator,
+        eventPublisher,
         productLikeRepository,
-        productRepository,
     )
 
     @Nested
@@ -39,8 +34,12 @@ class UserProductLikeCancelUseCaseTest {
             useCase.cancel(command)
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
-            then(productRepository).should().decrementLikeCount(eq(1L))
-            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
+            then(eventPublisher).should().publishEvent(
+                check<ProductLikeCanceledEvent> { event ->
+                    kotlin.test.assertEquals(1L, event.userId)
+                    kotlin.test.assertEquals(1L, event.productId)
+                },
+            )
         }
     }
 
@@ -56,8 +55,7 @@ class UserProductLikeCancelUseCaseTest {
             assertDoesNotThrow { useCase.cancel(command) }
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
-            then(productRepository).should(never()).decrementLikeCount(eq(1L))
-            then(productQueryInvalidator).should(never()).invalidateDetails(eq(listOf(1L)))
+            then(eventPublisher).should(never()).publishEvent(check<ProductLikeCanceledEvent> { })
         }
     }
 
@@ -73,9 +71,7 @@ class UserProductLikeCancelUseCaseTest {
             useCase.cancel(command)
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
-            then(productRepository).should().decrementLikeCount(eq(1L))
-            then(productRepository).should(never()).findById(eq(1L))
-            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
+            then(eventPublisher).should().publishEvent(check<ProductLikeCanceledEvent> { })
         }
     }
 
@@ -91,9 +87,7 @@ class UserProductLikeCancelUseCaseTest {
             useCase.cancel(command)
 
             then(productLikeRepository).should().deleteByUserIdAndProductId(eq(1L), eq(1L))
-            then(productRepository).should().decrementLikeCount(eq(1L))
-            then(productRepository).should(never()).findById(eq(1L))
-            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
+            then(eventPublisher).should().publishEvent(check<ProductLikeCanceledEvent> { })
         }
     }
 }

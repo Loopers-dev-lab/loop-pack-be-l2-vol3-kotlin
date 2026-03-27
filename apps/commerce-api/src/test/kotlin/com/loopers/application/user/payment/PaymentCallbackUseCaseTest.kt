@@ -11,6 +11,7 @@ import com.loopers.domain.payment.Payment
 import com.loopers.domain.payment.PaymentIdempotencyKey
 import com.loopers.domain.payment.PaymentReasonCode
 import com.loopers.domain.payment.PaymentRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -28,9 +29,10 @@ import java.time.ZonedDateTime
 class PaymentCallbackUseCaseTest {
     private val paymentKey = "11111111-1111-1111-1111-111111111111"
 
+    private val eventPublisher: ApplicationEventPublisher = mock()
     private val paymentRepository: PaymentRepository = mock()
     private val orderRepository: OrderRepository = mock()
-    private val useCase = PaymentCallbackUseCase(paymentRepository, orderRepository)
+    private val useCase = PaymentCallbackUseCase(paymentRepository, orderRepository, eventPublisher)
 
     private val now = ZonedDateTime.of(2026, 3, 20, 10, 0, 0, 0, ZoneId.of("Asia/Seoul"))
 
@@ -133,6 +135,13 @@ class PaymentCallbackUseCaseTest {
                     assertThat(order.status).isEqualTo(Order.Status.CREATED)
                 },
             )
+            verify(eventPublisher).publishEvent(
+                check<PaymentSucceededEvent> { event ->
+                    assertThat(event.paymentId).isEqualTo(200L)
+                    assertThat(event.orderId).isEqualTo(100L)
+                    assertThat(event.userId).isEqualTo(1L)
+                },
+            )
         }
     }
 
@@ -159,6 +168,14 @@ class PaymentCallbackUseCaseTest {
                 },
             )
             verify(orderRepository, never()).save(check<Order> { })
+            verify(eventPublisher).publishEvent(
+                check<PaymentFailedEvent> { event ->
+                    assertThat(event.paymentId).isEqualTo(200L)
+                    assertThat(event.orderId).isEqualTo(100L)
+                    assertThat(event.userId).isEqualTo(1L)
+                    assertThat(event.reasonCode).isEqualTo(PaymentReasonCode.LIMIT_EXCEEDED)
+                },
+            )
         }
     }
 
@@ -178,6 +195,7 @@ class PaymentCallbackUseCaseTest {
             // assert
             verify(paymentRepository, never()).saveIfPending(check<Payment> { })
             verify(orderRepository, never()).save(check<Order> { })
+            verify(eventPublisher, never()).publishEvent(check<PaymentSucceededEvent> { })
         }
     }
 
@@ -196,6 +214,7 @@ class PaymentCallbackUseCaseTest {
 
             // assert
             verify(paymentRepository, never()).saveIfPending(check<Payment> { })
+            verify(eventPublisher, never()).publishEvent(check<PaymentSucceededEvent> { })
         }
     }
 
@@ -217,6 +236,7 @@ class PaymentCallbackUseCaseTest {
             // assert
             verify(paymentRepository, never()).saveIfPending(check<Payment> { })
             verify(orderRepository, never()).save(check<Order> { })
+            verify(eventPublisher, never()).publishEvent(check<PaymentSucceededEvent> { })
         }
     }
 
@@ -236,6 +256,7 @@ class PaymentCallbackUseCaseTest {
 
             // assert
             verify(orderRepository, never()).save(check<Order> { })
+            verify(eventPublisher, never()).publishEvent(check<PaymentSucceededEvent> { })
         }
 
         @Test
@@ -250,6 +271,7 @@ class PaymentCallbackUseCaseTest {
 
             // assert
             verify(orderRepository, never()).save(check<Order> { })
+            verify(eventPublisher, never()).publishEvent(check<PaymentFailedEvent> { })
         }
     }
 }

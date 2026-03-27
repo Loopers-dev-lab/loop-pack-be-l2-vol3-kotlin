@@ -4,9 +4,7 @@ import com.loopers.domain.common.Money
 import com.loopers.domain.like.ProductLike
 import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.Product
-import com.loopers.domain.product.ProductQueryInvalidator
 import com.loopers.domain.product.ProductRepository
-import com.loopers.support.transaction.AfterCommitExecutor
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -14,6 +12,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
+import org.springframework.context.ApplicationEventPublisher
 import org.mockito.kotlin.check
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
@@ -23,13 +22,11 @@ import java.math.BigDecimal
 
 @DisplayName("상품 좋아요 등록")
 class UserProductLikeRegisterUseCaseTest {
-    private val afterCommitExecutor = AfterCommitExecutor { action -> action() }
-    private val productQueryInvalidator: ProductQueryInvalidator = mock()
+    private val eventPublisher: ApplicationEventPublisher = mock()
     private val productRepository: ProductRepository = mock()
     private val productLikeRepository: ProductLikeRepository = mock()
     private val useCase = UserProductLikeRegisterUseCase(
-        afterCommitExecutor,
-        productQueryInvalidator,
+        eventPublisher,
         productRepository,
         productLikeRepository,
     )
@@ -82,8 +79,12 @@ class UserProductLikeRegisterUseCaseTest {
                     assertThat(it.productId).isEqualTo(1L)
                 },
             )
-            then(productRepository).should().incrementLikeCount(eq(1L))
-            then(productQueryInvalidator).should().invalidateDetails(eq(listOf(1L)))
+            then(eventPublisher).should().publishEvent(
+                check<ProductLikeRegisteredEvent> { event ->
+                    assertThat(event.userId).isEqualTo(1L)
+                    assertThat(event.productId).isEqualTo(1L)
+                },
+            )
         }
     }
 
@@ -106,8 +107,7 @@ class UserProductLikeRegisterUseCaseTest {
             then(productLikeRepository).should().save(
                 check<ProductLike> { it.userId == 1L && it.productId == 1L },
             )
-            then(productRepository).should(never()).incrementLikeCount(eq(1L))
-            then(productQueryInvalidator).should(never()).invalidateDetails(eq(listOf(1L)))
+            then(eventPublisher).should(never()).publishEvent(check<ProductLikeRegisteredEvent> { })
         }
     }
 
@@ -125,8 +125,7 @@ class UserProductLikeRegisterUseCaseTest {
             then(productLikeRepository).should(never()).save(
                 check<ProductLike> { it.productId == 999L },
             )
-            then(productRepository).should(never()).incrementLikeCount(eq(999L))
-            verifyNoInteractions(productQueryInvalidator)
+            verifyNoInteractions(eventPublisher)
         }
     }
 
@@ -144,8 +143,7 @@ class UserProductLikeRegisterUseCaseTest {
             then(productLikeRepository).should(never()).save(
                 check<ProductLike> { it.productId == 1L },
             )
-            then(productRepository).should(never()).incrementLikeCount(eq(1L))
-            verifyNoInteractions(productQueryInvalidator)
+            verifyNoInteractions(eventPublisher)
         }
     }
 }
