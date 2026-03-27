@@ -1,5 +1,7 @@
 package com.loopers.application.payment
 
+import com.loopers.application.payment.support.PaymentCouponStateSyncer
+import com.loopers.application.payment.support.PaymentSideEffectPublisher
 import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponReader
 import com.loopers.domain.coupon.CouponRepository
@@ -227,15 +229,16 @@ class PaymentUseCaseTest {
             ),
             paymentReader = paymentReader,
             paymentProcessor = PaymentProcessor(paymentReader, paymentStore),
-            issuedCouponProcessor = IssuedCouponProcessor(
-                couponReader = CouponReader(FakeCouponStore()),
-                issuedCouponReader = IssuedCouponReader(issuedCouponStore),
-                issuedCouponRepository = issuedCouponStore,
-            ),
             paymentGateway = paymentGateway,
             transactionTemplate = TransactionTemplate(NoOpTransactionManager()),
-            applicationEventPublisher = mockk(relaxed = true),
-            outboxEventWriter = mockk(relaxed = true),
+            paymentCouponStateSyncer = PaymentCouponStateSyncer(
+                issuedCouponProcessor = IssuedCouponProcessor(
+                    couponReader = CouponReader(FakeCouponStore()),
+                    issuedCouponReader = IssuedCouponReader(issuedCouponStore),
+                    issuedCouponRepository = issuedCouponStore,
+                ),
+            ),
+            paymentSideEffectPublisher = mockk<PaymentSideEffectPublisher>(relaxed = true),
         )
 
         return Fixture(
