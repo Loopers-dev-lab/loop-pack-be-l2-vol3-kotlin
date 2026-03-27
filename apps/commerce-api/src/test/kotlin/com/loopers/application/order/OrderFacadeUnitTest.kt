@@ -14,6 +14,7 @@ import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.payment.CardType
 import com.loopers.infrastructure.catalog.product.ProductCacheService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -62,7 +63,7 @@ class OrderFacadeUnitTest {
         every { mockBrandRepository.findAllByIds(listOf(1L)) } returns listOf(brand)
         every { mockOrderService.createOrder(any(), any(), any(), any()) } returns order
 
-        val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 2)))
+        val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 2)), cardType = CardType.SAMSUNG, cardNo = "1234-5678-9012-3456")
 
         // Act
         val result = orderFacade.placeOrder(userId = 1L, cmd = cmd)
@@ -90,7 +91,9 @@ class OrderFacadeUnitTest {
             items = listOf(
                 OrderItemCommand(productId = 1L, quantity = 2),
                 OrderItemCommand(productId = 2L, quantity = 5), // exceeds stock
-            )
+            ),
+            cardType = CardType.SAMSUNG,
+            cardNo = "1234-5678-9012-3456",
         )
 
         // Act & Assert
@@ -111,7 +114,7 @@ class OrderFacadeUnitTest {
         every { mockProductRepository.findAllByIds(listOf(99L)) } returns emptyList()
         every { mockProductStockRepository.findAllByProductIds(listOf(99L)) } returns emptyList()
 
-        val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 99L, quantity = 1)))
+        val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 99L, quantity = 1)), cardType = CardType.SAMSUNG, cardNo = "1234-5678-9012-3456")
 
         // Act & Assert
         assertThrows<CoreException> {
@@ -132,7 +135,7 @@ class OrderFacadeUnitTest {
         every { mockProductRepository.findAllByIds(listOf(1L)) } returns listOf(hiddenProduct)
         every { mockProductStockRepository.findAllByProductIds(listOf(1L)) } returns listOf(stock)
 
-        val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 1)))
+        val cmd = PlaceOrderCommand(items = listOf(OrderItemCommand(productId = 1L, quantity = 1)), cardType = CardType.SAMSUNG, cardNo = "1234-5678-9012-3456")
 
         // Act & Assert
         assertThrows<CoreException> {
@@ -149,7 +152,7 @@ class OrderFacadeUnitTest {
     fun `placeOrder() throws BAD_REQUEST when items list is empty`() {
         // Act & Assert
         assertThrows<CoreException> {
-            orderFacade.placeOrder(userId = 1L, cmd = PlaceOrderCommand(items = emptyList()))
+            orderFacade.placeOrder(userId = 1L, cmd = PlaceOrderCommand(items = emptyList(), cardType = CardType.SAMSUNG, cardNo = "1234-5678-9012-3456"))
         }.also {
             assertThat(it.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }

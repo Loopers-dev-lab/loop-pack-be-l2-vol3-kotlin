@@ -3,6 +3,8 @@ package com.loopers.interfaces.api.order
 import com.loopers.application.order.OrderFacade
 import com.loopers.application.order.OrderItemCommand
 import com.loopers.application.order.PlaceOrderCommand
+import com.loopers.application.payment.PaymentFacade
+import com.loopers.application.payment.RequestPaymentCommand
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.user.User
 import com.loopers.interfaces.api.ApiResponse
@@ -21,6 +23,7 @@ import java.time.LocalDate
 @RequestMapping("/api/v1/orders")
 class OrderV1Controller(
     private val orderFacade: OrderFacade,
+    private val paymentFacade: PaymentFacade,
     private val orderService: OrderService,
 ) : OrderV1ApiSpec {
 
@@ -32,9 +35,24 @@ class OrderV1Controller(
         val cmd = PlaceOrderCommand(
             items = request.items.map { OrderItemCommand(productId = it.productId, quantity = it.quantity) },
             userCouponId = request.userCouponId,
+            cardType = request.cardType,
+            cardNo = request.cardNo,
         )
-        return orderFacade.placeOrder(user.id, cmd)
-            .let { OrderV1Dto.OrderResponse.from(it) }
+
+        // 1. 주문 생성 (@Transactional)
+        val orderResult = orderFacade.placeOrder(user.id, cmd)
+
+        // 2. 결제 요청 (트랜잭션 없음 — PG 호출이 DB 커넥션을 점유하지 않도록)
+        val paymentResult = paymentFacade.requestPayment(
+            RequestPaymentCommand(
+                orderId = orderResult.id,
+                amount = orderResult.totalPrice,
+                cardType = cmd.cardType,
+                cardNo = cmd.cardNo,
+            ),
+        )
+
+        return OrderV1Dto.OrderResponse.from(orderResult, paymentResult.status)
             .let { ApiResponse.success(it) }
     }
 
