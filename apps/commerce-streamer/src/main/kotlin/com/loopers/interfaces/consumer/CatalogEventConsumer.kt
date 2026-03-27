@@ -28,7 +28,7 @@ class CatalogEventConsumer(
     fun consume(messages: List<ConsumerRecord<Any, Any>>, acknowledgment: Acknowledgment) {
         for (record in messages) {
             try {
-                val message = objectMapper.convertValue(record.value(), KafkaEventMessage::class.java)
+                val message = objectMapper.readValue(record.value() as ByteArray, KafkaEventMessage::class.java)
 
                 if (idempotencyService.isAlreadyHandled(message.eventId)) {
                     continue
