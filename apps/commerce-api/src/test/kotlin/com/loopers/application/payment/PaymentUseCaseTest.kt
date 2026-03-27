@@ -396,11 +396,7 @@ class PaymentUseCaseTest {
 
         override fun findAll(pageable: org.springframework.data.domain.Pageable): Page<Coupon> = PageImpl(listOf(coupon))
 
-<<<<<<< HEAD
-=======
         override fun tryIncreaseIssuedCount(id: Long): Int = 1
-
->>>>>>> 8b20ad06 (test(application): 이벤트 기반 쿠폰 발급 테스트 추가)
         override fun deleteById(id: Long) = Unit
     }
 
