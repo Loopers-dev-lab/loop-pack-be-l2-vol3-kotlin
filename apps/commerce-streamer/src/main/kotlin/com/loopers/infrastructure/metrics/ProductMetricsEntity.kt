@@ -24,6 +24,15 @@ class ProductMetricsEntity(
     @Column(name = "sales_count", nullable = false)
     var salesCount: Long = 0L,
 
+    @Column(name = "last_like_event_at")
+    var lastLikeEventAt: ZonedDateTime? = null,
+
+    @Column(name = "last_view_event_at")
+    var lastViewEventAt: ZonedDateTime? = null,
+
+    @Column(name = "last_sales_event_at")
+    var lastSalesEventAt: ZonedDateTime? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: ZonedDateTime? = null,
 
