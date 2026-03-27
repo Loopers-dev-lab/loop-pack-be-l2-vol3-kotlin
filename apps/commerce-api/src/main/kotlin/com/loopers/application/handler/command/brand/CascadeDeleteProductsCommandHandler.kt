@@ -1,4 +1,4 @@
-package com.loopers.application.handler.brand
+package com.loopers.application.handler.command.brand
 
 import com.loopers.application.product.ProductService
 import com.loopers.domain.common.command.CascadeDeleteProductsCommand

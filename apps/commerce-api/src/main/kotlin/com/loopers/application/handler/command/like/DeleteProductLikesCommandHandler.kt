@@ -1,4 +1,4 @@
-package com.loopers.application.handler.like
+package com.loopers.application.handler.command.like
 
 import com.loopers.domain.common.command.DeleteProductLikesCommand
 import com.loopers.domain.like.ProductLikeRepository

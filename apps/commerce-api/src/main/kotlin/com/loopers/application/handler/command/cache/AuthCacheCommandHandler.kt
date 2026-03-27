@@ -1,4 +1,4 @@
-package com.loopers.application.handler.cache
+package com.loopers.application.handler.command.cache
 
 import com.loopers.application.auth.AuthCacheStore
 import com.loopers.domain.common.command.EvictAuthCacheCommand

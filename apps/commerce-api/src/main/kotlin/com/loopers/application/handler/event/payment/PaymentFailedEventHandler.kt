@@ -1,4 +1,4 @@
-package com.loopers.application.handler.payment
+package com.loopers.application.handler.event.payment
 
 import com.loopers.domain.common.event.PaymentFailedEvent
 import org.slf4j.LoggerFactory

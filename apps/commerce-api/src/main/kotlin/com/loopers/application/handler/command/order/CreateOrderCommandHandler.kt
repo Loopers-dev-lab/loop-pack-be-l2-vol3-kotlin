@@ -1,4 +1,4 @@
-package com.loopers.application.handler.order
+package com.loopers.application.handler.command.order
 
 import com.loopers.application.order.OrderCommand
 import com.loopers.application.order.OrderService

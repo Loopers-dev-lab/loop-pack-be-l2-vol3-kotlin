@@ -1,7 +1,8 @@
-package com.loopers.application.handler.order
+package com.loopers.application.handler.event.order
 
-import com.loopers.application.handler.coupon.UseCouponCommandHandler
-import com.loopers.application.handler.product.DeductStockCommandHandler
+import com.loopers.application.handler.command.coupon.UseCouponCommandHandler
+import com.loopers.application.handler.command.order.CreateOrderCommandHandler
+import com.loopers.application.handler.command.product.DeductStockCommandHandler
 import com.loopers.domain.common.command.CreateOrderCommand
 import com.loopers.domain.common.command.DeductStockCommand
 import com.loopers.domain.common.command.UseCouponCommand

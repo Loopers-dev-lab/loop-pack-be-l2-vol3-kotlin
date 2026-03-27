@@ -1,5 +1,6 @@
-package com.loopers.application.handler.useraction
+package com.loopers.application.handler.event.useraction
 
+import com.loopers.application.handler.command.useraction.PublishProductMetricsCommandHandler
 import com.loopers.domain.common.command.PublishProductMetricsCommand
 import com.loopers.domain.common.event.UserActionEvent
 import com.loopers.domain.useraction.UserActionLogModel

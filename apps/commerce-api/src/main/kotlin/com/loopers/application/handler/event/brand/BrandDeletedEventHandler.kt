@@ -1,5 +1,6 @@
-package com.loopers.application.handler.brand
+package com.loopers.application.handler.event.brand
 
+import com.loopers.application.handler.command.brand.CascadeDeleteProductsCommandHandler
 import com.loopers.domain.common.command.CascadeDeleteProductsCommand
 import com.loopers.domain.common.event.BrandDeletedEvent
 import org.springframework.stereotype.Component

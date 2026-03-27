@@ -1,7 +1,7 @@
 package com.loopers.application.handler
 
-import com.loopers.application.handler.useraction.PublishProductMetricsCommandHandler
-import com.loopers.application.handler.useraction.UserActionEventHandler
+import com.loopers.application.handler.command.useraction.PublishProductMetricsCommandHandler
+import com.loopers.application.handler.event.useraction.UserActionEventHandler
 import com.loopers.application.outbox.FakeOutboxEventRepository
 import com.loopers.application.useraction.FakeUserActionLogRepository
 import com.loopers.domain.common.event.UserActionEvent

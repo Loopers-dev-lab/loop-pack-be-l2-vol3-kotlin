@@ -1,4 +1,4 @@
-package com.loopers.application.handler.product
+package com.loopers.application.handler.command.product
 
 import com.loopers.application.product.ProductService
 import com.loopers.domain.common.command.DeductStockCommand

@@ -1,4 +1,4 @@
-package com.loopers.application.handler.cache
+package com.loopers.application.handler.command.cache
 
 import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.common.command.EvictProductCacheCommand

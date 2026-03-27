@@ -1,4 +1,4 @@
-package com.loopers.application.handler.cache
+package com.loopers.application.handler.command.cache
 
 import com.loopers.application.brand.BrandCacheStore
 import com.loopers.domain.common.command.EvictBrandCacheCommand

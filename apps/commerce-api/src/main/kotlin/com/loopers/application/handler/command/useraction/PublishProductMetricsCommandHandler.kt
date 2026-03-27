@@ -1,4 +1,4 @@
-package com.loopers.application.handler.useraction
+package com.loopers.application.handler.command.useraction
 
 import com.loopers.application.outbox.OutboxEventPublisher
 import com.loopers.domain.common.command.PublishProductMetricsCommand

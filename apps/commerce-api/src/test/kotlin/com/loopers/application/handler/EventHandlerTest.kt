@@ -1,15 +1,15 @@
 package com.loopers.application.handler
 
-import com.loopers.application.handler.brand.BrandDeletedEventHandler
-import com.loopers.application.handler.brand.CascadeDeleteProductsCommandHandler
-import com.loopers.application.handler.cache.AuthCacheCommandHandler
-import com.loopers.application.handler.cache.BrandCacheCommandHandler
-import com.loopers.application.handler.cache.CacheEvictEventHandler
-import com.loopers.application.handler.cache.ProductCacheCommandHandler
-import com.loopers.application.handler.like.DeleteProductLikesCommandHandler
-import com.loopers.application.handler.like.ProductDeletedLikeEventHandler
-import com.loopers.application.handler.product.DeductStockCommandHandler
-import com.loopers.application.handler.product.RestoreStockCommandHandler
+import com.loopers.application.handler.event.brand.BrandDeletedEventHandler
+import com.loopers.application.handler.command.brand.CascadeDeleteProductsCommandHandler
+import com.loopers.application.handler.command.cache.AuthCacheCommandHandler
+import com.loopers.application.handler.command.cache.BrandCacheCommandHandler
+import com.loopers.application.handler.event.cache.CacheEvictEventHandler
+import com.loopers.application.handler.command.cache.ProductCacheCommandHandler
+import com.loopers.application.handler.command.like.DeleteProductLikesCommandHandler
+import com.loopers.application.handler.event.like.ProductDeletedLikeEventHandler
+import com.loopers.application.handler.command.product.DeductStockCommandHandler
+import com.loopers.application.handler.command.product.RestoreStockCommandHandler
 import com.loopers.application.auth.FakeAuthCacheStore
 import com.loopers.application.brand.FakeBrandCacheStore
 import com.loopers.application.like.FakeProductLikeRepository

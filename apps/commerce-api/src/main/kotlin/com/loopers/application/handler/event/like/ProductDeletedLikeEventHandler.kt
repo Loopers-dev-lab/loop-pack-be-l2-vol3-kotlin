@@ -1,5 +1,6 @@
-package com.loopers.application.handler.like
+package com.loopers.application.handler.event.like
 
+import com.loopers.application.handler.command.like.DeleteProductLikesCommandHandler
 import com.loopers.domain.common.command.DeleteProductLikesCommand
 import com.loopers.domain.common.event.ProductDeletedEvent
 import org.springframework.stereotype.Component

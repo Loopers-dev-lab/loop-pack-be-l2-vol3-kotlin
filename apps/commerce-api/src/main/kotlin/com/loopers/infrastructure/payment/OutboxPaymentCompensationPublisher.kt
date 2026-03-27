@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.payment
 
-import com.loopers.application.handler.payment.PaymentCompensationPublisher
+import com.loopers.application.handler.event.payment.PaymentCompensationPublisher
 import com.loopers.application.outbox.OutboxEventPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
