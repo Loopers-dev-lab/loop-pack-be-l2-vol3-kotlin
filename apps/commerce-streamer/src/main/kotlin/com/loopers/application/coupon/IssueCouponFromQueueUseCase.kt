@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.application.event.IdempotencyService
 import com.loopers.domain.coupon.CouponIssueRepository
 import com.loopers.domain.coupon.CouponIssueRequestRepository
 import com.loopers.domain.coupon.CouponIssueRequestStatus
@@ -12,11 +13,17 @@ import java.time.ZonedDateTime
 class IssueCouponFromQueueUseCase(
     private val couponIssueRequestRepository: CouponIssueRequestRepository,
     private val couponIssueRepository: CouponIssueRepository,
+    private val idempotencyService: IdempotencyService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
-    fun execute(requestId: String, couponId: Long, userId: Long) {
+    fun execute(requestId: String, eventType: String, couponId: Long, userId: Long) {
+        if (!idempotencyService.tryMarkHandled(requestId, eventType)) {
+            log.debug("이미 처리된 쿠폰 발급 요청 skip. requestId={}", requestId)
+            return
+        }
+
         val issueRequest = couponIssueRequestRepository.findByRequestId(requestId)
         if (issueRequest == null) {
             log.warn("발급 요청을 찾을 수 없습니다. requestId={}", requestId)

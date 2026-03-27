@@ -52,36 +52,34 @@ class OrderEventConsumer(
         val eventId = generic["eventId"]?.toString() ?: return
         val eventType = generic["eventType"]?.toString() ?: return
 
-        if (!idempotencyService.tryMarkHandled(eventId, eventType)) {
-            log.debug("이미 처리된 이벤트 skip. eventId={}", eventId)
-            return
-        }
-
         // [설계 결정] catalog-events와 동일하게 additive 연산이므로 version/updated_at 체크 불필요.
-        when (eventType) {
-            "ORDER_CREATED" -> {
-                log.info("주문 생성 이벤트 수신. orderId={}", generic["orderId"])
-            }
-            "ORDER_COMPLETED" -> {
-                val orderId = generic["orderId"]
-                val items = generic["items"] as? List<GenericRecord>
-                if (items.isNullOrEmpty()) {
-                    log.info("주문 완료 이벤트 수신 (아이템 없음). orderId={}", orderId)
-                    return
+        // 멱등 마킹과 metrics upsert를 같은 트랜잭션으로 묶어 원자성을 보장한다.
+        idempotencyService.executeWithIdempotency(eventId, eventType) {
+            when (eventType) {
+                "ORDER_CREATED" -> {
+                    log.info("주문 생성 이벤트 수신. orderId={}", generic["orderId"])
                 }
-                for (item in items) {
-                    val productId = (item["productId"] as Number).toLong()
-                    val quantity = (item["quantity"] as Number).toInt()
-                    val salesAmount = (item["salesAmount"] as Number).toLong()
-                    productMetricsJpaRepository.upsertMetrics(
-                        productId = productId,
-                        viewCount = 0,
-                        likeCount = 0,
-                        orderCount = quantity.toLong(),
-                        salesAmount = salesAmount,
-                    )
+                "ORDER_COMPLETED" -> {
+                    val orderId = generic["orderId"]
+                    val items = generic["items"] as? List<GenericRecord>
+                    if (items.isNullOrEmpty()) {
+                        log.info("주문 완료 이벤트 수신 (아이템 없음). orderId={}", orderId)
+                        return@executeWithIdempotency
+                    }
+                    for (item in items) {
+                        val productId = (item["productId"] as Number).toLong()
+                        val quantity = (item["quantity"] as Number).toInt()
+                        val salesAmount = (item["salesAmount"] as Number).toLong()
+                        productMetricsJpaRepository.upsertMetrics(
+                            productId = productId,
+                            viewCount = 0,
+                            likeCount = 0,
+                            orderCount = quantity.toLong(),
+                            salesAmount = salesAmount,
+                        )
+                    }
+                    log.info("주문 완료 metrics 반영. orderId={}, itemCount={}", orderId, items.size)
                 }
-                log.info("주문 완료 metrics 반영. orderId={}, itemCount={}", orderId, items.size)
             }
         }
     }

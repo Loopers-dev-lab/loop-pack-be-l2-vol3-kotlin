@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit
 @Component
 class OutboxRelayScheduler(
     private val outboxEventRepository: OutboxEventRepository,
+    private val outboxEventFetcher: OutboxEventFetcher,
     private val kafkaTemplate: KafkaTemplate<Any, Any>,
     private val objectMapper: ObjectMapper,
     private val avroSchemaProvider: AvroSchemaProvider,
@@ -33,7 +34,7 @@ class OutboxRelayScheduler(
     // SKIP LOCKED는 모든 인스턴스가 비중복으로 relay하므로 수평 확장 가능.
     @Scheduled(fixedDelay = 1000)
     fun relay() {
-        val events = fetchAndMarkSending { outboxEventRepository.findPendingEventsForUpdate(100) }
+        val events = outboxEventFetcher.fetchAndMarkSending { outboxEventRepository.findPendingEventsForUpdate(100) }
         if (events.isEmpty()) return
 
         relayEvents(events)
@@ -42,7 +43,7 @@ class OutboxRelayScheduler(
 
     @Scheduled(fixedDelay = 30000)
     fun retryFailed() {
-        val events = fetchAndMarkSending { outboxEventRepository.findFailedEventsForUpdate(50) }
+        val events = outboxEventFetcher.fetchAndMarkSending { outboxEventRepository.findFailedEventsForUpdate(50) }
         if (events.isEmpty()) return
 
         relayEvents(events)
@@ -69,20 +70,6 @@ class OutboxRelayScheduler(
         if (deleted > 0) {
             log.info("Outbox 정리 완료. deleted={}", deleted)
         }
-    }
-
-    /**
-     * 트랜잭션 1: SELECT FOR UPDATE SKIP LOCKED → SENDING 마킹 → 커밋.
-     * 잠금 보유 시간을 SELECT~UPDATE 구간(밀리초)으로 한정한다.
-     */
-    @Transactional
-    fun fetchAndMarkSending(fetcher: () -> List<OutboxEvent>): List<OutboxEvent> {
-        val events = fetcher()
-        if (events.isNotEmpty()) {
-            val ids = events.map { requireNotNull(it.persistenceId) }
-            outboxEventRepository.markAsSending(ids)
-        }
-        return events
     }
 
     /**

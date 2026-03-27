@@ -1,7 +1,6 @@
 package com.loopers.interfaces.consumer
 
 import com.loopers.application.coupon.IssueCouponFromQueueUseCase
-import com.loopers.application.event.IdempotencyService
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.config.kafka.KafkaTopics
 import org.apache.avro.generic.GenericRecord
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Component
 
 @Component
 class CouponIssueConsumer(
-    private val idempotencyService: IdempotencyService,
     private val issueCouponFromQueueUseCase: IssueCouponFromQueueUseCase,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -49,17 +47,10 @@ class CouponIssueConsumer(
             return
         }
         val eventType = generic["eventType"]?.toString() ?: "COUPON_ISSUE_REQUESTED"
-
-        if (!idempotencyService.tryMarkHandled(requestId, eventType)) {
-            log.debug("이미 처리된 쿠폰 발급 요청 skip. requestId={}", requestId)
-            acknowledgment.acknowledge()
-            return
-        }
-
         val couponId = (generic["couponId"] as Number).toLong()
         val userId = (generic["userId"] as Number).toLong()
 
-        issueCouponFromQueueUseCase.execute(requestId, couponId, userId)
+        issueCouponFromQueueUseCase.execute(requestId, eventType, couponId, userId)
         acknowledgment.acknowledge()
     }
 }
