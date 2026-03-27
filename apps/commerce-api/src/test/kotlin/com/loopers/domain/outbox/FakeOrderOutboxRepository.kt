@@ -19,6 +19,10 @@ class FakeOrderOutboxRepository : OrderOutboxRepository {
         return outbox
     }
 
+    override fun saveAll(outboxes: List<OrderOutbox>): List<OrderOutbox> {
+        return outboxes.map { save(it) }
+    }
+
     override fun findAllUnpublished(limit: Int): List<OrderOutbox> {
         return store.filter { !it.published }.take(limit)
     }

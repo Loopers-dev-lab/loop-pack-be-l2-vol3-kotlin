@@ -14,9 +14,9 @@ import com.loopers.domain.payment.PgPaymentResult
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.domain.payment.model.Payment
+import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.payment.model.PaymentStatus
 import org.assertj.core.api.Assertions.assertThat
-import org.springframework.context.ApplicationEventPublisher
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -32,7 +32,9 @@ import java.math.BigDecimal
 class PaymentFlowIntegrationTest {
 
     private lateinit var orderRepository: FakeOrderRepository
+    private lateinit var orderItemRepository: FakeOrderItemRepository
     private lateinit var paymentRepository: FakePaymentRepository
+    private lateinit var orderOutboxRepository: FakeOrderOutboxRepository
     private lateinit var pgClient: FakePgClient
     private lateinit var fakePaymentPgProcessor: FakePaymentPgProcessor
     private lateinit var requestPaymentUseCase: RequestPaymentUseCase
@@ -51,15 +53,19 @@ class PaymentFlowIntegrationTest {
     fun setUp() {
         TransactionSynchronizationManager.initSynchronization()
         orderRepository = FakeOrderRepository()
+        orderItemRepository = FakeOrderItemRepository()
         paymentRepository = FakePaymentRepository()
+        orderOutboxRepository = FakeOrderOutboxRepository()
         pgClient = FakePgClient()
         fakePaymentPgProcessor = FakePaymentPgProcessor()
-        paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
+        paymentPgProcessor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate, orderOutboxRepository)
         requestPaymentUseCase = RequestPaymentUseCase(orderRepository, paymentRepository, fakePaymentPgProcessor)
         handlePaymentCallbackUseCase = HandlePaymentCallbackUseCase(
-            paymentRepository, orderRepository, FakeOrderItemRepository(), ApplicationEventPublisher { },
+            paymentRepository, orderRepository, orderItemRepository, orderOutboxRepository,
         )
-        recoverPaymentUseCase = RecoverPaymentUseCase(paymentRepository, orderRepository, pgClient, txTemplate)
+        recoverPaymentUseCase = RecoverPaymentUseCase(
+            paymentRepository, orderRepository, orderItemRepository, orderOutboxRepository, pgClient, txTemplate,
+        )
         recoverAllPaymentsUseCase = RecoverAllPaymentsUseCase(paymentRepository, recoverPaymentUseCase)
     }
 
@@ -86,7 +92,10 @@ class PaymentFlowIntegrationTest {
                 ) to Quantity(1),
             ),
         )
-        return orderRepository.save(order)
+        val saved = orderRepository.save(order)
+        saved.assignOrderIdToItems(saved.id)
+        orderItemRepository.saveAll(saved.items)
+        return saved
     }
 
     private fun defaultRequestCommand(orderId: Long) = PaymentCommand.RequestPayment(
@@ -147,6 +156,11 @@ class PaymentFlowIntegrationTest {
             val finalOrder = orderRepository.findById(savedOrder.id)!!
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.SUCCESS)
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.PAID)
+            val outboxes = orderOutboxRepository.findAllUnpublished()
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
+            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
         }
     }
 
@@ -272,6 +286,14 @@ class PaymentFlowIntegrationTest {
             assertThat(finalPayment.status).isEqualTo(PaymentStatus.FAILED)
             assertThat(finalPayment.reason).isEqualTo("카드 한도 초과")
             assertThat(finalOrder.status).isEqualTo(Order.OrderStatus.FAILED)
+
+            // PG 즉시 실패 시에도 PAYMENT_FAILED outbox가 생성되어야 한다
+            val outboxes = orderOutboxRepository.findAllUnpublished()
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_FAILED")
+            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
+            assertThat(outbox.reason).isEqualTo("카드 한도 초과")
         }
     }
 }

@@ -1,7 +1,11 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
+import com.loopers.domain.outbox.model.OrderOutbox
+import com.loopers.domain.outbox.model.OrderOutboxEventType
+import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import com.loopers.domain.payment.PgClient
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.model.PaymentStatus
@@ -19,6 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate
 class RecoverPaymentUseCase(
     private val paymentRepository: PaymentRepository,
     private val orderRepository: OrderRepository,
+    private val orderItemRepository: OrderItemRepository,
+    private val orderOutboxRepository: OrderOutboxRepository,
     private val pgClient: PgClient,
     private val txTemplate: TransactionTemplate,
 ) {
@@ -61,12 +67,37 @@ class RecoverPaymentUseCase(
                                 paymentRepository.save(freshPayment)
                                 order.markPaid()
                                 orderRepository.save(order)
+                                val orderItems = orderItemRepository.findAllByOrderId(OrderId(orderId))
+                                if (orderItems.isEmpty()) {
+                                    log.warn("결제 복구 성공했으나 주문 항목이 없음. orderId={}", orderId)
+                                }
+                                orderOutboxRepository.saveAll(
+                                    orderItems.map { item ->
+                                        OrderOutbox(
+                                            eventType = OrderOutboxEventType.PAYMENT_COMPLETED.name,
+                                            orderId = orderId,
+                                            userId = order.refUserId.value,
+                                            totalAmount = freshPayment.amount,
+                                            productId = item.refProductId.value,
+                                            quantity = item.quantity.value,
+                                        )
+                                    },
+                                )
                             }
                             PgResultStatus.FAILED -> {
-                                freshPayment.markFailed(detail.reason ?: "PG 결제 실패")
+                                val reason = detail.reason ?: "PG 결제 실패"
+                                freshPayment.markFailed(reason)
                                 paymentRepository.save(freshPayment)
                                 order.markFailed()
                                 orderRepository.save(order)
+                                orderOutboxRepository.save(
+                                    OrderOutbox(
+                                        eventType = OrderOutboxEventType.PAYMENT_FAILED.name,
+                                        orderId = orderId,
+                                        userId = order.refUserId.value,
+                                        reason = reason,
+                                    ),
+                                )
                             }
                             PgResultStatus.TIMEOUT -> {
                                 // TIMEOUT 유지 - 다음 복구 주기에 재시도
