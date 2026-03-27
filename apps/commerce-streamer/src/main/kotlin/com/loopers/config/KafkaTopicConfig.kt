@@ -12,4 +12,7 @@ class KafkaTopicConfig {
 
     @Bean
     fun orderEventsTopic(): NewTopic = NewTopic("order-events", 3, 1.toShort())
+
+    @Bean
+    fun couponIssueRequestsTopic(): NewTopic = NewTopic("coupon-issue-requests", 3, 1.toShort())
 }
