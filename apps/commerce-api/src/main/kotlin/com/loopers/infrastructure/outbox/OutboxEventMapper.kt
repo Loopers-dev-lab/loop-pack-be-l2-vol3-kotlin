@@ -14,6 +14,7 @@ object OutboxEventMapper {
             partitionKey = entity.partitionKey,
             payload = entity.payload,
             status = entity.status,
+            retryCount = entity.retryCount,
             occurredAt = entity.occurredAt,
         )
     }
@@ -28,6 +29,7 @@ object OutboxEventMapper {
             partitionKey = domain.partitionKey,
             payload = domain.payload,
             status = domain.status,
+            retryCount = domain.retryCount,
             occurredAt = domain.occurredAt,
         )
     }

@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "com.loopers.avro",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventType", "type": "string"},
+    {"name": "orderId", "type": "long"},
+    {"name": "userId", "type": "long"},
+    {"name": "totalAmount", "type": ["null", "long"], "default": null},
+    {"name": "itemCount", "type": ["null", "int"], "default": null},
+    {"name": "occurredAt", "type": "string"}
+  ]
+}

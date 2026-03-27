@@ -3,28 +3,30 @@ spring:
     bootstrap-servers: ${BOOTSTRAP_SERVERS}
     client-id: ${spring.application.name}
     properties:
-        spring.json.add.type.headers: false # json serialize off
-        request.timeout.ms: 20000
-        retry.backoff.ms: 500
-        auto:
-          create.topics.enable: false
-          register.schemas: false
-          offset.reset: latest
-        use.latest.version: true
+      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+      auto:
+        create.topics.enable: false
+        register.schemas: true
+      # [트레이드오프] 현재 스키마 버전 1개, 진화 시나리오 없음.
+      # 운영 환경: Schema Registry에 BACKWARD 호환성 + use.latest.version: false 필수.
+      use.latest.version: true
+      request.timeout.ms: 20000
+      retry.backoff.ms: 500
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
       acks: all
-      retries: 3
       properties:
         enable.idempotence: true
         max.in.flight.requests.per.connection: 5
+        delivery.timeout.ms: 15000
     consumer:
       group-id: loopers-default-consumer
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      enable-auto-commit: false
       properties:
-        enable-auto-commit: false
+        specific.avro.reader: false
     listener:
       ack-mode: manual
 
@@ -34,6 +36,8 @@ spring.config.activate.on-profile: local, test
 spring:
   kafka:
     bootstrap-servers: localhost:19092
+    properties:
+      schema.registry.url: http://localhost:8081
     admin:
       properties:
         bootstrap.servers: kafka:9092

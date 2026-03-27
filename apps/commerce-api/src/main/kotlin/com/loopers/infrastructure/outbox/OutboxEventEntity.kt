@@ -41,6 +41,9 @@ class OutboxEventEntity(
     @Column(name = "status", nullable = false, length = 20)
     val status: OutboxEventStatus,
 
+    @Column(name = "retry_count", nullable = false)
+    val retryCount: Int = 0,
+
     @Column(name = "occurred_at", nullable = false)
     val occurredAt: java.time.ZonedDateTime,
 ) : BaseEntity() {

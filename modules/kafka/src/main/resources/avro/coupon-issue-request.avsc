@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "CouponIssueRequest",
+  "namespace": "com.loopers.avro",
+  "fields": [
+    {"name": "eventType", "type": ["null", "string"], "default": null},
+    {"name": "requestId", "type": "string"},
+    {"name": "couponId", "type": "long"},
+    {"name": "userId", "type": "long"}
+  ]
+}

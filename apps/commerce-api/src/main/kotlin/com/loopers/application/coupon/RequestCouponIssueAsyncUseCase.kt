@@ -1,5 +1,6 @@
 package com.loopers.application.coupon
 
+import com.loopers.config.kafka.KafkaTopics
 import com.loopers.domain.coupon.CouponIssueRequest
 import com.loopers.domain.coupon.CouponIssueRequestRepository
 import com.loopers.domain.coupon.CouponRepository
@@ -18,10 +19,6 @@ class RequestCouponIssueAsyncUseCase(
     private val couponIssueRequestRepository: CouponIssueRequestRepository,
     private val outboxEventRepository: OutboxEventRepository,
 ) {
-    companion object {
-        const val TOPIC_COUPON_ISSUE_REQUESTS = "coupon-issue-requests"
-    }
-
     @Transactional
     fun request(userId: Long, couponId: Long): String {
         val coupon = couponRepository.findById(couponId)
@@ -43,9 +40,9 @@ class RequestCouponIssueAsyncUseCase(
             eventId = requestId,
             eventType = "COUPON_ISSUE_REQUESTED",
             aggregateId = couponId.toString(),
-            topic = TOPIC_COUPON_ISSUE_REQUESTS,
+            topic = KafkaTopics.COUPON_ISSUE_REQUESTS,
             partitionKey = couponId.toString(),
-            payload = """{"requestId":"$requestId","couponId":$couponId,"userId":$userId}""",
+            payload = """{"eventType":"COUPON_ISSUE_REQUESTED","requestId":"$requestId","couponId":$couponId,"userId":$userId}""",
             occurredAt = ZonedDateTime.now(),
         )
         outboxEventRepository.save(outboxEvent)

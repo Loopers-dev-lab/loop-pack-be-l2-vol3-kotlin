@@ -11,21 +11,24 @@ class OutboxEvent private constructor(
     val partitionKey: String,
     val payload: String,
     val status: OutboxEventStatus,
+    val retryCount: Int,
     val occurredAt: ZonedDateTime,
 ) {
-    fun markPublished(): OutboxEvent = OutboxEvent(
-        persistenceId = persistenceId,
-        eventId = eventId,
-        eventType = eventType,
-        aggregateId = aggregateId,
-        topic = topic,
-        partitionKey = partitionKey,
-        payload = payload,
-        status = OutboxEventStatus.PUBLISHED,
-        occurredAt = occurredAt,
+    fun markPublished(): OutboxEvent = copy(status = OutboxEventStatus.PUBLISHED)
+
+    fun markFailed(): OutboxEvent = copy(
+        status = OutboxEventStatus.FAILED,
+        retryCount = retryCount + 1,
     )
 
-    fun markFailed(): OutboxEvent = OutboxEvent(
+    fun markDead(): OutboxEvent = copy(status = OutboxEventStatus.DEAD)
+
+    fun isRetryExhausted(maxRetry: Int): Boolean = retryCount >= maxRetry
+
+    private fun copy(
+        status: OutboxEventStatus = this.status,
+        retryCount: Int = this.retryCount,
+    ): OutboxEvent = OutboxEvent(
         persistenceId = persistenceId,
         eventId = eventId,
         eventType = eventType,
@@ -33,7 +36,8 @@ class OutboxEvent private constructor(
         topic = topic,
         partitionKey = partitionKey,
         payload = payload,
-        status = OutboxEventStatus.FAILED,
+        status = status,
+        retryCount = retryCount,
         occurredAt = occurredAt,
     )
 
@@ -55,6 +59,7 @@ class OutboxEvent private constructor(
             partitionKey = partitionKey,
             payload = payload,
             status = OutboxEventStatus.PENDING,
+            retryCount = 0,
             occurredAt = occurredAt,
         )
 
@@ -67,6 +72,7 @@ class OutboxEvent private constructor(
             partitionKey: String,
             payload: String,
             status: OutboxEventStatus,
+            retryCount: Int,
             occurredAt: ZonedDateTime,
         ): OutboxEvent = OutboxEvent(
             persistenceId = persistenceId,
@@ -77,6 +83,7 @@ class OutboxEvent private constructor(
             partitionKey = partitionKey,
             payload = payload,
             status = status,
+            retryCount = retryCount,
             occurredAt = occurredAt,
         )
     }
