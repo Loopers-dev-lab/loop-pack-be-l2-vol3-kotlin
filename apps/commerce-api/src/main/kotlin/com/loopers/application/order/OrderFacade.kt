@@ -3,12 +3,16 @@ package com.loopers.application.order
 import com.loopers.domain.Money
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponService
+import com.loopers.domain.event.ActionType
+import com.loopers.domain.event.UserActionEvent
 import com.loopers.domain.order.CreateOrderCommand
 import com.loopers.domain.order.OrderInfo
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.event.OrderEvent
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import com.loopers.domain.event.DomainEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -20,16 +24,21 @@ class OrderFacade(
     private val brandService: BrandService,
     private val orderService: OrderService,
     private val couponService: CouponService,
+    private val domainEventPublisher: DomainEventPublisher,
 ) {
 
     /**
      * 주문 생성.
      *
      * @Transactional 선택 이유:
-     * - 재고 차감 + 쿠폰 사용 + 주문 생성이 하나의 원자적 작업이어야 함
-     * - 이 메서드가 여러 도메인(Product, Coupon, Order)을 조율하므로
-     *   트랜잭션 경계를 Facade에서 잡는 것이 적절
-     * - 쿠폰 검증/사용 비즈니스 로직은 CouponService.useCouponForOrder()에 위임
+     * - 재고 차감 + 쿠폰 검증 + 주문 생성이 하나의 원자적 작업이어야 함
+     * - 쿠폰 USED 마킹은 핵심 트랜잭션에서 제외 → AFTER_COMMIT 이벤트로 분리
+     *   (할인 계산은 동기로 처리, 실제 상태 변경만 비동기)
+     *
+     * 이벤트 발행:
+     * - OrderEvent.Created를 트랜잭션 내에서 발행
+     * - @TransactionalEventListener(AFTER_COMMIT) 리스너가 커밋 후 후속 처리
+     *   (쿠폰 USED 마킹, 로깅, 알림)
      */
     @Transactional
     fun createOrder(userId: Long, criteria: CreateOrderCriteria): OrderResult {
@@ -41,7 +50,7 @@ class OrderFacade(
 
         val quantities = criteria.items.associate { it.productId to it.quantity }
 
-        // ── 쿠폰 적용 (검증 + 할인 계산 + 사용 처리는 CouponService에 위임) ──
+        // ── 쿠폰 적용 (검증 + 할인 계산만, USED 마킹은 AFTER_COMMIT 이벤트에서 처리) ──
         var couponIssueId: Long? = null
         var couponDiscountAmount = Money.ZERO
 
@@ -49,7 +58,7 @@ class OrderFacade(
             val rawTotal = products.fold(Money.ZERO) { acc, product ->
                 acc + product.price * quantities[product.id]!!
             }
-            val usage = couponService.useCouponForOrder(criteria.couponIssueId, userId, rawTotal)
+            val usage = couponService.validateAndCalculateDiscount(criteria.couponIssueId, userId, rawTotal)
             couponIssueId = usage.couponIssueId
             couponDiscountAmount = usage.discountAmount
         }
@@ -74,6 +83,37 @@ class OrderFacade(
             couponDiscountAmount = couponDiscountAmount,
         )
         val order = orderService.createOrder(command)
+
+        // ── 이벤트 발행 (커밋 후 후속 처리 트리거) ──
+        domainEventPublisher.publish(
+            OrderEvent.Created(
+                aggregateId = order.id,
+                userId = userId,
+                orderNumber = order.orderNumber,
+                totalAmount = order.totalAmount,
+                couponIssueId = couponIssueId,
+                couponDiscountAmount = couponDiscountAmount,
+                orderItems = order.orderItems.map { item ->
+                    OrderEvent.OrderItemSnapshot(
+                        productId = item.productId,
+                        productName = item.productSnapshot.productName,
+                        quantity = item.quantity,
+                        unitPrice = item.priceSnapshot.originalPrice,
+                    )
+                },
+            ),
+        )
+
+        // ── 유저 행동 로깅 ──
+        domainEventPublisher.publish(
+            UserActionEvent(
+                aggregateId = order.id,
+                userId = userId,
+                actionType = ActionType.ORDER,
+                targetId = order.id,
+                metadata = mapOf("orderNumber" to order.orderNumber),
+            ),
+        )
 
         return OrderResult.from(OrderInfo.from(order))
     }

@@ -2,6 +2,7 @@ package com.loopers.application.coupon
 
 import com.loopers.domain.coupon.CouponInfo
 import com.loopers.domain.coupon.CouponIssueInfo
+import com.loopers.domain.coupon.CouponIssueRequest
 import com.loopers.domain.coupon.CouponIssueStatus
 import java.time.ZonedDateTime
 
@@ -102,6 +103,29 @@ data class MyCouponResult(
             if (dbStatus == CouponIssueStatus.USED) return CouponIssueStatus.USED
             if (ZonedDateTime.now().isAfter(expiredAt)) return CouponIssueStatus.EXPIRED
             return CouponIssueStatus.AVAILABLE
+        }
+    }
+}
+
+/**
+ * 선착순 쿠폰 발급 요청 결과
+ */
+data class CouponIssueRequestResult(
+    val requestId: String,
+    val couponId: Long,
+    val status: String,
+    val failureReason: String?,
+    val createdAt: ZonedDateTime,
+) {
+    companion object {
+        fun from(request: CouponIssueRequest): CouponIssueRequestResult {
+            return CouponIssueRequestResult(
+                requestId = request.requestId,
+                couponId = request.couponId,
+                status = request.status.name,
+                failureReason = request.failureReason,
+                createdAt = request.createdAt,
+            )
         }
     }
 }
