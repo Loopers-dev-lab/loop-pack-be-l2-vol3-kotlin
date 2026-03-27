@@ -73,4 +73,18 @@ abstract class BaseEntity {
     fun restore() {
         deletedAt?.let { deletedAt = null }
     }
+
+    /**
+     * 식별자 기반 동등성 비교.
+     *
+     * 영속화 전(id = 0)에는 참조 동등성, 영속화 후에는 id 기반 동등성을 사용한다.
+     * 이를 통해 Set/Map에 영속화 전후로 추가해도 엔티티가 "손실"되지 않는다.
+     */
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is BaseEntity) return false
+        return id != 0L && id == other.id
+    }
+
+    override fun hashCode(): Int = if (id != 0L) id.hashCode() else System.identityHashCode(this)
 }

@@ -9,6 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 /**
  * Outbox Relay.
@@ -35,7 +36,7 @@ class OutboxRelayScheduler(
                     topicFor(event.aggregateType),
                     event.aggregateId,
                     toEventEnvelope(event),
-                )
+                ).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 event.publishedAt = Instant.now()
                 publishedEvents.add(event)
             } catch (e: Exception) {
@@ -48,6 +49,8 @@ class OutboxRelayScheduler(
     }
 
     companion object {
+        private const val SEND_TIMEOUT_SECONDS = 5L
+
         private val TOPIC_MAP = mapOf(
             AggregateTypes.CATALOG to Topics.CATALOG,
             AggregateTypes.ORDER to Topics.ORDER,
