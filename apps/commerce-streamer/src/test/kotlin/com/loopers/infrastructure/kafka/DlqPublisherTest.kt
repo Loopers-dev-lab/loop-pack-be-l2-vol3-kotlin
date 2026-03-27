@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -116,6 +117,23 @@ class DlqPublisherTest {
                         .`as`("원본 eventType 보존").isEqualTo("LIKE_CREATED")
                 },
             )
+        }
+
+        @DisplayName("Kafka 전송 실패 시 예외를 전파한다")
+        @Test
+        fun propagatesExceptionOnSendFailure() {
+            // arrange
+            val record = ConsumerRecord("catalog-events", 0, 0L, "key", "{}")
+            val exception = RuntimeException("처리 실패")
+            val kafkaException = RuntimeException("Kafka broker unavailable")
+
+            whenever(kafkaTemplate.send(org.mockito.kotlin.any<ProducerRecord<Any, Any>>()))
+                .thenReturn(CompletableFuture.failedFuture(kafkaException))
+
+            // act & assert
+            assertThrows<Exception> {
+                dlqPublisher.publish(record, exception)
+            }
         }
     }
 }

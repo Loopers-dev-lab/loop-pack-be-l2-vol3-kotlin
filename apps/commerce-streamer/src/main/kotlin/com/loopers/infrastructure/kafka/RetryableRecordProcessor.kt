@@ -46,12 +46,24 @@ class RetryableRecordProcessor(
             }
         }
 
+        val exception = requireNotNull(lastException) { "재시도 소진되었으나 예외가 기록되지 않음" }
+
         log.error(
             "레코드 처리 재시도 소진, DLQ 전송 [topic={}, offset={}, attempts={}]",
             record.topic(),
             record.offset(),
             maxAttempts,
         )
-        dlqPublisher.publish(record, lastException!!)
+        try {
+            dlqPublisher.publish(record, exception)
+        } catch (dlqException: Exception) {
+            log.error(
+                "DLQ 전송도 실패 — 메시지 유실 [topic={}, offset={}, error={}]",
+                record.topic(),
+                record.offset(),
+                exception.message,
+                dlqException,
+            )
+        }
     }
 }

@@ -7,9 +7,11 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 class RetryableRecordProcessorTest {
 
@@ -103,6 +105,23 @@ class RetryableRecordProcessorTest {
                 { assertThat(processCount).`as`("1번만 시도해야 한다").isEqualTo(1) },
                 { verify(dlqPublisher).publish(record, expectedException) },
             )
+        }
+
+        @DisplayName("DLQ 전송이 실패해도 예외를 전파하지 않고 배치 처리를 계속한다")
+        @Test
+        fun dlqFailureDoesNotPropagate() {
+            // arrange
+            val record = createRecord()
+            doThrow(RuntimeException("Kafka broker unavailable"))
+                .whenever(dlqPublisher).publish(any(), any())
+
+            // act — 예외가 전파되지 않아야 한다
+            processor.processWithRetry(record, maxAttempts = 1, backoffMs = 10) {
+                throw RuntimeException("처리 실패")
+            }
+
+            // assert — DLQ 전송이 시도되었으나 실패해도 정상 종료
+            verify(dlqPublisher).publish(any(), any())
         }
     }
 }

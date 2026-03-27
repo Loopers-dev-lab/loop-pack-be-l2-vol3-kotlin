@@ -5,6 +5,7 @@ import com.loopers.application.metrics.MetricsEventProcessor
 import com.loopers.config.KafkaTopicConfig
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.infrastructure.kafka.RetryableRecordProcessor
+import com.loopers.infrastructure.kafka.requireHeaderValue
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -36,16 +37,12 @@ class CatalogEventConsumer(
     ) {
         messages.forEach { record ->
             retryableRecordProcessor.processWithRetry(record) { rec ->
-                val eventId = rec.headerValue("eventId")
-                val eventType = rec.headerValue("eventType")
-
-                if (eventId == null || eventType == null) {
-                    log.warn("이벤트 헤더 누락 [topic={}, offset={}]", rec.topic(), rec.offset())
-                    return@processWithRetry
-                }
+                val eventId = rec.requireHeaderValue("eventId")
+                val eventType = rec.requireHeaderValue("eventType")
 
                 val payload = objectMapper.readTree(rec.value())
-                val productId = payload.get("productId").asLong()
+                val productId = payload.get("productId")?.asLong()
+                    ?: throw IllegalArgumentException("필수 필드 누락: productId")
 
                 when (eventType) {
                     EVENT_TYPE_LIKE_CREATED -> metricsEventProcessor.processLikeCreated(eventId, eventType, productId)
@@ -55,9 +52,5 @@ class CatalogEventConsumer(
             }
         }
         acknowledgment.acknowledge()
-    }
-
-    private fun ConsumerRecord<String, String>.headerValue(key: String): String? {
-        return headers().lastHeader(key)?.value()?.let { String(it) }
     }
 }

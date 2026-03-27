@@ -5,6 +5,7 @@ import com.loopers.application.metrics.MetricsEventProcessor
 import com.loopers.config.KafkaTopicConfig
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.infrastructure.kafka.RetryableRecordProcessor
+import com.loopers.infrastructure.kafka.requireHeaderValue
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -37,32 +38,31 @@ class OrderEventConsumer(
     ) {
         messages.forEach { record ->
             retryableRecordProcessor.processWithRetry(record) { rec ->
-                val eventId = rec.headerValue("eventId")
-                val eventType = rec.headerValue("eventType")
-
-                if (eventId == null || eventType == null) {
-                    log.warn("이벤트 헤더 누락 [topic={}, offset={}]", rec.topic(), rec.offset())
-                    return@processWithRetry
-                }
+                val eventId = rec.requireHeaderValue("eventId")
+                val eventType = rec.requireHeaderValue("eventType")
 
                 val payload = objectMapper.readTree(rec.value())
 
                 when (eventType) {
                     EVENT_TYPE_ORDER_CREATED -> {
-                        val productIds = payload.get("productIds").map { it.asLong() }
-                        val totalAmount = payload.get("totalAmount").asLong()
+                        val productIds = payload.get("productIds")?.map { it.asLong() }
+                            ?: throw IllegalArgumentException("필수 필드 누락: productIds")
+                        val totalAmount = payload.get("totalAmount")?.asLong()
+                            ?: throw IllegalArgumentException("필수 필드 누락: totalAmount")
                         metricsEventProcessor.processOrderCreated(eventId, eventType, productIds, totalAmount)
                     }
                     EVENT_TYPE_PAYMENT_APPROVED -> {
-                        val productIds = payload.get("productIds").map { it.asLong() }
-                        val amount = payload.get("amount").asLong()
+                        val productIds = payload.get("productIds")?.map { it.asLong() }
+                            ?: throw IllegalArgumentException("필수 필드 누락: productIds")
+                        val amount = payload.get("amount")?.asLong()
+                            ?: throw IllegalArgumentException("필수 필드 누락: amount")
                         metricsEventProcessor.processPaymentApproved(eventId, eventType, productIds, amount)
                     }
                     EVENT_TYPE_PAYMENT_FAILED -> {
                         log.info(
                             "결제 실패 이벤트 수신 [eventId={}, orderId={}]",
                             eventId,
-                            payload.get("orderId").asLong(),
+                            payload.get("orderId")?.asLong(),
                         )
                     }
                     else -> log.warn("알 수 없는 이벤트 타입 [eventType={}]", eventType)
@@ -70,9 +70,5 @@ class OrderEventConsumer(
             }
         }
         acknowledgment.acknowledge()
-    }
-
-    private fun ConsumerRecord<String, String>.headerValue(key: String): String? {
-        return headers().lastHeader(key)?.value()?.let { String(it) }
     }
 }

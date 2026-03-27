@@ -5,6 +5,7 @@ import com.loopers.domain.idempotency.EventHandledRepository
 import com.loopers.domain.metrics.ProductMetrics
 import com.loopers.domain.metrics.ProductMetricsRepository
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -75,7 +76,12 @@ class MetricsEventProcessor(
 
     private fun findOrCreate(productId: Long): ProductMetrics {
         return productMetricsRepository.findByProductId(productId)
-            ?: productMetricsRepository.save(ProductMetrics.create(productId))
+            ?: try {
+                productMetricsRepository.save(ProductMetrics.create(productId))
+            } catch (e: DataIntegrityViolationException) {
+                productMetricsRepository.findByProductId(productId)
+                    ?: throw e
+            }
     }
 
     private fun markHandled(eventId: String, eventType: String) {

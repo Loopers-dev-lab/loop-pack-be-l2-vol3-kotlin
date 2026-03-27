@@ -32,11 +32,11 @@ class DlqPublisher(
         }
 
         // 에러 정보 헤더 추가
-        producerRecord.headers().add(RecordHeader("dlq.error.class", exception.javaClass.name.toByteArray()))
-        producerRecord.headers().add(RecordHeader("dlq.error.message", (exception.message ?: "").toByteArray()))
-        producerRecord.headers().add(RecordHeader("dlq.error.timestamp", Instant.now().toString().toByteArray()))
-        producerRecord.headers().add(RecordHeader("dlq.original.topic", record.topic().toByteArray()))
-        producerRecord.headers().add(RecordHeader("dlq.original.offset", record.offset().toString().toByteArray()))
+        producerRecord.headers().add(header("dlq.error.class", exception.javaClass.name))
+        producerRecord.headers().add(header("dlq.error.message", exception.message ?: ""))
+        producerRecord.headers().add(header("dlq.error.timestamp", Instant.now().toString()))
+        producerRecord.headers().add(header("dlq.original.topic", record.topic()))
+        producerRecord.headers().add(header("dlq.original.offset", record.offset().toString()))
 
         try {
             kafkaTemplate.send(producerRecord).get()
@@ -49,12 +49,18 @@ class DlqPublisher(
             )
         } catch (e: Exception) {
             log.error(
-                "DLQ 전송 실패 [topic={}, offset={}, dlqTopic={}]",
+                "DLQ 전송 실패 — 메시지 유실 위험 [topic={}, offset={}, dlqTopic={}, key={}]",
                 record.topic(),
                 record.offset(),
                 dlqTopic,
+                record.key(),
                 e,
             )
+            throw e
         }
+    }
+
+    private fun header(key: String, value: String): RecordHeader {
+        return RecordHeader(key, value.toByteArray(Charsets.UTF_8))
     }
 }
