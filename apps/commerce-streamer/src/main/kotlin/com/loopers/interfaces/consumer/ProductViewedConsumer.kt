@@ -35,7 +35,7 @@ class ProductViewedConsumer(
                     val event = objectMapper.readValue(payload, ProductViewedEvent::class.java)
                     productMetricsService.processMetricsEvent(event)
                 } catch (e: Exception) {
-                    logger.error("Failed to process message: ${message.value()}", e)
+                    logger.error("Failed to process message from topic=${message.topic()}, partition=${message.partition()}, offset=${message.offset()}", e)
                     // ✅ DLQ로 이동
                     val payload = message.value() as? String ?: ""
                     dlqHandler.saveToDlq(
@@ -48,11 +48,14 @@ class ProductViewedConsumer(
                     hasError = true
                 }
             }
-            if (!hasError) {
-                acknowledgment.acknowledge()
+            if (hasError) {
+                logger.warn("Batch completed with errors - see DLQ for details")
             }
         } catch (e: Exception) {
             logger.error("Batch processing failed", e)
+        } finally {
+            // ✅ 항상 ACK: hasError 여부와 관계없이 배치 처리 완료
+            acknowledgment.acknowledge()
         }
     }
 }

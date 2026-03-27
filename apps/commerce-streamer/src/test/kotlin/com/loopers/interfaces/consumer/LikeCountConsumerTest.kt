@@ -69,7 +69,7 @@ class LikeCountConsumerTest {
     }
 
     @Test
-    @DisplayName("메시지 처리 실패 시 DLQ에 기록하고 ACK하지 않는다")
+    @DisplayName("메시지 처리 실패 시 DLQ에 기록하고 ACK한다")
     fun `handles processing failure and saves to DLQ`() {
         // Given
         val invalidPayload = "invalid json"
@@ -84,6 +84,7 @@ class LikeCountConsumerTest {
         val messages = listOf(record)
 
         every { dlqHandler.saveToDlq(any(), any(), any(), any(), any()) } returns mockk()
+        every { acknowledgment.acknowledge() } returns Unit
 
         // When
         consumer.handleLikeCountEvents(messages, acknowledgment)
@@ -98,12 +99,13 @@ class LikeCountConsumerTest {
                 exception = any(),
             )
         }
-        verify(exactly = 0) { acknowledgment.acknowledge() }
+        // ✅ 에러 발생해도 ACK는 항상 수행됨
+        verify(exactly = 1) { acknowledgment.acknowledge() }
     }
 
     @Test
-    @DisplayName("배치의 일부 메시지 실패 시 전체 배치 ACK하지 않는다")
-    fun `does not ACK batch if any message fails`() {
+    @DisplayName("배치의 일부 메시지 실패 시 전체 배치 ACK한다")
+    fun `ACK batch even if any message fails`() {
         // Given
         val validEvent = LikeCountEvent(
             productId = 100L,
@@ -130,6 +132,7 @@ class LikeCountConsumerTest {
 
         every { likeCountService.processLikeCountEvent(any()) } returns Unit
         every { dlqHandler.saveToDlq(any(), any(), any(), any(), any()) } returns mockk()
+        every { acknowledgment.acknowledge() } returns Unit
 
         // When
         consumer.handleLikeCountEvents(messages, acknowledgment)
@@ -137,6 +140,7 @@ class LikeCountConsumerTest {
         // Then
         verify(exactly = 1) { likeCountService.processLikeCountEvent(any()) }
         verify(exactly = 1) { dlqHandler.saveToDlq(any(), any(), any(), any(), any()) }
-        verify(exactly = 0) { acknowledgment.acknowledge() }
+        // ✅ 일부 메시지 실패해도 전체 배치 ACK
+        verify(exactly = 1) { acknowledgment.acknowledge() }
     }
 }

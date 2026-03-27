@@ -31,13 +31,6 @@ class OutboxPoller(
                 outbox.published = true
                 outbox.publishedAt = java.time.LocalDateTime.now()
                 outboxRepository.save(outbox)
-
-                logger.debug(
-                    "Published outbox event: id={}, eventType={}, partitionKey={}",
-                    outbox.id,
-                    outbox.eventType,
-                    partitionKey,
-                )
             } catch (e: Exception) {
                 logger.error("Failed to publish outbox event: id=${outbox.id}, eventType=${outbox.eventType}", e)
             }

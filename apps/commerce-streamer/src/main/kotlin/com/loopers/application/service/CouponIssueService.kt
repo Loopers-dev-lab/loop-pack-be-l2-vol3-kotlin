@@ -27,7 +27,6 @@ class CouponIssueService(
     fun processIssuanceRequest(event: CouponIssueRequestedEvent) {
         // 1. 멱등성 체크 - 이미 처리된 이벤트면 skip
         if (eventHandledRepository.existsByDedupeKey(event.dedupeKey)) {
-            logger.debug("Already processed: dedupeKey={}", event.dedupeKey)
             return
         }
 

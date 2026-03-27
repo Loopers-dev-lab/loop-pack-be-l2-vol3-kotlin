@@ -18,4 +18,6 @@ interface DlqMessageRepository : JpaRepository<DlqMessage, Long> {
     fun findByOriginalTopic(topic: String, pageable: Pageable): Page<DlqMessage>
 
     fun countByStatus(status: DlqStatus): Long
+
+    fun countByStatusAndOriginalTopic(status: DlqStatus, topic: String): Long
 }
