@@ -2,7 +2,9 @@ package com.loopers.interfaces.consumer
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.application.metrics.MetricsEventProcessor
+import com.loopers.config.KafkaTopicConfig
 import com.loopers.config.kafka.KafkaConfig
+import com.loopers.infrastructure.kafka.RetryableRecordProcessor
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Component
 @Component
 class CatalogEventConsumer(
     private val metricsEventProcessor: MetricsEventProcessor,
+    private val retryableRecordProcessor: RetryableRecordProcessor,
     private val objectMapper: ObjectMapper,
 ) {
 
@@ -23,7 +26,7 @@ class CatalogEventConsumer(
     }
 
     @KafkaListener(
-        topics = ["catalog-events"],
+        topics = [KafkaTopicConfig.CATALOG_EVENTS],
         groupId = "commerce-streamer-catalog",
         containerFactory = KafkaConfig.BATCH_LISTENER,
     )
@@ -32,16 +35,16 @@ class CatalogEventConsumer(
         acknowledgment: Acknowledgment,
     ) {
         messages.forEach { record ->
-            try {
-                val eventId = record.headerValue("eventId")
-                val eventType = record.headerValue("eventType")
+            retryableRecordProcessor.processWithRetry(record) { rec ->
+                val eventId = rec.headerValue("eventId")
+                val eventType = rec.headerValue("eventType")
 
                 if (eventId == null || eventType == null) {
-                    log.warn("이벤트 헤더 누락 [topic={}, offset={}]", record.topic(), record.offset())
-                    return@forEach
+                    log.warn("이벤트 헤더 누락 [topic={}, offset={}]", rec.topic(), rec.offset())
+                    return@processWithRetry
                 }
 
-                val payload = objectMapper.readTree(record.value())
+                val payload = objectMapper.readTree(rec.value())
                 val productId = payload.get("productId").asLong()
 
                 when (eventType) {
@@ -49,8 +52,6 @@ class CatalogEventConsumer(
                     EVENT_TYPE_LIKE_CANCELLED -> metricsEventProcessor.processLikeCancelled(eventId, eventType, productId)
                     else -> log.warn("알 수 없는 이벤트 타입 [eventType={}]", eventType)
                 }
-            } catch (e: Exception) {
-                log.error("catalog 이벤트 처리 실패 [offset={}]", record.offset(), e)
             }
         }
         acknowledgment.acknowledge()
