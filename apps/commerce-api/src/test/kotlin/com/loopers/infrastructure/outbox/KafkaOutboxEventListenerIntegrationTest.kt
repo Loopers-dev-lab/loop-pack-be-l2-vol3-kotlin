@@ -2,6 +2,7 @@ package com.loopers.infrastructure.outbox
 
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.support.event.user.ProductDetailViewedEvent
+import com.loopers.support.event.user.CouponIssueRequestedEvent
 import com.loopers.support.event.user.ProductLikeRegisteredEvent
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -67,6 +68,25 @@ constructor(
             transactionTemplate.executeWithoutResult {
                 applicationEventPublisher.publishEvent(
                     ProductDetailViewedEvent(productId = PRODUCT_ID),
+                )
+                error("rollback")
+            }
+        }
+
+        assertThat(kafkaOutboxJpaRepository.findAll()).isEmpty()
+    }
+
+    @Test
+    @DisplayName("coupon issue 요청 이벤트도 transaction rollback 시 outbox row가 남지 않는다")
+    fun persist_couponIssueRequested_notWritten_onRollback() {
+        runCatching {
+            transactionTemplate.executeWithoutResult {
+                applicationEventPublisher.publishEvent(
+                    CouponIssueRequestedEvent(
+                        requestId = 100L,
+                        couponId = 200L,
+                        userId = USER_ID,
+                    ),
                 )
                 error("rollback")
             }

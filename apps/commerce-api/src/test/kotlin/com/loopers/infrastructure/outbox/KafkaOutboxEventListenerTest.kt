@@ -11,6 +11,7 @@ import com.loopers.domain.order.OrderSnapshot
 import com.loopers.support.event.user.OrderCreatedEvent
 import com.loopers.support.event.user.PaymentFailedEvent
 import com.loopers.support.event.user.PaymentSucceededEvent
+import com.loopers.support.event.user.CouponIssueRequestedEvent
 import com.loopers.support.event.user.ProductDetailViewedEvent
 import com.loopers.support.event.user.ProductLikeCanceledEvent
 import com.loopers.support.event.user.ProductLikeRegisteredEvent
@@ -156,10 +157,39 @@ class KafkaOutboxEventListenerTest {
         }
     }
 
+    @Nested
+    @DisplayName("coupon issue 요청 이벤트를 outbox로 저장한다")
+    inner class WhenCouponIssueEvents {
+        @Test
+        @DisplayName("coupon-issue-requests topic에 requestId와 couponId를 저장한다")
+        fun handle_couponIssueRequested() {
+            listener.handle(
+                CouponIssueRequestedEvent(
+                    requestId = REQUEST_ID,
+                    couponId = PRODUCT_ID,
+                    userId = USER_ID,
+                ),
+            )
+
+            verify(kafkaOutboxJpaRepository).saveAndFlush(
+                check { entity ->
+                    assertThat(entity.topic).isEqualTo("coupon-issue-requests")
+                    assertThat(entity.eventKey).isEqualTo(PRODUCT_ID.toString())
+                    assertThat(entity.eventType).isEqualTo(KafkaEventType.COUPON_ISSUE_REQUESTED)
+                    val payload = objectMapper.readTree(entity.payload)
+                    assertThat(payload.get("requestId").asLong()).isEqualTo(REQUEST_ID)
+                    assertThat(payload.get("couponId").asLong()).isEqualTo(PRODUCT_ID)
+                    assertThat(payload.get("userId").asLong()).isEqualTo(USER_ID)
+                },
+            )
+        }
+    }
+
     companion object {
         private const val PRODUCT_ID = 100L
         private const val ORDER_ID = 200L
         private const val PAYMENT_ID = 300L
+        private const val REQUEST_ID = 400L
         private const val USER_ID = 10L
     }
 }

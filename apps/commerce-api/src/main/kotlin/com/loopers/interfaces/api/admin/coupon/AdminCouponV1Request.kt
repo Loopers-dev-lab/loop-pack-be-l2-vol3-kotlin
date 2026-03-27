@@ -21,6 +21,7 @@ class AdminCouponV1Request {
         val minOrderAmount: BigDecimal?,
         @field:NotNull
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long? = null,
     ) {
         fun toCommand(admin: String): AdminCouponCommand.Register = AdminCouponCommand.Register(
             name = name,
@@ -28,6 +29,7 @@ class AdminCouponV1Request {
             discountValue = discountValue,
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
+            issueLimit = issueLimit,
             admin = admin,
         )
     }
@@ -41,6 +43,7 @@ class AdminCouponV1Request {
         val minOrderAmount: BigDecimal?,
         @field:NotNull
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long? = null,
     ) {
         fun toCommand(couponId: Long, admin: String): AdminCouponCommand.Update =
             AdminCouponCommand.Update(
@@ -49,6 +52,7 @@ class AdminCouponV1Request {
                 discountValue = discountValue,
                 minOrderAmount = minOrderAmount,
                 expiredAt = expiredAt,
+                issueLimit = issueLimit,
                 admin = admin,
             )
     }

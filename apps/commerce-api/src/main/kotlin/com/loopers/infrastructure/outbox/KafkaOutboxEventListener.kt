@@ -5,6 +5,7 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.support.event.user.OrderCreatedEvent
 import com.loopers.support.event.user.PaymentFailedEvent
 import com.loopers.support.event.user.PaymentSucceededEvent
+import com.loopers.support.event.user.CouponIssueRequestedEvent
 import com.loopers.support.event.user.ProductDetailViewedEvent
 import com.loopers.support.event.user.ProductLikeCanceledEvent
 import com.loopers.support.event.user.ProductLikeRegisteredEvent
@@ -92,6 +93,21 @@ class KafkaOutboxEventListener(
     @EventListener
     fun handle(event: PaymentFailedEvent) {
         log.debug("Skip outbox publication for internal-only event. paymentId={}", event.paymentId)
+    }
+
+    @EventListener
+    fun handle(event: CouponIssueRequestedEvent) {
+        persist(
+            topic = "coupon-issue-requests",
+            eventKey = event.couponId.toString(),
+            eventType = KafkaEventType.COUPON_ISSUE_REQUESTED,
+            aggregateId = event.couponId,
+            payload = CouponIssueRequestedOutboxMessagePayload(
+                requestId = event.requestId,
+                couponId = event.couponId,
+                userId = event.userId,
+            ),
+        )
     }
 
     private fun persist(

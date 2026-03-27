@@ -49,6 +49,8 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "쿠폰을 찾을 수 없습니다."),
     COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "COUPON_EXPIRED", "만료된 쿠폰입니다."),
     COUPON_DELETED(HttpStatus.BAD_REQUEST, "COUPON_DELETED", "삭제된 쿠폰입니다."),
+    COUPON_SOLD_OUT(HttpStatus.BAD_REQUEST, "COUPON_SOLD_OUT", "쿠폰이 모두 소진되었습니다."),
+    COUPON_ISSUE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_ISSUE_REQUEST_NOT_FOUND", "쿠폰 발급 요청을 찾을 수 없습니다."),
     COUPON_INVALID_DISCOUNT_VALUE(HttpStatus.BAD_REQUEST, "COUPON_INVALID_DISCOUNT_VALUE", "할인 값이 유효 범위를 벗어났습니다."),
     COUPON_INVALID_EXPIRATION(HttpStatus.BAD_REQUEST, "COUPON_INVALID_EXPIRATION", "만료일이 현재 이전입니다."),
 

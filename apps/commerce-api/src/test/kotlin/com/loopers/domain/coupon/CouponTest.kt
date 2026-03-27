@@ -22,12 +22,14 @@ class CouponTest {
         discountValue: Long = 1000L,
         minOrderAmount: Money? = null,
         expiredAt: ZonedDateTime = futureDate,
+        issueLimit: Long? = null,
     ): Coupon = Coupon.register(
         name = name,
         type = type,
         discountValue = discountValue,
         minOrderAmount = minOrderAmount,
         expiredAt = expiredAt,
+        issueLimit = issueLimit,
     )
 
     @Nested
@@ -205,6 +207,55 @@ class CouponTest {
                 { assertThat(discount).isEqualTo(orderAmount) },
                 { assertThat(orderAmount - discount).isEqualTo(Money(BigDecimal.ZERO)) },
             )
+        }
+    }
+
+    @Nested
+    @DisplayName("발급 제한과 발급 수량은 선착순 발급 규칙을 따른다")
+    inner class WhenIssueLimit {
+        @Test
+        @DisplayName("issueLimit이 있으면 issue() 호출 시 issuedCount가 1 증가한다")
+        fun issue_incrementsIssuedCount() {
+            val coupon = registerCoupon(issueLimit = 3L)
+
+            val issued = coupon.issue()
+
+            assertThat(issued.issuedCount).isEqualTo(1L)
+            assertThat(issued.issueLimit).isEqualTo(3L)
+        }
+
+        @Test
+        @DisplayName("issueLimit이 null이면 무제한 발급으로 처리한다")
+        fun issue_unlimited() {
+            val coupon = registerCoupon(issueLimit = null)
+
+            val issued = coupon.issue()
+
+            assertThat(issued.issuedCount).isEqualTo(1L)
+            assertThat(issued.issueLimit).isNull()
+        }
+
+        @Test
+        @DisplayName("issuedCount가 issueLimit 이상이면 COUPON_SOLD_OUT 예외를 던진다")
+        fun issue_soldOut() {
+            val coupon = Coupon.retrieve(
+                id = 1L,
+                name = "테스트 쿠폰",
+                type = Coupon.Type.FIXED,
+                discountValue = 1000L,
+                minOrderAmount = null,
+                expiredAt = futureDate,
+                issueLimit = 1L,
+                issuedCount = 1L,
+                deletedAt = null,
+                createdAt = ZonedDateTime.now(),
+            )
+
+            val exception = assertThrows<CoreException> {
+                coupon.issue()
+            }
+
+            assertThat(exception.errorType).isEqualTo(ErrorType.COUPON_SOLD_OUT)
         }
     }
 }

@@ -122,7 +122,7 @@ constructor(
                 ENDPOINT,
                 HttpMethod.POST,
                 request,
-                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+                String::class.java,
             )
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
@@ -139,7 +139,7 @@ constructor(
             val response = testRestTemplate.exchange(
                 "$ENDPOINT/$couponId",
                 HttpMethod.GET,
-                HttpEntity<Any>(headers()),
+                HttpEntity<Void>(headers()),
                 object : ParameterizedTypeReference<ApiResponse<AdminCouponV1Response.Detail>>() {},
             )
 
@@ -163,7 +163,7 @@ constructor(
             val response = testRestTemplate.exchange(
                 "$ENDPOINT?page=0&size=10",
                 HttpMethod.GET,
-                HttpEntity<Any>(headers()),
+                HttpEntity<Void>(headers()),
                 object :
                     ParameterizedTypeReference<ApiResponse<PageResponse<AdminCouponV1Response.Summary>>>() {},
             )
@@ -218,16 +218,16 @@ constructor(
             val deleteResponse = testRestTemplate.exchange(
                 "$ENDPOINT/$couponId",
                 HttpMethod.DELETE,
-                HttpEntity<Any>(headers()),
-                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+                HttpEntity<Void>(headers()),
+                String::class.java,
             )
             assertThat(deleteResponse.statusCode).isEqualTo(HttpStatus.OK)
 
             val getResponse = testRestTemplate.exchange(
                 "$ENDPOINT/$couponId",
                 HttpMethod.GET,
-                HttpEntity<Any>(headers()),
-                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+                HttpEntity<Void>(headers()),
+                String::class.java,
             )
             assertThat(getResponse.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         }

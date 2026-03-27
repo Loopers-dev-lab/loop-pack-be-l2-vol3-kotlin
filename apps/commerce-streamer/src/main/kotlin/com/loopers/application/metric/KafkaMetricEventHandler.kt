@@ -66,6 +66,10 @@ class KafkaMetricEventHandler(
                 log.warn("Unexpected payment event on catalog topic. eventId={}", envelope.eventId)
                 null
             }
+            KafkaEventType.COUPON_ISSUE_REQUESTED -> {
+                log.warn("Unexpected coupon event on catalog topic. eventId={}", envelope.eventId)
+                null
+            }
         } ?: run {
             log.debug("Skip stale catalog event. eventId={}, topic={}, aggregateId={}", envelope.eventId, topic, productId)
             return

@@ -20,6 +20,8 @@ class CouponRepositoryImpl(
             existing.discountValue = coupon.discountValue
             existing.minOrderAmount = coupon.minOrderAmount?.amount
             existing.expiredAt = coupon.expiredAt
+            existing.issueLimit = coupon.issueLimit
+            existing.issuedCount = coupon.issuedCount
             if (coupon.isDeleted()) existing.deleteBy(admin) else existing.updateBy(admin)
             existing
         } else {
@@ -30,6 +32,11 @@ class CouponRepositoryImpl(
 
     override fun findById(id: Long): Coupon? {
         return couponJpaRepository.findByIdAndDeletedAtIsNull(id)
+            ?.let { couponMapper.toDomain(it) }
+    }
+
+    override fun findByIdForUpdate(id: Long): Coupon? {
+        return couponJpaRepository.findByIdForUpdate(id)
             ?.let { couponMapper.toDomain(it) }
     }
 

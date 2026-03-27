@@ -14,6 +14,8 @@ class Coupon private constructor(
     val discountValue: Long,
     val minOrderAmount: Money?,
     val expiredAt: ZonedDateTime,
+    val issueLimit: Long?,
+    val issuedCount: Long,
     val deletedAt: ZonedDateTime?,
     val createdAt: ZonedDateTime?,
 ) {
@@ -36,6 +38,32 @@ class Coupon private constructor(
 
     fun isDeleted(): Boolean = deletedAt != null
 
+    fun isSoldOut(): Boolean = issueLimit != null && issuedCount >= issueLimit
+
+    fun issue(): Coupon {
+        if (isDeleted()) {
+            throw CoreException(ErrorType.COUPON_DELETED)
+        }
+        if (isExpired()) {
+            throw CoreException(ErrorType.COUPON_EXPIRED)
+        }
+        if (isSoldOut()) {
+            throw CoreException(ErrorType.COUPON_SOLD_OUT)
+        }
+        return Coupon(
+            id = id,
+            name = name,
+            type = type,
+            discountValue = discountValue,
+            minOrderAmount = minOrderAmount,
+            expiredAt = expiredAt,
+            issueLimit = issueLimit,
+            issuedCount = issuedCount + 1,
+            deletedAt = deletedAt,
+            createdAt = createdAt,
+        )
+    }
+
     fun calculateDiscount(orderAmount: Money): Money {
         val discount = when (type) {
             Type.FIXED -> {
@@ -57,6 +85,7 @@ class Coupon private constructor(
         discountValue: Long,
         minOrderAmount: Money?,
         expiredAt: ZonedDateTime,
+        issueLimit: Long?,
     ): Coupon {
         if (expiredAt.isBefore(ZonedDateTime.now())) {
             throw CoreException(ErrorType.COUPON_INVALID_EXPIRATION)
@@ -68,6 +97,8 @@ class Coupon private constructor(
             discountValue = discountValue,
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
+            issueLimit = issueLimit,
+            issuedCount = issuedCount,
             deletedAt = deletedAt,
             createdAt = createdAt,
         )
@@ -80,6 +111,8 @@ class Coupon private constructor(
         discountValue = discountValue,
         minOrderAmount = minOrderAmount,
         expiredAt = expiredAt,
+        issueLimit = issueLimit,
+        issuedCount = issuedCount,
         deletedAt = ZonedDateTime.now(),
         createdAt = createdAt,
     )
@@ -96,6 +129,7 @@ class Coupon private constructor(
             discountValue: Long,
             minOrderAmount: Money?,
             expiredAt: ZonedDateTime,
+            issueLimit: Long? = null,
         ): Coupon {
             if (expiredAt.isBefore(ZonedDateTime.now())) {
                 throw CoreException(ErrorType.COUPON_INVALID_EXPIRATION)
@@ -107,6 +141,8 @@ class Coupon private constructor(
                 discountValue = discountValue,
                 minOrderAmount = minOrderAmount,
                 expiredAt = expiredAt,
+                issueLimit = issueLimit,
+                issuedCount = 0L,
                 deletedAt = null,
                 createdAt = null,
             )
@@ -119,6 +155,8 @@ class Coupon private constructor(
             discountValue: Long,
             minOrderAmount: Money?,
             expiredAt: ZonedDateTime,
+            issueLimit: Long?,
+            issuedCount: Long,
             deletedAt: ZonedDateTime?,
             createdAt: ZonedDateTime,
         ): Coupon = Coupon(
@@ -128,6 +166,8 @@ class Coupon private constructor(
             discountValue = discountValue,
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
+            issueLimit = issueLimit,
+            issuedCount = issuedCount,
             deletedAt = deletedAt,
             createdAt = createdAt,
         )

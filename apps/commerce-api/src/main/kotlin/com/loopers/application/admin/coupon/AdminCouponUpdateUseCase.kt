@@ -21,6 +21,7 @@ class AdminCouponUpdateUseCase(
             discountValue = command.discountValue,
             minOrderAmount = command.minOrderAmount?.let { Money(it) },
             expiredAt = command.expiredAt,
+            issueLimit = command.issueLimit,
         )
         val saved = couponRepository.save(updated)
         return AdminCouponResult.Update.from(saved)

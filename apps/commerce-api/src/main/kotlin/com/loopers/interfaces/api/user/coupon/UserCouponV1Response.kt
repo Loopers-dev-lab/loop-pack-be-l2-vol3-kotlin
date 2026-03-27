@@ -4,6 +4,38 @@ import com.loopers.application.user.coupon.UserCouponResult
 import java.time.ZonedDateTime
 
 class UserCouponV1Response {
+    data class IssueRequest(
+        val requestId: Long,
+        val couponId: Long,
+        val status: String,
+    ) {
+        companion object {
+            fun from(result: UserCouponResult.IssueRequest): IssueRequest = IssueRequest(
+                requestId = result.requestId,
+                couponId = result.couponId,
+                status = result.status,
+            )
+        }
+    }
+
+    data class IssueRequestStatus(
+        val requestId: Long,
+        val couponId: Long,
+        val status: String,
+        val failureReasonCode: String?,
+        val issuedCouponId: Long?,
+    ) {
+        companion object {
+            fun from(result: UserCouponResult.IssueRequestStatus): IssueRequestStatus = IssueRequestStatus(
+                requestId = result.requestId,
+                couponId = result.couponId,
+                status = result.status,
+                failureReasonCode = result.failureReasonCode,
+                issuedCouponId = result.issuedCouponId,
+            )
+        }
+    }
+
     data class Issued(
         val id: Long,
         val couponId: Long,
