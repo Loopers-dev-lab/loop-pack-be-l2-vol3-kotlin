@@ -1,6 +1,6 @@
 package com.loopers.domain.event.handler
 
-import com.loopers.domain.order.event.OrderCreatedEvent
+import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.infrastructure.productmetrics.ProductMetricsRepository
 import com.loopers.interfaces.consumer.EventHandler
 import org.springframework.stereotype.Component

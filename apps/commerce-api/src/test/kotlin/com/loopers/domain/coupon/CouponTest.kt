@@ -19,6 +19,7 @@ class CouponTest {
         fun issueCoupon_success() {
             // arrange
             val userId = 1L
+            val requestedAt = ZonedDateTime.now()
             val template = CouponTemplate.create(
                 name = "신규 가입 쿠폰",
                 type = CouponType.FIXED,
@@ -28,11 +29,12 @@ class CouponTest {
             )
 
             // act
-            val coupon = Coupon.issue(userId, template)
+            val coupon = Coupon.issue(userId, template, requestedAt)
 
             // assert
             assertThat(coupon.userId).isEqualTo(userId)
             assertThat(coupon.templateId).isEqualTo(template.id)
+            assertThat(coupon.requestedAt).isEqualTo(requestedAt)
             assertThat(coupon.status).isEqualTo(CouponStatus.ISSUED)
             assertThat(coupon.usedAt).isNull()
         }
@@ -42,6 +44,7 @@ class CouponTest {
         fun isValid_returnsTrue_whenCouponIsValid() {
             // arrange
             val userId = 1L
+            val requestedAt = ZonedDateTime.now()
             val template = CouponTemplate.create(
                 name = "신규 가입 쿠폰",
                 type = CouponType.FIXED,
@@ -49,7 +52,7 @@ class CouponTest {
                 minOrderAmount = BigDecimal("10000"),
                 expiredAt = ZonedDateTime.now().plusDays(30),
             )
-            val coupon = Coupon.issue(userId, template)
+            val coupon = Coupon.issue(userId, template, requestedAt)
 
             // act
             val isValid = coupon.isValid()

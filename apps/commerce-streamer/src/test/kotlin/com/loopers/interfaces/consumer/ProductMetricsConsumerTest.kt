@@ -1,8 +1,11 @@
 package com.loopers.interfaces.consumer
 
+import com.loopers.application.service.DlqHandler
 import com.loopers.application.service.ProductMetricsService
-import com.loopers.domain.product.event.ProductViewedEvent
+import com.loopers.domain.event.ProductViewedEvent
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -12,12 +15,12 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.DisplayName
 import org.springframework.kafka.support.Acknowledgment
 import org.junit.jupiter.api.assertDoesNotThrow
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 
 @DisplayName("ProductMetricsConsumer 통합 테스트")
 class ProductMetricsConsumerTest {
 
     private lateinit var productMetricsService: ProductMetricsService
+    private lateinit var dlqHandler: DlqHandler
     private lateinit var objectMapper: ObjectMapper
     private lateinit var consumer: ProductMetricsConsumer
     private lateinit var acknowledgment: Acknowledgment
@@ -25,8 +28,11 @@ class ProductMetricsConsumerTest {
     @BeforeEach
     fun setUp() {
         productMetricsService = mockk()
-        objectMapper = ObjectMapper().registerKotlinModule()
-        consumer = ProductMetricsConsumer(productMetricsService, objectMapper)
+        dlqHandler = mockk()
+        objectMapper = ObjectMapper()
+            .registerKotlinModule()
+            .registerModule(JavaTimeModule())
+        consumer = ProductMetricsConsumer(productMetricsService, dlqHandler, objectMapper)
         acknowledgment = mockk()
     }
 
@@ -35,7 +41,7 @@ class ProductMetricsConsumerTest {
     @DisplayName("ProductViewedEvent 메시지를 처리한다")
     fun shouldProcessProductViewedEvent() {
         // Given
-        val event = ProductViewedEvent(source = this, productId = 1L, userId = 1L)
+        val event = ProductViewedEvent(productId = 1L, userId = 1L)
         val payload = objectMapper.writeValueAsString(event)
         val record = ConsumerRecord<Any, Any>(
             "product.viewed",
