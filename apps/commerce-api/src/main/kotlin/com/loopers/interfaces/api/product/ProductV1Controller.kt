@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductFacade
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.support.auth.CurrentUser
+import com.loopers.support.auth.LoginUser
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.data.domain.Page
 import org.springframework.web.bind.annotation.GetMapping
@@ -27,8 +29,9 @@ class ProductV1Controller(
     @GetMapping("/{productId}")
     override fun getProduct(
         @PathVariable productId: Long,
+        @CurrentUser loginUser: LoginUser?,
     ): ApiResponse<ProductV1Dto.ProductResponse> {
-        return productFacade.getProduct(productId)
+        return productFacade.getProduct(productId, loginUser?.id)
             .let { ProductV1Dto.ProductResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

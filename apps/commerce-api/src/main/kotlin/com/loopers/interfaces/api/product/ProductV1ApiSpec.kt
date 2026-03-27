@@ -27,5 +27,5 @@ interface ProductV1ApiSpec {
             SwaggerResponse(responseCode = "404", description = "존재하지 않는 상품"),
         ],
     )
-    fun getProduct(productId: Long): ApiResponse<ProductV1Dto.ProductResponse>
+    fun getProduct(productId: Long, loginUser: com.loopers.support.auth.LoginUser?): ApiResponse<ProductV1Dto.ProductResponse>
 }

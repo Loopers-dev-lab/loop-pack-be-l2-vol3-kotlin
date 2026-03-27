@@ -28,4 +28,23 @@ interface CouponV1ApiSpec {
         ],
     )
     fun getMyCoupons(loginUser: LoginUser): ApiResponse<List<CouponV1Dto.MyCouponResponse>>
+
+    @Operation(summary = "선착순 쿠폰 발급 요청", description = "선착순 쿠폰 발급을 요청합니다. 결과는 비동기로 처리되며, requestId로 상태를 조회합니다.")
+    @ApiResponses(
+        value = [
+            SwaggerResponse(responseCode = "200", description = "요청 접수"),
+            SwaggerResponse(responseCode = "400", description = "만료된 쿠폰"),
+            SwaggerResponse(responseCode = "409", description = "이미 발급 요청한 쿠폰"),
+        ],
+    )
+    fun requestCouponIssue(loginUser: LoginUser, couponId: Long): ApiResponse<CouponV1Dto.CouponIssueRequestResponse>
+
+    @Operation(summary = "선착순 쿠폰 발급 결과 조회", description = "선착순 쿠폰 발급 요청의 처리 상태를 조회합니다.")
+    @ApiResponses(
+        value = [
+            SwaggerResponse(responseCode = "200", description = "조회 성공"),
+            SwaggerResponse(responseCode = "404", description = "존재하지 않는 요청"),
+        ],
+    )
+    fun getIssueRequestStatus(loginUser: LoginUser, requestId: String): ApiResponse<CouponV1Dto.CouponIssueRequestResponse>
 }
