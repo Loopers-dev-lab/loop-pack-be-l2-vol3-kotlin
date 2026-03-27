@@ -6,7 +6,9 @@ import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import com.loopers.infrastructure.product.ProductCacheService
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import java.math.BigDecimal
 
 /**
@@ -29,12 +32,15 @@ class ProductServiceIntegrationTest @Autowired constructor(
     private val productService: ProductService,
     private val productJpaRepository: ProductJpaRepository,
     private val brandJpaRepository: BrandJpaRepository,
+    private val productCacheService: ProductCacheService,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun createBrand(name: String = "나이키"): Brand {
@@ -172,6 +178,91 @@ class ProductServiceIntegrationTest @Autowired constructor(
                 { assertThat(result.content[0].name).isEqualTo("에어맥스 90") },
             )
         }
+
+        @DisplayName("LATEST 정렬이면, createdAt 역순으로 반환된다.")
+        @Test
+        fun returnsLatestFirst_whenSortByLatest() {
+            // arrange
+            val brand = createBrand()
+            createProduct(brandId = brand.id, name = "첫 번째 상품")
+            createProduct(brandId = brand.id, name = "두 번째 상품")
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"))
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("두 번째 상품") },
+                { assertThat(result.content[1].name).isEqualTo("첫 번째 상품") },
+            )
+        }
+
+        @DisplayName("PRICE_ASC 정렬이면, 가격 오름차순으로 반환된다.")
+        @Test
+        fun returnsCheapestFirst_whenSortByPriceAsc() {
+            // arrange
+            val brand = createBrand()
+            createProduct(brandId = brand.id, name = "비싼 상품", price = BigDecimal("200000"))
+            createProduct(brandId = brand.id, name = "싼 상품", price = BigDecimal("50000"))
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "price"))
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("싼 상품") },
+                { assertThat(result.content[1].name).isEqualTo("비싼 상품") },
+            )
+        }
+
+        @DisplayName("LIKES_DESC 정렬이면, 좋아요 내림차순으로 반환된다.")
+        @Test
+        fun returnsMostLikedFirst_whenSortByLikesDesc() {
+            // arrange
+            val brand = createBrand()
+            val product1 = createProduct(brandId = brand.id, name = "인기 없는 상품")
+            val product2 = createProduct(brandId = brand.id, name = "인기 상품")
+            productService.incrementLikeCount(product2.id)
+            productService.incrementLikeCount(product2.id)
+            productService.incrementLikeCount(product1.id)
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "likeCount"))
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("인기 상품") },
+                { assertThat(result.content[1].name).isEqualTo("인기 없는 상품") },
+            )
+        }
+
+        @DisplayName("brandId + 정렬 조합이면, 필터링과 정렬이 동시에 적용된다.")
+        @Test
+        fun returnsFilteredAndSorted_whenBrandIdAndSortProvided() {
+            // arrange
+            val brand1 = createBrand(name = "나이키")
+            val brand2 = createBrand(name = "아디다스")
+            createProduct(brandId = brand1.id, name = "비싼 나이키", price = BigDecimal("200000"))
+            createProduct(brandId = brand1.id, name = "싼 나이키", price = BigDecimal("50000"))
+            createProduct(brandId = brand2.id, name = "아디다스 상품", price = BigDecimal("30000"))
+            val pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "price"))
+
+            // act
+            val result = productService.getAllProducts(brandId = brand1.id, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { assertThat(result.content[0].name).isEqualTo("싼 나이키") },
+                { assertThat(result.content[1].name).isEqualTo("비싼 나이키") },
+            )
+        }
     }
 
     @DisplayName("상품을 수정할 때,")
@@ -307,6 +398,93 @@ class ProductServiceIntegrationTest @Autowired constructor(
                 productService.createProduct(criteria)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("캐시 통합 테스트")
+    @Nested
+    inner class CacheIntegration {
+
+        @DisplayName("상품 상세 첫 조회 후 재조회하면, 캐시에서 반환된다.")
+        @Test
+        fun returnsCachedDetail_whenQueriedTwice() {
+            // arrange
+            val brand = createBrand()
+            val saved = createProduct(brandId = brand.id)
+
+            // act
+            productService.getProductInfo(saved.id)
+            val cached = productCacheService.getProductDetail(saved.id)
+
+            // assert
+            assertAll(
+                { assertThat(cached).isNotNull() },
+                { assertThat(cached!!.id).isEqualTo(saved.id) },
+                { assertThat(cached!!.name).isEqualTo("에어맥스 90") },
+            )
+        }
+
+        @DisplayName("상품 수정 후 재조회하면, 최신 데이터가 반환된다.")
+        @Test
+        fun returnsUpdatedData_whenProductUpdatedAfterCaching() {
+            // arrange
+            val brand = createBrand()
+            val saved = createProduct(brandId = brand.id)
+            productService.getProductInfo(saved.id)
+
+            // act
+            productService.updateProduct(
+                saved.id,
+                UpdateProductCriteria(
+                    name = "수정된 상품",
+                    price = BigDecimal("999000"),
+                    stock = 50,
+                    description = "수정된 설명",
+                    imageUrl = null,
+                ),
+            )
+            val result = productService.getProductInfo(saved.id)
+
+            // assert
+            assertAll(
+                { assertThat(result.name).isEqualTo("수정된 상품") },
+                { assertThat(result.price).isEqualByComparingTo(BigDecimal("999000")) },
+            )
+        }
+
+        @DisplayName("상품 삭제 후에는 캐시가 무효화된다.")
+        @Test
+        fun evictsCache_whenProductDeleted() {
+            // arrange
+            val brand = createBrand()
+            val saved = createProduct(brandId = brand.id)
+            productService.getProductInfo(saved.id)
+
+            // act
+            productService.deleteProduct(saved.id)
+
+            // assert
+            assertThat(productCacheService.getProductDetail(saved.id)).isNull()
+        }
+
+        @DisplayName("상품 목록 첫 조회 후 재조회하면, 캐시에서 반환된다.")
+        @Test
+        fun returnsCachedList_whenQueriedTwice() {
+            // arrange
+            val brand = createBrand()
+            createProduct(brandId = brand.id, name = "에어맥스 90")
+            createProduct(brandId = brand.id, name = "에어포스 1")
+            val pageable = PageRequest.of(0, 20)
+
+            // act
+            productService.getAllProducts(brandId = null, pageable = pageable)
+            val cached = productCacheService.getProductList(null, pageable.sort.toString(), 0, 20)
+
+            // assert
+            assertAll(
+                { assertThat(cached).isNotNull() },
+                { assertThat(cached!!.content).hasSize(2) },
+            )
         }
     }
 }

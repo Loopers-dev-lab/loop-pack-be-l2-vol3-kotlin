@@ -4,6 +4,8 @@ import com.loopers.application.order.OrderItemCriteria
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.infrastructure.product.ProductCacheService
+import com.loopers.support.cache.CachedPage
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.data.domain.Page
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional
 class ProductService(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val productCacheService: ProductCacheService,
 ) {
 
     @Transactional(readOnly = true)
@@ -25,7 +28,12 @@ class ProductService(
 
     @Transactional(readOnly = true)
     fun getProductInfo(productId: Long): ProductInfo {
-        return ProductInfo.from(getProduct(productId))
+        val cached = productCacheService.getProductDetail(productId)
+        if (cached != null) return cached
+
+        val info = ProductInfo.from(getProduct(productId))
+        productCacheService.setProductDetail(productId, info)
+        return info
     }
 
     @Transactional(readOnly = true)
@@ -37,12 +45,24 @@ class ProductService(
 
     @Transactional(readOnly = true)
     fun getAllProducts(brandId: Long?, pageable: Pageable): Page<ProductInfo> {
+        val sortString = pageable.sort.toString()
+        val cached = productCacheService.getProductList(brandId, sortString, pageable.pageNumber, pageable.pageSize)
+        if (cached != null) return cached.toPage()
+
         val products = if (brandId != null) {
             productRepository.findAllByBrandId(brandId, pageable)
         } else {
             productRepository.findAll(pageable)
         }
-        return products.map { ProductInfo.from(it) }
+        val result = products.map { ProductInfo.from(it) }
+        productCacheService.setProductList(
+            brandId,
+            sortString,
+            pageable.pageNumber,
+            pageable.pageSize,
+            CachedPage.from(result),
+        )
+        return result
     }
 
     @Transactional
@@ -60,6 +80,7 @@ class ProductService(
                 imageUrl = criteria.imageUrl,
             ),
         )
+        productCacheService.evictAllProductLists()
         return ProductInfo.from(product)
     }
 
@@ -75,6 +96,8 @@ class ProductService(
             imageUrl = criteria.imageUrl,
         )
         val savedProduct = productRepository.save(product)
+        productCacheService.setProductDetail(productId, ProductInfo.from(savedProduct))
+        productCacheService.evictAllProductLists()
         return ProductInfo.from(savedProduct)
     }
 
@@ -84,16 +107,28 @@ class ProductService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
         product.delete()
         productRepository.save(product)
+        productCacheService.evictProductDetail(productId)
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional
     fun incrementLikeCount(productId: Long) {
         productRepository.incrementLikeCount(productId)
+        val product = productRepository.findById(productId)
+        if (product != null) {
+            productCacheService.setProductDetail(productId, ProductInfo.from(product))
+        }
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional
     fun decrementLikeCount(productId: Long) {
         productRepository.decrementLikeCount(productId)
+        val product = productRepository.findById(productId)
+        if (product != null) {
+            productCacheService.setProductDetail(productId, ProductInfo.from(product))
+        }
+        productCacheService.evictAllProductLists()
     }
 
     @Transactional
@@ -125,6 +160,13 @@ class ProductService(
             val product = productMap[item.productId]!!
             product.reserve(item.quantity)
             ReservedProduct(product.id, product.name, product.brandId, item.quantity, product.price)
+        }
+    }
+
+    @Transactional
+    fun restoreStock(items: List<Pair<Long, Int>>) {
+        for ((productId, quantity) in items) {
+            productRepository.restoreStock(productId, quantity)
         }
     }
 }

@@ -14,6 +14,8 @@ class OrderAdminV1Dto {
         val id: Long,
         @Schema(description = "유저 ID", example = "1")
         val userId: Long,
+        @Schema(description = "주문 상태", example = "PENDING")
+        val status: String,
         @Schema(description = "쿠폰 ID", example = "1")
         val couponId: Long?,
         @Schema(description = "원래 주문 금액", example = "258000")
@@ -32,6 +34,7 @@ class OrderAdminV1Dto {
                 return OrderAdminResponse(
                     id = info.id,
                     userId = info.userId,
+                    status = info.status.name,
                     couponId = info.couponId,
                     originalAmount = info.originalAmount,
                     discountAmount = info.discountAmount,

@@ -13,6 +13,7 @@ import jakarta.persistence.Index
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.ZonedDateTime
 
 @Entity
@@ -48,6 +49,10 @@ class IssuedCoupon(
     var usedAt: ZonedDateTime? = null
         private set
 
+    @Version
+    @Column(name = "version", nullable = false)
+    val version: Long = 0
+
     @Column(name = "created_at", nullable = false, updatable = false)
     lateinit var createdAt: ZonedDateTime
         private set
@@ -72,6 +77,14 @@ class IssuedCoupon(
         validateUsable()
         this.status = IssuedCouponStatus.USED
         this.usedAt = ZonedDateTime.now()
+    }
+
+    fun restore() {
+        if (status != IssuedCouponStatus.USED) {
+            throw CoreException(ErrorType.BAD_REQUEST, "USED 상태에서만 복원이 가능합니다. 현재 상태: $status")
+        }
+        this.status = IssuedCouponStatus.AVAILABLE
+        this.usedAt = null
     }
 
     fun isUsable(): Boolean = status == IssuedCouponStatus.AVAILABLE

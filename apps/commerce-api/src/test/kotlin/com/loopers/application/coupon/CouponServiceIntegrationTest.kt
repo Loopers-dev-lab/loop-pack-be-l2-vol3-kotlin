@@ -358,9 +358,9 @@ class CouponServiceIntegrationTest @Autowired constructor(
         }
     }
 
-    @DisplayName("발급 쿠폰을 비관적 락으로 조회할 때,")
+    @DisplayName("발급 쿠폰을 조회할 때,")
     @Nested
-    inner class GetIssuedCouponWithLock {
+    inner class GetIssuedCoupon {
 
         @DisplayName("존재하는 발급 쿠폰이면, 쿠폰을 반환한다.")
         @Test
@@ -372,7 +372,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
             )
 
             // act
-            val result = couponService.getIssuedCouponWithLock(issuedCoupon.id)
+            val result = couponService.getIssuedCoupon(issuedCoupon.id)
 
             // assert
             assertAll(
@@ -387,7 +387,7 @@ class CouponServiceIntegrationTest @Autowired constructor(
         fun throwsNotFound_whenNotExists() {
             // act & assert
             val exception = assertThrows<CoreException> {
-                couponService.getIssuedCouponWithLock(999L)
+                couponService.getIssuedCoupon(999L)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }

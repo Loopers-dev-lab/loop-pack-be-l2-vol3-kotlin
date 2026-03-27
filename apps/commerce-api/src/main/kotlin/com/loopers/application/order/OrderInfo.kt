@@ -2,12 +2,14 @@ package com.loopers.application.order
 
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
+import com.loopers.domain.order.OrderStatus
 import java.math.BigDecimal
 import java.time.ZonedDateTime
 
 data class OrderInfo(
     val id: Long,
     val userId: Long,
+    val status: OrderStatus,
     val couponId: Long?,
     val originalAmount: BigDecimal,
     val discountAmount: BigDecimal,
@@ -20,6 +22,7 @@ data class OrderInfo(
             return OrderInfo(
                 id = order.id,
                 userId = order.userId,
+                status = order.status,
                 couponId = order.couponId,
                 originalAmount = order.originalAmount,
                 discountAmount = order.discountAmount,

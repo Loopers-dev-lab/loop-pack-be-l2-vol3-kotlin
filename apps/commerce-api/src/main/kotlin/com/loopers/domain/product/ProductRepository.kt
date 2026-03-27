@@ -15,4 +15,5 @@ interface ProductRepository {
     fun findAllByIdWithLock(ids: List<Long>): List<Product>
     fun incrementLikeCount(productId: Long)
     fun decrementLikeCount(productId: Long)
+    fun restoreStock(productId: Long, quantity: Int)
 }

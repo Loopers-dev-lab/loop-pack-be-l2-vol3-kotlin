@@ -28,7 +28,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-@DisplayName("쿠폰 동시성 테스트")
+@DisplayName("쿠폰 낙관적 락 동시성 테스트")
 @SpringBootTest
 class CouponConcurrencyTest @Autowired constructor(
     private val orderFacade: OrderFacade,

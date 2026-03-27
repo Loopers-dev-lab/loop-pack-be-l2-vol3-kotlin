@@ -158,7 +158,7 @@ class XxxFacade(private val xxxService: XxxService, private val yyyService: YyyS
   ```
   - `type`: `feat`, `fix`, `docs`, `refactor`, `test`, `chore` 등
   - `subject`: 변경 대상 요약
-  - 본문: 빈 줄 후 구체적인 변경 내용을 `-`로 나열
+  - 본문: 빈 줄 후, 변경 코드 내용이 아닌 핵심 변경 내용을 `-`로 나열
 - Co-Authored-By: ~ 내용 절대 커밋 내용에 포함시키지마
 
 

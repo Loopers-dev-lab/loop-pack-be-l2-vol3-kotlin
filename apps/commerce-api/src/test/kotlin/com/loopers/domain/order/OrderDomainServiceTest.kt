@@ -40,7 +40,7 @@ class OrderDomainServiceTest {
             )
 
             // act
-            val order = orderDomainService.buildOrder(1L, items)
+            val order = orderDomainService.buildOrder(1L, 1L, items)
 
             // assert
             assertAll(
@@ -55,7 +55,7 @@ class OrderDomainServiceTest {
         fun throwsBadRequest_whenItemsEmpty() {
             // act
             val exception = assertThrows<CoreException> {
-                orderDomainService.buildOrder(1L, emptyList())
+                orderDomainService.buildOrder(1L, 1L, emptyList())
             }
 
             // assert

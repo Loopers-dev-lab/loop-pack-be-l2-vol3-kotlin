@@ -361,15 +361,15 @@ class CouponServiceTest {
     @Nested
     inner class UseIssuedCoupon {
 
-        @DisplayName("비관적 락으로 조회 후 사용 처리한다.")
+        @DisplayName("발급 쿠폰을 조회하면, 정상 반환한다.")
         @Test
         fun usesIssuedCoupon_whenValid() {
             // arrange
             val issuedCoupon = createIssuedCoupon()
-            whenever(issuedCouponRepository.findByIdWithLock(1L)).thenReturn(issuedCoupon)
+            whenever(issuedCouponRepository.findById(1L)).thenReturn(issuedCoupon)
 
             // act
-            val result = couponService.getIssuedCouponWithLock(1L)
+            val result = couponService.getIssuedCoupon(1L)
 
             // assert
             assertThat(result.id).isEqualTo(1L)
@@ -379,11 +379,11 @@ class CouponServiceTest {
         @Test
         fun throwsNotFound_whenIssuedCouponDoesNotExist() {
             // arrange
-            whenever(issuedCouponRepository.findByIdWithLock(1L)).thenReturn(null)
+            whenever(issuedCouponRepository.findById(1L)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
-                couponService.getIssuedCouponWithLock(1L)
+                couponService.getIssuedCoupon(1L)
             }
 
             // assert

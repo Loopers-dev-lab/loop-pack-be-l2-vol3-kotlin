@@ -6,6 +6,8 @@ import com.loopers.support.error.ErrorType
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
 import jakarta.persistence.Index
 import jakarta.persistence.OneToMany
@@ -18,9 +20,15 @@ import java.math.BigDecimal
     indexes = [Index(name = "idx_orders_user_id", columnList = "user_id")],
 )
 class Order(
+    id: Long,
     userId: Long,
     couponId: Long? = null,
 ) : OrderBaseEntity() {
+
+    @Column(name = "status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    var status: OrderStatus = OrderStatus.PENDING
+        private set
 
     @Column(name = "user_id", nullable = false)
     val userId: Long = userId
@@ -47,6 +55,7 @@ class Order(
         get() = _orderItems.toList()
 
     init {
+        this.id = id
         require(userId > 0) { throw CoreException(ErrorType.BAD_REQUEST, "유저 ID는 1 이상이어야 합니다.") }
     }
 
@@ -77,6 +86,32 @@ class Order(
     fun validateNotEmpty() {
         if (_orderItems.isEmpty()) {
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목이 비어있습니다.")
+        }
+    }
+
+    fun markPaid() {
+        if (status != OrderStatus.PENDING) {
+            throw CoreException(ErrorType.BAD_REQUEST, "PENDING 상태에서만 결제 완료 처리가 가능합니다.")
+        }
+        status = OrderStatus.PAID
+    }
+
+    fun markFailed() {
+        if (status != OrderStatus.PENDING) {
+            throw CoreException(ErrorType.BAD_REQUEST, "PENDING 상태에서만 결제 실패 처리가 가능합니다.")
+        }
+        status = OrderStatus.FAILED
+    }
+
+    fun validatePayable() {
+        if (status != OrderStatus.PENDING) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 가능한 상태가 아닙니다. 현재 상태: $status")
+        }
+    }
+
+    fun validateOwner(userId: Long) {
+        if (this.userId != userId) {
+            throw CoreException(ErrorType.FORBIDDEN, "해당 주문에 대한 권한이 없습니다.")
         }
     }
 

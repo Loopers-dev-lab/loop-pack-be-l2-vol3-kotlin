@@ -72,7 +72,7 @@ class OrderFacadeTest {
     }
 
     private fun createOrder(userId: Long, items: List<OrderItemCommand>): Order {
-        val order = Order(userId = userId)
+        val order = Order(id = 1L, userId = userId)
         items.forEach {
             order.addItem(
                 productId = it.productId,

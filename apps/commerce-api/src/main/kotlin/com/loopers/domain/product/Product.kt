@@ -12,7 +12,12 @@ import java.math.BigDecimal
 @Entity
 @Table(
     name = "products",
-    indexes = [Index(name = "idx_products_brand_id", columnList = "brand_id")],
+    indexes = [
+        Index(name = "idx_products_brand_id", columnList = "brand_id"),
+        Index(name = "idx_products_brand_created", columnList = "brand_id, created_at DESC"),
+        Index(name = "idx_products_brand_price", columnList = "brand_id, price ASC"),
+        Index(name = "idx_products_brand_like_count", columnList = "brand_id, like_count DESC"),
+    ],
 )
 class Product(
     brandId: Long,
@@ -92,6 +97,13 @@ class Product(
         if (!hasEnoughStock(quantity)) return false
         this.stock -= quantity
         return true
+    }
+
+    fun restoreStock(quantity: Int) {
+        if (quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "복원 수량은 1 이상이어야 합니다.")
+        }
+        this.stock += quantity
     }
 
     fun isDeleted(): Boolean = deletedAt != null

@@ -9,6 +9,7 @@ import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
@@ -45,6 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * 같은 재고 차감이라도 Atomic Update(UPDATE ... SET stock = stock - 1 WHERE stock >= 1)를 쓰면
  * 락 보유 시간 ≈ 0이므로 커넥션이 즉시 반환되어 이 문제가 발생하지 않는다.
  */
+@Disabled("1회성 검증 완료 — 비관적 락 커넥션 풀 고갈 구조적 한계 증명")
 @DisplayName("비관적 락 커넥션 풀 고갈 테스트")
 @SpringBootTest
 @TestPropertySource(

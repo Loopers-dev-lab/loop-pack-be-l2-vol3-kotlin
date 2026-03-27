@@ -54,4 +54,8 @@ class ProductRepositoryImpl(
     override fun decrementLikeCount(productId: Long) {
         productJpaRepository.decrementLikeCount(productId)
     }
+
+    override fun restoreStock(productId: Long, quantity: Int) {
+        productJpaRepository.restoreStock(productId, quantity)
+    }
 }

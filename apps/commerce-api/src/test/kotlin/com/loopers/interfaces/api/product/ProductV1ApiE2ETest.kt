@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.product
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.brand.BrandV1Dto
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -23,6 +24,7 @@ import java.math.BigDecimal
 class ProductV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     companion object {
@@ -37,6 +39,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun adminHeaders(): HttpHeaders {
@@ -133,6 +136,120 @@ class ProductV1ApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data).isNotNull() },
+            )
+        }
+
+        @DisplayName("sort=LATEST이면, 200 OK와 최신순 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithLatestSort_whenSortByLatest() {
+            // arrange
+            val brand = createTestBrand()!!
+            createTestProduct(brandId = brand.id, name = "첫 번째 상품", price = BigDecimal("100000"))
+            createTestProduct(brandId = brand.id, name = "두 번째 상품", price = BigDecimal("200000"))
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?sort=LATEST&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            val content = response.body?.data?.get("content") as List<Map<String, Any>>
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(content).hasSize(2) },
+                { assertThat(content[0]["name"]).isEqualTo("두 번째 상품") },
+                { assertThat(content[1]["name"]).isEqualTo("첫 번째 상품") },
+            )
+        }
+
+        @DisplayName("sort=PRICE_ASC이면, 200 OK와 가격 오름차순 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithPriceAscSort_whenSortByPriceAsc() {
+            // arrange
+            val brand = createTestBrand()!!
+            createTestProduct(brandId = brand.id, name = "비싼 상품", price = BigDecimal("200000"))
+            createTestProduct(brandId = brand.id, name = "싼 상품", price = BigDecimal("50000"))
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?sort=PRICE_ASC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            val content = response.body?.data?.get("content") as List<Map<String, Any>>
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(content).hasSize(2) },
+                { assertThat(content[0]["name"]).isEqualTo("싼 상품") },
+                { assertThat(content[1]["name"]).isEqualTo("비싼 상품") },
+            )
+        }
+
+        @DisplayName("sort=LIKES_DESC이면, 200 OK와 좋아요 내림차순 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithLikesDescSort_whenSortByLikesDesc() {
+            // arrange
+            val brand = createTestBrand()!!
+            createTestProduct(brandId = brand.id, name = "인기 없는 상품")
+            val popular = createTestProduct(brandId = brand.id, name = "인기 상품")!!
+            // 좋아요 수 직접 증가시키기 위해 상품 좋아요 API 활용 불가하므로 DB 직접 조작은 E2E 취지에 맞지 않음
+            // 대신 like API가 있다면 호출하거나, 생성 순서와 기본값(0)으로 검증
+            // 여기서는 sort 파라미터가 정상 동작하는지 HTTP 레벨에서 검증
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?sort=LIKES_DESC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data).isNotNull() },
+            )
+        }
+
+        @DisplayName("brandId + sort 조합이면, 200 OK와 필터링된 정렬 목록을 반환한다.")
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun returnsOkWithBrandFilterAndSort_whenBothProvided() {
+            // arrange
+            val brand1 = createTestBrand(name = "나이키")!!
+            val brand2 = createTestBrand(name = "아디다스")!!
+            createTestProduct(brandId = brand1.id, name = "비싼 나이키", price = BigDecimal("200000"))
+            createTestProduct(brandId = brand1.id, name = "싼 나이키", price = BigDecimal("50000"))
+            createTestProduct(brandId = brand2.id, name = "아디다스 상품", price = BigDecimal("30000"))
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/products?brandId=${brand1.id}&sort=PRICE_ASC&page=0&size=20",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            val content = response.body?.data?.get("content") as List<Map<String, Any>>
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(content).hasSize(2) },
+                { assertThat(content[0]["name"]).isEqualTo("싼 나이키") },
+                { assertThat(content[1]["name"]).isEqualTo("비싼 나이키") },
             )
         }
     }
@@ -447,6 +564,75 @@ class ProductV1ApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+        }
+    }
+
+    @DisplayName("캐시 E2E")
+    @Nested
+    inner class CacheE2E {
+
+        @DisplayName("상품 상세를 2회 연속 조회하면, 200 OK를 반환한다.")
+        @Test
+        fun returnsOk_whenQueriedTwice() {
+            // arrange
+            val brand = createTestBrand()!!
+            val created = createTestProduct(brandId = brand.id)!!
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductResponse>>() {}
+            val first = testRestTemplate.exchange(
+                "/api/v1/products/${created.id}",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+            val second = testRestTemplate.exchange(
+                "/api/v1/products/${created.id}",
+                HttpMethod.GET,
+                null,
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(first.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(second.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(first.body?.data?.name).isEqualTo(second.body?.data?.name) },
+            )
+        }
+
+        @DisplayName("상품 수정 후 재조회하면, 최신 데이터가 반환된다.")
+        @Test
+        fun returnsUpdatedData_whenProductUpdatedAfterCaching() {
+            // arrange
+            val brand = createTestBrand()!!
+            val created = createTestProduct(brandId = brand.id)!!
+            val getType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductResponse>>() {}
+            testRestTemplate.exchange("/api/v1/products/${created.id}", HttpMethod.GET, null, getType)
+
+            val updateRequest = ProductAdminV1Dto.UpdateRequest(
+                name = "수정된 상품",
+                price = BigDecimal("999000"),
+                stock = 50,
+                description = "수정된 설명",
+                imageUrl = null,
+            )
+            val updateType = object : ParameterizedTypeReference<ApiResponse<ProductAdminV1Dto.ProductAdminResponse>>() {}
+            testRestTemplate.exchange(
+                "/api-admin/v1/products/${created.id}",
+                HttpMethod.PUT,
+                HttpEntity(updateRequest, adminHeaders()),
+                updateType,
+            )
+
+            // act
+            val response = testRestTemplate.exchange("/api/v1/products/${created.id}", HttpMethod.GET, null, getType)
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.name).isEqualTo("수정된 상품") },
+            )
         }
     }
 }

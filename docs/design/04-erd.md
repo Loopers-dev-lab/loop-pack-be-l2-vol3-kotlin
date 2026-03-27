@@ -110,6 +110,7 @@ erDiagram
         bigint user_id
         varchar status
         timestamp used_at
+        bigint version
         timestamp created_at
         timestamp updated_at
     }
@@ -247,6 +248,7 @@ erDiagram
 | user_id | BIGINT | NOT NULL | users.id (앱에서 검증) |
 | status | VARCHAR(20) | NOT NULL | AVAILABLE / USED / EXPIRED |
 | used_at | TIMESTAMP | | 사용 시점 (사용 시 설정) |
+| version | BIGINT | NOT NULL, DEFAULT 0 | 낙관적 락 (@Version) |
 | created_at | TIMESTAMP | NOT NULL | |
 | updated_at | TIMESTAMP | NOT NULL | |
 
@@ -262,6 +264,9 @@ erDiagram
 |--------|----------|------|------|------|
 | users | uk_users_login_id | login_id | UNIQUE | 로그인 조회 |
 | products | idx_products_brand_id | brand_id | INDEX | 브랜드별 상품 조회 |
+| products | idx_products_brand_created | (brand_id, created_at DESC) | INDEX | 브랜드 + 최신순 정렬 |
+| products | idx_products_brand_price | (brand_id, price ASC) | INDEX | 브랜드 + 가격순 정렬 |
+| products | idx_products_brand_like_count | (brand_id, like_count DESC) | INDEX | 브랜드 + 좋아요순 정렬 |
 | likes | uk_likes_user_product | (user_id, product_id) | UNIQUE | 중복 좋아요 방지 |
 | likes | idx_likes_user_id | user_id | INDEX | 내 좋아요 목록 |
 | orders | idx_orders_user_id | user_id | INDEX | 내 주문 목록 |
@@ -276,6 +281,9 @@ erDiagram
 |--------|------|
 | uk_likes_user_product | 동시 요청 시 중복 좋아요 방지 (멱등성) |
 | idx_products_brand_id | 브랜드별 상품 조회, 연쇄 삭제 시 사용 |
+| idx_products_brand_created | 브랜드 필터 + 최신순 정렬 커버링 인덱스 |
+| idx_products_brand_price | 브랜드 필터 + 가격순 정렬 커버링 인덱스 |
+| idx_products_brand_like_count | 브랜드 필터 + 좋아요순 정렬 커버링 인덱스 |
 | idx_orders_created_at | 기간별 주문 조회 (startAt ~ endAt) |
 | idx_issued_coupons_user_id | 사용자별 쿠폰 목록 조회 |
 | idx_issued_coupons_coupon_id | 어드민 쿠폰 발급 내역 조회 |

@@ -4,6 +4,7 @@ import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderDomainService
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderRepository
+import com.loopers.infrastructure.id.SnowflakeIdGenerator
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -35,6 +36,9 @@ class OrderServiceTest {
     @Mock
     private lateinit var orderDomainService: OrderDomainService
 
+    @Mock
+    private lateinit var snowflakeIdGenerator: SnowflakeIdGenerator
+
     @InjectMocks
     private lateinit var orderService: OrderService
 
@@ -55,16 +59,17 @@ class OrderServiceTest {
                     unitPrice = BigDecimal("129000"),
                 ),
             )
-            val order = Order(userId = 1L)
+            val order = Order(id = 1L, userId = 1L)
 
-            whenever(orderDomainService.buildOrder(eq(1L), any(), anyOrNull())).thenReturn(order)
+            whenever(snowflakeIdGenerator.generate()).thenReturn(1L)
+            whenever(orderDomainService.buildOrder(eq(1L), eq(1L), any(), anyOrNull())).thenReturn(order)
             whenever(orderRepository.save(any())).thenAnswer { it.arguments[0] }
 
             // act
             val result = orderService.createOrder(1L, items)
 
             // assert
-            verify(orderDomainService).buildOrder(eq(1L), any(), anyOrNull())
+            verify(orderDomainService).buildOrder(eq(1L), eq(1L), any(), anyOrNull())
             verify(orderRepository).save(order)
             assertThat(result.userId).isEqualTo(1L)
         }
@@ -78,7 +83,7 @@ class OrderServiceTest {
         @Test
         fun returnsOrder_whenOrderExists() {
             // arrange
-            val order = Order(userId = 1L)
+            val order = Order(id = 1L, userId = 1L)
             whenever(orderRepository.findById(1L)).thenReturn(order)
 
             // act
@@ -116,9 +121,9 @@ class OrderServiceTest {
             val now = ZonedDateTime.now()
             val startAt = now.minusDays(7)
             val endAt = now
-            val order1 = Order(userId = userId)
+            val order1 = Order(id = 1L, userId = userId)
             ReflectionTestUtils.setField(order1, "createdAt", now)
-            val order2 = Order(userId = userId)
+            val order2 = Order(id = 2L, userId = userId)
             ReflectionTestUtils.setField(order2, "createdAt", now)
             val orders = listOf(order1, order2)
 
@@ -142,9 +147,9 @@ class OrderServiceTest {
             // arrange
             val pageable = PageRequest.of(0, 20)
             val now = ZonedDateTime.now()
-            val order1 = Order(userId = 1L)
+            val order1 = Order(id = 1L, userId = 1L)
             ReflectionTestUtils.setField(order1, "createdAt", now)
-            val order2 = Order(userId = 2L)
+            val order2 = Order(id = 2L, userId = 2L)
             ReflectionTestUtils.setField(order2, "createdAt", now)
             val orders = listOf(order1, order2)
             val page = PageImpl(orders, pageable, 2L)

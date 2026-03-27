@@ -23,7 +23,7 @@ class OrderTest {
             val userId = 1L
 
             // act
-            val order = Order(userId = userId)
+            val order = Order(id = 1L, userId = userId)
 
             // assert
             assertAll(
@@ -38,7 +38,7 @@ class OrderTest {
         fun throwsException_whenUserIdIsZeroOrLess() {
             // arrange & act
             val exception = assertThrows<CoreException> {
-                Order(userId = 0L)
+                Order(id = 1L, userId = 0L)
             }
 
             // assert
@@ -54,7 +54,7 @@ class OrderTest {
         @Test
         fun addsItemAndUpdatesTotalAmount_whenValidItemProvided() {
             // arrange
-            val order = Order(userId = 1L)
+            val order = Order(id = 1L, userId = 1L)
 
             // act
             order.addItem(
@@ -81,7 +81,7 @@ class OrderTest {
         @Test
         fun throwsException_whenQuantityIsZeroOrLess() {
             // arrange
-            val order = Order(userId = 1L)
+            val order = Order(id = 1L, userId = 1L)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -102,7 +102,7 @@ class OrderTest {
         @Test
         fun throwsException_whenUnitPriceIsNegative() {
             // arrange
-            val order = Order(userId = 1L)
+            val order = Order(id = 1L, userId = 1L)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -128,7 +128,7 @@ class OrderTest {
         @Test
         fun calculatesCorrectTotal_whenMultipleItemsExist() {
             // arrange
-            val order = Order(userId = 1L)
+            val order = Order(id = 1L, userId = 1L)
 
             // act
             order.addItem(productId = 1L, productName = "에어맥스 90", brandName = "나이키", quantity = 2, unitPrice = BigDecimal("129000"))
@@ -147,7 +147,7 @@ class OrderTest {
         @Test
         fun throwsException_whenNoItemsExist() {
             // arrange
-            val order = Order(userId = 1L)
+            val order = Order(id = 1L, userId = 1L)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -156,6 +156,156 @@ class OrderTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @DisplayName("주문 상태를 변경할 때,")
+    @Nested
+    inner class ChangeStatus {
+
+        @DisplayName("PENDING 상태에서 markPaid()를 호출하면, PAID로 변경된다.")
+        @Test
+        fun changesPaidStatus_whenPendingOrder() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+
+            // act
+            order.markPaid()
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.PAID)
+        }
+
+        @DisplayName("PENDING 상태에서 markFailed()를 호출하면, FAILED로 변경된다.")
+        @Test
+        fun changesFailedStatus_whenPendingOrder() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+
+            // act
+            order.markFailed()
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.FAILED)
+        }
+
+        @DisplayName("PAID 상태에서 markPaid()를 호출하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsException_whenAlreadyPaid() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+            order.markPaid()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.markPaid()
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("FAILED 상태에서 markPaid()를 호출하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsException_whenFailedOrderTriesToPay() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+            order.markFailed()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.markPaid()
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("PAID 상태에서 markFailed()를 호출하면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsException_whenPaidOrderTriesToFail() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+            order.markPaid()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.markFailed()
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+
+        @DisplayName("생성 직후 상태는 PENDING이다.")
+        @Test
+        fun defaultStatusIsPending_whenCreated() {
+            // arrange & act
+            val order = Order(id = 1L, userId = 1L)
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.PENDING)
+        }
+    }
+
+    @DisplayName("결제 가능 여부를 검증할 때,")
+    @Nested
+    inner class ValidatePayable {
+
+        @DisplayName("PENDING 상태이면, 예외가 발생하지 않는다.")
+        @Test
+        fun doesNotThrow_whenPending() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+
+            // act & assert
+            order.validatePayable()
+        }
+
+        @DisplayName("PAID 상태이면, BAD_REQUEST 예외가 발생한다.")
+        @Test
+        fun throwsException_whenAlreadyPaid() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+            order.markPaid()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.validatePayable()
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @DisplayName("주문 소유자를 검증할 때,")
+    @Nested
+    inner class ValidateOwner {
+
+        @DisplayName("일치하는 userId이면, 예외가 발생하지 않는다.")
+        @Test
+        fun doesNotThrow_whenOwnerMatches() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+
+            // act & assert
+            order.validateOwner(1L)
+        }
+
+        @DisplayName("다른 userId이면, FORBIDDEN 예외가 발생한다.")
+        @Test
+        fun throwsException_whenOwnerDoesNotMatch() {
+            // arrange
+            val order = Order(id = 1L, userId = 1L)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                order.validateOwner(999L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
 }

@@ -4,6 +4,8 @@ import com.loopers.application.order.OrderItemCriteria
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.infrastructure.product.ProductCacheService
+import com.loopers.support.cache.CachedPage
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -17,10 +19,14 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -33,6 +39,9 @@ class ProductServiceTest {
 
     @Mock
     private lateinit var brandRepository: BrandRepository
+
+    @Mock
+    private lateinit var productCacheService: ProductCacheService
 
     @InjectMocks
     private lateinit var productService: ProductService
@@ -67,6 +76,29 @@ class ProductServiceTest {
             ReflectionTestUtils.setField(product, "id", id)
         }
         return product
+    }
+
+    private fun createProductInfo(
+        id: Long = 1L,
+        brandId: Long = TEST_BRAND_ID,
+        name: String = TEST_NAME,
+        price: BigDecimal = TEST_PRICE,
+        stock: Int = TEST_STOCK,
+        likeCount: Int = 0,
+    ): ProductInfo {
+        val now = ZonedDateTime.now()
+        return ProductInfo(
+            id = id,
+            brandId = brandId,
+            name = name,
+            price = price,
+            stock = stock,
+            likeCount = likeCount,
+            description = TEST_DESCRIPTION,
+            imageUrl = TEST_IMAGE_URL,
+            createdAt = now,
+            updatedAt = now,
+        )
     }
 
     @DisplayName("상품을 조회할 때,")
@@ -111,6 +143,55 @@ class ProductServiceTest {
         }
     }
 
+    @DisplayName("상품 상세를 조회할 때,")
+    @Nested
+    inner class GetProductInfo {
+
+        @DisplayName("캐시에 데이터가 있으면, Repository를 호출하지 않고 캐시 데이터를 반환한다.")
+        @Test
+        fun returnsCachedData_whenCacheHit() {
+            // arrange
+            val productId = 1L
+            val cachedInfo = createProductInfo(id = productId)
+
+            whenever(productCacheService.getProductDetail(productId)).thenReturn(cachedInfo)
+
+            // act
+            val result = productService.getProductInfo(productId)
+
+            // assert
+            assertAll(
+                { assertThat(result.id).isEqualTo(productId) },
+                { assertThat(result.name).isEqualTo(TEST_NAME) },
+                { verify(productRepository, never()).findById(any()) },
+            )
+        }
+
+        @DisplayName("캐시에 데이터가 없으면, Repository를 호출하고 캐시에 저장한다.")
+        @Test
+        fun fetchesFromDbAndCaches_whenCacheMiss() {
+            // arrange
+            val productId = 1L
+            val now = ZonedDateTime.now()
+            val product = createProduct(id = productId)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productCacheService.getProductDetail(productId)).thenReturn(null)
+            whenever(productRepository.findById(productId)).thenReturn(product)
+
+            // act
+            val result = productService.getProductInfo(productId)
+
+            // assert
+            assertAll(
+                { assertThat(result.name).isEqualTo(TEST_NAME) },
+                { verify(productRepository).findById(productId) },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
+            )
+        }
+    }
+
     @DisplayName("상품 목록을 조회할 때,")
     @Nested
     inner class GetAllProducts {
@@ -130,6 +211,7 @@ class ProductServiceTest {
             val products = listOf(product1, product2)
             val productPage = PageImpl(products, pageable, products.size.toLong())
 
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
             whenever(productRepository.findAll(pageable)).thenReturn(productPage)
 
             // act
@@ -156,6 +238,7 @@ class ProductServiceTest {
             val products = listOf(product)
             val productPage = PageImpl(products, pageable, products.size.toLong())
 
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
             whenever(productRepository.findAllByBrandId(brandId, pageable)).thenReturn(productPage)
 
             // act
@@ -165,6 +248,98 @@ class ProductServiceTest {
             assertAll(
                 { assertThat(result.content).hasSize(1) },
                 { assertThat(result.content[0].brandId).isEqualTo(brandId) },
+            )
+        }
+
+        @DisplayName("Sort가 적용된 Pageable이 Repository에 전달된다.")
+        @Test
+        fun passesPageableWithSort_whenSortProvided() {
+            // arrange
+            val sort = Sort.by(Sort.Direction.ASC, "price")
+            val pageable = PageRequest.of(0, 20, sort)
+            val now = ZonedDateTime.now()
+            val product = createProduct()
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+            val productPage = PageImpl(listOf(product), pageable, 1L)
+
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productRepository.findAll(pageable)).thenReturn(productPage)
+
+            // act
+            productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            verify(productRepository).findAll(pageable)
+        }
+
+        @DisplayName("캐시에 데이터가 있으면, Repository를 호출하지 않고 캐시 데이터를 반환한다.")
+        @Test
+        fun returnsCachedData_whenCacheHit() {
+            // arrange
+            val pageable = PageRequest.of(0, 20)
+            val cachedPage = CachedPage(
+                content = listOf(createProductInfo(id = 1L), createProductInfo(id = 2L)),
+                page = 0,
+                size = 20,
+                totalElements = 2L,
+            )
+
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(cachedPage)
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(2) },
+                { verify(productRepository, never()).findAll(any<org.springframework.data.domain.Pageable>()) },
+            )
+        }
+
+        @DisplayName("캐시에 데이터가 없으면, Repository를 호출하고 캐시에 저장한다.")
+        @Test
+        fun fetchesFromDbAndCaches_whenCacheMiss() {
+            // arrange
+            val pageable = PageRequest.of(0, 20)
+            val now = ZonedDateTime.now()
+            val product = createProduct()
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+            val productPage = PageImpl(listOf(product), pageable, 1L)
+
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productRepository.findAll(pageable)).thenReturn(productPage)
+
+            // act
+            productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            verify(productRepository).findAll(pageable)
+            verify(productCacheService).setProductList(anyOrNull(), any(), any(), any(), any())
+        }
+
+        @DisplayName("캐시 대상 범위(첫 3페이지) 밖 페이지 요청 시, 캐시 miss로 DB에서 조회한다.")
+        @Test
+        fun fetchesFromDb_whenPageExceedsCacheLimit() {
+            // arrange
+            val pageable = PageRequest.of(3, 20)
+            val now = ZonedDateTime.now()
+            val product = createProduct()
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+            val productPage = PageImpl(listOf(product), pageable, 100L)
+
+            whenever(productCacheService.getProductList(anyOrNull(), any(), any(), any())).thenReturn(null)
+            whenever(productRepository.findAll(pageable)).thenReturn(productPage)
+
+            // act
+            val result = productService.getAllProducts(brandId = null, pageable = pageable)
+
+            // assert
+            assertAll(
+                { assertThat(result.content).hasSize(1) },
+                { verify(productRepository).findAll(pageable) },
             )
         }
     }
@@ -206,6 +381,7 @@ class ProductServiceTest {
                 { assertThat(result.stock).isEqualTo(TEST_STOCK) },
                 { assertThat(result.description).isEqualTo(TEST_DESCRIPTION) },
                 { assertThat(result.imageUrl).isEqualTo(TEST_IMAGE_URL) },
+                { verify(productCacheService).evictAllProductLists() },
             )
         }
 
@@ -268,6 +444,8 @@ class ProductServiceTest {
                 { assertThat(result.stock).isEqualTo(50) },
                 { assertThat(result.description).isEqualTo("나이키 에어포스 1") },
                 { assertThat(result.imageUrl).isEqualTo("https://example.com/airforce1.jpg") },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
+                { verify(productCacheService).evictAllProductLists() },
             )
         }
 
@@ -314,7 +492,11 @@ class ProductServiceTest {
             productService.deleteProduct(productId)
 
             // assert
-            assertThat(product.isDeleted()).isTrue()
+            assertAll(
+                { assertThat(product.isDeleted()).isTrue() },
+                { verify(productCacheService).evictProductDetail(productId) },
+                { verify(productCacheService).evictAllProductLists() },
+            )
         }
 
         @DisplayName("존재하지 않는 상품을 삭제하면, NOT_FOUND 예외가 발생한다.")
@@ -339,17 +521,27 @@ class ProductServiceTest {
     @Nested
     inner class IncrementLikeCount {
 
-        @DisplayName("productId로 호출하면, Repository의 incrementLikeCount가 호출된다.")
+        @DisplayName("productId로 호출하면, Repository의 incrementLikeCount가 호출되고 캐시가 교체된다.")
         @Test
         fun callsRepositoryIncrementLikeCount() {
             // arrange
             val productId = 1L
+            val now = ZonedDateTime.now()
+            val product = createProduct(id = productId)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productRepository.findById(productId)).thenReturn(product)
 
             // act
             productService.incrementLikeCount(productId)
 
             // assert
-            verify(productRepository).incrementLikeCount(productId)
+            assertAll(
+                { verify(productRepository).incrementLikeCount(productId) },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
+                { verify(productCacheService).evictAllProductLists() },
+            )
         }
     }
 
@@ -357,17 +549,27 @@ class ProductServiceTest {
     @Nested
     inner class DecrementLikeCount {
 
-        @DisplayName("productId로 호출하면, Repository의 decrementLikeCount가 호출된다.")
+        @DisplayName("productId로 호출하면, Repository의 decrementLikeCount가 호출되고 캐시가 교체된다.")
         @Test
         fun callsRepositoryDecrementLikeCount() {
             // arrange
             val productId = 1L
+            val now = ZonedDateTime.now()
+            val product = createProduct(id = productId)
+            ReflectionTestUtils.setField(product, "createdAt", now)
+            ReflectionTestUtils.setField(product, "updatedAt", now)
+
+            whenever(productRepository.findById(productId)).thenReturn(product)
 
             // act
             productService.decrementLikeCount(productId)
 
             // assert
-            verify(productRepository).decrementLikeCount(productId)
+            assertAll(
+                { verify(productRepository).decrementLikeCount(productId) },
+                { verify(productCacheService).setProductDetail(eq(productId), any()) },
+                { verify(productCacheService).evictAllProductLists() },
+            )
         }
     }
 

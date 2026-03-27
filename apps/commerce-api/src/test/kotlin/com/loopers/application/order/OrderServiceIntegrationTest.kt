@@ -34,8 +34,10 @@ class OrderServiceIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
+    private var orderIdCounter = 1L
+
     private fun createOrder(userId: Long = 1L): Order {
-        val order = Order(userId = userId)
+        val order = Order(id = orderIdCounter++, userId = userId)
         order.addItem(
             productId = 1L,
             productName = "에어맥스 90",
