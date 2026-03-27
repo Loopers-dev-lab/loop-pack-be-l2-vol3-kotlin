@@ -37,8 +37,8 @@ class CouponFcfsV1Controller(
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestParam requestId: String,
     ): ApiResponse<CouponV1Dto.FcfsStatusResponse> {
-        userService.authenticate(loginId, password)
-        val result = fcfsCouponService.getIssueStatus(requestId)
+        val authUser = userService.authenticate(loginId, password)
+        val result = fcfsCouponService.getIssueStatus(requestId, authUser.id)
         return ApiResponse.success(
             CouponV1Dto.FcfsStatusResponse(
                 requestId = result.requestId,

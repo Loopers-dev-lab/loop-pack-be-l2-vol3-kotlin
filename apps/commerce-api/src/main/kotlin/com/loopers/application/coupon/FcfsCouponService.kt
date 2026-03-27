@@ -61,9 +61,13 @@ class FcfsCouponService(
     }
 
     @Transactional(readOnly = true)
-    fun getIssueStatus(requestId: String): FcfsCouponStatusInfo {
+    fun getIssueStatus(requestId: String, userId: Long): FcfsCouponStatusInfo {
         val request = couponIssueRequestRepository.findByRequestId(requestId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급 요청을 찾을 수 없습니다.")
+
+        if (request.userId != userId) {
+            throw CoreException(ErrorType.FORBIDDEN, "본인의 발급 요청만 조회할 수 있습니다.")
+        }
 
         return FcfsCouponStatusInfo(
             requestId = request.requestId,
