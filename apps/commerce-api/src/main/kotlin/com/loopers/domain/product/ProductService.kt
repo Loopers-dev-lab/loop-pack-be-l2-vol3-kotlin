@@ -3,7 +3,7 @@ package com.loopers.domain.product
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.dto.ProductInfo
-import com.loopers.domain.product.event.ProductViewedEvent
+import com.loopers.domain.event.ProductViewedEvent
 import com.loopers.domain.productlike.ProductLikeCountRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -93,14 +93,13 @@ class ProductService(
         val product = findActiveProduct(productId)
 
         val event = ProductViewedEvent(
-            source = this,
             productId = productId,
             userId = userId,
             dedupeKey = "view:$productId:$userId:${UUID.randomUUID()}",
         )
 
         // Save to Outbox (same transaction)
-        outboxPublisher.publish(event, productId)
+        outboxPublisher.publish(event, productId, topic = "product-events")
 
         // Publish ApplicationEvent for local listeners
         eventPublisher.publishEvent(event)

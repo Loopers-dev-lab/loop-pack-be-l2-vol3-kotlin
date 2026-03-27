@@ -2,7 +2,7 @@ package com.loopers.application.api.order
 
 import com.loopers.CommerceApiApplication
 import com.loopers.domain.brand.Brand
-import com.loopers.domain.order.event.OrderCreatedEvent
+import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductStatus
 import com.loopers.domain.stock.Stock
