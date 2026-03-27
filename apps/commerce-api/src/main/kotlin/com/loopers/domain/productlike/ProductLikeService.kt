@@ -3,8 +3,8 @@ package com.loopers.domain.productlike
 import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.Product
 import com.loopers.domain.productlike.dto.LikedProductInfo
-import com.loopers.domain.productlike.event.LikeCountEvent
-import com.loopers.domain.productlike.event.LikeCountEventType
+import com.loopers.domain.event.LikeCountEvent
+import com.loopers.domain.event.LikeCountEventType
 import com.loopers.domain.user.User
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.data.domain.Page

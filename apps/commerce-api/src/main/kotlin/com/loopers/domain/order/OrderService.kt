@@ -5,8 +5,8 @@ import com.loopers.domain.order.dto.CreateOrderItemCommand
 import com.loopers.domain.order.dto.OrderInfo
 import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.order.dto.OrderedInfo
-import com.loopers.domain.order.event.OrderCreatedEvent
-import com.loopers.domain.order.event.OrderLineItem
+import com.loopers.domain.event.OrderCreatedEvent
+import com.loopers.domain.event.OrderLineItem
 import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
@@ -58,11 +58,10 @@ class OrderService(
             )
         }
         val event = OrderCreatedEvent(
-            source = this,
             orderId = savedOrder.id,
             lineItems = lineItems,
         )
-        outboxPublisher.publish(event, savedOrder.id)
+        outboxPublisher.publish(event, savedOrder.id, topic = "order-events")
 
         // Publish ApplicationEvent for local listeners
         eventPublisher.publishEvent(event)

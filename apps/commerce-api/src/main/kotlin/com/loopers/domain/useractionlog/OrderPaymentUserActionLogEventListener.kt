@@ -1,6 +1,6 @@
 package com.loopers.domain.useractionlog
 
-import com.loopers.domain.order.event.OrderCreatedEvent
+import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.payment.event.PaymentCallbackProcessedEvent
 import com.loopers.domain.payment.event.PaymentRequestedEvent
 import org.slf4j.LoggerFactory

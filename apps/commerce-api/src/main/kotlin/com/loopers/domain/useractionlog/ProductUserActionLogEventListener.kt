@@ -1,6 +1,6 @@
 package com.loopers.domain.useractionlog
 
-import com.loopers.domain.product.event.ProductViewedEvent
+import com.loopers.domain.event.ProductViewedEvent
 import com.loopers.domain.productlike.event.ProductLikedEvent
 import com.loopers.domain.productlike.event.ProductUnlikedEvent
 import org.slf4j.LoggerFactory

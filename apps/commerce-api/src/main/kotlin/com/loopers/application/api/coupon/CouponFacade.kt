@@ -8,7 +8,7 @@ import com.loopers.domain.coupon.IssuanceStatus
 import com.loopers.domain.coupon.dto.CouponInfo
 import com.loopers.domain.coupon.dto.CouponIssueRequestInfo
 import com.loopers.domain.coupon.dto.CouponIssuanceStatusInfo
-import com.loopers.domain.coupon.event.CouponIssueRequestedEvent
+import com.loopers.domain.event.CouponIssueRequestedEvent
 import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
