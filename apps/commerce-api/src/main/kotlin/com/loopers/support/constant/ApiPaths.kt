@@ -50,6 +50,8 @@ object ApiPaths {
     object Coupons {
         const val BASE = "/api/v1/coupons"
         const val ISSUE = "$BASE/{couponId}/issue"
+        const val ISSUE_ASYNC = "$BASE/{couponId}/issue-async"
+        const val ISSUE_RESULT = "$BASE/issue-requests/{requestId}"
     }
 
     object AdminCoupons {
