@@ -1,5 +1,6 @@
 package com.loopers.application.order
 
+import com.loopers.application.payment.PaymentFacade
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponIssueModel
@@ -35,7 +36,23 @@ class OrderFacadeTest {
     private val brandService: BrandService = mockk()
     private val couponIssueService: CouponIssueService = mockk()
     private val couponService: CouponService = mockk()
-    private val orderFacade = OrderFacade(orderService, productService, brandService, couponIssueService, couponService)
+    private val orderTransactionRunner: OrderTransactionRunner = mockk()
+    private val paymentFacade: PaymentFacade = mockk(relaxed = true)
+    private val orderFacade = OrderFacade(
+        orderTransactionRunner,
+        paymentFacade,
+        orderService,
+        productService,
+        brandService,
+        couponIssueService,
+        couponService,
+    )
+
+    init {
+        every { orderTransactionRunner.runInTransaction<OrderModel>(any()) } answers {
+            firstArg<() -> OrderModel>().invoke()
+        }
+    }
 
     companion object {
         private const val USER_ID = 1L
@@ -158,6 +175,7 @@ class OrderFacadeTest {
             assertThat(result.discountAmount).isEqualTo(0L)
             assertThat(result.totalAmount).isEqualTo(25000L * 3)
             assertThat(result.couponIssueId).isNull()
+            verify(exactly = 1) { paymentFacade.requestPayment(result.id, result.totalAmount) }
         }
 
         @DisplayName("다중 상품 주문이 정상적으로 생성되고 총 금액이 정확하다")
@@ -251,6 +269,25 @@ class OrderFacadeTest {
                 .isInstanceOf(CoreException::class.java)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST)
                 .hasMessageContaining("재고가 부족합니다")
+        }
+
+        @DisplayName("주문 생성 후 결제 요청에 실패하면 예외를 그대로 전파한다")
+        @Test
+        fun rethrowsPaymentFailure_afterOrderCreation() {
+            val product = createProduct(id = 1L, stockQuantity = 10)
+            val brand = createBrand()
+            val items = listOf(OrderItemRequest(productId = 1L, quantity = 3))
+            val paymentFailure = CoreException(ErrorType.CONFLICT, "카드 승인에 실패했습니다.")
+
+            every { productService.findAllByIdsForUpdate(listOf(1L)) } returns listOf(product)
+            every { brandService.findAllByIds(listOf(BRAND_ID)) } returns listOf(brand)
+            every { paymentFacade.requestPayment(any(), any()) } throws paymentFailure
+            mockOrderCreation()
+
+            assertThatThrownBy {
+                orderFacade.createOrder(USER_ID, items)
+            }
+                .isSameAs(paymentFailure)
         }
     }
 

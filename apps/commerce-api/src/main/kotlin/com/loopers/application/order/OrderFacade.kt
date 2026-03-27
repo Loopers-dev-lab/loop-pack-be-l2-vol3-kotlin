@@ -1,5 +1,6 @@
 package com.loopers.application.order
 
+import com.loopers.application.payment.PaymentFacade
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponIssueService
 import com.loopers.domain.coupon.CouponService
@@ -9,56 +10,59 @@ import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 @Component
 class OrderFacade(
+    private val orderTransactionRunner: OrderTransactionRunner,
+    private val paymentFacade: PaymentFacade,
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
     private val couponIssueService: CouponIssueService,
     private val couponService: CouponService,
 ) {
-    @Transactional
     fun createOrder(userId: Long, items: List<OrderItemRequest>, couponIssueId: Long? = null): OrderInfo {
-        validateNoDuplicateProducts(items)
+        val order = orderTransactionRunner.runInTransaction {
+            validateNoDuplicateProducts(items)
 
-        val productIds = items.map { it.productId }
-        val productMap = productService.findAllByIdsForUpdate(productIds).associateBy { it.id }
+            val productIds = items.map { it.productId }
+            val productMap = productService.findAllByIdsForUpdate(productIds).associateBy { it.id }
 
-        items.forEach { item ->
-            productMap[item.productId]
-                ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: ${item.productId}")
+            items.forEach { item ->
+                productMap[item.productId]
+                    ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: ${item.productId}")
+            }
+
+            if (couponIssueId != null) {
+                validateCoupon(userId, couponIssueId)
+            }
+
+            val brandIds = productMap.values.map { it.brandId }.distinct()
+            val brandMap = brandService.findAllByIds(brandIds).associateBy { it.id }
+
+            val orderItems = items.map { item ->
+                val product = productMap[item.productId]
+                    ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: ${item.productId}")
+                product to item.quantity
+            }
+
+            val createdOrder = orderService.createOrder(
+                userId = userId,
+                orderItems = orderItems,
+                brandNameResolver = { brandId ->
+                    brandMap[brandId]?.name
+                        ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다: $brandId")
+                },
+            )
+
+            if (couponIssueId != null) {
+                applyCoupon(userId, couponIssueId, createdOrder)
+            }
+
+            createdOrder
         }
 
-        // 쿠폰 검증 (재고 변경 전에 실패 가능성 높은 검증을 먼저 수행)
-        if (couponIssueId != null) {
-            validateCoupon(userId, couponIssueId)
-        }
-
-        val brandIds = productMap.values.map { it.brandId }.distinct()
-        val brandMap = brandService.findAllByIds(brandIds).associateBy { it.id }
-
-        val orderItems = items.map { item ->
-            val product = productMap[item.productId]
-                ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: ${item.productId}")
-            product to item.quantity
-        }
-
-        val order = orderService.createOrder(
-            userId = userId,
-            orderItems = orderItems,
-            brandNameResolver = { brandId ->
-                brandMap[brandId]?.name
-                    ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 브랜드입니다: $brandId")
-            },
-        )
-
-        // 쿠폰 적용
-        if (couponIssueId != null) {
-            applyCoupon(userId, couponIssueId, order)
-        }
-
+        paymentFacade.requestPayment(order.id, order.totalAmount)
         return OrderInfo.from(order)
     }
 

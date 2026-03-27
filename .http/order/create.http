@@ -1,0 +1,14 @@
+### Create order
+POST {{host}}/api/v1/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1
+    }
+  ],
+  "couponIssueId": null
+}
