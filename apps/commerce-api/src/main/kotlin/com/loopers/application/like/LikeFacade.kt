@@ -2,6 +2,9 @@ package com.loopers.application.like
 
 import com.loopers.application.brand.BrandService
 import com.loopers.application.product.ProductService
+import com.loopers.application.useraction.LogUserAction
+import com.loopers.domain.useraction.UserActionTargetType
+import com.loopers.domain.useraction.UserActionType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -11,6 +14,7 @@ class LikeFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
+    @LogUserAction(action = UserActionType.LIKE, targetType = UserActionTargetType.PRODUCT)
     @Transactional
     fun like(memberId: Long, productId: Long) {
         productService.getProduct(productId) // ACTIVE 검증 (BR-L4)
