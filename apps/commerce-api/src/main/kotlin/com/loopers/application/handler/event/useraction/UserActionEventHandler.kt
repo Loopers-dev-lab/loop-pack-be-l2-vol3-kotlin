@@ -7,6 +7,7 @@ import com.loopers.domain.useraction.UserActionLogModel
 import com.loopers.domain.useraction.UserActionLogRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
@@ -17,6 +18,7 @@ class UserActionEventHandler(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Transactional
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun on(event: UserActionEvent) {
         userActionLogRepository.save(

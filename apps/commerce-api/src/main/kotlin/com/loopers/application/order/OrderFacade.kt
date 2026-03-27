@@ -28,6 +28,9 @@ class OrderFacade(
         if (command.items.isEmpty()) {
             throw CoreException(ErrorType.BAD_REQUEST, "주문 항목은 최소 1개 이상이어야 합니다.")
         }
+        if (command.items.any { it.quantity <= 0 }) {
+            throw CoreException(ErrorType.BAD_REQUEST, "주문 수량은 1 이상이어야 합니다.")
+        }
 
         val products = productService.getProductsByIds(
             command.items.map { it.productId },

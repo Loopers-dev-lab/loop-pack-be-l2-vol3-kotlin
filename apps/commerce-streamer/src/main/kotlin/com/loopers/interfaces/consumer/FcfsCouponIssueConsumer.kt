@@ -31,11 +31,6 @@ class FcfsCouponIssueConsumer(
     ) {
         try {
             val eventId = record.headers().lastHeader("event-id")?.value()?.let { String(it) }
-            if (eventId != null && !tryMarkConsumed(eventId)) {
-                log.debug("이미 처리된 이벤트 스킵: eventId={}", eventId)
-                acknowledgment.acknowledge()
-                return
-            }
 
             val payload = objectMapper.readValue(record.value(), Map::class.java)
             val requestId = (payload["requestId"] as Number).toLong()
@@ -44,7 +39,13 @@ class FcfsCouponIssueConsumer(
 
             log.info("선착순 쿠폰 발급 요청 수신: requestId={}, templateId={}, memberId={}", requestId, templateId, memberId)
 
-            transactionTemplate.execute { processIssue(requestId, templateId, memberId) }
+            transactionTemplate.execute {
+                if (eventId != null && !tryMarkConsumed(eventId)) {
+                    log.debug("이미 처리된 이벤트 스킵: eventId={}", eventId)
+                    return@execute
+                }
+                processIssue(requestId, templateId, memberId)
+            }
 
             acknowledgment.acknowledge()
         } catch (e: Exception) {
@@ -52,7 +53,7 @@ class FcfsCouponIssueConsumer(
         }
     }
 
-    private fun processIssue(requestId: Long, templateId: Long, memberId: Long) {
+    internal fun processIssue(requestId: Long, templateId: Long, memberId: Long) {
         // 1. 수량 확인 (SELECT FOR UPDATE — 같은 TX 내에서 락 유지)
         val template = jdbcTemplate.queryForMap(
             "SELECT total_quantity, issued_quantity FROM fcfs_coupon_template WHERE id = ? FOR UPDATE",

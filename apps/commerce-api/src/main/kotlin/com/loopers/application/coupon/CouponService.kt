@@ -111,9 +111,12 @@ class CouponService(
 
     fun useCoupon(couponId: Long, memberId: Long): IssuedCouponModel {
         val issuedCoupon = getIssuedCouponById(couponId)
+        if (issuedCoupon.memberId != memberId) {
+            throw CoreException(ErrorType.FORBIDDEN, "본인 쿠폰만 사용할 수 있습니다.")
+        }
         val used = issuedCoupon.use()
         val saved = issuedCouponRepository.save(used)
-        eventPublisher.publishEvent(CouponUsedEvent(issuedCouponId = saved.id, memberId = memberId))
+        eventPublisher.publishEvent(CouponUsedEvent(issuedCouponId = saved.id, memberId = saved.memberId))
         return saved
     }
 

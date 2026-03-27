@@ -14,12 +14,8 @@ class PaymentSucceededEventHandler(
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun on(event: PaymentSucceededEvent) {
-        try {
-            completeOrderCommandPublisher.publish(event.orderId)
-            log.info("결제 성공 커맨드 발행: orderId={}", event.orderId)
-        } catch (e: Exception) {
-            log.error("결제 성공 커맨드 발행 실패: orderId={}, error={}", event.orderId, e.message, e)
-        }
+        completeOrderCommandPublisher.publish(event.orderId)
+        log.info("결제 성공 커맨드 발행: orderId={}", event.orderId)
     }
 }
 

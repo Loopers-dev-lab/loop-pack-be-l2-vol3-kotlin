@@ -36,8 +36,14 @@ class ProductMetricsConsumer(
             }
 
             val payload = objectMapper.readValue(record.value(), Map::class.java)
-            val actionType = payload["actionType"] as? String ?: return
-            val targetId = (payload["targetId"] as? Number)?.toLong() ?: return
+            val actionType = payload["actionType"] as? String
+            val targetId = (payload["targetId"] as? Number)?.toLong()
+
+            if (actionType == null || targetId == null) {
+                log.warn("메트릭 이벤트 필수 필드 누락: record={}", String(record.value()))
+                acknowledgment.acknowledge()
+                return
+            }
 
             val viewDelta = if (actionType == "VIEW") 1 else 0
             val likeDelta = if (actionType == "LIKE") 1 else 0
