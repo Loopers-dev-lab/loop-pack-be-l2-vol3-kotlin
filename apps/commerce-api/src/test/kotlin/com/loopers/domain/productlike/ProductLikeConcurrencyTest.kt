@@ -1,6 +1,7 @@
 package com.loopers.domain.productlike
 
 import com.loopers.domain.brand.Brand
+import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.Product
 import com.loopers.domain.user.User
 import com.loopers.domain.user.vo.BirthDate
@@ -11,7 +12,6 @@ import com.loopers.domain.user.vo.Password
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.infrastructure.user.UserJpaRepository
-import com.loopers.support.eventually
 import com.loopers.utils.DatabaseCleanUp
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.mock.mockito.MockBean
-import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.math.BigDecimal
 import java.util.Collections
@@ -35,7 +34,6 @@ import java.util.concurrent.atomic.AtomicInteger
 class ProductLikeConcurrencyTest @Autowired constructor(
     private val productLikeService: ProductLikeService,
     private val productLikeRepository: ProductLikeRepository,
-    private val productLikeCountRepository: ProductLikeCountRepository,
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
     private val userJpaRepository: UserJpaRepository,
@@ -44,10 +42,7 @@ class ProductLikeConcurrencyTest @Autowired constructor(
     private val entityManager: EntityManager,
 ) {
     @MockBean
-    private lateinit var kafkaTemplate: KafkaTemplate<String, Any>
-
-    private fun findProjectionLikeCount(productId: Long): Long =
-        productLikeCountRepository.findByProductId(productId)?.likeCount ?: 0L
+    private lateinit var outboxPublisher: OutboxPublisher
 
     private fun countAuthoritativeLikes(productId: Long): Long =
         entityManager
@@ -81,9 +76,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         return productJpaRepository.save(product)
     }
 
-    @DisplayName("단일 사용자의 좋아요로 like_count가 1 증가한다")
+    @DisplayName("단일 사용자의 좋아요로 ProductLike 행이 저장된다")
     @Test
-    fun likeCountIncrementsBy1_whenSingleUserLikes() {
+    fun productLikeCreated_whenSingleUserLikes() {
         // arrange
         val testProduct = createTestProduct()
         val testUser = createTestUser(1)
@@ -91,14 +86,13 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         // act
         productLikeService.addProductLike(testUser, testProduct)
 
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
-        }
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
     }
 
-    @DisplayName("순차적으로 10명이 좋아요할 때, like_count가 정확하게 증가한다")
+    @DisplayName("순차적으로 10명이 좋아요할 때, 10개의 ProductLike 행이 저장된다")
     @Test
-    fun likeCountIncrementsAccurately_whenMultipleUsersLikeSequentially() {
+    fun productLikeCreated_whenMultipleUsersLikeSequentially() {
         // arrange
         val testProduct = createTestProduct()
         val users = (1..10).map { createTestUser(it) }
@@ -108,15 +102,13 @@ class ProductLikeConcurrencyTest @Autowired constructor(
             productLikeService.addProductLike(user, testProduct)
         }
 
-        // assert
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(10)
-        }
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(10)
     }
 
-    @DisplayName("순차 add/remove 시 projection like_count가 정확히 증감한다")
+    @DisplayName("순차 add/remove 시 ProductLike 행이 정확히 증감한다")
     @Test
-    fun likeCountUpdatesExactly_whenDeterministicAddAndRemoveSequence() {
+    fun productLikeUpdatesExactly_whenDeterministicAddAndRemoveSequence() {
         // arrange
         val testProduct = createTestProduct()
         val users = (1..10).map { createTestUser(it) }
@@ -125,46 +117,36 @@ class ProductLikeConcurrencyTest @Autowired constructor(
             productLikeService.addProductLike(user, testProduct)
         }
 
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(10)
-        }
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(10)
 
         users.take(4).forEach { user ->
             productLikeService.removeProductLike(user, testProduct)
         }
 
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(6)
-        }
+        // assert - like count projection은 commerce-streamer 책임
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(6)
     }
 
-    @DisplayName("기존 좋아요가 없는 사용자의 unlike는 projection을 감소시키지 않는다")
+    @DisplayName("기존 좋아요가 없는 사용자의 unlike는 ProductLike 행을 감소시키지 않는다")
     @Test
-    fun noOpUnlikeDoesNotDecrementProjection_whenNoLikeRowExists() {
+    fun noOpUnlikeDoesNotDecrement_whenNoLikeRowExists() {
         // arrange
         val testProduct = createTestProduct()
         val likedUser = createTestUser(1)
         val neverLikedUser = createTestUser(2)
 
         productLikeService.addProductLike(likedUser, testProduct)
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
-        }
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
 
         productLikeService.removeProductLike(neverLikedUser, testProduct)
 
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
-        }
+        // assert - like count projection은 commerce-streamer 책임
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
     }
 
-    @DisplayName("10명이 동시에 같은 상품을 좋아요할 때, like_count가 정확하게 증가한다")
+    @DisplayName("10명이 동시에 같은 상품을 좋아요할 때, 10개의 ProductLike 행이 저장된다")
     @Test
-    fun likeCountIncrementsAccurately_whenMultipleUsersLikeSimultaneously() {
+    fun productLikeSavedAccurately_whenMultipleUsersLikeSimultaneously() {
         // arrange
         val testProduct = createTestProduct()
         val users = (1..10).map { createTestUser(it) }
@@ -217,11 +199,7 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         // assert - JPA 1차 캐시를 clear하고 fresh하게 조회
         entityManager.clear()
 
-        // 디버그: 실제 ProductLike 저장 개수 확인
-        val savedCount = countAuthoritativeLikes(testProduct.id)
-
         // 10명의 서로 다른 사용자이므로 UNIQUE 제약에 걸리지 않음
-        // exception 발생 여부 확인
         val errorMsg =
             if (errors.isEmpty()) {
                 "No errors"
@@ -232,16 +210,10 @@ class ProductLikeConcurrencyTest @Autowired constructor(
             .`as`("Exception count - $errorMsg")
             .isEqualTo(0)
 
-        // atomic update로 처리되므로 정확히 10이어야 함
-        assertThat(savedCount)
+        // 정확히 10개의 ProductLike 행이 저장되어야 함
+        assertThat(countAuthoritativeLikes(testProduct.id))
             .`as`("ProductLike saved count")
             .isEqualTo(10)
-
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id))
-                .`as`("Product like_count (atomic query)")
-                .isEqualTo(10)
-        }
     }
 
     @DisplayName("같은 사용자가 동시에 여러 번 좋아요하려 할 때, UNIQUE 제약으로 1번만 저장된다")
@@ -272,20 +244,15 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         executorService.shutdown()
         entityManager.clear()
 
-        val authoritativeCount = countAuthoritativeLikes(testProduct.id)
-        val projectionCount = findProjectionLikeCount(testProduct.id)
-
+        // assert - like count projection은 commerce-streamer 책임
         assertThat(successCount.get()).isEqualTo(1)
         assertThat(errors.size).isEqualTo(threadCount - 1)
-        assertThat(authoritativeCount).isEqualTo(1)
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(1)
-        }
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
     }
 
-    @DisplayName("50명이 좋아요 추가 후 25명이 동시에 제거할 때, like_count가 정확하게 관리된다")
+    @DisplayName("50명이 좋아요 추가 후 25명이 동시에 제거할 때, ProductLike 행이 정확하게 관리된다")
     @Test
-    fun likeCountManagesAccurately_whenAddAndRemoveSimultaneously() {
+    fun productLikeManagesAccurately_whenAddAndRemoveSimultaneously() {
         val testProduct = createTestProduct()
         val users = (1..50).map { createTestUser(it) }
         val executorService: ExecutorService = Executors.newFixedThreadPool(10)
@@ -309,9 +276,6 @@ class ProductLikeConcurrencyTest @Autowired constructor(
 
         assertThat(addErrors).isEmpty()
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(50)
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(50)
-        }
 
         val removeLatch = CountDownLatch(25)
         val removeErrors = Collections.synchronizedList(mutableListOf<Throwable>())
@@ -331,16 +295,14 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         executorService.shutdown()
         entityManager.clear()
 
+        // assert - like count projection은 commerce-streamer 책임
         assertThat(removeErrors).isEmpty()
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(25)
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(25)
-        }
     }
 
-    @DisplayName("좋아요 추가와 제거가 동시에 섞여서 실행될 때, like_count가 일관성 있게 유지된다")
+    @DisplayName("좋아요 추가와 제거가 동시에 섞여서 실행될 때, ProductLike 행이 일관성 있게 유지된다")
     @Test
-    fun likeCountRemainsConsistent_whenAddAndRemoveAreMixedConcurrently() {
+    fun productLikeRemainsConsistent_whenAddAndRemoveAreMixedConcurrently() {
         val testProduct = createTestProduct()
         val users = (1..30).map { createTestUser(it) }
         val executorService: ExecutorService = Executors.newFixedThreadPool(10)
@@ -371,11 +333,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         executorService.shutdown()
         entityManager.clear()
 
+        // assert - like count projection은 commerce-streamer 책임
         assertThat(errors).isEmpty()
         assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(15)
-        eventually {
-            assertThat(findProjectionLikeCount(testProduct.id)).isEqualTo(15)
-        }
     }
 
     @DisplayName("같은 사용자가 동시에 좋아요와 좋아요 취소를 번갈아 실행할 때, 최종 상태가 일관성 있다")
@@ -406,8 +366,8 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         executorService.shutdown()
 
         // assert - 최종 상태는 일관성이 유지되어야 함 (동시성으로 인해 정확한 값은 보장 불가)
-        val likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        // 최대 1 이하만 확인
-        assertThat(likeCount).isLessThanOrEqualTo(1)
+        // ProductLike 행 수는 0 또는 1 (마지막 작업이 add면 1, remove면 0)
+        val authoritativeCount = countAuthoritativeLikes(testProduct.id)
+        assertThat(authoritativeCount).isLessThanOrEqualTo(1)
     }
 }
