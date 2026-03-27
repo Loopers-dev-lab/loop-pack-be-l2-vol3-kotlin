@@ -1,27 +1,16 @@
 package com.loopers.application.payment
 
-import com.loopers.application.event.OutboxEventWriter
-import com.loopers.application.event.PaymentStatusChangedEvent
-import com.loopers.application.event.UserActionLogEvent
-import com.loopers.application.event.UserActionType
-import com.loopers.domain.coupon.IssuedCouponProcessor
-import com.loopers.domain.order.Order
+import com.loopers.application.payment.support.PaymentCouponStateSyncer
+import com.loopers.application.payment.support.PaymentSideEffectPublisher
 import com.loopers.domain.order.OrderReader
 import com.loopers.domain.order.OrderPaymentProcessor
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentProcessor
 import com.loopers.domain.payment.PaymentReader
-import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.payment.PgPaymentStatus
-import com.loopers.kafka.IntegrationEvent
-import com.loopers.kafka.KafkaTopics
-import com.loopers.kafka.OrderPaidItemPayload
-import com.loopers.kafka.OrderPaidPayload
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.ZonedDateTime
 
 @Component
 class PaymentUseCase(
@@ -29,11 +18,10 @@ class PaymentUseCase(
     private val orderPaymentProcessor: OrderPaymentProcessor,
     private val paymentReader: PaymentReader,
     private val paymentProcessor: PaymentProcessor,
-    private val issuedCouponProcessor: IssuedCouponProcessor,
     private val paymentGateway: PaymentGateway,
     private val transactionTemplate: TransactionTemplate,
-    private val applicationEventPublisher: ApplicationEventPublisher,
-    private val outboxEventWriter: OutboxEventWriter,
+    private val paymentCouponStateSyncer: PaymentCouponStateSyncer,
+    private val paymentSideEffectPublisher: PaymentSideEffectPublisher,
 ) {
 
     fun requestPayment(memberId: Long, command: RequestCommand): PaymentInfo.Detail {
@@ -61,8 +49,8 @@ class PaymentUseCase(
         return transactionTemplate.execute {
             val payment = paymentProcessor.applyRequestResult(preparedRequest.paymentId, requestResult)
             val order = orderPaymentProcessor.applyPaymentResult(preparedRequest.orderId, memberId, payment.status)
-            syncCouponState(order.couponId, payment.status)
-            publishPaymentSideEffects(order, payment.status)
+            paymentCouponStateSyncer.sync(order.couponId, payment.status)
+            paymentSideEffectPublisher.publish(order, payment.status)
             PaymentInfo.Detail.from(order, payment)
         } ?: throw IllegalStateException("결제 요청 결과 저장에 실패했습니다.")
     }
@@ -85,8 +73,8 @@ class PaymentUseCase(
         return transactionTemplate.execute {
             val payment = paymentProcessor.applyLookupResult(snapshot.paymentId, lookupResult)
             val order = orderPaymentProcessor.applyPaymentResult(orderId, memberId, payment.status)
-            syncCouponState(order.couponId, payment.status)
-            publishPaymentSideEffects(order, payment.status)
+            paymentCouponStateSyncer.sync(order.couponId, payment.status)
+            paymentSideEffectPublisher.publish(order, payment.status)
             PaymentInfo.Detail.from(order, payment)
         } ?: throw IllegalStateException("결제 동기화 반영에 실패했습니다.")
     }
@@ -100,71 +88,8 @@ class PaymentUseCase(
             ) ?: return@executeWithoutResult
 
             val order = orderPaymentProcessor.applyPaymentResult(payment.orderId, payment.status)
-            syncCouponState(order.couponId, payment.status)
-            publishPaymentSideEffects(order, payment.status)
-        }
-    }
-
-    private fun syncCouponState(issuedCouponId: Long?, paymentStatus: PaymentStatus) {
-        if (issuedCouponId == null) {
-            return
-        }
-
-        when (paymentStatus) {
-            PaymentStatus.SUCCESS -> issuedCouponProcessor.confirmUseIfReserved(issuedCouponId)
-            PaymentStatus.REQUEST_FAILED,
-            PaymentStatus.FAILED,
-            -> issuedCouponProcessor.releaseIfReserved(issuedCouponId)
-
-            PaymentStatus.REQUESTED,
-            PaymentStatus.PENDING,
-            PaymentStatus.UNKNOWN,
-            -> Unit
-        }
-    }
-
-    private fun publishPaymentSideEffects(order: Order, paymentStatus: PaymentStatus) {
-        val orderId = requireNotNull(order.id)
-        applicationEventPublisher.publishEvent(
-            PaymentStatusChangedEvent(
-                orderId = orderId,
-                memberId = order.memberId,
-                paymentStatus = paymentStatus.name,
-            ),
-        )
-        applicationEventPublisher.publishEvent(
-            UserActionLogEvent(
-                actionType = UserActionType.PAYMENT_STATUS_CHANGED,
-                memberId = order.memberId,
-                targetType = "order",
-                targetId = orderId.toString(),
-                details = mapOf("paymentStatus" to paymentStatus.name),
-            ),
-        )
-
-        if (order.status == com.loopers.domain.order.OrderStatus.PAID) {
-            outboxEventWriter.append(
-                topic = KafkaTopics.ORDER_EVENTS,
-                event = IntegrationEvent(
-                    eventId = "order-paid:$orderId:1",
-                    eventType = "OrderPaid",
-                    aggregateType = "order",
-                    aggregateId = orderId.toString(),
-                    key = orderId.toString(),
-                    version = 1L,
-                    occurredAt = ZonedDateTime.now(),
-                    payload = OrderPaidPayload(
-                        orderId = orderId,
-                        memberId = order.memberId,
-                        items = order.orderItems.map { item ->
-                            OrderPaidItemPayload(
-                                productId = item.productId,
-                                quantity = item.quantity,
-                            )
-                        },
-                    ),
-                ),
-            )
+            paymentCouponStateSyncer.sync(order.couponId, payment.status)
+            paymentSideEffectPublisher.publish(order, payment.status)
         }
     }
 
