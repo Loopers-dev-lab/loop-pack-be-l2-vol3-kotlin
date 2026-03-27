@@ -2,6 +2,7 @@ package com.loopers.application.handler.command.useraction
 
 import com.loopers.application.outbox.OutboxEventPublisher
 import com.loopers.domain.common.command.PublishProductMetricsCommand
+import com.loopers.event.EventContract
 import org.springframework.stereotype.Component
 
 @Component
@@ -10,7 +11,7 @@ class PublishProductMetricsCommandHandler(
 ) {
     fun handle(command: PublishProductMetricsCommand) {
         outboxEventPublisher.publish(
-            aggregateType = AGGREGATE_TYPE,
+            aggregateType = EventContract.AGGREGATE_PRODUCT,
             aggregateId = command.targetId.toString(),
             eventType = "UserAction.${command.actionType}",
             payload = mapOf(
@@ -20,12 +21,7 @@ class PublishProductMetricsCommandHandler(
                 "targetId" to command.targetId,
             ),
             partitionKey = command.targetId.toString(),
-            topic = TOPIC,
+            topic = EventContract.PRODUCT_ACTION_TOPIC,
         )
-    }
-
-    companion object {
-        const val AGGREGATE_TYPE = "PRODUCT"
-        const val TOPIC = "product.action"
     }
 }

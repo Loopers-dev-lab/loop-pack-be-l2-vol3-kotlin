@@ -2,6 +2,7 @@ package com.loopers.infrastructure.fcfscoupon
 
 import com.loopers.application.fcfscoupon.FcfsCouponIssueRequestPublisher
 import com.loopers.application.outbox.OutboxEventPublisher
+import com.loopers.event.EventContract
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -13,23 +14,17 @@ class OutboxFcfsCouponIssueRequestPublisher(
 
     override fun publish(requestId: Long, templateId: Long, memberId: Long) {
         outboxEventPublisher.publish(
-            aggregateType = AGGREGATE_TYPE,
+            aggregateType = EventContract.AGGREGATE_FCFS_COUPON,
             aggregateId = requestId.toString(),
-            eventType = EVENT_TYPE,
+            eventType = EventContract.EVENT_FCFS_COUPON_ISSUE_REQUESTED,
             payload = mapOf(
                 "requestId" to requestId,
                 "templateId" to templateId,
                 "memberId" to memberId,
             ),
             partitionKey = templateId.toString(),
-            topic = TOPIC,
+            topic = EventContract.COUPON_ISSUE_REQUEST_TOPIC,
         )
         log.info("Outbox 선착순 쿠폰 발급 요청 발행: requestId={}, templateId={}, memberId={}", requestId, templateId, memberId)
-    }
-
-    companion object {
-        const val AGGREGATE_TYPE = "FCFS_COUPON"
-        const val EVENT_TYPE = "FcfsCouponIssueRequested"
-        const val TOPIC = "coupon.issue.request"
     }
 }

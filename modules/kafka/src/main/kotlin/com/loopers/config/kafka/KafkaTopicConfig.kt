@@ -1,5 +1,6 @@
 package com.loopers.config.kafka
 
+import com.loopers.event.EventContract
 import org.apache.kafka.clients.admin.NewTopic
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -8,10 +9,10 @@ import org.springframework.kafka.config.TopicBuilder
 @Configuration
 class KafkaTopicConfig {
     companion object {
-        const val PAYMENT_SUCCEEDED_TOPIC = "payment.succeeded"
-        const val PAYMENT_FAILED_TOPIC = "payment.failed"
-        const val PRODUCT_ACTION_TOPIC = "product.action"
-        const val COUPON_ISSUE_REQUEST_TOPIC = "coupon.issue.request"
+        const val PAYMENT_SUCCEEDED_TOPIC = EventContract.PAYMENT_SUCCEEDED_TOPIC
+        const val PAYMENT_FAILED_TOPIC = EventContract.PAYMENT_FAILED_TOPIC
+        const val PRODUCT_ACTION_TOPIC = EventContract.PRODUCT_ACTION_TOPIC
+        const val COUPON_ISSUE_REQUEST_TOPIC = EventContract.COUPON_ISSUE_REQUEST_TOPIC
     }
 
     @Bean

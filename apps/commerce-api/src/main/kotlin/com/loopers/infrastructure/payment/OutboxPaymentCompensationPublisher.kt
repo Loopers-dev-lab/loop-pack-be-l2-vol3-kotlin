@@ -2,6 +2,7 @@ package com.loopers.infrastructure.payment
 
 import com.loopers.application.handler.event.payment.PaymentCompensationPublisher
 import com.loopers.application.outbox.OutboxEventPublisher
+import com.loopers.event.EventContract
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -13,19 +14,13 @@ class OutboxPaymentCompensationPublisher(
 
     override fun publish(orderId: Long, paymentId: Long) {
         outboxEventPublisher.publish(
-            aggregateType = AGGREGATE_TYPE,
+            aggregateType = EventContract.AGGREGATE_ORDER,
             aggregateId = orderId.toString(),
-            eventType = EVENT_TYPE,
+            eventType = EventContract.EVENT_PAYMENT_FAILED,
             payload = mapOf("orderId" to orderId, "paymentId" to paymentId),
             partitionKey = orderId.toString(),
-            topic = TOPIC,
+            topic = EventContract.PAYMENT_FAILED_TOPIC,
         )
         log.info("Outbox 결제 실패 보상 커맨드 발행: orderId={}, paymentId={}", orderId, paymentId)
-    }
-
-    companion object {
-        const val AGGREGATE_TYPE = "ORDER"
-        const val EVENT_TYPE = "PaymentFailed"
-        const val TOPIC = "payment.failed"
     }
 }
