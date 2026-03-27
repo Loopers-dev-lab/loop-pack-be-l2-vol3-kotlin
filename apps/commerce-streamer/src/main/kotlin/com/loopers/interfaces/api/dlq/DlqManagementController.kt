@@ -60,14 +60,14 @@ class DlqManagementController(
     fun getDlqStats(
         @RequestParam topic: String,
     ): Map<String, Any> {
-        val messages = dlqMessageRepository.findByOriginalTopic(topic, PageRequest.of(0, Int.MAX_VALUE))
-        val pending = messages.content.count { it.status == DlqStatus.PENDING }
-        val deadLettered = messages.content.count { it.status == DlqStatus.DEAD_LETTERED }
-        val resolved = messages.content.count { it.status == DlqStatus.RESOLVED }
+        val pending = dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.PENDING, topic)
+        val deadLettered = dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.DEAD_LETTERED, topic)
+        val resolved = dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.RESOLVED, topic)
+        val total = pending + deadLettered + resolved
 
         return mapOf(
             "topic" to topic,
-            "total" to messages.totalElements,
+            "total" to total,
             "pending" to pending,
             "deadLettered" to deadLettered,
             "resolved" to resolved,

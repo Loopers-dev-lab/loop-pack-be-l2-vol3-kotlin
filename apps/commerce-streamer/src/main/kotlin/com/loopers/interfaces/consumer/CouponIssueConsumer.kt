@@ -33,7 +33,7 @@ class CouponIssueConsumer(
                 val event = objectMapper.readValue(payload, CouponIssueRequestedEvent::class.java)
                 couponIssueService.processIssuanceRequest(event)
             } catch (e: Exception) {
-                logger.error("Failed to process coupon issue message from topic=${message.topic()}: ${message.value()}", e)
+                logger.error("Failed to process coupon issue message from topic=${message.topic()}, partition=${message.partition()}, offset=${message.offset()}", e)
                 // DLQ에 저장 후 skip — 재소비 방지를 위해 ACK는 배치 전체 처리 후 수행
                 val payload = message.value() as? String ?: ""
                 dlqHandler.saveToDlq(

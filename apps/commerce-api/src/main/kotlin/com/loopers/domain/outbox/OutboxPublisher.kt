@@ -75,8 +75,6 @@ class OutboxPublisher(
                         transactionManager.rollback(status)
                         logger.error("Failed to mark outbox as published: id=${saved.id}", e)
                     }
-
-                    logger.debug("Published outbox event via afterCommit: id=${saved.id}, eventType=${saved.eventType}")
                 } catch (e: Exception) {
                     logger.warn(
                         "AfterCommit Kafka publish failed for outboxId=${saved.id}, " +

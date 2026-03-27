@@ -129,16 +129,15 @@ class DlqManagementControllerTest {
     @Test
     fun getDlqStats_returnStatistics() {
         // Given
-        val messages = listOf(
-            DlqMessage(1L, "metrics-events", "payload1", "group", status = DlqStatus.PENDING),
-            DlqMessage(2L, "metrics-events", "payload2", "group", status = DlqStatus.PENDING),
-            DlqMessage(3L, "metrics-events", "payload3", "group", status = DlqStatus.RESOLVED),
-        )
-        val page = PageImpl(messages, PageRequest.of(0, Int.MAX_VALUE), 3)
-
         every {
-            dlqMessageRepository.findByOriginalTopic("metrics-events", any<PageRequest>())
-        } returns page
+            dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.PENDING, "metrics-events")
+        } returns 2L
+        every {
+            dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.DEAD_LETTERED, "metrics-events")
+        } returns 0L
+        every {
+            dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.RESOLVED, "metrics-events")
+        } returns 1L
 
         // When
         val result = controller.getDlqStats("metrics-events")
@@ -146,8 +145,9 @@ class DlqManagementControllerTest {
         // Then
         assertThat(result["topic"]).isEqualTo("metrics-events")
         assertThat(result["total"]).isEqualTo(3L)
-        assertThat(result["pending"]).isEqualTo(2)
-        assertThat(result["resolved"]).isEqualTo(1)
+        assertThat(result["pending"]).isEqualTo(2L)
+        assertThat(result["deadLettered"]).isEqualTo(0L)
+        assertThat(result["resolved"]).isEqualTo(1L)
     }
 
     @DisplayName("DLQ 전체 통계를 조회한다")
@@ -186,42 +186,23 @@ class DlqManagementControllerTest {
     @Test
     fun getDlqStats_countEachStatusCorrectly() {
         // Given
-        val pending = DlqMessage(
-            1L,
-            "topic",
-            "payload",
-            "group",
-            status = DlqStatus.PENDING,
-        )
-        val pending2 = DlqMessage(
-            2L,
-            "topic",
-            "payload",
-            "group",
-            status = DlqStatus.PENDING,
-        )
-        val resolved = DlqMessage(
-            3L,
-            "topic",
-            "payload",
-            "group",
-            status = DlqStatus.RESOLVED,
-        )
-
-        val page = PageImpl(
-            listOf(pending, pending2, resolved),
-            PageRequest.of(0, Int.MAX_VALUE),
-            3,
-        )
-
-        every { dlqMessageRepository.findByOriginalTopic("topic", any<PageRequest>()) } returns page
+        every {
+            dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.PENDING, "topic")
+        } returns 2L
+        every {
+            dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.DEAD_LETTERED, "topic")
+        } returns 0L
+        every {
+            dlqMessageRepository.countByStatusAndOriginalTopic(DlqStatus.RESOLVED, "topic")
+        } returns 1L
 
         // When
         val result = controller.getDlqStats("topic")
 
         // Then
-        assertThat(result["pending"]).isEqualTo(2)
-        assertThat(result["resolved"]).isEqualTo(1)
+        assertThat(result["pending"]).isEqualTo(2L)
+        assertThat(result["deadLettered"]).isEqualTo(0L)
+        assertThat(result["resolved"]).isEqualTo(1L)
     }
 
     @DisplayName("페이지네이션을 지원한다")
