@@ -1,8 +1,8 @@
 package com.loopers.domain.event.handler
 
 import com.loopers.domain.productlike.ProductLikeCountRepository
-import com.loopers.domain.productlike.event.LikeCountEvent
-import com.loopers.domain.productlike.event.LikeCountEventType
+import com.loopers.domain.event.LikeCountEvent
+import com.loopers.domain.event.LikeCountEventType
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -27,7 +27,6 @@ class LikeCountEventHandlerTest {
     fun shouldIncrementLikeCount() {
         // Given
         val event = LikeCountEvent(
-            source = this,
             productId = 1L,
             type = LikeCountEventType.INCREMENT,
             userId = 100L,
@@ -47,7 +46,6 @@ class LikeCountEventHandlerTest {
     fun shouldDecrementLikeCount() {
         // Given
         val event = LikeCountEvent(
-            source = this,
             productId = 2L,
             type = LikeCountEventType.DECREMENT,
             userId = 100L,

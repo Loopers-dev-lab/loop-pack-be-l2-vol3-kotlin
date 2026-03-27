@@ -65,6 +65,17 @@ class CouponService(
 
     // ===== Coupon 발급 관련 =====
 
+    fun validateIssuanceRequest(userId: Long, templateId: Long) {
+        val template = getTemplateInfo(templateId)
+        if (template.isExpired()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰 템플릿입니다.")
+        }
+        val existingCoupon = couponRepository.findByUserIdAndTemplateId(userId, templateId)
+        if (existingCoupon != null) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 발급된 쿠폰입니다.")
+        }
+    }
+
     @Transactional
     fun issueCoupon(userId: Long, templateId: Long): Coupon {
         // 템플릿 유효성 확인

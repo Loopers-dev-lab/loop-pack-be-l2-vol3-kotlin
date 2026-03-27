@@ -20,6 +20,7 @@ import java.time.ZonedDateTime
 class Coupon private constructor(
     userId: Long,
     templateId: Long,
+    requestedAt: ZonedDateTime,
 ) : BaseEntity() {
 
     @Column(nullable = false)
@@ -27,6 +28,9 @@ class Coupon private constructor(
 
     @Column(nullable = false)
     val templateId: Long = templateId
+
+    @Column(nullable = false)
+    val requestedAt: ZonedDateTime = requestedAt
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -50,10 +54,11 @@ class Coupon private constructor(
     }
 
     companion object {
-        fun issue(userId: Long, template: CouponTemplate): Coupon {
+        fun issue(userId: Long, template: CouponTemplate, requestedAt: ZonedDateTime = ZonedDateTime.now()): Coupon {
             return Coupon(
                 userId = userId,
                 templateId = template.id,
+                requestedAt = requestedAt,
             )
         }
     }

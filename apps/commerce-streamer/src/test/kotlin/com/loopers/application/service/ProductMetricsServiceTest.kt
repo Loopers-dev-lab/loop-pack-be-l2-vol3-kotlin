@@ -1,8 +1,8 @@
 package com.loopers.application.service
 
-import com.loopers.domain.eventhandled.EventHandled
+import com.loopers.domain.eventhandled.EventHandledDto
 import com.loopers.domain.eventhandled.EventHandledRepository
-import com.loopers.domain.product.event.ProductViewedEvent
+import com.loopers.domain.event.ProductViewedEvent
 import com.loopers.infrastructure.productmetrics.ProductMetricsRepository
 import com.loopers.interfaces.consumer.EventHandler
 import io.mockk.every
@@ -35,7 +35,7 @@ class ProductMetricsServiceTest {
     fun shouldIgnoreDuplicateEvents() {
         // Given
         val dedupeKey = "test-key-123"
-        val event = ProductViewedEvent(source = this, productId = 1L, userId = 1L, dedupeKey = dedupeKey)
+        val event = ProductViewedEvent(productId = 1L, userId = 1L, dedupeKey = dedupeKey)
 
         every { eventHandledRepository.existsByDedupeKey(dedupeKey) } returns true
 
@@ -52,12 +52,12 @@ class ProductMetricsServiceTest {
     fun shouldProcessNewEvents() {
         // Given
         val dedupeKey = "test-key-123"
-        val event = ProductViewedEvent(source = this, productId = 1L, userId = 1L, dedupeKey = dedupeKey)
+        val event = ProductViewedEvent(productId = 1L, userId = 1L, dedupeKey = dedupeKey)
         val handler = mockk<EventHandler>()
 
         every { eventHandledRepository.existsByDedupeKey(dedupeKey) } returns false
         every { handler.handle(event) } returns Unit
-        every { eventHandledRepository.save(any()) } returns EventHandled(dedupeKey = dedupeKey)
+        every { eventHandledRepository.save(any()) } returns EventHandledDto(dedupeKey = dedupeKey)
 
         val serviceWithHandler = ProductMetricsService(
             productMetricsRepository,

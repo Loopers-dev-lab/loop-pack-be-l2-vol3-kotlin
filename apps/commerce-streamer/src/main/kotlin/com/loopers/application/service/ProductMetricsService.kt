@@ -1,10 +1,10 @@
 package com.loopers.application.service
 
-import com.loopers.domain.eventhandled.EventHandled
+import com.loopers.domain.eventhandled.EventHandledDto
 import com.loopers.domain.eventhandled.EventHandledRepository
-import com.loopers.domain.order.event.OrderCreatedEvent
-import com.loopers.domain.product.event.ProductViewedEvent
-import com.loopers.domain.productlike.event.LikeCountEvent
+import com.loopers.domain.event.OrderCreatedEvent
+import com.loopers.domain.event.ProductViewedEvent
+import com.loopers.domain.event.LikeCountEvent
 import com.loopers.infrastructure.productmetrics.ProductMetricsRepository
 import com.loopers.interfaces.consumer.EventHandler
 import org.springframework.stereotype.Service
@@ -31,7 +31,7 @@ class ProductMetricsService(
         handler?.handle(event)
 
         // 3. event_handled 기록 (멱등성 완료)
-        eventHandledRepository.save(EventHandled(dedupeKey = dedupeKey))
+        eventHandledRepository.save(EventHandledDto(dedupeKey = dedupeKey))
     }
 
     private fun extractDedupeKey(event: Any): String = when (event) {

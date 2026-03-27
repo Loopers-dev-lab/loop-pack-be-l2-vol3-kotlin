@@ -22,4 +22,10 @@ class CouponTemplateRepositoryImpl(
 
     override fun save(couponTemplate: CouponTemplate): CouponTemplate =
         couponTemplateJpaRepository.save(couponTemplate)
+
+    override fun findByIdForUpdate(id: Long): CouponTemplate? =
+        couponTemplateJpaRepository.findByIdForUpdate(id)
+
+    override fun incrementIssuedCountIfAvailable(id: Long): Int =
+        couponTemplateJpaRepository.incrementIssuedCountIfAvailable(id)
 }

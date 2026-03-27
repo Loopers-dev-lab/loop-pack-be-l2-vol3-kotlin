@@ -7,9 +7,13 @@ interface CouponTemplateRepository {
 
     fun findById(id: Long): CouponTemplate?
 
+    fun findByIdForUpdate(id: Long): CouponTemplate?
+
     fun findAll(pageable: Pageable): Page<CouponTemplate>
 
     fun findActiveTemplates(pageable: Pageable): Page<CouponTemplate>
 
     fun save(couponTemplate: CouponTemplate): CouponTemplate
+
+    fun incrementIssuedCountIfAvailable(id: Long): Int
 }
