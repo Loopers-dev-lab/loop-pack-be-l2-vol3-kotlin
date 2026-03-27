@@ -45,7 +45,8 @@ design/**
 !design/**/*.md
 !design/**/README*
 
-### Docs Directory ###
+### Docs & Blog Directory ###
+blog/
 docs/
 
 ### Local Documentation & Configuration ###
