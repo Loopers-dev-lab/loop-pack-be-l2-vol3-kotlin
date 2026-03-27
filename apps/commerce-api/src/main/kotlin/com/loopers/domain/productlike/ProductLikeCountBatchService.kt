@@ -36,12 +36,12 @@ class ProductLikeCountBatchService(
             var updatedCount = 0
             var skippedCount = 0
 
-            productLikeCounts.forEach { (productId, count) ->
+            productLikeCounts.forEach { dto ->
                 try {
-                    productLikeCountRepository.updateCount(productId, count)
+                    productLikeCountRepository.updateCount(dto.productId, dto.count)
                     updatedCount++
                 } catch (e: Exception) {
-                    log.error("상품별 좋아요 개수 업데이트 실패: productId=$productId, count=$count", e)
+                    log.error("상품별 좋아요 개수 업데이트 실패: productId=${dto.productId}, count=${dto.count}", e)
                     skippedCount++
                 }
             }

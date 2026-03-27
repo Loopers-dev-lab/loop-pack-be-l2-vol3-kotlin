@@ -77,7 +77,6 @@ class PaymentRecoveryService(
 
         return try {
             val pgStatus = paymentClient.checkPaymentStatus(receipt.orderId)
-            log.debug("PG status for $transactionId: ${pgStatus.status}")
 
             when (pgStatus.status.uppercase()) {
                 "COMPLETED" -> {
@@ -117,7 +116,6 @@ class PaymentRecoveryService(
                 "PENDING", "TIMEOUT" -> {
                     // 아직 PG에서 처리 중이거나 타임아웃 - Order 복원하여 재결제 가능하게
                     orderService.restoreOrderToPending(receipt.orderId)
-                    log.debug("Payment pending on PG, order restored: transactionId=$transactionId, status=${pgStatus.status}")
                     false
                 }
 
@@ -128,7 +126,6 @@ class PaymentRecoveryService(
             }
         } catch (e: CoreException) {
             // PG 조회 실패 - 다음 주기에 재시도
-            log.debug("Failed to check payment status on PG: ${e.message}")
             false
         }
     }

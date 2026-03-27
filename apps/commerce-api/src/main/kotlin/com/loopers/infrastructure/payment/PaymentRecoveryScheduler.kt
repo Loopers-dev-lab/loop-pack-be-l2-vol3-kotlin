@@ -26,7 +26,6 @@ class PaymentRecoveryScheduler(
     @Scheduled(fixedRate = 60000)
     fun recoverFailedPayments() {
         try {
-            log.debug("Starting payment recovery job...")
             val recoveredCount = paymentRecoveryService.recoverFailedPayments()
             if (recoveredCount > 0) {
                 log.info("Payment recovery job completed: $recoveredCount payments recovered")

@@ -3,6 +3,7 @@ package com.loopers.infrastructure.productlike
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.QProduct
 import com.loopers.domain.productlike.ProductLike
+import com.loopers.domain.productlike.ProductLikeCountDto
 import com.loopers.domain.productlike.ProductLikeRepository
 import com.loopers.domain.productlike.QProductLike
 import com.querydsl.core.types.Order
@@ -56,6 +57,6 @@ class ProductLikeRepositoryImpl(
     override fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int =
         productLikeJpaRepository.deleteByUserIdAndProductId(userId, productId)
 
-    override fun countByProductId(): List<Pair<Long, Long>> =
+    override fun countByProductId(): List<ProductLikeCountDto> =
         productLikeJpaRepository.countByProductId()
 }

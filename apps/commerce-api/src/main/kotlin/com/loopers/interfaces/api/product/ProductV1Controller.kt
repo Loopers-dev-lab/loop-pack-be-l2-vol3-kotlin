@@ -28,7 +28,11 @@ class ProductV1Controller(
     override fun getProductInfo(
         @PathVariable productId: Long,
         @RequestAttribute(required = false) userId: Long?,
-    ): ApiResponse<ProductInfo> = ApiResponse.success(data = productFacade.getProductInfo(productId, userId))
+    ): ApiResponse<ProductInfo> {
+        val productInfo = productFacade.getCachedProductInfo(productId)
+        userId?.let { productFacade.recordProductView(productId, it) }
+        return ApiResponse.success(data = productInfo)
+    }
 
     @GetMapping
     override fun getProducts(

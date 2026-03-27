@@ -22,7 +22,7 @@ interface ProductLikeRepository {
 
     /**
      * 상품별 좋아요 개수를 조회 (배치 용도)
-     * @return (상품ID, 좋아요개수) 쌍 목록
+     * @return 상품ID와 좋아요개수의 DTO 목록
      */
-    fun countByProductId(): List<Pair<Long, Long>>
+    fun countByProductId(): List<ProductLikeCountDto>
 }
