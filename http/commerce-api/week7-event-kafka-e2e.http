@@ -1,0 +1,124 @@
+## ============================================================
+## 7주차 E2E 시나리오 — 이벤트 + Kafka 흐름 확인
+##
+## 실행 순서대로 따라가면 됩니다.
+## 각 단계 후 확인할 곳:
+##   - Kafka UI: http://localhost:9099
+##   - DataGrip: outbox_event, product_metrics, event_handled, coupon_issue_request 테이블
+##   - 앱 로그: commerce-api, commerce-streamer 콘솔
+## ============================================================
+
+## ──────────────────────────────────────────
+## 0. 사전 준비 — 회원가입 + 쿠폰 생성
+## ──────────────────────────────────────────
+
+### 0-1. 회원가입
+POST {{commerce-api}}/api/v1/users
+Content-Type: application/json
+
+{
+  "loginId": "eventtest",
+  "password": "Test1234!",
+  "name": "이벤트테스터",
+  "email": "event@test.com",
+  "birthday": "1990-01-01"
+}
+
+### 0-2. 선착순 쿠폰 생성 (maxIssueCount=5, 5장 한정)
+POST {{commerce-api}}/api-admin/v1/coupons
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "name": "선착순 5장 한정 쿠폰",
+  "type": "FIXED",
+  "value": 3000,
+  "maxIssueCount": 5,
+  "expiredAt": "2026-12-31T23:59:59+09:00"
+}
+
+## ──────────────────────────────────────────
+## 1. 상품 조회 → VIEW 이벤트 확인
+## ──────────────────────────────────────────
+
+### 1-1. 상품 상세 조회 (로그인 상태)
+## 확인: commerce-api 로그에 "[유저 행동 로깅]" 출력
+## 확인: outbox_event 테이블에 PRODUCT_VIEWED 이벤트 INSERT
+## 확인: Kafka UI → catalog-events 토픽에 메시지 도착
+## 확인: product_metrics 테이블에 view_count 증가
+GET {{commerce-api}}/api/v1/products/1
+X-Loopers-LoginId: eventtest
+X-Loopers-LoginPw: Test1234!
+
+### 1-2. 한 번 더 조회
+## 확인: product_metrics.view_count가 2로 증가
+GET {{commerce-api}}/api/v1/products/1
+X-Loopers-LoginId: eventtest
+X-Loopers-LoginPw: Test1234!
+
+## ──────────────────────────────────────────
+## 2. 좋아요 → LIKE 이벤트 확인
+## ──────────────────────────────────────────
+
+### 2-1. 좋아요
+## 확인: outbox_event에 PRODUCT_LIKED 이벤트
+## 확인: Kafka UI → catalog-events 토픽
+## 확인: product_metrics.like_count 증가
+## 확인: Product.likeCount도 ApplicationEvent로 증가
+POST {{commerce-api}}/api/v1/products/1/likes
+X-Loopers-LoginId: eventtest
+X-Loopers-LoginPw: Test1234!
+
+### 2-2. 좋아요 취소
+## 확인: PRODUCT_UNLIKED 이벤트
+## 확인: product_metrics.like_count 감소
+DELETE {{commerce-api}}/api/v1/products/1/likes
+X-Loopers-LoginId: eventtest
+X-Loopers-LoginPw: Test1234!
+
+## ──────────────────────────────────────────
+## 3. 선착순 쿠폰 발급 → Kafka 비동기 처리 확인
+## ──────────────────────────────────────────
+
+### 3-1. 쿠폰 발급 요청
+## 응답: requestId 반환 (즉시 응답, 아직 발급 안 됨)
+## 확인: Kafka UI → coupon-issue-requests 토픽에 메시지
+## 확인: coupon_issue_request 테이블 status=PENDING → SUCCESS
+POST {{commerce-api}}/api/v1/coupons/1/issue-request
+X-Loopers-LoginId: eventtest
+X-Loopers-LoginPw: Test1234!
+
+### 3-2. 발급 결과 조회 (polling) — requestId를 3-1 응답에서 복사
+## 확인: status가 SUCCESS이면 발급 완료
+GET {{commerce-api}}/api/v1/coupons/issue-request/여기에-requestId-붙여넣기
+X-Loopers-LoginId: eventtest
+X-Loopers-LoginPw: Test1234!
+
+### 3-3. 중복 발급 요청 (같은 유저, 같은 쿠폰)
+## 확인: 이미 요청했으므로 에러 또는 기존 requestId 반환
+POST {{commerce-api}}/api/v1/coupons/1/issue-request
+X-Loopers-LoginId: eventtest
+X-Loopers-LoginPw: Test1234!
+
+## ──────────────────────────────────────────
+## 4. DB 확인 쿼리 (DataGrip에서 실행)
+## ──────────────────────────────────────────
+
+## -- Outbox 이벤트 상태 확인
+## SELECT id, event_id, event_type, topic, status, created_at
+## FROM outbox_event ORDER BY id DESC LIMIT 10;
+##
+## -- 메트릭 집계 확인
+## SELECT * FROM product_metrics WHERE product_id = 1;
+##
+## -- 멱등 처리 확인
+## SELECT * FROM event_handled ORDER BY created_at DESC LIMIT 10;
+##
+## -- 쿠폰 발급 요청 상태
+## SELECT * FROM coupon_issue_request ORDER BY id DESC LIMIT 10;
+##
+## -- 쿠폰 발급 확인
+## SELECT * FROM coupon_issues ORDER BY id DESC LIMIT 10;
+##
+## -- 쿠폰 수량 확인
+## SELECT id, name, max_issue_count, issued_count FROM coupons;
