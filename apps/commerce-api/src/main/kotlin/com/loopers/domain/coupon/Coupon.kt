@@ -22,6 +22,7 @@ class Coupon(
     type: CouponType,
     value: Long,
     expiredAt: ZonedDateTime,
+    maxIssueCount: Int? = null,
 ) : BaseEntity() {
 
     @Comment("쿠폰명")
@@ -45,8 +46,24 @@ class Coupon(
     var expiredAt: ZonedDateTime = expiredAt
         protected set
 
+    @Comment("최대 발급 수량 (null이면 무제한)")
+    @Column(name = "max_issue_count")
+    var maxIssueCount: Int? = maxIssueCount
+        protected set
+
+    @Comment("현재 발급 수량")
+    @Column(name = "issued_count", nullable = false)
+    var issuedCount: Int = 0
+        protected set
+
     init {
         validate(name, type, value, expiredAt)
+    }
+
+    /** 선착순 발급 가능 여부 */
+    fun isIssuable(): Boolean {
+        val max = maxIssueCount ?: return true // 무제한
+        return issuedCount < max
     }
 
     fun update(

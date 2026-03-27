@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class CouponService(
     private val couponRepository: CouponRepository,
     private val couponIssueRepository: CouponIssueRepository,
+    private val couponCompensationRepository: CouponCompensationRepository,
 ) {
 
     // ──────────────────────────────────────────
@@ -102,22 +103,18 @@ class CouponService(
     }
 
     /**
-     * 주문에 쿠폰을 적용한다.
+     * 주문에 쿠폰을 적용한다 (검증 + 할인 계산만, USED 마킹은 하지 않음).
      *
-     * 소유권 검증 → 사용 가능 여부 → 만료 여부 → 할인 계산 → 사용 처리를 원자적으로 수행.
-     * 쿠폰 사용에 대한 비즈니스 로직을 캡슐화하여, Facade는 결과(할인 금액)만 받아서 조합한다.
+     * 소유권 검증 → 사용 가능 여부 → 만료 여부 → 할인 계산을 수행.
+     * 실제 USED 마킹은 주문 커밋 후 AFTER_COMMIT 이벤트에서 markCouponUsed()로 처리한다.
      *
-     * @Transactional 선택 이유:
-     * - 쿠폰 검증 + use() 상태 변경이 하나의 원자적 작업
-     * - Facade의 @Transactional에서 호출 시 REQUIRED 전파로 합류
-     *
-     * 동시성 제어 — @Version 낙관적 락:
-     * - CouponIssue에 @Version 필드 추가 → dirty checking 시 WHERE version=? 조건 자동 부여
-     * - 같은 유저의 중복 요청(더블클릭) 시 두 번째 요청은 OptimisticLockingFailureException 발생
-     * - 경합이 극히 낮으므로(같은 유저뿐) 재시도 로직 불필요 → 바로 실패 처리
+     * 왜 분리했는가?
+     * - 쿠폰 USED 마킹은 주문 핵심 트랜잭션에 포함될 필요 없는 부가 로직
+     * - USED 마킹 실패가 주문 자체를 롤백시키면 안 됨
+     * - unique constraint(user_id + coupon_id)가 이중 사용을 최종 방어
      */
-    @Transactional
-    fun useCouponForOrder(couponIssueId: Long, userId: Long, orderAmount: Money): CouponUsageInfo {
+    @Transactional(readOnly = true)
+    fun validateAndCalculateDiscount(couponIssueId: Long, userId: Long, orderAmount: Money): CouponUsageInfo {
         val couponIssue = findCouponIssueById(couponIssueId)
 
         if (couponIssue.userId != userId) {
@@ -133,9 +130,38 @@ class CouponService(
         }
 
         val discountAmount = coupon.calculateDiscount(orderAmount)
-        couponIssue.use()
-
         return CouponUsageInfo(couponIssueId = couponIssue.id, discountAmount = discountAmount)
+    }
+
+    /**
+     * 쿠폰을 USED 상태로 마킹한다.
+     *
+     * 주문 커밋 후 AFTER_COMMIT 이벤트에서 호출된다.
+     * REQUIRES_NEW 전파로 별도 트랜잭션에서 실행되어 주문 트랜잭션과 독립적.
+     *
+     * 동시성 제어 — @Version 낙관적 락:
+     * - 같은 유저의 중복 요청(더블클릭) 시 OptimisticLockingFailureException 발생
+     * - 경합이 극히 낮으므로(같은 유저뿐) 재시도 불필요
+     */
+    @Transactional
+    fun markCouponUsed(couponIssueId: Long) {
+        val couponIssue = findCouponIssueById(couponIssueId)
+        couponIssue.use()
+    }
+
+    /**
+     * 쿠폰 USED 마킹 실패 시 보상 기록을 저장한다.
+     * CouponCompensationScheduler가 주기적으로 재시도한다.
+     */
+    @Transactional
+    fun saveCompensation(orderId: Long, couponIssueId: Long, eventId: String): CouponCompensation {
+        return couponCompensationRepository.save(
+            CouponCompensation(
+                orderId = orderId,
+                couponIssueId = couponIssueId,
+                eventId = eventId,
+            ),
+        )
     }
 
     @Transactional(readOnly = true)
