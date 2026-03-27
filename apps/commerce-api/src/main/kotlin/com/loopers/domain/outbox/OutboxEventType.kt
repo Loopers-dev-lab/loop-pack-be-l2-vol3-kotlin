@@ -6,4 +6,5 @@ enum class OutboxEventType(val topic: String) {
     ORDER_CREATED("order-events"),
     PAYMENT_APPROVED("order-events"),
     PAYMENT_FAILED("order-events"),
+    COUPON_ISSUE_REQUESTED("coupon-issue-requests"),
 }
