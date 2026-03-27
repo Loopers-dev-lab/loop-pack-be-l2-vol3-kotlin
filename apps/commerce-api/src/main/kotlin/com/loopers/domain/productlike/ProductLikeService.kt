@@ -31,7 +31,12 @@ class ProductLikeService(
             type = LikeCountEventType.INCREMENT,
             userId = user.id,
         )
-        outboxPublisher.publish(likeCountEvent, product.id, topic = "like-events")
+        outboxPublisher.publish(
+            likeCountEvent,
+            product.id,
+            topic = "like-events",
+            partitionKey = product.id.toString(),
+        )
     }
 
     @Transactional
@@ -47,7 +52,12 @@ class ProductLikeService(
                 type = LikeCountEventType.DECREMENT,
                 userId = user.id,
             )
-            outboxPublisher.publish(likeCountEvent, product.id, topic = "like-events")
+            outboxPublisher.publish(
+                likeCountEvent,
+                product.id,
+                topic = "like-events",
+                partitionKey = product.id.toString(),
+            )
         }
 
         return deletedCount
