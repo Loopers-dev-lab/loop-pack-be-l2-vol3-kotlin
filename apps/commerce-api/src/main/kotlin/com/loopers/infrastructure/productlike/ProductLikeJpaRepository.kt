@@ -16,7 +16,7 @@ interface ProductLikeJpaRepository : JpaRepository<ProductLike, Long> {
 
     @Query(
         "SELECT new com.loopers.domain.productlike.ProductLikeCountDto(pl.product.id, COUNT(pl)) " +
-                "FROM ProductLike pl GROUP BY pl.product.id"
+            "FROM ProductLike pl GROUP BY pl.product.id",
     )
     fun countByProductId(): List<ProductLikeCountDto>
 }

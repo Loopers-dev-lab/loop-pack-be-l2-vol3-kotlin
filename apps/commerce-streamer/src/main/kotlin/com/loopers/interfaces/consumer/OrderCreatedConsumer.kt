@@ -35,7 +35,9 @@ class OrderCreatedConsumer(
                     val event = objectMapper.readValue(payload, OrderCreatedEvent::class.java)
                     productMetricsService.processMetricsEvent(event)
                 } catch (e: Exception) {
-                    logger.error("Failed to process message from topic=${message.topic()}, partition=${message.partition()}, offset=${message.offset()}", e)
+                    val msg = "Failed to process message from topic=${message.topic()}, " +
+                        "partition=${message.partition()}, offset=${message.offset()}"
+                    logger.error(msg, e)
                     // ✅ DLQ로 이동
                     val payload = message.value() as? String ?: ""
                     dlqHandler.saveToDlq(

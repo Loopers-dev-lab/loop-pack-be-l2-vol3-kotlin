@@ -27,10 +27,8 @@ class PaymentFacade(
 
     @Transactional
     fun completePayment(command: PaymentCallbackCommand) {
-        val receipt = receiptService.getReceiptByTransactionIdForUpdate(command.transactionId)
-
-        // (1) 결제 상태 업데이트
-        receiptService.updateReceiptStatus(command)
+        // ✅ 업데이트된 receipt를 반환받아서 사용
+        val receipt = receiptService.updateReceiptStatus(command)
 
         when (receipt.status) {
             ReceiptStatus.COMPLETED -> orderService.markOrderAsPaid(command.orderId)
