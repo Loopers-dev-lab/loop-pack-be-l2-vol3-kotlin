@@ -45,9 +45,10 @@ design/**
 !design/**/*.md
 !design/**/README*
 
-### Docs & Blog Directory ###
+### Docs, Blog & Specs Directory ###
 blog/
 docs/
+docs/superpowers/specs/
 
 ### Local Documentation & Configuration ###
 CLAUDE.md
