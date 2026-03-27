@@ -23,4 +23,8 @@ class ProductLikeRepositoryImpl(
     override fun findAllByMemberId(memberId: Long): List<ProductLikeModel> {
         return productLikeJpaRepository.findAllByMemberId(memberId).map { it.toModel() }
     }
+
+    override fun deleteAllByProductId(productId: Long) {
+        productLikeJpaRepository.deleteAllByProductId(productId)
+    }
 }

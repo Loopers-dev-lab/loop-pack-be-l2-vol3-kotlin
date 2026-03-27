@@ -8,4 +8,6 @@ interface ProductLikeRepository {
     fun deleteByMemberIdAndProductId(memberId: Long, productId: Long)
 
     fun findAllByMemberId(memberId: Long): List<ProductLikeModel>
+
+    fun deleteAllByProductId(productId: Long)
 }

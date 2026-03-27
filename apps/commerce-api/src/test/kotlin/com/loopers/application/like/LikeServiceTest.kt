@@ -13,7 +13,7 @@ class LikeServiceTest {
     @BeforeEach
     fun setUp() {
         fakeRepository = FakeProductLikeRepository()
-        likeService = LikeService(fakeRepository)
+        likeService = LikeService(fakeRepository, com.loopers.utils.FakeEventPublisher())
     }
 
     @DisplayName("좋아요를 등록할 때,")

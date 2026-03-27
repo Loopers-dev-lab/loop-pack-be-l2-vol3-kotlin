@@ -8,13 +8,18 @@ import com.loopers.domain.order.OrderItemModel
 import com.loopers.domain.order.OrderModel
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderStatus
+import com.loopers.domain.common.event.OrderCancelledEvent
+import com.loopers.domain.common.event.OrderCreatedEvent
+import com.loopers.domain.common.event.OrderPaidEvent
 import com.loopers.domain.product.ProductModel
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.time.ZonedDateTime
 
 @Component
 class OrderService(
     private val orderRepository: OrderRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun createOrder(
         memberId: Long,
@@ -45,7 +50,11 @@ class OrderService(
             )
             order = order.addItem(orderItem)
         }
-        return orderRepository.save(order)
+        val saved = orderRepository.save(order)
+        eventPublisher.publishEvent(
+            OrderCreatedEvent(orderId = saved.id, memberId = saved.memberId, orderNumber = saved.orderNumber),
+        )
+        return saved
     }
 
     fun getOrder(orderId: Long, memberId: Long): OrderModel {
@@ -81,6 +90,14 @@ class OrderService(
             OrderStatus.CANCELLED -> order.cancelByPaymentFailure()
             OrderStatus.ORDERED -> order.revertToOrdered()
         }
-        return orderRepository.save(updated)
+        val saved = orderRepository.save(updated)
+        when (status) {
+            OrderStatus.PAID -> eventPublisher.publishEvent(OrderPaidEvent(orderId = orderId, memberId = saved.memberId))
+            OrderStatus.CANCELLED -> eventPublisher.publishEvent(
+                OrderCancelledEvent(orderId = orderId, memberId = saved.memberId),
+            )
+            else -> {}
+        }
+        return saved
     }
 }

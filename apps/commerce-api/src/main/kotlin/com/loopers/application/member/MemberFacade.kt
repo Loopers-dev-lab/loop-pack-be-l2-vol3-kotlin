@@ -1,6 +1,5 @@
 package com.loopers.application.member
 
-import com.loopers.application.auth.AuthService
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import org.springframework.dao.DataIntegrityViolationException
@@ -11,7 +10,6 @@ import java.time.LocalDate
 @Component
 class MemberFacade(
     private val memberService: MemberService,
-    private val authService: AuthService,
 ) {
     @Transactional
     fun register(
@@ -44,7 +42,6 @@ class MemberFacade(
     @Transactional
     fun changePassword(loginId: String, newPassword: String): MemberInfo {
         memberService.changePassword(loginId, newPassword)
-        authService.evictAuthCache(loginId)
         val member = memberService.getMemberByLoginId(loginId)
         return MemberInfo.from(member)
     }

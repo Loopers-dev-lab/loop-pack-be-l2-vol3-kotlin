@@ -6,15 +6,21 @@ import com.loopers.domain.coupon.CouponTemplateModel
 import com.loopers.domain.coupon.CouponTemplateRepository
 import com.loopers.domain.coupon.IssuedCouponModel
 import com.loopers.domain.coupon.IssuedCouponRepository
+import com.loopers.domain.common.event.CouponIssuedEvent
+import com.loopers.domain.common.event.CouponRestoredEvent
+import com.loopers.domain.common.event.CouponTemplateDeletedEvent
+import com.loopers.domain.common.event.CouponUsedEvent
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import java.time.ZonedDateTime
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 
 @Component
 class CouponService(
     private val couponTemplateRepository: CouponTemplateRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun createTemplate(command: CouponCommand.CreateTemplate): CouponTemplateModel {
         val template = CouponTemplateModel(
@@ -64,6 +70,7 @@ class CouponService(
         }
         val deleted = template.delete()
         couponTemplateRepository.save(deleted)
+        eventPublisher.publishEvent(CouponTemplateDeletedEvent(couponTemplateId = id))
     }
 
     fun issueCoupon(memberId: Long, templateId: Long): IssuedCouponModel {
@@ -78,7 +85,11 @@ class CouponService(
             memberId = memberId,
             expiredAt = expiredAt,
         )
-        return issuedCouponRepository.save(issuedCoupon)
+        val saved = issuedCouponRepository.save(issuedCoupon)
+        eventPublisher.publishEvent(
+            CouponIssuedEvent(issuedCouponId = saved.id, couponTemplateId = templateId, memberId = memberId),
+        )
+        return saved
     }
 
     fun getIssuedCoupons(memberId: Long): List<IssuedCouponModel> {
@@ -98,9 +109,18 @@ class CouponService(
         return issuedCouponRepository.save(model)
     }
 
+    fun useCoupon(couponId: Long, memberId: Long): IssuedCouponModel {
+        val issuedCoupon = getIssuedCouponById(couponId)
+        val used = issuedCoupon.use()
+        val saved = issuedCouponRepository.save(used)
+        eventPublisher.publishEvent(CouponUsedEvent(issuedCouponId = saved.id, memberId = memberId))
+        return saved
+    }
+
     fun restoreCoupon(couponId: Long) {
         val issuedCoupon = getIssuedCouponById(couponId)
         val restored = issuedCoupon.restore()
         issuedCouponRepository.save(restored)
+        eventPublisher.publishEvent(CouponRestoredEvent(issuedCouponId = couponId))
     }
 }

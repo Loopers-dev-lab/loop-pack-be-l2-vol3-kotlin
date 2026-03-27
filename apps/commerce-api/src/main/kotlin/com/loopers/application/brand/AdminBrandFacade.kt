@@ -1,6 +1,5 @@
 package com.loopers.application.brand
 
-import com.loopers.application.product.ProductService
 import com.loopers.domain.common.PageResult
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -8,8 +7,6 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class AdminBrandFacade(
     private val brandService: BrandService,
-    private val productService: ProductService,
-    private val brandCacheStore: BrandCacheStore,
 ) {
     @Transactional
     fun createBrand(command: BrandCommand.Create): BrandInfo {
@@ -36,14 +33,11 @@ class AdminBrandFacade(
     @Transactional
     fun updateBrand(id: Long, command: BrandCommand.Update): BrandInfo {
         val brand = brandService.updateBrand(id, command)
-        brandCacheStore.evictBrand(id)
         return BrandInfo.from(brand)
     }
 
     @Transactional
     fun deleteBrand(id: Long) {
-        productService.deleteProductsByBrandId(id)
         brandService.deleteBrand(id)
-        brandCacheStore.evictBrand(id)
     }
 }

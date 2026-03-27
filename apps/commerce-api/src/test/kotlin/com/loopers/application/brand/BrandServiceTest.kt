@@ -4,6 +4,7 @@ import com.loopers.domain.brand.BrandStatus
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
+import com.loopers.utils.FakeEventPublisher
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -14,11 +15,13 @@ import org.junit.jupiter.api.assertThrows
 class BrandServiceTest {
     private lateinit var brandService: BrandService
     private lateinit var fakeRepository: FakeBrandRepository
+    private lateinit var fakeEventPublisher: FakeEventPublisher
 
     @BeforeEach
     fun setUp() {
         fakeRepository = FakeBrandRepository()
-        brandService = BrandService(fakeRepository)
+        fakeEventPublisher = FakeEventPublisher()
+        brandService = BrandService(fakeRepository, fakeEventPublisher)
     }
 
     private fun createCommand(

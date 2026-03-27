@@ -19,7 +19,7 @@ class OrderServiceTest {
     @BeforeEach
     fun setUp() {
         fakeRepository = FakeOrderRepository()
-        orderService = OrderService(fakeRepository)
+        orderService = OrderService(fakeRepository, com.loopers.utils.FakeEventPublisher())
     }
 
     private fun createProduct(id: Long = 1L, brandId: Long = 10L): ProductModel {

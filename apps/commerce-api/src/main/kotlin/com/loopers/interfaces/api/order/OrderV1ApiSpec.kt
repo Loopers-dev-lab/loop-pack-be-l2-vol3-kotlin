@@ -7,11 +7,11 @@ import io.swagger.v3.oas.annotations.tags.Tag
 
 @Tag(name = "Order V1 API", description = "주문 API 입니다.")
 interface OrderV1ApiSpec {
-    @Operation(summary = "주문 생성", description = "새로운 주문을 생성합니다.")
+    @Operation(summary = "주문 생성 요청", description = "주문 생성을 요청합니다. 비동기로 처리됩니다.")
     fun createOrder(
         authenticatedMember: AuthenticatedMember,
         request: OrderV1Dto.CreateRequest,
-    ): ApiResponse<OrderV1Dto.OrderResponse>
+    ): ApiResponse<Unit>
 
     @Operation(summary = "주문 목록 조회", description = "내 주문 목록을 조회합니다.")
     fun getOrders(

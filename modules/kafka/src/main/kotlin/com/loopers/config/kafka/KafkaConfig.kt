@@ -15,6 +15,7 @@ import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.listener.ContainerProperties
 import org.springframework.kafka.support.converter.BatchMessagingMessageConverter
 import org.springframework.kafka.support.converter.ByteArrayJsonMessageConverter
+import org.apache.kafka.clients.producer.ProducerConfig
 import java.util.HashMap
 
 @EnableKafka
@@ -22,6 +23,7 @@ import java.util.HashMap
 class KafkaConfig {
     companion object {
         const val BATCH_LISTENER = "BATCH_LISTENER_DEFAULT"
+        const val SINGLE_LISTENER = "SINGLE_LISTENER_DEFAULT"
 
         private const val MAX_POLLING_SIZE = 3000 // read 3000 msg
         private const val FETCH_MIN_BYTES = (1024 * 1024) // 1mb
@@ -35,7 +37,10 @@ class KafkaConfig {
     fun producerFactory(
         kafkaProperties: KafkaProperties,
     ): ProducerFactory<Any, Any> {
-        val props: Map<String, Any> = HashMap(kafkaProperties.buildProducerProperties())
+        val props: MutableMap<String, Any> = HashMap(kafkaProperties.buildProducerProperties())
+        props[ProducerConfig.ACKS_CONFIG] = "all"
+        props[ProducerConfig.RETRIES_CONFIG] = 3
+        props[ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG] = true
         return DefaultKafkaProducerFactory(props)
     }
 
@@ -78,6 +83,27 @@ class KafkaConfig {
             setBatchMessageConverter(BatchMessagingMessageConverter(converter))
             setConcurrency(3)
             isBatchListener = true
+        }
+    }
+
+    @Bean(SINGLE_LISTENER)
+    fun defaultSingleListenerContainerFactory(
+        kafkaProperties: KafkaProperties,
+        converter: ByteArrayJsonMessageConverter,
+    ): ConcurrentKafkaListenerContainerFactory<*, *> {
+        val consumerConfig = HashMap(kafkaProperties.buildConsumerProperties())
+            .apply {
+                put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1)
+                put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SESSION_TIMEOUT_MS)
+                put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, HEARTBEAT_INTERVAL_MS)
+            }
+
+        return ConcurrentKafkaListenerContainerFactory<Any, Any>().apply {
+            consumerFactory = DefaultKafkaConsumerFactory(consumerConfig)
+            containerProperties.ackMode = ContainerProperties.AckMode.MANUAL
+            setRecordMessageConverter(converter)
+            setConcurrency(1)
+            isBatchListener = false
         }
     }
 }
