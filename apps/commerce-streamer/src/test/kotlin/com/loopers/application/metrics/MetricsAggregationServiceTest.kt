@@ -27,33 +27,51 @@ class MetricsAggregationServiceTest {
     @Nested
     inner class IncrementLikeCount {
 
-        @DisplayName("기존 메트릭이 없으면, 새로 생성하고 likeCount=1이 된다.")
+        @DisplayName("기존 메트릭이 있으면, 원자적 UPDATE로 likeCount를 증가시킨다.")
         @Test
-        fun createsNewMetrics_whenNotExists() {
-            // arrange
-            whenever(productMetricsRepository.findByProductId(1L)).thenReturn(null)
-            whenever(productMetricsRepository.save(any())).thenAnswer { it.arguments[0] }
-
-            // act
-            metricsAggregationService.incrementLikeCount(1L, 100L)
-
-            // assert (save 2회: 생성 1회 + 업데이트 1회)
-            verify(productMetricsRepository, org.mockito.kotlin.times(2)).save(any())
-        }
-
-        @DisplayName("stale 이벤트이면, 무시한다.")
-        @Test
-        fun ignoresStaleEvent() {
+        fun incrementsLikeCount_whenMetricsExists() {
             // arrange
             val metrics = ProductMetrics(productId = 1L)
-            org.springframework.test.util.ReflectionTestUtils.setField(metrics, "version", 200L)
             whenever(productMetricsRepository.findByProductId(1L)).thenReturn(metrics)
+            whenever(productMetricsRepository.incrementLikeCount(1L, 100L)).thenReturn(1)
 
             // act
             metricsAggregationService.incrementLikeCount(1L, 100L)
 
             // assert
+            verify(productMetricsRepository).incrementLikeCount(1L, 100L)
             verify(productMetricsRepository, never()).save(any())
+        }
+
+        @DisplayName("기존 메트릭이 없으면, 새로 생성한 뒤 원자적 UPDATE를 실행한다.")
+        @Test
+        fun createsNewMetrics_whenNotExists() {
+            // arrange
+            whenever(productMetricsRepository.findByProductId(1L)).thenReturn(null)
+            whenever(productMetricsRepository.save(any())).thenAnswer { it.arguments[0] }
+            whenever(productMetricsRepository.incrementLikeCount(1L, 100L)).thenReturn(1)
+
+            // act
+            metricsAggregationService.incrementLikeCount(1L, 100L)
+
+            // assert
+            verify(productMetricsRepository).save(any())
+            verify(productMetricsRepository).incrementLikeCount(1L, 100L)
+        }
+
+        @DisplayName("stale 이벤트이면, 원자적 UPDATE의 WHERE 조건으로 무시된다 (갱신 0건).")
+        @Test
+        fun ignoresStaleEvent() {
+            // arrange
+            val metrics = ProductMetrics(productId = 1L)
+            whenever(productMetricsRepository.findByProductId(1L)).thenReturn(metrics)
+            whenever(productMetricsRepository.incrementLikeCount(1L, 100L)).thenReturn(0)
+
+            // act
+            metricsAggregationService.incrementLikeCount(1L, 100L)
+
+            // assert — UPDATE가 실행되지만 WHERE 조건에 걸려 0건 갱신
+            verify(productMetricsRepository).incrementLikeCount(1L, 100L)
         }
     }
 
@@ -61,18 +79,19 @@ class MetricsAggregationServiceTest {
     @Nested
     inner class IncrementViewCount {
 
-        @DisplayName("정상 이벤트이면, viewCount가 1 증가한다.")
+        @DisplayName("정상 이벤트이면, 원자적 UPDATE로 viewCount를 증가시킨다.")
         @Test
         fun incrementsViewCount() {
             // arrange
-            whenever(productMetricsRepository.findByProductId(1L)).thenReturn(null)
-            whenever(productMetricsRepository.save(any())).thenAnswer { it.arguments[0] }
+            val metrics = ProductMetrics(productId = 1L)
+            whenever(productMetricsRepository.findByProductId(1L)).thenReturn(metrics)
+            whenever(productMetricsRepository.incrementViewCount(1L, 100L)).thenReturn(1)
 
             // act
             metricsAggregationService.incrementViewCount(1L, 100L)
 
-            // assert (save 2회: 생성 1회 + 업데이트 1회)
-            verify(productMetricsRepository, org.mockito.kotlin.times(2)).save(any())
+            // assert
+            verify(productMetricsRepository).incrementViewCount(1L, 100L)
         }
     }
 }
