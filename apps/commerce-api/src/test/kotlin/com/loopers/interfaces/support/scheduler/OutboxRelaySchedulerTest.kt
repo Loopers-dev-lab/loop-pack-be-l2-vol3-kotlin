@@ -80,6 +80,8 @@ class OutboxRelaySchedulerTest {
                     orderId = 10L,
                     userId = 100L,
                     totalAmount = 50000L,
+                    productId = 1L,
+                    quantity = 1,
                 ),
             )
 
@@ -127,7 +129,7 @@ class OutboxRelaySchedulerTest {
                 CatalogOutbox(eventType = "PRODUCT_VIEWED", productId = 1L, userId = null),
             )
             orderOutboxRepository.save(
-                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 2L, userId = 100L, totalAmount = 30000L),
+                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 2L, userId = 100L, totalAmount = 30000L, productId = 1L, quantity = 1),
             )
             couponOutboxRepository.save(
                 CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 3L, userId = 100L),

@@ -27,6 +27,7 @@ class KafkaConfig {
         const val RECORD_LISTENER = "RECORD_LISTENER_DLT"
 
         private const val MAX_POLLING_SIZE = 3000 // read 3000 msg
+        private const val RECORD_MAX_POLL_RECORDS = 500
         private const val FETCH_MIN_BYTES = (1024 * 1024) // 1mb
         private const val FETCH_MAX_WAIT_MS = 5 * 1000 // broker waiting time = 5s
         private const val SESSION_TIMEOUT_MS = 60 * 1000 // session timeout = 1m
@@ -71,7 +72,7 @@ class KafkaConfig {
 
         val consumerConfig = HashMap(kafkaProperties.buildConsumerProperties())
             .apply {
-                put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE)
+                put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, RECORD_MAX_POLL_RECORDS)
                 put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, FETCH_MIN_BYTES)
                 put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, FETCH_MAX_WAIT_MS)
                 put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SESSION_TIMEOUT_MS)
@@ -81,6 +82,7 @@ class KafkaConfig {
 
         return ConcurrentKafkaListenerContainerFactory<Any, Any>().apply {
             consumerFactory = DefaultKafkaConsumerFactory(consumerConfig)
+            containerProperties.ackMode = ContainerProperties.AckMode.RECORD
             setCommonErrorHandler(errorHandler)
             setRecordMessageConverter(converter)
             setConcurrency(3)

@@ -271,6 +271,8 @@ class HandlePaymentCallbackUseCaseTest {
             // assert — Order 상태는 여전히 PAID (변경 없음)
             val orderAfter = orderRepository.findById(order.id)!!
             assertThat(orderAfter.status).isEqualTo(Order.OrderStatus.PAID)
+            val outboxes = orderOutboxRepository.findAllUnpublished()
+            assertThat(outboxes).isEmpty()
         }
     }
 

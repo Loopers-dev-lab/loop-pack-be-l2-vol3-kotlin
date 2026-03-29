@@ -13,6 +13,8 @@ class CouponIssueRequest(
 
     init {
         if (requestId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "requestId는 필수입니다.")
+        if (couponId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "couponId는 양수여야 합니다.")
+        if (userId <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
     }
 
     var status: CouponIssueStatus = status

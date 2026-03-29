@@ -32,10 +32,11 @@ class RequestCouponIssueUseCaseTest {
             assertThat(result.requestId).isNotBlank()
 
             val saved = couponIssueRequestRepository.findByRequestId(result.requestId)
-            assertThat(saved).isNotNull
-            assertThat(saved!!.status.name).isEqualTo("PENDING")
-            assertThat(saved.couponId).isEqualTo(10L)
-            assertThat(saved.userId).isEqualTo(1L)
+            assertThat(saved).isNotNull()
+            val found = requireNotNull(saved)
+            assertThat(found.status.name).isEqualTo("PENDING")
+            assertThat(found.couponId).isEqualTo(10L)
+            assertThat(found.userId).isEqualTo(1L)
         }
 
         @Test
