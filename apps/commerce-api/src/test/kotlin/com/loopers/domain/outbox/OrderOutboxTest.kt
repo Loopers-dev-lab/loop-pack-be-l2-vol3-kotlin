@@ -24,6 +24,8 @@ class OrderOutboxTest {
                 userId = 1L,
                 totalAmount = 10000L,
                 reason = null,
+                productId = 1L,
+                quantity = 1,
             )
 
             assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
@@ -69,6 +71,20 @@ class OrderOutboxTest {
                 OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 1L, userId = 0L)
             }.isInstanceOf(CoreException::class.java)
         }
+
+        @Test
+        fun `PAYMENT_COMPLETED에 productId가 없으면 예외가 발생한다`() {
+            assertThatThrownBy {
+                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 1L, userId = 1L, quantity = 1)
+            }.isInstanceOf(IllegalArgumentException::class.java)
+        }
+
+        @Test
+        fun `PAYMENT_COMPLETED에 quantity가 없으면 예외가 발생한다`() {
+            assertThatThrownBy {
+                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 1L, userId = 1L, productId = 1L)
+            }.isInstanceOf(IllegalArgumentException::class.java)
+        }
     }
 
     @Nested
@@ -81,6 +97,8 @@ class OrderOutboxTest {
                 eventType = "PAYMENT_COMPLETED",
                 orderId = 1L,
                 userId = 1L,
+                productId = 1L,
+                quantity = 1,
             )
 
             outbox.markPublished()
@@ -94,6 +112,8 @@ class OrderOutboxTest {
                 eventType = "PAYMENT_COMPLETED",
                 orderId = 1L,
                 userId = 1L,
+                productId = 1L,
+                quantity = 1,
             )
 
             // published 필드가 private set이므로 컴파일 시점에 차단됨을 런타임으로 검증
@@ -117,7 +137,7 @@ class OrderOutboxTest {
         @Test
         fun `미발행 메시지만 조회된다`() {
             val unpublished = repository.save(
-                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 1L, userId = 1L, totalAmount = 10000L),
+                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 1L, userId = 1L, totalAmount = 10000L, productId = 1L, quantity = 1),
             )
             val published = repository.save(
                 OrderOutbox(eventType = "PAYMENT_FAILED", orderId = 2L, userId = 1L, reason = "잔액 부족"),
@@ -134,7 +154,7 @@ class OrderOutboxTest {
         @Test
         fun `발행 완료 마킹 후 미발행 목록에서 제외된다`() {
             val outbox = repository.save(
-                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 1L, userId = 1L),
+                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 1L, userId = 1L, productId = 1L, quantity = 1),
             )
 
             outbox.markPublished()

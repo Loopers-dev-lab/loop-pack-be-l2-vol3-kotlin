@@ -96,9 +96,10 @@ class CouponIssueRequestTest {
 
             val found = repository.findByRequestId(request.requestId)
 
-            assertThat(found).isNotNull
-            assertThat(found!!.id).isEqualTo(request.id)
-            assertThat(found.couponId).isEqualTo(1L)
+            assertThat(found).isNotNull()
+            val saved = requireNotNull(found)
+            assertThat(saved.id).isEqualTo(request.id)
+            assertThat(saved.couponId).isEqualTo(1L)
         }
 
         @Test
