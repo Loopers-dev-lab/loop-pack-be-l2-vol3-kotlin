@@ -72,22 +72,6 @@ plan.md에는 아래 형식으로 체크리스트가 만들어진다:
 
 버그 수정은 `--fix`를 붙이면 된다: 재현 테스트(Red) → 최소 수정(Green), Refactor는 생략.
 
-**B. 자동 — plan.md 기반 연속 실행**
-
-```
-/tdd --go
-```
-
-plan.md를 읽고, 다음 checkpoint까지 미완료 항목들을 연속으로 Red → Green 사이클 수행한다.
-checkpoint에서 lint+test 자가 검증 후 결과를 보고한다.
-
-**C. 후속 작업**
-
-```
-/tdd --phase e2e              → E2E 테스트 (TestContainers, Mock 없이 실제 API 호출)
-/tdd --phase http             → IntelliJ HTTP Client 파일 작성 (정상+에러 케이스)
-```
-
 ### 4단계: 출시 (`/ship`)
 
 ```
@@ -99,8 +83,8 @@ checkpoint에서 lint+test 자가 검증 후 결과를 보고한다.
 
 커밋 전에 자동으로 다음을 수행한다:
 
-1. `ktlintFormat` → `ktlintCheck` (포맷 + 린트 검증)
-2. `./gradlew test` (전체 테스트)
+1. 프로젝트 린트 도구 실행 (포맷 + 검증)
+2. 프로젝트 테스트 스위트 실행
 3. Tidy First 규칙에 따라 구조적 변경과 행위적 변경을 분리 커밋
 
 `--phase pr`이면 커밋 후 PR까지, `--all`이면 핸드오프 노트까지 이어서 실행한다.
@@ -114,18 +98,18 @@ checkpoint에서 lint+test 자가 검증 후 결과를 보고한다.
 | 스킬        | 설명              | Phase 구성                                       |
 |-----------|-----------------|------------------------------------------------|
 | `/design` | 설계 사이클 전체 실행    | requirements → sequence → class → erd → review |
-| `/tdd`    | TDD 사이클 실행      | red → green → refactor (+e2e, http, go)        |
+| `/tdd`    | TDD 사이클 실행      | red → green → refactor                         |
 | `/ship`   | 출시 워크플로우        | commit → pr → handoff                          |
 | `/qa`     | 품질 검증 파이프라인     | review → test-review (+query)                  |
 
 ### 개별 스킬
 
-| 스킬               | 설명                      | 인자            |
-|------------------|-------------------------|---------------|
-| `/plan`          | plan.md 작성/업데이트         | 요구사항/PRD (선택) |
-| `/brainstorming` | 구현 전 아이디어/요구사항 탐색       | 주제            |
-| `/decision`      | 기술 의사결정 기록 (문제→대안→선택→근거) | 주제            |
-| `/humanizer`     | AI 글 교정 (audit/rewrite) | 텍스트 또는 파일 경로  |
+| 스킬           | 설명                      | 인자            |
+|--------------|-------------------------|---------------|
+| `/plan`           | plan.md 작성/업데이트         | 요구사항/PRD (선택) |
+| `/humanizer`      | AI 글 교정 (audit/rewrite) | 텍스트 또는 파일 경로  |
+| `/sync-config`    | config repo에 변경사항 동기화  | -               |
+| `/resume-context` | 이전 세션 컨텍스트 복원        | -               |
 
 ---
 

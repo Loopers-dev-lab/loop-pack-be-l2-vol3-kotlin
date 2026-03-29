@@ -2,7 +2,7 @@
 name: qa
 description: |
   품질 검증 파이프라인: 프로덕션 코드 리뷰 → 테스트 코드 검증.
-  /qa [대상 파일/패키지] [--phase review|test-review|query]
+  '코드 리뷰해줘', '품질 검증', '테스트 코드 검증', '쿼리 분석' 같은 요청에 반드시 트리거한다.
 ---
 
 # QA Pipeline
@@ -21,6 +21,12 @@ description: |
 review → test-review → query
 ```
 
+## 전제 조건
+
+- 대상 코드가 존재해야 한다 (파일 경로 또는 `git diff`에 변경사항)
+- `--phase query`: `@Transactional` 어노테이션이 있는 코드가 대상
+
+
 ## 옵션
 
 - 기본 실행 (옵션 없음): review → test-review 순차 실행
@@ -33,7 +39,7 @@ review → test-review → query
 
 | 페이즈 | 설명 | 대상 |
 |-------|------|------|
-| review | 4레이어 아키텍처 기반 프로덕션 코드 리뷰 | `src/main/**` |
+| review | 프로젝트 아키텍처 기반 프로덕션 코드 리뷰 | `src/main/**` |
 | test-review | 테스트 신뢰성 검증 | `src/test/**` |
 | query | 트랜잭션/쿼리/영속성 컨텍스트 분석 | `@Transactional` 코드 |
 
@@ -51,3 +57,16 @@ review → test-review → query
 | CRITICAL | 버그/데이터 손실/검증 누락 | 반드시 수정 |
 | WARNING | 잠재적 문제/컨벤션 위반 | 수정 권장 |
 | INFO | 개선 제안 | 선택적 적용 |
+
+---
+
+## 이 프로젝트의 컨벤션
+
+### 아키텍처
+- 4레이어 구조: Interfaces → Application → Domain → Infrastructure
+- review phase에서 레이어 의존 방향 위반을 검출한다
+
+### Gotchas
+- Domain 계층에 Spring import가 있으면 아키텍처 위반
+- `@Query` 사용은 금지 — QueryDSL 또는 메서드명 쿼리만 허용
+- `@Transactional(readOnly = true)` 전파 규칙에 주의

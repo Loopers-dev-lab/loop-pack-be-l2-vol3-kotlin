@@ -6,9 +6,6 @@ TDD Refactor Phase. 모든 테스트가 통과하는 상태에서 구조적 변�
 ## 절차
 
 1. **전체 테스트 통과 확인**: 통과 상태가 아니면 즉시 중단하고 보고한다.
-   ```bash
-   ./gradlew :apps:commerce-api:test
-   ```
 
 2. **개선 대상 식별**: 방금 Green Phase에서 작성한 코드를 중심으로 검토한다.
    개선 없이 깔끔하면 "구조 개선 불필요"로 보고하고 완료한다.
@@ -31,16 +28,9 @@ TDD Refactor Phase. 모든 테스트가 통과하는 상태에서 구조적 변�
    - 테스트명 개선 (의도 명확화)
    - 중복 시나리오 제거
 
-4. **린트 수정 및 체크**:
-   ```bash
-   ./gradlew :apps:commerce-api:ktlintFormat
-   ./gradlew :apps:commerce-api:ktlintCheck
-   ```
+4. **린트 수정 및 체크**: 린트 자동 수정 후 확인.
 
 5. **전체 테스트 재확인**: 실패하면 변경을 즉시 되돌린다.
-   ```bash
-   ./gradlew :apps:commerce-api:test
-   ```
 
 6. **보고**: Phase 완료 보고 형식으로 결과를 보고한다.
 
@@ -61,4 +51,14 @@ TDD Refactor Phase. 모든 테스트가 통과하는 상태에서 구조적 변�
 - **변경 파일**: 변경된 파일 목록 (경로 포함)
 - **결과**: 전체 테스트 통과
 - **다음 단계**: 사이클 완료 또는 "추가 요구사항이 있으면 다음 사이클 Red Phase로"
+```
+
+---
+
+## 이 프로젝트의 검증 명령
+
+```bash
+./gradlew :apps:commerce-api:ktlintFormat
+./gradlew :apps:commerce-api:ktlintCheck
+./gradlew :apps:commerce-api:test
 ```

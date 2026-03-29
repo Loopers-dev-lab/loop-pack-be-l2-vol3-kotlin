@@ -2,7 +2,7 @@
 name: ship
 description: |
   출시 워크플로우: 커밋 → PR → 핸드오프.
-  /ship [--phase commit|pr|handoff] [--all]
+  '커밋해줘', 'PR 만들어줘', '핸드오프', '세션 마무리', '출시' 같은 요청에 반드시 트리거한다.
 ---
 
 # Ship Pipeline
@@ -20,6 +20,13 @@ description: |
 ```
 commit → pr → handoff
 ```
+
+## 전제 조건
+
+- `--phase commit`: 커밋할 변경사항이 존재 (staged 또는 unstaged)
+- `--phase pr`: 베이스 브랜치 대비 커밋이 1개 이상 존재
+- `--phase handoff`: 제한 없음 (현재 상태를 기록)
+
 
 ## 옵션
 

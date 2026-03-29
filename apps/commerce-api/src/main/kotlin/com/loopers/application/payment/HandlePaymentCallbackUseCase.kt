@@ -1,7 +1,11 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
+import com.loopers.domain.outbox.model.OrderOutbox
+import com.loopers.domain.outbox.model.OrderOutboxEventType
+import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
 import com.loopers.support.error.CoreException
@@ -13,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional
 class HandlePaymentCallbackUseCase(
     private val paymentRepository: PaymentRepository,
     private val orderRepository: OrderRepository,
+    private val orderItemRepository: OrderItemRepository,
+    private val orderOutboxRepository: OrderOutboxRepository,
 ) {
     @Transactional
     fun execute(command: PaymentCommand.HandleCallback) {
@@ -38,11 +44,33 @@ class HandlePaymentCallbackUseCase(
             paymentRepository.save(payment)
             order.markPaid()
             orderRepository.save(order)
+            val orderItems = orderItemRepository.findAllByOrderId(OrderId(command.orderId))
+            orderOutboxRepository.saveAll(
+                orderItems.map { item ->
+                    OrderOutbox(
+                        eventType = OrderOutboxEventType.PAYMENT_COMPLETED.name,
+                        orderId = command.orderId,
+                        userId = order.refUserId.value,
+                        totalAmount = payment.amount,
+                        productId = item.refProductId.value,
+                        quantity = item.quantity.value,
+                    )
+                },
+            )
         } else {
-            payment.markFailed(command.reason ?: "PG 콜백 실패")
+            val reason = command.reason ?: "PG 콜백 실패"
+            payment.markFailed(reason)
             paymentRepository.save(payment)
             order.markFailed()
             orderRepository.save(order)
+            orderOutboxRepository.save(
+                OrderOutbox(
+                    eventType = OrderOutboxEventType.PAYMENT_FAILED.name,
+                    orderId = command.orderId,
+                    userId = order.refUserId.value,
+                    reason = reason,
+                ),
+            )
         }
     }
 }

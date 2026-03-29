@@ -1,11 +1,15 @@
 package com.loopers.interfaces.api.coupon
 
+import com.loopers.application.coupon.GetCouponIssueStatusUseCase
 import com.loopers.application.coupon.GetMyCouponsUseCase
 import com.loopers.application.coupon.IssueCouponUseCase
+import com.loopers.application.coupon.RequestCouponIssueUseCase
 import com.loopers.interfaces.api.coupon.dto.CouponV1Dto
 import com.loopers.interfaces.api.coupon.spec.CouponV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
+import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -16,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class CouponV1Controller(
     private val issueCouponUseCase: IssueCouponUseCase,
+    private val requestCouponIssueUseCase: RequestCouponIssueUseCase,
+    private val getCouponIssueStatusUseCase: GetCouponIssueStatusUseCase,
     private val getMyCouponsUseCase: GetMyCouponsUseCase,
 ) : CouponV1ApiSpec {
 
@@ -26,6 +32,25 @@ class CouponV1Controller(
     ): ApiResponse<CouponV1Dto.IssueCouponResponse> {
         return issueCouponUseCase.execute(userId, couponId)
             .let { ApiResponse.success(CouponV1Dto.IssueCouponResponse.from(it)) }
+    }
+
+    @PostMapping("/api/v1/coupons/{couponId}/issue-async")
+    override fun issueAsync(
+        @AuthUser userId: Long,
+        @PathVariable couponId: Long,
+    ): ResponseEntity<ApiResponse<CouponV1Dto.IssueAsyncResponse>> {
+        return requestCouponIssueUseCase.execute(userId, couponId)
+            .let { CouponV1Dto.IssueAsyncResponse.from(it) }
+            .let { ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(it)) }
+    }
+
+    @GetMapping("/api/v1/coupons/issue/{requestId}")
+    override fun getIssueStatus(
+        @AuthUser userId: Long,
+        @PathVariable requestId: String,
+    ): ApiResponse<CouponV1Dto.IssueStatusResponse> {
+        return getCouponIssueStatusUseCase.execute(requestId, userId)
+            .let { ApiResponse.success(CouponV1Dto.IssueStatusResponse.from(it)) }
     }
 
     @GetMapping("/api/v1/users/me/coupons")

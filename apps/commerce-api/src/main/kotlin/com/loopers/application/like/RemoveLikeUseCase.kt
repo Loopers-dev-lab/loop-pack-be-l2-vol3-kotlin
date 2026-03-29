@@ -2,9 +2,12 @@ package com.loopers.application.like
 
 import com.loopers.application.catalog.product.ProductCacheEvent
 import com.loopers.domain.catalog.product.repository.ProductRepository
+import com.loopers.domain.outbox.model.CatalogOutboxEventType
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.repository.LikeRepository
+import com.loopers.domain.outbox.model.CatalogOutbox
+import com.loopers.domain.outbox.repository.CatalogOutboxRepository
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -14,6 +17,7 @@ class RemoveLikeUseCase(
     private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
     private val eventPublisher: ApplicationEventPublisher,
+    private val catalogOutboxRepository: CatalogOutboxRepository,
 ) {
     @Transactional
     fun execute(userId: Long, productId: Long) {
@@ -32,5 +36,12 @@ class RemoveLikeUseCase(
             // TTL 5분 내 자동 갱신으로 충분하므로 evictList = false (기본값)를 유지한다.
             eventPublisher.publishEvent(ProductCacheEvent.DetailUpdated(saved))
         }
+        catalogOutboxRepository.save(
+            CatalogOutbox(
+                eventType = CatalogOutboxEventType.LIKE_REMOVED.name,
+                productId = productId,
+                userId = userId,
+            ),
+        )
     }
 }

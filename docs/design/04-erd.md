@@ -297,3 +297,199 @@ erDiagram
 | **결제-주문 정합성** | payments.order_id 참조 대상 주문이 삭제/취소되어도 물리 FK 없어 DB에서 감지 불가                                                                      | 애플리케이션 레벨에서 주문 상태 검증 후 결제 요청. 결제 완료 후 주문 상태를 PAID로 동기 전환하여 정합성 유지                                      |
 | **CB OPEN 고아 결제** | Circuit Breaker OPEN 시 TIMEOUT Payment가 생성되나 PG 실제 결제 여부 불명                                                                   | 재처리 배치로 REQUESTED/TIMEOUT Payment를 주기적으로 PG 조회하여 최종 상태 확정                                               |
 | **UK 충돌**     | Soft Delete 된 login_id, brand name 재사용 시 UK 중복 에러                                                                        | 탈퇴/삭제 시 식별자 변조 (예: `name_deleted_{timestamp}`) 또는 정책 결정 필요. MySQL은 Partial Unique Index 미지원        |
+
+---
+
+# Round 7 — 신규 테이블
+
+---
+
+## 6. Round 7 설계 원칙 추가
+
+5. **도메인별 Outbox 테이블 (Per-Domain Outbox)**
+    * 범용 JSON payload 테이블 대신 도메인별 Outbox 테이블 분리 (order_outbox, catalog_outbox, coupon_outbox).
+    * 각 도메인의 aggregate ID에 직접 인덱스를 적용할 수 있어 조건 검색·정리 작업에 유리.
+    * Trade-off: 테이블 수 증가 → 현재 토픽 3개이므로 관리 가능.
+
+6. **ProductMetrics는 별도 읽기 모델**
+    * products.like_count(동기 반정규화)와 별개로, product_metrics 테이블에 비동기 집계 데이터 유지.
+    * 두 값의 일시적 불일치 허용 (eventual consistency).
+
+7. **coupon_issue_requests는 요청 추적 테이블**
+    * Kafka 비동기 처리 결과를 Polling으로 조회하기 위한 상태 추적 테이블.
+
+## 7. Round 7 ERD
+
+```mermaid
+erDiagram
+    %% 기존 테이블 (관계 표시용)
+    orders { bigint id PK }
+    products { bigint id PK }
+    coupons { bigint id PK }
+    users { bigint id PK }
+    issued_coupons { bigint id PK }
+
+    %% Outbox 테이블
+    order_outbox {
+        bigint id PK
+        varchar event_id "UUID, UNIQUE"
+        varchar event_type "ORDER_CREATED | PAYMENT_COMPLETED"
+        bigint ref_order_id "Logical FK -> orders.id"
+        boolean published "false = 미발행, true = 발행 완료"
+        datetime created_at
+    }
+
+    catalog_outbox {
+        bigint id PK
+        varchar event_id "UUID, UNIQUE"
+        varchar event_type "PRODUCT_VIEWED | PRODUCT_LIKED | PRODUCT_UNLIKED"
+        bigint ref_product_id "Logical FK -> products.id"
+        boolean published "false = 미발행, true = 발행 완료"
+        datetime created_at
+    }
+
+    coupon_outbox {
+        bigint id PK
+        varchar event_id "UUID, UNIQUE"
+        varchar event_type "COUPON_ISSUED"
+        bigint ref_coupon_id "Logical FK -> coupons.id"
+        boolean published "false = 미발행, true = 발행 완료"
+        datetime created_at
+    }
+
+    %% 선착순 쿠폰 발급 요청
+    coupon_issue_requests {
+        bigint id PK
+        bigint ref_coupon_id "Logical FK -> coupons.id"
+        bigint ref_user_id "Logical FK -> users.id"
+        varchar status "PENDING | SUCCESS | SOLD_OUT | DUPLICATE"
+        bigint issued_coupon_id "Logical FK -> issued_coupons.id (nullable)"
+        datetime created_at
+        datetime processed_at "Consumer 처리 완료 시각 (nullable)"
+    }
+
+    %% 메트릭스 읽기 모델 (commerce-streamer)
+    product_metrics {
+        bigint id PK AUTO_INCREMENT
+        bigint product_id "UNIQUE, Logical FK -> products.id"
+        bigint view_count "상세 페이지 조회 수"
+        bigint like_count "좋아요 수"
+        bigint sales_count "판매량"
+        bigint version "낙관적 동시성 제어"
+        datetime updated_at
+    }
+
+    %% 멱등 처리 (commerce-streamer)
+    event_handled {
+        varchar event_id PK "이벤트 고유 ID (UUID)"
+        datetime handled_at
+    }
+
+    %% 관계
+    orders ||--o{ order_outbox : "이벤트 발행"
+    products ||--o{ catalog_outbox : "이벤트 발행"
+    coupons ||--o{ coupon_outbox : "이벤트 발행"
+    coupons ||--o{ coupon_issue_requests : "발급 요청"
+    users ||--o{ coupon_issue_requests : "요청자"
+    coupon_issue_requests ||--o| issued_coupons : "발급 성공 시"
+    products ||--o| product_metrics : "읽기 모델"
+```
+
+---
+
+## 8. Round 7 스키마 상세
+
+### 8.1 Outbox 테이블
+
+세 Outbox 테이블은 동일한 구조를 가지며, aggregate ID 컬럼명만 다르다.
+
+| 테이블 | 컬럼 | 타입 | 제약조건 | 설명 |
+|-------|------|------|---------|------|
+| **order_outbox** | id | BIGINT | PK, AUTO_INCREMENT | |
+| | event_id | VARCHAR(36) | NOT NULL, UNIQUE | 이벤트 UUID |
+| | event_type | VARCHAR(50) | NOT NULL | ORDER_CREATED, PAYMENT_COMPLETED |
+| | ref_order_id | BIGINT | NOT NULL | 주문 ID (Logical FK → orders.id) |
+| | published | BOOLEAN | NOT NULL, DEFAULT false | false = 미발행, true = 발행 완료 |
+| | created_at | DATETIME | NOT NULL | 이벤트 생성 시각 |
+| **catalog_outbox** | id | BIGINT | PK, AUTO_INCREMENT | |
+| | event_id | VARCHAR(36) | NOT NULL, UNIQUE | 이벤트 UUID |
+| | event_type | VARCHAR(50) | NOT NULL | PRODUCT_VIEWED, PRODUCT_LIKED, PRODUCT_UNLIKED |
+| | ref_product_id | BIGINT | NOT NULL | 상품 ID (Logical FK → products.id) |
+| | published | BOOLEAN | NOT NULL, DEFAULT false | false = 미발행, true = 발행 완료 |
+| | created_at | DATETIME | NOT NULL | |
+| **coupon_outbox** | id | BIGINT | PK, AUTO_INCREMENT | |
+| | event_id | VARCHAR(36) | NOT NULL, UNIQUE | 이벤트 UUID |
+| | event_type | VARCHAR(50) | NOT NULL | COUPON_ISSUED |
+| | ref_coupon_id | BIGINT | NOT NULL | 쿠폰 ID (Logical FK → coupons.id) |
+| | published | BOOLEAN | NOT NULL, DEFAULT false | false = 미발행, true = 발행 완료 |
+| | created_at | DATETIME | NOT NULL | |
+
+### 8.2 선착순 쿠폰 발급 요청
+
+| 테이블 | 컬럼 | 타입 | 제약조건 | 설명 |
+|-------|------|------|---------|------|
+| **coupon_issue_requests** | id | BIGINT | PK, AUTO_INCREMENT | requestId로 Polling 조회 |
+| | ref_coupon_id | BIGINT | NOT NULL | 대상 쿠폰 (Logical FK → coupons.id) |
+| | ref_user_id | BIGINT | NOT NULL | 요청자 (Logical FK → users.id) |
+| | status | VARCHAR(20) | NOT NULL, DEFAULT 'PENDING' | PENDING / SUCCESS / SOLD_OUT / DUPLICATE |
+| | issued_coupon_id | BIGINT | NULL | 발급 성공 시 IssuedCoupon ID |
+| | created_at | DATETIME | NOT NULL | 요청 시각 |
+| | processed_at | DATETIME | NULL | Consumer 처리 완료 시각 |
+
+### 8.3 메트릭스 (commerce-streamer)
+
+| 테이블 | 컬럼 | 타입 | 제약조건 | 설명 |
+|-------|------|------|---------|------|
+| **product_metrics** | id | BIGINT | PK, AUTO_INCREMENT | |
+| | product_id | BIGINT | NOT NULL, UNIQUE | 상품 ID (Logical FK → products.id) |
+| | view_count | BIGINT | NOT NULL, DEFAULT 0 | 상세 페이지 조회 수 |
+| | like_count | BIGINT | NOT NULL, DEFAULT 0 | 좋아요 수 (비동기 집계) |
+| | sales_count | BIGINT | NOT NULL, DEFAULT 0 | 판매량 |
+| | version | BIGINT | NOT NULL, DEFAULT 0 | 낙관적 동시성 제어 |
+| | updated_at | DATETIME | NOT NULL | 마지막 집계 시각 |
+
+### 8.4 멱등 처리 (commerce-streamer)
+
+| 테이블 | 컬럼 | 타입 | 제약조건 | 설명 |
+|-------|------|------|---------|------|
+| **event_handled** | event_id | VARCHAR(36) | PK | 이벤트 UUID. 중복 삽입 시 PK 위반으로 skip |
+| | handled_at | DATETIME | NOT NULL | 처리 완료 시각 |
+
+---
+
+## 9. Round 7 인덱스 전략
+
+| 대상 테이블 | 인덱스 컬럼 | 타입 | 목적 |
+|-----------|----------|------|------|
+| **order_outbox** | `(published, id)` | INDEX | Relay 폴링: 미발행(published=false) 이벤트를 id 순으로 조회 |
+| **catalog_outbox** | `(published, id)` | INDEX | Relay 폴링 |
+| **coupon_outbox** | `(published, id)` | INDEX | Relay 폴링 |
+| **order_outbox** | `(ref_order_id)` | INDEX | 주문별 이벤트 이력 조회 |
+| **catalog_outbox** | `(ref_product_id)` | INDEX | 상품별 이벤트 이력 조회 |
+| **coupon_outbox** | `(ref_coupon_id)` | INDEX | 쿠폰별 이벤트 이력 조회 |
+| **coupon_issue_requests** | `(ref_coupon_id, ref_user_id)` | UNIQUE | 동일 쿠폰 + 사용자 중복 요청 방지 |
+| **coupon_issue_requests** | `(ref_user_id, status)` | INDEX | 사용자별 발급 요청 목록 조회 |
+
+---
+
+## 10. Round 7 정규화 판단
+
+### 반정규화 필드
+
+| 테이블 | 컬럼 | 반정규화 사유 | 정합성 유지 방법 |
+|-------|------|-----------|-------------|
+| product_metrics | view_count | 조회 수 집계를 위한 읽기 모델 | Kafka 이벤트 소비 시 upsert |
+| product_metrics | like_count | 비동기 좋아요 집계 (products.like_count와 별도) | Kafka 이벤트 소비 시 upsert |
+| product_metrics | sales_count | 판매량 집계를 위한 읽기 모델 | Kafka 이벤트 소비 시 upsert |
+
+---
+
+## 11. Round 7 데이터 무결성 및 리스크 관리
+
+| 구분 | 잠재 리스크 | 대응 전략 |
+|------|----------|---------|
+| **Outbox 테이블 증가** | 발행 완료 레코드가 계속 쌓임 → 디스크·쿼리 성능 영향 | 발행 완료(published=true) 레코드를 주기적으로 정리하는 배치 작업 (보존 기간 7일) |
+| **product_metrics 불일치** | products.like_count와 product_metrics.like_count 간 일시적 불일치 | Eventual consistency 허용 (동기 UX vs 비동기 통계, 용도가 다름) |
+| **coupon_issue_requests 중복** | 같은 사용자가 같은 쿠폰에 여러 번 요청 | UNIQUE 인덱스 (ref_coupon_id, ref_user_id)로 DB 레벨 방지 |
+| **event_handled 증가** | 처리 완료 이벤트 ID가 무한 증가 | 오래된 레코드 주기적 정리 (Kafka 메시지 보존 기간과 동기화) |
+| **Relay 폴링 부하** | 주기적 폴링이 DB에 부하 유발 | (published, id) 인덱스로 최적화 |

@@ -140,3 +140,75 @@
 - **최종 결정**: 기각 (시뮬레이터 단계 과잉)
 - **근거**: RedisCleanUp은 testFixtures 코드로 운영 영향 없음. Feign 로거 환경별 분리와 PgStatusQueryClient null 경로 로깅은 실 PG 연동 시 일괄 처리가 합리적. Version Catalogs 전환은 chore 수준으로 현재 project.properties 방식에 기능적 문제 없음.
 - **최종 업데이트**: 2026-03-19
+
+## RD-018. 빈 문자열 인증 헤더 방어 (OptionalAuthInterceptor)
+- **keywords**: `빈 문자열`, `blank`, `헤더`, `OptionalAuthInterceptor`, `takeIf`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: HTTP 클라이언트(브라우저, Feign 등)가 빈 문자열 헤더를 보내는 실 발생 경로 없음. YAGNI.
+- **최종 업데이트**: 2026-03-23
+
+## RD-019. check-then-act 안티패턴 (IssuedCouponRepository)
+- **keywords**: `check-then-act`, `exists`, `save`, `saveIfAbsent`, `원자적`, `unique constraint`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 2
+- **최종 결정**: 기각
+- **근거**: DB unique constraint가 실질적 보호 역할. `saveIfAbsent` 원자 연산 도입 시 중복 판단 로직이 도메인에서 인프라로 이동하여 설계 철학과 충돌. ProcessCouponIssueUseCase에 비관적 락(#11) 적용으로 check-then-act 경합 자체가 해소됨.
+- **최종 업데이트**: 2026-03-23
+
+## RD-020. ProductMetrics counter 음수 초기값 검증
+- **keywords**: `ProductMetrics`, `viewCount`, `likeCount`, `salesCount`, `음수`, `검증`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: counter 필드는 0 초기값에서 `++`/`--`로만 변경되며 생성자에 음수가 전달될 경로 없음. DB 복원 시에도 음수 데이터 자체가 상위 버그. commerce-streamer는 집계 처리기로 VO 도입 대비 과잉.
+- **최종 업데이트**: 2026-03-23
+
+## RD-021. Outbox Relay 중복 배달 가능성 (at-least-once)
+- **keywords**: `RelayOutboxUseCase`, `중복 배달`, `at-least-once`, `Kafka publish`, `transaction commit`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (의도적 설계)
+- **근거**: at-least-once delivery는 Outbox 패턴의 의도된 보장 수준. consumer가 `eventHandled` 테이블로 멱등 처리하므로 중복 배달에 안전. afterCommit publish → DB markPublished 순서가 최소 1회 보장의 표준 패턴.
+- **최종 업데이트**: 2026-03-24
+
+## RD-022. Consumer malformed message DLT 처리 (이미 구현)
+- **keywords**: `CouponIssueConsumer`, `malformed`, `DLT`, `dead-letter`, `IllegalArgumentException`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (이미 구현)
+- **근거**: RECORD_LISTENER_DLT 컨테이너 팩토리의 DefaultErrorHandler(FixedBackOff(1000L, 2))가 IllegalArgumentException 포함 모든 예외를 catch하여 3회 시도 후 DLT 발행. PR #25 리뷰 반영에서 구현 완료.
+- **최종 업데이트**: 2026-03-24
+
+## RD-023. request not found 시 eventHandled 미기록
+- **keywords**: `ProcessCouponIssueUseCase`, `findByRequestId`, `eventHandled`, `무한 재처리`, `offset commit`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 2
+- **최종 결정**: 기각
+- **근거**: Record listener가 정상 반환 시 offset 자동 커밋 → 재배달 없음. eventHandled는 비즈니스 멱등성 보호용이며, 실제 처리된 적 없는 이벤트를 "처리됨"으로 기록하면 의미 왜곡. request 미존재는 데이터 정합성 이슈로 별도 모니터링 대상.
+- **최종 업데이트**: 2026-03-24
+
+## RD-024. AFTER_COMMIT 핸들러 통합 테스트
+- **keywords**: `AFTER_COMMIT`, `TransactionalEventListener`, `통합 테스트`, `ApplicationEventPublisher`, `phase`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: TestContainers + 실제 트랜잭션 인프라 필요. phase 설정은 어노테이션이므로 코드 리뷰로 충분히 검증 가능. 단위 테스트에서 핸들러 로직 자체를 검증하고 있으며, 통합 테스트 추가는 현 단계에서 과잉.
+- **최종 업데이트**: 2026-03-25
+
+## RD-025. AFTER_COMMIT 핸들러에 @Transactional(REQUIRES_NEW) 명시
+- **keywords**: `AFTER_COMMIT`, `@Transactional`, `REQUIRES_NEW`, `SimpleJpaRepository`, `트랜잭션 경계`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각
+- **근거**: AFTER_COMMIT 이후 `catalogOutboxRepository.save()` 호출 시 Spring Data JPA의 `SimpleJpaRepository.save()`에 선언된 `@Transactional`이 자동으로 새 트랜잭션을 생성한다. 핸들러에 별도로 `@Transactional(propagation = REQUIRES_NEW)`를 명시하면 중복 어노테이션이 되며, 프레임워크 동작에 대한 불필요한 의존 표현.
+- **최종 업데이트**: 2026-03-25
+
+## RD-026. JDBC batch_size 미설정으로 saveAll 배치 미동작
+- **keywords**: `batch_size`, `order_inserts`, `saveAll`, `JDBC 배치`, `IDENTITY`, `jpa.yml`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계)
+- **근거**: ① jpa.yml은 전체 엔티티에 영향주는 공유 설정 ② `@GeneratedValue(IDENTITY)` 전략 사용 시 Hibernate INSERT 배치 자체가 비활성화됨 ③ 현재 건수(1~5건/결제)에서 실질 효과 미미. 스케일 확대 시 SEQUENCE 전략 전환과 함께 검토.
+- **최종 업데이트**: 2026-03-26

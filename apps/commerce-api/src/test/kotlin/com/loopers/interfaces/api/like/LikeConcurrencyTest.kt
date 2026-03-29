@@ -30,8 +30,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Timeout
 
+@Tag("slow")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class LikeConcurrencyTest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,

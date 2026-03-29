@@ -7,6 +7,7 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
+import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.payment.FakePgClient
 import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.payment.PgPaymentResult
@@ -28,6 +29,7 @@ class PaymentPgProcessorTest {
 
     private lateinit var orderRepository: FakeOrderRepository
     private lateinit var paymentRepository: FakePaymentRepository
+    private lateinit var orderOutboxRepository: FakeOrderOutboxRepository
     private lateinit var pgClient: FakePgClient
     private lateinit var processor: PaymentPgProcessorImpl
 
@@ -42,8 +44,9 @@ class PaymentPgProcessorTest {
     fun setUp() {
         orderRepository = FakeOrderRepository()
         paymentRepository = FakePaymentRepository()
+        orderOutboxRepository = FakeOrderOutboxRepository()
         pgClient = FakePgClient()
-        processor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate)
+        processor = PaymentPgProcessorImpl(pgClient, paymentRepository, orderRepository, txTemplate, orderOutboxRepository)
     }
 
     private fun createPendingOrder(): Order {
@@ -146,6 +149,15 @@ class PaymentPgProcessorTest {
             assertThat(payment.reason).isEqualTo("카드 한도 초과")
             val updatedOrder = orderRepository.findById(order.id)!!
             assertThat(updatedOrder.status).isEqualTo(Order.OrderStatus.FAILED)
+
+            // outbox 검증
+            val outboxes = orderOutboxRepository.findAllUnpublished(100)
+            assertThat(outboxes).hasSize(1)
+            val outbox = outboxes.single()
+            assertThat(outbox.eventType).isEqualTo("PAYMENT_FAILED")
+            assertThat(outbox.orderId).isEqualTo(order.id.value)
+            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.reason).isEqualTo("카드 한도 초과")
         }
     }
 }
