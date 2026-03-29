@@ -18,5 +18,5 @@ interface CouponIssueAsyncApiSpec {
         summary = "쿠폰 발급 요청 결과 조회",
         description = "requestId로 쿠폰 발급 요청의 현재 상태를 조회합니다.",
     )
-    fun getIssueRequest(requestId: String): ApiResponse<CouponIssueAsyncDto.IssueRequestResponse>
+    fun getIssueRequest(userInfo: AuthenticatedUserInfo, requestId: String): ApiResponse<CouponIssueAsyncDto.IssueRequestResponse>
 }

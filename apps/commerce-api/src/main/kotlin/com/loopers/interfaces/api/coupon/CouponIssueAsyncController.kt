@@ -36,9 +36,10 @@ class CouponIssueAsyncController(
 
     @GetMapping("/issue-requests/{requestId}")
     override fun getIssueRequest(
+        @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @PathVariable requestId: String,
     ): ApiResponse<CouponIssueAsyncDto.IssueRequestResponse> {
-        val info = couponIssueFacade.getIssueRequest(requestId)
+        val info = couponIssueFacade.getIssueRequest(requestId, userInfo.id)
         return ApiResponse.success(CouponIssueAsyncDto.IssueRequestResponse.from(info))
     }
 }

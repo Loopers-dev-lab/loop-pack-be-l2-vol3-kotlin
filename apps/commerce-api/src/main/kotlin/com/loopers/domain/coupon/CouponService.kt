@@ -109,8 +109,8 @@ class CouponService(
         )
     }
 
-    fun findIssueRequestByRequestId(requestId: String): CouponIssueRequest {
-        return couponIssueRequestRepository.findByRequestId(requestId)
+    fun findIssueRequestByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest {
+        return couponIssueRequestRepository.findByRequestIdAndUserId(requestId, userId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "발급 요청을 찾을 수 없습니다.")
     }
 }

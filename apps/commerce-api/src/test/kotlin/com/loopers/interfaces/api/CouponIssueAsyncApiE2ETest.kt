@@ -65,10 +65,13 @@ class CouponIssueAsyncApiE2ETest @Autowired constructor(
         )
     }
 
-    private fun authHeaders(): HttpHeaders {
+    private fun authHeaders(
+        loginId: String = "testuser123",
+        password: String = "Test1234!@",
+    ): HttpHeaders {
         return HttpHeaders().apply {
-            set(LOGIN_ID_HEADER, "testuser123")
-            set(LOGIN_PW_HEADER, "Test1234!@")
+            set(LOGIN_ID_HEADER, loginId)
+            set(LOGIN_PW_HEADER, password)
         }
     }
 
@@ -148,6 +151,35 @@ class CouponIssueAsyncApiE2ETest @Autowired constructor(
             assertThat(response.body?.data?.get("requestId")).isEqualTo(requestId)
             assertThat(response.body?.data?.get("status")).isEqualTo("PENDING")
             assertThat(response.body?.data?.get("createdAt")).isNotNull()
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 발급 요청을 조회하면 404 Not Found를 반환한다")
+        fun `다른 사용자의 발급 요청을 조회하면 404 Not Found를 반환한다`() {
+            // given
+            signUp(loginId = "ownerUser01")
+            val coupon = createCoupon()
+            val issueResponse = testRestTemplate.exchange(
+                ISSUE_ASYNC_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity<Void>(authHeaders(loginId = "ownerUser01")),
+                RESPONSE_TYPE,
+                coupon.id,
+            )
+            val requestId = issueResponse.body?.data?.get("requestId") as String
+
+            // when — 다른 사용자가 해당 requestId를 조회
+            signUp(loginId = "otherUser02")
+            val response = testRestTemplate.exchange(
+                GET_ISSUE_REQUEST_ENDPOINT,
+                HttpMethod.GET,
+                HttpEntity<Void>(authHeaders(loginId = "otherUser02")),
+                RESPONSE_TYPE,
+                requestId,
+            )
+
+            // then
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         }
     }
 }

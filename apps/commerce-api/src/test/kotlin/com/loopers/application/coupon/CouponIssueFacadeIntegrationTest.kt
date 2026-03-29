@@ -151,24 +151,25 @@ class CouponIssueFacadeIntegrationTest @Autowired constructor(
         fun `존재하지 않는 requestId로 조회 시 NOT_FOUND 예외가 발생한다`() {
             // given
             val nonExistentRequestId = "non-existent-request-id"
+            val userId = 1L
 
             // when & then
             val exception = assertThrows<CoreException> {
-                couponIssueFacade.getIssueRequest(nonExistentRequestId)
+                couponIssueFacade.getIssueRequest(nonExistentRequestId, userId)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
         @Test
-        @DisplayName("존재하는 requestId로 조회 시 요청 상태 정보를 반환한다")
-        fun `존재하는 requestId로 조회 시 요청 상태 정보를 반환한다`() {
+        @DisplayName("존재하는 requestId로 본인이 조회 시 요청 상태 정보를 반환한다")
+        fun `존재하는 requestId로 본인이 조회 시 요청 상태 정보를 반환한다`() {
             // given
             val coupon = createCoupon()
             val userId = 1L
             val requestId = couponIssueFacade.issueAsync(coupon.id, userId)
 
             // when
-            val info = couponIssueFacade.getIssueRequest(requestId)
+            val info = couponIssueFacade.getIssueRequest(requestId, userId)
 
             // then
             assertThat(info.requestId).isEqualTo(requestId)
@@ -176,6 +177,22 @@ class CouponIssueFacadeIntegrationTest @Autowired constructor(
             assertThat(info.status).isEqualTo(CouponIssueStatus.PENDING)
             assertThat(info.failReason).isNull()
             assertThat(info.createdAt).isNotNull()
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 requestId로 조회 시 NOT_FOUND 예외가 발생한다")
+        fun `다른 사용자의 requestId로 조회 시 NOT_FOUND 예외가 발생한다`() {
+            // given
+            val coupon = createCoupon()
+            val ownerId = 1L
+            val otherId = 2L
+            val requestId = couponIssueFacade.issueAsync(coupon.id, ownerId)
+
+            // when & then
+            val exception = assertThrows<CoreException> {
+                couponIssueFacade.getIssueRequest(requestId, otherId)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 

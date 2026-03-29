@@ -16,4 +16,8 @@ class CouponIssueRequestRepositoryImpl(
     override fun findByRequestId(requestId: String): CouponIssueRequest? {
         return couponIssueRequestJpaRepository.findByRequestId(requestId)
     }
+
+    override fun findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest? {
+        return couponIssueRequestJpaRepository.findByRequestIdAndUserId(requestId, userId)
+    }
 }

@@ -45,8 +45,8 @@ class CouponIssueFacade(
     }
 
     @Transactional(readOnly = true)
-    fun getIssueRequest(requestId: String): CouponIssueRequestInfo {
-        val issueRequest = couponService.findIssueRequestByRequestId(requestId)
+    fun getIssueRequest(requestId: String, userId: Long): CouponIssueRequestInfo {
+        val issueRequest = couponService.findIssueRequestByRequestIdAndUserId(requestId, userId)
         return CouponIssueRequestInfo.from(issueRequest)
     }
 }

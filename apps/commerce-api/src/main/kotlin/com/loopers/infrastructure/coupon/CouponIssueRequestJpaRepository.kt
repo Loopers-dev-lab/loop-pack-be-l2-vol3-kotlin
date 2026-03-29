@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface CouponIssueRequestJpaRepository : JpaRepository<CouponIssueRequest, Long> {
     fun findByRequestId(requestId: String): CouponIssueRequest?
+    fun findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest?
 }

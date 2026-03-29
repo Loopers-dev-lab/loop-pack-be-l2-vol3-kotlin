@@ -63,4 +63,44 @@ class CouponIssueRequestRepositoryImplTest @Autowired constructor(
             assertThat(found).isNull()
         }
     }
+
+    @DisplayName("requestId와 userId로 조회할 때,")
+    @Nested
+    inner class FindByRequestIdAndUserId {
+
+        @DisplayName("일치하는 requestId와 userId로 조회하면, 발급 요청이 반환된다.")
+        @Test
+        fun findsByRequestIdAndUserId() {
+            // arrange
+            val requestId = "550e8400-e29b-41d4-a716-446655440000"
+            val userId = 100L
+            couponIssueRequestRepository.save(
+                CouponIssueRequest(requestId = requestId, couponId = 1L, userId = userId),
+            )
+
+            // act
+            val found = couponIssueRequestRepository.findByRequestIdAndUserId(requestId, userId)
+
+            // assert
+            assertThat(found).isNotNull
+            assertThat(found!!.requestId).isEqualTo(requestId)
+            assertThat(found.userId).isEqualTo(userId)
+        }
+
+        @DisplayName("requestId는 존재하지만 userId가 다르면, null이 반환된다.")
+        @Test
+        fun returnsNull_whenUserIdDoesNotMatch() {
+            // arrange
+            val requestId = "550e8400-e29b-41d4-a716-446655440000"
+            couponIssueRequestRepository.save(
+                CouponIssueRequest(requestId = requestId, couponId = 1L, userId = 100L),
+            )
+
+            // act
+            val found = couponIssueRequestRepository.findByRequestIdAndUserId(requestId, 999L)
+
+            // assert
+            assertThat(found).isNull()
+        }
+    }
 }
