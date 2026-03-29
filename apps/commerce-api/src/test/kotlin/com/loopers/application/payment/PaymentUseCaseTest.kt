@@ -1,5 +1,7 @@
 package com.loopers.application.payment
 
+import com.loopers.application.payment.support.PaymentCouponStateSyncer
+import com.loopers.application.payment.support.PaymentSideEffectPublisher
 import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponReader
 import com.loopers.domain.coupon.CouponRepository
@@ -227,13 +229,16 @@ class PaymentUseCaseTest {
             ),
             paymentReader = paymentReader,
             paymentProcessor = PaymentProcessor(paymentReader, paymentStore),
-            issuedCouponProcessor = IssuedCouponProcessor(
-                couponReader = CouponReader(FakeCouponStore()),
-                issuedCouponReader = IssuedCouponReader(issuedCouponStore),
-                issuedCouponRepository = issuedCouponStore,
-            ),
             paymentGateway = paymentGateway,
             transactionTemplate = TransactionTemplate(NoOpTransactionManager()),
+            paymentCouponStateSyncer = PaymentCouponStateSyncer(
+                issuedCouponProcessor = IssuedCouponProcessor(
+                    couponReader = CouponReader(FakeCouponStore()),
+                    issuedCouponReader = IssuedCouponReader(issuedCouponStore),
+                    issuedCouponRepository = issuedCouponStore,
+                ),
+            ),
+            paymentSideEffectPublisher = mockk<PaymentSideEffectPublisher>(relaxed = true),
         )
 
         return Fixture(
@@ -266,7 +271,6 @@ class PaymentUseCaseTest {
         override fun findById(id: Long): Order? = if (order.id == id) order else null
 
         override fun findByIdForUpdate(id: Long): Order? = findById(id)
-
         override fun findAllByMemberId(memberId: Long): List<Order> =
             if (order.memberId == memberId) listOf(order) else emptyList()
     }
@@ -395,6 +399,7 @@ class PaymentUseCaseTest {
 
         override fun findAll(pageable: org.springframework.data.domain.Pageable): Page<Coupon> = PageImpl(listOf(coupon))
 
+        override fun tryIncreaseIssuedCount(id: Long): Int = 1
         override fun deleteById(id: Long) = Unit
     }
 

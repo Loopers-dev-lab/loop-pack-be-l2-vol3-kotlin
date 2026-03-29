@@ -14,6 +14,7 @@ class AdminCouponV1Dto {
         @field:NotNull val type: CouponType,
         @field:NotNull val discountValue: Long,
         val minOrderAmount: Long?,
+        val issueLimit: Long?,
         @field:NotNull val expiredAt: ZonedDateTime,
     ) {
         fun toCommand() = CouponAdminUseCase.RegisterCommand(
@@ -22,6 +23,7 @@ class AdminCouponV1Dto {
             discountValue = discountValue,
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
+            issueLimit = issueLimit,
         )
     }
 
@@ -30,6 +32,7 @@ class AdminCouponV1Dto {
         @field:NotNull val type: CouponType,
         @field:NotNull val discountValue: Long,
         val minOrderAmount: Long?,
+        val issueLimit: Long?,
         @field:NotNull val expiredAt: ZonedDateTime,
     ) {
         fun toCommand() = CouponAdminUseCase.UpdateCommand(
@@ -38,6 +41,7 @@ class AdminCouponV1Dto {
             discountValue = discountValue,
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
+            issueLimit = issueLimit,
         )
     }
 
@@ -48,6 +52,8 @@ class AdminCouponV1Dto {
         val discountValue: Long,
         val minOrderAmount: Long?,
         val expiredAt: String,
+        val issueLimit: Long?,
+        val issuedCount: Long,
     ) {
         companion object {
             fun from(info: CouponInfo.Detail) = DetailResponse(
@@ -57,6 +63,8 @@ class AdminCouponV1Dto {
                 discountValue = info.discountValue,
                 minOrderAmount = info.minOrderAmount,
                 expiredAt = info.expiredAt,
+                issueLimit = info.issueLimit,
+                issuedCount = info.issuedCount,
             )
         }
     }
@@ -67,6 +75,8 @@ class AdminCouponV1Dto {
         val type: String,
         val discountValue: Long,
         val expiredAt: String,
+        val issueLimit: Long?,
+        val issuedCount: Long,
     ) {
         companion object {
             fun from(info: CouponInfo.Main) = MainResponse(
@@ -75,6 +85,8 @@ class AdminCouponV1Dto {
                 type = info.type,
                 discountValue = info.discountValue,
                 expiredAt = info.expiredAt,
+                issueLimit = info.issueLimit,
+                issuedCount = info.issuedCount,
             )
         }
     }

@@ -63,6 +63,10 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     INVALID_COUPON_NAME(HttpStatus.BAD_REQUEST, "E508", "쿠폰명 형식이 올바르지 않습니다."),
     INVALID_COUPON_VALUE(HttpStatus.BAD_REQUEST, "E509", "쿠폰 할인값이 올바르지 않습니다."),
     INVALID_MIN_ORDER_AMOUNT(HttpStatus.BAD_REQUEST, "E510", "최소 주문 금액이 올바르지 않습니다."),
+    COUPON_SOLD_OUT(HttpStatus.CONFLICT, "E511", "선착순 쿠폰이 모두 소진되었습니다."),
+    INVALID_COUPON_ISSUE_LIMIT(HttpStatus.BAD_REQUEST, "E512", "쿠폰 발급 수량 제한이 올바르지 않습니다."),
+    COUPON_ISSUE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "E513", "쿠폰 발급 요청을 찾을 수 없습니다."),
+    COUPON_ISSUE_REQUEST_NOT_OWNER(HttpStatus.FORBIDDEN, "E514", "본인의 쿠폰 발급 요청만 조회할 수 있습니다."),
 
     /** 결제 도메인 에러 */
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "E601", "결제 정보를 찾을 수 없습니다."),

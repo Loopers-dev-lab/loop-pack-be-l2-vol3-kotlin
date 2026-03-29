@@ -1,13 +1,13 @@
 package com.loopers.application.payment
 
-import com.loopers.domain.coupon.IssuedCouponProcessor
+import com.loopers.application.payment.support.PaymentCouponStateSyncer
+import com.loopers.application.payment.support.PaymentSideEffectPublisher
 import com.loopers.domain.order.OrderReader
 import com.loopers.domain.order.OrderPaymentProcessor
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentProcessor
 import com.loopers.domain.payment.PaymentReader
-import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.payment.PgPaymentStatus
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
@@ -18,9 +18,10 @@ class PaymentUseCase(
     private val orderPaymentProcessor: OrderPaymentProcessor,
     private val paymentReader: PaymentReader,
     private val paymentProcessor: PaymentProcessor,
-    private val issuedCouponProcessor: IssuedCouponProcessor,
     private val paymentGateway: PaymentGateway,
     private val transactionTemplate: TransactionTemplate,
+    private val paymentCouponStateSyncer: PaymentCouponStateSyncer,
+    private val paymentSideEffectPublisher: PaymentSideEffectPublisher,
 ) {
 
     fun requestPayment(memberId: Long, command: RequestCommand): PaymentInfo.Detail {
@@ -48,7 +49,8 @@ class PaymentUseCase(
         return transactionTemplate.execute {
             val payment = paymentProcessor.applyRequestResult(preparedRequest.paymentId, requestResult)
             val order = orderPaymentProcessor.applyPaymentResult(preparedRequest.orderId, memberId, payment.status)
-            syncCouponState(order.couponId, payment.status)
+            paymentCouponStateSyncer.sync(order.couponId, payment.status)
+            paymentSideEffectPublisher.publish(order, payment.status)
             PaymentInfo.Detail.from(order, payment)
         } ?: throw IllegalStateException("결제 요청 결과 저장에 실패했습니다.")
     }
@@ -71,7 +73,8 @@ class PaymentUseCase(
         return transactionTemplate.execute {
             val payment = paymentProcessor.applyLookupResult(snapshot.paymentId, lookupResult)
             val order = orderPaymentProcessor.applyPaymentResult(orderId, memberId, payment.status)
-            syncCouponState(order.couponId, payment.status)
+            paymentCouponStateSyncer.sync(order.couponId, payment.status)
+            paymentSideEffectPublisher.publish(order, payment.status)
             PaymentInfo.Detail.from(order, payment)
         } ?: throw IllegalStateException("결제 동기화 반영에 실패했습니다.")
     }
@@ -85,25 +88,8 @@ class PaymentUseCase(
             ) ?: return@executeWithoutResult
 
             val order = orderPaymentProcessor.applyPaymentResult(payment.orderId, payment.status)
-            syncCouponState(order.couponId, payment.status)
-        }
-    }
-
-    private fun syncCouponState(issuedCouponId: Long?, paymentStatus: PaymentStatus) {
-        if (issuedCouponId == null) {
-            return
-        }
-
-        when (paymentStatus) {
-            PaymentStatus.SUCCESS -> issuedCouponProcessor.confirmUseIfReserved(issuedCouponId)
-            PaymentStatus.REQUEST_FAILED,
-            PaymentStatus.FAILED,
-            -> issuedCouponProcessor.releaseIfReserved(issuedCouponId)
-
-            PaymentStatus.REQUESTED,
-            PaymentStatus.PENDING,
-            PaymentStatus.UNKNOWN,
-            -> Unit
+            paymentCouponStateSyncer.sync(order.couponId, payment.status)
+            paymentSideEffectPublisher.publish(order, payment.status)
         }
     }
 

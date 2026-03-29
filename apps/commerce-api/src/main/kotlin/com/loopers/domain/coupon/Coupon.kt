@@ -2,6 +2,7 @@ package com.loopers.domain.coupon
 
 import com.loopers.domain.coupon.vo.CouponName
 import com.loopers.domain.coupon.vo.DiscountValue
+import com.loopers.domain.coupon.vo.IssueLimit
 import com.loopers.domain.coupon.vo.MinOrderAmount
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -15,6 +16,8 @@ class Coupon(
     val discountValue: DiscountValue,
     val minOrderAmount: MinOrderAmount,
     val expiredAt: ZonedDateTime,
+    val issueLimit: IssueLimit = IssueLimit(null),
+    val issuedCount: Long = 0L,
 ) {
     var name: CouponName = name
         private set
@@ -22,6 +25,9 @@ class Coupon(
     init {
         if (type == CouponType.RATE && discountValue.value > 100) {
             throw CoreException(ErrorType.INVALID_COUPON_VALUE)
+        }
+        if (issueLimit.value != null && issuedCount > issueLimit.value) {
+            throw CoreException(ErrorType.INVALID_COUPON_ISSUE_LIMIT)
         }
     }
 
@@ -31,6 +37,7 @@ class Coupon(
         discountValue: DiscountValue,
         minOrderAmount: MinOrderAmount,
         expiredAt: ZonedDateTime,
+        issueLimit: IssueLimit,
     ): Coupon {
         return Coupon(
             id = this.id,
@@ -39,6 +46,8 @@ class Coupon(
             discountValue = discountValue,
             minOrderAmount = minOrderAmount,
             expiredAt = expiredAt,
+            issueLimit = issueLimit,
+            issuedCount = this.issuedCount,
         )
     }
 
@@ -49,6 +58,9 @@ class Coupon(
     fun validateIssuable() {
         if (isExpired()) {
             throw CoreException(ErrorType.COUPON_EXPIRED)
+        }
+        if (issueLimit.value != null && issuedCount >= issueLimit.value) {
+            throw CoreException(ErrorType.COUPON_SOLD_OUT)
         }
     }
 

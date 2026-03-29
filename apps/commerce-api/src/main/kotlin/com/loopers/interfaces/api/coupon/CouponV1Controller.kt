@@ -20,11 +20,24 @@ class CouponV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable couponId: Long,
-    ): ApiResponse<CouponV1Dto.IssuedDetailResponse> {
+    ): ApiResponse<CouponV1Dto.IssueRequestResponse> {
         val member = authUseCase.authenticate(loginId, password)
 
         return couponUseCase.issueCoupon(couponId, member.id!!)
-            .let { CouponV1Dto.IssuedDetailResponse.from(it) }
+            .let { CouponV1Dto.IssueRequestResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/api/v1/coupon-issue-requests/{requestId}")
+    override fun getIssueRequest(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") password: String,
+        @PathVariable requestId: Long,
+    ): ApiResponse<CouponV1Dto.IssueRequestResponse> {
+        val member = authUseCase.authenticate(loginId, password)
+
+        return couponUseCase.getIssueRequest(requestId, member.id!!)
+            .let { CouponV1Dto.IssueRequestResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 

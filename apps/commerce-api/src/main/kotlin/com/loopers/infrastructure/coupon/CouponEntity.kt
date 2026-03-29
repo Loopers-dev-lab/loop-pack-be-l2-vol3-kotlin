@@ -32,6 +32,12 @@ class CouponEntity(
     @Column(name = "expired_at", nullable = false)
     var expiredAt: ZonedDateTime,
 
+    @Column(name = "issue_limit")
+    var issueLimit: Long? = null,
+
+    @Column(name = "issued_count", nullable = false)
+    var issuedCount: Long = 0L,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: ZonedDateTime? = null,
 

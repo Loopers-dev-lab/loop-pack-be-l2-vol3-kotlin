@@ -1,13 +1,22 @@
 package com.loopers.application.product
 
+import com.loopers.application.event.OutboxEventWriter
+import com.loopers.application.event.UserActionLogEvent
+import com.loopers.application.event.UserActionType
 import com.loopers.domain.brand.BrandReader
 import com.loopers.domain.product.ProductChanger
 import com.loopers.domain.product.ProductReader
 import com.loopers.domain.product.ProductRegister
 import com.loopers.domain.product.ProductRemover
 import com.loopers.domain.product.ProductSortType
+import com.loopers.kafka.IntegrationEvent
+import com.loopers.kafka.KafkaTopics
+import com.loopers.kafka.ProductViewedPayload
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.ZonedDateTime
+import java.util.UUID
+import org.springframework.context.ApplicationEventPublisher
 
 @Component
 class ProductUseCase(
@@ -17,6 +26,8 @@ class ProductUseCase(
     private val productRemover: ProductRemover,
     private val brandReader: BrandReader,
     private val productCacheStore: ProductCacheStore,
+    private val applicationEventPublisher: ApplicationEventPublisher,
+    private val outboxEventWriter: OutboxEventWriter,
 ) {
 
     @Transactional
@@ -34,13 +45,39 @@ class ProductUseCase(
         return ProductInfo.Detail.from(product, brand)
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     fun getById(id: Long): ProductInfo.Detail {
-        return productCacheStore.getDetail(id) {
+        val detail = productCacheStore.getDetail(id) {
             val product = productReader.getById(id)
             val brand = brandReader.getById(product.brandId)
             ProductInfo.Detail.from(product, brand)
         }
+        val occurredAt = ZonedDateTime.now()
+        applicationEventPublisher.publishEvent(
+            UserActionLogEvent(
+                actionType = UserActionType.PRODUCT_VIEWED,
+                memberId = null,
+                targetType = "product",
+                targetId = id.toString(),
+            ),
+        )
+        outboxEventWriter.append(
+            topic = KafkaTopics.CATALOG_EVENTS,
+            event = IntegrationEvent(
+                eventId = "catalog-product-viewed:${UUID.randomUUID()}",
+                eventType = "ProductViewed",
+                aggregateType = "product",
+                aggregateId = id.toString(),
+                key = id.toString(),
+                version = occurredAt.toInstant().toEpochMilli(),
+                occurredAt = occurredAt,
+                payload = ProductViewedPayload(
+                    productId = id,
+                    memberId = null,
+                ),
+            ),
+        )
+        return detail
     }
 
     @Transactional(readOnly = true)

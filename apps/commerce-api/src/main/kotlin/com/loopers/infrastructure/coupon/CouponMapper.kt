@@ -4,6 +4,7 @@ import com.loopers.domain.coupon.Coupon
 import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.coupon.vo.CouponName
 import com.loopers.domain.coupon.vo.DiscountValue
+import com.loopers.domain.coupon.vo.IssueLimit
 import com.loopers.domain.coupon.vo.MinOrderAmount
 import org.springframework.stereotype.Component
 
@@ -18,6 +19,8 @@ class CouponMapper {
             discountValue = DiscountValue(entity.discountValue),
             minOrderAmount = MinOrderAmount(entity.minOrderAmount),
             expiredAt = entity.expiredAt,
+            issueLimit = IssueLimit(entity.issueLimit),
+            issuedCount = entity.issuedCount,
         )
     }
 
@@ -28,6 +31,8 @@ class CouponMapper {
             discountValue = domain.discountValue.value,
             minOrderAmount = domain.minOrderAmount.value,
             expiredAt = domain.expiredAt,
+            issueLimit = domain.issueLimit.value,
+            issuedCount = domain.issuedCount,
         )
     }
 
@@ -37,5 +42,6 @@ class CouponMapper {
         entity.discountValue = domain.discountValue.value
         entity.minOrderAmount = domain.minOrderAmount.value
         entity.expiredAt = domain.expiredAt
+        entity.issueLimit = domain.issueLimit.value
     }
 }

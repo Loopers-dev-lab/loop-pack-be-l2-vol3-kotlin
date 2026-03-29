@@ -1,34 +1,71 @@
 package com.loopers.application.like
 
-import com.loopers.application.product.ProductCacheStore
+import com.loopers.application.event.OutboxEventWriter
+import com.loopers.application.event.ProductLikeChangedEvent
+import com.loopers.application.event.UserActionLogEvent
+import com.loopers.application.event.UserActionType
 import com.loopers.domain.brand.BrandReader
 import com.loopers.domain.like.LikeReader
 import com.loopers.domain.like.LikeRegister
 import com.loopers.domain.like.LikeRemover
-import com.loopers.domain.product.ProductLikeCountUpdater
 import com.loopers.domain.product.ProductReader
+import com.loopers.kafka.IntegrationEvent
+import com.loopers.kafka.KafkaTopics
+import com.loopers.kafka.ProductLikedPayload
+import com.loopers.kafka.ProductUnlikedPayload
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.ZonedDateTime
 
 @Component
 class LikeUseCase(
     private val likeRegister: LikeRegister,
     private val likeRemover: LikeRemover,
     private val likeReader: LikeReader,
-    private val productLikeCountUpdater: ProductLikeCountUpdater,
     private val productReader: ProductReader,
     private val brandReader: BrandReader,
-    private val productCacheStore: ProductCacheStore,
+    private val applicationEventPublisher: ApplicationEventPublisher,
+    private val outboxEventWriter: OutboxEventWriter,
 ) {
 
     @Transactional
     fun register(memberId: Long, productId: Long): LikeInfo.Registered {
         val product = productReader.getSellingById(productId)
         val like = likeRegister.register(memberId, productId)
-        productLikeCountUpdater.increase(productId)
-        productCacheStore.evictDetail(productId)
-        productCacheStore.evictList()
-        productCacheStore.evictList(product.brandId)
+        applicationEventPublisher.publishEvent(
+            ProductLikeChangedEvent(
+                productId = productId,
+                brandId = product.brandId,
+                delta = 1L,
+            ),
+        )
+        applicationEventPublisher.publishEvent(
+            UserActionLogEvent(
+                actionType = UserActionType.PRODUCT_LIKED,
+                memberId = memberId,
+                targetType = "product",
+                targetId = productId.toString(),
+                details = mapOf("likeId" to like.id),
+            ),
+        )
+        outboxEventWriter.append(
+            topic = KafkaTopics.CATALOG_EVENTS,
+            event = IntegrationEvent(
+                eventId = "catalog-like-added:${requireNotNull(like.id)}",
+                eventType = "ProductLiked",
+                aggregateType = "product",
+                aggregateId = productId.toString(),
+                key = productId.toString(),
+                version = 1L,
+                occurredAt = ZonedDateTime.now(),
+                payload = ProductLikedPayload(
+                    likeId = like.id,
+                    productId = productId,
+                    memberId = memberId,
+                ),
+            ),
+        )
         return LikeInfo.Registered.from(like)
     }
 
@@ -36,10 +73,39 @@ class LikeUseCase(
     fun remove(likeId: Long, memberId: Long) {
         val like = likeRemover.remove(likeId, memberId)
         val product = productReader.getById(like.productId)
-        productLikeCountUpdater.decrease(like.productId)
-        productCacheStore.evictDetail(like.productId)
-        productCacheStore.evictList()
-        productCacheStore.evictList(product.brandId)
+        applicationEventPublisher.publishEvent(
+            ProductLikeChangedEvent(
+                productId = like.productId,
+                brandId = product.brandId,
+                delta = -1L,
+            ),
+        )
+        applicationEventPublisher.publishEvent(
+            UserActionLogEvent(
+                actionType = UserActionType.PRODUCT_UNLIKED,
+                memberId = memberId,
+                targetType = "product",
+                targetId = like.productId.toString(),
+                details = mapOf("likeId" to like.id),
+            ),
+        )
+        outboxEventWriter.append(
+            topic = KafkaTopics.CATALOG_EVENTS,
+            event = IntegrationEvent(
+                eventId = "catalog-like-removed:${requireNotNull(like.id)}",
+                eventType = "ProductUnliked",
+                aggregateType = "product",
+                aggregateId = like.productId.toString(),
+                key = like.productId.toString(),
+                version = 1L,
+                occurredAt = ZonedDateTime.now(),
+                payload = ProductUnlikedPayload(
+                    likeId = requireNotNull(like.id),
+                    productId = like.productId,
+                    memberId = memberId,
+                ),
+            ),
+        )
     }
 
     @Transactional(readOnly = true)

@@ -27,6 +27,7 @@ import com.loopers.domain.product.vo.ProductDescription
 import com.loopers.domain.product.vo.ProductName
 import com.loopers.domain.product.vo.ProductPrice
 import com.loopers.domain.product.vo.Stock
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.data.domain.Page
@@ -156,6 +157,7 @@ class OrderUseCaseTest {
                 issuedCouponReader = IssuedCouponReader(issuedCouponStore),
                 issuedCouponRepository = issuedCouponStore,
             ),
+            applicationEventPublisher = mockk(relaxed = true),
         )
 
         return Fixture(useCase, issuedCouponStore, productStore)
@@ -201,7 +203,6 @@ class OrderUseCaseTest {
         override fun findById(id: Long): Order? = orders[id]
 
         override fun findByIdForUpdate(id: Long): Order? = findById(id)
-
         override fun findAllByMemberId(memberId: Long): List<Order> =
             orders.values.filter { it.memberId == memberId }
     }
@@ -260,6 +261,7 @@ class OrderUseCaseTest {
         override fun findAll(pageable: org.springframework.data.domain.Pageable): Page<Coupon> =
             PageImpl(listOf(coupon))
 
+        override fun tryIncreaseIssuedCount(id: Long): Int = 1
         override fun deleteById(id: Long) = Unit
     }
 

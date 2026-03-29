@@ -32,6 +32,10 @@ class CouponRepositoryImpl(
         return couponJpaRepository.findAll(pageable).map { couponMapper.toDomain(it) }
     }
 
+    override fun tryIncreaseIssuedCount(id: Long): Int {
+        return couponJpaRepository.tryIncreaseIssuedCount(id)
+    }
+
     override fun deleteById(id: Long) {
         couponJpaRepository.deleteById(id)
     }
