@@ -66,7 +66,7 @@ class OrderEventProcessorTest {
             processor.process(envelope)
 
             // assert
-            verify(productMetricsRepository, never()).incrementSalesCount(any(), any(), any())
+            verify(productMetricsRepository, never()).incrementSalesCount(any(), any())
         }
     }
 
@@ -86,8 +86,8 @@ class OrderEventProcessorTest {
             processor.process(envelope)
 
             // assert
-            verify(productMetricsRepository).incrementSalesCount(100L, 2, envelope.version)
-            verify(productMetricsRepository).incrementSalesCount(200L, 3, envelope.version)
+            verify(productMetricsRepository).incrementSalesCount(100L, 2)
+            verify(productMetricsRepository).incrementSalesCount(200L, 3)
         }
 
         @DisplayName("처리 완료 후 EventHandled 삽입과 EventLog를 저장한다.")
@@ -117,6 +117,6 @@ class OrderEventProcessorTest {
         processor.process(envelope)
 
         // assert
-        verify(productMetricsRepository, never()).incrementSalesCount(any(), any(), any())
+        verify(productMetricsRepository, never()).incrementSalesCount(any(), any())
     }
 }

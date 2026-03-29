@@ -21,8 +21,8 @@ class ProductMetricsRepositoryImpl(
         productMetricsJpaRepository.decrementLikeCount(productId, version)
     }
 
-    override fun incrementSalesCount(productId: Long, quantity: Int, version: Long) {
-        productMetricsJpaRepository.incrementSalesCount(productId, quantity, version)
+    override fun incrementSalesCount(productId: Long, quantity: Int) {
+        productMetricsJpaRepository.incrementSalesCount(productId, quantity)
     }
 
     override fun incrementViewCount(productId: Long, version: Long) {

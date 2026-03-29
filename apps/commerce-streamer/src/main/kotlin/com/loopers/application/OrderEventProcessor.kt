@@ -36,7 +36,7 @@ class OrderEventProcessor(
             EventTypes.ORDER_COMPLETED -> {
                 val payload = objectMapper.readValue(envelope.payload, OrderCompletedPayload::class.java)
                 payload.items.forEach { item ->
-                    productMetricsRepository.incrementSalesCount(item.productId, item.quantity, envelope.version)
+                    productMetricsRepository.incrementSalesCount(item.productId, item.quantity)
                 }
             }
             else -> log.warn("[Order] 알 수 없는 이벤트 타입: {}", envelope.eventType)

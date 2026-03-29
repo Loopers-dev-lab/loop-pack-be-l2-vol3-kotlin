@@ -39,15 +39,14 @@ interface ProductMetricsJpaRepository : JpaRepository<ProductMetrics, Long> {
     @Query(
         """
         INSERT INTO product_metrics (product_id, like_count, sales_count, view_count, version, updated_at)
-        VALUES (:productId, 0, :quantity, 0, :version, NOW())
+        VALUES (:productId, 0, :quantity, 0, 0, NOW())
         ON DUPLICATE KEY UPDATE
             sales_count = sales_count + :quantity,
-            version = :version,
             updated_at = NOW()
         """,
         nativeQuery = true,
     )
-    fun incrementSalesCount(productId: Long, quantity: Int, version: Long)
+    fun incrementSalesCount(productId: Long, quantity: Int)
 
     @Modifying
     @Query(
