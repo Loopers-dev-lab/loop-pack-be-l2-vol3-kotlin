@@ -211,7 +211,7 @@ class CouponIssueFacadeIntegrationTest @Autowired constructor(
             val successCount = AtomicInteger(0)
 
             // when
-            for (userId in 1L..totalRequests) {
+            for (userId in 1L..totalRequests.toLong()) {
                 executor.submit {
                     try {
                         couponIssueFacade.issueAsync(coupon.id, userId)

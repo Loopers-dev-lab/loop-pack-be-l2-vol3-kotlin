@@ -116,7 +116,7 @@ class CouponIssueRepositoryImplTest @Autowired constructor(
             val successCount = AtomicLong(0)
 
             // when
-            for (userId in 1L..totalRequests) {
+            for (userId in 1L..totalRequests.toLong()) {
                 executor.submit {
                     try {
                         val result = couponIssueRepository.tryIssue(couponId, userId, maxQuantity)

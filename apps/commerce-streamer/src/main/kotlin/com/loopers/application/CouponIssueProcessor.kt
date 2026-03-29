@@ -33,9 +33,20 @@ class CouponIssueProcessor(
             return
         }
 
-        val payload = objectMapper.readValue(envelope.payload, CouponIssueRequestPayload::class.java)
+        val payload = try {
+            objectMapper.readValue(envelope.payload, CouponIssueRequestPayload::class.java)
+        } catch (e: Exception) {
+            log.error("[CouponIssue] 페이로드 파싱 실패: eventId={}, payload={}", envelope.eventId, envelope.payload, e)
+            eventHandledRepository.save(EventHandled(envelope.eventId))
+            return
+        }
+
         val issueRequest = couponIssueRequestJpaRepository.findByRequestId(payload.requestId)
-            ?: throw IllegalStateException("발급 요청을 찾을 수 없습니다. requestId=${payload.requestId}")
+        if (issueRequest == null) {
+            log.error("[CouponIssue] 발급 요청을 찾을 수 없습니다: eventId={}, requestId={}", envelope.eventId, payload.requestId)
+            eventHandledRepository.save(EventHandled(envelope.eventId))
+            return
+        }
 
         try {
             if (issuedCouponJpaRepository.existsByCouponIdAndUserId(payload.couponId, payload.userId)) {
