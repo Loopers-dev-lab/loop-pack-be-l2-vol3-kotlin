@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.coupon
 
+import com.loopers.application.coupon.CouponIssueRequestResult
 import com.loopers.application.coupon.CouponIssueResult
 import com.loopers.application.coupon.MyCouponResult
 import java.time.ZonedDateTime
@@ -47,6 +48,26 @@ class CouponV1Dto {
                     expiredAt = result.expiredAt,
                     usedAt = result.usedAt,
                     issuedAt = result.issuedAt,
+                )
+            }
+        }
+    }
+
+    data class CouponIssueRequestResponse(
+        val requestId: String,
+        val couponId: Long,
+        val status: String,
+        val failureReason: String?,
+        val createdAt: ZonedDateTime,
+    ) {
+        companion object {
+            fun from(result: CouponIssueRequestResult): CouponIssueRequestResponse {
+                return CouponIssueRequestResponse(
+                    requestId = result.requestId,
+                    couponId = result.couponId,
+                    status = result.status,
+                    failureReason = result.failureReason,
+                    createdAt = result.createdAt,
                 )
             }
         }

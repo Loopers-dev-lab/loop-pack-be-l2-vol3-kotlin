@@ -32,4 +32,24 @@ class CouponV1Controller(
             .map { CouponV1Dto.MyCouponResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
+
+    @PostMapping("/api/v1/coupons/{couponId}/issue-request")
+    override fun requestCouponIssue(
+        @CurrentUser loginUser: LoginUser,
+        @PathVariable couponId: Long,
+    ): ApiResponse<CouponV1Dto.CouponIssueRequestResponse> {
+        return couponFacade.requestCouponIssue(couponId, loginUser.id)
+            .let { CouponV1Dto.CouponIssueRequestResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/api/v1/coupons/issue-request/{requestId}")
+    override fun getIssueRequestStatus(
+        @CurrentUser loginUser: LoginUser,
+        @PathVariable requestId: String,
+    ): ApiResponse<CouponV1Dto.CouponIssueRequestResponse> {
+        return couponFacade.getIssueRequestStatus(requestId)
+            .let { CouponV1Dto.CouponIssueRequestResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
 }

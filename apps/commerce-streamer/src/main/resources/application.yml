@@ -1,4 +1,5 @@
 server:
+  port: 8083
   shutdown: graceful
   tomcat:
     threads:
@@ -33,7 +34,23 @@ demo-kafka:
 spring:
   config:
     activate:
-      on-profile: local, test
+      on-profile: local
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+management:
+  server:
+    port: 8084
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  jpa:
+    hibernate:
+      ddl-auto: create
 
 ---
 spring:

@@ -3,6 +3,8 @@ package com.loopers.application.product
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.cache.CacheNames
 import com.loopers.domain.cache.Cached
+import com.loopers.domain.event.ActionType
+import com.loopers.domain.event.UserActionEvent
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.Product
@@ -10,6 +12,8 @@ import com.loopers.domain.product.ProductInfo
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.ProductStatus
 import com.loopers.domain.product.UpdateProductCommand
+import com.loopers.domain.event.DomainEventPublisher
+import com.loopers.domain.product.event.ProductEvent
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -20,11 +24,25 @@ class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val likeService: LikeService,
+    private val domainEventPublisher: DomainEventPublisher,
 ) {
 
-    fun getProduct(productId: Long): ProductResult {
+    fun getProduct(productId: Long, userId: Long? = null): ProductResult {
         val productInfo = productService.getProductInfo(productId)
         val brandInfo = brandService.getBrandInfo(productInfo.brandId)
+
+        domainEventPublisher.publish(
+            UserActionEvent(
+                aggregateId = productId,
+                userId = userId ?: 0L,
+                actionType = ActionType.VIEW,
+                targetId = productId,
+            ),
+        )
+        domainEventPublisher.publish(
+            ProductEvent.Viewed(aggregateId = productId, userId = userId ?: 0L),
+        )
+
         return ProductResult.from(productInfo, brandInfo.name)
     }
 
