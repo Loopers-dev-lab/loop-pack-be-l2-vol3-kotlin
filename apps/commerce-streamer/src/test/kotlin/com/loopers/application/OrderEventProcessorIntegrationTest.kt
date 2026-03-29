@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 
 @SpringBootTest
 class OrderEventProcessorIntegrationTest @Autowired constructor(
@@ -54,6 +56,40 @@ class OrderEventProcessorIntegrationTest @Autowired constructor(
             // act
             orderEventProcessor.process(envelope)
             orderEventProcessor.process(envelope)
+
+            // assert
+            val metrics = productMetricsRepository.findByProductId(100L)
+            assertThat(metrics).isNotNull
+            assertThat(metrics!!.salesCount).isEqualTo(2) // quantity=2, 1회만 처리
+        }
+    }
+
+    @DisplayName("동시성 멱등성 테스트:")
+    @Nested
+    inner class ConcurrentIdempotency {
+
+        @DisplayName("같은 eventId를 여러 스레드에서 동시에 처리하면, salesCount는 1회분만 증가한다.")
+        @Test
+        fun processesOnlyOnceUnderConcurrency() {
+            // arrange
+            val envelope = createEnvelope(eventId = "evt-concurrent", version = 1L)
+            val threadCount = 10
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val latch = CountDownLatch(threadCount)
+
+            // act
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        orderEventProcessor.process(envelope)
+                    } catch (_: Exception) {
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
 
             // assert
             val metrics = productMetricsRepository.findByProductId(100L)

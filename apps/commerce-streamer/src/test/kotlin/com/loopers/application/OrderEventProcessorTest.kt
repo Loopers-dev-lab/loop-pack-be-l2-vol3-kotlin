@@ -1,7 +1,6 @@
 package com.loopers.application
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.loopers.domain.event.EventHandled
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.EventEnvelope
 import com.loopers.infrastructure.event.EventHandledJpaRepository
@@ -61,7 +60,7 @@ class OrderEventProcessorTest {
         fun skipsAlreadyHandledEvent() {
             // arrange
             val envelope = createEnvelope(eventId = "evt-duplicate")
-            whenever(eventHandledRepository.existsById("evt-duplicate")).thenReturn(true)
+            whenever(eventHandledRepository.insertIgnore("evt-duplicate")).thenReturn(0)
 
             // act
             processor.process(envelope)
@@ -81,7 +80,7 @@ class OrderEventProcessorTest {
             // arrange
             val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A"},{"productId":200,"quantity":3,"productName":"상품B"}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
             val envelope = createEnvelope(eventId = "evt-order-1", payload = payload)
-            whenever(eventHandledRepository.existsById(any())).thenReturn(false)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
 
             // act
             processor.process(envelope)
@@ -91,18 +90,18 @@ class OrderEventProcessorTest {
             verify(productMetricsRepository).incrementSalesCount(200L, 3, envelope.version)
         }
 
-        @DisplayName("처리 완료 후 EventHandled와 EventLog를 저장한다.")
+        @DisplayName("처리 완료 후 EventHandled 삽입과 EventLog를 저장한다.")
         @Test
         fun savesEventHandledAndEventLog() {
             // arrange
             val envelope = createEnvelope(eventId = "evt-order-2")
-            whenever(eventHandledRepository.existsById(any())).thenReturn(false)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
 
             // act
             processor.process(envelope)
 
             // assert
-            verify(eventHandledRepository).save(any<EventHandled>())
+            verify(eventHandledRepository).insertIgnore("evt-order-2")
             verify(eventLogRepository).save(any())
         }
     }
@@ -112,7 +111,7 @@ class OrderEventProcessorTest {
     fun skipsUnknownEventType() {
         // arrange
         val envelope = createEnvelope(eventId = "evt-unknown", eventType = "UNKNOWN_TYPE")
-        whenever(eventHandledRepository.existsById(any())).thenReturn(false)
+        whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
 
         // act
         processor.process(envelope)

@@ -1,7 +1,6 @@
 package com.loopers.application
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.loopers.domain.event.EventHandled
 import com.loopers.domain.event.EventLog
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.AggregateTypes
@@ -26,8 +25,8 @@ class OrderEventProcessor(
 
     @Transactional
     fun process(envelope: EventEnvelope) {
-        // 1. 멱등성 체크
-        if (eventHandledRepository.existsById(envelope.eventId)) {
+        // 1. 멱등성 체크 — INSERT IGNORE로 원자적 보장
+        if (eventHandledRepository.insertIgnore(envelope.eventId) == 0) {
             log.debug("[Order] 이미 처리된 이벤트 스킵: eventId={}", envelope.eventId)
             return
         }
@@ -45,6 +44,5 @@ class OrderEventProcessor(
 
         // 3. 처리 완료 기록
         eventLogRepository.save(EventLog.success(envelope, AggregateTypes.ORDER))
-        eventHandledRepository.save(EventHandled(envelope.eventId))
     }
 }

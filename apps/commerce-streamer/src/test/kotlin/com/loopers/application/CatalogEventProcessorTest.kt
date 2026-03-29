@@ -56,7 +56,7 @@ class CatalogEventProcessorTest {
         fun skipsAlreadyHandledEvent() {
             // arrange
             val envelope = createEnvelope(eventId = "evt-duplicate")
-            whenever(eventHandledRepository.existsById("evt-duplicate")).thenReturn(true)
+            whenever(eventHandledRepository.insertIgnore("evt-duplicate")).thenReturn(0)
 
             // act
             processor.process(envelope)
@@ -75,7 +75,7 @@ class CatalogEventProcessorTest {
         fun skipsOlderVersionEvent() {
             // arrange
             val envelope = createEnvelope(version = 5L)
-            whenever(eventHandledRepository.existsById(any())).thenReturn(false)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
             whenever(productMetricsRepository.getVersion(100L)).thenReturn(10L)
 
             // act
@@ -90,7 +90,7 @@ class CatalogEventProcessorTest {
         fun processesNewerVersionEvent() {
             // arrange
             val envelope = createEnvelope(version = 15L)
-            whenever(eventHandledRepository.existsById(any())).thenReturn(false)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
             whenever(productMetricsRepository.getVersion(100L)).thenReturn(10L)
 
             // act

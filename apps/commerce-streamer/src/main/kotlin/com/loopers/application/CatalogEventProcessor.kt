@@ -1,6 +1,5 @@
 package com.loopers.application
 
-import com.loopers.domain.event.EventHandled
 import com.loopers.domain.event.EventLog
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.AggregateTypes
@@ -23,8 +22,8 @@ class CatalogEventProcessor(
 
     @Transactional
     fun process(envelope: EventEnvelope) {
-        // 1. 멱등성 체크
-        if (eventHandledRepository.existsById(envelope.eventId)) {
+        // 1. 멱등성 체크 — INSERT IGNORE로 원자적 보장
+        if (eventHandledRepository.insertIgnore(envelope.eventId) == 0) {
             log.debug("[Catalog] 이미 처리된 이벤트 스킵: eventId={}", envelope.eventId)
             return
         }
@@ -39,7 +38,6 @@ class CatalogEventProcessor(
                 currentVersion,
                 envelope.version,
             )
-            eventHandledRepository.save(EventHandled(envelope.eventId))
             return
         }
 
@@ -53,6 +51,5 @@ class CatalogEventProcessor(
 
         // 4. 처리 완료 기록
         eventLogRepository.save(EventLog.success(envelope, AggregateTypes.CATALOG))
-        eventHandledRepository.save(EventHandled(envelope.eventId))
     }
 }

@@ -2,7 +2,6 @@ package com.loopers.application
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.coupon.IssuedCoupon
-import com.loopers.domain.event.EventHandled
 import com.loopers.event.EventEnvelope
 import com.loopers.event.payload.CouponIssueRequestPayload
 import com.loopers.infrastructure.coupon.CouponIssueRedisRepository
@@ -28,7 +27,8 @@ class CouponIssueProcessor(
 
     @Transactional
     fun process(envelope: EventEnvelope) {
-        if (eventHandledRepository.existsById(envelope.eventId)) {
+        // 1. 멱등성 체크 — INSERT IGNORE로 원자적 보장
+        if (eventHandledRepository.insertIgnore(envelope.eventId) == 0) {
             log.debug("[CouponIssue] 이미 처리된 이벤트 스킵: eventId={}", envelope.eventId)
             return
         }
@@ -37,14 +37,12 @@ class CouponIssueProcessor(
             objectMapper.readValue(envelope.payload, CouponIssueRequestPayload::class.java)
         } catch (e: Exception) {
             log.error("[CouponIssue] 페이로드 파싱 실패: eventId={}, payload={}", envelope.eventId, envelope.payload, e)
-            eventHandledRepository.save(EventHandled(envelope.eventId))
             return
         }
 
         val issueRequest = couponIssueRequestJpaRepository.findByRequestId(payload.requestId)
         if (issueRequest == null) {
             log.error("[CouponIssue] 발급 요청을 찾을 수 없습니다: eventId={}, requestId={}", envelope.eventId, payload.requestId)
-            eventHandledRepository.save(EventHandled(envelope.eventId))
             return
         }
 
@@ -64,7 +62,5 @@ class CouponIssueProcessor(
             issueRequest.markFailed(e.message ?: "알 수 없는 오류")
             couponIssueRedisRepository.restore(payload.couponId, payload.userId)
         }
-
-        eventHandledRepository.save(EventHandled(envelope.eventId))
     }
 }
