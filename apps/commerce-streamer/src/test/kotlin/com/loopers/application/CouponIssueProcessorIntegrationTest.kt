@@ -215,4 +215,60 @@ class CouponIssueProcessorIntegrationTest @Autowired constructor(
             assertThat(updatedRequest.failReason).contains("이미 발급된 쿠폰")
         }
     }
+
+    @DisplayName("유니크 제약 동시성 테스트:")
+    @Nested
+    inner class UniqueConstraintConcurrency {
+
+        @DisplayName("같은 couponId/userId에 대해 서로 다른 eventId로 동시 처리하면, 1건만 ISSUED되고 나머지는 FAILED된다.")
+        @Test
+        fun onlyOneIssueSucceedsUnderConcurrency() {
+            // arrange
+            val coupon = createCoupon()
+            val threadCount = 5
+            val requestIds = (1..threadCount).map { "req-race-$it" }
+            val eventIds = (1..threadCount).map { "evt-race-$it" }
+
+            requestIds.forEach { reqId ->
+                createIssueRequest(reqId, coupon.id, 1L)
+            }
+
+            val envelopes = (0 until threadCount).map { i ->
+                createEnvelope(eventIds[i], coupon.id, 1L, requestIds[i])
+            }
+
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val latch = CountDownLatch(threadCount)
+
+            // act
+            envelopes.forEach { envelope ->
+                executor.submit {
+                    try {
+                        couponIssueProcessor.process(envelope)
+                    } catch (_: Exception) {
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // assert — 유니크 제약으로 발급된 쿠폰은 정확히 1건
+            val issuedCount = issuedCouponJpaRepository.findAll().size
+            assertThat(issuedCount).isEqualTo(1)
+
+            // assert — ISSUED 상태 요청은 정확히 1건
+            val requests = requestIds.mapNotNull { couponIssueRequestJpaRepository.findByRequestId(it) }
+            val issuedRequests = requests.filter { it.status == CouponIssueStatus.ISSUED }
+            assertThat(issuedRequests).hasSize(1)
+
+            // 나머지는 FAILED(existsBy 체크 탈락) 또는 PENDING(유니크 제약 위반으로 트랜잭션 롤백)
+            val nonIssuedRequests = requests.filter { it.status != CouponIssueStatus.ISSUED }
+            assertThat(nonIssuedRequests).hasSize(threadCount - 1)
+            nonIssuedRequests.forEach {
+                assertThat(it.status).isIn(CouponIssueStatus.FAILED, CouponIssueStatus.PENDING)
+            }
+        }
+    }
 }
