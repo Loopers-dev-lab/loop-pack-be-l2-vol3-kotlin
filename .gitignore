@@ -38,3 +38,10 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Local Development ###
+docs/
+study/
+round7/
+.claude/
+.sisyphus/
