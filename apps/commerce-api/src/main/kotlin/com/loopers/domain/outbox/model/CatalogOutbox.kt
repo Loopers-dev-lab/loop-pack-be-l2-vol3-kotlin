@@ -18,6 +18,12 @@ class CatalogOutbox(
     var published: Boolean = published
         private set
 
+    enum class CatalogOutboxEventType {
+        LIKE_ADDED,
+        LIKE_REMOVED,
+        PRODUCT_VIEWED,
+    }
+
     init {
         if (eventId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "eventId는 필수입니다.")
         if (productId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "productId는 양수여야 합니다.")

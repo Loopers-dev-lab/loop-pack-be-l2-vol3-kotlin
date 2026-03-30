@@ -3,7 +3,7 @@ package com.loopers.domain.outbox
 import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.CouponOutbox
-import com.loopers.domain.outbox.model.CouponOutboxEventType
+import com.loopers.domain.outbox.model.CouponOutbox.CouponOutboxEventType
 import com.loopers.domain.outbox.repository.CouponOutboxRepository
 import com.loopers.support.error.CoreException
 import java.util.UUID

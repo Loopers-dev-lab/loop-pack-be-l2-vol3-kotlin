@@ -4,7 +4,6 @@ import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.CatalogOutbox
-import com.loopers.domain.outbox.model.CatalogOutboxEventType
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -44,7 +43,7 @@ class CatalogOutboxEntity(
     fun toDomain(): CatalogOutbox = CatalogOutbox(
         id = id,
         eventId = eventId,
-        eventType = CatalogOutboxEventType.valueOf(eventType),
+        eventType = CatalogOutbox.CatalogOutboxEventType.valueOf(eventType),
         productId = ProductId(productId),
         userId = userId?.let { UserId(it) },
         published = published,

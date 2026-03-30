@@ -9,9 +9,9 @@ import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.outbox.FakeOrderOutboxRepository
-import com.loopers.domain.outbox.model.OrderOutboxEventType
-import com.loopers.domain.payment.FakePgClient
+import com.loopers.domain.outbox.model.OrderOutbox.OrderOutboxEventType
 import com.loopers.domain.payment.FakePaymentRepository
+import com.loopers.domain.payment.FakePgClient
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.domain.payment.model.CardType
@@ -23,6 +23,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.TransactionStatus
+import org.springframework.transaction.support.DefaultTransactionStatus
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
@@ -40,9 +44,9 @@ class RecoverPaymentUseCaseTest {
     // afterCommit 콜백 내부의 새 트랜잭션 실행을 즉시 처리하는 TransactionTemplate stub
     private val immediateTxTemplate = TransactionTemplate().apply {
         setTransactionManager(
-            object : org.springframework.transaction.PlatformTransactionManager {
-                override fun getTransaction(definition: org.springframework.transaction.TransactionDefinition?) =
-                    org.springframework.transaction.support.DefaultTransactionStatus(
+            object : PlatformTransactionManager {
+                override fun getTransaction(definition: TransactionDefinition?) =
+                    DefaultTransactionStatus(
                         "test-tx",
                         null,
                         true,
@@ -53,8 +57,13 @@ class RecoverPaymentUseCaseTest {
                         null,
                     )
 
-                override fun commit(status: org.springframework.transaction.TransactionStatus) { /* no-op: 테스트용 stub */ }
-                override fun rollback(status: org.springframework.transaction.TransactionStatus) { /* no-op: 테스트용 stub */ }
+                override fun commit(status: TransactionStatus) {
+                    /* no-op: 테스트용 stub */
+                }
+
+                override fun rollback(status: TransactionStatus) {
+                    /* no-op: 테스트용 stub */
+                }
             },
         )
     }

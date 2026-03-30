@@ -7,7 +7,6 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.outbox.model.OrderOutbox
-import com.loopers.domain.outbox.model.OrderOutboxEventType
 import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
@@ -51,7 +50,7 @@ class HandlePaymentCallbackUseCase(
             orderOutboxRepository.saveAll(
                 orderItems.map { item ->
                     OrderOutbox(
-                        eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
+                        eventType = OrderOutbox.OrderOutboxEventType.PAYMENT_COMPLETED,
                         orderId = OrderId(command.orderId),
                         userId = UserId(order.refUserId.value),
                         totalAmount = Money(payment.amount.toBigDecimal()),
@@ -68,7 +67,7 @@ class HandlePaymentCallbackUseCase(
             orderRepository.save(order)
             orderOutboxRepository.save(
                 OrderOutbox(
-                    eventType = OrderOutboxEventType.PAYMENT_FAILED,
+                    eventType = OrderOutbox.OrderOutboxEventType.PAYMENT_FAILED,
                     orderId = OrderId(command.orderId),
                     userId = UserId(order.refUserId.value),
                     reason = reason,

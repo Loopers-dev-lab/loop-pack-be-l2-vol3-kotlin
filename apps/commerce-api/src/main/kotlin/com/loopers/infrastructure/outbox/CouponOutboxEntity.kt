@@ -4,7 +4,6 @@ import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.CouponOutbox
-import com.loopers.domain.outbox.model.CouponOutboxEventType
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -44,7 +43,7 @@ class CouponOutboxEntity(
     fun toDomain(): CouponOutbox = CouponOutbox(
         id = id,
         eventId = eventId,
-        eventType = CouponOutboxEventType.valueOf(eventType),
+        eventType = CouponOutbox.CouponOutboxEventType.valueOf(eventType),
         couponId = CouponId(couponId),
         userId = UserId(userId),
         published = published,

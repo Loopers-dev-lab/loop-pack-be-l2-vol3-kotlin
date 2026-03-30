@@ -11,11 +11,11 @@ import com.loopers.domain.outbox.FakeCatalogOutboxRepository
 import com.loopers.domain.outbox.FakeCouponOutboxRepository
 import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.outbox.model.CatalogOutbox
-import com.loopers.domain.outbox.model.CatalogOutboxEventType
+import com.loopers.domain.outbox.model.CatalogOutbox.CatalogOutboxEventType
 import com.loopers.domain.outbox.model.CouponOutbox
-import com.loopers.domain.outbox.model.CouponOutboxEventType
+import com.loopers.domain.outbox.model.CouponOutbox.CouponOutboxEventType
 import com.loopers.domain.outbox.model.OrderOutbox
-import com.loopers.domain.outbox.model.OrderOutboxEventType
+import com.loopers.domain.outbox.model.OrderOutbox.OrderOutboxEventType
 import com.loopers.domain.outbox.repository.CatalogOutboxRepository
 import com.loopers.domain.outbox.repository.CouponOutboxRepository
 import com.loopers.domain.outbox.repository.OrderOutboxRepository

@@ -6,7 +6,6 @@ import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.OrderOutbox
-import com.loopers.domain.outbox.model.OrderOutboxEventType
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -58,7 +57,7 @@ class OrderOutboxEntity(
     fun toDomain(): OrderOutbox = OrderOutbox(
         id = id,
         eventId = eventId,
-        eventType = OrderOutboxEventType.valueOf(eventType),
+        eventType = OrderOutbox.OrderOutboxEventType.valueOf(eventType),
         orderId = OrderId(orderId),
         userId = UserId(userId),
         totalAmount = totalAmount?.let { Money(it.toBigDecimal()) },

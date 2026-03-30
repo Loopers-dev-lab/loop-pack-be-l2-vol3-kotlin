@@ -5,7 +5,6 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.CouponIssueRequest
 import com.loopers.domain.coupon.repository.CouponIssueRequestRepository
 import com.loopers.domain.outbox.model.CouponOutbox
-import com.loopers.domain.outbox.model.CouponOutboxEventType
 import com.loopers.domain.outbox.repository.CouponOutboxRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -30,7 +29,7 @@ class RequestCouponIssueUseCase(
 
         val outbox = CouponOutbox(
             eventId = requestId,
-            eventType = CouponOutboxEventType.COUPON_ISSUE_REQUESTED,
+            eventType = CouponOutbox.CouponOutboxEventType.COUPON_ISSUE_REQUESTED,
             couponId = CouponId(couponId),
             userId = UserId(userId),
         )

@@ -17,6 +17,10 @@ class CouponOutbox(
     var published: Boolean = published
         private set
 
+    enum class CouponOutboxEventType {
+        COUPON_ISSUE_REQUESTED,
+    }
+
     init {
         if (eventId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "eventId는 필수입니다.")
         if (couponId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "couponId는 양수여야 합니다.")

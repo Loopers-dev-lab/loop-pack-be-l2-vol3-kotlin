@@ -24,6 +24,11 @@ class OrderOutbox(
     var published: Boolean = published
         private set
 
+    enum class OrderOutboxEventType {
+        PAYMENT_COMPLETED,
+        PAYMENT_FAILED,
+    }
+
     init {
         if (orderId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "orderId는 양수여야 합니다.")
         if (userId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")

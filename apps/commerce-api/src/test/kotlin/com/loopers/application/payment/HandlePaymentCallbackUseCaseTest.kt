@@ -10,7 +10,6 @@ import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.outbox.model.OrderOutbox
-import com.loopers.domain.outbox.model.OrderOutboxEventType
 import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.payment.model.CardType
 import com.loopers.domain.payment.model.Payment
@@ -115,7 +114,7 @@ class HandlePaymentCallbackUseCaseTest {
             // assert
             val outboxList = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxList).hasSize(1)
-            assertThat(outboxList[0].eventType).isEqualTo(OrderOutboxEventType.PAYMENT_COMPLETED)
+            assertThat(outboxList[0].eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_COMPLETED)
             assertThat(outboxList[0].orderId).isEqualTo(order.id)
             assertThat(outboxList[0].userId).isEqualTo(order.refUserId)
             assertThat(outboxList[0].totalAmount).isEqualTo(Money(10000L.toBigDecimal()))
@@ -215,7 +214,7 @@ class HandlePaymentCallbackUseCaseTest {
             // assert
             val outboxList = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxList).hasSize(1)
-            assertThat(outboxList[0].eventType).isEqualTo(OrderOutboxEventType.PAYMENT_FAILED)
+            assertThat(outboxList[0].eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_FAILED)
             assertThat(outboxList[0].orderId).isEqualTo(order.id)
             assertThat(outboxList[0].userId).isEqualTo(order.refUserId)
             assertThat(outboxList[0].reason).isEqualTo("잔액 부족")

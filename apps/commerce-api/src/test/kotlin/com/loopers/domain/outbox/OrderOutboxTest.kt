@@ -5,7 +5,7 @@ import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.OrderOutbox
-import com.loopers.domain.outbox.model.OrderOutboxEventType
+import com.loopers.domain.outbox.model.OrderOutbox.OrderOutboxEventType
 import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import com.loopers.support.error.CoreException
 import org.assertj.core.api.Assertions.assertThat

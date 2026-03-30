@@ -4,7 +4,7 @@ import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.FakeCouponIssueRequestRepository
 import com.loopers.domain.outbox.FakeCouponOutboxRepository
-import com.loopers.domain.outbox.model.CouponOutboxEventType
+import com.loopers.domain.outbox.model.CouponOutbox
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -51,7 +51,7 @@ class RequestCouponIssueUseCaseTest {
 
             val outbox = outboxList[0]
             assertThat(outbox.eventId).isEqualTo(result.requestId)
-            assertThat(outbox.eventType).isEqualTo(CouponOutboxEventType.COUPON_ISSUE_REQUESTED)
+            assertThat(outbox.eventType).isEqualTo(CouponOutbox.CouponOutboxEventType.COUPON_ISSUE_REQUESTED)
             assertThat(outbox.couponId).isEqualTo(CouponId(10L))
             assertThat(outbox.userId).isEqualTo(UserId(1L))
         }
