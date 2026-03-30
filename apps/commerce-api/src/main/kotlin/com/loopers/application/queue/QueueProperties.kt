@@ -1,4 +1,4 @@
-package com.loopers.interfaces.support.config
+package com.loopers.application.queue
 
 import jakarta.validation.constraints.Positive
 import org.springframework.boot.context.properties.ConfigurationProperties

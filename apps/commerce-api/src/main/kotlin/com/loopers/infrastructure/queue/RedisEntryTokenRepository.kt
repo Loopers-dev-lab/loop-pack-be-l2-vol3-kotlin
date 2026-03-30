@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.queue
 
 import com.loopers.config.redis.RedisConfig.Companion.REDIS_TEMPLATE_MASTER
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
@@ -17,9 +18,9 @@ class RedisEntryTokenRepository(
         private const val TOKEN_KEY_PREFIX = "entry-token:"
     }
 
-    private fun tokenKey(userId: Long) = "$TOKEN_KEY_PREFIX$userId"
+    private fun tokenKey(userId: UserId) = "$TOKEN_KEY_PREFIX${userId.value}"
 
-    override fun issue(userId: Long, token: String, ttlSeconds: Long) {
+    override fun issue(userId: UserId, token: String, ttlSeconds: Long) {
         redisTemplate.opsForValue().set(
             tokenKey(userId),
             token,
@@ -27,11 +28,11 @@ class RedisEntryTokenRepository(
         )
     }
 
-    override fun find(userId: Long): String? {
+    override fun find(userId: UserId): String? {
         return redisTemplate.opsForValue().get(tokenKey(userId))
     }
 
-    override fun delete(userId: Long) {
+    override fun delete(userId: UserId) {
         redisTemplate.delete(tokenKey(userId))
     }
 }

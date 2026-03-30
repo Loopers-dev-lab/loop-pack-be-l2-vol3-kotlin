@@ -1,0 +1,33 @@
+package com.loopers.application.queue
+
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.repository.EntryTokenRepository
+import com.loopers.domain.queue.waiting.model.QueuePosition
+import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import org.springframework.stereotype.Component
+
+@Component
+class GetQueuePositionUseCase(
+    private val waitingQueueRepository: WaitingQueueRepository,
+    private val entryTokenRepository: EntryTokenRepository,
+    private val queueProperties: QueueProperties,
+) {
+
+    fun execute(userId: Long): QueuePositionInfo {
+        // 1. 토큰 보유 여부 확인 (대기열에서 이미 빠진 유저일 수 있음)
+        val token = entryTokenRepository.find(UserId(userId))
+        if (token != null) {
+            return QueuePositionInfo(position = 0, estimatedWaitSeconds = 0, token = token)
+        }
+
+        // 2. 순번 조회 — 없으면 404
+        val position = waitingQueueRepository.findPosition(userId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "대기열에 등록되지 않은 사용자입니다.")
+
+        // 3. 순번 + 예상 대기 시간 반환
+        val queuePosition = QueuePosition.of(position, queueProperties.throughputTps)
+        return QueuePositionInfo.from(queuePosition)
+    }
+}
