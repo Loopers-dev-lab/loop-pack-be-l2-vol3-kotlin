@@ -6,4 +6,6 @@ const val HEADER_LOGIN_PW = "X-Loopers-LoginPw"
 const val HEADER_LDAP = "X-Loopers-Ldap"
 const val LDAP_ADMIN_VALUE = "loopers.admin"
 
+const val HEADER_ENTRY_TOKEN = "X-Entry-Token"
+
 const val ATTRIBUTE_USER_ID = "userId"
