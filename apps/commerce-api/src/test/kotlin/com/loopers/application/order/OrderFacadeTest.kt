@@ -4,8 +4,10 @@ import com.loopers.application.payment.PaymentFacade
 import com.loopers.application.payment.PaymentInfo
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponService
+import com.loopers.domain.order.CouponReservationRepository
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.StockReservationRepository
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.ProductService
@@ -54,11 +56,20 @@ class OrderFacadeTest {
     @Mock
     private lateinit var outboxPublisher: com.loopers.application.outbox.OutboxPublisher
 
+    @Mock
+    private lateinit var stockReservationRepository: StockReservationRepository
+
+    @Mock
+    private lateinit var couponReservationRepository: CouponReservationRepository
+
     private lateinit var orderFacade: OrderFacade
 
     @BeforeEach
     fun setUp() {
-        orderFacade = OrderFacade(orderService, productService, brandService, couponService, paymentFacade, eventPublisher, outboxPublisher)
+        orderFacade = OrderFacade(
+            orderService, productService, brandService, couponService, paymentFacade,
+            eventPublisher, outboxPublisher, stockReservationRepository, couponReservationRepository,
+        )
     }
 
     @DisplayName("주문 목록을 조회할 때,")
@@ -114,7 +125,7 @@ class OrderFacadeTest {
             val order = Order(userId = 1L)
             ReflectionTestUtils.setField(order, "id", 1L)
             whenever(orderService.findByIdempotencyKey(any())).thenReturn(null)
-            whenever(productService.getProductsForOrderWithLock(any())).thenReturn(emptyList())
+            whenever(productService.getProductsByIds(any())).thenReturn(emptyList())
             whenever(brandService.getBrandsByIds(any())).thenReturn(emptyList())
             whenever(orderService.createOrder(any(), any(), any())).thenReturn(order)
             whenever(paymentFacade.requestPayment(any(), any(), any(), any(), any())).thenReturn(
@@ -149,7 +160,7 @@ class OrderFacadeTest {
             val order = Order(userId = 1L)
             ReflectionTestUtils.setField(order, "id", 100L)
             whenever(orderService.findByIdempotencyKey(any())).thenReturn(null)
-            whenever(productService.getProductsForOrderWithLock(any())).thenReturn(emptyList())
+            whenever(productService.getProductsByIds(any())).thenReturn(emptyList())
             whenever(brandService.getBrandsByIds(any())).thenReturn(emptyList())
             whenever(orderService.createOrder(any(), any(), any())).thenReturn(order)
             whenever(paymentFacade.requestPayment(any(), any(), any(), any(), any())).thenReturn(
@@ -191,7 +202,7 @@ class OrderFacadeTest {
             val order = Order(userId = 1L)
             ReflectionTestUtils.setField(order, "id", 1L)
             whenever(orderService.findByIdempotencyKey(any())).thenReturn(null)
-            whenever(productService.getProductsForOrderWithLock(any())).thenReturn(emptyList())
+            whenever(productService.getProductsByIds(any())).thenReturn(emptyList())
             whenever(brandService.getBrandsByIds(any())).thenReturn(emptyList())
             whenever(orderService.createOrder(any(), any(), any())).thenReturn(order)
             whenever(paymentFacade.requestPayment(any(), any(), any(), any(), any())).thenReturn(
@@ -228,7 +239,7 @@ class OrderFacadeTest {
             val order = Order(userId = 1L)
             ReflectionTestUtils.setField(order, "id", 1L)
             whenever(orderService.findByIdempotencyKey(any())).thenReturn(null)
-            whenever(productService.getProductsForOrderWithLock(any())).thenReturn(emptyList())
+            whenever(productService.getProductsByIds(any())).thenReturn(emptyList())
             whenever(brandService.getBrandsByIds(any())).thenReturn(emptyList())
             whenever(orderService.createOrder(any(), any(), any())).thenReturn(order)
             whenever(paymentFacade.requestPayment(any(), any(), any(), any(), any())).thenReturn(

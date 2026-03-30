@@ -7,8 +7,10 @@ import com.loopers.event.AggregateTypes
 import com.loopers.event.EventEnvelope
 import com.loopers.event.EventTypes
 import com.loopers.event.payload.OrderCompletedPayload
+import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository
 import com.loopers.infrastructure.event.EventHandledJpaRepository
 import com.loopers.infrastructure.event.EventLogJpaRepository
+import com.loopers.infrastructure.product.ProductStockJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -18,6 +20,8 @@ class OrderEventProcessor(
     private val eventHandledRepository: EventHandledJpaRepository,
     private val eventLogRepository: EventLogJpaRepository,
     private val productMetricsRepository: ProductMetricsRepository,
+    private val productStockRepository: ProductStockJpaRepository,
+    private val issuedCouponRepository: IssuedCouponJpaRepository,
     private val objectMapper: ObjectMapper,
 ) {
 
@@ -35,8 +39,14 @@ class OrderEventProcessor(
         when (envelope.eventType) {
             EventTypes.ORDER_COMPLETED -> {
                 val payload = objectMapper.readValue(envelope.payload, OrderCompletedPayload::class.java)
+
                 payload.items.forEach { item ->
+                    productStockRepository.decrementStock(item.productId, item.quantity)
                     productMetricsRepository.incrementSalesCount(item.productId, item.quantity)
+                }
+
+                payload.couponId?.let { couponId ->
+                    issuedCouponRepository.markUsed(couponId, payload.userId)
                 }
             }
             else -> log.warn("[Order] 알 수 없는 이벤트 타입: {}", envelope.eventType)
