@@ -38,9 +38,9 @@ class RemoveLikeUseCase(
         }
         catalogOutboxRepository.save(
             CatalogOutbox(
-                eventType = CatalogOutboxEventType.LIKE_REMOVED.name,
-                productId = productId,
-                userId = userId,
+                eventType = CatalogOutboxEventType.LIKE_REMOVED,
+                productId = ProductId(productId),
+                userId = UserId(userId),
             ),
         )
     }

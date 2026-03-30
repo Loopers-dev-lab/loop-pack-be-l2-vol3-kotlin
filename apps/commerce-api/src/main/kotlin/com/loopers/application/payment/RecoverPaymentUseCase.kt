@@ -1,6 +1,9 @@
 package com.loopers.application.payment
 
+import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.outbox.model.OrderOutbox
@@ -74,11 +77,11 @@ class RecoverPaymentUseCase(
                                 orderOutboxRepository.saveAll(
                                     orderItems.map { item ->
                                         OrderOutbox(
-                                            eventType = OrderOutboxEventType.PAYMENT_COMPLETED.name,
-                                            orderId = orderId,
-                                            userId = order.refUserId.value,
-                                            totalAmount = freshPayment.amount,
-                                            productId = item.refProductId.value,
+                                            eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
+                                            orderId = OrderId(orderId),
+                                            userId = UserId(order.refUserId.value),
+                                            totalAmount = Money(freshPayment.amount.toBigDecimal()),
+                                            productId = ProductId(item.refProductId.value),
                                             quantity = item.quantity.value,
                                         )
                                     },
@@ -92,9 +95,9 @@ class RecoverPaymentUseCase(
                                 orderRepository.save(order)
                                 orderOutboxRepository.save(
                                     OrderOutbox(
-                                        eventType = OrderOutboxEventType.PAYMENT_FAILED.name,
-                                        orderId = orderId,
-                                        userId = order.refUserId.value,
+                                        eventType = OrderOutboxEventType.PAYMENT_FAILED,
+                                        orderId = OrderId(orderId),
+                                        userId = UserId(order.refUserId.value),
                                         reason = reason,
                                     ),
                                 )

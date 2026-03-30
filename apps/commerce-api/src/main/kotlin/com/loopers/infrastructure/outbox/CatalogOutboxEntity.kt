@@ -1,7 +1,10 @@
 package com.loopers.infrastructure.outbox
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.CatalogOutbox
+import com.loopers.domain.outbox.model.CatalogOutboxEventType
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -30,9 +33,9 @@ class CatalogOutboxEntity(
         fun fromDomain(outbox: CatalogOutbox): CatalogOutboxEntity {
             return CatalogOutboxEntity(
                 eventId = outbox.eventId,
-                eventType = outbox.eventType,
-                productId = outbox.productId,
-                userId = outbox.userId,
+                eventType = outbox.eventType.name,
+                productId = outbox.productId.value,
+                userId = outbox.userId?.value,
                 published = outbox.published,
             ).withBaseFields(id = outbox.id)
         }
@@ -41,9 +44,9 @@ class CatalogOutboxEntity(
     fun toDomain(): CatalogOutbox = CatalogOutbox(
         id = id,
         eventId = eventId,
-        eventType = eventType,
-        productId = productId,
-        userId = userId,
+        eventType = CatalogOutboxEventType.valueOf(eventType),
+        productId = ProductId(productId),
+        userId = userId?.let { UserId(it) },
         published = published,
     )
 }

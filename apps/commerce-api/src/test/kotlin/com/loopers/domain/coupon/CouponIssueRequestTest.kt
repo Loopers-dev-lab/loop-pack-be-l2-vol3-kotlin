@@ -1,5 +1,7 @@
 package com.loopers.domain.coupon
 
+import com.loopers.domain.common.vo.CouponId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.CouponIssueRequest
 import com.loopers.domain.coupon.model.CouponIssueRequest.CouponIssueStatus
 import com.loopers.domain.coupon.repository.CouponIssueRequestRepository
@@ -21,25 +23,25 @@ class CouponIssueRequestTest {
         @Test
         fun `유효한 필드로 생성하면 상태는 PENDING이다`() {
             val requestId = UUID.randomUUID().toString()
-            val request = CouponIssueRequest(requestId = requestId, couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = requestId, couponId = CouponId(1L), userId = UserId(1L))
 
             assertThat(request.requestId).isEqualTo(requestId)
-            assertThat(request.couponId).isEqualTo(1L)
-            assertThat(request.userId).isEqualTo(1L)
+            assertThat(request.couponId).isEqualTo(CouponId(1L))
+            assertThat(request.userId).isEqualTo(UserId(1L))
             assertThat(request.status).isEqualTo(CouponIssueStatus.PENDING)
         }
 
         @Test
         fun `requestId가 blank이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CouponIssueRequest(requestId = "   ", couponId = 1L, userId = 1L)
+                CouponIssueRequest(requestId = "   ", couponId = CouponId(1L), userId = UserId(1L))
             }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `requestId가 빈 문자열이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CouponIssueRequest(requestId = "", couponId = 1L, userId = 1L)
+                CouponIssueRequest(requestId = "", couponId = CouponId(1L), userId = UserId(1L))
             }.isInstanceOf(CoreException::class.java)
         }
     }
@@ -50,28 +52,28 @@ class CouponIssueRequestTest {
 
         @Test
         fun `PENDING 상태에서 SUCCESS로 변경된다`() {
-            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L))
             request.markSuccess()
             assertThat(request.status).isEqualTo(CouponIssueStatus.SUCCESS)
         }
 
         @Test
         fun `PENDING 상태에서 SOLD_OUT으로 변경된다`() {
-            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L))
             request.markSoldOut()
             assertThat(request.status).isEqualTo(CouponIssueStatus.SOLD_OUT)
         }
 
         @Test
         fun `PENDING 상태에서 DUPLICATE로 변경된다`() {
-            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L))
             request.markDuplicate()
             assertThat(request.status).isEqualTo(CouponIssueStatus.DUPLICATE)
         }
 
         @Test
         fun `PENDING이 아닌 상태에서 변경하면 예외가 발생한다`() {
-            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L)
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L))
             request.markSuccess()
 
             assertThatThrownBy { request.markSoldOut() }
@@ -92,14 +94,14 @@ class CouponIssueRequestTest {
 
         @Test
         fun `저장 후 requestId로 조회된다`() {
-            val request = repository.save(CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L))
+            val request = repository.save(CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L)))
 
             val found = repository.findByRequestId(request.requestId)
 
             assertThat(found).isNotNull()
             val saved = requireNotNull(found)
             assertThat(saved.id).isEqualTo(request.id)
-            assertThat(saved.couponId).isEqualTo(1L)
+            assertThat(saved.couponId).isEqualTo(CouponId(1L))
         }
 
         @Test

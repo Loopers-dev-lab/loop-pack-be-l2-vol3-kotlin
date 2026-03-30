@@ -40,9 +40,9 @@ class AddLikeUseCase(
         eventPublisher.publishEvent(ProductCacheEvent.DetailUpdated(saved))
         catalogOutboxRepository.save(
             CatalogOutbox(
-                eventType = CatalogOutboxEventType.LIKE_ADDED.name,
-                productId = productId,
-                userId = userId,
+                eventType = CatalogOutboxEventType.LIKE_ADDED,
+                productId = ProductId(productId),
+                userId = UserId(userId),
             ),
         )
     }

@@ -1,7 +1,12 @@
 package com.loopers.infrastructure.outbox
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.OrderOutbox
+import com.loopers.domain.outbox.model.OrderOutboxEventType
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -38,12 +43,12 @@ class OrderOutboxEntity(
         fun fromDomain(outbox: OrderOutbox): OrderOutboxEntity {
             return OrderOutboxEntity(
                 eventId = outbox.eventId,
-                eventType = outbox.eventType,
-                orderId = outbox.orderId,
-                userId = outbox.userId,
-                totalAmount = outbox.totalAmount,
+                eventType = outbox.eventType.name,
+                orderId = outbox.orderId.value,
+                userId = outbox.userId.value,
+                totalAmount = outbox.totalAmount?.toLong(),
                 reason = outbox.reason,
-                productId = outbox.productId,
+                productId = outbox.productId?.value,
                 quantity = outbox.quantity,
                 published = outbox.published,
             ).withBaseFields(id = outbox.id)
@@ -53,12 +58,12 @@ class OrderOutboxEntity(
     fun toDomain(): OrderOutbox = OrderOutbox(
         id = id,
         eventId = eventId,
-        eventType = eventType,
-        orderId = orderId,
-        userId = userId,
-        totalAmount = totalAmount,
+        eventType = OrderOutboxEventType.valueOf(eventType),
+        orderId = OrderId(orderId),
+        userId = UserId(userId),
+        totalAmount = totalAmount?.let { Money(it.toBigDecimal()) },
         reason = reason,
-        productId = productId,
+        productId = productId?.let { ProductId(it) },
         quantity = quantity,
         published = published,
     )

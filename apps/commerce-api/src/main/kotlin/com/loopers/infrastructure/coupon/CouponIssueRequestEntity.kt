@@ -1,6 +1,8 @@
 package com.loopers.infrastructure.coupon
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.CouponId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.CouponIssueRequest
 import com.loopers.domain.coupon.model.CouponIssueRequest.CouponIssueStatus
 import com.loopers.domain.withBaseFields
@@ -38,8 +40,8 @@ class CouponIssueRequestEntity(
         fun fromDomain(request: CouponIssueRequest): CouponIssueRequestEntity {
             return CouponIssueRequestEntity(
                 requestId = request.requestId,
-                couponId = request.couponId,
-                userId = request.userId,
+                couponId = request.couponId.value,
+                userId = request.userId.value,
                 status = request.status,
             ).withBaseFields(id = request.id)
         }
@@ -48,8 +50,8 @@ class CouponIssueRequestEntity(
     fun toDomain(): CouponIssueRequest = CouponIssueRequest(
         id = id,
         requestId = requestId,
-        couponId = couponId,
-        userId = userId,
+        couponId = CouponId(couponId),
+        userId = UserId(userId),
         status = status,
     )
 }

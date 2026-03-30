@@ -1,5 +1,6 @@
 package com.loopers.domain.coupon
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.CouponIssueRequest
 import com.loopers.domain.coupon.repository.CouponIssueRequestRepository
 
@@ -24,7 +25,7 @@ class FakeCouponIssueRequestRepository : CouponIssueRequestRepository {
     }
 
     override fun findByRequestIdAndUserId(requestId: String, userId: Long): CouponIssueRequest? {
-        return store.find { it.requestId == requestId && it.userId == userId }
+        return store.find { it.requestId == requestId && it.userId == UserId(userId) }
     }
 
     private fun setId(entity: CouponIssueRequest, id: Long) {

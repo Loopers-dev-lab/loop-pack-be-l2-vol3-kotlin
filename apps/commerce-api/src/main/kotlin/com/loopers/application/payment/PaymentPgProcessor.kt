@@ -1,6 +1,7 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.outbox.model.OrderOutboxEventType
@@ -71,9 +72,9 @@ class PaymentPgProcessorImpl(
                     orderRepository.save(order)
                     orderOutboxRepository.save(
                         OrderOutbox(
-                            eventType = OrderOutboxEventType.PAYMENT_FAILED.name,
-                            orderId = order.id.value,
-                            userId = order.refUserId.value,
+                            eventType = OrderOutboxEventType.PAYMENT_FAILED,
+                            orderId = order.id,
+                            userId = UserId(order.refUserId.value),
                             reason = reason,
                         ),
                     )
