@@ -4,7 +4,11 @@ import com.loopers.interfaces.api.coupon.dto.CouponAdminV1Dto
 import com.loopers.interfaces.api.order.dto.OrderV1Dto
 import com.loopers.interfaces.api.product.dto.ProductAdminV1Dto
 import com.loopers.interfaces.api.user.dto.UserV1Dto
+import com.loopers.application.user.AuthenticateUserUseCase
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.interfaces.support.ApiResponse
+import com.loopers.interfaces.support.HEADER_ENTRY_TOKEN
 import com.loopers.interfaces.support.HEADER_LDAP
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
@@ -39,6 +43,8 @@ import org.junit.jupiter.api.Timeout
 class OrderConcurrencyTest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val authenticateUserUseCase: AuthenticateUserUseCase,
+    private val entryTokenRepository: EntryTokenRepository,
 ) {
 
     @AfterEach
@@ -68,6 +74,15 @@ class OrderConcurrencyTest @Autowired constructor(
             set(HEADER_LOGIN_ID, loginId)
             set(HEADER_LOGIN_PW, "Password1!")
             set("Content-Type", "application/json")
+        }
+    }
+
+    private fun orderHeaders(loginId: String): HttpHeaders {
+        val userId = authenticateUserUseCase.execute(loginId, "Password1!")!!
+        val token = "test-entry-token-$userId"
+        entryTokenRepository.issue(UserId(userId), token, 300)
+        return authHeaders(loginId).apply {
+            set(HEADER_ENTRY_TOKEN, token)
         }
     }
 
@@ -202,7 +217,7 @@ class OrderConcurrencyTest @Autowired constructor(
                             val response = testRestTemplate.exchange(
                                 "/api/v1/orders",
                                 HttpMethod.POST,
-                                HttpEntity(orderRequest, authHeaders(loginId)),
+                                HttpEntity(orderRequest, orderHeaders(loginId)),
                                 responseType,
                             )
                             if (response.statusCode == HttpStatus.OK) {
@@ -289,7 +304,7 @@ class OrderConcurrencyTest @Autowired constructor(
                             val response = testRestTemplate.exchange(
                                 "/api/v1/orders",
                                 HttpMethod.POST,
-                                HttpEntity(orderRequest, authHeaders("stockuser$i")),
+                                HttpEntity(orderRequest, orderHeaders("stockuser$i")),
                                 responseType,
                             )
                             if (response.statusCode == HttpStatus.OK) {

@@ -1,8 +1,12 @@
 package com.loopers.interfaces.api.order
 
+import com.loopers.application.user.AuthenticateUserUseCase
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.interfaces.api.order.dto.OrderV1Dto
 import com.loopers.interfaces.api.user.dto.UserV1Dto
 import com.loopers.interfaces.support.ApiResponse
+import com.loopers.interfaces.support.HEADER_ENTRY_TOKEN
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.utils.DatabaseCleanUp
@@ -26,6 +30,8 @@ import java.time.LocalDate
 class OrderValidationTest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val authenticateUserUseCase: AuthenticateUserUseCase,
+    private val entryTokenRepository: EntryTokenRepository,
 ) {
 
     companion object {
@@ -64,11 +70,20 @@ class OrderValidationTest @Autowired constructor(
         }
     }
 
+    private fun orderHeaders(loginId: String = "testuser1"): HttpHeaders {
+        val userId = authenticateUserUseCase.execute(loginId, "Password1!")!!
+        val token = "test-entry-token-$userId"
+        entryTokenRepository.issue(UserId(userId), token, 300)
+        return authHeaders(loginId).apply {
+            set(HEADER_ENTRY_TOKEN, token)
+        }
+    }
+
     private fun createOrder(request: Any): org.springframework.http.ResponseEntity<ApiResponse<Any>> {
         return testRestTemplate.exchange(
             ENDPOINT_ORDERS,
             HttpMethod.POST,
-            HttpEntity(request, authHeaders()),
+            HttpEntity(request, orderHeaders()),
             object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
     }

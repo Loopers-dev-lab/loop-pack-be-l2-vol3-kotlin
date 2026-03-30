@@ -4,7 +4,11 @@ import com.loopers.interfaces.api.coupon.dto.CouponAdminV1Dto
 import com.loopers.interfaces.api.order.dto.OrderV1Dto
 import com.loopers.interfaces.api.product.dto.ProductAdminV1Dto
 import com.loopers.interfaces.api.user.dto.UserV1Dto
+import com.loopers.application.user.AuthenticateUserUseCase
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.interfaces.support.ApiResponse
+import com.loopers.interfaces.support.HEADER_ENTRY_TOKEN
 import com.loopers.interfaces.support.HEADER_LDAP
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
@@ -33,6 +37,8 @@ import java.time.format.DateTimeFormatter
 class OrderV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val authenticateUserUseCase: AuthenticateUserUseCase,
+    private val entryTokenRepository: EntryTokenRepository,
 ) {
 
     @AfterEach
@@ -61,6 +67,15 @@ class OrderV1ApiE2ETest @Autowired constructor(
             set(HEADER_LOGIN_ID, loginId)
             set(HEADER_LOGIN_PW, "Password1!")
             set("Content-Type", "application/json")
+        }
+    }
+
+    private fun orderHeaders(loginId: String = "testuser1"): HttpHeaders {
+        val userId = authenticateUserUseCase.execute(loginId, "Password1!")!!
+        val token = "test-entry-token-$userId"
+        entryTokenRepository.issue(UserId(userId), token, 300)
+        return authHeaders(loginId).apply {
+            set(HEADER_ENTRY_TOKEN, token)
         }
     }
 
@@ -156,7 +171,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders()),
+                HttpEntity(orderRequest, orderHeaders()),
                 responseType,
             )
 
@@ -195,7 +210,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
+                HttpEntity<Any>(orderHeaders()),
                 responseType,
             )
 
@@ -215,7 +230,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders?from={from}",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
+                HttpEntity<Any>(orderHeaders()),
                 responseType,
                 from,
             )
@@ -236,7 +251,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders?to={to}",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
+                HttpEntity<Any>(orderHeaders()),
                 responseType,
                 to,
             )
@@ -260,7 +275,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val createResponse = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders()),
+                HttpEntity(orderRequest, orderHeaders()),
                 createResponseType,
             )
             val createdOrderId = createResponse.body!!.data!!.id
@@ -270,7 +285,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
+                HttpEntity<Any>(orderHeaders()),
                 responseType,
             )
 
@@ -304,7 +319,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val createResponse = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders()),
+                HttpEntity(orderRequest, orderHeaders()),
                 createResponseType,
             )
             val orderId = createResponse.body!!.data!!.id
@@ -314,7 +329,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders/$orderId",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
+                HttpEntity<Any>(orderHeaders()),
                 responseType,
             )
 
@@ -341,7 +356,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val createResponse = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders("testuser1")),
+                HttpEntity(orderRequest, orderHeaders("testuser1")),
                 createResponseType,
             )
             val orderId = createResponse.body!!.data!!.id
@@ -354,7 +369,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders/$orderId",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders("testuser2")),
+                HttpEntity<Any>(orderHeaders("testuser2")),
                 responseType,
             )
 
@@ -387,7 +402,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders()),
+                HttpEntity(orderRequest, orderHeaders()),
                 responseType,
             )
 
@@ -405,7 +420,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val myCoupons = testRestTemplate.exchange(
                 "/api/v1/users/me/coupons",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
+                HttpEntity<Any>(orderHeaders()),
                 myCouponsType,
             )
             assertThat(myCoupons.body?.data?.first()?.get("status")).isEqualTo("USED")
@@ -428,7 +443,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders()),
+                HttpEntity(orderRequest, orderHeaders()),
                 responseType,
             )
 
@@ -468,7 +483,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(orderRequest, authHeaders("user2")),
+                HttpEntity(orderRequest, orderHeaders("user2")),
                 responseType,
             )
 
@@ -494,7 +509,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(firstOrder, authHeaders()),
+                HttpEntity(firstOrder, orderHeaders()),
                 object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {},
             )
 
@@ -507,7 +522,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val response = testRestTemplate.exchange(
                 "/api/v1/orders",
                 HttpMethod.POST,
-                HttpEntity(secondOrder, authHeaders()),
+                HttpEntity(secondOrder, orderHeaders()),
                 responseType,
             )
 

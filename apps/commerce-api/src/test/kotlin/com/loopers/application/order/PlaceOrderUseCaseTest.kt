@@ -8,6 +8,7 @@ import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.FakeCouponRepository
 import com.loopers.domain.coupon.FakeIssuedCouponRepository
+import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.coupon.model.Coupon
 import com.loopers.domain.coupon.model.IssuedCoupon
 import com.loopers.domain.coupon.service.CouponValidator
@@ -31,6 +32,7 @@ class PlaceOrderUseCaseTest {
     private lateinit var orderItemRepository: FakeOrderItemRepository
     private lateinit var couponRepository: FakeCouponRepository
     private lateinit var issuedCouponRepository: FakeIssuedCouponRepository
+    private lateinit var entryTokenRepository: FakeEntryTokenRepository
     private lateinit var placeOrderUseCase: PlaceOrderUseCase
 
     @BeforeEach
@@ -40,7 +42,8 @@ class PlaceOrderUseCaseTest {
         orderItemRepository = FakeOrderItemRepository()
         couponRepository = FakeCouponRepository()
         issuedCouponRepository = FakeIssuedCouponRepository()
-        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository, couponRepository, issuedCouponRepository, CouponValidator())
+        entryTokenRepository = FakeEntryTokenRepository()
+        placeOrderUseCase = PlaceOrderUseCase(productRepository, orderRepository, orderItemRepository, couponRepository, issuedCouponRepository, CouponValidator(), entryTokenRepository)
     }
 
     private fun createProduct(
@@ -267,6 +270,24 @@ class PlaceOrderUseCaseTest {
             assertThat(orderInfo.discountAmount).isEqualByComparingTo(BigDecimal.ZERO)
             assertThat(orderInfo.totalPrice).isEqualByComparingTo(BigDecimal("20000"))
             assertThat(orderInfo.couponId).isNull()
+        }
+
+        @Test
+        @DisplayName("주문 완료 후 입장 토큰이 삭제된다")
+        fun execute_deletesEntryToken() {
+            // arrange
+            val product = createProduct()
+            val userId = 1L
+            entryTokenRepository.issue(UserId(userId), "test-token", 300)
+            val command = PlaceOrderCommand(
+                items = listOf(PlaceOrderCommand.PlaceOrderItemCommand(productId = product.id.value, quantity = 1)),
+            )
+
+            // act
+            placeOrderUseCase.execute(userId, command)
+
+            // assert
+            assertThat(entryTokenRepository.find(UserId(userId))).isNull()
         }
     }
 

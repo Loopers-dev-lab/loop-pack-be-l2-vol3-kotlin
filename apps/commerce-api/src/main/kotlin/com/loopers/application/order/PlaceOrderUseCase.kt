@@ -7,6 +7,7 @@ import com.loopers.domain.coupon.repository.CouponRepository
 import com.loopers.domain.coupon.repository.IssuedCouponRepository
 import com.loopers.domain.coupon.service.CouponValidator
 import com.loopers.domain.order.OrderProductData
+import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
@@ -24,6 +25,7 @@ class PlaceOrderUseCase(
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
     private val couponValidator: CouponValidator,
+    private val entryTokenRepository: EntryTokenRepository,
 ) {
 
     @Transactional
@@ -78,6 +80,9 @@ class PlaceOrderUseCase(
 
         order.assignOrderIdToItems(savedOrder.id)
         val savedItems = orderItemRepository.saveAll(order.items)
+
+        // 5. 입장 토큰 삭제 (주문 완료 → 토큰 소비)
+        entryTokenRepository.delete(UserId(userId))
 
         return OrderInfo.from(OrderDetail(savedOrder, savedItems))
     }
