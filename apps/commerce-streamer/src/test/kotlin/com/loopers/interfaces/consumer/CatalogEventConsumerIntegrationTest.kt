@@ -5,6 +5,9 @@ import com.loopers.event.KafkaTopics
 import com.loopers.infrastructure.event.EventHandledJpaRepository
 import com.loopers.infrastructure.metrics.ProductMetricsJpaRepository
 import com.loopers.utils.DatabaseCleanUp
+import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.clients.consumer.OffsetAndMetadata
+import org.apache.kafka.common.TopicPartition
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.kotlin.atMost
 import org.awaitility.kotlin.await
@@ -21,12 +24,12 @@ import java.time.ZonedDateTime
 import java.util.UUID
 
 /**
- * Kafka Consumer 멱등 처리 검증 통합 테스트.
- * Docker Compose Kafka와 연동하여 Kafka 발행 -> Consumer 수신 -> DB 반영 전체 흐름을 검증한다.
+ * Kafka Consumer 설정 검증 통합 테스트.
+ * Docker Compose Kafka와 연동하여 전체 흐름을 검증한다.
  *
  * 블로그용 검증 포인트:
- * 1. 같은 eventId 중복 발행 시 event_handled 테이블에서 skip -> 카운트 미증가
- * 2. 서로 다른 eventId 발행 시 각각 정상 처리 -> 카운트 증가
+ * 1. 멱등 처리: 같은 eventId 중복 발행 시 event_handled에서 skip
+ * 2. manual ACK: offset이 처리 완료 후에만 커밋되는지 AdminClient로 확인
  */
 @SpringBootTest
 class CatalogEventConsumerIntegrationTest @Autowired constructor(
@@ -116,6 +119,80 @@ class CatalogEventConsumerIntegrationTest @Autowired constructor(
                 assertThat(metrics).isNotNull
                 assertThat(metrics!!.likeCount).isEqualTo(2)
             }
+        }
+    }
+
+    @DisplayName("manual ACK offset 커밋 검증")
+    @Nested
+    inner class ManualAckOffsetVerification {
+
+        @DisplayName("메시지 처리 전후로 committed offset이 정확히 증가한다")
+        @Test
+        fun committedOffsetAdvances_afterMessageProcessed() {
+            // arrange — AdminClient로 처리 전 committed offset 기록
+            val adminClient = createAdminClient()
+            val consumerGroup = "metrics-consumer"
+            val beforeOffsets = getCommittedOffsets(adminClient, consumerGroup)
+
+            val productId = 100L
+            val message = createLikedMessage(productId, version = 1L)
+
+            // act — 메시지 발행 후 처리 대기
+            val sendResult = kafkaTemplate.send(KafkaTopics.CATALOG_EVENTS, productId.toString(), message).get()
+            val sentPartition = sendResult.recordMetadata.partition()
+            val sentOffset = sendResult.recordMetadata.offset()
+
+            await atMost Duration.ofSeconds(15) untilAsserted {
+                val metrics = productMetricsJpaRepository.findByProductId(productId)
+                assertThat(metrics).isNotNull
+                assertThat(metrics!!.likeCount).isEqualTo(1)
+            }
+
+            // assert — 처리 후 committed offset이 발행된 메시지 이후로 이동했는지 확인
+            val tp = TopicPartition(KafkaTopics.CATALOG_EVENTS, sentPartition)
+            await atMost Duration.ofSeconds(10) untilAsserted {
+                val afterOffsets = getCommittedOffsets(adminClient, consumerGroup)
+                val committedOffset = afterOffsets[tp]?.offset() ?: 0
+                assertThat(committedOffset).isGreaterThan(sentOffset)
+            }
+
+            adminClient.close()
+        }
+
+        @DisplayName("메시지를 발행하지 않으면 committed offset이 변하지 않는다")
+        @Test
+        fun committedOffsetUnchanged_whenNoMessagePublished() {
+            // arrange
+            val adminClient = createAdminClient()
+            val consumerGroup = "metrics-consumer"
+
+            // act — 아무 메시지도 발행하지 않고 5초 대기
+            val beforeOffsets = getCommittedOffsets(adminClient, consumerGroup)
+            Thread.sleep(5000)
+            val afterOffsets = getCommittedOffsets(adminClient, consumerGroup)
+
+            // assert — offset 변화 없음 (auto-commit이면 poll마다 커밋되지만, manual ACK은 변화 없음)
+            for ((tp, beforeMeta) in beforeOffsets) {
+                val afterMeta = afterOffsets[tp]
+                assertThat(afterMeta?.offset()).isEqualTo(beforeMeta.offset())
+            }
+
+            adminClient.close()
+        }
+
+        private fun createAdminClient(): AdminClient {
+            val props = mapOf("bootstrap.servers" to "localhost:19092")
+            return AdminClient.create(props)
+        }
+
+        private fun getCommittedOffsets(
+            adminClient: AdminClient,
+            consumerGroup: String,
+        ): Map<TopicPartition, OffsetAndMetadata> {
+            return adminClient
+                .listConsumerGroupOffsets(consumerGroup)
+                .partitionsToOffsetAndMetadata()
+                .get()
         }
     }
 
