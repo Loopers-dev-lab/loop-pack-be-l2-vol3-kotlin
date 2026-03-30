@@ -4,10 +4,12 @@ import com.loopers.application.order.OrderItemCriteria
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.application.event.ProductViewedEvent
 import com.loopers.infrastructure.product.ProductCacheService
 import com.loopers.support.cache.CachedPage
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -18,6 +20,7 @@ class ProductService(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val productCacheService: ProductCacheService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional(readOnly = true)
@@ -29,10 +32,14 @@ class ProductService(
     @Transactional(readOnly = true)
     fun getProductInfo(productId: Long): ProductInfo {
         val cached = productCacheService.getProductDetail(productId)
-        if (cached != null) return cached
+        if (cached != null) {
+            eventPublisher.publishEvent(ProductViewedEvent(userId = null, productId = productId))
+            return cached
+        }
 
         val info = ProductInfo.from(getProduct(productId))
         productCacheService.setProductDetail(productId, info)
+        eventPublisher.publishEvent(ProductViewedEvent(userId = null, productId = productId))
         return info
     }
 

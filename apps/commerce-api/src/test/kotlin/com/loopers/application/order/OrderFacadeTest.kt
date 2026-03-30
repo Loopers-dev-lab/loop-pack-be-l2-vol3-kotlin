@@ -24,6 +24,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
 import java.time.ZonedDateTime
@@ -42,6 +43,12 @@ class OrderFacadeTest {
 
     @Mock
     private lateinit var couponService: CouponService
+
+    @Mock
+    private lateinit var eventPublisher: ApplicationEventPublisher
+
+    @Mock
+    private lateinit var outboxService: com.loopers.application.outbox.OutboxService
 
     @InjectMocks
     private lateinit var orderFacade: OrderFacade

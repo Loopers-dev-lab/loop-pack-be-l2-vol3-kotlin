@@ -8,11 +8,14 @@ import com.loopers.domain.payment.PaymentStatus
 import com.loopers.infrastructure.pg.PgApiResponse
 import com.loopers.infrastructure.pg.PgCallbackRequest
 import com.loopers.infrastructure.pg.PgPaymentRequest
+import com.loopers.application.outbox.OutboxService
+import com.loopers.event.KafkaTopics
 import com.loopers.infrastructure.pg.PgPaymentResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
@@ -25,6 +28,8 @@ class PaymentFacade(
     private val productService: ProductService,
     private val couponService: CouponService,
     private val pgPaymentClient: PgPaymentClient,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxService: OutboxService,
     transactionManager: PlatformTransactionManager,
     @Value("\${pg.callback-url}") private val callbackUrl: String,
 ) {
@@ -111,10 +116,40 @@ class PaymentFacade(
         if (isSuccess) {
             payment.markPaid()
             order.markPaid()
+            val event = com.loopers.application.event.PaymentCompletedEvent(
+                paymentId = payment.id,
+                orderId = payment.orderId,
+                userId = order.userId,
+                amount = payment.amount,
+            )
+            outboxService.save(
+                aggregateType = "ORDER",
+                aggregateId = payment.orderId.toString(),
+                eventType = "PAYMENT_COMPLETED",
+                topic = KafkaTopics.ORDER_EVENTS,
+                partitionKey = payment.orderId.toString(),
+                payload = event,
+            )
+            eventPublisher.publishEvent(event)
         } else {
             payment.markFailed(callbackRequest.reason)
             order.markFailed()
             compensateOrder(order)
+            val event = com.loopers.application.event.PaymentFailedEvent(
+                paymentId = payment.id,
+                orderId = payment.orderId,
+                userId = order.userId,
+                reason = callbackRequest.reason,
+            )
+            outboxService.save(
+                aggregateType = "ORDER",
+                aggregateId = payment.orderId.toString(),
+                eventType = "PAYMENT_FAILED",
+                topic = KafkaTopics.ORDER_EVENTS,
+                partitionKey = payment.orderId.toString(),
+                payload = event,
+            )
+            eventPublisher.publishEvent(event)
         }
     }
 

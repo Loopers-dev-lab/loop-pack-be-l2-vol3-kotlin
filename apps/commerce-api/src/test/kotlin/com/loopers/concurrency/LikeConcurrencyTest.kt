@@ -8,13 +8,16 @@ import com.loopers.infrastructure.like.LikeJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.math.BigDecimal
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -114,10 +117,10 @@ class LikeConcurrencyTest @Autowired constructor(
 
         // assert
         val likes = likeJpaRepository.findAll()
-        val updatedProduct = productJpaRepository.findById(product.id).get()
-        assertAll(
-            { assertThat(likes).hasSize(threadCount) },
-            { assertThat(updatedProduct.likeCount).isEqualTo(threadCount) },
-        )
+        assertThat(likes).hasSize(threadCount)
+        await atMost Duration.ofSeconds(10) untilAsserted {
+            val updatedProduct = productJpaRepository.findById(product.id).get()
+            assertThat(updatedProduct.likeCount).isEqualTo(threadCount)
+        }
     }
 }

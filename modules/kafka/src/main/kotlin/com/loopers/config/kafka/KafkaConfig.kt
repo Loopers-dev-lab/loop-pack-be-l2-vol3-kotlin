@@ -13,8 +13,11 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.listener.ContainerProperties
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer
+import org.springframework.kafka.listener.DefaultErrorHandler
 import org.springframework.kafka.support.converter.BatchMessagingMessageConverter
 import org.springframework.kafka.support.converter.ByteArrayJsonMessageConverter
+import org.springframework.util.backoff.FixedBackOff
 import java.util.HashMap
 
 @EnableKafka
@@ -22,13 +25,15 @@ import java.util.HashMap
 class KafkaConfig {
     companion object {
         const val BATCH_LISTENER = "BATCH_LISTENER_DEFAULT"
+        const val RECORD_LISTENER = "RECORD_LISTENER_DEFAULT"
+        const val ORDERED_RECORD_LISTENER = "ORDERED_RECORD_LISTENER"
 
-        private const val MAX_POLLING_SIZE = 3000 // read 3000 msg
-        private const val FETCH_MIN_BYTES = (1024 * 1024) // 1mb
-        private const val FETCH_MAX_WAIT_MS = 5 * 1000 // broker waiting time = 5s
-        private const val SESSION_TIMEOUT_MS = 60 * 1000 // session timeout = 1m
-        private const val HEARTBEAT_INTERVAL_MS = 20 * 1000 // heartbeat interval = 20s ( 1/3 of session_timeout )
-        private const val MAX_POLL_INTERVAL_MS = 2 * 60 * 1000 // max poll interval = 2m
+        private const val MAX_POLLING_SIZE = 3000
+        private const val FETCH_MIN_BYTES = (1024 * 1024)
+        private const val FETCH_MAX_WAIT_MS = 5 * 1000
+        private const val SESSION_TIMEOUT_MS = 60 * 1000
+        private const val HEARTBEAT_INTERVAL_MS = 20 * 1000
+        private const val MAX_POLL_INTERVAL_MS = 2 * 60 * 1000
     }
 
     @Bean
@@ -55,6 +60,76 @@ class KafkaConfig {
     @Bean
     fun jsonMessageConverter(objectMapper: ObjectMapper): ByteArrayJsonMessageConverter {
         return ByteArrayJsonMessageConverter(objectMapper)
+    }
+
+    /**
+     * DLQ ErrorHandler — 3회 재시도(1초 간격) 후 실패 시 DLQ 토픽으로 격리
+     * 원본 토픽명 + ".DLQ" 토픽으로 메시지 이동
+     */
+    @Bean
+    fun kafkaErrorHandler(kafkaTemplate: KafkaTemplate<Any, Any>): DefaultErrorHandler {
+        val recoverer = DeadLetterPublishingRecoverer(kafkaTemplate)
+        return DefaultErrorHandler(recoverer, FixedBackOff(1000L, 3L))
+    }
+
+    /**
+     * 건별 처리 리스너 (concurrency=3, 파티션 수와 동일)
+     * - 메트릭 집계, 결과 수신 등 순서 보장이 불필요한 Consumer에 사용
+     * - 파티션 3개 × 스레드 3개 = 최적 병렬 처리
+     * - DLQ 적용: 3회 재시도 후 실패 시 .DLQ 토픽으로 격리
+     */
+    @Bean(RECORD_LISTENER)
+    fun defaultRecordListenerContainerFactory(
+        kafkaProperties: KafkaProperties,
+        converter: ByteArrayJsonMessageConverter,
+        kafkaErrorHandler: DefaultErrorHandler,
+    ): ConcurrentKafkaListenerContainerFactory<*, *> {
+        val consumerConfig = HashMap(kafkaProperties.buildConsumerProperties())
+            .apply {
+                put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1)
+                put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30 * 1000)
+                put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10 * 1000)
+                put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 60 * 1000)
+            }
+
+        return ConcurrentKafkaListenerContainerFactory<Any, Any>().apply {
+            consumerFactory = DefaultKafkaConsumerFactory(consumerConfig)
+            containerProperties.ackMode = ContainerProperties.AckMode.MANUAL
+            setRecordMessageConverter(converter)
+            setCommonErrorHandler(kafkaErrorHandler)
+            setConcurrency(3)
+            isBatchListener = false
+        }
+    }
+
+    /**
+     * 순서 보장 건별 처리 리스너 (concurrency=1)
+     * - 쿠폰 발급 등 같은 파티션 내 순차 처리가 필수인 Consumer에 사용
+     * - 단일 스레드로 파티션 순서 보장
+     * - DLQ 적용: 3회 재시도 후 실패 시 .DLQ 토픽으로 격리
+     */
+    @Bean(ORDERED_RECORD_LISTENER)
+    fun orderedRecordListenerContainerFactory(
+        kafkaProperties: KafkaProperties,
+        converter: ByteArrayJsonMessageConverter,
+        kafkaErrorHandler: DefaultErrorHandler,
+    ): ConcurrentKafkaListenerContainerFactory<*, *> {
+        val consumerConfig = HashMap(kafkaProperties.buildConsumerProperties())
+            .apply {
+                put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1)
+                put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30 * 1000)
+                put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10 * 1000)
+                put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 60 * 1000)
+            }
+
+        return ConcurrentKafkaListenerContainerFactory<Any, Any>().apply {
+            consumerFactory = DefaultKafkaConsumerFactory(consumerConfig)
+            containerProperties.ackMode = ContainerProperties.AckMode.MANUAL
+            setRecordMessageConverter(converter)
+            setCommonErrorHandler(kafkaErrorHandler)
+            setConcurrency(1)
+            isBatchListener = false
+        }
     }
 
     @Bean(BATCH_LISTENER)

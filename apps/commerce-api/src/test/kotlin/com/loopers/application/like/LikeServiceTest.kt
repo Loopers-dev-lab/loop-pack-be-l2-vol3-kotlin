@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.event.LikeToggledEvent
 import com.loopers.application.product.ProductService
 import com.loopers.domain.like.Like
 import com.loopers.domain.like.LikeRepository
@@ -16,11 +17,13 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.doNothing
 import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.test.util.ReflectionTestUtils
 import java.time.ZonedDateTime
 
@@ -33,6 +36,12 @@ class LikeServiceTest {
     @Mock
     private lateinit var productService: ProductService
 
+    @Mock
+    private lateinit var eventPublisher: ApplicationEventPublisher
+
+    @Mock
+    private lateinit var outboxService: com.loopers.application.outbox.OutboxService
+
     @InjectMocks
     private lateinit var likeService: LikeService
 
@@ -40,7 +49,7 @@ class LikeServiceTest {
     @Nested
     inner class AddLike {
 
-        @DisplayName("좋아요가 없으면, 신규 생성되고 likeCount가 증가한다.")
+        @DisplayName("좋아요가 없으면, 신규 생성되고 LikeToggledEvent(liked=true)가 발행된다.")
         @Test
         fun createsNewLike_whenNoExistingLike() {
             // arrange
@@ -64,10 +73,12 @@ class LikeServiceTest {
                 { assertThat(result.productId).isEqualTo(productId) },
             )
             verify(likeRepository).save(any())
-            verify(productService).incrementLikeCount(productId)
+            verify(eventPublisher).publishEvent(
+                argThat<LikeToggledEvent> { this.userId == userId && this.productId == productId && this.liked },
+            )
         }
 
-        @DisplayName("이미 활성 좋아요가 있으면, 기존 좋아요를 반환하고 likeCount는 증가하지 않는다.")
+        @DisplayName("이미 활성 좋아요가 있으면, 기존 좋아요를 반환하고 이벤트가 발행되지 않는다.")
         @Test
         fun returnsExistingLike_whenActiveLikeExists() {
             // arrange
@@ -86,10 +97,10 @@ class LikeServiceTest {
             // assert
             assertThat(result.productId).isEqualTo(productId)
             verify(likeRepository, never()).save(any())
-            verify(productService, never()).incrementLikeCount(productId)
+            verify(eventPublisher, never()).publishEvent(any<LikeToggledEvent>())
         }
 
-        @DisplayName("Soft Delete된 좋아요가 있으면, 복원되고 likeCount가 증가한다.")
+        @DisplayName("Soft Delete된 좋아요가 있으면, 복원되고 LikeToggledEvent(liked=true)가 발행된다.")
         @Test
         fun restoresLike_whenSoftDeletedLikeExists() {
             // arrange
@@ -113,7 +124,9 @@ class LikeServiceTest {
             // assert
             assertThat(result.productId).isEqualTo(productId)
             verify(likeRepository).save(any())
-            verify(productService).incrementLikeCount(productId)
+            verify(eventPublisher).publishEvent(
+                argThat<LikeToggledEvent> { this.userId == userId && this.productId == productId && this.liked },
+            )
         }
 
         @DisplayName("상품이 존재하지 않으면, NOT_FOUND 예외가 발생한다.")
@@ -140,7 +153,7 @@ class LikeServiceTest {
     @Nested
     inner class CancelLike {
 
-        @DisplayName("활성 좋아요가 있으면, Soft Delete되고 likeCount가 감소한다.")
+        @DisplayName("활성 좋아요가 있으면, Soft Delete되고 LikeToggledEvent(liked=false)가 발행된다.")
         @Test
         fun softDeletesLike_whenActiveLikeExists() {
             // arrange
@@ -157,10 +170,12 @@ class LikeServiceTest {
             // assert
             assertThat(like.isDeleted()).isTrue()
             verify(likeRepository).save(like)
-            verify(productService).decrementLikeCount(productId)
+            verify(eventPublisher).publishEvent(
+                argThat<LikeToggledEvent> { this.userId == userId && this.productId == productId && !this.liked },
+            )
         }
 
-        @DisplayName("좋아요가 없으면, 아무 작업도 하지 않고 likeCount도 변하지 않는다.")
+        @DisplayName("좋아요가 없으면, 아무 작업도 하지 않고 이벤트도 발행되지 않는다.")
         @Test
         fun doesNothing_whenNoActiveLikeExists() {
             // arrange
@@ -174,7 +189,7 @@ class LikeServiceTest {
 
             // assert
             verify(likeRepository, never()).save(any())
-            verify(productService, never()).decrementLikeCount(productId)
+            verify(eventPublisher, never()).publishEvent(any<LikeToggledEvent>())
         }
     }
 

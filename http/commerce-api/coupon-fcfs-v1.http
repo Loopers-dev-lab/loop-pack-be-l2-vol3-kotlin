@@ -1,0 +1,13 @@
+### [선착순 쿠폰] 발급 요청
+POST {{commerce-api}}/api/v1/coupons/1/fcfs-issue
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+
+###
+
+### [선착순 쿠폰] 발급 상태 조회
+GET {{commerce-api}}/api/v1/coupons/fcfs-issue/status?requestId={{requestId}}
+X-Loopers-LoginId: testuser1
+X-Loopers-LoginPw: Password1!
+
+###
