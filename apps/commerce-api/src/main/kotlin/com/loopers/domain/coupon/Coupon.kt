@@ -51,10 +51,14 @@ class Coupon(
         this.expiresAt = expiresAt
     }
 
-    fun issue() {
+    fun validateNotExpired() {
         if (expiresAt.isBefore(ZonedDateTime.now())) {
             throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.")
         }
+    }
+
+    fun issue() {
+        validateNotExpired()
         quantity = quantity.issue()
     }
 }

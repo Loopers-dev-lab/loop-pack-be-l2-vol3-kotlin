@@ -6,6 +6,7 @@ dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
+    implementation(project(":modules:kafka"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
@@ -32,4 +33,7 @@ dependencies {
 
     // archunit
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
+
+    // awaitility (비동기 이벤트 테스트)
+    testImplementation("org.awaitility:awaitility-kotlin:4.2.2")
 }

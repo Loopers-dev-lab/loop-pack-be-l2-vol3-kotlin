@@ -5,9 +5,10 @@ import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.StockQuantity
+import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
-import com.loopers.domain.product.ProductService
+import com.loopers.infrastructure.outbox.OutboxEventRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -23,9 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger
 @SpringBootTest
 class LikeFacadeIntegrationTest @Autowired constructor(
     private val likeFacade: LikeFacade,
-    private val productService: ProductService,
+    private val likeRepository: LikeRepository,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val outboxEventRepository: OutboxEventRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -45,21 +47,23 @@ class LikeFacadeIntegrationTest @Autowired constructor(
     @Nested
     inner class Like {
 
-        @DisplayName("좋아요하면, 상품의 좋아요 수가 1 증가한다.")
+        @DisplayName("좋아요하면, Like가 저장되고 LIKED Outbox 이벤트가 생성된다.")
         @Test
-        fun incrementsLikeCount() {
+        fun createsLikeAndOutboxEvent() {
             // arrange
-            val product = createProduct(likes = LikeCount.of(5))
+            val product = createProduct()
 
             // act
             likeFacade.like(userId = 1L, productId = product.id)
 
             // assert
-            val updated = productService.getProduct(product.id)
-            assertThat(updated.likes).isEqualTo(LikeCount.of(6))
+            assertThat(likeRepository.existsByUserIdAndProductId(1L, product.id)).isTrue()
+            val outboxEvents = outboxEventRepository.findByPublishedAtIsNull()
+            assertThat(outboxEvents).hasSize(1)
+            assertThat(outboxEvents[0].eventType).isEqualTo("LIKED")
         }
 
-        @DisplayName("같은 사용자가 동시에 좋아요하면, 예외 없이 좋아요 수가 1만 증가한다. (TOCTOU 처리)")
+        @DisplayName("같은 사용자가 동시에 좋아요하면, 예외 없이 Outbox 이벤트가 1건만 생성된다.")
         @Test
         fun handlesRaceCondition_whenSameUserConcurrentlyLikes() {
             // arrange
@@ -85,14 +89,15 @@ class LikeFacadeIntegrationTest @Autowired constructor(
             executor.shutdown()
 
             // assert
-            val updated = productService.getProduct(product.id)
             assertThat(exceptionCount.get()).isZero()
-            assertThat(updated.likes).isEqualTo(LikeCount.of(1))
+            val outboxEvents = outboxEventRepository.findByPublishedAtIsNull()
+                .filter { it.eventType == "LIKED" }
+            assertThat(outboxEvents).hasSize(1)
         }
 
-        @DisplayName("서로 다른 사용자 10명이 동시에 좋아요하면, 좋아요 수가 정확히 10 증가한다.")
+        @DisplayName("서로 다른 사용자 10명이 동시에 좋아요하면, Outbox 이벤트가 10건 생성된다.")
         @Test
-        fun handlesAllConcurrentLikes() {
+        fun createsOutboxEventsForAllConcurrentLikes() {
             // arrange
             val product = createProduct()
             val threadCount = 10
@@ -113,8 +118,9 @@ class LikeFacadeIntegrationTest @Autowired constructor(
             executor.shutdown()
 
             // assert
-            val updated = productService.getProduct(product.id)
-            assertThat(updated.likes).isEqualTo(LikeCount.of(threadCount))
+            val outboxEvents = outboxEventRepository.findByPublishedAtIsNull()
+                .filter { it.eventType == "LIKED" }
+            assertThat(outboxEvents).hasSize(threadCount)
         }
     }
 
@@ -122,19 +128,21 @@ class LikeFacadeIntegrationTest @Autowired constructor(
     @Nested
     inner class Unlike {
 
-        @DisplayName("좋아요 취소하면, 상품의 좋아요 수가 1 감소한다.")
+        @DisplayName("좋아요 취소하면, Like가 삭제되고 UNLIKED Outbox 이벤트가 생성된다.")
         @Test
-        fun decrementsLikeCount() {
+        fun deletesLikeAndCreatesOutboxEvent() {
             // arrange
-            val product = createProduct(likes = LikeCount.of(5))
+            val product = createProduct()
             likeFacade.like(userId = 1L, productId = product.id)
 
             // act
             likeFacade.unlike(userId = 1L, productId = product.id)
 
             // assert
-            val updated = productService.getProduct(product.id)
-            assertThat(updated.likes).isEqualTo(LikeCount.of(5))
+            assertThat(likeRepository.existsByUserIdAndProductId(1L, product.id)).isFalse()
+            val outboxEvents = outboxEventRepository.findByPublishedAtIsNull()
+                .filter { it.eventType == "UNLIKED" }
+            assertThat(outboxEvents).hasSize(1)
         }
     }
 }

@@ -60,10 +60,10 @@ class LikeServiceIntegrationTest @Autowired constructor(
             // arrange
             val product = createProduct()
             val userId = 1L
-            likeService.like(userId, product.id) // 첫 번째 좋아요
+            likeService.like(userId, product.id)
 
             // act
-            val result = likeService.like(userId, product.id) // 두 번째 좋아요 (중복)
+            val result = likeService.like(userId, product.id)
 
             // assert
             assertThat(result).isFalse()

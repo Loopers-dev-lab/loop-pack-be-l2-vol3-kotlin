@@ -1,5 +1,6 @@
 package com.loopers.application.order
 
+import com.loopers.application.outbox.OutboxPublisher
 import com.loopers.application.payment.PaymentFacade
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponService
@@ -11,8 +12,15 @@ import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.StockDeductionRequest
+import com.loopers.domain.user.event.ActionType
+import com.loopers.domain.user.event.UserActionEvent
+import com.loopers.event.AggregateTypes
+import com.loopers.event.EventTypes
+import com.loopers.event.payload.OrderCompletedPayload
+import com.loopers.event.payload.OrderItemPayload
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -24,6 +32,8 @@ class OrderFacade(
     private val brandService: BrandService,
     private val couponService: CouponService,
     private val paymentFacade: PaymentFacade,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxPublisher: OutboxPublisher,
 ) {
 
     @Transactional(readOnly = true)
@@ -110,6 +120,29 @@ class OrderFacade(
         if (paymentInfo.status == PaymentStatus.FAILED) {
             throw CoreException(ErrorType.INTERNAL_ERROR, paymentInfo.failReason ?: "결제에 실패했습니다.")
         }
+
+        // Outbox INSERT (Kafka 발행용)
+        outboxPublisher.publish(
+            aggregateType = AggregateTypes.ORDER,
+            aggregateId = order.id.toString(),
+            eventType = EventTypes.ORDER_COMPLETED,
+            version = System.currentTimeMillis(),
+            payload = OrderCompletedPayload(
+                orderId = order.id,
+                userId = userId,
+                items = items.map {
+                    OrderItemPayload(it.productId, it.quantity.value, productMap[it.productId]?.name ?: "")
+                },
+                couponId = couponId,
+                totalAmount = order.totalAmount.value,
+                paymentAmount = order.paymentAmount.value,
+            ),
+        )
+
+        // 유저 행동 로깅 (인프로세스)
+        eventPublisher.publishEvent(
+            UserActionEvent(userId = userId, actionType = ActionType.ORDER_PLACED, targetId = order.id),
+        )
     }
 
     private data class CouponApplyInfo(

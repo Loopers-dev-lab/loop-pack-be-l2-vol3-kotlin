@@ -27,11 +27,22 @@ class CouponServiceTest {
     @Mock
     private lateinit var issuedCouponRepository: IssuedCouponRepository
 
+    @Mock
+    private lateinit var couponIssueRepository: CouponIssueRepository
+
+    @Mock
+    private lateinit var couponIssueRequestRepository: CouponIssueRequestRepository
+
     private lateinit var couponService: CouponService
 
     @BeforeEach
     fun setUp() {
-        couponService = CouponService(couponRepository, issuedCouponRepository)
+        couponService = CouponService(
+            couponRepository,
+            issuedCouponRepository,
+            couponIssueRepository,
+            couponIssueRequestRepository,
+        )
     }
 
     private fun createCoupon(
