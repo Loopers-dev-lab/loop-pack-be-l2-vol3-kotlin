@@ -30,6 +30,7 @@ class QueueSchedulerTest {
                 tokenTtlSeconds = 300,
                 throughputTps = 175,
                 schedulerDelayMs = 100,
+                jitterMaxMs = 0,
             ),
         )
         scheduler = QueueScheduler(useCase)

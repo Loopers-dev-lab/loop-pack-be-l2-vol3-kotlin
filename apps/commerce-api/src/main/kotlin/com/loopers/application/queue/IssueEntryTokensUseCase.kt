@@ -5,6 +5,7 @@ import com.loopers.domain.queue.token.model.EntryToken
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import org.springframework.stereotype.Component
+import kotlin.random.Random
 
 @Component
 class IssueEntryTokensUseCase(
@@ -17,6 +18,8 @@ class IssueEntryTokensUseCase(
         val userIds = waitingQueueRepository.popMin(queueProperties.batchSize)
         if (userIds.isEmpty()) return
 
+        applyJitter()
+
         userIds.forEach { userId ->
             val entryToken = EntryToken.issue(UserId(userId))
             entryTokenRepository.issue(
@@ -25,5 +28,11 @@ class IssueEntryTokensUseCase(
                 ttlSeconds = queueProperties.tokenTtlSeconds,
             )
         }
+    }
+
+    private fun applyJitter() {
+        val maxMs = queueProperties.jitterMaxMs
+        if (maxMs <= 0) return
+        Thread.sleep(Random.nextLong(0, maxMs + 1))
     }
 }

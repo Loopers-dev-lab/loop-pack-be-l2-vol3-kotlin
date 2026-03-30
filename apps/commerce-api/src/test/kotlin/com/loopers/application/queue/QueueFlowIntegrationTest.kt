@@ -28,6 +28,7 @@ class QueueFlowIntegrationTest {
         tokenTtlSeconds = 300,
         throughputTps = 175,
         schedulerDelayMs = 100,
+        jitterMaxMs = 0,
     )
 
     @BeforeEach

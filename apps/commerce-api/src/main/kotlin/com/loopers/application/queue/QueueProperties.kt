@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.validation.annotation.Validated
 
@@ -17,4 +18,6 @@ data class QueueProperties(
     val throughputTps: Int,
     @field:Positive
     val schedulerDelayMs: Long,
+    @field:PositiveOrZero
+    val jitterMaxMs: Long = 0,
 )

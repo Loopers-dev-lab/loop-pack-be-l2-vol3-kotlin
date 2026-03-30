@@ -34,6 +34,7 @@ class EnterQueueUseCaseTest {
                 tokenTtlSeconds = 300,
                 throughputTps = throughputTps,
                 schedulerDelayMs = 100,
+                jitterMaxMs = 0,
             ),
         )
     }
@@ -82,6 +83,7 @@ class EnterQueueUseCaseTest {
                 tokenTtlSeconds = 300,
                 throughputTps = throughputTps,
                 schedulerDelayMs = 100,
+                jitterMaxMs = 0,
             )
             val useCase = EnterQueueUseCase(
                 waitingQueueRepository = waitingQueueRepository,

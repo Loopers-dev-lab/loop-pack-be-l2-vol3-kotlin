@@ -34,6 +34,7 @@ class GetQueuePositionUseCaseTest {
                 tokenTtlSeconds = 300,
                 throughputTps = throughputTps,
                 schedulerDelayMs = 100,
+                jitterMaxMs = 0,
             ),
         )
     }
@@ -67,6 +68,34 @@ class GetQueuePositionUseCaseTest {
             assertThat(result.token).isEqualTo("issued-token")
             assertThat(result.position).isEqualTo(0)
             assertThat(result.estimatedWaitSeconds).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("순번 100 이하이면 추천 폴링 주기 1000ms를 반환한다")
+        fun execute_position100OrLess_pollInterval1000() {
+            // arrange
+            waitingQueueRepository.enter(1L, 1000.0, maxCapacity)
+            waitingQueueRepository.enter(2L, 2000.0, maxCapacity)
+
+            // act
+            val result = getQueuePositionUseCase.execute(2L)
+
+            // assert
+            assertThat(result.position).isEqualTo(1L)
+            assertThat(result.recommendedPollIntervalMs).isEqualTo(1000L)
+        }
+
+        @Test
+        @DisplayName("토큰 보유 시 추천 폴링 주기 1000ms를 반환한다")
+        fun execute_withToken_pollInterval1000() {
+            // arrange
+            entryTokenRepository.issue(UserId(1L), "token", 300)
+
+            // act
+            val result = getQueuePositionUseCase.execute(1L)
+
+            // assert
+            assertThat(result.recommendedPollIntervalMs).isEqualTo(1000L)
         }
 
         @Test

@@ -8,6 +8,7 @@ class QueueV1Dto {
         val position: Long,
         val estimatedWaitSeconds: Long,
         val token: String?,
+        val recommendedPollIntervalMs: Long,
     ) {
         companion object {
             fun from(info: QueuePositionInfo): QueuePositionResponse {
@@ -15,6 +16,7 @@ class QueueV1Dto {
                     position = info.position,
                     estimatedWaitSeconds = info.estimatedWaitSeconds,
                     token = info.token,
+                    recommendedPollIntervalMs = info.recommendedPollIntervalMs,
                 )
             }
         }

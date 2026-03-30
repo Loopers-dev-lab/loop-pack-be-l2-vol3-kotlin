@@ -30,6 +30,7 @@ class IssueEntryTokensUseCaseTest {
                 tokenTtlSeconds = 300,
                 throughputTps = 175,
                 schedulerDelayMs = 100,
+                jitterMaxMs = 0,
             ),
         )
     }
@@ -77,6 +78,36 @@ class IssueEntryTokensUseCaseTest {
 
             // assert
             assertThat(entryTokenRepository.find(UserId(1L))).isNotNull()
+            assertThat(waitingQueueRepository.count()).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("jitter가 설정되어 있어도 모든 토큰이 정상 발급된다")
+        fun execute_withJitter_issuesTokensCorrectly() {
+            // arrange
+            val jitterUseCase = IssueEntryTokensUseCase(
+                waitingQueueRepository = waitingQueueRepository,
+                entryTokenRepository = entryTokenRepository,
+                queueProperties = QueueProperties(
+                    maxCapacity = 50_000,
+                    batchSize = batchSize,
+                    tokenTtlSeconds = 300,
+                    throughputTps = 175,
+                    schedulerDelayMs = 100,
+                    jitterMaxMs = 5,
+                ),
+            )
+            waitingQueueRepository.enter(1L, 1000.0, 50_000)
+            waitingQueueRepository.enter(2L, 2000.0, 50_000)
+            waitingQueueRepository.enter(3L, 3000.0, 50_000)
+
+            // act
+            jitterUseCase.execute()
+
+            // assert
+            assertThat(entryTokenRepository.find(UserId(1L))).isNotNull()
+            assertThat(entryTokenRepository.find(UserId(2L))).isNotNull()
+            assertThat(entryTokenRepository.find(UserId(3L))).isNotNull()
             assertThat(waitingQueueRepository.count()).isEqualTo(0)
         }
 
