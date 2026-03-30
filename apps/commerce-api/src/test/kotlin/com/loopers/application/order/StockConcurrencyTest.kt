@@ -6,12 +6,14 @@ import com.loopers.domain.common.LikeCount
 import com.loopers.domain.common.Money
 import com.loopers.domain.common.Quantity
 import com.loopers.domain.common.StockQuantity
+import com.loopers.domain.order.StockReservationRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -23,6 +25,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.CountDownLatch
@@ -34,7 +37,10 @@ class StockConcurrencyTest @Autowired constructor(
     private val orderFacade: OrderFacade,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    private val stockReservationRepository: StockReservationRepository,
+    private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @MockitoBean
@@ -51,6 +57,7 @@ class StockConcurrencyTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun createBrand(): Brand {
@@ -59,7 +66,7 @@ class StockConcurrencyTest @Autowired constructor(
 
     private fun createProduct(stockQuantity: StockQuantity = StockQuantity.of(100)): Product {
         val brand = createBrand()
-        return productRepository.save(
+        val product = productRepository.save(
             Product(
                 name = "에어맥스",
                 description = "러닝화",
@@ -69,6 +76,8 @@ class StockConcurrencyTest @Autowired constructor(
                 brandId = brand.id,
             ),
         )
+        stockReservationRepository.setStock(product.id, stockQuantity.value)
+        return product
     }
 
     @DisplayName("DB 비관적 락으로 상품을 조회할 때,")
@@ -130,11 +139,11 @@ class StockConcurrencyTest @Autowired constructor(
         }
     }
 
-    @DisplayName("재고 차감 동시성 제어")
+    @DisplayName("Redis 재고 선점 동시성 제어")
     @Nested
     inner class StockDeductionConcurrency {
 
-        @DisplayName("동시에 여러 주문이 같은 상품에 들어와도 재고가 정확히 차감된다.")
+        @DisplayName("동시에 여러 주문이 같은 상품에 들어와도 Redis 재고가 정확히 차감된다.")
         @Test
         fun deductsStockCorrectly_whenConcurrentOrders() {
             // arrange
@@ -164,15 +173,15 @@ class StockConcurrencyTest @Autowired constructor(
             latch.await()
             executorService.shutdown()
 
-            // assert
-            val updatedProduct = productRepository.findById(product.id)
+            // assert: Redis 재고 확인 (DB 재고는 consumer가 비동기 차감)
+            val redisStock = redisTemplate.opsForValue().get("stock:${product.id}")
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(10) },
-                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(90)) },
+                { assertThat(redisStock).isEqualTo("90") },
             )
         }
 
-        @DisplayName("재고보다 많은 동시 주문이 들어오면, 재고가 음수가 되지 않는다.")
+        @DisplayName("재고보다 많은 동시 주문이 들어오면, Redis 재고가 음수가 되지 않는다.")
         @Test
         fun doesNotGoNegative_whenConcurrentOrdersExceedStock() {
             // arrange
@@ -204,12 +213,12 @@ class StockConcurrencyTest @Autowired constructor(
             latch.await()
             executorService.shutdown()
 
-            // assert
-            val updatedProduct = productRepository.findById(product.id)
+            // assert: Redis 재고 확인
+            val redisStock = redisTemplate.opsForValue().get("stock:${product.id}")
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(5) },
                 { assertThat(failCount.get()).isEqualTo(5) },
-                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(0)) },
+                { assertThat(redisStock).isEqualTo("0") },
             )
         }
     }

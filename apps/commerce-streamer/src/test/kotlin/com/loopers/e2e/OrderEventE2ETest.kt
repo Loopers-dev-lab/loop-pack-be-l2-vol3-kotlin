@@ -4,6 +4,8 @@ import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.EventEnvelope
 import com.loopers.support.EmbeddedKafkaTestSupport
 import com.loopers.utils.DatabaseCleanUp
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
@@ -11,18 +13,43 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
 class OrderEventE2ETest @Autowired constructor(
     private val productMetricsRepository: ProductMetricsRepository,
+    @PersistenceContext private val entityManager: EntityManager,
+    private val transactionTemplate: TransactionTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
 ) : EmbeddedKafkaTestSupport() {
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+    }
+
+    private fun insertProduct(id: Long, stock: Int) {
+        transactionTemplate.executeWithoutResult {
+            entityManager.createNativeQuery(
+                "INSERT INTO products (id, name, price, likes, stock_quantity, brand_id, created_at, updated_at) VALUES (:id, '상품', 1000, 0, :stock, 1, NOW(), NOW())",
+            )
+                .setParameter("id", id)
+                .setParameter("stock", stock)
+                .executeUpdate()
+        }
+    }
+
+    private fun getProductStock(productId: Long): Int? {
+        return transactionTemplate.execute {
+            val result = entityManager.createNativeQuery(
+                "SELECT stock_quantity FROM products WHERE id = :id",
+            )
+                .setParameter("id", productId)
+                .singleResult
+            (result as Number?)?.toInt()
+        }
     }
 
     @DisplayName("주문 완료 이벤트 E2E:")
@@ -56,6 +83,34 @@ class OrderEventE2ETest @Autowired constructor(
                 val metricsB = productMetricsRepository.findByProductId(200L)
                 assertThat(metricsB).isNotNull
                 assertThat(metricsB!!.salesCount).isEqualTo(3)
+            }
+        }
+
+        @DisplayName("주문 완료 이벤트가 Kafka를 통해 DB 재고를 차감한다.")
+        @Test
+        fun orderCompletedEventDecrementsDbStock() {
+            // arrange
+            waitForConsumerAssignment()
+            insertProduct(100L, 50)
+            insertProduct(200L, 30)
+
+            val payload = """{"orderId":2,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A"},{"productId":200,"quantity":3,"productName":"상품B"}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
+            val envelope = EventEnvelope(
+                eventId = UUID.randomUUID().toString(),
+                eventType = "ORDER_COMPLETED",
+                aggregateId = "2",
+                version = System.currentTimeMillis(),
+                timestamp = Instant.now(),
+                payload = payload,
+            )
+
+            // act
+            sendEnvelope("order-events", envelope)
+
+            // assert
+            await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofSeconds(1)).untilAsserted {
+                assertThat(getProductStock(100L)).isEqualTo(48)
+                assertThat(getProductStock(200L)).isEqualTo(27)
             }
         }
     }

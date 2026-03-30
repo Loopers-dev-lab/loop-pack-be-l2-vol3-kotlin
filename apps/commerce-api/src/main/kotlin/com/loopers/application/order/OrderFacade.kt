@@ -5,13 +5,14 @@ import com.loopers.application.payment.PaymentFacade
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.coupon.Discount
-import com.loopers.domain.coupon.IssuedCoupon
+import com.loopers.domain.order.CouponReservationRepository
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.order.StockReservationRepository
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductService
-import com.loopers.domain.product.StockDeductionRequest
 import com.loopers.domain.user.event.ActionType
 import com.loopers.domain.user.event.UserActionEvent
 import com.loopers.event.AggregateTypes
@@ -34,6 +35,8 @@ class OrderFacade(
     private val paymentFacade: PaymentFacade,
     private val eventPublisher: ApplicationEventPublisher,
     private val outboxPublisher: OutboxPublisher,
+    private val stockReservationRepository: StockReservationRepository,
+    private val couponReservationRepository: CouponReservationRepository,
 ) {
 
     @Transactional(readOnly = true)
@@ -60,34 +63,116 @@ class OrderFacade(
         cardType: CardType,
         cardNo: String,
     ) {
-        // 멱등성 키 중복 체크
         if (idempotencyKey != null && orderService.findByIdempotencyKey(idempotencyKey) != null) {
             return
         }
 
-        // 쿠폰 검증 (fail-fast)
-        val couponInfo = couponId?.let { id ->
-            val issuedCoupon = couponService.findIssuedCouponWithLock(id, userId)
-            val coupon = couponService.findCouponById(id)
-            issuedCoupon.validateUsable(coupon.expiresAt)
-            CouponApplyInfo(id, coupon.discount, issuedCoupon)
+        val productMap = resolveProducts(items)
+        val reservedStocks = reserveStocks(items)
+        val couponReserved = reserveCouponIfPresent(couponId, userId, reservedStocks)
+
+        try {
+            val couponInfo = validateCouponIfPresent(couponId, userId)
+
+            val orderItemCommands = buildOrderItemCommands(items, productMap)
+            val order = orderService.createOrder(userId, orderItemCommands, idempotencyKey)
+
+            couponInfo?.let {
+                val discountAmount = it.discount.calculateDiscountAmount(order.totalAmount)
+                order.applyCouponDiscount(it.couponId, discountAmount)
+            }
+
+            val paymentInfo = paymentFacade.requestPayment(
+                userId = userId,
+                orderId = order.id.toString(),
+                cardType = cardType,
+                cardNo = cardNo,
+                amount = order.paymentAmount.value,
+            )
+
+            if (paymentInfo.status == PaymentStatus.FAILED) {
+                throw CoreException(ErrorType.INTERNAL_ERROR, paymentInfo.failReason ?: "결제에 실패했습니다.")
+            }
+
+            publishOrderCompletedEvent(
+                order.id,
+                userId,
+                items,
+                productMap,
+                couponId,
+                order.totalAmount.value,
+                order.paymentAmount.value,
+            )
+
+            eventPublisher.publishEvent(
+                UserActionEvent(userId = userId, actionType = ActionType.ORDER_PLACED, targetId = order.id),
+            )
+        } catch (e: Exception) {
+            restoreReservations(reservedStocks, couponId, userId, couponReserved)
+            throw e
         }
+    }
 
+    private fun resolveProducts(items: List<OrderPlaceCommand>): Map<Long, Product> {
         val productIds = items.map { it.productId }
-
-        // DB 비관적 락(SELECT FOR UPDATE)으로 상품 조회 + 존재 검증
-        val products = productService.getProductsForOrderWithLock(productIds)
+        val products = productService.getProductsByIds(productIds)
         val productMap = products.associateBy { it.id }
 
+        val missingIds = productIds.filter { it !in productMap }
+        if (missingIds.isNotEmpty()) {
+            throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다: $missingIds")
+        }
+        return productMap
+    }
+
+    private fun reserveStocks(items: List<OrderPlaceCommand>): List<Pair<Long, Int>> {
+        val reservedStocks = mutableListOf<Pair<Long, Int>>()
+        try {
+            items.forEach { item ->
+                if (!stockReservationRepository.reserve(item.productId, item.quantity.value)) {
+                    throw CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.")
+                }
+                reservedStocks.add(item.productId to item.quantity.value)
+            }
+        } catch (e: Exception) {
+            reservedStocks.forEach { (productId, qty) -> stockReservationRepository.restore(productId, qty) }
+            throw e
+        }
+        return reservedStocks
+    }
+
+    private fun reserveCouponIfPresent(
+        couponId: Long?,
+        userId: Long,
+        reservedStocks: List<Pair<Long, Int>>,
+    ): Boolean {
+        return couponId?.let { id ->
+            if (!couponReservationRepository.reserve(id, userId)) {
+                reservedStocks.forEach { (productId, qty) -> stockReservationRepository.restore(productId, qty) }
+                throw CoreException(ErrorType.CONFLICT, "이미 사용된 쿠폰입니다.")
+            }
+            true
+        } ?: false
+    }
+
+    private fun validateCouponIfPresent(couponId: Long?, userId: Long): CouponApplyInfo? {
+        return couponId?.let { id ->
+            val issuedCoupon = couponService.findIssuedCouponByCouponIdAndUserId(id, userId)
+            val coupon = couponService.findCouponById(id)
+            issuedCoupon.validateUsable(coupon.expiresAt)
+            CouponApplyInfo(id, coupon.discount)
+        }
+    }
+
+    private fun buildOrderItemCommands(
+        items: List<OrderPlaceCommand>,
+        productMap: Map<Long, Product>,
+    ): List<OrderItemCommand> {
         val brandMap = brandService.getBrandsByIds(
-            products.map { it.brandId }.distinct(),
+            productMap.values.map { it.brandId }.distinct(),
         ).associateBy { it.id }
 
-        val deductionRequests = items.map { StockDeductionRequest(it.productId, it.quantity) }
-        productService.deductStocks(productMap, deductionRequests)
-
-        // cross-domain 스냅샷 조립은 application 레이어에 유지
-        val orderItemCommands = items.map { item ->
+        return items.map { item ->
             val product = productMap.getValue(item.productId)
             val brand = brandMap.getValue(product.brandId)
             OrderItemCommand(
@@ -98,56 +183,47 @@ class OrderFacade(
                 brandName = brand.name,
             )
         }
+    }
 
-        val order = orderService.createOrder(userId, orderItemCommands, idempotencyKey)
-
-        // 쿠폰 할인 적용
-        couponInfo?.let {
-            val discountAmount = it.discount.calculateDiscountAmount(order.totalAmount)
-            order.applyCouponDiscount(it.couponId, discountAmount)
-            it.issuedCoupon.use()
-        }
-
-        // 결제 요청 — FAILED면 예외 → 트랜잭션 롤백 (재고/쿠폰 자동 복원)
-        val paymentInfo = paymentFacade.requestPayment(
-            userId = userId,
-            orderId = order.id.toString(),
-            cardType = cardType,
-            cardNo = cardNo,
-            amount = order.paymentAmount.value,
-        )
-
-        if (paymentInfo.status == PaymentStatus.FAILED) {
-            throw CoreException(ErrorType.INTERNAL_ERROR, paymentInfo.failReason ?: "결제에 실패했습니다.")
-        }
-
-        // Outbox INSERT (Kafka 발행용)
+    private fun publishOrderCompletedEvent(
+        orderId: Long,
+        userId: Long,
+        items: List<OrderPlaceCommand>,
+        productMap: Map<Long, Product>,
+        couponId: Long?,
+        totalAmount: Long,
+        paymentAmount: Long,
+    ) {
         outboxPublisher.publish(
             aggregateType = AggregateTypes.ORDER,
-            aggregateId = order.id.toString(),
+            aggregateId = orderId.toString(),
             eventType = EventTypes.ORDER_COMPLETED,
             version = System.currentTimeMillis(),
             payload = OrderCompletedPayload(
-                orderId = order.id,
+                orderId = orderId,
                 userId = userId,
                 items = items.map {
                     OrderItemPayload(it.productId, it.quantity.value, productMap[it.productId]?.name ?: "")
                 },
                 couponId = couponId,
-                totalAmount = order.totalAmount.value,
-                paymentAmount = order.paymentAmount.value,
+                totalAmount = totalAmount,
+                paymentAmount = paymentAmount,
             ),
         )
+    }
 
-        // 유저 행동 로깅 (인프로세스)
-        eventPublisher.publishEvent(
-            UserActionEvent(userId = userId, actionType = ActionType.ORDER_PLACED, targetId = order.id),
-        )
+    private fun restoreReservations(
+        reservedStocks: List<Pair<Long, Int>>,
+        couponId: Long?,
+        userId: Long,
+        couponReserved: Boolean,
+    ) {
+        reservedStocks.forEach { (productId, qty) -> stockReservationRepository.restore(productId, qty) }
+        if (couponReserved) couponReservationRepository.restore(couponId!!, userId)
     }
 
     private data class CouponApplyInfo(
         val couponId: Long,
         val discount: Discount,
-        val issuedCoupon: IssuedCoupon,
     )
 }

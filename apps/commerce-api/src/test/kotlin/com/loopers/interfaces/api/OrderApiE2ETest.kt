@@ -14,12 +14,15 @@ import com.loopers.domain.coupon.DiscountType
 import com.loopers.domain.coupon.IssuedCouponRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.order.StockReservationRepository
 import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.UserRepository
 import com.loopers.interfaces.api.user.UserDto
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentGatewayResponse
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
+import org.springframework.data.redis.core.RedisTemplate
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -58,7 +61,10 @@ class OrderApiE2ETest @Autowired constructor(
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
     private val userRepository: UserRepository,
+    private val stockReservationRepository: StockReservationRepository,
+    private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
 
     @MockitoBean
@@ -87,6 +93,7 @@ class OrderApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun signUp(
@@ -137,9 +144,11 @@ class OrderApiE2ETest @Autowired constructor(
         brand: Brand? = null,
     ): Product {
         val resolvedBrand = brand ?: createBrand()
-        return productRepository.save(
+        val product = productRepository.save(
             Product(name = name, description = description, price = price, likes = LikeCount.of(0), stockQuantity = stockQuantity, brandId = resolvedBrand.id),
         )
+        stockReservationRepository.setStock(product.id, stockQuantity.value)
+        return product
     }
 
     private data class PlaceOrderRequest(
@@ -370,7 +379,7 @@ class OrderApiE2ETest @Autowired constructor(
             assertThat(response.statusCode.value()).isEqualTo(401)
         }
 
-        @DisplayName("주문 성공 시 재고가 차감된다.")
+        @DisplayName("주문 성공 시 Redis 재고가 차감된다.")
         @Test
         fun deductsStock_whenOrderIsSuccessful() {
             // arrange
@@ -383,9 +392,9 @@ class OrderApiE2ETest @Autowired constructor(
             // act
             placeOrder(request)
 
-            // assert
-            val updatedProduct = productRepository.findById(product.id)
-            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(97))
+            // assert: Redis 재고 확인 (DB 재고는 consumer가 비동기 차감)
+            val redisStock = redisTemplate.opsForValue().get("stock:${product.id}")
+            assertThat(redisStock).isEqualTo("97")
         }
 
         @DisplayName("삭제된 상품에 주문하면, 404 NOT_FOUND를 반환한다.")
@@ -453,16 +462,14 @@ class OrderApiE2ETest @Autowired constructor(
             // act
             placeOrder(request)
 
-            // assert
-            val updatedProduct1 = productRepository.findById(product1.id)
-            val updatedProduct2 = productRepository.findById(product2.id)
+            // assert: Redis 재고 확인
             assertAll(
-                { assertThat(updatedProduct1?.stockQuantity).isEqualTo(StockQuantity.of(45)) },
-                { assertThat(updatedProduct2?.stockQuantity).isEqualTo(StockQuantity.of(27)) },
+                { assertThat(redisTemplate.opsForValue().get("stock:${product1.id}")).isEqualTo("45") },
+                { assertThat(redisTemplate.opsForValue().get("stock:${product2.id}")).isEqualTo("27") },
             )
         }
 
-        @DisplayName("재고 부족 시 이미 차감된 재고도 롤백된다.")
+        @DisplayName("재고 부족 시 이미 선점된 재고도 복원된다.")
         @Test
         fun rollsBackStock_whenAnyItemHasInsufficientStock() {
             // arrange
@@ -480,10 +487,9 @@ class OrderApiE2ETest @Autowired constructor(
             // act
             val response = placeOrder(request)
 
-            // assert
+            // assert: Redis 재고 복원 확인
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-            val updatedProduct1 = productRepository.findById(product1.id)
-            assertThat(updatedProduct1?.stockQuantity).isEqualTo(StockQuantity.of(100))
+            assertThat(redisTemplate.opsForValue().get("stock:${product1.id}")).isEqualTo("100")
         }
     }
 
@@ -967,9 +973,9 @@ class OrderApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("쿠폰 적용 주문 성공 시, 쿠폰이 사용 처리된다.")
+        @DisplayName("쿠폰 적용 주문 성공 시, Redis 쿠폰 선점이 유지된다. (DB 사용 처리는 consumer에서)")
         @Test
-        fun marksCouponAsUsed_whenOrderSucceeds() {
+        fun reservesCouponInRedis_whenOrderSucceeds() {
             // arrange
             signUp()
             val product = createProduct()
@@ -984,11 +990,10 @@ class OrderApiE2ETest @Autowired constructor(
             // act
             placeOrder(request)
 
-            // assert
+            // assert: Redis 쿠폰 선점 유지 → 같은 쿠폰 재사용 불가
             val user = userRepository.findByLoginId(LoginId.of("testuser123"))!!
-            val issuedCoupons = issuedCouponRepository.findByUserId(user.id)
-            val issuedCoupon = issuedCoupons.first { it.couponId == coupon.id }
-            assertThat(issuedCoupon.usedAt).isNotNull()
+            val redisKey = "coupon-use:${coupon.id}:user:${user.id}"
+            assertThat(redisTemplate.hasKey(redisKey)).isTrue()
         }
 
         @DisplayName("만료된 쿠폰으로 주문하면, 400 BAD_REQUEST를 반환한다.")
@@ -1041,9 +1046,9 @@ class OrderApiE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("쿠폰을 사용한 주문 후, 같은 쿠폰으로 재주문하면 400 BAD_REQUEST를 반환한다.")
+        @DisplayName("쿠폰을 사용한 주문 후, 같은 쿠폰으로 재주문하면 409 CONFLICT를 반환한다.")
         @Test
-        fun returnsBadRequest_whenCouponAlreadyUsedByPreviousOrder() {
+        fun returnsConflict_whenCouponAlreadyReservedByPreviousOrder() {
             // arrange
             signUp()
             val brand = createBrand()
@@ -1068,9 +1073,9 @@ class OrderApiE2ETest @Autowired constructor(
                 ),
             )
 
-            // assert
+            // assert: Redis SETNX로 중복 선점 방지 → 409 CONFLICT
             assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT) },
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
             )
         }
@@ -1089,9 +1094,8 @@ class OrderApiE2ETest @Autowired constructor(
             // act
             placeOrder(request)
 
-            // assert
-            val updatedProduct = productRepository.findById(product.id)
-            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(100))
+            // assert: 쿠폰 실패 시 Redis 재고 복원 확인
+            assertThat(redisTemplate.opsForValue().get("stock:${product.id}")).isEqualTo("100")
         }
     }
 
@@ -1170,9 +1174,8 @@ class OrderApiE2ETest @Autowired constructor(
             placeOrder(request, headers)
             placeOrder(request, headers)
 
-            // assert
-            val updatedProduct = productRepository.findById(product.id)
-            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(97))
+            // assert: Redis 재고 확인 (1번만 차감)
+            assertThat(redisTemplate.opsForValue().get("stock:${product.id}")).isEqualTo("97")
         }
 
         @DisplayName("다른 Idempotency-Key로 주문하면, 각각 주문이 생성된다.")
@@ -1196,9 +1199,9 @@ class OrderApiE2ETest @Autowired constructor(
             assertThat(ordersResponse.body?.data).hasSize(2)
         }
 
-        @DisplayName("쿠폰 적용 주문을 같은 Idempotency-Key로 두 번 요청하면, 쿠폰은 1번만 사용된다.")
+        @DisplayName("쿠폰 적용 주문을 같은 Idempotency-Key로 두 번 요청하면, 쿠폰은 1번만 선점된다.")
         @Test
-        fun usesCouponOnlyOnce_whenSameIdempotencyKeyWithCoupon() {
+        fun reservesCouponOnlyOnce_whenSameIdempotencyKeyWithCoupon() {
             // arrange
             signUp()
             val product = createProduct(price = Money.of(100000L))
@@ -1230,11 +1233,10 @@ class OrderApiE2ETest @Autowired constructor(
             val ordersResponse = getOrders(startAt, endAt)
             assertThat(ordersResponse.body?.data).hasSize(1)
 
-            // 쿠폰이 사용 처리되었는지 확인
+            // Redis 쿠폰 선점이 유지되는지 확인
             val user = userRepository.findByLoginId(LoginId.of("testuser123"))!!
-            val issuedCoupons = issuedCouponRepository.findByUserId(user.id)
-            val issuedCoupon = issuedCoupons.first { it.couponId == coupon.id }
-            assertThat(issuedCoupon.usedAt).isNotNull()
+            val redisKey = "coupon-use:${coupon.id}:user:${user.id}"
+            assertThat(redisTemplate.hasKey(redisKey)).isTrue()
         }
 
         @DisplayName("같은 Idempotency-Key로 동시에 주문하면, 1건만 생성된다.")
@@ -1283,9 +1285,8 @@ class OrderApiE2ETest @Autowired constructor(
             val ordersResponse = getOrders(startAt, endAt)
             assertThat(ordersResponse.body?.data).hasSize(1)
 
-            // 재고도 1번만 차감되었는지 확인
-            val updatedProduct = productRepository.findById(product.id)
-            assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(99))
+            // Redis 재고도 1번만 차감되었는지 확인
+            assertThat(redisTemplate.opsForValue().get("stock:${product.id}")).isEqualTo("99")
         }
 
         @DisplayName("같은 Idempotency-Key로 중복 요청 후 주문 상세를 조회하면, 첫 번째 주문 정보가 반환된다.")
@@ -1369,15 +1370,14 @@ class OrderApiE2ETest @Autowired constructor(
             latch.await()
             executor.shutdown()
 
-            // assert
-            val updatedProduct = productRepository.findById(product.id)
+            // assert: Redis 재고 확인
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(10) },
-                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(90)) },
+                { assertThat(redisTemplate.opsForValue().get("stock:${product.id}")).isEqualTo("90") },
             )
         }
 
-        @DisplayName("재고보다 많은 동시 주문이 들어오면, 재고가 음수가 되지 않는다.")
+        @DisplayName("재고보다 많은 동시 주문이 들어오면, Redis 재고가 음수가 되지 않는다.")
         @Test
         fun doesNotGoNegative_whenConcurrentOrdersExceedStock() {
             // arrange
@@ -1420,12 +1420,11 @@ class OrderApiE2ETest @Autowired constructor(
             latch.await()
             executor.shutdown()
 
-            // assert
-            val updatedProduct = productRepository.findById(product.id)
+            // assert: Redis 재고 확인
             assertAll(
                 { assertThat(successCount.get()).isEqualTo(5) },
                 { assertThat(failCount.get()).isEqualTo(5) },
-                { assertThat(updatedProduct?.stockQuantity).isEqualTo(StockQuantity.of(0)) },
+                { assertThat(redisTemplate.opsForValue().get("stock:${product.id}")).isEqualTo("0") },
             )
         }
     }

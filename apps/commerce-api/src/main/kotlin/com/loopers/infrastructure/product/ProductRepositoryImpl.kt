@@ -59,4 +59,8 @@ class ProductRepositoryImpl(
     override fun findTopBrandIdsByProductCount(limit: Int): List<Long> {
         return productJpaRepository.findTopBrandIdsByProductCount(PageRequest.of(0, limit))
     }
+
+    override fun findAllActive(): List<Product> {
+        return productJpaRepository.findAllByDeletedAtIsNull()
+    }
 }
