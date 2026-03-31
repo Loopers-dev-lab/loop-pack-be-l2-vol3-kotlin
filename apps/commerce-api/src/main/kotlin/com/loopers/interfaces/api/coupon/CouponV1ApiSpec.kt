@@ -47,6 +47,8 @@ interface CouponV1ApiSpec {
     )
     @SwaggerResponse(responseCode = "200", description = "조회 성공")
     fun getCouponIssueStatus(
+        loginId: String,
+        loginPw: String,
         requestId: Long,
     ): ApiResponse<CouponV1Dto.CouponIssueStatusResponse>
 }

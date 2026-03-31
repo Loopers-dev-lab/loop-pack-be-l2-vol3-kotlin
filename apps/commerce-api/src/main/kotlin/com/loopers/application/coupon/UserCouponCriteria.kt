@@ -17,5 +17,6 @@ data class RequestCouponIssueCriteria(
 )
 
 data class GetCouponIssueStatusCriteria(
+    val loginId: String,
     val requestId: Long,
 )

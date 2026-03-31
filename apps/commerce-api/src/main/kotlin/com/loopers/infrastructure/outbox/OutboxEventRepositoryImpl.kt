@@ -16,4 +16,8 @@ class OutboxEventRepositoryImpl(
     override fun findPendingEvents(): List<OutboxEventModel> {
         return outboxEventJpaRepository.findTop100ByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING)
     }
+
+    override fun findFailedEvents(): List<OutboxEventModel> {
+        return outboxEventJpaRepository.findTop100ByStatusOrderByCreatedAtAsc(OutboxStatus.FAILED)
+    }
 }

@@ -40,11 +40,20 @@ class OutboxEventModel(
     var status: OutboxStatus = OutboxStatus.PENDING
         protected set
 
+    @Column(name = "retry_count", nullable = false)
+    var retryCount: Int = 0
+        protected set
+
+    companion object {
+        private const val MAX_RETRY = 3
+    }
+
     fun markSent() {
         status = OutboxStatus.SENT
     }
 
     fun markFailed() {
-        status = OutboxStatus.FAILED
+        retryCount++
+        status = if (retryCount >= MAX_RETRY) OutboxStatus.DEAD else OutboxStatus.FAILED
     }
 }

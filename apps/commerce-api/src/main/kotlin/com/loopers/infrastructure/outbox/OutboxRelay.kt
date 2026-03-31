@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.outbox
 
+import com.loopers.domain.outbox.OutboxEventModel
 import com.loopers.domain.outbox.OutboxEventRepository
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.core.KafkaTemplate
@@ -22,6 +23,17 @@ class OutboxRelay(
     @Transactional
     fun relay() {
         val events = outboxEventRepository.findPendingEvents()
+        processEvents(events)
+    }
+
+    @Scheduled(fixedDelay = 5000)
+    @Transactional
+    fun retryFailed() {
+        val events = outboxEventRepository.findFailedEvents()
+        processEvents(events)
+    }
+
+    private fun processEvents(events: List<OutboxEventModel>) {
         for (event in events) {
             try {
                 kafkaTemplate.send(TOPIC, event.aggregateId.toString(), event.payload).get()

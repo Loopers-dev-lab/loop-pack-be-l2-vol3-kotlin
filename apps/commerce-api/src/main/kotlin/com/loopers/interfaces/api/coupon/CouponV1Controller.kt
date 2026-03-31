@@ -71,9 +71,11 @@ class CouponV1Controller(
     @GetMapping("/issue-requests/{requestId}")
     @ResponseStatus(HttpStatus.OK)
     override fun getCouponIssueStatus(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") loginPw: String,
         @PathVariable requestId: Long,
     ): ApiResponse<CouponV1Dto.CouponIssueStatusResponse> {
-        val criteria = GetCouponIssueStatusCriteria(requestId = requestId)
+        val criteria = GetCouponIssueStatusCriteria(loginId = loginId, requestId = requestId)
         return userGetCouponIssueStatusUseCase.execute(criteria)
             .let { CouponV1Dto.CouponIssueStatusResponse.from(it) }
             .let { ApiResponse.success(it) }
