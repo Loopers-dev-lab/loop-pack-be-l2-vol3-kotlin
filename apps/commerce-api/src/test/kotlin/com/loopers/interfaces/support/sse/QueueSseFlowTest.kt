@@ -3,6 +3,7 @@ package com.loopers.interfaces.support.sse
 import com.loopers.application.queue.EnterQueueUseCase
 import com.loopers.application.queue.GetQueuePositionUseCase
 import com.loopers.application.queue.IssueEntryTokensUseCase
+import com.loopers.application.queue.QueueFallbackHandler
 import com.loopers.application.queue.QueueProperties
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
@@ -44,7 +45,7 @@ class QueueSseFlowTest {
         val issueEntryTokensUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, properties)
 
         controller = QueueV1Controller(enterQueueUseCase, getQueuePositionUseCase, registry)
-        scheduler = QueueScheduler(issueEntryTokensUseCase, getQueuePositionUseCase, registry)
+        scheduler = QueueScheduler(issueEntryTokensUseCase, getQueuePositionUseCase, registry, QueueFallbackHandler())
     }
 
     @Nested

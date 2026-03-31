@@ -1,8 +1,10 @@
 package com.loopers.interfaces.support.interceptor
 
+import com.loopers.application.queue.QueueFallbackHandler
 import com.loopers.application.queue.ValidateEntryTokenUseCase
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
+import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.interfaces.support.ATTRIBUTE_USER_ID
 import com.loopers.interfaces.support.HEADER_ENTRY_TOKEN
 import com.loopers.support.error.CoreException
@@ -19,13 +21,16 @@ import org.springframework.mock.web.MockHttpServletResponse
 class EntryTokenInterceptorTest {
 
     private lateinit var entryTokenRepository: FakeEntryTokenRepository
+    private lateinit var queueFallbackHandler: QueueFallbackHandler
     private lateinit var interceptor: EntryTokenInterceptor
 
     @BeforeEach
     fun setUp() {
         entryTokenRepository = FakeEntryTokenRepository()
+        queueFallbackHandler = QueueFallbackHandler()
         interceptor = EntryTokenInterceptor(
             ValidateEntryTokenUseCase(entryTokenRepository),
+            queueFallbackHandler,
         )
     }
 
@@ -99,6 +104,89 @@ class EntryTokenInterceptorTest {
 
             // assert
             assertThat(result).isTrue()
+        }
+    }
+
+    @Nested
+    @DisplayName("Redis 장애 Fallback 시")
+    inner class RedisFallback {
+
+        @Test
+        @DisplayName("Redis 연결 실패 시 토큰 검증을 건너뛰고 요청을 허용한다")
+        fun preHandle_redisFailure_bypassesValidation() {
+            // arrange
+            val failingRepo = object : EntryTokenRepository {
+                override fun find(userId: UserId): String? =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun issue(userId: UserId, token: String, ttlSeconds: Long) = Unit
+                override fun delete(userId: UserId) = Unit
+            }
+            val failingInterceptor = EntryTokenInterceptor(
+                ValidateEntryTokenUseCase(failingRepo),
+                queueFallbackHandler,
+            )
+            val request = MockHttpServletRequest()
+            request.setAttribute(ATTRIBUTE_USER_ID, 1L)
+            request.addHeader(HEADER_ENTRY_TOKEN, "some-token")
+
+            // act
+            val result = failingInterceptor.preHandle(request, MockHttpServletResponse(), Any())
+
+            // assert
+            assertThat(result).isTrue()
+            assertThat(queueFallbackHandler.isAvailable()).isFalse()
+        }
+
+        @Test
+        @DisplayName("Redis 장애 상태에서 토큰 헤더 없이도 요청을 허용한다")
+        fun preHandle_unavailableAndNoToken_bypasses() {
+            // arrange
+            queueFallbackHandler.markUnavailable("Redis down")
+            val request = MockHttpServletRequest()
+            request.setAttribute(ATTRIBUTE_USER_ID, 1L)
+
+            // act
+            val result = interceptor.preHandle(request, MockHttpServletResponse(), Any())
+
+            // assert
+            assertThat(result).isTrue()
+        }
+
+        @Test
+        @DisplayName("Redis 복구 시 정상 모드로 전환한다")
+        fun preHandle_redisRecovery_marksAvailable() {
+            // arrange
+            queueFallbackHandler.markUnavailable("Redis down")
+            val token = "valid-token"
+            entryTokenRepository.issue(UserId(1L), token, 300)
+            val request = MockHttpServletRequest()
+            request.setAttribute(ATTRIBUTE_USER_ID, 1L)
+            request.addHeader(HEADER_ENTRY_TOKEN, token)
+
+            // act
+            interceptor.preHandle(request, MockHttpServletResponse(), Any())
+
+            // assert
+            assertThat(queueFallbackHandler.isAvailable()).isTrue()
+        }
+
+        @Test
+        @DisplayName("Redis 장애 중에도 비즈니스 예외는 그대로 전파한다")
+        fun preHandle_coreException_stillThrown() {
+            // arrange
+            val request = MockHttpServletRequest()
+            request.setAttribute(ATTRIBUTE_USER_ID, 1L)
+            request.addHeader(HEADER_ENTRY_TOKEN, "wrong-token")
+            entryTokenRepository.issue(UserId(1L), "correct-token", 300)
+
+            // act
+            val exception = assertThrows<CoreException> {
+                interceptor.preHandle(request, MockHttpServletResponse(), Any())
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
 }

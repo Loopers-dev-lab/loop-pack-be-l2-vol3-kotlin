@@ -2,10 +2,12 @@ package com.loopers.interfaces.support.scheduler
 
 import com.loopers.application.queue.GetQueuePositionUseCase
 import com.loopers.application.queue.IssueEntryTokensUseCase
+import com.loopers.application.queue.QueueFallbackHandler
 import com.loopers.application.queue.QueueProperties
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
+import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import com.loopers.interfaces.support.sse.QueueSseEmitterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -17,6 +19,7 @@ class QueueSchedulerTest {
 
     private lateinit var waitingQueueRepository: FakeWaitingQueueRepository
     private lateinit var entryTokenRepository: FakeEntryTokenRepository
+    private lateinit var queueFallbackHandler: QueueFallbackHandler
     private lateinit var scheduler: QueueScheduler
 
     private val properties = QueueProperties(
@@ -32,10 +35,11 @@ class QueueSchedulerTest {
     fun setUp() {
         waitingQueueRepository = FakeWaitingQueueRepository()
         entryTokenRepository = FakeEntryTokenRepository()
+        queueFallbackHandler = QueueFallbackHandler()
         val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, properties)
         val positionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, properties)
         val registry = QueueSseEmitterRegistry(properties)
-        scheduler = QueueScheduler(issueUseCase, positionUseCase, registry)
+        scheduler = QueueScheduler(issueUseCase, positionUseCase, registry, queueFallbackHandler)
     }
 
     @Nested
@@ -66,6 +70,53 @@ class QueueSchedulerTest {
 
             // assert
             assertThat(waitingQueueRepository.count()).isEqualTo(0)
+        }
+    }
+
+    @Nested
+    @DisplayName("Redis 장애 Fallback 시")
+    inner class RedisFallback {
+
+        @Test
+        @DisplayName("Redis 장애 시 예외 없이 정상 종료하고 fallback 상태로 전환한다")
+        fun issueTokens_redisFailure_marksUnavailable() {
+            // arrange
+            val failingRepo = object : WaitingQueueRepository {
+                override fun enter(userId: Long, score: Double, maxCapacity: Int): Long? =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun findPosition(userId: Long): Long? =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun count(): Long =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun popMin(count: Int): List<Long> =
+                    throw RuntimeException("Redis connection refused")
+            }
+            val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, entryTokenRepository, properties)
+            val positionUseCase = GetQueuePositionUseCase(failingRepo, entryTokenRepository, properties)
+            val registry = QueueSseEmitterRegistry(properties)
+            val failingScheduler = QueueScheduler(failingIssueUseCase, positionUseCase, registry, queueFallbackHandler)
+
+            // act — 예외 없이 정상 종료
+            failingScheduler.issueTokens()
+
+            // assert
+            assertThat(queueFallbackHandler.isAvailable()).isFalse()
+        }
+
+        @Test
+        @DisplayName("Redis 복구 시 정상 모드로 전환한다")
+        fun issueTokens_redisRecovery_marksAvailable() {
+            // arrange
+            queueFallbackHandler.markUnavailable("Redis down")
+
+            // act — 빈 대기열이지만 Redis 호출 자체는 성공
+            scheduler.issueTokens()
+
+            // assert
+            assertThat(queueFallbackHandler.isAvailable()).isTrue()
         }
     }
 }
