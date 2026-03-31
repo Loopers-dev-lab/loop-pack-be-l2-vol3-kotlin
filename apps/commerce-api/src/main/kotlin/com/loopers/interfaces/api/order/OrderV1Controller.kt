@@ -25,23 +25,22 @@ class OrderV1Controller(
 ) : OrderV1ApiSpec {
     @MemberAuthenticated
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.ACCEPTED)
     override fun createOrder(
         authenticatedMember: AuthenticatedMember,
         @RequestBody @Valid request: OrderV1Dto.CreateRequest,
-    ): ApiResponse<OrderV1Dto.OrderResponse> {
+    ): ApiResponse<Unit> {
         val command = OrderCommand.Create(
             items = request.items.map {
-                OrderCommand.CreateOrderItem(
+                OrderCommand.CreateItem(
                     productId = it.productId,
                     quantity = it.quantity,
                 )
             },
             couponId = request.couponId,
         )
-        return orderFacade.createOrder(authenticatedMember.id, command)
-            .let { OrderV1Dto.OrderResponse.from(it) }
-            .let { ApiResponse.success(it) }
+        orderFacade.createOrder(authenticatedMember.id, command)
+        return ApiResponse.success(Unit)
     }
 
     @MemberAuthenticated

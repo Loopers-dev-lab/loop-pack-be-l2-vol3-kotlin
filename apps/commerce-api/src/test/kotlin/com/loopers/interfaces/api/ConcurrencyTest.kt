@@ -2,8 +2,10 @@ package com.loopers.interfaces.api
 
 import com.loopers.interfaces.api.admin.brand.AdminBrandV1Dto
 import com.loopers.interfaces.api.admin.coupon.AdminCouponV1Dto
+import com.loopers.interfaces.api.admin.fcfscoupon.AdminFcfsCouponV1Dto
 import com.loopers.interfaces.api.admin.product.AdminProductV1Dto
 import com.loopers.interfaces.api.coupon.CouponV1Dto
+import com.loopers.interfaces.api.fcfscoupon.FcfsCouponV1Dto
 import com.loopers.interfaces.api.like.LikeV1Dto
 import com.loopers.interfaces.api.member.MemberV1Dto
 import com.loopers.interfaces.api.order.OrderV1Dto
@@ -40,6 +42,7 @@ class ConcurrencyTest @Autowired constructor(
         private const val ADMIN_BRAND_ENDPOINT = "/api-admin/v1/brands"
         private const val ADMIN_PRODUCT_ENDPOINT = "/api-admin/v1/products"
         private const val ADMIN_COUPON_ENDPOINT = "/api-admin/v1/coupons"
+        private const val ADMIN_FCFS_COUPON_ENDPOINT = "/api-admin/v1/fcfs-coupons"
         private const val ORDER_ENDPOINT = "/api/v1/orders"
         private const val HEADER_LDAP = "X-Loopers-Ldap"
         private const val LDAP_VALUE = "loopers.admin"
@@ -548,6 +551,204 @@ class ConcurrencyTest @Autowired constructor(
             assertThat(statusCodes).hasSize(threadCount)
             assertThat(statusCodes.values.count { it == HttpStatus.CREATED }).isEqualTo(5)
             assertThat(statusCodes.values.count { it == HttpStatus.CONFLICT }).isEqualTo(1)
+        }
+    }
+
+    // -----------------------------------------------------------------------
+
+    @DisplayName("선착순 쿠폰 동시성 테스트")
+    @Nested
+    inner class FcfsCouponConcurrency {
+
+        private fun createFcfsCouponTemplate(totalQuantity: Int): Long {
+            val request = AdminFcfsCouponV1Dto.CreateRequest(
+                name = "선착순테스트",
+                description = "테스트",
+                discountType = "FIXED",
+                discountValue = 1000L,
+                minOrderAmount = null,
+                maxDiscountAmount = null,
+                totalQuantity = totalQuantity,
+                startedAt = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).minusHours(1),
+                endedAt = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).plusDays(7),
+            )
+            val response = testRestTemplate.exchange(
+                ADMIN_FCFS_COUPON_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity(request, adminHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<AdminFcfsCouponV1Dto.TemplateResponse>>() {},
+            )
+            return response.body!!.data!!.id
+        }
+
+        private fun createFcfsMember(index: Int): Pair<String, String> {
+            val fcfsLoginId = "fcfs-user-$index"
+            val fcfsPassword = "Password1!"
+            val memberRequest = MemberV1Dto.RegisterRequest(
+                loginId = fcfsLoginId,
+                password = fcfsPassword,
+                name = "선착순유저$index",
+                birthday = LocalDate.of(2000, 1, 1),
+                email = "fcfs-user-$index@example.com",
+            )
+            testRestTemplate.exchange(
+                MEMBER_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity(memberRequest),
+                object : ParameterizedTypeReference<ApiResponse<Void>>() {},
+            )
+            return fcfsLoginId to fcfsPassword
+        }
+
+        private fun fcfsMemberHeaders(fcfsLoginId: String, fcfsPassword: String): HttpHeaders =
+            HttpHeaders().apply {
+                set(HEADER_LOGIN_ID, fcfsLoginId)
+                set(HEADER_LOGIN_PW, fcfsPassword)
+            }
+
+        private fun waitForProcessing(
+            requestIds: List<Long>,
+            memberHeadersList: List<HttpHeaders>,
+            timeoutSeconds: Long = 30,
+        ) {
+            val deadline = System.currentTimeMillis() + timeoutSeconds * 1000
+            while (System.currentTimeMillis() < deadline) {
+                val allDone = requestIds.zip(memberHeadersList).all { (reqId, headers) ->
+                    val response = testRestTemplate.exchange(
+                        "/api/v1/fcfs-coupons/requests/$reqId",
+                        HttpMethod.GET,
+                        HttpEntity<Any>(headers),
+                        object : ParameterizedTypeReference<ApiResponse<FcfsCouponV1Dto.IssueRequestResponse>>() {},
+                    )
+                    response.body?.data?.status != "PENDING"
+                }
+                if (allDone) return
+                Thread.sleep(500)
+            }
+        }
+
+        @DisplayName("선착순 10명에 20명이 동시 요청하면, 정확히 10명 ISSUED, 나머지 SOLD_OUT이 된다.")
+        @Test
+        fun exactly10Issued_when20ConcurrentRequests() {
+            // arrange
+            val totalQuantity = 10
+            val threadCount = 20
+            val templateId = createFcfsCouponTemplate(totalQuantity)
+            val members = (0 until threadCount).map { createFcfsMember(it) }
+
+            val executorService = Executors.newFixedThreadPool(threadCount)
+            val latch = CountDownLatch(threadCount)
+            val requestIds = ConcurrentHashMap<Int, Long>()
+            val memberHeadersList = members.map { (id, pw) -> fcfsMemberHeaders(id, pw) }
+
+            // act
+            (0 until threadCount).forEach { i ->
+                executorService.submit {
+                    try {
+                        latch.countDown()
+                        latch.await()
+                        val response = testRestTemplate.exchange(
+                            "/api/v1/fcfs-coupons/templates/$templateId/issue",
+                            HttpMethod.POST,
+                            HttpEntity<Any>(memberHeadersList[i]),
+                            object : ParameterizedTypeReference<ApiResponse<FcfsCouponV1Dto.IssueRequestResponse>>() {},
+                        )
+                        val reqId = response.body?.data?.requestId
+                        if (reqId != null) requestIds[i] = reqId
+                    } catch (e: Exception) {
+                        // 발급 요청 자체 실패 시 무시 (requestId 미수집)
+                    }
+                }
+            }
+            executorService.shutdown()
+            executorService.awaitTermination(30, TimeUnit.SECONDS)
+
+            // polling — 모든 요청이 최종 상태가 될 때까지 대기 (최대 30초)
+            val collectedIds = requestIds.entries.sortedBy { it.key }
+            waitForProcessing(
+                requestIds = collectedIds.map { it.value },
+                memberHeadersList = collectedIds.map { memberHeadersList[it.key] },
+            )
+
+            // assert — ISSUED 정확히 10건, SOLD_OUT 정확히 10건
+            val finalStatuses = collectedIds.map { (idx, reqId) ->
+                val response = testRestTemplate.exchange(
+                    "/api/v1/fcfs-coupons/requests/$reqId",
+                    HttpMethod.GET,
+                    HttpEntity<Any>(memberHeadersList[idx]),
+                    object : ParameterizedTypeReference<ApiResponse<FcfsCouponV1Dto.IssueRequestResponse>>() {},
+                )
+                response.body!!.data!!.status
+            }
+            assertThat(finalStatuses).hasSize(threadCount)
+            assertThat(finalStatuses.count { it == "ISSUED" }).isEqualTo(totalQuantity)
+            assertThat(finalStatuses.count { it == "SOLD_OUT" }).isEqualTo(threadCount - totalQuantity)
+
+            // 어드민 API로 issuedQuantity == 10 검증
+            val templateResponse = testRestTemplate.exchange(
+                "$ADMIN_FCFS_COUPON_ENDPOINT/$templateId",
+                HttpMethod.GET,
+                HttpEntity<Any>(adminHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<AdminFcfsCouponV1Dto.TemplateResponse>>() {},
+            )
+            assertThat(templateResponse.body!!.data!!.issuedQuantity).isEqualTo(totalQuantity)
+        }
+
+        @DisplayName("동일 회원이 5번 동시 발급 요청하면, ISSUED 1건, FAILED 4건이 된다.")
+        @Test
+        fun onlyOneIssued_whenSameMemberRequestsConcurrently() {
+            // arrange
+            val templateId = createFcfsCouponTemplate(totalQuantity = 10)
+            val (fcfsLoginId, fcfsPassword) = createFcfsMember(100)
+            val headers = fcfsMemberHeaders(fcfsLoginId, fcfsPassword)
+
+            val threadCount = 5
+            val executorService = Executors.newFixedThreadPool(threadCount)
+            val latch = CountDownLatch(threadCount)
+            val requestIds = ConcurrentHashMap<Int, Long>()
+
+            // act
+            (0 until threadCount).forEach { i ->
+                executorService.submit {
+                    try {
+                        latch.countDown()
+                        latch.await()
+                        val response = testRestTemplate.exchange(
+                            "/api/v1/fcfs-coupons/templates/$templateId/issue",
+                            HttpMethod.POST,
+                            HttpEntity<Any>(headers),
+                            object : ParameterizedTypeReference<ApiResponse<FcfsCouponV1Dto.IssueRequestResponse>>() {},
+                        )
+                        val reqId = response.body?.data?.requestId
+                        if (reqId != null) requestIds[i] = reqId
+                    } catch (e: Exception) {
+                        // 발급 요청 자체 실패 시 무시
+                    }
+                }
+            }
+            executorService.shutdown()
+            executorService.awaitTermination(30, TimeUnit.SECONDS)
+
+            // polling — 모든 요청이 최종 상태가 될 때까지 대기 (최대 30초)
+            val collectedIds = requestIds.entries.sortedBy { it.key }
+            waitForProcessing(
+                requestIds = collectedIds.map { it.value },
+                memberHeadersList = collectedIds.map { headers },
+            )
+
+            // assert — ISSUED 1건, FAILED 4건
+            val finalStatuses = collectedIds.map { (_, reqId) ->
+                val response = testRestTemplate.exchange(
+                    "/api/v1/fcfs-coupons/requests/$reqId",
+                    HttpMethod.GET,
+                    HttpEntity<Any>(headers),
+                    object : ParameterizedTypeReference<ApiResponse<FcfsCouponV1Dto.IssueRequestResponse>>() {},
+                )
+                response.body!!.data!!.status
+            }
+            assertThat(finalStatuses).hasSize(threadCount)
+            assertThat(finalStatuses.count { it == "ISSUED" }).isEqualTo(1)
+            assertThat(finalStatuses.count { it == "FAILED" }).isEqualTo(threadCount - 1)
         }
     }
 }

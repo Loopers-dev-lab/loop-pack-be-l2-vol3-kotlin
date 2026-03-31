@@ -18,7 +18,7 @@ class ProductServiceTest {
     @BeforeEach
     fun setUp() {
         fakeRepository = FakeProductRepository()
-        productService = ProductService(fakeRepository)
+        productService = ProductService(fakeRepository, com.loopers.utils.FakeEventPublisher())
     }
 
     private fun createCommand(

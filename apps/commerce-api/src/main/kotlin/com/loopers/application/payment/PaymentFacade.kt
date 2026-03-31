@@ -1,13 +1,10 @@
 package com.loopers.application.payment
 
-import com.loopers.application.coupon.CouponService
 import com.loopers.application.order.OrderService
-import com.loopers.application.product.ProductService
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.PaymentModel
-
 import com.loopers.domain.payment.vo.CardNo
 import com.loopers.infrastructure.payment.PgProperties
 import org.slf4j.LoggerFactory
@@ -18,8 +15,6 @@ import org.springframework.transaction.annotation.Transactional
 class PaymentFacade(
     private val paymentService: PaymentService,
     private val orderService: OrderService,
-    private val productService: ProductService,
-    private val couponService: CouponService,
     private val pgClient: PgClient,
     private val pgProperties: PgProperties,
 ) {
@@ -36,6 +31,10 @@ class PaymentFacade(
 
         if (order.status != OrderStatus.ORDERED) {
             throw CoreException(ErrorType.BAD_REQUEST, "결제 요청은 ORDERED 상태에서만 가능합니다.")
+        }
+
+        if (command.amount != order.getTotalAmount()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "결제 금액이 주문 총액과 일치하지 않습니다.")
         }
 
         if (paymentService.hasActivePayment(command.orderId)) {
@@ -88,17 +87,14 @@ class PaymentFacade(
     @Transactional
     fun handlePgFailure(paymentId: Long, errorMessage: String?): PaymentInfo {
         val payment = paymentService.getPayment(paymentId)
-        val failed = payment.markFailed(errorMessage)
-        val saved = paymentService.savePayment(failed)
-
+        val saved = paymentService.failPayment(payment, errorMessage)
         orderService.updateOrderStatus(payment.orderId, OrderStatus.ORDERED)
-
         return PaymentInfo.from(saved)
     }
 
     @Transactional
     fun handleCallback(transactionKey: String, status: String, reason: String?) {
-        val payment = paymentService.getPaymentByTransactionKey(transactionKey)
+        val payment = paymentService.getPaymentByTransactionKeyWithLock(transactionKey)
 
         if (payment.isTerminal()) {
             logger.info("이미 처리된 결제 콜백 무시: transactionKey={}, status={}", transactionKey, payment.status)
@@ -106,37 +102,33 @@ class PaymentFacade(
         }
 
         when (status) {
-            "SUCCESS" -> handlePaymentSuccess(payment)
-            "FAILED" -> handlePaymentFailure(payment, reason)
+            "SUCCESS" -> paymentService.completePayment(payment)
+            "FAILED" -> paymentService.failPayment(payment, reason)
             else -> logger.warn("알 수 없는 결제 상태: transactionKey={}, status={}", transactionKey, status)
         }
     }
 
-    private fun handlePaymentSuccess(payment: PaymentModel) {
-        val succeeded = payment.markSuccess()
-        paymentService.savePayment(succeeded)
-        orderService.updateOrderStatus(payment.orderId, OrderStatus.PAID)
-    }
+    @Transactional
+    fun handlePolledRequestedPayment(paymentId: Long, transactionKey: String, status: String, reason: String?) {
+        val payment = paymentService.getPaymentWithLock(paymentId)
 
-    private fun handlePaymentFailure(payment: PaymentModel, reason: String?) {
-        val failed = payment.markFailed(reason)
-        paymentService.savePayment(failed)
-
-        compensate(payment.orderId)
-    }
-
-    private fun compensate(orderId: Long) {
-        val order = orderService.getOrderById(orderId)
-
-        order.items.sortedBy { it.productId }.forEach { item ->
-            productService.restoreStock(item.productId, item.quantity)
+        if (payment.isTerminal()) {
+            logger.info("이미 처리된 결제 무시: paymentId={}, status={}", paymentId, payment.status)
+            return
         }
 
-        if (order.couponId != null) {
-            couponService.restoreCoupon(order.couponId)
+        val withKey = if (payment.transactionKey == null) {
+            val assigned = payment.assignTransactionKey(transactionKey)
+            paymentService.savePayment(assigned)
+        } else {
+            payment
         }
 
-        orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED)
+        when (status) {
+            "SUCCESS" -> paymentService.completePayment(withKey)
+            "FAILED" -> paymentService.failPayment(withKey, reason)
+            else -> logger.warn("알 수 없는 결제 상태: paymentId={}, status={}", paymentId, status)
+        }
     }
 
     private fun getCallbackUrl(): String {

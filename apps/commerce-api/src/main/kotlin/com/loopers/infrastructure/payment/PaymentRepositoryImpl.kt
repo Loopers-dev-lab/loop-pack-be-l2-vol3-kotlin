@@ -27,6 +27,14 @@ class PaymentRepositoryImpl(
         return paymentJpaRepository.findByTransactionKey(transactionKey)?.toModel()
     }
 
+    override fun findByTransactionKeyWithLock(transactionKey: String): PaymentModel? {
+        return paymentJpaRepository.findByTransactionKeyWithLock(transactionKey)?.toModel()
+    }
+
+    override fun findByIdWithLock(id: Long): PaymentModel? {
+        return paymentJpaRepository.findByIdWithLock(id)?.toModel()
+    }
+
     override fun findByOrderId(orderId: Long): List<PaymentModel> {
         return paymentJpaRepository.findAllByOrderId(orderId).map { it.toModel() }
     }

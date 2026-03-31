@@ -22,6 +22,7 @@ class ProductFacadeTest {
     private lateinit var productService: ProductService
     private lateinit var productFacade: ProductFacade
     private lateinit var adminProductFacade: AdminProductFacade
+    private lateinit var productEventPublisher: com.loopers.utils.FakeEventPublisher
 
     @BeforeEach
     fun setUp() {
@@ -29,10 +30,11 @@ class ProductFacadeTest {
         productRepository = FakeProductRepository()
         cacheStore = FakeProductCacheStore()
         brandCacheStore = FakeBrandCacheStore()
-        brandService = BrandService(brandRepository)
-        productService = ProductService(productRepository)
+        productEventPublisher = com.loopers.utils.FakeEventPublisher()
+        brandService = BrandService(brandRepository, com.loopers.utils.FakeEventPublisher())
+        productService = ProductService(productRepository, productEventPublisher)
         productFacade = ProductFacade(productService, brandService, cacheStore, brandCacheStore)
-        adminProductFacade = AdminProductFacade(productService, brandService, cacheStore)
+        adminProductFacade = AdminProductFacade(productService, brandService)
     }
 
     private fun createBrand(name: String = "테스트브랜드"): BrandModel {
@@ -192,12 +194,12 @@ class ProductFacadeTest {
     inner class AdminCacheEviction {
 
         @Test
-        @DisplayName("updateProduct_수정_후_캐시가_무효화된다")
-        fun `updateProduct 수정 후 캐시가 무효화된다`() {
+        @DisplayName("updateProduct_수정_시_ProductUpdatedEvent가_발행된다")
+        fun `updateProduct 수정 시 ProductUpdatedEvent가 발행된다`() {
             // Arrange
             val brand = createBrand()
             val product = createProduct(brand.id)
-            cacheStore.clear()
+            productEventPublisher.clear()
 
             // Act
             adminProductFacade.updateProduct(
@@ -212,22 +214,22 @@ class ProductFacadeTest {
             )
 
             // Assert
-            assertThat(cacheStore.evictProductCallCount).isEqualTo(1)
+            assertThat(productEventPublisher.hasEvent<com.loopers.domain.common.event.ProductUpdatedEvent>()).isTrue()
         }
 
         @Test
-        @DisplayName("deleteProduct_삭제_후_캐시가_무효화된다")
-        fun `deleteProduct 삭제 후 캐시가 무효화된다`() {
+        @DisplayName("deleteProduct_삭제_시_ProductDeletedEvent가_발행된다")
+        fun `deleteProduct 삭제 시 ProductDeletedEvent가 발행된다`() {
             // Arrange
             val brand = createBrand()
             val product = createProduct(brand.id)
-            cacheStore.clear()
+            productEventPublisher.clear()
 
             // Act
             adminProductFacade.deleteProduct(product.id)
 
             // Assert
-            assertThat(cacheStore.evictProductCallCount).isEqualTo(1)
+            assertThat(productEventPublisher.hasEvent<com.loopers.domain.common.event.ProductDeletedEvent>()).isTrue()
         }
     }
 }

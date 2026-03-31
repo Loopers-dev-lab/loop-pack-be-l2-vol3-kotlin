@@ -6,6 +6,7 @@ dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
+    implementation(project(":modules:event-contract"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
@@ -13,6 +14,9 @@ dependencies {
     // cache
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("com.github.ben-manes.caffeine:caffeine")
+
+    // aop
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")

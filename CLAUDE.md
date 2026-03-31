@@ -185,7 +185,7 @@ com.loopers
 ### Phase 3: 안정성 강화
 | 항목 | 현재 | 목표 | 상태 |
 |------|------|------|------|
-| Circuit Breaker | 없음 | Resilience4j | TODO |
+| Circuit Breaker | 없음 | Resilience4j | PARTIAL (D48, PgClient 적용) |
 | Rate Limiting | 없음 | API 레벨 제한 | TODO |
 | Graceful Degradation | 없음 | 폴백 패턴 | TODO |
 
@@ -209,6 +209,19 @@ com.loopers
 - 삭제된 템플릿 쿠폰: 이미 발급된 쿠폰은 만료일까지 사용 가능
 - 데드락 방지: 재고 차감 시 productId 오름차순 정렬 후 SELECT FOR UPDATE
 - 개발 순서: Phase 1 기능 정합성 → Phase 2 동시성/멱등성/일관성
+- 결제 트랜잭션 경계: requestPayment(@Tx) → callPg(no Tx) → handleCallback(@Tx) — PG 외부 호출은 트랜잭션 밖에서 수행하여 DB 커넥션 장기 점유 방지 (Decision 46)
+- PG 실패 유형 구분: PG 호출 자체 실패 → 주문 ORDERED 복귀(재시도 가능) / 콜백 FAILED → compensate(재고+쿠폰 복원 + 주문 CANCELLED) (Decision 47)
+- 보상 트랜잭션: compensate() 내 재고복원 순서는 productId 오름차순 고정 — 데드락 방지 원칙과 동일 (Decision 49)
+- Event-Command-Handler 아키텍처: Event(사실) → EventHandler(오케스트레이션) → Command(의도) → CommandHandler(실행). 도메인은 이벤트 발행까지만 책임 (Decision 52)
+- 이벤트 발행 주체: Service에서 ApplicationEventPublisher 사용 — DIP 유지 (Domain Model = data class, JPA 비의존)
+- EventHandler TX: 모두 @TransactionalEventListener(AFTER_COMMIT) — 발행자 커밋 확정 후 처리
+- CommandHandler TX: 도메인별 차등 — REQUIRES_NEW(주문→재고/쿠폰), Kafka(결제 성공/실패), TX 불필요(캐시 evict)
+- 주문 흐름: 선차감 후주문 (MSA식). OrderRequestedEvent(요청) / OrderCreatedEvent(완료 사실) 분리
+- 결제 보상: commerce-streamer Kafka 1차 보상만 구현. 2차 batch polling 미구현 (동시성/중복 이슈 방지)
+- 포트 패턴: CompleteOrderCommandPublisher, PaymentCompensationPublisher — 로컬/Kafka 구현체 교체 가능
+- Transactional Outbox: Kafka 전파 대상 이벤트는 outbox_event 테이블 경유. commerce-api는 INSERT만, commerce-streamer가 poll+publish (Decision 54)
+- 유저 행동 로깅: AOP(@LogUserAction) → UserActionEvent → user_action_log DB + outbox Kafka 발행 (Decision 53)
+- 선착순 쿠폰: 별도 도메인(fcfscoupon), Kafka Consumer 순차 처리로 수량 초과 방지, Polling으로 결과 확인 (Decision 55)
 
 ### 도메인 & 객체 설계 전략
 
@@ -310,3 +323,49 @@ com.loopers
 - 변경 제약(금지 사항, 성능/보안 요구, 마감)을 알려준다.
 - 필요한 입력 데이터/샘플이 있으면 제공한다.
 - `ignore_user_todo` 명령을 사용하면 해당 요청에 한해 위 항목을 생략할 수 있다.
+
+## 세션 시작 가이드
+
+새 세션 시작 시 사용자가 한 줄 컨텍스트를 제공하면 해당 작업에 필요한 파일만 선택적으로 읽는다.
+REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 부분만 조회한다.
+
+> 예시: `FEAT-9 결제 E2E 테스트 작성, D43-D51 참조`
+
+## 현재 진행 상태
+
+> 마지막 업데이트: 2026-03-27
+
+### 기능 (FEAT)
+
+| FEAT | 도메인 | 상태 | 비고 |
+|------|--------|------|------|
+| 1~3 | 회원 관리 | DONE | VO, 인증 중앙화, Redis 캐시 (D41) |
+| 4 | 브랜드 | DONE | 어드민 CRUD + 고객 조회, Soft Delete 캐스케이드 |
+| 5 | 상품 | DONE | 커서 페이징, 비관적 락 재고 차감, VO |
+| 6 | 좋아요 | DONE | 양방향 멱등, 배치 집계 (D39) |
+| 7 | 주문 | DONE | 스냅샷, UUID 주문번호, 비관적 락 + 낙관적 락 |
+| 8 | 쿠폰 | DONE | FIXED_DATE/DAYS_FROM_ISSUE, @Version 동시사용 방지 |
+| 9 | 결제 | 구현 중 | PG 연동 (D43-D51), Event-Command-Handler (D52), Outbox Pattern (D54) |
+| 10 | 랭킹/추천 | 미착수 | 요구사항 미정 |
+| 11 | 선착순 쿠폰 | DONE | 별도 도메인 (D55), Kafka 순차 발급 |
+
+### 성능
+
+| Phase | 완료 | 보류 | 미착수 |
+|-------|------|------|--------|
+| 1 (즉시 적용) | 5/5 | - | - |
+| 2 (캐싱/인프라) | 6/9 | 3 | - |
+| 3 (안정성) | CB PARTIAL | - | Rate Limit, Degradation |
+
+### 다음 작업
+- Event 아키텍처: 통합 테스트 보강 (SpringBootTest + ApplicationEvents 캡처)
+- FEAT-10: 랭킹/추천 (요구사항 미정)
+- Kafka 구현체 교체: OutboxPoller → Kafka 실 발행 E2E 검증
+
+### 참조 문서
+
+| 문서 | 용도 | 조회 방식 |
+|------|------|-----------|
+| REQUIREMENTS.md | 요구사항 상세 (수용 기준, 상태) | Grep으로 FEAT-N 검색 |
+| DECISIONS.md | 기술 판단 근거 (55건) | Grep으로 D# 검색 |
+| docs/design/ | 설계 다이어그램 | 필요 시 Read |

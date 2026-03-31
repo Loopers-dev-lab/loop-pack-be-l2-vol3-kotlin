@@ -8,4 +8,6 @@ interface ProductLikeJpaRepository : JpaRepository<ProductLikeJpaModel, Long> {
     fun deleteByMemberIdAndProductId(memberId: Long, productId: Long)
 
     fun findAllByMemberId(memberId: Long): List<ProductLikeJpaModel>
+
+    fun deleteAllByProductId(productId: Long)
 }

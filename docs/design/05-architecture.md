@@ -812,7 +812,203 @@ graph TB
 
 ---
 
-## 10. 핵심 설계 패턴 요약
+## 10. Event-Command-Handler 아키텍처 (D52)
+
+### 다이어그램의 목적
+
+도메인 이벤트 기반으로 Service 간 결합을 제거하고, 이벤트 → 오케스트레이션 → 실행의 3단 분리 구조를 파악한다.
+
+### 구조 개요
+
+```mermaid
+graph TB
+    subgraph Service["Service (이벤트 발행)"]
+        SVC["Service\nApplicationEventPublisher.publishEvent(Event)"]
+    end
+
+    subgraph EventHandler["EventHandler (오케스트레이션)"]
+        EH["EventHandler\n@TransactionalEventListener(AFTER_COMMIT)\n어떤 Command를 어떤 순서로 실행할지 결정"]
+    end
+
+    subgraph CommandHandler["CommandHandler (실행)"]
+        CH_NEW["REQUIRES_NEW\n독립 트랜잭션 필요 시"]
+        CH_KAFKA["Kafka 발행\n비동기 외부 전달"]
+        CH_NOTX["TX 불필요\n캐시 evict 등"]
+    end
+
+    SVC -->|"Event (사실)"| EH
+    EH -->|"Command (의도)"| CH_NEW
+    EH -->|"Command (의도)"| CH_KAFKA
+    EH -->|"Command (의도)"| CH_NOTX
+```
+
+### 이벤트 흐름 전체 지도
+
+```mermaid
+graph LR
+    subgraph Events["domain/common/event (7개)"]
+        E1["OrderRequestedEvent"]
+        E2["PaymentSucceededEvent"]
+        E3["PaymentFailedEvent"]
+        E4["BrandDeletedEvent"]
+        E5["BrandUpdatedEvent"]
+        E6["ProductDeletedEvent"]
+        E7["ProductUpdatedEvent"]
+    end
+
+    subgraph Commands["domain/common/command (5개)"]
+        C1["DeductStockCommand"]
+        C2["UseCouponCommand"]
+        C3["CompleteOrderCommand"]
+        C4["CancelOrderCommand"]
+        C5["CascadeDeleteProductsCommand\nDeleteProductLikesCommand\nRestoreStockCommand\nRestoreCouponCommand"]
+    end
+
+    subgraph Handlers["application/handler"]
+        H1["OrderRequestedEventHandler"]
+        H2["PaymentSucceededEventHandler"]
+        H3["PaymentFailedEventHandler"]
+        H4["BrandDeletedEventHandler"]
+        H5["CacheEvictEventHandler"]
+    end
+
+    E1 --> H1
+    E2 --> H2
+    E3 --> H3
+    E4 --> H4
+    E5 --> H5
+    E6 --> H4
+    E7 --> H5
+
+    H1 --> C1
+    H1 --> C2
+    H1 --> C3
+    H2 --> C3
+    H3 --> C4
+    H3 --> C5
+    H4 --> C5
+```
+
+### 도메인별 이벤트 → Command 변환 상세
+
+```mermaid
+graph TB
+    subgraph Order["주문 요청 (선차감 후주문)"]
+        ORE["OrderRequestedEvent"]
+        OEH["OrderRequestedEventHandler\n@TransactionalEventListener(AFTER_COMMIT)"]
+        DSC["DeductStockCommandHandler\n(REQUIRES_NEW)"]
+        UCC["UseCouponCommandHandler\n(REQUIRES_NEW)"]
+        COC["OrderCommandHandler.completeOrder\n(REQUIRES_NEW)"]
+        CAC["OrderCommandHandler.cancelOrder\n(REQUIRES_NEW) — 보상"]
+        ORE --> OEH
+        OEH -->|"DeductStockCommand"| DSC
+        OEH -->|"UseCouponCommand"| UCC
+        OEH -->|"CompleteOrderCommand"| COC
+        OEH -.->|"CancelOrderCommand (실패 보상)"| CAC
+    end
+
+    subgraph Payment["결제 성공/실패"]
+        PSE["PaymentSucceededEvent"]
+        PFE["PaymentFailedEvent"]
+        PSEH["PaymentSucceededEventHandler\n@TransactionalEventListener(AFTER_COMMIT)"]
+        PFEH["PaymentFailedEventHandler\n@TransactionalEventListener(AFTER_COMMIT)"]
+        KP["CompleteOrderCommandPublisher\n(Kafka 발행)"]
+        KC["PaymentCompensationPublisher\n(Kafka 발행)"]
+        STR1["commerce-streamer\n→ 주문 PAID"]
+        STR2["commerce-streamer\n→ 재고/쿠폰 복원 + 주문 취소"]
+        PSE --> PSEH
+        PFE --> PFEH
+        PSEH -->|"CompleteOrderCommand"| KP
+        PFEH -->|"CancelOrderCommand + RestoreStock/Coupon"| KC
+        KP --> STR1
+        KC --> STR2
+    end
+
+    subgraph Brand["브랜드 삭제 연쇄"]
+        BDE["BrandDeletedEvent"]
+        BDEH["BrandDeletedEventHandler\n@TransactionalEventListener(AFTER_COMMIT)"]
+        CDP["CascadeDeleteProductsCommandHandler\n(REQUIRES_NEW)"]
+        PDE["ProductDeletedEvent × N"]
+        DPLH["ProductDeletedLikeEventHandler\n@TransactionalEventListener(AFTER_COMMIT)"]
+        DPLC["DeleteProductLikesCommandHandler\n(TX 불필요)"]
+        EPCH["CacheEvictEventHandler\n@TransactionalEventListener(AFTER_COMMIT)"]
+        BDE --> BDEH
+        BDEH -->|"CascadeDeleteProductsCommand"| CDP
+        CDP -->|"각 상품 삭제 후 발행"| PDE
+        PDE --> DPLH
+        PDE --> EPCH
+        DPLH -->|"DeleteProductLikesCommand"| DPLC
+    end
+
+    subgraph Cache["캐시 evict (이벤트 기반)"]
+        BUE["BrandUpdatedEvent"]
+        PUE["ProductUpdatedEvent"]
+        CEH["CacheEvictEventHandler\n@TransactionalEventListener(AFTER_COMMIT)"]
+        ACH["Auth/Brand/ProductCacheCommandHandler\n(TX 불필요)"]
+        BUE --> CEH
+        PUE --> CEH
+        CEH -->|"CacheEvictCommand"| ACH
+    end
+```
+
+### CommandHandler TX 전략
+
+| CommandHandler | 트랜잭션 전략 | 이유 |
+|----------------|--------------|------|
+| `StockCommandHandler` (DeductStock/RestoreStock) | `REQUIRES_NEW` | 재고 차감/복원은 독립 커밋 필요 |
+| `CouponCommandHandler` (UseCoupon/RestoreCoupon) | `REQUIRES_NEW` | 쿠폰 상태 변경은 독립 커밋 필요 |
+| `OrderCommandHandler` (CompleteOrder/CancelOrder) | `REQUIRES_NEW` | 주문 상태 변경은 독립 커밋 필요 |
+| `CascadeDeleteProductsCommandHandler` | `REQUIRES_NEW` | 상품 배치 삭제는 독립 커밋 필요 |
+| `CompleteOrderCommandPublisher` (Kafka) | TX 없음 | 외부 Kafka 발행 — 트랜잭션 불필요 |
+| `PaymentCompensationPublisher` (Kafka) | TX 없음 | 외부 Kafka 발행 — 트랜잭션 불필요 |
+| `Auth/Brand/ProductCacheCommandHandler` | TX 없음 | Redis evict — 트랜잭션 불필요 |
+| `DeleteProductLikesCommandHandler` | TX 없음 | 좋아요 삭제 — 정합성 요구 없음 |
+
+### 소비 방식별 분류
+
+| 소비 방식 | 이벤트/Command | 비고 |
+|-----------|---------------|------|
+| `AFTER_COMMIT` (Spring Event) | OrderRequestedEvent, BrandDeletedEvent, ProductDeletedEvent, BrandUpdatedEvent, ProductUpdatedEvent | 트랜잭션 커밋 후 동기 처리 |
+| Kafka (비동기) | PaymentSucceededEvent → CompleteOrderCommand, PaymentFailedEvent → 보상 Command | commerce-streamer가 소비 |
+| 배치 (스케줄) | like_count 집계 | commerce-batch Tasklet |
+
+### 패키지 구조
+
+```
+application/handler/
+├── cache/
+│   ├── CacheEvictEventHandler.kt          ← BrandUpdatedEvent, ProductUpdatedEvent 구독
+│   ├── AuthCacheCommandHandler.kt
+│   ├── BrandCacheCommandHandler.kt
+│   └── ProductCacheCommandHandler.kt
+├── brand/
+│   ├── BrandDeletedEventHandler.kt         ← BrandDeletedEvent 구독
+│   └── CascadeDeleteProductsCommandHandler.kt
+├── like/
+│   ├── ProductDeletedLikeEventHandler.kt   ← ProductDeletedEvent 구독
+│   └── DeleteProductLikesCommandHandler.kt
+├── product/
+│   └── StockCommandHandler.kt             ← DeductStock + RestoreStock
+├── coupon/
+│   └── CouponCommandHandler.kt            ← UseCoupon + RestoreCoupon
+├── order/
+│   ├── OrderRequestedEventHandler.kt       ← OrderRequestedEvent 구독 (오케스트레이터)
+│   └── OrderCommandHandler.kt             ← CompleteOrder + CancelOrder
+└── payment/
+    ├── PaymentSucceededEventHandler.kt     ← PaymentSucceededEvent 구독
+    └── PaymentFailedEventHandler.kt        ← PaymentFailedEvent 구독
+
+infrastructure/payment/
+├── LocalCompleteOrderCommandPublisher.kt   ← CompleteOrderCommandPublisher 구현
+└── LocalPaymentCompensationPublisher.kt    ← PaymentCompensationPublisher 구현
+
+domain/common/event/     ← 이벤트 정의 (7개)
+domain/common/command/   ← Command 정의 (5개)
+```
+
+---
+
+## 11. 핵심 설계 패턴 요약
 
 | 패턴 | 적용 | 관련 Decision |
 |------|------|---------------|

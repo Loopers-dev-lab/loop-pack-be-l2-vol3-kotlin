@@ -3,7 +3,6 @@ package com.loopers.application.order
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import com.loopers.domain.order.OrderStatus
-import com.loopers.domain.product.ProductModel
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -19,30 +18,19 @@ class OrderServiceTest {
     @BeforeEach
     fun setUp() {
         fakeRepository = FakeOrderRepository()
-        orderService = OrderService(fakeRepository)
+        orderService = OrderService(fakeRepository, com.loopers.utils.FakeEventPublisher())
     }
-
-    private fun createProduct(id: Long = 1L, brandId: Long = 10L): ProductModel {
-        return ProductModel(
-            id = id,
-            brandId = brandId,
-            name = "감성 티셔츠",
-            description = "좋은 상품",
-            price = 39000,
-            stockQuantity = 100,
-            imageUrl = "https://example.com/product.jpg",
-        )
-    }
-
-    private fun defaultProductMap(): Map<Long, ProductModel> {
-        val product = createProduct()
-        return mapOf(product.id to product)
-    }
-
-    private fun defaultBrandNames(): Map<Long, String> = mapOf(10L to "루퍼스")
 
     private fun defaultItems(): List<OrderCommand.CreateOrderItem> =
-        listOf(OrderCommand.CreateOrderItem(productId = 1L, quantity = 2))
+        listOf(
+            OrderCommand.CreateOrderItem(
+                productId = 1L,
+                quantity = 2,
+                productName = "감성 티셔츠",
+                productPrice = 39000,
+                brandName = "루퍼스",
+            ),
+        )
 
     @DisplayName("주문을 생성할 때,")
     @Nested
@@ -51,7 +39,7 @@ class OrderServiceTest {
         @Test
         fun createsOrder_whenValidInfoProvided() {
             // act
-            val order = orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), defaultItems())
+            val order = orderService.createOrder(1L, defaultItems())
 
             // assert
             assertAll(
@@ -70,7 +58,7 @@ class OrderServiceTest {
         fun throwsBadRequest_whenItemsEmpty() {
             // act & assert
             val result = assertThrows<CoreException> {
-                orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), emptyList())
+                orderService.createOrder(1L, emptyList())
             }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -79,11 +67,19 @@ class OrderServiceTest {
         @Test
         fun throwsBadRequest_whenQuantityIsZero() {
             // arrange
-            val items = listOf(OrderCommand.CreateOrderItem(productId = 1L, quantity = 0))
+            val items = listOf(
+                OrderCommand.CreateOrderItem(
+                    productId = 1L,
+                    quantity = 0,
+                    productName = "상품",
+                    productPrice = 10000,
+                    brandName = "브랜드",
+                ),
+            )
 
             // act & assert
             val result = assertThrows<CoreException> {
-                orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), items)
+                orderService.createOrder(1L, items)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -92,26 +88,21 @@ class OrderServiceTest {
         @Test
         fun throwsBadRequest_whenQuantityIsNegative() {
             // arrange
-            val items = listOf(OrderCommand.CreateOrderItem(productId = 1L, quantity = -1))
+            val items = listOf(
+                OrderCommand.CreateOrderItem(
+                    productId = 1L,
+                    quantity = -1,
+                    productName = "상품",
+                    productPrice = 10000,
+                    brandName = "브랜드",
+                ),
+            )
 
             // act & assert
             val result = assertThrows<CoreException> {
-                orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), items)
+                orderService.createOrder(1L, items)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("존재하지 않는 상품이 포함되면, NOT_FOUND 예외가 발생한다.")
-        @Test
-        fun throwsNotFound_whenProductNotInMap() {
-            // arrange
-            val items = listOf(OrderCommand.CreateOrderItem(productId = 999L, quantity = 1))
-
-            // act & assert
-            val result = assertThrows<CoreException> {
-                orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), items)
-            }
-            assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 
@@ -122,7 +113,7 @@ class OrderServiceTest {
         @Test
         fun returnsOrder_whenOwner() {
             // arrange
-            val created = orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), defaultItems())
+            val created = orderService.createOrder(1L, defaultItems())
 
             // act
             val result = orderService.getOrder(created.id, 1L)
@@ -135,7 +126,7 @@ class OrderServiceTest {
         @Test
         fun throwsForbidden_whenNotOwner() {
             // arrange
-            val created = orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), defaultItems())
+            val created = orderService.createOrder(1L, defaultItems())
 
             // act & assert
             val result = assertThrows<CoreException> {
@@ -162,7 +153,7 @@ class OrderServiceTest {
         @Test
         fun returnsOrder_withoutOwnerValidation() {
             // arrange
-            val created = orderService.createOrder(1L, defaultProductMap(), defaultBrandNames(), defaultItems())
+            val created = orderService.createOrder(1L, defaultItems())
 
             // act
             val result = orderService.getOrderById(created.id)

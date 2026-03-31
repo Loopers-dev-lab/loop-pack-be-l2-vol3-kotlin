@@ -3,8 +3,11 @@ package com.loopers.application.product
 import com.loopers.application.brand.BrandCacheStore
 import com.loopers.application.brand.BrandInfo
 import com.loopers.application.brand.BrandService
+import com.loopers.application.useraction.LogUserAction
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductSort
+import com.loopers.domain.useraction.UserActionTargetType
+import com.loopers.domain.useraction.UserActionType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -15,6 +18,7 @@ class ProductFacade(
     private val productCacheStore: ProductCacheStore,
     private val brandCacheStore: BrandCacheStore,
 ) {
+    @LogUserAction(action = UserActionType.VIEW, targetType = UserActionTargetType.PRODUCT)
     @Transactional(readOnly = true)
     fun getProduct(productId: Long): ProductInfo {
         productCacheStore.getProduct(productId)?.let { return it }

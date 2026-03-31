@@ -22,4 +22,8 @@ class FakeProductLikeRepository : ProductLikeRepository {
     override fun findAllByMemberId(memberId: Long): List<ProductLikeModel> {
         return store.filter { it.memberId == memberId }
     }
+
+    override fun deleteAllByProductId(productId: Long) {
+        store.removeAll { it.productId == productId }
+    }
 }

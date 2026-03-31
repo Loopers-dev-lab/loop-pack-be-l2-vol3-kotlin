@@ -8,7 +8,6 @@ import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import com.loopers.domain.order.OrderModel
 import com.loopers.domain.order.OrderStatus
-import com.loopers.domain.product.ProductModel
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -30,7 +29,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
     private val productService: ProductService,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
-    private var product: ProductModel? = null
+    private var productId: Long = 0L
+    private var productName: String = ""
+    private var productPrice: Long = 0L
     private var brandName: String = ""
     private val memberId = 1L
 
@@ -40,7 +41,7 @@ class OrderServiceIntegrationTest @Autowired constructor(
             BrandCommand.Create(name = "루퍼스", description = "테스트", imageUrl = "https://example.com/brand.jpg"),
         )
         brandName = brand.name
-        product = productService.createProduct(
+        val product = productService.createProduct(
             ProductCommand.Create(
                 brandId = brand.id,
                 name = "감성 티셔츠",
@@ -50,6 +51,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
                 imageUrl = "https://example.com/product.jpg",
             ),
         )
+        productId = product.id
+        productName = product.name
+        productPrice = product.price
     }
 
     @AfterEach
@@ -58,10 +62,16 @@ class OrderServiceIntegrationTest @Autowired constructor(
     }
 
     private fun createOrder(): OrderModel {
-        val productMap = mapOf(product!!.id to product!!)
-        val brandNames = mapOf(product!!.brandId to brandName)
-        val items = listOf(OrderCommand.CreateOrderItem(productId = product!!.id, quantity = 2))
-        return orderService.createOrder(memberId, productMap, brandNames, items)
+        val items = listOf(
+            OrderCommand.CreateOrderItem(
+                productId = productId,
+                quantity = 2,
+                productName = productName,
+                productPrice = productPrice,
+                brandName = brandName,
+            ),
+        )
+        return orderService.createOrder(memberId, items)
     }
 
     @DisplayName("주문을 생성할 때,")
@@ -87,14 +97,9 @@ class OrderServiceIntegrationTest @Autowired constructor(
         @DisplayName("주문 항목이 비어있으면, BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequest_whenItemsEmpty() {
-            // arrange
-            val productMap = mapOf(product!!.id to product!!)
-            val brandNames = mapOf(product!!.brandId to brandName)
-            val items = emptyList<OrderCommand.CreateOrderItem>()
-
             // act & assert
             val result = assertThrows<CoreException> {
-                orderService.createOrder(memberId, productMap, brandNames, items)
+                orderService.createOrder(memberId, emptyList())
             }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -103,13 +108,19 @@ class OrderServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsBadRequest_whenQuantityIsZero() {
             // arrange
-            val productMap = mapOf(product!!.id to product!!)
-            val brandNames = mapOf(product!!.brandId to brandName)
-            val items = listOf(OrderCommand.CreateOrderItem(productId = product!!.id, quantity = 0))
+            val items = listOf(
+                OrderCommand.CreateOrderItem(
+                    productId = productId,
+                    quantity = 0,
+                    productName = productName,
+                    productPrice = productPrice,
+                    brandName = brandName,
+                ),
+            )
 
             // act & assert
             val result = assertThrows<CoreException> {
-                orderService.createOrder(memberId, productMap, brandNames, items)
+                orderService.createOrder(memberId, items)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
         }
@@ -118,30 +129,21 @@ class OrderServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsBadRequest_whenQuantityIsNegative() {
             // arrange
-            val productMap = mapOf(product!!.id to product!!)
-            val brandNames = mapOf(product!!.brandId to brandName)
-            val items = listOf(OrderCommand.CreateOrderItem(productId = product!!.id, quantity = -1))
+            val items = listOf(
+                OrderCommand.CreateOrderItem(
+                    productId = productId,
+                    quantity = -1,
+                    productName = productName,
+                    productPrice = productPrice,
+                    brandName = brandName,
+                ),
+            )
 
             // act & assert
             val result = assertThrows<CoreException> {
-                orderService.createOrder(memberId, productMap, brandNames, items)
+                orderService.createOrder(memberId, items)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-
-        @DisplayName("존재하지 않는 상품이 포함되면, NOT_FOUND 예외가 발생한다.")
-        @Test
-        fun throwsNotFound_whenProductNotInMap() {
-            // arrange
-            val productMap = mapOf(product!!.id to product!!)
-            val brandNames = mapOf(product!!.brandId to brandName)
-            val items = listOf(OrderCommand.CreateOrderItem(productId = 999L, quantity = 1))
-
-            // act & assert
-            val result = assertThrows<CoreException> {
-                orderService.createOrder(memberId, productMap, brandNames, items)
-            }
-            assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
     }
 

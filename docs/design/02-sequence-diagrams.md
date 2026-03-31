@@ -523,3 +523,294 @@ sequenceDiagram
 - **삭제된 템플릿**: 신규 발급은 차단하되, 기발급 쿠폰은 `expiredAt`까지 사용 가능하다. 삭제 여부는 IssuedCoupon에 저장된 만료일과 무관하다.
 - **낙관적 락**: IssuedCoupon은 1인 소유 자원이므로 동시 사용 충돌 빈도가 낮다. 비관적 락은 과도하며, `@Version` 낙관적 락으로 충분하다 (D31). 충돌 시 409 CONFLICT를 반환하고 전체 트랜잭션을 롤백한다.
 - **주문 내 쿠폰 차감 시점**: 재고 비관적 락 획득 전에 쿠폰을 먼저 검증/차감한다 (D34). 쿠폰 실패 시 재고 락 대기 없이 즉시 실패하므로 불필요한 락 경쟁을 방지한다.
+
+---
+
+## 6. Event-Command-Handler 흐름 (D52)
+
+---
+
+### 6-1. 주문 요청 이벤트 흐름 (선차감 후주문)
+
+#### 다이어그램의 목적
+
+주문 생성 요청 시 `OrderRequestedEvent`를 통해 재고 차감 → 쿠폰 사용 → 주문 생성을 순차 오케스트레이션하는 흐름을 검증한다. 각 CommandHandler가 독립 트랜잭션(`REQUIRES_NEW`)으로 실행되어 부분 실패 시 보상 트랜잭션(주문 취소)이 동작하는 구조를 확인한다.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Controller as OrderV1Controller
+    participant Facade as OrderFacade
+    participant OrderSvc as OrderService
+    participant Publisher as ApplicationEventPublisher
+    participant OEH as OrderRequestedEventHandler
+    participant StockCH as StockCommandHandler
+    participant CouponCH as CouponCommandHandler
+    participant OrderCH as OrderCommandHandler
+    participant DB as Database
+
+    User->>Controller: POST /api/v1/orders (items + couponId)
+    Controller->>Facade: createOrder(memberId, items, couponId)
+
+    Note over Facade, DB: @Transactional 시작
+    activate Facade
+    Facade->>OrderSvc: requestOrder(memberId, items, couponId)
+    OrderSvc->>DB: INSERT order (status=ORDERED, 임시 생성)
+    DB-->>OrderSvc: OrderModel
+    OrderSvc->>Publisher: publishEvent(OrderRequestedEvent)
+    Note over Publisher: 이벤트를 AFTER_COMMIT 큐에 등록
+    OrderSvc-->>Facade: OrderModel
+    deactivate Facade
+    Note over Facade, DB: @Transactional 커밋
+
+    Note over OEH: AFTER_COMMIT — 커밋 후 실행
+    Publisher-->>OEH: OrderRequestedEvent
+
+    OEH->>StockCH: DeductStockCommand(productId 오름차순)
+    Note over StockCH: @Transactional(REQUIRES_NEW)
+    activate StockCH
+    StockCH->>DB: SELECT ... FOR UPDATE (비관적 락, productId 오름차순)
+    StockCH->>DB: UPDATE stock_quantity
+    deactivate StockCH
+
+    break 재고 부족
+        StockCH-->>OEH: CoreException(BAD_REQUEST)
+        OEH->>OrderCH: CancelOrderCommand
+        Note over OrderCH: @Transactional(REQUIRES_NEW)
+        OrderCH->>DB: UPDATE order SET status=CANCELLED
+    end
+
+    OEH->>CouponCH: UseCouponCommand(couponId)
+    Note over CouponCH: @Transactional(REQUIRES_NEW)
+    activate CouponCH
+    CouponCH->>DB: UPDATE issued_coupon SET status=USED (@Version 낙관적 락)
+    deactivate CouponCH
+
+    break 쿠폰 사용 실패
+        CouponCH-->>OEH: CoreException
+        OEH->>StockCH: RestoreStockCommand (재고 복원)
+        OEH->>OrderCH: CancelOrderCommand
+    end
+
+    OEH->>OrderCH: CompleteOrderCommand
+    Note over OrderCH: @Transactional(REQUIRES_NEW)
+    activate OrderCH
+    OrderCH->>DB: UPDATE order SET status=COMPLETED (스냅샷 포함)
+    deactivate OrderCH
+
+    Facade-->>Controller: OrderInfo
+    Controller-->>User: 201 Created
+```
+
+#### 해석
+
+- **선차감 후주문**: `OrderRequestedEvent` AFTER_COMMIT 이후 재고 차감 → 쿠폰 사용 → 주문 완성 순서로 실행된다. 커밋 전 임시 `ORDERED` 상태로 주문이 생성되며, 모든 CommandHandler 성공 시 `COMPLETED`로 전환된다.
+- **독립 트랜잭션(`REQUIRES_NEW`)**: 각 CommandHandler가 독립 트랜잭션으로 실행되므로 부분 성공/실패를 명시적으로 제어할 수 있다.
+- **보상 트랜잭션**: 중간 단계 실패 시 `EventHandler`가 이미 성공한 CommandHandler를 역순으로 보상(재고 복원, 주문 취소)한다.
+- **데드락 방지**: `StockCommandHandler`에서 재고 차감 시 `productId` 오름차순 정렬 후 `SELECT FOR UPDATE`를 실행한다 (D49).
+
+---
+
+### 6-2. 결제 성공 흐름 (PaymentSucceededEvent → Kafka → 주문 PAID)
+
+#### 다이어그램의 목적
+
+PG 결제 성공 후 `PaymentSucceededEvent`가 Kafka를 통해 `commerce-streamer`로 전달되어 주문 상태를 `PAID`로 전환하는 비동기 흐름을 검증한다. PG 외부 호출이 트랜잭션 밖에서 수행됨을 확인한다 (D46).
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Controller as PaymentV1Controller
+    participant Facade as PaymentFacade
+    participant PaymentSvc as PaymentService
+    participant PgClient as PgClient (외부 PG)
+    participant Publisher as ApplicationEventPublisher
+    participant PSEH as PaymentSucceededEventHandler
+    participant KafkaPublisher as CompleteOrderCommandPublisher
+    participant Kafka as Kafka Topic
+    participant Streamer as commerce-streamer
+    participant OrderRepo as OrderRepository
+
+    User->>Controller: POST /api/v1/payments/{orderId}
+    Controller->>Facade: pay(memberId, orderId, pgToken)
+
+    Note over Facade: requestPayment(@Transactional)
+    activate Facade
+    Facade->>PaymentSvc: requestPayment(orderId)
+    PaymentSvc->>Publisher: publishEvent(PaymentRequestedEvent)
+    deactivate Facade
+    Note over Facade: @Transactional 커밋
+
+    Note over PaymentSvc: callPg — 트랜잭션 밖 실행 (D46)
+    PaymentSvc->>PgClient: HTTP 결제 요청 (no TX)
+    PgClient-->>PaymentSvc: 결제 성공 응답
+
+    Note over Facade: handleCallback(@Transactional)
+    activate Facade
+    Facade->>PaymentSvc: handlePaymentSuccess(orderId, pgResponse)
+    PaymentSvc->>Publisher: publishEvent(PaymentSucceededEvent)
+    deactivate Facade
+    Note over Facade: @Transactional 커밋
+
+    Note over PSEH: AFTER_COMMIT — 커밋 후 실행
+    Publisher-->>PSEH: PaymentSucceededEvent
+
+    PSEH->>KafkaPublisher: CompleteOrderCommand(orderId)
+    Note over KafkaPublisher: TX 없음 — 외부 Kafka 발행
+    KafkaPublisher->>Kafka: publish(order-complete-topic)
+
+    Kafka-->>Streamer: consume(CompleteOrderCommand)
+    Streamer->>OrderRepo: UPDATE order SET status=PAID
+
+    Facade-->>Controller: PaymentInfo
+    Controller-->>User: 200 OK (결제 완료)
+```
+
+#### 해석
+
+- **PG 외부 호출은 트랜잭션 밖**: `callPg()`는 `@Transactional` 없이 실행하여 DB 커넥션 장기 점유를 방지한다 (D46).
+- **Kafka 비동기 전달**: `PaymentSucceededEventHandler`가 AFTER_COMMIT 후 Kafka에 발행한다. `commerce-streamer`가 소비하여 주문 상태를 `PAID`로 전환한다.
+- **트랜잭션 경계 3단 분리**: `requestPayment(@Tx)` → `callPg(no Tx)` → `handleCallback(@Tx)` (D46).
+
+---
+
+### 6-3. 결제 실패 보상 흐름 (PaymentFailedEvent → 재고/쿠폰 복원 + 주문 취소)
+
+#### 다이어그램의 목적
+
+PG 결제 실패 시 `PaymentFailedEvent`를 통해 재고 복원 → 쿠폰 복원 → 주문 취소가 Kafka 경유로 수행되는 보상 트랜잭션 흐름을 검증한다 (D47, D49).
+
+```mermaid
+sequenceDiagram
+    participant Facade as PaymentFacade
+    participant PaymentSvc as PaymentService
+    participant PgClient as PgClient (외부 PG)
+    participant Publisher as ApplicationEventPublisher
+    participant PFEH as PaymentFailedEventHandler
+    participant CompPublisher as PaymentCompensationPublisher
+    participant Kafka as Kafka Topic
+    participant Streamer as commerce-streamer
+    participant StockCH as StockCommandHandler
+    participant CouponCH as CouponCommandHandler
+    participant OrderCH as OrderCommandHandler
+
+    Note over PaymentSvc: callPg — 트랜잭션 밖 실행 (D46)
+    PaymentSvc->>PgClient: HTTP 결제 요청 (no TX)
+
+    alt PG 호출 자체 실패 (네트워크/타임아웃)
+        PgClient-->>PaymentSvc: 예외 발생
+        Note over PaymentSvc: 주문 status = ORDERED 유지 (재시도 가능, D47)
+        PaymentSvc-->>Facade: PG 호출 실패 응답
+    else PG 콜백 FAILED (결제 거절)
+        PgClient-->>PaymentSvc: FAILED 응답
+        Note over Facade: handleCallback(@Transactional)
+        activate Facade
+        Facade->>PaymentSvc: handlePaymentFailed(orderId, pgResponse)
+        PaymentSvc->>Publisher: publishEvent(PaymentFailedEvent)
+        deactivate Facade
+        Note over Facade: @Transactional 커밋
+
+        Note over PFEH: AFTER_COMMIT — 커밋 후 실행
+        Publisher-->>PFEH: PaymentFailedEvent
+
+        PFEH->>CompPublisher: PaymentCompensationCommand(orderId, items, couponId)
+        Note over CompPublisher: TX 없음 — 외부 Kafka 발행
+        CompPublisher->>Kafka: publish(payment-compensation-topic)
+
+        Kafka-->>Streamer: consume(PaymentCompensationCommand)
+
+        Note over Streamer: 보상 트랜잭션 실행 (D49)
+        loop 각 상품 (productId 오름차순)
+            Streamer->>StockCH: RestoreStockCommand(productId, qty)
+            Note over StockCH: @Transactional(REQUIRES_NEW)
+            StockCH->>StockCH: UPDATE stock_quantity (재고 복원)
+        end
+
+        Streamer->>CouponCH: RestoreCouponCommand(couponId)
+        Note over CouponCH: @Transactional(REQUIRES_NEW)
+        CouponCH->>CouponCH: UPDATE issued_coupon SET status=AVAILABLE
+
+        Streamer->>OrderCH: CancelOrderCommand(orderId)
+        Note over OrderCH: @Transactional(REQUIRES_NEW)
+        OrderCH->>OrderCH: UPDATE order SET status=CANCELLED
+    end
+```
+
+#### 해석
+
+- **PG 실패 유형 구분 (D47)**: PG 호출 자체 실패(네트워크/타임아웃)는 주문을 `ORDERED` 상태로 유지하여 재시도를 허용한다. PG 콜백 `FAILED`는 결제가 확정적으로 거절된 것이므로 보상 트랜잭션을 실행한다.
+- **보상 순서 (D49)**: 재고 복원은 `productId` 오름차순 정렬로 실행하여 데드락을 방지한다. 쿠폰 복원 → 주문 취소 순서로 마무리한다.
+- **Kafka 비동기 보상**: `PaymentCompensationPublisher`가 Kafka에 보상 Command를 발행하고, `commerce-streamer`가 소비하여 각 CommandHandler를 독립 트랜잭션으로 실행한다.
+
+---
+
+### 6-4. 브랜드 삭제 연쇄 이벤트 흐름
+
+#### 다이어그램의 목적
+
+브랜드 삭제 시 `BrandDeletedEvent`가 하위 상품 소프트 삭제 → `ProductDeletedEvent` × N → 좋아요 삭제 + 캐시 evict로 연쇄되는 이벤트 체인을 검증한다.
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant Controller as AdminBrandV1Controller
+    participant Facade as AdminBrandFacade
+    participant BrandSvc as BrandService
+    participant Publisher as ApplicationEventPublisher
+    participant BDEH as BrandDeletedEventHandler
+    participant CascadeCH as CascadeDeleteProductsCommandHandler
+    participant ProductSvc as ProductService
+    participant PDLH as ProductDeletedLikeEventHandler
+    participant DLCH as DeleteProductLikesCommandHandler
+    participant CacheEH as CacheEvictEventHandler
+    participant CacheCH as ProductCacheCommandHandler
+    participant DB as Database
+
+    Admin->>Controller: DELETE /api-admin/v1/brands/{brandId}
+    Controller->>Facade: deleteBrand(brandId)
+
+    Note over Facade: @Transactional 시작
+    activate Facade
+    Facade->>BrandSvc: deleteBrand(brandId)
+    BrandSvc->>DB: UPDATE brand SET status=DELETED, deleted_at=now()
+    BrandSvc->>Publisher: publishEvent(BrandDeletedEvent)
+    Note over Publisher: AFTER_COMMIT 큐에 등록
+    deactivate Facade
+    Note over Facade: @Transactional 커밋
+
+    Facade-->>Controller: OK
+    Controller-->>Admin: 200 OK
+
+    Note over BDEH: AFTER_COMMIT — 커밋 후 실행
+    Publisher-->>BDEH: BrandDeletedEvent
+
+    BDEH->>CascadeCH: CascadeDeleteProductsCommand(brandId)
+    Note over CascadeCH: @Transactional(REQUIRES_NEW)
+    activate CascadeCH
+    CascadeCH->>ProductSvc: deleteProductsByBrandId(brandId)
+    ProductSvc->>DB: UPDATE products SET status=DELETED, deleted_at=now() WHERE brand_id=brandId
+    DB-->>ProductSvc: 삭제된 productId 목록
+    loop 각 삭제된 상품
+        CascadeCH->>Publisher: publishEvent(ProductDeletedEvent(productId))
+    end
+    deactivate CascadeCH
+
+    Note over PDLH, CacheEH: 각 ProductDeletedEvent 처리 (AFTER_COMMIT)
+    Publisher-->>PDLH: ProductDeletedEvent
+    PDLH->>DLCH: DeleteProductLikesCommand(productId)
+    Note over DLCH: TX 없음
+    DLCH->>DB: DELETE product_like WHERE product_id = productId
+
+    Publisher-->>CacheEH: ProductDeletedEvent
+    CacheEH->>CacheCH: ProductCacheEvictCommand(productId)
+    Note over CacheCH: TX 없음 — Redis evict
+    CacheCH->>CacheCH: Redis DEL product:{productId}
+    CacheCH->>CacheCH: Redis DEL product:list:*
+```
+
+#### 해석
+
+- **이벤트 체인**: 브랜드 삭제 → `BrandDeletedEvent` → 상품 배치 소프트 삭제 → `ProductDeletedEvent` × N → 좋아요 삭제 + 캐시 evict. 각 단계가 이벤트로 분리되어 Facade가 직접 좋아요/캐시 처리 책임을 지지 않는다.
+- **캐시 evict 이벤트 기반**: `BrandUpdatedEvent`, `ProductUpdatedEvent`, `ProductDeletedEvent` 모두 `CacheEvictEventHandler`가 수신하여 해당 캐시를 AFTER_COMMIT 후 즉시 evict한다. 기존 `AdminProductFacade`의 직접 evict 방식을 이벤트 기반으로 전환한 결과다.
+- **좋아요 데이터 삭제**: 기존 아키텍처에서는 좋아요를 유지했으나 (3번 시퀀스 해석 참조), 이벤트 체인에서는 `DeleteProductLikesCommandHandler`가 삭제 처리한다. 마케팅 목적 유지 여부는 비즈니스 정책에 따라 결정한다.
+- **TX 없는 CommandHandler**: 캐시 evict(`ProductCacheCommandHandler`)와 좋아요 삭제(`DeleteProductLikesCommandHandler`)는 트랜잭션이 필요 없어 TX 없이 실행한다.

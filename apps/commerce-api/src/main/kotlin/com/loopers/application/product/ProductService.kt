@@ -3,17 +3,24 @@ package com.loopers.application.product
 import com.loopers.domain.common.CursorResult
 import com.loopers.domain.common.PageQuery
 import com.loopers.domain.common.PageResult
+import com.loopers.domain.common.event.ProductCreatedEvent
+import com.loopers.domain.common.event.ProductDeletedEvent
+import com.loopers.domain.common.event.ProductUpdatedEvent
+import com.loopers.domain.common.event.StockDeductedEvent
+import com.loopers.domain.common.event.StockRestoredEvent
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductStatus
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 
 @Component
 class ProductService(
     private val productRepository: ProductRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun createProduct(command: ProductCommand.Create): ProductModel {
         val product = ProductModel(
@@ -24,7 +31,9 @@ class ProductService(
             stockQuantity = command.stockQuantity,
             imageUrl = command.imageUrl,
         )
-        return productRepository.save(product)
+        val saved = productRepository.save(product)
+        eventPublisher.publishEvent(ProductCreatedEvent(productId = saved.id, brandId = saved.brandId))
+        return saved
     }
 
     fun getProductForAdmin(id: Long): ProductModel {
@@ -67,13 +76,16 @@ class ProductService(
             stockQuantity = command.stockQuantity,
             imageUrl = command.imageUrl,
         )
-        return productRepository.save(updated)
+        val saved = productRepository.save(updated)
+        eventPublisher.publishEvent(ProductUpdatedEvent(productId = saved.id))
+        return saved
     }
 
     fun deleteProduct(id: Long) {
         val product = getProductForAdmin(id)
         val deleted = product.delete()
         productRepository.save(deleted)
+        eventPublisher.publishEvent(ProductDeletedEvent(productId = id))
     }
 
     fun deleteProductsByBrandId(brandId: Long) {
@@ -81,6 +93,7 @@ class ProductService(
         products.forEach { product ->
             val deleted = product.delete()
             productRepository.save(deleted)
+            eventPublisher.publishEvent(ProductDeletedEvent(productId = product.id))
         }
     }
 
@@ -89,6 +102,7 @@ class ProductService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다.")
         val deducted = product.deductStock(quantity)
         productRepository.save(deducted)
+        eventPublisher.publishEvent(StockDeductedEvent(productId = productId, quantity = quantity))
     }
 
     fun restoreStock(productId: Long, quantity: Int) {
@@ -96,5 +110,6 @@ class ProductService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다.")
         val restored = product.restoreStock(quantity)
         productRepository.save(restored)
+        eventPublisher.publishEvent(StockRestoredEvent(productId = productId, quantity = quantity))
     }
 }

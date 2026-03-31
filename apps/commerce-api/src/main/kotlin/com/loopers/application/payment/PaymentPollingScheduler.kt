@@ -41,7 +41,12 @@ class PaymentPollingScheduler(
                 val matched = pgResult.transactions.firstOrNull()
                 if (matched != null) {
                     if (matched.status == "SUCCESS" || matched.status == "FAILED") {
-                        paymentFacade.handleCallback(matched.transactionKey, matched.status, matched.reason)
+                        paymentFacade.handlePolledRequestedPayment(
+                            payment.id,
+                            matched.transactionKey,
+                            matched.status,
+                            matched.reason,
+                        )
                     }
                 } else {
                     paymentFacade.handlePgFailure(payment.id, "PG에서 결제 건을 찾을 수 없습니다.")

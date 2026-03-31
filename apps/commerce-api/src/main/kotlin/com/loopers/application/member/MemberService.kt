@@ -9,6 +9,9 @@ import com.loopers.domain.member.RawPassword
 import com.loopers.domain.member.vo.LoginId
 import com.loopers.domain.member.vo.MemberName
 import com.loopers.domain.member.PasswordEncryptor
+import com.loopers.domain.common.event.MemberCreatedEvent
+import com.loopers.domain.common.event.MemberPasswordChangedEvent
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 
@@ -16,6 +19,7 @@ import java.time.LocalDate
 class MemberService(
     private val memberRepository: MemberRepository,
     private val passwordEncryptor: PasswordEncryptor,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun register(
         loginId: String,
@@ -36,7 +40,9 @@ class MemberService(
             birthday = birthday,
             email = email,
         )
-        return memberRepository.save(member)
+        val saved = memberRepository.save(member)
+        eventPublisher.publishEvent(MemberCreatedEvent(memberId = saved.id, loginId = saved.loginId))
+        return saved
     }
 
     fun getMemberByLoginId(loginId: String): MemberModel {
@@ -66,5 +72,6 @@ class MemberService(
         RawPassword.validate(newPassword, member.birthday)
         val updated = member.changePassword(passwordEncryptor.encode(newPassword))
         memberRepository.save(updated)
+        eventPublisher.publishEvent(MemberPasswordChangedEvent(memberId = member.id, loginId = member.loginId))
     }
 }

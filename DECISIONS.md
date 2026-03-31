@@ -1137,3 +1137,453 @@ After:  쿠폰확인 → 쿠폰차감(@Version+flush) → 재고차감(FOR UPDAT
 6. **요구사항만 구현**: 현재 스코프에 없는 기능은 미리 구현하지 않음 (YAGNI)
 7. **기능 정합성 우선**: 멱등성/일관성은 기능 완성 후 별도 해결. 단, 재고 동시성 제어(비관적 락)는 정합성 핵심이므로 Phase 1에 포함
 8. **캐시는 실패 허용**: Redis 장애 시 DB fallback으로 서비스 지속. 캐시는 성능 최적화이지 필수 의존이 아님
+
+---
+
+## 43. PG 연동 방식 — RestTemplate + PgClient 포트 패턴
+
+### 배경
+
+외부 PG(Payment Gateway) 시스템과 연동이 필요하다. PG 호출 방식을 선택해야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| **A. RestTemplate + DIP 포트 패턴** | 프로젝트 기존 패턴 일관성 유지. PgClient 인터페이스(domain) ← PgClientImpl(infrastructure) |
+| B. FeignClient | 선언적 HTTP 클라이언트. Spring Cloud 의존 추가 필요 |
+
+### 판단
+
+A. RestTemplate + DIP 포트 패턴
+
+### 근거
+
+- 프로젝트 전반에서 포트 패턴(CacheStore, PasswordEncryptor)을 이미 사용 중 → 일관성 유지
+- FeignClient 도입 시 Spring Cloud 의존성 추가 및 별도 설정 필요
+- RestTemplate은 이미 프로젝트에 포함된 의존성으로 추가 비용 없음
+
+### 트레이드오프
+
+- FeignClient 대비 보일러플레이트 코드 증가
+- 단, 포트 인터페이스로 추상화하므로 구현체 교체는 용이
+
+---
+
+## 44. 비동기 결제 처리 — 콜백 + 폴링 이중화
+
+### 배경
+
+PG가 비동기 결제 방식을 사용한다. 결제 요청과 처리 결과가 분리되며, 처리에 1~5초가 소요된다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 콜백만 | PG 콜백 수신 시 결제 완료 처리. 콜백 유실 시 영구 PENDING 상태 |
+| B. 폴링만 | 주기적으로 미완료 건 조회 후 PG에 상태 확인. 실시간성 낮음 |
+| **C. 콜백 + 폴링 이중화** | 콜백으로 실시간 처리 + 폴링으로 유실 건 보완 |
+
+### 판단
+
+C. 콜백 + 폴링 이중화
+
+### 근거
+
+- 콜백 유실 시 PENDING 상태 영구 방치 방지
+- 폴링: `@Scheduled(fixedDelay=30s)`, 60초 이상 경과한 PENDING 건 대상
+- 콜백이 정상 수신되면 폴링에서 이미 처리된 건은 멱등하게 무시
+
+### 트레이드오프
+
+- 구현 복잡도 증가 (콜백 + 스케줄러 두 경로 유지)
+- 동일 건이 콜백/폴링에서 동시 처리될 경우 race condition → D51에서 비관적 락으로 해결
+
+---
+
+## 45. 결제 상태 머신
+
+### 배경
+
+결제 흐름에서 PG 호출 전/중/후 상태를 명확히 구분해야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. REQUESTED / COMPLETED / FAILED | 단순 3단계. PENDING 상태 구분 없음 |
+| **B. REQUESTED → PENDING → SUCCESS / FAILED** | PG 호출 결과에 따른 중간 상태 포함 |
+
+### 판단
+
+B. REQUESTED → PENDING → SUCCESS / FAILED
+
+### 근거
+
+- REQUESTED: PG 호출 전 상태 (결제 의사 표명만 된 상태)
+- PENDING: PG에 transactionKey가 할당된 상태 (결과 대기)
+- SUCCESS / FAILED: terminal 상태
+- 폴링 대상을 PENDING으로 한정 가능 → 불필요한 PG 조회 최소화
+
+### 트레이드오프
+
+- REQUESTED 상태가 단명(transient) 상태로 존재 → PG 호출 실패 시 즉시 주문 복귀 처리 필요 (D47)
+
+---
+
+## 46. 트랜잭션 경계 분리
+
+### 배경
+
+PG 외부 호출을 트랜잭션 내부에서 수행하면 DB 커넥션을 장기 점유하게 된다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 단일 트랜잭션 | PG 호출 포함 전체를 하나의 @Transactional로 묶음 |
+| **B. 트랜잭션 경계 분리** | requestPayment(@Tx) → callPg(no Tx) → handleCallback(@Tx) |
+
+### 판단
+
+B. 트랜잭션 경계 분리
+
+### 근거
+
+- 외부 I/O(PG 호출, 1~5초)를 트랜잭션 밖으로 분리 → DB 커넥션 장기 점유 방지
+- Virtual Thread 환경에서도 커넥션 풀 고갈 위험 해소
+- 각 단계가 독립 트랜잭션으로 원자적으로 처리됨
+- **금액 검증**: `command.amount != order.getTotalAmount()` 체크는 requestPayment 트랜잭션 내에서 수행
+
+### 트레이드오프
+
+- PG 호출과 DB 트랜잭션이 분리되므로 보상 트랜잭션 설계 필요 (D49)
+- 콜백/폴링 경로에서 동일 건 중복 처리 가능 → 비관적 락 적용 (findByTransactionKeyWithLock)
+
+---
+
+## 47. PG 실패 유형 구분
+
+### 배경
+
+PG 실패에는 두 가지 유형이 존재한다. 유형에 따라 처리 방식이 달라야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 단일 실패 처리 | 모든 PG 실패를 동일하게 처리 |
+| **B. 실패 유형 분리** | PG 호출 실패 vs 콜백 FAILED 구분 |
+
+### 판단
+
+B. 실패 유형 분리
+
+### 근거
+
+- **PG 호출 자체 실패** (네트워크 오류, 타임아웃): 결제가 시작되지 않은 상태 → 주문 ORDERED 복귀, 재시도 가능
+- **콜백 FAILED** (결제 처리 완료 후 실패): 결제가 시도되었으나 실패 → compensate 실행 (재고+쿠폰 복원 + 주문 CANCELLED)
+- `transactionKey` 미할당 고착 건: `handlePolledRequestedPayment`에서 paymentId 기반 직접 처리
+
+### 트레이드오프
+
+- 실패 경로가 두 가지로 분기되어 처리 로직 복잡도 증가
+- 명확한 상태 구분으로 운영 시 장애 원인 추적 용이
+
+---
+
+## 48. 서킷브레이커
+
+### 배경
+
+PG 시스템 장애 시 commerce-api까지 연쇄 장애가 발생할 수 있다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 미적용 | PG 장애 시 요청 대기 → 스레드 풀 고갈 위험 |
+| **B. Resilience4j @CircuitBreaker** | PG 호출 전 메서드에 적용. COUNT_BASED 슬라이딩 윈도우 |
+
+### 판단
+
+B. Resilience4j @CircuitBreaker
+
+### 근거
+
+- `@CircuitBreaker(name="pgPayment")` PgClient 전 메서드에 적용
+- COUNT_BASED, window=10, failRate=60%, waitOpen=10s
+- PG 장애 시 빠른 실패(fail-fast)로 commerce-api 보호
+- Phase 3 REQ-3.1 안정성 강화 요구사항 부분 충족
+
+### 트레이드오프
+
+- Resilience4j 의존성 추가 필요
+- PG 일시 지연(1~5초)을 장애로 오판할 수 있음 → 적절한 타임아웃 + failRate 임계값 조정 필요
+
+---
+
+## 49. 보상 트랜잭션
+
+### 배경
+
+결제 실패(콜백 FAILED) 시 이미 차감된 재고와 사용된 쿠폰을 복원해야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 수동 롤백 쿼리 | 실패 시 직접 UPDATE 쿼리 실행 |
+| **B. 도메인 메서드 기반 보상 트랜잭션** | compensate(): 재고복원 + 쿠폰복원 + 주문 CANCELLED |
+
+### 판단
+
+B. 도메인 메서드 기반 보상 트랜잭션
+
+### 근거
+
+- `compensate()`: 재고복원(productId 오름차순) + 쿠폰복원 + 주문 CANCELLED
+- `ProductModel.restoreStock()`: 재고 복원 도메인 메서드
+- `IssuedCouponModel.restore()`: 쿠폰 상태 복원 도메인 메서드
+- 재고 복원 순서를 productId 오름차순으로 통일 → 데드락 방지 (D9와 동일 원칙)
+
+### 트레이드오프
+
+- 보상 트랜잭션 자체가 실패할 경우를 대비한 재시도 메커니즘 별도 고려 필요
+- 현재는 단순 보상으로 구현, 향후 Saga 패턴으로 확장 가능
+
+---
+
+## 50. 주문 상태 확장
+
+### 배경
+
+결제 흐름을 반영하기 위해 기존 주문 상태에 결제 관련 상태가 추가되어야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 기존 상태 유지 | ORDERED, CANCELLED만 유지 |
+| **B. 결제 관련 상태 추가** | PAYMENT_PENDING, PAID, CANCELLED 추가 |
+
+### 판단
+
+B. 결제 관련 상태 추가
+
+### 근거
+
+- `PAYMENT_PENDING`: 결제 요청 후 처리 대기 중
+- `PAID`: 결제 완료
+- `CANCELLED`: 결제 실패 또는 보상 트랜잭션 완료
+- 도메인 메서드 4개 추가:
+  - `requestPayment()`: ORDERED → PAYMENT_PENDING
+  - `completePayment()`: PAYMENT_PENDING → PAID
+  - `cancelByPaymentFailure()`: PAYMENT_PENDING → CANCELLED (보상 트랜잭션과 함께)
+  - `revertToOrdered()`: PAYMENT_PENDING → ORDERED (PG 호출 자체 실패 시)
+
+### 트레이드오프
+
+- 기존 주문 조회/처리 로직에서 새 상태 처리 필요
+- 상태 전이 규칙을 도메인 메서드 내에서 강제하여 잘못된 상태 전이 방지
+
+---
+
+## 51. CardNo VO
+
+### 배경
+
+카드 번호는 형식 검증이 필요한 값이다. VO로 관리하면 도메인 불변식을 보장할 수 있다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. String 그대로 사용 | 검증 없음. 잘못된 형식 저장 가능 |
+| **B. CardNo VO** | `@JvmInline value class` + 형식 검증 |
+
+### 판단
+
+B. CardNo VO
+
+### 근거
+
+- `@JvmInline value class CardNo(val value: String)`
+- `xxxx-xxxx-xxxx-xxxx` 형식 검증 (정규식)
+- 프로젝트 VO 패턴과 동일 구조 (D23)
+- 생성자는 검증 없음, `CardNo.of()`에서만 검증
+
+### 트레이드오프
+
+- Hibernate 저장 시 AttributeConverter 미사용 → Entity 내부 primitive 필드로 저장 (기존 VO 패턴 동일)
+
+---
+
+## 52. Event-Command-Handler 아키텍처
+
+### 배경
+
+Facade 계층이 다른 도메인의 Service를 직접 호출하여 강한 결합이 존재한다. 7개 도메인(회원/브랜드/상품/좋아요/주문/쿠폰/결제)을 MSA처럼 논리적으로 분리하되, 물리적 배포는 모놀리스를 유지해야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. Facade 유지 (현행) | cross-domain 직접 호출. 모놀리스 전용 |
+| B. Event-Handler (이벤트 직접 처리) | 이벤트 리스너가 비즈니스 로직 직접 실행 |
+| **C. Event-Command-Handler** | Event(사실) → EventHandler(오케스트레이션) → Command(의도) → CommandHandler(실행) |
+
+### 판단
+
+C. Event-Command-Handler
+
+### 근거
+
+- 이벤트(사실)와 커맨드(의도)를 분리하여 의미 명확화
+- EventHandler가 Saga 오케스트레이터 역할 → 하나의 이벤트에 여러 Command 매핑 가능
+- CommandHandler 구현체 교체로 전송 수단(로컬/Kafka) 전환 가능 → MSA 전환 대비
+- 도메인은 이벤트 발행까지만 책임, 소비 방식은 수신 도메인이 결정
+
+### 세부 결정
+
+| 항목 | 결정 | 근거 |
+|------|------|------|
+| 이벤트 발행 주체 | Service (ApplicationEventPublisher) | DIP 유지 — Domain Model은 data class, JPA 비의존 의도적 결정 |
+| 모델 통합 (AbstractAggregateRoot) | 하지 않음 | DIP를 의도적으로 지키기 위한 불편함 감수 |
+| 주문 흐름 | 선차감 후주문 (MSA식) | 일반 커머스 패턴, 각 단계 별도 TX |
+| 주문 이벤트 분리 | OrderRequestedEvent(요청) / OrderCreatedEvent(완료 사실) | Request ≠ Created |
+| EventHandler TX | 모두 AFTER_COMMIT | 발행자 커밋 확정 후 처리 |
+| CommandHandler TX | 도메인별 차등 | MSA식 REQUIRES_NEW, Kafka, TX 불필요 등 |
+| 결제 성공 전달 | Kafka (CommandHandler 구현이 Kafka 발행) | 유실 불가, TX 분리 |
+| 결제 실패 보상 | Polling 배치 | 상태 기반 감지, 이벤트 유실 무관 |
+| EventHandler 보상 | 하지 않음, Polling 전임 | 관심사 분리 |
+
+### 트레이드오프
+
+- Event/Command/Handler 3계층으로 코드량 증가
+- 단순한 캐시 evict도 Event → Command → Handler 경로를 거침
+- Polling 배치 전임 시 보상 지연 가능 (배치 주기에 의존)
+- 모놀리스에서 REQUIRES_NEW 사용 시 커넥션 풀 점유 증가
+
+---
+
+## D53: 유저 행동 로깅 — AOP + ApplicationEvent
+
+### 배경
+
+유저 행동(조회, 좋아요, 주문)에 대한 서버 레벨 로깅이 필요하다. 비즈니스 로직과 분리하여 횡단 관심사로 처리해야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. Filter | HTTP 레벨 처리. 도메인 의미 부여 어려움 |
+| **B. AOP (@Aspect)** | Facade 메서드에 @LogUserAction 어노테이션. 성공 시에만 로깅 |
+| C. 직접 호출 | 각 Facade에서 명시적 이벤트 발행. 횡단 관심사와 비즈니스 혼재 |
+
+### 판단
+
+B. AOP (@Aspect) + @LogUserAction 커스텀 어노테이션
+
+### 근거
+
+- `@AfterReturning`으로 성공 시에만 이벤트 발행 → 실패한 요청은 로깅하지 않음
+- ORDER 행동은 Event→Command 패턴 적용: AOP가 OrderCommand.Create에서 상품별 이벤트 N건 발행
+- memberId 추출: 메서드 인자 → request 속성(인증 인터셉터) → 없으면 skip (비인증 사용자)
+- UserActionEvent → UserActionEventHandler(AFTER_COMMIT) → user_action_log 테이블 INSERT
+
+### 트레이드오프
+
+- AOP 프록시 한계: self-invocation 시 어노테이션 미작동 (현재 해당 케이스 없음)
+- 비인증 사용자의 상품 조회는 로깅 불가 (memberId 필수)
+
+---
+
+## D54: Transactional Outbox Pattern — Kafka 안정적 발행
+
+### 배경
+
+ApplicationEvent 기반 이벤트는 프로세스 내부에서만 전파된다. 시스템 간 전파(Kafka)가 필요한 이벤트의 유실 없는 발행이 필요하다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. ApplicationEvent → KafkaTemplate 직접 발행 | 비즈니스 TX와 Kafka 발행이 분리되어 유실 가능 |
+| **B. Transactional Outbox** | 비즈니스 TX 내 outbox_event INSERT → 별도 폴러가 Kafka 발행 |
+| C. CDC (Debezium) | binlog 기반 자동 발행. 인프라 복잡도 높음 |
+
+### 판단
+
+B. Transactional Outbox (Kafka 전파 대상 이벤트만 적용)
+
+### 근거
+
+- outbox_event 테이블에 비즈니스 TX와 함께 INSERT → at-least-once 보장
+- OutboxPoller(commerce-streamer, @Scheduled 1초): poll → KafkaTemplate.send() → published_at 마킹
+- event-id 헤더로 Consumer 멱등 처리 (kafka_consumed_event 테이블)
+- commerce-api는 Kafka 의존성 불필요 (outbox INSERT만 담당)
+- 기존 LocalPublisher → OutboxPublisher로 교체 (payment.succeeded, payment.failed)
+- 신규 토픽: product.action (메트릭 집계), coupon.issue.request (선착순 쿠폰)
+
+### 세부 결정
+
+| 항목 | 결정 |
+|------|------|
+| Outbox 적용 범위 | Kafka 전파 대상만 (Spring Event 현행 유지) |
+| OutboxPoller 위치 | commerce-streamer (Kafka 의존성 이미 존재) |
+| PartitionKey | productId (메트릭), templateId (쿠폰), orderId (결제) |
+| 멱등 테이블 | kafka_consumed_event (event_id + consumer_group 복합 PK) |
+| 멱등 정리 | commerce-batch 30일 TTL |
+| Outbox 정리 | commerce-batch 7일 TTL (published만) |
+| product_metrics | UPSERT (ON DUPLICATE KEY UPDATE), version 카운터 |
+
+### 트레이드오프
+
+- 폴링 주기(1초)만큼 발행 지연 존재
+- outbox_event 테이블 쓰기 부하 증가 (비즈니스 TX마다 추가 INSERT)
+- 미발행 이벤트 누적 시 폴러 부하 → published_at 인덱스로 완화
+
+---
+
+## D55: 선착순 쿠폰 — 별도 도메인 + Kafka 순차 처리
+
+### 배경
+
+선착순 수량 제한 쿠폰 발급이 필요하다. 동시 요청 시 수량 초과 발급을 방지해야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. Redis DECR 선차감 | 원자적 카운터. Redis 장애 시 발급 불가 |
+| B. DB 비관적 락 | SELECT FOR UPDATE. 동시성 높으면 대기 증가 |
+| **C. Kafka Consumer 순차 처리** | templateId 파티셔닝으로 직렬 처리. 수량 초과 원천 방지 |
+
+### 판단
+
+C. Kafka Consumer 순차 처리 (Outbox → Kafka → SINGLE_LISTENER)
+
+### 근거
+
+- API 요청 → fcfs_coupon_issue_request(PENDING) + outbox INSERT (같은 TX)
+- OutboxPoller → Kafka (key=templateId) → 동일 templateId는 같은 파티션 → 직렬 소비
+- Consumer: SELECT FOR UPDATE 수량 확인 → 중복 체크 → issued_coupon INSERT → issued_quantity +1
+- 클라이언트는 Polling API로 발급 결과 확인 (requestId 기반)
+- 기존 coupon 시스템과 완전 분리 (별도 도메인: fcfscoupon)
+
+### 세부 설계
+
+| 항목 | 설명 |
+|------|------|
+| 모델 | FcfsCouponTemplateModel, FcfsCouponIssueRequestModel (기존 CouponTemplate과 별도) |
+| 상태 | PENDING → ISSUED / FAILED / SOLD_OUT |
+| Consumer | FcfsCouponIssueConsumer (SINGLE_LISTENER, concurrency=1) |
+| 발급 결과 | issued_coupon 테이블에 INSERT (기존 쿠폰과 동일 테이블 사용) |
+| 결과 확인 | GET /api/v1/fcfs-coupons/requests/{requestId} (polling) |
+
+### 트레이드오프
+
+- 비동기 처리로 발급 결과 즉시 반환 불가 (202 Accepted + polling)
+- Kafka 장애 시 발급 지연 (outbox에 미발행 이벤트 누적)
+- 파티션 수(3)보다 templateId가 많으면 같은 파티션에 여러 template 혼재 가능 → 현재 규모에서 무시 가능
