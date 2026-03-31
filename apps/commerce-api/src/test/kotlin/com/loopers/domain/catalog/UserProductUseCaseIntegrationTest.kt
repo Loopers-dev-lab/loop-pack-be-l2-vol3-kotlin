@@ -3,16 +3,21 @@ package com.loopers.domain.catalog
 import com.loopers.application.catalog.AdminRegisterProductUseCase
 import com.loopers.application.catalog.RegisterProductCriteria
 import com.loopers.application.catalog.RegisterProductResult
-import com.loopers.domain.catalog.BrandInfo
-import com.loopers.domain.catalog.BrandService
-import com.loopers.domain.catalog.RegisterBrandCommand
 import com.loopers.application.catalog.UserGetProductUseCase
 import com.loopers.application.catalog.UserGetProductsUseCase
 import com.loopers.application.catalog.UserListProductsCriteria
+import com.loopers.application.catalog.ViewProductCriteria
+import com.loopers.domain.common.event.ActivityType
+import com.loopers.domain.user.RegisterCommand
+import com.loopers.domain.user.UserService
+import com.loopers.infrastructure.common.UserActivityLogJpaRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -22,6 +27,9 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.math.BigDecimal
+import java.time.Duration
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 @SpringBootTest
 class UserProductUseCaseIntegrationTest @Autowired constructor(
@@ -29,13 +37,32 @@ class UserProductUseCaseIntegrationTest @Autowired constructor(
     private val userGetProductsUseCase: UserGetProductsUseCase,
     private val brandService: BrandService,
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
+    private val userService: UserService,
+    private val userActivityLogJpaRepository: UserActivityLogJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
+        private const val DEFAULT_USERNAME = "testuser"
+        private const val DEFAULT_PASSWORD = "password1234!"
+        private const val DEFAULT_USER_NAME = "테스트유저"
+        private const val DEFAULT_EMAIL = "test@loopers.com"
+        private val DEFAULT_BIRTH_DATE = ZonedDateTime.of(1995, 5, 29, 0, 0, 0, 0, ZoneId.of("Asia/Seoul"))
         private const val DEFAULT_NAME = "에어맥스 90"
         private const val DEFAULT_QUANTITY = 100
         private val DEFAULT_PRICE = BigDecimal("129000")
         private const val DEFAULT_BRAND_NAME = "나이키"
+    }
+
+    private fun registerUser(username: String = DEFAULT_USERNAME) {
+        userService.register(
+            RegisterCommand(
+                username = username,
+                password = DEFAULT_PASSWORD,
+                name = DEFAULT_USER_NAME,
+                email = DEFAULT_EMAIL,
+                birthDate = DEFAULT_BIRTH_DATE,
+            ),
+        )
     }
 
     @AfterEach
@@ -70,11 +97,13 @@ class UserProductUseCaseIntegrationTest @Autowired constructor(
         @Test
         fun returnsProductWithoutQuantityWhenProductExists() {
             // arrange
+            registerUser()
             val brand = registerBrand()
             val product = registerProduct(brandId = brand.id)
+            val criteria = ViewProductCriteria(loginId = DEFAULT_USERNAME, productId = product.id)
 
             // act
-            val result = userGetProductUseCase.execute(product.id)
+            val result = userGetProductUseCase.execute(criteria)
 
             // assert
             assertAll(
@@ -90,13 +119,34 @@ class UserProductUseCaseIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFoundExceptionWhenProductDoesNotExist() {
             // arrange
+            registerUser()
             val nonExistentId = 999L
+            val criteria = ViewProductCriteria(loginId = DEFAULT_USERNAME, productId = nonExistentId)
 
             // act & assert
             val result = assertThrows<CoreException> {
-                userGetProductUseCase.execute(nonExistentId)
+                userGetProductUseCase.execute(criteria)
             }
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
+        }
+
+        @DisplayName("상품 조회 시, 활동 로그가 비동기로 기록된다.")
+        @Test
+        fun savesActivityLogAsyncWhenProductIsViewed() {
+            // arrange
+            registerUser()
+            val brand = registerBrand()
+            val product = registerProduct(brandId = brand.id)
+            val criteria = ViewProductCriteria(loginId = DEFAULT_USERNAME, productId = product.id)
+
+            // act
+            userGetProductUseCase.execute(criteria)
+
+            // assert
+            await atMost Duration.ofSeconds(5) untilAsserted {
+                val logs = userActivityLogJpaRepository.findAll()
+                assertThat(logs).anyMatch { it.activityType == ActivityType.PRODUCT_VIEW }
+            }
         }
     }
 

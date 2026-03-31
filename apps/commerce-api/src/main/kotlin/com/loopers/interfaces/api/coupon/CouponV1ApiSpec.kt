@@ -29,4 +29,26 @@ interface CouponV1ApiSpec {
         page: Int,
         size: Int,
     ): ApiResponse<CouponV1Dto.IssuedCouponsResponse>
+
+    @Operation(
+        summary = "선착순 쿠폰 발급 요청",
+        description = "비동기로 쿠폰 발급을 요청합니다.",
+    )
+    @SwaggerResponse(responseCode = "202", description = "요청 접수 완료")
+    fun issueAsyncCoupon(
+        loginId: String,
+        loginPw: String,
+        couponId: Long,
+    ): ApiResponse<CouponV1Dto.CouponIssueRequestResponse>
+
+    @Operation(
+        summary = "쿠폰 발급 요청 상태 조회",
+        description = "비동기 쿠폰 발급 요청의 처리 상태를 조회합니다.",
+    )
+    @SwaggerResponse(responseCode = "200", description = "조회 성공")
+    fun getCouponIssueStatus(
+        loginId: String,
+        loginPw: String,
+        requestId: Long,
+    ): ApiResponse<CouponV1Dto.CouponIssueStatusResponse>
 }

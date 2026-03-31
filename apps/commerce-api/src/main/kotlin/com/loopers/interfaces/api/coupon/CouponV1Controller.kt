@@ -1,9 +1,13 @@
 package com.loopers.interfaces.api.coupon
 
+import com.loopers.application.coupon.GetCouponIssueStatusCriteria
 import com.loopers.application.coupon.GetMyCouponsCriteria
 import com.loopers.application.coupon.IssueCouponCriteria
+import com.loopers.application.coupon.RequestCouponIssueCriteria
+import com.loopers.application.coupon.UserGetCouponIssueStatusUseCase
 import com.loopers.application.coupon.UserGetMyCouponsUseCase
 import com.loopers.application.coupon.UserIssueCouponUseCase
+import com.loopers.application.coupon.UserRequestCouponIssueUseCase
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -20,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController
 class CouponV1Controller(
     private val userIssueCouponUseCase: UserIssueCouponUseCase,
     private val userGetMyCouponsUseCase: UserGetMyCouponsUseCase,
+    private val userRequestCouponIssueUseCase: UserRequestCouponIssueUseCase,
+    private val userGetCouponIssueStatusUseCase: UserGetCouponIssueStatusUseCase,
 ) : CouponV1ApiSpec {
 
     @PostMapping("/{couponId}/issue")
@@ -46,6 +52,32 @@ class CouponV1Controller(
         val criteria = GetMyCouponsCriteria(loginId = loginId, page = page, size = size)
         return userGetMyCouponsUseCase.execute(criteria)
             .let { CouponV1Dto.IssuedCouponsResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @PostMapping("/{couponId}/issue-async")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    override fun issueAsyncCoupon(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") loginPw: String,
+        @PathVariable couponId: Long,
+    ): ApiResponse<CouponV1Dto.CouponIssueRequestResponse> {
+        val criteria = RequestCouponIssueCriteria(loginId = loginId, couponId = couponId)
+        return userRequestCouponIssueUseCase.execute(criteria)
+            .let { CouponV1Dto.CouponIssueRequestResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/issue-requests/{requestId}")
+    @ResponseStatus(HttpStatus.OK)
+    override fun getCouponIssueStatus(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") loginPw: String,
+        @PathVariable requestId: Long,
+    ): ApiResponse<CouponV1Dto.CouponIssueStatusResponse> {
+        val criteria = GetCouponIssueStatusCriteria(loginId = loginId, requestId = requestId)
+        return userGetCouponIssueStatusUseCase.execute(criteria)
+            .let { CouponV1Dto.CouponIssueStatusResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 }

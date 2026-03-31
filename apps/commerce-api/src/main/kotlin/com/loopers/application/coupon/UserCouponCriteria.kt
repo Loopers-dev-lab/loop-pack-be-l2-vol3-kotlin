@@ -10,3 +10,13 @@ data class GetMyCouponsCriteria(
     val page: Int,
     val size: Int,
 )
+
+data class RequestCouponIssueCriteria(
+    val loginId: String,
+    val couponId: Long,
+)
+
+data class GetCouponIssueStatusCriteria(
+    val loginId: String,
+    val requestId: Long,
+)

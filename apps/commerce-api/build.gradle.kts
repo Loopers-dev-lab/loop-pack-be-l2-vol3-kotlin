@@ -6,6 +6,7 @@ dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
+    implementation(project(":modules:kafka"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
@@ -24,6 +25,7 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+    testImplementation(testFixtures(project(":modules:kafka")))
 
     implementation("net.datafaker:datafaker:2.2.2")
 
@@ -33,4 +35,7 @@ dependencies {
     // resilience
     implementation("io.github.resilience4j:resilience4j-spring-boot3:${project.properties["resilience4jVersion"]}")
     implementation("org.springframework.boot:spring-boot-starter-aop")
+
+    // test - async event verification
+    testImplementation("org.awaitility:awaitility-kotlin")
 }

@@ -1,5 +1,7 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.coupon.CouponIssueRequestModel
+import com.loopers.domain.coupon.CouponIssueRequestStatus
 import com.loopers.domain.coupon.CouponStatus
 import com.loopers.domain.coupon.DiscountType
 import com.loopers.domain.coupon.IssuedCouponInfo
@@ -35,3 +37,33 @@ data class UserListCouponsResult(
     val size: Int,
     val hasNext: Boolean,
 )
+
+data class RequestCouponIssueResult(
+    val requestId: Long,
+    val status: CouponIssueRequestStatus,
+) {
+    companion object {
+        fun from(model: CouponIssueRequestModel): RequestCouponIssueResult {
+            return RequestCouponIssueResult(
+                requestId = model.id,
+                status = model.status,
+            )
+        }
+    }
+}
+
+data class CouponIssueStatusResult(
+    val requestId: Long,
+    val status: CouponIssueRequestStatus,
+    val failureReason: String?,
+) {
+    companion object {
+        fun from(model: CouponIssueRequestModel): CouponIssueStatusResult {
+            return CouponIssueStatusResult(
+                requestId = model.id,
+                status = model.status,
+                failureReason = model.failureReason,
+            )
+        }
+    }
+}
