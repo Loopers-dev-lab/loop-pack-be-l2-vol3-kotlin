@@ -53,6 +53,7 @@ queue:
   throughput-tps: ${QUEUE_THROUGHPUT_TPS:175}
   scheduler-delay-ms: ${QUEUE_SCHEDULER_DELAY_MS:100}
   jitter-max-ms: ${QUEUE_JITTER_MAX_MS:50}
+  sse-timeout-ms: ${QUEUE_SSE_TIMEOUT_MS:60000}
 
 # Resilience4j 설정
 # aspect order: CircuitBreaker(1)가 Retry(2) 바깥에서 먼저 평가 → 서킷 오픈 시 즉시 fallback

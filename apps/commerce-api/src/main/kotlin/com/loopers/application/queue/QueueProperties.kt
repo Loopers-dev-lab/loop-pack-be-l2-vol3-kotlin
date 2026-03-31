@@ -20,4 +20,6 @@ data class QueueProperties(
     val schedulerDelayMs: Long,
     @field:PositiveOrZero
     val jitterMaxMs: Long = 0,
+    @field:Positive
+    val sseTimeoutMs: Long = 60_000,
 )

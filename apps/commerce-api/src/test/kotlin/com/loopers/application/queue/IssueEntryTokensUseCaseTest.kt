@@ -48,9 +48,12 @@ class IssueEntryTokensUseCaseTest {
             waitingQueueRepository.enter(3L, 3000.0, 50_000)
 
             // act
-            issueEntryTokensUseCase.execute()
+            val result = issueEntryTokensUseCase.execute()
 
             // assert
+            assertThat(result).hasSize(3)
+            assertThat(result.map { it.userId }).containsExactly(1L, 2L, 3L)
+            result.forEach { assertThat(it.token).isNotBlank() }
             assertThat(entryTokenRepository.find(UserId(1L))).isNotNull()
             assertThat(entryTokenRepository.find(UserId(2L))).isNotNull()
             assertThat(entryTokenRepository.find(UserId(3L))).isNotNull()
@@ -58,12 +61,13 @@ class IssueEntryTokensUseCaseTest {
         }
 
         @Test
-        @DisplayName("대기열이 비어있으면 아무 동작도 하지 않는다")
-        fun execute_emptyQueue_doesNothing() {
+        @DisplayName("대기열이 비어있으면 빈 리스트를 반환한다")
+        fun execute_emptyQueue_returnsEmptyList() {
             // act
-            issueEntryTokensUseCase.execute()
+            val result = issueEntryTokensUseCase.execute()
 
             // assert
+            assertThat(result).isEmpty()
             assertThat(waitingQueueRepository.count()).isEqualTo(0)
         }
 

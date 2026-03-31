@@ -1,10 +1,12 @@
 package com.loopers.interfaces.support.scheduler
 
+import com.loopers.application.queue.GetQueuePositionUseCase
 import com.loopers.application.queue.IssueEntryTokensUseCase
 import com.loopers.application.queue.QueueProperties
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
+import com.loopers.interfaces.support.sse.QueueSseEmitterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -17,23 +19,23 @@ class QueueSchedulerTest {
     private lateinit var entryTokenRepository: FakeEntryTokenRepository
     private lateinit var scheduler: QueueScheduler
 
+    private val properties = QueueProperties(
+        maxCapacity = 50_000,
+        batchSize = 3,
+        tokenTtlSeconds = 300,
+        throughputTps = 175,
+        schedulerDelayMs = 100,
+        jitterMaxMs = 0,
+    )
+
     @BeforeEach
     fun setUp() {
         waitingQueueRepository = FakeWaitingQueueRepository()
         entryTokenRepository = FakeEntryTokenRepository()
-        val useCase = IssueEntryTokensUseCase(
-            waitingQueueRepository = waitingQueueRepository,
-            entryTokenRepository = entryTokenRepository,
-            queueProperties = QueueProperties(
-                maxCapacity = 50_000,
-                batchSize = 3,
-                tokenTtlSeconds = 300,
-                throughputTps = 175,
-                schedulerDelayMs = 100,
-                jitterMaxMs = 0,
-            ),
-        )
-        scheduler = QueueScheduler(useCase)
+        val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, properties)
+        val positionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, properties)
+        val registry = QueueSseEmitterRegistry(properties)
+        scheduler = QueueScheduler(issueUseCase, positionUseCase, registry)
     }
 
     @Nested

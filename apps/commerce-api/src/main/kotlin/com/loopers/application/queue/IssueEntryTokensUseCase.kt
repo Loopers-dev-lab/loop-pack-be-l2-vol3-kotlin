@@ -14,19 +14,20 @@ class IssueEntryTokensUseCase(
     private val queueProperties: QueueProperties,
 ) {
 
-    fun execute() {
+    fun execute(): List<IssuedTokenInfo> {
         val userIds = waitingQueueRepository.popMin(queueProperties.batchSize)
-        if (userIds.isEmpty()) return
+        if (userIds.isEmpty()) return emptyList()
 
         applyJitter()
 
-        userIds.forEach { userId ->
+        return userIds.map { userId ->
             val entryToken = EntryToken.issue(UserId(userId))
             entryTokenRepository.issue(
                 userId = entryToken.userId,
                 token = entryToken.token,
                 ttlSeconds = queueProperties.tokenTtlSeconds,
             )
+            IssuedTokenInfo(userId = userId, token = entryToken.token)
         }
     }
 
