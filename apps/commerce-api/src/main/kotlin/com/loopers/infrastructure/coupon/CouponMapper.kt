@@ -14,6 +14,8 @@ class CouponMapper {
             discountValue = entity.discountValue,
             minOrderAmount = entity.minOrderAmount?.let { Money(it) },
             expiredAt = entity.expiredAt,
+            issueLimit = entity.issueLimit,
+            issuedCount = entity.issuedCount,
             deletedAt = entity.deletedAt,
             createdAt = entity.createdAt,
         )
@@ -27,6 +29,8 @@ class CouponMapper {
             discountValue = coupon.discountValue,
             minOrderAmount = coupon.minOrderAmount?.amount,
             expiredAt = coupon.expiredAt,
+            issueLimit = coupon.issueLimit,
+            issuedCount = coupon.issuedCount,
             createdBy = admin,
             updatedBy = admin,
         )

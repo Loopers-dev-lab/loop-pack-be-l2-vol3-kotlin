@@ -39,6 +39,11 @@ class IssuedCouponRepositoryImpl(
             ?.let { issuedCouponMapper.toDomain(it) }
     }
 
+    override fun findByCouponIdAndUserId(couponId: Long, userId: Long): IssuedCoupon? {
+        return issuedCouponJpaRepository.findByCouponIdAndUserIdAndDeletedAtIsNull(couponId, userId)
+            ?.let { issuedCouponMapper.toDomain(it) }
+    }
+
     override fun findAllByUserId(userId: Long): List<IssuedCoupon> {
         return issuedCouponJpaRepository.findAllByUserIdAndDeletedAtIsNull(userId)
             .map { issuedCouponMapper.toDomain(it) }

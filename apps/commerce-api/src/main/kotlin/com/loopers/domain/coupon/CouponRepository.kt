@@ -8,5 +8,7 @@ interface CouponRepository {
 
     fun findById(id: Long): Coupon?
 
+    fun findByIdForUpdate(id: Long): Coupon?
+
     fun findAll(pageRequest: PageRequest): PageResponse<Coupon>
 }

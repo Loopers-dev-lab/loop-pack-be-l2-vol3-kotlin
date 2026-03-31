@@ -1,33 +1,45 @@
 package com.loopers.application.user.coupon
 
-import com.loopers.domain.coupon.CouponRepository
-import com.loopers.domain.coupon.IssuedCoupon
-import com.loopers.domain.coupon.IssuedCouponRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
+import com.loopers.domain.coupon.CouponIssueRequest
+import com.loopers.domain.coupon.CouponIssueRequestRepository
+import com.loopers.support.event.user.CouponIssueRequestedEvent
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class UserCouponIssueUseCase(
-    private val couponRepository: CouponRepository,
-    private val issuedCouponRepository: IssuedCouponRepository,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val couponIssueRequestRepository: CouponIssueRequestRepository,
 ) {
     @Transactional
-    fun issue(command: UserCouponCommand.Issue): UserCouponResult.Issued {
-        val coupon = couponRepository.findById(command.couponId)
-            ?: throw CoreException(ErrorType.COUPON_NOT_FOUND)
+    fun issue(command: UserCouponCommand.Issue): UserCouponResult.IssueRequest {
+        couponIssueRequestRepository.findByCouponIdAndUserId(command.couponId, command.userId)
+            ?.let { return UserCouponResult.IssueRequest.from(it) }
 
-        if (coupon.isExpired()) {
-            throw CoreException(ErrorType.COUPON_EXPIRED)
+        val request = CouponIssueRequest.request(
+            couponId = command.couponId,
+            userId = command.userId,
+        )
+        val saved = runCatching {
+            couponIssueRequestRepository.save(request)
+        }.getOrElse { exception ->
+            if (exception is DataIntegrityViolationException) {
+                couponIssueRequestRepository.findByCouponIdAndUserId(command.couponId, command.userId)
+                    ?: throw exception
+            } else {
+                throw exception
+            }
         }
 
-        val issuedCoupon = IssuedCoupon.issue(
-            couponId = coupon.id!!,
-            userId = command.userId,
-            expiredAt = coupon.expiredAt,
+        eventPublisher.publishEvent(
+            CouponIssueRequestedEvent(
+                requestId = saved.id!!,
+                couponId = saved.couponId,
+                userId = saved.userId,
+            ),
         )
-        val saved = issuedCouponRepository.save(issuedCoupon)
-        return UserCouponResult.Issued.from(saved)
+        return UserCouponResult.IssueRequest.from(saved)
     }
 }

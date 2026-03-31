@@ -21,6 +21,10 @@ class CouponEntity(
     var minOrderAmount: BigDecimal?,
     @Column(name = "expired_at", nullable = false)
     var expiredAt: ZonedDateTime,
+    @Column(name = "issue_limit")
+    var issueLimit: Long?,
+    @Column(name = "issued_count", nullable = false)
+    var issuedCount: Long,
     createdBy: String,
     updatedBy: String,
 ) : AdminAuditEntity() {

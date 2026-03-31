@@ -2,19 +2,24 @@ package com.loopers.application.user.product
 
 import com.loopers.domain.product.ProductQueryRepository
 import com.loopers.domain.product.ProductQueryResult
+import com.loopers.support.event.user.ProductDetailViewedEvent
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.then
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.check
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 @DisplayName("UserProductDetailUseCase")
 class UserProductDetailUseCaseTest {
     private val productQueryRepository: ProductQueryRepository = mock()
-    private val useCase = UserProductDetailUseCase(productQueryRepository)
+    private val eventPublisher: ApplicationEventPublisher = mock()
+    private val useCase = UserProductDetailUseCase(productQueryRepository, eventPublisher)
 
     @Nested
     @DisplayName("상세 조회 시")
@@ -42,6 +47,11 @@ class UserProductDetailUseCaseTest {
             assertThat(result.name).isEqualTo("테스트 상품")
             assertThat(result.brandName).isEqualTo("테스트 브랜드")
             assertThat(result.stockQuantity).isEqualTo(10)
+            then(eventPublisher).should().publishEvent(
+                check<ProductDetailViewedEvent> { event ->
+                    assertThat(event.productId).isEqualTo(1L)
+                },
+            )
         }
     }
 }

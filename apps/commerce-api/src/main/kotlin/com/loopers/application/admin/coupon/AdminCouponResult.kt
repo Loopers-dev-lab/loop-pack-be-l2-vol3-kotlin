@@ -13,6 +13,7 @@ class AdminCouponResult {
         val discountValue: Long,
         val minOrderAmount: BigDecimal?,
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long?,
     ) {
         companion object {
             fun from(coupon: Coupon): Register = Register(
@@ -22,6 +23,7 @@ class AdminCouponResult {
                 discountValue = coupon.discountValue,
                 minOrderAmount = coupon.minOrderAmount?.amount,
                 expiredAt = coupon.expiredAt,
+                issueLimit = coupon.issueLimit,
             )
         }
     }
@@ -73,6 +75,7 @@ class AdminCouponResult {
         val discountValue: Long,
         val minOrderAmount: BigDecimal?,
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long?,
     ) {
         companion object {
             fun from(coupon: Coupon): Update = Update(
@@ -82,6 +85,7 @@ class AdminCouponResult {
                 discountValue = coupon.discountValue,
                 minOrderAmount = coupon.minOrderAmount?.amount,
                 expiredAt = coupon.expiredAt,
+                issueLimit = coupon.issueLimit,
             )
         }
     }

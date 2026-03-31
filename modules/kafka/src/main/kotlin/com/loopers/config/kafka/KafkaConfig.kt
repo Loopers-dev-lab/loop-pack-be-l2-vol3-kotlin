@@ -2,6 +2,7 @@ package com.loopers.config.kafka
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -34,21 +35,25 @@ class KafkaConfig {
     @Bean
     fun producerFactory(
         kafkaProperties: KafkaProperties,
-    ): ProducerFactory<Any, Any> {
+    ): ProducerFactory<String, Any> {
         val props: Map<String, Any> = HashMap(kafkaProperties.buildProducerProperties())
+            .apply {
+                put(ProducerConfig.ACKS_CONFIG, "all")
+                put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true)
+            }
         return DefaultKafkaProducerFactory(props)
     }
 
     @Bean
     fun consumerFactory(
         kafkaProperties: KafkaProperties,
-    ): ConsumerFactory<Any, Any> {
+    ): ConsumerFactory<String, ByteArray> {
         val props: Map<String, Any> = HashMap(kafkaProperties.buildConsumerProperties())
         return DefaultKafkaConsumerFactory(props)
     }
 
     @Bean
-    fun kafkaTemplate(producerFactory: ProducerFactory<Any, Any>): KafkaTemplate<Any, Any> {
+    fun kafkaTemplate(producerFactory: ProducerFactory<String, Any>): KafkaTemplate<String, Any> {
         return KafkaTemplate(producerFactory)
     }
 
@@ -61,7 +66,7 @@ class KafkaConfig {
     fun defaultBatchListenerContainerFactory(
         kafkaProperties: KafkaProperties,
         converter: ByteArrayJsonMessageConverter,
-    ): ConcurrentKafkaListenerContainerFactory<*, *> {
+    ): ConcurrentKafkaListenerContainerFactory<String, ByteArray> {
         val consumerConfig = HashMap(kafkaProperties.buildConsumerProperties())
             .apply {
                 put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE)
@@ -72,11 +77,11 @@ class KafkaConfig {
                 put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, MAX_POLL_INTERVAL_MS)
             }
 
-        return ConcurrentKafkaListenerContainerFactory<Any, Any>().apply {
+        return ConcurrentKafkaListenerContainerFactory<String, ByteArray>().apply {
             consumerFactory = DefaultKafkaConsumerFactory(consumerConfig)
             containerProperties.ackMode = ContainerProperties.AckMode.MANUAL
             setBatchMessageConverter(BatchMessagingMessageConverter(converter))
-            setConcurrency(3)
+            setConcurrency(1)
             isBatchListener = true
         }
     }

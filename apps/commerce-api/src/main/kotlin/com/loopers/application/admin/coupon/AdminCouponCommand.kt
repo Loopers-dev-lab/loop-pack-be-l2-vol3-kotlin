@@ -10,6 +10,7 @@ class AdminCouponCommand {
         val discountValue: Long,
         val minOrderAmount: BigDecimal?,
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long?,
         val admin: String,
     )
 
@@ -19,6 +20,7 @@ class AdminCouponCommand {
         val discountValue: Long,
         val minOrderAmount: BigDecimal?,
         val expiredAt: ZonedDateTime,
+        val issueLimit: Long?,
         val admin: String,
     )
 }

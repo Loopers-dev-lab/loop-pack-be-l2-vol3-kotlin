@@ -7,18 +7,22 @@ import com.loopers.domain.like.ProductLikeRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.support.event.user.ProductLikeCanceledEvent
+import com.loopers.support.event.user.ProductLikeRegisteredEvent
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertAll
+import org.springframework.test.context.event.ApplicationEvents
+import org.springframework.test.context.event.RecordApplicationEvents
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.math.BigDecimal
 
 @DisplayName("UserProductLike UseCase 통합 테스트")
+@RecordApplicationEvents
 @SpringBootTest
 class UserProductLikeUseCaseIntegrationTest
 @Autowired
@@ -36,6 +40,9 @@ constructor(
     }
 
     private var productId: Long = 0
+
+    @Autowired
+    lateinit var applicationEvents: ApplicationEvents
 
     @BeforeEach
     fun setUp() {
@@ -61,15 +68,16 @@ constructor(
     @DisplayName("register 성공")
     inner class WhenRegisterSuccess {
         @Test
-        @DisplayName("register 후 product_like row=1, likeCount=1이 된다")
-        fun register_success_rowAndLikeCount() {
+        @DisplayName("register 후 product_like row=1, ProductLikeRegisteredEvent가 기록된다")
+        fun register_success_rowAndEvent() {
             registerUseCase.register(UserProductLikeCommand.Register(userId = USER_ID, productId = productId))
 
-            val product = productRepository.findById(productId)!!
-            assertAll(
-                { assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(1) },
-                { assertThat(product.likeCount).isEqualTo(1) },
-            )
+            val events = applicationEvents.stream(ProductLikeRegisteredEvent::class.java).toList()
+
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(1)
+            assertThat(events).hasSize(1)
+            assertThat(events.single().productId).isEqualTo(productId)
+            assertThat(events.single().userId).isEqualTo(USER_ID)
         }
     }
 
@@ -77,16 +85,19 @@ constructor(
     @DisplayName("cancel 성공")
     inner class WhenCancelSuccess {
         @Test
-        @DisplayName("register 후 cancel 시 product_like row=0, likeCount=0이 된다")
-        fun cancel_success_rowAndLikeCount() {
+        @DisplayName("register 후 cancel 시 product_like row=0, ProductLikeCanceledEvent가 기록된다")
+        fun cancel_success_rowAndEvent() {
             registerUseCase.register(UserProductLikeCommand.Register(userId = USER_ID, productId = productId))
             cancelUseCase.cancel(UserProductLikeCommand.Cancel(userId = USER_ID, productId = productId))
 
-            val product = productRepository.findById(productId)!!
-            assertAll(
-                { assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0) },
-                { assertThat(product.likeCount).isEqualTo(0) },
-            )
+            val registeredEvents = applicationEvents.stream(ProductLikeRegisteredEvent::class.java).toList()
+            val canceledEvents = applicationEvents.stream(ProductLikeCanceledEvent::class.java).toList()
+
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0)
+            assertThat(registeredEvents).hasSize(1)
+            assertThat(canceledEvents).hasSize(1)
+            assertThat(canceledEvents.single().productId).isEqualTo(productId)
+            assertThat(canceledEvents.single().userId).isEqualTo(USER_ID)
         }
     }
 
@@ -94,17 +105,14 @@ constructor(
     @DisplayName("cancel no-op")
     inner class WhenCancelNoOp {
         @Test
-        @DisplayName("like row 없을 때 cancel 시 row 변화 없음, likeCount 변화 없음")
-        fun cancel_noOp_rowAndLikeCountUnchanged() {
-            val likeCountBefore = productRepository.findById(productId)!!.likeCount
-
+        @DisplayName("like row 없을 때 cancel 시 row 변화 없음, 취소 이벤트도 없다")
+        fun cancel_noOp_rowAndNoEvent() {
             cancelUseCase.cancel(UserProductLikeCommand.Cancel(userId = USER_ID, productId = productId))
 
-            val product = productRepository.findById(productId)!!
-            assertAll(
-                { assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0) },
-                { assertThat(product.likeCount).isEqualTo(likeCountBefore) },
-            )
+            val canceledEvents = applicationEvents.stream(ProductLikeCanceledEvent::class.java).toList()
+
+            assertThat(productLikeRepository.countByProductId(productId)).isEqualTo(0)
+            assertThat(canceledEvents).isEmpty()
         }
     }
 }

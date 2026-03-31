@@ -4,11 +4,15 @@ import com.loopers.infrastructure.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Index
+import jakarta.persistence.UniqueConstraint
 import jakarta.persistence.Table
 import java.time.ZonedDateTime
 
 @Table(
     name = "issued_coupon",
+    uniqueConstraints = [
+        UniqueConstraint(columnNames = ["coupon_id", "user_id"]),
+    ],
     indexes = [
         Index(columnList = "user_id, deleted_at"),
         Index(columnList = "coupon_id, deleted_at"),

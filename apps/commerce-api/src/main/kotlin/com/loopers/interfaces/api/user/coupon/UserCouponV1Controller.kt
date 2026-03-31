@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.user.coupon
 
 import com.loopers.application.user.auth.UserAuthenticateUseCase
 import com.loopers.application.user.coupon.UserCouponCommand
+import com.loopers.application.user.coupon.UserCouponIssueRequestStatusUseCase
 import com.loopers.application.user.coupon.UserCouponIssueUseCase
 import com.loopers.application.user.coupon.UserCouponListUseCase
 import com.loopers.interfaces.api.ApiResponse
@@ -17,19 +18,37 @@ import org.springframework.web.bind.annotation.RestController
 class UserCouponV1Controller(
     private val userAuthenticateUseCase: UserAuthenticateUseCase,
     private val issueUseCase: UserCouponIssueUseCase,
+    private val issueRequestStatusUseCase: UserCouponIssueRequestStatusUseCase,
     private val listUseCase: UserCouponListUseCase,
 ) : UserCouponV1ApiSpec {
 
-    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.ACCEPTED)
     @PostMapping("/api/v1/coupons/{couponId}/issue")
     override fun issue(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @PathVariable couponId: Long,
-    ): ApiResponse<UserCouponV1Response.Issued> {
+    ): ApiResponse<UserCouponV1Response.IssueRequest> {
         val userId = userAuthenticateUseCase.authenticateAndGetId(loginId, password)
         return issueUseCase.issue(UserCouponCommand.Issue(userId = userId, couponId = couponId))
-            .let { UserCouponV1Response.Issued.from(it) }
+            .let { UserCouponV1Response.IssueRequest.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/api/v1/users/me/coupon-issue-requests/{requestId}")
+    override fun getIssueRequestStatus(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") password: String,
+        @PathVariable requestId: Long,
+    ): ApiResponse<UserCouponV1Response.IssueRequestStatus> {
+        val userId = userAuthenticateUseCase.authenticateAndGetId(loginId, password)
+        return issueRequestStatusUseCase.getStatus(
+            UserCouponCommand.IssueRequestStatus(
+                userId = userId,
+                requestId = requestId,
+            ),
+        )
+            .let { UserCouponV1Response.IssueRequestStatus.from(it) }
             .let { ApiResponse.success(it) }
     }
 

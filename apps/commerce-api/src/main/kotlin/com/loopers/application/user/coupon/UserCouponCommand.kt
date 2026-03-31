@@ -5,4 +5,9 @@ class UserCouponCommand {
         val userId: Long,
         val couponId: Long,
     )
+
+    data class IssueRequestStatus(
+        val userId: Long,
+        val requestId: Long,
+    )
 }

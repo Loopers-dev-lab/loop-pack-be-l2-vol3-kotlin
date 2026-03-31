@@ -10,6 +10,8 @@ interface IssuedCouponRepository {
 
     fun findById(id: Long): IssuedCoupon?
 
+    fun findByCouponIdAndUserId(couponId: Long, userId: Long): IssuedCoupon?
+
     fun findAllByUserId(userId: Long): List<IssuedCoupon>
 
     fun findAllByCouponId(couponId: Long, pageRequest: PageRequest): PageResponse<IssuedCoupon>

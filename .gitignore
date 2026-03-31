@@ -48,3 +48,7 @@ out/
 
 ### loopers docs ###
 docs/loopers/
+
+### local worktrees ###
+.worktrees/
+.gradle-local/

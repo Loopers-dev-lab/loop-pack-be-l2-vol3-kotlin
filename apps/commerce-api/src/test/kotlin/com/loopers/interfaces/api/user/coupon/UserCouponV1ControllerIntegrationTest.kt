@@ -25,9 +25,9 @@ import org.springframework.http.HttpStatus
 import java.time.LocalDate
 import java.time.ZonedDateTime
 
-@DisplayName("User 쿠폰 발급/목록 E2E")
+@DisplayName("User 쿠폰 발급/목록 Integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class UserCouponV1ControllerE2ETest
+class UserCouponV1ControllerIntegrationTest
 @Autowired
 constructor(
     private val testRestTemplate: TestRestTemplate,
@@ -79,33 +79,53 @@ constructor(
     @DisplayName("POST /api/v1/coupons/{couponId}/issue")
     inner class Issue {
         @Test
-        @DisplayName("유효한 쿠폰 발급 → 201 Created, AVAILABLE 상태")
-        fun issue_validCoupon_returns201() {
+        @DisplayName("유효한 쿠폰 발급 → 202 Accepted, REQUESTED 상태")
+        fun issue_validCoupon_returns202() {
             val response = testRestTemplate.exchange(
                 "/api/v1/coupons/$couponId/issue",
                 HttpMethod.POST,
-                HttpEntity<Any>(authHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<UserCouponV1Response.Issued>>() {},
+                HttpEntity<Void>(authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<UserCouponV1Response.IssueRequest>>() {},
             )
 
             assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED) },
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.ACCEPTED) },
+                { assertThat(response.body?.data?.requestId).isGreaterThan(0L) },
                 { assertThat(response.body?.data?.couponId).isEqualTo(couponId) },
-                { assertThat(response.body?.data?.status).isEqualTo("AVAILABLE") },
+                { assertThat(response.body?.data?.status).isEqualTo("REQUESTED") },
             )
         }
+    }
 
+    @Nested
+    @DisplayName("GET /api/v1/users/me/coupon-issue-requests/{requestId}")
+    inner class GetIssueRequestStatus {
         @Test
-        @DisplayName("존재하지 않는 쿠폰 발급 → 404")
-        fun issue_nonExistentCoupon_returns404() {
-            val response = testRestTemplate.exchange(
-                "/api/v1/coupons/99999/issue",
+        @DisplayName("쿠폰 발급 후 요청 상태를 조회하면 REQUESTED를 반환한다")
+        fun getIssueRequestStatus_afterIssue_returnsRequested() {
+            val issueResponse = testRestTemplate.exchange(
+                "/api/v1/coupons/$couponId/issue",
                 HttpMethod.POST,
-                HttpEntity<Any>(authHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+                HttpEntity<Void>(authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<UserCouponV1Response.IssueRequest>>() {},
+            )
+            val requestId = issueResponse.body?.data?.requestId ?: error("issue request id is missing")
+
+            val response = testRestTemplate.exchange(
+                "/api/v1/users/me/coupon-issue-requests/$requestId",
+                HttpMethod.GET,
+                HttpEntity<Void>(authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<UserCouponV1Response.IssueRequestStatus>>() {},
             )
 
-            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.requestId).isEqualTo(requestId) },
+                { assertThat(response.body?.data?.couponId).isEqualTo(couponId) },
+                { assertThat(response.body?.data?.status).isEqualTo("REQUESTED") },
+                { assertThat(response.body?.data?.failureReasonCode).isNull() },
+                { assertThat(response.body?.data?.issuedCouponId).isNull() },
+            )
         }
     }
 
@@ -113,38 +133,12 @@ constructor(
     @DisplayName("GET /api/v1/users/me/coupons")
     inner class GetList {
         @Test
-        @DisplayName("쿠폰 발급 후 목록 조회 → 200 OK, 1건")
-        fun getList_afterIssue_returns200() {
-            testRestTemplate.exchange(
-                "/api/v1/coupons/$couponId/issue",
-                HttpMethod.POST,
-                HttpEntity<Any>(authHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
-            )
-
-            val response = testRestTemplate.exchange(
-                "/api/v1/users/me/coupons",
-                HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
-                object :
-                    ParameterizedTypeReference<ApiResponse<List<UserCouponV1Response.ListItem>>>() {},
-            )
-
-            assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data).hasSize(1) },
-                { assertThat(response.body?.data?.first()?.couponName).isEqualTo("테스트 쿠폰") },
-                { assertThat(response.body?.data?.first()?.displayStatus).isEqualTo("AVAILABLE") },
-            )
-        }
-
-        @Test
         @DisplayName("발급받은 쿠폰 없음 → 200 OK, 빈 목록")
         fun getList_noCoupons_returnsEmpty() {
             val response = testRestTemplate.exchange(
                 "/api/v1/users/me/coupons",
                 HttpMethod.GET,
-                HttpEntity<Any>(authHeaders()),
+                HttpEntity<Void>(authHeaders()),
                 object :
                     ParameterizedTypeReference<ApiResponse<List<UserCouponV1Response.ListItem>>>() {},
             )

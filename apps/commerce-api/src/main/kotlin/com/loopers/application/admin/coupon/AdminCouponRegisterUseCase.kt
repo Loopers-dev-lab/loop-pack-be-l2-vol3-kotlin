@@ -18,6 +18,7 @@ class AdminCouponRegisterUseCase(
             discountValue = command.discountValue,
             minOrderAmount = command.minOrderAmount?.let { Money(it) },
             expiredAt = command.expiredAt,
+            issueLimit = command.issueLimit,
         )
         val saved = couponRepository.save(coupon)
         return AdminCouponResult.Register.from(saved)
