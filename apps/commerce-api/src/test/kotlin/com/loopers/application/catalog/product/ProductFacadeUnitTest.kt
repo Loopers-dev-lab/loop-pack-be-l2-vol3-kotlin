@@ -9,6 +9,7 @@ import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStock
 import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.infrastructure.catalog.product.ProductCacheService
+import com.loopers.infrastructure.outbox.OutboxEventService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -30,8 +31,9 @@ class ProductFacadeUnitTest {
         every { getProductDetail(any()) } returns null
         every { getProductList(any()) } returns null
     }
+    private val mockOutboxEventService = mockk<OutboxEventService>(relaxed = true)
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService, mockOutboxEventService)
 
     // ─── createProduct ───
 

@@ -1,7 +1,6 @@
 package com.loopers.application.coupon
 
 import com.loopers.domain.coupon.CouponTemplate
-import com.loopers.domain.coupon.CouponTemplateRepository
 import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import org.springframework.stereotype.Service
@@ -10,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class CouponFacade(
     private val couponTemplateService: CouponTemplateService,
-    private val couponTemplateRepository: CouponTemplateRepository,
     private val userCouponService: UserCouponService,
 ) {
 
@@ -49,7 +47,7 @@ class CouponFacade(
     fun getUserCoupons(userId: Long): List<UserCouponResult> {
         val userCoupons = userCouponService.findByUserId(userId)
         val templateIds = userCoupons.map { it.couponTemplateId }.distinct()
-        val templateMap = couponTemplateRepository.findAllByIds(templateIds).associateBy { it.id }
+        val templateMap = couponTemplateService.findAllByIds(templateIds).associateBy { it.id }
 
         return userCoupons.mapNotNull { userCoupon ->
             val template = templateMap[userCoupon.couponTemplateId] ?: return@mapNotNull null

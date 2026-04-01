@@ -1,10 +1,13 @@
 package com.loopers.application.like
 
+import com.loopers.application.like.event.ProductLikedEvent
+import com.loopers.application.like.event.ProductUnlikedEvent
 import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.like.LikeService
-import com.loopers.infrastructure.catalog.product.ProductCacheService
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,24 +17,38 @@ class LikeFacade(
     private val productService: ProductService,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
-    private val productCacheService: ProductCacheService,
+    private val outboxEventService: OutboxEventService,
 ) {
 
     @Transactional
     fun addLike(userId: Long, productId: Long) {
         productService.getById(productId) // 상품 존재 확인
         likeService.addLike(userId, productId)
-        productService.incrementLikeCount(productId)
-        productCacheService.evictProductDetail(productId)
-        productCacheService.evictAllProductLists()
+
+        // Outbox 저장 (같은 TX — At Least Once 보장)
+        outboxEventService.save(
+            aggregateType = "PRODUCT",
+            aggregateId = productId.toString(),
+            eventType = "PRODUCT_LIKED",
+            payload = ProductLikedEvent(userId = userId, productId = productId),
+            topic = KafkaTopics.CATALOG_EVENTS,
+            partitionKey = productId.toString(),
+        )
     }
 
     @Transactional
     fun removeLike(userId: Long, productId: Long) {
         likeService.removeLike(userId, productId)
-        productService.decrementLikeCount(productId)
-        productCacheService.evictProductDetail(productId)
-        productCacheService.evictAllProductLists()
+
+        // Outbox 저장 (같은 TX — At Least Once 보장)
+        outboxEventService.save(
+            aggregateType = "PRODUCT",
+            aggregateId = productId.toString(),
+            eventType = "PRODUCT_UNLIKED",
+            payload = ProductUnlikedEvent(userId = userId, productId = productId),
+            topic = KafkaTopics.CATALOG_EVENTS,
+            partitionKey = productId.toString(),
+        )
     }
 
     @Transactional(readOnly = true)
