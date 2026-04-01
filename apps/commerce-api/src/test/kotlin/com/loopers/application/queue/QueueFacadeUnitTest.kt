@@ -59,6 +59,24 @@ class QueueFacadeUnitTest {
     }
 
     @Test
+    fun `validateAndConsumeToken() should return true for valid token`() {
+        // Arrange
+        every { mockQueueService.validateToken(1L, "valid-token") } returns true
+
+        // Act & Assert
+        assertThat(facade.validateAndConsumeToken(1L, "valid-token")).isTrue()
+    }
+
+    @Test
+    fun `validateAndConsumeToken() should return false for invalid token`() {
+        // Arrange
+        every { mockQueueService.validateToken(1L, "bad-token") } returns false
+
+        // Act & Assert
+        assertThat(facade.validateAndConsumeToken(1L, "bad-token")).isFalse()
+    }
+
+    @Test
     fun `consumeToken() should delegate to queueService`() {
         // Arrange
         every { mockQueueService.consumeToken(1L) } just Runs

@@ -17,6 +17,10 @@ class QueueFacade(
         return queueService.getPosition(userId)
     }
 
+    fun validateAndConsumeToken(userId: Long, token: String): Boolean {
+        return queueService.validateToken(userId, token)
+    }
+
     fun consumeToken(userId: Long) {
         queueService.consumeToken(userId)
     }
