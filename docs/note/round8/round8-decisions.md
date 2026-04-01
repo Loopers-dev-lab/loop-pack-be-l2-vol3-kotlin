@@ -131,19 +131,60 @@ ZPOPMIN(batchSize) → userIds 추출 → 각 userId에 토큰 발급 → SSE Pu
 
 ### 최종 선택
 
-**C. SSE 유지 + 멘토 의견 문서화** (잠정)
+**A. SSE 제거, Polling만 유지**
 
 ### 근거
 
-- SSE 구현 자체가 8주차 학습 목표 중 하나 (Step 5)
-- 구현을 통해 SSE의 장단점을 체험적으로 이해한 상태
-- 멘토 의견은 "운영 관점에서의 판단"이므로, 학습 프로젝트에서는 구현 경험이 더 중요
-- 단, PR 본문과 리뷰 포인트에 멘토 의견과의 트레이드오프를 명시적으로 기록
-- 실제 운영 환경에서는 Polling으로 전환해야 함을 인지
+- 멘토 피드백이 명확: 대기열처럼 "끝이 있는" 시나리오에서 SSE는 리소스 낭비
+- Step 5에서 SSE 구현 경험을 이미 획득 → 학습 목적 달성
+- 기존 `GET /queue/position` + `recommendedPollIntervalMs`로 동적 폴링이 충분한 대안
+- SSE 제거로 코드 단순화: QueueSseEmitterRegistry, SSE 엔드포인트, 스케줄러 push 로직 삭제 (약 370줄 순삭감)
+- QueueScheduler는 토큰 발급 + fallback 상태 관리만 담당하여 책임이 명확해짐
 
-### 비고
+### 변경 범위 (Step 8에서 실행)
 
-SSE 관련 AI 리뷰 수정 사항(타임아웃 55s, 예외 로깅 등)은 SSE를 유지하는 한 적용한다.
+- `QueueSseEmitterRegistry.kt` 삭제
+- `QueueV1Controller`: `streamQueueEvents` 엔드포인트 제거
+- `QueueV1ApiSpec`: SSE 스펙 제거
+- `QueueScheduler`: SSE push 로직 전체 제거, 토큰 발급 + fallback만 유지
+- `QueueProperties`: `sseTimeoutMs` 필드 제거
+- `application.yml`: `sse-timeout-ms` 설정 제거
+- 관련 테스트 3개 삭제, 나머지 테스트에서 SSE 의존 제거
+
+---
+
+## 3-1. 토큰 소비 시점: 주문 완료 후 → 인터셉터 검증 즉시
+
+### 문제
+
+AI 리뷰(Codex P1)에서 토큰 재사용 가능성이 지적되었다. 기존에는 `PlaceOrderUseCase`의 `afterCommit`에서 토큰을 삭제했으나, 검증(인터셉터)과 삭제(주문 완료) 사이에 시간 window가 존재하여 동일 토큰으로 다중 요청이 가능했다.
+
+### 해결
+
+`ValidateEntryTokenUseCase`에서 검증 성공 즉시 `entryTokenRepository.delete()` 호출. `PlaceOrderUseCase`에서 토큰 관련 코드 전체 제거.
+
+### 트레이드오프
+
+- `find` → `delete`가 별도 Redis 명령이라 마이크로초 수준의 race window 존재
+- 완전한 원자성은 Redis `GETDEL` 또는 Lua 스크립트로 강화 가능 (추후 과제)
+- 주문 실패 시 토큰이 이미 소비되어 대기열 재진입 필요 → 시스템 안전성 우선 선택
+
+---
+
+## 3-2. Queue API Fail-Fast: 스케줄러 전용 → UseCase 진입점 확장
+
+### 문제
+
+AI 리뷰(Codex P2)에서 fallback 상태임에도 Queue API가 Redis를 호출하여 불필요한 장애를 유발한다는 점이 지적되었다. 기존에는 `QueueFallbackHandler.isAvailable()` 체크가 스케줄러에서만 수행되었다.
+
+### 해결
+
+`EnterQueueUseCase`, `GetQueuePositionUseCase`의 `execute()` 시작에 `isAvailable()` 체크를 추가. fallback 상태이면 즉시 `SERVICE_UNAVAILABLE(503)` 반환.
+
+### 트레이드오프
+
+- UseCase 실행 도중 Redis 장애가 발생하면 여전히 500이 반환됨 (진입 시점만 체크)
+- UseCase 내부에 try-catch를 추가하면 인프라 예외 처리 책임이 유입되므로, 스케줄러(100ms 주기) 기반 감지로 충분하다고 판단
 
 ---
 
