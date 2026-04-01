@@ -17,6 +17,7 @@ import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductJpaRepository
 import com.loopers.infrastructure.common.UserActivityLogJpaRepository
+import com.loopers.infrastructure.orderqueue.OrderQueueRedisRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
@@ -48,6 +49,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
     private val userService: UserService,
     private val productJpaRepository: ProductJpaRepository,
     private val userActivityLogJpaRepository: UserActivityLogJpaRepository,
+    private val orderQueueRedisRepository: OrderQueueRedisRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -65,6 +67,11 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+    }
+
+    private fun issueOrderToken(username: String = DEFAULT_USERNAME) {
+        val user = userService.getUser(username)
+        orderQueueRedisRepository.issueToken(user.id, 300)
     }
 
     private fun registerUser(username: String = DEFAULT_USERNAME) {
@@ -114,6 +121,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
         fun createsOrderAndDecreasesStockWhenValidInfoIsProvided() {
             // arrange
             registerUser()
+            issueOrderToken()
             val brandId = registerBrand()
             val product = registerProduct(brandId = brandId, quantity = 10)
             val orderQuantity = 3
@@ -137,6 +145,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
         fun createsOrderWithMultipleItems() {
             // arrange
             registerUser()
+            issueOrderToken()
             val brandId = registerBrand()
             val product1 = registerProduct(brandId = brandId, name = "상품1", quantity = 10, price = BigDecimal("10000"))
             val product2 = registerProduct(brandId = brandId, name = "상품2", quantity = 20, price = BigDecimal("20000"))
@@ -159,6 +168,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
         fun throwsNotFoundExceptionWhenProductDoesNotExist() {
             // arrange
             registerUser()
+            issueOrderToken()
             val criteria = createOrderCriteria(
                 items = listOf(CreateOrderItemCriteria(productId = 999L, quantity = 1)),
             )
@@ -175,6 +185,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
         fun throwsBadRequestExceptionWhenStockIsInsufficient() {
             // arrange
             registerUser()
+            issueOrderToken()
             val brandId = registerBrand()
             val product = registerProduct(brandId = brandId, quantity = 3)
             val criteria = createOrderCriteria(
@@ -211,6 +222,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
         fun savesActivityLogAsyncWhenOrderIsCreated() {
             // arrange
             registerUser()
+            issueOrderToken()
             val brandId = registerBrand()
             val product = registerProduct(brandId = brandId, quantity = 10)
             val criteria = createOrderCriteria(
@@ -238,9 +250,11 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
             registerUser()
             val brandId = registerBrand()
             val product = registerProduct(brandId = brandId, quantity = 100)
+            issueOrderToken()
             userCreateOrderUseCase.execute(
                 createOrderCriteria(items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1))),
             )
+            issueOrderToken()
             userCreateOrderUseCase.execute(
                 createOrderCriteria(items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 2))),
             )
@@ -293,6 +307,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
         fun returnsOrderDetailWhenOrderBelongsToUser() {
             // arrange
             registerUser()
+            issueOrderToken()
             val brandId = registerBrand()
             val product = registerProduct(brandId = brandId, quantity = 100)
             val orderResult = userCreateOrderUseCase.execute(
@@ -333,6 +348,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
         fun throwsUnauthorizedExceptionWhenOrderBelongsToAnotherUser() {
             // arrange
             registerUser()
+            issueOrderToken()
             registerUser(username = "otheruser")
             val brandId = registerBrand()
             val product = registerProduct(brandId = brandId, quantity = 100)

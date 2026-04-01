@@ -10,6 +10,7 @@ import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.order.CreateOrderCommand
 import com.loopers.domain.order.CreateOrderItemCommand
 import com.loopers.domain.order.OrderService
+import com.loopers.domain.orderqueue.OrderQueueService
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductMetricsRedisRepository
 import org.springframework.context.ApplicationEventPublisher
@@ -23,6 +24,7 @@ class UserCreateOrderUseCase(
     private val orderService: OrderService,
     private val couponService: CouponService,
     private val userService: UserService,
+    private val orderQueueService: OrderQueueService,
     private val productMetricsRedisRepository: ProductMetricsRedisRepository,
     private val outboxEventPublisher: OutboxEventPublisher,
     private val objectMapper: ObjectMapper,
@@ -32,6 +34,7 @@ class UserCreateOrderUseCase(
     @Transactional
     override fun execute(criteria: CreateOrderCriteria): CreateOrderResult {
         val user = userService.getUser(criteria.loginId)
+        orderQueueService.validateAndConsumeToken(user.id)
         val couponDiscount = criteria.couponId?.let { issuedCouponId ->
             couponService.validateAndUseForOrder(issuedCouponId, user.id)
         }

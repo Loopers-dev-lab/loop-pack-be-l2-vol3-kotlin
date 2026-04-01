@@ -15,6 +15,7 @@ import com.loopers.domain.coupon.RegisterCouponCommand
 import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductJpaRepository
+import com.loopers.infrastructure.orderqueue.OrderQueueRedisRepository
 import com.loopers.infrastructure.coupon.CouponJpaRepository
 import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository
 import com.loopers.support.error.CoreException
@@ -47,6 +48,7 @@ class OrderConcurrencyTest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val couponJpaRepository: CouponJpaRepository,
     private val issuedCouponJpaRepository: IssuedCouponJpaRepository,
+    private val orderQueueRedisRepository: OrderQueueRedisRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -85,7 +87,9 @@ class OrderConcurrencyTest @Autowired constructor(
             val initialStock = 10
             val threadCount = 100
 
-            registerUser()
+            repeat(threadCount) { i ->
+                registerUser(username = "stockuser$i", email = "stockuser$i@loopers.com")
+            }
             val brandId = brandService.register(RegisterBrandCommand(name = "나이키")).id
             val product = adminRegisterProductUseCase.execute(
                 RegisterProductCriteria(
@@ -95,6 +99,12 @@ class OrderConcurrencyTest @Autowired constructor(
                     price = BigDecimal("129000"),
                 ),
             )
+
+            // 각 유저에게 토큰 발급
+            repeat(threadCount) { i ->
+                val user = userService.getUser("stockuser$i")
+                orderQueueRedisRepository.issueToken(user.id, 300)
+            }
 
             val executorService = Executors.newFixedThreadPool(threadCount)
             val readyLatch = CountDownLatch(threadCount)
@@ -106,7 +116,7 @@ class OrderConcurrencyTest @Autowired constructor(
 
             // act
             try {
-                repeat(threadCount) {
+                repeat(threadCount) { i ->
                     executorService.submit {
                         try {
                             readyLatch.countDown()
@@ -114,7 +124,7 @@ class OrderConcurrencyTest @Autowired constructor(
 
                             userCreateOrderUseCase.execute(
                                 CreateOrderCriteria(
-                                    loginId = DEFAULT_USERNAME,
+                                    loginId = "stockuser$i",
                                     items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1)),
                                 ),
                             )
@@ -275,6 +285,9 @@ class OrderConcurrencyTest @Autowired constructor(
                             readyLatch.countDown()
                             startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
+                            // 각 스레드마다 토큰 발급 (같은 유저, 여러 기기 시뮬레이션)
+                            val user = userService.getUser(DEFAULT_USERNAME)
+                            orderQueueRedisRepository.issueToken(user.id, 300)
                             userCreateOrderUseCase.execute(
                                 CreateOrderCriteria(
                                     loginId = DEFAULT_USERNAME,
