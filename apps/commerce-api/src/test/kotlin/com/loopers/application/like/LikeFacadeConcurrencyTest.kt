@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.domain.catalog.product.ProductStatus
 import com.loopers.infrastructure.catalog.brand.BrandEntity
 import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductEntity
@@ -17,7 +18,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import com.loopers.domain.catalog.product.ProductStatus
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -37,7 +37,7 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
     }
 
     @Test
-    fun `addLike() - 동시에 50명이 좋아요를 눌러도 likeCount가 정확히 50이어야 한다`() {
+    fun `addLike() - 동시에 50명이 좋아요를 눌러도 like 레코드가 정확히 50개여야 한다`() {
         // Arrange
         val brand = brandJpaRepository.save(BrandEntity(name = "TestBrand", description = "desc"))
         val product = productJpaRepository.save(
@@ -69,13 +69,16 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
         latch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
-        // Assert
-        val finalProduct = productJpaRepository.findById(product.id).get()
-        assertThat(finalProduct.likeCount).isEqualTo(50)
+        // Assert: 좋아요 레코드 50개 (핵심 로직)
+        val likeRows = likeJpaRepository.findAllByProductId(product.id)
+        assertThat(likeRows).hasSize(50)
+
+        // Note: likeCount는 Kafka Consumer를 통해 비동기 증가 (eventual consistency)
+        // 통합 테스트에서는 Kafka 없이 핵심 로직(like 저장)만 검증
     }
 
     @Test
-    fun `addLike() - 동시에 같은 사용자가 같은 상품에 좋아요를 눌러도 likeCount는 1이어야 한다`() {
+    fun `addLike() - 동시에 같은 사용자가 같은 상품에 좋아요를 눌러도 like 레코드는 1개여야 한다`() {
         // Arrange
         val brand = brandJpaRepository.save(BrandEntity(name = "TestBrand", description = "desc"))
         val product = productJpaRepository.save(
@@ -110,13 +113,13 @@ class LikeFacadeConcurrencyTest @Autowired constructor(
         latch.await(30, TimeUnit.SECONDS)
         executor.shutdown()
 
-        // Assert: only 1 should succeed, likeCount must be exactly 1
-        val finalProduct = productJpaRepository.findById(product.id).get()
-        val likeRows = likeJpaRepository.findAllByProductId(product.id)
-
+        // Assert: only 1 should succeed
         assertThat(successCount.get()).isEqualTo(1)
         assertThat(failCount.get()).isEqualTo(9)
-        assertThat(finalProduct.likeCount).isEqualTo(1)
+
+        val likeRows = likeJpaRepository.findAllByProductId(product.id)
         assertThat(likeRows).hasSize(1)
+
+        // Note: likeCount는 Kafka Consumer를 통해 비동기 증가 (eventual consistency)
     }
 }

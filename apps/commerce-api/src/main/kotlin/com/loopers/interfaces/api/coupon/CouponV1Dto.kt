@@ -1,8 +1,10 @@
 package com.loopers.interfaces.api.coupon
 
+import com.loopers.application.coupon.CouponIssueRequestResult
 import com.loopers.application.coupon.CouponTemplateResult
 import com.loopers.application.coupon.CreateCouponTemplateCommand
 import com.loopers.application.coupon.UserCouponResult
+import com.loopers.domain.coupon.CouponIssueStatus
 import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.coupon.UserCouponStatus
 import java.time.LocalDate
@@ -75,6 +77,22 @@ class CouponV1Dto {
                 status = result.status,
                 usedOrderId = result.usedOrderId,
                 template = result.template?.let { TemplateResponse.from(it) },
+            )
+        }
+    }
+
+    data class CouponIssueResponse(
+        val requestId: Long,
+        val couponTemplateId: Long,
+        val status: CouponIssueStatus,
+        val failReason: String?,
+    ) {
+        companion object {
+            fun from(result: CouponIssueRequestResult): CouponIssueResponse = CouponIssueResponse(
+                requestId = result.id,
+                couponTemplateId = result.couponTemplateId,
+                status = result.status,
+                failReason = result.failReason,
             )
         }
     }

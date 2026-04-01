@@ -16,6 +16,21 @@ class UserCouponService(
         val template = couponTemplateRepository.findById(couponTemplateId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "[$couponTemplateId] 해당 ID에 해당하는 쿠폰 템플릿이 존재하지 않습니다.")
 
+        return doIssue(userId, couponTemplateId, template)
+    }
+
+    /**
+     * 비관적 락을 사용한 쿠폰 발급 (선착순 동시성 제어)
+     */
+    @Transactional
+    fun issueWithLock(userId: Long, couponTemplateId: Long): UserCoupon {
+        val template = couponTemplateRepository.findByIdWithLock(couponTemplateId)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "[$couponTemplateId] 해당 ID에 해당하는 쿠폰 템플릿이 존재하지 않습니다.")
+
+        return doIssue(userId, couponTemplateId, template)
+    }
+
+    private fun doIssue(userId: Long, couponTemplateId: Long, template: CouponTemplate): UserCoupon {
         template.requireIssuable()
 
         if (userCouponRepository.existsByUserIdAndCouponTemplateId(userId, couponTemplateId))

@@ -82,16 +82,16 @@ class CouponV1ApiE2ETest @Autowired constructor(
         )
     )
 
-    // ─── POST /api/v1/coupons/issue ───
+    // ─── POST /api/v1/coupons/issue (비동기 발급 요청) ───
 
     @DisplayName("POST /api/v1/coupons/issue")
     @Nested
     inner class IssueCoupon {
 
-        @DisplayName("인증된 사용자가 쿠폰을 발급받으면, 200 응답을 반환한다.")
+        @DisplayName("인증된 사용자가 쿠폰 발급을 요청하면, 202 ACCEPTED + REQUESTED 상태를 반환한다.")
         @Test
-        fun returnsSuccess() {
-            val user = setupUser()
+        fun returnsAccepted() {
+            setupUser()
             val template = setupTemplate()
 
             val request = mapOf("couponTemplateId" to template.id)
@@ -104,38 +104,49 @@ class CouponV1ApiE2ETest @Autowired constructor(
             )
 
             assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.ACCEPTED) },
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
-                { assertThat(response.body?.data?.get("status")).isEqualTo("AVAILABLE") },
+                { assertThat(response.body?.data?.get("status")).isEqualTo("REQUESTED") },
             )
         }
 
-        @DisplayName("이미 발급받은 쿠폰을 다시 발급받으면, 409 CONFLICT를 반환한다.")
+        @DisplayName("같은 쿠폰을 다시 요청하면, 202 ACCEPTED + 기존 요청 상태를 반환한다. (멱등성)")
         @Test
-        fun throwsConflict_whenAlreadyIssued() {
-            val user = setupUser()
-            val template = setupTemplate()
-            userCouponJpaRepository.save(UserCouponEntity(userId = user.id, couponTemplateId = template.id))
-
-            val request = mapOf("couponTemplateId" to template.id)
-            val responseType = object : ParameterizedTypeReference<ApiResponse<Any?>>() {}
-            val response = testRestTemplate.exchange(
-                "/api/v1/coupons/issue",
-                HttpMethod.POST,
-                HttpEntity(request, authHeaders()),
-                responseType,
-            )
-
-            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        }
-
-        @DisplayName("발급 수량이 초과되면, 400 BAD_REQUEST를 반환한다.")
-        @Test
-        fun throwsBadRequest_whenMaxIssuanceReached() {
+        fun returnsExistingRequest_whenAlreadyRequested() {
             setupUser()
-            val template = setupTemplate(maxIssuance = 0)
+            val template = setupTemplate()
 
             val request = mapOf("couponTemplateId" to template.id)
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any?>>>() {}
+
+            // 첫 번째 요청
+            testRestTemplate.exchange(
+                "/api/v1/coupons/issue",
+                HttpMethod.POST,
+                HttpEntity(request, authHeaders()),
+                responseType,
+            )
+
+            // 두 번째 요청 — 멱등성: 기존 요청 반환
+            val response = testRestTemplate.exchange(
+                "/api/v1/coupons/issue",
+                HttpMethod.POST,
+                HttpEntity(request, authHeaders()),
+                responseType,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.ACCEPTED) },
+                { assertThat(response.body?.data?.get("status")).isEqualTo("REQUESTED") },
+            )
+        }
+
+        @DisplayName("존재하지 않는 템플릿이면, 404 NOT_FOUND를 반환한다.")
+        @Test
+        fun throwsNotFound_whenTemplateNotExists() {
+            setupUser()
+
+            val request = mapOf("couponTemplateId" to 999L)
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any?>>() {}
             val response = testRestTemplate.exchange(
                 "/api/v1/coupons/issue",
@@ -144,7 +155,7 @@ class CouponV1ApiE2ETest @Autowired constructor(
                 responseType,
             )
 
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         }
 
         @DisplayName("인증에 실패하면, 401 UNAUTHORIZED를 반환한다.")
@@ -163,6 +174,43 @@ class CouponV1ApiE2ETest @Autowired constructor(
             )
 
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
+        }
+    }
+
+    // ─── GET /api/v1/coupons/issue/{couponTemplateId}/status ───
+
+    @DisplayName("GET /api/v1/coupons/issue/{couponTemplateId}/status")
+    @Nested
+    inner class GetIssueStatus {
+
+        @DisplayName("발급 요청 후 상태를 조회하면, 200 OK + 현재 상태를 반환한다.")
+        @Test
+        fun returnsIssueStatus() {
+            setupUser()
+            val template = setupTemplate()
+
+            // 먼저 발급 요청
+            val issueRequest = mapOf("couponTemplateId" to template.id)
+            testRestTemplate.exchange(
+                "/api/v1/coupons/issue",
+                HttpMethod.POST,
+                HttpEntity(issueRequest, authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
+            )
+
+            // 상태 조회
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Map<String, Any?>>>() {}
+            val response = testRestTemplate.exchange(
+                "/api/v1/coupons/issue/${template.id}/status",
+                HttpMethod.GET,
+                HttpEntity<Any>(authHeaders()),
+                responseType,
+            )
+
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.get("status")).isEqualTo("REQUESTED") },
+            )
         }
     }
 

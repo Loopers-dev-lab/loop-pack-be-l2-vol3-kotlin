@@ -1,6 +1,7 @@
 package com.loopers.application.catalog.product
 
 import com.loopers.application.catalog.brand.BrandResult
+import com.loopers.application.catalog.event.ProductViewedEvent
 import com.loopers.config.redis.CacheException
 import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.brand.BrandService
@@ -8,6 +9,9 @@ import com.loopers.domain.catalog.product.ProductSearchCondition
 import com.loopers.domain.catalog.product.ProductService
 import com.loopers.domain.catalog.product.ProductStockService
 import com.loopers.infrastructure.catalog.product.ProductCacheService
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,7 +22,9 @@ class ProductFacade(
     private val brandRepository: BrandRepository,
     private val productStockService: ProductStockService,
     private val productCacheService: ProductCacheService,
+    private val outboxEventService: OutboxEventService,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun createProduct(cmd: CreateProductCommand): ProductDetailResult {
@@ -42,7 +48,21 @@ class ProductFacade(
         )
     }
 
-    fun getProductDetail(productId: Long): ProductDetailResult {
+    fun getProductDetail(productId: Long, userId: Long? = null): ProductDetailResult {
+        // Outbox 저장 (조회수 로깅 — 별도 TX, fire-and-forget)
+        try {
+            outboxEventService.save(
+                aggregateType = "PRODUCT",
+                aggregateId = productId.toString(),
+                eventType = "PRODUCT_VIEWED",
+                payload = ProductViewedEvent(userId = userId, productId = productId),
+                topic = KafkaTopics.CATALOG_EVENTS,
+                partitionKey = productId.toString(),
+            )
+        } catch (ex: Exception) {
+            log.warn("[ProductFacade] 조회 이벤트 Outbox 저장 실패: productId=$productId", ex)
+        }
+
         productCacheService.getProductDetail(productId)?.let { return it }
 
         val locked = productCacheService.tryLock(productId)
@@ -83,6 +103,7 @@ class ProductFacade(
         )
     }
 
+    @Transactional(readOnly = true)
     fun findProducts(condition: ProductSearchCondition): List<ProductSummaryResult> {
         try {
             productCacheService.getProductList(condition)?.let { return it }
@@ -94,7 +115,6 @@ class ProductFacade(
         return results
     }
 
-    @Transactional(readOnly = true)
     private fun loadProductDetailFromDb(productId: Long): ProductDetailResult {
         val product = productService.getActiveById(productId)
         val brand = brandService.getById(product.brandId)
@@ -110,7 +130,6 @@ class ProductFacade(
         )
     }
 
-    @Transactional(readOnly = true)
     private fun loadProductListFromDb(condition: ProductSearchCondition): List<ProductSummaryResult> {
         val products = productService.findAll(condition)
         val brandIds = products.map { it.brandId }.distinct()

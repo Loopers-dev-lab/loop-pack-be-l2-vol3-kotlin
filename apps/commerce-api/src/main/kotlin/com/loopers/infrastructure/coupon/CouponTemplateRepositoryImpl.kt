@@ -26,6 +26,9 @@ class CouponTemplateRepositoryImpl(
             .map { it.toDomain() }
             .orElse(null)
 
+    override fun findByIdWithLock(id: Long): CouponTemplate? =
+        couponTemplateJpaRepository.findByIdWithLock(id)?.toDomain()
+
     override fun findAllByIds(ids: List<Long>): List<CouponTemplate> =
         if (ids.isEmpty()) emptyList()
         else couponTemplateJpaRepository.findAllByIdIn(ids).map { it.toDomain() }

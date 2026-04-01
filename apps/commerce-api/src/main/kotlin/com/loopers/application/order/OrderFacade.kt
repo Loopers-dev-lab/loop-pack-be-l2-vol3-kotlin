@@ -1,5 +1,7 @@
 package com.loopers.application.order
 
+import com.loopers.application.order.event.OrderItemSnapshot
+import com.loopers.application.order.event.OrderPlacedEvent
 import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.product.ProductRepository
 import com.loopers.domain.catalog.product.ProductService
@@ -9,7 +11,8 @@ import com.loopers.domain.coupon.CouponTemplateService
 import com.loopers.domain.coupon.UserCouponService
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
-import com.loopers.infrastructure.catalog.product.ProductCacheService
+import com.loopers.infrastructure.outbox.KafkaTopics
+import com.loopers.infrastructure.outbox.OutboxEventService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Service
@@ -25,7 +28,7 @@ class OrderFacade(
     private val productStockRepository: ProductStockRepository,
     private val userCouponService: UserCouponService,
     private val couponTemplateService: CouponTemplateService,
-    private val productCacheService: ProductCacheService,
+    private val outboxEventService: OutboxEventService,
 ) {
 
     @Transactional
@@ -60,9 +63,7 @@ class OrderFacade(
             if (updatedStock.isSoldOut) {
                 productService.updateStockStatus(item.productId, 0)
             }
-            productCacheService.evictProductDetail(item.productId)
         }
-        productCacheService.evictAllProductLists()
 
         // 4. 브랜드 일괄 조회 및 주문 항목 스냅샷 생성 (N+1 방지)
         val brandIds = productMap.values.map { it.brandId }.distinct()
@@ -116,6 +117,26 @@ class OrderFacade(
         if (cmd.userCouponId != null) {
             userCouponService.useForOrder(cmd.userCouponId, order.id)
         }
+
+        // 8. Outbox 저장 (같은 TX — At Least Once 보장)
+        outboxEventService.save(
+            aggregateType = "ORDER",
+            aggregateId = order.id.toString(),
+            eventType = "ORDER_PLACED",
+            payload = OrderPlacedEvent(
+                orderId = order.id,
+                userId = userId,
+                items = orderItems.map { OrderItemSnapshot(it.productId, it.quantity, it.price) },
+                originalTotalPrice = originalTotalPrice,
+                discountAmount = discountAmount,
+                totalPrice = order.totalPrice,
+                userCouponId = cmd.userCouponId,
+                cardType = cmd.cardType,
+                cardNo = cmd.cardNo,
+            ),
+            topic = KafkaTopics.ORDER_EVENTS,
+            partitionKey = order.id.toString(),
+        )
 
         return OrderResult.from(order)
     }
