@@ -3,15 +3,10 @@ package com.loopers.interfaces.api.order
 import com.loopers.application.order.OrderFacade
 import com.loopers.application.order.OrderItemCommand
 import com.loopers.application.order.PlaceOrderCommand
-import com.loopers.application.queue.QueueFacade
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.user.User
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.security.LoginUser
-import com.loopers.interfaces.api.security.QueueEntryInterceptor
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
-import jakarta.servlet.http.HttpServletRequest
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -27,23 +22,13 @@ import java.time.LocalDate
 class OrderV1Controller(
     private val orderFacade: OrderFacade,
     private val orderService: OrderService,
-    private val queueFacade: QueueFacade,
 ) : OrderV1ApiSpec {
 
     @PostMapping
     override fun placeOrder(
         @LoginUser user: User,
         @RequestBody request: OrderV1Dto.PlaceOrderRequest,
-        httpRequest: HttpServletRequest,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
-        // 입장 토큰 검증 (userId 확정 후 상세 검증)
-        val token = httpRequest.getHeader(QueueEntryInterceptor.HEADER_ENTRY_TOKEN)
-            ?: throw CoreException(ErrorType.BAD_REQUEST, "입장 토큰이 필요합니다.")
-
-        if (!queueFacade.validateAndConsumeToken(user.id, token)) {
-            throw CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 입장 토큰입니다. 대기열을 통해 토큰을 발급받으세요.")
-        }
-
         val cmd = PlaceOrderCommand(
             items = request.items.map { OrderItemCommand(productId = it.productId, quantity = it.quantity) },
             userCouponId = request.userCouponId,
@@ -53,9 +38,6 @@ class OrderV1Controller(
 
         // 주문 생성 (@Transactional) — 결제는 AFTER_COMMIT 이벤트로 비동기 처리
         val orderResult = orderFacade.placeOrder(user.id, cmd)
-
-        // 주문 성공 후 입장 토큰 소비 (active slot 해제)
-        queueFacade.consumeToken(user.id)
 
         return OrderV1Dto.OrderResponse.from(orderResult)
             .let { ApiResponse.success(it) }
