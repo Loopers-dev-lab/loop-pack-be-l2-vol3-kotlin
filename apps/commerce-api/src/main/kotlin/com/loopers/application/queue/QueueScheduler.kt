@@ -16,11 +16,6 @@ import org.springframework.stereotype.Component
  *   배치 크기: 175 / 10 = ~18명 per 100ms (Thundering Herd 완화)
  */
 @Component
-@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
-    name = ["queue.scheduler.enabled"],
-    havingValue = "true",
-    matchIfMissing = true,
-)
 class QueueScheduler(
     private val queueService: QueueService,
 ) {
