@@ -18,15 +18,17 @@ class EntryTokenInterceptor(
 ) : HandlerInterceptor {
 
     override fun preHandle(request: HttpServletRequest, response: HttpServletResponse, handler: Any): Boolean {
-        val userId = request.getAttribute(ATTRIBUTE_USER_ID) as Long
-        val headerToken = request.getHeader(HEADER_ENTRY_TOKEN)
+        if (request.method != "POST") return true
 
-        if (headerToken == null) {
-            if (queueFallbackHandler.isAvailable()) {
-                throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 필요합니다.")
-            }
-            return true
+        val userId = request.getAttribute(ATTRIBUTE_USER_ID) as? Long
+            ?: throw CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 유효하지 않습니다.")
+
+        if (!queueFallbackHandler.isAvailable()) {
+            throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "현재 대기열 서비스를 이용할 수 없습니다.")
         }
+
+        val headerToken = request.getHeader(HEADER_ENTRY_TOKEN)
+            ?: throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 필요합니다.")
 
         return try {
             validateEntryTokenUseCase.execute(userId, headerToken)
@@ -36,7 +38,7 @@ class EntryTokenInterceptor(
             throw e
         } catch (e: Exception) {
             queueFallbackHandler.markUnavailable(e.message ?: "Redis 연결 실패")
-            true
+            throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "현재 대기열 서비스를 이용할 수 없습니다.")
         }
     }
 }

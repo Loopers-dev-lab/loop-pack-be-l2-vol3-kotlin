@@ -7,6 +7,7 @@ import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
+import java.util.concurrent.atomic.AtomicLong
 
 @Component
 class EnterQueueUseCase(
@@ -14,6 +15,10 @@ class EnterQueueUseCase(
     private val entryTokenRepository: EntryTokenRepository,
     private val queueProperties: QueueProperties,
 ) {
+
+    companion object {
+        private val counter = AtomicLong(0)
+    }
 
     fun execute(userId: Long): QueuePositionInfo {
         val userIdVo = UserId(userId)
@@ -25,9 +30,11 @@ class EnterQueueUseCase(
         }
 
         // 2. 대기열 진입 (이미 있으면 기존 순번, 상한 초과 시 null)
+        // 동일 밀리초 진입 시 FIFO 보장을 위해 원자적 카운터로 소수점 이하 순서 부여
+        val score = System.currentTimeMillis().toDouble() + counter.incrementAndGet() % 10000 * 0.0001
         val position = waitingQueueRepository.enter(
             userId = userIdVo,
-            score = System.currentTimeMillis().toDouble(),
+            score = score,
             maxCapacity = queueProperties.maxCapacity,
         ) ?: throw CoreException(ErrorType.TOO_MANY_REQUESTS, "대기열이 가득 찼습니다.")
 

@@ -69,7 +69,7 @@ class QueueFlowIntegrationTest {
             // arrange — 진입 → 토큰 발급
             enterQueueUseCase.execute(1L)
             issueEntryTokensUseCase.execute()
-            val token = entryTokenRepository.find(UserId(1L))!!
+            val token = requireNotNull(entryTokenRepository.find(UserId(1L))) { "토큰이 발급되지 않았습니다" }
 
             // act — 토큰 만료 시뮬레이션
             entryTokenRepository.delete(UserId(1L))
@@ -138,7 +138,7 @@ class QueueFlowIntegrationTest {
 
             // act 3 — 스케줄러 실행 → 토큰 발급
             issueEntryTokensUseCase.execute()
-            val token = entryTokenRepository.find(UserId(1L))!!
+            val token = requireNotNull(entryTokenRepository.find(UserId(1L))) { "토큰이 발급되지 않았습니다" }
 
             // act 4 — 토큰 보유 상태에서 대기열 재진입 시 토큰 반환
             val reEnterResult = enterQueueUseCase.execute(1L)

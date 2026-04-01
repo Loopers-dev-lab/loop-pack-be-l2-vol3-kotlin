@@ -10,6 +10,7 @@ import com.loopers.interfaces.support.HEADER_ENTRY_TOKEN
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -30,6 +31,7 @@ import java.time.LocalDate
 class OrderValidationTest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
     private val authenticateUserUseCase: AuthenticateUserUseCase,
     private val entryTokenRepository: EntryTokenRepository,
 ) {
@@ -41,6 +43,7 @@ class OrderValidationTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun signUp(loginId: String = "testuser1") {
@@ -71,7 +74,7 @@ class OrderValidationTest @Autowired constructor(
     }
 
     private fun orderHeaders(loginId: String = "testuser1"): HttpHeaders {
-        val userId = authenticateUserUseCase.execute(loginId, "Password1!")!!
+        val userId = requireNotNull(authenticateUserUseCase.execute(loginId, "Password1!")) { "테스트 사용자 인증 실패" }
         val token = "test-entry-token-$userId"
         entryTokenRepository.issue(UserId(userId), token, 300)
         return authHeaders(loginId).apply {

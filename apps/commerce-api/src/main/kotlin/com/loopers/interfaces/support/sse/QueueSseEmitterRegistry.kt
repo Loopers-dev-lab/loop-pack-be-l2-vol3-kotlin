@@ -1,6 +1,7 @@
 package com.loopers.interfaces.support.sse
 
 import com.loopers.application.queue.QueueProperties
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.util.concurrent.ConcurrentHashMap
@@ -10,6 +11,7 @@ class QueueSseEmitterRegistry(
     private val queueProperties: QueueProperties,
 ) {
 
+    private val log = LoggerFactory.getLogger(javaClass)
     private val emitters = ConcurrentHashMap<Long, SseEmitter>()
 
     fun register(userId: Long): SseEmitter {
@@ -35,6 +37,8 @@ class QueueSseEmitterRegistry(
                     .data(data),
             )
         } catch (e: Exception) {
+            log.warn("SSE 전송 실패 — userId={}", userId, e)
+            emitter.completeWithError(e)
             emitters.remove(userId, emitter)
         }
     }

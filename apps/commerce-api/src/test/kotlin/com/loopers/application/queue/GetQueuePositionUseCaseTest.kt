@@ -114,5 +114,37 @@ class GetQueuePositionUseCaseTest {
             assertThat(result.estimatedWaitSeconds).isEqualTo(2L / throughputTps)
             assertThat(result.token).isNull()
         }
+
+        @Test
+        @DisplayName("순번 350, throughputTps 175일 때 예상 대기 시간 2초를 반환한다")
+        fun execute_position350_estimatedWait2Seconds() {
+            // arrange — 351명 진입 (마지막 유저 position=350)
+            for (i in 1L..351L) {
+                waitingQueueRepository.enter(UserId(i), i.toDouble(), maxCapacity)
+            }
+
+            // act
+            val result = getQueuePositionUseCase.execute(351L)
+
+            // assert
+            assertThat(result.position).isEqualTo(350L)
+            assertThat(result.estimatedWaitSeconds).isEqualTo(2L)
+        }
+
+        @Test
+        @DisplayName("순번 101일 때 추천 폴링 주기가 1000ms보다 크다")
+        fun execute_position101_pollIntervalGreaterThan1000() {
+            // arrange — 102명 진입 (마지막 유저 position=101)
+            for (i in 1L..102L) {
+                waitingQueueRepository.enter(UserId(i), i.toDouble(), maxCapacity)
+            }
+
+            // act
+            val result = getQueuePositionUseCase.execute(102L)
+
+            // assert
+            assertThat(result.position).isEqualTo(101L)
+            assertThat(result.recommendedPollIntervalMs).isGreaterThan(1000L)
+        }
     }
 }

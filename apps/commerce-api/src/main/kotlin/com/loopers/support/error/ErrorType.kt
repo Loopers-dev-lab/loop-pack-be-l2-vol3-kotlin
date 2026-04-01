@@ -11,4 +11,5 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     FORBIDDEN(HttpStatus.FORBIDDEN, HttpStatus.FORBIDDEN.reasonPhrase, "접근이 거부되었습니다."),
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, HttpStatus.TOO_MANY_REQUESTS.reasonPhrase, "잠시 후 다시 시도해주세요."),
     CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.reasonPhrase, "이미 존재하는 리소스입니다."),
+    SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE.reasonPhrase, "서비스를 일시적으로 이용할 수 없습니다."),
 }

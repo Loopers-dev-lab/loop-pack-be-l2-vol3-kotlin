@@ -14,6 +14,7 @@ import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -29,6 +30,8 @@ class PlaceOrderUseCase(
     private val couponValidator: CouponValidator,
     private val entryTokenRepository: EntryTokenRepository,
 ) {
+
+    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun execute(userId: Long, command: PlaceOrderCommand): OrderInfo {
@@ -88,7 +91,11 @@ class PlaceOrderUseCase(
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
                 override fun afterCommit() {
-                    entryTokenRepository.delete(userIdVo)
+                    try {
+                        entryTokenRepository.delete(userIdVo)
+                    } catch (e: Exception) {
+                        log.warn("입장 토큰 삭제 실패 — userId={}, 토큰은 TTL로 자연 만료됩니다.", userId, e)
+                    }
                 }
             })
         } else {

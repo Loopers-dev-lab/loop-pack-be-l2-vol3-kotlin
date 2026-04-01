@@ -71,7 +71,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
     }
 
     private fun orderHeaders(loginId: String = "testuser1"): HttpHeaders {
-        val userId = authenticateUserUseCase.execute(loginId, "Password1!")!!
+        val userId = requireNotNull(authenticateUserUseCase.execute(loginId, "Password1!")) { "테스트 사용자 인증 실패" }
         val token = "test-entry-token-$userId"
         entryTokenRepository.issue(UserId(userId), token, 300)
         return authHeaders(loginId).apply {

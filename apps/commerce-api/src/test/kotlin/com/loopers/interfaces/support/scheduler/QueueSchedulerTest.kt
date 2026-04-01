@@ -14,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.springframework.data.redis.RedisConnectionFailureException
 
 class QueueSchedulerTest {
 
@@ -83,19 +85,19 @@ class QueueSchedulerTest {
             // arrange
             val failingRepo = object : WaitingQueueRepository {
                 override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? =
-                    throw RuntimeException("Redis connection refused")
+                    throw RedisConnectionFailureException("Redis connection refused")
 
                 override fun findPosition(userId: UserId): Long? =
-                    throw RuntimeException("Redis connection refused")
+                    throw RedisConnectionFailureException("Redis connection refused")
 
                 override fun count(): Long =
-                    throw RuntimeException("Redis connection refused")
+                    throw RedisConnectionFailureException("Redis connection refused")
 
                 override fun popMin(count: Int): List<UserId> =
-                    throw RuntimeException("Redis connection refused")
+                    throw RedisConnectionFailureException("Redis connection refused")
 
                 override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> =
-                    throw RuntimeException("Redis connection refused")
+                    throw RedisConnectionFailureException("Redis connection refused")
             }
             val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, properties)
             val positionUseCase = GetQueuePositionUseCase(failingRepo, entryTokenRepository, properties)
@@ -107,6 +109,38 @@ class QueueSchedulerTest {
 
             // assert
             assertThat(queueFallbackHandler.isAvailable()).isFalse()
+        }
+
+        @Test
+        @DisplayName("비인프라 예외(NPE 등) 발생 시 fallback 상태가 변하지 않고 예외가 전파된다")
+        fun issueTokens_nonInfraException_rethrows() {
+            // arrange
+            val npeRepo = object : WaitingQueueRepository {
+                override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? =
+                    throw NullPointerException("unexpected null")
+
+                override fun findPosition(userId: UserId): Long? =
+                    throw NullPointerException("unexpected null")
+
+                override fun count(): Long =
+                    throw NullPointerException("unexpected null")
+
+                override fun popMin(count: Int): List<UserId> =
+                    throw NullPointerException("unexpected null")
+
+                override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> =
+                    throw NullPointerException("unexpected null")
+            }
+            val npeIssueUseCase = IssueEntryTokensUseCase(npeRepo, properties)
+            val positionUseCase = GetQueuePositionUseCase(npeRepo, entryTokenRepository, properties)
+            val registry = QueueSseEmitterRegistry(properties)
+            val npeScheduler = QueueScheduler(npeIssueUseCase, positionUseCase, registry, queueFallbackHandler)
+
+            // act & assert
+            assertThrows<NullPointerException> {
+                npeScheduler.issueTokens()
+            }
+            assertThat(queueFallbackHandler.isAvailable()).isTrue()
         }
 
         @Test

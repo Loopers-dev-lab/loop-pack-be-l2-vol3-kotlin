@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -15,9 +16,12 @@ class IssueEntryTokensUseCaseTest {
 
     private val batchSize = 3
 
+    private lateinit var entryTokenRepository: FakeEntryTokenRepository
+
     @BeforeEach
     fun setUp() {
-        waitingQueueRepository = FakeWaitingQueueRepository()
+        entryTokenRepository = FakeEntryTokenRepository()
+        waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository)
         issueEntryTokensUseCase = IssueEntryTokensUseCase(
             waitingQueueRepository = waitingQueueRepository,
             queueProperties = QueueProperties(

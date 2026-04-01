@@ -5,6 +5,9 @@ import com.loopers.application.queue.IssueEntryTokensUseCase
 import com.loopers.application.queue.QueueFallbackHandler
 import com.loopers.interfaces.api.queue.dto.QueueV1Dto
 import com.loopers.interfaces.support.sse.QueueSseEmitterRegistry
+import com.loopers.support.error.CoreException
+import org.slf4j.LoggerFactory
+import org.springframework.dao.DataAccessException
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
@@ -16,13 +19,15 @@ class QueueScheduler(
     private val queueFallbackHandler: QueueFallbackHandler,
 ) {
 
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Scheduled(fixedDelayString = "\${queue.scheduler-delay-ms}")
     fun issueTokens() {
         val issuedTokens = try {
             val tokens = issueEntryTokensUseCase.execute()
             queueFallbackHandler.markAvailable()
             tokens
-        } catch (e: Exception) {
+        } catch (e: DataAccessException) {
             queueFallbackHandler.markUnavailable(e.message ?: "Redis 연결 실패")
             return
         }
@@ -47,8 +52,12 @@ class QueueScheduler(
                 val positionInfo = getQueuePositionUseCase.execute(userId)
                 val response = QueueV1Dto.QueuePositionResponse.from(positionInfo)
                 queueSseEmitterRegistry.sendEvent(userId, "position", response)
-            } catch (_: Exception) {
-                // 대기열에서 이미 빠진 유저는 무시
+            } catch (_: CoreException) {
+                // 도메인 예외: 대기열에서 이미 빠진 유저는 무시
+            } catch (e: DataAccessException) {
+                log.warn("순번 갱신 실패 — userId={}", userId, e)
+                queueFallbackHandler.markUnavailable(e.message ?: "Redis 연결 실패")
+                return
             }
         }
     }

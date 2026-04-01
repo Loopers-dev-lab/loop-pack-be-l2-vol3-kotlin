@@ -9,7 +9,7 @@ data class QueuePosition(
             val safePosition = position.coerceAtLeast(0L)
             val estimatedWaitSeconds = if (throughputTps > 0) safePosition / throughputTps else 0L
             return QueuePosition(
-                position = position,
+                position = safePosition,
                 estimatedWaitSeconds = estimatedWaitSeconds,
             )
         }

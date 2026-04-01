@@ -81,21 +81,21 @@ class OrderOutboxTest {
                     productId = ProductId(1L),
                     quantity = 1,
                 )
-            }.isInstanceOf(IllegalArgumentException::class.java)
+            }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `PAYMENT_COMPLETED에 productId가 없으면 예외가 발생한다`() {
             assertThatThrownBy {
                 OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), quantity = 1)
-            }.isInstanceOf(IllegalArgumentException::class.java)
+            }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `PAYMENT_COMPLETED에 quantity가 없으면 예외가 발생한다`() {
             assertThatThrownBy {
                 OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), productId = ProductId(1L))
-            }.isInstanceOf(IllegalArgumentException::class.java)
+            }.isInstanceOf(CoreException::class.java)
         }
     }
 

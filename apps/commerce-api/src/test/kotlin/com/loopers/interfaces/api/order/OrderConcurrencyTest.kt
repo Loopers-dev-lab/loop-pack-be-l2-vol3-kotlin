@@ -78,7 +78,7 @@ class OrderConcurrencyTest @Autowired constructor(
     }
 
     private fun orderHeaders(loginId: String): HttpHeaders {
-        val userId = authenticateUserUseCase.execute(loginId, "Password1!")!!
+        val userId = requireNotNull(authenticateUserUseCase.execute(loginId, "Password1!")) { "테스트 사용자 인증 실패" }
         val token = "test-entry-token-$userId"
         entryTokenRepository.issue(UserId(userId), token, 300)
         return authHeaders(loginId).apply {
@@ -184,6 +184,7 @@ class OrderConcurrencyTest @Autowired constructor(
             val issuedCouponId = issueCoupon(loginId, couponId)
 
             val concurrentRequests = 10
+            val headers = orderHeaders(loginId)
             val executorService = Executors.newFixedThreadPool(concurrentRequests)
             val readyLatch = CountDownLatch(concurrentRequests)
             val startLatch = CountDownLatch(1)
@@ -217,7 +218,7 @@ class OrderConcurrencyTest @Autowired constructor(
                             val response = testRestTemplate.exchange(
                                 "/api/v1/orders",
                                 HttpMethod.POST,
-                                HttpEntity(orderRequest, orderHeaders(loginId)),
+                                HttpEntity(orderRequest, headers),
                                 responseType,
                             )
                             if (response.statusCode == HttpStatus.OK) {
@@ -271,6 +272,9 @@ class OrderConcurrencyTest @Autowired constructor(
             for (i in 1..concurrentUsers) {
                 signUp("stockuser$i")
             }
+            val headersByUser = (1..concurrentUsers).associate { i ->
+                i to orderHeaders("stockuser$i")
+            }
 
             val executorService = Executors.newFixedThreadPool(concurrentUsers)
             val readyLatch = CountDownLatch(concurrentUsers)
@@ -304,7 +308,7 @@ class OrderConcurrencyTest @Autowired constructor(
                             val response = testRestTemplate.exchange(
                                 "/api/v1/orders",
                                 HttpMethod.POST,
-                                HttpEntity(orderRequest, orderHeaders("stockuser$i")),
+                                HttpEntity(orderRequest, headersByUser[i]),
                                 responseType,
                             )
                             if (response.statusCode == HttpStatus.OK) {

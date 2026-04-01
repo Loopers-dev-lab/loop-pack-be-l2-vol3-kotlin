@@ -33,9 +33,9 @@ class OrderOutbox(
         if (orderId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "orderId는 양수여야 합니다.")
         if (userId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
         if (eventType == OrderOutboxEventType.PAYMENT_COMPLETED) {
-            requireNotNull(totalAmount) { "PAYMENT_COMPLETED 이벤트는 totalAmount가 필수입니다." }
-            requireNotNull(productId) { "PAYMENT_COMPLETED 이벤트는 productId가 필수입니다." }
-            requireNotNull(quantity) { "PAYMENT_COMPLETED 이벤트는 quantity가 필수입니다." }
+            totalAmount ?: throw CoreException(ErrorType.BAD_REQUEST, "PAYMENT_COMPLETED 이벤트는 totalAmount가 필수입니다.")
+            productId ?: throw CoreException(ErrorType.BAD_REQUEST, "PAYMENT_COMPLETED 이벤트는 productId가 필수입니다.")
+            quantity ?: throw CoreException(ErrorType.BAD_REQUEST, "PAYMENT_COMPLETED 이벤트는 quantity가 필수입니다.")
         }
     }
 
