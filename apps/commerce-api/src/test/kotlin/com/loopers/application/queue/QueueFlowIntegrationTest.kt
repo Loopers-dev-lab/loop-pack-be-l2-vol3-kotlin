@@ -35,8 +35,9 @@ class QueueFlowIntegrationTest {
     fun setUp() {
         entryTokenRepository = FakeEntryTokenRepository()
         waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository)
-        enterQueueUseCase = EnterQueueUseCase(waitingQueueRepository, entryTokenRepository, defaultProperties)
-        getQueuePositionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, defaultProperties)
+        val fallbackHandler = QueueFallbackHandler()
+        enterQueueUseCase = EnterQueueUseCase(waitingQueueRepository, entryTokenRepository, fallbackHandler, defaultProperties)
+        getQueuePositionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, fallbackHandler, defaultProperties)
         issueEntryTokensUseCase = IssueEntryTokensUseCase(waitingQueueRepository, defaultProperties)
         validateEntryTokenUseCase = ValidateEntryTokenUseCase(entryTokenRepository)
     }
@@ -93,6 +94,7 @@ class QueueFlowIntegrationTest {
             val limitedEnterUseCase = EnterQueueUseCase(
                 waitingQueueRepository,
                 entryTokenRepository,
+                QueueFallbackHandler(),
                 defaultProperties.copy(maxCapacity = 10),
             )
             (1L..10L).forEach { limitedEnterUseCase.execute(it) }

@@ -16,6 +16,7 @@ class GetQueuePositionUseCaseTest {
 
     private lateinit var waitingQueueRepository: FakeWaitingQueueRepository
     private lateinit var entryTokenRepository: FakeEntryTokenRepository
+    private lateinit var queueFallbackHandler: QueueFallbackHandler
     private lateinit var getQueuePositionUseCase: GetQueuePositionUseCase
 
     private val maxCapacity = 50_000
@@ -25,9 +26,11 @@ class GetQueuePositionUseCaseTest {
     fun setUp() {
         waitingQueueRepository = FakeWaitingQueueRepository()
         entryTokenRepository = FakeEntryTokenRepository()
+        queueFallbackHandler = QueueFallbackHandler()
         getQueuePositionUseCase = GetQueuePositionUseCase(
             waitingQueueRepository = waitingQueueRepository,
             entryTokenRepository = entryTokenRepository,
+            queueFallbackHandler = queueFallbackHandler,
             queueProperties = QueueProperties(
                 maxCapacity = maxCapacity,
                 batchSize = 18,
@@ -145,6 +148,21 @@ class GetQueuePositionUseCaseTest {
             // assert
             assertThat(result.position).isEqualTo(101L)
             assertThat(result.recommendedPollIntervalMs).isGreaterThan(1000L)
+        }
+
+        @Test
+        @DisplayName("fallback 상태에서 호출 시 SERVICE_UNAVAILABLE 예외가 발생한다")
+        fun execute_fallbackActive_throwsServiceUnavailable() {
+            // arrange
+            queueFallbackHandler.markUnavailable("Redis 장애")
+
+            // act
+            val exception = assertThrows<CoreException> {
+                getQueuePositionUseCase.execute(1L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
         }
     }
 }

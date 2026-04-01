@@ -65,5 +65,18 @@ class ValidateEntryTokenUseCaseTest {
                 validateEntryTokenUseCase.execute(1L, "valid-token")
             }
         }
+
+        @Test
+        @DisplayName("검증 성공 후 토큰이 즉시 삭제(소비)된다")
+        fun execute_validToken_deletesToken() {
+            // arrange
+            entryTokenRepository.issue(UserId(1L), "valid-token", 300)
+
+            // act
+            validateEntryTokenUseCase.execute(1L, "valid-token")
+
+            // assert
+            assertThat(entryTokenRepository.find(UserId(1L))).isNull()
+        }
     }
 }

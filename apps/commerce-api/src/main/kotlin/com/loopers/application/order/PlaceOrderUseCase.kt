@@ -7,18 +7,14 @@ import com.loopers.domain.coupon.repository.CouponRepository
 import com.loopers.domain.coupon.repository.IssuedCouponRepository
 import com.loopers.domain.coupon.service.CouponValidator
 import com.loopers.domain.order.OrderProductData
-import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.order.repository.OrderItemRepository
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 class PlaceOrderUseCase(
@@ -28,10 +24,7 @@ class PlaceOrderUseCase(
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
     private val couponValidator: CouponValidator,
-    private val entryTokenRepository: EntryTokenRepository,
 ) {
-
-    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
     fun execute(userId: Long, command: PlaceOrderCommand): OrderInfo {
@@ -85,22 +78,6 @@ class PlaceOrderUseCase(
 
         order.assignOrderIdToItems(savedOrder.id)
         val savedItems = orderItemRepository.saveAll(order.items)
-
-        // 5. 입장 토큰 삭제 (주문 완료 → 토큰 소비, 트랜잭션 커밋 후 실행)
-        val userIdVo = UserId(userId)
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
-                override fun afterCommit() {
-                    try {
-                        entryTokenRepository.delete(userIdVo)
-                    } catch (e: Exception) {
-                        log.warn("입장 토큰 삭제 실패 — userId={}, 토큰은 TTL로 자연 만료됩니다.", userId, e)
-                    }
-                }
-            })
-        } else {
-            entryTokenRepository.delete(userIdVo)
-        }
 
         return OrderInfo.from(OrderDetail(savedOrder, savedItems))
     }

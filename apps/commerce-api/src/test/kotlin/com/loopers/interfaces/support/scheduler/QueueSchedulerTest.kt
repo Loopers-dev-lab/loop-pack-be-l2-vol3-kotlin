@@ -1,6 +1,5 @@
 package com.loopers.interfaces.support.scheduler
 
-import com.loopers.application.queue.GetQueuePositionUseCase
 import com.loopers.application.queue.IssueEntryTokensUseCase
 import com.loopers.application.queue.QueueFallbackHandler
 import com.loopers.application.queue.QueueProperties
@@ -8,7 +7,6 @@ import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
-import com.loopers.interfaces.support.sse.QueueSseEmitterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -39,9 +37,7 @@ class QueueSchedulerTest {
         waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository)
         queueFallbackHandler = QueueFallbackHandler()
         val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, properties)
-        val positionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, properties)
-        val registry = QueueSseEmitterRegistry(properties)
-        scheduler = QueueScheduler(issueUseCase, positionUseCase, registry, queueFallbackHandler)
+        scheduler = QueueScheduler(issueUseCase, queueFallbackHandler)
     }
 
     @Nested
@@ -49,39 +45,32 @@ class QueueSchedulerTest {
     inner class IssueTokens {
 
         @Test
-        @DisplayName("대기열에서 배치 크기만큼 꺼내 토큰을 발급한다")
-        fun issueTokens_popsAndIssuesTokens() {
-            // arrange
-            waitingQueueRepository.enter(UserId(1L), 1000.0, 50_000)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, 50_000)
+        @DisplayName("대기열에 유저가 있으면 batchSize만큼 토큰이 발급된다")
+        fun issueTokens_issuesTokensUpToBatchSize() {
+            // arrange — 5명 진입, batchSize=3
+            (1L..5L).forEach { waitingQueueRepository.enter(UserId(it), it.toDouble(), 50_000) }
 
             // act
             scheduler.issueTokens()
 
-            // assert
-            assertThat(entryTokenRepository.find(UserId(1L))).isNotNull()
-            assertThat(entryTokenRepository.find(UserId(2L))).isNotNull()
-            assertThat(waitingQueueRepository.count()).isEqualTo(0)
+            // assert — 3명에게 토큰 발급
+            val issuedCount = (1L..5L).count { entryTokenRepository.find(UserId(it)) != null }
+            assertThat(issuedCount).isEqualTo(3)
         }
 
         @Test
-        @DisplayName("대기열이 비어있으면 아무 동작도 하지 않는다")
-        fun issueTokens_emptyQueue_doesNothing() {
+        @DisplayName("대기열이 비어 있으면 아무 동작도 하지 않는다")
+        fun issueTokens_emptyQueue_noOp() {
             // act
             scheduler.issueTokens()
 
-            // assert
+            // assert — 예외 없이 정상 종료
             assertThat(waitingQueueRepository.count()).isEqualTo(0)
         }
-    }
-
-    @Nested
-    @DisplayName("Redis 장애 Fallback 시")
-    inner class RedisFallback {
 
         @Test
-        @DisplayName("Redis 장애 시 예외 없이 정상 종료하고 fallback 상태로 전환한다")
-        fun issueTokens_redisFailure_marksUnavailable() {
+        @DisplayName("Redis 장애 발생 시 fallback 상태로 전환된다")
+        fun issueTokens_redisFailure_marksFallback() {
             // arrange
             val failingRepo = object : WaitingQueueRepository {
                 override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? =
@@ -100,9 +89,7 @@ class QueueSchedulerTest {
                     throw RedisConnectionFailureException("Redis connection refused")
             }
             val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, properties)
-            val positionUseCase = GetQueuePositionUseCase(failingRepo, entryTokenRepository, properties)
-            val registry = QueueSseEmitterRegistry(properties)
-            val failingScheduler = QueueScheduler(failingIssueUseCase, positionUseCase, registry, queueFallbackHandler)
+            val failingScheduler = QueueScheduler(failingIssueUseCase, queueFallbackHandler)
 
             // act — 예외 없이 정상 종료
             failingScheduler.issueTokens()
@@ -132,9 +119,7 @@ class QueueSchedulerTest {
                     throw NullPointerException("unexpected null")
             }
             val npeIssueUseCase = IssueEntryTokensUseCase(npeRepo, properties)
-            val positionUseCase = GetQueuePositionUseCase(npeRepo, entryTokenRepository, properties)
-            val registry = QueueSseEmitterRegistry(properties)
-            val npeScheduler = QueueScheduler(npeIssueUseCase, positionUseCase, registry, queueFallbackHandler)
+            val npeScheduler = QueueScheduler(npeIssueUseCase, queueFallbackHandler)
 
             // act & assert
             assertThrows<NullPointerException> {
@@ -144,12 +129,13 @@ class QueueSchedulerTest {
         }
 
         @Test
-        @DisplayName("Redis 복구 시 정상 모드로 전환한다")
-        fun issueTokens_redisRecovery_marksAvailable() {
-            // arrange
-            queueFallbackHandler.markUnavailable("Redis down")
+        @DisplayName("fallback 상태에서 Redis 복구 시 available 상태로 전환된다")
+        fun issueTokens_recoveryAfterFallback_marksAvailable() {
+            // arrange — fallback 상태로 전환
+            queueFallbackHandler.markUnavailable("테스트 장애")
+            assertThat(queueFallbackHandler.isAvailable()).isFalse()
 
-            // act — 빈 대기열이지만 Redis 호출 자체는 성공
+            // act — 정상 실행 (빈 대기열)
             scheduler.issueTokens()
 
             // assert

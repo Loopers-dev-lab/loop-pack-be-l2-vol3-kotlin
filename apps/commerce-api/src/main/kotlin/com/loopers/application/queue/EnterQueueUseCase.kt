@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong
 class EnterQueueUseCase(
     private val waitingQueueRepository: WaitingQueueRepository,
     private val entryTokenRepository: EntryTokenRepository,
+    private val queueFallbackHandler: QueueFallbackHandler,
     private val queueProperties: QueueProperties,
 ) {
 
@@ -21,6 +22,10 @@ class EnterQueueUseCase(
     }
 
     fun execute(userId: Long): QueuePositionInfo {
+        if (!queueFallbackHandler.isAvailable()) {
+            throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "대기열 서비스를 일시적으로 이용할 수 없습니다.")
+        }
+
         val userIdVo = UserId(userId)
 
         // 1. 이미 토큰 보유 시 즉시 반환

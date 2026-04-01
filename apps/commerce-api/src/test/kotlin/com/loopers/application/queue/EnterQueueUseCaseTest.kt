@@ -16,6 +16,7 @@ class EnterQueueUseCaseTest {
 
     private lateinit var waitingQueueRepository: FakeWaitingQueueRepository
     private lateinit var entryTokenRepository: FakeEntryTokenRepository
+    private lateinit var queueFallbackHandler: QueueFallbackHandler
     private lateinit var enterQueueUseCase: EnterQueueUseCase
 
     private val maxCapacity = 50_000
@@ -25,9 +26,11 @@ class EnterQueueUseCaseTest {
     fun setUp() {
         waitingQueueRepository = FakeWaitingQueueRepository()
         entryTokenRepository = FakeEntryTokenRepository()
+        queueFallbackHandler = QueueFallbackHandler()
         enterQueueUseCase = EnterQueueUseCase(
             waitingQueueRepository = waitingQueueRepository,
             entryTokenRepository = entryTokenRepository,
+            queueFallbackHandler = queueFallbackHandler,
             queueProperties = QueueProperties(
                 maxCapacity = maxCapacity,
                 batchSize = 18,
@@ -88,6 +91,7 @@ class EnterQueueUseCaseTest {
             val useCase = EnterQueueUseCase(
                 waitingQueueRepository = waitingQueueRepository,
                 entryTokenRepository = entryTokenRepository,
+                queueFallbackHandler = queueFallbackHandler,
                 queueProperties = smallCapacityProps,
             )
             waitingQueueRepository.enter(UserId(1L), 1000.0, 2)
@@ -117,6 +121,21 @@ class EnterQueueUseCaseTest {
             assertThat(result.position).isEqualTo(350L)
             assertThat(result.estimatedWaitSeconds).isEqualTo(2L)
             assertThat(result.token).isNull()
+        }
+
+        @Test
+        @DisplayName("fallback 상태에서 호출 시 SERVICE_UNAVAILABLE 예외가 발생한다")
+        fun execute_fallbackActive_throwsServiceUnavailable() {
+            // arrange
+            queueFallbackHandler.markUnavailable("Redis 장애")
+
+            // act
+            val exception = assertThrows<CoreException> {
+                enterQueueUseCase.execute(1L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
         }
     }
 }

@@ -18,5 +18,7 @@ class ValidateEntryTokenUseCase(
         if (token != storedToken) {
             throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 유효하지 않습니다.")
         }
+
+        entryTokenRepository.delete(UserId(userId))
     }
 }
