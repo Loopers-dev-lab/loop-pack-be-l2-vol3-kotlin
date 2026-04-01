@@ -27,7 +27,12 @@ class CatalogOutbox(
     init {
         if (eventId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "eventId는 필수입니다.")
         if (productId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "productId는 양수여야 합니다.")
-        if (userId != null && userId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
+        if (eventType in listOf(CatalogOutboxEventType.LIKE_ADDED, CatalogOutboxEventType.LIKE_REMOVED)) {
+            if (userId == null) throw CoreException(ErrorType.BAD_REQUEST, "${eventType.name} 이벤트는 userId가 필수입니다.")
+            if (userId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
+        } else if (userId != null && userId.value <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
+        }
     }
 
     fun markPublished() {

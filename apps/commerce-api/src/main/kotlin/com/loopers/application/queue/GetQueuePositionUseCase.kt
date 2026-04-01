@@ -16,14 +16,16 @@ class GetQueuePositionUseCase(
 ) {
 
     fun execute(userId: Long): QueuePositionInfo {
+        val userIdVo = UserId(userId)
+
         // 1. 토큰 보유 여부 확인 (대기열에서 이미 빠진 유저일 수 있음)
-        val token = entryTokenRepository.find(UserId(userId))
+        val token = entryTokenRepository.find(userIdVo)
         if (token != null) {
             return QueuePositionInfo(position = 0, estimatedWaitSeconds = 0, token = token)
         }
 
         // 2. 순번 조회 — 없으면 404
-        val position = waitingQueueRepository.findPosition(userId)
+        val position = waitingQueueRepository.findPosition(userIdVo)
             ?: throw CoreException(ErrorType.NOT_FOUND, "대기열에 등록되지 않은 사용자입니다.")
 
         // 3. 순번 + 예상 대기 시간 반환

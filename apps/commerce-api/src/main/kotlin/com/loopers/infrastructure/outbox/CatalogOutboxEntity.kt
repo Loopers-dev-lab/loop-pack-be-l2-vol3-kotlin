@@ -43,7 +43,8 @@ class CatalogOutboxEntity(
     fun toDomain(): CatalogOutbox = CatalogOutbox(
         id = id,
         eventId = eventId,
-        eventType = CatalogOutbox.CatalogOutboxEventType.valueOf(eventType),
+        eventType = CatalogOutbox.CatalogOutboxEventType.entries.find { it.name == eventType }
+            ?: throw IllegalStateException("지원하지 않는 이벤트 타입: $eventType"),
         productId = ProductId(productId),
         userId = userId?.let { UserId(it) },
         published = published,

@@ -19,19 +19,21 @@ class RequestCouponIssueUseCase(
     @Transactional
     fun execute(userId: Long, couponId: Long): CouponIssueRequestInfo {
         val requestId = UUID.randomUUID().toString()
+        val couponIdVo = CouponId(couponId)
+        val userIdVo = UserId(userId)
 
         val request = CouponIssueRequest(
             requestId = requestId,
-            couponId = CouponId(couponId),
-            userId = UserId(userId),
+            couponId = couponIdVo,
+            userId = userIdVo,
         )
         couponIssueRequestRepository.save(request)
 
         val outbox = CouponOutbox(
             eventId = requestId,
             eventType = CouponOutbox.CouponOutboxEventType.COUPON_ISSUE_REQUESTED,
-            couponId = CouponId(couponId),
-            userId = UserId(userId),
+            couponId = couponIdVo,
+            userId = userIdVo,
         )
         couponOutboxRepository.save(outbox)
 

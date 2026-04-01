@@ -16,6 +16,8 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 class PlaceOrderUseCase(
@@ -81,8 +83,17 @@ class PlaceOrderUseCase(
         order.assignOrderIdToItems(savedOrder.id)
         val savedItems = orderItemRepository.saveAll(order.items)
 
-        // 5. 입장 토큰 삭제 (주문 완료 → 토큰 소비)
-        entryTokenRepository.delete(UserId(userId))
+        // 5. 입장 토큰 삭제 (주문 완료 → 토큰 소비, 트랜잭션 커밋 후 실행)
+        val userIdVo = UserId(userId)
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
+                override fun afterCommit() {
+                    entryTokenRepository.delete(userIdVo)
+                }
+            })
+        } else {
+            entryTokenRepository.delete(userIdVo)
+        }
 
         return OrderInfo.from(OrderDetail(savedOrder, savedItems))
     }

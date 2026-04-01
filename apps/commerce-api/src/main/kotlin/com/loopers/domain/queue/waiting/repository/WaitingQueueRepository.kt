@@ -1,5 +1,7 @@
 package com.loopers.domain.queue.waiting.repository
 
+import com.loopers.domain.common.vo.UserId
+
 interface WaitingQueueRepository {
 
     /**
@@ -9,14 +11,14 @@ interface WaitingQueueRepository {
      *
      * @return 진입 후 0-based 순번. 상한 초과 시 null.
      */
-    fun enter(userId: Long, score: Double, maxCapacity: Int): Long?
+    fun enter(userId: UserId, score: Double, maxCapacity: Int): Long?
 
     /**
      * 대기열에서의 현재 순번을 조회한다.
      *
      * @return 0-based 순번. 대기열에 없으면 null.
      */
-    fun findPosition(userId: Long): Long?
+    fun findPosition(userId: UserId): Long?
 
     /**
      * 전체 대기 인원을 조회한다.
@@ -26,7 +28,17 @@ interface WaitingQueueRepository {
     /**
      * 대기열 앞에서 N명을 꺼낸다 (ZPOPMIN).
      *
-     * @return 꺼낸 userId 리스트 (score 오름차순).
+     * @return 꺼낸 UserId 리스트 (score 오름차순).
      */
-    fun popMin(count: Int): List<Long>
+    fun popMin(count: Int): List<UserId>
+
+    /**
+     * 대기열 앞에서 N명을 원자적으로 꺼내고 각 userId에 입장 토큰을 발급한다.
+     * "절대로 먼저 삭제하지 마라" 원칙: SET entry-token 후 ZREM 수행.
+     *
+     * @param count 꺼낼 인원 수
+     * @param ttlSeconds 토큰 TTL (초)
+     * @return (UserId, token) 쌍의 리스트
+     */
+    fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>>
 }

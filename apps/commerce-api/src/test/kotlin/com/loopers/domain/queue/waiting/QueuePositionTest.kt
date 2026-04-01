@@ -1,5 +1,6 @@
 package com.loopers.domain.queue.waiting
 
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.waiting.model.QueuePosition
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -7,6 +8,26 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
 class QueuePositionTest {
+
+    @Nested
+    @DisplayName("FakeWaitingQueueRepository")
+    inner class FakeRepository {
+
+        @Test
+        @DisplayName("동일 score로 진입해도 순번이 모두 다르다")
+        fun `동일 score로 진입해도 순번이 모두 다르다`() {
+            // Arrange
+            val repository = FakeWaitingQueueRepository()
+
+            // Act
+            val positions = (1L..10L).map { userId ->
+                repository.enter(UserId(userId), 1000.0, 50_000)!!
+            }
+
+            // Assert
+            assertThat(positions.toSet()).hasSize(10)
+        }
+    }
 
     @Nested
     @DisplayName("QueuePosition 생성")
@@ -42,6 +63,16 @@ class QueuePositionTest {
         fun `처리량이 0이면 예상 대기 시간은 0이다`() {
             // Arrange & Act
             val queuePosition = QueuePosition.of(position = 100L, throughputTps = 0)
+
+            // Assert
+            assertThat(queuePosition.estimatedWaitSeconds).isEqualTo(0L)
+        }
+
+        @Test
+        @DisplayName("음수 순번이면 예상 대기 시간은 0이다")
+        fun `음수 순번이면 예상 대기 시간은 0이다`() {
+            // Arrange & Act
+            val queuePosition = QueuePosition.of(position = -175L, throughputTps = 175)
 
             // Assert
             assertThat(queuePosition.estimatedWaitSeconds).isEqualTo(0L)

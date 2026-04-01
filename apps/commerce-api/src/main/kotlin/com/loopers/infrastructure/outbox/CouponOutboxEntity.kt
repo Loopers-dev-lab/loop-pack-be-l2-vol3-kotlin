@@ -43,7 +43,8 @@ class CouponOutboxEntity(
     fun toDomain(): CouponOutbox = CouponOutbox(
         id = id,
         eventId = eventId,
-        eventType = CouponOutbox.CouponOutboxEventType.valueOf(eventType),
+        eventType = CouponOutbox.CouponOutboxEventType.entries.find { it.name == eventType }
+            ?: throw IllegalStateException("지원하지 않는 이벤트 타입: $eventType"),
         couponId = CouponId(couponId),
         userId = UserId(userId),
         published = published,

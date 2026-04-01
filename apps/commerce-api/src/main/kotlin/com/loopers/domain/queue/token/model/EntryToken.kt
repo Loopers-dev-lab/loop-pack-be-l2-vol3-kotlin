@@ -8,7 +8,7 @@ data class EntryToken(
     val token: String,
 ) {
     companion object {
-        private const val TOKEN_TTL_SECONDS = 300L
+        private const val DEFAULT_TOKEN_TTL_SECONDS = 300L
 
         fun issue(userId: UserId): EntryToken {
             return EntryToken(
@@ -17,6 +17,6 @@ data class EntryToken(
             )
         }
 
-        fun defaultTtlSeconds(): Long = TOKEN_TTL_SECONDS
+        fun defaultTtlSeconds(): Long = DEFAULT_TOKEN_TTL_SECONDS
     }
 }

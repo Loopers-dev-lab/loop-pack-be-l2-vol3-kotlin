@@ -16,15 +16,17 @@ class EnterQueueUseCase(
 ) {
 
     fun execute(userId: Long): QueuePositionInfo {
+        val userIdVo = UserId(userId)
+
         // 1. 이미 토큰 보유 시 즉시 반환
-        val existingToken = entryTokenRepository.find(UserId(userId))
+        val existingToken = entryTokenRepository.find(userIdVo)
         if (existingToken != null) {
             return QueuePositionInfo(position = 0, estimatedWaitSeconds = 0, token = existingToken)
         }
 
         // 2. 대기열 진입 (이미 있으면 기존 순번, 상한 초과 시 null)
         val position = waitingQueueRepository.enter(
-            userId = userId,
+            userId = userIdVo,
             score = System.currentTimeMillis().toDouble(),
             maxCapacity = queueProperties.maxCapacity,
         ) ?: throw CoreException(ErrorType.TOO_MANY_REQUESTS, "대기열이 가득 찼습니다.")

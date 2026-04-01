@@ -33,10 +33,10 @@ class QueueSchedulerTest {
 
     @BeforeEach
     fun setUp() {
-        waitingQueueRepository = FakeWaitingQueueRepository()
         entryTokenRepository = FakeEntryTokenRepository()
+        waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository)
         queueFallbackHandler = QueueFallbackHandler()
-        val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, properties)
+        val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, properties)
         val positionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, properties)
         val registry = QueueSseEmitterRegistry(properties)
         scheduler = QueueScheduler(issueUseCase, positionUseCase, registry, queueFallbackHandler)
@@ -50,8 +50,8 @@ class QueueSchedulerTest {
         @DisplayName("대기열에서 배치 크기만큼 꺼내 토큰을 발급한다")
         fun issueTokens_popsAndIssuesTokens() {
             // arrange
-            waitingQueueRepository.enter(1L, 1000.0, 50_000)
-            waitingQueueRepository.enter(2L, 2000.0, 50_000)
+            waitingQueueRepository.enter(UserId(1L), 1000.0, 50_000)
+            waitingQueueRepository.enter(UserId(2L), 2000.0, 50_000)
 
             // act
             scheduler.issueTokens()
@@ -82,19 +82,22 @@ class QueueSchedulerTest {
         fun issueTokens_redisFailure_marksUnavailable() {
             // arrange
             val failingRepo = object : WaitingQueueRepository {
-                override fun enter(userId: Long, score: Double, maxCapacity: Int): Long? =
+                override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? =
                     throw RuntimeException("Redis connection refused")
 
-                override fun findPosition(userId: Long): Long? =
+                override fun findPosition(userId: UserId): Long? =
                     throw RuntimeException("Redis connection refused")
 
                 override fun count(): Long =
                     throw RuntimeException("Redis connection refused")
 
-                override fun popMin(count: Int): List<Long> =
+                override fun popMin(count: Int): List<UserId> =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> =
                     throw RuntimeException("Redis connection refused")
             }
-            val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, entryTokenRepository, properties)
+            val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, properties)
             val positionUseCase = GetQueuePositionUseCase(failingRepo, entryTokenRepository, properties)
             val registry = QueueSseEmitterRegistry(properties)
             val failingScheduler = QueueScheduler(failingIssueUseCase, positionUseCase, registry, queueFallbackHandler)

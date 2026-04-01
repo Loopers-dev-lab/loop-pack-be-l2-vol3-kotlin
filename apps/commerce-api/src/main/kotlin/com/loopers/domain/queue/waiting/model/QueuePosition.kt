@@ -6,7 +6,8 @@ data class QueuePosition(
 ) {
     companion object {
         fun of(position: Long, throughputTps: Int): QueuePosition {
-            val estimatedWaitSeconds = if (throughputTps > 0) position / throughputTps else 0L
+            val safePosition = position.coerceAtLeast(0L)
+            val estimatedWaitSeconds = if (throughputTps > 0) safePosition / throughputTps else 0L
             return QueuePosition(
                 position = position,
                 estimatedWaitSeconds = estimatedWaitSeconds,

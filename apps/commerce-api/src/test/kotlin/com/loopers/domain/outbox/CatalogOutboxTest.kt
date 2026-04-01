@@ -46,6 +46,28 @@ class CatalogOutboxTest {
         }
 
         @Test
+        fun `LIKE_ADDED에 userId가 null이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CatalogOutbox(
+                    eventType = CatalogOutboxEventType.LIKE_ADDED,
+                    productId = ProductId(1L),
+                    userId = null,
+                )
+            }.isInstanceOf(CoreException::class.java)
+        }
+
+        @Test
+        fun `LIKE_REMOVED에 userId가 null이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CatalogOutbox(
+                    eventType = CatalogOutboxEventType.LIKE_REMOVED,
+                    productId = ProductId(1L),
+                    userId = null,
+                )
+            }.isInstanceOf(CoreException::class.java)
+        }
+
+        @Test
         fun `productId가 0 이하이면 예외가 발생한다`() {
             assertThatThrownBy {
                 CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(0L), userId = UserId(1L))

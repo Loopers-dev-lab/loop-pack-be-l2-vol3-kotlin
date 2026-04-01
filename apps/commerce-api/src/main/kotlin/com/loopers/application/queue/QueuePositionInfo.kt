@@ -6,13 +6,16 @@ data class QueuePositionInfo(
     val position: Long,
     val estimatedWaitSeconds: Long,
     val token: String? = null,
-    val recommendedPollIntervalMs: Long = calculatePollIntervalMs(position),
+    val recommendedPollIntervalMs: Long = calculatePollIntervalMs(position, token),
 ) {
     companion object {
-        fun calculatePollIntervalMs(position: Long): Long = when {
-            position > 1000 -> 5000
-            position > 100 -> 3000
-            else -> 1000
+        fun calculatePollIntervalMs(position: Long, token: String? = null): Long {
+            if (token != null) return 0
+            return when {
+                position > 1000 -> 5000
+                position > 100 -> 3000
+                else -> 1000
+            }
         }
 
         fun from(queuePosition: QueuePosition, token: String? = null): QueuePositionInfo {

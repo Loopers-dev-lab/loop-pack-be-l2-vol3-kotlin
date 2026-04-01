@@ -1,14 +1,19 @@
 package com.loopers.domain.queue.waiting
 
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import java.util.TreeMap
+import java.util.UUID
 
-class FakeWaitingQueueRepository : WaitingQueueRepository {
+class FakeWaitingQueueRepository(
+    private val entryTokenRepository: FakeEntryTokenRepository? = null,
+) : WaitingQueueRepository {
 
-    private val scoreByUserId = mutableMapOf<Long, Double>()
-    private val sortedEntries = TreeMap<Double, MutableList<Long>>()
+    private val scoreByUserId = mutableMapOf<UserId, Double>()
+    private val sortedEntries = TreeMap<Double, MutableList<UserId>>()
 
-    override fun enter(userId: Long, score: Double, maxCapacity: Int): Long? {
+    override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? {
         if (userId in scoreByUserId) {
             return findPosition(userId)
         }
@@ -20,7 +25,7 @@ class FakeWaitingQueueRepository : WaitingQueueRepository {
         return findPosition(userId)
     }
 
-    override fun findPosition(userId: Long): Long? {
+    override fun findPosition(userId: UserId): Long? {
         val userScore = scoreByUserId[userId] ?: return null
         var rank = 0L
         for ((score, userIds) in sortedEntries) {
@@ -30,23 +35,33 @@ class FakeWaitingQueueRepository : WaitingQueueRepository {
             }
             if (score > userScore) break
         }
-        return rank
+        return null
     }
 
     override fun count(): Long = scoreByUserId.size.toLong()
 
-    override fun popMin(count: Int): List<Long> {
-        val result = mutableListOf<Long>()
+    override fun popMin(count: Int): List<UserId> {
+        val result = mutableListOf<UserId>()
         repeat(count) {
             val firstEntry = sortedEntries.firstEntry() ?: return result
             val userIds = firstEntry.value
-            val userId = userIds.removeFirst()
+            // T-05: 동점 시 사전식 정렬로 pop
+            val minUserId = userIds.minBy { it.value.toString() }
+            userIds.remove(minUserId)
             if (userIds.isEmpty()) {
                 sortedEntries.pollFirstEntry()
             }
-            scoreByUserId.remove(userId)
-            result.add(userId)
+            scoreByUserId.remove(minUserId)
+            result.add(minUserId)
         }
         return result
+    }
+
+    override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> {
+        return popMin(count).map { userId ->
+            val token = UUID.randomUUID().toString()
+            entryTokenRepository?.issue(userId, token, ttlSeconds)
+            userId to token
+        }
     }
 }

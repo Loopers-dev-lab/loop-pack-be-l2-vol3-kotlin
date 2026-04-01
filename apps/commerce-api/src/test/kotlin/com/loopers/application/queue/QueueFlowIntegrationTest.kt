@@ -33,11 +33,11 @@ class QueueFlowIntegrationTest {
 
     @BeforeEach
     fun setUp() {
-        waitingQueueRepository = FakeWaitingQueueRepository()
         entryTokenRepository = FakeEntryTokenRepository()
+        waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository)
         enterQueueUseCase = EnterQueueUseCase(waitingQueueRepository, entryTokenRepository, defaultProperties)
         getQueuePositionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, defaultProperties)
-        issueEntryTokensUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, defaultProperties)
+        issueEntryTokensUseCase = IssueEntryTokensUseCase(waitingQueueRepository, defaultProperties)
         validateEntryTokenUseCase = ValidateEntryTokenUseCase(entryTokenRepository)
     }
 
@@ -192,7 +192,6 @@ class QueueFlowIntegrationTest {
             (1L..3L).forEach { enterQueueUseCase.execute(it) }
             val singleBatchIssueUseCase = IssueEntryTokensUseCase(
                 waitingQueueRepository,
-                entryTokenRepository,
                 defaultProperties.copy(batchSize = 1),
             )
             singleBatchIssueUseCase.execute()

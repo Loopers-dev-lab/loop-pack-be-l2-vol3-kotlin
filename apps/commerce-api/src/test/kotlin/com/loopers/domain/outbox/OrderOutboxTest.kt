@@ -71,6 +71,20 @@ class OrderOutboxTest {
         }
 
         @Test
+        fun `PAYMENT_COMPLETED에 totalAmount가 없으면 예외가 발생한다`() {
+            assertThatThrownBy {
+                OrderOutbox(
+                    eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
+                    orderId = OrderId(1L),
+                    userId = UserId(1L),
+                    totalAmount = null,
+                    productId = ProductId(1L),
+                    quantity = 1,
+                )
+            }.isInstanceOf(IllegalArgumentException::class.java)
+        }
+
+        @Test
         fun `PAYMENT_COMPLETED에 productId가 없으면 예외가 발생한다`() {
             assertThatThrownBy {
                 OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), quantity = 1)
@@ -95,6 +109,7 @@ class OrderOutboxTest {
                 eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
                 orderId = OrderId(1L),
                 userId = UserId(1L),
+                totalAmount = Money(10000L.toBigDecimal()),
                 productId = ProductId(1L),
                 quantity = 1,
             )
@@ -110,6 +125,7 @@ class OrderOutboxTest {
                 eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
                 orderId = OrderId(1L),
                 userId = UserId(1L),
+                totalAmount = Money(10000L.toBigDecimal()),
                 productId = ProductId(1L),
                 quantity = 1,
             )
@@ -152,7 +168,7 @@ class OrderOutboxTest {
         @Test
         fun `발행 완료 마킹 후 미발행 목록에서 제외된다`() {
             val outbox = repository.save(
-                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), productId = ProductId(1L), quantity = 1),
+                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), totalAmount = Money(10000L.toBigDecimal()), productId = ProductId(1L), quantity = 1),
             )
 
             outbox.markPublished()

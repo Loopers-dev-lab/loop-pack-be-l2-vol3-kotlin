@@ -74,8 +74,8 @@ class GetQueuePositionUseCaseTest {
         @DisplayName("순번 100 이하이면 추천 폴링 주기 1000ms를 반환한다")
         fun execute_position100OrLess_pollInterval1000() {
             // arrange
-            waitingQueueRepository.enter(1L, 1000.0, maxCapacity)
-            waitingQueueRepository.enter(2L, 2000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(1L), 1000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(2L), 2000.0, maxCapacity)
 
             // act
             val result = getQueuePositionUseCase.execute(2L)
@@ -86,8 +86,8 @@ class GetQueuePositionUseCaseTest {
         }
 
         @Test
-        @DisplayName("토큰 보유 시 추천 폴링 주기 1000ms를 반환한다")
-        fun execute_withToken_pollInterval1000() {
+        @DisplayName("토큰 보유 시 추천 폴링 주기 0ms를 반환한다")
+        fun execute_withToken_pollInterval0() {
             // arrange
             entryTokenRepository.issue(UserId(1L), "token", 300)
 
@@ -95,16 +95,16 @@ class GetQueuePositionUseCaseTest {
             val result = getQueuePositionUseCase.execute(1L)
 
             // assert
-            assertThat(result.recommendedPollIntervalMs).isEqualTo(1000L)
+            assertThat(result.recommendedPollIntervalMs).isEqualTo(0L)
         }
 
         @Test
         @DisplayName("정상 조회 시 순번과 예상 대기 시간을 반환한다")
         fun execute_inQueue_returnsPositionAndEstimatedWait() {
             // arrange
-            waitingQueueRepository.enter(1L, 1000.0, maxCapacity)
-            waitingQueueRepository.enter(2L, 2000.0, maxCapacity)
-            waitingQueueRepository.enter(3L, 3000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(1L), 1000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(2L), 2000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(3L), 3000.0, maxCapacity)
 
             // act
             val result = getQueuePositionUseCase.execute(3L)

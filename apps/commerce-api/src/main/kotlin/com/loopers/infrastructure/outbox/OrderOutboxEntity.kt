@@ -57,7 +57,8 @@ class OrderOutboxEntity(
     fun toDomain(): OrderOutbox = OrderOutbox(
         id = id,
         eventId = eventId,
-        eventType = OrderOutbox.OrderOutboxEventType.valueOf(eventType),
+        eventType = OrderOutbox.OrderOutboxEventType.entries.find { it.name == eventType }
+            ?: throw IllegalStateException("지원하지 않는 이벤트 타입: $eventType"),
         orderId = OrderId(orderId),
         userId = UserId(userId),
         totalAmount = totalAmount?.let { Money(it.toBigDecimal()) },
