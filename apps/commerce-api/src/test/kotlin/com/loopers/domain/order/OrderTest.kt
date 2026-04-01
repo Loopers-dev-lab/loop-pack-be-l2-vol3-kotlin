@@ -1,10 +1,12 @@
 package com.loopers.domain.order
 
+import com.loopers.support.error.CoreException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import org.junit.jupiter.api.assertThrows
 
 class OrderTest {
     @DisplayName("주문을 생성할 때, ")
@@ -70,6 +72,68 @@ class OrderTest {
                 { assertThat(order.discountAmount).isEqualTo(5000L) },
                 { assertThat(order.totalPrice).isEqualTo(0L) },
             )
+        }
+    }
+
+    @DisplayName("주문 상태를 변경할 때, ")
+    @Nested
+    inner class StatusTransition {
+        @DisplayName("PENDING 상태의 주문에 pay()를 호출하면, PAID 상태로 변경된다.")
+        @Test
+        fun changesPaidStatus_whenPayIsCalled() {
+            // arrange
+            val order = Order(userId = 1L, items = emptyList())
+
+            // act
+            order.pay()
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.PAID)
+        }
+
+        @DisplayName("PENDING이 아닌 상태에서 pay()를 호출하면, 예외가 발생한다.")
+        @Test
+        fun throwsException_whenPayIsCalledOnNonPendingOrder() {
+            // arrange
+            val order = Order(userId = 1L, items = emptyList())
+            order.pay()
+
+            // act & assert
+            assertThrows<CoreException> { order.pay() }
+        }
+
+        @DisplayName("PENDING 상태의 주문에 cancel()을 호출하면, CANCELLED 상태로 변경된다.")
+        @Test
+        fun changesCancelledStatus_whenCancelIsCalled() {
+            // arrange
+            val order = Order(userId = 1L, items = emptyList())
+
+            // act
+            order.cancel()
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.CANCELLED)
+        }
+
+        @DisplayName("PENDING이 아닌 상태에서 cancel()을 호출하면, 예외가 발생한다.")
+        @Test
+        fun throwsException_whenCancelIsCalledOnNonPendingOrder() {
+            // arrange
+            val order = Order(userId = 1L, items = emptyList())
+            order.pay()
+
+            // act & assert
+            assertThrows<CoreException> { order.cancel() }
+        }
+
+        @DisplayName("주문 생성 시 기본 상태는 PENDING이다.")
+        @Test
+        fun defaultStatusIsPending_whenOrderIsCreated() {
+            // arrange & act
+            val order = Order(userId = 1L, items = emptyList())
+
+            // assert
+            assertThat(order.status).isEqualTo(OrderStatus.PENDING)
         }
     }
 

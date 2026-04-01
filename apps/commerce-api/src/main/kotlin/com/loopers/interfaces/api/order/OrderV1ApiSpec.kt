@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order
 
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.payment.PaymentV1Dto
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 
@@ -14,4 +15,7 @@ interface OrderV1ApiSpec {
 
     @Operation(summary = "주문 상세 조회", description = "주문 상세 정보를 조회합니다.")
     fun getOrder(loginId: String, password: String, orderId: Long): ApiResponse<OrderV1Dto.OrderResponse>
+
+    @Operation(summary = "주문별 결제 목록 조회", description = "주문에 대한 결제 내역을 조회합니다.")
+    fun getPaymentsByOrderId(loginId: String, password: String, orderId: Long): ApiResponse<List<PaymentV1Dto.PaymentResponse>>
 }

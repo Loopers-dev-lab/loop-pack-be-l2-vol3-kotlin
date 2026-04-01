@@ -2,7 +2,9 @@ package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderFacade
 import com.loopers.application.order.OrderItemRequest
+import com.loopers.application.payment.PaymentFacade
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.interfaces.api.payment.PaymentV1Dto
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -19,6 +21,7 @@ import java.time.LocalDate
 @RequestMapping("/api/v1/orders")
 class OrderV1Controller(
     private val orderFacade: OrderFacade,
+    private val paymentFacade: PaymentFacade,
 ) : OrderV1ApiSpec {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -55,6 +58,17 @@ class OrderV1Controller(
     ): ApiResponse<OrderV1Dto.OrderResponse> {
         return orderFacade.getOrder(loginId, password, orderId)
             .let { OrderV1Dto.OrderResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/{orderId}/payments")
+    override fun getPaymentsByOrderId(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") password: String,
+        @PathVariable orderId: Long,
+    ): ApiResponse<List<PaymentV1Dto.PaymentResponse>> {
+        return paymentFacade.getPaymentsByOrderId(loginId, password, orderId)
+            .map { PaymentV1Dto.PaymentResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 }

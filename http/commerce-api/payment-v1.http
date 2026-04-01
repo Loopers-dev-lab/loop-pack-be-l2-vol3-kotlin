@@ -1,0 +1,49 @@
+### 결제 요청
+POST {{commerce-api}}/api/v1/payments
+Content-Type: application/json
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: password123
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+### PG 콜백 (SUCCESS)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20250816:TR:abc123",
+  "orderId": "000001",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456",
+  "amount": 278000,
+  "status": "SUCCESS",
+  "reason": "정상 승인되었습니다."
+}
+
+### PG 콜백 (FAILED)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20250816:TR:def456",
+  "orderId": "000001",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456",
+  "amount": 278000,
+  "status": "FAILED",
+  "reason": "한도초과입니다."
+}
+
+### 결제 상세 조회
+GET {{commerce-api}}/api/v1/payments/1
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: password123
+
+### 주문별 결제 목록 조회
+GET {{commerce-api}}/api/v1/orders/1/payments
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: password123
