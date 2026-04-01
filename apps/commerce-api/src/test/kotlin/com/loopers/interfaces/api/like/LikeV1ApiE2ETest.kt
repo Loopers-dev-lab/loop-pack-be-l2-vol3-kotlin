@@ -12,6 +12,7 @@ import com.loopers.infrastructure.user.UserEntity
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -39,6 +40,7 @@ class LikeV1ApiE2ETest @Autowired constructor(
     private val likeJpaRepository: LikeJpaRepository,
     private val passwordEncoder: PasswordEncoder,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
     companion object {
         private const val LOGIN_ID_HEADER = "X-Loopers-LoginId"
@@ -50,6 +52,7 @@ class LikeV1ApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     // ─── Helpers ───

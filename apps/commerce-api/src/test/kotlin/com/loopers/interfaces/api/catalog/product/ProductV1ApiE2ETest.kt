@@ -8,6 +8,7 @@ import com.loopers.infrastructure.catalog.product.ProductStockEntity
 import com.loopers.infrastructure.catalog.product.ProductStockJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -29,6 +30,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val productStockJpaRepository: ProductStockJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
     companion object {
         private const val BASE_URL = "/api/v1/products"
@@ -37,6 +39,7 @@ class ProductV1ApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun setupBrand(name: String = "Nike"): BrandEntity =
