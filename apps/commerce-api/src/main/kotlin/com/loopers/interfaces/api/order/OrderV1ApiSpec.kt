@@ -4,10 +4,12 @@ import com.loopers.domain.user.User
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.security.AuthHeader
 import com.loopers.interfaces.api.security.LoginUser
+import com.loopers.interfaces.api.security.QueueEntryInterceptor
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.servlet.http.HttpServletRequest
 import java.time.LocalDate
 
 @Tag(name = "Order V1 API", description = "주문 관련 API입니다.")
@@ -15,13 +17,14 @@ interface OrderV1ApiSpec {
 
     @Operation(
         summary = "주문 생성",
-        description = "새로운 주문을 생성합니다.",
+        description = "새로운 주문을 생성합니다. 대기열에서 발급받은 입장 토큰(X-Entry-Token)이 필요합니다.",
         parameters = [
             Parameter(name = AuthHeader.HEADER_LOGIN_ID, `in` = ParameterIn.HEADER, required = true),
             Parameter(name = AuthHeader.HEADER_LOGIN_PW, `in` = ParameterIn.HEADER, required = true, hidden = true),
+            Parameter(name = QueueEntryInterceptor.HEADER_ENTRY_TOKEN, `in` = ParameterIn.HEADER, required = true),
         ]
     )
-    fun placeOrder(@LoginUser user: User, request: OrderV1Dto.PlaceOrderRequest): ApiResponse<OrderV1Dto.OrderResponse>
+    fun placeOrder(@LoginUser user: User, request: OrderV1Dto.PlaceOrderRequest, httpRequest: HttpServletRequest): ApiResponse<OrderV1Dto.OrderResponse>
 
     @Operation(
         summary = "주문 목록 조회",
