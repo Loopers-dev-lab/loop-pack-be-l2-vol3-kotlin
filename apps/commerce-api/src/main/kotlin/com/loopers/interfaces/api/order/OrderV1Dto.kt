@@ -5,6 +5,8 @@ import com.loopers.application.order.OrderResult
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderStatus
+import com.loopers.domain.payment.CardType
+import com.loopers.domain.payment.PaymentStatus
 import java.time.ZonedDateTime
 
 class OrderV1Dto {
@@ -17,6 +19,8 @@ class OrderV1Dto {
     data class PlaceOrderRequest(
         val items: List<OrderItemRequest>,
         val userCouponId: Long? = null,
+        val cardType: CardType,
+        val cardNo: String,
     )
 
     data class UpdateStatusRequest(
@@ -63,6 +67,7 @@ class OrderV1Dto {
         val totalPrice: Int,
         val userCouponId: Long?,
         val status: OrderStatus,
+        val paymentStatus: PaymentStatus?,
         val paidAt: ZonedDateTime?,
         val shippedAt: ZonedDateTime?,
         val deliveredAt: ZonedDateTime?,
@@ -70,7 +75,7 @@ class OrderV1Dto {
         val items: List<OrderItemResponse>,
     ) {
         companion object {
-            fun from(result: OrderResult) = OrderResponse(
+            fun from(result: OrderResult, paymentStatus: PaymentStatus? = null) = OrderResponse(
                 id = result.id,
                 userId = result.userId,
                 originalTotalPrice = result.originalTotalPrice,
@@ -78,6 +83,7 @@ class OrderV1Dto {
                 totalPrice = result.totalPrice,
                 userCouponId = result.userCouponId,
                 status = result.status,
+                paymentStatus = paymentStatus,
                 paidAt = result.paidAt,
                 shippedAt = result.shippedAt,
                 deliveredAt = result.deliveredAt,
@@ -93,6 +99,7 @@ class OrderV1Dto {
                 totalPrice = order.totalPrice,
                 userCouponId = order.userCouponId,
                 status = order.status,
+                paymentStatus = null,
                 paidAt = order.paidAt,
                 shippedAt = order.shippedAt,
                 deliveredAt = order.deliveredAt,
