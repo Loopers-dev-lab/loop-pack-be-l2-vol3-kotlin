@@ -67,6 +67,7 @@ class RedisWaitingQueueRepository(
     }
 
     override fun popMin(count: Int): List<UserId> {
+        if (count <= 0) return emptyList()
         val tuples = redisTemplate.opsForZSet().popMin(QUEUE_KEY, count.toLong())
             ?: return emptyList()
         return tuples.map { tuple ->

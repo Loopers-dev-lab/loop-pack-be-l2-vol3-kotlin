@@ -79,6 +79,15 @@ class CouponIssueRequestTest {
             assertThatThrownBy { request.markSoldOut() }
                 .isInstanceOf(CoreException::class.java)
         }
+
+        @Test
+        fun `SUCCESS 상태에서 markSuccess 재호출 시 예외가 발생한다`() {
+            val request = CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L))
+            request.markSuccess()
+
+            assertThatThrownBy { request.markSuccess() }
+                .isInstanceOf(CoreException::class.java)
+        }
     }
 
     @Nested

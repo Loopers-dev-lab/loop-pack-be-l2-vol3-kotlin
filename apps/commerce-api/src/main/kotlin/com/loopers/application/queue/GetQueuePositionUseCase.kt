@@ -21,20 +21,27 @@ class GetQueuePositionUseCase(
             throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "대기열 서비스를 일시적으로 이용할 수 없습니다.")
         }
 
-        val userIdVo = UserId(userId)
+        return try {
+            val userIdVo = UserId(userId)
 
-        // 1. 토큰 보유 여부 확인 (대기열에서 이미 빠진 유저일 수 있음)
-        val token = entryTokenRepository.find(userIdVo)
-        if (token != null) {
-            return QueuePositionInfo(position = 0, estimatedWaitSeconds = 0, token = token)
+            // 1. 토큰 보유 여부 확인 (대기열에서 이미 빠진 유저일 수 있음)
+            val token = entryTokenRepository.find(userIdVo)
+            if (token != null) {
+                return QueuePositionInfo(position = 0, estimatedWaitSeconds = 0, token = token)
+            }
+
+            // 2. 순번 조회 — 없으면 404
+            val position = waitingQueueRepository.findPosition(userIdVo)
+                ?: throw CoreException(ErrorType.NOT_FOUND, "대기열에 등록되지 않은 사용자입니다.")
+
+            // 3. 순번 + 예상 대기 시간 반환
+            val queuePosition = QueuePosition.of(position, queueProperties.throughputTps)
+            QueuePositionInfo.from(queuePosition)
+        } catch (e: CoreException) {
+            throw e
+        } catch (e: Exception) {
+            queueFallbackHandler.markUnavailable(e.message ?: "Redis 연결 실패")
+            throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "대기열 서비스를 일시적으로 이용할 수 없습니다.")
         }
-
-        // 2. 순번 조회 — 없으면 404
-        val position = waitingQueueRepository.findPosition(userIdVo)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "대기열에 등록되지 않은 사용자입니다.")
-
-        // 3. 순번 + 예상 대기 시간 반환
-        val queuePosition = QueuePosition.of(position, queueProperties.throughputTps)
-        return QueuePositionInfo.from(queuePosition)
     }
 }

@@ -88,14 +88,26 @@ class OrderOutboxTest {
         @Test
         fun `PAYMENT_COMPLETED에 productId가 없으면 예외가 발생한다`() {
             assertThatThrownBy {
-                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), quantity = Quantity(1))
+                OrderOutbox(
+                    eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
+                    orderId = OrderId(1L),
+                    userId = UserId(1L),
+                    totalAmount = Money(10000L.toBigDecimal()),
+                    quantity = Quantity(1),
+                )
             }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `PAYMENT_COMPLETED에 quantity가 없으면 예외가 발생한다`() {
             assertThatThrownBy {
-                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), productId = ProductId(1L))
+                OrderOutbox(
+                    eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
+                    orderId = OrderId(1L),
+                    userId = UserId(1L),
+                    totalAmount = Money(10000L.toBigDecimal()),
+                    productId = ProductId(1L),
+                )
             }.isInstanceOf(CoreException::class.java)
         }
     }

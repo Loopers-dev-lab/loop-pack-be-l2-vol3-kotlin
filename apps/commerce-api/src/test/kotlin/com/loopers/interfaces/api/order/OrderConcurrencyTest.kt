@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.order
 
-import com.loopers.interfaces.api.coupon.dto.CouponAdminV1Dto
 import com.loopers.interfaces.api.order.dto.OrderV1Dto
 import com.loopers.interfaces.api.product.dto.ProductAdminV1Dto
 import com.loopers.interfaces.api.user.dto.UserV1Dto
@@ -31,8 +30,6 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -131,63 +128,23 @@ class OrderConcurrencyTest @Autowired constructor(
         return (data["id"] as Number).toLong()
     }
 
-    private fun createCoupon(totalQuantity: Int): Long {
-        val expiredAt = ZonedDateTime.now().plusDays(30)
-            .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-        val request = CouponAdminV1Dto.CreateCouponRequest(
-            name = "동시성 테스트 쿠폰",
-            type = "FIXED",
-            value = 1000,
-            totalQuantity = totalQuantity,
-            expiredAt = expiredAt,
-        )
-        val responseType =
-            object : ParameterizedTypeReference<ApiResponse<CouponAdminV1Dto.CouponAdminResponse>>() {}
-        val response = testRestTemplate.exchange(
-            "/api-admin/v1/coupons",
-            HttpMethod.POST,
-            HttpEntity(request, adminHeaders()),
-            responseType,
-        )
-        assertThat(response.statusCode.is2xxSuccessful).describedAs("쿠폰 생성 API 호출이 성공해야 합니다: ${response.statusCode}").isTrue()
-        val body = requireNotNull(response.body) { "쿠폰 생성 응답 body가 null입니다" }
-        val data = requireNotNull(body.data) { "쿠폰 생성 응답 data가 null입니다" }
-        return data.id
-    }
-
-    private fun issueCoupon(loginId: String, couponId: Long): Long {
-        val responseType =
-            object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {}
-        val response = testRestTemplate.exchange(
-            "/api/v1/coupons/$couponId/issue",
-            HttpMethod.POST,
-            HttpEntity<Any>(authHeaders(loginId)),
-            responseType,
-        )
-        assertThat(response.statusCode.is2xxSuccessful).describedAs("쿠폰 발급 API 호출이 성공해야 합니다: ${response.statusCode}").isTrue()
-        val body = requireNotNull(response.body) { "쿠폰 발급 응답 body가 null입니다" }
-        val data = requireNotNull(body.data) { "쿠폰 발급 응답 data가 null입니다" }
-        return (data["id"] as Number).toLong()
-    }
-
     @Nested
-    @DisplayName("쿠폰 동시 사용 (주문) 테스트")
-    inner class ConcurrentCouponUsage {
+    @DisplayName("재고 동시 주문 테스트")
+    inner class ConcurrentStockOrder {
 
         @Test
         @Timeout(60)
-        @DisplayName("동일한 발급 쿠폰으로 여러 스레드에서 동시 주문 시 1건만 성공한다")
-        fun concurrentOrderWithSameCoupon_onlyOneSucceeds() {
-            // arrange
-            val loginId = "couponuser1"
-            signUp(loginId)
-            val brandId = createBrand()
-            val productId = createProduct(brandId, 100)
-            val couponId = createCoupon(10)
-            val issuedCouponId = issueCoupon(loginId, couponId)
-
+        @DisplayName("재고 1개 상품에 10명이 동시 주문 시 1건만 성공한다")
+        fun concurrentOrderWithLimitedStock_onlyOneSucceeds() {
+            // arrange — 10명의 사용자 생성 + 각각 독립 entry token 발급
             val concurrentRequests = 10
-            val headers = orderHeaders(loginId)
+            val loginIds = (1..concurrentRequests).map { "couponuser$it" }
+            loginIds.forEach { signUp(it) }
+            val headersByUser = loginIds.associateWith { orderHeaders(it) }
+
+            val brandId = createBrand()
+            val productId = createProduct(brandId, 1)
+
             val executorService = Executors.newFixedThreadPool(concurrentRequests)
             val readyLatch = CountDownLatch(concurrentRequests)
             val startLatch = CountDownLatch(1)
@@ -198,7 +155,7 @@ class OrderConcurrencyTest @Autowired constructor(
 
             // act
             try {
-                for (i in 1..concurrentRequests) {
+                loginIds.forEach { loginId ->
                     executorService.submit {
                         try {
                             readyLatch.countDown()
@@ -214,14 +171,13 @@ class OrderConcurrencyTest @Autowired constructor(
                                         quantity = 1,
                                     ),
                                 ),
-                                issuedCouponId = issuedCouponId,
                             )
                             val responseType =
                                 object : ParameterizedTypeReference<ApiResponse<Any>>() {}
                             val response = testRestTemplate.exchange(
                                 "/api/v1/orders",
                                 HttpMethod.POST,
-                                HttpEntity(orderRequest, headers),
+                                HttpEntity(orderRequest, headersByUser.getValue(loginId)),
                                 responseType,
                             )
                             if (response.statusCode == HttpStatus.OK) {

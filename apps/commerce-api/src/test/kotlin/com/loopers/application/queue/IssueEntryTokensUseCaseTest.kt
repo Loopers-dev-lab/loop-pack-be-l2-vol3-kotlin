@@ -31,7 +31,6 @@ class IssueEntryTokensUseCaseTest {
                 tokenTtlSeconds = 300,
                 throughputTps = 175,
                 schedulerDelayMs = 100,
-                jitterMaxMs = 0,
             ),
         )
     }
@@ -86,32 +85,28 @@ class IssueEntryTokensUseCaseTest {
         }
 
         @Test
-        @DisplayName("jitter가 설정되어 있어도 모든 토큰이 정상 발급된다")
-        fun execute_withJitter_issuesTokensCorrectly() {
+        @DisplayName("batchSize가 0이면 대기열을 꺼내지 않고 빈 리스트를 반환한다")
+        fun execute_batchSizeZero_returnsEmptyList() {
             // arrange
-            val jitterUseCase = IssueEntryTokensUseCase(
+            val zeroBatchUseCase = IssueEntryTokensUseCase(
                 waitingQueueRepository = waitingQueueRepository,
                 entryTokenRepository = entryTokenRepository,
                 queueProperties = QueueProperties(
                     maxCapacity = 50_000,
-                    batchSize = batchSize,
+                    batchSize = 0,
                     tokenTtlSeconds = 300,
                     throughputTps = 175,
                     schedulerDelayMs = 100,
-                    jitterMaxMs = 5,
-                ),
+                    ),
             )
             waitingQueueRepository.enter(UserId(1L), 50_000)
-            waitingQueueRepository.enter(UserId(2L), 50_000)
-            waitingQueueRepository.enter(UserId(3L), 50_000)
 
             // act
-            val result = jitterUseCase.execute()
+            val result = zeroBatchUseCase.execute()
 
             // assert
-            assertThat(result).hasSize(3)
-            result.forEach { assertThat(it.token).isNotBlank() }
-            assertThat(waitingQueueRepository.count()).isEqualTo(0)
+            assertThat(result).isEmpty()
+            assertThat(waitingQueueRepository.count()).isEqualTo(1)
         }
 
         @Test

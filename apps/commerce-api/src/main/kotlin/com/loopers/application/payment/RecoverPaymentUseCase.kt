@@ -72,7 +72,7 @@ class RecoverPaymentUseCase(
                                     orderRepository.save(order)
                                     val orderItems = orderItemRepository.findAllByOrderId(OrderId(orderId))
                                     if (orderItems.isEmpty()) {
-                                        log.warn("결제 복구 성공했으나 주문 항목이 없음. orderId={}", orderId)
+                                        throw IllegalStateException("결제 복구 실패: 주문 항목이 없음. orderId=$orderId")
                                     }
                                     orderOutboxRepository.saveAll(
                                         orderItems.map { item ->

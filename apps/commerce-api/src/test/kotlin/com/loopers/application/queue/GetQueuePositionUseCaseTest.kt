@@ -2,7 +2,9 @@ package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
+import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
+import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -37,7 +39,6 @@ class GetQueuePositionUseCaseTest {
                 tokenTtlSeconds = 300,
                 throughputTps = throughputTps,
                 schedulerDelayMs = 100,
-                jitterMaxMs = 0,
             ),
         )
     }
@@ -163,6 +164,87 @@ class GetQueuePositionUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
+        }
+    }
+
+    @Nested
+    @DisplayName("Redis 장애 시")
+    inner class RedisFailure {
+
+        @Test
+        @DisplayName("entryTokenRepository 호출 중 예외 발생 시 503 반환 + fallback 전환한다")
+        fun execute_entryTokenRedisFailure_throwsServiceUnavailableAndMarkUnavailable() {
+            // arrange
+            val failingEntryTokenRepo = object : EntryTokenRepository {
+                override fun find(userId: UserId): String? =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun issue(userId: UserId, token: String, ttlSeconds: Long) = Unit
+                override fun delete(userId: UserId) = Unit
+                override fun consumeIfValid(userId: UserId, token: String) =
+                    throw RuntimeException("Redis connection refused")
+            }
+            val useCase = GetQueuePositionUseCase(
+                waitingQueueRepository = waitingQueueRepository,
+                entryTokenRepository = failingEntryTokenRepo,
+                queueFallbackHandler = queueFallbackHandler,
+                queueProperties = QueueProperties(
+                    maxCapacity = maxCapacity,
+                    batchSize = 18,
+                    tokenTtlSeconds = 300,
+                    throughputTps = throughputTps,
+                    schedulerDelayMs = 100,
+                    ),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(1L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
+            assertThat(queueFallbackHandler.isAvailable()).isFalse()
+        }
+
+        @Test
+        @DisplayName("waitingQueueRepository 호출 중 예외 발생 시 503 반환 + fallback 전환한다")
+        fun execute_waitingQueueRedisFailure_throwsServiceUnavailableAndMarkUnavailable() {
+            // arrange
+            val failingWaitingQueueRepo = object : WaitingQueueRepository {
+                override fun enter(userId: UserId, maxCapacity: Int): Long? =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun findPosition(userId: UserId): Long? =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun count(): Long =
+                    throw RuntimeException("Redis connection refused")
+
+                override fun popMin(count: Int): List<UserId> =
+                    throw RuntimeException("Redis connection refused")
+            }
+            val useCase = GetQueuePositionUseCase(
+                waitingQueueRepository = failingWaitingQueueRepo,
+                entryTokenRepository = entryTokenRepository,
+                queueFallbackHandler = queueFallbackHandler,
+                queueProperties = QueueProperties(
+                    maxCapacity = maxCapacity,
+                    batchSize = 18,
+                    tokenTtlSeconds = 300,
+                    throughputTps = throughputTps,
+                    schedulerDelayMs = 100,
+                    ),
+            )
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.execute(1L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
+            assertThat(queueFallbackHandler.isAvailable()).isFalse()
         }
     }
 }

@@ -267,6 +267,35 @@ class RecoverPaymentUseCaseTest {
         }
 
         @Test
+        @DisplayName("PG SUCCESS이지만 주문 항목이 없으면 outbox가 생성되지 않는다")
+        fun execute_pgSuccess_emptyOrderItems_noOutboxCreated() {
+            // arrange — orderItems 없이 주문/결제 생성
+            val order = Order.create(
+                UserId(1L),
+                listOf(
+                    OrderProductData(ProductId(1L), "상품A", Money(BigDecimal("10000"))) to Quantity(1),
+                ),
+            )
+            val saved = orderRepository.save(order)
+            saved.markPendingPayment()
+            orderRepository.save(saved)
+            // orderItems를 저장하지 않음 — 비정상 상태
+            createRequestedPaymentForOrder(saved.id.value)
+            pgClient.transactionDetail = PgTransactionDetail(
+                transactionKey = "TR-EMPTY",
+                orderId = saved.id.value,
+                status = PgResultStatus.SUCCESS,
+            )
+
+            // act — afterCommit 내부에서 IllegalStateException 발생, 외부 catch에서 처리
+            val result = executeAndFlush(saved.id.value)
+
+            // assert — execute() 자체는 true (복구 시도 시작), outbox는 미생성
+            assertThat(result).isTrue()
+            assertThat(orderOutboxRepository.findAllUnpublished(100)).isEmpty()
+        }
+
+        @Test
         @DisplayName("PG 조회 결과가 FAILED이면 Payment FAILED, Order FAILED로 전환된다")
         fun execute_pgFailed_marksFailedState() {
             // arrange

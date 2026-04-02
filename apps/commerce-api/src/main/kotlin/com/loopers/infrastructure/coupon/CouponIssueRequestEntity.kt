@@ -47,11 +47,15 @@ class CouponIssueRequestEntity(
         }
     }
 
-    fun toDomain(): CouponIssueRequest = CouponIssueRequest(
-        id = id,
-        requestId = requestId,
-        couponId = CouponId(couponId),
-        userId = UserId(userId),
-        status = status,
-    )
+    fun toDomain(): CouponIssueRequest {
+        require(couponId > 0) { "couponId는 양수여야 합니다: $couponId" }
+        require(userId > 0) { "userId는 양수여야 합니다: $userId" }
+        return CouponIssueRequest(
+            id = id,
+            requestId = requestId,
+            couponId = CouponId(couponId),
+            userId = UserId(userId),
+            status = status,
+        )
+    }
 }

@@ -28,7 +28,6 @@ class QueueFlowIntegrationTest {
         tokenTtlSeconds = 300,
         throughputTps = 175,
         schedulerDelayMs = 100,
-        jitterMaxMs = 0,
     )
 
     @BeforeEach
@@ -43,11 +42,11 @@ class QueueFlowIntegrationTest {
     }
 
     @Nested
-    @DisplayName("동시 진입")
-    inner class ConcurrentEntry {
+    @DisplayName("순차 진입")
+    inner class SequentialEntry {
 
         @Test
-        @DisplayName("100명 진입 시 순번이 중복 없이 보장된다")
+        @DisplayName("100명 순차 진입 시 순번이 중복 없이 보장된다")
         fun hundredUsersEnter_positionsAreUnique() {
             // arrange & act
             val positions = (1L..100L).map { userId ->
@@ -146,11 +145,10 @@ class QueueFlowIntegrationTest {
             val reEnterResult = enterQueueUseCase.execute(1L)
             assertThat(reEnterResult.token).isEqualTo(token)
 
-            // act 5 — 토큰 검증 성공
+            // act 5 — 토큰 검증 성공 (consumeIfValid → 검증 + 소비 원자적 수행)
             validateEntryTokenUseCase.execute(1L, token)
 
-            // act 6 — 주문 완료 후 토큰 소비 (PlaceOrderUseCase 동작 시뮬레이션)
-            entryTokenRepository.delete(UserId(1L))
+            // assert — 검증 직후 토큰이 소비되어 조회 불가
             assertThat(entryTokenRepository.find(UserId(1L))).isNull()
         }
     }
