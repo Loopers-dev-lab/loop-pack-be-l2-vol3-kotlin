@@ -8,6 +8,7 @@ import org.springframework.core.MethodParameter
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
+import org.springframework.web.context.request.ServletWebRequest
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.method.support.ModelAndViewContainer
 
@@ -27,11 +28,19 @@ class CurrentUserIdArgumentResolver(
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
     ): Long {
+        val cachedUserId = (webRequest as? ServletWebRequest)
+            ?.request?.getAttribute(RESOLVED_USER_ID_ATTRIBUTE) as? Long
+        if (cachedUserId != null) return cachedUserId
+
         val loginId = webRequest.getHeader(AuthHeaders.User.LOGIN_ID)
             ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
         val password = webRequest.getHeader(AuthHeaders.User.LOGIN_PW)
             ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
 
         return authenticateUserUseCase.execute(loginId, password)
+    }
+
+    companion object {
+        private const val RESOLVED_USER_ID_ATTRIBUTE = "resolvedUserId"
     }
 }

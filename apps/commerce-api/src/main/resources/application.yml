@@ -70,6 +70,18 @@ resilience4j:
           - java.net.SocketTimeoutException
           - java.net.ConnectException
 
+queue:
+  enabled: true
+  max-queue-size: 50000 # 대기열 최대 인원 — 이 이상이면 429 응답으로 신규 진입 차단
+  scheduler:
+    interval-ms: 100 # 토큰 발급 주기(ms) — 1초에 10회 분산 발급하여 Thundering Herd 완화
+    batch-size: 18 # 1회당 발급 수 — 부하 테스트 후 재조정. 산정 근거: pool-size(40)/실측처리시간(초)×0.7/10
+  token:
+    ttl-seconds: 300 # 입장 토큰 유효 시간(5분) — 결제 재시도 여유 포함
+  redis:
+    queue-key: "waiting-queue"
+    token-key-prefix: "entry-token:"
+
 springdoc:
   use-fqn: true
   swagger-ui:

@@ -71,4 +71,10 @@ object ApiPaths {
         const val BY_ID = "$BASE/{paymentId}"
         const val RECOVER = "$BASE/{paymentId}/recover"
     }
+
+    object Queue {
+        const val BASE = "/api/v1/queue"
+        const val ENTER = "$BASE/enter"
+        const val POSITION = "$BASE/position"
+    }
 }
