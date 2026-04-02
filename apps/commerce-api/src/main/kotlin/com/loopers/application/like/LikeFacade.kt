@@ -1,55 +1,45 @@
 package com.loopers.application.like
 
-import com.loopers.application.product.ProductCacheStore
+import com.loopers.application.event.LikeActionType
+import com.loopers.application.event.LikeChangedEvent
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductService
-import org.springframework.orm.ObjectOptimisticLockingFailureException
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class LikeFacade(
     private val likeService: LikeService,
     private val productService: ProductService,
-    private val productCacheStore: ProductCacheStore,
+    private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
-    companion object {
-        private const val MAX_RETRY = 3
-    }
-
+    @Transactional
     fun likeProduct(userId: Long, productId: Long) {
         productService.findById(productId)
         val isNewLike = likeService.like(userId, productId)
         if (isNewLike) {
-            retryOnOptimisticLock { productService.incrementLikesCount(productId) }
-            invalidateProductReadCaches(productId)
+            applicationEventPublisher.publishEvent(
+                LikeChangedEvent(
+                    userId = userId,
+                    productId = productId,
+                    actionType = LikeActionType.LIKE,
+                ),
+            )
         }
     }
 
+    @Transactional
     fun unlikeProduct(userId: Long, productId: Long) {
         val wasActive = likeService.unlike(userId, productId)
         if (wasActive) {
-            retryOnOptimisticLock { productService.decrementLikesCount(productId) }
-            invalidateProductReadCaches(productId)
-        }
-    }
-
-    private fun invalidateProductReadCaches(productId: Long) {
-        productCacheStore.evictProductDetail(productId)
-        productCacheStore.evictProductList()
-    }
-
-    private fun retryOnOptimisticLock(action: () -> Unit) {
-        var attempts = 0
-        while (true) {
-            try {
-                action()
-                return
-            } catch (e: ObjectOptimisticLockingFailureException) {
-                attempts++
-                if (attempts >= MAX_RETRY) {
-                    throw e
-                }
-            }
+            applicationEventPublisher.publishEvent(
+                LikeChangedEvent(
+                    userId = userId,
+                    productId = productId,
+                    actionType = LikeActionType.UNLIKE,
+                ),
+            )
         }
     }
 }

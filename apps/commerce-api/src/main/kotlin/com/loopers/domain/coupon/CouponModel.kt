@@ -18,6 +18,7 @@ class CouponModel(
     value: Long,
     minOrderAmount: Long? = null,
     expiredAt: ZonedDateTime,
+    quantity: Long? = null,
 ) : BaseEntity() {
 
     @Column(nullable = false, length = 100)
@@ -41,9 +42,18 @@ class CouponModel(
     var expiredAt: ZonedDateTime = expiredAt
         protected set
 
+    @Column(name = "quantity")
+    var quantity: Long? = quantity
+        protected set
+
+    @Column(name = "issued_quantity", nullable = false)
+    var issuedQuantity: Long = 0
+        protected set
+
     init {
         validateName(name)
         validateValue(type, value)
+        validateQuantity(quantity)
     }
 
     fun update(
@@ -52,14 +62,29 @@ class CouponModel(
         value: Long,
         minOrderAmount: Long?,
         expiredAt: ZonedDateTime,
+        quantity: Long?,
     ) {
         validateName(name)
         validateValue(type, value)
+        validateQuantity(quantity)
+        validateQuantityChange(quantity)
         this.name = name
         this.type = type
         this.value = value
         this.minOrderAmount = minOrderAmount
         this.expiredAt = expiredAt
+        this.quantity = quantity
+    }
+
+    fun hasRemainingQuantity(): Boolean {
+        return quantity?.let { issuedQuantity < it } ?: true
+    }
+
+    fun increaseIssuedQuantity() {
+        if (!hasRemainingQuantity()) {
+            throw CoreException(ErrorType.CONFLICT, "쿠폰 수량이 모두 소진되었습니다.")
+        }
+        issuedQuantity += 1
     }
 
     fun calculateDiscount(orderAmount: Long): Long {
@@ -97,6 +122,20 @@ class CouponModel(
                     ErrorType.BAD_REQUEST,
                     "최소 주문 금액 조건을 충족하지 않습니다. (최소: ${it}원, 주문: ${orderAmount}원)",
                 )
+            }
+        }
+    }
+
+    private fun validateQuantity(quantity: Long?) {
+        if (quantity != null && quantity <= 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 수량은 1 이상이어야 합니다.")
+        }
+    }
+
+    private fun validateQuantityChange(quantity: Long?) {
+        quantity?.let {
+            if (it < issuedQuantity) {
+                throw CoreException(ErrorType.BAD_REQUEST, "쿠폰 수량은 이미 발급된 수량보다 작을 수 없습니다.")
             }
         }
     }

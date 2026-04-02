@@ -153,4 +153,66 @@ class CouponIssueServiceTest {
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.NOT_FOUND)
         }
     }
+
+    @DisplayName("issueFromRequest")
+    @Nested
+    inner class IssueFromRequest {
+        @DisplayName("수량이 남아있으면 발급 완료를 반환하고 쿠폰 발급 수량을 증가시킨다")
+        @Test
+        fun returnsCompletedWhenHasStock() {
+            val coupon = CouponModel(
+                name = "선착순",
+                type = CouponType.FIXED,
+                value = 1000L,
+                expiredAt = ZonedDateTime.now().plusDays(1),
+                quantity = 1,
+            )
+            val savedIssue = CouponIssueModel(couponId = COUPON_ID, userId = USER_ID)
+
+            every { couponRepository.findByIdForUpdate(COUPON_ID) } returns coupon
+            every { couponIssueRepository.findByCouponIdAndUserIdAndDeletedAtIsNull(COUPON_ID, USER_ID) } returns null
+            every { couponIssueRepository.save(any()) } returns savedIssue
+            every { couponRepository.save(any()) } answers { firstArg() }
+
+            val result = couponIssueService.issueFromRequest(COUPON_ID, USER_ID)
+
+            assertThat(result).isEqualTo(CouponIssueProcessResult.Completed(savedIssue.id))
+            assertThat(coupon.issuedQuantity).isEqualTo(1)
+        }
+
+        @DisplayName("이미 발급된 사용자면 DUPLICATE를 반환한다")
+        @Test
+        fun returnsDuplicateWhenAlreadyIssued() {
+            val coupon = createCoupon()
+            every { couponRepository.findByIdForUpdate(COUPON_ID) } returns coupon
+            every {
+                couponIssueRepository.findByCouponIdAndUserIdAndDeletedAtIsNull(COUPON_ID, USER_ID)
+            } returns CouponIssueModel(couponId = COUPON_ID, userId = USER_ID)
+
+            val result = couponIssueService.issueFromRequest(COUPON_ID, USER_ID)
+
+            assertThat(result).isEqualTo(CouponIssueProcessResult.Duplicate)
+        }
+
+        @DisplayName("수량이 소진되면 SOLD_OUT을 반환한다")
+        @Test
+        fun returnsSoldOutWhenNoStock() {
+            val coupon = CouponModel(
+                name = "품절쿠폰",
+                type = CouponType.FIXED,
+                value = 1000L,
+                expiredAt = ZonedDateTime.now().plusDays(1),
+                quantity = 1,
+            ).apply {
+                increaseIssuedQuantity()
+            }
+
+            every { couponRepository.findByIdForUpdate(COUPON_ID) } returns coupon
+            every { couponIssueRepository.findByCouponIdAndUserIdAndDeletedAtIsNull(COUPON_ID, USER_ID) } returns null
+
+            val result = couponIssueService.issueFromRequest(COUPON_ID, USER_ID)
+
+            assertThat(result).isEqualTo(CouponIssueProcessResult.SoldOut)
+        }
+    }
 }

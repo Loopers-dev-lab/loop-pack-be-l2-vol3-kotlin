@@ -1,28 +1,28 @@
 package com.loopers.application.like
 
-import com.loopers.application.product.ProductCacheStore
+import com.loopers.application.event.LikeActionType
+import com.loopers.application.event.LikeChangedEvent
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.runs
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.context.ApplicationEventPublisher
 
 @DisplayName("LikeFacade")
 class LikeFacadeTest {
 
     private val likeService: LikeService = mockk()
     private val productService: ProductService = mockk()
-    private val productCacheStore: ProductCacheStore = mockk(relaxed = true)
-    private val likeFacade = LikeFacade(likeService, productService, productCacheStore)
+    private val applicationEventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
+    private val likeFacade = LikeFacade(likeService, productService, applicationEventPublisher)
 
     companion object {
         private const val USER_ID = 1L
@@ -46,7 +46,6 @@ class LikeFacadeTest {
             val product = createProduct()
             every { productService.findById(PRODUCT_ID) } returns product
             every { likeService.like(USER_ID, PRODUCT_ID) } returns true
-            every { productService.incrementLikesCount(PRODUCT_ID) } just runs
 
             // act
             likeFacade.likeProduct(USER_ID, PRODUCT_ID)
@@ -54,9 +53,15 @@ class LikeFacadeTest {
             // assert
             verify(exactly = 1) { productService.findById(PRODUCT_ID) }
             verify(exactly = 1) { likeService.like(USER_ID, PRODUCT_ID) }
-            verify(exactly = 1) { productService.incrementLikesCount(PRODUCT_ID) }
-            verify(exactly = 1) { productCacheStore.evictProductDetail(PRODUCT_ID) }
-            verify(exactly = 1) { productCacheStore.evictProductList() }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<LikeChangedEvent> {
+                        it.userId == USER_ID &&
+                            it.productId == PRODUCT_ID &&
+                            it.actionType == LikeActionType.LIKE
+                    },
+                )
+            }
         }
 
         @DisplayName("이미 좋아요한 상품에 다시 좋아요하면 likesCount가 변동되지 않는다")
@@ -73,8 +78,7 @@ class LikeFacadeTest {
             // assert
             verify(exactly = 1) { productService.findById(PRODUCT_ID) }
             verify(exactly = 1) { likeService.like(USER_ID, PRODUCT_ID) }
-            verify(exactly = 0) { productService.incrementLikesCount(any()) }
-            verify(exactly = 0) { productCacheStore.evictProductDetail(any()) }
+            verify(exactly = 0) { applicationEventPublisher.publishEvent(any()) }
         }
 
         @DisplayName("존재하지 않는 상품에 좋아요하면 NOT_FOUND 예외가 발생한다")
@@ -93,7 +97,7 @@ class LikeFacadeTest {
 
             verify(exactly = 1) { productService.findById(PRODUCT_ID) }
             verify(exactly = 0) { likeService.like(any(), any()) }
-            verify(exactly = 0) { productService.incrementLikesCount(any()) }
+            verify(exactly = 0) { applicationEventPublisher.publishEvent(any()) }
         }
     }
 
@@ -105,16 +109,21 @@ class LikeFacadeTest {
         fun decrementsLikesCount_whenActiveLikeCancelled() {
             // arrange
             every { likeService.unlike(USER_ID, PRODUCT_ID) } returns true
-            every { productService.decrementLikesCount(PRODUCT_ID) } just runs
 
             // act
             likeFacade.unlikeProduct(USER_ID, PRODUCT_ID)
 
             // assert
             verify(exactly = 1) { likeService.unlike(USER_ID, PRODUCT_ID) }
-            verify(exactly = 1) { productService.decrementLikesCount(PRODUCT_ID) }
-            verify(exactly = 1) { productCacheStore.evictProductDetail(PRODUCT_ID) }
-            verify(exactly = 1) { productCacheStore.evictProductList() }
+            verify(exactly = 1) {
+                applicationEventPublisher.publishEvent(
+                    match<LikeChangedEvent> {
+                        it.userId == USER_ID &&
+                            it.productId == PRODUCT_ID &&
+                            it.actionType == LikeActionType.UNLIKE
+                    },
+                )
+            }
         }
 
         @DisplayName("좋아요 기록이 없거나 이미 취소된 경우 likesCount가 변동되지 않는다")
@@ -128,8 +137,7 @@ class LikeFacadeTest {
 
             // assert
             verify(exactly = 1) { likeService.unlike(USER_ID, PRODUCT_ID) }
-            verify(exactly = 0) { productService.decrementLikesCount(any()) }
-            verify(exactly = 0) { productCacheStore.evictProductDetail(any()) }
+            verify(exactly = 0) { applicationEventPublisher.publishEvent(any()) }
         }
     }
 }

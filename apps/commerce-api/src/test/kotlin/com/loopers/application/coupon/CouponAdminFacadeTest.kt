@@ -40,11 +40,13 @@ class CouponAdminFacadeTest {
                 value = 10L,
                 minOrderAmount = 10000L,
                 expiredAt = expiredAt,
+                quantity = 100L,
             )
 
             // assert
             assertThat(result.name).isEqualTo("테스트 쿠폰")
             assertThat(result.type).isEqualTo(CouponType.RATE)
+            assertThat(result.quantity).isEqualTo(100L)
             verify(exactly = 1) { couponService.create(any()) }
         }
     }

@@ -3,6 +3,9 @@ package com.loopers.application
 import com.loopers.application.like.LikeFacade
 import com.loopers.application.order.OrderFacade
 import com.loopers.application.order.OrderItemRequest
+import com.loopers.application.coupon.CouponFacade
+import com.loopers.domain.coupon.CouponIssueRequestService
+import com.loopers.domain.coupon.CouponIssueRequestStatus
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.coupon.CouponIssueModel
 import com.loopers.domain.coupon.CouponIssueStatus
@@ -11,6 +14,7 @@ import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.product.ProductModel
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.coupon.CouponIssueJpaRepository
+import com.loopers.infrastructure.coupon.CouponIssueRequestJpaRepository
 import com.loopers.infrastructure.coupon.CouponJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
 import com.loopers.utils.DatabaseCleanUp
@@ -31,10 +35,13 @@ import java.util.concurrent.atomic.AtomicInteger
 class ConcurrencyTest @Autowired constructor(
     private val orderFacade: OrderFacade,
     private val likeFacade: LikeFacade,
+    private val couponFacade: CouponFacade,
+    private val couponIssueRequestService: CouponIssueRequestService,
     private val productJpaRepository: ProductJpaRepository,
     private val brandJpaRepository: BrandJpaRepository,
     private val couponJpaRepository: CouponJpaRepository,
     private val couponIssueJpaRepository: CouponIssueJpaRepository,
+    private val couponIssueRequestJpaRepository: CouponIssueRequestJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
 
@@ -180,6 +187,50 @@ class ConcurrencyTest @Autowired constructor(
             assertThat(successCount.get()).isEqualTo(1)
             val updatedCouponIssue = couponIssueJpaRepository.findById(couponIssue.id).get()
             assertThat(updatedCouponIssue.status).isEqualTo(CouponIssueStatus.USED)
+        }
+
+        @DisplayName("선착순 쿠폰 발급 요청을 동시에 처리해도 수량을 초과 발급하지 않는다")
+        @Test
+        fun doesNotOverIssue_whenConcurrentCouponIssueRequests() {
+            val coupon = couponJpaRepository.save(
+                CouponModel(
+                    name = "선착순 쿠폰",
+                    type = CouponType.FIXED,
+                    value = 1000L,
+                    expiredAt = ZonedDateTime.now().plusDays(30),
+                    quantity = 100,
+                ),
+            )
+
+            val requests = (1L..200L).map { userId ->
+                couponFacade.issue(coupon.id, userId)
+            }
+
+            val threadCount = 200
+            val latch = CountDownLatch(threadCount)
+            val executor = Executors.newFixedThreadPool(32)
+
+            requests.forEach { request ->
+                executor.submit {
+                    try {
+                        couponIssueRequestService.process(request.requestId)
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+
+            latch.await()
+            executor.shutdown()
+
+            val issueCount = couponIssueJpaRepository.countByCouponIdAndDeletedAtIsNull(coupon.id)
+            val requestStatuses = couponIssueRequestJpaRepository.findAllByCouponIdAndDeletedAtIsNull(coupon.id)
+
+            assertThat(issueCount).isEqualTo(100)
+            assertThat(requestStatuses.count { it.status == CouponIssueRequestStatus.COMPLETED }).isEqualTo(100)
+            assertThat(requestStatuses.count { it.status == CouponIssueRequestStatus.SOLD_OUT }).isEqualTo(100)
+            val updatedCoupon = couponJpaRepository.findById(coupon.id).get()
+            assertThat(updatedCoupon.issuedQuantity).isEqualTo(100)
         }
     }
 

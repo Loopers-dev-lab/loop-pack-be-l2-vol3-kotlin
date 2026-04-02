@@ -22,6 +22,12 @@ class CouponService(
             ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다: $id")
     }
 
+    @Transactional
+    fun findByIdForUpdate(id: Long): CouponModel {
+        return couponRepository.findByIdForUpdate(id)
+            ?: throw CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다: $id")
+    }
+
     @Transactional(readOnly = true)
     fun findAllByIds(ids: List<Long>): List<CouponModel> {
         return couponRepository.findAllByIdInAndDeletedAtIsNull(ids)

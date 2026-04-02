@@ -1,6 +1,7 @@
 package com.loopers.application.order
 
 import com.loopers.application.payment.PaymentFacade
+import com.loopers.application.event.OrderCompletedEvent
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponIssueService
 import com.loopers.domain.coupon.CouponService
@@ -9,6 +10,7 @@ import com.loopers.domain.order.OrderService
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 
 @Component
@@ -20,6 +22,7 @@ class OrderFacade(
     private val brandService: BrandService,
     private val couponIssueService: CouponIssueService,
     private val couponService: CouponService,
+    private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
     fun createOrder(userId: Long, items: List<OrderItemRequest>, couponIssueId: Long? = null): OrderInfo {
         val order = orderTransactionRunner.runInTransaction {
@@ -58,6 +61,14 @@ class OrderFacade(
             if (couponIssueId != null) {
                 applyCoupon(userId, couponIssueId, createdOrder)
             }
+
+            applicationEventPublisher.publishEvent(
+                OrderCompletedEvent(
+                    orderId = createdOrder.id,
+                    userId = userId,
+                    totalAmount = createdOrder.totalAmount,
+                ),
+            )
 
             createdOrder
         }

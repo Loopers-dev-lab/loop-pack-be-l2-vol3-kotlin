@@ -13,6 +13,8 @@ data class CouponAdminInfo(
     val value: Long,
     val minOrderAmount: Long?,
     val expiredAt: ZonedDateTime,
+    val quantity: Long?,
+    val issuedQuantity: Long,
     val createdAt: ZonedDateTime?,
     val updatedAt: ZonedDateTime?,
 ) {
@@ -25,6 +27,8 @@ data class CouponAdminInfo(
                 value = coupon.value,
                 minOrderAmount = coupon.minOrderAmount,
                 expiredAt = coupon.expiredAt,
+                quantity = coupon.quantity,
+                issuedQuantity = coupon.issuedQuantity,
                 createdAt = runCatching { coupon.createdAt }.getOrNull(),
                 updatedAt = runCatching { coupon.updatedAt }.getOrNull(),
             )

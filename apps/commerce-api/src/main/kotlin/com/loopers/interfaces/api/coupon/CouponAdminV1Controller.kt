@@ -45,6 +45,7 @@ class CouponAdminV1Controller(
             value = request.value,
             minOrderAmount = request.minOrderAmount,
             expiredAt = request.expiredAt,
+            quantity = request.quantity,
         )
         return ApiResponse.success(result)
     }
@@ -61,6 +62,7 @@ class CouponAdminV1Controller(
             value = request.value,
             minOrderAmount = request.minOrderAmount,
             expiredAt = request.expiredAt,
+            quantity = request.quantity,
         )
         return ApiResponse.success(result)
     }

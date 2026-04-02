@@ -34,4 +34,8 @@ class CouponIssueRepositoryImpl(
     override fun findByIdForUpdate(id: Long): CouponIssueModel? {
         return couponIssueJpaRepository.findByIdForUpdate(id)
     }
+
+    override fun countByCouponIdAndDeletedAtIsNull(couponId: Long): Long {
+        return couponIssueJpaRepository.countByCouponIdAndDeletedAtIsNull(couponId)
+    }
 }
