@@ -292,5 +292,19 @@ class OrderQueueServiceTest {
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
+
+        @Test
+        @DisplayName("BYPASS_TOKEN이면 검증을 스킵하고 정상 종료한다")
+        fun skipsValidation_whenBypassToken() {
+            // arrange
+            val userId = 1L
+            whenever(entryTokenRepository.get(userId)).thenReturn(EntryTokenRepository.BYPASS_TOKEN)
+
+            // act & assert — 예외 없이 정상 종료, consume 호출하지 않음
+            orderQueueService.validateAndConsumeToken(userId, "any-token")
+
+            // assert
+            verify(entryTokenRepository, times(0)).consume(userId)
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.loopers.domain.queue
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.UUID
 
@@ -10,6 +11,8 @@ class OrderQueueService(
     private val orderQueueRepository: OrderQueueRepository,
     private val entryTokenRepository: EntryTokenRepository,
 ) {
+
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun enterQueue(userId: Long): Boolean {
         val score = System.currentTimeMillis().toDouble()
@@ -62,6 +65,11 @@ class OrderQueueService(
     fun validateAndConsumeToken(userId: Long, token: String) {
         val storedToken = entryTokenRepository.get(userId)
             ?: throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 존재하지 않습니다. userId=$userId")
+
+        if (storedToken == EntryTokenRepository.BYPASS_TOKEN) {
+            log.warn("대기열 bypass 모드: 토큰 검증 스킵. userId={}", userId)
+            return
+        }
 
         if (storedToken != token) {
             throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 일치하지 않습니다. userId=$userId")

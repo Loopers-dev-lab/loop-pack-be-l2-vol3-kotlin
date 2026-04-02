@@ -49,8 +49,10 @@ spring.cloud.openfeign:
         read-timeout: 2000     # 읽기 타임아웃 2초 (PG 응답 최대 500ms + 여유)
 
 # Resilience4j 설정
+# aspect-order: 낮은 값이 외부(먼저 실행). CB가 Retry를 감싸도록 설정
 resilience4j:
   circuitbreaker:
+    circuitBreakerAspectOrder: 1
     configs:
       default:
         sliding-window-type: COUNT_BASED
@@ -63,7 +65,16 @@ resilience4j:
     instances:
       pg-simulator:
         base-config: default
+      order-queue:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        register-health-indicator: true
+        automatic-transition-from-open-to-half-open-enabled: true
   retry:
+    retryAspectOrder: 2
     configs:
       default:
         max-attempts: 3
@@ -76,6 +87,13 @@ resilience4j:
     instances:
       pg-query:
         base-config: default
+      order-queue:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.data.redis.RedisConnectionFailureException
   bulkhead:
     instances:
       pg-simulator:
