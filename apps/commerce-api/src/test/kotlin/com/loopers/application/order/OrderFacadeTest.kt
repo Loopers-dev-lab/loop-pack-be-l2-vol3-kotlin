@@ -2,6 +2,7 @@ package com.loopers.application.order
 
 import com.loopers.application.event.OrderCompletedEvent
 import com.loopers.application.payment.PaymentFacade
+import com.loopers.application.queue.QueueFacade
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponIssueModel
@@ -40,10 +41,12 @@ class OrderFacadeTest {
     private val couponService: CouponService = mockk()
     private val orderTransactionRunner: OrderTransactionRunner = mockk()
     private val paymentFacade: PaymentFacade = mockk(relaxed = true)
+    private val queueFacade: QueueFacade = mockk(relaxed = true)
     private val applicationEventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
     private val orderFacade = OrderFacade(
         orderTransactionRunner,
         paymentFacade,
+        queueFacade,
         orderService,
         productService,
         brandService,

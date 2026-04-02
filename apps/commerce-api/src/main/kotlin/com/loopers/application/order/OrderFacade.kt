@@ -1,6 +1,7 @@
 package com.loopers.application.order
 
 import com.loopers.application.payment.PaymentFacade
+import com.loopers.application.queue.QueueFacade
 import com.loopers.application.event.OrderCompletedEvent
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponIssueService
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component
 class OrderFacade(
     private val orderTransactionRunner: OrderTransactionRunner,
     private val paymentFacade: PaymentFacade,
+    private val queueFacade: QueueFacade,
     private val orderService: OrderService,
     private val productService: ProductService,
     private val brandService: BrandService,
@@ -25,6 +27,7 @@ class OrderFacade(
     private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
     fun createOrder(userId: Long, items: List<OrderItemRequest>, couponIssueId: Long? = null): OrderInfo {
+        queueFacade.validateEntryToken(userId)
         val order = orderTransactionRunner.runInTransaction {
             validateNoDuplicateProducts(items)
 
@@ -73,6 +76,7 @@ class OrderFacade(
             createdOrder
         }
 
+        queueFacade.consumeEntryToken(userId)
         paymentFacade.requestPayment(order.id, order.totalAmount)
         return OrderInfo.from(order)
     }

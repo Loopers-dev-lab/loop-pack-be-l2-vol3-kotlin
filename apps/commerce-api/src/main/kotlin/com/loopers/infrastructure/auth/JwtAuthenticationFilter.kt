@@ -28,6 +28,7 @@ class JwtAuthenticationFilter(
             "/api/v1/orders",
             "/api/v1/coupons/",
             "/api/v1/users/me/",
+            "/api/v1/queue",
         )
 
         private val AUTHENTICATED_PATH_SUFFIXES = listOf(

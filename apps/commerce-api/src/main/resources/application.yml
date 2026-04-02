@@ -25,6 +25,11 @@ spring:
       - logging.yml
       - monitoring.yml
 
+queue:
+  scheduler:
+    fixed-delay-ms: 100
+    enabled: true
+
 step2:
   kafka:
     catalog-topic: catalog-events
@@ -62,6 +67,10 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+queue:
+  scheduler:
+    enabled: false
 
 step2:
   outbox-relay:
