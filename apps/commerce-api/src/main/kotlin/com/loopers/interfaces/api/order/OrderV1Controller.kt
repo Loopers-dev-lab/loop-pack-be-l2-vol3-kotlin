@@ -44,6 +44,10 @@ class OrderV1Controller(
         val orderResult = orderFacade.placeOrder(user.id, cmd)
 
         // 주문 성공 후 입장 토큰 소비 (active slot 해제)
+        // NOTE: 토큰 소비는 이벤트 기반으로 처리하면 어떨까?
+        //   비동기로 처리시 주문 처리 성능은 빨라질 수 있지만, 이벤트가 소비되기 전에
+        //   사용자가 토큰을 재사용할 수 있음 + 토큰 소비 실패하면 해당 요청이 실패되야할 수도 있기에
+        //   동기로 처리하도록 유지하는게 올바른 방향이라 생각
         queueFacade.consumeToken(user.id)
 
         return OrderV1Dto.OrderResponse.from(orderResult)
