@@ -48,10 +48,10 @@
 ## RD-006. 스케줄러 분산 락 (ShedLock)
 - **keywords**: `scheduler`, `distributed lock`, `ShedLock`, `분산 락`, `다중 인스턴스`
 - **리뷰어**: CodeRabbit
-- **repeat_count**: 1
+- **repeat_count**: 3
 - **최종 결정**: 기각 (현 단계)
-- **근거**: 단일 인스턴스 배포. RecoverPaymentUseCase가 비관적 락으로 중복 방지. 스케일아웃 시 도입 필요하나 premature.
-- **최종 업데이트**: 2026-03-17
+- **근거**: 단일 인스턴스 배포. RecoverPaymentUseCase가 비관적 락으로 중복 방지. QueueScheduler도 동일 전제. 스케일아웃 시 도입 필요하나 premature.
+- **최종 업데이트**: 2026-04-02
 
 ## RD-007. TIMEOUT 시 Order 상태 미갱신 (비대칭)
 - **keywords**: `TIMEOUT`, `Order`, `markFailed`, `비대칭`, `상태 미갱신`
