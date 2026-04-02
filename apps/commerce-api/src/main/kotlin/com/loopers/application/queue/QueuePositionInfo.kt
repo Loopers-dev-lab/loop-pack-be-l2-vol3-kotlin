@@ -5,4 +5,6 @@ data class QueuePositionInfo(
     val estimatedWaitSeconds: Long,
     val totalWaiting: Long,
     val token: String?,
+    val nextPollAfterMs: Long,
+    val activateAfterMs: Long?,
 )

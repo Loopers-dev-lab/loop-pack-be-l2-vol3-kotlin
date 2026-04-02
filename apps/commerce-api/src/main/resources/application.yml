@@ -22,7 +22,8 @@ pg:
 
 queue:
   scheduler:
-    enabled: true
+    enabled: ${QUEUE_SCHEDULER_ENABLED:false}
+  fallback-strategy: ${QUEUE_FALLBACK_STRATEGY:block}
 
 spring:
   main:
@@ -89,16 +90,6 @@ management:
   health:
     circuitbreakers:
       enabled: true
-
----
-spring:
-  config:
-    activate:
-      on-profile: test
-
-queue:
-  scheduler:
-    enabled: false
 
 ---
 spring:

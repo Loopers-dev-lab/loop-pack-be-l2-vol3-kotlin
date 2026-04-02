@@ -35,6 +35,10 @@ class QueueV1Dto {
         val totalWaiting: Long,
         @Schema(description = "입장 토큰 (순서가 왔을 때만 포함)", example = "1:1234567890123456")
         val token: String?,
+        @Schema(description = "다음 Polling까지 대기 시간 (ms). 순번이 멀수록 길어짐", example = "1000")
+        val nextPollAfterMs: Long,
+        @Schema(description = "토큰 활성화까지 대기 시간 (ms). Jitter로 동시 주문 분산. 토큰이 없으면 null", example = "1200")
+        val activateAfterMs: Long?,
     ) {
         companion object {
             fun from(info: QueuePositionInfo): PositionResponse =
@@ -43,6 +47,8 @@ class QueueV1Dto {
                     estimatedWaitSeconds = info.estimatedWaitSeconds,
                     totalWaiting = info.totalWaiting,
                     token = info.token,
+                    nextPollAfterMs = info.nextPollAfterMs,
+                    activateAfterMs = info.activateAfterMs,
                 )
         }
     }

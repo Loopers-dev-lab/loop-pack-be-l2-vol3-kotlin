@@ -12,7 +12,6 @@ import java.time.Duration
 class WaitingQueueRedisRepository(
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val masterRedisTemplate: RedisTemplate<String, String>,
-    private val redisTemplate: RedisTemplate<String, String>,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -27,12 +26,12 @@ class WaitingQueueRedisRepository(
     }
 
     fun getPosition(userId: Long): Long? {
-        val rank = redisTemplate.opsForZSet().rank(QUEUE_KEY, userId.toString())
+        val rank = masterRedisTemplate.opsForZSet().rank(QUEUE_KEY, userId.toString())
         return rank?.let { it + 1 } // 0-based → 1-based
     }
 
     fun getTotalCount(): Long {
-        return redisTemplate.opsForZSet().zCard(QUEUE_KEY) ?: 0
+        return masterRedisTemplate.opsForZSet().zCard(QUEUE_KEY) ?: 0
     }
 
     /**
@@ -43,19 +42,27 @@ class WaitingQueueRedisRepository(
      * @return 토큰이 발급된 userId 목록
      */
     fun popAndIssueTokens(count: Long): List<Long> {
-        val result = masterRedisTemplate.execute(
-            POP_AND_ISSUE_SCRIPT,
-            listOf(QUEUE_KEY),
-            count.toString(),
-            TOKEN_KEY_PREFIX,
-            TOKEN_TTL.seconds.toString(),
-        )
+        val members = masterRedisTemplate.opsForZSet().popMin(QUEUE_KEY, count) ?: return emptyList()
+        log.info("popAndIssueTokens: requested={}, popped={}", count, members.size)
+        val issuedUserIds = mutableListOf<Long>()
 
-        return result?.mapNotNull { it.toString().toLongOrNull() } ?: emptyList()
+        for (member in members) {
+            val userId = member.value?.toLongOrNull() ?: continue
+            val tokenValue = "$userId:${System.currentTimeMillis()}"
+            masterRedisTemplate.opsForValue().set(
+                "$TOKEN_KEY_PREFIX$userId",
+                tokenValue,
+                TOKEN_TTL,
+            )
+            issuedUserIds.add(userId)
+            log.info("popAndIssueTokens: issued token for userId={}", userId)
+        }
+
+        return issuedUserIds
     }
 
     fun getToken(userId: Long): String? {
-        return redisTemplate.opsForValue().get("$TOKEN_KEY_PREFIX$userId")
+        return masterRedisTemplate.opsForValue().get("$TOKEN_KEY_PREFIX$userId")
     }
 
     fun deleteToken(userId: Long) {
@@ -63,11 +70,11 @@ class WaitingQueueRedisRepository(
     }
 
     fun hasToken(userId: Long): Boolean {
-        return redisTemplate.hasKey("$TOKEN_KEY_PREFIX$userId")
+        return masterRedisTemplate.hasKey("$TOKEN_KEY_PREFIX$userId")
     }
 
     fun isInQueue(userId: Long): Boolean {
-        return redisTemplate.opsForZSet().score(QUEUE_KEY, userId.toString()) != null
+        return masterRedisTemplate.opsForZSet().score(QUEUE_KEY, userId.toString()) != null
     }
 
     companion object {
@@ -86,13 +93,15 @@ class WaitingQueueRedisRepository(
          */
         private val POP_AND_ISSUE_SCRIPT: RedisScript<List<*>> = RedisScript.of(
             """
-            local results = redis.call('ZPOPMIN', KEYS[1], ARGV[1])
+            local count = tonumber(ARGV[1])
+            local ttl = tonumber(ARGV[3])
+            local results = redis.call('ZPOPMIN', KEYS[1], count)
             local issued = {}
             for i = 1, #results, 2 do
                 local userId = results[i]
                 local token = redis.call('TIME')
                 local tokenValue = userId .. ':' .. token[1] .. token[2]
-                redis.call('SET', ARGV[2] .. userId, tokenValue, 'EX', ARGV[3])
+                redis.call('SET', ARGV[2] .. userId, tokenValue, 'EX', ttl)
                 table.insert(issued, userId)
             end
             return issued
