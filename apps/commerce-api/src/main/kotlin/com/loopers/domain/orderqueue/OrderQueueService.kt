@@ -20,7 +20,8 @@ class OrderQueueService(
             throw CoreException(ErrorType.CONFLICT, "이미 대기열에 진입한 상태입니다.")
         }
 
-        val position = orderQueueRedisRepository.getPosition(userId) ?: 1L
+        val position = orderQueueRedisRepository.getPosition(userId)
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "대기열 진입 후 순번 조회에 실패했습니다.")
         val totalWaiting = orderQueueRedisRepository.getTotalSize()
 
         return QueueEntryInfo(
@@ -32,8 +33,8 @@ class OrderQueueService(
     }
 
     fun getPosition(userId: Long): QueuePositionInfo {
-        if (orderQueueRedisRepository.hasToken(userId)) {
-            val ttl = orderQueueRedisRepository.getTokenTtl(userId)
+        val ttl = orderQueueRedisRepository.getTokenTtl(userId)
+        if (ttl > 0) {
             return QueuePositionInfo(
                 status = QueueStatus.ACTIVE,
                 tokenExpireSeconds = ttl,
@@ -72,7 +73,7 @@ class OrderQueueService(
     }
 
     fun calculateEstimatedWaitSeconds(position: Long): Long {
-        return maxOf(position / THROUGHPUT_PER_SECOND, 1L)
+        return (position + THROUGHPUT_PER_SECOND - 1) / THROUGHPUT_PER_SECOND
     }
 
     fun calculatePollingInterval(position: Long): Int {

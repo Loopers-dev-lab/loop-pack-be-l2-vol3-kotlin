@@ -58,6 +58,20 @@ class OrderQueueServiceTest {
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.CONFLICT)
         }
+
+        @DisplayName("enqueue 성공 후 getPosition이 null이면 INTERNAL_ERROR 예외가 발생한다.")
+        @Test
+        fun throwsInternalErrorWhenPositionIsNullAfterEnqueue() {
+            // arrange
+            every { orderQueueRedisRepository.enqueue(USER_ID) } returns 1L
+            every { orderQueueRedisRepository.getPosition(USER_ID) } returns null
+
+            // act & assert
+            val exception = assertThrows<CoreException> {
+                orderQueueService.enter(USER_ID)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.INTERNAL_ERROR)
+        }
     }
 
     @DisplayName("getPosition")
@@ -69,7 +83,7 @@ class OrderQueueServiceTest {
             // arrange
             val expectedPosition = 3L
             val expectedTotalWaiting = 10L
-            every { orderQueueRedisRepository.hasToken(USER_ID) } returns false
+            every { orderQueueRedisRepository.getTokenTtl(USER_ID) } returns -2L
             every { orderQueueRedisRepository.getPosition(USER_ID) } returns expectedPosition
             every { orderQueueRedisRepository.getTotalSize() } returns expectedTotalWaiting
 
@@ -92,7 +106,6 @@ class OrderQueueServiceTest {
         fun returnsActiveStatusWhenTokenIssued() {
             // arrange
             val expectedTtl = 250L
-            every { orderQueueRedisRepository.hasToken(USER_ID) } returns true
             every { orderQueueRedisRepository.getTokenTtl(USER_ID) } returns expectedTtl
 
             // act
@@ -111,7 +124,7 @@ class OrderQueueServiceTest {
         @Test
         fun returnsNotInQueueWhenNeitherInQueueNorToken() {
             // arrange
-            every { orderQueueRedisRepository.hasToken(USER_ID) } returns false
+            every { orderQueueRedisRepository.getTokenTtl(USER_ID) } returns -2L
             every { orderQueueRedisRepository.getPosition(USER_ID) } returns null
 
             // act
@@ -177,21 +190,17 @@ class OrderQueueServiceTest {
     @DisplayName("calculateEstimatedWaitSeconds")
     @Nested
     inner class CalculateEstimatedWaitSeconds {
-        @DisplayName("순번 기반 예상 대기시간을 계산한다.")
+        @DisplayName("순번 기반 예상 대기시간을 올림 나눗셈으로 계산한다.")
         @Test
-        fun calculatesEstimatedWaitSeconds() {
-            // 70 TPS 기준: position / 70
-            val result = orderQueueService.calculateEstimatedWaitSeconds(140L)
-
-            assertThat(result).isEqualTo(2L) // 140 / 70 = 2
-        }
-
-        @DisplayName("최소 1초를 반환한다.")
-        @Test
-        fun returnsAtLeastOneSecond() {
-            val result = orderQueueService.calculateEstimatedWaitSeconds(1L)
-
-            assertThat(result).isEqualTo(1L)
+        fun calculatesWithCeilDivision() {
+            // 70 TPS 기준
+            assertAll(
+                { assertThat(orderQueueService.calculateEstimatedWaitSeconds(1L)).isEqualTo(1L) },
+                { assertThat(orderQueueService.calculateEstimatedWaitSeconds(70L)).isEqualTo(1L) },
+                { assertThat(orderQueueService.calculateEstimatedWaitSeconds(71L)).isEqualTo(2L) },
+                { assertThat(orderQueueService.calculateEstimatedWaitSeconds(140L)).isEqualTo(2L) },
+                { assertThat(orderQueueService.calculateEstimatedWaitSeconds(141L)).isEqualTo(3L) },
+            )
         }
     }
 
