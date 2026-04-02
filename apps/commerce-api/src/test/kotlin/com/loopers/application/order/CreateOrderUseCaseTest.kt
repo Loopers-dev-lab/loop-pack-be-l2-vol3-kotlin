@@ -94,6 +94,7 @@ class CreateOrderUseCaseTest @Autowired constructor(
                 type = type,
                 value = value,
                 minOrderAmount = minOrderAmount,
+                maxQuantity = null,
                 expiredAt = expiredAt,
             ),
         ).id

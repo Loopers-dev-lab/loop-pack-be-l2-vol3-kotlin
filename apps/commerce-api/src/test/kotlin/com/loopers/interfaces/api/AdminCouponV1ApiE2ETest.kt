@@ -69,7 +69,7 @@ class AdminCouponV1ApiE2ETest @Autowired constructor(
     ): AdminCouponResponse {
         val request = AdminCouponRegisterRequest(
             name = name, type = type, value = value,
-            minOrderAmount = null, expiredAt = ZonedDateTime.now().plusDays(30),
+            minOrderAmount = null, maxQuantity = null, expiredAt = ZonedDateTime.now().plusDays(30),
         )
         val responseType = object : ParameterizedTypeReference<ApiResponse<AdminCouponResponse>>() {}
         val response = testRestTemplate.exchange(
@@ -88,7 +88,7 @@ class AdminCouponV1ApiE2ETest @Autowired constructor(
         fun success() {
             val request = AdminCouponRegisterRequest(
                 name = "1000원 할인", type = com.loopers.domain.coupon.CouponType.FIXED,
-                value = 1000, minOrderAmount = 10000, expiredAt = ZonedDateTime.now().plusDays(30),
+                value = 1000, minOrderAmount = 10000, maxQuantity = null, expiredAt = ZonedDateTime.now().plusDays(30),
             )
             val responseType = object : ParameterizedTypeReference<ApiResponse<AdminCouponResponse>>() {}
             val response = testRestTemplate.exchange(
@@ -108,7 +108,7 @@ class AdminCouponV1ApiE2ETest @Autowired constructor(
         fun failWhenNotAdmin() {
             val request = AdminCouponRegisterRequest(
                 name = "쿠폰", type = com.loopers.domain.coupon.CouponType.FIXED,
-                value = 1000, minOrderAmount = null, expiredAt = ZonedDateTime.now().plusDays(30),
+                value = 1000, minOrderAmount = null, maxQuantity = null, expiredAt = ZonedDateTime.now().plusDays(30),
             )
             val response = testRestTemplate.exchange(
                 ApiPaths.AdminCoupons.BASE, HttpMethod.POST,

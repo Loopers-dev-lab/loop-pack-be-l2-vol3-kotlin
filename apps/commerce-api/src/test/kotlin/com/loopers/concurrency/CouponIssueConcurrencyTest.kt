@@ -58,6 +58,7 @@ class CouponIssueConcurrencyTest @Autowired constructor(
                 type = CouponType.FIXED,
                 value = 1000,
                 minOrderAmount = null,
+                maxQuantity = null,
                 expiredAt = ZonedDateTime.now().plusDays(30),
             ),
         ).id

@@ -71,7 +71,7 @@ class CouponV1ApiE2ETest @Autowired constructor(
     ): AdminCouponResponse {
         val request = AdminCouponRegisterRequest(
             name = name, type = type, value = value,
-            minOrderAmount = null, expiredAt = ZonedDateTime.now().plusDays(30),
+            minOrderAmount = null, maxQuantity = null, expiredAt = ZonedDateTime.now().plusDays(30),
         )
         val responseType = object : ParameterizedTypeReference<ApiResponse<AdminCouponResponse>>() {}
         val response = testRestTemplate.exchange(

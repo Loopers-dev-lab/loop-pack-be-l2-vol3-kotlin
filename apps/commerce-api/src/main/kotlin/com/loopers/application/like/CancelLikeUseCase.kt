@@ -1,19 +1,20 @@
 package com.loopers.application.like
 
-import com.loopers.application.product.ProductCacheStore
+import com.loopers.application.outbox.OutboxEventWriter
+import com.loopers.domain.event.LikeCancelledEvent
 import com.loopers.domain.like.LikeRepository
-import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.outbox.OutboxEventType
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.LikeErrorCode
-import com.loopers.support.transaction.AfterCommit
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class CancelLikeUseCase(
     private val likeRepository: LikeRepository,
-    private val productRepository: ProductRepository,
-    private val productCacheStore: ProductCacheStore,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventWriter: OutboxEventWriter,
 ) {
 
     @Transactional
@@ -23,10 +24,12 @@ class CancelLikeUseCase(
 
         likeRepository.delete(like)
 
-        productRepository.decreaseLikeCount(like.productId)
-
-        AfterCommit.execute {
-            productCacheStore.evictDetail(like.productId)
-        }
+        val event = LikeCancelledEvent(userId = userId, productId = like.productId)
+        eventPublisher.publishEvent(event)
+        outboxEventWriter.write(
+            eventType = OutboxEventType.LIKE_CANCELLED,
+            partitionKey = like.productId.toString(),
+            payload = event,
+        )
     }
 }

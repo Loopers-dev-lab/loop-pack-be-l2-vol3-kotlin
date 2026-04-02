@@ -13,6 +13,9 @@ import com.loopers.support.error.LikeErrorCode
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -23,6 +26,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.testcontainers.RedisTestContainersConfig
+import java.time.Duration
 import java.time.LocalDate
 
 @SpringBootTest
@@ -76,7 +80,7 @@ class CancelLikeUseCaseTest @Autowired constructor(
     @Nested
     inner class Execute {
 
-        @DisplayName("좋아요를 취소하면 likeCount가 1 감소한다")
+        @DisplayName("좋아요를 취소하면 likeCount가 비동기로 1 감소한다")
         @Test
         fun success() {
             // arrange
@@ -84,12 +88,20 @@ class CancelLikeUseCaseTest @Autowired constructor(
             val productId = registerProduct()
             addLikeUseCase.execute(LikeCommand.Create(userId = userId, productId = productId))
 
+            // addLike의 비동기 likeCount 반영 대기
+            await atMost Duration.ofSeconds(3) untilAsserted {
+                val product = productRepository.findByIdOrNull(productId)
+                assertThat(product?.likeCount).isEqualTo(1)
+            }
+
             // act
             cancelLikeUseCase.execute(userId, productId)
 
-            // assert
-            val product = productRepository.findByIdOrNull(productId)
-            assertThat(product?.likeCount).isEqualTo(0)
+            // assert — likeCount는 AFTER_COMMIT + @Async로 비동기 반영
+            await atMost Duration.ofSeconds(3) untilAsserted {
+                val product = productRepository.findByIdOrNull(productId)
+                assertThat(product?.likeCount).isEqualTo(0)
+            }
         }
 
         @DisplayName("좋아요하지 않은 상품을 취소하면 LIKE_NOT_FOUND 예외가 발생한다")

@@ -9,6 +9,7 @@ data class AdminCouponResponse(
     val type: String,
     val value: Long,
     val minOrderAmount: Long?,
+    val maxQuantity: Int?,
     val expiredAt: ZonedDateTime,
     val createdAt: ZonedDateTime,
 ) {
@@ -20,6 +21,7 @@ data class AdminCouponResponse(
                 type = info.type,
                 value = info.value,
                 minOrderAmount = info.minOrderAmount,
+                maxQuantity = info.maxQuantity,
                 expiredAt = info.expiredAt,
                 createdAt = info.createdAt,
             )

@@ -27,6 +27,7 @@ class CouponTest {
                 type = CouponType.FIXED,
                 value = 1000,
                 minOrderAmount = 10000,
+                maxQuantity = null,
                 expiredAt = validExpiredAt,
             )
 
@@ -46,6 +47,7 @@ class CouponTest {
                 type = CouponType.RATE,
                 value = 10,
                 minOrderAmount = null,
+                maxQuantity = null,
                 expiredAt = validExpiredAt,
             )
 
@@ -60,7 +62,7 @@ class CouponTest {
         @Test
         fun failWhenEmptyName() {
             val exception = assertThrows<CoreException> {
-                Coupon.create(name = "  ", type = CouponType.FIXED, value = 1000, minOrderAmount = null, expiredAt = validExpiredAt)
+                Coupon.create(name = "  ", type = CouponType.FIXED, value = 1000, minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt)
             }
             assertThat(exception.errorCode).isEqualTo(CouponErrorCode.INVALID_COUPON_NAME)
         }
@@ -69,7 +71,7 @@ class CouponTest {
         @Test
         fun failWhenZeroValue() {
             val exception = assertThrows<CoreException> {
-                Coupon.create(name = "쿠폰", type = CouponType.FIXED, value = 0, minOrderAmount = null, expiredAt = validExpiredAt)
+                Coupon.create(name = "쿠폰", type = CouponType.FIXED, value = 0, minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt)
             }
             assertThat(exception.errorCode).isEqualTo(CouponErrorCode.INVALID_COUPON_VALUE)
         }
@@ -78,7 +80,7 @@ class CouponTest {
         @Test
         fun failWhenRateExceeds100() {
             val exception = assertThrows<CoreException> {
-                Coupon.create(name = "쿠폰", type = CouponType.RATE, value = 101, minOrderAmount = null, expiredAt = validExpiredAt)
+                Coupon.create(name = "쿠폰", type = CouponType.RATE, value = 101, minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt)
             }
             assertThat(exception.errorCode).isEqualTo(CouponErrorCode.INVALID_RATE_VALUE)
         }
@@ -87,7 +89,7 @@ class CouponTest {
         @Test
         fun failWhenNegativeMinOrderAmount() {
             val exception = assertThrows<CoreException> {
-                Coupon.create(name = "쿠폰", type = CouponType.FIXED, value = 1000, minOrderAmount = -1, expiredAt = validExpiredAt)
+                Coupon.create(name = "쿠폰", type = CouponType.FIXED, value = 1000, minOrderAmount = -1, maxQuantity = null, expiredAt = validExpiredAt)
             }
             assertThat(exception.errorCode).isEqualTo(CouponErrorCode.INVALID_MIN_ORDER_AMOUNT)
         }
@@ -102,7 +104,7 @@ class CouponTest {
         fun fixedDiscount() {
             val coupon = Coupon.create(
                 name = "3000원 할인", type = CouponType.FIXED, value = 3000,
-                minOrderAmount = null, expiredAt = validExpiredAt,
+                minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt,
             )
 
             val discount = coupon.calculateDiscount(Money(10000))
@@ -115,7 +117,7 @@ class CouponTest {
         fun fixedDiscountCappedByOrderAmount() {
             val coupon = Coupon.create(
                 name = "5000원 할인", type = CouponType.FIXED, value = 5000,
-                minOrderAmount = null, expiredAt = validExpiredAt,
+                minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt,
             )
 
             val discount = coupon.calculateDiscount(Money(3000))
@@ -128,7 +130,7 @@ class CouponTest {
         fun rateDiscount() {
             val coupon = Coupon.create(
                 name = "10% 할인", type = CouponType.RATE, value = 10,
-                minOrderAmount = null, expiredAt = validExpiredAt,
+                minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt,
             )
 
             val discount = coupon.calculateDiscount(Money(10000))
@@ -141,7 +143,7 @@ class CouponTest {
         fun rateDiscountTruncated() {
             val coupon = Coupon.create(
                 name = "15% 할인", type = CouponType.RATE, value = 15,
-                minOrderAmount = null, expiredAt = validExpiredAt,
+                minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt,
             )
 
             val discount = coupon.calculateDiscount(Money(9999))
@@ -160,7 +162,7 @@ class CouponTest {
         fun failWhenExpired() {
             val coupon = Coupon.create(
                 name = "만료 쿠폰", type = CouponType.FIXED, value = 1000,
-                minOrderAmount = null, expiredAt = ZonedDateTime.now().minusDays(1),
+                minOrderAmount = null, maxQuantity = null, expiredAt = ZonedDateTime.now().minusDays(1),
             )
 
             val exception = assertThrows<CoreException> {
@@ -174,7 +176,7 @@ class CouponTest {
         fun failWhenMinOrderAmountNotMet() {
             val coupon = Coupon.create(
                 name = "쿠폰", type = CouponType.FIXED, value = 1000,
-                minOrderAmount = 10000, expiredAt = validExpiredAt,
+                minOrderAmount = 10000, maxQuantity = null, expiredAt = validExpiredAt,
             )
 
             val exception = assertThrows<CoreException> {
@@ -188,7 +190,7 @@ class CouponTest {
         fun successWhenNoMinOrderAmount() {
             val coupon = Coupon.create(
                 name = "쿠폰", type = CouponType.FIXED, value = 1000,
-                minOrderAmount = null, expiredAt = validExpiredAt,
+                minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt,
             )
 
             coupon.validateApplicable(Money(100))
@@ -204,7 +206,7 @@ class CouponTest {
         fun success() {
             val coupon = Coupon.create(
                 name = "쿠폰", type = CouponType.FIXED, value = 1000,
-                minOrderAmount = null, expiredAt = validExpiredAt,
+                minOrderAmount = null, maxQuantity = null, expiredAt = validExpiredAt,
             )
 
             coupon.delete()
