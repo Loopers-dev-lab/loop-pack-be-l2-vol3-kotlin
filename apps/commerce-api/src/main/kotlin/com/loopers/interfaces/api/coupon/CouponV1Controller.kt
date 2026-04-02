@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.coupon
 
 import com.loopers.application.api.coupon.CouponFacade
 import com.loopers.domain.coupon.dto.CouponInfo
+import com.loopers.domain.coupon.dto.CouponIssueRequestInfo
+import com.loopers.domain.coupon.dto.CouponIssuanceStatusInfo
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.PageResponse
 import com.loopers.support.validator.PageValidator
@@ -21,6 +23,25 @@ import org.springframework.web.bind.annotation.RestController
 class CouponV1Controller(
     private val couponFacade: CouponFacade,
 ) : CouponV1ApiSpec {
+
+    @PostMapping("/templates/{templateId}/request")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    override fun requestIssuance(
+        @PathVariable templateId: Long,
+        @RequestAttribute("userId") userId: Long,
+    ): ApiResponse<CouponIssueRequestInfo> {
+        val info = couponFacade.requestIssuance(userId, templateId)
+        return ApiResponse.success(data = info)
+    }
+
+    @GetMapping("/issue/{dedupeKey}/status")
+    override fun getIssuanceStatus(
+        @PathVariable dedupeKey: String,
+        @RequestAttribute("userId") userId: Long,
+    ): ApiResponse<CouponIssuanceStatusInfo> {
+        val status = couponFacade.getIssuanceStatus(dedupeKey, userId)
+        return ApiResponse.success(data = status)
+    }
 
     @PostMapping("/{couponId}/issue")
     @ResponseStatus(HttpStatus.OK)

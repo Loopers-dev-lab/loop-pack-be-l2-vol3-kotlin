@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     // add-ons
+    implementation(project(":apps:commerce-api"))
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
     implementation(project(":modules:kafka"))
@@ -21,4 +22,11 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+
+    // testcontainers
+    testImplementation("org.testcontainers:testcontainers:1.19.7")
+    testImplementation("org.testcontainers:junit-jupiter:1.19.7")
+    testImplementation("org.testcontainers:mysql:1.19.7")
+    testImplementation("org.testcontainers:kafka:1.19.7")
+    testImplementation("org.testcontainers:localstack:1.19.7")
 }

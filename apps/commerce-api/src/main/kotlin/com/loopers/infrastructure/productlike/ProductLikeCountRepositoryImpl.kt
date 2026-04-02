@@ -22,4 +22,8 @@ class ProductLikeCountRepositoryImpl(
 
     override fun save(productLikeCount: ProductLikeCount): ProductLikeCount =
         jpaRepository.save(productLikeCount)
+
+    override fun updateCount(productId: Long, count: Long) {
+        jpaRepository.updateCount(productId, count)
+    }
 }

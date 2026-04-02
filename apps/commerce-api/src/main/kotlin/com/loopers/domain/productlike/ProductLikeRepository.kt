@@ -19,4 +19,10 @@ interface ProductLikeRepository {
      * @return 삭제된 좋아요 개수 (0 또는 1)
      */
     fun deleteByUserIdAndProductId(userId: Long, productId: Long): Int
+
+    /**
+     * 상품별 좋아요 개수를 조회 (배치 용도)
+     * @return 상품ID와 좋아요개수의 DTO 목록
+     */
+    fun countByProductId(): List<ProductLikeCountDto>
 }

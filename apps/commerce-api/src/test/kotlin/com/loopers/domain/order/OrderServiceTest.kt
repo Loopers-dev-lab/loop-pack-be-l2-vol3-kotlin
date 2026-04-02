@@ -1,5 +1,6 @@
 package com.loopers.domain.order
 
+import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.order.dto.CreateOrderItemCommand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductService
@@ -13,6 +14,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 @DisplayName("OrderService")
@@ -20,10 +22,14 @@ class OrderServiceTest {
     private val orderRepository: OrderRepository = mockk()
     private val productService: ProductService = mockk()
     private val idGenerator: com.loopers.domain.SnowflakeIdGenerator = mockk()
+    private val outboxPublisher: OutboxPublisher = mockk(relaxed = true)
+    private val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
     private val orderService = OrderService(
         orderRepository = orderRepository,
         productService = productService,
         idGenerator = idGenerator,
+        outboxPublisher = outboxPublisher,
+        eventPublisher = eventPublisher,
     )
 
     private fun setupProductMock(productId: Long) {

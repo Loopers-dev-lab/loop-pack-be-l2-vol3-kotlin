@@ -8,7 +8,9 @@ import com.loopers.domain.payment.ReceiptService
 import com.loopers.domain.payment.ReceiptStatus
 import com.loopers.infrastructure.payment.ReceiptJpaRepository
 import com.loopers.infrastructure.order.OrderJpaRepository
+import com.loopers.support.eventually
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -87,11 +89,13 @@ class PaymentCallbackE2ETest {
         }
 
         // then
-        val updatedOrder = orderRepository.findById(savedOrder.id).orElseThrow()
-        val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+        eventually {
+            val updatedOrder = orderRepository.findById(savedOrder.id).orElseThrow()
+            val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
 
-        assert(updatedOrder.status == OrderStatus.PAID)
-        assert(updatedReceipt?.status == ReceiptStatus.COMPLETED)
+            assertThat(updatedOrder.status).isEqualTo(OrderStatus.PAID)
+            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.COMPLETED)
+        }
     }
 
     @Test
@@ -130,8 +134,10 @@ class PaymentCallbackE2ETest {
         }
 
         // then - 첫 번째 후 상태 확인
-        var updatedReceipt = receiptRepository.findByTransactionId("TXN001")
-        assert(updatedReceipt?.status == ReceiptStatus.COMPLETED)
+        eventually {
+            val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.COMPLETED)
+        }
 
         // when - 두 번째 콜백 (중복)
         mockMvc.post("/api/v1/payments/callback") {
@@ -142,10 +148,12 @@ class PaymentCallbackE2ETest {
         }
 
         // then - 두 번째 후에도 상태 변경 없음
-        updatedReceipt = receiptRepository.findByTransactionId("TXN001")
-        val finalOrder = orderRepository.findById(savedOrder.id).orElseThrow()
-        assert(updatedReceipt?.status == ReceiptStatus.COMPLETED)
-        assert(finalOrder.status == OrderStatus.PAID) // Order 상태도 여전히 PAID
+        eventually {
+            val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+            val finalOrder = orderRepository.findById(savedOrder.id).orElseThrow()
+            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.COMPLETED)
+            assertThat(finalOrder.status).isEqualTo(OrderStatus.PAID)
+        }
     }
 
     @Test
@@ -181,6 +189,14 @@ class PaymentCallbackE2ETest {
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
             status { isOk() }
+        }
+
+        eventually {
+            val updatedOrder = orderRepository.findById(savedOrder.id).orElseThrow()
+            val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+
+            assertThat(updatedOrder.status).isEqualTo(OrderStatus.PENDING)
+            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.FAILED)
         }
     }
 
@@ -289,7 +305,15 @@ class PaymentCallbackE2ETest {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(callbackRequest)
         }.andExpect {
-            status { isBadRequest() } // ✅ Order 상태 오류로 BadRequest
+            status { isBadRequest() }
+        }
+
+        eventually {
+            val updatedOrder = orderRepository.findById(savedOrder.id).orElseThrow()
+            val updatedReceipt = receiptRepository.findByTransactionId("TXN001")
+
+            assertThat(updatedOrder.status).isEqualTo(OrderStatus.PENDING)
+            assertThat(updatedReceipt?.status).isEqualTo(ReceiptStatus.PENDING)
         }
     }
 }

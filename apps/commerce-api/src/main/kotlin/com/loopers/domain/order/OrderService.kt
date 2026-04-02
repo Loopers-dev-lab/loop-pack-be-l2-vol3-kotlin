@@ -5,9 +5,13 @@ import com.loopers.domain.order.dto.CreateOrderItemCommand
 import com.loopers.domain.order.dto.OrderInfo
 import com.loopers.domain.order.dto.OrderItemSpec
 import com.loopers.domain.order.dto.OrderedInfo
+import com.loopers.domain.event.OrderCreatedEvent
+import com.loopers.domain.event.OrderLineItem
+import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
@@ -19,6 +23,8 @@ class OrderService(
     private val orderRepository: OrderRepository,
     private val productService: ProductService,
     private val idGenerator: SnowflakeIdGenerator,
+    private val outboxPublisher: OutboxPublisher,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -43,6 +49,22 @@ class OrderService(
         itemSpecs.forEach { spec ->
             savedOrder.addItem(spec.product, spec.quantity, spec.price)
         }
+
+        // Publish OrderCreatedEvent to Outbox (same transaction)
+        val lineItems = itemSpecs.map { spec ->
+            OrderLineItem(
+                productId = spec.product.id,
+                quantity = spec.quantity,
+            )
+        }
+        val event = OrderCreatedEvent(
+            orderId = savedOrder.id,
+            lineItems = lineItems,
+        )
+        outboxPublisher.publish(event, savedOrder.id, topic = "order-events")
+
+        // Publish ApplicationEvent for local listeners
+        eventPublisher.publishEvent(event)
 
         return savedOrder
     }

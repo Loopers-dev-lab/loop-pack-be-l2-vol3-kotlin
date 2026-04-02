@@ -1,6 +1,7 @@
 package com.loopers.domain.productlike
 
 import com.loopers.domain.brand.Brand
+import com.loopers.domain.outbox.OutboxPublisher
 import com.loopers.domain.product.Product
 import com.loopers.domain.user.User
 import com.loopers.domain.user.vo.BirthDate
@@ -19,11 +20,14 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.math.BigDecimal
+import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @DisplayName("ProductLike 동시성 테스트")
 @SpringBootTest
@@ -38,6 +42,14 @@ class ProductLikeConcurrencyTest @Autowired constructor(
     private val passwordEncoder: PasswordEncoder,
     private val entityManager: EntityManager,
 ) {
+    @MockBean
+    private lateinit var outboxPublisher: OutboxPublisher
+
+    private fun countAuthoritativeLikes(productId: Long): Long =
+        entityManager
+            .createQuery("SELECT COUNT(pl) FROM ProductLike pl WHERE pl.product.id = :productId")
+            .setParameter("productId", productId)
+            .singleResult as Long
 
     @AfterEach
     fun tearDown() {
@@ -65,9 +77,9 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         return productJpaRepository.save(product)
     }
 
-    @DisplayName("단일 사용자의 좋아요로 like_count가 1 증가한다")
+    @DisplayName("단일 사용자의 좋아요로 ProductLike 행이 저장된다")
     @Test
-    fun likeCountIncrementsBy1_whenSingleUserLikes() {
+    fun productLikeCreated_whenSingleUserLikes() {
         // arrange
         val testProduct = createTestProduct()
         val testUser = createTestUser(1)
@@ -75,15 +87,13 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         // act
         productLikeService.addProductLike(testUser, testProduct)
 
-        // assert - 트랜잭션 완료 후 새로 조회하므로 flush/clear 불필요
-        Thread.sleep(50) // 이벤트 처리 대기
-        val likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        assertThat(likeCount).isEqualTo(1)
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
     }
 
-    @DisplayName("순차적으로 10명이 좋아요할 때, like_count가 정확하게 증가한다")
+    @DisplayName("순차적으로 10명이 좋아요할 때, 10개의 ProductLike 행이 저장된다")
     @Test
-    fun likeCountIncrementsAccurately_whenMultipleUsersLikeSequentially() {
+    fun productLikeCreated_whenMultipleUsersLikeSequentially() {
         // arrange
         val testProduct = createTestProduct()
         val users = (1..10).map { createTestUser(it) }
@@ -93,15 +103,51 @@ class ProductLikeConcurrencyTest @Autowired constructor(
             productLikeService.addProductLike(user, testProduct)
         }
 
-        // assert
-        Thread.sleep(50) // 이벤트 처리 대기
-        val likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        assertThat(likeCount).isEqualTo(10)
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(10)
     }
 
-    @DisplayName("10명이 동시에 같은 상품을 좋아요할 때, like_count가 정확하게 증가한다")
+    @DisplayName("순차 add/remove 시 ProductLike 행이 정확히 증감한다")
     @Test
-    fun likeCountIncrementsAccurately_whenMultipleUsersLikeSimultaneously() {
+    fun productLikeUpdatesExactly_whenDeterministicAddAndRemoveSequence() {
+        // arrange
+        val testProduct = createTestProduct()
+        val users = (1..10).map { createTestUser(it) }
+
+        users.forEach { user ->
+            productLikeService.addProductLike(user, testProduct)
+        }
+
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(10)
+
+        users.take(4).forEach { user ->
+            productLikeService.removeProductLike(user, testProduct)
+        }
+
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(6)
+    }
+
+    @DisplayName("기존 좋아요가 없는 사용자의 unlike는 ProductLike 행을 감소시키지 않는다")
+    @Test
+    fun noOpUnlikeDoesNotDecrement_whenNoLikeRowExists() {
+        // arrange
+        val testProduct = createTestProduct()
+        val likedUser = createTestUser(1)
+        val neverLikedUser = createTestUser(2)
+
+        productLikeService.addProductLike(likedUser, testProduct)
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
+
+        productLikeService.removeProductLike(neverLikedUser, testProduct)
+
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
+    }
+
+    @DisplayName("10명이 동시에 같은 상품을 좋아요할 때, 10개의 ProductLike 행이 저장된다")
+    @Test
+    fun productLikeSavedAccurately_whenMultipleUsersLikeSimultaneously() {
         // arrange
         val testProduct = createTestProduct()
         val users = (1..10).map { createTestUser(it) }
@@ -154,14 +200,7 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         // assert - JPA 1차 캐시를 clear하고 fresh하게 조회
         entityManager.clear()
 
-        // 디버그: 실제 ProductLike 저장 개수 확인
-        val savedCount = entityManager
-            .createQuery("SELECT COUNT(pl) FROM ProductLike pl WHERE pl.product.id = :productId")
-            .setParameter("productId", testProduct.id)
-            .singleResult as Long
-
         // 10명의 서로 다른 사용자이므로 UNIQUE 제약에 걸리지 않음
-        // exception 발생 여부 확인
         val errorMsg =
             if (errors.isEmpty()) {
                 "No errors"
@@ -172,33 +211,30 @@ class ProductLikeConcurrencyTest @Autowired constructor(
             .`as`("Exception count - $errorMsg")
             .isEqualTo(0)
 
-        // atomic update로 처리되므로 정확히 10이어야 함
-        assertThat(savedCount)
+        // 정확히 10개의 ProductLike 행이 저장되어야 함
+        assertThat(countAuthoritativeLikes(testProduct.id))
             .`as`("ProductLike saved count")
-            .isEqualTo(10)
-
-        Thread.sleep(50) // 이벤트 처리 대기
-        val likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        assertThat(likeCount)
-            .`as`("Product like_count (atomic query)")
             .isEqualTo(10)
     }
 
     @DisplayName("같은 사용자가 동시에 여러 번 좋아요하려 할 때, UNIQUE 제약으로 1번만 저장된다")
     @Test
     fun preventDuplicateLike_whenSameUserTriesToLikeMultipleTimesSimultaneously() {
-        // arrange
         val testProduct = createTestProduct()
         val testUser = createTestUser(1)
         val threadCount = 15
         val executorService: ExecutorService = Executors.newFixedThreadPool(10)
         val latch = CountDownLatch(threadCount)
+        val successCount = AtomicInteger(0)
+        val errors = Collections.synchronizedList(mutableListOf<Throwable>())
 
-        // act - 같은 사용자가 15개 스레드에서 동시에 좋아요
         repeat(threadCount) {
             executorService.execute {
                 try {
                     productLikeService.addProductLike(testUser, testProduct)
+                    successCount.incrementAndGet()
+                } catch (t: Throwable) {
+                    errors.add(t)
                 } finally {
                     latch.countDown()
                 }
@@ -207,27 +243,29 @@ class ProductLikeConcurrencyTest @Autowired constructor(
 
         latch.await()
         executorService.shutdown()
+        entityManager.clear()
 
-        // assert - UNIQUE 제약으로 최대 1번만 저장되어야 함
-        val likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        // 동시성으로 인해 예측 불가능하므로, 최대 1 이하만 확인 (UNIQUE 제약 때문에 최대 1)
-        assertThat(likeCount).isLessThanOrEqualTo(1)
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(successCount.get()).isEqualTo(1)
+        assertThat(errors.size).isEqualTo(threadCount - 1)
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(1)
     }
 
-    @DisplayName("50명이 좋아요 추가 후 25명이 동시에 제거할 때, like_count가 정확하게 관리된다")
+    @DisplayName("50명이 좋아요 추가 후 25명이 동시에 제거할 때, ProductLike 행이 정확하게 관리된다")
     @Test
-    fun likeCountManagesAccurately_whenAddAndRemoveSimultaneously() {
-        // arrange
+    fun productLikeManagesAccurately_whenAddAndRemoveSimultaneously() {
         val testProduct = createTestProduct()
         val users = (1..50).map { createTestUser(it) }
         val executorService: ExecutorService = Executors.newFixedThreadPool(10)
         val addLatch = CountDownLatch(50)
+        val addErrors = Collections.synchronizedList(mutableListOf<Throwable>())
 
-        // act - 50명이 동시에 좋아요 추가
         users.forEach { user ->
             executorService.execute {
                 try {
                     productLikeService.addProductLike(user, testProduct)
+                } catch (t: Throwable) {
+                    addErrors.add(t)
                 } finally {
                     addLatch.countDown()
                 }
@@ -235,18 +273,19 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         }
 
         addLatch.await()
+        entityManager.clear()
 
-        // verify - 동시성으로 인해 손실이 있을 수 있으므로 최소 1개 이상을 확인
-        Thread.sleep(50) // 이벤트 처리 대기
-        var likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        assertThat(likeCount).isGreaterThan(0)
+        assertThat(addErrors).isEmpty()
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(50)
 
-        // act - 25명이 동시에 좋아요 제거
         val removeLatch = CountDownLatch(25)
+        val removeErrors = Collections.synchronizedList(mutableListOf<Throwable>())
         users.take(25).forEach { user ->
             executorService.execute {
                 try {
                     productLikeService.removeProductLike(user, testProduct)
+                } catch (t: Throwable) {
+                    removeErrors.add(t)
                 } finally {
                     removeLatch.countDown()
                 }
@@ -255,39 +294,36 @@ class ProductLikeConcurrencyTest @Autowired constructor(
 
         removeLatch.await()
         executorService.shutdown()
+        entityManager.clear()
 
-        // assert - 동시성으로 인해 손실이 있을 수 있으므로 최소 1개 이상을 확인
-        Thread.sleep(50) // 이벤트 처리 대기
-        likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        assertThat(likeCount).isGreaterThan(0)
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(removeErrors).isEmpty()
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(25)
     }
 
-    @DisplayName("좋아요 추가와 제거가 동시에 섞여서 실행될 때, like_count가 일관성 있게 유지된다")
+    @DisplayName("좋아요 추가와 제거가 동시에 섞여서 실행될 때, ProductLike 행이 일관성 있게 유지된다")
     @Test
-    fun likeCountRemainsConsistent_whenAddAndRemoveAreMixedConcurrently() {
-        // arrange
+    fun productLikeRemainsConsistent_whenAddAndRemoveAreMixedConcurrently() {
         val testProduct = createTestProduct()
         val users = (1..30).map { createTestUser(it) }
         val executorService: ExecutorService = Executors.newFixedThreadPool(10)
         val latch = CountDownLatch(30)
+        val errors = Collections.synchronizedList(mutableListOf<Throwable>())
 
-        // act - 15명은 좋아요 추가, 15명은 좋아요 제거 (동시 실행)
-        // 먼저 15명에게 좋아요를 미리 만들어둠
         users.take(15).forEach { user ->
             productLikeService.addProductLike(user, testProduct)
         }
 
-        // 동시에: 15명은 추가, 15명은 제거
         users.forEachIndexed { idx, user ->
             executorService.execute {
                 try {
                     if (idx < 15) {
-                        // 이미 좋아요가 있는 사용자 (제거)
                         productLikeService.removeProductLike(user, testProduct)
                     } else {
-                        // 새로운 사용자 (추가)
                         productLikeService.addProductLike(user, testProduct)
                     }
+                } catch (t: Throwable) {
+                    errors.add(t)
                 } finally {
                     latch.countDown()
                 }
@@ -296,11 +332,11 @@ class ProductLikeConcurrencyTest @Autowired constructor(
 
         latch.await()
         executorService.shutdown()
+        entityManager.clear()
 
-        // assert - 동시성으로 인해 손실이 있을 수 있으므로 최소 1개 이상을 확인
-        Thread.sleep(50) // 이벤트 처리 대기
-        val likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        assertThat(likeCount).isGreaterThanOrEqualTo(0)
+        // assert - like count projection은 commerce-streamer 책임
+        assertThat(errors).isEmpty()
+        assertThat(countAuthoritativeLikes(testProduct.id)).isEqualTo(15)
     }
 
     @DisplayName("같은 사용자가 동시에 좋아요와 좋아요 취소를 번갈아 실행할 때, 최종 상태가 일관성 있다")
@@ -331,9 +367,8 @@ class ProductLikeConcurrencyTest @Autowired constructor(
         executorService.shutdown()
 
         // assert - 최종 상태는 일관성이 유지되어야 함 (동시성으로 인해 정확한 값은 보장 불가)
-        Thread.sleep(50) // 이벤트 처리 대기
-        val likeCount = productLikeCountRepository.findByProductId(testProduct.id)?.likeCount ?: 0
-        // 최대 1 이하만 확인
-        assertThat(likeCount).isLessThanOrEqualTo(1)
+        // ProductLike 행 수는 0 또는 1 (마지막 작업이 add면 1, remove면 0)
+        val authoritativeCount = countAuthoritativeLikes(testProduct.id)
+        assertThat(authoritativeCount).isLessThanOrEqualTo(1)
     }
 }

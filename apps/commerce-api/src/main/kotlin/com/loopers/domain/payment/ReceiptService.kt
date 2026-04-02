@@ -62,7 +62,7 @@ class ReceiptService(
     }
 
     @Transactional
-    fun updateReceiptStatus(command: PaymentCallbackCommand) {
+    fun updateReceiptStatus(command: PaymentCallbackCommand): Receipt {
         val receipt = getReceiptByTransactionIdForUpdate(command.transactionId)
 
         // ✅ orderId 검증: 콜백의 orderId와 Receipt의 orderId가 일치하는지 확인
@@ -72,7 +72,7 @@ class ReceiptService(
 
         // 멱등성: PENDING 상태만 처리
         if (receipt.status != ReceiptStatus.PENDING) {
-            return
+            return receipt
         }
 
         // PG 콜백 status에 따라 분기 처리
@@ -82,6 +82,8 @@ class ReceiptService(
             "COMPLETED" -> receipt.markAsCompleted(command.amount)
             else -> throw CoreException(ErrorType.BAD_REQUEST, "알 수 없는 결제 상태: ${command.status}")
         }
+
+        return receipt
     }
 
     /**

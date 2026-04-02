@@ -1,6 +1,12 @@
+import org.springframework.boot.gradle.tasks.bundling.BootJar
+
 plugins {
     id("org.jetbrains.kotlin.plugin.jpa")
 }
+
+// Generate both plain jar and boot jar
+tasks.withType(Jar::class) { enabled = true }
+tasks.withType(BootJar::class) { enabled = true }
 
 dependencies {
     // add-ons
@@ -26,6 +32,9 @@ dependencies {
     implementation("io.github.resilience4j:resilience4j-retry:${project.properties["resilience4jVersion"]}")
     implementation("io.github.resilience4j:resilience4j-circuitbreaker:${project.properties["resilience4jVersion"]}")
     implementation("io.github.resilience4j:resilience4j-timelimiter:${project.properties["resilience4jVersion"]}")
+
+    // kafka
+    implementation("org.springframework.kafka:spring-kafka")
 
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))

@@ -45,8 +45,10 @@ design/**
 !design/**/*.md
 !design/**/README*
 
-### Docs Directory ###
+### Docs, Blog & Specs Directory ###
+blog/
 docs/
+docs/superpowers/
 
 ### Local Documentation & Configuration ###
 CLAUDE.md
@@ -55,3 +57,10 @@ data-summary.md
 DDD_ANALYSIS.md
 .claude/
 resources/db/
+
+### Local Development ###
+docs/
+study/
+round7/
+.claude/
+.sisyphus/

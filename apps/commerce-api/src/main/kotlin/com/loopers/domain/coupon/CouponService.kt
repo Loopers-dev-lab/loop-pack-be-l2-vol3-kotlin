@@ -2,6 +2,7 @@ package com.loopers.domain.coupon
 
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
@@ -65,20 +66,36 @@ class CouponService(
 
     // ===== Coupon 발급 관련 =====
 
+    fun validateIssuanceRequest(userId: Long, templateId: Long) {
+        val template = getTemplateInfo(templateId)
+        if (template.isExpired()) {
+            throw CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰 템플릿입니다.")
+        }
+        val existingCoupon = couponRepository.findByUserIdAndTemplateId(userId, templateId)
+        if (existingCoupon != null) {
+            throw CoreException(ErrorType.BAD_REQUEST, "이미 발급된 쿠폰입니다.")
+        }
+    }
+
     @Transactional
     fun issueCoupon(userId: Long, templateId: Long): Coupon {
         // 템플릿 유효성 확인
         val template = getTemplateInfo(templateId)
 
-        // 행 락을 통한 중복 검사 (race condition 방지)
-        val existingCoupon = couponRepository.findByUserIdAndTemplateIdForUpdate(userId, templateId)
-        if (existingCoupon != null) {
-            throw CoreException(ErrorType.BAD_REQUEST, "중복된 쿠폰 발급 요청입니다.")
+        // ⭐ 선착순 수량 제한 (원자적 UPDATE)
+        // totalCount가 없거나 issuedCount < totalCount인 경우만 증가
+        val updatedCount = couponTemplateRepository.incrementIssuedCountIfAvailable(templateId)
+        if (updatedCount == 0) {
+            throw CoreException(ErrorType.BAD_REQUEST, "쿠폰이 모두 소진되었습니다.")
         }
 
-        // 새 쿠폰 발급
+        // 새 쿠폰 발급 (UNIQUE 제약으로 중복 발급 방지)
         val newCoupon = Coupon.issue(userId, template)
-        return couponRepository.save(newCoupon)
+        return try {
+            couponRepository.save(newCoupon)
+        } catch (e: DataIntegrityViolationException) {
+            throw CoreException(ErrorType.BAD_REQUEST, "중복된 쿠폰 발급 요청입니다.")
+        }
     }
 
     // ===== Coupon 조회 관련 =====

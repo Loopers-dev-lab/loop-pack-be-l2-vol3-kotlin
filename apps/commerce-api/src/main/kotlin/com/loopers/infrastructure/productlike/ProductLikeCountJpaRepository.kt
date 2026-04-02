@@ -24,4 +24,13 @@ interface ProductLikeCountJpaRepository : JpaRepository<ProductLikeCount, Long> 
         nativeQuery = true,
     )
     fun decrement(productId: Long)
+
+    @Modifying(flushAutomatically = true)
+    @Query(
+        value = "INSERT INTO product_like_counts (product_id, like_count, created_at, updated_at, deleted_at) " +
+            "VALUES (:productId, :count, NOW(6), NOW(6), NULL) " +
+            "ON DUPLICATE KEY UPDATE like_count = :count, updated_at = NOW(6)",
+        nativeQuery = true,
+    )
+    fun updateCount(productId: Long, count: Long)
 }

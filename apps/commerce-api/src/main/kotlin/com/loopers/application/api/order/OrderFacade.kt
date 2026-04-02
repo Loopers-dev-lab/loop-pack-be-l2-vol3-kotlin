@@ -40,6 +40,9 @@ class OrderFacade(
                 applyDiscount(order, discountAmount, createOrderItems)
             }
 
+            // OrderCreatedEvent is now published by OrderService.createOrder()
+            // with Outbox integration for reliability
+
             return order.id
         } catch (e: Exception) {
             increaseStock(sortedItems)

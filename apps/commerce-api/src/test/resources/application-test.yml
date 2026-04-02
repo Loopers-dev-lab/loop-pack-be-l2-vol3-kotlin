@@ -1,7 +1,7 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     properties:
       hibernate:
         jdbc:
@@ -14,12 +14,27 @@ spring:
       mode: never
       continue-on-error: false
   cache:
-    type: simple  # Unit test 기본값
-
-pg:
-  loop:
-    callback-url: http://localhost:8080/api/v1/payments/callback
-  base-url: http://localhost:8083
+    type: simple
+  task:
+    scheduling:
+      enabled: true
+  kafka:
+    bootstrap-servers: localhost:29092
+    producer:
+      acks: all
+      retries: 3
+      compression-type: snappy
+      properties:
+        enable.idempotence: true
+        linger.ms: 10
+        batch.size: 16384
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: commerce-api-test
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
 
 datasource:
   mysql-jpa:
@@ -28,30 +43,40 @@ datasource:
       username: application
       password: application
 
+pg:
+  base-url: http://localhost:8083
+  loop:
+    callback-url: http://localhost:8080/api/v1/payments/callback
+  timeout:
+    connect-ms: 1000
+    read-sec: 1
+    write-sec: 1
+
 resilience4j:
   circuitbreaker:
     instances:
       loop-pg-payment:
-        slidingWindowSize: 2
-        minimumNumberOfCalls: 2
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
         failureRateThreshold: 50
-        waitDurationInOpenState: 1s
-        automaticTransitionFromOpenToHalfOpenEnabled: false
+        slowCallDurationThreshold: 600ms
+        slowCallRateThreshold: 50
         recordExceptions:
           - java.lang.Exception
   retry:
     instances:
       loop-pg-payment:
-        maxAttempts: 1
-        waitDuration: 0ms
+        maxAttempts: 2
+        waitDuration: 200ms
         retryExceptions:
           - java.lang.Exception
 
 logging:
   level:
-    # JPA SQL 로깅 (대량 데이터 로딩 중 로그 확인)
-    org.hibernate.SQL: WARN
-    org.hibernate.orm.jdbc.batch: WARN
     root: INFO
     org.springframework.web: DEBUG
-    org.springframework.cache: DEBUG
+    org.springframework.kafka: DEBUG
