@@ -19,6 +19,32 @@ class OrderQueueRedisRepository(
         private const val TOKEN_VALUE = "ACTIVE"
 
         /**
+         * Lua 스크립트: ZPOPMIN + SETEX 원자적 실행
+         * 대기열에서 count명을 꺼내면서 동시에 토큰을 발급한다.
+         *
+         * KEYS[1] = order:queue
+         * ARGV[1] = count (꺼낼 수)
+         * ARGV[2] = ttlSeconds (토큰 TTL)
+         * ARGV[3] = tokenKeyPrefix (order:token:)
+         *
+         * return: 발급된 유저 수
+         */
+        private val DEQUEUE_AND_ISSUE_SCRIPT = DefaultRedisScript<Long>(
+            """
+            local members = redis.call('ZPOPMIN', KEYS[1], tonumber(ARGV[1]))
+            local issued = 0
+            for i = 1, #members, 2 do
+                local userId = members[i]
+                local tokenKey = ARGV[3] .. userId
+                redis.call('SETEX', tokenKey, tonumber(ARGV[2]), 'ACTIVE')
+                issued = issued + 1
+            end
+            return issued
+            """.trimIndent(),
+            Long::class.java,
+        )
+
+        /**
          * Lua 스크립트: INCR 카운터 + ZADD NX 원자적 실행
          * KEYS[1] = order:queue
          * KEYS[2] = order:queue:counter
@@ -114,6 +140,20 @@ class OrderQueueRedisRepository(
      */
     fun getTokenTtl(userId: Long): Long {
         return redisTemplate.getExpire(tokenKey(userId), TimeUnit.SECONDS)
+    }
+
+    /**
+     * 대기열에서 count명을 꺼내면서 동시에 토큰을 발급한다. (원자적 실행)
+     * @return 발급된 유저 수
+     */
+    fun dequeueAndIssueTokens(count: Long, ttlSeconds: Long): Long {
+        return redisTemplate.execute(
+            DEQUEUE_AND_ISSUE_SCRIPT,
+            listOf(QUEUE_KEY),
+            count.toString(),
+            ttlSeconds.toString(),
+            TOKEN_KEY_PREFIX,
+        ) ?: 0L
     }
 
     private fun tokenKey(userId: Long): String = "$TOKEN_KEY_PREFIX$userId"

@@ -1,5 +1,6 @@
 package com.loopers.domain.orderqueue
 
+import com.loopers.infrastructure.orderqueue.OrderQueueProperties
 import com.loopers.infrastructure.orderqueue.OrderQueueRedisRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -15,7 +16,8 @@ import org.junit.jupiter.api.assertThrows
 
 class OrderQueueServiceTest {
     private val orderQueueRedisRepository = mockk<OrderQueueRedisRepository>()
-    private val orderQueueService = OrderQueueService(orderQueueRedisRepository)
+    private val orderQueueProperties = OrderQueueProperties()
+    private val orderQueueService = OrderQueueService(orderQueueRedisRepository, orderQueueProperties)
 
     companion object {
         private const val USER_ID = 1L
@@ -184,6 +186,24 @@ class OrderQueueServiceTest {
 
             // verify
             verify(exactly = 1) { orderQueueRedisRepository.consumeToken(USER_ID) }
+        }
+    }
+
+    @DisplayName("processTokenIssuance")
+    @Nested
+    inner class ProcessTokenIssuance {
+        @DisplayName("dequeueAndIssueTokens를 원자적으로 호출한다.")
+        @Test
+        fun callsDequeueAndIssueTokensAtomically() {
+            // arrange
+            val batchSize = 7L
+            every { orderQueueRedisRepository.dequeueAndIssueTokens(batchSize, 300L) } returns 7L
+
+            // act
+            orderQueueService.processTokenIssuance(batchSize)
+
+            // verify
+            verify(exactly = 1) { orderQueueRedisRepository.dequeueAndIssueTokens(batchSize, 300L) }
         }
     }
 

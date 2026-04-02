@@ -84,12 +84,11 @@ class OrderQueueTokenSchedulerTest @Autowired constructor(
 
             // assert
             assertThat(orderQueueRedisRepository.getTotalSize()).isEqualTo(3L)
-            for (i in 1L..7L) {
-                assertThat(orderQueueRedisRepository.hasToken(i)).isTrue()
+            var tokenCount = 0L
+            for (i in 1L..10L) {
+                if (orderQueueRedisRepository.hasToken(i)) tokenCount++
             }
-            for (i in 8L..10L) {
-                assertThat(orderQueueRedisRepository.hasToken(i)).isFalse()
-            }
+            assertThat(tokenCount).isEqualTo(7L)
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.loopers.domain.orderqueue
 
+import com.loopers.infrastructure.orderqueue.OrderQueueProperties
 import com.loopers.infrastructure.orderqueue.OrderQueueRedisRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -8,11 +9,8 @@ import org.springframework.stereotype.Service
 @Service
 class OrderQueueService(
     private val orderQueueRedisRepository: OrderQueueRedisRepository,
+    private val orderQueueProperties: OrderQueueProperties,
 ) {
-    companion object {
-        private const val THROUGHPUT_PER_SECOND = 70L
-        private const val TOKEN_TTL_SECONDS = 300L
-    }
 
     fun enter(userId: Long): QueueEntryInfo {
         val added = orderQueueRedisRepository.enqueue(userId)
@@ -66,14 +64,11 @@ class OrderQueueService(
     }
 
     fun processTokenIssuance(batchSize: Long) {
-        val userIds = orderQueueRedisRepository.dequeue(batchSize)
-        userIds.forEach { userId ->
-            orderQueueRedisRepository.issueToken(userId, TOKEN_TTL_SECONDS)
-        }
+        orderQueueRedisRepository.dequeueAndIssueTokens(batchSize, orderQueueProperties.tokenTtlSeconds)
     }
 
     fun calculateEstimatedWaitSeconds(position: Long): Long {
-        return (position + THROUGHPUT_PER_SECOND - 1) / THROUGHPUT_PER_SECOND
+        return (position + orderQueueProperties.throughputPerSecond - 1) / orderQueueProperties.throughputPerSecond
     }
 
     fun calculatePollingInterval(position: Long): Int {

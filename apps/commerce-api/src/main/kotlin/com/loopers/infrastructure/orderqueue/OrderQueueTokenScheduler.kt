@@ -10,19 +10,16 @@ import org.springframework.stereotype.Component
 @Profile("!test")
 class OrderQueueTokenScheduler(
     private val orderQueueService: OrderQueueService,
+    private val orderQueueProperties: OrderQueueProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-
-    companion object {
-        private const val BATCH_SIZE = 7L
-    }
 
     @Scheduled(fixedRate = 100)
     fun issueTokens() {
         try {
-            orderQueueService.processTokenIssuance(BATCH_SIZE)
+            orderQueueService.processTokenIssuance(orderQueueProperties.scheduler.batchSize)
         } catch (e: Exception) {
-            log.warn("주문 대기열 토큰 발급 실패: {}", e.message)
+            log.warn("주문 대기열 토큰 발급 실패: {}", e.message, e)
         }
     }
 }
