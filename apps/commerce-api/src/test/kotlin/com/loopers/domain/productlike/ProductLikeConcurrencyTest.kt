@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class ProductLikeConcurrencyTest @Autowired constructor(
     private val productLikeService: ProductLikeService,
     private val productLikeRepository: ProductLikeRepository,
+    private val productLikeCountRepository: ProductLikeCountRepository,
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
     private val userJpaRepository: UserJpaRepository,
