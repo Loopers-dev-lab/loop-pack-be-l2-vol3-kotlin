@@ -1,0 +1,699 @@
+{
+  "root_group": {
+    "groups": [],
+    "checks": [
+        {
+          "name": "queue enter: status 200",
+          "path": "::queue enter: status 200",
+          "id": "8f9fde12ec75d9dbc2f87e0058a2972b",
+          "passes": 3772,
+          "fails": 0
+        },
+        {
+          "path": "::queue position: status 200",
+          "id": "b7c56eef4fc596e2ef280c248489c357",
+          "passes": 3954,
+          "fails": 0,
+          "name": "queue position: status 200"
+        },
+        {
+          "fails": 0,
+          "name": "order: status 200",
+          "path": "::order: status 200",
+          "id": "3656e32e8e35400d1c59bf1cc4b93c6e",
+          "passes": 1920
+        }
+      ],
+    "name": "",
+    "path": "",
+    "id": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "options": {
+    "summaryTrendStats": [
+      "avg",
+      "min",
+      "med",
+      "max",
+      "p(90)",
+      "p(95)"
+    ],
+    "summaryTimeUnit": "",
+    "noColor": false
+  },
+  "state": {
+    "isStdOutTTY": false,
+    "isStdErrTTY": false,
+    "testRunDurationMs": 167321.529
+  },
+  "metrics": {
+    "order_success_rate": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 1,
+        "passes": 1920,
+        "fails": 0
+      },
+      "thresholds": {
+        "rate>0.9": {
+          "ok": true
+        }
+      }
+    },
+    "http_reqs": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 13645,
+        "rate": 81.54957752029627
+      }
+    },
+    "http_req_duration": {
+      "contains": "time",
+      "values": {
+        "avg": 186.6103386588492,
+        "min": 12.242,
+        "med": 75.694,
+        "max": 1112.222,
+        "p(90)": 448.3906000000001,
+        "p(95)": 647.3191999999999
+      },
+      "type": "trend"
+    },
+    "http_req_blocked": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "min": 0,
+        "med": 0.002,
+        "max": 2.375,
+        "p(90)": 0.005,
+        "p(95)": 0.007,
+        "avg": 0.008963356540857713
+      }
+    },
+    "http_req_waiting": {
+      "contains": "time",
+      "values": {
+        "avg": 186.44697779406354,
+        "min": 11.998,
+        "med": 75.611,
+        "max": 1112.087,
+        "p(90)": 447.92060000000004,
+        "p(95)": 647.103
+      },
+      "type": "trend"
+    },
+    "http_req_sending": {
+      "values": {
+        "avg": 0.010947453279589613,
+        "min": 0.001,
+        "med": 0.01,
+        "max": 0.837,
+        "p(90)": 0.018,
+        "p(95)": 0.022
+      },
+      "type": "trend",
+      "contains": "time"
+    },
+    "order_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 538.0868041666658,
+        "min": 74.826,
+        "med": 554.9205,
+        "max": 1112.222,
+        "p(90)": 814.6862,
+        "p(95)": 897.0480999999999
+      }
+    },
+    "queue_enter_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 74.28398833510069,
+        "min": 66.078,
+        "med": 73.47999999999999,
+        "max": 117.557,
+        "p(90)": 76.8582,
+        "p(95)": 79.9905
+      },
+      "thresholds": {
+        "p(99)<500": {
+          "ok": true
+        }
+      }
+    },
+    "vus_max": {
+      "values": {
+        "value": 300,
+        "min": 300,
+        "max": 300
+      },
+      "type": "gauge",
+      "contains": "default"
+    },
+    "http_req_failed": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 0,
+        "passes": 0,
+        "fails": 13645
+      }
+    },
+    "checks": {
+      "type": "rate",
+      "contains": "default",
+      "values": {
+        "rate": 1,
+        "passes": 9646,
+        "fails": 0
+      }
+    },
+    "vus": {
+      "type": "gauge",
+      "contains": "default",
+      "values": {
+        "value": 5,
+        "min": 0,
+        "max": 200
+      }
+    },
+    "http_req_duration{expected_response:true}": {
+      "contains": "time",
+      "values": {
+        "avg": 186.6103386588492,
+        "min": 12.242,
+        "med": 75.694,
+        "max": 1112.222,
+        "p(90)": 448.3906000000001,
+        "p(95)": 647.3191999999999
+      },
+      "type": "trend"
+    },
+    "data_sent": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 2576690,
+        "rate": 15399.632165685027
+      }
+    },
+    "iteration_duration": {
+      "values": {
+        "avg": 1480.5805039953373,
+        "min": 218.140875,
+        "med": 1150.8396455,
+        "max": 2129.200583,
+        "p(90)": 2075.6010625000004,
+        "p(95)": 2077.1552395
+      },
+      "type": "trend",
+      "contains": "time"
+    },
+    "http_req_receiving": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "p(95)": 0.4317999999999994,
+        "avg": 0.1524134115060459,
+        "min": 0.004,
+        "med": 0.06,
+        "max": 22.931,
+        "p(90)": 0.287
+      }
+    },
+    "data_received": {
+      "type": "counter",
+      "contains": "data",
+      "values": {
+        "count": 3535403,
+        "rate": 21129.396922974567
+      }
+    },
+    "order_total_success": {
+      "type": "counter",
+      "contains": "default",
+      "values": {
+        "count": 1920,
+        "rate": 11.474913069913436
+      }
+    },
+    "http_req_tls_handshaking": {
+      "contains": "time",
+      "values": {
+        "avg": 0,
+        "min": 0,
+        "med": 0,
+        "max": 0,
+        "p(90)": 0,
+        "p(95)": 0
+      },
+      "type": "trend"
+    },
+    "http_req_connecting": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 0.005226383290582628,
+        "min": 0,
+        "med": 0,
+        "max": 2.324,
+        "p(90)": 0,
+        "p(95)": 0
+      }
+    },
+    "iterations": {
+      "contains": "default",
+      "values": {
+        "count": 9646,
+        "rate": 57.64948514186719
+      },
+      "type": "counter"
+    },
+    "queue_position_duration": {
+      "type": "trend",
+      "contains": "time",
+      "values": {
+        "avg": 74.41034041476993,
+        "min": 69.382,
+        "med": 73.71000000000001,
+        "max": 105.747,
+        "p(90)": 77.08070000000001,
+        "p(95)": 79.673
+      },
+      "thresholds": {
+        "p(99)<100": {
+          "ok": true
+        }
+      }
+    }
+  },
+  "setup_data": {
+    "productId": 2,
+    "users": [
+      {
+        "loginId": "k6user1",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user2",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user3",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user4",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user5",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user6",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user7",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user8",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user9",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user10",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user11",
+        "password": "Password1!"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user12"
+      },
+      {
+        "loginId": "k6user13",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user14",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user15",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user16",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user17",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user18",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user19",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user20",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user21",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user22",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user23",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user24",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user25",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user26",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user27",
+        "password": "Password1!"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user28"
+      },
+      {
+        "loginId": "k6user29",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user30",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user31",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user32",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user33",
+        "password": "Password1!"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user34"
+      },
+      {
+        "loginId": "k6user35",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user36",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user37",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user38",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user39",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user40",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user41",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user42",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user43",
+        "password": "Password1!"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user44"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user45"
+      },
+      {
+        "loginId": "k6user46",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user47",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user48",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user49",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user50",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user51",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user52",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user53",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user54",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user55",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user56",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user57",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user58",
+        "password": "Password1!"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user59"
+      },
+      {
+        "loginId": "k6user60",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user61",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user62",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user63",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user64",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user65",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user66",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user67",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user68",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user69",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user70",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user71",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user72",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user73",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user74",
+        "password": "Password1!"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user75"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user76"
+      },
+      {
+        "loginId": "k6user77",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user78",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user79",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user80",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user81",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user82",
+        "password": "Password1!"
+      },
+      {
+        "password": "Password1!",
+        "loginId": "k6user83"
+      },
+      {
+        "loginId": "k6user84",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user85",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user86",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user87",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user88",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user89",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user90",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user91",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user92",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user93",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user94",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user95",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user96",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user97",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user98",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user99",
+        "password": "Password1!"
+      },
+      {
+        "loginId": "k6user100",
+        "password": "Password1!"
+      }
+    ]
+  }
+}

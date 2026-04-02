@@ -79,11 +79,7 @@ resilience4j:
 spring:
   config:
     activate:
-      on-profile: local, test
-
-queue:
-  scheduler:
-    enabled: false
+      on-profile: local
 
 management:
   endpoints:
@@ -93,6 +89,16 @@ management:
   health:
     circuitbreakers:
       enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+queue:
+  scheduler:
+    enabled: false
 
 ---
 spring:
