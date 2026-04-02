@@ -13,6 +13,7 @@ import com.loopers.domain.order.OrderService
 import com.loopers.domain.orderqueue.OrderQueueService
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductMetricsRedisRepository
+import com.loopers.infrastructure.order.OrderRateLimiter
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -25,6 +26,7 @@ class UserCreateOrderUseCase(
     private val couponService: CouponService,
     private val userService: UserService,
     private val orderQueueService: OrderQueueService,
+    private val orderRateLimiter: OrderRateLimiter,
     private val productMetricsRedisRepository: ProductMetricsRedisRepository,
     private val outboxEventPublisher: OutboxEventPublisher,
     private val objectMapper: ObjectMapper,
@@ -33,6 +35,7 @@ class UserCreateOrderUseCase(
 
     @Transactional
     override fun execute(criteria: CreateOrderCriteria): CreateOrderResult {
+        orderRateLimiter.checkRate()
         val user = userService.getUser(criteria.loginId)
         orderQueueService.validateToken(user.id)
 

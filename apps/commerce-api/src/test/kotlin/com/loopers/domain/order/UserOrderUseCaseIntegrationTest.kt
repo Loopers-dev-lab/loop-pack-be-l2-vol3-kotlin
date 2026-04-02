@@ -17,10 +17,12 @@ import com.loopers.domain.user.RegisterCommand
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductJpaRepository
 import com.loopers.infrastructure.common.UserActivityLogJpaRepository
+import com.loopers.infrastructure.order.OrderRateLimiter
 import com.loopers.infrastructure.orderqueue.OrderQueueRedisRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.utils.DatabaseCleanUp
+import org.springframework.data.redis.core.RedisTemplate
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.kotlin.atMost
 import org.awaitility.kotlin.await
@@ -50,6 +52,8 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val userActivityLogJpaRepository: UserActivityLogJpaRepository,
     private val orderQueueRedisRepository: OrderQueueRedisRepository,
+    private val orderRateLimiter: OrderRateLimiter,
+    private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
     companion object {
@@ -67,6 +71,7 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisTemplate.delete("order:rate-limit")
     }
 
     private fun issueOrderToken(username: String = DEFAULT_USERNAME) {
@@ -237,6 +242,27 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
                 val logs = userActivityLogJpaRepository.findAll()
                 assertThat(logs).anyMatch { it.activityType == ActivityType.ORDER_CREATE }
             }
+        }
+
+        @DisplayName("글로벌 Rate Limit를 초과하면, TOO_MANY_REQUESTS 예외가 발생한다.")
+        @Test
+        fun throwsTooManyRequestsWhenRateLimitExceeded() {
+            // arrange
+            registerUser()
+            issueOrderToken()
+            val brandId = registerBrand()
+            val product = registerProduct(brandId = brandId, quantity = 10)
+            val criteria = createOrderCriteria(
+                items = listOf(CreateOrderItemCriteria(productId = product.id, quantity = 1)),
+            )
+
+            repeat(100) { orderRateLimiter.checkRate() }
+
+            // act & assert
+            val result = assertThrows<CoreException> {
+                userCreateOrderUseCase.execute(criteria)
+            }
+            assertThat(result.errorType).isEqualTo(ErrorType.TOO_MANY_REQUESTS)
         }
     }
 
