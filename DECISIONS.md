@@ -1572,6 +1572,94 @@ C. Kafka Consumer 순차 처리 (Outbox → Kafka → SINGLE_LISTENER)
 - 클라이언트는 Polling API로 발급 결과 확인 (requestId 기반)
 - 기존 coupon 시스템과 완전 분리 (별도 도메인: fcfscoupon)
 
+---
+
+## D56: 주문 스냅샷 조립을 OrderFacade에서 수행
+
+### 배경
+
+`CreateOrderCommandHandler`가 ProductService, BrandService, CouponService, OrderService 4개를 주입받아 상품/브랜드/쿠폰을 재조회하고 스냅샷을 조립하고 있었다. 스냅샷 시점이 핸들러 실행 시점에 고정되어 Facade 트랜잭션과 어긋날 수 있고, 핸들러가 비대해지며, 이벤트 payload만으로 의미가 전달되지 않는 문제가 있었다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. OrderPreparationService 별도 분리 | 전용 조립 서비스. Facade에서 호출 |
+| **B. OrderFacade에서 직접 조립** | cross-domain 조합은 Facade 책임에 부합 |
+| C. 기존 구조 유지 (핸들러에서 재조회) | 변경 없음 |
+
+### 판단
+
+B. OrderFacade에서 직접 조립 (처음 A로 구현 후 리뷰에서 B로 전환)
+
+### 근거
+
+- Facade는 cross-domain 조합 계층이므로 스냅샷 조립이 자연스러운 위치
+- A는 불필요한 간접 참조로 복잡도만 증가 (서비스 1개 추가인데 Facade가 호출하는 구조)
+- enriched payload(상품명, 가격, 브랜드명, 할인/총액)를 이벤트/커맨드에 담아 핸들러 재조회 제거
+- OrderService.createOrder에서 ProductModel 의존 제거
+
+### 트레이드오프
+
+- Facade가 두꺼워짐 (상품/브랜드/쿠폰 조회 + 금액 계산)
+- 이벤트가 "사실(fact)"보다 "지시(instruction)"에 가까워질 수 있음
+
+---
+
+## D57: handler/ 디렉토리를 event/command 역할별 구조로 분리
+
+### 배경
+
+handler/ 하위가 도메인별(order/, brand/, cache/ 등)로 구성되어 있어 EventHandler와 CommandHandler가 같은 패키지에 섞여 있었다. D52의 Event→EventHandler→Command→CommandHandler 아키텍처와 디렉토리 구조가 대응하지 않았다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 도메인별 flat 구조 유지 | 변경 없음. 도메인 응집도 높음 |
+| **B. event/command + 도메인 서브패키지** | 역할별 분리 후 하위에 도메인 유지 |
+
+### 판단
+
+B. event/command 역할별 분리 + 도메인 서브패키지
+
+### 근거
+
+- D52 아키텍처와 디렉토리가 1:1 대응하여 설계 의도가 디렉토리에서 바로 읽힘
+- EventHandler는 `@TransactionalEventListener(AFTER_COMMIT)` 오케스트레이션, CommandHandler는 `@Transactional(REQUIRES_NEW)` 실행이라는 역할 차이가 명확
+- 같은 도메인 파일이 흩어지는 단점은 서브패키지로 완화
+
+---
+
+## D58: event-contract 모듈로 Producer-Consumer 이벤트 계약 단일화
+
+### 배경
+
+토픽명, aggregateType, eventType 등 Producer(commerce-api)와 Consumer(commerce-streamer) 간 공유 상수가 각 모듈에 중복 정의되어 있었다. 한쪽만 바꾸면 조용히 실패하는 위험이 있었다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 각 Publisher companion에 상수 중복 유지 | 변경 없음. 관리 포인트 2곳 |
+| B. commerce-api에 modules:kafka 의존 추가 | KafkaTopicConfig 참조. Kafka 라이브러리까지 끌려옴 |
+| **C. modules:event-contract 경량 모듈 분리** | zero dependency. 상수만 포함 |
+
+### 판단
+
+C. event-contract 모듈 분리
+
+### 근거
+
+- zero dependency 모듈이므로 어디서든 안전하게 의존 가능
+- Producer(Publisher)와 Consumer(KafkaTopicConfig, @KafkaListener)가 동일한 EventContract 상수 참조
+- 향후 이벤트가 늘어날수록 단일 관리의 효과 증가
+
+### 트레이드오프
+
+- 현재 상수 12개에 모듈 1개 — 과한 분리일 수 있음
+- 향후 이벤트 payload 스키마(data class)까지 포함할지 scope 결정 필요
+
 ### 세부 설계
 
 | 항목 | 설명 |

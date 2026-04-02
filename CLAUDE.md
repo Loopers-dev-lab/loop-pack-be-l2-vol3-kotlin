@@ -77,7 +77,7 @@ JWT를 사용하지 않는다 (의도적 결정).
 │   │       ├── interfaces/      # REST 컨트롤러, DTO, ApiSpec, 인증 설정
 │   │       │   ├── api/         # REST 엔드포인트 (example/, member/, admin/ 등)
 │   │       │   └── config/      # 인증 어노테이션, Interceptor, ArgumentResolver, WebMvcConfig
-│   │       ├── application/     # Facade (cross-domain 조합), Service (단일 도메인 로직), Info DTO
+│   │       ├── application/     # Facade (cross-domain 조합), Service (단일 도메인 로직), Info DTO, handler/event/ (오케스트레이션), handler/command/ (실행)
 │   │       ├── domain/          # 도메인 모델(data class), Repository 인터페이스, VO, Validator, 에러(CoreException, ErrorType), 포트 인터페이스(PasswordEncryptor)
 │   │       └── infrastructure/  # JpaModel(@Entity), Repository 구현체, 포트 구현체(BcryptPasswordEncryptor), CursorUtils, 인프라 빈 설정(CacheConfig)
 │   ├── commerce-batch/          # 배치 처리 애플리케이션
@@ -86,7 +86,8 @@ JWT를 사용하지 않는다 (의도적 결정).
 ├── modules/                     # 재사용 가능한 인프라 모듈
 │   ├── jpa/                     # JPA/Hibernate & QueryDSL, DataSource
 │   ├── redis/                   # Redis (Master-Replica) 설정
-│   └── kafka/                   # Kafka Producer/Consumer 설정
+│   ├── kafka/                   # Kafka Producer/Consumer 설정
+│   └── event-contract/          # Producer-Consumer 이벤트 계약 상수 (zero dependency)
 │
 ├── supports/                    # 지원 모듈
 │   ├── jackson/                 # Jackson 직렬화 설정
@@ -215,7 +216,10 @@ com.loopers
 - Event-Command-Handler 아키텍처: Event(사실) → EventHandler(오케스트레이션) → Command(의도) → CommandHandler(실행). 도메인은 이벤트 발행까지만 책임 (Decision 52)
 - 이벤트 발행 주체: Service에서 ApplicationEventPublisher 사용 — DIP 유지 (Domain Model = data class, JPA 비의존)
 - EventHandler TX: 모두 @TransactionalEventListener(AFTER_COMMIT) — 발행자 커밋 확정 후 처리
-- CommandHandler TX: 도메인별 차등 — REQUIRES_NEW(주문→재고/쿠폰), Kafka(결제 성공/실패), TX 불필요(캐시 evict)
+- CommandHandler TX: 도메인별 차등 — REQUIRES_NEW(주문→재고/쿠폰/삭제), Kafka(결제 성공/실패), TX 불필요(캐시 evict)
+- 주문 스냅샷 조립: OrderFacade에서 상품/브랜드/쿠폰 조회 + 금액 계산 후 enriched event 발행. 핸들러는 재조회 없이 payload만으로 실행 (Decision 56)
+- handler/ 디렉토리: event/(오케스트레이션) + command/(실행) 역할별 분리, 하위에 도메인 서브패키지 (Decision 57)
+- 이벤트 계약 상수: modules/event-contract의 EventContract에서 단일 관리. Publisher/Consumer 양쪽 참조 (Decision 58)
 - 주문 흐름: 선차감 후주문 (MSA식). OrderRequestedEvent(요청) / OrderCreatedEvent(완료 사실) 분리
 - 결제 보상: commerce-streamer Kafka 1차 보상만 구현. 2차 batch polling 미구현 (동시성/중복 이슈 방지)
 - 포트 패턴: CompleteOrderCommandPublisher, PaymentCompensationPublisher — 로컬/Kafka 구현체 교체 가능
@@ -367,5 +371,5 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 | 문서 | 용도 | 조회 방식 |
 |------|------|-----------|
 | REQUIREMENTS.md | 요구사항 상세 (수용 기준, 상태) | Grep으로 FEAT-N 검색 |
-| DECISIONS.md | 기술 판단 근거 (55건) | Grep으로 D# 검색 |
+| DECISIONS.md | 기술 판단 근거 (58건) | Grep으로 D# 검색 |
 | docs/design/ | 설계 다이어그램 | 필요 시 Read |
