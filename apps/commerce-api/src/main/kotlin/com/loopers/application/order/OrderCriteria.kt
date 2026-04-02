@@ -5,6 +5,7 @@ import java.time.ZonedDateTime
 data class CreateOrderCriteria(
     val items: List<CreateOrderItemCriteria>,
     val couponIssueId: Long? = null,
+    val entryToken: String? = null,
 )
 
 data class CreateOrderItemCriteria(

@@ -13,6 +13,7 @@ import com.loopers.domain.product.ProductService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.domain.event.DomainEventPublisher
+import com.loopers.domain.queue.QueueService
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -25,6 +26,7 @@ class OrderFacade(
     private val orderService: OrderService,
     private val couponService: CouponService,
     private val domainEventPublisher: DomainEventPublisher,
+    private val queueService: QueueService,
 ) {
 
     /**
@@ -42,6 +44,15 @@ class OrderFacade(
      */
     @Transactional
     fun createOrder(userId: Long, criteria: CreateOrderCriteria): OrderResult {
+        // ── 입장 토큰 검증 (대기열 통과 확인) ──
+        // 대기열 활성 상태이면 토큰이 필수. 없으면 INVALID_TOKEN(401).
+        // 대기열 비활성 상태이면 토큰 유무와 무관하게 통과.
+        if (queueService.isQueueEnabled()) {
+            val token = criteria.entryToken
+                ?: throw CoreException(ErrorType.INVALID_TOKEN)
+            queueService.validateAndConsumeToken(userId, token)
+        }
+
         val productIds = criteria.items.map { it.productId }
         val products = productService.findByIds(productIds)
         if (products.size != productIds.toSet().size) {

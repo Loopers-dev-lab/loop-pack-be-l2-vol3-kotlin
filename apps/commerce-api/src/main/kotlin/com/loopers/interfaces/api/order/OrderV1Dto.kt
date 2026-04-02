@@ -25,6 +25,7 @@ class OrderV1Dto {
     data class CreateOrderRequest(
         val items: List<OrderItemRequest>,
         val couponIssueId: Long? = null,
+        val entryToken: String? = null,
     ) {
         fun toCriteria(): CreateOrderCriteria {
             return CreateOrderCriteria(
@@ -35,6 +36,7 @@ class OrderV1Dto {
                     )
                 },
                 couponIssueId = couponIssueId,
+                entryToken = entryToken,
             )
         }
     }

@@ -11,6 +11,10 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     NOT_FOUND(HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.reasonPhrase, "존재하지 않는 요청입니다."),
     CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.reasonPhrase, "이미 존재하는 리소스입니다."),
 
+    /** 대기열 에러 */
+    QUEUE_FULL(HttpStatus.SERVICE_UNAVAILABLE, "QUEUE_FULL", "현재 대기열이 가득 찼습니다. 잠시 후 다시 시도해주세요."),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN", "유효하지 않거나 만료된 입장 토큰입니다."),
+
     /** PG 연동 에러 */
     PG_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "PG_RATE_LIMITED", "결제 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),
     PG_CIRCUIT_OPEN(HttpStatus.SERVICE_UNAVAILABLE, "PG_CIRCUIT_OPEN", "결제 시스템이 일시적으로 중단되었습니다. 잠시 후 다시 시도해주세요."),
