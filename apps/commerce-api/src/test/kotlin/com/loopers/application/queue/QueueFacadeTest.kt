@@ -15,7 +15,15 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import java.io.IOException
+import org.mockito.kotlin.any
+import org.mockito.kotlin.inOrder
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 @ExtendWith(MockitoExtension::class)
 class QueueFacadeTest {
@@ -160,6 +168,86 @@ class QueueFacadeTest {
                 { assertThat(emitter).isNotNull },
                 { assertThat(queueEmitterRepository.get(userId)).isSameAs(emitter) },
             )
+        }
+
+        @Test
+        @DisplayName("SseEmitter의 onCompletion/onTimeout/onError 시 저장소에서 자동 제거된다")
+        fun removesEmitterFromRepository_whenCallbacksFired() {
+            // arrange
+            val userId = 1L
+            val emitter = queueFacade.subscribe(userId)
+            assertThat(queueEmitterRepository.get(userId)).isNotNull()
+
+            // act - onCompletion 콜백 추출 및 실행 (서블릿 컨텍스트 없이 콜백을 직접 트리거)
+            val field = ResponseBodyEmitter::class.java.getDeclaredField("completionCallback")
+            field.isAccessible = true
+            val callback = field.get(emitter) as Runnable
+            callback.run()
+
+            // assert
+            assertThat(queueEmitterRepository.get(userId)).isNull()
+        }
+    }
+
+    @Nested
+    @DisplayName("broadcastPositions 호출할 때,")
+    inner class BroadcastPositions {
+
+        @Test
+        @DisplayName("토큰이 발급된 유저에게 admitted 이벤트를 전송하고 SseEmitter를 완료한다")
+        fun sendsAdmittedEventAndCompletesEmitter_forAdmittedUsers() {
+            // arrange
+            val admittedUserId = 1L
+            val emitter = mock<SseEmitter>()
+            queueEmitterRepository.add(admittedUserId, emitter)
+
+            // act
+            queueFacade.broadcastPositions(listOf(admittedUserId))
+
+            // assert
+            val inOrder = inOrder(emitter)
+            inOrder.verify(emitter).send(any<SseEmitter.SseEventBuilder>())
+            inOrder.verify(emitter).complete()
+        }
+
+        @Test
+        @DisplayName("대기 중인 유저에게 position 이벤트를 전송한다")
+        fun sendsPositionEvent_forWaitingUsers() {
+            // arrange
+            val waitingUserId = 2L
+            val emitter = mock<SseEmitter>()
+            queueEmitterRepository.add(waitingUserId, emitter)
+
+            whenever(orderQueueService.getWaitingPositions(listOf(waitingUserId))).thenReturn(
+                mapOf(waitingUserId to QueuePosition(position = 5L, estimatedWaitSeconds = 5 / 175.0, totalSize = 100L)),
+            )
+
+            // act
+            queueFacade.broadcastPositions(listOf(1L))
+
+            // assert
+            verify(emitter).send(any<SseEmitter.SseEventBuilder>())
+            verify(emitter, never()).complete()
+        }
+
+        @Test
+        @DisplayName("전송 실패한 SseEmitter는 저장소에서 제거된다")
+        fun removesEmitterFromRepository_whenSendFails() {
+            // arrange
+            val waitingUserId = 2L
+            val emitter = mock<SseEmitter>()
+            queueEmitterRepository.add(waitingUserId, emitter)
+
+            whenever(emitter.send(any<SseEmitter.SseEventBuilder>())).thenThrow(IOException("connection closed"))
+            whenever(orderQueueService.getWaitingPositions(listOf(waitingUserId))).thenReturn(
+                mapOf(waitingUserId to QueuePosition(position = 5L, estimatedWaitSeconds = 5 / 175.0, totalSize = 100L)),
+            )
+
+            // act
+            queueFacade.broadcastPositions(listOf(1L))
+
+            // assert
+            assertThat(queueEmitterRepository.get(waitingUserId)).isNull()
         }
     }
 }

@@ -144,12 +144,64 @@ class OrderQueueServiceTest {
     }
 
     @Nested
+    @DisplayName("대기 중인 유저 포지션 일괄 조회할 때,")
+    inner class GetWaitingPositions {
+
+        @Test
+        @DisplayName("totalSize를 1회만 조회하고 각 유저의 포지션을 반환한다")
+        fun returnsBatchPositions_withSingleTotalSizeQuery() {
+            // arrange
+            whenever(orderQueueRepository.getTotalSize()).thenReturn(200L)
+            whenever(orderQueueRepository.getPosition(1L)).thenReturn(3L)
+            whenever(orderQueueRepository.getPosition(2L)).thenReturn(7L)
+
+            // act
+            val result = orderQueueService.getWaitingPositions(listOf(1L, 2L))
+
+            // assert
+            assertAll(
+                { assertThat(result).hasSize(2) },
+                { assertThat(result[1L]?.position).isEqualTo(3L) },
+                { assertThat(result[2L]?.position).isEqualTo(7L) },
+                { assertThat(result[1L]?.totalSize).isEqualTo(200L) },
+            )
+            verify(orderQueueRepository, times(1)).getTotalSize()
+        }
+
+        @Test
+        @DisplayName("대기열에 없는 유저는 결과에서 제외된다")
+        fun excludesUsersNotInQueue() {
+            // arrange
+            whenever(orderQueueRepository.getTotalSize()).thenReturn(100L)
+            whenever(orderQueueRepository.getPosition(1L)).thenReturn(null)
+            whenever(orderQueueRepository.getPosition(2L)).thenReturn(5L)
+
+            // act
+            val result = orderQueueService.getWaitingPositions(listOf(1L, 2L))
+
+            // assert
+            assertThat(result).hasSize(1)
+            assertThat(result).containsKey(2L)
+        }
+
+        @Test
+        @DisplayName("빈 목록이면 빈 맵을 반환한다")
+        fun returnsEmptyMap_whenEmpty() {
+            // act
+            val result = orderQueueService.getWaitingPositions(emptyList())
+
+            // assert
+            assertThat(result).isEmpty()
+        }
+    }
+
+    @Nested
     @DisplayName("유저 입장 처리할 때,")
     inner class AdmitUsers {
 
         @Test
-        @DisplayName("N명을 pop하고 각각 토큰을 발급하여 발급 인원 수를 반환한다")
-        fun returnsAdmittedCount_whenUsersPopped() {
+        @DisplayName("N명을 pop하고 각각 토큰을 발급하여 입장 유저 목록을 반환한다")
+        fun returnsAdmittedUserIds_whenUsersPopped() {
             // arrange
             val batchSize = 3L
             whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L, 3L))
@@ -158,12 +210,12 @@ class OrderQueueServiceTest {
             val result = orderQueueService.admitUsers(batchSize)
 
             // assert
-            assertThat(result).isEqualTo(3L)
+            assertThat(result).containsExactly(1L, 2L, 3L)
         }
 
         @Test
-        @DisplayName("대기열이 비어있으면 0을 반환한다")
-        fun returnsZero_whenQueueIsEmpty() {
+        @DisplayName("대기열이 비어있으면 빈 목록을 반환한다")
+        fun returnsEmptyList_whenQueueIsEmpty() {
             // arrange
             val batchSize = 5L
             whenever(orderQueueRepository.popFront(batchSize)).thenReturn(emptyList())
@@ -172,7 +224,7 @@ class OrderQueueServiceTest {
             val result = orderQueueService.admitUsers(batchSize)
 
             // assert
-            assertThat(result).isEqualTo(0L)
+            assertThat(result).isEmpty()
         }
 
         @Test

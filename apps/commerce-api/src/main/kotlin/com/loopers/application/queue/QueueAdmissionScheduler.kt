@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component
 @Component
 class QueueAdmissionScheduler(
     private val orderQueueService: OrderQueueService,
+    private val queueFacade: QueueFacade,
     @Value("\${queue.admission.batch-size}") private val batchSize: Long,
 ) {
 
@@ -18,9 +19,10 @@ class QueueAdmissionScheduler(
 
     @Scheduled(fixedRateString = "\${queue.admission.fixed-rate}")
     fun admitUsers() {
-        val admitted = orderQueueService.admitUsers(batchSize)
-        if (admitted > 0) {
-            log.info("대기열 입장 허용: {}명", admitted)
+        val admittedUserIds = orderQueueService.admitUsers(batchSize)
+        if (admittedUserIds.isNotEmpty()) {
+            log.info("대기열 입장 허용: {}명", admittedUserIds.size)
         }
+        queueFacade.broadcastPositions(admittedUserIds)
     }
 }

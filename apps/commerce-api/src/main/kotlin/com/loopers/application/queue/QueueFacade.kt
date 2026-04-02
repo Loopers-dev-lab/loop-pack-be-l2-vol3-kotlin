@@ -14,10 +14,18 @@ class QueueFacade(
 
     companion object {
         private const val SSE_TIMEOUT = 300_000L // 5분
+        private const val EVENT_ADMITTED = "admitted"
+        private const val EVENT_POSITION = "position"
     }
 
     fun subscribe(userId: Long): SseEmitter {
+        orderQueueService.getPosition(userId)
+
         val emitter = SseEmitter(SSE_TIMEOUT)
+        val cleanup = Runnable { queueEmitterRepository.remove(userId) }
+        emitter.onCompletion(cleanup)
+        emitter.onTimeout(cleanup)
+        emitter.onError { cleanup.run() }
         queueEmitterRepository.add(userId, emitter)
         return emitter
     }
@@ -26,6 +34,28 @@ class QueueFacade(
         orderQueueService.enterQueue(userId)
         val queuePosition = orderQueueService.getPosition(userId)
         return toInfo(queuePosition)
+    }
+
+    fun broadcastPositions(admittedUserIds: List<Long>) {
+        val admittedSet = admittedUserIds.toHashSet()
+        val emitters = queueEmitterRepository.getAll()
+
+        val waitingUserIds = emitters.keys.filter { it !in admittedSet }
+        val positions = orderQueueService.getWaitingPositions(waitingUserIds)
+
+        for ((userId, emitter) in emitters) {
+            try {
+                if (userId in admittedSet) {
+                    emitter.send(SseEmitter.event().name(EVENT_ADMITTED).data("토큰이 발급되었습니다"))
+                    emitter.complete()
+                } else {
+                    val position = positions[userId] ?: continue
+                    emitter.send(SseEmitter.event().name(EVENT_POSITION).data(position))
+                }
+            } catch (e: Exception) {
+                queueEmitterRepository.remove(userId)
+            }
+        }
     }
 
     fun getPosition(userId: Long): QueuePositionInfo {

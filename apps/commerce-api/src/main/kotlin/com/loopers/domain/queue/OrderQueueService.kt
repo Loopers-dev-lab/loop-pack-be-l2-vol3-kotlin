@@ -40,13 +40,23 @@ class OrderQueueService(
         )
     }
 
-    fun admitUsers(batchSize: Long): Long {
+    fun getWaitingPositions(userIds: List<Long>): Map<Long, QueuePosition> {
+        if (userIds.isEmpty()) return emptyMap()
+        val totalSize = orderQueueRepository.getTotalSize()
+        return userIds.mapNotNull { userId ->
+            val position = orderQueueRepository.getPosition(userId) ?: return@mapNotNull null
+            val estimatedWaitSeconds = position / ADMIT_RATE_PER_SECOND
+            userId to QueuePosition(position = position, estimatedWaitSeconds = estimatedWaitSeconds, totalSize = totalSize)
+        }.toMap()
+    }
+
+    fun admitUsers(batchSize: Long): List<Long> {
         val userIds = orderQueueRepository.popFront(batchSize)
         userIds.forEach { userId ->
             val token = UUID.randomUUID().toString()
             entryTokenRepository.issue(userId, token, ENTRY_TOKEN_TTL_SECONDS)
         }
-        return userIds.size.toLong()
+        return userIds
     }
 
     fun validateAndConsumeToken(userId: Long, token: String) {

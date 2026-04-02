@@ -17,11 +17,14 @@ class QueueAdmissionSchedulerTest {
     @Mock
     private lateinit var orderQueueService: OrderQueueService
 
+    @Mock
+    private lateinit var queueFacade: QueueFacade
+
     private lateinit var scheduler: QueueAdmissionScheduler
 
     @BeforeEach
     fun setUp() {
-        scheduler = QueueAdmissionScheduler(orderQueueService, 18L)
+        scheduler = QueueAdmissionScheduler(orderQueueService, queueFacade, 18L)
     }
 
     @Nested
@@ -32,7 +35,7 @@ class QueueAdmissionSchedulerTest {
         @DisplayName("설정된 배치 크기로 admitUsers를 호출한다")
         fun callsAdmitUsersWithConfiguredBatchSize() {
             // arrange
-            whenever(orderQueueService.admitUsers(18L)).thenReturn(5L)
+            whenever(orderQueueService.admitUsers(18L)).thenReturn(listOf(1L, 2L, 3L, 4L, 5L))
 
             // act
             scheduler.admitUsers()
@@ -45,13 +48,27 @@ class QueueAdmissionSchedulerTest {
         @DisplayName("대기열이 비어있어도 예외 없이 정상 종료한다")
         fun completesNormally_whenQueueIsEmpty() {
             // arrange
-            whenever(orderQueueService.admitUsers(18L)).thenReturn(0L)
+            whenever(orderQueueService.admitUsers(18L)).thenReturn(emptyList())
 
             // act & assert — 예외 없이 정상 종료
             scheduler.admitUsers()
 
             // assert
             verify(orderQueueService).admitUsers(18L)
+        }
+
+        @Test
+        @DisplayName("admitUsers 실행 후 broadcastPositions를 호출한다")
+        fun callsBroadcastPositionsAfterAdmittingUsers() {
+            // arrange
+            val admittedUserIds = listOf(1L, 2L, 3L)
+            whenever(orderQueueService.admitUsers(18L)).thenReturn(admittedUserIds)
+
+            // act
+            scheduler.admitUsers()
+
+            // assert
+            verify(queueFacade).broadcastPositions(admittedUserIds)
         }
     }
 }
