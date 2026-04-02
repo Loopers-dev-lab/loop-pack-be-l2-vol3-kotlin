@@ -34,6 +34,16 @@ class FakeCouponRepository : CouponRepository {
         return PageImpl(content, pageable, filtered.size.toLong())
     }
 
+    override fun incrementIssuedCount(couponId: Long): Int {
+        val coupon = store.find { it.id == couponId && it.deletedAt == null } ?: return 0
+        val maxIssueCount = coupon.maxIssueCount
+        if (maxIssueCount != null && coupon.issuedCount >= maxIssueCount) return 0
+        val issuedCountField = Coupon::class.java.getDeclaredField("issuedCount")
+        issuedCountField.isAccessible = true
+        issuedCountField.setInt(coupon, coupon.issuedCount + 1)
+        return 1
+    }
+
     private fun setEntityId(entity: BaseEntity, id: Long) {
         val idField = BaseEntity::class.java.getDeclaredField("id")
         idField.isAccessible = true

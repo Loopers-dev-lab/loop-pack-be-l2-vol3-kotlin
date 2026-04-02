@@ -87,7 +87,8 @@ class CouponConcurrencyTest @Autowired constructor(
                 executorService.submit {
                     try {
                         startLatch.await()
-                        couponService.useCouponForOrder(couponIssue.id, userId, orderAmount)
+                        couponService.validateAndCalculateDiscount(couponIssue.id, userId, orderAmount)
+                        couponService.markCouponUsed(couponIssue.id)
                         successCount.incrementAndGet()
                     } catch (e: ObjectOptimisticLockingFailureException) {
                         optimisticLockFailCount.incrementAndGet()
