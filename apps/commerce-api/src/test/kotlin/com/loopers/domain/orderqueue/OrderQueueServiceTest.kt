@@ -127,33 +127,50 @@ class OrderQueueServiceTest {
         }
     }
 
-    @DisplayName("validateAndConsumeToken")
+    @DisplayName("validateToken")
     @Nested
-    inner class ValidateAndConsumeToken {
-        @DisplayName("토큰이 있으면 소비하고 정상 리턴한다.")
+    inner class ValidateToken {
+        @DisplayName("토큰이 있으면 정상 리턴한다.")
         @Test
-        fun consumesTokenWhenPresent() {
+        fun passesWhenTokenPresent() {
             // arrange
-            every { orderQueueRedisRepository.consumeToken(USER_ID) } returns true
+            every { orderQueueRedisRepository.hasToken(USER_ID) } returns true
 
             // act & assert (예외 없으면 성공)
-            orderQueueService.validateAndConsumeToken(USER_ID)
+            orderQueueService.validateToken(USER_ID)
 
             // verify
-            verify(exactly = 1) { orderQueueRedisRepository.consumeToken(USER_ID) }
+            verify(exactly = 1) { orderQueueRedisRepository.hasToken(USER_ID) }
         }
 
         @DisplayName("토큰이 없으면 BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequestWhenNoToken() {
             // arrange
-            every { orderQueueRedisRepository.consumeToken(USER_ID) } returns false
+            every { orderQueueRedisRepository.hasToken(USER_ID) } returns false
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                orderQueueService.validateAndConsumeToken(USER_ID)
+                orderQueueService.validateToken(USER_ID)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
+        }
+    }
+
+    @DisplayName("consumeToken")
+    @Nested
+    inner class ConsumeToken {
+        @DisplayName("토큰을 소비한다.")
+        @Test
+        fun consumesToken() {
+            // arrange
+            every { orderQueueRedisRepository.consumeToken(USER_ID) } returns true
+
+            // act
+            orderQueueService.consumeToken(USER_ID)
+
+            // verify
+            verify(exactly = 1) { orderQueueRedisRepository.consumeToken(USER_ID) }
         }
     }
 

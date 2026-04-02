@@ -34,7 +34,8 @@ class UserCreateOrderUseCase(
     @Transactional
     override fun execute(criteria: CreateOrderCriteria): CreateOrderResult {
         val user = userService.getUser(criteria.loginId)
-        orderQueueService.validateAndConsumeToken(user.id)
+        orderQueueService.validateToken(user.id)
+
         val couponDiscount = criteria.couponId?.let { issuedCouponId ->
             couponService.validateAndUseForOrder(issuedCouponId, user.id)
         }
@@ -49,6 +50,8 @@ class UserCreateOrderUseCase(
             issuedCouponId = criteria.couponId,
         )
         val info = orderService.createOrder(command)
+
+        orderQueueService.consumeToken(user.id)
 
         info.items.forEach { item ->
             productMetricsRedisRepository.incrementOrderCount(item.productId)

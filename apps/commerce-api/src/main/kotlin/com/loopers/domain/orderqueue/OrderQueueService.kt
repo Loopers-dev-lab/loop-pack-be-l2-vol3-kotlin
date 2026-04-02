@@ -54,11 +54,14 @@ class OrderQueueService(
         )
     }
 
-    fun validateAndConsumeToken(userId: Long) {
-        val consumed = orderQueueRedisRepository.consumeToken(userId)
-        if (!consumed) {
+    fun validateToken(userId: Long) {
+        if (!orderQueueRedisRepository.hasToken(userId)) {
             throw CoreException(ErrorType.BAD_REQUEST, "입장 토큰이 없습니다. 대기열에 진입해주세요.")
         }
+    }
+
+    fun consumeToken(userId: Long) {
+        orderQueueRedisRepository.consumeToken(userId)
     }
 
     fun processTokenIssuance(batchSize: Long) {
