@@ -226,3 +226,91 @@ AI 리뷰(Codex P2)에서 fallback 상태임에도 Queue API가 Redis를 호출�
 ### 변경 범위
 
 - `WebMvcConfig`: `addPathPatterns` 변경 또는 인터셉터 내 메서드 필터링
+
+---
+
+## 5. 대기열 score 생성: Application Double → Redis Lua TIME 원자적 생성
+
+### 문제
+
+`EnterQueueUseCase`에서 `System.currentTimeMillis().toDouble() + counter % 10000 * 0.0001`로 score를 생성.
+IEEE 754 Double은 유효숫자 ~15.9자리인데, 밀리초(13자리) + 소수점(4자리) = 17자리가 필요하여 정밀도 손실이 발생한다.
+동일 밀리초에 대량 진입 시 score 충돌 → FIFO 순서 보장 실패.
+
+### 해결방안
+
+| 방안 | 설명 | 장점 | 단점 |
+|------|------|------|------|
+| A. Long 스케일링 | `millis * 10000 + counter` | 단순, Application 계층 유지 | 분산 환경에서 counter 동기화 불가 |
+| B. 초 단위 스케일링 | `seconds * 10000 + counter` | Double 안전 범위 | 같은 초에 10000명 초과 시 역전 |
+| C. Redis Lua TIME | Lua 내부에서 `redis.call('TIME')` → 마이크로초 단위 score | 원자적, 분산 안전, 정밀도 보장 | Lua 스크립트 복잡도 |
+
+### 최종 선택
+
+**C. Redis Lua TIME**
+
+### 근거
+
+- `redis.call('TIME')`은 {seconds, microseconds}를 반환. `seconds * 1000000 + microseconds` ≈ 1.7 × 10^15으로 Double의 2^53 (≈ 9 × 10^15) 안전 범위 내
+- 기존 `ENTER_SCRIPT` Lua 스크립트에 TIME 호출을 추가하는 것이므로 변경 범위가 작음
+- Application 계층의 `AtomicLong counter`를 제거하여 분산 환경 확장 시 문제 소지 제거
+- 이미 `popMinAndIssueTokens()`에서 Lua를 사용 중이므로 패턴이 일관됨
+
+### 변경 범위
+
+- `WaitingQueueRepository.enter()`: score 파라미터 제거
+- `RedisWaitingQueueRepository.ENTER_SCRIPT`: TIME 기반 score 생성 추가
+- `EnterQueueUseCase`: counter/score 계산 코드 제거
+- `FakeWaitingQueueRepository`: 내부 score 자동 생성으로 변경
+
+---
+
+## 6. OrderOutbox quantity: Int? → Quantity VO
+
+### 문제
+
+`OrderOutbox.quantity`가 `Int?`로 선언되어 init 블록에서 null 체크만 수행. 0이나 음수가 통과하는 검증 누락.
+동시에 `totalAmount`는 `Money`, `productId`는 `ProductId`를 사용하면서 `quantity`만 원시 타입인 설계 불일치.
+
+### 해결
+
+기존 `Quantity` VO(`value < 1`이면 예외)를 적용하여 두 문제를 동시 해결:
+- **검증**: VO 생성자에서 `value < 1` 자동 검증 → null/0/음수 모두 차단
+- **타입 일관성**: Money, ProductId, Quantity 등 모든 도메인 값이 VO로 표현
+
+### 변경 범위
+
+- `OrderOutbox.kt`: `quantity: Int?` → `quantity: Quantity?`
+- `OrderOutboxEntity.kt`: 매핑 (`?.value` / `?.let { Quantity(it) }`)
+- `HandlePaymentCallbackUseCase`, `RecoverPaymentUseCase`: OrderOutbox 생성부 타입 맞춤
+
+---
+
+## 7. SchedulingConfig: 커스텀 클래스 → Spring Boot 자동 설정
+
+### 문제
+
+`ThreadPoolTaskScheduler`를 직접 생성하는 `SchedulingConfig` 클래스가 존재.
+poolSize 하드코딩, Graceful Shutdown 미설정(`setWaitForTasksToCompleteOnShutdown` 누락).
+
+### 해결
+
+Spring Boot의 `spring.task.scheduling.*` 프로퍼티로 대체하고 커스텀 클래스 삭제.
+
+```yaml
+spring:
+  task:
+    scheduling:
+      pool:
+        size: 3
+      thread-name-prefix: scheduler-
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
+```
+
+### 근거
+
+- Spring Boot가 `TaskSchedulingAutoConfiguration`으로 동일 기능을 제공
+- 프로퍼티 방식이 프로파일별 오버라이드에 유리
+- Graceful Shutdown 설정이 자연스럽게 포함됨 (커스텀 클래스에서는 누락하기 쉬움)
