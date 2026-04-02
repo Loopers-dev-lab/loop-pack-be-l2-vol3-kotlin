@@ -5,6 +5,7 @@ import com.loopers.interfaces.api.brand.BrandV1Dto
 import com.loopers.interfaces.api.coupon.CouponAdminV1Dto
 import com.loopers.interfaces.api.product.ProductAdminV1Dto
 import com.loopers.interfaces.api.user.UserV1Dto
+import com.loopers.infrastructure.queue.WaitingQueueRedisRepository
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -15,8 +16,10 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -34,6 +37,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val userJpaRepository: UserJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    @Qualifier("redisTemplateMaster") private val masterRedisTemplate: RedisTemplate<String, String>,
 ) {
 
     companion object {
@@ -55,11 +59,20 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
         testBrandId = createTestBrand("나이키")!!
         testProductId = createTestProduct(testBrandId)!!
+        issueTestEntryToken(testUserId)
     }
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+    }
+
+    private fun issueTestEntryToken(userId: Long) {
+        masterRedisTemplate.opsForValue().set(
+            "${WaitingQueueRedisRepository.TOKEN_KEY_PREFIX}$userId",
+            "test-token:$userId",
+            WaitingQueueRedisRepository.TOKEN_TTL,
+        )
     }
 
     private fun authHeaders(): HttpHeaders {
@@ -157,6 +170,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
     }
 
     private fun createOrder(productId: Long, quantity: Int = 2): Map<String, Any>? {
+        issueTestEntryToken(testUserId)
         val request = OrderV1Dto.CreateRequest(
             items = listOf(OrderV1Dto.OrderItemRequest(productId = productId, quantity = quantity)),
         )
@@ -373,6 +387,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 object : ParameterizedTypeReference<ApiResponse<Any>>() {},
             )
 
+            val otherUserId = userJpaRepository.findByLoginId(otherLoginId)!!.id
+            issueTestEntryToken(otherUserId)
+
             val otherHeaders = HttpHeaders().apply {
                 set("X-Loopers-LoginId", otherLoginId)
                 set("X-Loopers-LoginPw", otherPassword)
@@ -474,6 +491,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val issuedCouponId = issueCoupon(couponId)!!
 
             // 먼저 쿠폰 사용
+            issueTestEntryToken(testUserId)
             val firstRequest = OrderV1Dto.CreateRequest(
                 items = listOf(OrderV1Dto.OrderItemRequest(productId = testProductId, quantity = 1)),
                 couponId = issuedCouponId,
@@ -486,6 +504,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             )
 
             // 같은 쿠폰으로 재주문
+            issueTestEntryToken(testUserId)
             val secondRequest = OrderV1Dto.CreateRequest(
                 items = listOf(OrderV1Dto.OrderItemRequest(productId = testProductId, quantity = 1)),
                 couponId = issuedCouponId,

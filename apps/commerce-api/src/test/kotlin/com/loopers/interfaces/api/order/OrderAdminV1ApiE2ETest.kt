@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.order
 
+import com.loopers.infrastructure.queue.WaitingQueueRedisRepository
+import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.brand.BrandV1Dto
 import com.loopers.interfaces.api.product.ProductAdminV1Dto
@@ -13,8 +15,10 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -27,6 +31,8 @@ import java.time.LocalDate
 class OrderAdminV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val userJpaRepository: UserJpaRepository,
+    @Qualifier("redisTemplateMaster") private val masterRedisTemplate: RedisTemplate<String, String>,
 ) {
 
     companion object {
@@ -40,6 +46,8 @@ class OrderAdminV1ApiE2ETest @Autowired constructor(
     @BeforeEach
     fun setUp() {
         createTestUser()
+        val userId = userJpaRepository.findByLoginId(TEST_LOGIN_ID)!!.id
+        issueTestEntryToken(userId)
         val brandId = createTestBrand()!!
         val productId = createTestProduct(brandId)!!
         testOrderId = createTestOrder(productId)!!
@@ -56,6 +64,14 @@ class OrderAdminV1ApiE2ETest @Autowired constructor(
             set("X-Loopers-LoginPw", TEST_PASSWORD)
             set("Content-Type", "application/json")
         }
+    }
+
+    private fun issueTestEntryToken(userId: Long) {
+        masterRedisTemplate.opsForValue().set(
+            "${WaitingQueueRedisRepository.TOKEN_KEY_PREFIX}$userId",
+            "test-token:$userId",
+            WaitingQueueRedisRepository.TOKEN_TTL,
+        )
     }
 
     private fun adminHeaders(): HttpHeaders {

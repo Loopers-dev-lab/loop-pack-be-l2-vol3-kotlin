@@ -4,7 +4,9 @@ import com.loopers.application.brand.BrandService
 import com.loopers.application.coupon.CouponService
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
+import com.loopers.application.queue.event.EntryTokenConsumedEvent
 import com.loopers.domain.order.OrderItemCommand
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,6 +16,7 @@ class OrderFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val couponService: CouponService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     @Transactional
@@ -40,11 +43,13 @@ class OrderFacade(
             issuedCoupon.use()
             order.applyDiscount(discountAmount)
 
+            eventPublisher.publishEvent(EntryTokenConsumedEvent(userId = userId, orderId = order.id))
             return OrderInfo.from(order)
         }
 
         // 4. 쿠폰 없는 주문
         val order = orderService.createOrder(userId, orderItemCommands)
+        eventPublisher.publishEvent(EntryTokenConsumedEvent(userId = userId, orderId = order.id))
         return OrderInfo.from(order)
     }
 

@@ -5,6 +5,7 @@ import com.loopers.infrastructure.pg.PgApiResponse
 import com.loopers.infrastructure.pg.PgCallbackRequest
 import com.loopers.infrastructure.pg.PgClient
 import com.loopers.infrastructure.pg.PgPaymentResponse
+import com.loopers.infrastructure.queue.WaitingQueueRedisRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.order.OrderV1Dto
 import com.loopers.interfaces.api.product.ProductAdminV1Dto
@@ -22,7 +23,9 @@ import org.junit.jupiter.api.assertAll
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
@@ -38,6 +41,7 @@ class PaymentV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val userJpaRepository: UserJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    @Qualifier("redisTemplateMaster") private val masterRedisTemplate: RedisTemplate<String, String>,
 ) {
 
     @MockitoBean
@@ -57,6 +61,8 @@ class PaymentV1ApiE2ETest @Autowired constructor(
     @BeforeEach
     fun setUp() {
         createTestUser()
+        val userId = userJpaRepository.findByLoginId(TEST_LOGIN_ID)!!.id
+        issueTestEntryToken(userId)
         val brandId = createTestBrand()!!
         val productId = createTestProduct(brandId)!!
         testOrderId = createTestOrder(productId)!!
@@ -65,6 +71,14 @@ class PaymentV1ApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+    }
+
+    private fun issueTestEntryToken(userId: Long) {
+        masterRedisTemplate.opsForValue().set(
+            "${WaitingQueueRedisRepository.TOKEN_KEY_PREFIX}$userId",
+            "test-token:$userId",
+            WaitingQueueRedisRepository.TOKEN_TTL,
+        )
     }
 
     private fun authHeaders(): HttpHeaders {
