@@ -1,6 +1,7 @@
 package com.loopers.domain.queue.token
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.model.EntryTokenConsumeResult
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
 
 class FakeEntryTokenRepository : EntryTokenRepository {
@@ -15,5 +16,12 @@ class FakeEntryTokenRepository : EntryTokenRepository {
 
     override fun delete(userId: UserId) {
         store.remove(userId)
+    }
+
+    override fun consumeIfValid(userId: UserId, token: String): EntryTokenConsumeResult {
+        val stored = store[userId] ?: return EntryTokenConsumeResult.NOT_FOUND
+        if (stored != token) return EntryTokenConsumeResult.MISMATCH
+        store.remove(userId)
+        return EntryTokenConsumeResult.SUCCESS
     }
 }

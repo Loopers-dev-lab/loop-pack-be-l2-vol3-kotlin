@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.core.script.RedisScript
 import org.springframework.stereotype.Repository
-import java.util.UUID
 
 @Repository
 class RedisWaitingQueueRepository(
@@ -17,7 +16,6 @@ class RedisWaitingQueueRepository(
 
     companion object {
         private const val QUEUE_KEY = "waiting-queue"
-        private const val TOKEN_KEY_PREFIX = "entry-token:"
 
         /**
          * Lua 스크립트: 원자적으로 상한 검증 + 대기열 진입 수행.
@@ -48,36 +46,6 @@ class RedisWaitingQueueRepository(
             """.trimIndent(),
             Long::class.java,
         )
-
-        /**
-         * Lua 스크립트: 원자적으로 N명을 pop하고 각각 입장 토큰을 SET.
-         * "절대로 먼저 삭제하지 마라" 원칙: SET entry-token 후 ZREM 수행.
-         *
-         * KEYS[1] = waiting-queue
-         * ARGV[1] = count
-         * ARGV[2] = ttlSeconds
-         * ARGV[3] = tokenKeyPrefix (예: "entry-token:")
-         * ARGV[4..] = token[i] (Kotlin에서 미리 생성한 UUID)
-         *
-         * 반환: pop된 member(userId) 리스트
-         */
-        private val POP_AND_ISSUE_SCRIPT = RedisScript.of(
-            """
-            local count = tonumber(ARGV[1])
-            local ttl = tonumber(ARGV[2])
-            local prefix = ARGV[3]
-            local members = redis.call('ZRANGE', KEYS[1], 0, count - 1)
-            local result = {}
-            for i, member in ipairs(members) do
-                local token = ARGV[3 + i]
-                redis.call('SET', prefix .. member, token, 'EX', ttl)
-                redis.call('ZREM', KEYS[1], member)
-                table.insert(result, member)
-            end
-            return result
-            """.trimIndent(),
-            List::class.java,
-        )
     }
 
     override fun enter(userId: UserId, maxCapacity: Int): Long? {
@@ -107,28 +75,6 @@ class RedisWaitingQueueRepository(
             val id = value.toLongOrNull()
                 ?: throw IllegalStateException("대기열에 비정상 member가 존재합니다: $value")
             UserId(id)
-        }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> {
-        val tokens = List(count) { UUID.randomUUID().toString() }
-        val argv = buildList {
-            add(count.toString())
-            add(ttlSeconds.toString())
-            add(TOKEN_KEY_PREFIX)
-            addAll(tokens)
-        }
-        val members = redisTemplate.execute(
-            POP_AND_ISSUE_SCRIPT,
-            listOf(QUEUE_KEY),
-            *argv.toTypedArray(),
-        ) as? List<String> ?: return emptyList()
-
-        return members.mapIndexed { index, member ->
-            val id = member.toLongOrNull()
-                ?: throw IllegalStateException("대기열에 비정상 member가 존재합니다: $member")
-            UserId(id) to tokens[index]
         }
     }
 }

@@ -32,14 +32,4 @@ interface WaitingQueueRepository {
      * @return 꺼낸 UserId 리스트 (score 오름차순).
      */
     fun popMin(count: Int): List<UserId>
-
-    /**
-     * 대기열 앞에서 N명을 원자적으로 꺼내고 각 userId에 입장 토큰을 발급한다.
-     * "절대로 먼저 삭제하지 마라" 원칙: SET entry-token 후 ZREM 수행.
-     *
-     * @param count 꺼낼 인원 수
-     * @param ttlSeconds 토큰 TTL (초)
-     * @return (UserId, token) 쌍의 리스트
-     */
-    fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>>
 }

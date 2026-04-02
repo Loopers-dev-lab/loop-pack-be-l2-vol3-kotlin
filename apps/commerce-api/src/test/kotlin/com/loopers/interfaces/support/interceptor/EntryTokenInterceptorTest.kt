@@ -149,6 +149,8 @@ class EntryTokenInterceptorTest {
 
                 override fun issue(userId: UserId, token: String, ttlSeconds: Long) = Unit
                 override fun delete(userId: UserId) = Unit
+                override fun consumeIfValid(userId: UserId, token: String) =
+                    throw RuntimeException("Redis connection refused")
             }
             val failingInterceptor = EntryTokenInterceptor(
                 ValidateEntryTokenUseCase(failingRepo),

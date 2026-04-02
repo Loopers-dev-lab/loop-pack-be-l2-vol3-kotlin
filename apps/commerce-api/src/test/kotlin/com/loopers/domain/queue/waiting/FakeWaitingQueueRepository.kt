@@ -1,14 +1,10 @@
 package com.loopers.domain.queue.waiting
 
 import com.loopers.domain.common.vo.UserId
-import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import java.util.TreeMap
-import java.util.UUID
 
-class FakeWaitingQueueRepository(
-    private val entryTokenRepository: FakeEntryTokenRepository? = null,
-) : WaitingQueueRepository {
+class FakeWaitingQueueRepository : WaitingQueueRepository {
 
     private val scoreByUserId = mutableMapOf<UserId, Double>()
     private val sortedEntries = TreeMap<Double, MutableList<UserId>>()
@@ -57,13 +53,5 @@ class FakeWaitingQueueRepository(
             result.add(minUserId)
         }
         return result
-    }
-
-    override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> {
-        return popMin(count).map { userId ->
-            val token = UUID.randomUUID().toString()
-            entryTokenRepository?.issue(userId, token, ttlSeconds)
-            userId to token
-        }
     }
 }

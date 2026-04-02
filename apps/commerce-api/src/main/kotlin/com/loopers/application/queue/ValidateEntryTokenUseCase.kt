@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.model.EntryTokenConsumeResult
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -12,13 +13,12 @@ class ValidateEntryTokenUseCase(
 ) {
 
     fun execute(userId: Long, token: String) {
-        val storedToken = entryTokenRepository.find(UserId(userId))
-            ?: throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 만료되었거나 유효하지 않습니다.")
-
-        if (token != storedToken) {
-            throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 유효하지 않습니다.")
+        when (entryTokenRepository.consumeIfValid(UserId(userId), token)) {
+            EntryTokenConsumeResult.NOT_FOUND ->
+                throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 만료되었거나 유효하지 않습니다.")
+            EntryTokenConsumeResult.MISMATCH ->
+                throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 유효하지 않습니다.")
+            EntryTokenConsumeResult.SUCCESS -> {}
         }
-
-        entryTokenRepository.delete(UserId(userId))
     }
 }

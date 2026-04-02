@@ -21,9 +21,10 @@ class IssueEntryTokensUseCaseTest {
     @BeforeEach
     fun setUp() {
         entryTokenRepository = FakeEntryTokenRepository()
-        waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository)
+        waitingQueueRepository = FakeWaitingQueueRepository()
         issueEntryTokensUseCase = IssueEntryTokensUseCase(
             waitingQueueRepository = waitingQueueRepository,
+            entryTokenRepository = entryTokenRepository,
             queueProperties = QueueProperties(
                 maxCapacity = 50_000,
                 batchSize = batchSize,
@@ -90,6 +91,7 @@ class IssueEntryTokensUseCaseTest {
             // arrange
             val jitterUseCase = IssueEntryTokensUseCase(
                 waitingQueueRepository = waitingQueueRepository,
+                entryTokenRepository = entryTokenRepository,
                 queueProperties = QueueProperties(
                     maxCapacity = 50_000,
                     batchSize = batchSize,

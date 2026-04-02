@@ -1,6 +1,7 @@
 package com.loopers.domain.queue.token.repository
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.model.EntryTokenConsumeResult
 
 interface EntryTokenRepository {
 
@@ -17,7 +18,13 @@ interface EntryTokenRepository {
     fun find(userId: UserId): String?
 
     /**
-     * 입장 토큰을 삭제한다 (주문 완료 후).
+     * 입장 토큰을 삭제한다.
      */
     fun delete(userId: UserId)
+
+    /**
+     * 토큰을 원자적으로 검증하고 소비(삭제)한다.
+     * GET + 비교 + DEL이 단일 원자 연산으로 수행된다.
+     */
+    fun consumeIfValid(userId: UserId, token: String): EntryTokenConsumeResult
 }

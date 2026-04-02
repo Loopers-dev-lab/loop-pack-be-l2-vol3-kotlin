@@ -34,9 +34,9 @@ class QueueSchedulerTest {
     @BeforeEach
     fun setUp() {
         entryTokenRepository = FakeEntryTokenRepository()
-        waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository)
+        waitingQueueRepository = FakeWaitingQueueRepository()
         queueFallbackHandler = QueueFallbackHandler()
-        val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, properties)
+        val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, properties)
         scheduler = QueueScheduler(issueUseCase, queueFallbackHandler)
     }
 
@@ -117,11 +117,8 @@ class QueueSchedulerTest {
 
                 override fun popMin(count: Int): List<UserId> =
                     throw RedisConnectionFailureException("Redis connection refused")
-
-                override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> =
-                    throw RedisConnectionFailureException("Redis connection refused")
             }
-            val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, properties)
+            val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, entryTokenRepository, properties)
             val failingScheduler = QueueScheduler(failingIssueUseCase, queueFallbackHandler)
 
             // act — 예외 없이 정상 종료
@@ -147,11 +144,8 @@ class QueueSchedulerTest {
 
                 override fun popMin(count: Int): List<UserId> =
                     throw NullPointerException("unexpected null")
-
-                override fun popMinAndIssueTokens(count: Int, ttlSeconds: Long): List<Pair<UserId, String>> =
-                    throw NullPointerException("unexpected null")
             }
-            val npeIssueUseCase = IssueEntryTokensUseCase(npeRepo, properties)
+            val npeIssueUseCase = IssueEntryTokensUseCase(npeRepo, entryTokenRepository, properties)
             val npeScheduler = QueueScheduler(npeIssueUseCase, queueFallbackHandler)
 
             // act & assert
