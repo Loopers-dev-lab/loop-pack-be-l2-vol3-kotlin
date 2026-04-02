@@ -8,6 +8,7 @@ import com.loopers.domain.order.CouponReservationRepository
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.order.StockReservationRepository
+import com.loopers.domain.queue.OrderQueueService
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.ProductService
@@ -62,6 +63,9 @@ class OrderFacadeTest {
     @Mock
     private lateinit var couponReservationRepository: CouponReservationRepository
 
+    @Mock
+    private lateinit var orderQueueService: OrderQueueService
+
     private lateinit var orderFacade: OrderFacade
 
     @BeforeEach
@@ -69,6 +73,7 @@ class OrderFacadeTest {
         orderFacade = OrderFacade(
             orderService, productService, brandService, couponService, paymentFacade,
             eventPublisher, outboxPublisher, stockReservationRepository, couponReservationRepository,
+            orderQueueService,
         )
     }
 
@@ -114,6 +119,72 @@ class OrderFacadeTest {
         }
     }
 
+    @DisplayName("주문 시 입장 토큰을 검증할 때,")
+    @Nested
+    inner class EntryTokenValidation {
+
+        @Test
+        @DisplayName("placeOrder 호출 시 최상단에서 validateAndConsumeToken을 호출한다")
+        fun callsValidateAndConsumeToken_whenPlaceOrder() {
+            // arrange
+            val order = Order(userId = 1L)
+            ReflectionTestUtils.setField(order, "id", 1L)
+            whenever(orderService.findByIdempotencyKey(any())).thenReturn(null)
+            whenever(productService.getProductsByIds(any())).thenReturn(emptyList())
+            whenever(brandService.getBrandsByIds(any())).thenReturn(emptyList())
+            whenever(orderService.createOrder(any(), any(), any())).thenReturn(order)
+            whenever(paymentFacade.requestPayment(any(), any(), any(), any(), any())).thenReturn(
+                PaymentInfo(
+                    paymentId = 1L,
+                    orderId = "1",
+                    cardType = "SAMSUNG",
+                    cardNo = "1234-5678-9012-3456",
+                    amount = 0L,
+                    status = PaymentStatus.PENDING,
+                    transactionKey = "txn-key",
+                    failReason = null,
+                ),
+            )
+
+            // act
+            orderFacade.placeOrder(
+                userId = 1L,
+                items = emptyList(),
+                idempotencyKey = "idem-001",
+                entryToken = "valid-token",
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+            )
+
+            // assert
+            verify(orderQueueService).validateAndConsumeToken(1L, "valid-token")
+        }
+
+        @Test
+        @DisplayName("토큰 검증 실패 시 FORBIDDEN 예외가 전파되고 이후 로직이 실행되지 않는다")
+        fun throwsForbidden_whenTokenIsInvalid() {
+            // arrange
+            whenever(orderQueueService.validateAndConsumeToken(any(), any()))
+                .thenThrow(CoreException(ErrorType.FORBIDDEN, "입장 토큰이 존재하지 않습니다."))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderFacade.placeOrder(
+                    userId = 1L,
+                    items = emptyList(),
+                    idempotencyKey = "idem-001",
+                    entryToken = "invalid-token",
+                    cardType = CardType.SAMSUNG,
+                    cardNo = "1234-5678-9012-3456",
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
+            verify(orderService, never()).findByIdempotencyKey(any())
+        }
+    }
+
     @DisplayName("주문 시 결제를 요청할 때,")
     @Nested
     inner class PlaceOrderWithPayment {
@@ -146,6 +217,7 @@ class OrderFacadeTest {
                 userId = 1L,
                 items = emptyList(),
                 idempotencyKey = "idem-001",
+                entryToken = "test-token",
                 cardType = CardType.SAMSUNG,
                 cardNo = "1234-5678-9012-3456",
             )
@@ -181,6 +253,7 @@ class OrderFacadeTest {
                 userId = 1L,
                 items = emptyList(),
                 idempotencyKey = "idem-001",
+                entryToken = "test-token",
                 cardType = CardType.SAMSUNG,
                 cardNo = "1234-5678-9012-3456",
             )
@@ -224,6 +297,7 @@ class OrderFacadeTest {
                     userId = 1L,
                     items = emptyList(),
                     idempotencyKey = "idem-001",
+                    entryToken = "test-token",
                     cardType = CardType.SAMSUNG,
                     cardNo = "1234-5678-9012-3456",
                 )
@@ -261,6 +335,7 @@ class OrderFacadeTest {
                     userId = 1L,
                     items = emptyList(),
                     idempotencyKey = "idem-001",
+                    entryToken = "test-token",
                     cardType = CardType.SAMSUNG,
                     cardNo = "1234-5678-9012-3456",
                 )

@@ -13,6 +13,7 @@ import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.queue.OrderQueueService
 import com.loopers.domain.user.event.ActionType
 import com.loopers.domain.user.event.UserActionEvent
 import com.loopers.event.AggregateTypes
@@ -37,6 +38,7 @@ class OrderFacade(
     private val outboxPublisher: OutboxPublisher,
     private val stockReservationRepository: StockReservationRepository,
     private val couponReservationRepository: CouponReservationRepository,
+    private val orderQueueService: OrderQueueService,
 ) {
 
     @Transactional(readOnly = true)
@@ -60,9 +62,12 @@ class OrderFacade(
         items: List<OrderPlaceCommand>,
         couponId: Long? = null,
         idempotencyKey: String? = null,
+        entryToken: String,
         cardType: CardType,
         cardNo: String,
     ) {
+        orderQueueService.validateAndConsumeToken(userId, entryToken)
+
         if (idempotencyKey != null && orderService.findByIdempotencyKey(idempotencyKey) != null) {
             return
         }

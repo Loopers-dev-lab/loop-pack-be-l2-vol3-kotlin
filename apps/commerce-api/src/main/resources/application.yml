@@ -82,6 +82,12 @@ resilience4j:
         max-concurrent-calls: 25   # PG 동시 요청 최대 25개 (Tomcat 200 스레드 중 일부만 허용)
         max-wait-duration: 0       # 대기 없이 즉시 실패
 
+# 주문 대기열 설정
+queue:
+  admission:
+    batch-size: 18
+    fixed-rate: 100
+
 ---
 spring:
   config:

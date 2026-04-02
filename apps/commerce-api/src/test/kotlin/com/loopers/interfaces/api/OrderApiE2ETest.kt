@@ -14,6 +14,7 @@ import com.loopers.domain.coupon.DiscountType
 import com.loopers.domain.coupon.IssuedCouponRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.domain.order.StockReservationRepository
 import com.loopers.domain.user.LoginId
 import com.loopers.domain.user.UserRepository
@@ -62,6 +63,7 @@ class OrderApiE2ETest @Autowired constructor(
     private val issuedCouponRepository: IssuedCouponRepository,
     private val userRepository: UserRepository,
     private val stockReservationRepository: StockReservationRepository,
+    private val entryTokenRepository: EntryTokenRepository,
     private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
@@ -189,12 +191,23 @@ class OrderApiE2ETest @Autowired constructor(
         )
     }
 
+    private fun issueEntryToken(userId: Long): String {
+        val token = UUID.randomUUID().toString()
+        entryTokenRepository.issue(userId, token, 300L)
+        return token
+    }
+
     private fun placeOrder(
         request: PlaceOrderRequest,
         headers: HttpHeaders = authHeaders(),
     ): ResponseEntity<ApiResponse<Any>> {
         if (!headers.containsKey("Idempotency-Key")) {
             headers.set("Idempotency-Key", UUID.randomUUID().toString())
+        }
+        val loginId = headers.getFirst(LOGIN_ID_HEADER) ?: "testuser123"
+        val user = userRepository.findByLoginId(LoginId.of(loginId))
+        if (user != null) {
+            headers.set("X-Entry-Token", issueEntryToken(user.id))
         }
         return testRestTemplate.exchange(
             ORDER_ENDPOINT,
@@ -490,6 +503,57 @@ class OrderApiE2ETest @Autowired constructor(
             // assert: Redis 재고 복원 확인
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             assertThat(redisTemplate.opsForValue().get("stock:${product1.id}")).isEqualTo("100")
+        }
+
+        @DisplayName("X-Entry-Token 헤더가 없으면, 요청이 실패한다.")
+        @Test
+        fun failsRequest_whenEntryTokenHeaderMissing() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", UUID.randomUUID().toString())
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                ORDER_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity(request, headers),
+                ORDER_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode.is2xxSuccessful).isFalse()
+        }
+
+        @DisplayName("유효하지 않은 입장 토큰이면, 403 FORBIDDEN을 반환한다.")
+        @Test
+        fun returnsForbidden_whenEntryTokenIsInvalid() {
+            // arrange
+            signUp()
+            val product = createProduct()
+            val request = PlaceOrderRequest(
+                items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
+            )
+            val headers = authHeaders().apply {
+                set("Idempotency-Key", UUID.randomUUID().toString())
+                set("X-Entry-Token", "invalid-token-value")
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                ORDER_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity(request, headers),
+                ORDER_RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
         }
     }
 
@@ -1244,6 +1308,7 @@ class OrderApiE2ETest @Autowired constructor(
         fun createsOnlyOneOrder_whenConcurrentRequestsWithSameKey() {
             // arrange
             signUp()
+            val user = userRepository.findByLoginId(LoginId.of("testuser123"))!!
             val product = createProduct(stockQuantity = StockQuantity.of(100))
             val request = PlaceOrderRequest(
                 items = listOf(OrderItemRequest(productId = product.id, quantity = 1)),
@@ -1255,12 +1320,17 @@ class OrderApiE2ETest @Autowired constructor(
             val executor = Executors.newFixedThreadPool(threadCount)
             val successCount = AtomicInteger(0)
 
+            // 각 스레드용 토큰을 미리 발급
+            val tokens = (1..threadCount).map { issueEntryToken(user.id) }
+
             // act
-            repeat(threadCount) {
+            repeat(threadCount) { i ->
+                val token = tokens[i]
                 executor.submit {
                     try {
                         val headers = authHeaders().apply {
                             set("Idempotency-Key", idempotencyKey)
+                            set("X-Entry-Token", token)
                         }
                         val response = testRestTemplate.exchange(
                             ORDER_ENDPOINT,
@@ -1343,8 +1413,15 @@ class OrderApiE2ETest @Autowired constructor(
             val executor = Executors.newFixedThreadPool(threadCount)
             val successCount = AtomicInteger(0)
 
+            // 각 사용자별로 토큰을 미리 발급
+            val tokens = (1..threadCount).associate { i ->
+                val user = userRepository.findByLoginId(LoginId.of("user$i"))!!
+                "user$i" to issueEntryToken(user.id)
+            }
+
             // act
             (1..threadCount).forEach { i ->
+                val token = tokens["user$i"]!!
                 executor.submit {
                     try {
                         val request = PlaceOrderRequest(
@@ -1352,6 +1429,7 @@ class OrderApiE2ETest @Autowired constructor(
                         )
                         val headers = authHeaders(loginId = "user$i").apply {
                             set("Idempotency-Key", UUID.randomUUID().toString())
+                            set("X-Entry-Token", token)
                         }
                         val response = testRestTemplate.exchange(
                             ORDER_ENDPOINT,
@@ -1391,8 +1469,15 @@ class OrderApiE2ETest @Autowired constructor(
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
 
+            // 각 사용자별로 토큰을 미리 발급
+            val tokens = (1..threadCount).associate { i ->
+                val user = userRepository.findByLoginId(LoginId.of("user$i"))!!
+                "user$i" to issueEntryToken(user.id)
+            }
+
             // act
             (1..threadCount).forEach { i ->
+                val token = tokens["user$i"]!!
                 executor.submit {
                     try {
                         val request = PlaceOrderRequest(
@@ -1400,6 +1485,7 @@ class OrderApiE2ETest @Autowired constructor(
                         )
                         val headers = authHeaders(loginId = "user$i").apply {
                             set("Idempotency-Key", UUID.randomUUID().toString())
+                            set("X-Entry-Token", token)
                         }
                         val response = testRestTemplate.exchange(
                             ORDER_ENDPOINT,
