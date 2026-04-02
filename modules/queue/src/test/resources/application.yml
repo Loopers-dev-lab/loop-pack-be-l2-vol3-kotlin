@@ -1,0 +1,12 @@
+spring:
+  config:
+    import:
+      - redis.yml
+
+queue:
+  enabled: true
+  batch-size: 30
+  scheduler-interval-ms: 200
+  token-ttl-seconds: 300
+  max-active-tokens: 150
+  counter-correction-interval: 50

@@ -6,6 +6,7 @@ include(
     ":apps:commerce-batch",
     ":modules:jpa",
     ":modules:redis",
+    ":modules:queue",
     ":modules:kafka",
     ":supports:jackson",
     ":supports:logging",
