@@ -3,6 +3,7 @@ package com.loopers.domain.outbox
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.outbox.model.OrderOutbox.OrderOutboxEventType
@@ -30,7 +31,7 @@ class OrderOutboxTest {
                 totalAmount = Money(10000L.toBigDecimal()),
                 reason = null,
                 productId = ProductId(1L),
-                quantity = 1,
+                quantity = Quantity(1),
             )
 
             assertThat(outbox.eventType).isEqualTo(OrderOutboxEventType.PAYMENT_COMPLETED)
@@ -79,7 +80,7 @@ class OrderOutboxTest {
                     userId = UserId(1L),
                     totalAmount = null,
                     productId = ProductId(1L),
-                    quantity = 1,
+                    quantity = Quantity(1),
                 )
             }.isInstanceOf(CoreException::class.java)
         }
@@ -87,7 +88,7 @@ class OrderOutboxTest {
         @Test
         fun `PAYMENT_COMPLETED에 productId가 없으면 예외가 발생한다`() {
             assertThatThrownBy {
-                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), quantity = 1)
+                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), quantity = Quantity(1))
             }.isInstanceOf(CoreException::class.java)
         }
 
@@ -111,7 +112,7 @@ class OrderOutboxTest {
                 userId = UserId(1L),
                 totalAmount = Money(10000L.toBigDecimal()),
                 productId = ProductId(1L),
-                quantity = 1,
+                quantity = Quantity(1),
             )
 
             outbox.markPublished()
@@ -127,7 +128,7 @@ class OrderOutboxTest {
                 userId = UserId(1L),
                 totalAmount = Money(10000L.toBigDecimal()),
                 productId = ProductId(1L),
-                quantity = 1,
+                quantity = Quantity(1),
             )
 
             // published 필드가 private set이므로 컴파일 시점에 차단됨을 런타임으로 검증
@@ -151,7 +152,7 @@ class OrderOutboxTest {
         @Test
         fun `미발행 메시지만 조회된다`() {
             val unpublished = repository.save(
-                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), totalAmount = Money(10000L.toBigDecimal()), productId = ProductId(1L), quantity = 1),
+                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), totalAmount = Money(10000L.toBigDecimal()), productId = ProductId(1L), quantity = Quantity(1)),
             )
             val published = repository.save(
                 OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_FAILED, orderId = OrderId(2L), userId = UserId(1L), reason = "잔액 부족"),
@@ -168,7 +169,7 @@ class OrderOutboxTest {
         @Test
         fun `발행 완료 마킹 후 미발행 목록에서 제외된다`() {
             val outbox = repository.save(
-                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), totalAmount = Money(10000L.toBigDecimal()), productId = ProductId(1L), quantity = 1),
+                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(1L), userId = UserId(1L), totalAmount = Money(10000L.toBigDecimal()), productId = ProductId(1L), quantity = Quantity(1)),
             )
 
             outbox.markPublished()

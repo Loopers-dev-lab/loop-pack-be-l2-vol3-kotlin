@@ -21,26 +21,30 @@ class RedisWaitingQueueRepository(
 
         /**
          * Lua 스크립트: 원자적으로 상한 검증 + 대기열 진입 수행.
+         * score는 Redis 서버 타임스탬프(TIME 커맨드)로 생성하여 Double 정밀도 한계를 회피한다.
+         * score = seconds * 1_000_000 + microseconds (마이크로초 단위 유닉스 타임스탬프)
+         * 최대값 ≈ 1.7×10^15 < 2^53 (Double 안전 정수 범위) 이므로 정밀도 손실 없음.
          *
          * KEYS[1] = waiting-queue
-         * ARGV[1] = score (timestamp)
-         * ARGV[2] = userId (member)
-         * ARGV[3] = maxCapacity
+         * ARGV[1] = userId (member)
+         * ARGV[2] = maxCapacity
          *
          * 반환: 순번 (0-based) 또는 -1 (상한 초과)
          */
         private val ENTER_SCRIPT = RedisScript.of(
             """
-            local existingRank = redis.call('ZRANK', KEYS[1], ARGV[2])
+            local existingRank = redis.call('ZRANK', KEYS[1], ARGV[1])
             if existingRank then
                 return existingRank
             end
             local currentCount = redis.call('ZCARD', KEYS[1])
-            if currentCount >= tonumber(ARGV[3]) then
+            if currentCount >= tonumber(ARGV[2]) then
                 return -1
             end
-            redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])
-            return redis.call('ZRANK', KEYS[1], ARGV[2])
+            local time = redis.call('TIME')
+            local score = tonumber(time[1]) * 1000000 + tonumber(time[2])
+            redis.call('ZADD', KEYS[1], score, ARGV[1])
+            return redis.call('ZRANK', KEYS[1], ARGV[1])
             """.trimIndent(),
             Long::class.java,
         )
@@ -76,11 +80,10 @@ class RedisWaitingQueueRepository(
         )
     }
 
-    override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? {
+    override fun enter(userId: UserId, maxCapacity: Int): Long? {
         val result = redisTemplate.execute(
             ENTER_SCRIPT,
             listOf(QUEUE_KEY),
-            score.toString(),
             userId.value.toString(),
             maxCapacity.toString(),
         )

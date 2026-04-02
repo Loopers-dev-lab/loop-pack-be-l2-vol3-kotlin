@@ -5,6 +5,7 @@ import com.loopers.application.event.RelayOutboxUseCase
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.outbox.FakeCatalogOutboxRepository
@@ -90,7 +91,7 @@ class OutboxRelaySchedulerTest {
                     userId = UserId(100L),
                     totalAmount = Money(BigDecimal(50000)),
                     productId = ProductId(1L),
-                    quantity = 1,
+                    quantity = Quantity(1),
                 ),
             )
 
@@ -138,7 +139,7 @@ class OutboxRelaySchedulerTest {
                 CatalogOutbox(eventType = CatalogOutboxEventType.PRODUCT_VIEWED, productId = ProductId(1L), userId = null),
             )
             orderOutboxRepository.save(
-                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(2L), userId = UserId(100L), totalAmount = Money(BigDecimal(30000)), productId = ProductId(1L), quantity = 1),
+                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(2L), userId = UserId(100L), totalAmount = Money(BigDecimal(30000)), productId = ProductId(1L), quantity = Quantity(1)),
             )
             couponOutboxRepository.save(
                 CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = CouponOutboxEventType.COUPON_ISSUE_REQUESTED, couponId = CouponId(3L), userId = UserId(100L)),

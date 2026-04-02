@@ -77,8 +77,8 @@ class GetQueuePositionUseCaseTest {
         @DisplayName("순번 100 이하이면 추천 폴링 주기 1000ms를 반환한다")
         fun execute_position100OrLess_pollInterval1000() {
             // arrange
-            waitingQueueRepository.enter(UserId(1L), 1000.0, maxCapacity)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(1L), maxCapacity)
+            waitingQueueRepository.enter(UserId(2L), maxCapacity)
 
             // act
             val result = getQueuePositionUseCase.execute(2L)
@@ -105,9 +105,9 @@ class GetQueuePositionUseCaseTest {
         @DisplayName("정상 조회 시 순번과 예상 대기 시간을 반환한다")
         fun execute_inQueue_returnsPositionAndEstimatedWait() {
             // arrange
-            waitingQueueRepository.enter(UserId(1L), 1000.0, maxCapacity)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, maxCapacity)
-            waitingQueueRepository.enter(UserId(3L), 3000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(1L), maxCapacity)
+            waitingQueueRepository.enter(UserId(2L), maxCapacity)
+            waitingQueueRepository.enter(UserId(3L), maxCapacity)
 
             // act
             val result = getQueuePositionUseCase.execute(3L)
@@ -123,7 +123,7 @@ class GetQueuePositionUseCaseTest {
         fun execute_position350_estimatedWait2Seconds() {
             // arrange — 351명 진입 (마지막 유저 position=350)
             for (i in 1L..351L) {
-                waitingQueueRepository.enter(UserId(i), i.toDouble(), maxCapacity)
+                waitingQueueRepository.enter(UserId(i), maxCapacity)
             }
 
             // act
@@ -135,11 +135,11 @@ class GetQueuePositionUseCaseTest {
         }
 
         @Test
-        @DisplayName("순번 101일 때 추천 폴링 주기가 1000ms보다 크다")
-        fun execute_position101_pollIntervalGreaterThan1000() {
+        @DisplayName("순번 101일 때 추천 폴링 주기 3000ms를 반환한다")
+        fun execute_position101_pollInterval3000() {
             // arrange — 102명 진입 (마지막 유저 position=101)
             for (i in 1L..102L) {
-                waitingQueueRepository.enter(UserId(i), i.toDouble(), maxCapacity)
+                waitingQueueRepository.enter(UserId(i), maxCapacity)
             }
 
             // act
@@ -147,7 +147,7 @@ class GetQueuePositionUseCaseTest {
 
             // assert
             assertThat(result.position).isEqualTo(101L)
-            assertThat(result.recommendedPollIntervalMs).isGreaterThan(1000L)
+            assertThat(result.recommendedPollIntervalMs).isEqualTo(3000L)
         }
 
         @Test

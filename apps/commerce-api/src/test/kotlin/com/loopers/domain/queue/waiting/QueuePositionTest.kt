@@ -21,7 +21,7 @@ class QueuePositionTest {
 
             // Act
             val positions = (1L..10L).map { userId ->
-                repository.enter(UserId(userId), 1000.0, 50_000)!!
+                repository.enter(UserId(userId), 50_000)!!
             }
 
             // Assert

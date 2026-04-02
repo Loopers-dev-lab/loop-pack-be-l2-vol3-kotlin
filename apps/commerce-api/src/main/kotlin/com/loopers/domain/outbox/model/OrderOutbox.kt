@@ -3,6 +3,7 @@ package com.loopers.domain.outbox.model
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -17,7 +18,7 @@ class OrderOutbox(
     val totalAmount: Money? = null,
     val reason: String? = null,
     val productId: ProductId? = null,
-    val quantity: Int? = null,
+    val quantity: Quantity? = null,
     published: Boolean = false,
 ) {
 

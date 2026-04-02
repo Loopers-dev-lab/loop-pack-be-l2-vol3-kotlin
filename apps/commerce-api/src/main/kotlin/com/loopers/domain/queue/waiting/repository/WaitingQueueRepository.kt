@@ -7,11 +7,12 @@ interface WaitingQueueRepository {
     /**
      * 대기열에 진입한다.
      * Sorted Set 특성으로 이미 존재하는 userId는 score가 갱신되지 않는다 (NX).
+     * score는 Redis 서버 타임스탬프 기반으로 내부에서 원자적으로 생성된다.
      * 상한 초과 시 null을 반환한다.
      *
      * @return 진입 후 0-based 순번. 상한 초과 시 null.
      */
-    fun enter(userId: UserId, score: Double, maxCapacity: Int): Long?
+    fun enter(userId: UserId, maxCapacity: Int): Long?
 
     /**
      * 대기열에서의 현재 순번을 조회한다.

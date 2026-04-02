@@ -13,13 +13,15 @@ class FakeWaitingQueueRepository(
     private val scoreByUserId = mutableMapOf<UserId, Double>()
     private val sortedEntries = TreeMap<Double, MutableList<UserId>>()
 
-    override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? {
+    override fun enter(userId: UserId, maxCapacity: Int): Long? {
         if (userId in scoreByUserId) {
             return findPosition(userId)
         }
         if (scoreByUserId.size >= maxCapacity) {
             return null
         }
+        // 단위 테스트에서는 nanoTime으로 진입 순서를 보장한다 (실제 Redis TIME과 동일한 FIFO 의미)
+        val score = System.nanoTime().toDouble()
         scoreByUserId[userId] = score
         sortedEntries.getOrPut(score) { mutableListOf() }.add(userId)
         return findPosition(userId)

@@ -4,6 +4,7 @@ import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.withBaseFields
@@ -48,7 +49,7 @@ class OrderOutboxEntity(
                 totalAmount = outbox.totalAmount?.toLong(),
                 reason = outbox.reason,
                 productId = outbox.productId?.value,
-                quantity = outbox.quantity,
+                quantity = outbox.quantity?.value,
                 published = outbox.published,
             ).withBaseFields(id = outbox.id)
         }
@@ -64,7 +65,7 @@ class OrderOutboxEntity(
         totalAmount = totalAmount?.let { Money(it.toBigDecimal()) },
         reason = reason,
         productId = productId?.let { ProductId(it) },
-        quantity = quantity,
+        quantity = quantity?.let { Quantity(it) },
         published = published,
     )
 }

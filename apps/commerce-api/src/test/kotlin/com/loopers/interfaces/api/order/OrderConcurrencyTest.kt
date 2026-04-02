@@ -14,6 +14,7 @@ import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import com.loopers.interfaces.support.LDAP_ADMIN_VALUE
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Timeout
 class OrderConcurrencyTest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
     private val authenticateUserUseCase: AuthenticateUserUseCase,
     private val entryTokenRepository: EntryTokenRepository,
 ) {
@@ -50,6 +52,7 @@ class OrderConcurrencyTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun signUp(loginId: String) {
@@ -308,7 +311,7 @@ class OrderConcurrencyTest @Autowired constructor(
                             val response = testRestTemplate.exchange(
                                 "/api/v1/orders",
                                 HttpMethod.POST,
-                                HttpEntity(orderRequest, headersByUser[i]),
+                                HttpEntity(orderRequest, headersByUser.getValue(i)),
                                 responseType,
                             )
                             if (response.statusCode == HttpStatus.OK) {

@@ -65,8 +65,8 @@ class EnterQueueUseCaseTest {
         @DisplayName("이미 대기열에 있으면 기존 순번을 반환한다")
         fun execute_alreadyInQueue_returnsExistingPosition() {
             // arrange
-            waitingQueueRepository.enter(UserId(1L), 1000.0, maxCapacity)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, maxCapacity)
+            waitingQueueRepository.enter(UserId(1L), maxCapacity)
+            waitingQueueRepository.enter(UserId(2L), maxCapacity)
 
             // act
             val result = enterQueueUseCase.execute(2L)
@@ -94,8 +94,8 @@ class EnterQueueUseCaseTest {
                 queueFallbackHandler = queueFallbackHandler,
                 queueProperties = smallCapacityProps,
             )
-            waitingQueueRepository.enter(UserId(1L), 1000.0, 2)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, 2)
+            waitingQueueRepository.enter(UserId(1L), 2)
+            waitingQueueRepository.enter(UserId(2L), 2)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -111,7 +111,7 @@ class EnterQueueUseCaseTest {
         fun execute_newEntry_returnsPositionAndEstimatedWait() {
             // arrange — 350명을 먼저 진입시켜 예상 대기 시간 검증 (350 / 175 = 2초)
             repeat(350) { i ->
-                waitingQueueRepository.enter(UserId(i.toLong() + 100), (i + 1) * 1000.0, maxCapacity)
+                waitingQueueRepository.enter(UserId(i.toLong() + 100), maxCapacity)
             }
 
             // act

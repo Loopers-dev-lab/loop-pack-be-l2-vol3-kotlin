@@ -48,14 +48,15 @@ class QueueSchedulerTest {
         @DisplayName("대기열에 유저가 있으면 batchSize만큼 토큰이 발급된다")
         fun issueTokens_issuesTokensUpToBatchSize() {
             // arrange — 5명 진입, batchSize=3
-            (1L..5L).forEach { waitingQueueRepository.enter(UserId(it), it.toDouble(), 50_000) }
+            (1L..5L).forEach { waitingQueueRepository.enter(UserId(it), 50_000) }
 
             // act
             scheduler.issueTokens()
 
-            // assert — 3명에게 토큰 발급
+            // assert — 3명에게 토큰 발급, 잔여 2명이 대기열에 남아 있음
             val issuedCount = (1L..5L).count { entryTokenRepository.find(UserId(it)) != null }
             assertThat(issuedCount).isEqualTo(3)
+            assertThat(waitingQueueRepository.count()).isEqualTo(2)
         }
 
         @Test
@@ -64,7 +65,39 @@ class QueueSchedulerTest {
             // act
             scheduler.issueTokens()
 
-            // assert — 예외 없이 정상 종료
+            // assert — 예외 없이 정상 종료, 발급된 토큰 없음
+            assertThat(waitingQueueRepository.count()).isEqualTo(0)
+            val issuedCount = (1L..10L).count { entryTokenRepository.find(UserId(it)) != null }
+            assertThat(issuedCount).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("대기 인원이 batchSize 미만이면 전원에게 토큰이 발급된다")
+        fun issueTokens_fewerThanBatchSize_allIssued() {
+            // arrange — batchSize=3 이지만 2명만 진입
+            (1L..2L).forEach { waitingQueueRepository.enter(UserId(it), 50_000) }
+
+            // act
+            scheduler.issueTokens()
+
+            // assert — 2명 전원에게 토큰 발급, 대기열 비어있음
+            val issuedCount = (1L..2L).count { entryTokenRepository.find(UserId(it)) != null }
+            assertThat(issuedCount).isEqualTo(2)
+            assertThat(waitingQueueRepository.count()).isEqualTo(0)
+        }
+
+        @Test
+        @DisplayName("대기 인원이 batchSize와 동일하면 전원에게 토큰이 발급된다")
+        fun issueTokens_exactlyBatchSize_allIssued() {
+            // arrange — batchSize=3, 3명 진입
+            (1L..3L).forEach { waitingQueueRepository.enter(UserId(it), 50_000) }
+
+            // act
+            scheduler.issueTokens()
+
+            // assert — 3명 전원에게 토큰 발급, 대기열 비어있음
+            val issuedCount = (1L..3L).count { entryTokenRepository.find(UserId(it)) != null }
+            assertThat(issuedCount).isEqualTo(3)
             assertThat(waitingQueueRepository.count()).isEqualTo(0)
         }
 
@@ -73,7 +106,7 @@ class QueueSchedulerTest {
         fun issueTokens_redisFailure_marksFallback() {
             // arrange
             val failingRepo = object : WaitingQueueRepository {
-                override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? =
+                override fun enter(userId: UserId, maxCapacity: Int): Long? =
                     throw RedisConnectionFailureException("Redis connection refused")
 
                 override fun findPosition(userId: UserId): Long? =
@@ -103,7 +136,7 @@ class QueueSchedulerTest {
         fun issueTokens_nonInfraException_rethrows() {
             // arrange
             val npeRepo = object : WaitingQueueRepository {
-                override fun enter(userId: UserId, score: Double, maxCapacity: Int): Long? =
+                override fun enter(userId: UserId, maxCapacity: Int): Long? =
                     throw NullPointerException("unexpected null")
 
                 override fun findPosition(userId: UserId): Long? =

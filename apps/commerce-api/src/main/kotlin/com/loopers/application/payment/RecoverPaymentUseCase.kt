@@ -82,7 +82,7 @@ class RecoverPaymentUseCase(
                                                 userId = UserId(order.refUserId.value),
                                                 totalAmount = Money(freshPayment.amount.toBigDecimal()),
                                                 productId = ProductId(item.refProductId.value),
-                                                quantity = item.quantity.value,
+                                                quantity = item.quantity,
                                             )
                                         },
                                     )

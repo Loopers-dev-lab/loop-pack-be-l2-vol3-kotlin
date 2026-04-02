@@ -43,9 +43,9 @@ class IssueEntryTokensUseCaseTest {
         @DisplayName("대기열에서 batchSize만큼 꺼내 각각 토큰을 발급한다")
         fun execute_popsAndIssuesTokens() {
             // arrange
-            waitingQueueRepository.enter(UserId(1L), 1000.0, 50_000)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, 50_000)
-            waitingQueueRepository.enter(UserId(3L), 3000.0, 50_000)
+            waitingQueueRepository.enter(UserId(1L), 50_000)
+            waitingQueueRepository.enter(UserId(2L), 50_000)
+            waitingQueueRepository.enter(UserId(3L), 50_000)
 
             // act
             val result = issueEntryTokensUseCase.execute()
@@ -72,7 +72,7 @@ class IssueEntryTokensUseCaseTest {
         @DisplayName("대기열 인원이 batchSize보다 적으면 있는 만큼만 발급한다")
         fun execute_lessThanBatchSize_issuesOnlyAvailable() {
             // arrange
-            waitingQueueRepository.enter(UserId(1L), 1000.0, 50_000)
+            waitingQueueRepository.enter(UserId(1L), 50_000)
 
             // act
             val result = issueEntryTokensUseCase.execute()
@@ -99,9 +99,9 @@ class IssueEntryTokensUseCaseTest {
                     jitterMaxMs = 5,
                 ),
             )
-            waitingQueueRepository.enter(UserId(1L), 1000.0, 50_000)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, 50_000)
-            waitingQueueRepository.enter(UserId(3L), 3000.0, 50_000)
+            waitingQueueRepository.enter(UserId(1L), 50_000)
+            waitingQueueRepository.enter(UserId(2L), 50_000)
+            waitingQueueRepository.enter(UserId(3L), 50_000)
 
             // act
             val result = jitterUseCase.execute()
@@ -116,11 +116,11 @@ class IssueEntryTokensUseCaseTest {
         @DisplayName("batchSize를 초과하는 인원은 대기열에 남는다")
         fun execute_moreThanBatchSize_remainsInQueue() {
             // arrange
-            waitingQueueRepository.enter(UserId(1L), 1000.0, 50_000)
-            waitingQueueRepository.enter(UserId(2L), 2000.0, 50_000)
-            waitingQueueRepository.enter(UserId(3L), 3000.0, 50_000)
-            waitingQueueRepository.enter(UserId(4L), 4000.0, 50_000)
-            waitingQueueRepository.enter(UserId(5L), 5000.0, 50_000)
+            waitingQueueRepository.enter(UserId(1L), 50_000)
+            waitingQueueRepository.enter(UserId(2L), 50_000)
+            waitingQueueRepository.enter(UserId(3L), 50_000)
+            waitingQueueRepository.enter(UserId(4L), 50_000)
+            waitingQueueRepository.enter(UserId(5L), 50_000)
 
             // act
             issueEntryTokensUseCase.execute()
