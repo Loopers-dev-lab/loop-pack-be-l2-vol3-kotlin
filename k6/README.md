@@ -34,6 +34,8 @@ docker-compose up -d
 |---------|------|-------------|------|
 | `pg-benchmark.js` | PG Simulator (`:8082`) | ~2분 15초 | 결제 요청 처리량 & 상태 조회 |
 | `queue-benchmark.js` | Commerce API (`:8080`) | ~2분 | 대기열 진입, Polling, 주문 전체 플로우 |
+| `queue-token-ttl-test.js` | Commerce API (`:8080`) | ~6분 | 토큰 TTL 만료 검증 |
+| `queue-throughput-test.js` | Commerce API (`:8080`) | ~1분 30초 | 처리량 초과 안정성 & 관문 차단 |
 
 ---
 
@@ -158,6 +160,95 @@ done
 # 상품 + 재고 생성 (주문 시나리오용)
 # Admin API 또는 DB 직접 삽입으로 productId=1 상품 및 충분한 재고 확보
 ```
+
+---
+
+---
+
+## 3. Queue Token TTL Test (`queue-token-ttl-test.js`)
+
+토큰 TTL(5분) 만료 시 주문이 정상 거부되는지 검증합니다.
+
+### 시나리오
+
+| 시나리오 | VUs | 설명 |
+|---------|-----|------|
+| `token_fresh` | 5 (1회) | 토큰 발급 직후 주문 → 성공해야 함 |
+| `token_expired` | 5 (1회) | 토큰 발급 후 TTL+10초 대기 → 거부되어야 함 |
+
+### Thresholds
+
+| Threshold | 기준 | 설명 |
+|-----------|------|------|
+| `token_valid_before_ttl` | count >= 5 | 신선한 토큰으로 주문 성공 |
+| `token_expired_after_ttl` | count >= 5 | 만료 토큰으로 주문 거부 |
+| `token_unexpected_result` | count == 0 | 예상 밖 결과 없음 |
+
+### 실행
+
+```bash
+# 기본 실행 (TTL 5분, 총 ~6분 소요)
+k6 run k6/queue-token-ttl-test.js
+
+# 서버 TTL을 짧게 조정한 경우 (e.g. 10초)
+k6 run -e TOKEN_TTL_SECONDS=10 k6/queue-token-ttl-test.js
+```
+
+### Custom Metrics
+
+| Metric | 설명 |
+|--------|------|
+| `token_valid_before_ttl` | TTL 이내 주문 성공 건수 |
+| `token_expired_after_ttl` | TTL 초과 후 정상 거부 건수 |
+| `token_unexpected_result` | 예상 밖 결과 (성공해야 할 때 실패, 또는 그 반대) |
+
+---
+
+## 4. Queue Throughput Test (`queue-throughput-test.js`)
+
+설계 기준(175 TPS)을 초과하는 트래픽에서 시스템 안정성과 관문(interceptor) 차단을 검증합니다.
+
+### 시나리오
+
+| 시나리오 | VUs | 시간 | 시작 시점 | 설명 |
+|---------|-----|------|----------|------|
+| `queue_overflow` | 0 → 2000 → 0 | 20초 | 0초 | 대기열 폭주 (175 TPS × 11배) |
+| `order_without_token` | 50 (constant) | 10초 | 25초 | 토큰 없이 주문 → 100% 차단 |
+| `order_throughput` | 100 (constant) | 30초 | 40초 | 토큰 기반 주문 처리량 측정 |
+
+### Thresholds
+
+| Threshold | 기준 | 설명 |
+|-----------|------|------|
+| `order_without_token_rejected` | count > 0 | 토큰 없는 주문 차단 |
+| `order_without_token_accepted` | count == 0 | 토큰 없이 통과한 건 0 (관문 무결성) |
+| `overflow_enter` | p(95) < 2000ms | 폭주 시에도 진입 응답 2초 이내 |
+| `overflow_position` | p(95) < 500ms | 폭주 시에도 순번 조회 500ms 이내 |
+
+### 실행
+
+```bash
+k6 run k6/queue-throughput-test.js
+```
+
+### Custom Metrics
+
+| Metric | 설명 |
+|--------|------|
+| `queue_entered_total` | 대기열 진입 성공 건수 |
+| `order_without_token_rejected` | 토큰 없는 주문 차단 건수 |
+| `order_without_token_accepted` | 토큰 없이 통과한 건수 (0이어야 함) |
+| `order_with_token_success` | 토큰 주문 성공 건수 |
+| `order_with_token_fail` | 토큰 주문 실패 건수 |
+| `order_latency_ms` | 주문 처리 지연 시간 |
+| `order_success_rate` | 주문 성공률 |
+| `queue_depth` | 대기열 깊이 변화 추이 |
+
+### 결과 해석 포인트
+
+- **`queue_depth` 추이** — 2000명 진입 후 스케줄러가 175 TPS로 소화하면서 점진적으로 감소해야 함
+- **`order_without_token_accepted == 0`** — 관문이 100% 차단하는지 (가장 중요)
+- **`order_latency_ms` p(99)** — 주문 처리 지연이 설계 기준(200ms) 근처인지
 
 ---
 
