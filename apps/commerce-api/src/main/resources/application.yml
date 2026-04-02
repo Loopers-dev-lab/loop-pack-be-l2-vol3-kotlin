@@ -40,6 +40,15 @@ cache:
   stampede:
     strategy: ${STAMPEDE_STRATEGY:none}
 
+order-queue:
+  throughput-per-second: 70
+  token-ttl-seconds: 300
+  scheduler:
+    batch-size: 7
+  rate-limit:
+    max-requests: 100
+    window-seconds: 1
+
 pg:
   base-url: ${PG_BASE_URL}
   callback-url: ${PG_CALLBACK_URL}
