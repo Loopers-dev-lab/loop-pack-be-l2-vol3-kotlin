@@ -70,6 +70,8 @@ class PaymentV1ApiE2ETest @Autowired constructor(
 
     @AfterEach
     fun tearDown() {
+        val keys = masterRedisTemplate.keys("queue:*")
+        if (keys.isNotEmpty()) masterRedisTemplate.delete(keys)
         databaseCleanUp.truncateAllTables()
     }
 

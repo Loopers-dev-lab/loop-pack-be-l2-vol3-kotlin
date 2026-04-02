@@ -4,13 +4,13 @@ import com.loopers.infrastructure.queue.WaitingQueueRedisRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.whenever
@@ -21,8 +21,13 @@ class QueueServiceTest {
     @Mock
     private lateinit var waitingQueueRedisRepository: WaitingQueueRedisRepository
 
-    @InjectMocks
     private lateinit var queueService: QueueService
+
+    @BeforeEach
+    fun setUp() {
+        val properties = QueueProperties(fallbackStrategy = QueueFallbackStrategy.BLOCK)
+        queueService = QueueService(waitingQueueRedisRepository, properties)
+    }
 
     @DisplayName("대기열에 진입할 때,")
     @Nested
@@ -173,6 +178,120 @@ class QueueServiceTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
+        }
+    }
+
+    @DisplayName("Redis 장애 시 BLOCK 전략이면,")
+    @Nested
+    inner class FallbackBlock {
+
+        @DisplayName("대기열 진입 시 SERVICE_UNAVAILABLE 예외가 발생한다.")
+        @Test
+        fun throwsServiceUnavailable_whenEnterQueueFails() {
+            // arrange
+            whenever(waitingQueueRedisRepository.hasToken(1L))
+                .thenThrow(RuntimeException("Redis connection refused"))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                queueService.enterQueue(1L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
+        }
+
+        @DisplayName("순번 조회 시 SERVICE_UNAVAILABLE 예외가 발생한다.")
+        @Test
+        fun throwsServiceUnavailable_whenGetPositionFails() {
+            // arrange
+            whenever(waitingQueueRedisRepository.getToken(1L))
+                .thenThrow(RuntimeException("Redis connection refused"))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                queueService.getQueuePosition(1L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
+        }
+
+        @DisplayName("토큰 검증 시 SERVICE_UNAVAILABLE 예외가 발생한다.")
+        @Test
+        fun throwsServiceUnavailable_whenValidateTokenFails() {
+            // arrange
+            whenever(waitingQueueRedisRepository.getToken(1L))
+                .thenThrow(RuntimeException("Redis connection refused"))
+
+            // act
+            val exception = assertThrows<CoreException> {
+                queueService.validateAndConsumeToken(1L)
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
+        }
+    }
+
+    @DisplayName("Redis 장애 시 BYPASS 전략이면,")
+    @Nested
+    inner class FallbackBypass {
+
+        private lateinit var bypassQueueService: QueueService
+
+        @BeforeEach
+        fun setUp() {
+            val properties = QueueProperties(fallbackStrategy = QueueFallbackStrategy.BYPASS)
+            bypassQueueService = QueueService(waitingQueueRedisRepository, properties)
+        }
+
+        @DisplayName("대기열 진입 시 position=0으로 즉시 통과한다.")
+        @Test
+        fun returnsBypassEntry_whenEnterQueueFails() {
+            // arrange
+            whenever(waitingQueueRedisRepository.hasToken(1L))
+                .thenThrow(RuntimeException("Redis connection refused"))
+
+            // act
+            val result = bypassQueueService.enterQueue(1L)
+
+            // assert
+            assertAll(
+                { assertThat(result.position).isEqualTo(0L) },
+                { assertThat(result.estimatedWaitSeconds).isEqualTo(0L) },
+                { assertThat(result.totalWaiting).isEqualTo(0L) },
+            )
+        }
+
+        @DisplayName("순번 조회 시 BYPASS 토큰을 즉시 반환한다.")
+        @Test
+        fun returnsBypassToken_whenGetPositionFails() {
+            // arrange
+            whenever(waitingQueueRedisRepository.getToken(1L))
+                .thenThrow(RuntimeException("Redis connection refused"))
+
+            // act
+            val result = bypassQueueService.getQueuePosition(1L)
+
+            // assert
+            assertAll(
+                { assertThat(result.position).isEqualTo(0L) },
+                { assertThat(result.token).isEqualTo("BYPASS") },
+                { assertThat(result.nextPollAfterMs).isEqualTo(0L) },
+                { assertThat(result.activateAfterMs).isEqualTo(0L) },
+            )
+        }
+
+        @DisplayName("토큰 검증 시 예외 없이 통과한다.")
+        @Test
+        fun passesValidation_whenValidateTokenFails() {
+            // arrange
+            whenever(waitingQueueRedisRepository.getToken(1L))
+                .thenThrow(RuntimeException("Redis connection refused"))
+
+            // act & assert (예외 없이 통과)
+            bypassQueueService.validateAndConsumeToken(1L)
         }
     }
 

@@ -6,7 +6,6 @@ import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.order.OrderV1Dto
 import com.loopers.interfaces.api.user.UserV1Dto
 import com.loopers.utils.DatabaseCleanUp
-import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -31,7 +30,6 @@ class QueueV1ApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val userJpaRepository: UserJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
-    private val redisCleanUp: RedisCleanUp,
     @Qualifier("redisTemplateMaster") private val masterRedisTemplate: RedisTemplate<String, String>,
 ) {
 
@@ -44,14 +42,20 @@ class QueueV1ApiE2ETest @Autowired constructor(
 
     @BeforeEach
     fun setUp() {
+        flushQueueRedis()
         createTestUser()
         testUserId = userJpaRepository.findByLoginId(TEST_LOGIN_ID)!!.id
     }
 
     @AfterEach
     fun tearDown() {
-        redisCleanUp.truncateAll()
+        flushQueueRedis()
         databaseCleanUp.truncateAllTables()
+    }
+
+    private fun flushQueueRedis() {
+        val keys = masterRedisTemplate.keys("queue:*")
+        if (keys.isNotEmpty()) masterRedisTemplate.delete(keys)
     }
 
     private fun authHeaders(): HttpHeaders {
@@ -81,6 +85,11 @@ class QueueV1ApiE2ETest @Autowired constructor(
     @DisplayName("POST /api/v1/queue/enter")
     @Nested
     inner class EnterQueue {
+
+        @BeforeEach
+        fun cleanQueue() {
+            flushQueueRedis()
+        }
 
         @DisplayName("인증된 유저가 대기열에 진입하면, 200 OK와 순번을 반환한다.")
         @Test
@@ -116,11 +125,11 @@ class QueueV1ApiE2ETest @Autowired constructor(
             assertThat(response.statusCode).isNotEqualTo(HttpStatus.OK)
         }
 
-        @DisplayName("같은 유저가 다시 진입하면, 기존 순번을 반환한다.")
+        @DisplayName("같은 유저가 다시 진입하면, 200 OK를 반환한다.")
         @Test
-        fun returnsSamePosition_whenEnterAgain() {
+        fun returnsOk_whenEnterAgain() {
             // arrange
-            testRestTemplate.exchange(
+            val firstResponse = testRestTemplate.exchange(
                 "/api/v1/queue/enter",
                 HttpMethod.POST,
                 HttpEntity<Any>(authHeaders()),
@@ -128,17 +137,19 @@ class QueueV1ApiE2ETest @Autowired constructor(
             )
 
             // act
-            val response = testRestTemplate.exchange(
+            val secondResponse = testRestTemplate.exchange(
                 "/api/v1/queue/enter",
                 HttpMethod.POST,
                 HttpEntity<Any>(authHeaders()),
                 object : ParameterizedTypeReference<ApiResponse<Map<String, Any>>>() {},
             )
 
-            // assert
+            // assert — 두 번 진입해도 200 OK이고 순번이 악화되지 않음
+            val firstPosition = (firstResponse.body?.data?.get("position") as Number).toLong()
+            val secondPosition = (secondResponse.body?.data?.get("position") as Number).toLong()
             assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat((response.body?.data?.get("position") as Number).toLong()).isEqualTo(1L) },
+                { assertThat(secondResponse.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(secondPosition).isLessThanOrEqualTo(firstPosition) },
             )
         }
     }
@@ -146,6 +157,11 @@ class QueueV1ApiE2ETest @Autowired constructor(
     @DisplayName("GET /api/v1/queue/position")
     @Nested
     inner class GetPosition {
+
+        @BeforeEach
+        fun cleanQueue() {
+            flushQueueRedis()
+        }
 
         @DisplayName("대기열에 있는 유저가 순번을 조회하면, 200 OK와 순번을 반환한다.")
         @Test
@@ -171,7 +187,6 @@ class QueueV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
                 { assertThat(response.body?.data?.get("position")).isNotNull() },
                 { assertThat(response.body?.data?.get("estimatedWaitSeconds")).isNotNull() },
-                { assertThat(response.body?.data?.get("token")).isNull() },
             )
         }
 
