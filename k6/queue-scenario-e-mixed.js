@@ -61,8 +61,8 @@ export const options = {
 function authHeaders(userId) {
     return {
         'Content-Type': 'application/json',
-        'X-Loopers-LoginId': `loadtest_user_${userId}`,
-        'X-Loopers-LoginPw': 'Test123!',
+        'X-Loopers-LoginId': `loaduser${userId}`,
+        'X-Loopers-LoginPw': 'Test1234!',
     };
 }
 

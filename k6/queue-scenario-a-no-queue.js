@@ -48,8 +48,8 @@ export const options = {
 
 export default function () {
     const userId = __VU;
-    const loginId = `loadtest_user_${userId}`;
-    const password = 'Test123!';
+    const loginId = `loaduser${userId}`;
+    const password = 'Test1234!';
 
     const headers = {
         'Content-Type': 'application/json',
