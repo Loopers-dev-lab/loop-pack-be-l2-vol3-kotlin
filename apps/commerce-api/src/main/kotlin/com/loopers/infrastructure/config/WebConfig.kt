@@ -29,12 +29,14 @@ class WebConfig(
     }
 
     override fun addInterceptors(registry: InterceptorRegistry) {
-        // 일반 API 인증: 사용자 정보, 주문 관련, 상품 좋아요
+        // 일반 API 인증: 사용자 정보, 주문 관련, 상품 좋아요, 대기열
         registry.addInterceptor(userAuthInterceptor(userRepository, passwordEncoder()))
             .addPathPatterns(
                 "/api/*/users/**",
                 "/api/*/orders/**",
                 "/api/*/products/**/likes",
+                "/api/*/queues/*/enter",
+                "/api/*/queues/*/position",
             )
 
         // Admin API 인증: LDAP 역할 검증

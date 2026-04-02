@@ -10,4 +10,14 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.reasonPhrase, "이미 존재하는 리소스입니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, HttpStatus.FORBIDDEN.reasonPhrase, "접근할 수 없는 리소스입니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.reasonPhrase, "인증이 필요합니다."),
+    SERVICE_TEMPORARILY_UNAVAILABLE(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "Service Temporarily Unavailable",
+        "서비스가 일시적으로 이용 불가능합니다. 잠시 후 다시 시도해주세요.",
+    ),
+
+    /** 대기열 에러 */
+    QUEUE_NOT_FOUND(HttpStatus.NOT_FOUND, "Queue Not Found", "대기열에 등록되지 않은 사용자입니다."),
+    ENTRY_TOKEN_REQUIRED(HttpStatus.UNAUTHORIZED, "Entry Token Required", "입장 토큰이 필요합니다."),
+    ENTRY_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "Entry Token Invalid", "유효하지 않은 입장 토큰입니다."),
 }

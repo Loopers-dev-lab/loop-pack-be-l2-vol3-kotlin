@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order
 import com.loopers.domain.brand.Brand
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductStatus
+import com.loopers.domain.queue.QueueRepository
 import com.loopers.domain.stock.Stock
 import com.loopers.domain.user.User
 import com.loopers.domain.user.vo.BirthDate
@@ -12,16 +13,21 @@ import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductJpaRepository
+import com.loopers.infrastructure.scheduler.QueueScheduler
 import com.loopers.infrastructure.stock.StockJpaRepository
 import com.loopers.infrastructure.user.UserJpaRepository
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.testcontainers.RedisTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.context.annotation.Import
 import org.springframework.core.ParameterizedTypeReference
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -36,6 +42,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(RedisTestContainersConfig::class)
 class OrderV1ApiConcurrencyE2ETest @Autowired constructor(
     private val restTemplate: TestRestTemplate,
     private val userJpaRepository: UserJpaRepository,
@@ -43,16 +50,22 @@ class OrderV1ApiConcurrencyE2ETest @Autowired constructor(
     private val productJpaRepository: ProductJpaRepository,
     private val stockJpaRepository: StockJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
+    private val queueRepository: QueueRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
+    @MockBean
+    private lateinit var queueScheduler: QueueScheduler
 
     companion object {
         private const val ENDPOINT_ORDERS = "/api/v1/orders"
+        private const val QUEUE_NAME = "order-queue"
     }
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun createAuthHeaders(loginId: String, password: String): HttpHeaders {
@@ -60,6 +73,20 @@ class OrderV1ApiConcurrencyE2ETest @Autowired constructor(
             set("X-Loopers-LoginId", loginId)
             set("X-Loopers-LoginPw", password)
         }
+    }
+
+    private fun createAuthHeadersWithToken(loginId: String, password: String, token: String): HttpHeaders {
+        return HttpHeaders().apply {
+            set("X-Loopers-LoginId", loginId)
+            set("X-Loopers-LoginPw", password)
+            set("X-Entry-Token", token)
+        }
+    }
+
+    private fun getEntryToken(userId: Long): String {
+        val token = java.util.UUID.randomUUID().toString()
+        queueRepository.issueToken(QUEUE_NAME, userId, token, 600L)
+        return token
     }
 
     @Test
@@ -80,6 +107,9 @@ class OrderV1ApiConcurrencyE2ETest @Autowired constructor(
             )
             userJpaRepository.save(user)
         }
+
+        // 각 사용자에 대한 토큰 미리 생성
+        val tokens = users.map { user -> getEntryToken(user.id) }
 
         // 상품 및 재고 생성 (재고 10개)
         val brand = Brand.create(
@@ -123,7 +153,7 @@ class OrderV1ApiConcurrencyE2ETest @Autowired constructor(
                         ),
                     )
 
-                    val headers = createAuthHeaders("user${index + 1}", plainPassword)
+                    val headers = createAuthHeadersWithToken("user${index + 1}", plainPassword, tokens[index])
                     val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
                     val response = restTemplate.exchange(
                         ENDPOINT_ORDERS,

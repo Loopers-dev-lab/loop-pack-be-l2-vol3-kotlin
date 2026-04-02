@@ -6,6 +6,7 @@ import com.loopers.domain.coupon.CouponTemplate
 import com.loopers.domain.coupon.CouponType
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductStatus
+import com.loopers.domain.queue.QueueRepository
 import com.loopers.domain.stock.Stock
 import com.loopers.domain.user.User
 import com.loopers.domain.user.vo.BirthDate
@@ -14,6 +15,9 @@ import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
 import com.loopers.domain.coupon.CouponTemplateRepository
+import com.loopers.infrastructure.scheduler.QueueScheduler
+import com.loopers.testcontainers.RedisTestContainersConfig
+import com.loopers.utils.RedisCleanUp
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.coupon.CouponJpaRepository
 import com.loopers.infrastructure.order.OrderJpaRepository
@@ -30,7 +34,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.boot.test.web.client.TestRestTemplate
+import org.springframework.context.annotation.Import
 import org.springframework.core.ParameterizedTypeReference
 import com.loopers.interfaces.api.PageResponse
 import org.springframework.http.HttpEntity
@@ -42,6 +48,7 @@ import java.math.BigDecimal
 import kotlin.test.Test
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(RedisTestContainersConfig::class)
 class OrderV1ApiE2ETest @Autowired constructor(
     private val restTemplate: TestRestTemplate,
     private val userJpaRepository: UserJpaRepository,
@@ -52,15 +59,22 @@ class OrderV1ApiE2ETest @Autowired constructor(
     private val couponJpaRepository: CouponJpaRepository,
     private val couponTemplateRepository: CouponTemplateRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
+    private val queueRepository: QueueRepository,
     private val passwordEncoder: PasswordEncoder,
 ) {
+    @MockBean
+    private lateinit var queueScheduler: QueueScheduler
+
     companion object {
         private const val ENDPOINT_ORDERS = "/api/v1/orders"
+        private const val QUEUE_NAME = "order-queue"
     }
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
     }
 
     private fun createAuthHeaders(loginId: String, password: String): HttpHeaders {
@@ -70,12 +84,27 @@ class OrderV1ApiE2ETest @Autowired constructor(
         }
     }
 
+    private fun createAuthHeadersWithToken(loginId: String, password: String, token: String): HttpHeaders {
+        return HttpHeaders().apply {
+            set("X-Loopers-LoginId", loginId)
+            set("X-Loopers-LoginPw", password)
+            set("X-Entry-Token", token)
+        }
+    }
+
+    private fun getEntryToken(loginId: String, userId: Long): String {
+        // Redis에 직접 토큰 발급 (스케줄러 역할 시뮬레이션)
+        val token = java.util.UUID.randomUUID().toString()
+        queueRepository.issueToken(QUEUE_NAME, userId, token, 600L)
+        return token
+    }
+
     @DisplayName("POST /api/v1/orders")
     @Nested
     inner class CreateOrder {
 
         @Test
-        @DisplayName("유효한 주문 정보를 전달하면, 주문을 생성하고 201 CREATED 응답을 받는다")
+        @DisplayName("유효한 주문 정보와 토큰을 전달하면, 주문을 생성하고 201 CREATED 응답을 받는다")
         fun createOrderWithValidInfo() {
             // given
             val plainPassword = "encryptedPassword"
@@ -119,7 +148,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ),
             )
 
-            val headers = createAuthHeaders("test123", "encryptedPassword")
+            // 토큰 발급
+            val token = getEntryToken("test123", savedUser.id)
+            val headers = createAuthHeadersWithToken("test123", "encryptedPassword", token)
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
@@ -153,13 +184,15 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 birthDate = BirthDate.of("20260101"),
                 email = Email.of("test@test.com"),
             )
-            userJpaRepository.save(user)
+            val savedUser = userJpaRepository.save(user)
 
             val request = OrderV1Dto.OrderRequest(
                 items = emptyList(),
             )
 
-            val headers = createAuthHeaders("test123", "encryptedPassword")
+            // 토큰 발급
+            val token = getEntryToken("test123", savedUser.id)
+            val headers = createAuthHeadersWithToken("test123", "encryptedPassword", token)
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
@@ -257,9 +290,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ),
             )
 
-            val headers = createAuthHeaders("test123", "encryptedPassword")
-
-            // API를 통해 주문 생성 (1번 주문)
+            // API를 통해 주문 생성 (1번 주문) - 토큰 직전 생성
             val request1 = OrderV1Dto.OrderRequest(
                 items = listOf(
                     OrderV1Dto.OrderItemRequest(
@@ -268,15 +299,18 @@ class OrderV1ApiE2ETest @Autowired constructor(
                     ),
                 ),
             )
+            val token1 = getEntryToken("test123", savedUser.id)
+            val headers1 = createAuthHeadersWithToken("test123", "encryptedPassword", token1)
             val responseType1 = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
-            restTemplate.exchange(
+            val response1 = restTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                HttpEntity(request1, headers),
+                HttpEntity(request1, headers1),
                 responseType1,
             )
+            assertThat(response1.statusCode).isEqualTo(HttpStatus.CREATED) // 검증용
 
-            // API를 통해 주문 생성 (2번 주문)
+            // API를 통해 주문 생성 (2번 주문) - 토큰 직전 생성
             val request2 = OrderV1Dto.OrderRequest(
                 items = listOf(
                     OrderV1Dto.OrderItemRequest(
@@ -285,20 +319,25 @@ class OrderV1ApiE2ETest @Autowired constructor(
                     ),
                 ),
             )
+            val token2 = getEntryToken("test123", savedUser.id)
+            val headers2 = createAuthHeadersWithToken("test123", "encryptedPassword", token2)
             val responseType2 = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
             restTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                HttpEntity(request2, headers),
+                HttpEntity(request2, headers2),
                 responseType2,
             )
+
+            // 조회는 토큰 불필요
+            val authHeaders = createAuthHeaders("test123", "encryptedPassword")
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<OrderV1Dto.OrderResponse>>>() {}
             val response = restTemplate.exchange(
                 "$ENDPOINT_ORDERS?page=0&size=10",
                 HttpMethod.GET,
-                HttpEntity<Any>(headers),
+                HttpEntity<Any>(authHeaders),
                 responseType,
             )
 
@@ -366,7 +405,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ),
             )
 
-            val headers = createAuthHeaders("test123", "encryptedPassword")
+            // 토큰 발급
+            val token = getEntryToken("test123", savedUser.id)
+            val createHeaders = createAuthHeadersWithToken("test123", "encryptedPassword", token)
 
             // API를 통해 주문 생성
             val createRequest = OrderV1Dto.OrderRequest(
@@ -381,17 +422,20 @@ class OrderV1ApiE2ETest @Autowired constructor(
             val createResponse = restTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                HttpEntity(createRequest, headers),
+                HttpEntity(createRequest, createHeaders),
                 createResponseType,
             )
             val orderId = createResponse.body?.data!!
+
+            // 조회는 토큰 불필요
+            val authHeaders = createAuthHeaders("test123", "encryptedPassword")
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {}
             val response = restTemplate.exchange(
                 "$ENDPOINT_ORDERS/$orderId",
                 HttpMethod.GET,
-                HttpEntity<Any>(headers),
+                HttpEntity<Any>(authHeaders),
                 responseType,
             )
 
@@ -500,7 +544,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 couponId = null,
             )
 
-            val headers = createAuthHeaders("test456", "encryptedPassword")
+            // 토큰 발급
+            val token = getEntryToken("test456", savedUser.id)
+            val headers = createAuthHeadersWithToken("test456", "encryptedPassword", token)
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
@@ -581,7 +627,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 couponId = savedCoupon.id,
             )
 
-            val headers = createAuthHeaders("coupon01", plainPassword)
+            // 토큰 발급
+            val token = getEntryToken("coupon01", savedUser.id)
+            val headers = createAuthHeadersWithToken("coupon01", plainPassword, token)
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}
@@ -690,7 +738,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ),
             )
 
-            val headers = createAuthHeaders("multi001", plainPassword)
+            // 토큰 발급
+            val token = getEntryToken("multi001", savedUser.id)
+            val headers = createAuthHeadersWithToken("multi001", plainPassword, token)
 
             // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<Long>>() {}

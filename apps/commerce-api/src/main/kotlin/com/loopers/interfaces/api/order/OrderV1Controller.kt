@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order
 import com.loopers.application.api.order.OrderFacade
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.PageResponse
+import com.loopers.support.annotation.WaitingQueue
 import jakarta.validation.Valid
 import org.springframework.data.domain.Pageable
 import org.springframework.http.HttpStatus
@@ -22,6 +23,7 @@ class OrderV1Controller(
 ) : OrderV1ApiSpec {
 
     @PostMapping
+    @WaitingQueue(name = "order-queue")
     @ResponseStatus(HttpStatus.CREATED)
     override fun createOrder(
         @RequestAttribute("userId") userId: Long,
