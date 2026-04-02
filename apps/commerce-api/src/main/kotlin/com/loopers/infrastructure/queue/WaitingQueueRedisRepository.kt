@@ -19,7 +19,8 @@ class WaitingQueueRedisRepository(
 
     fun addToQueue(userId: Long): Long {
         val score = System.currentTimeMillis().toDouble()
-        masterRedisTemplate.opsForZSet().add(QUEUE_KEY, userId.toString(), score)
+        // NX: 이미 존재하면 score 갱신하지 않음 (중복 진입 시 순번 유지)
+        masterRedisTemplate.opsForZSet().addIfAbsent(QUEUE_KEY, userId.toString(), score)
         // ZADD 직후 master에서 ZRANK 조회 (replica lag 방지)
         val rank = masterRedisTemplate.opsForZSet().rank(QUEUE_KEY, userId.toString())
         return (rank ?: 0) + 1 // 0-based → 1-based
@@ -50,7 +51,7 @@ class WaitingQueueRedisRepository(
             TOKEN_TTL.seconds.toString(),
         )
 
-        return result?.mapNotNull { it.toLongOrNull() } ?: emptyList()
+        return result?.mapNotNull { it.toString().toLongOrNull() } ?: emptyList()
     }
 
     fun getToken(userId: Long): String? {
@@ -83,7 +84,7 @@ class WaitingQueueRedisRepository(
          *
          * 반환: 토큰이 발급된 userId 목록
          */
-        private val POP_AND_ISSUE_SCRIPT = RedisScript.of<List<String>>(
+        private val POP_AND_ISSUE_SCRIPT: RedisScript<List<*>> = RedisScript.of(
             """
             local results = redis.call('ZPOPMIN', KEYS[1], ARGV[1])
             local issued = {}
@@ -96,6 +97,7 @@ class WaitingQueueRedisRepository(
             end
             return issued
             """.trimIndent(),
+            List::class.java,
         )
     }
 }
