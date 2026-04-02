@@ -85,8 +85,9 @@ resilience4j:
 # 주문 대기열 설정
 queue:
   admission:
-    batch-size: 18
-    fixed-rate: 100
+    batch-size: 9
+    fixed-rate: 50
+    jitter-range: 20
 
 ---
 spring:
