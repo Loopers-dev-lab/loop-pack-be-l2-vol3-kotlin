@@ -1,13 +1,26 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.queue.OrderQueueService
+import com.loopers.domain.queue.QueueEmitterRepository
 import com.loopers.domain.queue.QueuePosition
 import org.springframework.stereotype.Component
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 @Component
 class QueueFacade(
     private val orderQueueService: OrderQueueService,
+    private val queueEmitterRepository: QueueEmitterRepository,
 ) {
+
+    companion object {
+        private const val SSE_TIMEOUT = 300_000L // 5분
+    }
+
+    fun subscribe(userId: Long): SseEmitter {
+        val emitter = SseEmitter(SSE_TIMEOUT)
+        queueEmitterRepository.add(userId, emitter)
+        return emitter
+    }
 
     fun enterQueue(userId: Long): QueuePositionInfo {
         orderQueueService.enterQueue(userId)

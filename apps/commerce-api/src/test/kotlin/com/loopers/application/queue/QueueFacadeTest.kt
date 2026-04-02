@@ -1,7 +1,9 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.queue.OrderQueueService
+import com.loopers.domain.queue.QueueEmitterRepository
 import com.loopers.domain.queue.QueuePosition
+import com.loopers.infrastructure.queue.SseEmitterRepositoryImpl
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -21,11 +23,14 @@ class QueueFacadeTest {
     @Mock
     private lateinit var orderQueueService: OrderQueueService
 
+    private lateinit var queueEmitterRepository: QueueEmitterRepository
+
     private lateinit var queueFacade: QueueFacade
 
     @BeforeEach
     fun setUp() {
-        queueFacade = QueueFacade(orderQueueService)
+        queueEmitterRepository = SseEmitterRepositoryImpl()
+        queueFacade = QueueFacade(orderQueueService, queueEmitterRepository)
     }
 
     @Nested
@@ -134,6 +139,27 @@ class QueueFacadeTest {
 
             // assert
             assertThat(result.pollingIntervalMs).isEqualTo(expectedMs)
+        }
+    }
+
+    @Nested
+    @DisplayName("SSE 구독할 때,")
+    inner class Subscribe {
+
+        @Test
+        @DisplayName("SseEmitter를 생성하고 저장소에 등록하여 반환한다")
+        fun returnsSseEmitter_andRegistersInRepository() {
+            // arrange
+            val userId = 1L
+
+            // act
+            val emitter = queueFacade.subscribe(userId)
+
+            // assert
+            assertAll(
+                { assertThat(emitter).isNotNull },
+                { assertThat(queueEmitterRepository.get(userId)).isSameAs(emitter) },
+            )
         }
     }
 }
