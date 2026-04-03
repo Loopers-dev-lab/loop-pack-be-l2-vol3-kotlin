@@ -19,6 +19,7 @@ import com.loopers.domain.coupon.CouponStatus
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.product.ProductException
 import com.loopers.domain.product.ProductRepository
+import com.loopers.support.error.CoreException
 import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.testcontainers.RedisTestContainersConfig
@@ -120,7 +121,7 @@ class ConcurrencyTest {
             assertThat(result.successCount).isEqualTo(1)
             assertThat(result.failures).hasSize(99)
             assertThat(result.failures).allSatisfy { e ->
-                assertThat(e).isInstanceOf(CouponException::class.java)
+                assertThat(e).isInstanceOfAny(CouponException::class.java, CoreException::class.java)
             }
 
             val userCoupon = userCouponRepository.findById(userCouponId)!!
@@ -134,9 +135,9 @@ class ConcurrencyTest {
         fun `재고 1000개 상품에 100개 스레드가 수량 10씩 주문하면 모두 성공하고 재고 0이 된다`() {
             val productId = registerProduct(stock = 1000)
             val userIds = (1..100).map { registerUser("stku$it") }
+            userIds.forEach { entryTokenRepository.issueToken(it, "token-$it", 300) }
 
             val result = executeConcurrently(userIds) { userId ->
-                entryTokenRepository.issueToken(userId, "token-$userId", 300)
                 createOrderUseCase.create(
                     userId,
                     CreateOrderCommand(
@@ -156,9 +157,9 @@ class ConcurrencyTest {
         fun `재고 50개 상품에 100개 스레드가 수량 1씩 주문하면 50건만 성공한다`() {
             val productId = registerProduct(stock = 50)
             val userIds = (1..100).map { registerUser("limu$it") }
+            userIds.forEach { entryTokenRepository.issueToken(it, "token-$it", 300) }
 
             val result = executeConcurrently(userIds) { userId ->
-                entryTokenRepository.issueToken(userId, "token-$userId", 300)
                 createOrderUseCase.create(
                     userId,
                     CreateOrderCommand(

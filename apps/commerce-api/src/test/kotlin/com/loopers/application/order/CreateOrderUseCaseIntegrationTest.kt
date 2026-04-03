@@ -180,6 +180,7 @@ class CreateOrderUseCaseIntegrationTest {
     fun `이미 사용된 쿠폰으로 주문하면 CouponException이 발생한다`() {
         val couponId = registerCouponUseCase.register(createCouponCommand())
         val userCouponId = issueCouponUseCase.issue(userId, couponId)
+        entryTokenRepository.issueToken(userId, "coupon-test-token", 300)
         createOrderUseCase.create(
             userId,
             CreateOrderCommand(
@@ -188,6 +189,7 @@ class CreateOrderUseCaseIntegrationTest {
             ),
         )
 
+        entryTokenRepository.issueToken(userId, "coupon-test-token-2", 300)
         assertThatThrownBy {
             createOrderUseCase.create(
                 userId,
