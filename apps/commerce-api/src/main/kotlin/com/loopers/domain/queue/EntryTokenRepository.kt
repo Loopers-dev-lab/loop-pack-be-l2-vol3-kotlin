@@ -4,6 +4,7 @@ interface EntryTokenRepository {
     fun issue(userId: Long): EntryToken
     fun validate(userId: Long, token: String): Boolean
     fun validateAndConsume(userId: Long, token: String): Boolean
+    fun delete(userId: Long)
     fun exists(userId: Long): Boolean
     fun findByUserId(userId: Long): EntryToken?
 }

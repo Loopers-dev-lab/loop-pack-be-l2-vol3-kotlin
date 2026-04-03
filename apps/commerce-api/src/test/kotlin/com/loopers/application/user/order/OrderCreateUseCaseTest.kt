@@ -26,8 +26,10 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
 import org.springframework.context.ApplicationEventPublisher
+import org.mockito.kotlin.any
 import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import java.math.BigDecimal
 
 @DisplayName("OrderCreateUseCase")
@@ -483,15 +485,14 @@ class OrderCreateUseCaseTest {
     }
 
     @Nested
-    @DisplayName("entryToken이 있으면 validateAndConsume으로 토큰을 소비한다")
+    @DisplayName("entryToken이 있으면 주문 완료 후 토큰을 삭제한다")
     inner class WhenEntryTokenProvided {
 
         @Test
-        @DisplayName("유효한 토큰 → 토큰 소비 후 주문 생성 성공")
-        fun create_withEntryToken_success() {
+        @DisplayName("주문 성공 후 토큰 삭제 호출")
+        fun create_withEntryToken_deletesAfterSuccess() {
             // arrange
             stubNormalFlow()
-            given(entryTokenRepository.validateAndConsume(1L, "valid-token")).willReturn(true)
             val cmd = command()
 
             // act
@@ -506,31 +507,20 @@ class OrderCreateUseCaseTest {
 
             // assert
             assertThat(result.orderId).isEqualTo(100L)
-            then(entryTokenRepository).should().validateAndConsume(1L, "valid-token")
+            then(entryTokenRepository).should().delete(1L)
         }
 
         @Test
-        @DisplayName("무효한 토큰 → ENTRY_TOKEN_INVALID 예외")
-        fun create_withInvalidToken_fails() {
+        @DisplayName("entryToken이 null이면 토큰 삭제를 호출하지 않는다")
+        fun create_withoutEntryToken_noDelete() {
             // arrange
-            given(orderRepository.existsByIdempotencyKey(IdempotencyKey("test-key-001"))).willReturn(false)
-            given(entryTokenRepository.validateAndConsume(1L, "invalid-token")).willReturn(false)
-            val cmd = command()
+            stubNormalFlow()
 
             // act
-            val exception = assertThrows<CoreException> {
-                useCase.create(
-                    OrderCreateCommand(
-                        userId = cmd.userId,
-                        idempotencyKey = cmd.idempotencyKey,
-                        items = cmd.items,
-                        entryToken = "invalid-token",
-                    ),
-                )
-            }
+            useCase.create(command())
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_INVALID)
+            then(entryTokenRepository).should(never()).delete(any())
         }
     }
 }

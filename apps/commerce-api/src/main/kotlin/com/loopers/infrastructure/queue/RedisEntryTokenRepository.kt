@@ -44,6 +44,10 @@ class RedisEntryTokenRepository(
         return result == 1L
     }
 
+    override fun delete(userId: Long) {
+        redisTemplate.delete(tokenKey(userId))
+    }
+
     override fun exists(userId: Long): Boolean = redisTemplate.hasKey(tokenKey(userId)) == true
 
     override fun findByUserId(userId: Long): EntryToken? {

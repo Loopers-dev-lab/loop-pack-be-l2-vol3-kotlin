@@ -41,12 +41,6 @@ class OrderCreateUseCase(
             throw CoreException(ErrorType.ORDER_IDEMPOTENCY_KEY_DUPLICATE)
         }
 
-        command.entryToken?.let { token ->
-            if (!entryTokenRepository.validateAndConsume(command.userId, token)) {
-                throw CoreException(ErrorType.ENTRY_TOKEN_INVALID)
-            }
-        }
-
         if (command.items.any { it.quantity <= 0 }) {
             throw CoreException(ErrorType.INVALID_QUANTITY)
         }
@@ -116,6 +110,8 @@ class OrderCreateUseCase(
                 productIds = domainResult.decreasedStocks.map { it.productId },
             ),
         )
+
+        command.entryToken?.let { entryTokenRepository.delete(command.userId) }
 
         return OrderResult.Created.from(savedOrder)
     }
