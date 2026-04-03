@@ -70,4 +70,8 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
 
     /** 결제 도메인 에러 */
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "E601", "결제 정보를 찾을 수 없습니다."),
+
+    QUEUE_TOKEN_REQUIRED(HttpStatus.BAD_REQUEST, "E701", "주문 API 진입을 위한 대기열 토큰이 필요합니다."),
+    INVALID_QUEUE_TOKEN(HttpStatus.FORBIDDEN, "E702", "유효한 대기열 토큰이 아닙니다."),
+    QUEUE_LOCK_NOT_ACQUIRED(HttpStatus.CONFLICT, "E703", "대기열 처리 중입니다. 잠시 후 다시 시도해주세요."),
 }

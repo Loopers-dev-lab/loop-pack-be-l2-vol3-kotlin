@@ -3,6 +3,7 @@ package com.loopers.application.event
 import com.loopers.application.product.ProductCacheStore
 import com.loopers.domain.product.ProductLikeCountUpdater
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
@@ -13,7 +14,7 @@ class ProductLikeProjectionListener(
     private val productCacheStore: ProductCacheStore,
 ) {
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun handle(event: ProductLikeChangedEvent) {
         when {
