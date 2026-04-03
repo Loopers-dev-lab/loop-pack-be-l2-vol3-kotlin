@@ -344,4 +344,33 @@ class OrderFacadeTest {
             assertThat(exception.errorType).isEqualTo(ErrorType.INTERNAL_ERROR)
         }
     }
+
+    @DisplayName("Bulkhead 초과 시 fallback")
+    @Nested
+    inner class BulkheadFallback {
+
+        @DisplayName("placeOrderFallback — SERVICE_UNAVAILABLE 예외를 던진다")
+        @Test
+        fun throwsServiceUnavailable_whenBulkheadFull() {
+            // arrange
+            val exception = RuntimeException("Bulkhead 'order-place' is full")
+
+            // act
+            val result = assertThrows<CoreException> {
+                orderFacade.placeOrderFallback(
+                    userId = 1L,
+                    items = emptyList(),
+                    couponId = null,
+                    idempotencyKey = null,
+                    entryToken = "token",
+                    cardType = CardType.SAMSUNG,
+                    cardNo = "1234-5678-9012-3456",
+                    e = exception,
+                )
+            }
+
+            // assert
+            assertThat(result.errorType).isEqualTo(ErrorType.SERVICE_UNAVAILABLE)
+        }
+    }
 }
