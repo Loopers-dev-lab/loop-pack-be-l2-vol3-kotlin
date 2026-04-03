@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RequestMapping("/api/v1/queue")
@@ -32,8 +31,10 @@ class UserQueueV1Controller(
 
     @GetMapping("/position")
     override fun getPosition(
-        @RequestParam userId: Long,
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") password: String,
     ): ApiResponse<UserQueueV1Response.Position> {
+        val userId = userAuthenticateUseCase.authenticateAndGetId(loginId, password)
         return queuePositionUseCase.getPosition(QueueCommand.Position(userId))
             .let { UserQueueV1Response.Position.from(it) }
             .let { ApiResponse.success(it) }

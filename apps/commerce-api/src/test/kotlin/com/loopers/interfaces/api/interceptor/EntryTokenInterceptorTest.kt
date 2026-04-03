@@ -28,19 +28,19 @@ class EntryTokenInterceptorTest {
     @DisplayName("유효한 토큰이면 주문 API 진입을 허용한다")
     inner class ValidToken {
         @Test
-        @DisplayName("올바른 토큰이면 true를 반환하고 토큰이 소비된다")
+        @DisplayName("올바른 토큰이면 true를 반환한다 (소비하지 않음)")
         fun preHandle_validToken() {
             given(request.method).willReturn("POST")
             given(request.getHeader("X-Loopers-LoginId")).willReturn("testuser1")
             given(request.getHeader("X-Loopers-LoginPw")).willReturn("Password1!")
             given(request.getHeader("X-Entry-Token")).willReturn("valid-token")
             given(userAuthenticateUseCase.authenticateAndGetId("testuser1", "Password1!")).willReturn(1L)
-            given(entryTokenValidationUseCase.validateAndConsume(1L, "valid-token")).willReturn(true)
+            given(entryTokenValidationUseCase.validate(1L, "valid-token")).willReturn(true)
 
             val result = interceptor.preHandle(request, response, handler)
 
             assertThat(result).isTrue()
-            then(entryTokenValidationUseCase).should().validateAndConsume(1L, "valid-token")
+            then(entryTokenValidationUseCase).should().validate(1L, "valid-token")
         }
     }
 
@@ -71,13 +71,53 @@ class EntryTokenInterceptorTest {
             given(request.getHeader("X-Loopers-LoginPw")).willReturn("Password1!")
             given(request.getHeader("X-Entry-Token")).willReturn("wrong-token")
             given(userAuthenticateUseCase.authenticateAndGetId("testuser1", "Password1!")).willReturn(1L)
-            given(entryTokenValidationUseCase.validateAndConsume(1L, "wrong-token")).willReturn(false)
+            given(entryTokenValidationUseCase.validate(1L, "wrong-token")).willReturn(false)
 
             val exception = assertThrows<CoreException> {
                 interceptor.preHandle(request, response, handler)
             }
 
             assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_INVALID)
+        }
+
+        @Test
+        @DisplayName("X-Loopers-LoginId 헤더 누락 시 ENTRY_TOKEN_REQUIRED 예외")
+        fun preHandle_noLoginIdHeader() {
+            given(request.method).willReturn("POST")
+            given(request.getHeader("X-Loopers-LoginId")).willReturn(null)
+
+            val exception = assertThrows<CoreException> {
+                interceptor.preHandle(request, response, handler)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_REQUIRED)
+        }
+
+        @Test
+        @DisplayName("X-Loopers-LoginPw 헤더 누락 시 ENTRY_TOKEN_REQUIRED 예외")
+        fun preHandle_noPasswordHeader() {
+            given(request.method).willReturn("POST")
+            given(request.getHeader("X-Loopers-LoginId")).willReturn("testuser1")
+            given(request.getHeader("X-Loopers-LoginPw")).willReturn(null)
+
+            val exception = assertThrows<CoreException> {
+                interceptor.preHandle(request, response, handler)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_REQUIRED)
+        }
+
+        @Test
+        @DisplayName("인증 실패 시 UNAUTHORIZED 예외가 전파된다")
+        fun preHandle_authenticationFailed() {
+            given(request.method).willReturn("POST")
+            given(request.getHeader("X-Loopers-LoginId")).willReturn("testuser1")
+            given(request.getHeader("X-Loopers-LoginPw")).willReturn("WrongPassword!")
+            given(userAuthenticateUseCase.authenticateAndGetId("testuser1", "WrongPassword!"))
+                .willThrow(CoreException(ErrorType.UNAUTHORIZED))
+
+            val exception = assertThrows<CoreException> {
+                interceptor.preHandle(request, response, handler)
+            }
+            assertThat(exception.errorType).isEqualTo(ErrorType.UNAUTHORIZED)
         }
     }
 

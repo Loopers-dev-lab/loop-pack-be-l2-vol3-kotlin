@@ -5,6 +5,7 @@ class OrderCreateCommand(
     val idempotencyKey: String,
     val items: List<Item>,
     val issuedCouponId: Long? = null,
+    val entryToken: String? = null,
 ) {
     data class Item(val productId: Long, val quantity: Int)
 }

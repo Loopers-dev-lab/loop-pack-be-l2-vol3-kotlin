@@ -13,6 +13,7 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.support.event.user.OrderCreatedEvent
@@ -39,6 +40,7 @@ class OrderCreateUseCaseTest {
     private val brandRepository: BrandRepository = mock()
     private val couponRepository: CouponRepository = mock()
     private val issuedCouponRepository: IssuedCouponRepository = mock()
+    private val entryTokenRepository: EntryTokenRepository = mock()
     private val useCase = OrderCreateUseCase(
         eventPublisher = eventPublisher,
         orderRepository = orderRepository,
@@ -47,6 +49,7 @@ class OrderCreateUseCaseTest {
         brandRepository = brandRepository,
         couponRepository = couponRepository,
         issuedCouponRepository = issuedCouponRepository,
+        entryTokenRepository = entryTokenRepository,
     )
 
     private fun command(
@@ -476,6 +479,58 @@ class OrderCreateUseCaseTest {
             then(productStockRepository).should().saveAll(
                 check { stocks -> assertThat(stocks).hasSize(1) },
             )
+        }
+    }
+
+    @Nested
+    @DisplayName("entryToken이 있으면 validateAndConsume으로 토큰을 소비한다")
+    inner class WhenEntryTokenProvided {
+
+        @Test
+        @DisplayName("유효한 토큰 → 토큰 소비 후 주문 생성 성공")
+        fun create_withEntryToken_success() {
+            // arrange
+            stubNormalFlow()
+            given(entryTokenRepository.validateAndConsume(1L, "valid-token")).willReturn(true)
+            val cmd = command()
+
+            // act
+            val result = useCase.create(
+                OrderCreateCommand(
+                    userId = cmd.userId,
+                    idempotencyKey = cmd.idempotencyKey,
+                    items = cmd.items,
+                    entryToken = "valid-token",
+                ),
+            )
+
+            // assert
+            assertThat(result.orderId).isEqualTo(100L)
+            then(entryTokenRepository).should().validateAndConsume(1L, "valid-token")
+        }
+
+        @Test
+        @DisplayName("무효한 토큰 → ENTRY_TOKEN_INVALID 예외")
+        fun create_withInvalidToken_fails() {
+            // arrange
+            given(orderRepository.existsByIdempotencyKey(IdempotencyKey("test-key-001"))).willReturn(false)
+            given(entryTokenRepository.validateAndConsume(1L, "invalid-token")).willReturn(false)
+            val cmd = command()
+
+            // act
+            val exception = assertThrows<CoreException> {
+                useCase.create(
+                    OrderCreateCommand(
+                        userId = cmd.userId,
+                        idempotencyKey = cmd.idempotencyKey,
+                        items = cmd.items,
+                        entryToken = "invalid-token",
+                    ),
+                )
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_INVALID)
         }
     }
 }

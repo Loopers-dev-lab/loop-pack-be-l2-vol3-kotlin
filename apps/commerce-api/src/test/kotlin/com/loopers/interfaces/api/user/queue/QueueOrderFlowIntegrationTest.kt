@@ -13,6 +13,7 @@ import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
 import com.loopers.infrastructure.queue.QueueScheduler
 import com.loopers.interfaces.api.ApiResponse
+import com.loopers.config.redis.RedisConfig
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -23,9 +24,11 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
@@ -51,6 +54,8 @@ constructor(
     private val passwordHasher: UserPasswordHasher,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
+    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
+    private val redisTemplate: RedisTemplate<String, String>,
 ) {
     companion object {
         private const val ADMIN = "loopers.admin"
@@ -128,9 +133,9 @@ constructor(
 
             // 2. 순번 조회 (WAITING)
             val positionResponse = testRestTemplate.exchange(
-                "$QUEUE_POSITION?userId=$userId",
+                QUEUE_POSITION,
                 HttpMethod.GET,
-                null,
+                HttpEntity<Void>(authHeaders()),
                 object : ParameterizedTypeReference<ApiResponse<UserQueueV1Response.Position>>() {},
             )
             assertThat(positionResponse.body?.data?.status).isEqualTo("WAITING")
@@ -140,9 +145,9 @@ constructor(
 
             // 4. 순번 조회 (READY) — token은 position 응답에 포함되지 않음
             val readyResponse = testRestTemplate.exchange(
-                "$QUEUE_POSITION?userId=$userId",
+                QUEUE_POSITION,
                 HttpMethod.GET,
-                null,
+                HttpEntity<Void>(authHeaders()),
                 object : ParameterizedTypeReference<ApiResponse<UserQueueV1Response.Position>>() {},
             )
             assertAll(
@@ -273,6 +278,58 @@ constructor(
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
                 { assertThat(response.body?.meta?.errorCode).isEqualTo("ENTRY_TOKEN_REQUIRED") },
+            )
+        }
+    }
+
+    @Nested
+    @DisplayName("만료된 토큰으로 주문하면 거부된다")
+    inner class TokenExpired {
+        @Test
+        @DisplayName("토큰 발급 후 Redis에서 삭제(만료 시뮬레이션) → POST /api/v1/orders → 실패")
+        fun tokenExpired_orderRejected() {
+            // 1. 대기열 진입
+            val enterResponse = testRestTemplate.exchange(
+                QUEUE_ENTER,
+                HttpMethod.POST,
+                HttpEntity<Void>(authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<UserQueueV1Response.Enter>>() {},
+            )
+            assertThat(enterResponse.body?.data?.status).isEqualTo("WAITING")
+
+            // 2. 스케줄러 실행 → 토큰 발급
+            queueScheduler.processQueue()
+
+            // 3. POST /enter 재호출로 토큰 획득
+            val enterReadyResponse = testRestTemplate.exchange(
+                QUEUE_ENTER,
+                HttpMethod.POST,
+                HttpEntity<Void>(authHeaders()),
+                object : ParameterizedTypeReference<ApiResponse<UserQueueV1Response.Enter>>() {},
+            )
+            val token = enterReadyResponse.body!!.data!!.token!!
+
+            // 4. Redis에서 토큰 직접 삭제 (만료 시뮬레이션)
+            redisTemplate.delete("queue:entry-token:$userId")
+
+            // 5. 만료된 토큰으로 주문 시도
+            val orderHeaders = authHeaders().apply {
+                set("X-Entry-Token", token)
+                set("X-Idempotency-Key", UUID.randomUUID().toString())
+                contentType = MediaType.APPLICATION_JSON
+            }
+            val orderBody = """{"items":[{"productId":$productId,"quantity":1}]}"""
+            val orderResponse = testRestTemplate.exchange(
+                ORDER_ENDPOINT,
+                HttpMethod.POST,
+                HttpEntity(orderBody, orderHeaders),
+                object : ParameterizedTypeReference<ApiResponse<Any?>>() {},
+            )
+
+            // 6. 만료된 토큰 → validate 실패 → ENTRY_TOKEN_INVALID (403)
+            assertAll(
+                { assertThat(orderResponse.statusCode).isEqualTo(HttpStatus.FORBIDDEN) },
+                { assertThat(orderResponse.body?.meta?.errorCode).isEqualTo("ENTRY_TOKEN_INVALID") },
             )
         }
     }

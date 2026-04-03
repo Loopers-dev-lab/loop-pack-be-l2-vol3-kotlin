@@ -109,6 +109,7 @@ constructor(
         @Test
         @DisplayName("대기 중인 경우 200 OK와 WAITING 상태를 반환한다")
         fun getPosition_waiting() {
+            given(userAuthenticateUseCase.authenticateAndGetId(LOGIN_ID, PASSWORD)).willReturn(USER_ID)
             given(queuePositionUseCase.getPosition(QueueCommand.Position(USER_ID)))
                 .willReturn(
                     QueueResult.Position.Waiting(
@@ -120,7 +121,9 @@ constructor(
                 )
 
             mockMvc.perform(
-                get(POSITION_ENDPOINT).param("userId", USER_ID.toString()),
+                get(POSITION_ENDPOINT)
+                    .header("X-Loopers-LoginId", LOGIN_ID)
+                    .header("X-Loopers-LoginPw", PASSWORD),
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.data.status").value("WAITING"))
@@ -134,6 +137,7 @@ constructor(
         @Test
         @DisplayName("토큰이 발급된 경우 200 OK와 READY 상태를 반환한다 (token 필드 없음)")
         fun getPosition_ready() {
+            given(userAuthenticateUseCase.authenticateAndGetId(LOGIN_ID, PASSWORD)).willReturn(USER_ID)
             given(queuePositionUseCase.getPosition(QueueCommand.Position(USER_ID)))
                 .willReturn(
                     QueueResult.Position.Ready(
@@ -142,7 +146,9 @@ constructor(
                 )
 
             mockMvc.perform(
-                get(POSITION_ENDPOINT).param("userId", USER_ID.toString()),
+                get(POSITION_ENDPOINT)
+                    .header("X-Loopers-LoginId", LOGIN_ID)
+                    .header("X-Loopers-LoginPw", PASSWORD),
             )
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.data.status").value("READY"))
@@ -152,13 +158,16 @@ constructor(
         }
 
         @Test
-        @DisplayName("대기열에 없는 userId면 404를 반환한다")
+        @DisplayName("대기열에 없는 사용자면 404를 반환한다")
         fun getPosition_notInQueue() {
-            given(queuePositionUseCase.getPosition(QueueCommand.Position(999L)))
+            given(userAuthenticateUseCase.authenticateAndGetId(LOGIN_ID, PASSWORD)).willReturn(USER_ID)
+            given(queuePositionUseCase.getPosition(QueueCommand.Position(USER_ID)))
                 .willThrow(CoreException(ErrorType.QUEUE_ENTRY_NOT_FOUND))
 
             mockMvc.perform(
-                get(POSITION_ENDPOINT).param("userId", "999"),
+                get(POSITION_ENDPOINT)
+                    .header("X-Loopers-LoginId", LOGIN_ID)
+                    .header("X-Loopers-LoginPw", PASSWORD),
             )
                 .andExpect(status().isNotFound)
                 .andExpect(jsonPath("$.meta.errorCode").value("QUEUE_ENTRY_NOT_FOUND"))

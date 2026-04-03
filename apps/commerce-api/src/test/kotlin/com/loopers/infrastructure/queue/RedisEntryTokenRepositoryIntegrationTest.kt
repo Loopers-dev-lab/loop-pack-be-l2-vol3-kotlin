@@ -41,6 +41,15 @@ constructor(
             )
             assertThat(entryTokenRepository.exists(1L)).isTrue()
         }
+
+        @Test
+        @DisplayName("발급된 토큰의 TTL이 300초로 설정된다")
+        fun issue_ttlIs300Seconds() {
+            entryTokenRepository.issue(1L)
+            val found = entryTokenRepository.findByUserId(1L)
+            assertThat(found).isNotNull
+            assertThat(found!!.remainingSeconds).isBetween(299, 300)
+        }
     }
 
     @Nested

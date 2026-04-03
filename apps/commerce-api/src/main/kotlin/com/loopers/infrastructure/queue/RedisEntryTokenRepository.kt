@@ -23,6 +23,14 @@ class RedisEntryTokenRepository(
         return EntryToken(token = token, userId = userId, remainingSeconds = TOKEN_TTL.seconds)
     }
 
+    override fun validate(
+        userId: Long,
+        token: String,
+    ): Boolean {
+        val stored = redisTemplate.opsForValue().get(tokenKey(userId)) ?: return false
+        return stored == token
+    }
+
     override fun validateAndConsume(
         userId: Long,
         token: String,

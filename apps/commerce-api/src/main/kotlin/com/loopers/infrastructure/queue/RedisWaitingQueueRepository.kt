@@ -18,7 +18,9 @@ class RedisWaitingQueueRepository(
             ENTER_SCRIPT,
             listOf(KEY, SEQ_KEY),
             userId.toString(),
-        ) ?: listOf(0L, 0L)
+        )
+        requireNotNull(results) { "Redis ENTER_SCRIPT returned null for userId=$userId" }
+        require(results.size == 2) { "Redis ENTER_SCRIPT returned unexpected result size: ${results.size}" }
         return QueuePosition(
             position = results[0] as Long,
             totalWaiting = results[1] as Long,

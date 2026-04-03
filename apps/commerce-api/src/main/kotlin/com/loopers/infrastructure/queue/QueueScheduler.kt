@@ -17,11 +17,9 @@ class QueueScheduler(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private var lockValue: String? = null
-
     @Scheduled(fixedDelayString = "\${queue.scheduler.fixed-delay:100}")
     fun processQueue() {
-        if (!tryAcquireLock()) return
+        val lockValue = tryAcquireLock() ?: return
         try {
             val uuids = (1..BATCH_SIZE).map { UUID.randomUUID().toString() }
             val args = listOf(BATCH_SIZE.toString(), TOKEN_TTL_SECONDS) + uuids
@@ -35,24 +33,21 @@ class QueueScheduler(
                 log.info("Processed queue batch: {} users", processedCount)
             }
         } finally {
-            releaseLock()
+            releaseLock(lockValue)
         }
     }
 
-    private fun tryAcquireLock(): Boolean {
+    private fun tryAcquireLock(): String? {
         val value = UUID.randomUUID().toString()
         val acquired = redisTemplate.opsForValue()
             .setIfAbsent(LOCK_KEY, value, LOCK_LEASE) == true
-        if (acquired) lockValue = value
-        return acquired
+        return if (acquired) value else null
     }
 
-    private fun releaseLock() {
-        val value = lockValue ?: return
+    private fun releaseLock(value: String) {
         runCatching {
             redisTemplate.execute(RELEASE_LOCK_SCRIPT, listOf(LOCK_KEY), value)
         }
-        lockValue = null
     }
 
     companion object {

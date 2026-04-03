@@ -35,10 +35,11 @@ class UserOrderV1Controller(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
         @RequestHeader("X-Idempotency-Key") idempotencyKey: String,
+        @RequestHeader("X-Entry-Token") entryToken: String,
         @Valid @RequestBody request: UserOrderV1Request.Create,
     ): ApiResponse<UserOrderV1Response.Created> {
         val userId = userAuthenticateUseCase.authenticateAndGetId(loginId, password)
-        return createUseCase.create(request.toCommand(userId, idempotencyKey))
+        return createUseCase.create(request.toCommand(userId, idempotencyKey, entryToken))
             .let { UserOrderV1Response.Created.from(it) }
             .let { ApiResponse.success(it) }
     }

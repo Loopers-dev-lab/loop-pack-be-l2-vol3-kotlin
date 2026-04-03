@@ -11,6 +11,7 @@ import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.OrderDomainService
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderSnapshot
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
@@ -30,6 +31,7 @@ class OrderCreateUseCase(
     private val brandRepository: BrandRepository,
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
+    private val entryTokenRepository: EntryTokenRepository,
 ) {
     @Transactional
     fun create(command: OrderCreateCommand): OrderResult.Created {
@@ -37,6 +39,12 @@ class OrderCreateUseCase(
 
         if (orderRepository.existsByIdempotencyKey(idempotencyKey)) {
             throw CoreException(ErrorType.ORDER_IDEMPOTENCY_KEY_DUPLICATE)
+        }
+
+        command.entryToken?.let { token ->
+            if (!entryTokenRepository.validateAndConsume(command.userId, token)) {
+                throw CoreException(ErrorType.ENTRY_TOKEN_INVALID)
+            }
         }
 
         if (command.items.any { it.quantity <= 0 }) {

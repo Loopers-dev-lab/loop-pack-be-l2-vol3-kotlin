@@ -30,7 +30,7 @@ class EntryTokenInterceptor(
         val token = request.getHeader("X-Entry-Token")
             ?: throw CoreException(ErrorType.ENTRY_TOKEN_REQUIRED)
 
-        if (!entryTokenValidationUseCase.validateAndConsume(userId, token)) {
+        if (!entryTokenValidationUseCase.validate(userId, token)) {
             throw CoreException(ErrorType.ENTRY_TOKEN_INVALID)
         }
 
