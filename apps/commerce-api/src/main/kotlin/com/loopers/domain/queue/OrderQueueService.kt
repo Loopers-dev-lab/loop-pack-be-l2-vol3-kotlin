@@ -10,6 +10,7 @@ import java.util.UUID
 class OrderQueueService(
     private val orderQueueRepository: OrderQueueRepository,
     private val entryTokenRepository: EntryTokenRepository,
+    private val queueHealthChecker: QueueHealthChecker,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -20,6 +21,16 @@ class OrderQueueService(
     }
 
     fun getPosition(userId: Long): QueuePosition {
+        if (queueHealthChecker.isBypassed()) {
+            log.warn("[BYPASS_AUDIT] 대기열 bypass 모드: 순번 조회 스킵. userId={}", userId)
+            return QueuePosition(
+                position = 0L,
+                estimatedWaitSeconds = 0.0,
+                totalSize = 0L,
+                bypassed = true,
+            )
+        }
+
         val token = entryTokenRepository.get(userId)
         if (token != null) {
             return QueuePosition(
@@ -63,13 +74,13 @@ class OrderQueueService(
     }
 
     fun validateAndConsumeToken(userId: Long, token: String) {
-        val storedToken = entryTokenRepository.get(userId)
-            ?: throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 존재하지 않습니다. userId=$userId")
-
-        if (storedToken == EntryTokenRepository.BYPASS_TOKEN) {
-            log.warn("대기열 bypass 모드: 토큰 검증 스킵. userId={}", userId)
+        if (queueHealthChecker.isBypassed()) {
+            log.warn("[BYPASS_AUDIT] 대기열 bypass 모드: 토큰 검증 스킵. userId={}, requestToken={}", userId, token)
             return
         }
+
+        val storedToken = entryTokenRepository.get(userId)
+            ?: throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 존재하지 않습니다. userId=$userId")
 
         if (storedToken != token) {
             throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 일치하지 않습니다. userId=$userId")

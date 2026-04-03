@@ -80,7 +80,8 @@ class QueueFacade(
     }
 
     private fun toInfo(queuePosition: QueuePosition): QueuePositionInfo {
-        val pollingIntervalMs = if (queuePosition.token != null) 0L else calculatePollingInterval(queuePosition.position)
+        val pollingIntervalMs = if (queuePosition.token != null || queuePosition.bypassed) 0L
+            else calculatePollingInterval(queuePosition.position)
         return QueuePositionInfo.from(queuePosition, pollingIntervalMs)
     }
 

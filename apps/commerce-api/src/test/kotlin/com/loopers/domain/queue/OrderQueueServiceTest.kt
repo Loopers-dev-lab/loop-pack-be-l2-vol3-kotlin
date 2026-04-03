@@ -27,11 +27,14 @@ class OrderQueueServiceTest {
     @Mock
     private lateinit var entryTokenRepository: EntryTokenRepository
 
+    @Mock
+    private lateinit var queueHealthChecker: QueueHealthChecker
+
     private lateinit var orderQueueService: OrderQueueService
 
     @BeforeEach
     fun setUp() {
-        orderQueueService = OrderQueueService(orderQueueRepository, entryTokenRepository)
+        orderQueueService = OrderQueueService(orderQueueRepository, entryTokenRepository, queueHealthChecker)
     }
 
     @Nested
@@ -139,7 +142,28 @@ class OrderQueueServiceTest {
             assertAll(
                 { assertThat(result.position).isEqualTo(0L) },
                 { assertThat(result.token).isEqualTo(token) },
+                { assertThat(result.bypassed).isFalse() },
             )
+        }
+
+        @Test
+        @DisplayName("bypass 모드이면 position=0, bypassed=true를 반환한다")
+        fun returnsBypassedPosition_whenBypassed() {
+            // arrange
+            val userId = 1L
+            whenever(queueHealthChecker.isBypassed()).thenReturn(true)
+
+            // act
+            val result = orderQueueService.getPosition(userId)
+
+            // assert
+            assertAll(
+                { assertThat(result.position).isEqualTo(0L) },
+                { assertThat(result.bypassed).isTrue() },
+                { assertThat(result.token).isNull() },
+            )
+            // Redis 접근 없이 즉시 반환
+            verify(entryTokenRepository, times(0)).get(userId)
         }
     }
 
@@ -294,17 +318,35 @@ class OrderQueueServiceTest {
         }
 
         @Test
-        @DisplayName("BYPASS_TOKEN이면 검증을 스킵하고 정상 종료한다")
-        fun skipsValidation_whenBypassToken() {
+        @DisplayName("bypass 모드이면 토큰 검증을 스킵하고 정상 종료한다")
+        fun skipsValidation_whenBypassed() {
             // arrange
             val userId = 1L
-            whenever(entryTokenRepository.get(userId)).thenReturn(EntryTokenRepository.BYPASS_TOKEN)
+            whenever(queueHealthChecker.isBypassed()).thenReturn(true)
 
-            // act & assert — 예외 없이 정상 종료, consume 호출하지 않음
+            // act & assert — 예외 없이 정상 종료
             orderQueueService.validateAndConsumeToken(userId, "any-token")
 
-            // assert
+            // assert — Redis 접근 없이 즉시 반환
+            verify(entryTokenRepository, times(0)).get(userId)
             verify(entryTokenRepository, times(0)).consume(userId)
+        }
+
+        @Test
+        @DisplayName("bypass 모드가 아니면 토큰 불일치 시 FORBIDDEN 예외가 발생한다")
+        fun throwsForbidden_whenNotBypassedAndTokenMismatch() {
+            // arrange
+            val userId = 1L
+            whenever(queueHealthChecker.isBypassed()).thenReturn(false)
+            whenever(entryTokenRepository.get(userId)).thenReturn("correct-token")
+
+            // act
+            val exception = assertThrows<CoreException> {
+                orderQueueService.validateAndConsumeToken(userId, "wrong-token")
+            }
+
+            // assert
+            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
         }
     }
 }

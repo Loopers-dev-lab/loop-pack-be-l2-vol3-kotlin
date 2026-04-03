@@ -26,6 +26,7 @@ class QueueDto {
         val totalSize: Long,
         val token: String?,
         val pollingIntervalMs: Long,
+        val bypassed: Boolean,
     ) {
         companion object {
             fun from(info: QueuePositionInfo): QueuePositionResponse {
@@ -35,6 +36,7 @@ class QueueDto {
                     totalSize = info.totalSize,
                     token = info.token,
                     pollingIntervalMs = info.pollingIntervalMs,
+                    bypassed = info.bypassed,
                 )
             }
         }

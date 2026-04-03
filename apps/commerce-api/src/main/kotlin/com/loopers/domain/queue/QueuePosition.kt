@@ -5,4 +5,5 @@ data class QueuePosition(
     val estimatedWaitSeconds: Double,
     val totalSize: Long,
     val token: String? = null,
+    val bypassed: Boolean = false,
 )

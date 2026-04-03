@@ -39,8 +39,8 @@ class EntryTokenRedisRepository(
     }
 
     internal fun getFallback(userId: Long, e: Exception): String? {
-        log.warn("토큰 조회 bypass: userId={}", userId, e)
-        return EntryTokenRepository.BYPASS_TOKEN
+        log.warn("토큰 조회 실패 (Redis 장애): userId={}", userId, e)
+        return null
     }
 
     internal fun issueFallback(userId: Long, token: String, ttlSeconds: Long, e: Exception) {

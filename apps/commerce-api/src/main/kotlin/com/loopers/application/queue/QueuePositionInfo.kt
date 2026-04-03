@@ -8,6 +8,7 @@ data class QueuePositionInfo(
     val totalSize: Long,
     val token: String? = null,
     val pollingIntervalMs: Long,
+    val bypassed: Boolean = false,
 ) {
     companion object {
         fun from(queuePosition: QueuePosition, pollingIntervalMs: Long): QueuePositionInfo {
@@ -17,6 +18,7 @@ data class QueuePositionInfo(
                 totalSize = queuePosition.totalSize,
                 token = queuePosition.token,
                 pollingIntervalMs = pollingIntervalMs,
+                bypassed = queuePosition.bypassed,
             )
         }
     }

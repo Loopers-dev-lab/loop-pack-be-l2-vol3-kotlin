@@ -1,6 +1,5 @@
 package com.loopers.infrastructure.queue
 
-import com.loopers.domain.queue.EntryTokenRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -36,13 +35,13 @@ class EntryTokenRedisRepositoryFallbackTest {
         private val redisException = RuntimeException("Redis connection failed")
 
         @Test
-        @DisplayName("getFallback — BYPASS_TOKEN을 반환한다")
-        fun getFallback_returnsBypassToken() {
+        @DisplayName("getFallback — null을 반환한다")
+        fun getFallback_returnsNull() {
             // act
             val result = repository.getFallback(1L, redisException)
 
             // assert
-            assertThat(result).isEqualTo(EntryTokenRepository.BYPASS_TOKEN)
+            assertThat(result).isNull()
         }
 
         @Test
