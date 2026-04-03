@@ -38,14 +38,24 @@ class EnterQueueUseCase(
             )
         }
 
-        val queueSize = orderQueueStore.getQueueSize()
-        if (queueSize >= queueProperties.maxQueueSize) {
+        val result = orderQueueStore.enqueue(userId, queueProperties.maxQueueSize)
+
+        if (result == ENQUEUE_ALREADY_IN_QUEUE) {
+            val position = orderQueueStore.getPosition(userId) ?: 0L
+            return QueueEntryInfo(
+                position = position,
+                estimatedWaitSeconds = QueueCalculator.estimatedWaitSeconds(
+                    position, queueProperties.scheduler.batchSize, queueProperties.scheduler.intervalMs,
+                ),
+                alreadyHasToken = false,
+            )
+        }
+
+        if (result == ENQUEUE_QUEUE_FULL) {
             throw CoreException(QueueErrorCode.QUEUE_FULL)
         }
 
-        orderQueueStore.enqueue(userId, System.currentTimeMillis().toDouble())
-
-        val position = orderQueueStore.getPosition(userId) ?: 0L
+        val position = result
         val estimatedWaitSeconds = QueueCalculator.estimatedWaitSeconds(
             position, queueProperties.scheduler.batchSize, queueProperties.scheduler.intervalMs,
         )
@@ -55,5 +65,10 @@ class EnterQueueUseCase(
             estimatedWaitSeconds = estimatedWaitSeconds,
             alreadyHasToken = false,
         )
+    }
+
+    companion object {
+        private const val ENQUEUE_ALREADY_IN_QUEUE = -1L
+        private const val ENQUEUE_QUEUE_FULL = -2L
     }
 }

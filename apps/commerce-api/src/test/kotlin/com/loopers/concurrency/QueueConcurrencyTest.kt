@@ -14,9 +14,11 @@ import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.test.context.TestPropertySource
 
 @SpringBootTest
 @Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
+@TestPropertySource(properties = ["queue.scheduler.interval-ms=999999"])
 class QueueConcurrencyTest @Autowired constructor(
     private val enterQueueUseCase: EnterQueueUseCase,
     private val getQueuePositionUseCase: GetQueuePositionUseCase,

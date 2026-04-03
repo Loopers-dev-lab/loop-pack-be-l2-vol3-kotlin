@@ -18,7 +18,7 @@ class EnterQueueUseCaseTest {
 
     private val orderQueueStore: OrderQueueStore = mockk()
     private val queueProperties = QueueProperties(
-        scheduler = QueueProperties.Scheduler(intervalMs = 100, batchSize = 18),
+        scheduler = QueueProperties.Scheduler(intervalMs = 100, batchSize = 5),
         token = QueueProperties.Token(ttlSeconds = 300),
         redis = QueueProperties.RedisKeys(),
         maxQueueSize = 50000,
@@ -33,9 +33,7 @@ class EnterQueueUseCaseTest {
         @Test
         fun success() {
             every { orderQueueStore.hasToken(1L) } returns false
-            every { orderQueueStore.getQueueSize() } returns 100L
-            every { orderQueueStore.enqueue(1L, any()) } returns true
-            every { orderQueueStore.getPosition(1L) } returns 100L
+            every { orderQueueStore.enqueue(1L, 50000L) } returns 100L
 
             val result = useCase.execute(1L)
 
@@ -50,8 +48,7 @@ class EnterQueueUseCaseTest {
         @Test
         fun duplicateEntry() {
             every { orderQueueStore.hasToken(1L) } returns false
-            every { orderQueueStore.getQueueSize() } returns 100L
-            every { orderQueueStore.enqueue(1L, any()) } returns false
+            every { orderQueueStore.enqueue(1L, 50000L) } returns -1L
             every { orderQueueStore.getPosition(1L) } returns 50L
 
             val result = useCase.execute(1L)
@@ -80,7 +77,7 @@ class EnterQueueUseCaseTest {
         @Test
         fun queueFull() {
             every { orderQueueStore.hasToken(1L) } returns false
-            every { orderQueueStore.getQueueSize() } returns 50000L
+            every { orderQueueStore.enqueue(1L, 50000L) } returns -2L
 
             val exception = assertThrows<CoreException> {
                 useCase.execute(1L)

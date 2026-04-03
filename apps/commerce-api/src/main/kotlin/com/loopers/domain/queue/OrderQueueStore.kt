@@ -1,7 +1,7 @@
 package com.loopers.domain.queue
 
 interface OrderQueueStore {
-    fun enqueue(userId: Long, score: Double): Boolean
+    fun enqueue(userId: Long, maxQueueSize: Long): Long
     fun getPosition(userId: Long): Long?
     fun getQueueSize(): Long
     fun hasToken(userId: Long): Boolean

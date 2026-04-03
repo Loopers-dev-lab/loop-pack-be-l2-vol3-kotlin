@@ -12,7 +12,7 @@ data class QueueProperties(
 ) {
     data class Scheduler(
         val intervalMs: Long = 100,
-        val batchSize: Long = 18,
+        val batchSize: Long = 5,
     )
 
     data class Token(
