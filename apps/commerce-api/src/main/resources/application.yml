@@ -11,6 +11,8 @@ server:
   max-http-request-header-size: 8KB
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 60s
   main:
     web-application-type: servlet
   application:
@@ -21,6 +23,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
 

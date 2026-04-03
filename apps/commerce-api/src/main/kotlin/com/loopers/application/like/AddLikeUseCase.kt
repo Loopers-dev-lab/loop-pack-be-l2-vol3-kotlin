@@ -1,5 +1,6 @@
 package com.loopers.application.like
 
+import com.loopers.application.event.ProductLikedEvent
 import com.loopers.application.product.ProductCacheEvictEvent
 import com.loopers.domain.like.LikeRepository
 import com.loopers.domain.product.ProductRepository
@@ -32,6 +33,7 @@ class AddLikeUseCase(
         if (inserted) {
             productRepository.incrementLikeCount(productId)
             eventPublisher.publishEvent(ProductCacheEvictEvent(productId))
+            eventPublisher.publishEvent(ProductLikedEvent(productId = productId, userId = userId))
         }
     }
 }

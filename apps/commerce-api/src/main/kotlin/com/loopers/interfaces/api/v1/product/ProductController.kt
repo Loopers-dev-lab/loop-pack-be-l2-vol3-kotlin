@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.v1.product
 
 import com.loopers.application.product.GetProductListUseCase
 import com.loopers.application.product.GetProductUseCase
+import com.loopers.application.product.ProductViewTracker
 import com.loopers.domain.product.ProductSortType
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.web.bind.annotation.GetMapping
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 class ProductController(
     private val getProductUseCase: GetProductUseCase,
     private val getProductListUseCase: GetProductListUseCase,
+    private val productViewTracker: ProductViewTracker,
 ) {
     @GetMapping
     fun getProducts(
@@ -30,6 +32,7 @@ class ProductController(
         @PathVariable id: Long,
     ): ApiResponse<GetProductDetailResponse> {
         val productInfo = getProductUseCase.getActiveById(id)
+        productViewTracker.track(id)
         return ApiResponse.success(GetProductDetailResponse.from(productInfo))
     }
 }

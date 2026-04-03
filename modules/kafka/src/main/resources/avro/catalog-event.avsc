@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "CatalogEvent",
+  "namespace": "com.loopers.avro",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventType", "type": "string"},
+    {"name": "productId", "type": "long"},
+    {"name": "userId", "type": ["null", "long"], "default": null},
+    {"name": "occurredAt", "type": "string"}
+  ]
+}

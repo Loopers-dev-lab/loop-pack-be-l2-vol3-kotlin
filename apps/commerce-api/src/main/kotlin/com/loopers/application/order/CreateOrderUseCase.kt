@@ -1,5 +1,6 @@
 package com.loopers.application.order
 
+import com.loopers.application.event.OrderCreatedEvent
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.order.Order
@@ -9,6 +10,7 @@ import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -22,6 +24,7 @@ class CreateOrderUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val userCouponRepository: UserCouponRepository,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val orderItemFactory = OrderItemFactory()
 
@@ -61,7 +64,18 @@ class CreateOrderUseCase(
             Order.create(userId = userId, items = orderItems)
         }
 
-        return orderRepository.save(order)
+        val orderId = orderRepository.save(order)
+
+        eventPublisher.publishEvent(
+            OrderCreatedEvent(
+                orderId = orderId,
+                userId = userId,
+                totalAmount = order.totalAmount.amount,
+                itemCount = order.items.size,
+            ),
+        )
+
+        return orderId
     }
 
     private fun createOrderWithCoupon(
