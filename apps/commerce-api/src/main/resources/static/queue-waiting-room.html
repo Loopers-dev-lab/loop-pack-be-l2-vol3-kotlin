@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Queue Waiting Room Demo</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: rgba(9, 21, 38, 0.86);
+      --panel-strong: rgba(14, 31, 56, 0.96);
+      --line: rgba(157, 188, 255, 0.18);
+      --text: #eef4ff;
+      --muted: #94a7c6;
+      --accent: #4dd4ac;
+      --accent-strong: #21c08d;
+      --warning: #ffd36f;
+      --danger: #ff8b8b;
+      --shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(77, 212, 172, 0.16), transparent 35%),
+        radial-gradient(circle at right top, rgba(93, 138, 255, 0.18), transparent 40%),
+        linear-gradient(180deg, #08101c 0%, #0c182a 45%, #08111f 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(1240px, calc(100vw - 40px));
+      margin: 0 auto;
+      padding: 40px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .headline {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .headline::after {
+      content: "";
+      position: absolute;
+      inset: auto -10% -30% 35%;
+      height: 180px;
+      background: radial-gradient(circle, rgba(77, 212, 172, 0.3), transparent 60%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4vw, 56px);
+      line-height: 1.02;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 760px;
+    }
+
+    .status-stack {
+      display: grid;
+      gap: 16px;
+      padding: 22px;
+    }
+
+    .live-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+    }
+
+    .live-label {
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .live-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 24px;
+    }
+
+    .section { padding: 24px; }
+    .section h2 { margin: 0 0 16px; font-size: 22px; }
+    .section p { color: var(--muted); line-height: 1.6; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field { display: grid; gap: 8px; margin-bottom: 14px; }
+    .field label { font-size: 13px; color: var(--muted); }
+
+    input, select, button, textarea {
+      font: inherit;
+      border-radius: 14px;
+      border: 1px solid rgba(173, 196, 255, 0.12);
+      background: rgba(7, 15, 28, 0.95);
+      color: var(--text);
+      padding: 14px 16px;
+      width: 100%;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #061018;
+      font-weight: 700;
+      border: none;
+      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+      box-shadow: 0 16px 24px rgba(33, 192, 141, 0.25);
+    }
+
+    button.secondary {
+      background: rgba(104, 131, 176, 0.16);
+      color: var(--text);
+      border: 1px solid rgba(173, 196, 255, 0.18);
+      box-shadow: none;
+    }
+
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+    button:hover:not(:disabled) { transform: translateY(-1px); }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .metric {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(13, 25, 43, 0.9);
+      border: 1px solid rgba(173, 196, 255, 0.1);
+    }
+
+    .metric span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+    .metric strong { font-size: 24px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      font-size: 13px;
+      color: var(--muted);
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+
+    .state-admitted { color: var(--accent); }
+    .state-waiting { color: var(--warning); }
+    .state-expired, .state-error { color: var(--danger); }
+
+    .log {
+      min-height: 220px;
+      max-height: 420px;
+      overflow: auto;
+      background: rgba(6, 12, 22, 0.95);
+      border-radius: 18px;
+      border: 1px solid rgba(173, 196, 255, 0.08);
+      padding: 14px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .hint {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255, 211, 111, 0.1);
+      border: 1px solid rgba(255, 211, 111, 0.18);
+      color: #ffe7aa;
+    }
+
+    ul.checklist {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .hero, .grid { grid-template-columns: 1fr; }
+      .form-grid, .metrics, .button-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="panel headline">
+        <div class="eyebrow">Queue Experiment Demo</div>
+        <h1>대기열이 실제로 어떻게 보이는지<br />직접 확인하는 Waiting Room</h1>
+        <p class="subtitle">
+          같은 API 위에서 전략을 바꿔 보면서, 사용자가 보는 순번 변화·토큰 발급·주문 진입 순간을 그대로 관찰하는 데모입니다.
+          로그인 → 대기열 진입 → polling → 입장 허용 → 주문까지 한 흐름으로 테스트하세요.
+        </p>
+      </div>
+      <aside class="panel status-stack">
+        <div class="live-card">
+          <div class="live-label">현재 활성 전략</div>
+          <div class="live-value" id="activeStrategy">불러오는 중…</div>
+        </div>
+        <div class="live-card">
+          <div class="live-label">Admission cadence</div>
+          <div class="live-value" id="admissionCadence">-</div>
+        </div>
+        <div class="live-card">
+          <div class="live-label">Order gate</div>
+          <div class="live-value" id="orderGateStatus">Demo endpoint enforces queue token</div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <div class="panel section">
+        <h2>1. 사용자 / 주문 준비</h2>
+        <div class="form-grid">
+          <div class="field"><label>로그인 ID</label><input id="loginId" value="queuevisitor001" /></div>
+          <div class="field"><label>비밀번호</label><input id="password" value="QueuePass1!" type="password" /></div>
+          <div class="field"><label>이름</label><input id="name" value="queue-visitor" /></div>
+          <div class="field"><label>이메일</label><input id="email" value="queuevisitor001@test.com" /></div>
+          <div class="field"><label>생년월일</label><input id="birthDate" value="2000-05-15" /></div>
+          <div class="field"><label>상품 ID</label><input id="productId" placeholder="예: 1" /></div>
+          <div class="field"><label>수량</label><input id="quantity" type="number" min="1" value="1" /></div>
+          <div class="field"><label>전략</label><select id="strategy"></select></div>
+        </div>
+        <div class="button-row">
+          <button id="signupButton">회원가입</button>
+          <button id="joinButton" class="secondary">대기열 진입</button>
+          <button id="seedButton" class="secondary">브랜드/상품 자동 생성</button>
+          <button id="orderButton" disabled>토큰으로 주문하기</button>
+        </div>
+        <div class="hint" id="configHint">
+          앱의 active strategy와 페이지에서 고른 전략이 같아야 polling이 자연스럽게 진행됩니다.
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>현재 상태</span><strong id="stateText">READY</strong></div>
+          <div class="metric"><span>내 순번</span><strong id="positionText">-</strong></div>
+          <div class="metric"><span>예상 대기</span><strong id="waitText">-</strong></div>
+        </div>
+        <div class="badge">토큰 <strong id="tokenText">없음</strong></div>
+        <div class="badge">총 대기 인원 <strong id="waitingCountText">0</strong></div>
+        <div class="badge">Polling 횟수 <strong id="pollCountText">0</strong></div>
+        <div class="footer-note" id="statusSummary">회원가입 후 대기열에 진입하세요.</div>
+      </div>
+
+      <div class="panel section">
+        <h2>2. 테스트 체크리스트</h2>
+        <ul class="checklist">
+          <li>같은 전략으로 여러 번 들어가도 순번이 자연스럽게 증가하는지</li>
+          <li>position polling 결과가 admitted 직전까지 안정적으로 보이는지</li>
+          <li>토큰이 발급된 뒤 주문 버튼이 열리고 실제 주문이 성공하는지</li>
+          <li>active strategy와 다른 전략을 고르면 왜 대기열이 멈추는지 설명 가능한지</li>
+          <li>Redis / Kafka / Lock 전략 간 waiting time 차이를 사용자가 체감하는지</li>
+        </ul>
+        <h2 style="margin-top: 26px;">3. 실시간 로그</h2>
+        <div class="log" id="log"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      token: null,
+      pollTimer: null,
+      pollCount: 0,
+      productId: null,
+    };
+
+    const els = {
+      loginId: document.getElementById('loginId'),
+      password: document.getElementById('password'),
+      name: document.getElementById('name'),
+      email: document.getElementById('email'),
+      birthDate: document.getElementById('birthDate'),
+      productId: document.getElementById('productId'),
+      quantity: document.getElementById('quantity'),
+      strategy: document.getElementById('strategy'),
+      signupButton: document.getElementById('signupButton'),
+      joinButton: document.getElementById('joinButton'),
+      seedButton: document.getElementById('seedButton'),
+      orderButton: document.getElementById('orderButton'),
+      activeStrategy: document.getElementById('activeStrategy'),
+      admissionCadence: document.getElementById('admissionCadence'),
+      stateText: document.getElementById('stateText'),
+      positionText: document.getElementById('positionText'),
+      waitText: document.getElementById('waitText'),
+      tokenText: document.getElementById('tokenText'),
+      waitingCountText: document.getElementById('waitingCountText'),
+      pollCountText: document.getElementById('pollCountText'),
+      statusSummary: document.getElementById('statusSummary'),
+      configHint: document.getElementById('configHint'),
+      log: document.getElementById('log'),
+    };
+
+    function credentialsHeaders(extra = {}) {
+      return {
+        'Content-Type': 'application/json',
+        'X-Loopers-LoginId': els.loginId.value.trim(),
+        'X-Loopers-LoginPw': els.password.value.trim(),
+        ...extra,
+      };
+    }
+
+    function appendLog(message, tone = 'info') {
+      const stamp = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+      const color = tone === 'error' ? '#ff9a9a' : tone === 'success' ? '#7ef0ca' : '#c9d8f2';
+      els.log.innerHTML = `<div style="color:${color}; margin-bottom:8px;">[${stamp}] ${message}</div>` + els.log.innerHTML;
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const body = await response.json().catch(() => null);
+      if (!response.ok || body?.meta?.result === 'FAIL') {
+        throw new Error(body?.meta?.message || `요청 실패 (${response.status})`);
+      }
+      return body.data;
+    }
+
+    function updateQueueState(queue) {
+      if (!queue) return;
+      state.token = queue.token || null;
+      els.stateText.textContent = queue.state;
+      els.stateText.className = queue.state === 'ADMITTED' ? 'state-admitted' : queue.state === 'WAITING' ? 'state-waiting' : queue.state === 'EXPIRED' ? 'state-expired' : '';
+      els.positionText.textContent = queue.position ?? '-';
+      els.waitText.textContent = `${queue.expectedWaitSeconds ?? 0}s`;
+      els.tokenText.textContent = queue.token ? `${queue.token.slice(0, 8)}…` : '없음';
+      els.waitingCountText.textContent = queue.totalWaitingCount ?? 0;
+      els.pollCountText.textContent = state.pollCount;
+      els.statusSummary.textContent = queue.canEnterOrderApi
+        ? '입장 허용 상태입니다. 지금 주문하면 실제 queue token으로 검증됩니다.'
+        : `현재 ${queue.state} 상태입니다. polling으로 admitted 전환을 기다리는 중입니다.`;
+      els.orderButton.disabled = !queue.canEnterOrderApi || !state.productId;
+    }
+
+    function stopPolling() {
+      if (state.pollTimer) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+      }
+    }
+
+    async function pollQueuePosition() {
+      try {
+        state.pollCount += 1;
+        const queue = await request(`/api/v1/queue/position?strategy=${els.strategy.value}`, {
+          method: 'GET',
+          headers: credentialsHeaders(),
+        });
+        updateQueueState(queue);
+        if (queue.canEnterOrderApi) {
+          appendLog(`토큰 발급 완료 · position=${queue.position ?? 0} · expires=${queue.tokenExpiresAt || '-'}`, 'success');
+          stopPolling();
+        }
+      } catch (error) {
+        appendLog(error.message, 'error');
+        stopPolling();
+      }
+    }
+
+    async function loadConfig() {
+      const config = await request('/api/v1/queue-demo/config');
+      els.activeStrategy.textContent = config.activeStrategy;
+      els.admissionCadence.textContent = `${config.schedulerFixedDelaySeconds}s tick / batch ${config.resolvedBatchSize}`;
+      els.strategy.innerHTML = config.supportedStrategies
+        .map((strategy) => `<option value="${strategy}" ${strategy === config.activeStrategy ? 'selected' : ''}>${strategy}</option>`)
+        .join('');
+      els.configHint.textContent = `현재 active strategy는 ${config.activeStrategy} 입니다. 다른 전략을 보고 싶으면 앱을 그 전략으로 재시작하세요.`;
+      appendLog(`queue demo config loaded · active=${config.activeStrategy} · batch=${config.resolvedBatchSize}`);
+    }
+
+    async function signup() {
+      await request('/api/v1/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          loginId: els.loginId.value.trim(),
+          password: els.password.value.trim(),
+          name: els.name.value.trim(),
+          birthDate: els.birthDate.value.trim(),
+          email: els.email.value.trim(),
+        }),
+      });
+      appendLog(`회원가입 완료 · ${els.loginId.value.trim()}`, 'success');
+    }
+
+    async function seedProduct() {
+      const brand = await request('/api/v1/brands', {
+        method: 'POST',
+        headers: credentialsHeaders(),
+        body: JSON.stringify({ name: `Queue Demo Brand ${Date.now()}` }),
+      });
+      const product = await request('/api/v1/products', {
+        method: 'POST',
+        headers: credentialsHeaders(),
+        body: JSON.stringify({
+          brandId: brand.id,
+          name: `Queue Demo Product ${Date.now()}`,
+          price: 11000,
+          description: 'waiting-room demo product',
+          stock: 9999,
+        }),
+      });
+      state.productId = product.id;
+      els.productId.value = product.id;
+      appendLog(`데모 상품 생성 완료 · productId=${product.id}`, 'success');
+      els.orderButton.disabled = !state.token;
+    }
+
+    async function joinQueue() {
+      stopPolling();
+      state.pollCount = 0;
+      state.token = null;
+      state.productId = els.productId.value ? Number(els.productId.value) : null;
+
+      const queue = await request('/api/v1/queue/enter', {
+        method: 'POST',
+        headers: credentialsHeaders(),
+        body: JSON.stringify({ strategy: els.strategy.value }),
+      });
+      updateQueueState(queue);
+      appendLog(`대기열 진입 완료 · strategy=${els.strategy.value} · position=${queue.position ?? '-'}`);
+
+      if (!queue.canEnterOrderApi) {
+        state.pollTimer = setInterval(pollQueuePosition, 1000);
+        appendLog('실제 대기열처럼 1초 polling을 시작합니다.');
+      }
+    }
+
+    async function placeOrder() {
+      state.productId = els.productId.value ? Number(els.productId.value) : null;
+      if (!state.productId || !state.token) {
+        throw new Error('상품 ID와 queue token이 모두 필요합니다.');
+      }
+      const order = await request('/api/v1/queue-demo/orders', {
+        method: 'POST',
+        headers: credentialsHeaders(),
+        body: JSON.stringify({
+          strategy: els.strategy.value,
+          token: state.token,
+          productId: state.productId,
+          quantity: Number(els.quantity.value || 1),
+        }),
+      });
+      appendLog(`주문 성공 · orderId=${order.id} · finalPrice=${order.finalPrice}`, 'success');
+      els.orderButton.disabled = true;
+      els.statusSummary.textContent = `주문 완료 · orderId=${order.id}`;
+    }
+
+    els.signupButton.addEventListener('click', async () => {
+      try { await signup(); } catch (error) { appendLog(error.message, 'error'); }
+    });
+
+    els.seedButton.addEventListener('click', async () => {
+      try { await seedProduct(); } catch (error) { appendLog(error.message, 'error'); }
+    });
+
+    els.joinButton.addEventListener('click', async () => {
+      try { await joinQueue(); } catch (error) { appendLog(error.message, 'error'); }
+    });
+
+    els.orderButton.addEventListener('click', async () => {
+      try { await placeOrder(); } catch (error) { appendLog(error.message, 'error'); }
+    });
+
+    loadConfig().catch((error) => appendLog(error.message, 'error'));
+  </script>
+</body>
+</html>
