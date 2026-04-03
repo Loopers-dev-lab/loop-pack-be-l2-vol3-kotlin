@@ -66,6 +66,11 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     ),
     ISSUED_COUPON_CONFLICT(HttpStatus.CONFLICT, "ISSUED_COUPON_CONFLICT", "쿠폰 사용 충돌이 발생했습니다."),
 
+    /** Queue 도메인 */
+    ENTRY_TOKEN_REQUIRED(HttpStatus.BAD_REQUEST, "ENTRY_TOKEN_REQUIRED", "입장 토큰이 필요합니다."),
+    ENTRY_TOKEN_INVALID(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_INVALID", "유효하지 않은 입장 토큰입니다."),
+    QUEUE_ENTRY_NOT_FOUND(HttpStatus.NOT_FOUND, "QUEUE_ENTRY_NOT_FOUND", "대기열에 등록되지 않은 사용자입니다."),
+
     /** User 도메인 */
     USER_DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "USER_DUPLICATE_LOGIN_ID", "이미 사용 중인 로그인 ID입니다."),
     USER_INVALID_LOGIN_ID(HttpStatus.BAD_REQUEST, "USER_INVALID_LOGIN_ID", "로그인 ID는 영문 대소문자와 숫자만 사용할 수 있습니다."),

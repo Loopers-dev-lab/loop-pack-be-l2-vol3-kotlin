@@ -3,3 +3,7 @@ datasource:
     main:
       maximum-pool-size: 100
       minimum-idle: 10
+
+queue:
+  scheduler:
+    fixed-delay: 3600000

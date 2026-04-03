@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.user.coupon
 
 import com.loopers.application.user.auth.UserAuthenticateUseCase
 import com.loopers.application.user.coupon.UserCouponIssueRequestStatusUseCase
+import com.loopers.application.user.queue.EntryTokenValidationUseCase
 import com.loopers.application.user.coupon.UserCouponIssueUseCase
 import com.loopers.application.user.coupon.UserCouponListUseCase
 import com.loopers.application.user.coupon.UserCouponResult
@@ -31,6 +32,7 @@ constructor(
     @MockitoBean private val issueUseCase: UserCouponIssueUseCase,
     @MockitoBean private val issueRequestStatusUseCase: UserCouponIssueRequestStatusUseCase,
     @MockitoBean private val userCouponListUseCase: UserCouponListUseCase,
+    @MockitoBean private val entryTokenValidationUseCase: EntryTokenValidationUseCase,
 ) {
     companion object {
         private const val LOGIN_ID = "testuser1"
