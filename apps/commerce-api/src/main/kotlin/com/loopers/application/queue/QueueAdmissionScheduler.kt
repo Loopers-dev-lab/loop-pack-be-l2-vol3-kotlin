@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.queue.OrderQueueService
+import com.loopers.domain.queue.QueueHealthChecker
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.SmartLifecycle
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit
 class QueueAdmissionScheduler(
     private val orderQueueService: OrderQueueService,
     private val queueFacade: QueueFacade,
+    private val queueHealthChecker: QueueHealthChecker,
     @Value("\${queue.admission.batch-size}") private val batchSize: Long,
     @Value("\${queue.admission.fixed-rate}") private val fixedRate: Long,
     @Value("\${queue.admission.jitter-range}") private val jitterRange: Long,
@@ -27,8 +29,20 @@ class QueueAdmissionScheduler(
     @Volatile
     private var running = false
 
+    @Volatile
+    private var wasBypassed = false
+
     fun admitUsers() {
         try {
+            if (queueHealthChecker.isBypassed()) {
+                if (!wasBypassed) {
+                    log.warn("대기열 bypass 상태 감지 — SSE 구독자에게 bypass 알림 전송")
+                    queueFacade.broadcastBypass()
+                    wasBypassed = true
+                }
+                return
+            }
+            wasBypassed = false
             val admittedUserIds = orderQueueService.admitUsers(batchSize)
             if (admittedUserIds.isNotEmpty()) {
                 log.info("대기열 입장 허용: {}명", admittedUserIds.size)

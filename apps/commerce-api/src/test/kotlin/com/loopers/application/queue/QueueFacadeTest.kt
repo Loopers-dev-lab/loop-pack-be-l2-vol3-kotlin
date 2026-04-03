@@ -190,6 +190,48 @@ class QueueFacadeTest {
     }
 
     @Nested
+    @DisplayName("broadcastBypass 호출할 때,")
+    inner class BroadcastBypass {
+
+        @Test
+        @DisplayName("모든 SSE 구독자에게 bypass 이벤트를 전송하고 complete한다")
+        fun sendsBypassEventAndCompletes_forAllSubscribers() {
+            // arrange
+            val emitter1 = mock<SseEmitter>()
+            val emitter2 = mock<SseEmitter>()
+            queueEmitterRepository.add(1L, emitter1)
+            queueEmitterRepository.add(2L, emitter2)
+
+            // act
+            queueFacade.broadcastBypass()
+
+            // assert
+            val inOrder1 = inOrder(emitter1)
+            inOrder1.verify(emitter1).send(any<SseEmitter.SseEventBuilder>())
+            inOrder1.verify(emitter1).complete()
+
+            val inOrder2 = inOrder(emitter2)
+            inOrder2.verify(emitter2).send(any<SseEmitter.SseEventBuilder>())
+            inOrder2.verify(emitter2).complete()
+        }
+
+        @Test
+        @DisplayName("전송 실패한 SseEmitter는 저장소에서 제거된다")
+        fun removesEmitterFromRepository_whenSendFails() {
+            // arrange
+            val emitter = mock<SseEmitter>()
+            queueEmitterRepository.add(1L, emitter)
+            whenever(emitter.send(any<SseEmitter.SseEventBuilder>())).thenThrow(IOException("connection closed"))
+
+            // act
+            queueFacade.broadcastBypass()
+
+            // assert
+            assertThat(queueEmitterRepository.get(1L)).isNull()
+        }
+    }
+
+    @Nested
     @DisplayName("broadcastPositions 호출할 때,")
     inner class BroadcastPositions {
 
