@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order
 import com.loopers.application.order.OrderFacade
 import com.loopers.interfaces.config.auth.AuthenticatedMember
 import com.loopers.interfaces.config.auth.MemberAuthenticated
+import com.loopers.interfaces.config.auth.QueueTokenRequired
 import com.loopers.application.order.OrderCommand
 import com.loopers.interfaces.api.ApiResponse
 import org.springframework.http.HttpStatus
@@ -24,6 +25,7 @@ class OrderV1Controller(
     private val orderFacade: OrderFacade,
 ) : OrderV1ApiSpec {
     @MemberAuthenticated
+    @QueueTokenRequired
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     override fun createOrder(
