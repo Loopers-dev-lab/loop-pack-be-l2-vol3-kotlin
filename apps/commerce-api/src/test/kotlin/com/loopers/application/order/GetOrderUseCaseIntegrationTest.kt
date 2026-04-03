@@ -7,9 +7,11 @@ import com.loopers.application.product.RegisterProductUseCase
 import com.loopers.application.user.RegisterUserCommand
 import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.domain.order.OrderException
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -21,7 +23,7 @@ import org.springframework.test.context.jdbc.Sql
 import java.time.LocalDate
 
 @SpringBootTest
-@Import(MySqlTestContainersConfig::class)
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 @Sql(
     statements = [
         "DELETE FROM order_item",
@@ -53,6 +55,9 @@ class GetOrderUseCaseIntegrationTest {
     @Autowired
     private lateinit var registerProductUseCase: RegisterProductUseCase
 
+    @Autowired
+    private lateinit var entryTokenRepository: EntryTokenRepository
+
     private var userId: Long = 0
     private var otherUserId: Long = 0
     private var orderId: Long = 0
@@ -65,6 +70,7 @@ class GetOrderUseCaseIntegrationTest {
             RegisterBrandCommand(name = "테스트브랜드", description = null, logoUrl = null),
         )
         val productId = registerProductUseCase.register(createProductCommand(brandId))
+        entryTokenRepository.issueToken(userId, "test-token", 300)
         orderId = createOrderUseCase.create(
             userId,
             CreateOrderCommand(items = listOf(OrderItemCommand(productId = productId, quantity = 2))),
@@ -108,6 +114,7 @@ class GetOrderUseCaseIntegrationTest {
             RegisterBrandCommand(name = "브랜드B", description = null, logoUrl = null),
         )
         val productId2 = registerProductUseCase.register(createProductCommand(brandId))
+        entryTokenRepository.issueToken(otherUserId, "other-user-token", 300)
         createOrderUseCase.create(
             otherUserId,
             CreateOrderCommand(items = listOf(OrderItemCommand(productId = productId2, quantity = 1))),

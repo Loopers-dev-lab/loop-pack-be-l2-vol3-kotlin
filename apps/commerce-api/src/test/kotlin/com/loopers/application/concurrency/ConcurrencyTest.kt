@@ -19,7 +19,9 @@ import com.loopers.domain.coupon.CouponStatus
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.product.ProductException
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -36,7 +38,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
-@Import(MySqlTestContainersConfig::class)
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 @Sql(
     statements = [
         "DELETE FROM order_item",
@@ -83,6 +85,9 @@ class ConcurrencyTest {
     @Autowired
     private lateinit var userCouponRepository: UserCouponRepository
 
+    @Autowired
+    private lateinit var entryTokenRepository: EntryTokenRepository
+
     private var brandId: Long = 0
 
     @BeforeEach
@@ -102,6 +107,7 @@ class ConcurrencyTest {
             val userCouponId = issueCouponUseCase.issue(userId, couponId)
 
             val result = executeConcurrently(100) {
+                entryTokenRepository.issueToken(userId, "token-${Thread.currentThread().id}", 300)
                 createOrderUseCase.create(
                     userId,
                     CreateOrderCommand(
@@ -130,6 +136,7 @@ class ConcurrencyTest {
             val userIds = (1..100).map { registerUser("stku$it") }
 
             val result = executeConcurrently(userIds) { userId ->
+                entryTokenRepository.issueToken(userId, "token-$userId", 300)
                 createOrderUseCase.create(
                     userId,
                     CreateOrderCommand(
@@ -151,6 +158,7 @@ class ConcurrencyTest {
             val userIds = (1..100).map { registerUser("limu$it") }
 
             val result = executeConcurrently(userIds) { userId ->
+                entryTokenRepository.issueToken(userId, "token-$userId", 300)
                 createOrderUseCase.create(
                     userId,
                     CreateOrderCommand(

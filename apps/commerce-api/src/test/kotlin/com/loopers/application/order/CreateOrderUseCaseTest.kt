@@ -18,6 +18,7 @@ import com.loopers.domain.product.ProductException
 import com.loopers.domain.product.ProductName
 import com.loopers.domain.product.Stock
 import com.loopers.domain.product.fixture.FakeProductRepository
+import com.loopers.domain.queue.fixture.FakeEntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.mockk
@@ -35,6 +36,7 @@ class CreateOrderUseCaseTest {
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var couponRepository: FakeCouponRepository
     private lateinit var userCouponRepository: FakeUserCouponRepository
+    private lateinit var entryTokenRepository: FakeEntryTokenRepository
     private lateinit var createOrderUseCase: CreateOrderUseCase
     private val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
 
@@ -45,8 +47,10 @@ class CreateOrderUseCaseTest {
         brandRepository = FakeBrandRepository()
         couponRepository = FakeCouponRepository()
         userCouponRepository = FakeUserCouponRepository()
+        entryTokenRepository = FakeEntryTokenRepository()
+        entryTokenRepository.issueToken(USER_ID, "test-token", 300)
         createOrderUseCase = CreateOrderUseCase(
-            orderRepository, productRepository, brandRepository, userCouponRepository, eventPublisher,
+            orderRepository, productRepository, brandRepository, userCouponRepository, entryTokenRepository, eventPublisher,
         )
     }
 
@@ -140,6 +144,34 @@ class CreateOrderUseCaseTest {
 
         val userCoupon = userCouponRepository.findById(userCouponId)!!
         assertThat(userCoupon.status).isEqualTo(CouponStatus.USED)
+    }
+
+    @Test
+    fun `입장 토큰이 없으면 주문 시 FORBIDDEN 예외가 발생해야 한다`() {
+        entryTokenRepository.deleteToken(USER_ID)
+        val brandId = brandRepository.save(createBrand())
+        val productId = productRepository.save(createProduct(brandId))
+        val command = CreateOrderCommand(
+            items = listOf(OrderItemCommand(productId = productId, quantity = ORDER_QUANTITY)),
+        )
+
+        assertThatThrownBy { createOrderUseCase.create(USER_ID, command) }
+            .isInstanceOfSatisfying(CoreException::class.java) { ex ->
+                assertThat(ex.errorType).isEqualTo(ErrorType.FORBIDDEN)
+            }
+    }
+
+    @Test
+    fun `주문 완료 후 입장 토큰이 삭제되어야 한다`() {
+        val brandId = brandRepository.save(createBrand())
+        val productId = productRepository.save(createProduct(brandId))
+        val command = CreateOrderCommand(
+            items = listOf(OrderItemCommand(productId = productId, quantity = ORDER_QUANTITY)),
+        )
+
+        createOrderUseCase.create(USER_ID, command)
+
+        assertThat(entryTokenRepository.hasToken(USER_ID)).isFalse()
     }
 
     @Test

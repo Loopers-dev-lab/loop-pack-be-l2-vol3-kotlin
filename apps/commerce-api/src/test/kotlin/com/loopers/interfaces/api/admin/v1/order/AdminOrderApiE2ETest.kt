@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.admin.v1.order
 
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.interfaces.api.auth.AuthenticationFilter
 import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import io.restassured.RestAssured
 import io.restassured.http.ContentType
 import org.hamcrest.Matchers.equalTo
@@ -17,7 +19,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.test.context.jdbc.Sql
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(MySqlTestContainersConfig::class)
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 @Sql(
     statements = [
         "DELETE FROM order_item",
@@ -36,6 +38,11 @@ class AdminOrderApiE2ETest {
 
     @LocalServerPort
     private var port: Int = 0
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var entryTokenRepository: EntryTokenRepository
+
+    private var currentUserId: Long = 0
 
     @BeforeEach
     fun setUp() {
@@ -93,7 +100,7 @@ class AdminOrderApiE2ETest {
     }
 
     private fun registerUser() {
-        RestAssured.given()
+        val userId = RestAssured.given()
             .contentType(ContentType.JSON)
             .body(
                 mapOf(
@@ -109,6 +116,10 @@ class AdminOrderApiE2ETest {
             .post("/api/v1/users")
         .then()
             .statusCode(HttpStatus.CREATED.value())
+            .extract()
+            .jsonPath()
+            .getLong("data.id")
+        currentUserId = userId
     }
 
     private fun createBrand(): Long {
@@ -148,6 +159,7 @@ class AdminOrderApiE2ETest {
     }
 
     private fun createOrder(productId: Long): Long {
+        entryTokenRepository.issueToken(currentUserId, "e2e-test-token-$currentUserId", 300)
         return RestAssured.given()
             .contentType(ContentType.JSON)
             .header(AuthenticationFilter.HEADER_LOGIN_ID, LOGIN_ID)

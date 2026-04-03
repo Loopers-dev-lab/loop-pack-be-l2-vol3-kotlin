@@ -13,6 +13,8 @@ import com.loopers.domain.payment.PaymentError
 import com.loopers.domain.payment.PaymentException
 import com.loopers.domain.product.ProductError
 import com.loopers.domain.product.ProductException
+import com.loopers.domain.queue.QueueError
+import com.loopers.domain.queue.QueueException
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
@@ -85,6 +87,20 @@ class ApiControllerAdvice {
         }
         return ResponseEntity(
             ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "주문 오류"),
+            status,
+        )
+    }
+
+    @ExceptionHandler
+    fun handle(e: QueueException): ResponseEntity<ApiResponse<*>> {
+        log.warn("QueueException[{}] : {}", e.error, e.message, e)
+        val status = when (e.error) {
+            QueueError.ALREADY_IN_QUEUE -> HttpStatus.CONFLICT
+            QueueError.TOKEN_NOT_FOUND -> HttpStatus.FORBIDDEN
+            QueueError.TOKEN_EXPIRED -> HttpStatus.FORBIDDEN
+        }
+        return ResponseEntity(
+            ApiResponse.fail(errorCode = e.error.name, errorMessage = e.message ?: "대기열 오류"),
             status,
         )
     }
