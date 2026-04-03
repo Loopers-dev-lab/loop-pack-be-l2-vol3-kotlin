@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.queue.OrderQueueService
+import com.loopers.domain.queue.QueueHealthChecker
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -10,6 +11,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.atLeastOnce
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -22,6 +25,9 @@ class QueueAdmissionSchedulerTest {
     @Mock
     private lateinit var queueFacade: QueueFacade
 
+    @Mock
+    private lateinit var queueHealthChecker: QueueHealthChecker
+
     private lateinit var scheduler: QueueAdmissionScheduler
 
     @BeforeEach
@@ -29,6 +35,7 @@ class QueueAdmissionSchedulerTest {
         scheduler = QueueAdmissionScheduler(
             orderQueueService = orderQueueService,
             queueFacade = queueFacade,
+            queueHealthChecker = queueHealthChecker,
             batchSize = 9L,
             fixedRate = 50L,
             jitterRange = 20L,
@@ -81,6 +88,74 @@ class QueueAdmissionSchedulerTest {
     }
 
     @Nested
+    @DisplayName("bypass 감지 시,")
+    inner class BypassDetection {
+
+        @Test
+        @DisplayName("QueueHealthChecker가 bypass 상태이면 broadcastBypass를 호출하고 admitUsers는 호출하지 않는다")
+        fun callsBroadcastBypass_whenBypassed() {
+            // arrange
+            whenever(queueHealthChecker.isBypassed()).thenReturn(true)
+
+            // act
+            scheduler.admitUsers()
+
+            // assert
+            verify(queueFacade).broadcastBypass()
+            verify(orderQueueService, never()).admitUsers(9L)
+        }
+
+        @Test
+        @DisplayName("bypass 상태가 지속되면 broadcastBypass는 최초 1회만 호출한다")
+        fun callsBroadcastBypassOnlyOnce_whenBypassPersists() {
+            // arrange
+            whenever(queueHealthChecker.isBypassed()).thenReturn(true)
+
+            // act
+            scheduler.admitUsers()
+            scheduler.admitUsers()
+            scheduler.admitUsers()
+
+            // assert
+            verify(queueFacade, times(1)).broadcastBypass()
+        }
+
+        @Test
+        @DisplayName("bypass 해제 후 다시 bypass되면 broadcastBypass를 다시 호출한다")
+        fun callsBroadcastBypassAgain_whenBypassReoccurs() {
+            // arrange & act — bypass → 정상 → bypass
+            whenever(queueHealthChecker.isBypassed()).thenReturn(true)
+            scheduler.admitUsers()
+
+            whenever(queueHealthChecker.isBypassed()).thenReturn(false)
+            whenever(orderQueueService.admitUsers(9L)).thenReturn(emptyList())
+            scheduler.admitUsers()
+
+            whenever(queueHealthChecker.isBypassed()).thenReturn(true)
+            scheduler.admitUsers()
+
+            // assert
+            verify(queueFacade, times(2)).broadcastBypass()
+        }
+
+        @Test
+        @DisplayName("QueueHealthChecker가 정상 상태이면 기존 입장 허용 로직을 수행한다")
+        fun performsNormalAdmission_whenNotBypassed() {
+            // arrange
+            whenever(queueHealthChecker.isBypassed()).thenReturn(false)
+            whenever(orderQueueService.admitUsers(9L)).thenReturn(listOf(1L))
+
+            // act
+            scheduler.admitUsers()
+
+            // assert
+            verify(orderQueueService).admitUsers(9L)
+            verify(queueFacade).broadcastPositions(listOf(1L))
+            verify(queueFacade, never()).broadcastBypass()
+        }
+    }
+
+    @Nested
     @DisplayName("Jitter delay 계산할 때,")
     inner class CalculateNextDelay {
 
@@ -103,6 +178,7 @@ class QueueAdmissionSchedulerTest {
             val noJitterScheduler = QueueAdmissionScheduler(
                 orderQueueService = orderQueueService,
                 queueFacade = queueFacade,
+                queueHealthChecker = queueHealthChecker,
                 batchSize = 9L,
                 fixedRate = 50L,
                 jitterRange = 0L,

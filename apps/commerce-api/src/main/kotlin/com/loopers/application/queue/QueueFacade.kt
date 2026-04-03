@@ -16,6 +16,7 @@ class QueueFacade(
         private const val SSE_TIMEOUT = 300_000L // 5분
         private const val EVENT_ADMITTED = "admitted"
         private const val EVENT_POSITION = "position"
+        private const val EVENT_BYPASS = "bypass"
     }
 
     fun subscribe(userId: Long): SseEmitter {
@@ -36,22 +37,37 @@ class QueueFacade(
         return toInfo(queuePosition)
     }
 
+    fun broadcastBypass() {
+        forEachEmitter { _, emitter ->
+            emitter.send(SseEmitter.event().name(EVENT_BYPASS).data("대기열이 비활성화되었습니다"))
+            emitter.complete()
+        }
+    }
+
     fun broadcastPositions(admittedUserIds: List<Long>) {
         val admittedSet = admittedUserIds.toHashSet()
         val emitters = queueEmitterRepository.getAll()
-
         val waitingUserIds = emitters.keys.filter { it !in admittedSet }
         val positions = orderQueueService.getWaitingPositions(waitingUserIds)
 
+        forEachEmitter(emitters) { userId, emitter ->
+            if (userId in admittedSet) {
+                emitter.send(SseEmitter.event().name(EVENT_ADMITTED).data("토큰이 발급되었습니다"))
+                emitter.complete()
+            } else {
+                val position = positions[userId] ?: return@forEachEmitter
+                emitter.send(SseEmitter.event().name(EVENT_POSITION).data(position))
+            }
+        }
+    }
+
+    private fun forEachEmitter(
+        emitters: Map<Long, SseEmitter> = queueEmitterRepository.getAll(),
+        block: (userId: Long, emitter: SseEmitter) -> Unit,
+    ) {
         for ((userId, emitter) in emitters) {
             try {
-                if (userId in admittedSet) {
-                    emitter.send(SseEmitter.event().name(EVENT_ADMITTED).data("토큰이 발급되었습니다"))
-                    emitter.complete()
-                } else {
-                    val position = positions[userId] ?: continue
-                    emitter.send(SseEmitter.event().name(EVENT_POSITION).data(position))
-                }
+                block(userId, emitter)
             } catch (e: Exception) {
                 queueEmitterRepository.remove(userId)
             }
