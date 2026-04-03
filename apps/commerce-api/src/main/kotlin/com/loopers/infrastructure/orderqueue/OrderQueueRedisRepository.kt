@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.orderqueue
 
 import com.loopers.config.redis.RedisConfig
+import com.loopers.domain.orderqueue.OrderQueueRepository
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.core.script.DefaultRedisScript
@@ -11,7 +12,7 @@ import java.util.concurrent.TimeUnit
 class OrderQueueRedisRepository(
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val redisTemplate: RedisTemplate<String, String>,
-) {
+) : OrderQueueRepository {
     companion object {
         private const val QUEUE_KEY = "order:queue"
         private const val COUNTER_KEY = "order:queue:counter"
@@ -70,7 +71,7 @@ class OrderQueueRedisRepository(
      * 대기열에 유저를 추가한다.
      * @return 1: 성공, 0: 중복
      */
-    fun enqueue(userId: Long): Long {
+    override fun enqueue(userId: Long): Long {
         val ms = System.currentTimeMillis().toString()
         return redisTemplate.execute(
             ENQUEUE_SCRIPT,
@@ -84,7 +85,7 @@ class OrderQueueRedisRepository(
      * 대기열에서 유저의 순번을 조회한다. (1-based)
      * @return 순번 (없으면 null)
      */
-    fun getPosition(userId: Long): Long? {
+    override fun getPosition(userId: Long): Long? {
         val rank = redisTemplate.opsForZSet().rank(QUEUE_KEY, userId.toString())
         return rank?.plus(1)
     }
@@ -92,7 +93,7 @@ class OrderQueueRedisRepository(
     /**
      * 대기열의 전체 크기를 조회한다.
      */
-    fun getTotalSize(): Long {
+    override fun getTotalSize(): Long {
         return redisTemplate.opsForZSet().size(QUEUE_KEY) ?: 0L
     }
 
@@ -122,7 +123,7 @@ class OrderQueueRedisRepository(
     /**
      * 입장 토큰 보유 여부를 확인한다.
      */
-    fun hasToken(userId: Long): Boolean {
+    override fun hasToken(userId: Long): Boolean {
         return redisTemplate.hasKey(tokenKey(userId))
     }
 
@@ -130,7 +131,7 @@ class OrderQueueRedisRepository(
      * 입장 토큰을 소비(삭제)한다.
      * @return true: 소비 성공, false: 토큰 없음
      */
-    fun consumeToken(userId: Long): Boolean {
+    override fun consumeToken(userId: Long): Boolean {
         return redisTemplate.delete(tokenKey(userId))
     }
 
@@ -138,7 +139,7 @@ class OrderQueueRedisRepository(
      * 토큰의 남은 TTL을 조회한다.
      * @return TTL(초). 키가 없으면 -2, TTL이 없으면 -1
      */
-    fun getTokenTtl(userId: Long): Long {
+    override fun getTokenTtl(userId: Long): Long {
         return redisTemplate.getExpire(tokenKey(userId), TimeUnit.SECONDS)
     }
 
@@ -146,7 +147,7 @@ class OrderQueueRedisRepository(
      * 대기열에서 count명을 꺼내면서 동시에 토큰을 발급한다. (원자적 실행)
      * @return 발급된 유저 수
      */
-    fun dequeueAndIssueTokens(count: Long, ttlSeconds: Long): Long {
+    override fun dequeueAndIssueTokens(count: Long, ttlSeconds: Long): Long {
         return redisTemplate.execute(
             DEQUEUE_AND_ISSUE_SCRIPT,
             listOf(QUEUE_KEY),
