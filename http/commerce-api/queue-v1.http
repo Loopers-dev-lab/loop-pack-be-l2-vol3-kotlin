@@ -1,0 +1,48 @@
+### [어드민] 대기열 활성화
+POST {{commerce-api}}/api-admin/v1/queue/toggle
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "enabled": true
+}
+
+### [어드민] 대기열 비활성화
+POST {{commerce-api}}/api-admin/v1/queue/toggle
+Content-Type: application/json
+X-Loopers-Ldap: loopers.admin
+
+{
+  "enabled": false
+}
+
+### [어드민] 대기열 상태 조회
+GET {{commerce-api}}/api-admin/v1/queue/status
+X-Loopers-Ldap: loopers.admin
+
+### 대기열 진입
+POST {{commerce-api}}/api/v1/queue/enter
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!@
+
+### 순번 조회
+GET {{commerce-api}}/api/v1/queue/position
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!@
+
+### 대기열 토큰으로 주문 생성
+POST {{commerce-api}}/api/v1/orders
+Content-Type: application/json
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!@
+X-Loopers-QueueToken: {{queueToken}}
+
+{
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1
+    }
+  ],
+  "couponId": null
+}
