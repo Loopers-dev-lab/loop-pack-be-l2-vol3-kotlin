@@ -38,6 +38,10 @@ class OrderQueueRedisStore(
         return redisTemplate.hasKey(tokenKeyPrefix + userId) ?: false
     }
 
+    override fun consumeToken(userId: Long): Boolean {
+        return redisTemplate.opsForValue().getAndDelete(tokenKeyPrefix + userId) != null
+    }
+
     override fun deleteToken(userId: Long) {
         redisTemplate.delete(tokenKeyPrefix + userId)
     }

@@ -9,6 +9,6 @@ class VerifyEntryTokenUseCase(
 ) {
 
     fun execute(userId: Long): Boolean {
-        return orderQueueStore.hasToken(userId)
+        return orderQueueStore.consumeToken(userId)
     }
 }
