@@ -46,6 +46,11 @@ resilience4j:
         slow-call-duration-threshold: 2s
         slow-call-rate-threshold: 80
 
+queue:
+  batch-size: 300
+  scheduler-interval-seconds: 3
+  token-ttl-seconds: 300
+
 springdoc:
   use-fqn: true
   swagger-ui:
