@@ -51,7 +51,7 @@ class QueueScheduler(
     }
 
     companion object {
-        const val BATCH_SIZE = 14
+        const val BATCH_SIZE = 21
         private const val LOCK_KEY = "queue:scheduler:lock"
 
         // Phase 2 TODO: 락 갱신(renewal) 미지원. 500ms 내 배치 처리 완료를 전제.

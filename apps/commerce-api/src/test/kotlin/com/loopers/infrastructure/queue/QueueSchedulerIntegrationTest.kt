@@ -34,16 +34,16 @@ constructor(
     @DisplayName("Lua 스크립트로 pop + issue가 배치 실행된다")
     inner class PopAndIssue {
         @Test
-        @DisplayName("대기열 20명 → 14명 pop + 토큰 발급, 6명 잔여")
+        @DisplayName("대기열 30명 → 21명 pop + 토큰 발급, 9명 잔여")
         fun popAndIssue_batch() {
-            (1L..20L).forEach { waitingQueueRepository.enter(it) }
+            (1L..30L).forEach { waitingQueueRepository.enter(it) }
 
             queueScheduler.processQueue()
 
             assertAll(
-                { assertThat(waitingQueueRepository.size()).isEqualTo(6) },
-                { (1L..14L).forEach { assertThat(entryTokenRepository.exists(it)).isTrue() } },
-                { (15L..20L).forEach { assertThat(entryTokenRepository.exists(it)).isFalse() } },
+                { assertThat(waitingQueueRepository.size()).isEqualTo(9) },
+                { (1L..21L).forEach { assertThat(entryTokenRepository.exists(it)).isTrue() } },
+                { (22L..30L).forEach { assertThat(entryTokenRepository.exists(it)).isFalse() } },
             )
         }
 
@@ -62,7 +62,7 @@ constructor(
         @Test
         @DisplayName("2스레드 동시 실행 → 1회만 pop 발생")
         fun lock_singleExecution() {
-            (1L..28L).forEach { waitingQueueRepository.enter(it) }
+            (1L..42L).forEach { waitingQueueRepository.enter(it) }
 
             val latch = CountDownLatch(2)
             val executor = Executors.newFixedThreadPool(2)
@@ -83,7 +83,7 @@ constructor(
             executor.shutdown()
 
             val remaining = waitingQueueRepository.size()
-            assertThat(remaining).isEqualTo(14)
+            assertThat(remaining).isEqualTo(21)
         }
     }
 
@@ -91,13 +91,13 @@ constructor(
     @DisplayName("배치 크기를 초과하는 대기열에서 안정적으로 동작한다")
     inner class OverCapacity {
         @Test
-        @DisplayName("대기열 1000명, 배치 14 → 14명만 처리, 나머지 유지")
+        @DisplayName("대기열 1000명, 배치 21 → 21명만 처리, 나머지 유지")
         fun schedule_overCapacity() {
             (1L..1000L).forEach { waitingQueueRepository.enter(it) }
 
             queueScheduler.processQueue()
 
-            assertThat(waitingQueueRepository.size()).isEqualTo(986)
+            assertThat(waitingQueueRepository.size()).isEqualTo(979)
         }
     }
 }

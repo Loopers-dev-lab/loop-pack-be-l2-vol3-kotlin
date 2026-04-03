@@ -1,7 +1,7 @@
 package com.loopers.application.user.queue
 
 object QueueCalculator {
-    const val THROUGHPUT_PER_SECOND = 140L
+    const val THROUGHPUT_PER_SECOND = 210L
     const val TOKEN_EXPIRY_SECONDS = 300L
 
     fun estimateWaitSeconds(position: Long): Long =
