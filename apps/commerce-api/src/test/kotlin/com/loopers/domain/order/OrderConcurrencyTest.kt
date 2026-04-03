@@ -269,6 +269,10 @@ class OrderConcurrencyTest @Autowired constructor(
                 IssueCouponCriteria(loginId = DEFAULT_USERNAME, couponId = couponInfo.id),
             )
 
+            // 토큰 미리 발급 (같은 유저, 여러 기기 시뮬레이션 — arrange에서 준비)
+            val couponUser = userService.getUser(DEFAULT_USERNAME)
+            orderQueueRedisRepository.issueToken(couponUser.id, 300)
+
             val executorService = Executors.newFixedThreadPool(threadCount)
             val readyLatch = CountDownLatch(threadCount)
             val startLatch = CountDownLatch(1)
@@ -285,9 +289,6 @@ class OrderConcurrencyTest @Autowired constructor(
                             readyLatch.countDown()
                             startLatch.await(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-                            // 각 스레드마다 토큰 발급 (같은 유저, 여러 기기 시뮬레이션)
-                            val user = userService.getUser(DEFAULT_USERNAME)
-                            orderQueueRedisRepository.issueToken(user.id, 300)
                             userCreateOrderUseCase.execute(
                                 CreateOrderCriteria(
                                     loginId = DEFAULT_USERNAME,

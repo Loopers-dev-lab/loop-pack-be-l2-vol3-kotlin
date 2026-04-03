@@ -72,6 +72,9 @@ class UserOrderUseCaseIntegrationTest @Autowired constructor(
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
         redisTemplate.delete("order:rate-limit")
+        redisTemplate.delete("order:queue")
+        redisTemplate.delete("order:queue:counter")
+        redisTemplate.keys("order:token:*")?.forEach { redisTemplate.delete(it) }
     }
 
     private fun issueOrderToken(username: String = DEFAULT_USERNAME) {

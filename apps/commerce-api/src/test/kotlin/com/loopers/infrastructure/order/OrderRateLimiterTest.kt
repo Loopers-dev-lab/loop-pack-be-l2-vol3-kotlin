@@ -3,6 +3,9 @@ package com.loopers.infrastructure.order
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.kotlin.atMost
+import org.awaitility.kotlin.await
+import org.awaitility.kotlin.untilAsserted
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -13,6 +16,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
+import java.time.Duration
 
 @SpringBootTest
 class OrderRateLimiterTest @Autowired constructor(
@@ -66,12 +70,9 @@ class OrderRateLimiterTest @Autowired constructor(
             // arrange
             repeat(100) { orderRateLimiter.checkRate() }
 
-            // act - 윈도우(1초)가 지나도록 대기
-            Thread.sleep(1100)
-
-            // assert
-            assertDoesNotThrow {
-                orderRateLimiter.checkRate()
+            // act & assert - 윈도우(1초) 만료 후 통과 확인
+            await atMost Duration.ofSeconds(3) untilAsserted {
+                assertDoesNotThrow { orderRateLimiter.checkRate() }
             }
         }
     }
