@@ -11,7 +11,6 @@ import com.loopers.domain.order.IdempotencyKey
 import com.loopers.domain.order.OrderDomainService
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderSnapshot
-import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
@@ -31,7 +30,6 @@ class OrderCreateUseCase(
     private val brandRepository: BrandRepository,
     private val couponRepository: CouponRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
-    private val entryTokenRepository: EntryTokenRepository,
 ) {
     @Transactional
     fun create(command: OrderCreateCommand): OrderResult.Created {
@@ -108,10 +106,9 @@ class OrderCreateUseCase(
                 orderId = savedOrder.id!!,
                 userId = command.userId,
                 productIds = domainResult.decreasedStocks.map { it.productId },
+                hasEntryToken = command.entryToken != null,
             ),
         )
-
-        command.entryToken?.let { entryTokenRepository.delete(command.userId) }
 
         return OrderResult.Created.from(savedOrder)
     }

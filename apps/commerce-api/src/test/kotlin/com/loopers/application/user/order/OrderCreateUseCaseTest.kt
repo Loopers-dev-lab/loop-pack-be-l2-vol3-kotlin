@@ -13,7 +13,6 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.ProductStockRepository
 import com.loopers.domain.product.ProductRepository
-import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.support.event.user.OrderCreatedEvent
@@ -26,10 +25,8 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
 import org.springframework.context.ApplicationEventPublisher
-import org.mockito.kotlin.any
 import org.mockito.kotlin.check
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
 import java.math.BigDecimal
 
 @DisplayName("OrderCreateUseCase")
@@ -42,7 +39,6 @@ class OrderCreateUseCaseTest {
     private val brandRepository: BrandRepository = mock()
     private val couponRepository: CouponRepository = mock()
     private val issuedCouponRepository: IssuedCouponRepository = mock()
-    private val entryTokenRepository: EntryTokenRepository = mock()
     private val useCase = OrderCreateUseCase(
         eventPublisher = eventPublisher,
         orderRepository = orderRepository,
@@ -51,7 +47,6 @@ class OrderCreateUseCaseTest {
         brandRepository = brandRepository,
         couponRepository = couponRepository,
         issuedCouponRepository = issuedCouponRepository,
-        entryTokenRepository = entryTokenRepository,
     )
 
     private fun command(
@@ -485,18 +480,18 @@ class OrderCreateUseCaseTest {
     }
 
     @Nested
-    @DisplayName("entryToken이 있으면 주문 완료 후 토큰을 삭제한다")
+    @DisplayName("entryToken 유무에 따라 이벤트에 hasEntryToken이 설정된다")
     inner class WhenEntryTokenProvided {
 
         @Test
-        @DisplayName("주문 성공 후 토큰 삭제 호출")
-        fun create_withEntryToken_deletesAfterSuccess() {
+        @DisplayName("entryToken이 있으면 hasEntryToken=true로 이벤트 발행")
+        fun create_withEntryToken_eventHasFlag() {
             // arrange
             stubNormalFlow()
             val cmd = command()
 
             // act
-            val result = useCase.create(
+            useCase.create(
                 OrderCreateCommand(
                     userId = cmd.userId,
                     idempotencyKey = cmd.idempotencyKey,
@@ -506,13 +501,16 @@ class OrderCreateUseCaseTest {
             )
 
             // assert
-            assertThat(result.orderId).isEqualTo(100L)
-            then(entryTokenRepository).should().delete(1L)
+            then(eventPublisher).should().publishEvent(
+                check<OrderCreatedEvent> { event ->
+                    assertThat(event.hasEntryToken).isTrue()
+                },
+            )
         }
 
         @Test
-        @DisplayName("entryToken이 null이면 토큰 삭제를 호출하지 않는다")
-        fun create_withoutEntryToken_noDelete() {
+        @DisplayName("entryToken이 null이면 hasEntryToken=false로 이벤트 발행")
+        fun create_withoutEntryToken_eventHasNoFlag() {
             // arrange
             stubNormalFlow()
 
@@ -520,7 +518,11 @@ class OrderCreateUseCaseTest {
             useCase.create(command())
 
             // assert
-            then(entryTokenRepository).should(never()).delete(any())
+            then(eventPublisher).should().publishEvent(
+                check<OrderCreatedEvent> { event ->
+                    assertThat(event.hasEntryToken).isFalse()
+                },
+            )
         }
     }
 }

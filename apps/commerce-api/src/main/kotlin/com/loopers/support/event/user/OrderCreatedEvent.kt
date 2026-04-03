@@ -6,4 +6,5 @@ class OrderCreatedEvent(
     val orderId: Long,
     val userId: Long,
     val productIds: List<Long>,
+    val hasEntryToken: Boolean = false,
 ) : ApplicationEvent(orderId)
