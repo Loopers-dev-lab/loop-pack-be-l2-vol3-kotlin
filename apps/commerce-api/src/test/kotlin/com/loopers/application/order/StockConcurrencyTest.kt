@@ -9,9 +9,11 @@ import com.loopers.domain.common.StockQuantity
 import com.loopers.domain.order.StockReservationRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentGateway
 import com.loopers.domain.payment.PaymentGatewayResponse
+import java.util.UUID
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -38,6 +40,7 @@ class StockConcurrencyTest @Autowired constructor(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val stockReservationRepository: StockReservationRepository,
+    private val entryTokenRepository: EntryTokenRepository,
     private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
@@ -78,6 +81,12 @@ class StockConcurrencyTest @Autowired constructor(
         )
         stockReservationRepository.setStock(product.id, stockQuantity.value)
         return product
+    }
+
+    private fun issueEntryToken(userId: Long): String {
+        val token = UUID.randomUUID().toString()
+        entryTokenRepository.issue(userId, token, 300L)
+        return token
     }
 
     @DisplayName("DB 비관적 락으로 상품을 조회할 때,")
@@ -153,13 +162,22 @@ class StockConcurrencyTest @Autowired constructor(
             val latch = CountDownLatch(threadCount)
             val successCount = AtomicInteger(0)
 
+            // 각 userId별로 토큰을 미리 발급
+            val tokens = (1..threadCount).associate { i ->
+                val userId = i.toLong()
+                userId to issueEntryToken(userId)
+            }
+
             // act
             repeat(threadCount) { i ->
+                val userId = i.toLong() + 1
+                val token = tokens[userId]!!
                 executorService.submit {
                     try {
                         orderFacade.placeOrder(
-                            userId = i.toLong() + 1,
+                            userId = userId,
                             items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1))),
+                            entryToken = token,
                             cardType = CardType.SAMSUNG,
                             cardNo = "1234-5678-9012-3456",
                         )
@@ -192,13 +210,22 @@ class StockConcurrencyTest @Autowired constructor(
             val successCount = AtomicInteger(0)
             val failCount = AtomicInteger(0)
 
+            // 각 userId별로 토큰을 미리 발급
+            val tokens = (1..threadCount).associate { i ->
+                val userId = i.toLong()
+                userId to issueEntryToken(userId)
+            }
+
             // act
             repeat(threadCount) { i ->
+                val userId = i.toLong() + 1
+                val token = tokens[userId]!!
                 executorService.submit {
                     try {
                         orderFacade.placeOrder(
-                            userId = i.toLong() + 1,
+                            userId = userId,
                             items = listOf(OrderPlaceCommand(productId = product.id, quantity = Quantity.of(1))),
+                            entryToken = token,
                             cardType = CardType.SAMSUNG,
                             cardNo = "1234-5678-9012-3456",
                         )

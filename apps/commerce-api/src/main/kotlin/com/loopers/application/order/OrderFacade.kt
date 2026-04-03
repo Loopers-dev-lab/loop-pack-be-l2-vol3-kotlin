@@ -13,6 +13,9 @@ import com.loopers.domain.payment.CardType
 import com.loopers.domain.payment.PaymentStatus
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.queue.OrderQueueService
+import io.github.resilience4j.bulkhead.annotation.Bulkhead
+import org.slf4j.LoggerFactory
 import com.loopers.domain.user.event.ActionType
 import com.loopers.domain.user.event.UserActionEvent
 import com.loopers.event.AggregateTypes
@@ -37,6 +40,7 @@ class OrderFacade(
     private val outboxPublisher: OutboxPublisher,
     private val stockReservationRepository: StockReservationRepository,
     private val couponReservationRepository: CouponReservationRepository,
+    private val orderQueueService: OrderQueueService,
 ) {
 
     @Transactional(readOnly = true)
@@ -54,15 +58,19 @@ class OrderFacade(
         return orders.map { OrderInfo.from(it) }
     }
 
+    @Bulkhead(name = "order-place", fallbackMethod = "placeOrderFallback")
     @Transactional
     fun placeOrder(
         userId: Long,
         items: List<OrderPlaceCommand>,
         couponId: Long? = null,
         idempotencyKey: String? = null,
+        entryToken: String,
         cardType: CardType,
         cardNo: String,
     ) {
+        orderQueueService.validateAndConsumeToken(userId, entryToken)
+
         if (idempotencyKey != null && orderService.findByIdempotencyKey(idempotencyKey) != null) {
             return
         }
@@ -222,8 +230,26 @@ class OrderFacade(
         if (couponReserved) couponReservationRepository.restore(couponId!!, userId)
     }
 
+    internal fun placeOrderFallback(
+        userId: Long,
+        items: List<OrderPlaceCommand>,
+        couponId: Long?,
+        idempotencyKey: String?,
+        entryToken: String,
+        cardType: CardType,
+        cardNo: String,
+        e: Exception,
+    ) {
+        log.warn("주문 처리 Bulkhead 초과: userId={}", userId, e)
+        throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "주문 처리가 지연되고 있습니다. 잠시 후 다시 시도해주세요.")
+    }
+
     private data class CouponApplyInfo(
         val couponId: Long,
         val discount: Discount,
     )
+
+    companion object {
+        private val log = LoggerFactory.getLogger(OrderFacade::class.java)
+    }
 }

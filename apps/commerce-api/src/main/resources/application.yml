@@ -48,9 +48,24 @@ spring.cloud.openfeign:
         connect-timeout: 1000  # 연결 타임아웃 1초
         read-timeout: 2000     # 읽기 타임아웃 2초 (PG 응답 최대 500ms + 여유)
 
+# CircuitBreaker 모니터링
+management:
+  health:
+    circuitbreakers:
+      enabled: true
+  endpoint:
+    health:
+      group:
+        circuitbreakers:
+          show-details: always
+          include:
+            - circuitBreakers
+
 # Resilience4j 설정
+# aspect-order: 낮은 값이 외부(먼저 실행). CB가 Retry를 감싸도록 설정
 resilience4j:
   circuitbreaker:
+    circuitBreakerAspectOrder: 1
     configs:
       default:
         sliding-window-type: COUNT_BASED
@@ -63,7 +78,16 @@ resilience4j:
     instances:
       pg-simulator:
         base-config: default
+      order-queue:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        register-health-indicator: true
+        automatic-transition-from-open-to-half-open-enabled: true
   retry:
+    retryAspectOrder: 2
     configs:
       default:
         max-attempts: 3
@@ -76,11 +100,28 @@ resilience4j:
     instances:
       pg-query:
         base-config: default
+      order-queue:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.data.redis.RedisConnectionFailureException
   bulkhead:
     instances:
       pg-simulator:
         max-concurrent-calls: 25   # PG 동시 요청 최대 25개 (Tomcat 200 스레드 중 일부만 허용)
         max-wait-duration: 0       # 대기 없이 즉시 실패
+      order-place:
+        max-concurrent-calls: 30   # bypass 시 동시 주문 제한 (Thundering Herd 방지)
+        max-wait-duration: 0       # 대기 없이 즉시 실패
+
+# 주문 대기열 설정
+queue:
+  admission:
+    batch-size: 9
+    fixed-rate: 50
+    jitter-range: 20
 
 ---
 spring:

@@ -45,6 +45,7 @@ class OrderController(
     override fun placeOrder(
         @AuthenticatedUser userInfo: AuthenticatedUserInfo,
         @RequestHeader("Idempotency-Key") idempotencyKey: String,
+        @RequestHeader("X-Entry-Token") entryToken: String,
         @RequestBody request: OrderDto.PlaceOrderRequest,
     ): ApiResponse<Unit> {
         orderFacade.placeOrder(
@@ -52,6 +53,7 @@ class OrderController(
             items = request.toCommands(),
             couponId = request.couponId,
             idempotencyKey = idempotencyKey,
+            entryToken = entryToken,
             cardType = CardType.valueOf(request.cardType),
             cardNo = request.cardNo,
         )

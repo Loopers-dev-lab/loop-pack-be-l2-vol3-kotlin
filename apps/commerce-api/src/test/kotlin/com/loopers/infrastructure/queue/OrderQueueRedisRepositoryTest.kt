@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 
 @SpringBootTest
 class OrderQueueRedisRepositoryTest @Autowired constructor(
@@ -39,6 +41,36 @@ class OrderQueueRedisRepositoryTest @Autowired constructor(
             // then
             assertThat(first).isTrue()
             assertThat(second).isFalse()
+        }
+
+        @Test
+        @DisplayName("같은 userId로 10개 스레드가 동시에 enqueue하면, 1번만 등록된다")
+        fun `같은 userId로 10개 스레드가 동시에 enqueue하면, 1번만 등록된다`() {
+            // given
+            val userId = 1L
+            val threadCount = 10
+            val executor = Executors.newFixedThreadPool(threadCount)
+            val latch = CountDownLatch(threadCount)
+            val results = mutableListOf<Boolean>()
+
+            // when
+            repeat(threadCount) {
+                executor.submit {
+                    try {
+                        val result = orderQueueRepository.enqueue(userId, System.currentTimeMillis().toDouble())
+                        synchronized(results) { results.add(result) }
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+            }
+            latch.await()
+            executor.shutdown()
+
+            // then
+            assertThat(results).hasSize(threadCount)
+            assertThat(results.count { it }).isEqualTo(1)
+            assertThat(orderQueueRepository.getTotalSize()).isEqualTo(1L)
         }
     }
 
