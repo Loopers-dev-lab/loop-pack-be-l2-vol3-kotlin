@@ -1,7 +1,7 @@
 package com.loopers.domain.orderqueue
 
 import com.loopers.infrastructure.orderqueue.OrderQueueProperties
-import com.loopers.infrastructure.orderqueue.OrderQueueRedisRepository
+import com.loopers.domain.orderqueue.OrderQueueRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.mockk.every
@@ -15,9 +15,9 @@ import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
 
 class OrderQueueServiceTest {
-    private val orderQueueRedisRepository = mockk<OrderQueueRedisRepository>()
+    private val orderQueueRepository = mockk<OrderQueueRepository>()
     private val orderQueueProperties = OrderQueueProperties()
-    private val orderQueueService = OrderQueueService(orderQueueRedisRepository, orderQueueProperties)
+    private val orderQueueService = OrderQueueService(orderQueueRepository, orderQueueProperties)
 
     companion object {
         private const val USER_ID = 1L
@@ -32,9 +32,9 @@ class OrderQueueServiceTest {
             // arrange
             val expectedPosition = 5L
             val expectedTotalWaiting = 10L
-            every { orderQueueRedisRepository.enqueue(USER_ID) } returns 1L
-            every { orderQueueRedisRepository.getPosition(USER_ID) } returns expectedPosition
-            every { orderQueueRedisRepository.getTotalSize() } returns expectedTotalWaiting
+            every { orderQueueRepository.enqueue(USER_ID) } returns 1L
+            every { orderQueueRepository.getPosition(USER_ID) } returns expectedPosition
+            every { orderQueueRepository.getTotalSize() } returns expectedTotalWaiting
 
             // act
             val result = orderQueueService.enter(USER_ID)
@@ -52,7 +52,7 @@ class OrderQueueServiceTest {
         @Test
         fun throwsConflictOnDuplicate() {
             // arrange
-            every { orderQueueRedisRepository.enqueue(USER_ID) } returns 0L
+            every { orderQueueRepository.enqueue(USER_ID) } returns 0L
 
             // act & assert
             val exception = assertThrows<CoreException> {
@@ -65,8 +65,8 @@ class OrderQueueServiceTest {
         @Test
         fun throwsInternalErrorWhenPositionIsNullAfterEnqueue() {
             // arrange
-            every { orderQueueRedisRepository.enqueue(USER_ID) } returns 1L
-            every { orderQueueRedisRepository.getPosition(USER_ID) } returns null
+            every { orderQueueRepository.enqueue(USER_ID) } returns 1L
+            every { orderQueueRepository.getPosition(USER_ID) } returns null
 
             // act & assert
             val exception = assertThrows<CoreException> {
@@ -85,9 +85,9 @@ class OrderQueueServiceTest {
             // arrange
             val expectedPosition = 3L
             val expectedTotalWaiting = 10L
-            every { orderQueueRedisRepository.getTokenTtl(USER_ID) } returns -2L
-            every { orderQueueRedisRepository.getPosition(USER_ID) } returns expectedPosition
-            every { orderQueueRedisRepository.getTotalSize() } returns expectedTotalWaiting
+            every { orderQueueRepository.getTokenTtl(USER_ID) } returns -2L
+            every { orderQueueRepository.getPosition(USER_ID) } returns expectedPosition
+            every { orderQueueRepository.getTotalSize() } returns expectedTotalWaiting
 
             // act
             val result = orderQueueService.getPosition(USER_ID)
@@ -108,7 +108,7 @@ class OrderQueueServiceTest {
         fun returnsActiveStatusWhenTokenIssued() {
             // arrange
             val expectedTtl = 250L
-            every { orderQueueRedisRepository.getTokenTtl(USER_ID) } returns expectedTtl
+            every { orderQueueRepository.getTokenTtl(USER_ID) } returns expectedTtl
 
             // act
             val result = orderQueueService.getPosition(USER_ID)
@@ -126,8 +126,8 @@ class OrderQueueServiceTest {
         @Test
         fun returnsNotInQueueWhenNeitherInQueueNorToken() {
             // arrange
-            every { orderQueueRedisRepository.getTokenTtl(USER_ID) } returns -2L
-            every { orderQueueRedisRepository.getPosition(USER_ID) } returns null
+            every { orderQueueRepository.getTokenTtl(USER_ID) } returns -2L
+            every { orderQueueRepository.getPosition(USER_ID) } returns null
 
             // act
             val result = orderQueueService.getPosition(USER_ID)
@@ -142,50 +142,33 @@ class OrderQueueServiceTest {
         }
     }
 
-    @DisplayName("validateToken")
+    @DisplayName("consumeTokenOrThrow")
     @Nested
-    inner class ValidateToken {
-        @DisplayName("토큰이 있으면 정상 리턴한다.")
+    inner class ConsumeTokenOrThrow {
+        @DisplayName("토큰이 있으면 소비하고 정상 리턴한다.")
         @Test
-        fun passesWhenTokenPresent() {
+        fun consumesTokenWhenPresent() {
             // arrange
-            every { orderQueueRedisRepository.hasToken(USER_ID) } returns true
+            every { orderQueueRepository.consumeToken(USER_ID) } returns true
 
             // act & assert (예외 없으면 성공)
-            orderQueueService.validateToken(USER_ID)
+            orderQueueService.consumeTokenOrThrow(USER_ID)
 
             // verify
-            verify(exactly = 1) { orderQueueRedisRepository.hasToken(USER_ID) }
+            verify(exactly = 1) { orderQueueRepository.consumeToken(USER_ID) }
         }
 
         @DisplayName("토큰이 없으면 BAD_REQUEST 예외가 발생한다.")
         @Test
         fun throwsBadRequestWhenNoToken() {
             // arrange
-            every { orderQueueRedisRepository.hasToken(USER_ID) } returns false
+            every { orderQueueRepository.consumeToken(USER_ID) } returns false
 
             // act & assert
             val exception = assertThrows<CoreException> {
-                orderQueueService.validateToken(USER_ID)
+                orderQueueService.consumeTokenOrThrow(USER_ID)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST)
-        }
-    }
-
-    @DisplayName("consumeToken")
-    @Nested
-    inner class ConsumeToken {
-        @DisplayName("토큰을 소비한다.")
-        @Test
-        fun consumesToken() {
-            // arrange
-            every { orderQueueRedisRepository.consumeToken(USER_ID) } returns true
-
-            // act
-            orderQueueService.consumeToken(USER_ID)
-
-            // verify
-            verify(exactly = 1) { orderQueueRedisRepository.consumeToken(USER_ID) }
         }
     }
 
@@ -197,13 +180,13 @@ class OrderQueueServiceTest {
         fun callsDequeueAndIssueTokensAtomically() {
             // arrange
             val batchSize = 7L
-            every { orderQueueRedisRepository.dequeueAndIssueTokens(batchSize, 300L) } returns 7L
+            every { orderQueueRepository.dequeueAndIssueTokens(batchSize, 300L) } returns 7L
 
             // act
             orderQueueService.processTokenIssuance(batchSize)
 
             // verify
-            verify(exactly = 1) { orderQueueRedisRepository.dequeueAndIssueTokens(batchSize, 300L) }
+            verify(exactly = 1) { orderQueueRepository.dequeueAndIssueTokens(batchSize, 300L) }
         }
     }
 
