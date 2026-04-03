@@ -6,6 +6,7 @@ import com.loopers.domain.queue.waiting.model.QueuePosition
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.dao.DataAccessException
 import org.springframework.stereotype.Component
 
 @Component
@@ -42,8 +43,8 @@ class EnterQueueUseCase(
             QueuePositionInfo.from(queuePosition)
         } catch (e: CoreException) {
             throw e
-        } catch (e: Exception) {
-            queueFallbackHandler.markUnavailable(e.message ?: "Redis 연결 실패")
+        } catch (e: DataAccessException) {
+            queueFallbackHandler.markUnavailable()
             throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "대기열 서비스를 일시적으로 이용할 수 없습니다.")
         }
     }

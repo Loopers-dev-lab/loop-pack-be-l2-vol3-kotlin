@@ -29,7 +29,6 @@ class IssueEntryTokensUseCaseTest {
                 maxCapacity = 50_000,
                 batchSize = batchSize,
                 tokenTtlSeconds = 300,
-                throughputTps = 175,
                 schedulerDelayMs = 100,
             ),
         )
@@ -95,8 +94,7 @@ class IssueEntryTokensUseCaseTest {
                     maxCapacity = 50_000,
                     batchSize = 0,
                     tokenTtlSeconds = 300,
-                    throughputTps = 175,
-                    schedulerDelayMs = 100,
+                        schedulerDelayMs = 100,
                     ),
             )
             waitingQueueRepository.enter(UserId(1L), 50_000)

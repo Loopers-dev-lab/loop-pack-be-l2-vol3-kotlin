@@ -26,7 +26,6 @@ class QueueSchedulerTest {
         maxCapacity = 50_000,
         batchSize = 3,
         tokenTtlSeconds = 300,
-        throughputTps = 175,
         schedulerDelayMs = 100,
     )
 
@@ -158,7 +157,7 @@ class QueueSchedulerTest {
         @DisplayName("fallback 상태에서 Redis 복구 시 available 상태로 전환된다")
         fun issueTokens_recoveryAfterFallback_marksAvailable() {
             // arrange — fallback 상태로 전환
-            queueFallbackHandler.markUnavailable("테스트 장애")
+            queueFallbackHandler.markUnavailable()
             assertThat(queueFallbackHandler.isAvailable()).isFalse()
 
             // act — 정상 실행 (빈 대기열)

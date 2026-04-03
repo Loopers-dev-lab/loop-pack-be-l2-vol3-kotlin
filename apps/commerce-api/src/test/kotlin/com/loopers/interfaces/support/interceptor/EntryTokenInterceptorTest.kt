@@ -10,6 +10,7 @@ import com.loopers.interfaces.support.HEADER_ENTRY_TOKEN
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
+import org.springframework.dao.DataAccessResourceFailureException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -145,12 +146,12 @@ class EntryTokenInterceptorTest {
             // arrange
             val failingRepo = object : EntryTokenRepository {
                 override fun find(userId: UserId): String? =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun issue(userId: UserId, token: String, ttlSeconds: Long) = Unit
                 override fun delete(userId: UserId) = Unit
                 override fun consumeIfValid(userId: UserId, token: String) =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
             }
             val failingInterceptor = EntryTokenInterceptor(
                 ValidateEntryTokenUseCase(failingRepo),
@@ -174,7 +175,7 @@ class EntryTokenInterceptorTest {
         @DisplayName("Redis 장애(fallback) 상태에서 503을 반환한다")
         fun preHandle_unavailable_throwsServiceUnavailable() {
             // arrange
-            queueFallbackHandler.markUnavailable("Redis down")
+            queueFallbackHandler.markUnavailable()
             val request = MockHttpServletRequest("POST", "/api/v1/orders")
             request.setAttribute(ATTRIBUTE_USER_ID, 1L)
 
@@ -191,7 +192,7 @@ class EntryTokenInterceptorTest {
         @DisplayName("Redis 복구 후 정상 요청이 성공한다")
         fun preHandle_afterRecovery_succeeds() {
             // arrange — 장애 후 복구 (스케줄러에 의해)
-            queueFallbackHandler.markUnavailable("Redis down")
+            queueFallbackHandler.markUnavailable()
             queueFallbackHandler.markAvailable()
             val token = "valid-token"
             entryTokenRepository.issue(UserId(1L), token, 300)
@@ -210,7 +211,7 @@ class EntryTokenInterceptorTest {
         @DisplayName("Fail-Fast 상태에서는 토큰이 있어도 503을 반환한다")
         fun preHandle_failFast_throwsServiceUnavailable() {
             // arrange
-            queueFallbackHandler.markUnavailable("Redis down")
+            queueFallbackHandler.markUnavailable()
             val request = MockHttpServletRequest("POST", "/api/v1/orders")
             request.setAttribute(ATTRIBUTE_USER_ID, 1L)
             request.addHeader(HEADER_ENTRY_TOKEN, "some-token")

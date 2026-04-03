@@ -14,7 +14,7 @@ data class QueueProperties(
     @field:Positive
     val tokenTtlSeconds: Long,
     @field:Positive
-    val throughputTps: Int,
-    @field:Positive
     val schedulerDelayMs: Long,
-)
+) {
+    val throughputTps: Int get() = (batchSize * 1000 / schedulerDelayMs).toInt()
+}

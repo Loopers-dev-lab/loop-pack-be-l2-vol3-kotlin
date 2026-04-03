@@ -2,6 +2,8 @@ package com.loopers.infrastructure.outbox
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.vo.CouponId
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.CouponOutbox
 import com.loopers.domain.withBaseFields
@@ -44,7 +46,7 @@ class CouponOutboxEntity(
         id = id,
         eventId = eventId,
         eventType = CouponOutbox.CouponOutboxEventType.entries.find { it.name == eventType }
-            ?: throw IllegalStateException("지원하지 않는 이벤트 타입: $eventType"),
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "지원하지 않는 이벤트 타입: $eventType"),
         couponId = CouponId(couponId),
         userId = UserId(userId),
         published = published,

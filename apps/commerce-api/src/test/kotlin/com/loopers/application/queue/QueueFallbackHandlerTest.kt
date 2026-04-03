@@ -8,43 +8,6 @@ import org.junit.jupiter.api.Test
 
 class QueueFallbackHandlerTest {
 
-    @Nested
-    @DisplayName("sanitize 시")
-    inner class Sanitize {
-
-        @Test
-        @DisplayName("password= 이후 값을 마스킹한다")
-        fun sanitize_masksPassword() {
-            // act
-            val result = QueueFallbackHandler.sanitize("connection password=secret123 failed")
-
-            // assert
-            assertThat(result).isEqualTo("connection password=*** failed")
-            assertThat(result).doesNotContain("secret123")
-        }
-
-        @Test
-        @DisplayName("IP 주소를 마스킹한다")
-        fun sanitize_masksIpAddress() {
-            // act
-            val result = QueueFallbackHandler.sanitize("Redis connection refused at 192.168.1.100:6379")
-
-            // assert
-            assertThat(result).doesNotContain("192.168.1.100")
-            assertThat(result).contains("***:***")
-        }
-
-        @Test
-        @DisplayName("민감 패턴이 없으면 원문을 그대로 반환한다")
-        fun sanitize_noSensitivePattern_returnsOriginal() {
-            // act
-            val result = QueueFallbackHandler.sanitize("Redis connection refused")
-
-            // assert
-            assertThat(result).isEqualTo("Redis connection refused")
-        }
-    }
-
     private lateinit var handler: QueueFallbackHandler
 
     @BeforeEach
@@ -66,7 +29,7 @@ class QueueFallbackHandlerTest {
         @DisplayName("markUnavailable 호출 시 unavailable 상태로 전환한다")
         fun markUnavailable_changesState() {
             // act
-            handler.markUnavailable("Redis connection refused")
+            handler.markUnavailable()
 
             // assert
             assertThat(handler.isAvailable()).isFalse()
@@ -76,7 +39,7 @@ class QueueFallbackHandlerTest {
         @DisplayName("markAvailable 호출 시 available 상태로 복구한다")
         fun markAvailable_restoresState() {
             // arrange
-            handler.markUnavailable("Redis connection refused")
+            handler.markUnavailable()
 
             // act
             handler.markAvailable()
@@ -89,8 +52,8 @@ class QueueFallbackHandlerTest {
         @DisplayName("이미 unavailable 상태에서 재호출해도 상태가 유지된다")
         fun markUnavailable_idempotent() {
             // act
-            handler.markUnavailable("first failure")
-            handler.markUnavailable("second failure")
+            handler.markUnavailable()
+            handler.markUnavailable()
 
             // assert
             assertThat(handler.isAvailable()).isFalse()

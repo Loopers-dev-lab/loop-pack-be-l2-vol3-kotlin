@@ -58,7 +58,6 @@ queue:
   max-capacity: ${QUEUE_MAX_CAPACITY:50000}
   batch-size: ${QUEUE_BATCH_SIZE:18}
   token-ttl-seconds: ${QUEUE_TOKEN_TTL:300}
-  throughput-tps: ${QUEUE_THROUGHPUT_TPS:175}
   scheduler-delay-ms: ${QUEUE_SCHEDULER_DELAY_MS:100}
 
 # Resilience4j 설정

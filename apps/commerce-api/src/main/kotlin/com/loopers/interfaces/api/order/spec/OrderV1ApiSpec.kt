@@ -4,6 +4,7 @@ import com.loopers.interfaces.api.order.dto.OrderV1Dto
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.interfaces.support.auth.AuthUser
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page
 interface OrderV1ApiSpec {
 
     @Operation(summary = "주문 생성", description = "상품을 주문합니다.")
+    @SecurityRequirement(name = "X-Entry-Token")
     fun createOrder(
         @Parameter(hidden = true) @AuthUser userId: Long,
         @Valid request: OrderV1Dto.CreateOrderRequest,

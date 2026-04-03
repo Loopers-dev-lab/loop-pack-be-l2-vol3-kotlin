@@ -8,6 +8,7 @@ import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
+import org.springframework.dao.DataAccessResourceFailureException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -22,7 +23,7 @@ class EnterQueueUseCaseTest {
     private lateinit var enterQueueUseCase: EnterQueueUseCase
 
     private val maxCapacity = 50_000
-    private val throughputTps = 175
+    private val throughputTps = 180
 
     @BeforeEach
     fun setUp() {
@@ -37,7 +38,6 @@ class EnterQueueUseCaseTest {
                 maxCapacity = maxCapacity,
                 batchSize = 18,
                 tokenTtlSeconds = 300,
-                throughputTps = throughputTps,
                 schedulerDelayMs = 100,
             ),
         )
@@ -85,7 +85,6 @@ class EnterQueueUseCaseTest {
                 maxCapacity = 2,
                 batchSize = 18,
                 tokenTtlSeconds = 300,
-                throughputTps = throughputTps,
                 schedulerDelayMs = 100,
             )
             val useCase = EnterQueueUseCase(
@@ -109,8 +108,8 @@ class EnterQueueUseCaseTest {
         @Test
         @DisplayName("신규 진입 시 순번과 예상 대기 시간을 반환한다")
         fun execute_newEntry_returnsPositionAndEstimatedWait() {
-            // arrange — 350명을 먼저 진입시켜 예상 대기 시간 검증 (350 / 175 = 2초)
-            repeat(350) { i ->
+            // arrange — 360명을 먼저 진입시켜 예상 대기 시간 검증 (360 / 180 = 2초)
+            repeat(360) { i ->
                 waitingQueueRepository.enter(UserId(i.toLong() + 100), maxCapacity)
             }
 
@@ -118,7 +117,7 @@ class EnterQueueUseCaseTest {
             val result = enterQueueUseCase.execute(1L)
 
             // assert
-            assertThat(result.position).isEqualTo(350L)
+            assertThat(result.position).isEqualTo(360L)
             assertThat(result.estimatedWaitSeconds).isEqualTo(2L)
             assertThat(result.token).isNull()
         }
@@ -127,7 +126,7 @@ class EnterQueueUseCaseTest {
         @DisplayName("fallback 상태에서 호출 시 SERVICE_UNAVAILABLE 예외가 발생한다")
         fun execute_fallbackActive_throwsServiceUnavailable() {
             // arrange
-            queueFallbackHandler.markUnavailable("Redis 장애")
+            queueFallbackHandler.markUnavailable()
 
             // act
             val exception = assertThrows<CoreException> {
@@ -149,12 +148,12 @@ class EnterQueueUseCaseTest {
             // arrange
             val failingEntryTokenRepo = object : EntryTokenRepository {
                 override fun find(userId: UserId): String? =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun issue(userId: UserId, token: String, ttlSeconds: Long) = Unit
                 override fun delete(userId: UserId) = Unit
                 override fun consumeIfValid(userId: UserId, token: String) =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
             }
             val useCase = EnterQueueUseCase(
                 waitingQueueRepository = waitingQueueRepository,
@@ -164,8 +163,7 @@ class EnterQueueUseCaseTest {
                     maxCapacity = maxCapacity,
                     batchSize = 18,
                     tokenTtlSeconds = 300,
-                    throughputTps = throughputTps,
-                    schedulerDelayMs = 100,
+                        schedulerDelayMs = 100,
                     ),
             )
 
@@ -185,16 +183,16 @@ class EnterQueueUseCaseTest {
             // arrange
             val failingWaitingQueueRepo = object : WaitingQueueRepository {
                 override fun enter(userId: UserId, maxCapacity: Int): Long? =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun findPosition(userId: UserId): Long? =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun count(): Long =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun popMin(count: Int): List<UserId> =
-                    throw RuntimeException("Redis connection refused")
+                    throw DataAccessResourceFailureException("Redis connection refused")
             }
             val useCase = EnterQueueUseCase(
                 waitingQueueRepository = failingWaitingQueueRepo,
@@ -204,8 +202,7 @@ class EnterQueueUseCaseTest {
                     maxCapacity = maxCapacity,
                     batchSize = 18,
                     tokenTtlSeconds = 300,
-                    throughputTps = throughputTps,
-                    schedulerDelayMs = 100,
+                        schedulerDelayMs = 100,
                     ),
             )
 

@@ -2,6 +2,8 @@ package com.loopers.infrastructure.outbox
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.CatalogOutbox
 import com.loopers.domain.withBaseFields
@@ -44,7 +46,7 @@ class CatalogOutboxEntity(
         id = id,
         eventId = eventId,
         eventType = CatalogOutbox.CatalogOutboxEventType.entries.find { it.name == eventType }
-            ?: throw IllegalStateException("지원하지 않는 이벤트 타입: $eventType"),
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "지원하지 않는 이벤트 타입: $eventType"),
         productId = ProductId(productId),
         userId = userId?.let { UserId(it) },
         published = published,

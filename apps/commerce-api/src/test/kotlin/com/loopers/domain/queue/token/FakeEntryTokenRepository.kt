@@ -6,7 +6,7 @@ import com.loopers.domain.queue.token.repository.EntryTokenRepository
 
 class FakeEntryTokenRepository : EntryTokenRepository {
 
-    private val store = mutableMapOf<UserId, String>()
+    private val store = java.util.concurrent.ConcurrentHashMap<UserId, String>()
 
     override fun issue(userId: UserId, token: String, ttlSeconds: Long) {
         store[userId] = token
@@ -21,7 +21,7 @@ class FakeEntryTokenRepository : EntryTokenRepository {
     override fun consumeIfValid(userId: UserId, token: String): EntryTokenConsumeResult {
         val stored = store[userId] ?: return EntryTokenConsumeResult.NOT_FOUND
         if (stored != token) return EntryTokenConsumeResult.MISMATCH
-        store.remove(userId)
+        store.remove(userId, token)
         return EntryTokenConsumeResult.SUCCESS
     }
 }

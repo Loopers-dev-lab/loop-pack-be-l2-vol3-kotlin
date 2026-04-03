@@ -7,6 +7,8 @@ data class EntryToken(
     val userId: UserId,
     val token: String,
 ) {
+    override fun toString(): String = "EntryToken(userId=$userId, token=****)"
+
     companion object {
         private const val DEFAULT_TOKEN_TTL_SECONDS = 300L
 

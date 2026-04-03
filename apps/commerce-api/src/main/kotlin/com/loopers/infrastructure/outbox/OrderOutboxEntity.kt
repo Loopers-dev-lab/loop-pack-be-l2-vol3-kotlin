@@ -2,6 +2,8 @@ package com.loopers.infrastructure.outbox
 
 import com.loopers.domain.BaseEntity
 import com.loopers.domain.common.vo.Money
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
@@ -59,7 +61,7 @@ class OrderOutboxEntity(
         id = id,
         eventId = eventId,
         eventType = OrderOutbox.OrderOutboxEventType.entries.find { it.name == eventType }
-            ?: throw IllegalStateException("지원하지 않는 이벤트 타입: $eventType"),
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "지원하지 않는 이벤트 타입: $eventType"),
         orderId = OrderId(orderId),
         userId = UserId(userId),
         totalAmount = totalAmount?.let { Money(it.toBigDecimal()) },

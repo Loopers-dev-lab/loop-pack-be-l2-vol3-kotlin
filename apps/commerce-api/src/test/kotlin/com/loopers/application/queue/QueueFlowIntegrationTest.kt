@@ -26,7 +26,6 @@ class QueueFlowIntegrationTest {
         maxCapacity = 100,
         batchSize = 5,
         tokenTtlSeconds = 300,
-        throughputTps = 175,
         schedulerDelayMs = 100,
     )
 

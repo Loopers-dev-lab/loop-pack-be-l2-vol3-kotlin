@@ -2,6 +2,8 @@ package com.loopers.infrastructure.queue
 
 import com.loopers.config.redis.RedisConfig.Companion.REDIS_TEMPLATE_MASTER
 import com.loopers.domain.common.vo.UserId
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.domain.queue.token.model.EntryTokenConsumeResult
 import org.springframework.beans.factory.annotation.Qualifier
@@ -67,7 +69,8 @@ class RedisEntryTokenRepository(
         return when (result) {
             1L -> EntryTokenConsumeResult.SUCCESS
             0L -> EntryTokenConsumeResult.NOT_FOUND
-            else -> EntryTokenConsumeResult.MISMATCH
+            -1L -> EntryTokenConsumeResult.MISMATCH
+            else -> throw CoreException(ErrorType.INTERNAL_ERROR, "토큰 소비 Lua 스크립트 예상 밖 반환값: $result")
         }
     }
 }

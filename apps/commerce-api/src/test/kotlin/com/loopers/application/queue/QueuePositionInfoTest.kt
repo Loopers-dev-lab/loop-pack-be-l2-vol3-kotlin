@@ -22,33 +22,33 @@ class QueuePositionInfoTest {
         }
 
         @Test
-        @DisplayName("token이 null이고 position이 100 이하이면 1000ms를 반환한다")
-        fun noToken_position100OrLess_returns1000() {
+        @DisplayName("token이 null이고 position이 50 이하이면 1000ms ±20% 범위를 반환한다")
+        fun noToken_position50OrLess_returns1000WithJitter() {
             // act
-            val info = QueuePositionInfo(position = 100, estimatedWaitSeconds = 0, token = null)
+            val info = QueuePositionInfo(position = 50, estimatedWaitSeconds = 0, token = null)
 
             // assert
-            assertThat(info.recommendedPollIntervalMs).isEqualTo(1000L)
+            assertThat(info.recommendedPollIntervalMs).isBetween(800L, 1200L)
         }
 
         @Test
-        @DisplayName("token이 null이고 position이 101~1000이면 3000ms를 반환한다")
-        fun noToken_position101To1000_returns3000() {
+        @DisplayName("token이 null이고 position이 51~500이면 2000ms ±20% 범위를 반환한다")
+        fun noToken_position51To500_returns2000WithJitter() {
             // act
-            val info = QueuePositionInfo(position = 500, estimatedWaitSeconds = 0, token = null)
+            val info = QueuePositionInfo(position = 200, estimatedWaitSeconds = 0, token = null)
 
             // assert
-            assertThat(info.recommendedPollIntervalMs).isEqualTo(3000L)
+            assertThat(info.recommendedPollIntervalMs).isBetween(1600L, 2400L)
         }
 
         @Test
-        @DisplayName("token이 null이고 position이 1000 초과이면 5000ms를 반환한다")
-        fun noToken_positionOver1000_returns5000() {
+        @DisplayName("token이 null이고 position이 500 초과이면 3000ms ±20% 범위를 반환한다")
+        fun noToken_positionOver500_returns3000WithJitter() {
             // act
-            val info = QueuePositionInfo(position = 1001, estimatedWaitSeconds = 0, token = null)
+            val info = QueuePositionInfo(position = 501, estimatedWaitSeconds = 0, token = null)
 
             // assert
-            assertThat(info.recommendedPollIntervalMs).isEqualTo(5000L)
+            assertThat(info.recommendedPollIntervalMs).isBetween(2400L, 3600L)
         }
 
         @Test

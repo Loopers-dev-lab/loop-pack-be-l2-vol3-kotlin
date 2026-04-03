@@ -8,6 +8,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.dao.DataAccessException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.HandlerInterceptor
 
@@ -36,8 +37,8 @@ class EntryTokenInterceptor(
             true
         } catch (e: CoreException) {
             throw e
-        } catch (e: Exception) {
-            queueFallbackHandler.markUnavailable(e.message ?: "Redis 연결 실패")
+        } catch (e: DataAccessException) {
+            queueFallbackHandler.markUnavailable()
             throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "현재 대기열 서비스를 이용할 수 없습니다.")
         }
     }

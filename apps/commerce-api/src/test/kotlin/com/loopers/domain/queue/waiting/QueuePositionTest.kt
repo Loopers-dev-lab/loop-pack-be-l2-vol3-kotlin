@@ -21,11 +21,28 @@ class QueuePositionTest {
 
             // Act
             val positions = (1L..10L).map { userId ->
-                repository.enter(UserId(userId), 50_000)!!
+                requireNotNull(repository.enter(UserId(userId), 50_000)) { "enter should not return null" }
             }
 
             // Assert
             assertThat(positions.toSet()).hasSize(10)
+        }
+
+        @Test
+        @DisplayName("상한 초과 시 enter()가 null을 반환한다")
+        fun enter_overCapacity_returnsNull() {
+            // Arrange
+            val repository = FakeWaitingQueueRepository()
+            val maxCapacity = 3
+            repository.enter(UserId(1L), maxCapacity)
+            repository.enter(UserId(2L), maxCapacity)
+            repository.enter(UserId(3L), maxCapacity)
+
+            // Act
+            val result = repository.enter(UserId(4L), maxCapacity)
+
+            // Assert
+            assertThat(result).isNull()
         }
     }
 

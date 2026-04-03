@@ -18,7 +18,7 @@ class QueueScheduler(
             issueEntryTokensUseCase.execute()
             queueFallbackHandler.markAvailable()
         } catch (e: DataAccessException) {
-            queueFallbackHandler.markUnavailable(e.message ?: "Redis 연결 실패")
+            queueFallbackHandler.markUnavailable()
         }
     }
 }

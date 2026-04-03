@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.outbox
 
+import com.loopers.support.error.CoreException
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -12,8 +13,8 @@ class OutboxEntityToDomainTest {
     inner class CatalogOutboxEntityToDomain {
 
         @Test
-        @DisplayName("미지원 eventType 문자열이면 IllegalStateException을 던진다")
-        fun `미지원 eventType 문자열이면 IllegalStateException을 던진다`() {
+        @DisplayName("미지원 eventType 문자열이면 CoreException을 던진다")
+        fun `미지원 eventType 문자열이면 CoreException을 던진다`() {
             val entity = CatalogOutboxEntity(
                 eventId = "evt-1",
                 eventType = "UNKNOWN_TYPE",
@@ -23,7 +24,7 @@ class OutboxEntityToDomainTest {
             )
 
             assertThatThrownBy { entity.toDomain() }
-                .isInstanceOf(IllegalStateException::class.java)
+                .isInstanceOf(CoreException::class.java)
                 .hasMessageContaining("지원하지 않는 이벤트 타입: UNKNOWN_TYPE")
         }
     }
@@ -33,8 +34,8 @@ class OutboxEntityToDomainTest {
     inner class CouponOutboxEntityToDomain {
 
         @Test
-        @DisplayName("미지원 eventType 문자열이면 IllegalStateException을 던진다")
-        fun `미지원 eventType 문자열이면 IllegalStateException을 던진다`() {
+        @DisplayName("미지원 eventType 문자열이면 CoreException을 던진다")
+        fun `미지원 eventType 문자열이면 CoreException을 던진다`() {
             val entity = CouponOutboxEntity(
                 eventId = "evt-1",
                 eventType = "UNKNOWN_TYPE",
@@ -44,7 +45,7 @@ class OutboxEntityToDomainTest {
             )
 
             assertThatThrownBy { entity.toDomain() }
-                .isInstanceOf(IllegalStateException::class.java)
+                .isInstanceOf(CoreException::class.java)
                 .hasMessageContaining("지원하지 않는 이벤트 타입: UNKNOWN_TYPE")
         }
     }
@@ -54,8 +55,8 @@ class OutboxEntityToDomainTest {
     inner class OrderOutboxEntityToDomain {
 
         @Test
-        @DisplayName("미지원 eventType 문자열이면 IllegalStateException을 던진다")
-        fun `미지원 eventType 문자열이면 IllegalStateException을 던진다`() {
+        @DisplayName("미지원 eventType 문자열이면 CoreException을 던진다")
+        fun `미지원 eventType 문자열이면 CoreException을 던진다`() {
             val entity = OrderOutboxEntity(
                 eventId = "evt-1",
                 eventType = "UNKNOWN_TYPE",
@@ -69,7 +70,7 @@ class OutboxEntityToDomainTest {
             )
 
             assertThatThrownBy { entity.toDomain() }
-                .isInstanceOf(IllegalStateException::class.java)
+                .isInstanceOf(CoreException::class.java)
                 .hasMessageContaining("지원하지 않는 이벤트 타입: UNKNOWN_TYPE")
         }
     }

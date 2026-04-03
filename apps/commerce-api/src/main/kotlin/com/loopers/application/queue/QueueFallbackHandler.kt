@@ -12,17 +12,10 @@ class QueueFallbackHandler {
 
     fun isAvailable(): Boolean = available.get()
 
-    fun markUnavailable(reason: String) {
+    fun markUnavailable() {
         if (available.compareAndSet(true, false)) {
-            log.warn("[Queue Fallback 진입] {} — 대기열/토큰 검증 우회 모드", sanitize(reason))
+            log.warn("[Queue Fallback 진입] Fail-Fast 모드 진입")
         }
-    }
-
-    companion object {
-        internal fun sanitize(reason: String): String =
-            reason
-                .replace(Regex("password=[^\\s,;]+"), "password=***")
-                .replace(Regex("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(:\\d+)?"), "***:***")
     }
 
     fun markAvailable() {

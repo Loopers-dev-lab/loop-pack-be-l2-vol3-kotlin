@@ -2,6 +2,8 @@ package com.loopers.infrastructure.queue
 
 import com.loopers.config.redis.RedisConfig.Companion.REDIS_TEMPLATE_MASTER
 import com.loopers.domain.common.vo.UserId
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
@@ -55,7 +57,11 @@ class RedisWaitingQueueRepository(
             userId.value.toString(),
             maxCapacity.toString(),
         )
-        return if (result == -1L) null else result
+        return when {
+            result == -1L -> null
+            result != null && result >= 0 -> result
+            else -> throw CoreException(ErrorType.INTERNAL_ERROR, "대기열 진입 Lua 스크립트 예상 밖 반환값: $result")
+        }
     }
 
     override fun findPosition(userId: UserId): Long? {
@@ -72,9 +78,9 @@ class RedisWaitingQueueRepository(
             ?: return emptyList()
         return tuples.map { tuple ->
             val value = tuple.value
-                ?: throw IllegalStateException("대기열에 비정상 member가 존재합니다: null")
+                ?: throw CoreException(ErrorType.INTERNAL_ERROR, "대기열에 비정상 member가 존재합니다: null")
             val id = value.toLongOrNull()
-                ?: throw IllegalStateException("대기열에 비정상 member가 존재합니다: $value")
+                ?: throw CoreException(ErrorType.INTERNAL_ERROR, "대기열에 비정상 member가 존재합니다: $value")
             UserId(id)
         }
     }

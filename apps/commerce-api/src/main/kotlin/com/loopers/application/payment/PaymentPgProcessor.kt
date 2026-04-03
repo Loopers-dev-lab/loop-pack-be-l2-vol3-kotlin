@@ -1,7 +1,6 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.OrderId
-import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.order.repository.OrderRepository
 import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.outbox.repository.OrderOutboxRepository
@@ -75,7 +74,7 @@ class PaymentPgProcessorImpl(
                         OrderOutbox(
                             eventType = OrderOutbox.OrderOutboxEventType.PAYMENT_FAILED,
                             orderId = order.id,
-                            userId = UserId(order.refUserId.value),
+                            userId = order.refUserId,
                             reason = reason,
                         ),
                     )
