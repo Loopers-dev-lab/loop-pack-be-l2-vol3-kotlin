@@ -43,23 +43,49 @@ class EntryTokenRedisRepositoryTest @Autowired constructor(
     }
 
     @Nested
-    @DisplayName("consume")
-    inner class Consume {
+    @DisplayName("consumeIfMatches")
+    inner class ConsumeIfMatches {
 
         @Test
-        @DisplayName("consume 후 get이 null을 반환한다")
-        fun `consume 후 get이 null을 반환한다`() {
+        @DisplayName("토큰이 일치하면 삭제하고 true를 반환한다")
+        fun `토큰이 일치하면 삭제하고 true를 반환한다`() {
             // given
             val userId = 1L
             val token = "test-token-abc"
             entryTokenRepository.issue(userId, token, 300L)
 
             // when
-            entryTokenRepository.consume(userId)
-            val result = entryTokenRepository.get(userId)
+            val result = entryTokenRepository.consumeIfMatches(userId, token)
 
             // then
-            assertThat(result).isNull()
+            assertThat(result).isTrue()
+            assertThat(entryTokenRepository.get(userId)).isNull()
+        }
+
+        @Test
+        @DisplayName("토큰이 불일치하면 삭제하지 않고 false를 반환한다")
+        fun `토큰이 불일치하면 삭제하지 않고 false를 반환한다`() {
+            // given
+            val userId = 1L
+            val token = "test-token-abc"
+            entryTokenRepository.issue(userId, token, 300L)
+
+            // when
+            val result = entryTokenRepository.consumeIfMatches(userId, "wrong-token")
+
+            // then
+            assertThat(result).isFalse()
+            assertThat(entryTokenRepository.get(userId)).isEqualTo(token)
+        }
+
+        @Test
+        @DisplayName("토큰이 없으면 false를 반환한다")
+        fun `토큰이 없으면 false를 반환한다`() {
+            // when
+            val result = entryTokenRepository.consumeIfMatches(999L, "any-token")
+
+            // then
+            assertThat(result).isFalse()
         }
     }
 

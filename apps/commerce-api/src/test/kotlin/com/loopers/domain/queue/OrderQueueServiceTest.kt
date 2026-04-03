@@ -274,39 +274,26 @@ class OrderQueueServiceTest {
     inner class ValidateAndConsumeToken {
 
         @Test
-        @DisplayName("유효한 토큰이면 소비하고 정상 종료한다")
+        @DisplayName("유효한 토큰이면 원자적으로 소비하고 정상 종료한다")
         fun consumesToken_whenValid() {
             // arrange
             val userId = 1L
             val token = "valid-token"
-            whenever(entryTokenRepository.get(userId)).thenReturn(token)
+            whenever(entryTokenRepository.consumeIfMatches(userId, token)).thenReturn(true)
 
             // act & assert — 예외 없이 정상 종료
             orderQueueService.validateAndConsumeToken(userId, token)
-        }
-
-        @Test
-        @DisplayName("만료/존재하지 않는 토큰이면 FORBIDDEN 예외가 발생한다")
-        fun throwsForbidden_whenTokenNotExists() {
-            // arrange
-            val userId = 1L
-            whenever(entryTokenRepository.get(userId)).thenReturn(null)
-
-            // act
-            val exception = assertThrows<CoreException> {
-                orderQueueService.validateAndConsumeToken(userId, "any-token")
-            }
 
             // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
+            verify(entryTokenRepository).consumeIfMatches(userId, token)
         }
 
         @Test
-        @DisplayName("잘못된 토큰 값이면 FORBIDDEN 예외가 발생한다")
-        fun throwsForbidden_whenTokenMismatch() {
+        @DisplayName("토큰이 유효하지 않으면 FORBIDDEN 예외가 발생한다")
+        fun throwsForbidden_whenTokenInvalid() {
             // arrange
             val userId = 1L
-            whenever(entryTokenRepository.get(userId)).thenReturn("correct-token")
+            whenever(entryTokenRepository.consumeIfMatches(userId, "wrong-token")).thenReturn(false)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -328,25 +315,7 @@ class OrderQueueServiceTest {
             orderQueueService.validateAndConsumeToken(userId, "any-token")
 
             // assert — Redis 접근 없이 즉시 반환
-            verify(entryTokenRepository, times(0)).get(userId)
-            verify(entryTokenRepository, times(0)).consume(userId)
-        }
-
-        @Test
-        @DisplayName("bypass 모드가 아니면 토큰 불일치 시 FORBIDDEN 예외가 발생한다")
-        fun throwsForbidden_whenNotBypassedAndTokenMismatch() {
-            // arrange
-            val userId = 1L
-            whenever(queueHealthChecker.isBypassed()).thenReturn(false)
-            whenever(entryTokenRepository.get(userId)).thenReturn("correct-token")
-
-            // act
-            val exception = assertThrows<CoreException> {
-                orderQueueService.validateAndConsumeToken(userId, "wrong-token")
-            }
-
-            // assert
-            assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
+            verify(entryTokenRepository, times(0)).consumeIfMatches(any(), any())
         }
     }
 }

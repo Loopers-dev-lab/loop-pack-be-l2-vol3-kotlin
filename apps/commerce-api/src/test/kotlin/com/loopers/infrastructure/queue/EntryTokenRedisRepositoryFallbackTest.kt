@@ -54,12 +54,13 @@ class EntryTokenRedisRepositoryFallbackTest {
         }
 
         @Test
-        @DisplayName("consumeFallback — 예외 없이 무시한다")
-        fun consumeFallback_doesNotThrow() {
-            // act & assert
-            assertDoesNotThrow {
-                repository.consumeFallback(1L, redisException)
-            }
+        @DisplayName("consumeIfMatchesFallback — false를 반환한다")
+        fun consumeIfMatchesFallback_returnsFalse() {
+            // act
+            val result = repository.consumeIfMatchesFallback(1L, "any-token", redisException)
+
+            // assert
+            assertThat(result).isFalse()
         }
     }
 }

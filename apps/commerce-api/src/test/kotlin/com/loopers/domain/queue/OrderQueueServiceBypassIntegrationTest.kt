@@ -36,7 +36,7 @@ class OrderQueueServiceBypassIntegrationTest @Autowired constructor(
     inner class WhenNotBypassed {
 
         @Test
-        @DisplayName("유효한 토큰이면 검증에 성공하고 토큰을 소비한다")
+        @DisplayName("유효한 토큰이면 원자적으로 소비하고 정상 종료한다")
         fun consumesToken_whenValidToken() {
             // arrange
             val userId = 1L
@@ -47,7 +47,7 @@ class OrderQueueServiceBypassIntegrationTest @Autowired constructor(
             // act
             orderQueueService.validateAndConsumeToken(userId, token)
 
-            // assert — 토큰이 소비되어 다시 조회하면 null
+            // assert — 토큰이 원자적으로 소비되어 다시 조회하면 null
             assertThat(entryTokenRepository.get(userId)).isNull()
         }
 

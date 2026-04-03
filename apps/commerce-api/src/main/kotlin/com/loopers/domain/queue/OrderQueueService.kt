@@ -79,14 +79,9 @@ class OrderQueueService(
             return
         }
 
-        val storedToken = entryTokenRepository.get(userId)
-            ?: throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 존재하지 않습니다. userId=$userId")
-
-        if (storedToken != token) {
-            throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 일치하지 않습니다. userId=$userId")
+        if (!entryTokenRepository.consumeIfMatches(userId, token)) {
+            throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 유효하지 않습니다. userId=$userId")
         }
-
-        entryTokenRepository.consume(userId)
     }
 
     companion object {
