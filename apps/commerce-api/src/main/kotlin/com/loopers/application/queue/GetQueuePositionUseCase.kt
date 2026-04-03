@@ -28,7 +28,7 @@ class GetQueuePositionUseCase(
             // 1. 토큰 보유 여부 확인 (대기열에서 이미 빠진 유저일 수 있음)
             val token = entryTokenRepository.find(userIdVo)
             if (token != null) {
-                return QueuePositionInfo(position = 0, estimatedWaitSeconds = 0, token = token)
+                return QueuePositionInfo.fromToken(token)
             }
 
             // 2. 순번 조회 — 없으면 404

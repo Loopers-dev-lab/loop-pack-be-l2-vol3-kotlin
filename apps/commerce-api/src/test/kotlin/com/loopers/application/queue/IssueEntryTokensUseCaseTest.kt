@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.FakeQueueTokenBatchProcessor
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
 import org.assertj.core.api.Assertions.assertThat
@@ -23,8 +24,7 @@ class IssueEntryTokensUseCaseTest {
         entryTokenRepository = FakeEntryTokenRepository()
         waitingQueueRepository = FakeWaitingQueueRepository()
         issueEntryTokensUseCase = IssueEntryTokensUseCase(
-            waitingQueueRepository = waitingQueueRepository,
-            entryTokenRepository = entryTokenRepository,
+            queueTokenBatchProcessor = FakeQueueTokenBatchProcessor(waitingQueueRepository, entryTokenRepository),
             queueProperties = QueueProperties(
                 maxCapacity = 50_000,
                 batchSize = batchSize,
@@ -88,8 +88,7 @@ class IssueEntryTokensUseCaseTest {
         fun execute_batchSizeZero_returnsEmptyList() {
             // arrange
             val zeroBatchUseCase = IssueEntryTokensUseCase(
-                waitingQueueRepository = waitingQueueRepository,
-                entryTokenRepository = entryTokenRepository,
+                queueTokenBatchProcessor = FakeQueueTokenBatchProcessor(waitingQueueRepository, entryTokenRepository),
                 queueProperties = QueueProperties(
                     maxCapacity = 50_000,
                     batchSize = 0,

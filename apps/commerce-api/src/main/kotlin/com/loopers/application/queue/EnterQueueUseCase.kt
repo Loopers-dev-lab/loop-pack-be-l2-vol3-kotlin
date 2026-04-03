@@ -2,6 +2,7 @@ package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
+import com.loopers.domain.queue.waiting.model.EnterResult
 import com.loopers.domain.queue.waiting.model.QueuePosition
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import com.loopers.support.error.CoreException
@@ -24,23 +25,26 @@ class EnterQueueUseCase(
 
         return try {
             val userIdVo = UserId(userId)
-
-            // 1. 이미 토큰 보유 시 즉시 반환
-            val existingToken = entryTokenRepository.find(userIdVo)
-            if (existingToken != null) {
-                return QueuePositionInfo(position = 0, estimatedWaitSeconds = 0, token = existingToken)
-            }
-
-            // 2. 대기열 진입 (이미 있으면 기존 순번, 상한 초과 시 null)
-            // score는 Redis Lua 내부에서 TIME 커맨드로 원자적으로 생성 (Double 정밀도 한계 회피)
-            val position = waitingQueueRepository.enter(
+            val enterResult = waitingQueueRepository.enter(
                 userId = userIdVo,
                 maxCapacity = queueProperties.maxCapacity,
-            ) ?: throw CoreException(ErrorType.TOO_MANY_REQUESTS, "대기열이 가득 찼습니다.")
+            )
 
-            // 3. 순번 + 예상 대기 시간 반환
-            val queuePosition = QueuePosition.of(position, queueProperties.throughputTps)
-            QueuePositionInfo.from(queuePosition)
+            when (enterResult) {
+                is EnterResult.Entered -> {
+                    val queuePosition = QueuePosition.of(enterResult.position, queueProperties.throughputTps)
+                    QueuePositionInfo.from(queuePosition)
+                }
+
+                EnterResult.AlreadyHasToken -> {
+                    val existingToken = entryTokenRepository.find(userIdVo)
+                        ?: throw CoreException(ErrorType.INTERNAL_ERROR, "대기열 진입 결과와 토큰 상태가 일치하지 않습니다.")
+                    QueuePositionInfo.fromToken(existingToken)
+                }
+
+                EnterResult.QueueFull ->
+                    throw CoreException(ErrorType.TOO_MANY_REQUESTS, "대기열이 가득 찼습니다.")
+            }
         } catch (e: CoreException) {
             throw e
         } catch (e: DataAccessException) {

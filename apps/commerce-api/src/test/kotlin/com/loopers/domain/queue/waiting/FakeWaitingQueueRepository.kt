@@ -1,26 +1,32 @@
 package com.loopers.domain.queue.waiting
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.waiting.model.EnterResult
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import java.util.TreeMap
 
-class FakeWaitingQueueRepository : WaitingQueueRepository {
+class FakeWaitingQueueRepository(
+    private val entryTokenLookup: (UserId) -> String? = { null },
+) : WaitingQueueRepository {
 
     private val scoreByUserId = mutableMapOf<UserId, Double>()
     private val sortedEntries = TreeMap<Double, MutableList<UserId>>()
 
-    override fun enter(userId: UserId, maxCapacity: Int): Long? {
+    override fun enter(userId: UserId, maxCapacity: Int): EnterResult {
+        if (entryTokenLookup(userId) != null) {
+            return EnterResult.AlreadyHasToken
+        }
         if (userId in scoreByUserId) {
-            return findPosition(userId)
+            return EnterResult.Entered(requireNotNull(findPosition(userId)) { "대기열에 존재하는 사용자의 순번이 조회되지 않습니다. userId=$userId" })
         }
         if (scoreByUserId.size >= maxCapacity) {
-            return null
+            return EnterResult.QueueFull
         }
         // 단위 테스트에서는 nanoTime으로 진입 순서를 보장한다 (실제 Redis TIME과 동일한 FIFO 의미)
         val score = System.nanoTime().toDouble()
         scoreByUserId[userId] = score
         sortedEntries.getOrPut(score) { mutableListOf() }.add(userId)
-        return findPosition(userId)
+        return EnterResult.Entered(requireNotNull(findPosition(userId)) { "대기열 진입 직후 순번이 조회되지 않습니다. userId=$userId" })
     }
 
     override fun findPosition(userId: UserId): Long? {
@@ -38,7 +44,11 @@ class FakeWaitingQueueRepository : WaitingQueueRepository {
 
     override fun count(): Long = scoreByUserId.size.toLong()
 
-    override fun popMin(count: Int): List<UserId> {
+    /**
+     * 테스트 전용: FakeQueueTokenBatchProcessor에서 사용.
+     * WaitingQueueRepository 인터페이스에는 없지만, Fake 내부에서 popMin 동작이 필요하므로 유지.
+     */
+    fun popMin(count: Int): List<UserId> {
         val result = mutableListOf<UserId>()
         repeat(count) {
             val firstEntry = sortedEntries.firstEntry() ?: return result

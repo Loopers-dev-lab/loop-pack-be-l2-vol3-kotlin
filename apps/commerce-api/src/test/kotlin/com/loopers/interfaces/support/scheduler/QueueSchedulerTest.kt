@@ -4,9 +4,10 @@ import com.loopers.application.queue.IssueEntryTokensUseCase
 import com.loopers.application.queue.QueueFallbackHandler
 import com.loopers.application.queue.QueueProperties
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.FakeQueueTokenBatchProcessor
+import com.loopers.domain.queue.QueueTokenBatchProcessor
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
-import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -34,7 +35,10 @@ class QueueSchedulerTest {
         entryTokenRepository = FakeEntryTokenRepository()
         waitingQueueRepository = FakeWaitingQueueRepository()
         queueFallbackHandler = QueueFallbackHandler()
-        val issueUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, properties)
+        val issueUseCase = IssueEntryTokensUseCase(
+            FakeQueueTokenBatchProcessor(waitingQueueRepository, entryTokenRepository),
+            properties,
+        )
         scheduler = QueueScheduler(issueUseCase, queueFallbackHandler)
     }
 
@@ -103,20 +107,11 @@ class QueueSchedulerTest {
         @DisplayName("Redis 장애 발생 시 fallback 상태로 전환된다")
         fun issueTokens_redisFailure_marksFallback() {
             // arrange
-            val failingRepo = object : WaitingQueueRepository {
-                override fun enter(userId: UserId, maxCapacity: Int): Long? =
-                    throw RedisConnectionFailureException("Redis connection refused")
-
-                override fun findPosition(userId: UserId): Long? =
-                    throw RedisConnectionFailureException("Redis connection refused")
-
-                override fun count(): Long =
-                    throw RedisConnectionFailureException("Redis connection refused")
-
-                override fun popMin(count: Int): List<UserId> =
+            val failingProcessor = object : QueueTokenBatchProcessor {
+                override fun popAndIssueTokens(count: Int, ttlSeconds: Long) =
                     throw RedisConnectionFailureException("Redis connection refused")
             }
-            val failingIssueUseCase = IssueEntryTokensUseCase(failingRepo, entryTokenRepository, properties)
+            val failingIssueUseCase = IssueEntryTokensUseCase(failingProcessor, properties)
             val failingScheduler = QueueScheduler(failingIssueUseCase, queueFallbackHandler)
 
             // act — 예외 없이 정상 종료
@@ -130,20 +125,11 @@ class QueueSchedulerTest {
         @DisplayName("비인프라 예외(NPE 등) 발생 시 fallback 상태가 변하지 않고 예외가 전파된다")
         fun issueTokens_nonInfraException_rethrows() {
             // arrange
-            val npeRepo = object : WaitingQueueRepository {
-                override fun enter(userId: UserId, maxCapacity: Int): Long? =
-                    throw NullPointerException("unexpected null")
-
-                override fun findPosition(userId: UserId): Long? =
-                    throw NullPointerException("unexpected null")
-
-                override fun count(): Long =
-                    throw NullPointerException("unexpected null")
-
-                override fun popMin(count: Int): List<UserId> =
+            val npeProcessor = object : QueueTokenBatchProcessor {
+                override fun popAndIssueTokens(count: Int, ttlSeconds: Long) =
                     throw NullPointerException("unexpected null")
             }
-            val npeIssueUseCase = IssueEntryTokensUseCase(npeRepo, entryTokenRepository, properties)
+            val npeIssueUseCase = IssueEntryTokensUseCase(npeProcessor, properties)
             val npeScheduler = QueueScheduler(npeIssueUseCase, queueFallbackHandler)
 
             // act & assert

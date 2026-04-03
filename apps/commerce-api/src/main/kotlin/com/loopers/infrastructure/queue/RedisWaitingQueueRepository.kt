@@ -2,6 +2,7 @@ package com.loopers.infrastructure.queue
 
 import com.loopers.config.redis.RedisConfig.Companion.REDIS_TEMPLATE_MASTER
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.waiting.model.EnterResult
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
@@ -18,21 +19,26 @@ class RedisWaitingQueueRepository(
 
     companion object {
         private const val QUEUE_KEY = "waiting-queue"
+        private const val TOKEN_KEY_PREFIX = "entry-token:"
 
         /**
-         * Lua 스크립트: 원자적으로 상한 검증 + 대기열 진입 수행.
+         * Lua 스크립트: 원자적으로 토큰 보유 여부 확인 + 상한 검증 + 대기열 진입 수행.
          * score는 Redis 서버 타임스탬프(TIME 커맨드)로 생성하여 Double 정밀도 한계를 회피한다.
          * score = seconds * 1_000_000 + microseconds (마이크로초 단위 유닉스 타임스탬프)
          * 최대값 ≈ 1.7×10^15 < 2^53 (Double 안전 정수 범위) 이므로 정밀도 손실 없음.
          *
          * KEYS[1] = waiting-queue
+         * KEYS[2] = entry-token:{userId}
          * ARGV[1] = userId (member)
          * ARGV[2] = maxCapacity
          *
-         * 반환: 순번 (0-based) 또는 -1 (상한 초과)
+         * 반환: 순번 (0-based) 또는 -1 (상한 초과) 또는 -2 (토큰 보유)
          */
         private val ENTER_SCRIPT = RedisScript.of(
             """
+            if redis.call('EXISTS', KEYS[2]) == 1 then
+                return -2
+            end
             local existingRank = redis.call('ZRANK', KEYS[1], ARGV[1])
             if existingRank then
                 return existingRank
@@ -50,16 +56,17 @@ class RedisWaitingQueueRepository(
         )
     }
 
-    override fun enter(userId: UserId, maxCapacity: Int): Long? {
+    override fun enter(userId: UserId, maxCapacity: Int): EnterResult {
         val result = redisTemplate.execute(
             ENTER_SCRIPT,
-            listOf(QUEUE_KEY),
+            listOf(QUEUE_KEY, tokenKey(userId)),
             userId.value.toString(),
             maxCapacity.toString(),
         )
         return when {
-            result == -1L -> null
-            result != null && result >= 0 -> result
+            result == -2L -> EnterResult.AlreadyHasToken
+            result == -1L -> EnterResult.QueueFull
+            result != null && result >= 0 -> EnterResult.Entered(result)
             else -> throw CoreException(ErrorType.INTERNAL_ERROR, "대기열 진입 Lua 스크립트 예상 밖 반환값: $result")
         }
     }
@@ -72,16 +79,5 @@ class RedisWaitingQueueRepository(
         return redisTemplate.opsForZSet().zCard(QUEUE_KEY) ?: 0L
     }
 
-    override fun popMin(count: Int): List<UserId> {
-        if (count <= 0) return emptyList()
-        val tuples = redisTemplate.opsForZSet().popMin(QUEUE_KEY, count.toLong())
-            ?: return emptyList()
-        return tuples.map { tuple ->
-            val value = tuple.value
-                ?: throw CoreException(ErrorType.INTERNAL_ERROR, "대기열에 비정상 member가 존재합니다: null")
-            val id = value.toLongOrNull()
-                ?: throw CoreException(ErrorType.INTERNAL_ERROR, "대기열에 비정상 member가 존재합니다: $value")
-            UserId(id)
-        }
-    }
+    private fun tokenKey(userId: UserId) = "$TOKEN_KEY_PREFIX${userId.value}"
 }

@@ -25,14 +25,18 @@ data class QueuePositionInfo(
             return baseMs + jitter
         }
 
+        fun fromToken(token: String): QueuePositionInfo {
+            return QueuePositionInfo(
+                position = 0,
+                estimatedWaitSeconds = 0,
+                token = token,
+                recommendedPollIntervalMs = 0,
+            )
+        }
+
         fun from(queuePosition: QueuePosition, token: String? = null): QueuePositionInfo {
             if (token != null) {
-                return QueuePositionInfo(
-                    position = 0,
-                    estimatedWaitSeconds = 0,
-                    token = token,
-                    recommendedPollIntervalMs = 0,
-                )
+                return fromToken(token)
             }
             return QueuePositionInfo(
                 position = queuePosition.position,

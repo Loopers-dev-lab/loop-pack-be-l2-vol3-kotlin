@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.waiting.model.EnterResult
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
@@ -213,16 +214,13 @@ class GetQueuePositionUseCaseTest {
         fun execute_waitingQueueRedisFailure_throwsServiceUnavailableAndMarkUnavailable() {
             // arrange
             val failingWaitingQueueRepo = object : WaitingQueueRepository {
-                override fun enter(userId: UserId, maxCapacity: Int): Long? =
+                override fun enter(userId: UserId, maxCapacity: Int): EnterResult =
                     throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun findPosition(userId: UserId): Long? =
                     throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun count(): Long =
-                    throw DataAccessResourceFailureException("Redis connection refused")
-
-                override fun popMin(count: Int): List<UserId> =
                     throw DataAccessResourceFailureException("Redis connection refused")
             }
             val useCase = GetQueuePositionUseCase(

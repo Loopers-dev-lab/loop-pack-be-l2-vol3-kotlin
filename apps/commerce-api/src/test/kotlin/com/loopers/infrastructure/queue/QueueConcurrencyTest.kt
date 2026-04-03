@@ -1,22 +1,45 @@
 package com.loopers.infrastructure.queue
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.waiting.model.EnterResult
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
+import com.loopers.interfaces.support.scheduler.OutboxRelayScheduler
+import com.loopers.interfaces.support.scheduler.PaymentRecoveryScheduler
+import com.loopers.interfaces.support.scheduler.QueueScheduler
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.NONE,
+    properties = ["spring.task.scheduling.enabled=false"],
+)
 class QueueConcurrencyTest @Autowired constructor(
     private val waitingQueueRepository: WaitingQueueRepository,
     private val redisCleanUp: RedisCleanUp,
 ) {
+
+    @MockitoBean
+    private lateinit var queueScheduler: QueueScheduler
+
+    @MockitoBean
+    private lateinit var paymentRecoveryScheduler: PaymentRecoveryScheduler
+
+    @MockitoBean
+    private lateinit var outboxRelayScheduler: OutboxRelayScheduler
+
+    @BeforeEach
+    fun setUp() {
+        redisCleanUp.truncateAll()
+    }
 
     @AfterEach
     fun tearDown() {
@@ -41,8 +64,8 @@ class QueueConcurrencyTest @Autowired constructor(
                 try {
                     readyLatch.countDown()
                     startLatch.await()
-                    val position = waitingQueueRepository.enter(UserId(userId), maxCapacity)
-                    if (position != null) {
+                    val enterResult = waitingQueueRepository.enter(UserId(userId), maxCapacity)
+                    if (enterResult is EnterResult.Entered) {
                         enteredUsers.add(userId)
                     }
                 } finally {

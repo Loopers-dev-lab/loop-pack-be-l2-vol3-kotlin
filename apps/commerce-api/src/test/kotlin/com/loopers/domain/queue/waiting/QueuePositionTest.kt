@@ -1,6 +1,8 @@
 package com.loopers.domain.queue.waiting
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.token.FakeEntryTokenRepository
+import com.loopers.domain.queue.waiting.model.EnterResult
 import com.loopers.domain.queue.waiting.model.QueuePosition
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -21,7 +23,9 @@ class QueuePositionTest {
 
             // Act
             val positions = (1L..10L).map { userId ->
-                requireNotNull(repository.enter(UserId(userId), 50_000)) { "enter should not return null" }
+                val enterResult = repository.enter(UserId(userId), 50_000)
+                assertThat(enterResult).isInstanceOf(EnterResult.Entered::class.java)
+                (enterResult as EnterResult.Entered).position
             }
 
             // Assert
@@ -42,7 +46,22 @@ class QueuePositionTest {
             val result = repository.enter(UserId(4L), maxCapacity)
 
             // Assert
-            assertThat(result).isNull()
+            assertThat(result).isEqualTo(EnterResult.QueueFull)
+        }
+
+        @Test
+        @DisplayName("토큰 보유 사용자가 enter() 호출 시 AlreadyHasToken을 반환한다")
+        fun enter_userWithToken_returnsAlreadyHasToken() {
+            // Arrange
+            val entryTokenRepository = FakeEntryTokenRepository()
+            val repository = FakeWaitingQueueRepository(entryTokenRepository::find)
+            entryTokenRepository.issue(UserId(1L), "entry-token", 300)
+
+            // Act
+            val result = repository.enter(UserId(1L), 50_000)
+
+            // Assert
+            assertThat(result).isEqualTo(EnterResult.AlreadyHasToken)
         }
     }
 

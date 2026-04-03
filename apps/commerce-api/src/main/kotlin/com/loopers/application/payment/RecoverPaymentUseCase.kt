@@ -66,14 +66,17 @@ class RecoverPaymentUseCase(
 
                             when (detail.status) {
                                 PgResultStatus.SUCCESS -> {
+                                    val orderItems = orderItemRepository.findAllByOrderId(OrderId(orderId))
+                                    if (orderItems.isEmpty()) {
+                                        freshPayment.markRecoveryFailed("결제 복구 실패: 주문 항목이 없음. orderId=$orderId")
+                                        paymentRepository.save(freshPayment)
+                                        return@executeWithoutResult
+                                    }
+
                                     freshPayment.markSuccess(detail.transactionKey)
                                     paymentRepository.save(freshPayment)
                                     order.markPaid()
                                     orderRepository.save(order)
-                                    val orderItems = orderItemRepository.findAllByOrderId(OrderId(orderId))
-                                    if (orderItems.isEmpty()) {
-                                        throw CoreException(ErrorType.INTERNAL_ERROR, "결제 복구 실패: 주문 항목이 없음. orderId=$orderId")
-                                    }
                                     orderOutboxRepository.saveAll(
                                         orderItems.map { item ->
                                             OrderOutbox(

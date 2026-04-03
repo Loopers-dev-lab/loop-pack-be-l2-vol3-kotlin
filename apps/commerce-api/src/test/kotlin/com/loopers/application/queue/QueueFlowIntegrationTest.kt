@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.FakeQueueTokenBatchProcessor
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
 import com.loopers.support.error.CoreException
@@ -32,11 +33,14 @@ class QueueFlowIntegrationTest {
     @BeforeEach
     fun setUp() {
         entryTokenRepository = FakeEntryTokenRepository()
-        waitingQueueRepository = FakeWaitingQueueRepository()
+        waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository::find)
         val fallbackHandler = QueueFallbackHandler()
         enterQueueUseCase = EnterQueueUseCase(waitingQueueRepository, entryTokenRepository, fallbackHandler, defaultProperties)
         getQueuePositionUseCase = GetQueuePositionUseCase(waitingQueueRepository, entryTokenRepository, fallbackHandler, defaultProperties)
-        issueEntryTokensUseCase = IssueEntryTokensUseCase(waitingQueueRepository, entryTokenRepository, defaultProperties)
+        issueEntryTokensUseCase = IssueEntryTokensUseCase(
+            FakeQueueTokenBatchProcessor(waitingQueueRepository, entryTokenRepository),
+            defaultProperties,
+        )
         validateEntryTokenUseCase = ValidateEntryTokenUseCase(entryTokenRepository)
     }
 
@@ -190,8 +194,7 @@ class QueueFlowIntegrationTest {
             // arrange — 3명 진입, user1만 토큰 발급
             (1L..3L).forEach { enterQueueUseCase.execute(it) }
             val singleBatchIssueUseCase = IssueEntryTokensUseCase(
-                waitingQueueRepository,
-                entryTokenRepository,
+                FakeQueueTokenBatchProcessor(waitingQueueRepository, entryTokenRepository),
                 defaultProperties.copy(batchSize = 1),
             )
             singleBatchIssueUseCase.execute()

@@ -301,4 +301,47 @@ class PaymentTest {
             }
         }
     }
+
+    @Nested
+    @DisplayName("markRecoveryFailed 시")
+    inner class MarkRecoveryFailed {
+
+        @Test
+        @DisplayName("TIMEOUT 상태에서 호출하면 RECOVERY_FAILED로 전이되고 reason이 설정된다")
+        fun markRecoveryFailed_fromTimeout_transitionToRecoveryFailed() {
+            // arrange
+            val payment = Payment.create(
+                orderId = 12L,
+                cardType = CardType.KB,
+                cardNo = "1111-2222-3333-4444",
+                amount = 10000L,
+            )
+            payment.markTimeout()
+
+            // act
+            payment.markRecoveryFailed("주문 항목이 없음")
+
+            // assert
+            assertThat(payment.status).isEqualTo(PaymentStatus.RECOVERY_FAILED)
+            assertThat(payment.reason).isEqualTo("주문 항목이 없음")
+        }
+
+        @Test
+        @DisplayName("SUCCESS 상태에서 호출하면 CoreException이 발생한다")
+        fun markRecoveryFailed_fromSuccess_throwsCoreException() {
+            // arrange
+            val payment = Payment.create(
+                orderId = 13L,
+                cardType = CardType.SAMSUNG,
+                cardNo = "5555-6666-7777-8888",
+                amount = 10000L,
+            )
+            payment.markSuccess("txn-key-done")
+
+            // act & assert
+            assertThrows<CoreException> {
+                payment.markRecoveryFailed("복구 실패")
+            }
+        }
+    }
 }

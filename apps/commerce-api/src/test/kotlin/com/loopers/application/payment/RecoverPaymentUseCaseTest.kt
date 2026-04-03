@@ -267,8 +267,8 @@ class RecoverPaymentUseCaseTest {
         }
 
         @Test
-        @DisplayName("PG SUCCESS이지만 주문 항목이 없으면 outbox가 생성되지 않는다")
-        fun execute_pgSuccess_emptyOrderItems_noOutboxCreated() {
+        @DisplayName("PG SUCCESS이지만 주문 항목이 없으면 RECOVERY_FAILED로 전환되고 재조회하지 않는다")
+        fun execute_pgSuccess_emptyOrderItems_marksRecoveryFailedAndSkipsRetry() {
             // arrange — orderItems 없이 주문/결제 생성
             val order = Order.create(
                 UserId(1L),
@@ -287,11 +287,17 @@ class RecoverPaymentUseCaseTest {
                 status = PgResultStatus.SUCCESS,
             )
 
-            // act — afterCommit 내부에서 IllegalStateException 발생, 외부 catch에서 처리
-            val result = executeAndFlush(saved.id.value)
+            // act
+            val firstResult = executeAndFlush(saved.id.value)
+            val secondResult = executeAndFlush(saved.id.value)
 
-            // assert — execute() 자체는 true (복구 시도 시작), outbox는 미생성
-            assertThat(result).isTrue()
+            // assert
+            assertThat(firstResult).isTrue()
+            assertThat(secondResult).isFalse()
+            val payment = requireNotNull(paymentRepository.findByOrderId(saved.id)) { "주문(${saved.id})에 대한 결제가 존재해야 합니다" }
+            assertThat(payment.status).isEqualTo(PaymentStatus.RECOVERY_FAILED)
+            assertThat(payment.reason).isEqualTo("결제 복구 실패: 주문 항목이 없음. orderId=${saved.id.value}")
+            assertThat(pgClient.getTransactionCalls).containsExactly(saved.id.value)
             assertThat(orderOutboxRepository.findAllUnpublished(100)).isEmpty()
         }
 

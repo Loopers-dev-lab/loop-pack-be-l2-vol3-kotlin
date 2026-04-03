@@ -1,6 +1,7 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.waiting.model.EnterResult
 import com.loopers.domain.queue.token.FakeEntryTokenRepository
 import com.loopers.domain.queue.token.repository.EntryTokenRepository
 import com.loopers.domain.queue.waiting.FakeWaitingQueueRepository
@@ -27,8 +28,8 @@ class EnterQueueUseCaseTest {
 
     @BeforeEach
     fun setUp() {
-        waitingQueueRepository = FakeWaitingQueueRepository()
         entryTokenRepository = FakeEntryTokenRepository()
+        waitingQueueRepository = FakeWaitingQueueRepository(entryTokenRepository::find)
         queueFallbackHandler = QueueFallbackHandler()
         enterQueueUseCase = EnterQueueUseCase(
             waitingQueueRepository = waitingQueueRepository,
@@ -143,8 +144,8 @@ class EnterQueueUseCaseTest {
     inner class RedisFailure {
 
         @Test
-        @DisplayName("entryTokenRepository 호출 중 예외 발생 시 503 반환 + fallback 전환한다")
-        fun execute_entryTokenRedisFailure_throwsServiceUnavailableAndMarkUnavailable() {
+        @DisplayName("AlreadyHasToken 후 entryTokenRepository 조회 중 예외 발생 시 503 반환 + fallback 전환한다")
+        fun execute_alreadyHasTokenEntryTokenRedisFailure_throwsServiceUnavailableAndMarkUnavailable() {
             // arrange
             val failingEntryTokenRepo = object : EntryTokenRepository {
                 override fun find(userId: UserId): String? =
@@ -155,8 +156,16 @@ class EnterQueueUseCaseTest {
                 override fun consumeIfValid(userId: UserId, token: String) =
                     throw DataAccessResourceFailureException("Redis connection refused")
             }
+            val alreadyHasTokenRepo = object : WaitingQueueRepository {
+                override fun enter(userId: UserId, maxCapacity: Int): EnterResult =
+                    EnterResult.AlreadyHasToken
+
+                override fun findPosition(userId: UserId): Long? = null
+
+                override fun count(): Long = 0L
+            }
             val useCase = EnterQueueUseCase(
-                waitingQueueRepository = waitingQueueRepository,
+                waitingQueueRepository = alreadyHasTokenRepo,
                 entryTokenRepository = failingEntryTokenRepo,
                 queueFallbackHandler = queueFallbackHandler,
                 queueProperties = QueueProperties(
@@ -182,16 +191,13 @@ class EnterQueueUseCaseTest {
         fun execute_waitingQueueRedisFailure_throwsServiceUnavailableAndMarkUnavailable() {
             // arrange
             val failingWaitingQueueRepo = object : WaitingQueueRepository {
-                override fun enter(userId: UserId, maxCapacity: Int): Long? =
+                override fun enter(userId: UserId, maxCapacity: Int): EnterResult =
                     throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun findPosition(userId: UserId): Long? =
                     throw DataAccessResourceFailureException("Redis connection refused")
 
                 override fun count(): Long =
-                    throw DataAccessResourceFailureException("Redis connection refused")
-
-                override fun popMin(count: Int): List<UserId> =
                     throw DataAccessResourceFailureException("Redis connection refused")
             }
             val useCase = EnterQueueUseCase(
