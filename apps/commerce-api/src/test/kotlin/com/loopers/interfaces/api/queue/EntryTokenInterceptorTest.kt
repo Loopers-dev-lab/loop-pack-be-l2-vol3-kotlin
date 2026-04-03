@@ -1,9 +1,10 @@
 package com.loopers.interfaces.api.queue
 
 import com.loopers.application.queue.QueueProperties
+import com.loopers.application.queue.VerifyEntryTokenUseCase
 import com.loopers.application.user.AuthenticateUserUseCase
-import com.loopers.domain.queue.OrderQueueStore
 import com.loopers.support.constant.AuthHeaders
+import com.loopers.support.constant.RequestAttributes
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.QueueErrorCode
 import com.loopers.support.error.UserErrorCode
@@ -22,7 +23,7 @@ import org.springframework.mock.web.MockHttpServletResponse
 class EntryTokenInterceptorTest {
 
     private val authenticateUserUseCase: AuthenticateUserUseCase = mockk()
-    private val orderQueueStore: OrderQueueStore = mockk()
+    private val verifyEntryTokenUseCase: VerifyEntryTokenUseCase = mockk()
     private val queueProperties = QueueProperties(
         scheduler = QueueProperties.Scheduler(intervalMs = 100, batchSize = 18),
         token = QueueProperties.Token(ttlSeconds = 300),
@@ -30,7 +31,7 @@ class EntryTokenInterceptorTest {
         maxQueueSize = 50000,
         enabled = true,
     )
-    private val interceptor = EntryTokenInterceptor(authenticateUserUseCase, orderQueueStore, queueProperties)
+    private val interceptor = EntryTokenInterceptor(authenticateUserUseCase, verifyEntryTokenUseCase, queueProperties)
 
     private fun createRequest(method: String = "POST"): MockHttpServletRequest {
         val request = MockHttpServletRequest()
@@ -48,20 +49,20 @@ class EntryTokenInterceptorTest {
         @Test
         fun passWithToken() {
             every { authenticateUserUseCase.execute("testuser", "password123") } returns 1L
-            every { orderQueueStore.hasToken(1L) } returns true
+            every { verifyEntryTokenUseCase.execute(1L) } returns true
             val request = createRequest()
 
             val result = interceptor.preHandle(request, MockHttpServletResponse(), Any())
 
             assertThat(result).isTrue()
-            assertThat(request.getAttribute(EntryTokenInterceptor.RESOLVED_USER_ID_ATTRIBUTE)).isEqualTo(1L)
+            assertThat(request.getAttribute(RequestAttributes.RESOLVED_USER_ID)).isEqualTo(1L)
         }
 
         @DisplayName("토큰이 없으면 ENTRY_TOKEN_REQUIRED 예외가 발생한다")
         @Test
         fun rejectWithoutToken() {
             every { authenticateUserUseCase.execute("testuser", "password123") } returns 1L
-            every { orderQueueStore.hasToken(1L) } returns false
+            every { verifyEntryTokenUseCase.execute(1L) } returns false
 
             val exception = assertThrows<CoreException> {
                 interceptor.preHandle(createRequest(), MockHttpServletResponse(), Any())
@@ -77,7 +78,7 @@ class EntryTokenInterceptorTest {
             val result = interceptor.preHandle(request, MockHttpServletResponse(), Any())
 
             assertThat(result).isTrue()
-            verify(exactly = 0) { orderQueueStore.hasToken(any()) }
+            verify(exactly = 0) { verifyEntryTokenUseCase.execute(any()) }
         }
 
         @DisplayName("인증 헤더가 없으면 토큰 검증 없이 통과한다")
@@ -101,27 +102,27 @@ class EntryTokenInterceptorTest {
             val result = interceptor.preHandle(createRequest(), MockHttpServletResponse(), Any())
 
             assertThat(result).isTrue()
-            verify(exactly = 0) { orderQueueStore.hasToken(any()) }
+            verify(exactly = 0) { verifyEntryTokenUseCase.execute(any()) }
         }
 
         @DisplayName("Redis 장애 시 fail-open으로 통과시킨다")
         @Test
         fun failOpenOnRedisFailure() {
             every { authenticateUserUseCase.execute("testuser", "password123") } returns 1L
-            every { orderQueueStore.hasToken(1L) } throws RedisConnectionFailureException("Connection refused")
+            every { verifyEntryTokenUseCase.execute(1L) } throws RedisConnectionFailureException("Connection refused")
             val request = createRequest()
 
             val result = interceptor.preHandle(request, MockHttpServletResponse(), Any())
 
             assertThat(result).isTrue()
-            assertThat(request.getAttribute(EntryTokenInterceptor.RESOLVED_USER_ID_ATTRIBUTE)).isEqualTo(1L)
+            assertThat(request.getAttribute(RequestAttributes.RESOLVED_USER_ID)).isEqualTo(1L)
         }
 
         @DisplayName("enabled가 false이면 토큰 검증 없이 통과한다")
         @Test
         fun passWhenDisabled() {
             val disabledProperties = queueProperties.copy(enabled = false)
-            val disabledInterceptor = EntryTokenInterceptor(authenticateUserUseCase, orderQueueStore, disabledProperties)
+            val disabledInterceptor = EntryTokenInterceptor(authenticateUserUseCase, verifyEntryTokenUseCase, disabledProperties)
 
             val result = disabledInterceptor.preHandle(createRequest(), MockHttpServletResponse(), Any())
 

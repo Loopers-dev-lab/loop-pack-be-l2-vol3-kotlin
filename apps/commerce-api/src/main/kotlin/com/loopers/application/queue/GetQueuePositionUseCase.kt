@@ -37,33 +37,15 @@ class GetQueuePositionUseCase(
         val position = orderQueueStore.getPosition(userId)
             ?: return QueuePositionInfo.notInQueue()
 
-        val estimatedWaitSeconds = calculateEstimatedWaitSeconds(position)
-        val suggestedPollIntervalMs = calculatePollInterval(position)
+        val estimatedWaitSeconds = QueueCalculator.estimatedWaitSeconds(
+            position, queueProperties.scheduler.batchSize, queueProperties.scheduler.intervalMs,
+        )
+        val suggestedPollIntervalMs = QueueCalculator.suggestedPollIntervalMs(position)
 
         return QueuePositionInfo.waiting(
             position = position,
             estimatedWaitSeconds = estimatedWaitSeconds,
             suggestedPollIntervalMs = suggestedPollIntervalMs,
         )
-    }
-
-    private fun calculateEstimatedWaitSeconds(position: Long): Long {
-        val batchSize = queueProperties.scheduler.batchSize
-        val intervalMs = queueProperties.scheduler.intervalMs
-        val batchesPerSecond = 1000.0 / intervalMs
-        val throughputPerSecond = batchSize * batchesPerSecond
-        return if (throughputPerSecond > 0) {
-            (position / throughputPerSecond).toLong()
-        } else {
-            0L
-        }
-    }
-
-    private fun calculatePollInterval(position: Long): Long {
-        return when {
-            position <= 100 -> 1000L
-            position <= 1000 -> 3000L
-            else -> 5000L
-        }
     }
 }

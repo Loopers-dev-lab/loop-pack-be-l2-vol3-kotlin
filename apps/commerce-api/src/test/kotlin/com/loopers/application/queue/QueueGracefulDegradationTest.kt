@@ -2,6 +2,7 @@ package com.loopers.application.queue
 
 import com.loopers.domain.queue.OrderQueueStore
 import com.loopers.interfaces.api.queue.EntryTokenInterceptor
+import com.loopers.support.constant.AuthHeaders
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.QueueErrorCode
 import io.mockk.every
@@ -12,6 +13,8 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.data.redis.RedisConnectionFailureException
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
 
 class QueueGracefulDegradationTest {
 
@@ -56,17 +59,18 @@ class QueueGracefulDegradationTest {
         @Test
         fun tokenVerificationFailOpen() {
             val authenticateUserUseCase = mockk<com.loopers.application.user.AuthenticateUserUseCase>()
+            val verifyEntryTokenUseCase = mockk<VerifyEntryTokenUseCase>()
             every { authenticateUserUseCase.execute(any(), any()) } returns 1L
-            every { orderQueueStore.hasToken(any()) } throws RedisConnectionFailureException("Connection refused")
+            every { verifyEntryTokenUseCase.execute(any()) } throws RedisConnectionFailureException("Connection refused")
 
-            val interceptor = EntryTokenInterceptor(authenticateUserUseCase, orderQueueStore, queueProperties)
-            val request = org.springframework.mock.web.MockHttpServletRequest().apply {
+            val interceptor = EntryTokenInterceptor(authenticateUserUseCase, verifyEntryTokenUseCase, queueProperties)
+            val request = MockHttpServletRequest().apply {
                 method = "POST"
-                addHeader(com.loopers.support.constant.AuthHeaders.User.LOGIN_ID, "testuser")
-                addHeader(com.loopers.support.constant.AuthHeaders.User.LOGIN_PW, "password123")
+                addHeader(AuthHeaders.User.LOGIN_ID, "testuser")
+                addHeader(AuthHeaders.User.LOGIN_PW, "password123")
             }
 
-            val result = interceptor.preHandle(request, org.springframework.mock.web.MockHttpServletResponse(), Any())
+            val result = interceptor.preHandle(request, MockHttpServletResponse(), Any())
 
             assertThat(result).isTrue()
         }
@@ -79,8 +83,6 @@ class QueueGracefulDegradationTest {
             val scheduler = QueueTokenScheduler(orderQueueStore, queueProperties)
 
             scheduler.issueTokens()
-
-            // 예외가 발생하지 않고 정상 종료되면 성공
         }
     }
 }

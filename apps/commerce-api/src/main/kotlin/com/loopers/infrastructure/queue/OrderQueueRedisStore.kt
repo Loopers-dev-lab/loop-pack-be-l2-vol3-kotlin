@@ -1,9 +1,9 @@
 package com.loopers.infrastructure.queue
 
-import com.loopers.application.queue.QueueProperties
 import com.loopers.config.redis.RedisConfig
 import com.loopers.domain.queue.OrderQueueStore
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ClassPathResource
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.core.script.RedisScript
@@ -13,16 +13,14 @@ import org.springframework.stereotype.Component
 class OrderQueueRedisStore(
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val redisTemplate: RedisTemplate<String, String>,
-    private val queueProperties: QueueProperties,
+    @Value("\${queue.redis.queue-key}") private val queueKey: String,
+    @Value("\${queue.redis.token-key-prefix}") private val tokenKeyPrefix: String,
 ) : OrderQueueStore {
 
     private val tokenIssueScript: RedisScript<Long> = RedisScript.of(
         ClassPathResource("redis/queue-token-issue.lua"),
         Long::class.java,
     )
-
-    private val queueKey: String get() = queueProperties.redis.queueKey
-    private val tokenKeyPrefix: String get() = queueProperties.redis.tokenKeyPrefix
 
     override fun enqueue(userId: Long, score: Double): Boolean {
         return redisTemplate.opsForZSet().addIfAbsent(queueKey, userId.toString(), score) ?: false

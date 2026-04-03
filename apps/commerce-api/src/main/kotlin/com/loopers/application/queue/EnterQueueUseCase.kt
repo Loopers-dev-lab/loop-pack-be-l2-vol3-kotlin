@@ -46,24 +46,14 @@ class EnterQueueUseCase(
         orderQueueStore.enqueue(userId, System.currentTimeMillis().toDouble())
 
         val position = orderQueueStore.getPosition(userId) ?: 0L
-        val estimatedWaitSeconds = calculateEstimatedWaitSeconds(position)
+        val estimatedWaitSeconds = QueueCalculator.estimatedWaitSeconds(
+            position, queueProperties.scheduler.batchSize, queueProperties.scheduler.intervalMs,
+        )
 
         return QueueEntryInfo(
             position = position,
             estimatedWaitSeconds = estimatedWaitSeconds,
             alreadyHasToken = false,
         )
-    }
-
-    private fun calculateEstimatedWaitSeconds(position: Long): Long {
-        val batchSize = queueProperties.scheduler.batchSize
-        val intervalMs = queueProperties.scheduler.intervalMs
-        val batchesPerSecond = 1000.0 / intervalMs
-        val throughputPerSecond = batchSize * batchesPerSecond
-        return if (throughputPerSecond > 0) {
-            (position / throughputPerSecond).toLong()
-        } else {
-            0L
-        }
     }
 }

@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.auth
 
 import com.loopers.application.user.AuthenticateUserUseCase
 import com.loopers.support.constant.AuthHeaders
+import com.loopers.support.constant.RequestAttributes
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.UserErrorCode
 import org.springframework.core.MethodParameter
@@ -29,7 +30,7 @@ class CurrentUserIdArgumentResolver(
         binderFactory: WebDataBinderFactory?,
     ): Long {
         val cachedUserId = (webRequest as? ServletWebRequest)
-            ?.request?.getAttribute(RESOLVED_USER_ID_ATTRIBUTE) as? Long
+            ?.request?.getAttribute(RequestAttributes.RESOLVED_USER_ID) as? Long
         if (cachedUserId != null) return cachedUserId
 
         val loginId = webRequest.getHeader(AuthHeaders.User.LOGIN_ID)
@@ -40,7 +41,4 @@ class CurrentUserIdArgumentResolver(
         return authenticateUserUseCase.execute(loginId, password)
     }
 
-    companion object {
-        private const val RESOLVED_USER_ID_ATTRIBUTE = "resolvedUserId"
-    }
 }
