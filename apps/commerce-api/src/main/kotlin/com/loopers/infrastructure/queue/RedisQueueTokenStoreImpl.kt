@@ -96,10 +96,20 @@ class RedisQueueTokenStoreImpl(
     override fun activeCount(): Long {
         return try {
             val members = redisTemplate.opsForSet().members(TOKEN_MEMBERS_KEY) ?: return 0L
-            // TTL 만료된 멤버 정리 (lazy cleanup)
-            val expired = members.filter { memberId ->
-                redisTemplate.opsForValue().get(tokenKey(memberId.toLong())) == null
+            if (members.isEmpty()) return 0L
+
+            // Pipeline으로 일괄 조회 (N번 round-trip → 1번)
+            val tokenResults = redisTemplate.executePipelined { connection ->
+                members.forEach { memberId ->
+                    connection.stringCommands().get(tokenKey(memberId.toLong()).toByteArray())
+                }
+                null
             }
+
+            val expired = members.zip(tokenResults)
+                .filter { (_, token) -> token == null }
+                .map { (memberId, _) -> memberId }
+
             if (expired.isNotEmpty()) {
                 masterRedisTemplate.opsForSet().remove(TOKEN_MEMBERS_KEY, *expired.toTypedArray())
             }
