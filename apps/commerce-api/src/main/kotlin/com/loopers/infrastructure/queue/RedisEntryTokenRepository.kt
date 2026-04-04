@@ -19,8 +19,6 @@ class RedisEntryTokenRepository(
 ) : EntryTokenRepository {
 
     companion object {
-        private const val TOKEN_KEY_PREFIX = "entry-token:"
-
         /**
          * Lua 스크립트: 원자적으로 토큰을 검증하고 소비한다.
          * GET + 비교 + 조건부 DEL을 단일 원자 연산으로 수행.
@@ -42,7 +40,7 @@ class RedisEntryTokenRepository(
         )
     }
 
-    private fun tokenKey(userId: UserId) = "$TOKEN_KEY_PREFIX${userId.value}"
+    private fun tokenKey(userId: UserId) = "${RedisQueueConstants.TOKEN_KEY_PREFIX}${userId.value}"
 
     override fun issue(userId: UserId, token: String, ttlSeconds: Long) {
         redisTemplate.opsForValue().set(

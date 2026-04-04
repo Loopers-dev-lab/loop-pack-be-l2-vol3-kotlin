@@ -18,9 +18,6 @@ class RedisWaitingQueueRepository(
 ) : WaitingQueueRepository {
 
     companion object {
-        private const val QUEUE_KEY = "waiting-queue"
-        private const val TOKEN_KEY_PREFIX = "entry-token:"
-
         /**
          * Lua 스크립트: 원자적으로 토큰 보유 여부 확인 + 상한 검증 + 대기열 진입 수행.
          * score는 Redis 서버 타임스탬프(TIME 커맨드)로 생성하여 Double 정밀도 한계를 회피한다.
@@ -59,7 +56,7 @@ class RedisWaitingQueueRepository(
     override fun enter(userId: UserId, maxCapacity: Int): EnterResult {
         val result = redisTemplate.execute(
             ENTER_SCRIPT,
-            listOf(QUEUE_KEY, tokenKey(userId)),
+            listOf(RedisQueueConstants.QUEUE_KEY, tokenKey(userId)),
             userId.value.toString(),
             maxCapacity.toString(),
         )
@@ -72,12 +69,12 @@ class RedisWaitingQueueRepository(
     }
 
     override fun findPosition(userId: UserId): Long? {
-        return redisTemplate.opsForZSet().rank(QUEUE_KEY, userId.value.toString())
+        return redisTemplate.opsForZSet().rank(RedisQueueConstants.QUEUE_KEY, userId.value.toString())
     }
 
     override fun count(): Long {
-        return redisTemplate.opsForZSet().zCard(QUEUE_KEY) ?: 0L
+        return redisTemplate.opsForZSet().zCard(RedisQueueConstants.QUEUE_KEY) ?: 0L
     }
 
-    private fun tokenKey(userId: UserId) = "$TOKEN_KEY_PREFIX${userId.value}"
+    private fun tokenKey(userId: UserId) = "${RedisQueueConstants.TOKEN_KEY_PREFIX}${userId.value}"
 }

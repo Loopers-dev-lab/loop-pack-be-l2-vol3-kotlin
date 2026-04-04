@@ -18,13 +18,11 @@ class RedisQueueTokenBatchProcessor(
 ) : QueueTokenBatchProcessor {
 
     companion object {
-        private const val QUEUE_KEY = "waiting-queue"
-        private const val TOKEN_KEY_PREFIX = "entry-token:"
-
         /**
          * Lua 스크립트: 대기열 앞에서 N명을 꺼내고 각 사용자 토큰을 원자적으로 발급한다.
          *
          * KEYS[1] = waiting-queue
+         * KEYS[2] = entry-token: (토큰 키 접두사)
          * ARGV[1] = count
          * ARGV[2] = ttlSeconds
          *
@@ -48,7 +46,7 @@ class RedisQueueTokenBatchProcessor(
             for i = 1, #popped, 2 do
                 local userId = popped[i]
                 local token = redis.sha1hex(userId .. ':' .. time[1] .. ':' .. time[2] .. ':' .. i)
-                redis.call('SET', 'entry-token:' .. userId, token, 'EX', ARGV[2])
+                redis.call('SET', KEYS[2] .. userId, token, 'EX', ARGV[2])
                 table.insert(issued, userId)
                 table.insert(issued, token)
             end
@@ -63,7 +61,7 @@ class RedisQueueTokenBatchProcessor(
         @Suppress("UNCHECKED_CAST")
         val rawResult = redisTemplate.execute(
             POP_AND_ISSUE_SCRIPT,
-            listOf(QUEUE_KEY),
+            listOf(RedisQueueConstants.QUEUE_KEY, RedisQueueConstants.TOKEN_KEY_PREFIX),
             count.toString(),
             ttlSeconds.toString(),
         ) as? List<*> ?: return emptyList()
