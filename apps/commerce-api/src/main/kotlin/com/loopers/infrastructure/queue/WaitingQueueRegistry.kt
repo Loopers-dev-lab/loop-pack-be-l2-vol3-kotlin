@@ -40,13 +40,27 @@ class WaitingQueueRegistry(
                         throughputPerServerPerSecond = annotation.throughputPerServerPerSecond,
                         activeTokenTTLSeconds = annotation.activeTokenTTLSeconds,
                     )
-                    result[annotation.name] = config
-                    log.info(
-                        "[WaitingQueueRegistry] 큐 등록 완료. name={}, throughput={}, ttl={}",
-                        annotation.name,
-                        annotation.throughputPerServerPerSecond,
-                        annotation.activeTokenTTLSeconds,
-                    )
+                    val existingConfig = result[annotation.name]
+                    if (existingConfig != null) {
+                        if (existingConfig != config) {
+                            throw IllegalStateException(
+                                "Conflicting @WaitingQueue configuration for queue name='${annotation.name}'. " +
+                                    "Existing: throughput=${existingConfig.throughputPerServerPerSecond}, " +
+                                    "ttl=${existingConfig.activeTokenTTLSeconds}. " +
+                                    "New: throughput=${config.throughputPerServerPerSecond}, " +
+                                    "ttl=${config.activeTokenTTLSeconds}. " +
+                                    "All controllers using the same queue name must declare identical parameters.",
+                            )
+                        }
+                    } else {
+                        result[annotation.name] = config
+                        log.info(
+                            "[WaitingQueueRegistry] 큐 등록 완료. name={}, throughput={}, ttl={}",
+                            annotation.name,
+                            annotation.throughputPerServerPerSecond,
+                            annotation.activeTokenTTLSeconds,
+                        )
+                    }
                 }
             }
         }

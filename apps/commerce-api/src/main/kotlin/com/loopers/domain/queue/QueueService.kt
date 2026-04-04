@@ -43,27 +43,32 @@ class QueueService(
         userId: Long,
         throughputPerServerPerSecond: Int,
     ): QueuePositionInfo {
-        val token = queueRepository.getToken(queueName, userId)
-        if (token != null) {
-            return QueuePositionInfo(
+        return runCatching {
+            val token = queueRepository.getToken(queueName, userId)
+            if (token != null) {
+                return@runCatching QueuePositionInfo(
+                    queueName = queueName,
+                    userId = userId,
+                    position = 0,
+                    estimatedWaitSeconds = 0,
+                    token = token,
+                )
+            }
+
+            val rank = queueRepository.getRank(queueName, userId)
+                ?: throw CoreException(ErrorType.QUEUE_NOT_FOUND)
+            val position = rank + 1
+
+            QueuePositionInfo(
                 queueName = queueName,
                 userId = userId,
-                position = 0,
-                estimatedWaitSeconds = 0,
-                token = token,
+                position = position,
+                estimatedWaitSeconds = estimatedWaitSeconds(position, throughputPerServerPerSecond),
             )
-        }
-
-        val rank = queueRepository.getRank(queueName, userId)
-            ?: throw CoreException(ErrorType.QUEUE_NOT_FOUND)
-        val position = rank + 1
-
-        return QueuePositionInfo(
-            queueName = queueName,
-            userId = userId,
-            position = position,
-            estimatedWaitSeconds = estimatedWaitSeconds(position, throughputPerServerPerSecond),
-        )
+        }.onFailure { e ->
+            if (e is CoreException) throw e
+            throw CoreException(ErrorType.SERVICE_TEMPORARILY_UNAVAILABLE)
+        }.getOrThrow()
     }
 
     private fun estimatedWaitSeconds(position: Long, throughputPerSecond: Int): Long =
@@ -73,12 +78,17 @@ class QueueService(
         queueName: String,
         throughputPerServerPerSecond: Int,
     ): QueueStatusInfo {
-        val totalWaiting = queueRepository.size(queueName)
+        return runCatching {
+            val totalWaiting = queueRepository.size(queueName)
 
-        return QueueStatusInfo(
-            queueName = queueName,
-            totalWaiting = totalWaiting,
-            throughputPerSecond = throughputPerServerPerSecond.toLong(),
-        )
+            QueueStatusInfo(
+                queueName = queueName,
+                totalWaiting = totalWaiting,
+                throughputPerSecond = throughputPerServerPerSecond.toLong(),
+            )
+        }.onFailure { e ->
+            if (e is CoreException) throw e
+            throw CoreException(ErrorType.SERVICE_TEMPORARILY_UNAVAILABLE)
+        }.getOrThrow()
     }
 }

@@ -26,7 +26,7 @@ class QueueConcurrencyIntegrationTest @Autowired constructor(
     private lateinit var queueScheduler: QueueScheduler
 
     companion object {
-        private const val QUEUE_NAME = "order-queue"
+        private const val QUEUE_NAME = "concurrency-integration-test-queue"
         private const val BATCH_SIZE = 17L
     }
 

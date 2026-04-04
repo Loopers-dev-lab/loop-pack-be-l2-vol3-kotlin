@@ -14,6 +14,7 @@ import com.loopers.domain.user.vo.Email
 import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
+import com.loopers.infrastructure.outbox.OutboxRepository
 import com.loopers.support.eventually
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -47,6 +48,7 @@ class ProductCachingE2ETest @Autowired constructor(
     private val cacheManager: CacheManager,
     private val databaseCleanUp: DatabaseCleanUp,
     private val passwordEncoder: PasswordEncoder,
+    private val outboxRepository: OutboxRepository,
 ) {
     companion object {
         private const val TEST_PASSWORD = "password123"
@@ -287,9 +289,8 @@ class ProductCachingE2ETest @Autowired constructor(
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Requires Kafka integration - AfterCommit pattern processes asynchronously")
-    @DisplayName("캐시 워밍 후 좋아요하면 상품 상세 likeCount는 최신 값을 반영해야 한다")
-    fun testProductDetailLikeCountRefreshesAfterLikeWhenCacheWarmed() {
+    @DisplayName("좋아요 요청 후 ProductLiked 이벤트가 Outbox에 발행된다")
+    fun testProductLikedEventIsPublishedToOutboxOnLike() {
         // Given
         val loginId = nextLoginId("clu")
         createUser(loginId)
@@ -308,25 +309,20 @@ class ProductCachingE2ETest @Autowired constructor(
             status { isOk() }
         }
 
-        // Then
+        // Then - Outbox에 LikeCountEvent(INCREMENT) 이벤트가 발행되었는지 확인
         eventually {
-            val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
-            assertThat(projectionLikeCount).isEqualTo(1)
-        }
-
-        eventually {
-            val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
-                .andExpect { status { isOk() } }
-                .andReturn()
-                .response
-            assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(1)
+            val outboxEvents = outboxRepository.findAll()
+            val likeCountEvent = outboxEvents.find {
+                it.aggregateId == testProduct.id && it.eventType == "LikeCountEvent"
+            }
+            assertThat(likeCountEvent).isNotNull
+            assertThat(likeCountEvent!!.topic).isEqualTo("like-events")
         }
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Requires Kafka integration - AfterCommit pattern processes asynchronously")
-    @DisplayName("캐시 워밍 후 좋아요 취소하면 상품 상세 likeCount는 최신 값을 반영해야 한다")
-    fun testProductDetailLikeCountRefreshesAfterUnlikeWhenCacheWarmed() {
+    @DisplayName("좋아요 취소 요청 후 ProductUnliked 이벤트가 Outbox에 발행된다")
+    fun testProductUnlikedEventIsPublishedToOutboxOnUnlike() {
         // Given
         val loginId = nextLoginId("cul")
         createUser(loginId)
@@ -342,7 +338,10 @@ class ProductCachingE2ETest @Autowired constructor(
             .andExpect { status { isOk() } }
             .andReturn()
             .response
-        assertThat(extractLikeCount(warmedDetailResponse.contentAsString)).isEqualTo(1)
+        assertThat(extractLikeCount(warmedDetailResponse.contentAsString)).isEqualTo(0) // 아직 Consumer 처리 안 됨
+
+        // outbox 초기화 (좋아요 이벤트 제거)
+        outboxRepository.deleteAll()
 
         // When
         mockMvc.delete("/api/v1/products/${testProduct.id}/likes") {
@@ -352,18 +351,14 @@ class ProductCachingE2ETest @Autowired constructor(
             status { isOk() }
         }
 
-        // Then
+        // Then - Outbox에 LikeCountEvent(DECREMENT) 이벤트가 발행되었는지 확인
         eventually {
-            val projectionLikeCount = productLikeCountRepository.findByProductId(testProduct.id!!)?.likeCount ?: 0
-            assertThat(projectionLikeCount).isEqualTo(0)
-        }
-
-        eventually {
-            val rereadDetailResponse = mockMvc.get("/api/v1/products/${testProduct.id}")
-                .andExpect { status { isOk() } }
-                .andReturn()
-                .response
-            assertThat(extractLikeCount(rereadDetailResponse.contentAsString)).isEqualTo(0)
+            val outboxEvents = outboxRepository.findAll()
+            val likeCountEvent = outboxEvents.find {
+                it.aggregateId == testProduct.id && it.eventType == "LikeCountEvent"
+            }
+            assertThat(likeCountEvent).isNotNull
+            assertThat(likeCountEvent!!.topic).isEqualTo("like-events")
         }
     }
 

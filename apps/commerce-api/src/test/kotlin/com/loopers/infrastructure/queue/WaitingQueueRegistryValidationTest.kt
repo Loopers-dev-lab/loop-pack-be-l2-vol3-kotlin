@@ -85,6 +85,63 @@ class WaitingQueueRegistryValidationTest {
             assert(config.activeTokenTTLSeconds == 300)
         }
     }
+
+    @DisplayName("동일한 큐 이름 검증")
+    @Nested
+    inner class ConflictingQueueConfigTest {
+
+        @Test
+        fun `같은 큐 이름이지만 throughput이 다르면 예외를 발생시킨다`() {
+            // arrange
+            val applicationContext = mockk<ApplicationContext>()
+            every { applicationContext.getBeansWithAnnotation(RestController::class.java) } returns mapOf(
+                "controller1" to ConflictingThroughputController1(),
+                "controller2" to ConflictingThroughputController2(),
+            )
+            registry = WaitingQueueRegistry(applicationContext)
+
+            // act & assert
+            assertThrows<IllegalStateException> {
+                registry.afterSingletonsInstantiated()
+            }
+        }
+
+        @Test
+        fun `같은 큐 이름이지만 TTL이 다르면 예외를 발생시킨다`() {
+            // arrange
+            val applicationContext = mockk<ApplicationContext>()
+            every { applicationContext.getBeansWithAnnotation(RestController::class.java) } returns mapOf(
+                "controller1" to ConflictingTTLController1(),
+                "controller2" to ConflictingTTLController2(),
+            )
+            registry = WaitingQueueRegistry(applicationContext)
+
+            // act & assert
+            assertThrows<IllegalStateException> {
+                registry.afterSingletonsInstantiated()
+            }
+        }
+
+        @Test
+        fun `같은 큐 이름이고 모든 설정이 일치하면 정상 등록된다`() {
+            // arrange
+            val applicationContext = mockk<ApplicationContext>()
+            every { applicationContext.getBeansWithAnnotation(RestController::class.java) } returns mapOf(
+                "controller1" to IdenticalConfigController1(),
+                "controller2" to IdenticalConfigController2(),
+            )
+            registry = WaitingQueueRegistry(applicationContext)
+
+            // act
+            registry.afterSingletonsInstantiated()
+
+            // assert
+            val config = registry.getQueueConfig("same-queue")
+            assert(config != null)
+            assert(config!!.throughputPerServerPerSecond == 100)
+            assert(config.activeTokenTTLSeconds == 300)
+        }
+    }
 }
 
 class InvalidThroughputController {
@@ -110,6 +167,48 @@ class InvalidNameController {
 
 class ValidController {
     @WaitingQueue(name = "valid-queue", throughputPerServerPerSecond = 100, activeTokenTTLSeconds = 300)
+    fun issue() {
+        // dummy
+    }
+}
+
+class ConflictingThroughputController1 {
+    @WaitingQueue(name = "conflict-queue", throughputPerServerPerSecond = 100, activeTokenTTLSeconds = 300)
+    fun issue() {
+        // dummy
+    }
+}
+
+class ConflictingThroughputController2 {
+    @WaitingQueue(name = "conflict-queue", throughputPerServerPerSecond = 200, activeTokenTTLSeconds = 300)
+    fun issue() {
+        // dummy
+    }
+}
+
+class ConflictingTTLController1 {
+    @WaitingQueue(name = "conflict-queue", throughputPerServerPerSecond = 100, activeTokenTTLSeconds = 300)
+    fun issue() {
+        // dummy
+    }
+}
+
+class ConflictingTTLController2 {
+    @WaitingQueue(name = "conflict-queue", throughputPerServerPerSecond = 100, activeTokenTTLSeconds = 600)
+    fun issue() {
+        // dummy
+    }
+}
+
+class IdenticalConfigController1 {
+    @WaitingQueue(name = "same-queue", throughputPerServerPerSecond = 100, activeTokenTTLSeconds = 300)
+    fun issue() {
+        // dummy
+    }
+}
+
+class IdenticalConfigController2 {
+    @WaitingQueue(name = "same-queue", throughputPerServerPerSecond = 100, activeTokenTTLSeconds = 300)
     fun issue() {
         // dummy
     }
