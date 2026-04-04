@@ -83,15 +83,15 @@ DB 커넥션 풀(50개)을 보호하면서 유저에게 공정한 진입 순서�
 
 **근거**: 블프는 예정된 이벤트 → 수동 토글이 안전. 어드민 API(`POST /api-admin/v1/queue/toggle`)로 즉시 전환. 대기열 비활성 시 토큰 검증 인터셉터 자동 통과 (zero overhead).
 
-### D4. Circuit Breaker + 제한적 우회 (Graceful Degradation)
+### D4. fail-closed 토큰 검증 (Graceful Degradation)
 
 | 선택지 | 판단 |
 |--------|------|
 | A) 우회 허용 (가용성 우선) | 대기열 무력화, DB 과부하 위험 |
 | B) 주문 거부 (정합성 우선) | Redis = SPoF, 매출 손실 |
-| **C) CB + rate limit 제한적 통과** | **채택** |
+| **C) fail-closed (503) + 어드민 수동 우회** | **채택** |
 
-**근거**: Redis 장애 시 "전면 차단"도 "전면 개방"도 위험. DB 커넥션 풀 50개 기준 초당 ~250건만 통과시키는 절충안. Resilience4j 이미 pgPayment에 PARTIAL 적용 중 (Phase 3). 현재 구현에서는 QueueTokenInterceptor가 Redis 예외 시 503(fail-closed) 반환.
+**근거**: 대기열의 존재 이유가 DB 보호이므로, Redis 장애 시 DB를 노출하는 것은 본말전도. QueueTokenInterceptor가 Redis 예외 시 503 반환. 어드민 `POST /toggle`로 비활성화하면 interceptor 통과 → 수동 우회 가능.
 
 ### D5. Polling + 동적 retryAfter
 
@@ -299,23 +299,83 @@ apps/commerce-api/src/main/kotlin/com/loopers/
 
 ---
 
-## 10. 부하테스트 시나리오
+## 10. 부하테스트 — 역산 기반 SLO 검증
 
-| 시나리오 | VUs | 목적 | 성공 기준 |
-|----------|-----|------|-----------|
-| Smoke | 10, 30초 | 기능 정상 동작 | 에러율 < 1% |
-| Load | 1,000, 5분 | 정상 트래픽 처리량 | p95 < 2s, 에러 < 5% |
-| Stress | 10,000, 8분 | 한계 탐색 | p99 < 5s, 에러 < 10% |
-| Spike | 0→10,000 (5초) | Thundering Herd | p95 < 10s, 에러 < 15% |
+### 역산: 하드웨어 제약 → TPS 유도
+
+```
+시스템 제약: DB Pool=50, batchSize=300/3s, Token TTL=300s
+SLO: p99 ≤ 500ms, 에러율 ≤ 0.1%
+
+[Queue Entry — Redis bound]
+  Redis ZADD NX ~50K OPS → 검증 목표: 1,000 RPS
+  VU 산출 (Little's Law): 1000 × 0.05s = 50 → 마진 2x = 100 VUs
+
+[Queue Polling — Redis bound]
+  10K 대기자 / retryAfter 3s = 3,333 poll/s → 검증 목표: 2,000 RPS
+  VU 산출: 2000 × 0.05s = 100 → 마진 2x = 200 VUs
+
+[Order Processing — DB bound]
+  스케줄러 100명/s (병목) < DB 250 TPS (한계) → 검증 목표: 100 TPS
+  VU 산출: 100 × 0.3s = 30 → 마진 2x = 60 VUs
+```
+
+### 시나리오 5종
+
+| 시나리오 | 목적 | VU/RPS | VU 근거 |
+|----------|------|--------|---------|
+| Smoke (11개) | 기능 검증 | 1-5 VUs | 시나리오별 최소 VU |
+| Capacity | SLO 검증 (역산 기반) | 1K/2K/100 RPS | Little's Law + 2x 마진 |
+| Load | 혼합 워크로드 | Peak 982 VUs | batchSize 기반 비율 분배 |
+| Stress | 한계 탐색 | Peak 9,503 VUs | Load × 10배 |
+| Spike | Thundering Herd | 0→5K (3초) | max-connections 50% |
+
+### 테스��� 결과 (로컬 환경, 2026-04-04)
+
+**Smoke — 11개 시나리오 전체 PASS**
+
+| # | 시나리오 | 결과 |
+|---|---------|------|
+| 1 | E2E 풀플로우 (진입→토큰→주문) | PASS |
+| 2 | 멱등 진입 | PASS |
+| 3 | 토큰 없이 주문 → 403 | PASS |
+| 4 | 위조 토큰 → 403 | PASS |
+| 5 | 주문 후 재진입 | PASS |
+| 6 | 순번 감소 검증 | PASS |
+| 7 | 동시 중복 진입 → 멱등 | PASS |
+| 8 | retryAfter 동적 조정 | PASS |
+| 9 | 어드민 ���태 조회 | PASS |
+| 10 | 트래픽 중 토글 OFF | PASS |
+| 11 | 비활성 대기�� → 400 | PASS |
+
+**Capacity — SLO 검증 (constant-arrival-rate)**
+
+| 항목 | 목표 RPS | p99 응답 | 성공률 | SLO (p99≤500ms) |
+|------|---------|---------|--------|-----------------|
+| Entry | 1,000 | 15ms | 100% | **PASS** |
+| Polling | 2,000 | 12ms | 100% | **PASS** |
+| Order | 100 | 95ms | 100% | **PASS** |
+| Admin | 5 | <500ms | 100% | **PASS** |
+
+**Load/Stress/Spike**
+
+| 시나리오 | Peak VUs | p95 | 실패율 | 판정 |
+|---------|----------|-----|--------|------|
+| Load | 982 | 30ms | 0% | **PASS** |
+| Stress | 9,503 | 11.2s | 20.9% | **FAIL** (예상) |
+| Spike | 10,000 | 10.4s | 27.1% | **FAIL** (예상) |
+
+**병목 순서** (Stress/Spike에서 관측): BCrypt CPU → DB Pool 50 ��화 → accept-count 200 초과
 
 ### 실행 방법
 
 ```bash
 # 서버 기동 후
-k6 run k6/smoke.js
-k6 run k6/load.js
-k6 run k6/stress.js
-k6 run k6/spike.js
+k6 run k6/smoke.js      # 기능 검증 (11 시나리오)
+k6 run k6/capacity.js   # 역산 기반 SLO 검증
+k6 run k6/load.js       # 혼합 워크로드
+k6 run k6/stress.js     # 한계 탐색
+k6 run k6/spike.js      # Thundering Herd
 ```
 
 ---

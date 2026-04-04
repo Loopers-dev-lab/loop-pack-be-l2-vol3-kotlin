@@ -23,6 +23,8 @@ graph LR
         A_ASPECT["DomainExceptionTranslator\n(@Aspect)"]
         A_AUTH_SVC["AuthService"]
         A_CACHE["ProductCacheStore\n(interface)"]
+        A_QUEUE["QueueStore · QueueTokenStore\nQueueConfigStore\n(interface)"]
+        A_QUEUE_SVC["QueueService\nQueueEntryScheduler"]
         A_EH["EventHandler\n(@TransactionalEventListener)"]
         A_CH["CommandHandler\n(REQUIRES_NEW / Kafka / TX 없음)"]
     end
@@ -37,6 +39,7 @@ graph LR
         D_COND["SearchCondition\nPageQuery / PageResult"]
         D_VALID["Validator"]
         D_ERR["CoreException\nErrorType"]
+        D_QUEUE["QueuePosition\nQueueErrorType"]
     end
 
     subgraph Infrastructure["Infrastructure Layer"]
@@ -47,6 +50,7 @@ graph LR
         I_DS_IMPL["BcryptPasswordEncryptor"]
         I_CONFIG["Config\n(CacheConfig 등)"]
         I_CACHE_IMPL["ProductCacheStoreImpl"]
+        I_QUEUE_IMPL["RedisQueueStoreImpl\nRedisQueueTokenStoreImpl\nRedisQueueConfigStoreImpl"]
     end
 
     Presentation -->|"depends on"| Application
@@ -63,8 +67,8 @@ graph TD
         DTO["<b>Dto</b>\nRequest: HTTP 요청 바인딩 + @Valid\nResponse: HTTP 응답 직렬화"]
         CTRL["<b>Controller</b>\nHTTP 라우팅\nDto ↔ Command/Info 변환"]
         SPEC["<b>ApiSpec</b>\nSwagger 문서 인터페이스"]
-        ADVICE["<b>ApiControllerAdvice</b>\nApplicationException → HTTP 응답"]
-        INTERCEPTOR["<b>Interceptor</b>\n인증 헤더 검증\nAuthService(Application) 호출"]
+        ADVICE["<b>ApiControllerAdvice</b>\nApplicationException · CoreException → HTTP 응답"]
+        INTERCEPTOR["<b>Interceptor</b>\n인증 헤더 검증 · 대기열 토큰 검증\nAuthService · QueueService 호출"]
     end
 
     subgraph Application["Application Layer"]
