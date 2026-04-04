@@ -12,8 +12,6 @@ import com.loopers.domain.payment.PgClient
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.model.PaymentStatus
 import com.loopers.domain.payment.repository.PaymentRepository
-import com.loopers.support.error.CoreException
-import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -62,7 +60,11 @@ class RecoverPaymentUseCase(
                             }
 
                             val order = orderRepository.findByIdForUpdate(OrderId(orderId))
-                                ?: throw CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다.")
+                            if (order == null) {
+                                freshPayment.markRecoveryFailed("결제 복구 실패: 주문이 없음. orderId=$orderId")
+                                paymentRepository.save(freshPayment)
+                                return@executeWithoutResult
+                            }
 
                             when (detail.status) {
                                 PgResultStatus.SUCCESS -> {

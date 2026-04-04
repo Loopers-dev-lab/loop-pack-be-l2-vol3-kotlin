@@ -52,6 +52,7 @@ class ValidateEntryTokenUseCaseTest {
 
             // assert
             assertThat(exception.errorType).isEqualTo(ErrorType.FORBIDDEN)
+            assertThat(entryTokenRepository.find(UserId(1L))).isEqualTo("correct-token")
         }
 
         @Test

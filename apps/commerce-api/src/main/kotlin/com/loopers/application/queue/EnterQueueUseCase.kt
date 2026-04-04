@@ -7,6 +7,7 @@ import com.loopers.domain.queue.waiting.model.QueuePosition
 import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.slf4j.LoggerFactory
 import org.springframework.dao.DataAccessException
 import org.springframework.stereotype.Component
 
@@ -17,6 +18,8 @@ class EnterQueueUseCase(
     private val queueFallbackHandler: QueueFallbackHandler,
     private val queueProperties: QueueProperties,
 ) {
+
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun execute(userId: Long): QueuePositionInfo {
         if (!queueFallbackHandler.isAvailable()) {
@@ -48,6 +51,7 @@ class EnterQueueUseCase(
         } catch (e: CoreException) {
             throw e
         } catch (e: DataAccessException) {
+            log.error("대기열 진입 중 Redis 장애 발생. userId={}", userId, e)
             queueFallbackHandler.markUnavailable()
             throw CoreException(ErrorType.SERVICE_UNAVAILABLE, "대기열 서비스를 일시적으로 이용할 수 없습니다.")
         }

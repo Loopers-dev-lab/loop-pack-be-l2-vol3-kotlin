@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.NONE,
@@ -73,10 +74,12 @@ class QueueConcurrencyTest @Autowired constructor(
                 }
             }
         }
-        readyLatch.await()
+        assertThat(readyLatch.await(10, TimeUnit.SECONDS))
+            .describedAs("모든 스레드 준비 대기 타임아웃").isTrue()
         startLatch.countDown()
-        doneLatch.await()
-        executor.shutdown()
+        assertThat(doneLatch.await(30, TimeUnit.SECONDS))
+            .describedAs("모든 스레드 완료 대기 타임아웃").isTrue()
+        executor.shutdownNow()
 
         // assert — 전원 진입 성공
         assertThat(enteredUsers).hasSize(threadCount)

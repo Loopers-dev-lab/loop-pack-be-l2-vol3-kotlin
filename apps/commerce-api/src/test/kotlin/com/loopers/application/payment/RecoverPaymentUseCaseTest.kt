@@ -1,6 +1,7 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
@@ -298,6 +299,34 @@ class RecoverPaymentUseCaseTest {
             assertThat(payment.status).isEqualTo(PaymentStatus.RECOVERY_FAILED)
             assertThat(payment.reason).isEqualTo("결제 복구 실패: 주문 항목이 없음. orderId=${saved.id.value}")
             assertThat(pgClient.getTransactionCalls).containsExactly(saved.id.value)
+            assertThat(orderOutboxRepository.findAllUnpublished(100)).isEmpty()
+        }
+
+        @Test
+        @DisplayName("PG SUCCESS이지만 주문이 없으면 Payment RECOVERY_FAILED로 전환된다")
+        fun execute_pgSuccess_noOrder_marksRecoveryFailed() {
+            // arrange — 주문 없이 결제만 생성
+            val payment = Payment.create(
+                orderId = 999L,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+                amount = 10000L,
+            )
+            paymentRepository.save(payment)
+            pgClient.transactionDetail = PgTransactionDetail(
+                transactionKey = "TR-NOORDER",
+                orderId = 999L,
+                status = PgResultStatus.SUCCESS,
+            )
+
+            // act
+            val result = executeAndFlush(999L)
+
+            // assert
+            assertThat(result).isTrue()
+            val updatedPayment = requireNotNull(paymentRepository.findByOrderId(OrderId(999L))) { "orderId=999 결제가 존재해야 합니다" }
+            assertThat(updatedPayment.status).isEqualTo(PaymentStatus.RECOVERY_FAILED)
+            assertThat(updatedPayment.reason).isEqualTo("결제 복구 실패: 주문이 없음. orderId=999")
             assertThat(orderOutboxRepository.findAllUnpublished(100)).isEmpty()
         }
 
