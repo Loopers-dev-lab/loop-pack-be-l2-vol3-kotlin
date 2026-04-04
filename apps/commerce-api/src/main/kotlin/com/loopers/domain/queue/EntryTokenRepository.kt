@@ -2,7 +2,10 @@ package com.loopers.domain.queue
 
 interface EntryTokenRepository {
 
-    fun issue(userId: Long, token: String, ttlSeconds: Long)
+    /**
+     * @return true: 발급 성공, false: 발급 실패 (Redis 장애 등)
+     */
+    fun issue(userId: Long, token: String, ttlSeconds: Long): Boolean
 
     fun get(userId: Long): String?
 

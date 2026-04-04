@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -75,6 +76,15 @@ class OrderQueueRedisRepositoryFallbackTest {
 
             // assert
             assertThat(result).isEmpty()
+        }
+
+        @Test
+        @DisplayName("requeueFallback — 예외 없이 로그만 남긴다")
+        fun requeueFallback_doesNotThrow() {
+            // act & assert
+            assertDoesNotThrow {
+                repository.requeueFallback(listOf(1L, 2L), redisException)
+            }
         }
     }
 }

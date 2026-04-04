@@ -5,7 +5,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertDoesNotThrow
+
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
@@ -45,12 +45,13 @@ class EntryTokenRedisRepositoryFallbackTest {
         }
 
         @Test
-        @DisplayName("issueFallback — 예외 없이 무시한다")
-        fun issueFallback_doesNotThrow() {
-            // act & assert
-            assertDoesNotThrow {
-                repository.issueFallback(1L, "token", 300L, redisException)
-            }
+        @DisplayName("issueFallback — false를 반환한다")
+        fun issueFallback_returnsFalse() {
+            // act
+            val result = repository.issueFallback(1L, "token", 300L, redisException)
+
+            // assert
+            assertThat(result).isFalse()
         }
 
         @Test

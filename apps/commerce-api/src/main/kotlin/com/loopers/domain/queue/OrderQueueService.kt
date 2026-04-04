@@ -66,11 +66,25 @@ class OrderQueueService(
 
     fun admitUsers(batchSize: Long): List<Long> {
         val userIds = orderQueueRepository.popFront(batchSize)
+        val admitted = mutableListOf<Long>()
+        val failed = mutableListOf<Long>()
+
         userIds.forEach { userId ->
             val token = UUID.randomUUID().toString()
-            entryTokenRepository.issue(userId, token, ENTRY_TOKEN_TTL_SECONDS)
+            val success = entryTokenRepository.issue(userId, token, ENTRY_TOKEN_TTL_SECONDS)
+            if (success) {
+                admitted.add(userId)
+            } else {
+                failed.add(userId)
+            }
         }
-        return userIds
+
+        if (failed.isNotEmpty()) {
+            log.warn("토큰 발급 실패로 대기열 재진입: userIds={}", failed)
+            orderQueueRepository.requeue(failed)
+        }
+
+        return admitted
     }
 
     fun validateAndConsumeToken(userId: Long, token: String) {

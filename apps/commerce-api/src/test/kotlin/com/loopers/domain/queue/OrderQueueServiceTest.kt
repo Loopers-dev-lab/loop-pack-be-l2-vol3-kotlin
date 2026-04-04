@@ -229,6 +229,7 @@ class OrderQueueServiceTest {
             // arrange
             val batchSize = 3L
             whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L, 3L))
+            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(true)
 
             // act
             val result = orderQueueService.admitUsers(batchSize)
@@ -257,6 +258,7 @@ class OrderQueueServiceTest {
             // arrange
             val batchSize = 2L
             whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(10L, 20L))
+            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(true)
 
             // act
             orderQueueService.admitUsers(batchSize)
@@ -266,6 +268,59 @@ class OrderQueueServiceTest {
             verify(entryTokenRepository).issue(eq(10L), any(), any())
             verify(entryTokenRepository).issue(eq(20L), any(), any())
             verify(entryTokenRepository, times(2)).issue(any(), any(), any())
+        }
+
+        @Test
+        @DisplayName("토큰 발급에 실패한 유저는 승인 목록에서 제외되고 대기열에 재삽입된다")
+        fun requeueFailedUsers_whenTokenIssueFails() {
+            // arrange
+            val batchSize = 3L
+            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L, 3L))
+            whenever(entryTokenRepository.issue(eq(1L), any(), any())).thenReturn(true)
+            whenever(entryTokenRepository.issue(eq(2L), any(), any())).thenReturn(false)
+            whenever(entryTokenRepository.issue(eq(3L), any(), any())).thenReturn(true)
+
+            // act
+            val result = orderQueueService.admitUsers(batchSize)
+
+            // assert
+            assertAll(
+                { assertThat(result).containsExactly(1L, 3L) },
+                { verify(orderQueueRepository).requeue(listOf(2L)) },
+            )
+        }
+
+        @Test
+        @DisplayName("모든 유저의 토큰 발급이 실패하면 빈 목록을 반환하고 전원 재삽입한다")
+        fun requeueAllUsers_whenAllTokenIssuesFail() {
+            // arrange
+            val batchSize = 2L
+            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L))
+            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(false)
+
+            // act
+            val result = orderQueueService.admitUsers(batchSize)
+
+            // assert
+            assertAll(
+                { assertThat(result).isEmpty() },
+                { verify(orderQueueRepository).requeue(listOf(1L, 2L)) },
+            )
+        }
+
+        @Test
+        @DisplayName("모든 유저의 토큰 발급이 성공하면 requeue를 호출하지 않는다")
+        fun doesNotRequeue_whenAllTokenIssuesSucceed() {
+            // arrange
+            val batchSize = 2L
+            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L))
+            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(true)
+
+            // act
+            orderQueueService.admitUsers(batchSize)
+
+            // assert
+            verify(orderQueueRepository, times(0)).requeue(any())
         }
     }
 

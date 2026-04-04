@@ -51,6 +51,15 @@ class OrderQueueRedisRepository(
         return result.mapNotNull { it.value?.toLongOrNull() }
     }
 
+    @CircuitBreaker(name = CIRCUIT_BREAKER_NAME, fallbackMethod = "requeueFallback")
+    @Retry(name = CIRCUIT_BREAKER_NAME)
+    override fun requeue(userIds: List<Long>) {
+        val key = RedisKeys.orderQueueKey()
+        userIds.forEach { userId ->
+            masterZSet.add(key, userId.toString(), 0.0)
+        }
+    }
+
     // bypass: Redis 장애 시 대기열 없이 주문 허용 (PRD 14.3 설계 결정)
     internal fun enqueueFallback(userId: Long, score: Double, e: Exception): Boolean {
         log.warn("대기열 진입 bypass: userId={}", userId, e)
@@ -70,5 +79,9 @@ class OrderQueueRedisRepository(
     internal fun popFrontFallback(count: Long, e: Exception): List<Long> {
         log.warn("대기열 입장 허용 bypass", e)
         return emptyList()
+    }
+
+    internal fun requeueFallback(userIds: List<Long>, e: Exception) {
+        log.error("대기열 재삽입 실패: userIds={}", userIds, e)
     }
 }

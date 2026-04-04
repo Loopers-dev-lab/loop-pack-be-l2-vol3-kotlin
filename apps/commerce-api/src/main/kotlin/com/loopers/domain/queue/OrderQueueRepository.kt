@@ -18,4 +18,9 @@ interface OrderQueueRepository {
      * @return 꺼낸 userId 목록 (진입 순서)
      */
     fun popFront(count: Long): List<Long>
+
+    /**
+     * 토큰 발급 실패 등으로 대기열에서 이탈한 유저를 최우선 순위로 재삽입한다.
+     */
+    fun requeue(userIds: List<Long>)
 }

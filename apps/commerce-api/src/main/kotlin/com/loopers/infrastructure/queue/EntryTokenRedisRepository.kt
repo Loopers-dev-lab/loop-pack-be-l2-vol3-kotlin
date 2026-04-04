@@ -23,8 +23,9 @@ class EntryTokenRedisRepository(
 
     @CircuitBreaker(name = OrderQueueRedisRepository.CIRCUIT_BREAKER_NAME, fallbackMethod = "issueFallback")
     @Retry(name = OrderQueueRedisRepository.CIRCUIT_BREAKER_NAME)
-    override fun issue(userId: Long, token: String, ttlSeconds: Long) {
+    override fun issue(userId: Long, token: String, ttlSeconds: Long): Boolean {
         masterValue.set(RedisKeys.entryTokenKey(userId), token, ttlSeconds, TimeUnit.SECONDS)
+        return true
     }
 
     @CircuitBreaker(name = OrderQueueRedisRepository.CIRCUIT_BREAKER_NAME, fallbackMethod = "getFallback")
@@ -49,8 +50,9 @@ class EntryTokenRedisRepository(
         return null
     }
 
-    internal fun issueFallback(userId: Long, token: String, ttlSeconds: Long, e: Exception) {
-        log.warn("토큰 발급 bypass: userId={}", userId, e)
+    internal fun issueFallback(userId: Long, token: String, ttlSeconds: Long, e: Exception): Boolean {
+        log.warn("토큰 발급 실패: userId={}", userId, e)
+        return false
     }
 
     internal fun consumeIfMatchesFallback(userId: Long, token: String, e: Exception): Boolean {
