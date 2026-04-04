@@ -130,7 +130,7 @@ class CouponIssueFacadeIntegrationTest @Autowired constructor(
 
             // then
             val issueRequest = couponIssueRequestRepository.findByRequestId(requestId)
-            assertThat(issueRequest).isNotNull
+            assertThat(issueRequest).isNotNull()
             assertThat(issueRequest!!.couponId).isEqualTo(coupon.id)
             assertThat(issueRequest.userId).isEqualTo(userId)
             assertThat(issueRequest.status).isEqualTo(CouponIssueStatus.PENDING)

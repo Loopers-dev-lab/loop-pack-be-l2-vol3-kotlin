@@ -165,7 +165,7 @@ class QueueFacadeTest {
 
             // assert
             assertAll(
-                { assertThat(emitter).isNotNull },
+                { assertThat(emitter).isNotNull() },
                 { assertThat(queueEmitterRepository.get(userId)).isSameAs(emitter) },
             )
         }

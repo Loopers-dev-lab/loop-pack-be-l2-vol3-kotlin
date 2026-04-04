@@ -49,7 +49,7 @@ class LikeEventE2ETest @Autowired constructor(
             // assert
             await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofSeconds(1)).untilAsserted {
                 val metrics = productMetricsRepository.findByProductId(100L)
-                assertThat(metrics).isNotNull
+                assertThat(metrics).isNotNull()
                 assertThat(metrics!!.likeCount).isEqualTo(1)
             }
         }
