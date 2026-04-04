@@ -226,6 +226,9 @@ com.loopers
 - Transactional Outbox: Kafka 전파 대상 이벤트는 outbox_event 테이블 경유. commerce-api는 INSERT만, commerce-streamer가 poll+publish (Decision 54)
 - 유저 행동 로깅: AOP(@LogUserAction) → UserActionEvent → user_action_log DB + outbox Kafka 발행 (Decision 53)
 - 선착순 쿠폰: 별도 도메인(fcfscoupon), Kafka Consumer 순차 처리로 수량 초과 방지, Polling으로 결과 확인 (Decision 55)
+- 대기열: 독립 도메인(queue), Redis Sorted Set + 놀이공원식 Polling. batchSize=300 역산(DB Pool 50 기준). fail-closed 토큰 검증 (Decision 59~61)
+- CoreException 핸들러: ApiControllerAdvice에서 CoreException 직접 처리 — Facade 미경유 Service(QueueService 등)의 에러 매핑 보장 (Decision 59)
+- activeCount Pipeline: 토큰 추적 Set의 lazy cleanup을 Redis Pipeline으로 일괄 처리 — O(N) → O(1) round-trip (Decision 60)
 
 ### 도메인 & 객체 설계 전략
 
@@ -352,6 +355,7 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 | 9 | 결제 | 구현 중 | PG 연동 (D43-D51), Event-Command-Handler (D52), Outbox Pattern (D54) |
 | 10 | 랭킹/추천 | 미착수 | 요구사항 미정 |
 | 11 | 선착순 쿠폰 | DONE | 별도 도메인 (D55), Kafka 순차 발급 |
+| 12 | 대기열 | DONE | Redis Sorted Set, 분산 락 스케줄러, 토큰 게이트 (D59~D61) |
 
 ### 성능
 
@@ -365,6 +369,7 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 - Event 아키텍처: 통합 테스트 보강 (SpringBootTest + ApplicationEvents 캡처)
 - FEAT-10: 랭킹/추천 (요구사항 미정)
 - Kafka 구현체 교체: OutboxPoller → Kafka 실 발행 E2E 검증
+- Phase 3: Rate Limiting 적용 (Stress/Spike 구간 보호)
 
 ### 참조 문서
 

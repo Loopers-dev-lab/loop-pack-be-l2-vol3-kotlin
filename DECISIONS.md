@@ -1675,3 +1675,110 @@ C. event-contract 모듈 분리
 - 비동기 처리로 발급 결과 즉시 반환 불가 (202 Accepted + polling)
 - Kafka 장애 시 발급 지연 (outbox에 미발행 이벤트 누적)
 - 파티션 수(3)보다 templateId가 많으면 같은 파티션에 여러 template 혼재 가능 → 현재 규모에서 무시 가능
+
+---
+
+## D59: CoreException 핸들러 — Facade 미경유 경로 에러 처리
+
+### 배경
+
+`DomainExceptionTranslator`가 `@Around("within(com.loopers.application..*Facade)")`로 Facade만 인터셉트한다. 아키���처 원칙상 단일 도메인 API는 Controller→Service 직접 호출하므로(Facade 미경유), QueueService에서 던진 `CoreException`이 `Throwable` 핸들러로 폴백하여 500을 반환했다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. AOP within 범위를 `*Service`까지 확장 | Facade 경유 로직에서 이중 변환 위험 (CoreException → ApplicationException → 또 변환) |
+| B. QueueService에서 ApplicationException 직접 throw | 도메인 레이어가 application 레이어 예외에 의존 — DIP 위반 |
+| **C. ApiControllerAdvice에 CoreException 핸들러 ��가** | 최종 방어선에서 처리. 기존 로직 무영향 |
+
+### 판단
+
+C. ApiControllerAdvice에 CoreException 핸들러 추가
+
+### 근거
+
+- Facade 경유 시 DomainExceptionTranslator가 ApplicationException으로 변환 → 기존 핸들러가 처리
+- Facade 미경유 시 CoreException이 그대로 도달 → 새 핸들러가 처리
+- 두 경로 모두 ErrorType→HTTP 상태 코드 매핑이 동일하게 동작
+- k6 부하테스트에서 비활성 대기열 진입 시 500→400으로 정�� 반환 확인
+
+### 트레이드오프
+
+- CoreException 핸들러와 ApplicationException 핸들러가 동일한 매핑 로직을 중복 — 단, ApplicationException.from()과 동일 분기이므로 일관성 유지
+
+---
+
+## D60: activeCount() Redis Pipeline — O(N) round-trip 제거
+
+### 배경
+
+`RedisQueueTokenStoreImpl.activeCount()`가 `SMEMBERS`로 전체 멤버를 조회한 후, 각 멤버마다 개별 `GET`으로 토큰 존재 여부를 확인했다. 토큰 3,000건 기준 k6 Load 테스트에서 p95=9.46s로 SLO(500ms) 위반.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 카운터 방식 (`INCR`/`DECR`) | TTL 만료 시 `DECR` 미호출 → 카운터 드리프트 |
+| B. 주기적 배치 cleanup | Set과 토큰 TTL 사이 정합성 관리 복잡. 배치 주기 사이 부정확한 값 노출 |
+| **C. 기존 Set 추적 + Pipeline 일괄 조회** | SMEMBERS 1회 + Pipeline GET 1회 = 2 round-trip |
+
+### 판단
+
+C. Redis Pipeline 적용
+
+### 근거
+
+- N개 개별 GET → 1개 Pipeline으로 round-trip N→1
+- lazy cleanup 로직은 그대로 유지 (Pipeline 결과에서 null인 멤버를 SREM)
+- k6 Capacity 테스트: Pipeline 적용 후 Admin 5 RPS에서 p99 < 500ms 확인
+- 카운터 드리프트는 운영에서 잘못된 스케일링 판단을 유도할 수 있어 Set 방식 유지
+
+### 트레이드오프
+
+- Set이 비대해지면(수만 건) Pipeline 응답 크기가 커질 수 있음 — 현재 Token TTL 5분이므로 최대 activeCount = batchSize × (300s/3s) = 30,000건. Pipeline 30K GET은 Redis에서 수십 ms 수준
+
+---
+
+## D61: 대기열 부하테스트 역산 설계 — 하드웨어 제약에서 TPS 유도
+
+### 배경
+
+k6 부하테스트의 VU/RPS 수치에 근거가 없으면 테스트 결과가 의미 없다. "1,000 VUs에서 성공" 자체는 정보가 아니다. 시스템 제약에서 역산한 목표 TPS를 k6로 검증하는 구조가 필요했다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 임의 VU 수로 테스트 | "1,000 VUs에서 통과" — 왜 1,000인지 근거 없음 |
+| **B. 하드웨어 제약 ��� TPS 역산 → k6 검증** | 모든 숫자에 이유가 있고 추적 ���능 |
+
+### 판단
+
+B. 역산 기반 설계
+
+### 근거
+
+역산 체인:
+```
+DB Pool 50 × 활용률 80% = 40 커��션
+3초간 처리량: 40 × (3000ms / 200ms) = 600건
+안전 마진 50%: 300건 → batchSize = 300 → 초당 100명 입장
+
+Queue Entry: Redis ZADD NX ~50K OPS → 검증 목표 1,000 RPS
+Queue Polling: 10K 대기자 / retryAfter 3s = 3,333 poll/s → 검증 목표 2,000 RPS
+Order: 스케줄러 100명/s (병목) → 검증 목표 100 TPS
+VU 산출: Little's Law (VU = RPS × avg_response_time) + 마진 2x
+```
+
+SLO: p99 ≤ 500ms, 에러율 ≤ 0.1% (커머스 표준)
+
+k6 검증 결과:
+- Entry 1,000 RPS: p99=15ms (PASS)
+- Polling 2,000 RPS: p99=12ms (PASS)
+- Order 100 TPS: p99=95ms (PASS)
+
+### 트레이드오프
+
+- 역산은 로컬 환경 기준이므로 운영 환경에서 재측정 필요
+- avg_response_time 가정(200ms/order)이 변하면 batchSize도 재산정 필요
