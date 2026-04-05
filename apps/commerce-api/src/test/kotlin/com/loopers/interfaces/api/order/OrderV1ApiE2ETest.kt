@@ -854,7 +854,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
             // 토큰이 Redis에 없으면 FORBIDDEN
             assertThat(invalidResponse.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
             assertThat(invalidResponse.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL)
-            assertThat(invalidResponse.body?.meta?.errorCode).isEqualTo("ENTRY_TOKEN_INVALID")
+            assertThat(invalidResponse.body?.meta?.errorCode).isEqualTo("Entry Token Invalid")
         }
     }
 }
