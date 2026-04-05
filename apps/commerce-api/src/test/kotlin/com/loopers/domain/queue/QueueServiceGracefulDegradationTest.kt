@@ -26,13 +26,12 @@ class QueueServiceGracefulDegradationTest {
     inner class EnterRedisFailureGracefulDegradationTest {
 
         @Test
-        fun `Redis enter 실패 시 SERVICE_TEMPORARILY_UNAVAILABLE 예외 발생`() {
+        fun `Redis atomicUpsert 실패 시 SERVICE_TEMPORARILY_UNAVAILABLE 예외 발생`() {
             // arrange
             val queueName = "order-queue"
             val userId = 100L
             val throughput = 175
-            every { queueRepository.remove(queueName, userId) } returns Unit
-            every { queueRepository.enter(queueName, userId, any()) } throws RuntimeException("Redis 연결 실패")
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } throws RuntimeException("Redis 연결 실패")
 
             // act & assert
             val exception = org.junit.jupiter.api.assertThrows<CoreException> {
@@ -47,8 +46,7 @@ class QueueServiceGracefulDegradationTest {
             val queueName = "order-queue"
             val userId = 100L
             val throughput = 175
-            every { queueRepository.remove(queueName, userId) } returns Unit
-            every { queueRepository.enter(queueName, userId, any()) } returns true
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
             every { queueRepository.getRank(queueName, userId) } throws RuntimeException("Redis 연결 실패")
 
             // act & assert
@@ -64,8 +62,7 @@ class QueueServiceGracefulDegradationTest {
             val queueName = "order-queue"
             val userId = 100L
             val throughput = 175
-            every { queueRepository.remove(queueName, userId) } returns Unit
-            every { queueRepository.enter(queueName, userId, any()) } returns true
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
             every { queueRepository.getRank(queueName, userId) } returns null
 
             // act & assert

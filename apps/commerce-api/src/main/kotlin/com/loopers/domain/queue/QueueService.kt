@@ -18,9 +18,8 @@ class QueueService(
         throughputPerServerPerSecond: Int,
     ): QueueEntryInfo {
         return runCatching {
-            val score = System.currentTimeMillis().toDouble()
-            queueRepository.remove(queueName, userId)
-            queueRepository.enter(queueName, userId, score)
+            // Atomic upsert with monotonically increasing score ensures FIFO ordering
+            queueRepository.atomicUpsertWithSequence(queueName, userId)
 
             val rank = queueRepository.getRank(queueName, userId)
                 ?: throw CoreException(ErrorType.QUEUE_NOT_FOUND)

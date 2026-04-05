@@ -5,6 +5,7 @@ import com.loopers.domain.queue.QueueRepository
 import com.loopers.domain.queue.QueuedUser
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
 import org.springframework.stereotype.Component
 import java.time.Duration
 
@@ -17,10 +18,33 @@ class QueueRepositoryImpl(
     companion object {
         private const val QUEUE_KEY_PREFIX = "queue:"
         private const val TOKEN_KEY_PREFIX = "entry-token:"
+        private const val SEQUENCE_KEY_PREFIX = "queue-seq:"
+
+        // Lua script: ZREM old entry (if exists), INCR sequence, ZADD with new score
+        private val ATOMIC_UPSERT_SCRIPT = RedisScript.of(
+            """
+            local queueKey = KEYS[1]
+            local sequenceKey = KEYS[2]
+            local userId = ARGV[1]
+
+            -- Remove existing entry
+            redis.call('ZREM', queueKey, userId)
+
+            -- Increment sequence and get new score
+            local newScore = redis.call('INCR', sequenceKey)
+
+            -- Add user with new score
+            redis.call('ZADD', queueKey, newScore, userId)
+
+            return newScore
+            """.trimIndent(),
+            Long::class.java,
+        )
     }
 
     private fun key(queueName: String) = "$QUEUE_KEY_PREFIX$queueName"
     private fun tokenKey(queueName: String, userId: Long) = "$TOKEN_KEY_PREFIX$queueName:$userId"
+    private fun sequenceKey(queueName: String) = "$SEQUENCE_KEY_PREFIX$queueName"
 
     override fun enter(queueName: String, userId: Long, score: Double): Boolean {
         val ops = redisTemplate.opsForZSet()
@@ -65,5 +89,15 @@ class QueueRepositoryImpl(
 
     override fun deleteToken(queueName: String, userId: Long) {
         redisTemplate.delete(tokenKey(queueName, userId))
+    }
+
+    override fun atomicUpsertWithSequence(queueName: String, userId: Long): Double {
+        val newScore = redisTemplate.execute(
+            ATOMIC_UPSERT_SCRIPT,
+            listOf(key(queueName), sequenceKey(queueName)),
+            userId.toString(),
+        ) as? Long ?: return 0.0
+
+        return newScore.toDouble()
     }
 }

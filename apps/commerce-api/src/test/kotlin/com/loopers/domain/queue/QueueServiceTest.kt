@@ -32,8 +32,7 @@ class QueueServiceTest {
             val queueName = "order-queue"
             val userId = 100L
             val throughput = 175
-            every { queueRepository.remove(queueName, userId) } returns Unit
-            every { queueRepository.enter(queueName, userId, any()) } returns true
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
             every { queueRepository.getRank(queueName, userId) } returns 0L
 
             // act
@@ -45,17 +44,16 @@ class QueueServiceTest {
             assertThat(result.userId).isEqualTo(userId)
             assertThat(result.position).isEqualTo(1L)
             assertThat(result.estimatedWaitSeconds).isEqualTo(0L)
-            verify { queueRepository.enter(queueName, userId, any()) }
+            verify { queueRepository.atomicUpsertWithSequence(queueName, userId) }
         }
 
         @Test
-        fun `이미 대기열에 있는 userId로 재진입시 새 타임스탐프로 upsert되어 맨 뒤로 이동한다`() {
-            // arrange: 기존 진입 제거 후 새로 추가 (맨 뒤로 이동)
+        fun `이미 대기열에 있는 userId로 재진입시 새 시퀀스로 upsert되어 맨 뒤로 이동한다`() {
+            // arrange: atomic upsert는 기존 항목을 제거하고 새 시퀀스로 재삽입
             val queueName = "order-queue"
             val userId = 100L
             val throughput = 175
-            every { queueRepository.remove(queueName, userId) } returns Unit
-            every { queueRepository.enter(queueName, userId, any()) } returns true
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 10.0
             every { queueRepository.getRank(queueName, userId) } returns 9L // 맨 뒤 (10번째)
 
             // act
@@ -63,8 +61,7 @@ class QueueServiceTest {
 
             // assert
             assertThat(result.position).isEqualTo(10L)
-            verify { queueRepository.remove(queueName, userId) }
-            verify { queueRepository.enter(queueName, userId, any()) }
+            verify { queueRepository.atomicUpsertWithSequence(queueName, userId) }
         }
 
         @Test
@@ -73,8 +70,7 @@ class QueueServiceTest {
             val queueName = "order-queue"
             val userId = 100L
             val throughput = 175
-            every { queueRepository.remove(queueName, userId) } returns Unit
-            every { queueRepository.enter(queueName, userId, any()) } returns true
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
             every { queueRepository.getRank(queueName, userId) } returns null
 
             // act & assert
@@ -90,8 +86,7 @@ class QueueServiceTest {
             val queueName = "order-queue"
             val userId = 100L
             val throughput = 175
-            every { queueRepository.remove(queueName, userId) } returns Unit
-            every { queueRepository.enter(queueName, userId, any()) } returns true
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 10.0
             every { queueRepository.getRank(queueName, userId) } returns 9L // 10번째
 
             // act
