@@ -60,8 +60,8 @@ class CircuitBreakerQueueHealthCheckerTest {
         }
 
         @Test
-        @DisplayName("CircuitBreaker가 HALF_OPEN이면 false를 반환한다")
-        fun returnsFalse_whenCircuitBreakerIsHalfOpen() {
+        @DisplayName("CircuitBreaker가 HALF_OPEN이면 true를 반환한다 (허용 호출 수 초과 시 토큰 검증 실패 방지)")
+        fun returnsTrue_whenCircuitBreakerIsHalfOpen() {
             // arrange
             whenever(circuitBreaker.state).thenReturn(CircuitBreaker.State.HALF_OPEN)
 
@@ -69,7 +69,7 @@ class CircuitBreakerQueueHealthCheckerTest {
             val result = healthChecker.isBypassed()
 
             // assert
-            assertThat(result).isFalse()
+            assertThat(result).isTrue()
         }
     }
 }

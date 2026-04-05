@@ -159,6 +159,9 @@ class QueueFacadeTest {
         fun returnsSseEmitter_andRegistersInRepository() {
             // arrange
             val userId = 1L
+            whenever(orderQueueService.getPosition(userId)).thenReturn(
+                QueuePosition(position = 3L, estimatedWaitSeconds = 0.02, totalSize = 10L),
+            )
 
             // act
             val emitter = queueFacade.subscribe(userId)
@@ -175,6 +178,9 @@ class QueueFacadeTest {
         fun removesEmitterFromRepository_whenCallbacksFired() {
             // arrange
             val userId = 1L
+            whenever(orderQueueService.getPosition(userId)).thenReturn(
+                QueuePosition(position = 3L, estimatedWaitSeconds = 0.02, totalSize = 10L),
+            )
             val emitter = queueFacade.subscribe(userId)
             assertThat(queueEmitterRepository.get(userId)).isNotNull()
 
@@ -186,6 +192,23 @@ class QueueFacadeTest {
 
             // assert
             assertThat(queueEmitterRepository.get(userId)).isNull()
+        }
+
+        @Test
+        @DisplayName("emitter 등록 시점에 이미 토큰이 발급되었으면 즉시 admitted 이벤트를 전송한다")
+        fun sendsAdmittedImmediately_whenTokenAlreadyIssuedDuringRegistration() {
+            // arrange
+            val userId = 1L
+            // 첫 번째 호출: 대기 중 (검증용), 두 번째 호출: 토큰 발급됨 (재조회)
+            whenever(orderQueueService.getPosition(userId))
+                .thenReturn(QueuePosition(position = 3L, estimatedWaitSeconds = 0.02, totalSize = 10L))
+                .thenReturn(QueuePosition(position = 0L, estimatedWaitSeconds = 0.0, totalSize = 0L, token = "issued-token"))
+
+            // act
+            queueFacade.subscribe(userId)
+
+            // assert — getPosition이 2번 호출됨 (검증용 + 등록 후 재조회)
+            verify(orderQueueService, org.mockito.kotlin.times(2)).getPosition(userId)
         }
     }
 
@@ -236,15 +259,15 @@ class QueueFacadeTest {
     inner class BroadcastPositions {
 
         @Test
-        @DisplayName("토큰이 발급된 유저에게 admitted 이벤트를 전송하고 SseEmitter를 완료한다")
-        fun sendsAdmittedEventAndCompletesEmitter_forAdmittedUsers() {
+        @DisplayName("토큰이 발급된 유저에게 토큰을 포함한 admitted 이벤트를 전송하고 SseEmitter를 완료한다")
+        fun sendsAdmittedEventWithTokenAndCompletesEmitter_forAdmittedUsers() {
             // arrange
             val admittedUserId = 1L
             val emitter = mock<SseEmitter>()
             queueEmitterRepository.add(admittedUserId, emitter)
 
             // act
-            queueFacade.broadcastPositions(listOf(admittedUserId))
+            queueFacade.broadcastPositions(mapOf(admittedUserId to "issued-token"))
 
             // assert
             val inOrder = inOrder(emitter)
@@ -265,7 +288,7 @@ class QueueFacadeTest {
             )
 
             // act
-            queueFacade.broadcastPositions(listOf(1L))
+            queueFacade.broadcastPositions(mapOf(1L to "token-1"))
 
             // assert
             verify(emitter).send(any<SseEmitter.SseEventBuilder>())
@@ -286,7 +309,7 @@ class QueueFacadeTest {
             )
 
             // act
-            queueFacade.broadcastPositions(listOf(1L))
+            queueFacade.broadcastPositions(mapOf(1L to "token-1"))
 
             // assert
             assertThat(queueEmitterRepository.get(waitingUserId)).isNull()

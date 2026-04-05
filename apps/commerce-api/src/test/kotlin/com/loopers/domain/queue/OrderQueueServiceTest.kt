@@ -225,23 +225,24 @@ class OrderQueueServiceTest {
     inner class AdmitUsers {
 
         @Test
-        @DisplayName("Lua 스크립트로 원자적으로 pop + 토큰 발급하여 입장 유저 목록을 반환한다")
-        fun returnsAdmittedUserIds_atomically() {
+        @DisplayName("Lua 스크립트로 원자적으로 pop + 토큰 발급하여 userId-token 맵을 반환한다")
+        fun returnsAdmittedUserTokenMap_atomically() {
             // arrange
             val batchSize = 3L
+            val expectedMap = mapOf(1L to "token-1", 2L to "token-2", 3L to "token-3")
             whenever(orderQueueRepository.popFrontAndIssueTokens(eq(batchSize), any(), any()))
-                .thenReturn(mapOf(1L to "token-1", 2L to "token-2", 3L to "token-3"))
+                .thenReturn(expectedMap)
 
             // act
             val result = orderQueueService.admitUsers(batchSize)
 
             // assert
-            assertThat(result).containsExactly(1L, 2L, 3L)
+            assertThat(result).isEqualTo(expectedMap)
         }
 
         @Test
-        @DisplayName("대기열이 비어있으면 빈 목록을 반환한다")
-        fun returnsEmptyList_whenQueueIsEmpty() {
+        @DisplayName("대기열이 비어있으면 빈 맵을 반환한다")
+        fun returnsEmptyMap_whenQueueIsEmpty() {
             // arrange
             val batchSize = 5L
             whenever(orderQueueRepository.popFrontAndIssueTokens(eq(batchSize), any(), any()))

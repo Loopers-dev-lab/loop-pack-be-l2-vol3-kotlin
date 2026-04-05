@@ -50,7 +50,8 @@ class QueueAdmissionSchedulerTest {
         @DisplayName("설정된 배치 크기로 admitUsers를 호출한다")
         fun callsAdmitUsersWithConfiguredBatchSize() {
             // arrange
-            whenever(orderQueueService.admitUsers(9L)).thenReturn(listOf(1L, 2L, 3L))
+            whenever(orderQueueService.admitUsers(9L))
+                .thenReturn(mapOf(1L to "t1", 2L to "t2", 3L to "t3"))
 
             // act
             scheduler.admitUsers()
@@ -63,7 +64,7 @@ class QueueAdmissionSchedulerTest {
         @DisplayName("대기열이 비어있어도 예외 없이 정상 종료한다")
         fun completesNormally_whenQueueIsEmpty() {
             // arrange
-            whenever(orderQueueService.admitUsers(9L)).thenReturn(emptyList())
+            whenever(orderQueueService.admitUsers(9L)).thenReturn(emptyMap())
 
             // act & assert — 예외 없이 정상 종료
             scheduler.admitUsers()
@@ -76,14 +77,14 @@ class QueueAdmissionSchedulerTest {
         @DisplayName("admitUsers 실행 후 broadcastPositions를 호출한다")
         fun callsBroadcastPositionsAfterAdmittingUsers() {
             // arrange
-            val admittedUserIds = listOf(1L, 2L, 3L)
-            whenever(orderQueueService.admitUsers(9L)).thenReturn(admittedUserIds)
+            val admittedUsers = mapOf(1L to "t1", 2L to "t2", 3L to "t3")
+            whenever(orderQueueService.admitUsers(9L)).thenReturn(admittedUsers)
 
             // act
             scheduler.admitUsers()
 
             // assert
-            verify(queueFacade).broadcastPositions(admittedUserIds)
+            verify(queueFacade).broadcastPositions(admittedUsers)
         }
     }
 
@@ -128,7 +129,7 @@ class QueueAdmissionSchedulerTest {
             scheduler.admitUsers()
 
             whenever(queueHealthChecker.isBypassed()).thenReturn(false)
-            whenever(orderQueueService.admitUsers(9L)).thenReturn(emptyList())
+            whenever(orderQueueService.admitUsers(9L)).thenReturn(emptyMap())
             scheduler.admitUsers()
 
             whenever(queueHealthChecker.isBypassed()).thenReturn(true)
@@ -143,14 +144,15 @@ class QueueAdmissionSchedulerTest {
         fun performsNormalAdmission_whenNotBypassed() {
             // arrange
             whenever(queueHealthChecker.isBypassed()).thenReturn(false)
-            whenever(orderQueueService.admitUsers(9L)).thenReturn(listOf(1L))
+            val admittedUsers = mapOf(1L to "t1")
+            whenever(orderQueueService.admitUsers(9L)).thenReturn(admittedUsers)
 
             // act
             scheduler.admitUsers()
 
             // assert
             verify(orderQueueService).admitUsers(9L)
-            verify(queueFacade).broadcastPositions(listOf(1L))
+            verify(queueFacade).broadcastPositions(admittedUsers)
             verify(queueFacade, never()).broadcastBypass()
         }
     }
@@ -227,7 +229,7 @@ class QueueAdmissionSchedulerTest {
         @DisplayName("start() 호출 후 admitUsers가 Jitter 간격으로 주기 실행된다")
         fun executesAdmitUsersPeriodically_afterStart() {
             // arrange
-            whenever(orderQueueService.admitUsers(9L)).thenReturn(emptyList())
+            whenever(orderQueueService.admitUsers(9L)).thenReturn(emptyMap())
 
             // act
             scheduler.start()

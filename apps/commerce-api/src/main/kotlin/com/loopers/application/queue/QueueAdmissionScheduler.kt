@@ -43,11 +43,11 @@ class QueueAdmissionScheduler(
                 return
             }
             wasBypassed = false
-            val admittedUserIds = orderQueueService.admitUsers(batchSize)
-            if (admittedUserIds.isNotEmpty()) {
-                log.info("대기열 입장 허용: {}명", admittedUserIds.size)
+            val admittedUsers = orderQueueService.admitUsers(batchSize)
+            if (admittedUsers.isNotEmpty()) {
+                log.info("대기열 입장 허용: {}명", admittedUsers.size)
             }
-            queueFacade.broadcastPositions(admittedUserIds)
+            queueFacade.broadcastPositions(admittedUsers)
         } catch (e: Exception) {
             log.warn("대기열 입장 허용 중 오류 발생", e)
         } finally {
@@ -75,7 +75,14 @@ class QueueAdmissionScheduler(
     override fun stop() {
         running = false
         executor.shutdown()
-        executor.awaitTermination(5, TimeUnit.SECONDS)
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                executor.shutdownNow()
+            }
+        } catch (e: InterruptedException) {
+            executor.shutdownNow()
+            Thread.currentThread().interrupt()
+        }
     }
 
     override fun isRunning(): Boolean = running

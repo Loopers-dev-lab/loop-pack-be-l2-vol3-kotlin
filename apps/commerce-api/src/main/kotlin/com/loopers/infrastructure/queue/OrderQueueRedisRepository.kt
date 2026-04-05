@@ -53,7 +53,8 @@ class OrderQueueRedisRepository(
     override fun requeue(userIds: List<Long>) {
         val key = RedisKeys.orderQueueKey()
         userIds.forEach { userId ->
-            masterZSet.add(key, userId.toString(), 0.0)
+            // 이미 대기열에 있는 유저의 score를 덮어쓰지 않기 위해 addIfAbsent 사용
+            masterZSet.addIfAbsent(key, userId.toString(), 0.0)
         }
     }
 
@@ -136,8 +137,9 @@ class OrderQueueRedisRepository(
 
             for i = 1, #members, 2 do
                 local userId = members[i]
-                local tokenIdx = (i + 1) / 2
+                local tokenIdx = math.floor((i + 1) / 2)
                 local token = ARGV[3 + tokenIdx]
+                if not token then break end
                 redis.call('SET', prefix .. userId, token, 'EX', ttl)
                 result[#result + 1] = userId
                 result[#result + 1] = token

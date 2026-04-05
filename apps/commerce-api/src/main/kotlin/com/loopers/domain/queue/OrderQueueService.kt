@@ -64,10 +64,9 @@ class OrderQueueService(
         }.toMap()
     }
 
-    fun admitUsers(batchSize: Long): List<Long> {
+    fun admitUsers(batchSize: Long): Map<Long, String> {
         val tokens = (1..batchSize).map { UUID.randomUUID().toString() }
-        val admitted = orderQueueRepository.popFrontAndIssueTokens(batchSize, tokens, ENTRY_TOKEN_TTL_SECONDS)
-        return admitted.keys.toList()
+        return orderQueueRepository.popFrontAndIssueTokens(batchSize, tokens, ENTRY_TOKEN_TTL_SECONDS)
     }
 
     fun validateAndConsumeToken(userId: Long, token: String) {

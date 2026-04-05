@@ -28,6 +28,7 @@ class EntryTokenRedisRepository(
         return true
     }
 
+    // master에서 읽기: 토큰 발급 직후 replica lag으로 인한 false negative 방지 (PRD 3번 설계 결정)
     @CircuitBreaker(name = OrderQueueRedisRepository.CIRCUIT_BREAKER_NAME, fallbackMethod = "getFallback")
     @Retry(name = OrderQueueRedisRepository.CIRCUIT_BREAKER_NAME)
     override fun get(userId: Long): String? {

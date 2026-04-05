@@ -28,6 +28,14 @@ class QueueFacade(
         emitter.onTimeout(cleanup)
         emitter.onError { cleanup.run() }
         queueEmitterRepository.add(userId, emitter)
+
+        // emitter 등록 전에 스케줄러가 토큰을 발급했을 수 있으므로 현재 상태를 재조회
+        val currentPosition = orderQueueService.getPosition(userId)
+        if (currentPosition.token != null) {
+            emitter.send(SseEmitter.event().name(EVENT_ADMITTED).data(mapOf("token" to currentPosition.token)))
+            emitter.complete()
+        }
+
         return emitter
     }
 
@@ -44,15 +52,15 @@ class QueueFacade(
         }
     }
 
-    fun broadcastPositions(admittedUserIds: List<Long>) {
-        val admittedSet = admittedUserIds.toHashSet()
+    fun broadcastPositions(admittedUsers: Map<Long, String>) {
         val emitters = queueEmitterRepository.getAll()
-        val waitingUserIds = emitters.keys.filter { it !in admittedSet }
+        val waitingUserIds = emitters.keys.filter { it !in admittedUsers }
         val positions = orderQueueService.getWaitingPositions(waitingUserIds)
 
         forEachEmitter(emitters) { userId, emitter ->
-            if (userId in admittedSet) {
-                emitter.send(SseEmitter.event().name(EVENT_ADMITTED).data("토큰이 발급되었습니다"))
+            val token = admittedUsers[userId]
+            if (token != null) {
+                emitter.send(SseEmitter.event().name(EVENT_ADMITTED).data(mapOf("token" to token)))
                 emitter.complete()
             } else {
                 val position = positions[userId] ?: return@forEachEmitter
