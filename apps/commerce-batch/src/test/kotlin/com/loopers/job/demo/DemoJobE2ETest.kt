@@ -2,6 +2,7 @@ package com.loopers.job.demo
 
 import com.loopers.batch.job.demo.DemoJobConfig
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
