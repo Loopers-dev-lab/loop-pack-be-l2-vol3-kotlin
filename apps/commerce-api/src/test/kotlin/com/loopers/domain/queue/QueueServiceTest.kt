@@ -33,6 +33,7 @@ class QueueServiceTest {
             val userId = 100L
             val throughput = 175
             every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
+            every { queueRepository.getToken(queueName, userId) } returns null
             every { queueRepository.getRank(queueName, userId) } returns 0L
 
             // act
@@ -54,6 +55,7 @@ class QueueServiceTest {
             val userId = 100L
             val throughput = 175
             every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 10.0
+            every { queueRepository.getToken(queueName, userId) } returns null
             every { queueRepository.getRank(queueName, userId) } returns 9L // 맨 뒤 (10번째)
 
             // act
@@ -71,6 +73,7 @@ class QueueServiceTest {
             val userId = 100L
             val throughput = 175
             every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
+            every { queueRepository.getToken(queueName, userId) } returns null
             every { queueRepository.getRank(queueName, userId) } returns null
 
             // act & assert
@@ -87,6 +90,7 @@ class QueueServiceTest {
             val userId = 100L
             val throughput = 175
             every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 10.0
+            every { queueRepository.getToken(queueName, userId) } returns null
             every { queueRepository.getRank(queueName, userId) } returns 9L // 10번째
 
             // act
@@ -95,6 +99,30 @@ class QueueServiceTest {
             // assert
             assertThat(result.position).isEqualTo(10L)
             assertThat(result.estimatedWaitSeconds).isEqualTo(0L) // 10 / 175 = 0 (정수 나눗셈)
+        }
+
+        @Test
+        @DisplayName("Transient 상태: token이 발급되었지만 rank가 아직 null인 경우 position 0을 반환한다")
+        fun `transient_state_token_issued_before_rank_visible`() {
+            // arrange: popMin 후 issueToken 사이의 transient 상태를 시뮬레이션
+            val queueName = "order-queue"
+            val userId = 100L
+            val throughput = 175
+            val issuedToken = "token-abc-123"
+
+            every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
+            // getToken: 토큰이 이미 발급됨
+            every { queueRepository.getToken(queueName, userId) } returns issuedToken
+            // getRank: 아직 호출되지 않음 (getToken이 먼저 true를 반환하므로)
+
+            // act
+            val result = queueService.enter(queueName, userId, throughput)
+
+            // assert: 토큰이 발급되었으므로 position 0 반환
+            assertThat(result.position).isEqualTo(0L)
+            assertThat(result.estimatedWaitSeconds).isEqualTo(0L)
+            // getRank를 호출하지 않음 (getToken이 null이 아니므로)
+            verify(exactly = 0) { queueRepository.getRank(queueName, userId) }
         }
     }
 
@@ -156,6 +184,31 @@ class QueueServiceTest {
                 queueService.getPosition(queueName, userId, throughput)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.QUEUE_NOT_FOUND)
+        }
+
+        @Test
+        @DisplayName("Transient 상태: rank가 일시적으로 null이었다가 retry에서 발견되는 경우")
+        fun `transient_state_rank_null_then_available_on_retry`() {
+            // arrange: popMin 후 issueToken 사이의 transient 상태를 시뮬레이션
+            // 첫 번째 getRank 호출: null (transient)
+            // 두 번째 getRank 호출: rank 값 반환 (retry 성공)
+            val queueName = "order-queue"
+            val userId = 100L
+            val throughput = 175
+
+            every { queueRepository.getToken(queueName, userId) } returns null
+            every { queueRepository.getRank(queueName, userId) }
+                .returnsMany(null, 5L) // 첫 번째 호출: null, 두 번째 호출: 5L
+
+            // act
+            val result = queueService.getPosition(queueName, userId, throughput)
+
+            // assert: retry를 통해 rank를 얻고 position 계산
+            assertThat(result.position).isEqualTo(6L)
+            assertThat(result.estimatedWaitSeconds).isEqualTo(0L)
+            assertThat(result.token).isNull()
+            // getRank가 2회 호출됨 (첫 번째 실패 + retry 성공)
+            verify(atLeast = 2) { queueRepository.getRank(queueName, userId) }
         }
     }
 

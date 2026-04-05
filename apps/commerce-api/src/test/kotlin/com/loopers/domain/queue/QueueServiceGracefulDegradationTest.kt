@@ -47,6 +47,7 @@ class QueueServiceGracefulDegradationTest {
             val userId = 100L
             val throughput = 175
             every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
+            every { queueRepository.getToken(queueName, userId) } returns null
             every { queueRepository.getRank(queueName, userId) } throws RuntimeException("Redis 연결 실패")
 
             // act & assert
@@ -63,6 +64,7 @@ class QueueServiceGracefulDegradationTest {
             val userId = 100L
             val throughput = 175
             every { queueRepository.atomicUpsertWithSequence(queueName, userId) } returns 1.0
+            every { queueRepository.getToken(queueName, userId) } returns null
             every { queueRepository.getRank(queueName, userId) } returns null
 
             // act & assert
