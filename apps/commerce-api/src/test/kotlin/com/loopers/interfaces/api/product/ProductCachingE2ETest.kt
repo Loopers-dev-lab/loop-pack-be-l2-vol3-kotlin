@@ -351,14 +351,25 @@ class ProductCachingE2ETest @Autowired constructor(
             status { isOk() }
         }
 
-        // Then - Outbox에 LikeCountEvent(DECREMENT) 이벤트가 발행되었는지 확인
+        // Then - Outbox에 ProductUnlikedEvent 이벤트가 발행되었는지 확인
         eventually {
             val outboxEvents = outboxRepository.findAll()
+            val productUnlikedEvent = outboxEvents.find {
+                it.aggregateId == testProduct.id && it.eventType == "ProductUnlikedEvent"
+            }
+            assertThat(productUnlikedEvent).isNotNull
+            assertThat(productUnlikedEvent!!.topic).isEqualTo("like-events")
+
+            // Verify the operation is DECREMENT (via LikeCountEvent also published)
             val likeCountEvent = outboxEvents.find {
                 it.aggregateId == testProduct.id && it.eventType == "LikeCountEvent"
             }
             assertThat(likeCountEvent).isNotNull
             assertThat(likeCountEvent!!.topic).isEqualTo("like-events")
+
+            // Parse LikeCountEvent payload to verify operation is DECREMENT
+            val payload = objectMapper.readTree(likeCountEvent!!.payload)
+            assertThat(payload.get("type").asText()).isEqualTo("DECREMENT")
         }
     }
 

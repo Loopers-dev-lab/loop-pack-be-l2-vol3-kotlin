@@ -5,6 +5,7 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.productlike.dto.LikedProductInfo
 import com.loopers.domain.event.LikeCountEvent
 import com.loopers.domain.event.LikeCountEventType
+import com.loopers.domain.productlike.event.ProductUnlikedEvent
 import com.loopers.domain.user.User
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.data.domain.Page
@@ -57,6 +58,17 @@ class ProductLikeService(
                 product.id,
                 topic = "like-events",
                 partitionKey = product.id.toString(),
+            )
+
+            // ProductUnlikedEvent를 별도로 outbox에 발행
+            val productUnlikedEvent = ProductUnlikedEvent(
+                productId = product.id,
+                userId = user.id,
+            )
+            outboxPublisher.publish(
+                productUnlikedEvent,
+                product.id,
+                topic = "like-events",
             )
         }
 
