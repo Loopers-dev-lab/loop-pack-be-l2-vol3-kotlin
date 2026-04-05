@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.queue
 
+import com.loopers.config.redis.RedisKeys
 import com.loopers.domain.queue.OrderQueueRepository
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
@@ -7,8 +8,10 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.data.redis.core.RedisTemplate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
@@ -16,6 +19,7 @@ import java.util.concurrent.Executors
 class OrderQueueRedisRepositoryTest @Autowired constructor(
     private val orderQueueRepository: OrderQueueRepository,
     private val redisCleanUp: RedisCleanUp,
+    private val redisTemplate: RedisTemplate<String, String>,
 ) {
 
     @AfterEach
@@ -154,6 +158,87 @@ class OrderQueueRedisRepositoryTest @Autowired constructor(
 
             // then
             assertThat(popped).isEmpty()
+        }
+    }
+
+    @Nested
+    @DisplayName("popFrontAndIssueTokens")
+    inner class PopFrontAndIssueTokens {
+
+        @Test
+        @DisplayName("대기열에서 N명을 꺼내고 각각에게 entry-token을 원자적으로 발급한다")
+        fun `대기열에서 N명을 꺼내고 각각에게 entry-token을 원자적으로 발급한다`() {
+            // given
+            val baseScore = System.currentTimeMillis().toDouble()
+            orderQueueRepository.enqueue(1L, baseScore)
+            orderQueueRepository.enqueue(2L, baseScore + 1000)
+            orderQueueRepository.enqueue(3L, baseScore + 2000)
+            val tokens = listOf("token-a", "token-b", "token-c")
+
+            // when
+            val admitted = orderQueueRepository.popFrontAndIssueTokens(2, tokens, 300L)
+
+            // then
+            assertAll(
+                // pop된 유저와 토큰 매핑 확인
+                { assertThat(admitted).hasSize(2) },
+                { assertThat(admitted[1L]).isEqualTo("token-a") },
+                { assertThat(admitted[2L]).isEqualTo("token-b") },
+                // 대기열에서 제거되었는지 확인
+                { assertThat(orderQueueRepository.getTotalSize()).isEqualTo(1L) },
+                { assertThat(orderQueueRepository.getPosition(3L)).isEqualTo(0L) },
+                // Redis에 entry-token이 저장되었는지 확인
+                { assertThat(redisTemplate.opsForValue().get(RedisKeys.entryTokenKey(1L))).isEqualTo("token-a") },
+                { assertThat(redisTemplate.opsForValue().get(RedisKeys.entryTokenKey(2L))).isEqualTo("token-b") },
+            )
+        }
+
+        @Test
+        @DisplayName("빈 대기열에서 호출 시 빈 맵을 반환한다")
+        fun `빈 대기열에서 호출 시 빈 맵을 반환한다`() {
+            // given
+            val tokens = listOf("token-a", "token-b")
+
+            // when
+            val admitted = orderQueueRepository.popFrontAndIssueTokens(2, tokens, 300L)
+
+            // then
+            assertThat(admitted).isEmpty()
+        }
+
+        @Test
+        @DisplayName("대기열 인원이 count보다 적으면 있는 만큼만 처리한다")
+        fun `대기열 인원이 count보다 적으면 있는 만큼만 처리한다`() {
+            // given
+            val baseScore = System.currentTimeMillis().toDouble()
+            orderQueueRepository.enqueue(1L, baseScore)
+            val tokens = listOf("token-a", "token-b", "token-c")
+
+            // when
+            val admitted = orderQueueRepository.popFrontAndIssueTokens(3, tokens, 300L)
+
+            // then
+            assertAll(
+                { assertThat(admitted).hasSize(1) },
+                { assertThat(admitted[1L]).isEqualTo("token-a") },
+                { assertThat(orderQueueRepository.getTotalSize()).isEqualTo(0L) },
+            )
+        }
+
+        @Test
+        @DisplayName("발급된 entry-token에 TTL이 설정된다")
+        fun `발급된 entry-token에 TTL이 설정된다`() {
+            // given
+            val baseScore = System.currentTimeMillis().toDouble()
+            orderQueueRepository.enqueue(1L, baseScore)
+            val tokens = listOf("token-a")
+
+            // when
+            orderQueueRepository.popFrontAndIssueTokens(1, tokens, 300L)
+
+            // then
+            val ttl = redisTemplate.getExpire(RedisKeys.entryTokenKey(1L))
+            assertThat(ttl).isGreaterThan(0L).isLessThanOrEqualTo(300L)
         }
     }
 }

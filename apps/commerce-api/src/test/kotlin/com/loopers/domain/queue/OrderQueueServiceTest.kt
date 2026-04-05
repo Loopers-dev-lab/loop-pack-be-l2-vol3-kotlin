@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argThat
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -224,12 +225,12 @@ class OrderQueueServiceTest {
     inner class AdmitUsers {
 
         @Test
-        @DisplayName("N명을 pop하고 각각 토큰을 발급하여 입장 유저 목록을 반환한다")
-        fun returnsAdmittedUserIds_whenUsersPopped() {
+        @DisplayName("Lua 스크립트로 원자적으로 pop + 토큰 발급하여 입장 유저 목록을 반환한다")
+        fun returnsAdmittedUserIds_atomically() {
             // arrange
             val batchSize = 3L
-            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L, 3L))
-            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(true)
+            whenever(orderQueueRepository.popFrontAndIssueTokens(eq(batchSize), any(), any()))
+                .thenReturn(mapOf(1L to "token-1", 2L to "token-2", 3L to "token-3"))
 
             // act
             val result = orderQueueService.admitUsers(batchSize)
@@ -243,7 +244,8 @@ class OrderQueueServiceTest {
         fun returnsEmptyList_whenQueueIsEmpty() {
             // arrange
             val batchSize = 5L
-            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(emptyList())
+            whenever(orderQueueRepository.popFrontAndIssueTokens(eq(batchSize), any(), any()))
+                .thenReturn(emptyMap())
 
             // act
             val result = orderQueueService.admitUsers(batchSize)
@@ -253,74 +255,22 @@ class OrderQueueServiceTest {
         }
 
         @Test
-        @DisplayName("popFront로 유저를 꺼내고 각각에게 토큰을 발급한다")
-        fun callsPopFrontAndIssueForEachUser() {
+        @DisplayName("batchSize만큼의 토큰을 생성하여 원자적 메서드에 전달한다")
+        fun passesGeneratedTokensToAtomicMethod() {
             // arrange
             val batchSize = 2L
-            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(10L, 20L))
-            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(true)
+            whenever(orderQueueRepository.popFrontAndIssueTokens(eq(batchSize), any(), any()))
+                .thenReturn(mapOf(10L to "token-10", 20L to "token-20"))
 
             // act
             orderQueueService.admitUsers(batchSize)
 
             // assert
-            verify(orderQueueRepository).popFront(batchSize)
-            verify(entryTokenRepository).issue(eq(10L), any(), any())
-            verify(entryTokenRepository).issue(eq(20L), any(), any())
-            verify(entryTokenRepository, times(2)).issue(any(), any(), any())
-        }
-
-        @Test
-        @DisplayName("토큰 발급에 실패한 유저는 승인 목록에서 제외되고 대기열에 재삽입된다")
-        fun requeueFailedUsers_whenTokenIssueFails() {
-            // arrange
-            val batchSize = 3L
-            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L, 3L))
-            whenever(entryTokenRepository.issue(eq(1L), any(), any())).thenReturn(true)
-            whenever(entryTokenRepository.issue(eq(2L), any(), any())).thenReturn(false)
-            whenever(entryTokenRepository.issue(eq(3L), any(), any())).thenReturn(true)
-
-            // act
-            val result = orderQueueService.admitUsers(batchSize)
-
-            // assert
-            assertAll(
-                { assertThat(result).containsExactly(1L, 3L) },
-                { verify(orderQueueRepository).requeue(listOf(2L)) },
+            verify(orderQueueRepository).popFrontAndIssueTokens(
+                eq(batchSize),
+                argThat { size == batchSize.toInt() },
+                eq(300L),
             )
-        }
-
-        @Test
-        @DisplayName("모든 유저의 토큰 발급이 실패하면 빈 목록을 반환하고 전원 재삽입한다")
-        fun requeueAllUsers_whenAllTokenIssuesFail() {
-            // arrange
-            val batchSize = 2L
-            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L))
-            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(false)
-
-            // act
-            val result = orderQueueService.admitUsers(batchSize)
-
-            // assert
-            assertAll(
-                { assertThat(result).isEmpty() },
-                { verify(orderQueueRepository).requeue(listOf(1L, 2L)) },
-            )
-        }
-
-        @Test
-        @DisplayName("모든 유저의 토큰 발급이 성공하면 requeue를 호출하지 않는다")
-        fun doesNotRequeue_whenAllTokenIssuesSucceed() {
-            // arrange
-            val batchSize = 2L
-            whenever(orderQueueRepository.popFront(batchSize)).thenReturn(listOf(1L, 2L))
-            whenever(entryTokenRepository.issue(any(), any(), any())).thenReturn(true)
-
-            // act
-            orderQueueService.admitUsers(batchSize)
-
-            // assert
-            verify(orderQueueRepository, times(0)).requeue(any())
         }
     }
 

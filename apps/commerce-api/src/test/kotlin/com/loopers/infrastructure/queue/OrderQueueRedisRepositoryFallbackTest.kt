@@ -86,5 +86,20 @@ class OrderQueueRedisRepositoryFallbackTest {
                 repository.requeueFallback(listOf(1L, 2L), redisException)
             }
         }
+
+        @Test
+        @DisplayName("popFrontAndIssueTokensFallback — 빈 맵을 반환한다")
+        fun popFrontAndIssueTokensFallback_returnsEmptyMap() {
+            // act
+            val result = repository.popFrontAndIssueTokensFallback(
+                10L,
+                listOf("token-1"),
+                300L,
+                redisException,
+            )
+
+            // assert
+            assertThat(result).isEmpty()
+        }
     }
 }
