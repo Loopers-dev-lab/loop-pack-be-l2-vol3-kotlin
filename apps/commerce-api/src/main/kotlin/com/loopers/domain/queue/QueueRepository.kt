@@ -14,5 +14,6 @@ interface QueueRepository {
 
     fun issueToken(queueName: String, userId: Long, token: String, ttlSeconds: Long)
     fun getToken(queueName: String, userId: Long): String?
+    fun getAndConsume(queueName: String, userId: Long): String?
     fun deleteToken(queueName: String, userId: Long)
 }

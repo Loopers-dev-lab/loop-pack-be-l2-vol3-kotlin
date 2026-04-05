@@ -17,7 +17,8 @@ enum class ErrorType(val status: HttpStatus, val code: String, val message: Stri
     ),
 
     /** 대기열 에러 */
-    QUEUE_NOT_FOUND(HttpStatus.NOT_FOUND, "Queue Not Found", "대기열에 등록되지 않은 사용자입니다."),
-    ENTRY_TOKEN_REQUIRED(HttpStatus.UNAUTHORIZED, "Entry Token Required", "입장 토큰이 필요합니다."),
-    ENTRY_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "Entry Token Invalid", "유효하지 않은 입장 토큰입니다."),
+    QUEUE_NOT_FOUND(HttpStatus.NOT_FOUND, "Queue Not Found", "존재하지 않는 대기열입니다."),
+    QUEUE_USER_NOT_REGISTERED(HttpStatus.NOT_FOUND, "Queue User Not Registered", "대기열에 등록되지 않은 사용자입니다."),
+    ENTRY_TOKEN_MISSING(HttpStatus.FORBIDDEN, "Entry Token Missing", "입장 토큰이 필요합니다."),
+    ENTRY_TOKEN_INVALID(HttpStatus.FORBIDDEN, "Entry Token Invalid", "유효하지 않은 입장 토큰입니다."),
 }

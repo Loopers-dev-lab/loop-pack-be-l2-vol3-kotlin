@@ -24,9 +24,10 @@ class WaitingQueueRegistryTest @Autowired constructor(
     @DisplayName("WaitingQueueRegistry - 큐 설정 조회")
     @Test
     fun `order-queue의 설정이 어노테이션 값과 일치한다`() {
-        val config = waitingQueueRegistry.getQueueConfig("order-queue")
-        assertThat(config).isNotNull()
-        assertThat(config!!.name).isEqualTo("order-queue")
+        val config = requireNotNull(
+            waitingQueueRegistry.getQueueConfig("order-queue"),
+        ) { "expected queue 'order-queue' to be present" }
+        assertThat(config.name).isEqualTo("order-queue")
         assertThat(config.throughputPerServerPerSecond).isEqualTo(175)
         assertThat(config.activeTokenTTLSeconds).isEqualTo(300)
     }
@@ -36,5 +37,16 @@ class WaitingQueueRegistryTest @Autowired constructor(
     fun `등록되지 않은 큐 이름은 null을 반환한다`() {
         val config = waitingQueueRegistry.getQueueConfig("non-existent-queue")
         assertThat(config).isNull()
+    }
+
+    @DisplayName("WaitingQueueRegistry - requireNotNull 검증")
+    @Test
+    fun `존재하지 않는 큐를 requireNotNull로 검증하면 명확한 에러 메시지를 얻는다`() {
+        val illegalStateException = org.junit.jupiter.api.assertThrows<IllegalArgumentException> {
+            requireNotNull(
+                waitingQueueRegistry.getQueueConfig("missing-queue"),
+            ) { "expected queue 'missing-queue' to be present" }
+        }
+        assertThat(illegalStateException.message).contains("expected queue 'missing-queue' to be present")
     }
 }

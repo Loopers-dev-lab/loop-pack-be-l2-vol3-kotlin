@@ -42,10 +42,13 @@ class QueueSchedulerFailureTest {
                 activeTokenTTLSeconds = 300,
             )
             every { waitingQueueRegistry.getQueueConfigs() } returns listOf(config)
-            every { queueRepository.popMin(QUEUE_NAME, any()) } returns listOf(QueuedUser(1L, 1.0))
+            every { queueRepository.popMin(QUEUE_NAME, 1L) } returns listOf(QueuedUser(1L, 1.0))
             every { queueRepository.issueToken(QUEUE_NAME, 1L, any(), 300L) } returns Unit
 
-            // act
+            // act: TokenBucket을 미리 초기화
+            queueScheduler.processQueue()
+            val bucket = queueScheduler.getTokenBucket(QUEUE_NAME)
+            bucket?.simulateElapsedTimeAndCalculateBatchSize(100) // 충분한 토큰 누적
             queueScheduler.processQueue()
 
             // assert
@@ -57,21 +60,27 @@ class QueueSchedulerFailureTest {
     @Nested
     inner class BatchSizeCalculationTest {
 
-        private fun batchSizeFor(throughput: Int): Long = maxOf(1L, (throughput / 10).toLong())
-
         @Test
-        fun `throughput이 5일 때 batchSize는 1이다`() {
-            assertThat(batchSizeFor(5)).isEqualTo(1L)
+        fun `throughput이 5일 때 100ms 후 배치는 최소 1이다`() {
+            val bucket = TokenBucket("test-5", tpsConfig = 5)
+            val batchSize = bucket.simulateElapsedTimeAndCalculateBatchSize(100)
+            assertThat(batchSize).isEqualTo(1L) // maxOf(1L, 0.5) = 1
         }
 
         @Test
-        fun `throughput이 0일 때 batchSize는 1이다`() {
-            assertThat(batchSizeFor(0)).isEqualTo(1L)
+        fun `throughput이 175일 때 100ms 후 배치는 17 이상이다`() {
+            val bucket = TokenBucket("test-175", tpsConfig = 175)
+            val batchSize = bucket.simulateElapsedTimeAndCalculateBatchSize(100)
+            assertThat(batchSize).isGreaterThanOrEqualTo(17L) // maxOf(1L, 17.5) = 17
         }
 
         @Test
-        fun `throughput이 175일 때 batchSize는 17이다`() {
-            assertThat(batchSizeFor(175)).isEqualTo(17L)
+        fun `배치는 항상 최소 1 이상이다`() {
+            val bucket = TokenBucket("test-minimal", tpsConfig = 1)
+            repeat(10) {
+                val batchSize = bucket.simulateElapsedTimeAndCalculateBatchSize(10)
+                assertThat(batchSize).isGreaterThanOrEqualTo(1L)
+            }
         }
     }
 
@@ -80,7 +89,7 @@ class QueueSchedulerFailureTest {
     inner class PartialTokenIssueFailureTest {
 
         @Test
-        fun `배치 중 일부 사용자만 토큰 발급 실패하면 실패한 것만 에러 로그된다`() {
+        fun `배치 중 일부 사용자만 토큰 발급 실패하면 실패한 것만 재삽입된다`() {
             // arrange
             val config = WaitingQueueRegistry.QueueConfig(
                 name = QUEUE_NAME,
@@ -88,18 +97,31 @@ class QueueSchedulerFailureTest {
                 activeTokenTTLSeconds = 300,
             )
             every { waitingQueueRegistry.getQueueConfigs() } returns listOf(config)
-            every { queueRepository.popMin(QUEUE_NAME, 17L) } returns listOf(QueuedUser(1L, 1.0), QueuedUser(2L, 2.0), QueuedUser(3L, 3.0))
+            // 첫 번째 호출: 3명 반환
+            every { queueRepository.popMin(QUEUE_NAME, any()) } returns
+                listOf(QueuedUser(1L, 1.0), QueuedUser(2L, 2.0), QueuedUser(3L, 3.0))
+
+            // 토큰 발급: 1번 성공, 2번 실패, 3번 성공
             every { queueRepository.issueToken(QUEUE_NAME, 1L, any(), any()) } returns Unit
             every { queueRepository.issueToken(QUEUE_NAME, 2L, any(), any()) } throws RuntimeException("Redis 오류")
             every { queueRepository.issueToken(QUEUE_NAME, 3L, any(), any()) } returns Unit
 
-            // act
+            // 재삽입: user-2만 다시 삽입
+            every { queueRepository.enter(QUEUE_NAME, 2L, 2.0) } returns true
+
+            // act: TokenBucket 미리 초기화
+            queueScheduler.processQueue()
+            val bucket = queueScheduler.getTokenBucket(QUEUE_NAME)
+            bucket?.simulateElapsedTimeAndCalculateBatchSize(100)
             queueScheduler.processQueue()
 
-            // assert: user-1, 3는 성공, user-2만 실패
+            // assert: 모든 issueToken 호출 확인
             verify { queueRepository.issueToken(QUEUE_NAME, 1L, any(), any()) }
             verify { queueRepository.issueToken(QUEUE_NAME, 2L, any(), any()) }
             verify { queueRepository.issueToken(QUEUE_NAME, 3L, any(), any()) }
+
+            // user-2만 재삽입 확인
+            verify { queueRepository.enter(QUEUE_NAME, 2L, 2.0) }
         }
     }
 }

@@ -59,6 +59,10 @@ class QueueRepositoryImpl(
         return redisTemplate.opsForValue().get(tokenKey(queueName, userId))
     }
 
+    override fun getAndConsume(queueName: String, userId: Long): String? {
+        return redisTemplate.opsForValue().getAndDelete(tokenKey(queueName, userId))
+    }
+
     override fun deleteToken(queueName: String, userId: Long) {
         redisTemplate.delete(tokenKey(queueName, userId))
     }

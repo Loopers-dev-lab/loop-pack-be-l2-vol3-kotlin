@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.queue
 
 import com.loopers.application.queue.QueueFacade
 import com.loopers.interfaces.api.ApiResponse
+import jakarta.annotation.PostConstruct
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -19,6 +21,19 @@ class QueueV1Controller(
     @Value("\${queue.throughput-per-server-per-second:175}")
     private val throughputPerServerPerSecond: Int,
 ) : QueueV1ApiSpec {
+
+    private val log = LoggerFactory.getLogger(QueueV1Controller::class.java)
+
+    @PostConstruct
+    fun validateConfiguration() {
+        if (throughputPerServerPerSecond <= 0) {
+            val errorMessage =
+                "Invalid configuration: queue.throughput-per-server-per-second must be greater than 0, " +
+                    "but got $throughputPerServerPerSecond"
+            throw IllegalArgumentException(errorMessage)
+        }
+        log.info("Queue configuration validated: throughputPerServerPerSecond=$throughputPerServerPerSecond")
+    }
 
     @PostMapping("/{queueName}/enter")
     @ResponseStatus(HttpStatus.CREATED)

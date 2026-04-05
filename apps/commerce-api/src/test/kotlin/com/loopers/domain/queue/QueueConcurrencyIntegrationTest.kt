@@ -65,30 +65,55 @@ class QueueConcurrencyIntegrationTest @Autowired constructor(
     fun `여러 사용자가 동시에 대기열에 진입해도 모두 고유한 순번을 가진다`() {
         // arrange
         val threadCount = 50
-        val latch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1) // 모든 스레드 시작을 동기화
+        val completionLatch = CountDownLatch(threadCount)
         val executor = Executors.newFixedThreadPool(threadCount)
 
-        // act: 50개 스레드 동시 진입
-        (1..threadCount).forEach { i ->
-            executor.submit {
-                try {
-                    queueRepository.enter(QUEUE_NAME, i.toLong(), System.currentTimeMillis().toDouble())
-                } finally {
-                    latch.countDown()
+        try {
+            // act: 50개 스레드 동시 진입 (모두 준비 후 동시 시작)
+            (1..threadCount).forEach { i ->
+                executor.submit {
+                    try {
+                        // 모든 스레드가 준비될 때까지 대기
+                        startLatch.await()
+
+                        // 일부 스레드는 진입 전 지연 시뮬레이션 (느린 워커)
+                        if (i % 10 == 0) {
+                            Thread.sleep(5L)
+                        }
+
+                        queueRepository.enter(QUEUE_NAME, i.toLong(), System.currentTimeMillis().toDouble())
+                    } finally {
+                        completionLatch.countDown()
+                    }
                 }
             }
-        }
-        latch.await(10, TimeUnit.SECONDS)
-        executor.shutdown()
 
-        // assert: 50명 모두 대기열에 존재 (중복 없음)
-        assertThat(queueRepository.size(QUEUE_NAME)).isEqualTo(threadCount.toLong())
+            // 모든 작업 제출 후 스레드들이 동시에 시작하도록 신호
+            startLatch.countDown()
 
-        // 각 userId의 순번이 고유한지 확인 (0 ~ 49)
-        val ranks = (1..threadCount).map { i ->
-            queueRepository.getRank(QUEUE_NAME, i.toLong())
+            // 모든 스레드가 완료될 때까지 대기
+            val completed = completionLatch.await(10, TimeUnit.SECONDS)
+            assertThat(completed)
+                .withFailMessage("Threads did not complete within 10 seconds")
+                .isTrue()
+
+            // assert: 50명 모두 대기열에 존재 (중복 없음)
+            assertThat(queueRepository.size(QUEUE_NAME)).isEqualTo(threadCount.toLong())
+
+            // 각 userId의 순번이 고유한지 확인 (0 ~ 49)
+            val ranks = (1..threadCount).map { i ->
+                queueRepository.getRank(QUEUE_NAME, i.toLong())
+            }
+            assertThat(ranks).doesNotContainNull()
+            assertThat(ranks.toSet()).hasSize(threadCount) // 모두 고유한 순번
+        } finally {
+            // cleanup: executor 종료 및 정상 종료 대기
+            executor.shutdown()
+            val terminated = executor.awaitTermination(5, TimeUnit.SECONDS)
+            assertThat(terminated)
+                .withFailMessage("Executor did not terminate within timeout")
+                .isTrue()
         }
-        assertThat(ranks).doesNotContainNull()
-        assertThat(ranks.toSet()).hasSize(threadCount) // 모두 고유한 순번
     }
 }

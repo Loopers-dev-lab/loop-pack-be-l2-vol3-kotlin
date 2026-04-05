@@ -15,6 +15,7 @@ import com.loopers.domain.user.vo.LoginId
 import com.loopers.domain.user.vo.Name
 import com.loopers.domain.user.vo.Password
 import com.loopers.domain.coupon.CouponTemplateRepository
+import com.loopers.infrastructure.queue.WaitingQueueRegistry
 import com.loopers.infrastructure.scheduler.QueueScheduler
 import com.loopers.testcontainers.RedisTestContainersConfig
 import com.loopers.utils.RedisCleanUp
@@ -61,6 +62,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
     private val queueRepository: QueueRepository,
+    private val waitingQueueRegistry: WaitingQueueRegistry,
     private val passwordEncoder: PasswordEncoder,
 ) {
     @MockBean
@@ -95,7 +97,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
     private fun getEntryToken(loginId: String, userId: Long): String {
         // Redis에 직접 토큰 발급 (스케줄러 역할 시뮬레이션)
         val token = java.util.UUID.randomUUID().toString()
-        queueRepository.issueToken(QUEUE_NAME, userId, token, 600L)
+        val config = waitingQueueRegistry.getQueueConfig(QUEUE_NAME)
+        val ttlSeconds = config?.activeTokenTTLSeconds?.toLong() ?: 300L
+        queueRepository.issueToken(QUEUE_NAME, userId, token, ttlSeconds)
         return token
     }
 
@@ -770,6 +774,78 @@ class OrderV1ApiE2ETest @Autowired constructor(
 
             val stock3After = stockJpaRepository.findByProductId(savedProduct3.id)
             assertThat(stock3After?.quantity).isEqualTo(23) // 30 - 7
+        }
+    }
+
+    @DisplayName("토큰 TTL 만료 테스트")
+    @Nested
+    inner class TokenExpiryTest {
+
+        @Test
+        @DisplayName("TTL이 만료된 토큰으로 요청하면 ENTRY_TOKEN_INVALID 예외를 받는다")
+        fun createOrderWithExpiredToken() {
+            // given
+            val plainPassword = "expiredTokenPassword"
+            val user = User.create(
+                loginId = LoginId.of("expiretest"),
+                password = Password.ofEncrypted(passwordEncoder.encode(plainPassword)),
+                name = Name.of("토큰 만료 테스트"),
+                birthDate = BirthDate.of("20260101"),
+                email = Email.of("expire@test.com"),
+            )
+            val savedUser = userJpaRepository.save(user)
+
+            val brand = Brand.create(
+                name = "만료 테스트 브랜드",
+                description = "만료 테스트 브랜드",
+            )
+            val savedBrand = brandJpaRepository.save(brand)
+
+            val product = Product.create(
+                brand = savedBrand,
+                name = "만료 테스트 상품",
+                price = BigDecimal("10000"),
+                status = ProductStatus.ACTIVE,
+            )
+            val savedProduct = productJpaRepository.save(product)
+
+            // 재고 생성
+            stockJpaRepository.save(
+                Stock.create(
+                    productId = savedProduct.id,
+                    quantity = 100,
+                ),
+            )
+
+            // 매우 짧은 TTL(1초)로 토큰 발급
+            val token = java.util.UUID.randomUUID().toString()
+            queueRepository.issueToken(QUEUE_NAME, savedUser.id, token, 1L)
+
+            // 토큰 만료 시뮬레이션 (1초 대기)
+            Thread.sleep(1100L)
+
+            val request = OrderV1Dto.OrderRequest(
+                items = listOf(
+                    OrderV1Dto.OrderItemRequest(
+                        productId = savedProduct.id,
+                        quantity = 1,
+                    ),
+                ),
+            )
+
+            val headers = createAuthHeadersWithToken("expiretest", plainPassword, token)
+
+            // when
+            val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
+            val response = restTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                HttpEntity(request, headers),
+                responseType,
+            )
+
+            // then: 만료된 토큰으로 인한 실패 (FORBIDDEN - 유효하지 않은 토큰)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
         }
     }
 }

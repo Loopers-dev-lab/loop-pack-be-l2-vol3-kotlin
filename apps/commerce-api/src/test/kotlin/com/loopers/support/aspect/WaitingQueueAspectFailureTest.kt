@@ -8,6 +8,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -40,21 +41,27 @@ class WaitingQueueAspectFailureTest {
         RequestContextHolder.setRequestAttributes(ServletRequestAttributes(request))
     }
 
+    @AfterEach
+    fun tearDown() {
+        // RequestContextHolder 초기화: setUp()에서 생성한 mock request 제거
+        RequestContextHolder.resetRequestAttributes()
+    }
+
     @DisplayName("토큰 검증 실패 케이스")
     @Nested
     inner class TokenValidationFailureTest {
 
         @Test
-        fun `빈 토큰 헤더로 요청 시 즉시 ENTRY_TOKEN_REQUIRED 예외 발생`() {
+        fun `빈 토큰 헤더로 요청 시 즉시 ENTRY_TOKEN_MISSING 예외 발생`() {
             // arrange: 헤더 없음
 
             // act & assert
             val exception = org.junit.jupiter.api.assertThrows<CoreException> {
                 aspect.validateEntryToken(mockk(), waitingQueue)
             }
-            assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_REQUIRED)
+            assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_MISSING)
             // verify: 토큰 조회 시도도 없음 (조기 실패)
-            verify(exactly = 0) { queueRepository.getToken(any(), any()) }
+            verify(exactly = 0) { queueRepository.getAndConsume(any(), any()) }
         }
 
         @Test
@@ -62,15 +69,15 @@ class WaitingQueueAspectFailureTest {
             // arrange
             val request = (RequestContextHolder.getRequestAttributes() as ServletRequestAttributes).request
             (request as MockHttpServletRequest).addHeader(WaitingQueueAspect.ENTRY_TOKEN_HEADER, validToken)
-            every { queueRepository.getToken(queueName, userId) } returns null
+            every { queueRepository.getAndConsume(queueName, userId) } returns null
 
             // act & assert
             val exception = org.junit.jupiter.api.assertThrows<CoreException> {
                 aspect.validateEntryToken(mockk(), waitingQueue)
             }
             assertThat(exception.errorType).isEqualTo(ErrorType.ENTRY_TOKEN_INVALID)
-            // verify: 토큰 조회는 시도했지만 일치 체크는 없음
-            verify { queueRepository.getToken(queueName, userId) }
+            // verify: 토큰 조회 (getAndConsume) 시도는 했지만 일치 체크는 없음
+            verify { queueRepository.getAndConsume(queueName, userId) }
         }
 
         @Test
@@ -78,7 +85,7 @@ class WaitingQueueAspectFailureTest {
             // arrange
             val request = (RequestContextHolder.getRequestAttributes() as ServletRequestAttributes).request
             (request as MockHttpServletRequest).addHeader(WaitingQueueAspect.ENTRY_TOKEN_HEADER, "wrong-token")
-            every { queueRepository.getToken(queueName, userId) } returns validToken
+            every { queueRepository.getAndConsume(queueName, userId) } returns validToken
 
             // act & assert
             val exception = org.junit.jupiter.api.assertThrows<CoreException> {
@@ -93,11 +100,12 @@ class WaitingQueueAspectFailureTest {
     inner class ExceptionHandlingTest {
 
         @Test
-        fun `메서드 실행 중 예외 발생하면 토큰은 정리되지 않는다`() {
+        fun `메서드 실행 중 예외 발생하면 토큰은 이미 소비되었고 finally에서 정리됨`() {
             // arrange
             val request = (RequestContextHolder.getRequestAttributes() as ServletRequestAttributes).request
             (request as MockHttpServletRequest).addHeader(WaitingQueueAspect.ENTRY_TOKEN_HEADER, validToken)
-            every { queueRepository.getToken(queueName, userId) } returns validToken
+            every { queueRepository.getAndConsume(queueName, userId) } returns validToken
+            every { queueRepository.remove(queueName, userId) } returns Unit
 
             val pjp = mockk<org.aspectj.lang.ProceedingJoinPoint>()
             every { pjp.proceed() } throws IllegalStateException("주문 처리 중 오류")
@@ -107,21 +115,20 @@ class WaitingQueueAspectFailureTest {
                 aspect.validateEntryToken(pjp, waitingQueue)
             }
 
-            // verify: 토큰 정리 안 됨 (deleteToken, remove 호출 안 됨)
-            verify(exactly = 0) { queueRepository.deleteToken(any(), any()) }
-            verify(exactly = 0) { queueRepository.remove(any(), any()) }
+            // verify: 토큰은 원자적으로 소비되고, finally 블록에서 항상 정리됨 (remove 호출됨)
+            verify { queueRepository.getAndConsume(queueName, userId) }
+            verify { queueRepository.remove(queueName, userId) }
         }
 
         @Test
-        fun `정상 실행 후 예외 없으면 토큰이 정리된다`() {
+        fun `정상 실행 후 예외 없으면 토큰이 소비되고 대기열이 정리된다`() {
             // arrange
             val request = (RequestContextHolder.getRequestAttributes() as ServletRequestAttributes).request
             (request as MockHttpServletRequest).addHeader(WaitingQueueAspect.ENTRY_TOKEN_HEADER, validToken)
-            every { queueRepository.getToken(queueName, userId) } returns validToken
+            every { queueRepository.getAndConsume(queueName, userId) } returns validToken
 
             val pjp = mockk<org.aspectj.lang.ProceedingJoinPoint>()
             every { pjp.proceed() } returns "success"
-            every { queueRepository.deleteToken(queueName, userId) } returns Unit
             every { queueRepository.remove(queueName, userId) } returns Unit
 
             // act
@@ -129,8 +136,8 @@ class WaitingQueueAspectFailureTest {
 
             // assert
             assertThat(result).isEqualTo("success")
-            // verify: 토큰 정리됨
-            verify { queueRepository.deleteToken(queueName, userId) }
+            // verify: 토큰은 원자적으로 소비되고 대기열이 정리됨
+            verify { queueRepository.getAndConsume(queueName, userId) }
             verify { queueRepository.remove(queueName, userId) }
         }
     }

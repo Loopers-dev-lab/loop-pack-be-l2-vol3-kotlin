@@ -4,6 +4,7 @@ import com.loopers.domain.queue.QueueRepository
 import com.loopers.testcontainers.RedisTestContainersConfig
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
+import org.awaitility.Awaitility
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import java.time.Duration
 
 @SpringBootTest
 @Import(RedisTestContainersConfig::class)
@@ -37,22 +39,18 @@ class QueueSchedulerIntegrationTest @Autowired constructor(
 
     @DisplayName("대기열 스케줄러 - 토큰 발급")
     @Test
-    fun `대기열에 17명이 있을 때 processQueue 호출로 17명에게 토큰이 발급된다`() {
-        // arrange: 17명 진입
-        repeat(17) { i ->
-            val userId = (100L + i).toLong()
-            queueRepository.enter(QUEUE_NAME, userId, System.currentTimeMillis().toDouble())
-        }
+    fun `대기열의 사용자에게 토큰이 발급된다`() {
+        // arrange: 1명 진입
+        val userId = 100L
+        queueRepository.enter(QUEUE_NAME, userId, System.currentTimeMillis().toDouble())
 
-        // act
+        // act: 토큰 발급
         queueScheduler.processQueue()
 
-        // assert: 17명 모두 토큰 발급 확인
-        repeat(17) { i ->
-            val userId = (100L + i).toLong()
-            val token = queueRepository.getToken(QUEUE_NAME, userId)
-            assertThat(token).isNotNull()
-        }
+        // assert: 토큰 발급 확인
+        val token = queueRepository.getToken(QUEUE_NAME, userId)
+        assertThat(token).isNotNull()
+        assertThat(queueRepository.size(QUEUE_NAME)).isZero()
     }
 
     @DisplayName("대기열 스케줄러 - 빈 큐")
@@ -95,7 +93,7 @@ class QueueSchedulerIntegrationTest @Autowired constructor(
 
     @DisplayName("대기열 스케줄러 - popMin 원자성 및 순서")
     @Test
-    fun `processQueue 호출 후 대기열에서 사용자가 제거되고 score 순서로 정렬된다`() {
+    fun `processQueue 호출 후 대기열에서 사용자가 제거된다`() {
         // arrange: 5명 진입
         repeat(5) { i ->
             val userId = (1000L + i).toLong()
@@ -103,10 +101,13 @@ class QueueSchedulerIntegrationTest @Autowired constructor(
         }
         assertThat(queueRepository.size(QUEUE_NAME)).isEqualTo(5L)
 
-        // act
+        // act: 충분히 많은 시간 경과 시뮬레이션으로 모두 처리
+        queueScheduler.processQueue()
+        val bucket = queueScheduler.getTokenBucket(QUEUE_NAME)
+        bucket?.simulateElapsedTimeAndCalculateBatchSize(500) // 충분한 토큰 축적
         queueScheduler.processQueue()
 
-        // assert: 대기열 비움
+        // assert: 모두 처리됨
         assertThat(queueRepository.size(QUEUE_NAME)).isEqualTo(0L)
     }
 
@@ -119,10 +120,12 @@ class QueueSchedulerIntegrationTest @Autowired constructor(
         queueRepository.issueToken(QUEUE_NAME, userId, token, 1L)
         assertThat(queueRepository.getToken(QUEUE_NAME, userId)).isEqualTo(token)
 
-        // act: TTL 만료 대기
-        Thread.sleep(1500)
-
-        // assert: 토큰 만료
-        assertThat(queueRepository.getToken(QUEUE_NAME, userId)).isNull()
+        // act & assert: TTL 만료 대기 및 확인 (폴링으로 안정적 대기)
+        Awaitility.await()
+            .atMost(Duration.ofSeconds(5))
+            .pollInterval(Duration.ofMillis(100))
+            .untilAsserted {
+                assertThat(queueRepository.getToken(QUEUE_NAME, userId)).isNull()
+            }
     }
 }
