@@ -37,6 +37,16 @@ class QueueV1ControllerConfigValidationTest {
         assertThat(exception.message).contains("got -10")
     }
 
+    @DisplayName("throughputPerServerPerSecond = 1일 때 검증 성공 (최솟값)")
+    @Test
+    fun `throughputPerServerPerSecond가 1이면 validateConfiguration이 성공한다`() {
+        val mockFacade = mockk<QueueFacade>()
+        val controller = QueueV1Controller(mockFacade, 1)
+
+        // 예외 발생하지 않음
+        controller.validateConfiguration()
+    }
+
     @DisplayName("throughputPerServerPerSecond > 0일 때 검증 성공")
     @Test
     fun `throughputPerServerPerSecond가 양수이면 validateConfiguration이 성공한다`() {
