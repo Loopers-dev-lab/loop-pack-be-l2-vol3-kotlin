@@ -39,6 +39,7 @@ class QueueStreamE2ETest @Autowired constructor(
     private val redisCleanUp: RedisCleanUp,
     private val orderQueueService: OrderQueueService,
     private val queueFacade: QueueFacade,
+    private val queueEmitterRepository: com.loopers.domain.queue.QueueEmitterRepository,
 ) {
 
     @LocalServerPort
@@ -120,6 +121,14 @@ class QueueStreamE2ETest @Autowired constructor(
         return thread
     }
 
+    private fun awaitEmitterRegistered(userId: Long, timeoutMs: Long = 3000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (queueEmitterRepository.get(userId) == null) {
+            check(System.currentTimeMillis() < deadline) { "SSE emitter 등록 타임아웃: userId=$userId" }
+            Thread.sleep(50)
+        }
+    }
+
     @Nested
     @DisplayName("SSE 스트림 E2E")
     inner class SseStreamE2E {
@@ -149,11 +158,11 @@ class QueueStreamE2ETest @Autowired constructor(
             val eventReceived = CountDownLatch(1)
             connectSse("user2", "Pass1234!@", receivedEvents, eventReceived, "position")
 
-            Thread.sleep(1000)
+            awaitEmitterRegistered(2L)
 
             // act - user1만 입장 허용 → user2에게 position 이벤트 전송
-            val admittedUserIds = orderQueueService.admitUsers(1)
-            queueFacade.broadcastPositions(admittedUserIds)
+            val admittedUsers = orderQueueService.admitUsers(1)
+            queueFacade.broadcastPositions(admittedUsers)
 
             // assert
             val received = eventReceived.await(3, TimeUnit.SECONDS)
@@ -180,11 +189,11 @@ class QueueStreamE2ETest @Autowired constructor(
             val admittedReceived = CountDownLatch(1)
             val sseThread = connectSse("user1", "Pass1234!@", receivedEvents, admittedReceived, "admitted")
 
-            Thread.sleep(1000)
+            awaitEmitterRegistered(1L)
 
             // act - user1 입장 허용 → admitted 이벤트 전송 + SseEmitter 완료
-            val admittedUserIds = orderQueueService.admitUsers(1)
-            queueFacade.broadcastPositions(admittedUserIds)
+            val admittedUsers = orderQueueService.admitUsers(1)
+            queueFacade.broadcastPositions(admittedUsers)
 
             // assert - admitted 이벤트 수신
             val received = admittedReceived.await(3, TimeUnit.SECONDS)

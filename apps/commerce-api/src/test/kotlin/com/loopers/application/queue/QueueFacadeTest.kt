@@ -15,7 +15,10 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import java.io.IOException
+import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
@@ -67,8 +70,8 @@ class QueueFacadeTest {
         }
 
         @Test
-        @DisplayName("이미 대기열에 있는 유저는 현재 순번을 반환한다")
-        fun returnsCurrentPosition_whenAlreadyInQueue() {
+        @DisplayName("enterQueue 반환값과 무관하게 항상 getPosition을 호출하여 순번을 반환한다")
+        fun alwaysCallsGetPosition_regardlessOfEnterQueueResult() {
             // arrange
             val userId = 1L
             whenever(orderQueueService.enterQueue(userId)).thenReturn(false)
@@ -80,10 +83,9 @@ class QueueFacadeTest {
             val result = queueFacade.enterQueue(userId)
 
             // assert
-            assertAll(
-                { assertThat(result.position).isEqualTo(3L) },
-                { assertThat(result.totalSize).isEqualTo(50L) },
-            )
+            verify(orderQueueService).enterQueue(userId)
+            verify(orderQueueService).getPosition(userId)
+            assertThat(result.position).isEqualTo(3L)
         }
     }
 
@@ -192,6 +194,19 @@ class QueueFacadeTest {
 
             // assert
             assertThat(queueEmitterRepository.get(userId)).isNull()
+        }
+
+        @Test
+        @DisplayName("대기열에 없는 유저가 구독하면 NOT_FOUND 예외가 전파된다")
+        fun propagatesNotFound_whenUserNotInQueue() {
+            // arrange
+            val userId = 999L
+            whenever(orderQueueService.getPosition(userId))
+                .thenThrow(CoreException(ErrorType.NOT_FOUND, "대기열에 존재하지 않는 유저입니다."))
+
+            // act & assert
+            val exception = assertThrows<CoreException> { queueFacade.subscribe(userId) }
+            assertThat(exception.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
 
         @Test
