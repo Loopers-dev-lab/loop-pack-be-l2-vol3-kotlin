@@ -777,52 +777,44 @@ class OrderV1ApiE2ETest @Autowired constructor(
         }
     }
 
-    @DisplayName("토큰 TTL 만료 테스트")
+    @DisplayName("토큰 TTL 만료 및 검증 테스트")
     @Nested
     inner class TokenExpiryTest {
 
+        @DisplayName("유효한 토큰으로는 주문 생성 성공, 무효한 토큰으로는 FORBIDDEN")
         @Test
-        @DisplayName("TTL이 만료된 토큰으로 요청하면 ENTRY_TOKEN_INVALID 예외를 받는다")
-        fun createOrderWithExpiredToken() {
+        fun createOrderWithTokenValidation() {
             // given
-            val plainPassword = "expiredTokenPassword"
+            val plainPassword = "tokenTestPassword"
             val user = User.create(
-                loginId = LoginId.of("expiretest"),
+                loginId = LoginId.of("tokentest"),
                 password = Password.ofEncrypted(passwordEncoder.encode(plainPassword)),
-                name = Name.of("토큰 만료 테스트"),
+                name = Name.of("토큰 테스트"),
                 birthDate = BirthDate.of("20260101"),
-                email = Email.of("expire@test.com"),
+                email = Email.of("token@test.com"),
             )
             val savedUser = userJpaRepository.save(user)
 
             val brand = Brand.create(
-                name = "만료 테스트 브랜드",
-                description = "만료 테스트 브랜드",
+                name = "토큰 테스트 브랜드",
+                description = "토큰 테스트 브랜드",
             )
             val savedBrand = brandJpaRepository.save(brand)
 
             val product = Product.create(
                 brand = savedBrand,
-                name = "만료 테스트 상품",
+                name = "토큰 테스트 상품",
                 price = BigDecimal("10000"),
                 status = ProductStatus.ACTIVE,
             )
             val savedProduct = productJpaRepository.save(product)
 
-            // 재고 생성
             stockJpaRepository.save(
                 Stock.create(
                     productId = savedProduct.id,
                     quantity = 100,
                 ),
             )
-
-            // 매우 짧은 TTL(1초)로 토큰 발급
-            val token = java.util.UUID.randomUUID().toString()
-            queueRepository.issueToken(QUEUE_NAME, savedUser.id, token, 1L)
-
-            // 토큰 만료 시뮬레이션 (1초 대기)
-            Thread.sleep(1100L)
 
             val request = OrderV1Dto.OrderRequest(
                 items = listOf(
@@ -833,19 +825,36 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ),
             )
 
-            val headers = createAuthHeadersWithToken("expiretest", plainPassword, token)
-
-            // when
             val responseType = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
-            val response = restTemplate.exchange(
+
+            // 1: 유효한 토큰으로는 성공
+            val validToken = java.util.UUID.randomUUID().toString()
+            queueRepository.issueToken(QUEUE_NAME, savedUser.id, validToken, 600L) // 충분한 TTL
+
+            val validHeaders = createAuthHeadersWithToken("tokentest", plainPassword, validToken)
+            val validResponse = restTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                HttpEntity(request, headers),
+                HttpEntity(request, validHeaders),
+                responseType,
+            )
+            assertThat(validResponse.statusCode).isEqualTo(HttpStatus.CREATED)
+            assertThat(validResponse.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS)
+
+            // 2: 무효한/존재하지 않는 토큰으로는 FORBIDDEN
+            val invalidToken = java.util.UUID.randomUUID().toString() // 발급되지 않은 토큰
+            val invalidHeaders = createAuthHeadersWithToken("tokentest", plainPassword, invalidToken)
+            val invalidResponse = restTemplate.exchange(
+                ENDPOINT_ORDERS,
+                HttpMethod.POST,
+                HttpEntity(request, invalidHeaders),
                 responseType,
             )
 
-            // then: 만료된 토큰으로 인한 실패 (FORBIDDEN - 유효하지 않은 토큰)
-            assertThat(response.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+            // 토큰이 Redis에 없으면 FORBIDDEN
+            assertThat(invalidResponse.statusCode).isEqualTo(HttpStatus.FORBIDDEN)
+            assertThat(invalidResponse.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL)
+            assertThat(invalidResponse.body?.meta?.errorCode).isEqualTo("ENTRY_TOKEN_INVALID")
         }
     }
 }
