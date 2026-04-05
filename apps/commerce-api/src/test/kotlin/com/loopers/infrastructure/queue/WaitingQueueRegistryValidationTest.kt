@@ -3,6 +3,8 @@ package com.loopers.infrastructure.queue
 import com.loopers.support.annotation.WaitingQueue
 import io.mockk.every
 import io.mockk.mockk
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -79,10 +81,30 @@ class WaitingQueueRegistryValidationTest {
 
             // assert
             val config = registry.getQueueConfig("valid-queue")
-            assert(config != null)
-            assert(config!!.name == "valid-queue")
-            assert(config.throughputPerServerPerSecond == 100)
-            assert(config.activeTokenTTLSeconds == 300)
+            assertNotNull(config)
+            assertEquals("valid-queue", config?.name)
+            assertEquals(100, config?.throughputPerServerPerSecond)
+            assertEquals(300, config?.activeTokenTTLSeconds)
+        }
+
+        @Test
+        fun `경계값(throughputPerServerPerSecond=1, activeTokenTTLSeconds=1)도 정상 등록된다`() {
+            // arrange
+            val applicationContext = mockk<ApplicationContext>()
+            every { applicationContext.getBeansWithAnnotation(RestController::class.java) } returns mapOf(
+                "testController" to BoundaryQueueController(),
+            )
+            registry = WaitingQueueRegistry(applicationContext)
+
+            // act
+            registry.afterSingletonsInstantiated()
+
+            // assert
+            val config = registry.getQueueConfig("boundary-queue")
+            assertNotNull(config)
+            assertEquals("boundary-queue", config?.name)
+            assertEquals(1, config?.throughputPerServerPerSecond)
+            assertEquals(1, config?.activeTokenTTLSeconds)
         }
     }
 
@@ -137,9 +159,9 @@ class WaitingQueueRegistryValidationTest {
 
             // assert
             val config = registry.getQueueConfig("same-queue")
-            assert(config != null)
-            assert(config!!.throughputPerServerPerSecond == 100)
-            assert(config.activeTokenTTLSeconds == 300)
+            assertNotNull(config)
+            assertEquals(100, config?.throughputPerServerPerSecond)
+            assertEquals(300, config?.activeTokenTTLSeconds)
         }
     }
 }
@@ -209,6 +231,13 @@ class IdenticalConfigController1 {
 
 class IdenticalConfigController2 {
     @WaitingQueue(name = "same-queue", throughputPerServerPerSecond = 100, activeTokenTTLSeconds = 300)
+    fun issue() {
+        // dummy
+    }
+}
+
+class BoundaryQueueController {
+    @WaitingQueue(name = "boundary-queue", throughputPerServerPerSecond = 1, activeTokenTTLSeconds = 1)
     fun issue() {
         // dummy
     }
