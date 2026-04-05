@@ -64,19 +64,29 @@ class QueueV1ApiE2ETest @Autowired constructor(
     }
 
     private fun createUserAndGetHeaders(loginId: String = "admin"): HttpHeaders {
-        // 사용자가 없으면 생성
-        try {
-            val user = User.create(
-                loginId = LoginId.of(loginId),
-                password = Password.ofEncrypted(passwordEncoder.encode(DEFAULT_PASSWORD)),
-                name = Name.of("테스트사용자"),
-                birthDate = BirthDate.of("20000101"),
-                email = Email.of("$loginId@test.com"),
-            )
-            userJpaRepository.save(user)
-        } catch (e: Exception) {
-            // 이미 존재하면 무시
+        // 먼저 기존 사용자 확인
+        val loginIdVo = LoginId.of(loginId)
+        val existingUser = userJpaRepository.findByLoginId(loginIdVo)
+
+        // 없을 때만 생성
+        if (existingUser == null) {
+            try {
+                val user = User.create(
+                    loginId = loginIdVo,
+                    password = Password.ofEncrypted(passwordEncoder.encode(DEFAULT_PASSWORD)),
+                    name = Name.of("테스트사용자"),
+                    birthDate = BirthDate.of("20000101"),
+                    email = Email.of("$loginId@test.com"),
+                )
+                userJpaRepository.save(user)
+            } catch (e: Exception) {
+                // 중복 키 예외는 무시 (다른 스레드가 생성한 경우)
+                if (e !is org.springframework.dao.DataIntegrityViolationException) {
+                    throw e
+                }
+            }
         }
+
         return HttpHeaders().apply {
             set("X-Loopers-LoginId", loginId)
             set("X-Loopers-LoginPw", DEFAULT_PASSWORD)
