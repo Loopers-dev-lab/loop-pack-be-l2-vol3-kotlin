@@ -1,0 +1,80 @@
+package com.loopers.infrastructure.queue
+
+import com.loopers.config.redis.RedisConfig.Companion.REDIS_TEMPLATE_MASTER
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.queue.waiting.model.EnterResult
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import com.loopers.domain.queue.waiting.repository.WaitingQueueRepository
+import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
+import org.springframework.stereotype.Repository
+
+@Repository
+class RedisWaitingQueueRepository(
+    @param:Qualifier(REDIS_TEMPLATE_MASTER)
+    private val redisTemplate: RedisTemplate<String, String>,
+) : WaitingQueueRepository {
+
+    companion object {
+        /**
+         * Lua 스크립트: 원자적으로 토큰 보유 여부 확인 + 상한 검증 + 대기열 진입 수행.
+         * score는 Redis 서버 타임스탬프(TIME 커맨드)로 생성하여 Double 정밀도 한계를 회피한다.
+         * score = seconds * 1_000_000 + microseconds (마이크로초 단위 유닉스 타임스탬프)
+         * 최대값 ≈ 1.7×10^15 < 2^53 (Double 안전 정수 범위) 이므로 정밀도 손실 없음.
+         *
+         * KEYS[1] = waiting-queue
+         * KEYS[2] = entry-token:{userId}
+         * ARGV[1] = userId (member)
+         * ARGV[2] = maxCapacity
+         *
+         * 반환: 순번 (0-based) 또는 -1 (상한 초과) 또는 -2 (토큰 보유)
+         */
+        private val ENTER_SCRIPT = RedisScript.of(
+            """
+            if redis.call('EXISTS', KEYS[2]) == 1 then
+                return -2
+            end
+            local existingRank = redis.call('ZRANK', KEYS[1], ARGV[1])
+            if existingRank then
+                return existingRank
+            end
+            local currentCount = redis.call('ZCARD', KEYS[1])
+            if currentCount >= tonumber(ARGV[2]) then
+                return -1
+            end
+            local time = redis.call('TIME')
+            local score = tonumber(time[1]) * 1000000 + tonumber(time[2])
+            redis.call('ZADD', KEYS[1], score, ARGV[1])
+            return redis.call('ZRANK', KEYS[1], ARGV[1])
+            """.trimIndent(),
+            Long::class.java,
+        )
+    }
+
+    override fun enter(userId: UserId, maxCapacity: Int): EnterResult {
+        val result = redisTemplate.execute(
+            ENTER_SCRIPT,
+            listOf(RedisQueueConstants.QUEUE_KEY, tokenKey(userId)),
+            userId.value.toString(),
+            maxCapacity.toString(),
+        )
+        return when {
+            result == -2L -> EnterResult.AlreadyHasToken
+            result == -1L -> EnterResult.QueueFull
+            result != null && result >= 0 -> EnterResult.Entered(result)
+            else -> throw CoreException(ErrorType.INTERNAL_ERROR, "대기열 진입 Lua 스크립트 예상 밖 반환값: $result")
+        }
+    }
+
+    override fun findPosition(userId: UserId): Long? {
+        return redisTemplate.opsForZSet().rank(RedisQueueConstants.QUEUE_KEY, userId.value.toString())
+    }
+
+    override fun count(): Long {
+        return redisTemplate.opsForZSet().zCard(RedisQueueConstants.QUEUE_KEY) ?: 0L
+    }
+
+    private fun tokenKey(userId: UserId) = "${RedisQueueConstants.TOKEN_KEY_PREFIX}${userId.value}"
+}

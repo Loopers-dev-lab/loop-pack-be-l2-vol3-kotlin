@@ -1,18 +1,22 @@
 package com.loopers.domain.coupon.model
 
+import com.loopers.domain.common.vo.CouponId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 
 class CouponIssueRequest(
     val id: Long = 0,
     val requestId: String,
-    val couponId: Long,
-    val userId: Long,
+    val couponId: CouponId,
+    val userId: UserId,
     status: CouponIssueStatus = CouponIssueStatus.PENDING,
 ) {
 
     init {
         if (requestId.isBlank()) throw CoreException(ErrorType.BAD_REQUEST, "requestId는 필수입니다.")
+        if (couponId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "couponId는 양수여야 합니다.")
+        if (userId.value <= 0) throw CoreException(ErrorType.BAD_REQUEST, "userId는 양수여야 합니다.")
     }
 
     var status: CouponIssueStatus = status

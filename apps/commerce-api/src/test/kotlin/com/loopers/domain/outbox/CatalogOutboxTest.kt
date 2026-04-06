@@ -1,6 +1,9 @@
 package com.loopers.domain.outbox
 
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.CatalogOutbox
+import com.loopers.domain.outbox.model.CatalogOutbox.CatalogOutboxEventType
 import com.loopers.domain.outbox.repository.CatalogOutboxRepository
 import com.loopers.support.error.CoreException
 import org.assertj.core.api.Assertions.assertThat
@@ -19,14 +22,14 @@ class CatalogOutboxTest {
         @Test
         fun `eventType, productId가 유효하면 생성된다`() {
             val outbox = CatalogOutbox(
-                eventType = "LIKE_ADDED",
-                productId = 1L,
-                userId = 1L,
+                eventType = CatalogOutboxEventType.LIKE_ADDED,
+                productId = ProductId(1L),
+                userId = UserId(1L),
             )
 
-            assertThat(outbox.eventType).isEqualTo("LIKE_ADDED")
-            assertThat(outbox.productId).isEqualTo(1L)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(CatalogOutboxEventType.LIKE_ADDED)
+            assertThat(outbox.productId).isEqualTo(ProductId(1L))
+            assertThat(outbox.userId).isEqualTo(UserId(1L))
             assertThat(outbox.published).isFalse()
             assertThat(outbox.eventId).isNotBlank()
         }
@@ -34,8 +37,8 @@ class CatalogOutboxTest {
         @Test
         fun `userId가 null이어도 생성된다`() {
             val outbox = CatalogOutbox(
-                eventType = "PRODUCT_VIEWED",
-                productId = 1L,
+                eventType = CatalogOutboxEventType.PRODUCT_VIEWED,
+                productId = ProductId(1L),
                 userId = null,
             )
 
@@ -43,30 +46,45 @@ class CatalogOutboxTest {
         }
 
         @Test
-        fun `eventType이 비어있으면 예외가 발생한다`() {
+        fun `LIKE_ADDED에 userId가 null이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CatalogOutbox(eventType = "", productId = 1L, userId = 1L)
+                CatalogOutbox(
+                    eventType = CatalogOutboxEventType.LIKE_ADDED,
+                    productId = ProductId(1L),
+                    userId = null,
+                )
+            }.isInstanceOf(CoreException::class.java)
+        }
+
+        @Test
+        fun `LIKE_REMOVED에 userId가 null이면 예외가 발생한다`() {
+            assertThatThrownBy {
+                CatalogOutbox(
+                    eventType = CatalogOutboxEventType.LIKE_REMOVED,
+                    productId = ProductId(1L),
+                    userId = null,
+                )
             }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `productId가 0 이하이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CatalogOutbox(eventType = "LIKE_ADDED", productId = 0L, userId = 1L)
+                CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(0L), userId = UserId(1L))
             }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `userId가 0이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = 0L)
+                CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(1L), userId = UserId(0L))
             }.isInstanceOf(CoreException::class.java)
         }
 
         @Test
         fun `userId가 음수이면 예외가 발생한다`() {
             assertThatThrownBy {
-                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = -1L)
+                CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(1L), userId = UserId(-1L))
             }.isInstanceOf(CoreException::class.java)
         }
     }
@@ -78,9 +96,9 @@ class CatalogOutboxTest {
         @Test
         fun `발행 완료로 상태가 변경된다`() {
             val outbox = CatalogOutbox(
-                eventType = "LIKE_ADDED",
-                productId = 1L,
-                userId = 1L,
+                eventType = CatalogOutboxEventType.LIKE_ADDED,
+                productId = ProductId(1L),
+                userId = UserId(1L),
             )
 
             outbox.markPublished()
@@ -103,10 +121,10 @@ class CatalogOutboxTest {
         @Test
         fun `미발행 메시지만 조회된다`() {
             val unpublished = repository.save(
-                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = 1L),
+                CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(1L), userId = UserId(1L)),
             )
             val published = repository.save(
-                CatalogOutbox(eventType = "PRODUCT_VIEWED", productId = 2L, userId = null),
+                CatalogOutbox(eventType = CatalogOutboxEventType.PRODUCT_VIEWED, productId = ProductId(2L), userId = null),
             )
             published.markPublished()
             repository.save(published)
@@ -120,7 +138,7 @@ class CatalogOutboxTest {
         @Test
         fun `발행 완료 마킹 후 미발행 목록에서 제외된다`() {
             val outbox = repository.save(
-                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = 1L),
+                CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(1L), userId = UserId(1L)),
             )
 
             outbox.markPublished()

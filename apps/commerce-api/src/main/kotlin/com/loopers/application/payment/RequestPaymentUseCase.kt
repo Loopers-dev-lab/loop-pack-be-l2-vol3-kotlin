@@ -43,7 +43,7 @@ class RequestPaymentUseCase(
                     throw CoreException(ErrorType.CONFLICT, "이미 결제가 완료된 주문입니다.")
                 PaymentStatus.REQUESTED, PaymentStatus.TIMEOUT ->
                     throw CoreException(ErrorType.CONFLICT, "이미 결제가 진행 중인 주문입니다.")
-                PaymentStatus.FAILED -> { /* 재결제 허용 */ }
+                PaymentStatus.FAILED, PaymentStatus.RECOVERY_FAILED -> { /* 재결제 허용 */ }
             }
         }
 

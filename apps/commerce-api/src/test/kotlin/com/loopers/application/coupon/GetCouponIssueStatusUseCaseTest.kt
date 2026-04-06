@@ -1,5 +1,7 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.FakeCouponIssueRequestRepository
 import com.loopers.domain.coupon.model.CouponIssueRequest
 import java.util.UUID
@@ -30,7 +32,7 @@ class GetCouponIssueStatusUseCaseTest {
         @Test
         fun `PENDING 상태의 요청을 조회하면 상태가 반환된다`() {
             val request = couponIssueRequestRepository.save(
-                CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L),
+                CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L)),
             )
 
             val result = useCase.execute(request.requestId, 1L)
@@ -42,7 +44,7 @@ class GetCouponIssueStatusUseCaseTest {
         @Test
         fun `SUCCESS 상태의 요청을 조회하면 상태가 반환된다`() {
             val request = couponIssueRequestRepository.save(
-                CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L),
+                CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L)),
             )
             request.markSuccess()
             couponIssueRequestRepository.save(request)
@@ -64,7 +66,7 @@ class GetCouponIssueStatusUseCaseTest {
         @Test
         fun `다른 사용자의 requestId로 조회하면 NOT_FOUND 예외가 발생한다`() {
             val request = couponIssueRequestRepository.save(
-                CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = 1L, userId = 1L),
+                CouponIssueRequest(requestId = UUID.randomUUID().toString(), couponId = CouponId(1L), userId = UserId(1L)),
             )
 
             val exception = assertThrows<CoreException> {

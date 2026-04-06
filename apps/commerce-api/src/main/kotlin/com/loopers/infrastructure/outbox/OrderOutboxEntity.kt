@@ -1,6 +1,13 @@
 package com.loopers.infrastructure.outbox
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.Money
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.Quantity
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.withBaseFields
 import jakarta.persistence.Column
@@ -38,13 +45,13 @@ class OrderOutboxEntity(
         fun fromDomain(outbox: OrderOutbox): OrderOutboxEntity {
             return OrderOutboxEntity(
                 eventId = outbox.eventId,
-                eventType = outbox.eventType,
-                orderId = outbox.orderId,
-                userId = outbox.userId,
-                totalAmount = outbox.totalAmount,
+                eventType = outbox.eventType.name,
+                orderId = outbox.orderId.value,
+                userId = outbox.userId.value,
+                totalAmount = outbox.totalAmount?.toLong(),
                 reason = outbox.reason,
-                productId = outbox.productId,
-                quantity = outbox.quantity,
+                productId = outbox.productId?.value,
+                quantity = outbox.quantity?.value,
                 published = outbox.published,
             ).withBaseFields(id = outbox.id)
         }
@@ -53,13 +60,14 @@ class OrderOutboxEntity(
     fun toDomain(): OrderOutbox = OrderOutbox(
         id = id,
         eventId = eventId,
-        eventType = eventType,
-        orderId = orderId,
-        userId = userId,
-        totalAmount = totalAmount,
+        eventType = OrderOutbox.OrderOutboxEventType.entries.find { it.name == eventType }
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "지원하지 않는 이벤트 타입: $eventType"),
+        orderId = OrderId(orderId),
+        userId = UserId(userId),
+        totalAmount = totalAmount?.let { Money(it.toBigDecimal()) },
         reason = reason,
-        productId = productId,
-        quantity = quantity,
+        productId = productId?.let { ProductId(it) },
+        quantity = quantity?.let { Quantity(it) },
         published = published,
     )
 }

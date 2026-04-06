@@ -24,6 +24,14 @@ spring:
       - kafka.yml
       - logging.yml
       - monitoring.yml
+  task:
+    scheduling:
+      pool:
+        size: 3
+      thread-name-prefix: scheduler-
+      shutdown:
+        await-termination: true
+        await-termination-period: 30s
   cloud:
     openfeign:
       client:
@@ -44,6 +52,13 @@ springdoc:
 pg:
   base-url: ${PG_BASE_URL:http://localhost:8082}
   callback-url: ${PG_CALLBACK_URL:http://localhost:8080/api/v1/payments/callback}
+
+# 대기열 설정
+queue:
+  max-capacity: ${QUEUE_MAX_CAPACITY:50000}
+  batch-size: ${QUEUE_BATCH_SIZE:18}
+  token-ttl-seconds: ${QUEUE_TOKEN_TTL:300}
+  scheduler-delay-ms: ${QUEUE_SCHEDULER_DELAY_MS:100}
 
 # Resilience4j 설정
 # aspect order: CircuitBreaker(1)가 Retry(2) 바깥에서 먼저 평가 → 서킷 오픈 시 즉시 fallback

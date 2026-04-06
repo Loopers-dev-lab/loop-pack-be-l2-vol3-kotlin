@@ -1,7 +1,10 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.FakeCouponIssueRequestRepository
 import com.loopers.domain.outbox.FakeCouponOutboxRepository
+import com.loopers.domain.outbox.model.CouponOutbox
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -32,10 +35,11 @@ class RequestCouponIssueUseCaseTest {
             assertThat(result.requestId).isNotBlank()
 
             val saved = couponIssueRequestRepository.findByRequestId(result.requestId)
-            assertThat(saved).isNotNull
-            assertThat(saved!!.status.name).isEqualTo("PENDING")
-            assertThat(saved.couponId).isEqualTo(10L)
-            assertThat(saved.userId).isEqualTo(1L)
+            assertThat(saved).isNotNull()
+            val found = requireNotNull(saved)
+            assertThat(found.status.name).isEqualTo("PENDING")
+            assertThat(found.couponId).isEqualTo(CouponId(10L))
+            assertThat(found.userId).isEqualTo(UserId(1L))
         }
 
         @Test
@@ -47,9 +51,9 @@ class RequestCouponIssueUseCaseTest {
 
             val outbox = outboxList[0]
             assertThat(outbox.eventId).isEqualTo(result.requestId)
-            assertThat(outbox.eventType).isEqualTo("COUPON_ISSUE_REQUESTED")
-            assertThat(outbox.couponId).isEqualTo(10L)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(CouponOutbox.CouponOutboxEventType.COUPON_ISSUE_REQUESTED)
+            assertThat(outbox.couponId).isEqualTo(CouponId(10L))
+            assertThat(outbox.userId).isEqualTo(UserId(1L))
         }
     }
 }

@@ -51,6 +51,15 @@ class Payment private constructor(
         this.status = PaymentStatus.TIMEOUT
     }
 
+    fun markRecoveryFailed(reason: String) {
+        if (status == PaymentStatus.RECOVERY_FAILED) return
+        if (status != PaymentStatus.REQUESTED && status != PaymentStatus.TIMEOUT) {
+            throw CoreException(ErrorType.BAD_REQUEST, "REQUESTED 또는 TIMEOUT 상태에서만 복구 실패 처리할 수 있습니다.")
+        }
+        this.reason = reason
+        this.status = PaymentStatus.RECOVERY_FAILED
+    }
+
     companion object {
         internal fun maskCardNo(cardNo: String): String {
             val digits = cardNo.replace("-", "")

@@ -24,7 +24,7 @@ class KafkaOutboxEventPublisher(
         } catch (ex: ExecutionException) {
             throw ex.cause ?: ex
         } catch (ex: TimeoutException) {
-            throw RuntimeException("Kafka 발행 타임아웃: topic=$topic, key=$key", ex)
+            throw RuntimeException("Kafka 발행 타임아웃: topic=$topic", ex)
         }
         log.debug("Kafka 발행 완료: topic={}, key={}", topic, key)
     }

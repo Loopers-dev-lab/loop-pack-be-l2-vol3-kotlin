@@ -104,5 +104,21 @@ class ProductMetricsTest {
 
             assertThat(metrics.salesCount).isEqualTo(3)
         }
+
+        @Test
+        fun `수량이 0이면 예외가 발생한다`() {
+            val metrics = ProductMetrics(productId = 1L)
+
+            assertThatThrownBy { metrics.incrementSalesCount(0) }
+                .isInstanceOf(CoreException::class.java)
+        }
+
+        @Test
+        fun `수량이 음수이면 예외가 발생한다`() {
+            val metrics = ProductMetrics(productId = 1L)
+
+            assertThatThrownBy { metrics.incrementSalesCount(-1) }
+                .isInstanceOf(CoreException::class.java)
+        }
     }
 }

@@ -1,5 +1,7 @@
 package com.loopers.application.coupon
 
+import com.loopers.domain.common.vo.CouponId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.CouponIssueRequest
 import com.loopers.domain.coupon.repository.CouponIssueRequestRepository
 import com.loopers.domain.outbox.model.CouponOutbox
@@ -17,26 +19,24 @@ class RequestCouponIssueUseCase(
     @Transactional
     fun execute(userId: Long, couponId: Long): CouponIssueRequestInfo {
         val requestId = UUID.randomUUID().toString()
+        val couponIdVo = CouponId(couponId)
+        val userIdVo = UserId(userId)
 
         val request = CouponIssueRequest(
             requestId = requestId,
-            couponId = couponId,
-            userId = userId,
+            couponId = couponIdVo,
+            userId = userIdVo,
         )
         couponIssueRequestRepository.save(request)
 
         val outbox = CouponOutbox(
             eventId = requestId,
-            eventType = COUPON_ISSUE_REQUESTED,
-            couponId = couponId,
-            userId = userId,
+            eventType = CouponOutbox.CouponOutboxEventType.COUPON_ISSUE_REQUESTED,
+            couponId = couponIdVo,
+            userId = userIdVo,
         )
         couponOutboxRepository.save(outbox)
 
         return CouponIssueRequestInfo(requestId = requestId)
-    }
-
-    companion object {
-        const val COUPON_ISSUE_REQUESTED = "COUPON_ISSUE_REQUESTED"
     }
 }
