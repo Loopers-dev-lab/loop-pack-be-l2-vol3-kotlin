@@ -4,6 +4,8 @@ import com.loopers.domain.event.model.EventHandled
 import com.loopers.domain.event.repository.EventHandledRepository
 import com.loopers.domain.metrics.model.ProductMetrics
 import com.loopers.domain.metrics.repository.ProductMetricsRepository
+import com.loopers.domain.ranking.RankingWeight
+import com.loopers.domain.ranking.repository.RankingScoreRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class UpdateProductMetricsUseCase(
     private val productMetricsRepository: ProductMetricsRepository,
     private val eventHandledRepository: EventHandledRepository,
+    private val rankingScoreRepository: RankingScoreRepository,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -25,10 +28,19 @@ class UpdateProductMetricsUseCase(
 
         val metrics = findOrCreate(productId)
 
-        when (eventType) {
-            PRODUCT_VIEWED -> metrics.incrementViewCount()
-            LIKE_ADDED -> metrics.incrementLikeCount()
-            LIKE_REMOVED -> metrics.decrementLikeCount()
+        val rankingScore = when (eventType) {
+            PRODUCT_VIEWED -> {
+                metrics.incrementViewCount()
+                RankingWeight.VIEW
+            }
+            LIKE_ADDED -> {
+                metrics.incrementLikeCount()
+                RankingWeight.LIKE
+            }
+            LIKE_REMOVED -> {
+                metrics.decrementLikeCount()
+                RankingWeight.LIKE * -1
+            }
             else -> {
                 log.warn("알 수 없는 catalog 이벤트 타입: eventType={}", eventType)
                 eventHandledRepository.save(EventHandled(eventId = eventId))
@@ -36,6 +48,7 @@ class UpdateProductMetricsUseCase(
             }
         }
 
+        rankingScoreRepository.incrementScore(productId, rankingScore)
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
     }
@@ -56,6 +69,7 @@ class UpdateProductMetricsUseCase(
         val metrics = findOrCreate(productId)
         metrics.incrementSalesCount(quantity)
 
+        rankingScoreRepository.incrementScore(productId, RankingWeight.ORDER * quantity)
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
     }
