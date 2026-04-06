@@ -48,6 +48,19 @@ resilience4j:
         automatic-transition-from-open-to-half-open-enabled: true
         register-health-indicator: true
 
+      # 대기열 Redis 서킷 — 일시적 Redis 장애 감지 및 격리
+      queue-redis:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10                 # 최근 10건 기준
+        minimum-number-of-calls: 3              # 최소 3건 후 실패율 계산
+        failure-rate-threshold: 50              # 실패율 50% 이상이면 OPEN
+        slow-call-duration-threshold: 200ms     # 200ms 이상이면 slowCall (Redis는 PG보다 빠름)
+        slow-call-rate-threshold: 80            # slowCall 80% 이상이면 OPEN
+        wait-duration-in-open-state: 5s         # OPEN 후 5초 뒤 HALF_OPEN (Redis는 빠르게 회복)
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+
   # ── 리트라이 ──
   # 조회(GET)에만 적용. 결제 요청(POST)은 멱등하지 않아 Retry 제외.
   # Retry 실패가 소진되면 최종 결과만 CircuitBreaker에 1건으로 카운트됨.

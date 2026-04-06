@@ -9,6 +9,7 @@ import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.CreateProductCommand
 import com.loopers.domain.product.FakeProductRepository
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.event.DomainEventPublisher
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito
 
 class LikeFacadeTest {
 
@@ -30,7 +32,7 @@ class LikeFacadeTest {
         likeService = LikeService(FakeLikeRepository())
         productService = ProductService(FakeProductRepository())
         brandService = BrandService(FakeBrandRepository())
-        likeFacade = LikeFacade(likeService, productService, brandService)
+        likeFacade = LikeFacade(likeService, productService, brandService, Mockito.mock(DomainEventPublisher::class.java))
     }
 
     private fun createBrand(name: String = "나이키"): Long {

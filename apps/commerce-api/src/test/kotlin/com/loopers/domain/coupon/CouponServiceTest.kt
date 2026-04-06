@@ -18,12 +18,14 @@ class CouponServiceTest {
     private lateinit var couponService: CouponService
     private lateinit var couponRepository: FakeCouponRepository
     private lateinit var couponIssueRepository: FakeCouponIssueRepository
+    private lateinit var couponCompensationRepository: FakeCouponCompensationRepository
 
     @BeforeEach
     fun setUp() {
         couponRepository = FakeCouponRepository()
         couponIssueRepository = FakeCouponIssueRepository()
-        couponService = CouponService(couponRepository, couponIssueRepository)
+        couponCompensationRepository = FakeCouponCompensationRepository()
+        couponService = CouponService(couponRepository, couponIssueRepository, couponCompensationRepository)
     }
 
     private fun createCouponCommand(
@@ -308,7 +310,7 @@ class CouponServiceTest {
             val issue = couponService.issueCoupon(coupon.id, userId = 1L)
 
             // act
-            val result = couponService.useCouponForOrder(issue.id, userId = 1L, orderAmount = Money(30000))
+            val result = couponService.validateAndCalculateDiscount(issue.id, userId = 1L, orderAmount = Money(30000))
 
             // assert
             assertAll(
@@ -326,7 +328,7 @@ class CouponServiceTest {
 
             // act
             val result = assertThrows<CoreException> {
-                couponService.useCouponForOrder(issue.id, userId = 2L, orderAmount = Money(30000))
+                couponService.validateAndCalculateDiscount(issue.id, userId = 2L, orderAmount = Money(30000))
             }
 
             // assert
@@ -339,11 +341,11 @@ class CouponServiceTest {
             // arrange
             val coupon = couponService.createCoupon(createCouponCommand())
             val issue = couponService.issueCoupon(coupon.id, userId = 1L)
-            couponService.useCouponForOrder(issue.id, userId = 1L, orderAmount = Money(30000))
+            couponService.validateAndCalculateDiscount(issue.id, userId = 1L, orderAmount = Money(30000))
 
             // act
             val result = assertThrows<CoreException> {
-                couponService.useCouponForOrder(issue.id, userId = 1L, orderAmount = Money(30000))
+                couponService.validateAndCalculateDiscount(issue.id, userId = 1L, orderAmount = Money(30000))
             }
 
             // assert
@@ -369,7 +371,7 @@ class CouponServiceTest {
 
             // act
             val result = assertThrows<CoreException> {
-                couponService.useCouponForOrder(issue.id, userId = 1L, orderAmount = Money(30000))
+                couponService.validateAndCalculateDiscount(issue.id, userId = 1L, orderAmount = Money(30000))
             }
 
             // assert
@@ -380,7 +382,7 @@ class CouponServiceTest {
         @DisplayName("존재하지 않는 발급 쿠폰을 사용하면 NOT_FOUND 예외가 발생한다")
         fun notFoundThrowsNotFound() {
             val result = assertThrows<CoreException> {
-                couponService.useCouponForOrder(999L, userId = 1L, orderAmount = Money(30000))
+                couponService.validateAndCalculateDiscount(999L, userId = 1L, orderAmount = Money(30000))
             }
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
@@ -395,7 +397,7 @@ class CouponServiceTest {
             val issue = couponService.issueCoupon(coupon.id, userId = 1L)
 
             // act
-            val result = couponService.useCouponForOrder(issue.id, userId = 1L, orderAmount = Money(50000))
+            val result = couponService.validateAndCalculateDiscount(issue.id, userId = 1L, orderAmount = Money(50000))
 
             // assert
             assertThat(result.discountAmount).isEqualTo(Money(5000))
