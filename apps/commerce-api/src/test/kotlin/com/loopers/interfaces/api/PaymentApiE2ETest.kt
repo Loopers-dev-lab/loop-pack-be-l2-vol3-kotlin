@@ -655,7 +655,7 @@ class PaymentApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data).isNotNull },
+                { assertThat(response.body?.data).isNotNull() },
                 { assertThat(response.body?.data).isNotEmpty() },
             )
             val saved = paymentRepository.findByTransactionKey("txn-key-123")
@@ -683,7 +683,7 @@ class PaymentApiE2ETest @Autowired constructor(
             // assert
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
-                { assertThat(response.body?.data).isNotNull },
+                { assertThat(response.body?.data).isNotNull() },
                 { assertThat(response.body?.data).isNotEmpty() },
             )
             val saved = paymentRepository.findByTransactionKey("txn-key-123")

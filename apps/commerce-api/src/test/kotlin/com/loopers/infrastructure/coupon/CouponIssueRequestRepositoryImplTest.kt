@@ -44,7 +44,7 @@ class CouponIssueRequestRepositoryImplTest @Autowired constructor(
             val found = couponIssueRequestRepository.findByRequestId(requestId)
 
             // assert
-            assertThat(found).isNotNull
+            assertThat(found).isNotNull()
             assertAll(
                 { assertThat(found!!.requestId).isEqualTo(requestId) },
                 { assertThat(found!!.couponId).isEqualTo(1L) },
@@ -82,7 +82,7 @@ class CouponIssueRequestRepositoryImplTest @Autowired constructor(
             val found = couponIssueRequestRepository.findByRequestIdAndUserId(requestId, userId)
 
             // assert
-            assertThat(found).isNotNull
+            assertThat(found).isNotNull()
             assertThat(found!!.requestId).isEqualTo(requestId)
             assertThat(found.userId).isEqualTo(userId)
         }

@@ -77,11 +77,11 @@ class OrderEventE2ETest @Autowired constructor(
             // assert
             await().atMost(Duration.ofSeconds(30)).pollInterval(Duration.ofSeconds(1)).untilAsserted {
                 val metricsA = productMetricsRepository.findByProductId(100L)
-                assertThat(metricsA).isNotNull
+                assertThat(metricsA).isNotNull()
                 assertThat(metricsA!!.salesCount).isEqualTo(2)
 
                 val metricsB = productMetricsRepository.findByProductId(200L)
-                assertThat(metricsB).isNotNull
+                assertThat(metricsB).isNotNull()
                 assertThat(metricsB!!.salesCount).isEqualTo(3)
             }
         }

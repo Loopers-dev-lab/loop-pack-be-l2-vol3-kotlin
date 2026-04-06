@@ -59,7 +59,7 @@ class OrderEventProcessorIntegrationTest @Autowired constructor(
 
             // assert
             val metrics = productMetricsRepository.findByProductId(100L)
-            assertThat(metrics).isNotNull
+            assertThat(metrics).isNotNull()
             assertThat(metrics!!.salesCount).isEqualTo(2) // quantity=2, 1회만 처리
         }
     }
@@ -93,7 +93,7 @@ class OrderEventProcessorIntegrationTest @Autowired constructor(
 
             // assert
             val metrics = productMetricsRepository.findByProductId(100L)
-            assertThat(metrics).isNotNull
+            assertThat(metrics).isNotNull()
             assertThat(metrics!!.salesCount).isEqualTo(2) // quantity=2, 1회만 처리
         }
     }
@@ -114,11 +114,11 @@ class OrderEventProcessorIntegrationTest @Autowired constructor(
 
             // assert
             val metricsA = productMetricsRepository.findByProductId(100L)
-            assertThat(metricsA).isNotNull
+            assertThat(metricsA).isNotNull()
             assertThat(metricsA!!.salesCount).isEqualTo(2)
 
             val metricsB = productMetricsRepository.findByProductId(200L)
-            assertThat(metricsB).isNotNull
+            assertThat(metricsB).isNotNull()
             assertThat(metricsB!!.salesCount).isEqualTo(3)
         }
     }

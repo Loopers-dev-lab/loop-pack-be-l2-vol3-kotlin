@@ -64,7 +64,7 @@ class CrossStreamVersionIntegrationTest @Autowired constructor(
 
         // assert — catalog version이 order에 의해 오염되지 않아 정상 반영됨
         val metrics = productMetricsRepository.findByProductId(100L)
-        assertThat(metrics).isNotNull
+        assertThat(metrics).isNotNull()
         assertThat(metrics!!.salesCount).isEqualTo(1)
         assertThat(metrics.likeCount).isEqualTo(1)
         assertThat(metrics.version).isEqualTo(10L)
@@ -80,7 +80,7 @@ class CrossStreamVersionIntegrationTest @Autowired constructor(
 
         // assert
         val metrics = productMetricsRepository.findByProductId(100L)
-        assertThat(metrics).isNotNull
+        assertThat(metrics).isNotNull()
         assertThat(metrics!!.likeCount).isEqualTo(1)
         assertThat(metrics.salesCount).isEqualTo(3)
         assertThat(metrics.viewCount).isEqualTo(1)

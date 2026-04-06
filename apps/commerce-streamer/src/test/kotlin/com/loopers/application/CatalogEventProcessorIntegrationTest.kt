@@ -56,7 +56,7 @@ class CatalogEventProcessorIntegrationTest @Autowired constructor(
 
             // assert
             val metrics = productMetricsRepository.findByProductId(100L)
-            assertThat(metrics).isNotNull
+            assertThat(metrics).isNotNull()
             assertThat(metrics!!.likeCount).isEqualTo(1)
         }
     }
@@ -78,7 +78,7 @@ class CatalogEventProcessorIntegrationTest @Autowired constructor(
 
             // assert
             val metrics = productMetricsRepository.findByProductId(100L)
-            assertThat(metrics).isNotNull
+            assertThat(metrics).isNotNull()
             assertThat(metrics!!.likeCount).isEqualTo(1)
         }
     }

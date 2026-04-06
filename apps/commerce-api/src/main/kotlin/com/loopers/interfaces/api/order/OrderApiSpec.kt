@@ -16,6 +16,7 @@ interface OrderApiSpec {
     fun placeOrder(
         userInfo: AuthenticatedUserInfo,
         idempotencyKey: String,
+        entryToken: String,
         request: OrderDto.PlaceOrderRequest,
     ): ApiResponse<Unit>
 
