@@ -9,6 +9,7 @@ import com.loopers.domain.catalog.product.FakeProductRepository
 import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
 import com.loopers.domain.common.vo.Money
+import com.loopers.domain.ranking.FakeRankingRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -19,12 +20,15 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.ZoneId
 
 class GetProductUseCaseTest {
 
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var productRepository: FakeProductRepository
     private lateinit var cacheRepository: FakeProductCacheRepository
+    private lateinit var rankingRepository: FakeRankingRepository
     private lateinit var useCase: GetProductUseCase
 
     @BeforeEach
@@ -32,7 +36,11 @@ class GetProductUseCaseTest {
         brandRepository = FakeBrandRepository()
         productRepository = FakeProductRepository()
         cacheRepository = FakeProductCacheRepository()
-        useCase = GetProductUseCase(productRepository, brandRepository, cacheRepository, ApplicationEventPublisher { })
+        rankingRepository = FakeRankingRepository()
+        useCase = GetProductUseCase(
+            productRepository, brandRepository, cacheRepository,
+            ApplicationEventPublisher { }, rankingRepository,
+        )
     }
 
     @Nested
@@ -236,6 +244,7 @@ class GetProductUseCaseTest {
                 brandRepository,
                 cacheRepository,
                 ApplicationEventPublisher { publishedEvents.add(it) },
+                rankingRepository,
             )
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
@@ -264,6 +273,7 @@ class GetProductUseCaseTest {
                 brandRepository,
                 cacheRepository,
                 ApplicationEventPublisher { publishedEvents.add(it) },
+                rankingRepository,
             )
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
@@ -278,6 +288,58 @@ class GetProductUseCaseTest {
             val event = publishedEvents[0] as CatalogEvent.ProductViewed
             assertThat(event.productId).isEqualTo(product.id.value)
             assertThat(event.userId).isNull()
+        }
+
+        @Test
+        @DisplayName("상품 상세 조회 시 해당 상품의 오늘 순위가 1-based로 포함된다")
+        fun getProduct_includesRank() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+            rankingRepository.addEntry(today, product.id.value, 100.0)
+
+            // act
+            val result = useCase.execute(product.id.value)
+
+            // assert
+            assertThat(result.rank).isEqualTo(1)
+        }
+
+        @Test
+        @DisplayName("랭킹에 없는 상품은 rank가 null로 반환된다")
+        fun getProduct_noRanking_returnsNullRank() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+
+            // act
+            val result = useCase.execute(product.id.value)
+
+            // assert
+            assertThat(result.rank).isNull()
+        }
+
+        @Test
+        @DisplayName("랭킹 조회 실패 시에도 상품 상세 조회는 정상 동작한다 (rank만 null)")
+        fun getProduct_rankingFailure_returnsNullRank() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            rankingRepository.shouldThrow = true
+
+            // act
+            val result = useCase.execute(product.id.value)
+
+            // assert
+            assertThat(result.product.name).isEqualTo("에어맥스 90")
+            assertThat(result.rank).isNull()
         }
     }
 }

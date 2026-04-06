@@ -29,12 +29,14 @@ class ProductV1Dto {
     data class ProductDetailResponse(
         val product: CustomerProductResponse,
         val brand: BrandV1Dto.BrandResponse,
+        val rank: Int? = null,
     ) {
         companion object {
             fun from(info: CatalogInfo): ProductDetailResponse {
                 return ProductDetailResponse(
                     product = CustomerProductResponse.from(info.product),
                     brand = BrandV1Dto.BrandResponse.from(info.product.brandId, info.brandName),
+                    rank = info.rank,
                 )
             }
         }

@@ -146,6 +146,17 @@ class UpdateProductMetricsUseCaseTest {
         }
 
         @Test
+        fun `LIKE_REMOVED 이벤트 시 likeCount가 0이면 랭킹 점수를 변경하지 않는다`() {
+            productMetricsRepository.save(ProductMetrics(productId = 1L, likeCount = 0))
+
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.LIKE_REMOVED, 1L)
+
+            assertThat(rankingScoreRepository.getScore(1L)).isCloseTo(0.0, Offset.offset(0.001))
+            val metrics = productMetricsRepository.findByProductId(1L)
+            assertThat(metrics?.likeCount).isEqualTo(0)
+        }
+
+        @Test
         fun `이미 처리된 이벤트는 랭킹 점수도 갱신하지 않는다`() {
             eventHandledRepository.save(EventHandled(eventId = "evt-1"))
 

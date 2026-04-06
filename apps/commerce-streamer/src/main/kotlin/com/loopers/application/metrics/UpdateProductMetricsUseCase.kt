@@ -38,8 +38,8 @@ class UpdateProductMetricsUseCase(
                 RankingWeight.LIKE
             }
             LIKE_REMOVED -> {
-                metrics.decrementLikeCount()
-                RankingWeight.LIKE * -1
+                val decreased = metrics.decrementLikeCount()
+                if (decreased) RankingWeight.LIKE * -1 else 0.0
             }
             else -> {
                 log.warn("알 수 없는 catalog 이벤트 타입: eventType={}", eventType)
