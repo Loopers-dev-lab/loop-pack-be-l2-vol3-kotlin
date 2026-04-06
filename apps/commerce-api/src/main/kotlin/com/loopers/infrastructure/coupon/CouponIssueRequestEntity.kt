@@ -1,6 +1,8 @@
 package com.loopers.infrastructure.coupon
 
 import com.loopers.domain.BaseEntity
+import com.loopers.domain.common.vo.CouponId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.coupon.model.CouponIssueRequest
 import com.loopers.domain.coupon.model.CouponIssueRequest.CouponIssueStatus
 import com.loopers.domain.withBaseFields
@@ -38,18 +40,22 @@ class CouponIssueRequestEntity(
         fun fromDomain(request: CouponIssueRequest): CouponIssueRequestEntity {
             return CouponIssueRequestEntity(
                 requestId = request.requestId,
-                couponId = request.couponId,
-                userId = request.userId,
+                couponId = request.couponId.value,
+                userId = request.userId.value,
                 status = request.status,
             ).withBaseFields(id = request.id)
         }
     }
 
-    fun toDomain(): CouponIssueRequest = CouponIssueRequest(
-        id = id,
-        requestId = requestId,
-        couponId = couponId,
-        userId = userId,
-        status = status,
-    )
+    fun toDomain(): CouponIssueRequest {
+        require(couponId > 0) { "couponId는 양수여야 합니다: $couponId" }
+        require(userId > 0) { "userId는 양수여야 합니다: $userId" }
+        return CouponIssueRequest(
+            id = id,
+            requestId = requestId,
+            couponId = CouponId(couponId),
+            userId = UserId(userId),
+            status = status,
+        )
+    }
 }

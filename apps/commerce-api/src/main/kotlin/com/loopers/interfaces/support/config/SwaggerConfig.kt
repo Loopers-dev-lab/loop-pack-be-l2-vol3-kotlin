@@ -1,5 +1,6 @@
 package com.loopers.interfaces.support.config
 
+import com.loopers.interfaces.support.HEADER_ENTRY_TOKEN
 import com.loopers.interfaces.support.HEADER_LOGIN_ID
 import com.loopers.interfaces.support.HEADER_LOGIN_PW
 import io.swagger.v3.oas.models.Components
@@ -32,6 +33,14 @@ class SwaggerConfig {
                             .`in`(SecurityScheme.In.HEADER)
                             .name(HEADER_LOGIN_PW)
                             .description("비밀번호"),
+                    )
+                    .addSecuritySchemes(
+                        HEADER_ENTRY_TOKEN,
+                        SecurityScheme()
+                            .type(SecurityScheme.Type.APIKEY)
+                            .`in`(SecurityScheme.In.HEADER)
+                            .name(HEADER_ENTRY_TOKEN)
+                            .description("대기열 입장 토큰"),
                     ),
             )
             .security(

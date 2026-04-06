@@ -2,7 +2,6 @@ package com.loopers.application.like
 
 import com.loopers.application.catalog.product.ProductCacheEvent
 import com.loopers.domain.catalog.product.repository.ProductRepository
-import com.loopers.domain.outbox.model.CatalogOutboxEventType
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.repository.LikeRepository
@@ -38,9 +37,9 @@ class RemoveLikeUseCase(
         }
         catalogOutboxRepository.save(
             CatalogOutbox(
-                eventType = CatalogOutboxEventType.LIKE_REMOVED.name,
-                productId = productId,
-                userId = userId,
+                eventType = CatalogOutbox.CatalogOutboxEventType.LIKE_REMOVED,
+                productId = ProductId(productId),
+                userId = UserId(userId),
             ),
         )
     }

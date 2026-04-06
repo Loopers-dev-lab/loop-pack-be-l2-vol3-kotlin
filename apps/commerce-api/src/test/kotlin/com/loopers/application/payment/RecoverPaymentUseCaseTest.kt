@@ -1,6 +1,7 @@
 package com.loopers.application.payment
 
 import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.common.vo.Quantity
 import com.loopers.domain.common.vo.UserId
@@ -9,8 +10,9 @@ import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.outbox.FakeOrderOutboxRepository
-import com.loopers.domain.payment.FakePgClient
+import com.loopers.domain.outbox.model.OrderOutbox.OrderOutboxEventType
 import com.loopers.domain.payment.FakePaymentRepository
+import com.loopers.domain.payment.FakePgClient
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.domain.payment.model.CardType
@@ -22,6 +24,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.TransactionStatus
+import org.springframework.transaction.support.DefaultTransactionStatus
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
@@ -39,9 +45,9 @@ class RecoverPaymentUseCaseTest {
     // afterCommit 콜백 내부의 새 트랜잭션 실행을 즉시 처리하는 TransactionTemplate stub
     private val immediateTxTemplate = TransactionTemplate().apply {
         setTransactionManager(
-            object : org.springframework.transaction.PlatformTransactionManager {
-                override fun getTransaction(definition: org.springframework.transaction.TransactionDefinition?) =
-                    org.springframework.transaction.support.DefaultTransactionStatus(
+            object : PlatformTransactionManager {
+                override fun getTransaction(definition: TransactionDefinition?) =
+                    DefaultTransactionStatus(
                         "test-tx",
                         null,
                         true,
@@ -52,8 +58,13 @@ class RecoverPaymentUseCaseTest {
                         null,
                     )
 
-                override fun commit(status: org.springframework.transaction.TransactionStatus) { /* no-op: 테스트용 stub */ }
-                override fun rollback(status: org.springframework.transaction.TransactionStatus) { /* no-op: 테스트용 stub */ }
+                override fun commit(status: TransactionStatus) {
+                    /* no-op: 테스트용 stub */
+                }
+
+                override fun rollback(status: TransactionStatus) {
+                    /* no-op: 테스트용 stub */
+                }
             },
         )
     }
@@ -171,9 +182,9 @@ class RecoverPaymentUseCaseTest {
             val outboxes = orderOutboxRepository.findAllUnpublished(100)
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
-            assertThat(outbox.orderId).isEqualTo(order.id.value)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(OrderOutboxEventType.PAYMENT_COMPLETED)
+            assertThat(outbox.orderId).isEqualTo(order.id)
+            assertThat(outbox.userId).isEqualTo(order.refUserId)
         }
 
         @Test
@@ -202,9 +213,9 @@ class RecoverPaymentUseCaseTest {
             val outboxes = orderOutboxRepository.findAllUnpublished(100)
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
-            assertThat(outbox.orderId).isEqualTo(order.id.value)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(OrderOutboxEventType.PAYMENT_COMPLETED)
+            assertThat(outbox.orderId).isEqualTo(order.id)
+            assertThat(outbox.userId).isEqualTo(order.refUserId)
         }
 
         @Test
@@ -257,6 +268,69 @@ class RecoverPaymentUseCaseTest {
         }
 
         @Test
+        @DisplayName("PG SUCCESS이지만 주문 항목이 없으면 RECOVERY_FAILED로 전환되고 재조회하지 않는다")
+        fun execute_pgSuccess_emptyOrderItems_marksRecoveryFailedAndSkipsRetry() {
+            // arrange — orderItems 없이 주문/결제 생성
+            val order = Order.create(
+                UserId(1L),
+                listOf(
+                    OrderProductData(ProductId(1L), "상품A", Money(BigDecimal("10000"))) to Quantity(1),
+                ),
+            )
+            val saved = orderRepository.save(order)
+            saved.markPendingPayment()
+            orderRepository.save(saved)
+            // orderItems를 저장하지 않음 — 비정상 상태
+            createRequestedPaymentForOrder(saved.id.value)
+            pgClient.transactionDetail = PgTransactionDetail(
+                transactionKey = "TR-EMPTY",
+                orderId = saved.id.value,
+                status = PgResultStatus.SUCCESS,
+            )
+
+            // act
+            val firstResult = executeAndFlush(saved.id.value)
+            val secondResult = executeAndFlush(saved.id.value)
+
+            // assert
+            assertThat(firstResult).isTrue()
+            assertThat(secondResult).isFalse()
+            val payment = requireNotNull(paymentRepository.findByOrderId(saved.id)) { "주문(${saved.id})에 대한 결제가 존재해야 합니다" }
+            assertThat(payment.status).isEqualTo(PaymentStatus.RECOVERY_FAILED)
+            assertThat(payment.reason).isEqualTo("결제 복구 실패: 주문 항목이 없음. orderId=${saved.id.value}")
+            assertThat(pgClient.getTransactionCalls).containsExactly(saved.id.value)
+            assertThat(orderOutboxRepository.findAllUnpublished(100)).isEmpty()
+        }
+
+        @Test
+        @DisplayName("PG SUCCESS이지만 주문이 없으면 Payment RECOVERY_FAILED로 전환된다")
+        fun execute_pgSuccess_noOrder_marksRecoveryFailed() {
+            // arrange — 주문 없이 결제만 생성
+            val payment = Payment.create(
+                orderId = 999L,
+                cardType = CardType.SAMSUNG,
+                cardNo = "1234-5678-9012-3456",
+                amount = 10000L,
+            )
+            paymentRepository.save(payment)
+            pgClient.transactionDetail = PgTransactionDetail(
+                transactionKey = "TR-NOORDER",
+                orderId = 999L,
+                status = PgResultStatus.SUCCESS,
+            )
+
+            // act
+            val result = executeAndFlush(999L)
+
+            // assert
+            assertThat(result).isTrue()
+            val updatedPayment = requireNotNull(paymentRepository.findByOrderId(OrderId(999L))) { "orderId=999 결제가 존재해야 합니다" }
+            assertThat(updatedPayment.status).isEqualTo(PaymentStatus.RECOVERY_FAILED)
+            assertThat(updatedPayment.reason).isEqualTo("결제 복구 실패: 주문이 없음. orderId=999")
+            assertThat(orderOutboxRepository.findAllUnpublished(100)).isEmpty()
+        }
+
+        @Test
         @DisplayName("PG 조회 결과가 FAILED이면 Payment FAILED, Order FAILED로 전환된다")
         fun execute_pgFailed_marksFailedState() {
             // arrange
@@ -283,9 +357,9 @@ class RecoverPaymentUseCaseTest {
             val outboxes = orderOutboxRepository.findAllUnpublished(100)
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_FAILED")
-            assertThat(outbox.orderId).isEqualTo(order.id.value)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(OrderOutboxEventType.PAYMENT_FAILED)
+            assertThat(outbox.orderId).isEqualTo(order.id)
+            assertThat(outbox.userId).isEqualTo(order.refUserId)
             assertThat(outbox.reason).isEqualTo("카드 한도 초과")
         }
     }

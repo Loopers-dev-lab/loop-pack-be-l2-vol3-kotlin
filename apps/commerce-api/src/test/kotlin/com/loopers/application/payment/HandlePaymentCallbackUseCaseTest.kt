@@ -9,6 +9,7 @@ import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.outbox.FakeOrderOutboxRepository
+import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.payment.FakePaymentRepository
 import com.loopers.domain.payment.model.CardType
 import com.loopers.domain.payment.model.Payment
@@ -113,12 +114,12 @@ class HandlePaymentCallbackUseCaseTest {
             // assert
             val outboxList = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxList).hasSize(1)
-            assertThat(outboxList[0].eventType).isEqualTo("PAYMENT_COMPLETED")
-            assertThat(outboxList[0].orderId).isEqualTo(order.id.value)
-            assertThat(outboxList[0].userId).isEqualTo(order.refUserId.value)
-            assertThat(outboxList[0].totalAmount).isEqualTo(10000L)
-            assertThat(outboxList[0].productId).isEqualTo(1L)
-            assertThat(outboxList[0].quantity).isEqualTo(1)
+            assertThat(outboxList[0].eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_COMPLETED)
+            assertThat(outboxList[0].orderId).isEqualTo(order.id)
+            assertThat(outboxList[0].userId).isEqualTo(order.refUserId)
+            assertThat(outboxList[0].totalAmount).isEqualTo(Money(10000L.toBigDecimal()))
+            assertThat(outboxList[0].productId).isEqualTo(ProductId(1L))
+            assertThat(outboxList[0].quantity).isEqualTo(Quantity(1))
         }
 
         @Test
@@ -159,8 +160,8 @@ class HandlePaymentCallbackUseCaseTest {
             val outboxList = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxList).hasSize(2)
             val outboxByProductId = outboxList.associateBy { it.productId }
-            assertThat(outboxByProductId[10L]?.quantity).isEqualTo(2)
-            assertThat(outboxByProductId[20L]?.quantity).isEqualTo(3)
+            assertThat(outboxByProductId[ProductId(10L)]?.quantity).isEqualTo(Quantity(2))
+            assertThat(outboxByProductId[ProductId(20L)]?.quantity).isEqualTo(Quantity(3))
         }
     }
 
@@ -213,9 +214,9 @@ class HandlePaymentCallbackUseCaseTest {
             // assert
             val outboxList = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxList).hasSize(1)
-            assertThat(outboxList[0].eventType).isEqualTo("PAYMENT_FAILED")
-            assertThat(outboxList[0].orderId).isEqualTo(order.id.value)
-            assertThat(outboxList[0].userId).isEqualTo(order.refUserId.value)
+            assertThat(outboxList[0].eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_FAILED)
+            assertThat(outboxList[0].orderId).isEqualTo(order.id)
+            assertThat(outboxList[0].userId).isEqualTo(order.refUserId)
             assertThat(outboxList[0].reason).isEqualTo("잔액 부족")
         }
 

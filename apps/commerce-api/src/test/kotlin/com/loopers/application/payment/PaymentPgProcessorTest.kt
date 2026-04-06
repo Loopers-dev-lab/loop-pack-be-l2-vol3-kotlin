@@ -8,8 +8,9 @@ import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
 import com.loopers.domain.outbox.FakeOrderOutboxRepository
-import com.loopers.domain.payment.FakePgClient
+import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.payment.FakePaymentRepository
+import com.loopers.domain.payment.FakePgClient
 import com.loopers.domain.payment.PgPaymentResult
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.model.CardType
@@ -154,9 +155,9 @@ class PaymentPgProcessorTest {
             val outboxes = orderOutboxRepository.findAllUnpublished(100)
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_FAILED")
-            assertThat(outbox.orderId).isEqualTo(order.id.value)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_FAILED)
+            assertThat(outbox.orderId).isEqualTo(order.id)
+            assertThat(outbox.userId).isEqualTo(order.refUserId)
             assertThat(outbox.reason).isEqualTo("카드 한도 초과")
         }
     }

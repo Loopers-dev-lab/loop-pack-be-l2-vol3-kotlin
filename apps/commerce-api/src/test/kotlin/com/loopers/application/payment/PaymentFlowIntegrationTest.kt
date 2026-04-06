@@ -8,13 +8,14 @@ import com.loopers.domain.order.FakeOrderItemRepository
 import com.loopers.domain.order.FakeOrderRepository
 import com.loopers.domain.order.OrderProductData
 import com.loopers.domain.order.model.Order
-import com.loopers.domain.payment.FakePgClient
+import com.loopers.domain.outbox.FakeOrderOutboxRepository
+import com.loopers.domain.outbox.model.OrderOutbox
 import com.loopers.domain.payment.FakePaymentRepository
+import com.loopers.domain.payment.FakePgClient
 import com.loopers.domain.payment.PgPaymentResult
 import com.loopers.domain.payment.PgResultStatus
 import com.loopers.domain.payment.PgTransactionDetail
 import com.loopers.domain.payment.model.Payment
-import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.payment.model.PaymentStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -159,8 +160,8 @@ class PaymentFlowIntegrationTest {
             val outboxes = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
-            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
+            assertThat(outbox.eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_COMPLETED)
+            assertThat(outbox.orderId.value).isEqualTo(savedOrder.id.value)
         }
     }
 
@@ -211,8 +212,8 @@ class PaymentFlowIntegrationTest {
             val outboxes = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
-            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
+            assertThat(outbox.eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_COMPLETED)
+            assertThat(outbox.orderId.value).isEqualTo(savedOrder.id.value)
         }
     }
 
@@ -260,8 +261,8 @@ class PaymentFlowIntegrationTest {
             val outboxes = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_COMPLETED")
-            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
+            assertThat(outbox.eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_COMPLETED)
+            assertThat(outbox.orderId.value).isEqualTo(savedOrder.id.value)
         }
     }
 
@@ -301,8 +302,8 @@ class PaymentFlowIntegrationTest {
             val outboxes = orderOutboxRepository.findAllUnpublished()
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("PAYMENT_FAILED")
-            assertThat(outbox.orderId).isEqualTo(savedOrder.id.value)
+            assertThat(outbox.eventType).isEqualTo(OrderOutbox.OrderOutboxEventType.PAYMENT_FAILED)
+            assertThat(outbox.orderId.value).isEqualTo(savedOrder.id.value)
             assertThat(outbox.reason).isEqualTo("카드 한도 초과")
         }
     }

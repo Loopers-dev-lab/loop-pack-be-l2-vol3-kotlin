@@ -2,17 +2,27 @@ package com.loopers.interfaces.support.scheduler
 
 import com.loopers.application.event.FakeOutboxEventPublisher
 import com.loopers.application.event.RelayOutboxUseCase
+import com.loopers.domain.common.vo.Money
+import com.loopers.domain.common.vo.OrderId
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.Quantity
+import com.loopers.domain.common.vo.UserId
+import com.loopers.domain.common.vo.CouponId
 import com.loopers.domain.outbox.FakeCatalogOutboxRepository
 import com.loopers.domain.outbox.FakeCouponOutboxRepository
 import com.loopers.domain.outbox.FakeOrderOutboxRepository
 import com.loopers.domain.outbox.model.CatalogOutbox
+import com.loopers.domain.outbox.model.CatalogOutbox.CatalogOutboxEventType
 import com.loopers.domain.outbox.model.CouponOutbox
+import com.loopers.domain.outbox.model.CouponOutbox.CouponOutboxEventType
 import com.loopers.domain.outbox.model.OrderOutbox
+import com.loopers.domain.outbox.model.OrderOutbox.OrderOutboxEventType
 import com.loopers.domain.outbox.repository.CatalogOutboxRepository
 import com.loopers.domain.outbox.repository.CouponOutboxRepository
 import com.loopers.domain.outbox.repository.OrderOutboxRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
+import java.math.BigDecimal
 import java.util.UUID
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -60,7 +70,7 @@ class OutboxRelaySchedulerTest {
         @DisplayName("미발행 CatalogOutbox 메시지가 Kafka로 발행되고 published로 마킹된다")
         fun relayCatalogEvents() {
             catalogOutboxRepository.save(
-                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = 2L),
+                CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(1L), userId = UserId(2L)),
             )
 
             scheduler.relay()
@@ -76,12 +86,12 @@ class OutboxRelaySchedulerTest {
         fun relayOrderEvents() {
             orderOutboxRepository.save(
                 OrderOutbox(
-                    eventType = "PAYMENT_COMPLETED",
-                    orderId = 10L,
-                    userId = 100L,
-                    totalAmount = 50000L,
-                    productId = 1L,
-                    quantity = 1,
+                    eventType = OrderOutboxEventType.PAYMENT_COMPLETED,
+                    orderId = OrderId(10L),
+                    userId = UserId(100L),
+                    totalAmount = Money(BigDecimal(50000)),
+                    productId = ProductId(1L),
+                    quantity = Quantity(1),
                 ),
             )
 
@@ -97,7 +107,7 @@ class OutboxRelaySchedulerTest {
         @DisplayName("미발행 CouponOutbox 메시지가 Kafka로 발행되고 published로 마킹된다")
         fun relayCouponEvents() {
             couponOutboxRepository.save(
-                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 5L, userId = 100L),
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = CouponOutboxEventType.COUPON_ISSUE_REQUESTED, couponId = CouponId(5L), userId = UserId(100L)),
             )
 
             scheduler.relay()
@@ -112,7 +122,7 @@ class OutboxRelaySchedulerTest {
         @DisplayName("이미 발행된 메시지는 다시 발행하지 않는다")
         fun skipAlreadyPublished() {
             val outbox = catalogOutboxRepository.save(
-                CatalogOutbox(eventType = "LIKE_ADDED", productId = 1L, userId = 2L),
+                CatalogOutbox(eventType = CatalogOutboxEventType.LIKE_ADDED, productId = ProductId(1L), userId = UserId(2L)),
             )
             outbox.markPublished()
             catalogOutboxRepository.save(outbox)
@@ -126,13 +136,13 @@ class OutboxRelaySchedulerTest {
         @DisplayName("여러 타입의 미발행 메시지가 모두 처리된다")
         fun relayAllTypes() {
             catalogOutboxRepository.save(
-                CatalogOutbox(eventType = "PRODUCT_VIEWED", productId = 1L, userId = null),
+                CatalogOutbox(eventType = CatalogOutboxEventType.PRODUCT_VIEWED, productId = ProductId(1L), userId = null),
             )
             orderOutboxRepository.save(
-                OrderOutbox(eventType = "PAYMENT_COMPLETED", orderId = 2L, userId = 100L, totalAmount = 30000L, productId = 1L, quantity = 1),
+                OrderOutbox(eventType = OrderOutboxEventType.PAYMENT_COMPLETED, orderId = OrderId(2L), userId = UserId(100L), totalAmount = Money(BigDecimal(30000)), productId = ProductId(1L), quantity = Quantity(1)),
             )
             couponOutboxRepository.save(
-                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = "COUPON_ISSUE_REQUESTED", couponId = 3L, userId = 100L),
+                CouponOutbox(eventId = UUID.randomUUID().toString(), eventType = CouponOutboxEventType.COUPON_ISSUE_REQUESTED, couponId = CouponId(3L), userId = UserId(100L)),
             )
 
             scheduler.relay()

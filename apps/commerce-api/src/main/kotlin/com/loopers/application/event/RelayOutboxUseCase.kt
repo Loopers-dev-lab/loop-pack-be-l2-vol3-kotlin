@@ -30,7 +30,7 @@ class RelayOutboxUseCase(
             try {
                 outboxEventPublisher.publish(
                     topic = TOPIC_CATALOG_EVENTS,
-                    key = outbox.productId.toString(),
+                    key = outbox.productId.value.toString(),
                     payload = mapOf(
                         "eventId" to outbox.eventId,
                         "eventType" to outbox.eventType,
@@ -54,7 +54,7 @@ class RelayOutboxUseCase(
             try {
                 outboxEventPublisher.publish(
                     topic = TOPIC_ORDER_EVENTS,
-                    key = outbox.orderId.toString(),
+                    key = outbox.orderId.value.toString(),
                     payload = buildMap {
                         put("eventId", outbox.eventId)
                         put("eventType", outbox.eventType)
@@ -83,7 +83,7 @@ class RelayOutboxUseCase(
             try {
                 outboxEventPublisher.publish(
                     topic = TOPIC_COUPON_ISSUE_REQUESTS,
-                    key = outbox.couponId.toString(),
+                    key = outbox.couponId.value.toString(),
                     payload = mapOf(
                         "eventId" to outbox.eventId,
                         "eventType" to outbox.eventType,

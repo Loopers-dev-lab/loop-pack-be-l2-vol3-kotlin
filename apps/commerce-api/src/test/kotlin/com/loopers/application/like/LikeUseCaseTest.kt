@@ -9,8 +9,10 @@ import com.loopers.domain.catalog.product.model.Product
 import com.loopers.domain.catalog.product.vo.Stock
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.like.FakeLikeRepository
 import com.loopers.domain.outbox.FakeCatalogOutboxRepository
+import com.loopers.domain.outbox.model.CatalogOutbox
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.assertj.core.api.Assertions.assertThat
@@ -19,7 +21,6 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
 
 class LikeUseCaseTest {
@@ -38,8 +39,8 @@ class LikeUseCaseTest {
         productRepository = FakeProductRepository()
         likeRepository = FakeLikeRepository()
         fakeCatalogOutboxRepository = FakeCatalogOutboxRepository()
-        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { }, fakeCatalogOutboxRepository)
-        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { }, fakeCatalogOutboxRepository)
+        addLikeUseCase = AddLikeUseCase(likeRepository, productRepository, { }, fakeCatalogOutboxRepository)
+        removeLikeUseCase = RemoveLikeUseCase(likeRepository, productRepository, { }, fakeCatalogOutboxRepository)
         getUserLikesUseCase = GetUserLikesUseCase(likeRepository, productRepository)
     }
 
@@ -103,7 +104,7 @@ class LikeUseCaseTest {
             // arrange
             val (_, productId) = createBrandAndProduct()
             val publishedEvents = mutableListOf<Any>()
-            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) }, fakeCatalogOutboxRepository)
+            val useCase = AddLikeUseCase(likeRepository, productRepository, { publishedEvents.add(it) }, fakeCatalogOutboxRepository)
             useCase.execute(1L, productId)
             val countAfterFirst = publishedEvents.size
 
@@ -163,9 +164,9 @@ class LikeUseCaseTest {
             val outboxes = fakeCatalogOutboxRepository.findAllUnpublished(100)
             assertThat(outboxes).hasSize(1)
             val outbox = outboxes.single()
-            assertThat(outbox.eventType).isEqualTo("LIKE_ADDED")
-            assertThat(outbox.productId).isEqualTo(productId)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(CatalogOutbox.CatalogOutboxEventType.LIKE_ADDED)
+            assertThat(outbox.productId).isEqualTo(ProductId(productId))
+            assertThat(outbox.userId).isEqualTo(UserId(1L))
         }
 
         @Test
@@ -174,13 +175,13 @@ class LikeUseCaseTest {
             // arrange
             val (_, productId) = createBrandAndProduct()
             addLikeUseCase.execute(1L, productId)
-            val countAfterFirst = fakeCatalogOutboxRepository.findAllUnpublished(100).filter { it.eventType == "LIKE_ADDED" }.size
+            val countAfterFirst = fakeCatalogOutboxRepository.findAllUnpublished(100).filter { it.eventType == CatalogOutbox.CatalogOutboxEventType.LIKE_ADDED }.size
 
             // act
             addLikeUseCase.execute(1L, productId)
 
             // assert
-            val outboxes = fakeCatalogOutboxRepository.findAllUnpublished(100).filter { it.eventType == "LIKE_ADDED" }
+            val outboxes = fakeCatalogOutboxRepository.findAllUnpublished(100).filter { it.eventType == CatalogOutbox.CatalogOutboxEventType.LIKE_ADDED }
             assertThat(outboxes).hasSize(countAfterFirst)
         }
 
@@ -190,7 +191,7 @@ class LikeUseCaseTest {
             // arrange
             val (_, productId) = createBrandAndProduct()
             val publishedEvents = mutableListOf<Any>()
-            val useCase = AddLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) }, fakeCatalogOutboxRepository)
+            val useCase = AddLikeUseCase(likeRepository, productRepository, { publishedEvents.add(it) }, fakeCatalogOutboxRepository)
 
             // act
             useCase.execute(1L, productId)
@@ -264,9 +265,9 @@ class LikeUseCaseTest {
             val outboxes = fakeCatalogOutboxRepository.findAllUnpublished(100)
             assertThat(outboxes).hasSize(2)
             val outbox = outboxes.last()
-            assertThat(outbox.eventType).isEqualTo("LIKE_REMOVED")
-            assertThat(outbox.productId).isEqualTo(productId)
-            assertThat(outbox.userId).isEqualTo(1L)
+            assertThat(outbox.eventType).isEqualTo(CatalogOutbox.CatalogOutboxEventType.LIKE_REMOVED)
+            assertThat(outbox.productId).isEqualTo(ProductId(productId))
+            assertThat(outbox.userId).isEqualTo(UserId(1L))
         }
 
         @Test
@@ -279,7 +280,7 @@ class LikeUseCaseTest {
             removeLikeUseCase.execute(1L, productId)
 
             // assert
-            val outboxes = fakeCatalogOutboxRepository.findAllUnpublished(100).filter { it.eventType == "LIKE_REMOVED" }
+            val outboxes = fakeCatalogOutboxRepository.findAllUnpublished(100).filter { it.eventType == CatalogOutbox.CatalogOutboxEventType.LIKE_REMOVED }
             assertThat(outboxes).isEmpty()
         }
 
@@ -290,7 +291,7 @@ class LikeUseCaseTest {
             val (_, productId) = createBrandAndProduct()
             addLikeUseCase.execute(1L, productId)
             val publishedEvents = mutableListOf<Any>()
-            val useCase = RemoveLikeUseCase(likeRepository, productRepository, ApplicationEventPublisher { publishedEvents.add(it) }, fakeCatalogOutboxRepository)
+            val useCase = RemoveLikeUseCase(likeRepository, productRepository, { publishedEvents.add(it) }, fakeCatalogOutboxRepository)
 
             // act
             useCase.execute(1L, productId)

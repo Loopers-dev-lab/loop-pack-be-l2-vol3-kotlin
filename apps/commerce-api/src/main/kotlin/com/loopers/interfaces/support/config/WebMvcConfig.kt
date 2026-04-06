@@ -3,6 +3,7 @@ package com.loopers.interfaces.support.config
 import com.loopers.interfaces.support.auth.AuthUserArgumentResolver
 import com.loopers.interfaces.support.interceptor.AdminInterceptor
 import com.loopers.interfaces.support.interceptor.AuthInterceptor
+import com.loopers.interfaces.support.interceptor.EntryTokenInterceptor
 import com.loopers.interfaces.support.interceptor.OptionalAuthInterceptor
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
@@ -14,6 +15,7 @@ class WebMvcConfig(
     private val authInterceptor: AuthInterceptor,
     private val optionalAuthInterceptor: OptionalAuthInterceptor,
     private val adminInterceptor: AdminInterceptor,
+    private val entryTokenInterceptor: EntryTokenInterceptor,
     private val authUserArgumentResolver: AuthUserArgumentResolver,
 ) : WebMvcConfigurer {
     override fun addInterceptors(registry: InterceptorRegistry) {
@@ -24,11 +26,15 @@ class WebMvcConfig(
                 "/api/v1/orders/**",
                 "/api/v1/coupons/**",
                 "/api/v1/payments/**",
+                "/api/v1/queue/**",
             )
             .excludePathPatterns(
                 "/api/v1/users/sign-up",
                 "/api/v1/payments/callback",
             )
+
+        registry.addInterceptor(entryTokenInterceptor)
+            .addPathPatterns("/api/v1/orders/**")
 
         registry.addInterceptor(optionalAuthInterceptor)
             .addPathPatterns("/api/v1/products/**")

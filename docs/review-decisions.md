@@ -48,10 +48,10 @@
 ## RD-006. 스케줄러 분산 락 (ShedLock)
 - **keywords**: `scheduler`, `distributed lock`, `ShedLock`, `분산 락`, `다중 인스턴스`
 - **리뷰어**: CodeRabbit
-- **repeat_count**: 1
+- **repeat_count**: 3
 - **최종 결정**: 기각 (현 단계)
-- **근거**: 단일 인스턴스 배포. RecoverPaymentUseCase가 비관적 락으로 중복 방지. 스케일아웃 시 도입 필요하나 premature.
-- **최종 업데이트**: 2026-03-17
+- **근거**: 단일 인스턴스 배포. RecoverPaymentUseCase가 비관적 락으로 중복 방지. QueueScheduler도 동일 전제. 스케일아웃 시 도입 필요하나 premature.
+- **최종 업데이트**: 2026-04-02
 
 ## RD-007. TIMEOUT 시 Order 상태 미갱신 (비대칭)
 - **keywords**: `TIMEOUT`, `Order`, `markFailed`, `비대칭`, `상태 미갱신`
@@ -212,3 +212,35 @@
 - **최종 결정**: 기각 (현 단계)
 - **근거**: ① jpa.yml은 전체 엔티티에 영향주는 공유 설정 ② `@GeneratedValue(IDENTITY)` 전략 사용 시 Hibernate INSERT 배치 자체가 비활성화됨 ③ 현재 건수(1~5건/결제)에서 실질 효과 미미. 스케일 확대 시 SEQUENCE 전략 전환과 함께 검토.
 - **최종 업데이트**: 2026-03-26
+
+## RD-027. IssuedTokenInfoTest 단일 케이스만 검증
+- **keywords**: `IssuedTokenInfoTest`, `toString`, `마스킹`, `ParameterizedTest`, `토큰`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 유지 (현 단계)
+- **근거**: 현재 테스트가 핵심 시나리오(일반 토큰 마스킹)를 커버. @ParameterizedTest로 확장은 개선이나, 마스킹은 toString()의 편의 기능이라 현 수준으로 충분.
+- **최종 업데이트**: 2026-04-02
+
+## RD-028. QueueSchedulerTest 예외 Repository anonymous object 중복
+- **keywords**: `QueueSchedulerTest`, `anonymous object`, `DRY`, `헬퍼 함수`, `failingRepo`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 유지 (현 단계)
+- **근거**: 헬퍼 추출은 DRY하나 테스트 코드는 가독성 > 재사용. anonymous object가 2개뿐이고 각각의 예외 시나리오가 다름. 인터페이스 메서드 추가 시 재검토.
+- **최종 업데이트**: 2026-04-02
+
+## RD-029. OrderOutbox 팩토리 메서드 / sealed hierarchy
+- **keywords**: `OrderOutbox`, `factory method`, `sealed`, `companion object`, `타입 안전성`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 유지 (현 단계)
+- **근거**: init 블록 런타임 검증이 충분히 작동. sealed hierarchy 도입은 이벤트 타입이 3개 이상으로 늘어날 때 가치가 커짐. 현재 PAYMENT_COMPLETED/PAYMENT_FAILED 2개뿐.
+- **최종 업데이트**: 2026-04-02
+
+## RD-030. CouponOutboxEntity enum.name 영속화
+- **keywords**: `enum.name`, `CouponOutboxEntity`, `eventType`, `리네임`, `호환성`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 유지 (현 단계)
+- **근거**: enum 상수명 변경은 본질적으로 스키마 변경이며 마이그레이션 동반. `@Enumerated(STRING)` / `.name` 영속화는 JPA/Spring 표준 패턴. 외부 시스템 연동 시 별도 code 프로퍼티 검토.
+- **최종 업데이트**: 2026-04-02

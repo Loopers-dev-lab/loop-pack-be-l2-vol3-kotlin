@@ -1,6 +1,9 @@
 package com.loopers.application.event
 
+import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.common.vo.UserId
 import com.loopers.domain.outbox.FakeCatalogOutboxRepository
+import com.loopers.domain.outbox.model.CatalogOutbox
 import com.loopers.domain.outbox.repository.CatalogOutboxRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -32,9 +35,9 @@ class CatalogMetricsEventListenerTest {
 
             val outboxList = catalogOutboxRepository.findAllUnpublished()
             assertThat(outboxList).hasSize(1)
-            assertThat(outboxList[0].eventType).isEqualTo("PRODUCT_VIEWED")
-            assertThat(outboxList[0].productId).isEqualTo(1L)
-            assertThat(outboxList[0].userId).isEqualTo(2L)
+            assertThat(outboxList[0].eventType).isEqualTo(CatalogOutbox.CatalogOutboxEventType.PRODUCT_VIEWED)
+            assertThat(outboxList[0].productId).isEqualTo(ProductId(1L))
+            assertThat(outboxList[0].userId).isEqualTo(UserId(2L))
         }
 
         @Test
