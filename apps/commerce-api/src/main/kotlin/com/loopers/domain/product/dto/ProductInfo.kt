@@ -12,6 +12,7 @@ data class ProductInfo(
     val brandId: Long,
     val brandName: String,
     val likeCount: Long,
+    val rank: Long? = null,
 ) {
     companion object {
         fun from(product: Product, likeCount: Long = 0): ProductInfo {
