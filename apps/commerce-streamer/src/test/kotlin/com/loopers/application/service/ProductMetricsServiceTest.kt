@@ -27,7 +27,7 @@ class ProductMetricsServiceTest {
         eventHandledRepository = mockk()
         productRankingWriteService = mockk(relaxed = true)
         handlers = mapOf(
-            "ProductViewedEvent" to mockk<EventHandler>(),
+            "ProductViewedEvent" to mockk<EventHandler>(relaxed = true),
         )
         service = ProductMetricsService(productMetricsRepository, eventHandledRepository, productRankingWriteService, handlers)
     }
