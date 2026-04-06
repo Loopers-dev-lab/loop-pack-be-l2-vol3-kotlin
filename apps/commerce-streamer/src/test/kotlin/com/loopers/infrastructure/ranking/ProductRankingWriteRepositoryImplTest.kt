@@ -6,6 +6,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import java.time.Duration
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
@@ -63,6 +64,7 @@ class ProductRankingWriteRepositoryImplTest @Autowired constructor(
         productRankingWriteRepository.incrementScore(processingDate, 101L, 0.7)
 
         assertThat(redisTemplate.opsForZSet().score(key, "101")).isEqualTo(0.7)
-        assertThat(redisTemplate.getExpire(key)).isPositive()
+        val ttl = redisTemplate.getExpire(key)
+        assertThat(ttl).isBetween(Duration.ofDays(2).seconds - 10, Duration.ofDays(2).seconds)
     }
 }
