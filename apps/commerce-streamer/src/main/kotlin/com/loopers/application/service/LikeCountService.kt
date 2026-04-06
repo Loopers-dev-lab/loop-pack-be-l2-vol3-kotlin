@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 class LikeCountService(
     private val eventHandledRepository: EventHandledRepository,
+    private val productRankingWriteService: ProductRankingWriteService,
     private val handlers: Map<String, EventHandler>,
 ) {
     fun processLikeCountEvent(event: LikeCountEvent) {
@@ -25,7 +26,10 @@ class LikeCountService(
         val handler = handlers["LikeCountEvent"]
         handler?.handle(event)
 
-        // 3. event_handled 기록 (멱등성 완료)
+        // 3. Redis 랭킹 점수 반영 (handled-marker 저장 전)
+        productRankingWriteService.write(event)
+
+        // 4. event_handled 기록 (멱등성 완료)
         eventHandledRepository.save(EventHandledDto(dedupeKey = dedupeKey))
     }
 }

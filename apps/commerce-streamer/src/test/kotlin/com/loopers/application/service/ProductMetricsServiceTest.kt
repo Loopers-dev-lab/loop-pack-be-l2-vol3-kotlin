@@ -17,6 +17,7 @@ class ProductMetricsServiceTest {
 
     private lateinit var productMetricsRepository: ProductMetricsRepository
     private lateinit var eventHandledRepository: EventHandledRepository
+    private lateinit var productRankingWriteService: ProductRankingWriteService
     private lateinit var handlers: Map<String, EventHandler>
     private lateinit var service: ProductMetricsService
 
@@ -24,10 +25,11 @@ class ProductMetricsServiceTest {
     fun setUp() {
         productMetricsRepository = mockk()
         eventHandledRepository = mockk()
+        productRankingWriteService = mockk(relaxed = true)
         handlers = mapOf(
             "ProductViewedEvent" to mockk<EventHandler>(),
         )
-        service = ProductMetricsService(productMetricsRepository, eventHandledRepository, handlers)
+        service = ProductMetricsService(productMetricsRepository, eventHandledRepository, productRankingWriteService, handlers)
     }
 
     @Test
@@ -45,10 +47,11 @@ class ProductMetricsServiceTest {
         // Then
         verify(exactly = 0) { handlers["ProductViewedEvent"]?.handle(any()) }
         verify(exactly = 0) { eventHandledRepository.save(any()) }
+        verify(exactly = 0) { productRankingWriteService.write(any()) }
     }
 
     @Test
-    @DisplayName("처리되지 않은 이벤트는 핸들러를 호출한다")
+    @DisplayName("처리되지 않은 이벤트는 핸들러를 호출하고 랭킹 점수를 반영한다")
     fun shouldProcessNewEvents() {
         // Given
         val dedupeKey = "test-key-123"
@@ -62,6 +65,7 @@ class ProductMetricsServiceTest {
         val serviceWithHandler = ProductMetricsService(
             productMetricsRepository,
             eventHandledRepository,
+            productRankingWriteService,
             mapOf("ProductViewedEvent" to handler),
         )
 
@@ -70,6 +74,7 @@ class ProductMetricsServiceTest {
 
         // Then
         verify { handler.handle(event) }
+        verify { productRankingWriteService.write(event) }
         verify { eventHandledRepository.save(any()) }
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class ProductMetricsService(
     private val productMetricsRepository: ProductMetricsRepository,
     private val eventHandledRepository: EventHandledRepository,
+    private val productRankingWriteService: ProductRankingWriteService,
     private val handlers: Map<String, EventHandler>,
 ) {
     fun processMetricsEvent(event: Any) {
@@ -29,7 +30,10 @@ class ProductMetricsService(
         val handler = handlers[eventClassName]
         handler?.handle(event)
 
-        // 3. event_handled 기록 (멱등성 완료)
+        // 3. Redis 랭킹 점수 반영 (handled-marker 저장 전)
+        productRankingWriteService.write(event)
+
+        // 4. event_handled 기록 (멱등성 완료)
         eventHandledRepository.save(EventHandledDto(dedupeKey = dedupeKey))
     }
 
