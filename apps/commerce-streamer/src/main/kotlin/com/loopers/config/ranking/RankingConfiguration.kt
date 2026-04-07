@@ -1,8 +1,7 @@
 package com.loopers.config.ranking
 
-import com.loopers.domain.ranking.DailyAccumulationStrategy
-import com.loopers.domain.ranking.RankingScoreStrategy
-import com.loopers.domain.ranking.SlidingWindowStrategy
+import com.loopers.domain.ranking.DefaultScoringStrategy
+import com.loopers.domain.ranking.ScoringStrategy
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -12,16 +11,11 @@ import org.springframework.context.annotation.Configuration
 class RankingConfiguration {
 
     @Bean
-    fun rankingScoreStrategy(properties: RankingProperties): RankingScoreStrategy {
-        return when (properties.strategy.lowercase()) {
-            "sliding-window" -> SlidingWindowStrategy(
-                windowDays = properties.slidingWindow.windowDays,
-                decayFactor = properties.slidingWindow.decayFactor,
-            )
-            "daily" -> DailyAccumulationStrategy()
+    fun scoringStrategy(properties: RankingProperties): ScoringStrategy {
+        return when (properties.scoring.lowercase()) {
+            "default" -> DefaultScoringStrategy()
             else -> throw IllegalArgumentException(
-                "Unknown ranking strategy: ${properties.strategy}. " +
-                    "Supported values: 'daily', 'sliding-window'",
+                "Unknown scoring strategy: ${properties.scoring}. Supported values: 'default'",
             )
         }
     }

@@ -35,7 +35,7 @@ class ProductRankingWriteRepositoryImpl(
         )
     }
 
-    private val ttl: Duration = if (rankingProperties.strategy.lowercase() == "sliding-window") {
+    private val ttl: Duration = if (rankingProperties.aggregation.lowercase() == "sliding-window") {
         Duration.ofDays(rankingProperties.slidingWindow.windowDays.toLong() + 1)
     } else {
         Duration.ofDays(DEFAULT_TTL_DAYS)

@@ -40,7 +40,8 @@ demo-kafka:
     topic-name: demo.internal.topic-v1
 
 ranking:
-  strategy: daily  # daily or sliding-window
+  scoring: default          # 가중치 전략: default (갈아끼울 수 있음)
+  aggregation: daily        # 집계 방식: daily, sliding-window
   sliding-window:
     window-days: 7
     decay-factor: 0.9

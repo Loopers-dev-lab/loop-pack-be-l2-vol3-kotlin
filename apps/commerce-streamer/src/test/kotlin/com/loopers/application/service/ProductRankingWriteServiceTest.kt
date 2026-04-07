@@ -5,9 +5,8 @@ import com.loopers.domain.event.LikeCountEventType
 import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.event.OrderLineItem
 import com.loopers.domain.event.ProductViewedEvent
-import com.loopers.domain.ranking.DailyAccumulationStrategy
+import com.loopers.domain.ranking.DefaultScoringStrategy
 import com.loopers.domain.ranking.ProductRankingWriteRepository
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
@@ -24,11 +23,11 @@ class ProductRankingWriteServiceTest {
     @BeforeEach
     fun setUp() {
         productRankingWriteRepository = mockk(relaxed = true)
-        service = ProductRankingWriteService(productRankingWriteRepository, DailyAccumulationStrategy())
+        service = ProductRankingWriteService(productRankingWriteRepository, DefaultScoringStrategy())
     }
 
     @Test
-    @DisplayName("조회 이벤트는 0.1 점수를 반영한다")
+    @DisplayName("조회 이벤트는 viewScore(0.1)를 반영한다")
     fun writesViewScore() {
         service.write(ProductViewedEvent(productId = 101L, userId = 1L, dedupeKey = "view-1"))
 
@@ -38,7 +37,7 @@ class ProductRankingWriteServiceTest {
     }
 
     @Test
-    @DisplayName("좋아요 증감은 0.2 기준으로 반영한다")
+    @DisplayName("좋아요 증가는 likeScore(0.2), 감소는 -likeScore(-0.2)")
     fun writesLikeScores() {
         service.write(LikeCountEvent(productId = 101L, type = LikeCountEventType.INCREMENT, dedupeKey = "like-up"))
         service.write(LikeCountEvent(productId = 101L, type = LikeCountEventType.DECREMENT, dedupeKey = "like-down"))
@@ -50,10 +49,8 @@ class ProductRankingWriteServiceTest {
     }
 
     @Test
-    @DisplayName("주문 1건 점수(0.7)는 좋아요 3건(0.6)보다 크게 반영된다")
+    @DisplayName("주문 1건 점수(0.7)는 좋아요 3건(0.6)보다 크다")
     fun orderOneBeatsThreeLikes() {
-        every { productRankingWriteRepository.incrementScore(any<LocalDate>(), any(), any()) } returns Unit
-
         service.write(
             OrderCreatedEvent(
                 orderId = 1L,

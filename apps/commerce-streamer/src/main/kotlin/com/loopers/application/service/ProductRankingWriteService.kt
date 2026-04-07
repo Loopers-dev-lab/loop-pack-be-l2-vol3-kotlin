@@ -5,7 +5,7 @@ import com.loopers.domain.event.LikeCountEventType
 import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.event.ProductViewedEvent
 import com.loopers.domain.ranking.ProductRankingWriteRepository
-import com.loopers.domain.ranking.RankingScoreStrategy
+import com.loopers.domain.ranking.ScoringStrategy
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.ZoneId
@@ -13,7 +13,7 @@ import java.time.ZoneId
 @Service
 class ProductRankingWriteService(
     private val productRankingWriteRepository: ProductRankingWriteRepository,
-    private val scoreStrategy: RankingScoreStrategy,
+    private val scoringStrategy: ScoringStrategy,
 ) {
 
     companion object {
@@ -25,19 +25,20 @@ class ProductRankingWriteService(
 
         when (event) {
             is ProductViewedEvent -> {
-                val score = scoreStrategy.calculateViewScore()
-                productRankingWriteRepository.incrementScore(processingDate, event.productId, score)
+                productRankingWriteRepository.incrementScore(processingDate, event.productId, scoringStrategy.viewScore())
             }
 
             is LikeCountEvent -> {
-                val increment = event.type == LikeCountEventType.INCREMENT
-                val score = scoreStrategy.calculateLikeScore(increment)
+                val score = when (event.type) {
+                    LikeCountEventType.INCREMENT -> scoringStrategy.likeScore()
+                    LikeCountEventType.DECREMENT -> -scoringStrategy.likeScore()
+                }
                 productRankingWriteRepository.incrementScore(processingDate, event.productId, score)
             }
 
             is OrderCreatedEvent -> {
                 event.lineItems.forEach { lineItem ->
-                    val score = scoreStrategy.calculateOrderScore(lineItem.quantity)
+                    val score = lineItem.quantity * scoringStrategy.orderScorePerUnit()
                     productRankingWriteRepository.incrementScore(processingDate, lineItem.productId, score)
                 }
             }

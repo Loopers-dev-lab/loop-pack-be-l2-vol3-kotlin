@@ -5,7 +5,8 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty
 
 @ConfigurationProperties(prefix = "ranking")
 class RankingProperties {
-    var strategy: String = "daily"
+    var scoring: String = "default"
+    var aggregation: String = "daily"
 
     @NestedConfigurationProperty
     var slidingWindow: SlidingWindowProperties = SlidingWindowProperties()

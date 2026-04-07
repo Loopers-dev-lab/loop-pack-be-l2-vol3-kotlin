@@ -1,11 +1,9 @@
 package com.loopers.config.ranking
 
-import com.loopers.domain.ranking.DailyAccumulationStrategy
-import com.loopers.domain.ranking.SlidingWindowStrategy
+import com.loopers.domain.ranking.DefaultScoringStrategy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 @DisplayName("RankingConfiguration 단위 테스트")
@@ -14,58 +12,31 @@ class RankingConfigurationUnitTest {
     private val config = RankingConfiguration()
 
     @Test
-    @DisplayName("daily 전략 선택")
-    fun dailyStrategySelection() {
+    @DisplayName("default 점수 전략 선택")
+    fun defaultScoringStrategySelection() {
         val properties = RankingProperties().apply {
-            strategy = "daily"
+            scoring = "default"
         }
-        val strategy = config.rankingScoreStrategy(properties)
-        assertIs<DailyAccumulationStrategy>(strategy)
+        assertIs<DefaultScoringStrategy>(config.scoringStrategy(properties))
     }
 
     @Test
-    @DisplayName("sliding-window 전략 선택")
-    fun slidingWindowStrategySelection() {
+    @DisplayName("알 수 없는 점수 전략은 예외 발생")
+    fun unknownScoringStrategyThrows() {
         val properties = RankingProperties().apply {
-            strategy = "sliding-window"
-        }
-        val strategy = config.rankingScoreStrategy(properties)
-        assertIs<SlidingWindowStrategy>(strategy)
-        assertEquals(7, strategy.getWindowDays())
-    }
-
-    @Test
-    @DisplayName("커스텀 sliding-window 설정 적용")
-    fun customSlidingWindowProperties() {
-        val properties = RankingProperties().apply {
-            strategy = "sliding-window"
-            slidingWindow = RankingProperties.SlidingWindowProperties().apply {
-                windowDays = 14
-                decayFactor = 0.95
-            }
-        }
-        val strategy = config.rankingScoreStrategy(properties) as SlidingWindowStrategy
-        assertEquals(14, strategy.getWindowDays())
-    }
-
-    @Test
-    @DisplayName("알 수 없는 전략은 예외 발생")
-    fun unknownStrategyThrowsException() {
-        val properties = RankingProperties().apply {
-            strategy = "unknown-strategy"
+            scoring = "unknown"
         }
         assertThrows<IllegalArgumentException> {
-            config.rankingScoreStrategy(properties)
+            config.scoringStrategy(properties)
         }
     }
 
     @Test
     @DisplayName("대소문자 무시")
-    fun caseInsensitiveStrategy() {
+    fun caseInsensitive() {
         val properties = RankingProperties().apply {
-            strategy = "SLIDING-WINDOW"
+            scoring = "DEFAULT"
         }
-        val strategy = config.rankingScoreStrategy(properties)
-        assertIs<SlidingWindowStrategy>(strategy)
+        assertIs<DefaultScoringStrategy>(config.scoringStrategy(properties))
     }
 }

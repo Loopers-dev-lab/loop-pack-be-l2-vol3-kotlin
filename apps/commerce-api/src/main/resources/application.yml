@@ -67,7 +67,8 @@ resilience4j:
           - java.lang.Exception
 
 ranking:
-  strategy: daily
+  scoring: default          # 가중치 전략: default (갈아끼울 수 있음)
+  aggregation: daily        # 집계 방식: daily, sliding-window
   sliding-window:
     window-days: 7
     decay-factor: 0.9

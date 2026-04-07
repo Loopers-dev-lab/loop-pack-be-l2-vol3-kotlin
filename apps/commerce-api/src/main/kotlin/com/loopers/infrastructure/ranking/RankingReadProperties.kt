@@ -7,12 +7,12 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 @ConfigurationProperties(prefix = "ranking")
 class RankingReadProperties {
-    var strategy: String = "daily"
+    var aggregation: String = "daily"
 
     @NestedConfigurationProperty
     var slidingWindow: SlidingWindowProperties = SlidingWindowProperties()
 
-    fun isSlidingWindow(): Boolean = strategy.lowercase() == "sliding-window"
+    fun isSlidingWindow(): Boolean = aggregation.lowercase() == "sliding-window"
 
     class SlidingWindowProperties {
         var windowDays: Int = 7
