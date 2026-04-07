@@ -10,7 +10,6 @@ import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.ranking.repository.RankingRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -25,8 +24,6 @@ class GetProductUseCase(
     private val eventPublisher: ApplicationEventPublisher,
     private val rankingRepository: RankingRepository,
 ) {
-
-    private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
     fun execute(productId: Long, userId: Long? = null): CatalogInfo {
@@ -51,12 +48,7 @@ class GetProductUseCase(
         }
         val detail = ProductDetail(product = product, brand = brand)
         eventPublisher.publishEvent(CatalogEvent.ProductViewed(productId = productId, userId = userId))
-        val rank = try {
-            rankingRepository.getRank(LocalDate.now(ZoneId.of("Asia/Seoul")), productId)
-        } catch (e: Exception) {
-            log.warn("랭킹 조회 실패: productId={}", productId, e)
-            null
-        }
+        val rank = rankingRepository.getRank(LocalDate.now(ZoneId.of("Asia/Seoul")), productId)
         return CatalogInfo.from(detail, rank)
     }
 }

@@ -170,6 +170,23 @@ class GetRankingUseCaseTest {
     }
 
     @Nested
+    @DisplayName("예외 처리")
+    inner class ErrorHandling {
+
+        @Test
+        @DisplayName("Redis 장애 시 예외가 전파된다")
+        fun `Redis 장애 시 예외가 전파된다`() {
+            // Arrange
+            rankingRepository.shouldThrow = true
+
+            // Act & Assert
+            org.junit.jupiter.api.assertThrows<RuntimeException> {
+                useCase.execute(date = today, page = 0, size = 10)
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("날짜 기본값")
     inner class DefaultDate {
 

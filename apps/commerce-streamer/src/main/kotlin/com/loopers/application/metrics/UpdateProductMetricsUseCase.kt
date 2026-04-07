@@ -48,7 +48,9 @@ class UpdateProductMetricsUseCase(
             }
         }
 
-        rankingScoreRepository.incrementScore(productId, rankingScore)
+        if (rankingScore != 0.0) {
+            rankingScoreRepository.incrementScore(productId, rankingScore)
+        }
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
     }

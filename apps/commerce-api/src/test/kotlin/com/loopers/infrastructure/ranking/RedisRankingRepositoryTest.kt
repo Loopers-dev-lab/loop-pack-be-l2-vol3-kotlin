@@ -126,34 +126,4 @@ class RedisRankingRepositoryTest @Autowired constructor(
             assertThat(result).isNull()
         }
     }
-
-    @Nested
-    @DisplayName("getTotalCount")
-    inner class GetTotalCount {
-
-        @Test
-        @DisplayName("ZCARD로 랭킹 진입 전체 상품 수가 반환된다")
-        fun `전체 상품 수가 반환된다`() {
-            // Arrange
-            redisTemplate.opsForZSet().add(key, "1", 1.0)
-            redisTemplate.opsForZSet().add(key, "2", 2.0)
-            redisTemplate.opsForZSet().add(key, "3", 3.0)
-
-            // Act
-            val result = redisRankingRepository.getTotalCount(today)
-
-            // Assert
-            assertThat(result).isEqualTo(3L)
-        }
-
-        @Test
-        @DisplayName("키가 없으면 0을 반환한다")
-        fun `키가 없으면 0을 반환한다`() {
-            // Act
-            val result = redisRankingRepository.getTotalCount(today)
-
-            // Assert
-            assertThat(result).isEqualTo(0L)
-        }
-    }
 }

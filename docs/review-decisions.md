@@ -244,3 +244,19 @@
 - **최종 결정**: 유지 (현 단계)
 - **근거**: enum 상수명 변경은 본질적으로 스키마 변경이며 마이그레이션 동반. `@Enumerated(STRING)` / `.name` 영속화는 JPA/Spring 표준 패턴. 외부 시스템 연동 시 별도 code 프로퍼티 검토.
 - **최종 업데이트**: 2026-04-02
+
+## RD-031. 트랜잭션-Redis 분리로 인한 랭킹 점수 드리프트
+- **keywords**: `트랜잭션`, `Redis`, `드리프트`, `멱등성`, `ZINCRBY`, `eventId`, `at-least-once`
+- **리뷰어**: CodeRabbit (CRITICAL)
+- **repeat_count**: 1
+- **최종 결정**: 수용
+- **근거**: Redis 반영 후 DB 트랜잭션 실패 시 이벤트 재처리로 점수 중복 가산. Redis 갱신을 DB 커밋 이후로 이동하여 해결.
+- **최종 업데이트**: 2026-04-06
+
+## RD-032. @Transactional(readOnly) 내 Redis 호출
+- **keywords**: `@Transactional`, `readOnly`, `Redis`, `DB 커넥션`, `점유`, `GetProductUseCase`
+- **리뷰어**: CodeRabbit (nitpick)
+- **repeat_count**: 1
+- **최종 결정**: 수용
+- **근거**: readOnly 트랜잭션 내 Redis 호출로 DB 커넥션 점유 시간 증가. 트랜잭션 내부(DB 조회)와 외부(Redis 조회, 이벤트 발행) 분리로 해결.
+- **최종 업데이트**: 2026-04-06

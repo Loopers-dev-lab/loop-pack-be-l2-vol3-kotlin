@@ -15,23 +15,22 @@ class FakeRankingRepository : RankingRepository {
 
     fun clear() {
         entries.clear()
+        shouldThrow = false
     }
 
     override fun getTopN(date: LocalDate, offset: Int, limit: Int): List<RankingEntry> {
-        val sorted = sortedEntries(date)
+        if (shouldThrow) throw RuntimeException("Redis 연결 실패")
+        val sorted = sortedEntries(date).filter { it.second > 0 }
         return sorted.drop(offset).take(limit)
             .map { (productId, score) -> RankingEntry(productId = productId, score = score) }
     }
 
     override fun getRank(date: LocalDate, productId: Long): Int? {
         if (shouldThrow) throw RuntimeException("Redis 연결 실패")
-        val sorted = sortedEntries(date)
+        val sorted = sortedEntries(date).filter { it.second > 0 }
         val index = sorted.indexOfFirst { it.first == productId }
         return if (index >= 0) index + 1 else null
     }
-
-    override fun getTotalCount(date: LocalDate): Long =
-        entries[date]?.size?.toLong() ?: 0L
 
     /**
      * Redis ZSET의 ZREVRANGE 동작 재현:

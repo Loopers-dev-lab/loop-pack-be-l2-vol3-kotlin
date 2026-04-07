@@ -323,23 +323,5 @@ class GetProductUseCaseTest {
             // assert
             assertThat(result.rank).isNull()
         }
-
-        @Test
-        @DisplayName("랭킹 조회 실패 시에도 상품 상세 조회는 정상 동작한다 (rank만 null)")
-        fun getProduct_rankingFailure_returnsNullRank() {
-            // arrange
-            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
-            val product = productRepository.save(
-                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
-            )
-            rankingRepository.shouldThrow = true
-
-            // act
-            val result = useCase.execute(product.id.value)
-
-            // assert
-            assertThat(result.product.name).isEqualTo("에어맥스 90")
-            assertThat(result.rank).isNull()
-        }
     }
 }

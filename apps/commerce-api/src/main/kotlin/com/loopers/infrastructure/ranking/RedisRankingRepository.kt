@@ -20,18 +20,16 @@ class RedisRankingRepository(
 
     override fun getTopN(date: LocalDate, offset: Int, limit: Int): List<RankingEntry> {
         val key = rankingKey(date)
-        return try {
-            val results = redisTemplate.opsForZSet()
-                .reverseRangeWithScores(key, offset.toLong(), (offset + limit - 1).toLong())
-                ?: return emptyList()
-            results.mapNotNull { tuple ->
-                val productId = tuple.value?.toLongOrNull() ?: return@mapNotNull null
-                val score = tuple.score ?: return@mapNotNull null
-                RankingEntry(productId = productId, score = score)
+        val results = redisTemplate.opsForZSet()
+            .reverseRangeByScoreWithScores(key, Double.MIN_VALUE, Double.MAX_VALUE, offset.toLong(), limit.toLong())
+            ?: return emptyList()
+        return results.mapNotNull { tuple ->
+            val productId = tuple.value?.toLongOrNull() ?: run {
+                log.warn("Redis 랭킹 파싱 실패 [key={}, member={}]", key, tuple.value)
+                return@mapNotNull null
             }
-        } catch (e: Exception) {
-            log.warn("Redis 랭킹 조회 실패 [key={}]: {}", key, e.message)
-            emptyList()
+            val score = tuple.score ?: return@mapNotNull null
+            RankingEntry(productId = productId, score = score)
         }
     }
 
@@ -40,20 +38,13 @@ class RedisRankingRepository(
         return try {
             val rank = redisTemplate.opsForZSet().reverseRank(key, productId.toString())
                 ?: return null
+            val score = redisTemplate.opsForZSet().score(key, productId.toString())
+                ?: return null
+            if (score <= 0) return null
             (rank + 1).toInt()
         } catch (e: Exception) {
             log.warn("Redis 순위 조회 실패 [key={}, productId={}]: {}", key, productId, e.message)
             null
-        }
-    }
-
-    override fun getTotalCount(date: LocalDate): Long {
-        val key = rankingKey(date)
-        return try {
-            redisTemplate.opsForZSet().zCard(key) ?: 0L
-        } catch (e: Exception) {
-            log.warn("Redis 랭킹 카운트 조회 실패 [key={}]: {}", key, e.message)
-            0L
         }
     }
 
