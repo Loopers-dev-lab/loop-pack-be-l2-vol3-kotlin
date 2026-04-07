@@ -5,6 +5,7 @@ import com.loopers.domain.event.LikeCountEventType
 import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.event.OrderLineItem
 import com.loopers.domain.event.ProductViewedEvent
+import com.loopers.domain.ranking.DailyAccumulationStrategy
 import com.loopers.domain.ranking.ProductRankingWriteRepository
 import io.mockk.every
 import io.mockk.mockk
@@ -23,7 +24,7 @@ class ProductRankingWriteServiceTest {
     @BeforeEach
     fun setUp() {
         productRankingWriteRepository = mockk(relaxed = true)
-        service = ProductRankingWriteService(productRankingWriteRepository)
+        service = ProductRankingWriteService(productRankingWriteRepository, DailyAccumulationStrategy())
     }
 
     @Test

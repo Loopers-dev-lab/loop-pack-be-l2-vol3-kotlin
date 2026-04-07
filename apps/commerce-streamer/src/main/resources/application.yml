@@ -39,6 +39,12 @@ demo-kafka:
   test:
     topic-name: demo.internal.topic-v1
 
+ranking:
+  strategy: daily  # daily or sliding-window
+  sliding-window:
+    window-days: 7
+    decay-factor: 0.9
+
 ---
 spring:
   config:

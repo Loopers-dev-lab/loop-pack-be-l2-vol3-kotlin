@@ -5,6 +5,7 @@ import com.loopers.domain.event.LikeCountEventType
 import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.event.ProductViewedEvent
 import com.loopers.domain.ranking.ProductRankingWriteRepository
+import com.loopers.domain.ranking.RankingScoreStrategy
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.ZoneId
@@ -12,34 +13,32 @@ import java.time.ZoneId
 @Service
 class ProductRankingWriteService(
     private val productRankingWriteRepository: ProductRankingWriteRepository,
+    private val scoreStrategy: RankingScoreStrategy,
 ) {
 
     companion object {
         private val KST_ZONE_ID: ZoneId = ZoneId.of("Asia/Seoul")
-        private const val VIEW_SCORE = 0.1
-        private const val LIKE_SCORE = 0.2
-        private const val ORDER_SCORE_PER_QUANTITY = 0.7
     }
 
     fun write(event: Any) {
         val processingDate = LocalDate.now(KST_ZONE_ID)
+        val daysAgo = 0 // 현재 이벤트는 항상 오늘 발생
 
         when (event) {
             is ProductViewedEvent -> {
-                productRankingWriteRepository.incrementScore(processingDate, event.productId, VIEW_SCORE)
+                val score = scoreStrategy.calculateViewScore(daysAgo)
+                productRankingWriteRepository.incrementScore(processingDate, event.productId, score)
             }
 
             is LikeCountEvent -> {
-                val score = when (event.type) {
-                    LikeCountEventType.INCREMENT -> LIKE_SCORE
-                    LikeCountEventType.DECREMENT -> -LIKE_SCORE
-                }
+                val increment = event.type == LikeCountEventType.INCREMENT
+                val score = scoreStrategy.calculateLikeScore(increment, daysAgo)
                 productRankingWriteRepository.incrementScore(processingDate, event.productId, score)
             }
 
             is OrderCreatedEvent -> {
                 event.lineItems.forEach { lineItem ->
-                    val score = lineItem.quantity * ORDER_SCORE_PER_QUANTITY
+                    val score = scoreStrategy.calculateOrderScore(lineItem.quantity, daysAgo)
                     productRankingWriteRepository.incrementScore(processingDate, lineItem.productId, score)
                 }
             }
