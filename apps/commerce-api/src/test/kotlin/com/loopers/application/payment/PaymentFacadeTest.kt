@@ -43,6 +43,12 @@ class PaymentFacadeTest {
     @Mock
     private lateinit var couponService: com.loopers.application.coupon.CouponService
 
+    @Mock
+    private lateinit var eventPublisher: org.springframework.context.ApplicationEventPublisher
+
+    @Mock
+    private lateinit var outboxService: com.loopers.application.outbox.OutboxService
+
     private lateinit var paymentFacade: PaymentFacade
 
     @org.junit.jupiter.api.BeforeEach
@@ -59,6 +65,8 @@ class PaymentFacadeTest {
             productService = productService,
             couponService = couponService,
             pgPaymentClient = pgPaymentClient,
+            eventPublisher = eventPublisher,
+            outboxService = outboxService,
             transactionManager = txManager,
             callbackUrl = "http://localhost:8080/api/v1/payments/callback",
         )

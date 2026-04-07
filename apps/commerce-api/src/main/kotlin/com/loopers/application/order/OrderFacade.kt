@@ -2,9 +2,13 @@ package com.loopers.application.order
 
 import com.loopers.application.brand.BrandService
 import com.loopers.application.coupon.CouponService
+import com.loopers.application.event.OrderCreatedEvent
+import com.loopers.application.outbox.OutboxService
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
 import com.loopers.domain.order.OrderItemCommand
+import com.loopers.event.KafkaTopics
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,6 +18,8 @@ class OrderFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val couponService: CouponService,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxService: OutboxService,
 ) {
 
     @Transactional
@@ -25,7 +31,7 @@ class OrderFacade(
 
         val orderItemCommands = buildOrderItemCommands(reservedProducts)
 
-        if (couponId != null) {
+        val orderInfo = if (couponId != null) {
             val issuedCoupon = couponService.getIssuedCoupon(couponId)
             issuedCoupon.validateOwner(userId)
             issuedCoupon.validateUsable()
@@ -40,12 +46,30 @@ class OrderFacade(
             issuedCoupon.use()
             order.applyDiscount(discountAmount)
 
-            return OrderInfo.from(order)
+            OrderInfo.from(order)
+        } else {
+            val order = orderService.createOrder(userId, orderItemCommands)
+            OrderInfo.from(order)
         }
 
-        // 4. 쿠폰 없는 주문
-        val order = orderService.createOrder(userId, orderItemCommands)
-        return OrderInfo.from(order)
+        val event = OrderCreatedEvent(
+            orderId = orderInfo.id,
+            userId = userId,
+            productIds = productIds,
+            totalAmount = orderInfo.totalAmount,
+            couponId = couponId,
+        )
+        outboxService.save(
+            aggregateType = "ORDER",
+            aggregateId = orderInfo.id.toString(),
+            eventType = "ORDER_CREATED",
+            topic = KafkaTopics.ORDER_EVENTS,
+            partitionKey = orderInfo.id.toString(),
+            payload = event,
+        )
+        eventPublisher.publishEvent(event)
+
+        return orderInfo
     }
 
     private fun buildOrderItemCommands(

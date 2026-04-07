@@ -35,4 +35,22 @@ class CouponV1Dto {
             }
         }
     }
+
+    @Schema(description = "선착순 쿠폰 발급 요청 응답")
+    data class FcfsIssueResponse(
+        @Schema(description = "발급 요청 ID (polling 조회용)", example = "550e8400-e29b-41d4-a716-446655440000")
+        val requestId: String,
+    )
+
+    @Schema(description = "선착순 쿠폰 발급 상태 조회 응답")
+    data class FcfsStatusResponse(
+        @Schema(description = "발급 요청 ID", example = "550e8400-e29b-41d4-a716-446655440000")
+        val requestId: String,
+        @Schema(description = "쿠폰 ID", example = "1")
+        val couponId: Long,
+        @Schema(description = "발급 상태", example = "PENDING")
+        val status: String,
+        @Schema(description = "실패 사유")
+        val failureReason: String?,
+    )
 }
