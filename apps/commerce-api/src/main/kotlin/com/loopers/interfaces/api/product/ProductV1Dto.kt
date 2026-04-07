@@ -40,4 +40,42 @@ class ProductV1Dto {
             }
         }
     }
+
+    @Schema(description = "상품 상세 응답 (랭킹 포함)")
+    data class ProductDetailResponse(
+        @Schema(description = "상품 ID", example = "1")
+        val id: Long,
+        @Schema(description = "브랜드 ID", example = "1")
+        val brandId: Long,
+        @Schema(description = "상품명", example = "에어맥스 90")
+        val name: String,
+        @Schema(description = "가격", example = "129000")
+        val price: BigDecimal,
+        @Schema(description = "재고", example = "100")
+        val stock: Int,
+        @Schema(description = "좋아요 수", example = "42")
+        val likeCount: Int,
+        @Schema(description = "상품 설명", example = "나이키 에어맥스 90")
+        val description: String?,
+        @Schema(description = "이미지 URL", example = "https://example.com/airmax90.jpg")
+        val imageUrl: String?,
+        @Schema(description = "오늘 랭킹 순위 (순위 없으면 null)", example = "3")
+        val rank: Int?,
+    ) {
+        companion object {
+            fun from(info: ProductInfo, rank: Int?): ProductDetailResponse {
+                return ProductDetailResponse(
+                    id = info.id,
+                    brandId = info.brandId,
+                    name = info.name,
+                    price = info.price,
+                    stock = info.stock,
+                    likeCount = info.likeCount,
+                    description = info.description,
+                    imageUrl = info.imageUrl,
+                    rank = rank,
+                )
+            }
+        }
+    }
 }

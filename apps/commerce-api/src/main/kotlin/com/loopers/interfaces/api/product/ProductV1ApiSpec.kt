@@ -38,5 +38,5 @@ interface ProductV1ApiSpec {
     fun getProduct(
         @Parameter(description = "상품 ID", required = true)
         productId: Long,
-    ): ApiResponse<ProductV1Dto.ProductResponse>
+    ): ApiResponse<ProductV1Dto.ProductDetailResponse>
 }
