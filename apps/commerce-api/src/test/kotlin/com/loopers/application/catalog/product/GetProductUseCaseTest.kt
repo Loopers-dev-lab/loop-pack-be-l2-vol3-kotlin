@@ -19,6 +19,9 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.support.AbstractPlatformTransactionManager
+import org.springframework.transaction.support.DefaultTransactionStatus
 import java.math.BigDecimal
 import java.time.Clock
 import java.time.LocalDate
@@ -31,6 +34,12 @@ class GetProductUseCaseTest {
         ZoneId.of("Asia/Seoul"),
     )
     private val today: LocalDate = LocalDate.now(clock)
+    private val noOpTxManager = object : AbstractPlatformTransactionManager() {
+        override fun doGetTransaction() = Any()
+        override fun doBegin(transaction: Any, definition: TransactionDefinition) {}
+        override fun doCommit(status: DefaultTransactionStatus) {}
+        override fun doRollback(status: DefaultTransactionStatus) {}
+    }
 
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var productRepository: FakeProductRepository
@@ -47,7 +56,7 @@ class GetProductUseCaseTest {
         useCase = GetProductUseCase(
             productRepository, brandRepository, cacheRepository,
             ApplicationEventPublisher { }, rankingRepository,
-            clock,
+            clock, noOpTxManager,
         )
     }
 
@@ -254,6 +263,7 @@ class GetProductUseCaseTest {
                 ApplicationEventPublisher { publishedEvents.add(it) },
                 rankingRepository,
                 clock,
+                noOpTxManager,
             )
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
@@ -284,6 +294,7 @@ class GetProductUseCaseTest {
                 ApplicationEventPublisher { publishedEvents.add(it) },
                 rankingRepository,
                 clock,
+                noOpTxManager,
             )
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(

@@ -172,6 +172,22 @@ class GetRankingUseCaseTest {
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].productId).isEqualTo(1L)
         }
+
+        @Test
+        @DisplayName("DB에 존재하지 않는 상품은 결과에서 제외된다")
+        fun `DB 미존재 상품은 제외된다`() {
+            // Arrange — productId=999는 DB에 없음
+            rankingRepository.addEntry(today, 999L, 10.0)
+            rankingRepository.addEntry(today, 1L, 5.0)
+            rankingRepository.addEntry(today, 2L, 3.0)
+
+            // Act
+            val result = useCase.execute(date = today, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.content).hasSize(2)
+            assertThat(result.content.map { it.productId }).containsExactly(1L, 2L)
+        }
     }
 
     @Nested
@@ -271,8 +287,8 @@ class GetRankingUseCaseTest {
         }
 
         @Test
-        @DisplayName("totalElements는 ZCARD 기반으로 전체 랭킹 수를 반환한다")
-        fun `totalElements는 전체 랭킹 수를 반환한다`() {
+        @DisplayName("totalElements는 score > 0인 active 상품의 전체 수를 반환한다")
+        fun `totalElements는 active 상품만 카운트한다`() {
             // Arrange — 5개 등록, size=2로 조회
             rankingRepository.addEntry(today, 5L, 5.0)
             rankingRepository.addEntry(today, 4L, 4.0)
@@ -283,9 +299,37 @@ class GetRankingUseCaseTest {
             // Act
             val result = useCase.execute(date = today, page = 0, size = 2)
 
-            // Assert — content는 2개지만 totalElements는 전체 5개
+            // Assert — content는 2개지만 totalElements는 전체 active 5개
             assertThat(result.content).hasSize(2)
             assertThat(result.totalElements).isEqualTo(5L)
+        }
+
+        @Test
+        @DisplayName("비활성/DB미존재 상품은 totalElements에서 제외된다")
+        fun `비활성 상품은 totalElements에서 제외된다`() {
+            // Arrange — 상품6=HIDDEN, 상품999=DB 미존재
+            productRepository.save(
+                Product(
+                    id = ProductId(6L),
+                    refBrandId = BrandId(1L),
+                    name = "비활성상품",
+                    price = Money(BigDecimal.valueOf(6000)),
+                    stock = Stock(10),
+                    status = Product.ProductStatus.HIDDEN,
+                ),
+            )
+            rankingRepository.addEntry(today, 6L, 10.0)
+            rankingRepository.addEntry(today, 999L, 8.0)
+            rankingRepository.addEntry(today, 3L, 3.0)
+            rankingRepository.addEntry(today, 2L, 2.0)
+            rankingRepository.addEntry(today, 1L, 1.0)
+
+            // Act
+            val result = useCase.execute(date = today, page = 0, size = 10)
+
+            // Assert — active 상품 3개만 카운트 (6=HIDDEN, 999=미존재 제외)
+            assertThat(result.content).hasSize(3)
+            assertThat(result.totalElements).isEqualTo(3L)
         }
 
         @Test

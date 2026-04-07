@@ -9,6 +9,8 @@ import com.loopers.domain.ranking.repository.RankingScoreRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Component
 class UpdateProductMetricsUseCase(
@@ -48,11 +50,12 @@ class UpdateProductMetricsUseCase(
             }
         }
 
-        if (rankingScore != 0.0) {
-            rankingScoreRepository.incrementScore(productId, rankingScore)
-        }
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
+
+        if (rankingScore != 0.0) {
+            registerScoreUpdateAfterCommit(productId, rankingScore)
+        }
     }
 
     @Transactional
@@ -71,9 +74,53 @@ class UpdateProductMetricsUseCase(
         val metrics = findOrCreate(productId)
         metrics.incrementSalesCount(quantity)
 
-        rankingScoreRepository.incrementScore(productId, RankingWeight.ORDER * quantity)
+        val score = RankingWeight.ORDER * quantity
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
+
+        registerScoreUpdateAfterCommit(productId, score)
+    }
+
+    private fun registerScoreUpdateAfterCommit(productId: Long, score: Double) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() {
+                        incrementScoreWithRetry(productId, score)
+                    }
+                },
+            )
+        } else {
+            rankingScoreRepository.incrementScore(productId, score)
+        }
+    }
+
+    private fun incrementScoreWithRetry(productId: Long, score: Double) {
+        var lastException: Exception? = null
+        repeat(MAX_RETRY_COUNT) { attempt ->
+            try {
+                rankingScoreRepository.incrementScore(productId, score)
+                return
+            } catch (e: Exception) {
+                lastException = e
+                log.warn(
+                    "Redis 랭킹 점수 갱신 재시도 {}/{}. productId={}, score={}: {}",
+                    attempt + 1,
+                    MAX_RETRY_COUNT,
+                    productId,
+                    score,
+                    e.message,
+                )
+                Thread.sleep(RETRY_DELAY_MS)
+            }
+        }
+        log.error(
+            "Redis 랭킹 점수 갱신 최종 실패. productId={}, score={}: {}",
+            productId,
+            score,
+            lastException?.message,
+            lastException,
+        )
     }
 
     private fun findOrCreate(productId: Long): ProductMetrics {
@@ -86,5 +133,7 @@ class UpdateProductMetricsUseCase(
         const val LIKE_ADDED = "LIKE_ADDED"
         const val LIKE_REMOVED = "LIKE_REMOVED"
         const val PAYMENT_COMPLETED = "PAYMENT_COMPLETED"
+        private const val MAX_RETRY_COUNT = 3
+        private const val RETRY_DELAY_MS = 100L
     }
 }

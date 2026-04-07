@@ -8,10 +8,12 @@ import com.loopers.domain.ranking.FakeRankingScoreRepository
 import com.loopers.domain.ranking.RankingWeight
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 class UpdateProductMetricsUseCaseTest {
 
@@ -224,6 +226,71 @@ class UpdateProductMetricsUseCaseTest {
             useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 2L)
 
             assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+        }
+    }
+
+    @Nested
+    @DisplayName("afterCommit 재시도")
+    inner class AfterCommitRetry {
+
+        @BeforeEach
+        fun initSynchronization() {
+            TransactionSynchronizationManager.initSynchronization()
+        }
+
+        @AfterEach
+        fun clearSynchronization() {
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.clearSynchronization()
+            }
+        }
+
+        private fun fireAfterCommitCallbacks() {
+            TransactionSynchronizationManager.getSynchronizations().forEach { it.afterCommit() }
+        }
+
+        @Test
+        @DisplayName("일시적 Redis 실패 후 재시도로 점수가 반영된다")
+        fun `일시적 실패 후 재시도 성공`() {
+            // Arrange — 첫 1회 실패, 이후 성공
+            rankingScoreRepository.failuresRemaining = 1
+
+            // Act
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+            fireAfterCommitCallbacks()
+
+            // Assert — 재시도로 점수 반영됨
+            assertThat(rankingScoreRepository.getScore(1L))
+                .isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
+        }
+
+        @Test
+        @DisplayName("모든 재시도 실패 시 예외가 전파되지 않는다")
+        fun `모든 재시도 실패 시 예외 비전파`() {
+            // Arrange — MAX_RETRY_COUNT(3)보다 많은 실패
+            rankingScoreRepository.failuresRemaining = 10
+
+            // Act — 예외가 전파되지 않아야 한다
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+            fireAfterCommitCallbacks()
+
+            // Assert — 점수 미반영, 예외도 미전파
+            assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+        }
+
+        @Test
+        @DisplayName("주문 이벤트도 일시적 실패 후 재시도로 점수가 반영된다")
+        fun `주문 이벤트 일시적 실패 후 재시도 성공`() {
+            // Arrange
+            rankingScoreRepository.failuresRemaining = 2
+
+            // Act
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 2L)
+            fireAfterCommitCallbacks()
+
+            // Assert
+            assertThat(rankingScoreRepository.getScore(1L))
+                .isCloseTo(RankingWeight.ORDER * 2, Offset.offset(0.001))
         }
     }
 }

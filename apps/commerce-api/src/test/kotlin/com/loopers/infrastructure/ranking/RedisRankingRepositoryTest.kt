@@ -89,6 +89,23 @@ class RedisRankingRepositoryTest @Autowired constructor(
         }
 
         @Test
+        @DisplayName("score가 0 이하인 항목은 결과에서 제외된다")
+        fun `score 0 이하는 제외된다`() {
+            // Arrange
+            redisTemplate.opsForZSet().add(key, "1", 3.0)
+            redisTemplate.opsForZSet().add(key, "2", 0.0)
+            redisTemplate.opsForZSet().add(key, "3", -1.0)
+            redisTemplate.opsForZSet().add(key, "4", 1.0)
+
+            // Act
+            val result = redisRankingRepository.getTopN(today, 0, 10)
+
+            // Assert — score > 0인 상품 1, 4만 반환
+            assertThat(result).hasSize(2)
+            assertThat(result.map { it.productId }).containsExactly(1L, 4L)
+        }
+
+        @Test
         @DisplayName("키가 없으면 빈 리스트를 반환한다")
         fun `키가 없으면 빈 리스트를 반환한다`() {
             // Act

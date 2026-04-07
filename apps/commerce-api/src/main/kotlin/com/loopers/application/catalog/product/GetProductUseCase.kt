@@ -12,7 +12,8 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.LocalDate
 
@@ -24,31 +25,37 @@ class GetProductUseCase(
     private val eventPublisher: ApplicationEventPublisher,
     private val rankingRepository: RankingRepository,
     private val clock: Clock,
+    transactionManager: PlatformTransactionManager,
 ) {
 
-    @Transactional(readOnly = true)
+    private val readOnlyTxTemplate = TransactionTemplate(transactionManager).apply {
+        isReadOnly = true
+    }
+
     fun execute(productId: Long, userId: Long? = null): CatalogInfo {
-        val id = ProductId(productId)
-        var cached = true
-        val product = productCacheRepository.findProductDetail(id)
-            ?: run {
-                cached = false
-                productRepository.findById(id)
+        val detail = readOnlyTxTemplate.execute {
+            val id = ProductId(productId)
+            var cached = true
+            val product = productCacheRepository.findProductDetail(id)
+                ?: run {
+                    cached = false
+                    productRepository.findById(id)
+                }
+                ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+            if (product.isDeleted() || !product.isActive()) {
+                throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
             }
-            ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        if (product.isDeleted() || !product.isActive()) {
-            throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-        }
-        val brand = brandRepository.findById(product.refBrandId)
-            ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        if (brand.isDeleted()) {
-            throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-        }
-        if (!cached) {
-            productCacheRepository.saveProductDetail(product)
-        }
-        val detail = ProductDetail(product = product, brand = brand)
-        eventPublisher.publishEvent(CatalogEvent.ProductViewed(productId = productId, userId = userId))
+            val brand = brandRepository.findById(product.refBrandId)
+                ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+            if (brand.isDeleted()) {
+                throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+            }
+            if (!cached) {
+                productCacheRepository.saveProductDetail(product)
+            }
+            eventPublisher.publishEvent(CatalogEvent.ProductViewed(productId = productId, userId = userId))
+            ProductDetail(product = product, brand = brand)
+        }!!
         val rank = rankingRepository.getRank(LocalDate.now(clock), productId)
         return CatalogInfo.from(detail, rank)
     }
