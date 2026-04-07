@@ -42,6 +42,7 @@ class UserActivityEventHandlerTest {
                 orderId = 1L,
                 userId = 1L,
                 productIds = listOf(1L, 2L),
+                items = emptyList(),
                 totalAmount = BigDecimal("30000"),
                 couponId = null,
             )
