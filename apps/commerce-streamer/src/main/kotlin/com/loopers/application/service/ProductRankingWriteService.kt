@@ -22,23 +22,22 @@ class ProductRankingWriteService(
 
     fun write(event: Any) {
         val processingDate = LocalDate.now(KST_ZONE_ID)
-        val daysAgo = 0 // 현재 이벤트는 항상 오늘 발생
 
         when (event) {
             is ProductViewedEvent -> {
-                val score = scoreStrategy.calculateViewScore(daysAgo)
+                val score = scoreStrategy.calculateViewScore()
                 productRankingWriteRepository.incrementScore(processingDate, event.productId, score)
             }
 
             is LikeCountEvent -> {
                 val increment = event.type == LikeCountEventType.INCREMENT
-                val score = scoreStrategy.calculateLikeScore(increment, daysAgo)
+                val score = scoreStrategy.calculateLikeScore(increment)
                 productRankingWriteRepository.incrementScore(processingDate, event.productId, score)
             }
 
             is OrderCreatedEvent -> {
                 event.lineItems.forEach { lineItem ->
-                    val score = scoreStrategy.calculateOrderScore(lineItem.quantity, daysAgo)
+                    val score = scoreStrategy.calculateOrderScore(lineItem.quantity)
                     productRankingWriteRepository.incrementScore(processingDate, lineItem.productId, score)
                 }
             }

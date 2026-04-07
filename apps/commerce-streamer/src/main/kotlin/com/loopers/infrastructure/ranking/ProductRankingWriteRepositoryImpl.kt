@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.ranking
 
+import com.loopers.config.ranking.RankingProperties
 import com.loopers.config.redis.RedisConfig
 import com.loopers.domain.ranking.ProductRankingWriteRepository
 import org.springframework.beans.factory.annotation.Qualifier
@@ -14,14 +15,14 @@ import java.time.format.DateTimeFormatter
 class ProductRankingWriteRepositoryImpl(
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val redisTemplate: RedisTemplate<String, String>,
+    rankingProperties: RankingProperties,
 ) : ProductRankingWriteRepository {
 
     companion object {
         private const val KEY_PREFIX = "ranking:all:"
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.BASIC_ISO_DATE
-        private val TTL: Duration = Duration.ofDays(2)
+        private const val DEFAULT_TTL_DAYS = 2L
 
-        // TTL이 없을 때만 원자적으로 EXPIRE를 설정하는 Lua script (Redis 7.0 미만 호환)
         private val setTtlIfAbsentScript = RedisScript.of(
             """
             local ttl = redis.call('TTL', KEYS[1])
@@ -34,10 +35,16 @@ class ProductRankingWriteRepositoryImpl(
         )
     }
 
+    private val ttl: Duration = if (rankingProperties.strategy.lowercase() == "sliding-window") {
+        Duration.ofDays(rankingProperties.slidingWindow.windowDays.toLong() + 1)
+    } else {
+        Duration.ofDays(DEFAULT_TTL_DAYS)
+    }
+
     override fun incrementScore(processingDate: LocalDate, productId: Long, score: Double) {
         val key = key(processingDate)
         redisTemplate.opsForZSet().incrementScore(key, productId.toString(), score)
-        redisTemplate.execute(setTtlIfAbsentScript, listOf(key), TTL.seconds.toString())
+        redisTemplate.execute(setTtlIfAbsentScript, listOf(key), ttl.seconds.toString())
     }
 
     private fun key(processingDate: LocalDate): String = "$KEY_PREFIX${processingDate.format(DATE_FORMATTER)}"

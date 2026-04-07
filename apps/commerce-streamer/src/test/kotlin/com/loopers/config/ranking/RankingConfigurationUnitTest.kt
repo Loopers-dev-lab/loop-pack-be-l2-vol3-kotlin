@@ -2,7 +2,6 @@ package com.loopers.config.ranking
 
 import com.loopers.domain.ranking.DailyAccumulationStrategy
 import com.loopers.domain.ranking.SlidingWindowStrategy
-import kotlin.math.pow
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -32,6 +31,7 @@ class RankingConfigurationUnitTest {
         }
         val strategy = config.rankingScoreStrategy(properties)
         assertIs<SlidingWindowStrategy>(strategy)
+        assertEquals(7, strategy.getWindowDays())
     }
 
     @Test
@@ -45,9 +45,7 @@ class RankingConfigurationUnitTest {
             }
         }
         val strategy = config.rankingScoreStrategy(properties) as SlidingWindowStrategy
-        val score = strategy.calculateViewScore(daysAgo = 14)
-        val expected = 0.1 * 0.95.pow(14)
-        assertEquals(expected, score, 1e-6)
+        assertEquals(14, strategy.getWindowDays())
     }
 
     @Test

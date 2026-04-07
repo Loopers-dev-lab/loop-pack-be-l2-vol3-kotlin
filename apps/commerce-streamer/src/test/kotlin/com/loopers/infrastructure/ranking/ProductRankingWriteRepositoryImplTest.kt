@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.ranking
 
+import com.loopers.config.ranking.RankingConfiguration
 import com.loopers.config.redis.RedisConfig
 import com.loopers.domain.ranking.ProductRankingWriteRepository
 import org.assertj.core.api.Assertions.assertThat
@@ -34,7 +35,7 @@ class ProductRankingWriteRepositoryImplTest @Autowired constructor(
     }
 
     @Configuration
-    @Import(RedisConfig::class, ProductRankingWriteRepositoryImpl::class)
+    @Import(RedisConfig::class, ProductRankingWriteRepositoryImpl::class, RankingConfiguration::class)
     class TestConfig
 
     companion object {
@@ -46,17 +47,18 @@ class ProductRankingWriteRepositoryImplTest @Autowired constructor(
 
         @JvmStatic
         @DynamicPropertySource
-        fun registerRedisProperties(registry: DynamicPropertyRegistry) {
+        fun registerProperties(registry: DynamicPropertyRegistry) {
             registry.add("datasource.redis.database") { 0 }
             registry.add("datasource.redis.master.host") { redisContainer.host }
             registry.add("datasource.redis.master.port") { redisContainer.getMappedPort(6379) }
             registry.add("datasource.redis.replicas[0].host") { redisContainer.host }
             registry.add("datasource.redis.replicas[0].port") { redisContainer.getMappedPort(6379) }
+            registry.add("ranking.strategy") { "daily" }
         }
     }
 
     @Test
-    @DisplayName("yyyyMMdd 키 형식으로 점수를 적재하고 TTL 2일을 설정한다")
+    @DisplayName("yyyyMMdd 키 형식으로 점수를 적재하고 TTL을 설정한다")
     fun writesScoreWithFormattedKeyAndTtl() {
         val processingDate = LocalDate.of(2026, 4, 6)
         val key = "ranking:all:20260406"

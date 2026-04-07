@@ -66,6 +66,12 @@ resilience4j:
         retryExceptions:
           - java.lang.Exception
 
+ranking:
+  strategy: daily
+  sliding-window:
+    window-days: 7
+    decay-factor: 0.9
+
 springdoc:
   use-fqn: true
   swagger-ui:
