@@ -2,12 +2,14 @@ package com.loopers.interfaces.api.auth
 
 import com.loopers.application.user.AuthenticateUserUseCase
 import com.loopers.support.constant.AuthHeaders
+import com.loopers.support.constant.RequestAttributes
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.UserErrorCode
 import org.springframework.core.MethodParameter
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.support.WebDataBinderFactory
 import org.springframework.web.context.request.NativeWebRequest
+import org.springframework.web.context.request.ServletWebRequest
 import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.method.support.ModelAndViewContainer
 
@@ -27,6 +29,10 @@ class CurrentUserIdArgumentResolver(
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
     ): Long {
+        val cachedUserId = (webRequest as? ServletWebRequest)
+            ?.request?.getAttribute(RequestAttributes.RESOLVED_USER_ID) as? Long
+        if (cachedUserId != null) return cachedUserId
+
         val loginId = webRequest.getHeader(AuthHeaders.User.LOGIN_ID)
             ?: throw CoreException(UserErrorCode.AUTHENTICATION_FAILED)
         val password = webRequest.getHeader(AuthHeaders.User.LOGIN_PW)
@@ -34,4 +40,5 @@ class CurrentUserIdArgumentResolver(
 
         return authenticateUserUseCase.execute(loginId, password)
     }
+
 }
