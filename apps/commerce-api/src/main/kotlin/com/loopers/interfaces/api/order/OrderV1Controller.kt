@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.order
 
 import com.loopers.application.order.OrderFacade
 import com.loopers.application.order.OrderService
+import com.loopers.application.queue.QueueService
 import com.loopers.application.user.UserService
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
@@ -22,6 +23,7 @@ class OrderV1Controller(
     private val userService: UserService,
     private val orderService: OrderService,
     private val orderFacade: OrderFacade,
+    private val queueService: QueueService,
 ) : OrderV1ApiSpec {
 
     @PostMapping("/api/v1/orders")
@@ -31,6 +33,7 @@ class OrderV1Controller(
         @RequestBody request: OrderV1Dto.CreateRequest,
     ): ApiResponse<OrderV1Dto.CreateOrderResponse> {
         val authUser = userService.authenticate(loginId, password)
+        queueService.validateAndConsumeToken(authUser.id)
         val result = orderFacade.createOrder(authUser.id, request.toCriteria(), request.couponId)
         return ApiResponse.success(OrderV1Dto.CreateOrderResponse.from(result))
     }

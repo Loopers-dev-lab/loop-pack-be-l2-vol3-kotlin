@@ -38,3 +38,19 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Claude ###
+.claude/
+
+### Project docs & guides ###
+.codeguide/
+docs/blog/
+docs/logs/
+docs/mentoring/
+docs/plan/
+docs/pr/
+docs/quests/
+docs/requirements/
+docs/review/
+docs/showme/
+docs/package.json
