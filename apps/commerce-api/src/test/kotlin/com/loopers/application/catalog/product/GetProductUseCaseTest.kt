@@ -20,10 +20,17 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.context.ApplicationEventPublisher
 import java.math.BigDecimal
+import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 
 class GetProductUseCaseTest {
+
+    private val clock: Clock = Clock.fixed(
+        LocalDate.of(2026, 4, 7).atTime(12, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(),
+        ZoneId.of("Asia/Seoul"),
+    )
+    private val today: LocalDate = LocalDate.now(clock)
 
     private lateinit var brandRepository: FakeBrandRepository
     private lateinit var productRepository: FakeProductRepository
@@ -40,6 +47,7 @@ class GetProductUseCaseTest {
         useCase = GetProductUseCase(
             productRepository, brandRepository, cacheRepository,
             ApplicationEventPublisher { }, rankingRepository,
+            clock,
         )
     }
 
@@ -245,6 +253,7 @@ class GetProductUseCaseTest {
                 cacheRepository,
                 ApplicationEventPublisher { publishedEvents.add(it) },
                 rankingRepository,
+                clock,
             )
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
@@ -274,6 +283,7 @@ class GetProductUseCaseTest {
                 cacheRepository,
                 ApplicationEventPublisher { publishedEvents.add(it) },
                 rankingRepository,
+                clock,
             )
             val brand = brandRepository.save(Brand(name = BrandName("나이키")))
             val product = productRepository.save(
@@ -298,7 +308,7 @@ class GetProductUseCaseTest {
             val product = productRepository.save(
                 Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
             )
-            val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+            val today = LocalDate.now(clock)
             rankingRepository.addEntry(today, product.id.value, 100.0)
 
             // act
@@ -306,6 +316,24 @@ class GetProductUseCaseTest {
 
             // assert
             assertThat(result.rank).isEqualTo(1)
+        }
+
+        @Test
+        @DisplayName("score <= 0인 상품은 rank가 null로 반환된다")
+        fun getProduct_zeroScore_returnsNullRank() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            val today = LocalDate.now(clock)
+            rankingRepository.addEntry(today, product.id.value, 0.0)
+
+            // act
+            val result = useCase.execute(product.id.value)
+
+            // assert
+            assertThat(result.rank).isNull()
         }
 
         @Test

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
+import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -24,13 +25,17 @@ class GetRankingUseCaseTest {
     private lateinit var productRepository: FakeProductRepository
     private lateinit var useCase: GetRankingUseCase
 
-    private val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+    private val clock: Clock = Clock.fixed(
+        LocalDate.of(2026, 4, 7).atTime(12, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant(),
+        ZoneId.of("Asia/Seoul"),
+    )
+    private val today: LocalDate = LocalDate.now(clock)
 
     @BeforeEach
     fun setUp() {
         rankingRepository = FakeRankingRepository()
         productRepository = FakeProductRepository()
-        useCase = GetRankingUseCase(rankingRepository, productRepository)
+        useCase = GetRankingUseCase(rankingRepository, productRepository, clock)
 
         listOf(1L, 2L, 3L, 4L, 5L).forEach { id ->
             productRepository.save(
@@ -229,6 +234,40 @@ class GetRankingUseCaseTest {
 
             assertThat(page1.content.map { it.productId }).containsExactly(3L, 2L)
             assertThat(page1.content.map { it.rank }).containsExactly(3, 4)
+        }
+
+        @Test
+        @DisplayName("비활성 상품이 필터링되어도 페이지 경계가 정확하다")
+        fun `비활성 상품 필터링 시 페이지 경계가 정확하다`() {
+            // Arrange — 상품 6을 HIDDEN으로 등록 (비활성)
+            productRepository.save(
+                Product(
+                    id = ProductId(6L),
+                    refBrandId = BrandId(1L),
+                    name = "비활성상품",
+                    price = Money(BigDecimal.valueOf(6000)),
+                    stock = Stock(10),
+                    status = Product.ProductStatus.HIDDEN,
+                ),
+            )
+            // 랭킹 순서: 6(hidden,6.0) > 5(5.0) > 4(4.0) > 3(3.0) > 2(2.0) > 1(1.0)
+            rankingRepository.addEntry(today, 6L, 6.0)
+            rankingRepository.addEntry(today, 5L, 5.0)
+            rankingRepository.addEntry(today, 4L, 4.0)
+            rankingRepository.addEntry(today, 3L, 3.0)
+            rankingRepository.addEntry(today, 2L, 2.0)
+            rankingRepository.addEntry(today, 1L, 1.0)
+
+            // Act
+            val page0 = useCase.execute(date = today, page = 0, size = 2)
+            val page1 = useCase.execute(date = today, page = 1, size = 2)
+
+            // Assert — 비활성 상품 6은 제외, visible 순서: 5→4→3→2→1
+            assertThat(page0.content.map { it.productId }).containsExactly(5L, 4L)
+            assertThat(page1.content.map { it.productId }).containsExactly(3L, 2L)
+            // 페이지 간 중복 없음
+            val allIds = page0.content.map { it.productId } + page1.content.map { it.productId }
+            assertThat(allIds).doesNotHaveDuplicates()
         }
 
         @Test

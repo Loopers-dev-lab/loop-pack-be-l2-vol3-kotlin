@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.ranking
 
+import com.loopers.config.redis.RedisRankingConstants
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -86,6 +87,26 @@ class RedisRankingScoreRepositoryTest @Autowired constructor(
             val ttl = redisTemplate.getExpire(key)
             assertThat(ttl).isGreaterThan(0L)
             assertThat(ttl).isLessThanOrEqualTo(RedisRankingConstants.RANKING_TTL_SECONDS)
+        }
+
+        @Test
+        @DisplayName("후속 incrementScore 호출은 TTL을 연장하지 않는다")
+        fun `후속 호출은 TTL을 연장하지 않는다`() {
+            // Arrange — 최초 호출로 키 생성 + TTL 설정
+            redisRankingScoreRepository.incrementScore(1L, 0.1)
+            val key = findRankingKey()
+
+            // TTL을 100초로 수동 축소하여 비연장 검증 가능하게 설정
+            redisTemplate.expire(key, 100L, java.util.concurrent.TimeUnit.SECONDS)
+            val ttlBefore = redisTemplate.getExpire(key)
+
+            // Act — 후속 호출
+            redisRankingScoreRepository.incrementScore(1L, 0.2)
+
+            // Assert — TTL이 원래 값(172,800초)으로 리셋되지 않음
+            val ttlAfter = redisTemplate.getExpire(key)
+            assertThat(ttlAfter).isLessThanOrEqualTo(ttlBefore)
+            assertThat(ttlAfter).isLessThanOrEqualTo(100L)
         }
     }
 

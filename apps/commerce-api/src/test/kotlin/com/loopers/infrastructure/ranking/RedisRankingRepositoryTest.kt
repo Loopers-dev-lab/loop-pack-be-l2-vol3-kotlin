@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.ranking
 
+import com.loopers.config.redis.RedisRankingConstants
 import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
@@ -124,6 +125,20 @@ class RedisRankingRepositoryTest @Autowired constructor(
 
             // Assert
             assertThat(result).isNull()
+        }
+
+        @Test
+        @DisplayName("score <= 0인 상품은 null을 반환한다")
+        fun `score가 0 이하이면 null을 반환한다`() {
+            // Arrange
+            redisTemplate.opsForZSet().add(key, "1", 0.0)
+            redisTemplate.opsForZSet().add(key, "2", -1.0)
+            redisTemplate.opsForZSet().add(key, "3", 5.0)
+
+            // Act & Assert
+            assertThat(redisRankingRepository.getRank(today, 1L)).isNull()
+            assertThat(redisRankingRepository.getRank(today, 2L)).isNull()
+            assertThat(redisRankingRepository.getRank(today, 3L)).isEqualTo(1)
         }
     }
 }

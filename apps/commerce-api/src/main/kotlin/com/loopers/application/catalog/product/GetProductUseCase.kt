@@ -13,8 +13,8 @@ import com.loopers.support.error.ErrorType
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDate
-import java.time.ZoneId
 
 @Component
 class GetProductUseCase(
@@ -23,6 +23,7 @@ class GetProductUseCase(
     private val productCacheRepository: ProductCacheRepository,
     private val eventPublisher: ApplicationEventPublisher,
     private val rankingRepository: RankingRepository,
+    private val clock: Clock,
 ) {
 
     @Transactional(readOnly = true)
@@ -48,7 +49,7 @@ class GetProductUseCase(
         }
         val detail = ProductDetail(product = product, brand = brand)
         eventPublisher.publishEvent(CatalogEvent.ProductViewed(productId = productId, userId = userId))
-        val rank = rankingRepository.getRank(LocalDate.now(ZoneId.of("Asia/Seoul")), productId)
+        val rank = rankingRepository.getRank(LocalDate.now(clock), productId)
         return CatalogInfo.from(detail, rank)
     }
 }

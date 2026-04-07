@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.ranking
 
 import com.loopers.config.redis.RedisConfig.Companion.REDIS_TEMPLATE_MASTER
+import com.loopers.config.redis.RedisRankingConstants
 import com.loopers.domain.ranking.model.RankingEntry
 import com.loopers.domain.ranking.repository.RankingRepository
 import org.slf4j.LoggerFactory

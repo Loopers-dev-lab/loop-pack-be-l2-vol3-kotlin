@@ -5,7 +5,7 @@ import com.loopers.infrastructure.catalog.brand.BrandEntity
 import com.loopers.infrastructure.catalog.brand.BrandJpaRepository
 import com.loopers.infrastructure.catalog.product.ProductEntity
 import com.loopers.infrastructure.catalog.product.ProductJpaRepository
-import com.loopers.infrastructure.ranking.RedisRankingConstants
+import com.loopers.config.redis.RedisRankingConstants
 import com.loopers.interfaces.support.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
