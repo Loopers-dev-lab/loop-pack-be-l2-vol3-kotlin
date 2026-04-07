@@ -53,7 +53,7 @@ class QueueService(
 
     fun validateAndConsumeToken(userId: Long) {
         try {
-            val token = waitingQueueRedisRepository.getToken(userId)
+            waitingQueueRedisRepository.getAndDeleteToken(userId)
                 ?: throw CoreException(ErrorType.FORBIDDEN, "입장 토큰이 필요합니다.")
         } catch (e: CoreException) {
             throw e

@@ -46,7 +46,11 @@ class OrderAdminV1ApiE2ETest @Autowired constructor(
     @BeforeEach
     fun setUp() {
         createTestUser()
-        val userId = userJpaRepository.findByLoginId(TEST_LOGIN_ID)!!.id
+        val userId =
+            (
+                userJpaRepository.findByLoginId(TEST_LOGIN_ID)
+                    ?: throw IllegalStateException("테스트 사용자 생성 실패: loginId=$TEST_LOGIN_ID")
+                ).id
         issueTestEntryToken(userId)
         val brandId = createTestBrand()!!
         val productId = createTestProduct(brandId)!!

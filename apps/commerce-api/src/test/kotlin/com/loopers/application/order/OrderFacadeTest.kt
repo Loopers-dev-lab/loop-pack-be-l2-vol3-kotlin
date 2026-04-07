@@ -23,7 +23,11 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import com.loopers.application.queue.event.EntryTokenConsumedEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.test.util.ReflectionTestUtils
 import java.math.BigDecimal
@@ -123,6 +127,7 @@ class OrderFacadeTest {
                 { assertThat(result.userId).isEqualTo(userId) },
                 { assertThat(result.items).hasSize(1) },
             )
+            verify(eventPublisher, times(1)).publishEvent(any<EntryTokenConsumedEvent>())
         }
 
         @DisplayName("일부 재고 부족 시, BAD_REQUEST 예외가 발생한다.")
@@ -152,6 +157,7 @@ class OrderFacadeTest {
                 { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
                 { assertThat(exception.message).contains("재고가 부족한 상품이 있습니다") },
             )
+            verify(eventPublisher, never()).publishEvent(any())
         }
 
         @DisplayName("전체 재고 부족 시, BAD_REQUEST 예외가 발생한다.")
@@ -177,6 +183,7 @@ class OrderFacadeTest {
                 { assertThat(exception.errorType).isEqualTo(ErrorType.BAD_REQUEST) },
                 { assertThat(exception.message).contains("재고가 부족한 상품이 있습니다") },
             )
+            verify(eventPublisher, never()).publishEvent(any())
         }
     }
 }

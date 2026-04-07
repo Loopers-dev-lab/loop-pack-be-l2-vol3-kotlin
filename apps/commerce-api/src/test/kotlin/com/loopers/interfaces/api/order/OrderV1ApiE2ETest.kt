@@ -55,7 +55,11 @@ class OrderV1ApiE2ETest @Autowired constructor(
     fun setUp() {
         brandCounter = 0
         createTestUser()
-        testUserId = userJpaRepository.findByLoginId(TEST_LOGIN_ID)!!.id
+        testUserId =
+            (
+                userJpaRepository.findByLoginId(TEST_LOGIN_ID)
+                    ?: throw IllegalStateException("테스트 사용자 생성 실패: loginId=$TEST_LOGIN_ID")
+                ).id
 
         testBrandId = createTestBrand("나이키")!!
         testProductId = createTestProduct(testBrandId)!!

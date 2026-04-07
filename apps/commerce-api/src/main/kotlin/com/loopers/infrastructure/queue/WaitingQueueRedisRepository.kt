@@ -42,27 +42,27 @@ class WaitingQueueRedisRepository(
      * @return 토큰이 발급된 userId 목록
      */
     fun popAndIssueTokens(count: Long): List<Long> {
-        val members = masterRedisTemplate.opsForZSet().popMin(QUEUE_KEY, count) ?: return emptyList()
-        log.info("popAndIssueTokens: requested={}, popped={}", count, members.size)
-        val issuedUserIds = mutableListOf<Long>()
+        val results = masterRedisTemplate.execute(
+            POP_AND_ISSUE_SCRIPT,
+            listOf(QUEUE_KEY),
+            count.toString(),
+            TOKEN_KEY_PREFIX,
+            TOKEN_TTL.toSeconds().toString(),
+        ) ?: return emptyList()
 
-        for (member in members) {
-            val userId = member.value?.toLongOrNull() ?: continue
-            val tokenValue = "$userId:${System.currentTimeMillis()}"
-            masterRedisTemplate.opsForValue().set(
-                "$TOKEN_KEY_PREFIX$userId",
-                tokenValue,
-                TOKEN_TTL,
-            )
-            issuedUserIds.add(userId)
-            log.info("popAndIssueTokens: issued token for userId={}", userId)
+        val issuedUserIds = results.mapNotNull { element ->
+            (element as? Long) ?: (element as? String)?.toLongOrNull()
         }
-
+        log.info("popAndIssueTokens: requested={}, issued={}", count, issuedUserIds.size)
         return issuedUserIds
     }
 
     fun getToken(userId: Long): String? {
         return masterRedisTemplate.opsForValue().get("$TOKEN_KEY_PREFIX$userId")
+    }
+
+    fun getAndDeleteToken(userId: Long): String? {
+        return masterRedisTemplate.opsForValue().getAndDelete("$TOKEN_KEY_PREFIX$userId")
     }
 
     fun deleteToken(userId: Long) {

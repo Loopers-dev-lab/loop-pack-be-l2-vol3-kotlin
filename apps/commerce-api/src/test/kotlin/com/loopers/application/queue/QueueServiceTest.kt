@@ -158,7 +158,7 @@ class QueueServiceTest {
         fun doesNotThrow_whenTokenExists() {
             // arrange
             val userId = 1L
-            whenever(waitingQueueRedisRepository.getToken(userId)).thenReturn("valid-token")
+            whenever(waitingQueueRedisRepository.getAndDeleteToken(userId)).thenReturn("valid-token")
 
             // act & assert
             queueService.validateAndConsumeToken(userId)
@@ -169,7 +169,7 @@ class QueueServiceTest {
         fun throwsForbidden_whenTokenNotFound() {
             // arrange
             val userId = 1L
-            whenever(waitingQueueRedisRepository.getToken(userId)).thenReturn(null)
+            whenever(waitingQueueRedisRepository.getAndDeleteToken(userId)).thenReturn(null)
 
             // act
             val exception = assertThrows<CoreException> {
@@ -221,7 +221,7 @@ class QueueServiceTest {
         @Test
         fun throwsServiceUnavailable_whenValidateTokenFails() {
             // arrange
-            whenever(waitingQueueRedisRepository.getToken(1L))
+            whenever(waitingQueueRedisRepository.getAndDeleteToken(1L))
                 .thenThrow(RuntimeException("Redis connection refused"))
 
             // act
@@ -287,7 +287,7 @@ class QueueServiceTest {
         @Test
         fun passesValidation_whenValidateTokenFails() {
             // arrange
-            whenever(waitingQueueRedisRepository.getToken(1L))
+            whenever(waitingQueueRedisRepository.getAndDeleteToken(1L))
                 .thenThrow(RuntimeException("Redis connection refused"))
 
             // act & assert (예외 없이 통과)
