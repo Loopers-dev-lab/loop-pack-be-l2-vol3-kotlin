@@ -6,6 +6,7 @@ import com.loopers.application.event.OrderCreatedEvent
 import com.loopers.application.outbox.OutboxService
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
+import com.loopers.application.queue.event.EntryTokenConsumedEvent
 import com.loopers.domain.order.OrderItemCommand
 import com.loopers.event.KafkaTopics
 import org.springframework.context.ApplicationEventPublisher
@@ -68,6 +69,7 @@ class OrderFacade(
             payload = event,
         )
         eventPublisher.publishEvent(event)
+        eventPublisher.publishEvent(EntryTokenConsumedEvent(userId = userId, orderId = orderInfo.id))
 
         return orderInfo
     }
