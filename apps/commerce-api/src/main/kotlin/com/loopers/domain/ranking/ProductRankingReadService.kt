@@ -25,6 +25,10 @@ class ProductRankingReadService(
         return productRankingRepository.count(resolveProcessingDate(processingDate))
     }
 
+    fun getRankedProductsWithCount(processingDate: LocalDate?, page: Int, size: Int): RankedProductsWithCount {
+        return productRankingRepository.getRankedProductsWithCount(resolveProcessingDate(processingDate), page, size)
+    }
+
     private fun resolveProcessingDate(processingDate: LocalDate?): LocalDate {
         return processingDate ?: LocalDate.now(KST_ZONE_ID)
     }

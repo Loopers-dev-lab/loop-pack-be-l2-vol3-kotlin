@@ -53,7 +53,7 @@ class ProductRankingWriteRepositoryImplTest @Autowired constructor(
             registry.add("datasource.redis.master.port") { redisContainer.getMappedPort(6379) }
             registry.add("datasource.redis.replicas[0].host") { redisContainer.host }
             registry.add("datasource.redis.replicas[0].port") { redisContainer.getMappedPort(6379) }
-            registry.add("ranking.strategy") { "daily" }
+            registry.add("ranking.aggregation") { "daily" }
         }
     }
 

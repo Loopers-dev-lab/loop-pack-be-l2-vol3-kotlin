@@ -1,8 +1,10 @@
 package com.loopers.infrastructure.ranking
 
+import com.loopers.config.ranking.RankingReadProperties
 import com.loopers.config.redis.RedisConfig
 import com.loopers.domain.ranking.ProductRankingReadModel
 import com.loopers.domain.ranking.ProductRankingRepository
+import com.loopers.domain.ranking.RankedProductsWithCount
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.connection.RedisConnection
 import org.springframework.data.redis.connection.zset.Aggregate
@@ -10,6 +12,7 @@ import org.springframework.data.redis.connection.zset.Weights
 import org.springframework.data.redis.core.RedisCallback
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Repository
+import java.time.Duration
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -71,6 +74,23 @@ class ProductRankingRepositoryImpl(
         }
     }
 
+    override fun getRankedProductsWithCount(processingDate: LocalDate, page: Int, size: Int): RankedProductsWithCount {
+        if (!rankingReadProperties.isSlidingWindow()) {
+            val products = dailyRankedProducts(processingDate, page, size)
+            val count = redisTemplate.opsForZSet().zCard(key(processingDate)) ?: 0L
+            return RankedProductsWithCount(products, count)
+        }
+
+        val tempKey = buildSlidingWindowKey(processingDate) ?: return RankedProductsWithCount(emptyList(), 0L)
+        try {
+            val products = readRankedProducts(tempKey, page, size)
+            val count = redisTemplate.opsForZSet().zCard(tempKey) ?: 0L
+            return RankedProductsWithCount(products, count)
+        } finally {
+            redisTemplate.delete(tempKey)
+        }
+    }
+
     // ── Daily ─────────────────────────────────────────────────
 
     private fun dailyRankedProducts(
@@ -127,6 +147,8 @@ class ProductRankingRepositoryImpl(
             redisTemplate.delete(tempKey)
             return null
         }
+        // Set TTL to prevent leak in case of app crash between zunionstore and delete
+        redisTemplate.expire(tempKey, Duration.ofSeconds(60))
         return tempKey
     }
 
