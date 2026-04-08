@@ -2,7 +2,9 @@ package com.loopers.interfaces.consumer
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.application.metrics.MetricsService
+import com.loopers.application.ranking.RankingUpdater
 import com.loopers.config.kafka.KafkaConfig
+import com.loopers.domain.ranking.RankingEvent
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Component
 @Component
 class CatalogEventConsumer(
     private val metricsService: MetricsService,
+    private val rankingUpdater: RankingUpdater,
     private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -35,11 +38,26 @@ class CatalogEventConsumer(
                 val payload = objectMapper.readTree(envelope.get("payload").asText())
                 val productId = payload.get("productId").asLong()
 
-                when (eventType) {
+                val applied = when (eventType) {
                     "PRODUCT_VIEWED" -> metricsService.handleProductViewed(eventId, productId)
                     "PRODUCT_LIKED" -> metricsService.handleProductLiked(eventId, productId)
                     "PRODUCT_UNLIKED" -> metricsService.handleProductUnliked(eventId, productId)
-                    else -> log.warn("[CatalogConsumer] 알 수 없는 eventType: $eventType")
+                    else -> {
+                        log.warn("[CatalogConsumer] 알 수 없는 eventType: $eventType")
+                        false
+                    }
+                }
+
+                // 멱등 처리로 metrics 가 skip 된 경우 (재처리 메시지) 랭킹도 skip — 중복 카운트 방지
+                if (applied) {
+                    val rankingEvent = toRankingEvent(eventType, productId)
+                    if (rankingEvent != null) {
+                        runCatching { rankingUpdater.applyEvent(rankingEvent) }
+                            .onFailure { ex ->
+                                // Redis 실패는 main 흐름을 막지 않음 (Eventual Consistency)
+                                log.error("[CatalogConsumer] 랭킹 갱신 실패: eventId=$eventId, error=${ex.message}", ex)
+                            }
+                    }
                 }
             } catch (ex: Exception) {
                 log.error("[CatalogConsumer] 처리 실패: offset=${record.offset()}, error=${ex.message}", ex)
@@ -47,5 +65,12 @@ class CatalogEventConsumer(
         }
 
         acknowledgment.acknowledge()
+    }
+
+    private fun toRankingEvent(eventType: String, productId: Long): RankingEvent? = when (eventType) {
+        "PRODUCT_VIEWED" -> RankingEvent.Viewed(productId)
+        "PRODUCT_LIKED" -> RankingEvent.Liked(productId)
+        "PRODUCT_UNLIKED" -> RankingEvent.Unliked(productId)
+        else -> null
     }
 }

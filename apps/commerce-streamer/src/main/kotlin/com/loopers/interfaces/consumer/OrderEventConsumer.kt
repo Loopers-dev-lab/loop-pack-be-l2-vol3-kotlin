@@ -3,7 +3,9 @@ package com.loopers.interfaces.consumer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.application.metrics.MetricsService
 import com.loopers.application.metrics.OrderItemMetrics
+import com.loopers.application.ranking.RankingUpdater
 import com.loopers.config.kafka.KafkaConfig
+import com.loopers.domain.ranking.RankingEvent
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Component
 @Component
 class OrderEventConsumer(
     private val metricsService: MetricsService,
+    private val rankingUpdater: RankingUpdater,
     private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -44,7 +47,22 @@ class OrderEventConsumer(
                                 price = item.get("price").asInt(),
                             )
                         }
-                        metricsService.handleOrderPlaced(eventId, items)
+                        val applied = metricsService.handleOrderPlaced(eventId, items)
+
+                        if (applied) {
+                            runCatching {
+                                items.forEach { item ->
+                                    rankingUpdater.applyEvent(
+                                        RankingEvent.Ordered(
+                                            productId = item.productId,
+                                            amount = (item.price.toLong() * item.quantity.toLong()),
+                                        ),
+                                    )
+                                }
+                            }.onFailure { ex ->
+                                log.error("[OrderConsumer] 랭킹 갱신 실패: eventId=$eventId, error=${ex.message}", ex)
+                            }
+                        }
                     }
                     else -> log.warn("[OrderConsumer] 알 수 없는 eventType: $eventType")
                 }
