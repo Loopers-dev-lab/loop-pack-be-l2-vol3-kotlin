@@ -211,7 +211,12 @@ class OrderFacade(
                 orderId = orderId,
                 userId = userId,
                 items = items.map {
-                    OrderItemPayload(it.productId, it.quantity.value, productMap[it.productId]?.name ?: "")
+                    OrderItemPayload(
+                        it.productId,
+                        it.quantity.value,
+                        productMap[it.productId]?.name ?: "",
+                        productMap[it.productId]?.price?.value ?: 0L,
+                    )
                 },
                 couponId = couponId,
                 totalAmount = totalAmount,

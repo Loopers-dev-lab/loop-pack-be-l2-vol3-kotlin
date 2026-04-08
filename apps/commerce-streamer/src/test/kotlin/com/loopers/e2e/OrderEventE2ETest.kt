@@ -61,7 +61,7 @@ class OrderEventE2ETest @Autowired constructor(
         fun orderCompletedEventUpdatesSalesCount() {
             // arrange
             waitForConsumerAssignment()
-            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A"},{"productId":200,"quantity":3,"productName":"상품B"}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
+            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A","unitPrice":10000},{"productId":200,"quantity":3,"productName":"상품B","unitPrice":10000}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
             val envelope = EventEnvelope(
                 eventId = UUID.randomUUID().toString(),
                 eventType = "ORDER_COMPLETED",
@@ -94,7 +94,7 @@ class OrderEventE2ETest @Autowired constructor(
             insertProduct(100L, 50)
             insertProduct(200L, 30)
 
-            val payload = """{"orderId":2,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A"},{"productId":200,"quantity":3,"productName":"상품B"}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
+            val payload = """{"orderId":2,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A","unitPrice":10000},{"productId":200,"quantity":3,"productName":"상품B","unitPrice":10000}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
             val envelope = EventEnvelope(
                 eventId = UUID.randomUUID().toString(),
                 eventType = "ORDER_COMPLETED",
