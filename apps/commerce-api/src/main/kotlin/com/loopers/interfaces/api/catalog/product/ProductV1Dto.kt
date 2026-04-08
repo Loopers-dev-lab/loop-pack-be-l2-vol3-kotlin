@@ -14,6 +14,8 @@ class ProductV1Dto {
         val likeCount: Int,
         val brandId: Long,
         val brandName: String,
+        /** 오늘 랭킹 0-based 순위. 진입하지 못했으면 null. */
+        val rank: Long?,
     ) {
         companion object {
             fun from(result: ProductDetailResult) = ProductDetailResponse(
@@ -25,6 +27,7 @@ class ProductV1Dto {
                 likeCount = result.likeCount,
                 brandId = result.brand.id,
                 brandName = result.brand.name,
+                rank = result.rank,
             )
         }
     }
