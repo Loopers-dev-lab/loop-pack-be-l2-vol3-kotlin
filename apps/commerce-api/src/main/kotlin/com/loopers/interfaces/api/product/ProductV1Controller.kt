@@ -29,7 +29,7 @@ class ProductV1Controller(
         @PathVariable productId: Long,
         @RequestAttribute(required = false) userId: Long?,
     ): ApiResponse<ProductInfo> {
-        val productInfo = productFacade.getCachedProductInfo(productId)
+        val productInfo = productFacade.getProductInfoWithRank(productId)
         userId?.let { productFacade.recordProductView(productId, it) }
         return ApiResponse.success(data = productInfo)
     }
