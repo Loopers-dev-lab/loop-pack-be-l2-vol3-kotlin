@@ -100,6 +100,105 @@ class RankingUpdaterUnitTest {
     }
 
     @Nested
+    @DisplayName("applyBatch() — Phase B 메모리 합산")
+    inner class ApplyBatch {
+
+        @Test
+        fun `같은 productId 의 여러 이벤트가 합산되어 단일 batchIncrement 로 반영된다`() {
+            // 같은 product 100 에 view 3건, like 1건 → score = 0.1*3 + 0.2*1 = 0.5
+            every { calculator.scoreFor(RankingEvent.Viewed(100L)) } returns 0.1
+            every { calculator.scoreFor(RankingEvent.Liked(100L)) } returns 0.2
+
+            updater.applyBatch(
+                listOf(
+                    RankingEvent.Viewed(100L),
+                    RankingEvent.Viewed(100L),
+                    RankingEvent.Viewed(100L),
+                    RankingEvent.Liked(100L),
+                ),
+            )
+
+            verify(exactly = 1) {
+                repository.batchIncrement(expectedKey, mapOf(100L to 0.5))
+            }
+            verify(exactly = 0) { repository.incrementScore(any(), any(), any()) }
+        }
+
+        @Test
+        fun `여러 productId 가 섞여있어도 각각 합산되어 1회 호출로 반영된다`() {
+            every { calculator.scoreFor(RankingEvent.Viewed(100L)) } returns 0.1
+            every { calculator.scoreFor(RankingEvent.Viewed(200L)) } returns 0.1
+            every { calculator.scoreFor(RankingEvent.Liked(100L)) } returns 0.2
+
+            updater.applyBatch(
+                listOf(
+                    RankingEvent.Viewed(100L),
+                    RankingEvent.Viewed(200L),
+                    RankingEvent.Liked(100L),
+                    RankingEvent.Viewed(200L),
+                ),
+            )
+
+            verify(exactly = 1) {
+                repository.batchIncrement(
+                    expectedKey,
+                    mapOf(
+                        100L to 0.1 + 0.2, // view + like
+                        200L to 0.1 + 0.1, // view + view
+                    ),
+                )
+            }
+            verify(exactly = 1) { repository.expire(expectedKey, RankingKeyPolicy.TTL) }
+        }
+
+        @Test
+        fun `델타가 0 인 이벤트는 합산에서 제외된다`() {
+            every { calculator.scoreFor(RankingEvent.Viewed(100L)) } returns 0.0
+            every { calculator.scoreFor(RankingEvent.Liked(100L)) } returns 0.2
+
+            updater.applyBatch(
+                listOf(RankingEvent.Viewed(100L), RankingEvent.Liked(100L)),
+            )
+
+            verify(exactly = 1) {
+                repository.batchIncrement(expectedKey, mapOf(100L to 0.2))
+            }
+        }
+
+        @Test
+        fun `빈 리스트는 no-op (Redis 호출 없음)`() {
+            updater.applyBatch(emptyList())
+
+            verify(exactly = 0) { repository.batchIncrement(any(), any()) }
+            verify(exactly = 0) { repository.expire(any(), any()) }
+        }
+
+        @Test
+        fun `모든 델타가 0 이면 batchIncrement 와 expire 가 호출되지 않는다`() {
+            every { calculator.scoreFor(any()) } returns 0.0
+
+            updater.applyBatch(listOf(RankingEvent.Viewed(100L), RankingEvent.Viewed(101L)))
+
+            verify(exactly = 0) { repository.batchIncrement(any(), any()) }
+            verify(exactly = 0) { repository.expire(any(), any()) }
+        }
+
+        @Test
+        fun `Unliked 의 음수 델타도 합산에 정상 반영된다 (Liked + Unliked = 0)`() {
+            every { calculator.scoreFor(RankingEvent.Liked(100L)) } returns 0.2
+            every { calculator.scoreFor(RankingEvent.Unliked(100L)) } returns -0.2
+
+            updater.applyBatch(listOf(RankingEvent.Liked(100L), RankingEvent.Unliked(100L)))
+
+            // 합산 결과 0.0 — 그래도 batchIncrement 는 호출된다 (0.0 도 valid delta)
+            // RankingDeltaBuffer 시맨틱: 합산 후 0 인 값은 아직 ZINCRBY 로 보낼지 결정 — 현재는 보냄
+            verify(exactly = 1) {
+                repository.batchIncrement(expectedKey, mapOf(100L to 0.0))
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("일자 변경 시나리오")
     inner class DateRollover {
 

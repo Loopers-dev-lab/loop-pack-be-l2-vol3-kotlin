@@ -19,7 +19,9 @@ import java.util.concurrent.ConcurrentHashMap
  *  3. ZINCRBY 호출 (RankingRepository 위임)
  *  4. 새 키에 대한 TTL 설정 (멱등, JVM 내 캐싱으로 EXPIRE 호출 최소화)
  *
- * Phase A 모드를 위한 [applyEvent] 만 우선 제공한다. Phase B 의 배치 모드는 후속 커밋에서 추가.
+ * 두 가지 호출 모드를 제공한다:
+ *  - [applyEvent]: 단건 ZINCRBY (Phase A) — 단순함, 테스트/edge-case 에 유리
+ *  - [applyBatch]: productId 별로 메모리 합산 후 1회 batchIncrement (Phase B) — Hot-key skew 압축
  *
  * 실패 정책 (멘토 노트):
  *  - Redis 호출은 DB 트랜잭션 밖에서 일어남 (consumer 가 metrics → ranking 순서로 호출)
@@ -60,6 +62,42 @@ class RankingUpdater(
         rankingRepository.incrementScore(key, event.productId, delta)
         ensureTtl(key)
     }
+
+    /**
+     * 이벤트 N건을 productId 단위로 합산해 1회 batchIncrement 로 반영한다 (Phase B).
+     *
+     * Hot-key skew 시나리오 (상위 20개 상품에 80% 트래픽 집중) 에서:
+     *   N events → uniq M productIds 만큼의 ZINCRBY 호출 (M ≪ N)
+     *
+     * 동일 productId 에 view, like 등 여러 이벤트가 섞여 와도 점수가 합산되어 ZSET 일관성은 유지된다.
+     * EXPIRE 는 [ensureTtl] 로 키별 1회만 호출.
+     *
+     * 빈 리스트 / 모든 델타가 0 / 모두 멱등 skip 된 경우 → no-op.
+     */
+    fun applyBatch(events: List<RankingEvent>) {
+        if (events.isEmpty()) return
+
+        val deltas = HashMap<Long, Double>(events.size)
+        for (event in events) {
+            val delta = scoreCalculator.scoreFor(event)
+            if (delta == 0.0) continue
+            deltas.merge(event.productId, delta, Double::plus)
+        }
+
+        if (deltas.isEmpty()) {
+            log.debug("[RankingUpdater] applyBatch: 모든 델타가 0 — skip")
+            return
+        }
+
+        val key = currentKey()
+        rankingRepository.batchIncrement(key, deltas)
+        ensureTtl(key)
+        log.info("[RankingUpdater] applyBatch: {} events → {} ZINCRBY (압축률 {}%)",
+            events.size, deltas.size, compressionPct(events.size, deltas.size))
+    }
+
+    private fun compressionPct(input: Int, output: Int): Int =
+        if (input == 0) 0 else ((1.0 - output.toDouble() / input.toDouble()) * 100).toInt()
 
     private fun currentKey(): String = RankingKeyPolicy.dailyKey(LocalDate.now(clock))
 

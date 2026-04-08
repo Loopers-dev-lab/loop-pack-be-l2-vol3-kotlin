@@ -30,6 +30,10 @@ class CatalogEventConsumer(
     ) {
         log.info("[CatalogConsumer] ${messages.size}건 수신")
 
+        // Phase B: 배치 안에서 적용 가능한 RankingEvent 만 모았다가 한 번에 flush.
+        // 멱등 skip 된 record 는 buffer 에 들어가지 않으므로 중복 카운트 방지 유지.
+        val rankingBatch = ArrayList<RankingEvent>(messages.size)
+
         for (record in messages) {
             try {
                 val envelope = objectMapper.readTree(record.value())
@@ -48,20 +52,21 @@ class CatalogEventConsumer(
                     }
                 }
 
-                // 멱등 처리로 metrics 가 skip 된 경우 (재처리 메시지) 랭킹도 skip — 중복 카운트 방지
                 if (applied) {
-                    val rankingEvent = toRankingEvent(eventType, productId)
-                    if (rankingEvent != null) {
-                        runCatching { rankingUpdater.applyEvent(rankingEvent) }
-                            .onFailure { ex ->
-                                // Redis 실패는 main 흐름을 막지 않음 (Eventual Consistency)
-                                log.error("[CatalogConsumer] 랭킹 갱신 실패: eventId=$eventId, error=${ex.message}", ex)
-                            }
-                    }
+                    toRankingEvent(eventType, productId)?.let { rankingBatch.add(it) }
                 }
             } catch (ex: Exception) {
                 log.error("[CatalogConsumer] 처리 실패: offset=${record.offset()}, error=${ex.message}", ex)
             }
+        }
+
+        // Phase B flush — productId 별로 합산되어 단일 pipelined batchIncrement 로 반영됨
+        if (rankingBatch.isNotEmpty()) {
+            runCatching { rankingUpdater.applyBatch(rankingBatch) }
+                .onFailure { ex ->
+                    // Redis 실패는 main 흐름을 막지 않음 (Eventual Consistency)
+                    log.error("[CatalogConsumer] 랭킹 batch flush 실패: size=${rankingBatch.size}, error=${ex.message}", ex)
+                }
         }
 
         acknowledgment.acknowledge()

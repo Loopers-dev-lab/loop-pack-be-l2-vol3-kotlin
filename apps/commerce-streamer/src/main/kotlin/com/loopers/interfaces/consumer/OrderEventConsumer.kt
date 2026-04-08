@@ -31,6 +31,9 @@ class OrderEventConsumer(
     ) {
         log.info("[OrderConsumer] ${messages.size}건 수신")
 
+        // Phase B: 모든 record 의 모든 item 을 단일 RankingEvent 리스트로 모은다 (멱등 skip 된 건 제외).
+        val rankingBatch = ArrayList<RankingEvent>()
+
         for (record in messages) {
             try {
                 val envelope = objectMapper.readTree(record.value())
@@ -50,17 +53,13 @@ class OrderEventConsumer(
                         val applied = metricsService.handleOrderPlaced(eventId, items)
 
                         if (applied) {
-                            runCatching {
-                                items.forEach { item ->
-                                    rankingUpdater.applyEvent(
-                                        RankingEvent.Ordered(
-                                            productId = item.productId,
-                                            amount = (item.price.toLong() * item.quantity.toLong()),
-                                        ),
-                                    )
-                                }
-                            }.onFailure { ex ->
-                                log.error("[OrderConsumer] 랭킹 갱신 실패: eventId=$eventId, error=${ex.message}", ex)
+                            items.forEach { item ->
+                                rankingBatch.add(
+                                    RankingEvent.Ordered(
+                                        productId = item.productId,
+                                        amount = item.price.toLong() * item.quantity.toLong(),
+                                    ),
+                                )
                             }
                         }
                     }
@@ -69,6 +68,14 @@ class OrderEventConsumer(
             } catch (ex: Exception) {
                 log.error("[OrderConsumer] 처리 실패: offset=${record.offset()}, error=${ex.message}", ex)
             }
+        }
+
+        // Phase B flush — 같은 product 가 여러 주문에 걸쳐 있으면 합산되어 단일 ZINCRBY 로 반영
+        if (rankingBatch.isNotEmpty()) {
+            runCatching { rankingUpdater.applyBatch(rankingBatch) }
+                .onFailure { ex ->
+                    log.error("[OrderConsumer] 랭킹 batch flush 실패: size=${rankingBatch.size}, error=${ex.message}", ex)
+                }
         }
 
         acknowledgment.acknowledge()
