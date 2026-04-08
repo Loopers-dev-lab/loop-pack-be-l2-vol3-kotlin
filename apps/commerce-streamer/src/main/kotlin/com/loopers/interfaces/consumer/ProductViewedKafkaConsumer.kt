@@ -22,9 +22,10 @@ class ProductViewedKafkaConsumer(
     fun consume(message: ProductViewedMessage, acknowledgment: Acknowledgment) {
         try {
             productEventService.handleProductViewed(message)
-            acknowledgment.acknowledge()
         } catch (e: Exception) {
-            log.error("상품 조회 이벤트 처리 실패 - eventId: {}", message.eventId, e)
+            log.error("상품 조회 이벤트 처리 실패, 건너뜀 - eventId: {}", message.eventId, e)
+        } finally {
+            acknowledgment.acknowledge()
         }
     }
 }

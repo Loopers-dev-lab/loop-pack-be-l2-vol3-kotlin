@@ -11,7 +11,7 @@ class PaymentService(
     private val paymentRepository: PaymentRepository,
 ) {
     @Transactional
-    fun createPayment(command: CreatePaymentCommand): PaymentInfo {
+    fun pay(command: CreatePaymentCommand): PaymentInfo {
         val existingSuccess = paymentRepository.findByOrderIdAndStatus(command.orderId, PaymentStatus.SUCCESS)
         if (existingSuccess != null) {
             throw CoreException(ErrorType.CONFLICT, "이미 결제가 완료된 주문입니다.")
@@ -32,7 +32,7 @@ class PaymentService(
     }
 
     @Transactional
-    fun completePayment(command: CompletePaymentCommand): PaymentInfo {
+    fun complete(command: CompletePaymentCommand): PaymentInfo {
         val payment = paymentRepository.findByTransactionKey(command.transactionKey)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다.")
         payment.markSuccess()
@@ -40,7 +40,7 @@ class PaymentService(
     }
 
     @Transactional
-    fun failPayment(command: FailPaymentCommand): PaymentInfo {
+    fun fail(command: FailPaymentCommand): PaymentInfo {
         val payment = paymentRepository.findByTransactionKey(command.transactionKey)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다.")
         payment.markFailed(command.reason)
@@ -48,7 +48,7 @@ class PaymentService(
     }
 
     @Transactional
-    fun failPaymentById(paymentId: Long, reason: String?): PaymentInfo {
+    fun failById(paymentId: Long, reason: String?): PaymentInfo {
         val payment = paymentRepository.findById(paymentId)
             ?: throw CoreException(ErrorType.NOT_FOUND, "결제 정보를 찾을 수 없습니다.")
         payment.markFailed(reason)

@@ -45,7 +45,7 @@ class PendingPaymentScheduler(
     private fun processPayment(payment: PaymentInfo) {
         val transactionKey = payment.transactionKey
         if (transactionKey == null) {
-            paymentService.failPaymentById(payment.id, "PG 트랜잭션 키 미할당 상태에서 타임아웃")
+            paymentService.failById(payment.id, "PG 트랜잭션 키 미할당 상태에서 타임아웃")
             log.info("스케줄러 transactionKey 없는 결제 실패 처리: paymentId={}", payment.id)
             return
         }
@@ -54,11 +54,11 @@ class PendingPaymentScheduler(
             val pgStatus = pgClient.getPaymentStatus(payment.userId, transactionKey)
             when (pgStatus.status.uppercase()) {
                 "SUCCESS" -> {
-                    paymentService.completePayment(CompletePaymentCommand(transactionKey = transactionKey))
+                    paymentService.complete(CompletePaymentCommand(transactionKey = transactionKey))
                     log.info("스케줄러 결제 성공 처리: paymentId={}", payment.id)
                 }
                 "FAILED" -> {
-                    paymentService.failPayment(
+                    paymentService.fail(
                         FailPaymentCommand(transactionKey = transactionKey, reason = pgStatus.reason),
                     )
                     log.info("스케줄러 결제 실패 처리: paymentId={}", payment.id)

@@ -8,6 +8,8 @@ import com.loopers.domain.like.LikeProductCommand
 import com.loopers.domain.like.ProductLikeService
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductMetricsRedisRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.kafka.core.KafkaTemplate
@@ -48,22 +50,21 @@ class UserLikeProductUseCase(
             )
 
             Pair(user.id, created)
-        }!!
+        } ?: throw CoreException(ErrorType.INTERNAL_ERROR, "좋아요 트랜잭션 실패")
 
         // 트랜잭션 밖 — Redis, Kafka
         if (created) {
             productMetricsRedisRepository.incrementLikeCount(criteria.productId)
 
-            try {
-                val message = ProductLikedMessage(
-                    eventId = UUID.randomUUID().toString(),
-                    userId = userId,
-                    productId = criteria.productId,
-                    occurredAt = ZonedDateTime.now(),
-                )
-                kafkaTemplate.send(TOPIC_PRODUCT_LIKED, criteria.productId.toString(), message)
-            } catch (e: Exception) {
-                log.error("상품 좋아요 이벤트 발행 실패 - productId: {}", criteria.productId, e)
+            kafkaTemplate.send(TOPIC_PRODUCT_LIKED, criteria.productId.toString(), ProductLikedMessage(
+                eventId = UUID.randomUUID().toString(),
+                userId = userId,
+                productId = criteria.productId,
+                occurredAt = ZonedDateTime.now(),
+            )).whenComplete { _, ex ->
+                if (ex != null) {
+                    log.error("상품 좋아요 이벤트 발행 실패 - productId: {}", criteria.productId, ex)
+                }
             }
         }
     }

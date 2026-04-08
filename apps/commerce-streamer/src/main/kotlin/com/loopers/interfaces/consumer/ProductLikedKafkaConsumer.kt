@@ -22,9 +22,10 @@ class ProductLikedKafkaConsumer(
     fun consume(message: ProductLikedMessage, acknowledgment: Acknowledgment) {
         try {
             productEventService.handleProductLiked(message)
-            acknowledgment.acknowledge()
         } catch (e: Exception) {
-            log.error("상품 좋아요 이벤트 처리 실패 - eventId: {}", message.eventId, e)
+            log.error("상품 좋아요 이벤트 처리 실패, 건너뜀 - eventId: {}", message.eventId, e)
+        } finally {
+            acknowledgment.acknowledge()
         }
     }
 }

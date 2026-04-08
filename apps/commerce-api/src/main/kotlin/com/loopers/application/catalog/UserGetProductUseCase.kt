@@ -7,6 +7,8 @@ import com.loopers.domain.catalog.ProductService
 import com.loopers.domain.common.event.ProductViewedEvent
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductMetricsRedisRepository
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.kafka.core.KafkaTemplate
@@ -32,7 +34,6 @@ class UserGetProductUseCase(
     }
 
     override fun execute(criteria: ViewProductCriteria): UserGetProductResult {
-        // 트랜잭션 안 — DB 조회
         val result = transactionTemplate.execute {
             val user = userService.getUser(criteria.loginId)
             val productInfo = productService.getProduct(criteria.productId)
@@ -47,23 +48,22 @@ class UserGetProductUseCase(
             )
 
             Triple(user.id, productInfo, brandInfo)
-        }!!
+        } ?: throw CoreException(ErrorType.INTERNAL_ERROR, "상품 조회 트랜잭션 실패")
 
         val (userId, productInfo, brandInfo) = result
 
         // 트랜잭션 밖 — Redis, Kafka
         productMetricsRedisRepository.incrementViewCount(criteria.productId)
 
-        try {
-            val message = ProductViewedMessage(
-                eventId = UUID.randomUUID().toString(),
-                userId = userId,
-                productId = criteria.productId,
-                occurredAt = ZonedDateTime.now(),
-            )
-            kafkaTemplate.send(TOPIC_PRODUCT_VIEWED, criteria.productId.toString(), message)
-        } catch (e: Exception) {
-            log.error("상품 조회 이벤트 발행 실패 - productId: {}", criteria.productId, e)
+        kafkaTemplate.send(TOPIC_PRODUCT_VIEWED, criteria.productId.toString(), ProductViewedMessage(
+            eventId = UUID.randomUUID().toString(),
+            userId = userId,
+            productId = criteria.productId,
+            occurredAt = ZonedDateTime.now(),
+        )).whenComplete { _, ex ->
+            if (ex != null) {
+                log.error("상품 조회 이벤트 발행 실패 - productId: {}", criteria.productId, ex)
+            }
         }
 
         return UserGetProductResult.from(productInfo, brandName = brandInfo?.name ?: "")
