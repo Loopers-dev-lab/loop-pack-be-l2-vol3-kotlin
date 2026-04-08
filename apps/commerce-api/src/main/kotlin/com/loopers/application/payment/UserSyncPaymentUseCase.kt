@@ -38,8 +38,8 @@ class UserSyncPaymentUseCase(
         return try {
             val pgStatus = pgClient.getPaymentStatus(user.id, transactionKey)
             val updatedPayment = when (pgStatus.status.uppercase()) {
-                "SUCCESS" -> paymentService.completePayment(CompletePaymentCommand(transactionKey = transactionKey))
-                "FAILED" -> paymentService.failPayment(
+                "SUCCESS" -> paymentService.complete(CompletePaymentCommand(transactionKey = transactionKey))
+                "FAILED" -> paymentService.fail(
                     FailPaymentCommand(transactionKey = transactionKey, reason = pgStatus.reason),
                 )
                 else -> payment

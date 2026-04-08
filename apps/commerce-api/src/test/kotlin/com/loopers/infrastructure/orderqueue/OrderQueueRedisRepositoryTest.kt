@@ -7,14 +7,16 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
+import com.loopers.config.redis.RedisConfig
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
 
 @SpringBootTest
 class OrderQueueRedisRepositoryTest @Autowired constructor(
     private val orderQueueRedisRepository: OrderQueueRedisRepository,
-    private val redisTemplate: RedisTemplate<String, String>,
+    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) private val redisTemplate: RedisTemplate<String, String>,
 ) {
     companion object {
         private const val USER_ID_1 = 1L

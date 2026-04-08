@@ -33,7 +33,7 @@ class UserRequestPaymentUseCase(
             throw CoreException(ErrorType.BAD_REQUEST, "결제 가능한 주문 상태가 아닙니다.")
         }
 
-        val paymentInfo = paymentService.createPayment(
+        val paymentInfo = paymentService.pay(
             CreatePaymentCommand(
                 orderId = order.id,
                 userId = user.id,

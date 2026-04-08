@@ -15,7 +15,9 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.junit.jupiter.api.assertThrows
+import com.loopers.config.redis.RedisConfig
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
 import java.time.ZoneId
@@ -28,7 +30,7 @@ class UserOrderQueueUseCaseIntegrationTest @Autowired constructor(
     private val orderQueueRedisRepository: OrderQueueRedisRepository,
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
-    private val redisTemplate: RedisTemplate<String, String>,
+    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) private val redisTemplate: RedisTemplate<String, String>,
 ) {
     companion object {
         private const val DEFAULT_USERNAME = "testuser"

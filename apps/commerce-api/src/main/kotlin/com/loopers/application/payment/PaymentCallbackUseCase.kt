@@ -31,11 +31,11 @@ class PaymentCallbackUseCase(
 
         when (criteria.status.uppercase()) {
             "SUCCESS" -> {
-                paymentService.completePayment(CompletePaymentCommand(transactionKey = criteria.transactionKey))
+                paymentService.complete(CompletePaymentCommand(transactionKey = criteria.transactionKey))
                 log.info("결제 성공 처리: transactionKey={}", criteria.transactionKey)
             }
             "FAILED" -> {
-                paymentService.failPayment(
+                paymentService.fail(
                     FailPaymentCommand(transactionKey = criteria.transactionKey, reason = criteria.reason),
                 )
                 restoreOrderResources(payment.orderId, payment.userId)

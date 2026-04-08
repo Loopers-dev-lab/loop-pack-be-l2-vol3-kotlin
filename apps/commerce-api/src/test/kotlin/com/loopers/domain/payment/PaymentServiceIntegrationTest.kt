@@ -32,7 +32,7 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         databaseCleanUp.truncateAllTables()
     }
 
-    private fun createPaymentCommand(
+    private fun payCommand(
         orderId: Long = DEFAULT_ORDER_ID,
         userId: Long = DEFAULT_USER_ID,
         amount: BigDecimal = DEFAULT_AMOUNT,
@@ -53,10 +53,10 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         @Test
         fun createsPaymentWithPendingStatusWhenValidInfoIsProvided() {
             // arrange
-            val command = createPaymentCommand()
+            val command = payCommand()
 
             // act
-            val result = paymentService.createPayment(command)
+            val result = paymentService.pay(command)
 
             // assert
             assertAll(
@@ -74,13 +74,13 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         @Test
         fun throwsConflictExceptionWhenSuccessPaymentAlreadyExists() {
             // arrange
-            val first = paymentService.createPayment(createPaymentCommand())
+            val first = paymentService.pay(payCommand())
             paymentService.updateTransactionKey(first.id, "txn-1")
-            paymentService.completePayment(CompletePaymentCommand(transactionKey = "txn-1"))
+            paymentService.complete(CompletePaymentCommand(transactionKey = "txn-1"))
 
             // act & assert
             val result = assertThrows<CoreException> {
-                paymentService.createPayment(createPaymentCommand())
+                paymentService.pay(payCommand())
             }
             assertThat(result.errorType).isEqualTo(ErrorType.CONFLICT)
         }
@@ -89,10 +89,10 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         @Test
         fun failsExistingPendingAndCreatesNewPayment() {
             // arrange
-            val first = paymentService.createPayment(createPaymentCommand())
+            val first = paymentService.pay(payCommand())
 
             // act
-            val second = paymentService.createPayment(createPaymentCommand())
+            val second = paymentService.pay(payCommand())
 
             // assert
             val firstPayment = paymentService.getPayment(first.id)
@@ -111,12 +111,12 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         @Test
         fun transitionsToSuccessWhenValidTransactionKeyIsProvided() {
             // arrange
-            val payment = paymentService.createPayment(createPaymentCommand())
+            val payment = paymentService.pay(payCommand())
             val expectedTransactionKey = "txn-success-1"
             paymentService.updateTransactionKey(payment.id, expectedTransactionKey)
 
             // act
-            val result = paymentService.completePayment(CompletePaymentCommand(transactionKey = expectedTransactionKey))
+            val result = paymentService.complete(CompletePaymentCommand(transactionKey = expectedTransactionKey))
 
             // assert
             assertAll(
@@ -130,7 +130,7 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         fun throwsNotFoundExceptionWhenTransactionKeyDoesNotExist() {
             // act & assert
             val result = assertThrows<CoreException> {
-                paymentService.completePayment(CompletePaymentCommand(transactionKey = "non-existent"))
+                paymentService.complete(CompletePaymentCommand(transactionKey = "non-existent"))
             }
             assertThat(result.errorType).isEqualTo(ErrorType.NOT_FOUND)
         }
@@ -143,13 +143,13 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         @Test
         fun transitionsToFailedWhenValidTransactionKeyIsProvided() {
             // arrange
-            val payment = paymentService.createPayment(createPaymentCommand())
+            val payment = paymentService.pay(payCommand())
             val expectedTransactionKey = "txn-fail-1"
             val expectedReason = "잔액 부족"
             paymentService.updateTransactionKey(payment.id, expectedTransactionKey)
 
             // act
-            val result = paymentService.failPayment(
+            val result = paymentService.fail(
                 FailPaymentCommand(transactionKey = expectedTransactionKey, reason = expectedReason),
             )
 
@@ -168,7 +168,7 @@ class PaymentServiceIntegrationTest @Autowired constructor(
         @Test
         fun updatesTransactionKeySuccessfully() {
             // arrange
-            val payment = paymentService.createPayment(createPaymentCommand())
+            val payment = paymentService.pay(payCommand())
             val expectedTransactionKey = "txn-update-1"
 
             // act
