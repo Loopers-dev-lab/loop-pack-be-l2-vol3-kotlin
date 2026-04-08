@@ -52,6 +52,14 @@ class RedisZSetTemplate(
         } ?: 0L
     }
 
+    fun rename(oldKey: String, newKey: String) {
+        masterRedisTemplate.rename(oldKey, newKey)
+    }
+
+    fun delete(key: String) {
+        masterRedisTemplate.delete(key)
+    }
+
     fun setTtlIfAbsent(key: String, ttl: Duration) {
         val currentTtl = redisTemplate.getExpire(key) ?: -1L
         if (currentTtl == -1L) {
