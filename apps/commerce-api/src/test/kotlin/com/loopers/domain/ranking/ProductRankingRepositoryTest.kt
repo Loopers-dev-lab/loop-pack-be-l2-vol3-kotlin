@@ -70,4 +70,67 @@ class ProductRankingRepositoryTest @Autowired constructor(
         assertThat(rankedProducts.map { it.productId }).containsExactly(203L, 202L)
         assertThat(rankedProducts.map { it.rank }).containsExactly(3L, 4L)
     }
+
+    @Test
+    @DisplayName("빈 Redis key (데이터 없음)는 empty list를 반환한다")
+    fun emptyRedisKeyReturnsEmptyList() {
+        val processingDate = LocalDate.of(2026, 4, 6)
+
+        val rankedProducts = productRankingRepository.getRankedProducts(processingDate, page = 0, size = 20)
+
+        assertThat(rankedProducts).isEmpty()
+    }
+
+    @Test
+    @DisplayName("count() 메서드는 ZSET의 총 카운트를 반환한다")
+    fun countReturnsCorrectly() {
+        val processingDate = LocalDate.of(2026, 4, 6)
+        val key = "${RANKING_KEY_PREFIX}20260406"
+
+        (1..10).forEach { index ->
+            redisTemplate.opsForZSet().add(key, index.toString(), index.toDouble())
+        }
+
+        val count = productRankingRepository.count(processingDate)
+
+        assertThat(count).isEqualTo(10L)
+    }
+
+    @Test
+    @DisplayName("count() 메서드는 빈 ZSET에 대해 0을 반환한다")
+    fun countReturnsZeroForEmptySet() {
+        val processingDate = LocalDate.of(2026, 4, 6)
+
+        val count = productRankingRepository.count(processingDate)
+
+        assertThat(count).isEqualTo(0L)
+    }
+
+    @Test
+    @DisplayName("getRankedProductsWithCount()는 products와 count를 동시에 반환한다")
+    fun getRankedProductsWithCountReturnsCorrectly() {
+        val processingDate = LocalDate.of(2026, 4, 6)
+        val key = "${RANKING_KEY_PREFIX}20260406"
+
+        (1..5).forEach { index ->
+            redisTemplate.opsForZSet().add(key, index.toString(), index.toDouble())
+        }
+
+        val result = productRankingRepository.getRankedProductsWithCount(processingDate, page = 0, size = 2)
+
+        assertThat(result.products).hasSize(2)
+        assertThat(result.count).isEqualTo(5L)
+        assertThat(result.products.map { it.rank }).containsExactly(1L, 2L)
+    }
+
+    @Test
+    @DisplayName("getRankedProductsWithCount()는 빈 ZSET에 대해 empty products와 0 count를 반환한다")
+    fun getRankedProductsWithCountReturnsEmptyForNoData() {
+        val processingDate = LocalDate.of(2026, 4, 6)
+
+        val result = productRankingRepository.getRankedProductsWithCount(processingDate, page = 0, size = 20)
+
+        assertThat(result.products).isEmpty()
+        assertThat(result.count).isEqualTo(0L)
+    }
 }

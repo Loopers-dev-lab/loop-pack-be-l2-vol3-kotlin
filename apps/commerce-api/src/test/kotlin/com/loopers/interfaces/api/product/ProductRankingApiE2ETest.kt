@@ -170,4 +170,93 @@ class ProductRankingApiE2ETest @Autowired constructor(
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body?.data?.rank).isNull()
     }
+
+    @Test
+    @DisplayName("빈 랭킹 조회 시 empty page를 반환한다")
+    fun emptyRankingReturnsEmptyPage() {
+        val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
+        val response = testRestTemplate.exchange(
+            "$RANKING_ENDPOINT?page=0&size=20&date=20260406",
+            HttpMethod.GET,
+            HttpEntity<Any>(Unit),
+            responseType,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body?.data?.content).isEmpty()
+        assertThat(response.body?.data?.totalElements).isEqualTo(0L)
+    }
+
+    @Test
+    @DisplayName("페이지 번호 파라미터를 지정할 수 있다")
+    fun acceptsPageParameter() {
+        val brand = brandJpaRepository.save(Brand.create(name = "브랜드", description = "설명"))
+        val product = productJpaRepository.save(
+            Product.create(brand = brand, name = "상품", price = BigDecimal("1000.00"), status = ProductStatus.ACTIVE),
+        )
+
+        val key = "${RANKING_KEY_PREFIX}20260406"
+        redisTemplate.opsForZSet().add(key, product.id.toString(), 10.0)
+
+        val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
+        val response = testRestTemplate.exchange(
+            "$RANKING_ENDPOINT?page=0&size=20&date=20260406",
+            HttpMethod.GET,
+            HttpEntity<Any>(Unit),
+            responseType,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body?.data?.number).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("범위를 초과한 page 조회 시 empty list를 반환한다")
+    fun pageOutOfRangeReturnsEmpty() {
+        val brand = brandJpaRepository.save(Brand.create(name = "브랜드", description = "설명"))
+        val product = productJpaRepository.save(
+            Product.create(brand = brand, name = "상품", price = BigDecimal("1000.00"), status = ProductStatus.ACTIVE),
+        )
+
+        val key = "${RANKING_KEY_PREFIX}20260406"
+        redisTemplate.opsForZSet().add(key, product.id.toString(), 10.0)
+
+        val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
+        val response = testRestTemplate.exchange(
+            "$RANKING_ENDPOINT?page=999&size=20&date=20260406",
+            HttpMethod.GET,
+            HttpEntity<Any>(Unit),
+            responseType,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body?.data?.content?.size).isEqualTo(0)
+    }
+
+    @Test
+    @DisplayName("미래 날짜 조회 시 empty list를 반환한다")
+    fun futureDateReturnsEmpty() {
+        val brand = brandJpaRepository.save(Brand.create(name = "브랜드", description = "설명"))
+        val product = productJpaRepository.save(
+            Product.create(brand = brand, name = "상품", price = BigDecimal("1000.00"), status = ProductStatus.ACTIVE),
+        )
+
+        // 오늘 데이터만 있음
+        val today = LocalDate.now()
+        val key = "${RANKING_KEY_PREFIX}${today.format(DATE_FORMATTER)}"
+        redisTemplate.opsForZSet().add(key, product.id.toString(), 10.0)
+
+        // 내일 데이터 조회
+        val tomorrow = today.plusDays(1)
+        val responseType = object : ParameterizedTypeReference<ApiResponse<PageResponse<ProductInfo>>>() {}
+        val response = testRestTemplate.exchange(
+            "$RANKING_ENDPOINT?page=0&size=20&date=${tomorrow.format(DATE_FORMATTER)}",
+            HttpMethod.GET,
+            HttpEntity<Any>(Unit),
+            responseType,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body?.data?.content).isEmpty()
+    }
 }

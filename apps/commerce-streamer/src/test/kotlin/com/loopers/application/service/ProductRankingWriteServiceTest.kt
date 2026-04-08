@@ -63,4 +63,50 @@ class ProductRankingWriteServiceTest {
             productRankingWriteRepository.incrementScore(any<LocalDate>(), 101L, 0.7)
         }
     }
+
+    @Test
+    @DisplayName("미지정 event 타입은 무시된다")
+    fun unknownEventTypeIsIgnored() {
+        // String은 ProductViewedEvent, LikeCountEvent, OrderCreatedEvent 중 하나도 아님
+        service.write("unknown event")
+
+        verify(exactly = 0) {
+            productRankingWriteRepository.incrementScore(any(), any(), any())
+        }
+    }
+
+    @Test
+    @DisplayName("주문에 다중 상품이 있으면 각각을 처리한다")
+    fun multipleLineItems() {
+        service.write(
+            OrderCreatedEvent(
+                orderId = 1L,
+                lineItems = listOf(
+                    OrderLineItem(productId = 101L, quantity = 2),
+                    OrderLineItem(productId = 102L, quantity = 1),
+                ),
+                dedupeKey = "order-1",
+            ),
+        )
+
+        verify(exactly = 2) {
+            productRankingWriteRepository.incrementScore(any<LocalDate>(), any<Long>(), any<Double>())
+        }
+    }
+
+    @Test
+    @DisplayName("빈 lineItems는 처리하지 않는다")
+    fun emptyLineItemsDoesNothing() {
+        service.write(
+            OrderCreatedEvent(
+                orderId = 1L,
+                lineItems = emptyList(),
+                dedupeKey = "order-empty",
+            ),
+        )
+
+        verify(exactly = 0) {
+            productRankingWriteRepository.incrementScore(any(), any(), any())
+        }
+    }
 }
