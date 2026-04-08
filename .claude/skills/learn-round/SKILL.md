@@ -34,7 +34,7 @@ description: |
 사용자에게 먼저 묻는다:
 
 > **이전에 진행 중이던 학습 QnA가 있나요?**
-> - 있다면: QnA 파일 경로를 알려주세요 (예: `docs/learn-volume8-qa-notes.md`)
+> - 있다면: QnA 파일 경로를 알려주세요 (예: `docs/notes/learn-volume8-qa-notes.md`)
 > - 없다면: 새로 시작합니다
 
 기존 QnA 파일이 있으면:
@@ -44,7 +44,7 @@ description: |
 
 #### 1-2. 이전 라운드 학습 연결
 
-이전 학습 세션의 QnA 파일이 있는지 탐색한다 (예: `docs/learn-volume7-qa-notes.md`).
+이전 학습 세션의 QnA 파일이 있는지 탐색한다 (예: `docs/notes/learn-volume7-qa-notes.md`).
 있으면 읽고, 이번 주제와 연결되는 개념이 있을 때 자연스럽게 질문에 엮는다.
 
 이전 QnA 파일이 없으면 이 단계는 건너뛴다.
@@ -65,7 +65,7 @@ description: |
 
 사용자에게 QnA 파일 저장 경로를 확인한다:
 
-> **QnA를 기록할 파일 경로를 알려주세요** (기본값: `docs/learn-volume{N}-qa-notes.md`)
+> **QnA를 기록할 파일 경로를 알려주세요** (기본값: `docs/notes/learn-volume{N}-qa-notes.md`)
 
 기존 세션을 이어가는 경우 이 단계는 생략한다.
 
