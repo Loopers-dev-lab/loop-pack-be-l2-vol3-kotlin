@@ -34,6 +34,9 @@ ranking:
     view: 0.1
     like: 0.2
     order: 0.7
+  carry-over:
+    # 23:55 KST 에 오늘 Top-100 을 내일 키에 0.001 가중치로 시드 (운영에서만 활성화)
+    enabled: false
 
 ---
 spring:
