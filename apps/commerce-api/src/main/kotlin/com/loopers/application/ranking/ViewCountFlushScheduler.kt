@@ -11,6 +11,7 @@ import java.time.Duration
 class ViewCountFlushScheduler(
     private val viewCountBuffer: ViewCountBuffer,
     private val redisZSetTemplate: RedisZSetTemplate,
+    private val viewCountPersister: ViewCountPersister,
     private val rankingProperties: RankingProperties,
 ) {
 
@@ -21,15 +22,27 @@ class ViewCountFlushScheduler(
         val counts = viewCountBuffer.drainAll()
         if (counts.isEmpty()) return
 
+        flushToRedis(counts)
+        flushToDb(counts)
+    }
+
+    private fun flushToRedis(counts: Map<Long, Long>) {
         try {
             val key = RankingKeyGenerator.todayKey()
             counts.forEach { (productId, count) ->
                 redisZSetTemplate.incrementScore(key, productId.toString(), rankingProperties.weight.view * count)
             }
             redisZSetTemplate.setTtlIfAbsent(key, Duration.ofDays(rankingProperties.ttlDays))
-            log.info("VIEW 점수 flush [상품수={}, 총조회수={}]", counts.size, counts.values.sum())
         } catch (e: Exception) {
-            log.error("VIEW 점수 flush 실패 [상품수={}]", counts.size, e)
+            log.error("VIEW Redis flush 실패 [상품수={}]", counts.size, e)
+        }
+    }
+
+    private fun flushToDb(counts: Map<Long, Long>) {
+        try {
+            viewCountPersister.incrementViewCounts(counts)
+        } catch (e: Exception) {
+            log.error("VIEW DB flush 실패 [상품수={}]", counts.size, e)
         }
     }
 }
