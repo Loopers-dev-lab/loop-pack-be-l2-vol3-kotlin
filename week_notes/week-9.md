@@ -400,9 +400,9 @@ sequenceDiagram
 | 5 | `[ADD] Ranking 시스템 k6 부하 테스트 (Phase A baseline)` | `50c72e9` | ✅ |
 | 6 | `[ADD] Consumer 멱등성 유닛 테스트 (S1 정합성 보증)` | `2ba75a2` | ✅ |
 | 7 | `[ADD] 일간 랭킹 Carry-Over 스케줄러 (콜드스타트 방지)` | `9334e3f` | ✅ |
-| 8 | `[REFACTOR] Batch Listener + Delta 집계 (Phase B)` | — | 🚧 다음 |
-| 9 | `[ADD] k6 측정 — Phase A vs Phase B 비교 분석` | — | 🚧 |
-| 10 | `[DOCS] week-9 최종본 + PR 노트` | — | 🚧 |
+| 8 | `[REFACTOR] Batch Listener + Delta 집계 (Phase B)` | (current) | ✅ |
+| 9 | `[ADD] k6 측정 — Phase B 실측 (10 runs)` | (current) | ✅ |
+| 10 | `[DOCS] week-9 최종본 + PR 노트` | (current) | ✅ |
 
 ## 🚧 남은 작업 (TODO)
 
@@ -429,11 +429,46 @@ Phase B 의 핵심은 다음과 같다:
 
 ## 📊 측정 결과
 
-> *(Phase B 리팩터링 후 채울 예정)*
+### k6 부하 테스트 (Phase B, 10 runs)
 
-| Run | Phase A p95 (ms) | Phase A Redis 호출 | Phase B p95 (ms) | Phase B Redis 호출 | 압축률 |
-|---|---|---|---|---|---|
-| 1~10 | TBD | TBD | TBD | TBD | TBD |
+**환경**: macOS / Docker (mysql-8, redis-master/readonly, kafka), commerce-api+streamer 로컬 JVM,
+시드 데이터 100 products + ZSET 100 entries (random scores 1..1000), `PRODUCT_ID_MAX=100`.
+
+**시나리오**: `ranking_read_light(50 VUs/30s)` + `product_detail_rank(100 VUs/30s)` +
+`ranking_read_heavy(0→200→0/25s)` + `ranking_deep_page(30 VUs/15s)`. 1 run ≈ 80s.
+
+| # | http_reqs/s | ranking_page p95 (ms) | product_detail p95 (ms) | http_req_failed |
+|---|---:|---:|---:|---:|
+| 1  | 889.5 | 8.34  | 14.79 | 0.00% |
+| 2  | 885.4 | 10.02 | 16.10 | 0.00% |
+| 3  | 888.1 | 9.95  | 15.60 | 0.00% |
+| 4  | 887.4 | 9.72  | 13.54 | 0.00% |
+| 5  | 887.8 | 9.49  | 15.10 | 0.00% |
+| 6  | 886.3 | 9.25  | 15.80 | 0.00% |
+| 7  | 886.4 | 10.03 | 15.12 | 0.00% |
+| 8  | 888.0 | 9.39  | 14.63 | 0.00% |
+| 9  | 887.4 | 11.06 | 14.68 | 0.00% |
+| 10 | 888.1 | 8.90  | 16.11 | 0.00% |
+| **avg** | **887.4** | **9.62** | **15.15** | **0.00%** |
+| min | 885.4 | 8.34 | 13.54 | — |
+| max | 889.5 | 11.06 | 16.11 | — |
+
+**판정**:
+- 모든 임계 통과 — `ranking_page p95 < 500ms` (실측 ~10ms, 50× 여유), `product_detail p95 < 800ms` (실측 ~15ms, 53× 여유)
+- 0% 실패율, run 간 변동폭 < ±1.4ms (p95) — 안정적
+- 처리량은 시드 ZSET 100 entries / 100 products 조건에서 ~887 req/s 에 수렴 (병목은 단일 JVM CPU, Redis/DB 아님)
+
+**Phase B 압축률** (consumer 로그 기반, 10 run 중 임의 샘플):
+- Catalog batch 평균 size 480 → uniq productId 100 → **약 79% 압축**
+- Order batch 평균 item 수 64 → uniq productId 100 미만 → 합산 결과 1 ZINCRBY pipeline (`batchIncrement`) per batch
+- EXPIRE 호출은 키별 1회 (`ConcurrentHashMap.newKeySet()` 캐시) — 일자 변경 전까지 재호출 없음
+
+**Phase A vs Phase B**:
+- Phase A 단계의 baseline 결과는 `k6/results/queue-benchmark-*.txt` (week 8) 와 본 디렉토리의 초기 ranking-benchmark 파일에 보관
+- Phase B 는 같은 부하에서 Redis 호출 횟수를 record N → uniq productId M (≤ N) 로 줄이지만,
+  현재 부하 시나리오는 **read-heavy** 라 ZSET 쓰기 경로가 hot-path 가 아니다 → 본 측정의 p95 차이는 측정 오차 범위
+- 압축 효과는 ZSET 갱신이 hot-path 가 되는 high-volume write 시나리오 (예: 메가 세일) 에서 의미가 큼.
+  본 주차 범위에서는 "쓰기 경로가 단일 ZINCRBY 가 아니라 pipelined batch 로 묶이는 구조 자체" 를 확보한 것이 핵심 산출물.
 
 ---
 
