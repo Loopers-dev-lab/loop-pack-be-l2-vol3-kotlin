@@ -1,5 +1,8 @@
 package com.loopers.application.payment
 
+import com.loopers.domain.event.EventTopics
+import com.loopers.domain.event.OutboxEventService
+import com.loopers.domain.event.PaymentCompletedEvent
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.CardType
@@ -14,6 +17,7 @@ import com.loopers.support.error.ErrorType
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -24,6 +28,8 @@ class PaymentFacade(
     private val userService: UserService,
     private val pgClient: PgClient,
     @Value("\${pg.callback-url}") private val callbackUrl: String,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventService: OutboxEventService,
 ) {
     fun requestPayment(
         loginId: String,
@@ -96,6 +102,22 @@ class PaymentFacade(
         if (paymentStatus == PaymentStatus.SUCCESS) {
             val order = orderService.getOrder(payment.orderId)
             order.pay()
+
+            val paymentCompletedEvent = PaymentCompletedEvent(
+                paymentId = payment.id,
+                orderId = payment.orderId,
+                userId = payment.userId,
+                amount = payment.amount,
+            )
+            eventPublisher.publishEvent(paymentCompletedEvent)
+
+            outboxEventService.saveOutboxEvent(
+                aggregateType = "Order",
+                aggregateId = payment.orderId.toString(),
+                eventType = "PaymentCompleted",
+                topic = EventTopics.ORDER_EVENTS,
+                event = paymentCompletedEvent,
+            )
         }
     }
 

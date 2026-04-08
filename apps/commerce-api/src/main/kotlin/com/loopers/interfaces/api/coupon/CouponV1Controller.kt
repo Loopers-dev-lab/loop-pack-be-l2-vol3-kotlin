@@ -28,6 +28,27 @@ class CouponV1Controller(
             .let { ApiResponse.success(it) }
     }
 
+    @PostMapping("/{couponId}/issue-request")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    fun requestCouponIssue(
+        @RequestHeader("X-Loopers-LoginId") loginId: String,
+        @RequestHeader("X-Loopers-LoginPw") password: String,
+        @PathVariable couponId: Long,
+    ): ApiResponse<CouponV1Dto.CouponIssueRequestResponse> {
+        return couponFacade.requestCouponIssue(loginId, password, couponId)
+            .let { CouponV1Dto.CouponIssueRequestResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
+    @GetMapping("/issue-requests/{requestId}/status")
+    fun getCouponIssueStatus(
+        @PathVariable requestId: String,
+    ): ApiResponse<CouponV1Dto.CouponIssueRequestResponse> {
+        return couponFacade.getCouponIssueStatus(requestId)
+            .let { CouponV1Dto.CouponIssueRequestResponse.from(it) }
+            .let { ApiResponse.success(it) }
+    }
+
     @GetMapping("/me")
     override fun getMyCoupons(
         @RequestHeader("X-Loopers-LoginId") loginId: String,

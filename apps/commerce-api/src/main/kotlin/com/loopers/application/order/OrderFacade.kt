@@ -2,6 +2,9 @@ package com.loopers.application.order
 
 import com.loopers.domain.coupon.CouponService
 import com.loopers.domain.coupon.CouponStatus
+import com.loopers.domain.event.EventTopics
+import com.loopers.domain.event.OrderCreatedEvent
+import com.loopers.domain.event.OutboxEventService
 import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
@@ -13,6 +16,7 @@ import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
@@ -30,6 +34,8 @@ class OrderFacade(
     private val couponService: CouponService,
     private val queueService: QueueService,
     private val queueProperties: QueueProperties,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventService: OutboxEventService,
 ) {
     @Retry(name = "dbWrite")
     @CircuitBreaker(name = "database")
@@ -82,8 +88,23 @@ class OrderFacade(
         }
 
         val order = Order(userId = user.id, items = orderItems, couponId = couponId, discountAmount = discountAmount)
-        val orderInfo = orderService.createOrder(order)
-            .let { OrderInfo.from(it) }
+        val savedOrder = orderService.createOrder(order)
+
+        val orderCreatedEvent = OrderCreatedEvent(
+            orderId = savedOrder.id,
+            userId = user.id,
+            totalPrice = savedOrder.totalPrice,
+            productIds = orderItems.map { it.productId },
+        )
+        eventPublisher.publishEvent(orderCreatedEvent)
+
+        outboxEventService.saveOutboxEvent(
+            aggregateType = "Order",
+            aggregateId = savedOrder.id.toString(),
+            eventType = "OrderCreated",
+            topic = EventTopics.ORDER_EVENTS,
+            event = orderCreatedEvent,
+        )
 
         if (queueProperties.enabled) {
             TransactionSynchronizationManager.registerSynchronization(
@@ -95,7 +116,7 @@ class OrderFacade(
             )
         }
 
-        return orderInfo
+        return OrderInfo.from(savedOrder)
     }
 
     fun getUserOrders(loginId: String, password: String, startAt: LocalDate, endAt: LocalDate): List<OrderInfo> {

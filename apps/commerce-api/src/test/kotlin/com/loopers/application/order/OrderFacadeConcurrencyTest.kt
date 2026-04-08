@@ -168,7 +168,6 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
 
             // act
             repeat(2) {
-
                 executor.submit {
                     try {
                         orderFacade.createOrder(

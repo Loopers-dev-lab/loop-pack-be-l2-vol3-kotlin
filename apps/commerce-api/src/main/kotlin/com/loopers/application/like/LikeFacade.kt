@@ -3,12 +3,16 @@ package com.loopers.application.like
 import com.loopers.application.brand.BrandInfo
 import com.loopers.application.product.ProductInfo
 import com.loopers.domain.brand.BrandService
+import com.loopers.domain.event.EventTopics
+import com.loopers.domain.event.OutboxEventService
+import com.loopers.domain.event.ProductLikedEvent
+import com.loopers.domain.event.ProductUnlikedEvent
 import com.loopers.domain.like.LikeService
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.user.UserService
-import com.loopers.infrastructure.cache.ProductCacheRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.stereotype.Component
 
@@ -18,7 +22,8 @@ class LikeFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val userService: UserService,
-    private val productCacheRepository: ProductCacheRepository,
+    private val eventPublisher: ApplicationEventPublisher,
+    private val outboxEventService: OutboxEventService,
 ) {
     @Transactional
     fun like(loginId: String, password: String, productId: Long) {
@@ -29,8 +34,17 @@ class LikeFacade(
         if (existing != null) return
 
         likeService.createLike(user.id, productId)
-        productService.increaseLikeCount(productId)
-        productCacheRepository.evict(productId)
+
+        val event = ProductLikedEvent(userId = user.id, productId = productId)
+        eventPublisher.publishEvent(event)
+
+        outboxEventService.saveOutboxEvent(
+            aggregateType = "Product",
+            aggregateId = productId.toString(),
+            eventType = "ProductLiked",
+            topic = EventTopics.CATALOG_EVENTS,
+            event = event,
+        )
     }
 
     @Transactional
@@ -41,8 +55,17 @@ class LikeFacade(
             ?: return
 
         likeService.deleteLike(existing)
-        productService.decreaseLikeCount(productId)
-        productCacheRepository.evict(productId)
+
+        val event = ProductUnlikedEvent(userId = user.id, productId = productId)
+        eventPublisher.publishEvent(event)
+
+        outboxEventService.saveOutboxEvent(
+            aggregateType = "Product",
+            aggregateId = productId.toString(),
+            eventType = "ProductUnliked",
+            topic = EventTopics.CATALOG_EVENTS,
+            event = event,
+        )
     }
 
     fun getUserLikes(loginId: String, password: String): List<LikeInfo> {
