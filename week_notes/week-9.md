@@ -1,29 +1,29 @@
 # Week 9 Implementation Notes: Redis ZSET 기반 실시간 상품 랭킹 시스템
 
-> **Status**: 🚧 DRAFT (설계 단계 — 구현/측정 후 본 문서 갱신 예정)
+> **Status**: 🚧 IN-PROGRESS — Phase A + Carry-Over 완료, Phase B 리팩터링 + 측정 남음
 
 ## ✅ Requirements Checklist
 
 ### Must-Have
-- [ ] Kafka Consumer가 일간 키(`ranking:all:{yyyyMMdd}`) ZSET에 점수를 누적
-- [ ] 랭킹 ZSET TTL 2일 + 일별 키 전략
-- [ ] 가중치 합산 스코어링 (view / like / order)
-- [ ] 랭킹 페이지 조회 API (`GET /api/v1/rankings?date=&size=&page=`)
-- [ ] 랭킹 응답에 상품 정보 Aggregation (단순 ID 아님)
-- [ ] 상품 상세 조회 시 해당 상품의 순위 반환 (없으면 null)
-- [ ] E2E: 이벤트 발행 → ZSET 점수 반영 → API 조회
+- [x] Kafka Consumer가 일간 키(`ranking:all:{yyyyMMdd}`) ZSET에 점수를 누적
+- [x] 랭킹 ZSET TTL 2일 + 일별 키 전략
+- [x] 가중치 합산 스코어링 (view / like / order)
+- [x] 랭킹 페이지 조회 API (`GET /api/v1/rankings?date=&size=&page=`)
+- [x] 랭킹 응답에 상품 정보 Aggregation (단순 ID 아님)
+- [x] 상품 상세 조회 시 해당 상품의 순위 반환 (없으면 null)
+- [x] E2E: 이벤트 발행 → ZSET 점수 반영 → API 조회 *(Phase A 단건 경로 기준)*
 
 ### Nice-To-Have
-- [ ] Kafka Batch Listener + Consumer 메모리 델타 집계 (Phase B)
-- [ ] 콜드 스타트 완화: 23:55 Carry-Over 스케줄러
-- [ ] 동적 가중치 (Config 기반, 무중단 튜닝)
+- [ ] **Kafka Batch Listener + Consumer 메모리 델타 집계 (Phase B)** — 다음 작업
+- [x] 콜드 스타트 완화: 23:55 Carry-Over 스케줄러
+- [x] 동적 가중치 (Config 기반, 무중단 튜닝)
 
 ### 검증
-- [ ] 정합성: 단건 처리(Phase A) ↔ 배치 델타(Phase B) ZSET 스냅샷 동일
-- [ ] 가중치 적용 검증 (e.g. 주문 1건 > 좋아요 3건)
-- [ ] 일자 변경 후 이전 날짜 랭킹 조회 정상 동작
-- [ ] TTL 만료 시 ZSET 자동 정리
-- [ ] k6 부하 시나리오 5종 × 10회 측정 + Phase A vs Phase B 비교
+- [ ] 정합성: 단건 처리(Phase A) ↔ 배치 델타(Phase B) ZSET 스냅샷 동일 *(Repository 레벨 동등성은 ✅, 파이프라인 통합은 Phase B 후)*
+- [x] 가중치 적용 검증 (e.g. 주문 1건 > 좋아요 3건)
+- [x] 일자 변경 후 이전 날짜 랭킹 조회 정상 동작
+- [x] TTL 만료 시 ZSET 자동 정리
+- [ ] k6 부하 시나리오 × 10회 측정 + Phase A vs Phase B 비교 *(스크립트 ✅, 실측은 다음 작업)*
 
 ---
 
@@ -36,39 +36,47 @@
 
 ---
 
-## 📁 File Structure (예정)
+## 📁 File Structure (실제 구현)
 
 ### commerce-streamer (랭킹 갱신 파이프라인)
-- `domain/ranking/RankingRepository.kt` — Port (incrementScore, batchIncrement, getTopN, getRank, ...)
-- `domain/ranking/RankingKeyPolicy.kt` — `ranking:all:{yyyyMMdd}` 키 생성 + TTL 2일 정책
-- `domain/ranking/ScoreCalculator.kt` — Strategy 인터페이스 (`scoreFor(eventType, payload): Double`)
-- `domain/ranking/WeightedSumScoreCalculator.kt` — 기본 구현 (view 0.1, like 0.2, order 0.7)
-- `application/ranking/RankingWeightConfig.kt` — `@ConfigurationProperties("ranking.weights")` 동적 로딩
-- `application/ranking/RankingUpdater.kt` — Consumer가 호출하는 진입점 (단건/배치 두 모드 지원)
-- `infrastructure/ranking/RedisRankingRepository.kt` — ZADD/ZINCRBY/EXPIRE Adapter
-- (Phase B) `application/ranking/RankingDeltaBuffer.kt` — Map<productId, delta> 누적 → flush
+- ✅ `domain/ranking/RankingEvent.kt` — sealed class (Viewed/Liked/Unliked/Ordered)
+- ✅ `domain/ranking/RankingKeyPolicy.kt` — `ranking:all:{yyyyMMdd}` 키 + TTL 2일
+- ✅ `domain/ranking/ScoreCalculator.kt` — Strategy `fun interface`
+- ✅ `domain/ranking/RankingRepository.kt` — Port: `incrementScore`/`batchIncrement`/`expire`
+- ✅ `domain/ranking/RankingQueryRepository.kt` — Read Port (findTopN/findScore/findRank/count)
+- ✅ `application/ranking/WeightedSumScoreCalculator.kt` — view 0.1, like 0.2, order 0.7 × ln(amount+1)
+- ✅ `application/ranking/RankingWeights.kt` — `@ConfigurationProperties("ranking.weights")`
+- ✅ `application/ranking/RankingUpdater.kt` — Clock 주입 + JVM-side TTL 캐시 (Set)
+- ✅ `application/ranking/RankingCarryOverScheduler.kt` — 23:55 KST `@Scheduled`
+- ✅ `infrastructure/ranking/RedisRankingRepository.kt` — master template + executePipelined
+- 🚧 `application/ranking/RankingDeltaBuffer.kt` — **Phase B (다음 작업)**
 
 ### commerce-api (랭킹 조회 + 상품 상세)
-- `domain/ranking/RankingQueryRepository.kt` — Port (findTopN, findRank)
-- `infrastructure/ranking/RedisRankingQueryRepository.kt` — ZREVRANGE/ZREVRANK
-- `application/ranking/GetRankingPageUseCase.kt` — Top-N + Product Aggregation (N+1 방지)
-- `interfaces/api/ranking/RankingV1Controller.kt` — `GET /api/v1/rankings`
-- `interfaces/api/ranking/RankingV1Dto.kt` — RankingItemResponse(rank, productId, name, price, score)
-- `interfaces/api/product/ProductV1Controller.kt` (수정) — 상세 응답에 `rank` 필드 추가
+- ✅ `domain/ranking/RankingKeyPolicy.kt` — streamer 와 동기화 (cross-module duplicate, 주석 경고)
+- ✅ `domain/ranking/RankingQueryRepository.kt` — Port (findTopN, findRank, count)
+- ✅ `infrastructure/ranking/RedisRankingQueryRepository.kt` — replica preferred read
+- ✅ `application/ranking/RankingFacade.kt` — N+1 방지 단일 IN 쿼리 Aggregation
+- ✅ `application/ranking/RankingResult.kt` — RankingPageResult / RankingItemResult
+- ✅ `interfaces/api/ranking/RankingV1Controller.kt` — `GET /api/v1/rankings`
+- ✅ `interfaces/api/ranking/{RankingV1ApiSpec.kt, RankingV1Dto.kt}`
+- ✅ `application/catalog/product/ProductFacade.kt` (수정) — `enrichWithRank` (Redis 실패시 rank=null)
+- ✅ `application/catalog/product/ProductResult.kt` (수정) — `rank: Long?` 필드
+- ✅ `interfaces/api/catalog/product/ProductV1Dto.kt` (수정) — 응답에 rank 노출
 
 ### Configuration
-- `commerce-streamer/resources/application.yml` — `ranking.weights.view/like/order` 동적 가중치
-- `commerce-api/resources/application.yml` — Redis read template
+- ✅ `commerce-streamer/application.yml` — `ranking.weights.*` + `ranking.carry-over.enabled`
+- ✅ master/replica RedisTemplate 분리 (write/read 경로 분리)
 
-### Tests
-- `RedisRankingRepositoryTest.kt` — 통합 (ZINCRBY, TTL, ZREVRANGE)
-- `WeightedSumScoreCalculatorUnitTest.kt` — Score 정합성
-- `GetRankingPageUseCaseTest.kt` — N+1 방지, 상품 Aggregation
-- `RankingPipelineE2ETest.kt` — Kafka publish → Redis → API
-- `RankingTtlExpirationTest.kt` — TTL 만료 후 키 자동 삭제 (S6)
-- `k6/scripts/ranking-uniform.js` (S2)
-- `k6/scripts/ranking-skewed.js` (S3)
-- `k6/scripts/ranking-burst.js` (S5)
+### Tests (실제)
+- ✅ `RedisRankingRepositoryTest.kt` (streamer) — 16 케이스, ZINCRBY/TTL/ZREVRANGE/Phase A·B 동등성 (실제 expire 만료 wait 포함)
+- ✅ `WeightedSumScoreCalculatorUnitTest.kt` — score sign / log saturation / 동적 가중치
+- ✅ `RankingUpdaterUnitTest.kt` — TTL 1회 호출 / 일자 rollover / 0 델타 skip
+- ✅ `RankingCarryOverSchedulerUnitTest.kt` — TopN×0.001 시드 / 빈 ZSET no-op / 가중치 적정성
+- ✅ `CatalogEventConsumerUnitTest.kt` — **S1 멱등성** (metrics false → ranking skip)
+- ✅ `OrderEventConsumerUnitTest.kt` — **S1 멱등성** + amount=price×qty
+- ✅ `RankingFacadeTest.kt` (commerce-api) — 11 케이스, 정렬/페이징/삭제 상품 skip/날짜/검증
+- ✅ `k6/ranking-benchmark.js` — 4 시나리오 (read_light / detail_with_rank / read_heavy / deep_page)
+- ✅ `k6/run-ranking-benchmark.sh` — 10회 반복 러너
 
 ---
 
@@ -381,21 +389,51 @@ sequenceDiagram
 
 ---
 
-## 🗂️ Commit Plan
+## 🗂️ Commit Plan / 진행 현황
 
-| # | 커밋 메시지 | 내용 |
-|---|---|---|
-| 1 | `[ADD] Ranking 도메인 + ScoreCalculator + 동적 Weight Config` | Strategy 분리, 단위 테스트 |
-| 2 | `[ADD] RedisRankingRepository (ZINCRBY/ZREVRANGE/EXPIRE) + 통합 테스트` | Adapter |
-| 3 | `[ADD] Streamer에 RankingUpdater 연결 (Phase A 단건 ZINCRBY)` | Catalog/Order Consumer wiring |
-| 4 | `[ADD] Ranking API (페이지 + 상품 Aggregation)` | GET /api/v1/rankings |
-| 5 | `[ADD] 상품 상세에 랭킹 정보 추가 (ZREVRANK)` | Product Detail rank |
-| 6 | `[ADD] 정합성 통합 테스트 (S1, S4, S6 TTL)` | JUnit |
-| 7 | `[ADD] k6 부하 테스트 + Phase A 측정 결과 (S2/S3/S5 × 10회)` | k6/results 적재 |
-| 8 | `[REFACTOR] Batch Listener + Delta 집계 (Phase B)` | RankingDeltaBuffer |
-| 9 | `[ADD] k6 측정 — Phase B + 비교 분석` | week-9.md 보고 갱신 |
-| 10 | `[ADD] Carry-Over 스케줄러 (23:55 ZUNIONSTORE)` | nice-to-have |
-| 11 | `[DOCS] week-9 최종본 + PR 노트` | 회고 + 측정 결과 정리 |
+| # | 커밋 메시지 | SHA | 상태 |
+|---|---|---|---|
+| 1 | `[ADD] Ranking 도메인 + ScoreCalculator + 동적 Weight Config` | (앞 커밋) | ✅ |
+| 2 | `[ADD] RedisRankingRepository (ZINCRBY/ZREVRANGE/EXPIRE) + 통합 테스트` | (앞 커밋) | ✅ |
+| 3 | `[ADD] Streamer에 RankingUpdater 연결 (Phase A 단건 ZINCRBY)` | (앞 커밋) | ✅ |
+| 4 | `[ADD] Ranking API + 상품 상세 rank 정보 노출` | `a70c103` | ✅ |
+| 5 | `[ADD] Ranking 시스템 k6 부하 테스트 (Phase A baseline)` | `50c72e9` | ✅ |
+| 6 | `[ADD] Consumer 멱등성 유닛 테스트 (S1 정합성 보증)` | `2ba75a2` | ✅ |
+| 7 | `[ADD] 일간 랭킹 Carry-Over 스케줄러 (콜드스타트 방지)` | `9334e3f` | ✅ |
+| 8 | `[REFACTOR] Batch Listener + Delta 집계 (Phase B)` | — | 🚧 다음 |
+| 9 | `[ADD] k6 측정 — Phase A vs Phase B 비교 분석` | — | 🚧 |
+| 10 | `[DOCS] week-9 최종본 + PR 노트` | — | 🚧 |
+
+## 🚧 남은 작업 (TODO)
+
+### Phase B — Batch Listener + Delta Aggregation
+현재 `CatalogEventConsumer` / `OrderEventConsumer` 는 이미 `KafkaConfig.BATCH_LISTENER` 를 사용하지만,
+배치 안에서 record 별로 `RankingUpdater.applyEvent()` 를 호출 → 결과적으로 `incrementScore` (단건 ZINCRBY) 를 N번 호출한다.
+Phase B 의 핵심은 다음과 같다:
+
+1. `RankingDeltaBuffer` (단순 `MutableMap<Long, Double>`) 도입 — productId 키로 score 누적
+2. Consumer 루프: `applyEvent` 대신 `buffer.add(productId, scoreFor(event))`
+3. 루프 종료 후: `rankingRepository.batchIncrement(key, buffer.drain())` 1회 호출
+4. EXPIRE 는 키별 1회 (이미 RankingUpdater 가 캐싱하는 로직을 별도 헬퍼로 추출)
+5. Hot-key skew 시나리오에서 N → M 압축률 측정 (M = uniq productId)
+
+검증:
+- 기존 `RedisRankingRepositoryTest.Phase A vs Phase B 동등성` 케이스가 이미 동작 → consumer 레벨에서도 동일하게 보장
+- 새 consumer 단위 테스트: 같은 productId 가 한 배치에 여러 번 들어오면 `batchIncrement` 가 1회만 호출되고 합산값이 맞는지
+
+### k6 측정 (실측)
+- 인프라 + 시드 데이터 띄우고 `./k6/run-ranking-benchmark.sh 10` 두 번 실행 (Phase A → Phase B)
+- 결과 비교 표를 본 문서 **📊 측정 결과** 섹션에 채우기
+
+---
+
+## 📊 측정 결과
+
+> *(Phase B 리팩터링 후 채울 예정)*
+
+| Run | Phase A p95 (ms) | Phase A Redis 호출 | Phase B p95 (ms) | Phase B Redis 호출 | 압축률 |
+|---|---|---|---|---|---|
+| 1~10 | TBD | TBD | TBD | TBD | TBD |
 
 ---
 
