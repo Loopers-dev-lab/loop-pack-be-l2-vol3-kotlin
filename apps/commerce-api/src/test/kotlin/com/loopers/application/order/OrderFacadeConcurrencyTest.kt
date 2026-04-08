@@ -68,6 +68,7 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
             val users = (1..THREAD_COUNT).map { i ->
                 userJpaRepository.save(User(loginId = "tester0$i", password = PASSWORD, name = "유저$i", birth = "2000-01-01", email = "user$i@test.com"))
             }
+
             val executor = Executors.newFixedThreadPool(THREAD_COUNT)
             val latch = CountDownLatch(THREAD_COUNT)
             val successCount = AtomicInteger(0)
@@ -111,6 +112,7 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
             val users = (1..THREAD_COUNT).map { i ->
                 userJpaRepository.save(User(loginId = "tester0$i", password = PASSWORD, name = "유저$i", birth = "2000-01-01", email = "user$i@test.com"))
             }
+
             val executor = Executors.newFixedThreadPool(THREAD_COUNT)
             val latch = CountDownLatch(THREAD_COUNT)
             val successCount = AtomicInteger(0)
@@ -166,6 +168,7 @@ class OrderFacadeConcurrencyTest @Autowired constructor(
 
             // act
             repeat(2) {
+
                 executor.submit {
                     try {
                         orderFacade.createOrder(

@@ -28,10 +28,11 @@ class OrderV1Controller(
     override fun createOrder(
         @RequestHeader("X-Loopers-LoginId") loginId: String,
         @RequestHeader("X-Loopers-LoginPw") password: String,
+        @RequestHeader("X-Loopers-Queue-Token", required = false) queueToken: String?,
         @RequestBody req: OrderV1Dto.CreateOrderRequest,
     ): ApiResponse<OrderV1Dto.OrderResponse> {
         val itemRequests = req.items.map { OrderItemRequest(it.productId, it.quantity) }
-        return orderFacade.createOrder(loginId, password, itemRequests, req.couponId)
+        return orderFacade.createOrder(loginId, password, itemRequests, req.couponId, queueToken)
             .let { OrderV1Dto.OrderResponse.from(it) }
             .let { ApiResponse.success(it) }
     }

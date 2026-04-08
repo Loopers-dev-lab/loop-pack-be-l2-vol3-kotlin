@@ -69,6 +69,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val initialStock = product.stockQuantity
 
             // act
+
             val result = orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -98,6 +99,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val coupon = issuedCouponJpaRepository.save(IssuedCoupon(userId = user.id, couponTemplateId = template.id))
 
             // act
+
             val result = orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -126,6 +128,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val coupon = issuedCouponJpaRepository.save(IssuedCoupon(userId = user.id, couponTemplateId = template.id))
 
             // act
+
             val result = orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -149,6 +152,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val product2 = productJpaRepository.save(Product(brandId = brand.id, name = "에어포스", description = "스니커즈", price = 119000, stockQuantity = 50))
 
             // act
+
             val result = orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -176,6 +180,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val initialStock = product.stockQuantity
 
             // act
+
             val exception = assertThrows<CoreException> {
                 orderFacade.createOrder(
                     loginId = user.loginId,
@@ -198,6 +203,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFound_whenAuthenticationFails() {
             // act
+
             val exception = assertThrows<CoreException> {
                 orderFacade.createOrder(
                     loginId = "wronguser1",
@@ -220,6 +226,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val coupon = issuedCouponJpaRepository.save(IssuedCoupon(userId = user.id, couponTemplateId = template.id))
             val initialStock = product.stockQuantity
 
+
             orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -228,6 +235,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             )
 
             // act
+
             val exception = assertThrows<CoreException> {
                 orderFacade.createOrder(
                     loginId = user.loginId,
@@ -258,6 +266,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val initialStock = product.stockQuantity
 
             // act
+
             val exception = assertThrows<CoreException> {
                 orderFacade.createOrder(
                     loginId = user.loginId,
@@ -296,6 +305,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val initialStock = product.stockQuantity
 
             // act
+
             val exception = assertThrows<CoreException> {
                 orderFacade.createOrder(
                     loginId = user.loginId,
@@ -329,6 +339,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val initialStock = product.stockQuantity
 
             // act
+
             val exception = assertThrows<CoreException> {
                 orderFacade.createOrder(
                     loginId = user.loginId,
@@ -358,6 +369,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         @Test
         fun returnsOrders_whenOrdersExistInDateRange() {
             // arrange
+
             orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -376,6 +388,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         @Test
         fun returnsEmptyList_whenNoOrdersInDateRange() {
             // arrange
+
             orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -409,6 +422,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         @Test
         fun returnsOrder_whenOrderBelongsToUser() {
             // arrange
+
             val created = orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -429,6 +443,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         @Test
         fun throwsNotFound_whenOrderBelongsToOtherUser() {
             // arrange
+
             val created = orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -466,6 +481,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         fun returnsPagedOrders_whenOrdersExist() {
             // arrange
             repeat(3) {
+    
                 orderFacade.createOrder(
                     loginId = user.loginId,
                     password = PASSWORD,
@@ -492,6 +508,7 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         @Test
         fun returnsOrder_regardlessOfUser() {
             // arrange
+
             val created = orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,

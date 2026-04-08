@@ -7,8 +7,8 @@ import io.swagger.v3.oas.annotations.tags.Tag
 
 @Tag(name = "Order V1 API", description = "주문 API")
 interface OrderV1ApiSpec {
-    @Operation(summary = "주문 생성", description = "상품을 주문합니다.")
-    fun createOrder(loginId: String, password: String, req: OrderV1Dto.CreateOrderRequest): ApiResponse<OrderV1Dto.OrderResponse>
+    @Operation(summary = "주문 생성", description = "상품을 주문합니다. 대기열 활성화 시 X-Loopers-Queue-Token 헤더 필요.")
+    fun createOrder(loginId: String, password: String, queueToken: String?, req: OrderV1Dto.CreateOrderRequest): ApiResponse<OrderV1Dto.OrderResponse>
 
     @Operation(summary = "주문 목록 조회", description = "내 주문 목록을 조회합니다.")
     fun getOrders(loginId: String, password: String, startAt: String, endAt: String): ApiResponse<List<OrderV1Dto.OrderResponse>>

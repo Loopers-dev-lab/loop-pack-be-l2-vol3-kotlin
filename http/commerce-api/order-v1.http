@@ -1,8 +1,9 @@
-### 주문 생성
+### 주문 생성 (대기열 활성화 시 X-Loopers-Queue-Token 필요)
 POST {{commerce-api}}/api/v1/orders
 Content-Type: application/json
 X-Loopers-LoginId: testuser
 X-Loopers-LoginPw: password123
+X-Loopers-Queue-Token: {{queueToken}}
 
 {
   "items": [

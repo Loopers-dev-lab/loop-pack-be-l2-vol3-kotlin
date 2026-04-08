@@ -6,15 +6,19 @@ import com.loopers.domain.order.Order
 import com.loopers.domain.order.OrderItem
 import com.loopers.domain.order.OrderService
 import com.loopers.domain.product.ProductService
+import com.loopers.config.QueueProperties
+import com.loopers.domain.queue.QueueService
 import com.loopers.domain.user.UserService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.transaction.annotation.Transactional
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -24,12 +28,26 @@ class OrderFacade(
     private val productService: ProductService,
     private val userService: UserService,
     private val couponService: CouponService,
+    private val queueService: QueueService,
+    private val queueProperties: QueueProperties,
 ) {
     @Retry(name = "dbWrite")
     @CircuitBreaker(name = "database")
     @Transactional
-    fun createOrder(loginId: String, password: String, itemRequests: List<OrderItemRequest>, couponId: Long? = null): OrderInfo {
+    fun createOrder(
+        loginId: String,
+        password: String,
+        itemRequests: List<OrderItemRequest>,
+        couponId: Long? = null,
+        queueToken: String? = null,
+    ): OrderInfo {
         val user = getAuthenticatedUser(loginId, password)
+
+        if (queueProperties.enabled) {
+            if (queueToken == null || !queueService.validateToken(user.id, queueToken)) {
+                throw CoreException(ErrorType.QUEUE_TOKEN_REQUIRED)
+            }
+        }
 
         val sortedItems = itemRequests.sortedBy { it.productId }
 
@@ -64,8 +82,20 @@ class OrderFacade(
         }
 
         val order = Order(userId = user.id, items = orderItems, couponId = couponId, discountAmount = discountAmount)
-        return orderService.createOrder(order)
+        val orderInfo = orderService.createOrder(order)
             .let { OrderInfo.from(it) }
+
+        if (queueProperties.enabled) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() {
+                        queueService.consumeToken(user.id)
+                    }
+                },
+            )
+        }
+
+        return orderInfo
     }
 
     fun getUserOrders(loginId: String, password: String, startAt: LocalDate, endAt: LocalDate): List<OrderInfo> {

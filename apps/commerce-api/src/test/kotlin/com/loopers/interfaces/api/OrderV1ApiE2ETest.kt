@@ -69,6 +69,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
         @Test
         fun createsOrder_whenValidRequest() {
             // arrange
+
             val req = OrderV1Dto.CreateOrderRequest(
                 items = listOf(
                     OrderV1Dto.OrderItemRequest(productId = product1.id, quantity = 2),
@@ -111,6 +112,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsBadRequest_whenStockInsufficient() {
             // arrange
+
             val req = OrderV1Dto.CreateOrderRequest(
                 items = listOf(OrderV1Dto.OrderItemRequest(productId = product1.id, quantity = 999)),
             )
