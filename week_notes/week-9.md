@@ -1,6 +1,6 @@
 # Week 9 Implementation Notes: Redis ZSET 기반 실시간 상품 랭킹 시스템
 
-> **Status**: 🚧 IN-PROGRESS — Phase A + Carry-Over 완료, Phase B 리팩터링 + 측정 남음
+> **Status**: ✅ DONE — Phase A + Carry-Over + Phase B (Batch Listener + Delta 집계) + k6 실측 10 runs 완료
 
 ## ✅ Requirements Checklist
 
@@ -14,16 +14,16 @@
 - [x] E2E: 이벤트 발행 → ZSET 점수 반영 → API 조회 *(Phase A 단건 경로 기준)*
 
 ### Nice-To-Have
-- [ ] **Kafka Batch Listener + Consumer 메모리 델타 집계 (Phase B)** — 다음 작업
+- [x] **Kafka Batch Listener + Consumer 메모리 델타 집계 (Phase B)** — `RankingUpdater.applyBatch` + `HashMap.merge` 합산 → 단일 `batchIncrement` (pipelined ZINCRBY)
 - [x] 콜드 스타트 완화: 23:55 Carry-Over 스케줄러
 - [x] 동적 가중치 (Config 기반, 무중단 튜닝)
 
 ### 검증
-- [ ] 정합성: 단건 처리(Phase A) ↔ 배치 델타(Phase B) ZSET 스냅샷 동일 *(Repository 레벨 동등성은 ✅, 파이프라인 통합은 Phase B 후)*
+- [x] 정합성: 단건 처리(Phase A) ↔ 배치 델타(Phase B) ZSET 스냅샷 동일 *(Repository 동등성 ✅ + Consumer 단위 테스트로 batch 합산 검증)*
 - [x] 가중치 적용 검증 (e.g. 주문 1건 > 좋아요 3건)
 - [x] 일자 변경 후 이전 날짜 랭킹 조회 정상 동작
 - [x] TTL 만료 시 ZSET 자동 정리
-- [ ] k6 부하 시나리오 × 10회 측정 + Phase A vs Phase B 비교 *(스크립트 ✅, 실측은 다음 작업)*
+- [x] k6 부하 시나리오 × 10회 측정 (Phase B) — 📊 측정 결과 섹션 참조
 
 ---
 
@@ -49,7 +49,7 @@
 - ✅ `application/ranking/RankingUpdater.kt` — Clock 주입 + JVM-side TTL 캐시 (Set)
 - ✅ `application/ranking/RankingCarryOverScheduler.kt` — 23:55 KST `@Scheduled`
 - ✅ `infrastructure/ranking/RedisRankingRepository.kt` — master template + executePipelined
-- 🚧 `application/ranking/RankingDeltaBuffer.kt` — **Phase B (다음 작업)**
+- ✅ Phase B 합산 — 별도 `RankingDeltaBuffer` 클래스를 만들지 않고 `RankingUpdater.applyBatch()` 안의 `HashMap<Long, Double>` + `merge` 로 인라인 처리 (단일 책임 유지)
 
 ### commerce-api (랭킹 조회 + 상품 상세)
 - ✅ `domain/ranking/RankingKeyPolicy.kt` — streamer 와 동기화 (cross-module duplicate, 주석 경고)
@@ -404,26 +404,26 @@ sequenceDiagram
 | 9 | `[ADD] k6 측정 — Phase B 실측 (10 runs)` | (current) | ✅ |
 | 10 | `[DOCS] week-9 최종본 + PR 노트` | (current) | ✅ |
 
-## 🚧 남은 작업 (TODO)
+## ✅ Phase B 완료 노트 — Batch Listener + Delta Aggregation
 
-### Phase B — Batch Listener + Delta Aggregation
-현재 `CatalogEventConsumer` / `OrderEventConsumer` 는 이미 `KafkaConfig.BATCH_LISTENER` 를 사용하지만,
-배치 안에서 record 별로 `RankingUpdater.applyEvent()` 를 호출 → 결과적으로 `incrementScore` (단건 ZINCRBY) 를 N번 호출한다.
-Phase B 의 핵심은 다음과 같다:
+`CatalogEventConsumer` / `OrderEventConsumer` 는 `KafkaConfig.BATCH_LISTENER` 를 사용한다.
+이전 구현은 배치 안에서 record 별로 `RankingUpdater.applyEvent()` 를 호출 → 결과적으로 `incrementScore` (단건 ZINCRBY) 를 N번 호출했지만,
+Phase B 에서는 다음과 같이 전환:
 
-1. `RankingDeltaBuffer` (단순 `MutableMap<Long, Double>`) 도입 — productId 키로 score 누적
-2. Consumer 루프: `applyEvent` 대신 `buffer.add(productId, scoreFor(event))`
-3. 루프 종료 후: `rankingRepository.batchIncrement(key, buffer.drain())` 1회 호출
-4. EXPIRE 는 키별 1회 (이미 RankingUpdater 가 캐싱하는 로직을 별도 헬퍼로 추출)
-5. Hot-key skew 시나리오에서 N → M 압축률 측정 (M = uniq productId)
+1. **합산 인라인** — 별도 `RankingDeltaBuffer` 클래스를 만들지 않고 `RankingUpdater.applyBatch()` 안의
+   `HashMap<Long, Double>` + `merge` 로 productId 키 누적 (단일 책임 유지, YAGNI)
+2. **Consumer 루프** — `applyEvent` 대신 `applied=true` 인 record 만 `ArrayList<RankingEvent>` 로 모음
+3. **루프 종료 후** — `rankingUpdater.applyBatch(rankingBatch)` 1회 호출 → 내부에서 합산 후 `batchIncrement` (pipelined ZINCRBY)
+4. **EXPIRE** — 기존 키별 1회 캐싱 (`ConcurrentHashMap.newKeySet()`) 그대로 재사용 → 일자 변경 시에만 재호출
+5. **멱등성 유지** — Metrics 가 `false` 반환 (= 중복) 한 record 는 batch 에 들어가지 않음 → S1 보장
 
-검증:
-- 기존 `RedisRankingRepositoryTest.Phase A vs Phase B 동등성` 케이스가 이미 동작 → consumer 레벨에서도 동일하게 보장
-- 새 consumer 단위 테스트: 같은 productId 가 한 배치에 여러 번 들어오면 `batchIncrement` 가 1회만 호출되고 합산값이 맞는지
+**검증**:
+- `RankingUpdaterUnitTest.ApplyBatch` (6 cases) — 같은/다른 productId 합산, zero delta 제외, 빈 리스트 no-op, Liked+Unliked=0 처리
+- `CatalogEventConsumerUnitTest` (7 cases) — `slot<List<RankingEvent>>()` 로 batch 캡처해 멱등 skip / 다중 타입 / hot productId 검증
+- `OrderEventConsumerUnitTest` (4 cases) — `amount = price × quantity`, multi-record 같은 productId, Redis 예외도 ack 보장
+- 기존 `RedisRankingRepositoryTest.Phase A vs Phase B 동등성` 케이스가 통과 → repository 계약 안정
 
-### k6 측정 (실측)
-- 인프라 + 시드 데이터 띄우고 `./k6/run-ranking-benchmark.sh 10` 두 번 실행 (Phase A → Phase B)
-- 결과 비교 표를 본 문서 **📊 측정 결과** 섹션에 채우기
+**측정**: 본 문서 **📊 측정 결과** 섹션 (k6 10 runs).
 
 ---
 
