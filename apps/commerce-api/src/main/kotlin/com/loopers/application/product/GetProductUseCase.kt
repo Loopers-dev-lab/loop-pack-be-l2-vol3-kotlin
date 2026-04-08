@@ -1,5 +1,6 @@
 package com.loopers.application.product
 
+import com.loopers.application.ranking.ViewCountBuffer
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStockRepository
@@ -15,6 +16,7 @@ class GetProductUseCase(
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
     private val productCacheStore: ProductCacheStore,
+    private val viewCountBuffer: ViewCountBuffer,
     transactionManager: PlatformTransactionManager,
 ) {
 
@@ -23,11 +25,13 @@ class GetProductUseCase(
     }
 
     fun execute(productId: Long): ProductInfo {
-        return when (val cached = productCacheStore.getDetail(productId)) {
+        val result = when (val cached = productCacheStore.getDetail(productId)) {
             is ProductDetailCache.Hit -> cached.productInfo
             is ProductDetailCache.NotExist -> throw CoreException(ProductErrorCode.PRODUCT_NOT_FOUND)
             is ProductDetailCache.Miss -> loadAndCache(productId)
         }
+        viewCountBuffer.increment(productId)
+        return result
     }
 
     private fun loadAndCache(productId: Long): ProductInfo {
