@@ -1,6 +1,7 @@
 package com.loopers.application.product
 
 import com.loopers.application.event.DirectEventPublisher
+import com.loopers.domain.ranking.RankingService
 import com.loopers.domain.user.event.ActionType
 import com.loopers.domain.user.event.UserActionEvent
 import org.assertj.core.api.Assertions.assertThat
@@ -31,11 +32,14 @@ class ProductFacadeTest {
     @Mock
     private lateinit var eventPublisher: ApplicationEventPublisher
 
+    @Mock
+    private lateinit var rankingService: RankingService
+
     private lateinit var productFacade: ProductFacade
 
     @BeforeEach
     fun setUp() {
-        productFacade = ProductFacade(productCacheManager, directEventPublisher, eventPublisher)
+        productFacade = ProductFacade(productCacheManager, directEventPublisher, eventPublisher, rankingService)
     }
 
     @DisplayName("상품 상세 조회 시,")
@@ -86,6 +90,34 @@ class ProductFacadeTest {
             val event = captor.firstValue
             assertThat(event.actionType).isEqualTo(ActionType.PRODUCT_VIEWED)
             assertThat(event.targetId).isEqualTo(productId)
+        }
+
+        @DisplayName("랭킹 진입 상품이면, 1-based 순위를 포함하여 반환한다.")
+        @Test
+        fun returnsRankForRankedProduct() {
+            // arrange
+            whenever(productCacheManager.getProduct(productId)).thenReturn(detailInfo)
+            whenever(rankingService.getRank(any(), eq(productId))).thenReturn(0L)
+
+            // act
+            val result = productFacade.getProduct(productId)
+
+            // assert
+            assertThat(result.rank).isEqualTo(1L)
+        }
+
+        @DisplayName("랭킹 미진입 상품이면, rank는 null이다.")
+        @Test
+        fun returnsNullRankForUnrankedProduct() {
+            // arrange
+            whenever(productCacheManager.getProduct(productId)).thenReturn(detailInfo)
+            whenever(rankingService.getRank(any(), eq(productId))).thenReturn(null)
+
+            // act
+            val result = productFacade.getProduct(productId)
+
+            // assert
+            assertThat(result.rank).isNull()
         }
     }
 }
