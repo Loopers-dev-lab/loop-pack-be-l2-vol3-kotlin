@@ -11,9 +11,10 @@ data class ProductDetailResponse(
     val imageUrl: String,
     val likeCount: Long,
     val available: Boolean,
+    val rank: Int?,
 ) {
     companion object {
-        fun from(info: ProductInfo): ProductDetailResponse {
+        fun from(info: ProductInfo, rank: Int? = null): ProductDetailResponse {
             return ProductDetailResponse(
                 id = info.id,
                 name = info.name,
@@ -23,6 +24,7 @@ data class ProductDetailResponse(
                 imageUrl = info.imageUrl,
                 likeCount = info.likeCount,
                 available = info.available,
+                rank = rank,
             )
         }
     }

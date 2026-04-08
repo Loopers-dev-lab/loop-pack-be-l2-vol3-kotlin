@@ -77,4 +77,9 @@ object ApiPaths {
         const val ENTER = "$BASE/enter"
         const val POSITION = "$BASE/position"
     }
+
+    object Rankings {
+        const val BASE = "/api/v1/rankings"
+        const val PRODUCT_RANK = "/products/{productId}"
+    }
 }

@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.product
 import com.loopers.application.product.GetProductListUseCase
 import com.loopers.application.product.GetProductUseCase
 import com.loopers.application.product.ProductCommand
+import com.loopers.application.ranking.GetProductRankUseCase
 import com.loopers.domain.product.ProductSortType
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.PageResult
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 class ProductV1Controller(
     private val getProductUseCase: GetProductUseCase,
     private val getProductListUseCase: GetProductListUseCase,
+    private val getProductRankUseCase: GetProductRankUseCase,
 ) {
 
     @GetMapping
@@ -47,6 +49,7 @@ class ProductV1Controller(
     @GetMapping("/{productId}")
     fun getProduct(@PathVariable productId: Long): ApiResponse<ProductDetailResponse> {
         val product = getProductUseCase.execute(productId)
-        return ApiResponse.success(ProductDetailResponse.from(product))
+        val rank = getProductRankUseCase.execute(productId)
+        return ApiResponse.success(ProductDetailResponse.from(product, rank))
     }
 }
