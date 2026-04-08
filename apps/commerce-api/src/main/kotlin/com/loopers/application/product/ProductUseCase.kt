@@ -1,22 +1,19 @@
 package com.loopers.application.product
 
-import com.loopers.application.event.OutboxEventWriter
+import com.loopers.application.event.ProductViewedEvent
 import com.loopers.application.event.UserActionLogEvent
 import com.loopers.application.event.UserActionType
+import com.loopers.infrastructure.ranking.RankingRedisReader
 import com.loopers.domain.brand.BrandReader
 import com.loopers.domain.product.ProductChanger
 import com.loopers.domain.product.ProductReader
 import com.loopers.domain.product.ProductRegister
 import com.loopers.domain.product.ProductRemover
 import com.loopers.domain.product.ProductSortType
-import com.loopers.kafka.IntegrationEvent
-import com.loopers.kafka.KafkaTopics
-import com.loopers.kafka.ProductViewedPayload
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
-import java.util.UUID
-import org.springframework.context.ApplicationEventPublisher
 
 @Component
 class ProductUseCase(
@@ -27,7 +24,7 @@ class ProductUseCase(
     private val brandReader: BrandReader,
     private val productCacheStore: ProductCacheStore,
     private val applicationEventPublisher: ApplicationEventPublisher,
-    private val outboxEventWriter: OutboxEventWriter,
+    private val rankingRedisReader: RankingRedisReader,
 ) {
 
     @Transactional
@@ -53,6 +50,7 @@ class ProductUseCase(
             ProductInfo.Detail.from(product, brand)
         }
         val occurredAt = ZonedDateTime.now()
+        val ranking = rankingRedisReader.getRank(occurredAt, id)
         applicationEventPublisher.publishEvent(
             UserActionLogEvent(
                 actionType = UserActionType.PRODUCT_VIEWED,
@@ -61,23 +59,13 @@ class ProductUseCase(
                 targetId = id.toString(),
             ),
         )
-        outboxEventWriter.append(
-            topic = KafkaTopics.CATALOG_EVENTS,
-            event = IntegrationEvent(
-                eventId = "catalog-product-viewed:${UUID.randomUUID()}",
-                eventType = "ProductViewed",
-                aggregateType = "product",
-                aggregateId = id.toString(),
-                key = id.toString(),
-                version = occurredAt.toInstant().toEpochMilli(),
+        applicationEventPublisher.publishEvent(
+            ProductViewedEvent(
+                productId = id,
                 occurredAt = occurredAt,
-                payload = ProductViewedPayload(
-                    productId = id,
-                    memberId = null,
-                ),
             ),
         )
-        return detail
+        return detail.copy(ranking = ranking)
     }
 
     @Transactional(readOnly = true)

@@ -44,6 +44,7 @@ class ProductV1Dto {
         val stock: Int,
         val status: String,
         val likeCount: Long,
+        val ranking: Long?,
     ) {
         companion object {
             fun from(info: ProductInfo.Detail) = DetailResponse(
@@ -56,6 +57,7 @@ class ProductV1Dto {
                 stock = info.stock,
                 status = info.status,
                 likeCount = info.likeCount,
+                ranking = info.ranking,
             )
         }
     }
