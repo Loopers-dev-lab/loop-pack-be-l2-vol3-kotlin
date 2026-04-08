@@ -20,9 +20,23 @@ spring:
   config:
     import:
       - jpa.yml
+      - kafka.yml
       - redis.yml
       - logging.yml
       - monitoring.yml
+
+queue:
+  experiment:
+    enabled: true
+    enforce-order-gate: true
+    active-strategy: REDIS_ONLY
+    token-ttl: 5m
+    avg-order-processing-time: 2s
+    db-connection-pool-size: 40
+    db-utilization-ratio: 0.7
+    scheduler:
+      enabled: true
+      fixed-delay: 1s
 
 springdoc:
   use-fqn: true

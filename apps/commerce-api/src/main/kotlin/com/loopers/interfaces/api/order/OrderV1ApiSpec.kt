@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.order
 
+import com.loopers.application.queue.QueueStrategyType
 import com.loopers.interfaces.api.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -12,6 +13,8 @@ interface OrderV1ApiSpec {
     fun createOrder(
         @Parameter(hidden = true) loginId: String,
         @Parameter(hidden = true) password: String,
+        @Parameter(hidden = true) queueToken: String?,
+        @Parameter(hidden = true) queueStrategy: QueueStrategyType?,
         request: OrderV1Dto.CreateRequest,
     ): ApiResponse<OrderV1Dto.DetailResponse>
 
