@@ -57,7 +57,11 @@ springdoc:
 spring:
   config:
     activate:
-      on-profile: local, test
+      on-profile: test
+
+queue:
+  scheduler:
+    enabled: false
 
 ---
 spring:
