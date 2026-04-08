@@ -12,6 +12,7 @@ import java.time.ZonedDateTime
 class CouponService(
     private val couponTemplateRepository: CouponTemplateRepository,
     private val issuedCouponRepository: IssuedCouponRepository,
+    private val couponIssueRequestRepository: CouponIssueRequestRepository,
 ) {
     @Transactional(readOnly = true)
     fun getCouponTemplate(id: Long): CouponTemplate {
@@ -85,5 +86,22 @@ class CouponService(
     @Transactional(readOnly = true)
     fun getIssuedCouponsByCouponTemplateId(couponTemplateId: Long, pageable: Pageable): Page<IssuedCoupon> {
         return issuedCouponRepository.findAllByCouponTemplateIdAndDeletedAtIsNull(couponTemplateId, pageable)
+    }
+
+    @Transactional
+    fun saveCouponIssueRequest(userId: Long, couponTemplateId: Long, requestId: String): CouponIssueRequest {
+        return couponIssueRequestRepository.save(
+            CouponIssueRequest(userId = userId, couponTemplateId = couponTemplateId, requestId = requestId),
+        )
+    }
+
+    @Transactional(readOnly = true)
+    fun getCouponIssueRequest(requestId: String): CouponIssueRequest? {
+        return couponIssueRequestRepository.findByRequestId(requestId)
+    }
+
+    @Transactional(readOnly = true)
+    fun hasCouponIssueRequest(userId: Long, couponTemplateId: Long): Boolean {
+        return couponIssueRequestRepository.existsByUserIdAndCouponTemplateId(userId, couponTemplateId)
     }
 }

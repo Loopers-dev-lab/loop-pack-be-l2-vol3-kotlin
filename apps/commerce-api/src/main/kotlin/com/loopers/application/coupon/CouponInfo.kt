@@ -28,6 +28,12 @@ data class CouponTemplateInfo(
     }
 }
 
+data class CouponIssueRequestInfo(
+    val requestId: String,
+    val status: String,
+    val reason: String? = null,
+)
+
 data class IssuedCouponInfo(
     val id: Long,
     val couponTemplateId: Long,

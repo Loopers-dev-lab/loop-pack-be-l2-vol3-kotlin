@@ -226,7 +226,6 @@ class OrderFacadeIntegrationTest @Autowired constructor(
             val coupon = issuedCouponJpaRepository.save(IssuedCoupon(userId = user.id, couponTemplateId = template.id))
             val initialStock = product.stockQuantity
 
-
             orderFacade.createOrder(
                 loginId = user.loginId,
                 password = PASSWORD,
@@ -481,7 +480,6 @@ class OrderFacadeIntegrationTest @Autowired constructor(
         fun returnsPagedOrders_whenOrdersExist() {
             // arrange
             repeat(3) {
-    
                 orderFacade.createOrder(
                     loginId = user.loginId,
                     password = PASSWORD,

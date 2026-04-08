@@ -21,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 
 @SpringBootTest
 class LikeFacadeConcurrencyTest @Autowired constructor(

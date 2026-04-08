@@ -24,6 +24,8 @@ class CouponTemplate(
     minOrderAmount: Long? = null,
 
     expiredAt: ZonedDateTime,
+
+    maxIssuanceCount: Int? = null,
 ) : BaseEntity() {
     @Column(nullable = false)
     var name: String = name
@@ -41,6 +43,10 @@ class CouponTemplate(
     var expiredAt: ZonedDateTime = expiredAt
         protected set
 
+    @Column(name = "max_issuance_count")
+    var maxIssuanceCount: Int? = maxIssuanceCount
+        protected set
+
     init {
         validateValue(type, value)
     }
@@ -55,13 +61,16 @@ class CouponTemplate(
         return discount.coerceAtMost(totalPrice)
     }
 
-    fun update(name: String, value: Long, minOrderAmount: Long?, expiredAt: ZonedDateTime) {
+    fun update(name: String, value: Long, minOrderAmount: Long?, expiredAt: ZonedDateTime, maxIssuanceCount: Int? = null) {
         validateValue(type, value)
         this.name = name
         this.value = value
         this.minOrderAmount = minOrderAmount
         this.expiredAt = expiredAt
+        this.maxIssuanceCount = maxIssuanceCount
     }
+
+    fun hasIssuanceLimit(): Boolean = maxIssuanceCount != null
 
     companion object {
         private fun validateValue(type: CouponType, value: Long) {

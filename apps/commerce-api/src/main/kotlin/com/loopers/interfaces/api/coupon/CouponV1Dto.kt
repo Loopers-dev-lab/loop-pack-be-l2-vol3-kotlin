@@ -1,11 +1,28 @@
 package com.loopers.interfaces.api.coupon
 
+import com.loopers.application.coupon.CouponIssueRequestInfo
 import com.loopers.application.coupon.IssuedCouponInfo
 import com.loopers.domain.coupon.CouponStatus
 import com.loopers.domain.coupon.CouponType
 import java.time.ZonedDateTime
 
 class CouponV1Dto {
+    data class CouponIssueRequestResponse(
+        val requestId: String,
+        val status: String,
+        val reason: String? = null,
+    ) {
+        companion object {
+            fun from(info: CouponIssueRequestInfo): CouponIssueRequestResponse {
+                return CouponIssueRequestResponse(
+                    requestId = info.requestId,
+                    status = info.status,
+                    reason = info.reason,
+                )
+            }
+        }
+    }
+
     data class IssuedCouponResponse(
         val id: Long,
         val couponTemplateId: Long,
