@@ -1,6 +1,5 @@
 package com.loopers.application.like
 
-import com.loopers.application.event.OutboxEventWriter
 import com.loopers.application.event.ProductLikeChangedEvent
 import com.loopers.application.event.UserActionLogEvent
 import com.loopers.application.event.UserActionType
@@ -9,10 +8,6 @@ import com.loopers.domain.like.LikeReader
 import com.loopers.domain.like.LikeRegister
 import com.loopers.domain.like.LikeRemover
 import com.loopers.domain.product.ProductReader
-import com.loopers.kafka.IntegrationEvent
-import com.loopers.kafka.KafkaTopics
-import com.loopers.kafka.ProductLikedPayload
-import com.loopers.kafka.ProductUnlikedPayload
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -26,18 +21,19 @@ class LikeUseCase(
     private val productReader: ProductReader,
     private val brandReader: BrandReader,
     private val applicationEventPublisher: ApplicationEventPublisher,
-    private val outboxEventWriter: OutboxEventWriter,
 ) {
 
     @Transactional
     fun register(memberId: Long, productId: Long): LikeInfo.Registered {
         val product = productReader.getSellingById(productId)
         val like = likeRegister.register(memberId, productId)
+        val occurredAt = ZonedDateTime.now()
         applicationEventPublisher.publishEvent(
             ProductLikeChangedEvent(
                 productId = productId,
                 brandId = product.brandId,
                 delta = 1L,
+                occurredAt = occurredAt,
             ),
         )
         applicationEventPublisher.publishEvent(
@@ -49,23 +45,6 @@ class LikeUseCase(
                 details = mapOf("likeId" to like.id),
             ),
         )
-        outboxEventWriter.append(
-            topic = KafkaTopics.CATALOG_EVENTS,
-            event = IntegrationEvent(
-                eventId = "catalog-like-added:${requireNotNull(like.id)}",
-                eventType = "ProductLiked",
-                aggregateType = "product",
-                aggregateId = productId.toString(),
-                key = productId.toString(),
-                version = 1L,
-                occurredAt = ZonedDateTime.now(),
-                payload = ProductLikedPayload(
-                    likeId = like.id,
-                    productId = productId,
-                    memberId = memberId,
-                ),
-            ),
-        )
         return LikeInfo.Registered.from(like)
     }
 
@@ -73,11 +52,13 @@ class LikeUseCase(
     fun remove(likeId: Long, memberId: Long) {
         val like = likeRemover.remove(likeId, memberId)
         val product = productReader.getById(like.productId)
+        val occurredAt = ZonedDateTime.now()
         applicationEventPublisher.publishEvent(
             ProductLikeChangedEvent(
                 productId = like.productId,
                 brandId = product.brandId,
                 delta = -1L,
+                occurredAt = occurredAt,
             ),
         )
         applicationEventPublisher.publishEvent(
@@ -87,23 +68,6 @@ class LikeUseCase(
                 targetType = "product",
                 targetId = like.productId.toString(),
                 details = mapOf("likeId" to like.id),
-            ),
-        )
-        outboxEventWriter.append(
-            topic = KafkaTopics.CATALOG_EVENTS,
-            event = IntegrationEvent(
-                eventId = "catalog-like-removed:${requireNotNull(like.id)}",
-                eventType = "ProductUnliked",
-                aggregateType = "product",
-                aggregateId = like.productId.toString(),
-                key = like.productId.toString(),
-                version = 1L,
-                occurredAt = ZonedDateTime.now(),
-                payload = ProductUnlikedPayload(
-                    likeId = requireNotNull(like.id),
-                    productId = like.productId,
-                    memberId = memberId,
-                ),
             ),
         )
     }
