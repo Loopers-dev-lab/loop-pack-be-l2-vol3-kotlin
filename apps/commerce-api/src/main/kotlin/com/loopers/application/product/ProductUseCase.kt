@@ -1,6 +1,6 @@
 package com.loopers.application.product
 
-import com.loopers.application.event.ProductViewedEvent
+import com.loopers.application.event.KafkaIntegrationEventPublisher
 import com.loopers.application.event.UserActionLogEvent
 import com.loopers.application.event.UserActionType
 import com.loopers.infrastructure.ranking.RankingRedisReader
@@ -10,10 +10,14 @@ import com.loopers.domain.product.ProductReader
 import com.loopers.domain.product.ProductRegister
 import com.loopers.domain.product.ProductRemover
 import com.loopers.domain.product.ProductSortType
+import com.loopers.kafka.IntegrationEvent
+import com.loopers.kafka.KafkaTopics
+import com.loopers.kafka.ProductViewedPayload
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
+import java.util.UUID
 
 @Component
 class ProductUseCase(
@@ -24,6 +28,7 @@ class ProductUseCase(
     private val brandReader: BrandReader,
     private val productCacheStore: ProductCacheStore,
     private val applicationEventPublisher: ApplicationEventPublisher,
+    private val kafkaIntegrationEventPublisher: KafkaIntegrationEventPublisher,
     private val rankingRedisReader: RankingRedisReader,
 ) {
 
@@ -59,10 +64,20 @@ class ProductUseCase(
                 targetId = id.toString(),
             ),
         )
-        applicationEventPublisher.publishEvent(
-            ProductViewedEvent(
-                productId = id,
+        kafkaIntegrationEventPublisher.publish(
+            topic = KafkaTopics.CATALOG_EVENTS,
+            event = IntegrationEvent(
+                eventId = "catalog-product-viewed:${UUID.randomUUID()}",
+                eventType = "ProductViewed",
+                aggregateType = "product",
+                aggregateId = id.toString(),
+                key = id.toString(),
+                version = occurredAt.toInstant().toEpochMilli(),
                 occurredAt = occurredAt,
+                payload = ProductViewedPayload(
+                    productId = id,
+                    memberId = null,
+                ),
             ),
         )
         return detail.copy(ranking = ranking)

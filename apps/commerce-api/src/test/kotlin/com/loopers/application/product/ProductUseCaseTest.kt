@@ -1,6 +1,6 @@
 package com.loopers.application.product
 
-import com.loopers.application.event.ProductViewedEvent
+import com.loopers.application.event.KafkaIntegrationEventPublisher
 import com.loopers.application.event.UserActionLogEvent
 import com.loopers.domain.brand.BrandReader
 import com.loopers.domain.product.ProductChanger
@@ -24,6 +24,7 @@ class ProductUseCaseTest {
     private val brandReader = mockk<BrandReader>(relaxed = true)
     private val productCacheStore = mockk<ProductCacheStore>()
     private val applicationEventPublisher = mockk<ApplicationEventPublisher>(relaxed = true)
+    private val kafkaIntegrationEventPublisher = mockk<KafkaIntegrationEventPublisher>(relaxed = true)
     private val rankingRedisReader = mockk<RankingRedisReader>()
 
     private val productUseCase = ProductUseCase(
@@ -34,6 +35,7 @@ class ProductUseCaseTest {
         brandReader = brandReader,
         productCacheStore = productCacheStore,
         applicationEventPublisher = applicationEventPublisher,
+        kafkaIntegrationEventPublisher = kafkaIntegrationEventPublisher,
         rankingRedisReader = rankingRedisReader,
     )
 
@@ -58,6 +60,6 @@ class ProductUseCaseTest {
 
         assertThat(result.ranking).isEqualTo(2L)
         verify(exactly = 1) { applicationEventPublisher.publishEvent(match<UserActionLogEvent> { it.targetId == "1" }) }
-        verify(exactly = 1) { applicationEventPublisher.publishEvent(match<ProductViewedEvent> { it.productId == 1L }) }
+        verify(exactly = 1) { kafkaIntegrationEventPublisher.publish(eq("catalog-events"), any()) }
     }
 }
