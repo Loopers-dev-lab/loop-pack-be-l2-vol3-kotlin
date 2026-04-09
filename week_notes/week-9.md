@@ -176,7 +176,206 @@ classDiagram
 
 ## 🔁 Sequence Diagrams
 
-### Write Path — Phase A (단건 ZINCRBY)
+### End-to-End Flow — 이벤트 발행부터 클라이언트 응답까지
+
+```mermaid
+flowchart LR
+    Client((Client))
+
+    subgraph Producers["commerce-api (Producer)"]
+        direction TB
+        PV[ProductFacade<br/>view / like / unlike]
+        OF[OrderFacade<br/>placeOrder]
+        OFsteps["1. 재고 차감 (PESSIMISTIC)<br/>2. 쿠폰 할인 검증<br/>3. 주문 INSERT<br/>4. Outbox INSERT<br/>(all in 1 TX)"]
+        OB[(outbox_event<br/>PENDING / SENT)]
+        Relay[OutboxRelay<br/>@Scheduled]
+
+        PV -->|same TX| OB
+        OF --> OFsteps
+        OFsteps -->|same TX| OB
+        OB --> Relay
+    end
+
+    subgraph Bus["Kafka"]
+        T1[catalog-events]
+        T2[order-events]
+    end
+
+    subgraph Streamer["commerce-streamer (Consumer)"]
+        direction TB
+        CC[CatalogEventConsumer<br/>BATCH]
+        OC[OrderEventConsumer<br/>BATCH<br/>amount = price × qty]
+        MS[MetricsService<br/>S1 멱등 — processed_event UNIQUE]
+        RU[RankingUpdater<br/>HashMap.merge → applyBatch]
+        Sched[CarryOverScheduler<br/>23:55 KST<br/>TopN × 0.001]
+
+        CC --> MS
+        OC --> MS
+        MS -->|applied=true 만| RU
+    end
+
+    subgraph Storage
+        Redis[(Redis ZSET<br/>ranking:all:yyyyMMdd<br/>TTL 2d)]
+        MySQL[(MySQL<br/>products / brands /<br/>orders / outbox)]
+    end
+
+    subgraph Reader["commerce-api (Read)"]
+        RC[RankingV1Controller]
+        PFR[ProductFacade<br/>+rank enrichment]
+        RF[RankingFacade<br/>N+1 방지 IN 쿼리]
+    end
+
+    Client -->|POST /orders<br/>POST /likes<br/>GET /products| PV
+    Client -->|POST /orders| OF
+    Relay -->|publish| T1
+    Relay -->|publish| T2
+    T1 --> CC
+    T2 --> OC
+    RU -->|pipelined<br/>ZINCRBY| Redis
+    Sched --> Redis
+    OB -.->|read| MySQL
+
+    Client -->|GET /rankings| RC
+    Client -->|GET /products/id| PFR
+    RC --> RF
+    RF -->|ZREVRANGE| Redis
+    RF -->|findAllByIds| MySQL
+    PFR -->|ZREVRANK| Redis
+    PFR -->|findById| MySQL
+    RF --> RC
+    RC --> Client
+    PFR --> Client
+```
+
+**범례**
+- **producer side TX 보장**: OrderFacade 의 재고 차감 / 쿠폰 / 주문 INSERT / Outbox INSERT 가 단일 트랜잭션 → "결제는 성공했는데 이벤트는 누락" 케이스 차단
+- **publish 는 별도 TX**: OutboxRelay 가 commit 된 row 만 Kafka 로 보냄 (At Least Once)
+- **streamer side 멱등**: 같은 eventId 재전달은 `processed_event` UNIQUE 제약으로 막혀 ranking 에 중복 반영되지 않음
+- **합산 압축**: 같은 productId 가 여러 주문/배치에 걸쳐 있어도 최종 ZINCRBY 1회 (N → M 압축)
+
+### Order Flow — 주문 발행부터 ZSET 점수 반영까지 (상세)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant OFC as OrderV1Controller
+    participant OF as OrderFacade
+    participant Stock as ProductStockService
+    participant Coupon as UserCouponService
+    participant OS as OrderService
+    participant Outbox as OutboxEventService
+    participant DB as MySQL
+    participant Relay as OutboxRelay<br/>@Scheduled
+    participant K as Kafka<br/>order-events
+    participant OEC as OrderEventConsumer<br/>(streamer, BATCH)
+    participant MS as MetricsService
+    participant RU as RankingUpdater
+    participant Calc as ScoreCalculator
+    participant Redis
+
+    Client->>OFC: POST /api/v1/orders<br/>{items, userCouponId, card}
+    OFC->>OF: placeOrder(userId, cmd)
+
+    rect rgb(240, 248, 255)
+    Note over OF,DB: Single @Transactional — At Least Once Outbox
+    OF->>DB: findAllByIds(productIds) + findAllByProductIds (N+1 방지)
+    OF->>OF: requireOrderable() + stock.validate()
+    loop 각 item
+        OF->>Stock: decrementStock(productId, qty) [PESSIMISTIC_WRITE]
+        Stock->>DB: SELECT ... FOR UPDATE / UPDATE stock
+    end
+    OF->>OF: brand 일괄 조회 + OrderItem 스냅샷 생성
+    opt 쿠폰 사용
+        OF->>Coupon: getById + requireAvailable + 만료/최소금액 검증
+        OF->>OF: discountAmount = template.discount(...)
+    end
+    OF->>OS: createOrder(userId, items, discount, couponId)
+    OS->>DB: INSERT orders + order_items
+    opt 쿠폰 사용
+        OF->>Coupon: useForOrder(couponId, orderId)
+    end
+    OF->>Outbox: save(ORDER_PLACED, payload)
+    Outbox->>DB: INSERT outbox_event (status=PENDING)
+    end
+
+    OF-->>OFC: OrderResult
+    OFC-->>Client: 201 Created
+
+    Note over Relay: 별도 트랜잭션 — TX commit 이후에만 publish
+    Relay->>DB: SELECT * FROM outbox_event WHERE status='PENDING'
+    Relay->>K: send("order-events", key=orderId, envelope)
+    Relay->>DB: UPDATE outbox_event SET status='SENT'
+
+    K->>OEC: poll N records (Batch Listener)
+    Note over OEC: rankingBatch = ArrayList<RankingEvent>()
+
+    loop 각 record
+        OEC->>OEC: parse envelope → eventId, items[]
+        OEC->>MS: handleOrderPlaced(eventId, items)
+        alt S1 신규 (true)
+            MS->>DB: INSERT processed_event (eventId UNIQUE)
+            MS-->>OEC: true
+            loop 각 item
+                OEC->>OEC: rankingBatch.add(<br/>Ordered(productId,<br/>amount = price × qty))
+            end
+        else 중복 (false)
+            MS-->>OEC: false
+            Note over OEC: skip — batch 미포함
+        end
+    end
+
+    alt rankingBatch.isNotEmpty()
+        OEC->>RU: applyBatch(rankingBatch)
+        loop 각 event
+            RU->>Calc: scoreFor(Ordered(amount))
+            Calc-->>RU: 0.7 × log10(amount + 1)
+            RU->>RU: HashMap.merge(productId, delta, +)
+        end
+        Note over RU: 같은 productId 가 여러 record/order 에 걸쳐 있어도<br/>최종 단일 ZINCRBY 로 합산
+        RU->>Redis: executePipelined { ZINCRBY × M }
+        opt 새 키
+            RU->>Redis: EXPIRE ranking:all:{date} 172800
+        end
+    end
+
+    OEC->>K: ack
+    Note over OEC,Redis: Redis 실패해도 ack — runCatching + 로그 (Eventual Consistency)
+```
+
+### Carry-Over Scheduler — 일자 롤오버 (콜드 스타트 완화)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cron as @Scheduled<br/>0 55 23 * * * KST
+    participant Sched as RankingCarryOverScheduler
+    participant QRepo as RankingQueryRepository
+    participant Repo as RankingRepository
+    participant Redis
+
+    Cron->>Sched: carryOverNow()
+    Note over Sched: from = today<br/>to = today + 1d
+
+    Sched->>QRepo: findTopN(fromKey, 0, 100)
+    QRepo->>Redis: ZREVRANGE ranking:all:20260408 0 99 WITHSCORES
+    Redis-->>QRepo: [(productId, score), ...]
+    QRepo-->>Sched: List<RankingEntry>
+
+    alt topEntries.isEmpty()
+        Sched-->>Cron: log "데이터 없음 — skip"
+    else 정상
+        Sched->>Sched: deltas = entries.associate { id to score × 0.001 }
+        Sched->>Repo: batchIncrement(toKey, deltas)
+        Repo->>Redis: pipelined ZINCRBY × 100
+        Sched->>Repo: expire(toKey, 2d)
+        Repo->>Redis: EXPIRE ranking:all:20260409 172800
+    end
+
+    Note over Sched,Redis: 다음 날 00시에 새 키가 빈 상태로 시작하지 않음<br/>(어제 Top-100 의 0.1% 만큼 시드)
+```
+
+### Write Path — Phase A (단건 ZINCRBY, 초기 구현)
 
 ```mermaid
 sequenceDiagram
@@ -198,26 +397,46 @@ sequenceDiagram
     Consumer->>Kafka: ack
 ```
 
-### Write Path — Phase B (배치 델타 집계)
+### Write Path — Phase B (실제 구현: Batch Listener + 인라인 합산)
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Kafka
-    participant Consumer
-    participant Buffer as RankingDeltaBuffer
+    participant Consumer as CatalogEventConsumer
+    participant Metrics as MetricsService
     participant Updater as RankingUpdater
+    participant Calc as ScoreCalculator
     participant Redis
 
-    Kafka->>Consumer: poll N events
-    loop 각 event
-        Consumer->>Buffer: add(productId, scoreFor(event))
+    Kafka->>Consumer: poll N records (Batch Listener)
+    Note over Consumer: rankingBatch = ArrayList<RankingEvent>()
+
+    loop 각 record
+        Consumer->>Metrics: handleProductX(eventId, productId)
+        alt 멱등 신규 (true)
+            Metrics-->>Consumer: true
+            Consumer->>Consumer: rankingBatch.add(event)
+        else 중복 (false)
+            Metrics-->>Consumer: false
+            Note over Consumer: skip — batch 에 추가하지 않음
+        end
     end
-    Consumer->>Updater: flush(buffer.drain())
-    Updater->>Redis: pipeline ZINCRBY × M (M = uniq productId)
-    Updater->>Redis: EXPIRE ranking:all:{date} 2d
-    Consumer->>Kafka: ack
-    Note over Buffer,Redis: N events → M Redis 호출 (M ≪ N)
+
+    alt rankingBatch.isNotEmpty()
+        Consumer->>Updater: applyBatch(rankingBatch)
+        loop 각 event
+            Updater->>Calc: scoreFor(event)
+            Calc-->>Updater: delta
+            Updater->>Updater: HashMap.merge(productId, delta, +)
+        end
+        Note over Updater: N events → M uniq productId 압축
+        Updater->>Redis: executePipelined { ZINCRBY × M }
+        Updater->>Redis: EXPIRE ranking:all:{date} 2d (키별 1회)
+    end
+
+    Consumer->>Kafka: ack (Redis 실패해도 ack — Eventual Consistency)
+    Note over Consumer,Redis: 실측: 480 records → 100 uniq productId → ~79% 압축
 ```
 
 ### Read Path — 랭킹 페이지 조회
