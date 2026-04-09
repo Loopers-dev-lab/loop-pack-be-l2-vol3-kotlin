@@ -52,3 +52,4 @@ docs/loopers/
 ### local worktrees ###
 .worktrees/
 .gradle-local/
+**/StudyVault/**
