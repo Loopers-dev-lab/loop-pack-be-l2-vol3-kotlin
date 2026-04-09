@@ -25,6 +25,7 @@ class CatalogEventConsumer(
     private val log = LoggerFactory.getLogger(javaClass)
 
     companion object {
+        private const val EVENT_TYPE_PRODUCT_VIEWED = "PRODUCT_VIEWED"
         private const val EVENT_TYPE_LIKE_CREATED = "LIKE_CREATED"
         private const val EVENT_TYPE_LIKE_CANCELLED = "LIKE_CANCELLED"
     }
@@ -48,6 +49,10 @@ class CatalogEventConsumer(
                     ?: throw IllegalArgumentException("필수 필드 누락: productId")
 
                 when (eventType) {
+                    EVENT_TYPE_PRODUCT_VIEWED -> {
+                        metricsEventProcessor.processProductViewed(eventId, eventType, productId)
+                        eventPublisher.publishEvent(RankingScoreEvent.ProductViewed(productId))
+                    }
                     EVENT_TYPE_LIKE_CREATED -> {
                         metricsEventProcessor.processLikeCreated(eventId, eventType, productId)
                         eventPublisher.publishEvent(RankingScoreEvent.LikeAdded(productId))

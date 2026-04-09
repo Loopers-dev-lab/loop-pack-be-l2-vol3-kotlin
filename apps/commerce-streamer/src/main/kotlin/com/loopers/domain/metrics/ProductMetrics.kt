@@ -64,6 +64,11 @@ class ProductMetrics private constructor(
         updatedAt = ZonedDateTime.now()
     }
 
+    fun incrementViewCount() {
+        viewCount++
+        lastEventAt = ZonedDateTime.now()
+    }
+
     fun incrementLikeCount() {
         likeCount++
         lastEventAt = ZonedDateTime.now()

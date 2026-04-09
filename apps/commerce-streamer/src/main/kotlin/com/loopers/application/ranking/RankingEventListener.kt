@@ -17,6 +17,8 @@ class RankingEventListener(
     fun handle(event: RankingScoreEvent) {
         try {
             when (event) {
+                is RankingScoreEvent.ProductViewed ->
+                    rankingScoreBuffer.add(event.productId, rankingProperties.weight.view)
                 is RankingScoreEvent.LikeAdded ->
                     rankingScoreBuffer.add(event.productId, rankingProperties.weight.like)
                 is RankingScoreEvent.LikeCancelled ->
