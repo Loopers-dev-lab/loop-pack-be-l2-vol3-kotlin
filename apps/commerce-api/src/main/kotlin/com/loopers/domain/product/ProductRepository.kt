@@ -11,5 +11,4 @@ interface ProductRepository {
     fun softDeleteByBrandId(brandId: Long): Int
     fun findAllActive(brandId: Long?, sortType: ProductSortType): List<Product>
     fun findAll(brandId: Long?): List<Product>
-    fun findAllByIds(ids: List<Long>): List<Product>
 }
