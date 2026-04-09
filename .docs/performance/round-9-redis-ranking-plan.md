@@ -493,28 +493,42 @@ carry-over 예시:
 
 ## 6. 검증 포인트
 
+### 6.0 현재 구현 상태 (volume-9)
+
+- `commerce-api` 는 상품 조회/좋아요/주문 완료 시 **Kafka 로 직접 이벤트를 발행**한다.
+- `commerce-streamer` 는 Kafka consumer 에서 `product_metrics` 와 Redis ranking ZSET 을 함께 갱신한다.
+- `commerce-api` 는 Redis ranking 을 읽어 랭킹 API 와 상품 상세 rank 를 제공한다.
+- 이번 구현에서는 **outbox 는 제거**했고, 랭킹은 eventually consistent 한 read model 로 취급한다.
+
 이번 과제 체크리스트를 그대로 코드 검증 항목으로 바꾸면 아래와 같다.
 
 ### 6.1 Ranking Consumer
 
-- [ ] 랭킹 ZSET key 가 `ranking:all:{yyyyMMdd}` 형식으로 적재된다.
-- [ ] TTL 이 2일로 걸린다.
-- [ ] 날짜별 key 계산이 `occurredAt` 기준으로 올바르게 동작한다.
-- [ ] 조회/좋아요/주문 이벤트 후 ZSET score 가 의도대로 증가한다.
+- [x] 랭킹 ZSET key 가 `ranking:all:{yyyyMMdd}` 형식으로 적재된다.
+- [x] TTL 이 2일로 걸린다.
+- [x] 날짜별 key 계산이 `occurredAt` 기준으로 올바르게 동작한다.
+- [x] 조회/좋아요/주문 이벤트 후 ZSET score 가 의도대로 증가한다.
 - [ ] 주문 1건 > 좋아요 3건 같은 우선순위가 weight 에 의해 보장된다.
 
 ### 6.2 Ranking API
 
-- [ ] `GET /api/v1/rankings` 가 page/size/date 기준으로 정상 응답한다.
-- [ ] 응답이 productId 목록이 아니라 상품 정보 aggregate 결과를 포함한다.
-- [ ] 상품 상세 조회 시 순위가 포함된다.
-- [ ] 순위가 없으면 `null` 로 반환된다.
+- [x] `GET /api/v1/rankings` 가 page/size/date 기준으로 정상 응답한다.
+- [x] 응답이 productId 목록이 아니라 상품 정보 aggregate 결과를 포함한다.
+- [x] 상품 상세 조회 시 순위가 포함된다.
+- [x] 순위가 없으면 `null` 로 반환된다.
 
 ### 6.3 E2E
 
 - [ ] 이벤트 발행 -> Kafka consume -> Redis ZSET 반영 -> API 조회 흐름이 동작한다.
 - [ ] 날짜가 바뀌어도 이전 날짜 key 조회가 가능하다.
 - [ ] Redis 에 score 누적 후 랭킹 순서가 의도대로 정렬된다.
+
+### 6.4 남은 TODO
+
+- [ ] Kafka publish 실패 시 보정 전략 문서화
+- [ ] 중복/역순 이벤트에 대한 복구 전략 정리
+- [ ] hourly ranking / carry-over 구현 여부 결정
+- [ ] 실제 E2E 시나리오 추가
 
 ---
 
@@ -605,7 +619,7 @@ carry-over 예시:
 
 이 방식이면:
 
-- 기존 outbox / Kafka 구조를 그대로 활용할 수 있고
+- outbox 없이도 Kafka 기반 집계 흐름을 유지할 수 있고
 - batch listener 구조도 유지할 수 있고
 - Redis 는 조회 최적화 계층으로 명확히 분리되며
 - Nice-to-have 인 hourly ranking / carry-over 도 자연스럽게 확장 가능하다.
