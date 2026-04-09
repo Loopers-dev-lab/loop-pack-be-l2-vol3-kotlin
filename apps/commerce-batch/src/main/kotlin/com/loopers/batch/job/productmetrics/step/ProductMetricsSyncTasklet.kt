@@ -10,6 +10,7 @@ import org.springframework.batch.core.step.tasklet.Tasklet
 import org.springframework.batch.repeat.RepeatStatus
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 
 @StepScope
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = ProductMetricsSyncJobConfig.JOB_NAME)
@@ -20,7 +21,10 @@ class ProductMetricsSyncTasklet(
 ) : Tasklet {
 
     override fun execute(contribution: StepContribution, chunkContext: ChunkContext): RepeatStatus {
-        val metrics = redisReader.readAllAndReset()
+        val targetDate = chunkContext.stepContext.jobParameters["requestDate"] as? LocalDate
+            ?: LocalDate.now().minusDays(1)
+
+        val metrics = redisReader.readSnapshot(targetDate)
         jdbcWriter.upsertAll(metrics)
         contribution.incrementWriteCount(metrics.size.toLong())
         return RepeatStatus.FINISHED
