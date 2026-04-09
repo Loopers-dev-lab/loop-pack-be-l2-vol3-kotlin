@@ -4,10 +4,8 @@ import com.loopers.application.ranking.GetRankingUseCase
 import com.loopers.interfaces.api.ranking.dto.RankingV1Dto
 import com.loopers.interfaces.api.ranking.spec.RankingV1ApiSpec
 import com.loopers.interfaces.support.ApiResponse
-import com.loopers.interfaces.support.toSpringPage
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
-import org.springframework.data.domain.Page
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -29,12 +27,11 @@ class RankingV1Controller(
         @RequestParam(required = false) date: String?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-    ): ApiResponse<Page<RankingV1Dto.RankingResponse>> {
+    ): ApiResponse<RankingV1Dto.RankingPageResponse> {
         val parsedDate = date?.let { parseDate(it) }
 
         return getRankingUseCase.execute(parsedDate, page, size)
-            .map { RankingV1Dto.RankingResponse.from(it) }
-            .toSpringPage()
+            .let { RankingV1Dto.RankingPageResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 

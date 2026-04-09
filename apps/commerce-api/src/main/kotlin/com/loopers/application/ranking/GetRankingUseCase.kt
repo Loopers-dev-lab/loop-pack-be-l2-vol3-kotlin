@@ -7,6 +7,7 @@ import com.loopers.domain.ranking.repository.RankingRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 
 @Component
@@ -16,15 +17,20 @@ class GetRankingUseCase(
     private val clock: Clock,
 ) {
 
+    @Volatile
+    private var totalCountCache: TotalCountSnapshot? = null
+
+    private data class TotalCountSnapshot(
+        val date: LocalDate,
+        val count: Long,
+        val expiresAt: Instant,
+    )
+
     @Transactional(readOnly = true)
     fun execute(date: LocalDate?, page: Int, size: Int): PageResult<RankingInfo> {
         val targetDate = date ?: LocalDate.now(clock)
         val rankings = fetchVisibleRankings(targetDate, page, size)
-        val totalElements = if (rankings.isEmpty() && page == 0) {
-            0L
-        } else {
-            computeTotalVisibleCount(targetDate)
-        }
+        val totalElements = computeTotalVisibleCount(targetDate)
 
         return PageResult(
             content = rankings,
@@ -45,8 +51,8 @@ class GetRankingUseCase(
         var visibleSeen = 0
 
         while (result.size < size) {
-            val entries = rankingRepository.getTopN(date, redisOffset, FETCH_BATCH_SIZE)
-            if (entries.isEmpty()) break
+            val (entries, rawFetchCount) = rankingRepository.getTopN(date, redisOffset, FETCH_BATCH_SIZE)
+            if (rawFetchCount == 0) break
 
             val productIds = entries.map { ProductId(it.productId) }
             val productMap = productRepository.findAllByIds(productIds)
@@ -71,30 +77,50 @@ class GetRankingUseCase(
                 )
             }
 
-            redisOffset += entries.size
-            if (entries.size < FETCH_BATCH_SIZE) break
+            redisOffset += rawFetchCount
+            if (rawFetchCount < FETCH_BATCH_SIZE) break
         }
 
         return result
     }
 
     /**
+     * 캐시가 유효하면(같은 date + 만료 전) 캐시 값을 반환하고,
+     * 그렇지 않으면 전체 스캔 후 캐시를 갱신한다.
+     */
+    private fun computeTotalVisibleCount(date: LocalDate): Long {
+        val now = Instant.now(clock)
+        val cached = totalCountCache
+        if (cached != null && cached.date == date && cached.expiresAt.isAfter(now)) {
+            return cached.count
+        }
+
+        val count = scanTotalVisibleCount(date)
+        totalCountCache = TotalCountSnapshot(
+            date = date,
+            count = count,
+            expiresAt = now.plusSeconds(TOTAL_COUNT_CACHE_TTL_SECONDS),
+        )
+        return count
+    }
+
+    /**
      * 전체 score > 0 항목 중 active 상품 건수를 배치 반복으로 정확히 산출한다.
      * score > 0 필터는 Repository(Redis) 레벨에서 적용된다.
      */
-    private fun computeTotalVisibleCount(date: LocalDate): Long {
+    private fun scanTotalVisibleCount(date: LocalDate): Long {
         var offset = 0
         var totalActive = 0L
 
         while (true) {
-            val entries = rankingRepository.getTopN(date, offset, FETCH_BATCH_SIZE)
-            if (entries.isEmpty()) break
+            val (entries, rawFetchCount) = rankingRepository.getTopN(date, offset, FETCH_BATCH_SIZE)
+            if (rawFetchCount == 0) break
 
             val productIds = entries.map { ProductId(it.productId) }
             totalActive += productRepository.findAllByIds(productIds).count { it.isActive() }
 
-            offset += entries.size
-            if (entries.size < FETCH_BATCH_SIZE) break
+            offset += rawFetchCount
+            if (rawFetchCount < FETCH_BATCH_SIZE) break
         }
 
         return totalActive
@@ -102,5 +128,6 @@ class GetRankingUseCase(
 
     companion object {
         private const val FETCH_BATCH_SIZE = 500
+        private const val TOTAL_COUNT_CACHE_TTL_SECONDS = 30L
     }
 }

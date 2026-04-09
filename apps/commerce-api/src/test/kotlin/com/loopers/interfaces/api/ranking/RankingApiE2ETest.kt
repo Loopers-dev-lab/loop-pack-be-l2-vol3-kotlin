@@ -113,10 +113,15 @@ class RankingApiE2ETest @Autowired constructor(
             assertThat(third["rank"]).isEqualTo(3)
             assertThat((third["productId"] as Number).toLong()).isEqualTo(productCId)
 
-            // 페이지 메타데이터
+            // 커스텀 페이지 응답 필드 검증
             assertThat((page["totalElements"] as Number).toLong()).isEqualTo(3L)
-            assertThat(page["number"]).isEqualTo(0)
+            assertThat(page["page"]).isEqualTo(0)
             assertThat(page["size"]).isEqualTo(20)
+
+            // Spring 내부 구조 노출 금지 검증
+            assertThat(page.containsKey("number")).isFalse()
+            assertThat(page.containsKey("sort")).isFalse()
+            assertThat(page.containsKey("pageable")).isFalse()
         }
 
         @Test
@@ -155,7 +160,7 @@ class RankingApiE2ETest @Autowired constructor(
             val content = page["content"] as List<*>
             assertThat(content).hasSize(2)
             assertThat(page["size"]).isEqualTo(2)
-            assertThat(page["number"]).isEqualTo(0)
+            assertThat(page["page"]).isEqualTo(0)
 
             // 1위, 2위만 포함
             val first = content[0] as Map<*, *>
@@ -183,6 +188,50 @@ class RankingApiE2ETest @Autowired constructor(
         fun `size 초과`() {
             val response = testRestTemplate.exchange("$ENDPOINT?size=101", HttpMethod.GET, null, RESPONSE_TYPE)
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("오늘과 어제 랭킹이 별도 키로 분리되어 각각 올바른 데이터를 반환한다")
+        fun `오늘과 어제 랭킹이 분리된다`() {
+            // Arrange
+            val yesterday = today.minusDays(1)
+            val yesterdayKey = "${RedisRankingConstants.RANKING_KEY_PREFIX}${yesterday.format(DateTimeFormatter.BASIC_ISO_DATE)}"
+            redisTemplate.opsForZSet().add(yesterdayKey, productAId.toString(), 10.0)
+
+            // Act
+            val response = testRestTemplate.exchange(
+                "$ENDPOINT?date=${yesterday.format(DateTimeFormatter.BASIC_ISO_DATE)}",
+                HttpMethod.GET,
+                null,
+                RESPONSE_TYPE,
+            )
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            val content = page["content"] as List<*>
+            assertThat(content).hasSize(1)
+            val first = content[0] as Map<*, *>
+            assertThat((first["productId"] as Number).toLong()).isEqualTo(productAId)
+            assertThat((first["score"] as Number).toDouble()).isEqualTo(10.0)
+            assertThat((page["totalElements"] as Number).toLong()).isEqualTo(1L)
+        }
+
+        @Test
+        @DisplayName("랭킹 데이터가 없는 날짜 조회 시 빈 결과를 반환한다")
+        fun `랭킹 키가 없을 때 빈 결과 반환`() {
+            // Arrange — setUp이 캐시를 워밍하지 않은 날짜 사용 (totalCountCache 영향 없음)
+            val dateStr = today.plusDays(1).format(DateTimeFormatter.BASIC_ISO_DATE)
+
+            // Act
+            val response = testRestTemplate.exchange("$ENDPOINT?date=$dateStr", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            val content = page["content"] as List<*>
+            assertThat(content).hasSize(0)
+            assertThat((page["totalElements"] as Number).toLong()).isEqualTo(0L)
         }
     }
 }

@@ -92,7 +92,7 @@ class ProductDetailRankE2ETest @Autowired constructor(
         }
 
         @Test
-        @DisplayName("랭킹이 없는 상품 조회 시 응답에 rank 필드가 생략된다 (NON_NULL)")
+        @DisplayName("랭킹이 없는 상품 조회 시 응답에 rank 필드가 null로 포함된다")
         fun `순위 없는 상품 상세 조회`() {
             // act
             val response = testRestTemplate.exchange(
@@ -105,7 +105,8 @@ class ProductDetailRankE2ETest @Autowired constructor(
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val data = response.body!!.data as Map<*, *>
-            assertThat(data.containsKey("rank")).isFalse()
+            assertThat(data.containsKey("rank")).isTrue()
+            assertThat(data["rank"]).isNull()
         }
     }
 }

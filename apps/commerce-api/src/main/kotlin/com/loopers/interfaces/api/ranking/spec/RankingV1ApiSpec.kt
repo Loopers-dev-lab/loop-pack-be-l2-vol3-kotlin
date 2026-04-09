@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Positive
 import jakarta.validation.constraints.PositiveOrZero
-import org.springframework.data.domain.Page
 
 @Tag(name = "Ranking V1 API", description = "랭킹 조회 API")
 interface RankingV1ApiSpec {
@@ -17,5 +16,5 @@ interface RankingV1ApiSpec {
         date: String?,
         @PositiveOrZero page: Int,
         @Positive @Max(100) size: Int,
-    ): ApiResponse<Page<RankingV1Dto.RankingResponse>>
+    ): ApiResponse<RankingV1Dto.RankingPageResponse>
 }

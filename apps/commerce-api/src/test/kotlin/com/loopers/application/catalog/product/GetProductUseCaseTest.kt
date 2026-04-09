@@ -362,5 +362,23 @@ class GetProductUseCaseTest {
             // assert
             assertThat(result.rank).isNull()
         }
+
+        @Test
+        @DisplayName("getRank 호출 시 예외가 발생해도 상품 상세가 rank=null로 정상 반환된다")
+        fun getProduct_rankingRepositoryThrows_returnsProductWithNullRank() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = BrandName("나이키")))
+            val product = productRepository.save(
+                Product(refBrandId = brand.id, name = "에어맥스 90", price = Money(BigDecimal("129000")), stock = Stock(100)),
+            )
+            rankingRepository.shouldThrow = true
+
+            // act
+            val result = useCase.execute(product.id.value)
+
+            // assert
+            assertThat(result.product.name).isEqualTo("에어맥스 90")
+            assertThat(result.rank).isNull()
+        }
     }
 }

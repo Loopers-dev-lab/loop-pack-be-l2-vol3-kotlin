@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -191,6 +192,58 @@ class GetRankingUseCaseTest {
     }
 
     @Nested
+    @DisplayName("커서 정합성 (파싱 드랍 시뮬레이션)")
+    inner class CursorIntegrity {
+
+        @Test
+        @DisplayName("파싱 드랍 발생 시 rawFetchCount 기준으로 offset이 전진하여 2번째 배치 항목도 누락 없이 반환된다")
+        fun `파싱 드랍이 발생해도 offset이 rawFetchCount 기준으로 전진한다`() {
+            // Arrange — 505개 항목 (FETCH_BATCH_SIZE=500 초과), parseDropCount=2
+            // 배치 1: 500개 fetch → 2개 드랍 → 498개 entries, rawFetchCount=500
+            //   버그(entries.size 기준): 498 < 500 → 조기 break, 배치 2 도달 불가
+            //   수정(rawFetchCount 기준): 500 == 500 → continue, 배치 2 진행
+            // 배치 2: 5개 fetch → 2개 드랍 → 3개 entries, rawFetchCount=5
+            for (i in 6L..505L) {
+                productRepository.save(
+                    Product(
+                        id = ProductId(i),
+                        refBrandId = BrandId(1L),
+                        name = "상품$i",
+                        price = Money(BigDecimal.valueOf(i * 1000)),
+                        stock = Stock(10),
+                    ),
+                )
+            }
+            for (i in 1L..505L) {
+                rankingRepository.addEntry(today, i, i.toDouble())
+            }
+            rankingRepository.parseDropCount = 2
+
+            // Act
+            val result = useCase.execute(date = today, page = 0, size = 600)
+
+            // Assert — 배치 2의 3개 항목(3, 2, 1)이 포함되어야 한다
+            val productIds = result.content.map { it.productId }
+            assertThat(productIds).doesNotHaveDuplicates()
+            assertThat(productIds).hasSize(501) // 498 (배치1) + 3 (배치2)
+            assertThat(productIds).contains(3L, 2L, 1L) // 배치 2에서 온 항목
+        }
+
+        @Test
+        @DisplayName("rawFetchCount가 0이면 루프를 종료한다")
+        fun `rawFetchCount가 0이면 루프를 종료한다`() {
+            // Arrange — 데이터 없음 → rawFetchCount=0
+
+            // Act
+            val result = useCase.execute(date = today, page = 0, size = 10)
+
+            // Assert — 빈 결과, 무한루프 없음
+            assertThat(result.content).isEmpty()
+            assertThat(result.totalElements).isEqualTo(0L)
+        }
+    }
+
+    @Nested
     @DisplayName("예외 처리")
     inner class ErrorHandling {
 
@@ -223,6 +276,77 @@ class GetRankingUseCaseTest {
             // Assert
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].productId).isEqualTo(1L)
+        }
+    }
+
+    @Nested
+    @DisplayName("totalElements 캐시")
+    inner class TotalCountCache {
+
+        @Test
+        @DisplayName("캐시 유효 기간 내 항목이 추가되어도 totalElements는 캐시값을 반환한다")
+        fun `캐시 유효 기간 내 재호출 시 totalElements가 갱신되지 않는다`() {
+            // Arrange — 2개 항목으로 1차 호출 → count=2 캐시
+            rankingRepository.addEntry(today, 1L, 1.0)
+            rankingRepository.addEntry(today, 2L, 2.0)
+            val first = useCase.execute(date = today, page = 0, size = 10)
+            assertThat(first.totalElements).isEqualTo(2L)
+
+            // 캐시 세팅 이후 새 항목 추가
+            rankingRepository.addEntry(today, 3L, 3.0)
+
+            // Act — TTL 내 재호출
+            val second = useCase.execute(date = today, page = 0, size = 10)
+
+            // Assert — totalElements는 캐시값(2), content는 최신(3) → 캐시 존재 증거
+            assertThat(second.totalElements).isEqualTo(2L)
+            assertThat(second.content).hasSize(3)
+        }
+
+        @Test
+        @DisplayName("날짜가 다르면 캐시를 공유하지 않고 독립적으로 계산한다")
+        fun `날짜가 다르면 캐시를 공유하지 않는다`() {
+            // Arrange — 오늘 2개 항목으로 캐시 세팅
+            val yesterday = today.minusDays(1)
+            rankingRepository.addEntry(today, 1L, 1.0)
+            rankingRepository.addEntry(today, 2L, 2.0)
+            useCase.execute(date = today, page = 0, size = 10) // today count=2 캐시
+
+            // 어제 항목은 캐시 이후에 추가 (today 캐시와 독립인지 확인)
+            rankingRepository.addEntry(yesterday, 3L, 3.0)
+            rankingRepository.addEntry(yesterday, 4L, 4.0)
+
+            // Act — 어제 날짜로 호출
+            val yesterdayResult = useCase.execute(date = yesterday, page = 0, size = 10)
+
+            // Assert — 어제는 캐시 없이 새로 계산 → 2개
+            assertThat(yesterdayResult.totalElements).isEqualTo(2L)
+        }
+
+        @Test
+        @DisplayName("TTL 만료 후 재호출 시 totalElements가 새 값으로 재계산된다")
+        fun `TTL 만료 후 totalElements가 재계산된다`() {
+            // 별도 MutableClock + UseCase 생성 (TTL 시간 조작을 위해 clock 분리)
+            val mutableClock = MutableClock(clock.instant(), clock.zone)
+            val localRepo = FakeRankingRepository()
+            val ttlUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock)
+
+            // step 1: 첫 호출로 totalElements 캐시 생성 (count=2)
+            localRepo.addEntry(today, 1L, 1.0)
+            localRepo.addEntry(today, 2L, 2.0)
+            assertThat(ttlUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(2L)
+
+            // step 2: 같은 날짜에 항목 추가
+            localRepo.addEntry(today, 3L, 3.0)
+
+            // step 3: TTL 내 재호출 → stale 캐시 반환 (2)
+            assertThat(ttlUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(2L)
+
+            // step 4: clock을 31초 전진 (TTL=30s 초과)
+            mutableClock.advance(31)
+
+            // step 5: TTL 만료 후 재호출 → 재계산된 새 값 (3)
+            assertThat(ttlUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(3L)
         }
     }
 
@@ -347,5 +471,17 @@ class GetRankingUseCaseTest {
             assertThat(result.content).isEmpty()
             assertThat(result.totalElements).isEqualTo(3L)
         }
+    }
+}
+
+private class MutableClock(
+    private var current: Instant,
+    private val zone: ZoneId,
+) : Clock() {
+    override fun getZone(): ZoneId = zone
+    override fun withZone(zone: ZoneId): Clock = MutableClock(current, zone)
+    override fun instant(): Instant = current
+    fun advance(seconds: Long) {
+        current = current.plusSeconds(seconds)
     }
 }

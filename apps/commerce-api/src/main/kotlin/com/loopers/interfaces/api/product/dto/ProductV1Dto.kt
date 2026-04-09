@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.product.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.loopers.application.catalog.CatalogInfo
 import com.loopers.application.catalog.product.ProductInfo
 import com.loopers.interfaces.api.brand.dto.BrandV1Dto
@@ -29,6 +30,7 @@ class ProductV1Dto {
     data class ProductDetailResponse(
         val product: CustomerProductResponse,
         val brand: BrandV1Dto.BrandResponse,
+        @JsonInclude(JsonInclude.Include.ALWAYS)
         val rank: Int? = null,
     ) {
         companion object {

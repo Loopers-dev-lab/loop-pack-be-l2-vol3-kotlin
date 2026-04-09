@@ -46,11 +46,12 @@ class RedisRankingRepositoryTest @Autowired constructor(
             val result = redisRankingRepository.getTopN(today, 0, 3)
 
             // Assert
-            assertThat(result).hasSize(3)
-            assertThat(result[0].productId).isEqualTo(2L)
-            assertThat(result[0].score).isCloseTo(3.0, Offset.offset(0.001))
-            assertThat(result[1].productId).isEqualTo(3L)
-            assertThat(result[2].productId).isEqualTo(1L)
+            assertThat(result.entries).hasSize(3)
+            assertThat(result.rawFetchCount).isEqualTo(3)
+            assertThat(result.entries[0].productId).isEqualTo(2L)
+            assertThat(result.entries[0].score).isCloseTo(3.0, Offset.offset(0.001))
+            assertThat(result.entries[1].productId).isEqualTo(3L)
+            assertThat(result.entries[2].productId).isEqualTo(1L)
         }
 
         @Test
@@ -65,9 +66,10 @@ class RedisRankingRepositoryTest @Autowired constructor(
             val result = redisRankingRepository.getTopN(today, 2, 2)
 
             // Assert
-            assertThat(result).hasSize(2)
-            assertThat(result[0].productId).isEqualTo(3L)
-            assertThat(result[1].productId).isEqualTo(2L)
+            assertThat(result.entries).hasSize(2)
+            assertThat(result.rawFetchCount).isEqualTo(2)
+            assertThat(result.entries[0].productId).isEqualTo(3L)
+            assertThat(result.entries[1].productId).isEqualTo(2L)
         }
 
         @Test
@@ -82,10 +84,11 @@ class RedisRankingRepositoryTest @Autowired constructor(
             val result = redisRankingRepository.getTopN(today, 0, 3)
 
             // Assert — lex DESC: "3" > "2" > "10"
-            assertThat(result).hasSize(3)
-            assertThat(result[0].productId).isEqualTo(3L)
-            assertThat(result[1].productId).isEqualTo(2L)
-            assertThat(result[2].productId).isEqualTo(10L)
+            assertThat(result.entries).hasSize(3)
+            assertThat(result.rawFetchCount).isEqualTo(3)
+            assertThat(result.entries[0].productId).isEqualTo(3L)
+            assertThat(result.entries[1].productId).isEqualTo(2L)
+            assertThat(result.entries[2].productId).isEqualTo(10L)
         }
 
         @Test
@@ -100,19 +103,20 @@ class RedisRankingRepositoryTest @Autowired constructor(
             // Act
             val result = redisRankingRepository.getTopN(today, 0, 10)
 
-            // Assert — score > 0인 상품 1, 4만 반환
-            assertThat(result).hasSize(2)
-            assertThat(result.map { it.productId }).containsExactly(1L, 4L)
+            // Assert — score > 0인 상품 1, 4만 반환. rawFetchCount는 score>0 필터 후 건수
+            assertThat(result.entries).hasSize(2)
+            assertThat(result.entries.map { it.productId }).containsExactly(1L, 4L)
         }
 
         @Test
-        @DisplayName("키가 없으면 빈 리스트를 반환한다")
+        @DisplayName("키가 없으면 빈 결과를 반환한다")
         fun `키가 없으면 빈 리스트를 반환한다`() {
             // Act
             val result = redisRankingRepository.getTopN(today, 0, 10)
 
             // Assert
-            assertThat(result).isEmpty()
+            assertThat(result.entries).isEmpty()
+            assertThat(result.rawFetchCount).isEqualTo(0)
         }
     }
 

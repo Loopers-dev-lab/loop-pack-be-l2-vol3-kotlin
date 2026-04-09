@@ -1,6 +1,6 @@
 package com.loopers.domain.ranking.repository
 
-import com.loopers.domain.ranking.model.RankingEntry
+import com.loopers.domain.ranking.model.RankingFetchResult
 import java.time.LocalDate
 
 interface RankingRepository {
@@ -12,9 +12,9 @@ interface RankingRepository {
      * @param date 랭킹 기준 날짜 (KST)
      * @param offset 시작 위치 (0-based)
      * @param limit 조회 개수
-     * @return 점수 내림차순 정렬된 랭킹 항목. 키가 없으면 빈 리스트.
+     * @return 파싱 성공 항목(entries)과 Redis에서 실제 소비한 항목 수(rawFetchCount)
      */
-    fun getTopN(date: LocalDate, offset: Int, limit: Int): List<RankingEntry>
+    fun getTopN(date: LocalDate, offset: Int, limit: Int): RankingFetchResult
 
     /**
      * 특정 상품의 순위를 조회한다.

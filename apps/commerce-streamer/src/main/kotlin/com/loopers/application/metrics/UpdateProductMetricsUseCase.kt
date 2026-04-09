@@ -5,18 +5,24 @@ import com.loopers.domain.event.repository.EventHandledRepository
 import com.loopers.domain.metrics.model.ProductMetrics
 import com.loopers.domain.metrics.repository.ProductMetricsRepository
 import com.loopers.domain.ranking.RankingWeight
+import com.loopers.domain.ranking.model.FailedScoreUpdate
+import com.loopers.domain.ranking.repository.FailedScoreUpdateRepository
 import com.loopers.domain.ranking.repository.RankingScoreRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
+import java.time.Clock
+import java.time.LocalDate
 
 @Component
 class UpdateProductMetricsUseCase(
     private val productMetricsRepository: ProductMetricsRepository,
     private val eventHandledRepository: EventHandledRepository,
     private val rankingScoreRepository: RankingScoreRepository,
+    private val failedScoreUpdateRepository: FailedScoreUpdateRepository,
+    private val clock: Clock,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -40,8 +46,8 @@ class UpdateProductMetricsUseCase(
                 RankingWeight.LIKE
             }
             LIKE_REMOVED -> {
-                val decreased = metrics.decrementLikeCount()
-                if (decreased) RankingWeight.LIKE * -1 else 0.0
+                metrics.decrementLikeCount()
+                RankingWeight.LIKE * -1
             }
             else -> {
                 log.warn("알 수 없는 catalog 이벤트 타입: eventType={}", eventType)
@@ -54,7 +60,11 @@ class UpdateProductMetricsUseCase(
         eventHandledRepository.save(EventHandled(eventId = eventId))
 
         if (rankingScore != 0.0) {
-            registerScoreUpdateAfterCommit(productId, rankingScore)
+            val rankingDate = LocalDate.now(clock)
+            val failedRecord = failedScoreUpdateRepository.save(
+                FailedScoreUpdate(eventId = eventId, productId = productId, score = rankingScore, rankingDate = rankingDate),
+            )
+            registerScoreUpdateAfterCommit(eventId, productId, rankingScore, rankingDate, failedRecord.id)
         }
     }
 
@@ -78,28 +88,45 @@ class UpdateProductMetricsUseCase(
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
 
-        registerScoreUpdateAfterCommit(productId, score)
+        val rankingDate = LocalDate.now(clock)
+        val failedRecord = failedScoreUpdateRepository.save(
+            FailedScoreUpdate(eventId = eventId, productId = productId, score = score, rankingDate = rankingDate),
+        )
+        registerScoreUpdateAfterCommit(eventId, productId, score, rankingDate, failedRecord.id)
     }
 
-    private fun registerScoreUpdateAfterCommit(productId: Long, score: Double) {
+    private fun registerScoreUpdateAfterCommit(
+        eventId: String,
+        productId: Long,
+        score: Double,
+        rankingDate: LocalDate,
+        failedRecordId: Long,
+    ) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                 object : TransactionSynchronization {
                     override fun afterCommit() {
-                        incrementScoreWithRetry(productId, score)
+                        tryRedisAndCleanup(eventId, productId, score, rankingDate, failedRecordId)
                     }
                 },
             )
         } else {
-            rankingScoreRepository.incrementScore(productId, score)
+            tryRedisAndCleanup(eventId, productId, score, rankingDate, failedRecordId)
         }
     }
 
-    private fun incrementScoreWithRetry(productId: Long, score: Double) {
+    private fun tryRedisAndCleanup(
+        eventId: String,
+        productId: Long,
+        score: Double,
+        rankingDate: LocalDate,
+        failedRecordId: Long,
+    ) {
         var lastException: Exception? = null
         repeat(MAX_RETRY_COUNT) { attempt ->
             try {
-                rankingScoreRepository.incrementScore(productId, score)
+                rankingScoreRepository.incrementScore(productId, score, eventId, rankingDate)
+                deleteFailedRecord(failedRecordId)
                 return
             } catch (e: Exception) {
                 lastException = e
@@ -115,12 +142,20 @@ class UpdateProductMetricsUseCase(
             }
         }
         log.error(
-            "Redis 랭킹 점수 갱신 최종 실패. productId={}, score={}: {}",
+            "Redis 랭킹 점수 갱신 최종 실패, 스케줄러에서 재처리 예정. eventId={}, productId={}: {}",
+            eventId,
             productId,
-            score,
             lastException?.message,
             lastException,
         )
+    }
+
+    private fun deleteFailedRecord(failedRecordId: Long) {
+        try {
+            failedScoreUpdateRepository.deleteById(failedRecordId)
+        } catch (e: Exception) {
+            log.warn("FailedScoreUpdate 삭제 실패 (스케줄러에서 멱등 재처리 예정). id={}: {}", failedRecordId, e.message)
+        }
     }
 
     private fun findOrCreate(productId: Long): ProductMetrics {
