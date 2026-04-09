@@ -11,13 +11,14 @@ class ProductMetricsJdbcWriter(
     private val log = LoggerFactory.getLogger(ProductMetricsJdbcWriter::class.java)
 
     companion object {
+        // Redis가 SoT이므로 누적 합산이 아닌 스냅샷 덮어쓰기
         private const val UPSERT_SQL = """
             INSERT INTO product_metrics (product_id, view_count, like_count, order_count, created_at, updated_at)
             VALUES (?, ?, ?, ?, NOW(), NOW())
             ON DUPLICATE KEY UPDATE
-                view_count = view_count + VALUES(view_count),
-                like_count = like_count + VALUES(like_count),
-                order_count = order_count + VALUES(order_count),
+                view_count = VALUES(view_count),
+                like_count = VALUES(like_count),
+                order_count = VALUES(order_count),
                 updated_at = NOW()
         """
     }
