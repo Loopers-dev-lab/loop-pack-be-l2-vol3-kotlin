@@ -12,9 +12,11 @@ import com.loopers.application.user.RegisterUserUseCase
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.order.OrderException
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -26,7 +28,7 @@ import org.springframework.test.context.jdbc.Sql
 import java.time.ZonedDateTime
 
 @SpringBootTest
-@Import(MySqlTestContainersConfig::class)
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 @Sql(
     statements = [
         "DELETE FROM order_item",
@@ -58,6 +60,9 @@ class CancelOrderUseCaseIntegrationTest {
     @Autowired
     private lateinit var registerProductUseCase: RegisterProductUseCase
 
+    @Autowired
+    private lateinit var entryTokenRepository: EntryTokenRepository
+
     private var userId: Long = 0
     private var otherUserId: Long = 0
     private var orderId: Long = 0
@@ -70,6 +75,7 @@ class CancelOrderUseCaseIntegrationTest {
             RegisterBrandCommand(name = "테스트브랜드", description = null, logoUrl = null),
         )
         val productId = registerProductUseCase.register(createProductCommand(brandId))
+        entryTokenRepository.issueToken(userId, "test-token", 300)
         orderId = createOrderUseCase.create(
             userId,
             CreateOrderCommand(items = listOf(OrderItemCommand(productId = productId, quantity = 1))),
@@ -129,6 +135,7 @@ class CancelOrderUseCaseIntegrationTest {
             RegisterBrandCommand(name = "쿠폰테스트브랜드", description = null, logoUrl = null),
         )
         val productId = registerProductUseCase.register(createProductCommand(brandId))
+        entryTokenRepository.issueToken(userId, "coupon-test-token", 300)
         val couponOrderId = createOrderUseCase.create(
             userId,
             CreateOrderCommand(

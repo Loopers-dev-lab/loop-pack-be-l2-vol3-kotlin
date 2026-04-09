@@ -13,7 +13,9 @@ import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.order.OrderStatus
 import com.loopers.domain.payment.PaymentRepository
 import com.loopers.domain.payment.PaymentStatus
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -24,7 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.context.jdbc.Sql
 
 @SpringBootTest
-@Import(MySqlTestContainersConfig::class)
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 @Sql(
     statements = [
         "DELETE FROM payments",
@@ -70,6 +72,9 @@ class HandlePaymentCallbackUseCaseIntegrationTest {
     @MockitoBean
     private lateinit var callbackUrlProvider: CallbackUrlProvider
 
+    @Autowired
+    private lateinit var entryTokenRepository: EntryTokenRepository
+
     private var userId: Long = 0
     private var orderId: Long = 0
     private var paymentId: Long = 0
@@ -81,6 +86,7 @@ class HandlePaymentCallbackUseCaseIntegrationTest {
             RegisterBrandCommand(name = "테스트브랜드", description = null, logoUrl = null),
         )
         val productId = registerProductUseCase.register(createProductCommand(brandId))
+        entryTokenRepository.issueToken(userId, "test-token", 300)
         orderId = createOrderUseCase.create(
             userId,
             CreateOrderCommand(items = listOf(OrderItemCommand(productId = productId, quantity = 2))),

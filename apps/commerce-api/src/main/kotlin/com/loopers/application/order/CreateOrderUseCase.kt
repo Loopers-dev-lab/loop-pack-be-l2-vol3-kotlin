@@ -8,6 +8,7 @@ import com.loopers.domain.order.OrderItemFactory
 import com.loopers.domain.order.OrderRepository
 import com.loopers.domain.product.Money
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.context.ApplicationEventPublisher
@@ -24,12 +25,17 @@ class CreateOrderUseCase(
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val userCouponRepository: UserCouponRepository,
+    private val entryTokenRepository: EntryTokenRepository,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val orderItemFactory = OrderItemFactory()
 
     @Transactional
     fun create(userId: Long, command: CreateOrderCommand): Long {
+        if (!entryTokenRepository.hasToken(userId)) {
+            throw CoreException(ErrorType.FORBIDDEN, "대기열 입장 토큰이 없습니다. 대기열에 먼저 진입해주세요.")
+        }
+
         require(command.items.isNotEmpty()) { "주문 항목은 최소 1개 이상이어야 합니다." }
 
         val sortedItems = command.items.sortedBy { it.productId }
@@ -65,6 +71,8 @@ class CreateOrderUseCase(
         }
 
         val orderId = orderRepository.save(order)
+
+        entryTokenRepository.deleteToken(userId)
 
         eventPublisher.publishEvent(
             OrderCreatedEvent(

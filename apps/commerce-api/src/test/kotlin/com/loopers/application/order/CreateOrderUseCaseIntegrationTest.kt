@@ -14,9 +14,11 @@ import com.loopers.domain.coupon.CouponException
 import com.loopers.domain.coupon.UserCouponRepository
 import com.loopers.domain.product.ProductException
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -28,7 +30,7 @@ import org.springframework.test.context.jdbc.Sql
 import java.time.ZonedDateTime
 
 @SpringBootTest
-@Import(MySqlTestContainersConfig::class)
+@Import(MySqlTestContainersConfig::class, RedisTestContainersConfig::class)
 @Sql(
     statements = [
         "DELETE FROM order_item",
@@ -72,6 +74,9 @@ class CreateOrderUseCaseIntegrationTest {
     @Autowired
     private lateinit var userCouponRepository: UserCouponRepository
 
+    @Autowired
+    private lateinit var entryTokenRepository: EntryTokenRepository
+
     private var userId: Long = 0
     private var brandId: Long = 0
     private var productId: Long = 0
@@ -83,6 +88,7 @@ class CreateOrderUseCaseIntegrationTest {
             RegisterBrandCommand(name = "테스트브랜드", description = null, logoUrl = null),
         )
         productId = registerProductUseCase.register(createProductCommand(brandId, 100))
+        entryTokenRepository.issueToken(userId, "test-token", 300)
     }
 
     @Test
@@ -174,6 +180,7 @@ class CreateOrderUseCaseIntegrationTest {
     fun `이미 사용된 쿠폰으로 주문하면 CouponException이 발생한다`() {
         val couponId = registerCouponUseCase.register(createCouponCommand())
         val userCouponId = issueCouponUseCase.issue(userId, couponId)
+        entryTokenRepository.issueToken(userId, "coupon-test-token", 300)
         createOrderUseCase.create(
             userId,
             CreateOrderCommand(
@@ -182,6 +189,7 @@ class CreateOrderUseCaseIntegrationTest {
             ),
         )
 
+        entryTokenRepository.issueToken(userId, "coupon-test-token-2", 300)
         assertThatThrownBy {
             createOrderUseCase.create(
                 userId,

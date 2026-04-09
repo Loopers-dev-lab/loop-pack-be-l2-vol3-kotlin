@@ -64,6 +64,12 @@ class ProductRepositoryImpl(
         return entities.map { ProductMapper.toDomainWithoutImages(it) }
     }
 
+    override fun findAllByIds(ids: List<Long>): List<Product> {
+        if (ids.isEmpty()) return emptyList()
+        return jpaRepository.findAllActiveByIds(ids)
+            .map { ProductMapper.toDomainWithoutImages(it) }
+    }
+
     override fun findAll(brandId: Long?): List<Product> {
         val entities = when {
             brandId != null -> jpaRepository.findAllByBrand(brandId)
