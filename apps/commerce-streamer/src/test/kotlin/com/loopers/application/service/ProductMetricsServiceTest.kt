@@ -8,6 +8,7 @@ import com.loopers.interfaces.consumer.EventHandler
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.DisplayName
@@ -74,7 +75,9 @@ class ProductMetricsServiceTest {
 
         // Then
         verify { handler.handle(event) }
-        verify { productRankingWriteService.write(event) }
-        verify { eventHandledRepository.save(any()) }
+        verifyOrder {
+            eventHandledRepository.save(any())
+            productRankingWriteService.write(event)
+        }
     }
 }

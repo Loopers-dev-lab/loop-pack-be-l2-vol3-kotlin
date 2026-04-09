@@ -13,16 +13,8 @@ class ProductRankingReadService(
         private val KST_ZONE_ID: ZoneId = ZoneId.of("Asia/Seoul")
     }
 
-    fun getRankedProducts(processingDate: LocalDate?, page: Int, size: Int): List<ProductRankingReadModel> {
-        return productRankingRepository.getRankedProducts(resolveProcessingDate(processingDate), page, size)
-    }
-
     fun getRank(processingDate: LocalDate?, productId: Long): Long? {
         return productRankingRepository.getRank(resolveProcessingDate(processingDate), productId)
-    }
-
-    fun count(processingDate: LocalDate?): Long {
-        return productRankingRepository.count(resolveProcessingDate(processingDate))
     }
 
     fun getRankedProductsWithCount(processingDate: LocalDate?, page: Int, size: Int): RankedProductsWithCount {
