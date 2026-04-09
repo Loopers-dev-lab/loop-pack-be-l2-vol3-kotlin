@@ -5,28 +5,32 @@ import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.ranking.repository.RankingRepository
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
 
 @Component
 class GetRankingUseCase(
     private val rankingRepository: RankingRepository,
     private val productRepository: ProductRepository,
     private val clock: Clock,
+    transactionManager: PlatformTransactionManager,
 ) {
 
-    @Volatile
-    private var totalCountCache: TotalCountSnapshot? = null
+    private val readOnlyTxTemplate = TransactionTemplate(transactionManager).apply {
+        isReadOnly = true
+    }
+
+    private val totalCountCache = ConcurrentHashMap<LocalDate, TotalCountSnapshot>()
 
     private data class TotalCountSnapshot(
-        val date: LocalDate,
         val count: Long,
         val expiresAt: Instant,
     )
 
-    @Transactional(readOnly = true)
     fun execute(date: LocalDate?, page: Int, size: Int): PageResult<RankingInfo> {
         val targetDate = date ?: LocalDate.now(clock)
         val rankings = fetchVisibleRankings(targetDate, page, size)
@@ -45,19 +49,21 @@ class GetRankingUseCase(
      * 앞 페이지에서 DB 필터로 제외된 항목 수에 관계없이 뒤 페이지가 정확히 이어진다.
      */
     private fun fetchVisibleRankings(date: LocalDate, page: Int, size: Int): List<RankingInfo> {
-        val skipCount = page * size
+        val skipCount = page.toLong() * size
         val result = mutableListOf<RankingInfo>()
         var redisOffset = 0
-        var visibleSeen = 0
+        var visibleSeen = 0L
 
         while (result.size < size) {
             val (entries, rawFetchCount) = rankingRepository.getTopN(date, redisOffset, FETCH_BATCH_SIZE)
             if (rawFetchCount == 0) break
 
             val productIds = entries.map { ProductId(it.productId) }
-            val productMap = productRepository.findAllByIds(productIds)
-                .filter { it.isActive() }
-                .associateBy { it.id.value }
+            val productMap = readOnlyTxTemplate.execute {
+                productRepository.findAllByIds(productIds)
+                    .filter { it.isActive() }
+                    .associateBy { it.id.value }
+            }!!
 
             for (entry in entries) {
                 val product = productMap[entry.productId] ?: continue
@@ -68,7 +74,7 @@ class GetRankingUseCase(
                 if (result.size >= size) break
                 result.add(
                     RankingInfo(
-                        rank = skipCount + result.size + 1,
+                        rank = (skipCount + result.size + 1).toInt(),
                         productId = entry.productId,
                         productName = product.name,
                         price = product.price.value,
@@ -90,14 +96,13 @@ class GetRankingUseCase(
      */
     private fun computeTotalVisibleCount(date: LocalDate): Long {
         val now = Instant.now(clock)
-        val cached = totalCountCache
-        if (cached != null && cached.date == date && cached.expiresAt.isAfter(now)) {
+        val cached = totalCountCache[date]
+        if (cached != null && cached.expiresAt.isAfter(now)) {
             return cached.count
         }
 
         val count = scanTotalVisibleCount(date)
-        totalCountCache = TotalCountSnapshot(
-            date = date,
+        totalCountCache[date] = TotalCountSnapshot(
             count = count,
             expiresAt = now.plusSeconds(TOTAL_COUNT_CACHE_TTL_SECONDS),
         )
@@ -117,7 +122,9 @@ class GetRankingUseCase(
             if (rawFetchCount == 0) break
 
             val productIds = entries.map { ProductId(it.productId) }
-            totalActive += productRepository.findAllByIds(productIds).count { it.isActive() }
+            totalActive += readOnlyTxTemplate.execute {
+                productRepository.findAllByIds(productIds).count { it.isActive() }.toLong()
+            }!!
 
             offset += rawFetchCount
             if (rawFetchCount < FETCH_BATCH_SIZE) break

@@ -122,32 +122,18 @@ class UpdateProductMetricsUseCase(
         rankingDate: LocalDate,
         failedRecordId: Long,
     ) {
-        var lastException: Exception? = null
-        repeat(MAX_RETRY_COUNT) { attempt ->
-            try {
-                rankingScoreRepository.incrementScore(productId, score, eventId, rankingDate)
-                deleteFailedRecord(failedRecordId)
-                return
-            } catch (e: Exception) {
-                lastException = e
-                log.warn(
-                    "Redis 랭킹 점수 갱신 재시도 {}/{}. productId={}, score={}: {}",
-                    attempt + 1,
-                    MAX_RETRY_COUNT,
-                    productId,
-                    score,
-                    e.message,
-                )
-                Thread.sleep(RETRY_DELAY_MS)
-            }
+        try {
+            rankingScoreRepository.incrementScore(productId, score, eventId, rankingDate)
+            deleteFailedRecord(failedRecordId)
+        } catch (e: Exception) {
+            log.error(
+                "Redis 랭킹 점수 갱신 실패, 스케줄러에서 재처리 예정. eventId={}, productId={}: {}",
+                eventId,
+                productId,
+                e.message,
+                e,
+            )
         }
-        log.error(
-            "Redis 랭킹 점수 갱신 최종 실패, 스케줄러에서 재처리 예정. eventId={}, productId={}: {}",
-            eventId,
-            productId,
-            lastException?.message,
-            lastException,
-        )
     }
 
     private fun deleteFailedRecord(failedRecordId: Long) {
@@ -168,7 +154,5 @@ class UpdateProductMetricsUseCase(
         const val LIKE_ADDED = "LIKE_ADDED"
         const val LIKE_REMOVED = "LIKE_REMOVED"
         const val PAYMENT_COMPLETED = "PAYMENT_COMPLETED"
-        private const val MAX_RETRY_COUNT = 3
-        private const val RETRY_DELAY_MS = 100L
     }
 }

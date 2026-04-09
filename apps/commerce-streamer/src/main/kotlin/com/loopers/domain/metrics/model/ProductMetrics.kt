@@ -35,7 +35,8 @@ class ProductMetrics(
      * @return 실제 감소가 발생했으면 true, likeCount가 이미 0이면 false
      */
     fun decrementLikeCount(): Boolean {
-        if (likeCount <= 0) return false
+        check(likeCount >= 0) { "likeCount는 음수일 수 없다: $likeCount" }
+        if (likeCount == 0L) return false
         likeCount--
         return true
     }

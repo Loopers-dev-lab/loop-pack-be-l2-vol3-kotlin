@@ -256,7 +256,41 @@
 ## RD-032. @Transactional(readOnly) 내 Redis 호출
 - **keywords**: `@Transactional`, `readOnly`, `Redis`, `DB 커넥션`, `점유`, `GetProductUseCase`
 - **리뷰어**: CodeRabbit (nitpick)
-- **repeat_count**: 1
+- **repeat_count**: 2 (PR#36 Gemini: GetRankingUseCase 동일 패턴 미적용)
 - **최종 결정**: 수용
 - **근거**: readOnly 트랜잭션 내 Redis 호출로 DB 커넥션 점유 시간 증가. 트랜잭션 내부(DB 조회)와 외부(Redis 조회, 이벤트 발행) 분리로 해결.
-- **최종 업데이트**: 2026-04-06
+- **최종 업데이트**: 2026-04-09
+
+## RD-033. 랭킹 목록 API vs 상품 상세 API 순위 의미 분리
+- **keywords**: `rank`, `ZREVRANK`, `filtered rank`, `상품 상세`, `랭킹 목록`, `불일치`
+- **리뷰어**: Codex (P2)
+- **repeat_count**: 1
+- **최종 결정**: 트레이드오프 (현행 유지)
+- **근거**: 랭킹 목록은 비활성 상품을 제외한 "고객 노출 순위"(filtered), 상품 상세는 전체 인기도 내 "raw 순위"(ZREVRANK)로 의미가 다르다. filtered rank를 상품 상세에서도 계산하려면 매 요청마다 상위 항목 전체 순회 + DB active 확인이 필요하여 성능 비용 과대.
+- **최종 업데이트**: 2026-04-09
+
+## RD-034. totalElements 캐시와 content 스냅샷 30초 이내 오차 허용
+- **keywords**: `totalElements`, `totalCountCache`, `TTL`, `캐시`, `페이지네이션`, `스냅샷 불일치`
+- **리뷰어**: CodeRabbit (Major)
+- **repeat_count**: 1
+- **최종 결정**: 트레이드오프 (현행 유지)
+- **근거**: totalElements와 content 모두 "visible(active+미삭제) 상품"이라는 동일한 의미를 기준으로 계산하되, totalElements만 30초 캐시로 stale할 수 있다. 동시 계산하면 캐시 의미가 소실. 페이지네이션 메타데이터의 30초 이내 오차는 허용 범위.
+- **주의**: 이 결정은 "같은 의미의 값이 캐시로 잠깐 stale한 것"만 허용한다. ZCOUNT 등 의미가 다른 값(비활성/삭제 상품 포함)을 visible totalElements로 대체하는 근거로 사용 불가.
+- **최종 업데이트**: 2026-04-09
+
+## RD-035. 재처리 스케줄러 다중 인스턴스 중복 소비 — 멱등성 기반 대응
+- **keywords**: `RetryFailedScoreUpdateScheduler`, `FOR UPDATE SKIP LOCKED`, `다중 인스턴스`, `중복 소비`, `멱등성`
+- **리뷰어**: CodeRabbit (Major)
+- **repeat_count**: 1
+- **최종 결정**: 트레이드오프 (현행 유지, 단일 인스턴스 전제)
+- **근거**: (1) incrementScore Lua 스크립트가 eventId 기반 멱등성을 보장하여 점수 중복 가산은 방지. (2) FOR UPDATE SKIP LOCKED는 native query 필요 → 프로젝트 규칙 "JPQL/NativeQuery 금지" 위반. (3) commerce-streamer 단일 인스턴스 환경 전제.
+- **한계**: 멱등성은 점수 중복만 막을 뿐, 다중 인스턴스 시 중복 poll로 인한 불필요한 DB/Redis 부하까지는 해결하지 않는다. 다중 인스턴스 확장 시 ShedLock 등 분산 락 도입 필요(RD-006 참고).
+- **최종 업데이트**: 2026-04-09
+
+## RD-036. scanTotalVisibleCount O(N) 비용 — 요구사항 의미 보존 우선
+- **keywords**: `scanTotalVisibleCount`, `totalElements`, `ZCOUNT`, `비활성 상품`, `성능`, `O(N)`
+- **리뷰어**: Gemini (High)
+- **repeat_count**: 1
+- **최종 결정**: 트레이드오프 (현행 유지)
+- **근거**: 요구사항 "삭제/비활성 상태인 상품은 ZSET에 남아있어도 랭킹 API 응답에서 제외한다"가 content뿐 아니라 totalElements에도 적용된다. ZCOUNT(score>0)는 비활성/삭제 상품을 포함하므로 visible totalElements의 의미와 다르다. 현재 scanTotalVisibleCount가 요구사항적으로 올바른 구현이며, 30초 캐시 TTL로 호출 빈도가 제한된다. 대규모 데이터 시 캐시 TTL 연장 또는 별도 active 카운터 유지로 대응.
+- **최종 업데이트**: 2026-04-09

@@ -24,8 +24,6 @@ class RetryFailedScoreUpdateScheduler(
         for (update in pendingUpdates) {
             try {
                 rankingScoreRepository.incrementScore(update.productId, update.score, update.eventId, update.rankingDate)
-                failedScoreUpdateRepository.delete(update)
-                log.info("재처리 성공. eventId={}, productId={}", update.eventId, update.productId)
             } catch (e: Exception) {
                 update.incrementRetryCount()
                 failedScoreUpdateRepository.save(update)
@@ -33,6 +31,18 @@ class RetryFailedScoreUpdateScheduler(
                     "재처리 실패 ({}/{}). eventId={}, productId={}: {}",
                     update.retryCount,
                     MAX_RETRY_COUNT,
+                    update.eventId,
+                    update.productId,
+                    e.message,
+                )
+                continue
+            }
+            try {
+                failedScoreUpdateRepository.delete(update)
+                log.info("재처리 성공. eventId={}, productId={}", update.eventId, update.productId)
+            } catch (e: Exception) {
+                log.warn(
+                    "재처리 레코드 삭제 실패 (다음 스케줄 시 멱등 재처리). eventId={}, productId={}: {}",
                     update.eventId,
                     update.productId,
                     e.message,

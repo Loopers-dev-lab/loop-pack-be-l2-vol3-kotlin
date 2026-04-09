@@ -23,8 +23,8 @@ import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.math.BigDecimal
+import java.time.Clock
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -35,6 +35,7 @@ class RankingApiE2ETest @Autowired constructor(
     private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
+    private val clock: Clock,
 ) {
 
     companion object {
@@ -42,7 +43,7 @@ class RankingApiE2ETest @Autowired constructor(
         private val RESPONSE_TYPE = object : ParameterizedTypeReference<ApiResponse<Any>>() {}
     }
 
-    private val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+    private val today = LocalDate.now(clock)
     private val rankingKey = "${RedisRankingConstants.RANKING_KEY_PREFIX}${today.format(DateTimeFormatter.BASIC_ISO_DATE)}"
 
     private var productAId = 0L

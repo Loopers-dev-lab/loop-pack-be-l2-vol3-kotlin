@@ -269,8 +269,8 @@ class UpdateProductMetricsUseCaseTest {
     }
 
     @Nested
-    @DisplayName("afterCommit 재시도")
-    inner class AfterCommitRetry {
+    @DisplayName("afterCommit best-effort")
+    inner class AfterCommitBestEffort {
 
         @BeforeEach
         fun initSynchronization() {
@@ -289,24 +289,9 @@ class UpdateProductMetricsUseCaseTest {
         }
 
         @Test
-        @DisplayName("일시적 Redis 실패 후 재시도로 점수가 반영된다")
-        fun `일시적 실패 후 재시도 성공`() {
-            // Arrange — 첫 1회 실패, 이후 성공
-            rankingScoreRepository.failuresRemaining = 1
-
-            // Act
-            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
-            fireAfterCommitCallbacks()
-
-            // Assert — 재시도로 점수 반영됨
-            assertThat(rankingScoreRepository.getScore(1L))
-                .isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
-        }
-
-        @Test
-        @DisplayName("모든 재시도 실패 시 예외가 전파되지 않는다")
-        fun `모든 재시도 실패 시 예외 비전파`() {
-            // Arrange — MAX_RETRY_COUNT(3)보다 많은 실패
+        @DisplayName("Redis 실패 시 예외가 전파되지 않는다")
+        fun `Redis 실패 시 예외 비전파`() {
+            // Arrange
             rankingScoreRepository.failuresRemaining = 10
 
             // Act — 예외가 전파되지 않아야 한다
@@ -318,8 +303,8 @@ class UpdateProductMetricsUseCaseTest {
         }
 
         @Test
-        @DisplayName("모든 재시도 실패 시 FailedScoreUpdate가 유지된다 (트랜잭션에서 저장됨)")
-        fun `모든 재시도 실패 시 FailedScoreUpdate가 유지된다`() {
+        @DisplayName("Redis 실패 시 FailedScoreUpdate가 유지된다")
+        fun `Redis 실패 시 FailedScoreUpdate가 유지된다`() {
             // Arrange
             rankingScoreRepository.failuresRemaining = 10
 
@@ -350,32 +335,21 @@ class UpdateProductMetricsUseCaseTest {
         }
 
         @Test
-        @DisplayName("재시도 성공 시 FailedScoreUpdate가 삭제된다")
-        fun `재시도 성공 시 FailedScoreUpdate가 삭제된다`() {
-            // Arrange — 1회 실패 후 성공
-            rankingScoreRepository.failuresRemaining = 1
-
-            // Act
-            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
-            fireAfterCommitCallbacks()
-
-            // Assert
-            assertThat(failedScoreUpdateRepository.findAll()).isEmpty()
-        }
-
-        @Test
-        @DisplayName("주문 이벤트도 일시적 실패 후 재시도로 점수가 반영된다")
-        fun `주문 이벤트 일시적 실패 후 재시도 성공`() {
+        @DisplayName("주문 이벤트 Redis 실패 시 FailedScoreUpdate가 유지된다")
+        fun `주문 이벤트 Redis 실패 시 FailedScoreUpdate가 유지된다`() {
             // Arrange
-            rankingScoreRepository.failuresRemaining = 2
+            rankingScoreRepository.failuresRemaining = 10
 
             // Act
             useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 2L)
             fireAfterCommitCallbacks()
 
-            // Assert
-            assertThat(rankingScoreRepository.getScore(1L))
-                .isCloseTo(RankingWeight.ORDER * 2, Offset.offset(0.001))
+            // Assert — 점수 미반영, FailedScoreUpdate 유지
+            assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+            val failures = failedScoreUpdateRepository.findAll()
+            assertThat(failures).hasSize(1)
+            assertThat(failures[0].eventId).isEqualTo("evt-1")
+            assertThat(failures[0].score).isCloseTo(RankingWeight.ORDER * 2, Offset.offset(0.001))
         }
     }
 }

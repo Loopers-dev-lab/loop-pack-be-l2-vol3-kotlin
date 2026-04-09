@@ -13,6 +13,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.support.AbstractPlatformTransactionManager
+import org.springframework.transaction.support.DefaultTransactionStatus
 import java.math.BigDecimal
 import java.time.Clock
 import java.time.Instant
@@ -31,12 +34,18 @@ class GetRankingUseCaseTest {
         ZoneId.of("Asia/Seoul"),
     )
     private val today: LocalDate = LocalDate.now(clock)
+    private val noOpTxManager = object : AbstractPlatformTransactionManager() {
+        override fun doGetTransaction() = Any()
+        override fun doBegin(transaction: Any, definition: TransactionDefinition) {}
+        override fun doCommit(status: DefaultTransactionStatus) {}
+        override fun doRollback(status: DefaultTransactionStatus) {}
+    }
 
     @BeforeEach
     fun setUp() {
         rankingRepository = FakeRankingRepository()
         productRepository = FakeProductRepository()
-        useCase = GetRankingUseCase(rankingRepository, productRepository, clock)
+        useCase = GetRankingUseCase(rankingRepository, productRepository, clock, noOpTxManager)
 
         listOf(1L, 2L, 3L, 4L, 5L).forEach { id ->
             productRepository.save(
@@ -329,7 +338,7 @@ class GetRankingUseCaseTest {
             // 별도 MutableClock + UseCase 생성 (TTL 시간 조작을 위해 clock 분리)
             val mutableClock = MutableClock(clock.instant(), clock.zone)
             val localRepo = FakeRankingRepository()
-            val ttlUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock)
+            val ttlUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock, noOpTxManager)
 
             // step 1: 첫 호출로 totalElements 캐시 생성 (count=2)
             localRepo.addEntry(today, 1L, 1.0)

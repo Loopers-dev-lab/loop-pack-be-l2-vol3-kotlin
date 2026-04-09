@@ -49,11 +49,11 @@ class RedisRankingRepository(
     override fun getRank(date: LocalDate, productId: Long): Int? {
         val key = rankingKey(date)
         return try {
-            val rank = redisTemplate.opsForZSet().reverseRank(key, productId.toString())
-                ?: return null
-            val score = redisTemplate.opsForZSet().score(key, productId.toString())
-                ?: return null
-            if (score <= 0) return null
+            val rank = redisTemplate.execute(
+                GET_RANK_SCRIPT,
+                listOf(key),
+                productId.toString(),
+            ) ?: return null
             (rank + 1).toInt()
         } catch (e: Exception) {
             log.warn("Redis 순위 조회 실패 [key={}, productId={}]: {}", key, productId, e.message)
@@ -74,6 +74,22 @@ class RedisRankingRepository(
             return redis.call('ZREVRANGEBYSCORE', KEYS[1], '+inf', '(0', 'WITHSCORES', 'LIMIT', ARGV[1], ARGV[2])
             """.trimIndent(),
             List::class.java,
+        )
+
+        /**
+         * ZREVRANK + ZSCORE를 원자적으로 실행하는 Lua 스크립트.
+         * score > 0인 경우에만 rank(0-based)를 반환하고, 그 외에는 nil을 반환한다.
+         */
+        private val GET_RANK_SCRIPT = DefaultRedisScript<Long>(
+            """
+            local rank = redis.call('ZREVRANK', KEYS[1], ARGV[1])
+            if rank == false then return nil end
+            local score = redis.call('ZSCORE', KEYS[1], ARGV[1])
+            if score == false then return nil end
+            if tonumber(score) <= 0 then return nil end
+            return rank
+            """.trimIndent(),
+            Long::class.javaObjectType,
         )
     }
 }
