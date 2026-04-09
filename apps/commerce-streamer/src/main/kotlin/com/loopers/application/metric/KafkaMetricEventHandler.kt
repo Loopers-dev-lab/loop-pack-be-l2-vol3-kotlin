@@ -6,6 +6,9 @@ import com.loopers.domain.metric.ProductLikeCountRepository
 import com.loopers.domain.metric.ProductMetric
 import com.loopers.domain.metric.ProductMetricRepository
 import com.loopers.domain.metric.ProcessedPaymentRepository
+import com.loopers.domain.ranking.ProductRankingRepository
+import com.loopers.domain.ranking.RankingScorePolicy
+import com.loopers.domain.ranking.RankingSignalType
 import com.loopers.infrastructure.outbox.KafkaEventType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -17,8 +20,10 @@ class KafkaMetricEventHandler(
     private val handledEventRepository: HandledEventRepository,
     private val productLikeCountRepository: ProductLikeCountRepository,
     private val processedPaymentRepository: ProcessedPaymentRepository,
+    private val productRankingRepository: ProductRankingRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val rankingScorePolicy = RankingScorePolicy()
 
     @Transactional
     fun handle(topic: String, envelope: KafkaEventEnvelope) {
@@ -76,6 +81,15 @@ class KafkaMetricEventHandler(
         }
 
         productMetricRepository.save(updated)
+
+        val signalType = when (envelope.eventType) {
+            KafkaEventType.PRODUCT_DETAIL_VIEWED -> RankingSignalType.VIEW
+            KafkaEventType.PRODUCT_LIKE_REGISTERED -> RankingSignalType.LIKE
+            else -> null
+        }
+        if (signalType != null) {
+            updateRankingScore(productId, signalType, envelope.eventId)
+        }
     }
 
     private fun handleOrderEvent(
@@ -103,21 +117,37 @@ class KafkaMetricEventHandler(
             return
         }
 
-        val items = envelope.payload["items"]
+        val parsedItems = envelope.payload["items"]
             ?.takeIf { it.isArray }
-            ?.mapNotNull { node -> if (node.isNull) null else node }
+            ?.mapNotNull { node ->
+                if (node.isNull) return@mapNotNull null
+                val productId = node["productId"]?.asLong() ?: return@mapNotNull null
+                val quantity = node["quantity"]?.asInt() ?: return@mapNotNull null
+                if (quantity <= 0) {
+                    log.warn(
+                        "Skip item with invalid quantity. eventId={}, productId={}, quantity={}",
+                        envelope.eventId,
+                        productId,
+                        quantity,
+                    )
+                    return@mapNotNull null
+                }
+                productId to quantity
+            }
             .orEmpty()
 
-        if (items.isEmpty()) {
-            log.warn("Skip payment event without items. eventId={}", envelope.eventId)
+        if (parsedItems.isEmpty()) {
+            log.warn("Skip payment event without valid items. eventId={}", envelope.eventId)
             return
         }
 
-        val updatedMetrics = items.mapNotNull { item ->
-            val productId = item["productId"]?.asLong() ?: return@mapNotNull null
-            val quantity = item["quantity"]?.asInt() ?: return@mapNotNull null
+        val itemsByProduct = parsedItems
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, quantities) -> quantities.sum() }
+
+        val updatedMetrics = itemsByProduct.mapNotNull { (productId, totalQuantity) ->
             val current = productMetricRepository.findByProductId(productId) ?: ProductMetric.register(productId)
-            current.recordUnitsSold(quantity)
+            current.recordUnitsSold(totalQuantity)
         }
 
         if (updatedMetrics.isEmpty()) {
@@ -127,5 +157,29 @@ class KafkaMetricEventHandler(
 
         productMetricRepository.saveAll(updatedMetrics)
         processedPaymentRepository.save(paymentId)
+
+        itemsByProduct.forEach { (productId, totalQuantity) ->
+            updateRankingScore(productId, RankingSignalType.ORDER, envelope.eventId, totalQuantity)
+        }
+    }
+
+    private fun updateRankingScore(
+        productId: Long,
+        signalType: RankingSignalType,
+        eventId: Long,
+        quantity: Int = 1,
+    ) {
+        runCatching {
+            val increment = rankingScorePolicy.calculateIncrement(signalType, quantity)
+            productRankingRepository.incrementScore(productId, increment)
+        }.onFailure { e ->
+            log.warn(
+                "Failed to update ranking score. productId={}, signalType={}, eventId={}",
+                productId,
+                signalType,
+                eventId,
+                e,
+            )
+        }
     }
 }
