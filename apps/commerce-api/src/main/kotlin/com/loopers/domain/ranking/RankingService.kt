@@ -16,4 +16,8 @@ class RankingService(
     fun getRank(date: LocalDate, productId: Long): Long? {
         return rankingRepository.getRank(date, productId)
     }
+
+    fun carryOver(fromDate: LocalDate, toDate: LocalDate, weight: Double) {
+        rankingRepository.carryOver(fromDate, toDate, weight)
+    }
 }

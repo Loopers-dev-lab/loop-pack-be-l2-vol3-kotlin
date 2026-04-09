@@ -25,13 +25,14 @@ class RankingController(
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<RankingDto.Response> {
-        val targetDate = if (date != null) {
-            LocalDate.parse(date, DATE_FORMATTER)
-        } else {
-            LocalDate.now()
-        }
+        val targetDate = parseDate(date)
         return rankingFacade.getRankings(targetDate, page, size)
             .let { RankingDto.Response.from(it) }
             .let { ApiResponse.success(it) }
+    }
+
+    private fun parseDate(date: String?): LocalDate {
+        if (date == null) return LocalDate.now()
+        return LocalDate.parse(date, DATE_FORMATTER)
     }
 }
