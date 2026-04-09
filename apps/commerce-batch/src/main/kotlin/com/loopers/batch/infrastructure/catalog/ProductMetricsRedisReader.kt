@@ -27,25 +27,24 @@ class ProductMetricsRedisReader(
      * 지정 날짜의 rank:view/like/order ZSET을 스냅샷으로 읽어 productId별로 집계한다.
      * Redis가 SoT이므로 차감/수정 없이 읽기만 수행한다.
      * rank:all은 view/like/order에서 가중치로 재계산 가능하므로 백업 대상이 아니다.
-     *
-     * @return Map<productId, Map<field, value>>
      */
-    fun readSnapshot(date: LocalDate): Map<Long, Map<String, Long>> {
+    fun readSnapshot(date: LocalDate): List<ProductMetricsSnapshot> {
         val viewMap = readZSet(TYPE_VIEW, date)
         val likeMap = readZSet(TYPE_LIKE, date)
         val orderMap = readZSet(TYPE_ORDER, date)
 
         val productIds = viewMap.keys + likeMap.keys + orderMap.keys
-        val result = productIds.associateWith { productId ->
-            val metrics = mutableMapOf<String, Long>()
-            viewMap[productId]?.let { metrics["viewCount"] = it }
-            likeMap[productId]?.let { metrics["likeCount"] = it }
-            orderMap[productId]?.let { metrics["orderCount"] = it }
-            metrics
+        val snapshots = productIds.map { productId ->
+            ProductMetricsSnapshot(
+                productId = productId,
+                viewCount = viewMap[productId] ?: 0L,
+                likeCount = likeMap[productId] ?: 0L,
+                orderCount = orderMap[productId] ?: 0L,
+            )
         }
 
-        log.info("date={}, {}개 상품 메트릭을 ZSET에서 읽었습니다.", date, result.size)
-        return result
+        log.info("date={}, {}개 상품 메트릭을 ZSET에서 읽었습니다.", date, snapshots.size)
+        return snapshots
     }
 
     private fun readZSet(type: String, date: LocalDate): Map<Long, Long> {

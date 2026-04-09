@@ -70,10 +70,14 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
         )
     }
 
-    private fun cleanUp() {
+    private fun cleanUpZSets() {
         listOf("view", "like", "order", "all").forEach { type ->
             redisTemplate.delete("$KEY_PREFIX:$type:${TARGET_DATE.format(DATE_FORMAT)}")
         }
+    }
+
+    private fun cleanUp() {
+        cleanUpZSets()
         jdbcTemplate.execute("DELETE FROM product_metrics")
     }
 
@@ -184,6 +188,101 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
                         .isEqualTo(0L)
                 },
             )
+        }
+
+        @DisplayName("빈 스냅샷이어도 기존 DB 행을 wipe하지 않는다.")
+        @Test
+        fun shouldNotWipeDbWhenZSetIsEmpty() {
+            // arrange — DB에 기존 행 직접 삽입 (이전 동기화의 잔존 가정)
+            jdbcTemplate.update(
+                "INSERT INTO product_metrics (product_id, view_count, like_count, order_count, created_at, updated_at) " +
+                    "VALUES (?, ?, ?, ?, NOW(), NOW())",
+                PRODUCT_ID_1, 100L, 20L, 5L,
+            )
+
+            // act — ZSET 비어있는 상태로 실행
+            jobLauncherTestUtils.launchJob(jobParameters())
+
+            // assert — 기존 행 보존
+            val result = jdbcTemplate.queryForMap(
+                "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ?",
+                PRODUCT_ID_1,
+            )
+            assertAll(
+                { assertThat(result["view_count"]).isEqualTo(100L) },
+                { assertThat(result["like_count"]).isEqualTo(20L) },
+                { assertThat(result["order_count"]).isEqualTo(5L) },
+            )
+        }
+
+        @DisplayName("스냅샷에서 빠진 상품의 행은 0으로 초기화된다.")
+        @Test
+        fun shouldZeroOutMissingProductsFromSnapshot() {
+            // arrange — 1차: A, B 둘 다 적재
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 100, likeCount = 20, orderCount = 5)
+            seedZSetMetrics(PRODUCT_ID_2, viewCount = 50, likeCount = 10, orderCount = 3)
+            jobLauncherTestUtils.launchJob(jobParameters())
+
+            // arrange — 2차: ZSET 클리어 후 A만 다시 적재 (B는 빠짐)
+            cleanUpZSets()
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 200, likeCount = 30, orderCount = 7)
+
+            // act
+            jobLauncherTestUtils.launchJob(jobParameters())
+
+            // assert — A는 새 값, B는 0으로 초기화
+            val results = jdbcTemplate.queryForList(
+                "SELECT product_id, view_count, like_count, order_count FROM product_metrics ORDER BY product_id",
+            )
+            assertAll(
+                { assertThat(results).hasSize(2) },
+                { assertThat(results[0]["product_id"]).isEqualTo(PRODUCT_ID_1) },
+                { assertThat(results[0]["view_count"]).isEqualTo(200L) },
+                { assertThat(results[0]["like_count"]).isEqualTo(30L) },
+                { assertThat(results[0]["order_count"]).isEqualTo(7L) },
+                { assertThat(results[1]["product_id"]).isEqualTo(PRODUCT_ID_2) },
+                { assertThat(results[1]["view_count"]).isEqualTo(0L) },
+                { assertThat(results[1]["like_count"]).isEqualTo(0L) },
+                { assertThat(results[1]["order_count"]).isEqualTo(0L) },
+            )
+        }
+
+        @DisplayName("requestDate를 yyyy-MM-dd 문자열로 전달해도 정상 동작한다.")
+        @Test
+        fun shouldAcceptRequestDateAsString() {
+            // arrange
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 10, likeCount = 5, orderCount = 1)
+            val params = JobParametersBuilder()
+                .addString("requestDate", TARGET_DATE.toString())
+                .addLong("run.id", System.nanoTime())
+                .toJobParameters()
+
+            // act
+            val jobExecution = jobLauncherTestUtils.launchJob(params)
+
+            // assert
+            assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.COMPLETED.exitCode)
+            val result = jdbcTemplate.queryForMap(
+                "SELECT view_count FROM product_metrics WHERE product_id = ?",
+                PRODUCT_ID_1,
+            )
+            assertThat(result["view_count"]).isEqualTo(10L)
+        }
+
+        @DisplayName("requestDate 형식이 잘못되면 Job이 실패한다.")
+        @Test
+        fun shouldFailJobWhenRequestDateInvalid() {
+            // arrange
+            val params = JobParametersBuilder()
+                .addString("requestDate", "not-a-date")
+                .addLong("run.id", System.nanoTime())
+                .toJobParameters()
+
+            // act
+            val jobExecution = jobLauncherTestUtils.launchJob(params)
+
+            // assert
+            assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.FAILED.exitCode)
         }
     }
 }

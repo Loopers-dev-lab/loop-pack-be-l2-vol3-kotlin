@@ -21,24 +21,38 @@ class ProductMetricsJdbcWriter(
                 order_count = VALUES(order_count),
                 updated_at = NOW()
         """
+
+        // 스냅샷 동기화 전에 모든 행을 0으로 초기화 (Option A — 향후 (product_id, snapshot_date)
+        // 스키마로 전환 예정. 자세한 내용은 docs/pr/w8-product-metrics-sync.md 참고)
+        private const val RESET_SQL = """
+            UPDATE product_metrics
+               SET view_count = 0,
+                   like_count = 0,
+                   order_count = 0,
+                   updated_at = NOW()
+        """
     }
 
-    fun upsertAll(metrics: Map<Long, Map<String, Long>>) {
-        if (metrics.isEmpty()) {
-            log.info("동기화할 메트릭이 없습니다.")
+    fun upsertAll(snapshots: List<ProductMetricsSnapshot>) {
+        if (snapshots.isEmpty()) {
+            // 빈 스냅샷으로 DB가 wipe되는 위험 방지: reset 자체를 건너뛴다.
+            log.info("동기화할 메트릭이 없습니다. DB 변경을 건너뜁니다.")
             return
         }
 
-        val batchArgs = metrics.map { (productId, fields) ->
+        val resetCount = jdbcTemplate.update(RESET_SQL)
+        log.info("기존 메트릭 {}개 행을 0으로 초기화했습니다.", resetCount)
+
+        val batchArgs = snapshots.map { snapshot ->
             arrayOf(
-                productId,
-                fields["viewCount"] ?: 0L,
-                fields["likeCount"] ?: 0L,
-                fields["orderCount"] ?: 0L,
+                snapshot.productId,
+                snapshot.viewCount,
+                snapshot.likeCount,
+                snapshot.orderCount,
             )
         }
 
         jdbcTemplate.batchUpdate(UPSERT_SQL, batchArgs)
-        log.info("{}개 상품 메트릭을 DB에 동기화했습니다.", metrics.size)
+        log.info("{}개 상품 메트릭을 DB에 동기화했습니다.", snapshots.size)
     }
 }
