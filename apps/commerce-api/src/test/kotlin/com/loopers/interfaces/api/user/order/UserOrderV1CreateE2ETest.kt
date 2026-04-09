@@ -8,11 +8,13 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.domain.product.ProductStock
 import com.loopers.domain.product.ProductStockRepository
+import com.loopers.domain.queue.EntryTokenRepository
 import com.loopers.domain.user.User
 import com.loopers.domain.user.UserPasswordHasher
 import com.loopers.domain.user.UserRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -43,7 +45,9 @@ constructor(
     private val productRepository: ProductRepository,
     private val productStockRepository: ProductStockRepository,
     private val passwordHasher: UserPasswordHasher,
+    private val entryTokenRepository: EntryTokenRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
 ) {
     companion object {
         private const val ADMIN = "loopers.admin"
@@ -53,6 +57,7 @@ constructor(
     }
 
     private var productId: Long = 0
+    private var userId: Long = 0
 
     @BeforeEach
     fun setUp() {
@@ -64,7 +69,7 @@ constructor(
             email = "test@example.com",
             passwordHasher = passwordHasher,
         )
-        userRepository.save(user)
+        userId = userRepository.save(user).id!!
 
         val brand = brandRepository.save(Brand.register(name = "나이키"), ADMIN)
         val activeBrand = brandRepository.save(brand.update("나이키", "ACTIVE"), ADMIN)
@@ -87,19 +92,24 @@ constructor(
 
     @AfterEach
     fun tearDown() {
+        redisCleanUp.truncateAll()
         databaseCleanUp.truncateAllTables()
     }
+
+    private fun issueEntryToken(): String = entryTokenRepository.issue(userId).token
 
     private fun createRequest(
         loginId: String = LOGIN_ID,
         password: String = PASSWORD,
         idempotencyKey: String = UUID.randomUUID().toString(),
+        entryToken: String = issueEntryToken(),
         body: UserOrderV1Request.Create,
     ): HttpEntity<UserOrderV1Request.Create> {
         val headers = HttpHeaders().apply {
             set("X-Loopers-LoginId", loginId)
             set("X-Loopers-LoginPw", password)
             set("X-Idempotency-Key", idempotencyKey)
+            set("X-Entry-Token", entryToken)
             contentType = MediaType.APPLICATION_JSON
         }
         return HttpEntity(body, headers)
@@ -250,6 +260,7 @@ constructor(
             val headers = HttpHeaders().apply {
                 set("X-Loopers-LoginId", LOGIN_ID)
                 set("X-Loopers-LoginPw", PASSWORD)
+                set("X-Entry-Token", issueEntryToken())
                 contentType = MediaType.APPLICATION_JSON
             }
             val entity = HttpEntity(createBody(), headers)

@@ -106,6 +106,7 @@ class OrderCreateUseCase(
                 orderId = savedOrder.id!!,
                 userId = command.userId,
                 productIds = domainResult.decreasedStocks.map { it.productId },
+                hasEntryToken = command.entryToken != null,
             ),
         )
 

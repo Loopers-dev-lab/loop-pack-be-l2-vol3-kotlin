@@ -1,9 +1,11 @@
 package com.loopers.interfaces.api.user.auth
 
+import com.loopers.application.user.auth.UserAuthenticateUseCase
 import com.loopers.application.user.auth.UserChangePasswordUseCase
-import com.loopers.application.user.auth.UserResult
 import com.loopers.application.user.auth.UserMeUseCase
+import com.loopers.application.user.auth.UserResult
 import com.loopers.application.user.auth.UserSignUpUseCase
+import com.loopers.application.user.queue.EntryTokenValidationUseCase
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.junit.jupiter.api.DisplayName
@@ -28,6 +30,8 @@ constructor(
     @MockitoBean private val userSignUpService: UserSignUpUseCase,
     @MockitoBean private val userChangePasswordService: UserChangePasswordUseCase,
     @MockitoBean private val userMeService: UserMeUseCase,
+    @MockitoBean private val userAuthenticateUseCase: UserAuthenticateUseCase,
+    @MockitoBean private val entryTokenValidationUseCase: EntryTokenValidationUseCase,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/users/me"

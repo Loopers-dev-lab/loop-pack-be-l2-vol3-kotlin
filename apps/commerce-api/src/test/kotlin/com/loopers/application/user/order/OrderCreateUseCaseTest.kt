@@ -478,4 +478,51 @@ class OrderCreateUseCaseTest {
             )
         }
     }
+
+    @Nested
+    @DisplayName("entryToken 유무에 따라 이벤트에 hasEntryToken이 설정된다")
+    inner class WhenEntryTokenProvided {
+
+        @Test
+        @DisplayName("entryToken이 있으면 hasEntryToken=true로 이벤트 발행")
+        fun create_withEntryToken_eventHasFlag() {
+            // arrange
+            stubNormalFlow()
+            val cmd = command()
+
+            // act
+            useCase.create(
+                OrderCreateCommand(
+                    userId = cmd.userId,
+                    idempotencyKey = cmd.idempotencyKey,
+                    items = cmd.items,
+                    entryToken = "valid-token",
+                ),
+            )
+
+            // assert
+            then(eventPublisher).should().publishEvent(
+                check<OrderCreatedEvent> { event ->
+                    assertThat(event.hasEntryToken).isTrue()
+                },
+            )
+        }
+
+        @Test
+        @DisplayName("entryToken이 null이면 hasEntryToken=false로 이벤트 발행")
+        fun create_withoutEntryToken_eventHasNoFlag() {
+            // arrange
+            stubNormalFlow()
+
+            // act
+            useCase.create(command())
+
+            // assert
+            then(eventPublisher).should().publishEvent(
+                check<OrderCreatedEvent> { event ->
+                    assertThat(event.hasEntryToken).isFalse()
+                },
+            )
+        }
+    }
 }

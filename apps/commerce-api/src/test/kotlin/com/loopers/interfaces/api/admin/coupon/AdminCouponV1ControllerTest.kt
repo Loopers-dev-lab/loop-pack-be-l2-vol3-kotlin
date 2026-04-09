@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.admin.coupon
 
 import com.loopers.application.admin.coupon.AdminCouponDeleteUseCase
+import com.loopers.application.user.auth.UserAuthenticateUseCase
+import com.loopers.application.user.queue.EntryTokenValidationUseCase
 import com.loopers.application.admin.coupon.AdminCouponDetailUseCase
 import com.loopers.application.admin.coupon.AdminCouponIssueListUseCase
 import com.loopers.application.admin.coupon.AdminCouponListUseCase
@@ -37,6 +39,8 @@ constructor(
     @MockitoBean private val detailUseCase: AdminCouponDetailUseCase,
     @MockitoBean private val listUseCase: AdminCouponListUseCase,
     @MockitoBean private val issueListUseCase: AdminCouponIssueListUseCase,
+    @MockitoBean private val userAuthenticateUseCase: UserAuthenticateUseCase,
+    @MockitoBean private val entryTokenValidationUseCase: EntryTokenValidationUseCase,
 ) {
     companion object {
         private const val ENDPOINT = "/api-admin/v1/coupons"

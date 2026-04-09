@@ -21,12 +21,13 @@ class UserOrderV1Request {
             val quantity: Int,
         )
 
-        fun toCommand(userId: Long, idempotencyKey: String): OrderCreateCommand =
+        fun toCommand(userId: Long, idempotencyKey: String, entryToken: String): OrderCreateCommand =
             OrderCreateCommand(
                 userId = userId,
                 idempotencyKey = idempotencyKey,
                 items = items.map { OrderCreateCommand.Item(it.productId, it.quantity) },
                 issuedCouponId = issuedCouponId,
+                entryToken = entryToken,
             )
     }
 }

@@ -15,6 +15,7 @@ interface UserOrderV1ApiSpec {
         loginId: String,
         password: String,
         idempotencyKey: String,
+        entryToken: String,
         request: UserOrderV1Request.Create,
     ): ApiResponse<UserOrderV1Response.Created>
 
