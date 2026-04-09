@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
@@ -44,6 +45,7 @@ class RankingApiE2ETest @Autowired constructor(
 ) {
 
     companion object {
+        private const val RANKING_ENDPOINT = "/api/v1/rankings"
         private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
         private val RESPONSE_TYPE = object : ParameterizedTypeReference<ApiResponse<RankingDto.Response>>() {}
         private val HTTP_ENTITY = HttpEntity<Void>(HttpHeaders())
@@ -79,23 +81,22 @@ class RankingApiE2ETest @Autowired constructor(
 
             // act
             val response = testRestTemplate.exchange(
-                "/api/v1/rankings?page=1&size=20",
+                "$RANKING_ENDPOINT?page=1&size=20",
                 HttpMethod.GET,
                 HTTP_ENTITY,
                 RESPONSE_TYPE,
             )
 
             // assert
-            assertThat(response.statusCode.is2xxSuccessful)
-                .withFailMessage("Expected 2xx but got ${response.statusCode}, body=${response.body}")
-                .isTrue()
-            val data = response.body?.data
-            assertThat(data).isNotNull()
-            assertThat(data!!.items).hasSize(2)
-            assertThat(data.items[0].productName).isEqualTo("상품A")
-            assertThat(data.items[0].rank).isEqualTo(1L)
-            assertThat(data.items[1].productName).isEqualTo("상품B")
-            assertThat(data.items[1].rank).isEqualTo(2L)
+            assertThat(response.statusCode.is2xxSuccessful).isTrue()
+            val data = requireNotNull(response.body?.data) { "응답 data가 null입니다" }
+            assertAll(
+                { assertThat(data.items).hasSize(2) },
+                { assertThat(data.items[0].productName).isEqualTo("상품A") },
+                { assertThat(data.items[0].rank).isEqualTo(1L) },
+                { assertThat(data.items[1].productName).isEqualTo("상품B") },
+                { assertThat(data.items[1].rank).isEqualTo(2L) },
+            )
         }
 
         @DisplayName("date 파라미터로 이전 날짜를 지정하면, 해당 날짜의 랭킹을 반환한다.")
@@ -112,7 +113,7 @@ class RankingApiE2ETest @Autowired constructor(
 
             // act
             val response = testRestTemplate.exchange(
-                "/api/v1/rankings?date=$yesterday&page=1&size=20",
+                "$RANKING_ENDPOINT?date=$yesterday&page=1&size=20",
                 HttpMethod.GET,
                 HTTP_ENTITY,
                 RESPONSE_TYPE,
@@ -120,10 +121,12 @@ class RankingApiE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode.is2xxSuccessful).isTrue()
-            val data = response.body?.data
-            assertThat(data!!.items).hasSize(1)
-            assertThat(data.items[0].productName).isEqualTo("어제의 상품")
-            assertThat(data.items[0].rank).isEqualTo(1L)
+            val data = requireNotNull(response.body?.data) { "응답 data가 null입니다" }
+            assertAll(
+                { assertThat(data.items).hasSize(1) },
+                { assertThat(data.items[0].productName).isEqualTo("어제의 상품") },
+                { assertThat(data.items[0].rank).isEqualTo(1L) },
+            )
         }
 
         @DisplayName("주문 1건의 점수가 좋아요 3건의 점수보다 높다.")
@@ -148,7 +151,7 @@ class RankingApiE2ETest @Autowired constructor(
 
             // act
             val response = testRestTemplate.exchange(
-                "/api/v1/rankings?page=1&size=20",
+                "$RANKING_ENDPOINT?page=1&size=20",
                 HttpMethod.GET,
                 HTTP_ENTITY,
                 RESPONSE_TYPE,
@@ -156,10 +159,12 @@ class RankingApiE2ETest @Autowired constructor(
 
             // assert — 주문 상품이 1위
             assertThat(response.statusCode.is2xxSuccessful).isTrue()
-            val data = response.body?.data
-            assertThat(data!!.items).hasSize(2)
-            assertThat(data.items[0].productName).isEqualTo("주문 상품")
-            assertThat(data.items[0].score).isGreaterThan(data.items[1].score)
+            val data = requireNotNull(response.body?.data) { "응답 data가 null입니다" }
+            assertAll(
+                { assertThat(data.items).hasSize(2) },
+                { assertThat(data.items[0].productName).isEqualTo("주문 상품") },
+                { assertThat(data.items[0].score).isGreaterThan(data.items[1].score) },
+            )
         }
     }
 }
