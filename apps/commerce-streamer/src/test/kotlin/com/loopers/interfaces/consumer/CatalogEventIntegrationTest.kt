@@ -7,14 +7,17 @@ import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.test.context.EmbeddedKafka
+import org.springframework.kafka.test.utils.ContainerTestUtils
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.TestPropertySource
 import java.time.Clock
@@ -36,7 +39,8 @@ import java.time.format.DateTimeFormatter
     properties = [
         "spring.kafka.bootstrap-servers=\${spring.embedded.kafka.brokers}",
         "demo-kafka.test.topic-name=demo.internal.topic-v1",
-        "spring.kafka.properties.auto.offset.reset=earliest",
+        "spring.kafka.consumer.auto-offset-reset=earliest",
+        "spring.kafka.consumer.group-id=catalog-event-integration-test",
     ],
 )
 @DirtiesContext
@@ -46,6 +50,7 @@ class CatalogEventIntegrationTest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
     private val clock: Clock,
+    private val kafkaListenerEndpointRegistry: KafkaListenerEndpointRegistry,
 ) {
 
     private val rankingKey: String
@@ -53,6 +58,13 @@ class CatalogEventIntegrationTest @Autowired constructor(
             val today = LocalDate.now(clock)
             return "${RedisRankingConstants.RANKING_KEY_PREFIX}${today.format(DateTimeFormatter.BASIC_ISO_DATE)}"
         }
+
+    @BeforeEach
+    fun setUp() {
+        kafkaListenerEndpointRegistry.listenerContainers.forEach { container ->
+            ContainerTestUtils.waitForAssignment(container, 1)
+        }
+    }
 
     @AfterEach
     fun tearDown() {
