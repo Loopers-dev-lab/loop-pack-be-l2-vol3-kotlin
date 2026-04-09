@@ -20,7 +20,7 @@ flowchart LR
         OF[OrderFacade<br/>placeOrder]
         OFsteps["1. 재고 차감 (PESSIMISTIC)<br/>2. 쿠폰 할인 검증<br/>3. 주문 INSERT<br/>4. Outbox INSERT<br/>(all in 1 TX)"]
         OB[(outbox_event<br/>PENDING / SENT)]
-        Relay[OutboxRelay<br/>@Scheduled]
+        Relay["OutboxRelay<br/>@Scheduled"]
 
         PV -->|same TX| OB
         OF --> OFsteps
@@ -143,7 +143,7 @@ sequenceDiagram
     participant OS as OrderService
     participant Outbox as OutboxEventService
     participant DB as MySQL
-    participant Relay as OutboxRelay<br/>@Scheduled
+    participant Relay as OutboxRelay @Scheduled
     participant K as Kafka<br/>order-events
     participant OEC as OrderEventConsumer<br/>(streamer, BATCH)
     participant MS as MetricsService
@@ -255,7 +255,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Cron as @Scheduled<br/>0 55 23 * * * KST
+    participant Cron as @Scheduled 0 55 23 * * * KST
     participant Sched as RankingCarryOverScheduler
     participant QRepo as RankingQueryRepository
     participant Repo as RankingRepository
