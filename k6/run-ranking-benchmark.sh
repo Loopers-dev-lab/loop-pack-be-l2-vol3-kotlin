@@ -13,18 +13,20 @@
 set -euo pipefail
 
 REPEAT="${1:-10}"
+K6_SCRIPT="${2:-k6/ranking-benchmark.js}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "=========================================="
 echo "Ranking Benchmark — $REPEAT runs"
+echo "Script: $K6_SCRIPT"
 echo "BASE_URL: ${BASE_URL:-http://localhost:8080}"
 echo "=========================================="
 
 for i in $(seq 1 "$REPEAT"); do
   echo ""
   echo "--- Run $i / $REPEAT ---"
-  (cd "$PROJECT_ROOT" && k6 run k6/ranking-benchmark.js)
+  (cd "$PROJECT_ROOT" && k6 run "$K6_SCRIPT")
   sleep 2
 done
 
