@@ -1,6 +1,7 @@
 package com.loopers.job.productmetrics
 
 import com.loopers.batch.job.productmetrics.ProductMetricsSyncJobConfig
+import com.loopers.config.redis.RedisConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -15,12 +16,12 @@ import org.springframework.batch.test.JobLauncherTestUtils
 import org.springframework.batch.test.context.SpringBatchTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
-import com.loopers.config.redis.RedisConfig
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.TestPropertySource
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @SpringBootTest
 @SpringBatchTest
@@ -32,9 +33,11 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
     private val jdbcTemplate: JdbcTemplate,
 ) {
     companion object {
-        private const val KEY_PREFIX = "product:metrics"
+        private const val KEY_PREFIX = "rank"
         private const val PRODUCT_ID_1 = 1L
         private const val PRODUCT_ID_2 = 2L
+        private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd")
+        private val TARGET_DATE: LocalDate = LocalDate.of(2026, 4, 7)
     }
 
     @BeforeEach
@@ -68,21 +71,22 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
     }
 
     private fun cleanUp() {
-        redisTemplate.delete("$KEY_PREFIX:$PRODUCT_ID_1")
-        redisTemplate.delete("$KEY_PREFIX:$PRODUCT_ID_2")
+        listOf("view", "like", "order", "all").forEach { type ->
+            redisTemplate.delete("$KEY_PREFIX:$type:${TARGET_DATE.format(DATE_FORMAT)}")
+        }
         jdbcTemplate.execute("DELETE FROM product_metrics")
     }
 
-    private fun seedRedisMetrics(productId: Long, viewCount: Long, likeCount: Long, orderCount: Long) {
-        val ops = redisTemplate.opsForHash<String, String>()
-        val key = "$KEY_PREFIX:$productId"
-        ops.increment(key, "viewCount", viewCount)
-        ops.increment(key, "likeCount", likeCount)
-        ops.increment(key, "orderCount", orderCount)
+    private fun seedZSetMetrics(productId: Long, viewCount: Long, likeCount: Long, orderCount: Long, date: LocalDate = TARGET_DATE) {
+        val zSet = redisTemplate.opsForZSet()
+        val dateKey = date.format(DATE_FORMAT)
+        if (viewCount > 0) zSet.incrementScore("$KEY_PREFIX:view:$dateKey", productId.toString(), viewCount.toDouble())
+        if (likeCount > 0) zSet.incrementScore("$KEY_PREFIX:like:$dateKey", productId.toString(), likeCount.toDouble())
+        if (orderCount > 0) zSet.incrementScore("$KEY_PREFIX:order:$dateKey", productId.toString(), orderCount.toDouble())
     }
 
-    private fun uniqueJobParameters() = JobParametersBuilder()
-        .addLocalDate("requestDate", LocalDate.now())
+    private fun jobParameters(date: LocalDate = TARGET_DATE) = JobParametersBuilder()
+        .addLocalDate("requestDate", date)
         .addLong("run.id", System.nanoTime())
         .toJobParameters()
 
@@ -90,15 +94,15 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
     @DisplayName("productMetricsSyncJob 실행 시")
     inner class Execute {
 
-        @DisplayName("Redis에 메트릭이 있으면 DB에 동기화된다.")
+        @DisplayName("ZSET에 메트릭이 있으면 DB에 동기화된다.")
         @Test
-        fun shouldSyncMetricsFromRedisToDb() {
+        fun shouldSyncMetricsFromZSetToDb() {
             // arrange
-            seedRedisMetrics(PRODUCT_ID_1, viewCount = 100, likeCount = 20, orderCount = 5)
-            seedRedisMetrics(PRODUCT_ID_2, viewCount = 50, likeCount = 10, orderCount = 3)
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 100, likeCount = 20, orderCount = 5)
+            seedZSetMetrics(PRODUCT_ID_2, viewCount = 50, likeCount = 10, orderCount = 3)
 
             // act
-            val jobExecution = jobLauncherTestUtils.launchJob(uniqueJobParameters())
+            val jobExecution = jobLauncherTestUtils.launchJob(jobParameters())
 
             // assert
             assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.COMPLETED.exitCode)
@@ -120,40 +124,40 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("동기화 후 Redis 카운터는 0으로 차감된다.")
+        @DisplayName("동기화 후에도 Redis ZSET은 변경되지 않는다 (Redis가 SoT).")
         @Test
-        fun shouldResetRedisCountersAfterSync() {
+        fun shouldNotModifyRedisAfterSync() {
             // arrange
-            seedRedisMetrics(PRODUCT_ID_1, viewCount = 30, likeCount = 10, orderCount = 2)
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 30, likeCount = 10, orderCount = 2)
 
             // act
-            jobLauncherTestUtils.launchJob(uniqueJobParameters())
+            jobLauncherTestUtils.launchJob(jobParameters())
 
             // assert
-            val ops = redisTemplate.opsForHash<String, String>()
-            val key = "$KEY_PREFIX:$PRODUCT_ID_1"
+            val zSet = redisTemplate.opsForZSet()
+            val dateKey = TARGET_DATE.format(DATE_FORMAT)
 
             assertAll(
-                { assertThat(ops.get(key, "viewCount")).isEqualTo("0") },
-                { assertThat(ops.get(key, "likeCount")).isEqualTo("0") },
-                { assertThat(ops.get(key, "orderCount")).isEqualTo("0") },
+                { assertThat(zSet.score("$KEY_PREFIX:view:$dateKey", PRODUCT_ID_1.toString())!!).isEqualTo(30.0) },
+                { assertThat(zSet.score("$KEY_PREFIX:like:$dateKey", PRODUCT_ID_1.toString())!!).isEqualTo(10.0) },
+                { assertThat(zSet.score("$KEY_PREFIX:order:$dateKey", PRODUCT_ID_1.toString())!!).isEqualTo(2.0) },
             )
         }
 
-        @DisplayName("2회 동기화 시 DB에 누적 합산된다.")
+        @DisplayName("2회 동기화 시 DB는 누적이 아닌 스냅샷 덮어쓰기로 갱신된다.")
         @Test
-        fun shouldAccumulateOnConsecutiveSyncs() {
+        fun shouldOverwriteOnConsecutiveSyncs() {
             // arrange - 1차
-            seedRedisMetrics(PRODUCT_ID_1, viewCount = 10, likeCount = 5, orderCount = 1)
-            jobLauncherTestUtils.launchJob(uniqueJobParameters())
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 10, likeCount = 5, orderCount = 1)
+            jobLauncherTestUtils.launchJob(jobParameters())
 
-            // arrange - 2차
-            seedRedisMetrics(PRODUCT_ID_1, viewCount = 20, likeCount = 3, orderCount = 2)
+            // arrange - 2차 (ZSET에 추가 적재 → 누적 상태)
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 20, likeCount = 3, orderCount = 2)
 
             // act
-            jobLauncherTestUtils.launchJob(uniqueJobParameters())
+            jobLauncherTestUtils.launchJob(jobParameters())
 
-            // assert
+            // assert - DB는 ZSET의 현재 누적값(30/8/3)으로 덮어써진다
             val result = jdbcTemplate.queryForMap(
                 "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ?",
                 PRODUCT_ID_1,
@@ -166,19 +170,18 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("Redis에 메트릭이 없으면 DB에 변경이 없다.")
+        @DisplayName("ZSET에 메트릭이 없으면 DB에 변경이 없다.")
         @Test
-        fun shouldDoNothingWhenRedisIsEmpty() {
+        fun shouldDoNothingWhenZSetIsEmpty() {
             // act
-            val jobExecution = jobLauncherTestUtils.launchJob(uniqueJobParameters())
+            val jobExecution = jobLauncherTestUtils.launchJob(jobParameters())
 
             // assert
             assertAll(
                 { assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.COMPLETED.exitCode) },
                 {
-                    assertThat(
-                        jdbcTemplate.queryForObject("SELECT COUNT(*) FROM product_metrics", Long::class.java),
-                    ).isEqualTo(0L)
+                    assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM product_metrics", Long::class.java)!!)
+                        .isEqualTo(0L)
                 },
             )
         }
