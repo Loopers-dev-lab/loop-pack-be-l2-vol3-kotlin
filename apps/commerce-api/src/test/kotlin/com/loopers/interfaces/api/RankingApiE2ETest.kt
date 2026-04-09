@@ -129,6 +129,58 @@ class RankingApiE2ETest @Autowired constructor(
             )
         }
 
+        @DisplayName("랭킹 데이터가 없으면, 빈 목록을 반환한다.")
+        @Test
+        fun returnsEmptyList_whenNoRankingData() {
+            // act
+            val response = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?page=1&size=20",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode.is2xxSuccessful).isTrue()
+            val data = requireNotNull(response.body?.data) { "응답 data가 null입니다" }
+            assertThat(data.items).isEmpty()
+        }
+
+        @DisplayName("page=2로 요청하면, 두 번째 페이지의 랭킹을 반환한다.")
+        @Test
+        fun returnsPaginatedRankings() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "테스트 브랜드", description = "설명"))
+            val products = (1..5).map { i ->
+                productRepository.save(
+                    Product(name = "상품$i", description = null, price = Money.of(10000), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+                )
+            }
+            // 점수: 상품1(50), 상품2(40), 상품3(30), 상품4(20), 상품5(10)
+            products.forEachIndexed { index, product ->
+                redisTemplate.opsForZSet().add(rankingKey, product.id.toString(), (50 - index * 10).toDouble())
+            }
+
+            // act — page=2, size=2 → 3위~4위
+            val response = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?page=2&size=2",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode.is2xxSuccessful).isTrue()
+            val data = requireNotNull(response.body?.data) { "응답 data가 null입니다" }
+            assertAll(
+                { assertThat(data.items).hasSize(2) },
+                { assertThat(data.items[0].rank).isEqualTo(3L) },
+                { assertThat(data.items[0].productName).isEqualTo("상품3") },
+                { assertThat(data.items[1].rank).isEqualTo(4L) },
+                { assertThat(data.items[1].productName).isEqualTo("상품4") },
+            )
+        }
+
         @DisplayName("주문 1건의 점수가 좋아요 3건의 점수보다 높다.")
         @Test
         fun orderScoreIsHigherThanThreeLikes() {
