@@ -40,4 +40,25 @@ class CatalogEventConsumerTest {
             productId = 1L,
         )
     }
+
+    @Test
+    @DisplayName("알 수 없는 eventType도 예외 없이 UseCase로 전달된다")
+    fun `알 수 없는 eventType도 예외 없이 UseCase로 전달된다`() {
+        // Arrange — Consumer는 eventType 화이트리스트 검증을 하지 않고 UseCase에 위임한다
+        val payload = CatalogEventPayload(
+            eventId = "evt-2",
+            eventType = "UNKNOWN_TYPE",
+            productId = 99L,
+        )
+
+        // Act
+        consumer.consume(payload)
+
+        // Assert
+        verify(updateProductMetricsUseCase).handleCatalogEvent(
+            eventId = "evt-2",
+            eventType = "UNKNOWN_TYPE",
+            productId = 99L,
+        )
+    }
 }

@@ -3,7 +3,6 @@ package com.loopers.interfaces.consumer
 import com.loopers.application.metrics.UpdateProductMetricsUseCase
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.interfaces.consumer.dto.CatalogEventPayload
-import org.slf4j.LoggerFactory
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component
 
@@ -11,8 +10,6 @@ import org.springframework.stereotype.Component
 class CatalogEventConsumer(
     private val updateProductMetricsUseCase: UpdateProductMetricsUseCase,
 ) {
-
-    private val log = LoggerFactory.getLogger(javaClass)
 
     @KafkaListener(
         topics = [TOPIC],

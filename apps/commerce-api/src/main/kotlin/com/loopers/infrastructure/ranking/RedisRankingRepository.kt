@@ -40,7 +40,10 @@ class RedisRankingRepository(
                 log.warn("Redis 랭킹 파싱 실패 [key={}, member={}]", key, pair.getOrNull(0))
                 return@mapNotNull null
             }
-            val score = pair.getOrNull(1)?.toString()?.toDoubleOrNull() ?: return@mapNotNull null
+            val score = pair.getOrNull(1)?.toString()?.toDoubleOrNull() ?: run {
+                log.warn("Redis 랭킹 score 파싱 실패 [key={}, productId={}, score={}]", key, productId, pair.getOrNull(1))
+                return@mapNotNull null
+            }
             RankingEntry(productId = productId, score = score)
         }
         return RankingFetchResult(entries = entries, rawFetchCount = rawFetchCount)

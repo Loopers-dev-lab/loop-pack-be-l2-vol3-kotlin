@@ -96,6 +96,7 @@ class GetRankingUseCase(
      */
     private fun computeTotalVisibleCount(date: LocalDate): Long {
         val now = Instant.now(clock)
+        totalCountCache.entries.removeIf { it.value.expiresAt.isBefore(now) }
         val cached = totalCountCache[date]
         if (cached != null && cached.expiresAt.isAfter(now)) {
             return cached.count

@@ -34,6 +34,8 @@ class GetRankingUseCaseTest {
         ZoneId.of("Asia/Seoul"),
     )
     private val today: LocalDate = LocalDate.now(clock)
+
+    @Suppress("EmptyFunctionBlock")
     private val noOpTxManager = object : AbstractPlatformTransactionManager() {
         override fun doGetTransaction() = Any()
         override fun doBegin(transaction: Any, definition: TransactionDefinition) {}
@@ -356,6 +358,38 @@ class GetRankingUseCaseTest {
 
             // step 5: TTL 만료 후 재호출 → 재계산된 새 값 (3)
             assertThat(ttlUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(3L)
+        }
+
+        @Test
+        @DisplayName("TTL 만료 후 다른 만료 엔트리가 누적되어도 동일 날짜 재조회 시 재계산값이 반환된다 (opportunistic cleanup)")
+        fun `opportunistic cleanup이 일어나도 동일 날짜 재조회와 후속 경로가 정상 동작한다`() {
+            // Arrange — MutableClock + 별도 UseCase 구성
+            val mutableClock = MutableClock(clock.instant(), clock.zone)
+            val localRepo = FakeRankingRepository()
+            val cleanupUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock, noOpTxManager)
+            val yesterday = today.minusDays(1)
+
+            // step 1: yesterday + today 두 날짜로 캐시를 누적
+            localRepo.addEntry(yesterday, 1L, 1.0)
+            localRepo.addEntry(today, 1L, 1.0)
+            localRepo.addEntry(today, 2L, 2.0)
+            assertThat(cleanupUseCase.execute(date = yesterday, page = 0, size = 10).totalElements).isEqualTo(1L)
+            assertThat(cleanupUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(2L)
+
+            // step 2: 캐시 세팅 이후 today 항목 추가 → 재계산 시 새 값 검증용
+            localRepo.addEntry(today, 3L, 3.0)
+
+            // step 3: clock을 31초 전진 → yesterday/today 두 캐시 모두 만료 상태
+            mutableClock.advance(31)
+
+            // step 4: today 재조회 → opportunistic cleanup 트리거 + 동일 날짜는 재계산값(3) 반환
+            val todayResult = cleanupUseCase.execute(date = today, page = 0, size = 10)
+            assertThat(todayResult.totalElements).isEqualTo(3L)
+
+            // step 5: cleanup 이후 yesterday 재조회 경로도 정상 동작 (만료된 엔트리가 정리된 상태에서 새로 계산)
+            localRepo.addEntry(yesterday, 2L, 2.0)
+            val yesterdayResult = cleanupUseCase.execute(date = yesterday, page = 0, size = 10)
+            assertThat(yesterdayResult.totalElements).isEqualTo(2L)
         }
     }
 

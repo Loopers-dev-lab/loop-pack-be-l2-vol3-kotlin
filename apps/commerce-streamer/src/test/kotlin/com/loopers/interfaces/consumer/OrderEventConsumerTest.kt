@@ -91,6 +91,20 @@ class OrderEventConsumerTest {
         }
 
         @Test
+        fun `eventType이 공백이면 CoreException을 던진다`() {
+            val payload = OrderEventPayload(
+                eventId = "evt-1",
+                eventType = "",
+                productId = 1L,
+                quantity = 1L,
+            )
+
+            assertThatThrownBy { consumer.consume(payload) }
+                .isInstanceOf(CoreException::class.java)
+            verifyNoInteractions(updateProductMetricsUseCase)
+        }
+
+        @Test
         fun `productId가 0 이하이면 CoreException을 던진다`() {
             val payload = OrderEventPayload(
                 eventId = "evt-1",

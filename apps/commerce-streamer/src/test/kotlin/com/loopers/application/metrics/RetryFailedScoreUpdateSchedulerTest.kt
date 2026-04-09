@@ -24,6 +24,8 @@ class RetryFailedScoreUpdateSchedulerTest {
         scheduler = RetryFailedScoreUpdateScheduler(
             failedScoreUpdateRepository,
             rankingScoreRepository,
+            maxRetryCount = 10,
+            batchSize = 50,
         )
     }
 

@@ -88,8 +88,11 @@ class ProductDetailRankE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val data = response.body!!.data as Map<*, *>
-            assertThat(data["rank"]).isEqualTo(1)
+            val body = response.body
+            assertThat(body).isNotNull
+            val data = body!!.data as? Map<*, *>
+            assertThat(data).isNotNull
+            assertThat(data!!["rank"]).isEqualTo(1)
         }
 
         @Test
@@ -105,8 +108,35 @@ class ProductDetailRankE2ETest @Autowired constructor(
 
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val data = response.body!!.data as Map<*, *>
-            assertThat(data.containsKey("rank")).isTrue()
+            val body = response.body
+            assertThat(body).isNotNull
+            val data = body!!.data as? Map<*, *>
+            assertThat(data).isNotNull
+            assertThat(data!!.containsKey("rank")).isTrue()
+            assertThat(data["rank"]).isNull()
+        }
+
+        @Test
+        @DisplayName("score가 0 이하인 상품은 rank가 null로 반환된다")
+        fun `score가 0 이하인 상품은 rank가 null이다`() {
+            // arrange — zset에 등록되어 있지만 score=0인 경계값 케이스
+            redisTemplate.opsForZSet().add(rankingKey, productId.toString(), 0.0)
+
+            // act
+            val response = testRestTemplate.exchange(
+                "/api/v1/products/$productId",
+                HttpMethod.GET,
+                null,
+                RESPONSE_TYPE,
+            )
+
+            // assert — Lua 스크립트가 score <= 0을 nil로 반환하므로 rank는 null
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val body = response.body
+            assertThat(body).isNotNull
+            val data = body!!.data as? Map<*, *>
+            assertThat(data).isNotNull
+            assertThat(data!!.containsKey("rank")).isTrue()
             assertThat(data["rank"]).isNull()
         }
     }

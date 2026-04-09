@@ -294,3 +294,19 @@
 - **최종 결정**: 트레이드오프 (현행 유지)
 - **근거**: 요구사항 "삭제/비활성 상태인 상품은 ZSET에 남아있어도 랭킹 API 응답에서 제외한다"가 content뿐 아니라 totalElements에도 적용된다. ZCOUNT(score>0)는 비활성/삭제 상품을 포함하므로 visible totalElements의 의미와 다르다. 현재 scanTotalVisibleCount가 요구사항적으로 올바른 구현이며, 30초 캐시 TTL로 호출 빈도가 제한된다. 대규모 데이터 시 캐시 TTL 연장 또는 별도 active 카운터 유지로 대응.
 - **최종 업데이트**: 2026-04-09
+
+## RD-037. LIKE_REMOVED 시 likeCount 감소 여부와 무관한 랭킹 점수 차감
+- **keywords**: `LIKE_REMOVED`, `decrementLikeCount`, `랭킹 점수`, `likeCount`, `의도적 분리`, `RankingWeight.LIKE`
+- **리뷰어**: CodeRabbit (Critical)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (의도적 분리 정책)
+- **근거**: round9 requirements Q4가 "LIKE_REMOVED 이벤트 시 랭킹 점수 -0.2 차감"을 명시한다. `ProductMetrics.decrementLikeCount()`는 `likeCount` 음수 가드(0 floor)를 위해 Boolean을 반환하지만, **도메인의 likeCount 감소 여부와 랭킹 점수 차감은 의도적으로 분리된 정책**이다. likeCount가 이미 0인 상태에서 LIKE_REMOVED 이벤트가 와도 랭킹 점수는 차감되어야 하며, 테스트(`LIKE_REMOVED 이벤트 시 likeCount가 0이어도 랭킹 점수 -0_2가 반영된다`)도 해당 정책의 회귀 보호다. 수정 시 반드시 round9 Q4 요구사항과 대조 필요.
+- **최종 업데이트**: 2026-04-09
+
+## RD-038. RetryFailedScoreUpdateScheduler 스케줄러 레벨 예외 처리·메트릭 — 후순위
+- **keywords**: `RetryFailedScoreUpdateScheduler`, `try-catch`, `스케줄러`, `Micrometer`, `메트릭`, `관측성`, `retry.interval-ms`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계 후순위)
+- **근거**: 현재는 "재처리 실패가 기능 정합성 이슈인가"를 먼저 보장하는 단계이며, 운영 관측 고도화(스케줄러 전체 try-catch wrapper, 성공/실패/스킵 메트릭 카운터)는 후순위다. Spring `@Scheduled`는 태스크 예외 발생 시 다음 주기에 재실행하므로 기능 정합성에는 영향 없다. 개별 레코드 단위 try-catch는 이미 구현되어 있어 부분 성공이 보장된다. 실 운영 단계에서 관측성 고도화 시 일괄 도입한다.
+- **최종 업데이트**: 2026-04-09
