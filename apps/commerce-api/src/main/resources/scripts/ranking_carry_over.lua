@@ -3,6 +3,7 @@
 -- KEYS[2] = toKey (다음날 랭킹)
 -- ARGV[1] = weight (가중치)
 -- ARGV[2] = TTL (seconds)
+redis.call('DEL', KEYS[2])
 redis.call('ZUNIONSTORE', KEYS[2], 1, KEYS[1], 'WEIGHTS', ARGV[1])
 redis.call('EXPIRE', KEYS[2], tonumber(ARGV[2]))
 return 1

@@ -1,5 +1,6 @@
 package com.loopers.domain.ranking
 
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 import kotlin.math.log10
@@ -8,6 +9,8 @@ import kotlin.math.log10
 class RankingService(
     private val rankingRepository: RankingRepository,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     companion object {
         private const val VIEW_WEIGHT = 0.1
         private const val LIKE_WEIGHT = 0.2
@@ -27,7 +30,12 @@ class RankingService(
     }
 
     fun updateScoreForOrder(date: LocalDate, productId: Long, unitPrice: Long, quantity: Int) {
-        val score = ORDER_WEIGHT * log10((unitPrice * quantity).toDouble())
+        val totalAmount = unitPrice * quantity
+        if (totalAmount <= 0) {
+            log.warn("주문 랭킹 점수 계산 스킵: productId={}, unitPrice={}, quantity={}", productId, unitPrice, quantity)
+            return
+        }
+        val score = ORDER_WEIGHT * log10(totalAmount.toDouble())
         rankingRepository.incrementScore(date, productId, score)
     }
 }

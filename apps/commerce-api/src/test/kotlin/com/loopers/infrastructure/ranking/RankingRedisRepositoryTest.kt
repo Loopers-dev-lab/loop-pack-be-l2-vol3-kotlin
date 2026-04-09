@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.ranking
 
+import com.loopers.config.redis.RedisConfig
 import com.loopers.config.redis.RedisKeys
 import com.loopers.domain.ranking.RankingRepository
 import com.loopers.utils.RedisCleanUp
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
 import java.time.LocalDate
@@ -19,6 +21,7 @@ import java.time.format.DateTimeFormatter
 class RankingRedisRepositoryTest @Autowired constructor(
     private val rankingRepository: RankingRepository,
     private val redisCleanUp: RedisCleanUp,
+    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val redisTemplate: RedisTemplate<String, String>,
 ) {
 
