@@ -58,7 +58,4 @@ interface ProductJpaRepository : JpaRepository<ProductEntity, Long> {
 
     @Query("SELECT p FROM ProductEntity p ORDER BY p.createdAt DESC")
     fun findAllLatest(): List<ProductEntity>
-
-    @Query("SELECT p FROM ProductEntity p WHERE p.id IN :ids AND p.deletedAt IS NULL")
-    fun findAllActiveByIds(ids: List<Long>): List<ProductEntity>
 }

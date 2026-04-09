@@ -148,10 +148,6 @@ class FakeProductRepository : ProductRepository {
         }
     }
 
-    override fun findAllByIds(ids: List<Long>): List<Product> {
-        return ids.mapNotNull { id -> store[id]?.takeIf { !it.isDeleted() } }
-    }
-
     override fun findAll(brandId: Long?): List<Product> {
         var result = store.values.toList()
         if (brandId != null) {
