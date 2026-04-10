@@ -8,16 +8,14 @@ import java.time.LocalDate
 @Component
 class RankingCarryOverService(
     private val rankingRedisRepository: RankingRedisRepository,
+    private val rankingWeightProvider: RankingWeightProvider,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun carryOver(today: LocalDate) {
         val tomorrow = today.plusDays(1)
-        log.info("Score Carry-Over 실행: {} → {} (weight={})", today, tomorrow, CARRY_OVER_WEIGHT)
-        rankingRedisRepository.carryOverScores(today, tomorrow, CARRY_OVER_WEIGHT)
-    }
-
-    companion object {
-        const val CARRY_OVER_WEIGHT = 0.1
+        val weight = rankingWeightProvider.getCarryOverWeight()
+        log.info("Score Carry-Over 실행: {} → {} (weight={})", today, tomorrow, weight)
+        rankingRedisRepository.carryOverScores(today, tomorrow, weight)
     }
 }
