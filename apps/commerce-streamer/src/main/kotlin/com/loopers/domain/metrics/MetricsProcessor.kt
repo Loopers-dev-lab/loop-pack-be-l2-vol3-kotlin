@@ -28,30 +28,38 @@ class MetricsProcessor(
         private val log = LoggerFactory.getLogger(MetricsProcessor::class.java)
     }
 
+    /**
+     * 이벤트를 처리하고, 영향받은 productId 목록을 반환한다.
+     * RankingProcessor가 이 목록을 기반으로 ZSET 점수를 갱신한다.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun process(record: ConsumerRecord<String, String>) {
+    fun process(record: ConsumerRecord<String, String>): Set<Long> {
         val payload = objectMapper.readTree(record.value())
-        val eventId = payload.get("eventId")?.asText() ?: return
-        val eventType = payload.get("eventType")?.asText() ?: return
+        val eventId = payload.get("eventId")?.asText() ?: return emptySet()
+        val eventType = payload.get("eventType")?.asText() ?: return emptySet()
         val occurredAt = payload.get("occurredAt")?.asText()?.let { ZonedDateTime.parse(it) }
 
         // 멱등 체크
         if (eventHandledRepository.existsByEventId(eventId)) {
             log.debug("이미 처리된 이벤트 skip [eventId={}]", eventId)
-            return
+            return emptySet()
         }
 
         // 이벤트 타입별 처리
-        when (eventType) {
+        val affectedProductIds = when (eventType) {
             "PRODUCT_LIKED" -> handleMetricsUpdate(payload, occurredAt) { it.incrementLikeCount() }
             "PRODUCT_UNLIKED" -> handleMetricsUpdate(payload, occurredAt) { it.decrementLikeCount() }
             "ORDER_CREATED" -> handleOrderCreated(payload, occurredAt)
             "PRODUCT_VIEWED" -> handleMetricsUpdate(payload, occurredAt) { it.incrementViewCount() }
-            else -> log.debug("미처리 이벤트 타입 [type={}]", eventType)
+            else -> {
+                log.debug("미처리 이벤트 타입 [type={}]", eventType)
+                emptySet()
+            }
         }
 
         // 처리 완료 기록
         eventHandledRepository.save(EventHandled(eventId = eventId))
+        return affectedProductIds
     }
 
     /**
@@ -62,23 +70,26 @@ class MetricsProcessor(
         payload: JsonNode,
         occurredAt: ZonedDateTime?,
         action: (ProductMetrics) -> Unit,
-    ) {
-        val productId = payload.get("aggregateId")?.asLong() ?: return
+    ): Set<Long> {
+        val productId = payload.get("aggregateId")?.asLong() ?: return emptySet()
         val metrics = getOrCreateMetrics(productId)
 
         if (occurredAt != null && metrics.isStaleEvent(occurredAt)) {
             log.debug("[메트릭] stale 이벤트 skip [productId={}, occurredAt={}]", productId, occurredAt)
-            return
+            return emptySet()
         }
 
         action(metrics)
         occurredAt?.let { metrics.updateLastEventAt(it) }
         productMetricsRepository.save(metrics)
         log.info("[메트릭] 업데이트 [productId={}, type={}]", productId, payload.get("eventType")?.asText())
+        return setOf(productId)
     }
 
-    private fun handleOrderCreated(payload: JsonNode, occurredAt: ZonedDateTime?) {
-        val orderItems = payload.get("orderItems") ?: return
+    private fun handleOrderCreated(payload: JsonNode, occurredAt: ZonedDateTime?): Set<Long> {
+        val orderItems = payload.get("orderItems") ?: return emptySet()
+        val affectedIds = mutableSetOf<Long>()
+
         orderItems.forEach { item ->
             val productId = item.get("productId")?.asLong() ?: return@forEach
             val quantity = item.get("quantity")?.asInt() ?: 1
@@ -92,8 +103,11 @@ class MetricsProcessor(
             metrics.incrementOrderCount(quantity.toLong())
             occurredAt?.let { metrics.updateLastEventAt(it) }
             productMetricsRepository.save(metrics)
+            affectedIds.add(productId)
             log.info("[메트릭] 주문 집계 [productId={}, quantity={}]", productId, quantity)
         }
+
+        return affectedIds
     }
 
     private fun getOrCreateMetrics(productId: Long): ProductMetrics {
