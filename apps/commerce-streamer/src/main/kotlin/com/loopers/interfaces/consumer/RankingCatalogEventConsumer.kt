@@ -5,6 +5,7 @@ import com.loopers.application.ranking.RankingAggregationService
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.event.KafkaEventMessage
 import com.loopers.event.KafkaTopics
+import com.loopers.infrastructure.ranking.ViewDedupRedisRepository
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component
 class RankingCatalogEventConsumer(
     private val idempotencyService: IdempotencyService,
     private val rankingAggregationService: RankingAggregationService,
+    private val viewDedupRedisRepository: ViewDedupRedisRepository,
     private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -40,7 +42,28 @@ class RankingCatalogEventConsumer(
                 val dateTime = message.occurredAt.toLocalDateTime()
 
                 when (message.eventType) {
-                    "PRODUCT_VIEWED" -> rankingAggregationService.processViewEvent(productId, date, dateTime, message.eventId)
+                    "PRODUCT_VIEWED" -> {
+                        val loginId = message.payload["loginId"] as? String
+                        val clientIp = message.payload["clientIp"] as? String
+
+                        if (viewDedupRedisRepository.isDuplicate(productId, loginId, clientIp, date)) {
+                            log.debug(
+                                "조회 중복 필터링: productId={}, loginId={}, ip={}",
+                                productId,
+                                loginId,
+                                clientIp,
+                            )
+                        } else {
+                            rankingAggregationService.processViewEvent(
+                                productId,
+                                date,
+                                dateTime,
+                                message.eventId,
+                                message.payload,
+                            )
+                            viewDedupRedisRepository.markViewed(productId, loginId, clientIp, date)
+                        }
+                    }
                     "PRODUCT_LIKED" -> rankingAggregationService.processLikeEvent(productId, date, dateTime, message.eventId)
                 }
 
