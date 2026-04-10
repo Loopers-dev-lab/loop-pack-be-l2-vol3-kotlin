@@ -4,6 +4,7 @@ import com.loopers.application.brand.BrandInfo
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.ProductSort
+import com.loopers.domain.ranking.RankingService
 import com.loopers.infrastructure.cache.ProductCacheDto
 import com.loopers.infrastructure.cache.ProductCacheRepository
 import org.springframework.data.domain.Page
@@ -15,19 +16,22 @@ class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val productCacheRepository: ProductCacheRepository,
+    private val rankingService: RankingService,
 ) {
     fun getProduct(id: Long): ProductInfo {
         val cached = productCacheRepository.get(id)
-        if (cached != null) {
-            return cached.toProductInfo()
+        val productInfo = if (cached != null) {
+            cached.toProductInfo()
+        } else {
+            val product = productService.getProduct(id)
+            val brandInfo = BrandInfo.from(brandService.getBrand(product.brandId))
+            val info = ProductInfo.from(product, brandInfo)
+            productCacheRepository.put(id, ProductCacheDto.from(info))
+            info
         }
 
-        val product = productService.getProduct(id)
-        val brandInfo = BrandInfo.from(brandService.getBrand(product.brandId))
-        val productInfo = ProductInfo.from(product, brandInfo)
-
-        productCacheRepository.put(id, ProductCacheDto.from(productInfo))
-        return productInfo
+        val rank = rankingService.getProductRank(id)
+        return productInfo.copy(rank = rank)
     }
 
     fun getProducts(brandId: Long?, sort: ProductSort, pageable: Pageable): Page<ProductInfo> {

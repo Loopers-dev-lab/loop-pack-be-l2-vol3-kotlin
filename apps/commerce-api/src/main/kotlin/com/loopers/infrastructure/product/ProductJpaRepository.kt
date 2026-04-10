@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query
 
 interface ProductJpaRepository : JpaRepository<Product, Long> {
     fun findByIdAndDeletedAtIsNull(id: Long): Product?
+    fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<Product>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Product p WHERE p.id = :id AND p.deletedAt IS NULL")

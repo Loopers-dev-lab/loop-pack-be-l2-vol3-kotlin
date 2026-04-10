@@ -73,7 +73,7 @@ class OrderEventConsumer(
                         log.warn("[OrderEvent] Order not found: orderId={}", orderId)
                     }
                 }
-                else -> log.warn("[OrderEvent] Unknown event type: {}", eventType)
+                else -> log.debug("[OrderEvent] Unknown event type: {}", eventType)
             }
         } catch (e: Exception) {
             log.error("[OrderEvent] Failed to process message: offset={}", record.offset(), e)

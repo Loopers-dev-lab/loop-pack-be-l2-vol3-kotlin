@@ -30,14 +30,19 @@ class CatalogEventConsumer(
                 ?.value()?.let { String(it).toLong() } ?: return
             val eventType = record.headers().lastHeader("outbox-event-type")
                 ?.value()?.let { String(it) } ?: return
-            val productId = record.key().toLong()
-
-            log.info("[CatalogEvent] type={} productId={} eventId={}", eventType, productId, eventId)
 
             when (eventType) {
-                "ProductLiked" -> metricsService.incrementLikeCount(productId, eventId)
-                "ProductUnliked" -> metricsService.decrementLikeCount(productId, eventId)
-                else -> log.warn("[CatalogEvent] Unknown event type: {}", eventType)
+                "ProductLiked" -> {
+                    val productId = record.key().toLong()
+                    log.info("[CatalogEvent] type={} productId={} eventId={}", eventType, productId, eventId)
+                    metricsService.incrementLikeCount(productId, eventId)
+                }
+                "ProductUnliked" -> {
+                    val productId = record.key().toLong()
+                    log.info("[CatalogEvent] type={} productId={} eventId={}", eventType, productId, eventId)
+                    metricsService.decrementLikeCount(productId, eventId)
+                }
+                else -> log.debug("[CatalogEvent] Skipping event type: {}", eventType)
             }
         } catch (e: Exception) {
             log.error("[CatalogEvent] Failed to process message: offset={}", record.offset(), e)

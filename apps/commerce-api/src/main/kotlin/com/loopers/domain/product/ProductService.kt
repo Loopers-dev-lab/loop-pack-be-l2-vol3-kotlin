@@ -17,6 +17,11 @@ class ProductService(
             ?: throw CoreException(ErrorType.NOT_FOUND)
     }
 
+    @Transactional(readOnly = true)
+    fun getProductsByIds(ids: List<Long>): List<Product> {
+        return productRepository.findAllByIdInAndDeletedAtIsNull(ids)
+    }
+
     @Transactional
     fun getProductWithLock(id: Long): Product {
         return productRepository.findByIdWithPessimisticLock(id)
