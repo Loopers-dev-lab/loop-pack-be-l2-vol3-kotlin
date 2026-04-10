@@ -28,6 +28,9 @@ class RankingV1Controller(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<RankingV1Dto.RankingPageResponse> {
+        if (page < 0) throw CoreException(ErrorType.BAD_REQUEST, "page는 0 이상이어야 합니다: $page")
+        if (size < 1) throw CoreException(ErrorType.BAD_REQUEST, "size는 1 이상이어야 합니다: $size")
+
         val targetDate = parseDate(date) ?: LocalDate.now()
         val criteria = GetRankingCriteria(date = targetDate, page = page, size = size)
         return userGetRankingUseCase.execute(criteria)
