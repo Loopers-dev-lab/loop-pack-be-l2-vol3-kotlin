@@ -1,6 +1,16 @@
+import org.gradle.api.tasks.SourceSetContainer
+
 plugins {
     id("org.jetbrains.kotlin.plugin.jpa")
 }
+
+val commerceStreamerMainOutput =
+    rootProject.project(":apps:commerce-streamer")
+        .extensions
+        .getByType(SourceSetContainer::class.java)
+        .named("main")
+        .get()
+        .output
 
 dependencies {
     // add-ons
@@ -26,6 +36,7 @@ dependencies {
     kapt("com.querydsl:querydsl-apt::jakarta")
 
     // test-fixtures
+    testImplementation(files(commerceStreamerMainOutput))
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:kafka")))
     testImplementation(testFixtures(project(":modules:redis")))
