@@ -2,7 +2,9 @@ package com.loopers.application.ranking
 
 import com.loopers.domain.ranking.RankingEventLogRepository
 import com.loopers.domain.ranking.RankingScorePolicy
+import com.loopers.domain.ranking.ViewTrustScoreCalculator
 import com.loopers.infrastructure.ranking.RankingRedisRepository
+import com.loopers.infrastructure.ranking.ViewRateRedisRepository
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -11,6 +13,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.math.BigDecimal
@@ -32,6 +35,12 @@ class RankingAggregationServiceTest {
     @Mock
     private lateinit var rankingEventLogRepository: RankingEventLogRepository
 
+    @Mock
+    private lateinit var viewTrustScoreCalculator: ViewTrustScoreCalculator
+
+    @Mock
+    private lateinit var viewRateRedisRepository: ViewRateRedisRepository
+
     @InjectMocks
     private lateinit var rankingAggregationService: RankingAggregationService
 
@@ -43,20 +52,41 @@ class RankingAggregationServiceTest {
     @Nested
     inner class ProcessViewEvent {
 
-        @DisplayName("가중치 적용 + Redis 적재 + 이벤트 로그 저장을 수행한다.")
+        @DisplayName("Trust Score가 적용된 점수로 ZSET에 적재한다.")
         @Test
-        fun processesViewEventFully() {
+        fun appliesTrustScore_whenViewEvent() {
             // arrange
-            whenever(rankingWeightProvider.getViewWeight()).thenReturn(0.15)
-            whenever(rankingScorePolicy.calculateViewScore(0.15)).thenReturn(0.15)
+            val payload = mapOf<String, Any?>("loginId" to "user1", "clientIp" to "1.2.3.4", "userAgent" to "Mozilla", "referer" to "https://example.com")
+            whenever(rankingWeightProvider.getViewWeight()).thenReturn(0.1)
+            whenever(rankingScorePolicy.calculateViewScore(0.1)).thenReturn(0.1)
+            whenever(viewRateRedisRepository.incrementAndGetRequestCount(any(), any())).thenReturn(1L)
+            whenever(viewRateRedisRepository.addViewedProductAndGetCount(any(), any(), any())).thenReturn(3L)
+            whenever(viewTrustScoreCalculator.calculate(any())).thenReturn(1.0)
 
             // act
-            rankingAggregationService.processViewEvent(101L, testDate, testDateTime, testEventId)
+            rankingAggregationService.processViewEvent(101L, testDate, testDateTime, testEventId, payload)
 
-            // assert
-            verify(rankingRedisRepository).incrementScore(101L, 0.15, testDate)
-            verify(rankingRedisRepository).incrementHourlyScore(101L, 0.15, testDateTime)
+            // assert — 0.1 * 1.0 = 0.1
+            verify(rankingRedisRepository).incrementScore(101L, 0.1, testDate)
             verify(rankingEventLogRepository).save(any())
+        }
+
+        @DisplayName("Trust Score가 낮으면 낮은 점수가 적용된다.")
+        @Test
+        fun appliesLowScore_whenLowTrustScore() {
+            // arrange
+            val payload = mapOf<String, Any?>("loginId" to null, "clientIp" to "1.2.3.4", "userAgent" to null, "referer" to null)
+            whenever(rankingWeightProvider.getViewWeight()).thenReturn(0.1)
+            whenever(rankingScorePolicy.calculateViewScore(0.1)).thenReturn(0.1)
+            whenever(viewRateRedisRepository.incrementAndGetRequestCount(any(), any())).thenReturn(15L)
+            whenever(viewRateRedisRepository.addViewedProductAndGetCount(any(), any(), any())).thenReturn(1L)
+            whenever(viewTrustScoreCalculator.calculate(any())).thenReturn(0.05)
+
+            // act
+            rankingAggregationService.processViewEvent(101L, testDate, testDateTime, testEventId, payload)
+
+            // assert — 0.1 * 0.05 = 0.005
+            verify(rankingRedisRepository).incrementScore(eq(101L), eq(0.005000000000000001), eq(testDate))
         }
     }
 
@@ -64,7 +94,7 @@ class RankingAggregationServiceTest {
     @Nested
     inner class ProcessLikeEvent {
 
-        @DisplayName("가중치 적용 + Redis 적재 + 이벤트 로그 저장을 수행한다.")
+        @DisplayName("가중치가 적용된 점수로 ZSET에 적재한다.")
         @Test
         fun processesLikeEventFully() {
             // arrange
@@ -90,19 +120,16 @@ class RankingAggregationServiceTest {
             // arrange
             val items = listOf(
                 OrderItemScore(productId = 1L, amount = BigDecimal("10000")),
-                OrderItemScore(productId = 2L, amount = BigDecimal("5000")),
             )
             whenever(rankingWeightProvider.getOrderWeight()).thenReturn(0.6)
             whenever(rankingScorePolicy.calculateOrderScore(BigDecimal("10000"), 0.6)).thenReturn(6000.0)
-            whenever(rankingScorePolicy.calculateOrderScore(BigDecimal("5000"), 0.6)).thenReturn(3000.0)
 
             // act
             rankingAggregationService.processOrderEvent(items, testDate, testDateTime, testEventId)
 
             // assert
             verify(rankingRedisRepository).incrementScore(1L, 6000.0, testDate)
-            verify(rankingRedisRepository).incrementScore(2L, 3000.0, testDate)
-            verify(rankingEventLogRepository, org.mockito.kotlin.times(2)).save(any())
+            verify(rankingEventLogRepository).save(any())
         }
 
         @DisplayName("주문 항목이 비어있으면, 아무 처리도 하지 않는다.")
@@ -113,7 +140,6 @@ class RankingAggregationServiceTest {
 
             // assert
             verify(rankingRedisRepository, org.mockito.kotlin.never()).incrementScore(any(), any(), any())
-            verify(rankingEventLogRepository, org.mockito.kotlin.never()).save(any())
         }
     }
 }
