@@ -20,6 +20,7 @@ graph TB
         JPA["jpa<br/>DataSource · Hibernate · QueryDSL"]
         REDIS["redis<br/>Master-Replica · Lettuce"]
         KAFKA["kafka<br/>Producer · Consumer"]
+        EVTCONTRACT["event-contract<br/>이벤트 계약 상수"]
     end
 
     subgraph Supports["supports/ (부가 기능)"]
@@ -39,6 +40,8 @@ graph TB
     STREAMER --> KAFKA
     STREAMER --> JACKSON
     STREAMER --> LOGGING
+    API --> EVTCONTRACT
+    STREAMER --> EVTCONTRACT
 ```
 
 ### 모듈 역할
@@ -51,6 +54,7 @@ graph TB
 | modules | jpa | DataSource, Hibernate, QueryDSL 설정. TestContainers 테스트 픽스처 포함 |
 | modules | redis | Redis Master-Replica 설정. Lettuce 커넥션 관리 |
 | modules | kafka | Kafka Producer/Consumer 설정 |
+| modules | event-contract | Producer-Consumer 이벤트 계약 상수 (zero dependency) |
 | supports | jackson | Jackson ObjectMapper 설정 (LocalDate, ZonedDateTime 직렬화) |
 | supports | logging | Logback, Slack 알림 연동 |
 | supports | monitoring | Prometheus, Micrometer 메트릭 수집 |

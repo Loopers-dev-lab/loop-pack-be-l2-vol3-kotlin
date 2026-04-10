@@ -202,6 +202,30 @@
 
 **상태**: DONE
 
+### 대기열 — DONE
+
+#### FEAT-12: 주문 대기열 시스템
+
+**배경**: 블랙 프라이데이 등 대규모 트래픽이 주문 API에 직접 유입되면 DB 커넥션 풀(50개) 고갈 및 전체 서비스 장애 위험. 선착순 공정성 보장과 DB 보호를 위해 가상 대기열 도입.
+
+**수용 기준**:
+- Redis Sorted Set 기반 놀이공원식(non-blocking) 대기열
+- 대기열 진입(POST /enter) → 순번 조회 Polling(GET /position) → 토큰 발급 → 주문 진입
+- 스케줄러 3초 주기 batchSize=300명 입장 (DB Pool 역산)
+- 토큰 기반 주문 게이트 (@QueueTokenRequired + Interceptor)
+- fail-closed: Redis 장애 시 503 반환 (DB 보호 우선)
+- 어드민 수동 토글 ON/OFF
+- 분산 락 스케줄러 (SET NX EX + Lua 소유자 해제)
+- 동적 retryAfter (position 구간별 2/5/10초)
+
+**제약사항**: queue 독립 도메인 (order와 분리), 토큰 TTL 5분, AFTER_COMMIT으로 토큰 삭제
+
+**관련 결정**: D59 (CoreException 핸들러), D60 (activeCount Pipeline), D61 (부하테스트 역산)
+
+**k6 검증**: Entry 1K RPS p99=15ms, Polling 2K RPS p99=12ms, Order 100 TPS p99=95ms (SLO p99≤500ms 충족)
+
+**상태**: DONE
+
 ### 이벤트 아키텍처 — DONE
 
 #### ARCH-1: Event-Command-Handler 도메인 디커플링

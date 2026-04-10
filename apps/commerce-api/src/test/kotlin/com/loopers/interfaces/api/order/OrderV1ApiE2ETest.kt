@@ -111,37 +111,42 @@ class OrderV1ApiE2ETest @Autowired constructor(
         items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 2)),
     )
 
-    private fun createOrderViaApi(): OrderV1Dto.OrderResponse {
-        val response = testRestTemplate.exchange(
+    private fun createOrderAndGetId(): Long {
+        testRestTemplate.exchange(
             ENDPOINT,
             HttpMethod.POST,
             HttpEntity(createOrderRequest(), memberHeaders()),
-            object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {},
+            object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
-        return response.body!!.data!!
+
+        val today = LocalDate.now()
+        val ordersResponse = testRestTemplate.exchange(
+            "$ENDPOINT?startAt=${today.minusDays(1)}&endAt=${today.plusDays(1)}",
+            HttpMethod.GET,
+            HttpEntity<Any>(memberHeaders()),
+            object : ParameterizedTypeReference<ApiResponse<List<OrderV1Dto.OrderResponse>>>() {},
+        )
+        return ordersResponse.body!!.data!!.first().orderId
     }
 
     @DisplayName("POST /api/v1/orders (주문 생성)")
     @Nested
     inner class CreateOrder {
-        @DisplayName("유효한 정보로 주문하면, 201 CREATED 응답을 받는다.")
+        @DisplayName("유효한 정보로 주문하면, 202 ACCEPTED 응답을 받는다.")
         @Test
-        fun returns201_whenValidOrder() {
+        fun returns202_whenValidOrder() {
             // act
             val response = testRestTemplate.exchange(
                 ENDPOINT,
                 HttpMethod.POST,
                 HttpEntity(createOrderRequest(), memberHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
             )
 
             // assert
             assertAll(
-                { assertThat(response.statusCode).isEqualTo(HttpStatus.CREATED) },
-                { assertThat(response.body?.data?.totalAmount).isEqualTo(78000L) },
-                { assertThat(response.body?.data?.items).hasSize(1) },
-                { assertThat(response.body?.data?.items?.get(0)?.productName).isEqualTo("감성 티셔츠") },
-                { assertThat(response.body?.data?.items?.get(0)?.brandName).isEqualTo("루퍼스") },
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.ACCEPTED) },
+                { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS) },
             )
         }
 
@@ -157,9 +162,9 @@ class OrderV1ApiE2ETest @Autowired constructor(
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNAUTHORIZED)
         }
 
-        @DisplayName("재고가 부족하면, 400 BAD_REQUEST 응답을 받는다.")
+        @DisplayName("재고보다 많은 수량으로 주문해도, 202 ACCEPTED 응답을 받는다. (비동기 재고 검증)")
         @Test
-        fun returns400_whenInsufficientStock() {
+        fun returns202_whenInsufficientStock() {
             // arrange — 재고(100)보다 많은 수량으로 주문
             val request = OrderV1Dto.CreateRequest(
                 items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 101)),
@@ -170,11 +175,11 @@ class OrderV1ApiE2ETest @Autowired constructor(
                 ENDPOINT,
                 HttpMethod.POST,
                 HttpEntity(request, memberHeaders()),
-                object : ParameterizedTypeReference<ApiResponse<Void>>() {},
+                object : ParameterizedTypeReference<ApiResponse<Any>>() {},
             )
 
-            // assert
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+            // assert — 주문 요청은 수락되지만, 재고 차감은 비동기로 실패한다
+            assertThat(response.statusCode).isEqualTo(HttpStatus.ACCEPTED)
         }
 
         @DisplayName("존재하지 않는 상품이 포함되면, 404 NOT_FOUND 응답을 받는다.")
@@ -243,11 +248,11 @@ class OrderV1ApiE2ETest @Autowired constructor(
         @Test
         fun returns200_whenOwner() {
             // arrange
-            val created = createOrderViaApi()
+            val orderId = createOrderAndGetId()
 
             // act
             val response = testRestTemplate.exchange(
-                "$ENDPOINT/${created.orderId}",
+                "$ENDPOINT/$orderId",
                 HttpMethod.GET,
                 HttpEntity<Any>(memberHeaders()),
                 object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {},
@@ -268,7 +273,7 @@ class OrderV1ApiE2ETest @Autowired constructor(
         @Test
         fun returnsOrders_whenInDateRange() {
             // arrange
-            createOrderViaApi()
+            createOrderAndGetId()
             val today = LocalDate.now()
             val startAt = today.minusDays(1)
             val endAt = today.plusDays(1)

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.loopers.application.error.ApplicationException
+import com.loopers.domain.error.CoreException
+import com.loopers.domain.error.ErrorType
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -33,6 +35,24 @@ class ApiControllerAdvice {
             httpStatus = HttpStatus.valueOf(e.httpStatus),
             errorCode = e.code,
             errorMessage = e.message,
+        )
+    }
+
+    @ExceptionHandler
+    fun handle(e: CoreException): ResponseEntity<ApiResponse<*>> {
+        log.warn("CoreException : {}", e.message, e)
+        val httpStatus = when (e.errorType) {
+            ErrorType.BAD_REQUEST -> HttpStatus.BAD_REQUEST
+            ErrorType.NOT_FOUND -> HttpStatus.NOT_FOUND
+            ErrorType.UNAUTHORIZED -> HttpStatus.UNAUTHORIZED
+            ErrorType.FORBIDDEN -> HttpStatus.FORBIDDEN
+            ErrorType.CONFLICT -> HttpStatus.CONFLICT
+            ErrorType.INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR
+        }
+        return failureResponse(
+            httpStatus = httpStatus,
+            errorCode = e.errorType.code,
+            errorMessage = e.customMessage ?: e.errorType.message,
         )
     }
 

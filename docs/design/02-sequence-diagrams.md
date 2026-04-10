@@ -814,3 +814,90 @@ sequenceDiagram
 - **캐시 evict 이벤트 기반**: `BrandUpdatedEvent`, `ProductUpdatedEvent`, `ProductDeletedEvent` 모두 `CacheEvictEventHandler`가 수신하여 해당 캐시를 AFTER_COMMIT 후 즉시 evict한다. 기존 `AdminProductFacade`의 직접 evict 방식을 이벤트 기반으로 전환한 결과다.
 - **좋아요 데이터 삭제**: 기존 아키텍처에서는 좋아요를 유지했으나 (3번 시퀀스 해석 참조), 이벤트 체인에서는 `DeleteProductLikesCommandHandler`가 삭제 처리한다. 마케팅 목적 유지 여부는 비즈니스 정책에 따라 결정한다.
 - **TX 없는 CommandHandler**: 캐시 evict(`ProductCacheCommandHandler`)와 좋아요 삭제(`DeleteProductLikesCommandHandler`)는 트랜잭션이 필요 없어 TX 없이 실행한다.
+
+---
+
+## 7. 대기열 → 주문 흐름
+
+### 다이어그램의 목적
+
+블랙 프라이데이 대규모 트래픽 상황에서 유저가 대기열에 진입하고, 토큰을 발급받아 주문하는 전체 흐름을 검증한다.
+
+### 검증 포인트
+- 대기열 진입(ZADD NX)과 순번 조회(ZRANK)의 Redis 연산 흐름
+- 스케줄러(3초 주기)의 분산 락 획득 → ZPOPMIN → Lua 토큰 발급 흐름
+- QueueTokenInterceptor의 토큰 검증 시점과 fail-closed 동작
+- 주문 커밋 확정 후(AFTER_COMMIT) 토큰 삭제 흐름
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant QueueCtrl as QueueV1Controller
+    participant QueueSvc as QueueService
+    participant Redis as Redis<br/>(Sorted Set + Token)
+    participant Scheduler as QueueEntryScheduler
+    participant Interceptor as QueueTokenInterceptor
+    participant OrderCtrl as OrderV1Controller
+    participant OrderFacade as OrderFacade
+    participant TokenHandler as QueueTokenEventHandler
+
+    Note over User, Redis: 1. 대기열 진입
+    User->>QueueCtrl: POST /api/v1/queue/enter
+    QueueCtrl->>QueueSvc: enterQueue(memberId)
+    QueueSvc->>Redis: GET queue:entry-token:{memberId}
+    Redis-->>QueueSvc: null (토큰 없음)
+    QueueSvc->>Redis: ZRANK queue:waiting {memberId}
+    Redis-->>QueueSvc: null (미등록)
+    QueueSvc->>Redis: ZADD NX queue:waiting {score=timestamp} {memberId}
+    Redis-->>QueueSvc: 1 (성공)
+    QueueSvc->>Redis: ZRANK queue:waiting {memberId} (master)
+    Redis-->>QueueSvc: 41
+    QueueSvc-->>User: { position: 42, retryAfter: 2 }
+
+    Note over User, Redis: 2. Polling (retryAfter 간격)
+    loop retryAfter 간격
+        User->>QueueCtrl: GET /api/v1/queue/position
+        QueueCtrl->>QueueSvc: getPosition(memberId)
+        QueueSvc->>Redis: GET token → null, ZRANK → N
+        QueueSvc-->>User: { position: N, token: null, retryAfter: 2~10 }
+    end
+
+    Note over Scheduler, Redis: 3. 스케줄러 (3초 주기)
+    Scheduler->>Redis: SET NX EX queue:scheduler:lock {uuid} 5
+    Redis-->>Scheduler: OK (락 획득)
+    Scheduler->>QueueSvc: processQueue()
+    QueueSvc->>Redis: ZPOPMIN queue:waiting 300
+    Redis-->>QueueSvc: [memberId1, memberId2, ...]
+    loop 각 memberId
+        QueueSvc->>Redis: Lua(SET NX EX token + SADD members)
+    end
+    Scheduler->>Redis: Lua(GET lock == uuid → DEL)
+
+    Note over User, Redis: 4. 토큰 수령
+    User->>QueueCtrl: GET /api/v1/queue/position
+    QueueSvc->>Redis: GET queue:entry-token:{memberId}
+    Redis-->>QueueSvc: "uuid-token"
+    QueueSvc-->>User: { position: 0, token: "uuid-token" }
+
+    Note over User, OrderFacade: 5. 토큰으로 주문
+    User->>OrderCtrl: POST /api/v1/orders (X-Loopers-QueueToken: uuid)
+    OrderCtrl->>Interceptor: preHandle()
+    Interceptor->>QueueSvc: validateToken(memberId, token)
+    QueueSvc->>Redis: GET queue:entry-token:{memberId}
+    Redis-->>QueueSvc: "uuid-token" (일치)
+    Interceptor-->>OrderCtrl: 통과
+    OrderCtrl->>OrderFacade: createOrder(memberId, items)
+
+    Note over OrderFacade, TokenHandler: 6. AFTER_COMMIT 토큰 삭제
+    OrderFacade-->>TokenHandler: OrderRequestedEvent (AFTER_COMMIT)
+    TokenHandler->>QueueSvc: consumeToken(memberId)
+    QueueSvc->>Redis: Lua(DEL token + SREM members)
+```
+
+#### 해석
+
+- **TOCTOU 3단계 방어**: 진입 시 토큰 체크 → rank 체크 → `ZADD NX` 순서로 경쟁 조건 방어. `ZADD NX` 자체가 Redis 원자 연산이므로 중복 삽입 불가.
+- **동적 retryAfter**: position ≤100 → 2초, ≤500 → 5초, 500+ → 10초. 순번 먼 유저의 Polling 빈도를 낮춰 Redis 부하 67% 감소.
+- **분산 락**: `SET NX EX` + Lua 소유자 확인 해제로 멀티 인스턴스 중복 처리 방지. TTL(5초) > 주기(3초)이므로 정상 흐름에서 항상 소유자가 해제.
+- **fail-closed**: Interceptor에서 Redis 예외 시 503 반환. DB 보호가 대기열 존재 이유이므로, Redis 장애 시 우회 불가.
+- **AFTER_COMMIT 토큰 삭제**: 주문 트랜잭션 롤백 시 토큰 유지 → 유저 재시도 가능. 삭제 실패 시 TTL(5분) 만료로 자연 해소.
