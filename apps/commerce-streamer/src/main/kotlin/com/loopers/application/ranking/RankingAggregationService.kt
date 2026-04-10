@@ -8,6 +8,7 @@ import com.loopers.domain.ranking.ViewDedupOperations
 import com.loopers.domain.ranking.ViewRateOperations
 import com.loopers.domain.ranking.ViewSignals
 import com.loopers.domain.ranking.ViewTrustScoreCalculator
+
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.LocalDate
@@ -21,9 +22,9 @@ class RankingAggregationService(
     private val rankingEventLogRepository: RankingEventLogRepository,
     private val viewDedupOperations: ViewDedupOperations,
     private val viewRateOperations: ViewRateOperations,
+    private val viewTrustScoreCalculator: ViewTrustScoreCalculator,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val viewTrustScoreCalculator = ViewTrustScoreCalculator()
 
     fun processViewEvent(
         productId: Long,
