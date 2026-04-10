@@ -1,5 +1,6 @@
 package com.loopers.application.ranking
 
+import com.loopers.domain.ranking.RankingEventLogRepository
 import com.loopers.domain.ranking.RankingScorePolicy
 import com.loopers.infrastructure.ranking.RankingRedisRepository
 import org.junit.jupiter.api.DisplayName
@@ -25,28 +26,37 @@ class RankingAggregationServiceTest {
     @Mock
     private lateinit var rankingScorePolicy: RankingScorePolicy
 
+    @Mock
+    private lateinit var rankingWeightProvider: RankingWeightProvider
+
+    @Mock
+    private lateinit var rankingEventLogRepository: RankingEventLogRepository
+
     @InjectMocks
     private lateinit var rankingAggregationService: RankingAggregationService
 
     private val testDate = LocalDate.of(2026, 4, 8)
     private val testDateTime = LocalDateTime.of(2026, 4, 8, 14, 30)
+    private val testEventId = "test-event-123"
 
     @DisplayName("조회 이벤트를 처리할 때,")
     @Nested
     inner class ProcessViewEvent {
 
-        @DisplayName("일간 + 시간 단위 ZSET에 동시 적재한다.")
+        @DisplayName("가중치 적용 + Redis 적재 + 이벤트 로그 저장을 수행한다.")
         @Test
-        fun incrementsBothDailyAndHourlyScore() {
+        fun processesViewEventFully() {
             // arrange
-            whenever(rankingScorePolicy.calculateViewScore()).thenReturn(0.1)
+            whenever(rankingWeightProvider.getViewWeight()).thenReturn(0.15)
+            whenever(rankingScorePolicy.calculateViewScore(0.15)).thenReturn(0.15)
 
             // act
-            rankingAggregationService.processViewEvent(101L, testDate, testDateTime)
+            rankingAggregationService.processViewEvent(101L, testDate, testDateTime, testEventId)
 
             // assert
-            verify(rankingRedisRepository).incrementScore(101L, 0.1, testDate)
-            verify(rankingRedisRepository).incrementHourlyScore(101L, 0.1, testDateTime)
+            verify(rankingRedisRepository).incrementScore(101L, 0.15, testDate)
+            verify(rankingRedisRepository).incrementHourlyScore(101L, 0.15, testDateTime)
+            verify(rankingEventLogRepository).save(any())
         }
     }
 
@@ -54,18 +64,19 @@ class RankingAggregationServiceTest {
     @Nested
     inner class ProcessLikeEvent {
 
-        @DisplayName("일간 + 시간 단위 ZSET에 동시 적재한다.")
+        @DisplayName("가중치 적용 + Redis 적재 + 이벤트 로그 저장을 수행한다.")
         @Test
-        fun incrementsBothDailyAndHourlyScore() {
+        fun processesLikeEventFully() {
             // arrange
-            whenever(rankingScorePolicy.calculateLikeScore()).thenReturn(0.2)
+            whenever(rankingWeightProvider.getLikeWeight()).thenReturn(0.2)
+            whenever(rankingScorePolicy.calculateLikeScore(0.2)).thenReturn(0.2)
 
             // act
-            rankingAggregationService.processLikeEvent(101L, testDate, testDateTime)
+            rankingAggregationService.processLikeEvent(101L, testDate, testDateTime, testEventId)
 
             // assert
             verify(rankingRedisRepository).incrementScore(101L, 0.2, testDate)
-            verify(rankingRedisRepository).incrementHourlyScore(101L, 0.2, testDateTime)
+            verify(rankingEventLogRepository).save(any())
         }
     }
 
@@ -73,36 +84,36 @@ class RankingAggregationServiceTest {
     @Nested
     inner class ProcessOrderEvent {
 
-        @DisplayName("상품별 금액 × 가중치로 일간 + 시간 단위 ZSET에 동시 적재한다.")
+        @DisplayName("상품별로 Redis 적재 + 이벤트 로그 저장을 수행한다.")
         @Test
-        fun incrementsBothDailyAndHourlyScore_perProduct() {
+        fun processesOrderEventPerProduct() {
             // arrange
             val items = listOf(
                 OrderItemScore(productId = 1L, amount = BigDecimal("10000")),
                 OrderItemScore(productId = 2L, amount = BigDecimal("5000")),
             )
-            whenever(rankingScorePolicy.calculateOrderScore(BigDecimal("10000"))).thenReturn(6000.0)
-            whenever(rankingScorePolicy.calculateOrderScore(BigDecimal("5000"))).thenReturn(3000.0)
+            whenever(rankingWeightProvider.getOrderWeight()).thenReturn(0.6)
+            whenever(rankingScorePolicy.calculateOrderScore(BigDecimal("10000"), 0.6)).thenReturn(6000.0)
+            whenever(rankingScorePolicy.calculateOrderScore(BigDecimal("5000"), 0.6)).thenReturn(3000.0)
 
             // act
-            rankingAggregationService.processOrderEvent(items, testDate, testDateTime)
+            rankingAggregationService.processOrderEvent(items, testDate, testDateTime, testEventId)
 
             // assert
             verify(rankingRedisRepository).incrementScore(1L, 6000.0, testDate)
-            verify(rankingRedisRepository).incrementHourlyScore(1L, 6000.0, testDateTime)
             verify(rankingRedisRepository).incrementScore(2L, 3000.0, testDate)
-            verify(rankingRedisRepository).incrementHourlyScore(2L, 3000.0, testDateTime)
+            verify(rankingEventLogRepository, org.mockito.kotlin.times(2)).save(any())
         }
 
         @DisplayName("주문 항목이 비어있으면, 아무 처리도 하지 않는다.")
         @Test
         fun doesNothing_whenEmptyItems() {
             // act
-            rankingAggregationService.processOrderEvent(emptyList(), testDate, testDateTime)
+            rankingAggregationService.processOrderEvent(emptyList(), testDate, testDateTime, testEventId)
 
             // assert
             verify(rankingRedisRepository, org.mockito.kotlin.never()).incrementScore(any(), any(), any())
-            verify(rankingRedisRepository, org.mockito.kotlin.never()).incrementHourlyScore(any(), any(), any())
+            verify(rankingEventLogRepository, org.mockito.kotlin.never()).save(any())
         }
     }
 }

@@ -9,6 +9,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import java.time.LocalDate
 
 @ExtendWith(MockitoExtension::class)
@@ -17,6 +18,9 @@ class RankingCarryOverServiceTest {
     @Mock
     private lateinit var rankingRedisRepository: RankingRedisRepository
 
+    @Mock
+    private lateinit var rankingWeightProvider: RankingWeightProvider
+
     @InjectMocks
     private lateinit var rankingCarryOverService: RankingCarryOverService
 
@@ -24,22 +28,20 @@ class RankingCarryOverServiceTest {
     @Nested
     inner class ExecuteCarryOver {
 
-        @DisplayName("전일 점수의 10%를 다음 날 키에 복사한다.")
+        @DisplayName("WeightProvider에서 carry-over 가중치를 가져와 적용한다.")
         @Test
-        fun copiesYesterdayScoreToTomorrow() {
+        fun usesWeightFromProvider() {
             // arrange
             val today = LocalDate.of(2026, 4, 8)
             val tomorrow = today.plusDays(1)
+            whenever(rankingWeightProvider.getCarryOverWeight()).thenReturn(0.15)
 
             // act
             rankingCarryOverService.carryOver(today)
 
             // assert
-            verify(rankingRedisRepository).carryOverScores(today, tomorrow, CARRY_OVER_WEIGHT)
+            verify(rankingWeightProvider).getCarryOverWeight()
+            verify(rankingRedisRepository).carryOverScores(today, tomorrow, 0.15)
         }
-    }
-
-    companion object {
-        private const val CARRY_OVER_WEIGHT = 0.1
     }
 }

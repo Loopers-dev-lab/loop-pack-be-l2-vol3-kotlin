@@ -14,14 +14,24 @@ class RankingScorePolicyTest {
     @Nested
     inner class CalculateViewScore {
 
-        @DisplayName("가중치 0.1이 적용된 점수를 반환한다.")
+        @DisplayName("가중치가 적용된 점수를 반환한다.")
         @Test
         fun returnsWeightedScore_whenViewEvent() {
             // act
-            val score = policy.calculateViewScore()
+            val score = policy.calculateViewScore(0.1)
 
             // assert
             assertThat(score).isEqualTo(0.1)
+        }
+
+        @DisplayName("가중치가 다르면 다른 점수를 반환한다.")
+        @Test
+        fun returnsDifferentScore_whenDifferentWeight() {
+            // act
+            val score = policy.calculateViewScore(0.3)
+
+            // assert
+            assertThat(score).isEqualTo(0.3)
         }
     }
 
@@ -29,11 +39,11 @@ class RankingScorePolicyTest {
     @Nested
     inner class CalculateLikeScore {
 
-        @DisplayName("가중치 0.2가 적용된 점수를 반환한다.")
+        @DisplayName("가중치가 적용된 점수를 반환한다.")
         @Test
         fun returnsWeightedScore_whenLikeEvent() {
             // act
-            val score = policy.calculateLikeScore()
+            val score = policy.calculateLikeScore(0.2)
 
             // assert
             assertThat(score).isEqualTo(0.2)
@@ -44,14 +54,14 @@ class RankingScorePolicyTest {
     @Nested
     inner class CalculateOrderScore {
 
-        @DisplayName("금액에 가중치 0.6이 적용된 점수를 반환한다.")
+        @DisplayName("금액에 가중치가 적용된 점수를 반환한다.")
         @Test
         fun returnsAmountWeightedScore_whenOrderEvent() {
             // arrange
             val amount = BigDecimal("10000")
 
             // act
-            val score = policy.calculateOrderScore(amount)
+            val score = policy.calculateOrderScore(amount, 0.6)
 
             // assert
             assertThat(score).isEqualTo(6000.0)
@@ -61,7 +71,7 @@ class RankingScorePolicyTest {
         @Test
         fun returnsZero_whenAmountIsZero() {
             // act
-            val score = policy.calculateOrderScore(BigDecimal.ZERO)
+            val score = policy.calculateOrderScore(BigDecimal.ZERO, 0.6)
 
             // assert
             assertThat(score).isEqualTo(0.0)
@@ -74,7 +84,7 @@ class RankingScorePolicyTest {
             val amount = BigDecimal("1500.50")
 
             // act
-            val score = policy.calculateOrderScore(amount)
+            val score = policy.calculateOrderScore(amount, 0.6)
 
             // assert
             assertThat(score).isEqualTo(900.3)
