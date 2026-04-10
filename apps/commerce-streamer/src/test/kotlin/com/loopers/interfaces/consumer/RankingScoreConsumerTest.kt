@@ -158,5 +158,18 @@ class RankingScoreConsumerTest @Autowired constructor(
             val score = redisTemplate.opsForZSet().score(dailyKey, "101")
             assertThat(score).isCloseTo(0.1, org.assertj.core.data.Offset.offset(0.001))
         }
+
+        @Test
+        @DisplayName("ORDER 이벤트에 price/quantity가 누락되면 점수를 무시한다")
+        fun `ORDER 메타데이터 누락 시 점수 0`() {
+            val records = listOf(
+                buildRecord("ORDER", 404),
+            )
+
+            consumer.onProductActions(records, noopAck)
+
+            val members = redisTemplate.opsForZSet().range(dailyKey, 0, -1) ?: emptySet()
+            assertThat(members).doesNotContain("404")
+        }
     }
 }

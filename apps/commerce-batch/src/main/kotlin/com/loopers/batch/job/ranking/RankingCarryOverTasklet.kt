@@ -26,11 +26,18 @@ class RankingCarryOverTasklet(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun execute(contribution: StepContribution, chunkContext: ChunkContext): RepeatStatus {
-        // 자정 이후 실행 기준: yesterday → today로 carry-over
         val today = LocalDate.now()
         val yesterday = today.minusDays(1)
         val yesterdayKey = "${KEY_PREFIX}:${yesterday.format(FORMATTER)}"
         val todayKey = "${KEY_PREFIX}:${today.format(FORMATTER)}"
+        val carryOverFlag = "${KEY_PREFIX}:carry-over:${today.format(FORMATTER)}"
+
+        // 중복 실행 방지: 이미 carry-over를 수행한 경우 스킵
+        val alreadyRan = redisTemplate.opsForValue().setIfAbsent(carryOverFlag, "done", TTL) == false
+        if (alreadyRan) {
+            log.info("[RankingCarryOver] 이미 실행됨, 스킵: flag={}", carryOverFlag)
+            return RepeatStatus.FINISHED
+        }
 
         val yesterdaySize = redisTemplate.opsForZSet().size(yesterdayKey) ?: 0L
         if (yesterdaySize == 0L) {
@@ -39,7 +46,6 @@ class RankingCarryOverTasklet(
         }
 
         // ZUNIONSTORE: today = (today * 1.0) + (yesterday * 0.1)
-        // 이미 오늘 키에 데이터가 있으면 유지(weight 1.0) + 전일 데이터의 10% 합산
         redisTemplate.opsForZSet().unionAndStore(
             todayKey,
             listOf(yesterdayKey),

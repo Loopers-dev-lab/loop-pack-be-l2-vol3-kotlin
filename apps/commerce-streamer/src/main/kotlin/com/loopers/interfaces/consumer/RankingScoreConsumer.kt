@@ -47,6 +47,7 @@ class RankingScoreConsumer(
             for (record in records) {
                 val parsed = parseRecord(record) ?: continue
                 val score = calculateScore(parsed)
+                if (score <= 0.0) continue
                 scores.merge(parsed.targetId!!, score, Double::plus)
             }
 
@@ -72,7 +73,7 @@ class RankingScoreConsumer(
             if (payload.actionType == null || payload.targetId == null) return null
             payload
         } catch (e: Exception) {
-            log.warn("랭킹 이벤트 파싱 실패: record={}", String(record.value()), e)
+            log.warn("랭킹 이벤트 파싱 실패: offset={}, partition={}", record.offset(), record.partition(), e)
             null
         }
     }
@@ -82,8 +83,12 @@ class RankingScoreConsumer(
             "VIEW" -> rankingProperties.weights.view
             "LIKE" -> rankingProperties.weights.like
             "ORDER" -> {
-                val price = payload.price ?: 1L
-                val quantity = payload.quantity ?: 1
+                val price = payload.price
+                val quantity = payload.quantity
+                if (price == null || quantity == null) {
+                    log.warn("ORDER 메타데이터 누락, 점수 무시: targetId={}, price={}, quantity={}", payload.targetId, price, quantity)
+                    return 0.0
+                }
                 val orderValue = (price * quantity).toDouble()
                 rankingProperties.weights.order * log10(orderValue + 1)
             }
