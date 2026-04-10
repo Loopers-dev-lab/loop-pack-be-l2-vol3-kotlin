@@ -43,6 +43,7 @@ class UserGetLikedProductsUseCase(
                     brandName = "",
                     name = "",
                     price = BigDecimal.ZERO,
+                    rank = null,
                 )
         }
 

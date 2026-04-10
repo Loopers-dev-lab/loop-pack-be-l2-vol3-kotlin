@@ -29,6 +29,7 @@ class ProductV1Dto {
         val brandName: String,
         val name: String,
         val price: BigDecimal,
+        val rank: Long?,
     ) {
         companion object {
             fun from(result: UserGetProductResult): ProductDetailResponse {
@@ -38,6 +39,7 @@ class ProductV1Dto {
                     brandName = result.brandName,
                     name = result.name,
                     price = result.price,
+                    rank = result.rank,
                 )
             }
         }
