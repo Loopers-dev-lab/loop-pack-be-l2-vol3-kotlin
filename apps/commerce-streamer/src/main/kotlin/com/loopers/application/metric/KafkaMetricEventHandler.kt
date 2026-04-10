@@ -132,7 +132,7 @@ class KafkaMetricEventHandler(
                     )
                     return@mapNotNull null
                 }
-                productId to quantity
+                Triple(productId, quantity, node["sellingPrice"]?.asLong())
             }
             .orEmpty()
 
@@ -141,13 +141,20 @@ class KafkaMetricEventHandler(
             return
         }
 
-        val itemsByProduct = parsedItems
-            .groupBy({ it.first }, { it.second })
-            .mapValues { (_, quantities) -> quantities.sum() }
+        data class AggregatedItem(val totalQuantity: Int, val totalAmount: Long)
 
-        val updatedMetrics = itemsByProduct.mapNotNull { (productId, totalQuantity) ->
+        val itemsByProduct = parsedItems
+            .groupBy { it.first }
+            .mapValues { (_, items) ->
+                AggregatedItem(
+                    totalQuantity = items.sumOf { it.second },
+                    totalAmount = items.sumOf { (it.third ?: 0L) * it.second },
+                )
+            }
+
+        val updatedMetrics = itemsByProduct.mapNotNull { (productId, item) ->
             val current = productMetricRepository.findByProductId(productId) ?: ProductMetric.register(productId)
-            current.recordUnitsSold(totalQuantity)
+            current.recordUnitsSold(item.totalQuantity)
         }
 
         if (updatedMetrics.isEmpty()) {
@@ -158,8 +165,8 @@ class KafkaMetricEventHandler(
         productMetricRepository.saveAll(updatedMetrics)
         processedPaymentRepository.save(paymentId)
 
-        itemsByProduct.forEach { (productId, totalQuantity) ->
-            updateRankingScore(productId, RankingSignalType.ORDER, envelope.eventId, totalQuantity)
+        itemsByProduct.forEach { (productId, item) ->
+            updateOrderRankingScore(productId, item.totalAmount, envelope.eventId)
         }
     }
 
@@ -167,16 +174,35 @@ class KafkaMetricEventHandler(
         productId: Long,
         signalType: RankingSignalType,
         eventId: Long,
-        quantity: Int = 1,
     ) {
         runCatching {
-            val increment = rankingScorePolicy.calculateIncrement(signalType, quantity)
+            val increment = rankingScorePolicy.calculateIncrement(signalType)
             productRankingRepository.incrementScore(productId, increment)
         }.onFailure { e ->
             log.warn(
                 "Failed to update ranking score. productId={}, signalType={}, eventId={}",
                 productId,
                 signalType,
+                eventId,
+                e,
+            )
+        }
+    }
+
+    private fun updateOrderRankingScore(
+        productId: Long,
+        totalAmount: Long,
+        eventId: Long,
+    ) {
+        runCatching {
+            val increment = rankingScorePolicy.calculateOrderIncrement(totalAmount)
+            if (increment > 0) {
+                productRankingRepository.incrementScore(productId, increment)
+            }
+        }.onFailure { e ->
+            log.warn(
+                "Failed to update order ranking score. productId={}, eventId={}",
+                productId,
                 eventId,
                 e,
             )

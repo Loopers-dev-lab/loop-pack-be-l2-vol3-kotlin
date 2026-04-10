@@ -138,8 +138,8 @@ class KafkaMetricEventHandlerTest {
                       "orderId": 200,
                       "userId": 10,
                       "items": [
-                        {"productId": 100, "quantity": 2},
-                        {"productId": 101, "quantity": 3}
+                        {"productId": 100, "quantity": 2, "sellingPrice": 10000},
+                        {"productId": 101, "quantity": 3, "sellingPrice": 5000}
                       ]
                     }
                     """.trimIndent(),
@@ -266,11 +266,11 @@ class KafkaMetricEventHandlerTest {
     }
 
     @Nested
-    @DisplayName("결제 성공 이벤트 처리 시 상품별 ZSET에 +0.7 x quantity 누적된다")
+    @DisplayName("결제 성공 이벤트 처리 시 상품별 ZSET에 ORDER_WEIGHT × ln(sellingPrice × quantity) 누적된다")
     inner class RankingOrderEvent {
 
         @Test
-        @DisplayName("PAYMENT_SUCCEEDED → 상품별로 order 가중치(0.7) × 수량 반영")
+        @DisplayName("PAYMENT_SUCCEEDED → 상품별로 price 기반 score 반영")
         fun handle_paymentSucceeded_incrementsRankingScorePerItem() {
             whenever(handledEventRepository.existsByEventId(EVENT_ID)).thenReturn(false)
             whenever(processedPaymentRepository.existsByPaymentId(PAYMENT_ID)).thenReturn(false)
@@ -291,8 +291,8 @@ class KafkaMetricEventHandlerTest {
                           "orderId": 200,
                           "userId": 10,
                           "items": [
-                            {"productId": 100, "quantity": 2},
-                            {"productId": 101, "quantity": 3}
+                            {"productId": 100, "quantity": 2, "sellingPrice": 10000},
+                            {"productId": 101, "quantity": 3, "sellingPrice": 5000}
                           ]
                         }
                         """.trimIndent(),
@@ -300,8 +300,48 @@ class KafkaMetricEventHandlerTest {
                 ),
             )
 
-            verify(productRankingRepository).incrementScore(PRODUCT_ID, RankingScorePolicy.ORDER_WEIGHT * 2)
-            verify(productRankingRepository).incrementScore(SECOND_PRODUCT_ID, RankingScorePolicy.ORDER_WEIGHT * 3)
+            val productIdCaptor = org.mockito.kotlin.argumentCaptor<Long>()
+            val incrementCaptor = org.mockito.kotlin.argumentCaptor<Double>()
+            verify(productRankingRepository, org.mockito.kotlin.times(2))
+                .incrementScore(productIdCaptor.capture(), incrementCaptor.capture())
+
+            val expected100 = RankingScorePolicy.ORDER_WEIGHT * kotlin.math.ln(10000.0 * 2)
+            val expected101 = RankingScorePolicy.ORDER_WEIGHT * kotlin.math.ln(5000.0 * 3)
+            val captured = productIdCaptor.allValues.zip(incrementCaptor.allValues).toMap()
+            assertThat(captured[PRODUCT_ID]).isCloseTo(expected100, org.assertj.core.data.Offset.offset(0.001))
+            assertThat(captured[SECOND_PRODUCT_ID]).isCloseTo(expected101, org.assertj.core.data.Offset.offset(0.001))
+        }
+
+        @Test
+        @DisplayName("sellingPrice 필드가 없으면 해당 아이템은 랭킹에 반영하지 않는다 (totalAmount=0 → score=0)")
+        fun handle_missingPrice_skipsRanking() {
+            whenever(handledEventRepository.existsByEventId(EVENT_ID)).thenReturn(false)
+            whenever(processedPaymentRepository.existsByPaymentId(PAYMENT_ID)).thenReturn(false)
+            whenever(productMetricRepository.findByProductId(PRODUCT_ID)).thenReturn(null)
+            whenever(productMetricRepository.saveAll(check { })).thenAnswer { it.arguments[0] as List<ProductMetric> }
+
+            handler.handle(
+                topic = "order-events",
+                envelope = KafkaEventEnvelope(
+                    eventId = EVENT_ID,
+                    eventType = KafkaEventType.PAYMENT_SUCCEEDED,
+                    aggregateId = ORDER_ID,
+                    payload = objectMapper.readTree(
+                        """
+                        {
+                          "paymentId": $PAYMENT_ID,
+                          "orderId": $ORDER_ID,
+                          "userId": 10,
+                          "items": [
+                            {"productId": $PRODUCT_ID, "quantity": 1}
+                          ]
+                        }
+                        """.trimIndent(),
+                    ),
+                ),
+            )
+
+            verify(productRankingRepository, never()).incrementScore(any(), any())
         }
     }
 
@@ -466,8 +506,8 @@ class KafkaMetricEventHandlerTest {
                           "orderId": $ORDER_ID,
                           "userId": 10,
                           "items": [
-                            {"productId": $PRODUCT_ID, "quantity": 2},
-                            {"productId": $PRODUCT_ID, "quantity": 3}
+                            {"productId": $PRODUCT_ID, "quantity": 2, "sellingPrice": 10000},
+                            {"productId": $PRODUCT_ID, "quantity": 3, "sellingPrice": 10000}
                           ]
                         }
                         """.trimIndent(),
@@ -481,7 +521,10 @@ class KafkaMetricEventHandlerTest {
                     assertThat(metrics.first().unitsSold).isEqualTo(5)
                 },
             )
-            verify(productRankingRepository).incrementScore(PRODUCT_ID, RankingScorePolicy.ORDER_WEIGHT * 5)
+            val expectedScore = RankingScorePolicy.ORDER_WEIGHT * kotlin.math.ln(50000.0)
+            val captor = org.mockito.kotlin.argumentCaptor<Double>()
+            verify(productRankingRepository).incrementScore(org.mockito.kotlin.eq(PRODUCT_ID), captor.capture())
+            assertThat(captor.firstValue).isCloseTo(expectedScore, org.assertj.core.data.Offset.offset(0.001))
         }
     }
 
@@ -522,6 +565,7 @@ class KafkaMetricEventHandlerTest {
         eventId: Long,
         paymentId: Long,
         quantity: Int,
+        sellingPrice: Long = 10000,
     ): KafkaEventEnvelope =
         KafkaEventEnvelope(
             eventId = eventId,
@@ -534,7 +578,7 @@ class KafkaMetricEventHandlerTest {
                   "orderId": $ORDER_ID,
                   "userId": 10,
                   "items": [
-                    {"productId": $PRODUCT_ID, "quantity": $quantity}
+                    {"productId": $PRODUCT_ID, "quantity": $quantity, "sellingPrice": $sellingPrice}
                   ]
                 }
                 """.trimIndent(),

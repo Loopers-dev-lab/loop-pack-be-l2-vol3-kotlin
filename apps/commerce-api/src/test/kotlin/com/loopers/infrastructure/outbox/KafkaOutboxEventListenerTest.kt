@@ -130,6 +130,7 @@ class KafkaOutboxEventListenerTest {
                     assertThat(payload.get("items")).hasSize(1)
                     assertThat(payload.get("items")[0].get("productId").asLong()).isEqualTo(PRODUCT_ID)
                     assertThat(payload.get("items")[0].get("quantity").asInt()).isEqualTo(2)
+                    assertThat(payload.get("items")[0].get("sellingPrice").asLong()).isEqualTo(8000L)
                 },
             )
         }
