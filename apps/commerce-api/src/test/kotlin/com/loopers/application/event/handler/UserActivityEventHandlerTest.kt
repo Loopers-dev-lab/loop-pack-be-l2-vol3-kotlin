@@ -207,7 +207,7 @@ class UserActivityEventHandlerTest {
         @Test
         fun savesViewActivityLog() {
             // arrange
-            val event = ProductViewedEvent(userId = 1L, productId = 1L)
+            val event = ProductViewedEvent(userId = 1L, productId = 1L, loginId = null, clientIp = null, userAgent = null, referer = null)
             whenever(
                 userActivityLogRepository.save(
                     argThat<UserActivityLog> {
@@ -233,7 +233,7 @@ class UserActivityEventHandlerTest {
         @Test
         fun savesWithZeroUserId_whenUserIdIsNull() {
             // arrange
-            val event = ProductViewedEvent(userId = null, productId = 1L)
+            val event = ProductViewedEvent(userId = null, productId = 1L, loginId = null, clientIp = null, userAgent = null, referer = null)
             whenever(
                 userActivityLogRepository.save(
                     argThat<UserActivityLog> {

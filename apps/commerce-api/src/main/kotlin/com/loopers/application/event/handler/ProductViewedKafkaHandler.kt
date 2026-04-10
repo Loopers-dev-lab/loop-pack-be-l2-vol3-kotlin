@@ -29,6 +29,10 @@ class ProductViewedKafkaHandler(
                 payload = mapOf(
                     "userId" to event.userId,
                     "productId" to event.productId,
+                    "loginId" to event.loginId,
+                    "clientIp" to event.clientIp,
+                    "userAgent" to event.userAgent,
+                    "referer" to event.referer,
                 ),
                 version = System.currentTimeMillis(),
                 occurredAt = ZonedDateTime.now(),
