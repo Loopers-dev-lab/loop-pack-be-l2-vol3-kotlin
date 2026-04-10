@@ -556,7 +556,143 @@ classDiagram
 
 ---
 
-## 4. 패키지 확장 구조
+## 4. 랭킹 도메인 클래스 구조 (FEAT-10)
+
+### 다이어그램의 목적
+
+Redis ZSET 기반 실시간 랭킹 시스템의 4-layer 클래스 구조와 의존 관계를 검증한다. `RankingStore` 포트 패턴으로 인프라 구현을 격리하고, `RankingFacade`가 cross-domain 조합을 담당하는지 확인한다.
+
+```mermaid
+classDiagram
+    direction TB
+
+    namespace interfaces_api_ranking {
+        class RankingV1Controller {
+            +getRankings(type, size) ApiResponse
+        }
+        class RankingV1ApiSpec {
+            <<interface>>
+        }
+    }
+
+    namespace application_ranking {
+        class RankingFacade {
+            +getRankings(type, size) RankingPageInfo
+        }
+        class RankingService {
+            +getTopRankings(type, size) List~RankingEntry~
+            +getRank(productId) RankingPosition
+        }
+        class RankingStore {
+            <<interface>>
+            +getTopN(rankingKey, size) List~RankingEntry~
+            +getRank(rankingKey, productId) Int?
+            +incrementScore(rankingKey, productId, score)
+        }
+        class RankingInfo {
+            <<object>>
+        }
+        class RankedEntry {
+            +productId Long
+            +score Double
+        }
+        class RankingPosition {
+            +rank Int?
+        }
+        class RankingItemInfo {
+            +rank Int
+            +score Double
+            +productId Long
+            +productName String
+            +brandName String
+            +price Long
+            +imageUrl String?
+        }
+        class RankingPageInfo {
+            +items List~RankingItemInfo~
+            +type String
+            +size Int
+        }
+    }
+
+    namespace domain_ranking {
+        class RankingEntry {
+            +productId Long
+            +score Double
+        }
+    }
+
+    namespace infrastructure_ranking {
+        class RedisRankingStoreImpl {
+            -RedisTemplate~String, String~ redisTemplate
+            +getTopN(rankingKey, size) List~RankingEntry~
+            +getRank(rankingKey, productId) Int?
+            +incrementScore(rankingKey, productId, score)
+        }
+    }
+
+    namespace streamer_ranking {
+        class RankingScoreConsumer {
+            <<BATCH_LISTENER>>
+            +consume(records List~UserActionMessage~)
+            -aggregate(records) Map~Long, Double~
+        }
+        class RankingProperties {
+            <<ConfigurationProperties>>
+            +scoreView Int
+            +scoreLike Int
+            +scoreOrder Int
+            +dailyKeyTtlDays Int
+            +hourlyKeyTtlHours Int
+        }
+    }
+
+    namespace batch_ranking {
+        class RankingCarryOverJobConfig {
+            +rankingCarryOverJob() Job
+            +rankingCarryOverStep() Step
+        }
+        class RankingCarryOverTasklet {
+            <<Tasklet>>
+            +execute(contribution, chunkContext) RepeatStatus
+        }
+    }
+
+    RankingV1Controller --> RankingFacade
+    RankingV1ApiSpec <|.. RankingV1Controller
+
+    RankingFacade --> RankingService
+    RankingFacade --> ProductService
+    RankingFacade --> BrandService
+    RankingFacade --> ProductCacheStore
+    RankingFacade --> BrandCacheStore
+
+    RankingService --> RankingStore
+    RedisRankingStoreImpl ..|> RankingStore
+
+    RedisRankingStoreImpl --> RedisTemplate
+
+    RankingScoreConsumer --> RankingStore
+    RankingScoreConsumer --> RankingProperties
+
+    RankingCarryOverTasklet --> RankingStore
+    RankingCarryOverJobConfig --> RankingCarryOverTasklet
+
+    ProductFacade --> RankingService
+```
+
+### 해석
+
+- **RankingStore 포트 패턴**: `RankingStore` 인터페이스(application 레이어)를 `RedisRankingStoreImpl`(infrastructure 레이어)이 구현한다. `RankingService`와 `RankingScoreConsumer`는 포트에만 의존하므로 구현체 교체가 가능하다 (DIP).
+- **RankingFacade cross-domain 조합**: `RankingService`(순위 데이터), `ProductService`(상품 정보), `BrandCacheStore`(브랜드 캐시)를 조합한다. 단일 도메인을 넘는 조합이므로 Facade 레벨에 위치한다.
+- **ProductFacade → RankingService**: 상품 상세 조회 시 rank를 함께 제공하기 위해 `ProductFacade`가 `RankingService.getRank()`를 호출한다. 역방향 의존(RankingService → ProductService)은 없다.
+- **BATCH_LISTENER Consumer**: `RankingScoreConsumer`는 Kafka records 배치를 수신하여 인메모리 집계 후 `RankingStore.incrementScore()`를 호출한다. Redis round-trip을 최소화한다.
+- **RankingCarryOverTasklet**: 일간 랭킹 키 TTL 만료 전 이월(carry-over) 처리를 담당한다. 전일 점수의 일부를 당일 키에 반영하여 랭킹 연속성을 유지한다.
+- **RankingProperties**: 점수 가중치(VIEW/LIKE/ORDER)와 TTL 설정을 `@ConfigurationProperties`로 외부화하여 재배포 없이 조정 가능하다.
+
+---
+
+## 5. 패키지 확장 구조
 
 기존 example/member 패턴을 따라 새 도메인을 추가한다. 고객/어드민 Facade가 분리된 구조.
 
@@ -570,6 +706,7 @@ com.loopers
 │   │   ├── like/           → LikeV1Controller, LikeV1ApiSpec, LikeV1Dto
 │   │   ├── order/          → OrderV1Controller, OrderV1ApiSpec, OrderV1Dto
 │   │   ├── coupon/         → CouponV1Controller, CouponV1ApiSpec, CouponV1Dto
+│   │   ├── ranking/        → RankingV1Controller, RankingV1ApiSpec, RankingV1Dto
 │   │   └── admin/
 │   │       ├── brand/      → AdminBrandV1Controller, AdminBrandV1ApiSpec, AdminBrandV1Dto
 │   │       ├── product/    → AdminProductV1Controller, AdminProductV1ApiSpec, AdminProductV1Dto
@@ -591,7 +728,8 @@ com.loopers
 │   ├── product/        → ProductFacade, AdminProductFacade, ProductService, ProductInfo, ProductCacheStore
 │   ├── like/           → LikeFacade, LikeService
 │   ├── order/          → OrderFacade, AdminOrderFacade, OrderService, OrderInfo
-│   └── coupon/         → CouponFacade, AdminCouponFacade, CouponService, CouponCommand, CouponInfo
+│   ├── coupon/         → CouponFacade, AdminCouponFacade, CouponService, CouponCommand, CouponInfo
+│   └── ranking/        → RankingFacade, RankingService, RankingStore (interface), RankingInfo (RankedEntry, RankingPosition, RankingItemInfo, RankingPageInfo)
 ├── domain/
 │   ├── common/vo/      → Email (공통 VO)
 │   ├── member/         → MemberModel, MemberRepository, RawPassword
@@ -600,7 +738,8 @@ com.loopers
 │   ├── product/        → ProductModel, ProductRepository, ProductCommand
 │   ├── like/           → ProductLikeModel, ProductLikeRepository
 │   ├── order/          → OrderModel, OrderItemModel, OrderRepository, OrderCommand
-│   └── coupon/         → CouponTemplateModel, IssuedCouponModel, CouponTemplateRepository, IssuedCouponRepository, CouponType, CouponStatus, CouponTemplateStatus, ExpirationPolicy
+│   ├── coupon/         → CouponTemplateModel, IssuedCouponModel, CouponTemplateRepository, IssuedCouponRepository, CouponType, CouponStatus, CouponTemplateStatus, ExpirationPolicy
+│   └── ranking/        → RankingEntry
 ├── infrastructure/
 │   ├── config/         → CacheConfig, AuthCacheStoreImpl, ProductCacheStoreImpl, BrandCacheStoreImpl, PasswordEncoderConfig
 │   ├── member/         → MemberRepositoryImpl, MemberJpaRepository
@@ -608,7 +747,8 @@ com.loopers
 │   ├── product/        → ProductRepositoryImpl, ProductJpaRepository, ProductCacheStoreImpl
 │   ├── like/           → ProductLikeRepositoryImpl, ProductLikeJpaRepository
 │   ├── order/          → OrderRepositoryImpl, OrderJpaRepository, OrderItemJpaRepository
-│   └── coupon/         → CouponTemplateJpaModel, IssuedCouponJpaModel, CouponTemplateRepositoryImpl, IssuedCouponRepositoryImpl, CouponTemplateJpaRepository, IssuedCouponJpaRepository
+│   ├── coupon/         → CouponTemplateJpaModel, IssuedCouponJpaModel, CouponTemplateRepositoryImpl, IssuedCouponRepositoryImpl, CouponTemplateJpaRepository, IssuedCouponJpaRepository
+│   └── ranking/        → RedisRankingStoreImpl
 └── support/
     ├── error/          → CoreException, ErrorType
     └── cursor/         → CursorUtils

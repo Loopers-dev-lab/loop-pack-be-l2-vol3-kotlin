@@ -266,14 +266,33 @@
 
 **상태**: DONE
 
-### 랭킹/추천 — TODO
+### 랭킹/추천 — DONE
 
-#### FEAT-10: 랭킹 및 추천 (예정)
+#### FEAT-10: Redis ZSET 기반 실시간 랭킹 시스템
 
 | 항목 | 내용 |
 |------|------|
-| 상태 | TODO |
-| 예상 기능 | 유저 행동 기반 랭킹, 상품 추천 |
+| 상태 | DONE |
+| 도메인 | ranking |
+| 관련 결정 | D62, D63, D64, D65, D66, D67, D68 |
+
+**배경**:
+유저 행동(VIEW, LIKE, ORDER) 이벤트를 기반으로 상품 실시간 랭킹을 집계하고 API로 노출한다.
+기존 UserActionEvent → Outbox → Kafka 파이프라인을 재활용하여 별도 인프라 추가 없이 구현한다.
+
+**수용 기준**:
+- GET /api/v1/rankings?date=yyyyMMdd&size=20&page=0 — 일간 랭킹 조회
+- GET /api/v1/rankings/hourly?date=yyyyMMdd&hour=HH&size=20&page=0 — 시간별 랭킹 조회
+- GET /api/v1/products/{id} 응답에 rank: Int? 포함 (일간 랭킹 기준 순위)
+- RankingScoreConsumer (commerce-streamer): BATCH_LISTENER, 별도 consumer group
+- 가중치: VIEW=0.1, LIKE=0.2, ORDER=0.7×log10(price×quantity+1)
+- 키 전략: ranking:all:{yyyyMMdd} (TTL 2일), ranking:all:{yyyyMMdd}:{HH} (TTL 3시간)
+- 콜드 스타트 완화: RankingCarryOverJob (매일 00:05) — 전일 10% ZUNIONSTORE 이월
+- 4-layer 구조: RankingEntry, RankingStore, RedisRankingStoreImpl, RankingService, RankingFacade, RankingV1Controller
+
+**제약사항**:
+- 멱등성 미적용 (at-least-once 허용) — 랭킹 특성상 소폭 중복 가산 수용
+- ORDER 이벤트는 AOP 제외, OrderFacade에서 수동 발행 (D68)
 
 ---
 
@@ -701,8 +720,8 @@
 | 쿠폰 | 1 | 1 | 0 | 0 |
 | 결제 | 1 | 1 | 0 | 0 |
 | 선착순 쿠폰 | 1 | 1 | 0 | 0 |
-| 랭킹/추천 | 1 | 0 | 0 | 1 |
-| **합계** | **11** | **10** | **0** | **1** |
+| 랭킹/추천 | 1 | 1 | 0 | 0 |
+| **합계** | **11** | **11** | **0** | **0** |
 
 ### 아키텍처 요구사항
 

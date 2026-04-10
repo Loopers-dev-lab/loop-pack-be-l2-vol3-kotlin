@@ -1740,6 +1740,222 @@ C. Redis Pipeline 적용
 
 ---
 
+## D62: RankingScoreConsumer — 별도 Consumer Group 분리
+
+### 배경
+
+`UserActionEvent`가 Outbox → Kafka로 발행된다. 기존 Consumer들(PublishProductMetrics 등)이 같은 그룹에서 소비하면 랭킹 전용 로직이 뒤섞이고, 그룹 재조정(rebalance) 영향을 공유하게 된다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 기존 consumer group에 랭킹 로직 추가 | 관심사 혼재, 배포 시 재조정 영향 공유 |
+| **B. RankingScoreConsumer 별도 consumer group** | 독립 오프셋 관리, 배포 분리 가능 |
+
+### 판단
+
+B. 별도 consumer group (`ranking-score-group`)
+
+### 근거
+
+- 랭킹 집계는 멱등성이 낮고(at-least-once 허용) 재처리 시 점수 중복 가산 가능 — 다른 consumer와 오프셋을 독립 관리하는 것이 안전
+- 향후 랭킹 consumer만 스케일아웃/재배포할 때 타 consumer 영향 없음
+- commerce-streamer 내 consumer 역할 분리로 가독성 향상
+
+### 트레이드오프
+
+- consumer group 증가로 Kafka 브로커 관리 복잡도 소폭 상승
+- 동일 토픽을 두 그룹이 소비하므로 메시지 중복 네트워크 전송 발생
+
+---
+
+## D63: 배치 리스너 + 인메모리 집계 — Redis ZADD 횟수 최소화
+
+### 배경
+
+`UserActionEvent`가 초당 수천 건 발행될 수 있다. 메시지마다 Redis `ZADD`를 호출하면 Redis write QPS가 선형 증가하고, 네트워크 round-trip 오버헤드가 크다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 메시지당 ZADD 1회 | 구현 단순, Redis QPS 높음 |
+| **B. BATCH_LISTENER + 인메모리 Map 집계 후 Pipeline ZADD** | Redis 호출 횟수 ≈ 배치 크기 / 중복 productId 수 |
+
+### 판단
+
+B. 배치 리스너 + 인메모리 집계
+
+### 근거
+
+- `@KafkaListener(containerFactory = "batchFactory")`로 최대 100건 일괄 수신
+- 수신된 메시지를 `Map<productId, scoreDelta>`로 인메모리 합산 후 `ZINCRBY` Pipeline 1회 발행
+- 동일 상품에 대한 N건 이벤트 → Redis 호출 1회로 감소
+- 처리 실패 시 배치 전체 재처리(at-least-once) — 랭킹 특성상 허용
+
+### 트레이드오프
+
+- 배치 처리 중 예외 발생 시 전체 배치 재처리 → 점수 중복 가산 가능성
+- 배치 크기(100)만큼 지연 발생 가능 — 랭킹은 준실시간이므로 수용 가능
+
+---
+
+## D64: ORDER score payload enrichment — price×quantity + log10 정규화
+
+### 배경
+
+주문 이벤트의 가중치를 단순 카운트(+0.7)로 처리하면 고가 대량 주문과 저가 소량 주문이 동일 점수를 갖는다. 실제 매출 기여도를 반영한 점수가 필요했다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 단순 카운트 (+0.7 고정) | 매출 기여도 미반영 |
+| B. price × quantity 선형 점수 | 고가 상품이 압도적으로 높은 점수 — 분포 왜곡 |
+| **C. log10(price × quantity + 1) × 0.7** | 로그 정규화로 스케일 조정 |
+
+### 판단
+
+C. log10 정규화
+
+### 근거
+
+- `log10(price × quantity + 1)`은 값이 0일 때 0, 100원×1개=약 0.7, 10,000원×10개=약 0.35 가중 — 극단값 억제
+- AOP로는 Facade 시점의 price/quantity에 접근 불가 → OrderFacade에서 수동 발행 (D68 참조)
+- VIEW(0.1), LIKE(0.2), ORDER(0.7×log10) 가중치 체계 일관성 유지
+
+### 트레이드오프
+
+- 로그 스케일 특성상 단가 차이가 큰 상품 간 점수 차가 작아질 수 있음
+- 반품/취소 시 점수 차감 미구현 — 랭킹 특성상 허용
+
+---
+
+## D65: 랭킹 멱등성 미적용 — at-least-once 허용
+
+### 배경
+
+Kafka at-least-once 전달 보장으로 동일 이벤트가 중복 소비될 수 있다. 주문/결제 도메인은 멱등 처리가 필수지만 랭킹은 요구사항이 다르다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 이벤트 ID 기반 Redis SET 중복 체크 | 정확한 1회 처리, Redis 메모리/연산 추가 |
+| **B. 멱등성 미적용 (at-least-once 허용)** | 점수 소폭 중복 가산 가능, 구현 단순 |
+
+### 판단
+
+B. 멱등성 미적용
+
+### 근거
+
+- 랭킹은 정확한 집계보다 상대적 순위가 중요 — 소폭 중복 가산이 순위 뒤집는 경우 희박
+- Kafka 재처리(rebalance, 재시작)는 드문 이벤트 → 실제 중복 비율 낮음
+- 중복 방지 Redis 키 관리 비용 > 랭킹 정확도 이득
+
+### 트레이드오프
+
+- 정확한 집계가 필요한 경우(감사, 정산) 별도 집계 파이프라인 필요
+- 장애 복구 시 동일 시간대 점수가 과다 집계될 수 있음
+
+---
+
+## D66: 일간 + 시간 이중 키 전략 — TTL 차별화
+
+### 배경
+
+랭킹 조회 요구사항이 두 가지다: 일간 랭킹(오늘 하루 집계)과 시간별 랭킹(특정 시간대 집계). 단일 키로는 두 granularity를 동시에 지원하기 어렵다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 일간 키만 관리, 시간 랭킹은 집계 시 계산 | ZRANGEBYSCORE로 시간 필터링 불가 (ZSET score가 점수, 시간 아님) |
+| **B. 일간 키 + 시간 키 이중 관리** | 각 granularity 독립 ZSET, TTL 차별화 가능 |
+
+### 판단
+
+B. 이중 키 전략
+
+### 근거
+
+- `ranking:all:{yyyyMMdd}` — 일간 집계, TTL 2일 (전일 데이터 유지)
+- `ranking:all:{yyyyMMdd}:{HH}` — 시간 집계, TTL 3시간 (직전 2시간 유지)
+- 이벤트 발생 시 두 키에 동시 `ZINCRBY` → 각 granularity 독립 조회 가능
+- carry-over 배치는 일간 키 기준으로만 실행 (시간 키는 TTL로 자연 소멸)
+
+### 트레이드오프
+
+- Redis 메모리 사용량 2배 (일간 + 시간)
+- 이벤트 처리 시 ZINCRBY 2회 발행 필요
+
+---
+
+## D67: 콜드 스타트 carry-over — ZUNIONSTORE 전일 10% 이월
+
+### 배경
+
+매일 자정 일간 랭킹 키가 새로 시작되면, 첫 수 시간 동안 데이터가 부족해 랭킹이 불안정하다(콜드 스타트 문제). 오전 트래픽 피크 전에 의미 있는 랭킹을 보여줄 필요가 있다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 콜드 스타트 미처리 (0점에서 시작) | 자정~오전 랭킹 공백 |
+| B. 전일 점수 100% 이월 | 어제 인기 상품이 오늘도 상위권 → 신상품 노출 저해 |
+| **C. ZUNIONSTORE 전일 10% 이월** | 콜드 스타트 완화 + 당일 이벤트가 빠르게 역전 가능 |
+
+### 판단
+
+C. 10% 이월
+
+### 근거
+
+- `ZUNIONSTORE today_key [today_key, yesterday_key] WEIGHTS [1.0, 0.1]`
+- 전일 점수의 10%만 이월 → 당일 이벤트 30~50건이면 이월 점수 역전 가능
+- commerce-batch `RankingCarryOverJobConfig` — 매일 00:05 실행
+- 이월 대상 키가 없으면 skip (첫날 실행 안전)
+
+### 트레이드오프
+
+- 이월 비율(10%)은 휴리스틱 — 운영 데이터 기반 조정 필요
+- 배치 실패 시 당일 콜드 스타트 재발 — 재실행 가능하도록 멱등 설계
+
+---
+
+## D68: AOP → 수동 발행 (ORDER) — Facade에서 price 접근 가능
+
+### 배경
+
+`@LogUserAction` AOP는 메서드 반환값과 파라미터에서 metadata를 추출한다. ORDER 이벤트는 `price × quantity` 정보가 필요한데, AOP 시점의 파라미터(OrderCommand)에는 쿠폰 적용 전 가격이 있고, 실제 결제 금액은 Facade 내부 로직에서 계산된다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. AOP에서 OrderCommand.price 사용 | 쿠폰 할인 미반영 — 부정확한 가중치 |
+| B. 반환값(OrderInfo)에 finalPrice 추가 후 AOP 추출 | OrderInfo DTO 변경, AOP 추출 로직 복잡화 |
+| **C. OrderFacade에서 수동 발행** | Facade에서 실제 finalPrice 접근 가능, AOP 분기 제거 |
+
+### 판단
+
+C. OrderFacade 수동 발행
+
+### 근거
+
+- AOP `@LogUserAction` 분기에서 ORDER 케이스 제거 → AOP 단순화
+- `OrderFacade.order()` 내부에서 `finalPrice × quantity`를 metadata로 포함하여 `UserActionEvent` 직접 발행
+- 랭킹 가중치 계산에 실제 매출 금액 반영 가능
+
+### 트레이드오프
+
+- ORDER 이벤트 발행 로직이 AOP와 Facade 두 곳으로 분산되지 않고 Facade 집중 — 일관성 향상
+- Facade가 이벤트 발행에 직접 의존 → ApplicationEventPublisher DI 추가
+
+---
+
 ## D61: 대기열 부하테스트 역산 설계 — 하드웨어 제약에서 TPS 유도
 
 ### 배경

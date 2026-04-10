@@ -901,3 +901,164 @@ sequenceDiagram
 - **분산 락**: `SET NX EX` + Lua 소유자 확인 해제로 멀티 인스턴스 중복 처리 방지. TTL(5초) > 주기(3초)이므로 정상 흐름에서 항상 소유자가 해제.
 - **fail-closed**: Interceptor에서 Redis 예외 시 503 반환. DB 보호가 대기열 존재 이유이므로, Redis 장애 시 우회 불가.
 - **AFTER_COMMIT 토큰 삭제**: 주문 트랜잭션 롤백 시 토큰 유지 → 유저 재시도 가능. 삭제 실패 시 TTL(5분) 만료로 자연 해소.
+
+---
+
+## 8. 랭킹 시스템 흐름 (FEAT-10)
+
+---
+
+### 8-1. 랭킹 점수 갱신 흐름 (UserAction → Kafka → Redis ZSET)
+
+#### 다이어그램의 목적
+
+사용자 행동(VIEW/LIKE/ORDER)이 Outbox → Kafka → RankingScoreConsumer를 거쳐 Redis ZSET에 반영되는 비동기 점수 갱신 흐름을 검증한다. BATCH_LISTENER로 records를 일괄 수신하여 인메모리 집계 후 단건 ZINCRBY를 최소화하는 구조를 확인한다.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Controller as commerce-api<br/>(ProductV1Controller 등)
+    participant AOP as @LogUserAction AOP
+    participant Publisher as ApplicationEventPublisher
+    participant UEH as UserActionEventHandler
+    participant OutboxDB as outbox_event (DB)
+    participant OutboxPoller as OutboxPoller<br/>(commerce-streamer)
+    participant Kafka as Kafka<br/>(product.action)
+    participant Consumer as RankingScoreConsumer<br/>(BATCH_LISTENER)
+    participant Redis as Redis<br/>(Sorted Set)
+
+    Note over User, Redis: 1. 사용자 행동 발생 → Outbox 저장
+    User->>Controller: GET /api/v1/products/{id} (상품 상세 조회)
+    AOP->>Publisher: publishEvent(UserActionEvent(VIEW, productId))
+    Note over Publisher: AFTER_COMMIT 큐에 등록
+    Controller-->>User: 200 OK
+
+    Note over UEH: AFTER_COMMIT — 커밋 후 실행
+    Publisher-->>UEH: UserActionEvent
+    Note over UEH: @Transactional(REQUIRES_NEW)
+    UEH->>OutboxDB: INSERT outbox_event (topic=product.action, payload=JSON)
+
+    Note over OutboxPoller, Kafka: 2. OutboxPoller → Kafka 발행
+    OutboxPoller->>OutboxDB: SELECT outbox_event WHERE published=false LIMIT N
+    OutboxDB-->>OutboxPoller: outbox records
+    OutboxPoller->>Kafka: publish(product.action, UserActionMessage × N)
+    OutboxPoller->>OutboxDB: UPDATE outbox_event SET published=true
+
+    Note over Consumer, Redis: 3. RankingScoreConsumer 배치 집계 → Redis ZINCRBY
+    Kafka-->>Consumer: List~UserActionMessage~ (BATCH_LISTENER)
+    Note over Consumer: 인메모리 집계<br/>productId별 score 합산<br/>(VIEW=1, LIKE=3, ORDER=5)
+    loop 집계된 productId별
+        Consumer->>Redis: ZINCRBY ranking:daily:{yyyyMMdd} {score} {productId}
+        Consumer->>Redis: ZINCRBY ranking:hourly:{yyyyMMddHH} {score} {productId}
+    end
+```
+
+#### 해석
+
+- **Outbox 경유 발행**: `UserActionEventHandler`가 AFTER_COMMIT 후 `outbox_event`에 INSERT만 수행하고, `OutboxPoller`가 폴링하여 Kafka에 발행한다. commerce-api는 Kafka에 직접 의존하지 않는다 (D54).
+- **BATCH_LISTENER 집계**: `RankingScoreConsumer`는 records 배치를 수신하여 인메모리 Map으로 productId별 score를 합산한 뒤 ZINCRBY를 호출한다. 레코드 수만큼 Redis round-trip이 발생하지 않는다.
+- **점수 가중치**: VIEW=1, LIKE=3, ORDER=5로 행동 유형별 가중치를 부여하여 실제 구매 의도가 높은 행동일수록 높은 점수를 반영한다.
+- **일간/시간 키 이중 저장**: `ranking:daily:{yyyyMMdd}` (일간 집계)와 `ranking:hourly:{yyyyMMddHH}` (시간별 집계) 두 키에 동시 반영하여 다양한 시간 범위 조회를 지원한다.
+
+---
+
+### 8-2. 랭킹 조회 흐름
+
+#### 다이어그램의 목적
+
+클라이언트가 실시간 랭킹을 조회할 때 Redis ZSET에서 상위 N개를 역순으로 읽고, 상품/브랜드 정보를 조합하여 응답하는 흐름을 검증한다.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Controller as RankingV1Controller
+    participant Facade as RankingFacade
+    participant RankingSvc as RankingService
+    participant RankingStore as RankingStore (Redis)
+    participant ProductSvc as ProductService
+    participant BrandCache as BrandCacheStore
+    participant Redis as Redis<br/>(Sorted Set)
+    participant DB as Database
+
+    User->>Controller: GET /api/v1/rankings?type=daily&size=10
+    Controller->>Facade: getRankings(type, size)
+
+    Facade->>RankingSvc: getTopRankings(type, size)
+    RankingSvc->>RankingStore: getTopN(rankingKey, size)
+    RankingStore->>Redis: ZREVRANGE ranking:daily:{today} 0 9 WITHSCORES
+    Redis-->>RankingStore: [(productId, score), ...]
+    RankingStore-->>RankingSvc: List~RankingEntry~
+    RankingSvc-->>Facade: List~RankingEntry~
+
+    Facade->>ProductSvc: getProductsByIds(productIds)
+    ProductSvc->>DB: SELECT products WHERE id IN (...) AND status = 'ACTIVE'
+    DB-->>ProductSvc: Product list
+    ProductSvc-->>Facade: Product list
+
+    Facade->>BrandCache: getBrand(brandId) per product
+    BrandCache-->>Facade: BrandInfo (캐시 히트 or DB fallback)
+
+    Note over Facade: RankingEntry + ProductInfo + BrandInfo 조합
+    Facade-->>Controller: List~RankingItemInfo~ (rank, score, productId, productName, brandName, price, ...)
+    Controller-->>User: 200 OK (랭킹 목록)
+```
+
+#### 해석
+
+- **ZREVRANGE WITHSCORES**: Redis Sorted Set의 내림차순 범위 조회로 상위 N개와 점수를 한 번에 반환받는다. O(log N + M) 복잡도로 효율적이다.
+- **상품/브랜드 배치 조회**: `getProductsByIds()`로 productId 목록을 한 번에 IN 쿼리 조회하고, `BrandCacheStore`로 브랜드 정보를 캐시 히트 경로로 조회하여 N+1을 방지한다.
+- **ACTIVE 필터**: DELETED 상품은 조회에서 제외된다. 랭킹 ZSET에는 점수만 있으므로 상품 상태 필터는 `getProductsByIds()` 레벨에서 적용된다.
+- **RankingFacade 조합 책임**: `RankingService`(순위 데이터), `ProductService`(상품 정보), `BrandCacheStore`(브랜드 정보)를 조합하는 cross-domain 로직은 Facade에 위치한다.
+
+---
+
+### 8-3. 상품 상세 + 랭킹 순위 조회
+
+#### 다이어그램의 목적
+
+상품 상세 조회 시 현재 일간 랭킹 순위를 함께 제공하는 흐름을 검증한다. `ProductFacade`가 `RankingService`를 사용하여 rank를 조합하는 cross-domain 접근이 Facade 레벨에서 이루어지는지 확인한다.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Controller as ProductV1Controller
+    participant Facade as ProductFacade
+    participant Cache as ProductCacheStore
+    participant ProductSvc as ProductService
+    participant RankingSvc as RankingService
+    participant RankingStore as RankingStore (Redis)
+    participant Redis as Redis<br/>(Sorted Set)
+    participant DB as Database
+
+    User->>Controller: GET /api/v1/products/{productId}
+    Controller->>Facade: getProduct(productId)
+
+    Facade->>Cache: getProduct(productId)
+    alt Cache HIT
+        Cache-->>Facade: ProductInfo
+    else Cache MISS
+        Facade->>ProductSvc: getProduct(productId)
+        ProductSvc->>DB: SELECT product WHERE id = productId
+        DB-->>ProductSvc: Product
+        ProductSvc-->>Facade: Product
+        Facade->>Cache: putProduct(productId, info)
+    end
+
+    Facade->>RankingSvc: getRank(productId)
+    RankingSvc->>RankingStore: getRank(rankingKey, productId)
+    RankingStore->>Redis: ZREVRANK ranking:daily:{today} {productId}
+    Redis-->>RankingStore: rank (0-based) or null
+    RankingStore-->>RankingSvc: rank (1-based) or null
+    RankingSvc-->>Facade: RankingPosition (rank: Int?)
+
+    Note over Facade: ProductInfo + rank 조합
+    Facade-->>Controller: ProductInfo (기존 필드 + rank: Int?)
+    Controller-->>User: 200 OK (상품 상세 + 현재 순위)
+```
+
+#### 해석
+
+- **ZREVRANK**: Redis ZSET에서 특정 멤버의 내림차순 순위를 O(log N)으로 반환한다. 0-based 결과에 +1하여 1-based rank로 변환한다.
+- **rank null 허용**: 랭킹 데이터가 없는 상품(신규 등록, 집계 미반영)은 `rank = null`로 응답한다. 클라이언트는 null을 "순위 없음"으로 표시한다.
+- **상품 캐시와 분리**: rank는 실시간으로 변동하므로 상품 캐시에 포함하지 않고 매 요청마다 Redis에서 조회한다. 상품 기본 정보(캐시)와 rank(실시간)를 Facade에서 조합한다.
+- **RankingService 위임**: `ProductFacade`가 `RankingService`를 직접 호출하며, `RankingService`는 `RankingStore` 인터페이스를 통해 Redis에 접근한다. DIP 준수.
