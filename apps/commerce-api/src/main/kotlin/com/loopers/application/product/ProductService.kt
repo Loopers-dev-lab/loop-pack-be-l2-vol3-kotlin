@@ -31,16 +31,46 @@ class ProductService(
 
     @Transactional(readOnly = true)
     fun getProductInfo(productId: Long): ProductInfo {
+        return getProductInfo(productId, null, null, null, null)
+    }
+
+    @Transactional(readOnly = true)
+    fun getProductInfo(
+        productId: Long,
+        loginId: String?,
+        clientIp: String?,
+        userAgent: String?,
+        referer: String?,
+    ): ProductInfo {
         val cached = productCacheService.getProductDetail(productId)
         if (cached != null) {
-            eventPublisher.publishEvent(ProductViewedEvent(userId = null, productId = productId))
+            publishViewEvent(productId, loginId, clientIp, userAgent, referer)
             return cached
         }
 
         val info = ProductInfo.from(getProduct(productId))
         productCacheService.setProductDetail(productId, info)
-        eventPublisher.publishEvent(ProductViewedEvent(userId = null, productId = productId))
+        publishViewEvent(productId, loginId, clientIp, userAgent, referer)
         return info
+    }
+
+    private fun publishViewEvent(
+        productId: Long,
+        loginId: String?,
+        clientIp: String?,
+        userAgent: String?,
+        referer: String?,
+    ) {
+        eventPublisher.publishEvent(
+            ProductViewedEvent(
+                userId = null,
+                productId = productId,
+                loginId = loginId,
+                clientIp = clientIp,
+                userAgent = userAgent,
+                referer = referer,
+            ),
+        )
     }
 
     @Transactional(readOnly = true)

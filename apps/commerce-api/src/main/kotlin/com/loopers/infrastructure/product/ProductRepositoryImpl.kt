@@ -58,4 +58,9 @@ class ProductRepositoryImpl(
     override fun restoreStock(productId: Long, quantity: Int) {
         productJpaRepository.restoreStock(productId, quantity)
     }
+
+    override fun findAllByIds(ids: List<Long>): List<Product> {
+        if (ids.isEmpty()) return emptyList()
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
+    }
 }
