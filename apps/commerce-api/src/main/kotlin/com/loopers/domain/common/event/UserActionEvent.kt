@@ -8,4 +8,5 @@ data class UserActionEvent(
     val actionType: UserActionType,
     val targetType: UserActionTargetType,
     val targetId: Long,
+    val metadata: Map<String, Any> = emptyMap(),
 )

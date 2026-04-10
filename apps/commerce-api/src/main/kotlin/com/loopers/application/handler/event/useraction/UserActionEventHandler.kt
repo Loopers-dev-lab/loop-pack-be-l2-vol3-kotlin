@@ -37,6 +37,7 @@ class UserActionEventHandler(
                 actionType = event.actionType.name,
                 targetType = event.targetType.name,
                 targetId = event.targetId,
+                metadata = event.metadata,
             ),
         )
 

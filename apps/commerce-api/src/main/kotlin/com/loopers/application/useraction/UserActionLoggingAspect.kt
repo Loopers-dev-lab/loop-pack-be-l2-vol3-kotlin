@@ -1,9 +1,6 @@
 package com.loopers.application.useraction
 
-import com.loopers.application.order.OrderCommand
 import com.loopers.domain.common.event.UserActionEvent
-import com.loopers.domain.useraction.UserActionTargetType
-import com.loopers.domain.useraction.UserActionType
 import com.loopers.interfaces.config.auth.AuthenticatedMember
 import com.loopers.interfaces.config.auth.MemberAuthenticationInterceptor
 import org.aspectj.lang.JoinPoint
@@ -25,35 +22,15 @@ class UserActionLoggingAspect(
     @AfterReturning("@annotation(logAction)")
     fun logUserAction(joinPoint: JoinPoint, logAction: LogUserAction) {
         val memberId = extractMemberId(joinPoint) ?: return
-
-        when (logAction.action) {
-            UserActionType.ORDER -> publishOrderActions(joinPoint, memberId)
-            else -> {
-                val targetId = extractTargetId(joinPoint) ?: return
-                eventPublisher.publishEvent(
-                    UserActionEvent(
-                        memberId = memberId,
-                        actionType = logAction.action,
-                        targetType = logAction.targetType,
-                        targetId = targetId,
-                    ),
-                )
-            }
-        }
-    }
-
-    private fun publishOrderActions(joinPoint: JoinPoint, memberId: Long) {
-        val command = joinPoint.args.filterIsInstance<OrderCommand.Create>().firstOrNull() ?: return
-        command.items.forEach { item ->
-            eventPublisher.publishEvent(
-                UserActionEvent(
-                    memberId = memberId,
-                    actionType = UserActionType.ORDER,
-                    targetType = UserActionTargetType.PRODUCT,
-                    targetId = item.productId,
-                ),
-            )
-        }
+        val targetId = extractTargetId(joinPoint) ?: return
+        eventPublisher.publishEvent(
+            UserActionEvent(
+                memberId = memberId,
+                actionType = logAction.action,
+                targetType = logAction.targetType,
+                targetId = targetId,
+            ),
+        )
     }
 
     private fun extractMemberId(joinPoint: JoinPoint): Long? {

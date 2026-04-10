@@ -5,4 +5,5 @@ data class PublishProductMetricsCommand(
     val actionType: String,
     val targetType: String,
     val targetId: Long,
+    val metadata: Map<String, Any> = emptyMap(),
 )
