@@ -18,6 +18,7 @@ class UserProductResult {
         val thumbnailUrl: String?,
         val likeCount: Int,
         val stockQuantity: Int,
+        val rank: Long? = null,
     ) {
         companion object {
             fun from(product: Product, brand: Brand, stock: ProductStock): Detail = Detail(
