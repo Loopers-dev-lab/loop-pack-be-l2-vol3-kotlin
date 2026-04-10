@@ -31,6 +31,21 @@ class CatalogEventOutboxAppender(
     }
 
     @EventListener
+    fun appendOrderCompleted(event: OrderCompletedEvent) {
+        event.orderItems.forEach { item ->
+            val message = CatalogEventMessage(
+                eventId = UUID.randomUUID().toString(),
+                productId = item.productId,
+                eventType = CatalogEventType.ORDER_COMPLETED,
+                delta = item.quantity.toLong(),
+                version = System.currentTimeMillis(),
+                occurredAt = ZonedDateTime.now(),
+            )
+            append(message)
+        }
+    }
+
+    @EventListener
     fun appendProductViewed(event: ProductViewedEvent) {
         val productId = event.productId ?: return
         val message = CatalogEventMessage(

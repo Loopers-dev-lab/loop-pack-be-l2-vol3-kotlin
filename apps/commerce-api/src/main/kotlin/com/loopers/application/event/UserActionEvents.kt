@@ -4,6 +4,12 @@ data class OrderCompletedEvent(
     val orderId: Long,
     val userId: Long,
     val totalAmount: Long,
+    val orderItems: List<OrderCompletedItem> = emptyList(),
+)
+
+data class OrderCompletedItem(
+    val productId: Long,
+    val quantity: Int,
 )
 
 data class LikeChangedEvent(
