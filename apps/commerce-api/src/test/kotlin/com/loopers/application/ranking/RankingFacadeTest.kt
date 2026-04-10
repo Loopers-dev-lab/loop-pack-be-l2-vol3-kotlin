@@ -12,6 +12,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
 
@@ -67,6 +70,34 @@ class RankingFacadeTest {
             assertThat(result[0].productName).isEqualTo("상품A")
             assertThat(result[0].rank).isEqualTo(1L)
             assertThat(result[0].score).isEqualTo(80.0)
+        }
+
+        @DisplayName("Redis 조회 실패 시, DB fallback으로 랭킹을 반환한다.")
+        @Test
+        fun fallsBackToDbWhenRedisFails() {
+            // arrange
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).getTopRankings(any(), any(), any())
+
+            val dbEntries = listOf(
+                RankingEntry(100L, 4.1),
+                RankingEntry(200L, 2.5),
+            )
+            whenever(rankingService.getTopRankingsFromDb(eq(1), eq(20))).thenReturn(dbEntries)
+            whenever(productCacheManager.getProduct(100L))
+                .thenReturn(createProductDetailInfo(100L, "상품A", 10000L))
+            whenever(productCacheManager.getProduct(200L))
+                .thenReturn(createProductDetailInfo(200L, "상품B", 20000L))
+
+            // act
+            val result = rankingFacade.getRankings(today, page = 1, size = 20)
+
+            // assert
+            assertThat(result).hasSize(2)
+            assertThat(result[0].productId).isEqualTo(100L)
+            assertThat(result[0].rank).isEqualTo(1L)
+            assertThat(result[1].productId).isEqualTo(200L)
+            assertThat(result[1].rank).isEqualTo(2L)
         }
 
         @DisplayName("ZSET 순서대로 상품 정보가 매핑된다.")

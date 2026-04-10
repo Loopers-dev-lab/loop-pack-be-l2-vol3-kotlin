@@ -1,7 +1,9 @@
 package com.loopers.application.ranking
 
 import com.loopers.application.product.ProductCacheManager
+import com.loopers.domain.ranking.RankingEntry
 import com.loopers.domain.ranking.RankingService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 
@@ -10,11 +12,21 @@ class RankingFacade(
     private val rankingService: RankingService,
     private val productCacheManager: ProductCacheManager,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun getRankings(date: LocalDate, page: Int, size: Int): List<RankingInfo> {
-        val entries = rankingService.getTopRankings(date, page, size)
-        val startRank = ((page - 1) * size).toLong()
+        val entries = runCatching {
+            rankingService.getTopRankings(date, page, size)
+        }.getOrElse {
+            log.warn("[RankingFacade] Redis 랭킹 조회 실패, DB fallback 수행", it)
+            rankingService.getTopRankingsFromDb(page, size)
+        }
 
+        return toRankingInfoList(entries, page, size)
+    }
+
+    private fun toRankingInfoList(entries: List<RankingEntry>, page: Int, size: Int): List<RankingInfo> {
+        val startRank = ((page - 1) * size).toLong()
         return entries.mapIndexed { index, entry ->
             val product = productCacheManager.getProduct(entry.productId)
             RankingInfo(

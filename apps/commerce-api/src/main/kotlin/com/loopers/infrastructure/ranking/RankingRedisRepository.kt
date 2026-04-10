@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ClassPathResource
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.core.script.RedisScript
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -17,6 +18,7 @@ class RankingRedisRepository(
     private val redisTemplate: RedisTemplate<String, String>,
     @Qualifier(REDIS_TEMPLATE_MASTER)
     private val masterRedisTemplate: RedisTemplate<String, String>,
+    private val jdbcTemplate: JdbcTemplate,
 ) : RankingRepository {
 
     companion object {
@@ -54,5 +56,23 @@ class RankingRedisRepository(
             weight.toString(),
             TTL_SECONDS.toString(),
         )
+    }
+
+    override fun getTopRankingsFromDb(offset: Long, count: Long): List<RankingEntry> {
+        val sql = """
+            SELECT pm.product_id,
+                   (pm.view_count * 0.1 + pm.like_count * 0.2 + pm.sales_count * 0.7) AS score
+            FROM product_metrics pm
+            INNER JOIN products p ON pm.product_id = p.id
+            WHERE p.deleted_at IS NULL
+            ORDER BY score DESC
+            LIMIT ? OFFSET ?
+        """.trimIndent()
+        return jdbcTemplate.query(sql, { rs, _ ->
+            RankingEntry(
+                productId = rs.getLong("product_id"),
+                score = rs.getDouble("score"),
+            )
+        }, count, offset)
     }
 }

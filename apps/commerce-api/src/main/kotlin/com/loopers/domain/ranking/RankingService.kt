@@ -17,6 +17,11 @@ class RankingService(
         return rankingRepository.getRank(date, productId)
     }
 
+    fun getTopRankingsFromDb(page: Int, size: Int): List<RankingEntry> {
+        val offset = ((page - 1) * size).toLong()
+        return rankingRepository.getTopRankingsFromDb(offset, size.toLong())
+    }
+
     fun carryOver(fromDate: LocalDate, toDate: LocalDate, weight: Double) {
         rankingRepository.carryOver(fromDate, toDate, weight)
     }
