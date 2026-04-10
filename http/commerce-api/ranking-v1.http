@@ -1,0 +1,48 @@
+### 일간 랭킹 조회 (오늘, 기본 20건)
+GET {{commerce-api}}/api/v1/rankings
+
+### 일간 랭킹 조회 (특정 날짜)
+GET {{commerce-api}}/api/v1/rankings?window=daily&date=20260408&page=0&size=20
+
+### 일간 랭킹 조회 (2페이지)
+GET {{commerce-api}}/api/v1/rankings?window=daily&date=20260408&page=1&size=10
+
+### 일간 랭킹 Top 5
+GET {{commerce-api}}/api/v1/rankings?size=5
+
+### 시간 단위 랭킹 조회 (현재 시각)
+GET {{commerce-api}}/api/v1/rankings?window=hourly
+
+### 시간 단위 랭킹 조회 (특정 시각)
+GET {{commerce-api}}/api/v1/rankings?window=hourly&hour=2026040814&size=20
+
+### 상품 상세 조회 (순위 포함, 일간 기준)
+GET {{commerce-api}}/api/v1/products/1
+
+
+### ===================
+### Admin: 랭킹 가중치 관리
+### ===================
+
+### 현재 가중치 조회
+GET {{commerce-api}}/api-admin/v1/rankings/weights
+
+### 가중치 변경 (주문 비중 강화)
+PUT {{commerce-api}}/api-admin/v1/rankings/weights
+Content-Type: application/json
+
+{
+  "view": 0.05,
+  "like": 0.15,
+  "order": 0.80
+}
+
+### 가중치 변경 (기본값으로 복원)
+PUT {{commerce-api}}/api-admin/v1/rankings/weights
+Content-Type: application/json
+
+{
+  "view": 0.1,
+  "like": 0.2,
+  "order": 0.7
+}
