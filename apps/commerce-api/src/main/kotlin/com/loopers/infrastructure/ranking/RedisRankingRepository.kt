@@ -24,6 +24,7 @@ class RedisRankingRepository(
     override fun getTopN(date: LocalDate, offset: Int, limit: Int): RankingFetchResult {
         val key = rankingKey(date)
         // Lua 스크립트로 score > 0 (exclusive 0) 조건 조회
+        // 빈 키일 때 Redis는 빈 List를 반환하므로 여기서 null은 "정상 0건"이 아니라 장애 신호.
 
         @Suppress("UNCHECKED_CAST")
         val raw = redisTemplate.execute(
@@ -31,7 +32,9 @@ class RedisRankingRepository(
             listOf(key),
             offset.toString(),
             limit.toString(),
-        ) as? List<*> ?: return RankingFetchResult(entries = emptyList(), rawFetchCount = 0)
+        ) as? List<*> ?: throw IllegalStateException(
+            "Redis Lua script returned null [key=$key]. ZREVRANGEBYSCORE 결과를 List로 캐스팅하지 못했습니다.",
+        )
 
         // ZREVRANGEBYSCORE WITHSCORES 결과: [member, score, member, score, ...]
         val rawFetchCount = raw.size / 2

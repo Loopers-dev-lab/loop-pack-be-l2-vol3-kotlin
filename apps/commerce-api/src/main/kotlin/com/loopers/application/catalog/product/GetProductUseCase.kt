@@ -35,29 +35,31 @@ class GetProductUseCase(
     }
 
     fun execute(productId: Long, userId: Long? = null): CatalogInfo {
-        val detail = readOnlyTxTemplate.execute {
-            val id = ProductId(productId)
-            var cached = true
-            val product = productCacheRepository.findProductDetail(id)
-                ?: run {
-                    cached = false
-                    productRepository.findById(id)
+        val detail = checkNotNull(
+            readOnlyTxTemplate.execute {
+                val id = ProductId(productId)
+                var cached = true
+                val product = productCacheRepository.findProductDetail(id)
+                    ?: run {
+                        cached = false
+                        productRepository.findById(id)
+                    }
+                    ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
+                if (product.isDeleted() || !product.isActive()) {
+                    throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
                 }
-                ?: throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-            if (product.isDeleted() || !product.isActive()) {
-                throw CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다.")
-            }
-            val brand = brandRepository.findById(product.refBrandId)
-                ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-            if (brand.isDeleted()) {
-                throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
-            }
-            if (!cached) {
-                productCacheRepository.saveProductDetail(product)
-            }
-            eventPublisher.publishEvent(CatalogEvent.ProductViewed(productId = productId, userId = userId))
-            ProductDetail(product = product, brand = brand)
-        }!!
+                val brand = brandRepository.findById(product.refBrandId)
+                    ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+                if (brand.isDeleted()) {
+                    throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다.")
+                }
+                if (!cached) {
+                    productCacheRepository.saveProductDetail(product)
+                }
+                eventPublisher.publishEvent(CatalogEvent.ProductViewed(productId = productId, userId = userId))
+                ProductDetail(product = product, brand = brand)
+            },
+        ) { "readOnlyTxTemplate.execute returned null at GetProductUseCase" }
         val rank = try {
             rankingRepository.getRank(LocalDate.now(clock), productId)
         } catch (e: Exception) {

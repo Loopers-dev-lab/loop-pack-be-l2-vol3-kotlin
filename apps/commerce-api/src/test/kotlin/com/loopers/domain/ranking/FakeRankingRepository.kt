@@ -30,7 +30,12 @@ class FakeRankingRepository : RankingRepository {
 
     var parseDropCount: Int = 0
 
+    /** 테스트가 캐시 히트/미스를 구분할 수 있도록 실제 호출 횟수를 카운팅한다. */
+    var getTopNCallCount: Int = 0
+        private set
+
     override fun getTopN(date: LocalDate, offset: Int, limit: Int): RankingFetchResult {
+        getTopNCallCount++
         if (shouldThrow) throw RuntimeException("Redis 연결 실패")
         val sorted = sortedEntries(date).filter { it.second > 0 }
         val page = sorted.drop(offset).take(limit)

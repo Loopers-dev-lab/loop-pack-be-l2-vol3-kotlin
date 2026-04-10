@@ -11,4 +11,11 @@ package com.loopers.domain.ranking.model
 data class RankingFetchResult(
     val entries: List<RankingEntry>,
     val rawFetchCount: Int,
-)
+) {
+    init {
+        require(rawFetchCount >= 0) { "rawFetchCount는 0 이상이어야 합니다. rawFetchCount=$rawFetchCount" }
+        require(rawFetchCount >= entries.size) {
+            "rawFetchCount는 entries.size보다 작을 수 없습니다. rawFetchCount=$rawFetchCount, entries.size=${entries.size}"
+        }
+    }
+}

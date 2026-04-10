@@ -43,7 +43,7 @@ class RetryFailedScoreUpdateSchedulerTest {
         scheduler.retry()
 
         // Assert — Redis 점수 반영 + 테이블에서 삭제
-        assertThat(rankingScoreRepository.getScore(1L))
+        assertThat(rankingScoreRepository.getScore(1L, rankingDate))
             .isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
         assertThat(failedScoreUpdateRepository.findAll()).isEmpty()
     }
@@ -79,14 +79,14 @@ class RetryFailedScoreUpdateSchedulerTest {
         scheduler.retry()
 
         // Assert 중간: 점수는 반영됐지만 레코드가 잔존
-        assertThat(rankingScoreRepository.getScore(1L)).isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
+        assertThat(rankingScoreRepository.getScore(1L, rankingDate)).isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
         assertThat(failedScoreUpdateRepository.findAll()).hasSize(1)
 
         // Act — 2차 재처리: incrementScore 멱등성으로 no-op, delete 성공
         scheduler.retry()
 
         // Assert 최종: 점수 중복 가산 없음, 레코드 정리됨
-        assertThat(rankingScoreRepository.getScore(1L)).isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
+        assertThat(rankingScoreRepository.getScore(1L, rankingDate)).isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
         assertThat(failedScoreUpdateRepository.findAll()).isEmpty()
     }
 
@@ -107,7 +107,7 @@ class RetryFailedScoreUpdateSchedulerTest {
         scheduler.retry()
 
         // Assert — 재처리 대상이 아니므로 점수 미반영, 테이블에 그대로
-        assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+        assertThat(rankingScoreRepository.getScore(1L, rankingDate)).isEqualTo(0.0)
         assertThat(failedScoreUpdateRepository.findAll()).hasSize(1)
     }
 }

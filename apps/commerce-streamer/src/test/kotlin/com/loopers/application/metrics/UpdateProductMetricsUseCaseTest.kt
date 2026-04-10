@@ -139,7 +139,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `PRODUCT_VIEWED 이벤트 시 랭킹 점수 +0_1이 반영된다`() {
             useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
 
-            assertThat(rankingScoreRepository.getScore(1L))
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate))
                 .isCloseTo(RankingWeight.VIEW, Offset.offset(0.001))
         }
 
@@ -147,7 +147,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `LIKE_ADDED 이벤트 시 랭킹 점수 +0_2가 반영된다`() {
             useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.LIKE_ADDED, 1L)
 
-            assertThat(rankingScoreRepository.getScore(1L))
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate))
                 .isCloseTo(RankingWeight.LIKE, Offset.offset(0.001))
         }
 
@@ -157,7 +157,7 @@ class UpdateProductMetricsUseCaseTest {
 
             useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.LIKE_REMOVED, 1L)
 
-            assertThat(rankingScoreRepository.getScore(1L))
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate))
                 .isCloseTo(RankingWeight.LIKE * -1, Offset.offset(0.001))
         }
 
@@ -167,7 +167,7 @@ class UpdateProductMetricsUseCaseTest {
 
             useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.LIKE_REMOVED, 1L)
 
-            assertThat(rankingScoreRepository.getScore(1L))
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate))
                 .isCloseTo(RankingWeight.LIKE * -1, Offset.offset(0.001))
             val metrics = productMetricsRepository.findByProductId(1L)
             assertThat(metrics?.likeCount).isEqualTo(0)
@@ -179,7 +179,7 @@ class UpdateProductMetricsUseCaseTest {
 
             useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
 
-            assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate)).isEqualTo(0.0)
         }
     }
 
@@ -230,7 +230,7 @@ class UpdateProductMetricsUseCaseTest {
         fun `PAYMENT_COMPLETED 이벤트 시 랭킹 점수 +0_7 x quantity가 반영된다`() {
             useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 3L)
 
-            assertThat(rankingScoreRepository.getScore(1L))
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate))
                 .isCloseTo(RankingWeight.ORDER * 3, Offset.offset(0.001))
         }
 
@@ -240,7 +240,7 @@ class UpdateProductMetricsUseCaseTest {
 
             useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 2L)
 
-            assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate)).isEqualTo(0.0)
         }
     }
 
@@ -260,8 +260,8 @@ class UpdateProductMetricsUseCaseTest {
             useCase.handleCatalogEvent("evt-like-3", UpdateProductMetricsUseCase.LIKE_ADDED, 2L)
 
             // Assert — ORDER(0.7) × 1 = 0.7 > LIKE(0.2) × 3 = 0.6
-            val orderScore = rankingScoreRepository.getScore(1L)
-            val likeScore = rankingScoreRepository.getScore(2L)
+            val orderScore = rankingScoreRepository.getScore(1L, fixedDate)
+            val likeScore = rankingScoreRepository.getScore(2L, fixedDate)
             assertThat(orderScore).isCloseTo(RankingWeight.ORDER, Offset.offset(0.001))
             assertThat(likeScore).isCloseTo(RankingWeight.LIKE * 3, Offset.offset(0.001))
             assertThat(orderScore).isGreaterThan(likeScore)
@@ -299,7 +299,7 @@ class UpdateProductMetricsUseCaseTest {
             fireAfterCommitCallbacks()
 
             // Assert — 점수 미반영, 예외도 미전파
-            assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate)).isEqualTo(0.0)
         }
 
         @Test
@@ -345,7 +345,7 @@ class UpdateProductMetricsUseCaseTest {
             fireAfterCommitCallbacks()
 
             // Assert — 점수 미반영, FailedScoreUpdate 유지
-            assertThat(rankingScoreRepository.getScore(1L)).isEqualTo(0.0)
+            assertThat(rankingScoreRepository.getScore(1L, fixedDate)).isEqualTo(0.0)
             val failures = failedScoreUpdateRepository.findAll()
             assertThat(failures).hasSize(1)
             assertThat(failures[0].eventId).isEqualTo("evt-1")

@@ -391,6 +391,39 @@ class GetRankingUseCaseTest {
             val yesterdayResult = cleanupUseCase.execute(date = yesterday, page = 0, size = 10)
             assertThat(yesterdayResult.totalElements).isEqualTo(2L)
         }
+
+        @Test
+        @DisplayName("캐시 만료 직후 연속 2회 호출해도 scanTotalVisibleCount는 단 1회만 실행된다 (compute 원자화 간접 검증)")
+        fun `캐시 만료 후 연속 호출 시 scan은 1회만 실행된다`() {
+            // Arrange — 데이터 1건만 있는 환경 (rawFetchCount < FETCH_BATCH_SIZE → 한 배치에 종료)
+            val mutableClock = MutableClock(clock.instant(), clock.zone)
+            val localRepo = FakeRankingRepository()
+            val atomicUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock, noOpTxManager)
+            localRepo.addEntry(today, 1L, 5.0)
+
+            // step 1: 첫 호출로 캐시 세팅 (fetchRankings 1회 + scan 1회 = 2회)
+            atomicUseCase.execute(date = today, page = 0, size = 10)
+            val countAfterFirst = localRepo.getTopNCallCount
+
+            // step 2: TTL 만료
+            mutableClock.advance(31)
+
+            // step 3: 만료 직후 2차 호출 — compute 내부에서 scan 실행 (fetchRankings 1회 + scan 1회 = +2회)
+            atomicUseCase.execute(date = today, page = 0, size = 10)
+            val countAfterSecond = localRepo.getTopNCallCount
+
+            // step 4: 곧이어 3차 호출 — 캐시 hit 예상 (fetchRankings 1회만 = +1회)
+            atomicUseCase.execute(date = today, page = 0, size = 10)
+            val countAfterThird = localRepo.getTopNCallCount
+
+            // Assert
+            assertThat(countAfterSecond - countAfterFirst)
+                .`as`("2차 호출은 cache miss → scan 1회 + fetchRankings 1회 = 총 2회")
+                .isEqualTo(2)
+            assertThat(countAfterThird - countAfterSecond)
+                .`as`("3차 호출은 cache hit → fetchRankings 1회만 = 총 1회 (scan skip)")
+                .isEqualTo(1)
+        }
     }
 
     @Nested

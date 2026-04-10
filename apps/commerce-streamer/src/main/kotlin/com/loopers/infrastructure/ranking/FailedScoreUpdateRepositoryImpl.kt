@@ -21,7 +21,11 @@ class FailedScoreUpdateRepositoryImpl(
     }
 
     override fun findPendingUpdates(maxRetryCount: Int, limit: Int): List<FailedScoreUpdate> {
-        val pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt"))
+        val pageable = PageRequest.of(
+            0,
+            limit,
+            Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("id")),
+        )
         return jpaRepository.findByRetryCountLessThan(maxRetryCount, pageable)
             .map { it.toDomain() }
     }

@@ -297,11 +297,12 @@
 
 ## RD-037. LIKE_REMOVED 시 likeCount 감소 여부와 무관한 랭킹 점수 차감
 - **keywords**: `LIKE_REMOVED`, `decrementLikeCount`, `랭킹 점수`, `likeCount`, `의도적 분리`, `RankingWeight.LIKE`
-- **리뷰어**: CodeRabbit (Critical)
-- **repeat_count**: 1
+- **리뷰어**: CodeRabbit (Critical, PR #36 + PR #37 반복)
+- **repeat_count**: 2
 - **최종 결정**: 기각 (의도적 분리 정책)
-- **근거**: round9 requirements Q4가 "LIKE_REMOVED 이벤트 시 랭킹 점수 -0.2 차감"을 명시한다. `ProductMetrics.decrementLikeCount()`는 `likeCount` 음수 가드(0 floor)를 위해 Boolean을 반환하지만, **도메인의 likeCount 감소 여부와 랭킹 점수 차감은 의도적으로 분리된 정책**이다. likeCount가 이미 0인 상태에서 LIKE_REMOVED 이벤트가 와도 랭킹 점수는 차감되어야 하며, 테스트(`LIKE_REMOVED 이벤트 시 likeCount가 0이어도 랭킹 점수 -0_2가 반영된다`)도 해당 정책의 회귀 보호다. 수정 시 반드시 round9 Q4 요구사항과 대조 필요.
-- **최종 업데이트**: 2026-04-09
+- **근거**: round9 requirements Q4가 "LIKE_REMOVED 이벤트 시 랭킹 점수 -0.2 차감"을 명시한다. 이 구현에서 `ProductMetrics.likeCount`는 랭킹 반영 여부를 판정하는 source of truth가 아니라, Kafka consumer가 유지하는 **보조 projection**이다. 실제 "좋아요가 존재할 때만 LIKE_REMOVED를 발행한다"는 계약은 producer(`RemoveLikeUseCase`)가 보장하며, 좋아요가 없으면 outbox 자체를 만들지 않는다. 따라서 consumer에서 `decrementLikeCount()`의 Boolean 반환값으로 랭킹 차감을 막아 버리면, projection이 일시적으로 틀어진 상황에서 **실제로 발생한 LIKE_REMOVED 신호까지 누락**시킬 수 있다. 현재 설계는 LIKE_ADDED / LIKE_REMOVED를 각각 독립적인 랭킹 신호로 반영하고, projection 카운터는 음수로만 내려가지 않게 보호한다.
+- **한계**: producer 계약을 어기고 "실제 좋아요 제거 없이" LIKE_REMOVED가 유입되면 랭킹 점수 드리프트가 발생할 수 있다. 그러나 이는 consumer의 `decrementLikeCount()` Boolean 게이트로 해결할 문제가 아니라, producer 계약 유지 또는 별도 reconciliation으로 다뤄야 한다. 현재 테스트(`좋아요가 없는 상태에서 취소해도 CatalogOutbox에 LIKE_REMOVED가 저장되지 않는다`, `LIKE_REMOVED 이벤트 시 likeCount가 0이어도 랭킹 점수 -0_2가 반영된다`)는 이 계약을 회귀 보호한다.
+- **최종 업데이트**: 2026-04-10
 
 ## RD-038. RetryFailedScoreUpdateScheduler 스케줄러 레벨 예외 처리·메트릭 — 후순위
 - **keywords**: `RetryFailedScoreUpdateScheduler`, `try-catch`, `스케줄러`, `Micrometer`, `메트릭`, `관측성`, `retry.interval-ms`
@@ -310,3 +311,21 @@
 - **최종 결정**: 기각 (현 단계 후순위)
 - **근거**: 현재는 "재처리 실패가 기능 정합성 이슈인가"를 먼저 보장하는 단계이며, 운영 관측 고도화(스케줄러 전체 try-catch wrapper, 성공/실패/스킵 메트릭 카운터)는 후순위다. Spring `@Scheduled`는 태스크 예외 발생 시 다음 주기에 재실행하므로 기능 정합성에는 영향 없다. 개별 레코드 단위 try-catch는 이미 구현되어 있어 부분 성공이 보장된다. 실 운영 단계에서 관측성 고도화 시 일괄 도입한다.
 - **최종 업데이트**: 2026-04-09
+
+## RD-039. OrderEventConsumer validation 실패 시 CoreException + DLT 경유 정책 유지
+- **keywords**: `OrderEventConsumer`, `validation`, `log.warn`, `early return`, `DLT`, `CouponIssueConsumer`, `eventId 공백`, `productId`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 정책 유지)
+- **근거**: CR은 `productId <= 0`, `eventId.isBlank()` 같은 deterministic 검증 오류는 재시도해도 성공할 수 없으므로 `CouponIssueConsumer`처럼 `log.warn()` + early return으로 fast-skip하라고 제안. 그러나 PR #36 CP3에서 `OrderEventConsumerTest`의 `ValidationError` Nested에 "검증 실패 시 `CoreException`을 던진다"는 테스트를 **의도적으로 추가**했다. DLT 경유는 운영 가시성(어떤 메시지가 영구 실패했는지 추적) 확보 목적이며, `CouponIssueConsumer`와의 일관성 이슈는 다음 라운드에서 양쪽 Consumer 패턴을 통합 논의할 사안. 수용 시 round9에서 추가한 ValidationError 테스트들을 `verifyNoInteractions` 형태로 모두 재작성해야 하며 정책 방향 전환에 해당.
+- **한계**: 일관성 이슈 자체는 유효. 두 Consumer 중 하나의 정책으로 통합하는 결정은 향후 별도 의사결정 라운드에서 다룬다.
+- **최종 업데이트**: 2026-04-10
+
+## RD-040. RetryFailedScoreUpdateScheduler save() 실패 시 retryCount 손실 — 수용안 부재로 현 설계 유지
+- **keywords**: `RetryFailedScoreUpdateScheduler`, `incrementRetryCount`, `save 실패`, `retryCount 손실`, `무한 재시도`, `루프 전파`
+- **리뷰어**: CodeRabbit
+- **repeat_count**: 1
+- **최종 결정**: 기각 (수용안 자체가 근본 미해결)
+- **근거**: CR은 Line 31 `update.incrementRetryCount()` 후 Line 32 `failedScoreUpdateRepository.save(update)`가 실패하면 메모리상 증가된 `retryCount`가 DB에 반영되지 않아 `maxRetryCount` 체크가 우회되고 무한 재시도가 발생할 수 있다고 지적. 시나리오는 정확하다. 그러나 CR이 제안한 "save() 실패도 try-catch + log + continue" 수용안은 **근본 해결이 아니다** — `incrementRetryCount()`가 메모리에만 반영된 채 DB save가 실패하면 continue를 해도 retryCount 증가가 동일하게 유실되며, 다음 주기 조회 시 같은 레코드가 이전 retryCount로 다시 나타난다. 진짜 해결은 (A) 별도 update 쿼리로 retryCount만 증가시키거나 (B) save 자체를 재시도하는 이중 경로 설계가 필요하지만 두 경로 모두 이번 라운드에서 도입할 만한 비용이 아니다. 현 구조(save 실패 시 루프 바깥으로 예외 전파 → 스케줄러가 한 주기 실패 → 다음 주기에 처음부터 재처리)는 `incrementScore` Lua 스크립트의 `eventId` 기반 멱등성에 의존해 점수 드리프트를 방지하므로 데이터 정합성 측면에서 안전하다. save 실패 자체가 DB 장애 상황이라 그 주기 전체가 실패하는 것이 오히려 명시적인 신호다.
+- **한계**: 부분 성공 시나리오(일부 record는 incrementScore 성공, 일부는 retryCount 증가 후 save 실패)에서 일부 retryCount 증가가 손실될 가능성은 여전히 존재. 운영에서 실 발생 빈도와 영향도를 측정한 후, 의미 있는 수준이면 (A) 별도 update 쿼리 도입으로 재방문.
+- **최종 업데이트**: 2026-04-10

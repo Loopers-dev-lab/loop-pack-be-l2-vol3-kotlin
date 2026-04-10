@@ -59,11 +59,13 @@ class GetRankingUseCase(
             if (rawFetchCount == 0) break
 
             val productIds = entries.map { ProductId(it.productId) }
-            val productMap = readOnlyTxTemplate.execute {
-                productRepository.findAllByIds(productIds)
-                    .filter { it.isActive() }
-                    .associateBy { it.id.value }
-            }!!
+            val productMap = checkNotNull(
+                readOnlyTxTemplate.execute {
+                    productRepository.findAllByIds(productIds)
+                        .filter { it.isActive() }
+                        .associateBy { it.id.value }
+                },
+            ) { "readOnlyTxTemplate.execute returned null at fetchVisibleRankings" }
 
             for (entry in entries) {
                 val product = productMap[entry.productId] ?: continue
@@ -93,21 +95,27 @@ class GetRankingUseCase(
     /**
      * 캐시가 유효하면(같은 date + 만료 전) 캐시 값을 반환하고,
      * 그렇지 않으면 전체 스캔 후 캐시를 갱신한다.
+     *
+     * `ConcurrentHashMap.compute`로 동일 date 키에 대한 read-then-write 구간을 원자화하여,
+     * 캐시 만료 직후 동시 요청이 `scanTotalVisibleCount` 를 중복 호출하지 않도록 보장한다.
      */
     private fun computeTotalVisibleCount(date: LocalDate): Long {
         val now = Instant.now(clock)
+        // opportunistic cleanup: 만료된 다른 날짜 엔트리 정리 (현재 compute 바깥이라 레이스 무해)
         totalCountCache.entries.removeIf { it.value.expiresAt.isBefore(now) }
-        val cached = totalCountCache[date]
-        if (cached != null && cached.expiresAt.isAfter(now)) {
-            return cached.count
-        }
-
-        val count = scanTotalVisibleCount(date)
-        totalCountCache[date] = TotalCountSnapshot(
-            count = count,
-            expiresAt = now.plusSeconds(TOTAL_COUNT_CACHE_TTL_SECONDS),
-        )
-        return count
+        val snapshot = checkNotNull(
+            totalCountCache.compute(date) { _, cached ->
+                if (cached != null && cached.expiresAt.isAfter(now)) {
+                    cached
+                } else {
+                    TotalCountSnapshot(
+                        count = scanTotalVisibleCount(date),
+                        expiresAt = now.plusSeconds(TOTAL_COUNT_CACHE_TTL_SECONDS),
+                    )
+                }
+            },
+        ) { "totalCountCache.compute returned null at computeTotalVisibleCount" }
+        return snapshot.count
     }
 
     /**
@@ -123,9 +131,11 @@ class GetRankingUseCase(
             if (rawFetchCount == 0) break
 
             val productIds = entries.map { ProductId(it.productId) }
-            totalActive += readOnlyTxTemplate.execute {
-                productRepository.findAllByIds(productIds).count { it.isActive() }.toLong()
-            }!!
+            totalActive += checkNotNull(
+                readOnlyTxTemplate.execute {
+                    productRepository.findAllByIds(productIds).count { it.isActive() }.toLong()
+                },
+            ) { "readOnlyTxTemplate.execute returned null at scanTotalVisibleCount" }
 
             offset += rawFetchCount
             if (rawFetchCount < FETCH_BATCH_SIZE) break
