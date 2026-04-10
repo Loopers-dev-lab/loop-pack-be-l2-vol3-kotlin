@@ -12,6 +12,9 @@ object EventContract {
     const val AGGREGATE_PRODUCT = "PRODUCT"
     const val AGGREGATE_FCFS_COUPON = "FCFS_COUPON"
 
+    // --- redis key prefixes ---
+    const val RANKING_KEY_PREFIX = "ranking:all"
+
     // --- event types ---
     const val EVENT_PAYMENT_SUCCEEDED = "PaymentSucceeded"
     const val EVENT_PAYMENT_FAILED = "PaymentFailed"
