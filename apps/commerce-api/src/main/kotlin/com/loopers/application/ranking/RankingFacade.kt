@@ -42,8 +42,10 @@ class RankingFacade(
             )
         }
 
-        val filteredTotal = pageResult.totalElements - (pageResult.entries.size - items.size)
-        val filteredPages = if (filteredTotal <= 0) 0 else kotlin.math.ceil(filteredTotal.toDouble() / pageResult.entries.size.coerceAtLeast(1)).toInt()
+        val droppedCount = pageResult.entries.size - items.size
+        val filteredTotal = (pageResult.totalElements - droppedCount).coerceAtLeast(0)
+        val pageSize = pageResult.entries.size.coerceAtLeast(1)
+        val filteredPages = if (filteredTotal <= 0) 0 else kotlin.math.ceil(filteredTotal.toDouble() / pageSize).toInt()
 
         return RankingPageInfo(
             items = items,
