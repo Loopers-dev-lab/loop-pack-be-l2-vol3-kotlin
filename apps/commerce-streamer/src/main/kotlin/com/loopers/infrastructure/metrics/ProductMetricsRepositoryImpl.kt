@@ -13,6 +13,11 @@ class ProductMetricsRepositoryImpl(
         return jpaRepository.findByProductId(productId)
     }
 
+    override fun findByProductIds(productIds: Set<Long>): List<ProductMetrics> {
+        if (productIds.isEmpty()) return emptyList()
+        return jpaRepository.findByProductIdIn(productIds)
+    }
+
     override fun save(metrics: ProductMetrics): ProductMetrics {
         return jpaRepository.save(metrics)
     }

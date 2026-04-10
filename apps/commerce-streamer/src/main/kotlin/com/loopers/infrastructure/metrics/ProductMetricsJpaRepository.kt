@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface ProductMetricsJpaRepository : JpaRepository<ProductMetrics, Long> {
     fun findByProductId(productId: Long): ProductMetrics?
+    fun findByProductIdIn(productIds: Set<Long>): List<ProductMetrics>
 }
