@@ -29,6 +29,7 @@ import java.util.UUID
 class ProductEventServiceIntegrationTest @Autowired constructor(
     private val productEventService: ProductEventService,
     private val orderEventService: OrderEventService,
+    private val productRankRedisRepository: com.loopers.infrastructure.catalog.ProductRankRedisRepository,
     @param:Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -154,6 +155,55 @@ class ProductEventServiceIntegrationTest @Autowired constructor(
 
             // assert — 한 번만 반영
             assertThat(scoreOf("view", productId)!!).isCloseTo(1.0, within(FLOAT_TOLERANCE))
+        }
+    }
+
+    @Nested
+    @DisplayName("Carry-over 검증")
+    inner class CarryOver {
+
+        @DisplayName("carryOver 실행 시 오늘 rank:all score × 0.1이 내일 키에 합산된다.")
+        @Test
+        fun shouldCarryOverScoreToNextDay() {
+            // arrange — 오늘 데이터 적재: A=10.0, B=5.0
+            val productAId = 501L
+            val productBId = 502L
+            redisTemplate.opsForZSet().incrementScore(keyOf("all"), productAId.toString(), 10.0)
+            redisTemplate.opsForZSet().incrementScore(keyOf("all"), productBId.toString(), 5.0)
+
+            // act
+            productRankRedisRepository.carryOver(TARGET_DATE)
+
+            // assert — 내일 키에 score × 0.1이 적재됨
+            val tomorrowDate = TARGET_DATE.plusDays(1)
+            val tomorrowScoreA = scoreOf("all", productAId, tomorrowDate)
+            val tomorrowScoreB = scoreOf("all", productBId, tomorrowDate)
+
+            assertAll(
+                { assertThat(tomorrowScoreA!!).isCloseTo(1.0, within(FLOAT_TOLERANCE)) },  // 10.0 × 0.1
+                { assertThat(tomorrowScoreB!!).isCloseTo(0.5, within(FLOAT_TOLERANCE)) },   // 5.0 × 0.1
+                // 오늘 키는 그대로 보존
+                { assertThat(scoreOf("all", productAId)!!).isCloseTo(10.0, within(FLOAT_TOLERANCE)) },
+            )
+        }
+
+        @DisplayName("내일 키에 이미 데이터가 있으면 carry-over 값이 합산된다 (덮어쓰기 아님).")
+        @Test
+        fun shouldAddToExistingTomorrowData() {
+            // arrange — 오늘 A=10.0
+            val productAId = 601L
+            redisTemplate.opsForZSet().incrementScore(keyOf("all"), productAId.toString(), 10.0)
+
+            // arrange — 내일 키에 이미 A=3.0이 있음 (이전 carry-over 또는 자정 이후 이벤트)
+            val tomorrowDate = TARGET_DATE.plusDays(1)
+            redisTemplate.opsForZSet().incrementScore(keyOf("all", tomorrowDate), productAId.toString(), 3.0)
+
+            // act
+            productRankRedisRepository.carryOver(TARGET_DATE)
+
+            // assert — 기존 3.0 + carry-over 1.0(= 10.0 × 0.1) = 4.0
+            val tomorrowScore = scoreOf("all", productAId, tomorrowDate)
+            assertThat(tomorrowScore!!).isCloseTo(4.0, within(FLOAT_TOLERANCE))
         }
     }
 

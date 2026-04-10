@@ -6,10 +6,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class ProductRankProperties(
     val weight: Weight = Weight(),
     val ttlDays: Long = 2,
+    val carryOverRatio: Double = 0.1,
 ) {
     init {
         require(ttlDays >= 1) {
             "product.rank.ttl-days는 1 이상이어야 합니다: $ttlDays"
+        }
+        require(carryOverRatio in 0.0..1.0) {
+            "product.rank.carry-over-ratio는 0~1 사이여야 합니다: $carryOverRatio"
         }
     }
 

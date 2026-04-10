@@ -32,6 +32,7 @@ demo-kafka:
 product:
   rank:
     ttl-days: 2
+    carry-over-ratio: 0.1
     weight:
       view: 0.1
       like: 0.2
