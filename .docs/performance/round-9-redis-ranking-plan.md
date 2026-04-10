@@ -498,6 +498,7 @@ carry-over 예시:
 - `commerce-api` 는 상품 조회/좋아요/주문 완료 시 **Kafka 로 직접 이벤트를 발행**한다.
 - `commerce-streamer` 는 Kafka consumer 에서 `product_metrics` 와 Redis ranking ZSET 을 함께 갱신한다.
 - `commerce-api` 는 Redis ranking 을 읽어 랭킹 API 와 상품 상세 rank 를 제공한다.
+- `commerce-api` 는 `23:50` carry-over scheduler 로 다음날 랭킹 seed 를 미리 적재한다.
 - 이번 구현에서는 **outbox 는 제거**했고, 랭킹은 eventually consistent 한 read model 로 취급한다.
 
 이번 과제 체크리스트를 그대로 코드 검증 항목으로 바꾸면 아래와 같다.
@@ -508,7 +509,7 @@ carry-over 예시:
 - [x] TTL 이 2일로 걸린다.
 - [x] 날짜별 key 계산이 `occurredAt` 기준으로 올바르게 동작한다.
 - [x] 조회/좋아요/주문 이벤트 후 ZSET score 가 의도대로 증가한다.
-- [ ] 주문 1건 > 좋아요 3건 같은 우선순위가 weight 에 의해 보장된다.
+- [x] 주문 1건 > 좋아요 3건 같은 우선순위가 weight 에 의해 보장된다.
 
 ### 6.2 Ranking API
 
@@ -519,16 +520,17 @@ carry-over 예시:
 
 ### 6.3 E2E
 
-- [ ] 이벤트 발행 -> Kafka consume -> Redis ZSET 반영 -> API 조회 흐름이 동작한다.
-- [ ] 날짜가 바뀌어도 이전 날짜 key 조회가 가능하다.
-- [ ] Redis 에 score 누적 후 랭킹 순서가 의도대로 정렬된다.
+- [x] 이벤트 발행 -> Kafka consume -> Redis ZSET 반영 -> API 조회 흐름이 동작한다.
+- [x] 날짜가 바뀌어도 이전 날짜 key 조회가 가능하다.
+- [x] Redis 에 score 누적 후 랭킹 순서가 의도대로 정렬된다.
 
 ### 6.4 남은 TODO
 
 - [ ] Kafka publish 실패 시 보정 전략 문서화
 - [ ] 중복/역순 이벤트에 대한 복구 전략 정리
-- [ ] hourly ranking / carry-over 구현 여부 결정
-- [ ] 실제 E2E 시나리오 추가
+- [x] carry-over scheduler 구현 (`23:50`, top 20, `score * 0.2`)
+- [ ] hourly ranking 구현 여부 결정
+- [x] 실제 E2E 시나리오 추가
 
 ---
 
