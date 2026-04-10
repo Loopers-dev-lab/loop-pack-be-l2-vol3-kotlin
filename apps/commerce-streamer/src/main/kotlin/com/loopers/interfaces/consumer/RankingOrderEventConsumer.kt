@@ -1,5 +1,6 @@
 package com.loopers.interfaces.consumer
 
+import com.loopers.application.event.IdempotencyService
 import com.loopers.application.ranking.OrderItemScore
 import com.loopers.application.ranking.RankingAggregationService
 import com.loopers.config.kafka.KafkaConfig
@@ -16,6 +17,7 @@ import java.time.LocalDate
 
 @Component
 class RankingOrderEventConsumer(
+    private val idempotencyService: IdempotencyService,
     private val rankingAggregationService: RankingAggregationService,
     private val objectMapper: ObjectMapper,
 ) {
@@ -30,12 +32,25 @@ class RankingOrderEventConsumer(
         for (record in messages) {
             try {
                 val message = objectMapper.readValue(record.value() as ByteArray, KafkaEventMessage::class.java)
+                val rankingEventId = "${RankingCatalogEventConsumer.EVENT_ID_PREFIX}${message.eventId}"
+
+                if (idempotencyService.isAlreadyHandled(rankingEventId)) {
+                    continue
+                }
+
                 val date = message.occurredAt.toLocalDate()
                 val dateTime = message.occurredAt.toLocalDateTime()
 
                 when (message.eventType) {
                     "ORDER_CREATED" -> handleOrderCreated(message, date, dateTime)
                 }
+
+                idempotencyService.markHandled(
+                    eventId = rankingEventId,
+                    aggregateType = message.aggregateType,
+                    aggregateId = message.aggregateId,
+                    eventType = message.eventType,
+                )
             } catch (e: Exception) {
                 log.error("랭킹 order 이벤트 처리 실패: record offset=${record.offset()}", e)
             }
@@ -45,7 +60,7 @@ class RankingOrderEventConsumer(
 
     private fun handleOrderCreated(message: KafkaEventMessage, date: LocalDate, dateTime: java.time.LocalDateTime) {
         val items = extractOrderItems(message.payload)
-        rankingAggregationService.processOrderEvent(items, date, dateTime)
+        rankingAggregationService.processOrderEvent(items, date, dateTime, message.eventId)
     }
 
     private fun extractOrderItems(payload: Map<String, Any?>): List<OrderItemScore> {
