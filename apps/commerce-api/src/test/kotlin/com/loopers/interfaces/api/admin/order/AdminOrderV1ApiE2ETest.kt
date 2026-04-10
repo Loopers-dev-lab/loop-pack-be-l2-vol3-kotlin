@@ -91,17 +91,26 @@ class AdminOrderV1ApiE2ETest @Autowired constructor(
         )
         val productId = productResponse.body!!.data!!.id
 
-        // Create order via customer API
+        // Create order via customer API (202 ACCEPTED, async)
         val orderRequest = OrderV1Dto.CreateRequest(
             items = listOf(OrderV1Dto.CreateOrderItemRequest(productId = productId, quantity = 2)),
         )
-        val orderResponse = testRestTemplate.exchange(
+        testRestTemplate.exchange(
             ORDER_ENDPOINT,
             HttpMethod.POST,
             HttpEntity(orderRequest, memberHeaders()),
-            object : ParameterizedTypeReference<ApiResponse<OrderV1Dto.OrderResponse>>() {},
+            object : ParameterizedTypeReference<ApiResponse<Any>>() {},
         )
-        orderId = orderResponse.body!!.data!!.orderId
+
+        // Retrieve orderId via orders list
+        val today = LocalDate.now()
+        val ordersResponse = testRestTemplate.exchange(
+            "$ORDER_ENDPOINT?startAt=${today.minusDays(1)}&endAt=${today.plusDays(1)}",
+            HttpMethod.GET,
+            HttpEntity<Any>(memberHeaders()),
+            object : ParameterizedTypeReference<ApiResponse<List<OrderV1Dto.OrderResponse>>>() {},
+        )
+        orderId = ordersResponse.body!!.data!!.first().orderId
     }
 
     @AfterEach
