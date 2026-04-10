@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.ranking
 
 import com.loopers.config.redis.RedisConfig
+import com.loopers.domain.ranking.RankingRedisOperations
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Component
@@ -13,15 +14,15 @@ import java.time.format.DateTimeFormatter
 class RankingRedisRepository(
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val masterRedisTemplate: RedisTemplate<String, String>,
-) {
+) : RankingRedisOperations {
 
-    fun incrementScore(productId: Long, score: Double, date: LocalDate) {
+    override fun incrementScore(productId: Long, score: Double, date: LocalDate) {
         val key = buildDailyKey(date)
         masterRedisTemplate.opsForZSet().incrementScore(key, productId.toString(), score)
         masterRedisTemplate.expire(key, KEY_TTL)
     }
 
-    fun incrementHourlyScore(productId: Long, score: Double, dateTime: LocalDateTime) {
+    override fun incrementHourlyScore(productId: Long, score: Double, dateTime: LocalDateTime) {
         val key = buildHourlyKey(dateTime)
         masterRedisTemplate.opsForZSet().incrementScore(key, productId.toString(), score)
         masterRedisTemplate.expire(key, HOURLY_KEY_TTL)
@@ -35,7 +36,7 @@ class RankingRedisRepository(
         return "$HOURLY_KEY_PREFIX${dateTime.format(HOURLY_DATE_FORMAT)}"
     }
 
-    fun carryOverScores(sourceDate: LocalDate, targetDate: LocalDate, weight: Double) {
+    override fun carryOverScores(sourceDate: LocalDate, targetDate: LocalDate, weight: Double) {
         val sourceKey = buildDailyKey(sourceDate)
         val targetKey = buildDailyKey(targetDate)
 

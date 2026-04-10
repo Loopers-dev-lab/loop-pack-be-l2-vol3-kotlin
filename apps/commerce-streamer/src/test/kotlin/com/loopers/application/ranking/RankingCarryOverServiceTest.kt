@@ -1,6 +1,6 @@
 package com.loopers.application.ranking
 
-import com.loopers.infrastructure.ranking.RankingRedisRepository
+import com.loopers.domain.ranking.RankingRedisOperations
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -16,7 +16,7 @@ import java.time.LocalDate
 class RankingCarryOverServiceTest {
 
     @Mock
-    private lateinit var rankingRedisRepository: RankingRedisRepository
+    private lateinit var rankingRedisOperations: RankingRedisOperations
 
     @Mock
     private lateinit var rankingWeightProvider: RankingWeightProvider
@@ -41,7 +41,7 @@ class RankingCarryOverServiceTest {
 
             // assert
             verify(rankingWeightProvider).getCarryOverWeight()
-            verify(rankingRedisRepository).carryOverScores(today, tomorrow, 0.15)
+            verify(rankingRedisOperations).carryOverScores(today, tomorrow, 0.15)
         }
     }
 }

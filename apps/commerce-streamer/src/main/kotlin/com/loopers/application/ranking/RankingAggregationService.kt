@@ -2,11 +2,12 @@ package com.loopers.application.ranking
 
 import com.loopers.domain.ranking.RankingEventLog
 import com.loopers.domain.ranking.RankingEventLogRepository
+import com.loopers.domain.ranking.RankingRedisOperations
 import com.loopers.domain.ranking.RankingScorePolicy
+import com.loopers.domain.ranking.ViewDedupOperations
+import com.loopers.domain.ranking.ViewRateOperations
 import com.loopers.domain.ranking.ViewSignals
 import com.loopers.domain.ranking.ViewTrustScoreCalculator
-import com.loopers.infrastructure.ranking.RankingRedisRepository
-import com.loopers.infrastructure.ranking.ViewRateRedisRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.LocalDate
@@ -14,37 +15,46 @@ import java.time.LocalDateTime
 
 @Component
 class RankingAggregationService(
-    private val rankingRedisRepository: RankingRedisRepository,
+    private val rankingRedisOperations: RankingRedisOperations,
     private val rankingScorePolicy: RankingScorePolicy,
     private val rankingWeightProvider: RankingWeightProvider,
     private val rankingEventLogRepository: RankingEventLogRepository,
-    private val viewTrustScoreCalculator: ViewTrustScoreCalculator,
-    private val viewRateRedisRepository: ViewRateRedisRepository,
+    private val viewDedupOperations: ViewDedupOperations,
+    private val viewRateOperations: ViewRateOperations,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val viewTrustScoreCalculator = ViewTrustScoreCalculator()
 
     fun processViewEvent(
         productId: Long,
         date: LocalDate,
         dateTime: LocalDateTime,
         eventId: String,
-        payload: Map<String, Any?>,
-    ) {
-        val trustScore = calculateTrustScore(productId, payload, dateTime)
+        context: ViewEventContext,
+    ): Boolean {
+        if (viewDedupOperations.isDuplicate(productId, context.loginId, context.clientIp, date)) {
+            log.debug("조회 중복 필터링: productId={}, loginId={}, ip={}", productId, context.loginId, context.clientIp)
+            return false
+        }
+
+        val trustScore = calculateTrustScore(productId, context, dateTime)
         val baseScore = rankingScorePolicy.calculateViewScore(rankingWeightProvider.getViewWeight())
         val finalScore = baseScore * trustScore
 
         if (finalScore > 0) {
-            rankingRedisRepository.incrementScore(productId, finalScore, date)
-            rankingRedisRepository.incrementHourlyScore(productId, finalScore, dateTime)
+            rankingRedisOperations.incrementScore(productId, finalScore, date)
+            rankingRedisOperations.incrementHourlyScore(productId, finalScore, dateTime)
             saveEventLog(productId, "VIEW", trustScore, date, eventId)
         }
+
+        viewDedupOperations.markViewed(productId, context.loginId, context.clientIp, date)
+        return true
     }
 
     fun processLikeEvent(productId: Long, date: LocalDate, dateTime: LocalDateTime, eventId: String) {
         val score = rankingScorePolicy.calculateLikeScore(rankingWeightProvider.getLikeWeight())
-        rankingRedisRepository.incrementScore(productId, score, date)
-        rankingRedisRepository.incrementHourlyScore(productId, score, dateTime)
+        rankingRedisOperations.incrementScore(productId, score, date)
+        rankingRedisOperations.incrementHourlyScore(productId, score, dateTime)
         saveEventLog(productId, "LIKE", 1.0, date, eventId)
     }
 
@@ -52,26 +62,21 @@ class RankingAggregationService(
         val orderWeight = rankingWeightProvider.getOrderWeight()
         for (item in items) {
             val score = rankingScorePolicy.calculateOrderScore(item.amount, orderWeight)
-            rankingRedisRepository.incrementScore(item.productId, score, date)
-            rankingRedisRepository.incrementHourlyScore(item.productId, score, dateTime)
+            rankingRedisOperations.incrementScore(item.productId, score, date)
+            rankingRedisOperations.incrementHourlyScore(item.productId, score, dateTime)
             saveEventLog(item.productId, "ORDER", item.amount.toDouble(), date, eventId)
         }
     }
 
-    private fun calculateTrustScore(productId: Long, payload: Map<String, Any?>, dateTime: LocalDateTime): Double {
-        val loginId = payload["loginId"] as? String
-        val clientIp = payload["clientIp"] as? String
-        val userAgent = payload["userAgent"] as? String
-        val referer = payload["referer"] as? String
-
-        val identifier = loginId ?: clientIp ?: "unknown"
-        val requestsPerMinute = viewRateRedisRepository.incrementAndGetRequestCount(identifier, dateTime)
-        val distinctProducts = viewRateRedisRepository.addViewedProductAndGetCount(identifier, productId, dateTime)
+    private fun calculateTrustScore(productId: Long, context: ViewEventContext, dateTime: LocalDateTime): Double {
+        val identifier = context.loginId ?: context.clientIp ?: "unknown"
+        val requestsPerMinute = viewRateOperations.incrementAndGetRequestCount(identifier, dateTime)
+        val distinctProducts = viewRateOperations.addViewedProductAndGetCount(identifier, productId, dateTime)
 
         val signals = ViewSignals(
-            isLoggedIn = loginId != null,
-            hasUserAgent = !userAgent.isNullOrBlank(),
-            hasReferer = !referer.isNullOrBlank(),
+            isLoggedIn = context.loginId != null,
+            hasUserAgent = !context.userAgent.isNullOrBlank(),
+            hasReferer = !context.referer.isNullOrBlank(),
             requestsPerMinute = requestsPerMinute,
             distinctProductsIn10Min = distinctProducts,
         )

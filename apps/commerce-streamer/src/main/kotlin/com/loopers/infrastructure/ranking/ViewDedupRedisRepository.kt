@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.ranking
 
 import com.loopers.config.redis.RedisConfig
+import com.loopers.domain.ranking.ViewDedupOperations
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Component
@@ -12,14 +13,14 @@ import java.time.format.DateTimeFormatter
 class ViewDedupRedisRepository(
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val masterRedisTemplate: RedisTemplate<String, String>,
-) {
+) : ViewDedupOperations {
 
-    fun isDuplicate(productId: Long, loginId: String?, clientIp: String?, date: LocalDate): Boolean {
+    override fun isDuplicate(productId: Long, loginId: String?, clientIp: String?, date: LocalDate): Boolean {
         val key = buildKey(productId, loginId, clientIp, date)
         return masterRedisTemplate.hasKey(key)
     }
 
-    fun markViewed(productId: Long, loginId: String?, clientIp: String?, date: LocalDate) {
+    override fun markViewed(productId: Long, loginId: String?, clientIp: String?, date: LocalDate) {
         val key = buildKey(productId, loginId, clientIp, date)
         masterRedisTemplate.opsForValue().set(key, "1", KEY_TTL)
     }

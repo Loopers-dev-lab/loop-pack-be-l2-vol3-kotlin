@@ -1,8 +1,5 @@
 package com.loopers.domain.ranking
 
-import org.springframework.stereotype.Component
-
-@Component
 class ViewTrustScoreCalculator {
 
     fun calculate(signals: ViewSignals): Double {
@@ -58,11 +55,3 @@ class ViewTrustScoreCalculator {
         const val MAX_TRUST_SCORE = 1.0
     }
 }
-
-data class ViewSignals(
-    val isLoggedIn: Boolean,
-    val hasUserAgent: Boolean,
-    val hasReferer: Boolean,
-    val requestsPerMinute: Long,
-    val distinctProductsIn10Min: Long,
-)

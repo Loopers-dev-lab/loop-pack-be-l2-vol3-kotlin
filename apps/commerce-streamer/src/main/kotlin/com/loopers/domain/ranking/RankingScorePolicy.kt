@@ -1,9 +1,7 @@
 package com.loopers.domain.ranking
 
-import org.springframework.stereotype.Component
 import java.math.BigDecimal
 
-@Component
 class RankingScorePolicy {
 
     fun calculateViewScore(weight: Double): Double = VIEW_BASE_SCORE * weight
