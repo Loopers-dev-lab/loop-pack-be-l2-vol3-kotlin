@@ -3,6 +3,7 @@ package com.loopers.domain.order
 import com.loopers.config.kafka.message.OrderMessage
 import com.loopers.domain.event.EventHandledModel
 import com.loopers.domain.event.EventHandledRepository
+import com.loopers.infrastructure.catalog.ProductRankRedisRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class OrderEventService(
     private val eventHandledRepository: EventHandledRepository,
+    private val productRankRedisRepository: ProductRankRedisRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -29,5 +31,10 @@ class OrderEventService(
                 eventType = "ORDER_CREATED",
             ),
         )
+
+        val date = message.occurredAt.toLocalDate()
+        message.items.forEach { item ->
+            productRankRedisRepository.incrementOrder(item.productId, item.quantity.toLong(), date)
+        }
     }
 }

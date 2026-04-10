@@ -4,6 +4,7 @@ import com.loopers.config.kafka.message.ProductLikedMessage
 import com.loopers.config.kafka.message.ProductViewedMessage
 import com.loopers.domain.event.EventHandledModel
 import com.loopers.domain.event.EventHandledRepository
+import com.loopers.infrastructure.catalog.ProductRankRedisRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class ProductEventService(
     private val eventHandledRepository: EventHandledRepository,
+    private val productRankRedisRepository: ProductRankRedisRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -29,6 +31,8 @@ class ProductEventService(
                 eventType = "PRODUCT_VIEWED",
             ),
         )
+
+        productRankRedisRepository.incrementView(message.productId, message.occurredAt.toLocalDate())
     }
 
     @Transactional
@@ -46,5 +50,7 @@ class ProductEventService(
                 eventType = "PRODUCT_LIKED",
             ),
         )
+
+        productRankRedisRepository.incrementLike(message.productId, message.occurredAt.toLocalDate())
     }
 }
