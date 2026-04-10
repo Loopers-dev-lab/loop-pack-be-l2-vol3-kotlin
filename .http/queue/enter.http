@@ -1,0 +1,4 @@
+### 대기열 진입
+POST {{host}}/api/v1/queue/enter
+Authorization: Bearer {{token}}
+Content-Type: application/json

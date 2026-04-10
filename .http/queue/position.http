@@ -1,0 +1,3 @@
+### 순번 조회 (Polling)
+GET {{host}}/api/v1/queue/position
+Authorization: Bearer {{token}}
