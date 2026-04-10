@@ -50,12 +50,15 @@ class UserGetRankingUseCase(
             )
         }
 
+        // hasNext는 ZSET entries 개수 기준으로 판단 — soft-delete로 items가 줄어도
+        // 다음 페이지에 데이터가 있을 수 있으므로 entries(Redis 기준)로 판단하는 게 정확하다.
+        // totalCount는 Redis ZCARD 기준 근사값 (soft-delete 상품 포함 가능).
         return GetRankingResult(
             date = criteria.date,
             page = criteria.page,
             size = criteria.size,
             totalCount = totalCount,
-            hasNext = (criteria.page.toLong() + 1) * criteria.size < totalCount,
+            hasNext = entries.size >= criteria.size,
             items = items,
         )
     }
