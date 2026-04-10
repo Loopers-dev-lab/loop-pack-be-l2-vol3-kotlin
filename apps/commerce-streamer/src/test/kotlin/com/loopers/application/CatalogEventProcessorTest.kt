@@ -13,6 +13,7 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -104,6 +105,62 @@ class CatalogEventProcessorTest {
 
             // assert
             verify(productMetricsRepository).incrementLikeCount(100L, 15L)
+        }
+    }
+
+    @DisplayName("랭킹 업데이트 실패 시,")
+    @Nested
+    inner class RankingFailure {
+
+        @DisplayName("LIKED 이벤트에서 Redis 예외가 발생해도 likeCount 증가와 이벤트 로그 저장은 정상 수행된다.")
+        @Test
+        fun continuesOnLikeRankingFailure() {
+            // arrange
+            val envelope = createEnvelope(eventType = "LIKED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForLike(any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productMetricsRepository).incrementLikeCount(100L, 1L)
+            verify(eventLogRepository).save(any())
+        }
+
+        @DisplayName("VIEWED 이벤트에서 Redis 예외가 발생해도 viewCount 증가는 정상 수행된다.")
+        @Test
+        fun continuesOnViewRankingFailure() {
+            // arrange
+            val envelope = createEnvelope(eventType = "VIEWED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForView(any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productMetricsRepository).incrementViewCount(100L, 1L)
+            verify(eventLogRepository).save(any())
+        }
+
+        @DisplayName("UNLIKED 이벤트에서 Redis 예외가 발생해도 likeCount 차감은 정상 수행된다.")
+        @Test
+        fun continuesOnUnlikeRankingFailure() {
+            // arrange
+            val envelope = createEnvelope(eventType = "UNLIKED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForUnlike(any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productMetricsRepository).decrementLikeCount(100L, 1L)
+            verify(eventLogRepository).save(any())
         }
     }
 

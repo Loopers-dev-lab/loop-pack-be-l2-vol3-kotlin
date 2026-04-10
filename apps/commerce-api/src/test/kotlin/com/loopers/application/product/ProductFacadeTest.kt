@@ -14,6 +14,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -118,6 +119,23 @@ class ProductFacadeTest {
 
             // assert
             assertThat(result.rank).isNull()
+        }
+
+        @DisplayName("랭킹 조회 실패 시, rank는 null이고 상품 상세 정보는 정상 반환된다.")
+        @Test
+        fun returnsNullRankWhenRankingServiceFails() {
+            // arrange
+            whenever(productCacheManager.getProduct(productId)).thenReturn(detailInfo)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).getRank(any(), eq(productId))
+
+            // act
+            val result = productFacade.getProduct(productId)
+
+            // assert
+            assertThat(result.rank).isNull()
+            assertThat(result.id).isEqualTo(productId)
+            assertThat(result.name).isEqualTo("에어맥스")
         }
     }
 }

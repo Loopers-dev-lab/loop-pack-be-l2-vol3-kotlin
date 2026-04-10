@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -188,6 +189,46 @@ class OrderEventProcessorTest {
         // assert
         verify(productMetricsRepository, never()).incrementSalesCount(any(), any())
         verify(productStockRepository, never()).decrementStock(any(), any())
+    }
+
+    @DisplayName("랭킹 업데이트 실패 시,")
+    @Nested
+    inner class RankingFailure {
+
+        @DisplayName("Redis 예외가 발생해도 재고 차감과 salesCount 증가는 정상 처리된다.")
+        @Test
+        fun continuesProcessingWhenRankingFails() {
+            // arrange
+            val envelope = createEnvelope(eventId = "evt-redis-fail")
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForOrder(any(), any(), any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productStockRepository).decrementStock(100L, 2)
+            verify(productMetricsRepository).incrementSalesCount(100L, 2)
+            verify(eventLogRepository).save(any())
+        }
+
+        @DisplayName("Redis 예외가 발생해도 쿠폰 사용 처리는 정상 수행된다.")
+        @Test
+        fun couponStillProcessedWhenRankingFails() {
+            // arrange
+            val payload = """{"orderId":1,"userId":42,"items":[{"productId":100,"quantity":1,"productName":"상품A","unitPrice":10000}],"couponId":5,"totalAmount":10000,"paymentAmount":5000}"""
+            val envelope = createEnvelope(eventId = "evt-redis-coupon", payload = payload)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForOrder(any(), any(), any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(issuedCouponRepository).markUsed(eq(5L), eq(42L))
+        }
     }
 
     @DisplayName("랭킹 점수 반영 시,")

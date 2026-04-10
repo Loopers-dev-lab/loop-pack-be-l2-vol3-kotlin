@@ -94,7 +94,7 @@ class RankingWeightIntegrationTest @Autowired constructor(
     @Test
     fun likeAndUnlikeAreSymmetric() {
         // arrange
-        val productId = 100L
+        val productId = 999L
 
         // act — 좋아요 3건 후 좋아요 취소 3건
         catalogEventProcessor.process(catalogEnvelope("evt-like-1", "LIKED", productId, version = 1L))

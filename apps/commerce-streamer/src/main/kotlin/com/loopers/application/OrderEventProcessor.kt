@@ -47,7 +47,11 @@ class OrderEventProcessor(
                 payload.items.forEach { item ->
                     productStockRepository.decrementStock(item.productId, item.quantity)
                     productMetricsRepository.incrementSalesCount(item.productId, item.quantity)
-                    rankingService.updateScoreForOrder(today, item.productId, item.unitPrice, item.quantity)
+                    runCatching {
+                        rankingService.updateScoreForOrder(today, item.productId, item.unitPrice, item.quantity)
+                    }.onFailure {
+                        log.warn("[Order] 랭킹 점수 업데이트 실패: productId={}", item.productId, it)
+                    }
                 }
 
                 payload.couponId?.let { couponId ->

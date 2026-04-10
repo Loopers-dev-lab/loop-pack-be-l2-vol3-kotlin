@@ -49,15 +49,27 @@ class CatalogEventProcessor(
         when (envelope.eventType) {
             EventTypes.LIKED -> {
                 productMetricsRepository.incrementLikeCount(productId, envelope.version)
-                rankingService.updateScoreForLike(today, productId)
+                runCatching {
+                    rankingService.updateScoreForLike(today, productId)
+                }.onFailure {
+                    log.warn("[Catalog] 랭킹 점수 업데이트 실패: productId={}, eventType={}", productId, envelope.eventType, it)
+                }
             }
             EventTypes.UNLIKED -> {
                 productMetricsRepository.decrementLikeCount(productId, envelope.version)
-                rankingService.updateScoreForUnlike(today, productId)
+                runCatching {
+                    rankingService.updateScoreForUnlike(today, productId)
+                }.onFailure {
+                    log.warn("[Catalog] 랭킹 점수 업데이트 실패: productId={}, eventType={}", productId, envelope.eventType, it)
+                }
             }
             EventTypes.VIEWED -> {
                 productMetricsRepository.incrementViewCount(productId, envelope.version)
-                rankingService.updateScoreForView(today, productId)
+                runCatching {
+                    rankingService.updateScoreForView(today, productId)
+                }.onFailure {
+                    log.warn("[Catalog] 랭킹 점수 업데이트 실패: productId={}, eventType={}", productId, envelope.eventType, it)
+                }
             }
             else -> log.warn("[Catalog] 알 수 없는 이벤트 타입: {}", envelope.eventType)
         }
