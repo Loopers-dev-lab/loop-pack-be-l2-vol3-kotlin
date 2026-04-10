@@ -24,6 +24,11 @@ class ProductRepositoryImpl(
         return productJpaRepository.findByIdWithLock(id)
     }
 
+    override fun findAllByIdIn(ids: List<Long>): List<ProductModel> {
+        if (ids.isEmpty()) return emptyList()
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
+    }
+
     override fun findAll(pageable: Pageable): Slice<ProductModel> {
         return productJpaRepository.findAllByDeletedAtIsNull(pageable)
     }

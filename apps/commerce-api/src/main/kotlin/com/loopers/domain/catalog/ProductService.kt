@@ -40,6 +40,16 @@ class ProductService(
         return productRepository.findById(id)?.let { ProductInfo.from(it) }
     }
 
+    /**
+     * 주어진 productId 목록에 해당하는 상품을 한 번의 쿼리로 조회한다.
+     * 입력 순서는 보장되지 않으므로, 정렬이 필요한 경우 호출 측에서 처리한다.
+     */
+    @Transactional(readOnly = true)
+    fun getProductsByIds(ids: List<Long>): List<ProductInfo> {
+        if (ids.isEmpty()) return emptyList()
+        return productRepository.findAllByIdIn(ids).map { ProductInfo.from(it) }
+    }
+
     @Transactional(readOnly = true)
     fun getProducts(
         pageable: Pageable,
