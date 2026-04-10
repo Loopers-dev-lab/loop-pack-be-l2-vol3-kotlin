@@ -19,6 +19,7 @@ data class ProductInfo(
     val saleStatus: SaleStatus,
     val displayStatus: DisplayStatus,
     val createdAt: ZonedDateTime?,
+    val ranking: Long? = null,
 ) {
     companion object {
         fun of(product: ProductModel, brand: BrandModel): ProductInfo {

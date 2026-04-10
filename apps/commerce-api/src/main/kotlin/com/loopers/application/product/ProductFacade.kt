@@ -5,6 +5,7 @@ import com.loopers.application.event.ProductViewedEvent
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductSortType
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.ranking.RankingService
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.springframework.context.ApplicationEventPublisher
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Component
 class ProductFacade(
@@ -19,12 +21,13 @@ class ProductFacade(
     private val brandService: BrandService,
     private val productCacheStore: ProductCacheStore,
     private val applicationEventPublisher: ApplicationEventPublisher,
+    private val rankingService: RankingService,
 ) {
     @Transactional(readOnly = true)
     fun getProductDetail(productId: Long): ProductInfo {
-        productCacheStore.getProductDetail(productId)?.let { snapshot ->
+        val productInfo = productCacheStore.getProductDetail(productId)?.let { snapshot ->
             val brand = brandService.findById(snapshot.brandId)
-            return snapshot.toProductInfo(brand).also {
+            snapshot.toProductInfo(brand).also {
                 applicationEventPublisher.publishEvent(
                     ProductViewedEvent(
                         productId = productId,
@@ -32,20 +35,23 @@ class ProductFacade(
                     ),
                 )
             }
+        } ?: run {
+            val product = productService.findById(productId)
+            val brand = brandService.findById(product.brandId)
+            ProductInfo.of(product, brand)
+                .also {
+                    productCacheStore.putProductDetail(ProductCacheSnapshot.from(product))
+                    applicationEventPublisher.publishEvent(
+                        ProductViewedEvent(
+                            productId = productId,
+                            actionType = ProductViewActionType.PRODUCT_DETAIL_VIEWED,
+                        ),
+                    )
+                }
         }
 
-        val product = productService.findById(productId)
-        val brand = brandService.findById(product.brandId)
-        return ProductInfo.of(product, brand)
-            .also {
-                productCacheStore.putProductDetail(ProductCacheSnapshot.from(product))
-                applicationEventPublisher.publishEvent(
-                    ProductViewedEvent(
-                        productId = productId,
-                        actionType = ProductViewActionType.PRODUCT_DETAIL_VIEWED,
-                    ),
-                )
-            }
+        val ranking = rankingService.getProductRank(LocalDate.now(), productId)
+        return productInfo.copy(ranking = ranking)
     }
 
     @Transactional(readOnly = true)
