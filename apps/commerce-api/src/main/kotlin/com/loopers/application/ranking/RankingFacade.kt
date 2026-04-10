@@ -42,10 +42,13 @@ class RankingFacade(
             )
         }
 
+        val filteredTotal = pageResult.totalElements - (pageResult.entries.size - items.size)
+        val filteredPages = if (filteredTotal <= 0) 0 else kotlin.math.ceil(filteredTotal.toDouble() / pageResult.entries.size.coerceAtLeast(1)).toInt()
+
         return RankingPageInfo(
             items = items,
-            totalElements = pageResult.totalElements,
-            totalPages = pageResult.totalPages,
+            totalElements = filteredTotal.coerceAtLeast(0),
+            totalPages = filteredPages.coerceAtLeast(0),
         )
     }
 
@@ -64,8 +67,11 @@ class RankingFacade(
             .associateWith { brandId -> getCachedBrandName(brandId) }
 
         val fetchedMap = products.associate { product ->
-            val info = ProductInfo.from(product, brandMap[product.brandId])
-            productCacheStore.putProduct(product.id, info)
+            val brandName = brandMap[product.brandId]
+            val info = ProductInfo.from(product, brandName)
+            if (brandName != null) {
+                productCacheStore.putProduct(product.id, info)
+            }
             product.id to info
         }
 

@@ -19,7 +19,8 @@ class PublishProductMetricsCommandHandler(
                 put("actionType", command.actionType)
                 put("targetType", command.targetType)
                 put("targetId", command.targetId)
-                putAll(command.metadata)
+                val reservedKeys = setOf("memberId", "actionType", "targetType", "targetId")
+                putAll(command.metadata.filterKeys { it !in reservedKeys })
             },
             partitionKey = command.targetId.toString(),
             topic = EventContract.PRODUCT_ACTION_TOPIC,

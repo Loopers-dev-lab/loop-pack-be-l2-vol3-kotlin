@@ -14,6 +14,7 @@ import org.springframework.kafka.support.Acknowledgment
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.log10
 
@@ -38,7 +39,7 @@ class RankingScoreConsumer(
         acknowledgment: Acknowledgment,
     ) {
         try {
-            val now = LocalDateTime.now()
+            val now = LocalDateTime.now(ZONE_ID)
             val dailyKey = "${rankingProperties.keyPrefix}:${now.format(dailyFormatter)}"
             val hourlyKey = "${rankingProperties.keyPrefix}:${now.format(dailyFormatter)}:${now.format(hourlyFormatter)}"
 
@@ -115,5 +116,6 @@ class RankingScoreConsumer(
 
     companion object {
         const val CONSUMER_GROUP = "commerce-streamer-ranking"
+        private val ZONE_ID = ZoneId.of("Asia/Seoul")
     }
 }

@@ -12,6 +12,7 @@ import com.loopers.domain.useraction.UserActionType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Component
@@ -34,7 +35,7 @@ class ProductFacade(
                 productInfo
             }
 
-        val todayDate = LocalDate.now().format(DAILY_FORMATTER)
+        val todayDate = LocalDate.now(ZONE_ID).format(DAILY_FORMATTER)
         val position = rankingService.getRank(todayDate, productId)
         return info.copy(rank = position?.rank)
     }
@@ -81,6 +82,7 @@ class ProductFacade(
     }
 
     companion object {
+        private val ZONE_ID = ZoneId.of("Asia/Seoul")
         private val DAILY_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
     }
 }
