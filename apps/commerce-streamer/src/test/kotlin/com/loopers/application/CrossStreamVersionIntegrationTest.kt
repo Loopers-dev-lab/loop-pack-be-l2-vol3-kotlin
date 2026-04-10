@@ -50,7 +50,7 @@ class CrossStreamVersionIntegrationTest @Autowired constructor(
         aggregateId = "1",
         version = version,
         timestamp = Instant.now(),
-        payload = """{"orderId":1,"userId":1,"items":[{"productId":$productId,"quantity":$quantity,"productName":"상품"}],"couponId":null,"totalAmount":10000,"paymentAmount":10000}""",
+        payload = """{"orderId":1,"userId":1,"items":[{"productId":$productId,"quantity":$quantity,"productName":"상품","unitPrice":10000}],"couponId":null,"totalAmount":10000,"paymentAmount":10000}""",
     )
 
     @Test

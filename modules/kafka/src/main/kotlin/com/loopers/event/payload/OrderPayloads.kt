@@ -13,4 +13,5 @@ data class OrderItemPayload(
     val productId: Long,
     val quantity: Int,
     val productName: String,
+    val unitPrice: Long,
 )

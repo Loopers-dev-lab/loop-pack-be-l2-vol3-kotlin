@@ -1,0 +1,11 @@
+### 오늘의 랭킹 조회 (기본값)
+GET {{commerce-api}}/api/v1/rankings?page=1&size=20
+
+### 오늘의 랭킹 조회 (날짜 지정)
+GET {{commerce-api}}/api/v1/rankings?date=20260409&page=1&size=20
+
+### 랭킹 2페이지 조회
+GET {{commerce-api}}/api/v1/rankings?page=2&size=10
+
+### 상품 상세 조회 (랭킹 순위 포함)
+GET {{commerce-api}}/api/v1/products/1

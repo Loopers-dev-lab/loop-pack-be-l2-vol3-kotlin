@@ -13,6 +13,7 @@ class ProductDto {
         val brandId: Long,
         val brandName: String,
         val likeCount: Int,
+        val rank: Long?,
     ) {
         companion object {
             fun from(info: ProductDetailInfo): DetailResponse {
@@ -24,6 +25,7 @@ class ProductDto {
                     brandId = info.brandId,
                     brandName = info.brandName,
                     likeCount = info.likeCount,
+                    rank = info.rank,
                 )
             }
         }

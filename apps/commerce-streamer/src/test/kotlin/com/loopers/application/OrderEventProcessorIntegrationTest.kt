@@ -33,7 +33,7 @@ class OrderEventProcessorIntegrationTest @Autowired constructor(
         eventType: String = "ORDER_COMPLETED",
         aggregateId: String = "1",
         version: Long = 1L,
-        payload: String = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"테스트 상품"}],"couponId":null,"totalAmount":20000,"paymentAmount":20000}""",
+        payload: String = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"테스트 상품","unitPrice":10000}],"couponId":null,"totalAmount":20000,"paymentAmount":20000}""",
     ) = EventEnvelope(
         eventId = eventId,
         eventType = eventType,
@@ -106,7 +106,7 @@ class OrderEventProcessorIntegrationTest @Autowired constructor(
         @Test
         fun incrementsSalesCountForMultipleItems() {
             // arrange
-            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A"},{"productId":200,"quantity":3,"productName":"상품B"}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
+            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A","unitPrice":10000},{"productId":200,"quantity":3,"productName":"상품B","unitPrice":10000}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
             val envelope = createEnvelope(eventId = "evt-multi", payload = payload)
 
             // act
