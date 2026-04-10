@@ -3,6 +3,7 @@ package com.loopers.application.product
 import com.loopers.application.brand.BrandCacheStore
 import com.loopers.application.brand.BrandInfo
 import com.loopers.application.brand.BrandService
+import com.loopers.application.ranking.RankingService
 import com.loopers.application.useraction.LogUserAction
 import com.loopers.domain.product.ProductSearchCondition
 import com.loopers.domain.product.ProductSort
@@ -10,6 +11,8 @@ import com.loopers.domain.useraction.UserActionTargetType
 import com.loopers.domain.useraction.UserActionType
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Component
 class ProductFacade(
@@ -17,17 +20,23 @@ class ProductFacade(
     private val brandService: BrandService,
     private val productCacheStore: ProductCacheStore,
     private val brandCacheStore: BrandCacheStore,
+    private val rankingService: RankingService,
 ) {
     @LogUserAction(action = UserActionType.VIEW, targetType = UserActionTargetType.PRODUCT)
     @Transactional(readOnly = true)
     fun getProduct(productId: Long): ProductInfo {
-        productCacheStore.getProduct(productId)?.let { return it }
+        val info = productCacheStore.getProduct(productId)
+            ?: run {
+                val product = productService.getProduct(productId)
+                val brandName = getCachedBrandName(product.brandId)
+                val productInfo = ProductInfo.from(product, brandName)
+                productCacheStore.putProduct(productId, productInfo)
+                productInfo
+            }
 
-        val product = productService.getProduct(productId)
-        val brandName = getCachedBrandName(product.brandId)
-        val info = ProductInfo.from(product, brandName)
-        productCacheStore.putProduct(productId, info)
-        return info
+        val todayDate = LocalDate.now().format(DAILY_FORMATTER)
+        val position = rankingService.getRank(todayDate, productId)
+        return info.copy(rank = position?.rank)
     }
 
     @Transactional(readOnly = true)
@@ -69,6 +78,10 @@ class ProductFacade(
         val brand = brandId?.toString() ?: "all"
         val cursorPart = cursor ?: "first"
         return "$brand:${sort.name}:$size:$cursorPart"
+    }
+
+    companion object {
+        private val DAILY_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
     }
 }
 

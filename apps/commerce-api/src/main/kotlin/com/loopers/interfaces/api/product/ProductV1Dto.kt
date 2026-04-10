@@ -14,6 +14,7 @@ class ProductV1Dto {
         val imageUrl: String,
         val likeCount: Int,
         val soldOut: Boolean,
+        val rank: Int?,
     ) {
         companion object {
             fun from(info: ProductInfo): ProductResponse {
@@ -27,6 +28,7 @@ class ProductV1Dto {
                     imageUrl = info.imageUrl,
                     likeCount = info.likeCount,
                     soldOut = info.soldOut,
+                    rank = info.rank,
                 )
             }
         }

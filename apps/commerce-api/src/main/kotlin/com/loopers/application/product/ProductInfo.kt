@@ -16,6 +16,7 @@ data class ProductInfo(
     val status: String,
     val createdAt: ZonedDateTime?,
     val updatedAt: ZonedDateTime?,
+    val rank: Int? = null,
 ) {
     val soldOut: Boolean get() = stockQuantity == 0
 
