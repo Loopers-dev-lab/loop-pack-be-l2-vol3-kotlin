@@ -181,6 +181,53 @@ class RankingApiE2ETest @Autowired constructor(
             )
         }
 
+        @DisplayName("오늘과 어제의 랭킹 데이터가 서로 격리되어 반환된다.")
+        @Test
+        fun rankingsAreIsolatedByDate() {
+            // arrange
+            val yesterday = LocalDate.now().minusDays(1).format(DATE_FORMATTER)
+            val yesterdayKey = RedisKeys.rankingKey(yesterday)
+            val brand = brandRepository.save(Brand(name = "테스트 브랜드", description = "설명"))
+            val todayProduct = productRepository.save(
+                Product(name = "오늘 상품", description = null, price = Money.of(10000), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+            val yesterdayProduct = productRepository.save(
+                Product(name = "어제 상품", description = null, price = Money.of(20000), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+            redisTemplate.opsForZSet().add(rankingKey, todayProduct.id.toString(), 90.0)
+            redisTemplate.opsForZSet().add(yesterdayKey, yesterdayProduct.id.toString(), 70.0)
+
+            // act — 오늘 랭킹 조회
+            val todayResponse = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?page=1&size=20",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+
+            // act — 어제 랭킹 조회
+            val yesterdayResponse = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?date=$yesterday&page=1&size=20",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+
+            // assert — 오늘 랭킹에는 오늘 상품만 존재
+            val todayData = requireNotNull(todayResponse.body?.data) { "오늘 응답 data가 null입니다" }
+            assertAll(
+                { assertThat(todayData.items).hasSize(1) },
+                { assertThat(todayData.items[0].productName).isEqualTo("오늘 상품") },
+            )
+
+            // assert — 어제 랭킹에는 어제 상품만 존재
+            val yesterdayData = requireNotNull(yesterdayResponse.body?.data) { "어제 응답 data가 null입니다" }
+            assertAll(
+                { assertThat(yesterdayData.items).hasSize(1) },
+                { assertThat(yesterdayData.items[0].productName).isEqualTo("어제 상품") },
+            )
+        }
+
         @DisplayName("주문 1건의 점수가 좋아요 3건의 점수보다 높다.")
         @Test
         fun orderScoreIsHigherThanThreeLikes() {
