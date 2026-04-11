@@ -47,6 +47,7 @@ class SecurityConfig(
                 it.requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
                 it.requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()
                 it.requestMatchers(HttpMethod.GET, "/api/v1/brands/**").permitAll()
+                it.requestMatchers(HttpMethod.GET, "/api/v1/rankings/**").permitAll()
                 it.requestMatchers("/api/v1/examples/**").permitAll()
                 it.requestMatchers(HttpMethod.POST, "/api/v1/payments/callback").permitAll()
                 it.anyRequest().authenticated()

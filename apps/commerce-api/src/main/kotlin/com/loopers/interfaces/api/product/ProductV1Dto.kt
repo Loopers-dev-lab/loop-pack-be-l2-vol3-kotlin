@@ -30,6 +30,8 @@ class ProductV1Dto {
         val soldOut: Boolean,
         val imageUrl: String?,
         val createdAt: ZonedDateTime,
+        val rank: Long?,
+        val rankScore: Double?,
     ) {
         companion object {
             fun from(result: ProductResult): ProductResponse {
@@ -43,6 +45,8 @@ class ProductV1Dto {
                     soldOut = result.stockQuantity <= 0,
                     imageUrl = result.imageUrl,
                     createdAt = result.createdAt,
+                    rank = result.rank,
+                    rankScore = result.rankScore,
                 )
             }
         }

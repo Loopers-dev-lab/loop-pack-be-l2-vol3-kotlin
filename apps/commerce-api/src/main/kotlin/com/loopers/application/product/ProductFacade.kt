@@ -14,18 +14,26 @@ import com.loopers.domain.product.ProductStatus
 import com.loopers.domain.product.UpdateProductCommand
 import com.loopers.domain.event.DomainEventPublisher
 import com.loopers.domain.product.event.ProductEvent
+import com.loopers.domain.ranking.RankingService
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Component
 class ProductFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
     private val likeService: LikeService,
+    private val rankingService: RankingService,
     private val domainEventPublisher: DomainEventPublisher,
 ) {
+
+    companion object {
+        private val DATE_KEY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd")
+    }
 
     fun getProduct(productId: Long, userId: Long? = null): ProductResult {
         val productInfo = productService.getProductInfo(productId)
@@ -43,7 +51,10 @@ class ProductFacade(
             ProductEvent.Viewed(aggregateId = productId, userId = userId ?: 0L),
         )
 
-        return ProductResult.from(productInfo, brandInfo.name)
+        val dateKey = LocalDate.now().format(DATE_KEY_FORMAT)
+        val rankInfo = rankingService.getProductRank(dateKey, productId)
+
+        return ProductResult.from(productInfo, brandInfo.name, rankInfo.rank, rankInfo.score)
     }
 
     /**

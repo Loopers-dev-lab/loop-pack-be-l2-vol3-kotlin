@@ -17,6 +17,8 @@ data class ProductResult(
     val displayYn: Boolean,
     val imageUrl: String?,
     val createdAt: ZonedDateTime,
+    val rank: Long? = null,
+    val rankScore: Double? = null,
 ) {
     companion object {
         fun from(info: ProductInfo, brandName: String): ProductResult {
@@ -33,6 +35,25 @@ data class ProductResult(
                 displayYn = info.displayYn,
                 imageUrl = info.imageUrl,
                 createdAt = info.createdAt,
+            )
+        }
+
+        fun from(info: ProductInfo, brandName: String, rank: Long?, rankScore: Double?): ProductResult {
+            return ProductResult(
+                id = info.id,
+                brandId = info.brandId,
+                brandName = brandName,
+                name = info.name,
+                description = info.description,
+                price = info.price,
+                stockQuantity = info.stockQuantity,
+                likeCount = info.likeCount,
+                status = info.status.name,
+                displayYn = info.displayYn,
+                imageUrl = info.imageUrl,
+                createdAt = info.createdAt,
+                rank = rank,
+                rankScore = rankScore,
             )
         }
     }
