@@ -1,8 +1,8 @@
 package com.loopers.interfaces.consumer
 
 import com.loopers.application.metrics.UpdateProductMetricsUseCase
+import com.loopers.interfaces.consumer.dto.OrderEventPayload
 import com.loopers.support.error.CoreException
-import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -24,10 +24,6 @@ class OrderEventConsumerTest {
         consumer = OrderEventConsumer(updateProductMetricsUseCase)
     }
 
-    private fun createRecord(value: Any?): ConsumerRecord<Any, Any> {
-        return ConsumerRecord(OrderEventConsumer.TOPIC, 0, 0L, null as Any?, value as Any?)
-    }
-
     @Nested
     @DisplayName("정상 처리 시")
     inner class NormalCase {
@@ -35,16 +31,15 @@ class OrderEventConsumerTest {
         @Test
         fun `유효한 payload가 오면 quantity를 포함해 handleOrderEvent를 호출한다`() {
             // Arrange
-            val payload = mapOf(
-                "eventId" to "evt-1",
-                "eventType" to "PAYMENT_COMPLETED",
-                "productId" to 1L,
-                "quantity" to 3L,
+            val payload = OrderEventPayload(
+                eventId = "evt-1",
+                eventType = "PAYMENT_COMPLETED",
+                productId = 1L,
+                quantity = 3L,
             )
-            val record = createRecord(payload)
 
             // Act
-            consumer.consume(record)
+            consumer.consume(payload)
 
             // Assert
             verify(updateProductMetricsUseCase).handleOrderEvent(
@@ -58,15 +53,14 @@ class OrderEventConsumerTest {
         @Test
         fun `quantity가 누락되면 기본값 1L로 handleOrderEvent를 호출한다`() {
             // Arrange
-            val payload = mapOf(
-                "eventId" to "evt-1",
-                "eventType" to "PAYMENT_COMPLETED",
-                "productId" to 1L,
+            val payload = OrderEventPayload(
+                eventId = "evt-1",
+                eventType = "PAYMENT_COMPLETED",
+                productId = 1L,
             )
-            val record = createRecord(payload)
 
             // Act
-            consumer.consume(record)
+            consumer.consume(payload)
 
             // Assert
             verify(updateProductMetricsUseCase).handleOrderEvent(
@@ -79,46 +73,61 @@ class OrderEventConsumerTest {
     }
 
     @Nested
-    @DisplayName("페이로드 오류 시")
-    inner class ErrorCase {
+    @DisplayName("비즈니스 검증 오류 시")
+    inner class ValidationError {
 
         @Test
-        fun `payload가 null이면 CoreException을 던진다`() {
-            // Arrange
-            val record = createRecord(null)
+        fun `eventId가 공백이면 CoreException을 던진다`() {
+            val payload = OrderEventPayload(
+                eventId = "",
+                eventType = "PAYMENT_COMPLETED",
+                productId = 1L,
+                quantity = 1L,
+            )
 
-            // Act & Assert
-            assertThatThrownBy { consumer.consume(record) }
+            assertThatThrownBy { consumer.consume(payload) }
                 .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(updateProductMetricsUseCase)
         }
 
         @Test
-        fun `eventId가 누락되면 CoreException을 던진다`() {
-            // Arrange
-            val payload = mapOf(
-                "eventType" to "PAYMENT_COMPLETED",
-                "productId" to 1L,
+        fun `eventType이 공백이면 CoreException을 던진다`() {
+            val payload = OrderEventPayload(
+                eventId = "evt-1",
+                eventType = "",
+                productId = 1L,
+                quantity = 1L,
             )
-            val record = createRecord(payload)
 
-            // Act & Assert
-            assertThatThrownBy { consumer.consume(record) }
+            assertThatThrownBy { consumer.consume(payload) }
                 .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(updateProductMetricsUseCase)
         }
 
         @Test
-        fun `productId가 누락되면 CoreException을 던진다`() {
-            // Arrange
-            val payload = mapOf(
-                "eventId" to "evt-1",
-                "eventType" to "PAYMENT_COMPLETED",
+        fun `productId가 0 이하이면 CoreException을 던진다`() {
+            val payload = OrderEventPayload(
+                eventId = "evt-1",
+                eventType = "PAYMENT_COMPLETED",
+                productId = 0L,
+                quantity = 1L,
             )
-            val record = createRecord(payload)
 
-            // Act & Assert
-            assertThatThrownBy { consumer.consume(record) }
+            assertThatThrownBy { consumer.consume(payload) }
+                .isInstanceOf(CoreException::class.java)
+            verifyNoInteractions(updateProductMetricsUseCase)
+        }
+
+        @Test
+        fun `quantity가 0 이하이면 CoreException을 던진다`() {
+            val payload = OrderEventPayload(
+                eventId = "evt-1",
+                eventType = "PAYMENT_COMPLETED",
+                productId = 1L,
+                quantity = -1L,
+            )
+
+            assertThatThrownBy { consumer.consume(payload) }
                 .isInstanceOf(CoreException::class.java)
             verifyNoInteractions(updateProductMetricsUseCase)
         }

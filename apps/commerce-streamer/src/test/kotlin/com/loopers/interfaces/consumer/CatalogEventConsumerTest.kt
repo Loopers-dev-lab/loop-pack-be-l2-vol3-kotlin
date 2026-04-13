@@ -1,16 +1,12 @@
 package com.loopers.interfaces.consumer
 
 import com.loopers.application.metrics.UpdateProductMetricsUseCase
-import com.loopers.support.error.CoreException
-import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.assertj.core.api.Assertions.assertThatThrownBy
+import com.loopers.interfaces.consumer.dto.CatalogEventPayload
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoInteractions
 
 @DisplayName("CatalogEventConsumer")
 class CatalogEventConsumerTest {
@@ -24,79 +20,45 @@ class CatalogEventConsumerTest {
         consumer = CatalogEventConsumer(updateProductMetricsUseCase)
     }
 
-    private fun createRecord(value: Any?): ConsumerRecord<Any, Any> {
-        return ConsumerRecord(CatalogEventConsumer.TOPIC, 0, 0L, null as Any?, value as Any?)
+    @Test
+    @DisplayName("유효한 payload가 오면 handleCatalogEvent를 호출한다")
+    fun `유효한 payload가 오면 handleCatalogEvent를 호출한다`() {
+        // Arrange
+        val payload = CatalogEventPayload(
+            eventId = "evt-1",
+            eventType = "PRODUCT_CREATED",
+            productId = 1L,
+        )
+
+        // Act
+        consumer.consume(payload)
+
+        // Assert
+        verify(updateProductMetricsUseCase).handleCatalogEvent(
+            eventId = "evt-1",
+            eventType = "PRODUCT_CREATED",
+            productId = 1L,
+        )
     }
 
-    @Nested
-    @DisplayName("정상 처리 시")
-    inner class NormalCase {
+    @Test
+    @DisplayName("알 수 없는 eventType도 예외 없이 UseCase로 전달된다")
+    fun `알 수 없는 eventType도 예외 없이 UseCase로 전달된다`() {
+        // Arrange — Consumer는 eventType 화이트리스트 검증을 하지 않고 UseCase에 위임한다
+        val payload = CatalogEventPayload(
+            eventId = "evt-2",
+            eventType = "UNKNOWN_TYPE",
+            productId = 99L,
+        )
 
-        @Test
-        fun `유효한 payload가 오면 handleCatalogEvent를 호출한다`() {
-            // Arrange
-            val payload = mapOf(
-                "eventId" to "evt-1",
-                "eventType" to "PRODUCT_CREATED",
-                "productId" to 1L,
-            )
-            val record = createRecord(payload)
+        // Act
+        consumer.consume(payload)
 
-            // Act
-            consumer.consume(record)
-
-            // Assert
-            verify(updateProductMetricsUseCase).handleCatalogEvent(
-                eventId = "evt-1",
-                eventType = "PRODUCT_CREATED",
-                productId = 1L,
-            )
-        }
-    }
-
-    @Nested
-    @DisplayName("페이로드 오류 시")
-    inner class ErrorCase {
-
-        @Test
-        fun `payload가 null이면 CoreException을 던진다`() {
-            // Arrange
-            val record = createRecord(null)
-
-            // Act & Assert
-            assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(CoreException::class.java)
-            verifyNoInteractions(updateProductMetricsUseCase)
-        }
-
-        @Test
-        fun `eventId가 누락되면 CoreException을 던진다`() {
-            // Arrange
-            val payload = mapOf(
-                "eventType" to "PRODUCT_CREATED",
-                "productId" to 1L,
-            )
-            val record = createRecord(payload)
-
-            // Act & Assert
-            assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(CoreException::class.java)
-            verifyNoInteractions(updateProductMetricsUseCase)
-        }
-
-        @Test
-        fun `productId가 누락되면 CoreException을 던진다`() {
-            // Arrange
-            val payload = mapOf(
-                "eventId" to "evt-1",
-                "eventType" to "PRODUCT_CREATED",
-            )
-            val record = createRecord(payload)
-
-            // Act & Assert
-            assertThatThrownBy { consumer.consume(record) }
-                .isInstanceOf(CoreException::class.java)
-            verifyNoInteractions(updateProductMetricsUseCase)
-        }
+        // Assert
+        verify(updateProductMetricsUseCase).handleCatalogEvent(
+            eventId = "evt-2",
+            eventType = "UNKNOWN_TYPE",
+            productId = 99L,
+        )
     }
 }

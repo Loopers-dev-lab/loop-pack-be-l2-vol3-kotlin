@@ -19,10 +19,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-@SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.NONE,
-    properties = ["spring.task.scheduling.enabled=false"],
-)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class QueueConcurrencyTest @Autowired constructor(
     private val waitingQueueRepository: WaitingQueueRepository,
     private val redisCleanUp: RedisCleanUp,

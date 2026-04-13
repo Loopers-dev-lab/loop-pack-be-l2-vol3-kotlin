@@ -4,14 +4,25 @@ import com.loopers.domain.event.model.EventHandled
 import com.loopers.domain.event.repository.EventHandledRepository
 import com.loopers.domain.metrics.model.ProductMetrics
 import com.loopers.domain.metrics.repository.ProductMetricsRepository
+import com.loopers.domain.ranking.RankingWeight
+import com.loopers.domain.ranking.model.FailedScoreUpdate
+import com.loopers.domain.ranking.repository.FailedScoreUpdateRepository
+import com.loopers.domain.ranking.repository.RankingScoreRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
+import java.time.Clock
+import java.time.LocalDate
 
 @Component
 class UpdateProductMetricsUseCase(
     private val productMetricsRepository: ProductMetricsRepository,
     private val eventHandledRepository: EventHandledRepository,
+    private val rankingScoreRepository: RankingScoreRepository,
+    private val failedScoreUpdateRepository: FailedScoreUpdateRepository,
+    private val clock: Clock,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -25,10 +36,19 @@ class UpdateProductMetricsUseCase(
 
         val metrics = findOrCreate(productId)
 
-        when (eventType) {
-            PRODUCT_VIEWED -> metrics.incrementViewCount()
-            LIKE_ADDED -> metrics.incrementLikeCount()
-            LIKE_REMOVED -> metrics.decrementLikeCount()
+        val rankingScore = when (eventType) {
+            PRODUCT_VIEWED -> {
+                metrics.incrementViewCount()
+                RankingWeight.VIEW
+            }
+            LIKE_ADDED -> {
+                metrics.incrementLikeCount()
+                RankingWeight.LIKE
+            }
+            LIKE_REMOVED -> {
+                metrics.decrementLikeCount()
+                RankingWeight.LIKE * -1
+            }
             else -> {
                 log.warn("알 수 없는 catalog 이벤트 타입: eventType={}", eventType)
                 eventHandledRepository.save(EventHandled(eventId = eventId))
@@ -38,6 +58,14 @@ class UpdateProductMetricsUseCase(
 
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
+
+        if (rankingScore != 0.0) {
+            val rankingDate = LocalDate.now(clock)
+            val failedRecord = failedScoreUpdateRepository.save(
+                FailedScoreUpdate(eventId = eventId, productId = productId, score = rankingScore, rankingDate = rankingDate),
+            )
+            registerScoreUpdateAfterCommit(eventId, productId, rankingScore, rankingDate, failedRecord.id)
+        }
     }
 
     @Transactional
@@ -56,8 +84,64 @@ class UpdateProductMetricsUseCase(
         val metrics = findOrCreate(productId)
         metrics.incrementSalesCount(quantity)
 
+        val score = RankingWeight.ORDER * quantity
         productMetricsRepository.save(metrics)
         eventHandledRepository.save(EventHandled(eventId = eventId))
+
+        val rankingDate = LocalDate.now(clock)
+        val failedRecord = failedScoreUpdateRepository.save(
+            FailedScoreUpdate(eventId = eventId, productId = productId, score = score, rankingDate = rankingDate),
+        )
+        registerScoreUpdateAfterCommit(eventId, productId, score, rankingDate, failedRecord.id)
+    }
+
+    private fun registerScoreUpdateAfterCommit(
+        eventId: String,
+        productId: Long,
+        score: Double,
+        rankingDate: LocalDate,
+        failedRecordId: Long,
+    ) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                object : TransactionSynchronization {
+                    override fun afterCommit() {
+                        tryRedisAndCleanup(eventId, productId, score, rankingDate, failedRecordId)
+                    }
+                },
+            )
+        } else {
+            tryRedisAndCleanup(eventId, productId, score, rankingDate, failedRecordId)
+        }
+    }
+
+    private fun tryRedisAndCleanup(
+        eventId: String,
+        productId: Long,
+        score: Double,
+        rankingDate: LocalDate,
+        failedRecordId: Long,
+    ) {
+        try {
+            rankingScoreRepository.incrementScore(productId, score, eventId, rankingDate)
+            deleteFailedRecord(failedRecordId)
+        } catch (e: Exception) {
+            log.error(
+                "Redis 랭킹 점수 갱신 실패, 스케줄러에서 재처리 예정. eventId={}, productId={}: {}",
+                eventId,
+                productId,
+                e.message,
+                e,
+            )
+        }
+    }
+
+    private fun deleteFailedRecord(failedRecordId: Long) {
+        try {
+            failedScoreUpdateRepository.deleteById(failedRecordId)
+        } catch (e: Exception) {
+            log.warn("FailedScoreUpdate 삭제 실패 (스케줄러에서 멱등 재처리 예정). id={}: {}", failedRecordId, e.message)
+        }
     }
 
     private fun findOrCreate(productId: Long): ProductMetrics {

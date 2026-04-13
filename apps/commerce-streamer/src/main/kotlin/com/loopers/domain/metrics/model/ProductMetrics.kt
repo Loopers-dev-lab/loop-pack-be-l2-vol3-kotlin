@@ -30,8 +30,15 @@ class ProductMetrics(
         likeCount++
     }
 
-    fun decrementLikeCount() {
-        if (likeCount > 0) likeCount--
+    /**
+     * 좋아요 수를 1 감소시킨다.
+     * @return 실제 감소가 발생했으면 true, likeCount가 이미 0이면 false
+     */
+    fun decrementLikeCount(): Boolean {
+        check(likeCount >= 0) { "likeCount는 음수일 수 없다: $likeCount" }
+        if (likeCount == 0L) return false
+        likeCount--
+        return true
     }
 
     fun incrementSalesCount(quantity: Long = 1) {
