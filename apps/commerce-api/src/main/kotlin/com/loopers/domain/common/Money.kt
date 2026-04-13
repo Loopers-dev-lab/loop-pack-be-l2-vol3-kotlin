@@ -29,6 +29,18 @@ class Money private constructor(val amount: BigDecimal) {
 
     fun isGreaterThanOrEqual(other: Money): Boolean = amount >= other.amount
 
+    /**
+     * KRW 기준으로 Long 변환. amount가 정수가 아니면 예외.
+     * KRW는 보조단위가 없으므로 항상 정수여야 한다.
+     */
+    fun toKrwLong(): Long {
+        val stripped = amount.stripTrailingZeros()
+        if (stripped.scale() > 0) {
+            throw CoreException(ErrorType.INVALID_MONEY)
+        }
+        return stripped.toLong()
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Money) return false

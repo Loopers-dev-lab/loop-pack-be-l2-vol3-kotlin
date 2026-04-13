@@ -142,6 +142,39 @@ class MoneyTest {
     }
 
     @Nested
+    @DisplayName("toKrwLong은 정수 금액만 Long으로 변환한다")
+    inner class ToKrwLong {
+
+        @Test
+        @DisplayName("정수 금액(10000) → 10000L")
+        fun toKrwLong_integer_returnsLong() {
+            val money = Money(BigDecimal.valueOf(10000))
+            assertThat(money.toKrwLong()).isEqualTo(10000L)
+        }
+
+        @Test
+        @DisplayName("소수부 0인 금액(10000.00) → 10000L")
+        fun toKrwLong_integerWithScale_returnsLong() {
+            val money = Money(BigDecimal("10000.00"))
+            assertThat(money.toKrwLong()).isEqualTo(10000L)
+        }
+
+        @Test
+        @DisplayName("소수부가 있는 금액(100.50) → INVALID_MONEY 예외")
+        fun toKrwLong_decimal_throws() {
+            val money = Money(BigDecimal("100.50"))
+            val exception = assertThrows<CoreException> { money.toKrwLong() }
+            assertThat(exception.errorType).isEqualTo(ErrorType.INVALID_MONEY)
+        }
+
+        @Test
+        @DisplayName("0원 → 0L")
+        fun toKrwLong_zero_returnsZero() {
+            assertThat(Money.ZERO.toKrwLong()).isEqualTo(0L)
+        }
+    }
+
+    @Nested
     @DisplayName("isGreaterThanOrEqual 비교")
     inner class IsGreaterThanOrEqual {
         @Test
