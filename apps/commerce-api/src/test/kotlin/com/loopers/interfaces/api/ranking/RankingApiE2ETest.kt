@@ -25,7 +25,9 @@ import org.springframework.http.HttpStatus
 import java.math.BigDecimal
 import java.time.Clock
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.time.temporal.WeekFields
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class RankingApiE2ETest @Autowired constructor(
@@ -271,6 +273,73 @@ class RankingApiE2ETest @Autowired constructor(
 
             // Assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("period=daily 응답에 period 필드와 ISO date periodKey가 포함된다")
+        fun `daily period 응답 필드 검증`() {
+            // Arrange
+            val expectedPeriodKey = today.toString()
+
+            // Act
+            val response = testRestTemplate.exchange("$ENDPOINT?period=daily", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            assertThat(page["period"]).isEqualTo("daily")
+            assertThat(page["periodKey"]).isEqualTo(expectedPeriodKey)
+        }
+
+        @Test
+        @DisplayName("period=weekly 응답에 ISO 주차 형식 periodKey가 포함된다")
+        fun `weekly period periodKey 검증`() {
+            // Arrange
+            val weekFields = WeekFields.ISO
+            val yearWeek = today.get(weekFields.weekBasedYear())
+            val weekNum = today.get(weekFields.weekOfWeekBasedYear())
+            val expectedPeriodKey = "%d-W%02d".format(yearWeek, weekNum)
+
+            // Act
+            val response = testRestTemplate.exchange("$ENDPOINT?period=weekly", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            assertThat(page["period"]).isEqualTo("weekly")
+            assertThat(page["periodKey"]).isEqualTo(expectedPeriodKey)
+        }
+
+        @Test
+        @DisplayName("period=monthly 응답에 YYYY-MM 형식 periodKey가 포함된다")
+        fun `monthly period periodKey 검증`() {
+            // Arrange
+            val expectedPeriodKey = YearMonth.from(today).toString()
+
+            // Act
+            val response = testRestTemplate.exchange("$ENDPOINT?period=monthly", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            assertThat(page["period"]).isEqualTo("monthly")
+            assertThat(page["periodKey"]).isEqualTo(expectedPeriodKey)
+        }
+
+        @Test
+        @DisplayName("period 생략 시 period=daily이며 periodKey는 오늘 날짜이다")
+        fun `period 생략 시 daily periodKey 검증`() {
+            // Arrange
+            val expectedPeriodKey = today.toString()
+
+            // Act
+            val response = testRestTemplate.exchange(ENDPOINT, HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            assertThat(page["period"]).isEqualTo("daily")
+            assertThat(page["periodKey"]).isEqualTo(expectedPeriodKey)
         }
 
         @Test
