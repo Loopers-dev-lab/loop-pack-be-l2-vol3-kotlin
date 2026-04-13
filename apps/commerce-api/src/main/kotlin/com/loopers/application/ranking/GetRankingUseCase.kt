@@ -4,6 +4,7 @@ import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.ranking.RankingPeriod
+import com.loopers.domain.ranking.repository.MonthlyRankingRepository
 import com.loopers.domain.ranking.repository.RankingRepository
 import com.loopers.domain.ranking.repository.WeeklyRankingRepository
 import org.springframework.stereotype.Component
@@ -25,6 +26,7 @@ class GetRankingUseCase(
     private val rankingRepository: RankingRepository,
     private val productRepository: ProductRepository,
     private val weeklyRankingRepository: WeeklyRankingRepository,
+    private val monthlyRankingRepository: MonthlyRankingRepository,
     private val clock: Clock,
     transactionManager: PlatformTransactionManager,
 ) {
@@ -70,6 +72,9 @@ class GetRankingUseCase(
         val targetDate = date ?: LocalDate.now(clock)
         val periodKey = PeriodKeyCalculator.weekly(targetDate)
         val allRows = weeklyRankingRepository.findAllByPeriodKey(periodKey)
+        if (allRows.isEmpty()) {
+            return RankingPageResult(PageResult(emptyList(), 0L, page, size), RankingPeriod.WEEKLY, periodKey)
+        }
 
         val productIds = allRows.map { ProductId(it.productId) }
         val activeProducts = checkNotNull(
@@ -104,8 +109,36 @@ class GetRankingUseCase(
     private fun executeMonthly(date: LocalDate?, page: Int, size: Int): RankingPageResult {
         val targetDate = date ?: LocalDate.now(clock)
         val periodKey = PeriodKeyCalculator.monthly(targetDate)
+        val allRows = monthlyRankingRepository.findAllByPeriodKey(periodKey)
+        if (allRows.isEmpty()) {
+            return RankingPageResult(PageResult(emptyList(), 0L, page, size), RankingPeriod.MONTHLY, periodKey)
+        }
+
+        val productIds = allRows.map { ProductId(it.productId) }
+        val activeProducts = checkNotNull(
+            readOnlyTxTemplate.execute {
+                productRepository.findAllByIds(productIds)
+                    .filter { it.isActive() }
+                    .associateBy { it.id.value }
+            },
+        ) { "readOnlyTxTemplate.execute returned null at executeMonthly" }
+
+        val visibleRows = allRows.filter { it.productId in activeProducts.keys }
+        val totalElements = visibleRows.size.toLong()
+        val pageSlice = visibleRows.drop(page * size).take(size)
+        val content = pageSlice.map { row ->
+            val product = activeProducts[row.productId]!!
+            RankingInfo(
+                rank = row.rank,
+                productId = row.productId,
+                productName = product.name,
+                price = product.price.value,
+                score = row.score,
+            )
+        }
+
         return RankingPageResult(
-            page = PageResult(emptyList(), 0, page, size),
+            page = PageResult(content, totalElements, page, size),
             period = RankingPeriod.MONTHLY,
             periodKey = periodKey,
         )
