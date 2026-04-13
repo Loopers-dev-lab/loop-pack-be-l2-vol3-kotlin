@@ -14,6 +14,8 @@
 
 **스킬 우선 사용:** `/ship --phase commit`(커밋), `/ship --phase pr`(PR) 스킬 사용을 권장한다. 단순 커밋은 git 명령어 직접 사용도 허용하되, PR 생성은 스킬을 사용하라.
 
+**Git trailer 금지:** 커밋 메시지에 `Constraint:`, `Rejected:`, `Confidence:`, `Scope-risk:`, `Directive:`, `Not-tested:` 등 Git trailer를 추가하지 않는다. subject + body(선택)만 사용한다.
+
 ## 최신 상태 유지
 
 **매 요청 시작 전** 아래를 순서대로 실행하라:
