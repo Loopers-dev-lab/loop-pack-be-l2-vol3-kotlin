@@ -15,6 +15,7 @@ class UserProductV1Response {
         val thumbnailUrl: String?,
         val likeCount: Int,
         val stockQuantity: Int,
+        val rank: Long?,
     ) {
         companion object {
             fun from(result: UserProductResult.Detail): Detail = Detail(
@@ -28,6 +29,7 @@ class UserProductV1Response {
                 thumbnailUrl = result.thumbnailUrl,
                 likeCount = result.likeCount,
                 stockQuantity = result.stockQuantity,
+                rank = result.rank,
             )
         }
     }

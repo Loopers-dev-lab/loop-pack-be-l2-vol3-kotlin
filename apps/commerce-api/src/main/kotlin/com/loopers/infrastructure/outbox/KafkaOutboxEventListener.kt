@@ -79,6 +79,7 @@ class KafkaOutboxEventListener(
                     PaymentSucceededOutboxMessageItemPayload(
                         productId = item.snapshot.productId,
                         quantity = item.quantity.value,
+                        sellingPrice = item.snapshot.sellingPrice.toKrwLong(),
                     )
                 },
             ),

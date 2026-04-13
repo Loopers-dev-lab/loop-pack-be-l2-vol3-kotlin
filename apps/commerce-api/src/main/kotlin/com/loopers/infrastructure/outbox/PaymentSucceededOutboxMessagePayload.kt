@@ -10,4 +10,5 @@ data class PaymentSucceededOutboxMessagePayload(
 data class PaymentSucceededOutboxMessageItemPayload(
     val productId: Long,
     val quantity: Int,
+    val sellingPrice: Long,
 )
