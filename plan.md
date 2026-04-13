@@ -185,20 +185,20 @@ periodKey를 계산**한다. Controller는 응답의 `periodKey`를 그대로 DT
 
 작업 체크리스트:
 
-- [ ] [RED] `FakeWeeklyRankingRepository` 단위 테스트 — `findAllByPeriodKey(periodKey)`가 rank_no 오름차순으로 최대 100건 반환
-- [ ] [RED] 존재하지 않는 periodKey는 빈 목록
-- [ ] [RED] 동일 periodKey에 100건 이하만 저장되어 있으면 그 수만큼 반환
-- [ ] [GREEN] `WeeklyProductRank` VO —
+- [x] [RED] `FakeWeeklyRankingRepository` 단위 테스트 — `findAllByPeriodKey(periodKey)`가 rank_no 오름차순으로 최대 100건 반환
+- [x] [RED] 존재하지 않는 periodKey는 빈 목록
+- [x] [RED] 동일 periodKey에 100건 이하만 저장되어 있으면 그 수만큼 반환
+- [x] [GREEN] `WeeklyProductRank` VO —
   `rank, productId, score, viewCount, likeCount, salesCount, periodKey, periodStartDate, periodEndDate`
-- [ ] [GREEN] `WeeklyRankingRepository` 인터페이스 — **`findAllByPeriodKey(periodKey: String): List<WeeklyProductRank>` 단일
+- [x] [GREEN] `WeeklyRankingRepository` 인터페이스 — **`findAllByPeriodKey(periodKey: String): List<WeeklyProductRank>` 단일
   메서드**
     - `count*` 메서드는 두지 않는다. `totalElements` 계산은 UseCase가 active 필터 이후에 수행 (Step 4, daily 경로와 일관)
     - Top 100 상한이 고정이므로 전체 로드 비용이 ≤ 100건으로 경계되어 있다
-    - JPQL/NativeQuery 금지, 메서드명 쿼리(`findByPeriodKeyOrderByRankNoAsc`) 사용
-- [ ] [GREEN] `MvProductRankWeeklyEntity` — `BaseEntity` + `(period_key, product_id)` 유니크 + `(period_key, rank_no)` 유니크
-- [ ] [GREEN] `WeeklyRankingRepositoryImpl` — 도메인 ↔ 엔티티 변환
-- [ ] JPA 경로 스모크 통합 테스트 1개 (periodKey별 100건 저장 → `findAllByPeriodKey` 정상 반환)
-- [ ] 검증: `./gradlew :apps:commerce-api:test --tests "*.WeeklyRankingRepositoryTest"`
+    - JPQL/NativeQuery 금지, 메서드명 쿼리(`findTop100ByPeriodKeyAndDeletedAtIsNullOrderByRankNoAsc`) 사용
+- [x] [GREEN] `MvProductRankWeeklyEntity` — `BaseEntity` + `(period_key, product_id)` 유니크 + `(period_key, rank_no)` 유니크
+- [x] [GREEN] `WeeklyRankingRepositoryImpl` — 도메인 ↔ 엔티티 변환
+- [x] JPA 경로 스모크 통합 테스트 1개 (periodKey별 100건 저장 → `findAllByPeriodKey` 정상 반환)
+- [x] 검증: `./gradlew :apps:commerce-api:test --tests "*.WeeklyRankingRepositoryTest"`
 
 ### Step 3 완료 조건
 
