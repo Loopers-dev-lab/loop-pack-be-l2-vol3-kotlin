@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.ranking.dto
 
 import com.loopers.application.ranking.RankingInfo
-import com.loopers.domain.PageResult
+import com.loopers.application.ranking.RankingPageResult
 import java.math.BigDecimal
 
 class RankingV1Dto {
@@ -25,17 +25,21 @@ class RankingV1Dto {
     }
 
     data class RankingPageResponse(
+        val period: String,
+        val periodKey: String,
         val page: Int,
         val size: Int,
         val totalElements: Long,
         val content: List<RankingResponse>,
     ) {
         companion object {
-            fun from(pageResult: PageResult<RankingInfo>): RankingPageResponse = RankingPageResponse(
-                page = pageResult.page,
-                size = pageResult.size,
-                totalElements = pageResult.totalElements,
-                content = pageResult.content.map { RankingResponse.from(it) },
+            fun from(result: RankingPageResult): RankingPageResponse = RankingPageResponse(
+                period = result.period.name.lowercase(),
+                periodKey = result.periodKey,
+                page = result.page.page,
+                size = result.page.size,
+                totalElements = result.page.totalElements,
+                content = result.page.content.map { RankingResponse.from(it) },
             )
         }
     }

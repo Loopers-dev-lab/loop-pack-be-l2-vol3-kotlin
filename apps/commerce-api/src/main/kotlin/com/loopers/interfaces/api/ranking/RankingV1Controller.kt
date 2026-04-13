@@ -34,7 +34,7 @@ class RankingV1Controller(
         val rankingPeriod = RankingV1Period.from(period ?: "daily").toDomain()
 
         return getRankingUseCase.execute(parsedDate, rankingPeriod, page, size)
-            .let { RankingV1Dto.RankingPageResponse.from(it.page) }
+            .let { RankingV1Dto.RankingPageResponse.from(it) }
             .let { ApiResponse.success(it) }
     }
 
