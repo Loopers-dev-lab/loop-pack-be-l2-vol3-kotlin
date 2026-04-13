@@ -234,5 +234,61 @@ class RankingApiE2ETest @Autowired constructor(
             assertThat(content).hasSize(0)
             assertThat((page["totalElements"] as Number).toLong()).isEqualTo(0L)
         }
+
+        @Test
+        @DisplayName("period=weekly 요청 시 200과 빈 목록을 반환한다")
+        fun `weekly period 빈 목록 반환`() {
+            // Act
+            val response = testRestTemplate.exchange("$ENDPOINT?period=weekly", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            val content = page["content"] as List<*>
+            assertThat(content).isEmpty()
+            assertThat((page["totalElements"] as Number).toLong()).isEqualTo(0L)
+        }
+
+        @Test
+        @DisplayName("period=monthly 요청 시 200과 빈 목록을 반환한다")
+        fun `monthly period 빈 목록 반환`() {
+            // Act
+            val response = testRestTemplate.exchange("$ENDPOINT?period=monthly", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val page = response.body!!.data as Map<*, *>
+            val content = page["content"] as List<*>
+            assertThat(content).isEmpty()
+            assertThat((page["totalElements"] as Number).toLong()).isEqualTo(0L)
+        }
+
+        @Test
+        @DisplayName("period에 대문자 혼합 값(Daily)을 전달하면 400을 반환한다")
+        fun `잘못된 period 형식`() {
+            // Act
+            val response = testRestTemplate.exchange("$ENDPOINT?period=Daily", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+
+        @Test
+        @DisplayName("period 생략 시 daily와 동일하게 동작한다")
+        fun `period 생략 시 daily 동작`() {
+            // Act
+            val responseWithoutPeriod = testRestTemplate.exchange(ENDPOINT, HttpMethod.GET, null, RESPONSE_TYPE)
+            val responseWithDaily = testRestTemplate.exchange("$ENDPOINT?period=daily", HttpMethod.GET, null, RESPONSE_TYPE)
+
+            // Assert
+            assertThat(responseWithoutPeriod.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(responseWithDaily.statusCode).isEqualTo(HttpStatus.OK)
+            val pageWithout = responseWithoutPeriod.body!!.data as Map<*, *>
+            val pageWith = responseWithDaily.body!!.data as Map<*, *>
+            assertThat((pageWithout["totalElements"] as Number).toLong())
+                .isEqualTo((pageWith["totalElements"] as Number).toLong())
+            assertThat((pageWithout["content"] as List<*>).size)
+                .isEqualTo((pageWith["content"] as List<*>).size)
+        }
     }
 }
