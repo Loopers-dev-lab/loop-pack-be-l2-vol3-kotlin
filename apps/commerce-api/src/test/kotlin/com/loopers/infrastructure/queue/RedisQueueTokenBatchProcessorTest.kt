@@ -17,10 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 
-@SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.NONE,
-    properties = ["spring.task.scheduling.enabled=false"],
-)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class RedisQueueTokenBatchProcessorTest @Autowired constructor(
     private val waitingQueueRepository: WaitingQueueRepository,
     private val entryTokenRepository: EntryTokenRepository,

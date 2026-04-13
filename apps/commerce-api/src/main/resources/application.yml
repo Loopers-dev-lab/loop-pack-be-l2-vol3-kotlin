@@ -103,6 +103,16 @@ spring:
 spring:
   config:
     activate:
+      on-profile: test
+
+app:
+  scheduling:
+    enabled: false
+
+---
+spring:
+  config:
+    activate:
       on-profile: dev
 
 ---
