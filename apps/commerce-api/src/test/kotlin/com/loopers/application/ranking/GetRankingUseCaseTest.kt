@@ -7,6 +7,7 @@ import com.loopers.domain.common.vo.BrandId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.ranking.FakeRankingRepository
+import com.loopers.domain.ranking.RankingPeriod
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
 import org.junit.jupiter.api.BeforeEach
@@ -75,11 +76,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 3L, 2.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content).hasSize(3)
-            val first = result.content[0]
+            assertThat(result.page.content).hasSize(3)
+            val first = result.page.content[0]
             assertThat(first.rank).isEqualTo(1)
             assertThat(first.productId).isEqualTo(2L)
             assertThat(first.productName).isEqualTo("상품2")
@@ -96,22 +97,22 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 3L, 2.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content.map { it.productId }).containsExactly(2L, 3L, 1L)
-            assertThat(result.content.map { it.rank }).containsExactly(1, 2, 3)
+            assertThat(result.page.content.map { it.productId }).containsExactly(2L, 3L, 1L)
+            assertThat(result.page.content.map { it.rank }).containsExactly(1, 2, 3)
         }
 
         @Test
         @DisplayName("랭킹 데이터가 없으면 빈 결과를 반환한다")
         fun `랭킹 데이터가 없으면 빈 결과를 반환한다`() {
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content).isEmpty()
-            assertThat(result.totalElements).isEqualTo(0L)
+            assertThat(result.page.content).isEmpty()
+            assertThat(result.page.totalElements).isEqualTo(0L)
         }
     }
 
@@ -137,11 +138,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 3.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content).hasSize(1)
-            assertThat(result.content[0].productId).isEqualTo(1L)
+            assertThat(result.page.content).hasSize(1)
+            assertThat(result.page.content[0].productId).isEqualTo(1L)
         }
 
         @Test
@@ -162,11 +163,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 3.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content).hasSize(1)
-            assertThat(result.content[0].productId).isEqualTo(1L)
+            assertThat(result.page.content).hasSize(1)
+            assertThat(result.page.content[0].productId).isEqualTo(1L)
         }
 
         @Test
@@ -178,11 +179,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 3L, -0.2)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content).hasSize(1)
-            assertThat(result.content[0].productId).isEqualTo(1L)
+            assertThat(result.page.content).hasSize(1)
+            assertThat(result.page.content[0].productId).isEqualTo(1L)
         }
 
         @Test
@@ -194,11 +195,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 2L, 3.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content).hasSize(2)
-            assertThat(result.content.map { it.productId }).containsExactly(1L, 2L)
+            assertThat(result.page.content).hasSize(2)
+            assertThat(result.page.content.map { it.productId }).containsExactly(1L, 2L)
         }
     }
 
@@ -231,10 +232,10 @@ class GetRankingUseCaseTest {
             rankingRepository.parseDropCount = 2
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 600)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 600)
 
             // Assert — 배치 2의 3개 항목(3, 2, 1)이 포함되어야 한다
-            val productIds = result.content.map { it.productId }
+            val productIds = result.page.content.map { it.productId }
             assertThat(productIds).doesNotHaveDuplicates()
             assertThat(productIds).hasSize(501) // 498 (배치1) + 3 (배치2)
             assertThat(productIds).contains(3L, 2L, 1L) // 배치 2에서 온 항목
@@ -246,11 +247,11 @@ class GetRankingUseCaseTest {
             // Arrange — 데이터 없음 → rawFetchCount=0
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert — 빈 결과, 무한루프 없음
-            assertThat(result.content).isEmpty()
-            assertThat(result.totalElements).isEqualTo(0L)
+            assertThat(result.page.content).isEmpty()
+            assertThat(result.page.totalElements).isEqualTo(0L)
         }
     }
 
@@ -266,7 +267,7 @@ class GetRankingUseCaseTest {
 
             // Act & Assert
             org.junit.jupiter.api.assertThrows<RuntimeException> {
-                useCase.execute(date = today, page = 0, size = 10)
+                useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
             }
         }
     }
@@ -282,11 +283,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 5.0)
 
             // Act
-            val result = useCase.execute(date = null, page = 0, size = 10)
+            val result = useCase.execute(date = null, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert
-            assertThat(result.content).hasSize(1)
-            assertThat(result.content[0].productId).isEqualTo(1L)
+            assertThat(result.page.content).hasSize(1)
+            assertThat(result.page.content[0].productId).isEqualTo(1L)
         }
     }
 
@@ -300,18 +301,18 @@ class GetRankingUseCaseTest {
             // Arrange — 2개 항목으로 1차 호출 → count=2 캐시
             rankingRepository.addEntry(today, 1L, 1.0)
             rankingRepository.addEntry(today, 2L, 2.0)
-            val first = useCase.execute(date = today, page = 0, size = 10)
-            assertThat(first.totalElements).isEqualTo(2L)
+            val first = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
+            assertThat(first.page.totalElements).isEqualTo(2L)
 
             // 캐시 세팅 이후 새 항목 추가
             rankingRepository.addEntry(today, 3L, 3.0)
 
             // Act — TTL 내 재호출
-            val second = useCase.execute(date = today, page = 0, size = 10)
+            val second = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert — totalElements는 캐시값(2), content는 최신(3) → 캐시 존재 증거
-            assertThat(second.totalElements).isEqualTo(2L)
-            assertThat(second.content).hasSize(3)
+            assertThat(second.page.totalElements).isEqualTo(2L)
+            assertThat(second.page.content).hasSize(3)
         }
 
         @Test
@@ -321,17 +322,17 @@ class GetRankingUseCaseTest {
             val yesterday = today.minusDays(1)
             rankingRepository.addEntry(today, 1L, 1.0)
             rankingRepository.addEntry(today, 2L, 2.0)
-            useCase.execute(date = today, page = 0, size = 10) // today count=2 캐시
+            useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10) // today count=2 캐시
 
             // 어제 항목은 캐시 이후에 추가 (today 캐시와 독립인지 확인)
             rankingRepository.addEntry(yesterday, 3L, 3.0)
             rankingRepository.addEntry(yesterday, 4L, 4.0)
 
             // Act — 어제 날짜로 호출
-            val yesterdayResult = useCase.execute(date = yesterday, page = 0, size = 10)
+            val yesterdayResult = useCase.execute(date = yesterday, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert — 어제는 캐시 없이 새로 계산 → 2개
-            assertThat(yesterdayResult.totalElements).isEqualTo(2L)
+            assertThat(yesterdayResult.page.totalElements).isEqualTo(2L)
         }
 
         @Test
@@ -345,19 +346,19 @@ class GetRankingUseCaseTest {
             // step 1: 첫 호출로 totalElements 캐시 생성 (count=2)
             localRepo.addEntry(today, 1L, 1.0)
             localRepo.addEntry(today, 2L, 2.0)
-            assertThat(ttlUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(2L)
+            assertThat(ttlUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10).page.totalElements).isEqualTo(2L)
 
             // step 2: 같은 날짜에 항목 추가
             localRepo.addEntry(today, 3L, 3.0)
 
             // step 3: TTL 내 재호출 → stale 캐시 반환 (2)
-            assertThat(ttlUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(2L)
+            assertThat(ttlUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10).page.totalElements).isEqualTo(2L)
 
             // step 4: clock을 31초 전진 (TTL=30s 초과)
             mutableClock.advance(31)
 
             // step 5: TTL 만료 후 재호출 → 재계산된 새 값 (3)
-            assertThat(ttlUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(3L)
+            assertThat(ttlUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10).page.totalElements).isEqualTo(3L)
         }
 
         @Test
@@ -373,8 +374,8 @@ class GetRankingUseCaseTest {
             localRepo.addEntry(yesterday, 1L, 1.0)
             localRepo.addEntry(today, 1L, 1.0)
             localRepo.addEntry(today, 2L, 2.0)
-            assertThat(cleanupUseCase.execute(date = yesterday, page = 0, size = 10).totalElements).isEqualTo(1L)
-            assertThat(cleanupUseCase.execute(date = today, page = 0, size = 10).totalElements).isEqualTo(2L)
+            assertThat(cleanupUseCase.execute(date = yesterday, period = RankingPeriod.DAILY, page = 0, size = 10).page.totalElements).isEqualTo(1L)
+            assertThat(cleanupUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10).page.totalElements).isEqualTo(2L)
 
             // step 2: 캐시 세팅 이후 today 항목 추가 → 재계산 시 새 값 검증용
             localRepo.addEntry(today, 3L, 3.0)
@@ -383,13 +384,13 @@ class GetRankingUseCaseTest {
             mutableClock.advance(31)
 
             // step 4: today 재조회 → opportunistic cleanup 트리거 + 동일 날짜는 재계산값(3) 반환
-            val todayResult = cleanupUseCase.execute(date = today, page = 0, size = 10)
-            assertThat(todayResult.totalElements).isEqualTo(3L)
+            val todayResult = cleanupUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
+            assertThat(todayResult.page.totalElements).isEqualTo(3L)
 
             // step 5: cleanup 이후 yesterday 재조회 경로도 정상 동작 (만료된 엔트리가 정리된 상태에서 새로 계산)
             localRepo.addEntry(yesterday, 2L, 2.0)
-            val yesterdayResult = cleanupUseCase.execute(date = yesterday, page = 0, size = 10)
-            assertThat(yesterdayResult.totalElements).isEqualTo(2L)
+            val yesterdayResult = cleanupUseCase.execute(date = yesterday, period = RankingPeriod.DAILY, page = 0, size = 10)
+            assertThat(yesterdayResult.page.totalElements).isEqualTo(2L)
         }
 
         @Test
@@ -402,18 +403,18 @@ class GetRankingUseCaseTest {
             localRepo.addEntry(today, 1L, 5.0)
 
             // step 1: 첫 호출로 캐시 세팅 (fetchRankings 1회 + scan 1회 = 2회)
-            atomicUseCase.execute(date = today, page = 0, size = 10)
+            atomicUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
             val countAfterFirst = localRepo.getTopNCallCount
 
             // step 2: TTL 만료
             mutableClock.advance(31)
 
             // step 3: 만료 직후 2차 호출 — compute 내부에서 scan 실행 (fetchRankings 1회 + scan 1회 = +2회)
-            atomicUseCase.execute(date = today, page = 0, size = 10)
+            atomicUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
             val countAfterSecond = localRepo.getTopNCallCount
 
             // step 4: 곧이어 3차 호출 — 캐시 hit 예상 (fetchRankings 1회만 = +1회)
-            atomicUseCase.execute(date = today, page = 0, size = 10)
+            atomicUseCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
             val countAfterThird = localRepo.getTopNCallCount
 
             // Assert
@@ -441,15 +442,15 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 1.0)
 
             // Act
-            val page0 = useCase.execute(date = today, page = 0, size = 2)
-            val page1 = useCase.execute(date = today, page = 1, size = 2)
+            val page0 = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 2)
+            val page1 = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 1, size = 2)
 
             // Assert — page 0: rank 1,2 / page 1: rank 3,4
-            assertThat(page0.content.map { it.productId }).containsExactly(5L, 4L)
-            assertThat(page0.content.map { it.rank }).containsExactly(1, 2)
+            assertThat(page0.page.content.map { it.productId }).containsExactly(5L, 4L)
+            assertThat(page0.page.content.map { it.rank }).containsExactly(1, 2)
 
-            assertThat(page1.content.map { it.productId }).containsExactly(3L, 2L)
-            assertThat(page1.content.map { it.rank }).containsExactly(3, 4)
+            assertThat(page1.page.content.map { it.productId }).containsExactly(3L, 2L)
+            assertThat(page1.page.content.map { it.rank }).containsExactly(3, 4)
         }
 
         @Test
@@ -475,14 +476,14 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 1.0)
 
             // Act
-            val page0 = useCase.execute(date = today, page = 0, size = 2)
-            val page1 = useCase.execute(date = today, page = 1, size = 2)
+            val page0 = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 2)
+            val page1 = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 1, size = 2)
 
             // Assert — 비활성 상품 6은 제외, visible 순서: 5→4→3→2→1
-            assertThat(page0.content.map { it.productId }).containsExactly(5L, 4L)
-            assertThat(page1.content.map { it.productId }).containsExactly(3L, 2L)
+            assertThat(page0.page.content.map { it.productId }).containsExactly(5L, 4L)
+            assertThat(page1.page.content.map { it.productId }).containsExactly(3L, 2L)
             // 페이지 간 중복 없음
-            val allIds = page0.content.map { it.productId } + page1.content.map { it.productId }
+            val allIds = page0.page.content.map { it.productId } + page1.page.content.map { it.productId }
             assertThat(allIds).doesNotHaveDuplicates()
         }
 
@@ -497,11 +498,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 1.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 2)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 2)
 
             // Assert — content는 2개지만 totalElements는 전체 active 5개
-            assertThat(result.content).hasSize(2)
-            assertThat(result.totalElements).isEqualTo(5L)
+            assertThat(result.page.content).hasSize(2)
+            assertThat(result.page.totalElements).isEqualTo(5L)
         }
 
         @Test
@@ -525,11 +526,11 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 1.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 0, size = 10)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 0, size = 10)
 
             // Assert — active 상품 3개만 카운트 (6=HIDDEN, 999=미존재 제외)
-            assertThat(result.content).hasSize(3)
-            assertThat(result.totalElements).isEqualTo(3L)
+            assertThat(result.page.content).hasSize(3)
+            assertThat(result.page.totalElements).isEqualTo(3L)
         }
 
         @Test
@@ -541,11 +542,71 @@ class GetRankingUseCaseTest {
             rankingRepository.addEntry(today, 1L, 1.0)
 
             // Act
-            val result = useCase.execute(date = today, page = 5, size = 2)
+            val result = useCase.execute(date = today, period = RankingPeriod.DAILY, page = 5, size = 2)
 
             // Assert — content는 비었지만 totalElements는 3 유지
-            assertThat(result.content).isEmpty()
-            assertThat(result.totalElements).isEqualTo(3L)
+            assertThat(result.page.content).isEmpty()
+            assertThat(result.page.totalElements).isEqualTo(3L)
+        }
+    }
+
+    @Nested
+    @DisplayName("period")
+    inner class Period {
+
+        @Test
+        @DisplayName("DAILY 조회 시 periodKey는 요청 date의 ISO 날짜 포맷이다")
+        fun `DAILY periodKey는 요청 date의 ISO 날짜 포맷이다`() {
+            // Arrange
+            val targetDate = LocalDate.of(2026, 4, 7)
+            rankingRepository.addEntry(targetDate, 1L, 5.0)
+
+            // Act
+            val result = useCase.execute(date = targetDate, period = RankingPeriod.DAILY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.period).isEqualTo(RankingPeriod.DAILY)
+            assertThat(result.periodKey).isEqualTo("2026-04-07")
+        }
+
+        @Test
+        @DisplayName("DAILY date가 null이면 periodKey는 오늘 날짜의 ISO 포맷이다")
+        fun `DAILY date null 시 periodKey는 오늘 날짜이다`() {
+            // Act
+            val result = useCase.execute(date = null, period = RankingPeriod.DAILY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.periodKey).isEqualTo(today.toString())
+        }
+
+        @Test
+        @DisplayName("WEEKLY 조회 시 빈 RankingPageResult를 반환한다")
+        fun `WEEKLY 조회 시 빈 결과를 반환한다`() {
+            // Arrange
+            rankingRepository.addEntry(today, 1L, 5.0)
+
+            // Act
+            val result = useCase.execute(date = today, period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.period).isEqualTo(RankingPeriod.WEEKLY)
+            assertThat(result.page.content).isEmpty()
+            assertThat(result.page.totalElements).isEqualTo(0L)
+        }
+
+        @Test
+        @DisplayName("MONTHLY 조회 시 빈 RankingPageResult를 반환한다")
+        fun `MONTHLY 조회 시 빈 결과를 반환한다`() {
+            // Arrange
+            rankingRepository.addEntry(today, 1L, 5.0)
+
+            // Act
+            val result = useCase.execute(date = today, period = RankingPeriod.MONTHLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.period).isEqualTo(RankingPeriod.MONTHLY)
+            assertThat(result.page.content).isEmpty()
+            assertThat(result.page.totalElements).isEqualTo(0L)
         }
     }
 }

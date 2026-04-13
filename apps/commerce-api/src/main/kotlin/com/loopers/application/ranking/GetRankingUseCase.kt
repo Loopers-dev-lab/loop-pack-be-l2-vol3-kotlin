@@ -3,6 +3,7 @@ package com.loopers.application.ranking
 import com.loopers.domain.PageResult
 import com.loopers.domain.catalog.product.repository.ProductRepository
 import com.loopers.domain.common.vo.ProductId
+import com.loopers.domain.ranking.RankingPeriod
 import com.loopers.domain.ranking.repository.RankingRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
@@ -10,7 +11,15 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.temporal.WeekFields
 import java.util.concurrent.ConcurrentHashMap
+
+data class RankingPageResult(
+    val page: PageResult<RankingInfo>,
+    val period: RankingPeriod,
+    val periodKey: String,
+)
 
 @Component
 class GetRankingUseCase(
@@ -31,16 +40,52 @@ class GetRankingUseCase(
         val expiresAt: Instant,
     )
 
-    fun execute(date: LocalDate?, page: Int, size: Int): PageResult<RankingInfo> {
+    fun execute(date: LocalDate?, period: RankingPeriod, page: Int, size: Int): RankingPageResult {
+        return when (period) {
+            RankingPeriod.DAILY -> executeDaily(date, page, size)
+            RankingPeriod.WEEKLY -> executeWeekly(date, page, size)
+            RankingPeriod.MONTHLY -> executeMonthly(date, page, size)
+        }
+    }
+
+    private fun executeDaily(date: LocalDate?, page: Int, size: Int): RankingPageResult {
         val targetDate = date ?: LocalDate.now(clock)
         val rankings = fetchVisibleRankings(targetDate, page, size)
         val totalElements = computeTotalVisibleCount(targetDate)
+        val periodKey = targetDate.toString()
 
-        return PageResult(
-            content = rankings,
-            totalElements = totalElements,
-            page = page,
-            size = size,
+        return RankingPageResult(
+            page = PageResult(
+                content = rankings,
+                totalElements = totalElements,
+                page = page,
+                size = size,
+            ),
+            period = RankingPeriod.DAILY,
+            periodKey = periodKey,
+        )
+    }
+
+    private fun executeWeekly(date: LocalDate?, page: Int, size: Int): RankingPageResult {
+        val targetDate = date ?: LocalDate.now(clock)
+        val weekFields = WeekFields.ISO
+        val yearWeek = targetDate.get(weekFields.weekBasedYear())
+        val weekNum = targetDate.get(weekFields.weekOfWeekBasedYear())
+        val periodKey = "%d-W%02d".format(yearWeek, weekNum)
+        return RankingPageResult(
+            page = PageResult(emptyList(), 0, page, size),
+            period = RankingPeriod.WEEKLY,
+            periodKey = periodKey,
+        )
+    }
+
+    private fun executeMonthly(date: LocalDate?, page: Int, size: Int): RankingPageResult {
+        val targetDate = date ?: LocalDate.now(clock)
+        val periodKey = YearMonth.from(targetDate).toString()
+        return RankingPageResult(
+            page = PageResult(emptyList(), 0, page, size),
+            period = RankingPeriod.MONTHLY,
+            periodKey = periodKey,
         )
     }
 

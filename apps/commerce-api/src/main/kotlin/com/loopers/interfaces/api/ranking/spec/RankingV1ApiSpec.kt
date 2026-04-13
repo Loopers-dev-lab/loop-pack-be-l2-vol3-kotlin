@@ -14,6 +14,7 @@ interface RankingV1ApiSpec {
     @Operation(summary = "랭킹 조회", description = "실시간 상품 랭킹을 조회합니다.")
     fun getRankings(
         date: String?,
+        period: String?,
         @PositiveOrZero page: Int,
         @Positive @Max(100) size: Int,
     ): ApiResponse<RankingV1Dto.RankingPageResponse>
