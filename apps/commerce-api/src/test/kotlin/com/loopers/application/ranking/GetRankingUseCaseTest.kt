@@ -7,7 +7,9 @@ import com.loopers.domain.common.vo.BrandId
 import com.loopers.domain.common.vo.Money
 import com.loopers.domain.common.vo.ProductId
 import com.loopers.domain.ranking.FakeRankingRepository
+import com.loopers.domain.ranking.FakeWeeklyRankingRepository
 import com.loopers.domain.ranking.RankingPeriod
+import com.loopers.domain.ranking.model.WeeklyProductRank
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
 import org.junit.jupiter.api.BeforeEach
@@ -27,6 +29,7 @@ import java.time.ZonedDateTime
 class GetRankingUseCaseTest {
 
     private lateinit var rankingRepository: FakeRankingRepository
+    private lateinit var weeklyRankingRepository: FakeWeeklyRankingRepository
     private lateinit var productRepository: FakeProductRepository
     private lateinit var useCase: GetRankingUseCase
 
@@ -47,8 +50,9 @@ class GetRankingUseCaseTest {
     @BeforeEach
     fun setUp() {
         rankingRepository = FakeRankingRepository()
+        weeklyRankingRepository = FakeWeeklyRankingRepository()
         productRepository = FakeProductRepository()
-        useCase = GetRankingUseCase(rankingRepository, productRepository, clock, noOpTxManager)
+        useCase = GetRankingUseCase(rankingRepository, productRepository, weeklyRankingRepository, clock, noOpTxManager)
 
         listOf(1L, 2L, 3L, 4L, 5L).forEach { id ->
             productRepository.save(
@@ -341,7 +345,7 @@ class GetRankingUseCaseTest {
             // 별도 MutableClock + UseCase 생성 (TTL 시간 조작을 위해 clock 분리)
             val mutableClock = MutableClock(clock.instant(), clock.zone)
             val localRepo = FakeRankingRepository()
-            val ttlUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock, noOpTxManager)
+            val ttlUseCase = GetRankingUseCase(localRepo, productRepository, weeklyRankingRepository, mutableClock, noOpTxManager)
 
             // step 1: 첫 호출로 totalElements 캐시 생성 (count=2)
             localRepo.addEntry(today, 1L, 1.0)
@@ -367,7 +371,7 @@ class GetRankingUseCaseTest {
             // Arrange — MutableClock + 별도 UseCase 구성
             val mutableClock = MutableClock(clock.instant(), clock.zone)
             val localRepo = FakeRankingRepository()
-            val cleanupUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock, noOpTxManager)
+            val cleanupUseCase = GetRankingUseCase(localRepo, productRepository, weeklyRankingRepository, mutableClock, noOpTxManager)
             val yesterday = today.minusDays(1)
 
             // step 1: yesterday + today 두 날짜로 캐시를 누적
@@ -399,7 +403,7 @@ class GetRankingUseCaseTest {
             // Arrange — 데이터 1건만 있는 환경 (rawFetchCount < FETCH_BATCH_SIZE → 한 배치에 종료)
             val mutableClock = MutableClock(clock.instant(), clock.zone)
             val localRepo = FakeRankingRepository()
-            val atomicUseCase = GetRankingUseCase(localRepo, productRepository, mutableClock, noOpTxManager)
+            val atomicUseCase = GetRankingUseCase(localRepo, productRepository, weeklyRankingRepository, mutableClock, noOpTxManager)
             localRepo.addEntry(today, 1L, 5.0)
 
             // step 1: 첫 호출로 캐시 세팅 (fetchRankings 1회 + scan 1회 = 2회)
@@ -580,21 +584,6 @@ class GetRankingUseCaseTest {
         }
 
         @Test
-        @DisplayName("WEEKLY 조회 시 빈 RankingPageResult를 반환한다")
-        fun `WEEKLY 조회 시 빈 결과를 반환한다`() {
-            // Arrange
-            rankingRepository.addEntry(today, 1L, 5.0)
-
-            // Act
-            val result = useCase.execute(date = today, period = RankingPeriod.WEEKLY, page = 0, size = 10)
-
-            // Assert
-            assertThat(result.period).isEqualTo(RankingPeriod.WEEKLY)
-            assertThat(result.page.content).isEmpty()
-            assertThat(result.page.totalElements).isEqualTo(0L)
-        }
-
-        @Test
         @DisplayName("MONTHLY 조회 시 빈 RankingPageResult를 반환한다")
         fun `MONTHLY 조회 시 빈 결과를 반환한다`() {
             // Arrange
@@ -607,6 +596,179 @@ class GetRankingUseCaseTest {
             assertThat(result.period).isEqualTo(RankingPeriod.MONTHLY)
             assertThat(result.page.content).isEmpty()
             assertThat(result.page.totalElements).isEqualTo(0L)
+        }
+    }
+
+    @Nested
+    @DisplayName("Weekly 주간 조회")
+    inner class Weekly {
+
+        private val periodKey2026W15 = "2026-W15"
+        private val startDate = LocalDate.of(2026, 4, 6)
+        private val endDate = LocalDate.of(2026, 4, 12)
+
+        private fun weeklyEntry(
+            rank: Int,
+            productId: Long,
+            score: Double = 1.0,
+            pk: String = periodKey2026W15,
+        ) = WeeklyProductRank(
+            rank = rank,
+            productId = productId,
+            score = score,
+            viewCount = 10L,
+            likeCount = 5L,
+            salesCount = 3L,
+            periodKey = pk,
+            periodStartDate = startDate,
+            periodEndDate = endDate,
+        )
+
+        @Test
+        @DisplayName("date가 속한 ISO 주의 periodKey(YYYY-Www 포맷)를 반환한다")
+        fun `periodKey는 YYYY-Www 포맷이다`() {
+            // Arrange
+            weeklyRankingRepository.addEntry(weeklyEntry(1, 1L))
+            val targetDate = LocalDate.of(2026, 4, 7) // 2026-W15
+
+            // Act
+            val result = useCase.execute(date = targetDate, period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.period).isEqualTo(RankingPeriod.WEEKLY)
+            assertThat(result.periodKey).isEqualTo("2026-W15")
+        }
+
+        @Test
+        @DisplayName("2025-12-29는 ISO 주 기준 2026-W01에 속한다 (연말 경계)")
+        fun `ISO Week 경계 - 연말일이 다음 해 1주차에 속한다`() {
+            // Act
+            val result = useCase.execute(date = LocalDate.of(2025, 12, 29), period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.periodKey).isEqualTo("2026-W01")
+        }
+
+        @Test
+        @DisplayName("date가 null이면 clock 기준 오늘 날짜의 주로 조회한다")
+        fun `date null 시 오늘 날짜를 사용한다`() {
+            // Arrange
+            weeklyRankingRepository.addEntry(weeklyEntry(1, 1L))
+
+            // Act
+            val result = useCase.execute(date = null, period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.periodKey).isEqualTo("2026-W15") // clock = 2026-04-07
+        }
+
+        @Test
+        @DisplayName("MV의 active 상품 rank, productName, price, score를 조합해 반환한다")
+        fun `active 상품의 랭킹 정보를 반환한다`() {
+            // Arrange
+            weeklyRankingRepository.addEntry(weeklyEntry(1, 1L, 10.0))
+            weeklyRankingRepository.addEntry(weeklyEntry(2, 2L, 8.0))
+
+            // Act
+            val result = useCase.execute(date = LocalDate.of(2026, 4, 7), period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.page.content).hasSize(2)
+            assertThat(result.page.totalElements).isEqualTo(2L)
+            with(result.page.content[0]) {
+                assertThat(rank).isEqualTo(1)
+                assertThat(productId).isEqualTo(1L)
+                assertThat(productName).isEqualTo("상품1")
+                assertThat(price).isEqualByComparingTo(BigDecimal.valueOf(1000))
+                assertThat(score).isCloseTo(10.0, Offset.offset(0.001))
+            }
+        }
+
+        @Test
+        @DisplayName("비활성(HIDDEN) 상품은 결과와 totalElements에서 제외된다")
+        fun `비활성 상품은 제외된다`() {
+            // Arrange
+            productRepository.save(
+                Product(
+                    id = ProductId(6L),
+                    refBrandId = BrandId(1L),
+                    name = "숨김상품",
+                    price = Money(BigDecimal.valueOf(6000)),
+                    stock = Stock(10),
+                    status = Product.ProductStatus.HIDDEN,
+                ),
+            )
+            weeklyRankingRepository.addEntry(weeklyEntry(1, 1L, 10.0))
+            weeklyRankingRepository.addEntry(weeklyEntry(2, 6L, 8.0)) // HIDDEN
+
+            // Act
+            val result = useCase.execute(date = LocalDate.of(2026, 4, 7), period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.page.content).hasSize(1)
+            assertThat(result.page.content[0].productId).isEqualTo(1L)
+            assertThat(result.page.totalElements).isEqualTo(1L)
+        }
+
+        @Test
+        @DisplayName("MV 5건 중 2건이 비활성이면 totalElements == 3이다")
+        fun `totalElements는 active 필터링 후 남은 행 수이다`() {
+            // Arrange
+            listOf(6L, 7L).forEach { id ->
+                productRepository.save(
+                    Product(
+                        id = ProductId(id),
+                        refBrandId = BrandId(1L),
+                        name = "숨김$id",
+                        price = Money(BigDecimal.valueOf(id * 1000)),
+                        stock = Stock(10),
+                        status = Product.ProductStatus.HIDDEN,
+                    ),
+                )
+            }
+            listOf(1L, 2L, 3L).forEachIndexed { i, productId ->
+                weeklyRankingRepository.addEntry(weeklyEntry(i + 1, productId))
+            }
+            weeklyRankingRepository.addEntry(weeklyEntry(4, 6L))
+            weeklyRankingRepository.addEntry(weeklyEntry(5, 7L))
+
+            // Act
+            val result = useCase.execute(date = LocalDate.of(2026, 4, 7), period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.page.totalElements).isEqualTo(3L)
+            assertThat(result.page.content).hasSize(3)
+        }
+
+        @Test
+        @DisplayName("page=1, size=2 요청 시 3~4번째 항목을 반환한다")
+        fun `페이지네이션이 정상 동작한다`() {
+            // Arrange
+            (1..4).forEach { rank -> weeklyRankingRepository.addEntry(weeklyEntry(rank, rank.toLong())) }
+
+            // Act
+            val result = useCase.execute(date = LocalDate.of(2026, 4, 7), period = RankingPeriod.WEEKLY, page = 1, size = 2)
+
+            // Assert
+            assertThat(result.page.content).hasSize(2)
+            assertThat(result.page.content[0].rank).isEqualTo(3)
+            assertThat(result.page.content[1].rank).isEqualTo(4)
+            assertThat(result.page.totalElements).isEqualTo(4L)
+        }
+
+        @Test
+        @DisplayName("과거 날짜를 지정하면 해당 날짜가 속한 주의 periodKey로 조회한다")
+        fun `과거 날짜는 해당 주의 periodKey로 조회된다`() {
+            // Arrange - 2026-03-02 = 2026-W10
+            val pastDate = LocalDate.of(2026, 3, 2)
+            weeklyRankingRepository.addEntry(weeklyEntry(1, 1L, pk = "2026-W10"))
+
+            // Act
+            val result = useCase.execute(date = pastDate, period = RankingPeriod.WEEKLY, page = 0, size = 10)
+
+            // Assert
+            assertThat(result.periodKey).isEqualTo("2026-W10")
+            assertThat(result.page.content).hasSize(1)
         }
     }
 }

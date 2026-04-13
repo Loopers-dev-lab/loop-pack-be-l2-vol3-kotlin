@@ -222,18 +222,18 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
 
 작업 체크리스트:
 
-- [ ] [RED] `period = WEEKLY` 호출 시 `date`가 속한 주의 `periodKey`로 MV 전체를 로드 후 active 상품만 반환
-- [ ] [RED] 비활성/삭제 상품은 응답에서 제외되며 over-fetch 하지 않는다 (§5) — 필터링으로 페이지가 부족해져도 자연 축소
-- [ ] [RED] `periodKey`는 `java.time.WeekFields.ISO`로 계산된 `YYYY-Www` 포맷
-- [ ] [RED] `totalElements`는 "active 필터링 후 남은 행 수"와 정확히 일치 (daily의 `scanTotalVisibleCount` 의미와 일관)
-- [ ] [RED] MV에 100건이 있고 30건이 비활성 상품이면 `totalElements == 70`
-- [ ] [RED] ISO Week 경계 테스트: `2025-12-29` → `2026-W01`, `2026-04-13` → `2026-W15`
-- [ ] [RED] `date`를 오늘이 아닌 과거로 주면 해당 주의 periodKey로 조회된다
-- [ ] [GREEN] `PeriodKeyCalculator.kt` 신규 — `weekly(date)` + `monthly(date)` 두 메서드 동시 선언 (Step 5 재사용 대비)
-- [ ] [GREEN] Step 2의 `executeWeekly` / `executeMonthly`에 들어 있던 인라인 periodKey 계산을 `PeriodKeyCalculator` 호출로 **일괄 대체** (
+- [x] [RED] `period = WEEKLY` 호출 시 `date`가 속한 주의 `periodKey`로 MV 전체를 로드 후 active 상품만 반환
+- [x] [RED] 비활성/삭제 상품은 응답에서 제외되며 over-fetch 하지 않는다 (§5) — 필터링으로 페이지가 부족해져도 자연 축소
+- [x] [RED] `periodKey`는 `java.time.WeekFields.ISO`로 계산된 `YYYY-Www` 포맷
+- [x] [RED] `totalElements`는 "active 필터링 후 남은 행 수"와 정확히 일치 (daily의 `scanTotalVisibleCount` 의미와 일관)
+- [x] [RED] MV에 100건이 있고 30건이 비활성 상품이면 `totalElements == 70`
+- [x] [RED] ISO Week 경계 테스트: `2025-12-29` → `2026-W01`, `2026-04-13` → `2026-W16` (plan 오기 수정)
+- [x] [RED] `date`를 오늘이 아닌 과거로 주면 해당 주의 periodKey로 조회된다
+- [x] [GREEN] `PeriodKeyCalculator.kt` 신규 — `weekly(date)` + `monthly(date)` 두 메서드 동시 선언 (Step 5 재사용 대비)
+- [x] [GREEN] Step 2의 `executeWeekly` / `executeMonthly`에 들어 있던 인라인 periodKey 계산을 `PeriodKeyCalculator` 호출로 **일괄 대체** (
   구조적 리팩토링). executeMonthly 본체 로직은 Step 5에서 교체되지만 유틸 호출부만 여기서 먼저 정리한다
-- [ ] [GREEN] `GetRankingUseCase` 생성자에 `WeeklyRankingRepository` 주입
-- [ ] [GREEN] `executeWeekly(date, page, size)` 구현:
+- [x] [GREEN] `GetRankingUseCase` 생성자에 `WeeklyRankingRepository` 주입
+- [x] [GREEN] `executeWeekly(date, page, size)` 구현:
   ```
   1. val periodKey = PeriodKeyCalculator.weekly(date ?: LocalDate.now(clock))
   2. val allRows: List<WeeklyProductRank> = weeklyRankingRepository.findAllByPeriodKey(periodKey)  // ≤ 100
@@ -247,9 +247,9 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
   ```
     - 핵심: **MV 전체 로드(Top 100 상한이라 최대 100건) → active 필터 → count → 페이지 슬라이스** 순서
     - `rank` 필드는 MV에 사전 계산된 `rank_no` 그대로 사용 (daily처럼 오프셋 기반이 아님)
-- [ ] [GREEN] `when(period)` 분기에서 Step 2의 빈 `RankingPageResult(empty, WEEKLY, periodKey)` placeholder를 `executeWeekly`
+- [x] [GREEN] `when(period)` 분기에서 Step 2의 빈 `RankingPageResult(empty, WEEKLY, periodKey)` placeholder를 `executeWeekly`
   호출로 **교체**
-- [ ] 검증: `./gradlew :apps:commerce-api:test --tests "*.GetRankingUseCaseTest"`
+- [x] 검증: `./gradlew :apps:commerce-api:test --tests "*.GetRankingUseCaseTest"`
 
 ### Step 4 완료 조건
 
