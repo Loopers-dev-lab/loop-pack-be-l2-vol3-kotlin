@@ -273,15 +273,15 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
 
 작업 체크리스트:
 
-- [ ] [RED] `FakeMonthlyRankingRepository.findAllByPeriodKey(periodKey)`가 rank_no 오름차순 최대 100건 반환
-- [ ] [RED] 존재하지 않는 periodKey는 빈 목록
-- [ ] [GREEN] `MonthlyProductRank` VO (Weekly와 동일 필드 구성)
-- [ ] [GREEN] `MonthlyRankingRepository` 인터페이스 — **`findAllByPeriodKey(periodKey: String): List<MonthlyProductRank>` 단일
+- [x] [RED] `FakeMonthlyRankingRepository.findAllByPeriodKey(periodKey)`가 rank_no 오름차순 최대 100건 반환
+- [x] [RED] 존재하지 않는 periodKey는 빈 목록
+- [x] [GREEN] `MonthlyProductRank` VO (Weekly와 동일 필드 구성)
+- [x] [GREEN] `MonthlyRankingRepository` 인터페이스 — **`findAllByPeriodKey(periodKey: String): List<MonthlyProductRank>` 단일
   메서드**. `count*` 메서드 없음 (Step 3과 동일 원칙)
-- [ ] [GREEN] `MvProductRankMonthlyEntity` — PK `(period_key, product_id)` 유니크 + `(period_key, rank_no)` 유니크
-- [ ] [GREEN] `MonthlyRankingRepositoryImpl` — 메서드명 쿼리, 도메인 ↔ 엔티티 변환
-- [ ] JPA 스모크 통합 테스트 1개
-- [ ] 검증: `./gradlew :apps:commerce-api:test --tests "*.MonthlyRankingRepositoryTest"`
+- [x] [GREEN] `MvProductRankMonthlyEntity` — PK `(period_key, product_id)` 유니크 + `(period_key, rank_no)` 유니크
+- [x] [GREEN] `MonthlyRankingRepositoryImpl` — 메서드명 쿼리, 도메인 ↔ 엔티티 변환
+- [x] JPA 스모크 통합 테스트 1개
+- [x] 검증: `./gradlew :apps:commerce-api:test --tests "*.MonthlyRankingRepositoryTest"`
 
 ### Commit ⑤-b — `executeMonthly` 분기 연결 (수정 2개)
 
@@ -290,18 +290,18 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
 
 작업 체크리스트:
 
-- [ ] [RED] `period = MONTHLY` 호출 시 `date`가 속한 달의 periodKey로 조회 후 active 상품만 반환
-- [ ] [RED] YearMonth 경계: 윤년 `2024-02-29`, 31일 월, 30일 월, 28일 2월 모두 정상
-- [ ] [RED] `periodKey` 포맷은 `YYYY-MM` (`YearMonth.toString()`과 일치)
-- [ ] [RED] `totalElements`는 active 필터링 후 남은 행 수 (Step 4와 동일 원칙)
-- [ ] [RED] MV에 100건이 있고 40건이 비활성 상품이면 `totalElements == 60`
-- [ ] [GREEN] `GetRankingUseCase` 생성자에 `MonthlyRankingRepository` 주입
-- [ ] [GREEN] `executeMonthly(date, page, size)` 구현 — Step 4의 `executeWeekly`와 동일 순서(MV 전체 로드 → active 필터 → count → 페이지
+- [x] [RED] `period = MONTHLY` 호출 시 `date`가 속한 달의 periodKey로 조회 후 active 상품만 반환
+- [x] [RED] YearMonth 경계: 윤년 `2024-02-29`, 31일 월, 30일 월, 28일 2월 모두 정상
+- [x] [RED] `periodKey` 포맷은 `YYYY-MM` (`YearMonth.toString()`과 일치)
+- [x] [RED] `totalElements`는 active 필터링 후 남은 행 수 (Step 4와 동일 원칙)
+- [x] [RED] MV에 100건이 있고 40건이 비활성 상품이면 `totalElements == 60`
+- [x] [GREEN] `GetRankingUseCase` 생성자에 `MonthlyRankingRepository` 주입
+- [x] [GREEN] `executeMonthly(date, page, size)` 구현 — Step 4의 `executeWeekly`와 동일 순서(MV 전체 로드 → active 필터 → count → 페이지
   슬라이스). `rank` 필드는 MV에 사전 계산된 `rank_no` 사용. `PeriodKeyCalculator.monthly`는 Step 4에서 이미 도입된 유틸을 재사용한다
-- [ ] [GREEN] 반환 타입은 `RankingPageResult(PageResult(...), RankingPeriod.MONTHLY, periodKey)`
-- [ ] [GREEN] `when(period)` 분기에서 Step 2의 빈 `RankingPageResult(empty, MONTHLY, periodKey)` placeholder를 `executeMonthly`
+- [x] [GREEN] 반환 타입은 `RankingPageResult(PageResult(...), RankingPeriod.MONTHLY, periodKey)`
+- [x] [GREEN] `when(period)` 분기에서 Step 2의 빈 `RankingPageResult(empty, MONTHLY, periodKey)` placeholder를 `executeMonthly`
   호출로 **교체**
-- [ ] 검증: `./gradlew :apps:commerce-api:test --tests "*.GetRankingUseCaseTest"`
+- [x] 검증: `./gradlew :apps:commerce-api:test --tests "*.GetRankingUseCaseTest"`
 
 ### Step 5 완료 조건
 
@@ -327,18 +327,18 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
 
 작업 체크리스트:
 
-- [ ] [RED] E2E — `period=daily` 응답에 `"period": "daily"`, `"periodKey": "2026-04-13"` 포함
-- [ ] [RED] E2E — `period=weekly` 응답에 `"periodKey": "2026-W15"` 포함
-- [ ] [RED] E2E — `period=monthly` 응답에 `"periodKey": "2026-04"` 포함
-- [ ] [RED] E2E — `period` 생략 시 응답은 `"period": "daily"` + ISO date periodKey
-- [ ] [RED] E2E — `period=Daily`(대문자 혼합) → 400
-- [ ] [GREEN] `RankingV1Dto.RankingPageResponse`에 `period: String`, `periodKey: String` 필드 추가
+- [x] [RED] E2E — `period=daily` 응답에 `"period": "daily"`, `"periodKey": "2026-04-13"` 포함
+- [x] [RED] E2E — `period=weekly` 응답에 `"periodKey": "2026-W15"` 포함
+- [x] [RED] E2E — `period=monthly` 응답에 `"periodKey": "2026-04"` 포함
+- [x] [RED] E2E — `period` 생략 시 응답은 `"period": "daily"` + ISO date periodKey
+- [x] [RED] E2E — `period=Daily`(대문자 혼합) → 400
+- [x] [GREEN] `RankingV1Dto.RankingPageResponse`에 `period: String`, `periodKey: String` 필드 추가
     - `RankingV1Dto.RankingResponse`(content 아이템)는 **손대지 않는다** (§10.2 최소 침습)
     - 팩토리 시그니처는 `from(rankingPageResult: RankingPageResult)` — 내부에서 `page`, `period.name.lowercase()`, `periodKey`를 직접
       꺼내 매핑
-- [ ] [GREEN] Controller는 `useCase.execute(...)`가 반환한 `RankingPageResult`를 **계산 없이** DTO 팩토리로 넘긴다 — periodKey 재계산 금지 (
+- [x] [GREEN] Controller는 `useCase.execute(...)`가 반환한 `RankingPageResult`를 **계산 없이** DTO 팩토리로 넘긴다 — periodKey 재계산 금지 (
   UseCase 단일 책임)
-- [ ] 검증: `./gradlew :apps:commerce-api:test --tests "*.RankingApiE2ETest"`
+- [x] 검증: `./gradlew :apps:commerce-api:test --tests "*.RankingApiE2ETest"`
 
 ### Step 6 완료 조건
 
@@ -354,12 +354,12 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
 
 ### Pre-task — 현재 상태 파악
 
-- [ ] `apps/commerce-batch` 디렉토리 구조 확인 (build.gradle, main/resources, main/kotlin)
-- [ ] `@SpringBootApplication`, DataSource 설정 존재 여부
-- [ ] `modules/jpa` 재사용 가능 여부
-- [ ] `spring-boot-starter-batch` 의존성 유무
-- [ ] Spring Batch 메타 스키마 자동 초기화 설정 여부 (`spring.batch.jdbc.initialize-schema`)
-- [ ] 기존 Job이 이미 등록되어 있는지 확인
+- [x] `apps/commerce-batch` 디렉토리 구조 확인 (build.gradle, main/resources, main/kotlin)
+- [x] `@SpringBootApplication`, DataSource 설정 존재 여부
+- [x] `modules/jpa` 재사용 가능 여부
+- [x] `spring-boot-starter-batch` 의존성 유무
+- [x] Spring Batch 메타 스키마 자동 초기화 설정 여부 (`spring.batch.jdbc.initialize-schema`)
+- [x] 기존 Job이 이미 등록되어 있는지 확인
 
 변경 파일 (탐색 결과에 따라 1~3개):
 
@@ -370,9 +370,9 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
 
 작업 체크리스트:
 
-- [ ] 탐색 결과 요약 후 변경 파일이 5개를 넘을 것 같으면 여기서 멈추고 재분할
-- [ ] 스모크 테스트: 빈 Job 하나를 등록하고 `@SpringBootTest`로 `JobLauncher` 주입 확인
-- [ ] 검증: `./gradlew :apps:commerce-batch:test --tests "*.BatchInfraTest"`
+- [x] 탐색 결과 요약 후 변경 파일이 5개를 넘을 것 같으면 여기서 멈추고 재분할
+- [x] 스모크 테스트: 빈 Job 하나를 등록하고 `@SpringBootTest`로 `JobLauncher` 주입 확인
+- [x] 검증: `./gradlew :apps:commerce-batch:test --tests "*.BatchInfraTest"`
 
 ### Step 7 완료 조건
 
@@ -400,12 +400,12 @@ Repository의 단순 count를 사용하지 않는다 — 요구사항 §6.1 `tot
 2. `apps/commerce-batch/.../ranking/WeeklyRankingJobParameterValidator.kt` — `JobParametersValidator` 구현
 3. `apps/commerce-batch/src/test/.../WeeklyRankingJobParameterValidatorTest.kt`
 
-- [ ] [RED] `baseDate` 누락 시 `JobParametersInvalidException`
-- [ ] [RED] `baseDate` 형식 오류(`yyyyMMdd`가 아님) 시 예외
-- [ ] [RED] 정상 `baseDate`에 대해 `WeekFields.ISO`로 `(periodKey, startDate, endDate)`가 계산된다
-- [ ] [GREEN] Validator 구현 (입력 검증 + 윈도우 계산 유틸 분리)
-- [ ] [GREEN] `WeeklyRankingJob`을 빈 Tasklet Step으로 등록 (이 커밋에서는 Tasklet 내부는 no-op)
-- [ ] 검증: `./gradlew :apps:commerce-batch:test --tests "*.WeeklyRankingJobParameterValidatorTest"`
+- [x] [RED] `baseDate` 누락 시 `JobParametersInvalidException`
+- [x] [RED] `baseDate` 형식 오류(`yyyyMMdd`가 아님) 시 예외
+- [x] [RED] 정상 `baseDate`에 대해 `WeekFields.ISO`로 `(periodKey, startDate, endDate)`가 계산된다
+- [x] [GREEN] Validator 구현 (입력 검증 + 윈도우 계산 유틸 분리)
+- [x] [GREEN] `WeeklyRankingJob`을 빈 Tasklet Step으로 등록 (이 커밋에서는 Tasklet 내부는 no-op)
+- [x] 검증: `./gradlew :apps:commerce-batch:test --tests "*.WeeklyRankingJobParameterValidatorTest"`
 
 ### Commit ⑧-b — Tasklet 본체 구현 (Top 100 replace)
 
@@ -436,23 +436,23 @@ class WeeklyRankingTasklet(
 
 작업 체크리스트:
 
-- [ ] [RED] Tasklet이 없는 periodKey에 대해 호출되면 → MV에 정확히 Top 100건이 insert된다 (소스가 100건 이상일 때)
-- [ ] [RED] 소스 데이터가 50건이면 MV에는 50건만 insert된다 (상한만 적용)
-- [ ] [RED] 가중치 계산이 `0.1·Σview + 0.2·Σlike + 0.7·Σsales`로 정확히 수행되며 `score == 0`인 상품은 제외된다
-- [ ] [RED] 같은 점수일 때 `productId` 오름차순으로 `rank_no`가 부여되고 `(period_key, rank_no)` 유니크 제약이 충돌하지 않는다
-- [ ] [RED] 이미 해당 periodKey에 이전 Top 100이 존재하면 → 재실행 시 **전체 교체**되며 이전에 있던 상품 중 이번 Top 100에 없는 상품은 MV에서 사라진다
-- [ ] [RED] Tasklet 내부 예외(예: 중간에 Insert 실패) 발생 시 → **기존 Top 100이 그대로 유지**된다 (원자성)
-- [ ] [GREEN] `WeeklyRankingQueryDao.selectTop100Aggregate`: DB-level GROUP BY 쿼리
+- [x] [RED] Tasklet이 없는 periodKey에 대해 호출되면 → MV에 정확히 Top 100건이 insert된다 (소스가 100건 이상일 때)
+- [x] [RED] 소스 데이터가 50건이면 MV에는 50건만 insert된다 (상한만 적용)
+- [x] [RED] 가중치 계산이 `0.1·Σview + 0.2·Σlike + 0.7·Σsales`로 정확히 수행되며 `score == 0`인 상품은 제외된다
+- [x] [RED] 같은 점수일 때 `productId` 오름차순으로 `rank_no`가 부여되고 `(period_key, rank_no)` 유니크 제약이 충돌하지 않는다
+- [x] [RED] 이미 해당 periodKey에 이전 Top 100이 존재하면 → 재실행 시 **전체 교체**되며 이전에 있던 상품 중 이번 Top 100에 없는 상품은 MV에서 사라진다
+- [x] [RED] Tasklet 내부 예외(예: 중간에 Insert 실패) 발생 시 → **기존 Top 100이 그대로 유지**된다 (원자성)
+- [x] [GREEN] `WeeklyRankingQueryDao.selectTop100Aggregate`: DB-level GROUP BY 쿼리
     - 의사 SQL:
       `SELECT product_id, SUM(view_count), SUM(like_count), SUM(sales_count) FROM product_metrics_daily WHERE metric_date BETWEEN :start AND :end GROUP BY product_id HAVING 가중치 > 0 ORDER BY 가중치 DESC, product_id ASC LIMIT 100`
     - 구현: **QueryDSL로 고정**. 메서드명 쿼리는 `GROUP BY + HAVING + ORDER BY (가중치) + LIMIT 100` 조합을 표현할 수 없다. JPQL/NativeQuery는
       금지(CLAUDE.md)
     - 집계 결과 Projection 타입은 `WeeklyRankRow` Value Object
-- [ ] [GREEN] `deleteByPeriodKey(periodKey)`: 해당 periodKey의 기존 행 전체 삭제
-- [ ] [GREEN] `bulkInsert(periodKey, rows)`: Top 100을 `rank_no = 1..100`으로 부여하여 insert (JPA `saveAll` 또는 배치 insert)
-- [ ] [GREEN] `WeeklyRankingTasklet` 구현 및 `WeeklyRankingJobConfig`에 연결
-- [ ] [GREEN] Tasklet의 트랜잭션 경계는 Spring Batch가 기본 제공 (Tasklet당 1 트랜잭션). 별도 `@Transactional` 추가 불필요
-- [ ] 검증: `./gradlew :apps:commerce-batch:test --tests "*.WeeklyRankingTaskletTest"`
+- [x] [GREEN] `deleteByPeriodKey(periodKey)`: 해당 periodKey의 기존 행 전체 삭제
+- [x] [GREEN] `bulkInsert(periodKey, rows)`: Top 100을 `rank_no = 1..100`으로 부여하여 insert (JPA `saveAll` 또는 배치 insert)
+- [x] [GREEN] `WeeklyRankingTasklet` 구현 및 `WeeklyRankingJobConfig`에 연결
+- [x] [GREEN] Tasklet의 트랜잭션 경계는 Spring Batch가 기본 제공 (Tasklet당 1 트랜잭션). 별도 `@Transactional` 추가 불필요
+- [x] 검증: `./gradlew :apps:commerce-batch:test --tests "*.WeeklyRankingTaskletTest"`
 
 ### Step 8 완료 조건
 
