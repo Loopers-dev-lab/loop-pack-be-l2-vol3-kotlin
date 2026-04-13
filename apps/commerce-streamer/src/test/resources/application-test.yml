@@ -1,8 +1,6 @@
 spring:
   application:
     name: commerce-streamer
-  profiles:
-    active: test
   boot:
     testcontainers:
       autodiscover: false

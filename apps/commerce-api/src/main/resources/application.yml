@@ -66,6 +66,13 @@ resilience4j:
         retryExceptions:
           - java.lang.Exception
 
+ranking:
+  scoring: default          # 가중치 전략: default (갈아끼울 수 있음)
+  aggregation: daily        # 집계 방식: daily, sliding-window
+  sliding-window:
+    window-days: 7
+    decay-factor: 0.9
+
 springdoc:
   use-fqn: true
   swagger-ui:

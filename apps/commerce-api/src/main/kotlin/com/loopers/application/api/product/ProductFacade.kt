@@ -2,6 +2,7 @@ package com.loopers.application.api.product
 
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.product.dto.ProductInfo
+import com.loopers.domain.ranking.ProductRankingReadService
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class ProductFacade(
     private val productService: ProductService,
+    private val productRankingReadService: ProductRankingReadService,
 ) {
     /**
      * 캐시된 상품 정보를 조회합니다.
@@ -21,22 +23,13 @@ class ProductFacade(
     fun getCachedProductInfo(id: Long): ProductInfo = productService.getProductInfo(id)
 
     /**
-     * 상품 정보를 조회합니다 (캐시 적용, side-effect 없음).
-     * @param id 상품 ID
-     * @return 캐시된 상품 정보
+     * 상품 정보를 조회하고 오늘의 랭킹을 포함합니다.
+     * rank는 캐시 밖에서 Redis에서 별도 조회 후 enrichment합니다.
      */
-    fun getProductInfo(id: Long): ProductInfo = getCachedProductInfo(id)
-
-    /**
-     * 상품 정보를 조회하고 조회 기록을 남깁니다.
-     * @param id 상품 ID
-     * @param userId 사용자 ID (null이면 기록하지 않음)
-     * @return 상품 정보
-     */
-    fun getProductInfo(id: Long, userId: Long?): ProductInfo {
+    fun getProductInfoWithRank(id: Long): ProductInfo {
         val productInfo = getCachedProductInfo(id)
-        userId?.let { recordProductView(id, it) }
-        return productInfo
+        val rank = productRankingReadService.getRank(processingDate = null, productId = id)
+        return productInfo.copy(rank = rank)
     }
 
     /**

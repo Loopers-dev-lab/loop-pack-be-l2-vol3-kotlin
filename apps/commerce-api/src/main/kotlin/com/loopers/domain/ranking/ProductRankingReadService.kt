@@ -1,0 +1,27 @@
+package com.loopers.domain.ranking
+
+import org.springframework.stereotype.Service
+import java.time.LocalDate
+import java.time.ZoneId
+
+@Service
+class ProductRankingReadService(
+    private val productRankingRepository: ProductRankingRepository,
+) {
+
+    companion object {
+        private val KST_ZONE_ID: ZoneId = ZoneId.of("Asia/Seoul")
+    }
+
+    fun getRank(processingDate: LocalDate?, productId: Long): Long? {
+        return productRankingRepository.getRank(resolveProcessingDate(processingDate), productId)
+    }
+
+    fun getRankedProductsWithCount(processingDate: LocalDate?, page: Int, size: Int): RankedProductsWithCount {
+        return productRankingRepository.getRankedProductsWithCount(resolveProcessingDate(processingDate), page, size)
+    }
+
+    private fun resolveProcessingDate(processingDate: LocalDate?): LocalDate {
+        return processingDate ?: LocalDate.now(KST_ZONE_ID)
+    }
+}
