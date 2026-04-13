@@ -3,6 +3,8 @@ package com.loopers.application.metrics
 import com.loopers.domain.event.model.EventHandled
 import com.loopers.domain.event.repository.EventHandledRepository
 import com.loopers.domain.metrics.model.ProductMetrics
+import com.loopers.domain.metrics.model.ProductMetricsDaily
+import com.loopers.domain.metrics.repository.ProductMetricsDailyRepository
 import com.loopers.domain.metrics.repository.ProductMetricsRepository
 import com.loopers.domain.ranking.RankingWeight
 import com.loopers.domain.ranking.model.FailedScoreUpdate
@@ -19,6 +21,7 @@ import java.time.LocalDate
 @Component
 class UpdateProductMetricsUseCase(
     private val productMetricsRepository: ProductMetricsRepository,
+    private val productMetricsDailyRepository: ProductMetricsDailyRepository,
     private val eventHandledRepository: EventHandledRepository,
     private val rankingScoreRepository: RankingScoreRepository,
     private val failedScoreUpdateRepository: FailedScoreUpdateRepository,
@@ -35,18 +38,23 @@ class UpdateProductMetricsUseCase(
         }
 
         val metrics = findOrCreate(productId)
+        val today = LocalDate.now(clock)
+        val daily = findOrCreateDaily(today, productId)
 
         val rankingScore = when (eventType) {
             PRODUCT_VIEWED -> {
                 metrics.incrementViewCount()
+                daily.incrementViewCount()
                 RankingWeight.VIEW
             }
             LIKE_ADDED -> {
                 metrics.incrementLikeCount()
+                daily.incrementLikeCount()
                 RankingWeight.LIKE
             }
             LIKE_REMOVED -> {
                 metrics.decrementLikeCount()
+                daily.decrementLikeCount()
                 RankingWeight.LIKE * -1
             }
             else -> {
@@ -57,10 +65,11 @@ class UpdateProductMetricsUseCase(
         }
 
         productMetricsRepository.save(metrics)
+        productMetricsDailyRepository.save(daily)
         eventHandledRepository.save(EventHandled(eventId = eventId))
 
         if (rankingScore != 0.0) {
-            val rankingDate = LocalDate.now(clock)
+            val rankingDate = today
             val failedRecord = failedScoreUpdateRepository.save(
                 FailedScoreUpdate(eventId = eventId, productId = productId, score = rankingScore, rankingDate = rankingDate),
             )
@@ -82,13 +91,17 @@ class UpdateProductMetricsUseCase(
         }
 
         val metrics = findOrCreate(productId)
+        val today = LocalDate.now(clock)
+        val daily = findOrCreateDaily(today, productId)
         metrics.incrementSalesCount(quantity)
+        daily.incrementSalesCount(quantity)
 
         val score = RankingWeight.ORDER * quantity
         productMetricsRepository.save(metrics)
+        productMetricsDailyRepository.save(daily)
         eventHandledRepository.save(EventHandled(eventId = eventId))
 
-        val rankingDate = LocalDate.now(clock)
+        val rankingDate = today
         val failedRecord = failedScoreUpdateRepository.save(
             FailedScoreUpdate(eventId = eventId, productId = productId, score = score, rankingDate = rankingDate),
         )
@@ -147,6 +160,11 @@ class UpdateProductMetricsUseCase(
     private fun findOrCreate(productId: Long): ProductMetrics {
         return productMetricsRepository.findByProductId(productId)
             ?: ProductMetrics(productId = productId)
+    }
+
+    private fun findOrCreateDaily(date: LocalDate, productId: Long): ProductMetricsDaily {
+        return productMetricsDailyRepository.findByDateAndProductId(date, productId)
+            ?: ProductMetricsDaily(productId = productId, metricDate = date)
     }
 
     companion object {

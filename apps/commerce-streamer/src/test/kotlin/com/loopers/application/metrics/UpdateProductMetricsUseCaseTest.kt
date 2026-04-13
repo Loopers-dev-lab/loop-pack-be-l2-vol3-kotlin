@@ -2,6 +2,7 @@ package com.loopers.application.metrics
 
 import com.loopers.domain.event.FakeEventHandledRepository
 import com.loopers.domain.event.model.EventHandled
+import com.loopers.domain.metrics.FakeProductMetricsDailyRepository
 import com.loopers.domain.metrics.FakeProductMetricsRepository
 import com.loopers.domain.metrics.model.ProductMetrics
 import com.loopers.domain.ranking.FakeFailedScoreUpdateRepository
@@ -22,6 +23,7 @@ import java.time.ZoneId
 class UpdateProductMetricsUseCaseTest {
 
     private lateinit var productMetricsRepository: FakeProductMetricsRepository
+    private lateinit var productMetricsDailyRepository: FakeProductMetricsDailyRepository
     private lateinit var eventHandledRepository: FakeEventHandledRepository
     private lateinit var rankingScoreRepository: FakeRankingScoreRepository
     private lateinit var failedScoreUpdateRepository: FakeFailedScoreUpdateRepository
@@ -36,11 +38,13 @@ class UpdateProductMetricsUseCaseTest {
     @BeforeEach
     fun setUp() {
         productMetricsRepository = FakeProductMetricsRepository()
+        productMetricsDailyRepository = FakeProductMetricsDailyRepository()
         eventHandledRepository = FakeEventHandledRepository()
         rankingScoreRepository = FakeRankingScoreRepository()
         failedScoreUpdateRepository = FakeFailedScoreUpdateRepository()
         useCase = UpdateProductMetricsUseCase(
             productMetricsRepository,
+            productMetricsDailyRepository,
             eventHandledRepository,
             rankingScoreRepository,
             failedScoreUpdateRepository,
@@ -265,6 +269,78 @@ class UpdateProductMetricsUseCaseTest {
             assertThat(orderScore).isCloseTo(RankingWeight.ORDER, Offset.offset(0.001))
             assertThat(likeScore).isCloseTo(RankingWeight.LIKE * 3, Offset.offset(0.001))
             assertThat(orderScore).isGreaterThan(likeScore)
+        }
+    }
+
+    @Nested
+    @DisplayName("일간 메트릭(product_metrics_daily) 갱신 시")
+    inner class DailyMetrics {
+
+        @Test
+        fun `PRODUCT_VIEWED 이벤트 시 당일 daily viewCount가 1 증가한다`() {
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+
+            val daily = productMetricsDailyRepository.findByDateAndProductId(fixedDate, 1L)
+            assertThat(daily?.viewCount).isEqualTo(1)
+        }
+
+        @Test
+        fun `같은 eventId로 두 번 호출되면 daily도 증가하지 않는다`() {
+            eventHandledRepository.save(com.loopers.domain.event.model.EventHandled(eventId = "evt-1"))
+
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+
+            val daily = productMetricsDailyRepository.findByDateAndProductId(fixedDate, 1L)
+            assertThat(daily).isNull()
+        }
+
+        @Test
+        fun `LIKE_ADDED 이벤트 시 daily likeCount가 1 증가한다`() {
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.LIKE_ADDED, 1L)
+
+            val daily = productMetricsDailyRepository.findByDateAndProductId(fixedDate, 1L)
+            assertThat(daily?.likeCount).isEqualTo(1)
+        }
+
+        @Test
+        fun `LIKE_REMOVED 이벤트 시 daily likeCount가 0 미만으로 내려가지 않는다`() {
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.LIKE_REMOVED, 1L)
+
+            val daily = productMetricsDailyRepository.findByDateAndProductId(fixedDate, 1L)
+            assertThat(daily?.likeCount).isEqualTo(0)
+        }
+
+        @Test
+        fun `PAYMENT_COMPLETED 이벤트 시 daily salesCount가 quantity만큼 증가한다`() {
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 3L)
+
+            val daily = productMetricsDailyRepository.findByDateAndProductId(fixedDate, 1L)
+            assertThat(daily?.salesCount).isEqualTo(3)
+        }
+
+        @Test
+        fun `날짜가 바뀌면 새 행이 생기고 전일 행은 변경되지 않는다`() {
+            val day1 = LocalDate.of(2026, 4, 7)
+            val day2 = LocalDate.of(2026, 4, 8)
+
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+
+            val day2Clock = Clock.fixed(day2.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(), ZoneId.of("Asia/Seoul"))
+            val day2UseCase = UpdateProductMetricsUseCase(
+                productMetricsRepository,
+                productMetricsDailyRepository,
+                eventHandledRepository,
+                rankingScoreRepository,
+                failedScoreUpdateRepository,
+                day2Clock,
+            )
+            day2UseCase.handleCatalogEvent("evt-2", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+
+            val day1Daily = productMetricsDailyRepository.findByDateAndProductId(day1, 1L)
+            assertThat(day1Daily?.viewCount).isEqualTo(1)
+
+            val day2Daily = productMetricsDailyRepository.findByDateAndProductId(day2, 1L)
+            assertThat(day2Daily?.viewCount).isEqualTo(1)
         }
     }
 
