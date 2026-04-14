@@ -17,12 +17,15 @@ class MonthlyRankingQueryDao(
 ) {
     fun selectTop100Aggregate(startDate: LocalDate, endDate: LocalDate): List<MonthlyRankRow> {
         val daily = QProductMetricsDailyBatchEntity.productMetricsDailyBatchEntity
-        val scoreExpr = daily.viewCount.sum().doubleValue().multiply(0.1)
-            .add(daily.likeCount.sum().doubleValue().multiply(0.2))
-            .add(daily.salesCount.sum().doubleValue().multiply(0.7))
+        val viewSum = daily.viewCount.sum()
+        val likeSum = daily.likeCount.sum()
+        val salesSum = daily.salesCount.sum()
+        val scoreExpr = viewSum.doubleValue().multiply(0.1)
+            .add(likeSum.doubleValue().multiply(0.2))
+            .add(salesSum.doubleValue().multiply(0.7))
 
         return queryFactory
-            .select(daily.productId, daily.viewCount.sum(), daily.likeCount.sum(), daily.salesCount.sum(), scoreExpr)
+            .select(daily.productId, viewSum, likeSum, salesSum, scoreExpr)
             .from(daily)
             .where(daily.metricDate.between(startDate, endDate))
             .groupBy(daily.productId)
@@ -33,9 +36,9 @@ class MonthlyRankingQueryDao(
             .map { tuple ->
                 MonthlyRankRow(
                     productId = tuple.get(daily.productId)!!,
-                    totalViewCount = tuple.get(daily.viewCount.sum())!!,
-                    totalLikeCount = tuple.get(daily.likeCount.sum())!!,
-                    totalSalesCount = tuple.get(daily.salesCount.sum())!!,
+                    totalViewCount = tuple.get(viewSum)!!,
+                    totalLikeCount = tuple.get(likeSum)!!,
+                    totalSalesCount = tuple.get(salesSum)!!,
                     score = tuple.get(scoreExpr)!!,
                 )
             }
