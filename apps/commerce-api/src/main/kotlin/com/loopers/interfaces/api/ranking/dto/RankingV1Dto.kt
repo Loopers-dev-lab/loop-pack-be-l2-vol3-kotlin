@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.ranking.dto
 import com.loopers.application.ranking.RankingInfo
 import com.loopers.application.ranking.RankingPageResult
 import java.math.BigDecimal
+import java.util.Locale
 
 class RankingV1Dto {
 
@@ -34,7 +35,7 @@ class RankingV1Dto {
     ) {
         companion object {
             fun from(result: RankingPageResult): RankingPageResponse = RankingPageResponse(
-                period = result.period.name.lowercase(),
+                period = result.period.name.lowercase(Locale.ROOT),
                 periodKey = result.periodKey,
                 page = result.page.page,
                 size = result.page.size,
