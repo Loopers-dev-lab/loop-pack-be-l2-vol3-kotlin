@@ -10,12 +10,10 @@ import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.launch.support.RunIdIncrementer
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
 
-@ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = WeeklyRankingJobConfig.JOB_NAME)
 @Configuration
 class WeeklyRankingJobConfig(
     private val jobRepository: JobRepository,

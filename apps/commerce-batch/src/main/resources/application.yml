@@ -14,6 +14,7 @@ spring:
   batch:
     job:
       name: ${job.name:NONE}
+      enabled: false
     jdbc:
       initialize-schema: never
 
@@ -30,6 +31,16 @@ spring:
   batch:
     jdbc:
       initialize-schema: always
+
+---
+spring:
+  config:
+    activate:
+      on-profile: scheduler
+  main:
+    web-application-type: servlet
+server:
+  port: 8082
 
 ---
 spring:
