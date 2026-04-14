@@ -7,6 +7,7 @@ import com.loopers.domain.catalog.ProductService
 import com.loopers.domain.common.event.ProductViewedEvent
 import com.loopers.domain.user.UserService
 import com.loopers.infrastructure.catalog.ProductMetricsRedisRepository
+import com.loopers.infrastructure.catalog.ProductRankRedisReader
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
 import org.slf4j.LoggerFactory
@@ -14,6 +15,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.util.UUID
 
@@ -23,6 +25,7 @@ class UserGetProductUseCase(
     private val brandService: BrandService,
     private val userService: UserService,
     private val productMetricsRedisRepository: ProductMetricsRedisRepository,
+    private val productRankRedisReader: ProductRankRedisReader,
     private val eventPublisher: ApplicationEventPublisher,
     private val kafkaTemplate: KafkaTemplate<Any, Any>,
     private val transactionTemplate: TransactionTemplate,
@@ -55,6 +58,9 @@ class UserGetProductUseCase(
         // 트랜잭션 밖 — Redis, Kafka
         productMetricsRedisRepository.incrementViewCount(criteria.productId)
 
+        // 오늘 ZSET에서 ZREVRANK로 순위 조회 (0-based, 랭킹 미포함 시 null)
+        val rank = productRankRedisReader.getRank(criteria.productId, LocalDate.now())
+
         kafkaTemplate.send(TOPIC_PRODUCT_VIEWED, criteria.productId.toString(), ProductViewedMessage(
             eventId = UUID.randomUUID().toString(),
             userId = userId,
@@ -66,6 +72,6 @@ class UserGetProductUseCase(
             }
         }
 
-        return UserGetProductResult.from(productInfo, brandName = brandInfo?.name ?: "")
+        return UserGetProductResult.from(productInfo, brandName = brandInfo?.name ?: "", rank = rank)
     }
 }

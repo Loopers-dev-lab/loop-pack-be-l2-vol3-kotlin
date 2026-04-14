@@ -9,4 +9,5 @@ interface BrandJpaRepository : JpaRepository<BrandModel, Long> {
     fun findByIdAndDeletedAtIsNull(id: Long): BrandModel?
     fun findByNameAndDeletedAtIsNull(name: String): BrandModel?
     fun findAllByDeletedAtIsNull(pageable: Pageable): Slice<BrandModel>
+    fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<BrandModel>
 }

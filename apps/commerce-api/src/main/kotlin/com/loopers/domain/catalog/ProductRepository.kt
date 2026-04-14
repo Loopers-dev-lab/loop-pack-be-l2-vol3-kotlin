@@ -6,6 +6,7 @@ import org.springframework.data.domain.Slice
 interface ProductRepository {
     fun findById(id: Long): ProductModel?
     fun findByIdWithLock(id: Long): ProductModel?
+    fun findAllByIdIn(ids: List<Long>): List<ProductModel>
     fun findAll(pageable: Pageable): Slice<ProductModel>
     fun findAllByBrandId(brandId: Long): List<ProductModel>
     fun findAllByBrandId(brandId: Long, pageable: Pageable): Slice<ProductModel>

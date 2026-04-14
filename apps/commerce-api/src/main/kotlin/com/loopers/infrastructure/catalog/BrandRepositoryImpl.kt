@@ -18,6 +18,11 @@ class BrandRepositoryImpl(
         return brandJpaRepository.findByNameAndDeletedAtIsNull(name)
     }
 
+    override fun findAllByIdIn(ids: List<Long>): List<BrandModel> {
+        if (ids.isEmpty()) return emptyList()
+        return brandJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
+    }
+
     override fun findAll(pageable: Pageable): Slice<BrandModel> {
         return brandJpaRepository.findAllByDeletedAtIsNull(pageable)
     }

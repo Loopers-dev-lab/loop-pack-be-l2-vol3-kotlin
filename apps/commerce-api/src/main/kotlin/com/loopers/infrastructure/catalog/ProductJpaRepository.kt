@@ -14,6 +14,7 @@ interface ProductJpaRepository : JpaRepository<ProductModel, Long> {
     fun findAllByDeletedAtIsNull(pageable: Pageable): Slice<ProductModel>
     fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long): List<ProductModel>
     fun findAllByBrandIdAndDeletedAtIsNull(brandId: Long, pageable: Pageable): Slice<ProductModel>
+    fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<ProductModel>
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM ProductModel p WHERE p.id = :id AND p.deletedAt IS NULL")

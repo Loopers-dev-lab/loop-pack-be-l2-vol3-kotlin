@@ -38,6 +38,12 @@ class BrandService(
     }
 
     @Transactional(readOnly = true)
+    fun getBrandsByIds(ids: List<Long>): List<BrandInfo> {
+        if (ids.isEmpty()) return emptyList()
+        return brandRepository.findAllByIdIn(ids).map { BrandInfo.from(it) }
+    }
+
+    @Transactional(readOnly = true)
     fun getBrands(pageable: Pageable): Slice<BrandInfo> {
         return brandRepository.findAll(pageable).map { BrandInfo.from(it) }
     }

@@ -3,6 +3,7 @@ package com.loopers.interfaces.api
 import com.loopers.application.catalog.AdminRegisterProductUseCase
 import com.loopers.application.catalog.RegisterProductCriteria
 import com.loopers.application.catalog.RegisterProductResult
+import com.loopers.config.redis.RedisConfig
 import com.loopers.domain.catalog.BrandInfo
 import com.loopers.domain.catalog.BrandService
 import com.loopers.domain.catalog.RegisterBrandCommand
@@ -17,16 +18,20 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProductV1ApiE2ETest @Autowired constructor(
@@ -35,9 +40,12 @@ class ProductV1ApiE2ETest @Autowired constructor(
     private val adminRegisterProductUseCase: AdminRegisterProductUseCase,
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
+    @param:Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) private val redisTemplate: RedisTemplate<String, String>,
 ) {
     companion object {
         private const val ENDPOINT_BASE = "/api/v1/products"
+        private const val RANK_KEY_PREFIX = "rank"
+        private val DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd")
 
         private const val DEFAULT_BRAND_NAME = "나이키"
         private const val DEFAULT_PRODUCT_NAME = "에어맥스 90"
@@ -54,6 +62,12 @@ class ProductV1ApiE2ETest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisTemplate.keys("$RANK_KEY_PREFIX:*")?.forEach { redisTemplate.delete(it) }
+    }
+
+    private fun seedRankAll(productId: Long, score: Double, date: LocalDate = LocalDate.now()) {
+        val key = "$RANK_KEY_PREFIX:all:${date.format(DATE_FORMAT)}"
+        redisTemplate.opsForZSet().incrementScore(key, productId.toString(), score)
     }
 
     private fun registerUser() {
@@ -123,6 +137,60 @@ class ProductV1ApiE2ETest @Autowired constructor(
                 { assertThat(response.body?.data?.name).isEqualTo(DEFAULT_PRODUCT_NAME) },
                 { assertThat(response.body?.data?.brandName).isEqualTo(DEFAULT_BRAND_NAME) },
                 { assertThat(response.body?.data?.price).isEqualByComparingTo(DEFAULT_PRICE) },
+            )
+        }
+
+        @DisplayName("랭킹에 있는 상품이면, rank 필드에 0-based 순위가 반환된다.")
+        @Test
+        fun returnsRankWhenProductIsInRanking() {
+            // arrange
+            registerUser()
+            val brand = registerBrand()
+            val productA = registerProduct(brandId = brand.id, name = "1등 상품")
+            val productB = registerProduct(brandId = brand.id, name = "2등 상품")
+            // 오늘 ZSET에 적재 — A=10.0, B=5.0 이므로 A가 0번, B가 1번
+            seedRankAll(productA.id, score = 10.0)
+            seedRankAll(productB.id, score = 5.0)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductDetailResponse>>() {}
+            val responseB = testRestTemplate.exchange(
+                "$ENDPOINT_BASE/${productB.id}",
+                HttpMethod.GET,
+                HttpEntity(null, createAuthHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(responseB.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(responseB.body?.data?.id).isEqualTo(productB.id) },
+                { assertThat(responseB.body?.data?.rank).isEqualTo(1L) },
+            )
+        }
+
+        @DisplayName("랭킹에 없는 상품이면, rank 필드는 null로 반환된다.")
+        @Test
+        fun returnsNullRankWhenProductIsNotInRanking() {
+            // arrange — ZSET에 적재하지 않음
+            registerUser()
+            val brand = registerBrand()
+            val product = registerProduct(brandId = brand.id)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.ProductDetailResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "$ENDPOINT_BASE/${product.id}",
+                HttpMethod.GET,
+                HttpEntity(null, createAuthHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(response.body?.data?.id).isEqualTo(product.id) },
+                { assertThat(response.body?.data?.rank).isNull() },
             )
         }
 

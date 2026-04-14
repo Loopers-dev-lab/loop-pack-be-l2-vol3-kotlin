@@ -10,15 +10,17 @@ data class UserGetProductResult(
     val brandName: String,
     val name: String,
     val price: BigDecimal,
+    val rank: Long?,
 ) {
     companion object {
-        fun from(info: ProductInfo, brandName: String): UserGetProductResult {
+        fun from(info: ProductInfo, brandName: String, rank: Long? = null): UserGetProductResult {
             return UserGetProductResult(
                 id = info.id,
                 brandId = info.brandId,
                 brandName = brandName,
                 name = info.name,
                 price = info.price,
+                rank = rank,
             )
         }
     }
