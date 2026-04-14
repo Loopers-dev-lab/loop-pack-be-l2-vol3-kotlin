@@ -1,6 +1,7 @@
 package com.loopers.application
 
 import com.loopers.domain.metrics.ProductMetricsRepository
+import com.loopers.domain.ranking.RankingService
 import com.loopers.event.EventEnvelope
 import com.loopers.infrastructure.event.EventHandledJpaRepository
 import com.loopers.infrastructure.event.EventLogJpaRepository
@@ -12,10 +13,13 @@ import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Instant
+import java.time.LocalDate
 
 @ExtendWith(MockitoExtension::class)
 @DisplayName("CatalogEventProcessor")
@@ -29,6 +33,9 @@ class CatalogEventProcessorTest {
 
     @Mock
     private lateinit var productMetricsRepository: ProductMetricsRepository
+
+    @Mock
+    private lateinit var rankingService: RankingService
 
     @InjectMocks
     private lateinit var processor: CatalogEventProcessor
@@ -98,6 +105,109 @@ class CatalogEventProcessorTest {
 
             // assert
             verify(productMetricsRepository).incrementLikeCount(100L, 15L)
+        }
+    }
+
+    @DisplayName("랭킹 업데이트 실패 시,")
+    @Nested
+    inner class RankingFailure {
+
+        @DisplayName("LIKED 이벤트에서 Redis 예외가 발생해도 likeCount 증가와 이벤트 로그 저장은 정상 수행된다.")
+        @Test
+        fun continuesOnLikeRankingFailure() {
+            // arrange
+            val envelope = createEnvelope(eventType = "LIKED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForLike(any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productMetricsRepository).incrementLikeCount(100L, 1L)
+            verify(eventLogRepository).save(any())
+        }
+
+        @DisplayName("VIEWED 이벤트에서 Redis 예외가 발생해도 viewCount 증가는 정상 수행된다.")
+        @Test
+        fun continuesOnViewRankingFailure() {
+            // arrange
+            val envelope = createEnvelope(eventType = "VIEWED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForView(any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productMetricsRepository).incrementViewCount(100L, 1L)
+            verify(eventLogRepository).save(any())
+        }
+
+        @DisplayName("UNLIKED 이벤트에서 Redis 예외가 발생해도 likeCount 차감은 정상 수행된다.")
+        @Test
+        fun continuesOnUnlikeRankingFailure() {
+            // arrange
+            val envelope = createEnvelope(eventType = "UNLIKED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForUnlike(any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productMetricsRepository).decrementLikeCount(100L, 1L)
+            verify(eventLogRepository).save(any())
+        }
+    }
+
+    @DisplayName("랭킹 점수 반영 시,")
+    @Nested
+    inner class RankingUpdate {
+
+        @DisplayName("VIEWED 이벤트이면 RankingService.updateScoreForView()를 호출한다.")
+        @Test
+        fun callsUpdateScoreForView() {
+            // arrange
+            val envelope = createEnvelope(eventType = "VIEWED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(rankingService).updateScoreForView(any<LocalDate>(), eq(100L))
+        }
+
+        @DisplayName("LIKED 이벤트이면 RankingService.updateScoreForLike()를 호출한다.")
+        @Test
+        fun callsUpdateScoreForLike() {
+            // arrange
+            val envelope = createEnvelope(eventType = "LIKED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(rankingService).updateScoreForLike(any<LocalDate>(), eq(100L))
+        }
+
+        @DisplayName("UNLIKED 이벤트이면 RankingService.updateScoreForUnlike()를 호출한다.")
+        @Test
+        fun callsUpdateScoreForUnlike() {
+            // arrange
+            val envelope = createEnvelope(eventType = "UNLIKED", version = 1L)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(rankingService).updateScoreForUnlike(any<LocalDate>(), eq(100L))
         }
     }
 }

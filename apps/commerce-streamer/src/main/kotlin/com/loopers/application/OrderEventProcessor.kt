@@ -3,6 +3,7 @@ package com.loopers.application
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.event.EventLog
 import com.loopers.domain.metrics.ProductMetricsRepository
+import com.loopers.domain.ranking.RankingService
 import com.loopers.event.AggregateTypes
 import com.loopers.event.EventEnvelope
 import com.loopers.event.EventTypes
@@ -14,6 +15,7 @@ import com.loopers.infrastructure.product.ProductStockJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Component
 class OrderEventProcessor(
@@ -23,6 +25,7 @@ class OrderEventProcessor(
     private val productStockRepository: ProductStockJpaRepository,
     private val issuedCouponRepository: IssuedCouponJpaRepository,
     private val objectMapper: ObjectMapper,
+    private val rankingService: RankingService,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -40,9 +43,15 @@ class OrderEventProcessor(
             EventTypes.ORDER_COMPLETED -> {
                 val payload = objectMapper.readValue(envelope.payload, OrderCompletedPayload::class.java)
 
+                val today = LocalDate.now()
                 payload.items.forEach { item ->
                     productStockRepository.decrementStock(item.productId, item.quantity)
                     productMetricsRepository.incrementSalesCount(item.productId, item.quantity)
+                    runCatching {
+                        rankingService.updateScoreForOrder(today, item.productId, item.unitPrice, item.quantity)
+                    }.onFailure {
+                        log.warn("[Order] 랭킹 점수 업데이트 실패: productId={}", item.productId, it)
+                    }
                 }
 
                 payload.couponId?.let { couponId ->

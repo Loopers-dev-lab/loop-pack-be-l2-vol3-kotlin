@@ -35,7 +35,10 @@ data class ProductDetailInfo(
     val brandId: Long,
     val brandName: String,
     val likeCount: Int,
+    val rank: Long? = null,
 ) {
+    fun withRank(rank: Long?): ProductDetailInfo = copy(rank = rank)
+
     companion object {
         fun from(product: Product, brand: Brand): ProductDetailInfo {
             return ProductDetailInfo(

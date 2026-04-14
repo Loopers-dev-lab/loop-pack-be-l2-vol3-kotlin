@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api
 
 import com.loopers.application.product.ProductCacheManager
+import com.loopers.config.redis.RedisConfig
+import com.loopers.config.redis.RedisKeys
 import com.loopers.domain.brand.Brand
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.domain.brand.BrandRepository
@@ -11,6 +13,7 @@ import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
 import com.loopers.interfaces.api.product.ProductDto
 import com.loopers.utils.DatabaseCleanUp
+import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -18,20 +21,27 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.core.ParameterizedTypeReference
+import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ProductApiE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
+    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
+    private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val redisCleanUp: RedisCleanUp,
     private val productCacheManager: ProductCacheManager,
 ) {
     companion object {
@@ -42,11 +52,16 @@ class ProductApiE2ETest @Autowired constructor(
             object : ParameterizedTypeReference<ApiResponse<ProductDto.PageResponse>>() {}
         private val DETAIL_RESPONSE_TYPE =
             object : ParameterizedTypeReference<ApiResponse<ProductDto.DetailResponse>>() {}
+        private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
     }
+
+    private val today = LocalDate.now().format(DATE_FORMATTER)
+    private val rankingKey = RedisKeys.rankingKey(today)
 
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        redisCleanUp.truncateAll()
         productCacheManager.evictAllCaches()
     }
 
@@ -373,6 +388,7 @@ class ProductApiE2ETest @Autowired constructor(
                 { assertThat(data?.brandId).isEqualTo(brand.id) },
                 { assertThat(data?.brandName).isEqualTo("나이키") },
                 { assertThat(data?.likeCount).isEqualTo(10) },
+                { assertThat(data?.rank).isNull() },
             )
         }
 
@@ -419,6 +435,38 @@ class ProductApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND) },
                 { assertThat(response.body?.meta?.result).isEqualTo(ApiResponse.Metadata.Result.FAIL) },
+            )
+        }
+
+        @DisplayName("랭킹에 진입한 상품을 조회하면, 1-based 순위를 반환한다.")
+        @Test
+        fun returnsRank_whenProductIsRanked() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "나이키", description = "스포츠 브랜드"))
+            val product = productRepository.save(
+                Product(name = "에어맥스", description = "러닝화", price = Money.of(159000L), likes = LikeCount.of(10), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+            val otherProduct = productRepository.save(
+                Product(name = "조던", description = "농구화", price = Money.of(239000L), likes = LikeCount.of(50), stockQuantity = StockQuantity.of(30), brandId = brand.id),
+            )
+            // 조던(100점) > 에어맥스(50점) → 에어맥스는 2위
+            redisTemplate.opsForZSet().add(rankingKey, otherProduct.id.toString(), 100.0)
+            redisTemplate.opsForZSet().add(rankingKey, product.id.toString(), 50.0)
+
+            // act
+            val response = testRestTemplate.exchange(
+                PRODUCT_DETAIL_ENDPOINT,
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                DETAIL_RESPONSE_TYPE,
+                product.id,
+            )
+
+            // assert
+            val data = response.body?.data
+            assertAll(
+                { assertThat(response.statusCode.is2xxSuccessful).isTrue() },
+                { assertThat(data?.rank).isEqualTo(2L) },
             )
         }
 

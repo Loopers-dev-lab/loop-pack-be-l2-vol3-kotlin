@@ -28,6 +28,7 @@ class AuthenticationFilter(
             "/api/v1/users/signup",
             "/api/v1/brands",
             "/api/v1/products",
+            "/api/v1/rankings",
             "/api/v1/payments/callback",
             "/api/v1/examples",
             "/api-admin/",

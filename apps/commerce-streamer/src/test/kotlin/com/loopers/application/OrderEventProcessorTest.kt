@@ -2,6 +2,7 @@ package com.loopers.application
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.loopers.domain.metrics.ProductMetricsRepository
+import com.loopers.domain.ranking.RankingService
 import com.loopers.event.EventEnvelope
 import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository
 import com.loopers.infrastructure.event.EventHandledJpaRepository
@@ -14,11 +15,13 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Instant
+import java.time.LocalDate
 
 @ExtendWith(MockitoExtension::class)
 @DisplayName("OrderEventProcessor")
@@ -39,6 +42,9 @@ class OrderEventProcessorTest {
     @Mock
     private lateinit var issuedCouponRepository: IssuedCouponJpaRepository
 
+    @Mock
+    private lateinit var rankingService: RankingService
+
     private val objectMapper = jacksonObjectMapper()
 
     private val processor by lazy {
@@ -49,6 +55,7 @@ class OrderEventProcessorTest {
             productStockRepository,
             issuedCouponRepository,
             objectMapper,
+            rankingService,
         )
     }
 
@@ -57,7 +64,7 @@ class OrderEventProcessorTest {
         eventType: String = "ORDER_COMPLETED",
         aggregateId: String = "1",
         version: Long = 1L,
-        payload: String = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"테스트 상품"}],"couponId":null,"totalAmount":20000,"paymentAmount":20000}""",
+        payload: String = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"테스트 상품","unitPrice":10000}],"couponId":null,"totalAmount":20000,"paymentAmount":20000}""",
     ) = EventEnvelope(
         eventId = eventId,
         eventType = eventType,
@@ -96,7 +103,7 @@ class OrderEventProcessorTest {
         @Test
         fun incrementsSalesCountForEachItem() {
             // arrange
-            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A"},{"productId":200,"quantity":3,"productName":"상품B"}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
+            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A","unitPrice":10000},{"productId":200,"quantity":3,"productName":"상품B","unitPrice":10000}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
             val envelope = createEnvelope(eventId = "evt-order-1", payload = payload)
             whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
 
@@ -112,7 +119,7 @@ class OrderEventProcessorTest {
         @Test
         fun decrementsStockForEachItem() {
             // arrange
-            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A"},{"productId":200,"quantity":3,"productName":"상품B"}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
+            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A","unitPrice":10000},{"productId":200,"quantity":3,"productName":"상품B","unitPrice":10000}],"couponId":null,"totalAmount":50000,"paymentAmount":50000}"""
             val envelope = createEnvelope(eventId = "evt-stock-1", payload = payload)
             whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
 
@@ -128,7 +135,7 @@ class OrderEventProcessorTest {
         @Test
         fun marksCouponAsUsed_whenCouponIncluded() {
             // arrange
-            val payload = """{"orderId":1,"userId":42,"items":[{"productId":100,"quantity":1,"productName":"상품A"}],"couponId":5,"totalAmount":10000,"paymentAmount":5000}"""
+            val payload = """{"orderId":1,"userId":42,"items":[{"productId":100,"quantity":1,"productName":"상품A","unitPrice":10000}],"couponId":5,"totalAmount":10000,"paymentAmount":5000}"""
             val envelope = createEnvelope(eventId = "evt-coupon-1", payload = payload)
             whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
 
@@ -182,5 +189,66 @@ class OrderEventProcessorTest {
         // assert
         verify(productMetricsRepository, never()).incrementSalesCount(any(), any())
         verify(productStockRepository, never()).decrementStock(any(), any())
+    }
+
+    @DisplayName("랭킹 업데이트 실패 시,")
+    @Nested
+    inner class RankingFailure {
+
+        @DisplayName("Redis 예외가 발생해도 재고 차감과 salesCount 증가는 정상 처리된다.")
+        @Test
+        fun continuesProcessingWhenRankingFails() {
+            // arrange
+            val envelope = createEnvelope(eventId = "evt-redis-fail")
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForOrder(any(), any(), any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(productStockRepository).decrementStock(100L, 2)
+            verify(productMetricsRepository).incrementSalesCount(100L, 2)
+            verify(eventLogRepository).save(any())
+        }
+
+        @DisplayName("Redis 예외가 발생해도 쿠폰 사용 처리는 정상 수행된다.")
+        @Test
+        fun couponStillProcessedWhenRankingFails() {
+            // arrange
+            val payload = """{"orderId":1,"userId":42,"items":[{"productId":100,"quantity":1,"productName":"상품A","unitPrice":10000}],"couponId":5,"totalAmount":10000,"paymentAmount":5000}"""
+            val envelope = createEnvelope(eventId = "evt-redis-coupon", payload = payload)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+            doThrow(RuntimeException("Redis connection failure"))
+                .whenever(rankingService).updateScoreForOrder(any(), any(), any(), any())
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(issuedCouponRepository).markUsed(eq(5L), eq(42L))
+        }
+    }
+
+    @DisplayName("랭킹 점수 반영 시,")
+    @Nested
+    inner class RankingUpdate {
+
+        @DisplayName("ORDER_COMPLETED 이벤트이면 각 상품별로 RankingService.updateScoreForOrder()를 호출한다.")
+        @Test
+        fun callsUpdateScoreForOrder() {
+            // arrange
+            val payload = """{"orderId":1,"userId":1,"items":[{"productId":100,"quantity":2,"productName":"상품A","unitPrice":10000},{"productId":200,"quantity":3,"productName":"상품B","unitPrice":20000}],"couponId":null,"totalAmount":80000,"paymentAmount":80000}"""
+            val envelope = createEnvelope(eventId = "evt-rank-1", payload = payload)
+            whenever(eventHandledRepository.insertIgnore(any())).thenReturn(1)
+
+            // act
+            processor.process(envelope)
+
+            // assert
+            verify(rankingService).updateScoreForOrder(any<LocalDate>(), eq(100L), eq(10000L), eq(2))
+            verify(rankingService).updateScoreForOrder(any<LocalDate>(), eq(200L), eq(20000L), eq(3))
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.loopers.application
 
 import com.loopers.domain.event.EventLog
 import com.loopers.domain.metrics.ProductMetricsRepository
+import com.loopers.domain.ranking.RankingService
 import com.loopers.event.AggregateTypes
 import com.loopers.event.EventEnvelope
 import com.loopers.event.EventTypes
@@ -10,12 +11,14 @@ import com.loopers.infrastructure.event.EventLogJpaRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 @Component
 class CatalogEventProcessor(
     private val eventHandledRepository: EventHandledJpaRepository,
     private val eventLogRepository: EventLogJpaRepository,
     private val productMetricsRepository: ProductMetricsRepository,
+    private val rankingService: RankingService,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -42,10 +45,32 @@ class CatalogEventProcessor(
         }
 
         // 3. 비즈니스 처리
+        val today = LocalDate.now()
         when (envelope.eventType) {
-            EventTypes.LIKED -> productMetricsRepository.incrementLikeCount(productId, envelope.version)
-            EventTypes.UNLIKED -> productMetricsRepository.decrementLikeCount(productId, envelope.version)
-            EventTypes.VIEWED -> productMetricsRepository.incrementViewCount(productId, envelope.version)
+            EventTypes.LIKED -> {
+                productMetricsRepository.incrementLikeCount(productId, envelope.version)
+                runCatching {
+                    rankingService.updateScoreForLike(today, productId)
+                }.onFailure {
+                    log.warn("[Catalog] 랭킹 점수 업데이트 실패: productId={}, eventType={}", productId, envelope.eventType, it)
+                }
+            }
+            EventTypes.UNLIKED -> {
+                productMetricsRepository.decrementLikeCount(productId, envelope.version)
+                runCatching {
+                    rankingService.updateScoreForUnlike(today, productId)
+                }.onFailure {
+                    log.warn("[Catalog] 랭킹 점수 업데이트 실패: productId={}, eventType={}", productId, envelope.eventType, it)
+                }
+            }
+            EventTypes.VIEWED -> {
+                productMetricsRepository.incrementViewCount(productId, envelope.version)
+                runCatching {
+                    rankingService.updateScoreForView(today, productId)
+                }.onFailure {
+                    log.warn("[Catalog] 랭킹 점수 업데이트 실패: productId={}, eventType={}", productId, envelope.eventType, it)
+                }
+            }
             else -> log.warn("[Catalog] 알 수 없는 이벤트 타입: {}", envelope.eventType)
         }
 
