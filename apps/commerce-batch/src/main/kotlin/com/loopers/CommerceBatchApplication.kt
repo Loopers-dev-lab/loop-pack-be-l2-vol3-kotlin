@@ -13,6 +13,10 @@ class CommerceBatchApplication
 
 fun main(args: Array<String>) {
     TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"))
-    val exitCode = SpringApplication.exit(runApplication<CommerceBatchApplication>(*args))
-    exitProcess(exitCode)
+    val context = runApplication<CommerceBatchApplication>(*args)
+    if ("scheduler" !in context.environment.activeProfiles) {
+        val exitCode = SpringApplication.exit(context)
+        exitProcess(exitCode)
+    }
+    // scheduler 프로파일: 웹 서버가 JVM을 alive 유지
 }

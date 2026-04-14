@@ -12,6 +12,7 @@ dependencies {
 
     // batch
     implementation("org.springframework.boot:spring-boot-starter-batch")
+    implementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.batch:spring-batch-test")
 
     // querydsl

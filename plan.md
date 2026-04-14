@@ -476,19 +476,19 @@ class WeeklyRankingTasklet(
 
 작업 체크리스트:
 
-- [ ] [RED] `baseDate`가 월 중간일 때도 해당 월 전체(1일~말일)가 윈도우가 된다
-- [ ] [RED] YearMonth 경계 케이스: 윤년 2월(2024-02-29), 31일 월(1/3/5/7/8/10/12), 30일 월(4/6/9/11), 28일 2월
-- [ ] [RED] `periodKey` 포맷은 `YearMonth.toString()` 결과와 동일 (`YYYY-MM`)
-- [ ] [RED] 월 범위로 DB-level GROUP BY가 정상 동작하고 Top 100이 적재된다
-- [ ] [RED] 재실행 시 전체 교체(멱등성)
-- [ ] [GREEN] `MonthlyWindow.from(baseDate)` 유틸 (`YearMonth.from(LocalDate).atDay(1)` / `atEndOfMonth()`)
-- [ ] [GREEN] `MonthlyRankingQueryDao` — `selectTop100Aggregate`, `deleteByPeriodKey`, `bulkInsert` (MV 테이블만
+- [x] [RED] `baseDate`가 월 중간일 때도 해당 월 전체(1일~말일)가 윈도우가 된다
+- [x] [RED] YearMonth 경계 케이스: 윤년 2월(2024-02-29), 31일 월(1/3/5/7/8/10/12), 30일 월(4/6/9/11), 28일 2월
+- [x] [RED] `periodKey` 포맷은 `YearMonth.toString()` 결과와 동일 (`YYYY-MM`)
+- [x] [RED] 월 범위로 DB-level GROUP BY가 정상 동작하고 Top 100이 적재된다
+- [x] [RED] 재실행 시 전체 교체(멱등성)
+- [x] [GREEN] `MonthlyWindow.from(baseDate)` 유틸 (`YearMonth.from(LocalDate).atDay(1)` / `atEndOfMonth()`)
+- [x] [GREEN] `MonthlyRankingQueryDao` — `selectTop100Aggregate`, `deleteByPeriodKey`, `bulkInsert` (MV 테이블만
   `mv_product_rank_monthly`로 교체)
-- [ ] [GREEN] `MonthlyRankingTasklet` — Weekly와 동일 구조, 주입받는 DAO와 Window만 교체
-- [ ] [GREEN] `MonthlyRankingJobConfig` — Job/Step 등록
-- [ ] **Rule of Three**: 공통 추출은 중복이 3번째 발생할 때 수행한다. weekly/monthly 두 개면 복제를 허용한다. R10 범위에서는 공통 Tasklet 추상화를 하지 않는다 —
+- [x] [GREEN] `MonthlyRankingTasklet` — Weekly와 동일 구조, 주입받는 DAO와 Window만 교체
+- [x] [GREEN] `MonthlyRankingJobConfig` — Job/Step 등록
+- [x] **Rule of Three**: 공통 추출은 중복이 3번째 발생할 때 수행한다. weekly/monthly 두 개면 복제를 허용한다. R10 범위에서는 공통 Tasklet 추상화를 하지 않는다 —
   Tidy First 원칙
-- [ ] 검증: `./gradlew :apps:commerce-batch:test --tests "*.MonthlyRankingTaskletTest"`
+- [x] 검증: `./gradlew :apps:commerce-batch:test --tests "*.MonthlyRankingTaskletTest"`
 
 ### Step 9 완료 조건
 
@@ -500,18 +500,19 @@ class WeeklyRankingTasklet(
 
 ## Step 10 (Nice-to-Have) — 스케줄링 & 운영 편의
 
-- [ ] `@Scheduled(cron = "0 30 1 * * *", zone = "Asia/Seoul")` 또는 K8s CronJob 문서화
-- [ ] `/internal/batch/ranking/weekly` / `/internal/batch/ranking/monthly` 수동 트리거 (내부 전용)
-- [ ] Micrometer 메트릭: 처리 건수, 소요 시간, 실패 여부
-- [ ] 스케줄링은 테스트 환경에서 **자동 비활성화** (`@ConditionalOnProperty` 또는 프로파일 가드)
+- [x] `@Scheduled(cron = "0 30 1 * * *", zone = "Asia/Seoul")` — `scheduler` 프로파일 기반 RankingJobScheduler 구현 완료 (매주 월요일/매월 1일 01:30 KST)
+  - CLI: `java -jar commerce-batch.jar --spring.profiles.active=scheduler`
+- [x] `/internal/batch/ranking/weekly` / `/internal/batch/ranking/monthly` 수동 트리거 (내부 전용) — BatchRankingController 구현 완료 (`scheduler` 프로파일 한정)
+- [x] Micrometer 메트릭: 처리 건수(`batch.step.write.count`), 소요 시간(`batch.step.duration`), 실패 여부(`batch.step.result[status=failure/success]`) — StepMonitorListener + Tasklet writeCount 연동 완료
+- [x] 스케줄링은 테스트 환경에서 **자동 비활성화** — `@Profile("scheduler")` 가드로 scheduler 프로파일 없는 테스트 환경에서 비활성화 완료
 
 ---
 
 ## 공통 검증 체크리스트 (모든 Step 완료 후 1회)
 
-- [ ] `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`
-- [ ] `./gradlew :apps:commerce-streamer:ktlintCheck && ./gradlew :apps:commerce-streamer:test`
-- [ ] `./gradlew :apps:commerce-batch:ktlintCheck && ./gradlew :apps:commerce-batch:test`
+- [x] `./gradlew :apps:commerce-api:ktlintCheck && ./gradlew :apps:commerce-api:test`
+- [x] `./gradlew :apps:commerce-streamer:ktlintCheck && ./gradlew :apps:commerce-streamer:test`
+- [x] `./gradlew :apps:commerce-batch:ktlintCheck && ./gradlew :apps:commerce-batch:test`
 - [ ] E2E: `period=daily` 요청이 R9와 동일 동작 (회귀 방지)
 - [ ] E2E: `period=weekly` + 배치 실행 후 Top 100 응답
 - [ ] E2E: `period=monthly` + 배치 실행 후 Top 100 응답
