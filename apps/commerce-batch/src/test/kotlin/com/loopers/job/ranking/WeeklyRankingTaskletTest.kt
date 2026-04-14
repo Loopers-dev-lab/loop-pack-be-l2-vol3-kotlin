@@ -14,7 +14,10 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
-import org.junit.jupiter.api.assertThrows
+import org.mockito.Mockito
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.whenever
 import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.core.Job
 import org.springframework.batch.core.JobParametersBuilder
@@ -23,6 +26,7 @@ import org.springframework.batch.test.context.SpringBatchTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.mock.mockito.SpyBean
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import org.springframework.transaction.support.TransactionTemplate
@@ -44,8 +48,9 @@ class WeeklyRankingTaskletTest @Autowired constructor(
     private val databaseCleanUp: DatabaseCleanUp,
     @PersistenceContext private val entityManager: EntityManager,
     private val transactionTemplate: TransactionTemplate,
-    private val queryDao: WeeklyRankingQueryDao,
 ) {
+    @SpyBean
+    private lateinit var spyQueryDao: WeeklyRankingQueryDao
     companion object {
         private val runIdSequence = AtomicLong(0)
     }
@@ -53,6 +58,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
     @AfterEach
     fun tearDown() {
         databaseCleanUp.truncateAllTables()
+        Mockito.reset(spyQueryDao)
     }
 
     private fun persistMetrics(
@@ -210,11 +216,11 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         )
     }
 
-    @DisplayName("DELETE 후 예외 발생 시 트랜잭션 롤백으로 기존 Top 100이 유지된다 (Tasklet 원자성)")
+    @DisplayName("DELETE 후 bulkInsert 예외 발생 시 트랜잭션 롤백으로 기존 Top 100이 유지된다 (Tasklet 원자성)")
     @Test
     fun transactionRollbackPreservesExistingTop100() {
         // arrange: 기존 MV에 1건 세팅 (periodKey "2024-W03")
-        val periodKey = "2024-W03"
+        jobLauncherTestUtils.job = job
         val metricDate = LocalDate.of(2024, 1, 15)
         transactionTemplate.execute {
             entityManager.persist(
@@ -225,26 +231,34 @@ class WeeklyRankingTaskletTest @Autowired constructor(
                     viewCount = 100L,
                     likeCount = 10L,
                     salesCount = 5L,
-                    periodKey = periodKey,
+                    periodKey = "2024-W03",
                     periodStartDate = metricDate,
                     periodEndDate = metricDate.plusDays(6),
                 ),
             )
         }
         assertThat(findAllMvWeekly()).hasSize(1)
+        persistMetrics(1L, metricDate, viewCount = 10L, likeCount = 0L, salesCount = 0L)
 
-        // act: 트랜잭션 내에서 DELETE 후 INSERT 전 예외 발생 → 롤백 유발
-        // Tasklet 실행 구조(SELECT → DELETE → INSERT)와 동일한 트랜잭션 경계 재현
-        assertThrows<RuntimeException> {
-            transactionTemplate.execute {
-                queryDao.deleteByPeriodKey(periodKey)
-                throw RuntimeException("INSERT 전 강제 실패")
-            }
-        }
+        // bulkInsert 호출 시 강제 실패 주입 (deleteByPeriodKey는 실제 실행)
+        doThrow(RuntimeException("forced failure"))
+            .whenever(spyQueryDao)
+            .bulkInsert(any(), any(), any(), any())
 
-        // assert: DELETE가 롤백되어 기존 1건이 그대로 유지
+        // act: 실제 Step 경로로 실행 — deleteByPeriodKey → bulkInsert 예외 → 트랜잭션 롤백
+        val jobExecution = jobLauncherTestUtils.launchStep(
+            "weeklyRankingStep",
+            JobParametersBuilder()
+                .addString("baseDate", "20240115")
+                .addLong("run.id", runIdSequence.incrementAndGet())
+                .toJobParameters(),
+        )
+
+        // assert: Step FAILED + DELETE가 롤백되어 기존 1건 유지
+        val stepExecution = jobExecution.stepExecutions.first()
         val remaining = findAllMvWeekly()
         assertAll(
+            { assertThat(stepExecution.status).isEqualTo(BatchStatus.FAILED) },
             { assertThat(remaining).hasSize(1) },
             { assertThat(remaining[0].productId).isEqualTo(999L) },
         )

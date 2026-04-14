@@ -107,5 +107,17 @@ class WeeklyRankingJobParameterValidatorTest {
             assertThat(startDate).isEqualTo(LocalDate.of(2024, 12, 30))
             assertThat(endDate).isEqualTo(LocalDate.of(2025, 1, 5))
         }
+
+        @DisplayName("2025-12-29(월요일)는 목요일이 2026-01-01이므로 ISO 기준 2026-W01이다")
+        @Test
+        fun calculatesCorrectWindowFor20251229() {
+            // 2025-12-29(월요일)이 속한 주: Mon 2025-12-29 ~ Sun 2026-01-04
+            // 해당 주의 목요일 = 2026-01-01 → 연도 2026, 주차 1
+            val (periodKey, startDate, endDate) = WeeklyWindow.from("20251229")
+
+            assertThat(periodKey).isEqualTo("2026-W01")
+            assertThat(startDate).isEqualTo(LocalDate.of(2025, 12, 29))
+            assertThat(endDate).isEqualTo(LocalDate.of(2026, 1, 4))
+        }
     }
 }
