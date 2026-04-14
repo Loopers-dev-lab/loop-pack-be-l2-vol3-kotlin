@@ -7,9 +7,12 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.batch.core.JobParametersBuilder
 import org.springframework.batch.core.JobParametersInvalidException
 import java.time.LocalDate
+import java.time.format.DateTimeParseException
 
 class MonthlyRankingJobParameterValidatorTest {
 
@@ -39,6 +42,28 @@ class MonthlyRankingJobParameterValidatorTest {
                 .isInstanceOf(JobParametersInvalidException::class.java)
         }
 
+        @DisplayName("존재하지 않는 날짜(20240230)가 주어지면 JobParametersInvalidException이 발생한다")
+        @Test
+        fun throwsExceptionForNonExistentDate() {
+            val parameters = JobParametersBuilder()
+                .addString("baseDate", "20240230")
+                .toJobParameters()
+
+            assertThatThrownBy { validator.validate(parameters) }
+                .isInstanceOf(JobParametersInvalidException::class.java)
+        }
+
+        @DisplayName("존재하지 않는 월(20241301)이 주어지면 JobParametersInvalidException이 발생한다")
+        @Test
+        fun throwsExceptionForNonExistentMonth() {
+            val parameters = JobParametersBuilder()
+                .addString("baseDate", "20241301")
+                .toJobParameters()
+
+            assertThatThrownBy { validator.validate(parameters) }
+                .isInstanceOf(JobParametersInvalidException::class.java)
+        }
+
         @DisplayName("올바른 baseDate(yyyyMMdd)가 주어지면 예외가 발생하지 않는다")
         @Test
         fun doesNotThrowForValidBaseDate() {
@@ -53,6 +78,14 @@ class MonthlyRankingJobParameterValidatorTest {
     @Nested
     @DisplayName("MonthlyWindow.from")
     inner class MonthlyWindowFrom {
+
+        @ParameterizedTest
+        @ValueSource(strings = ["20240230", "20241301"])
+        @DisplayName("존재하지 않는 날짜가 주어지면 DateTimeParseException이 발생한다")
+        fun throwsExceptionForInvalidDate(baseDate: String) {
+            assertThatThrownBy { MonthlyWindow.from(baseDate) }
+                .isInstanceOf(DateTimeParseException::class.java)
+        }
 
         @DisplayName("월 중간일(20240115)이 주어지면 해당 월 전체를 커버하는 window가 반환된다")
         @Test

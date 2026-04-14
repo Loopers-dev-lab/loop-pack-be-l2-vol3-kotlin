@@ -9,6 +9,7 @@ import com.loopers.utils.DatabaseCleanUp
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -172,7 +173,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
             { assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED) },
             { assertThat(results).hasSize(1) },
             { assertThat(results[0].productId).isEqualTo(1L) },
-            { assertThat(results[0].score).isEqualTo(3.4) },
+            { assertThat(results[0].score).isCloseTo(3.4, within(1e-9)) },
         )
     }
 

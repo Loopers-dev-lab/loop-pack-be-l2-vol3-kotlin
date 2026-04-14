@@ -29,18 +29,27 @@ class CommerceBatchApplicationTest @Autowired constructor(
     @DisplayName("JobLauncher, JobRepository, TransactionManager가 정상 주입된다")
     @Test
     fun batchInfraBeansAreInjected() {
-        assertThat(jobLauncher).isNotNull
-        assertThat(jobRepository).isNotNull
-        assertThat(transactionManager).isNotNull
+        assertThat(jobLauncher).isNotNull()
+        assertThat(jobRepository).isNotNull()
+        assertThat(transactionManager).isNotNull()
     }
 
-    @DisplayName("BATCH_JOB_INSTANCE 메타 테이블이 DB에 존재한다")
+    @DisplayName("Spring Batch 메타 테이블 6개가 DB에 모두 존재한다")
     @Test
     fun batchMetaTablesExist() {
-        val count = jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM BATCH_JOB_INSTANCE WHERE 1 = 0",
-            Int::class.java,
+        val requiredTables = listOf(
+            "BATCH_JOB_INSTANCE",
+            "BATCH_JOB_EXECUTION",
+            "BATCH_JOB_EXECUTION_PARAMS",
+            "BATCH_STEP_EXECUTION",
+            "BATCH_STEP_EXECUTION_CONTEXT",
+            "BATCH_JOB_EXECUTION_CONTEXT",
         )
-        assertThat(count).isEqualTo(0)
+        val actualTables = jdbcTemplate.queryForList(
+            "SELECT TABLE_NAME FROM information_schema.tables WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (${requiredTables.joinToString(",") { "?" }})",
+            String::class.java,
+            *requiredTables.toTypedArray(),
+        )
+        assertThat(actualTables).containsExactlyInAnyOrderElementsOf(requiredTables)
     }
 }

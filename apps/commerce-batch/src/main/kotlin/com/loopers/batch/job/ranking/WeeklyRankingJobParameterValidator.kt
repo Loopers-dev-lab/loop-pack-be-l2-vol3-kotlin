@@ -6,6 +6,7 @@ import org.springframework.batch.core.JobParametersValidator
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.time.format.ResolverStyle
 import java.time.temporal.WeekFields
 
 data class WeeklyWindow(
@@ -14,7 +15,7 @@ data class WeeklyWindow(
     val endDate: LocalDate,
 ) {
     companion object {
-        private val FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
+        private val FORMATTER = DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT)
         private val WEEK_FIELDS = WeekFields.ISO
 
         fun from(baseDate: String): WeeklyWindow {
@@ -31,7 +32,7 @@ data class WeeklyWindow(
 
 class WeeklyRankingJobParameterValidator : JobParametersValidator {
     companion object {
-        private val BASE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
+        private val BASE_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT)
     }
 
     override fun validate(parameters: JobParameters?) {

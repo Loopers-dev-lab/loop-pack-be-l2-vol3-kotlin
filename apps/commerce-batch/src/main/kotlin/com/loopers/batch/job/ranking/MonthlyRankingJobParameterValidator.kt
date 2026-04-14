@@ -7,6 +7,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.time.format.ResolverStyle
 
 data class MonthlyWindow(
     val periodKey: String,
@@ -14,7 +15,7 @@ data class MonthlyWindow(
     val endDate: LocalDate,
 ) {
     companion object {
-        private val FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
+        private val FORMATTER = DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT)
 
         fun from(baseDate: String): MonthlyWindow {
             val date = LocalDate.parse(baseDate, FORMATTER)
@@ -29,7 +30,7 @@ data class MonthlyWindow(
 
 class MonthlyRankingJobParameterValidator : JobParametersValidator {
     companion object {
-        private val BASE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
+        private val BASE_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT)
     }
 
     override fun validate(parameters: JobParameters?) {

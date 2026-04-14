@@ -53,7 +53,7 @@ class RankingJobSchedulerTest @Autowired constructor(
     @DisplayName("scheduler 프로파일 활성 시 RankingJobScheduler 빈이 등록된다")
     @Test
     fun schedulerBeanIsPresentWhenSchedulerProfileIsActive() {
-        assertThat(scheduler).isNotNull
+        assertThat(scheduler).isNotNull()
     }
 
     @DisplayName("WeeklyRankingJob 실행 시 지난 주(2026-W15) periodKey로 MV에 저장된다")
