@@ -24,6 +24,10 @@ class ProductRepositoryImpl(
         return productJpaRepository.findByIdAndDeletedAtIsNull(id)
     }
 
+    override fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<Product> {
+        return productJpaRepository.findAllByIdInAndDeletedAtIsNull(ids)
+    }
+
     override fun findByIdWithPessimisticLock(id: Long): Product? {
         return productJpaRepository.findByIdWithPessimisticLock(id)
     }

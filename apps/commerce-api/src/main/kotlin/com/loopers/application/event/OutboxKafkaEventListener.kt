@@ -1,5 +1,6 @@
 package com.loopers.application.event
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.domain.event.OutboxEventRepository
 import com.loopers.domain.event.OutboxEventSavedEvent
 import com.loopers.infrastructure.event.OutboxEventPublisher
@@ -17,6 +18,7 @@ import org.springframework.transaction.event.TransactionalEventListener
 class OutboxKafkaEventListener(
     private val kafkaTemplate: KafkaTemplate<Any, Any>,
     private val outboxEventRepository: OutboxEventRepository,
+    private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -24,7 +26,8 @@ class OutboxKafkaEventListener(
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun handleOutboxEventSaved(event: OutboxEventSavedEvent) {
         try {
-            val record = ProducerRecord<Any, Any>(event.topic, null, event.aggregateId, event.payload).apply {
+            val payloadNode = objectMapper.readTree(event.payload)
+            val record = ProducerRecord<Any, Any>(event.topic, null, event.aggregateId, payloadNode).apply {
                 headers().add(RecordHeader(OutboxEventPublisher.HEADER_EVENT_ID, event.outboxEventId.toString().toByteArray()))
                 headers().add(RecordHeader(OutboxEventPublisher.HEADER_EVENT_TYPE, event.eventType.toByteArray()))
             }

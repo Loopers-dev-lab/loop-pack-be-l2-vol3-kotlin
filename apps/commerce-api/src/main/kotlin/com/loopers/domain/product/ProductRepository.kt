@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable
 interface ProductRepository {
     fun save(product: Product): Product
     fun findByIdAndDeletedAtIsNull(id: Long): Product?
+    fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<Product>
     fun findByIdWithPessimisticLock(id: Long): Product?
     fun findAllByCondition(brandId: Long?, sort: ProductSort, pageable: Pageable): Page<Product>
     fun increaseLikeCount(productId: Long)

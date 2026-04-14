@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.product
 
 import com.loopers.application.product.ProductFacade
 import com.loopers.domain.product.ProductSort
+import com.loopers.infrastructure.ranking.ViewEventBuffer
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.PageResponse
 import org.springframework.data.domain.PageRequest
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/v1/products")
 class ProductV1Controller(
     private val productFacade: ProductFacade,
+    private val viewEventBuffer: ViewEventBuffer,
 ) : ProductV1ApiSpec {
     @GetMapping
     override fun getProducts(
@@ -32,6 +34,7 @@ class ProductV1Controller(
 
     @GetMapping("/{productId}")
     override fun getProduct(@PathVariable productId: Long): ApiResponse<ProductV1Dto.ProductResponse> {
+        viewEventBuffer.record(productId)
         return productFacade.getProduct(productId)
             .let { ProductV1Dto.ProductResponse.from(it) }
             .let { ApiResponse.success(it) }
