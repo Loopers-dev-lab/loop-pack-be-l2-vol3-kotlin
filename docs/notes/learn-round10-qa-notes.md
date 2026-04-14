@@ -245,22 +245,276 @@ GET /api/v1/rankings?date=20260415&period=WEEKLY&size=20&page=1
 CREATE TABLE 문으로 답하시고, 위 5개 질문에 대한 본인의 결정 근거를 짧게 곁들여주세요.
 
 **[답변]**
+> 1. view_count / like_count / sales_count 모두 추가할게. 모든 데이터는 필요할 거 같아
+> 2. id BIGINT AUTO_INCREMENT PK + unique key, 이유는 다른 db 테이블과 일관성을 맞추기 위해 선택할게
+> 3. year_week, rank 로 인덱스를 만들게, year_week 의 범위로 먼저 정렬하고, rank 로 해야 정렬이 올바르게 될거야.
+> 4. VARCHAR(10) 로 할게, b 방식은 가독성이 떨어지고, c 는 함수이기 때문에 계산이 들어가서 안좋아
+> 5. 가) 는 빠른 조회가 가능하다., 나)는 매 조회마다 rank 계산이 수행되어 성능이 떨어진다
+
+**[멘토 평가]**
+- 4번 C 기각 이유(쿼리 조건 2개로 분해됨)와 5번 pre-compute 선택(주간 갱신 주기 특성)은 합리적
+- 2번 + 3번이 서로 물려있는 InnoDB 특성 함정을 품고 있음 → 후속 흔들기 필요
+- 1번 컬럼 구성(raw 메트릭 중복 저장)은 `product_metrics_daily`와의 관계에서 재검토 여지 있음
+- 4번 VARCHAR 선택은 정렬 측면에서 미묘한 함정 있음 (zero-padding 이슈)
+
+**[악마의 변호인: PK 선택과 InnoDB Clustered Index]**
+"다른 테이블과 일관성을 맞추기 위해 `id AUTO_INCREMENT` PK"라는 논리는 일반 Entity에는 타당하나, MV 테이블에는 성능 함정이 있을 수 있음.
+
+**시나리오:** 2년치(104주) 데이터 축적. 주차마다 TOP 100 row → 총 10,400 row. 인덱스는 선택대로 `(year_week, rank)`. 다음 쿼리 실행:
+```sql
+SELECT * FROM mv_product_rank_weekly
+WHERE year_week = '2026-W15'
+ORDER BY rank LIMIT 20;
+```
+
+**핵심 개념 질문:**
+1. InnoDB의 **clustered index**가 무엇인지? PK가 실제 데이터 row를 어떻게 저장하는지?
+2. `id AUTO_INCREMENT` PK 선택 시, 2026-W15에 속하는 100개 row가 디스크에 **물리적으로** 어떻게 흩어져 있을까요? (힌트: row 삽입 순서 = 배치 실행 시점 순서, 같은 주차 row가 연속 삽입되긴 함)
+3. 보조 인덱스 `(year_week, rank)`로 20건을 찾아낸 뒤, 실제 전체 row 데이터를 읽으려면 어떤 동작이 일어나나요? (힌트: "index lookup" vs "table lookup", `SELECT *`)
+
+**비교 케이스:** PK를 `(year_week, product_id)` 복합키로 잡았다면?
+- 2026-W15의 100개 row가 디스크에 **물리적으로 연속** 저장됨 (clustered index가 year_week 순)
+- `WHERE year_week = ?` 쿼리는 range scan 한 번으로 100개 row가 다 읽힘
+- 단, `ORDER BY rank`는 filesort 필요 → 이것만 해결하려면 보조 인덱스 `(year_week, rank)` 하나 더
+
+**판단 질문:**
+- 두 PK 전략의 I/O 비용 차이를 설명해보세요
+- "다른 테이블과 일관성"이라는 논리가 **조회 전용 derived table**인 MV에도 그대로 적용되어야 할까요? (CLAUDE.md의 `BaseEntity` 규칙은 **도메인 Entity**의 일관성 원칙인데, MV는 domain인가 infrastructure인가?)
+- Q1에서 정리한 "MV = 조회 전용 구조 (Materialized View)" 성격을 생각하면, 어느 쪽이 더 자연스러운가?
+
+**[답변]**
+> 1. 이건 잘 모르겠어. 알려줘
+> 2. 생각해보니 entity와 다른 성격이네, pk 는 다르게 선택해도 좋을 거 같아.
+> 3. 이거도 알려줘
+
+**[멘토 답변: I/O 비용 차이 상세 설명]**
+
+**Case A — `id AUTO_INCREMENT` PK + 보조 인덱스 `(year_week, rank)`:**
+1. 보조 인덱스 B-Tree에서 `year_week='2026-W15'` 진입, rank 순서로 20개의 **PK 값(id)** 획득 → 인덱스 I/O 2~3회 (sequential)
+2. 획득한 `id` 20개로 **PK 클러스터드 인덱스를 다시 타고 실제 row 읽기 (Bookmark Lookup)**
+3. `id`는 **삽입 순서**로 저장되므로, rank 순으로 얻은 id들은 디스크상 위치가 랜덤 → 최악의 경우 **random I/O 20회**
+4. 총: 인덱스 3 + random lookup 20 = **~23회 I/O**
+
+**Case B — `(year_week, product_id)` 복합 PK + 보조 인덱스 `(year_week, rank)`:**
+1. 보조 인덱스에서 `year_week='2026-W15' ORDER BY rank LIMIT 20` → (year_week, product_id) 20개 획득 → 인덱스 I/O 2~3회
+2. PK 클러스터드 인덱스에서 실제 row 읽기 — 여기가 핵심:
+   - PK가 `(year_week, product_id)` 순서로 저장되므로 2026-W15 주차 100 row가 **물리적으로 연속(contiguous)**
+   - 20 row가 같은/인접한 2~3개 페이지에 밀집 → **sequential I/O 2~3회**
+3. 총: 인덱스 3 + sequential 2~3 = **~5회 I/O**
+
+**차이**: 최악 시 **random 20회 vs sequential 2~3회**. HDD에선 수십 배 차이, SSD에서도 의미 있는 차이.
+
+**더 강력한 최적화 — Covering Index:**
+보조 인덱스에 자주 읽는 컬럼까지 포함하면(`(year_week, rank) INCLUDE (product_id, score, ...)`), PK 트리를 타지 않고 인덱스만으로 응답 완료 → **I/O 2~3회로 끝**. 이걸 **Covering Index**라 부름.
+
+**[멘토 답변: 복합 PK로 바꿀 때 잃는 것]**
+
+1. **`BaseEntity` 상속 불가**: BaseEntity는 `@Id @GeneratedValue val id: Long` 전제. 복합키로 가려면 `@EmbeddedId` 또는 `@IdClass`를 써야 해서 상속 구조 깨짐
+2. **JPA Entity 매핑 복잡도 증가**: `@EmbeddedId val id: MvProductRankWeeklyId` + 별도 ID 클래스 (`@Embeddable data class`) 정의 필요 → 보일러플레이트
+3. **단건 조회 API의 어색함**: `findById(1L)` → `findById(MvProductRankWeeklyId("2026-W15", 100L))` 로 파라미터 구조 변화
+4. **JPA 연관관계 매핑의 불편**: 만약 다른 Entity가 이걸 참조한다면 FK도 복합이 됨 (MV는 보통 참조되지 않으므로 실질 문제 적음)
+5. **일관성 규약의 예외 발생**: CLAUDE.md "기존 코드 패턴 분석 후 일관성 유지" 원칙과 겉보기엔 충돌. 실제로는 "MV는 도메인 Entity가 아닌 derived data"라는 근거로 예외 인정 가능
+
+**얻는 것 (복기):**
+- InnoDB Clustered Index의 range scan 효율 (위 I/O 비교 결과)
+- 의미론적 명확성: PK 자체가 "어느 주차의 어느 상품 랭킹"이라는 정체성을 담음
+- 자연스러운 natural key 활용 (surrogate key 불필요)
+
+**실용적 타협안 (Q5 예고):**
+사실 MV는 **JPA Entity로 매핑할 필요가 없을 수도 있음**. 만약 Q5에서 "배치는 JDBC로 쓰고 조회도 JdbcTemplate으로 한다"고 결정하면, 위 1~4번 단점이 **자동 해소**됨. 즉 PK 선택 문제가 도구 선택(JPA vs JDBC)과 맞물려 있음.
+
+**[후속 질문: VARCHAR 정렬의 숨은 함정]**
+4번에서 `VARCHAR(10) '2026-W15'` 선택. 이제 과거 주차 리스트 쿼리를 생각해봅시다:
+```sql
+SELECT DISTINCT year_week FROM mv_product_rank_weekly ORDER BY year_week;
+```
+
+실제 결과가 이렇게 나올 수 있음:
+```
+2026-W1
+2026-W10
+2026-W11
+2026-W12
+...
+2026-W2
+2026-W3
+...
+```
+
+왜 이런 일이 생기고, 어떻게 해결할까요? (힌트: 문자열 정렬 규칙)
+
+**[답변]**
+> 그러네 너가 말한 것처럼 정렬에 문제가 생기겠네. 그렇다고 int도 문제가 생기고, 그러면 결국 (year SMALLINT, week TINYINT) 으로 넣는게 좋을거 같아
+
+**[악마의 변호인: VARCHAR 해결책 & C안의 숨은 함정]**
+
+너무 빠른 선회. 세 가지를 점검해보자.
+
+**(1) VARCHAR의 진짜 해결책 — Zero-padding**
+
+문자열 정렬 문제의 원인은 `'W1' vs 'W10'`에서 **자릿수가 다르기 때문**. 자릿수를 고정하면 해결됨:
+```
+'2026-W01', '2026-W02', ..., '2026-W09', '2026-W10', '2026-W11'
+```
+→ 문자열 사전순 정렬로도 완벽히 자연 정렬됨. ISO 8601이 `2026-01-15`, `2026-W01`처럼 **모든 자릿수에 zero-padding을 강제**하는 이유가 정확히 이것.
+
+애플리케이션 레벨 생성도 간단:
+```kotlin
+val yearWeek = "%d-W%02d".format(year, week)  // "2026-W05"
+```
+
+그리고 zero-padded된 값은 항상 **8자 고정** → `CHAR(8)` 이 `VARCHAR(10)`보다 더 적절.
+
+**(2) C안의 숨은 함정 — 연도 경계 범위 쿼리**
+
+기획팀 요청: "2026년 52주차부터 2027년 3주차까지 최근 4주 랭킹 추이 보여줘"
+
+- C안 `(year SMALLINT, week TINYINT)` 에서의 쿼리:
+  ```sql
+  WHERE (year = 2026 AND week >= 52)
+     OR (year = 2027 AND week <= 3)
+  ```
+  연도 경계마다 조건이 분기됨. 최근 N주 쿼리 작성이 상당히 번거로움.
+
+- Zero-padded CHAR(8) 에서의 쿼리:
+  ```sql
+  WHERE year_week BETWEEN '2026-W52' AND '2027-W03'
+  ```
+  한 줄. 문자열 사전순 정렬로도 자연 범위 지정.
+
+- `ORDER BY year_week DESC LIMIT 10` (최근 10주) — CHAR(8)은 단일 컬럼 정렬. C안은 `(year DESC, week DESC)` 복합 정렬.
+
+**(3) 기각 이유 재검증**
+
+원래 C를 기각한 이유는 "**계산이 들어가서 안좋다**". 지금 다시 고르는 근거는 "VARCHAR 정렬 문제". 하지만:
+- VARCHAR 정렬 문제는 zero-padding으로 해결됨
+- C안의 "계산이 들어간다"는 문제는 여전히 유효함 (범위 쿼리 복잡, 조건 분기)
+
+→ 기각 이유가 여전히 valid한데, 해결 가능한 다른 문제 때문에 돌아가는 건 **본말전도** 아닌가?
+
+**재선택 질문:**
+1. Zero-padded `CHAR(8) '2026-W15'` vs `(year SMALLINT, week TINYINT)` — 다시 고른다면?
+2. 고른 이유는? (정렬/범위 쿼리/저장 공간/쿼리 간결성 중 어느 것을 우선?)
+
+**[답변]**
+> 원래 선택한 방법으로 갈게, 정렬이 해결된다면, 가독성도 좋고, 쿼리 간결성도 좋고, 저장 공간도 c안 보다 덜 차지 한다고 생각된다
+
+**[멘토 팩트 교정: 저장 공간]**
+저장 공간은 실제로는 C안이 유리하다:
+- `CHAR(8)` = 8 bytes (ASCII 고정)
+- `SMALLINT(2 bytes) + TINYINT(1 byte)` = 3 bytes
+- row당 5 bytes 차이, 10,000 row × 2 보조 인덱스에서 ~100KB. **실무에선 무시 가능**.
+
+판단의 진짜 근거는 "가독성 + 쿼리 간결성"이고, 저장 공간은 tiebreaker가 되지 못함. **결정은 그대로 유지하되 근거를 정리**할 것.
+
+**[정리]**
+- **확정: Zero-padded CHAR(8) `'2026-W15'` 형식**
+- 근거 우선순위:
+  1. **쿼리 간결성** (`BETWEEN`, 단일 컬럼 `ORDER BY`, 연도 경계 범위 쿼리가 한 줄)
+  2. **가독성** (코드에서 `yearWeek` 하나로 표현, API 응답에서도 그대로 전달 가능)
+  3. **정렬 자연성** (zero-padding + 사전순 정렬이 시간순과 정확히 일치)
+- 저장 공간은 판단 근거가 아님 (미미한 차이)
+- Zero-padding 규칙은 **application 레이어에서 강제** (`"%d-W%02d".format(...)`)
+- 월간도 동일 패턴: `CHAR(7) '2026-04'` (이미 자연 zero-padded)
+- **[글감]**: "문자열 식별자의 정렬 함정 — Zero-padding이 해결하는 것과 남기는 것"
+
+---
+
+### Q4 최종 CREATE TABLE (확정)
+
+**주간:**
+```sql
+CREATE TABLE mv_product_rank_weekly (
+    year_week    CHAR(8)     NOT NULL COMMENT 'ISO Week 형식: 2026-W15 (zero-padded)',
+    product_id   BIGINT      NOT NULL,
+    `rank`       INT         NOT NULL COMMENT '주차 내 순위 (1~100)',
+    score        BIGINT      NOT NULL COMMENT '가중치 적용 최종 점수',
+    view_count   BIGINT      NOT NULL DEFAULT 0 COMMENT '주간 누적 조회 수',
+    like_count   BIGINT      NOT NULL DEFAULT 0 COMMENT '주간 누적 좋아요 수',
+    sales_count  BIGINT      NOT NULL DEFAULT 0 COMMENT '주간 누적 판매 수',
+    created_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (year_week, product_id),
+    KEY idx_year_week_rank (year_week, `rank`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='주간 상품 랭킹 MV (TOP 100/주차)';
+```
+
+**월간:**
+```sql
+CREATE TABLE mv_product_rank_monthly (
+    `year_month` CHAR(7)     NOT NULL COMMENT 'YYYY-MM 형식: 2026-04',
+    product_id   BIGINT      NOT NULL,
+    `rank`       INT         NOT NULL,
+    score        BIGINT      NOT NULL,
+    view_count   BIGINT      NOT NULL DEFAULT 0,
+    like_count   BIGINT      NOT NULL DEFAULT 0,
+    sales_count  BIGINT      NOT NULL DEFAULT 0,
+    created_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (`year_month`, product_id),
+    KEY idx_year_month_rank (`year_month`, `rank`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='월간 상품 랭킹 MV (TOP 100/월)';
+```
+
+**DDL 포인트:**
+- `rank`, `year_month`는 MySQL 예약어 → 백틱 이스케이프 필수
+- `PRIMARY KEY (year_week, product_id)` 복합키가 clustered index → 주차별 row 물리 연속 저장
+- `KEY idx_year_week_rank` 보조 인덱스로 `WHERE year_week=? ORDER BY rank` filesort 제거
+- `created_at/updated_at DATETIME(6)`: BaseEntity 관례와 정밀도 맞춤 (배치 실행 시각 추적)
+- `utf8mb4`: 랭킹 조회가 다국어 상품명과 JOIN될 가능성 고려
+
+---
+
+## Q5. 배치에서의 JPA vs JDBC — Reader/Writer 도구 선택
+
+**[질문]**
+Q3에서 하이브리드 Chunk-Oriented 구조 확정 (Reader: DB `GROUP BY` 페이징 → Processor: 가중치 Java 계산 → Writer: TOP 100 upsert). 이제 **실제 구현 도구**를 선택할 차례.
+
+**Spring Batch 제공 구현체:**
+| 구분 | 후보 |
+|---|---|
+| Reader | `JpaPagingItemReader` / `JdbcPagingItemReader` / `JdbcCursorItemReader` / `RepositoryItemReader` |
+| Writer | `JpaItemWriter` / `JdbcBatchItemWriter` |
+
+**이 프로젝트 맥락:**
+- Kotlin + Spring Boot 3.4.4, 모든 Entity는 `BaseEntity` 상속
+- 기존 Repository는 **전부** `JpaRepository` 기반
+- `product_metrics`는 Entity로 관리 중
+
+**세부 질문 5개 (순차 답변):**
+
+**Q5-1. Reader 선택 — 영속성 컨텍스트의 함정**
+JPA 기반 Reader를 쓰면 "1차 캐시(영속성 컨텍스트)"라는 단어가 왜 배치에서 **문제**가 될까요? 100만 건 읽는 배치(chunk size = 1000, 총 1000 chunks)에서 구체적으로 어떤 일이 벌어지나요?
+
+**Q5-2. Writer 선택 — Upsert 구현**
+Q3에서 `ON DUPLICATE KEY UPDATE` 방식의 upsert로 결정. 이걸 `JpaItemWriter`(= `EntityManager.merge()`)로 구현하면 뭐가 문제인가요? `JdbcBatchItemWriter` + native SQL이 어떤 이득을 주나요?
+
+**Q5-3. Reader 쿼리 형태 불일치**
+Q3의 `SELECT product_id, SUM(view_count), SUM(like_count), SUM(sales_count) FROM product_metrics_daily WHERE metric_date BETWEEN ? AND ? GROUP BY product_id`는 Entity 매핑이 없는 **집계 투영(projection)** 결과. `JpaPagingItemReader`로 자연스럽게 표현되나요?
+
+**Q5-4. "일관성" vs "최적화" 트레이드오프**
+*"이 프로젝트는 JPA 기반이니 일관성을 위해 배치도 JPA로 가야 한다"* 는 팀원 주장에 동의하시나요? 반대한다면 근거는?
+
+**Q5-5. 혼합 선택의 정당화**
+Reader/Writer 모두 JDBC로 결정 시, *"어드민/API는 JPA 쓰면서 배치만 JDBC 쓰는 건 DIP 위반 아닌가?"* 에 어떻게 답변할 건가요?
+
+**[답변]**
 > (답변 대기 중)
 
 ---
 
 ## 다음 세션 이어가기
 
-**중단 지점:** Q4 질문(MV 스키마 직접 설계) 답변 대기 중
+**중단 지점:** Q5 (배치 JPA vs JDBC) 세부 질문 5개 답변 대기 중
 **다음 세션 시작 방법:** 이 파일(`docs/notes/learn-round10-qa-notes.md`)을 참조로 지정해서 `/learn-round @docs/quests/round-10.md` 실행
 **남은 주요 주제 (내부 설계):**
-- Q2. 기간 경계 (ISO week vs 롤링 7일) 및 배치 실행 주기
-- Q3. Spring Batch 구조 선택 (Chunk-Oriented vs Tasklet, chunk size 결정)
-- Q4. Materialized View 스키마 설계 (`mv_product_rank_weekly`, `mv_product_rank_monthly`)
-- Q5. 멱등성과 재실행 전략 (같은 날짜 두 번 돌리면? JobParameter, 중복 실행 방지)
-- Q6. API 확장 (`period` 파라미터) 및 일간(Redis) / 주간·월간(MV) 분기 처리
-- Q7. 실패 복구, 모니터링, 운영 관점
-- Q8. product_metrics 일별 스키마 재설계 (현재 상품별 누적 → 일별 row)
+- Q5. 배치에서의 JPA vs JDBC — Reader/Writer 도구 선택 **[진행 중]**
+- Q6. 멱등성과 재실행 전략 (같은 날짜 두 번 돌리면? JobParameter, 중복 실행 방지)
+- Q7. API 확장 (`period` 파라미터) 및 일간(Redis) / 주간·월간(MV) 분기 처리
+- Q8. 실패 복구, 모니터링, 운영 관점
+- Q9. product_metrics 일별 스키마 재설계 (현재 상품별 누적 → 일별 row)
 - 최종 백지 설계 테스트
 
 
