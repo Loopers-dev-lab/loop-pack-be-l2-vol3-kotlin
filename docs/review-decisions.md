@@ -329,3 +329,66 @@
 - **근거**: CR은 Line 31 `update.incrementRetryCount()` 후 Line 32 `failedScoreUpdateRepository.save(update)`가 실패하면 메모리상 증가된 `retryCount`가 DB에 반영되지 않아 `maxRetryCount` 체크가 우회되고 무한 재시도가 발생할 수 있다고 지적. 시나리오는 정확하다. 그러나 CR이 제안한 "save() 실패도 try-catch + log + continue" 수용안은 **근본 해결이 아니다** — `incrementRetryCount()`가 메모리에만 반영된 채 DB save가 실패하면 continue를 해도 retryCount 증가가 동일하게 유실되며, 다음 주기 조회 시 같은 레코드가 이전 retryCount로 다시 나타난다. 진짜 해결은 (A) 별도 update 쿼리로 retryCount만 증가시키거나 (B) save 자체를 재시도하는 이중 경로 설계가 필요하지만 두 경로 모두 이번 라운드에서 도입할 만한 비용이 아니다. 현 구조(save 실패 시 루프 바깥으로 예외 전파 → 스케줄러가 한 주기 실패 → 다음 주기에 처음부터 재처리)는 `incrementScore` Lua 스크립트의 `eventId` 기반 멱등성에 의존해 점수 드리프트를 방지하므로 데이터 정합성 측면에서 안전하다. save 실패 자체가 DB 장애 상황이라 그 주기 전체가 실패하는 것이 오히려 명시적인 신호다.
 - **한계**: 부분 성공 시나리오(일부 record는 incrementScore 성공, 일부는 retryCount 증가 후 save 실패)에서 일부 retryCount 증가가 손실될 가능성은 여전히 존재. 운영에서 실 발생 빈도와 영향도를 측정한 후, 의미 있는 수준이면 (A) 별도 update 쿼리 도입으로 재방문.
 - **최종 업데이트**: 2026-04-10
+
+## RD-041. `period` 파라미터 대소문자 엄격 정책 (lowercase만 허용)
+- **keywords**: `period`, `lowercase`, `RankingPeriod.from`, `RankingV1Period.from`, `대소문자`, `명확성 우선`, `400 BAD_REQUEST`
+- **리뷰어**: CodeRabbit (PR #38 #2, #4)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (요구사항 명시 정책 준수)
+- **근거**: CR은 `RankingPeriod.from(value)`에서 `value`를 `lowercase()`로 정규화하여 `DAILY`/`Daily`/`daily`를 모두 허용하라고 제안. 그러나 `docs/requirements/round10-requirements-analysis.md:423`이 "URL 파라미터 값: 소문자 daily/weekly/monthly 고정. 대소문자 섞인 값(Daily, WEEKLY 등)은 400 BAD_REQUEST. **명확성 우선**"이라고 명시적으로 결정한 사안이다. `plan.md:156`의 E2E 테스트 `period=Daily → 400 BAD_REQUEST`가 이미 통과 중이며, 제안 수용 시 스펙 및 기존 테스트 회귀가 발생한다. 엄격 정책은 "클라이언트 입력 표준화 강제" 목적이며 관대한 매칭은 이와 상충한다.
+- **한계**: 없음. 엄격 정책은 의도적 선택이며 현재 구현이 스펙과 일치한다.
+- **최종 업데이트**: 2026-04-14
+
+## RD-042. weekly/monthly 응답 `rank`는 MV `rank_no` 원본 + 응답 시점 필터링으로 페이지 축소 허용
+- **keywords**: `rank`, `rank_no`, `MV`, `filtered rank`, `페이지 축소`, `응답 시점 필터링`, `semantics`
+- **리뷰어**: CodeRabbit (PR #38 #1)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (요구사항 명시 정책 준수)
+- **근거**: CR은 `GetRankingUseCase.executeWeekly/executeMonthly`가 비가시 상품 필터 후 `row.rank`(MV 원본)를 그대로 반환하여 daily 경로(`page*size+index+1`로 재부여)와 semantics가 다르다고 지적하며 filtered rank 재부여를 제안. 그러나 `docs/requirements/round10-requirements-analysis.md:241-244`는 "비활성/삭제 상품은 응답 시점에 필터링한다... 응답 필터링으로 인해 페이지 크기가 모자라도 **그대로 허용한다** (over-fetch나 재정렬 없이 자연 축소)"를 **daily·weekly·monthly 공통 정책**으로 고정했다. 또한 `docs/requirements/round10-requirements-analysis.md:301`은 "`content[].rank`: daily는 페이지 오프셋 기반(1-based), **weekly/monthly는 MV에 사전 계산된 `rank_no`**"라고 명시했다. 제안 수용 시 스펙 위반에 해당한다. weekly/monthly의 raw rank는 "배치 스냅샷의 원본 순위"라는 의미를 보존한다.
+- **한계**: 프런트가 "첫 번째 아이템 = 1위"를 전제로 UI를 만들면 혼란 여지 존재. 해결은 API 문서에서 "weekly/monthly rank는 배치 스냅샷 raw" 명시.
+- **최종 업데이트**: 2026-04-14
+
+## RD-043. 랭킹 가중치(0.1/0.2/0.7) 공유 상수 미추출 — 현행 하드코딩 유지
+- **keywords**: `랭킹 가중치`, `RankingWeight`, `공유 상수`, `WeeklyRankingQueryDao`, `MonthlyRankingQueryDao`, `commerce-streamer`
+- **리뷰어**: Gemini Code Assist (PR #38 #10, #11)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현행 유지)
+- **근거**: Gemini는 `WeeklyRankingQueryDao.kt:20-22`, `MonthlyRankingQueryDao.kt:20-22`, 그리고 `commerce-streamer` 실시간 점수 계산 경로에 같은 가중치(0.1/0.2/0.7)가 하드코딩되어 있다며 공유 상수 추출을 제안. 그러나 두 모듈(`commerce-batch`, `commerce-streamer`) 간에 공유할 도메인 모듈이 없고 batch는 streamer 도메인을 참조할 수 없다. 각 모듈에 별도 `RankingWeight` 상수 클래스를 두는 부분 수용도 가능하지만, 3개 상수를 3곳에서만 쓰는 상태에서의 추출은 "Rule of Three" 관점에서 이른 추상화다. 향후 가중치 조정/외부 설정화 요구가 생길 때 공유 모듈 신설과 함께 도입하는 것이 맞다.
+- **한계**: 가중치 불일치 시 회귀 위험 있음. 수기 교차 확인이 필요한 상태 유지.
+- **최종 업데이트**: 2026-04-14
+
+## RD-044. BatchRankingController 동기 `jobLauncher.run` — 현 단계 acceptable
+- **keywords**: `BatchRankingController`, `jobLauncher.run`, `동기`, `async JobLauncher`, `TaskExecutor`, `HTTP 블로킹`
+- **리뷰어**: Gemini Code Assist (PR #38 #6)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (현 단계 acceptable, Nice-to-Have 후순위)
+- **근거**: Gemini는 `jobLauncher.run`이 HTTP 스레드를 블로킹하므로 `SimpleAsyncTaskExecutor` 기반 비동기 JobLauncher를 권장. 그러나 현재 Top 100 집계는 소규모(수초 이내)로 예상되며, scheduler 프로파일 단일 인스턴스 + 운영자 수동 백필 용도라 동시성/처리량 요구가 낮다. Job 완료까지 블로킹되는 편이 오히려 HTTP 응답에 최종 `BatchStatus`를 그대로 담을 수 있어 운영 관측성이 좋다. 비동기 전환 시 응답 바디는 `STARTED`만 남아 상태 확인을 위한 별도 polling API가 필요해진다.
+- **한계**: Top 100 규모가 커지거나 집계 쿼리 비용이 증가하면 재검토 필요. 실측 지표 기반으로 결정.
+- **최종 업데이트**: 2026-04-14
+
+## RD-045. `run.id` 기반 JobInstance 중복 실행 차단 부재 — 단일 인스턴스 전제 유지
+- **keywords**: `run.id`, `JobInstance`, `동시 실행`, `JobExplorer`, `409`, `단일 인스턴스`, `BatchRankingController`, `RankingJobScheduler`
+- **리뷰어**: CodeRabbit (PR #38 #8, Critical)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (단일 인스턴스 전제, RD-006과 동일 논지)
+- **근거**: CR은 `buildParams`가 `System.currentTimeMillis()`를 `run.id`로 넣어 같은 `baseDate`로 호출해도 매번 새 JobInstance가 생성되어 동시 실행을 차단하지 못한다고 지적. 시나리오는 정확하다. 그러나 (1) 배치 서버는 실무상 단일 인스턴스 + failover 모델로 운영되며, 멀티 인스턴스는 파티셔닝 스텝이나 ShedLock 같은 분산 락이 필수(RD-006 참조), (2) Spring `@Scheduled`는 단일 스레드 ThreadPoolTaskScheduler로 직렬 실행되므로 같은 스케줄러 내 중복 호출 불가, (3) `BatchRankingController`는 운영자 수동 백필용으로 스케줄러 실행 중 동시 호출 빈도가 실질 0이다. 단일 인스턴스 전제 하에서 HTTP trigger ↔ 스케줄러 겹침은 실발생률이 무시할 수준이다. 요구사항 §10.7도 `run.id`를 "동일 기간 재실행 식별자"로 명시적으로 채택했다.
+- **한계**: 멀티 인스턴스 배포 또는 HTTP trigger 빈도가 늘어나면 `JobExplorer.findRunningJobExecutions(jobName)` 기반 선행 검사 + 409 반환 + ShedLock 도입 필요.
+- **최종 업데이트**: 2026-04-14
+
+## RD-046. commerce-batch scheduler 프로파일 엔드포인트 무인증 — 학습 프로젝트 + 내부망 전제 유지
+- **keywords**: `BatchRankingController`, `/internal/batch/ranking`, `Spring Security`, `SecurityFilterChain`, `내부망`, `포트 8082`, `API Key`
+- **리뷰어**: CodeRabbit (PR #38 #15, Major)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (학습 프로젝트 전제, RD-003과 동일 논지)
+- **근거**: CR은 scheduler 프로파일이 포트 8082로 열릴 때 `BatchRankingController`가 무인증이라 임의 요청으로 랭킹 재집계가 가능하다고 지적. 그러나 (1) 학습 프로젝트 + Docker Compose 기반 로컬 개발이 주 환경, (2) 실 배포 시 인그레스/로드밸런서에서 포트 8082 차단 또는 내부망 바인딩으로 보호, (3) 애플리케이션 레이어 Spring Security 도입은 `@Profile("scheduler")` 한정 설정이나 `WebSecurityCustomizer` 등 비용이 premature. RD-003 콜백 HMAC 검증 기각과 동일 논지. 향후 실 운영으로 전환 시 인증 정책을 일괄 도입.
+- **한계**: 내부망 가정이 깨지면 즉시 재검토. 실제 배포 시 네트워크 경로와 바인딩 주소를 재점검.
+- **최종 업데이트**: 2026-04-14
+
+## RD-047. `commerce-batch` `spring.batch.job.enabled: false` 전역 기본값 — 의도적 설계 유지
+- **keywords**: `spring.batch.job.enabled`, `application.yml`, `one-shot`, `CommandLineRunner`, `RankingJobScheduler`, `web-application-type`, `a873b42`
+- **리뷰어**: CodeRabbit (PR #38 #14, Critical)
+- **repeat_count**: 1
+- **최종 결정**: 기각 (의도적 설계)
+- **근거**: CR은 `application.yml:17`의 `spring.batch.job.enabled: false` 전역 기본값 때문에 non-scheduler 환경에서 one-shot 배치(`--job.name=...`) 실행 경로가 전무하다고 지적하며 "기본 true, scheduler 프로파일에서만 false"로 전도할 것을 제안. 그러나 직전 커밋 `a873b42 refactor(batch): job.enabled 기본 비활성화 + @ConditionalOnProperty 제거`가 이 방향을 **명시적으로** 결정한 사안이다. `RankingJobScheduler`가 `@Scheduled` 안에서 `jobLauncher.run`을 수동으로 호출하는 구조라 `spring.batch.job.enabled: true`로 두면 애플리케이션 기동 시 모든 Job이 자동 실행되어 스케줄러 설계와 충돌한다. 또한 non-scheduler 환경은 `web-application-type: none`으로 기동 즉시 종료되며, one-shot 실행 경로는 설계상 `scheduler` 프로파일 + HTTP trigger로 단일화했다.
+- **한계**: CLI 기반 one-shot 실행 요구가 실제 생기면 `JobLauncherApplicationRunner` + 프로파일별 오버라이드를 도입해야 한다. 현재는 운영 요구 없음.
+- **최종 업데이트**: 2026-04-14

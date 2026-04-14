@@ -1,0 +1,72 @@
+### ──────────────────────────────────────────────
+### E2E: period=daily (R9 회귀 방지)
+### 오늘 날짜 daily 랭킹 조회 — 데이터 없으면 빈 배열, status 200
+### ──────────────────────────────────────────────
+GET {{commerce-api}}/api/v1/rankings?period=daily&page=0&size=20
+
+###
+
+### ──────────────────────────────────────────────
+### E2E: period=daily + 특정 날짜 지정
+### ──────────────────────────────────────────────
+GET {{commerce-api}}/api/v1/rankings?period=daily&date=2026-04-14&page=0&size=20
+
+###
+
+### ──────────────────────────────────────────────
+### E2E: period=weekly — 배치 실행 전 (빈 배열 기대)
+### ──────────────────────────────────────────────
+GET {{commerce-api}}/api/v1/rankings?period=weekly&date=2026-04-14&page=0&size=20
+
+###
+
+### ──────────────────────────────────────────────
+### E2E: period=monthly — 배치 실행 전 (빈 배열 기대)
+### ──────────────────────────────────────────────
+GET {{commerce-api}}/api/v1/rankings?period=monthly&date=2026-04-14&page=0&size=20
+
+###
+
+### ──────────────────────────────────────────────
+### Batch trigger: weekly 랭킹 생성 (commerce-batch:8082)
+### 실행 후 위 weekly GET을 재호출 → Top 100 응답 확인
+### ──────────────────────────────────────────────
+POST {{commerce-batch}}/internal/batch/ranking/weekly
+Content-Type: application/json
+
+{"baseDate": "20260414"}
+
+###
+
+### ──────────────────────────────────────────────
+### Batch trigger: monthly 랭킹 생성 (commerce-batch:8082)
+### 실행 후 위 monthly GET을 재호출 → Top 100 응답 확인
+### ──────────────────────────────────────────────
+POST {{commerce-batch}}/internal/batch/ranking/monthly
+Content-Type: application/json
+
+{"baseDate": "20260414"}
+
+###
+
+### ──────────────────────────────────────────────
+### 스모크: product_metrics_daily → 배치 → MV → API 전체 흐름
+### 순서: 1) 위 batch trigger weekly → 2) 아래 GET 결과에서 rankNo/score 확인
+### ──────────────────────────────────────────────
+GET {{commerce-api}}/api/v1/rankings?period=weekly&date=2026-04-14&page=0&size=100
+
+###
+
+### ──────────────────────────────────────────────
+### ISO Week 경계: 2025-12-29 → 2026-W01 스모크
+### WeeklyRankingJobParameterValidatorTest 단위 테스트로 이미 검증됨
+### 아래는 실제 배치가 periodKey="2026-W01"로 적재되는지 수동 확인용
+### ──────────────────────────────────────────────
+POST {{commerce-batch}}/internal/batch/ranking/weekly
+Content-Type: application/json
+
+{"baseDate": "20251229"}
+
+###
+
+GET {{commerce-api}}/api/v1/rankings?period=weekly&date=2025-12-29&page=0&size=20
