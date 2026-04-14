@@ -11,6 +11,7 @@ import com.loopers.domain.ranking.model.FailedScoreUpdate
 import com.loopers.domain.ranking.repository.FailedScoreUpdateRepository
 import com.loopers.domain.ranking.repository.RankingScoreRepository
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -37,6 +38,12 @@ class UpdateProductMetricsUseCase(
             return
         }
 
+        if (eventType !in CATALOG_EVENT_TYPES) {
+            log.warn("알 수 없는 catalog 이벤트 타입: eventType={}", eventType)
+            eventHandledRepository.save(EventHandled(eventId = eventId))
+            return
+        }
+
         val metrics = findOrCreate(productId)
         val today = LocalDate.now(clock)
         val daily = findOrCreateDaily(today, productId)
@@ -57,11 +64,7 @@ class UpdateProductMetricsUseCase(
                 daily.decrementLikeCount()
                 RankingWeight.LIKE * -1
             }
-            else -> {
-                log.warn("알 수 없는 catalog 이벤트 타입: eventType={}", eventType)
-                eventHandledRepository.save(EventHandled(eventId = eventId))
-                return
-            }
+            else -> error("unreachable: filtered by CATALOG_EVENT_TYPES guard")
         }
 
         productMetricsRepository.save(metrics)
@@ -159,12 +162,20 @@ class UpdateProductMetricsUseCase(
 
     private fun findOrCreate(productId: Long): ProductMetrics {
         return productMetricsRepository.findByProductId(productId)
-            ?: ProductMetrics(productId = productId)
+            ?: try {
+                productMetricsRepository.save(ProductMetrics(productId = productId))
+            } catch (e: DataIntegrityViolationException) {
+                productMetricsRepository.findByProductId(productId) ?: throw e
+            }
     }
 
     private fun findOrCreateDaily(date: LocalDate, productId: Long): ProductMetricsDaily {
         return productMetricsDailyRepository.findByDateAndProductId(date, productId)
-            ?: ProductMetricsDaily(productId = productId, metricDate = date)
+            ?: try {
+                productMetricsDailyRepository.save(ProductMetricsDaily(productId = productId, metricDate = date))
+            } catch (e: DataIntegrityViolationException) {
+                productMetricsDailyRepository.findByDateAndProductId(date, productId) ?: throw e
+            }
     }
 
     companion object {
@@ -172,5 +183,7 @@ class UpdateProductMetricsUseCase(
         const val LIKE_ADDED = "LIKE_ADDED"
         const val LIKE_REMOVED = "LIKE_REMOVED"
         const val PAYMENT_COMPLETED = "PAYMENT_COMPLETED"
+
+        private val CATALOG_EVENT_TYPES = setOf(PRODUCT_VIEWED, LIKE_ADDED, LIKE_REMOVED)
     }
 }
