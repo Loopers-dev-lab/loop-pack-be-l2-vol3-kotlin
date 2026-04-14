@@ -2,6 +2,7 @@ package com.loopers.batch.interfaces
 
 import com.loopers.batch.job.ranking.MonthlyRankingJobConfig
 import com.loopers.batch.job.ranking.WeeklyRankingJobConfig
+import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.core.Job
 import org.springframework.batch.core.JobParametersBuilder
 import org.springframework.batch.core.JobParametersInvalidException
@@ -48,9 +49,15 @@ class BatchRankingController(
     ): ResponseEntity<TriggerResponse> {
         return try {
             val execution = jobLauncher.run(job, buildParams(baseDate))
-            ResponseEntity.ok(
-                TriggerResponse(jobName, baseDate, execution.status.name, message = null),
-            )
+            val message = execution.exitStatus.exitDescription.takeIf { it.isNotBlank() }
+            when (execution.status) {
+                BatchStatus.COMPLETED ->
+                    ResponseEntity.ok(TriggerResponse(jobName, baseDate, execution.status.name, message))
+                BatchStatus.FAILED, BatchStatus.STOPPED, BatchStatus.UNKNOWN ->
+                    ResponseEntity.internalServerError().body(TriggerResponse(jobName, baseDate, execution.status.name, message))
+                else ->
+                    ResponseEntity.accepted().body(TriggerResponse(jobName, baseDate, execution.status.name, message))
+            }
         } catch (e: JobParametersInvalidException) {
             ResponseEntity.badRequest().body(
                 TriggerResponse(jobName, baseDate, status = "INVALID", message = e.message),
