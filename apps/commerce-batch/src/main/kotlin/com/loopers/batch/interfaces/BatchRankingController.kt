@@ -53,7 +53,7 @@ class BatchRankingController(
             when (execution.status) {
                 BatchStatus.COMPLETED ->
                     ResponseEntity.ok(TriggerResponse(jobName, baseDate, execution.status.name, message))
-                BatchStatus.FAILED, BatchStatus.STOPPED, BatchStatus.UNKNOWN ->
+                BatchStatus.FAILED, BatchStatus.STOPPED, BatchStatus.UNKNOWN, BatchStatus.ABANDONED ->
                     ResponseEntity.internalServerError().body(TriggerResponse(jobName, baseDate, execution.status.name, message))
                 else ->
                     ResponseEntity.accepted().body(TriggerResponse(jobName, baseDate, execution.status.name, message))

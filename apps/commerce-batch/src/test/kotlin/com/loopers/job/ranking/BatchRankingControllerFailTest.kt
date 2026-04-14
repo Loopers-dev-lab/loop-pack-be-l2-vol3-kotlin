@@ -85,7 +85,7 @@ class BatchRankingControllerFailTest @Autowired constructor(
         assertAll(
             { assertThat(response.statusCode).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR) },
             { assertThat(response.body?.status).isEqualTo("FAILED") },
-            { assertThat(response.body?.message).isNotBlank() },
+            { assertThat(response.body?.message).contains("weekly 강제 실패") },
         )
     }
 
@@ -102,7 +102,7 @@ class BatchRankingControllerFailTest @Autowired constructor(
         assertAll(
             { assertThat(response.statusCode).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR) },
             { assertThat(response.body?.status).isEqualTo("FAILED") },
-            { assertThat(response.body?.message).isNotBlank() },
+            { assertThat(response.body?.message).contains("monthly 강제 실패") },
         )
     }
 }
