@@ -1,13 +1,18 @@
 package com.loopers.batch.listener
 
+import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.ExitStatus
 import org.springframework.batch.core.StepExecution
 import org.springframework.batch.core.StepExecutionListener
 import org.springframework.stereotype.Component
+import java.time.Duration
+import java.time.LocalDateTime
 
 @Component
-class StepMonitorListener : StepExecutionListener {
+class StepMonitorListener(
+    private val meterRegistry: MeterRegistry,
+) : StepExecutionListener {
     private val log = LoggerFactory.getLogger(StepMonitorListener::class.java)
 
     override fun beforeStep(stepExecution: StepExecution) {
@@ -15,12 +20,25 @@ class StepMonitorListener : StepExecutionListener {
     }
 
     override fun afterStep(stepExecution: StepExecution): ExitStatus {
-        if (stepExecution.failureExceptions.isNotEmpty()) {
-            log.info(
+        val stepName = stepExecution.stepName
+        val isFailed = stepExecution.failureExceptions.isNotEmpty()
+
+        val duration = Duration.between(
+            stepExecution.startTime,
+            stepExecution.endTime ?: LocalDateTime.now(),
+        )
+        meterRegistry.timer("batch.step.duration", "step", stepName).record(duration)
+        meterRegistry.counter("batch.step.write.count", "step", stepName)
+            .increment(stepExecution.writeCount.toDouble())
+        meterRegistry.counter("batch.step.result", "step", stepName, "status", if (isFailed) "failure" else "success")
+            .increment()
+
+        if (isFailed) {
+            log.error(
                 """
                     [에러 발생]
                     jobName: ${stepExecution.jobExecution.jobInstance.jobName}
-                    exceptions: 
+                    exceptions:
                     ${stepExecution.failureExceptions.mapNotNull { it.message }.joinToString("\n")}
                 """.trimIndent(),
             )

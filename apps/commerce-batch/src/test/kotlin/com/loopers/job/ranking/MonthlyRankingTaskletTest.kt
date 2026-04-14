@@ -1,8 +1,8 @@
 package com.loopers.job.ranking
 
-import com.loopers.batch.job.ranking.WeeklyRankingJobConfig
-import com.loopers.batch.job.ranking.WeeklyRankingQueryDao
-import com.loopers.batch.ranking.entity.MvProductRankWeeklyBatchEntity
+import com.loopers.batch.job.ranking.MonthlyRankingJobConfig
+import com.loopers.batch.job.ranking.MonthlyRankingQueryDao
+import com.loopers.batch.ranking.entity.MvProductRankMonthlyBatchEntity
 import com.loopers.batch.ranking.entity.ProductMetricsDailyBatchEntity
 import com.loopers.testcontainers.MySqlTestContainersConfig
 import com.loopers.utils.DatabaseCleanUp
@@ -33,17 +33,17 @@ import java.util.concurrent.atomic.AtomicLong
 @Import(MySqlTestContainersConfig::class)
 @TestPropertySource(
     properties = [
-        "spring.batch.job.name=${WeeklyRankingJobConfig.JOB_NAME}",
+        "spring.batch.job.name=${MonthlyRankingJobConfig.JOB_NAME}",
         "spring.batch.job.enabled=false",
     ],
 )
-class WeeklyRankingTaskletTest @Autowired constructor(
+class MonthlyRankingTaskletTest @Autowired constructor(
     private val jobLauncherTestUtils: JobLauncherTestUtils,
-    @param:Qualifier(WeeklyRankingJobConfig.JOB_NAME) private val job: Job,
+    @param:Qualifier(MonthlyRankingJobConfig.JOB_NAME) private val job: Job,
     private val databaseCleanUp: DatabaseCleanUp,
     @PersistenceContext private val entityManager: EntityManager,
     private val transactionTemplate: TransactionTemplate,
-    private val queryDao: WeeklyRankingQueryDao,
+    private val queryDao: MonthlyRankingQueryDao,
 ) {
     companion object {
         private val runIdSequence = AtomicLong(0)
@@ -74,12 +74,12 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         }
     }
 
-    private fun findAllMvWeekly(): List<MvProductRankWeeklyBatchEntity> {
+    private fun findAllMvMonthly(): List<MvProductRankMonthlyBatchEntity> {
         return transactionTemplate.execute {
             entityManager
                 .createQuery(
-                    "SELECT m FROM MvProductRankWeeklyBatchEntity m ORDER BY m.rankNo ASC",
-                    MvProductRankWeeklyBatchEntity::class.java,
+                    "SELECT m FROM MvProductRankMonthlyBatchEntity m ORDER BY m.rankNo ASC",
+                    MvProductRankMonthlyBatchEntity::class.java,
                 )
                 .resultList
         } ?: emptyList()
@@ -112,7 +112,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         // assert
         assertAll(
             { assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED) },
-            { assertThat(findAllMvWeekly()).hasSize(100) },
+            { assertThat(findAllMvMonthly()).hasSize(100) },
         )
     }
 
@@ -143,7 +143,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         // assert
         assertAll(
             { assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED) },
-            { assertThat(findAllMvWeekly()).hasSize(50) },
+            { assertThat(findAllMvMonthly()).hasSize(50) },
         )
     }
 
@@ -167,7 +167,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         )
 
         // assert
-        val results = findAllMvWeekly()
+        val results = findAllMvMonthly()
         assertAll(
             { assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED) },
             { assertThat(results).hasSize(1) },
@@ -196,7 +196,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         )
 
         // assert
-        val results = findAllMvWeekly()
+        val results = findAllMvMonthly()
         assertAll(
             { assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED) },
             { assertThat(results).hasSize(3) },
@@ -212,12 +212,11 @@ class WeeklyRankingTaskletTest @Autowired constructor(
     @DisplayName("DELETE 후 예외 발생 시 트랜잭션 롤백으로 기존 Top 100이 유지된다 (Tasklet 원자성)")
     @Test
     fun transactionRollbackPreservesExistingTop100() {
-        // arrange: 기존 MV에 1건 세팅 (periodKey "2024-W03")
-        val periodKey = "2024-W03"
-        val metricDate = LocalDate.of(2024, 1, 15)
+        // arrange: 기존 MV에 1건 세팅 (periodKey "2024-01")
+        val periodKey = "2024-01"
         transactionTemplate.execute {
             entityManager.persist(
-                MvProductRankWeeklyBatchEntity(
+                MvProductRankMonthlyBatchEntity(
                     rankNo = 1,
                     productId = 999L,
                     score = 9.9,
@@ -225,12 +224,12 @@ class WeeklyRankingTaskletTest @Autowired constructor(
                     likeCount = 10L,
                     salesCount = 5L,
                     periodKey = periodKey,
-                    periodStartDate = metricDate,
-                    periodEndDate = metricDate.plusDays(6),
+                    periodStartDate = LocalDate.of(2024, 1, 1),
+                    periodEndDate = LocalDate.of(2024, 1, 31),
                 ),
             )
         }
-        assertThat(findAllMvWeekly()).hasSize(1)
+        assertThat(findAllMvMonthly()).hasSize(1)
 
         // act: 트랜잭션 내에서 DELETE 후 INSERT 전 예외 발생 → 롤백 유발
         // Tasklet 실행 구조(SELECT → DELETE → INSERT)와 동일한 트랜잭션 경계 재현
@@ -242,10 +241,40 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         }
 
         // assert: DELETE가 롤백되어 기존 1건이 그대로 유지
-        val remaining = findAllMvWeekly()
+        val remaining = findAllMvMonthly()
         assertAll(
             { assertThat(remaining).hasSize(1) },
             { assertThat(remaining[0].productId).isEqualTo(999L) },
+        )
+    }
+
+    @DisplayName("월 범위(startDate~endDate) 전체 데이터가 집계되고, 범위 밖 데이터는 제외된다")
+    @Test
+    fun aggregatesMetricsAcrossEntireMonthAndExcludesOutOfRange() {
+        // arrange
+        jobLauncherTestUtils.job = job
+        // product 1: 월 초(2024-01-01) view 10 + 월 말(2024-01-31) view 20 → 월 합계 view 30, score = 0.1*30 = 3.0
+        persistMetrics(1L, LocalDate.of(2024, 1, 1), viewCount = 10L, likeCount = 0L, salesCount = 0L)
+        persistMetrics(1L, LocalDate.of(2024, 1, 31), viewCount = 20L, likeCount = 0L, salesCount = 0L)
+        // product 2: 전달(2023-12-31) 데이터 → 월 범위 밖이므로 집계 제외
+        persistMetrics(2L, LocalDate.of(2023, 12, 31), viewCount = 100L, likeCount = 0L, salesCount = 0L)
+
+        // act
+        val execution = jobLauncherTestUtils.launchJob(
+            JobParametersBuilder()
+                .addString("baseDate", "20240115")
+                .addLong("run.id", runIdSequence.incrementAndGet())
+                .toJobParameters(),
+        )
+
+        // assert: product 1만 집계(월 전체 합산), product 2는 제외
+        val results = findAllMvMonthly()
+        assertAll(
+            { assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED) },
+            { assertThat(results).hasSize(1) },
+            { assertThat(results[0].productId).isEqualTo(1L) },
+            { assertThat(results[0].viewCount).isEqualTo(30L) },
+            { assertThat(results[0].score).isEqualTo(3.0) },
         )
     }
 
@@ -265,7 +294,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
                 .addLong("run.id", runIdSequence.incrementAndGet())
                 .toJobParameters(),
         )
-        assertThat(findAllMvWeekly().map { it.productId }).containsExactly(1L, 2L)
+        assertThat(findAllMvMonthly().map { it.productId }).containsExactly(1L, 2L)
 
         // MV는 유지한 채 소스 데이터(product_metrics_daily)만 교체 (product 1 제거, product 3 추가)
         transactionTemplate.execute {
@@ -283,7 +312,7 @@ class WeeklyRankingTaskletTest @Autowired constructor(
         )
 
         // assert: product 1은 사라지고 product 2, 3만 존재 (이전 MV에 있던 product 1이 교체됨을 확인)
-        val results = findAllMvWeekly()
+        val results = findAllMvMonthly()
         assertAll(
             { assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED) },
             { assertThat(results).hasSize(2) },
