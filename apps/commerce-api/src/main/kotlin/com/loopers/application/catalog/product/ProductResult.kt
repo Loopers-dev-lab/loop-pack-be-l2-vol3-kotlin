@@ -11,6 +11,8 @@ data class ProductDetailResult(
     val stock: Int,
     val likeCount: Int,
     val brand: BrandResult,
+    /** 오늘 일간 랭킹에서의 0-based 순위. 랭킹에 진입하지 못했으면 null. */
+    val rank: Long? = null,
 )
 
 data class ProductSummaryResult(

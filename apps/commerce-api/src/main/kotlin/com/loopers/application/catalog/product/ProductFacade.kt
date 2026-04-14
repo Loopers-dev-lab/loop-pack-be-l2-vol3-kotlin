@@ -2,6 +2,7 @@ package com.loopers.application.catalog.product
 
 import com.loopers.application.catalog.brand.BrandResult
 import com.loopers.application.catalog.event.ProductViewedEvent
+import com.loopers.application.ranking.RankingFacade
 import com.loopers.config.redis.CacheException
 import com.loopers.domain.catalog.brand.BrandRepository
 import com.loopers.domain.catalog.brand.BrandService
@@ -23,6 +24,7 @@ class ProductFacade(
     private val productStockService: ProductStockService,
     private val productCacheService: ProductCacheService,
     private val outboxEventService: OutboxEventService,
+    private val rankingFacade: RankingFacade,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -63,20 +65,33 @@ class ProductFacade(
             log.warn("[ProductFacade] 조회 이벤트 Outbox 저장 실패: productId=$productId", ex)
         }
 
-        productCacheService.getProductDetail(productId)?.let { return it }
+        productCacheService.getProductDetail(productId)?.let { return enrichWithRank(it) }
 
         val locked = productCacheService.tryLock(productId)
         try {
             if (!locked) {
                 Thread.sleep(50)
-                productCacheService.getProductDetail(productId)?.let { return it }
+                productCacheService.getProductDetail(productId)?.let { return enrichWithRank(it) }
             }
             val result = loadProductDetailFromDb(productId)
             productCacheService.putProductDetail(productId, result)
-            return result
+            return enrichWithRank(result)
         } finally {
             if (locked) productCacheService.unlock(productId)
         }
+    }
+
+    /**
+     * 캐시/DB 에서 가져온 [ProductDetailResult] 에 오늘의 랭킹 순위를 덧붙인다.
+     *
+     * 랭킹은 변동이 잦으므로 캐시에 저장하지 않고 매 요청마다 ZREVRANK 를 호출한다.
+     * Redis 장애 시에는 rank=null 로 응답을 유지해 main 흐름이 끊기지 않도록 한다.
+     */
+    private fun enrichWithRank(result: ProductDetailResult): ProductDetailResult {
+        val rank = runCatching { rankingFacade.findTodayRank(result.id) }
+            .onFailure { log.warn("[ProductFacade] 랭킹 조회 실패: productId=${result.id}", it) }
+            .getOrNull()
+        return result.copy(rank = rank)
     }
 
     @Transactional

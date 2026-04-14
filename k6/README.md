@@ -36,6 +36,7 @@ docker-compose up -d
 | `queue-benchmark.js` | Commerce API (`:8080`) | ~2분 | 대기열 진입, Polling, 주문 전체 플로우 |
 | `queue-token-ttl-test.js` | Commerce API (`:8080`) | ~6분 | 토큰 TTL 만료 검증 |
 | `queue-throughput-test.js` | Commerce API (`:8080`) | ~1분 30초 | 처리량 초과 안정성 & 관문 차단 |
+| `ranking-benchmark.js` | Commerce API (`:8080`) | ~1분 20초 | Ranking ZSET 조회 / 상품 상세 rank enrichment (Week 9) |
 
 ---
 
@@ -249,6 +250,52 @@ k6 run k6/queue-throughput-test.js
 - **`queue_depth` 추이** — 2000명 진입 후 스케줄러가 175 TPS로 소화하면서 점진적으로 감소해야 함
 - **`order_without_token_accepted == 0`** — 관문이 100% 차단하는지 (가장 중요)
 - **`order_latency_ms` p(99)** — 주문 처리 지연이 설계 기준(200ms) 근처인지
+
+---
+
+## 5. Ranking Benchmark (`ranking-benchmark.js`)
+
+Week 9 Ranking 시스템의 Phase A(단건 ZINCRBY) 기준선을 측정합니다.
+
+### 시나리오
+
+| 시나리오 | VUs | 시간 | 시작 시점 | 설명 |
+|---------|-----|------|----------|------|
+| `ranking_read_light` | 50 (constant) | 30s | 0s | GET /api/v1/rankings — 기본 조회 부하 |
+| `product_detail_rank` | 100 (constant) | 30s | 0s | GET /api/v1/products/{id} — rank enrichment + outbox 쓰기 구동 |
+| `ranking_read_heavy` | 0→200→0 | 25s | 35s | 랭킹 페이지 폭증 |
+| `ranking_deep_page` | 30 (constant) | 15s | 65s | deep pagination (page 1~5, size 50) |
+
+### Thresholds
+
+| Threshold | 기준 |
+|-----------|------|
+| `http_req_failed` | rate < 0.05 |
+| `ranking_page` | p(95) < 500ms, p(99) < 1000ms |
+| `product_detail` | p(95) < 800ms, p(99) < 1500ms |
+
+### 실행 (10회 반복)
+
+```bash
+# 단발
+k6 run k6/ranking-benchmark.js
+
+# 10회 반복 (분산/평균 측정)
+./k6/run-ranking-benchmark.sh 10
+```
+
+### 사전 조건
+
+- Commerce API + Commerce Streamer + Redis + Kafka 실행 중
+- Product 시드 데이터 존재 (기본 `id=1..10000` 핫셋)
+- 환경변수 `PRODUCT_ID_MAX` 로 상품 범위 조정 가능
+
+### 측정 포인트
+
+- **ranking_page p(99)** — ZREVRANGE + product/brand IN 쿼리 Aggregation 지연
+- **product_detail p(99)** — 기존 detail 조회 + ZREVRANK enrichment 추가 오버헤드
+- **http_req_failed** — Redis/DB 장애 없이 안정적인지
+- **product_detail_with_rank / without_rank 비율** — 핫셋 상품의 ZSET 진입율
 
 ---
 
