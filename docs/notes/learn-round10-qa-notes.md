@@ -500,6 +500,103 @@ Q3의 `SELECT product_id, SUM(view_count), SUM(like_count), SUM(sales_count) FRO
 **Q5-5. 혼합 선택의 정당화**
 Reader/Writer 모두 JDBC로 결정 시, *"어드민/API는 JPA 쓰면서 배치만 JDBC 쓰는 건 DIP 위반 아닌가?"* 에 어떻게 답변할 건가요?
 
+---
+
+### Q5-1. Reader 선택 — 영속성 컨텍스트의 함정
+
+**[질문]**
+200만 row × chunk 1000 = 2000개 chunk 시나리오. JPA 기반 Reader를 쓰면 1차 캐시가 배치에서 왜 독이 되는가?
+1. 1/500/1000/2000번째 chunk 시점의 영속성 컨텍스트 상태
+2. JVM heap / GC 관점
+3. `EntityManager.clear()`로 해결되는지, 그래도 JPA가 JDBC 대비 손해 보는 부분
+
+**[답변]**
+> jpa를 사용하면 chunk 단위인 1000개가 1차 캐시에 있게 된다. 그러면 jpa 의 장점이 독이 되게 된다.
+> 우선 n+1 발생할 수 있기 때문에 문제가 되고, 대용량 insert 에서 메모리 부족이나 느린 insert가 발생한다.
+> chunk 기반에서 1000개 가 reader -> processor -> writer 를 하고 커밋하기 때문에 .... 라고 생각하기 때문에
+
+**[멘토 평가 — 맞은 것 / 비켜간 것]**
+- 맞음: "chunk 단위 1000개가 1차 캐시에 있게 된다"
+- 비켜감: N+1은 연관관계 순회 시 발생 (이번 시나리오는 단일 테이블 GROUP BY 집계라 N+1 무관)
+- 비켜감: "대용량 insert" 언급은 Writer(Q5-2) 관점. Q5-1은 Reader만의 관점에서 JPA의 손해를 보는 것
+- 문장이 중간에 끊김 — 뒷부분이 핵심
+
+**[악마의 변호인: chunk 커밋되면 캐시 비워지지 않나?]**
+팀원 가상 반론: "Spring Batch는 chunk 경계에서 트랜잭션 커밋 → 영속성 컨텍스트도 닫힘 → 매 chunk마다 1000개만 있다가 비워지고 다시 1000개. 메모리 누적 문제는 사실상 없다."
+
+**[후속 질문: a~d]**
+- a. 위 팀원 주장은 어디가 맞고 어디가 틀린가? (JpaPagingItemReader의 transacted 옵션, page size vs chunk size)
+- b. 100% 메모리 누적이 없다 가정해도, JPA는 Entity를 영속성 컨텍스트에 넣는 순간 "추가로 뭔가를 한다". 그게 뭔가? (변경 감지 → 스냅샷)
+- c. 이 배치 Reader는 Entity 상태를 바꿀 일이 없는데, JPA는 b를 무조건 한다. 배치 관점의 비용은?
+- d. Q3의 Reader 쿼리 결과물 한 row는 `ProductMetricsDaily` Entity인가? (Q5-3 예고편)
+
+**[답변]**
+> 전부다 알려줘
+
+**[멘토 해설 — a: transacted 옵션과 page/chunk size]**
+- 맞는 절반: chunk 경계 커밋 → chunk 트랜잭션 범위 영속성 컨텍스트는 닫힘 → 200만 개가 단순 누적되진 않음
+- 틀린/미묘한 절반:
+  - `JpaPagingItemReader.transacted = true` (기본값): Reader가 **자체 트랜잭션**으로 페이지를 읽고 즉시 커밋 → Entity가 chunk 트랜잭션에는 **detached 상태**로 전달됨. chunk 트랜잭션과 다른 트랜잭션
+  - `transacted = false`: Reader/Writer가 chunk 트랜잭션 하나를 공유. Entity가 영속 상태로 chunk 내내 체류
+  - `pageSize > chunkSize`면 다음 chunk용 Entity가 영속성 컨텍스트에 미리 올라와 누적됨
+  - 실무 함정: 설정이 교과서대로일 때만 메모리 문제가 없음. 트랜잭션 경계가 복잡해져 디버깅·모니터링 비용 증가
+
+**[멘토 해설 — b: 영속성 컨텍스트가 Entity를 받아들일 때 "추가로 하는 일"]**
+- **스냅샷(Snapshot) 저장**: Entity 필드 값을 그대로 복사해 별도 보관
+- flush/commit 시점에 현재 Entity vs 스냅샷을 필드 단위 비교 → 변경된 필드에 대해 UPDATE 자동 생성 = **Dirty Checking(변경 감지)**
+- 결과: 영속성 컨텍스트 메모리 ≈ Entity × 2 (원본 + 스냅샷), CPU는 chunk당 (1000 × 필드 수)회 비교 루프
+
+**[멘토 해설 — c: 읽기 전용 배치에서 Dirty Checking이 큰 낭비인 이유]**
+- 이 배치 Reader는 Entity 상태를 **0% 수정**, 그러나 JPA는 스냅샷을 **100% 저장**하고 **변경 감지 루프를 무조건** 돎
+- 200만 스냅샷 × 2000 chunks 분의 메모리 부하·CPU 낭비·Young GC 압박
+- 완화책: `@QueryHints(HINT_READONLY=true)` 또는 `Session.setReadOnly(true)` → 스냅샷 생략
+- **핵심 깨달음**: 영속성 컨텍스트의 모든 장점을 끄고 JPA를 쓴다는 것 자체가 도구 선택 오류 신호
+
+**[멘토 해설 — d: Reader 쿼리 결과는 Entity가 아니다]**
+- Q3 Reader 쿼리 결과 row = `(product_id, SUM(view), SUM(like), SUM(sales))` 4개 컬럼
+- `ProductMetricsDaily` Entity 구조 = `(product_id, metric_date, view_count, like_count, sales_count, ...)` 7+개 컬럼, metric_date 포함
+- GROUP BY로 metric_date가 소거되고, 집계 합계가 들어감 → **Entity 1:1 매핑 원천적으로 불가능**
+- JPA 우회: `SELECT new ProductAggregateDto(...)` 생성자 투영. 작동은 하지만 JPA를 쓰는 의미가 거의 없음(Entity 매핑 0, 영속성 컨텍스트 불필요, 연관관계 없음)
+- `JdbcPagingItemReader<ProductAggregateDto>` + `RowMapper`가 투영 쿼리의 **네이티브 표현 방식**
+
+**[정리: Q5-1]**
+JPA Reader의 3대 손해:
+1. **스냅샷 메모리 2배 + Dirty Checking CPU** — 읽기 전용인데도 무조건 지불
+2. **트랜잭션 경계 복잡성** — `transacted` 옵션·page/chunk 조합이 영속성 컨텍스트 수명 좌우
+3. **투영 쿼리 표현 부자연스러움** — 집계 결과는 Entity가 아님, JPA의 장점을 쓸 자리 없음
+
+**확정:** Reader는 `JdbcPagingItemReader` + `RowMapper`로 DTO(ProductAggregateDto) 직접 매핑.
+
+**[글감]**: "JPA의 장점을 전부 꺼야 성능이 나온다면 도구 선택이 잘못된 것 — 배치에서 JPA Reader를 쓰지 않는 실질적 이유"
+
+---
+
+### Q5-2. Writer 선택 — Upsert 구현
+
+**[상황]**
+- Writer 동작: Processor가 계산한 주간 집계 결과 중 TOP 100을 `mv_product_rank_weekly`에 저장
+- 같은 `(year_week, product_id)` 존재 시 갱신, 없으면 삽입 = **Upsert**
+- MySQL 표준 패턴:
+  ```sql
+  INSERT INTO mv_product_rank_weekly (year_week, product_id, rank, score, view_count, like_count, sales_count)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON DUPLICATE KEY UPDATE
+      rank = VALUES(rank),
+      score = VALUES(score),
+      view_count = VALUES(view_count),
+      like_count = VALUES(like_count),
+      sales_count = VALUES(sales_count);
+  ```
+
+**[후보]**
+- `JpaItemWriter` — 내부적으로 `EntityManager.merge(entity)` 호출
+- `JdbcBatchItemWriter` — 위 native SQL을 JDBC batch로 실행
+
+**[질문 a/b/c]**
+- **a.** `EntityManager.merge()`의 동작 순서를 그리기 (신규 vs 기존 판단 로직 포함)
+- **b.** a의 동작이 이 배치에서 문제가 되는 포인트 3가지 이상 (SELECT 횟수, 쓸모없는 SELECT, `rank` 컬럼 업데이트 인지 방식)
+- **c.** `JdbcBatchItemWriter` + `INSERT ... ON DUPLICATE KEY UPDATE`의 이득 — 쿼리 횟수·SELECT 필요 여부 비교
+
 **[답변]**
 > (답변 대기 중)
 
@@ -507,7 +604,21 @@ Reader/Writer 모두 JDBC로 결정 시, *"어드민/API는 JPA 쓰면서 배치
 
 ## 다음 세션 이어가기
 
-**중단 지점:** Q5 (배치 JPA vs JDBC) 세부 질문 5개 답변 대기 중
+**중단 지점:** Q5-2 (Writer — JpaItemWriter vs JdbcBatchItemWriter + Upsert) 답변 대기 중
+**재개 방법:** `/learn-round @docs/notes/learn-round10-qa-notes.md , @docs/quests/round-10.md 이어서`
+
+**Q5-2 질문 요약 (내일 먼저 볼 포인트):**
+1. `EntityManager.merge()` 동작 순서 그리기
+2. 배치 upsert에서 merge가 만드는 3대 문제 (추가 SELECT, 읽기 낭비, 변경 감지 범위)
+3. `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` 한 방 upsert의 이득
+
+**남은 주요 주제:**
+- Q5-2 ~ Q5-5 (Writer, Reader 쿼리 부적합, 일관성 vs 최적화, DIP 방어)
+- Q6. 멱등성과 재실행 전략 (JobParameter, 중복 실행 방지)
+- Q7. API 확장 (`period` 파라미터, 일간=Redis / 주간·월간=MV 분기)
+- Q8. 실패 복구, 모니터링, 운영 관점
+- Q9. `product_metrics` 일별 스키마 재설계 (Q1에서 합의된 전제)
+- 최종 백지 설계 테스트
 **다음 세션 시작 방법:** 이 파일(`docs/notes/learn-round10-qa-notes.md`)을 참조로 지정해서 `/learn-round @docs/quests/round-10.md` 실행
 **남은 주요 주제 (내부 설계):**
 - Q5. 배치에서의 JPA vs JDBC — Reader/Writer 도구 선택 **[진행 중]**
