@@ -32,8 +32,11 @@ class ProductFacadeUnitTest {
         every { getProductList(any()) } returns null
     }
     private val mockOutboxEventService = mockk<OutboxEventService>(relaxed = true)
+    private val mockRankingFacade = mockk<com.loopers.application.ranking.RankingFacade>(relaxed = true) {
+        every { findTodayRank(any()) } returns null
+    }
 
-    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService, mockOutboxEventService)
+    private val productFacade = ProductFacade(mockProductService, mockBrandService, mockBrandRepository, mockProductStockService, mockProductCacheService, mockOutboxEventService, mockRankingFacade)
 
     // ─── createProduct ───
 
