@@ -18,6 +18,17 @@ class MetricsEventProcessor(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
+    fun processProductViewed(eventId: String, eventType: String, productId: Long) {
+        if (isDuplicate(eventId)) return
+
+        val metrics = findOrCreate(productId)
+        metrics.incrementViewCount()
+        markHandled(eventId, eventType)
+
+        log.info("조회 metrics 반영 [productId={}, viewCount={}]", productId, metrics.viewCount)
+    }
+
+    @Transactional
     fun processLikeCreated(eventId: String, eventType: String, productId: Long) {
         if (isDuplicate(eventId)) return
 

@@ -2,12 +2,14 @@ package com.loopers.interfaces.consumer
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.loopers.application.metrics.MetricsEventProcessor
+import com.loopers.application.ranking.RankingScoreEvent
 import com.loopers.config.KafkaTopicConfig
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.infrastructure.kafka.RetryableRecordProcessor
 import com.loopers.infrastructure.kafka.requireHeaderValue
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.kafka.support.Acknowledgment
 import org.springframework.stereotype.Component
@@ -17,6 +19,7 @@ class OrderEventConsumer(
     private val metricsEventProcessor: MetricsEventProcessor,
     private val retryableRecordProcessor: RetryableRecordProcessor,
     private val objectMapper: ObjectMapper,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -50,6 +53,7 @@ class OrderEventConsumer(
                         val totalAmount = payload.get("totalAmount")?.asLong()
                             ?: throw IllegalArgumentException("필수 필드 누락: totalAmount")
                         metricsEventProcessor.processOrderCreated(eventId, eventType, productIds, totalAmount)
+                        eventPublisher.publishEvent(RankingScoreEvent.OrderCreated(productIds, totalAmount))
                     }
                     EVENT_TYPE_PAYMENT_APPROVED -> {
                         val productIds = payload.get("productIds")?.map { it.asLong() }
@@ -57,6 +61,7 @@ class OrderEventConsumer(
                         val amount = payload.get("amount")?.asLong()
                             ?: throw IllegalArgumentException("필수 필드 누락: amount")
                         metricsEventProcessor.processPaymentApproved(eventId, eventType, productIds, amount)
+                        eventPublisher.publishEvent(RankingScoreEvent.PaymentApproved(productIds, amount))
                     }
                     EVENT_TYPE_PAYMENT_FAILED -> {
                         log.info(

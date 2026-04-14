@@ -14,6 +14,10 @@ class ProductMetricsRepositoryImpl(
         return productMetricsJpaRepository.findByIdOrNull(productId)
     }
 
+    override fun findAll(): List<ProductMetrics> {
+        return productMetricsJpaRepository.findAll()
+    }
+
     override fun save(productMetrics: ProductMetrics): ProductMetrics {
         return productMetricsJpaRepository.save(productMetrics)
     }
