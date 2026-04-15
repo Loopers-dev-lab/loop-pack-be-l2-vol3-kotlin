@@ -3,6 +3,8 @@
 이 문서는 AI 리뷰어(CodeRabbit, Gemini)가 반복 지적하지만, 프로젝트에서 의도적으로 다른 방향을 선택하거나 전제 조건 하에 수용한 사안을 기록한다.
 `/review-pr` 스킬의 analyze 페이즈에서 자동 참조하여 이미 결정된 사안의 반복 검토를 방지한다.
 
+> **아카이브**: RD-001 ~ RD-040(라운드 1~9)은 [`docs/review/review-decisions-1.md`](review/review-decisions-1.md)로 분리되어 있다. `/review-pr analyze`가 키워드 매칭으로 `ALREADY_DECIDED`를 식별할 때 두 파일을 모두 참조해야 한다.
+
 ## 분류 체계
 
 - **DISMISSED**: 요구사항/스펙 준수 또는 현행 유지 결정. 제안을 수용하지 않으며, "수용 시 회귀 발생" 또는 "이른 추상화" 등 명확한 반대 근거를 갖는다. 본문 `한계` 필드에 재검토 트리거를 기록한다.
@@ -126,7 +128,7 @@
 - **구현 방향 (2차 개정)**:
   - `ProductLockEntity`(신규, commerce-streamer) — `@Entity @Table(name = "products")`에 `@Id val id: Long` 단일 컬럼만 매핑. `BaseEntity` 미상속으로 dirty check 시 `updatedAt` touch 리스크 차단. commerce-api의 `ProductJpaEntity`와는 서로 다른 모듈·다른 엔티티 클래스로 JPA 물리 충돌 없음(같은 테이블 두 엔티티 매핑은 JPA 관점에서 합법).
   - `ProductLockRepository`(domain 인터페이스, commerce-streamer) — `fun findByIdForUpdate(id: Long): Long?` 시그니처. `ProductLockEntity`(infrastructure)를 domain 인터페이스에 노출하지 않음 — 레이어 의존 방향 준수.
-  - `ProductLockJpaRepository`(Spring Data) — `@Lock(LockModeType.PESSIMISTIC_WRITE) override fun findById(id: Long): Optional<ProductLockEntity>`. 프로젝트 `@Query` 금지 규칙을 위반하지 않으면서 derived method에 락 힌트만 덮어씌우는 형태.
+  - `ProductLockJpaRepository`(Spring Data) — `@Lock(LockModeType.PESSIMISTIC_WRITE) fun findWithLockById(id: Long): ProductLockEntity?`. 프로젝트 `@Query` 금지 규칙을 위반하지 않으면서 derived method에 락 힌트만 덮어씌우는 형태.
   - `ProductLockRepositoryImpl`(infrastructure) — JPA repo 어댑터로 `entity.id`를 `Long?`으로 변환 반환.
   - `UpdateProductMetricsUseCase`:
     - `handleCatalogEvent` / `handleOrderEvent`에 `@Transactional(isolation = Isolation.READ_COMMITTED)` 적용. MySQL REPEATABLE READ 기본값에서 MVCC 스냅샷이 트랜잭션 첫 읽기 시점에 확정되어 T2가 락 획득 후에도 `findByProductId` null 반환 → unique constraint violation을 일으키는 문제 해결. READ_COMMITTED에서는 각 읽기가 최신 커밋 데이터를 봄.
