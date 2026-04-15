@@ -598,23 +598,243 @@ JPA Reader의 3대 손해:
 - **c.** `JdbcBatchItemWriter` + `INSERT ... ON DUPLICATE KEY UPDATE`의 이득 — 쿼리 횟수·SELECT 필요 여부 비교
 
 **[답변]**
-> (답변 대기 중)
+> a. 식별자로 1차 캐시에 존재여부 조회, 없으면 db 에서 식별자로 조회 한다. 식별자 마다 이런 판단을 하기 때문에 총 100개의 row이면 100번 반복하게 된다.
+> b. top 100에서 이미 존재하는 데이터가 누구인지 알지 못 한다. 일단 top 100 데이터가 있는지 전부 가져오고, 있으면 rank 를 수정하고, 없으면 새로 만든다. 수정된 데이터는 더티체킹으로 update 가 될것이다.
+> c. 100개의 row 이니 100번의 네트워크가 발생한다. mysql 에서는 insert 해보고 중복 key가 있다고 에러가 발생하면 바로 업데이트로 하게된다.
+
+**[멘토 평가 — a, b: 정확]**
+- a: merge = "1차 캐시 → DB SELECT → 판단 → persist/update 상태 전이"를 식별자마다 반복. 100건 upsert 시 **100번의 SELECT**가 선행
+- b: JPA는 chunk 단위로 "누가 존재하는지"를 **미리 알 수 없음** → 매 배치마다 존재 여부 재확인. 존재 시 Dirty Checking으로 UPDATE 자동 생성
+
+**[악마의 변호인 1: ON DUPLICATE KEY UPDATE는 에러 기반인가?]**
+사용자 답 c의 "insert 해보고 중복 key가 있다고 에러가 발생하면 업데이트"는 부정확. 실제로는:
+- MySQL이 **unique index(PK)를 lookup하여 충돌을 사전 예측**
+- 충돌 감지 시 애플리케이션 레벨 예외 없이 **UPDATE 경로로 내부 분기**
+- 에러 기반이라면 99건이 존재할 때 99번의 예외 복구 비용이 발생해 무의미해짐
+
+**[악마의 변호인 2: 100건 = 100 왕복인가?]**
+`JdbcBatchItemWriter`의 실제 동작:
+- `addBatch()`는 클라이언트 메모리에 쌓기만 함 (네트워크 없음)
+- `executeBatch()`에서 **1번의 왕복**으로 묶어 전송
+- `rewriteBatchedStatements=true` 옵션 시 100건이 **단일 멀티-밸류 INSERT 한 줄**로 재작성 → 서버 파싱 비용까지 절감
+
+**[답변]**
+> 1. 지금 상황에서는 select 1번, write 1번 이 되겠네.
+> 2. 네트워크 왕복은 없을거야. mysql 내부에서 한번에 할거야.
+> 3. 네트워크 i/o 대기시간이 발생하는 만큼 배치 시간도 오래걸린다
+
+**[멘토 평가 — 2, 3: 정확]**
+- 2: `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` + `rewriteBatchedStatements=true` = **왕복 1번**
+- 3: latency 1ms 가정 시 JpaItemWriter ~200ms vs JdbcBatchItemWriter ~1ms. chunk 2000개 환산 시 수 분 vs 수 초 차이
+
+**[1번 교정: Writer vs Reader 혼선]**
+1번 답은 Reader 시나리오로 잘못 연결된 것. 실제 `JpaItemWriter`의 왕복 수:
+- SELECT 100번 (batching 불가 — 다음 결과를 보고 INSERT/UPDATE 분기 결정 필요)
+- INSERT/UPDATE 100번 (Hibernate batch 옵션으로 묶임 가능)
+- **합계 최소 ~101회 ~ 최대 200회 왕복**
+
+**[정리: Q5-2]**
+JpaItemWriter의 3대 손해:
+1. **merge의 선행 SELECT** — row당 1회, 100 row = 100회의 쓸모없는 왕복 (batching 불가)
+2. **배치 관점의 무지(無知)** — 100건 중 누가 존재하는지 chunk 수준에서 알 수 없음 → 매 실행마다 전수 확인
+3. **Dirty Checking 기반 UPDATE** — rank/score 재계산 결과가 모든 필드에 반영됐는지 필드별 비교 루프
+
+JdbcBatchItemWriter + ON DUPLICATE KEY UPDATE의 이득:
+1. **SELECT 제거** — MySQL 엔진이 인덱스 lookup으로 존재 여부를 **예측**하여 INSERT/UPDATE 내부 분기
+2. **왕복 1회** — `rewriteBatchedStatements=true` 시 멀티-밸류 INSERT로 묶임
+3. **예외 처리 비용 0** — 충돌 발생해도 예외 없음, 서버 내부에서 조용히 UPDATE로 전환
+
+**확정:** Writer는 `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` native SQL. JDBC URL에 `rewriteBatchedStatements=true` 옵션 필수.
+
+**[글감]**: "`ON DUPLICATE KEY UPDATE`는 에러 기반이 아니다 — MySQL 인덱스 레벨의 충돌 예측과 내부 분기 메커니즘"
+**[글감]**: "JPA merge 기반 upsert가 배치에서 200배 느린 이유 — SELECT batching이 원리적으로 불가능한 지점"
+
+---
+
+### Q5-3. Reader 쿼리 형태 불일치 — 요약 (Q5-1 d에서 이미 다룸)
+
+- Reader 쿼리 결과는 `(product_id, SUM(view), SUM(like), SUM(sales))` **4컬럼 집계 투영**
+- `ProductMetricsDaily` Entity(7+컬럼, metric_date 포함)와 1:1 매핑 원천 불가
+- `JdbcPagingItemReader<ProductAggregateDto>` + `RowMapper`가 투영 쿼리의 네이티브 표현
+
+---
+
+## Q5-4 + Q5-5. "일관성" vs "최적화" — 팀원 반론 방어
+
+**[상황]**
+PR 리뷰에서 두 팀원이 JDBC 기반 배치에 반대:
+- 팀원 A (시니어, 일관성 파): "프로젝트는 JPA로 통일돼 있음. 학습 비용 > 배치 성능 이득. 새벽 배치 200ms 차이는 과잉 최적화"
+- 팀원 B (주니어, 아키텍처 파): "domain/Repository ← infrastructure/RepositoryImpl 구조로 DIP를 지키는데 배치는 JdbcTemplate 직접 사용 → DIP 위반 아닌가? Repository 인터페이스에 배치용 메서드 추가하는 게 맞지 않나?"
+
+### Q5-4. 팀원 A에게 답변
+
+**[답변]**
+> 일관성 유지는 너무 좋다. 근데 일관성이라는게 기술에 대한 일관성을 꼭 말하는것 일까? 우리가 하고자하는 문제해결을 위해 적절한 기술을 선택하는 것이 좋지 않을까? 생각된다. 일관성은 아키텍쳐나 운영/유지보수를 위한 일관성을 봐야한다고 생각된다. 그리고 배치는 대용량 일괄처리로 1개의 데이터를 비교하면 별차이 없어보이지만 쌓이다 보면 엄청난 차이가 발생한다.
+
+**[멘토 평가]**
+"일관성의 대상을 재정의"하는 프레이밍이 핵심 무기. 도구(JPA/JDBC) 일관성이 아니라 **아키텍처 일관성**(레이어드 구조, BaseEntity, CoreException, ApiResponse, 테스트 패턴, ArchUnit)이 진짜 지켜야 할 축.
+
+**[멘토 보완: 숫자로 설득력 강화]**
+- 시나리오 1 (주간 MV, 100만 상품): JPA ~200초 vs JDBC ~1초 (Writer만). 전체 10분 vs 30초 수준
+- 시나리오 2 (장애 복구): 30분 배치 vs 2~3분 배치 → 업무시간 재실행 시 DB 락 경합·운영 부담 차이
+- 시나리오 3 (가중치 변경 재실행): Q1 "재실행 자유도" 가치가 JPA 버전에선 **무력화**됨. 10초에 끝나야 "일단 돌려보자" 가능
+- "과잉 최적화" 판단 기준: SLA 안에 들어오는가 / 실패 시 재실행이 현실적인가 / 데이터 규모가 자연 증가하는가
+
+### Q5-5. 팀원 B에게 답변
+
+**[답변]**
+> 우리가 dip를 사용하는 이유는 domain에서 infrastructure에서 jpa를 사용하던 jdbc를 사용하던 domain은 모르겠고, select 든 save 든 우리가 요청하는 작업만 해줘 라는 뜻이다. 그리고 하나의 repository에 배치용까지 만드는게 아니라 따로 repository를 만들어 관리하는게 유지보수 에 유용하다
+
+**[후속 질문: "배치용 Repository"의 실체]**
+1. 어느 모듈·패키지에 둘 건가? (후보 1: apps/commerce-batch 내부 자체 Reader/Writer, 후보 2: domain/Repository 인터페이스 + infrastructure 구현, 후보 3: Spring Batch 프레임워크 인터페이스 활용)
+2. 배치 Reader의 **호출자**는 누구인가? (domain Service? Spring Batch 프레임워크?)
+3. Spring Batch의 `ItemReader<T>` / `ItemWriter<T>` 위에 추가로 domain Repository를 얹으면 **2중 추상화**가 되지 않나?
+
+**[답변]**
+> 이미 배치에서 제공하는 인터페이스가 있기 때문에 따로 만들필요 없이 가져다 사용하면 된다. 그리고 우리가 만드는 것보다 제공하는 기능이 많을 것이고 최적화도 가능할 것이다.
+
+**[멘토 평가: 3번 정답. 1, 2번 보완]**
+
+팀원 B 제안을 거절하는 이유 3가지:
+
+1. **호출자가 다르면 인터페이스의 존재 이유가 다르다**
+   - `domain/Repository`: domain Service가 호출 (도메인이 인프라 세부를 모르게)
+   - `ItemReader<T>`: Spring Batch 프레임워크가 호출 (StepBuilder chunk 루프)
+   - 호출자 다른 두 인터페이스 묶으면 역할 충돌
+
+2. **Reader 쿼리는 도메인 의미 없는 ETL 집계 투영**
+   - `SUM + GROUP BY` 결과는 Entity가 아닌 일시적 DTO
+   - domain Repository에 주간 집계 메서드 넣으면 "영속성 관리"에서 "ETL 창구"로 책임 오염
+
+3. **Spring Batch 프레임워크가 이미 제공하는 추상화 활용** (사용자 답변)
+   - `JdbcPagingItemReader<T>`, `JdbcBatchItemWriter<T>` 직접 활용
+   - chunk 제어, restart, skip, retry, 트랜잭션 경계 프레임워크 관리
+   - 자체 Repository로 래핑하면 프레임워크 기본 기능 상실
+
+**[최종 구조]**
+```
+apps/commerce-batch/
+  batch/weekly-ranking/
+    WeeklyRankingJobConfig.kt      # Job/Step 정의
+    ProductAggregateReader.kt      # JdbcPagingItemReader Bean
+    WeightScoreProcessor.kt        # Java 가중치 계산
+    ProductRankWeeklyWriter.kt     # JdbcBatchItemWriter Bean
+  dto/
+    ProductAggregateDto.kt         # Reader projection 결과
+    ProductRankWeeklyRow.kt        # Writer upsert row
+```
+- domain/Repository와 완전 분리
+- Spring Batch 네이티브 인터페이스 활용 → DIP 위반 아님
+
+**[정리: Q5-4/Q5-5]**
+- **일관성의 대상 재정의**: 도구 일관성 ≠ 아키텍처 일관성. 레이어드 구조/에러 처리/테스트 패턴은 JDBC 배치로도 그대로 유지됨
+- **"과잉 최적화" 반박**: 100만 row × chunk 2000 환산 시 10분 vs 30초 차이. 장애 복구/가중치 재계산 시나리오에서 JPA는 배치의 본래 가치를 훼손
+- **DIP의 본질**: abstraction 개수 경쟁이 아니라 "domain이 infrastructure 세부에 의존하지 않는가". 배치는 domain이 호출하지 않으므로 DIP 적용 대상 외
+- **2중 추상화 금지**: `ItemReader<T>`는 이미 Spring Batch의 프레임워크 추상화. 그 위에 domain Repository를 얹으면 프레임워크 기능 상실 + 책임 오염
+- **[글감]**: "일관성의 대상 재정의 — 도구 일관성 vs 아키텍처 일관성, 배치 모듈의 JDBC 선택 정당화"
+- **[글감]**: "DIP는 abstraction 만들기 대회가 아니다 — Spring Batch ItemReader/Writer 위에 domain Repository를 얹지 않는 이유"
+
+---
+
+### Q5 전체 확정 요약
+
+| 항목 | 선택 | 근거 |
+|---|---|---|
+| Reader | `JdbcPagingItemReader<ProductAggregateDto>` | 영속성 컨텍스트 낭비, 집계 투영은 Entity 아님 |
+| Processor | `ItemProcessor<ProductAggregateDto, ProductRankRow>` | 가중치 Java 계산, `@ConfigurationProperties` 외부화 |
+| Writer | `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` | merge SELECT 제거, 왕복 1회, 예외 처리 비용 0 |
+| JDBC URL | `rewriteBatchedStatements=true` | 멀티-밸류 INSERT rewrite |
+| 아키텍처 | `apps/commerce-batch/` 내부 자체 Reader/Writer, domain Repository 불간섭 | 호출자·책임·추상화 계층이 domain과 다름 |
+
+---
+
+## Q6. 멱등성과 재실행 전략
+
+**[상황]**
+주간 배치가 매일 새벽 3시 실행. `targetDate=2026-04-15` 파라미터로 `2026-W15` 누적분 집계. 같은 targetDate로 2번 실행해도 데이터 망가지면 안 됨.
+
+**[3가지 시나리오]**
+- A: 장애 복구 재실행 (70% 완료 후 실패 → 오전 재실행)
+- B: 실수 재실행 (정상 완료된 배치를 담당자가 다시 실행)
+- C: 가중치 변경 후 과거 재계산 (같은 targetDate로 다시 돌리고 싶음)
+
+### Q6-a. Spring Batch JobParameters 중복 방지
+
+**[답변]**
+> job을 실행하면 메타테이블에 저장을 하는데 여기에 존재하면 재실행을 막는다.
+
+**[멘토 평가: 정확]**
+`BATCH_JOB_INSTANCE`에 (Job이름 + JobParameters) 유니크 존재 시 `JobInstanceAlreadyCompleteException`.
+- `BATCH_JOB_INSTANCE`: 중복 방지 주체 (COMPLETED 상태의 동일 파라미터 재실행 차단)
+- `BATCH_JOB_EXECUTION`: 실행 시도 기록 (FAILED는 재시도 가능)
+- 시나리오 A(실패 후 재실행)는 허용, B(완료 후 재실행)는 거부가 기본 동작
+
+### Q6-b. JobParametersIncrementer 선택
+
+**[답변]**
+> 옵션 3 선택, 재실행을 하더라도 몇 번 실행했는지 관리하는 것 또한 유지보수하는데 필요하다.
+
+**[멘토 평가: 정답]**
+`RunIdIncrementer` → 매 실행마다 `run.id` 자동 +1, JobInstance 분리.
+
+**[악마의 변호인: Incrementer는 중복 방지를 무력화하는가?]**
+- 반론: "run.id로 매번 다른 JobInstance가 되면 Q6-a 중복 방지 의미 없어지는 것 아닌가?"
+- 반박: 실행 히스토리(`BATCH_JOB_EXECUTION`)는 전부 남음 → 언제·몇 번째 실행인지 추적 가능
+- 본질: Incrementer는 "이건 **새 실행**이다"라고 명시적으로 선언하는 장치. 의도적 재실행과 실수 재실행을 **파라미터로 구분**하는 메커니즘
+- 역할 분리: `targetDate`는 비즈니스 파라미터, `run.id`는 실행 시퀀스 파라미터
+
+### Q6-c. 실패 후 재실행 시 MV 정합성
+
+**[답변]**
+> 방법 3를 선택할 것이다. 랭킹 시스템이라는 비즈니스를 생각하면 방법1번은 조회 리스크가 있을것이고, 방법2는 성공했는데 플래그 업데이트가 실패하면? 이라는 문제가 있을 수 있다.
+
+**[멘토 평가: 선택 타당, 진짜 이유는 더 근본적]**
+
+**[악마의 변호인: upsert인데 왜 staging이 필요한가?]**
+- 함정 시나리오: 1차 실행 TOP 100 = `[1, 2, ..., 100]`, 가중치 변경 후 2차 TOP 100 = `[1, 2, ..., 99, 200]` (상품 100 탈락, 상품 200 신규 진입)
+- 2차 upsert는 `[1~99, 200]`만 건드림 → **상품 100의 이전 row 그대로 잔존** → MV 최종 101개 row → TOP 100 깨짐
+- **staging swap의 진짜 이유: 탈락한 row 정리**
+
+**[실전 구현 패턴]**
+- 방법 1 변형 (Step 분리): Step 1 = DELETE, Step 2 = INSERT. Step 2 실패 시 **빈 MV 노출** 위험
+- 방법 3 staging: Step 1 = staging 테이블에 집계, Step 2 = `DELETE mv WHERE year_week=?` + `INSERT mv SELECT FROM staging`을 **단일 트랜잭션**. 원자성 보장 ✓
+- 간소화: staging 없이 최종 Step에서 `DELETE + INSERT SELECT ... GROUP BY`를 한 트랜잭션에 묶음 (중간 빈 MV 시점 발생 → 조회 캐시로 보호)
+
+### Q6-d. 의도적 재실행 vs 실수 재실행 구분
+
+**[답변]**
+> 없다고 생각한다. 그래서 재실행되더라도 같은 값이 반환되도록 멱등성을 유지하게 해야한다.
+
+**[멘토 평가: 진짜 정답]**
+이 답이 Q6 전체를 푸는 열쇠.
+- 의도적/실수 재실행을 **구분하려는 설계**가 아니라 **구분이 무의미한 설계**가 robust
+- upsert + 결정론적 가중치 계산 + staging swap → 몇 번 돌려도 최종 상태 동일
+- 실수 재실행이 발생해도 데이터 망가지지 않으므로 허용 가능
+
+**[Spring Batch 중복 방지의 역할 재정의]**
+- 본래 의도: 실수 재실행 방지
+- 진짜 가치: **동시 실행으로부터 MV 보호** (멱등이어도 두 배치가 동시 실행되면 락 경합)
+- Incrementer로 수동 재실행 허용 + **동시 실행 방지**는 별도 락(K8s CronJob `concurrencyPolicy: Forbid`, DB advisory lock)으로 보장
+
+### Q6 전체 확정
+
+1. **JobParameters**: `targetDate=YYYYMMDD` (비즈니스) + `run.id` (Incrementer 자동 주입)
+2. **`RunIdIncrementer`** 적용 → 같은 targetDate 재실행 허용
+3. **Staging + Swap**: year_week 단위 `DELETE + INSERT SELECT FROM staging`을 단일 트랜잭션 (탈락 row 정리)
+4. **멱등성**: upsert + 결정론적 계산 + staging swap 3중 보장
+5. **동시 실행 방지**: K8s `concurrencyPolicy: Forbid` 또는 DB advisory lock (멱등과 별개 축)
+
+**[글감]**: "멱등성은 구분하는 설계가 아니라 구분이 무의미한 설계 — 배치 재실행 안전성의 본질"
+**[글감]**: "upsert가 멱등을 완성하지 못하는 순간 — TOP 100 탈락 row 처리와 Staging+Swap 패턴"
 
 ---
 
 ## 다음 세션 이어가기
 
-**중단 지점:** Q5-2 (Writer — JpaItemWriter vs JdbcBatchItemWriter + Upsert) 답변 대기 중
+**중단 지점:** Q7 (API 확장 — period 파라미터 + Redis/MV 분기) 진행 예정
 **재개 방법:** `/learn-round @docs/notes/learn-round10-qa-notes.md , @docs/quests/round-10.md 이어서`
 
-**Q5-2 질문 요약 (내일 먼저 볼 포인트):**
-1. `EntityManager.merge()` 동작 순서 그리기
-2. 배치 upsert에서 merge가 만드는 3대 문제 (추가 SELECT, 읽기 낭비, 변경 감지 범위)
-3. `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` 한 방 upsert의 이득
-
 **남은 주요 주제:**
-- Q5-2 ~ Q5-5 (Writer, Reader 쿼리 부적합, 일관성 vs 최적화, DIP 방어)
-- Q6. 멱등성과 재실행 전략 (JobParameter, 중복 실행 방지)
 - Q7. API 확장 (`period` 파라미터, 일간=Redis / 주간·월간=MV 분기)
 - Q8. 실패 복구, 모니터링, 운영 관점
 - Q9. `product_metrics` 일별 스키마 재설계 (Q1에서 합의된 전제)
