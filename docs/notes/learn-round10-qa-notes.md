@@ -888,31 +888,72 @@ apps/commerce-batch/
 - **함정 2 — 엔트리 포인트 집중**: 하나의 메서드가 거대 when 블록으로 분기 → OCP 위반 가능
 - **함정 3 — 책임 범위 오염**: Repository가 "Redis + MySQL + 향후 저장소 메타 인터페이스"로 확장됨
 
-### Q7 전체 재검토 질문 (다음 세션)
+### Q7 구조 재선택
 
-**현재 답변 조합 (Strategy + 후보 Z)은 구조 충돌**. 다음 두 조합 중 선택 필요:
-- **조합 α**: Strategy + 후보 Y + VO(`YearWeek`) — 확장성 우선, 구조 분리
-- **조합 β**: Facade 내부 when + 후보 Z + VO(`YearWeek`) — 단순성 우선, 현재 요구사항 충실
+**[재질문]** 조합 α(Strategy + Y + VO) vs 조합 β(when + Z + VO) 중 선택
 
-**[미해결 지점]**
-- Q7-1/Q7-3 구조 충돌 해소 (조합 α vs β 선택)
-- Q7-2-1 `LocalDate → YearWeek` 변환을 VO로 둘지 Service에 둘지
-- Q7-2-2 ISO Week 엣지 케이스(2026-01-01 → 2025-W53) 처리 정책
-- Q7-2-3 `yearWeek` 파라미터 vs `date` 파라미터 — "Redis key 노출" 이외의 근거로 재판단
+**[답변]**
+> 조합 α 를 선택할 거고, 이유는 개인적으로 확장성과 구조 분리가 유지보수와 다른 개발자 이해에 도움이 된다 생각하고, 테스트하기 좋은 코드라고 생각해
+
+**[멘토 평가]**
+- "테스트하기 좋은 코드"가 가장 강한 근거 — 각 Strategy를 독립 단위 테스트로 검증 가능 (Redis fallback, MV 조회, 날짜 변환 격리)
+- 후보 Y와 결합으로 "빈 껍데기 Strategy" 우려 해소 → 각 Strategy에 진짜 로직 존재
+- Trade-off: 파일 수 증가 (최소 8개). 미래 이해 비용보다 낮다는 판단 전제
+
+### Q7 조합 α 확정 구조
+
+```
+interfaces/api/ranking/
+  RankingController.kt        # GET /api/v1/rankings?date&period&page&size
+  RankingDto.kt               # Period enum + Response
+
+application/ranking/
+  RankingFacade.kt            # Map<Period, RankingStrategy> 주입 (when 제거)
+  strategy/
+    RankingStrategy.kt        # interface
+    DailyRankingStrategy.kt   # Redis + DB fallback
+    WeeklyRankingStrategy.kt  # LocalDate → YearWeek 변환 + MV 조회
+    MonthlyRankingStrategy.kt # LocalDate → YearMonth 변환 + MV 조회
+
+domain/ranking/
+  DailyRankingRepository.kt   # 기존 RankingRepository (Redis + carryOver + fallback)
+  WeeklyRankingRepository.kt  # findTopRankings(yearWeek, offset, count)
+  MonthlyRankingRepository.kt # findTopRankings(yearMonth, offset, count)
+  vo/
+    YearWeek.kt               # @JvmInline value class, from(LocalDate) 팩토리
+    YearMonth.kt              # JDK java.time.YearMonth 활용
+
+infrastructure/ranking/
+  RankingRedisRepository.kt   # DailyRankingRepository 구현 (기존)
+  WeeklyRankingJdbcRepository.kt
+  MonthlyRankingJdbcRepository.kt
+```
+
+- `RankingFacade`는 `when` 대신 `strategies[period].getRankings(...)` 위임
+- Repository 3개 분리로 LSP 위반 제거 (`carryOver`, `getTopRankingsFromDb`는 `DailyRankingRepository`에만)
+- VO `YearWeek` 팩토리가 `LocalDate → "2026-W15"` 변환 캡슐화
+
+**[글감]**: "조합 α의 근거 — Strategy + Y 조합이 빈 껍데기를 해소하는 순간"
+
+### Q7 미해결 (다음 세션 시작)
+
+- Q7-2-1 `LocalDate → YearWeek` 변환 책임 위치 — VO 팩토리로 거의 확정, Service 남길 여지 재검토
+- Q7-2-2 ISO Week 엣지 케이스(2026-01-01 → 2025-W53) 응답 정책 (응답에 실제 조회 주차 명시 반환 vs 묵시적 보정)
+- Q7-2-3 API 파라미터: `date + period` 유지 vs `yearWeek`/`yearMonth` 직접 노출 — "Redis key" 이외 근거(API 계약 명확성, 클라이언트 부담, 서버 리팩토링 자유도)로 재판단
 
 ---
 
 ## 다음 세션 이어가기
 
-**중단 지점:** Q7 **구조 재검토 필요** (조합 α vs β 선택)
-- Strategy + 후보 Z 조합이 구조상 충돌 (Strategy가 빈 껍데기화)
-- 다음 세션 시작 시 조합 α(Strategy + Y + VO) vs 조합 β(when + Z + VO) 재판단
-- Q7-2의 VO 책임 위치, ISO Week 엣지 케이스, yearWeek 파라미터 재평가 동시 진행
+**중단 지점:** Q7 **조합 α 확정 완료**, Q7-2 세부(엣지 케이스·파라미터·VO 위치) 다음 세션에서 시작
+- 조합 α: Strategy + 후보 Y(Repository 분리) + VO(`YearWeek`) 확정
+- 구조 스케치 완료 (파일 배치, 역할 분담)
+- 남은 Q7-2 세부 3개를 다음 세션 첫 질문으로 이어갈 것
 
 **재개 방법:** `/learn-round @docs/notes/learn-round10-qa-notes.md , @docs/quests/round-10.md 이어서`
 
 **남은 주요 주제:**
-- Q7 미해결 (조합 α/β 선택, VO 책임, 엣지 케이스)
+- Q7-2 세부 (VO 변환 책임 위치 / ISO Week 엣지 케이스 / 파라미터 노출 방식)
 - Q8. 실패 복구, 모니터링, 운영 관점
 - Q9. `product_metrics` 일별 스키마 재설계 (Q1에서 합의된 전제)
 - 최종 백지 설계 테스트
