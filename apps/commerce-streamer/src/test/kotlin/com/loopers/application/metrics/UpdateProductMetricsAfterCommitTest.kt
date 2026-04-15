@@ -7,12 +7,14 @@ import com.loopers.utils.RedisCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDate
@@ -30,6 +32,7 @@ class UpdateProductMetricsAfterCommitTest @Autowired constructor(
     private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
+    private val jdbcTemplate: JdbcTemplate,
     transactionManager: PlatformTransactionManager,
 ) {
 
@@ -40,6 +43,13 @@ class UpdateProductMetricsAfterCommitTest @Autowired constructor(
             val today = LocalDate.now(RedisRankingConstants.KST_ZONE)
             return "${RedisRankingConstants.RANKING_KEY_PREFIX}${today.format(DateTimeFormatter.BASIC_ISO_DATE)}"
         }
+
+    @BeforeEach
+    fun setUp() {
+        jdbcTemplate.update(
+            "INSERT INTO products (id) VALUES (1)",
+        )
+    }
 
     @AfterEach
     fun tearDown() {

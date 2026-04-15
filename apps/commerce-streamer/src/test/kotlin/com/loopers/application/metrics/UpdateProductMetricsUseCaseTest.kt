@@ -2,6 +2,7 @@ package com.loopers.application.metrics
 
 import com.loopers.domain.event.FakeEventHandledRepository
 import com.loopers.domain.event.model.EventHandled
+import com.loopers.domain.lock.FakeProductLockRepository
 import com.loopers.domain.metrics.FakeProductMetricsDailyRepository
 import com.loopers.domain.metrics.FakeProductMetricsRepository
 import com.loopers.domain.metrics.model.ProductMetrics
@@ -24,6 +25,7 @@ class UpdateProductMetricsUseCaseTest {
 
     private lateinit var productMetricsRepository: FakeProductMetricsRepository
     private lateinit var productMetricsDailyRepository: FakeProductMetricsDailyRepository
+    private lateinit var productLockRepository: FakeProductLockRepository
     private lateinit var eventHandledRepository: FakeEventHandledRepository
     private lateinit var rankingScoreRepository: FakeRankingScoreRepository
     private lateinit var failedScoreUpdateRepository: FakeFailedScoreUpdateRepository
@@ -39,13 +41,17 @@ class UpdateProductMetricsUseCaseTest {
     fun setUp() {
         productMetricsRepository = FakeProductMetricsRepository()
         productMetricsDailyRepository = FakeProductMetricsDailyRepository()
+        productLockRepository = FakeProductLockRepository().also {
+            it.register(1L)
+            it.register(2L)
+        }
         eventHandledRepository = FakeEventHandledRepository()
         rankingScoreRepository = FakeRankingScoreRepository()
         failedScoreUpdateRepository = FakeFailedScoreUpdateRepository()
         useCase = UpdateProductMetricsUseCase(
             productMetricsRepository,
             productMetricsDailyRepository,
-            ProductMetricsInitializer(productMetricsRepository, productMetricsDailyRepository),
+            productLockRepository,
             eventHandledRepository,
             rankingScoreRepository,
             failedScoreUpdateRepository,
@@ -186,6 +192,26 @@ class UpdateProductMetricsUseCaseTest {
 
             assertThat(rankingScoreRepository.getScore(1L, fixedDate)).isEqualTo(0.0)
         }
+
+        @Test
+        @DisplayName("handleCatalogEvent 호출 시 productLockRepository.findByIdForUpdate가 호출된다")
+        fun `lock 획득 호출 여부 검증`() {
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
+
+            assertThat(productLockRepository.callCount).isGreaterThanOrEqualTo(1)
+        }
+
+        @Test
+        @DisplayName("상품이 존재하지 않으면 카운터를 건드리지 않고 event_handled만 저장한다")
+        fun `상품 부재 시 skip — event_handled만 저장`() {
+            val absentProductId = 999L
+
+            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, absentProductId)
+
+            assertThat(productMetricsRepository.findByProductId(absentProductId)).isNull()
+            assertThat(rankingScoreRepository.getScore(absentProductId, fixedDate)).isEqualTo(0.0)
+            assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue()
+        }
     }
 
     @Nested
@@ -246,6 +272,26 @@ class UpdateProductMetricsUseCaseTest {
             useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 2L)
 
             assertThat(rankingScoreRepository.getScore(1L, fixedDate)).isEqualTo(0.0)
+        }
+
+        @Test
+        @DisplayName("handleOrderEvent 호출 시 productLockRepository.findByIdForUpdate가 호출된다")
+        fun `lock 획득 호출 여부 검증`() {
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, 1L, 1L)
+
+            assertThat(productLockRepository.callCount).isGreaterThanOrEqualTo(1)
+        }
+
+        @Test
+        @DisplayName("상품이 존재하지 않으면 카운터를 건드리지 않고 event_handled만 저장한다")
+        fun `상품 부재 시 skip — event_handled만 저장`() {
+            val absentProductId = 999L
+
+            useCase.handleOrderEvent("evt-1", UpdateProductMetricsUseCase.PAYMENT_COMPLETED, absentProductId, 1L)
+
+            assertThat(productMetricsRepository.findByProductId(absentProductId)).isNull()
+            assertThat(rankingScoreRepository.getScore(absentProductId, fixedDate)).isEqualTo(0.0)
+            assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue()
         }
     }
 
@@ -330,7 +376,7 @@ class UpdateProductMetricsUseCaseTest {
             val day2UseCase = UpdateProductMetricsUseCase(
                 productMetricsRepository,
                 productMetricsDailyRepository,
-                ProductMetricsInitializer(productMetricsRepository, productMetricsDailyRepository),
+                productLockRepository,
                 eventHandledRepository,
                 rankingScoreRepository,
                 failedScoreUpdateRepository,

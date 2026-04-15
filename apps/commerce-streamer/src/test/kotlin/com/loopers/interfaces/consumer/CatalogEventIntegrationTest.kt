@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.test.context.EmbeddedKafka
@@ -49,6 +50,7 @@ class CatalogEventIntegrationTest @Autowired constructor(
     private val redisTemplate: RedisTemplate<String, String>,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
+    private val jdbcTemplate: JdbcTemplate,
     private val clock: Clock,
     private val kafkaListenerEndpointRegistry: KafkaListenerEndpointRegistry,
 ) {
@@ -64,6 +66,9 @@ class CatalogEventIntegrationTest @Autowired constructor(
         kafkaListenerEndpointRegistry.listenerContainers.forEach { container ->
             ContainerTestUtils.waitForAssignment(container, 1)
         }
+        jdbcTemplate.update(
+            "INSERT INTO products (id) VALUES (1)",
+        )
     }
 
     @AfterEach

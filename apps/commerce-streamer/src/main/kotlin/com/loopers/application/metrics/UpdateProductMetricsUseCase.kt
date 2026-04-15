@@ -2,6 +2,9 @@ package com.loopers.application.metrics
 
 import com.loopers.domain.event.model.EventHandled
 import com.loopers.domain.event.repository.EventHandledRepository
+import com.loopers.domain.lock.ProductLockRepository
+import com.loopers.domain.metrics.model.ProductMetrics
+import com.loopers.domain.metrics.model.ProductMetricsDaily
 import com.loopers.domain.metrics.repository.ProductMetricsDailyRepository
 import com.loopers.domain.metrics.repository.ProductMetricsRepository
 import com.loopers.domain.ranking.RankingWeight
@@ -10,6 +13,7 @@ import com.loopers.domain.ranking.repository.FailedScoreUpdateRepository
 import com.loopers.domain.ranking.repository.RankingScoreRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
@@ -20,7 +24,7 @@ import java.time.LocalDate
 class UpdateProductMetricsUseCase(
     private val productMetricsRepository: ProductMetricsRepository,
     private val productMetricsDailyRepository: ProductMetricsDailyRepository,
-    private val initializer: ProductMetricsInitializer,
+    private val productLockRepository: ProductLockRepository,
     private val eventHandledRepository: EventHandledRepository,
     private val rankingScoreRepository: RankingScoreRepository,
     private val failedScoreUpdateRepository: FailedScoreUpdateRepository,
@@ -29,10 +33,25 @@ class UpdateProductMetricsUseCase(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun handleCatalogEvent(eventId: String, eventType: String, productId: Long) {
         if (eventHandledRepository.existsByEventId(eventId)) {
             log.debug("이미 처리된 이벤트: eventId={}", eventId)
+            return
+        }
+
+        if (productLockRepository.findByIdForUpdate(productId) == null) {
+            log.warn("상품을 찾을 수 없음 (lock 실패): productId={}", productId)
+            eventHandledRepository.save(EventHandled(eventId = eventId))
+            return
+        }
+
+        // post-check (double-checked locking): lock 획득 후 event_handled를 재확인한다.
+        // Kafka 동시 재전달로 같은 eventId가 병렬 도달한 경우 T2가 여기서 조기 종료되어
+        // 카운터 중복 증가를 차단한다. Spring Data JPA의 save()는 @Id non-null 엔티티에 대해
+        // merge를 호출하므로 `event_handled` PK 충돌로 자연 차단되지 않음 — post-check 필수.
+        if (eventHandledRepository.existsByEventId(eventId)) {
+            log.debug("락 획득 후 중복 이벤트 감지, skip: eventId={}", eventId)
             return
         }
 
@@ -42,9 +61,9 @@ class UpdateProductMetricsUseCase(
             return
         }
 
-        val metrics = initializer.findOrCreate(productId)
+        val metrics = findOrCreate(productId)
         val today = LocalDate.now(clock)
-        val daily = initializer.findOrCreateDaily(today, productId)
+        val daily = findOrCreateDaily(today, productId)
 
         val rankingScore = when (eventType) {
             PRODUCT_VIEWED -> {
@@ -78,10 +97,22 @@ class UpdateProductMetricsUseCase(
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun handleOrderEvent(eventId: String, eventType: String, productId: Long, quantity: Long) {
         if (eventHandledRepository.existsByEventId(eventId)) {
             log.debug("이미 처리된 이벤트: eventId={}", eventId)
+            return
+        }
+
+        if (productLockRepository.findByIdForUpdate(productId) == null) {
+            log.warn("상품을 찾을 수 없음 (lock 실패): productId={}", productId)
+            eventHandledRepository.save(EventHandled(eventId = eventId))
+            return
+        }
+
+        // post-check (double-checked locking) — handleCatalogEvent 주석 참조.
+        if (eventHandledRepository.existsByEventId(eventId)) {
+            log.debug("락 획득 후 중복 이벤트 감지, skip: eventId={}", eventId)
             return
         }
 
@@ -91,9 +122,9 @@ class UpdateProductMetricsUseCase(
             return
         }
 
-        val metrics = initializer.findOrCreate(productId)
+        val metrics = findOrCreate(productId)
         val today = LocalDate.now(clock)
-        val daily = initializer.findOrCreateDaily(today, productId)
+        val daily = findOrCreateDaily(today, productId)
         metrics.incrementSalesCount(quantity)
         daily.incrementSalesCount(quantity)
 
@@ -107,6 +138,16 @@ class UpdateProductMetricsUseCase(
             FailedScoreUpdate(eventId = eventId, productId = productId, score = score, rankingDate = rankingDate),
         )
         registerScoreUpdateAfterCommit(eventId, productId, score, rankingDate, failedRecord.id)
+    }
+
+    private fun findOrCreate(productId: Long): ProductMetrics {
+        return productMetricsRepository.findByProductId(productId)
+            ?: productMetricsRepository.save(ProductMetrics(productId = productId))
+    }
+
+    private fun findOrCreateDaily(date: LocalDate, productId: Long): ProductMetricsDaily {
+        return productMetricsDailyRepository.findByDateAndProductId(date, productId)
+            ?: productMetricsDailyRepository.save(ProductMetricsDaily(productId = productId, metricDate = date))
     }
 
     private fun registerScoreUpdateAfterCommit(

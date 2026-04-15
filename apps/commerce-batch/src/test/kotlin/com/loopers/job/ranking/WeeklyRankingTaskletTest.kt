@@ -17,6 +17,8 @@ import org.junit.jupiter.api.assertAll
 import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.core.Job
@@ -254,11 +256,12 @@ class WeeklyRankingTaskletTest @Autowired constructor(
                 .toJobParameters(),
         )
 
-        // assert: Step FAILED + DELETE가 롤백되어 기존 1건 유지
+        // assert: Step FAILED + DELETE가 실제 호출됐으나 롤백되어 기존 1건 유지
         val stepExecution = jobExecution.stepExecutions.first()
         val remaining = findAllMvWeekly()
         assertAll(
             { assertThat(stepExecution.status).isEqualTo(BatchStatus.FAILED) },
+            { verify(spyQueryDao).deleteByPeriodKey(eq("2024-W03")) },
             { assertThat(remaining).hasSize(1) },
             { assertThat(remaining[0].productId).isEqualTo(999L) },
         )

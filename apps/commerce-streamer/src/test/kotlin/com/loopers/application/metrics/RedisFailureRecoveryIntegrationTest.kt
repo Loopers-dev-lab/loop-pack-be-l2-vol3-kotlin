@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
+import org.springframework.jdbc.core.JdbcTemplate
 import java.time.Clock
 import java.time.LocalDate
 
@@ -40,6 +41,7 @@ class RedisFailureRecoveryIntegrationTest @Autowired constructor(
     private val failedScoreUpdateRepository: FailedScoreUpdateRepository,
     private val fakeRankingScoreRepository: FakeRankingScoreRepository,
     private val databaseCleanUp: DatabaseCleanUp,
+    private val jdbcTemplate: JdbcTemplate,
     private val clock: Clock,
 ) {
 
@@ -53,6 +55,9 @@ class RedisFailureRecoveryIntegrationTest @Autowired constructor(
     @BeforeEach
     fun setUp() {
         fakeRankingScoreRepository.clear()
+        jdbcTemplate.update(
+            "INSERT INTO products (id) VALUES (1)",
+        )
     }
 
     @AfterEach
