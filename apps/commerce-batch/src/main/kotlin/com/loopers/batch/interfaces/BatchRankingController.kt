@@ -49,7 +49,7 @@ class BatchRankingController(
     ): ResponseEntity<TriggerResponse> {
         return try {
             val execution = jobLauncher.run(job, buildParams(baseDate))
-            val message = execution.exitStatus.exitDescription.takeIf { it.isNotBlank() }
+            val message = execution.exitStatus.exitDescription.takeIf { it.isNotBlank() }?.take(500)
             when (execution.status) {
                 BatchStatus.COMPLETED ->
                     ResponseEntity.ok(TriggerResponse(jobName, baseDate, execution.status.name, message))

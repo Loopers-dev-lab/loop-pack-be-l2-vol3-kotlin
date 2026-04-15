@@ -22,6 +22,13 @@ class MonthlyRankingJobParameterValidatorTest {
     @DisplayName("validate")
     inner class Validate {
 
+        @DisplayName("parameters 자체가 null이면 JobParametersInvalidException이 발생한다")
+        @Test
+        fun throwsExceptionWhenParametersIsNull() {
+            assertThatThrownBy { validator.validate(null) }
+                .isInstanceOf(JobParametersInvalidException::class.java)
+        }
+
         @DisplayName("baseDate 파라미터가 누락되면 JobParametersInvalidException이 발생한다")
         @Test
         fun throwsExceptionWhenBaseDateIsMissing() {
