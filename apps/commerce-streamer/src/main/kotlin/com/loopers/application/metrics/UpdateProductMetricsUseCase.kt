@@ -2,8 +2,6 @@ package com.loopers.application.metrics
 
 import com.loopers.domain.event.model.EventHandled
 import com.loopers.domain.event.repository.EventHandledRepository
-import com.loopers.domain.metrics.model.ProductMetrics
-import com.loopers.domain.metrics.model.ProductMetricsDaily
 import com.loopers.domain.metrics.repository.ProductMetricsDailyRepository
 import com.loopers.domain.metrics.repository.ProductMetricsRepository
 import com.loopers.domain.ranking.RankingWeight
@@ -11,7 +9,6 @@ import com.loopers.domain.ranking.model.FailedScoreUpdate
 import com.loopers.domain.ranking.repository.FailedScoreUpdateRepository
 import com.loopers.domain.ranking.repository.RankingScoreRepository
 import org.slf4j.LoggerFactory
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -23,6 +20,7 @@ import java.time.LocalDate
 class UpdateProductMetricsUseCase(
     private val productMetricsRepository: ProductMetricsRepository,
     private val productMetricsDailyRepository: ProductMetricsDailyRepository,
+    private val initializer: ProductMetricsInitializer,
     private val eventHandledRepository: EventHandledRepository,
     private val rankingScoreRepository: RankingScoreRepository,
     private val failedScoreUpdateRepository: FailedScoreUpdateRepository,
@@ -44,9 +42,9 @@ class UpdateProductMetricsUseCase(
             return
         }
 
-        val metrics = findOrCreate(productId)
+        val metrics = initializer.findOrCreate(productId)
         val today = LocalDate.now(clock)
-        val daily = findOrCreateDaily(today, productId)
+        val daily = initializer.findOrCreateDaily(today, productId)
 
         val rankingScore = when (eventType) {
             PRODUCT_VIEWED -> {
@@ -93,9 +91,9 @@ class UpdateProductMetricsUseCase(
             return
         }
 
-        val metrics = findOrCreate(productId)
+        val metrics = initializer.findOrCreate(productId)
         val today = LocalDate.now(clock)
-        val daily = findOrCreateDaily(today, productId)
+        val daily = initializer.findOrCreateDaily(today, productId)
         metrics.incrementSalesCount(quantity)
         daily.incrementSalesCount(quantity)
 
@@ -158,24 +156,6 @@ class UpdateProductMetricsUseCase(
         } catch (e: Exception) {
             log.warn("FailedScoreUpdate 삭제 실패 (스케줄러에서 멱등 재처리 예정). id={}: {}", failedRecordId, e.message)
         }
-    }
-
-    private fun findOrCreate(productId: Long): ProductMetrics {
-        return productMetricsRepository.findByProductId(productId)
-            ?: try {
-                productMetricsRepository.save(ProductMetrics(productId = productId))
-            } catch (e: DataIntegrityViolationException) {
-                productMetricsRepository.findByProductId(productId) ?: throw e
-            }
-    }
-
-    private fun findOrCreateDaily(date: LocalDate, productId: Long): ProductMetricsDaily {
-        return productMetricsDailyRepository.findByDateAndProductId(date, productId)
-            ?: try {
-                productMetricsDailyRepository.save(ProductMetricsDaily(productId = productId, metricDate = date))
-            } catch (e: DataIntegrityViolationException) {
-                productMetricsDailyRepository.findByDateAndProductId(date, productId) ?: throw e
-            }
     }
 
     companion object {

@@ -9,14 +9,12 @@ import com.loopers.domain.ranking.FakeFailedScoreUpdateRepository
 import com.loopers.domain.ranking.FakeRankingScoreRepository
 import com.loopers.domain.ranking.RankingWeight
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.assertj.core.data.Offset
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.LocalDate
@@ -47,6 +45,7 @@ class UpdateProductMetricsUseCaseTest {
         useCase = UpdateProductMetricsUseCase(
             productMetricsRepository,
             productMetricsDailyRepository,
+            ProductMetricsInitializer(productMetricsRepository, productMetricsDailyRepository),
             eventHandledRepository,
             rankingScoreRepository,
             failedScoreUpdateRepository,
@@ -331,6 +330,7 @@ class UpdateProductMetricsUseCaseTest {
             val day2UseCase = UpdateProductMetricsUseCase(
                 productMetricsRepository,
                 productMetricsDailyRepository,
+                ProductMetricsInitializer(productMetricsRepository, productMetricsDailyRepository),
                 eventHandledRepository,
                 rankingScoreRepository,
                 failedScoreUpdateRepository,
@@ -428,54 +428,6 @@ class UpdateProductMetricsUseCaseTest {
             assertThat(failures).hasSize(1)
             assertThat(failures[0].eventId).isEqualTo("evt-1")
             assertThat(failures[0].score).isCloseTo(RankingWeight.ORDER * 2, Offset.offset(0.001))
-        }
-    }
-
-    @Nested
-    @DisplayName("findOrCreate 동시성 방어 시")
-    inner class FindOrCreateRaceDefense {
-
-        @Test
-        @DisplayName("daily 첫 insert에서 복구 가능한 DIVEx 발생 시 재시도 후 viewCount가 1 증가한다")
-        fun `daily 첫 insert DIVEx 재시도 후 viewCount 1 증가`() {
-            // Arrange: 첫 신규 save 시 DIVEx 발생, store에 seed되어 재시도 find 성공
-            productMetricsDailyRepository.conflictsRemaining = 1
-            productMetricsDailyRepository.recoverableConflict = true
-
-            // Act
-            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
-
-            // Assert: 재시도 성공 → daily viewCount = 1
-            val daily = productMetricsDailyRepository.findByDateAndProductId(fixedDate, 1L)
-            assertThat(daily?.viewCount).isEqualTo(1)
-        }
-
-        @Test
-        @DisplayName("cumulative 첫 insert에서 복구 가능한 DIVEx 발생 시 재시도 후 viewCount가 1 증가한다")
-        fun `cumulative 첫 insert DIVEx 재시도 후 viewCount 1 증가`() {
-            // Arrange: 누적 metrics repo에서 첫 신규 save 시 DIVEx 발생
-            productMetricsRepository.conflictsRemaining = 1
-            productMetricsRepository.recoverableConflict = true
-
-            // Act
-            useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
-
-            // Assert: 재시도 성공 → cumulative viewCount = 1
-            val metrics = productMetricsRepository.findByProductId(1L)
-            assertThat(metrics?.viewCount).isEqualTo(1)
-        }
-
-        @Test
-        @DisplayName("복구 불가 DIVEx 발생 시 예외가 전파된다")
-        fun `복구 불가 DIVEx는 예외가 전파된다`() {
-            // Arrange: store에 seed 없이 DIVEx만 던짐 → 재시도 find도 null → 예외 전파
-            productMetricsDailyRepository.conflictsRemaining = 1
-            productMetricsDailyRepository.recoverableConflict = false
-
-            // Act & Assert
-            assertThatThrownBy {
-                useCase.handleCatalogEvent("evt-1", UpdateProductMetricsUseCase.PRODUCT_VIEWED, 1L)
-            }.isInstanceOf(DataIntegrityViolationException::class.java)
         }
     }
 }
