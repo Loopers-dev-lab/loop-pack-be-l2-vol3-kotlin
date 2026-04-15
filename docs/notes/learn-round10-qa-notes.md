@@ -829,13 +829,90 @@ apps/commerce-batch/
 
 ---
 
+## Q7. API 확장 — `period` 파라미터와 Redis/MV 분기 `[진행 중, 재검토 필요]`
+
+**[기존 코드 확인]**
+```kotlin
+// Controller: GET /api/v1/rankings?date=yyyyMMdd&page=1&size=20
+// → RankingFacade.getRankings(date, page, size)
+// → RankingService.getTopRankings(date, ...)
+// → RankingRepository (Redis ZSET, DB fallback)
+```
+
+**[요구사항]**
+`GET /api/v1/rankings?date=20260415&period=WEEKLY&size=20&page=1`
+- DAILY → Redis ZSET (Round 9 기존)
+- WEEKLY → `mv_product_rank_weekly`
+- MONTHLY → `mv_product_rank_monthly`
+
+### Q7-1. period 분기 로직의 위치
+
+**[선택지]** A: Controller when, B: Facade 내부 when, C: Strategy 패턴, D: Repository 인터페이스 단일화
+
+**[답변]**
+> 1. Strategy 패턴사용, 확장에 유연성을 가짐, controller에 작성은 역할이 맞지 않기에 기각, when 사용은 확장에 유연하지 못하다. Repository 인터페이스 단일화도 확장에 유연하지 못하다.
+
+**[악마의 변호인 1: Strategy 오버엔지니어링?]**
+- period가 DAILY/WEEKLY/MONTHLY 3개로 고정되는 이커머스가 대부분 → YAGNI 위반 가능성
+- 판단 기준: 각 period 분기 로직 복잡도, 내부 흐름 차이, 테스트 분리 필요성
+
+**[악마의 변호인 2: Strategy + 후보 Z 구조 충돌]**
+- Repository를 후보 Z(통합)로 두면 각 Strategy가 하는 일이 "Repository 호출 + period 전달"뿐 → 빈 껍데기
+- 이상적 조합: **Strategy → 후보 Y** (각 Strategy가 자기 Repository 보유) / **후보 Z → Facade 내부 when** (B)
+
+### Q7-2. `date` 파라미터의 의미 변화
+
+**[답변]**
+> 1. service 레이어에서 수행
+> 2. (미답)
+> 3. 2026-W15 를 사용한다는 것은 redis key 를 안다는것인데 좋은 않다고 생각되고 만약 바뀐다면? 그러면 문제가 생길 것이다.
+
+**[멘토 교정]**
+- **1번 재검토**: `LocalDate → yearWeek` 변환은 도메인 규칙이 아닌 기술적 변환. VO(`YearWeek`)로 두면 형식 검증 + 자체 문서화. Service 레이어 vs VO trade-off 재판단 필요
+- **2번 엣지 케이스**: 2026-01-01은 ISO 기준 **2025-W53**에 속함. 클라이언트 혼란 가능 → 응답에 "조회된 주차" 명시적 반환 권장
+- **3번 오해**: `yearWeek=2026-W15`는 Redis key와 무관. Redis는 DAILY 전용(`ranking:20260415`), WEEKLY는 MySQL MV 컬럼 값
+- yearWeek 파라미터 진짜 trade-off: API 계약 명확성 vs 클라이언트 ISO Week 계산 부담 vs 엣지 케이스 회피 vs 서버 리팩토링 자유도
+
+### Q7-3. Repository 구조
+
+**[선택지]** X: 단일 인터페이스 확장 / Y: 인터페이스 분리 (Daily/Weekly/Monthly) / Z: 통합 인터페이스 + 내부 분기
+
+**[답변]**
+> 1. 후보 Z 사용
+> 2. 알려줘
+> 3. 확장에 유연하지 못하다
+
+**[멘토 해설 — 후보 X의 매력과 숨은 함정]**
+- 매력: 최소 변경, 호출부 일관성, 기존 마이그레이션 비용 적음
+- **함정 1 — LSP 위반**: `carryOver`, `getTopRankingsFromDb`는 DAILY 전용. WEEKLY/MONTHLY 구현체는 "지원 안 함"으로 던져야 함
+- **함정 2 — 엔트리 포인트 집중**: 하나의 메서드가 거대 when 블록으로 분기 → OCP 위반 가능
+- **함정 3 — 책임 범위 오염**: Repository가 "Redis + MySQL + 향후 저장소 메타 인터페이스"로 확장됨
+
+### Q7 전체 재검토 질문 (다음 세션)
+
+**현재 답변 조합 (Strategy + 후보 Z)은 구조 충돌**. 다음 두 조합 중 선택 필요:
+- **조합 α**: Strategy + 후보 Y + VO(`YearWeek`) — 확장성 우선, 구조 분리
+- **조합 β**: Facade 내부 when + 후보 Z + VO(`YearWeek`) — 단순성 우선, 현재 요구사항 충실
+
+**[미해결 지점]**
+- Q7-1/Q7-3 구조 충돌 해소 (조합 α vs β 선택)
+- Q7-2-1 `LocalDate → YearWeek` 변환을 VO로 둘지 Service에 둘지
+- Q7-2-2 ISO Week 엣지 케이스(2026-01-01 → 2025-W53) 처리 정책
+- Q7-2-3 `yearWeek` 파라미터 vs `date` 파라미터 — "Redis key 노출" 이외의 근거로 재판단
+
+---
+
 ## 다음 세션 이어가기
 
-**중단 지점:** Q7 (API 확장 — period 파라미터 + Redis/MV 분기) 진행 예정
+**중단 지점:** Q7 **구조 재검토 필요** (조합 α vs β 선택)
+- Strategy + 후보 Z 조합이 구조상 충돌 (Strategy가 빈 껍데기화)
+- 다음 세션 시작 시 조합 α(Strategy + Y + VO) vs 조합 β(when + Z + VO) 재판단
+- Q7-2의 VO 책임 위치, ISO Week 엣지 케이스, yearWeek 파라미터 재평가 동시 진행
+
 **재개 방법:** `/learn-round @docs/notes/learn-round10-qa-notes.md , @docs/quests/round-10.md 이어서`
 
 **남은 주요 주제:**
-- Q7. API 확장 (`period` 파라미터, 일간=Redis / 주간·월간=MV 분기)
+- Q7 미해결 (조합 α/β 선택, VO 책임, 엣지 케이스)
 - Q8. 실패 복구, 모니터링, 운영 관점
 - Q9. `product_metrics` 일별 스키마 재설계 (Q1에서 합의된 전제)
 - 최종 백지 설계 테스트
