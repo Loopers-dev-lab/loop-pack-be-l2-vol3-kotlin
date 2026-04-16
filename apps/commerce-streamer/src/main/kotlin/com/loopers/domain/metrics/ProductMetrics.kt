@@ -7,27 +7,37 @@ import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import jakarta.persistence.Version
 import org.hibernate.annotations.Comment
+import java.time.LocalDate
 import java.time.ZonedDateTime
 
 /**
  * 상품 메트릭 집계 테이블.
  *
  * commerce-streamer의 MetricsConsumer가 Kafka 이벤트를 소비하여 upsert한다.
- * 좋아요 수, 주문 수, 조회 수를 상품별로 집계한다.
+ * 좋아요 수, 주문 수, 조회 수를 상품별 + 일별로 집계한다.
+ *
+ * 9주차: 상품당 1행 (누적) — 실시간 갱신에 최적화
+ * 10주차: 상품+날짜별 1행 — 배치에서 기간별 집계 가능하도록 변경
  */
 @Entity
 @Table(
     name = "product_metrics",
-    uniqueConstraints = [UniqueConstraint(columnNames = ["product_id"])],
+    uniqueConstraints = [UniqueConstraint(columnNames = ["product_id", "metric_date"])],
 )
-@Comment("상품 메트릭 집계")
+@Comment("상품 메트릭 일별 집계")
 class ProductMetrics(
     productId: Long,
+    metricDate: LocalDate,
 ) : BaseEntity() {
 
     @Comment("상품 ID")
-    @Column(name = "product_id", nullable = false, unique = true)
+    @Column(name = "product_id", nullable = false)
     var productId: Long = productId
+        protected set
+
+    @Comment("집계 날짜")
+    @Column(name = "metric_date", nullable = false)
+    var metricDate: LocalDate = metricDate
         protected set
 
     @Comment("좋아요 수")

@@ -1,7 +1,9 @@
 package com.loopers.domain.metrics
 
+import java.time.LocalDate
+
 interface ProductMetricsRepository {
-    fun findByProductId(productId: Long): ProductMetrics?
-    fun findByProductIds(productIds: Set<Long>): List<ProductMetrics>
+    fun findByProductIdAndMetricDate(productId: Long, metricDate: LocalDate): ProductMetrics?
+    fun findByProductIdsAndMetricDate(productIds: Set<Long>, metricDate: LocalDate): List<ProductMetrics>
     fun save(metrics: ProductMetrics): ProductMetrics
 }
