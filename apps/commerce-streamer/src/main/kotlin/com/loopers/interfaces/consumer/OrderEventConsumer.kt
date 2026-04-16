@@ -5,6 +5,7 @@ import com.loopers.application.consumer.DeadLetterPublisher
 import com.loopers.application.consumer.EventHandledRecorder
 import com.loopers.application.consumer.RawIntegrationEvent
 import com.loopers.application.metrics.ProductMetricsUpdater
+import com.loopers.application.ranking.RankingUpdater
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.kafka.KafkaTopics
 import com.loopers.kafka.OrderPaidPayload
@@ -18,6 +19,7 @@ class OrderEventConsumer(
     private val objectMapper: ObjectMapper,
     private val eventHandledRecorder: EventHandledRecorder,
     private val productMetricsUpdater: ProductMetricsUpdater,
+    private val rankingUpdater: RankingUpdater,
     private val deadLetterPublisher: DeadLetterPublisher,
 ) {
     companion object {
@@ -44,6 +46,11 @@ class OrderEventConsumer(
                     val payload = objectMapper.treeToValue(event.payload, OrderPaidPayload::class.java)
                     payload.items.forEach { item ->
                         productMetricsUpdater.increaseSalesCount(
+                            productId = item.productId,
+                            quantity = item.quantity.toLong(),
+                            occurredAt = event.occurredAt,
+                        )
+                        rankingUpdater.applyOrdered(
                             productId = item.productId,
                             quantity = item.quantity.toLong(),
                             occurredAt = event.occurredAt,

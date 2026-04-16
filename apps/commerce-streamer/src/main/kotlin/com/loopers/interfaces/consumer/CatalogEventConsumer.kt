@@ -5,6 +5,7 @@ import com.loopers.application.consumer.DeadLetterPublisher
 import com.loopers.application.consumer.EventHandledRecorder
 import com.loopers.application.consumer.RawIntegrationEvent
 import com.loopers.application.metrics.ProductMetricsUpdater
+import com.loopers.application.ranking.RankingUpdater
 import com.loopers.config.kafka.KafkaConfig
 import com.loopers.kafka.KafkaTopics
 import com.loopers.kafka.ProductLikedPayload
@@ -20,6 +21,7 @@ class CatalogEventConsumer(
     private val objectMapper: ObjectMapper,
     private val eventHandledRecorder: EventHandledRecorder,
     private val productMetricsUpdater: ProductMetricsUpdater,
+    private val rankingUpdater: RankingUpdater,
     private val deadLetterPublisher: DeadLetterPublisher,
 ) {
     companion object {
@@ -46,16 +48,19 @@ class CatalogEventConsumer(
                     "ProductLiked" -> {
                         val payload = objectMapper.treeToValue(event.payload, ProductLikedPayload::class.java)
                         productMetricsUpdater.increaseLikeCount(payload.productId, event.occurredAt)
+                        rankingUpdater.applyLikeChanged(payload.productId, payload.delta, event.occurredAt)
                     }
 
                     "ProductUnliked" -> {
                         val payload = objectMapper.treeToValue(event.payload, ProductUnlikedPayload::class.java)
                         productMetricsUpdater.decreaseLikeCount(payload.productId, event.occurredAt)
+                        rankingUpdater.applyLikeChanged(payload.productId, payload.delta, event.occurredAt)
                     }
 
                     "ProductViewed" -> {
                         val payload = objectMapper.treeToValue(event.payload, ProductViewedPayload::class.java)
                         productMetricsUpdater.increaseViewCount(payload.productId, event.occurredAt)
+                        rankingUpdater.applyViewed(payload.productId, event.occurredAt)
                     }
                 }
             }.onFailure { ex ->

@@ -1,6 +1,6 @@
 package com.loopers.application.payment.support
 
-import com.loopers.application.event.OutboxEventWriter
+import com.loopers.application.event.KafkaIntegrationEventPublisher
 import com.loopers.application.event.PaymentStatusChangedEvent
 import com.loopers.application.event.UserActionLogEvent
 import com.loopers.application.event.UserActionType
@@ -18,7 +18,7 @@ import java.time.ZonedDateTime
 @Component
 class PaymentSideEffectPublisher(
     private val applicationEventPublisher: ApplicationEventPublisher,
-    private val outboxEventWriter: OutboxEventWriter,
+    private val kafkaIntegrationEventPublisher: KafkaIntegrationEventPublisher,
 ) {
     fun publish(order: Order, paymentStatus: PaymentStatus) {
         val orderId = requireNotNull(order.id)
@@ -40,7 +40,7 @@ class PaymentSideEffectPublisher(
         )
 
         if (order.status == OrderStatus.PAID) {
-            outboxEventWriter.append(
+            kafkaIntegrationEventPublisher.publish(
                 topic = KafkaTopics.ORDER_EVENTS,
                 event = IntegrationEvent(
                     eventId = "order-paid:$orderId:1",

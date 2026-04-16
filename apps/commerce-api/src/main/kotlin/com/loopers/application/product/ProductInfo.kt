@@ -15,6 +15,7 @@ class ProductInfo {
         val stock: Int,
         val status: String,
         val likeCount: Long,
+        val ranking: Long?,
     ) {
         companion object {
             fun from(product: Product, brand: Brand) = Detail(
@@ -27,6 +28,7 @@ class ProductInfo {
                 stock = product.stock.value,
                 status = product.status.name,
                 likeCount = product.likeCount,
+                ranking = null,
             )
         }
     }
