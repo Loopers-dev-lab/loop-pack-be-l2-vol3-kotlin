@@ -3,6 +3,7 @@ package com.loopers.domain.event.handler
 import com.loopers.domain.event.OrderCreatedEvent
 import com.loopers.domain.event.OrderLineItem
 import com.loopers.infrastructure.productmetrics.ProductMetricsRepository
+import com.loopers.infrastructure.productmetrics.ProductMetricsDailyRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -14,12 +15,14 @@ import org.junit.jupiter.api.DisplayName
 class OrderCreatedEventHandlerTest {
 
     private lateinit var productMetricsRepository: ProductMetricsRepository
+    private lateinit var productMetricsDailyRepository: ProductMetricsDailyRepository
     private lateinit var handler: OrderCreatedEventHandler
 
     @BeforeEach
     fun setUp() {
         productMetricsRepository = mockk()
-        handler = OrderCreatedEventHandler(productMetricsRepository)
+        productMetricsDailyRepository = mockk()
+        handler = OrderCreatedEventHandler(productMetricsRepository, productMetricsDailyRepository)
     }
 
     @Test
@@ -36,6 +39,7 @@ class OrderCreatedEventHandlerTest {
         )
 
         every { productMetricsRepository.incrementSalesCount(any(), any()) } returns Unit
+        every { productMetricsDailyRepository.incrementSalesCount(any(), any(), any()) } returns Unit
 
         // When
         handler.handle(event)
@@ -53,6 +57,7 @@ class OrderCreatedEventHandlerTest {
         val event = OrderCreatedEvent(orderId = 200L, lineItems = lineItems)
 
         every { productMetricsRepository.incrementSalesCount(5L, 3) } returns Unit
+        every { productMetricsDailyRepository.incrementSalesCount(any(), any(), any()) } returns Unit
 
         // When
         handler.handle(event)
@@ -72,6 +77,7 @@ class OrderCreatedEventHandlerTest {
         val event = OrderCreatedEvent(orderId = 300L, lineItems = lineItems)
 
         every { productMetricsRepository.incrementSalesCount(any(), any()) } returns Unit
+        every { productMetricsDailyRepository.incrementSalesCount(any(), any(), any()) } returns Unit
 
         // When
         handler.handle(event)

@@ -2,6 +2,7 @@ package com.loopers.domain.event.handler
 
 import com.loopers.domain.event.ProductViewedEvent
 import com.loopers.infrastructure.productmetrics.ProductMetricsRepository
+import com.loopers.infrastructure.productmetrics.ProductMetricsDailyRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -13,12 +14,14 @@ import org.junit.jupiter.api.DisplayName
 class ProductViewedEventHandlerTest {
 
     private lateinit var productMetricsRepository: ProductMetricsRepository
+    private lateinit var productMetricsDailyRepository: ProductMetricsDailyRepository
     private lateinit var handler: ProductViewedEventHandler
 
     @BeforeEach
     fun setUp() {
         productMetricsRepository = mockk()
-        handler = ProductViewedEventHandler(productMetricsRepository)
+        productMetricsDailyRepository = mockk()
+        handler = ProductViewedEventHandler(productMetricsRepository, productMetricsDailyRepository)
     }
 
     @Test
@@ -31,6 +34,7 @@ class ProductViewedEventHandlerTest {
         )
 
         every { productMetricsRepository.incrementViewCount(1L) } returns Unit
+        every { productMetricsDailyRepository.incrementViewCount(any(), any()) } returns Unit
 
         // When
         handler.handle(event)
@@ -47,6 +51,7 @@ class ProductViewedEventHandlerTest {
         val event2 = ProductViewedEvent(productId = 2L, userId = 100L)
 
         every { productMetricsRepository.incrementViewCount(any()) } returns Unit
+        every { productMetricsDailyRepository.incrementViewCount(any(), any()) } returns Unit
 
         // When
         handler.handle(event1)
