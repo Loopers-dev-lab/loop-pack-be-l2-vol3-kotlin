@@ -56,6 +56,8 @@ class RankingRepositoryImpl(
         return when (window) {
             RankingWindow.DAILY -> RankingRedisKeys.dailyKey(windowKey)
             RankingWindow.HOURLY -> RankingRedisKeys.hourlyKey(windowKey)
+            RankingWindow.WEEKLY, RankingWindow.MONTHLY ->
+                throw IllegalArgumentException("Redis는 DAILY/HOURLY만 지원합니다: $window")
         }
     }
 }

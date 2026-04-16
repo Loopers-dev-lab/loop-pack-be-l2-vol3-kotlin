@@ -4,8 +4,12 @@ import com.loopers.application.ranking.RankedProductResult
 import com.loopers.application.ranking.RankingPageResult
 import com.loopers.domain.Money
 import com.loopers.domain.ranking.RankingWindow
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.time.temporal.WeekFields
+import java.util.Locale
 
 class RankingV1Dto {
 
@@ -13,6 +17,8 @@ class RankingV1Dto {
         val window: String? = null,
         val date: String? = null,
         val hour: String? = null,
+        val week: String? = null,
+        val month: String? = null,
         val page: Int = 0,
         val size: Int = 20,
     ) {
@@ -27,13 +33,25 @@ class RankingV1Dto {
          * window 파라미터에 맞춰 적절한 windowKey를 생성한다.
          * - DAILY: date 파라미터 우선, 없으면 오늘 날짜
          * - HOURLY: hour 파라미터 우선, 없으면 현재 시각
+         * - WEEKLY: week 파라미터 우선 (ISO 형식 "2026-W15"), 없으면 현재 주차
+         * - MONTHLY: month 파라미터 우선 ("2026-04"), 없으면 현재 월
          */
         fun resolveWindowKey(): String {
             val now = LocalDateTime.now()
             return when (resolveWindow()) {
                 RankingWindow.DAILY -> date ?: now.format(DATE_FORMAT)
                 RankingWindow.HOURLY -> hour ?: now.format(HOUR_FORMAT)
+                RankingWindow.WEEKLY -> week ?: resolveCurrentWeekKey()
+                RankingWindow.MONTHLY -> month ?: YearMonth.now().toString()
             }
+        }
+
+        private fun resolveCurrentWeekKey(): String {
+            val today = LocalDate.now()
+            val weekFields = WeekFields.of(Locale.getDefault())
+            val weekNumber = today.get(weekFields.weekOfWeekBasedYear())
+            val year = today.get(weekFields.weekBasedYear())
+            return "$year-W${weekNumber.toString().padStart(2, '0')}"
         }
     }
 
