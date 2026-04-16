@@ -695,6 +695,134 @@ E6. 쿠폰 적용 실패 시 전체 주문 롤백 (BR-C10)
 
 ---
 
+### 3.7 랭킹 (Rankings)
+
+#### 유저 시나리오
+
+> "사용자는 오늘 가장 인기 있는 상품 랭킹을 확인하고, 시간대별 트렌드를 파악한다. 상품 상세 조회 시 해당 상품의 현재 랭킹 순위도 함께 확인할 수 있다."
+
+#### 대고객 API
+
+| METHOD | URI | 인증 | 설명 |
+|--------|-----|------|------|
+| GET | `/api/v1/rankings?date=yyyyMMdd&size=20&page=0` | X | 일간 랭킹 조회 |
+| GET | `/api/v1/rankings/hourly?date=yyyyMMdd&hour=HH&size=20&page=0` | X | 시간 단위 랭킹 조회 |
+
+> 상품 상세 조회(`GET /api/v1/products/{id}`) 응답에 `rank: Int?` 필드가 추가된다. 랭킹 미집계 상품은 null.
+
+#### 쿼리 파라미터
+
+| 파라미터 | 예시 | 설명 | 필수 |
+|----------|------|------|------|
+| date | `20260410` | 조회 기준일 (yyyyMMdd) | O |
+| size | `20` | 페이지당 상품 수 (기본값: 20) | X |
+| page | `0` | 페이지 번호 (0-based, 기본값: 0) | X |
+| hour | `14` | 시간 단위 랭킹 조회 시 기준 시각 (HH, 0~23) | 시간 단위 조회 시 O |
+
+#### 비즈니스 규칙
+
+- **BR-R1**: 랭킹 점수 가중치는 VIEW=0.1, LIKE=0.2, ORDER=0.7×log10(price×quantity+1)이다.
+- **BR-R2**: 일간 키 전략은 `ranking:all:{yyyyMMdd}` (TTL 2일)이다.
+- **BR-R3**: 시간 단위 키 전략은 `ranking:all:{yyyyMMdd}:{HH}` (TTL 3시간)이다.
+- **BR-R4**: 콜드 스타트 방지를 위해 매일 23:50에 전일 점수의 10%를 당일 키로 carry-over한다. (ZUNIONSTORE)
+- **BR-R5**: 랭킹 이벤트 처리는 at-least-once를 허용한다. (멱등성 미적용)
+- **BR-R6**: 이벤트는 배치 리스너로 수신하여 인메모리에서 집계한 뒤 Redis ZSET에 ZINCRBY로 일괄 반영한다.
+- **BR-R7**: 상품 상세 조회 응답의 `rank`는 일간 랭킹 기준이며, 랭킹에 없는 상품은 null을 반환한다.
+
+#### 입력값 검증
+
+| 필드 | 제약 | 필수 |
+|------|------|------|
+| date | yyyyMMdd 형식, 유효한 날짜 | O |
+| hour | 0~23 정수 | 시간 단위 조회 시 O |
+| size | 1 이상의 정수 (기본값: 20) | X |
+| page | 0 이상의 정수 (기본값: 0) | X |
+
+#### 응답 형식
+
+**일간 랭킹 조회 응답**
+```json
+{
+  "content": [
+    {
+      "rank": 1,
+      "productId": 42,
+      "productName": "감성 티셔츠",
+      "brandName": "루퍼스",
+      "price": 39000,
+      "imageUrl": "https://example.com/product.jpg",
+      "score": 18.43
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 100
+}
+```
+
+**상품 상세 조회 응답 (rank 필드 추가)**
+```json
+{
+  "id": 42,
+  "brandId": 1,
+  "brandName": "루퍼스",
+  "name": "감성 티셔츠",
+  "description": "편안한 착용감",
+  "price": 39000,
+  "imageUrl": "https://example.com/product.jpg",
+  "likeCount": 42,
+  "soldOut": false,
+  "rank": 1
+}
+```
+
+#### 유스케이스 흐름
+
+**일간 랭킹 조회**
+
+```
+[Main Flow]
+1. 사용자가 특정 날짜의 랭킹을 요청한다.
+2. Redis ZSET(ranking:all:{yyyyMMdd})에서 점수 내림차순으로 상품 목록을 조회한다.
+3. 페이지 번호와 크기에 따라 offset 기반으로 슬라이싱하여 반환한다.
+
+[Alternate Flow]
+A1. 해당 날짜의 랭킹 데이터가 없는 경우 → 빈 목록 반환
+
+[Exception Flow]
+E1. date 형식이 잘못된 경우 → 400 Bad Request
+```
+
+**시간 단위 랭킹 조회**
+
+```
+[Main Flow]
+1. 사용자가 특정 날짜·시각의 랭킹을 요청한다.
+2. Redis ZSET(ranking:all:{yyyyMMdd}:{HH})에서 점수 내림차순으로 상품 목록을 조회한다.
+3. 페이지 번호와 크기에 따라 offset 기반으로 슬라이싱하여 반환한다.
+
+[Alternate Flow]
+A1. 해당 시각의 랭킹 데이터가 없는 경우 → 빈 목록 반환
+
+[Exception Flow]
+E1. date 또는 hour 형식이 잘못된 경우 → 400 Bad Request
+E2. hour가 0~23 범위를 벗어난 경우 → 400 Bad Request
+```
+
+**랭킹 점수 집계 (배치 리스너)**
+
+```
+[Main Flow]
+1. 유저 행동 이벤트(VIEW, LIKE, ORDER)가 발생한다.
+2. 배치 리스너가 이벤트를 수집하여 인메모리에서 상품별 점수를 집계한다.
+3. 집계 완료 후 Redis ZSET에 ZINCRBY로 일간/시간 단위 키를 동시에 갱신한다. (BR-R1, BR-R6)
+
+[Alternate Flow]
+A1. 동일 이벤트가 중복 수신된 경우 → 점수 중복 반영 허용 (at-least-once, BR-R5)
+```
+
+---
+
 ## 4. 공통 제약사항
 
 | 제약 | 설명 |

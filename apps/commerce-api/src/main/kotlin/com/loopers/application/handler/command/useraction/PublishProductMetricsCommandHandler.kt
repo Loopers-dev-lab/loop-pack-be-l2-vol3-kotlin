@@ -14,12 +14,14 @@ class PublishProductMetricsCommandHandler(
             aggregateType = EventContract.AGGREGATE_PRODUCT,
             aggregateId = command.targetId.toString(),
             eventType = "UserAction.${command.actionType}",
-            payload = mapOf(
-                "memberId" to command.memberId,
-                "actionType" to command.actionType,
-                "targetType" to command.targetType,
-                "targetId" to command.targetId,
-            ),
+            payload = buildMap {
+                put("memberId", command.memberId)
+                put("actionType", command.actionType)
+                put("targetType", command.targetType)
+                put("targetId", command.targetId)
+                val reservedKeys = setOf("memberId", "actionType", "targetType", "targetId")
+                putAll(command.metadata.filterKeys { it !in reservedKeys })
+            },
             partitionKey = command.targetId.toString(),
             topic = EventContract.PRODUCT_ACTION_TOPIC,
         )

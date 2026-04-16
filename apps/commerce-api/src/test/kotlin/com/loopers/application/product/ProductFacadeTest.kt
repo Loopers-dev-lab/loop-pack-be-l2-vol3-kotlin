@@ -33,7 +33,7 @@ class ProductFacadeTest {
         productEventPublisher = com.loopers.utils.FakeEventPublisher()
         brandService = BrandService(brandRepository, com.loopers.utils.FakeEventPublisher())
         productService = ProductService(productRepository, productEventPublisher)
-        productFacade = ProductFacade(productService, brandService, cacheStore, brandCacheStore)
+        productFacade = ProductFacade(productService, brandService, cacheStore, brandCacheStore, com.loopers.application.ranking.RankingService(com.loopers.utils.FakeRankingStore()))
         adminProductFacade = AdminProductFacade(productService, brandService)
     }
 

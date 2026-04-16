@@ -3,8 +3,8 @@ package com.loopers.application.order
 import com.loopers.application.brand.BrandService
 import com.loopers.application.coupon.CouponService
 import com.loopers.application.product.ProductService
-import com.loopers.application.useraction.LogUserAction
 import com.loopers.domain.common.event.OrderRequestedEvent
+import com.loopers.domain.common.event.UserActionEvent
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import com.loopers.domain.useraction.UserActionTargetType
@@ -22,7 +22,6 @@ class OrderFacade(
     private val couponService: CouponService,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
-    @LogUserAction(action = UserActionType.ORDER, targetType = UserActionTargetType.PRODUCT)
     @Transactional
     fun createOrder(memberId: Long, command: OrderCommand.Create) {
         if (command.items.isEmpty()) {
@@ -52,6 +51,21 @@ class OrderFacade(
                 productPrice = product.price,
                 brandId = product.brandId,
                 brandName = brandName,
+            )
+        }
+
+        items.forEach { item ->
+            eventPublisher.publishEvent(
+                UserActionEvent(
+                    memberId = memberId,
+                    actionType = UserActionType.ORDER,
+                    targetType = UserActionTargetType.PRODUCT,
+                    targetId = item.productId,
+                    metadata = mapOf(
+                        "price" to item.productPrice,
+                        "quantity" to item.quantity,
+                    ),
+                ),
             )
         }
 

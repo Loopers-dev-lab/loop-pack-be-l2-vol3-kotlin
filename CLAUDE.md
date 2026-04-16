@@ -228,6 +228,7 @@ com.loopers
 - 선착순 쿠폰: 별도 도메인(fcfscoupon), Kafka Consumer 순차 처리로 수량 초과 방지, Polling으로 결과 확인 (Decision 55)
 - 대기열: 독립 도메인(queue), Redis Sorted Set + 놀이공원식 Polling. batchSize=300 역산(DB Pool 50 기준). fail-closed 토큰 검증 (Decision 59~61)
 - CoreException 핸들러: ApiControllerAdvice에서 CoreException 직접 처리 — Facade 미경유 Service(QueueService 등)의 에러 매핑 보장 (Decision 59)
+- 랭킹: Redis ZSET 기반 실시간 집계. 키 전략 ranking:all:{yyyyMMdd}[:{HH}], 가중치 VIEW=0.1/LIKE=0.2/ORDER=0.7×log10. ORDER 이벤트는 Facade 수동 발행 (D68). 콜드 스타트 carry-over 10% (D67). 멱등성 미적용(at-least-once 허용) (D65)
 - activeCount Pipeline: 토큰 추적 Set의 lazy cleanup을 Redis Pipeline으로 일괄 처리 — O(N) → O(1) round-trip (Decision 60)
 
 ### 도메인 & 객체 설계 전략
@@ -353,7 +354,7 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 | 7 | 주문 | DONE | 스냅샷, UUID 주문번호, 비관적 락 + 낙관적 락 |
 | 8 | 쿠폰 | DONE | FIXED_DATE/DAYS_FROM_ISSUE, @Version 동시사용 방지 |
 | 9 | 결제 | 구현 중 | PG 연동 (D43-D51), Event-Command-Handler (D52), Outbox Pattern (D54) |
-| 10 | 랭킹/추천 | 미착수 | 요구사항 미정 |
+| 10 | 랭킹/추천 | DONE | Redis ZSET 실시간 랭킹, carry-over 배치 (D62~D68) |
 | 11 | 선착순 쿠폰 | DONE | 별도 도메인 (D55), Kafka 순차 발급 |
 | 12 | 대기열 | DONE | Redis Sorted Set, 분산 락 스케줄러, 토큰 게이트 (D59~D61) |
 
@@ -367,14 +368,14 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 
 ### 다음 작업
 - Event 아키텍처: 통합 테스트 보강 (SpringBootTest + ApplicationEvents 캡처)
-- FEAT-10: 랭킹/추천 (요구사항 미정)
 - Kafka 구현체 교체: OutboxPoller → Kafka 실 발행 E2E 검증
 - Phase 3: Rate Limiting 적용 (Stress/Spike 구간 보호)
+- FEAT-10 후속: 랭킹 기반 상품 추천 (요구사항 미정)
 
 ### 참조 문서
 
 | 문서 | 용도 | 조회 방식 |
 |------|------|-----------|
 | REQUIREMENTS.md | 요구사항 상세 (수용 기준, 상태) | Grep으로 FEAT-N 검색 |
-| DECISIONS.md | 기술 판단 근거 (58건) | Grep으로 D# 검색 |
+| DECISIONS.md | 기술 판단 근거 (68건) | Grep으로 D# 검색 |
 | docs/design/ | 설계 다이어그램 | 필요 시 Read |
