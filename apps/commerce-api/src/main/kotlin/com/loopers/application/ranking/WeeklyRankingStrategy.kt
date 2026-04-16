@@ -1,6 +1,7 @@
 package com.loopers.application.ranking
 
 import com.loopers.application.product.ProductCacheManager
+import com.loopers.domain.ranking.Period
 import com.loopers.domain.ranking.WeeklyRankingRepository
 import com.loopers.domain.ranking.YearWeek
 import org.springframework.stereotype.Component
@@ -16,10 +17,15 @@ class WeeklyRankingStrategy(
         const val BEAN_NAME = "weeklyRankingStrategy"
     }
 
-    override fun getRankings(date: LocalDate, page: Int, size: Int): List<RankingInfo> {
+    override fun getRankings(date: LocalDate, page: Int, size: Int): RankingResult {
         val yearWeek = YearWeek.from(date)
-        val offset = ((page - 1) * size).toLong()
+        val offset = pageToOffset(page, size)
         val entries = weeklyRankingRepository.findTopRankings(yearWeek, offset, size.toLong())
-        return toRankingInfoList(entries, page, size, productCacheManager)
+        return RankingResult(
+            period = Period.WEEKLY,
+            periodStart = yearWeek.startDate.toString(),
+            periodEnd = yearWeek.endDate.toString(),
+            items = toRankingInfoList(entries, page, size, productCacheManager),
+        )
     }
 }

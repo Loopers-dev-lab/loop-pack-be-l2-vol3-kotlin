@@ -5,8 +5,10 @@ import com.loopers.domain.ranking.RankingEntry
 import java.time.LocalDate
 
 interface RankingStrategy {
-    fun getRankings(date: LocalDate, page: Int, size: Int): List<RankingInfo>
+    fun getRankings(date: LocalDate, page: Int, size: Int): RankingResult
 }
+
+fun pageToOffset(page: Int, size: Int): Long = ((page - 1) * size).toLong()
 
 fun toRankingInfoList(
     entries: List<RankingEntry>,
@@ -14,7 +16,7 @@ fun toRankingInfoList(
     size: Int,
     productCacheManager: ProductCacheManager,
 ): List<RankingInfo> {
-    val startRank = ((page - 1) * size).toLong()
+    val startRank = pageToOffset(page, size)
     return entries.mapIndexed { index, entry ->
         val product = productCacheManager.getProduct(entry.productId)
         RankingInfo(

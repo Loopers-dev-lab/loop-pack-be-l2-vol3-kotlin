@@ -11,7 +11,7 @@ class RankingFacade(
     private val strategies: Map<String, RankingStrategy>,
 ) {
 
-    fun getRankings(date: LocalDate, period: Period, page: Int, size: Int): List<RankingInfo> {
+    fun getRankings(date: LocalDate, period: Period, page: Int, size: Int): RankingResult {
         val strategy = resolveStrategy(period)
         return strategy.getRankings(date, page, size)
     }

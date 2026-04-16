@@ -43,6 +43,7 @@ class MonthlyRankingJobConfig(
     private val chunkListener: ChunkListener,
     private val rankingWeightProperties: RankingWeightProperties,
     private val dataSource: DataSource,
+    private val jdbcTemplate: JdbcTemplate,
 ) {
     companion object {
         const val JOB_NAME = "monthlyRankingJob"
@@ -117,7 +118,6 @@ class MonthlyRankingJobConfig(
         val targetDate = parseTargetDate(targetDateStr)
         val yearMonth = YearMonth.from(targetDate).toString()
 
-        val jdbcTemplate = JdbcTemplate(dataSource)
         val swapTasklet = Tasklet { _, _ ->
             jdbcTemplate.update("DELETE FROM mv_product_rank_monthly WHERE `year_month` = ?", yearMonth)
             jdbcTemplate.update(

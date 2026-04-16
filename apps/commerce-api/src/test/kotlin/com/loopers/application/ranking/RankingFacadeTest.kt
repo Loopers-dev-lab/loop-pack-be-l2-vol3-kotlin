@@ -37,8 +37,11 @@ class RankingFacadeTest {
         @Test
         fun delegatesToDailyStrategy() {
             // arrange
-            val expected = listOf(
-                RankingInfo(100L, 1L, 80.0, "상품A", 10000L),
+            val expected = RankingResult(
+                period = Period.DAILY,
+                periodStart = "2026-04-09",
+                periodEnd = "2026-04-09",
+                items = listOf(RankingInfo(100L, 1L, 80.0, "상품A", 10000L)),
             )
             whenever(dailyStrategy.getRankings(today, 1, 20)).thenReturn(expected)
 
@@ -53,8 +56,11 @@ class RankingFacadeTest {
         @Test
         fun delegatesToWeeklyStrategy() {
             // arrange
-            val expected = listOf(
-                RankingInfo(200L, 1L, 44.0, "상품B", 20000L),
+            val expected = RankingResult(
+                period = Period.WEEKLY,
+                periodStart = "2026-04-06",
+                periodEnd = "2026-04-12",
+                items = listOf(RankingInfo(200L, 1L, 44.0, "상품B", 20000L)),
             )
             whenever(weeklyStrategy.getRankings(today, 1, 20)).thenReturn(expected)
 
@@ -69,8 +75,11 @@ class RankingFacadeTest {
         @Test
         fun delegatesToMonthlyStrategy() {
             // arrange
-            val expected = listOf(
-                RankingInfo(300L, 1L, 100.0, "상품C", 30000L),
+            val expected = RankingResult(
+                period = Period.MONTHLY,
+                periodStart = "2026-04-01",
+                periodEnd = "2026-04-30",
+                items = listOf(RankingInfo(300L, 1L, 100.0, "상품C", 30000L)),
             )
             whenever(monthlyStrategy.getRankings(today, 1, 20)).thenReturn(expected)
 
