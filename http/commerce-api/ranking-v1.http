@@ -1,8 +1,14 @@
-### 상품 랭킹 조회 (오늘)
-GET {{commerce-api}}/api/v1/ranking?date=20260410&size=20&page=1
+### 일간 랭킹 조회 (기본값, 하위 호환)
+GET {{commerce-api}}/api/v1/ranking?date=20260415&size=20&page=1
 
-### 상품 랭킹 조회 (페이지 2)
-GET {{commerce-api}}/api/v1/ranking?date=20260410&size=10&page=2
+### 일간 랭킹 조회 (period 명시)
+GET {{commerce-api}}/api/v1/ranking?period=DAILY&date=20260415&size=20&page=1
+
+### 주간 랭킹 조회 (해당 날짜가 속한 주)
+GET {{commerce-api}}/api/v1/ranking?period=WEEKLY&date=20260415&size=20&page=1
+
+### 월간 랭킹 조회 (해당 날짜가 속한 월)
+GET {{commerce-api}}/api/v1/ranking?period=MONTHLY&date=20260415&size=20&page=1
 
 ### 상품 상세 조회 (랭킹 순위 포함)
 GET {{commerce-api}}/api/v1/products/1

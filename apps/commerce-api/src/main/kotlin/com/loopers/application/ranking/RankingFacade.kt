@@ -2,7 +2,10 @@ package com.loopers.application.ranking
 
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.ranking.RankingEntry
+import com.loopers.domain.ranking.RankingPeriod
 import com.loopers.domain.ranking.RankingService
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
@@ -11,10 +14,32 @@ class RankingFacade(
     private val productService: ProductService,
     private val brandService: BrandService,
 ) {
-    fun getRanking(date: String, page: Int, size: Int): List<RankingProductInfo> {
-        val entries = rankingService.getRanking(date, page, size)
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    fun getRanking(period: RankingPeriod, date: String, page: Int, size: Int): List<RankingProductInfo> {
+        val entries = when (period) {
+            RankingPeriod.DAILY -> rankingService.getDailyRanking(date, page, size)
+            RankingPeriod.WEEKLY -> rankingService.getWeeklyRanking(date, page, size)
+            RankingPeriod.MONTHLY -> rankingService.getMonthlyRanking(date, page, size)
+        }
         if (entries.isEmpty()) return emptyList()
 
+        return enrichWithProductInfo(entries, page, size)
+    }
+
+    fun getRankingTotalCount(period: RankingPeriod, date: String): Long {
+        return when (period) {
+            RankingPeriod.DAILY -> rankingService.getDailyTotalCount(date)
+            RankingPeriod.WEEKLY -> rankingService.getWeeklyTotalCount(date)
+            RankingPeriod.MONTHLY -> rankingService.getMonthlyTotalCount(date)
+        }
+    }
+
+    private fun enrichWithProductInfo(
+        entries: List<RankingEntry>,
+        page: Int,
+        size: Int,
+    ): List<RankingProductInfo> {
         val productIds = entries.map { it.productId }
         val products = productService.getProductsByIds(productIds).associateBy { it.id }
 
@@ -34,9 +59,5 @@ class RankingFacade(
                 brandName = brand.name,
             )
         }
-    }
-
-    fun getRankingTotalCount(date: String): Long {
-        return rankingService.getTotalCount(date)
     }
 }

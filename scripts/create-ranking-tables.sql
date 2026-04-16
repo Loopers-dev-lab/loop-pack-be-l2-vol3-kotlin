@@ -24,5 +24,34 @@ CREATE TABLE IF NOT EXISTS ranking_metric (
     updated_at DATETIME(6) NOT NULL,
     deleted_at DATETIME(6),
     UNIQUE INDEX uk_ranking_metric_product_date (product_id, ranking_date),
-    INDEX idx_ranking_metric_date (ranking_date)
+    INDEX idx_ranking_metric_date (ranking_date),
+    INDEX idx_ranking_metric_date_product_score (ranking_date, product_id, total_score)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 주간 랭킹 TOP 100 (배치 Job으로 집계)
+CREATE TABLE IF NOT EXISTS mv_product_rank_weekly (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    ranking_rank INT NOT NULL,
+    total_score DOUBLE NOT NULL,
+    period_date VARCHAR(8) NOT NULL COMMENT '해당 주 월요일 yyyyMMdd',
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6),
+    UNIQUE INDEX uk_weekly_period_rank (period_date, ranking_rank),
+    INDEX idx_weekly_period_date (period_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 월간 랭킹 TOP 100 (배치 Job으로 집계)
+CREATE TABLE IF NOT EXISTS mv_product_rank_monthly (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    ranking_rank INT NOT NULL,
+    total_score DOUBLE NOT NULL,
+    period_date VARCHAR(6) NOT NULL COMMENT 'yyyyMM',
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    deleted_at DATETIME(6),
+    UNIQUE INDEX uk_monthly_period_rank (period_date, ranking_rank),
+    INDEX idx_monthly_period_date (period_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

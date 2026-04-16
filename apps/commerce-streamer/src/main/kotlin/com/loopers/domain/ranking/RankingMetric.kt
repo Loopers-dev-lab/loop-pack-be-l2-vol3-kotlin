@@ -12,6 +12,7 @@ import jakarta.persistence.Table
     indexes = [
         Index(name = "uk_ranking_metric_product_date", columnList = "product_id, ranking_date", unique = true),
         Index(name = "idx_ranking_metric_date", columnList = "ranking_date"),
+        Index(name = "idx_ranking_metric_date_product_score", columnList = "ranking_date, product_id, total_score"),
     ],
 )
 class RankingMetric(
