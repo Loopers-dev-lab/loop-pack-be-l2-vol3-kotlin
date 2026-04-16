@@ -15,7 +15,7 @@
 
 ### Nice-To-Have (과제 요구 외 추가 수행)
 - [x] **Tasklet 비교군 구현** — 단일 SQL `INSERT ... SELECT ... WHERE rank_no <= 100` 으로 DB-side 처리
-- [x] **Chunk vs Tasklet wall-time 벤치마크** — 1k / 5k / 10k seed 실측
+- [x] **Chunk vs Tasklet wall-time 벤치마크** — 1k / 5k / 10k / 100k / 300k seed 실측
 - [x] **이벤트-드리븐 대안 설계 문서화** — 실시간 streamer 에 주간/월간 ZSET 추가하는 방식의 pseudo-code + 트레이드오프
 
 ### 검증
@@ -65,7 +65,7 @@
 - ✅ `MonthlyRankingChunkJobE2ETest` (commerce-batch) — yyyy-MM periodKey + TOP 100
 - ✅ `WeeklyRankingTaskletJobE2ETest` (commerce-batch) — 단일 SQL 경로 정렬 + 멱등성
 - ✅ `MonthlyRankingTaskletJobE2ETest` (commerce-batch) — 월간 tasklet 기본 적재
-- ✅ `WeeklyRankingChunkJobBenchmark`, `WeeklyRankingTaskletJobBenchmark` — 1k/5k/10k 시드 wall-time
+- ✅ `WeeklyRankingChunkJobBenchmark`, `WeeklyRankingTaskletJobBenchmark` — 1k/5k/10k/100k/300k 시드 wall-time
 - ✅ `ProductMetricsSeeder` — 결정적 random (`seed=42L`) 시드 헬퍼
 - ✅ `RankingFacadeTest` (commerce-api) — 기존 DAILY 경로 유지 (8 케이스)
 - ✅ `RankingFacadeMvTest` (commerce-api) — WEEKLY/MONTHLY 경로 + period parsing (7 케이스)
@@ -343,20 +343,24 @@ sequenceDiagram
 - TOP_N=100, chunk size=25
 - Seed: `ProductMetricsSeeder.seedRandom(count, seed=42L)` — 결정적 분포
 - wall time = `jobLauncherTestUtils.launchJob()` 호출 전후 `System.nanoTime()`
-- raw log: `bench/results/ranking-job-benchmark-2026-04-16T21-07-24.txt`
+- raw log: `bench/results/ranking-job-benchmark-2026-04-16T21-39-37.txt`
+- 50k 이상 seed 는 `ProductMetricsSeeder` 가 `JdbcTemplate.batchUpdate` 로 fallback (saveAll 의 Hibernate batch_size 미설정 비용 회피) — 측정 대상은 어디까지나 `launchJob` wall time
 
 ### Wall Time (ms)
 
 | Seed | Chunk | Tasklet | Tasklet 우위 |
-|-----:|------:|--------:|:---:|
-| 1,000  | 151 | 35 | **4.3×** |
-| 5,000  | 115 | 41 | **2.8×** |
-| 10,000 | 102 | 45 | **2.3×** |
+|------:|------:|--------:|:---:|
+| 1,000   | 171 | 34  | **5.0×** |
+| 5,000   | 140 | 37  | **3.8×** |
+| 10,000  | 103 | 42  | **2.5×** |
+| 100,000 | 206 | 143 | **1.4×** |
+| 300,000 | 579 | 501 | **1.16×** |
 
 **해석:**
-- Tasklet 은 seed 크기에 거의 둔감 — DB 가 sort+limit+insert 를 한 번에 처리하므로 `product_metrics` 스캔 비용이 주 요인이고 네트워크 roundtrip 은 1회 고정.
-- Chunk 는 seed 1k 에서 가장 느린데 (151ms), JIT/cache warm-up 비용이 dominant. 5k/10k 에서 점진적으로 줄어드는 것도 같은 이유.
-- 두 변형 모두 "100 rows 적재" 는 공통 — 차이의 본질은 **선택·삭제·정렬·적재** 를 JVM 이 나눠 하느냐 DB 가 통째로 하느냐.
+- **Chunk** — 1k~10k 구간은 JIT/cache warm-up 이 dominant 해서 seed 가 늘어도 오히려 줄어드는 듯 보임. 100k 부터는 Reader 의 `ORDER BY score DESC LIMIT 100` (filesort, no index) 가 dominant 해지며 비례 증가 (1k → 300k 기준 ×3.4).
+- **Tasklet** — 단일 `INSERT … SELECT ROW_NUMBER() OVER (ORDER BY ...)` 가 데이터셋 크기에 직접 비례. 1k → 300k 에서 ×14.7 의 가파른 곡선이지만 절대값은 여전히 chunk 보다 빠름.
+- **격차 수렴이 핵심 발견** — 1k 에서 5× → 10k 2.5× → 100k 1.4× → 300k 1.16×. Tasklet 의 sort 비용이 chunk 의 pipeline overhead 를 빠르게 따라잡는다. 수백만 row + score 인덱스 부재 환경에서는 역전 가능.
+- 공통: "100 rows 적재" 는 동일 — 차이의 본질은 **선택·삭제·정렬·적재** 를 JVM 이 나눠 하느냐 DB 가 통째로 하느냐.
 
 ### 정합성 (두 변형이 같은 결과를 만드는가?)
 - SCORE_EXPR / tie-break 가 동일 → 이론적으로 동일 TOP-100 ID 리스트.
@@ -373,7 +377,7 @@ sequenceDiagram
 | **실행 트리거** | cron / manual | cron / manual | Kafka event stream |
 | **Latency (이벤트 → 랭킹 반영)** | ~주기 (하루 / 주간) | ~주기 | 수 초 |
 | **Throughput (1회 집계)** | 1 roundtrip (가장 빠름) | N × chunk (느림) | 누적 ZINCRBY |
-| **Wall time @10k (실측)** | **45ms** | 102ms | n/a (스트리밍) |
+| **Wall time @10k / @100k / @300k (실측)** | **42 / 143 / 501 ms** | 103 / 206 / 579 ms | n/a (스트리밍) |
 | **회복 모델** | Step 전체 재실행 | Chunk-level 재실행 (Spring Batch retry/skip) | consumer offset lag + DLQ |
 | **중간 상태 관측** | 어려움 (거의 block) | Step metrics (chunk 단위) | consumer lag, throughput |
 | **정합성 보장** | 배치 시점 기준 스냅샷 — 강함 | 동일 | 이벤트 처리 실패 시 drift 위험 |
