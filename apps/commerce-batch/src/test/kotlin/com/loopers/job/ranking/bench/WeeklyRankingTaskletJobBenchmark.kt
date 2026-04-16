@@ -49,7 +49,7 @@ class WeeklyRankingTaskletJobBenchmark @Autowired constructor(
 
     @DisplayName("[BENCH] WeeklyRankingTaskletJob — 시드 수별 wall time")
     @ParameterizedTest(name = "seed={0}")
-    @ValueSource(ints = [1_000, 5_000, 10_000])
+    @ValueSource(ints = [1_000, 5_000, 10_000, 100_000, 300_000])
     fun bench(seed: Int) {
         seeder.seedRandom(count = seed)
 
