@@ -1,20 +1,13 @@
 package com.loopers.application.ranking
 
-import com.loopers.application.product.ProductCacheManager
-import com.loopers.application.product.ProductDetailInfo
-import com.loopers.domain.ranking.RankingEntry
-import com.loopers.domain.ranking.RankingService
+import com.loopers.domain.ranking.Period
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.InjectMocks
-import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
-import org.mockito.kotlin.any
-import org.mockito.kotlin.doThrow
-import org.mockito.kotlin.eq
+import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
 
@@ -22,112 +15,70 @@ import java.time.LocalDate
 @DisplayName("RankingFacade")
 class RankingFacadeTest {
 
-    @Mock
-    private lateinit var rankingService: RankingService
+    private val dailyStrategy: RankingStrategy = mock()
+    private val weeklyStrategy: RankingStrategy = mock()
+    private val monthlyStrategy: RankingStrategy = mock()
 
-    @Mock
-    private lateinit var productCacheManager: ProductCacheManager
-
-    @InjectMocks
-    private lateinit var rankingFacade: RankingFacade
+    private val rankingFacade = RankingFacade(
+        strategies = mapOf(
+            DailyRankingStrategy.BEAN_NAME to dailyStrategy,
+            WeeklyRankingStrategy.BEAN_NAME to weeklyStrategy,
+            MonthlyRankingStrategy.BEAN_NAME to monthlyStrategy,
+        ),
+    )
 
     private val today = LocalDate.of(2026, 4, 9)
 
-    private fun createProductDetailInfo(id: Long, name: String, price: Long) = ProductDetailInfo(
-        id = id,
-        name = name,
-        price = price,
-        description = null,
-        brandId = 1L,
-        brandName = "테스트 브랜드",
-        likeCount = 0,
-    )
-
-    @DisplayName("랭킹 목록 조회 시,")
+    @DisplayName("랭킹 조회 시,")
     @Nested
     inner class GetRankings {
 
-        @DisplayName("상품 정보가 함께 반환된다.")
+        @DisplayName("DAILY period 요청 시 DailyRankingStrategy에 위임한다.")
         @Test
-        fun returnsRankingsWithProductInfo() {
+        fun delegatesToDailyStrategy() {
             // arrange
-            val entries = listOf(
-                RankingEntry(100L, 80.0),
-                RankingEntry(200L, 50.0),
+            val expected = listOf(
+                RankingInfo(100L, 1L, 80.0, "상품A", 10000L),
             )
-            whenever(rankingService.getTopRankings(today, 1, 20)).thenReturn(entries)
-            whenever(productCacheManager.getProduct(100L))
-                .thenReturn(createProductDetailInfo(100L, "상품A", 10000L))
-            whenever(productCacheManager.getProduct(200L))
-                .thenReturn(createProductDetailInfo(200L, "상품B", 20000L))
+            whenever(dailyStrategy.getRankings(today, 1, 20)).thenReturn(expected)
 
             // act
-            val result = rankingFacade.getRankings(today, page = 1, size = 20)
+            val result = rankingFacade.getRankings(today, Period.DAILY, 1, 20)
 
             // assert
-            assertThat(result).hasSize(2)
-            assertThat(result[0].productId).isEqualTo(100L)
-            assertThat(result[0].productName).isEqualTo("상품A")
-            assertThat(result[0].rank).isEqualTo(1L)
-            assertThat(result[0].score).isEqualTo(80.0)
+            assertThat(result).isEqualTo(expected)
         }
 
-        @DisplayName("Redis 조회 실패 시, DB fallback으로 랭킹을 반환한다.")
+        @DisplayName("WEEKLY period 요청 시 WeeklyRankingStrategy에 위임한다.")
         @Test
-        fun fallsBackToDbWhenRedisFails() {
+        fun delegatesToWeeklyStrategy() {
             // arrange
-            doThrow(RuntimeException("Redis connection failure"))
-                .whenever(rankingService).getTopRankings(any(), any(), any())
-
-            val dbEntries = listOf(
-                RankingEntry(100L, 4.1),
-                RankingEntry(200L, 2.5),
+            val expected = listOf(
+                RankingInfo(200L, 1L, 44.0, "상품B", 20000L),
             )
-            whenever(rankingService.getTopRankingsFromDb(eq(1), eq(20))).thenReturn(dbEntries)
-            whenever(productCacheManager.getProduct(100L))
-                .thenReturn(createProductDetailInfo(100L, "상품A", 10000L))
-            whenever(productCacheManager.getProduct(200L))
-                .thenReturn(createProductDetailInfo(200L, "상품B", 20000L))
+            whenever(weeklyStrategy.getRankings(today, 1, 20)).thenReturn(expected)
 
             // act
-            val result = rankingFacade.getRankings(today, page = 1, size = 20)
+            val result = rankingFacade.getRankings(today, Period.WEEKLY, 1, 20)
 
             // assert
-            assertThat(result).hasSize(2)
-            assertThat(result[0].productId).isEqualTo(100L)
-            assertThat(result[0].rank).isEqualTo(1L)
-            assertThat(result[1].productId).isEqualTo(200L)
-            assertThat(result[1].rank).isEqualTo(2L)
+            assertThat(result).isEqualTo(expected)
         }
 
-        @DisplayName("ZSET 순서대로 상품 정보가 매핑된다.")
+        @DisplayName("MONTHLY period 요청 시 MonthlyRankingStrategy에 위임한다.")
         @Test
-        fun preservesZsetOrder() {
+        fun delegatesToMonthlyStrategy() {
             // arrange
-            val entries = listOf(
-                RankingEntry(300L, 90.0),
-                RankingEntry(100L, 70.0),
-                RankingEntry(200L, 50.0),
+            val expected = listOf(
+                RankingInfo(300L, 1L, 100.0, "상품C", 30000L),
             )
-            whenever(rankingService.getTopRankings(today, 1, 20)).thenReturn(entries)
-            whenever(productCacheManager.getProduct(300L))
-                .thenReturn(createProductDetailInfo(300L, "상품C", 30000L))
-            whenever(productCacheManager.getProduct(100L))
-                .thenReturn(createProductDetailInfo(100L, "상품A", 10000L))
-            whenever(productCacheManager.getProduct(200L))
-                .thenReturn(createProductDetailInfo(200L, "상품B", 20000L))
+            whenever(monthlyStrategy.getRankings(today, 1, 20)).thenReturn(expected)
 
             // act
-            val result = rankingFacade.getRankings(today, page = 1, size = 20)
+            val result = rankingFacade.getRankings(today, Period.MONTHLY, 1, 20)
 
             // assert
-            assertThat(result).hasSize(3)
-            assertThat(result[0].productId).isEqualTo(300L)
-            assertThat(result[0].rank).isEqualTo(1L)
-            assertThat(result[1].productId).isEqualTo(100L)
-            assertThat(result[1].rank).isEqualTo(2L)
-            assertThat(result[2].productId).isEqualTo(200L)
-            assertThat(result[2].rank).isEqualTo(3L)
+            assertThat(result).isEqualTo(expected)
         }
     }
 }

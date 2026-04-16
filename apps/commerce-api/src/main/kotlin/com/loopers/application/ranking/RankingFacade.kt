@@ -1,41 +1,28 @@
 package com.loopers.application.ranking
 
-import com.loopers.application.product.ProductCacheManager
-import com.loopers.domain.ranking.RankingEntry
-import com.loopers.domain.ranking.RankingService
-import org.slf4j.LoggerFactory
+import com.loopers.domain.ranking.Period
+import com.loopers.support.error.CoreException
+import com.loopers.support.error.ErrorType
 import org.springframework.stereotype.Component
 import java.time.LocalDate
 
 @Component
 class RankingFacade(
-    private val rankingService: RankingService,
-    private val productCacheManager: ProductCacheManager,
+    private val strategies: Map<String, RankingStrategy>,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
 
-    fun getRankings(date: LocalDate, page: Int, size: Int): List<RankingInfo> {
-        val entries = runCatching {
-            rankingService.getTopRankings(date, page, size)
-        }.getOrElse {
-            log.warn("[RankingFacade] Redis 랭킹 조회 실패, DB fallback 수행", it)
-            rankingService.getTopRankingsFromDb(page, size)
-        }
-
-        return toRankingInfoList(entries, page, size)
+    fun getRankings(date: LocalDate, period: Period, page: Int, size: Int): List<RankingInfo> {
+        val strategy = resolveStrategy(period)
+        return strategy.getRankings(date, page, size)
     }
 
-    private fun toRankingInfoList(entries: List<RankingEntry>, page: Int, size: Int): List<RankingInfo> {
-        val startRank = ((page - 1) * size).toLong()
-        return entries.mapIndexed { index, entry ->
-            val product = productCacheManager.getProduct(entry.productId)
-            RankingInfo(
-                productId = entry.productId,
-                rank = startRank + index + 1,
-                score = entry.score,
-                productName = product.name,
-                productPrice = product.price,
-            )
+    private fun resolveStrategy(period: Period): RankingStrategy {
+        val beanName = when (period) {
+            Period.DAILY -> DailyRankingStrategy.BEAN_NAME
+            Period.WEEKLY -> WeeklyRankingStrategy.BEAN_NAME
+            Period.MONTHLY -> MonthlyRankingStrategy.BEAN_NAME
         }
+        return strategies[beanName]
+            ?: throw CoreException(ErrorType.INTERNAL_ERROR, "지원하지 않는 기간: $period")
     }
 }

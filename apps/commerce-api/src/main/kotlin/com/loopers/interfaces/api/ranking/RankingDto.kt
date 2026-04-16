@@ -1,14 +1,21 @@
 package com.loopers.interfaces.api.ranking
 
 import com.loopers.application.ranking.RankingInfo
+import com.loopers.domain.ranking.Period
 
 class RankingDto {
     data class Response(
+        val period: Period,
+        val periodStart: String,
+        val periodEnd: String,
         val items: List<ItemResponse>,
     ) {
         companion object {
-            fun from(rankings: List<RankingInfo>): Response {
+            fun from(rankings: List<RankingInfo>, period: Period, periodStart: String, periodEnd: String): Response {
                 return Response(
+                    period = period,
+                    periodStart = periodStart,
+                    periodEnd = periodEnd,
                     items = rankings.map { ItemResponse.from(it) },
                 )
             }
