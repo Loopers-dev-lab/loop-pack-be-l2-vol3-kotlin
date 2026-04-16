@@ -935,35 +935,169 @@ infrastructure/ranking/
 
 **[글감]**: "조합 α의 근거 — Strategy + Y 조합이 빈 껍데기를 해소하는 순간"
 
-### Q7 미해결 (다음 세션 시작)
+### Q7-2 세부 확정 (세션 2 — 2026-04-16)
 
-- Q7-2-1 `LocalDate → YearWeek` 변환 책임 위치 — VO 팩토리로 거의 확정, Service 남길 여지 재검토
-- Q7-2-2 ISO Week 엣지 케이스(2026-01-01 → 2025-W53) 응답 정책 (응답에 실제 조회 주차 명시 반환 vs 묵시적 보정)
-- Q7-2-3 API 파라미터: `date + period` 유지 vs `yearWeek`/`yearMonth` 직접 노출 — "Redis key" 이외 근거(API 계약 명확성, 클라이언트 부담, 서버 리팩토링 자유도)로 재판단
+#### Q7-2-1. `LocalDate → YearWeek` 변환 책임 위치
+
+**[질문]**
+Strategy에서 VO 생성(시나리오 A) vs Controller/Facade에서 변환(시나리오 B) 중 선택
+
+**[답변]**
+> 시나리오 A가 좋을거 같아. Controller/Facade에서는 어떻게 사용하는지의 관심보다는 LocalDate를 받아서 잘 전달하자 이게 중점이 될거 같아.
+> 만약 지금은 YearWeek를 사용하다가 LocalDate를 그대로 사용한다고 하면 Controller/Facade에서도 코드 변경이 들어가는데 변경해야할 구간이 너무 많아.
+
+**[악마의 변호인: Strategy 책임 비대화?]**
+Strategy가 날짜 해석 + Repository 호출 + 결과 매핑까지 품으면 SRP 위반 아닌가? fallback 로직까지 붙으면?
+
+**[답변]**
+> 날짜 변환과 fallback 요구사항은 무관하다. VO 팩토리는 순수한 날짜→주차 매핑이고, fallback은 조회 전략. 완전히 다른 축.
+
+**[확정]** Strategy 내부에서 `YearWeek.from(date)` 호출. Controller/Facade는 `LocalDate`만 전달.
 
 ---
 
-## 다음 세션 이어가기
+#### Q7-2-2. ISO Week 엣지 케이스 응답 정책
 
-**중단 지점:** Q7 **조합 α 확정 완료**, Q7-2 세부(엣지 케이스·파라미터·VO 위치) 다음 세션에서 시작
-- 조합 α: Strategy + 후보 Y(Repository 분리) + VO(`YearWeek`) 확정
-- 구조 스케치 완료 (파일 배치, 역할 분담)
-- 남은 Q7-2 세부 3개를 다음 세션 첫 질문으로 이어갈 것
+**[질문]**
+`date=20260101&period=WEEKLY` 요청 시, ISO Week 경계 엣지 케이스를 응답에 어떻게 반영?
+- A. 묵시적 보정 (별도 표기 없음)
+- B. 명시적 반환 (`resolvedWeek` 필드 포함)
 
-**재개 방법:** `/learn-round @docs/notes/learn-round10-qa-notes.md , @docs/quests/round-10.md 이어서`
+**[답변]**
+> 2025-W53 반환, 이유는 주차라는것은 모두의 약속이니 그 약속을 지키는 것이 좋다
 
-**남은 주요 주제:**
-- Q7-2 세부 (VO 변환 책임 위치 / ISO Week 엣지 케이스 / 파라미터 노출 방식)
-- Q8. 실패 복구, 모니터링, 운영 관점
-- Q9. `product_metrics` 일별 스키마 재설계 (Q1에서 합의된 전제)
-- 최종 백지 설계 테스트
-**다음 세션 시작 방법:** 이 파일(`docs/notes/learn-round10-qa-notes.md`)을 참조로 지정해서 `/learn-round @docs/quests/round-10.md` 실행
-**남은 주요 주제 (내부 설계):**
-- Q5. 배치에서의 JPA vs JDBC — Reader/Writer 도구 선택 **[진행 중]**
-- Q6. 멱등성과 재실행 전략 (같은 날짜 두 번 돌리면? JobParameter, 중복 실행 방지)
-- Q7. API 확장 (`period` 파라미터) 및 일간(Redis) / 주간·월간(MV) 분기 처리
-- Q8. 실패 복구, 모니터링, 운영 관점
-- Q9. product_metrics 일별 스키마 재설계 (현재 상품별 누적 → 일별 row)
-- 최종 백지 설계 테스트
+**[후속: resolvedWeek만으로 충분한가?]**
 
+**[답변]**
+> 주차의 구간을 같이 주면 좋을거같아 2025-12-29 ~ 2026-01-01 이렇게
 
+**[확정]** 응답에 `resolvedWeek` + `periodStart`/`periodEnd` 포함. 클라이언트는 ISO Week 계산 없이 구간으로 판단.
+
+---
+
+#### Q7-2-3. API 파라미터 — `date + period` 유지 vs `yearWeek` 직접 노출
+
+**[질문]**
+판단 기준 3가지: API 계약 명확성, 클라이언트 부담, 서버 리팩토링 자유도
+
+**[답변]**
+> 후보 1 (date + period). 해당 api를 만약 외부에서 사용한다면? 그래서 날짜 주차 지정을 잘못 했다면? 다른 데이터 호출로 인해 불편을 줄것이다. 최대한 간단하게 하는게 좋다고 생각한다.
+
+**[확정]** `date + period` 유지. 서버가 변환의 단일 책임자. 클라이언트 실수 가능성 제거.
+
+### Q7-2 전체 확정
+
+| 항목 | 결정 | 근거 |
+|---|---|---|
+| 변환 위치 | Strategy 내부 | 변경 파급 범위 최소화, Controller/Facade 관심사 분리 |
+| 응답 구조 | `resolvedWeek` + `periodStart`/`periodEnd` | ISO Week 몰라도 구간으로 즉시 이해 |
+| API 파라미터 | `date + period` (서버 변환) | 클라이언트 실수 방지, 서버 리팩토링 자유도 |
+
+---
+
+## Q8. 배치 실패 시 사용자 경험과 운영 대응
+
+**[질문]**
+화요일 새벽 배치 실패. 오전 10시 사용자가 주간 랭킹 조회. MV 상태는? 사용자 응답은? 사전 방지/대응 장치는?
+
+**[답변]**
+> MV에는 전날까지의 데이터가 있다. 사용자에게 아무 데이터 없이 오류나 빈화면을 보여주는 것보다는 전날 데이터라도 보여줘야 한다.
+> 배치 실패하면 재시도를 하고 재시도 해도 실패하면 알림을 보내서 인지하게 한다.
+
+**[멘토 연결: Q6 staging+swap의 자연스러운 fallback]**
+staging+swap 패턴에서 배치 실패 시 swap이 안 일어나 MV 원본 유지 → "전날 데이터 자연 노출"이 별도 로직 없이 보장됨.
+
+**[후속: staleness 표시 필요?]**
+
+**[답변]**
+> start/end 데이터만 보여줘도 된다고 생각한다. 굳이 고객에게 우리 데이터 오래된 데이터에요 라고 알려주는 상황은 좋지 못하다고 생각된다.
+
+**[확정]**
+- **배치 실패 시 MV 보호**: staging+swap 패턴으로 기존 MV 원본 유지 (Q6 자연 연결)
+- **사용자 경험**: 이전 데이터 자연 노출, staleness 명시적 경고 불필요 (`periodStart`/`periodEnd`로 암묵적 전달)
+- **운영 대응**: 재시도 → 실패 시 알림 → 수동 개입
+
+---
+
+## Q9. `product_metrics` 일별 스키마 재설계
+
+**[질문]**
+기존 상품별 단일 누적 row → 일별 row 구조로 변경. PK 설계, 인덱스, Consumer 변경점은?
+
+**[답변]**
+> 1. id AUTO_INCREMENT + unique constraint 사용. 복합 pk는 마이그레이션이나 테이블 수정할 때 힘들 수 있기 때문에 단순하게 사용하는걸 선호해.
+> 2. metric_date, product_id 순서로 인덱스를 만들어야 한다.
+> 3. 모르겠어 → (힌트 후) 일별도 알아야해.
+
+**[멘토 평가]**
+- PK: Q4 MV 테이블(복합 PK)과의 차이 근거 확인 → "MV는 조회 전용이라 스키마 변경이 드물고, 재적재 가능. product_metrics_daily는 실시간 Consumer가 쓰는 운영 테이블이라 변경 영향 큼" — 용도에 따른 의도적 구분, 타당
+- 인덱스: `(metric_date, product_id)` unique 제약이 곧 인덱스 역할 — 정확
+- Consumer: `metric_date = today` 추가. 기존 Redis 키에서 이미 날짜 인지하므로 변경 폭 작음
+
+**[확정]**
+
+| 항목 | 결정 |
+|---|---|
+| 테이블명 | `product_metrics_daily` |
+| PK | `id AUTO_INCREMENT` |
+| Unique | `(metric_date, product_id)` |
+| 인덱스 | unique 제약이 곧 인덱스 |
+| Consumer 변경 | upsert에 `metric_date = today` 추가 |
+
+---
+
+## 구현 준비도 판정
+
+**백지 설계 결과:**
+
+사용자가 세 축(테이블/배치/API)으로 전체 설계를 시도:
+- 테이블: `product_metrics_daily` + staging + MV 3층 구조 — 정확히 기억
+- 배치: 처음에 "한번의 SELECT와 INSERT 벌크"로 답변 (Tasklet 단일 SQL에 가까움) → 교정 후 Chunk-Oriented (Reader/Processor/Writer) 구조로 수정
+- API: Controller → Facade → Service → Repository 흐름 + VO 날짜 변환 언급 → Strategy 패턴 구조는 힌트 후 상기
+
+**커버된 포인트:**
+- 테이블 3층 구조 (daily → staging → MV)
+- staging+swap 멱등성/실패 안전성
+- JDBC 기반 배치, Chunk-Oriented 구조 (교정 후)
+- VO 날짜 변환, API 레이어 흐름
+
+**보완이 필요한 포인트:**
+- **Strategy 패턴 구조**: "Facade가 `Map<Period, RankingStrategy>`로 위임, 각 Strategy가 자기 Repository 보유"라는 Q7 핵심 설계를 백지에서 떠올리지 못함
+- **배치 흐름 정밀도**: Reader(GROUP BY 페이징) → Processor(가중치) → Writer(upsert) 3단계 분리를 즉시 조립하지 못함
+
+**판정: 일부 보완 필요** — 개별 개념은 이해하나 전체 조립력에 보완 필요. Strategy 패턴 구조를 구현 전 한 번 더 스케치할 것.
+
+---
+
+## 핵심 개념 정리
+
+이번 라운드에서 학습한 개념들의 관계:
+
+1. **계층적 집계**: raw event → `product_metrics_daily` (일간) → MV weekly/monthly (주간/월간)
+2. **배치 구조**: Chunk-Oriented + 하이브리드 (DB GROUP BY + Java 가중치) + JDBC 네이티브
+3. **멱등성 3중 보장**: RunIdIncrementer + upsert + staging swap
+4. **API 분기**: Strategy 패턴 + Repository 분리 (DIP 유지, LSP 위반 제거)
+5. **기간 설계**: ISO Week 고정 경계 + 하루 1회 배치 + VO 캡슐화
+
+## 블로그 글감 목록
+
+1. "기간 경계 정의와 배치 실행 주기는 분리 가능한 축이다"
+2. "GROUP BY는 DB의 비즈니스 로직 침해인가?" — 데이터 집계 vs 가중치 정책의 경계
+3. "일관성의 대상 재정의 — 도구 일관성 vs 아키텍처 일관성, 배치 모듈의 JDBC 선택 정당화"
+4. "DIP는 abstraction 만들기 대회가 아니다 — Spring Batch ItemReader/Writer 위에 domain Repository를 얹지 않는 이유"
+5. "멱등성은 구분하는 설계가 아니라 구분이 무의미한 설계 — 배치 재실행 안전성의 본질"
+6. "upsert가 멱등을 완성하지 못하는 순간 — TOP 100 탈락 row 처리와 Staging+Swap 패턴"
+7. "조합 α의 근거 — Strategy + Repository 분리 조합이 빈 껍데기를 해소하는 순간"
+
+## 구현 연결 포인트
+
+- Strategy 패턴 구조는 구현 전 파일 배치를 먼저 스케치할 것 (Q7 확정 구조 참고)
+- `product_metrics_daily` 스키마 변경 시 기존 Consumer 코드 수정 동반
+- 배치 Job 설정에서 `@ConfigurationProperties`로 가중치 외부화 — application.yml 수정만으로 재계산 가능
+- MV 테이블은 복합 PK, 운영 테이블은 AUTO_INCREMENT — 용도별 PK 전략 구분 의도적 유지
+
+## 다음 단계
+
+- `/plan` 으로 구현 계획 수립
+- `/red` → `/green` → `/refactor` TDD 사이클로 구현 진행
+- 구현 완료 후 `/e2e`로 전체 흐름 검증
