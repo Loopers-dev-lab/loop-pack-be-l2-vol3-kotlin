@@ -5,6 +5,8 @@ import com.loopers.batch.job.ranking.ProductRankRow
 import com.loopers.batch.job.ranking.RankingWeightProperties
 import com.loopers.batch.job.ranking.WeightScoreProcessor
 import com.loopers.batch.job.ranking.parseTargetDate
+import com.loopers.batch.job.ranking.rankingStagingWriter
+import com.loopers.batch.job.ranking.rankingSwapTasklet
 import com.loopers.batch.listener.ChunkListener
 import com.loopers.batch.listener.JobListener
 import com.loopers.batch.listener.StepMonitorListener
@@ -17,19 +19,14 @@ import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.launch.support.RunIdIncrementer
 import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
-import org.springframework.batch.core.step.tasklet.Tasklet
 import org.springframework.batch.item.database.JdbcBatchItemWriter
-import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder
-import org.springframework.batch.repeat.RepeatStatus
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.transaction.PlatformTransactionManager
-import java.time.LocalDateTime
 import javax.sql.DataSource
 
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = WeeklyRankingJobConfig.JOB_NAME)
@@ -50,6 +47,9 @@ class WeeklyRankingJobConfig(
         private const val CHUNK_STEP_NAME = "weeklyRankingChunkStep"
         private const val SWAP_STEP_NAME = "weeklyRankingSwapStep"
         private const val CHUNK_SIZE = 1000
+        private const val MV_TABLE = "mv_product_rank_weekly"
+        private const val STAGING_TABLE = "staging_product_rank_weekly"
+        private const val PERIOD_COLUMN = "year_week"
     }
 
     @Bean(JOB_NAME)
@@ -86,28 +86,7 @@ class WeeklyRankingJobConfig(
     @StepScope
     @Bean
     fun weeklyRankingStagingWriter(): JdbcBatchItemWriter<ProductRankRow> {
-        return JdbcBatchItemWriterBuilder<ProductRankRow>()
-            .dataSource(dataSource)
-            .sql(
-                """
-                INSERT INTO staging_product_rank_weekly (year_week, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
-                VALUES (:periodKey, :productId, :score, 0, :viewCount, :likeCount, :salesCount, :updatedAt)
-                ON DUPLICATE KEY UPDATE
-                    score = VALUES(score), view_count = VALUES(view_count), like_count = VALUES(like_count),
-                    sales_count = VALUES(sales_count), updated_at = VALUES(updated_at)
-                """.trimIndent(),
-            )
-            .itemSqlParameterSourceProvider { item ->
-                MapSqlParameterSource()
-                    .addValue("periodKey", item.periodKey)
-                    .addValue("productId", item.productId)
-                    .addValue("score", item.score)
-                    .addValue("viewCount", item.viewCount)
-                    .addValue("likeCount", item.likeCount)
-                    .addValue("salesCount", item.salesCount)
-                    .addValue("updatedAt", LocalDateTime.now())
-            }
-            .build()
+        return rankingStagingWriter(dataSource, STAGING_TABLE, PERIOD_COLUMN)
     }
 
     @JobScope
@@ -118,25 +97,8 @@ class WeeklyRankingJobConfig(
         val targetDate = parseTargetDate(targetDateStr)
         val yearWeek = YearWeek.from(targetDate).toString()
 
-        val swapTasklet = Tasklet { _, _ ->
-            jdbcTemplate.update("DELETE FROM mv_product_rank_weekly WHERE year_week = ?", yearWeek)
-            jdbcTemplate.update(
-                """
-                INSERT INTO mv_product_rank_weekly (year_week, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
-                SELECT year_week, product_id, score,
-                       ROW_NUMBER() OVER (ORDER BY score DESC) AS rank_num,
-                       view_count, like_count, sales_count, updated_at
-                FROM staging_product_rank_weekly
-                WHERE year_week = ?
-                """.trimIndent(),
-                yearWeek,
-            )
-            jdbcTemplate.update("DELETE FROM staging_product_rank_weekly WHERE year_week = ?", yearWeek)
-            RepeatStatus.FINISHED
-        }
-
         return StepBuilder(SWAP_STEP_NAME, jobRepository)
-            .tasklet(swapTasklet, transactionManager)
+            .tasklet(rankingSwapTasklet(jdbcTemplate, MV_TABLE, STAGING_TABLE, PERIOD_COLUMN, yearWeek), transactionManager)
             .listener(stepMonitorListener)
             .build()
     }
