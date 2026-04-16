@@ -1,12 +1,12 @@
 package com.loopers.application.ranking
 
+import com.loopers.common.DateUtils
 import com.loopers.zset.RankingKeyGenerator
 import com.loopers.zset.RedisZSetTemplate
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Duration
-import java.time.LocalDate
 
 @Component
 class RankingCarryOverScheduler(
@@ -18,8 +18,8 @@ class RankingCarryOverScheduler(
 
     @Scheduled(cron = "0 50 23 * * ?")
     fun carryOver() {
-        val today = LocalDate.now()
-        val tomorrow = today.plusDays(1)
+        val today = DateUtils.todayKst()
+        val tomorrow = DateUtils.tomorrowKst()
         val todayKey = RankingKeyGenerator.dailyKey(today)
         val tomorrowKey = RankingKeyGenerator.dailyKey(tomorrow)
 

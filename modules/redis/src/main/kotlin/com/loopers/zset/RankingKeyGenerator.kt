@@ -1,16 +1,13 @@
 package com.loopers.zset
 
+import com.loopers.common.DateUtils
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 object RankingKeyGenerator {
 
     private const val KEY_PREFIX = "ranking:daily:"
-    private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
 
-    fun dailyKey(date: LocalDate): String {
-        return "$KEY_PREFIX${date.format(DATE_FORMATTER)}"
-    }
+    fun dailyKey(date: LocalDate): String = "$KEY_PREFIX${DateUtils.formatDate(date)}"
 
-    fun todayKey(): String = dailyKey(LocalDate.now())
+    fun todayKey(): String = dailyKey(DateUtils.todayKst())
 }

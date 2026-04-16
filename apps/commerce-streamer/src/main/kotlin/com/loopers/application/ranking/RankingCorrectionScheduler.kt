@@ -1,5 +1,6 @@
 package com.loopers.application.ranking
 
+import com.loopers.common.DateUtils
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.zset.RankingKeyGenerator
 import com.loopers.zset.RedisZSetTemplate
@@ -8,7 +9,6 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
-import java.time.LocalDate
 import kotlin.math.log10
 
 @Component
@@ -23,7 +23,7 @@ class RankingCorrectionScheduler(
     @Scheduled(cron = "0 0 3 * * ?")
     @Transactional(readOnly = true)
     fun correct() {
-        val today = LocalDate.now()
+        val today = DateUtils.todayKst()
         val correctionKey = RankingKeyGenerator.dailyKey(today) + ":correction"
         val targetKey = RankingKeyGenerator.dailyKey(today)
 
