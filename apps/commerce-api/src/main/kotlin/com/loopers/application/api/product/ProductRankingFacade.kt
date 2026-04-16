@@ -2,6 +2,7 @@ package com.loopers.application.api.product
 
 import com.loopers.domain.product.dto.ProductInfo
 import com.loopers.domain.ranking.ProductRankingReadService
+import com.loopers.interfaces.api.ranking.RankingPeriod
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
@@ -17,8 +18,13 @@ class ProductRankingFacade(
         private val log = LoggerFactory.getLogger(ProductRankingFacade::class.java)
     }
 
-    fun getRankedProducts(processingDate: LocalDate?, page: Int, size: Int): PageImpl<ProductInfo> {
-        val result = productRankingReadService.getRankedProductsWithCount(processingDate, page, size)
+    fun getRankedProducts(
+        processingDate: LocalDate?,
+        page: Int,
+        size: Int,
+        period: RankingPeriod = RankingPeriod.DAILY,
+    ): PageImpl<ProductInfo> {
+        val result = productRankingReadService.getRankedProductsWithCount(processingDate, page, size, period)
         val content = result.products.mapNotNull { rankedProduct ->
             runCatching {
                 productFacade.getCachedProductInfo(rankedProduct.productId)

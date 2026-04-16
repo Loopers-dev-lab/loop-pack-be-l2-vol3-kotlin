@@ -3,6 +3,7 @@ package com.loopers.domain.event.handler
 import com.loopers.domain.productlike.ProductLikeCountRepository
 import com.loopers.domain.event.LikeCountEvent
 import com.loopers.domain.event.LikeCountEventType
+import com.loopers.infrastructure.productmetrics.ProductMetricsDailyRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -14,12 +15,14 @@ import org.junit.jupiter.api.DisplayName
 class LikeCountEventHandlerTest {
 
     private lateinit var productLikeCountRepository: ProductLikeCountRepository
+    private lateinit var productMetricsDailyRepository: ProductMetricsDailyRepository
     private lateinit var handler: LikeCountEventHandler
 
     @BeforeEach
     fun setUp() {
         productLikeCountRepository = mockk()
-        handler = LikeCountEventHandler(productLikeCountRepository)
+        productMetricsDailyRepository = mockk()
+        handler = LikeCountEventHandler(productLikeCountRepository, productMetricsDailyRepository)
     }
 
     @Test
@@ -33,6 +36,7 @@ class LikeCountEventHandlerTest {
         )
 
         every { productLikeCountRepository.increment(1L) } returns Unit
+        every { productMetricsDailyRepository.incrementLikeCount(any(), any(), any()) } returns Unit
 
         // When
         handler.handle(event)
@@ -52,6 +56,7 @@ class LikeCountEventHandlerTest {
         )
 
         every { productLikeCountRepository.decrement(2L) } returns Unit
+        every { productMetricsDailyRepository.incrementLikeCount(any(), any(), any()) } returns Unit
 
         // When
         handler.handle(event)

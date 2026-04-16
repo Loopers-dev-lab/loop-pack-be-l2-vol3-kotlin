@@ -8,6 +8,10 @@ class RedisCleanUp(
     private val redisConnectionFactory: RedisConnectionFactory,
 ) {
     fun truncateAll() {
-        redisConnectionFactory.connection.use { it.serverCommands().flushAll() }
+        runCatching {
+            redisConnectionFactory.connection.use { it.serverCommands().flushAll() }
+        }.onFailure { ex ->
+            System.err.println("Warning: Failed to flush Redis: ${ex.message}")
+        }
     }
 }
