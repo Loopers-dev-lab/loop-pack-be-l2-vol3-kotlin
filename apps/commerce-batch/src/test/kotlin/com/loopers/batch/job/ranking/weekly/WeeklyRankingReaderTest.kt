@@ -1,5 +1,7 @@
 package com.loopers.batch.job.ranking.weekly
 
+import com.loopers.batch.job.ranking.ProductAggregateDto
+
 import com.loopers.utils.DatabaseCleanUp
 import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext

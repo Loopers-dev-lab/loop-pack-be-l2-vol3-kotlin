@@ -1,7 +1,10 @@
 package com.loopers.batch.job.ranking.monthly
 
-import com.loopers.batch.job.ranking.weekly.ProductAggregateDto
-import com.loopers.batch.job.ranking.weekly.RankingWeightProperties
+import com.loopers.batch.job.ranking.ProductAggregateDto
+import com.loopers.batch.job.ranking.ProductRankRow
+import com.loopers.batch.job.ranking.RankingWeightProperties
+import com.loopers.batch.job.ranking.WeightScoreProcessor
+import com.loopers.batch.job.ranking.parseTargetDate
 import com.loopers.batch.listener.ChunkListener
 import com.loopers.batch.listener.JobListener
 import com.loopers.batch.listener.StepMonitorListener
@@ -22,12 +25,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.transaction.PlatformTransactionManager
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import javax.sql.DataSource
 
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = MonthlyRankingJobConfig.JOB_NAME)
@@ -64,18 +66,16 @@ class MonthlyRankingJobConfig(
     fun monthlyRankingChunkStep(
         @Value("#{jobParameters['targetDate']}") targetDateStr: String?,
     ): Step {
-        val targetDate = targetDateStr?.let {
-            LocalDate.parse(it, DateTimeFormatter.ofPattern("yyyyMMdd"))
-        } ?: LocalDate.now()
+        val targetDate = parseTargetDate(targetDateStr)
         val yearMonth = YearMonth.from(targetDate).toString()
 
         val reader = monthlyRankingReader(dataSource, targetDate, CHUNK_SIZE)
         reader.afterPropertiesSet()
 
         return StepBuilder(CHUNK_STEP_NAME, jobRepository)
-            .chunk<ProductAggregateDto, ProductRankMonthlyRow>(CHUNK_SIZE, transactionManager)
+            .chunk<ProductAggregateDto, ProductRankRow>(CHUNK_SIZE, transactionManager)
             .reader(reader)
-            .processor(MonthlyWeightScoreProcessor(rankingWeightProperties, yearMonth))
+            .processor(WeightScoreProcessor(rankingWeightProperties, yearMonth))
             .writer(monthlyRankingStagingWriter())
             .listener(stepMonitorListener)
             .listener(chunkListener)
@@ -84,13 +84,13 @@ class MonthlyRankingJobConfig(
 
     @StepScope
     @Bean
-    fun monthlyRankingStagingWriter(): JdbcBatchItemWriter<ProductRankMonthlyRow> {
-        return JdbcBatchItemWriterBuilder<ProductRankMonthlyRow>()
+    fun monthlyRankingStagingWriter(): JdbcBatchItemWriter<ProductRankRow> {
+        return JdbcBatchItemWriterBuilder<ProductRankRow>()
             .dataSource(dataSource)
             .sql(
                 """
                 INSERT INTO staging_product_rank_monthly (`year_month`, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
-                VALUES (:yearMonth, :productId, :score, 0, :viewCount, :likeCount, :salesCount, :updatedAt)
+                VALUES (:periodKey, :productId, :score, 0, :viewCount, :likeCount, :salesCount, :updatedAt)
                 ON DUPLICATE KEY UPDATE
                     score = VALUES(score), view_count = VALUES(view_count), like_count = VALUES(like_count),
                     sales_count = VALUES(sales_count), updated_at = VALUES(updated_at)
@@ -98,7 +98,7 @@ class MonthlyRankingJobConfig(
             )
             .itemSqlParameterSourceProvider { item ->
                 MapSqlParameterSource()
-                    .addValue("yearMonth", item.yearMonth)
+                    .addValue("periodKey", item.periodKey)
                     .addValue("productId", item.productId)
                     .addValue("score", item.score)
                     .addValue("viewCount", item.viewCount)
@@ -114,31 +114,24 @@ class MonthlyRankingJobConfig(
     fun monthlyRankingSwapStep(
         @Value("#{jobParameters['targetDate']}") targetDateStr: String?,
     ): Step {
-        val targetDate = targetDateStr?.let {
-            LocalDate.parse(it, DateTimeFormatter.ofPattern("yyyyMMdd"))
-        } ?: LocalDate.now()
+        val targetDate = parseTargetDate(targetDateStr)
         val yearMonth = YearMonth.from(targetDate).toString()
 
+        val jdbcTemplate = JdbcTemplate(dataSource)
         val swapTasklet = Tasklet { _, _ ->
-            val connection = dataSource.connection
-            connection.use { conn ->
-                conn.autoCommit = false
-                conn.createStatement().use { stmt ->
-                    stmt.executeUpdate("DELETE FROM mv_product_rank_monthly WHERE `year_month` = '$yearMonth'")
-                    stmt.executeUpdate(
-                        """
-                        INSERT INTO mv_product_rank_monthly (`year_month`, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
-                        SELECT `year_month`, product_id, score,
-                               ROW_NUMBER() OVER (ORDER BY score DESC) AS rank_num,
-                               view_count, like_count, sales_count, updated_at
-                        FROM staging_product_rank_monthly
-                        WHERE `year_month` = '$yearMonth'
-                        """.trimIndent(),
-                    )
-                    stmt.executeUpdate("DELETE FROM staging_product_rank_monthly WHERE `year_month` = '$yearMonth'")
-                }
-                conn.commit()
-            }
+            jdbcTemplate.update("DELETE FROM mv_product_rank_monthly WHERE `year_month` = ?", yearMonth)
+            jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_monthly (`year_month`, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
+                SELECT `year_month`, product_id, score,
+                       ROW_NUMBER() OVER (ORDER BY score DESC) AS rank_num,
+                       view_count, like_count, sales_count, updated_at
+                FROM staging_product_rank_monthly
+                WHERE `year_month` = ?
+                """.trimIndent(),
+                yearMonth,
+            )
+            jdbcTemplate.update("DELETE FROM staging_product_rank_monthly WHERE `year_month` = ?", yearMonth)
             RepeatStatus.FINISHED
         }
 

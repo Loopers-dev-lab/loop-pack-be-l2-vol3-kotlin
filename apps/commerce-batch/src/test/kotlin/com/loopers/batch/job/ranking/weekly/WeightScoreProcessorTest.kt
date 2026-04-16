@@ -1,5 +1,8 @@
 package com.loopers.batch.job.ranking.weekly
 
+import com.loopers.batch.job.ranking.ProductAggregateDto
+import com.loopers.batch.job.ranking.RankingWeightProperties
+import com.loopers.batch.job.ranking.WeightScoreProcessor
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
 import org.junit.jupiter.api.DisplayName
@@ -37,7 +40,7 @@ class WeightScoreProcessorTest {
             assertThat(result).isNotNull
             assertThat(result!!.productId).isEqualTo(100L)
             assertThat(result.score).isCloseTo(175.0, Offset.offset(0.001))
-            assertThat(result.yearWeek).isEqualTo("2026-W16")
+            assertThat(result.periodKey).isEqualTo("2026-W16")
             assertThat(result.viewCount).isEqualTo(1000L)
             assertThat(result.likeCount).isEqualTo(200L)
             assertThat(result.salesCount).isEqualTo(50L)

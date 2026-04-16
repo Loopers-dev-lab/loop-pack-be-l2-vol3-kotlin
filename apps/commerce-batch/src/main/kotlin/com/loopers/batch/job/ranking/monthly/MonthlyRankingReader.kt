@@ -1,6 +1,6 @@
 package com.loopers.batch.job.ranking.monthly
 
-import com.loopers.batch.job.ranking.weekly.ProductAggregateDto
+import com.loopers.batch.job.ranking.ProductAggregateDto
 import org.springframework.batch.item.database.JdbcPagingItemReader
 import org.springframework.batch.item.database.Order
 import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder

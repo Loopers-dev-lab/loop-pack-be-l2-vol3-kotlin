@@ -1,5 +1,7 @@
 package com.loopers.batch.job.ranking.weekly
 
+import com.loopers.batch.job.ranking.ProductAggregateDto
+
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested

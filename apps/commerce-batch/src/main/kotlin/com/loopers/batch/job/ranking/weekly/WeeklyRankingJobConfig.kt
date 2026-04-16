@@ -1,5 +1,10 @@
 package com.loopers.batch.job.ranking.weekly
 
+import com.loopers.batch.job.ranking.ProductAggregateDto
+import com.loopers.batch.job.ranking.ProductRankRow
+import com.loopers.batch.job.ranking.RankingWeightProperties
+import com.loopers.batch.job.ranking.WeightScoreProcessor
+import com.loopers.batch.job.ranking.parseTargetDate
 import com.loopers.batch.listener.ChunkListener
 import com.loopers.batch.listener.JobListener
 import com.loopers.batch.listener.StepMonitorListener
@@ -21,11 +26,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.transaction.PlatformTransactionManager
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import javax.sql.DataSource
 
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = WeeklyRankingJobConfig.JOB_NAME)
@@ -62,9 +66,7 @@ class WeeklyRankingJobConfig(
     fun weeklyRankingChunkStep(
         @Value("#{jobParameters['targetDate']}") targetDateStr: String?,
     ): Step {
-        val targetDate = targetDateStr?.let {
-            LocalDate.parse(it, DateTimeFormatter.ofPattern("yyyyMMdd"))
-        } ?: LocalDate.now()
+        val targetDate = parseTargetDate(targetDateStr)
         val yearWeek = YearWeek.from(targetDate)
 
         val reader = weeklyRankingReader(dataSource, targetDate, CHUNK_SIZE)
@@ -88,7 +90,7 @@ class WeeklyRankingJobConfig(
             .sql(
                 """
                 INSERT INTO staging_product_rank_weekly (year_week, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
-                VALUES (:yearWeek, :productId, :score, 0, :viewCount, :likeCount, :salesCount, :updatedAt)
+                VALUES (:periodKey, :productId, :score, 0, :viewCount, :likeCount, :salesCount, :updatedAt)
                 ON DUPLICATE KEY UPDATE
                     score = VALUES(score), view_count = VALUES(view_count), like_count = VALUES(like_count),
                     sales_count = VALUES(sales_count), updated_at = VALUES(updated_at)
@@ -96,7 +98,7 @@ class WeeklyRankingJobConfig(
             )
             .itemSqlParameterSourceProvider { item ->
                 MapSqlParameterSource()
-                    .addValue("yearWeek", item.yearWeek)
+                    .addValue("periodKey", item.periodKey)
                     .addValue("productId", item.productId)
                     .addValue("score", item.score)
                     .addValue("viewCount", item.viewCount)
@@ -112,32 +114,24 @@ class WeeklyRankingJobConfig(
     fun weeklyRankingSwapStep(
         @Value("#{jobParameters['targetDate']}") targetDateStr: String?,
     ): Step {
-        val targetDate = targetDateStr?.let {
-            LocalDate.parse(it, DateTimeFormatter.ofPattern("yyyyMMdd"))
-        } ?: LocalDate.now()
+        val targetDate = parseTargetDate(targetDateStr)
         val yearWeek = YearWeek.from(targetDate).toString()
 
+        val jdbcTemplate = JdbcTemplate(dataSource)
         val swapTasklet = Tasklet { _, _ ->
-            val connection = dataSource.connection
-            connection.use { conn ->
-                conn.autoCommit = false
-                conn.createStatement().use { stmt ->
-                    // staging에 rank 부여하고 MV로 swap
-                    stmt.executeUpdate("DELETE FROM mv_product_rank_weekly WHERE year_week = '$yearWeek'")
-                    stmt.executeUpdate(
-                        """
-                        INSERT INTO mv_product_rank_weekly (year_week, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
-                        SELECT year_week, product_id, score,
-                               ROW_NUMBER() OVER (ORDER BY score DESC) AS rank_num,
-                               view_count, like_count, sales_count, updated_at
-                        FROM staging_product_rank_weekly
-                        WHERE year_week = '$yearWeek'
-                        """.trimIndent(),
-                    )
-                    stmt.executeUpdate("DELETE FROM staging_product_rank_weekly WHERE year_week = '$yearWeek'")
-                }
-                conn.commit()
-            }
+            jdbcTemplate.update("DELETE FROM mv_product_rank_weekly WHERE year_week = ?", yearWeek)
+            jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly (year_week, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
+                SELECT year_week, product_id, score,
+                       ROW_NUMBER() OVER (ORDER BY score DESC) AS rank_num,
+                       view_count, like_count, sales_count, updated_at
+                FROM staging_product_rank_weekly
+                WHERE year_week = ?
+                """.trimIndent(),
+                yearWeek,
+            )
+            jdbcTemplate.update("DELETE FROM staging_product_rank_weekly WHERE year_week = ?", yearWeek)
             RepeatStatus.FINISHED
         }
 

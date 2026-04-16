@@ -1,4 +1,4 @@
-package com.loopers.batch.job.ranking.weekly
+package com.loopers.batch.job.ranking
 
 data class ProductAggregateDto(
     val productId: Long,

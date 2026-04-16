@@ -1,7 +1,7 @@
-package com.loopers.batch.job.ranking.monthly
+package com.loopers.batch.job.ranking
 
-data class ProductRankMonthlyRow(
-    val yearMonth: String,
+data class ProductRankRow(
+    val periodKey: String,
     val productId: Long,
     val score: Double,
     val viewCount: Long,
