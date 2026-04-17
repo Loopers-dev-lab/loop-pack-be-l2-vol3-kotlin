@@ -42,13 +42,13 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
     }
 
     @Test
-    fun `7일치 daily를 합산해 Top 순위로 mv_product_rank_weekly에 적재한다`() {
+    fun `7일치 daily를 합산하고 가중치로 재계산해 Top 순위로 적재한다`() {
         val weekEnd = LocalDate.of(2026, 2, 7)
         (0 until 7).forEach { offset ->
             val date = weekEnd.minusDays(offset.toLong())
-            seedDaily(productId = 1L, date = date, totalScore = 10.0)
-            seedDaily(productId = 2L, date = date, totalScore = 5.0)
-            seedDaily(productId = 3L, date = date, totalScore = 1.0)
+            seedDaily(productId = 1L, date = date, viewCount = 100L)
+            seedDaily(productId = 2L, date = date, viewCount = 50L)
+            seedDaily(productId = 3L, date = date, viewCount = 10L)
         }
 
         val execution = jobLauncherTestUtils.launchJob(jobParams(weekEnd))
@@ -59,6 +59,7 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
             { assertThat(ranks).hasSize(3) },
             { assertThat(ranks.map { it.productId }).containsExactly(1L, 2L, 3L) },
             { assertThat(ranks.map { it.rankPosition }).containsExactly(1, 2, 3) },
+            { assertThat(ranks.map { it.viewCount }).containsExactly(700L, 350L, 70L) },
             { assertThat(ranks.map { it.totalScore }).containsExactly(70.0, 35.0, 7.0) },
             { assertThat(ranks).allMatch { it.weekStart == weekEnd.minusDays(6) && it.weekEnd == weekEnd } },
         )
@@ -69,8 +70,8 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
         val weekEnd = LocalDate.of(2026, 2, 14)
         (0 until 7).forEach { offset ->
             val date = weekEnd.minusDays(offset.toLong())
-            seedDaily(productId = 10L, date = date, totalScore = 10.0)
-            seedDaily(productId = 20L, date = date, totalScore = 10.0)
+            seedDaily(productId = 10L, date = date, viewCount = 100L)
+            seedDaily(productId = 20L, date = date, viewCount = 100L)
         }
 
         jobLauncherTestUtils.launchJob(jobParams(weekEnd))
@@ -91,7 +92,7 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
         (0 until 7).forEach { offset ->
             val date = weekEnd.minusDays(offset.toLong())
             if (date != missing) {
-                seedDaily(productId = 1L, date = date, totalScore = 10.0)
+                seedDaily(productId = 1L, date = date, viewCount = 100L)
             }
         }
 
@@ -109,13 +110,13 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
     fun `같은 week_end로 재실행하면 중복 없이 최신 점수로 upsert된다`() {
         val weekEnd = LocalDate.of(2026, 2, 28)
         (0 until 7).forEach { offset ->
-            seedDaily(productId = 1L, date = weekEnd.minusDays(offset.toLong()), totalScore = 5.0)
+            seedDaily(productId = 1L, date = weekEnd.minusDays(offset.toLong()), viewCount = 50L)
         }
         jobLauncherTestUtils.launchJob(jobParams(weekEnd))
 
         databaseCleanUp.truncateAllTables()
         (0 until 7).forEach { offset ->
-            seedDaily(productId = 1L, date = weekEnd.minusDays(offset.toLong()), totalScore = 20.0)
+            seedDaily(productId = 1L, date = weekEnd.minusDays(offset.toLong()), viewCount = 200L)
         }
         val second = jobLauncherTestUtils.launchJob(jobParams(weekEnd))
 
@@ -132,12 +133,12 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
         val firstWeekEnd = LocalDate.of(2026, 3, 7)
         val secondWeekEnd = LocalDate.of(2026, 3, 14)
         (0 until 7).forEach { offset ->
-            seedDaily(productId = 1L, date = firstWeekEnd.minusDays(offset.toLong()), totalScore = 10.0)
+            seedDaily(productId = 1L, date = firstWeekEnd.minusDays(offset.toLong()), viewCount = 100L)
         }
         jobLauncherTestUtils.launchJob(jobParams(firstWeekEnd))
 
         (0 until 7).forEach { offset ->
-            seedDaily(productId = 1L, date = secondWeekEnd.minusDays(offset.toLong()), totalScore = 5.0)
+            seedDaily(productId = 1L, date = secondWeekEnd.minusDays(offset.toLong()), viewCount = 50L)
         }
         jobLauncherTestUtils.launchJob(jobParams(secondWeekEnd))
 
@@ -148,12 +149,12 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
         )
     }
 
-    private fun seedDaily(productId: Long, date: LocalDate, totalScore: Double) {
+    private fun seedDaily(productId: Long, date: LocalDate, viewCount: Long) {
         productMetricsDailyRepository.save(
             ProductMetricsDaily.create(
                 productId = productId,
                 metricDate = date,
-                totalScore = totalScore,
+                viewCount = viewCount,
             ),
         )
     }

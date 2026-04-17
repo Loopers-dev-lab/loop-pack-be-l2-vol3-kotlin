@@ -43,13 +43,13 @@ class MonthlyRankJobIntegrationTest @Autowired constructor(
     }
 
     @Test
-    fun `30일치 daily를 합산해 yyyyMM 버전 키로 mv_product_rank_monthly에 적재한다`() {
+    fun `30일치 daily를 합산하고 가중치로 재계산해 yyyyMM 버전 키로 적재한다`() {
         val targetDate = LocalDate.of(2026, 4, 30)
         val yearMonth = DateUtils.formatYearMonth(targetDate)
         listOf(1, 10, 20, 29).forEach { offset ->
             val date = targetDate.minusDays(offset.toLong())
-            seedDaily(productId = 1L, date = date, totalScore = 100.0)
-            seedDaily(productId = 2L, date = date, totalScore = 50.0)
+            seedDaily(productId = 1L, date = date, viewCount = 1000L)
+            seedDaily(productId = 2L, date = date, viewCount = 500L)
         }
 
         val execution = jobLauncherTestUtils.launchJob(jobParams(targetDate))
@@ -60,6 +60,7 @@ class MonthlyRankJobIntegrationTest @Autowired constructor(
             { assertThat(ranks).hasSize(2) },
             { assertThat(ranks.map { it.productId }).containsExactly(1L, 2L) },
             { assertThat(ranks.map { it.rankPosition }).containsExactly(1, 2) },
+            { assertThat(ranks.map { it.viewCount }).containsExactly(4000L, 2000L) },
             { assertThat(ranks.map { it.totalScore }).containsExactly(400.0, 200.0) },
             { assertThat(ranks).allMatch { it.yearMonth == yearMonth } },
         )
@@ -69,11 +70,11 @@ class MonthlyRankJobIntegrationTest @Autowired constructor(
     fun `같은 yearMonth로 재실행하면 중복 없이 upsert된다`() {
         val targetDate = LocalDate.of(2026, 5, 30)
         val yearMonth = DateUtils.formatYearMonth(targetDate)
-        seedDaily(productId = 1L, date = targetDate, totalScore = 10.0)
+        seedDaily(productId = 1L, date = targetDate, viewCount = 100L)
         jobLauncherTestUtils.launchJob(jobParams(targetDate))
 
         databaseCleanUp.truncateAllTables()
-        seedDaily(productId = 1L, date = targetDate, totalScore = 99.0)
+        seedDaily(productId = 1L, date = targetDate, viewCount = 990L)
         jobLauncherTestUtils.launchJob(jobParams(targetDate))
 
         val ranks = monthlyRankRepository.findRanksByYearMonth(yearMonth)
@@ -87,10 +88,10 @@ class MonthlyRankJobIntegrationTest @Autowired constructor(
     fun `다른 달로 두 번 실행하면 두 버전이 모두 보존되고 findLatestYearMonth는 최신 yearMonth를 반환한다`() {
         val firstDate = LocalDate.of(2026, 6, 30)
         val secondDate = LocalDate.of(2026, 7, 31)
-        seedDaily(productId = 1L, date = firstDate, totalScore = 10.0)
+        seedDaily(productId = 1L, date = firstDate, viewCount = 100L)
         jobLauncherTestUtils.launchJob(jobParams(firstDate))
 
-        seedDaily(productId = 1L, date = secondDate, totalScore = 20.0)
+        seedDaily(productId = 1L, date = secondDate, viewCount = 200L)
         jobLauncherTestUtils.launchJob(jobParams(secondDate))
 
         assertAll(
@@ -100,12 +101,12 @@ class MonthlyRankJobIntegrationTest @Autowired constructor(
         )
     }
 
-    private fun seedDaily(productId: Long, date: LocalDate, totalScore: Double) {
+    private fun seedDaily(productId: Long, date: LocalDate, viewCount: Long) {
         productMetricsDailyRepository.save(
             ProductMetricsDaily.create(
                 productId = productId,
                 metricDate = date,
-                totalScore = totalScore,
+                viewCount = viewCount,
             ),
         )
     }

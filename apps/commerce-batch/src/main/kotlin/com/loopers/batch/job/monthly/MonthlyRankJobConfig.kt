@@ -1,6 +1,7 @@
 package com.loopers.batch.job.monthly
 
 import com.loopers.batch.listener.StepMonitorListener
+import com.loopers.batch.ranking.RankingWeightProperties
 import com.loopers.common.DateUtils
 import org.springframework.batch.core.Job
 import org.springframework.batch.core.Step
@@ -30,6 +31,7 @@ class MonthlyRankJobConfig(
     private val stepMonitorListener: StepMonitorListener,
     private val itemWriter: MonthlyRankItemWriter,
     private val properties: MonthlyRankProperties,
+    private val weight: RankingWeightProperties,
 ) {
 
     @Bean(JOB_NAME)
@@ -65,9 +67,12 @@ class MonthlyRankJobConfig(
             .dataSource(dataSource)
             .sql(AGGREGATE_SQL)
             .preparedStatementSetter { ps ->
-                ps.setObject(1, periodStart)
-                ps.setObject(2, targetDate)
-                ps.setInt(3, properties.topN)
+                ps.setDouble(1, weight.view)
+                ps.setDouble(2, weight.like)
+                ps.setDouble(3, weight.order)
+                ps.setObject(4, periodStart)
+                ps.setObject(5, targetDate)
+                ps.setInt(6, properties.topN)
             }
             .rowMapper { rs, _ ->
                 RankedMonthly(
@@ -76,7 +81,7 @@ class MonthlyRankJobConfig(
                     viewCount = rs.getLong("view_sum"),
                     likeCount = rs.getLong("like_sum"),
                     orderCount = rs.getLong("order_sum"),
-                    totalScore = rs.getDouble("score_sum"),
+                    totalScore = rs.getDouble("total_score"),
                     rankPosition = rs.getInt("rank_position"),
                 )
             }
@@ -89,15 +94,19 @@ class MonthlyRankJobConfig(
         const val READER_NAME = "monthlyRankReader"
 
         private const val AGGREGATE_SQL = """
-            SELECT product_id,
-                   SUM(total_score) AS score_sum,
-                   SUM(view_count)  AS view_sum,
-                   SUM(like_count)  AS like_sum,
-                   SUM(order_count) AS order_sum,
-                   ROW_NUMBER() OVER (ORDER BY SUM(total_score) DESC) AS rank_position
-            FROM product_metrics_daily
-            WHERE metric_date BETWEEN ? AND ?
-            GROUP BY product_id
+            WITH aggregated AS (
+                SELECT product_id,
+                       SUM(view_count)  AS view_sum,
+                       SUM(like_count)  AS like_sum,
+                       SUM(order_count) AS order_sum,
+                       (SUM(view_count) * ? + SUM(like_count) * ? + SUM(order_count) * ?) AS total_score
+                FROM product_metrics_daily
+                WHERE metric_date BETWEEN ? AND ?
+                GROUP BY product_id
+            )
+            SELECT product_id, view_sum, like_sum, order_sum, total_score,
+                   ROW_NUMBER() OVER (ORDER BY total_score DESC) AS rank_position
+            FROM aggregated
             ORDER BY rank_position
             LIMIT ?
         """
