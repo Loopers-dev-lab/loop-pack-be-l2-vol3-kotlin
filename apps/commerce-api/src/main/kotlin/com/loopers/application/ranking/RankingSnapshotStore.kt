@@ -1,9 +1,9 @@
 package com.loopers.application.ranking
 
+import com.loopers.common.DateUtils
 import com.loopers.support.PageResult
 import org.springframework.stereotype.Component
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
@@ -12,12 +12,12 @@ class RankingSnapshotStore {
     private val snapshots = ConcurrentHashMap<String, PageResult<RankingProductInfo>>()
 
     fun save(date: LocalDate, rankings: PageResult<RankingProductInfo>) {
-        snapshots[date.format(DATE_FORMATTER)] = rankings
+        snapshots[DateUtils.formatDate(date)] = rankings
         cleanupOldSnapshots()
     }
 
     fun get(date: LocalDate): PageResult<RankingProductInfo>? {
-        return snapshots[date.format(DATE_FORMATTER)]
+        return snapshots[DateUtils.formatDate(date)]
     }
 
     private fun cleanupOldSnapshots() {
@@ -30,6 +30,5 @@ class RankingSnapshotStore {
 
     companion object {
         private const val MAX_SNAPSHOTS = 3
-        private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
     }
 }
