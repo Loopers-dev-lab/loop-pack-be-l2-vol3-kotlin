@@ -11,4 +11,5 @@ data class ProductMetricsSnapshot(
     val viewCount: Long,
     val likeCount: Long,
     val orderCount: Long,
+    val date: java.time.LocalDate,
 )
