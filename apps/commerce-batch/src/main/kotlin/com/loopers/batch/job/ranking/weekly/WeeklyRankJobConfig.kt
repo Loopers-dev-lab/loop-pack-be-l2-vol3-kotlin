@@ -51,7 +51,10 @@ class WeeklyRankJobConfig(
         const val JOB_NAME = "weeklyRankJob"
         const val DELETE_STEP_NAME = "weeklyRankDeleteStep"
         const val CHUNK_STEP_NAME = "weeklyRankStep"
-        private const val CHUNK_SIZE = 100
+        const val TOP_N = 100
+        const val VIEW_WEIGHT = 0.1
+        const val LIKE_WEIGHT = 0.2
+        private const val CHUNK_SIZE = TOP_N
 
         val AGGREGATION_SQL =
             """
@@ -72,8 +75,8 @@ class WeeklyRankJobConfig(
                     SUM(pmd.units_sold) AS units_sold,
                     SUM(pmd.sales_amount) AS sales_amount,
                     SUM(pmd.order_score) AS order_score,
-                    (SUM(pmd.view_count) * 0.1
-                        + SUM(pmd.like_count) * 0.2
+                    (SUM(pmd.view_count) * $VIEW_WEIGHT
+                        + SUM(pmd.like_count) * $LIKE_WEIGHT
                         + SUM(pmd.order_score)) AS total_score
                 FROM product_metrics_daily pmd
                 WHERE pmd.metric_date BETWEEN ? AND ?
@@ -81,7 +84,7 @@ class WeeklyRankJobConfig(
                 GROUP BY pmd.product_id
             ) agg
             ORDER BY rank_number
-            LIMIT 100
+            LIMIT $TOP_N
             """.trimIndent()
     }
 
@@ -145,5 +148,7 @@ class WeeklyRankJobConfig(
     ): JpaItemWriter<WeeklyProductRankEntity> =
         JpaItemWriterBuilder<WeeklyProductRankEntity>()
             .entityManagerFactory(entityManagerFactory)
+            // DELETE Step에서 이전 행 전량 삭제 후 신규 INSERT만 발생하므로 merge 경로의 SELECT 우회
+            .usePersist(true)
             .build()
 }
