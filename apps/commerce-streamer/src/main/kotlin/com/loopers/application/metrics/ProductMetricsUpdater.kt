@@ -3,14 +3,20 @@ package com.loopers.application.metrics
 import com.loopers.infrastructure.metrics.ProductMetricsEntity
 import com.loopers.infrastructure.metrics.ProductMetricsJpaRepository
 import org.springframework.stereotype.Component
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZonedDateTime
 
 @Component
 class ProductMetricsUpdater(
     private val productMetricsJpaRepository: ProductMetricsJpaRepository,
 ) {
+    companion object {
+        private val METRIC_ZONE: ZoneId = ZoneId.of("Asia/Seoul")
+    }
+
     fun increaseLikeCount(productId: Long, occurredAt: ZonedDateTime) {
-        val metrics = load(productId)
+        val metrics = load(productId, occurredAt)
         if (!isNewer(metrics.lastLikeEventAt, occurredAt)) {
             return
         }
@@ -20,7 +26,7 @@ class ProductMetricsUpdater(
     }
 
     fun decreaseLikeCount(productId: Long, occurredAt: ZonedDateTime) {
-        val metrics = load(productId)
+        val metrics = load(productId, occurredAt)
         if (!isNewer(metrics.lastLikeEventAt, occurredAt)) {
             return
         }
@@ -30,7 +36,7 @@ class ProductMetricsUpdater(
     }
 
     fun increaseViewCount(productId: Long, occurredAt: ZonedDateTime) {
-        val metrics = load(productId)
+        val metrics = load(productId, occurredAt)
         if (!isNewer(metrics.lastViewEventAt, occurredAt)) {
             return
         }
@@ -40,7 +46,7 @@ class ProductMetricsUpdater(
     }
 
     fun increaseSalesCount(productId: Long, quantity: Long, occurredAt: ZonedDateTime) {
-        val metrics = load(productId)
+        val metrics = load(productId, occurredAt)
         if (!isNewer(metrics.lastSalesEventAt, occurredAt)) {
             return
         }
@@ -49,9 +55,17 @@ class ProductMetricsUpdater(
         productMetricsJpaRepository.save(metrics)
     }
 
-    private fun load(productId: Long): ProductMetricsEntity {
-        return productMetricsJpaRepository.findById(productId)
-            .orElse(ProductMetricsEntity(productId = productId))
+    private fun load(productId: Long, occurredAt: ZonedDateTime): ProductMetricsEntity {
+        val metricDate = metricDateOf(occurredAt)
+        return productMetricsJpaRepository.findByMetricDateAndProductId(metricDate, productId)
+            ?: ProductMetricsEntity(
+                metricDate = metricDate,
+                productId = productId,
+            )
+    }
+
+    private fun metricDateOf(occurredAt: ZonedDateTime): LocalDate {
+        return occurredAt.withZoneSameInstant(METRIC_ZONE).toLocalDate()
     }
 
     private fun isNewer(lastOccurredAt: ZonedDateTime?, occurredAt: ZonedDateTime): Boolean {
