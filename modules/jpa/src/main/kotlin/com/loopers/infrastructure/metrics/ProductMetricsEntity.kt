@@ -2,16 +2,39 @@ package com.loopers.infrastructure.metrics
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.Index
 import jakarta.persistence.PrePersist
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
+import java.time.LocalDate
 import java.time.ZonedDateTime
 
 @Entity
-@Table(name = "product_metrics")
+@Table(
+    name = "product_metrics",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_product_metrics_metric_date_product_id",
+            columnNames = ["metric_date", "product_id"],
+        ),
+    ],
+    indexes = [
+        Index(name = "idx_product_metrics_metric_date_product_id", columnList = "metric_date, product_id"),
+        Index(name = "idx_product_metrics_product_id", columnList = "product_id"),
+    ],
+)
 class ProductMetricsEntity(
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
+
+    @Column(name = "metric_date", nullable = false)
+    val metricDate: LocalDate,
+
     @Column(name = "product_id", nullable = false)
     val productId: Long,
 

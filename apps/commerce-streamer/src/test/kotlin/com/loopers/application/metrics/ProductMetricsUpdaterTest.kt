@@ -7,8 +7,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 import java.time.ZonedDateTime
-import java.util.Optional
 
 class ProductMetricsUpdaterTest {
 
@@ -18,12 +18,13 @@ class ProductMetricsUpdaterTest {
         val updater = ProductMetricsUpdater(repository)
         val saved = slot<ProductMetricsEntity>()
         val metrics = ProductMetricsEntity(
+            metricDate = LocalDate.parse("2026-03-27"),
             productId = 1L,
             likeCount = 5L,
             lastLikeEventAt = ZonedDateTime.parse("2026-03-27T10:00:00+09:00[Asia/Seoul]"),
         )
 
-        every { repository.findById(1L) } returns Optional.of(metrics)
+        every { repository.findByMetricDateAndProductId(LocalDate.parse("2026-03-27"), 1L) } returns metrics
         every { repository.save(capture(saved)) } answers { saved.captured }
 
         updater.increaseLikeCount(
@@ -41,12 +42,13 @@ class ProductMetricsUpdaterTest {
         val updater = ProductMetricsUpdater(repository)
         val saved = slot<ProductMetricsEntity>()
         val metrics = ProductMetricsEntity(
+            metricDate = LocalDate.parse("2026-03-27"),
             productId = 1L,
             salesCount = 2L,
             lastSalesEventAt = ZonedDateTime.parse("2026-03-27T10:00:00+09:00[Asia/Seoul]"),
         )
 
-        every { repository.findById(1L) } returns Optional.of(metrics)
+        every { repository.findByMetricDateAndProductId(LocalDate.parse("2026-03-27"), 1L) } returns metrics
         every { repository.save(capture(saved)) } answers { saved.captured }
 
         updater.increaseSalesCount(
@@ -58,5 +60,23 @@ class ProductMetricsUpdaterTest {
         assertThat(saved.captured.salesCount).isEqualTo(5L)
         assertThat(saved.captured.lastSalesEventAt)
             .isEqualTo(ZonedDateTime.parse("2026-03-27T10:00:01+09:00[Asia/Seoul]"))
+    }
+
+    @Test
+    fun `한국시간_기준으로_일별_메트릭을_분리한다`() {
+        val repository = mockk<ProductMetricsJpaRepository>()
+        val updater = ProductMetricsUpdater(repository)
+        val saved = slot<ProductMetricsEntity>()
+
+        every { repository.findByMetricDateAndProductId(LocalDate.parse("2026-03-28"), 1L) } returns null
+        every { repository.save(capture(saved)) } answers { saved.captured }
+
+        updater.increaseViewCount(
+            productId = 1L,
+            occurredAt = ZonedDateTime.parse("2026-03-27T15:30:00Z"),
+        )
+
+        assertThat(saved.captured.metricDate).isEqualTo(LocalDate.parse("2026-03-28"))
+        assertThat(saved.captured.viewCount).isEqualTo(1L)
     }
 }
