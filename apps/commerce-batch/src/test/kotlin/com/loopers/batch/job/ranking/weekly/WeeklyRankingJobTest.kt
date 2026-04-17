@@ -96,6 +96,40 @@ class WeeklyRankingJobTest @Autowired constructor(
     }
 
     @Test
+    @DisplayName("동일 score를 가진 상품은 product_id 오름차순으로 결정적으로 rank가 부여된다")
+    fun deterministicTieBreakByProductIdAsc() {
+        // arrange — 세 상품 모두 동일한 집계 수치로 score가 같도록 구성 (2026-W16)
+        insertDailyMetrics(300L, LocalDate.of(2026, 4, 13), 10, 10, 10)
+        insertDailyMetrics(100L, LocalDate.of(2026, 4, 13), 10, 10, 10)
+        insertDailyMetrics(200L, LocalDate.of(2026, 4, 13), 10, 10, 10)
+
+        // act
+        val params = JobParametersBuilder()
+            .addString("targetDate", "20260415")
+            .addLong("run.id", System.currentTimeMillis())
+            .toJobParameters()
+        val execution = jobLauncher.run(job, params)
+
+        // assert
+        assertThat(execution.status).isEqualTo(BatchStatus.COMPLETED)
+
+        val results = transactionTemplate.execute { queryMvWeekly("2026-W16") }!!
+        assertThat(results).hasSize(3)
+
+        // tie-break 테스트의 전제: 세 상품의 score가 실제로 동일해야 rank 순서가 product_id 기준으로만 결정됨을 증명 가능
+        val scores = results.map { (it[1] as Number).toDouble() }
+        assertThat(scores).allMatch { it == scores[0] }
+
+        // score 동점일 때 product_id ASC 순으로 rank 1, 2, 3 부여되어야 한다
+        assertThat((results[0][0] as Number).toLong()).isEqualTo(100L)
+        assertThat((results[0][2] as Number).toInt()).isEqualTo(1)
+        assertThat((results[1][0] as Number).toLong()).isEqualTo(200L)
+        assertThat((results[1][2] as Number).toInt()).isEqualTo(2)
+        assertThat((results[2][0] as Number).toLong()).isEqualTo(300L)
+        assertThat((results[2][2] as Number).toInt()).isEqualTo(3)
+    }
+
+    @Test
     @DisplayName("같은 targetDate로 재실행해도 동일한 결과가 유지된다 (멱등성)")
     fun idempotentReExecution() {
         // arrange

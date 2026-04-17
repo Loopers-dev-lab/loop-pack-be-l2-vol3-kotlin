@@ -22,7 +22,6 @@ import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.item.database.JdbcBatchItemWriter
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
@@ -31,7 +30,6 @@ import javax.sql.DataSource
 
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = WeeklyRankingJobConfig.JOB_NAME)
 @Configuration
-@EnableConfigurationProperties(RankingWeightProperties::class)
 class WeeklyRankingJobConfig(
     private val jobRepository: JobRepository,
     private val transactionManager: PlatformTransactionManager,

@@ -17,7 +17,7 @@ fun rankingSwapTasklet(
             """
             INSERT INTO $mvTableName ($periodColumnName, product_id, score, rank_num, view_count, like_count, sales_count, updated_at)
             SELECT $periodColumnName, product_id, score,
-                   ROW_NUMBER() OVER (ORDER BY score DESC) AS rank_num,
+                   ROW_NUMBER() OVER (ORDER BY score DESC, product_id ASC) AS rank_num,
                    view_count, like_count, sales_count, updated_at
             FROM $stagingTableName
             WHERE $periodColumnName = ?
