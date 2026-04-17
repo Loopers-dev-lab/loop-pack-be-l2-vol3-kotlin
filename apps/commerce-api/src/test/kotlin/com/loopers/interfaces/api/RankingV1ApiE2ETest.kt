@@ -41,6 +41,7 @@ class RankingV1ApiE2ETest @Autowired constructor(
     private val userService: UserService,
     private val databaseCleanUp: DatabaseCleanUp,
     @param:Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) private val redisTemplate: RedisTemplate<String, String>,
+    private val jdbcTemplate: org.springframework.jdbc.core.JdbcTemplate,
 ) {
     companion object {
         private const val ENDPOINT = "/api/v1/rankings"
@@ -256,5 +257,98 @@ class RankingV1ApiE2ETest @Autowired constructor(
             // assert
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
         }
+
+        @DisplayName("period=weekly로 주간 MV 랭킹을 조회할 수 있다.")
+        @Test
+        fun returnsWeeklyRanking() {
+            // arrange
+            registerUser()
+            val brand = registerBrand()
+            val productA = registerProduct(brand.id, "상품A", BigDecimal("10000"))
+            val productB = registerProduct(brand.id, "상품B", BigDecimal("20000"))
+            seedMvWeekly(productA.id, score = 5.0)
+            seedMvWeekly(productB.id, score = 9.0)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<RankingV1Dto.RankingPageResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "$ENDPOINT?period=weekly&page=0&size=10",
+                HttpMethod.GET,
+                HttpEntity(null, createAuthHeaders()),
+                responseType,
+            )
+
+            // assert
+            val items = response.body?.data?.items.orEmpty()
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(items).hasSize(2) },
+                { assertThat(items[0].productId).isEqualTo(productB.id) },
+                { assertThat(items[0].score).isEqualTo(9.0) },
+                { assertThat(items[1].productId).isEqualTo(productA.id) },
+                { assertThat(items[1].score).isEqualTo(5.0) },
+            )
+        }
+
+        @DisplayName("period=monthly로 월간 MV 랭킹을 조회할 수 있다.")
+        @Test
+        fun returnsMonthlyRanking() {
+            // arrange
+            registerUser()
+            val brand = registerBrand()
+            val productA = registerProduct(brand.id, "상품A", BigDecimal("10000"))
+            seedMvMonthly(productA.id, score = 15.0)
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<RankingV1Dto.RankingPageResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "$ENDPOINT?period=monthly&page=0&size=10",
+                HttpMethod.GET,
+                HttpEntity(null, createAuthHeaders()),
+                responseType,
+            )
+
+            // assert
+            val items = response.body?.data?.items.orEmpty()
+            assertAll(
+                { assertThat(response.statusCode).isEqualTo(HttpStatus.OK) },
+                { assertThat(items).hasSize(1) },
+                { assertThat(items[0].productId).isEqualTo(productA.id) },
+                { assertThat(items[0].score).isEqualTo(15.0) },
+            )
+        }
+
+        @DisplayName("period 값이 잘못되면 400 BAD_REQUEST.")
+        @Test
+        fun returnsBadRequestWhenPeriodInvalid() {
+            // arrange
+            registerUser()
+
+            // act
+            val responseType = object : ParameterizedTypeReference<ApiResponse<RankingV1Dto.RankingPageResponse>>() {}
+            val response = testRestTemplate.exchange(
+                "$ENDPOINT?period=invalid&page=0&size=10",
+                HttpMethod.GET,
+                HttpEntity(null, createAuthHeaders()),
+                responseType,
+            )
+
+            // assert
+            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        }
+    }
+
+    private fun seedMvWeekly(productId: Long, score: Double) {
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_weekly (product_id, score, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+            productId, score,
+        )
+    }
+
+    private fun seedMvMonthly(productId: Long, score: Double) {
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_monthly (product_id, score, created_at, updated_at) VALUES (?, ?, NOW(), NOW())",
+            productId, score,
+        )
     }
 }
