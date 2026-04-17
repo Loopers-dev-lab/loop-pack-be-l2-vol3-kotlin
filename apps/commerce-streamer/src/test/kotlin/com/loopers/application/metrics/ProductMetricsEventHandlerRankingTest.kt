@@ -7,6 +7,7 @@ import com.loopers.domain.metrics.ProductMetricsModel
 import com.loopers.domain.ranking.RankingRepository
 import com.loopers.domain.ranking.RankingScorePolicy
 import com.loopers.infrastructure.metrics.EventHandledJpaRepository
+import com.loopers.infrastructure.metrics.ProductMetricsDailyJpaRepository
 import com.loopers.infrastructure.metrics.ProductMetricsJpaRepository
 import io.mockk.every
 import io.mockk.mockk
@@ -20,6 +21,7 @@ import java.time.ZonedDateTime
 class ProductMetricsEventHandlerRankingTest {
     private val eventHandledJpaRepository: EventHandledJpaRepository = mockk()
     private val productMetricsJpaRepository: ProductMetricsJpaRepository = mockk()
+    private val productMetricsDailyJpaRepository: ProductMetricsDailyJpaRepository = mockk(relaxed = true)
     private val rankingRepository: RankingRepository = mockk(relaxed = true)
     private val rankingScorePolicy = RankingScorePolicy(
         viewWeight = 0.1,
@@ -29,6 +31,7 @@ class ProductMetricsEventHandlerRankingTest {
     private val handler = ProductMetricsEventHandler(
         eventHandledJpaRepository = eventHandledJpaRepository,
         productMetricsJpaRepository = productMetricsJpaRepository,
+        productMetricsDailyJpaRepository = productMetricsDailyJpaRepository,
         rankingRepository = rankingRepository,
         rankingScorePolicy = rankingScorePolicy,
     )

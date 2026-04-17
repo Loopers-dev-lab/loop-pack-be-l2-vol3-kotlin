@@ -2,6 +2,7 @@ package com.loopers.application.ranking
 
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.ranking.RankingPeriod
 import com.loopers.domain.ranking.RankingService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -14,8 +15,8 @@ class RankingFacade(
     private val brandService: BrandService,
 ) {
     @Transactional(readOnly = true)
-    fun getRankings(date: LocalDate, page: Int, size: Int): RankingPageInfo {
-        val rankingPage = rankingService.getTopRankings(date, page, size)
+    fun getRankings(period: RankingPeriod, date: LocalDate, page: Int, size: Int): RankingPageInfo {
+        val rankingPage = rankingService.getTopRankings(period, date, page, size)
 
         if (rankingPage.entries.isEmpty()) {
             return RankingPageInfo.empty(page, size)

@@ -6,6 +6,7 @@ import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductService
 import com.loopers.domain.ranking.RankedProduct
 import com.loopers.domain.ranking.RankingPage
+import com.loopers.domain.ranking.RankingPeriod
 import com.loopers.domain.ranking.RankingService
 import io.mockk.every
 import io.mockk.mockk
@@ -29,7 +30,7 @@ class RankingFacadeTest {
     @Test
     fun returnsRankingWithProductInfo() {
         // arrange
-        every { rankingService.getTopRankings(date, 1, 20) } returns RankingPage(
+        every { rankingService.getTopRankings(RankingPeriod.DAILY, date, 1, 20) } returns RankingPage(
             entries = listOf(
                 RankedProduct(rank = 1, productId = 10L, score = 5.0),
                 RankedProduct(rank = 2, productId = 20L, score = 3.0),
@@ -47,7 +48,7 @@ class RankingFacadeTest {
         )
 
         // act
-        val result = rankingFacade.getRankings(date, page = 1, size = 20)
+        val result = rankingFacade.getRankings(RankingPeriod.DAILY, date, page = 1, size = 20)
 
         // assert
         assertThat(result.content).hasSize(2)
@@ -63,14 +64,14 @@ class RankingFacadeTest {
     @DisplayName("랭킹이 비어있으면 빈 결과를 반환한다")
     @Test
     fun returnsEmptyWhenNoRankings() {
-        every { rankingService.getTopRankings(date, 1, 20) } returns RankingPage(
+        every { rankingService.getTopRankings(RankingPeriod.DAILY, date, 1, 20) } returns RankingPage(
             entries = emptyList(),
             totalElements = 0,
             page = 1,
             size = 20,
         )
 
-        val result = rankingFacade.getRankings(date, page = 1, size = 20)
+        val result = rankingFacade.getRankings(RankingPeriod.DAILY, date, page = 1, size = 20)
 
         assertThat(result.content).isEmpty()
         assertThat(result.totalElements).isEqualTo(0)
@@ -79,7 +80,7 @@ class RankingFacadeTest {
     @DisplayName("삭제된 상품은 랭킹 결과에서 제외된다")
     @Test
     fun excludesDeletedProducts() {
-        every { rankingService.getTopRankings(date, 1, 20) } returns RankingPage(
+        every { rankingService.getTopRankings(RankingPeriod.DAILY, date, 1, 20) } returns RankingPage(
             entries = listOf(
                 RankedProduct(rank = 1, productId = 10L, score = 5.0),
                 RankedProduct(rank = 2, productId = 999L, score = 3.0),
@@ -96,7 +97,7 @@ class RankingFacadeTest {
             createBrand(id = 1L, name = "루프팩"),
         )
 
-        val result = rankingFacade.getRankings(date, page = 1, size = 20)
+        val result = rankingFacade.getRankings(RankingPeriod.DAILY, date, page = 1, size = 20)
 
         assertThat(result.content).hasSize(1)
         assertThat(result.content[0].product.id).isEqualTo(10L)
