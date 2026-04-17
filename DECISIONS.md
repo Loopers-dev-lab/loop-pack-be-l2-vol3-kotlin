@@ -1998,3 +1998,226 @@ k6 검증 결과:
 
 - 역산은 로컬 환경 기준이므로 운영 환경에서 재측정 필요
 - avg_response_time 가정(200ms/order)이 변하면 batchSize도 재산정 필요
+
+---
+
+## D69: 주간/월간 랭킹 원천 — product_metrics_daily 별도 신설
+
+### 배경
+
+FEAT-10에서 도입한 기존 `product_metrics`는 `product_id` PK 단일 누적 테이블이라 일자별 이력이 없다. Spring Batch가 주간/월간 범위로 집계하려면 `metric_date` 차원이 있는 원천이 필요하다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 기존 product_metrics 확장 | PK를 (product_id, metric_date)로 변경 — 데이터 마이그레이션 부담, 기존 Consumer 로직 동시 수정 |
+| **B. product_metrics_daily 신설** | V13 마이그레이션으로 독립 테이블, 기존 누적 테이블과 공존 |
+| C. Redis daily ZSET 재활용 | DB 집계 없이 7/30일 키를 ZUNIONSTORE — 학습 목표(Batch Processing, MV)와 어긋남 |
+
+### 판단
+
+B. product_metrics_daily 신설
+
+### 근거
+
+- 누적 메트릭은 FEAT-10 스펙상 그대로 유지 (삭제/변경 불필요)
+- 새 테이블은 Batch의 SUM GROUP BY 원천으로 특화
+- 기존 `ProductMetricsConsumer`는 그대로, 신규 `ProductMetricsDailyConsumer`가 독립 Consumer Group으로 병행 적재
+
+### 트레이드오프
+
+- 두 개의 Kafka Consumer가 동일 토픽을 이중 소비 (Consumer Group 독립이므로 offset 분리) → DB 쓰기 2회
+- 누적/일별 수치가 개념적으로 중복 — 그러나 각자 목적이 명확 (실시간 lookup vs 배치 집계)
+
+---
+
+## D70: 2-Step Chunk+Tasklet 설계 — 전역 rank 부여 문제
+
+### 배경
+
+주차 Must-Have는 Chunk-Oriented Processing이다. 그러나 Chunk는 chunk 경계 내 순서만 보장하므로 "전체 상품을 score DESC로 정렬한 뒤 rank 1~200 부여"는 단일 Chunk Step으로 불가능하다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 단일 Chunk Writer가 재쿼리 | Writer에서 ORDER BY 재조회해도 chunk 단위 commit이라 전역 rank 불가 |
+| B. 단일 Tasklet (Window Function) | `INSERT INTO mv SELECT *, RANK() OVER(...)` — chunk 진행률 손실, Chunk-Oriented 학습 목표 미충족 |
+| **C. 2-Step (Chunk → Tasklet)** | Step1 Chunk가 staging 테이블에 점수 계산 후 append, Step2 Tasklet이 staging ORDER BY + rank 부여 + MV UPSERT |
+
+### 판단
+
+C. 2-Step 구성
+
+### 근거
+
+- Step1: `JdbcCursorItemReader` (cursor 모드) → `ScoreProcessor` → `JdbcBatchItemWriter` (rank_staging INSERT) — Chunk 단위 트랜잭션 + 메모리 O(1)
+- Step2: `SortAndAssignRankTasklet` — rank_staging SELECT ORDER BY score DESC LIMIT 200 → Kotlin `mapIndexed { idx, row -> rank = idx+1 }` → MV `INSERT…ON DUPLICATE KEY UPDATE` → staging cleanup
+- `rank_staging` PK `(job_execution_id, product_id)` → 동시 실행 격리
+- Chunk-Oriented 요구사항 + 전역 rank 동시 충족
+
+### 트레이드오프
+
+- 중간 테이블 한 개 추가 (rank_staging) — cleanup 관리 필요
+- Step 간 데이터 전달을 DB 경유 → JobExecutionContext 직렬화 제약 회피 대신 DB I/O 비용
+- TOP 200만 MV 적재하므로 staging 정렬 메모리 부담 낮음
+
+---
+
+## D71: 점수 원시값 저장 — daily_score 대신 amount_sum 보존
+
+### 배경
+
+기존 Redis 점수 공식은 `VIEW×0.1 + LIKE×0.2 + 0.7×log10(price×quantity+1)`. 주간/월간 집계 시 log10은 비선형이라 일별 점수를 단순 합산하면 Redis 공식과 다른 결과가 나온다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. daily 테이블에 daily_score 컬럼 저장 | 가중치 공식 변경 시 재계산 불가 (원시값 소실) |
+| **B. 원시 카운트 + order_amount_sum 보존** | Batch가 SUM 후 한 번만 log10 적용 — 공식 튜닝 가능 |
+| C. 가중치 공식 단순화 (log 제거) | Daily Redis 랭킹과 채계 불일치 발생 |
+
+### 판단
+
+B. 원시값 보존
+
+### 근거
+
+- `product_metrics_daily` 컬럼: view_count, like_count, order_count, order_amount_sum (BIGINT)
+- Batch 점수: `SUM(view)*0.1 + SUM(like)*0.2 + 0.7*log10(SUM(amount)+1)` — 일별 로우 SUM 후 1회 log
+- 가중치 튜닝 시 재집계 가능 (MV 재생성만 필요)
+
+### 트레이드오프
+
+- Redis 일간(이벤트별 log10 합산)과 Batch 주간/월간(기간 합산 후 log10)은 수학적으로 상이 — 사용자는 기간별 공식이 다름을 인지해야 함
+- 그러나 "가중치 튜닝 유연성"이 학습 목적상 더 중요
+
+---
+
+## D72: 기간 경계 — ISO 주 + 달력월 + Asia/Seoul
+
+### 배경
+
+주간/월간 API date 파라미터 해석 방식. "date=20260413 + period=weekly"가 "4월 13일을 포함하는 주"인지 "4월 13일부터 7일간 rolling"인지 정의 필요.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| **A. ISO 8601 주 (월~일) + 달력월 (1일~말일)** | 표준, BI 도구 호환, 멱등한 period_key |
+| B. Rolling 7일 / 30일 | 모든 날짜로 질의 가능하나 동일 구간 재계산 다발 발생 (MV 성격 훼손) |
+| C. 일요일 시작 주 + 달력월 | 리테일 관례, 국내 관례와 불일치 |
+
+### 판단
+
+A. ISO 주 + 달력월, 타임존 Asia/Seoul 고정
+
+### 근거
+
+- `PeriodKeyResolver.resolveWeekKey`: `IsoFields.WEEK_BASED_YEAR` + `WEEK_OF_WEEK_BASED_YEAR` → "2026-W16" 포맷
+- `resolveMonthKey`: "yyyyMM" → "202604"
+- weekRange: 입력 date가 속한 주의 월요일~일요일
+- monthRange: 입력 date가 속한 달의 1일~말일
+- API: `/rankings?period=weekly&date=20260413` → periodKey="2026-W16" 매핑
+
+### 트레이드오프
+
+- ISO 8601은 1월 4일을 포함하는 주가 Week 01 → 연초 1~3일이 전년도 마지막 주에 속할 수 있음 (ex: 2025-12-29는 2026-W01)
+- 사용자 혼동 가능하나 international 표준이므로 수용
+
+---
+
+## D73: API period 파라미터 확장 — 단일 /rankings + period
+
+### 배경
+
+기존 API는 `/api/v1/rankings` (일간, Redis 조회) + `/api/v1/rankings/hourly` 두 엔드포인트로 분리. 주간/월간 추가 방식을 결정해야 한다.
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| **A. 단일 엔드포인트 + period 파라미터** | `/rankings?period=daily|weekly|monthly&date=yyyyMMdd` — 클라이언트 1개 파라미터로 분기 |
+| B. 엔드포인트 분리 | `/rankings/weekly`, `/rankings/monthly` 신설 — URL 명시적이나 "기간 정보 전달" 과제 요구와 살짝 상충 |
+| C. 완전 통합 (hourly까지) | period=hourly|daily|weekly|monthly — 하위 호환 깨짐 |
+
+### 판단
+
+A. period 파라미터 추가, `/hourly`는 유지
+
+### 근거
+
+- `RankingPeriod` enum (DAILY/WEEKLY/MONTHLY) + `fromOrNull(ignoreCase=true)` 대소문자 무관
+- `RankingV1Controller.getRankings(period, date, size, page)` — period 미지정 기본값 daily (하위 호환)
+- 잘못된 period 값 → `CoreException(BAD_REQUEST)` → 400
+- DAILY는 기존 Redis 경로 유지, WEEKLY/MONTHLY는 `MvRankingStore` → `MvRankingRepository` (JPA) 경로
+
+### 트레이드오프
+
+- `/hourly`만 별개 엔드포인트로 남아 일관성 약간 저하 — 그러나 기존 호출자 영향 없음
+- period 문자열 → enum 매핑 지점이 Controller/Facade 두 곳 필요
+
+---
+
+## D74: Daily Consumer — event-time + event-id 멱등성
+
+### 배경
+
+`ProductMetricsDailyConsumer`가 실시간 UPSERT하는데, 초기 구현은 (1) `LocalDate.now(KST)`를 metric_date로 사용, (2) 멱등성 미적용이었다. 코드 리뷰(Codex)에서 두 개의 P1 이슈 지적:
+- Consumer lag / 재처리가 자정 넘어 발생하면 어제 이벤트가 오늘 row에 누적
+- 크래시 직후 Kafka 재전달 시 카운트 영구 증가
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. 처리 시각 기준 + 멱등성 미적용 | D65 정책과 일관이지만 daily DB는 Redis와 달리 영속 → 왜곡 영구화 |
+| **B. event-time + event-id 멱등성** | `record.timestamp()` → KST LocalDate, `kafka_consumed_event`에 INSERT IGNORE |
+
+### 판단
+
+B. event-time + 멱등성
+
+### 근거
+
+- `resolveMetricDate(record)`: `record.timestamp() > 0`이면 Kafka produce 시각을 KST LocalDate로 변환, 아니면(테스트 등) `LocalDate.now(KST)` fallback
+- `tryMarkConsumed(eventId)`: 기존 `ProductMetricsConsumer`와 동일 패턴 — `INSERT IGNORE INTO kafka_consumed_event`로 원자 dedup
+- Consumer Group 격리: "commerce-streamer-metrics-daily" 로 다른 Consumer와 offset 독립
+
+### 트레이드오프
+
+- D65(랭킹 멱등성 미적용)와 다른 정책 — Redis와 DB의 특성 차이로 정당화
+- event-id 헤더 없는 메시지는 여전히 at-least-once (프로듀서 측 발행 규약에 의존)
+- `kafka_consumed_event` 테이블 volume 증가 → 별도 cleanup job 필요 (기존 `KafkaConsumedEventCleanupJob` 재활용)
+
+---
+
+## D75: Scheduler 활성화 조건 — ranking.scheduler.enabled 분리
+
+### 배경
+
+commerce-batch 앱은 CLI 단일 실행 모드(`--spring.batch.job.names=…`)와 상시 스케줄러 모드 두 가지로 쓰인다. Weekly/Monthly Job Config에 `@ConditionalOnProperty(spring.batch.job.name=JOB_NAME)`을 붙이면 Scheduler가 두 Job을 동시에 주입 불가 (property 값이 하나뿐).
+
+### 선택지
+
+| 선택지 | 설명 |
+|--------|------|
+| A. Job Config는 `@ConditionalOnProperty` 유지 | Scheduler가 DI 실패 (두 Job 동시 주입 불가) |
+| **B. Job Config 항상 등록 + Scheduler만 조건부** | Weekly/Monthly Job Bean은 항상 존재, Scheduler는 `ranking.scheduler.enabled=true`일 때만 활성 |
+
+### 판단
+
+B. Job 항상 등록 + Scheduler 조건부
+
+### 근거
+
+- `@ConditionalOnProperty` 제거로 양쪽 Job Bean이 공존 → `RankingAggregationScheduler`가 `@Qualifier`로 두 개 모두 주입 가능
+- CLI 단일 실행 시 `spring.batch.job.names=weeklyRankingAggregationJob` 지정하면 Spring Batch가 해당 Job만 auto-run
+- 스케줄러 상시 구동 시 `ranking.scheduler.enabled=true` + `spring.batch.job.names=` (빈값) → Spring Batch 자동 실행 비활성, 스케줄러만 cron 기반 trigger
+
+### 트레이드오프
+
+- Bean 개수 증가 (미사용 모드에서도 Bean 로드) — 메모리 미미
+- CLI 모드와 스케줄러 모드를 다른 프로파일/환경변수로 구분 필요 (운영 문서화 필요)

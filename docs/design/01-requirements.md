@@ -823,6 +823,84 @@ A1. 동일 이벤트가 중복 수신된 경우 → 점수 중복 반영 허용 
 
 ---
 
+### 3.8 주간/월간 랭킹 (FEAT-13)
+
+#### 유저 시나리오
+
+> "사용자는 일간 외에도 주간/월간 인기 상품 랭킹을 기간 단위로 확인한다."
+
+#### 대고객 API
+
+| METHOD | URI | 인증 | 설명 |
+|--------|-----|------|------|
+| GET | `/api/v1/rankings?period=daily\|weekly\|monthly&date=yyyyMMdd&size=20&page=0` | X | 기간별 랭킹 조회 (period 기본값: daily) |
+| GET | `/api/v1/rankings/hourly?date=yyyyMMdd&hour=HH&size=20&page=0` | X | 시간 단위 랭킹 조회 (기존 유지) |
+
+#### 쿼리 파라미터
+
+| 파라미터 | 예시 | 설명 | 필수 |
+|----------|------|------|------|
+| period | `weekly` | 조회 기간 단위 (`daily` \| `weekly` \| `monthly`, 기본값: `daily`) | X |
+| date | `20260413` | 조회 기준일 (yyyyMMdd) — date가 속한 기간으로 해석 | O |
+| size | `20` | 페이지당 상품 수 (기본값: 20) | X |
+| page | `0` | 페이지 번호 (0-based, 기본값: 0) | X |
+
+#### 비즈니스 규칙
+
+- **BR-R8**: `period=daily`는 Redis ZSET에서 조회하고, `period=weekly` / `period=monthly`는 DB Materialized View(`mv_product_rank_weekly` / `mv_product_rank_monthly`)에서 조회한다.
+- **BR-R9**: 기간 경계는 ISO 8601 주 (월~일) + 달력월 (1일~말일), Asia/Seoul 기준으로 적용한다. `date=20260413`은 2026-W16(4/6~4/12)을 가리킨다.
+- **BR-R10**: MV는 Spring Batch Job이 주간/월간 기간별 TOP 200 상품만 적재한다 (`mv_product_rank_weekly`, `mv_product_rank_monthly`).
+- **BR-R11**: 주간/월간 점수 공식: `SUM(view_count)*0.1 + SUM(like_count)*0.2 + 0.7*log10(SUM(order_amount_sum)+1)`. 원시값을 기간 합산한 뒤 log10을 1회 적용한다. Redis 일간 공식(이벤트별 log10 합산)과 수학적으로 상이하다 (D71).
+- **BR-R12**: `ProductMetricsDailyConsumer`는 Kafka 레코드의 타임스탬프(`record.timestamp()`)를 KST로 변환하여 `metric_date`로 사용한다(event-time 기반). `event-id` 기반 멱등성(`kafka_consumed_event INSERT IGNORE`)으로 Kafka 재전달 시 중복 가산을 차단한다 (D74).
+- **BR-R13**: 집계 Scheduler cron: 주간 `0 10 0 ? * MON` (매주 월 00:10 KST), 월간 `0 20 0 1 * ?` (매월 1일 00:20 KST). `ranking.scheduler.enabled=true`일 때만 활성화된다 (D75).
+
+#### 입력값 검증
+
+| 필드 | 제약 | 필수 |
+|------|------|------|
+| period | `daily` \| `weekly` \| `monthly` (대소문자 무관) | X (기본값: daily) |
+| date | yyyyMMdd 형식, 유효한 날짜 | O |
+| size | 1 이상의 정수 (기본값: 20) | X |
+| page | 0 이상의 정수 (기본값: 0) | X |
+
+#### 유스케이스 흐름
+
+**주간 랭킹 조회**
+
+```
+[Main Flow]
+1. 사용자가 period=weekly, date=20260413을 요청한다.
+2. PeriodKeyResolver가 date를 포함하는 ISO 8601 주의 periodKey(2026-W16)를 산출한다.
+3. MvRankingRepository가 mv_product_rank_weekly WHERE period_key='2026-W16' ORDER BY rank_value ASC 조회한다.
+4. 상품/브랜드 정보를 조합하여 PageResponse로 반환한다.
+
+[Alternate Flow]
+A1. 해당 기간의 MV 데이터가 없는 경우 → 빈 목록 반환
+```
+
+**월간 랭킹 조회**
+
+```
+[Main Flow]
+1. 사용자가 period=monthly, date=20260413을 요청한다.
+2. PeriodKeyResolver가 periodKey(202604)를 산출한다.
+3. MvRankingRepository가 mv_product_rank_monthly WHERE period_key='202604' ORDER BY rank_value ASC 조회한다.
+4. 상품/브랜드 정보를 조합하여 PageResponse로 반환한다.
+```
+
+**잘못된 period 요청**
+
+```
+[Exception Flow]
+E1. period=hourly 등 허용되지 않는 값 → CoreException(BAD_REQUEST) → 400 Bad Request
+```
+
+#### 관련 결정
+
+D69 (product_metrics_daily 신설), D70 (2-Step Chunk+Tasklet), D71 (원시값 보존), D72 (ISO 주 + 달력월), D73 (period 파라미터 확장), D74 (event-time + 멱등성), D75 (Scheduler 조건부 활성)
+
+---
+
 ## 4. 공통 제약사항
 
 | 제약 | 설명 |

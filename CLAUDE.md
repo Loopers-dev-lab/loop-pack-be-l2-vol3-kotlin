@@ -230,6 +230,13 @@ com.loopers
 - CoreException 핸들러: ApiControllerAdvice에서 CoreException 직접 처리 — Facade 미경유 Service(QueueService 등)의 에러 매핑 보장 (Decision 59)
 - 랭킹: Redis ZSET 기반 실시간 집계. 키 전략 ranking:all:{yyyyMMdd}[:{HH}], 가중치 VIEW=0.1/LIKE=0.2/ORDER=0.7×log10. ORDER 이벤트는 Facade 수동 발행 (D68). 콜드 스타트 carry-over 10% (D67). 멱등성 미적용(at-least-once 허용) (D65)
 - activeCount Pipeline: 토큰 추적 Set의 lazy cleanup을 Redis Pipeline으로 일괄 처리 — O(N) → O(1) round-trip (Decision 60)
+- 주간/월간 랭킹: DB 기반 MV(`mv_product_rank_weekly/monthly`, TOP 200). 원천은 별도 `product_metrics_daily` (D69). Kafka `ProductMetricsDailyConsumer`가 independent group + event-id 멱등(`kafka_consumed_event` INSERT IGNORE)로 적재 (D74)
+- Spring Batch 2-Step (Chunk+Tasklet): Step1은 cursor reader+chunk 500+score processor로 `rank_staging` 적재, Step2 Tasklet이 staging ORDER BY + rank 부여 + MV UPSERT + cleanup. 전역 rank는 Tasklet 책임 (D70)
+- 점수 원시값 보존: daily에는 view/like/order_count + order_amount_sum 저장, Batch가 SUM 후 1회 log10 → 가중치 튜닝 가능 (D71). Redis 일간 공식(이벤트별 log10)과는 수학적으로 상이
+- 기간 경계: ISO 8601 주(월~일) + 달력월(1일~말일), 타임존 Asia/Seoul. date 파라미터는 "속한 기간" 해석 (D72)
+- Ranking API period: `/api/v1/rankings?period=daily|weekly|monthly&date=yyyyMMdd` 단일 엔드포인트. 기본값 daily, 잘못된 period는 400. `/hourly`는 별도 유지 (D73)
+- Daily Consumer metric_date: `record.timestamp()` 기반 event-time을 KST LocalDate로 변환. lag/재처리가 자정 넘어도 이벤트 본래 날짜 보존. 타임스탬프 없으면 `LocalDate.now(KST)` fallback (D74)
+- Scheduler 활성화: `ranking.scheduler.enabled=true` 일 때만 bean 등록. Job Config는 `@ConditionalOnProperty` 없이 항상 등록하여 scheduler가 weekly/monthly 두 Job을 동시 주입 가능 (D75). CLI 단일 실행 모드는 `spring.batch.job.names=…` 로 선택
 
 ### 도메인 & 객체 설계 전략
 
@@ -341,7 +348,7 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 
 ## 현재 진행 상태
 
-> 마지막 업데이트: 2026-03-27
+> 마지막 업데이트: 2026-04-17
 
 ### 기능 (FEAT)
 
@@ -357,6 +364,7 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 | 10 | 랭킹/추천 | DONE | Redis ZSET 실시간 랭킹, carry-over 배치 (D62~D68) |
 | 11 | 선착순 쿠폰 | DONE | 별도 도메인 (D55), Kafka 순차 발급 |
 | 12 | 대기열 | DONE | Redis Sorted Set, 분산 락 스케줄러, 토큰 게이트 (D59~D61) |
+| 13 | 주간/월간 랭킹 배치 | DONE | Spring Batch 2-Step Chunk+Tasklet, MV(TOP 200), `/rankings?period=` 확장 (D69~D75) |
 
 ### 성능
 
@@ -370,6 +378,7 @@ REQUIREMENTS.md, DECISIONS.md는 전체를 읽지 않고 Grep으로 필요한 �
 - Event 아키텍처: 통합 테스트 보강 (SpringBootTest + ApplicationEvents 캡처)
 - Kafka 구현체 교체: OutboxPoller → Kafka 실 발행 E2E 검증
 - Phase 3: Rate Limiting 적용 (Stress/Spike 구간 보호)
+- FEAT-13 후속: ShedLock 도입으로 스케줄러 다중 인스턴스 격리, 주/월간 carry-over 정책
 - FEAT-10 후속: 랭킹 기반 상품 추천 (요구사항 미정)
 
 ### 참조 문서
