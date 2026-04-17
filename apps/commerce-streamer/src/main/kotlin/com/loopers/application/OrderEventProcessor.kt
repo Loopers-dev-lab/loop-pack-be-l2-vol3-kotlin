@@ -47,6 +47,7 @@ class OrderEventProcessor(
                 payload.items.forEach { item ->
                     productStockRepository.decrementStock(item.productId, item.quantity)
                     productMetricsRepository.incrementSalesCount(item.productId, item.quantity)
+                    productMetricsRepository.incrementDailySalesCount(item.productId, today, item.quantity)
                     runCatching {
                         rankingService.updateScoreForOrder(today, item.productId, item.unitPrice, item.quantity)
                     }.onFailure {

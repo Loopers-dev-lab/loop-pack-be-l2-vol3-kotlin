@@ -3,6 +3,7 @@ package com.loopers.application
 import com.loopers.domain.metrics.ProductMetricsRepository
 import com.loopers.event.EventEnvelope
 import com.loopers.infrastructure.event.EventHandledJpaRepository
+import com.loopers.infrastructure.metrics.ProductMetricsDailyJpaRepository
 import com.loopers.utils.DatabaseCleanUp
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import java.time.Instant
+import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
@@ -19,6 +21,7 @@ import java.util.concurrent.Executors
 class OrderEventProcessorIntegrationTest @Autowired constructor(
     private val orderEventProcessor: OrderEventProcessor,
     private val productMetricsRepository: ProductMetricsRepository,
+    private val productMetricsDailyJpaRepository: ProductMetricsDailyJpaRepository,
     private val eventHandledRepository: EventHandledJpaRepository,
     private val databaseCleanUp: DatabaseCleanUp,
 ) {
@@ -120,6 +123,27 @@ class OrderEventProcessorIntegrationTest @Autowired constructor(
             val metricsB = productMetricsRepository.findByProductId(200L)
             assertThat(metricsB).isNotNull()
             assertThat(metricsB!!.salesCount).isEqualTo(3)
+        }
+    }
+
+    @DisplayName("일별 메트릭 적재 통합 테스트:")
+    @Nested
+    inner class DailyMetricsIntegration {
+
+        @DisplayName("ORDER_COMPLETED 이벤트 처리 시 product_metrics_daily에 오늘 날짜로 salesCount가 수량만큼 적재된다.")
+        @Test
+        fun orderCompletedWritesToDailyMetrics() {
+            // arrange
+            val envelope = createEnvelope(eventId = "evt-daily-1")
+
+            // act
+            orderEventProcessor.process(envelope)
+
+            // assert
+            val today = LocalDate.now()
+            val daily = productMetricsDailyJpaRepository.findByProductIdAndMetricDate(100L, today)
+            assertThat(daily).isNotNull
+            assertThat(daily!!.salesCount).isEqualTo(2L) // quantity=2
         }
     }
 }

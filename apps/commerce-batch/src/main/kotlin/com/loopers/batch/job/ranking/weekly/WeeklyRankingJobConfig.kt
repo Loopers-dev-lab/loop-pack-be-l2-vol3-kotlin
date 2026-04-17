@@ -1,0 +1,105 @@
+package com.loopers.batch.job.ranking.weekly
+
+import com.loopers.batch.job.ranking.ProductAggregateDto
+import com.loopers.batch.job.ranking.ProductRankRow
+import com.loopers.batch.job.ranking.RankingWeightProperties
+import com.loopers.batch.job.ranking.WeightScoreProcessor
+import com.loopers.batch.job.ranking.parseTargetDate
+import com.loopers.batch.job.ranking.rankingStagingWriter
+import com.loopers.batch.job.ranking.rankingSwapTasklet
+import com.loopers.batch.listener.ChunkListener
+import com.loopers.batch.listener.JobListener
+import com.loopers.batch.listener.StepMonitorListener
+import com.loopers.domain.ranking.YearWeek
+import org.springframework.batch.core.Job
+import org.springframework.batch.core.Step
+import org.springframework.batch.core.configuration.annotation.JobScope
+import org.springframework.batch.core.configuration.annotation.StepScope
+import org.springframework.batch.core.job.builder.JobBuilder
+import org.springframework.batch.core.launch.support.RunIdIncrementer
+import org.springframework.batch.core.repository.JobRepository
+import org.springframework.batch.core.step.builder.StepBuilder
+import org.springframework.batch.item.database.JdbcBatchItemWriter
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.transaction.PlatformTransactionManager
+import javax.sql.DataSource
+
+@ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = WeeklyRankingJobConfig.JOB_NAME)
+@Configuration
+@EnableConfigurationProperties(RankingWeightProperties::class)
+class WeeklyRankingJobConfig(
+    private val jobRepository: JobRepository,
+    private val transactionManager: PlatformTransactionManager,
+    private val jobListener: JobListener,
+    private val stepMonitorListener: StepMonitorListener,
+    private val chunkListener: ChunkListener,
+    private val rankingWeightProperties: RankingWeightProperties,
+    private val dataSource: DataSource,
+    private val jdbcTemplate: JdbcTemplate,
+) {
+    companion object {
+        const val JOB_NAME = "weeklyRankingJob"
+        private const val CHUNK_STEP_NAME = "weeklyRankingChunkStep"
+        private const val SWAP_STEP_NAME = "weeklyRankingSwapStep"
+        private const val CHUNK_SIZE = 1000
+        private const val MV_TABLE = "mv_product_rank_weekly"
+        private const val STAGING_TABLE = "staging_product_rank_weekly"
+        private const val PERIOD_COLUMN = "year_week"
+    }
+
+    @Bean(JOB_NAME)
+    fun weeklyRankingJob(): Job {
+        return JobBuilder(JOB_NAME, jobRepository)
+            .incrementer(RunIdIncrementer())
+            .start(weeklyRankingChunkStep(null))
+            .next(weeklyRankingSwapStep(null))
+            .listener(jobListener)
+            .build()
+    }
+
+    @JobScope
+    @Bean(CHUNK_STEP_NAME)
+    fun weeklyRankingChunkStep(
+        @Value("#{jobParameters['targetDate']}") targetDateStr: String?,
+    ): Step {
+        val targetDate = parseTargetDate(targetDateStr)
+        val yearWeek = YearWeek.from(targetDate)
+
+        val reader = weeklyRankingReader(dataSource, targetDate, CHUNK_SIZE)
+        reader.afterPropertiesSet()
+
+        return StepBuilder(CHUNK_STEP_NAME, jobRepository)
+            .chunk<ProductAggregateDto, ProductRankRow>(CHUNK_SIZE, transactionManager)
+            .reader(reader)
+            .processor(WeightScoreProcessor(rankingWeightProperties, yearWeek.toString()))
+            .writer(weeklyRankingStagingWriter())
+            .listener(stepMonitorListener)
+            .listener(chunkListener)
+            .build()
+    }
+
+    @StepScope
+    @Bean
+    fun weeklyRankingStagingWriter(): JdbcBatchItemWriter<ProductRankRow> {
+        return rankingStagingWriter(dataSource, STAGING_TABLE, PERIOD_COLUMN)
+    }
+
+    @JobScope
+    @Bean(SWAP_STEP_NAME)
+    fun weeklyRankingSwapStep(
+        @Value("#{jobParameters['targetDate']}") targetDateStr: String?,
+    ): Step {
+        val targetDate = parseTargetDate(targetDateStr)
+        val yearWeek = YearWeek.from(targetDate).toString()
+
+        return StepBuilder(SWAP_STEP_NAME, jobRepository)
+            .tasklet(rankingSwapTasklet(jdbcTemplate, MV_TABLE, STAGING_TABLE, PERIOD_COLUMN, yearWeek), transactionManager)
+            .listener(stepMonitorListener)
+            .build()
+    }
+}

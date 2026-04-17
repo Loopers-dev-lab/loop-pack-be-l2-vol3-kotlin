@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.ranking
 
 import com.loopers.application.ranking.RankingFacade
+import com.loopers.domain.ranking.Period
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -24,14 +25,15 @@ class RankingController(
     @GetMapping
     override fun getRankings(
         @RequestParam(required = false) date: String?,
+        @RequestParam(defaultValue = "DAILY") period: Period,
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
     ): ApiResponse<RankingDto.Response> {
         val targetDate = parseDate(date)
         validatePagination(page, size)
-        return rankingFacade.getRankings(targetDate, page, size)
-            .let { RankingDto.Response.from(it) }
-            .let { ApiResponse.success(it) }
+
+        val result = rankingFacade.getRankings(targetDate, period, page, size)
+        return RankingDto.Response.from(result).let { ApiResponse.success(it) }
     }
 
     private fun parseDate(date: String?): LocalDate {

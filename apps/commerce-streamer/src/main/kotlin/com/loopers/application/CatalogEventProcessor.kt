@@ -49,6 +49,7 @@ class CatalogEventProcessor(
         when (envelope.eventType) {
             EventTypes.LIKED -> {
                 productMetricsRepository.incrementLikeCount(productId, envelope.version)
+                productMetricsRepository.incrementDailyLikeCount(productId, today)
                 runCatching {
                     rankingService.updateScoreForLike(today, productId)
                 }.onFailure {
@@ -57,6 +58,7 @@ class CatalogEventProcessor(
             }
             EventTypes.UNLIKED -> {
                 productMetricsRepository.decrementLikeCount(productId, envelope.version)
+                productMetricsRepository.decrementDailyLikeCount(productId, today)
                 runCatching {
                     rankingService.updateScoreForUnlike(today, productId)
                 }.onFailure {
@@ -65,6 +67,7 @@ class CatalogEventProcessor(
             }
             EventTypes.VIEWED -> {
                 productMetricsRepository.incrementViewCount(productId, envelope.version)
+                productMetricsRepository.incrementDailyViewCount(productId, today)
                 runCatching {
                     rankingService.updateScoreForView(today, productId)
                 }.onFailure {

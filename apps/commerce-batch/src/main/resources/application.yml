@@ -17,6 +17,12 @@ spring:
     jdbc:
       initialize-schema: never
 
+ranking:
+  weight:
+    view-weight: 0.1
+    like-weight: 0.2
+    sales-weight: 0.7
+
 management:
   health:
     defaults:
