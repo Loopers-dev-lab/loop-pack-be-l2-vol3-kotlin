@@ -522,8 +522,8 @@ class KafkaMetricEventHandlerTest {
         }
 
         @Test
-        @DisplayName("quantity가 비정수 문자열이면 JsonNode.asInt()=0으로 coercion → per-item skip → 이벤트 전체 parsedItems empty 처리")
-        fun handle_nonIntegerQuantity_skipsItem() {
+        @DisplayName("quantity가 비정수 문자열이면 per-item skip + WARN 로그 (정책 C event-skip이 아닌 per-item)")
+        fun handle_nonIntegerQuantity_skipsItemWithWarn(output: CapturedOutput) {
             whenever(handledEventRepository.existsByEventId(EVENT_ID)).thenReturn(false)
             whenever(processedPaymentRepository.existsByPaymentId(PAYMENT_ID)).thenReturn(false)
 
@@ -551,6 +551,10 @@ class KafkaMetricEventHandlerTest {
             verify(productMetricRepository, never()).saveAll(any<List<ProductMetric>>())
             verify(productMetricDailyRepository, never()).save(any())
             verify(productRankingRepository, never()).incrementScore(any(), any())
+            assertThat(output.all)
+                .contains("Skip item with non-integer quantity")
+                .contains("eventId=$EVENT_ID")
+                .contains("productId=$PRODUCT_ID")
         }
     }
 

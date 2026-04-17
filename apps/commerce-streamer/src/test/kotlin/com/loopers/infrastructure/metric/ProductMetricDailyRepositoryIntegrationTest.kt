@@ -2,6 +2,8 @@ package com.loopers.infrastructure.metric
 
 import com.loopers.domain.metric.ProductMetricDaily
 import com.loopers.domain.metric.ProductMetricDailyRepository
+import com.loopers.testcontainers.MySqlTestContainersConfig
+import com.loopers.testcontainers.RedisTestContainersConfig
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -16,30 +18,35 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.context.TestPropertySource
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import java.time.LocalDate
 
 @DisplayName("ProductMetricDailyRepository integration")
 @SpringBootTest(classes = [ProductMetricDailyRepositoryIntegrationTest.TestApplication::class])
 @ActiveProfiles("test")
-@TestPropertySource(
-    properties = [
-        "datasource.mysql-jpa.main.jdbc-url=jdbc:mysql://localhost:3306/loopers",
-        "datasource.mysql-jpa.main.driver-class-name=com.mysql.cj.jdbc.Driver",
-        "datasource.mysql-jpa.main.username=application",
-        "datasource.mysql-jpa.main.password=application",
-        "datasource.redis.master.host=localhost",
-        "datasource.redis.master.port=6379",
-        "datasource.redis.replicas[0].host=localhost",
-        "datasource.redis.replicas[0].port=6380",
-    ],
-)
 class ProductMetricDailyRepositoryIntegrationTest
 @Autowired
 constructor(
     private val productMetricDailyRepository: ProductMetricDailyRepository,
     private val productMetricDailyJpaRepository: ProductMetricDailyJpaRepository,
 ) {
+    companion object {
+        @JvmStatic
+        @DynamicPropertySource
+        fun registerProperties(registry: DynamicPropertyRegistry) {
+            registry.add("datasource.mysql-jpa.main.jdbc-url") { MySqlTestContainersConfig.jdbcUrl }
+            registry.add("datasource.mysql-jpa.main.driver-class-name") { "com.mysql.cj.jdbc.Driver" }
+            registry.add("datasource.mysql-jpa.main.username") { MySqlTestContainersConfig.username }
+            registry.add("datasource.mysql-jpa.main.password") { MySqlTestContainersConfig.password }
+            registry.add("datasource.redis.database") { RedisTestContainersConfig.DATABASE }
+            registry.add("datasource.redis.master.host") { RedisTestContainersConfig.host }
+            registry.add("datasource.redis.master.port") { RedisTestContainersConfig.port }
+            registry.add("datasource.redis.replicas[0].host") { RedisTestContainersConfig.host }
+            registry.add("datasource.redis.replicas[0].port") { RedisTestContainersConfig.port }
+        }
+    }
+
     private val today = LocalDate.of(2026, 4, 16)
 
     @BeforeEach

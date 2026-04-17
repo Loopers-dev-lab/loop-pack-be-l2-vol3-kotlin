@@ -21,11 +21,20 @@ class MySqlTestContainersConfig {
                 start()
             }
 
+        /** 컨테이너 JDBC URL. `@DynamicPropertySource`에서 직접 참조해 사용한다. */
+        val jdbcUrl: String
+            get() = "jdbc:mysql://${mySqlContainer.host}:${mySqlContainer.firstMappedPort}/${mySqlContainer.databaseName}"
+
+        val username: String
+            get() = mySqlContainer.username
+
+        val password: String
+            get() = mySqlContainer.password
+
         init {
-            val mySqlJdbcUrl = mySqlContainer.let { "jdbc:mysql://${it.host}:${it.firstMappedPort}/${it.databaseName}" }
-            System.setProperty("datasource.mysql-jpa.main.jdbc-url", mySqlJdbcUrl)
-            System.setProperty("datasource.mysql-jpa.main.username", mySqlContainer.username)
-            System.setProperty("datasource.mysql-jpa.main.password", mySqlContainer.password)
+            System.setProperty("datasource.mysql-jpa.main.jdbc-url", jdbcUrl)
+            System.setProperty("datasource.mysql-jpa.main.username", username)
+            System.setProperty("datasource.mysql-jpa.main.password", password)
         }
     }
 }

@@ -157,8 +157,29 @@ class KafkaMetricEventHandler(
         val parsedItems = itemsNode
             ?.mapNotNull { node ->
                 if (node.isNull) return@mapNotNull null
-                val productId = node["productId"]?.asLong() ?: return@mapNotNull null
-                val quantity = node["quantity"]?.asInt() ?: return@mapNotNull null
+
+                val productIdNode = node["productId"] ?: return@mapNotNull null
+                if (!productIdNode.canConvertToLong()) {
+                    log.warn(
+                        "Skip item with non-numeric productId. eventId={}, productId={}",
+                        envelope.eventId,
+                        productIdNode,
+                    )
+                    return@mapNotNull null
+                }
+                val productId = productIdNode.asLong()
+
+                val quantityNode = node["quantity"] ?: return@mapNotNull null
+                if (!quantityNode.isIntegralNumber) {
+                    log.warn(
+                        "Skip item with non-integer quantity. eventId={}, productId={}, quantity={}",
+                        envelope.eventId,
+                        productId,
+                        quantityNode,
+                    )
+                    return@mapNotNull null
+                }
+                val quantity = quantityNode.asInt()
                 if (quantity <= 0) {
                     log.warn(
                         "Skip item with invalid quantity. eventId={}, productId={}, quantity={}",
@@ -168,7 +189,23 @@ class KafkaMetricEventHandler(
                     )
                     return@mapNotNull null
                 }
-                Triple(productId, quantity, node["sellingPrice"]?.asLong())
+
+                val sellingPriceNode = node["sellingPrice"]
+                val sellingPrice = when {
+                    sellingPriceNode == null || sellingPriceNode.isNull -> null
+                    !sellingPriceNode.canConvertToLong() -> {
+                        log.warn(
+                            "Skip item with non-numeric sellingPrice. eventId={}, productId={}, sellingPrice={}",
+                            envelope.eventId,
+                            productId,
+                            sellingPriceNode,
+                        )
+                        return@mapNotNull null
+                    }
+                    else -> sellingPriceNode.asLong()
+                }
+
+                Triple(productId, quantity, sellingPrice)
             }
             .orEmpty()
 
@@ -254,17 +291,25 @@ class KafkaMetricEventHandler(
      *
      * - null 노드는 개별 스킵 대상이므로 false (`handleOrderEvent` 파싱 단계에서 처리).
      * - `productId`, `quantity`는 mandatory: 누락/null 시 전체 skip.
-     * - `quantity < 0`이면 전체 skip.
-     * - `sellingPrice`는 optional이지만, 존재하면서 음수이면 전체 skip.
+     * - `quantity`가 정수이면서 음수이면 전체 skip. 비정수/문자열은 여기서는 false 반환하고
+     *   per-item 파싱 경로에서 WARN + skip 처리 (Jackson 타입 coercion 방어).
+     * - `sellingPrice`는 optional이지만, 숫자로 변환 가능하면서 음수이면 전체 skip.
+     *   비숫자 문자열은 마찬가지로 per-item 경로에서 처리.
      */
     private fun hasInvalidOrderItemFields(node: JsonNode): Boolean {
         if (node.isNull) return false
         val productIdNode = node["productId"] ?: return true
         val quantityNode = node["quantity"] ?: return true
         if (productIdNode.isNull || quantityNode.isNull) return true
-        if (quantityNode.asInt() < 0) return true
+        if (quantityNode.isIntegralNumber && quantityNode.asInt() < 0) return true
         val sellingPriceNode = node["sellingPrice"]
-        if (sellingPriceNode != null && !sellingPriceNode.isNull && sellingPriceNode.asLong() < 0) return true
+        if (sellingPriceNode != null &&
+            !sellingPriceNode.isNull &&
+            sellingPriceNode.canConvertToLong() &&
+            sellingPriceNode.asLong() < 0
+        ) {
+            return true
+        }
         return false
     }
 

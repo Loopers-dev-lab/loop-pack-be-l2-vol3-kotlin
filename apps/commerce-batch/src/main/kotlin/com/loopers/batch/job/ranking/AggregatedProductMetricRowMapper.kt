@@ -13,5 +13,6 @@ class AggregatedProductMetricRowMapper : RowMapper<AggregatedProductMetric> {
             salesAmount = rs.getLong("sales_amount"),
             orderScore = rs.getDouble("order_score"),
             totalScore = rs.getDouble("total_score"),
+            rankNumber = rs.getInt("rank_number"),
         )
 }
