@@ -21,9 +21,9 @@ class DailySnapshotItemWriter(
                 arrayOf<Any?>(
                     item.productId,
                     java.sql.Date.valueOf(item.metricDate),
-                    0L,
-                    0L,
-                    0L,
+                    item.viewCount,
+                    item.likeCount,
+                    item.orderCount,
                     item.totalScore,
                     item.rankPosition,
                     now,
