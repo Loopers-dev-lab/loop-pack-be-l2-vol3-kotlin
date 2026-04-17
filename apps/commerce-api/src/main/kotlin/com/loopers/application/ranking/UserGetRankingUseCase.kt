@@ -3,20 +3,39 @@ package com.loopers.application.ranking
 import com.loopers.application.UseCase
 import com.loopers.domain.catalog.BrandService
 import com.loopers.domain.catalog.ProductService
+import com.loopers.domain.ranking.MvProductRankRepository
+import com.loopers.domain.ranking.RankingPeriod
 import com.loopers.infrastructure.catalog.ProductRankRedisReader
+import com.loopers.infrastructure.catalog.RankedProductEntry
 import org.springframework.stereotype.Component
 
 @Component
 class UserGetRankingUseCase(
     private val productRankRedisReader: ProductRankRedisReader,
+    private val mvProductRankRepository: MvProductRankRepository,
     private val productService: ProductService,
     private val brandService: BrandService,
 ) : UseCase<GetRankingCriteria, GetRankingResult> {
 
     override fun execute(criteria: GetRankingCriteria): GetRankingResult {
-        // 1) ZSET에서 페이지 단위로 (productId, score, rank) 조회
-        val entries = productRankRedisReader.getRankingPage(criteria.date, criteria.page, criteria.size)
-        val totalCount = productRankRedisReader.getTotalCount(criteria.date)
+        // 1) period에 따라 데이터 소스 분기
+        val (entries, totalCount) = when (criteria.period) {
+            RankingPeriod.DAILY -> {
+                val e = productRankRedisReader.getRankingPage(criteria.date, criteria.page, criteria.size)
+                val t = productRankRedisReader.getTotalCount(criteria.date)
+                e to t
+            }
+            RankingPeriod.WEEKLY -> {
+                val e = mvProductRankRepository.getWeeklyRanking(criteria.page, criteria.size)
+                val t = mvProductRankRepository.getWeeklyTotalCount()
+                e to t
+            }
+            RankingPeriod.MONTHLY -> {
+                val e = mvProductRankRepository.getMonthlyRanking(criteria.page, criteria.size)
+                val t = mvProductRankRepository.getMonthlyTotalCount()
+                e to t
+            }
+        }
 
         if (entries.isEmpty()) {
             return GetRankingResult(
