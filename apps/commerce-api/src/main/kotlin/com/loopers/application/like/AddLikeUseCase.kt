@@ -38,6 +38,8 @@ class AddLikeUseCase(
             throw CoreException(LikeErrorCode.ALREADY_LIKED)
         }
 
+        productRepository.increaseLikeCount(product.id)
+
         val event = LikeCreatedEvent(userId = command.userId, productId = product.id)
         eventPublisher.publishEvent(event)
         outboxEventWriter.write(

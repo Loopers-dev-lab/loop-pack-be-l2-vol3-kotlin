@@ -2,6 +2,7 @@ package com.loopers.application.ranking
 
 import com.loopers.zset.RankingKeyGenerator
 import com.loopers.zset.RedisZSetTemplate
+import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -15,6 +16,13 @@ class RankingScoreFlushScheduler(
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
+
+    @PreDestroy
+    fun onShutdown() {
+        log.info("서버 종료 감지 — 랭킹 점수 버퍼 강제 flush 시작")
+        flush()
+        log.info("서버 종료 감지 — 랭킹 점수 버퍼 강제 flush 완료")
+    }
 
     @Scheduled(fixedRate = 5_000)
     fun flush() {

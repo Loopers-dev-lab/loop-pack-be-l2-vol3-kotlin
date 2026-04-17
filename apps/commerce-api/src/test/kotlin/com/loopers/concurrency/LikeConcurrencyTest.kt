@@ -98,4 +98,19 @@ class LikeConcurrencyTest @Autowired constructor(
             assertThat(product.likeCount).`as`("likeCount가 정확히 일치해야 한다").isEqualTo(threadCount.toLong())
         }
     }
+
+    @DisplayName("단건 좋아요 등록 직후 별도 await 없이 likeCount가 즉시 1이어야 한다 (Counter Cache 동기 검증)")
+    @Test
+    fun likeCountShouldBeAppliedSynchronouslyWithinTransaction() {
+        val userId = registerUser("ccacheuser1")
+        val brandId = registerBrand()
+        val productId = registerProduct(brandId)
+
+        addLikeUseCase.execute(LikeCommand.Create(userId = userId, productId = productId))
+
+        val product = productRepository.findByIdOrNull(productId)!!
+        assertThat(product.likeCount)
+            .`as`("AFTER_COMMIT 비동기 리스너가 아니라 트랜잭션 내에서 동기 업데이트되어야 한다")
+            .isEqualTo(1L)
+    }
 }

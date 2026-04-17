@@ -57,6 +57,17 @@ class KafkaConfig {
         return ByteArrayJsonMessageConverter(objectMapper)
     }
 
+    /**
+     * Batch 리스너 컨테이너 — manual batch ack 전략.
+     *
+     * Consumer는 forEach로 레코드별 처리 후 배치 끝에서 `acknowledgment.acknowledge()`로 한 번에 ACK한다.
+     * 중복은 EventHandled 테이블의 eventId 기반 멱등 레이어가 방어하며, 처리 실패 건은
+     * RetryableRecordProcessor 재시도 후 DLQ로 격리한다.
+     *
+     * 단건 manual ack이 더 엄격하긴 하지만 ACK 오버헤드가 poll 크기 배수로 커지고,
+     * 이미 재시도와 DLQ, 멱등 레이어가 있어 배치 ack에서 추가로 얻는 안전 이득이 크지 않다.
+     * Auto commit은 poll 시점에 자동 ACK되어 처리 실패 건이 유실될 위험 때문에 배제.
+     */
     @Bean(BATCH_LISTENER)
     fun defaultBatchListenerContainerFactory(
         kafkaProperties: KafkaProperties,

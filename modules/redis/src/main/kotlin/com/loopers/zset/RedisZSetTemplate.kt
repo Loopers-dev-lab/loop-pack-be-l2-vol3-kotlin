@@ -19,10 +19,15 @@ class RedisZSetTemplate(
         masterRedisTemplate.opsForZSet().incrementScore(key, member, delta)
     }
 
-    fun reverseRangeWithScores(key: String, start: Long, end: Long): List<ZSetEntry> {
-        val results = redisTemplate.opsForZSet().reverseRangeWithScores(key, start, end)
-            ?: return emptyList()
-        return results.mapNotNull { tuple ->
+    fun reverseRangeWithScores(key: String, start: Long, end: Long): List<ZSetEntry> =
+        toEntries(redisTemplate.opsForZSet().reverseRangeWithScores(key, start, end))
+
+    fun reverseRangeWithScoresFromMaster(key: String, start: Long, end: Long): List<ZSetEntry> =
+        toEntries(masterRedisTemplate.opsForZSet().reverseRangeWithScores(key, start, end))
+
+    private fun toEntries(tuples: Set<org.springframework.data.redis.core.ZSetOperations.TypedTuple<String>>?): List<ZSetEntry> {
+        if (tuples == null) return emptyList()
+        return tuples.mapNotNull { tuple ->
             val member = tuple.value ?: return@mapNotNull null
             val score = tuple.score ?: return@mapNotNull null
             ZSetEntry(member, score)
@@ -66,4 +71,8 @@ class RedisZSetTemplate(
             masterRedisTemplate.expire(key, ttl)
         }
     }
+
+    fun getExpireSeconds(key: String): Long = redisTemplate.getExpire(key) ?: -2L
+
+    fun hasKey(key: String): Boolean = redisTemplate.hasKey(key) ?: false
 }

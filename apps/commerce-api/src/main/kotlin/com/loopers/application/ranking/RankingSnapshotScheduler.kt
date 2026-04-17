@@ -1,9 +1,9 @@
 package com.loopers.application.ranking
 
+import com.loopers.common.DateUtils
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.time.LocalDate
 
 @Component
 class RankingSnapshotScheduler(
@@ -15,9 +15,9 @@ class RankingSnapshotScheduler(
 
     @Scheduled(fixedRate = 3_600_000)
     fun saveSnapshot() {
-        val today = LocalDate.now()
+        val today = DateUtils.todayKst()
         try {
-            val rankings = getRankingsUseCase.execute(today, 0, SNAPSHOT_SIZE)
+            val rankings = getRankingsUseCase.execute(RankingPeriod.DAILY, today, 0, SNAPSHOT_SIZE)
             rankingSnapshotStore.save(today, rankings)
             log.info("랭킹 스냅샷 저장 [date={}, count={}]", today, rankings.content.size)
         } catch (e: Exception) {
