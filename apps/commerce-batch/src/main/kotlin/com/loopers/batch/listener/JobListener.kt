@@ -37,7 +37,14 @@ class JobListener {
         val minutes = duration.toMinutes() % 60
         val seconds = duration.seconds % 60
 
-        val message = """  
+        val jobParams = jobExecution.jobParameters.parameters
+            .map { (k, v) -> "$k=${v.value}" }
+            .joinToString(", ")
+
+        val message = """
+            *Job:* ${jobExecution.jobInstance.jobName}
+            *Status:* ${jobExecution.exitStatus.exitCode}
+            *Parameters:* $jobParams
             *Start Time:* $startDateTime
             *End Time:* $endDateTime
             *Total Time:* ${hours}시간 ${minutes}분 ${seconds}초

@@ -1,0 +1,19 @@
+### 일간 랭킹 조회 (기본값)
+GET http://localhost:8080/api/v1/rankings?date=20260417&size=20&page=1
+Content-Type: application/json
+
+### 일간 랭킹 조회 (period 명시)
+GET http://localhost:8080/api/v1/rankings?period=DAILY&date=20260417&size=20&page=1
+Content-Type: application/json
+
+### 주간 랭킹 조회
+GET http://localhost:8080/api/v1/rankings?period=WEEKLY&date=20260417&size=20&page=1
+Content-Type: application/json
+
+### 월간 랭킹 조회
+GET http://localhost:8080/api/v1/rankings?period=MONTHLY&date=20260417&size=20&page=1
+Content-Type: application/json
+
+### 일간 랭킹 조회 (날짜 미지정 - 오늘)
+GET http://localhost:8080/api/v1/rankings?size=10&page=1
+Content-Type: application/json
