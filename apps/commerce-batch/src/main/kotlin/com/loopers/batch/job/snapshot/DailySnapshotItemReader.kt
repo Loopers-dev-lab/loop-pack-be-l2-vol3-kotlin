@@ -2,6 +2,7 @@ package com.loopers.batch.job.snapshot
 
 import com.loopers.zset.RankingKeyGenerator
 import com.loopers.zset.RedisZSetTemplate
+import com.loopers.zset.ZSetEntry
 import org.springframework.batch.core.configuration.annotation.StepScope
 import org.springframework.batch.item.ItemReader
 import org.springframework.beans.factory.annotation.Value
@@ -15,23 +16,24 @@ class DailySnapshotItemReader(
     @param:Value("#{jobParameters['targetDate']}") private val targetDate: LocalDate,
 ) : ItemReader<RankedSnapshot> {
 
-    private var iterator: Iterator<RankedSnapshot>? = null
+    private var iterator: Iterator<IndexedValue<ZSetEntry>>? = null
 
     override fun read(): RankedSnapshot? {
-        val it = iterator ?: loadAll().also { iterator = it }
-        return if (it.hasNext()) it.next() else null
+        val it = iterator ?: loadEntries().also { iterator = it }
+        if (!it.hasNext()) return null
+        val (index, entry) = it.next()
+        return RankedSnapshot(
+            productId = entry.member.toLong(),
+            metricDate = targetDate,
+            totalScore = entry.score,
+            rankPosition = index + 1,
+        )
     }
 
-    private fun loadAll(): Iterator<RankedSnapshot> {
+    private fun loadEntries(): Iterator<IndexedValue<ZSetEntry>> {
         val key = RankingKeyGenerator.dailyKey(targetDate)
-        val entries = redisZSetTemplate.reverseRangeWithScores(key, 0, -1)
-        return entries.mapIndexed { index, entry ->
-            RankedSnapshot(
-                productId = entry.member.toLong(),
-                metricDate = targetDate,
-                totalScore = entry.score,
-                rankPosition = index + 1,
-            )
-        }.iterator()
+        return redisZSetTemplate.reverseRangeWithScoresFromMaster(key, 0, -1)
+            .withIndex()
+            .iterator()
     }
 }
