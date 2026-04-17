@@ -245,6 +245,38 @@ class UserRankingV1E2ETest
             }
 
             @Test
+            @DisplayName("period= (빈 값) → 400 BAD_REQUEST")
+            fun getList_emptyPeriod_returns400() {
+                val response = testRestTemplate.exchange(
+                    "/api/v1/rankings?date=$dateParam&period=",
+                    HttpMethod.GET,
+                    null,
+                    object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+                )
+
+                assertAll(
+                    { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                    { assertThat(response.body?.meta?.errorCode).isEqualTo("Bad Request") },
+                )
+            }
+
+            @Test
+            @DisplayName("period=%20 (공백 문자) → 400 BAD_REQUEST")
+            fun getList_whitespacePeriod_returns400() {
+                val response = testRestTemplate.exchange(
+                    "/api/v1/rankings?date=$dateParam&period=%20",
+                    HttpMethod.GET,
+                    null,
+                    object : ParameterizedTypeReference<ApiResponse<Any>>() {},
+                )
+
+                assertAll(
+                    { assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST) },
+                    { assertThat(response.body?.meta?.errorCode).isEqualTo("Bad Request") },
+                )
+            }
+
+            @Test
             @DisplayName("weekly MV가 해당 주에 없으면 200 OK + 빈 페이지를 반환한다")
             fun getList_weeklyEmpty_returnsEmptyPage() {
                 val response = testRestTemplate.exchange(

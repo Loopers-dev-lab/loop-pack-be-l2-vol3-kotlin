@@ -26,7 +26,10 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.boot.test.system.CapturedOutput
 import org.springframework.boot.test.system.OutputCaptureExtension
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 @DisplayName("KafkaMetricEventHandler")
 @ExtendWith(OutputCaptureExtension::class)
@@ -1016,6 +1019,87 @@ class KafkaMetricEventHandlerTest {
                 )
             }.isInstanceOf(RuntimeException::class.java)
                 .hasMessageContaining("Daily DB write failed")
+        }
+    }
+
+    @Nested
+    @DisplayName("자정 경계: metricDate는 주입된 Clock(서울 시간대) 기준으로 결정된다")
+    inner class MidnightBoundary {
+
+        private val seoulZone = ZoneId.of("Asia/Seoul")
+
+        @Test
+        @DisplayName("KST 23:59:59.999 (UTC 14:59:59.999) → metricDate = 당일")
+        fun handle_justBeforeMidnight_usesCurrentDay() {
+            // UTC 2026-04-16T14:59:59.999Z = KST 2026-04-16T23:59:59.999
+            val fixedClock = Clock.fixed(Instant.parse("2026-04-16T14:59:59.999Z"), seoulZone)
+            val handlerWithClock = KafkaMetricEventHandler(
+                productMetricRepository,
+                productMetricDailyRepository,
+                handledEventRepository,
+                productLikeCountRepository,
+                processedPaymentRepository,
+                productRankingRepository,
+                fixedClock,
+            )
+
+            whenever(handledEventRepository.existsByEventId(EVENT_ID)).thenReturn(false)
+            whenever(productMetricRepository.findByProductId(PRODUCT_ID)).thenReturn(null)
+            whenever(productMetricRepository.save(check { })).thenAnswer { it.arguments[0] as ProductMetric }
+            whenever(productMetricDailyRepository.save(any())).thenAnswer { it.arguments[0] as ProductMetricDaily }
+
+            handlerWithClock.handle(
+                topic = "catalog-events",
+                envelope = KafkaEventEnvelope(
+                    eventId = EVENT_ID,
+                    eventType = KafkaEventType.PRODUCT_DETAIL_VIEWED,
+                    aggregateId = PRODUCT_ID,
+                    payload = objectMapper.readTree("""{"productId":100}"""),
+                ),
+            )
+
+            verify(productMetricDailyRepository).save(
+                check { daily ->
+                    assertThat(daily.metricDate).isEqualTo(LocalDate.of(2026, 4, 16))
+                },
+            )
+        }
+
+        @Test
+        @DisplayName("KST 00:00:00 (UTC 15:00:00) → metricDate = 다음 날")
+        fun handle_atMidnight_usesNextDay() {
+            // UTC 2026-04-16T15:00:00Z = KST 2026-04-17T00:00:00
+            val fixedClock = Clock.fixed(Instant.parse("2026-04-16T15:00:00Z"), seoulZone)
+            val handlerWithClock = KafkaMetricEventHandler(
+                productMetricRepository,
+                productMetricDailyRepository,
+                handledEventRepository,
+                productLikeCountRepository,
+                processedPaymentRepository,
+                productRankingRepository,
+                fixedClock,
+            )
+
+            whenever(handledEventRepository.existsByEventId(EVENT_ID)).thenReturn(false)
+            whenever(productMetricRepository.findByProductId(PRODUCT_ID)).thenReturn(null)
+            whenever(productMetricRepository.save(check { })).thenAnswer { it.arguments[0] as ProductMetric }
+            whenever(productMetricDailyRepository.save(any())).thenAnswer { it.arguments[0] as ProductMetricDaily }
+
+            handlerWithClock.handle(
+                topic = "catalog-events",
+                envelope = KafkaEventEnvelope(
+                    eventId = EVENT_ID,
+                    eventType = KafkaEventType.PRODUCT_DETAIL_VIEWED,
+                    aggregateId = PRODUCT_ID,
+                    payload = objectMapper.readTree("""{"productId":100}"""),
+                ),
+            )
+
+            verify(productMetricDailyRepository).save(
+                check { daily ->
+                    assertThat(daily.metricDate).isEqualTo(LocalDate.of(2026, 4, 17))
+                },
+            )
         }
     }
 

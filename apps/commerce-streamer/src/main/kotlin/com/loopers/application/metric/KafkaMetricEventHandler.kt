@@ -16,6 +16,7 @@ import com.loopers.infrastructure.outbox.KafkaEventType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -27,6 +28,7 @@ class KafkaMetricEventHandler(
     private val productLikeCountRepository: ProductLikeCountRepository,
     private val processedPaymentRepository: ProcessedPaymentRepository,
     private val productRankingRepository: ProductRankingRepository,
+    private val clock: Clock = Clock.system(SEOUL_ZONE),
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val rankingScorePolicy = RankingScorePolicy()
@@ -89,7 +91,7 @@ class KafkaMetricEventHandler(
         productMetricRepository.save(updated)
 
         // Daily 적재 (LIKE_CANCELED는 no-op — 기존 ZSET과 일관: cancel 시 점수 차감 없음)
-        val today = LocalDate.now(SEOUL_ZONE)
+        val today = LocalDate.now(clock)
         when (envelope.eventType) {
             KafkaEventType.PRODUCT_DETAIL_VIEWED -> {
                 val daily = productMetricDailyRepository.findByProductIdAndMetricDate(productId, today)
@@ -238,7 +240,7 @@ class KafkaMetricEventHandler(
         productMetricRepository.saveAll(updatedMetrics)
         processedPaymentRepository.save(paymentId)
 
-        val today = LocalDate.now(SEOUL_ZONE)
+        val today = LocalDate.now(clock)
         itemsByProduct.forEach { (productId, item) ->
             val daily = productMetricDailyRepository.findByProductIdAndMetricDate(productId, today)
                 ?: ProductMetricDaily.register(productId, today)

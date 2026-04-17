@@ -127,17 +127,27 @@ class WeeklyRankJobE2ETest
             }
 
             @Test
-            @DisplayName("같은 (year, week)로 재실행하면 기존 MV 데이터를 교체한다 (멱등성)")
+            @DisplayName("같은 (year, week)로 재실행하면 기존 MV 데이터가 2회차 입력 기준으로 교체된다 (멱등성)")
             fun aggregate_idempotent() {
                 val baseDate = LocalDate.of(2026, 4, 16)
-                insertDaily(productId = 100L, date = baseDate, view = 10, like = 2, units = 1, amount = 10_000L, orderScore = 6.45)
 
+                // 1회차: viewCount 10
+                insertDaily(productId = 100L, date = baseDate, view = 10, like = 2, units = 1, amount = 10_000L, orderScore = 6.45)
                 jobLauncherTestUtils.job = job
                 val params1 = JobParametersBuilder()
                     .addString("baseDate", "2026-04-16")
                     .addLong("run.id", 1L)
                     .toJobParameters()
                 jobLauncherTestUtils.launchJob(params1)
+
+                // 1회차 결과 검증
+                val afterFirst = weeklyProductRankJpaRepository.findAll()
+                assertThat(afterFirst).hasSize(1)
+                assertThat(afterFirst.first().viewCount).isEqualTo(10)
+
+                // 입력 데이터 교체 (2회차는 viewCount 50 기준이 되어야 함)
+                jdbcTemplate.execute("DELETE FROM product_metrics_daily")
+                insertDaily(productId = 100L, date = baseDate, view = 50, like = 5, units = 3, amount = 30_000L, orderScore = 15.0)
 
                 val params2 = JobParametersBuilder()
                     .addString("baseDate", "2026-04-16")
@@ -146,7 +156,86 @@ class WeeklyRankJobE2ETest
                 val jobExecution = jobLauncherTestUtils.launchJob(params2)
 
                 assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.COMPLETED.exitCode)
-                assertThat(weeklyProductRankJpaRepository.findAll()).hasSize(1)
+                val afterSecond = weeklyProductRankJpaRepository.findAll()
+                // 멱등 교체: 기존 행 삭제 후 2회차 입력 기준으로 재적재
+                assertAll(
+                    { assertThat(afterSecond).hasSize(1) },
+                    { assertThat(afterSecond.first().productId).isEqualTo(100L) },
+                    { assertThat(afterSecond.first().viewCount).isEqualTo(50) },
+                    { assertThat(afterSecond.first().likeCount).isEqualTo(5) },
+                    { assertThat(afterSecond.first().unitsSold).isEqualTo(3) },
+                    { assertThat(afterSecond.first().salesAmount).isEqualTo(30_000L) },
+                )
+            }
+
+            @Test
+            @DisplayName("baseDate - 7일과 baseDate + 1일의 행은 집계에서 제외된다 (윈도우 경계)")
+            fun aggregate_windowBoundary() {
+                val baseDate = LocalDate.of(2026, 4, 16)
+
+                // 윈도우 안쪽: baseDate - 6 ~ baseDate (7일)
+                for (dayOffset in 0L..6L) {
+                    insertDaily(
+                        productId = 100L,
+                        date = baseDate.minusDays(dayOffset),
+                        view = 10,
+                        like = 0,
+                        units = 0,
+                        amount = 0L,
+                        orderScore = 0.0,
+                    )
+                }
+                // 윈도우 밖: baseDate - 7 (이전 주)
+                insertDaily(productId = 100L, date = baseDate.minusDays(7), view = 999, like = 999, units = 999, amount = 999L, orderScore = 999.0)
+                // 윈도우 밖: baseDate + 1 (다음 날)
+                insertDaily(productId = 100L, date = baseDate.plusDays(1), view = 999, like = 999, units = 999, amount = 999L, orderScore = 999.0)
+
+                jobLauncherTestUtils.job = job
+                val jobExecution = jobLauncherTestUtils.launchJob(uniqueParams(baseDateStr = "2026-04-16"))
+
+                assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.COMPLETED.exitCode)
+                val results = weeklyProductRankJpaRepository.findAll()
+                // 윈도우 안쪽 7일치만 집계: view 10*7 = 70 (999*2 = 1998 더해지면 안 됨)
+                assertAll(
+                    { assertThat(results).hasSize(1) },
+                    { assertThat(results.first().productId).isEqualTo(100L) },
+                    { assertThat(results.first().viewCount).isEqualTo(70) },
+                    { assertThat(results.first().likeCount).isEqualTo(0) },
+                )
+            }
+
+            @Test
+            @DisplayName("deleted_at이 설정된 daily 행은 SUM 집계에서 제외된다 (soft-delete 필터)")
+            fun aggregate_softDeleteFilter() {
+                val baseDate = LocalDate.of(2026, 4, 16)
+
+                // 정상 행 (deleted_at NULL)
+                insertDaily(productId = 100L, date = baseDate, view = 10, like = 2, units = 1, amount = 10_000L, orderScore = 6.45)
+                // soft-delete 처리된 행 (같은 날, 같은 상품)
+                insertDailyWithDeleted(
+                    productId = 100L,
+                    date = baseDate.minusDays(1),
+                    view = 999,
+                    like = 999,
+                    units = 999,
+                    amount = 999L,
+                    orderScore = 999.0,
+                )
+
+                jobLauncherTestUtils.job = job
+                val jobExecution = jobLauncherTestUtils.launchJob(uniqueParams(baseDateStr = "2026-04-16"))
+
+                assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.COMPLETED.exitCode)
+                val results = weeklyProductRankJpaRepository.findAll()
+                // soft-delete 행은 SUM에서 제외
+                assertAll(
+                    { assertThat(results).hasSize(1) },
+                    { assertThat(results.first().productId).isEqualTo(100L) },
+                    { assertThat(results.first().viewCount).isEqualTo(10) },
+                    { assertThat(results.first().likeCount).isEqualTo(2) },
+                    { assertThat(results.first().unitsSold).isEqualTo(1) },
+                    { assertThat(results.first().salesAmount).isEqualTo(10_000L) },
+                )
             }
         }
 
@@ -175,6 +264,31 @@ class WeeklyRankJobE2ETest
                 INSERT INTO product_metrics_daily
                     (product_id, metric_date, view_count, like_count, units_sold, sales_amount, order_score, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW(6), NOW(6))
+                """.trimIndent(),
+                productId,
+                date,
+                view,
+                like,
+                units,
+                amount,
+                orderScore,
+            )
+        }
+
+        private fun insertDailyWithDeleted(
+            productId: Long,
+            date: LocalDate,
+            view: Int,
+            like: Int,
+            units: Int,
+            amount: Long,
+            orderScore: Double,
+        ) {
+            jdbcTemplate.update(
+                """
+                INSERT INTO product_metrics_daily
+                    (product_id, metric_date, view_count, like_count, units_sold, sales_amount, order_score, created_at, updated_at, deleted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(6), NOW(6), NOW(6))
                 """.trimIndent(),
                 productId,
                 date,

@@ -1,6 +1,5 @@
 package com.loopers.interfaces.api.user.ranking
 
-import com.loopers.application.user.ranking.RankingPeriod
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.page.PageRequest
 import com.loopers.support.page.PageResponse
@@ -21,10 +20,11 @@ interface UserRankingV1ApiSpec {
         )
         date: String?,
         @Parameter(
-            description = "집계 기간 (daily|weekly|monthly, 대소문자 무관, 미제공 시 daily)",
+            description = "집계 기간 (daily|weekly|monthly, 대소문자 무관, 미제공 시 daily; 빈 값/공백은 400)",
             example = "WEEKLY",
+            required = false,
         )
-        period: RankingPeriod,
+        periodParam: String?,
         pageRequest: PageRequest,
     ): ApiResponse<PageResponse<UserRankingV1Response.RankedProduct>>
 }

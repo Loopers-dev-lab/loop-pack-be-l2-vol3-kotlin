@@ -236,6 +236,8 @@ class UserRankingListUseCaseTest {
             verify(weeklyRankQueryRepository).getTotalCount(date)
             verify(productRankingQueryRepository, never()).getTopRanked(any(), any(), any())
             verify(monthlyRankQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(productRankingQueryRepository, never()).getTotalCount(any())
+            verify(monthlyRankQueryRepository, never()).getTotalCount(any())
         }
 
         @Test
@@ -254,6 +256,8 @@ class UserRankingListUseCaseTest {
             verify(monthlyRankQueryRepository).getTotalCount(date)
             verify(productRankingQueryRepository, never()).getTopRanked(any(), any(), any())
             verify(weeklyRankQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(productRankingQueryRepository, never()).getTotalCount(any())
+            verify(weeklyRankQueryRepository, never()).getTotalCount(any())
         }
 
         @Test
@@ -271,6 +275,8 @@ class UserRankingListUseCaseTest {
             verify(productRankingQueryRepository).getTopRanked(date, 0, 10)
             verify(weeklyRankQueryRepository, never()).getTopRanked(any(), any(), any())
             verify(monthlyRankQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(weeklyRankQueryRepository, never()).getTotalCount(any())
+            verify(monthlyRankQueryRepository, never()).getTotalCount(any())
         }
     }
 

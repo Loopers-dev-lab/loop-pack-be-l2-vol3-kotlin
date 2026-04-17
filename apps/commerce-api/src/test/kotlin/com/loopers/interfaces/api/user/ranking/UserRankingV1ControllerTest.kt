@@ -46,7 +46,7 @@ class UserRankingV1ControllerTest {
                 ),
             )
 
-            val response = controller.getList("20260410", RankingPeriod.DAILY, pageRequest)
+            val response = controller.getList("20260410", "DAILY", pageRequest)
 
             assertThat(response.meta.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS)
             assertThat(response.data?.content).hasSize(1)
@@ -61,7 +61,7 @@ class UserRankingV1ControllerTest {
         fun getList_parsesDate() {
             whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
 
-            controller.getList("20260410", RankingPeriod.DAILY, PageRequest())
+            controller.getList("20260410", "DAILY", PageRequest())
 
             verify(listUseCase).getList(
                 check { date -> assertThat(date).isEqualTo(LocalDate.of(2026, 4, 10)) },
@@ -75,7 +75,7 @@ class UserRankingV1ControllerTest {
         fun getList_passesPeriod() {
             whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
 
-            controller.getList("20260410", RankingPeriod.WEEKLY, PageRequest())
+            controller.getList("20260410", "WEEKLY", PageRequest())
 
             verify(listUseCase).getList(
                 any(),
@@ -94,7 +94,7 @@ class UserRankingV1ControllerTest {
         fun getList_nullDate_usesToday() {
             whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
 
-            controller.getList(null, RankingPeriod.DAILY, PageRequest())
+            controller.getList(null, "DAILY", PageRequest())
 
             verify(listUseCase).getList(
                 check { date -> assertThat(date).isEqualTo(LocalDate.now()) },
@@ -113,7 +113,7 @@ class UserRankingV1ControllerTest {
         fun getList_emptyResult() {
             whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
 
-            val response = controller.getList("20260410", RankingPeriod.DAILY, PageRequest())
+            val response = controller.getList("20260410", "DAILY", PageRequest())
 
             assertThat(response.data?.content).isEmpty()
             assertThat(response.data?.totalElements).isEqualTo(0)
@@ -127,7 +127,7 @@ class UserRankingV1ControllerTest {
         @Test
         @DisplayName("date=2026-04-10 (ISO 형식) → CoreException(BAD_REQUEST)")
         fun getList_isoFormat_throws() {
-            assertThatThrownBy { controller.getList("2026-04-10", RankingPeriod.DAILY, PageRequest()) }
+            assertThatThrownBy { controller.getList("2026-04-10", "DAILY", PageRequest()) }
                 .isInstanceOf(CoreException::class.java)
                 .extracting("errorType")
                 .isEqualTo(ErrorType.BAD_REQUEST)
@@ -136,7 +136,7 @@ class UserRankingV1ControllerTest {
         @Test
         @DisplayName("date=abc → CoreException(BAD_REQUEST)")
         fun getList_invalidString_throws() {
-            assertThatThrownBy { controller.getList("abc", RankingPeriod.DAILY, PageRequest()) }
+            assertThatThrownBy { controller.getList("abc", "DAILY", PageRequest()) }
                 .isInstanceOf(CoreException::class.java)
                 .extracting("errorType")
                 .isEqualTo(ErrorType.BAD_REQUEST)
