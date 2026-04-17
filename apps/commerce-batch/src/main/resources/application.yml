@@ -14,8 +14,18 @@ spring:
   batch:
     job:
       name: ${job.name:NONE}
+      enabled: false
     jdbc:
       initialize-schema: never
+
+batch:
+  snapshot:
+    daily:
+      cron: "0 0 1 * * *"
+      chunk-size: 500
+      skip-limit: 100
+      retry-limit: 3
+      ttl-warn-threshold-hours: 12
 
 management:
   health:

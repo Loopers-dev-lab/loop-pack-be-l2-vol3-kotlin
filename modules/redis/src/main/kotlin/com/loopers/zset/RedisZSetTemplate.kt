@@ -66,4 +66,8 @@ class RedisZSetTemplate(
             masterRedisTemplate.expire(key, ttl)
         }
     }
+
+    fun getExpireSeconds(key: String): Long = redisTemplate.getExpire(key) ?: -2L
+
+    fun hasKey(key: String): Boolean = redisTemplate.hasKey(key) ?: false
 }
