@@ -8,6 +8,8 @@ import com.loopers.application.product.ProductInfo
 import com.loopers.application.product.ProductService
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Component
 class RankingFacade(
@@ -21,6 +23,14 @@ class RankingFacade(
     fun getRankings(date: String, page: Int, size: Int): RankingPageInfo {
         val pageResult = rankingService.getTopRankings(date, page, size)
         return toPageInfo(pageResult)
+    }
+
+    @Transactional(readOnly = true)
+    fun getRankings(period: RankingPeriod, date: String, page: Int, size: Int): RankingPageInfo {
+        if (period == RankingPeriod.DAILY) return getRankings(date, page, size)
+        val localDate = LocalDate.parse(date, DATE_FORMATTER)
+        val result = rankingService.getPeriodRankings(period, localDate, page, size)
+        return toPageInfo(result)
     }
 
     @Transactional(readOnly = true)
@@ -85,5 +95,9 @@ class RankingFacade(
         val brand = runCatching { brandService.getBrand(brandId) }.getOrNull() ?: return null
         brandCacheStore.putBrand(brandId, BrandInfo.from(brand))
         return brand.name
+    }
+
+    companion object {
+        private val DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
     }
 }

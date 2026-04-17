@@ -12,7 +12,8 @@ import org.junit.jupiter.api.Test
 class RankingServiceTest {
 
     private val rankingStore: RankingStore = mockk()
-    private val rankingService = RankingService(rankingStore)
+    private val mvRankingStore: MvRankingStore = mockk()
+    private val rankingService = RankingService(rankingStore, mvRankingStore)
 
     @Nested
     @DisplayName("getTopRankings")

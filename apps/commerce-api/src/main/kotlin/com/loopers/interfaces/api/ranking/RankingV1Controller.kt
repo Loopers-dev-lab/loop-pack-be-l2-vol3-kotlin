@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.ranking
 
 import com.loopers.application.ranking.RankingFacade
+import com.loopers.application.ranking.RankingPeriod
 import com.loopers.domain.error.CoreException
 import com.loopers.domain.error.ErrorType
 import com.loopers.interfaces.api.ApiResponse
@@ -23,13 +24,16 @@ class RankingV1Controller(
     @GetMapping
     override fun getRankings(
         @RequestParam(required = false) date: String?,
+        @RequestParam(required = false, defaultValue = "daily") period: String,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(defaultValue = "0") page: Int,
     ): ApiResponse<PageResponse<RankingV1Dto.RankingItemResponse>> {
+        val validPeriod = RankingPeriod.fromOrNull(period)
+            ?: throw CoreException(ErrorType.BAD_REQUEST, "period는 daily|weekly|monthly 중 하나여야 합니다.")
         val validSize = validateSize(size)
         val validPage = validatePage(page)
         val targetDate = validateDate(date)
-        val result = rankingFacade.getRankings(targetDate, validPage, validSize)
+        val result = rankingFacade.getRankings(validPeriod, targetDate, validPage, validSize)
         return ApiResponse.success(
             PageResponse(
                 content = result.items.map { RankingV1Dto.RankingItemResponse.from(it) },

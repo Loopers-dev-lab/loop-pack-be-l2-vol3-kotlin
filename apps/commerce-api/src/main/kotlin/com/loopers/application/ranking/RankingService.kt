@@ -1,12 +1,15 @@
 package com.loopers.application.ranking
 
+import com.loopers.domain.ranking.PeriodKeyResolver
 import com.loopers.event.EventContract
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 import kotlin.math.ceil
 
 @Component
 class RankingService(
     private val rankingStore: RankingStore,
+    private val mvRankingStore: MvRankingStore,
 ) {
 
     fun getTopRankings(date: String, page: Int, size: Int): RankingPageResult {
@@ -44,6 +47,15 @@ class RankingService(
             totalElements = totalElements,
             totalPages = totalPages,
         )
+    }
+
+    fun getPeriodRankings(period: RankingPeriod, targetDate: LocalDate, page: Int, size: Int): RankingPageResult {
+        val periodKey = when (period) {
+            RankingPeriod.WEEKLY -> PeriodKeyResolver.resolveWeekKey(targetDate)
+            RankingPeriod.MONTHLY -> PeriodKeyResolver.resolveMonthKey(targetDate)
+            RankingPeriod.DAILY -> error("Use getTopRankings for DAILY")
+        }
+        return mvRankingStore.getRankings(period, periodKey, page, size)
     }
 
     private fun buildDailyKey(date: String): String = "${EventContract.RANKING_KEY_PREFIX}:$date"
