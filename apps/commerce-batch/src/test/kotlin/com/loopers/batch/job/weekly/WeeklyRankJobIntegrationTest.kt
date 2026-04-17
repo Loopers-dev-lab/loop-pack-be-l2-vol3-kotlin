@@ -149,12 +149,46 @@ class WeeklyRankJobIntegrationTest @Autowired constructor(
         )
     }
 
-    private fun seedDaily(productId: Long, date: LocalDate, viewCount: Long) {
+    @Test
+    fun `view와 like와 order 모두 가중치를 반영해 total_score를 재계산한다`() {
+        val weekEnd = LocalDate.of(2026, 3, 21)
+        (0 until 7).forEach { offset ->
+            val date = weekEnd.minusDays(offset.toLong())
+            seedDaily(
+                productId = 1L,
+                date = date,
+                viewCount = 100L,
+                likeCount = 50L,
+                orderCount = 10L,
+            )
+        }
+
+        jobLauncherTestUtils.launchJob(jobParams(weekEnd))
+
+        val ranks = weeklyRankRepository.findRanksByWeekEnd(weekEnd)
+        assertAll(
+            { assertThat(ranks).hasSize(1) },
+            { assertThat(ranks.first().viewCount).isEqualTo(700L) },
+            { assertThat(ranks.first().likeCount).isEqualTo(350L) },
+            { assertThat(ranks.first().orderCount).isEqualTo(70L) },
+            { assertThat(ranks.first().totalScore).isEqualTo(700 * 0.1 + 350 * 0.2 + 70 * 0.6) },
+        )
+    }
+
+    private fun seedDaily(
+        productId: Long,
+        date: LocalDate,
+        viewCount: Long = 0L,
+        likeCount: Long = 0L,
+        orderCount: Long = 0L,
+    ) {
         productMetricsDailyRepository.save(
             ProductMetricsDaily.create(
                 productId = productId,
                 metricDate = date,
                 viewCount = viewCount,
+                likeCount = likeCount,
+                orderCount = orderCount,
             ),
         )
     }

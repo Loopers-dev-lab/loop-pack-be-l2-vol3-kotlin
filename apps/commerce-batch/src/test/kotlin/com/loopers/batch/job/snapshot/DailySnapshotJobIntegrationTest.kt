@@ -1,6 +1,9 @@
 package com.loopers.batch.job.snapshot
 
 import com.loopers.domain.ranking.ProductMetricsDailyRepository
+import com.loopers.hash.MetricType
+import com.loopers.hash.MetricsDailyKey
+import com.loopers.hash.RedisHashTemplate
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
 import com.loopers.zset.RankingKeyGenerator
@@ -28,6 +31,7 @@ class DailySnapshotJobIntegrationTest @Autowired constructor(
     private val jobLauncherTestUtils: JobLauncherTestUtils,
     @param:Qualifier(DailySnapshotJobConfig.JOB_NAME) private val job: Job,
     private val redisZSetTemplate: RedisZSetTemplate,
+    private val redisHashTemplate: RedisHashTemplate,
     private val productMetricsDailyRepository: ProductMetricsDailyRepository,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
@@ -113,9 +117,35 @@ class DailySnapshotJobIntegrationTest @Autowired constructor(
         )
     }
 
+    @Test
+    fun `Redis Hash에 개별 카운트가 있으면 product_metrics_daily에 view like order가 함께 저장된다`() {
+        val date = LocalDate.of(2026, 1, 5)
+        seedRanking(date, listOf("1" to 50.0))
+        seedHashCount(date, productId = 1L, view = 10L, like = 5L, order = 2L)
+
+        val execution = jobLauncherTestUtils.launchJob(jobParams(date))
+
+        val dumped = productMetricsDailyRepository.findDailyOrNull(1L, date)
+            ?: error("product_metrics_daily 행이 생성되지 않음")
+        assertAll(
+            { assertThat(execution.exitStatus.exitCode).isEqualTo(ExitStatus.COMPLETED.exitCode) },
+            { assertThat(dumped.viewCount).isEqualTo(10L) },
+            { assertThat(dumped.likeCount).isEqualTo(5L) },
+            { assertThat(dumped.orderCount).isEqualTo(2L) },
+            { assertThat(dumped.totalScore).isEqualTo(50.0) },
+        )
+    }
+
     private fun seedRanking(date: LocalDate, entries: List<Pair<String, Double>>) {
         val key = RankingKeyGenerator.dailyKey(date)
         entries.forEach { (member, score) -> redisZSetTemplate.incrementScore(key, member, score) }
+    }
+
+    private fun seedHashCount(date: LocalDate, productId: Long, view: Long = 0L, like: Long = 0L, order: Long = 0L) {
+        val key = MetricsDailyKey.key(date)
+        if (view > 0L) redisHashTemplate.increment(key, MetricsDailyKey.field(productId, MetricType.VIEW), view)
+        if (like > 0L) redisHashTemplate.increment(key, MetricsDailyKey.field(productId, MetricType.LIKE), like)
+        if (order > 0L) redisHashTemplate.increment(key, MetricsDailyKey.field(productId, MetricType.ORDER), order)
     }
 
     private fun jobParams(date: LocalDate) =
