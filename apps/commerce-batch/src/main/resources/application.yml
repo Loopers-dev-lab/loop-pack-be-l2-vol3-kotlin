@@ -28,6 +28,12 @@ batch:
   consistency:
     cron: "0 30 3 * * *"
     warn-threshold: 10
+  retention:
+    cron: "0 0 4 * * *"
+    daily-retention-days: 90
+    weekly-retention-weeks: 12
+    monthly-retention-months: 12
+    batch-size: 1000
   ranking:
     orchestrator:
       cron: "0 0 1 * * *"
