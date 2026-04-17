@@ -1,5 +1,8 @@
 package com.loopers.batch.job.ranking
 
+import com.loopers.batch.job.ranking.RankingBatchConstants.CHUNK_SIZE
+import com.loopers.batch.job.ranking.RankingBatchConstants.DATE_FORMATTER
+import com.loopers.batch.job.ranking.RankingBatchConstants.PRODUCT_METRICS_RANKING_SQL
 import com.loopers.batch.job.ranking.step.CleanupRankingTasklet
 import com.loopers.batch.job.ranking.step.RankingWriter
 import com.loopers.batch.listener.ChunkListener
@@ -24,7 +27,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import javax.sql.DataSource
 
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = WeeklyRankingJobConfig.JOB_NAME)
@@ -41,8 +43,6 @@ class WeeklyRankingJobConfig(
         const val JOB_NAME = "weeklyRankingJob"
         private const val STEP_CLEANUP = "cleanupWeeklyRankingStep"
         private const val STEP_AGGREGATE = "aggregateWeeklyRankingStep"
-        private const val CHUNK_SIZE = 100
-        private const val RANKING_LIMIT = 100
     }
 
     @Bean(JOB_NAME)
@@ -84,7 +84,7 @@ class WeeklyRankingJobConfig(
             .chunk<ProductMetricsRow, ProductMetricsRow>(CHUNK_SIZE, transactionManager)
             .reader(productMetricsReader(requireNotNull(dataSource)))
             .writer(writer)
-            .listener(writer as org.springframework.batch.core.StepExecutionListener)
+            .listener(writer)
             .listener(stepMonitorListener)
             .listener(chunkListener)
             .build()
@@ -96,22 +96,10 @@ class WeeklyRankingJobConfig(
         return JdbcCursorItemReaderBuilder<ProductMetricsRow>()
             .name("weeklyProductMetricsReader")
             .dataSource(dataSource)
-            .sql(
-                """
-                SELECT product_id, view_count, like_count, order_count, sales_amount,
-                       (view_count * 0.1 + like_count * 0.2 + order_count * 0.7) AS score
-                FROM product_metrics
-                ORDER BY score DESC
-                LIMIT $RANKING_LIMIT
-                """.trimIndent(),
-            )
+            .sql(PRODUCT_METRICS_RANKING_SQL)
             .rowMapper { rs, _ ->
                 ProductMetricsRow(
                     productId = rs.getLong("product_id"),
-                    viewCount = rs.getLong("view_count"),
-                    likeCount = rs.getLong("like_count"),
-                    orderCount = rs.getLong("order_count"),
-                    salesAmount = rs.getLong("sales_amount"),
                     score = rs.getDouble("score"),
                 )
             }
@@ -134,5 +122,3 @@ class WeeklyRankingJobConfig(
         )
     }
 }
-
-private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")

@@ -5,6 +5,7 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Index
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.LocalDate
 
 @Entity
@@ -12,6 +13,9 @@ import java.time.LocalDate
     name = "mv_product_rank_weekly",
     indexes = [
         Index(name = "idx_mv_weekly_date_ranking", columnList = "ranking_date, ranking"),
+    ],
+    uniqueConstraints = [
+        UniqueConstraint(name = "uk_mv_weekly_product_date", columnNames = ["product_id", "ranking_date"]),
     ],
 )
 class ProductRankWeeklyEntity(

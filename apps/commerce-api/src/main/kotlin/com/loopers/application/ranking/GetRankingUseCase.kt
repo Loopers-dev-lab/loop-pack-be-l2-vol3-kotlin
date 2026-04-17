@@ -36,17 +36,42 @@ class GetRankingUseCase(
                 val rankingDate = toStartOfWeek(date)
                 val entries = weeklyRankingRepository.findRankings(rankingDate, page - 1, size)
                 val count = weeklyRankingRepository.countByRankingDate(rankingDate)
-                entries to count
+                if (entries.isNotEmpty()) {
+                    entries to count
+                } else {
+                    val prevWeek = rankingDate.minusWeeks(1)
+                    val fallbackEntries = weeklyRankingRepository.findRankings(prevWeek, page - 1, size)
+                    val fallbackCount = weeklyRankingRepository.countByRankingDate(prevWeek)
+                    if (fallbackEntries.isNotEmpty()) {
+                        fallbackEntries to fallbackCount
+                    } else {
+                        rankingRepository.getTopRankings(date, offset, size.toLong()) to
+                            rankingRepository.getTotalCount(date)
+                    }
+                }
             }
             RankingPeriod.MONTHLY -> {
                 val rankingDate = toStartOfMonth(date)
                 val entries = monthlyRankingRepository.findRankings(rankingDate, page - 1, size)
                 val count = monthlyRankingRepository.countByRankingDate(rankingDate)
-                entries to count
+                if (entries.isNotEmpty()) {
+                    entries to count
+                } else {
+                    val prevMonth = rankingDate.minusMonths(1)
+                    val fallbackEntries = monthlyRankingRepository.findRankings(prevMonth, page - 1, size)
+                    val fallbackCount = monthlyRankingRepository.countByRankingDate(prevMonth)
+                    if (fallbackEntries.isNotEmpty()) {
+                        fallbackEntries to fallbackCount
+                    } else {
+                        rankingRepository.getTopRankings(date, offset, size.toLong()) to
+                            rankingRepository.getTotalCount(date)
+                    }
+                }
             }
         }
 
-        return buildRankingPageInfo(entries, totalCount, page, size)
+        val isRankZeroBased = period == RankingPeriod.DAILY
+        return buildRankingPageInfo(entries, totalCount, page, size, isRankZeroBased)
     }
 
     fun getProductRank(date: String, productId: Long): ProductRankInfo? {
@@ -63,6 +88,7 @@ class GetRankingUseCase(
         totalCount: Long,
         page: Int,
         size: Int,
+        isRankZeroBased: Boolean,
     ): RankingPageInfo {
         if (entries.isEmpty()) {
             return RankingPageInfo(
@@ -84,8 +110,9 @@ class GetRankingUseCase(
         val rankings = entries.mapNotNull { entry ->
             val product = productMap[entry.productId] ?: return@mapNotNull null
             val brand = brandMap[product.refBrandId]
+            val displayRank = if (isRankZeroBased) entry.rank + 1 else entry.rank
             RankingInfo(
-                rank = entry.rank + 1,
+                rank = displayRank,
                 score = entry.score,
                 productId = entry.productId,
                 productName = product.name.value,

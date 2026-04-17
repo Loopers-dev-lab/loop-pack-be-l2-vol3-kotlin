@@ -18,7 +18,7 @@ class JpaMonthlyRankingRepository(
                 RankingEntry(
                     productId = entity.productId,
                     score = entity.score,
-                    rank = (entity.ranking - 1).toLong(),
+                    rank = entity.ranking.toLong(),
                 )
             }
     }

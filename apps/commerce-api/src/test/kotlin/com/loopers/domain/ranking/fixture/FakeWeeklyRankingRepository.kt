@@ -21,7 +21,7 @@ class FakeWeeklyRankingRepository : WeeklyRankingRepository {
             RankingEntry(
                 productId = entry.key,
                 score = entry.value,
-                rank = (offset + index).toLong(),
+                rank = (offset + index + 1).toLong(),
             )
         }
     }
