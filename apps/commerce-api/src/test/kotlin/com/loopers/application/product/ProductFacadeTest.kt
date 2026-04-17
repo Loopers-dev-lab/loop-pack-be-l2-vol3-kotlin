@@ -7,6 +7,7 @@ import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductSortType
 import com.loopers.domain.product.ProductService
+import com.loopers.domain.ranking.RankingService
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
@@ -27,7 +28,14 @@ class ProductFacadeTest {
     private val brandService: BrandService = mockk()
     private val productCacheStore: ProductCacheStore = mockk(relaxed = true)
     private val applicationEventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
-    private val productFacade = ProductFacade(productService, brandService, productCacheStore, applicationEventPublisher)
+    private val rankingService: RankingService = mockk(relaxed = true)
+    private val productFacade = ProductFacade(
+        productService,
+        brandService,
+        productCacheStore,
+        applicationEventPublisher,
+        rankingService,
+    )
 
     companion object {
         private const val PRODUCT_ID = 1L

@@ -17,6 +17,10 @@ spring:
     jdbc:
       initialize-schema: never
 
+ranking:
+  carry-over:
+    weight: 0.1
+
 management:
   health:
     defaults:

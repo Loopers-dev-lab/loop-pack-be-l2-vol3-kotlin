@@ -1,0 +1,11 @@
+### 오늘 랭킹 조회 (1페이지, 20개)
+GET http://localhost:8080/api/v1/rankings?date=20260410&size=20&page=1
+
+### 어제 랭킹 조회
+GET http://localhost:8080/api/v1/rankings?date=20260409&size=20&page=1
+
+### 랭킹 2페이지 조회
+GET http://localhost:8080/api/v1/rankings?date=20260410&size=20&page=2
+
+### 상품 상세 조회 (순위 포함)
+GET http://localhost:8080/api/v1/products/1

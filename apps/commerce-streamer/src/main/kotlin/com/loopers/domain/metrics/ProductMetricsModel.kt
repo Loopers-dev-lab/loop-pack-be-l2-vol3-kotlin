@@ -59,6 +59,7 @@ class ProductMetricsModel(
         when (event.eventType) {
             CatalogEventType.LIKE_CHANGED -> likesCount += event.delta
             CatalogEventType.PRODUCT_VIEWED -> viewsCount += event.delta
+            CatalogEventType.ORDER_COMPLETED -> salesCount += event.delta
         }
         lastEventVersion = event.version
         lastEventAt = event.occurredAt

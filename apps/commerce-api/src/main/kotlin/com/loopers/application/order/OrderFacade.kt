@@ -3,6 +3,7 @@ package com.loopers.application.order
 import com.loopers.application.payment.PaymentFacade
 import com.loopers.application.queue.QueueFacade
 import com.loopers.application.event.OrderCompletedEvent
+import com.loopers.application.event.OrderCompletedItem
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.coupon.CouponIssueService
 import com.loopers.domain.coupon.CouponService
@@ -70,6 +71,7 @@ class OrderFacade(
                     orderId = createdOrder.id,
                     userId = userId,
                     totalAmount = createdOrder.totalAmount,
+                    orderItems = items.map { OrderCompletedItem(it.productId, it.quantity) },
                 ),
             )
 

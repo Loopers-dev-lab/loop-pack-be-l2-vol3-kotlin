@@ -14,4 +14,5 @@ data class CatalogEventMessage(
 enum class CatalogEventType {
     LIKE_CHANGED,
     PRODUCT_VIEWED,
+    ORDER_COMPLETED,
 }
