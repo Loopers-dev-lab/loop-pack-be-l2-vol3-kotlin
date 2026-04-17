@@ -58,21 +58,25 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
             CREATE TABLE IF NOT EXISTS product_metrics (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 product_id BIGINT NOT NULL,
+                date DATE NOT NULL,
                 view_count BIGINT NOT NULL DEFAULT 0,
                 like_count BIGINT NOT NULL DEFAULT 0,
                 order_count BIGINT NOT NULL DEFAULT 0,
                 created_at DATETIME(6) NOT NULL,
                 updated_at DATETIME(6) NOT NULL,
                 deleted_at DATETIME(6) NULL,
-                UNIQUE KEY uk_product_metrics_product_id (product_id)
+                UNIQUE KEY uk_product_metrics_product_date (product_id, date)
             )
             """.trimIndent(),
         )
     }
 
     private fun cleanUpZSets() {
-        listOf("view", "like", "order", "all").forEach { type ->
-            redisTemplate.delete("$KEY_PREFIX:$type:${TARGET_DATE.format(DATE_FORMAT)}")
+        val dates = listOf(TARGET_DATE, TARGET_DATE.minusDays(1))
+        dates.forEach { date ->
+            listOf("view", "like", "order", "all").forEach { type ->
+                redisTemplate.delete("$KEY_PREFIX:$type:${date.format(DATE_FORMAT)}")
+            }
         }
     }
 
@@ -163,8 +167,8 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
 
             // assert - DB는 ZSET의 현재 누적값(30/8/3)으로 덮어써진다
             val result = jdbcTemplate.queryForMap(
-                "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ?",
-                PRODUCT_ID_1,
+                "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ? AND date = ?",
+                PRODUCT_ID_1, TARGET_DATE,
             )
 
             assertAll(
@@ -195,9 +199,9 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
         fun shouldNotWipeDbWhenZSetIsEmpty() {
             // arrange — DB에 기존 행 직접 삽입 (이전 동기화의 잔존 가정)
             jdbcTemplate.update(
-                "INSERT INTO product_metrics (product_id, view_count, like_count, order_count, created_at, updated_at) " +
-                    "VALUES (?, ?, ?, ?, NOW(), NOW())",
-                PRODUCT_ID_1, 100L, 20L, 5L,
+                "INSERT INTO product_metrics (product_id, date, view_count, like_count, order_count, created_at, updated_at) " +
+                    "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+                PRODUCT_ID_1, TARGET_DATE, 100L, 20L, 5L,
             )
 
             // act — ZSET 비어있는 상태로 실행
@@ -205,8 +209,8 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
 
             // assert — 기존 행 보존
             val result = jdbcTemplate.queryForMap(
-                "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ?",
-                PRODUCT_ID_1,
+                "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ? AND date = ?",
+                PRODUCT_ID_1, TARGET_DATE,
             )
             assertAll(
                 { assertThat(result["view_count"]).isEqualTo(100L) },
@@ -215,35 +219,31 @@ class ProductMetricsSyncJobE2ETest @Autowired constructor(
             )
         }
 
-        @DisplayName("스냅샷에서 빠진 상품의 행은 0으로 초기화된다.")
+        @DisplayName("다른 날짜의 데이터는 영향받지 않는다.")
         @Test
-        fun shouldZeroOutMissingProductsFromSnapshot() {
-            // arrange — 1차: A, B 둘 다 적재
-            seedZSetMetrics(PRODUCT_ID_1, viewCount = 100, likeCount = 20, orderCount = 5)
-            seedZSetMetrics(PRODUCT_ID_2, viewCount = 50, likeCount = 10, orderCount = 3)
-            jobLauncherTestUtils.launchJob(jobParameters())
+        fun shouldNotAffectOtherDateData() {
+            // arrange — 이전 날짜에 데이터 적재
+            val previousDate = TARGET_DATE.minusDays(1)
+            seedZSetMetrics(PRODUCT_ID_1, viewCount = 100, likeCount = 20, orderCount = 5, date = previousDate)
+            jobLauncherTestUtils.launchJob(jobParameters(previousDate))
 
-            // arrange — 2차: ZSET 클리어 후 A만 다시 적재 (B는 빠짐)
-            cleanUpZSets()
+            // arrange — 오늘 날짜에 다른 데이터 적재
             seedZSetMetrics(PRODUCT_ID_1, viewCount = 200, likeCount = 30, orderCount = 7)
 
             // act
             jobLauncherTestUtils.launchJob(jobParameters())
 
-            // assert — A는 새 값, B는 0으로 초기화
+            // assert — 이전 날짜 데이터는 보존, 오늘 날짜 데이터는 별도 row
             val results = jdbcTemplate.queryForList(
-                "SELECT product_id, view_count, like_count, order_count FROM product_metrics ORDER BY product_id",
+                "SELECT product_id, date, view_count, like_count, order_count FROM product_metrics WHERE product_id = ? ORDER BY date",
+                PRODUCT_ID_1,
             )
             assertAll(
                 { assertThat(results).hasSize(2) },
-                { assertThat(results[0]["product_id"]).isEqualTo(PRODUCT_ID_1) },
-                { assertThat(results[0]["view_count"]).isEqualTo(200L) },
-                { assertThat(results[0]["like_count"]).isEqualTo(30L) },
-                { assertThat(results[0]["order_count"]).isEqualTo(7L) },
-                { assertThat(results[1]["product_id"]).isEqualTo(PRODUCT_ID_2) },
-                { assertThat(results[1]["view_count"]).isEqualTo(0L) },
-                { assertThat(results[1]["like_count"]).isEqualTo(0L) },
-                { assertThat(results[1]["order_count"]).isEqualTo(0L) },
+                { assertThat(results[0]["date"].toString()).isEqualTo(previousDate.toString()) },
+                { assertThat(results[0]["view_count"]).isEqualTo(100L) },
+                { assertThat(results[1]["date"].toString()).isEqualTo(TARGET_DATE.toString()) },
+                { assertThat(results[1]["view_count"]).isEqualTo(200L) },
             )
         }
 

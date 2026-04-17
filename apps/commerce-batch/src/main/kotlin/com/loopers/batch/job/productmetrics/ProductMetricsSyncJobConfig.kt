@@ -39,9 +39,7 @@ class ProductMetricsSyncJobConfig(
     }
 
     /**
-     * 기존 PlatformTransactionManager를 주입받아 Tasklet의 RESET-UPSERT가 단일
-     * JDBC 트랜잭션으로 묶이게 한다. UPSERT 실패 시 RESET이 롤백되어 기존 메트릭이
-     * 0으로 wipe되는 것을 방지한다.
+     * (product_id, date) UNIQUE 키 기반 UPSERT로 일별 메트릭을 적재한다.
      */
     @JobScope
     @Bean(STEP_NAME)
