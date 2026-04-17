@@ -40,6 +40,7 @@ class ProductMetricsRedisReader(
                 viewCount = viewMap[productId] ?: 0L,
                 likeCount = likeMap[productId] ?: 0L,
                 orderCount = orderMap[productId] ?: 0L,
+                date = date,
             )
         }
 
