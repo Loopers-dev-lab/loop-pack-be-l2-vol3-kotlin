@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.user.ranking
 
 import com.loopers.application.user.ranking.UserRankingListUseCase
 import com.loopers.application.user.ranking.UserRankingResult
+import com.loopers.application.user.ranking.RankingPeriod
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -36,7 +37,7 @@ class UserRankingV1ControllerTest {
                 page = 0
                 size = 10
             }
-            whenever(listUseCase.getList(any(), any())).thenReturn(
+            whenever(listUseCase.getList(any(), any(), any())).thenReturn(
                 PageResponse(
                     content = listOf(rankedProduct(rank = 1, score = 10.5, productId = 100)),
                     totalElements = 50,
@@ -45,7 +46,7 @@ class UserRankingV1ControllerTest {
                 ),
             )
 
-            val response = controller.getList("20260410", pageRequest)
+            val response = controller.getList("20260410", RankingPeriod.DAILY, pageRequest)
 
             assertThat(response.meta.result).isEqualTo(ApiResponse.Metadata.Result.SUCCESS)
             assertThat(response.data?.content).hasSize(1)
@@ -58,12 +59,27 @@ class UserRankingV1ControllerTest {
         @Test
         @DisplayName("date를 UseCase에 올바르게 전달한다")
         fun getList_parsesDate() {
-            whenever(listUseCase.getList(any(), any())).thenReturn(emptyPage())
+            whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
 
-            controller.getList("20260410", PageRequest())
+            controller.getList("20260410", RankingPeriod.DAILY, PageRequest())
 
             verify(listUseCase).getList(
                 check { date -> assertThat(date).isEqualTo(LocalDate.of(2026, 4, 10)) },
+                any(),
+                any(),
+            )
+        }
+
+        @Test
+        @DisplayName("period를 UseCase에 올바르게 전달한다")
+        fun getList_passesPeriod() {
+            whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
+
+            controller.getList("20260410", RankingPeriod.WEEKLY, PageRequest())
+
+            verify(listUseCase).getList(
+                any(),
+                check { period -> assertThat(period).isEqualTo(RankingPeriod.WEEKLY) },
                 any(),
             )
         }
@@ -76,12 +92,13 @@ class UserRankingV1ControllerTest {
         @Test
         @DisplayName("date=null → 오늘 날짜로 UseCase 호출")
         fun getList_nullDate_usesToday() {
-            whenever(listUseCase.getList(any(), any())).thenReturn(emptyPage())
+            whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
 
-            controller.getList(null, PageRequest())
+            controller.getList(null, RankingPeriod.DAILY, PageRequest())
 
             verify(listUseCase).getList(
                 check { date -> assertThat(date).isEqualTo(LocalDate.now()) },
+                any(),
                 any(),
             )
         }
@@ -94,9 +111,9 @@ class UserRankingV1ControllerTest {
         @Test
         @DisplayName("빈 결과 → content가 빈 리스트, totalElements=0")
         fun getList_emptyResult() {
-            whenever(listUseCase.getList(any(), any())).thenReturn(emptyPage())
+            whenever(listUseCase.getList(any(), any(), any())).thenReturn(emptyPage())
 
-            val response = controller.getList("20260410", PageRequest())
+            val response = controller.getList("20260410", RankingPeriod.DAILY, PageRequest())
 
             assertThat(response.data?.content).isEmpty()
             assertThat(response.data?.totalElements).isEqualTo(0)
@@ -110,7 +127,7 @@ class UserRankingV1ControllerTest {
         @Test
         @DisplayName("date=2026-04-10 (ISO 형식) → CoreException(BAD_REQUEST)")
         fun getList_isoFormat_throws() {
-            assertThatThrownBy { controller.getList("2026-04-10", PageRequest()) }
+            assertThatThrownBy { controller.getList("2026-04-10", RankingPeriod.DAILY, PageRequest()) }
                 .isInstanceOf(CoreException::class.java)
                 .extracting("errorType")
                 .isEqualTo(ErrorType.BAD_REQUEST)
@@ -119,7 +136,7 @@ class UserRankingV1ControllerTest {
         @Test
         @DisplayName("date=abc → CoreException(BAD_REQUEST)")
         fun getList_invalidString_throws() {
-            assertThatThrownBy { controller.getList("abc", PageRequest()) }
+            assertThatThrownBy { controller.getList("abc", RankingPeriod.DAILY, PageRequest()) }
                 .isInstanceOf(CoreException::class.java)
                 .extracting("errorType")
                 .isEqualTo(ErrorType.BAD_REQUEST)

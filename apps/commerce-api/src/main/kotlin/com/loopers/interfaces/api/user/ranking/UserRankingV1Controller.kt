@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.user.ranking
 
 import com.loopers.application.user.ranking.UserRankingListUseCase
+import com.loopers.application.user.ranking.RankingPeriod
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.error.CoreException
 import com.loopers.support.error.ErrorType
@@ -23,10 +24,11 @@ class UserRankingV1Controller(
     @GetMapping
     override fun getList(
         @RequestParam(required = false) date: String?,
+        @RequestParam(required = false, defaultValue = "DAILY") period: RankingPeriod,
         pageRequest: PageRequest,
     ): ApiResponse<PageResponse<UserRankingV1Response.RankedProduct>> {
         val parsedDate = parseDate(date)
-        return listUseCase.getList(parsedDate, pageRequest)
+        return listUseCase.getList(parsedDate, period, pageRequest)
             .map { UserRankingV1Response.RankedProduct.from(it) }
             .let { ApiResponse.success(it) }
     }
