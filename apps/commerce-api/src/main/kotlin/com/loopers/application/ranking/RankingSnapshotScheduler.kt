@@ -17,7 +17,7 @@ class RankingSnapshotScheduler(
     fun saveSnapshot() {
         val today = DateUtils.todayKst()
         try {
-            val rankings = getRankingsUseCase.execute(today, 0, SNAPSHOT_SIZE)
+            val rankings = getRankingsUseCase.execute(RankingPeriod.DAILY, today, 0, SNAPSHOT_SIZE)
             rankingSnapshotStore.save(today, rankings)
             log.info("랭킹 스냅샷 저장 [date={}, count={}]", today, rankings.content.size)
         } catch (e: Exception) {

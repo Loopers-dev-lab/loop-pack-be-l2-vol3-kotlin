@@ -18,6 +18,8 @@ import java.time.LocalDate
 class GetRankingsUseCase(
     private val rankingStore: RankingStore,
     private val rankingSnapshotStore: RankingSnapshotStore,
+    private val weeklyRankReader: WeeklyRankReader,
+    private val monthlyRankReader: MonthlyRankReader,
     private val productRepository: ProductRepository,
     private val brandRepository: BrandRepository,
     private val productStockRepository: ProductStockRepository,
@@ -30,7 +32,18 @@ class GetRankingsUseCase(
         isReadOnly = true
     }
 
-    fun execute(date: LocalDate, page: Int, size: Int): PageResult<RankingProductInfo> {
+    fun execute(
+        period: RankingPeriod,
+        date: LocalDate,
+        page: Int,
+        size: Int,
+    ): PageResult<RankingProductInfo> = when (period) {
+        RankingPeriod.DAILY -> executeDaily(date, page, size)
+        RankingPeriod.WEEKLY -> executeWeekly(page, size)
+        RankingPeriod.MONTHLY -> executeMonthly(page, size)
+    }
+
+    private fun executeDaily(date: LocalDate, page: Int, size: Int): PageResult<RankingProductInfo> {
         return try {
             getRankingsFromRedis(date, page, size)
         } catch (e: RedisConnectionFailureException) {
@@ -40,6 +53,63 @@ class GetRankingsUseCase(
             log.warn("랭킹 조회 실패 — 스냅샷 fallback [date={}]", date, e)
             fallback(date, page, size)
         }
+    }
+
+    private fun executeWeekly(page: Int, size: Int): PageResult<RankingProductInfo> {
+        val total = weeklyRankReader.countLatest()
+        if (total == 0L) {
+            log.info("mv_product_rank_weekly 데이터 없음 — 빈 응답")
+            return PageResult.of(emptyList(), page, size, 0L)
+        }
+        val offset = page.toLong() * size
+        val views = weeklyRankReader.findLatestRanks(offset, size)
+        val productInfoMap = loadProductInfos(views.map { it.productId })
+
+        val items = views.map { view ->
+            val info = productInfoMap[view.productId]
+            RankingProductInfo(
+                rank = view.rankPosition,
+                score = view.totalScore,
+                productId = view.productId,
+                productName = info?.name ?: "",
+                price = info?.price ?: 0,
+                brandName = info?.brandName ?: "",
+                imageUrl = info?.imageUrl ?: "",
+                likeCount = info?.likeCount ?: 0,
+                available = info?.available ?: false,
+                weekStart = view.weekStart,
+                weekEnd = view.weekEnd,
+            )
+        }
+        return PageResult.of(items, page, size, total)
+    }
+
+    private fun executeMonthly(page: Int, size: Int): PageResult<RankingProductInfo> {
+        val total = monthlyRankReader.countLatest()
+        if (total == 0L) {
+            log.info("mv_product_rank_monthly 데이터 없음 — 빈 응답")
+            return PageResult.of(emptyList(), page, size, 0L)
+        }
+        val offset = page.toLong() * size
+        val views = monthlyRankReader.findLatestRanks(offset, size)
+        val productInfoMap = loadProductInfos(views.map { it.productId })
+
+        val items = views.map { view ->
+            val info = productInfoMap[view.productId]
+            RankingProductInfo(
+                rank = view.rankPosition,
+                score = view.totalScore,
+                productId = view.productId,
+                productName = info?.name ?: "",
+                price = info?.price ?: 0,
+                brandName = info?.brandName ?: "",
+                imageUrl = info?.imageUrl ?: "",
+                likeCount = info?.likeCount ?: 0,
+                available = info?.available ?: false,
+                yearMonth = view.yearMonth,
+            )
+        }
+        return PageResult.of(items, page, size, total)
     }
 
     private fun getRankingsFromRedis(date: LocalDate, page: Int, size: Int): PageResult<RankingProductInfo> {
@@ -116,6 +186,7 @@ class GetRankingsUseCase(
     }
 
     private fun loadProductInfos(productIds: List<Long>): Map<Long, ProductInfo> {
+        if (productIds.isEmpty()) return emptyMap()
         return readOnlyTx.execute { loadFromDb(productIds) } ?: emptyMap()
     }
 

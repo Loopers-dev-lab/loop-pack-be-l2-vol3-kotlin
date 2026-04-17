@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.ranking
 
 import com.loopers.application.ranking.RankingProductInfo
+import java.time.LocalDate
 
 data class RankingResponse(
     val rank: Int,
@@ -12,6 +13,9 @@ data class RankingResponse(
     val imageUrl: String,
     val likeCount: Long,
     val available: Boolean,
+    val weekStart: LocalDate? = null,
+    val weekEnd: LocalDate? = null,
+    val yearMonth: String? = null,
 ) {
     companion object {
         fun from(info: RankingProductInfo): RankingResponse = RankingResponse(
@@ -24,6 +28,9 @@ data class RankingResponse(
             imageUrl = info.imageUrl,
             likeCount = info.likeCount,
             available = info.available,
+            weekStart = info.weekStart,
+            weekEnd = info.weekEnd,
+            yearMonth = info.yearMonth,
         )
     }
 }

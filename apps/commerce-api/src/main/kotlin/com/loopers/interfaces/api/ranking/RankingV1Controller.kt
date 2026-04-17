@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.ranking
 
 import com.loopers.application.ranking.GetRankingsUseCase
+import com.loopers.application.ranking.RankingPeriod
 import com.loopers.common.DateUtils
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.support.PageResult
@@ -18,12 +19,14 @@ class RankingV1Controller(
 
     @GetMapping
     fun getRankings(
+        @RequestParam(required = false) period: String?,
         @RequestParam(required = false) date: String?,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(defaultValue = "0") page: Int,
     ): ApiResponse<PageResult<RankingResponse>> {
+        val rankingPeriod = RankingPeriod.from(period)
         val targetDate = date?.let { DateUtils.parseDate(it) } ?: DateUtils.todayKst()
-        val result = getRankingsUseCase.execute(targetDate, page, size)
+        val result = getRankingsUseCase.execute(rankingPeriod, targetDate, page, size)
         val response = PageResult.of(
             content = result.content.map { RankingResponse.from(it) },
             page = result.page,
