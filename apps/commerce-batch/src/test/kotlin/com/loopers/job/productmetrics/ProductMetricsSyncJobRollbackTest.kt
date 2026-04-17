@@ -25,10 +25,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
- * RESET → UPSERT 트랜잭션 롤백 검증 전용 테스트.
- *
- * SpykBean으로 jdbcTemplate.batchUpdate(...)만 의도적으로 throw시켜
- * UPSERT 실패 시 RESET이 단일 트랜잭션 안에서 롤백되는지 확인한다.
+ * UPSERT 실패 시 Job이 FAILED로 종료되고 기존 DB 행이 보존되는지 검증한다.
  */
 @SpringBootTest
 @SpringBatchTest
@@ -68,13 +65,14 @@ class ProductMetricsSyncJobRollbackTest @Autowired constructor(
             CREATE TABLE IF NOT EXISTS product_metrics (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 product_id BIGINT NOT NULL,
+                date DATE NOT NULL,
                 view_count BIGINT NOT NULL DEFAULT 0,
                 like_count BIGINT NOT NULL DEFAULT 0,
                 order_count BIGINT NOT NULL DEFAULT 0,
                 created_at DATETIME(6) NOT NULL,
                 updated_at DATETIME(6) NOT NULL,
                 deleted_at DATETIME(6) NULL,
-                UNIQUE KEY uk_product_metrics_product_id (product_id)
+                UNIQUE KEY uk_product_metrics_product_date (product_id, date)
             )
             """.trimIndent(),
         )
@@ -93,14 +91,14 @@ class ProductMetricsSyncJobRollbackTest @Autowired constructor(
         zSet.incrementScore("$KEY_PREFIX:view:$dateKey", productId.toString(), viewCount.toDouble())
     }
 
-    @DisplayName("UPSERT 실패 시 RESET이 단일 트랜잭션 내에서 롤백되어 기존 DB 행이 보존된다.")
+    @DisplayName("UPSERT 실패 시 Job이 FAILED로 종료되고 기존 DB 행이 보존된다.")
     @Test
-    fun shouldRollbackResetWhenUpsertFails() {
+    fun shouldPreserveExistingDataWhenUpsertFails() {
         // arrange — DB에 기존 행 직접 삽입
         jdbcTemplate.update(
-            "INSERT INTO product_metrics (product_id, view_count, like_count, order_count, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, NOW(), NOW())",
-            PRODUCT_ID_1, 100L, 20L, 5L,
+            "INSERT INTO product_metrics (product_id, date, view_count, like_count, order_count, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+            PRODUCT_ID_1, TARGET_DATE, 100L, 20L, 5L,
         )
 
         // arrange — ZSET에 새 데이터 적재 (정상적인 snapshot)
@@ -121,11 +119,11 @@ class ProductMetricsSyncJobRollbackTest @Autowired constructor(
         assertAll(
             // Job은 실패로 종료
             { assertThat(jobExecution.exitStatus.exitCode).isEqualTo(ExitStatus.FAILED.exitCode) },
-            // RESET이 롤백되어 기존 행은 그대로 보존되어야 함
+            // 기존 행은 그대로 보존되어야 함
             {
                 val result = jdbcTemplate.queryForMap(
-                    "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ?",
-                    PRODUCT_ID_1,
+                    "SELECT view_count, like_count, order_count FROM product_metrics WHERE product_id = ? AND date = ?",
+                    PRODUCT_ID_1, TARGET_DATE,
                 )
                 assertAll(
                     { assertThat(result["view_count"]).isEqualTo(100L) },
