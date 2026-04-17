@@ -5,12 +5,13 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Index
 import jakarta.persistence.Table
+import java.time.LocalDate
 
 @Entity
 @Table(
     name = "product_metrics",
     indexes = [
-        Index(name = "uk_product_metrics_product_id", columnList = "product_id", unique = true),
+        Index(name = "uk_product_metrics_product_date", columnList = "product_id, date", unique = true),
         Index(name = "idx_product_metrics_order_count", columnList = "order_count DESC"),
         Index(name = "idx_product_metrics_like_count", columnList = "like_count DESC"),
         Index(name = "idx_product_metrics_view_count", columnList = "view_count DESC"),
@@ -18,6 +19,7 @@ import jakarta.persistence.Table
 )
 class ProductMetricsModel(
     productId: Long,
+    date: LocalDate,
     viewCount: Long = 0,
     likeCount: Long = 0,
     orderCount: Long = 0,
@@ -25,6 +27,10 @@ class ProductMetricsModel(
 
     @Column(name = "product_id", nullable = false)
     var productId: Long = productId
+        protected set
+
+    @Column(name = "date", nullable = false)
+    var date: LocalDate = date
         protected set
 
     @Column(name = "view_count", nullable = false)
