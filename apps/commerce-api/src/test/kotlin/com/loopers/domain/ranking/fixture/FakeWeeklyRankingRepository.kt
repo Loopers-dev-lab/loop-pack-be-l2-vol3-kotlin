@@ -12,15 +12,16 @@ class FakeWeeklyRankingRepository : WeeklyRankingRepository {
         store.getOrPut(rankingDate) { mutableMapOf() }[productId] = score
     }
 
-    override fun findRankings(rankingDate: LocalDate, offset: Long, size: Long): List<RankingEntry> {
+    override fun findRankings(rankingDate: LocalDate, page: Int, size: Int): List<RankingEntry> {
         val sorted = store[rankingDate]?.entries
             ?.sortedByDescending { it.value }
             ?: return emptyList()
-        return sorted.drop(offset.toInt()).take(size.toInt()).mapIndexed { index, entry ->
+        val offset = page * size
+        return sorted.drop(offset).take(size).mapIndexed { index, entry ->
             RankingEntry(
                 productId = entry.key,
                 score = entry.value,
-                rank = offset + index,
+                rank = (offset + index).toLong(),
             )
         }
     }

@@ -11,9 +11,8 @@ class JpaWeeklyRankingRepository(
     private val jpaRepository: ProductRankWeeklyJpaRepository,
 ) : WeeklyRankingRepository {
 
-    override fun findRankings(rankingDate: LocalDate, offset: Long, size: Long): List<RankingEntry> {
-        val page = (offset / size).toInt()
-        val pageable = PageRequest.of(page, size.toInt())
+    override fun findRankings(rankingDate: LocalDate, page: Int, size: Int): List<RankingEntry> {
+        val pageable = PageRequest.of(page, size)
         return jpaRepository.findByRankingDateOrderByRankingAsc(rankingDate, pageable)
             .map { entity ->
                 RankingEntry(

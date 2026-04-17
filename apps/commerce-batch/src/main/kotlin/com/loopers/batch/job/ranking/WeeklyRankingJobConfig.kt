@@ -79,10 +79,12 @@ class WeeklyRankingJobConfig(
     ): Step {
         val date = LocalDate.parse(requireNotNull(requestDate), DATE_FORMATTER)
         val startOfWeek = date.with(DayOfWeek.MONDAY)
+        val writer = weeklyRankingWriter(startOfWeek)
         return StepBuilder(STEP_AGGREGATE, jobRepository)
             .chunk<ProductMetricsRow, ProductMetricsRow>(CHUNK_SIZE, transactionManager)
             .reader(productMetricsReader(requireNotNull(dataSource)))
-            .writer(weeklyRankingWriter(startOfWeek))
+            .writer(writer)
+            .listener(writer as org.springframework.batch.core.StepExecutionListener)
             .listener(stepMonitorListener)
             .listener(chunkListener)
             .build()

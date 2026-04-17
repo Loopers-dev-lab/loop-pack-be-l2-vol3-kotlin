@@ -2,6 +2,8 @@ package com.loopers.batch.job.ranking.step
 
 import com.loopers.batch.job.ranking.ProductMetricsRow
 import org.slf4j.LoggerFactory
+import org.springframework.batch.core.StepExecution
+import org.springframework.batch.core.StepExecutionListener
 import org.springframework.batch.item.Chunk
 import org.springframework.batch.item.ItemWriter
 import java.time.LocalDate
@@ -10,9 +12,13 @@ class RankingWriter<E>(
     private val rankingDate: LocalDate,
     private val entityFactory: (ProductMetricsRow, Int, LocalDate) -> E,
     private val saveAction: (List<E>) -> Unit,
-) : ItemWriter<ProductMetricsRow> {
+) : ItemWriter<ProductMetricsRow>, StepExecutionListener {
     private val log = LoggerFactory.getLogger(javaClass)
     private var currentRank = 0
+
+    override fun beforeStep(stepExecution: StepExecution) {
+        currentRank = 0
+    }
 
     override fun write(chunk: Chunk<out ProductMetricsRow>) {
         val entities = chunk.items.map { row ->

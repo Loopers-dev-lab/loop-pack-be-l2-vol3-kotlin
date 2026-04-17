@@ -79,10 +79,12 @@ class MonthlyRankingJobConfig(
     ): Step {
         val date = LocalDate.parse(requireNotNull(requestDate), DATE_FORMATTER)
         val startOfMonth = date.with(TemporalAdjusters.firstDayOfMonth())
+        val writer = monthlyRankingWriter(startOfMonth)
         return StepBuilder(STEP_AGGREGATE, jobRepository)
             .chunk<ProductMetricsRow, ProductMetricsRow>(CHUNK_SIZE, transactionManager)
             .reader(monthlyProductMetricsReader(requireNotNull(dataSource)))
-            .writer(monthlyRankingWriter(startOfMonth))
+            .writer(writer)
+            .listener(writer as org.springframework.batch.core.StepExecutionListener)
             .listener(stepMonitorListener)
             .listener(chunkListener)
             .build()

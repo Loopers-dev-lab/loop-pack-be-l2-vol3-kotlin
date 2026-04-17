@@ -34,13 +34,13 @@ class GetRankingUseCase(
             }
             RankingPeriod.WEEKLY -> {
                 val rankingDate = toStartOfWeek(date)
-                val entries = weeklyRankingRepository.findRankings(rankingDate, offset, size.toLong())
+                val entries = weeklyRankingRepository.findRankings(rankingDate, page - 1, size)
                 val count = weeklyRankingRepository.countByRankingDate(rankingDate)
                 entries to count
             }
             RankingPeriod.MONTHLY -> {
                 val rankingDate = toStartOfMonth(date)
-                val entries = monthlyRankingRepository.findRankings(rankingDate, offset, size.toLong())
+                val entries = monthlyRankingRepository.findRankings(rankingDate, page - 1, size)
                 val count = monthlyRankingRepository.countByRankingDate(rankingDate)
                 entries to count
             }
