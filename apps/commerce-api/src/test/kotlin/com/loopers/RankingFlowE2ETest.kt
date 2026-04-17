@@ -5,6 +5,10 @@ import com.loopers.infrastructure.brand.BrandEntity
 import com.loopers.infrastructure.brand.BrandJpaRepository
 import com.loopers.infrastructure.product.ProductEntity
 import com.loopers.infrastructure.product.ProductJpaRepository
+import com.loopers.infrastructure.ranking.MonthlyProductRankingEntity
+import com.loopers.infrastructure.ranking.MonthlyProductRankingJpaRepository
+import com.loopers.infrastructure.ranking.WeeklyProductRankingEntity
+import com.loopers.infrastructure.ranking.WeeklyProductRankingJpaRepository
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.product.ProductV1Dto
 import com.loopers.interfaces.api.ranking.RankingV1Dto
@@ -37,6 +41,7 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import java.time.Duration
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -52,6 +57,8 @@ class RankingFlowE2ETest @Autowired constructor(
     private val testRestTemplate: TestRestTemplate,
     private val brandJpaRepository: BrandJpaRepository,
     private val productJpaRepository: ProductJpaRepository,
+    private val weeklyProductRankingJpaRepository: WeeklyProductRankingJpaRepository,
+    private val monthlyProductRankingJpaRepository: MonthlyProductRankingJpaRepository,
     private val kafkaIntegrationEventPublisher: KafkaIntegrationEventPublisher,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
@@ -124,7 +131,7 @@ class RankingFlowE2ETest @Autowired constructor(
     }
 
     @Test
-    fun `상품_조회_이벤트가_랭킹_API와_상품_상세_순위까지_반영된다`() {
+    fun `상품_조회_이벤트가_일간_랭킹_API와_상품_상세_순위까지_반영된다`() {
         val brand = saveBrand()
         val topProduct = saveProduct(brandId = requireNotNull(brand.id), name = "인기 상품")
         val lowProduct = saveProduct(brandId = requireNotNull(brand.id), name = "일반 상품")
@@ -151,7 +158,7 @@ class RankingFlowE2ETest @Autowired constructor(
     }
 
     @Test
-    fun `이전_날짜로_발행된_이벤트도_해당_날짜_랭킹으로_조회된다`() {
+    fun `이전_날짜로_발행된_이벤트도_해당_날짜_일간_랭킹으로_조회된다`() {
         val brand = saveBrand(name = "날짜 브랜드")
         val product = saveProduct(brandId = requireNotNull(brand.id), name = "어제 인기 상품")
         val yesterdayOccurredAt = ZonedDateTime.now(KOREA_ZONE).minusDays(1).withHour(23).withMinute(59).withSecond(0).withNano(0)
@@ -181,6 +188,75 @@ class RankingFlowE2ETest @Autowired constructor(
         }
     }
 
+    @Test
+    fun `주간_랭킹_API는_weekly_MV를_조회한다`() {
+        val brand = saveBrand(name = "주간 브랜드")
+        val topProduct = saveProduct(brandId = requireNotNull(brand.id), name = "주간 1등")
+        val secondProduct = saveProduct(brandId = requireNotNull(brand.id), name = "주간 2등")
+        val queryDate = LocalDate.parse("2026-04-16")
+        val weekStartDate = LocalDate.parse("2026-04-13")
+
+        weeklyProductRankingJpaRepository.saveAll(
+            listOf(
+                WeeklyProductRankingEntity(
+                    weekStartDate = weekStartDate,
+                    weekEndDate = weekStartDate.plusDays(6),
+                    productId = requireNotNull(topProduct.id),
+                    ranking = 1L,
+                    score = 9.8,
+                    likeCount = 3L,
+                    viewCount = 18L,
+                    salesCount = 8L,
+                ),
+                WeeklyProductRankingEntity(
+                    weekStartDate = weekStartDate,
+                    weekEndDate = weekStartDate.plusDays(6),
+                    productId = requireNotNull(secondProduct.id),
+                    ranking = 2L,
+                    score = 7.5,
+                    likeCount = 2L,
+                    viewCount = 15L,
+                    salesCount = 6L,
+                ),
+            ),
+        )
+
+        val rankings = getRankingPage(DATE_FORMATTER.format(queryDate), period = "WEEKLY")
+
+        assertThat(rankings.map { it.productId })
+            .containsExactly(requireNotNull(topProduct.id), requireNotNull(secondProduct.id))
+        assertThat(rankings.map { it.rank }).containsExactly(1L, 2L)
+    }
+
+    @Test
+    fun `월간_랭킹_API는_monthly_MV를_조회한다`() {
+        val brand = saveBrand(name = "월간 브랜드")
+        val topProduct = saveProduct(brandId = requireNotNull(brand.id), name = "월간 1등")
+        val queryDate = LocalDate.parse("2026-04-16")
+        val monthStartDate = LocalDate.parse("2026-04-01")
+
+        monthlyProductRankingJpaRepository.save(
+            MonthlyProductRankingEntity(
+                monthStartDate = monthStartDate,
+                monthEndDate = monthStartDate.withDayOfMonth(monthStartDate.lengthOfMonth()),
+                productId = requireNotNull(topProduct.id),
+                ranking = 1L,
+                score = 14.2,
+                likeCount = 8L,
+                viewCount = 22L,
+                salesCount = 10L,
+            ),
+        )
+
+        val rankings = getRankingPage(DATE_FORMATTER.format(queryDate), period = "MONTHLY")
+
+        assertThat(rankings).hasSize(1)
+        val rankedProduct = rankings.single()
+        assertThat(rankedProduct.productId).isEqualTo(requireNotNull(topProduct.id))
+        assertThat(rankedProduct.rank).isEqualTo(1L)
+        assertThat(rankedProduct.score).isEqualTo(14.2)
+    }
+
     private fun getProductDetail(productId: Long) =
         testRestTemplate.exchange(
             "/api/v1/products/$productId",
@@ -189,9 +265,9 @@ class RankingFlowE2ETest @Autowired constructor(
             object : ParameterizedTypeReference<ApiResponse<ProductV1Dto.DetailResponse>>() {},
         )
 
-    private fun getRankingPage(date: String): List<RankingV1Dto.RankedProductResponse> {
+    private fun getRankingPage(date: String, period: String = "DAILY"): List<RankingV1Dto.RankedProductResponse> {
         return testRestTemplate.exchange(
-            "/api/v1/rankings?date=$date&size=20&page=1",
+            "/api/v1/rankings?date=$date&period=$period&size=20&page=1",
             HttpMethod.GET,
             HttpEntity.EMPTY,
             object : ParameterizedTypeReference<ApiResponse<List<RankingV1Dto.RankedProductResponse>>>() {},
