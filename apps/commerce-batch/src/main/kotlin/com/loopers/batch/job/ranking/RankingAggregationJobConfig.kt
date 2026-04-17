@@ -24,6 +24,7 @@ import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.core.step.tasklet.Tasklet
 import org.springframework.batch.item.ItemProcessor
 import org.springframework.batch.item.ItemReader
+import org.springframework.batch.item.database.JdbcCursorItemReader
 import org.springframework.batch.item.ItemWriter
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -31,9 +32,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.task.SimpleAsyncTaskExecutor
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.transaction.PlatformTransactionManager
 import java.time.LocalDate
+import javax.sql.DataSource
 
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = RankingAggregationJobConfig.JOB_NAME)
 @Configuration
@@ -46,8 +49,18 @@ class RankingAggregationJobConfig(
 ) {
     companion object {
         const val JOB_NAME = "rankingAggregationJob"
-        private const val CHUNK_SIZE = 100
+        private const val CHUNK_SIZE = 500
+        private const val FETCH_SIZE = 500
+        private const val TOP_N = 100
+
+        private const val DEFAULT_VIEW_WEIGHT = 0.1
+        private const val DEFAULT_LIKE_WEIGHT = 0.2
+        private const val DEFAULT_ORDER_WEIGHT = 0.6
+
+        private const val WEIGHT_SQL = "SELECT config_key, config_value FROM ranking_score_config"
     }
+
+    // --- Job ---
 
     @Bean(JOB_NAME)
     fun rankingAggregationJob(
@@ -76,57 +89,29 @@ class RankingAggregationJobConfig(
             .build()
     }
 
-    // --- Weekly Steps ---
+    // --- Steps ---
 
     @Bean("weeklyCleanupStep")
-    fun weeklyCleanupStep(
-        @Qualifier("weeklyCleanupTasklet") tasklet: Tasklet,
-    ): Step =
-        StepBuilder("weeklyCleanupStep", jobRepository)
-            .tasklet(tasklet, transactionManager)
-            .listener(stepMonitorListener)
-            .build()
+    fun weeklyCleanupStep(@Qualifier("weeklyCleanupTasklet") tasklet: Tasklet): Step =
+        buildTaskletStep("weeklyCleanupStep", tasklet)
 
     @Bean("weeklyAggregationStep")
     fun weeklyAggregationStep(
         @Qualifier("weeklyReader") reader: ItemReader<ProductRankAggregation>,
         @Qualifier("weeklyProcessor") processor: ItemProcessor<ProductRankAggregation, ProductRankResult>,
         @Qualifier("weeklyWriter") writer: ItemWriter<ProductRankResult>,
-    ): Step =
-        StepBuilder("weeklyAggregationStep", jobRepository)
-            .chunk<ProductRankAggregation, ProductRankResult>(CHUNK_SIZE, transactionManager)
-            .reader(reader)
-            .processor(processor)
-            .writer(writer)
-            .listener(stepMonitorListener)
-            .listener(chunkListener)
-            .build()
-
-    // --- Monthly Steps ---
+    ): Step = buildChunkStep("weeklyAggregationStep", reader, processor, writer)
 
     @Bean("monthlyCleanupStep")
-    fun monthlyCleanupStep(
-        @Qualifier("monthlyCleanupTasklet") tasklet: Tasklet,
-    ): Step =
-        StepBuilder("monthlyCleanupStep", jobRepository)
-            .tasklet(tasklet, transactionManager)
-            .listener(stepMonitorListener)
-            .build()
+    fun monthlyCleanupStep(@Qualifier("monthlyCleanupTasklet") tasklet: Tasklet): Step =
+        buildTaskletStep("monthlyCleanupStep", tasklet)
 
     @Bean("monthlyAggregationStep")
     fun monthlyAggregationStep(
         @Qualifier("monthlyReader") reader: ItemReader<ProductRankAggregation>,
         @Qualifier("monthlyProcessor") processor: ItemProcessor<ProductRankAggregation, ProductRankResult>,
         @Qualifier("monthlyWriter") writer: ItemWriter<ProductRankResult>,
-    ): Step =
-        StepBuilder("monthlyAggregationStep", jobRepository)
-            .chunk<ProductRankAggregation, ProductRankResult>(CHUNK_SIZE, transactionManager)
-            .reader(reader)
-            .processor(processor)
-            .writer(writer)
-            .listener(stepMonitorListener)
-            .listener(chunkListener)
-            .build()
+    ): Step = buildChunkStep("monthlyAggregationStep", reader, processor, writer)
 
     // --- @StepScope Beans (Weekly) ---
 
@@ -135,19 +120,33 @@ class RankingAggregationJobConfig(
     fun weeklyCleanupTasklet(
         @Value("#{jobParameters['requestDate']}") requestDate: String,
         weeklyRepository: ProductRankWeeklyRepository,
-        monthlyRepository: ProductRankMonthlyRepository,
-    ): Tasklet =
-        RankingCleanupTasklet(RankingPeriodType.WEEKLY, LocalDate.parse(requestDate), weeklyRepository, monthlyRepository)
+    ): Tasklet {
+        val date = LocalDate.parse(requestDate)
+        return RankingCleanupTasklet(
+            "WEEKLY",
+            RankingPeriodType.WEEKLY.periodStartDate(date),
+            weeklyRepository::deleteByPeriodStartDate,
+        )
+    }
 
     @StepScope
     @Bean("weeklyReader")
     fun weeklyReader(
         @Value("#{jobParameters['requestDate']}") requestDate: String,
+        dataSource: DataSource,
         jdbcTemplate: NamedParameterJdbcTemplate,
-    ): ItemReader<ProductRankAggregation> {
+    ): JdbcCursorItemReader<ProductRankAggregation> {
         val date = LocalDate.parse(requestDate)
         val periodType = RankingPeriodType.WEEKLY
-        return RankingAggregationReader(jdbcTemplate, periodType.periodStartDate(date), periodType.periodEndDate(date))
+        return RankingAggregationReader.create(
+            name = "weeklyReader",
+            dataSource = dataSource,
+            startDate = periodType.periodStartDate(date),
+            endDate = periodType.periodEndDate(date),
+            weights = loadWeights(jdbcTemplate),
+            topN = TOP_N,
+            fetchSize = FETCH_SIZE,
+        )
     }
 
     @StepScope
@@ -159,9 +158,15 @@ class RankingAggregationJobConfig(
     fun weeklyWriter(
         @Value("#{jobParameters['requestDate']}") requestDate: String,
         weeklyRepository: ProductRankWeeklyRepository,
-        monthlyRepository: ProductRankMonthlyRepository,
-    ): ItemWriter<ProductRankResult> =
-        RankingAggregationWriter(RankingPeriodType.WEEKLY, LocalDate.parse(requestDate), weeklyRepository, monthlyRepository)
+    ): ItemWriter<ProductRankResult> {
+        val date = LocalDate.parse(requestDate)
+        val periodType = RankingPeriodType.WEEKLY
+        return RankingAggregationWriter(
+            weeklyRepository::batchInsert,
+            periodType.periodStartDate(date),
+            periodType.periodEndDate(date),
+        )
+    }
 
     // --- @StepScope Beans (Monthly) ---
 
@@ -169,20 +174,34 @@ class RankingAggregationJobConfig(
     @Bean("monthlyCleanupTasklet")
     fun monthlyCleanupTasklet(
         @Value("#{jobParameters['requestDate']}") requestDate: String,
-        weeklyRepository: ProductRankWeeklyRepository,
         monthlyRepository: ProductRankMonthlyRepository,
-    ): Tasklet =
-        RankingCleanupTasklet(RankingPeriodType.MONTHLY, LocalDate.parse(requestDate), weeklyRepository, monthlyRepository)
+    ): Tasklet {
+        val date = LocalDate.parse(requestDate)
+        return RankingCleanupTasklet(
+            "MONTHLY",
+            RankingPeriodType.MONTHLY.periodStartDate(date),
+            monthlyRepository::deleteByPeriodStartDate,
+        )
+    }
 
     @StepScope
     @Bean("monthlyReader")
     fun monthlyReader(
         @Value("#{jobParameters['requestDate']}") requestDate: String,
+        dataSource: DataSource,
         jdbcTemplate: NamedParameterJdbcTemplate,
-    ): ItemReader<ProductRankAggregation> {
+    ): JdbcCursorItemReader<ProductRankAggregation> {
         val date = LocalDate.parse(requestDate)
         val periodType = RankingPeriodType.MONTHLY
-        return RankingAggregationReader(jdbcTemplate, periodType.periodStartDate(date), periodType.periodEndDate(date))
+        return RankingAggregationReader.create(
+            name = "monthlyReader",
+            dataSource = dataSource,
+            startDate = periodType.periodStartDate(date),
+            endDate = periodType.periodEndDate(date),
+            weights = loadWeights(jdbcTemplate),
+            topN = TOP_N,
+            fetchSize = FETCH_SIZE,
+        )
     }
 
     @StepScope
@@ -193,8 +212,49 @@ class RankingAggregationJobConfig(
     @Bean("monthlyWriter")
     fun monthlyWriter(
         @Value("#{jobParameters['requestDate']}") requestDate: String,
-        weeklyRepository: ProductRankWeeklyRepository,
         monthlyRepository: ProductRankMonthlyRepository,
-    ): ItemWriter<ProductRankResult> =
-        RankingAggregationWriter(RankingPeriodType.MONTHLY, LocalDate.parse(requestDate), weeklyRepository, monthlyRepository)
+    ): ItemWriter<ProductRankResult> {
+        val date = LocalDate.parse(requestDate)
+        val periodType = RankingPeriodType.MONTHLY
+        return RankingAggregationWriter(
+            monthlyRepository::batchInsert,
+            periodType.periodStartDate(date),
+            periodType.periodEndDate(date),
+        )
+    }
+
+    // --- Helper ---
+
+    private fun buildTaskletStep(stepName: String, tasklet: Tasklet): Step =
+        StepBuilder(stepName, jobRepository)
+            .tasklet(tasklet, transactionManager)
+            .listener(stepMonitorListener)
+            .build()
+
+    private fun buildChunkStep(
+        stepName: String,
+        reader: ItemReader<ProductRankAggregation>,
+        processor: ItemProcessor<ProductRankAggregation, ProductRankResult>,
+        writer: ItemWriter<ProductRankResult>,
+    ): Step =
+        StepBuilder(stepName, jobRepository)
+            .chunk<ProductRankAggregation, ProductRankResult>(CHUNK_SIZE, transactionManager)
+            .reader(reader)
+            .processor(processor)
+            .writer(writer)
+            .listener(stepMonitorListener)
+            .listener(chunkListener)
+            .build()
+
+    private fun loadWeights(jdbcTemplate: NamedParameterJdbcTemplate): RankingAggregationReader.ScoreWeights {
+        val configMap = jdbcTemplate.query(WEIGHT_SQL, MapSqlParameterSource()) { rs, _ ->
+            rs.getString("config_key") to rs.getDouble("config_value")
+        }.toMap()
+
+        return RankingAggregationReader.ScoreWeights(
+            viewWeight = configMap["VIEW_WEIGHT"] ?: DEFAULT_VIEW_WEIGHT,
+            likeWeight = configMap["LIKE_WEIGHT"] ?: DEFAULT_LIKE_WEIGHT,
+            orderWeight = configMap["ORDER_WEIGHT"] ?: DEFAULT_ORDER_WEIGHT,
+        )
+    }
 }
