@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.servlet.http.HttpServletRequest
 import org.springdoc.core.annotations.ParameterObject
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -38,5 +39,9 @@ interface ProductV1ApiSpec {
     fun getProduct(
         @Parameter(description = "상품 ID", required = true)
         productId: Long,
-    ): ApiResponse<ProductV1Dto.ProductResponse>
+        @Parameter(hidden = true)
+        loginId: String?,
+        @Parameter(hidden = true)
+        request: HttpServletRequest,
+    ): ApiResponse<ProductV1Dto.ProductDetailResponse>
 }

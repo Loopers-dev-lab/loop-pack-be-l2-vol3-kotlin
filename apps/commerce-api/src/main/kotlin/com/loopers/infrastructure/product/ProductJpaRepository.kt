@@ -28,6 +28,8 @@ interface ProductJpaRepository : JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.id IN :ids AND p.deletedAt IS NULL")
     fun findAllByIdWithLock(ids: List<Long>): List<Product>
 
+    fun findAllByIdInAndDeletedAtIsNull(ids: List<Long>): List<Product>
+
     @Modifying(clearAutomatically = true)
     @Query("UPDATE products SET like_count = like_count + 1 WHERE id = :productId", nativeQuery = true)
     fun incrementLikeCount(@Param("productId") productId: Long)

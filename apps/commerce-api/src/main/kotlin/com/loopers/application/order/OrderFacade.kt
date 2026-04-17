@@ -3,6 +3,7 @@ package com.loopers.application.order
 import com.loopers.application.brand.BrandService
 import com.loopers.application.coupon.CouponService
 import com.loopers.application.event.OrderCreatedEvent
+import com.loopers.application.event.OrderItemEvent
 import com.loopers.application.outbox.OutboxService
 import com.loopers.application.product.ProductService
 import com.loopers.application.product.ReservedProduct
@@ -57,6 +58,13 @@ class OrderFacade(
             orderId = orderInfo.id,
             userId = userId,
             productIds = productIds,
+            items = reservedProducts.map { reserved ->
+                OrderItemEvent(
+                    productId = reserved.productId,
+                    unitPrice = reserved.unitPrice,
+                    quantity = reserved.quantity,
+                )
+            },
             totalAmount = orderInfo.totalAmount,
             couponId = couponId,
         )
