@@ -25,6 +25,9 @@ batch:
       skip-limit: 100
       retry-limit: 3
       ttl-warn-threshold-hours: 12
+  consistency:
+    cron: "0 30 3 * * *"
+    warn-threshold: 10
   ranking:
     orchestrator:
       cron: "0 0 1 * * *"
