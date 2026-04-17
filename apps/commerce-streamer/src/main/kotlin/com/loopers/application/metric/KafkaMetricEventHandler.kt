@@ -1,9 +1,12 @@
 package com.loopers.application.metric
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.loopers.domain.metric.HandledEvent
 import com.loopers.domain.metric.HandledEventRepository
 import com.loopers.domain.metric.ProductLikeCountRepository
 import com.loopers.domain.metric.ProductMetric
+import com.loopers.domain.metric.ProductMetricDaily
+import com.loopers.domain.metric.ProductMetricDailyRepository
 import com.loopers.domain.metric.ProductMetricRepository
 import com.loopers.domain.metric.ProcessedPaymentRepository
 import com.loopers.domain.ranking.ProductRankingRepository
@@ -13,10 +16,13 @@ import com.loopers.infrastructure.outbox.KafkaEventType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
+import java.time.ZoneId
 
 @Service
 class KafkaMetricEventHandler(
     private val productMetricRepository: ProductMetricRepository,
+    private val productMetricDailyRepository: ProductMetricDailyRepository,
     private val handledEventRepository: HandledEventRepository,
     private val productLikeCountRepository: ProductLikeCountRepository,
     private val processedPaymentRepository: ProcessedPaymentRepository,
@@ -82,6 +88,22 @@ class KafkaMetricEventHandler(
 
         productMetricRepository.save(updated)
 
+        // Daily 적재 (LIKE_CANCELED는 no-op — 기존 ZSET과 일관: cancel 시 점수 차감 없음)
+        val today = LocalDate.now(SEOUL_ZONE)
+        when (envelope.eventType) {
+            KafkaEventType.PRODUCT_DETAIL_VIEWED -> {
+                val daily = productMetricDailyRepository.findByProductIdAndMetricDate(productId, today)
+                    ?: ProductMetricDaily.register(productId, today)
+                productMetricDailyRepository.save(daily.recordView())
+            }
+            KafkaEventType.PRODUCT_LIKE_REGISTERED -> {
+                val daily = productMetricDailyRepository.findByProductIdAndMetricDate(productId, today)
+                    ?: ProductMetricDaily.register(productId, today)
+                productMetricDailyRepository.save(daily.recordLike())
+            }
+            else -> Unit
+        }
+
         val signalType = when (envelope.eventType) {
             KafkaEventType.PRODUCT_DETAIL_VIEWED -> RankingSignalType.VIEW
             KafkaEventType.PRODUCT_LIKE_REGISTERED -> RankingSignalType.LIKE
@@ -117,8 +139,22 @@ class KafkaMetricEventHandler(
             return
         }
 
-        val parsedItems = envelope.payload["items"]
-            ?.takeIf { it.isArray }
+        val itemsNode = envelope.payload["items"]?.takeIf { it.isArray }
+
+        // 정책 C: raw payload per-item 필수 필드 누락 또는 음수 필드 → 이벤트 전체 skip.
+        // mandatory 필드(productId, quantity) 누락 아이템이 per-item skip으로 조용히 사라지면
+        // paymentId 멱등성과 결합해 해당 아이템이 영구 유실되므로, 이벤트 전체 격리로 처리.
+        // 집계 후(totalQuantity/totalAmount) 검사는 같은 productId 음수+양수 상쇄로 빠져나갈 여지 있음.
+        if (itemsNode != null && itemsNode.any { node -> hasInvalidOrderItemFields(node) }) {
+            log.warn(
+                "Skipping PAYMENT_SUCCEEDED with invalid item fields: eventId={}, paymentId={}",
+                envelope.eventId,
+                paymentId,
+            )
+            return
+        }
+
+        val parsedItems = itemsNode
             ?.mapNotNull { node ->
                 if (node.isNull) return@mapNotNull null
                 val productId = node["productId"]?.asLong() ?: return@mapNotNull null
@@ -165,7 +201,11 @@ class KafkaMetricEventHandler(
         productMetricRepository.saveAll(updatedMetrics)
         processedPaymentRepository.save(paymentId)
 
+        val today = LocalDate.now(SEOUL_ZONE)
         itemsByProduct.forEach { (productId, item) ->
+            val daily = productMetricDailyRepository.findByProductIdAndMetricDate(productId, today)
+                ?: ProductMetricDaily.register(productId, today)
+            productMetricDailyRepository.save(daily.recordOrder(item.totalQuantity, item.totalAmount))
             updateOrderRankingScore(productId, item.totalAmount, envelope.eventId)
         }
     }
@@ -207,5 +247,28 @@ class KafkaMetricEventHandler(
                 e,
             )
         }
+    }
+
+    /**
+     * 정책 C — PAYMENT_SUCCEEDED 아이템 노드가 이벤트 전체 skip 대상인지 판단한다.
+     *
+     * - null 노드는 개별 스킵 대상이므로 false (`handleOrderEvent` 파싱 단계에서 처리).
+     * - `productId`, `quantity`는 mandatory: 누락/null 시 전체 skip.
+     * - `quantity < 0`이면 전체 skip.
+     * - `sellingPrice`는 optional이지만, 존재하면서 음수이면 전체 skip.
+     */
+    private fun hasInvalidOrderItemFields(node: JsonNode): Boolean {
+        if (node.isNull) return false
+        val productIdNode = node["productId"] ?: return true
+        val quantityNode = node["quantity"] ?: return true
+        if (productIdNode.isNull || quantityNode.isNull) return true
+        if (quantityNode.asInt() < 0) return true
+        val sellingPriceNode = node["sellingPrice"]
+        if (sellingPriceNode != null && !sellingPriceNode.isNull && sellingPriceNode.asLong() < 0) return true
+        return false
+    }
+
+    companion object {
+        private val SEOUL_ZONE = ZoneId.of("Asia/Seoul")
     }
 }
