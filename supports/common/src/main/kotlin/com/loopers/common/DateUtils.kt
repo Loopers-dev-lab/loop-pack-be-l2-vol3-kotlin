@@ -9,6 +9,7 @@ object DateUtils {
     val KST: ZoneId = ZoneId.of("Asia/Seoul")
 
     private val YYYYMMDD: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+    private val YYYYMM: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMM")
 
     fun todayKst(): LocalDate = LocalDate.now(KST)
 
@@ -19,4 +20,6 @@ object DateUtils {
     fun formatDate(date: LocalDate): String = date.format(YYYYMMDD)
 
     fun parseDate(text: String): LocalDate = LocalDate.parse(text, YYYYMMDD)
+
+    fun formatYearMonth(date: LocalDate): String = date.format(YYYYMM)
 }

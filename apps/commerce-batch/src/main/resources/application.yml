@@ -21,11 +21,23 @@ spring:
 batch:
   snapshot:
     daily:
-      cron: "0 0 1 * * *"
       chunk-size: 500
       skip-limit: 100
       retry-limit: 3
       ttl-warn-threshold-hours: 12
+  ranking:
+    orchestrator:
+      cron: "0 0 1 * * *"
+    weekly:
+      chunk-size: 50
+      skip-limit: 10
+      retry-limit: 3
+      top-n: 100
+    monthly:
+      chunk-size: 50
+      skip-limit: 10
+      retry-limit: 3
+      top-n: 100
 
 management:
   health:
