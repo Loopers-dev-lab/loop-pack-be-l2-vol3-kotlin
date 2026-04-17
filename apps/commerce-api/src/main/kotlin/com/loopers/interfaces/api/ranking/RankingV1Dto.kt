@@ -13,6 +13,8 @@ class RankingV1Dto {
         val rankings: List<RankingResponse>,
         @Schema(description = "조회 날짜", example = "20260408")
         val date: String,
+        @Schema(description = "조회 기간", example = "DAILY")
+        val period: String,
         @Schema(description = "페이지 번호", example = "1")
         val page: Int,
         @Schema(description = "페이지 크기", example = "20")
@@ -21,10 +23,11 @@ class RankingV1Dto {
         val totalCount: Long,
     ) {
         companion object {
-            fun from(pageInfo: RankingPageInfo, date: String, page: Int, size: Int): RankingPageResponse {
+            fun from(pageInfo: RankingPageInfo, date: String, period: String, page: Int, size: Int): RankingPageResponse {
                 return RankingPageResponse(
                     rankings = pageInfo.rankings.map { RankingResponse.from(it) },
                     date = date,
+                    period = period,
                     page = page,
                     size = size,
                     totalCount = pageInfo.totalCount,
