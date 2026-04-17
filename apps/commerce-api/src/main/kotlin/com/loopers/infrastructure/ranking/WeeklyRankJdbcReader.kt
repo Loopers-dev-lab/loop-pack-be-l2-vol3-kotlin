@@ -2,6 +2,7 @@ package com.loopers.infrastructure.ranking
 
 import com.loopers.application.ranking.WeeklyRankReader
 import com.loopers.application.ranking.WeeklyRankView
+import org.springframework.dao.EmptyResultDataAccessException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.sql.ResultSet
@@ -16,6 +17,12 @@ class WeeklyRankJdbcReader(
 
     override fun countLatest(): Long =
         jdbcTemplate.queryForObject(COUNT_LATEST_SQL, Long::class.java) ?: 0L
+
+    override fun findLatestRankOfProduct(productId: Long): Int? = try {
+        jdbcTemplate.queryForObject(RANK_OF_PRODUCT_SQL, Int::class.java, productId)
+    } catch (e: EmptyResultDataAccessException) {
+        null
+    }
 
     private fun mapRow(rs: ResultSet): WeeklyRankView = WeeklyRankView(
         productId = rs.getLong("product_id"),
@@ -42,6 +49,12 @@ class WeeklyRankJdbcReader(
         private const val COUNT_LATEST_SQL = """
             SELECT COUNT(*) FROM mv_product_rank_weekly
             WHERE week_end = (SELECT MAX(week_end) FROM mv_product_rank_weekly)
+        """
+
+        private const val RANK_OF_PRODUCT_SQL = """
+            SELECT rank_position FROM mv_product_rank_weekly
+            WHERE week_end = (SELECT MAX(week_end) FROM mv_product_rank_weekly)
+              AND product_id = ?
         """
     }
 }

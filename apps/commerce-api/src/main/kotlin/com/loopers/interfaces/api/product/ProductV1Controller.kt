@@ -49,7 +49,7 @@ class ProductV1Controller(
     @GetMapping("/{productId}")
     fun getProduct(@PathVariable productId: Long): ApiResponse<ProductDetailResponse> {
         val product = getProductUseCase.execute(productId)
-        val rank = getProductRankUseCase.execute(productId)
-        return ApiResponse.success(ProductDetailResponse.from(product, rank))
+        val ranks = getProductRankUseCase.execute(productId)
+        return ApiResponse.success(ProductDetailResponse.from(product, ranks))
     }
 }
