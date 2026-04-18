@@ -296,6 +296,155 @@ class LikeCount private constructor(val value: Int) {
 - **Q7 (예정)** — 백지 설계 테스트 (구현 준비도 판정)
   - 이번 라운드 학습 내용으로 "이커머스 도메인"을 처음부터 설계
 
+---
+
+## Q3. Entity vs VO — "같다(equality)"의 의미가 가르는 본질 (이어서)
+
+**[답변]**
+> a. 의미적으로 봤을 때 같다. 하지만 식별자가 같은지 봐야 정확히 같은지 다른지 알수 있다. 현재 like는 userId, productId 가 같기 때문에 같다. 그리고 첫번째 좋아요와 세번째 좋아요는 생성되고, 삭제되고, 다시 생성되기 때문에 다르다.
+> b. LikeCount(100) 두 인스턴스는 같다. equals와 hashCode 구현을 보면 단순하게 value 값만 비교하기 때문에 같다.
+> c. entity는 식별자를 비교하고, vo는 값을 비교한다.
+
+**[후속 질문: userId, productId가 같으면 "같은" Entity인가?]**
+(b)와 (c)는 정확합니다. 그런데 (a) 케이스 1에서 "userId, productId가 같기 때문에 같다"고 했는데 — 방금 (c)에서 Entity는 식별자로 비교한다고 했잖아요?
+
+`Like`는 `BaseEntity`를 상속하고, 자동 할당되는 `id`가 있습니다.
+- 인스턴스 A: `id=42`, userId=1, productId=100
+- 인스턴스 B: `id=43`, userId=1, productId=100
+
+이 둘은 같은가요, 다른가요? 그리고 `(user_id, product_id)` 유니크 제약은 "두 Like가 같다"는 뜻인가요?
+
+**[답변]**
+> 아.. 두 인스턴스는 다른 like 야
+
+**[후속 질문: 유니크 제약의 역할]**
+그러면 유니크 제약은 뭘 위한 건가요? "두 Like가 같다"는 뜻이 아니라면, 어떤 역할을 하는 건가요?
+
+**[답변]**
+> 유니크 제약을 중복 등록을 방지하기 위한거야
+
+**[정리]**
+- **유니크 제약** = "같은 사용자가 같은 상품에 좋아요를 두 번 누르는 것을 막는다" → **비즈니스 규칙의 강제**
+- **id 동등성** = "이 좋아요가 저 좋아요와 같은 건인가?" → **Entity의 정체성(identity) 판단**
+- 이 두 가지는 완전히 다른 관심사. 유니크 제약은 "생성 시점의 중복 방지", id 비교는 "이미 존재하는 객체의 동일성 판별"
+
+| 구분 | "같다"의 기준 | 용어 | 프로젝트 예시 |
+| --- | --- | --- | --- |
+| **Entity** | **식별자(id)가 같으면 같다** | 동일성(Identity) | `Like` — id=42와 id=43은 속성이 같아도 다른 Entity |
+| **VO** | **값이 같으면 같다** | 동등성(Equality) | `LikeCount(100)` — 두 인스턴스는 값이 같으면 같은 것 |
+
+- **유니크 제약 ≠ 동일성** — 유니크 제약은 비즈니스 규칙(중복 방지)이지, Entity의 identity를 정의하는 것이 아니다 [글감]
+
+---
+
+## Q4. Domain Service — "이 로직은 누구의 책임인가?"
+
+**[질문]**
+발제의 `PointChargingService.charge()` 코드를 보면, 사실상 검증 한 줄 + `user.receive(amount)` 위임 한 줄입니다. 검증까지 `User.receive()` 안에 넣으면 `PointChargingService`가 아예 필요 없어지죠. 그런데도 Domain Service로 분리해야 할 이유가 있나요?
+
+**[답변]**
+> Domain Service 로 분리할 이유는 없어보이네
+
+**[후속 질문: 그러면 Domain Service가 진짜 필요한 경우는?]**
+동의합니다. Entity가 스스로 자기 상태를 지킬 수 있으면 밖으로 꺼낼 이유가 없습니다.
+
+발제의 주문 생성 유스케이스 `OrderService.createOrder()`를 보면 여러 객체가 협력합니다 — Product, User, Order. 이 로직을 `Order.create()` 같은 Entity 메서드 안에 넣으면 안 되나요?
+
+**[답변]**
+> Entity는 서로 의존할 수 없다. 그래서 이걸 대체하기 위해 domain service가 나온것이다.
+> 만약 Order.create() 로 사용한다면 order entity는 방대해지고, 다른 entity의 상태 변화까지 관여할 것이다.
+
+**[후속 질문: OrderService는 정말 Domain Service인가?]**
+`OrderService`는 `OrderRepository`를 주입받아 `save()`를 호출합니다. Repository에 의존해서 저장까지 하는 이 `OrderService`는 정말 Domain Service인가요?
+
+**[답변]**
+> Domain Service 야 Repository 는 직접 저장을 하는게 아니라 Repository 를 구현하는 하위 객체에 위임하고 있어
+
+**[후속 질문: createOrder()의 6단계 — 어디까지 Domain, 어디부터 Application?]**
+DIP 위반이 아닌 건 맞지만, 계층의 책임 분류가 질문의 핵심입니다.
+
+`createOrder()`가 하는 일:
+1. 총 금액 계산
+2. 유저 잔액 확인
+3. 재고 차감
+4. 유저 포인트 차감
+5. Order 객체 생성
+6. Repository에 저장
+
+이 중 어디까지가 Domain Service의 일이고, 어디부터가 Application Layer(Facade)의 일인가요?
+
+**[답변]**
+> Domain Service : 2, 3, 4, 5, 6
+> Facade : 1
+> 인거 같아
+
+**[후속 질문: 1번과 6번을 다시 생각해보자]**
+1번(총 금액 계산) — "상품 가격 × 수량의 합"은 기술적 조율인가요, 비즈니스 규칙인가요?
+6번(Repository에 저장) — "언제, 무엇을 저장할 것인가"를 결정하는 건 흐름의 조율일까요, 도메인 규칙일까요?
+
+**[답변]**
+> 1번은 Domain Service에 있어야 할거 같아. 비즈니스 규칙이기 때문에
+> 그리고 너의 말은 6번은 Application 계층 에 해당 된다는 거 같은데 맞아?
+
+**[정리]**
+- **Domain Service**: 1(총 금액 계산), 2(잔액 확인), 3(재고 차감), 4(포인트 차감), 5(Order 생성) — 비즈니스 규칙과 도메인 객체 간 협력
+- **Facade(Application)**: 도메인 서비스를 호출하고, 저장 시점을 결정하고, 트랜잭션을 관리 — 유스케이스 흐름의 조율
+- "저장한다"는 행위 자체는 비즈니스 규칙이 아니라 기술적 결정. "주문이 유효하면 영속화해라"라는 흐름 조율은 Facade의 몫
+- 발제의 `OrderService`는 도메인 로직(1~5)과 저장(6)을 한 곳에 섞어놓은 것으로, 설명의 편의를 위해 단순화한 것
+
+판단 기준:
+- "이 로직이 **Entity 하나가 스스로** 할 수 있나?" → **Entity 메서드**
+- "**여러 Entity의 협력**이 필요하지만, 비즈니스 규칙인가?" → **Domain Service**
+- "**언제 저장하고, 뭘 호출할지** 흐름을 잡는 건가?" → **Facade** [글감]
+
+---
+
+## Q5. 유스케이스 객체 협력 — "누가 총 금액을 계산해야 하는가?" (진행 중)
+
+**[질문]**
+Q4에서 "총 금액 계산은 Domain Service"라고 했는데, 한 발 더 들어가봅시다.
+
+```kotlin
+val totalPrice = products.sumOf { (product, qty) -> product.price * qty }
+```
+
+주문에는 `OrderItem`이라는 개념이 있고, 총 금액이란 결국 "이 주문에 포함된 항목들의 합"입니다. 이 계산이 정말 Domain Service의 일인가요? 다른 곳에 더 자연스럽게 들어갈 수 있는 곳은 없나요?
+
+> ⏸ **세션 2차 중단 — 답변 대기 중**
+
+---
+
+## 📌 세션 요약 (2차, 2026-04-18)
+
+### 다룬 주제
+- **Q3**: Entity vs VO — "같다(equality)"의 의미 ✅ 완료
+- **Q4**: Domain Service — "이 로직은 누구의 책임인가?" ✅ 완료
+- **Q5**: 유스케이스 객체 협력 — "누가 총 금액을 계산해야 하는가?" ⏸ 질문 던진 상태, 답변 대기
+
+### 핵심 개념 — 한 줄 정리
+
+3. **Entity vs VO의 본질은 "같다"의 정의 차이**
+   - Entity: 동일성(Identity) — id가 같으면 같다
+   - VO: 동등성(Equality) — 값이 같으면 같다
+   - 유니크 제약 ≠ 동일성 — 비즈니스 규칙(중복 방지)과 정체성 판단은 별개
+
+4. **Domain Service vs Application Service(Facade) vs Entity 메서드**
+   - Entity 메서드: 자기 상태를 스스로 보호/변경 (`User.pay()`, `Product.decreaseStock()`)
+   - Domain Service: Entity 하나에 귀속되지 않는 도메인 로직, 상태 없음
+   - Facade: 유스케이스 흐름 조율, 저장 시점 결정, 트랜잭션 관리
+
+### 📝 블로그 글감 후보 (추가)
+4. **유니크 제약 ≠ Entity의 동일성** — DB 제약은 비즈니스 규칙(중복 방지), id 비교는 정체성(identity) 판단. 같은 속성을 가진 두 Entity도 id가 다르면 다른 객체.
+5. **Domain Service vs Facade — 경계를 긋는 기준** — "비즈니스 규칙인가, 흐름 조율인가?" PointChargingService 같은 불필요한 분리 vs 주문 생성의 정당한 분리.
+
+### 🔜 다음 세션에서 이어갈 지점
+
+**바로 재개할 질문**: Q5 — "총 금액 계산은 OrderItem/Order에 속하지 않나?"
+
+**이후 남은 주제**:
+- **Q6 (예정)** — 레이어드 아키텍처 + DIP: Repository Interface가 Domain Layer에 있는 이유
+- **Q7 (예정)** — 백지 설계 테스트 (구현 준비도 판정)
+
 ### 세션 재개 방법
-다음에 이 라운드를 이어가려면, 학습 스킬을 다시 실행할 때 **기존 QnA 파일 경로로 `docs/notes/learn-round2-qa-notes.md`** 를 알려주시면 Q3 (a), (b), (c) 답변부터 이어갑니다.
+다음에 이 라운드를 이어가려면, 학습 스킬을 다시 실행할 때 **기존 QnA 파일 경로로 `docs/notes/learn-round2-qa-notes.md`** 를 알려주시면 Q5 답변부터 이어갑니다.
 
