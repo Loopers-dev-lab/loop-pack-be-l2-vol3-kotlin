@@ -245,22 +245,859 @@ GET /api/v1/rankings?date=20260415&period=WEEKLY&size=20&page=1
 CREATE TABLE 문으로 답하시고, 위 5개 질문에 대한 본인의 결정 근거를 짧게 곁들여주세요.
 
 **[답변]**
-> (답변 대기 중)
+> 1. view_count / like_count / sales_count 모두 추가할게. 모든 데이터는 필요할 거 같아
+> 2. id BIGINT AUTO_INCREMENT PK + unique key, 이유는 다른 db 테이블과 일관성을 맞추기 위해 선택할게
+> 3. year_week, rank 로 인덱스를 만들게, year_week 의 범위로 먼저 정렬하고, rank 로 해야 정렬이 올바르게 될거야.
+> 4. VARCHAR(10) 로 할게, b 방식은 가독성이 떨어지고, c 는 함수이기 때문에 계산이 들어가서 안좋아
+> 5. 가) 는 빠른 조회가 가능하다., 나)는 매 조회마다 rank 계산이 수행되어 성능이 떨어진다
+
+**[멘토 평가]**
+- 4번 C 기각 이유(쿼리 조건 2개로 분해됨)와 5번 pre-compute 선택(주간 갱신 주기 특성)은 합리적
+- 2번 + 3번이 서로 물려있는 InnoDB 특성 함정을 품고 있음 → 후속 흔들기 필요
+- 1번 컬럼 구성(raw 메트릭 중복 저장)은 `product_metrics_daily`와의 관계에서 재검토 여지 있음
+- 4번 VARCHAR 선택은 정렬 측면에서 미묘한 함정 있음 (zero-padding 이슈)
+
+**[악마의 변호인: PK 선택과 InnoDB Clustered Index]**
+"다른 테이블과 일관성을 맞추기 위해 `id AUTO_INCREMENT` PK"라는 논리는 일반 Entity에는 타당하나, MV 테이블에는 성능 함정이 있을 수 있음.
+
+**시나리오:** 2년치(104주) 데이터 축적. 주차마다 TOP 100 row → 총 10,400 row. 인덱스는 선택대로 `(year_week, rank)`. 다음 쿼리 실행:
+```sql
+SELECT * FROM mv_product_rank_weekly
+WHERE year_week = '2026-W15'
+ORDER BY rank LIMIT 20;
+```
+
+**핵심 개념 질문:**
+1. InnoDB의 **clustered index**가 무엇인지? PK가 실제 데이터 row를 어떻게 저장하는지?
+2. `id AUTO_INCREMENT` PK 선택 시, 2026-W15에 속하는 100개 row가 디스크에 **물리적으로** 어떻게 흩어져 있을까요? (힌트: row 삽입 순서 = 배치 실행 시점 순서, 같은 주차 row가 연속 삽입되긴 함)
+3. 보조 인덱스 `(year_week, rank)`로 20건을 찾아낸 뒤, 실제 전체 row 데이터를 읽으려면 어떤 동작이 일어나나요? (힌트: "index lookup" vs "table lookup", `SELECT *`)
+
+**비교 케이스:** PK를 `(year_week, product_id)` 복합키로 잡았다면?
+- 2026-W15의 100개 row가 디스크에 **물리적으로 연속** 저장됨 (clustered index가 year_week 순)
+- `WHERE year_week = ?` 쿼리는 range scan 한 번으로 100개 row가 다 읽힘
+- 단, `ORDER BY rank`는 filesort 필요 → 이것만 해결하려면 보조 인덱스 `(year_week, rank)` 하나 더
+
+**판단 질문:**
+- 두 PK 전략의 I/O 비용 차이를 설명해보세요
+- "다른 테이블과 일관성"이라는 논리가 **조회 전용 derived table**인 MV에도 그대로 적용되어야 할까요? (CLAUDE.md의 `BaseEntity` 규칙은 **도메인 Entity**의 일관성 원칙인데, MV는 domain인가 infrastructure인가?)
+- Q1에서 정리한 "MV = 조회 전용 구조 (Materialized View)" 성격을 생각하면, 어느 쪽이 더 자연스러운가?
+
+**[답변]**
+> 1. 이건 잘 모르겠어. 알려줘
+> 2. 생각해보니 entity와 다른 성격이네, pk 는 다르게 선택해도 좋을 거 같아.
+> 3. 이거도 알려줘
+
+**[멘토 답변: I/O 비용 차이 상세 설명]**
+
+**Case A — `id AUTO_INCREMENT` PK + 보조 인덱스 `(year_week, rank)`:**
+1. 보조 인덱스 B-Tree에서 `year_week='2026-W15'` 진입, rank 순서로 20개의 **PK 값(id)** 획득 → 인덱스 I/O 2~3회 (sequential)
+2. 획득한 `id` 20개로 **PK 클러스터드 인덱스를 다시 타고 실제 row 읽기 (Bookmark Lookup)**
+3. `id`는 **삽입 순서**로 저장되므로, rank 순으로 얻은 id들은 디스크상 위치가 랜덤 → 최악의 경우 **random I/O 20회**
+4. 총: 인덱스 3 + random lookup 20 = **~23회 I/O**
+
+**Case B — `(year_week, product_id)` 복합 PK + 보조 인덱스 `(year_week, rank)`:**
+1. 보조 인덱스에서 `year_week='2026-W15' ORDER BY rank LIMIT 20` → (year_week, product_id) 20개 획득 → 인덱스 I/O 2~3회
+2. PK 클러스터드 인덱스에서 실제 row 읽기 — 여기가 핵심:
+   - PK가 `(year_week, product_id)` 순서로 저장되므로 2026-W15 주차 100 row가 **물리적으로 연속(contiguous)**
+   - 20 row가 같은/인접한 2~3개 페이지에 밀집 → **sequential I/O 2~3회**
+3. 총: 인덱스 3 + sequential 2~3 = **~5회 I/O**
+
+**차이**: 최악 시 **random 20회 vs sequential 2~3회**. HDD에선 수십 배 차이, SSD에서도 의미 있는 차이.
+
+**더 강력한 최적화 — Covering Index:**
+보조 인덱스에 자주 읽는 컬럼까지 포함하면(`(year_week, rank) INCLUDE (product_id, score, ...)`), PK 트리를 타지 않고 인덱스만으로 응답 완료 → **I/O 2~3회로 끝**. 이걸 **Covering Index**라 부름.
+
+**[멘토 답변: 복합 PK로 바꿀 때 잃는 것]**
+
+1. **`BaseEntity` 상속 불가**: BaseEntity는 `@Id @GeneratedValue val id: Long` 전제. 복합키로 가려면 `@EmbeddedId` 또는 `@IdClass`를 써야 해서 상속 구조 깨짐
+2. **JPA Entity 매핑 복잡도 증가**: `@EmbeddedId val id: MvProductRankWeeklyId` + 별도 ID 클래스 (`@Embeddable data class`) 정의 필요 → 보일러플레이트
+3. **단건 조회 API의 어색함**: `findById(1L)` → `findById(MvProductRankWeeklyId("2026-W15", 100L))` 로 파라미터 구조 변화
+4. **JPA 연관관계 매핑의 불편**: 만약 다른 Entity가 이걸 참조한다면 FK도 복합이 됨 (MV는 보통 참조되지 않으므로 실질 문제 적음)
+5. **일관성 규약의 예외 발생**: CLAUDE.md "기존 코드 패턴 분석 후 일관성 유지" 원칙과 겉보기엔 충돌. 실제로는 "MV는 도메인 Entity가 아닌 derived data"라는 근거로 예외 인정 가능
+
+**얻는 것 (복기):**
+- InnoDB Clustered Index의 range scan 효율 (위 I/O 비교 결과)
+- 의미론적 명확성: PK 자체가 "어느 주차의 어느 상품 랭킹"이라는 정체성을 담음
+- 자연스러운 natural key 활용 (surrogate key 불필요)
+
+**실용적 타협안 (Q5 예고):**
+사실 MV는 **JPA Entity로 매핑할 필요가 없을 수도 있음**. 만약 Q5에서 "배치는 JDBC로 쓰고 조회도 JdbcTemplate으로 한다"고 결정하면, 위 1~4번 단점이 **자동 해소**됨. 즉 PK 선택 문제가 도구 선택(JPA vs JDBC)과 맞물려 있음.
+
+**[후속 질문: VARCHAR 정렬의 숨은 함정]**
+4번에서 `VARCHAR(10) '2026-W15'` 선택. 이제 과거 주차 리스트 쿼리를 생각해봅시다:
+```sql
+SELECT DISTINCT year_week FROM mv_product_rank_weekly ORDER BY year_week;
+```
+
+실제 결과가 이렇게 나올 수 있음:
+```
+2026-W1
+2026-W10
+2026-W11
+2026-W12
+...
+2026-W2
+2026-W3
+...
+```
+
+왜 이런 일이 생기고, 어떻게 해결할까요? (힌트: 문자열 정렬 규칙)
+
+**[답변]**
+> 그러네 너가 말한 것처럼 정렬에 문제가 생기겠네. 그렇다고 int도 문제가 생기고, 그러면 결국 (year SMALLINT, week TINYINT) 으로 넣는게 좋을거 같아
+
+**[악마의 변호인: VARCHAR 해결책 & C안의 숨은 함정]**
+
+너무 빠른 선회. 세 가지를 점검해보자.
+
+**(1) VARCHAR의 진짜 해결책 — Zero-padding**
+
+문자열 정렬 문제의 원인은 `'W1' vs 'W10'`에서 **자릿수가 다르기 때문**. 자릿수를 고정하면 해결됨:
+```
+'2026-W01', '2026-W02', ..., '2026-W09', '2026-W10', '2026-W11'
+```
+→ 문자열 사전순 정렬로도 완벽히 자연 정렬됨. ISO 8601이 `2026-01-15`, `2026-W01`처럼 **모든 자릿수에 zero-padding을 강제**하는 이유가 정확히 이것.
+
+애플리케이션 레벨 생성도 간단:
+```kotlin
+val yearWeek = "%d-W%02d".format(year, week)  // "2026-W05"
+```
+
+그리고 zero-padded된 값은 항상 **8자 고정** → `CHAR(8)` 이 `VARCHAR(10)`보다 더 적절.
+
+**(2) C안의 숨은 함정 — 연도 경계 범위 쿼리**
+
+기획팀 요청: "2026년 52주차부터 2027년 3주차까지 최근 4주 랭킹 추이 보여줘"
+
+- C안 `(year SMALLINT, week TINYINT)` 에서의 쿼리:
+  ```sql
+  WHERE (year = 2026 AND week >= 52)
+     OR (year = 2027 AND week <= 3)
+  ```
+  연도 경계마다 조건이 분기됨. 최근 N주 쿼리 작성이 상당히 번거로움.
+
+- Zero-padded CHAR(8) 에서의 쿼리:
+  ```sql
+  WHERE year_week BETWEEN '2026-W52' AND '2027-W03'
+  ```
+  한 줄. 문자열 사전순 정렬로도 자연 범위 지정.
+
+- `ORDER BY year_week DESC LIMIT 10` (최근 10주) — CHAR(8)은 단일 컬럼 정렬. C안은 `(year DESC, week DESC)` 복합 정렬.
+
+**(3) 기각 이유 재검증**
+
+원래 C를 기각한 이유는 "**계산이 들어가서 안좋다**". 지금 다시 고르는 근거는 "VARCHAR 정렬 문제". 하지만:
+- VARCHAR 정렬 문제는 zero-padding으로 해결됨
+- C안의 "계산이 들어간다"는 문제는 여전히 유효함 (범위 쿼리 복잡, 조건 분기)
+
+→ 기각 이유가 여전히 valid한데, 해결 가능한 다른 문제 때문에 돌아가는 건 **본말전도** 아닌가?
+
+**재선택 질문:**
+1. Zero-padded `CHAR(8) '2026-W15'` vs `(year SMALLINT, week TINYINT)` — 다시 고른다면?
+2. 고른 이유는? (정렬/범위 쿼리/저장 공간/쿼리 간결성 중 어느 것을 우선?)
+
+**[답변]**
+> 원래 선택한 방법으로 갈게, 정렬이 해결된다면, 가독성도 좋고, 쿼리 간결성도 좋고, 저장 공간도 c안 보다 덜 차지 한다고 생각된다
+
+**[멘토 팩트 교정: 저장 공간]**
+저장 공간은 실제로는 C안이 유리하다:
+- `CHAR(8)` = 8 bytes (ASCII 고정)
+- `SMALLINT(2 bytes) + TINYINT(1 byte)` = 3 bytes
+- row당 5 bytes 차이, 10,000 row × 2 보조 인덱스에서 ~100KB. **실무에선 무시 가능**.
+
+판단의 진짜 근거는 "가독성 + 쿼리 간결성"이고, 저장 공간은 tiebreaker가 되지 못함. **결정은 그대로 유지하되 근거를 정리**할 것.
+
+**[정리]**
+- **확정: Zero-padded CHAR(8) `'2026-W15'` 형식**
+- 근거 우선순위:
+  1. **쿼리 간결성** (`BETWEEN`, 단일 컬럼 `ORDER BY`, 연도 경계 범위 쿼리가 한 줄)
+  2. **가독성** (코드에서 `yearWeek` 하나로 표현, API 응답에서도 그대로 전달 가능)
+  3. **정렬 자연성** (zero-padding + 사전순 정렬이 시간순과 정확히 일치)
+- 저장 공간은 판단 근거가 아님 (미미한 차이)
+- Zero-padding 규칙은 **application 레이어에서 강제** (`"%d-W%02d".format(...)`)
+- 월간도 동일 패턴: `CHAR(7) '2026-04'` (이미 자연 zero-padded)
+- **[글감]**: "문자열 식별자의 정렬 함정 — Zero-padding이 해결하는 것과 남기는 것"
 
 ---
 
-## 다음 세션 이어가기
+### Q4 최종 CREATE TABLE (확정)
 
-**중단 지점:** Q4 질문(MV 스키마 직접 설계) 답변 대기 중
-**다음 세션 시작 방법:** 이 파일(`docs/notes/learn-round10-qa-notes.md`)을 참조로 지정해서 `/learn-round @docs/quests/round-10.md` 실행
-**남은 주요 주제 (내부 설계):**
-- Q2. 기간 경계 (ISO week vs 롤링 7일) 및 배치 실행 주기
-- Q3. Spring Batch 구조 선택 (Chunk-Oriented vs Tasklet, chunk size 결정)
-- Q4. Materialized View 스키마 설계 (`mv_product_rank_weekly`, `mv_product_rank_monthly`)
-- Q5. 멱등성과 재실행 전략 (같은 날짜 두 번 돌리면? JobParameter, 중복 실행 방지)
-- Q6. API 확장 (`period` 파라미터) 및 일간(Redis) / 주간·월간(MV) 분기 처리
-- Q7. 실패 복구, 모니터링, 운영 관점
-- Q8. product_metrics 일별 스키마 재설계 (현재 상품별 누적 → 일별 row)
-- 최종 백지 설계 테스트
+**주간:**
+```sql
+CREATE TABLE mv_product_rank_weekly (
+    year_week    CHAR(8)     NOT NULL COMMENT 'ISO Week 형식: 2026-W15 (zero-padded)',
+    product_id   BIGINT      NOT NULL,
+    `rank`       INT         NOT NULL COMMENT '주차 내 순위 (1~100)',
+    score        BIGINT      NOT NULL COMMENT '가중치 적용 최종 점수',
+    view_count   BIGINT      NOT NULL DEFAULT 0 COMMENT '주간 누적 조회 수',
+    like_count   BIGINT      NOT NULL DEFAULT 0 COMMENT '주간 누적 좋아요 수',
+    sales_count  BIGINT      NOT NULL DEFAULT 0 COMMENT '주간 누적 판매 수',
+    created_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (year_week, product_id),
+    KEY idx_year_week_rank (year_week, `rank`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='주간 상품 랭킹 MV (TOP 100/주차)';
+```
 
+**월간:**
+```sql
+CREATE TABLE mv_product_rank_monthly (
+    `year_month` CHAR(7)     NOT NULL COMMENT 'YYYY-MM 형식: 2026-04',
+    product_id   BIGINT      NOT NULL,
+    `rank`       INT         NOT NULL,
+    score        BIGINT      NOT NULL,
+    view_count   BIGINT      NOT NULL DEFAULT 0,
+    like_count   BIGINT      NOT NULL DEFAULT 0,
+    sales_count  BIGINT      NOT NULL DEFAULT 0,
+    created_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at   DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (`year_month`, product_id),
+    KEY idx_year_month_rank (`year_month`, `rank`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='월간 상품 랭킹 MV (TOP 100/월)';
+```
 
+**DDL 포인트:**
+- `rank`, `year_month`는 MySQL 예약어 → 백틱 이스케이프 필수
+- `PRIMARY KEY (year_week, product_id)` 복합키가 clustered index → 주차별 row 물리 연속 저장
+- `KEY idx_year_week_rank` 보조 인덱스로 `WHERE year_week=? ORDER BY rank` filesort 제거
+- `created_at/updated_at DATETIME(6)`: BaseEntity 관례와 정밀도 맞춤 (배치 실행 시각 추적)
+- `utf8mb4`: 랭킹 조회가 다국어 상품명과 JOIN될 가능성 고려
+
+---
+
+## Q5. 배치에서의 JPA vs JDBC — Reader/Writer 도구 선택
+
+**[질문]**
+Q3에서 하이브리드 Chunk-Oriented 구조 확정 (Reader: DB `GROUP BY` 페이징 → Processor: 가중치 Java 계산 → Writer: TOP 100 upsert). 이제 **실제 구현 도구**를 선택할 차례.
+
+**Spring Batch 제공 구현체:**
+| 구분 | 후보 |
+|---|---|
+| Reader | `JpaPagingItemReader` / `JdbcPagingItemReader` / `JdbcCursorItemReader` / `RepositoryItemReader` |
+| Writer | `JpaItemWriter` / `JdbcBatchItemWriter` |
+
+**이 프로젝트 맥락:**
+- Kotlin + Spring Boot 3.4.4, 모든 Entity는 `BaseEntity` 상속
+- 기존 Repository는 **전부** `JpaRepository` 기반
+- `product_metrics`는 Entity로 관리 중
+
+**세부 질문 5개 (순차 답변):**
+
+**Q5-1. Reader 선택 — 영속성 컨텍스트의 함정**
+JPA 기반 Reader를 쓰면 "1차 캐시(영속성 컨텍스트)"라는 단어가 왜 배치에서 **문제**가 될까요? 100만 건 읽는 배치(chunk size = 1000, 총 1000 chunks)에서 구체적으로 어떤 일이 벌어지나요?
+
+**Q5-2. Writer 선택 — Upsert 구현**
+Q3에서 `ON DUPLICATE KEY UPDATE` 방식의 upsert로 결정. 이걸 `JpaItemWriter`(= `EntityManager.merge()`)로 구현하면 뭐가 문제인가요? `JdbcBatchItemWriter` + native SQL이 어떤 이득을 주나요?
+
+**Q5-3. Reader 쿼리 형태 불일치**
+Q3의 `SELECT product_id, SUM(view_count), SUM(like_count), SUM(sales_count) FROM product_metrics_daily WHERE metric_date BETWEEN ? AND ? GROUP BY product_id`는 Entity 매핑이 없는 **집계 투영(projection)** 결과. `JpaPagingItemReader`로 자연스럽게 표현되나요?
+
+**Q5-4. "일관성" vs "최적화" 트레이드오프**
+*"이 프로젝트는 JPA 기반이니 일관성을 위해 배치도 JPA로 가야 한다"* 는 팀원 주장에 동의하시나요? 반대한다면 근거는?
+
+**Q5-5. 혼합 선택의 정당화**
+Reader/Writer 모두 JDBC로 결정 시, *"어드민/API는 JPA 쓰면서 배치만 JDBC 쓰는 건 DIP 위반 아닌가?"* 에 어떻게 답변할 건가요?
+
+---
+
+### Q5-1. Reader 선택 — 영속성 컨텍스트의 함정
+
+**[질문]**
+200만 row × chunk 1000 = 2000개 chunk 시나리오. JPA 기반 Reader를 쓰면 1차 캐시가 배치에서 왜 독이 되는가?
+1. 1/500/1000/2000번째 chunk 시점의 영속성 컨텍스트 상태
+2. JVM heap / GC 관점
+3. `EntityManager.clear()`로 해결되는지, 그래도 JPA가 JDBC 대비 손해 보는 부분
+
+**[답변]**
+> jpa를 사용하면 chunk 단위인 1000개가 1차 캐시에 있게 된다. 그러면 jpa 의 장점이 독이 되게 된다.
+> 우선 n+1 발생할 수 있기 때문에 문제가 되고, 대용량 insert 에서 메모리 부족이나 느린 insert가 발생한다.
+> chunk 기반에서 1000개 가 reader -> processor -> writer 를 하고 커밋하기 때문에 .... 라고 생각하기 때문에
+
+**[멘토 평가 — 맞은 것 / 비켜간 것]**
+- 맞음: "chunk 단위 1000개가 1차 캐시에 있게 된다"
+- 비켜감: N+1은 연관관계 순회 시 발생 (이번 시나리오는 단일 테이블 GROUP BY 집계라 N+1 무관)
+- 비켜감: "대용량 insert" 언급은 Writer(Q5-2) 관점. Q5-1은 Reader만의 관점에서 JPA의 손해를 보는 것
+- 문장이 중간에 끊김 — 뒷부분이 핵심
+
+**[악마의 변호인: chunk 커밋되면 캐시 비워지지 않나?]**
+팀원 가상 반론: "Spring Batch는 chunk 경계에서 트랜잭션 커밋 → 영속성 컨텍스트도 닫힘 → 매 chunk마다 1000개만 있다가 비워지고 다시 1000개. 메모리 누적 문제는 사실상 없다."
+
+**[후속 질문: a~d]**
+- a. 위 팀원 주장은 어디가 맞고 어디가 틀린가? (JpaPagingItemReader의 transacted 옵션, page size vs chunk size)
+- b. 100% 메모리 누적이 없다 가정해도, JPA는 Entity를 영속성 컨텍스트에 넣는 순간 "추가로 뭔가를 한다". 그게 뭔가? (변경 감지 → 스냅샷)
+- c. 이 배치 Reader는 Entity 상태를 바꿀 일이 없는데, JPA는 b를 무조건 한다. 배치 관점의 비용은?
+- d. Q3의 Reader 쿼리 결과물 한 row는 `ProductMetricsDaily` Entity인가? (Q5-3 예고편)
+
+**[답변]**
+> 전부다 알려줘
+
+**[멘토 해설 — a: transacted 옵션과 page/chunk size]**
+- 맞는 절반: chunk 경계 커밋 → chunk 트랜잭션 범위 영속성 컨텍스트는 닫힘 → 200만 개가 단순 누적되진 않음
+- 틀린/미묘한 절반:
+  - `JpaPagingItemReader.transacted = true` (기본값): Reader가 **자체 트랜잭션**으로 페이지를 읽고 즉시 커밋 → Entity가 chunk 트랜잭션에는 **detached 상태**로 전달됨. chunk 트랜잭션과 다른 트랜잭션
+  - `transacted = false`: Reader/Writer가 chunk 트랜잭션 하나를 공유. Entity가 영속 상태로 chunk 내내 체류
+  - `pageSize > chunkSize`면 다음 chunk용 Entity가 영속성 컨텍스트에 미리 올라와 누적됨
+  - 실무 함정: 설정이 교과서대로일 때만 메모리 문제가 없음. 트랜잭션 경계가 복잡해져 디버깅·모니터링 비용 증가
+
+**[멘토 해설 — b: 영속성 컨텍스트가 Entity를 받아들일 때 "추가로 하는 일"]**
+- **스냅샷(Snapshot) 저장**: Entity 필드 값을 그대로 복사해 별도 보관
+- flush/commit 시점에 현재 Entity vs 스냅샷을 필드 단위 비교 → 변경된 필드에 대해 UPDATE 자동 생성 = **Dirty Checking(변경 감지)**
+- 결과: 영속성 컨텍스트 메모리 ≈ Entity × 2 (원본 + 스냅샷), CPU는 chunk당 (1000 × 필드 수)회 비교 루프
+
+**[멘토 해설 — c: 읽기 전용 배치에서 Dirty Checking이 큰 낭비인 이유]**
+- 이 배치 Reader는 Entity 상태를 **0% 수정**, 그러나 JPA는 스냅샷을 **100% 저장**하고 **변경 감지 루프를 무조건** 돎
+- 200만 스냅샷 × 2000 chunks 분의 메모리 부하·CPU 낭비·Young GC 압박
+- 완화책: `@QueryHints(HINT_READONLY=true)` 또는 `Session.setReadOnly(true)` → 스냅샷 생략
+- **핵심 깨달음**: 영속성 컨텍스트의 모든 장점을 끄고 JPA를 쓴다는 것 자체가 도구 선택 오류 신호
+
+**[멘토 해설 — d: Reader 쿼리 결과는 Entity가 아니다]**
+- Q3 Reader 쿼리 결과 row = `(product_id, SUM(view), SUM(like), SUM(sales))` 4개 컬럼
+- `ProductMetricsDaily` Entity 구조 = `(product_id, metric_date, view_count, like_count, sales_count, ...)` 7+개 컬럼, metric_date 포함
+- GROUP BY로 metric_date가 소거되고, 집계 합계가 들어감 → **Entity 1:1 매핑 원천적으로 불가능**
+- JPA 우회: `SELECT new ProductAggregateDto(...)` 생성자 투영. 작동은 하지만 JPA를 쓰는 의미가 거의 없음(Entity 매핑 0, 영속성 컨텍스트 불필요, 연관관계 없음)
+- `JdbcPagingItemReader<ProductAggregateDto>` + `RowMapper`가 투영 쿼리의 **네이티브 표현 방식**
+
+**[정리: Q5-1]**
+JPA Reader의 3대 손해:
+1. **스냅샷 메모리 2배 + Dirty Checking CPU** — 읽기 전용인데도 무조건 지불
+2. **트랜잭션 경계 복잡성** — `transacted` 옵션·page/chunk 조합이 영속성 컨텍스트 수명 좌우
+3. **투영 쿼리 표현 부자연스러움** — 집계 결과는 Entity가 아님, JPA의 장점을 쓸 자리 없음
+
+**확정:** Reader는 `JdbcPagingItemReader` + `RowMapper`로 DTO(ProductAggregateDto) 직접 매핑.
+
+**[글감]**: "JPA의 장점을 전부 꺼야 성능이 나온다면 도구 선택이 잘못된 것 — 배치에서 JPA Reader를 쓰지 않는 실질적 이유"
+
+---
+
+### Q5-2. Writer 선택 — Upsert 구현
+
+**[상황]**
+- Writer 동작: Processor가 계산한 주간 집계 결과 중 TOP 100을 `mv_product_rank_weekly`에 저장
+- 같은 `(year_week, product_id)` 존재 시 갱신, 없으면 삽입 = **Upsert**
+- MySQL 표준 패턴:
+  ```sql
+  INSERT INTO mv_product_rank_weekly (year_week, product_id, rank, score, view_count, like_count, sales_count)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON DUPLICATE KEY UPDATE
+      rank = VALUES(rank),
+      score = VALUES(score),
+      view_count = VALUES(view_count),
+      like_count = VALUES(like_count),
+      sales_count = VALUES(sales_count);
+  ```
+
+**[후보]**
+- `JpaItemWriter` — 내부적으로 `EntityManager.merge(entity)` 호출
+- `JdbcBatchItemWriter` — 위 native SQL을 JDBC batch로 실행
+
+**[질문 a/b/c]**
+- **a.** `EntityManager.merge()`의 동작 순서를 그리기 (신규 vs 기존 판단 로직 포함)
+- **b.** a의 동작이 이 배치에서 문제가 되는 포인트 3가지 이상 (SELECT 횟수, 쓸모없는 SELECT, `rank` 컬럼 업데이트 인지 방식)
+- **c.** `JdbcBatchItemWriter` + `INSERT ... ON DUPLICATE KEY UPDATE`의 이득 — 쿼리 횟수·SELECT 필요 여부 비교
+
+**[답변]**
+> a. 식별자로 1차 캐시에 존재여부 조회, 없으면 db 에서 식별자로 조회 한다. 식별자 마다 이런 판단을 하기 때문에 총 100개의 row이면 100번 반복하게 된다.
+> b. top 100에서 이미 존재하는 데이터가 누구인지 알지 못 한다. 일단 top 100 데이터가 있는지 전부 가져오고, 있으면 rank 를 수정하고, 없으면 새로 만든다. 수정된 데이터는 더티체킹으로 update 가 될것이다.
+> c. 100개의 row 이니 100번의 네트워크가 발생한다. mysql 에서는 insert 해보고 중복 key가 있다고 에러가 발생하면 바로 업데이트로 하게된다.
+
+**[멘토 평가 — a, b: 정확]**
+- a: merge = "1차 캐시 → DB SELECT → 판단 → persist/update 상태 전이"를 식별자마다 반복. 100건 upsert 시 **100번의 SELECT**가 선행
+- b: JPA는 chunk 단위로 "누가 존재하는지"를 **미리 알 수 없음** → 매 배치마다 존재 여부 재확인. 존재 시 Dirty Checking으로 UPDATE 자동 생성
+
+**[악마의 변호인 1: ON DUPLICATE KEY UPDATE는 에러 기반인가?]**
+사용자 답 c의 "insert 해보고 중복 key가 있다고 에러가 발생하면 업데이트"는 부정확. 실제로는:
+- MySQL이 **unique index(PK)를 lookup하여 충돌을 사전 예측**
+- 충돌 감지 시 애플리케이션 레벨 예외 없이 **UPDATE 경로로 내부 분기**
+- 에러 기반이라면 99건이 존재할 때 99번의 예외 복구 비용이 발생해 무의미해짐
+
+**[악마의 변호인 2: 100건 = 100 왕복인가?]**
+`JdbcBatchItemWriter`의 실제 동작:
+- `addBatch()`는 클라이언트 메모리에 쌓기만 함 (네트워크 없음)
+- `executeBatch()`에서 **1번의 왕복**으로 묶어 전송
+- `rewriteBatchedStatements=true` 옵션 시 100건이 **단일 멀티-밸류 INSERT 한 줄**로 재작성 → 서버 파싱 비용까지 절감
+
+**[답변]**
+> 1. 지금 상황에서는 select 1번, write 1번 이 되겠네.
+> 2. 네트워크 왕복은 없을거야. mysql 내부에서 한번에 할거야.
+> 3. 네트워크 i/o 대기시간이 발생하는 만큼 배치 시간도 오래걸린다
+
+**[멘토 평가 — 2, 3: 정확]**
+- 2: `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` + `rewriteBatchedStatements=true` = **왕복 1번**
+- 3: latency 1ms 가정 시 JpaItemWriter ~200ms vs JdbcBatchItemWriter ~1ms. chunk 2000개 환산 시 수 분 vs 수 초 차이
+
+**[1번 교정: Writer vs Reader 혼선]**
+1번 답은 Reader 시나리오로 잘못 연결된 것. 실제 `JpaItemWriter`의 왕복 수:
+- SELECT 100번 (batching 불가 — 다음 결과를 보고 INSERT/UPDATE 분기 결정 필요)
+- INSERT/UPDATE 100번 (Hibernate batch 옵션으로 묶임 가능)
+- **합계 최소 ~101회 ~ 최대 200회 왕복**
+
+**[정리: Q5-2]**
+JpaItemWriter의 3대 손해:
+1. **merge의 선행 SELECT** — row당 1회, 100 row = 100회의 쓸모없는 왕복 (batching 불가)
+2. **배치 관점의 무지(無知)** — 100건 중 누가 존재하는지 chunk 수준에서 알 수 없음 → 매 실행마다 전수 확인
+3. **Dirty Checking 기반 UPDATE** — rank/score 재계산 결과가 모든 필드에 반영됐는지 필드별 비교 루프
+
+JdbcBatchItemWriter + ON DUPLICATE KEY UPDATE의 이득:
+1. **SELECT 제거** — MySQL 엔진이 인덱스 lookup으로 존재 여부를 **예측**하여 INSERT/UPDATE 내부 분기
+2. **왕복 1회** — `rewriteBatchedStatements=true` 시 멀티-밸류 INSERT로 묶임
+3. **예외 처리 비용 0** — 충돌 발생해도 예외 없음, 서버 내부에서 조용히 UPDATE로 전환
+
+**확정:** Writer는 `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` native SQL. JDBC URL에 `rewriteBatchedStatements=true` 옵션 필수.
+
+**[글감]**: "`ON DUPLICATE KEY UPDATE`는 에러 기반이 아니다 — MySQL 인덱스 레벨의 충돌 예측과 내부 분기 메커니즘"
+**[글감]**: "JPA merge 기반 upsert가 배치에서 200배 느린 이유 — SELECT batching이 원리적으로 불가능한 지점"
+
+---
+
+### Q5-3. Reader 쿼리 형태 불일치 — 요약 (Q5-1 d에서 이미 다룸)
+
+- Reader 쿼리 결과는 `(product_id, SUM(view), SUM(like), SUM(sales))` **4컬럼 집계 투영**
+- `ProductMetricsDaily` Entity(7+컬럼, metric_date 포함)와 1:1 매핑 원천 불가
+- `JdbcPagingItemReader<ProductAggregateDto>` + `RowMapper`가 투영 쿼리의 네이티브 표현
+
+---
+
+## Q5-4 + Q5-5. "일관성" vs "최적화" — 팀원 반론 방어
+
+**[상황]**
+PR 리뷰에서 두 팀원이 JDBC 기반 배치에 반대:
+- 팀원 A (시니어, 일관성 파): "프로젝트는 JPA로 통일돼 있음. 학습 비용 > 배치 성능 이득. 새벽 배치 200ms 차이는 과잉 최적화"
+- 팀원 B (주니어, 아키텍처 파): "domain/Repository ← infrastructure/RepositoryImpl 구조로 DIP를 지키는데 배치는 JdbcTemplate 직접 사용 → DIP 위반 아닌가? Repository 인터페이스에 배치용 메서드 추가하는 게 맞지 않나?"
+
+### Q5-4. 팀원 A에게 답변
+
+**[답변]**
+> 일관성 유지는 너무 좋다. 근데 일관성이라는게 기술에 대한 일관성을 꼭 말하는것 일까? 우리가 하고자하는 문제해결을 위해 적절한 기술을 선택하는 것이 좋지 않을까? 생각된다. 일관성은 아키텍쳐나 운영/유지보수를 위한 일관성을 봐야한다고 생각된다. 그리고 배치는 대용량 일괄처리로 1개의 데이터를 비교하면 별차이 없어보이지만 쌓이다 보면 엄청난 차이가 발생한다.
+
+**[멘토 평가]**
+"일관성의 대상을 재정의"하는 프레이밍이 핵심 무기. 도구(JPA/JDBC) 일관성이 아니라 **아키텍처 일관성**(레이어드 구조, BaseEntity, CoreException, ApiResponse, 테스트 패턴, ArchUnit)이 진짜 지켜야 할 축.
+
+**[멘토 보완: 숫자로 설득력 강화]**
+- 시나리오 1 (주간 MV, 100만 상품): JPA ~200초 vs JDBC ~1초 (Writer만). 전체 10분 vs 30초 수준
+- 시나리오 2 (장애 복구): 30분 배치 vs 2~3분 배치 → 업무시간 재실행 시 DB 락 경합·운영 부담 차이
+- 시나리오 3 (가중치 변경 재실행): Q1 "재실행 자유도" 가치가 JPA 버전에선 **무력화**됨. 10초에 끝나야 "일단 돌려보자" 가능
+- "과잉 최적화" 판단 기준: SLA 안에 들어오는가 / 실패 시 재실행이 현실적인가 / 데이터 규모가 자연 증가하는가
+
+### Q5-5. 팀원 B에게 답변
+
+**[답변]**
+> 우리가 dip를 사용하는 이유는 domain에서 infrastructure에서 jpa를 사용하던 jdbc를 사용하던 domain은 모르겠고, select 든 save 든 우리가 요청하는 작업만 해줘 라는 뜻이다. 그리고 하나의 repository에 배치용까지 만드는게 아니라 따로 repository를 만들어 관리하는게 유지보수 에 유용하다
+
+**[후속 질문: "배치용 Repository"의 실체]**
+1. 어느 모듈·패키지에 둘 건가? (후보 1: apps/commerce-batch 내부 자체 Reader/Writer, 후보 2: domain/Repository 인터페이스 + infrastructure 구현, 후보 3: Spring Batch 프레임워크 인터페이스 활용)
+2. 배치 Reader의 **호출자**는 누구인가? (domain Service? Spring Batch 프레임워크?)
+3. Spring Batch의 `ItemReader<T>` / `ItemWriter<T>` 위에 추가로 domain Repository를 얹으면 **2중 추상화**가 되지 않나?
+
+**[답변]**
+> 이미 배치에서 제공하는 인터페이스가 있기 때문에 따로 만들필요 없이 가져다 사용하면 된다. 그리고 우리가 만드는 것보다 제공하는 기능이 많을 것이고 최적화도 가능할 것이다.
+
+**[멘토 평가: 3번 정답. 1, 2번 보완]**
+
+팀원 B 제안을 거절하는 이유 3가지:
+
+1. **호출자가 다르면 인터페이스의 존재 이유가 다르다**
+   - `domain/Repository`: domain Service가 호출 (도메인이 인프라 세부를 모르게)
+   - `ItemReader<T>`: Spring Batch 프레임워크가 호출 (StepBuilder chunk 루프)
+   - 호출자 다른 두 인터페이스 묶으면 역할 충돌
+
+2. **Reader 쿼리는 도메인 의미 없는 ETL 집계 투영**
+   - `SUM + GROUP BY` 결과는 Entity가 아닌 일시적 DTO
+   - domain Repository에 주간 집계 메서드 넣으면 "영속성 관리"에서 "ETL 창구"로 책임 오염
+
+3. **Spring Batch 프레임워크가 이미 제공하는 추상화 활용** (사용자 답변)
+   - `JdbcPagingItemReader<T>`, `JdbcBatchItemWriter<T>` 직접 활용
+   - chunk 제어, restart, skip, retry, 트랜잭션 경계 프레임워크 관리
+   - 자체 Repository로 래핑하면 프레임워크 기본 기능 상실
+
+**[최종 구조]**
+```
+apps/commerce-batch/
+  batch/weekly-ranking/
+    WeeklyRankingJobConfig.kt      # Job/Step 정의
+    ProductAggregateReader.kt      # JdbcPagingItemReader Bean
+    WeightScoreProcessor.kt        # Java 가중치 계산
+    ProductRankWeeklyWriter.kt     # JdbcBatchItemWriter Bean
+  dto/
+    ProductAggregateDto.kt         # Reader projection 결과
+    ProductRankWeeklyRow.kt        # Writer upsert row
+```
+- domain/Repository와 완전 분리
+- Spring Batch 네이티브 인터페이스 활용 → DIP 위반 아님
+
+**[정리: Q5-4/Q5-5]**
+- **일관성의 대상 재정의**: 도구 일관성 ≠ 아키텍처 일관성. 레이어드 구조/에러 처리/테스트 패턴은 JDBC 배치로도 그대로 유지됨
+- **"과잉 최적화" 반박**: 100만 row × chunk 2000 환산 시 10분 vs 30초 차이. 장애 복구/가중치 재계산 시나리오에서 JPA는 배치의 본래 가치를 훼손
+- **DIP의 본질**: abstraction 개수 경쟁이 아니라 "domain이 infrastructure 세부에 의존하지 않는가". 배치는 domain이 호출하지 않으므로 DIP 적용 대상 외
+- **2중 추상화 금지**: `ItemReader<T>`는 이미 Spring Batch의 프레임워크 추상화. 그 위에 domain Repository를 얹으면 프레임워크 기능 상실 + 책임 오염
+- **[글감]**: "일관성의 대상 재정의 — 도구 일관성 vs 아키텍처 일관성, 배치 모듈의 JDBC 선택 정당화"
+- **[글감]**: "DIP는 abstraction 만들기 대회가 아니다 — Spring Batch ItemReader/Writer 위에 domain Repository를 얹지 않는 이유"
+
+---
+
+### Q5 전체 확정 요약
+
+| 항목 | 선택 | 근거 |
+|---|---|---|
+| Reader | `JdbcPagingItemReader<ProductAggregateDto>` | 영속성 컨텍스트 낭비, 집계 투영은 Entity 아님 |
+| Processor | `ItemProcessor<ProductAggregateDto, ProductRankRow>` | 가중치 Java 계산, `@ConfigurationProperties` 외부화 |
+| Writer | `JdbcBatchItemWriter` + `ON DUPLICATE KEY UPDATE` | merge SELECT 제거, 왕복 1회, 예외 처리 비용 0 |
+| JDBC URL | `rewriteBatchedStatements=true` | 멀티-밸류 INSERT rewrite |
+| 아키텍처 | `apps/commerce-batch/` 내부 자체 Reader/Writer, domain Repository 불간섭 | 호출자·책임·추상화 계층이 domain과 다름 |
+
+---
+
+## Q6. 멱등성과 재실행 전략
+
+**[상황]**
+주간 배치가 매일 새벽 3시 실행. `targetDate=2026-04-15` 파라미터로 `2026-W15` 누적분 집계. 같은 targetDate로 2번 실행해도 데이터 망가지면 안 됨.
+
+**[3가지 시나리오]**
+- A: 장애 복구 재실행 (70% 완료 후 실패 → 오전 재실행)
+- B: 실수 재실행 (정상 완료된 배치를 담당자가 다시 실행)
+- C: 가중치 변경 후 과거 재계산 (같은 targetDate로 다시 돌리고 싶음)
+
+### Q6-a. Spring Batch JobParameters 중복 방지
+
+**[답변]**
+> job을 실행하면 메타테이블에 저장을 하는데 여기에 존재하면 재실행을 막는다.
+
+**[멘토 평가: 정확]**
+`BATCH_JOB_INSTANCE`에 (Job이름 + JobParameters) 유니크 존재 시 `JobInstanceAlreadyCompleteException`.
+- `BATCH_JOB_INSTANCE`: 중복 방지 주체 (COMPLETED 상태의 동일 파라미터 재실행 차단)
+- `BATCH_JOB_EXECUTION`: 실행 시도 기록 (FAILED는 재시도 가능)
+- 시나리오 A(실패 후 재실행)는 허용, B(완료 후 재실행)는 거부가 기본 동작
+
+### Q6-b. JobParametersIncrementer 선택
+
+**[답변]**
+> 옵션 3 선택, 재실행을 하더라도 몇 번 실행했는지 관리하는 것 또한 유지보수하는데 필요하다.
+
+**[멘토 평가: 정답]**
+`RunIdIncrementer` → 매 실행마다 `run.id` 자동 +1, JobInstance 분리.
+
+**[악마의 변호인: Incrementer는 중복 방지를 무력화하는가?]**
+- 반론: "run.id로 매번 다른 JobInstance가 되면 Q6-a 중복 방지 의미 없어지는 것 아닌가?"
+- 반박: 실행 히스토리(`BATCH_JOB_EXECUTION`)는 전부 남음 → 언제·몇 번째 실행인지 추적 가능
+- 본질: Incrementer는 "이건 **새 실행**이다"라고 명시적으로 선언하는 장치. 의도적 재실행과 실수 재실행을 **파라미터로 구분**하는 메커니즘
+- 역할 분리: `targetDate`는 비즈니스 파라미터, `run.id`는 실행 시퀀스 파라미터
+
+### Q6-c. 실패 후 재실행 시 MV 정합성
+
+**[답변]**
+> 방법 3를 선택할 것이다. 랭킹 시스템이라는 비즈니스를 생각하면 방법1번은 조회 리스크가 있을것이고, 방법2는 성공했는데 플래그 업데이트가 실패하면? 이라는 문제가 있을 수 있다.
+
+**[멘토 평가: 선택 타당, 진짜 이유는 더 근본적]**
+
+**[악마의 변호인: upsert인데 왜 staging이 필요한가?]**
+- 함정 시나리오: 1차 실행 TOP 100 = `[1, 2, ..., 100]`, 가중치 변경 후 2차 TOP 100 = `[1, 2, ..., 99, 200]` (상품 100 탈락, 상품 200 신규 진입)
+- 2차 upsert는 `[1~99, 200]`만 건드림 → **상품 100의 이전 row 그대로 잔존** → MV 최종 101개 row → TOP 100 깨짐
+- **staging swap의 진짜 이유: 탈락한 row 정리**
+
+**[실전 구현 패턴]**
+- 방법 1 변형 (Step 분리): Step 1 = DELETE, Step 2 = INSERT. Step 2 실패 시 **빈 MV 노출** 위험
+- 방법 3 staging: Step 1 = staging 테이블에 집계, Step 2 = `DELETE mv WHERE year_week=?` + `INSERT mv SELECT FROM staging`을 **단일 트랜잭션**. 원자성 보장 ✓
+- 간소화: staging 없이 최종 Step에서 `DELETE + INSERT SELECT ... GROUP BY`를 한 트랜잭션에 묶음 (중간 빈 MV 시점 발생 → 조회 캐시로 보호)
+
+### Q6-d. 의도적 재실행 vs 실수 재실행 구분
+
+**[답변]**
+> 없다고 생각한다. 그래서 재실행되더라도 같은 값이 반환되도록 멱등성을 유지하게 해야한다.
+
+**[멘토 평가: 진짜 정답]**
+이 답이 Q6 전체를 푸는 열쇠.
+- 의도적/실수 재실행을 **구분하려는 설계**가 아니라 **구분이 무의미한 설계**가 robust
+- upsert + 결정론적 가중치 계산 + staging swap → 몇 번 돌려도 최종 상태 동일
+- 실수 재실행이 발생해도 데이터 망가지지 않으므로 허용 가능
+
+**[Spring Batch 중복 방지의 역할 재정의]**
+- 본래 의도: 실수 재실행 방지
+- 진짜 가치: **동시 실행으로부터 MV 보호** (멱등이어도 두 배치가 동시 실행되면 락 경합)
+- Incrementer로 수동 재실행 허용 + **동시 실행 방지**는 별도 락(K8s CronJob `concurrencyPolicy: Forbid`, DB advisory lock)으로 보장
+
+### Q6 전체 확정
+
+1. **JobParameters**: `targetDate=YYYYMMDD` (비즈니스) + `run.id` (Incrementer 자동 주입)
+2. **`RunIdIncrementer`** 적용 → 같은 targetDate 재실행 허용
+3. **Staging + Swap**: year_week 단위 `DELETE + INSERT SELECT FROM staging`을 단일 트랜잭션 (탈락 row 정리)
+4. **멱등성**: upsert + 결정론적 계산 + staging swap 3중 보장
+5. **동시 실행 방지**: K8s `concurrencyPolicy: Forbid` 또는 DB advisory lock (멱등과 별개 축)
+
+**[글감]**: "멱등성은 구분하는 설계가 아니라 구분이 무의미한 설계 — 배치 재실행 안전성의 본질"
+**[글감]**: "upsert가 멱등을 완성하지 못하는 순간 — TOP 100 탈락 row 처리와 Staging+Swap 패턴"
+
+---
+
+## Q7. API 확장 — `period` 파라미터와 Redis/MV 분기 `[진행 중, 재검토 필요]`
+
+**[기존 코드 확인]**
+```kotlin
+// Controller: GET /api/v1/rankings?date=yyyyMMdd&page=1&size=20
+// → RankingFacade.getRankings(date, page, size)
+// → RankingService.getTopRankings(date, ...)
+// → RankingRepository (Redis ZSET, DB fallback)
+```
+
+**[요구사항]**
+`GET /api/v1/rankings?date=20260415&period=WEEKLY&size=20&page=1`
+- DAILY → Redis ZSET (Round 9 기존)
+- WEEKLY → `mv_product_rank_weekly`
+- MONTHLY → `mv_product_rank_monthly`
+
+### Q7-1. period 분기 로직의 위치
+
+**[선택지]** A: Controller when, B: Facade 내부 when, C: Strategy 패턴, D: Repository 인터페이스 단일화
+
+**[답변]**
+> 1. Strategy 패턴사용, 확장에 유연성을 가짐, controller에 작성은 역할이 맞지 않기에 기각, when 사용은 확장에 유연하지 못하다. Repository 인터페이스 단일화도 확장에 유연하지 못하다.
+
+**[악마의 변호인 1: Strategy 오버엔지니어링?]**
+- period가 DAILY/WEEKLY/MONTHLY 3개로 고정되는 이커머스가 대부분 → YAGNI 위반 가능성
+- 판단 기준: 각 period 분기 로직 복잡도, 내부 흐름 차이, 테스트 분리 필요성
+
+**[악마의 변호인 2: Strategy + 후보 Z 구조 충돌]**
+- Repository를 후보 Z(통합)로 두면 각 Strategy가 하는 일이 "Repository 호출 + period 전달"뿐 → 빈 껍데기
+- 이상적 조합: **Strategy → 후보 Y** (각 Strategy가 자기 Repository 보유) / **후보 Z → Facade 내부 when** (B)
+
+### Q7-2. `date` 파라미터의 의미 변화
+
+**[답변]**
+> 1. service 레이어에서 수행
+> 2. (미답)
+> 3. 2026-W15 를 사용한다는 것은 redis key 를 안다는것인데 좋은 않다고 생각되고 만약 바뀐다면? 그러면 문제가 생길 것이다.
+
+**[멘토 교정]**
+- **1번 재검토**: `LocalDate → yearWeek` 변환은 도메인 규칙이 아닌 기술적 변환. VO(`YearWeek`)로 두면 형식 검증 + 자체 문서화. Service 레이어 vs VO trade-off 재판단 필요
+- **2번 엣지 케이스**: 2026-01-01은 ISO 기준 **2025-W53**에 속함. 클라이언트 혼란 가능 → 응답에 "조회된 주차" 명시적 반환 권장
+- **3번 오해**: `yearWeek=2026-W15`는 Redis key와 무관. Redis는 DAILY 전용(`ranking:20260415`), WEEKLY는 MySQL MV 컬럼 값
+- yearWeek 파라미터 진짜 trade-off: API 계약 명확성 vs 클라이언트 ISO Week 계산 부담 vs 엣지 케이스 회피 vs 서버 리팩토링 자유도
+
+### Q7-3. Repository 구조
+
+**[선택지]** X: 단일 인터페이스 확장 / Y: 인터페이스 분리 (Daily/Weekly/Monthly) / Z: 통합 인터페이스 + 내부 분기
+
+**[답변]**
+> 1. 후보 Z 사용
+> 2. 알려줘
+> 3. 확장에 유연하지 못하다
+
+**[멘토 해설 — 후보 X의 매력과 숨은 함정]**
+- 매력: 최소 변경, 호출부 일관성, 기존 마이그레이션 비용 적음
+- **함정 1 — LSP 위반**: `carryOver`, `getTopRankingsFromDb`는 DAILY 전용. WEEKLY/MONTHLY 구현체는 "지원 안 함"으로 던져야 함
+- **함정 2 — 엔트리 포인트 집중**: 하나의 메서드가 거대 when 블록으로 분기 → OCP 위반 가능
+- **함정 3 — 책임 범위 오염**: Repository가 "Redis + MySQL + 향후 저장소 메타 인터페이스"로 확장됨
+
+### Q7 구조 재선택
+
+**[재질문]** 조합 α(Strategy + Y + VO) vs 조합 β(when + Z + VO) 중 선택
+
+**[답변]**
+> 조합 α 를 선택할 거고, 이유는 개인적으로 확장성과 구조 분리가 유지보수와 다른 개발자 이해에 도움이 된다 생각하고, 테스트하기 좋은 코드라고 생각해
+
+**[멘토 평가]**
+- "테스트하기 좋은 코드"가 가장 강한 근거 — 각 Strategy를 독립 단위 테스트로 검증 가능 (Redis fallback, MV 조회, 날짜 변환 격리)
+- 후보 Y와 결합으로 "빈 껍데기 Strategy" 우려 해소 → 각 Strategy에 진짜 로직 존재
+- Trade-off: 파일 수 증가 (최소 8개). 미래 이해 비용보다 낮다는 판단 전제
+
+### Q7 조합 α 확정 구조
+
+```
+interfaces/api/ranking/
+  RankingController.kt        # GET /api/v1/rankings?date&period&page&size
+  RankingDto.kt               # Period enum + Response
+
+application/ranking/
+  RankingFacade.kt            # Map<Period, RankingStrategy> 주입 (when 제거)
+  strategy/
+    RankingStrategy.kt        # interface
+    DailyRankingStrategy.kt   # Redis + DB fallback
+    WeeklyRankingStrategy.kt  # LocalDate → YearWeek 변환 + MV 조회
+    MonthlyRankingStrategy.kt # LocalDate → YearMonth 변환 + MV 조회
+
+domain/ranking/
+  DailyRankingRepository.kt   # 기존 RankingRepository (Redis + carryOver + fallback)
+  WeeklyRankingRepository.kt  # findTopRankings(yearWeek, offset, count)
+  MonthlyRankingRepository.kt # findTopRankings(yearMonth, offset, count)
+  vo/
+    YearWeek.kt               # @JvmInline value class, from(LocalDate) 팩토리
+    YearMonth.kt              # JDK java.time.YearMonth 활용
+
+infrastructure/ranking/
+  RankingRedisRepository.kt   # DailyRankingRepository 구현 (기존)
+  WeeklyRankingJdbcRepository.kt
+  MonthlyRankingJdbcRepository.kt
+```
+
+- `RankingFacade`는 `when` 대신 `strategies[period].getRankings(...)` 위임
+- Repository 3개 분리로 LSP 위반 제거 (`carryOver`, `getTopRankingsFromDb`는 `DailyRankingRepository`에만)
+- VO `YearWeek` 팩토리가 `LocalDate → "2026-W15"` 변환 캡슐화
+
+**[글감]**: "조합 α의 근거 — Strategy + Y 조합이 빈 껍데기를 해소하는 순간"
+
+### Q7-2 세부 확정 (세션 2 — 2026-04-16)
+
+#### Q7-2-1. `LocalDate → YearWeek` 변환 책임 위치
+
+**[질문]**
+Strategy에서 VO 생성(시나리오 A) vs Controller/Facade에서 변환(시나리오 B) 중 선택
+
+**[답변]**
+> 시나리오 A가 좋을거 같아. Controller/Facade에서는 어떻게 사용하는지의 관심보다는 LocalDate를 받아서 잘 전달하자 이게 중점이 될거 같아.
+> 만약 지금은 YearWeek를 사용하다가 LocalDate를 그대로 사용한다고 하면 Controller/Facade에서도 코드 변경이 들어가는데 변경해야할 구간이 너무 많아.
+
+**[악마의 변호인: Strategy 책임 비대화?]**
+Strategy가 날짜 해석 + Repository 호출 + 결과 매핑까지 품으면 SRP 위반 아닌가? fallback 로직까지 붙으면?
+
+**[답변]**
+> 날짜 변환과 fallback 요구사항은 무관하다. VO 팩토리는 순수한 날짜→주차 매핑이고, fallback은 조회 전략. 완전히 다른 축.
+
+**[확정]** Strategy 내부에서 `YearWeek.from(date)` 호출. Controller/Facade는 `LocalDate`만 전달.
+
+---
+
+#### Q7-2-2. ISO Week 엣지 케이스 응답 정책
+
+**[질문]**
+`date=20260101&period=WEEKLY` 요청 시, ISO Week 경계 엣지 케이스를 응답에 어떻게 반영?
+- A. 묵시적 보정 (별도 표기 없음)
+- B. 명시적 반환 (`resolvedWeek` 필드 포함)
+
+**[답변]**
+> 2025-W53 반환, 이유는 주차라는것은 모두의 약속이니 그 약속을 지키는 것이 좋다
+
+**[후속: resolvedWeek만으로 충분한가?]**
+
+**[답변]**
+> 주차의 구간을 같이 주면 좋을거같아 2025-12-29 ~ 2026-01-01 이렇게
+
+**[확정]** 응답에 `resolvedWeek` + `periodStart`/`periodEnd` 포함. 클라이언트는 ISO Week 계산 없이 구간으로 판단.
+
+---
+
+#### Q7-2-3. API 파라미터 — `date + period` 유지 vs `yearWeek` 직접 노출
+
+**[질문]**
+판단 기준 3가지: API 계약 명확성, 클라이언트 부담, 서버 리팩토링 자유도
+
+**[답변]**
+> 후보 1 (date + period). 해당 api를 만약 외부에서 사용한다면? 그래서 날짜 주차 지정을 잘못 했다면? 다른 데이터 호출로 인해 불편을 줄것이다. 최대한 간단하게 하는게 좋다고 생각한다.
+
+**[확정]** `date + period` 유지. 서버가 변환의 단일 책임자. 클라이언트 실수 가능성 제거.
+
+### Q7-2 전체 확정
+
+| 항목 | 결정 | 근거 |
+|---|---|---|
+| 변환 위치 | Strategy 내부 | 변경 파급 범위 최소화, Controller/Facade 관심사 분리 |
+| 응답 구조 | `resolvedWeek` + `periodStart`/`periodEnd` | ISO Week 몰라도 구간으로 즉시 이해 |
+| API 파라미터 | `date + period` (서버 변환) | 클라이언트 실수 방지, 서버 리팩토링 자유도 |
+
+---
+
+## Q8. 배치 실패 시 사용자 경험과 운영 대응
+
+**[질문]**
+화요일 새벽 배치 실패. 오전 10시 사용자가 주간 랭킹 조회. MV 상태는? 사용자 응답은? 사전 방지/대응 장치는?
+
+**[답변]**
+> MV에는 전날까지의 데이터가 있다. 사용자에게 아무 데이터 없이 오류나 빈화면을 보여주는 것보다는 전날 데이터라도 보여줘야 한다.
+> 배치 실패하면 재시도를 하고 재시도 해도 실패하면 알림을 보내서 인지하게 한다.
+
+**[멘토 연결: Q6 staging+swap의 자연스러운 fallback]**
+staging+swap 패턴에서 배치 실패 시 swap이 안 일어나 MV 원본 유지 → "전날 데이터 자연 노출"이 별도 로직 없이 보장됨.
+
+**[후속: staleness 표시 필요?]**
+
+**[답변]**
+> start/end 데이터만 보여줘도 된다고 생각한다. 굳이 고객에게 우리 데이터 오래된 데이터에요 라고 알려주는 상황은 좋지 못하다고 생각된다.
+
+**[확정]**
+- **배치 실패 시 MV 보호**: staging+swap 패턴으로 기존 MV 원본 유지 (Q6 자연 연결)
+- **사용자 경험**: 이전 데이터 자연 노출, staleness 명시적 경고 불필요 (`periodStart`/`periodEnd`로 암묵적 전달)
+- **운영 대응**: 재시도 → 실패 시 알림 → 수동 개입
+
+---
+
+## Q9. `product_metrics` 일별 스키마 재설계
+
+**[질문]**
+기존 상품별 단일 누적 row → 일별 row 구조로 변경. PK 설계, 인덱스, Consumer 변경점은?
+
+**[답변]**
+> 1. id AUTO_INCREMENT + unique constraint 사용. 복합 pk는 마이그레이션이나 테이블 수정할 때 힘들 수 있기 때문에 단순하게 사용하는걸 선호해.
+> 2. metric_date, product_id 순서로 인덱스를 만들어야 한다.
+> 3. 모르겠어 → (힌트 후) 일별도 알아야해.
+
+**[멘토 평가]**
+- PK: Q4 MV 테이블(복합 PK)과의 차이 근거 확인 → "MV는 조회 전용이라 스키마 변경이 드물고, 재적재 가능. product_metrics_daily는 실시간 Consumer가 쓰는 운영 테이블이라 변경 영향 큼" — 용도에 따른 의도적 구분, 타당
+- 인덱스: `(metric_date, product_id)` unique 제약이 곧 인덱스 역할 — 정확
+- Consumer: `metric_date = today` 추가. 기존 Redis 키에서 이미 날짜 인지하므로 변경 폭 작음
+
+**[확정]**
+
+| 항목 | 결정 |
+|---|---|
+| 테이블명 | `product_metrics_daily` |
+| PK | `id AUTO_INCREMENT` |
+| Unique | `(metric_date, product_id)` |
+| 인덱스 | unique 제약이 곧 인덱스 |
+| Consumer 변경 | upsert에 `metric_date = today` 추가 |
+
+---
+
+## 구현 준비도 판정
+
+**백지 설계 결과:**
+
+사용자가 세 축(테이블/배치/API)으로 전체 설계를 시도:
+- 테이블: `product_metrics_daily` + staging + MV 3층 구조 — 정확히 기억
+- 배치: 처음에 "한번의 SELECT와 INSERT 벌크"로 답변 (Tasklet 단일 SQL에 가까움) → 교정 후 Chunk-Oriented (Reader/Processor/Writer) 구조로 수정
+- API: Controller → Facade → Service → Repository 흐름 + VO 날짜 변환 언급 → Strategy 패턴 구조는 힌트 후 상기
+
+**커버된 포인트:**
+- 테이블 3층 구조 (daily → staging → MV)
+- staging+swap 멱등성/실패 안전성
+- JDBC 기반 배치, Chunk-Oriented 구조 (교정 후)
+- VO 날짜 변환, API 레이어 흐름
+
+**보완이 필요한 포인트:**
+- **Strategy 패턴 구조**: "Facade가 `Map<Period, RankingStrategy>`로 위임, 각 Strategy가 자기 Repository 보유"라는 Q7 핵심 설계를 백지에서 떠올리지 못함
+- **배치 흐름 정밀도**: Reader(GROUP BY 페이징) → Processor(가중치) → Writer(upsert) 3단계 분리를 즉시 조립하지 못함
+
+**판정: 일부 보완 필요** — 개별 개념은 이해하나 전체 조립력에 보완 필요. Strategy 패턴 구조를 구현 전 한 번 더 스케치할 것.
+
+---
+
+## 핵심 개념 정리
+
+이번 라운드에서 학습한 개념들의 관계:
+
+1. **계층적 집계**: raw event → `product_metrics_daily` (일간) → MV weekly/monthly (주간/월간)
+2. **배치 구조**: Chunk-Oriented + 하이브리드 (DB GROUP BY + Java 가중치) + JDBC 네이티브
+3. **멱등성 3중 보장**: RunIdIncrementer + upsert + staging swap
+4. **API 분기**: Strategy 패턴 + Repository 분리 (DIP 유지, LSP 위반 제거)
+5. **기간 설계**: ISO Week 고정 경계 + 하루 1회 배치 + VO 캡슐화
+
+## 블로그 글감 목록
+
+1. "기간 경계 정의와 배치 실행 주기는 분리 가능한 축이다"
+2. "GROUP BY는 DB의 비즈니스 로직 침해인가?" — 데이터 집계 vs 가중치 정책의 경계
+3. "일관성의 대상 재정의 — 도구 일관성 vs 아키텍처 일관성, 배치 모듈의 JDBC 선택 정당화"
+4. "DIP는 abstraction 만들기 대회가 아니다 — Spring Batch ItemReader/Writer 위에 domain Repository를 얹지 않는 이유"
+5. "멱등성은 구분하는 설계가 아니라 구분이 무의미한 설계 — 배치 재실행 안전성의 본질"
+6. "upsert가 멱등을 완성하지 못하는 순간 — TOP 100 탈락 row 처리와 Staging+Swap 패턴"
+7. "조합 α의 근거 — Strategy + Repository 분리 조합이 빈 껍데기를 해소하는 순간"
+
+## 구현 연결 포인트
+
+- Strategy 패턴 구조는 구현 전 파일 배치를 먼저 스케치할 것 (Q7 확정 구조 참고)
+- `product_metrics_daily` 스키마 변경 시 기존 Consumer 코드 수정 동반
+- 배치 Job 설정에서 `@ConfigurationProperties`로 가중치 외부화 — application.yml 수정만으로 재계산 가능
+- MV 테이블은 복합 PK, 운영 테이블은 AUTO_INCREMENT — 용도별 PK 전략 구분 의도적 유지
+
+## 다음 단계
+
+- `/plan` 으로 구현 계획 수립
+- `/red` → `/green` → `/refactor` TDD 사이클로 구현 진행
+- 구현 완료 후 `/e2e`로 전체 흐름 검증

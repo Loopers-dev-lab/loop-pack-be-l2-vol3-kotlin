@@ -3,10 +3,12 @@ package com.loopers.infrastructure.metrics
 import com.loopers.domain.metrics.ProductMetrics
 import com.loopers.domain.metrics.ProductMetricsRepository
 import org.springframework.stereotype.Repository
+import java.time.LocalDate
 
 @Repository
 class ProductMetricsRepositoryImpl(
     private val productMetricsJpaRepository: ProductMetricsJpaRepository,
+    private val productMetricsDailyJpaRepository: ProductMetricsDailyJpaRepository,
 ) : ProductMetricsRepository {
 
     override fun findByProductId(productId: Long): ProductMetrics? {
@@ -31,5 +33,21 @@ class ProductMetricsRepositoryImpl(
 
     override fun getVersion(productId: Long): Long? {
         return productMetricsJpaRepository.findById(productId).orElse(null)?.version
+    }
+
+    override fun incrementDailyViewCount(productId: Long, metricDate: LocalDate) {
+        productMetricsDailyJpaRepository.incrementViewCount(productId, metricDate)
+    }
+
+    override fun incrementDailyLikeCount(productId: Long, metricDate: LocalDate) {
+        productMetricsDailyJpaRepository.incrementLikeCount(productId, metricDate)
+    }
+
+    override fun decrementDailyLikeCount(productId: Long, metricDate: LocalDate) {
+        productMetricsDailyJpaRepository.decrementLikeCount(productId, metricDate)
+    }
+
+    override fun incrementDailySalesCount(productId: Long, metricDate: LocalDate, quantity: Int) {
+        productMetricsDailyJpaRepository.incrementSalesCount(productId, metricDate, quantity)
     }
 }

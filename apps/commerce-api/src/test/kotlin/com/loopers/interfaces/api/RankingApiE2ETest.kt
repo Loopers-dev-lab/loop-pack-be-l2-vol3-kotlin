@@ -14,6 +14,8 @@ import com.loopers.interfaces.api.ranking.RankingDto
 import com.loopers.interfaces.common.ApiResponse
 import com.loopers.utils.DatabaseCleanUp
 import com.loopers.utils.RedisCleanUp
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
@@ -29,6 +31,7 @@ import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -39,6 +42,8 @@ class RankingApiE2ETest @Autowired constructor(
     private val productRepository: ProductRepository,
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private val redisTemplate: RedisTemplate<String, String>,
+    @PersistenceContext private val entityManager: EntityManager,
+    private val transactionTemplate: TransactionTemplate,
     private val databaseCleanUp: DatabaseCleanUp,
     private val redisCleanUp: RedisCleanUp,
     private val productCacheManager: ProductCacheManager,
@@ -225,6 +230,131 @@ class RankingApiE2ETest @Autowired constructor(
             assertAll(
                 { assertThat(yesterdayData.items).hasSize(1) },
                 { assertThat(yesterdayData.items[0].productName).isEqualTo("어제 상품") },
+            )
+        }
+
+        @DisplayName("period=WEEKLY로 요청하면, MV 주간 랭킹을 반환한다.")
+        @Test
+        fun returnsWeeklyRankings() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "테스트 브랜드", description = "설명"))
+            val product = productRepository.save(
+                Product(name = "주간 상품", description = null, price = Money.of(10000), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+            val yearWeek = com.loopers.domain.ranking.YearWeek.from(LocalDate.now())
+            transactionTemplate.executeWithoutResult {
+                entityManager.createNativeQuery(
+                    "INSERT INTO mv_product_rank_weekly (year_week, product_id, rank_num, score, view_count, like_count, sales_count, updated_at) " +
+                        "VALUES (:yearWeek, :productId, 1, 44.0, 200, 50, 20, NOW())",
+                )
+                    .setParameter("yearWeek", yearWeek.toString())
+                    .setParameter("productId", product.id)
+                    .executeUpdate()
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?period=WEEKLY&page=1&size=20",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode.is2xxSuccessful).isTrue()
+            val data = requireNotNull(response.body?.data)
+            assertAll(
+                { assertThat(data.period.name).isEqualTo("WEEKLY") },
+                { assertThat(data.items).hasSize(1) },
+                { assertThat(data.items[0].productName).isEqualTo("주간 상품") },
+                { assertThat(data.items[0].rank).isEqualTo(1L) },
+            )
+        }
+
+        @DisplayName("period=MONTHLY로 요청하면, MV 월간 랭킹을 반환한다.")
+        @Test
+        fun returnsMonthlyRankings() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "테스트 브랜드", description = "설명"))
+            val product = productRepository.save(
+                Product(name = "월간 상품", description = null, price = Money.of(15000), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+            val yearMonth = java.time.YearMonth.from(LocalDate.now())
+            transactionTemplate.executeWithoutResult {
+                entityManager.createNativeQuery(
+                    "INSERT INTO mv_product_rank_monthly (`year_month`, product_id, rank_num, score, view_count, like_count, sales_count, updated_at) " +
+                        "VALUES (:yearMonth, :productId, 1, 100.0, 500, 100, 40, NOW())",
+                )
+                    .setParameter("yearMonth", yearMonth.toString())
+                    .setParameter("productId", product.id)
+                    .executeUpdate()
+            }
+
+            // act
+            val response = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?period=MONTHLY&page=1&size=20",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+
+            // assert
+            assertThat(response.statusCode.is2xxSuccessful).isTrue()
+            val data = requireNotNull(response.body?.data)
+            assertAll(
+                { assertThat(data.period.name).isEqualTo("MONTHLY") },
+                { assertThat(data.items).hasSize(1) },
+                { assertThat(data.items[0].productName).isEqualTo("월간 상품") },
+            )
+        }
+
+        @DisplayName("period별 서로 다른 데이터 소스에서 조회된다.")
+        @Test
+        fun differentDataSourcesPerPeriod() {
+            // arrange
+            val brand = brandRepository.save(Brand(name = "테스트 브랜드", description = "설명"))
+            val dailyProduct = productRepository.save(
+                Product(name = "일간 상품", description = null, price = Money.of(10000), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+            val weeklyProduct = productRepository.save(
+                Product(name = "주간 상품", description = null, price = Money.of(20000), likes = LikeCount.of(0), stockQuantity = StockQuantity.of(100), brandId = brand.id),
+            )
+
+            // DAILY: Redis
+            redisTemplate.opsForZSet().add(rankingKey, dailyProduct.id.toString(), 80.0)
+
+            // WEEKLY: MV
+            val yearWeek = com.loopers.domain.ranking.YearWeek.from(LocalDate.now())
+            transactionTemplate.executeWithoutResult {
+                entityManager.createNativeQuery(
+                    "INSERT INTO mv_product_rank_weekly (year_week, product_id, rank_num, score, view_count, like_count, sales_count, updated_at) " +
+                        "VALUES (:yearWeek, :productId, 1, 50.0, 100, 20, 10, NOW())",
+                )
+                    .setParameter("yearWeek", yearWeek.toString())
+                    .setParameter("productId", weeklyProduct.id)
+                    .executeUpdate()
+            }
+
+            // act
+            val dailyResponse = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?page=1&size=20",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+            val weeklyResponse = testRestTemplate.exchange(
+                "$RANKING_ENDPOINT?period=WEEKLY&page=1&size=20",
+                HttpMethod.GET,
+                HTTP_ENTITY,
+                RESPONSE_TYPE,
+            )
+
+            // assert
+            val dailyData = requireNotNull(dailyResponse.body?.data)
+            val weeklyData = requireNotNull(weeklyResponse.body?.data)
+            assertAll(
+                { assertThat(dailyData.items[0].productName).isEqualTo("일간 상품") },
+                { assertThat(weeklyData.items[0].productName).isEqualTo("주간 상품") },
             )
         }
 
