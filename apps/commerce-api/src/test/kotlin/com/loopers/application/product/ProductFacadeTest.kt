@@ -3,6 +3,7 @@ package com.loopers.application.product
 import com.loopers.application.brand.BrandService
 import com.loopers.application.brand.FakeBrandCacheStore
 import com.loopers.application.brand.FakeBrandRepository
+import io.mockk.mockk
 import com.loopers.domain.brand.BrandModel
 import com.loopers.domain.product.ProductSort
 import org.assertj.core.api.Assertions.assertThat
@@ -33,7 +34,8 @@ class ProductFacadeTest {
         productEventPublisher = com.loopers.utils.FakeEventPublisher()
         brandService = BrandService(brandRepository, com.loopers.utils.FakeEventPublisher())
         productService = ProductService(productRepository, productEventPublisher)
-        productFacade = ProductFacade(productService, brandService, cacheStore, brandCacheStore, com.loopers.application.ranking.RankingService(com.loopers.utils.FakeRankingStore()))
+        val fakeMvRankingStore = mockk<com.loopers.application.ranking.MvRankingStore>(relaxed = true)
+        productFacade = ProductFacade(productService, brandService, cacheStore, brandCacheStore, com.loopers.application.ranking.RankingService(com.loopers.utils.FakeRankingStore(), fakeMvRankingStore))
         adminProductFacade = AdminProductFacade(productService, brandService)
     }
 

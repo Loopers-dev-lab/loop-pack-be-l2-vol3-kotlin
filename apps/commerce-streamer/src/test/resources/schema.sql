@@ -47,6 +47,18 @@ CREATE TABLE IF NOT EXISTS outbox_event (
     INDEX idx_outbox_unpublished (published_at, created_at)
 );
 
+CREATE TABLE IF NOT EXISTS product_metrics_daily (
+    product_id        BIGINT      NOT NULL,
+    metric_date       DATE        NOT NULL,
+    view_count        BIGINT      NOT NULL DEFAULT 0,
+    like_count        BIGINT      NOT NULL DEFAULT 0,
+    order_count       BIGINT      NOT NULL DEFAULT 0,
+    order_amount_sum  BIGINT      NOT NULL DEFAULT 0,
+    updated_at        DATETIME(6) NOT NULL DEFAULT NOW(6),
+    PRIMARY KEY (product_id, metric_date),
+    INDEX idx_product_metrics_daily_date (metric_date)
+);
+
 CREATE TABLE IF NOT EXISTS issued_coupon (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
     coupon_template_id BIGINT      NOT NULL,

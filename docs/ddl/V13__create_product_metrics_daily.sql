@@ -1,55 +1,20 @@
-CREATE TABLE IF NOT EXISTS brand (
-    id          BIGINT       NOT NULL AUTO_INCREMENT,
-    name        VARCHAR(255) NOT NULL,
-    description TEXT         NOT NULL,
-    image_url   VARCHAR(512) NOT NULL,
-    status      VARCHAR(20)  NOT NULL,
-    created_at  DATETIME(6)  NOT NULL DEFAULT NOW(6),
-    updated_at  DATETIME(6)  NOT NULL DEFAULT NOW(6),
-    deleted_at  DATETIME(6)  NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE IF NOT EXISTS product (
-    id             BIGINT       NOT NULL AUTO_INCREMENT,
-    brand_id       BIGINT       NOT NULL,
-    name           VARCHAR(255) NOT NULL,
-    description    TEXT         NOT NULL,
-    price          BIGINT       NOT NULL,
-    stock_quantity INT          NOT NULL,
-    like_count     INT          NOT NULL DEFAULT 0,
-    image_url      VARCHAR(512) NOT NULL,
-    status         VARCHAR(20)  NOT NULL,
-    created_at     DATETIME(6)  NOT NULL DEFAULT NOW(6),
-    updated_at     DATETIME(6)  NOT NULL DEFAULT NOW(6),
-    deleted_at     DATETIME(6)  NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE IF NOT EXISTS product_like (
-    id         BIGINT      NOT NULL AUTO_INCREMENT,
-    member_id  BIGINT      NOT NULL,
-    product_id BIGINT      NOT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT NOW(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT NOW(6),
-    deleted_at DATETIME(6) NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_product_like_member_product (member_id, product_id)
-);
-
-CREATE TABLE IF NOT EXISTS product_metrics_daily (
+-- 일별 상품 메트릭 스냅샷 (Kafka Consumer가 실시간 UPSERT)
+-- 주간/월간 랭킹 집계 Batch Job의 원천 테이블
+CREATE TABLE product_metrics_daily (
     product_id        BIGINT      NOT NULL,
     metric_date       DATE        NOT NULL,
     view_count        BIGINT      NOT NULL DEFAULT 0,
     like_count        BIGINT      NOT NULL DEFAULT 0,
     order_count       BIGINT      NOT NULL DEFAULT 0,
     order_amount_sum  BIGINT      NOT NULL DEFAULT 0,
-    updated_at        DATETIME(6) NOT NULL DEFAULT NOW(6),
+    updated_at        DATETIME(6) NOT NULL,
     PRIMARY KEY (product_id, metric_date),
     INDEX idx_product_metrics_daily_date (metric_date)
 );
 
-CREATE TABLE IF NOT EXISTS mv_product_rank_weekly (
+-- 주간 랭킹 Materialized View (Batch Job이 TOP 200만 적재)
+-- period_key 포맷: ISO 8601 주차 "yyyy-Www" (예: "2026-W16")
+CREATE TABLE mv_product_rank_weekly (
     period_key        VARCHAR(16) NOT NULL,
     product_id        BIGINT      NOT NULL,
     rank_value        INT         NOT NULL,
@@ -58,13 +23,15 @@ CREATE TABLE IF NOT EXISTS mv_product_rank_weekly (
     like_count        BIGINT      NOT NULL DEFAULT 0,
     order_count       BIGINT      NOT NULL DEFAULT 0,
     order_amount_sum  BIGINT      NOT NULL DEFAULT 0,
-    computed_at       DATETIME(6) NOT NULL DEFAULT NOW(6),
+    computed_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (period_key, product_id),
     UNIQUE KEY uk_mv_product_rank_weekly_rank (period_key, rank_value),
     INDEX idx_mv_product_rank_weekly_rank (period_key, rank_value)
 );
 
-CREATE TABLE IF NOT EXISTS mv_product_rank_monthly (
+-- 월간 랭킹 Materialized View (Batch Job이 TOP 200만 적재)
+-- period_key 포맷: "yyyyMM" (예: "202604")
+CREATE TABLE mv_product_rank_monthly (
     period_key        VARCHAR(16) NOT NULL,
     product_id        BIGINT      NOT NULL,
     rank_value        INT         NOT NULL,
@@ -73,13 +40,15 @@ CREATE TABLE IF NOT EXISTS mv_product_rank_monthly (
     like_count        BIGINT      NOT NULL DEFAULT 0,
     order_count       BIGINT      NOT NULL DEFAULT 0,
     order_amount_sum  BIGINT      NOT NULL DEFAULT 0,
-    computed_at       DATETIME(6) NOT NULL DEFAULT NOW(6),
+    computed_at       DATETIME(6) NOT NULL,
     PRIMARY KEY (period_key, product_id),
     UNIQUE KEY uk_mv_product_rank_monthly_rank (period_key, rank_value),
     INDEX idx_mv_product_rank_monthly_rank (period_key, rank_value)
 );
 
-CREATE TABLE IF NOT EXISTS rank_staging (
+-- 전역 rank 부여용 중간 테이블 (Batch Job이 Step1에서 INSERT, Step2에서 SELECT+DELETE)
+-- job_execution_id: Spring Batch BATCH_JOB_EXECUTION.JOB_EXECUTION_ID
+CREATE TABLE rank_staging (
     job_execution_id  BIGINT      NOT NULL,
     product_id        BIGINT      NOT NULL,
     score             DOUBLE      NOT NULL,

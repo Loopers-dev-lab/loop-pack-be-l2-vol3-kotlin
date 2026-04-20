@@ -692,6 +692,155 @@ classDiagram
 
 ---
 
+## 4.1 주간/월간 랭킹 확장 (FEAT-13)
+
+### 다이어그램의 목적
+
+Spring Batch 2-Step 집계 Job과 DB 기반 Materialized View 조회 경로를 검증한다. `MvRankingStore` 포트 패턴으로 JPA 구현을 격리하고, `RankingFacade`가 `period` 값에 따라 Redis(일간)와 MV(주간/월간) 경로를 분기하는 구조를 확인한다.
+
+```mermaid
+classDiagram
+    direction TB
+
+    namespace interfaces_api_ranking {
+        class RankingV1Controller {
+            +getRankings(period, date, size, page) ApiResponse
+        }
+    }
+
+    namespace application_ranking {
+        class RankingPeriod {
+            <<enum>>
+            DAILY
+            WEEKLY
+            MONTHLY
+            +fromOrNull(value String) RankingPeriod?
+        }
+        class MvRankingStore {
+            <<interface>>
+            +getTopRankings(periodKey String, pageable Pageable) List~MvRankingEntry~
+            +countByPeriodKey(periodKey String) Long
+        }
+        class MvRankingEntry {
+            +productId Long
+            +rankValue Int
+            +score Double
+        }
+    }
+
+    namespace domain_ranking {
+        class PeriodKeyResolver {
+            +resolveWeekKey(date LocalDate) String
+            +resolveMonthKey(date LocalDate) String
+            +weekRange(date LocalDate) ClosedRange~LocalDate~
+            +monthRange(date LocalDate) ClosedRange~LocalDate~
+        }
+        class MvRankingRepository {
+            <<interface>>
+            +findByPeriodKey(periodKey String, pageable Pageable) List~MvProductRankJpaModel~
+            +countByPeriodKey(periodKey String) Long
+        }
+    }
+
+    namespace infrastructure_ranking {
+        class MvProductRankWeeklyJpaModel {
+            <<Entity, Table mv_product_rank_weekly>>
+            +periodKey String
+            +productId Long
+            +rankValue Int
+            +score Double
+        }
+        class MvProductRankMonthlyJpaModel {
+            <<Entity, Table mv_product_rank_monthly>>
+            +periodKey String
+            +productId Long
+            +rankValue Int
+            +score Double
+        }
+        class MvRankingRepositoryImpl {
+            -weeklyRepo JpaRepository
+            -monthlyRepo JpaRepository
+            +findByPeriodKey(periodKey, pageable) List~MvProductRankJpaModel~
+        }
+    }
+
+    namespace streamer_consumer {
+        class ProductMetricsDailyConsumer {
+            <<BATCH_LISTENER, group=commerce-streamer-metrics-daily>>
+            +consume(records List~ConsumerRecord~)
+            -resolveMetricDate(record) LocalDate
+            -tryMarkConsumed(eventId String) Boolean
+        }
+    }
+
+    namespace batch_job_ranking_aggregate {
+        class WeeklyRankingAggregationJobConfig {
+            +weeklyRankingAggregationJob() Job
+            +scoreStep() Step
+            +sortAndAssignRankStep() Step
+        }
+        class MonthlyRankingAggregationJobConfig {
+            +monthlyRankingAggregationJob() Job
+            +scoreStep() Step
+            +sortAndAssignRankStep() Step
+        }
+        class ScoreProcessor {
+            <<ItemProcessor>>
+            +process(row RawMetricRow) StagingRow
+        }
+        class SortAndAssignRankTasklet {
+            <<Tasklet>>
+            +execute(contribution, chunkContext) RepeatStatus
+        }
+        class BatchRankingPeriod {
+            <<enum>>
+            WEEKLY
+            MONTHLY
+        }
+        class BatchPeriodKeyResolver {
+            +resolveWeekKey(date LocalDate) String
+            +resolveMonthKey(date LocalDate) String
+        }
+    }
+
+    namespace batch_scheduler {
+        class RankingAggregationScheduler {
+            <<ConditionalOnProperty ranking.scheduler.enabled>>
+            +triggerWeekly()
+            +triggerMonthly()
+        }
+    }
+
+    RankingV1Controller --> RankingFacade
+    RankingFacade --> RankingPeriod : period 분기
+    RankingFacade --> MvRankingStore : WEEKLY / MONTHLY 경로
+    MvRankingStore <|.. MvRankingRepositoryImpl
+    MvRankingRepositoryImpl --> MvRankingRepository
+    MvRankingRepository <|.. MvProductRankWeeklyJpaModel : weekly Qualifier
+    MvRankingRepository <|.. MvProductRankMonthlyJpaModel : monthly Qualifier
+    RankingFacade --> PeriodKeyResolver : periodKey 산출
+
+    ProductMetricsDailyConsumer --> PeriodKeyResolver : metric_date 결정
+
+    RankingAggregationScheduler --> WeeklyRankingAggregationJobConfig : @Qualifier weeklyJob
+    RankingAggregationScheduler --> MonthlyRankingAggregationJobConfig : @Qualifier monthlyJob
+    WeeklyRankingAggregationJobConfig --> ScoreProcessor
+    WeeklyRankingAggregationJobConfig --> SortAndAssignRankTasklet
+    MonthlyRankingAggregationJobConfig --> ScoreProcessor
+    MonthlyRankingAggregationJobConfig --> SortAndAssignRankTasklet
+    SortAndAssignRankTasklet --> BatchPeriodKeyResolver
+```
+
+### 해석
+
+- **포트/어댑터 격리**: `MvRankingStore` 인터페이스(application 레이어)를 `MvRankingRepositoryImpl`(infrastructure 레이어)이 구현한다. `RankingFacade`는 인터페이스에만 의존하므로 JPA 구현 교체가 가능하다 (DIP).
+- **period 분기**: `RankingFacade`가 `RankingPeriod` enum으로 분기한다. `DAILY`는 기존 Redis(`RankingStore`) 경로, `WEEKLY`/`MONTHLY`는 `MvRankingStore` → `MvRankingRepository` → JPA 경로로 처리한다.
+- **2-Step 흐름**: Step1 Chunk(`JdbcCursorItemReader` → `ScoreProcessor` → `JdbcBatchItemWriter`)가 `rank_staging`에 점수를 적재하고, Step2 `SortAndAssignRankTasklet`이 전체 정렬 후 rank 부여 → MV UPSERT → staging cleanup을 수행한다. Chunk-Oriented Processing과 전역 rank 부여를 동시에 충족한다 (D70).
+- **Consumer 멱등성**: `ProductMetricsDailyConsumer`는 독립 Consumer Group(`commerce-streamer-metrics-daily`)으로 `record.timestamp()` 기반 event-time과 `kafka_consumed_event INSERT IGNORE`로 중복 가산을 차단한다. Redis 일간 Consumer의 at-least-once 정책(D65)과 별개로 DB 영속 특성상 정확성을 우선한다 (D74).
+- **Scheduler 조건부 활성**: `RankingAggregationScheduler`는 `ranking.scheduler.enabled=true`일 때만 Bean이 생성된다. Job Config는 항상 등록되어 CLI 단일 실행 모드(`spring.batch.job.names=weeklyRankingAggregationJob`)와 공존한다 (D75).
+
+---
+
 ## 5. 패키지 확장 구조
 
 기존 example/member 패턴을 따라 새 도메인을 추가한다. 고객/어드민 Facade가 분리된 구조.

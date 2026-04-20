@@ -294,6 +294,37 @@
 - 멱등성 미적용 (at-least-once 허용) — 랭킹 특성상 소폭 중복 가산 수용
 - ORDER 이벤트는 AOP 제외, OrderFacade에서 수동 발행 (D68)
 
+#### FEAT-13: Spring Batch 주간/월간 랭킹 집계 + MV 적재
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | DONE |
+| 도메인 | ranking / batch |
+| 관련 결정 | D69, D70, D71, D72, D73, D74, D75 |
+
+**배경**:
+FEAT-10(실시간 일간 랭킹)의 확장. 대규모 집계 + 조회 전용 구조(Materialized View) 패턴을 Spring Batch로 학습하면서, API를 일간/주간/월간으로 확장한다. 주간/월간은 실시간성보다 정확성·효율성이 중요하므로 Redis가 아닌 DB 기반 MV로 제공한다.
+
+**수용 기준**:
+- 새 테이블 `product_metrics_daily (product_id, metric_date) PK` — Kafka Consumer가 실시간 UPSERT (D69)
+- Materialized View: `mv_product_rank_weekly`, `mv_product_rank_monthly` — Spring Batch Job이 TOP 200 적재, PK `(period_key, product_id)`, UK `(period_key, rank_value)`
+- 2-Step Chunk+Tasklet 구조 (D70): Step1 JdbcCursorItemReader→ScoreProcessor→JdbcBatchItemWriter(rank_staging), Step2 Tasklet(staging SELECT → rank 부여 → MV UPSERT → cleanup)
+- chunkSize=500, `INSERT…ON DUPLICATE KEY UPDATE` 기반 멱등 재실행
+- 점수 공식: `VIEW*0.1 + LIKE*0.2 + 0.7*log10(SUM(order_amount_sum)+1)` — 원시값 보존으로 가중치 튜닝 가능 (D71)
+- 기간 경계: ISO 8601 주 (월~일) + 달력월 (1일~말일), Asia/Seoul 고정 (D72)
+- API 확장: `GET /api/v1/rankings?period=daily|weekly|monthly&date=yyyyMMdd&size&page` — 단일 엔드포인트, `/hourly` 별도 유지, 잘못된 period는 400 (D73)
+- `ProductMetricsDailyConsumer` (commerce-streamer): 독립 Consumer Group `commerce-streamer-metrics-daily`, BATCH_LISTENER + 인메모리 Map 집계
+- metric_date는 `record.timestamp()` 기반 event-time, 누락 시 KST now fallback (D74)
+- event-id 기반 멱등성 (`kafka_consumed_event INSERT IGNORE`) — Kafka 재전달 시 중복 가산 차단 (D74)
+- Scheduler (`@Scheduled cron`): 주간 `0 10 0 ? * MON` Asia/Seoul, 월간 `0 20 0 1 * ?` Asia/Seoul — `ranking.scheduler.enabled=true` 일 때만 활성 (D75)
+- Job Config는 항상 Bean 등록, CLI 단일 실행 시 `spring.batch.job.names=…` 로 선택 실행 (D75)
+
+**제약사항**:
+- DB 기반 MV → 실시간성 부족 (주간은 매주 월 00:10, 월간은 매월 1일 00:20 갱신)
+- 점수 공식: Redis 일간(이벤트별 log10 합산)과 Batch 주간/월간(기간 합산 후 log10)은 수학적으로 상이 — 채계 차이 문서화 필요 (D71)
+- commerce-streamer 의 `ProductMetricsDailyConsumer`는 event-id 멱등성 적용 (D65 랭킹 at-least-once 정책과 별개 — DB 영속 특성상 정확성 우선, D74)
+- 다중 인스턴스 스케줄러 동시 실행 방지는 Spring Batch `JobRepository`의 identical JobParameters 차단에 1차 의존. ShedLock은 후속 작업
+
 ---
 
 ## 성능 목표

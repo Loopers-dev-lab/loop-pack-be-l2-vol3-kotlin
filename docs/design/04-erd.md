@@ -350,6 +350,134 @@ erDiagram
 
 ---
 
+### 2.9 product_metrics_daily (FEAT-13)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| product_id | BIGINT | PK (복합) | 상품 ID (논리적 FK → product.id) |
+| metric_date | DATE | PK (복합) | 이벤트 발생일 (Asia/Seoul, event-time 기반) |
+| view_count | BIGINT | NOT NULL DEFAULT 0 | 일별 조회 수 |
+| like_count | BIGINT | NOT NULL DEFAULT 0 | 일별 좋아요 수 |
+| order_count | BIGINT | NOT NULL DEFAULT 0 | 일별 주문 건수 |
+| order_amount_sum | BIGINT | NOT NULL DEFAULT 0 | 일별 주문 금액 합계 (원 단위) |
+
+- **PK**: `(product_id, metric_date)` — 상품+날짜 단위 집계 행
+- **INDEX**: `idx_pmd_metric_date (metric_date)` — Spring Batch가 기간 범위로 SUM GROUP BY 시 활용
+- `ProductMetricsDailyConsumer`가 `INSERT … ON DUPLICATE KEY UPDATE` 방식으로 UPSERT한다. event-id(`kafka_consumed_event`) 멱등성으로 Kafka 재전달 시 중복 가산을 차단한다 (D74).
+
+---
+
+### 2.10 mv_product_rank_weekly (FEAT-13)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| period_key | VARCHAR(10) | PK (복합) | ISO 8601 주 키 (예: `2026-W16`) |
+| product_id | BIGINT | PK (복합) | 상품 ID |
+| rank_value | INT | NOT NULL | 기간 내 순위 (1-based) |
+| score | DOUBLE | NOT NULL | 집계 점수 |
+| view_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 조회 수 |
+| like_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 좋아요 수 |
+| order_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 주문 건수 |
+| order_amount_sum | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 주문 금액 |
+| computed_at | DATETIME | NOT NULL | MV 갱신 시각 |
+
+- **PK**: `(period_key, product_id)`
+- **UNIQUE**: `uk_mvrw_period_rank (period_key, rank_value)` — 기간 내 순위 중복 방지
+- **INDEX**: `idx_mvrw_period_rank (period_key, rank_value ASC)` — 조회 API ORDER BY rank_value 지원
+- Spring Batch `SortAndAssignRankTasklet`이 `rank_staging` → TOP 200 선별 → `INSERT … ON DUPLICATE KEY UPDATE`로 멱등 재실행을 보장한다 (D70).
+
+---
+
+### 2.11 mv_product_rank_monthly (FEAT-13)
+
+`mv_product_rank_weekly`와 동일한 스키마. `period_key` 포맷만 달라진다 (예: `202604`).
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| period_key | VARCHAR(10) | PK (복합) | 달력월 키 (예: `202604`) |
+| product_id | BIGINT | PK (복합) | 상품 ID |
+| rank_value | INT | NOT NULL | 기간 내 순위 (1-based) |
+| score | DOUBLE | NOT NULL | 집계 점수 |
+| view_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 조회 수 |
+| like_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 좋아요 수 |
+| order_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 주문 건수 |
+| order_amount_sum | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 주문 금액 |
+| computed_at | DATETIME | NOT NULL | MV 갱신 시각 |
+
+- **PK**: `(period_key, product_id)`
+- **UNIQUE**: `uk_mvrm_period_rank (period_key, rank_value)`
+- **INDEX**: `idx_mvrm_period_rank (period_key, rank_value ASC)`
+
+---
+
+### 2.12 rank_staging (FEAT-13)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| job_execution_id | BIGINT | PK (복합) | Spring Batch JobExecution ID — 동시 실행 격리 |
+| product_id | BIGINT | PK (복합) | 상품 ID |
+| score | DOUBLE | NOT NULL | 집계 점수 |
+| view_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 조회 수 |
+| like_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 좋아요 수 |
+| order_count | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 주문 건수 |
+| order_amount_sum | BIGINT | NOT NULL DEFAULT 0 | 기간 합산 주문 금액 |
+
+- **PK**: `(job_execution_id, product_id)` — Job 실행 단위 격리로 동시 Job 간 간섭 없음
+- **INDEX**: `idx_rs_job_score (job_execution_id, score DESC, product_id)` — Step2 Tasklet의 TOP 200 SELECT 최적화
+- Step1 Chunk가 점수 계산 후 INSERT, Step2 Tasklet이 ORDER BY score DESC LIMIT 200 후 MV UPSERT, Step 완료 후 해당 `job_execution_id` 행 DELETE (D70).
+
+```mermaid
+erDiagram
+    product ||--o{ product_metrics_daily : "1:N (논리적 참조)"
+    product ||--o{ mv_product_rank_weekly : "1:N (논리적 참조)"
+    product ||--o{ mv_product_rank_monthly : "1:N (논리적 참조)"
+
+    product_metrics_daily {
+        bigint product_id PK "NOT NULL"
+        date metric_date PK "NOT NULL"
+        bigint view_count "NOT NULL DEFAULT 0"
+        bigint like_count "NOT NULL DEFAULT 0"
+        bigint order_count "NOT NULL DEFAULT 0"
+        bigint order_amount_sum "NOT NULL DEFAULT 0"
+    }
+
+    mv_product_rank_weekly {
+        varchar period_key PK "NOT NULL, e.g. 2026-W16"
+        bigint product_id PK "NOT NULL"
+        int rank_value "NOT NULL"
+        double score "NOT NULL"
+        bigint view_count "NOT NULL DEFAULT 0"
+        bigint like_count "NOT NULL DEFAULT 0"
+        bigint order_count "NOT NULL DEFAULT 0"
+        bigint order_amount_sum "NOT NULL DEFAULT 0"
+        datetime computed_at "NOT NULL"
+    }
+
+    mv_product_rank_monthly {
+        varchar period_key PK "NOT NULL, e.g. 202604"
+        bigint product_id PK "NOT NULL"
+        int rank_value "NOT NULL"
+        double score "NOT NULL"
+        bigint view_count "NOT NULL DEFAULT 0"
+        bigint like_count "NOT NULL DEFAULT 0"
+        bigint order_count "NOT NULL DEFAULT 0"
+        bigint order_amount_sum "NOT NULL DEFAULT 0"
+        datetime computed_at "NOT NULL"
+    }
+
+    rank_staging {
+        bigint job_execution_id PK "NOT NULL"
+        bigint product_id PK "NOT NULL"
+        double score "NOT NULL"
+        bigint view_count "NOT NULL DEFAULT 0"
+        bigint like_count "NOT NULL DEFAULT 0"
+        bigint order_count "NOT NULL DEFAULT 0"
+        bigint order_amount_sum "NOT NULL DEFAULT 0"
+    }
+```
+
+---
+
 ## 3. 인덱스 전략
 
 ### 3.1 인덱스 목록
@@ -404,7 +532,7 @@ erDiagram
 | 가격/금액 타입 | BIGINT | 원 단위 정수. 소수점 연산 오류 방지 |
 | 스냅샷 저장 | order_item에 비정규화 | 상품/브랜드 변경이 주문 이력에 영향 없도록 보장 (BR-O2) |
 | 주문 총액 | orders에 비정규화 안 함 | SUM(order_item.amount)로 계산. 아이템 소량으로 비용 미비, 데이터 불일치 방지 |
-| 랭킹 확장 | 별도 일별 통계 테이블 예정 | 확장 시 `product_like_daily_stats(product_id, stat_date, count)` 추가 |
+| 랭킹 확장 | `product_metrics_daily` 및 `mv_product_rank_{weekly,monthly}` 적용됨 (FEAT-13, D69) | 2-Step Batch Job이 TOP 200 적재 (D70) |
 | 쿠폰 동시 사용 방지 | 낙관적 락 (@Version on issued_coupon.version) | 쿠폰 사용은 빈번하지 않고 충돌 확률이 낮음. 비관적 락 대비 성능 우위. 충돌 시 409 CONFLICT 반환 |
 | 쿠폰 만료 정책 | FIXED_DATE + DAYS_FROM_ISSUE 이중 지원 | 특정 기간 한정 쿠폰(FIXED_DATE)과 발급 후 N일 유효 쿠폰(DAYS_FROM_ISSUE)을 단일 테이블에서 관리 |
 | 쿠폰 상태 EXPIRED | DB에 저장 안 함, 조회 시 계산 | expired_at < NOW() 조건으로 판단. 상태 전이 배치 불필요. AVAILABLE/USED만 DB에 저장 |

@@ -1062,3 +1062,174 @@ sequenceDiagram
 - **rank null 허용**: 랭킹 데이터가 없는 상품(신규 등록, 집계 미반영)은 `rank = null`로 응답한다. 클라이언트는 null을 "순위 없음"으로 표시한다.
 - **상품 캐시와 분리**: rank는 실시간으로 변동하므로 상품 캐시에 포함하지 않고 매 요청마다 Redis에서 조회한다. 상품 기본 정보(캐시)와 rank(실시간)를 Facade에서 조합한다.
 - **RankingService 위임**: `ProductFacade`가 `RankingService`를 직접 호출하며, `RankingService`는 `RankingStore` 인터페이스를 통해 Redis에 접근한다. DIP 준수.
+
+---
+
+## 9. 주간/월간 랭킹 흐름 (FEAT-13)
+
+---
+
+### 9-1. Daily Consumer 적재 흐름
+
+#### 다이어그램의 목적
+
+Kafka `product.action` 토픽의 유저 행동 이벤트가 `ProductMetricsDailyConsumer`를 거쳐 `product_metrics_daily` 테이블에 날짜별로 집계·적재되는 흐름을 검증한다. event-time 기반 `metric_date` 결정과 `kafka_consumed_event` 멱등성 처리가 핵심이다.
+
+```mermaid
+sequenceDiagram
+    participant Kafka as Kafka<br/>(product.action)
+    participant Consumer as ProductMetricsDailyConsumer<br/>(BATCH_LISTENER, group=commerce-streamer-metrics-daily)
+    participant ConsumedDB as kafka_consumed_event (DB)
+    participant MetricsDB as product_metrics_daily (DB)
+
+    Note over Kafka, MetricsDB: 1. Kafka 배치 레코드 수신
+    Kafka-->>Consumer: List~ConsumerRecord~ (BATCH_LISTENER)
+
+    Note over Consumer: 2. 레코드별 event-id 멱등성 체크 + metric_date 결정
+    loop 각 ConsumerRecord
+        Consumer->>Consumer: resolveMetricDate(record)<br/>record.timestamp() > 0 → KST LocalDate 변환<br/>아니면 LocalDate.now(KST) fallback
+        Consumer->>ConsumedDB: INSERT IGNORE INTO kafka_consumed_event (event_id)
+        alt INSERT 성공 (신규 이벤트)
+            ConsumedDB-->>Consumer: 1 (affected rows)
+            Consumer->>Consumer: 인메모리 Map 집계<br/>key=(product_id, metric_date), value=카운터 증분
+        else INSERT 무시 (중복 이벤트)
+            ConsumedDB-->>Consumer: 0 (affected rows)
+            Note over Consumer: 건너뜀 — 중복 가산 차단
+        end
+    end
+
+    Note over Consumer, MetricsDB: 3. 집계 결과 일괄 UPSERT
+    Consumer->>MetricsDB: JdbcTemplate batchUpdate<br/>INSERT INTO product_metrics_daily (product_id, metric_date, view_count, like_count, order_count, order_amount_sum)<br/>VALUES (...)<br/>ON DUPLICATE KEY UPDATE<br/>view_count = view_count + VALUES(view_count), ...
+    MetricsDB-->>Consumer: batch update 완료
+```
+
+#### 해석
+
+- **독립 Consumer Group**: `commerce-streamer-metrics-daily` 그룹은 기존 `RankingScoreConsumer`(Redis ZSET 적재) 및 `ProductMetricsConsumer`(누적 테이블 적재)와 offset을 공유하지 않는다. 동일 토픽을 독립적으로 재소비한다 (D69).
+- **event-time 기반 metric_date**: `record.timestamp()`(Kafka produce 시각)를 Asia/Seoul LocalDate로 변환한다. Consumer lag이 자정을 넘어 발생해도 어제 이벤트가 오늘 row에 섞이지 않는다 (D74).
+- **kafka_consumed_event 멱등성**: `INSERT IGNORE`가 원자적으로 수행되어 Kafka 재전달 시 동일 event-id가 이미 존재하면 집계에서 제외한다. Redis at-least-once 정책(D65)과 달리 DB 영속 특성상 정확성을 우선한다 (D74).
+
+---
+
+### 9-2. Spring Batch 주간/월간 집계 Job 흐름
+
+#### 다이어그램의 목적
+
+`RankingAggregationScheduler`가 트리거하는 2-Step Batch Job이 `product_metrics_daily`를 집계하여 `mv_product_rank_{weekly/monthly}`에 TOP 200을 적재하는 흐름을 검증한다. Chunk-Oriented Step과 전역 rank 부여 Tasklet의 역할 분리가 핵심이다.
+
+```mermaid
+sequenceDiagram
+    participant Scheduler as RankingAggregationScheduler<br/>(@Scheduled cron, ConditionalOnProperty)
+    participant Launcher as JobLauncher
+    participant Step1 as Step1: scoreStep<br/>(Chunk-Oriented)
+    participant Reader as JdbcCursorItemReader
+    participant Processor as ScoreProcessor
+    participant Writer as JdbcBatchItemWriter
+    participant Staging as rank_staging (DB)
+    participant Step2 as Step2: SortAndAssignRankTasklet
+    participant MV as mv_product_rank_{period} (DB)
+    participant MetricsDB as product_metrics_daily (DB)
+
+    Note over Scheduler: 주간: 0 10 0 ? * MON (Asia/Seoul)<br/>월간: 0 20 0 1 * ? (Asia/Seoul)
+    Scheduler->>Launcher: launch(weeklyRankingAggregationJob, jobParameters)
+    Launcher->>Step1: execute
+
+    Note over Step1, Staging: Step1 — Chunk 단위 점수 계산 후 rank_staging 적재
+    loop chunkSize=500 단위 반복
+        Step1->>Reader: read()
+        Reader->>MetricsDB: SELECT product_id, SUM(view_count), SUM(like_count), SUM(order_count), SUM(order_amount_sum)<br/>FROM product_metrics_daily<br/>WHERE metric_date BETWEEN {weekStart} AND {weekEnd}<br/>GROUP BY product_id (JdbcCursorItemReader)
+        MetricsDB-->>Reader: RawMetricRow
+        Reader-->>Processor: RawMetricRow
+        Processor->>Processor: score = SUM(view)*0.1 + SUM(like)*0.2<br/>+ 0.7*log10(SUM(amount)+1)
+        Processor-->>Writer: StagingRow(job_execution_id, product_id, score, ...)
+        Writer->>Staging: INSERT INTO rank_staging VALUES (...)<br/>(job_execution_id 격리)
+    end
+    Step1-->>Launcher: COMPLETED
+
+    Note over Step2, MV: Step2 — 전역 정렬 → rank 부여 → MV UPSERT → cleanup
+    Launcher->>Step2: execute
+    Step2->>MV: DELETE FROM mv_product_rank_weekly WHERE period_key = {periodKey}
+    Step2->>Staging: SELECT * FROM rank_staging<br/>WHERE job_execution_id = {jobExecutionId}<br/>ORDER BY score DESC, product_id ASC<br/>LIMIT 200
+    Staging-->>Step2: List~StagingRow~ (TOP 200)
+    Step2->>Step2: mapIndexed { idx, row -> rank = idx + 1 }
+    Step2->>MV: INSERT INTO mv_product_rank_weekly (period_key, product_id, rank_value, score, ...)<br/>ON DUPLICATE KEY UPDATE rank_value=VALUES(rank_value), score=VALUES(score), ...<br/>computed_at=NOW()
+    Step2->>Staging: DELETE FROM rank_staging WHERE job_execution_id = {jobExecutionId}
+    Step2-->>Launcher: COMPLETED
+    Launcher-->>Scheduler: JobExecution (EXIT_STATUS: COMPLETED)
+```
+
+#### 해석
+
+- **2-Step 설계 근거**: Chunk Step은 chunk 경계 내에서만 순서를 보장하므로 전체 상품에 대한 전역 rank 부여가 불가능하다. Step1이 중간 `rank_staging`에 점수를 적재하고, Step2 Tasklet이 전체 정렬 후 rank를 부여함으로써 Chunk-Oriented 학습 목표와 전역 rank 정확성을 동시에 충족한다 (D70).
+- **job_execution_id 격리**: `rank_staging`의 PK `(job_execution_id, product_id)`로 동시 실행되는 Job 간 staging 데이터가 섞이지 않는다. Spring Batch `JobRepository`가 동일 JobParameters의 중복 실행을 1차로 차단한다 (D75).
+- **점수 공식 차이**: `SUM(order_amount_sum)`을 기간 합산한 뒤 `log10`을 1회 적용한다. Redis 일간 Consumer가 이벤트별로 `log10(price×quantity+1)`을 합산하는 방식과 수학적으로 상이하다. 원시값 보존으로 가중치 튜닝 시 MV 재생성만으로 대응 가능하다 (D71).
+
+---
+
+### 9-3. 주간/월간 랭킹 조회 흐름
+
+#### 다이어그램의 목적
+
+클라이언트가 `period=weekly` 또는 `period=monthly`로 랭킹을 조회할 때, `RankingFacade`가 `PeriodKeyResolver`로 periodKey를 산출하고 `MvRankingStore` → JPA → DB 경로로 응답하는 흐름을 검증한다. DAILY 경로(Redis)와의 분기 지점을 확인한다.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Controller as RankingV1Controller
+    participant Facade as RankingFacade
+    participant Resolver as PeriodKeyResolver
+    participant RankingSvc as RankingService
+    participant MvStore as MvRankingStore
+    participant MvRepo as MvRankingRepository (JPA)
+    participant DB as mv_product_rank_{weekly/monthly} (DB)
+    participant ProductSvc as ProductService
+    participant BrandCache as BrandCacheStore
+
+    User->>Controller: GET /api/v1/rankings?period=weekly&date=20260413&size=20&page=0
+
+    Note over Controller: period 유효성 검증
+    alt period 값이 daily|weekly|monthly 외
+        Controller-->>User: 400 Bad Request (CoreException BAD_REQUEST)
+    end
+
+    Controller->>Facade: getRankings(period=WEEKLY, date=20260413, size=20, page=0)
+
+    Note over Facade: DAILY 분기 → 기존 Redis 경로 (8-2 참조)
+    Note over Facade: WEEKLY / MONTHLY 분기 → MV 경로
+    Facade->>Resolver: resolveWeekKey(date=20260413)
+    Resolver->>Resolver: IsoFields.WEEK_OF_WEEK_BASED_YEAR → "2026-W16"
+    Resolver-->>Facade: periodKey = "2026-W16"
+
+    Facade->>RankingSvc: getPeriodRankings(periodKey="2026-W16", pageable)
+    RankingSvc->>MvStore: getTopRankings(periodKey, pageable)
+    MvStore->>MvRepo: findByPeriodKey("2026-W16", Pageable(page=0, size=20))
+    MvRepo->>DB: SELECT * FROM mv_product_rank_weekly<br/>WHERE period_key = '2026-W16'<br/>ORDER BY rank_value ASC<br/>LIMIT 20 OFFSET 0
+    DB-->>MvRepo: List~MvProductRankWeeklyJpaModel~
+
+    alt 조회 결과 없음 (MV 미갱신 또는 빈 기간)
+        MvRepo-->>RankingSvc: empty list
+        RankingSvc-->>Facade: empty list
+        Facade-->>Controller: PageResponse (content=[], totalElements=0)
+        Controller-->>User: 200 OK (빈 목록)
+    else 결과 있음
+        MvRepo-->>MvStore: List~MvProductRankJpaModel~
+        MvStore-->>RankingSvc: List~MvRankingEntry~
+        RankingSvc-->>Facade: List~MvRankingEntry~
+
+        Facade->>ProductSvc: getProductsByIds(productIds)
+        ProductSvc-->>Facade: List~ProductInfo~
+
+        Facade->>BrandCache: getBrand(brandId) per product
+        BrandCache-->>Facade: BrandInfo (캐시 히트 or DB fallback)
+
+        Note over Facade: MvRankingEntry + ProductInfo + BrandInfo 조합
+        Facade-->>Controller: PageResponse~RankingItemInfo~
+        Controller-->>User: 200 OK (주간 랭킹 목록)
+    end
+```
+
+#### 해석
+
+- **period 분기 지점**: `RankingFacade`가 `RankingPeriod` enum 값으로 분기한다. `DAILY`는 기존 `RankingStore`(Redis ZREVRANGE) 경로를 그대로 사용하고, `WEEKLY`/`MONTHLY`만 `MvRankingStore` → JPA 경로로 진입한다. 하위 호환을 유지하면서 확장한다 (D73).
+- **PeriodKeyResolver**: `date=20260413` 입력을 ISO 8601 주 키(`2026-W16`) 또는 달력월 키(`202604`)로 변환한다. Asia/Seoul 타임존을 고정 적용하여 date 해석이 환경에 따라 달라지지 않는다 (D72).
+- **빈 기간 처리**: 해당 periodKey에 MV 데이터가 없으면 빈 목록을 반환한다. Batch Job이 아직 실행되지 않은 미래 기간이나 데이터 없는 과거 기간 모두 동일하게 처리된다.
