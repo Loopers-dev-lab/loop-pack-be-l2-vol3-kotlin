@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 interface UserRankingV1ApiSpec {
     @Operation(
         summary = "랭킹 목록 조회",
-        description = "날짜별 상품 랭킹 목록을 조회합니다. 점수 내림차순으로 정렬됩니다.",
+        description = "날짜별 상품 랭킹 목록을 조회합니다. 점수 내림차순으로 정렬됩니다. period로 일간/주간/월간 집계를 선택합니다.",
     )
     fun getList(
         @Parameter(
@@ -19,6 +19,12 @@ interface UserRankingV1ApiSpec {
             example = "20260410",
         )
         date: String?,
+        @Parameter(
+            description = "집계 기간 (daily|weekly|monthly, 대소문자 무관, 미제공 시 daily; 빈 값/공백은 400)",
+            example = "WEEKLY",
+            required = false,
+        )
+        periodParam: String?,
         pageRequest: PageRequest,
     ): ApiResponse<PageResponse<UserRankingV1Response.RankedProduct>>
 }

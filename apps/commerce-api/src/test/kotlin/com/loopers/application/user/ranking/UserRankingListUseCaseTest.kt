@@ -4,8 +4,10 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.ranking.MonthlyRankQueryRepository
 import com.loopers.domain.ranking.ProductRankingQueryRepository
 import com.loopers.domain.ranking.RankedProduct
+import com.loopers.domain.ranking.WeeklyRankQueryRepository
 import com.loopers.support.page.PageRequest
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -13,15 +15,25 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
 
 @DisplayName("UserRankingListUseCase")
 class UserRankingListUseCaseTest {
     private val productRankingQueryRepository: ProductRankingQueryRepository = mock()
+    private val weeklyRankQueryRepository: WeeklyRankQueryRepository = mock()
+    private val monthlyRankQueryRepository: MonthlyRankQueryRepository = mock()
     private val productRepository: ProductRepository = mock()
     private val brandRepository: BrandRepository = mock()
-    private val useCase = UserRankingListUseCase(productRankingQueryRepository, productRepository, brandRepository)
+    private val useCase = UserRankingListUseCase(
+        productRankingQueryRepository,
+        weeklyRankQueryRepository,
+        monthlyRankQueryRepository,
+        productRepository,
+        brandRepository,
+    )
 
     private val date = LocalDate.of(2026, 4, 10)
 
@@ -54,7 +66,7 @@ class UserRankingListUseCaseTest {
             whenever(brandRepository.findAllByIdIn(any()))
                 .thenReturn(listOf(activeBrand(id = 1L)))
 
-            val result = useCase.getList(date, pageRequest)
+            val result = useCase.getList(date, RankingPeriod.DAILY, pageRequest)
 
             assertThat(result.content).hasSize(2)
             assertThat(result.content[0].rank).isEqualTo(1)
@@ -80,7 +92,7 @@ class UserRankingListUseCaseTest {
                 .thenReturn(emptyList())
             whenever(productRankingQueryRepository.getTotalCount(date)).thenReturn(5)
 
-            val result = useCase.getList(date, pageRequest)
+            val result = useCase.getList(date, RankingPeriod.DAILY, pageRequest)
 
             assertThat(result.content).isEmpty()
             assertThat(result.page).isEqualTo(1)
@@ -111,7 +123,7 @@ class UserRankingListUseCaseTest {
             whenever(brandRepository.findAllByIdIn(any()))
                 .thenReturn(listOf(activeBrand(id = 1L)))
 
-            val result = useCase.getList(date, pageRequest)
+            val result = useCase.getList(date, RankingPeriod.DAILY, pageRequest)
 
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].productId).isEqualTo(100)
@@ -142,7 +154,7 @@ class UserRankingListUseCaseTest {
             whenever(brandRepository.findAllByIdIn(any()))
                 .thenReturn(listOf(activeBrand(id = 1L)))
 
-            val result = useCase.getList(date, pageRequest)
+            val result = useCase.getList(date, RankingPeriod.DAILY, pageRequest)
 
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].productId).isEqualTo(100)
@@ -178,7 +190,7 @@ class UserRankingListUseCaseTest {
                     ),
                 )
 
-            val result = useCase.getList(date, pageRequest)
+            val result = useCase.getList(date, RankingPeriod.DAILY, pageRequest)
 
             assertThat(result.content).hasSize(1)
             assertThat(result.content[0].productId).isEqualTo(100)
@@ -197,10 +209,74 @@ class UserRankingListUseCaseTest {
                 .thenReturn(emptyList())
             whenever(productRankingQueryRepository.getTotalCount(any())).thenReturn(0)
 
-            val result = useCase.getList(date, pageRequest)
+            val result = useCase.getList(date, RankingPeriod.DAILY, pageRequest)
 
             assertThat(result.content).isEmpty()
             assertThat(result.totalElements).isEqualTo(0)
+        }
+    }
+
+    @Nested
+    @DisplayName("period에 따라 적절한 rank source로 분기한다")
+    inner class PeriodRouting {
+
+        @Test
+        @DisplayName("period=WEEKLY → weeklyRankQueryRepository만 호출")
+        fun getList_weeklyRoutesToWeeklyRepo() {
+            val pageRequest = PageRequest().apply {
+                page = 0
+                size = 10
+            }
+            whenever(weeklyRankQueryRepository.getTopRanked(date, 0, 10)).thenReturn(emptyList())
+            whenever(weeklyRankQueryRepository.getTotalCount(date)).thenReturn(0)
+
+            useCase.getList(date, RankingPeriod.WEEKLY, pageRequest)
+
+            verify(weeklyRankQueryRepository).getTopRanked(date, 0, 10)
+            verify(weeklyRankQueryRepository).getTotalCount(date)
+            verify(productRankingQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(monthlyRankQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(productRankingQueryRepository, never()).getTotalCount(any())
+            verify(monthlyRankQueryRepository, never()).getTotalCount(any())
+        }
+
+        @Test
+        @DisplayName("period=MONTHLY → monthlyRankQueryRepository만 호출")
+        fun getList_monthlyRoutesToMonthlyRepo() {
+            val pageRequest = PageRequest().apply {
+                page = 0
+                size = 10
+            }
+            whenever(monthlyRankQueryRepository.getTopRanked(date, 0, 10)).thenReturn(emptyList())
+            whenever(monthlyRankQueryRepository.getTotalCount(date)).thenReturn(0)
+
+            useCase.getList(date, RankingPeriod.MONTHLY, pageRequest)
+
+            verify(monthlyRankQueryRepository).getTopRanked(date, 0, 10)
+            verify(monthlyRankQueryRepository).getTotalCount(date)
+            verify(productRankingQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(weeklyRankQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(productRankingQueryRepository, never()).getTotalCount(any())
+            verify(weeklyRankQueryRepository, never()).getTotalCount(any())
+        }
+
+        @Test
+        @DisplayName("period=DAILY → productRankingQueryRepository(Redis)만 호출")
+        fun getList_dailyRoutesToRedisRepo() {
+            val pageRequest = PageRequest().apply {
+                page = 0
+                size = 10
+            }
+            whenever(productRankingQueryRepository.getTopRanked(date, 0, 10)).thenReturn(emptyList())
+            whenever(productRankingQueryRepository.getTotalCount(date)).thenReturn(0)
+
+            useCase.getList(date, RankingPeriod.DAILY, pageRequest)
+
+            verify(productRankingQueryRepository).getTopRanked(date, 0, 10)
+            verify(weeklyRankQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(monthlyRankQueryRepository, never()).getTopRanked(any(), any(), any())
+            verify(weeklyRankQueryRepository, never()).getTotalCount(any())
+            verify(monthlyRankQueryRepository, never()).getTotalCount(any())
         }
     }
 
