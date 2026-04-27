@@ -296,6 +296,410 @@ class LikeCount private constructor(val value: Int) {
 - **Q7 (예정)** — 백지 설계 테스트 (구현 준비도 판정)
   - 이번 라운드 학습 내용으로 "이커머스 도메인"을 처음부터 설계
 
+---
+
+## Q3. Entity vs VO — "같다(equality)"의 의미가 가르는 본질 (이어서)
+
+**[답변]**
+> a. 의미적으로 봤을 때 같다. 하지만 식별자가 같은지 봐야 정확히 같은지 다른지 알수 있다. 현재 like는 userId, productId 가 같기 때문에 같다. 그리고 첫번째 좋아요와 세번째 좋아요는 생성되고, 삭제되고, 다시 생성되기 때문에 다르다.
+> b. LikeCount(100) 두 인스턴스는 같다. equals와 hashCode 구현을 보면 단순하게 value 값만 비교하기 때문에 같다.
+> c. entity는 식별자를 비교하고, vo는 값을 비교한다.
+
+**[후속 질문: userId, productId가 같으면 "같은" Entity인가?]**
+(b)와 (c)는 정확합니다. 그런데 (a) 케이스 1에서 "userId, productId가 같기 때문에 같다"고 했는데 — 방금 (c)에서 Entity는 식별자로 비교한다고 했잖아요?
+
+`Like`는 `BaseEntity`를 상속하고, 자동 할당되는 `id`가 있습니다.
+- 인스턴스 A: `id=42`, userId=1, productId=100
+- 인스턴스 B: `id=43`, userId=1, productId=100
+
+이 둘은 같은가요, 다른가요? 그리고 `(user_id, product_id)` 유니크 제약은 "두 Like가 같다"는 뜻인가요?
+
+**[답변]**
+> 아.. 두 인스턴스는 다른 like 야
+
+**[후속 질문: 유니크 제약의 역할]**
+그러면 유니크 제약은 뭘 위한 건가요? "두 Like가 같다"는 뜻이 아니라면, 어떤 역할을 하는 건가요?
+
+**[답변]**
+> 유니크 제약을 중복 등록을 방지하기 위한거야
+
+**[정리]**
+- **유니크 제약** = "같은 사용자가 같은 상품에 좋아요를 두 번 누르는 것을 막는다" → **비즈니스 규칙의 강제**
+- **id 동등성** = "이 좋아요가 저 좋아요와 같은 건인가?" → **Entity의 정체성(identity) 판단**
+- 이 두 가지는 완전히 다른 관심사. 유니크 제약은 "생성 시점의 중복 방지", id 비교는 "이미 존재하는 객체의 동일성 판별"
+
+| 구분 | "같다"의 기준 | 용어 | 프로젝트 예시 |
+| --- | --- | --- | --- |
+| **Entity** | **식별자(id)가 같으면 같다** | 동일성(Identity) | `Like` — id=42와 id=43은 속성이 같아도 다른 Entity |
+| **VO** | **값이 같으면 같다** | 동등성(Equality) | `LikeCount(100)` — 두 인스턴스는 값이 같으면 같은 것 |
+
+- **유니크 제약 ≠ 동일성** — 유니크 제약은 비즈니스 규칙(중복 방지)이지, Entity의 identity를 정의하는 것이 아니다 [글감]
+
+---
+
+## Q4. Domain Service — "이 로직은 누구의 책임인가?"
+
+**[질문]**
+발제의 `PointChargingService.charge()` 코드를 보면, 사실상 검증 한 줄 + `user.receive(amount)` 위임 한 줄입니다. 검증까지 `User.receive()` 안에 넣으면 `PointChargingService`가 아예 필요 없어지죠. 그런데도 Domain Service로 분리해야 할 이유가 있나요?
+
+**[답변]**
+> Domain Service 로 분리할 이유는 없어보이네
+
+**[후속 질문: 그러면 Domain Service가 진짜 필요한 경우는?]**
+동의합니다. Entity가 스스로 자기 상태를 지킬 수 있으면 밖으로 꺼낼 이유가 없습니다.
+
+발제의 주문 생성 유스케이스 `OrderService.createOrder()`를 보면 여러 객체가 협력합니다 — Product, User, Order. 이 로직을 `Order.create()` 같은 Entity 메서드 안에 넣으면 안 되나요?
+
+**[답변]**
+> Entity는 서로 의존할 수 없다. 그래서 이걸 대체하기 위해 domain service가 나온것이다.
+> 만약 Order.create() 로 사용한다면 order entity는 방대해지고, 다른 entity의 상태 변화까지 관여할 것이다.
+
+**[후속 질문: OrderService는 정말 Domain Service인가?]**
+`OrderService`는 `OrderRepository`를 주입받아 `save()`를 호출합니다. Repository에 의존해서 저장까지 하는 이 `OrderService`는 정말 Domain Service인가요?
+
+**[답변]**
+> Domain Service 야 Repository 는 직접 저장을 하는게 아니라 Repository 를 구현하는 하위 객체에 위임하고 있어
+
+**[후속 질문: createOrder()의 6단계 — 어디까지 Domain, 어디부터 Application?]**
+DIP 위반이 아닌 건 맞지만, 계층의 책임 분류가 질문의 핵심입니다.
+
+`createOrder()`가 하는 일:
+1. 총 금액 계산
+2. 유저 잔액 확인
+3. 재고 차감
+4. 유저 포인트 차감
+5. Order 객체 생성
+6. Repository에 저장
+
+이 중 어디까지가 Domain Service의 일이고, 어디부터가 Application Layer(Facade)의 일인가요?
+
+**[답변]**
+> Domain Service : 2, 3, 4, 5, 6
+> Facade : 1
+> 인거 같아
+
+**[후속 질문: 1번과 6번을 다시 생각해보자]**
+1번(총 금액 계산) — "상품 가격 × 수량의 합"은 기술적 조율인가요, 비즈니스 규칙인가요?
+6번(Repository에 저장) — "언제, 무엇을 저장할 것인가"를 결정하는 건 흐름의 조율일까요, 도메인 규칙일까요?
+
+**[답변]**
+> 1번은 Domain Service에 있어야 할거 같아. 비즈니스 규칙이기 때문에
+> 그리고 너의 말은 6번은 Application 계층 에 해당 된다는 거 같은데 맞아?
+
+**[정리]**
+- **Domain Service**: 1(총 금액 계산), 2(잔액 확인), 3(재고 차감), 4(포인트 차감), 5(Order 생성) — 비즈니스 규칙과 도메인 객체 간 협력
+- **Facade(Application)**: 도메인 서비스를 호출하고, 저장 시점을 결정하고, 트랜잭션을 관리 — 유스케이스 흐름의 조율
+- "저장한다"는 행위 자체는 비즈니스 규칙이 아니라 기술적 결정. "주문이 유효하면 영속화해라"라는 흐름 조율은 Facade의 몫
+- 발제의 `OrderService`는 도메인 로직(1~5)과 저장(6)을 한 곳에 섞어놓은 것으로, 설명의 편의를 위해 단순화한 것
+
+판단 기준:
+- "이 로직이 **Entity 하나가 스스로** 할 수 있나?" → **Entity 메서드**
+- "**여러 Entity의 협력**이 필요하지만, 비즈니스 규칙인가?" → **Domain Service**
+- "**언제 저장하고, 뭘 호출할지** 흐름을 잡는 건가?" → **Facade** [글감]
+
+---
+
+## Q5. 유스케이스 객체 협력 — "누가 총 금액을 계산해야 하는가?"
+
+**[질문]**
+Q4에서 "총 금액 계산은 Domain Service"라고 했는데, 한 발 더 들어가봅시다.
+
+```kotlin
+val totalPrice = products.sumOf { (product, qty) -> product.price * qty }
+```
+
+주문에는 `OrderItem`이라는 개념이 있고, 총 금액이란 결국 "이 주문에 포함된 항목들의 합"입니다. 이 계산이 정말 Domain Service의 일인가요? 다른 곳에 더 자연스럽게 들어갈 수 있는 곳은 없나요?
+
+프로젝트의 실제 `Order.kt`를 보면 `calculateTotalAmount()`가 **Entity 내부 private 메서드**로 있고, `addItem()` 호출 시마다 자동 재계산됩니다.
+
+**[질문 세부]**
+- (a) 총 금액 계산을 Entity 메서드로 옮기는 것이 Domain Service보다 나은 이유는?
+- (b) 반대로 Domain Service로 꺼내야 하는 "경계 기준"은? Q4의 "여러 Entity 협력 여부"만으로 충분한가?
+- (c) `addItem()` 안에서 `calculateTotalAmount()`를 자동 호출하는 설계가 보장하는 "안전장치"는?
+
+**[답변]**
+> a. Domain Service는 여러 entity의 묶음으로 계산하는 것이다. entity에서 자체적으로 해결할 수 있다면 자체적으로 하면 좋다.
+> b. 나는 충분하다고 생각해
+> c. n+1 문제가 발생한다
+
+**[후속 질문: (c) "불변 조건" 끌어내기]**
+(c)의 "N+1"은 JPA 성능 이슈 용어로 다른 개념. 가상의 나쁜 설계(`addItem()` 따로, `recalculateTotal()` 따로)를 보여주고, 외부 호출자가 재계산을 깜빡하면 totalAmount=0으로 저장되는 시나리오 제시.
+
+- (c-1) Entity가 항상 지켜야 할 자기 정합성 규칙의 이름은?
+- (c-2) 이 규칙을 Entity 바깥에 두면 왜 위험한가?
+
+**[답변]**
+> c-1: 불변 조건
+> c-2: 휴먼 에러 발생으로 재계산 누락이 발생하여 데이터 정합성에 오류 발생한다
+
+**[정리 — 불변 조건(Invariant)]**
+- **Invariant** = 도메인 모델이 언제나 참으로 유지해야 하는 상태 규칙
+- Entity 내부에 불변 조건 유지 책임을 가두면 → "이 Entity를 거치지 않고는 일관성을 깰 수 없다"는 강력한 보증
+- 이것이 DDD의 **Aggregate Root** 개념의 뿌리 — `Order`가 자기 `OrderItem`들의 변경을 독점 관리 [글감]
+
+**[후속 질문: (b) 경계 기준 흔들기 — 쿠폰 할인 시나리오]**
+"여러 Entity 협력 = Domain Service" 기준을 쿠폰 할인 예시로 흔든다.
+
+- 옵션 A: `Order.applyCoupon(coupon)` — Order가 쿠폰 정책을 다 알아야 함
+- 옵션 B: `CouponDiscountService.calculate()` + `Order.applyCouponDiscount(couponId, discountAmount)` — 결과만 받음
+
+실제 프로젝트는 **옵션 B**를 택함 (`Order.kt:94-98`).
+
+- (b-1) `calculateTotalAmount`은 Entity 안, `calculateDiscount`는 밖 — 두 계산의 본질적 차이는?
+- (b-2) 옵션 A를 택하면 "쿠폰 정책 추가" 요구사항에서 어떤 문제?
+- (b-3) 경계 기준을 한 문장으로 재정의하면?
+
+**[답변]**
+> b-1: 본질은 할인 정책의 계산은 어디에 있냐이다. 할인은 coupon의 본질이고, 계산도 coupon의 본질이다. order은 받은 금액과 총 금액의 계산만하는게 역할이라 생각한다.
+> b-2: 쿠폰의 정책이 변경되었는데 수정된 코드에 order entity가 포함된다. 변경되는 범위가 넓다.
+> b-3: 각 entity가 오퍼레이션 역할을 하고, 각 entity의 역할에 맞는 연결을 도와준다
+
+**[후속 질문: (b-3) 정제 — "지식의 출처"로 경계 긋기]**
+(b-3)이 모호함. "지식의 출처" 언어로 재정의 유도.
+
+| 계산 | 필요한 지식 |
+| --- | --- |
+| `Order.calculateTotalAmount()` | Order의 `items` — 자기 내부 상태만 |
+| 쿠폰 할인 계산 | Order의 `totalAmount` + Coupon의 정책 |
+
+- Entity 메서드는 언제 적합? "자기 ~"로 시작
+- Domain Service는 언제 적합? "외부 ~"로 시작
+
+**[답변]**
+> entity 메서드는 자기 내부에서만 필요한 계산이고, Domain Service는 외부에서 필요한 데이터들도 이용해 계산을 한다.
+
+**[Q5 종합 정리]**
+- **함정 주의**: "외부 데이터"가 너무 넓은 기준. `Product.isCheaperThan(other: Product)` 같은 단순 비교는 여전히 Entity 메서드. 더 정확히는 **"외부 정책/규칙(policy)"** 이 개입해야 Domain Service.
+- **최종 판단 기준**: "자기 상태만으로 파생 가능한가" vs "외부 도메인 정책이 조합되어야 하는가"
+- **변경의 축(axis of change)**: Order는 "주문 상태" 축, Coupon은 "할인 정책" 축. 이 둘이 섞이면 SRP 위반 [글감]
+- **불변 조건 유지 책임의 귀속**: Entity가 자신의 invariant를 스스로 책임져야 하며, 외부 호출자에게 전가하면 누락 시 정합성 깨짐 [글감]
+
+| 구분 | 판단 기준 | 프로젝트 예시 |
+| --- | --- | --- |
+| Entity 메서드 (자기 상태) | 자기 내부 상태만으로 파생 가능한 계산 | `Order.calculateTotalAmount()` |
+| Entity 메서드 (외부 비교) | 같은 타입의 다른 Entity와 값 비교 수준 | `Product.isCheaperThan(other)` 스타일 |
+| Domain Service | 외부 정책/규칙을 조합해야 완결되는 계산 | `CouponDiscountService` |
+| Facade | 유스케이스 흐름 조율, 저장 시점, 트랜잭션 | `OrderFacade` |
+
+---
+
+## Q6. 레이어드 아키텍처 + DIP — "왜 Repository 인터페이스는 도메인에?"
+
+**[질문]**
+이 프로젝트는 `OrderRepository`(interface)는 `domain/order/`에, `OrderRepositoryImpl`은 `infrastructure/order/`에 둔다. 또 `ArchitectureTest.kt`에서 7가지 규칙을 ArchUnit으로 강제한다.
+
+**"인터페이스든 구현체든 둘 다 infrastructure에 두는 게 자연스럽지 않냐?"** 는 반론에 대해:
+
+- (a) 도메인에 두는 결정적 이유는?
+- (b) infrastructure로 옮기면 어떤 ArchUnit 규칙이 깨지는가?
+- (c) 기계가 검사하도록 강제하는 이유는?
+
+**[답변]**
+> a: infrastructure는 저수준 모듈이고 domain은 고수준 모듈로 저수준은 고수준을 의존하는 방향이어야 한다.
+> b: OrderService.kt는 infrastructure를 의존하게 된다.
+> c: 휴먼에러 발생은 언제든 발생할 수 있다. 이를 방지하기 위해 우리는 항상 안전장치를 마련해야 한다.
+
+**[정리 — DIP와 아키텍처 침식]**
+- (a): **SOLID의 D — Dependency Inversion Principle**. "고수준/저수준 둘 다 추상화에 의존"이 정식 정의.
+- (b): `ArchitectureTest.kt:14-17`의 "domain은 infrastructure에 의존하지 않는다" 위반 → 빌드 실패.
+- (c): "휴먼에러 방지"보다 더 중요한 것은 **아키텍처 침식(architectural erosion)** — 코드베이스가 커질수록 리뷰에서 규칙 위반을 놓치고, 한 번 경계가 무너지면 깨진 유리창 이론처럼 연쇄로 침식된다. 테스트는 첫 위반을 즉시 차단. [글감]
+
+**[후속 질문: DIP의 실전 작동 — Facade는 어떻게 저장하는가?]**
+Facade는 infrastructure를 import할 수 없는데, 어떻게 `OrderRepositoryImpl`을 실행시키는가?
+
+- (d-1) 이걸 가능하게 하는 메커니즘은?
+- (d-2) 컴파일 타임 의존 vs 런타임 의존은 어떻게 다른가?
+- (d-3) Spring이 없다면 "Impl을 Facade에 넘겨주는" 코드는 어느 레이어에 속해야 하나?
+
+**[답변]**
+> 1: @Component가 컨테이너에 객체를 만들어 두고, 이 객체를 런타임 시점에 가져온다.
+> 2: Facade가 OrderRepositoryImpl을 런타임 시점에 가져온다. Facade는 컴파일 타임에 OrderRepository를 의존한다.
+> 3: 이건 모르겠네
+
+**[정리 — Composition Root]**
+(d-3) 정답: **Composition Root(조립 루트)** — Mark Seemann이 명명한, 의존성 그래프를 조립하는 단 하나의 지점.
+
+```kotlin
+fun main() {
+    val jpa = OrderJpaRepository(...)
+    val repo: OrderRepository = OrderRepositoryImpl(jpa)
+    val facade = OrderFacade(OrderService(repo))
+    startServer(facade)
+}
+```
+
+- 어느 레이어에도 속하지 않는 "가장 바깥쪽 링". 레이어 의존성 규칙의 **예외 지대**.
+- 비즈니스 로직 없고, 순수하게 "누구에게 누구를 꽂을지"만 결정.
+- **Spring의 `@SpringBootApplication` + Component Scan은 이 Composition Root의 자동화**. 프레임워크가 대신 해주는 것일 뿐 본질은 같음. [글감]
+
+**[Q6 종합 정리]**
+
+| 개념 | 요약 | 프로젝트 근거 |
+| --- | --- | --- |
+| DIP | 고수준·저수준 모두 추상화에 의존 | `OrderRepository`(domain) ← `OrderRepositoryImpl`(infra) |
+| 컴파일 타임 의존 | Facade는 도메인 인터페이스만 import | `OrderFacade` → `domain.OrderRepository` |
+| 런타임 의존 | Spring DI가 `@Component` 구현체를 주입 | `OrderRepositoryImpl`의 `@Component` |
+| Composition Root | 의존성을 조립하는 가장 바깥쪽 지점 | Spring의 Component Scan |
+| 실행 가능한 아키텍처 계약 | ArchUnit으로 빌드 타임 차단 | `ArchitectureTest.kt` 7가지 규칙 |
+
+**핵심 교훈:**
+- 인터페이스를 도메인에 두는 건 "취향"이 아니라 도메인의 독립성을 보장하기 위한 구조적 결정
+- 아키텍처 규칙은 기계로 강제해야 유지됨 — 리뷰에만 의존하면 깨진 유리창 이론이 작동 [글감]
+- Spring은 마법이 아니라 Composition Root의 자동화일 뿐. DIP는 프레임워크 없이도 성립하는 구조적 원칙 [글감]
+
+---
+
+## Q7. 백지 설계 테스트 — 구현 준비도 판정
+
+**[시나리오]**
+사용자가 여러 상품을 한 번에 주문. 상품은 가격/재고, 사용자는 포인트 잔액 보유. 주문 완료 시 재고 차감 + 포인트 차감 + 주문 저장이 모두 이뤄져야 함.
+
+**[백지 설계 답변]**
+
+① **도메인 객체 설계**
+> Order의 필드는 totalPrice, totalCount, List<OrderItem> orderItems
+> totalPrice, totalCount는 VO로 만든다
+> Aggregate Root = Order, Order를 통해 orderItems 접근
+
+② **행위의 배치**
+> 총 주문 금액 계산은 Order가 한다
+> 재고 차감은 상품 entity에서 한다
+> 포인트 차감은 point entity에서 한다
+> 유스케이스 흐름 조율은 OrderService에서 한다
+> Entity/Domain Service/Facade 기준: Entity는 자기 상태 변경, Domain Service는 다른 entity도 변경, Facade는 트랜잭션과 흐름
+
+③ **레이어 & DIP**
+> Repository는 domain 레이어에 있다
+> Facade → Repository 방향
+> ArchUnit: Facade → domain ← infrastructure
+
+**[평가 — 커버된 포인트]**
+1. Order Aggregate Root 식별 + OrderItem 접근 제어
+2. VO로 Money, Quantity 뽑은 감각
+3. 총 금액 계산 → Order 내부 (Q5 학습 반영)
+4. 재고 차감 → Product, 포인트 차감 → User/Point
+5. Facade = 트랜잭션 + 흐름 조율
+6. Repository 인터페이스 = domain, DIP 방향 맞음
+
+**[평가 — 보완이 필요한 포인트]**
+1. **Entity 누락** — Product, User 설계가 빠짐. Order 필드에서도 userId, status 빠짐
+2. **Aggregate 불변 조건을 명시 안 함** — Q5의 핵심이었던 invariant(예: "items 변경 시 totalAmount 자동 재계산") 누락
+3. **Q5의 "지식의 출처" 기준이 Q4 수준으로 회귀** — "여러 entity 협력"보다 "자기 상태만 vs 외부 정책"이 더 본질적 기준
+4. **ArchUnit 규칙을 방향 그림으로만 표현** — 실제 규칙 문장(예: `domain은 infrastructure에 의존하지 않는다`)으로 꺼내야 완성
+5. **Repository 구현체 위치를 암시만** — "interface는 domain, 구현체는 infrastructure"를 명시적으로 쌍으로 꺼내야 함
+
+**[판정]**
+## ⚖️ 일부 보완 필요 (but 구조적 뼈대는 탄탄함)
+
+큰 그림은 잘 잡았으나, **불변 조건 의식**과 **Q5의 정제된 기준**이 백지에서 자동으로 튀어나오지 않았다. 머리의 이해 ↔ 손의 반사 사이 간극. 구현 시 의식적 체크리스트로 활용하면 보완 가능.
+
+**구현 시 자기 체크리스트:**
+- [ ] 각 Aggregate가 지켜야 할 불변 조건을 리스트로 쓸 수 있는가?
+- [ ] 그 불변 조건을 외부(Facade)가 아닌 Aggregate 내부가 지키는가?
+- [ ] "자기 상태만으로 가능한가, 외부 정책이 필요한가?" 를 Entity/Service 배치 전에 묻는가?
+- [ ] `./gradlew test` 실행 시 ArchUnit 규칙 전부 녹색인가?
+
+---
+
+## 📚 Round 2 전체 학습 요약
+
+### 핵심 개념 지도
+
+```
+[도메인 모델링의 본질]
+    └─ Q1: 도메인 분리 기준 = "개별 사건의 식별성(event identity)"
+         └─ 카운터(상태) vs Entity(사건) 공존 = CQRS의 맹아
+
+[도메인 객체의 3종 세트]
+    ├─ Q2: VO — Primitive Obsession 탈출, 타입 안전성, 불변
+    ├─ Q3: Entity vs VO — "같다"의 정의
+    │       ├─ Entity: 동일성(Identity) — id가 같으면 같다
+    │       └─ VO: 동등성(Equality) — 값이 같으면 같다
+    └─ Q4: Domain Service — Entity에 귀속되지 않는 도메인 로직
+
+[유스케이스 협력]
+    └─ Q5: Entity 메서드 vs Domain Service vs Facade
+         ├─ Entity: 자기 상태만으로 파생 가능
+         ├─ Domain Service: 외부 정책/규칙 조합
+         └─ Facade: 흐름 조율, 트랜잭션, 저장 시점
+         └─ 불변 조건(Invariant) + Aggregate Root가 이를 내부에서 지킴
+
+[구조적 안정성]
+    └─ Q6: 레이어드 + DIP + Composition Root
+         ├─ 인터페이스는 domain, 구현체는 infrastructure
+         ├─ 컴파일 타임 의존 vs 런타임 의존 구분
+         ├─ Spring DI = Composition Root 자동화
+         └─ ArchUnit = 실행 가능한 아키텍처 계약
+```
+
+### 📝 블로그 글감 후보 (최종)
+
+1. **도메인 분리의 판단 기준** — "비즈니스 가치"가 아니라 "개별 사건의 식별성". 상품 조회수/좋아요/공유 분류 사례.
+2. **Entity와 카운터의 공존** — CQRS의 맹아. 사건은 Entity로, 집계는 비정규화된 VO 필드로. `Like` + `Product.likes: LikeCount` + 인기순 정렬 인덱스 설계.
+3. **VO는 왜 필요한가 — Primitive Obsession 탈출기** — `transfer(amount, fee)` 순서 버그. 테스트·IDE로는 잡기 어려운 컴파일 타임 타입 안전성.
+4. **유니크 제약 ≠ Entity의 동일성** — DB 제약은 비즈니스 규칙(중복 방지), id 비교는 정체성 판단. 같은 속성을 가진 두 Entity도 id가 다르면 다른 객체.
+5. **Domain Service vs Facade — 경계를 긋는 기준** — "비즈니스 규칙인가, 흐름 조율인가?" PointChargingService의 불필요한 분리 vs 주문 생성의 정당한 분리.
+6. **Q5 심화: "지식의 출처"로 경계 긋기** — 자기 상태만 vs 외부 정책. 쿠폰 할인 예시. 변경의 축(axis of change)과 SRP.
+7. **Aggregate Root와 불변 조건** — `Order.addItem()` 내부에서 `calculateTotalAmount()` 자동 호출. "외부가 불변 조건을 깰 수 없도록 Aggregate 내부가 독점 관리".
+8. **ArchUnit으로 만드는 실행 가능한 아키텍처 계약** — 아키텍처 침식과 깨진 유리창 이론. 리뷰가 아닌 테스트로 강제.
+9. **Composition Root의 정체** — Mark Seemann의 개념. Spring의 마법은 Composition Root의 자동화. DIP는 프레임워크 없이도 성립하는 구조적 원칙.
+
+### 🎯 구현 연결 포인트
+
+이 학습 내용이 실제 구현에 영향을 줄 **구체적 결정들**:
+
+1. **Entity 설계 시** — 먼저 `List<불변조건>`을 적어두고, 그 각각을 어디서 지킬지 표로 그린 다음 메서드를 짠다.
+2. **"총액, 할인액, 최종결제액" 같은 파생 값** — 외부에서 `calculate()` 호출하게 두지 말고, Aggregate Root 내부에서 상태 변경 때마다 자동 재계산하도록 봉인.
+3. **새 Service를 만들기 전 체크** — "이 로직에 필요한 지식이 자기 Entity 안에 있는가? 있으면 Entity 메서드. 외부 정책이 필요하면 Domain Service. 흐름만 조율이면 Facade."
+4. **Repository 인터페이스는 무조건 domain에, `@Component` 구현체는 infrastructure에**. Facade는 interface 타입으로만 주입받는다.
+5. **VO 후보 감지** — 새 필드 추가 시 "이 값에 음수가 가능한가? 다른 타입과 헷갈릴 수 있는가?"를 묻고 YES면 VO로 감싼다.
+6. **ArchUnit 테스트를 CI 필수 단계로** — 빌드 파이프라인에서 `./gradlew test`가 녹색이어야 PR 머지 가능.
+
+### 🔜 다음 단계 안내
+
+이번 라운드 내용으로 실제 구현을 하거나, 다른 라운드 학습으로 이어가려면:
+
+- **실제 구현 시**: `/plan` 으로 plan.md를 작성 → `/red` → `/green` → `/refactor` TDD 루프 진행. 불변 조건을 먼저 테스트로 잡아두면 설계가 자연스러워짐.
+- **다음 라운드 학습 시**: `/learn-round {N}` 으로 다른 라운드 주제 시작. 기존 QnA 파일 경로를 알려주면 이어서 진행.
+- **블로그 글감 선택**: 위 9개 글감 중 가장 "직접 반례/시나리오로 설명하고 싶은 것"부터 1~2개 골라 풀어쓰면 좋음.
+
+---
+
+**🎓 Round 2 학습 종료 — 2026-04-19**
+
+---
+
+## 📌 세션 요약 (2차, 2026-04-18)
+
+### 다룬 주제
+- **Q3**: Entity vs VO — "같다(equality)"의 의미 ✅ 완료
+- **Q4**: Domain Service — "이 로직은 누구의 책임인가?" ✅ 완료
+- **Q5**: 유스케이스 객체 협력 — "누가 총 금액을 계산해야 하는가?" ⏸ 질문 던진 상태, 답변 대기
+
+### 핵심 개념 — 한 줄 정리
+
+3. **Entity vs VO의 본질은 "같다"의 정의 차이**
+   - Entity: 동일성(Identity) — id가 같으면 같다
+   - VO: 동등성(Equality) — 값이 같으면 같다
+   - 유니크 제약 ≠ 동일성 — 비즈니스 규칙(중복 방지)과 정체성 판단은 별개
+
+4. **Domain Service vs Application Service(Facade) vs Entity 메서드**
+   - Entity 메서드: 자기 상태를 스스로 보호/변경 (`User.pay()`, `Product.decreaseStock()`)
+   - Domain Service: Entity 하나에 귀속되지 않는 도메인 로직, 상태 없음
+   - Facade: 유스케이스 흐름 조율, 저장 시점 결정, 트랜잭션 관리
+
+### 📝 블로그 글감 후보 (추가)
+4. **유니크 제약 ≠ Entity의 동일성** — DB 제약은 비즈니스 규칙(중복 방지), id 비교는 정체성(identity) 판단. 같은 속성을 가진 두 Entity도 id가 다르면 다른 객체.
+5. **Domain Service vs Facade — 경계를 긋는 기준** — "비즈니스 규칙인가, 흐름 조율인가?" PointChargingService 같은 불필요한 분리 vs 주문 생성의 정당한 분리.
+
+### 🔜 다음 세션에서 이어갈 지점
+
+**바로 재개할 질문**: Q5 — "총 금액 계산은 OrderItem/Order에 속하지 않나?"
+
+**이후 남은 주제**:
+- **Q6 (예정)** — 레이어드 아키텍처 + DIP: Repository Interface가 Domain Layer에 있는 이유
+- **Q7 (예정)** — 백지 설계 테스트 (구현 준비도 판정)
+
 ### 세션 재개 방법
-다음에 이 라운드를 이어가려면, 학습 스킬을 다시 실행할 때 **기존 QnA 파일 경로로 `docs/notes/learn-round2-qa-notes.md`** 를 알려주시면 Q3 (a), (b), (c) 답변부터 이어갑니다.
+다음에 이 라운드를 이어가려면, 학습 스킬을 다시 실행할 때 **기존 QnA 파일 경로로 `docs/notes/learn-round2-qa-notes.md`** 를 알려주시면 Q5 답변부터 이어갑니다.
 

@@ -14,6 +14,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-batch")
     testImplementation("org.springframework.batch:spring-batch-test")
 
+    // validation — ConfigurationProperties 필드 검증용 (@Validated, @PositiveOrZero)
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
     // querydsl
     kapt("com.querydsl:querydsl-apt::jakarta")
 
