@@ -9,15 +9,19 @@ import org.junit.jupiter.api.Test
 class RankingServiceTest {
 
     private lateinit var rankingRepository: FakeRankingRepository
+    private lateinit var mvRankingRepository: FakeMvRankingRepository
     private lateinit var rankingService: RankingService
 
     private val dateKey = "20260408"
     private val hourKey = "2026040814"
+    private val weekKey = "2026-W15"
+    private val monthKey = "2026-04"
 
     @BeforeEach
     fun setUp() {
         rankingRepository = FakeRankingRepository()
-        rankingService = RankingService(rankingRepository)
+        mvRankingRepository = FakeMvRankingRepository()
+        rankingService = RankingService(rankingRepository, mvRankingRepository)
     }
 
     @Nested
@@ -103,6 +107,63 @@ class RankingServiceTest {
     }
 
     @Nested
+    @DisplayName("getTopRankings — WEEKLY")
+    inner class GetTopRankingsWeekly {
+
+        @Test
+        @DisplayName("주간 랭킹을 MV 기반으로 조회한다")
+        fun returnsWeeklyFromMv() {
+            // arrange
+            mvRankingRepository.addRanking(RankingWindow.WEEKLY, weekKey, 10L, 500.0)
+            mvRankingRepository.addRanking(RankingWindow.WEEKLY, weekKey, 20L, 300.0)
+            mvRankingRepository.addRanking(RankingWindow.WEEKLY, weekKey, 30L, 700.0)
+
+            // act
+            val result = rankingService.getTopRankings(RankingWindow.WEEKLY, weekKey, page = 0, size = 10)
+
+            // assert
+            assertThat(result.rankings).hasSize(3)
+            assertThat(result.rankings[0].productId).isEqualTo(30L)
+            assertThat(result.rankings[0].rank).isEqualTo(1L)
+            assertThat(result.rankings[0].score).isEqualTo(700.0)
+            assertThat(result.totalCount).isEqualTo(3L)
+        }
+
+        @Test
+        @DisplayName("주간 MV가 비어있으면 빈 결과를 반환한다")
+        fun emptyMvReturnsEmpty() {
+            // act
+            val result = rankingService.getTopRankings(RankingWindow.WEEKLY, weekKey, page = 0, size = 20)
+
+            // assert
+            assertThat(result.rankings).isEmpty()
+            assertThat(result.totalCount).isEqualTo(0L)
+        }
+    }
+
+    @Nested
+    @DisplayName("getTopRankings — MONTHLY")
+    inner class GetTopRankingsMonthly {
+
+        @Test
+        @DisplayName("월간 랭킹을 MV 기반으로 조회한다")
+        fun returnsMonthlyFromMv() {
+            // arrange
+            mvRankingRepository.addRanking(RankingWindow.MONTHLY, monthKey, 10L, 1500.0)
+            mvRankingRepository.addRanking(RankingWindow.MONTHLY, monthKey, 20L, 1200.0)
+
+            // act
+            val result = rankingService.getTopRankings(RankingWindow.MONTHLY, monthKey, page = 0, size = 10)
+
+            // assert
+            assertThat(result.rankings).hasSize(2)
+            assertThat(result.rankings[0].productId).isEqualTo(10L)
+            assertThat(result.rankings[0].rank).isEqualTo(1L)
+            assertThat(result.totalCount).isEqualTo(2L)
+        }
+    }
+
+    @Nested
     @DisplayName("getProductRank")
     inner class GetProductRank {
 
@@ -134,6 +195,30 @@ class RankingServiceTest {
             // assert
             assertThat(result.rank).isNull()
             assertThat(result.score).isNull()
+        }
+    }
+
+    @Nested
+    @DisplayName("RankingWindow")
+    inner class RankingWindowTest {
+
+        @Test
+        @DisplayName("문자열에서 RankingWindow를 파싱한다")
+        fun parsesFromString() {
+            assertThat(RankingWindow.from("WEEKLY")).isEqualTo(RankingWindow.WEEKLY)
+            assertThat(RankingWindow.from("monthly")).isEqualTo(RankingWindow.MONTHLY)
+            assertThat(RankingWindow.from("DAILY")).isEqualTo(RankingWindow.DAILY)
+            assertThat(RankingWindow.from(null)).isEqualTo(RankingWindow.DAILY)
+            assertThat(RankingWindow.from("UNKNOWN")).isEqualTo(RankingWindow.DAILY)
+        }
+
+        @Test
+        @DisplayName("Redis/MV 기반 여부를 올바르게 판별한다")
+        fun classifiesDataSource() {
+            assertThat(RankingWindow.DAILY.isRedisBased()).isTrue()
+            assertThat(RankingWindow.HOURLY.isRedisBased()).isTrue()
+            assertThat(RankingWindow.WEEKLY.isMvBased()).isTrue()
+            assertThat(RankingWindow.MONTHLY.isMvBased()).isTrue()
         }
     }
 }

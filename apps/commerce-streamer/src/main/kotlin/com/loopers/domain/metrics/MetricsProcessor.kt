@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 import java.time.ZonedDateTime
 
 /**
@@ -111,7 +112,8 @@ class MetricsProcessor(
     }
 
     private fun getOrCreateMetrics(productId: Long): ProductMetrics {
-        return productMetricsRepository.findByProductId(productId)
-            ?: ProductMetrics(productId = productId)
+        val today = LocalDate.now()
+        return productMetricsRepository.findByProductIdAndMetricDate(productId, today)
+            ?: ProductMetrics(productId = productId, metricDate = today)
     }
 }

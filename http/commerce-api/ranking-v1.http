@@ -16,6 +16,26 @@ GET {{commerce-api}}/api/v1/rankings?window=hourly
 ### 시간 단위 랭킹 조회 (특정 시각)
 GET {{commerce-api}}/api/v1/rankings?window=hourly&hour=2026040814&size=20
 
+### ===================
+### 주간 랭킹 (10주차 추가)
+### ===================
+
+### 주간 랭킹 조회 (현재 주차)
+GET {{commerce-api}}/api/v1/rankings?window=weekly
+
+### 주간 랭킹 조회 (특정 주차)
+GET {{commerce-api}}/api/v1/rankings?window=weekly&week=2026-W15&page=0&size=20
+
+### ===================
+### 월간 랭킹 (10주차 추가)
+### ===================
+
+### 월간 랭킹 조회 (현재 월)
+GET {{commerce-api}}/api/v1/rankings?window=monthly
+
+### 월간 랭킹 조회 (특정 월)
+GET {{commerce-api}}/api/v1/rankings?window=monthly&month=2026-04&page=0&size=20
+
 ### 상품 상세 조회 (순위 포함, 일간 기준)
 GET {{commerce-api}}/api/v1/products/1
 

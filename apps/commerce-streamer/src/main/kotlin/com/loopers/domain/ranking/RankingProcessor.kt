@@ -3,6 +3,7 @@ package com.loopers.domain.ranking
 import com.loopers.domain.metrics.ProductMetricsRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -36,10 +37,11 @@ class RankingProcessor(
         if (productIds.isEmpty()) return
 
         val now = LocalDateTime.now()
+        val today = LocalDate.now()
         val dateKey = now.format(DATE_KEY_FORMAT)
         val hourKey = now.format(HOUR_KEY_FORMAT)
         val weights = resolveWeights()
-        val metricsList = productMetricsRepository.findByProductIds(productIds)
+        val metricsList = productMetricsRepository.findByProductIdsAndMetricDate(productIds, today)
 
         if (metricsList.isEmpty()) {
             log.debug("[랭킹] metrics 데이터 없음 [productIds={}]", productIds)

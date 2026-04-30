@@ -3,19 +3,20 @@ package com.loopers.infrastructure.metrics
 import com.loopers.domain.metrics.ProductMetrics
 import com.loopers.domain.metrics.ProductMetricsRepository
 import org.springframework.stereotype.Component
+import java.time.LocalDate
 
 @Component
 class ProductMetricsRepositoryImpl(
     private val jpaRepository: ProductMetricsJpaRepository,
 ) : ProductMetricsRepository {
 
-    override fun findByProductId(productId: Long): ProductMetrics? {
-        return jpaRepository.findByProductId(productId)
+    override fun findByProductIdAndMetricDate(productId: Long, metricDate: LocalDate): ProductMetrics? {
+        return jpaRepository.findByProductIdAndMetricDate(productId, metricDate)
     }
 
-    override fun findByProductIds(productIds: Set<Long>): List<ProductMetrics> {
+    override fun findByProductIdsAndMetricDate(productIds: Set<Long>, metricDate: LocalDate): List<ProductMetrics> {
         if (productIds.isEmpty()) return emptyList()
-        return jpaRepository.findByProductIdIn(productIds)
+        return jpaRepository.findByProductIdInAndMetricDate(productIds, metricDate)
     }
 
     override fun save(metrics: ProductMetrics): ProductMetrics {

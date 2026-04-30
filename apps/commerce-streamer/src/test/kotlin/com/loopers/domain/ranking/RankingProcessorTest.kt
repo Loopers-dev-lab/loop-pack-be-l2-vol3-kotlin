@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -19,6 +20,7 @@ class RankingProcessorTest {
     private lateinit var rankingProcessor: RankingProcessor
 
     private val now get() = LocalDateTime.now()
+    private val today get() = LocalDate.now()
     private val todayKey get() = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
     private val hourKey get() = now.format(DateTimeFormatter.ofPattern("yyyyMMddHH"))
 
@@ -42,12 +44,12 @@ class RankingProcessorTest {
         @DisplayName("DEFAULT 가중치로 metrics 기반 score를 계산하여 ZSET에 갱신한다")
         fun updatesScoresFromMetricsWithDefaultWeights() {
             // arrange — 가중치 저장소가 비어있으면 DEFAULT fallback
-            val metrics1 = ProductMetrics(productId = 1L).apply {
+            val metrics1 = ProductMetrics(productId = 1L, metricDate = today).apply {
                 repeat(100) { incrementViewCount() }
                 repeat(10) { incrementLikeCount() }
                 repeat(5) { incrementOrderCount() }
             }
-            val metrics2 = ProductMetrics(productId = 2L).apply {
+            val metrics2 = ProductMetrics(productId = 2L, metricDate = today).apply {
                 repeat(50) { incrementViewCount() }
                 repeat(20) { incrementLikeCount() }
                 repeat(3) { incrementOrderCount() }
@@ -79,7 +81,7 @@ class RankingProcessorTest {
             weightsRepository.setWeights(
                 RankingWeights(view = 0.5, like = 0.3, order = 0.2),
             )
-            val metrics = ProductMetrics(productId = 1L).apply {
+            val metrics = ProductMetrics(productId = 1L, metricDate = today).apply {
                 repeat(100) { incrementViewCount() }
                 repeat(50) { incrementLikeCount() }
                 repeat(10) { incrementOrderCount() }
@@ -109,7 +111,7 @@ class RankingProcessorTest {
         @DisplayName("metrics가 없는 productId는 무시된다")
         fun ignoresMissingMetrics() {
             // arrange
-            val metrics1 = ProductMetrics(productId = 1L).apply {
+            val metrics1 = ProductMetrics(productId = 1L, metricDate = today).apply {
                 repeat(10) { incrementViewCount() }
             }
             metricsRepository.save(metrics1)
