@@ -6,6 +6,7 @@ import com.loopers.domain.brand.BrandService
 import com.loopers.domain.product.ProductService
 import org.springframework.stereotype.Component
 import java.time.LocalDate
+import java.time.YearMonth
 
 @Component
 class ProductRankingFacade(
@@ -31,8 +32,10 @@ class ProductRankingFacade(
         page: Int,
         size: Int,
         date: LocalDate?,
+        weekStartDate: LocalDate?,
+        yearMonth: YearMonth?,
     ): RankingPageInfo {
-        val rankingPage = productRankingQueryService.getRankingPage(type, page, size, date)
+        val rankingPage = productRankingQueryService.getRankingPage(type, page, size, date, weekStartDate, yearMonth)
         val items = rankingPage.items.mapNotNull { entry ->
             runCatching { productService.getProductById(entry.productId) }
                 .getOrNull()

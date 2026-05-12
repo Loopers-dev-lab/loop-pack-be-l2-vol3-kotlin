@@ -13,6 +13,7 @@ import com.loopers.domain.brand.PhoneNumber
 import com.loopers.domain.brand.BrandService
 import com.loopers.domain.ranking.RankingFinalizedScope
 import com.loopers.domain.ranking.RankingFinalizedSnapshotModel
+import com.loopers.domain.ranking.ProductRankWeeklyMvModel
 import com.loopers.domain.ranking.RankingTargetType
 import com.loopers.domain.product.Description
 import com.loopers.domain.product.ImageUrl
@@ -21,6 +22,8 @@ import com.loopers.domain.product.Price
 import com.loopers.domain.product.ProductModel
 import com.loopers.domain.product.ProductService
 import com.loopers.infrastructure.ranking.ProductRankingRedisRepository
+import com.loopers.infrastructure.ranking.ProductRankMonthlyMvJpaRepository
+import com.loopers.infrastructure.ranking.ProductRankWeeklyMvJpaRepository
 import com.loopers.infrastructure.ranking.RankingFinalizedSnapshotJpaRepository
 import com.loopers.infrastructure.ranking.RankingCheckpointSnapshotJpaRepository
 import com.loopers.infrastructure.ranking.RankingRedisKeys
@@ -39,10 +42,14 @@ class ProductRankingFacadeTest {
     private val productRankingRedisRepository: ProductRankingRedisRepository = mock()
     private val rankingFinalizedSnapshotJpaRepository: RankingFinalizedSnapshotJpaRepository = mock()
     private val rankingCheckpointSnapshotJpaRepository: RankingCheckpointSnapshotJpaRepository = mock()
+    private val productRankWeeklyMvJpaRepository: ProductRankWeeklyMvJpaRepository = mock()
+    private val productRankMonthlyMvJpaRepository: ProductRankMonthlyMvJpaRepository = mock()
     private val queryService = ProductRankingQueryService(
         productRankingRedisRepository = productRankingRedisRepository,
         rankingFinalizedSnapshotJpaRepository = rankingFinalizedSnapshotJpaRepository,
         rankingCheckpointSnapshotJpaRepository = rankingCheckpointSnapshotJpaRepository,
+        productRankWeeklyMvJpaRepository = productRankWeeklyMvJpaRepository,
+        productRankMonthlyMvJpaRepository = productRankMonthlyMvJpaRepository,
     )
     private val productService: ProductService = mock()
     private val brandService: BrandService = mock()
@@ -82,7 +89,7 @@ class ProductRankingFacadeTest {
         whenever(productService.getProductById(10L)).thenReturn(createProductModel(id = 10L))
         whenever(brandService.getBrandById(1L)).thenReturn(createBrandModel())
 
-        val result = rankingFacade.getRankings(RankingType.WEEKLY, page = 1, size = 20, date = null)
+        val result = rankingFacade.getRankings(RankingType.WEEKLY, page = 1, size = 20, date = null, weekStartDate = null, yearMonth = null)
 
         assertThat(result.items).hasSize(1)
         assertThat(result.items.first().rank).isEqualTo(1L)
@@ -165,10 +172,45 @@ class ProductRankingFacadeTest {
         whenever(productService.getProductById(4L)).thenReturn(createProductModel(id = 4L, name = "Beta"))
         whenever(brandService.getBrandById(1L)).thenReturn(createBrandModel())
 
-        val result = rankingFacade.getRankings(RankingType.REALTIME, page = 1, size = 20, date = null)
+        val result = rankingFacade.getRankings(RankingType.REALTIME, page = 1, size = 20, date = null, weekStartDate = null, yearMonth = null)
 
         assertThat(result.items.map { it.product.id }).containsExactly(3L, 4L)
         assertThat(result.items.map { it.rank }).containsExactly(1L, 2L)
+    }
+
+    @Test
+    fun `week-fixed 랭킹 facade는 MV 스냅샷을 상품 정보와 함께 반환한다`() {
+        val periodStart = LocalDate.of(2026, 4, 13)
+        whenever(productRankWeeklyMvJpaRepository.findAllByPeriodStartDate(eq(periodStart), any())).thenReturn(
+            PageImpl(
+                listOf(
+                    ProductRankWeeklyMvModel(
+                        periodStartDate = periodStart,
+                        periodEndDate = periodStart.plusDays(6),
+                        rankPosition = 1L,
+                        productId = 99L,
+                        score = 42.0,
+                    ),
+                ),
+                PageRequest.of(0, 20),
+                1,
+            ),
+        )
+        whenever(productService.getProductById(99L)).thenReturn(createProductModel(id = 99L, name = "Fixed Winner"))
+        whenever(brandService.getBrandById(1L)).thenReturn(createBrandModel())
+
+        val result = rankingFacade.getRankings(
+            type = RankingType.WEEK_FIXED,
+            page = 1,
+            size = 20,
+            date = null,
+            weekStartDate = periodStart,
+            yearMonth = null,
+        )
+
+        assertThat(result.items).hasSize(1)
+        assertThat(result.items.first().rank).isEqualTo(1L)
+        assertThat(result.items.first().product.id).isEqualTo(99L)
     }
 
     private fun createProductInfo(id: Long, name: String = "Air Max") =

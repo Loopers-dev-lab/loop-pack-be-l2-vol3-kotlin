@@ -6,4 +6,6 @@ enum class RankingType {
     WEEKLY,
     MONTHLY,
     DAY_FIXED,
+    WEEK_FIXED,
+    MONTH_FIXED,
 }

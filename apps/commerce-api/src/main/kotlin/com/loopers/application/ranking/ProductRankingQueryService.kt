@@ -3,6 +3,8 @@ package com.loopers.application.ranking
 import com.loopers.domain.ranking.RankingCheckpointScope
 import com.loopers.domain.ranking.RankingFinalizedScope
 import com.loopers.domain.ranking.RankingTargetType
+import com.loopers.infrastructure.ranking.ProductRankMonthlyMvJpaRepository
+import com.loopers.infrastructure.ranking.ProductRankWeeklyMvJpaRepository
 import com.loopers.infrastructure.ranking.ProductRankingRedisRepository
 import com.loopers.infrastructure.ranking.RankingCheckpointSnapshotJpaRepository
 import com.loopers.infrastructure.ranking.RankingFinalizedSnapshotJpaRepository
@@ -13,6 +15,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZonedDateTime
 
 @Service
@@ -20,6 +23,8 @@ class ProductRankingQueryService(
     private val productRankingRedisRepository: ProductRankingRedisRepository,
     private val rankingFinalizedSnapshotJpaRepository: RankingFinalizedSnapshotJpaRepository,
     private val rankingCheckpointSnapshotJpaRepository: RankingCheckpointSnapshotJpaRepository,
+    private val productRankWeeklyMvJpaRepository: ProductRankWeeklyMvJpaRepository,
+    private val productRankMonthlyMvJpaRepository: ProductRankMonthlyMvJpaRepository,
 ) {
     companion object {
         private const val SEGMENT_KEY = RankingRedisKeys.SEGMENT
@@ -48,6 +53,8 @@ class ProductRankingQueryService(
         page: Int,
         size: Int,
         date: LocalDate?,
+        weekStartDate: LocalDate?,
+        yearMonth: YearMonth?,
         now: ZonedDateTime = ZonedDateTime.now(RankingRedisKeys.ZONE_ID),
     ): RankingPageResult {
         validate(page, size)
@@ -62,6 +69,8 @@ class ProductRankingQueryService(
                 page = page,
                 size = size,
             )
+            RankingType.WEEK_FIXED -> getWeekFixedPage(weekStartDate, page, size)
+            RankingType.MONTH_FIXED -> getMonthFixedPage(yearMonth, page, size)
         }
     }
 
@@ -183,6 +192,42 @@ class ProductRankingQueryService(
 
     private fun latestAsOfDate(scope: RankingFinalizedScope): LocalDate? =
         rankingFinalizedSnapshotJpaRepository.findLatestAsOfDate(TARGET_TYPE, SEGMENT_KEY, scope)
+
+    private fun getWeekFixedPage(
+        weekStartDate: LocalDate?,
+        page: Int,
+        size: Int,
+    ): RankingPageResult {
+        val periodStartDate = weekStartDate ?: productRankWeeklyMvJpaRepository.findLatestPeriodStartDate()
+            ?: return RankingPageResult(emptyList(), page, size, 0)
+
+        val pageable = PageRequest.of(page - 1, size, RANK_SORT)
+        val snapshots = productRankWeeklyMvJpaRepository.findAllByPeriodStartDate(periodStartDate, pageable)
+        return RankingPageResult(
+            items = snapshots.content.map { RankingEntry(it.productId, it.rankPosition, it.score) },
+            page = page,
+            size = size,
+            totalCount = snapshots.totalElements,
+        )
+    }
+
+    private fun getMonthFixedPage(
+        yearMonth: YearMonth?,
+        page: Int,
+        size: Int,
+    ): RankingPageResult {
+        val periodStartDate = yearMonth?.atDay(1) ?: productRankMonthlyMvJpaRepository.findLatestPeriodStartDate()
+            ?: return RankingPageResult(emptyList(), page, size, 0)
+
+        val pageable = PageRequest.of(page - 1, size, RANK_SORT)
+        val snapshots = productRankMonthlyMvJpaRepository.findAllByPeriodStartDate(periodStartDate, pageable)
+        return RankingPageResult(
+            items = snapshots.content.map { RankingEntry(it.productId, it.rankPosition, it.score) },
+            page = page,
+            size = size,
+            totalCount = snapshots.totalElements,
+        )
+    }
 
     private fun validate(page: Int, size: Int) {
         if (page < 1 || size < 1) {
