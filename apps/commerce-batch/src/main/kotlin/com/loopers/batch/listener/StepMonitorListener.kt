@@ -15,12 +15,22 @@ class StepMonitorListener : StepExecutionListener {
     }
 
     override fun afterStep(stepExecution: StepExecution): ExitStatus {
+        log.info(
+            "Step '{}' 완료 - readCount={}, writeCount={}, skipCount={}, commitCount={}",
+            stepExecution.stepName,
+            stepExecution.readCount,
+            stepExecution.writeCount,
+            stepExecution.skipCount,
+            stepExecution.commitCount,
+        )
+
         if (stepExecution.failureExceptions.isNotEmpty()) {
-            log.info(
+            log.error(
                 """
                     [에러 발생]
                     jobName: ${stepExecution.jobExecution.jobInstance.jobName}
-                    exceptions: 
+                    stepName: ${stepExecution.stepName}
+                    exceptions:
                     ${stepExecution.failureExceptions.mapNotNull { it.message }.joinToString("\n")}
                 """.trimIndent(),
             )

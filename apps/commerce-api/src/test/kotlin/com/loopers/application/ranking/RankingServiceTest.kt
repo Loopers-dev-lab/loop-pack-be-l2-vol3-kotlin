@@ -4,7 +4,10 @@ import com.loopers.domain.brand.Brand
 import com.loopers.domain.brand.BrandRepository
 import com.loopers.domain.product.Product
 import com.loopers.domain.product.ProductRepository
+import com.loopers.domain.ranking.ProductRankMvRepository
+import com.loopers.domain.ranking.ProductRankMvRow
 import com.loopers.domain.ranking.ProductRankingScore
+import com.loopers.domain.ranking.RankingPeriodType
 import com.loopers.domain.ranking.RankingRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
@@ -25,6 +28,9 @@ class RankingServiceTest {
 
     @Mock
     private lateinit var rankingRepository: RankingRepository
+
+    @Mock
+    private lateinit var productRankMvRepository: ProductRankMvRepository
 
     @Mock
     private lateinit var productRepository: ProductRepository
@@ -115,6 +121,78 @@ class RankingServiceTest {
             assertAll(
                 { assertThat(result.rankings).hasSize(1) },
                 { assertThat(result.rankings[0].productId).isEqualTo(1L) },
+            )
+        }
+    }
+
+    @DisplayName("주간/월간 랭킹을 조회할 때,")
+    @Nested
+    inner class GetMvRankings {
+
+        @DisplayName("WEEKLY 기간이면 MV 주간 테이블에서 조회한다.")
+        @Test
+        fun returnsWeeklyRankings_whenPeriodIsWeekly() {
+            // arrange
+            val mvRows = listOf(
+                ProductRankMvRow(productId = 1L, totalScore = 100.0, viewCount = 50, likeCount = 30, orderCount = 20, rank = 1),
+            )
+            val product = createProduct(id = 1L, brandId = 10L, name = "에어맥스 90", price = BigDecimal("129000"))
+            val brand = createBrand(id = 10L, name = "나이키")
+
+            whenever(productRankMvRepository.findWeeklyByPeriodStartDate(LocalDate.of(2026, 4, 6))).thenReturn(mvRows)
+            whenever(productRepository.findAllByIds(listOf(1L))).thenReturn(listOf(product))
+            whenever(brandRepository.findAllByIdIncludingDeleted(listOf(10L))).thenReturn(listOf(brand))
+
+            // act
+            val result = rankingService.getRankings(testDate, 1, 20, RankingPeriodType.WEEKLY)
+
+            // assert
+            assertAll(
+                { assertThat(result.rankings).hasSize(1) },
+                { assertThat(result.rankings[0].rank).isEqualTo(1) },
+                { assertThat(result.rankings[0].productName).isEqualTo("에어맥스 90") },
+                { assertThat(result.rankings[0].score).isEqualTo(100.0) },
+            )
+        }
+
+        @DisplayName("MONTHLY 기간이면 MV 월간 테이블에서 조회한다.")
+        @Test
+        fun returnsMonthlyRankings_whenPeriodIsMonthly() {
+            // arrange
+            val mvRows = listOf(
+                ProductRankMvRow(productId = 2L, totalScore = 200.0, viewCount = 100, likeCount = 60, orderCount = 40, rank = 1),
+            )
+            val product = createProduct(id = 2L, brandId = 20L, name = "울트라부스트", price = BigDecimal("189000"))
+            val brand = createBrand(id = 20L, name = "아디다스")
+
+            whenever(productRankMvRepository.findMonthlyByPeriodStartDate(LocalDate.of(2026, 4, 1))).thenReturn(mvRows)
+            whenever(productRepository.findAllByIds(listOf(2L))).thenReturn(listOf(product))
+            whenever(brandRepository.findAllByIdIncludingDeleted(listOf(20L))).thenReturn(listOf(brand))
+
+            // act
+            val result = rankingService.getRankings(testDate, 1, 20, RankingPeriodType.MONTHLY)
+
+            // assert
+            assertAll(
+                { assertThat(result.rankings).hasSize(1) },
+                { assertThat(result.rankings[0].productName).isEqualTo("울트라부스트") },
+                { assertThat(result.totalCount).isEqualTo(1L) },
+            )
+        }
+
+        @DisplayName("MV 데이터가 없으면 빈 랭킹을 반환한다.")
+        @Test
+        fun returnsEmptyRankings_whenNoMvData() {
+            // arrange
+            whenever(productRankMvRepository.findWeeklyByPeriodStartDate(LocalDate.of(2026, 4, 6))).thenReturn(emptyList())
+
+            // act
+            val result = rankingService.getRankings(testDate, 1, 20, RankingPeriodType.WEEKLY)
+
+            // assert
+            assertAll(
+                { assertThat(result.rankings).isEmpty() },
+                { assertThat(result.totalCount).isEqualTo(0L) },
             )
         }
     }

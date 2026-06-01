@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.ranking
 
 import com.loopers.application.ranking.RankingPageInfo
 import com.loopers.application.ranking.RankingService
+import com.loopers.domain.ranking.RankingPeriodType
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -10,7 +11,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDate
 
@@ -32,10 +35,10 @@ class RankingV1ControllerTest {
         fun usesTodayDate_whenDateIsNull() {
             // arrange
             val pageInfo = RankingPageInfo(rankings = emptyList(), totalCount = 0L)
-            whenever(rankingService.getRankings(eq(LocalDate.now()), eq(1), eq(20))).thenReturn(pageInfo)
+            whenever(rankingService.getRankings(eq(LocalDate.now()), eq(1), eq(20), any())).thenReturn(pageInfo)
 
             // act
-            val result = controller.getRankings(null, 20, 1)
+            val result = controller.getRankings(null, 20, 1, RankingPeriodType.DAILY)
 
             // assert
             assertThat(result.data?.date).isEqualTo(LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE))
@@ -46,13 +49,28 @@ class RankingV1ControllerTest {
         fun usesSpecifiedDate_whenDateProvided() {
             // arrange
             val pageInfo = RankingPageInfo(rankings = emptyList(), totalCount = 0L)
-            whenever(rankingService.getRankings(eq(LocalDate.of(2026, 4, 7)), eq(1), eq(20))).thenReturn(pageInfo)
+            whenever(rankingService.getRankings(eq(LocalDate.of(2026, 4, 7)), eq(1), eq(20), any())).thenReturn(pageInfo)
 
             // act
-            val result = controller.getRankings("20260407", 20, 1)
+            val result = controller.getRankings("20260407", 20, 1, RankingPeriodType.DAILY)
 
             // assert
             assertThat(result.data?.date).isEqualTo("20260407")
+        }
+
+        @DisplayName("period 파라미터가 WEEKLY이면, WEEKLY로 서비스를 호출한다.")
+        @Test
+        fun callsServiceWithWeekly_whenPeriodIsWeekly() {
+            // arrange
+            val pageInfo = RankingPageInfo(rankings = emptyList(), totalCount = 0L)
+            whenever(rankingService.getRankings(any(), any(), any(), eq(RankingPeriodType.WEEKLY))).thenReturn(pageInfo)
+
+            // act
+            val result = controller.getRankings("20260408", 20, 1, RankingPeriodType.WEEKLY)
+
+            // assert
+            verify(rankingService).getRankings(any(), any(), any(), eq(RankingPeriodType.WEEKLY))
+            assertThat(result.data?.period).isEqualTo("WEEKLY")
         }
     }
 }
