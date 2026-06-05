@@ -1,5 +1,7 @@
 package com.loopers.domain.ranking
 
+import com.loopers.infrastructure.ranking.ProductRankMonthlyJpaRepository
+import com.loopers.infrastructure.ranking.ProductRankWeeklyJpaRepository
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -14,6 +16,8 @@ import java.time.format.DateTimeFormatter
 
 class RankingServiceTest {
     private lateinit var rankingRepository: RankingRepository
+    private lateinit var productRankWeeklyJpaRepository: ProductRankWeeklyJpaRepository
+    private lateinit var productRankMonthlyJpaRepository: ProductRankMonthlyJpaRepository
     private lateinit var rankingService: RankingService
 
     private val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
@@ -22,12 +26,14 @@ class RankingServiceTest {
     @BeforeEach
     fun setUp() {
         rankingRepository = mock()
-        rankingService = RankingService(rankingRepository)
+        productRankWeeklyJpaRepository = mock()
+        productRankMonthlyJpaRepository = mock()
+        rankingService = RankingService(rankingRepository, productRankWeeklyJpaRepository, productRankMonthlyJpaRepository)
     }
 
-    @DisplayName("랭킹을 조회할 때, ")
+    @DisplayName("일간 랭킹을 조회할 때, ")
     @Nested
-    inner class GetRanking {
+    inner class GetDailyRanking {
         @DisplayName("page와 size로 올바른 범위를 요청한다.")
         @Test
         fun requestsCorrectRange() {
@@ -39,7 +45,7 @@ class RankingServiceTest {
             whenever(rankingRepository.getTopNWithScores(any(), eq(0L), eq(19L))).thenReturn(entries)
 
             // act
-            val result = rankingService.getRanking(today, page = 1, size = 20)
+            val result = rankingService.getDailyRanking(today, page = 1, size = 20)
 
             // assert
             assertThat(result).hasSize(2)
@@ -53,7 +59,7 @@ class RankingServiceTest {
             whenever(rankingRepository.getTopNWithScores(any(), eq(20L), eq(39L))).thenReturn(emptyList())
 
             // act
-            val result = rankingService.getRanking(today, page = 2, size = 20)
+            val result = rankingService.getDailyRanking(today, page = 2, size = 20)
 
             // assert
             assertThat(result).isEmpty()

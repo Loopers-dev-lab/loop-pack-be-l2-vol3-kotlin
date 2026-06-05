@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.ranking
 
 import com.loopers.application.ranking.RankingFacade
+import com.loopers.domain.ranking.RankingPeriod
 import com.loopers.interfaces.api.ApiResponse
 import com.loopers.interfaces.api.PageResponse
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,13 +18,15 @@ class RankingV1Controller(
 
     @GetMapping
     override fun getRanking(
+        @RequestParam(defaultValue = "DAILY") period: String,
         @RequestParam date: String,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(defaultValue = "1") page: Int,
     ): ApiResponse<PageResponse<RankingV1Dto.RankingResponse>> {
-        val content = rankingFacade.getRanking(date, page, size)
+        val rankingPeriod = RankingPeriod.valueOf(period.uppercase())
+        val content = rankingFacade.getRanking(rankingPeriod, date, page, size)
             .map { RankingV1Dto.RankingResponse.from(it) }
-        val totalElements = rankingFacade.getRankingTotalCount(date)
+        val totalElements = rankingFacade.getRankingTotalCount(rankingPeriod, date)
         val totalPages = if (totalElements == 0L) 0 else ceil(totalElements.toDouble() / size).toInt()
 
         return PageResponse(
